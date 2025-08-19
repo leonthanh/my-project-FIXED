@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 const Login = () => {
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
+  const [password, setPassword] = useState(''); // ✅ Thêm state cho mật khẩu
   const [role, setRole] = useState('student');
   const [message, setMessage] = useState('');
 
@@ -18,8 +19,9 @@ const Login = () => {
   }, [navigate]);
 
   const handleLogin = async () => {
-    if (!name.trim() || !phone.trim()) {
-      setMessage('❌ Vui lòng nhập đầy đủ họ tên và số điện thoại');
+    // ✅ Logic đăng nhập: chỉ cần phone và password
+    if (!phone.trim() || !password.trim()) {
+      setMessage('❌ Vui lòng nhập đầy đủ số điện thoại và mật khẩu.');
       return;
     }
 
@@ -27,25 +29,27 @@ const Login = () => {
       const res = await fetch(`${API_URL}/api/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, phone, role })
+        body: JSON.stringify({ phone, password }) // ✅ Chỉ gửi phone và password
       });
 
       const data = await res.json();
       if (res.ok) {
         localStorage.setItem('user', JSON.stringify(data.user));
-        setMessage('✅ Đăng nhập thành công!');
+        setMessage('✅ ' + data.message);
         window.location.href = data.user.role === 'teacher' ? '/admin' : '/';
       } else {
         setMessage('❌ ' + data.message);
       }
     } catch (err) {
-      setMessage('Lỗi kết nối server');
+      setMessage('Lỗi kết nối server.');
+      console.error('❌ Lỗi:', err);
     }
   };
 
   const handleRegister = async () => {
-    if (!name.trim() || !phone.trim()) {
-      setMessage('❌ Vui lòng nhập đầy đủ họ tên và số điện thoại');
+    // ✅ Logic đăng ký: cần name, phone và password
+    if (!name.trim() || !phone.trim() || !password.trim()) {
+      setMessage('❌ Vui lòng nhập đầy đủ họ tên, số điện thoại và mật khẩu.');
       return;
     }
 
@@ -53,19 +57,20 @@ const Login = () => {
       const res = await fetch(`${API_URL}/api/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, phone, role })
+        body: JSON.stringify({ name, phone, password, role }) // ✅ Gửi cả name, phone và password
       });
 
       const data = await res.json();
       if (res.ok) {
         localStorage.setItem('user', JSON.stringify(data.user));
-        setMessage('✅ Đăng ký thành công!');
-        window.location.href = '/';
+        setMessage('✅ ' + data.message);
+        window.location.href = data.user.role === 'teacher' ? '/admin' : '/';
       } else {
         setMessage('❌ ' + data.message);
       }
     } catch (err) {
-      setMessage('Lỗi kết nối server');
+      setMessage('Lỗi kết nối server.');
+      console.error('❌ Lỗi:', err);
     }
   };
 
@@ -103,6 +108,13 @@ const Login = () => {
           placeholder=" Phone Number"
           value={phone}
           onChange={e => setPhone(e.target.value)}
+          style={inputStyle}
+        />
+        <input // ✅ Thẻ input mật khẩu
+          type="password"
+          placeholder=" Password"
+          value={password}
+          onChange={e => setPassword(e.target.value)}
           style={inputStyle}
         />
 

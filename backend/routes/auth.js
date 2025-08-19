@@ -4,48 +4,65 @@ const User = require('../models/User'); // Sequelize model
 
 // Đăng ký
 router.post('/register', async (req, res) => {
-  const { name, phone, role } = req.body;
+  const { name, phone, password, role } = req.body; // ✅ Thêm password
 
-  if (!name || !phone) {
-    return res.status(400).json({ message: 'Thiếu thông tin' });
+  if (!name || !phone || !password) { // ✅ Yêu cầu password khi đăng ký
+    return res.status(400).json({ message: 'Vui lòng nhập đầy đủ họ tên, số điện thoại và mật khẩu.' });
   }
 
   try {
     const existing = await User.findOne({ where: { phone } });
     if (existing) {
-      return res.status(409).json({ message: 'Số điện thoại đã tồn tại' });
+      return res.status(409).json({ message: 'Số điện thoại đã tồn tại. Vui lòng đăng nhập hoặc sử dụng số điện thoại khác.' });
     }
 
-    const newUser = await User.create({ name, phone, role: role || 'student' });
-    res.json({ user: newUser });
+    // ✅ Tạo người dùng mới với mật khẩu
+    const newUser = await User.create({ name, phone, password, role: role || 'student' });
+    
+    // Loại bỏ mật khẩu khỏi đối tượng user trước khi gửi về client
+    const userResponse = newUser.toJSON();
+    delete userResponse.password;
+
+    res.status(201).json({ user: userResponse, message: 'Đăng ký thành công!' }); // ✅ Trả về 201 Created
 
   } catch (err) {
     console.error('❌ Lỗi khi đăng ký:', err);
-    res.status(500).json({ message: 'Lỗi server khi đăng ký' });
+    res.status(500).json({ message: 'Lỗi server khi đăng ký.' });
   }
 });
 
 // Đăng nhập
 router.post('/login', async (req, res) => {
-  const { name, phone, role } = req.body;
+  const { phone, password } = req.body; // ✅ Chỉ cần phone và password để đăng nhập
 
-  if (!name || !phone) {
-    return res.status(400).json({ message: 'Thiếu thông tin' });
+  if (!phone || !password) { // ✅ Yêu cầu phone và password
+    return res.status(400).json({ message: 'Vui lòng nhập đầy đủ số điện thoại và mật khẩu.' });
   }
 
   try {
-    let user = await User.findOne({ where: { phone } });
+    const user = await User.findOne({ where: { phone } });
 
-    // Nếu chưa có user, tạo mới
+    // Kiểm tra xem user có tồn tại không
     if (!user) {
-      user = await User.create({ name, phone, role: role || 'student' });
+      return res.status(404).json({ message: 'Số điện thoại không tồn tại. Vui lòng đăng ký.' });
     }
 
-    res.json({ message: 'Đăng nhập thành công', user });
+    // ✅ So sánh mật khẩu
+    const isMatch = await user.comparePassword(password);
+
+    if (!isMatch) {
+      return res.status(401).json({ message: 'Mật khẩu không đúng.' }); // 401 Unauthorized
+    }
+    
+    // Loại bỏ mật khẩu khỏi đối tượng user trước khi gửi về client
+    const userResponse = user.toJSON();
+    delete userResponse.password;
+
+    res.json({ message: 'Đăng nhập thành công', user: userResponse });
 
   } catch (err) {
     console.error('❌ Lỗi khi đăng nhập:', err);
-    res.status(500).json({ message: 'Lỗi server khi đăng nhập' });
+    res.status(500).json({ message: 'Lỗi server khi đăng nhập.' });
   }
 });
 

@@ -10,15 +10,15 @@ const app = express();
 const sequelize = require('./db');
 
 // ✅ Import models để Sequelize biết các bảng
-require('../models/User');
-require('../models/WritingTests');
-require('../models/Submission');
+require('./models/User');
+require('./models/WritingTests');
+require('./models/Submission');
 
 // ✅ Routes
-const authRoutes = require('../routes/auth');
-const writingTestsRoute = require('../routes/writingTest');
-const writingSubmissionRoutes = require('../routes/writing-submission');
-const aiRoutes = require('../routes/ai'); // ✅ Đưa lên trước khi dùng
+const authRoutes = require('./routes/auth');
+const writingTestsRoute = require('./routes/writingTest');
+const writingSubmissionRoutes = require('./routes/writing-submission');
+const aiRoutes = require('./routes/ai'); // ✅ Đưa lên trước khi dùng
 
 // Middleware
 app.use(cors());
