@@ -14,6 +14,7 @@ const WritingTest = () => {
   const [activeTask, setActiveTask] = useState('task1');
   const [testData, setTestData] = useState(null);
   const [feedback, setFeedback] = useState('');
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
 
   const user = JSON.parse(localStorage.getItem('user'));
   const selectedTestId = localStorage.getItem('selectedTestId');
@@ -34,6 +35,14 @@ const WritingTest = () => {
   useEffect(() => {
     localStorage.setItem('writing_started', started.toString());
   }, [started]);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   useEffect(() => {
     if (!selectedTestId) {
@@ -204,7 +213,8 @@ const WritingTest = () => {
         </div>
       </div>
 
-      <Split sizes={[50, 50]} minSize={200} gutterSize={8} direction="horizontal" 
+      <Split sizes={[50, 50]} minSize={200} gutterSize={8} 
+        direction={isMobile ? "vertical" : "horizontal"}
         gutter={() => {
           const gutter = document.createElement('div');
           gutter.style.backgroundColor = '#e03';
@@ -212,7 +222,13 @@ const WritingTest = () => {
           gutter.style.backgroundPosition = '50%';
           return gutter;
         }}
-        style={{ flexGrow: 1, overflow: 'hidden', height: '100%', display: 'flex' }}>
+        style={{ 
+          flexGrow: 1, 
+          overflow: 'hidden', 
+          height: '100%',
+          display: 'flex',
+          flexDirection: isMobile ? 'column' : 'row'
+        }}>
         
         <div style={{
           padding: '20px',

@@ -3,8 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
-    "@ckeditor/ckeditor5-build-classic": "36.0.1",
-    "@ckeditor/ckeditor5-react": "5.0.2",
+    "@ckeditor/ckeditor5-build-decoupled-document": "^41.4.2",
+    "@ckeditor/ckeditor5-react": "^6.2.0",
     "@testing-library/dom": "^10.4.0",
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.3.0",
@@ -16,7 +16,6 @@
     "react-split": "^2.0.14",
     "web-vitals": "^2.1.4"
   },
-  
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build",
@@ -48,6 +47,5 @@
     "ajv": "^6.12.6",
     "ajv-keywords": "^3.5.2",
     "npm-force-resolutions": "^0.0.10"
-    
   }
 }
