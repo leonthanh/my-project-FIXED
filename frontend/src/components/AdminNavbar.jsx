@@ -6,8 +6,10 @@ const AdminNavbar = () => {
   const API_URL = process.env.REACT_APP_API_URL;
 
   const [unreviewed, setUnreviewed] = useState([]);
-  const [dropdownVisible, setDropdownVisible] = useState(false);
-  const dropdownRef = useRef(null);
+  const [notificationDropdownVisible, setNotificationDropdownVisible] = useState(false);
+  const [createTestDropdownVisible, setCreateTestDropdownVisible] = useState(false);
+  const notificationDropdownRef = useRef(null);
+  const createTestDropdownRef = useRef(null);
 
   const user = JSON.parse(localStorage.getItem('user'));
 
@@ -32,8 +34,11 @@ const AdminNavbar = () => {
 
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-        setDropdownVisible(false);
+      if (notificationDropdownRef.current && !notificationDropdownRef.current.contains(event.target)) {
+        setNotificationDropdownVisible(false);
+      }
+      if (createTestDropdownRef.current && !createTestDropdownRef.current.contains(event.target)) {
+        setCreateTestDropdownVisible(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -66,7 +71,61 @@ const AdminNavbar = () => {
       <div style={{ display: 'flex', alignItems: 'center' }}>
       <img src={`${API_URL}/uploads/staredu.jpg`} alt="Logo" style={{ height: 40, marginRight: 20 }} />
         <Link to="/admin" style={linkStyle}>📄 Bài viết</Link>
-        <Link to="/admin/create-writing" style={linkStyle}>✏️ Tạo đề</Link>
+        <div style={{ display: 'inline-block', position: 'relative', marginRight: '20px' }}>
+          <span 
+            style={{ 
+              ...linkStyle, 
+              cursor: 'pointer',
+              marginRight: '0'
+            }} 
+            onClick={() => setCreateTestDropdownVisible(prev => !prev)}
+          >
+            ✏️ Tạo đề ▼
+          </span>
+          {createTestDropdownVisible && (
+            <div style={{
+              position: 'absolute',
+              top: '100%',
+              left: '0',
+              background: 'white',
+              border: '1px solid #ccc',
+              borderRadius: '4px',
+              boxShadow: '0 2px 6px rgba(0,0,0,0.1)',
+              zIndex: 1000,
+              minWidth: '150px'
+            }}>
+              <Link 
+                to="/admin/create-writing" 
+                style={{
+                  display: 'block',
+                  padding: '10px 15px',
+                  color: '#333',
+                  textDecoration: 'none',
+                  borderBottom: '1px solid #eee',
+                  transition: 'background 0.2s'
+                }}
+                onMouseOver={e => e.currentTarget.style.background = '#f0f0f0'}
+                onMouseOut={e => e.currentTarget.style.background = 'white'}
+              >
+                ✍️ Writing
+              </Link>
+              <Link 
+                to="/admin/create-listening" 
+                style={{
+                  display: 'block',
+                  padding: '10px 15px',
+                  color: '#333',
+                  textDecoration: 'none',
+                  transition: 'background 0.2s'
+                }}
+                onMouseOver={e => e.currentTarget.style.background = '#f0f0f0'}
+                onMouseOut={e => e.currentTarget.style.background = 'white'}
+              >
+                🎧 Listening
+              </Link>
+            </div>
+          )}
+        </div>
         <Link to="/review" style={linkStyle}>📝 Nhận xét bài</Link>
 
         <div
@@ -77,7 +136,7 @@ const AdminNavbar = () => {
             fontSize: '20px',
             animation: unreviewed.length > 0 ? 'shake 0.5s infinite' : 'none'
           }}
-          onClick={() => setDropdownVisible(!dropdownVisible)}
+          onClick={() => setNotificationDropdownVisible(!notificationDropdownVisible)}
           title="Bài chưa chấm"
         >
           🔔
@@ -98,9 +157,9 @@ const AdminNavbar = () => {
           )}
         </div>
 
-        {dropdownVisible && (
+        {notificationDropdownVisible && (
           <div
-            ref={dropdownRef}
+            ref={notificationDropdownRef}
             style={{
               position: 'absolute',
               top: '60px',
@@ -128,7 +187,7 @@ const AdminNavbar = () => {
                     transition: 'background 0.2s'
                   }}
                   onClick={() => {
-                    setDropdownVisible(false);
+                    setNotificationDropdownVisible(false);
                     navigate(`/review/${sub.id}`);
                   }}
                   onMouseOver={e => e.currentTarget.style.background = '#f0f0f0'}

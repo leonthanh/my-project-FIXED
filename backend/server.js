@@ -13,11 +13,13 @@ const sequelize = require('./db');
 require('./models/User');
 require('./models/WritingTests');
 require('./models/Submission');
+require('./models/ListeningTest');
 
 // ✅ Routes
 const authRoutes = require('./routes/auth');
 const writingTestsRoute = require('./routes/writingTest');
 const writingSubmissionRoutes = require('./routes/writing-submission');
+const listeningTestsRoute = require('./routes/listeningTests');
 const aiRoutes = require('./routes/ai'); // ✅ Đưa lên trước khi dùng
 
 // Middleware
@@ -41,6 +43,7 @@ app.use('/api/ai', aiRoutes); // ✅ Bây giờ mới dùng
 app.use('/api/auth', authRoutes);
 app.use('/api/writing-tests', writingTestsRoute);
 app.use('/api/writing', writingSubmissionRoutes);
+app.use('/api/listening-tests', listeningTestsRoute);
 
 // ✅ Serve frontend React build
 const frontendPath = path.join(__dirname, 'frontend', 'build');

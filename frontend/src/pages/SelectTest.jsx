@@ -1,8 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import StudentNavbar from '../components/StudentNavbar';
+import AdminNavbar from '../components/AdminNavbar';
 
 const SelectTest = () => {
+  const user = JSON.parse(localStorage.getItem('user'));
+  const isTeacher = user && user.role === 'teacher';
   const [tests, setTests] = useState([]);
   const navigate = useNavigate();
   const API_URL = process.env.REACT_APP_API_URL;
@@ -30,7 +33,7 @@ const SelectTest = () => {
 
   return (
     <>
-      <StudentNavbar />
+      {isTeacher ? <AdminNavbar /> : <StudentNavbar />}
       <div style={{
         display: 'flex',
         flexDirection: 'column',
