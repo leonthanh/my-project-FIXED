@@ -1,4 +1,6 @@
 import React from 'react';
+import ReactQuill from 'react-quill';
+import 'react-quill/dist/quill.snow.css';
 
 const FormQuestion = ({ question, onChange }) => {
   const handleChange = (field, value) => {
@@ -7,6 +9,31 @@ const FormQuestion = ({ question, onChange }) => {
       [field]: value
     });
   };
+
+  const handleQuestionChange = (value) => {
+    handleChange('question', value);
+  };
+
+  const modules = {
+    toolbar: [
+      [{ header: [1, 2, false] }],
+      ['bold', 'italic', 'underline'],
+      ['link', 'image'],
+      [{ list: 'ordered' }, { list: 'bullet' }],
+      ['clean']
+    ]
+  };
+
+  const formats = [
+    'header',
+    'bold',
+    'italic',
+    'underline',
+    'link',
+    'image',
+    'list',
+    'bullet'
+  ];
 
   const styles = {
     container: {
@@ -51,12 +78,12 @@ const FormQuestion = ({ question, onChange }) => {
       />
 
       <label style={styles.label}>✍️ Câu hỏi:</label>
-      <input
-        type="text"
-        value={question.questionText}
-        onChange={e => handleChange('questionText', e.target.value)}
-        style={styles.input}
-        placeholder="Nhập câu hỏi hoặc hướng dẫn điền form"
+      <ReactQuill
+        value={question.question}
+        onChange={handleQuestionChange}
+        modules={modules}
+        formats={formats}
+        theme="snow"
       />
 
       <label style={styles.label}>✅ Đáp án đúng:</label>
