@@ -1,5 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import AdminNavbar from '../components/AdminNavbar';
+import { CKEditor } from '@ckeditor/ckeditor5-react';
+import DecoupledEditor from '@ckeditor/ckeditor5-build-decoupled-document';
 import PreviewSection from '../components/PreviewSection';
 import ListeningPart from '../components/ListeningPart';
 
@@ -49,6 +51,8 @@ const CreateListeningTest = () => {
   const [teacherName, setTeacherName] = useState('');
   const [message, setMessage] = useState('');
   const [showPreview, setShowPreview] = useState(false);
+  const [activeSection, setActiveSection] = useState('instructions');
+  const [instructions, setInstructions] = useState('');
   const [partAudioFiles, setPartAudioFiles] = useState({
     part1: null,
     part2: null,
@@ -56,7 +60,7 @@ const CreateListeningTest = () => {
     part4: null
   });
 
-
+  const instructionsToolbarRef = useRef(null);
   const API = process.env.REACT_APP_API_URL;
 
   const handlePartTypeChange = (part, newType) => {
@@ -123,7 +127,10 @@ const CreateListeningTest = () => {
       return;
     }
 
-
+    if (!instructions.trim()) {
+      setMessage('❌ Vui lòng nhập hướng dẫn làm bài.');
+      return;
+    }
 
     const formData = new FormData();
     if (audioFile) {
@@ -136,7 +143,7 @@ const CreateListeningTest = () => {
       }
     });
     
-
+    formData.append('instructions', instructions);
     formData.append('questions', JSON.stringify(questions));
     formData.append('partInstructions', JSON.stringify(partInstructions));
     formData.append('classCode', classCode);
@@ -169,6 +176,16 @@ const CreateListeningTest = () => {
     border: '1px solid #ccc'
   };
 
+  const tabStyle = (isActive) => ({
+    padding: '10px 20px',
+    backgroundColor: isActive ? '#0e276f' : '#e0e0e0',
+    color: isActive ? 'white' : '#333',
+    border: 'none',
+    borderRadius: '8px 8px 0 0',
+    cursor: 'pointer',
+    marginRight: '5px'
+  });
+
   return (
     <>
       <AdminNavbar />
@@ -191,71 +208,76 @@ const CreateListeningTest = () => {
           />
 
           <div style={{ marginBottom: '20px' }}>
-            <div style={{ marginBottom: '20px' }}>
-              <div>
-                <label><b>📂 File audio chung:</b></label><br />
-                <input
-                  type="file"
-                  accept="audio/*"
-                  onChange={e => setAudioFile(e.target.files[0])}
-                  style={{ margin: '10px 0' }}
-                />
-                {audioFile && (
-                  <audio controls style={{ width: '100%', marginTop: '10px' }}>
-                    <source src={URL.createObjectURL(audioFile)} />
-                    Your browser does not support the audio element.
-                  </audio>
-                )}
-              </div>
-            </div>
-
             <div>
-              <label><b>📂 File audio riêng cho từng phần:</b></label>
-              {[1, 2, 3, 4].map(partNumber => (
-                <div key={partNumber} style={{ marginTop: '10px' }}>
-                  <label>Part {partNumber}:</label><br />
-                  <input
-                    type="file"
-                    accept="audio/*"
-                    onChange={e => {
-                      setPartAudioFiles(prev => ({
-                        ...prev,
-                        [`part${partNumber}`]: e.target.files[0]
-                      }))
-                    }}
-                    style={{ margin: '5px 0' }}
-                  />
-                  {partAudioFiles[`part${partNumber}`] && (
-                    <audio controls style={{ width: '100%', marginTop: '5px' }}>
-                      <source src={URL.createObjectURL(partAudioFiles[`part${partNumber}`])} />
-                      Your browser does not support the audio element.
-                    </audio>
-                  )}
-                </div>
-              ))}
+              <label><b>📂 File audio chung:</b></label><br />
+              <input
+                type="file"
+                accept="audio/*"
+                onChange={e => setAudioFile(e.target.files[0])}
+                style={{ margin: '10px 0' }}
+              />
+              {audioFile && (
+                <audio controls style={{ width: '100%', marginTop: '10px' }}>
+                  <source src={URL.createObjectURL(audioFile)} />
+                  Your browser does not support the audio element.
+                </audio>
+              )}
             </div>
           </div>
 
           <div style={{ marginBottom: '20px' }}>
-            <div style={{ border: '1px solid #ddd', borderRadius: '4px' }}>
-              {(
-                <div style={{ padding: '20px' }}>
-                  {[1, 2, 3, 4].map(partNumber => (
-                    <ListeningPart
-                      key={partNumber}
-                      partNumber={partNumber}
-                      partType={partTypes[`part${partNumber}`]}
-                      questions={questions[`part${partNumber}`]}
-                      instruction={partInstructions[`part${partNumber}`]}
-                      onTypeChange={(newType) => handlePartTypeChange(`part${partNumber}`, newType)}
-                      onInstructionChange={(content) => handlePartInstructionChange(`part${partNumber}`, content)}
-                      onQuestionChange={(index, updatedQuestion) => 
-                        handleQuestionChange(`part${partNumber}`, index, updatedQuestion)}
-                    />
-                  ))}
-                </div>
-              )}
+            <div style={{ display: 'flex', marginBottom: '10px' }}>
+              <button
+                type="button"
+                style={tabStyle(activeSection === 'instructions')}
+                onClick={() => setActiveSection('instructions')}
+              >
+                📝 Hướng dẫn làm bài
+              </button>
+              <button
+                type="button"
+                style={tabStyle(activeSection === 'questions')}
+                onClick={() => setActiveSection('questions')}
+              >
+                ❓ Danh sách câu hỏi
+              </button>
             </div>
+
+            {activeSection === 'instructions' ? (
+              <div style={{ border: '1px solid #ddd', borderRadius: '4px', padding: '10px' }}>
+                <div ref={instructionsToolbarRef}></div>
+                <CKEditor
+                  editor={DecoupledEditor}
+                  data={instructions}
+                  onReady={editor => {
+                    try {
+                      if (instructionsToolbarRef.current && !instructionsToolbarRef.current.children.length) {
+                        instructionsToolbarRef.current.appendChild(editor.ui.view.toolbar.element);
+                      }
+                    } catch (err) {
+                      console.error('Error mounting toolbar:', err);
+                    }
+                  }}
+                  onChange={(event, editor) => setInstructions(editor.getData())}
+                />
+              </div>
+            ) : (
+              <div style={{ border: '1px solid #ddd', borderRadius: '4px', padding: '20px' }}>
+                {[1, 2, 3, 4].map(partNumber => (
+                  <ListeningPart
+                    key={partNumber}
+                    partNumber={partNumber}
+                    partType={partTypes[`part${partNumber}`]}
+                    questions={questions[`part${partNumber}`]}
+                    instruction={partInstructions[`part${partNumber}`]}
+                    onTypeChange={(newType) => handlePartTypeChange(`part${partNumber}`, newType)}
+                    onInstructionChange={(content) => handlePartInstructionChange(`part${partNumber}`, content)}
+                    onQuestionChange={(index, updatedQuestion) => 
+                      handleQuestionChange(`part${partNumber}`, index, updatedQuestion)}
+                  />
+                ))}
+              </div>
+            )}
           </div>
 
           <div style={{ display: 'flex', gap: '10px' }}>
@@ -324,6 +346,7 @@ const CreateListeningTest = () => {
               overflowY: 'auto'
             }}>
               <h3>Preview</h3>
+              <div dangerouslySetInnerHTML={{ __html: instructions }} />
               {[1, 2, 3, 4].map(partNumber => (
                 <div key={partNumber}>
                   <h4>Part {partNumber}</h4>

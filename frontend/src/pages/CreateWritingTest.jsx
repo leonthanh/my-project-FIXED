@@ -1,65 +1,9 @@
 // src/pages/CreateWritingTest.jsx
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import AdminNavbar from '../components/AdminNavbar';
-import { CKEditor } from '@ckeditor/ckeditor5-react';
-import DecoupledEditor from '@ckeditor/ckeditor5-build-decoupled-document';
+import CustomEditor from '../components/CustomEditor';
 
-// Cấu hình CKEditor
-DecoupledEditor.defaultConfig = {
-  toolbar: {
-    items: [
-      'undo', 'redo', '|',
-      'heading', '|',
-      'fontSize', 'fontFamily', '|',
-      'bold', 'italic', 'underline', 'strikethrough', 'subscript', 'superscript', '|',
-      'fontColor', 'fontBackgroundColor', '|',
-      'alignment', '|',
-      'bulletedList', 'numberedList', '|',
-      'indent', 'outdent', '|',
-      'link', 'insertImage', 'insertTable', 'mediaEmbed', '|',
-      'highlight', 'blockQuote', 'code', '|',
-      'specialCharacters'
-    ],
-    shouldNotGroupWhenFull: true
-  },
-  fontSize: {
-    options: [
-      9,
-      11,
-      13,
-      'default',
-      17,
-      19,
-      21,
-      23,
-      25,
-      27,
-      29,
-      31
-    ]
-  },
-  alignment: {
-    options: ['left', 'center', 'right', 'justify']
-  },
-  image: {
-    toolbar: [
-      'imageTextAlternative',
-      'toggleImageCaption',
-      'imageStyle:inline',
-      'imageStyle:block',
-      'imageStyle:side'
-    ]
-  },
-  table: {
-    contentToolbar: [
-      'tableColumn',
-      'tableRow',
-      'mergeTableCells',
-      'tableCellProperties',
-      'tableProperties'
-    ]
-  }
-};
+
 
 const CreateWritingTest = () => {
   const [task1, setTask1] = useState('');
@@ -69,11 +13,6 @@ const CreateWritingTest = () => {
   const [image, setImage] = useState(null);
   const [message, setMessage] = useState('');
   const [showPreview, setShowPreview] = useState(false);
-  
-  const task1EditorRef = useRef(null);
-  const task2EditorRef = useRef(null);
-  const task1ToolbarRef = useRef(null);
-  const task2ToolbarRef = useRef(null);
 
   const API = process.env.REACT_APP_API_URL;
 
@@ -146,54 +85,20 @@ const CreateWritingTest = () => {
 
           <div style={{ marginBottom: '20px' }}>
             <label><b>Nội dung Task 1:</b></label>
-            <div style={{ border: '1px solid #ddd', borderRadius: '4px', padding: '10px' }} ref={task1EditorRef}>
-              <div ref={task1ToolbarRef}></div>
-              <CKEditor
-                editor={DecoupledEditor}
-                data={task1}
-                onReady={editor => {
-                  try {
-                    if (task1ToolbarRef.current && !task1ToolbarRef.current.children.length) {
-                      task1ToolbarRef.current.appendChild(editor.ui.view.toolbar.element);
-                    }
-                  } catch (err) {
-                    console.error('Error mounting toolbar 1:', err);
-                  }
-                }}
-                onChange={(event, editor) => setTask1(editor.getData())}
-                config={{
-                  toolbar: {
-                    shouldNotGroupWhenFull: true
-                  }
-                }}
-              />
-            </div>
+            <CustomEditor
+              value={task1}
+              onChange={(data) => setTask1(data)}
+              placeholder="Nhập nội dung Task 1"
+            />
           </div>
 
           <div style={{ marginBottom: '20px' }}>
             <label><b>Nội dung Task 2:</b></label>
-            <div style={{ border: '1px solid #ddd', borderRadius: '4px', padding: '10px' }} ref={task2EditorRef}>
-              <div ref={task2ToolbarRef}></div>
-              <CKEditor
-                editor={DecoupledEditor}
-                data={task2}
-                onReady={editor => {
-                  try {
-                    if (task2ToolbarRef.current && !task2ToolbarRef.current.children.length) {
-                      task2ToolbarRef.current.appendChild(editor.ui.view.toolbar.element);
-                    }
-                  } catch (err) {
-                    console.error('Error mounting toolbar 2:', err);
-                  }
-                }}
-                onChange={(event, editor) => setTask2(editor.getData())}
-                config={{
-                  toolbar: {
-                    shouldNotGroupWhenFull: true
-                  }
-                }}
-              />
-            </div>
+            <CustomEditor
+              value={task2}
+              onChange={(data) => setTask2(data)}
+              placeholder="Nhập nội dung Task 2"
+            />
           </div>
 
           <input
