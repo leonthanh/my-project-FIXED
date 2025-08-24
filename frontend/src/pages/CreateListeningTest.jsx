@@ -1,27 +1,40 @@
-import React, { useState } from 'react';
-import { Container, Form, Button, Row, Col } from 'react-bootstrap';
-import ReactQuill from 'react-quill';
+import React, { useState, useCallback } from 'react';
 import AdminNavbar from '../components/AdminNavbar';
 import PreviewSection from '../components/PreviewSection';
 import ListeningPart from '../components/ListeningPart';
 
 const CreateListeningTest = () => {
+  // Load saved data from localStorage if available
+  const loadSavedData = () => {
+    try {
+      const savedData = localStorage.getItem('listeningTestDraft');
+      if (savedData) {
+        return JSON.parse(savedData);
+      }
+    } catch (error) {
+      console.error('Error loading saved data:', error);
+    }
+    return null;
+  };
+
+  const savedData = loadSavedData();
+
   const [audioFile, setAudioFile] = useState(null);
-  const [partTypes, setPartTypes] = useState({
+  const [partTypes, setPartTypes] = useState(savedData?.partTypes || {
     part1: 'fill',
     part2: 'radio',
     part3: 'mixed',
     part4: 'radio'
   });
 
-  const [partInstructions, setPartInstructions] = useState({
+  const [partInstructions, setPartInstructions] = useState(savedData?.partInstructions || {
     part1: '',
     part2: '',
     part3: '',
     part4: ''
   });
 
-  const [questions, setQuestions] = useState({
+  const [questions, setQuestions] = useState(savedData?.questions || {
     part1: Array(10).fill().map(() => ({
       questionType: 'fill',
       questionText: '',
@@ -47,8 +60,8 @@ const CreateListeningTest = () => {
     }))
   });
 
-  const [classCode, setClassCode] = useState('');
-  const [teacherName, setTeacherName] = useState('');
+  const [classCode, setClassCode] = useState(savedData?.classCode || '');
+  const [teacherName, setTeacherName] = useState(savedData?.teacherName || '');
   const [message, setMessage] = useState('');
   const [showPreview, setShowPreview] = useState(false);
   const [partAudioFiles, setPartAudioFiles] = useState({
@@ -57,6 +70,39 @@ const CreateListeningTest = () => {
     part3: null,
     part4: null
   });
+
+  // Autosave function
+  const saveToLocalStorage = useCallback(() => {
+    try {
+      const dataToSave = {
+        partTypes,
+        partInstructions,
+        questions,
+        classCode,
+        teacherName
+      };
+      localStorage.setItem('listeningTestDraft', JSON.stringify(dataToSave));
+      console.log('Draft saved:', new Date().toLocaleTimeString());
+    } catch (error) {
+      console.error('Error saving draft:', error);
+    }
+  }, [partTypes, partInstructions, questions, classCode, teacherName]);
+
+  // Auto save every 30 seconds
+  React.useEffect(() => {
+    const autosaveInterval = setInterval(saveToLocalStorage, 30000);
+    
+    // Save when user leaves the page
+    const handleBeforeUnload = () => {
+      saveToLocalStorage();
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    
+    return () => {
+      clearInterval(autosaveInterval);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [saveToLocalStorage]);
 
 
   const API = process.env.REACT_APP_API_URL;
@@ -118,47 +164,89 @@ const CreateListeningTest = () => {
     }
   };
 
+  const stripHtml = (html) => {
+    const temp = document.createElement('div');
+    temp.innerHTML = html;
+    return temp.textContent || temp.innerText || '';
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!audioFile && !Object.values(partAudioFiles).some(file => file)) {
-      setMessage('❌ Vui lòng tải lên ít nhất một file audio cho bài thi.');
-      return;
-    }
-
-
-
-    const formData = new FormData();
-    if (audioFile) {
-      formData.append('audioFile', audioFile);
-    }
-
-    Object.entries(partAudioFiles).forEach(([part, file]) => {
-      if (file) {
-        formData.append(`audioFile_${part}`, file);
-      }
-    });
-    
-
-    formData.append('questions', JSON.stringify(questions));
-    formData.append('partInstructions', JSON.stringify(partInstructions));
-    formData.append('classCode', classCode);
-    formData.append('teacherName', teacherName);
-
     try {
+      if (!audioFile && !Object.values(partAudioFiles).some(file => file)) {
+        setMessage('❌ Vui lòng tải lên ít nhất một file audio cho bài thi.');
+        return;
+      }
+
+      // Clean up the questions data before submitting
+      const cleanedQuestions = {};
+      Object.entries(questions).forEach(([part, partQuestions]) => {
+        cleanedQuestions[part] = partQuestions.map(q => ({
+          ...q,
+          questionText: stripHtml(q.questionText || ''),
+          formTemplate: q.formTemplate ? stripHtml(q.formTemplate) : undefined,
+          options: q.options ? q.options.map(opt => stripHtml(opt)) : undefined
+        }));
+      });
+
+      console.log('Sending questions:', cleanedQuestions);
+
+      const formData = new FormData();
+      if (audioFile) {
+        formData.append('audioFile', audioFile);
+      }
+
+      Object.entries(partAudioFiles).forEach(([part, file]) => {
+        if (file) {
+          formData.append(`audioFile_${part}`, file);
+        }
+      });
+
+      // Append other form data
+      formData.append('questions', JSON.stringify(cleanedQuestions));
+      formData.append('partTypes', JSON.stringify(partTypes));
+      
+      // Convert part instructions from HTML to text
+      const cleanedInstructions = {};
+      Object.entries(partInstructions).forEach(([part, instruction]) => {
+        cleanedInstructions[part] = stripHtml(instruction || '');
+      });
+      formData.append('partInstructions', JSON.stringify(cleanedInstructions));
+      formData.append('classCode', classCode);
+      formData.append('teacherName', teacherName);
+
+      // Log form data for debugging
+      for (let [key, value] of formData.entries()) {
+        console.log('Form data:', key, value instanceof File ? value.name : value);
+      }
+
       const res = await fetch(`${API}/api/listening-tests`, {
         method: 'POST',
         body: formData
       });
 
-      const data = await res.json();
-      setMessage(data.message || '✅ Đã tạo đề thành công!');
+      const data = await res.text();
+      console.log('Raw response:', data);
 
-      if (res.ok) {
-        setTimeout(() => window.location.reload(), 2000);
+      let jsonData;
+      try {
+        jsonData = JSON.parse(data);
+      } catch (err) {
+        console.error('Error parsing response:', err);
+        throw new Error('Invalid response from server');
       }
+
+      if (!res.ok) {
+        throw new Error(jsonData.message || 'Lỗi khi tạo đề thi');
+      }
+
+      setMessage(jsonData.message || '✅ Đã tạo đề thành công!');
+      localStorage.removeItem('listeningTestDraft');
+      setTimeout(() => window.location.reload(), 2000);
+
     } catch (err) {
       console.error('Error:', err);
-      setMessage('❌ Lỗi khi tạo đề thi');
+      setMessage(`❌ ${err.message || 'Lỗi khi tạo đề thi'}`);
     }
   };
 
@@ -336,7 +424,14 @@ const CreateListeningTest = () => {
                     part={partNumber}
                     questions={questions[`part${partNumber}`]}
                     startFromNumber={1 + (partNumber - 1) * 10}
-                    type={partTypes[`part${partNumber}`]}
+                    type={(() => {
+                      switch(partTypes[`part${partNumber}`]) {
+                        case 'fill': return 'form';
+                        case 'radio': return partNumber === 4 ? 'abcd' : 'abc';
+                        case 'checkbox': return 'select';
+                        default: return partTypes[`part${partNumber}`];
+                      }
+                    })()}
                     audioFiles={partAudioFiles[`part${partNumber}`] || audioFile}
                   />
                 </div>

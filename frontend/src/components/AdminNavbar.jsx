@@ -71,6 +71,7 @@ const AdminNavbar = () => {
       <div style={{ display: 'flex', alignItems: 'center' }}>
       <img src={`${API_URL}/uploads/staredu.jpg`} alt="Logo" style={{ height: 40, marginRight: 20 }} />
         <Link to="/admin" style={linkStyle}>📄 Bài viết</Link>
+        <Link to="/select-test" style={linkStyle}>📋 Danh sách đề</Link>
         <div style={{ display: 'inline-block', position: 'relative', marginRight: '20px' }}>
           <span 
             style={{ 

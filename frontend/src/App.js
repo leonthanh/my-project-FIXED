@@ -1,7 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 
-
+import EditTest from './pages/EditTest';
 import WritingTest from './pages/WritingTest';
 import AdminSubmissions from './pages/AdminSubmissions';
 import Login from './pages/Login';
@@ -35,6 +35,13 @@ function App() {
         <Route path="/admin/create-writing" element={
           <ProtectedRoute role="teacher">
             <CreateWritingTest />
+          </ProtectedRoute>
+        } />
+        
+        {/* Route sửa đề thi */}
+        <Route path="/edit-test/:id" element={
+          <ProtectedRoute role="teacher">
+            <EditTest />
           </ProtectedRoute>
         } />
         <Route path="/admin/create-listening" element={

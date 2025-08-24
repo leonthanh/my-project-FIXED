@@ -55,23 +55,9 @@ const PreviewSection = ({
 
   const renderFormQuestion = (question, index) => (
     <div style={styles.questionBox} key={index}>
-      <table style={styles.formTable}>
-        <tbody>
-          {question.formTemplate?.split('\n').map((row, i) => (
-            <tr key={i}>
-              {row.split('|').map((cell, j) => (
-                <td key={j} style={styles.formCell}>
-                  {cell.includes('___') ? (
-                    <span>
-                      {cell.replace('___', `(${startFromNumber + index})`)}
-                    </span>
-                  ) : cell}
-                </td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <div dangerouslySetInnerHTML={{ 
+        __html: question.formTemplate?.replace(/___/g, `(${startFromNumber + index})`) 
+      }} />
     </div>
   );
 
@@ -79,11 +65,12 @@ const PreviewSection = ({
     <div style={styles.questionBox} key={index}>
       <div>
         <span style={styles.questionNumber}>{startFromNumber + index}</span>
-        {question.questionText}
+        <span dangerouslySetInnerHTML={{ __html: question.questionText }} />
       </div>
       {question.options.map((option, i) => (
         <div key={i} style={styles.option}>
-          {type === 'abcd' ? String.fromCharCode(65 + i) : String(i + 1)}) {option}
+          {type === 'abcd' ? String.fromCharCode(65 + i) : String(i + 1)}) {' '}
+          <span dangerouslySetInnerHTML={{ __html: option }} />
         </div>
       ))}
     </div>
@@ -96,13 +83,14 @@ const PreviewSection = ({
           Questions {startFromNumber + index} and {startFromNumber + index + 1}
         </span>
       </div>
-      <div>{question.questionText}</div>
+      <div dangerouslySetInnerHTML={{ __html: question.questionText }} />
       <div style={{ color: '#666', marginTop: '5px', marginBottom: '10px' }}>
         Choose TWO letters, A-E.
       </div>
       {question.options.map((option, i) => (
         <div key={i} style={styles.option}>
-          {String.fromCharCode(65 + i)} {option}
+          {String.fromCharCode(65 + i)} {' '}
+          <span dangerouslySetInnerHTML={{ __html: option }} />
         </div>
       ))}
     </div>

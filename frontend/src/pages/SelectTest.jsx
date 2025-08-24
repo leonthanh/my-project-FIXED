@@ -10,15 +10,18 @@ const SelectTest = () => {
   const navigate = useNavigate();
   const API_URL = process.env.REACT_APP_API_URL;
 
+  const [activeTab, setActiveTab] = useState('writing'); // 'writing' hoặc 'listening'
+
   useEffect(() => {
-    fetch(`${API_URL}/api/writing-tests`)
+    const endpoint = activeTab === 'writing' ? 'writing-tests' : 'listening-tests';
+    fetch(`${API_URL}/api/${endpoint}`)
       .then(res => res.json())
       .then(data => setTests(data))
       .catch(err => {
         console.error('❌ Lỗi khi tải đề:', err);
         setTests([]);
       });
-  }, [API_URL]);
+  }, [API_URL, activeTab]);
 
   const handleSelect = (testId) => {
     const numericId = parseInt(testId, 10); // ✅ Ép sang số
@@ -67,24 +70,42 @@ const SelectTest = () => {
                 marginBottom: '15px',
                 backgroundColor: '#f9f9f9'
               }}>
-                <button
-                  onClick={() => handleSelect(test.id)}
-                  style={{
-                    backgroundColor: '#0e276f',
-                    color: 'white',
-                    border: 'none',
-                    padding: '10px 20px',
-                    borderRadius: '8px',
-                    cursor: 'pointer',
-                    fontSize: '16px',
-                    width: '100%'
-                  }}
-                >
-                  <h3 style={{ margin: '0px' }}>
-  📝 Writing {test.index || index + 1} – {test.classCode || 'N/A'} – {test.teacherName || 'N/A'}
-</h3>
-
-                </button>
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  <button
+                    onClick={() => handleSelect(test.id)}
+                    style={{
+                      backgroundColor: '#0e276f',
+                      color: 'white',
+                      border: 'none',
+                      padding: '10px 20px',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                      fontSize: '16px',
+                      flex: 1
+                    }}
+                  >
+                    <h3 style={{ margin: '0px' }}>
+                      📝 Writing {test.index || index + 1} – {test.classCode || 'N/A'} – {test.teacherName || 'N/A'}
+                    </h3>
+                  </button>
+                  {isTeacher && (
+                    <button
+                      onClick={() => navigate(`/edit-test/${test.id}`)}
+                      style={{
+                        backgroundColor: '#e03',
+                        color: 'white',
+                        border: 'none',
+                        padding: '10px 20px',
+                        borderRadius: '8px',
+                        cursor: 'pointer',
+                        fontSize: '16px',
+                        minWidth: '100px'
+                      }}
+                    >
+                      ✏️ Sửa đề
+                    </button>
+                  )}
+                </div>
               </div>
             ))
           )}

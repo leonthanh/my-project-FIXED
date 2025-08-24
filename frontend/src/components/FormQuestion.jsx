@@ -69,12 +69,30 @@ const FormQuestion = ({ question, onChange }) => {
   return (
     <div style={styles.container}>
       <label style={styles.label}>📝 Form Template:</label>
-      <textarea
+      <ReactQuill
         value={question.formTemplate || ''}
-        onChange={e => handleChange('formTemplate', e.target.value)}
-        rows={5}
-        style={styles.input}
+        onChange={(content) => handleChange('formTemplate', content)}
+        modules={{
+          toolbar: [
+            [{ 'header': [1, 2, false] }],
+            ['bold', 'italic', 'underline', 'strike'],
+            [{ 'color': [] }, { 'background': [] }],
+            [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+            [{ 'align': [] }],
+            ['link', 'image'],
+            ['clean']
+          ]
+        }}
+        formats={[
+          'header',
+          'bold', 'italic', 'underline', 'strike',
+          'color', 'background',
+          'list', 'bullet', 'align',
+          'link', 'image'
+        ]}
+        theme="snow"
         placeholder="Nhập mẫu form (sử dụng ___ để đánh dấu chỗ trống)"
+        style={{ marginBottom: '20px' }}
       />
 
       <label style={styles.label}>✍️ Câu hỏi:</label>
@@ -90,9 +108,16 @@ const FormQuestion = ({ question, onChange }) => {
       <input
         type="text"
         value={question.correctAnswer}
-        onChange={e => handleChange('correctAnswer', e.target.value)}
+        onChange={e => {
+          // Loại bỏ khoảng trắng ở đầu và cuối
+          const value = e.target.value.trim();
+          // Cho phép chữ cái, số và khoảng trắng ở giữa
+          if (!value || /^[a-zA-Z0-9]+$|^[a-zA-Z]+(\s[a-zA-Z]+)*$/.test(value)) {
+            handleChange('correctAnswer', value);
+          }
+        }}
         style={styles.input}
-        placeholder="Nhập đáp án (ONE WORD AND/OR A NUMBER)"
+        placeholder="Nhập đáp án (một từ hoặc chuỗi số liền nhau)"
       />
 
       <div style={{ marginTop: '15px' }}>
@@ -100,7 +125,7 @@ const FormQuestion = ({ question, onChange }) => {
           💡 Hướng dẫn:
           <ul>
             <li>Sử dụng ___ để đánh dấu chỗ trống trong form</li>
-            <li>Mỗi chỗ trống chỉ được điền một từ hoặc một số</li>
+            <li>Mỗi chỗ trống có thể điền một từ hoặc một chuỗi số (vd: số điện thoại)</li>
             <li>Form sẽ được hiển thị dưới dạng bảng trong đề thi</li>
           </ul>
         </p>
@@ -109,23 +134,17 @@ const FormQuestion = ({ question, onChange }) => {
       {/* Preview */}
       <div style={{ marginTop: '15px' }}>
         <label style={styles.label}>👁 Preview:</label>
-        <table style={styles.table}>
-          <tbody>
-            {question.formTemplate?.split('\n').map((row, i) => (
-              <tr key={i}>
-                {row.split('|').map((cell, j) => (
-                  <td key={j} style={styles.cell}>
-                    {cell.includes('___') ? (
-                      <div style={{ color: '#999' }}>_____________</div>
-                    ) : (
-                      cell
-                    )}
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <div 
+          style={{ 
+            padding: '15px',
+            border: '1px solid #ddd',
+            borderRadius: '4px',
+            backgroundColor: '#fff'
+          }}
+          dangerouslySetInnerHTML={{ 
+            __html: question.formTemplate?.replace(/___/g, '<span style="color: #999; text-decoration: underline;">_______</span>')
+          }} 
+        />
       </div>
     </div>
   );

@@ -15,30 +15,25 @@ const ListeningTest = sequelize.define('ListeningTest', {
     type: DataTypes.STRING,
     allowNull: false
   },
-  audioUrl: {
+  mainAudioUrl: {
     type: DataTypes.STRING,
+    allowNull: true
+  },
+  partAudioUrls: {
+    type: DataTypes.JSON,
+    defaultValue: {}
+  },
+  partTypes: {
+    type: DataTypes.JSON,
     allowNull: false
   },
-  instructions: {
-    type: DataTypes.TEXT,
+  partInstructions: {
+    type: DataTypes.JSON,
     allowNull: false
   },
   questions: {
-    type: DataTypes.JSON,  // Lưu mảng câu hỏi dưới dạng JSON
-    allowNull: false,
-    validate: {
-      isValidQuestions(value) {
-        if (!Array.isArray(value)) throw new Error('Questions must be an array');
-        value.forEach(q => {
-          if (!q.questionType || !q.questionText || !q.correctAnswer) {
-            throw new Error('Invalid question format');
-          }
-          if (!['radio', 'checkbox', 'fill', 'dropdown', 'dragdrop'].includes(q.questionType)) {
-            throw new Error('Invalid question type');
-          }
-        });
-      }
-    }
+    type: DataTypes.JSON,
+    allowNull: false
   },
   createdAt: {
     type: DataTypes.DATE,
