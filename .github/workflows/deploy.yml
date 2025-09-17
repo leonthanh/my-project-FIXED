@@ -36,7 +36,6 @@ jobs:
         password: ${{ secrets.FTP_PASSWORD }}
         local-dir: ./frontend/build/
         server-dir: /ix.star-siec.edu.vn/frontend/
-        dangerous-clean-slate: true
 
     # Deploy Backend without node_modules
     - name: Deploy Backend to cPanel
@@ -51,4 +50,5 @@ jobs:
           **/node_modules/**
           **/.env
           **/README.md
-        dangerous-clean-slate: true
+          **/.git*
+          **/.vscode/**
