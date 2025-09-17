@@ -97,5 +97,25 @@ router.post('/with-image', upload.single('image'), async (req, res) => {
     res.status(500).json({ message: 'Lỗi server' });
   }
 });
-
+// ✅ Route chi tiết đề thi theo ID (để khớp với frontend)
+router.get('/:id', async (req, res) => {
+  try {
+    const test = await WritingTest.findByPk(req.params.id);
+    if (!test) {
+      return res.status(404).json({ message: 'Không tìm thấy đề' });
+    }
+    res.json({
+      id: test.id,
+      index: test.index,
+      classCode: test.classCode,
+      teacherName: test.teacherName,
+      task1: test.task1,
+      task2: test.task2,
+      task1Image: test.task1Image
+    });
+  } catch (err) {
+    console.error('❌ Lỗi lấy chi tiết đề:', err);
+    res.status(500).json({ message: 'Lỗi server' });
+  }
+});
 module.exports = router;

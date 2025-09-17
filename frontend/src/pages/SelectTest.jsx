@@ -10,18 +10,15 @@ const SelectTest = () => {
   const navigate = useNavigate();
   const API_URL = process.env.REACT_APP_API_URL;
 
-  const [activeTab, setActiveTab] = useState('writing'); // 'writing' hoặc 'listening'
-
   useEffect(() => {
-    const endpoint = activeTab === 'writing' ? 'writing-tests' : 'listening-tests';
-    fetch(`${API_URL}/api/${endpoint}`)
+    fetch(`${API_URL}/api/writing-tests`)
       .then(res => res.json())
       .then(data => setTests(data))
       .catch(err => {
         console.error('❌ Lỗi khi tải đề:', err);
         setTests([]);
       });
-  }, [API_URL, activeTab]);
+  }, [API_URL]);
 
   const handleSelect = (testId) => {
     const numericId = parseInt(testId, 10); // ✅ Ép sang số
@@ -33,7 +30,19 @@ const SelectTest = () => {
     localStorage.setItem('selectedTestId', numericId);
     navigate('/writing-test');
   };
-
+  const handleEdit = async (testId) => {
+  try {
+    const response = await fetch(`${API_URL}/api/writing-tests/${testId}`);
+    if (response.ok) {
+      navigate(`/edit-test/${testId}`);
+    } else {
+      alert('❌ Đề thi không tồn tại hoặc đã bị xóa.');
+    }
+  } catch (error) {
+    console.error('❌ Lỗi khi kiểm tra đề:', error);
+    alert('Có lỗi xảy ra khi kiểm tra đề.');
+  }
+};
   return (
     <>
       {isTeacher ? <AdminNavbar /> : <StudentNavbar />}
@@ -90,7 +99,8 @@ const SelectTest = () => {
                   </button>
                   {isTeacher && (
                     <button
-                      onClick={() => navigate(`/edit-test/${test.id}`)}
+                      // onClick={() => navigate(`/edit-test/${test.id}`)}
+                      onClick={() => handleEdit(test.id)}
                       style={{
                         backgroundColor: '#e03',
                         color: 'white',
