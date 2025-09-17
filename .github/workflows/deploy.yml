@@ -51,4 +51,4 @@ jobs:
           **/.env
           **/README.md
           **/.git*
-          **/.vscode/**
+          **/.vscode/**# Trigger build
