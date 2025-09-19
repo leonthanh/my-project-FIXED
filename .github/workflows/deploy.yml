@@ -37,24 +37,22 @@ jobs:
         local-dir: ./frontend/build/
         server-dir: /ix.star-siec.edu.vn/frontend/
 
-    # Prepare Backend for deployment
-    - name: Prepare Backend
-      run: |
-        cd backend
-        mkdir deploy
-        cp -r *.js *.json deploy/
-        cp -r models routes deploy/
-        cd deploy
-        npm install --production
-        cd ..
-        tar -czf backend-deploy.tar.gz deploy/
-
-    # Deploy Backend
+    # Deploy Backend without node_modules
     - name: Deploy Backend to cPanel
       uses: SamKirkland/FTP-Deploy-Action@4.0.0
       with:
         server: star-siec.edu.vn
         username: ${{ secrets.FTP_USERNAME }}
         password: ${{ secrets.FTP_PASSWORD }}
-        local-dir: ./backend/deploy/
-        server-dir: /ix.star-siec.edu.vn/backend/# Trigger build
+        local-dir: backend/
+        server-dir: /ix.star-siec.edu.vn/backend/
+        exclude: |
+          **/.git*
+          **/.git*/**
+          **/node_modules/**
+          **/.env
+          **/README.md
+          **/package-lock.json
+          **/yarn.lock
+          **/*.zip
+          **/*.tar.gz# Trigger build
