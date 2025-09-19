@@ -27,8 +27,8 @@ jobs:
         cd backend
         yarn install
 
-    # Deploy Frontend build
-    - name: Deploy Frontend Build
+    # Deploy Frontend
+    - name: Deploy Frontend
       uses: SamKirkland/FTP-Deploy-Action@4.0.0
       with:
         server: star-siec.edu.vn
@@ -36,16 +36,6 @@ jobs:
         password: ${{ secrets.FTP_PASSWORD }}
         local-dir: ./frontend/build/
         server-dir: /ix.star-siec.edu.vn/frontend/build/
-
-    # Deploy Frontend public assets
-    - name: Deploy Frontend Public
-      uses: SamKirkland/FTP-Deploy-Action@4.0.0
-      with:
-        server: star-siec.edu.vn
-        username: ${{ secrets.FTP_USERNAME }}
-        password: ${{ secrets.FTP_PASSWORD }}
-        local-dir: ./frontend/public/
-        server-dir: /ix.star-siec.edu.vn/frontend/public/
 
     # Prepare and Deploy Backend
     - name: Prepare Backend
