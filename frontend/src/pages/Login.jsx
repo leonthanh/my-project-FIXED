@@ -9,7 +9,7 @@ const Login = () => {
   const [message, setMessage] = useState('');
 
   const navigate = useNavigate();
-  const API_URL = process.env.REACT_APP_API_URL.replace(/\/+$/, '');
+  const API_URL = (process.env.REACT_APP_API_URL || 'https://ix.star-siec.edu.vn/api').replace(/\/+$/, '');
 
   useEffect(() => {
     const user = JSON.parse(localStorage.getItem('user'));

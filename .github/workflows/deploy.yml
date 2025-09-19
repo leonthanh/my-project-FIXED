@@ -18,6 +18,7 @@ jobs:
     - name: Install & Build Frontend
       run: |
         cd frontend
+        echo "REACT_APP_API_URL=https://ix.star-siec.edu.vn/api" > .env
         yarn install
         yarn build
         
