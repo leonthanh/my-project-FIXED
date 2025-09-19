@@ -1,7 +1,23 @@
 name: Deploy to cPanel
 on:
-  push:
-    branches: [ main ]
+# Deploy Frontend build and public assets separately
+    - name: Deploy Frontend Build
+      uses: SamKirkland/FTP-Deploy-Action@4.0.0
+      with:
+        server: star-siec.edu.vn
+        username: ${{ secrets.FTP_USERNAME }}
+        password: ${{ secrets.FTP_PASSWORD }}
+        local-dir: ./frontend/build/
+        server-dir: /ix.star-siec.edu.vn/frontend/build/
+
+    - name: Deploy Frontend Public Assets
+      uses: SamKirkland/FTP-Deploy-Action@4.0.0
+      with:
+        server: star-siec.edu.vn
+        username: ${{ secrets.FTP_USERNAME }}
+        password: ${{ secrets.FTP_PASSWORD }}
+        local-dir: ./frontend/public/
+        server-dir: /ix.star-siec.edu.vn/frontend/public/es: [ main ]
 
 jobs:
   build-and-deploy:
