@@ -1,23 +1,7 @@
 name: Deploy to cPanel
 on:
-# Deploy Frontend build and public assets separately
-    - name: Deploy Frontend Build
-      uses: SamKirkland/FTP-Deploy-Action@4.0.0
-      with:
-        server: star-siec.edu.vn
-        username: ${{ secrets.FTP_USERNAME }}
-        password: ${{ secrets.FTP_PASSWORD }}
-        local-dir: ./frontend/build/
-        server-dir: /ix.star-siec.edu.vn/frontend/build/
-
-    - name: Deploy Frontend Public Assets
-      uses: SamKirkland/FTP-Deploy-Action@4.0.0
-      with:
-        server: star-siec.edu.vn
-        username: ${{ secrets.FTP_USERNAME }}
-        password: ${{ secrets.FTP_PASSWORD }}
-        local-dir: ./frontend/public/
-        server-dir: /ix.star-siec.edu.vn/frontend/public/es: [ main ]
+  push:
+    branches: [ main ]
 
 jobs:
   build-and-deploy:
@@ -43,34 +27,34 @@ jobs:
         cd backend
         yarn install
 
-    # Deploy Frontend build and public assets
-    - name: Deploy Frontend to cPanel
+    # Deploy Frontend build
+    - name: Deploy Frontend Build
       uses: SamKirkland/FTP-Deploy-Action@4.0.0
       with:
         server: star-siec.edu.vn
         username: ${{ secrets.FTP_USERNAME }}
         password: ${{ secrets.FTP_PASSWORD }}
-        local-dir: ./frontend/
-        server-dir: /ix.star-siec.edu.vn/frontend/
-        exclude: |
-          **/.git*
-          **/.git*/**
-          **/node_modules/**
-          **/.env
-          **/README.md
-          src/**
-          **/*.md
-          **/*.json
-          !build/**
+        local-dir: ./frontend/build/
+        server-dir: /ix.star-siec.edu.vn/frontend/build/
 
-    # Deploy Backend without node_modules
-    - name: Deploy Backend to cPanel
+    # Deploy Frontend public assets
+    - name: Deploy Frontend Public
       uses: SamKirkland/FTP-Deploy-Action@4.0.0
       with:
         server: star-siec.edu.vn
         username: ${{ secrets.FTP_USERNAME }}
         password: ${{ secrets.FTP_PASSWORD }}
-        local-dir: backend/
+        local-dir: ./frontend/public/
+        server-dir: /ix.star-siec.edu.vn/frontend/public/
+
+    # Deploy Backend
+    - name: Deploy Backend
+      uses: SamKirkland/FTP-Deploy-Action@4.0.0
+      with:
+        server: star-siec.edu.vn
+        username: ${{ secrets.FTP_USERNAME }}
+        password: ${{ secrets.FTP_PASSWORD }}
+        local-dir: ./backend/
         server-dir: /ix.star-siec.edu.vn/backend/
         exclude: |
           **/.git*
@@ -80,5 +64,3 @@ jobs:
           **/README.md
           **/package-lock.json
           **/yarn.lock
-          **/*.zip
-          **/*.tar.gz# Trigger build
