@@ -27,15 +27,25 @@ jobs:
         cd backend
         yarn install
 
-    # Deploy Frontend build only
+    # Deploy Frontend build and public assets
     - name: Deploy Frontend to cPanel
       uses: SamKirkland/FTP-Deploy-Action@4.0.0
       with:
         server: star-siec.edu.vn
         username: ${{ secrets.FTP_USERNAME }}
         password: ${{ secrets.FTP_PASSWORD }}
-        local-dir: ./frontend/build/
+        local-dir: ./frontend/
         server-dir: /ix.star-siec.edu.vn/frontend/
+        exclude: |
+          **/.git*
+          **/.git*/**
+          **/node_modules/**
+          **/.env
+          **/README.md
+          src/**
+          **/*.md
+          **/*.json
+          !build/**
 
     # Deploy Backend without node_modules
     - name: Deploy Backend to cPanel
