@@ -12,7 +12,17 @@ jobs:
     - name: Setup Node.js
       uses: actions/setup-node@v2
       with:
-        node-version: '18'  # Sử dụng Node.js 18 LTS cho ổn định
+        node-version: '18'
+
+    # Cache dependencies
+    - name: Cache node modules
+      uses: actions/cache@v2
+      with:
+        path: |
+          **/node_modules
+        key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+        restore-keys: |
+          ${{ runner.os }}-node-
 
     # Build Frontend
     - name: Install & Build Frontend
@@ -40,8 +50,8 @@ jobs:
         server-dir: /ix.star-siec.edu.vn/frontend/build/
         dangerous-clean-slate: true
 
-    # Prepare Backend
-    - name: Clean and Prepare Backend
+    # Prepare and Deploy Backend
+    - name: Prepare Backend
       run: |
         cd backend
         # Tạo file env cho production
@@ -51,9 +61,9 @@ jobs:
         echo "DB_NAME=wsxcblqh_ix" >> .env
         echo "DB_USER=wsxcblqh_thanh" >> .env
         echo "DB_PASS=@Thanh562184" >> .env
-        npm install --production
+        npm ci --production
 
-    # Deploy Backend
+    # Deploy Backend - chỉ deploy một lần
     - name: Deploy Backend
       uses: SamKirkland/FTP-Deploy-Action@4.0.0
       with:
@@ -69,15 +79,7 @@ jobs:
           **/node_modules/**
           **/.env.development
           **/.env.local
-
-    - name: Deploy Backend
-      uses: SamKirkland/FTP-Deploy-Action@4.0.0
-      with:
-        server: star-siec.edu.vn
-        username: ${{ secrets.FTP_USERNAME }}
-        password: ${{ secrets.FTP_PASSWORD }}
-        local-dir: ./backend/deploy/
-        server-dir: /ix.star-siec.edu.vn/backend/
+          **/deploy/
 
     # Create restart script
     - name: Create restart script
