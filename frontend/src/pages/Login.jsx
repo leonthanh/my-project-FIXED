@@ -9,7 +9,9 @@ const Login = () => {
   const [message, setMessage] = useState('');
 
   const navigate = useNavigate();
-  const API_URL = (process.env.REACT_APP_API_URL || 'https://ix.star-siec.edu.vn/api').replace(/\/+$/, '');
+  const API_URL = process.env.NODE_ENV === 'development' 
+    ? 'http://localhost:5000'  // Development URL
+    : 'https://ix.star-siec.edu.vn/api'; // Production URL
 
   useEffect(() => {
     const user = JSON.parse(localStorage.getItem('user'));
@@ -54,23 +56,29 @@ const Login = () => {
     }
 
     try {
+      // Log API_URL để kiểm tra đúng endpoint chưa
+      console.log('Register API_URL:', `${API_URL}/api/auth/register`);
       const res = await fetch(`${API_URL}/api/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, phone, password, role }) // ✅ Gửi cả name, phone và password
+        body: JSON.stringify({ name, phone, password, role })
       });
 
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (res.ok) {
         localStorage.setItem('user', JSON.stringify(data.user));
         setMessage('✅ ' + data.message);
         window.location.href = data.user.role === 'teacher' ? '/admin' : '/';
       } else {
-        setMessage('❌ ' + data.message);
+        // Hiển thị status code và message để dễ debug
+        setMessage(`❌ [${res.status}] ${data.message || 'Lỗi đăng ký. Vui lòng thử lại sau.'}`);
+        if (data.error) {
+          console.error('❌ Lỗi đăng ký:', data.error);
+        }
       }
     } catch (err) {
-      setMessage('Lỗi kết nối server.');
-      console.error('❌ Lỗi:', err);
+      setMessage('Lỗi kết nối server hoặc database.');
+      console.error('❌ Lỗi kết nối server/database:', err);
     }
   };
 
