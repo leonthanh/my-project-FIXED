@@ -3,33 +3,37 @@ import { CKEditor } from '@ckeditor/ckeditor5-react';
 import DecoupledEditor from '@ckeditor/ckeditor5-build-decoupled-document';
 
 const editorConfig = {
-  toolbar: [
-    'heading',
-    '|',
-    'fontSize',
-    'fontFamily',
-    '|',
-    'fontColor',
-    'fontBackgroundColor',
-    '|',
-    'bold',
-    'italic',
-    'underline',
-    'strikethrough',
-    '|',
-    'bulletedList',
-    'numberedList',
-    '|',
-    'alignment',
-    'indent',
-    'outdent',
-    '|',
-    'link',
-    'insertTable',
-    '|',
-    'undo',
-    'redo'
-  ],
+  toolbar: {
+    items: [
+      'heading',
+      '|',
+      'fontSize',
+      'fontFamily',
+      '|',
+      'fontColor',
+      'fontBackgroundColor',
+      '|',
+      'bold',
+      'italic',
+      'underline',
+      'strikethrough',
+      '|',
+      'bulletedList',
+      'numberedList',
+      '|',
+      'alignment',
+      'indent',
+      'outdent',
+      '|',
+      'link',
+      'insertTable',
+      'blockQuote',
+      '|',
+      'undo',
+      'redo'
+    ],
+    shouldNotGroupWhenFull: true
+  },
   language: 'en',
   removePlugins: ['Title'],
   fontSize: {
@@ -72,12 +76,21 @@ const CustomEditor = ({ value, onChange, placeholder }) => {
           placeholder: placeholder
         }}
         onReady={editor => {
-          // Chỉ thêm toolbar một lần khi editor được khởi tạo
-          const toolbarElement = editor.ui.view.toolbar.element;
-          const editableElement = editor.ui.getEditableElement();
-          if (editableElement.parentElement && !editableElement.parentElement.querySelector('.ck-toolbar')) {
-            editableElement.parentElement.insertBefore(toolbarElement, editableElement);
+          console.log('Editor is ready to use!');
+          
+          // Insert toolbar before editable area
+          const toolbarContainer = editor.ui.view.toolbar.element;
+          const editableArea = editor.ui.getEditableElement();
+          
+          if (editableArea.parentElement && !editableArea.parentElement.querySelector('.ck-toolbar')) {
+            editableArea.parentElement.insertBefore(toolbarContainer, editableArea);
           }
+          
+          // Enable editing features
+          editor.isReadOnly = false;
+          
+          // Log available plugins
+          console.log('Loaded plugins:', Array.from(editor.plugins.names()));
         }}
         onChange={(event, editor) => onChange(editor.getData())}
       />

@@ -118,4 +118,34 @@ router.get('/:id', async (req, res) => {
     res.status(500).json({ message: 'Lỗi server' });
   }
 });
+
+// ✅ Route cập nhật đề thi
+router.put('/:id', async (req, res) => {
+  try {
+    const { classCode, teacherName, task1, task2, questions } = req.body;
+    const test = await WritingTest.findByPk(req.params.id);
+    
+    if (!test) {
+      return res.status(404).json({ message: 'Không tìm thấy đề thi' });
+    }
+
+    // Cập nhật thông tin
+    await test.update({
+      classCode,
+      teacherName,
+      task1,
+      task2,
+      questions: JSON.stringify(questions)
+    });
+
+    res.json({ 
+      message: '✅ Đã cập nhật đề thi thành công',
+      test 
+    });
+  } catch (err) {
+    console.error('❌ Lỗi cập nhật đề thi:', err);
+    res.status(500).json({ message: 'Lỗi server khi cập nhật đề thi' });
+  }
+});
+
 module.exports = router;

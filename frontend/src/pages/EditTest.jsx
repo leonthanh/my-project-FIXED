@@ -2,6 +2,10 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import AdminNavbar from '../components/AdminNavbar';
 import FormQuestion from '../components/FormQuestion';
+import { CKEditor } from '@ckeditor/ckeditor5-react';
+import ClassicEditor from '@ckeditor/ckeditor5-build-classic';
+// import ReactQuill from 'react-quill'; // Thay thế CKEditor bằng ReactQuill
+import 'react-quill/dist/quill.snow.css'; // Import CSS cho ReactQuill
 
 const EditTest = () => {
   const { id } = useParams();
@@ -45,19 +49,20 @@ const EditTest = () => {
     e.preventDefault();
     
     try {
-      const formData = new FormData();
-      // Thêm các trường dữ liệu vào formData
-      Object.keys(test).forEach(key => {
-        if (typeof test[key] === 'object') {
-          formData.append(key, JSON.stringify(test[key]));
-        } else {
-          formData.append(key, test[key]);
-        }
-      });
+      console.log('Submitting test data:', test);
 
       const response = await fetch(`${API_URL}/api/writing-tests/${id}`, {
         method: 'PUT',
-        body: formData
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          classCode: test.classCode,
+          teacherName: test.teacherName,
+          task1: test.task1,
+          task2: test.task2,
+          questions: test.questions
+        })
       });
 
       if (!response.ok) {
@@ -73,12 +78,15 @@ const EditTest = () => {
   };
 
   const handleQuestionChange = (index, updatedQuestion) => {
-    setTest(prev => ({
-      ...prev,
-      questions: prev.questions.map((q, i) => 
-        i === index ? updatedQuestion : q
-      )
-    }));
+    setTest(prev => {
+      if (!prev || !prev.questions) return prev;
+      return {
+        ...prev,
+        questions: prev.questions.map((q, i) => 
+          i === index ? updatedQuestion : q
+        )
+      };
+    });
   };
 
   if (loading) {
@@ -107,7 +115,11 @@ const EditTest = () => {
             <input
               type="text"
               value={test.classCode || ''}
-              onChange={(e) => setTest({ ...test, classCode: e.target.value })}
+              onChange={(e) => {
+                const updatedTest = { ...test, classCode: e.target.value };
+                console.log('Updated test:', updatedTest);
+                setTest(updatedTest);
+              }}
               style={{
                 width: '100%',
                 padding: '8px',
@@ -124,7 +136,11 @@ const EditTest = () => {
             <input
               type="text"
               value={test.teacherName || ''}
-              onChange={(e) => setTest({ ...test, teacherName: e.target.value })}
+              onChange={(e) => {
+                const updatedTest = { ...test, teacherName: e.target.value };
+                console.log('Updated test:', updatedTest);
+                setTest(updatedTest);
+              }}
               style={{
                 width: '100%',
                 padding: '8px',
@@ -134,8 +150,48 @@ const EditTest = () => {
             />
           </div>
 
+          <div style={{ marginBottom: '20px' }}>
+            <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
+              Task 1:
+            </label>
+            <div style={{ border: '1px solid #ddd', borderRadius: '4px', marginBottom: '20px' }}>
+              <CKEditor
+                editor={ClassicEditor}
+                data={test.task1 || ''}
+                config={{
+                  placeholder: 'Nội dung Task 1',
+                  toolbar: ['heading', '|', 'bold', 'italic', 'link', 'bulletedList', 'numberedList', 'blockQuote', '|', 'undo', 'redo']
+                }}
+                onChange={(event, editor) => {
+                  const data = editor.getData();
+                  setTest(prev => ({ ...prev, task1: data }));
+                }}
+              />
+            </div>
+          </div>
+
+          <div style={{ marginBottom: '20px' }}>
+            <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
+              Task 2:
+            </label>
+            <div style={{ border: '1px solid #ddd', borderRadius: '4px', marginBottom: '20px' }}>
+              <CKEditor
+                editor={ClassicEditor}
+                data={test.task2 || ''}
+                config={{
+                  placeholder: 'Nội dung Task 2',
+                  toolbar: ['heading', '|', 'bold', 'italic', 'link', 'bulletedList', 'numberedList', 'blockQuote', '|', 'undo', 'redo']
+                }}
+                onChange={(event, editor) => {
+                  const data = editor.getData();
+                  setTest(prev => ({ ...prev, task2: data }));
+                }}
+              />
+            </div>
+          </div>
+
           <h3>Câu hỏi:</h3>
-          {test.questions.map((question, index) => (
+          {test.questions && test.questions.map((question, index) => (
             <div key={index} style={{ marginBottom: '30px' }}>
               <h4>Câu {index + 1}</h4>
               <FormQuestion
