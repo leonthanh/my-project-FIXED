@@ -36,28 +36,36 @@ jobs:
         server: star-siec.edu.vn
         username: ${{ secrets.FTP_USERNAME }}
         password: ${{ secrets.FTP_PASSWORD }}
-        local-dir: ./frontend/build/
+        local-dir: frontend/build/
         server-dir: /ix.star-siec.edu.vn/frontend/build/
+        dangerous-clean-slate: true
 
-    # Prepare and Deploy Backend
-    - name: Prepare Backend
+    # Prepare Backend
+    - name: Clean and Prepare Backend
       run: |
-        cd backend
-        mkdir -p deploy
-        # Copy các file và thư mục cần thiết
-        cp package.json deploy/
-        cp server.js deploy/
-        cp -r routes deploy/
-        cp -r models deploy/
-        cp db.js deploy/
+        rm -rf backend-deploy
+        mkdir -p backend-deploy
+        cp -r backend/* backend-deploy/
+        cd backend-deploy
         # Tạo file env cho production
-        echo "NODE_ENV=production" > deploy/.env
-        echo "PORT=3000" >> deploy/.env
-        echo "DB_HOST=localhost" >> deploy/.env
-        echo "DB_NAME=wsxcblqh_ix" >> deploy/.env
-        echo "DB_USER=wsxcblqh_thanh" >> deploy/.env
-        echo "DB_PASS=@Thanh562184" >> deploy/.env
-        npm install
+        echo "NODE_ENV=production" > .env
+        echo "PORT=3000" >> .env
+        echo "DB_HOST=localhost" >> .env
+        echo "DB_NAME=wsxcblqh_ix" >> .env
+        echo "DB_USER=wsxcblqh_thanh" >> .env
+        echo "DB_PASS=@Thanh562184" >> .env
+        npm install --production
+
+    # Deploy Backend
+    - name: Deploy Backend
+      uses: SamKirkland/FTP-Deploy-Action@4.0.0
+      with:
+        server: star-siec.edu.vn
+        username: ${{ secrets.FTP_USERNAME }}
+        password: ${{ secrets.FTP_PASSWORD }}
+        local-dir: backend-deploy/
+        server-dir: /ix.star-siec.edu.vn/backend/
+        dangerous-clean-slate: true
 
     - name: Deploy Backend
       uses: SamKirkland/FTP-Deploy-Action@4.0.0
@@ -68,15 +76,15 @@ jobs:
         local-dir: ./backend/deploy/
         server-dir: /ix.star-siec.edu.vn/backend/
 
-    # Create a deployment trigger file
-    - name: Create deployment trigger
+    # Create restart script
+    - name: Create restart script
       run: |
         echo "<?php
-        shell_exec('cd /home/wsxcblqh/ix.star-siec.edu.vn/backend && /usr/local/bin/npm install && /usr/local/bin/pm2 restart server.js --node-args=\"--env=production\" || /usr/local/bin/pm2 start server.js --node-args=\"--env=production\"');
-        ?>" > deploy-trigger.php
+        shell_exec('cd /home/wsxcblqh/ix.star-siec.edu.vn/backend && /usr/local/bin/pm2 restart server.js || /usr/local/bin/pm2 start server.js');
+        echo 'Deployment completed!';
+        ?>" > restart.php
 
-    # Upload trigger file
-    - name: Upload deployment trigger
+    - name: Deploy restart script
       uses: SamKirkland/FTP-Deploy-Action@4.0.0
       with:
         server: star-siec.edu.vn
@@ -84,11 +92,6 @@ jobs:
         password: ${{ secrets.FTP_PASSWORD }}
         local-dir: ./
         server-dir: /ix.star-siec.edu.vn/
-        state-name: .ftp-deploy-sync-state.json
-        dry-run: false
-        dangerous-clean-slate: false
         exclude: |
-          **/.git*
-          **/.git*/**
-          **/node_modules/**
-          fileToExclude.txt
+          **/*
+          !restart.php
