@@ -43,10 +43,7 @@ jobs:
     # Prepare Backend
     - name: Clean and Prepare Backend
       run: |
-        rm -rf backend-deploy
-        mkdir -p backend-deploy
-        cp -r backend/* backend-deploy/
-        cd backend-deploy
+        cd backend
         # Tạo file env cho production
         echo "NODE_ENV=production" > .env
         echo "PORT=3000" >> .env
@@ -63,9 +60,15 @@ jobs:
         server: star-siec.edu.vn
         username: ${{ secrets.FTP_USERNAME }}
         password: ${{ secrets.FTP_PASSWORD }}
-        local-dir: backend-deploy/
+        local-dir: ./backend/
         server-dir: /ix.star-siec.edu.vn/backend/
         dangerous-clean-slate: true
+        exclude: |
+          **/.git*
+          **/.git*/**
+          **/node_modules/**
+          **/.env.development
+          **/.env.local
 
     - name: Deploy Backend
       uses: SamKirkland/FTP-Deploy-Action@4.0.0
