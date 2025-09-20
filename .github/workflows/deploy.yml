@@ -19,9 +19,9 @@ jobs:
       run: |
         cd frontend
         # Tạo file env cho production
-        echo "REACT_APP_API_URL=https://ix.star-siec.edu.vn/api" > .env.production
-        yarn install
-        NODE_ENV=production yarn build
+        echo "REACT_APP_API_URL=https://ix.star-siec.edu.vn/api" > .env
+        npm install
+        npm run build
         
     # Build Backend
     - name: Install Backend Dependencies
@@ -51,13 +51,13 @@ jobs:
         cp -r models deploy/
         cp db.js deploy/
         # Tạo file env cho production
-        echo "PORT=3000" > deploy/.env.production
-        echo "DB_HOST=localhost" >> deploy/.env.production
-        echo "DB_NAME=wsxcblqh_ix" >> deploy/.env.production
-        echo "DB_USER=wsxcblqh_thanh" >> deploy/.env.production
-        echo "DB_PASS=@Thanh562184" >> deploy/.env.production
-        cd deploy
-        yarn install --production
+        echo "NODE_ENV=production" > deploy/.env
+        echo "PORT=3000" >> deploy/.env
+        echo "DB_HOST=localhost" >> deploy/.env
+        echo "DB_NAME=wsxcblqh_ix" >> deploy/.env
+        echo "DB_USER=wsxcblqh_thanh" >> deploy/.env
+        echo "DB_PASS=@Thanh562184" >> deploy/.env
+        npm install
 
     - name: Deploy Backend
       uses: SamKirkland/FTP-Deploy-Action@4.0.0
@@ -68,13 +68,21 @@ jobs:
         local-dir: ./backend/deploy/
         server-dir: /ix.star-siec.edu.vn/backend/
 
-    # Restart Node.js Server (nếu có SSH access)
-    - name: Restart Server
-      uses: appleboy/ssh-action@master
+    # Create a deployment trigger file
+    - name: Create deployment trigger
+      run: |
+        echo "<?php
+        shell_exec('cd /home/wsxcblqh/ix.star-siec.edu.vn/backend && /usr/local/bin/npm install && /usr/local/bin/pm2 restart server.js --node-args=\"--env=production\" || /usr/local/bin/pm2 start server.js --node-args=\"--env=production\"');
+        ?>" > deploy-trigger.php
+
+    # Upload trigger file
+    - name: Upload deployment trigger
+      uses: SamKirkland/FTP-Deploy-Action@4.0.0
       with:
-        host: star-siec.edu.vn
-        username: ${{ secrets.SSH_USERNAME }}
-        password: ${{ secrets.SSH_PASSWORD }}
-        script: |
-          cd /ix.star-siec.edu.vn/backend
-          pm2 restart server.js --node-args="--env=production" || pm2 start server.js --node-args="--env=production"
+        server: star-siec.edu.vn
+        username: ${{ secrets.FTP_USERNAME }}
+        password: ${{ secrets.FTP_PASSWORD }}
+        local-dir: ./
+        server-dir: /ix.star-siec.edu.vn/
+        include: |
+          deploy-trigger.php
