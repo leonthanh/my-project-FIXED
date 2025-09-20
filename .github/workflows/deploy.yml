@@ -84,5 +84,11 @@ jobs:
         password: ${{ secrets.FTP_PASSWORD }}
         local-dir: ./
         server-dir: /ix.star-siec.edu.vn/
-        include: |
-          deploy-trigger.php
+        state-name: .ftp-deploy-sync-state.json
+        dry-run: false
+        dangerous-clean-slate: false
+        exclude: |
+          **/.git*
+          **/.git*/**
+          **/node_modules/**
+          fileToExclude.txt
