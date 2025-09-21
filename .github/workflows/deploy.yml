@@ -36,78 +36,71 @@ jobs:
         server-dir: /ix.star-siec.edu.vn/frontend/build/
         dangerous-clean-slate: true
 
-    # Prepare Backend Files
-    - name: Setup Backend
+    # Prepare and Deploy Backend in steps
+    - name: Create Backend Package
       run: |
-        # Create clean deploy directory
-        rm -rf deploy-backend
-        mkdir -p deploy-backend
+        # Create temp directory
+        mkdir -p backend-temp
         
-        # Copy only necessary backend files
-        cp backend/package.json deploy-backend/
-        cp backend/server.js deploy-backend/
-        mkdir -p deploy-backend/routes
-        cp -r backend/routes/* deploy-backend/routes/
-        mkdir -p deploy-backend/models
-        cp -r backend/models/* deploy-backend/models/
-        mkdir -p deploy-backend/uploads
-        cp -r backend/uploads/* deploy-backend/uploads/ || true
+        # Copy essential files only
+        echo '{
+          "name": "backend",
+          "version": "1.0.0",
+          "dependencies": {
+            "express": "^4.18.2",
+            "mysql2": "^3.6.1",
+            "sequelize": "^6.33.0",
+            "cors": "^2.8.5",
+            "dotenv": "^16.3.1"
+          }
+        }' > backend-temp/package.json
         
-        # Create production env file
-        echo "NODE_ENV=production" > deploy-backend/.env
-        echo "PORT=3000" >> deploy-backend/.env
-        echo "DB_HOST=localhost" >> deploy-backend/.env
-        echo "DB_NAME=wsxcblqh_ix" >> deploy-backend/.env
-        echo "DB_USER=wsxcblqh_thanh" >> deploy-backend/.env
-        echo "DB_PASS=@Thanh562184" >> deploy-backend/.env
+        # Copy core backend files
+        cp backend/server.js backend-temp/
+        mkdir -p backend-temp/routes backend-temp/models backend-temp/uploads
+        cp -r backend/routes/* backend-temp/routes/
+        cp -r backend/models/* backend-temp/models/
+        cp -r backend/uploads/* backend-temp/uploads/ || true
         
-        # Install only production dependencies
-        cd deploy-backend
-        npm install --omit=dev --no-package-lock
+        # Create env file
+        echo "NODE_ENV=production" > backend-temp/.env
+        echo "PORT=3000" >> backend-temp/.env
+        echo "DB_HOST=localhost" >> backend-temp/.env
+        echo "DB_NAME=wsxcblqh_ix" >> backend-temp/.env
+        echo "DB_USER=wsxcblqh_thanh" >> backend-temp/.env
+        echo "DB_PASS=@Thanh562184" >> backend-temp/.env
+        
+        # Install minimal dependencies
+        cd backend-temp
+        npm install --production --no-optional
 
-    # Deploy Backend with specific excludes
+    # Deploy Backend (Minimal Version)
     - name: Deploy Backend
       uses: SamKirkland/FTP-Deploy-Action@4.0.0
       with:
         server: star-siec.edu.vn
         username: ${{ secrets.FTP_USERNAME }}
         password: ${{ secrets.FTP_PASSWORD }}
-        local-dir: deploy-backend/
+        local-dir: backend-temp/
         server-dir: /ix.star-siec.edu.vn/backend/
         dangerous-clean-slate: true
         exclude: |
-          **/@ckeditor/**
-          **/ckeditor5-**/**
-          **/node_modules/@ckeditor/**
+          **/node_modules/@*/**
           **/*.map
           **/*.md
-          **/test/**
-          **/tests/**
-          **/.git*/**
-          **/.npm/**
           package-lock.json
 
-    # Restart Server with better error handling
+    # Simple Server Restart
     - name: Restart Server
       run: |
         echo "<?php
-        \$output = '';
-        
-        // Run npm install
-        \$output .= 'Running npm install...' . PHP_EOL;
-        \$install = shell_exec('cd /home/wsxcblqh/ix.star-siec.edu.vn/backend && /usr/local/bin/npm install --omit=dev 2>&1');
-        \$output .= \$install . PHP_EOL;
-        
-        // Restart server with PM2
-        \$output .= 'Restarting server...' . PHP_EOL;
-        \$restart = shell_exec('/usr/local/bin/pm2 restart server.js 2>&1 || /usr/local/bin/pm2 start server.js 2>&1');
-        \$output .= \$restart . PHP_EOL;
-        
-        echo \$output;
+        shell_exec('cd /home/wsxcblqh/ix.star-siec.edu.vn/backend && /usr/local/bin/npm install --production');
+        shell_exec('/usr/local/bin/pm2 delete server 2>/dev/null || true');
+        shell_exec('/usr/local/bin/pm2 start server.js');
+        echo 'Server restarted';
         ?>" > restart.php
         
-        # Upload and execute restart script
-        curl --retry 3 -T restart.php "ftp://${{ secrets.FTP_USERNAME }}:${{ secrets.FTP_PASSWORD }}@star-siec.edu.vn/ix.star-siec.edu.vn/"
-        sleep 2
-        curl -L "https://ix.star-siec.edu.vn/restart.php"
+        # Upload and execute restart script directly
+        curl -T restart.php -u "${{ secrets.FTP_USERNAME }}:${{ secrets.FTP_PASSWORD }}" "ftp://star-siec.edu.vn/ix.star-siec.edu.vn/"
+        curl "https://ix.star-siec.edu.vn/restart.php"
         rm restart.php
