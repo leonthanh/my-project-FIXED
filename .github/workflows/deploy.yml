@@ -2,42 +2,27 @@ name: Deploy to cPanel
 on:
   push:
     branches: [ main ]
-    paths-ignore:
-      - '**.md'
-      - '.gitignore'
-      - '.env.example'
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
-      with:
-        fetch-depth: 1
 
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
-        node-version: '22.18.0'
-        cache: 'npm'
+        node-version: '20.19.4'
 
     # Build Frontend
     - name: Install & Build Frontend
       run: |
         cd frontend
         echo "REACT_APP_API_URL=https://ix.star-siec.edu.vn/api" > .env
-        npm ci --legacy-peer-deps
+        npm install
         npm run build
-      env:
-        CI: false
-
-    # Build Backend
-    - name: Install Backend Dependencies
-      run: |
-        cd backend
-        npm ci --only=production
         
-    # Deploy Frontend using parallel uploads
+    # Deploy Frontend
     - name: Deploy Frontend
       uses: SamKirkland/FTP-Deploy-Action@4.0.0
       with:
@@ -47,15 +32,9 @@ jobs:
         local-dir: frontend/build/
         server-dir: /ix.star-siec.edu.vn/frontend/build/
         dangerous-clean-slate: false
-        exclude: |
-          **/*.map
-          **/*.LICENSE.txt
-        port: 21
-        timeout: 120000
-        max-concurrent-transfers: 10
 
-    # Prepare and Deploy Backend in one step
-    - name: Prepare & Deploy Backend
+    # Deploy Backend
+    - name: Deploy Backend
       run: |
         cd backend
         echo "NODE_ENV=production" > .env
@@ -64,32 +43,25 @@ jobs:
         echo "DB_NAME=wsxcblqh_ix" >> .env
         echo "DB_USER=wsxcblqh_thanh" >> .env
         echo "DB_PASS=@Thanh562184" >> .env
+        npm install --production
         
-        # Create temp directory for production files
-        mkdir -p ../temp-backend
-        cp -r routes models server.js package.json .env ../temp-backend/
-        cd ../temp-backend
-        npm ci --only=production --no-optional
-        
-    # Deploy optimized backend
-    - name: Deploy Backend
+    - name: Upload Backend
       uses: SamKirkland/FTP-Deploy-Action@4.0.0
       with:
         server: star-siec.edu.vn
         username: ${{ secrets.FTP_USERNAME }}
         password: ${{ secrets.FTP_PASSWORD }}
-        local-dir: ./temp-backend/
+        local-dir: backend/
         server-dir: /ix.star-siec.edu.vn/backend/
         dangerous-clean-slate: false
         exclude: |
-          **/.git*
-          **/.env.development
-          **/.env.local
-          **/*.map
-
-    # Quick restart without separate upload
+          **/.git*/**
+          **/node_modules/**
+          **/.env.*
+          
+    # Restart Server
     - name: Create and Deploy restart script
       run: |
         echo "<?php shell_exec('cd /home/wsxcblqh/ix.star-siec.edu.vn/backend && /usr/local/bin/pm2 restart server.js || /usr/local/bin/pm2 start server.js'); ?>" > restart.php
-        curl -T restart.php ftp://${{ secrets.FTP_USERNAME }}:${{ secrets.FTP_PASSWORD }}@star-siec.edu.vn/ix.star-siec.edu.vn/
+        curl --retry 3 --retry-delay 5 -T restart.php "ftp://${{ secrets.FTP_USERNAME }}:${{ secrets.FTP_PASSWORD }}@star-siec.edu.vn/ix.star-siec.edu.vn/"
         rm restart.php
