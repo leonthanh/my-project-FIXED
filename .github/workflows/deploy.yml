@@ -2,10 +2,6 @@ name: Deploy to cPanel
 on:
   push:
     branches: [ main ]
-    paths-ignore:
-      - '**.md'
-      - '.gitignore'
-      - 'README.md'
 
 jobs:
   build-and-deploy:
@@ -13,34 +9,11 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
-      with:
-        fetch-depth: 1
 
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
-        node-version: '20.19.4'
-
-    # Cleanup remote directories first
-    - name: Cleanup remote directories
-      run: |
-        echo "<?php
-        function deleteDirectory(\$dir) {
-          if (!file_exists(\$dir)) return;
-          if (!is_dir(\$dir)) return unlink(\$dir);
-          foreach (scandir(\$dir) as \$item) {
-            if (\$item == '.' || \$item == '..') continue;
-            if (!deleteDirectory(\$dir . DIRECTORY_SEPARATOR . \$item)) return false;
-          }
-          return rmdir(\$dir);
-        }
-        deleteDirectory('/home/wsxcblqh/ix.star-siec.edu.vn/backend/node_modules');
-        deleteDirectory('/home/wsxcblqh/ix.star-siec.edu.vn/frontend/build');
-        echo 'Cleanup completed';
-        ?>" > cleanup.php
-        curl -T cleanup.php "ftp://${{ secrets.FTP_USERNAME }}:${{ secrets.FTP_PASSWORD }}@star-siec.edu.vn/ix.star-siec.edu.vn/"
-        curl "https://ix.star-siec.edu.vn/cleanup.php"
-        rm cleanup.php
+        node-version: '16.x'
 
     # Build Frontend
     - name: Install & Build Frontend
@@ -61,15 +34,12 @@ jobs:
         password: ${{ secrets.FTP_PASSWORD }}
         local-dir: frontend/build/
         server-dir: /ix.star-siec.edu.vn/frontend/build/
-        dangerous-clean-slate: false
-        exclude: |
-          **/*.map
-          **/*.txt
-          **/node_modules/**
+        dangerous-clean-slate: true
 
-    # Prepare Backend
-    - name: Setup Backend
+    # Prepare and Deploy Backend
+    - name: Setup & Deploy Backend
       run: |
+        # Prepare backend files
         cd backend
         echo "NODE_ENV=production" > .env
         echo "PORT=3000" >> .env
@@ -78,14 +48,16 @@ jobs:
         echo "DB_USER=wsxcblqh_thanh" >> .env
         echo "DB_PASS=@Thanh562184" >> .env
         
-        # Create temp directory for production files
+        # Create temp directory with only necessary files
         mkdir -p ../temp-backend
         cp -r routes models uploads server.js package.json .env ../temp-backend/
+        
+        # Install production dependencies in temp directory
         cd ../temp-backend
-        npm install --production --no-optional
+        npm install --production
 
-    # Deploy Backend
-    - name: Upload Backend
+    # Upload Backend
+    - name: Deploy Backend
       uses: SamKirkland/FTP-Deploy-Action@4.0.0
       with:
         server: star-siec.edu.vn
@@ -93,23 +65,24 @@ jobs:
         password: ${{ secrets.FTP_PASSWORD }}
         local-dir: temp-backend/
         server-dir: /ix.star-siec.edu.vn/backend/
-        dangerous-clean-slate: false
-        exclude: |
-          **/.git*/**
-          **/node_modules/**
-          **/.env.*
-          **/*.map
-          **/tests/**
+        dangerous-clean-slate: true
 
-    # Restart Server
-    - name: Restart Server
+    # Restart Server using direct PHP file
+    - name: Create Restart Script
       run: |
-        echo "<?php 
-        \$output = shell_exec('cd /home/wsxcblqh/ix.star-siec.edu.vn/backend && /usr/local/bin/npm install --production && /usr/local/bin/pm2 restart server.js 2>&1');
-        echo \$output;
-        echo 'Server restarted';
+        echo "<?php
+        shell_exec('cd /home/wsxcblqh/ix.star-siec.edu.vn/backend && npm install --production');
+        shell_exec('/usr/local/bin/pm2 restart server.js || /usr/local/bin/pm2 start server.js');
+        echo 'Server restarted successfully';
         ?>" > restart.php
-        curl -T restart.php "ftp://${{ secrets.FTP_USERNAME }}:${{ secrets.FTP_PASSWORD }}@star-siec.edu.vn/ix.star-siec.edu.vn/"
-        sleep 5
-        curl "https://ix.star-siec.edu.vn/restart.php"
-        rm restart.php
+
+    - name: Upload and Execute Restart Script
+      uses: SamKirkland/FTP-Deploy-Action@4.0.0
+      with:
+        server: star-siec.edu.vn
+        username: ${{ secrets.FTP_USERNAME }}
+        password: ${{ secrets.FTP_PASSWORD }}
+        local-dir: ./
+        server-dir: /ix.star-siec.edu.vn/
+        include: |
+          restart.php
