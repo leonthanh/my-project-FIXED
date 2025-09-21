@@ -2,8 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import AdminNavbar from '../components/AdminNavbar';
 import FormQuestion from '../components/FormQuestion';
-import { CKEditor } from '@ckeditor/ckeditor5-react';
-import ClassicEditor from '@ckeditor/ckeditor5-build-classic';
+import ReactQuill from 'react-quill';
+import 'react-quill/dist/quill.snow.css';
 // import ReactQuill from 'react-quill'; // Thay thế CKEditor bằng ReactQuill
 import 'react-quill/dist/quill.snow.css'; // Import CSS cho ReactQuill
 
@@ -155,17 +155,21 @@ const EditTest = () => {
               Task 1:
             </label>
             <div style={{ border: '1px solid #ddd', borderRadius: '4px', marginBottom: '20px' }}>
-              <CKEditor
-                editor={ClassicEditor}
-                data={test.task1 || ''}
-                config={{
-                  placeholder: 'Nội dung Task 1',
-                  toolbar: ['heading', '|', 'bold', 'italic', 'link', 'bulletedList', 'numberedList', 'blockQuote', '|', 'undo', 'redo']
+              <ReactQuill
+                value={test.task1 || ''}
+                onChange={(content) => setTest(prev => ({ ...prev, task1: content }))}
+                modules={{
+                  toolbar: [
+                    [{ 'header': [1, 2, 3, false] }],
+                    ['bold', 'italic', 'underline', 'strike'],
+                    [{ 'color': [] }, { 'background': [] }],
+                    [{ 'list': 'ordered' }, { 'list': 'bullet' }],
+                    [{ 'align': [] }],
+                    ['link', 'image'],
+                    ['clean']
+                  ]
                 }}
-                onChange={(event, editor) => {
-                  const data = editor.getData();
-                  setTest(prev => ({ ...prev, task1: data }));
-                }}
+                style={{ height: '200px', marginBottom: '40px' }}
               />
             </div>
           </div>
@@ -175,17 +179,21 @@ const EditTest = () => {
               Task 2:
             </label>
             <div style={{ border: '1px solid #ddd', borderRadius: '4px', marginBottom: '20px' }}>
-              <CKEditor
-                editor={ClassicEditor}
-                data={test.task2 || ''}
-                config={{
-                  placeholder: 'Nội dung Task 2',
-                  toolbar: ['heading', '|', 'bold', 'italic', 'link', 'bulletedList', 'numberedList', 'blockQuote', '|', 'undo', 'redo']
+              <ReactQuill
+                value={test.task2 || ''}
+                onChange={(content) => setTest(prev => ({ ...prev, task2: content }))}
+                modules={{
+                  toolbar: [
+                    [{ 'header': [1, 2, 3, false] }],
+                    ['bold', 'italic', 'underline', 'strike'],
+                    [{ 'color': [] }, { 'background': [] }],
+                    [{ 'list': 'ordered' }, { 'list': 'bullet' }],
+                    [{ 'align': [] }],
+                    ['link', 'image'],
+                    ['clean']
+                  ]
                 }}
-                onChange={(event, editor) => {
-                  const data = editor.getData();
-                  setTest(prev => ({ ...prev, task2: data }));
-                }}
+                style={{ height: '200px', marginBottom: '40px' }}
               />
             </div>
           </div>
@@ -205,7 +213,7 @@ const EditTest = () => {
             <button
               type="submit"
               style={{
-                backgroundColor: '#28a745',
+                backgroundColor: '#0e276f',
                 color: 'white',
                 border: 'none',
                 padding: '10px 30px',
