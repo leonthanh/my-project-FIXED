@@ -2,44 +2,42 @@ name: Deploy to cPanel
 on:
   push:
     branches: [ main ]
+    paths-ignore:
+      - '**.md'
+      - '.gitignore'
+      - '.env.example'
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
+      with:
+        fetch-depth: 1
 
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
-        node-version: '22.18.0'  # Match với version Node.js trên cPanel
-
-    # Cache dependencies
-    - name: Cache node modules
-      uses: actions/cache@v3
-      with:
-        path: |
-          **/node_modules
-        key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
-        restore-keys: |
-          ${{ runner.os }}-node-
+        node-version: '22.18.0'
+        cache: 'npm'
 
     # Build Frontend
     - name: Install & Build Frontend
       run: |
         cd frontend
-        # Tạo file env cho production
         echo "REACT_APP_API_URL=https://ix.star-siec.edu.vn/api" > .env
-        npm install
+        npm ci --legacy-peer-deps
         npm run build
-        
+      env:
+        CI: false
+
     # Build Backend
     - name: Install Backend Dependencies
       run: |
         cd backend
-        yarn install
-
-    # Deploy Frontend - optimize upload
+        npm ci --only=production
+        
+    # Deploy Frontend using parallel uploads
     - name: Deploy Frontend
       uses: SamKirkland/FTP-Deploy-Action@4.0.0
       with:
@@ -51,57 +49,47 @@ jobs:
         dangerous-clean-slate: false
         exclude: |
           **/*.map
-          **/static/media/*.map
+          **/*.LICENSE.txt
+        port: 21
+        timeout: 120000
+        max-concurrent-transfers: 10
 
-    # Prepare Backend
-    - name: Prepare Backend
+    # Prepare and Deploy Backend in one step
+    - name: Prepare & Deploy Backend
       run: |
         cd backend
-        # Tạo file env cho production
         echo "NODE_ENV=production" > .env
         echo "PORT=3000" >> .env
         echo "DB_HOST=localhost" >> .env
         echo "DB_NAME=wsxcblqh_ix" >> .env
         echo "DB_USER=wsxcblqh_thanh" >> .env
         echo "DB_PASS=@Thanh562184" >> .env
-        # Build production dependencies
-        npm install --production
-
-    # Deploy Backend - chỉ deploy các file cần thiết
+        
+        # Create temp directory for production files
+        mkdir -p ../temp-backend
+        cp -r routes models server.js package.json .env ../temp-backend/
+        cd ../temp-backend
+        npm ci --only=production --no-optional
+        
+    # Deploy optimized backend
     - name: Deploy Backend
       uses: SamKirkland/FTP-Deploy-Action@4.0.0
       with:
         server: star-siec.edu.vn
         username: ${{ secrets.FTP_USERNAME }}
         password: ${{ secrets.FTP_PASSWORD }}
-        local-dir: ./backend/
+        local-dir: ./temp-backend/
         server-dir: /ix.star-siec.edu.vn/backend/
         dangerous-clean-slate: false
         exclude: |
-          **/.git*/**
-          **/node_modules/**
+          **/.git*
           **/.env.development
           **/.env.local
           **/*.map
-          **/test/**
-          **/.vscode/**
 
-    # Create restart script
-    - name: Create restart script
+    # Quick restart without separate upload
+    - name: Create and Deploy restart script
       run: |
-        echo "<?php
-        shell_exec('cd /home/wsxcblqh/ix.star-siec.edu.vn/backend && /usr/local/bin/pm2 restart server.js || /usr/local/bin/pm2 start server.js');
-        echo 'Deployment completed!';
-        ?>" > restart.php
-
-    - name: Deploy restart script
-      uses: SamKirkland/FTP-Deploy-Action@4.0.0
-      with:
-        server: star-siec.edu.vn
-        username: ${{ secrets.FTP_USERNAME }}
-        password: ${{ secrets.FTP_PASSWORD }}
-        local-dir: ./
-        server-dir: /ix.star-siec.edu.vn/
-        exclude: |
-          **/*
-          !restart.php
+        echo "<?php shell_exec('cd /home/wsxcblqh/ix.star-siec.edu.vn/backend && /usr/local/bin/pm2 restart server.js || /usr/local/bin/pm2 start server.js'); ?>" > restart.php
+        curl -T restart.php ftp://${{ secrets.FTP_USERNAME }}:${{ secrets.FTP_PASSWORD }}@star-siec.edu.vn/ix.star-siec.edu.vn/
+        rm restart.php
