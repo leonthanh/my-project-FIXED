@@ -48,13 +48,14 @@ jobs:
           "version": "1.0.0",
           "main": "server.js",
           "dependencies": {
-            "express": "4.18.2",
-            "mysql2": "3.6.1",
-            "sequelize": "6.33.0",
             "cors": "2.8.5",
             "dotenv": "16.3.1",
+            "express": "4.18.2",
             "multer": "1.4.5-lts.1",
-            "pm2": "5.3.0"
+            "mysql2": "3.6.1",
+            "sequelize": "6.33.0",
+            "bcryptjs": "3.0.2",
+            "openai": "4.7.1"
           }
         }' > backend-temp/package.json
         
@@ -78,46 +79,26 @@ jobs:
         cd backend-temp
         npm install --production --no-optional
 
-    # Deploy Backend Files First
-    - name: Deploy Backend Source
-      uses: SamKirkland/FTP-Deploy-Action@4.0.0
-      with:
-        server: star-siec.edu.vn
-        username: ${{ secrets.FTP_USERNAME }}
-        password: ${{ secrets.FTP_PASSWORD }}
-        local-dir: backend-temp/
-        server-dir: /ix.star-siec.edu.vn/backend/
-        dangerous-clean-slate: true
-        exclude: |
-          **/node_modules/**
-          **/*.map
-          **/*.md
-          **/*.log
-          **/package-lock.json
-          **/.git*
-          **/.env.*
-
-    # Deploy node_modules separately with minimal files
-    - name: Deploy Backend node_modules
-      uses: SamKirkland/FTP-Deploy-Action@4.0.0
-      with:
-        server: star-siec.edu.vn
-        username: ${{ secrets.FTP_USERNAME }}
-        password: ${{ secrets.FTP_PASSWORD }}
-        local-dir: backend-temp/node_modules/
-        server-dir: /ix.star-siec.edu.vn/backend/node_modules/
-        dangerous-clean-slate: true
-        exclude: |
-          **/@types/**
-          **/.bin/**
-          **/docs/**
-          **/*.map
-          **/*.md
-          **/*.ts
-          **/*.gz
-          **/test/**
-          **/tests/**
-          **/.git*/**
+    # Prepare and Deploy Backend Files as ZIP
+    - name: Prepare and Zip Backend
+      run: |
+        cd backend-temp
+        zip -r ../backend.zip ./*
+        
+    - name: Upload Backend ZIP
+      run: |
+        curl -T backend.zip "ftp://${{ secrets.FTP_USERNAME }}:${{ secrets.FTP_PASSWORD }}@star-siec.edu.vn/ix.star-siec.edu.vn/backend/"
+        
+    - name: Extract and Setup Backend
+      run: |
+        echo "<?php
+        \$output = shell_exec('cd /home/wsxcblqh/ix.star-siec.edu.vn/backend && unzip -o backend.zip && rm backend.zip && npm install --production');
+        echo \$output;
+        ?>" > extract.php
+        
+        curl -T extract.php "ftp://${{ secrets.FTP_USERNAME }}:${{ secrets.FTP_PASSWORD }}@star-siec.edu.vn/ix.star-siec.edu.vn/backend/"
+        curl "https://ix.star-siec.edu.vn/backend/extract.php"
+        sleep 2
 
     # Server Restart with Error Handling
     - name: Restart Server
