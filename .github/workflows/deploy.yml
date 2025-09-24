@@ -25,7 +25,7 @@ jobs:
       env:
         CI: false
 
-    # Deploy Frontend
+    # Deploy Frontend - Smart Update
     - name: Deploy Frontend
       uses: SamKirkland/FTP-Deploy-Action@4.0.0
       with:
@@ -34,7 +34,10 @@ jobs:
         password: ${{ secrets.FTP_PASSWORD }}
         local-dir: frontend/build/
         server-dir: /ix.star-siec.edu.vn/frontend/build/
-        dangerous-clean-slate: true
+        dangerous-clean-slate: false  # Chỉ cập nhật file thay đổi
+        exclude: |
+          **/*.map
+          **/*.LICENSE.txt
 
     # Prepare and Deploy Backend in steps
     - name: Create Backend Package
@@ -79,26 +82,45 @@ jobs:
         cd backend-temp
         npm install --production --no-optional
 
-    # Prepare and Deploy Backend Files as ZIP
-    - name: Prepare and Zip Backend
+    # Smart Backend Deployment
+    - name: Check Backend Changes
+      id: check_backend
       run: |
-        cd backend-temp
-        zip -r ../backend.zip ./*
-        
-    - name: Upload Backend ZIP
-      run: |
-        curl -T backend.zip "ftp://${{ secrets.FTP_USERNAME }}:${{ secrets.FTP_PASSWORD }}@star-siec.edu.vn/ix.star-siec.edu.vn/backend/"
-        
-    - name: Extract and Setup Backend
+        changed_files=$(git diff --name-only HEAD^ HEAD backend/)
+        echo "Changed files in backend: $changed_files"
+        if [ -n "$changed_files" ]; then
+          echo "::set-output name=changed::true"
+        else
+          echo "::set-output name=changed::false"
+        fi
+
+    # Deploy Backend only if changed
+    - name: Deploy Backend Files
+      if: steps.check_backend.outputs.changed == 'true'
+      uses: SamKirkland/FTP-Deploy-Action@4.0.0
+      with:
+        server: star-siec.edu.vn
+        username: ${{ secrets.FTP_USERNAME }}
+        password: ${{ secrets.FTP_PASSWORD }}
+        local-dir: backend-temp/
+        server-dir: /ix.star-siec.edu.vn/backend/
+        dangerous-clean-slate: false
+        exclude: |
+          **/node_modules/**
+          **/*.map
+          **/*.md
+          package-lock.json
+          
+    # Install dependencies if backend changed
+    - name: Update Backend Dependencies
+      if: steps.check_backend.outputs.changed == 'true'
       run: |
         echo "<?php
-        \$output = shell_exec('cd /home/wsxcblqh/ix.star-siec.edu.vn/backend && unzip -o backend.zip && rm backend.zip && npm install --production');
+        \$output = shell_exec('cd /home/wsxcblqh/ix.star-siec.edu.vn/backend && npm install --production');
         echo \$output;
-        ?>" > extract.php
-        
-        curl -T extract.php "ftp://${{ secrets.FTP_USERNAME }}:${{ secrets.FTP_PASSWORD }}@star-siec.edu.vn/ix.star-siec.edu.vn/backend/"
-        curl "https://ix.star-siec.edu.vn/backend/extract.php"
-        sleep 2
+        ?>" > update.php
+        curl -T update.php "ftp://${{ secrets.FTP_USERNAME }}:${{ secrets.FTP_PASSWORD }}@star-siec.edu.vn/ix.star-siec.edu.vn/backend/"
+        curl "https://ix.star-siec.edu.vn/backend/update.php"
 
     # Server Restart with Error Handling
     - name: Restart Server
