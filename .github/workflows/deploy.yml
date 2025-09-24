@@ -51,12 +51,15 @@ jobs:
             "mysql2": "^3.6.1",
             "sequelize": "^6.33.0",
             "cors": "^2.8.5",
-            "dotenv": "^16.3.1"
+            "dotenv": "^16.3.1",
+            "multer": "^1.4.5-lts.1",
+            "openai": "^4.7.1"
           }
         }' > backend-temp/package.json
         
         # Copy core backend files
         cp backend/server.js backend-temp/
+        cp backend/db.js backend-temp/
         mkdir -p backend-temp/routes backend-temp/models backend-temp/uploads
         cp -r backend/routes/* backend-temp/routes/
         cp -r backend/models/* backend-temp/models/
@@ -90,14 +93,27 @@ jobs:
           **/*.md
           package-lock.json
 
-    # Simple Server Restart
+    # Server Restart with Error Handling
     - name: Restart Server
       run: |
         echo "<?php
-        shell_exec('cd /home/wsxcblqh/ix.star-siec.edu.vn/backend && /usr/local/bin/npm install --production');
-        shell_exec('/usr/local/bin/pm2 delete server 2>/dev/null || true');
-        shell_exec('/usr/local/bin/pm2 start server.js');
-        echo 'Server restarted';
+        \$output = '';
+        
+        // Change to backend directory and install dependencies
+        \$output .= shell_exec('cd /home/wsxcblqh/ix.star-siec.edu.vn/backend && /usr/local/bin/npm install --production 2>&1');
+        
+        // Stop any existing PM2 process
+        \$output .= shell_exec('/usr/local/bin/pm2 delete server 2>/dev/null || true');
+        
+        // Start new PM2 process with environment variables
+        \$cmd = 'cd /home/wsxcblqh/ix.star-siec.edu.vn/backend && NODE_ENV=production /usr/local/bin/pm2 start server.js';
+        \$output .= shell_exec(\$cmd . ' 2>&1');
+        
+        // Get PM2 status
+        \$status = shell_exec('/usr/local/bin/pm2 list 2>&1');
+        \$output .= \"\\nPM2 Status:\\n\$status\";
+        
+        echo \"<pre>\$output</pre>\";
         ?>" > restart.php
         
         # Upload and execute restart script directly
