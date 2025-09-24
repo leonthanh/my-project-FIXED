@@ -15,5 +15,12 @@ const sequelize = new Sequelize(
     logging: false,
   }
 );
-
+// Thêm đoạn code này vào backend/db.js
+sequelize.authenticate()
+  .then(() => {
+    console.log('✅ Kết nối database thành công');
+  })
+  .catch(err => {
+    console.error('❌ Lỗi kết nối database:', err);
+  });
 module.exports = sequelize;
