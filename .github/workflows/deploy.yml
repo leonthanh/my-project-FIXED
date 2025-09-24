@@ -86,9 +86,15 @@ jobs:
     - name: Check Backend Changes
       id: check_backend
       run: |
-        changed_files=$(git diff --name-only HEAD^ HEAD backend/)
-        echo "Changed files in backend: $changed_files"
-        if [ -n "$changed_files" ]; then
+        # Get full git history for comparison
+        git fetch --prune --unshallow
+        
+        # Get list of changed files in backend directory
+        CHANGED_FILES=$(git diff --name-only ${{ github.event.before }} ${{ github.event.after }} backend/ || echo "all")
+        echo "Changed files in backend: $CHANGED_FILES"
+        
+        # Always deploy backend on first run or if can't determine changes
+        if [ "$CHANGED_FILES" = "all" ] || [ -n "$CHANGED_FILES" ]; then
           echo "::set-output name=changed::true"
         else
           echo "::set-output name=changed::false"
