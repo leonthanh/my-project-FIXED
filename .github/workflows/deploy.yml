@@ -4,7 +4,22 @@ on:
     branches: [ main ]
 
 jobs:
+  check-secrets:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check required secrets
+        run: |
+          if [ -z "${{ secrets.FTP_USERNAME }}" ]; then
+            echo "::error::FTP_USERNAME secret is not set. Please configure it in repository settings."
+            exit 1
+          fi
+          if [ -z "${{ secrets.FTP_PASSWORD }}" ]; then
+            echo "::error::FTP_PASSWORD secret is not set. Please configure it in repository settings."
+            exit 1
+          fi
+
   build-and-deploy:
+    needs: check-secrets
     runs-on: ubuntu-latest
 
     steps:
@@ -19,9 +34,11 @@ jobs:
     - name: Install & Build Frontend
       run: |
         cd frontend
-        echo "REACT_APP_API_URL=https://ix.star-siec.edu.vn/api" > .env
-        npm install
-        npm run build
+        echo "REACT_APP_API_URL=https://ix.star-siec.edu.vn/api/" > .env
+        echo "Building frontend..."
+        npm install || exit 1
+        npm run build || exit 1
+        echo "Frontend build completed"
       env:
         CI: false
 
@@ -87,7 +104,7 @@ jobs:
       id: check_backend
       run: |
         # Get full git history for comparison
-        git fetch --prune --unshallow
+        git fetch --prune --unshallow || true
         
         # Get list of changed files in backend directory
         CHANGED_FILES=$(git diff --name-only ${{ github.event.before }} ${{ github.event.after }} backend/ || echo "all")
@@ -95,9 +112,9 @@ jobs:
         
         # Always deploy backend on first run or if can't determine changes
         if [ "$CHANGED_FILES" = "all" ] || [ -n "$CHANGED_FILES" ]; then
-          echo "::set-output name=changed::true"
+          echo "changed=true" >> $GITHUB_OUTPUT
         else
-          echo "::set-output name=changed::false"
+          echo "changed=false" >> $GITHUB_OUTPUT
         fi
 
     # Deploy Backend only if changed
@@ -135,23 +152,53 @@ jobs:
         \$output = '';
         
         // Change to backend directory and install dependencies
-        \$output .= shell_exec('cd /home/wsxcblqh/ix.star-siec.edu.vn/backend && /usr/local/bin/npm install --production 2>&1');
+        \$install_output = shell_exec('cd /home/wsxcblqh/ix.star-siec.edu.vn/backend && /usr/local/bin/npm install --production 2>&1');
+        \$output .= \"Install output: \$install_output\\n\";
+        
+        if (strpos(\$install_output, 'ERR!') !== false) {
+            echo \"<pre>Error during npm install:\\n\$install_output</pre>\";
+            exit(1);
+        }
         
         // Stop any existing PM2 process
-        \$output .= shell_exec('/usr/local/bin/pm2 delete server 2>/dev/null || true');
+        \$stop_output = shell_exec('/usr/local/bin/pm2 delete server 2>/dev/null || true');
+        \$output .= \"Stop output: \$stop_output\\n\";
         
         // Start new PM2 process with environment variables
-        \$cmd = 'cd /home/wsxcblqh/ix.star-siec.edu.vn/backend && NODE_ENV=production /usr/local/bin/pm2 start server.js';
-        \$output .= shell_exec(\$cmd . ' 2>&1');
+        \$cmd = 'cd /home/wsxcblqh/ix.star-siec.edu.vn/backend && NODE_ENV=production /usr/local/bin/pm2 start server.js --name \"server\" 2>&1';
+        \$start_output = shell_exec(\$cmd);
+        \$output .= \"Start output: \$start_output\\n\";
         
         // Get PM2 status
         \$status = shell_exec('/usr/local/bin/pm2 list 2>&1');
-        \$output .= \"\\nPM2 Status:\\n\$status\";
+        \$output .= \"PM2 Status:\\n\$status\";
+        
+        // Check if server is running
+        \$list_output = shell_exec('/usr/local/bin/pm2 list');
+        if (strpos(\$list_output, 'server') === false || strpos(\$list_output, 'errored') !== false) {
+            echo \"<pre>Error: Server failed to start\\n\$output</pre>\";
+            exit(1);
+        }
         
         echo \"<pre>\$output</pre>\";
         ?>" > restart.php
         
-        # Upload and execute restart script directly
-        curl -T restart.php -u "${{ secrets.FTP_USERNAME }}:${{ secrets.FTP_PASSWORD }}" "ftp://star-siec.edu.vn/ix.star-siec.edu.vn/"
-        curl "https://ix.star-siec.edu.vn/restart.php"
+        # Upload and execute restart script with retries
+        for i in 1 2 3; do
+          if curl -T restart.php -u "${{ secrets.FTP_USERNAME }}:${{ secrets.FTP_PASSWORD }}" "ftp://star-siec.edu.vn/ix.star-siec.edu.vn/"; then
+            break
+          fi
+          echo "Retry $i..."
+          sleep 5
+        done
+        
+        # Execute restart script with error checking
+        response=$(curl -s "https://ix.star-siec.edu.vn/restart.php")
+        if [[ $response == *"Error"* ]] || [[ $response == *"failed"* ]]; then
+          echo "Error in restart script:"
+          echo "$response"
+          exit 1
+        fi
+        
+        echo "Server restart completed successfully"
         rm restart.php
