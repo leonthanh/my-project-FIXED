@@ -1,0 +1,244 @@
+name: Deploy to cPanel
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      cache-key: ${{ steps.cache-key.outputs.value }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: cache-key
+        run: echo "value=${{ github.sha }}" >> $GITHUB_OUTPUT
+
+  frontend:
+    needs: prepare
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check required secrets
+        run: |
+          if [ -z "${{ secrets.FTP_USERNAME }}" ]; then
+            echo "::error::FTP_USERNAME secret is not set. Please configure it in repository settings."
+            exit 1
+          fi
+          if [ -z "${{ secrets.FTP_PASSWORD }}" ]; then
+            echo "::error::FTP_PASSWORD secret is not set. Please configure it in repository settings."
+            exit 1
+          fi
+
+  build-and-deploy:
+    needs: check-secrets
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '16.x'
+        cache: 'npm'
+        cache-dependency-path: |
+          frontend/package-lock.json
+          backend/package-lock.json
+
+    # Cache frontend node_modules
+    - name: Cache Frontend Dependencies
+      uses: actions/cache@v3
+      with:
+        path: frontend/node_modules
+        key: ${{ runner.os }}-frontend-${{ hashFiles('frontend/package-lock.json') }}
+        restore-keys: |
+          ${{ runner.os }}-frontend-
+
+    # Cache backend node_modules
+    - name: Cache Backend Dependencies
+      uses: actions/cache@v3
+      with:
+        path: backend/node_modules
+        key: ${{ runner.os }}-backend-${{ hashFiles('backend/package-lock.json') }}
+        restore-keys: |
+          ${{ runner.os }}-backend-
+
+    # Build Frontend
+    - name: Install & Build Frontend
+      run: |
+        cd frontend
+        echo "REACT_APP_API_URL=https://ix.star-siec.edu.vn/api/" > .env
+        echo "NODE_ENV=production" >> .env
+        echo "Installing frontend dependencies..."
+        npm ci --prefer-offline --no-audit || exit 1
+        echo "Building frontend..."
+        npm run build || exit 1
+        echo "Frontend build completed"
+      env:
+        CI: false
+        NODE_OPTIONS: --max-old-space-size=4096
+
+    # Deploy Frontend - Smart Update
+    - name: Deploy Frontend
+      uses: SamKirkland/FTP-Deploy-Action@4.0.0
+      with:
+        server: star-siec.edu.vn
+        username: ${{ secrets.FTP_USERNAME }}
+        password: ${{ secrets.FTP_PASSWORD }}
+        local-dir: frontend/build/
+        server-dir: /ix.star-siec.edu.vn/frontend/build/
+        dangerous-clean-slate: false
+        exclude: |
+          **/*.map
+          **/*.LICENSE.txt
+          **/*.txt
+          **/node_modules/**
+        log-level: minimal
+        timeout: 120000
+        dry-run: false
+
+    # Prepare and Deploy Backend in steps
+    - name: Create Backend Package
+      run: |
+        # Create temp directory
+        mkdir -p backend-temp
+        
+        # Create minimal package.json for production
+        echo '{
+          "name": "backend",
+          "version": "1.0.0",
+          "main": "server.js",
+          "dependencies": {
+            "cors": "2.8.5",
+            "dotenv": "16.3.1",
+            "express": "4.18.2",
+            "multer": "1.4.5-lts.1",
+            "mysql2": "3.6.1",
+            "sequelize": "6.33.0",
+            "bcryptjs": "3.0.2",
+            "openai": "4.7.1"
+          }
+        }' > backend-temp/package.json
+        
+        # Copy core backend files
+        cp backend/server.js backend-temp/
+        cp backend/db.js backend-temp/
+        mkdir -p backend-temp/routes backend-temp/models backend-temp/uploads
+        cp -r backend/routes/* backend-temp/routes/
+        cp -r backend/models/* backend-temp/models/
+        cp -r backend/uploads/* backend-temp/uploads/ || true
+        
+        # Create env file
+        echo "NODE_ENV=production" > backend-temp/.env
+        echo "PORT=3000" >> backend-temp/.env
+        echo "DB_HOST=localhost" >> backend-temp/.env
+        echo "DB_NAME=wsxcblqh_ix" >> backend-temp/.env
+        echo "DB_USER=wsxcblqh_thanh" >> backend-temp/.env
+        echo "DB_PASS=@Thanh562184" >> backend-temp/.env
+        
+        # Install minimal dependencies
+        cd backend-temp
+        npm install --production --no-optional
+
+    # Smart Backend Deployment
+    - name: Check Backend Changes
+      id: check_backend
+      run: |
+        # Get full git history for comparison
+        git fetch --prune --unshallow || true
+        
+        # Get list of changed files in backend directory
+        CHANGED_FILES=$(git diff --name-only ${{ github.event.before }} ${{ github.event.after }} backend/ || echo "all")
+        echo "Changed files in backend: $CHANGED_FILES"
+        
+        # Always deploy backend on first run or if can't determine changes
+        if [ "$CHANGED_FILES" = "all" ] || [ -n "$CHANGED_FILES" ]; then
+          echo "changed=true" >> $GITHUB_OUTPUT
+        else
+          echo "changed=false" >> $GITHUB_OUTPUT
+        fi
+
+    # Deploy Backend only if changed
+    - name: Deploy Backend Files
+      if: steps.check_backend.outputs.changed == 'true'
+      uses: SamKirkland/FTP-Deploy-Action@4.0.0
+      with:
+        server: star-siec.edu.vn
+        username: ${{ secrets.FTP_USERNAME }}
+        password: ${{ secrets.FTP_PASSWORD }}
+        local-dir: backend-temp/
+        server-dir: /ix.star-siec.edu.vn/backend/
+        dangerous-clean-slate: false
+        exclude: |
+          **/node_modules/**
+          **/*.map
+          **/*.md
+          package-lock.json
+          
+    # Install dependencies if backend changed
+    - name: Update Backend Dependencies
+      if: steps.check_backend.outputs.changed == 'true'
+      run: |
+        echo "<?php
+        \$output = shell_exec('cd /home/wsxcblqh/ix.star-siec.edu.vn/backend && npm install --production');
+        echo \$output;
+        ?>" > update.php
+        curl -T update.php "ftp://${{ secrets.FTP_USERNAME }}:${{ secrets.FTP_PASSWORD }}@star-siec.edu.vn/ix.star-siec.edu.vn/backend/"
+        curl "https://ix.star-siec.edu.vn/backend/update.php"
+
+    # Server Restart with Error Handling
+    - name: Restart Server
+      run: |
+        echo "<?php
+        \$output = '';
+        
+        // Change to backend directory and install dependencies
+        \$install_output = shell_exec('cd /home/wsxcblqh/ix.star-siec.edu.vn/backend && /usr/local/bin/npm install --production 2>&1');
+        \$output .= \"Install output: \$install_output\\n\";
+        
+        if (strpos(\$install_output, 'ERR!') !== false) {
+            echo \"<pre>Error during npm install:\\n\$install_output</pre>\";
+            exit(1);
+        }
+        
+        // Stop any existing PM2 process
+        \$stop_output = shell_exec('/usr/local/bin/pm2 delete server 2>/dev/null || true');
+        \$output .= \"Stop output: \$stop_output\\n\";
+        
+        // Start new PM2 process with environment variables
+        \$cmd = 'cd /home/wsxcblqh/ix.star-siec.edu.vn/backend && NODE_ENV=production /usr/local/bin/pm2 start server.js --name \"server\" 2>&1';
+        \$start_output = shell_exec(\$cmd);
+        \$output .= \"Start output: \$start_output\\n\";
+        
+        // Get PM2 status
+        \$status = shell_exec('/usr/local/bin/pm2 list 2>&1');
+        \$output .= \"PM2 Status:\\n\$status\";
+        
+        // Check if server is running
+        \$list_output = shell_exec('/usr/local/bin/pm2 list');
+        if (strpos(\$list_output, 'server') === false || strpos(\$list_output, 'errored') !== false) {
+            echo \"<pre>Error: Server failed to start\\n\$output</pre>\";
+            exit(1);
+        }
+        
+        echo \"<pre>\$output</pre>\";
+        ?>" > restart.php
+        
+        # Upload and execute restart script with retries
+        for i in 1 2 3; do
+          if curl -T restart.php -u "${{ secrets.FTP_USERNAME }}:${{ secrets.FTP_PASSWORD }}" "ftp://star-siec.edu.vn/ix.star-siec.edu.vn/"; then
+            break
+          fi
+          echo "Retry $i..."
+          sleep 5
+        done
+        
+        # Execute restart script with error checking
+        response=$(curl -s "https://ix.star-siec.edu.vn/restart.php")
+        if [[ $response == *"Error"* ]] || [[ $response == *"failed"* ]]; then
+          echo "Error in restart script:"
+          echo "$response"
+          exit 1
+        fi
+        
+        echo "Server restart completed successfully"
+        rm restart.php
