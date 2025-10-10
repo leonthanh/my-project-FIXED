@@ -28,7 +28,7 @@ jobs:
           NODE_OPTIONS: --max-old-space-size=4096
 
       - name: Deploy Frontend
-        uses: SamKirkland/FTP-Deploy-Action@v4
+        uses: SamKirkland/FTP-Deploy-Action@4.3.3
         with:
           server: star-siec.edu.vn
           username: ${{ secrets.FTP_USERNAME }}
@@ -88,7 +88,7 @@ jobs:
           npm ci --prefer-offline --no-audit --no-progress --production
 
       - name: Deploy Backend
-        uses: SamKirkland/FTP-Deploy-Action@v4
+        uses: SamKirkland/FTP-Deploy-Action@4.3.3
         with:
           server: star-siec.edu.vn
           username: ${{ secrets.FTP_USERNAME }}
