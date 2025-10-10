@@ -57,26 +57,16 @@ jobs:
 
       - name: Create Backend Package
         run: |
+          # Copy essential backend files
           mkdir -p backend-temp
           cp backend/{server.js,db.js} backend-temp/
           cp -r backend/{routes,models,uploads} backend-temp/
-          echo '{
-            "name": "backend",
-            "version": "1.0.0",
-            "main": "server.js",
-            "type": "commonjs",
-            "dependencies": {
-              "cors": "2.8.5",
-              "dotenv": "16.3.1",
-              "express": "4.18.2",
-              "multer": "1.4.5-lts.1",
-              "mysql2": "3.6.1",
-              "sequelize": "6.33.0",
-              "bcryptjs": "3.0.2",
-              "openai": "4.7.1"
-            }
-          }' > backend-temp/package.json
           
+          # Copy package files for proper dependency installation
+          cp backend/package.json backend-temp/
+          cp backend/package-lock.json backend-temp/ || true
+          
+          # Create env file
           echo "NODE_ENV=production" > backend-temp/.env
           echo "PORT=3000" >> backend-temp/.env
           echo "DB_HOST=localhost" >> backend-temp/.env
@@ -84,8 +74,15 @@ jobs:
           echo "DB_USER=wsxcblqh_thanh" >> backend-temp/.env
           echo "DB_PASS=@Thanh562184" >> backend-temp/.env
           
+          # Install dependencies
           cd backend-temp
-          npm ci --prefer-offline --no-audit --no-progress --production
+          if [ -f "package-lock.json" ]; then
+            echo "Installing dependencies with npm ci..."
+            npm ci --prefer-offline --no-audit --no-progress --production
+          else
+            echo "No package-lock.json found, using npm install..."
+            npm install --prefer-offline --no-audit --no-progress --production
+          fi
 
       - name: Deploy Backend
         uses: SamKirkland/FTP-Deploy-Action@4.3.3
