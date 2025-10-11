@@ -41,13 +41,21 @@ jobs:
           NODE_OPTIONS: --max-old-space-size=4096
 
       - name: Deploy Frontend
-        run: |
-          echo "Loading deploy functions..."
-          source .github/workflows/deploy-functions.sh
-          
-          echo "Starting frontend deployment..."
-          deploy_with_retry "frontend/build" "/ix.star-siec.edu.vn/frontend/build" || exit 1
-          echo "Frontend deployment completed"
+        uses: SamKirkland/FTP-Deploy-Action@4.3.3
+        with:
+          server: star-siec.edu.vn
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          local-dir: frontend/build/
+          server-dir: /ix.star-siec.edu.vn/frontend/build/
+          dangerous-clean-slate: false
+          exclude: |
+            **/*.map
+            **/*.txt
+            **/LICENSE
+          state-name: .ftp-deploy-sync-state-frontend.json
+          log-level: minimal
+          timeout: 120000
 
   backend:
     needs: prepare
@@ -81,24 +89,27 @@ jobs:
           echo "DB_USER=wsxcblqh_thanh" >> backend-temp/.env
           echo "DB_PASS=@Thanh562184" >> backend-temp/.env
           
-          # Install dependencies
-          cd backend-temp
-          if [ -f "package-lock.json" ]; then
-            echo "Installing dependencies with npm ci..."
-            npm ci --prefer-offline --no-audit --no-progress --production
-          else
-            echo "No package-lock.json found, using npm install..."
-            npm install --prefer-offline --no-audit --no-progress --production
-          fi
+          # Do NOT install node_modules here to avoid uploading many files.
+          # Dependencies will be installed on the server during Restart Server step.
+          echo "Backend package prepared (no node_modules)."
 
       - name: Deploy Backend
-        run: |
-          echo "Loading deploy functions..."
-          source .github/workflows/deploy-functions.sh
-          
-          echo "Starting backend deployment..."
-          deploy_with_retry "backend-temp" "/ix.star-siec.edu.vn/backend" || exit 1
-          echo "Backend deployment completed"
+        uses: SamKirkland/FTP-Deploy-Action@4.3.3
+        with:
+          server: star-siec.edu.vn
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          local-dir: backend-temp/
+          server-dir: /ix.star-siec.edu.vn/backend/
+          dangerous-clean-slate: false
+          exclude: |
+            **/node_modules/**
+            **/*.map
+            **/*.md
+            package-lock.json
+          state-name: .ftp-deploy-sync-state-backend.json
+          log-level: minimal
+          timeout: 300000
 
       - name: Restart Server
         env:

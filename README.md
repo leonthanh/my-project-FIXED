@@ -31,3 +31,17 @@
 ## Xác Nhận Cài Đặt
 
 Sau khi thêm secrets, GitHub Actions workflows sẽ có thể truy cập chúng một cách an toàn qua `${{ secrets.FTP_USERNAME }}` và `${{ secrets.FTP_PASSWORD }}`.
+
+## Lưu ý cho triển khai backend
+
+Workflow hiện tại không upload `node_modules` để tránh gửi hàng trăm nghìn file. Thay vào đó:
+
+- `backend/package.json` và (tùy chọn) `backend/package-lock.json` phải tồn tại trong repo.
+- Sau khi upload, workflow sẽ chạy script trên server (qua một file PHP) để thực hiện `npm ci --production` trên server cPanel.
+- Đảm bảo server có Node/npm/PM2 và có quyền chạy các lệnh đó từ PHP (nếu không, bạn cần cài đặt thủ công hoặc dùng SSH).
+
+Nếu server của bạn không cho phép chạy npm qua PHP, cân nhắc một trong các phương án:
+
+- Chạy `npm ci` trên runner và upload một `backend-temp` đã chứa `node_modules` (không khuyến nghị vì lớn).
+- Đặt một task cron/SSH để cài dependencies sau khi upload.
+- Sử dụng SFTP/SSH deploy thay vì FTP để có khả năng chạy lệnh từ runner.
