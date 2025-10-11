@@ -3,10 +3,18 @@ on:
   push:
     branches: [ main ]
 
-env:
-  FTP_HOST: star-siec.edu.vn
-  FTP_USER: ${{ secrets.FTP_USERNAME }}
-  FTP_PASS: ${{ secrets.FTP_PASSWORD }}
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      frontend-hash: ${{ steps.hash.outputs.frontend }}
+      backend-hash: ${{ steps.hash.outputs.backend }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: hash
+        run: |
+          echo "frontend=$(find frontend -type f -exec md5sum {} \; | sort | md5sum | cut -d' ' -f1)" >> $GITHUB_OUTPUT
+          echo "backend=$(find backend -type f -exec md5sum {} \; | sort | md5sum | cut -d' ' -f1)" >> $GITHUB_OUTPUT
 
 jobs:
   frontend:
