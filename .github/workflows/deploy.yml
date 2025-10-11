@@ -16,8 +16,8 @@ jobs:
           echo "frontend=$(find frontend -type f -exec md5sum {} \; | sort | md5sum | cut -d' ' -f1)" >> $GITHUB_OUTPUT
           echo "backend=$(find backend -type f -exec md5sum {} \; | sort | md5sum | cut -d' ' -f1)" >> $GITHUB_OUTPUT
 
-jobs:
   frontend:
+    needs: prepare
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -50,6 +50,7 @@ jobs:
           echo "Frontend deployment completed"
 
   backend:
+    needs: prepare
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -100,6 +101,9 @@ jobs:
           echo "Backend deployment completed"
 
       - name: Restart Server
+        env:
+          FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+          FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
         run: |
           echo "<?php
           \$output = '';
@@ -135,7 +139,7 @@ jobs:
           max_retries=3
           retry_count=0
           while [ $retry_count -lt $max_retries ]; do
-            if curl -s -T restart.php -u "${{ secrets.FTP_USERNAME }}:${{ secrets.FTP_PASSWORD }}" "ftp://star-siec.edu.vn/ix.star-siec.edu.vn/"; then
+            if curl -s -T restart.php -u "$FTP_USERNAME:$FTP_PASSWORD" "ftp://star-siec.edu.vn/ix.star-siec.edu.vn/"; then
               response=$(curl -s "https://ix.star-siec.edu.vn/restart.php")
               if [[ $response != *"Error"* ]] && [[ $response != *"failed"* ]]; then
                 echo "Server restarted successfully"
