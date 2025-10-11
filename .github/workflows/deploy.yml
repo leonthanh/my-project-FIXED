@@ -3,6 +3,11 @@ on:
   push:
     branches: [ main ]
 
+env:
+  FTP_HOST: star-siec.edu.vn
+  FTP_USER: ${{ secrets.FTP_USERNAME }}
+  FTP_PASS: ${{ secrets.FTP_PASSWORD }}
+
 jobs:
   frontend:
     runs-on: ubuntu-latest
@@ -28,20 +33,13 @@ jobs:
           NODE_OPTIONS: --max-old-space-size=4096
 
       - name: Deploy Frontend
-        uses: SamKirkland/FTP-Deploy-Action@4.3.3
-        with:
-          server: star-siec.edu.vn
-          username: ${{ secrets.FTP_USERNAME }}
-          password: ${{ secrets.FTP_PASSWORD }}
-          local-dir: frontend/build/
-          server-dir: /ix.star-siec.edu.vn/frontend/build/
-          dangerous-clean-slate: false
-          exclude: |
-            **/*.map
-            **/*.txt
-            **/LICENSE
-          log-level: minimal
-          timeout: 60000
+        run: |
+          echo "Loading deploy functions..."
+          source .github/workflows/deploy-functions.sh
+          
+          echo "Starting frontend deployment..."
+          deploy_with_retry "frontend/build" "/ix.star-siec.edu.vn/frontend/build" || exit 1
+          echo "Frontend deployment completed"
 
   backend:
     runs-on: ubuntu-latest
@@ -85,20 +83,13 @@ jobs:
           fi
 
       - name: Deploy Backend
-        uses: SamKirkland/FTP-Deploy-Action@4.3.3
-        with:
-          server: star-siec.edu.vn
-          username: ${{ secrets.FTP_USERNAME }}
-          password: ${{ secrets.FTP_PASSWORD }}
-          local-dir: backend-temp/
-          server-dir: /ix.star-siec.edu.vn/backend/
-          dangerous-clean-slate: false
-          exclude: |
-            **/*.map
-            **/*.md
-            package-lock.json
-          log-level: minimal
-          timeout: 60000
+        run: |
+          echo "Loading deploy functions..."
+          source .github/workflows/deploy-functions.sh
+          
+          echo "Starting backend deployment..."
+          deploy_with_retry "backend-temp" "/ix.star-siec.edu.vn/backend" || exit 1
+          echo "Backend deployment completed"
 
       - name: Restart Server
         run: |
