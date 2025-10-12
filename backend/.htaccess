@@ -1,0 +1,6 @@
+SetEnv NODE_ENV production
+SetEnv PROD_DB_HOST localhost
+SetEnv PROD_DB_NAME wsxcblqh_ix
+SetEnv PROD_DB_USER wsxcblqh_thanh
+SetEnv PROD_DB_PASS @Thanh562184
+SetEnv PORT 3000

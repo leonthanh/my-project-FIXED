@@ -21,6 +21,14 @@ sequelize.authenticate()
     console.log('✅ Kết nối database thành công');
   })
   .catch(err => {
-    console.error('❌ Lỗi kết nối database:', err);
+    console.error('❌ Lỗi kết nối database:', err.message);
   });
+// Debug log
+console.log('Environment:', {
+  NODE_ENV: process.env.NODE_ENV,
+  DB_HOST: isProd ? process.env.PROD_DB_HOST : process.env.DB_HOST,
+  DB_NAME: isProd ? process.env.PROD_DB_NAME : process.env.DB_NAME,
+  DB_USER: isProd ? process.env.PROD_DB_USER : process.env.DB_USER
+});
+
 module.exports = sequelize;
