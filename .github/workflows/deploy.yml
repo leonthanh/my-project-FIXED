@@ -2,10 +2,6 @@ name: Deploy to cPanel
 on:
   push:
     branches: [ main ]
-    # only run when backend or frontend change to avoid unnecessary deploys
-    paths:
-      - 'backend/**'
-      - 'frontend/**'
 
 concurrency:
   group: deploy-to-cpanel
