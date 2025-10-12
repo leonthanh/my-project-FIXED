@@ -14,7 +14,6 @@ const User = sequelize.define('User', {
   },
   phone: {
     type: DataTypes.STRING(20),
-    unique: true,
     allowNull: false,
   },
   password: { // ✅ Trường password
@@ -30,8 +29,13 @@ const User = sequelize.define('User', {
   timestamps: true,
 });
 
-// ✅ Hook: Tự động mã hóa mật khẩu trước khi tạo user mới
+// Check for duplicate phone before create
 User.beforeCreate(async (user, options) => {
+  const existingUser = await User.findOne({ where: { phone: user.phone } });
+  if (existingUser) {
+    throw new Error('Phone number already exists');
+  }
+  
   if (user.password) {
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(user.password, salt);
@@ -39,8 +43,20 @@ User.beforeCreate(async (user, options) => {
   }
 });
 
-// ✅ Hook: Mã hóa mật khẩu khi cập nhật (nếu có thay đổi)
+// Check for duplicate phone before update
 User.beforeUpdate(async (user, options) => {
+  if (user.changed('phone')) {
+    const existingUser = await User.findOne({ 
+      where: { 
+        phone: user.phone,
+        id: { [sequelize.Sequelize.Op.ne]: user.id }  // Exclude current user
+      } 
+    });
+    if (existingUser) {
+      throw new Error('Phone number already exists');
+    }
+  }
+
   if (user.changed('password')) {
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(user.password, salt);
