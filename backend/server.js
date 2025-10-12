@@ -46,7 +46,7 @@ app.use('/api/writing', writingSubmissionRoutes);
 app.use('/api/listening-tests', listeningTestsRoute);
 
 // ✅ Serve frontend React build
-const frontendPath = path.join(__dirname, 'frontend', 'build');
+const frontendPath = path.join(__dirname, '..', 'frontend', 'build');
 app.use(express.static(frontendPath));
 app.get(/^\/(?!api).*/, (req, res) => {
   res.sendFile(path.join(frontendPath, 'index.html'));
