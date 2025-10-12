@@ -2,6 +2,14 @@ name: Deploy to cPanel
 on:
   push:
     branches: [ main ]
+    # only run when backend or frontend change to avoid unnecessary deploys
+    paths:
+      - 'backend/**'
+      - 'frontend/**'
+
+concurrency:
+  group: deploy-to-cpanel
+  cancel-in-progress: true
 
 jobs:
   prepare:
@@ -10,17 +18,66 @@ jobs:
       frontend-hash: ${{ steps.hash.outputs.frontend }}
       backend-hash: ${{ steps.hash.outputs.backend }}
     steps:
+      # shallow checkout to speed up operations
       - uses: actions/checkout@v4
-      - id: hash
+        with:
+          fetch-depth: 1
+      - name: Compute changed tree hashes
+        id: hash
         run: |
-          echo "frontend=$(find frontend -type f -exec md5sum {} \; | sort | md5sum | cut -d' ' -f1)" >> $GITHUB_OUTPUT
-          echo "backend=$(find backend -type f -exec md5sum {} \; | sort | md5sum | cut -d' ' -f1)" >> $GITHUB_OUTPUT
+          # Use git to compute a compact hash of the tree for each folder (fast)
+          if [ -d frontend ]; then
+            frontend_hash=$(git rev-list --objects HEAD -- frontend | git hash-object --stdin 2>/dev/null || echo "")
+            echo "frontend=$frontend_hash" >> $GITHUB_OUTPUT
+          else
+            echo "frontend=" >> $GITHUB_OUTPUT
+          fi
+          if [ -d backend ]; then
+            backend_hash=$(git rev-list --objects HEAD -- backend | git hash-object --stdin 2>/dev/null || echo "")
+            echo "backend=$backend_hash" >> $GITHUB_OUTPUT
+          else
+            echo "backend=" >> $GITHUB_OUTPUT
+          fi
+      - name: Create frontend artifact
+        if: steps.hash.outputs.frontend != ''
+        run: |
+          set -e
+          if [ -d frontend ]; then
+            cd frontend
+            # include package.json and lockfile for deterministic build
+            zip -r ../frontend-artifact.zip package.json package-lock.json public src build || true
+            cd ..
+          fi
+      - name: Create backend artifact
+        if: steps.hash.outputs.backend != ''
+        run: |
+          set -e
+          if [ -d backend ]; then
+            cd backend
+            zip -r ../backend-artifact.zip server.js db.js routes models uploads package.json package-lock.json || true
+            cd ..
+          fi
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: deploy-artifacts
+          path: |
+            frontend-artifact.zip
+            backend-artifact.zip
 
   frontend:
     needs: prepare
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: deploy-artifacts
+          path: .
+      - name: Unpack frontend
+        if: needs.prepare.outputs.frontend-hash != ''
+        run: |
+          unzip -o frontend-artifact.zip -d frontend || true
       
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -61,7 +118,15 @@ jobs:
     needs: prepare
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: deploy-artifacts
+          path: .
+      - name: Unpack backend
+        if: needs.prepare.outputs.backend-hash != ''
+        run: |
+          unzip -o backend-artifact.zip -d backend-temp || true
       
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -70,28 +135,18 @@ jobs:
           cache: 'npm'
           cache-dependency-path: backend/package-lock.json
 
-      - name: Create Backend Package
+      - name: Prepare backend package
+        if: needs.prepare.outputs.backend-hash != ''
         run: |
-          # Copy essential backend files
-          mkdir -p backend-temp
-          cp backend/{server.js,db.js} backend-temp/
-          cp -r backend/{routes,models,uploads} backend-temp/
-          
-          # Copy package files for proper dependency installation
-          cp backend/package.json backend-temp/
-          cp backend/package-lock.json backend-temp/ || true
-          
-          # Create env file
+          set -e
+          # create env file inside backend-temp
           echo "NODE_ENV=production" > backend-temp/.env
           echo "PORT=3000" >> backend-temp/.env
           echo "DB_HOST=localhost" >> backend-temp/.env
           echo "DB_NAME=wsxcblqh_ix" >> backend-temp/.env
           echo "DB_USER=wsxcblqh_thanh" >> backend-temp/.env
           echo "DB_PASS=@Thanh562184" >> backend-temp/.env
-          
-          # Do NOT install node_modules here to avoid uploading many files.
-          # Dependencies will be installed on the server during Restart Server step.
-          echo "Backend package prepared (no node_modules)."
+          ls -la backend-temp || true
 
       - name: Deploy Backend
         uses: SamKirkland/FTP-Deploy-Action@4.3.3
