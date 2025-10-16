@@ -85,7 +85,7 @@ jobs:
       - name: Install & Build Frontend
         run: |
           cd frontend
-          echo "REACT_APP_API_URL=https://ix.star-siec.edu.vn/api/" > .env
+          echo "REACT_APP_API_URL=https://ix.star-siec.edu.vn" > .env
           echo "NODE_ENV=production" >> .env
           npm ci --prefer-offline --no-audit --no-progress || exit 1
           npm run build --no-progress || exit 1
