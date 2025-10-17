@@ -1,3 +1,10 @@
+const fs = require('fs');
+const logStream = fs.createWriteStream('./error.log', { flags: 'a' });
+
+process.on('uncaughtException', (err) => {
+  logStream.write(`[${new Date().toISOString()}] Uncaught Exception: ${err.stack}\n`);
+});
+
 require('dotenv').config(); // ✅ Đặt đầu tiên
 
 const express = require('express');
