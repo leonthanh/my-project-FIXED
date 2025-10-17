@@ -6,7 +6,6 @@ on:
 concurrency:
   group: deploy-to-cpanel
   cancel-in-progress: true
-
 jobs:
   prepare:
     runs-on: ubuntu-latest
@@ -14,14 +13,12 @@ jobs:
       frontend-hash: ${{ steps.hash.outputs.frontend }}
       backend-hash: ${{ steps.hash.outputs.backend }}
     steps:
-      # shallow checkout to speed up operations
       - uses: actions/checkout@v4
         with:
           fetch-depth: 1
       - name: Compute changed tree hashes
         id: hash
         run: |
-          # Use git to compute a compact hash of the tree for each folder (fast)
           if [ -d frontend ]; then
             frontend_hash=$(git rev-list --objects HEAD -- frontend | git hash-object --stdin 2>/dev/null || echo "")
             echo "frontend=$frontend_hash" >> $GITHUB_OUTPUT
@@ -38,21 +35,14 @@ jobs:
         if: steps.hash.outputs.frontend != ''
         run: |
           set -e
-          if [ -d frontend ]; then
-            cd frontend
-            # include package.json and lockfile for deterministic build
-            zip -r ../frontend-artifact.zip package.json package-lock.json public src build || true
-            cd ..
-          fi
+          cd frontend
+          zip -r ../frontend-artifact.zip package.json package-lock.json public src build || true
       - name: Create backend artifact
         if: steps.hash.outputs.backend != ''
         run: |
           set -e
-          if [ -d backend ]; then
-            cd backend
-            zip -r ../backend-artifact.zip server.js db.js routes models uploads package.json package-lock.json || true
-            cd ..
-          fi
+          cd backend
+          zip -r ../backend-artifact.zip server.js db.js routes models uploads package.json package-lock.json || true
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -74,14 +64,12 @@ jobs:
         if: needs.prepare.outputs.frontend-hash != ''
         run: |
           unzip -o frontend-artifact.zip -d frontend || true
-      
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '16.x'
           cache: 'npm'
           cache-dependency-path: frontend/package-lock.json
-
       - name: Install & Build Frontend
         run: |
           cd frontend
@@ -92,7 +80,6 @@ jobs:
         env:
           CI: false
           NODE_OPTIONS: --max-old-space-size=4096
-
       - name: Deploy Frontend
         uses: SamKirkland/FTP-Deploy-Action@4.3.3
         with:
@@ -123,17 +110,14 @@ jobs:
         if: needs.prepare.outputs.backend-hash != ''
         run: |
           unzip -o backend-artifact.zip -d backend-temp || true
-      
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '16.x'
-
       - name: Prepare backend package
         if: needs.prepare.outputs.backend-hash != ''
         run: |
           set -e
-          # create env file inside backend-temp
           echo "NODE_ENV=production" > backend-temp/.env
           echo "PORT=3000" >> backend-temp/.env
           echo "DB_HOST=localhost" >> backend-temp/.env
@@ -141,7 +125,6 @@ jobs:
           echo "DB_USER=wsxcblqh_thanh" >> backend-temp/.env
           echo "DB_PASS=@Thanh562184" >> backend-temp/.env
           ls -la backend-temp || true
-
       - name: Deploy Backend
         uses: SamKirkland/FTP-Deploy-Action@4.3.3
         with:
@@ -159,56 +142,7 @@ jobs:
           state-name: .ftp-deploy-sync-state-backend.json
           log-level: minimal
           timeout: 300000
-
-      - name: Restart Server
-        env:
-          FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
-          FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+      - name: Notify Manual Restart
         run: |
-          echo "<?php
-          \$output = '';
-          try {
-              // Install dependencies
-              \$install = shell_exec('cd /home/wsxcblqh/ix.star-siec.edu.vn/backend && /usr/local/bin/npm ci --production 2>&1');
-              \$output .= \"Install: \$install\\n\";
-              
-              // Stop PM2
-              \$stop = shell_exec('/usr/local/bin/pm2 delete server 2>/dev/null || true');
-              \$output .= \"Stop: \$stop\\n\";
-              
-              // Start PM2
-              \$start = shell_exec('cd /home/wsxcblqh/ix.star-siec.edu.vn/backend && NODE_ENV=production /usr/local/bin/pm2 start server.js --name \"server\" 2>&1');
-              \$output .= \"Start: \$start\\n\";
-              
-              // Check status
-              \$status = shell_exec('/usr/local/bin/pm2 list');
-              if (strpos(\$status, 'online') === false) {
-                  throw new Exception('Server failed to start');
-              }
-              \$output .= \"Status: \$status\";
-              
-          } catch (Exception \$e) {
-              http_response_code(500);
-              echo \"<pre>Error: \" . \$e->getMessage() . \"\\n\$output</pre>\";
-              exit(1);
-          }
-          echo \"<pre>\$output</pre>\";
-          ?>" > restart.php
-          
-          # Upload and execute with retry
-          max_retries=3
-          retry_count=0
-          while [ $retry_count -lt $max_retries ]; do
-            if curl -s -T restart.php -u "$FTP_USERNAME:$FTP_PASSWORD" "ftp://star-siec.edu.vn/ix.star-siec.edu.vn/"; then
-              response=$(curl -s "https://ix.star-siec.edu.vn/restart.php")
-              if [[ $response != *"Error"* ]] && [[ $response != *"failed"* ]]; then
-                echo "Server restarted successfully"
-                rm restart.php
-                exit 0
-              fi
-            fi
-            retry_count=$((retry_count+1))
-            [ $retry_count -lt $max_retries ] && echo "Retry $retry_count..." && sleep 5
-          done
-          echo "Failed to restart server after $max_retries attempts"
-          exit 1
+          echo "✅ Backend đã được deploy lên cPanel."
+          echo "📌 Vui lòng đăng nhập vào cPanel → Setup Node.js App → chọn app → nhấn Restart để khởi động lại server."
