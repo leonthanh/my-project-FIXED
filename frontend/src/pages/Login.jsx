@@ -9,9 +9,10 @@ const Login = () => {
   const [message, setMessage] = useState('');
 
   const navigate = useNavigate();
-  const API_URL = process.env.NODE_ENV === 'development' 
-    ? 'http://localhost:5000'  // Development URL
-    : 'https://ix.star-siec.edu.vn/api'; // Production URL
+  const API_URL = process.env.REACT_APP_API_URL;
+  // NODE_ENV === 'development' 
+  //   ? 'http://localhost:5000'  // Development URL
+  //   : 'https://ix.star-siec.edu.vn/api'; // Production URL
 
   useEffect(() => {
     const user = JSON.parse(localStorage.getItem('user'));
