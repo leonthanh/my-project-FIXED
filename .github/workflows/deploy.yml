@@ -1,3 +1,4 @@
+
 name: Deploy to cPanel
 on:
   push:
@@ -92,7 +93,10 @@ jobs:
           exclude: |
             **/*.map
             **/*.txt
-            **/LICENSE
+            **/LICENSE            
+            **/static/media/*.webp
+            **/static/media/*.svg
+
           state-name: .ftp-deploy-sync-state-frontend.json
           log-level: minimal
           timeout: 1200000
