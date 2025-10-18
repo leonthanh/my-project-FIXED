@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const User = require('../models/User'); // Sequelize model
-
+const { logError } = require('../logger'); // ✅ Import logger
 // Đăng ký
 router.post('/register', async (req, res) => {
   const { name, phone, password, role } = req.body; // ✅ Thêm password
@@ -27,6 +27,7 @@ router.post('/register', async (req, res) => {
 
   } catch (err) {
     console.error('❌ Lỗi khi đăng ký:', err);
+    logError('Lỗi khi đăng ký', err); // ✅ Ghi log vào error.log
     res.status(500).json({ message: 'Lỗi server khi đăng ký.' });
   }
 });
@@ -62,6 +63,7 @@ router.post('/login', async (req, res) => {
 
   } catch (err) {
     console.error('❌ Lỗi khi đăng nhập:', err);
+    logError('Lỗi khi đăng nhập', err); // ✅ Ghi log vào error.log
     res.status(500).json({ message: 'Lỗi server khi đăng nhập.' });
   }
 });
