@@ -141,7 +141,7 @@ jobs:
             package-lock.json
           state-name: .ftp-deploy-sync-state-backend.json
           log-level: minimal
-          timeout: 300000
+          timeout: 600000
       - name: Notify Manual Restart
         run: |
           echo "✅ Backend đã được deploy lên cPanel."
