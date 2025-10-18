@@ -6,6 +6,7 @@ on:
 concurrency:
   group: deploy-to-cpanel
   cancel-in-progress: true
+
 jobs:
   prepare:
     runs-on: ubuntu-latest
@@ -36,7 +37,7 @@ jobs:
         run: |
           set -e
           cd frontend
-          zip -r ../frontend-artifact.zip package.json package-lock.json public src build || true
+          zip -r ../frontend-artifact.zip package.json package-lock.json public src .env.production || true
       - name: Create backend artifact
         if: steps.hash.outputs.backend != ''
         run: |
@@ -73,8 +74,7 @@ jobs:
       - name: Install & Build Frontend
         run: |
           cd frontend
-          echo "REACT_APP_API_URL=https://ix.star-siec.edu.vn" > .env
-          echo "NODE_ENV=production" >> .env
+          cp .env.production .env
           npm ci --prefer-offline --no-audit --no-progress || exit 1
           npm run build --no-progress || exit 1
         env:
@@ -92,7 +92,7 @@ jobs:
           exclude: |
             **/*.map
             **/*.txt
-            **/LICENSE            
+            **/LICENSE
           state-name: .ftp-deploy-sync-state-frontend.json
           log-level: minimal
           timeout: 1200000
