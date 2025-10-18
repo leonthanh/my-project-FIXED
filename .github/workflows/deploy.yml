@@ -95,7 +95,7 @@ jobs:
             **/LICENSE
           state-name: .ftp-deploy-sync-state-frontend.json
           log-level: minimal
-          timeout: 120000
+          timeout: 600000
 
   backend:
     needs: prepare
