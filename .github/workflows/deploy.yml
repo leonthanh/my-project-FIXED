@@ -93,9 +93,11 @@ jobs:
             **/*.map
             **/*.txt
             **/LICENSE
+            **/static/**
           state-name: .ftp-deploy-sync-state-frontend.json
           log-level: minimal
-          timeout: 600000
+          timeout: 900000
+          dry-run: false
 
   backend:
     needs: prepare
