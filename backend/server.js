@@ -1,10 +1,3 @@
-const fs = require('fs');
-const logStream = fs.createWriteStream('./error.log', { flags: 'a' });
-
-process.on('uncaughtException', (err) => {
-  logStream.write(`[${new Date().toISOString()}] Uncaught Exception: ${err.stack}\n`);
-});
-
 require('dotenv').config(); // ✅ Đặt đầu tiên
 
 const express = require('express');
@@ -21,12 +14,14 @@ require('./models/User');
 require('./models/WritingTests');
 require('./models/Submission');
 require('./models/ListeningTest');
+require('./models/ReadingTest');
 
 // ✅ Routes
 const authRoutes = require('./routes/auth');
 const writingTestsRoute = require('./routes/writingTest');
 const writingSubmissionRoutes = require('./routes/writing-submission');
 const listeningTestsRoute = require('./routes/listeningTests');
+const readingTestsRoute = require('./routes/readingTest');
 const aiRoutes = require('./routes/ai'); // ✅ Đưa lên trước khi dùng
 
 // Middleware
@@ -51,6 +46,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/writing-tests', writingTestsRoute);
 app.use('/api/writing', writingSubmissionRoutes);
 app.use('/api/listening-tests', listeningTestsRoute);
+app.use('/api/reading-tests', readingTestsRoute);
 
 // ✅ Serve frontend React build
 const frontendPath = path.join(__dirname, '..', 'frontend', 'build');

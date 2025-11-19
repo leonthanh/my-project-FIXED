@@ -13,7 +13,10 @@ const ListeningPart = ({
   instruction,
   onTypeChange, 
   onInstructionChange,
-  onQuestionChange 
+  onQuestionChange,
+  startFromNumber = 1,
+  onAddOption,
+  onRemoveOption
 }) => {
   return (
     <div style={{ marginBottom: '40px' }}>
@@ -56,7 +59,7 @@ const ListeningPart = ({
           backgroundColor: '#f9f9f9'
         }}>
           <h4 style={{ marginTop: 0 }}>
-            Câu {index + ((partNumber - 1) * 10) + 1}
+            Câu {index + startFromNumber}
           </h4>
           
           {partType === 'fill' && (
@@ -97,6 +100,13 @@ const ListeningPart = ({
               onChange={(updatedQuestion) => onQuestionChange(index, updatedQuestion)}
               type="image"
             />
+          )}
+          {/* Parent-level option controls (Add/Remove) */}
+          {Array.isArray(question.options) && (
+            <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+              <button type="button" onClick={() => onAddOption && onAddOption(index)} style={{ padding: '6px 10px', borderRadius: 6, border: '1px solid #ccc', background: '#fff' }}>Thêm lựa chọn</button>
+              <button type="button" onClick={() => onRemoveOption && onRemoveOption(index)} style={{ padding: '6px 10px', borderRadius: 6, border: '1px solid #ccc', background: '#fff' }}>Xóa lựa chọn cuối</button>
+            </div>
           )}
         </div>
       ))}

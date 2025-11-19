@@ -13,6 +13,9 @@ import ReviewSubmission from './pages/ReviewSubmission';
 
 import Review from './pages/Review';
 import CreateListeningTest from './pages/CreateListeningTest';
+import CreateReadingTest from './pages/CreateReadingTest';
+import DoReadingTest from './pages/DoReadingTest';
+
 const isLoggedIn = () => {
   const user = localStorage.getItem('user');
   return !!user;
@@ -49,6 +52,12 @@ function App() {
             <CreateListeningTest />
           </ProtectedRoute>
         } />
+        <Route path="/admin/create-reading" element={
+          <ProtectedRoute role="teacher">
+            <CreateReadingTest />
+          </ProtectedRoute>
+        } />
+        <Route path="/reading/:id" element={isLoggedIn() ? <DoReadingTest /> : <Navigate to="/login" replace />} />
         <Route path="/review/:id" element={
           <ProtectedRoute role="teacher">
             <ReviewSubmission />

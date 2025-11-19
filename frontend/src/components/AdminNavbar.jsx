@@ -124,6 +124,20 @@ const AdminNavbar = () => {
               >
                 🎧 Listening
               </Link>
+              <Link 
+                to="/admin/create-reading" 
+                style={{
+                  display: 'block',
+                  padding: '10px 15px',
+                  color: '#333',
+                  textDecoration: 'none',
+                  transition: 'background 0.2s'
+                }}
+                onMouseOver={e => e.currentTarget.style.background = '#f0f0f0'}
+                onMouseOut={e => e.currentTarget.style.background = 'white'}
+              >
+                📖 Reading
+              </Link>
             </div>
           )}
         </div>

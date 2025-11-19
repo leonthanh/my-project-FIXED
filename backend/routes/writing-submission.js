@@ -34,18 +34,39 @@ router.post('/submit', async (req, res) => {
     const classCode = writingTest?.classCode || 'N/A';
     const teacherName = writingTest?.teacherName || 'N/A';
 
-    // Gửi email
+    // Gửi email — chọn transporter theo biến môi trường. Nếu deploy trên cPanel
+    // thường nên dùng SMTP do host cung cấp hoặc dùng sendmail nếu có.
     try {
-      const transporter = nodemailer.createTransport({
-        service: 'gmail',
-        auth: {
-          user: process.env.EMAIL_USER,
-          pass: process.env.EMAIL_PASS,
-        },
-      });
+      let transporter;
+
+      // Prefer explicit SMTP settings (recommended for cPanel)
+      if (process.env.SMTP_HOST) {
+        const smtpOpts = {
+          host: process.env.SMTP_HOST,
+          port: Number(process.env.SMTP_PORT) || 465,
+          secure: (process.env.SMTP_SECURE === 'true') || (process.env.SMTP_PORT == 465),
+        };
+        if (process.env.SMTP_USER) smtpOpts.auth = { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS };
+        // allow self-signed certs in some shared hosting setups (optional)
+        if (process.env.SMTP_TLS_REJECT === 'false') smtpOpts.tls = { rejectUnauthorized: false };
+
+        transporter = nodemailer.createTransport(smtpOpts);
+        console.log('ℹ️ Using SMTP transport:', { host: smtpOpts.host, port: smtpOpts.port, secure: smtpOpts.secure });
+      } else if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
+        // Fallback to Gmail service (works locally with app password)
+        transporter = nodemailer.createTransport({
+          service: 'gmail',
+          auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS }
+        });
+        console.log('ℹ️ Using Gmail transport (service).');
+      } else {
+        // Last resort: try sendmail on host (cPanel often supports sendmail)
+        transporter = nodemailer.createTransport({ sendmail: true });
+        console.log('ℹ️ Using sendmail transport as fallback.');
+      }
 
       const mailOptions = {
-        from: process.env.EMAIL_USER,
+        from: process.env.EMAIL_FROM || process.env.EMAIL_USER || `no-reply@${req.hostname}`,
         to: process.env.EMAIL_TO,
         subject: `📨 Bài viết mới từ ${user?.name || 'N/A'} – Writing ${index} – ${classCode} – ${teacherName}`,
         html: `
@@ -62,10 +83,16 @@ router.post('/submit', async (req, res) => {
         `,
       };
 
-      await transporter.sendMail(mailOptions);
-      console.log('✅ Email đã gửi thành công!');
+      const info = await transporter.sendMail(mailOptions);
+      console.log('✅ Email đã gửi thành công!', info && info.messageId ? info.messageId : 'no-message-id');
     } catch (emailErr) {
-      console.error('❌ Lỗi gửi email:', emailErr);
+      // Log full error for server-side debugging (check logs on cPanel)
+      console.error('❌ Lỗi gửi email:', emailErr && (emailErr.stack || emailErr));
+      // optionally return error information in response when in non-production
+      if (process.env.NODE_ENV !== 'production') {
+        // attach email error to response message for easier debugging
+        return res.status(500).json({ message: '❌ Lỗi khi gửi email (xem logs)', emailError: (emailErr && (emailErr.message || emailErr)) });
+      }
     }
 
     res.json({ message: '✅ Bài viết đã được lưu và gửi email!' });
@@ -157,3 +184,38 @@ router.post('/mark-feedback-seen', async (req, res) => {
 });
 
 module.exports = router;
+
+// Debug route: quick SMTP test (GET /api/writing-submission/email-test)
+// Use this to verify SMTP/sendmail configuration on the server.
+router.get('/email-test', async (req, res) => {
+  try {
+    // reuse transporter selection logic
+    let transporter;
+    if (process.env.SMTP_HOST) {
+      const smtpOpts = {
+        host: process.env.SMTP_HOST,
+        port: Number(process.env.SMTP_PORT) || 465,
+        secure: (process.env.SMTP_SECURE === 'true') || (process.env.SMTP_PORT == 465),
+      };
+      if (process.env.SMTP_USER) smtpOpts.auth = { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS };
+      if (process.env.SMTP_TLS_REJECT === 'false') smtpOpts.tls = { rejectUnauthorized: false };
+      transporter = nodemailer.createTransport(smtpOpts);
+    } else if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
+      transporter = nodemailer.createTransport({ service: 'gmail', auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS } });
+    } else {
+      transporter = nodemailer.createTransport({ sendmail: true });
+    }
+
+    const info = await transporter.sendMail({
+      from: process.env.EMAIL_FROM || process.env.EMAIL_USER || `no-reply@${req.hostname}`,
+      to: process.env.EMAIL_TO,
+      subject: 'Test email từ hệ thống',
+      text: 'Đây là email kiểm tra cấu hình SMTP/sendmail.'
+    });
+
+    res.json({ ok: true, info });
+  } catch (err) {
+    console.error('Email test error:', err && (err.stack || err));
+    res.status(500).json({ ok: false, error: err && (err.message || err) });
+  }
+});
