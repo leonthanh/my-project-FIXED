@@ -17,7 +17,7 @@ router.post("/generate-feedback", async (req, res) => {
   }
 
   const prompt = `
-    Bạn là giáo viên IELTS Writing. Hãy đọc bài làm của học sinh và đưa ra nhận xét chi tiết:
+    Bạn là giáo viên IELTS Writing chuyên nghiệp. Hãy đánh giá bài làm của học sinh theo tiêu chí chấm điểm chính thức của IDP IELTS.
 
     Task 1:
     ${task1}
@@ -25,13 +25,69 @@ router.post("/generate-feedback", async (req, res) => {
     Task 2:
     ${task2}
 
-    Yêu cầu:
-    - Đưa ra nhận xét cụ thể cho từng task.
-    - Chỉ ra lỗi ngữ pháp, từ vựng.
-    - Gợi ý cải thiện.
-    - Gợi ý nâng cao.
-    - Cho điểm dự kiến theo thang IELTS Writing.
+    TIÊU CHÍ CHẤM ĐIỂM IELTS WRITING (IDP):
+
+    1. TASK ACHIEVEMENT / TASK RESPONSE (25% - cho mỗi task):
+       - Hoàn thành được yêu cầu của task
+       - Đáp ứng đủ thông tin/yêu cầu
+       - Có ý kiến rõ ràng (Task 2)
+       - Phát triển ý tưởng đầy đủ
+
+    2. COHERENCE & COHESION (25%):
+       - Sắp xếp ý tưởng logic, rõ ràng
+       - Phân chia đoạn văn phù hợp
+       - Sử dụng từ nối (linking words) chính xác
+       - Mối liên kết giữa các câu mượt mà
+
+    3. LEXICAL RANGE & ACCURACY (25%):
+       - Phạm vi từ vựng rộng, phù hợp
+       - Sử dụng cụm từ (phrases) chính xác
+       - Ít lỗi từ vựng
+       - Từ vựng phù hợp với ngữ cảnh học thuật
+
+    4. GRAMMATICAL RANGE & ACCURACY (25%):
+       - Sử dụng cấu trúc câu đa dạng (simple, complex, compound)
+       - Ít lỗi ngữ pháp
+       - Câu phức sử dụng chính xác
+       - Dấu câu chính xác
+
+    HƯỚNG DẪN ĐÁNH GIÁ:
+    - Chấm điểm từ 0-9 cho mỗi tiêu chí
+    - Giải thích chi tiết lỗi (ngữ pháp, từ vựng, tổ chức ý tưởng)
+    - Cho ví dụ cụ thể cho từng lỗi
+    - Gợi ý cải thiện cho từng tiêu chí
+    - Tính điểm trung bình cuối cùng (làm tròn đến 0.5)
+
+    VUI LÒNG CẤP ĐỘ CHI TIẾT:
+    
+    📝 TASK 1 ANALYSIS:
+    - Task Achievement: [0-9] và giải thích
+    - Coherence & Cohesion: [0-9] và giải thích
+    - Lexical Range: [0-9] và giải thích
+    - Grammatical Range: [0-9] và giải thích
+    - Điểm Task 1 trung bình: [0-9]
+    
+    📝 TASK 2 ANALYSIS:
+    - Task Achievement: [0-9] và giải thích
+    - Coherence & Cohesion: [0-9] và giải thích
+    - Lexical Range: [0-9] và giải thích
+    - Grammatical Range: [0-9] và giải thích
+    - Điểm Task 2 trung bình: [0-9]
+    
+    🎯 OVERALL SCORE: [0-9] (trung bình Task 1 + Task 2)
+    
+    ⚠️ LỖI CHÍNH:
+    - Liệt kê 3-5 lỗi nghiêm trọng nhất
+    - Giải thích tại sao nó lỗi
+    - Cách sửa chính xác
+    
+    💡 GỢI Ý NÂNG CAO:
+    - Cách cải thiện từ vựng học thuật
+    - Cách sử dụng cấu trúc câu phức hơn
+    - Cách tổ chức ý tưởng hiệu quả
+    - Tài liệu/phương pháp ôn tập
   `;
+
 
   try {
     const response = await fetch(
