@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Timer from '../components/Timer';
 import ConfirmModal from '../components/ConfirmModal';
+import '../styles/do-reading-test.css'; // Import styles for 2-column layout
 
 const DoReadingTest = () => {
   const { id } = useParams();
@@ -13,6 +14,7 @@ const DoReadingTest = () => {
   const [showConfirm, setShowConfirm] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [timeUp, setTimeUp] = useState(false);
+  const [currentPartIndex, setCurrentPartIndex] = useState(0); // Track current part/passage
 
   useEffect(() => {
     const fetchTest = async () => {
@@ -30,6 +32,18 @@ const DoReadingTest = () => {
 
   const handleAnswerChange = (qKey, value) => {
     setAnswers(prev => ({ ...prev, [qKey]: value }));
+  };
+
+  // For multi-select questions, manage array of answers
+  const handleMultiSelectChange = (qKey, value, isChecked) => {
+    setAnswers(prev => {
+      const current = prev[qKey] ? prev[qKey].split(',').filter(Boolean) : [];
+      if (isChecked) {
+        return { ...prev, [qKey]: [...current, value].sort().join(',') };
+      } else {
+        return { ...prev, [qKey]: current.filter(v => v !== value).join(',') };
+      }
+    });
   };
 
   const validateAnswers = () => {
@@ -81,84 +95,206 @@ const DoReadingTest = () => {
     </div>
   );
 
-  // render question input depending on type
-  let globalIndex = 0;
+  const currentPassage = test.passages[currentPartIndex];
+  let globalQuestionIndex = 0;
+  // Calculate question index start for current passage
+  for (let i = 0; i < currentPartIndex; i++) {
+    globalQuestionIndex += test.passages[i].questions.length;
+  }
+  const startQuestionNumber = globalQuestionIndex + 1;
+
   return (
-    <div style={{ maxWidth: 1000, margin: '20px auto', padding: '0 20px' }}>
-      <div style={{ position: 'sticky', top: 0, backgroundColor: 'white', padding: '10px 0', zIndex: 100, borderBottom: '1px solid #eee' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+    <div className="reading-test-container">
+      {/* Header with Timer */}
+      <div className="reading-test-header">
+        <div className="header-left">
           <h2 style={{ margin: 0 }}>📖 {test.title || 'Reading Test'}</h2>
-          <Timer duration={(test.durationMinutes || 60) * 60} onTimeUp={() => { setTimeUp(true); handleSubmit(); }} />
+        </div>
+        <div className="header-right">
+          <Timer 
+            duration={(test.durationMinutes || 60) * 60} 
+            onTimeUp={() => { setTimeUp(true); handleSubmit(); }} 
+          />
         </div>
       </div>
 
-      <div style={{ marginTop: 16 }}>
-        <h4>📝 Hướng dẫn</h4>
-        <div dangerouslySetInnerHTML={{ __html: test.instructions || '' }} />
-      </div>
+      {/* Main content: 2-column layout */}
+      <div className="reading-test-main">
+        {/* Left column: Passage */}
+        <div className="reading-passage-column">
+          <div className="passage-header">
+            <h3>PART {currentPartIndex + 1}</h3>
+            {currentPassage.passageTitle && <p className="passage-title">{currentPassage.passageTitle}</p>}
+          </div>
+          <div className="passage-text" dangerouslySetInnerHTML={{ __html: currentPassage.passageText }} />
+          
+          {/* Part navigation */}
+          <div className="part-navigation">
+            <button 
+              disabled={currentPartIndex === 0}
+              onClick={() => setCurrentPartIndex(p => p - 1)}
+              style={{ cursor: currentPartIndex === 0 ? 'not-allowed' : 'pointer' }}
+            >
+              ← Previous
+            </button>
+            <span>{currentPartIndex + 1} / {test.passages.length}</span>
+            <button 
+              disabled={currentPartIndex === test.passages.length - 1}
+              onClick={() => setCurrentPartIndex(p => p + 1)}
+              style={{ cursor: currentPartIndex === test.passages.length - 1 ? 'not-allowed' : 'pointer' }}
+            >
+              Next →
+            </button>
+          </div>
+        </div>
 
-      <div style={{ marginTop: 20 }}>
-        {test.passages.map((p, pIndex) => (
-          <div key={pIndex} style={{ marginBottom: 30 }}>
-            <h3>Passage {pIndex + 1}: {p.passageTitle}</h3>
-            <div className="p-3" dangerouslySetInnerHTML={{ __html: p.passageText }} style={{ border: '1px solid #eee', borderRadius: 6, padding: 12 }} />
-
-            <div style={{ marginTop: 12 }}>
-              {p.questions.map((q, qIndex) => {
-                globalIndex += 1;
-                const key = `q_${globalIndex}`;
-                return (
-                  <div key={key} style={{ padding: 12, background: '#fff', borderRadius: 6, boxShadow: '0 1px 3px rgba(0,0,0,0.04)', marginBottom: 10 }}>
-                    <div style={{ fontWeight: 'bold', color: '#0e276f' }}>{globalIndex}. <span dangerouslySetInnerHTML={{ __html: q.questionText }} /></div>
+        {/* Right column: Questions */}
+        <div className="reading-questions-column">
+          <div className="questions-header">
+            <h4>Questions {startQuestionNumber}–{startQuestionNumber + currentPassage.questions.length - 1}</h4>
+          </div>
+          
+          <div className="questions-list">
+            {currentPassage.questions.map((q, qIndex) => {
+              const questionNumber = startQuestionNumber + qIndex;
+              const key = `q_${questionNumber}`;
+              
+              return (
+                <div key={key} className="question-item">
+                  <div className="question-number">
+                    {questionNumber}.
+                  </div>
+                  <div className="question-content">
+                    <div className="question-text" dangerouslySetInnerHTML={{ __html: q.questionText }} />
+                    
+                    {/* Multiple Choice (Radio) */}
                     {q.questionType === 'multiple-choice' && (
-                      <div style={{ marginTop: 8 }}>
-                        {q.options.map((opt, oi) => (
-                          <label key={oi} style={{ display: 'block', marginBottom: 6 }}>
+                      <div className="question-options">
+                        {q.options && q.options.map((opt, oi) => (
+                          <label key={oi} className="option-label">
                             <input
                               type="radio"
                               name={key}
                               value={opt}
                               checked={answers[key] === opt}
                               onChange={(e) => handleAnswerChange(key, e.target.value)}
-                            /> {' '}
-                            <span dangerouslySetInnerHTML={{ __html: opt }} />
+                              className="option-input"
+                            />
+                            <span className="option-text" dangerouslySetInnerHTML={{ __html: opt }} />
                           </label>
                         ))}
                       </div>
                     )}
 
-                    {q.questionType === 'fill-in-the-blanks' && (
-                      <div style={{ marginTop: 8 }}>
-                        <input type="text" value={answers[key] || ''} onChange={(e) => handleAnswerChange(key, e.target.value)} style={{ width: '60%', padding: '8px' }} />
+                    {/* Multi-Select (Checkboxes) */}
+                    {q.questionType === 'multi-select' && (
+                      <div className="question-options">
+                        <p className="multi-select-hint">Choose {q.maxSelection || 2}+ letters</p>
+                        {q.options && q.options.map((opt, oi) => {
+                          const currentAnswers = answers[key] ? answers[key].split(',').filter(Boolean) : [];
+                          const isChecked = currentAnswers.includes(opt);
+                          return (
+                            <label key={oi} className="option-label">
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={(e) => handleMultiSelectChange(key, opt, e.target.checked)}
+                                className="option-input"
+                              />
+                              <span className="option-text" dangerouslySetInnerHTML={{ __html: opt }} />
+                            </label>
+                          );
+                        })}
                       </div>
                     )}
 
+                    {/* Fill in the Blanks */}
+                    {q.questionType === 'fill-in-the-blanks' && (
+                      <div className="question-fill">
+                        <input
+                          type="text"
+                          className="fill-input"
+                          value={answers[key] || ''}
+                          onChange={(e) => handleAnswerChange(key, e.target.value)}
+                          placeholder={q.maxWords ? `No more than ${q.maxWords} words` : 'Type your answer'}
+                        />
+                        {q.maxWords && <p className="fill-hint">Max {q.maxWords} words</p>}
+                      </div>
+                    )}
+
+                    {/* Matching / Combobox */}
                     {q.questionType === 'matching' && (
-                      <div style={{ marginTop: 8 }}>
-                        <select value={answers[key] || ''} onChange={(e) => handleAnswerChange(key, e.target.value)}>
-                          <option value="">-- Chọn --</option>
-                          {q.options.map((opt, oi) => (
-                            <option value={opt} key={oi}>{opt}</option>
+                      <div className="question-matching">
+                        <div style={{ fontSize: '0.9rem', marginTop: '8px' }}>
+                          <p style={{ marginBottom: '10px', fontWeight: '600', color: '#0e276f' }}>
+                            Left Items:
+                          </p>
+                          {q.leftItems && q.leftItems.map((item, idx) => (
+                            <div key={idx} style={{ marginBottom: '8px', display: 'flex', gap: '12px', alignItems: 'center' }}>
+                              <span style={{ fontWeight: 'bold', minWidth: '30px' }}>
+                                {String.fromCharCode(65 + idx)}.
+                              </span>
+                              <span style={{ flex: 1 }}>{item}</span>
+                              <select
+                                className="matching-select"
+                                value={answers[key] && answers[key].split(',')[idx] ? answers[key].split(',')[idx] : ''}
+                                onChange={(e) => {
+                                  const currentAnswers = answers[key] ? answers[key].split(',') : new Array(q.leftItems.length).fill('');
+                                  currentAnswers[idx] = e.target.value;
+                                  handleAnswerChange(key, currentAnswers.join(','));
+                                }}
+                              >
+                                <option value="">Choose...</option>
+                                {q.rightItems && q.rightItems.map((_, ri) => (
+                                  <option key={ri} value={String(ri + 1)}>
+                                    {ri + 1}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
                           ))}
-                        </select>
+                          <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #eee' }}>
+                            <p style={{ marginBottom: '10px', fontWeight: '600', color: '#0e276f' }}>
+                              Right Items:
+                            </p>
+                            {q.rightItems && q.rightItems.map((item, idx) => (
+                              <div key={idx} style={{ marginBottom: '6px', fontSize: '0.85rem' }}>
+                                <span style={{ fontWeight: 'bold', marginRight: '8px' }}>{idx + 1}.</span> {item}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
                       </div>
                     )}
                   </div>
-                );
-              })}
-            </div>
+                </div>
+              );
+            })}
           </div>
-        ))}
+        </div>
       </div>
 
-      <div style={{ position: 'sticky', bottom: 0, backgroundColor: 'white', padding: '18px 0', borderTop: '1px solid #eee', textAlign: 'center' }}>
-        <button onClick={handleSubmit} disabled={submitted} style={{ padding: '12px 26px', backgroundColor: submitted ? '#ccc' : '#0e276f', color: 'white', border: 'none', borderRadius: 8, cursor: submitted ? 'not-allowed' : 'pointer' }}>{submitted ? 'Đã nộp' : 'Nộp bài'}</button>
+      {/* Footer with Submit button */}
+      <div className="reading-test-footer">
+        <button 
+          onClick={handleSubmit} 
+          disabled={submitted}
+          className="submit-button"
+        >
+          {submitted ? '✓ Đã nộp' : '→ Nộp bài'}
+        </button>
       </div>
 
-      <ConfirmModal isOpen={showConfirm} onClose={() => setShowConfirm(false)} onConfirm={confirmSubmit}
+      {/* Confirm Modal */}
+      <ConfirmModal 
+        isOpen={showConfirm} 
+        onClose={() => setShowConfirm(false)} 
+        onConfirm={confirmSubmit}
         title={timeUp ? '⏰ Hết giờ' : 'Xác nhận nộp bài'}
         message={timeUp ? 'Hết giờ, bài làm sẽ được nộp.' : 'Bạn có chắc muốn nộp bài? Sau khi nộp không thể sửa.'}
-        type={timeUp ? 'warning' : 'info'} confirmText={timeUp ? 'Nộp bài' : 'Xác nhận'} />
+        type={timeUp ? 'warning' : 'info'} 
+        confirmText={timeUp ? 'Nộp bài' : 'Xác nhận'} 
+      />
     </div>
   );
 };

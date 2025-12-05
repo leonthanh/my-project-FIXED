@@ -3,6 +3,10 @@ import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import AdminNavbar from '../components/AdminNavbar';
 import QuillEditor from '../components/QuillEditor';
+import MultipleChoiceQuestion from '../components/MultipleChoiceQuestion';
+import MultiSelectQuestion from '../components/MultiSelectQuestion';
+import FillBlankQuestion from '../components/FillBlankQuestion';
+import ComboboxQuestion from '../components/ComboboxQuestion';
 import 'react-quill/dist/quill.snow.css'; // Import Quill styles
 
 const CreateReadingTest = () => {
@@ -26,27 +30,65 @@ const CreateReadingTest = () => {
   const handleAddQuestion = (passageIndex) => {
     const newPassages = [...passages];
     const newQuestionNumber = newPassages[passageIndex].questions.length + 1;
-    newPassages[passageIndex].questions.push({ questionNumber: newQuestionNumber, questionType: 'multiple-choice', questionText: '', options: [''], correctAnswer: '' });
+    const defaultQuestion = {
+      questionNumber: newQuestionNumber,
+      questionType: 'multiple-choice',
+      questionText: '',
+      options: [''],
+      correctAnswer: ''
+    };
+    newPassages[passageIndex].questions.push(defaultQuestion);
     setPassages(newPassages);
   };
 
-  const handleQuestionChange = (passageIndex, questionIndex, field, value) => {
+  const createDefaultQuestionByType = (type) => {
+    switch(type) {
+      case 'multiple-choice':
+        return {
+          questionType: 'multiple-choice',
+          questionText: '',
+          options: ['', '', '', ''],
+          correctAnswer: ''
+        };
+      case 'multi-select':
+        return {
+          questionType: 'multi-select',
+          questionText: '',
+          options: ['', '', '', '', ''],
+          correctAnswer: '',
+          maxSelection: 2
+        };
+      case 'fill-in-the-blanks':
+        return {
+          questionType: 'fill-in-the-blanks',
+          questionText: '',
+          correctAnswer: '',
+          maxWords: 3
+        };
+      case 'matching':
+        return {
+          questionType: 'matching',
+          questionText: 'Match the items:',
+          leftItems: ['Item A', 'Item B', 'Item C'],
+          rightItems: ['Item 1', 'Item 2', 'Item 3'],
+          matches: ['1', '2', '3']
+        };
+      default:
+        return {
+          questionType: 'multiple-choice',
+          questionText: '',
+          options: ['', '', '', ''],
+          correctAnswer: ''
+        };
+    }
+  };
+
+  const handleQuestionObjectChange = (passageIndex, questionIndex, newQuestionObj) => {
     const newPassages = [...passages];
-    newPassages[passageIndex].questions[questionIndex][field] = value;
+    newPassages[passageIndex].questions[questionIndex] = { ...newQuestionObj };
     setPassages(newPassages);
   };
 
-  const handleOptionChange = (passageIndex, questionIndex, optionIndex, value) => {
-    const newPassages = [...passages];
-    newPassages[passageIndex].questions[questionIndex].options[optionIndex] = value;
-    setPassages(newPassages);
-  };
-
-  const handleAddOption = (passageIndex, questionIndex) => {
-    const newPassages = [...passages];
-    newPassages[passageIndex].questions[questionIndex].options.push('');
-    setPassages(newPassages);
-  };
 
   const handleReview = (e) => {
     e.preventDefault();
@@ -166,54 +208,59 @@ const CreateReadingTest = () => {
                 {passage.questions.map((question, questionIndex) => (
                   <div key={questionIndex} className="border p-3 mb-3">
                     <h5>Question {question.questionNumber}</h5>
-                    <div className="mb-3">
-                        <label className="form-label">Question Text</label>
-                        <input
-                            type="text"
-                            className="form-control"
-                            value={question.questionText}
-                            onChange={(e) => handleQuestionChange(passageIndex, questionIndex, 'questionText', e.target.value)}
-                        />
-                    </div>
+                    {/* Common type selector */}
                     <div className="mb-3">
                       <label className="form-label">Question Type</label>
                       <select
                         className="form-select"
                         value={question.questionType}
-                        onChange={(e) => handleQuestionChange(passageIndex, questionIndex, 'questionType', e.target.value)}
+                        onChange={(e) => {
+                          const newType = e.target.value;
+                          const defaultObj = createDefaultQuestionByType(newType);
+                          const newQuestionObj = { 
+                            ...question, 
+                            ...defaultObj,
+                            questionNumber: question.questionNumber // Preserve question number
+                          };
+                          handleQuestionObjectChange(passageIndex, questionIndex, newQuestionObj);
+                        }}
                       >
                         <option value="multiple-choice">Multiple Choice</option>
+                        <option value="multi-select">Multi Select (choose 2+)</option>
                         <option value="fill-in-the-blanks">Fill in the Blanks</option>
-                        <option value="matching">Matching</option>
+                        <option value="matching">Matching / Combobox</option>
                       </select>
                     </div>
-                    
+
+                    {/* Render editor components by type */}
                     {question.questionType === 'multiple-choice' && (
-                      <div>
-                        <label className="form-label">Options</label>
-                        {question.options.map((option, optionIndex) => (
-                          <div key={optionIndex} className="input-group mb-2">
-                            <input
-                              type="text"
-                              className="form-control"
-                              value={option}
-                              onChange={(e) => handleOptionChange(passageIndex, questionIndex, optionIndex, e.target.value)}
-                            />
-                          </div>
-                        ))}
-                        <button type="button" className="btn btn-secondary btn-sm" onClick={() => handleAddOption(passageIndex, questionIndex)}>Add Option</button>
-                      </div>
+                      <MultipleChoiceQuestion
+                        question={question}
+                        onChange={(q) => handleQuestionObjectChange(passageIndex, questionIndex, q)}
+                        type={'abc'}
+                      />
                     )}
 
-                    <div className="mt-3">
-                        <label className="form-label">Correct Answer</label>
-                        <input
-                            type="text"
-                            className="form-control"
-                            value={question.correctAnswer}
-                            onChange={(e) => handleQuestionChange(passageIndex, questionIndex, 'correctAnswer', e.target.value)}
-                        />
-                    </div>
+                    {question.questionType === 'multi-select' && (
+                      <MultiSelectQuestion
+                        question={question}
+                        onChange={(q) => handleQuestionObjectChange(passageIndex, questionIndex, q)}
+                      />
+                    )}
+
+                    {question.questionType === 'fill-in-the-blanks' && (
+                      <FillBlankQuestion
+                        question={question}
+                        onChange={(q) => handleQuestionObjectChange(passageIndex, questionIndex, q)}
+                      />
+                    )}
+
+                    {question.questionType === 'matching' && (
+                      <ComboboxQuestion
+                        question={question}
+                        onChange={(q) => handleQuestionObjectChange(passageIndex, questionIndex, q)}
+                      />
+                    )}
                   </div>
                 ))}
                 <button type="button" className="btn btn-primary" onClick={() => handleAddQuestion(passageIndex)}>Add Question</button>

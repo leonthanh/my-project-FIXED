@@ -37,6 +37,8 @@ const CreateListeningTest = () => {
 
   // history stack for undo
   const [actionHistory, setActionHistory] = useState([]);
+  // eslint-disable-next-line no-unused-vars
+  const _useActionHistory = actionHistory; // Keep for potential future use
 
   const [classCode, setClassCode] = useState(savedData?.classCode || '');
   const [teacherName, setTeacherName] = useState(savedData?.teacherName || '');
@@ -119,30 +121,10 @@ const CreateListeningTest = () => {
     });
   };
 
-  const handleQuestionChange = (pIndex, qIndex, field, value) => {
-    setPassages(prev => {
-      const next = [...prev];
-      const q = { ...next[pIndex].questions[qIndex], [field]: value };
-      next[pIndex] = { ...next[pIndex], questions: next[pIndex].questions.map((qq, i) => i === qIndex ? q : qq) };
-      return next;
-    });
-  };
-
   const handleReplaceQuestion = (pIndex, qIndex, updatedQuestion) => {
     setPassages(prev => {
       const next = [...prev];
       next[pIndex] = { ...next[pIndex], questions: next[pIndex].questions.map((qq, i) => i === qIndex ? updatedQuestion : qq) };
-      return next;
-    });
-  };
-
-  const handleQuestionOptionChange = (pIndex, qIndex, optionIndex, value) => {
-    setPassages(prev => {
-      const next = [...prev];
-      const q = { ...next[pIndex].questions[qIndex] };
-      q.options = q.options ? [...q.options] : [];
-      q.options[optionIndex] = value;
-      next[pIndex] = { ...next[pIndex], questions: next[pIndex].questions.map((qq, i) => i === qIndex ? q : qq) };
       return next;
     });
   };
@@ -216,6 +198,7 @@ const CreateListeningTest = () => {
   };
 
 
+  // eslint-disable-next-line no-unused-vars
   const createDefaultQuestion = (type) => {
     switch(type) {
       case 'fill':

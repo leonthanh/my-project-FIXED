@@ -46,7 +46,10 @@ router.post('/submit', async (req, res) => {
           port: Number(process.env.SMTP_PORT) || 465,
           secure: (process.env.SMTP_SECURE === 'true') || (process.env.SMTP_PORT == 465),
         };
-        if (process.env.SMTP_USER) smtpOpts.auth = { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS };
+        // only set auth when both user and pass are provided (avoid empty creds causing PLAIN error)
+        if (process.env.SMTP_USER && process.env.SMTP_PASS) {
+          smtpOpts.auth = { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS };
+        }
         // allow self-signed certs in some shared hosting setups (optional)
         if (process.env.SMTP_TLS_REJECT === 'false') smtpOpts.tls = { rejectUnauthorized: false };
 
@@ -197,7 +200,10 @@ router.get('/email-test', async (req, res) => {
         port: Number(process.env.SMTP_PORT) || 465,
         secure: (process.env.SMTP_SECURE === 'true') || (process.env.SMTP_PORT == 465),
       };
-      if (process.env.SMTP_USER) smtpOpts.auth = { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS };
+      // only set auth when both user and pass are provided to avoid Missing credentials for "PLAIN"
+      if (process.env.SMTP_USER && process.env.SMTP_PASS) {
+        smtpOpts.auth = { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS };
+      }
       if (process.env.SMTP_TLS_REJECT === 'false') smtpOpts.tls = { rejectUnauthorized: false };
       transporter = nodemailer.createTransport(smtpOpts);
     } else if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {

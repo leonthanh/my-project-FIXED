@@ -14,6 +14,16 @@ const MultipleChoiceQuestion = ({ question, onChange, type = 'abc' }) => {
     handleChange('options', newOptions);
   };
 
+  const handleAddOption = () => {
+    const newOptions = [...question.options, ''];
+    handleChange('options', newOptions);
+  };
+
+  const handleRemoveOption = (index) => {
+    const newOptions = question.options.filter((_, i) => i !== index);
+    handleChange('options', newOptions);
+  };
+
   const styles = {
     container: {
       padding: '15px',
@@ -79,6 +89,43 @@ const MultipleChoiceQuestion = ({ question, onChange, type = 'abc' }) => {
           />
         </div>
       ))}
+
+      <div style={{ marginBottom: '12px', display: 'flex', gap: '8px' }}>
+        <button
+          type="button"
+          style={{
+            backgroundColor: '#0e276f',
+            color: 'white',
+            border: 'none',
+            padding: '6px 12px',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            fontSize: '13px',
+            fontWeight: '600'
+          }}
+          onClick={handleAddOption}
+        >
+          + Add Option
+        </button>
+        {question.options.length > 1 && (
+          <button
+            type="button"
+            style={{
+              backgroundColor: '#e03',
+              color: 'white',
+              border: 'none',
+              padding: '6px 12px',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontSize: '13px',
+              fontWeight: '600'
+            }}
+            onClick={() => handleRemoveOption(question.options.length - 1)}
+          >
+            − Remove Last
+          </button>
+        )}
+      </div>
 
       <label style={styles.label}>✅ Đáp án đúng:</label>
       <select

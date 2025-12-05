@@ -83,14 +83,17 @@ const ReviewSubmission = () => {
       });
       const aiData = await aiRes.json();
 
+      console.log('🤖 AI Response:', aiData);
+
       if (aiData.suggestion) {
         setFeedback(aiData.suggestion);
       } else {
-        alert(aiData.error || '❌ AI không tạo được nhận xét.');
+        const errorMsg = aiData.detail ? `${aiData.error}\n\n${aiData.detail}` : (aiData.error || '❌ AI không tạo được nhận xét.');
+        alert(errorMsg);
       }
     } catch (err) {
       console.error('❌ Lỗi AI:', err);
-      alert('❌ Không thể kết nối AI.');
+      alert('❌ Không thể kết nối AI: ' + err.message);
     }
   };
 
