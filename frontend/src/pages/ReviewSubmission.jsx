@@ -9,6 +9,9 @@ const ReviewSubmission = () => {
   const [loading, setLoading] = useState(true);
   const [feedback, setFeedback] = useState('');
   const [teacherName, setTeacherName] = useState('');
+  const [aiLoading, setAiLoading] = useState(false); // ✅ Thêm AI loading state
+  const [saveLoading, setSaveLoading] = useState(false); // ✅ Thêm Save loading state
+  const [hasSavedFeedback, setHasSavedFeedback] = useState(false); // ✅ Track nếu đã save feedback
   const API_URL = process.env.REACT_APP_API_URL;
 
   // 🔹 Lấy thông tin bài viết
@@ -19,8 +22,17 @@ const ReviewSubmission = () => {
       const found = allSubs.find(s => String(s.id) === String(id));
       setSubmission(found || null);
 
-      if (found?.feedback) setFeedback(found.feedback);
-      if (found?.feedbackBy) setTeacherName(found.feedbackBy);
+      // ✅ Nếu có nhận xét của học sinh này, hiển thị
+      if (found?.feedback) {
+        setFeedback(found.feedback);
+        setTeacherName(found.feedbackBy || '');
+        setHasSavedFeedback(true); // ✅ Đã có feedback rồi
+      } else {
+        // ✅ Nếu không có nhận xét (hs mới), clear form
+        setFeedback('');
+        setTeacherName('');
+        setHasSavedFeedback(false); // ✅ Chưa có feedback
+      }
     } catch (err) {
       console.error('❌ Lỗi khi tải bài:', err);
     } finally {
@@ -43,6 +55,8 @@ const ReviewSubmission = () => {
       return;
     }
 
+    setSaveLoading(true); // ✅ Bắt đầu save loading
+
     try {
       const res = await fetch(`${API_URL}/api/writing/comment`, {
         method: 'POST',
@@ -57,21 +71,27 @@ const ReviewSubmission = () => {
       const data = await res.json();
       alert(data.message || '✅ Đã lưu nhận xét!');
 
-      // Reset input
+      // ✅ Reset input & set flag
       setTeacherName('');
       setFeedback('');
+      setHasSavedFeedback(true); // ✅ Đánh dấu đã save
 
       // Load lại bài để hiển thị nhận xét mới
       fetchSubmission();
     } catch (err) {
       console.error('❌ Lỗi khi lưu nhận xét:', err);
       alert('❌ Lỗi khi lưu nhận xét.');
+    } finally {
+      setSaveLoading(false); // ✅ Kết thúc save loading
     }
   };
 
   // 🔹 Gọi AI Gemini để gợi ý nhận xét
   const handleAIComment = async () => {
     if (!submission) return;
+    
+    setAiLoading(true); // ✅ Bắt đầu loading
+    
     try {
       const aiRes = await fetch(`${API_URL}/api/ai/generate-feedback`, {
         method: 'POST',
@@ -94,6 +114,8 @@ const ReviewSubmission = () => {
     } catch (err) {
       console.error('❌ Lỗi AI:', err);
       alert('❌ Không thể kết nối AI: ' + err.message);
+    } finally {
+      setAiLoading(false); // ✅ Kết thúc loading
     }
   };
 
@@ -166,33 +188,37 @@ const ReviewSubmission = () => {
         <div style={{ display: 'flex', gap: 10 }}>
           <button
             onClick={handleSaveFeedback}
+            disabled={saveLoading || hasSavedFeedback} // ✅ Disable nếu đang save hoặc đã save
             style={{
               flex: 1,
               padding: '10px 20px',
               border: 'none',
               borderRadius: 6,
-              backgroundColor: '#0e276f',
+              backgroundColor: (saveLoading || hasSavedFeedback) ? '#ccc' : '#0e276f', // ✅ Đổi màu
               color: 'white',
-              cursor: 'pointer',
-              fontSize: 16
+              cursor: (saveLoading || hasSavedFeedback) ? 'not-allowed' : 'pointer', // ✅ Đổi cursor
+              fontSize: 16,
+              opacity: (saveLoading || hasSavedFeedback) ? 0.6 : 1 // ✅ Giảm opacity
             }}
           >
-            💾 Lưu nhận xét
+            {saveLoading ? '⏳ Đang lưu...' : hasSavedFeedback ? '✅ Đã lưu' : '💾 Lưu nhận xét'} {/* ✅ Thay đổi text */}
           </button>
           <button
             onClick={handleAIComment}
+            disabled={aiLoading} // ✅ Disable khi đang xử lý
             style={{
               flex: 1,
               padding: '10px 20px',
               border: 'none',
               borderRadius: 6,
-              backgroundColor: '#e03',
+              backgroundColor: aiLoading ? '#ccc' : '#e03', // ✅ Đổi màu khi disable
               color: 'white',
-              cursor: 'pointer',
-              fontSize: 16
+              cursor: aiLoading ? 'not-allowed' : 'pointer', // ✅ Đổi cursor
+              fontSize: 16,
+              opacity: aiLoading ? 0.6 : 1 // ✅ Giảm opacity
             }}
           >
-            🤖 StarEdu AI gợi ý nhận xét
+            {aiLoading ? '⏳ Đang nhận xét...' : '🤖 StarEdu AI gợi ý nhận xét'} {/* ✅ Thay đổi text */}
           </button>
         </div>
       </div>

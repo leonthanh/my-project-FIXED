@@ -6,6 +6,9 @@ const AdminSubmissions = () => {
   const [data, setData] = useState([]);
   const [feedbacks, setFeedbacks] = useState({});
   const [messages, setMessages] = useState({});
+  const [aiLoading, setAiLoading] = useState({}); // ✅ Thêm AI loading state
+  const [sendLoading, setSendLoading] = useState({}); // ✅ Thêm Send loading state
+  const [hasSaved, setHasSaved] = useState({}); // ✅ Track nếu đã save feedback
 
   const API_URL = process.env.REACT_APP_API_URL;
   const teacher = JSON.parse(localStorage.getItem('user')); // 👈 lấy tên giáo viên
@@ -24,6 +27,8 @@ const AdminSubmissions = () => {
       alert('Vui lòng nhập nhận xét.');
       return;
     }
+
+    setSendLoading(prev => ({ ...prev, [submissionId]: true })); // ✅ Bắt đầu loading
 
     try {
       const res = await fetch(`${API_URL}/api/writing/comment`, {
@@ -46,14 +51,22 @@ const AdminSubmissions = () => {
           : item
       );
       setData(updated);
+
+      // ✅ Clear input & disable nút
+      setFeedbacks(prev => ({ ...prev, [submissionId]: '' }));
+      setHasSaved(prev => ({ ...prev, [submissionId]: true }));
     } catch (err) {
       console.error(err);
       setMessages(prev => ({ ...prev, [submissionId]: '❌ Gửi nhận xét thất bại' }));
+    } finally {
+      setSendLoading(prev => ({ ...prev, [submissionId]: false })); // ✅ Kết thúc loading
     }
   };
 
   // 🤖 Hàm gọi AI để gợi ý nhận xét
   const handleAIComment = async (submission) => {
+    setAiLoading(prev => ({ ...prev, [submission.id]: true })); // ✅ Bắt đầu loading
+
     try {
       const aiRes = await fetch(`${API_URL}/api/ai/generate-feedback`, {
         method: 'POST',
@@ -73,6 +86,8 @@ const AdminSubmissions = () => {
     } catch (err) {
       console.error('❌ Lỗi AI:', err);
       alert('❌ Không thể kết nối AI.');
+    } finally {
+      setAiLoading(prev => ({ ...prev, [submission.id]: false })); // ✅ Kết thúc loading
     }
   };
 
@@ -148,33 +163,37 @@ const AdminSubmissions = () => {
               <div style={{ display: 'flex', gap: 10, marginTop: 10 }}>
                 <button
                   onClick={() => handleSendFeedback(item.id)}
+                  disabled={sendLoading[item.id] || hasSaved[item.id]} // ✅ Disable khi đang gửi hoặc đã gửi
                   style={{
                     flex: 1,
                     padding: '10px 20px',
-                    backgroundColor: '#0e276f',
+                    backgroundColor: (sendLoading[item.id] || hasSaved[item.id]) ? '#ccc' : '#0e276f',
                     color: '#fff',
                     border: 'none',
                     borderRadius: 6,
-                    cursor: 'pointer',
-                    fontSize: 16
+                    cursor: (sendLoading[item.id] || hasSaved[item.id]) ? 'not-allowed' : 'pointer',
+                    fontSize: 16,
+                    opacity: (sendLoading[item.id] || hasSaved[item.id]) ? 0.6 : 1
                   }}
                 >
-                  📤 Gửi nhận xét
+                  {sendLoading[item.id] ? '⏳ Đang gửi...' : hasSaved[item.id] ? '✅ Đã gửi' : '📤 Gửi nhận xét'}
                 </button>
                 <button
                   onClick={() => handleAIComment(item)}
+                  disabled={aiLoading[item.id]} // ✅ Disable khi đang xử lý
                   style={{
                     flex: 1,
                     padding: '10px 20px',
-                    backgroundColor: '#e03',
+                    backgroundColor: aiLoading[item.id] ? '#ccc' : '#e03',
                     color: '#fff',
                     border: 'none',
                     borderRadius: 6,
-                    cursor: 'pointer',
-                    fontSize: 16
+                    cursor: aiLoading[item.id] ? 'not-allowed' : 'pointer',
+                    fontSize: 16,
+                    opacity: aiLoading[item.id] ? 0.6 : 1
                   }}
                 >
-                  🤖 StarEdu AI gợi ý nhận xét
+                  {aiLoading[item.id] ? '⏳ Đang nhận xét...' : '🤖 StarEdu AI gợi ý nhận xét'}
                 </button>
               </div>
 

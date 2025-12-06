@@ -123,12 +123,24 @@ jobs:
         if: needs.prepare.outputs.backend-hash != ''
         run: |
           set -e
-          echo "NODE_ENV=production" > backend-temp/.env
-          echo "PORT=3000" >> backend-temp/.env
-          echo "DB_HOST=localhost" >> backend-temp/.env
-          echo "DB_NAME=wsxcblqh_ix" >> backend-temp/.env
-          echo "DB_USER=wsxcblqh_thanh" >> backend-temp/.env
-          echo "DB_PASS=@Thanh562184" >> backend-temp/.env
+          # Copy .env.production từ repo vào backend-temp
+          if [ -f "backend/.env.production" ]; then
+            cp backend/.env.production backend-temp/.env
+            echo "✅ Using .env.production for cPanel"
+          else
+            # Fallback: tạo .env mới nếu không có file
+            echo "⚠️ .env.production not found, creating default .env"
+            echo "NODE_ENV=production" > backend-temp/.env
+            echo "PORT=5000" >> backend-temp/.env
+            echo "DB_HOST=star-siec.edu.vn" >> backend-temp/.env
+            echo "DB_NAME=wsxcblqh_ix" >> backend-temp/.env
+            echo "DB_USER=wsxcblqh_thanh" >> backend-temp/.env
+            echo "DB_PASS=@Thanh562184" >> backend-temp/.env
+            echo "EMAIL_USER=stareduelt@gmail.com" >> backend-temp/.env
+            echo "EMAIL_PASS=xrrz fqwq xwdc hujb" >> backend-temp/.env
+            echo "EMAIL_TO=thanhlh@siec-star.edu.vn" >> backend-temp/.env
+            echo "REACT_APP_API_URL=https://ix.star-siec.edu.vn/api/" >> backend-temp/.env
+          fi
           ls -la backend-temp || true
       - name: Deploy Backend
         uses: SamKirkland/FTP-Deploy-Action@4.3.3
