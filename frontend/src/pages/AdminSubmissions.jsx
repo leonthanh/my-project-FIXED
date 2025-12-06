@@ -16,7 +16,17 @@ const AdminSubmissions = () => {
   useEffect(() => {
     fetch(`${API_URL}/api/writing/list`)
       .then(res => res.json())
-      .then(setData)
+      .then(data => {
+        setData(data);
+        // ✅ Khởi tạo hasSaved dựa trên dữ liệu - nếu có feedback thì disable nút
+        const savedMap = {};
+        data.forEach(item => {
+          if (item.feedback && item.feedbackBy) {
+            savedMap[item.id] = true;
+          }
+        });
+        setHasSaved(savedMap);
+      })
       .catch(err => console.error('Lỗi khi lấy dữ liệu:', err));
   }, [API_URL]);
 
