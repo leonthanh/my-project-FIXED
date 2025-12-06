@@ -117,7 +117,11 @@ const AdminSubmissions = () => {
           >
             <p><strong>👤 Học sinh:</strong> {item.userName || 'N/A'}</p>
             <p><strong>📞 Số điện thoại:</strong> {item.userPhone || 'N/A'}</p>
-            <p><strong>🧾 Mã đề:</strong> {item.WritingTest?.index ? `Writing ${item.WritingTest.index}` : 'Không rõ'}</p>
+            <p>
+              <strong>🧾 Mã đề:</strong> Writing {item.WritingTest?.index || 'N/A'}
+              {item.WritingTest?.classCode ? ` – ${item.WritingTest.classCode}` : ''}
+              {item.WritingTest?.teacherName ? ` – ${item.WritingTest.teacherName}` : ''}
+            </p>
             <p><strong>🕒 Nộp lúc:</strong> {formatDateTime(item.createdAt)}</p>
             <p><strong>⏳ Thời gian còn lại:</strong> {item.timeLeft ? Math.floor(item.timeLeft / 60) : 0} phút</p>
 
