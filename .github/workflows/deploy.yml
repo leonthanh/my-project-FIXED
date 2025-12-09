@@ -1,8 +1,13 @@
-
 name: Deploy to cPanel
+
 on:
   push:
-    branches: [ main ]
+    branches: [main]
+
+env:
+  GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+  EMAIL_USER: ${{ secrets.EMAIL_USER }}
+  EMAIL_PASS: ${{ secrets.EMAIL_PASS }}
 
 concurrency:
   group: deploy-to-cpanel

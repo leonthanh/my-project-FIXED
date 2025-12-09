@@ -3,8 +3,8 @@
   "version": "1.0.0",
   "main": "server.js",
   "scripts": {
-    "dev": "NODE_ENV=development nodemon server.js",
-    "start": "NODE_ENV=production node server.js"
+    "dev": "cross-env NODE_ENV=development nodemon server.js",
+    "start": "cross-env NODE_ENV=development node server.js"
   },
   "keywords": [],
   "author": "",
@@ -15,6 +15,7 @@
     "@ckeditor/ckeditor5-react": "^11.0.0",
     "bcryptjs": "^3.0.2",
     "cors": "^2.8.5",
+    "cross-env": "^10.1.0",
     "dotenv": "^17.2.0",
     "express": "^5.1.0",
     "mongoose": "^8.16.1",
