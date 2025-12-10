@@ -4,6 +4,12 @@ import StudentNavbar from '../components/StudentNavbar';
 const MyFeedback = () => {
   const [submissions, setSubmissions] = useState([]);
   const [loading, setLoading] = useState(true);
+  
+  // 🔍 Thêm state cho tìm kiếm
+  const [searchClassCode, setSearchClassCode] = useState("");
+  const [searchTeacher, setSearchTeacher] = useState("");
+  const [searchFeedbackBy, setSearchFeedbackBy] = useState("");
+  const [filteredSubmissions, setFilteredSubmissions] = useState([]);
 
   const user = JSON.parse(localStorage.getItem('user'));
   const API_URL = process.env.REACT_APP_API_URL;
@@ -56,6 +62,35 @@ const MyFeedback = () => {
     fetchData();
   }, [user, API_URL]);
 
+  // 🔍 Hàm lọc dữ liệu khi tìm kiếm thay đổi
+  useEffect(() => {
+    let filtered = submissions;
+
+    if (searchClassCode.trim()) {
+      filtered = filtered.filter((item) =>
+        item.WritingTest?.classCode
+          ?.toLowerCase()
+          .includes(searchClassCode.toLowerCase())
+      );
+    }
+
+    if (searchTeacher.trim()) {
+      filtered = filtered.filter((item) =>
+        item.WritingTest?.teacherName
+          ?.toLowerCase()
+          .includes(searchTeacher.toLowerCase())
+      );
+    }
+
+    if (searchFeedbackBy.trim()) {
+      filtered = filtered.filter((item) =>
+        item.feedbackBy?.toLowerCase().includes(searchFeedbackBy.toLowerCase())
+      );
+    }
+
+    setFilteredSubmissions(filtered);
+  }, [searchClassCode, searchTeacher, searchFeedbackBy, submissions]);
+
   if (!user) return <p style={{ padding: 40 }}>❌ Bạn chưa đăng nhập.</p>;
 
   return (
@@ -63,10 +98,117 @@ const MyFeedback = () => {
       <StudentNavbar />
       <div style={{ padding: '30px' }}>
         <h2>📝 Bài viết & Nhận xét</h2>
+
+        {/* 🔍 Form tìm kiếm */}
+        <div
+          style={{
+            background: "#f0f0f0",
+            padding: "20px",
+            borderRadius: "8px",
+            marginBottom: "20px",
+            display: "grid",
+            gridTemplateColumns: "1fr 1fr 1fr auto",
+            gap: "15px",
+            alignItems: "end",
+          }}
+        >
+          <div>
+            <label style={{ display: "block", marginBottom: "5px", fontWeight: "bold" }}>
+              🧾 Mã lớp:
+            </label>
+            <input
+              type="text"
+              placeholder="Nhập mã lớp"
+              value={searchClassCode}
+              onChange={(e) => setSearchClassCode(e.target.value)}
+              style={{
+                width: "100%",
+                padding: "10px",
+                border: "1px solid #ccc",
+                borderRadius: "6px",
+                fontSize: "14px",
+                boxSizing: "border-box",
+              }}
+            />
+          </div>
+
+          <div>
+            <label style={{ display: "block", marginBottom: "5px", fontWeight: "bold" }}>
+              👨‍🏫 Giáo viên đề:
+            </label>
+            <input
+              type="text"
+              placeholder="Nhập tên giáo viên"
+              value={searchTeacher}
+              onChange={(e) => setSearchTeacher(e.target.value)}
+              style={{
+                width: "100%",
+                padding: "10px",
+                border: "1px solid #ccc",
+                borderRadius: "6px",
+                fontSize: "14px",
+                boxSizing: "border-box",
+              }}
+            />
+          </div>
+
+          <div>
+            <label style={{ display: "block", marginBottom: "5px", fontWeight: "bold" }}>
+              ✍️ Giáo viên chấm:
+            </label>
+            <input
+              type="text"
+              placeholder="Nhập tên giáo viên chấm"
+              value={searchFeedbackBy}
+              onChange={(e) => setSearchFeedbackBy(e.target.value)}
+              style={{
+                width: "100%",
+                padding: "10px",
+                border: "1px solid #ccc",
+                borderRadius: "6px",
+                fontSize: "14px",
+                boxSizing: "border-box",
+              }}
+            />
+          </div>
+
+          <button
+            onClick={() => {
+              setSearchClassCode("");
+              setSearchTeacher("");
+              setSearchFeedbackBy("");
+            }}
+            style={{
+              padding: "10px 20px",
+              backgroundColor: "#666",
+              color: "#fff",
+              border: "none",
+              borderRadius: "6px",
+              cursor: "pointer",
+              fontSize: "14px",
+              fontWeight: "bold",
+              whiteSpace: "nowrap",
+            }}
+          >
+            🔄 Reset
+          </button>
+        </div>
+
+        {/* Hiển thị kết quả */}
+        <p style={{ color: "#666", marginBottom: "15px" }}>
+          📊 Tổng cộng: <strong>{filteredSubmissions.length}</strong> bài viết
+          {(searchClassCode || searchTeacher || searchFeedbackBy) && ` (lọc từ ${submissions.length})`}
+        </p>
+
+        {filteredSubmissions.length === 0 && !loading && (
+          <p style={{ color: "#d32f2f", fontWeight: "bold" }}>
+            ❌ Không tìm thấy bài viết phù hợp.
+          </p>
+        )}
         {loading && <p>⏳ Đang tải dữ liệu...</p>}
         {!loading && submissions.length === 0 && <p>🙁 Bạn chưa nộp bài viết nào.</p>}
 
-        {submissions.map((sub, idx) => (
+        {filteredSubmissions.map((sub, idx) => (
           <div
             key={sub.id || idx}
             style={{

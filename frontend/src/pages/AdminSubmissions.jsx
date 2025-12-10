@@ -12,6 +12,8 @@ const AdminSubmissions = () => {
   // 🔍 Thêm state cho tìm kiếm
   const [searchClassCode, setSearchClassCode] = useState("");
   const [searchTeacher, setSearchTeacher] = useState("");
+  const [searchStudentName, setSearchStudentName] = useState("");
+  const [searchFeedbackBy, setSearchFeedbackBy] = useState("");
   const [filteredData, setFilteredData] = useState([]);
 
   const API_URL = process.env.REACT_APP_API_URL;
@@ -55,8 +57,20 @@ const AdminSubmissions = () => {
       );
     }
 
+    if (searchStudentName.trim()) {
+      filtered = filtered.filter((item) =>
+        item.userName?.toLowerCase().includes(searchStudentName.toLowerCase())
+      );
+    }
+
+    if (searchFeedbackBy.trim()) {
+      filtered = filtered.filter((item) =>
+        item.feedbackBy?.toLowerCase().includes(searchFeedbackBy.toLowerCase())
+      );
+    }
+
     setFilteredData(filtered);
-  }, [searchClassCode, searchTeacher, data]);
+  }, [searchClassCode, searchTeacher, searchStudentName, searchFeedbackBy, data]);
 
   // ✅ Hàm gửi nhận xét
   const handleSendFeedback = async (submissionId) => {
@@ -165,11 +179,31 @@ const AdminSubmissions = () => {
             borderRadius: "8px",
             marginBottom: "20px",
             display: "grid",
-            gridTemplateColumns: "1fr 1fr auto",
+            gridTemplateColumns: "1fr 1fr 1fr 1fr auto",
             gap: "15px",
             alignItems: "end",
           }}
         >
+          <div>
+            <label style={{ display: "block", marginBottom: "5px", fontWeight: "bold" }}>
+              👤 Tên học sinh:
+            </label>
+            <input
+              type="text"
+              placeholder="Nhập tên học sinh"
+              value={searchStudentName}
+              onChange={(e) => setSearchStudentName(e.target.value)}
+              style={{
+                width: "100%",
+                padding: "10px",
+                border: "1px solid #ccc",
+                borderRadius: "6px",
+                fontSize: "14px",
+                boxSizing: "border-box",
+              }}
+            />
+          </div>
+
           <div>
             <label style={{ display: "block", marginBottom: "5px", fontWeight: "bold" }}>
               🧾 Mã lớp:
@@ -192,13 +226,33 @@ const AdminSubmissions = () => {
 
           <div>
             <label style={{ display: "block", marginBottom: "5px", fontWeight: "bold" }}>
-              👨‍🏫 Giáo viên:
+              👨‍🏫 Giáo viên đề:
             </label>
             <input
               type="text"
-              placeholder="Nhập tên giáo viên (vd: Ms. Xuân)"
+              placeholder="Nhập tên giáo viên"
               value={searchTeacher}
               onChange={(e) => setSearchTeacher(e.target.value)}
+              style={{
+                width: "100%",
+                padding: "10px",
+                border: "1px solid #ccc",
+                borderRadius: "6px",
+                fontSize: "14px",
+                boxSizing: "border-box",
+              }}
+            />
+          </div>
+
+          <div>
+            <label style={{ display: "block", marginBottom: "5px", fontWeight: "bold" }}>
+              ✍️ Giáo viên chấm:
+            </label>
+            <input
+              type="text"
+              placeholder="Nhập tên giáo viên chấm"
+              value={searchFeedbackBy}
+              onChange={(e) => setSearchFeedbackBy(e.target.value)}
               style={{
                 width: "100%",
                 padding: "10px",
@@ -214,6 +268,8 @@ const AdminSubmissions = () => {
             onClick={() => {
               setSearchClassCode("");
               setSearchTeacher("");
+              setSearchStudentName("");
+              setSearchFeedbackBy("");
             }}
             style={{
               padding: "10px 20px",
@@ -224,6 +280,7 @@ const AdminSubmissions = () => {
               cursor: "pointer",
               fontSize: "14px",
               fontWeight: "bold",
+              whiteSpace: "nowrap",
             }}
           >
             🔄 Reset
@@ -233,7 +290,7 @@ const AdminSubmissions = () => {
         {/* Hiển thị kết quả tìm kiếm */}
         <p style={{ color: "#666", marginBottom: "15px" }}>
           📊 Tổng cộng: <strong>{filteredData.length}</strong> bài viết
-          {(searchClassCode || searchTeacher) && ` (lọc từ ${data.length})`}
+          {(searchClassCode || searchTeacher || searchStudentName || searchFeedbackBy) && ` (lọc từ ${data.length})`}
         </p>
 
         {filteredData.length === 0 && (
