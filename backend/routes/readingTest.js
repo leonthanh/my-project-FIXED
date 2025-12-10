@@ -27,16 +27,18 @@ router.get('/:id', async (req, res) => {
 
 // Create a new reading test
 router.post('/', async (req, res) => {
-  const { title, passages } = req.body;
+  const { title, classCode, teacherName, passages } = req.body;
 
   const test = new ReadingTest({
     title,
+    classCode,
+    teacherName,
     passages
   });
 
   try {
     const newTest = await test.save();
-    res.status(201).json(newTest);
+    res.status(201).json({ message: '✅ Đã tạo đề Reading thành công!', test: newTest });
   } catch (err) {
     res.status(400).json({ message: err.message });
   }

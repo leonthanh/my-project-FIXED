@@ -17,6 +17,8 @@ const PassageSchema = new mongoose.Schema({
 
 const ReadingTestSchema = new mongoose.Schema({
   title: String,
+  classCode: String, // ✅ Mã lớp
+  teacherName: String, // ✅ Tên giáo viên ra đề
   passages: [PassageSchema],
   createdAt: { type: Date, default: Date.now }
 });

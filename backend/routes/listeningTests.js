@@ -29,77 +29,58 @@ const upload = multer({
 // API tạo đề thi listening mới
 router.post('/', upload.fields([
   { name: 'audioFile', maxCount: 1 },
-  { name: 'audioFile_part1', maxCount: 1 },
-  { name: 'audioFile_part2', maxCount: 1 },
-  { name: 'audioFile_part3', maxCount: 1 },
-  { name: 'audioFile_part4', maxCount: 1 }
+  { name: 'audioFile_passage_0', maxCount: 1 },
+  { name: 'audioFile_passage_1', maxCount: 1 },
+  { name: 'audioFile_passage_2', maxCount: 1 },
+  { name: 'audioFile_passage_3', maxCount: 1 }
 ]), async (req, res) => {
   try {
     console.log('Request body:', req.body);
-    console.log('Request files:', req.files);
+    console.log('Request files:', req.files ? Object.keys(req.files) : 'none');
 
-    const { classCode, teacherName, questions, partInstructions, partTypes } = req.body;
+    const { classCode, teacherName, passages } = req.body;
     
     if (!classCode || !teacherName) {
       return res.status(400).json({ message: '❌ Vui lòng nhập mã lớp và tên giáo viên' });
     }
 
-    if (!req.files || Object.keys(req.files).length === 0) {
-      return res.status(400).json({ message: '❌ Vui lòng tải lên ít nhất một file audio' });
+    if (!passages) {
+      return res.status(400).json({ message: '❌ Vui lòng nhập câu hỏi' });
     }
 
-    // Process main audio file
+    // Parse passages if it's a string
+    let parsedPassages = typeof passages === 'string' ? JSON.parse(passages) : passages;
+    
+    // Process file uploads
     let mainAudioUrl = null;
-    if (req.files.audioFile) {
+    if (req.files && req.files.audioFile) {
       mainAudioUrl = `/uploads/audio/${req.files.audioFile[0].filename}`;
     }
 
-    // Process part audio files
-    const partAudioUrls = {};
-    ['part1', 'part2', 'part3', 'part4'].forEach(part => {
-      const fileKey = `audioFile_${part}`;
-      if (req.files[fileKey]) {
-        partAudioUrls[part] = `/uploads/audio/${req.files[fileKey][0].filename}`;
+    // Add audio file URLs to passages
+    const processedPassages = parsedPassages.map((passage, index) => {
+      let audioFile = passage.audioFile || mainAudioUrl;
+      
+      if (req.files && req.files[`audioFile_passage_${index}`]) {
+        audioFile = `/uploads/audio/${req.files[`audioFile_passage_${index}`][0].filename}`;
       }
+      
+      return {
+        ...passage,
+        audioFile
+      };
     });
 
-    console.log('Processing data...');
-    let parsedQuestions, parsedPartInstructions, parsedPartTypes;
-    
-    try {
-      parsedQuestions = JSON.parse(questions);
-      parsedPartInstructions = JSON.parse(partInstructions);
-      parsedPartTypes = JSON.parse(partTypes);
-    } catch (err) {
-      console.error('Error parsing JSON:', err);
-      return res.status(400).json({ 
-        message: '❌ Lỗi định dạng dữ liệu',
-        error: err.message 
-      });
-    }
-
-    console.log('Creating test with data:', {
-      classCode,
-      teacherName,
-      mainAudioUrl,
-      partAudioUrls,
-      partTypes: parsedPartTypes,
-      partInstructions: parsedPartInstructions,
-      questions: parsedQuestions
-    });
-
+    // Create the listening test
     const listeningTest = await ListeningTest.create({
       classCode,
       teacherName,
-      mainAudioUrl,
-      partAudioUrls,
-      partTypes: parsedPartTypes,
-      partInstructions: parsedPartInstructions,
-      questions: parsedQuestions
+      passages: processedPassages
     });
 
     res.status(201).json({
-      message: '✅ Đã tạo đề thi thành công!',
+      message: '✅ Đã tạo đề thi Listening thành công!',
+      submissionId: listeningTest.id,
       test: listeningTest
     });
   } catch (error) {
@@ -112,8 +93,7 @@ router.post('/', upload.fields([
     }
     res.status(500).json({
       message: errorMessage,
-      error: error.message,
-      stack: error.stack
+      error: error.message
     });
   }
 });
