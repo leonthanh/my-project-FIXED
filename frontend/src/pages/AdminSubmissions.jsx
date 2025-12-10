@@ -9,6 +9,11 @@ const AdminSubmissions = () => {
   const [sendLoading, setSendLoading] = useState({}); // ✅ Thêm Send loading state
   const [hasSaved, setHasSaved] = useState({}); // ✅ Track nếu đã save feedback
 
+  // 🔍 Thêm state cho tìm kiếm
+  const [searchClassCode, setSearchClassCode] = useState("");
+  const [searchTeacher, setSearchTeacher] = useState("");
+  const [filteredData, setFilteredData] = useState([]);
+
   const API_URL = process.env.REACT_APP_API_URL;
   const teacher = JSON.parse(localStorage.getItem("user")); // 👈 lấy tên giáo viên
 
@@ -17,6 +22,7 @@ const AdminSubmissions = () => {
       .then((res) => res.json())
       .then((data) => {
         setData(data);
+        setFilteredData(data); // Khởi tạo filteredData
         // ✅ Khởi tạo hasSaved dựa trên dữ liệu - nếu có feedback thì disable nút
         const savedMap = {};
         data.forEach((item) => {
@@ -28,6 +34,29 @@ const AdminSubmissions = () => {
       })
       .catch((err) => console.error("Lỗi khi lấy dữ liệu:", err));
   }, [API_URL]);
+
+  // 🔍 Hàm lọc dữ liệu khi tìm kiếm thay đổi
+  useEffect(() => {
+    let filtered = data;
+
+    if (searchClassCode.trim()) {
+      filtered = filtered.filter((item) =>
+        item.WritingTest?.classCode
+          ?.toLowerCase()
+          .includes(searchClassCode.toLowerCase())
+      );
+    }
+
+    if (searchTeacher.trim()) {
+      filtered = filtered.filter((item) =>
+        item.WritingTest?.teacherName
+          ?.toLowerCase()
+          .includes(searchTeacher.toLowerCase())
+      );
+    }
+
+    setFilteredData(filtered);
+  }, [searchClassCode, searchTeacher, data]);
 
   // ✅ Hàm gửi nhận xét
   const handleSendFeedback = async (submissionId) => {
@@ -127,9 +156,93 @@ const AdminSubmissions = () => {
       <AdminNavbar />
       <div style={{ padding: "30px" }}>
         <h2>📋 Danh sách bài viết đã nộp</h2>
-        {data.length === 0 && <p>Chưa có bài nào được nộp.</p>}
 
-        {data.map((item) => (
+        {/* 🔍 Form tìm kiếm */}
+        <div
+          style={{
+            background: "#f0f0f0",
+            padding: "20px",
+            borderRadius: "8px",
+            marginBottom: "20px",
+            display: "grid",
+            gridTemplateColumns: "1fr 1fr auto",
+            gap: "15px",
+            alignItems: "end",
+          }}
+        >
+          <div>
+            <label style={{ display: "block", marginBottom: "5px", fontWeight: "bold" }}>
+              🧾 Mã lớp:
+            </label>
+            <input
+              type="text"
+              placeholder="Nhập mã lớp (vd: 148-IX-3A-S1)"
+              value={searchClassCode}
+              onChange={(e) => setSearchClassCode(e.target.value)}
+              style={{
+                width: "100%",
+                padding: "10px",
+                border: "1px solid #ccc",
+                borderRadius: "6px",
+                fontSize: "14px",
+                boxSizing: "border-box",
+              }}
+            />
+          </div>
+
+          <div>
+            <label style={{ display: "block", marginBottom: "5px", fontWeight: "bold" }}>
+              👨‍🏫 Giáo viên:
+            </label>
+            <input
+              type="text"
+              placeholder="Nhập tên giáo viên (vd: Ms. Xuân)"
+              value={searchTeacher}
+              onChange={(e) => setSearchTeacher(e.target.value)}
+              style={{
+                width: "100%",
+                padding: "10px",
+                border: "1px solid #ccc",
+                borderRadius: "6px",
+                fontSize: "14px",
+                boxSizing: "border-box",
+              }}
+            />
+          </div>
+
+          <button
+            onClick={() => {
+              setSearchClassCode("");
+              setSearchTeacher("");
+            }}
+            style={{
+              padding: "10px 20px",
+              backgroundColor: "#666",
+              color: "#fff",
+              border: "none",
+              borderRadius: "6px",
+              cursor: "pointer",
+              fontSize: "14px",
+              fontWeight: "bold",
+            }}
+          >
+            🔄 Reset
+          </button>
+        </div>
+
+        {/* Hiển thị kết quả tìm kiếm */}
+        <p style={{ color: "#666", marginBottom: "15px" }}>
+          📊 Tổng cộng: <strong>{filteredData.length}</strong> bài viết
+          {(searchClassCode || searchTeacher) && ` (lọc từ ${data.length})`}
+        </p>
+
+        {filteredData.length === 0 && (
+          <p style={{ color: "#d32f2f", fontWeight: "bold" }}>
+            ❌ Không tìm thấy bài viết phù hợp.
+          </p>
+        )}
+
+        {filteredData.map((item) => (
           <div
             key={item.id}
             style={{
