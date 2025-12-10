@@ -255,6 +255,21 @@ const CreateListeningTest = () => {
   const handleConfirmCreate = async () => {
     try {
       setIsCreating(true);
+      
+      // Validate file sizes (max 50MB per file)
+      const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
+      
+      if (audioFile && audioFile.size > MAX_FILE_SIZE) {
+        throw new Error(`❌ File audio chung quá lớn (>${(MAX_FILE_SIZE / 1024 / 1024).toFixed(0)}MB). Vui lòng chọn file nhỏ hơn.`);
+      }
+      
+      for (let i = 0; i < passages.length; i++) {
+        const file = passages[i].audioFile;
+        if (file && file.size > MAX_FILE_SIZE) {
+          throw new Error(`❌ File audio phần ${i + 1} quá lớn (>${(MAX_FILE_SIZE / 1024 / 1024).toFixed(0)}MB). Vui lòng chọn file nhỏ hơn.`);
+        }
+      }
+      
       // Clean up passages data before submitting
       const cleanedPassages = passages.map(p => ({
         title: p.title,
@@ -279,7 +294,7 @@ const CreateListeningTest = () => {
       formData.append('classCode', classCode);
       formData.append('teacherName', teacherName);
 
-  const res = await fetch(`${API}/api/listening-tests`, { method: 'POST', body: formData });
+      const res = await fetch(`${API}/api/listening-tests`, { method: 'POST', body: formData });
       const data = await res.text();
       let jsonData;
       try { jsonData = JSON.parse(data); } catch (err) { console.error('Error parsing response:', err); throw new Error('Invalid response from server'); }
@@ -361,9 +376,37 @@ const CreateListeningTest = () => {
                     <div key={pIndex} style={{ marginBottom: '26px' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <h3 style={{ color: '#0e276f' }}>{p.title}</h3>
-                        <div>
-                          <button type="button" onClick={() => handleAddQuestion(pIndex)} style={{ marginRight: 8 }} className="btn btn-sm btn-outline-primary">Thêm câu</button>
-                          <button type="button" onClick={() => handleRemovePassage(pIndex)} className="btn btn-sm btn-outline-danger">Xóa phần</button>
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                          <button 
+                            type="button" 
+                            onClick={() => handleAddQuestion(pIndex)}
+                            style={{
+                              padding: '6px 12px',
+                              fontSize: '13px',
+                              backgroundColor: '#0e276f',
+                              color: 'white',
+                              border: 'none',
+                              borderRadius: '4px',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            ➕ Thêm câu
+                          </button>
+                          <button 
+                            type="button" 
+                            onClick={() => handleRemovePassage(pIndex)}
+                            style={{
+                              padding: '6px 12px',
+                              fontSize: '13px',
+                              backgroundColor: '#e03',
+                              color: 'white',
+                              border: 'none',
+                              borderRadius: '4px',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            🗑 Xóa phần
+                          </button>
                         </div>
                       </div>
 
