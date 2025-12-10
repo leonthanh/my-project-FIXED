@@ -121,6 +121,16 @@ const CreateListeningTest = () => {
     });
   };
 
+  const handleRemoveQuestion = (pIndex, qIndex) => {
+    setPassages(prev => {
+      const next = [...prev];
+      const removed = next[pIndex].questions[qIndex];
+      next[pIndex] = { ...next[pIndex], questions: next[pIndex].questions.filter((_, i) => i !== qIndex) };
+      setActionHistory(h => [...h, { type: 'removeQuestion', pIndex, qIndex, question: removed }]);
+      return next;
+    });
+  };
+
   const handleReplaceQuestion = (pIndex, qIndex, updatedQuestion) => {
     setPassages(prev => {
       const next = [...prev];
@@ -439,6 +449,7 @@ const CreateListeningTest = () => {
                         onQuestionChange={(index, updatedQuestion) => handleReplaceQuestion(pIndex, index, updatedQuestion)}
                         onAddOption={(qIndex) => handleAddOptionToQuestion(pIndex, qIndex)}
                         onRemoveOption={(qIndex) => handleRemoveOptionFromQuestion(pIndex, qIndex)}
+                        onRemoveQuestion={(qIndex) => handleRemoveQuestion(pIndex, qIndex)}
                         startFromNumber={startFrom}
                       />
                     </div>

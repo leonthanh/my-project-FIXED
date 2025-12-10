@@ -16,7 +16,8 @@ const ListeningPart = ({
   onQuestionChange,
   startFromNumber = 1,
   onAddOption,
-  onRemoveOption
+  onRemoveOption,
+  onRemoveQuestion
 }) => {
   return (
     <div style={{ marginBottom: '40px' }}>
@@ -58,10 +59,29 @@ const ListeningPart = ({
           borderRadius: '8px',
           backgroundColor: '#f9f9f9'
         }}>
-          <h4 style={{ marginTop: 0 }}>
-            Câu {index + startFromNumber}
-          </h4>
-          
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+            <h4 style={{ margin: 0 }}>
+              Câu {index + startFromNumber}
+            </h4>
+            {onRemoveQuestion && (
+              <button
+                type="button"
+                onClick={() => onRemoveQuestion(index)}
+                style={{
+                  padding: '6px 12px',
+                  fontSize: '13px',
+                  backgroundColor: '#e03',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  whiteSpace: 'nowrap'
+                }}
+              >
+                🗑 Xóa câu
+              </button>
+            )}
+          </div>
           {partType === 'fill' && (
             <FormQuestion
               question={question}
