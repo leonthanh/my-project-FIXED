@@ -1,7 +1,56 @@
 // src/pages/CreateWritingTest.jsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import AdminNavbar from '../components/AdminNavbar';
 import CustomEditor from '../components/CustomEditor';
+
+// 🎨 Thêm CSS tùy chỉnh cho editor - nền xám nhạt để dễ nhìn
+const editorStyles = `
+  .ck-content {
+    background-color: #f8f8f8 !important;
+    color: #000 !important;
+    caret-color: #000 !important;
+    cursor: text !important;
+    min-height: 200px;
+    border-radius: 4px !important;
+  }
+  .ck.ck-editor__main > .ck-editor__editable {
+    background-color: #f8f8f8 !important;
+    border: 1px solid #ddd !important;
+  }
+  .ck.ck-editor__main > .ck-editor__editable:focus {
+    background-color: #f5f5f5 !important;
+    box-shadow: inset 0 0 5px rgba(0,0,0,0.1);
+  }
+  /* Cho ReactQuill (nếu có) */
+  .ql-editor {
+    background-color: #f8f8f8 !important;
+    color: #000 !important;
+    caret-color: #000 !important;
+    cursor: text !important;
+    min-height: 200px;
+    border-radius: 4px;
+  }
+  .ql-editor:focus {
+    background-color: #f5f5f5 !important;
+    box-shadow: inset 0 0 5px rgba(0,0,0,0.1);
+  }
+  .ql-editor.ql-blank::before {
+    color: #999;
+    font-style: italic;
+  }
+  .ql-toolbar {
+    background-color: #fff !important;
+    border: 1px solid #ddd !important;
+    border-radius: 4px 4px 0 0;
+  }
+`;
+
+// Thêm style vào head
+if (typeof document !== 'undefined') {
+  const style = document.createElement('style');
+  style.textContent = editorStyles;
+  document.head.appendChild(style);
+}
 
 
 

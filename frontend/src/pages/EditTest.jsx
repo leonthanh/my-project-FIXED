@@ -7,6 +7,44 @@ import 'react-quill/dist/quill.snow.css';
 // import ReactQuill from 'react-quill'; // Thay thế CKEditor bằng ReactQuill
 import 'react-quill/dist/quill.snow.css'; // Import CSS cho ReactQuill
 
+// 🎨 Thêm CSS tùy chỉnh cho ReactQuill - nền xám nhạt để dễ nhìn
+const quillStyles = `
+  .ql-container {
+    font-size: 16px;
+  }
+  .ql-editor {
+    background-color: #f8f8f8 !important;
+    color: #000 !important;
+    caret-color: #000 !important;
+    cursor: text !important;
+    min-height: 200px;
+    border-radius: 4px;
+  }
+  .ql-editor:focus {
+    background-color: #f5f5f5 !important;
+    box-shadow: inset 0 0 5px rgba(0,0,0,0.1);
+  }
+  .ql-editor.ql-blank::before {
+    color: #999;
+    font-style: italic;
+  }
+  .ql-toolbar {
+    background-color: #fff !important;
+    border: 1px solid #ddd !important;
+    border-radius: 4px 4px 0 0;
+  }
+  .ql-toolbar.ql-snow {
+    padding: 8px;
+  }
+`;
+
+// Thêm style vào head
+if (typeof document !== 'undefined') {
+  const style = document.createElement('style');
+  style.textContent = quillStyles;
+  document.head.appendChild(style);
+}
+
 const EditTest = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -154,48 +192,44 @@ const EditTest = () => {
             <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
               Task 1:
             </label>
-            <div style={{ border: '1px solid #ddd', borderRadius: '4px', marginBottom: '20px' }}>
-              <ReactQuill
-                value={test.task1 || ''}
-                onChange={(content) => setTest(prev => ({ ...prev, task1: content }))}
-                modules={{
-                  toolbar: [
-                    [{ 'header': [1, 2, 3, false] }],
-                    ['bold', 'italic', 'underline', 'strike'],
-                    [{ 'color': [] }, { 'background': [] }],
-                    [{ 'list': 'ordered' }, { 'list': 'bullet' }],
-                    [{ 'align': [] }],
-                    ['link', 'image'],
-                    ['clean']
-                  ]
-                }}
-                style={{ height: '200px', marginBottom: '40px' }}
-              />
-            </div>
+            <ReactQuill
+              value={test.task1 || ''}
+              onChange={(content) => setTest(prev => ({ ...prev, task1: content }))}
+              modules={{
+                toolbar: [
+                  [{ 'header': [1, 2, 3, false] }],
+                  ['bold', 'italic', 'underline', 'strike'],
+                  [{ 'color': [] }, { 'background': [] }],
+                  [{ 'list': 'ordered' }, { 'list': 'bullet' }],
+                  [{ 'align': [] }],
+                  ['link', 'image'],
+                  ['clean']
+                ]
+              }}
+              theme="snow"
+            />
           </div>
 
           <div style={{ marginBottom: '20px' }}>
             <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
               Task 2:
             </label>
-            <div style={{ border: '1px solid #ddd', borderRadius: '4px', marginBottom: '20px' }}>
-              <ReactQuill
-                value={test.task2 || ''}
-                onChange={(content) => setTest(prev => ({ ...prev, task2: content }))}
-                modules={{
-                  toolbar: [
-                    [{ 'header': [1, 2, 3, false] }],
-                    ['bold', 'italic', 'underline', 'strike'],
-                    [{ 'color': [] }, { 'background': [] }],
-                    [{ 'list': 'ordered' }, { 'list': 'bullet' }],
-                    [{ 'align': [] }],
-                    ['link', 'image'],
-                    ['clean']
-                  ]
-                }}
-                style={{ height: '200px', marginBottom: '40px' }}
-              />
-            </div>
+            <ReactQuill
+              value={test.task2 || ''}
+              onChange={(content) => setTest(prev => ({ ...prev, task2: content }))}
+              modules={{
+                toolbar: [
+                  [{ 'header': [1, 2, 3, false] }],
+                  ['bold', 'italic', 'underline', 'strike'],
+                  [{ 'color': [] }, { 'background': [] }],
+                  [{ 'list': 'ordered' }, { 'list': 'bullet' }],
+                  [{ 'align': [] }],
+                  ['link', 'image'],
+                  ['clean']
+                ]
+              }}
+              theme="snow"
+            />
           </div>
 
           <h3>Câu hỏi:</h3>
