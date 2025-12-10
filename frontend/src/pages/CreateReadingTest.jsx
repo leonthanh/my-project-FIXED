@@ -1,5 +1,4 @@
-import React, { useState } from 'react';
-import axios from 'axios';
+import React, { useState, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AdminNavbar from '../components/AdminNavbar';
 import QuillEditor from '../components/QuillEditor';
@@ -10,12 +9,72 @@ import ComboboxQuestion from '../components/ComboboxQuestion';
 import 'react-quill/dist/quill.snow.css'; // Import Quill styles
 
 const CreateReadingTest = () => {
-  const [title, setTitle] = useState('');
-  const [passages, setPassages] = useState([
+  const API = process.env.REACT_APP_API_URL;
+  const navigate = useNavigate();
+
+  // Load saved data from localStorage if available
+  const loadSavedData = () => {
+    try {
+      const savedData = localStorage.getItem('readingTestDraft');
+      if (savedData) {
+        return JSON.parse(savedData);
+      }
+    } catch (error) {
+      console.error('Error loading saved data:', error);
+    }
+    return null;
+  };
+
+  const savedData = loadSavedData();
+
+  const [title, setTitle] = useState(savedData?.title || '');
+  const [classCode, setClassCode] = useState(savedData?.classCode || '');
+  const [teacherName, setTeacherName] = useState(savedData?.teacherName || '');
+  const [passages, setPassages] = useState(savedData?.passages || [
     { passageTitle: '', passageText: '', questions: [{ questionNumber: 1, questionType: 'multiple-choice', questionText: '', options: [''], correctAnswer: '' }] }
   ]);
-  const [isReviewing, setIsReviewing] = useState(false); // State for review modal
-  const navigate = useNavigate();
+  const [isReviewing, setIsReviewing] = useState(false);
+  const [message, setMessage] = useState('');
+  const [isCreating, setIsCreating] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
+
+  // Autosave function
+  const saveToLocalStorage = useCallback(() => {
+    try {
+      const dataToSave = {
+        title,
+        passages,
+        classCode,
+        teacherName
+      };
+      localStorage.setItem('readingTestDraft', JSON.stringify(dataToSave));
+      console.log('Draft saved:', new Date().toLocaleTimeString());
+    } catch (error) {
+      console.error('Error saving draft:', error);
+    }
+  }, [title, passages, classCode, teacherName]);
+
+  // Auto save every 30 seconds and on page unload
+  useEffect(() => {
+    const autosaveInterval = setInterval(saveToLocalStorage, 30000);
+    
+    const handleBeforeUnload = () => {
+      saveToLocalStorage();
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    
+    return () => {
+      clearInterval(autosaveInterval);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [saveToLocalStorage]);
+
+  // Strip HTML tags from text
+  const stripHtml = (html) => {
+    const temp = document.createElement('div');
+    temp.innerHTML = html;
+    return temp.textContent || temp.innerText || '';
+  };
 
   const handleAddPassage = () => {
     setPassages([...passages, { passageTitle: '', passageText: '', questions: [{ questionNumber: 1, questionType: 'multiple-choice', questionText: '', options: [''], correctAnswer: '' }] }]);
@@ -89,22 +148,98 @@ const CreateReadingTest = () => {
     setPassages(newPassages);
   };
 
+  const handleDeleteQuestion = (passageIndex, questionIndex) => {
+    const newPassages = [...passages];
+    newPassages[passageIndex].questions.splice(questionIndex, 1);
+    // Renumber remaining questions
+    newPassages[passageIndex].questions.forEach((q, idx) => {
+      q.questionNumber = idx + 1;
+    });
+    setPassages(newPassages);
+  };
+
+  const handleDeletePassage = (passageIndex) => {
+    if (passages.length <= 1) {
+      setMessage('❌ Phải có ít nhất 1 passage');
+      return;
+    }
+    const newPassages = passages.filter((_, idx) => idx !== passageIndex);
+    setPassages(newPassages);
+  };
 
   const handleReview = (e) => {
     e.preventDefault();
+    if (!title.trim()) {
+      setMessage('❌ Vui lòng nhập tiêu đề đề thi');
+      return;
+    }
+    if (!classCode.trim()) {
+      setMessage('❌ Vui lòng nhập mã lớp');
+      return;
+    }
+    if (!teacherName.trim()) {
+      setMessage('❌ Vui lòng nhập tên giáo viên');
+      return;
+    }
+    setMessage('');
     setIsReviewing(true);
   };
 
   const handleConfirmSubmit = async () => {
     try {
-      await axios.post('/api/reading-tests', { title, passages });
-      alert('Reading test created successfully!');
-      setIsReviewing(false);
-      navigate('/select-test'); // Redirect to the test list
+      setIsCreating(true);
+      
+      // Clean up passages data before submitting
+      const cleanedPassages = passages.map(p => ({
+        passageTitle: stripHtml(p.passageTitle || ''),
+        passageText: stripHtml(p.passageText || ''),
+        questions: p.questions.map(q => ({
+          ...q,
+          questionText: stripHtml(q.questionText || ''),
+          options: q.options ? q.options.map(opt => stripHtml(opt)) : undefined
+        }))
+      }));
+
+      const response = await fetch(`${API}/api/reading-tests`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          title: stripHtml(title),
+          classCode: stripHtml(classCode),
+          teacherName: stripHtml(teacherName),
+          passages: cleanedPassages
+        })
+      });
+
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.message || 'Lỗi khi tạo đề thi');
+      }
+
+      setMessage('✅ Đã tạo đề thành công!');
+      localStorage.removeItem('readingTestDraft');
+      setTimeout(() => {
+        navigate('/reading-tests');
+      }, 1500);
     } catch (error) {
-      console.error('Error creating reading test:', error);
-      alert('Failed to create reading test.');
+      console.error('Error:', error);
+      setMessage(`❌ ${error.message || 'Lỗi khi tạo đề thi'}`);
+    } finally {
+      setIsCreating(false);
+      setIsReviewing(false);
     }
+  };
+
+  const inputStyle = {
+    width: '100%',
+    padding: '10px',
+    marginBottom: '10px',
+    fontSize: '16px',
+    borderRadius: '6px',
+    border: '1px solid #ccc'
   };
 
   const modalStyles = {
@@ -167,28 +302,56 @@ const CreateReadingTest = () => {
     <div>
       <AdminNavbar />
       <div style={{ maxWidth: '1000px', margin: '20px auto', padding: '0 20px' }}>
-        <h2>Create IELTS Reading Test</h2>
+        <h2>📚 Tạo Đề Reading IELTS</h2>
+        
         <form onSubmit={handleReview}>
-          <div className="mb-3">
-            <label htmlFor="title" className="form-label">Test Title</label>
-            <input
-              type="text"
-              className="form-control"
-              id="title"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              required
-            />
-          </div>
+          <input
+            type="text"
+            placeholder="Tiêu đề đề thi (VD: IELTS Reading Test 1)"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            style={inputStyle}
+          />
+          
+          <input
+            type="text"
+            placeholder="Mã lớp (VD: 317S3)"
+            value={classCode}
+            onChange={(e) => setClassCode(e.target.value)}
+            style={inputStyle}
+          />
+          
+          <input
+            type="text"
+            placeholder="Tên giáo viên ra đề"
+            value={teacherName}
+            onChange={(e) => setTeacherName(e.target.value)}
+            style={inputStyle}
+          />
 
           {passages.map((passage, passageIndex) => (
             <div key={passageIndex} className="card mb-4">
-              <div className="card-header">
-                <h3>Passage {passageIndex + 1}</h3>
+              <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <h3 style={{ margin: 0 }}>Passage {passageIndex + 1}</h3>
+                <button
+                  type="button"
+                  onClick={() => handleDeletePassage(passageIndex)}
+                  style={{
+                    padding: '6px 12px',
+                    fontSize: '13px',
+                    backgroundColor: '#e03',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  🗑 Xóa Passage
+                </button>
               </div>
               <div className="card-body">
                 <div className="mb-3">
-                  <label className="form-label">Passage Title</label>
+                  <label className="form-label">Tiêu đề đoạn văn</label>
                   <input
                     type="text"
                     className="form-control"
@@ -197,20 +360,38 @@ const CreateReadingTest = () => {
                   />
                 </div>
                 <div className="mb-3">
-                    <label className="form-label">Passage Text</label>
+                    <label className="form-label">Nội dung đoạn văn</label>
                     <QuillEditor
                         value={passage.passageText}
                         onChange={(value) => handlePassageChange(passageIndex, 'passageText', value)}
                     />
                 </div>
 
-                <h4 className="mt-4">Questions for Passage {passageIndex + 1}</h4>
+                <h4 className="mt-4">Câu hỏi cho Passage {passageIndex + 1}</h4>
                 {passage.questions.map((question, questionIndex) => (
                   <div key={questionIndex} className="border p-3 mb-3">
-                    <h5>Question {question.questionNumber}</h5>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+                      <h5 style={{ margin: 0 }}>Câu {question.questionNumber}</h5>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteQuestion(passageIndex, questionIndex)}
+                        style={{
+                          padding: '6px 12px',
+                          fontSize: '13px',
+                          backgroundColor: '#e03',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '4px',
+                          cursor: 'pointer',
+                          whiteSpace: 'nowrap'
+                        }}
+                      >
+                        🗑 Xóa câu
+                      </button>
+                    </div>
                     {/* Common type selector */}
                     <div className="mb-3">
-                      <label className="form-label">Question Type</label>
+                      <label className="form-label">Loại câu hỏi</label>
                       <select
                         className="form-select"
                         value={question.questionType}
@@ -225,10 +406,10 @@ const CreateReadingTest = () => {
                           handleQuestionObjectChange(passageIndex, questionIndex, newQuestionObj);
                         }}
                       >
-                        <option value="multiple-choice">Multiple Choice</option>
-                        <option value="multi-select">Multi Select (choose 2+)</option>
-                        <option value="fill-in-the-blanks">Fill in the Blanks</option>
-                        <option value="matching">Matching / Combobox</option>
+                        <option value="multiple-choice">Trắc nghiệm 1 đáp án</option>
+                        <option value="multi-select">Trắc nghiệm nhiều đáp án</option>
+                        <option value="fill-in-the-blanks">Điền vào chỗ trống</option>
+                        <option value="matching">Ghép cặp / Combobox</option>
                       </select>
                     </div>
 
@@ -263,31 +444,160 @@ const CreateReadingTest = () => {
                     )}
                   </div>
                 ))}
-                <button type="button" className="btn btn-primary" onClick={() => handleAddQuestion(passageIndex)}>Add Question</button>
+                <button 
+                  type="button" 
+                  onClick={() => handleAddQuestion(passageIndex)}
+                  style={{
+                    padding: '8px 12px',
+                    fontSize: '14px',
+                    backgroundColor: '#0e276f',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  ➕ Thêm câu hỏi
+                </button>
               </div>
             </div>
           ))}
 
-          <button type="button" className="btn btn-info mb-3" onClick={handleAddPassage}>Add Passage</button>
-          <br />
-          <button type="submit" className="btn btn-success">Review Test</button>
+          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '20px' }}>
+            <button
+              type="button"
+              onClick={handleAddPassage}
+              style={{
+                padding: '10px 20px',
+                fontSize: '16px',
+                backgroundColor: '#0e276f',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: 'pointer'
+              }}
+            >
+              ➕ Thêm Passage
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setShowPreview(true)}
+              style={{
+                padding: '10px 20px',
+                fontSize: '16px',
+                backgroundColor: '#6c757d',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: 'pointer'
+              }}
+            >
+              👁 Preview
+            </button>
+
+            <button
+              type="submit"
+              style={{
+                padding: '10px 20px',
+                fontSize: '16px',
+                backgroundColor: '#e03',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontWeight: 'bold'
+              }}
+            >
+              ✏️ Xem lại & Tạo
+            </button>
+          </div>
         </form>
+
+        {message && (
+          <p style={{
+            marginTop: 20,
+            fontWeight: 'bold',
+            color: message.includes('❌') ? 'red' : 'green',
+            padding: '10px',
+            borderRadius: '4px',
+            backgroundColor: message.includes('❌') ? '#ffe6e6' : '#e6ffe6'
+          }}>
+            {message}
+          </p>
+        )}
       </div>
+
+      {showPreview && (
+        <div style={modalStyles}>
+          <div style={modalContentStyles}>
+            <div style={modalHeaderStyles}>
+              <h2 style={{ margin: 0 }}>👁 Preview Đề Reading</h2>
+            </div>
+            {passages.map((p, pIndex) => (
+              <div key={pIndex} style={{ marginBottom: '20px', paddingBottom: '20px', borderBottom: '1px solid #ddd' }}>
+                <h3 style={{ color: '#0e276f' }}>{p.passageTitle || `Passage ${pIndex + 1}`}</h3>
+                <div style={{ 
+                  backgroundColor: '#f9f9f9',
+                  padding: '15px',
+                  borderRadius: '4px',
+                  marginBottom: '15px',
+                  lineHeight: '1.8'
+                }} dangerouslySetInnerHTML={{ __html: p.passageText }} />
+                <h4>Câu hỏi:</h4>
+                {p.questions.map((q, qIndex) => (
+                  <div key={qIndex} style={{ marginBottom: '10px', paddingLeft: '15px' }}>
+                    <p><strong>{q.questionNumber}. {q.questionText}</strong></p>
+                    {q.options && q.options.length > 0 && (
+                      <ul style={{ marginLeft: '20px' }}>
+                        {q.options.map((opt, optIndex) => opt && <li key={optIndex}>{opt}</li>)}
+                      </ul>
+                    )}
+                    <p style={{ color: '#666', marginTop: '5px' }}>
+                      <strong>Đáp án:</strong> {q.correctAnswer}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            ))}
+            <hr />
+            <div style={{ textAlign: 'right' }}>
+              <button
+                onClick={() => setShowPreview(false)}
+                style={{
+                  padding: '10px 20px',
+                  backgroundColor: '#e03',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontWeight: 'bold'
+                }}
+              >
+                ✕ Đóng
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {isReviewing && (
         <div style={modalStyles}>
           <div style={modalContentStyles}>
             <div style={modalHeaderStyles}>
-              <h2 style={{ margin: 0 }}>Review Your Test</h2>
+              <h2 style={{ margin: 0 }}>🔎 Xem lại đề Reading</h2>
             </div>
-            <div style={{ padding: '8px 0 16px' }}>
-              <h3 style={{ marginTop: 8 }}>{title}</h3>
+            <div style={{ padding: '16px 0' }}>
+              <p><strong>Tiêu đề:</strong> {title}</p>
+              <p><strong>Mã lớp:</strong> {classCode}</p>
+              <p><strong>Giáo viên:</strong> {teacherName}</p>
             </div>
+            <hr />
             {passages.map((p, pIndex) => (
               <div key={pIndex} className="mb-4">
                 <h4>{p.passageTitle || `Passage ${pIndex + 1}`}</h4>
                 <div className="p-2 border rounded" dangerouslySetInnerHTML={{ __html: p.passageText }} />
-                <h5 className="mt-3">Questions:</h5>
+                <h5 className="mt-3">Câu hỏi:</h5>
                 {p.questions.map((q, qIndex) => (
                   <div key={qIndex} className="pl-3 mb-2">
                     <p><strong>{q.questionNumber}. {q.questionText}</strong> ({q.questionType})</p>
@@ -296,15 +606,17 @@ const CreateReadingTest = () => {
                         {q.options.map((opt, optIndex) => <li key={optIndex}>{opt}</li>)}
                       </ul>
                     )}
-                    <p style={{ color: '#0b8e3a' }}><strong>Answer:</strong> {q.correctAnswer}</p>
+                    <p style={{ color: '#0b8e3a' }}><strong>Đáp án:</strong> {q.correctAnswer}</p>
                   </div>
                 ))}
               </div>
             ))}
             <hr />
-            <div className="d-flex justify-content-end">
-              <button style={backButtonStyle} className="me-2" onClick={() => setIsReviewing(false)}>Back to Editing</button>
-              <button style={confirmButtonStyle} onClick={handleConfirmSubmit}>Confirm & Create Test</button>
+            <div className="d-flex justify-content-end gap-2">
+              <button style={backButtonStyle} onClick={() => setIsReviewing(false)}>← Quay lại chỉnh sửa</button>
+              <button style={confirmButtonStyle} onClick={handleConfirmSubmit} disabled={isCreating}>
+                {isCreating ? '⏳ Đang tạo...' : '✅ Xác nhận & Tạo'}
+              </button>
             </div>
           </div>
         </div>
