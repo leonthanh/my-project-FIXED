@@ -219,31 +219,14 @@ const MyFeedback = () => {
               backgroundColor: '#f9f9f9'
             }}
           >
-            <div style={{ 
-              backgroundColor: '#0e276f', 
-              color: 'white', 
-              padding: '12px', 
-              borderRadius: '6px',
-              marginBottom: '15px'
-            }}>
-              <p style={{ margin: '8px 0', fontSize: '16px', fontWeight: 'bold' }}>
-                📋 {sub.WritingTest?.title || 'Writing Test'}
-              </p>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', fontSize: '14px' }}>
-                <p style={{ margin: 0 }}>
-                  <strong>🧾 Mã đề:</strong> Writing {sub.WritingTest?.index || '(Không xác định)'}
-                </p>
-                <p style={{ margin: 0 }}>
-                  <strong>🎓 Mã lớp:</strong> {sub.WritingTest?.classCode || '(Không xác định)'}
-                </p>
-                <p style={{ margin: 0 }}>
-                  <strong>👨‍🏫 GV ra đề:</strong> {sub.WritingTest?.teacherName || '(Không xác định)'}
-                </p>
-                <p style={{ margin: 0 }}>
-                  <strong>✍️ GV chấm:</strong> {sub.feedbackBy || '(Chưa chấm)'}
-                </p>
-              </div>
-            </div>
+            <p>
+              <strong>📋 Mã đề:</strong> Writing {sub.WritingTest?.index || '?'} – {sub.WritingTest?.classCode || '(Không xác định)'} – {sub.WritingTest?.teacherName || '(Không xác định)'}
+            </p>
+            <p>
+              <strong>⏰ Nộp lúc:</strong>{' '}
+              {new Date(sub.submittedAt || sub.createdAt).toLocaleString('vi-VN')}
+            </p>
+            <p><strong>⏳ Thời gian còn lại:</strong> {Math.floor(sub.timeLeft / 60)} phút</p>
 
             {/* ✅ Hiển thị ảnh đề thi nếu có */}
             {sub.WritingTest?.task1Image && (
@@ -256,26 +239,19 @@ const MyFeedback = () => {
               </div>
             )}
 
-            <p>
-              <strong>🕒 Thời gian nộp:</strong>{' '}
-              {new Date(sub.submittedAt || sub.createdAt).toLocaleString()}
-            </p>
-            <p><strong>⏳ Thời gian còn lại:</strong> {Math.floor(sub.timeLeft / 60)} phút</p>
-
             <h4>✍️ Bài làm Task 1:</h4>
             <p style={{ whiteSpace: 'pre-line' }}>{sub.task1}</p>
 
             <h4>✍️ Bài làm Task 2:</h4>
             <p style={{ whiteSpace: 'pre-line' }}>{sub.task2}</p>
 
-            <h4 style={{ marginTop: 20 }}>📩 Nhận xét từ giáo viên:</h4>
+            <h4 style={{ marginTop: 20 }}>📩 Nhận xét từ giáo viên: <span style={{ color: '#0e276f', fontWeight: 'bold' }}>{sub.feedbackBy || 'Không xác định'}</span></h4>
             {sub.feedback ? (
               <div style={{ background: '#e7f4e4', padding: 10, borderRadius: 6 }}>
                 <p style={{ marginBottom: 8, whiteSpace: 'pre-line' }}>{sub.feedback}</p>
                 <p style={{ fontSize: '14px', color: '#555' }}>
-                  👨‍🏫 <strong>Giáo viên:</strong> {sub.feedbackBy || 'Không rõ'}<br />
-                  🕒 <strong>Thời gian nhận xét:</strong>{' '}
-                  {sub.feedbackAt ? new Date(sub.feedbackAt).toLocaleString() : 'Không rõ'}
+                  � <strong>Thời gian nhận xét:</strong>{' '}
+                  {sub.feedbackAt ? new Date(sub.feedbackAt).toLocaleString('vi-VN') : 'Không rõ'}
                 </p>
               </div>
             ) : (
