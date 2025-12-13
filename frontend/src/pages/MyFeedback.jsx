@@ -219,7 +219,31 @@ const MyFeedback = () => {
               backgroundColor: '#f9f9f9'
             }}
           >
-            <p><strong>🧾 Mã đề:</strong> Writing {sub.WritingTest?.index || '(Không xác định)'}</p>
+            <div style={{ 
+              backgroundColor: '#0e276f', 
+              color: 'white', 
+              padding: '12px', 
+              borderRadius: '6px',
+              marginBottom: '15px'
+            }}>
+              <p style={{ margin: '8px 0', fontSize: '16px', fontWeight: 'bold' }}>
+                📋 {sub.WritingTest?.title || 'Writing Test'}
+              </p>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', fontSize: '14px' }}>
+                <p style={{ margin: 0 }}>
+                  <strong>🧾 Mã đề:</strong> Writing {sub.WritingTest?.index || '(Không xác định)'}
+                </p>
+                <p style={{ margin: 0 }}>
+                  <strong>🎓 Mã lớp:</strong> {sub.WritingTest?.classCode || '(Không xác định)'}
+                </p>
+                <p style={{ margin: 0 }}>
+                  <strong>👨‍🏫 GV ra đề:</strong> {sub.WritingTest?.teacherName || '(Không xác định)'}
+                </p>
+                <p style={{ margin: 0 }}>
+                  <strong>✍️ GV chấm:</strong> {sub.feedbackBy || '(Chưa chấm)'}
+                </p>
+              </div>
+            </div>
 
             {/* ✅ Hiển thị ảnh đề thi nếu có */}
             {sub.WritingTest?.task1Image && (
