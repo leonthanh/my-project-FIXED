@@ -1,4 +1,5 @@
 import React from 'react';
+import QuillEditor from './QuillEditor';
 
 const FillBlankQuestion = ({ question, onChange }) => {
   const handleChange = (field, value) => {
@@ -19,12 +20,10 @@ const FillBlankQuestion = ({ question, onChange }) => {
   return (
     <div style={styles.container}>
       <label style={styles.label}>❓ Câu hỏi (Fill in the blank):</label>
-      <textarea
+      <QuillEditor
         value={question.questionText}
-        onChange={e => handleChange('questionText', e.target.value)}
-        rows={3}
-        style={styles.input}
-        placeholder="Nhập câu hỏi, dùng __ để đánh dấu chỗ trống"
+        onChange={(value) => handleChange('questionText', value)}
+        showBlankButton={true}
       />
 
       <label style={styles.label}>🔢 Số từ tối đa (no more than):</label>
