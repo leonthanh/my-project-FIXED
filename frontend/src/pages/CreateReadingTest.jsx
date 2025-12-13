@@ -2,6 +2,7 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AdminNavbar from '../components/AdminNavbar';
 import QuillEditor from '../components/QuillEditor';
+import QuestionSection from '../components/QuestionSection';
 import MultipleChoiceQuestion from '../components/MultipleChoiceQuestion';
 import MultiSelectQuestion from '../components/MultiSelectQuestion';
 import FillBlankQuestion from '../components/FillBlankQuestion';
@@ -31,7 +32,18 @@ const CreateReadingTest = () => {
   const [classCode, setClassCode] = useState(savedData?.classCode || '');
   const [teacherName, setTeacherName] = useState(savedData?.teacherName || '');
   const [passages, setPassages] = useState(savedData?.passages || [
-    { passageTitle: '', passageText: '', questions: [{ questionNumber: 1, questionType: 'multiple-choice', questionText: '', options: [''], correctAnswer: '' }] }
+    { 
+      passageTitle: '', 
+      passageText: '', 
+      sections: [
+        {
+          sectionTitle: '',
+          sectionInstruction: '',
+          sectionImage: null,
+          questions: [{ questionNumber: 1, questionType: 'multiple-choice', questionText: '', options: [''], correctAnswer: '' }]
+        }
+      ]
+    }
   ]);
   const [isReviewing, setIsReviewing] = useState(false);
   const [message, setMessage] = useState('');
@@ -77,7 +89,18 @@ const CreateReadingTest = () => {
   };
 
   const handleAddPassage = () => {
-    setPassages([...passages, { passageTitle: '', passageText: '', questions: [{ questionNumber: 1, questionType: 'multiple-choice', questionText: '', options: [''], correctAnswer: '' }] }]);
+    setPassages([...passages, { 
+      passageTitle: '', 
+      passageText: '', 
+      sections: [
+        {
+          sectionTitle: '',
+          sectionInstruction: '',
+          sectionImage: null,
+          questions: [{ questionNumber: 1, questionType: 'multiple-choice', questionText: '', options: [''], correctAnswer: '' }]
+        }
+      ]
+    }]);
   };
 
   const handlePassageChange = (index, field, value) => {
@@ -86,19 +109,6 @@ const CreateReadingTest = () => {
     setPassages(newPassages);
   };
 
-  const handleAddQuestion = (passageIndex) => {
-    const newPassages = [...passages];
-    const newQuestionNumber = newPassages[passageIndex].questions.length + 1;
-    const defaultQuestion = {
-      questionNumber: newQuestionNumber,
-      questionType: 'multiple-choice',
-      questionText: '',
-      options: [''],
-      correctAnswer: ''
-    };
-    newPassages[passageIndex].questions.push(defaultQuestion);
-    setPassages(newPassages);
-  };
 
   const createDefaultQuestionByType = (type) => {
     switch(type) {
@@ -142,28 +152,80 @@ const CreateReadingTest = () => {
     }
   };
 
-  const handleQuestionObjectChange = (passageIndex, questionIndex, newQuestionObj) => {
-    const newPassages = [...passages];
-    newPassages[passageIndex].questions[questionIndex] = { ...newQuestionObj };
-    setPassages(newPassages);
-  };
-
-  const handleDeleteQuestion = (passageIndex, questionIndex) => {
-    const newPassages = [...passages];
-    newPassages[passageIndex].questions.splice(questionIndex, 1);
-    // Renumber remaining questions
-    newPassages[passageIndex].questions.forEach((q, idx) => {
-      q.questionNumber = idx + 1;
-    });
-    setPassages(newPassages);
-  };
-
   const handleDeletePassage = (passageIndex) => {
     if (passages.length <= 1) {
       setMessage('❌ Phải có ít nhất 1 passage');
       return;
     }
     const newPassages = passages.filter((_, idx) => idx !== passageIndex);
+    setPassages(newPassages);
+  };
+
+  // ===== SECTION HANDLERS =====
+  const handleAddSection = (passageIndex) => {
+    const newPassages = [...passages];
+    // Ensure sections exist (for old data without sections)
+    if (!newPassages[passageIndex].sections) {
+      newPassages[passageIndex].sections = [];
+    }
+    const newSectionNumber = newPassages[passageIndex].sections.length + 1;
+    newPassages[passageIndex].sections.push({
+      sectionTitle: `Section ${newSectionNumber}`,
+      sectionInstruction: '',
+      sectionImage: null,
+      questions: [{ questionNumber: 1, questionType: 'multiple-choice', questionText: '', options: [''], correctAnswer: '' }]
+    });
+    setPassages(newPassages);
+  };
+
+  const handleDeleteSection = (passageIndex, sectionIndex) => {
+    const newPassages = [...passages];
+    if (!newPassages[passageIndex].sections) {
+      setMessage('❌ Không có section để xóa');
+      return;
+    }
+    if (newPassages[passageIndex].sections.length <= 1) {
+      setMessage('❌ Phải có ít nhất 1 section');
+      return;
+    }
+    newPassages[passageIndex].sections.splice(sectionIndex, 1);
+    setPassages(newPassages);
+  };
+
+  const handleSectionChange = (passageIndex, sectionIndex, field, value) => {
+    const newPassages = [...passages];
+    newPassages[passageIndex].sections[sectionIndex][field] = value;
+    setPassages(newPassages);
+  };
+
+  const handleAddQuestion = (passageIndex, sectionIndex) => {
+    const newPassages = [...passages];
+    const section = newPassages[passageIndex].sections[sectionIndex];
+    const newQuestionNumber = section.questions.length + 1;
+    section.questions.push({
+      questionNumber: newQuestionNumber,
+      questionType: 'multiple-choice',
+      questionText: '',
+      options: [''],
+      correctAnswer: ''
+    });
+    setPassages(newPassages);
+  };
+
+  const handleDeleteQuestion = (passageIndex, sectionIndex, questionIndex) => {
+    const newPassages = [...passages];
+    const section = newPassages[passageIndex].sections[sectionIndex];
+    section.questions.splice(questionIndex, 1);
+    // Renumber remaining questions
+    section.questions.forEach((q, idx) => {
+      q.questionNumber = idx + 1;
+    });
+    setPassages(newPassages);
+  };
+
+  const handleQuestionChange = (passageIndex, sectionIndex, questionIndex, updatedQuestion) => {
+    const newPassages = [...passages];
+    newPassages[passageIndex].sections[sectionIndex].questions[questionIndex] = updatedQuestion;
     setPassages(newPassages);
   };
 
@@ -367,97 +429,38 @@ const CreateReadingTest = () => {
                     />
                 </div>
 
-                <h4 className="mt-4">Câu hỏi cho Passage {passageIndex + 1}</h4>
-                {passage.questions.map((question, questionIndex) => (
-                  <div key={questionIndex} className="border p-3 mb-3">
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
-                      <h5 style={{ margin: 0 }}>Câu {question.questionNumber}</h5>
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteQuestion(passageIndex, questionIndex)}
-                        style={{
-                          padding: '6px 12px',
-                          fontSize: '13px',
-                          backgroundColor: '#e03',
-                          color: 'white',
-                          border: 'none',
-                          borderRadius: '4px',
-                          cursor: 'pointer',
-                          whiteSpace: 'nowrap'
-                        }}
-                      >
-                        🗑 Xóa câu
-                      </button>
-                    </div>
-                    {/* Common type selector */}
-                    <div className="mb-3">
-                      <label className="form-label">Loại câu hỏi</label>
-                      <select
-                        className="form-select"
-                        value={question.questionType}
-                        onChange={(e) => {
-                          const newType = e.target.value;
-                          const defaultObj = createDefaultQuestionByType(newType);
-                          const newQuestionObj = { 
-                            ...question, 
-                            ...defaultObj,
-                            questionNumber: question.questionNumber // Preserve question number
-                          };
-                          handleQuestionObjectChange(passageIndex, questionIndex, newQuestionObj);
-                        }}
-                      >
-                        <option value="multiple-choice">Trắc nghiệm 1 đáp án</option>
-                        <option value="multi-select">Trắc nghiệm nhiều đáp án</option>
-                        <option value="fill-in-the-blanks">Điền vào chỗ trống</option>
-                        <option value="matching">Ghép cặp / Combobox</option>
-                      </select>
-                    </div>
-
-                    {/* Render editor components by type */}
-                    {question.questionType === 'multiple-choice' && (
-                      <MultipleChoiceQuestion
-                        question={question}
-                        onChange={(q) => handleQuestionObjectChange(passageIndex, questionIndex, q)}
-                        type={'abc'}
-                      />
-                    )}
-
-                    {question.questionType === 'multi-select' && (
-                      <MultiSelectQuestion
-                        question={question}
-                        onChange={(q) => handleQuestionObjectChange(passageIndex, questionIndex, q)}
-                      />
-                    )}
-
-                    {question.questionType === 'fill-in-the-blanks' && (
-                      <FillBlankQuestion
-                        question={question}
-                        onChange={(q) => handleQuestionObjectChange(passageIndex, questionIndex, q)}
-                      />
-                    )}
-
-                    {question.questionType === 'matching' && (
-                      <ComboboxQuestion
-                        question={question}
-                        onChange={(q) => handleQuestionObjectChange(passageIndex, questionIndex, q)}
-                      />
-                    )}
-                  </div>
+                {/* SECTIONS */}
+                <h4 className="mt-4">📌 Phần câu hỏi (Sections)</h4>
+                {passage.sections?.map((section, sectionIndex) => (
+                  <QuestionSection
+                    key={sectionIndex}
+                    passageIndex={passageIndex}
+                    sectionIndex={sectionIndex}
+                    section={section}
+                    onSectionChange={handleSectionChange}
+                    onAddQuestion={handleAddQuestion}
+                    onDeleteQuestion={handleDeleteQuestion}
+                    onQuestionChange={handleQuestionChange}
+                    onDeleteSection={handleDeleteSection}
+                    createDefaultQuestionByType={createDefaultQuestionByType}
+                  />
                 ))}
                 <button 
                   type="button" 
-                  onClick={() => handleAddQuestion(passageIndex)}
+                  onClick={() => handleAddSection(passageIndex)}
                   style={{
-                    padding: '8px 12px',
+                    padding: '10px 20px',
                     fontSize: '14px',
                     backgroundColor: '#0e276f',
                     color: 'white',
                     border: 'none',
                     borderRadius: '4px',
-                    cursor: 'pointer'
+                    cursor: 'pointer',
+                    fontWeight: 'bold',
+                    marginBottom: '20px'
                   }}
                 >
-                  ➕ Thêm câu hỏi
+                  ➕ Thêm Section
                 </button>
               </div>
             </div>
