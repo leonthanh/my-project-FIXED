@@ -3,10 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import AdminNavbar from '../components/AdminNavbar';
 import QuillEditor from '../components/QuillEditor';
 import QuestionSection from '../components/QuestionSection';
-import MultipleChoiceQuestion from '../components/MultipleChoiceQuestion';
-import MultiSelectQuestion from '../components/MultiSelectQuestion';
-import FillBlankQuestion from '../components/FillBlankQuestion';
-import ComboboxQuestion from '../components/ComboboxQuestion';
 import 'react-quill/dist/quill.snow.css'; // Import Quill styles
 
 const CreateReadingTest = () => {
@@ -35,14 +31,7 @@ const CreateReadingTest = () => {
     { 
       passageTitle: '', 
       passageText: '', 
-      sections: [
-        {
-          sectionTitle: '',
-          sectionInstruction: '',
-          sectionImage: null,
-          questions: [{ questionNumber: 1, questionType: 'multiple-choice', questionText: '', options: [''], correctAnswer: '' }]
-        }
-      ]
+      sections: []
     }
   ]);
   const [isReviewing, setIsReviewing] = useState(false);
@@ -142,6 +131,32 @@ const CreateReadingTest = () => {
           rightItems: ['Item 1', 'Item 2', 'Item 3'],
           matches: ['1', '2', '3']
         };
+      case 'true-false-not-given':
+        return {
+          questionType: 'true-false-not-given',
+          questionText: '',
+          correctAnswer: 'TRUE'
+        };
+      case 'paragraph-matching':
+        return {
+          questionType: 'paragraph-matching',
+          questionText: '',
+          correctAnswer: 'A'
+        };
+      case 'sentence-completion':
+        return {
+          questionType: 'sentence-completion',
+          questionText: '',
+          options: ['', '', '', ''],
+          correctAnswer: 'A'
+        };
+      case 'short-answer':
+        return {
+          questionType: 'short-answer',
+          questionText: '',
+          correctAnswer: '',
+          maxWords: 3
+        };
       default:
         return {
           questionType: 'multiple-choice',
@@ -173,7 +188,7 @@ const CreateReadingTest = () => {
       sectionTitle: `Section ${newSectionNumber}`,
       sectionInstruction: '',
       sectionImage: null,
-      questions: [{ questionNumber: 1, questionType: 'multiple-choice', questionText: '', options: [''], correctAnswer: '' }]
+      questions: [] // Trống, giáo viên sẽ tự thêm câu hỏi
     });
     setPassages(newPassages);
   };
@@ -200,10 +215,18 @@ const CreateReadingTest = () => {
 
   const handleAddQuestion = (passageIndex, sectionIndex) => {
     const newPassages = [...passages];
-    const section = newPassages[passageIndex].sections[sectionIndex];
-    const newQuestionNumber = section.questions.length + 1;
+    const passage = newPassages[passageIndex];
+    const section = passage.sections[sectionIndex];
+    
+    // Tính question number dựa trên tất cả sections + questions trước đó
+    let questionNumber = 1;
+    for (let i = 0; i < sectionIndex; i++) {
+      questionNumber += passage.sections[i].questions.length;
+    }
+    questionNumber += section.questions.length + 1;
+    
     section.questions.push({
-      questionNumber: newQuestionNumber,
+      questionNumber: questionNumber,
       questionType: 'multiple-choice',
       questionText: '',
       options: [''],

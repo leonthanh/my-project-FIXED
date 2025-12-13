@@ -4,6 +4,10 @@ import MultipleChoiceQuestion from './MultipleChoiceQuestion';
 import MultiSelectQuestion from './MultiSelectQuestion';
 import FillBlankQuestion from './FillBlankQuestion';
 import ComboboxQuestion from './ComboboxQuestion';
+import TrueFalseNotGivenQuestion from './TrueFalseNotGivenQuestion';
+import ParagraphMatchingQuestion from './ParagraphMatchingQuestion';
+import SentenceCompletionQuestion from './SentenceCompletionQuestion';
+import ShortAnswerQuestion from './ShortAnswerQuestion';
 
 const QuestionSection = ({
   passageIndex,
@@ -179,6 +183,10 @@ const QuestionSection = ({
                 <option value="multi-select">Trắc nghiệm nhiều đáp án</option>
                 <option value="fill-in-the-blanks">Điền vào chỗ trống</option>
                 <option value="matching">Ghép cặp / Combobox</option>
+                <option value="true-false-not-given">True/False/Not Given</option>
+                <option value="paragraph-matching">Tìm thông tin ở đoạn nào (A-G)</option>
+                <option value="sentence-completion">Hoàn thành câu (chọn từ danh sách)</option>
+                <option value="short-answer">Câu trả lời ngắn</option>
               </select>
             </div>
 
@@ -207,6 +215,34 @@ const QuestionSection = ({
 
             {question.questionType === 'matching' && (
               <ComboboxQuestion
+                question={question}
+                onChange={(q) => onQuestionChange(passageIndex, sectionIndex, questionIndex, q)}
+              />
+            )}
+
+            {question.questionType === 'true-false-not-given' && (
+              <TrueFalseNotGivenQuestion
+                question={question}
+                onChange={(q) => onQuestionChange(passageIndex, sectionIndex, questionIndex, q)}
+              />
+            )}
+
+            {question.questionType === 'paragraph-matching' && (
+              <ParagraphMatchingQuestion
+                question={question}
+                onChange={(q) => onQuestionChange(passageIndex, sectionIndex, questionIndex, q)}
+              />
+            )}
+
+            {question.questionType === 'sentence-completion' && (
+              <SentenceCompletionQuestion
+                question={question}
+                onChange={(q) => onQuestionChange(passageIndex, sectionIndex, questionIndex, q)}
+              />
+            )}
+
+            {question.questionType === 'short-answer' && (
+              <ShortAnswerQuestion
                 question={question}
                 onChange={(q) => onQuestionChange(passageIndex, sectionIndex, questionIndex, q)}
               />
