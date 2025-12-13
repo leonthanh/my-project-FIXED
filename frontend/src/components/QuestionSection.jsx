@@ -133,9 +133,7 @@ const QuestionSection = ({
               alignItems: 'center',
               marginBottom: '12px'
             }}>
-              {question.questionType !== 'matching' && question.questionType !== 'fill-in-the-blanks' && (
-                <h6 style={{ margin: 0 }}>Câu {question.questionNumber}</h6>
-              )}
+              {/* Hide question numbers - teachers manage numbering manually */}
               <button
                 type="button"
                 onClick={() => onDeleteQuestion(passageIndex, sectionIndex, questionIndex)}
