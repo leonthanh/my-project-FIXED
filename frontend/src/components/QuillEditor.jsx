@@ -1,8 +1,7 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef } from 'react';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 import 'quill-table';
-import 'quill-table/dist/quill-table.snow.css';
 
 const QuillEditor = ({ value, onChange, placeholder, showBlankButton = false }) => {
   const quillRef = useRef(null);

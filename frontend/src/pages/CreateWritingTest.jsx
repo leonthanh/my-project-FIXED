@@ -1,5 +1,5 @@
 // src/pages/CreateWritingTest.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import AdminNavbar from '../components/AdminNavbar';
 import CustomEditor from '../components/CustomEditor';
 
