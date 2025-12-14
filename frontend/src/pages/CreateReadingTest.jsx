@@ -275,15 +275,34 @@ const CreateReadingTest = () => {
       setIsCreating(true);
       
       // Clean up passages data before submitting
-      const cleanedPassages = passages.map(p => ({
-        passageTitle: stripHtml(p.passageTitle || ''),
-        passageText: stripHtml(p.passageText || ''),
-        questions: p.questions.map(q => ({
-          ...q,
-          questionText: stripHtml(q.questionText || ''),
-          options: q.options ? q.options.map(opt => stripHtml(opt)) : undefined
-        }))
-      }));
+      const cleanedPassages = passages.map(p => {
+        // Flatten questions from all sections
+        const allQuestions = [];
+        p.sections?.forEach(section => {
+          section.questions?.forEach(q => {
+            allQuestions.push({
+              ...q,
+              questionText: stripHtml(q.questionText || ''),
+              options: q.options ? q.options.map(opt => stripHtml(opt)) : undefined
+            });
+          });
+        });
+        
+        return {
+          passageTitle: stripHtml(p.passageTitle || ''),
+          passageText: stripHtml(p.passageText || ''),
+          sections: p.sections?.map(section => ({
+            sectionTitle: stripHtml(section.sectionTitle || ''),
+            sectionInstruction: stripHtml(section.sectionInstruction || ''),
+            sectionImage: section.sectionImage,
+            questions: section.questions?.map(q => ({
+              ...q,
+              questionText: stripHtml(q.questionText || ''),
+              options: q.options ? q.options.map(opt => stripHtml(opt)) : undefined
+            })) || []
+          })) || []
+        };
+      });
 
       const response = await fetch(`${API}/api/reading-tests`, {
         method: 'POST',
@@ -570,18 +589,42 @@ const CreateReadingTest = () => {
                   marginBottom: '15px',
                   lineHeight: '1.8'
                 }} dangerouslySetInnerHTML={{ __html: p.passageText }} />
-                <h4>Câu hỏi:</h4>
-                {p.questions.map((q, qIndex) => (
-                  <div key={qIndex} style={{ marginBottom: '10px', paddingLeft: '15px' }}>
-                    <p><strong>{q.questionNumber}. {q.questionText}</strong></p>
-                    {q.options && q.options.length > 0 && (
-                      <ul style={{ marginLeft: '20px' }}>
-                        {q.options.map((opt, optIndex) => opt && <li key={optIndex}>{opt}</li>)}
-                      </ul>
+                {p.sections?.map((section, sectionIndex) => (
+                  <div key={sectionIndex} style={{ marginBottom: '15px', paddingLeft: '10px', borderLeft: '3px solid #0e276f' }}>
+                    {section.sectionTitle && <h5 style={{ color: '#0e276f', marginTop: '10px' }}>{section.sectionTitle}</h5>}
+                    {section.sectionInstruction && (
+                      <div style={{ backgroundColor: '#f0f0f0', padding: '10px', borderRadius: '4px', marginBottom: '10px', fontSize: '14px' }} dangerouslySetInnerHTML={{ __html: section.sectionInstruction }} />
                     )}
-                    <p style={{ color: '#666', marginTop: '5px' }}>
-                      <strong>Đáp án:</strong> {q.correctAnswer}
-                    </p>
+                    {section.questions && section.questions.length > 0 && (
+                      <>
+                        <h6 style={{ marginTop: '10px' }}>Câu hỏi:</h6>
+                        {section.questions.map((q, qIndex) => (
+                          <div key={qIndex} style={{ marginBottom: '10px', paddingLeft: '15px' }}>
+                            <p><strong>{q.questionNumber}. {q.questionText}</strong></p>
+                            {q.options && q.options.length > 0 && (
+                              <ul style={{ marginLeft: '20px' }}>
+                                {q.options.map((opt, optIndex) => opt && <li key={optIndex}>{opt}</li>)}
+                              </ul>
+                            )}
+                            {q.leftItems && q.rightItems && (
+                              <div style={{ marginBottom: '10px' }}>
+                                <strong>Left Items:</strong>
+                                <ul style={{ marginLeft: '20px' }}>
+                                  {q.leftItems.map((item, idx) => <li key={idx}>{item}</li>)}
+                                </ul>
+                                <strong>Right Items:</strong>
+                                <ul style={{ marginLeft: '20px' }}>
+                                  {q.rightItems.map((item, idx) => <li key={idx}>{item}</li>)}
+                                </ul>
+                              </div>
+                            )}
+                            <p style={{ color: '#666', marginTop: '5px' }}>
+                              <strong>Đáp án:</strong> {q.correctAnswer}
+                            </p>
+                          </div>
+                        ))}
+                      </>
+                    )}
                   </div>
                 ))}
               </div>
@@ -623,16 +666,40 @@ const CreateReadingTest = () => {
               <div key={pIndex} className="mb-4">
                 <h4>{p.passageTitle || `Passage ${pIndex + 1}`}</h4>
                 <div className="p-2 border rounded" dangerouslySetInnerHTML={{ __html: p.passageText }} />
-                <h5 className="mt-3">Câu hỏi:</h5>
-                {p.questions.map((q, qIndex) => (
-                  <div key={qIndex} className="pl-3 mb-2">
-                    <p><strong>{q.questionNumber}. {q.questionText}</strong> ({q.questionType})</p>
-                    {q.questionType === 'multiple-choice' && (
-                      <ul>
-                        {q.options.map((opt, optIndex) => <li key={optIndex}>{opt}</li>)}
-                      </ul>
+                {p.sections?.map((section, sectionIndex) => (
+                  <div key={sectionIndex} className="mt-3 pl-3 border-left">
+                    {section.sectionTitle && <h5 className="mb-2">{section.sectionTitle}</h5>}
+                    {section.sectionInstruction && (
+                      <div className="p-2 bg-light rounded mb-2" dangerouslySetInnerHTML={{ __html: section.sectionInstruction }} />
                     )}
-                    <p style={{ color: '#0b8e3a' }}><strong>Đáp án:</strong> {q.correctAnswer}</p>
+                    {section.questions && section.questions.length > 0 && (
+                      <>
+                        <h6 className="mt-2">Câu hỏi:</h6>
+                        {section.questions.map((q, qIndex) => (
+                          <div key={qIndex} className="pl-3 mb-2">
+                            <p><strong>{q.questionNumber}. {q.questionText}</strong> ({q.questionType})</p>
+                            {q.questionType === 'multiple-choice' && (
+                              <ul>
+                                {q.options?.map((opt, optIndex) => <li key={optIndex}>{opt}</li>)}
+                              </ul>
+                            )}
+                            {q.leftItems && q.rightItems && (
+                              <div className="mb-2">
+                                <strong>Left Items:</strong>
+                                <ul>
+                                  {q.leftItems.map((item, idx) => <li key={idx}>{item}</li>)}
+                                </ul>
+                                <strong>Right Items:</strong>
+                                <ul>
+                                  {q.rightItems.map((item, idx) => <li key={idx}>{item}</li>)}
+                                </ul>
+                              </div>
+                            )}
+                            <p style={{ color: '#0b8e3a' }}><strong>Đáp án:</strong> {q.correctAnswer}</p>
+                          </div>
+                        ))}
+                      </>
+                    )}
                   </div>
                 ))}
               </div>
