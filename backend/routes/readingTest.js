@@ -62,7 +62,11 @@ router.put('/:id', async (req, res) => {
       return res.status(404).json({ message: 'Cannot find test' });
     }
     await test.update(req.body);
-    res.json(test);
+    const data = test.toJSON();
+    if (typeof data.passages === 'string') {
+      data.passages = JSON.parse(data.passages);
+    }
+    res.json({ message: '✅ Đã cập nhật đề Reading thành công!', test: data });
   } catch (err) {
     res.status(400).json({ message: err.message });
   }

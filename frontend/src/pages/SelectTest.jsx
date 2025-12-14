@@ -77,8 +77,11 @@ const SelectTest = () => {
       if (response.ok) {
         if (testType === 'writing') {
           navigate(`/edit-test/${testId}`);
+        } else if (testType === 'reading') {
+          navigate(`/reading-tests/${testId}/edit`);
+        } else if (testType === 'listening') {
+          navigate(`/listening/${testId}/edit`);
         }
-        // Add edit routes for reading and listening as needed
       } else {
         alert('❌ Đề thi không tồn tại hoặc đã bị xóa.');
       }

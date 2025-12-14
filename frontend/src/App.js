@@ -14,6 +14,7 @@ import ReviewSubmission from './pages/ReviewSubmission';
 import Review from './pages/Review';
 import CreateListeningTest from './pages/CreateListeningTest';
 import CreateReadingTest from './pages/CreateReadingTest';
+import EditReadingTest from './pages/EditReadingTest';
 import DoReadingTest from './pages/DoReadingTest';
 import TakeReadingTest from './pages/TakeReadingTest';
 
@@ -56,6 +57,11 @@ function App() {
         <Route path="/admin/create-reading" element={
           <ProtectedRoute role="teacher">
             <CreateReadingTest />
+          </ProtectedRoute>
+        } />
+        <Route path="/reading-tests/:testId/edit" element={
+          <ProtectedRoute role="teacher">
+            <EditReadingTest />
           </ProtectedRoute>
         } />
         <Route path="/reading-tests" element={isLoggedIn() ? <TakeReadingTest /> : <Navigate to="/login" replace />} />

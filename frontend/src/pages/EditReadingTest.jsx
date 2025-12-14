@@ -1,0 +1,489 @@
+import React, { useState, useEffect, useCallback } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import AdminNavbar from '../components/AdminNavbar';
+import QuillEditor from '../components/QuillEditor';
+import QuestionSection from '../components/QuestionSection';
+import 'react-quill/dist/quill.snow.css';
+
+const EditReadingTest = () => {
+  const API = process.env.REACT_APP_API_URL;
+  const navigate = useNavigate();
+  const { testId } = useParams();
+
+  const [title, setTitle] = useState('');
+  const [classCode, setClassCode] = useState('');
+  const [teacherName, setTeacherName] = useState('');
+  const [passages, setPassages] = useState([]);
+  const [isReviewing, setIsReviewing] = useState(false);
+  const [message, setMessage] = useState('');
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  // Fetch existing test
+  useEffect(() => {
+    const fetchTest = async () => {
+      try {
+        const response = await fetch(`${API}/api/reading-tests/${testId}`);
+        if (!response.ok) throw new Error('Không tìm thấy đề thi');
+        const data = await response.json();
+        
+        setTitle(data.title);
+        setClassCode(data.classCode);
+        setTeacherName(data.teacherName);
+        setPassages(Array.isArray(data.passages) ? data.passages : [data.passages]);
+      } catch (error) {
+        setMessage(`❌ ${error.message}`);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchTest();
+  }, [testId, API]);
+
+  const stripHtml = (html) => {
+    const temp = document.createElement('div');
+    temp.innerHTML = html;
+    return temp.textContent || temp.innerText || '';
+  };
+
+  const handleAddPassage = () => {
+    setPassages([...passages, {
+      passageTitle: '',
+      passageText: '',
+      sections: [
+        {
+          sectionTitle: '',
+          sectionInstruction: '',
+          sectionImage: null,
+          questions: [{ questionNumber: 1, questionType: 'multiple-choice', questionText: '', options: [''], correctAnswer: '' }]
+        }
+      ]
+    }]);
+  };
+
+  const handleDeletePassage = (passageIndex) => {
+    if (passages.length === 1) {
+      setMessage('⚠️ Phải có ít nhất 1 passage');
+      return;
+    }
+    setPassages(passages.filter((_, index) => index !== passageIndex));
+  };
+
+  const handlePassageChange = (index, field, value) => {
+    const newPassages = [...passages];
+    newPassages[index][field] = value;
+    setPassages(newPassages);
+  };
+
+  const handleAddSection = (passageIndex) => {
+    const newPassages = [...passages];
+    newPassages[passageIndex].sections.push({
+      sectionTitle: '',
+      sectionInstruction: '',
+      sectionImage: null,
+      questions: [{ questionNumber: 1, questionType: 'multiple-choice', questionText: '', options: [''], correctAnswer: '' }]
+    });
+    setPassages(newPassages);
+  };
+
+  const handleDeleteSection = (passageIndex, sectionIndex) => {
+    const newPassages = [...passages];
+    if (newPassages[passageIndex].sections.length === 1) {
+      setMessage('⚠️ Phải có ít nhất 1 section');
+      return;
+    }
+    newPassages[passageIndex].sections = newPassages[passageIndex].sections.filter(
+      (_, index) => index !== sectionIndex
+    );
+    setPassages(newPassages);
+  };
+
+  const handleSectionChange = (passageIndex, sectionIndex, field, value) => {
+    const newPassages = [...passages];
+    newPassages[passageIndex].sections[sectionIndex][field] = value;
+    setPassages(newPassages);
+  };
+
+  const handleAddQuestion = (passageIndex, sectionIndex) => {
+    const newPassages = [...passages];
+    const newQuestionNum = (newPassages[passageIndex].sections[sectionIndex].questions?.length || 0) + 1;
+    newPassages[passageIndex].sections[sectionIndex].questions.push({
+      questionNumber: newQuestionNum,
+      questionType: 'multiple-choice',
+      questionText: '',
+      options: [''],
+      correctAnswer: ''
+    });
+    setPassages(newPassages);
+  };
+
+  const handleDeleteQuestion = (passageIndex, sectionIndex, questionIndex) => {
+    const newPassages = [...passages];
+    newPassages[passageIndex].sections[sectionIndex].questions = 
+      newPassages[passageIndex].sections[sectionIndex].questions.filter(
+        (_, index) => index !== questionIndex
+      );
+    setPassages(newPassages);
+  };
+
+  const handleQuestionChange = (passageIndex, sectionIndex, questionIndex, field, value) => {
+    const newPassages = [...passages];
+    newPassages[passageIndex].sections[sectionIndex].questions[questionIndex][field] = value;
+    setPassages(newPassages);
+  };
+
+  const createDefaultQuestionByType = (type) => {
+    const baseQuestion = {
+      questionNumber: 1,
+      questionType: type,
+      questionText: '',
+      correctAnswer: ''
+    };
+
+    switch (type) {
+      case 'multiple-choice':
+        return { ...baseQuestion, options: ['A', 'B', 'C', 'D'] };
+      case 'multi-select':
+        return { ...baseQuestion, options: ['A', 'B', 'C', 'D'] };
+      case 'fill-in-the-blanks':
+        return { ...baseQuestion, maxWords: 3 };
+      case 'matching':
+        return { ...baseQuestion, leftItems: [], rightItems: [], matches: [] };
+      case 'true-false-not-given':
+        return baseQuestion;
+      case 'paragraph-matching':
+        return baseQuestion;
+      case 'sentence-completion':
+        return { ...baseQuestion, options: [] };
+      case 'short-answer':
+        return { ...baseQuestion, maxWords: 5 };
+      default:
+        return baseQuestion;
+    }
+  };
+
+  const handleReview = (e) => {
+    e.preventDefault();
+    if (!title.trim()) {
+      setMessage('⚠️ Vui lòng nhập tiêu đề đề thi');
+      return;
+    }
+    setIsReviewing(true);
+  };
+
+  const handleConfirmUpdate = async () => {
+    try {
+      setIsUpdating(true);
+
+      const cleanedPassages = passages.map(p => ({
+        passageTitle: stripHtml(p.passageTitle || ''),
+        passageText: stripHtml(p.passageText || ''),
+        sections: p.sections?.map(section => ({
+          sectionTitle: stripHtml(section.sectionTitle || ''),
+          sectionInstruction: stripHtml(section.sectionInstruction || ''),
+          sectionImage: section.sectionImage,
+          questions: section.questions?.map(q => ({
+            ...q,
+            questionText: stripHtml(q.questionText || ''),
+            options: q.options ? q.options.map(opt => stripHtml(opt)) : undefined
+          })) || []
+        })) || []
+      }));
+
+      const response = await fetch(`${API}/api/reading-tests/${testId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          title: stripHtml(title),
+          classCode: stripHtml(classCode),
+          teacherName: stripHtml(teacherName),
+          passages: cleanedPassages
+        })
+      });
+
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || 'Lỗi khi cập nhật');
+
+      setMessage('✅ Đã cập nhật đề thành công!');
+      setTimeout(() => {
+        navigate('/reading-tests');
+      }, 1500);
+    } catch (error) {
+      setMessage(`❌ ${error.message}`);
+    } finally {
+      setIsUpdating(false);
+      setIsReviewing(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <>
+        <AdminNavbar />
+        <div style={{ maxWidth: '1000px', margin: '20px auto', padding: '0 20px' }}>
+          <p>⏳ Đang tải dữ liệu...</p>
+        </div>
+      </>
+    );
+  }
+
+  const inputStyle = {
+    width: '100%',
+    padding: '10px',
+    marginBottom: '10px',
+    fontSize: '16px',
+    borderRadius: '6px',
+    border: '1px solid #ccc'
+  };
+
+  const modalStyles = {
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    width: '100%',
+    height: '100%',
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1000,
+  };
+
+  const modalContentStyles = {
+    backgroundColor: 'white',
+    padding: '20px',
+    borderRadius: '8px',
+    width: '80%',
+    maxHeight: '90vh',
+    overflowY: 'auto',
+    boxShadow: '0 4px 8px rgba(0,0,0,0.2)',
+  };
+
+  const primaryBlue = '#0e276f';
+  const dangerRed = '#e03';
+  const modalHeaderStyles = {
+    backgroundColor: primaryBlue,
+    color: '#fff',
+    padding: '12px 16px',
+    borderRadius: '6px 6px 0 0',
+    margin: '-20px -20px 12px',
+  };
+  const confirmButtonStyle = {
+    backgroundColor: primaryBlue,
+    border: 'none',
+    color: '#fff',
+    padding: '10px 16px',
+    borderRadius: 6,
+    cursor: 'pointer',
+    fontWeight: 600,
+    boxShadow: '0 2px 6px rgba(14,39,111,0.25)',
+    transition: 'filter 120ms ease',
+  };
+  const backButtonStyle = {
+    backgroundColor: dangerRed,
+    border: 'none',
+    color: '#fff',
+    padding: '10px 16px',
+    borderRadius: 6,
+    cursor: 'pointer',
+    fontWeight: 600,
+    boxShadow: '0 2px 6px rgba(224,3,51,0.25)',
+    transition: 'filter 120ms ease',
+  };
+
+  return (
+    <div>
+      <AdminNavbar />
+      <div style={{ maxWidth: '1000px', margin: '20px auto', padding: '0 20px' }}>
+        <h2>✏️ Sửa Đề Reading IELTS</h2>
+
+        <form onSubmit={handleReview}>
+          <input
+            type="text"
+            placeholder="Tiêu đề đề thi"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            style={inputStyle}
+          />
+
+          <input
+            type="text"
+            placeholder="Mã lớp"
+            value={classCode}
+            onChange={(e) => setClassCode(e.target.value)}
+            style={inputStyle}
+          />
+
+          <input
+            type="text"
+            placeholder="Tên giáo viên"
+            value={teacherName}
+            onChange={(e) => setTeacherName(e.target.value)}
+            style={inputStyle}
+          />
+
+          {passages.map((passage, passageIndex) => (
+            <div key={passageIndex} style={{
+              border: '1px solid #ddd',
+              padding: '15px',
+              marginBottom: '15px',
+              borderRadius: '6px',
+              backgroundColor: '#f9f9f9'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                <h4>📄 Passage {passageIndex + 1}</h4>
+                <button
+                  type="button"
+                  onClick={() => handleDeletePassage(passageIndex)}
+                  style={{
+                    padding: '6px 12px',
+                    fontSize: '13px',
+                    backgroundColor: '#e03',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  ✕ Xóa Passage
+                </button>
+              </div>
+
+              <input
+                type="text"
+                placeholder="Tiêu đề passage"
+                value={passage.passageTitle}
+                onChange={(e) => handlePassageChange(passageIndex, 'passageTitle', e.target.value)}
+                style={inputStyle}
+              />
+
+              <QuillEditor
+                value={passage.passageText}
+                onChange={(value) => handlePassageChange(passageIndex, 'passageText', value)}
+                placeholder="Nội dung passage"
+              />
+
+              <h5>Các Section trong Passage này ({passage.sections?.length || 0})</h5>
+              {passage.sections?.map((section, sectionIndex) => (
+                <QuestionSection
+                  key={sectionIndex}
+                  passageIndex={passageIndex}
+                  sectionIndex={sectionIndex}
+                  section={section}
+                  onSectionChange={handleSectionChange}
+                  onAddQuestion={handleAddQuestion}
+                  onDeleteQuestion={handleDeleteQuestion}
+                  onQuestionChange={handleQuestionChange}
+                  onDeleteSection={handleDeleteSection}
+                  createDefaultQuestionByType={createDefaultQuestionByType}
+                />
+              ))}
+
+              <button
+                type="button"
+                onClick={() => handleAddSection(passageIndex)}
+                style={{
+                  padding: '10px 20px',
+                  fontSize: '14px',
+                  backgroundColor: '#0e276f',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontWeight: 'bold',
+                  marginBottom: '20px'
+                }}
+              >
+                ➕ Thêm Section
+              </button>
+            </div>
+          ))}
+
+          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '20px' }}>
+            <button
+              type="button"
+              onClick={handleAddPassage}
+              style={{
+                padding: '10px 20px',
+                fontSize: '16px',
+                backgroundColor: '#0e276f',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontWeight: 'bold'
+              }}
+            >
+              ➕ Thêm Passage Mới
+            </button>
+
+            <button
+              type="submit"
+              style={{
+                padding: '10px 20px',
+                fontSize: '16px',
+                backgroundColor: '#0b8e3a',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontWeight: 'bold'
+              }}
+            >
+              📝 Xem & Sửa
+            </button>
+          </div>
+        </form>
+
+        {message && (
+          <div style={{
+            padding: '15px',
+            marginBottom: '20px',
+            borderRadius: '6px',
+            backgroundColor: message.includes('❌') ? '#ffe6e6' : '#e6ffe6',
+            color: message.includes('❌') ? 'red' : 'green',
+            fontWeight: 'bold'
+          }}>
+            {message}
+          </div>
+        )}
+
+        {isReviewing && (
+          <div style={modalStyles}>
+            <div style={modalContentStyles}>
+              <div style={modalHeaderStyles}>
+                <h2 style={{ margin: 0 }}>🔎 Xem lại & Cập nhật</h2>
+              </div>
+              <div style={{ padding: '16px 0' }}>
+                <p><strong>Tiêu đề:</strong> {title}</p>
+                <p><strong>Tổng Passages:</strong> {passages.length}</p>
+              </div>
+              <hr />
+              {passages.map((p, pIndex) => (
+                <div key={pIndex} style={{ marginBottom: '20px', paddingBottom: '20px', borderBottom: '1px solid #ddd' }}>
+                  <h4>Passage {pIndex + 1}: {p.passageTitle || 'Untitled'}</h4>
+                  <p><strong>Sections:</strong> {p.sections?.length || 0}</p>
+                  <p><strong>Total Questions:</strong> {p.sections?.reduce((sum, s) => sum + (s.questions?.length || 0), 0) || 0}</p>
+                </div>
+              ))}
+              <div style={{ textAlign: 'right', marginTop: '20px' }}>
+                <button style={backButtonStyle} onClick={() => setIsReviewing(false)}>
+                  ← Quay lại sửa
+                </button>
+                <button style={confirmButtonStyle} onClick={handleConfirmUpdate} disabled={isUpdating} style={{...confirmButtonStyle, marginLeft: '10px'}}>
+                  {isUpdating ? '⏳ Đang cập nhật...' : '✅ Xác nhận cập nhật'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default EditReadingTest;
