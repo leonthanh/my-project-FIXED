@@ -1,7 +1,16 @@
-import React, { useRef } from 'react';
+import React, { useRef, useEffect } from 'react';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
-import 'quill-table';
+import QuillBetterTable from 'quill-better-table';
+import 'quill-better-table/dist/quill-better-table.css';
+
+// Register the table module
+ReactQuill.Quill.register(
+  {
+    'modules/better-table': QuillBetterTable
+  },
+  true
+);
 
 const QuillEditor = ({ value, onChange, placeholder, showBlankButton = false }) => {
   const quillRef = useRef(null);
@@ -25,9 +34,19 @@ const QuillEditor = ({ value, onChange, placeholder, showBlankButton = false }) 
       [{ 'list': 'ordered'}, { 'list': 'bullet' }],
       [{ 'align': [] }],
       ['link', 'image'],
-      ['table'],
+      ['better-table'],
       ['clean']
-    ]
+    ],
+    'better-table': {
+      operationMenu: {
+        items: {
+          unmergeCells: {},
+        },
+      },
+    },
+    keyboard: {
+      bindings: QuillBetterTable.keyboardBindings(),
+    },
   };
 
   const formats = [
@@ -38,7 +57,9 @@ const QuillEditor = ({ value, onChange, placeholder, showBlankButton = false }) 
     'list', 'bullet',
     'align',
     'link', 'image',
-    'table'
+    'better-table',
+    'better-table-col',
+    'better-table-row'
   ];
 
   return (
