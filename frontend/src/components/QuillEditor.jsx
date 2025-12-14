@@ -18,27 +18,24 @@ const QuillEditor = ({ value, onChange, placeholder, showBlankButton = false }) 
   };
 
   const handleInsertTable = () => {
-    if (quillRef.current) {
-      const editor = quillRef.current.getEditor();
-      const rows = parseInt(tableRows) || 2;
-      const cols = parseInt(tableCols) || 3;
-      
-      // Create table HTML
-      let tableHtml = '<table border="1" cellpadding="10" cellspacing="0" style="border-collapse: collapse; width: 100%;"><tbody>';
-      for (let i = 0; i < rows; i++) {
-        tableHtml += '<tr>';
-        for (let j = 0; j < cols; j++) {
-          tableHtml += '<td style="border: 1px solid #000; padding: 10px;"><br></td>';
-        }
-        tableHtml += '</tr>';
+    const rows = parseInt(tableRows) || 2;
+    const cols = parseInt(tableCols) || 3;
+    
+    // Create table HTML
+    let tableHtml = '<table style="border-collapse: collapse; width: 100%; margin: 10px 0;"><tbody>';
+    for (let i = 0; i < rows; i++) {
+      tableHtml += '<tr>';
+      for (let j = 0; j < cols; j++) {
+        tableHtml += '<td style="border: 1px solid #000; padding: 10px; text-align: left;"><br></td>';
       }
-      tableHtml += '</tbody></table>';
-      
-      const cursorPosition = editor.getSelection()?.index || editor.getLength();
-      editor.insertText(cursorPosition, '\n');
-      editor.pasteHTML(cursorPosition + 1, tableHtml);
-      setShowTableInput(false);
+      tableHtml += '</tr>';
     }
+    tableHtml += '</tbody></table><p><br></p>';
+    
+    // Append table to current value
+    const newValue = (value || '') + tableHtml;
+    onChange(newValue);
+    setShowTableInput(false);
   };
 
   const modules = {
