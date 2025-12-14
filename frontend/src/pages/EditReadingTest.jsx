@@ -20,6 +20,7 @@ const EditReadingTest = () => {
   const [loading, setLoading] = useState(true);
 
   // Fetch existing test
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     const fetchTest = async () => {
       try {
@@ -352,81 +353,83 @@ const EditReadingTest = () => {
             style={inputStyle}
           />
 
-          {passages.map((passage, passageIndex) => (
-            <div key={passageIndex} style={{
-              border: '1px solid #ddd',
-              padding: '15px',
-              marginBottom: '15px',
-              borderRadius: '6px',
-              backgroundColor: '#f9f9f9'
-            }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                <h4>📄 Passage {passageIndex + 1}</h4>
+          {passages && passages.length > 0 && passages.map((passage, passageIndex) => (
+            passage && passage.sections && (
+              <div key={passageIndex} style={{
+                border: '1px solid #ddd',
+                padding: '15px',
+                marginBottom: '15px',
+                borderRadius: '6px',
+                backgroundColor: '#f9f9f9'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                  <h4>📄 Passage {passageIndex + 1}</h4>
+                  <button
+                    type="button"
+                    onClick={() => handleDeletePassage(passageIndex)}
+                    style={{
+                      padding: '6px 12px',
+                      fontSize: '13px',
+                      backgroundColor: '#e03',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    ✕ Xóa Passage
+                  </button>
+                </div>
+
+                <input
+                  type="text"
+                  placeholder="Tiêu đề passage"
+                  value={passage.passageTitle || ''}
+                  onChange={(e) => handlePassageChange(passageIndex, 'passageTitle', e.target.value)}
+                  style={inputStyle}
+                />
+
+                <QuillEditor
+                  value={passage.passageText || ''}
+                  onChange={(value) => handlePassageChange(passageIndex, 'passageText', value)}
+                  placeholder="Nội dung passage"
+                />
+
+                <h5>Các Section trong Passage này ({passage.sections?.length || 0})</h5>
+                {passage.sections && passage.sections.map((section, sectionIndex) => (
+                  <QuestionSection
+                    key={`${passageIndex}-${sectionIndex}`}
+                    passageIndex={passageIndex}
+                    sectionIndex={sectionIndex}
+                    section={section}
+                    onSectionChange={handleSectionChange}
+                    onAddQuestion={handleAddQuestion}
+                    onDeleteQuestion={handleDeleteQuestion}
+                    onQuestionChange={handleQuestionChange}
+                    onDeleteSection={handleDeleteSection}
+                    createDefaultQuestionByType={createDefaultQuestionByType}
+                  />
+                ))}
+
                 <button
                   type="button"
-                  onClick={() => handleDeletePassage(passageIndex)}
+                  onClick={() => handleAddSection(passageIndex)}
                   style={{
-                    padding: '6px 12px',
-                    fontSize: '13px',
-                    backgroundColor: '#e03',
+                    padding: '10px 20px',
+                    fontSize: '14px',
+                    backgroundColor: '#0e276f',
                     color: 'white',
                     border: 'none',
                     borderRadius: '4px',
-                    cursor: 'pointer'
+                    cursor: 'pointer',
+                    fontWeight: 'bold',
+                    marginBottom: '20px'
                   }}
                 >
-                  ✕ Xóa Passage
+                  ➕ Thêm Section
                 </button>
               </div>
-
-              <input
-                type="text"
-                placeholder="Tiêu đề passage"
-                value={passage.passageTitle}
-                onChange={(e) => handlePassageChange(passageIndex, 'passageTitle', e.target.value)}
-                style={inputStyle}
-              />
-
-              <QuillEditor
-                value={passage.passageText}
-                onChange={(value) => handlePassageChange(passageIndex, 'passageText', value)}
-                placeholder="Nội dung passage"
-              />
-
-              <h5>Các Section trong Passage này ({passage.sections?.length || 0})</h5>
-              {passage.sections?.map((section, sectionIndex) => (
-                <QuestionSection
-                  key={sectionIndex}
-                  passageIndex={passageIndex}
-                  sectionIndex={sectionIndex}
-                  section={section}
-                  onSectionChange={handleSectionChange}
-                  onAddQuestion={handleAddQuestion}
-                  onDeleteQuestion={handleDeleteQuestion}
-                  onQuestionChange={handleQuestionChange}
-                  onDeleteSection={handleDeleteSection}
-                  createDefaultQuestionByType={createDefaultQuestionByType}
-                />
-              ))}
-
-              <button
-                type="button"
-                onClick={() => handleAddSection(passageIndex)}
-                style={{
-                  padding: '10px 20px',
-                  fontSize: '14px',
-                  backgroundColor: '#0e276f',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '4px',
-                  cursor: 'pointer',
-                  fontWeight: 'bold',
-                  marginBottom: '20px'
-                }}
-              >
-                ➕ Thêm Section
-              </button>
-            </div>
+            )
           ))}
 
           <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '20px' }}>
