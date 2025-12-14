@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import StudentNavbar from '../components/StudentNavbar';
 import '../styles/take-test.css';
 
 const TakeReadingTest = () => {
