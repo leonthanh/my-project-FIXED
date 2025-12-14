@@ -85,6 +85,11 @@ const TakeReadingTest = () => {
     return () => clearInterval(interval);
   }, []);
 
+  // Fetch test on component mount
+  useEffect(() => {
+    fetchTest();
+  }, [fetchTest]);
+
   const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
