@@ -137,6 +137,12 @@ const CreateReadingTest = () => {
           questionText: '',
           correctAnswer: 'TRUE'
         };
+      case 'yes-no-not-given':
+        return {
+          questionType: 'yes-no-not-given',
+          questionText: '',
+          correctAnswer: 'YES'
+        };
       case 'paragraph-matching':
         return {
           questionType: 'paragraph-matching',
@@ -339,11 +345,17 @@ const CreateReadingTest = () => {
 
   const inputStyle = {
     width: '100%',
-    padding: '10px',
-    marginBottom: '10px',
+    padding: '12px',
+    marginBottom: '15px',
     fontSize: '16px',
     borderRadius: '6px',
-    border: '1px solid #ccc'
+    border: '2px solid #0e276f',
+    backgroundColor: '#fff',
+    cursor: 'text',
+    boxSizing: 'border-box',
+    position: 'relative',
+    zIndex: 5,
+    transition: 'border-color 0.2s'
   };
 
   const modalStyles = {
@@ -461,6 +473,15 @@ const CreateReadingTest = () => {
                     className="form-control"
                     value={passage.passageTitle}
                     onChange={(e) => handlePassageChange(passageIndex, 'passageTitle', e.target.value)}
+                    style={{
+                      border: '2px solid #0e276f',
+                      padding: '12px',
+                      fontSize: '14px',
+                      cursor: 'text',
+                      position: 'relative',
+                      zIndex: 5,
+                      backgroundColor: '#fff'
+                    }}
                   />
                 </div>
                 <div className="mb-3">

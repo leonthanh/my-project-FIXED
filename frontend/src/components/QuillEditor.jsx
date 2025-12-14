@@ -39,7 +39,7 @@ const QuillEditor = ({ value, onChange, placeholder, showBlankButton = false }) 
   ];
 
   return (
-    <div>
+    <div style={{ position: 'relative', zIndex: 10 }}>
       {showBlankButton && (
         <button
           type="button"
@@ -53,25 +53,31 @@ const QuillEditor = ({ value, onChange, placeholder, showBlankButton = false }) 
             borderRadius: '4px',
             cursor: 'pointer',
             fontSize: '14px',
-            fontWeight: 'bold'
+            fontWeight: 'bold',
+            zIndex: 11
           }}
         >
           ➕ Thêm chỗ trống
         </button>
       )}
-      <ReactQuill
-        ref={quillRef}
-        theme="snow"
-        value={value || ''}
-        onChange={onChange}
-        modules={modules}
-        formats={formats}
-        placeholder={placeholder}
-        style={{ 
-          minHeight: '200px',
-          marginBottom: '20px'
-        }}
-      />
+      <div style={{ 
+        position: 'relative',
+        zIndex: 10
+      }}>
+        <ReactQuill
+          ref={quillRef}
+          theme="snow"
+          value={value || ''}
+          onChange={onChange}
+          modules={modules}
+          formats={formats}
+          placeholder={placeholder}
+          style={{ 
+            minHeight: '200px',
+            marginBottom: '20px'
+          }}
+        />
+      </div>
     </div>
   );
 };

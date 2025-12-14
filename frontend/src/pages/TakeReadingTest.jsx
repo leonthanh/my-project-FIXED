@@ -174,6 +174,23 @@ const TakeReadingTest = () => {
             </div>
           )}
 
+          {question.questionType === 'yes-no-not-given' && (
+            <div className="options-group">
+              {['YES', 'NO', 'NOT GIVEN'].map((option) => (
+                <label key={option} className="option-label">
+                  <input
+                    type="radio"
+                    name={key}
+                    value={option}
+                    checked={answers[key] === option}
+                    onChange={(e) => setAnswers(prev => ({ ...prev, [key]: e.target.value }))}
+                  />
+                  <span className="option-text">{option}</span>
+                </label>
+              ))}
+            </div>
+          )}
+
           {question.questionType === 'paragraph-matching' && (
             <input
               type="text"

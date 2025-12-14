@@ -231,6 +231,8 @@ const EditReadingTest = () => {
         return { ...baseQuestion, leftItems: [], rightItems: [], matches: [] };
       case 'true-false-not-given':
         return baseQuestion;
+      case 'yes-no-not-given':
+        return baseQuestion;
       case 'paragraph-matching':
         return baseQuestion;
       case 'sentence-completion':

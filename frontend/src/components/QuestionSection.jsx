@@ -5,6 +5,7 @@ import MultiSelectQuestion from './MultiSelectQuestion';
 import FillBlankQuestion from './FillBlankQuestion';
 import ComboboxQuestion from './ComboboxQuestion';
 import TrueFalseNotGivenQuestion from './TrueFalseNotGivenQuestion';
+import YesNoNotGivenQuestion from './YesNoNotGivenQuestion';
 import ParagraphMatchingQuestion from './ParagraphMatchingQuestion';
 import SentenceCompletionQuestion from './SentenceCompletionQuestion';
 import ShortAnswerQuestion from './ShortAnswerQuestion';
@@ -52,7 +53,7 @@ const QuestionSection = ({
       </div>
 
       {/* Section Title */}
-      <div style={{ marginBottom: '12px' }}>
+      <div style={{ marginBottom: '12px', position: 'relative', zIndex: 5 }}>
         <label style={{ fontWeight: 'bold', marginBottom: '5px', display: 'block' }}>
           📝 Tiêu đề Section:
         </label>
@@ -64,11 +65,16 @@ const QuestionSection = ({
           style={{
             width: '100%',
             padding: '10px',
-            border: '1px solid #ccc',
+            border: '2px solid #0e276f',
             borderRadius: '4px',
             fontSize: '14px',
-            boxSizing: 'border-box'
+            boxSizing: 'border-box',
+            backgroundColor: '#fff',
+            cursor: 'text',
+            position: 'relative',
+            zIndex: 5
           }}
+          autoComplete="off"
         />
       </div>
 
@@ -84,7 +90,7 @@ const QuestionSection = ({
       </div>
 
       {/* Section Image */}
-      <div style={{ marginBottom: '15px' }}>
+      <div style={{ marginBottom: '15px', position: 'relative', zIndex: 5 }}>
         <label style={{ fontWeight: 'bold', marginBottom: '5px', display: 'block' }}>
           🖼️ Hình ảnh/Diagram (nếu có):
         </label>
@@ -94,8 +100,12 @@ const QuestionSection = ({
           onChange={(e) => onSectionChange(passageIndex, sectionIndex, 'sectionImage', e.target.files[0])}
           style={{
             padding: '8px',
-            border: '1px solid #ccc',
-            borderRadius: '4px'
+            border: '2px solid #0e276f',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            position: 'relative',
+            zIndex: 5,
+            backgroundColor: '#fff'
           }}
         />
         {section.sectionImage && (
@@ -186,6 +196,7 @@ const QuestionSection = ({
                 <option value="fill-in-the-blanks">Điền vào chỗ trống</option>
                 <option value="matching">Ghép cặp / Combobox</option>
                 <option value="true-false-not-given">True/False/Not Given</option>
+                <option value="yes-no-not-given">Yes/No/Not Given</option>
                 <option value="paragraph-matching">Tìm thông tin ở đoạn nào (A-G)</option>
                 <option value="sentence-completion">Hoàn thành câu (chọn từ danh sách)</option>
                 <option value="short-answer">Câu trả lời ngắn</option>
@@ -224,6 +235,13 @@ const QuestionSection = ({
 
             {question.questionType === 'true-false-not-given' && (
               <TrueFalseNotGivenQuestion
+                question={question}
+                onChange={(q) => onQuestionChange(passageIndex, sectionIndex, questionIndex, 'full', q)}
+              />
+            )}
+
+            {question.questionType === 'yes-no-not-given' && (
+              <YesNoNotGivenQuestion
                 question={question}
                 onChange={(q) => onQuestionChange(passageIndex, sectionIndex, questionIndex, 'full', q)}
               />

@@ -27,11 +27,24 @@ const SentenceCompletionQuestion = ({ question, onChange }) => {
       padding: '15px',
       backgroundColor: '#f8f9fa',
       borderRadius: '8px',
-      marginBottom: '15px'
+      marginBottom: '15px',
+      position: 'relative',
+      zIndex: 5
     },
     label: { fontWeight: 'bold', marginBottom: '6px', display: 'block' },
-    input: { width: '100%', padding: '8px', marginBottom: '8px', borderRadius: '4px', border: '1px solid #ccc' },
-    optionContainer: { marginBottom: '10px', display: 'flex', gap: '8px', alignItems: 'center' }
+    input: { 
+      width: '100%', 
+      padding: '8px', 
+      marginBottom: '8px', 
+      borderRadius: '4px', 
+      border: '2px solid #0e276f',
+      backgroundColor: '#fff',
+      cursor: 'text',
+      position: 'relative',
+      zIndex: 5,
+      fontSize: '14px'
+    },
+    optionContainer: { marginBottom: '10px', display: 'flex', gap: '8px', alignItems: 'center', position: 'relative', zIndex: 5 }
   };
 
   return (

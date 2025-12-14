@@ -1,7 +1,7 @@
 import React from 'react';
 import QuillEditor from './QuillEditor';
 
-const TrueFalseNotGivenQuestion = ({ question, onChange }) => {
+const YesNoNotGivenQuestion = ({ question, onChange }) => {
   const handleChange = (field, value) => {
     onChange({ ...question, [field]: value });
   };
@@ -11,9 +11,7 @@ const TrueFalseNotGivenQuestion = ({ question, onChange }) => {
       padding: '15px',
       backgroundColor: '#f8f9fa',
       borderRadius: '8px',
-      marginBottom: '15px',
-      position: 'relative',
-      zIndex: 5
+      marginBottom: '15px'
     },
     label: { fontWeight: 'bold', marginBottom: '6px', display: 'block' },
     input: { 
@@ -23,10 +21,9 @@ const TrueFalseNotGivenQuestion = ({ question, onChange }) => {
       borderRadius: '4px', 
       border: '2px solid #0e276f',
       backgroundColor: '#fff',
-      cursor: 'pointer',
+      cursor: 'text',
       position: 'relative',
-      zIndex: 5,
-      fontSize: '14px'
+      zIndex: 5
     }
   };
 
@@ -46,12 +43,12 @@ const TrueFalseNotGivenQuestion = ({ question, onChange }) => {
         style={styles.input}
       >
         <option value="">-- Chọn đáp án --</option>
-        <option value="TRUE">TRUE</option>
-        <option value="FALSE">FALSE</option>
+        <option value="YES">YES</option>
+        <option value="NO">NO</option>
         <option value="NOT GIVEN">NOT GIVEN</option>
       </select>
     </div>
   );
 };
 
-export default TrueFalseNotGivenQuestion;
+export default YesNoNotGivenQuestion;
