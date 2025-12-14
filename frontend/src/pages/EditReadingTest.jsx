@@ -271,7 +271,7 @@ const EditReadingTest = () => {
 
       setMessage('✅ Đã cập nhật đề thành công!');
       setTimeout(() => {
-        navigate('/reading-tests');
+        navigate('/select-test');
       }, 1500);
     } catch (error) {
       setMessage(`❌ ${error.message}`);
@@ -571,19 +571,53 @@ const EditReadingTest = () => {
               <div style={modalHeaderStyles}>
                 <h2 style={{ margin: 0 }}>🔎 Xem lại & Cập nhật</h2>
               </div>
-              <div style={{ padding: '16px 0' }}>
-                <p><strong>Tiêu đề:</strong> {title}</p>
-                <p><strong>Tổng Passages:</strong> {passages.length}</p>
+              <div style={{ padding: '16px' }}>
+                <h3>📋 {title}</h3>
+                <p><strong>Mã lớp:</strong> {classCode}</p>
+                <p><strong>Giáo viên:</strong> {teacherName}</p>
+                <hr />
               </div>
-              <hr />
+              
               {passages.map((p, pIndex) => (
-                <div key={pIndex} style={{ marginBottom: '20px', paddingBottom: '20px', borderBottom: '1px solid #ddd' }}>
-                  <h4>Passage {pIndex + 1}: {p.passageTitle || 'Untitled'}</h4>
-                  <p><strong>Sections:</strong> {p.sections?.length || 0}</p>
-                  <p><strong>Total Questions:</strong> {p.sections?.reduce((sum, s) => sum + (s.questions?.length || 0), 0) || 0}</p>
+                <div key={pIndex} style={{ marginBottom: '20px', paddingBottom: '20px', borderBottom: '1px solid #ddd', padding: '15px', backgroundColor: '#f9f9f9', borderRadius: '6px' }}>
+                  <h4 style={{ color: '#0e276f', marginTop: 0 }}>📄 Passage {pIndex + 1}: {p.passageTitle || 'Untitled'}</h4>
+                  
+                  {/* Passage Text Preview */}
+                  <div style={{ marginBottom: '15px', padding: '10px', backgroundColor: '#fff', borderLeft: '4px solid #0e276f', borderRadius: '4px' }}>
+                    <p style={{ margin: 0, fontSize: '14px', color: '#555', maxHeight: '150px', overflowY: 'auto' }}>
+                      {p.passageText ? stripHtml(p.passageText).substring(0, 300) + '...' : '(Chưa có nội dung)'}
+                    </p>
+                  </div>
+                  
+                  {/* Sections */}
+                  <div style={{ marginBottom: '10px' }}>
+                    <strong>Sections: {p.sections?.length || 0}</strong>
+                    {p.sections?.map((section, sIndex) => (
+                      <div key={sIndex} style={{ marginTop: '12px', marginLeft: '20px', padding: '10px', backgroundColor: '#e8f0fe', borderRadius: '4px' }}>
+                        <p style={{ margin: '5px 0', fontWeight: 'bold' }}>
+                          📌 Section {sIndex + 1}: {section.sectionTitle || 'Untitled'}
+                        </p>
+                        <p style={{ margin: '5px 0', fontSize: '13px', color: '#555' }}>
+                          {section.sectionInstruction ? stripHtml(section.sectionInstruction).substring(0, 100) + '...' : '(Không có hướng dẫn)'}
+                        </p>
+                        <p style={{ margin: '5px 0', fontSize: '13px', fontWeight: '600' }}>
+                          Questions: {section.questions?.length || 0}
+                        </p>
+                        
+                        {/* Questions Preview */}
+                        {section.questions?.map((q, qIndex) => (
+                          <div key={qIndex} style={{ marginTop: '8px', padding: '8px', backgroundColor: '#fff', borderLeft: '2px solid #0b8e3a', borderRadius: '3px', fontSize: '12px' }}>
+                            <strong>Q{q.questionNumber}:</strong> {stripHtml(q.questionText || '').substring(0, 80)}...
+                            {q.correctAnswer && <div style={{ marginTop: '3px', color: '#0b8e3a' }}>✅ Đáp án: {q.correctAnswer}</div>}
+                          </div>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
                 </div>
               ))}
-              <div style={{ textAlign: 'right', marginTop: '20px' }}>
+              
+              <div style={{ textAlign: 'right', marginTop: '20px', paddingTop: '20px', borderTop: '1px solid #ddd' }}>
                 <button style={backButtonStyle} onClick={() => setIsReviewing(false)}>
                   ← Quay lại sửa
                 </button>

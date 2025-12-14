@@ -64,8 +64,8 @@ function App() {
             <EditReadingTest />
           </ProtectedRoute>
         } />
-        <Route path="/reading-tests" element={isLoggedIn() ? <TakeReadingTest /> : <Navigate to="/login" replace />} />
         <Route path="/reading-tests/:testId" element={isLoggedIn() ? <TakeReadingTest /> : <Navigate to="/login" replace />} />
+        <Route path="/reading-tests" element={isLoggedIn() ? <SelectTest /> : <Navigate to="/login" replace />} />
         <Route path="/reading/:id" element={isLoggedIn() ? <DoReadingTest /> : <Navigate to="/login" replace />} />
         <Route path="/review/:id" element={
           <ProtectedRoute role="teacher">
