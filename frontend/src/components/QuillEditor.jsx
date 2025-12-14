@@ -1,6 +1,8 @@
-import React, { useRef } from 'react';
+import React, { useRef, useEffect } from 'react';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
+import 'quill-table';
+import 'quill-table/dist/quill-table.snow.css';
 
 const QuillEditor = ({ value, onChange, placeholder, showBlankButton = false }) => {
   const quillRef = useRef(null);
@@ -24,6 +26,7 @@ const QuillEditor = ({ value, onChange, placeholder, showBlankButton = false }) 
       [{ 'list': 'ordered'}, { 'list': 'bullet' }],
       [{ 'align': [] }],
       ['link', 'image'],
+      ['table'],
       ['clean']
     ]
   };
@@ -35,7 +38,8 @@ const QuillEditor = ({ value, onChange, placeholder, showBlankButton = false }) 
     'font', 'size',
     'list', 'bullet',
     'align',
-    'link', 'image'
+    'link', 'image',
+    'table'
   ];
 
   return (
