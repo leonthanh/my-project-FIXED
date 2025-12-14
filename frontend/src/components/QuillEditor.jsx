@@ -18,6 +18,8 @@ const QuillEditor = ({ value, onChange, placeholder, showBlankButton = false }) 
   };
 
   const handleInsertTable = () => {
+    if (!quillRef.current) return;
+    
     const rows = parseInt(tableRows) || 2;
     const cols = parseInt(tableCols) || 3;
     
@@ -30,11 +32,18 @@ const QuillEditor = ({ value, onChange, placeholder, showBlankButton = false }) 
       }
       tableHtml += '</tr>';
     }
-    tableHtml += '</tbody></table><p><br></p>';
+    tableHtml += '</tbody></table>';
     
-    // Append table to current value
-    const newValue = (value || '') + tableHtml;
-    onChange(newValue);
+    const editor = quillRef.current.getEditor();
+    const range = editor.getSelection();
+    const index = range ? range.index : editor.getLength();
+    
+    // Add newline before table
+    editor.insertText(index, '\n');
+    
+    // Use dangerouslyPasteHTML to insert table HTML
+    editor.dangerouslyPasteHTML(index + 1, tableHtml);
+    
     setShowTableInput(false);
   };
 
