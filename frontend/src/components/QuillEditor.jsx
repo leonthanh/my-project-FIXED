@@ -35,14 +35,30 @@ const QuillEditor = ({ value, onChange, placeholder, showBlankButton = false }) 
     tableHtml += '</tbody></table>';
     
     const editor = quillRef.current.getEditor();
-    const range = editor.getSelection();
-    const index = range ? range.index : editor.getLength();
     
-    // Add newline before table
-    editor.insertText(index, '\n');
+    // Create a temporary container
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = tableHtml;
+    const table = tempDiv.firstChild;
     
-    // Use dangerouslyPasteHTML to insert table HTML
-    editor.dangerouslyPasteHTML(index + 1, tableHtml);
+    // Get the editor root and append table
+    const editorRoot = editor.root;
+    
+    // Add a newline before table
+    const newline = document.createElement('p');
+    newline.appendChild(document.createElement('br'));
+    editorRoot.appendChild(newline);
+    
+    // Append table
+    editorRoot.appendChild(table);
+    
+    // Add a newline after table
+    const newlineAfter = document.createElement('p');
+    newlineAfter.appendChild(document.createElement('br'));
+    editorRoot.appendChild(newlineAfter);
+    
+    // Update Quill to sync its internal state
+    editor.update('user');
     
     setShowTableInput(false);
   };
