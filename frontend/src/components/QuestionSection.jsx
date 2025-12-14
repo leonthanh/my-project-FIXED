@@ -103,7 +103,9 @@ const QuestionSection = ({
             <img
               src={typeof section.sectionImage === 'string' 
                 ? section.sectionImage 
-                : URL.createObjectURL(section.sectionImage)}
+                : section.sectionImage instanceof File || section.sectionImage instanceof Blob
+                  ? URL.createObjectURL(section.sectionImage)
+                  : ''}
               alt="Section"
               style={{ maxWidth: '100%', maxHeight: '300px', borderRadius: '4px' }}
             />

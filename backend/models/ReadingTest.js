@@ -1,26 +1,28 @@
-const mongoose = require('mongoose');
+const { DataTypes } = require('sequelize');
+const sequelize = require('../db');
 
-const QuestionSchema = new mongoose.Schema({
-  questionNumber: Number,
-  questionType: String, // e.g., 'multiple-choice', 'fill-in-the-blanks', 'matching'
-  questionText: String,
-  options: [String],
-  correctAnswer: mongoose.Schema.Types.Mixed,
+const ReadingTest = sequelize.define('ReadingTest', {
+  title: {
+    type: DataTypes.STRING(255),
+    allowNull: false,
+  },
+  classCode: {
+    type: DataTypes.STRING(50),
+    allowNull: true,
+  },
+  teacherName: {
+    type: DataTypes.STRING(100),
+    allowNull: true,
+  },
+  passages: {
+    type: DataTypes.JSON, // Store complex nested structure
+    allowNull: false,
+    defaultValue: [],
+    comment: 'Array of passages with sections and questions'
+  }
+}, {
+  tableName: 'reading_tests',
+  timestamps: true,
 });
 
-const PassageSchema = new mongoose.Schema({
-  passageNumber: Number,
-  passageTitle: String,
-  passageText: String,
-  questions: [QuestionSchema]
-});
-
-const ReadingTestSchema = new mongoose.Schema({
-  title: String,
-  classCode: String, // ✅ Mã lớp
-  teacherName: String, // ✅ Tên giáo viên ra đề
-  passages: [PassageSchema],
-  createdAt: { type: Date, default: Date.now }
-});
-
-module.exports = mongoose.model('ReadingTest', ReadingTestSchema);
+module.exports = ReadingTest;

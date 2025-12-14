@@ -2,6 +2,7 @@ const sequelize = require('../db');
 
 const User = require('./User');
 const WritingTest = require('./WritingTests');
+const ReadingTest = require('./ReadingTest');
 const Submission = require('./Submission');
 
 // Quan hệ WritingTest ↔ Submission
@@ -16,5 +17,6 @@ module.exports = {
   sequelize,
   User,
   WritingTest,
+  ReadingTest,
   Submission
 };

@@ -5,7 +5,7 @@ const ReadingTest = require('../models/ReadingTest');
 // Get all reading tests
 router.get('/', async (req, res) => {
   try {
-    const tests = await ReadingTest.find().sort({ createdAt: -1 });
+    const tests = await ReadingTest.findAll({ order: [['createdAt', 'DESC']] });
     res.json(tests);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -14,30 +14,28 @@ router.get('/', async (req, res) => {
 
 // Get a single reading test by id
 router.get('/:id', async (req, res) => {
-    try {
-      const test = await ReadingTest.findById(req.params.id);
-      if (!test) {
-        return res.status(404).json({ message: 'Cannot find test' });
-      }
-      res.json(test);
-    } catch (err) {
-      res.status(500).json({ message: err.message });
+  try {
+    const test = await ReadingTest.findByPk(req.params.id);
+    if (!test) {
+      return res.status(404).json({ message: 'Cannot find test' });
     }
-  });
+    res.json(test);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
 
 // Create a new reading test
 router.post('/', async (req, res) => {
   const { title, classCode, teacherName, passages } = req.body;
 
-  const test = new ReadingTest({
-    title,
-    classCode,
-    teacherName,
-    passages
-  });
-
   try {
-    const newTest = await test.save();
+    const newTest = await ReadingTest.create({
+      title,
+      classCode,
+      teacherName,
+      passages
+    });
     res.status(201).json({ message: '✅ Đã tạo đề Reading thành công!', test: newTest });
   } catch (err) {
     res.status(400).json({ message: err.message });
@@ -46,29 +44,30 @@ router.post('/', async (req, res) => {
 
 // Update a reading test
 router.put('/:id', async (req, res) => {
-    try {
-      const updatedTest = await ReadingTest.findByIdAndUpdate(req.params.id, req.body, { new: true });
-      if (!updatedTest) {
-        return res.status(404).json({ message: 'Cannot find test' });
-      }
-      res.json(updatedTest);
-    } catch (err) {
-      res.status(400).json({ message: err.message });
+  try {
+    const test = await ReadingTest.findByPk(req.params.id);
+    if (!test) {
+      return res.status(404).json({ message: 'Cannot find test' });
     }
-  });
-  
-  // Delete a reading test
-  router.delete('/:id', async (req, res) => {
-    try {
-      const test = await ReadingTest.findById(req.params.id);
-      if (!test) {
-        return res.status(404).json({ message: 'Cannot find test' });
-      }
-      await test.remove();
-      res.json({ message: 'Deleted Test' });
-    } catch (err) {
-      res.status(500).json({ message: err.message });
+    await test.update(req.body);
+    res.json(test);
+  } catch (err) {
+    res.status(400).json({ message: err.message });
+  }
+});
+
+// Delete a reading test
+router.delete('/:id', async (req, res) => {
+  try {
+    const test = await ReadingTest.findByPk(req.params.id);
+    if (!test) {
+      return res.status(404).json({ message: 'Cannot find test' });
     }
-  });
+    await test.destroy();
+    res.json({ message: 'Deleted Test' });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
 
 module.exports = router;
