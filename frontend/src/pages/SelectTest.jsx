@@ -68,26 +68,14 @@ const SelectTest = () => {
     navigate(`/listening/${testId}`);
   };
 
-  const handleEdit = async (testId, testType) => {
-    try {
-      const endpoint = testType === 'writing' ? '/api/writing-tests' : 
-                      testType === 'reading' ? '/api/reading-tests' :
-                      '/api/listening-tests';
-      const response = await fetch(`${API_URL}${endpoint}/${testId}`);
-      if (response.ok) {
-        if (testType === 'writing') {
-          navigate(`/edit-test/${testId}`);
-        } else if (testType === 'reading') {
-          navigate(`/reading-tests/${testId}/edit`);
-        } else if (testType === 'listening') {
-          navigate(`/listening/${testId}/edit`);
-        }
-      } else {
-        alert('❌ Đề thi không tồn tại hoặc đã bị xóa.');
-      }
-    } catch (error) {
-      console.error('❌ Lỗi khi kiểm tra đề:', error);
-      alert('Có lỗi xảy ra khi kiểm tra đề.');
+  const handleEdit = (testId, testType) => {
+    console.log('🔧 Editing test:', testType, testId);
+    if (testType === 'writing') {
+      navigate(`/edit-test/${testId}`);
+    } else if (testType === 'reading') {
+      navigate(`/reading-tests/${testId}/edit`);
+    } else if (testType === 'listening') {
+      navigate(`/listening/${testId}/edit`);
     }
   };
 

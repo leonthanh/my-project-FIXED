@@ -18,29 +18,52 @@ const EditReadingTest = () => {
   const [message, setMessage] = useState('');
   const [isUpdating, setIsUpdating] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [hasLoaded, setHasLoaded] = useState(false);
 
   // Fetch existing test
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
+    if (hasLoaded) return; // Prevent duplicate fetches
+    
     const fetchTest = async () => {
       try {
-        const response = await fetch(`${API}/api/reading-tests/${testId}`);
-        if (!response.ok) throw new Error('Không tìm thấy đề thi');
-        const data = await response.json();
+        console.log('🔄 Fetching test:', testId, 'API:', API);
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
         
-        setTitle(data.title);
-        setClassCode(data.classCode);
-        setTeacherName(data.teacherName);
-        setPassages(Array.isArray(data.passages) ? data.passages : [data.passages]);
-      } catch (error) {
-        setMessage(`❌ ${error.message}`);
-      } finally {
+        const response = await fetch(`${API}/api/reading-tests/${testId}`, {
+          signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+        console.log('📦 Response status:', response.status);
+        
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: Không tìm thấy đề thi`);
+        }
+        const data = await response.json();
+        console.log('✅ Data received:', data);
+        
+        setTitle(data.title || '');
+        setClassCode(data.classCode || '');
+        setTeacherName(data.teacherName || '');
+        setPassages(Array.isArray(data.passages) ? data.passages : (data.passages ? [data.passages] : []));
         setLoading(false);
+        setHasLoaded(true);
+      } catch (error) {
+        console.error('❌ Error:', error);
+        setMessage(`❌ ${error.message}`);
+        setLoading(false);
+        setHasLoaded(true);
       }
     };
 
-    fetchTest();
-  }, [testId]);
+    if (testId && API && !hasLoaded) {
+      fetchTest();
+    } else if (!testId || !API) {
+      console.warn('⚠️ Missing testId or API:', { testId, API });
+      setLoading(false);
+      setHasLoaded(true);
+    }
+  }, [testId, API, hasLoaded]);
 
   const stripHtml = (html) => {
     const temp = document.createElement('div');
@@ -133,10 +156,42 @@ const EditReadingTest = () => {
   };
 
   const handleQuestionChange = (passageIndex, sectionIndex, questionIndex, field, value) => {
-    const newPassages = [...passages];
-    if (newPassages[passageIndex]?.sections?.[sectionIndex]?.questions?.[questionIndex]) {
-      newPassages[passageIndex].sections[sectionIndex].questions[questionIndex][field] = value;
+    try {
+      if (!passages || !Array.isArray(passages)) {
+        console.warn('⚠️ Invalid passages state');
+        return;
+      }
+      
+      const newPassages = [...passages];
+      if (!newPassages[passageIndex]) {
+        console.warn('⚠️ Invalid passageIndex:', passageIndex);
+        return;
+      }
+      
+      if (!newPassages[passageIndex].sections || !newPassages[passageIndex].sections[sectionIndex]) {
+        console.warn('⚠️ Invalid sectionIndex:', sectionIndex);
+        return;
+      }
+      
+      if (!newPassages[passageIndex].sections[sectionIndex].questions || 
+          !newPassages[passageIndex].sections[sectionIndex].questions[questionIndex]) {
+        console.warn('⚠️ Invalid questionIndex:', questionIndex);
+        return;
+      }
+      
+      const questions = newPassages[passageIndex].sections[sectionIndex].questions;
+      
+      // If field is 'full', replace entire question object
+      if (field === 'full') {
+        questions[questionIndex] = value;
+      } else {
+        // Otherwise, update single field
+        questions[questionIndex][field] = value;
+      }
+      
       setPassages(newPassages);
+    } catch (error) {
+      console.error('❌ Error in handleQuestionChange:', error);
     }
   };
 
@@ -243,6 +298,35 @@ const EditReadingTest = () => {
         <AdminNavbar />
         <div style={{ maxWidth: '1000px', margin: '20px auto', padding: '0 20px' }}>
           <p style={{ color: 'red' }}>❌ Không có dữ liệu để sửa. Vui lòng quay lại.</p>
+          <button onClick={() => navigate('/reading-tests')} style={{
+            padding: '10px 20px',
+            backgroundColor: '#0e276f',
+            color: 'white',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: 'pointer'
+          }}>
+            ← Quay lại
+          </button>
+        </div>
+      </>
+    );
+  }
+
+  if (message && message.includes('❌')) {
+    return (
+      <>
+        <AdminNavbar />
+        <div style={{ maxWidth: '1000px', margin: '20px auto', padding: '0 20px' }}>
+          <div style={{
+            padding: '15px',
+            backgroundColor: '#ffe6e6',
+            color: 'red',
+            borderRadius: '6px',
+            marginBottom: '20px'
+          }}>
+            {message}
+          </div>
           <button onClick={() => navigate('/reading-tests')} style={{
             padding: '10px 20px',
             backgroundColor: '#0e276f',

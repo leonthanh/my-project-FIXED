@@ -172,7 +172,7 @@ const QuestionSection = ({
                     ...defaultObj,
                     questionNumber: question.questionNumber
                   };
-                  onQuestionChange(passageIndex, sectionIndex, questionIndex, newQuestion);
+                  onQuestionChange(passageIndex, sectionIndex, questionIndex, 'full', newQuestion);
                 }}
                 style={{
                   padding: '8px',
@@ -196,7 +196,7 @@ const QuestionSection = ({
             {question.questionType === 'multiple-choice' && (
               <MultipleChoiceQuestion
                 question={question}
-                onChange={(q) => onQuestionChange(passageIndex, sectionIndex, questionIndex, q)}
+                onChange={(q) => onQuestionChange(passageIndex, sectionIndex, questionIndex, 'full', q)}
                 type="abc"
               />
             )}
@@ -204,49 +204,49 @@ const QuestionSection = ({
             {question.questionType === 'multi-select' && (
               <MultiSelectQuestion
                 question={question}
-                onChange={(q) => onQuestionChange(passageIndex, sectionIndex, questionIndex, q)}
+                onChange={(q) => onQuestionChange(passageIndex, sectionIndex, questionIndex, 'full', q)}
               />
             )}
 
             {question.questionType === 'fill-in-the-blanks' && (
               <FillBlankQuestion
                 question={question}
-                onChange={(q) => onQuestionChange(passageIndex, sectionIndex, questionIndex, q)}
+                onChange={(q) => onQuestionChange(passageIndex, sectionIndex, questionIndex, 'full', q)}
               />
             )}
 
             {question.questionType === 'matching' && (
               <ComboboxQuestion
                 question={question}
-                onChange={(q) => onQuestionChange(passageIndex, sectionIndex, questionIndex, q)}
+                onChange={(q) => onQuestionChange(passageIndex, sectionIndex, questionIndex, 'full', q)}
               />
             )}
 
             {question.questionType === 'true-false-not-given' && (
               <TrueFalseNotGivenQuestion
                 question={question}
-                onChange={(q) => onQuestionChange(passageIndex, sectionIndex, questionIndex, q)}
+                onChange={(q) => onQuestionChange(passageIndex, sectionIndex, questionIndex, 'full', q)}
               />
             )}
 
             {question.questionType === 'paragraph-matching' && (
               <ParagraphMatchingQuestion
                 question={question}
-                onChange={(q) => onQuestionChange(passageIndex, sectionIndex, questionIndex, q)}
+                onChange={(q) => onQuestionChange(passageIndex, sectionIndex, questionIndex, 'full', q)}
               />
             )}
 
             {question.questionType === 'sentence-completion' && (
               <SentenceCompletionQuestion
                 question={question}
-                onChange={(q) => onQuestionChange(passageIndex, sectionIndex, questionIndex, q)}
+                onChange={(q) => onQuestionChange(passageIndex, sectionIndex, questionIndex, 'full', q)}
               />
             )}
 
             {question.questionType === 'short-answer' && (
               <ShortAnswerQuestion
                 question={question}
-                onChange={(q) => onQuestionChange(passageIndex, sectionIndex, questionIndex, q)}
+                onChange={(q) => onQuestionChange(passageIndex, sectionIndex, questionIndex, 'full', q)}
               />
             )}
           </div>
