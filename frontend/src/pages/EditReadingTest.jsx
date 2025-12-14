@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import AdminNavbar from '../components/AdminNavbar';
 import QuillEditor from '../components/QuillEditor';
@@ -17,7 +17,6 @@ const EditReadingTest = () => {
   const [isReviewing, setIsReviewing] = useState(false);
   const [message, setMessage] = useState('');
   const [isUpdating, setIsUpdating] = useState(false);
-  const [showPreview, setShowPreview] = useState(false);
   const [loading, setLoading] = useState(true);
 
   // Fetch existing test
@@ -40,7 +39,7 @@ const EditReadingTest = () => {
     };
 
     fetchTest();
-  }, [testId, API]);
+  }, [testId]);
 
   const stripHtml = (html) => {
     const temp = document.createElement('div');
@@ -73,8 +72,10 @@ const EditReadingTest = () => {
 
   const handlePassageChange = (index, field, value) => {
     const newPassages = [...passages];
-    newPassages[index][field] = value;
-    setPassages(newPassages);
+    if (newPassages[index]) {
+      newPassages[index][field] = value;
+      setPassages(newPassages);
+    }
   };
 
   const handleAddSection = (passageIndex) => {
@@ -102,8 +103,10 @@ const EditReadingTest = () => {
 
   const handleSectionChange = (passageIndex, sectionIndex, field, value) => {
     const newPassages = [...passages];
-    newPassages[passageIndex].sections[sectionIndex][field] = value;
-    setPassages(newPassages);
+    if (newPassages[passageIndex]?.sections?.[sectionIndex]) {
+      newPassages[passageIndex].sections[sectionIndex][field] = value;
+      setPassages(newPassages);
+    }
   };
 
   const handleAddQuestion = (passageIndex, sectionIndex) => {
@@ -130,8 +133,10 @@ const EditReadingTest = () => {
 
   const handleQuestionChange = (passageIndex, sectionIndex, questionIndex, field, value) => {
     const newPassages = [...passages];
-    newPassages[passageIndex].sections[sectionIndex].questions[questionIndex][field] = value;
-    setPassages(newPassages);
+    if (newPassages[passageIndex]?.sections?.[sectionIndex]?.questions?.[questionIndex]) {
+      newPassages[passageIndex].sections[sectionIndex].questions[questionIndex][field] = value;
+      setPassages(newPassages);
+    }
   };
 
   const createDefaultQuestionByType = (type) => {
@@ -226,6 +231,27 @@ const EditReadingTest = () => {
         <AdminNavbar />
         <div style={{ maxWidth: '1000px', margin: '20px auto', padding: '0 20px' }}>
           <p>⏳ Đang tải dữ liệu...</p>
+        </div>
+      </>
+    );
+  }
+
+  if (!passages || passages.length === 0) {
+    return (
+      <>
+        <AdminNavbar />
+        <div style={{ maxWidth: '1000px', margin: '20px auto', padding: '0 20px' }}>
+          <p style={{ color: 'red' }}>❌ Không có dữ liệu để sửa. Vui lòng quay lại.</p>
+          <button onClick={() => navigate('/reading-tests')} style={{
+            padding: '10px 20px',
+            backgroundColor: '#0e276f',
+            color: 'white',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: 'pointer'
+          }}>
+            ← Quay lại
+          </button>
         </div>
       </>
     );
@@ -474,7 +500,7 @@ const EditReadingTest = () => {
                 <button style={backButtonStyle} onClick={() => setIsReviewing(false)}>
                   ← Quay lại sửa
                 </button>
-                <button style={confirmButtonStyle} onClick={handleConfirmUpdate} disabled={isUpdating} style={{...confirmButtonStyle, marginLeft: '10px'}}>
+                <button style={{...confirmButtonStyle, marginLeft: '10px'}} onClick={handleConfirmUpdate} disabled={isUpdating}>
                   {isUpdating ? '⏳ Đang cập nhật...' : '✅ Xác nhận cập nhật'}
                 </button>
               </div>
