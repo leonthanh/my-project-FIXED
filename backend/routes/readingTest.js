@@ -6,7 +6,15 @@ const ReadingTest = require('../models/ReadingTest');
 router.get('/', async (req, res) => {
   try {
     const tests = await ReadingTest.findAll({ order: [['createdAt', 'DESC']] });
-    res.json(tests);
+    // Parse passages JSON if it's a string
+    const parsed = tests.map(test => {
+      const data = test.toJSON();
+      if (typeof data.passages === 'string') {
+        data.passages = JSON.parse(data.passages);
+      }
+      return data;
+    });
+    res.json(parsed);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -19,7 +27,11 @@ router.get('/:id', async (req, res) => {
     if (!test) {
       return res.status(404).json({ message: 'Cannot find test' });
     }
-    res.json(test);
+    const data = test.toJSON();
+    if (typeof data.passages === 'string') {
+      data.passages = JSON.parse(data.passages);
+    }
+    res.json(data);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
