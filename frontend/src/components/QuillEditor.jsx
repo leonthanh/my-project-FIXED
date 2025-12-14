@@ -1,27 +1,43 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useState } from 'react';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
-import QuillBetterTable from 'quill-better-table';
-import 'quill-better-table/dist/quill-better-table.css';
-
-// Register the table module
-ReactQuill.Quill.register(
-  {
-    'modules/better-table': QuillBetterTable
-  },
-  true
-);
 
 const QuillEditor = ({ value, onChange, placeholder, showBlankButton = false }) => {
   const quillRef = useRef(null);
+  const [showTableInput, setShowTableInput] = useState(false);
+  const [tableRows, setTableRows] = useState(2);
+  const [tableCols, setTableCols] = useState(3);
 
   const handleInsertBlank = () => {
     if (quillRef.current) {
       const editor = quillRef.current.getEditor();
       const cursorPosition = editor.getSelection()?.index || editor.getLength();
       editor.insertText(cursorPosition, '…………');
-      // Move cursor after inserted text
       editor.setSelection(cursorPosition + '…………'.length);
+    }
+  };
+
+  const handleInsertTable = () => {
+    if (quillRef.current) {
+      const editor = quillRef.current.getEditor();
+      const rows = parseInt(tableRows) || 2;
+      const cols = parseInt(tableCols) || 3;
+      
+      // Create table HTML
+      let tableHtml = '<table border="1" cellpadding="10" cellspacing="0" style="border-collapse: collapse; width: 100%;"><tbody>';
+      for (let i = 0; i < rows; i++) {
+        tableHtml += '<tr>';
+        for (let j = 0; j < cols; j++) {
+          tableHtml += '<td style="border: 1px solid #000; padding: 10px;"><br></td>';
+        }
+        tableHtml += '</tr>';
+      }
+      tableHtml += '</tbody></table>';
+      
+      const cursorPosition = editor.getSelection()?.index || editor.getLength();
+      editor.insertText(cursorPosition, '\n');
+      editor.pasteHTML(cursorPosition + 1, tableHtml);
+      setShowTableInput(false);
     }
   };
 
@@ -34,19 +50,8 @@ const QuillEditor = ({ value, onChange, placeholder, showBlankButton = false }) 
       [{ 'list': 'ordered'}, { 'list': 'bullet' }],
       [{ 'align': [] }],
       ['link', 'image'],
-      ['better-table'],
       ['clean']
-    ],
-    'better-table': {
-      operationMenu: {
-        items: {
-          unmergeCells: {},
-        },
-      },
-    },
-    keyboard: {
-      bindings: QuillBetterTable.keyboardBindings(),
-    },
+    ]
   };
 
   const formats = [
@@ -56,21 +61,37 @@ const QuillEditor = ({ value, onChange, placeholder, showBlankButton = false }) 
     'font', 'size',
     'list', 'bullet',
     'align',
-    'link', 'image',
-    'better-table',
-    'better-table-col',
-    'better-table-row'
+    'link', 'image'
   ];
 
   return (
     <div style={{ position: 'relative', zIndex: 10 }}>
-      {showBlankButton && (
+      <div style={{ display: 'flex', gap: '10px', marginBottom: '10px', flexWrap: 'wrap' }}>
+        {showBlankButton && (
+          <button
+            type="button"
+            onClick={handleInsertBlank}
+            style={{
+              padding: '8px 16px',
+              backgroundColor: '#0e276f',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontSize: '14px',
+              fontWeight: 'bold',
+              zIndex: 11
+            }}
+          >
+            ➕ Thêm chỗ trống
+          </button>
+        )}
+        
         <button
           type="button"
-          onClick={handleInsertBlank}
+          onClick={() => setShowTableInput(!showTableInput)}
           style={{
             padding: '8px 16px',
-            marginBottom: '10px',
             backgroundColor: '#0e276f',
             color: 'white',
             border: 'none',
@@ -81,9 +102,89 @@ const QuillEditor = ({ value, onChange, placeholder, showBlankButton = false }) 
             zIndex: 11
           }}
         >
-          ➕ Thêm chỗ trống
+          📋 Tạo bảng
         </button>
+      </div>
+
+      {showTableInput && (
+        <div style={{
+          marginBottom: '10px',
+          padding: '10px',
+          backgroundColor: '#f0f5ff',
+          borderRadius: '4px',
+          border: '1px solid #0e276f',
+          display: 'flex',
+          gap: '10px',
+          alignItems: 'center',
+          flexWrap: 'wrap'
+        }}>
+          <div>
+            <label style={{ marginRight: '5px', fontWeight: 'bold' }}>Hàng:</label>
+            <input
+              type="number"
+              min="1"
+              max="20"
+              value={tableRows}
+              onChange={(e) => setTableRows(e.target.value)}
+              style={{
+                width: '50px',
+                padding: '5px',
+                border: '1px solid #ccc',
+                borderRadius: '4px'
+              }}
+            />
+          </div>
+          <div>
+            <label style={{ marginRight: '5px', fontWeight: 'bold' }}>Cột:</label>
+            <input
+              type="number"
+              min="1"
+              max="20"
+              value={tableCols}
+              onChange={(e) => setTableCols(e.target.value)}
+              style={{
+                width: '50px',
+                padding: '5px',
+                border: '1px solid #ccc',
+                borderRadius: '4px'
+              }}
+            />
+          </div>
+          <button
+            type="button"
+            onClick={handleInsertTable}
+            style={{
+              padding: '5px 15px',
+              backgroundColor: '#28a745',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontWeight: 'bold',
+              fontSize: '13px'
+            }}
+          >
+            ✓ Chèn
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowTableInput(false)}
+            style={{
+              padding: '5px 15px',
+              backgroundColor: '#e03',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontWeight: 'bold',
+              fontSize: '13px'
+            }}
+          >
+            ✕ Đóng
+          </button>
+        </div>
       )}
+      
       <div style={{ 
         position: 'relative',
         zIndex: 10

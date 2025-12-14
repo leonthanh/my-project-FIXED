@@ -17,7 +17,6 @@
     "@testing-library/user-event": "^13.5.0",
     "axios": "^1.12.2",
     "bootstrap": "^5.3.7",
-    "quill-better-table": "^1.2.10",
     "react": "18",
     "react-bootstrap": "^2.10.10",
     "react-dom": "18",
