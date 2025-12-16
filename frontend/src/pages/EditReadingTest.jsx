@@ -172,6 +172,21 @@ const EditReadingTest = () => {
     setPassages(newPassages);
   };
 
+  const handleCopyQuestion = (passageIndex, sectionIndex, questionIndex) => {
+    const newPassages = [...passages];
+    const passage = newPassages[passageIndex];
+    const section = passage.sections[sectionIndex];
+    const originalQuestion = section.questions[questionIndex];
+    
+    // Deep copy the question
+    const copiedQuestion = JSON.parse(JSON.stringify(originalQuestion));
+    
+    // Insert after the original question
+    section.questions.splice(questionIndex + 1, 0, copiedQuestion);
+    
+    setPassages(newPassages);
+  };
+
   const handleQuestionChange = (passageIndex, sectionIndex, questionIndex, field, value) => {
     try {
       if (!passages || !Array.isArray(passages)) {
@@ -528,6 +543,7 @@ const EditReadingTest = () => {
                             onSectionChange={handleSectionChange}
                             onAddQuestion={handleAddQuestion}
                             onDeleteQuestion={handleDeleteQuestion}
+                            onCopyQuestion={handleCopyQuestion}
                             onQuestionChange={handleQuestionChange}
                             onDeleteSection={handleDeleteSection}
                             createDefaultQuestionByType={createDefaultQuestionByType}

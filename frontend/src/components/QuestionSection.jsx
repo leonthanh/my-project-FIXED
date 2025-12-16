@@ -18,6 +18,7 @@ const QuestionSection = ({
   onSectionChange,
   onAddQuestion,
   onDeleteQuestion,
+  onCopyQuestion,
   onQuestionChange,
   onDeleteSection,
   createDefaultQuestionByType
@@ -151,21 +152,71 @@ const QuestionSection = ({
               marginBottom: '12px'
             }}>
               {/* Hide question numbers - teachers manage numbering manually */}
-              <button
-                type="button"
-                onClick={() => onDeleteQuestion(passageIndex, sectionIndex, questionIndex)}
-                style={{
-                  padding: '4px 8px',
-                  fontSize: '12px',
-                  backgroundColor: dangerRed,
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '4px',
-                  cursor: 'pointer'
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button
+                  type="button"
+                  onClick={() => onCopyQuestion(passageIndex, sectionIndex, questionIndex)}
+                  style={{
+                    padding: '4px 8px',
+                    fontSize: '12px',
+                    backgroundColor: '#0e276f',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer'
+                  }}
+                  title="Copy câu hỏi này"
+                >
+                  📋 Copy
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onDeleteQuestion(passageIndex, sectionIndex, questionIndex)}
+                  style={{
+                    padding: '4px 8px',
+                    fontSize: '12px',
+                    backgroundColor: dangerRed,
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  🗑 Xóa
+                </button>
+              </div>
+            </div>
+
+            {/* Question Number Input */}
+            <div style={{ marginBottom: '12px' }}>
+              <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>
+                Số câu hỏi (Question Number):
+              </label>
+              <input
+                type="number"
+                min="1"
+                max="999"
+                value={question.questionNumber || 1}
+                onChange={(e) => {
+                  const newQuestion = {
+                    ...question,
+                    questionNumber: parseInt(e.target.value) || 1
+                  };
+                  onQuestionChange(passageIndex, sectionIndex, questionIndex, 'full', newQuestion);
                 }}
-              >
-                🗑 Xóa
-              </button>
+                style={{
+                  width: '100%',
+                  padding: '8px',
+                  borderRadius: '4px',
+                  border: '2px solid #0e276f',
+                  fontSize: '14px',
+                  boxSizing: 'border-box'
+                }}
+                placeholder="Ví dụ: 1, 8, 14..."
+              />
+              <p style={{ fontSize: '12px', color: '#666', marginTop: '5px' }}>
+                💡 Nhập số câu hỏi thứ mấy (ví dụ: Câu 1-7 = nhập từ 1 đến 7)
+              </p>
             </div>
 
             {/* Question Type Select */}

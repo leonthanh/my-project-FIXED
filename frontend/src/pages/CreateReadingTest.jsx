@@ -235,15 +235,9 @@ const CreateReadingTest = () => {
     const passage = newPassages[passageIndex];
     const section = passage.sections[sectionIndex];
     
-    // Tính question number dựa trên tất cả sections + questions trước đó
-    let questionNumber = 1;
-    for (let i = 0; i < sectionIndex; i++) {
-      questionNumber += passage.sections[i].questions.length;
-    }
-    questionNumber += section.questions.length + 1;
-    
+    // Giáo viên sẽ tự nhập questionNumber - không auto-calculate
     section.questions.push({
-      questionNumber: questionNumber,
+      questionNumber: 1, // Mặc định 1, giáo viên sẽ chỉnh lại
       questionType: 'multiple-choice',
       questionText: '',
       options: [''],
@@ -254,12 +248,27 @@ const CreateReadingTest = () => {
 
   const handleDeleteQuestion = (passageIndex, sectionIndex, questionIndex) => {
     const newPassages = [...passages];
-    const section = newPassages[passageIndex].sections[sectionIndex];
+    const passage = newPassages[passageIndex];
+    const section = passage.sections[sectionIndex];
     section.questions.splice(questionIndex, 1);
-    // Renumber remaining questions
-    section.questions.forEach((q, idx) => {
-      q.questionNumber = idx + 1;
-    });
+    
+    // NOTE: Không auto-renumber - cho giáo viên tự nhập questionNumber
+    
+    setPassages(newPassages);
+  };
+
+  const handleCopyQuestion = (passageIndex, sectionIndex, questionIndex) => {
+    const newPassages = [...passages];
+    const passage = newPassages[passageIndex];
+    const section = passage.sections[sectionIndex];
+    const originalQuestion = section.questions[questionIndex];
+    
+    // Deep copy the question
+    const copiedQuestion = JSON.parse(JSON.stringify(originalQuestion));
+    
+    // Insert after the original question
+    section.questions.splice(questionIndex + 1, 0, copiedQuestion);
+    
     setPassages(newPassages);
   };
 
@@ -514,6 +523,7 @@ const CreateReadingTest = () => {
                     onSectionChange={handleSectionChange}
                     onAddQuestion={handleAddQuestion}
                     onDeleteQuestion={handleDeleteQuestion}
+                    onCopyQuestion={handleCopyQuestion}
                     onQuestionChange={handleQuestionChange}
                     onDeleteSection={handleDeleteSection}
                     createDefaultQuestionByType={createDefaultQuestionByType}
