@@ -38,6 +38,78 @@ const CreateReadingTest = () => {
   const [message, setMessage] = useState('');
   const [isCreating, setIsCreating] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
+  
+  // 4-column layout state
+  const [selectedPassageIndex, setSelectedPassageIndex] = useState(0);
+  const [selectedSectionIndex, setSelectedSectionIndex] = useState(null);
+  const [collapsedColumns, setCollapsedColumns] = useState({
+    col1: false, // Passages
+    col2: false, // Content
+    col3: false, // Sections
+    col4: false  // Questions
+  });
+
+  // Toggle column collapse/expand
+  const toggleColumnCollapse = (colName) => {
+    setCollapsedColumns(prev => ({
+      ...prev,
+      [colName]: !prev[colName]
+    }));
+  };
+
+  // Column width state for resize
+  const [columnWidths, setColumnWidths] = useState({
+    col1: 12, // Passages: 12%
+    col2: 38, // Content: 38%
+    col3: 12, // Sections: 12%
+    col4: 38  // Questions: 38%
+  });
+  
+  const [isResizing, setIsResizing] = useState(null);
+  const [startX, setStartX] = useState(0);
+  const [startWidths, setStartWidths] = useState(null);
+
+  const handleMouseDown = (dividerIndex, e) => {
+    setIsResizing(dividerIndex);
+    setStartX(e.clientX);
+    setStartWidths({ ...columnWidths });
+  };
+
+  useEffect(() => {
+    const handleMouseMove = (e) => {
+      if (isResizing === null || !startWidths) return;
+      
+      const delta = (e.clientX - startX) / window.innerWidth * 100;
+      const newWidths = { ...startWidths };
+      
+      // Adjust adjacent columns based on which divider is being dragged
+      if (isResizing === 1) { // Between col1 and col2
+        newWidths.col1 = Math.max(8, Math.min(20, startWidths.col1 + delta));
+        newWidths.col2 = 100 - newWidths.col1 - newWidths.col3 - newWidths.col4;
+      } else if (isResizing === 2) { // Between col2 and col3
+        newWidths.col2 = Math.max(20, Math.min(50, startWidths.col2 + delta));
+        newWidths.col3 = 100 - newWidths.col1 - newWidths.col2 - newWidths.col4;
+      } else if (isResizing === 3) { // Between col3 and col4
+        newWidths.col3 = Math.max(8, Math.min(20, startWidths.col3 + delta));
+        newWidths.col4 = 100 - newWidths.col1 - newWidths.col2 - newWidths.col3;
+      }
+      
+      setColumnWidths(newWidths);
+    };
+
+    const handleMouseUp = () => {
+      setIsResizing(null);
+    };
+
+    if (isResizing !== null) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+      return () => {
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mouseup', handleMouseUp);
+      };
+    }
+  }, [isResizing, startX, startWidths]);
 
   // Autosave function
   const saveToLocalStorage = useCallback(() => {
@@ -272,6 +344,21 @@ const CreateReadingTest = () => {
     setPassages(newPassages);
   };
 
+  const handleCopySection = (passageIndex, sectionIndex) => {
+    const newPassages = [...passages];
+    const passage = newPassages[passageIndex];
+    const originalSection = passage.sections[sectionIndex];
+    
+    // Deep copy the section
+    const copiedSection = JSON.parse(JSON.stringify(originalSection));
+    
+    // Insert after the original section
+    passage.sections.splice(sectionIndex + 1, 0, copiedSection);
+    
+    setPassages(newPassages);
+    setSelectedSectionIndex(sectionIndex + 1);
+  };
+
   const handleQuestionChange = (passageIndex, sectionIndex, questionIndex, updatedQuestion) => {
     const newPassages = [...passages];
     newPassages[passageIndex].sections[sectionIndex].questions[questionIndex] = updatedQuestion;
@@ -435,184 +522,355 @@ const CreateReadingTest = () => {
   };
 
   return (
-    <div>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
       <AdminNavbar />
-      <div style={{ maxWidth: '1000px', margin: '20px auto', padding: '0 20px' }}>
-        <h2>📚 Tạo Đề Reading IELTS</h2>
-        
-        <form onSubmit={handleReview}>
-          <input
-            type="text"
-            placeholder="Tiêu đề đề thi (VD: IELTS Reading Test 1)"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            style={inputStyle}
-          />
-          
-          <input
-            type="text"
-            placeholder="Mã lớp (VD: 317S3)"
-            value={classCode}
-            onChange={(e) => setClassCode(e.target.value)}
-            style={inputStyle}
-          />
-          
-          <input
-            type="text"
-            placeholder="Tên giáo viên ra đề"
-            value={teacherName}
-            onChange={(e) => setTeacherName(e.target.value)}
-            style={inputStyle}
-          />
+      <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
+        <div style={{ padding: '12px 20px', backgroundColor: '#fff', borderBottom: '1px solid #ddd', overflowY: 'auto', flexShrink: 0 }}>
+          <h2 style={{ margin: '8px 0 12px 0', fontSize: '20px', textAlign: 'center' }}>📚 Tạo Đề Reading IELTS</h2>
+          <div style={{ display: 'flex', gap: '15px', justifyContent: 'center', flexWrap: 'wrap', maxWidth: '800px', margin: '0 auto' }}>
+            <input
+              type="text"
+              placeholder="Tiêu đề đề thi"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              style={{ ...inputStyle, flex: '1 1 45%', minWidth: '200px', padding: '8px', fontSize: '13px' }}
+            />
+            
+            <input
+              type="text"
+              placeholder="Mã lớp"
+              value={classCode}
+              onChange={(e) => setClassCode(e.target.value)}
+              style={{ ...inputStyle, flex: '1 1 20%', minWidth: '120px', padding: '8px', fontSize: '13px' }}
+            />
+            
+            <input
+              type="text"
+              placeholder="Tên giáo viên"
+              value={teacherName}
+              onChange={(e) => setTeacherName(e.target.value)}
+              style={{ ...inputStyle, flex: '1 1 25%', minWidth: '150px', padding: '8px', fontSize: '13px' }}
+            />
+          </div>
 
-          {passages.map((passage, passageIndex) => (
-            <div key={passageIndex} className="card mb-4">
-              <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <h3 style={{ margin: 0 }}>Passage {passageIndex + 1}</h3>
-                <button
-                  type="button"
-                  onClick={() => handleDeletePassage(passageIndex)}
-                  style={{
-                    padding: '6px 12px',
-                    fontSize: '13px',
-                    backgroundColor: '#e03',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '4px',
-                    cursor: 'pointer'
-                  }}
-                >
-                  🗑 Xóa Passage
-                </button>
+          {/* 4-COLUMN LAYOUT */}
+          </div>
+
+        <form onSubmit={handleReview} style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
+          <div style={{ display: 'flex', gap: '0px', flex: 1, backgroundColor: '#ddd', overflow: 'hidden', position: 'relative' }}>
+            
+            {/* COLUMN 1: PASSAGES */}
+            <div style={{
+              width: collapsedColumns.col1 ? '50px' : `${columnWidths.col1}%`,
+              backgroundColor: '#f5f5f5',
+              borderRight: '1px solid #ddd',
+              display: 'flex',
+              flexDirection: 'column',
+              overflow: 'auto',
+              transition: isResizing ? 'none' : 'width 0.3s ease'
+            }}>
+              <div style={{ padding: '10px', borderBottom: '2px solid #0e276f', backgroundColor: '#0e276f', color: 'white', fontWeight: 'bold', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', minHeight: '45px' }} onClick={() => toggleColumnCollapse('col1')}>
+                {!collapsedColumns.col1 && <span>📚 PASSAGES</span>}
+                {collapsedColumns.col1 && <span style={{ fontSize: '16px' }}>📚</span>}
+                <span style={{ fontSize: '12px' }}>{collapsedColumns.col1 ? '▶' : '◀'}</span>
               </div>
-              <div className="card-body">
-                <div className="mb-3">
-                  <label className="form-label">Tiêu đề đoạn văn</label>
+              
+              {!collapsedColumns.col1 && (
+                <div style={{ flex: 1, overflow: 'auto', padding: '10px' }}>
+                  {passages.map((passage, idx) => (
+                    <div
+                      key={idx}
+                      onClick={() => {
+                        setSelectedPassageIndex(idx);
+                        setSelectedSectionIndex(null);
+                      }}
+                      style={{
+                        padding: '10px',
+                        marginBottom: '8px',
+                        backgroundColor: selectedPassageIndex === idx ? '#0e276f' : '#fff',
+                        color: selectedPassageIndex === idx ? '#fff' : '#000',
+                        border: '1px solid #ccc',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        fontWeight: selectedPassageIndex === idx ? 'bold' : 'normal'
+                      }}
+                    >
+                      Passage {idx + 1}
+                      <br />
+                      <small>{passage.passageTitle || '(Untitled)'}</small>
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={handleAddPassage}
+                    style={{
+                      width: '100%',
+                      padding: '10px',
+                      backgroundColor: '#28a745',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      fontWeight: 'bold',
+                      marginTop: '10px'
+                    }}
+                  >
+                    ➕ Thêm Passage
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* RESIZE DIVIDER 1 */}
+            <div
+              onMouseDown={(e) => handleMouseDown(1, e)}
+              style={{
+                width: '6px',
+                backgroundColor: isResizing === 1 ? '#0e276f' : 'transparent',
+                cursor: 'col-resize',
+                flexShrink: 0,
+                transition: 'background-color 0.2s ease',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+            />
+
+            {/* COLUMN 2: PASSAGE CONTENT */}
+            <div style={{
+              width: collapsedColumns.col2 ? '50px' : `${columnWidths.col2}%`,
+              backgroundColor: '#fafafa',
+              borderRight: '1px solid #ddd',
+              display: 'flex',
+              flexDirection: 'column',
+              overflow: 'auto',
+              transition: isResizing ? 'none' : 'width 0.3s ease'
+            }}>
+              <div style={{ padding: '10px', borderBottom: '2px solid #28a745', backgroundColor: '#28a745', color: 'white', fontWeight: 'bold', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', minHeight: '45px' }} onClick={() => toggleColumnCollapse('col2')}>
+                {!collapsedColumns.col2 && <span>📄 CONTENT</span>}
+                {collapsedColumns.col2 && <span style={{ fontSize: '16px' }}>📄</span>}
+                <span style={{ fontSize: '12px' }}>{collapsedColumns.col2 ? '▶' : '◀'}</span>
+              </div>
+              
+              {!collapsedColumns.col2 && passages[selectedPassageIndex] && (
+                <div style={{ flex: 1, overflow: 'auto', padding: '15px' }}>
+                  <label style={{ fontWeight: 'bold', color: '#28a745' }}>📝 Tiêu đề</label>
                   <input
                     type="text"
-                    className="form-control"
-                    value={passage.passageTitle}
-                    onChange={(e) => handlePassageChange(passageIndex, 'passageTitle', e.target.value)}
+                    value={passages[selectedPassageIndex].passageTitle || ''}
+                    onChange={(e) => handlePassageChange(selectedPassageIndex, 'passageTitle', e.target.value)}
                     style={{
-                      border: '2px solid #0e276f',
-                      padding: '12px',
-                      fontSize: '14px',
-                      cursor: 'text',
-                      position: 'relative',
-                      zIndex: 5,
-                      backgroundColor: '#fff'
+                      width: '100%',
+                      padding: '8px',
+                      marginBottom: '15px',
+                      border: '1px solid #ccc',
+                      borderRadius: '4px',
+                      boxSizing: 'border-box'
                     }}
                   />
-                </div>
-                <div className="mb-3">
-                    <label className="form-label">Nội dung đoạn văn</label>
+                  
+                  <label style={{ fontWeight: 'bold', color: '#28a745' }}>📖 Nội dung</label>
+                  <div style={{ marginTop: '10px' }}>
                     <QuillEditor
-                        value={passage.passageText}
-                        onChange={(value) => handlePassageChange(passageIndex, 'passageText', value)}
+                      value={passages[selectedPassageIndex].passageText || ''}
+                      onChange={(value) => handlePassageChange(selectedPassageIndex, 'passageText', value)}
+                      placeholder="Nhập nội dung passage..."
                     />
+                  </div>
                 </div>
+              )}
+            </div>
 
-                {/* SECTIONS */}
-                <h4 className="mt-4">📌 Phần câu hỏi (Sections)</h4>
-                {passage.sections?.map((section, sectionIndex) => (
+            {/* RESIZE DIVIDER 2 */}
+            <div
+              onMouseDown={(e) => handleMouseDown(2, e)}
+              style={{
+                width: '6px',
+                backgroundColor: isResizing === 2 ? '#0e276f' : 'transparent',
+                cursor: 'col-resize',
+                flexShrink: 0,
+                transition: 'background-color 0.2s ease',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+            />
+
+            {/* COLUMN 3: SECTIONS */}
+            <div style={{
+              width: collapsedColumns.col3 ? '50px' : `${columnWidths.col3}%`,
+              backgroundColor: '#f5f5f5',
+              borderRight: '1px solid #ddd',
+              display: 'flex',
+              flexDirection: 'column',
+              overflow: 'auto',
+              transition: isResizing ? 'none' : 'width 0.3s ease'
+            }}>
+              <div style={{ padding: '10px', borderBottom: '2px solid #ff6b6b', backgroundColor: '#ff6b6b', color: 'white', fontWeight: 'bold', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', minHeight: '45px' }} onClick={() => toggleColumnCollapse('col3')}>
+                {!collapsedColumns.col3 && <span>📌 SECTIONS</span>}
+                {collapsedColumns.col3 && <span style={{ fontSize: '16px' }}>📌</span>}
+                <span style={{ fontSize: '12px' }}>{collapsedColumns.col3 ? '▶' : '◀'}</span>
+              </div>
+              
+              {!collapsedColumns.col3 && passages[selectedPassageIndex] && (
+                <div style={{ flex: 1, overflow: 'auto', padding: '10px' }}>
+                  {passages[selectedPassageIndex].sections?.map((section, idx) => (
+                    <div
+                      key={idx}
+                      onClick={() => setSelectedSectionIndex(idx)}
+                      style={{
+                        padding: '10px',
+                        marginBottom: '8px',
+                        backgroundColor: selectedSectionIndex === idx ? '#ff6b6b' : '#fff',
+                        color: selectedSectionIndex === idx ? '#fff' : '#000',
+                        border: '1px solid #ccc',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        fontWeight: selectedSectionIndex === idx ? 'bold' : 'normal'
+                      }}
+                    >
+                      Section {idx + 1}
+                      <br />
+                      <small>{section.sectionTitle || '(Untitled)'}</small>
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => handleAddSection(selectedPassageIndex)}
+                    style={{
+                      width: '100%',
+                      padding: '10px',
+                      backgroundColor: '#ff6b6b',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      fontWeight: 'bold',
+                      marginTop: '10px'
+                    }}
+                  >
+                    ➕ Thêm Section
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* RESIZE DIVIDER 3 */}
+            <div
+              onMouseDown={(e) => handleMouseDown(3, e)}
+              style={{
+                width: '6px',
+                backgroundColor: isResizing === 3 ? '#0e276f' : 'transparent',
+                cursor: 'col-resize',
+                flexShrink: 0,
+                transition: 'background-color 0.2s ease',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+            />
+
+            {/* COLUMN 4: QUESTIONS */}
+            <div style={{
+              width: collapsedColumns.col4 ? '50px' : `${columnWidths.col4}%`,
+              backgroundColor: '#fafafa',
+              display: 'flex',
+              flexDirection: 'column',
+              overflow: 'auto',
+              transition: isResizing ? 'none' : 'width 0.3s ease'
+            }}>
+              <div style={{ padding: '10px', borderBottom: '2px solid #ffc107', backgroundColor: '#ffc107', color: '#000', fontWeight: 'bold', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', minHeight: '45px' }} onClick={() => toggleColumnCollapse('col4')}>
+                {!collapsedColumns.col4 && <span>❓ QUESTIONS</span>}
+                {collapsedColumns.col4 && <span style={{ fontSize: '16px' }}>❓</span>}
+                <span style={{ fontSize: '12px' }}>{collapsedColumns.col4 ? '▶' : '◀'}</span>
+              </div>
+              
+              {!collapsedColumns.col4 && passages[selectedPassageIndex] && selectedSectionIndex !== null && (
+                <div style={{ flex: 1, overflow: 'auto', padding: '15px' }}>
                   <QuestionSection
-                    key={sectionIndex}
-                    passageIndex={passageIndex}
-                    sectionIndex={sectionIndex}
-                    section={section}
+                    passageIndex={selectedPassageIndex}
+                    sectionIndex={selectedSectionIndex}
+                    section={passages[selectedPassageIndex].sections[selectedSectionIndex]}
                     onSectionChange={handleSectionChange}
                     onAddQuestion={handleAddQuestion}
                     onDeleteQuestion={handleDeleteQuestion}
                     onCopyQuestion={handleCopyQuestion}
+                    onCopySection={handleCopySection}
                     onQuestionChange={handleQuestionChange}
                     onDeleteSection={handleDeleteSection}
                     createDefaultQuestionByType={createDefaultQuestionByType}
                   />
-                ))}
-                <button 
-                  type="button" 
-                  onClick={() => handleAddSection(passageIndex)}
-                  style={{
-                    padding: '10px 20px',
-                    fontSize: '14px',
-                    backgroundColor: '#0e276f',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '4px',
-                    cursor: 'pointer',
-                    fontWeight: 'bold',
-                    marginBottom: '20px'
-                  }}
-                >
-                  ➕ Thêm Section
-                </button>
-              </div>
+                </div>
+              )}
+              {!collapsedColumns.col4 && selectedSectionIndex === null && (
+                <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#999' }}>
+                  ← Chọn một Section để xem câu hỏi
+                </div>
+              )}
             </div>
-          ))}
+          </div>
+        </form>
 
-          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '20px' }}>
-            <button
-              type="button"
-              onClick={handleAddPassage}
-              style={{
-                padding: '10px 20px',
-                fontSize: '16px',
-                backgroundColor: '#0e276f',
-                color: 'white',
-                border: 'none',
-                borderRadius: '6px',
-                cursor: 'pointer'
-              }}
-            >
-              ➕ Thêm Passage
-            </button>
-
+        {/* FIXED BUTTONS & STATS */}
+        <div style={{ 
+          display: 'flex', 
+          gap: '15px', 
+          padding: '12px 20px',
+          backgroundColor: '#fff',
+          borderTop: '1px solid #ddd',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          zIndex: 999,
+          flexWrap: 'wrap'
+        }}>
+          <div style={{ display: 'flex', gap: '20px', fontSize: '13px', color: '#666' }}>
+            <span>📚 Passages: {passages.length}</span>
+            <span>📌 Sections: {passages.reduce((sum, p) => sum + (p.sections?.length || 0), 0)}</span>
+            <span>❓ Questions: {passages.reduce((sum, p) => sum + (p.sections?.reduce((s, sec) => s + (sec.questions?.length || 0), 0) || 0), 0)}</span>
+          </div>
+          
+          <div style={{ display: 'flex', gap: '10px' }}>
             <button
               type="button"
               onClick={() => setShowPreview(true)}
               style={{
                 padding: '10px 20px',
-                fontSize: '16px',
+                fontSize: '14px',
                 backgroundColor: '#6c757d',
                 color: 'white',
                 border: 'none',
                 borderRadius: '6px',
-                cursor: 'pointer'
+                cursor: 'pointer',
+                fontWeight: 'bold',
+                transition: 'all 0.2s ease'
               }}
+              onMouseEnter={(e) => e.target.style.backgroundColor = '#5a6268'}
+              onMouseLeave={(e) => e.target.style.backgroundColor = '#6c757d'}
             >
               👁 Preview
             </button>
 
             <button
               type="submit"
+              onClick={handleReview}
               style={{
                 padding: '10px 20px',
-                fontSize: '16px',
+                fontSize: '14px',
                 backgroundColor: '#e03',
                 color: 'white',
                 border: 'none',
                 borderRadius: '6px',
                 cursor: 'pointer',
-                fontWeight: 'bold'
+                fontWeight: 'bold',
+                transition: 'all 0.2s ease'
               }}
+              onMouseEnter={(e) => e.target.style.backgroundColor = '#c60'}
+              onMouseLeave={(e) => e.target.style.backgroundColor = '#e03'}
             >
               ✏️ Xem lại & Tạo
             </button>
           </div>
-        </form>
-
-        {message && (
-          <p style={{
-            marginTop: 20,
-            fontWeight: 'bold',
-            color: message.includes('❌') ? 'red' : 'green',
-            padding: '10px',
-            borderRadius: '4px',
-            backgroundColor: message.includes('❌') ? '#ffe6e6' : '#e6ffe6'
-          }}>
-            {message}
-          </p>
-        )}
+        </div>
       </div>
 
       {showPreview && (

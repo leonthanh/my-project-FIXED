@@ -19,6 +19,7 @@ const QuestionSection = ({
   onAddQuestion,
   onDeleteQuestion,
   onCopyQuestion,
+  onCopySection,
   onQuestionChange,
   onDeleteSection,
   createDefaultQuestionByType
@@ -35,23 +36,49 @@ const QuestionSection = ({
       backgroundColor: '#f0f5ff'
     }}>
       {/* Section Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px', gap: '10px', flexWrap: 'wrap' }}>
         <h5 style={{ margin: 0, color: primaryBlue }}>📌 Section {sectionIndex + 1}</h5>
-        <button
-          type="button"
-          onClick={() => onDeleteSection(passageIndex, sectionIndex)}
-          style={{
-            padding: '6px 12px',
-            fontSize: '13px',
-            backgroundColor: dangerRed,
-            color: 'white',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: 'pointer'
-          }}
-        >
-          🗑 Xóa Section
-        </button>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          {onCopySection && (
+            <button
+              type="button"
+              onClick={() => onCopySection(passageIndex, sectionIndex)}
+              title="Sao chép Section này"
+              style={{
+                padding: '6px 12px',
+                fontSize: '13px',
+                backgroundColor: '#0e276f',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease'
+              }}
+              onMouseEnter={(e) => e.target.style.backgroundColor = '#1a3a8a'}
+              onMouseLeave={(e) => e.target.style.backgroundColor = '#0e276f'}
+            >
+              📋 Sao chép
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => onDeleteSection(passageIndex, sectionIndex)}
+            style={{
+              padding: '6px 12px',
+              fontSize: '13px',
+              backgroundColor: dangerRed,
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              transition: 'all 0.2s ease'
+            }}
+            onMouseEnter={(e) => e.target.style.backgroundColor = '#c60'}
+            onMouseLeave={(e) => e.target.style.backgroundColor = dangerRed}
+          >
+            🗑 Xóa Section
+          </button>
+        </div>
       </div>
 
       {/* Section Title */}

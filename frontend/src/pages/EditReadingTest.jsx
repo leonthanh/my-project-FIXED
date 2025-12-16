@@ -21,6 +21,15 @@ const EditReadingTest = () => {
   const [hasLoaded, setHasLoaded] = useState(false);
   const [expandedPassages, setExpandedPassages] = useState({}); // Track expanded passages
   const [expandedSections, setExpandedSections] = useState({}); // Track expanded sections
+  const [collapsedPassages, setCollapsedPassages] = useState({});
+
+  // Toggle passage collapse/expand
+  const togglePassageCollapse = (passageIndex) => {
+    setCollapsedPassages(prev => ({
+      ...prev,
+      [passageIndex]: !prev[passageIndex]
+    }));
+  };
 
   // Fetch existing test
   useEffect(() => {
@@ -485,19 +494,23 @@ const EditReadingTest = () => {
           {passages && passages.length > 0 && passages.map((passage, passageIndex) => (
             passage && passage.sections && (
               <div key={passageIndex} style={{
-                border: '1px solid #ddd',
-                padding: '15px',
+                border: '2px solid #0e276f',
+                padding: '0',
                 marginBottom: '15px',
                 borderRadius: '6px',
-                backgroundColor: '#f9f9f9'
+                overflow: 'hidden'
               }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                  <h4 style={{ margin: 0, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px' }} onClick={() => togglePassage(passageIndex)}>
-                    {expandedPassages[passageIndex] ? '▼' : '▶'} 📄 Passage {passageIndex + 1}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#0e276f', color: 'white', padding: '15px', cursor: 'pointer' }} onClick={() => togglePassageCollapse(passageIndex)}>
+                  <h4 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '10px', fontSize: '18px', fontWeight: 'bold' }}>
+                    <span>{collapsedPassages[passageIndex] ? '▶' : '▼'}</span>
+                    📄 Passage {passageIndex + 1}
                   </h4>
                   <button
                     type="button"
-                    onClick={() => handleDeletePassage(passageIndex)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDeletePassage(passageIndex);
+                    }}
                     style={{
                       padding: '6px 12px',
                       fontSize: '13px',
@@ -512,64 +525,70 @@ const EditReadingTest = () => {
                   </button>
                 </div>
 
-                {expandedPassages[passageIndex] && (
-                  <>
-                    <input
-                      type="text"
-                      placeholder="Tiêu đề passage"
-                      value={passage.passageTitle || ''}
-                      onChange={(e) => handlePassageChange(passageIndex, 'passageTitle', e.target.value)}
-                      style={inputStyle}
-                    />
+                {!collapsedPassages[passageIndex] && (
+                  <div style={{ padding: '15px' }}>
+                    <div style={{ paddingLeft: '20px', borderLeft: '3px solid #0e276f', marginBottom: '15px' }}>
+                      <label style={{ fontWeight: 'bold', color: '#0e276f' }}>📝 Tiêu đề Passage</label>
+                      <input
+                        type="text"
+                        placeholder="Ví dụ: Keep Taking the Tablets"
+                        value={passage.passageTitle || ''}
+                        onChange={(e) => handlePassageChange(passageIndex, 'passageTitle', e.target.value)}
+                        style={{
+                          ...inputStyle,
+                          border: '2px solid #0e276f',
+                          marginBottom: '15px'
+                        }}
+                      />
+                    </div>
 
-                    <QuillEditor
-                      value={passage.passageText || ''}
-                      onChange={(value) => handlePassageChange(passageIndex, 'passageText', value)}
-                      placeholder="Nội dung passage"
-                    />
+                    <div style={{ paddingLeft: '20px', borderLeft: '3px solid #0e276f', marginBottom: '15px' }}>
+                      <label style={{ fontWeight: 'bold', color: '#0e276f' }}>📄 Nội dung Passage</label>
+                      <QuillEditor
+                        value={passage.passageText || ''}
+                        onChange={(value) => handlePassageChange(passageIndex, 'passageText', value)}
+                        placeholder="Nhập nội dung đoạn văn..."
+                      />
+                    </div>
 
-                    <h5>Các Section trong Passage này ({passage.sections?.length || 0})</h5>
+                    <h5 style={{ paddingLeft: '20px', color: '#0e276f', fontWeight: 'bold' }}>📌 Các Section ({passage.sections?.length || 0})</h5>
                     {passage.sections && passage.sections.map((section, sectionIndex) => (
-                      <div key={`${passageIndex}-${sectionIndex}`}>
-                        <div style={{ cursor: 'pointer', padding: '10px', backgroundColor: '#e8f0fe', borderRadius: '4px', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '10px', fontWeight: 'bold', color: '#0e276f' }} onClick={() => toggleSection(passageIndex, sectionIndex)}>
-                          {expandedSections[`${passageIndex}-${sectionIndex}`] ? '▼' : '▶'} 📌 Section {sectionIndex + 1}: {section.sectionTitle || 'Untitled'}
-                        </div>
-                        
-                        {expandedSections[`${passageIndex}-${sectionIndex}`] && (
-                          <QuestionSection
-                            passageIndex={passageIndex}
-                            sectionIndex={sectionIndex}
-                            section={section}
-                            onSectionChange={handleSectionChange}
-                            onAddQuestion={handleAddQuestion}
-                            onDeleteQuestion={handleDeleteQuestion}
-                            onCopyQuestion={handleCopyQuestion}
-                            onQuestionChange={handleQuestionChange}
-                            onDeleteSection={handleDeleteSection}
-                            createDefaultQuestionByType={createDefaultQuestionByType}
-                          />
-                        )}
+                      <div key={`${passageIndex}-${sectionIndex}`} style={{ marginLeft: '20px', paddingLeft: '20px', borderLeft: '3px solid #28a745', marginBottom: '20px' }}>
+                        <QuestionSection
+                          passageIndex={passageIndex}
+                          sectionIndex={sectionIndex}
+                          section={section}
+                          onSectionChange={handleSectionChange}
+                          onAddQuestion={handleAddQuestion}
+                          onDeleteQuestion={handleDeleteQuestion}
+                          onCopyQuestion={handleCopyQuestion}
+                          onQuestionChange={handleQuestionChange}
+                          onDeleteSection={handleDeleteSection}
+                          createDefaultQuestionByType={createDefaultQuestionByType}
+                        />
                       </div>
                     ))}
 
-                    <button
-                      type="button"
-                      onClick={() => handleAddSection(passageIndex)}
-                      style={{
-                        padding: '10px 20px',
-                        fontSize: '14px',
-                        backgroundColor: '#0e276f',
-                        color: 'white',
-                        border: 'none',
-                    borderRadius: '4px',
-                    cursor: 'pointer',
-                    fontWeight: 'bold',
-                    marginBottom: '20px'
-                  }}
-                >
-                  ➕ Thêm Section
-                </button>
-                  </>
+                    <div style={{ paddingLeft: '20px' }}>
+                      <button
+                        type="button"
+                        onClick={() => handleAddSection(passageIndex)}
+                        style={{
+                          padding: '10px 20px',
+                          fontSize: '14px',
+                          backgroundColor: '#28a745',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '4px',
+                          cursor: 'pointer',
+                          fontWeight: 'bold',
+                          marginBottom: '20px'
+                        }}
+                      >
+                        ➕ Thêm Section
+                      </button>
+                    </div>
+                  </div>
                 )}
               </div>
             )
