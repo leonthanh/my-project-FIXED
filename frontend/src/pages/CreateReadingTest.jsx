@@ -111,6 +111,34 @@ const CreateReadingTest = () => {
     }
   }, [isResizing, startX, startWidths]);
 
+  // Calculate dynamic width for full-screen collapse
+  const getColumnWidth = (colName) => {
+    if (collapsedColumns[colName]) return '50px'; // collapsed
+    
+    // Count how many columns are NOT collapsed
+    const openColumns = ['col1', 'col2', 'col3', 'col4'].filter(col => !collapsedColumns[col]);
+    
+    if (openColumns.length === 1) {
+      // Full width for single open column
+      return '100%';
+    } else if (openColumns.length === 2) {
+      // Split remaining space between 2 open columns
+      const totalCollapsedWidth = ['col1', 'col2', 'col3', 'col4']
+        .filter(col => collapsedColumns[col])
+        .length * 50; // 50px per collapsed column
+      const remainingWidth = 100 - (totalCollapsedWidth / window.innerWidth * 100);
+      return `${remainingWidth / 2}%`;
+    } else if (openColumns.length === 3) {
+      // Distribute space among 3 open columns
+      const totalCollapsedWidth = 50; // 50px for 1 collapsed column
+      const remainingWidth = 100 - (totalCollapsedWidth / window.innerWidth * 100);
+      return `${remainingWidth / 3}%`;
+    }
+    
+    // Default: use columnWidths state (4 columns open)
+    return `${columnWidths[colName]}%`;
+  };
+
   // Autosave function
   const saveToLocalStorage = useCallback(() => {
     try {
@@ -294,6 +322,16 @@ const CreateReadingTest = () => {
     }
     newPassages[passageIndex].sections.splice(sectionIndex, 1);
     setPassages(newPassages);
+    
+    // Reset selectedSectionIndex to prevent undefined error
+    if (selectedSectionIndex === sectionIndex) {
+      // If deleted section was selected, select the previous one or null
+      const newIndex = sectionIndex > 0 ? sectionIndex - 1 : null;
+      setSelectedSectionIndex(newIndex);
+    } else if (selectedSectionIndex > sectionIndex) {
+      // If deleted section was before selected, shift index down
+      setSelectedSectionIndex(selectedSectionIndex - 1);
+    }
   };
 
   const handleSectionChange = (passageIndex, sectionIndex, field, value) => {
@@ -561,7 +599,7 @@ const CreateReadingTest = () => {
             
             {/* COLUMN 1: PASSAGES */}
             <div style={{
-              width: collapsedColumns.col1 ? '50px' : `${columnWidths.col1}%`,
+              width: getColumnWidth('col1'),
               backgroundColor: '#f5f5f5',
               borderRight: '1px solid #ddd',
               display: 'flex',
@@ -638,7 +676,7 @@ const CreateReadingTest = () => {
 
             {/* COLUMN 2: PASSAGE CONTENT */}
             <div style={{
-              width: collapsedColumns.col2 ? '50px' : `${columnWidths.col2}%`,
+              width: getColumnWidth('col2'),
               backgroundColor: '#fafafa',
               borderRight: '1px solid #ddd',
               display: 'flex',
@@ -698,7 +736,7 @@ const CreateReadingTest = () => {
 
             {/* COLUMN 3: SECTIONS */}
             <div style={{
-              width: collapsedColumns.col3 ? '50px' : `${columnWidths.col3}%`,
+              width: getColumnWidth('col3'),
               backgroundColor: '#f5f5f5',
               borderRight: '1px solid #ddd',
               display: 'flex',
@@ -772,7 +810,7 @@ const CreateReadingTest = () => {
 
             {/* COLUMN 4: QUESTIONS */}
             <div style={{
-              width: collapsedColumns.col4 ? '50px' : `${columnWidths.col4}%`,
+              width: getColumnWidth('col4'),
               backgroundColor: '#fafafa',
               display: 'flex',
               flexDirection: 'column',
