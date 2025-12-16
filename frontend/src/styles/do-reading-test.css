@@ -137,10 +137,8 @@
 }
 
 .questions-header {
-  padding: 16px 20px;
-  background-color: #f0f0f0;
-  border-bottom: 1px solid #ddd;
-  font-weight: 600;
+  padding: 0px 20px;
+    font-weight: 600;
   color: #0e276f;
 }
 

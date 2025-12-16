@@ -16,6 +16,8 @@ const TakeReadingTest = () => {
   const [currentPassageIndex, setCurrentPassageIndex] = useState(0);
   const [timeRemaining, setTimeRemaining] = useState(3600); // 60 minutes in seconds
   const [allQuestions, setAllQuestions] = useState([]);
+  const [splitPosition, setSplitPosition] = useState(50); // 50% default
+  const [isDragging, setIsDragging] = useState(false);
 
   const fetchTest = useCallback(async () => {
     try {
@@ -95,6 +97,42 @@ const TakeReadingTest = () => {
     const secs = seconds % 60;
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
+
+  const handleMouseDown = (e) => {
+    setIsDragging(true);
+    e.preventDefault();
+  };
+
+  useEffect(() => {
+    const handleMouseMove = (e) => {
+      if (!isDragging) return;
+      
+      const container = document.querySelector('.split-container');
+      if (!container) return;
+      
+      const rect = container.getBoundingClientRect();
+      const newPosition = ((e.clientX - rect.left) / rect.width) * 100;
+      
+      // Limit between 20% and 80%
+      if (newPosition >= 20 && newPosition <= 80) {
+        setSplitPosition(newPosition);
+      }
+    };
+
+    const handleMouseUp = () => {
+      setIsDragging(false);
+    };
+
+    if (isDragging) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+    }
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isDragging]);
 
   const renderQuestionSection = (question, passageIndex, sectionIndex, questionIndex) => {
     const key = `${passageIndex}_${sectionIndex}_${questionIndex}`;
@@ -486,7 +524,7 @@ const TakeReadingTest = () => {
       <div className="take-test-body">
         <div className="split-container">
           {/* Left Panel - Passage */}
-          <section className="split-panel left-panel">
+          <section className="split-panel left-panel" style={{ flexBasis: `${splitPosition}%` }}>
             <div className="passage-content">
               <div className="passage-header">
                 <h2 className="passage-title">
@@ -514,10 +552,14 @@ const TakeReadingTest = () => {
           </section>
 
           {/* Divider */}
-          <div className="split-divider"></div>
+          <div 
+            className="split-divider" 
+            onMouseDown={handleMouseDown}
+            style={{ cursor: isDragging ? 'col-resize' : 'col-resize' }}
+          ></div>
 
           {/* Right Panel - Questions */}
-          <section className="split-panel right-panel">
+          <section className="split-panel right-panel" style={{ flexBasis: `${100 - splitPosition}%` }}>
             <div className="questions-content">
               <div className="questions-header">
                 <h2 className="questions-title">Questions</h2>
