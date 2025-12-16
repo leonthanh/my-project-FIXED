@@ -124,7 +124,7 @@ const WritingTest = () => {
     }
     const timer = setInterval(() => setTimeLeft((prev) => prev - 1), 1000);
     return () => clearInterval(timer);
-  }, [started, submitted, handleSubmit]);
+  }, [started, submitted, timeLeft, handleSubmit]);
 
   useEffect(() => {
     if (!user || !user.phone) return;
