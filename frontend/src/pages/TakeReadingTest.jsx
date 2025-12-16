@@ -490,7 +490,7 @@ const TakeReadingTest = () => {
             <div className="passage-content">
               <div className="passage-header">
                 <h2 className="passage-title">
-                  Part {currentPassageIndex + 1}: {currentPassage.passageTitle || `Passage ${currentPassageIndex + 1}`}
+                  Passage {currentPassageIndex + 1}: {currentPassage.passageTitle || `Passage ${currentPassageIndex + 1}`}
                 </h2>
                 <p className="passage-meta">
                   {questionsInPassage} questions about this passage
