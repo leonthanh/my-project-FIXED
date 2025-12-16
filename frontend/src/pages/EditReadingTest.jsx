@@ -237,6 +237,17 @@ const EditReadingTest = () => {
         return baseQuestion;
       case 'sentence-completion':
         return { ...baseQuestion, options: [] };
+      case 'paragraph-fill-blanks':
+        return { 
+          ...baseQuestion, 
+          paragraphText: '',
+          blanks: [
+            { id: 'blank1', correctAnswer: '' },
+            { id: 'blank2', correctAnswer: '' },
+            { id: 'blank3', correctAnswer: '' }
+          ],
+          options: ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I']
+        };
       case 'short-answer':
         return { ...baseQuestion, maxWords: 5 };
       default:
@@ -637,8 +648,17 @@ const EditReadingTest = () => {
                         {/* Questions Preview */}
                         {section.questions?.map((q, qIndex) => (
                           <div key={qIndex} style={{ marginTop: '8px', padding: '8px', backgroundColor: '#fff', borderLeft: '2px solid #0b8e3a', borderRadius: '3px', fontSize: '12px' }}>
-                            <strong>Q{q.questionNumber}:</strong> {stripHtml(q.questionText || '').substring(0, 80)}...
+                            <strong>Q{q.questionNumber}:</strong> {
+                              q.questionType === 'paragraph-fill-blanks' 
+                                ? stripHtml(q.paragraphText || '').substring(0, 80) + '...'
+                                : stripHtml(q.questionText || '').substring(0, 80) + '...'
+                            }
                             {q.correctAnswer && <div style={{ marginTop: '3px', color: '#0b8e3a' }}>✅ Đáp án: {q.correctAnswer}</div>}
+                            {q.questionType === 'paragraph-fill-blanks' && q.blanks && (
+                              <div style={{ marginTop: '3px', color: '#0b8e3a' }}>
+                                ✅ Blanks: {q.blanks.map(b => b.correctAnswer).join(', ')}
+                              </div>
+                            )}
                           </div>
                         ))}
                       </div>

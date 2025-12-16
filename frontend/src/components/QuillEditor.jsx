@@ -23,44 +23,40 @@ const QuillEditor = ({ value, onChange, placeholder, showBlankButton = false }) 
     const rows = parseInt(tableRows) || 2;
     const cols = parseInt(tableCols) || 3;
     
-    // Create table HTML
-    let tableHtml = '<table style="border-collapse: collapse; width: 100%; margin: 10px 0;"><tbody>';
+    const editor = quillRef.current.getEditor();
+    const currentLength = editor.getLength();
+    
+    // Insert newline first
+    editor.insertText(currentLength, '\n');
+    
+    // Build HTML table with proper formatting for Quill
+    let tableHtml = '<table style="border-collapse: collapse; width: 100%;"><tbody>';
     for (let i = 0; i < rows; i++) {
       tableHtml += '<tr>';
       for (let j = 0; j < cols; j++) {
-        tableHtml += '<td style="border: 1px solid #000; padding: 10px; text-align: left;"><br></td>';
+        tableHtml += '<td style="border: 1px solid #333; padding: 8px; min-width: 80px;"><br/></td>';
       }
       tableHtml += '</tr>';
     }
     tableHtml += '</tbody></table>';
     
-    const editor = quillRef.current.getEditor();
+    // Method: Insert HTML through clipboard (most reliable)
+    const blob = new Blob([tableHtml], { type: 'text/html' });
+    const data = new ClipboardItem({ 'text/html': blob });
     
-    // Create a temporary container
-    const tempDiv = document.createElement('div');
-    tempDiv.innerHTML = tableHtml;
-    const table = tempDiv.firstChild;
-    
-    // Get the editor root and append table
-    const editorRoot = editor.root;
-    
-    // Add a newline before table
-    const newline = document.createElement('p');
-    newline.appendChild(document.createElement('br'));
-    editorRoot.appendChild(newline);
-    
-    // Append table
-    editorRoot.appendChild(table);
-    
-    // Add a newline after table
-    const newlineAfter = document.createElement('p');
-    newlineAfter.appendChild(document.createElement('br'));
-    editorRoot.appendChild(newlineAfter);
-    
-    // Update Quill to sync its internal state
-    editor.update('user');
-    
-    setShowTableInput(false);
+    navigator.clipboard.write([data]).then(() => {
+      // Move to end of document
+      editor.setSelection(editor.getLength());
+      // Paste the table
+      setTimeout(() => {
+        document.execCommand('paste');
+        setShowTableInput(false);
+      }, 50);
+    }).catch((err) => {
+      console.error('Clipboard paste failed:', err);
+      // Fallback: Show message to user
+      alert('Không thể chèn bảng. Vui lòng thử lại hoặc sao chép bảng HTML và dán thủ công.');
+    });
   };
 
   const modules = {

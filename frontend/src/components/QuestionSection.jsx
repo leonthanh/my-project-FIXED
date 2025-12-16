@@ -9,6 +9,7 @@ import YesNoNotGivenQuestion from './YesNoNotGivenQuestion';
 import ParagraphMatchingQuestion from './ParagraphMatchingQuestion';
 import SentenceCompletionQuestion from './SentenceCompletionQuestion';
 import ShortAnswerQuestion from './ShortAnswerQuestion';
+import ParagraphFillBlanksQuestion from './ParagraphFillBlanksQuestion';
 
 const QuestionSection = ({
   passageIndex,
@@ -197,6 +198,7 @@ const QuestionSection = ({
                 <option value="matching">Ghép cặp / Combobox</option>
                 <option value="true-false-not-given">True/False/Not Given</option>
                 <option value="yes-no-not-given">Yes/No/Not Given</option>
+                <option value="paragraph-fill-blanks">Đoạn văn - Điền chỗ trống</option>
                 <option value="paragraph-matching">Tìm thông tin ở đoạn nào (A-G)</option>
                 <option value="sentence-completion">Hoàn thành câu (chọn từ danh sách)</option>
                 <option value="short-answer">Câu trả lời ngắn</option>
@@ -256,6 +258,13 @@ const QuestionSection = ({
 
             {question.questionType === 'sentence-completion' && (
               <SentenceCompletionQuestion
+                question={question}
+                onChange={(q) => onQuestionChange(passageIndex, sectionIndex, questionIndex, 'full', q)}
+              />
+            )}
+
+            {question.questionType === 'paragraph-fill-blanks' && (
+              <ParagraphFillBlanksQuestion
                 question={question}
                 onChange={(q) => onQuestionChange(passageIndex, sectionIndex, questionIndex, 'full', q)}
               />

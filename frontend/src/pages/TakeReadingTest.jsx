@@ -219,6 +219,43 @@ const TakeReadingTest = () => {
             </div>
           )}
 
+          {question.questionType === 'paragraph-fill-blanks' && (
+            <div>
+              <div style={{ marginBottom: '20px', padding: '15px', backgroundColor: '#f5f5f5', borderRadius: '4px' }}>
+                <div dangerouslySetInnerHTML={{ 
+                  __html: question.paragraphText?.replace(
+                    /\[blank(\d+)\]/g, 
+                    (match, num) => `<select class="text-input" style="display: inline-block; width: 100px; margin: 0 5px;">
+                      <option value="">--</option>
+                      ${question.options?.map(opt => `<option value="${opt}">${opt}</option>`).join('') || ''}
+                    </select>`
+                  ) || ''
+                }} />
+              </div>
+              {question.blanks && question.blanks.map((blank) => (
+                <div key={blank.id} style={{ marginBottom: '10px' }}>
+                  <label style={{ marginRight: '10px', fontWeight: 'bold' }}>
+                    {blank.id}:
+                  </label>
+                  <select
+                    className="text-input"
+                    value={answers[`${key}_${blank.id}`] || ''}
+                    onChange={(e) => setAnswers(prev => ({ 
+                      ...prev, 
+                      [`${key}_${blank.id}`]: e.target.value 
+                    }))}
+                    style={{ width: '150px' }}
+                  >
+                    <option value="">-- Chọn --</option>
+                    {question.options?.map((opt, idx) => (
+                      <option key={idx} value={opt}>{opt}</option>
+                    ))}
+                  </select>
+                </div>
+              ))}
+            </div>
+          )}
+
           {question.questionType === 'multi-select' && (
             <div className="options-group">
               {question.options?.map((option, idx) => (
