@@ -5,6 +5,7 @@ import "../styles/Login.css";
 const Login = () => {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState(""); // ✅ Thêm state cho email
   const [password, setPassword] = useState(""); // ✅ Thêm state cho mật khẩu
   const [role, setRole] = useState("student");
   const [message, setMessage] = useState("");
@@ -13,6 +14,7 @@ const Login = () => {
   const [resetVerificationCode, setResetVerificationCode] = useState("");
   const [resetPassword, setResetPassword] = useState("");
   const [resetConfirmPassword, setResetConfirmPassword] = useState("");
+  const [isLoginMode, setIsLoginMode] = useState(true); // ✅ Tab mode: true = Login, false = Register
 
   const navigate = useNavigate();
   const API_URL = process.env.REACT_APP_API_URL;
@@ -65,9 +67,18 @@ const Login = () => {
   };
 
   const handleRegister = async () => {
-    // ✅ Logic đăng ký: cần name, phone và password
-    if (!name.trim() || !phone.trim() || !password.trim()) {
-      setMessage("❌ Vui lòng nhập đầy đủ họ tên, số điện thoại và mật khẩu.");
+    // ✅ Logic đăng ký: cần name, phone, email và password
+    if (!name.trim() || !phone.trim() || !email.trim() || !password.trim()) {
+      setMessage(
+        "❌ Vui lòng nhập đầy đủ họ tên, số điện thoại, email và mật khẩu."
+      );
+      return;
+    }
+
+    // ✅ Kiểm tra email hợp lệ
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email.trim())) {
+      setMessage("❌ Email không hợp lệ. Vui lòng nhập email đúng định dạng.");
       return;
     }
 
@@ -86,7 +97,7 @@ const Login = () => {
       const res = await fetch(`${API_URL}/api/auth/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, phone, password, role }),
+        body: JSON.stringify({ name, phone, email, password, role }),
       });
 
       const data = await res.json().catch(() => ({}));
@@ -221,67 +232,135 @@ const Login = () => {
             textAlign: "center",
           }}
         >
-          <h2 style={{ marginBottom: 20, fontWeight: 600 }}>
-            STAREDU - IX Writing
+          <h2 style={{ marginBottom: 20, fontWeight: 700, color: "#0e276f" }}>
+            STAREDU - IX
           </h2>
 
-          <input
-            type="text"
-            placeholder=" Name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            style={inputStyle}
-          />
-          <input
-            type="text"
-            placeholder=" Phone Number"
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            style={inputStyle}
-          />
-          <input // ✅ Thẻ input mật khẩu
-            type="password"
-            placeholder=" Password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            style={inputStyle}
-          />
+          {/* Tab Switcher */}
+          <div style={{ display: "flex", marginBottom: "20px", gap: "10px" }}>
+            <button
+              onClick={() => setIsLoginMode(true)}
+              style={{
+                flex: 1,
+                padding: "10px",
+                border: "none",
+                borderRadius: "8px",
+                background: isLoginMode ? "#0e276f" : "#f0f0f0",
+                color: isLoginMode ? "#fff" : "#666",
+                fontWeight: "600",
+                cursor: "pointer",
+                transition: "all 0.3s",
+              }}
+            >
+              Đăng nhập
+            </button>
+            <button
+              onClick={() => setIsLoginMode(false)}
+              style={{
+                flex: 1,
+                padding: "10px",
+                border: "none",
+                borderRadius: "8px",
+                background: !isLoginMode ? "#0e276f" : "#f0f0f0",
+                color: !isLoginMode ? "#fff" : "#666",
+                fontWeight: "600",
+                cursor: "pointer",
+                transition: "all 0.3s",
+              }}
+            >
+              Đăng ký
+            </button>
+          </div>
 
-          <select
-            value={role}
-            onChange={(e) => setRole(e.target.value)}
-            style={inputStyle}
-          >
-            <option value="student">🎓 Student</option>
-            <option value="teacher">👩‍🏫 Teacher</option>
-          </select>
+          {/* Login Form */}
+          {isLoginMode ? (
+            <>
+              <input
+                type="text"
+                placeholder=" Phone Number"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                style={inputStyle}
+              />
+              <input
+                type="password"
+                placeholder=" Password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                style={inputStyle}
+              />
 
-          <button onClick={handleLogin} style={loginBtn}>
-            Login
-          </button>
+              <button onClick={handleLogin} style={loginBtn}>
+                Login
+              </button>
 
-          <p style={{ color: "#d00", margin: "10px 0" }}>{message}</p>
+              <p style={{ color: "#d00", margin: "10px 0" }}>{message}</p>
 
-          <button
-            onClick={() => setShowResetModal(true)}
-            style={{
-              color: "#0e276f",
-              cursor: "pointer",
-              fontSize: "14px",
-              textDecoration: "none",
-              marginBottom: "10px",
-              display: "inline-block",
-              background: "none",
-              border: "none",
-              padding: 0,
-            }}
-          >
-            Quên mật khẩu?
-          </button>
+              <button
+                onClick={() => setShowResetModal(true)}
+                style={{
+                  color: "#0e276f",
+                  cursor: "pointer",
+                  fontSize: "14px",
+                  textDecoration: "none",
+                  marginBottom: "10px",
+                  display: "inline-block",
+                  background: "none",
+                  border: "none",
+                  padding: 0,
+                }}
+              >
+                Quên mật khẩu?
+              </button>
+            </>
+          ) : (
+            <>
+              {/* Register Form */}
+              <input
+                type="text"
+                placeholder=" Name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                style={inputStyle}
+              />
+              <input
+                type="text"
+                placeholder=" Phone Number"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                style={inputStyle}
+              />
+              <input
+                type="email"
+                placeholder=" Email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                style={inputStyle}
+              />
+              <input
+                type="password"
+                placeholder=" Password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                style={inputStyle}
+              />
 
-          <button onClick={handleRegister} style={registerBtn}>
-            Register
-          </button>
+              <select
+                value={role}
+                onChange={(e) => setRole(e.target.value)}
+                style={inputStyle}
+              >
+                <option value="student">🎓 Học sinh</option>
+                <option value="teacher">📚 Giáo viên</option>
+              </select>
+
+              <button onClick={handleRegister} style={registerBtn}>
+                Register
+              </button>
+
+              <p style={{ color: "#d00", margin: "10px 0" }}>{message}</p>
+            </>
+          )}
         </div>
       </div>
 
