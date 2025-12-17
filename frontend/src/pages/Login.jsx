@@ -34,10 +34,11 @@ const Login = () => {
       return;
     }
 
-    // ✅ Kiểm tra số điện thoại Việt Nam: bắt đầu từ 0 và 10 chữ số
-    if (!/^0\d{9}$/.test(phone.trim())) {
+    // ✅ Kiểm tra số điện thoại Việt Nam (đầu số thực tế)
+    const vnPhoneRegex = /^(0)(3[2-9]|5[2689]|7[06-9]|8[1-9]|9[0-9])[0-9]{7}$/;
+    if (!vnPhoneRegex.test(phone.trim())) {
       setMessage(
-        "❌ Số điện thoại không hợp lệ. Vui lòng nhập số Việt Nam (0xxxxxxxxx)."
+        "❌ Số điện thoại không hợp lệ. Vui lòng nhập số Việt Nam hợp lệ (VD: 0912345678)."
       );
       return;
     }
@@ -70,10 +71,11 @@ const Login = () => {
       return;
     }
 
-    // ✅ Kiểm tra số điện thoại Việt Nam: bắt đầu từ 0 và 10 chữ số
-    if (!/^0\d{9}$/.test(phone.trim())) {
+    // ✅ Kiểm tra số điện thoại Việt Nam (đầu số thực tế)
+    const vnPhoneRegex = /^(0)(3[2-9]|5[2689]|7[06-9]|8[1-9]|9[0-9])[0-9]{7}$/;
+    if (!vnPhoneRegex.test(phone.trim())) {
       setMessage(
-        "❌ Số điện thoại không hợp lệ. Vui lòng nhập số Việt Nam (0xxxxxxxxx)."
+        "❌ Số điện thoại không hợp lệ. Vui lòng nhập số Việt Nam hợp lệ (VD: 0912345678)."
       );
       return;
     }
@@ -120,8 +122,9 @@ const Login = () => {
       return;
     }
 
-    if (!/^0\d{9}$/.test(resetPhone.trim())) {
-      alert("❌ Số điện thoại không hợp lệ.");
+    const vnPhoneRegex = /^(0)(3[2-9]|5[2689]|7[06-9]|8[1-9]|9[0-9])[0-9]{7}$/;
+    if (!vnPhoneRegex.test(resetPhone.trim())) {
+      alert("❌ Số điện thoại không hợp lệ. Vui lòng nhập số Việt Nam hợp lệ.");
       return;
     }
 
@@ -159,8 +162,9 @@ const Login = () => {
   };
 
   const handleSendOtp = async () => {
-    if (!/^0\d{9}$/.test(resetPhone.trim())) {
-      alert("❌ Vui lòng nhập số điện thoại hợp lệ.");
+    const vnPhoneRegex = /^(0)(3[2-9]|5[2689]|7[06-9]|8[1-9]|9[0-9])[0-9]{7}$/;
+    if (!vnPhoneRegex.test(resetPhone.trim())) {
+      alert("❌ Vui lòng nhập số điện thoại Việt Nam hợp lệ (VD: 0912345678).");
       return;
     }
 
@@ -258,7 +262,7 @@ const Login = () => {
 
           <p style={{ color: "#d00", margin: "10px 0" }}>{message}</p>
 
-          <a
+          <button
             onClick={() => setShowResetModal(true)}
             style={{
               color: "#0e276f",
@@ -267,10 +271,13 @@ const Login = () => {
               textDecoration: "none",
               marginBottom: "10px",
               display: "inline-block",
+              background: "none",
+              border: "none",
+              padding: 0,
             }}
           >
             Quên mật khẩu?
-          </a>
+          </button>
 
           <button onClick={handleRegister} style={registerBtn}>
             Register

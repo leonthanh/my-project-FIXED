@@ -30,6 +30,14 @@ router.post("/register", async (req, res) => {
     });
   }
 
+  // ✅ Validate số điện thoại Việt Nam
+  const vnPhoneRegex = /^(0)(3[2-9]|5[2689]|7[06-9]|8[1-9]|9[0-9])[0-9]{7}$/;
+  if (!vnPhoneRegex.test(phone)) {
+    return res.status(400).json({
+      message: "Số điện thoại không hợp lệ. Vui lòng nhập số Việt Nam hợp lệ.",
+    });
+  }
+
   try {
     const existing = await User.findOne({ where: { phone } });
     if (existing) {
@@ -73,6 +81,14 @@ router.post("/login", async (req, res) => {
       .json({ message: "Vui lòng nhập đầy đủ số điện thoại và mật khẩu." });
   }
 
+  // ✅ Validate số điện thoại Việt Nam
+  const vnPhoneRegex = /^(0)(3[2-9]|5[2689]|7[06-9]|8[1-9]|9[0-9])[0-9]{7}$/;
+  if (!vnPhoneRegex.test(phone)) {
+    return res.status(400).json({
+      message: "Số điện thoại không hợp lệ. Vui lòng nhập số Việt Nam hợp lệ.",
+    });
+  }
+
   try {
     const user = await User.findOne({ where: { phone } });
 
@@ -108,6 +124,14 @@ router.post("/reset-password", async (req, res) => {
 
   if (!phone || !verificationCode || !newPassword) {
     return res.status(400).json({ message: "Vui lòng nhập đầy đủ thông tin." });
+  }
+
+  // ✅ Validate số điện thoại Việt Nam
+  const vnPhoneRegex = /^(0)(3[2-9]|5[2689]|7[06-9]|8[1-9]|9[0-9])[0-9]{7}$/;
+  if (!vnPhoneRegex.test(phone)) {
+    return res.status(400).json({
+      message: "Số điện thoại không hợp lệ. Vui lòng nhập số Việt Nam hợp lệ.",
+    });
   }
 
   try {
@@ -156,6 +180,14 @@ router.post("/send-otp", async (req, res) => {
 
   if (!phone) {
     return res.status(400).json({ message: "Vui lòng nhập số điện thoại." });
+  }
+
+  // ✅ Validate số điện thoại Việt Nam
+  const vnPhoneRegex = /^(0)(3[2-9]|5[2689]|7[06-9]|8[1-9]|9[0-9])[0-9]{7}$/;
+  if (!vnPhoneRegex.test(phone)) {
+    return res.status(400).json({
+      message: "Số điện thoại không hợp lệ. Vui lòng nhập số Việt Nam hợp lệ.",
+    });
   }
 
   try {
