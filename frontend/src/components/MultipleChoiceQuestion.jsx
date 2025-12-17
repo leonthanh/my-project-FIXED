@@ -29,7 +29,9 @@ const MultipleChoiceQuestion = ({ question, onChange, type = 'abc' }) => {
       padding: '15px',
       backgroundColor: '#f8f9fa',
       borderRadius: '8px',
-      marginBottom: '15px'
+      marginBottom: '15px',
+      position: 'relative',
+      zIndex: 5
     },
     label: {
       fontWeight: 'bold',
@@ -41,14 +43,20 @@ const MultipleChoiceQuestion = ({ question, onChange, type = 'abc' }) => {
       padding: '8px',
       marginBottom: '8px',
       borderRadius: '4px',
-      border: '1px solid #ccc',
-      fontSize: '14px'
+      border: '2px solid #0e276f',
+      fontSize: '14px',
+      backgroundColor: '#fff',
+      cursor: 'text',
+      position: 'relative',
+      zIndex: 5
     },
     option: {
       display: 'flex',
       alignItems: 'center',
       marginBottom: '8px',
-      gap: '8px'
+      gap: '8px',
+      position: 'relative',
+      zIndex: 5
     },
     optionLabel: {
       width: '30px',
@@ -70,7 +78,7 @@ const MultipleChoiceQuestion = ({ question, onChange, type = 'abc' }) => {
         value={question.questionText}
         onChange={e => handleChange('questionText', e.target.value)}
         rows={3}
-        style={styles.input}
+        style={{...styles.input, marginBottom: '8px', fontFamily: 'inherit'}}
         placeholder="Nhập nội dung câu hỏi"
       />
 

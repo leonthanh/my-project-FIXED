@@ -1,7 +1,7 @@
 import React from 'react';
 import QuillEditor from './QuillEditor';
 
-const FillBlankQuestion = ({ question, onChange }) => {
+const ShortAnswerQuestion = ({ question, onChange }) => {
   const handleChange = (field, value) => {
     onChange({ ...question, [field]: value });
   };
@@ -19,11 +19,10 @@ const FillBlankQuestion = ({ question, onChange }) => {
 
   return (
     <div style={styles.container}>
-      <label style={styles.label}>❓ Câu hỏi (Fill in the blank):</label>
+      <label style={styles.label}>❓ Câu hỏi:</label>
       <QuillEditor
         value={question.questionText}
         onChange={(value) => handleChange('questionText', value)}
-        showBlankButton={true}
       />
 
       <label style={styles.label}>🔢 Số từ tối đa (no more than):</label>
@@ -34,28 +33,20 @@ const FillBlankQuestion = ({ question, onChange }) => {
         onChange={e => handleChange('maxWords', Number(e.target.value) || 0)}
         placeholder="Số từ tối đa (ví dụ 3)"
         style={styles.input}
+        min="1"
       />
 
-      <label style={styles.label}>✅ Đáp án đúng (văn bản):</label>
-      <input
-        type="text"
+      <label style={styles.label}>✅ Đáp án đúng (có thể có nhiều biến thể):</label>
+      <textarea
         className="form-control"
         value={question.correctAnswer || ''}
         onChange={e => handleChange('correctAnswer', e.target.value)}
-        placeholder="Nhập đáp án đúng (nhỏ)"
-        style={styles.input}
+        placeholder="Nhập đáp án. Nếu có nhiều đáp án đúng, cách nhau bằng dấu | (ví dụ: willow tree|willow bark)"
+        style={{...styles.input, minHeight: '80px'}}
       />
-
-      <div style={{ marginTop: 12 }}>
-        <label style={styles.label}>👁 Preview:</label>
-        <div style={{ backgroundColor: 'white', padding: 12, borderRadius: 4 }}>
-          <p dangerouslySetInnerHTML={{ __html: (question.questionText || '').replace(/__+/g, '<strong>____</strong>') }} />
-          {question.maxWords ? <p style={{ color: '#666' }}>No more than {question.maxWords} words.</p> : null}
-          {question.correctAnswer ? <p style={{ color: 'green' }}>Answer: {question.correctAnswer}</p> : null}
-        </div>
-      </div>
+      <small style={{ color: '#666' }}>💡 Tip: Tách các đáp án bằng dấu | nếu có nhiều biến thể đúng</small>
     </div>
   );
 };
 
-export default FillBlankQuestion;
+export default ShortAnswerQuestion;

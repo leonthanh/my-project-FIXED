@@ -14,7 +14,7 @@
   z-index: 100;
   background-color: white;
   border-bottom: 2px solid #0e276f;
-  padding: 12px 20px;
+  padding: 0 30px;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -54,10 +54,11 @@
 }
 
 .passage-header {
-  padding: 16px 20px;
+  padding: 1px 20px;
   background-color: #0e276f;
   color: white;
-  border-bottom: 2px solid #e03;
+  border-bottom: 1px solid #e03;
+  margin-bottom: 0;
 }
 
 .passage-header h3 {
@@ -71,6 +72,7 @@
   font-size: 0.95rem;
   opacity: 0.9;
   font-style: italic;
+  color: white;
 }
 
 .passage-text {
@@ -135,10 +137,8 @@
 }
 
 .questions-header {
-  padding: 16px 20px;
-  background-color: #f0f0f0;
-  border-bottom: 1px solid #ddd;
-  font-weight: 600;
+  padding: 0px 20px;
+    font-weight: 600;
   color: #0e276f;
 }
 
@@ -289,18 +289,18 @@
   padding: 12px 32px;
   font-size: 1rem;
   font-weight: 600;
-  background-color: #0e276f;
+  background-color: #e03;
   color: white;
   border: none;
   border-radius: 6px;
   cursor: pointer;
   transition: all 120ms ease;
-  box-shadow: 0 2px 6px rgba(14, 39, 111, 0.3);
+  box-shadow: 0 2px 6px rgba(224, 3, 51, 0.3);
 }
 
 .submit-button:hover:not(:disabled) {
-  background-color: #0a1d4d;
-  box-shadow: 0 4px 10px rgba(14, 39, 111, 0.4);
+  background-color: #c60;
+  box-shadow: 0 4px 10px rgba(224, 3, 51, 0.4);
   transform: translateY(-2px);
 }
 

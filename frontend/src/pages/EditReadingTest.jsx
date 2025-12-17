@@ -1,43 +1,27 @@
-import React, { useState, useCallback, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import AdminNavbar from '../components/AdminNavbar';
 import QuillEditor from '../components/QuillEditor';
 import QuestionSection from '../components/QuestionSection';
-import 'react-quill/dist/quill.snow.css'; // Import Quill styles
+import 'react-quill/dist/quill.snow.css';
 
-const CreateReadingTest = () => {
+const EditReadingTest = () => {
   const API = process.env.REACT_APP_API_URL;
   const navigate = useNavigate();
+  const { testId } = useParams();
 
-  // Load saved data from localStorage if available
-  const loadSavedData = () => {
-    try {
-      const savedData = localStorage.getItem('readingTestDraft');
-      if (savedData) {
-        return JSON.parse(savedData);
-      }
-    } catch (error) {
-      console.error('Error loading saved data:', error);
-    }
-    return null;
-  };
-
-  const savedData = loadSavedData();
-
-  const [title, setTitle] = useState(savedData?.title || '');
-  const [classCode, setClassCode] = useState(savedData?.classCode || '');
-  const [teacherName, setTeacherName] = useState(savedData?.teacherName || '');
-  const [passages, setPassages] = useState(savedData?.passages || [
-    { 
-      passageTitle: '', 
-      passageText: '', 
-      sections: []
-    }
-  ]);
+  const [title, setTitle] = useState('');
+  const [classCode, setClassCode] = useState('');
+  const [teacherName, setTeacherName] = useState('');
+  const [passages, setPassages] = useState([]);
   const [isReviewing, setIsReviewing] = useState(false);
   const [message, setMessage] = useState('');
-  const [isCreating, setIsCreating] = useState(false);
-  const [showPreview, setShowPreview] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [hasLoaded, setHasLoaded] = useState(false);
+  const [expandedPassages, setExpandedPassages] = useState({}); // Track expanded passages
+  const [expandedSections, setExpandedSections] = useState({}); // Track expanded sections
+  const [collapsedPassages, setCollapsedPassages] = useState({});
   
   // 4-column layout state
   const [selectedPassageIndex, setSelectedPassageIndex] = useState(0);
@@ -48,15 +32,7 @@ const CreateReadingTest = () => {
     col3: false, // Sections
     col4: false  // Questions
   });
-
-  // Toggle column collapse/expand
-  const toggleColumnCollapse = (colName) => {
-    setCollapsedColumns(prev => ({
-      ...prev,
-      [colName]: !prev[colName]
-    }));
-  };
-
+  
   // Column width state for resize
   const [columnWidths, setColumnWidths] = useState({
     col1: 12, // Passages: 12%
@@ -68,6 +44,14 @@ const CreateReadingTest = () => {
   const [isResizing, setIsResizing] = useState(null);
   const [startX, setStartX] = useState(0);
   const [startWidths, setStartWidths] = useState(null);
+
+  // Toggle column collapse/expand
+  const toggleColumnCollapse = (colName) => {
+    setCollapsedColumns(prev => ({
+      ...prev,
+      [colName]: !prev[colName]
+    }));
+  };
 
   const handleMouseDown = (dividerIndex, e) => {
     setIsResizing(dividerIndex);
@@ -82,14 +66,13 @@ const CreateReadingTest = () => {
       const delta = (e.clientX - startX) / window.innerWidth * 100;
       const newWidths = { ...startWidths };
       
-      // Adjust adjacent columns based on which divider is being dragged
-      if (isResizing === 1) { // Between col1 and col2
+      if (isResizing === 1) {
         newWidths.col1 = Math.max(8, Math.min(20, startWidths.col1 + delta));
         newWidths.col2 = 100 - newWidths.col1 - newWidths.col3 - newWidths.col4;
-      } else if (isResizing === 2) { // Between col2 and col3
+      } else if (isResizing === 2) {
         newWidths.col2 = Math.max(20, Math.min(50, startWidths.col2 + delta));
         newWidths.col3 = 100 - newWidths.col1 - newWidths.col2 - newWidths.col4;
-      } else if (isResizing === 3) { // Between col3 and col4
+      } else if (isResizing === 3) {
         newWidths.col3 = Math.max(8, Math.min(20, startWidths.col3 + delta));
         newWidths.col4 = 100 - newWidths.col1 - newWidths.col2 - newWidths.col3;
       }
@@ -113,74 +96,97 @@ const CreateReadingTest = () => {
 
   // Calculate dynamic width for full-screen collapse
   const getColumnWidth = (colName) => {
-    if (collapsedColumns[colName]) return '50px'; // collapsed
+    if (collapsedColumns[colName]) return '50px';
     
-    // Count how many columns are NOT collapsed
     const openColumns = ['col1', 'col2', 'col3', 'col4'].filter(col => !collapsedColumns[col]);
     
     if (openColumns.length === 1) {
-      // Full width for single open column
       return '100%';
     } else if (openColumns.length === 2) {
-      // Split remaining space between 2 open columns
       const totalCollapsedWidth = ['col1', 'col2', 'col3', 'col4']
         .filter(col => collapsedColumns[col])
-        .length * 50; // 50px per collapsed column
+        .length * 50;
       const remainingWidth = 100 - (totalCollapsedWidth / window.innerWidth * 100);
       return `${remainingWidth / 2}%`;
     } else if (openColumns.length === 3) {
-      // Distribute space among 3 open columns
-      const totalCollapsedWidth = 50; // 50px for 1 collapsed column
+      const totalCollapsedWidth = 50;
       const remainingWidth = 100 - (totalCollapsedWidth / window.innerWidth * 100);
       return `${remainingWidth / 3}%`;
     }
     
-    // Default: use columnWidths state (4 columns open)
     return `${columnWidths[colName]}%`;
   };
 
-  // Autosave function
-  const saveToLocalStorage = useCallback(() => {
-    try {
-      const dataToSave = {
-        title,
-        passages,
-        classCode,
-        teacherName
-      };
-      localStorage.setItem('readingTestDraft', JSON.stringify(dataToSave));
-      console.log('Draft saved:', new Date().toLocaleTimeString());
-    } catch (error) {
-      console.error('Error saving draft:', error);
-    }
-  }, [title, passages, classCode, teacherName]);
-
-  // Auto save every 30 seconds and on page unload
+  // Fetch existing test
   useEffect(() => {
-    const autosaveInterval = setInterval(saveToLocalStorage, 30000);
+    if (hasLoaded) return; // Prevent duplicate fetches
     
-    const handleBeforeUnload = () => {
-      saveToLocalStorage();
+    const fetchTest = async () => {
+      try {
+        console.log('🔄 Fetching test:', testId, 'API:', API);
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+        
+        const response = await fetch(`${API}/api/reading-tests/${testId}`, {
+          signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+        console.log('📦 Response status:', response.status);
+        
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: Không tìm thấy đề thi`);
+        }
+        const data = await response.json();
+        console.log('✅ Data received:', data);
+        
+        setTitle(data.title || '');
+        setClassCode(data.classCode || '');
+        setTeacherName(data.teacherName || '');
+        setPassages(Array.isArray(data.passages) ? data.passages : (data.passages ? [data.passages] : []));
+        setLoading(false);
+        setHasLoaded(true);
+      } catch (error) {
+        console.error('❌ Error:', error);
+        setMessage(`❌ ${error.message}`);
+        setLoading(false);
+        setHasLoaded(true);
+      }
     };
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    
-    return () => {
-      clearInterval(autosaveInterval);
-      window.removeEventListener('beforeunload', handleBeforeUnload);
-    };
-  }, [saveToLocalStorage]);
 
-  // Strip HTML tags from text
+    if (testId && API && !hasLoaded) {
+      fetchTest();
+    } else if (!testId || !API) {
+      console.warn('⚠️ Missing testId or API:', { testId, API });
+      setLoading(false);
+      setHasLoaded(true);
+    }
+  }, [testId, API, hasLoaded]);
+
   const stripHtml = (html) => {
     const temp = document.createElement('div');
     temp.innerHTML = html;
     return temp.textContent || temp.innerText || '';
   };
 
+  const togglePassage = (index) => {
+    setExpandedPassages(prev => ({
+      ...prev,
+      [index]: !prev[index]
+    }));
+  };
+
+  const toggleSection = (passageIndex, sectionIndex) => {
+    const key = `${passageIndex}-${sectionIndex}`;
+    setExpandedSections(prev => ({
+      ...prev,
+      [key]: !prev[key]
+    }));
+  };
+
   const handleAddPassage = () => {
-    setPassages([...passages, { 
-      passageTitle: '', 
-      passageText: '', 
+    setPassages([...passages, {
+      passageTitle: '',
+      passageText: '',
       sections: [
         {
           sectionTitle: '',
@@ -192,162 +198,58 @@ const CreateReadingTest = () => {
     }]);
   };
 
-  const handlePassageChange = (index, field, value) => {
-    const newPassages = [...passages];
-    newPassages[index][field] = value;
-    setPassages(newPassages);
-  };
-
-
-  const createDefaultQuestionByType = (type) => {
-    switch(type) {
-      case 'multiple-choice':
-        return {
-          questionType: 'multiple-choice',
-          questionText: '',
-          options: ['', '', '', ''],
-          correctAnswer: ''
-        };
-      case 'multi-select':
-        return {
-          questionType: 'multi-select',
-          questionText: '',
-          options: ['', '', '', '', ''],
-          correctAnswer: '',
-          maxSelection: 2
-        };
-      case 'fill-in-the-blanks':
-        return {
-          questionType: 'fill-in-the-blanks',
-          questionText: '',
-          correctAnswer: '',
-          maxWords: 3
-        };
-      case 'matching':
-        return {
-          questionType: 'matching',
-          questionText: 'Match the items:',
-          leftItems: ['Item A', 'Item B', 'Item C'],
-          rightItems: ['Item 1', 'Item 2', 'Item 3'],
-          matches: ['1', '2', '3']
-        };
-      case 'true-false-not-given':
-        return {
-          questionType: 'true-false-not-given',
-          questionText: '',
-          correctAnswer: 'TRUE'
-        };
-      case 'yes-no-not-given':
-        return {
-          questionType: 'yes-no-not-given',
-          questionText: '',
-          correctAnswer: 'YES'
-        };
-      case 'paragraph-matching':
-        return {
-          questionType: 'paragraph-matching',
-          questionText: '',
-          correctAnswer: 'A'
-        };
-      case 'sentence-completion':
-        return {
-          questionType: 'sentence-completion',
-          questionText: '',
-          options: ['', '', '', ''],
-          correctAnswer: 'A'
-        };
-      case 'paragraph-fill-blanks':
-        return {
-          questionType: 'paragraph-fill-blanks',
-          paragraphText: '',
-          blanks: [
-            { id: 'blank1', correctAnswer: '' },
-            { id: 'blank2', correctAnswer: '' },
-            { id: 'blank3', correctAnswer: '' }
-          ],
-          options: ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I']
-        };
-      case 'short-answer':
-        return {
-          questionType: 'short-answer',
-          questionText: '',
-          correctAnswer: '',
-          maxWords: 3
-        };
-      default:
-        return {
-          questionType: 'multiple-choice',
-          questionText: '',
-          options: ['', '', '', ''],
-          correctAnswer: ''
-        };
-    }
-  };
-
   const handleDeletePassage = (passageIndex) => {
-    if (passages.length <= 1) {
-      setMessage('❌ Phải có ít nhất 1 passage');
+    if (passages.length === 1) {
+      setMessage('⚠️ Phải có ít nhất 1 passage');
       return;
     }
-    const newPassages = passages.filter((_, idx) => idx !== passageIndex);
-    setPassages(newPassages);
+    setPassages(passages.filter((_, index) => index !== passageIndex));
   };
 
-  // ===== SECTION HANDLERS =====
+  const handlePassageChange = (index, field, value) => {
+    const newPassages = [...passages];
+    if (newPassages[index]) {
+      newPassages[index][field] = value;
+      setPassages(newPassages);
+    }
+  };
+
   const handleAddSection = (passageIndex) => {
     const newPassages = [...passages];
-    // Ensure sections exist (for old data without sections)
-    if (!newPassages[passageIndex].sections) {
-      newPassages[passageIndex].sections = [];
-    }
-    const newSectionNumber = newPassages[passageIndex].sections.length + 1;
     newPassages[passageIndex].sections.push({
-      sectionTitle: `Section ${newSectionNumber}`,
+      sectionTitle: '',
       sectionInstruction: '',
       sectionImage: null,
-      questions: [] // Trống, giáo viên sẽ tự thêm câu hỏi
+      questions: [{ questionNumber: 1, questionType: 'multiple-choice', questionText: '', options: [''], correctAnswer: '' }]
     });
     setPassages(newPassages);
   };
 
   const handleDeleteSection = (passageIndex, sectionIndex) => {
     const newPassages = [...passages];
-    if (!newPassages[passageIndex].sections) {
-      setMessage('❌ Không có section để xóa');
+    if (newPassages[passageIndex].sections.length === 1) {
+      setMessage('⚠️ Phải có ít nhất 1 section');
       return;
     }
-    if (newPassages[passageIndex].sections.length <= 1) {
-      setMessage('❌ Phải có ít nhất 1 section');
-      return;
-    }
-    newPassages[passageIndex].sections.splice(sectionIndex, 1);
+    newPassages[passageIndex].sections = newPassages[passageIndex].sections.filter(
+      (_, index) => index !== sectionIndex
+    );
     setPassages(newPassages);
-    
-    // Reset selectedSectionIndex to prevent undefined error
-    if (selectedSectionIndex === sectionIndex) {
-      // If deleted section was selected, select the previous one or null
-      const newIndex = sectionIndex > 0 ? sectionIndex - 1 : null;
-      setSelectedSectionIndex(newIndex);
-    } else if (selectedSectionIndex > sectionIndex) {
-      // If deleted section was before selected, shift index down
-      setSelectedSectionIndex(selectedSectionIndex - 1);
-    }
   };
 
   const handleSectionChange = (passageIndex, sectionIndex, field, value) => {
     const newPassages = [...passages];
-    newPassages[passageIndex].sections[sectionIndex][field] = value;
-    setPassages(newPassages);
+    if (newPassages[passageIndex]?.sections?.[sectionIndex]) {
+      newPassages[passageIndex].sections[sectionIndex][field] = value;
+      setPassages(newPassages);
+    }
   };
 
   const handleAddQuestion = (passageIndex, sectionIndex) => {
     const newPassages = [...passages];
-    const passage = newPassages[passageIndex];
-    const section = passage.sections[sectionIndex];
-    
-    // Giáo viên sẽ tự nhập questionNumber - không auto-calculate
-    section.questions.push({
-      questionNumber: 1, // Mặc định 1, giáo viên sẽ chỉnh lại
+    const newQuestionNum = (newPassages[passageIndex].sections[sectionIndex].questions?.length || 0) + 1;
+    newPassages[passageIndex].sections[sectionIndex].questions.push({
+      questionNumber: newQuestionNum,
       questionType: 'multiple-choice',
       questionText: '',
       options: [''],
@@ -358,12 +260,10 @@ const CreateReadingTest = () => {
 
   const handleDeleteQuestion = (passageIndex, sectionIndex, questionIndex) => {
     const newPassages = [...passages];
-    const passage = newPassages[passageIndex];
-    const section = passage.sections[sectionIndex];
-    section.questions.splice(questionIndex, 1);
-    
-    // NOTE: Không auto-renumber - cho giáo viên tự nhập questionNumber
-    
+    newPassages[passageIndex].sections[sectionIndex].questions = 
+      newPassages[passageIndex].sections[sectionIndex].questions.filter(
+        (_, index) => index !== questionIndex
+      );
     setPassages(newPassages);
   };
 
@@ -382,81 +282,119 @@ const CreateReadingTest = () => {
     setPassages(newPassages);
   };
 
-  const handleCopySection = (passageIndex, sectionIndex) => {
-    const newPassages = [...passages];
-    const passage = newPassages[passageIndex];
-    const originalSection = passage.sections[sectionIndex];
-    
-    // Deep copy the section
-    const copiedSection = JSON.parse(JSON.stringify(originalSection));
-    
-    // Insert after the original section
-    passage.sections.splice(sectionIndex + 1, 0, copiedSection);
-    
-    setPassages(newPassages);
-    setSelectedSectionIndex(sectionIndex + 1);
+  const handleQuestionChange = (passageIndex, sectionIndex, questionIndex, field, value) => {
+    try {
+      if (!passages || !Array.isArray(passages)) {
+        console.warn('⚠️ Invalid passages state');
+        return;
+      }
+      
+      const newPassages = [...passages];
+      if (!newPassages[passageIndex]) {
+        console.warn('⚠️ Invalid passageIndex:', passageIndex);
+        return;
+      }
+      
+      if (!newPassages[passageIndex].sections || !newPassages[passageIndex].sections[sectionIndex]) {
+        console.warn('⚠️ Invalid sectionIndex:', sectionIndex);
+        return;
+      }
+      
+      if (!newPassages[passageIndex].sections[sectionIndex].questions || 
+          !newPassages[passageIndex].sections[sectionIndex].questions[questionIndex]) {
+        console.warn('⚠️ Invalid questionIndex:', questionIndex);
+        return;
+      }
+      
+      const questions = newPassages[passageIndex].sections[sectionIndex].questions;
+      
+      // If field is 'full', replace entire question object
+      if (field === 'full') {
+        questions[questionIndex] = value;
+      } else {
+        // Otherwise, update single field
+        questions[questionIndex][field] = value;
+      }
+      
+      setPassages(newPassages);
+    } catch (error) {
+      console.error('❌ Error in handleQuestionChange:', error);
+    }
   };
 
-  const handleQuestionChange = (passageIndex, sectionIndex, questionIndex, updatedQuestion) => {
-    const newPassages = [...passages];
-    newPassages[passageIndex].sections[sectionIndex].questions[questionIndex] = updatedQuestion;
-    setPassages(newPassages);
+  const createDefaultQuestionByType = (type) => {
+    const baseQuestion = {
+      questionNumber: 1,
+      questionType: type,
+      questionText: '',
+      correctAnswer: ''
+    };
+
+    switch (type) {
+      case 'multiple-choice':
+        return { ...baseQuestion, options: ['A', 'B', 'C', 'D'] };
+      case 'multi-select':
+        return { ...baseQuestion, options: ['A', 'B', 'C', 'D'] };
+      case 'fill-in-the-blanks':
+        return { ...baseQuestion, maxWords: 3 };
+      case 'matching':
+        return { ...baseQuestion, leftItems: [], rightItems: [], matches: [] };
+      case 'true-false-not-given':
+        return baseQuestion;
+      case 'yes-no-not-given':
+        return baseQuestion;
+      case 'paragraph-matching':
+        return baseQuestion;
+      case 'sentence-completion':
+        return { ...baseQuestion, options: [] };
+      case 'paragraph-fill-blanks':
+        return { 
+          ...baseQuestion, 
+          paragraphText: '',
+          blanks: [
+            { id: 'blank1', correctAnswer: '' },
+            { id: 'blank2', correctAnswer: '' },
+            { id: 'blank3', correctAnswer: '' }
+          ],
+          options: ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I']
+        };
+      case 'short-answer':
+        return { ...baseQuestion, maxWords: 5 };
+      default:
+        return baseQuestion;
+    }
   };
 
   const handleReview = (e) => {
     e.preventDefault();
     if (!title.trim()) {
-      setMessage('❌ Vui lòng nhập tiêu đề đề thi');
+      setMessage('⚠️ Vui lòng nhập tiêu đề đề thi');
       return;
     }
-    if (!classCode.trim()) {
-      setMessage('❌ Vui lòng nhập mã lớp');
-      return;
-    }
-    if (!teacherName.trim()) {
-      setMessage('❌ Vui lòng nhập tên giáo viên');
-      return;
-    }
-    setMessage('');
     setIsReviewing(true);
   };
 
-  const handleConfirmSubmit = async () => {
+  const handleConfirmUpdate = async () => {
     try {
-      setIsCreating(true);
-      
-      // Clean up passages data before submitting
-      const cleanedPassages = passages.map(p => {
-        // Flatten questions from all sections
-        const allQuestions = [];
-        p.sections?.forEach(section => {
-          section.questions?.forEach(q => {
-            allQuestions.push({
-              ...q,
-              questionText: stripHtml(q.questionText || ''),
-              options: q.options ? q.options.map(opt => stripHtml(opt)) : undefined
-            });
-          });
-        });
-        
-        return {
-          passageTitle: stripHtml(p.passageTitle || ''),
-          passageText: stripHtml(p.passageText || ''),
-          sections: p.sections?.map(section => ({
-            sectionTitle: stripHtml(section.sectionTitle || ''),
-            sectionInstruction: stripHtml(section.sectionInstruction || ''),
-            sectionImage: section.sectionImage,
-            questions: section.questions?.map(q => ({
-              ...q,
-              questionText: stripHtml(q.questionText || ''),
-              options: q.options ? q.options.map(opt => stripHtml(opt)) : undefined
-            })) || []
-          })) || []
-        };
-      });
+      setIsUpdating(true);
 
-      const response = await fetch(`${API}/api/reading-tests`, {
-        method: 'POST',
+      const cleanedPassages = passages.map(p => ({
+        passageTitle: stripHtml(p.passageTitle || ''),
+        passageText: p.passageText || '', // Keep HTML formatting
+        sections: p.sections?.map(section => ({
+          sectionTitle: stripHtml(section.sectionTitle || ''),
+          sectionInstruction: section.sectionInstruction || '', // Keep HTML formatting
+          sectionImage: section.sectionImage,
+          questions: section.questions?.map(q => ({
+            ...q,
+            questionText: q.questionText || '', // Keep HTML formatting
+            options: q.options ? q.options.map(opt => opt) : undefined // Keep options as-is
+          })) || []
+        })) || []
+      }));
+
+      const response = await fetch(`${API}/api/reading-tests/${testId}`, {
+        method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
@@ -469,38 +407,88 @@ const CreateReadingTest = () => {
       });
 
       const data = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(data.message || 'Lỗi khi tạo đề thi');
-      }
+      if (!response.ok) throw new Error(data.message || 'Lỗi khi cập nhật');
 
-      setMessage('✅ Đã tạo đề thành công!');
-      localStorage.removeItem('readingTestDraft');
+      setMessage('✅ Đã cập nhật đề thành công!');
       setTimeout(() => {
-        navigate('/reading-tests');
+        navigate('/select-test');
       }, 1500);
     } catch (error) {
-      console.error('Error:', error);
-      setMessage(`❌ ${error.message || 'Lỗi khi tạo đề thi'}`);
+      setMessage(`❌ ${error.message}`);
     } finally {
-      setIsCreating(false);
+      setIsUpdating(false);
       setIsReviewing(false);
     }
   };
 
+  if (loading) {
+    return (
+      <>
+        <AdminNavbar />
+        <div style={{ maxWidth: '1000px', margin: '20px auto', padding: '0 20px' }}>
+          <p>⏳ Đang tải dữ liệu...</p>
+        </div>
+      </>
+    );
+  }
+
+  if (!passages || passages.length === 0) {
+    return (
+      <>
+        <AdminNavbar />
+        <div style={{ maxWidth: '1000px', margin: '20px auto', padding: '0 20px' }}>
+          <p style={{ color: 'red' }}>❌ Không có dữ liệu để sửa. Vui lòng quay lại.</p>
+          <button onClick={() => navigate('/reading-tests')} style={{
+            padding: '10px 20px',
+            backgroundColor: '#0e276f',
+            color: 'white',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: 'pointer'
+          }}>
+            ← Quay lại
+          </button>
+        </div>
+      </>
+    );
+  }
+
+  if (message && message.includes('❌')) {
+    return (
+      <>
+        <AdminNavbar />
+        <div style={{ maxWidth: '1000px', margin: '20px auto', padding: '0 20px' }}>
+          <div style={{
+            padding: '15px',
+            backgroundColor: '#ffe6e6',
+            color: 'red',
+            borderRadius: '6px',
+            marginBottom: '20px'
+          }}>
+            {message}
+          </div>
+          <button onClick={() => navigate('/reading-tests')} style={{
+            padding: '10px 20px',
+            backgroundColor: '#0e276f',
+            color: 'white',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: 'pointer'
+          }}>
+            ← Quay lại
+          </button>
+        </div>
+      </>
+    );
+  }
+
   const inputStyle = {
     width: '100%',
-    padding: '12px',
-    marginBottom: '15px',
+    padding: '10px',
+    marginBottom: '10px',
     fontSize: '16px',
     borderRadius: '6px',
-    border: '2px solid #0e276f',
-    backgroundColor: '#fff',
-    cursor: 'text',
-    boxSizing: 'border-box',
-    position: 'relative',
-    zIndex: 5,
-    transition: 'border-color 0.2s'
+    border: '1px solid #ccc'
   };
 
   const modalStyles = {
@@ -526,7 +514,6 @@ const CreateReadingTest = () => {
     boxShadow: '0 4px 8px rgba(0,0,0,0.2)',
   };
 
-  // Theme colors from the app
   const primaryBlue = '#0e276f';
   const dangerRed = '#e03';
   const modalHeaderStyles = {
@@ -564,14 +551,14 @@ const CreateReadingTest = () => {
       <AdminNavbar />
       <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
         <div style={{ padding: '12px 20px', backgroundColor: '#fff', borderBottom: '1px solid #ddd', overflowY: 'auto', flexShrink: 0 }}>
-          <h2 style={{ margin: '8px 0 12px 0', fontSize: '20px', textAlign: 'center' }}>📚 Tạo Đề Reading IELTS</h2>
+          <h2 style={{ margin: '8px 0 12px 0', fontSize: '20px', textAlign: 'center' }}>✏️ Sửa Đề Reading IELTS</h2>
           <div style={{ display: 'flex', gap: '15px', justifyContent: 'center', flexWrap: 'wrap', maxWidth: '800px', margin: '0 auto' }}>
             <input
               type="text"
               placeholder="Tiêu đề đề thi"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              style={{ ...inputStyle, flex: '1 1 45%', minWidth: '200px', padding: '8px', fontSize: '13px' }}
+              style={{ ...inputStyle, flex: '1 1 45%', minWidth: '200px', padding: '8px', fontSize: '13px', marginBottom: 0 }}
             />
             
             <input
@@ -579,7 +566,7 @@ const CreateReadingTest = () => {
               placeholder="Mã lớp"
               value={classCode}
               onChange={(e) => setClassCode(e.target.value)}
-              style={{ ...inputStyle, flex: '1 1 20%', minWidth: '120px', padding: '8px', fontSize: '13px' }}
+              style={{ ...inputStyle, flex: '1 1 20%', minWidth: '120px', padding: '8px', fontSize: '13px', marginBottom: 0 }}
             />
             
             <input
@@ -587,12 +574,10 @@ const CreateReadingTest = () => {
               placeholder="Tên giáo viên"
               value={teacherName}
               onChange={(e) => setTeacherName(e.target.value)}
-              style={{ ...inputStyle, flex: '1 1 25%', minWidth: '150px', padding: '8px', fontSize: '13px' }}
+              style={{ ...inputStyle, flex: '1 1 25%', minWidth: '150px', padding: '8px', fontSize: '13px', marginBottom: 0 }}
             />
           </div>
-
-          {/* 4-COLUMN LAYOUT */}
-          </div>
+        </div>
 
         <form onSubmit={handleReview} style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
           <div style={{ display: 'flex', gap: '0px', flex: 1, backgroundColor: '#ddd', overflow: 'hidden', position: 'relative' }}>
@@ -638,23 +623,6 @@ const CreateReadingTest = () => {
                       <small>{passage.passageTitle || '(Untitled)'}</small>
                     </div>
                   ))}
-                  <button
-                    type="button"
-                    onClick={handleAddPassage}
-                    style={{
-                      width: '100%',
-                      padding: '10px',
-                      backgroundColor: '#28a745',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '4px',
-                      cursor: 'pointer',
-                      fontWeight: 'bold',
-                      marginTop: '10px'
-                    }}
-                  >
-                    ➕ Thêm Passage
-                  </button>
                 </div>
               )}
             </div>
@@ -667,10 +635,7 @@ const CreateReadingTest = () => {
                 backgroundColor: isResizing === 1 ? '#0e276f' : 'transparent',
                 cursor: 'col-resize',
                 flexShrink: 0,
-                transition: 'background-color 0.2s ease',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
+                transition: 'background-color 0.2s ease'
               }}
             />
 
@@ -727,10 +692,7 @@ const CreateReadingTest = () => {
                 backgroundColor: isResizing === 2 ? '#0e276f' : 'transparent',
                 cursor: 'col-resize',
                 flexShrink: 0,
-                transition: 'background-color 0.2s ease',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
+                transition: 'background-color 0.2s ease'
               }}
             />
 
@@ -801,10 +763,7 @@ const CreateReadingTest = () => {
                 backgroundColor: isResizing === 3 ? '#0e276f' : 'transparent',
                 cursor: 'col-resize',
                 flexShrink: 0,
-                transition: 'background-color 0.2s ease',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
+                transition: 'background-color 0.2s ease'
               }}
             />
 
@@ -833,9 +792,32 @@ const CreateReadingTest = () => {
                     onAddQuestion={handleAddQuestion}
                     onDeleteQuestion={handleDeleteQuestion}
                     onCopyQuestion={handleCopyQuestion}
-                    onCopySection={handleCopySection}
+                    onCopySection={(pIdx, sIdx) => {
+                      const newPassages = [...passages];
+                      const passage = newPassages[pIdx];
+                      const originalSection = passage.sections[sIdx];
+                      const copiedSection = JSON.parse(JSON.stringify(originalSection));
+                      passage.sections.splice(sIdx + 1, 0, copiedSection);
+                      setPassages(newPassages);
+                      setSelectedSectionIndex(sIdx + 1);
+                    }}
                     onQuestionChange={handleQuestionChange}
-                    onDeleteSection={handleDeleteSection}
+                    onDeleteSection={(pIdx, sIdx) => {
+                      const newPassages = [...passages];
+                      if (!newPassages[pIdx].sections) return;
+                      if (newPassages[pIdx].sections.length <= 1) {
+                        setMessage('❌ Phải có ít nhất 1 section');
+                        return;
+                      }
+                      newPassages[pIdx].sections.splice(sIdx, 1);
+                      setPassages(newPassages);
+                      if (selectedSectionIndex === sIdx) {
+                        const newIndex = sIdx > 0 ? sIdx - 1 : null;
+                        setSelectedSectionIndex(newIndex);
+                      } else if (selectedSectionIndex > sIdx) {
+                        setSelectedSectionIndex(selectedSectionIndex - 1);
+                      }
+                    }}
                     createDefaultQuestionByType={createDefaultQuestionByType}
                   />
                 </div>
@@ -869,32 +851,12 @@ const CreateReadingTest = () => {
           
           <div style={{ display: 'flex', gap: '10px' }}>
             <button
-              type="button"
-              onClick={() => setShowPreview(true)}
-              style={{
-                padding: '10px 20px',
-                fontSize: '14px',
-                backgroundColor: '#6c757d',
-                color: 'white',
-                border: 'none',
-                borderRadius: '6px',
-                cursor: 'pointer',
-                fontWeight: 'bold',
-                transition: 'all 0.2s ease'
-              }}
-              onMouseEnter={(e) => e.target.style.backgroundColor = '#5a6268'}
-              onMouseLeave={(e) => e.target.style.backgroundColor = '#6c757d'}
-            >
-              👁 Preview
-            </button>
-
-            <button
               type="submit"
               onClick={handleReview}
               style={{
                 padding: '10px 20px',
                 fontSize: '14px',
-                backgroundColor: '#e03',
+                backgroundColor: '#0b8e3a',
                 color: 'white',
                 border: 'none',
                 borderRadius: '6px',
@@ -902,89 +864,29 @@ const CreateReadingTest = () => {
                 fontWeight: 'bold',
                 transition: 'all 0.2s ease'
               }}
-              onMouseEnter={(e) => e.target.style.backgroundColor = '#c60'}
-              onMouseLeave={(e) => e.target.style.backgroundColor = '#e03'}
+              onMouseEnter={(e) => e.target.style.backgroundColor = '#0a7a32'}
+              onMouseLeave={(e) => e.target.style.backgroundColor = '#0b8e3a'}
             >
-              ✏️ Xem lại & Tạo
+              📝 Xem & Sửa
             </button>
           </div>
         </div>
       </div>
 
-      {showPreview && (
-        <div style={modalStyles}>
-          <div style={modalContentStyles}>
-            <div style={modalHeaderStyles}>
-              <h2 style={{ margin: 0 }}>👁 Preview Đề Reading</h2>
-            </div>
-            {passages.map((p, pIndex) => (
-              <div key={pIndex} style={{ marginBottom: '20px', paddingBottom: '20px', borderBottom: '1px solid #ddd' }}>
-                <h3 style={{ color: '#0e276f' }}>{p.passageTitle || `Passage ${pIndex + 1}`}</h3>
-                <div style={{ 
-                  backgroundColor: '#f9f9f9',
-                  padding: '15px',
-                  borderRadius: '4px',
-                  marginBottom: '15px',
-                  lineHeight: '1.8'
-                }} dangerouslySetInnerHTML={{ __html: p.passageText }} />
-                {p.sections?.map((section, sectionIndex) => (
-                  <div key={sectionIndex} style={{ marginBottom: '15px', paddingLeft: '10px', borderLeft: '3px solid #0e276f' }}>
-                    {section.sectionTitle && <h5 style={{ color: '#0e276f', marginTop: '10px' }}>{section.sectionTitle}</h5>}
-                    {section.sectionInstruction && (
-                      <div style={{ backgroundColor: '#f0f0f0', padding: '10px', borderRadius: '4px', marginBottom: '10px', fontSize: '14px' }} dangerouslySetInnerHTML={{ __html: section.sectionInstruction }} />
-                    )}
-                    {section.questions && section.questions.length > 0 && (
-                      <>
-                        <h6 style={{ marginTop: '10px' }}>Câu hỏi:</h6>
-                        {section.questions.map((q, qIndex) => (
-                          <div key={qIndex} style={{ marginBottom: '10px', paddingLeft: '15px' }}>
-                            <p><strong>{q.questionNumber}. {q.questionText}</strong></p>
-                            {q.options && q.options.length > 0 && (
-                              <ul style={{ marginLeft: '20px' }}>
-                                {q.options.map((opt, optIndex) => opt && <li key={optIndex}>{opt}</li>)}
-                              </ul>
-                            )}
-                            {q.leftItems && q.rightItems && (
-                              <div style={{ marginBottom: '10px' }}>
-                                <strong>Left Items:</strong>
-                                <ul style={{ marginLeft: '20px' }}>
-                                  {q.leftItems.map((item, idx) => <li key={idx}>{item}</li>)}
-                                </ul>
-                                <strong>Right Items:</strong>
-                                <ul style={{ marginLeft: '20px' }}>
-                                  {q.rightItems.map((item, idx) => <li key={idx}>{item}</li>)}
-                                </ul>
-                              </div>
-                            )}
-                            <p style={{ color: '#666', marginTop: '5px' }}>
-                              <strong>Đáp án:</strong> {q.correctAnswer}
-                            </p>
-                          </div>
-                        ))}
-                      </>
-                    )}
-                  </div>
-                ))}
-              </div>
-            ))}
-            <hr />
-            <div style={{ textAlign: 'right' }}>
-              <button
-                onClick={() => setShowPreview(false)}
-                style={{
-                  padding: '10px 20px',
-                  backgroundColor: '#e03',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '4px',
-                  cursor: 'pointer',
-                  fontWeight: 'bold'
-                }}
-              >
-                ✕ Đóng
-              </button>
-            </div>
-          </div>
+      {message && (
+        <div style={{
+          padding: '15px',
+          marginBottom: '20px',
+          borderRadius: '6px',
+          backgroundColor: message.includes('❌') ? '#ffe6e6' : '#e6ffe6',
+          color: message.includes('❌') ? 'red' : 'green',
+          fontWeight: 'bold',
+          position: 'fixed',
+          bottom: '20px',
+          right: '20px',
+          zIndex: 1000
+        }}>
+          {message}
         </div>
       )}
 
@@ -992,61 +894,67 @@ const CreateReadingTest = () => {
         <div style={modalStyles}>
           <div style={modalContentStyles}>
             <div style={modalHeaderStyles}>
-              <h2 style={{ margin: 0 }}>🔎 Xem lại đề Reading</h2>
+              <h2 style={{ margin: 0 }}>🔎 Xem lại & Cập nhật</h2>
             </div>
-            <div style={{ padding: '16px 0' }}>
-              <p><strong>Tiêu đề:</strong> {title}</p>
+            <div style={{ padding: '16px' }}>
+              <h3>📋 {title}</h3>
               <p><strong>Mã lớp:</strong> {classCode}</p>
               <p><strong>Giáo viên:</strong> {teacherName}</p>
+              <hr />
             </div>
-            <hr />
+            
             {passages.map((p, pIndex) => (
-              <div key={pIndex} className="mb-4">
-                <h4>{p.passageTitle || `Passage ${pIndex + 1}`}</h4>
-                <div className="p-2 border rounded" dangerouslySetInnerHTML={{ __html: p.passageText }} />
-                {p.sections?.map((section, sectionIndex) => (
-                  <div key={sectionIndex} className="mt-3 pl-3 border-left">
-                    {section.sectionTitle && <h5 className="mb-2">{section.sectionTitle}</h5>}
-                    {section.sectionInstruction && (
-                      <div className="p-2 bg-light rounded mb-2" dangerouslySetInnerHTML={{ __html: section.sectionInstruction }} />
-                    )}
-                    {section.questions && section.questions.length > 0 && (
-                      <>
-                        <h6 className="mt-2">Câu hỏi:</h6>
-                        {section.questions.map((q, qIndex) => (
-                          <div key={qIndex} className="pl-3 mb-2">
-                            <p><strong>{q.questionNumber}. {q.questionText}</strong> ({q.questionType})</p>
-                            {q.questionType === 'multiple-choice' && (
-                              <ul>
-                                {q.options?.map((opt, optIndex) => <li key={optIndex}>{opt}</li>)}
-                              </ul>
-                            )}
-                            {q.leftItems && q.rightItems && (
-                              <div className="mb-2">
-                                <strong>Left Items:</strong>
-                                <ul>
-                                  {q.leftItems.map((item, idx) => <li key={idx}>{item}</li>)}
-                                </ul>
-                                <strong>Right Items:</strong>
-                                <ul>
-                                  {q.rightItems.map((item, idx) => <li key={idx}>{item}</li>)}
-                                </ul>
-                              </div>
-                            )}
-                            <p style={{ color: '#0b8e3a' }}><strong>Đáp án:</strong> {q.correctAnswer}</p>
-                          </div>
-                        ))}
-                      </>
-                    )}
-                  </div>
-                ))}
+              <div key={pIndex} style={{ marginBottom: '20px', paddingBottom: '20px', borderBottom: '1px solid #ddd', padding: '15px', backgroundColor: '#f9f9f9', borderRadius: '6px' }}>
+                <h4 style={{ color: '#0e276f', marginTop: 0 }}>📄 Passage {pIndex + 1}: {p.passageTitle || 'Untitled'}</h4>
+                
+                {/* Passage Text Preview - Full Content */}
+                <div style={{ marginBottom: '15px', padding: '15px', backgroundColor: '#fff', borderLeft: '4px solid #0e276f', borderRadius: '4px', maxHeight: '400px', overflowY: 'auto', border: '1px solid #ddd' }}>
+                  <div style={{ fontSize: '14px', color: '#333', lineHeight: '1.6' }} dangerouslySetInnerHTML={{ __html: p.passageText || '<em style="color: #999;">(Chưa có nội dung)</em>' }} />
+                </div>
+                
+                {/* Sections */}
+                <div style={{ marginBottom: '10px' }}>
+                  <strong>Sections: {p.sections?.length || 0}</strong>
+                  {p.sections?.map((section, sIndex) => (
+                    <div key={sIndex} style={{ marginTop: '12px', marginLeft: '20px', padding: '10px', backgroundColor: '#e8f0fe', borderRadius: '4px' }}>
+                      <p style={{ margin: '5px 0', fontWeight: 'bold' }}>
+                        📌 Section {sIndex + 1}: {section.sectionTitle || 'Untitled'}
+                      </p>
+                      <p style={{ margin: '5px 0', fontSize: '13px', color: '#555' }}>
+                        {section.sectionInstruction ? stripHtml(section.sectionInstruction).substring(0, 100) + '...' : '(Không có hướng dẫn)'}
+                      </p>
+                      <p style={{ margin: '5px 0', fontSize: '13px', fontWeight: '600' }}>
+                        Questions: {section.questions?.length || 0}
+                      </p>
+                      
+                      {/* Questions Preview */}
+                      {section.questions?.map((q, qIndex) => (
+                        <div key={qIndex} style={{ marginTop: '8px', padding: '8px', backgroundColor: '#fff', borderLeft: '2px solid #0b8e3a', borderRadius: '3px', fontSize: '12px' }}>
+                          <strong>Q{q.questionNumber}:</strong> {
+                            q.questionType === 'paragraph-fill-blanks' 
+                              ? stripHtml(q.paragraphText || '').substring(0, 80) + '...'
+                              : stripHtml(q.questionText || '').substring(0, 80) + '...'
+                          }
+                          {q.correctAnswer && <div style={{ marginTop: '3px', color: '#0b8e3a' }}>✅ Đáp án: {q.correctAnswer}</div>}
+                          {q.questionType === 'paragraph-fill-blanks' && q.blanks && (
+                            <div style={{ marginTop: '3px', color: '#0b8e3a' }}>
+                              ✅ Blanks: {q.blanks.map(b => b.correctAnswer).join(', ')}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ))}
+                </div>
               </div>
             ))}
-            <hr />
-            <div className="d-flex justify-content-end gap-2">
-              <button style={backButtonStyle} onClick={() => setIsReviewing(false)}>← Quay lại chỉnh sửa</button>
-              <button style={confirmButtonStyle} onClick={handleConfirmSubmit} disabled={isCreating}>
-                {isCreating ? '⏳ Đang tạo...' : '✅ Xác nhận & Tạo'}
+            
+            <div style={{ textAlign: 'right', marginTop: '20px', paddingTop: '20px', borderTop: '1px solid #ddd' }}>
+              <button style={backButtonStyle} onClick={() => setIsReviewing(false)}>
+                ← Quay lại sửa
+              </button>
+              <button style={{...confirmButtonStyle, marginLeft: '10px'}} onClick={handleConfirmUpdate} disabled={isUpdating}>
+                {isUpdating ? '⏳ Đang cập nhật...' : '✅ Xác nhận cập nhật'}
               </button>
             </div>
           </div>
@@ -1056,4 +964,4 @@ const CreateReadingTest = () => {
   );
 };
 
-export default CreateReadingTest;
+export default EditReadingTest;
