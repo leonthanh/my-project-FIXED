@@ -219,15 +219,18 @@ const QuestionSection = ({
               <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>
                 Số câu hỏi (Question Number):
               </label>
+              <p style={{ fontSize: '12px', color: '#666', margin: '0 0 6px 0' }}>
+                💡 Ví dụ: 38-40 hoặc 38, 39, 40 hoặc chỉ 38
+              </p>
               <input
-                type="number"
-                min="1"
-                max="999"
-                value={question.questionNumber || 1}
+                type="text"
+                placeholder="Ví dụ: 38-40 hoặc 38, 39, 40"
+                value={question.questionNumber || ''}
                 onChange={(e) => {
+                  const input = e.target.value.trim();
                   const newQuestion = {
                     ...question,
-                    questionNumber: parseInt(e.target.value) || 1
+                    questionNumber: input || '1'
                   };
                   onQuestionChange(passageIndex, sectionIndex, questionIndex, 'full', newQuestion);
                 }}
@@ -237,13 +240,10 @@ const QuestionSection = ({
                   borderRadius: '4px',
                   border: '2px solid #0e276f',
                   fontSize: '14px',
-                  boxSizing: 'border-box'
+                  boxSizing: 'border-box',
+                  backgroundColor: '#fff'
                 }}
-                placeholder="Ví dụ: 1, 8, 14..."
               />
-              <p style={{ fontSize: '12px', color: '#666', marginTop: '5px' }}>
-                💡 Nhập số câu hỏi thứ mấy (ví dụ: Câu 1-7 = nhập từ 1 đến 7)
-              </p>
             </div>
 
             {/* Question Type Select */}

@@ -6,6 +6,44 @@ const ParagraphFillBlanksQuestion = ({ question, onChange }) => {
     onChange({ ...question, [field]: value });
   };
 
+  // Parse question numbers từ input (38-40 hoặc 38, 39, 40)
+  const parseQuestionNumbers = (input) => {
+    if (!input || input.trim() === '') return [];
+    
+    const result = [];
+    
+    // Handle range format: "38-40"
+    if (input.includes('-') && !input.includes(',')) {
+      const parts = input.split('-').map(p => p.trim());
+      if (parts.length === 2) {
+        const start = parseInt(parts[0]);
+        const end = parseInt(parts[1]);
+        if (!isNaN(start) && !isNaN(end)) {
+          for (let i = start; i <= end; i++) {
+            result.push(i);
+          }
+          return result;
+        }
+      }
+    }
+    
+    // Handle comma format: "38, 39, 40"
+    if (input.includes(',')) {
+      return input.split(',').map(p => {
+        const num = parseInt(p.trim());
+        return isNaN(num) ? null : num;
+      }).filter(n => n !== null);
+    }
+    
+    // Handle single number: "38"
+    const single = parseInt(input.trim());
+    if (!isNaN(single)) {
+      return [single];
+    }
+    
+    return [];
+  };
+
   const handleBlanksChange = (blankId, value) => {
     const newBlanks = question.blanks.map(b => 
       b.id === blankId ? { ...b, correctAnswer: value } : b
