@@ -49,6 +49,19 @@ const CreateReadingTest = () => {
     col4: false  // Questions
   });
 
+  // 🔍 Debug: Log changes to selectedPassageIndex
+  useEffect(() => {
+    console.log(`🎯 [CREATE] selectedPassageIndex changed to: ${selectedPassageIndex}`);
+    if (passages && passages[selectedPassageIndex]) {
+      console.log(`📄 Current passage:`, {
+        index: selectedPassageIndex,
+        title: passages[selectedPassageIndex].passageTitle,
+        textLength: (passages[selectedPassageIndex].passageText || '').length,
+        textPreview: (passages[selectedPassageIndex].passageText || '').substring(0, 100)
+      });
+    }
+  }, [selectedPassageIndex, passages]);
+
   // Toggle column collapse/expand
   const toggleColumnCollapse = (colName) => {
     setCollapsedColumns(prev => ({
@@ -175,6 +188,28 @@ const CreateReadingTest = () => {
     const temp = document.createElement('div');
     temp.innerHTML = html;
     return temp.textContent || temp.innerText || '';
+  };
+
+  // Clean up HTML from Quill editor - remove empty paragraphs and extra tags
+  const cleanupPassageHTML = (html) => {
+    if (!html) return '';
+    
+    // Remove empty <p><br></p> tags
+    let cleaned = html.replace(/<p><br><\/p>/g, '');
+    
+    // Remove multiple consecutive empty paragraphs
+    cleaned = cleaned.replace(/<p><\/p>/g, '');
+    
+    // Remove excessive whitespace-only paragraphs
+    cleaned = cleaned.replace(/<p>\s*<\/p>/g, '');
+    
+    // Replace multiple <br> with single <br>
+    cleaned = cleaned.replace(/<br>\s*<br>/g, '<br>');
+    
+    // Trim whitespace
+    cleaned = cleaned.trim();
+    
+    return cleaned;
   };
 
   const handleAddPassage = () => {
@@ -441,7 +476,7 @@ const CreateReadingTest = () => {
         
         return {
           passageTitle: stripHtml(p.passageTitle || ''),
-          passageText: stripHtml(p.passageText || ''),
+          passageText: cleanupPassageHTML(p.passageText || ''),
           sections: p.sections?.map(section => ({
             sectionTitle: stripHtml(section.sectionTitle || ''),
             sectionInstruction: stripHtml(section.sectionInstruction || ''),
@@ -695,8 +730,11 @@ const CreateReadingTest = () => {
                   <label style={{ fontWeight: 'bold', color: '#28a745' }}>📝 Tiêu đề</label>
                   <input
                     type="text"
-                    value={passages[selectedPassageIndex].passageTitle || ''}
-                    onChange={(e) => handlePassageChange(selectedPassageIndex, 'passageTitle', e.target.value)}
+                    value={passages[selectedPassageIndex]?.passageTitle || ''}
+                    onChange={(e) => {
+                      console.log(`✏️ [CREATE] Changed passage ${selectedPassageIndex} title to: ${e.target.value}`);
+                      handlePassageChange(selectedPassageIndex, 'passageTitle', e.target.value);
+                    }}
                     style={{
                       width: '100%',
                       padding: '8px',
@@ -709,11 +747,17 @@ const CreateReadingTest = () => {
                   
                   <label style={{ fontWeight: 'bold', color: '#28a745' }}>📖 Nội dung</label>
                   <div style={{ marginTop: '10px' }}>
-                    <QuillEditor
-                      value={passages[selectedPassageIndex].passageText || ''}
-                      onChange={(value) => handlePassageChange(selectedPassageIndex, 'passageText', value)}
-                      placeholder="Nhập nội dung passage..."
-                    />
+                    {passages[selectedPassageIndex] && (
+                      <QuillEditor
+                        key={`${selectedPassageIndex}-${passages[selectedPassageIndex].passageTitle}`}
+                        value={passages[selectedPassageIndex].passageText || ''}
+                        onChange={(value) => {
+                          console.log(`✏️ [CREATE] Editing passage ${selectedPassageIndex}: ${value.substring(0, 50)}...`);
+                          handlePassageChange(selectedPassageIndex, 'passageText', value);
+                        }}
+                        placeholder="Nhập nội dung passage..."
+                      />
+                    )}
                   </div>
                 </div>
               )}

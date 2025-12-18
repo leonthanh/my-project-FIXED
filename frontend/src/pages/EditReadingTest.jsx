@@ -30,6 +30,19 @@ const EditReadingTest = () => {
     col3: false, // Sections
     col4: false  // Questions
   });
+
+  // 🔍 Debug: Log changes to selectedPassageIndex
+  useEffect(() => {
+    console.log(`🎯 selectedPassageIndex changed to: ${selectedPassageIndex}`);
+    if (passages && passages[selectedPassageIndex]) {
+      console.log(`📄 Current passage:`, {
+        index: selectedPassageIndex,
+        title: passages[selectedPassageIndex].passageTitle,
+        textLength: (passages[selectedPassageIndex].passageText || '').length,
+        textPreview: (passages[selectedPassageIndex].passageText || '').substring(0, 100)
+      });
+    }
+  }, [selectedPassageIndex, passages]);
   
   // Column width state for resize
   const [columnWidths, setColumnWidths] = useState({
@@ -136,6 +149,10 @@ const EditReadingTest = () => {
         }
         const data = await response.json();
         console.log('✅ Data received:', data);
+        console.log('📊 Total passages:', Array.isArray(data.passages) ? data.passages.length : 0);
+        data.passages?.forEach((p, idx) => {
+          console.log(`  Passage ${idx}: "${p.passageTitle}" - ${p.passageText?.substring(0, 50)}...`);
+        });
         
         setTitle(data.title || '');
         setClassCode(data.classCode || '');
@@ -164,6 +181,28 @@ const EditReadingTest = () => {
     const temp = document.createElement('div');
     temp.innerHTML = html;
     return temp.textContent || temp.innerText || '';
+  };
+
+  // Clean up HTML from Quill editor - remove empty paragraphs and extra tags
+  const cleanupPassageHTML = (html) => {
+    if (!html) return '';
+    
+    // Remove empty <p><br></p> tags
+    let cleaned = html.replace(/<p><br><\/p>/g, '');
+    
+    // Remove multiple consecutive empty paragraphs
+    cleaned = cleaned.replace(/<p><\/p>/g, '');
+    
+    // Remove excessive whitespace-only paragraphs
+    cleaned = cleaned.replace(/<p>\s*<\/p>/g, '');
+    
+    // Replace multiple <br> with single <br>
+    cleaned = cleaned.replace(/<br>\s*<br>/g, '<br>');
+    
+    // Trim whitespace
+    cleaned = cleaned.trim();
+    
+    return cleaned;
   };
 
 
@@ -431,7 +470,7 @@ const EditReadingTest = () => {
         
         return {
           passageTitle: stripHtml(p.passageTitle || '') || `Passage ${pIdx + 1}`,
-          passageText: p.passageText || '',
+          passageText: cleanupPassageHTML(p.passageText || ''),
           sections: p.sections?.map((section, sIdx) => {
             if (!section.questions || section.questions.length === 0) {
               throw new Error(`Passage ${pIdx + 1}, Section ${sIdx + 1} phải có ít nhất 1 câu hỏi`);
@@ -663,6 +702,7 @@ const EditReadingTest = () => {
                     <div
                       key={idx}
                       onClick={() => {
+                        console.log(`🖱️ Clicked passage ${idx}, title: ${passage.passageTitle}`);
                         setSelectedPassageIndex(idx);
                         setSelectedSectionIndex(null);
                       }}
@@ -716,11 +756,27 @@ const EditReadingTest = () => {
               
               {!collapsedColumns.col2 && passages && passages[selectedPassageIndex] ? (
                 <div style={{ flex: 1, overflow: 'auto', padding: '15px' }}>
+                  {/* 🔍 Debug info */}
+                  <div style={{ 
+                    backgroundColor: '#fffacd', 
+                    padding: '8px', 
+                    borderRadius: '4px', 
+                    marginBottom: '10px', 
+                    fontSize: '11px', 
+                    border: '1px solid #ddd',
+                    display: 'none'
+                  }}>
+                    <strong>Debug:</strong> Index={selectedPassageIndex}, Title="{passages[selectedPassageIndex].passageTitle}"
+                  </div>
+                  
                   <label style={{ fontWeight: 'bold', color: '#28a745' }}>📝 Tiêu đề</label>
                   <input
                     type="text"
-                    value={passages[selectedPassageIndex].passageTitle || ''}
-                    onChange={(e) => handlePassageChange(selectedPassageIndex, 'passageTitle', e.target.value)}
+                    value={passages[selectedPassageIndex]?.passageTitle || ''}
+                    onChange={(e) => {
+                      console.log(`✏️ Changed passage ${selectedPassageIndex} title to: ${e.target.value}`);
+                      handlePassageChange(selectedPassageIndex, 'passageTitle', e.target.value);
+                    }}
                     style={{
                       width: '100%',
                       padding: '8px',
@@ -733,11 +789,17 @@ const EditReadingTest = () => {
                   
                   <label style={{ fontWeight: 'bold', color: '#28a745' }}>📖 Nội dung</label>
                   <div style={{ marginTop: '10px' }}>
-                    <QuillEditor
-                      value={passages[selectedPassageIndex].passageText || ''}
-                      onChange={(value) => handlePassageChange(selectedPassageIndex, 'passageText', value)}
-                      placeholder="Nhập nội dung passage..."
-                    />
+                    {passages[selectedPassageIndex] && (
+                      <QuillEditor
+                        key={`${selectedPassageIndex}-${passages[selectedPassageIndex].passageTitle}`}
+                        value={passages[selectedPassageIndex].passageText || ''}
+                        onChange={(value) => {
+                          console.log(`✏️ Editing passage ${selectedPassageIndex}: ${value.substring(0, 50)}...`);
+                          handlePassageChange(selectedPassageIndex, 'passageText', value);
+                        }}
+                        placeholder="Nhập nội dung passage..."
+                      />
+                    )}
                   </div>
                 </div>
               ) : (
