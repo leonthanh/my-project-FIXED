@@ -92,6 +92,43 @@ const QuillEditor = ({ value, onChange, placeholder, showBlankButton = false }) 
   return (
     <div style={{ position: 'relative', zIndex: 10 }}>
       <style>{`
+        /* Compact Quill toolbar */
+        .ql-toolbar {
+          padding: 5px 5px !important;
+          border-bottom: 1px solid #ccc !important;
+        }
+        
+        .ql-toolbar button, .ql-toolbar button:hover, .ql-toolbar button.ql-active {
+          width: 22px !important;
+          height: 22px !important;
+        }
+        
+        .ql-toolbar button svg {
+          width: 14px !important;
+          height: 14px !important;
+        }
+        
+        .ql-toolbar select {
+          padding: 2px 4px !important;
+          height: 22px !important;
+          font-size: 12px !important;
+        }
+        
+        .ql-toolbar.ql-snow button:hover, .ql-toolbar.ql-snow button:focus, .ql-toolbar.ql-snow button.ql-active {
+          color: #1890ff;
+        }
+        
+        /* Compact editor container - remove margin-bottom */
+        .ql-container {
+          margin-bottom: 0 !important;
+        }
+        
+        /* Compact editor */
+        .ql-editor {
+          min-height: 100px !important;
+          font-size: 13px !important;
+        }
+        
         /* Fix Quill Heading spacing - remove excessive top padding */
         .ql-editor h1, .ql-editor h2, .ql-editor h3 {
           margin: 0 !important;
@@ -100,13 +137,13 @@ const QuillEditor = ({ value, onChange, placeholder, showBlankButton = false }) 
           margin-bottom: 0.5em !important;
         }
         .ql-editor h1 {
-          font-size: 2em !important;
+          font-size: 1.8em !important;
         }
         .ql-editor h2 {
-          font-size: 1.5em !important;
+          font-size: 1.3em !important;
         }
         .ql-editor h3 {
-          font-size: 1.17em !important;
+          font-size: 1.1em !important;
         }
         
         /* Fix paragraph spacing */
@@ -193,8 +230,7 @@ const QuillEditor = ({ value, onChange, placeholder, showBlankButton = false }) 
           formats={formats}
           placeholder={placeholder}
           style={{ 
-            minHeight: '200px',
-            marginBottom: '20px'
+            minHeight: '165px'
           }}
         />
       </div>
