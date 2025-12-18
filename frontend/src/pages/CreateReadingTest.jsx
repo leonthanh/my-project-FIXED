@@ -35,6 +35,7 @@ const CreateReadingTest = () => {
     }
   ]);
   const [isReviewing, setIsReviewing] = useState(false);
+  const [message, setMessage] = useState('');
   const [isCreating, setIsCreating] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   
@@ -369,6 +370,15 @@ const CreateReadingTest = () => {
     }
   };
 
+  const handleDeletePassage = (passageIndex) => {
+    if (passages.length <= 1) {
+      setMessage('❌ Phải có ít nhất 1 passage');
+      return;
+    }
+    const newPassages = passages.filter((_, idx) => idx !== passageIndex);
+    setPassages(newPassages);
+  };
+
   // ===== SECTION HANDLERS =====
   const handleAddSection = (passageIndex) => {
     const newPassages = [...passages];
@@ -389,9 +399,11 @@ const CreateReadingTest = () => {
   const handleDeleteSection = (passageIndex, sectionIndex) => {
     const newPassages = [...passages];
     if (!newPassages[passageIndex].sections) {
+      setMessage('❌ Không có section để xóa');
       return;
     }
     if (newPassages[passageIndex].sections.length <= 1) {
+      setMessage('❌ Phải có ít nhất 1 section');
       return;
     }
     newPassages[passageIndex].sections.splice(sectionIndex, 1);
@@ -480,14 +492,18 @@ const CreateReadingTest = () => {
   const handleReview = (e) => {
     e.preventDefault();
     if (!title.trim()) {
+      setMessage('❌ Vui lòng nhập tiêu đề đề thi');
       return;
     }
     if (!classCode.trim()) {
+      setMessage('❌ Vui lòng nhập mã lớp');
       return;
     }
     if (!teacherName.trim()) {
+      setMessage('❌ Vui lòng nhập tên giáo viên');
       return;
     }
+    setMessage('');
     setIsReviewing(true);
   };
 
@@ -544,12 +560,14 @@ const CreateReadingTest = () => {
         throw new Error(data.message || 'Lỗi khi tạo đề thi');
       }
 
+      setMessage('✅ Đã tạo đề thành công!');
       localStorage.removeItem('readingTestDraft');
       setTimeout(() => {
         navigate('/reading-tests');
       }, 1500);
     } catch (error) {
       console.error('Error:', error);
+      setMessage(`❌ ${error.message || 'Lỗi khi tạo đề thi'}`);
     } finally {
       setIsCreating(false);
       setIsReviewing(false);
@@ -628,41 +646,18 @@ const CreateReadingTest = () => {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', fontSize: '13px' }}>
-      <style>{`
-        /* Compact interface for reading test creation */
-        .create-reading-test {
-          font-size: 13px;
-        }
-        .create-reading-test h2 {
-          font-size: 18px !important;
-        }
-        .create-reading-test h3 {
-          font-size: 14px !important;
-        }
-        .create-reading-test label {
-          font-size: 12px !important;
-        }
-        .create-reading-test input, .create-reading-test select, .create-reading-test textarea {
-          font-size: 12px !important;
-          padding: 6px 8px !important;
-        }
-        .create-reading-test button {
-          font-size: 12px !important;
-          padding: 8px 12px !important;
-        }
-      `}</style>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
       <AdminNavbar />
-      <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }} className="create-reading-test">
-        <div style={{ padding: '10px 15px', backgroundColor: '#fff', borderBottom: '1px solid #ddd', overflowY: 'auto', flexShrink: 0 }}>
-          <h2 style={{ margin: '6px 0 10px 0', fontSize: '18px', textAlign: 'center' }}>📚 Tạo Đề Reading IELTS</h2>
-          <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap', maxWidth: '800px', margin: '0 auto' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
+        <div style={{ padding: '12px 20px', backgroundColor: '#fff', borderBottom: '1px solid #ddd', overflowY: 'auto', flexShrink: 0 }}>
+          <h2 style={{ margin: '8px 0 12px 0', fontSize: '20px', textAlign: 'center' }}>📚 Tạo Đề Reading IELTS</h2>
+          <div style={{ display: 'flex', gap: '15px', justifyContent: 'center', flexWrap: 'wrap', maxWidth: '800px', margin: '0 auto' }}>
             <input
               type="text"
               placeholder="Tiêu đề đề thi"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              style={{ ...inputStyle, flex: '1 1 45%', minWidth: '200px', padding: '6px', fontSize: '12px', marginBottom: 0 }}
+              style={{ ...inputStyle, flex: '1 1 45%', minWidth: '200px', padding: '8px', fontSize: '13px' }}
             />
             
             <input
@@ -670,7 +665,7 @@ const CreateReadingTest = () => {
               placeholder="Mã lớp"
               value={classCode}
               onChange={(e) => setClassCode(e.target.value)}
-              style={{ ...inputStyle, flex: '1 1 20%', minWidth: '120px', padding: '6px', fontSize: '12px', marginBottom: 0 }}
+              style={{ ...inputStyle, flex: '1 1 20%', minWidth: '120px', padding: '8px', fontSize: '13px' }}
             />
             
             <input
@@ -678,7 +673,7 @@ const CreateReadingTest = () => {
               placeholder="Tên giáo viên"
               value={teacherName}
               onChange={(e) => setTeacherName(e.target.value)}
-              style={{ ...inputStyle, flex: '1 1 25%', minWidth: '150px', padding: '6px', fontSize: '12px', marginBottom: 0 }}
+              style={{ ...inputStyle, flex: '1 1 25%', minWidth: '150px', padding: '8px', fontSize: '13px' }}
             />
           </div>
 
@@ -698,14 +693,14 @@ const CreateReadingTest = () => {
               overflow: 'auto',
               transition: isResizing ? 'none' : 'width 0.3s ease'
             }}>
-              <div style={{ padding: '8px 10px', borderBottom: '2px solid #0e276f', backgroundColor: '#0e276f', color: 'white', fontWeight: 'bold', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', minHeight: 'auto', fontSize: '12px' }} onClick={() => toggleColumnCollapse('col1')}>
+              <div style={{ padding: '10px', borderBottom: '2px solid #0e276f', backgroundColor: '#0e276f', color: 'white', fontWeight: 'bold', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', minHeight: '45px' }} onClick={() => toggleColumnCollapse('col1')}>
                 {!collapsedColumns.col1 && <span>📚 PASSAGES</span>}
-                {collapsedColumns.col1 && <span style={{ fontSize: '14px' }}>📚</span>}
-                <span style={{ fontSize: '11px' }}>{collapsedColumns.col1 ? '▶' : '◀'}</span>
+                {collapsedColumns.col1 && <span style={{ fontSize: '16px' }}>📚</span>}
+                <span style={{ fontSize: '12px' }}>{collapsedColumns.col1 ? '▶' : '◀'}</span>
               </div>
               
               {!collapsedColumns.col1 && (
-                <div style={{ flex: 1, overflow: 'auto', padding: '8px' }}>
+                <div style={{ flex: 1, overflow: 'auto', padding: '10px' }}>
                   {passages.map((passage, idx) => (
                     <div
                       key={idx}
@@ -714,14 +709,13 @@ const CreateReadingTest = () => {
                         setSelectedSectionIndex(null);
                       }}
                       style={{
-                        padding: '8px',
-                        marginBottom: '6px',
+                        padding: '10px',
+                        marginBottom: '8px',
                         backgroundColor: selectedPassageIndex === idx ? '#0e276f' : '#fff',
                         color: selectedPassageIndex === idx ? '#fff' : '#000',
                         border: '1px solid #ccc',
                         borderRadius: '4px',
                         cursor: 'pointer',
-                        fontSize: '12px',
                         fontWeight: selectedPassageIndex === idx ? 'bold' : 'normal'
                       }}
                     >
@@ -776,14 +770,14 @@ const CreateReadingTest = () => {
               overflow: 'auto',
               transition: isResizing ? 'none' : 'width 0.3s ease'
             }}>
-              <div style={{ padding: '8px 10px', borderBottom: '2px solid #28a745', backgroundColor: '#28a745', color: 'white', fontWeight: 'bold', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', minHeight: 'auto', fontSize: '12px' }} onClick={() => toggleColumnCollapse('col2')}>
+              <div style={{ padding: '10px', borderBottom: '2px solid #28a745', backgroundColor: '#28a745', color: 'white', fontWeight: 'bold', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', minHeight: '45px' }} onClick={() => toggleColumnCollapse('col2')}>
                 {!collapsedColumns.col2 && <span>📄 CONTENT</span>}
-                {collapsedColumns.col2 && <span style={{ fontSize: '14px' }}>📄</span>}
-                <span style={{ fontSize: '11px' }}>{collapsedColumns.col2 ? '▶' : '◀'}</span>
+                {collapsedColumns.col2 && <span style={{ fontSize: '16px' }}>📄</span>}
+                <span style={{ fontSize: '12px' }}>{collapsedColumns.col2 ? '▶' : '◀'}</span>
               </div>
               
               {!collapsedColumns.col2 && passages[selectedPassageIndex] && (
-                <div style={{ flex: 1, overflow: 'auto', padding: '12px' }}>
+                <div style={{ flex: 1, overflow: 'auto', padding: '15px' }}>
                   <label style={{ fontWeight: 'bold', color: '#28a745' }}>📝 Tiêu đề</label>
                   <input
                     type="text"
@@ -845,28 +839,27 @@ const CreateReadingTest = () => {
               overflow: 'auto',
               transition: isResizing ? 'none' : 'width 0.3s ease'
             }}>
-              <div style={{ padding: '8px 10px', borderBottom: '2px solid #ff6b6b', backgroundColor: '#ff6b6b', color: 'white', fontWeight: 'bold', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', minHeight: 'auto', fontSize: '12px' }} onClick={() => toggleColumnCollapse('col3')}>
+              <div style={{ padding: '10px', borderBottom: '2px solid #ff6b6b', backgroundColor: '#ff6b6b', color: 'white', fontWeight: 'bold', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', minHeight: '45px' }} onClick={() => toggleColumnCollapse('col3')}>
                 {!collapsedColumns.col3 && <span>📌 SECTIONS</span>}
-                {collapsedColumns.col3 && <span style={{ fontSize: '14px' }}>📌</span>}
-                <span style={{ fontSize: '11px' }}>{collapsedColumns.col3 ? '▶' : '◀'}</span>
+                {collapsedColumns.col3 && <span style={{ fontSize: '16px' }}>📌</span>}
+                <span style={{ fontSize: '12px' }}>{collapsedColumns.col3 ? '▶' : '◀'}</span>
               </div>
               
               {!collapsedColumns.col3 && passages[selectedPassageIndex] && (
-                <div style={{ flex: 1, overflow: 'auto', padding: '8px' }}>
+                <div style={{ flex: 1, overflow: 'auto', padding: '10px' }}>
                   {passages[selectedPassageIndex].sections?.map((section, idx) => (
                     <div
                       key={idx}
                       onClick={() => setSelectedSectionIndex(idx)}
                       style={{
-                        padding: '8px',
-                        marginBottom: '6px',
+                        padding: '10px',
+                        marginBottom: '8px',
                         backgroundColor: selectedSectionIndex === idx ? '#ff6b6b' : '#fff',
                         color: selectedSectionIndex === idx ? '#fff' : '#000',
                         border: '1px solid #ccc',
                         borderRadius: '4px',
                         cursor: 'pointer',
-                        fontWeight: selectedSectionIndex === idx ? 'bold' : 'normal',
-                        fontSize: '12px'
+                        fontWeight: selectedSectionIndex === idx ? 'bold' : 'normal'
                       }}
                     >
                       Section {idx + 1}
@@ -919,14 +912,14 @@ const CreateReadingTest = () => {
               overflow: 'auto',
               transition: isResizing ? 'none' : 'width 0.3s ease'
             }}>
-              <div style={{ padding: '8px 10px', borderBottom: '2px solid #ffc107', backgroundColor: '#ffc107', color: '#000', fontWeight: 'bold', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', minHeight: 'auto', fontSize: '12px' }} onClick={() => toggleColumnCollapse('col4')}>
+              <div style={{ padding: '10px', borderBottom: '2px solid #ffc107', backgroundColor: '#ffc107', color: '#000', fontWeight: 'bold', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', minHeight: '45px' }} onClick={() => toggleColumnCollapse('col4')}>
                 {!collapsedColumns.col4 && <span>❓ QUESTIONS</span>}
-                {collapsedColumns.col4 && <span style={{ fontSize: '14px' }}>❓</span>}
-                <span style={{ fontSize: '11px' }}>{collapsedColumns.col4 ? '▶' : '◀'}</span>
+                {collapsedColumns.col4 && <span style={{ fontSize: '16px' }}>❓</span>}
+                <span style={{ fontSize: '12px' }}>{collapsedColumns.col4 ? '▶' : '◀'}</span>
               </div>
               
               {!collapsedColumns.col4 && passages[selectedPassageIndex] && selectedSectionIndex !== null && (
-                <div style={{ flex: 1, overflow: 'auto', padding: '12px' }}>
+                <div style={{ flex: 1, overflow: 'auto', padding: '15px' }}>
                   <QuestionSection
                     passageIndex={selectedPassageIndex}
                     sectionIndex={selectedSectionIndex}
@@ -963,7 +956,7 @@ const CreateReadingTest = () => {
           zIndex: 999,
           flexWrap: 'wrap'
         }}>
-          <div style={{ display: 'flex', gap: '20px', fontSize: '12px', color: '#666' }}>
+          <div style={{ display: 'flex', gap: '20px', fontSize: '13px', color: '#666' }}>
             <span>📚 Passages: {passages.length}</span>
             <span>📌 Sections: {passages.reduce((sum, p) => sum + (p.sections?.length || 0), 0)}</span>
             <span>❓ Questions: {calculateTotalQuestions(passages)}</span>

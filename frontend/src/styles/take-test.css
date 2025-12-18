@@ -247,7 +247,7 @@
 
 /* Size format support for span tags with inline styles */
 .passage-text span[style*="font-size"] {
-  font-size: inherit;
+  /* Keep the font-size from the inline style */
 }
 
 .passage-text::-webkit-scrollbar {
