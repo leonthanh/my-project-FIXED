@@ -190,6 +190,57 @@ const CreateReadingTest = () => {
     return temp.textContent || temp.innerText || '';
   };
 
+  // Helper: Calculate actual question count from questionNumber
+  // Handles: "38-40" (3 questions), "38" (1 question), "38,39,40" (3 questions)
+  const getQuestionCount = (questionNumber) => {
+    if (!questionNumber) return 1;
+    
+    const qNum = String(questionNumber).trim();
+    
+    // Handle range format: "38-40"
+    if (qNum.includes('-') && !qNum.includes(',')) {
+      const parts = qNum.split('-').map(p => p.trim());
+      if (parts.length === 2) {
+        const start = parseInt(parts[0], 10);
+        const end = parseInt(parts[1], 10);
+        if (!isNaN(start) && !isNaN(end) && end >= start) {
+          return end - start + 1;
+        }
+      }
+    }
+    
+    // Handle comma-separated format: "38,39,40"
+    if (qNum.includes(',')) {
+      const parts = qNum.split(',').map(p => p.trim()).filter(p => p);
+      return parts.length;
+    }
+    
+    // Single number: "38"
+    return 1;
+  };
+
+  // Helper function to calculate total questions
+  const calculateTotalQuestions = (passages) => {
+    let total = 0;
+    let debug = [];
+    
+    passages.forEach((p, pIdx) => {
+      p.sections?.forEach((sec, sIdx) => {
+        let sectionTotal = 0;
+        sec.questions?.forEach((q) => {
+          sectionTotal += getQuestionCount(q.questionNumber);
+        });
+        total += sectionTotal;
+        if (sectionTotal > 0) {
+          debug.push(`P${pIdx+1}S${sIdx+1}: ${sectionTotal}`);
+        }
+      });
+    });
+    
+    console.log(`📊 Total Questions: ${total} (${debug.join(', ')})`);
+    return total;
+  };
+
   // Clean up HTML from Quill editor - remove empty paragraphs and extra tags
   const cleanupPassageHTML = (html) => {
     if (!html) return '';
@@ -908,7 +959,7 @@ const CreateReadingTest = () => {
           <div style={{ display: 'flex', gap: '20px', fontSize: '13px', color: '#666' }}>
             <span>📚 Passages: {passages.length}</span>
             <span>📌 Sections: {passages.reduce((sum, p) => sum + (p.sections?.length || 0), 0)}</span>
-            <span>❓ Questions: {passages.reduce((sum, p) => sum + (p.sections?.reduce((s, sec) => s + (sec.questions?.length || 0), 0) || 0), 0)}</span>
+            <span>❓ Questions: {calculateTotalQuestions(passages)}</span>
           </div>
           
           <div style={{ display: 'flex', gap: '10px' }}>
