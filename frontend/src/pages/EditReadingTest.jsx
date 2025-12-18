@@ -1028,6 +1028,61 @@ const EditReadingTest = () => {
 
       {isReviewing && (
         <div style={modalStyles}>
+          <style>{`
+            /* Modal Quill content styles */
+            .modal-passage-preview h1, .modal-passage-preview h2, .modal-passage-preview h3 {
+              margin: 0.5em 0 !important;
+              padding: 0 !important;
+            }
+            .modal-passage-preview h3 {
+              font-size: 1.17em !important;
+            }
+            
+            .modal-passage-preview p {
+              margin: 0 0 0.5em 0 !important;
+              padding: 0 !important;
+            }
+            
+            /* Size formats in modal - support both classes and span tags */
+            .modal-passage-preview .ql-size-small,
+            .modal-passage-preview span[style*="font-size"] {
+              font-size: 0.75em !important;
+            }
+            .modal-passage-preview .ql-size-large,
+            .modal-passage-preview span[style*="font-size: 1.5"] {
+              font-size: 1.5em !important;
+            }
+            .modal-passage-preview .ql-size-huge,
+            .modal-passage-preview span[style*="font-size: 2.5"] {
+              font-size: 2.5em !important;
+            }
+            
+            /* Align formats in modal - support all variations */
+            .modal-passage-preview .ql-align-center,
+            .modal-passage-preview [style*="text-align: center"],
+            .modal-passage-preview p[style*="text-align: center"],
+            .modal-passage-preview h1[style*="text-align: center"],
+            .modal-passage-preview h2[style*="text-align: center"],
+            .modal-passage-preview h3[style*="text-align: center"] {
+              text-align: center !important;
+            }
+            .modal-passage-preview .ql-align-right,
+            .modal-passage-preview [style*="text-align: right"],
+            .modal-passage-preview p[style*="text-align: right"],
+            .modal-passage-preview h1[style*="text-align: right"],
+            .modal-passage-preview h2[style*="text-align: right"],
+            .modal-passage-preview h3[style*="text-align: right"] {
+              text-align: right !important;
+            }
+            .modal-passage-preview .ql-align-justify,
+            .modal-passage-preview [style*="text-align: justify"],
+            .modal-passage-preview p[style*="text-align: justify"],
+            .modal-passage-preview h1[style*="text-align: justify"],
+            .modal-passage-preview h2[style*="text-align: justify"],
+            .modal-passage-preview h3[style*="text-align: justify"] {
+              text-align: justify !important;
+            }
+          `}</style>
           <div style={modalContentStyles}>
             <div style={modalHeaderStyles}>
               <h2 style={{ margin: 0 }}>🔎 Xem lại & Cập nhật</h2>
@@ -1045,7 +1100,7 @@ const EditReadingTest = () => {
                 
                 {/* Passage Text Preview - Full Content */}
                 <div style={{ marginBottom: '15px', padding: '15px', backgroundColor: '#fff', borderLeft: '4px solid #0e276f', borderRadius: '4px', maxHeight: '400px', overflowY: 'auto', border: '1px solid #ddd' }}>
-                  <div style={{ fontSize: '14px', color: '#333', lineHeight: '1.6' }} dangerouslySetInnerHTML={{ __html: p.passageText || '<em style="color: #999;">(Chưa có nội dung)</em>' }} />
+                  <div className="modal-passage-preview" style={{ fontSize: '14px', color: '#333', lineHeight: '1.6' }} dangerouslySetInnerHTML={{ __html: p.passageText || '<em style="color: #999;">(Chưa có nội dung)</em>' }} />
                 </div>
                 
                 {/* Sections */}

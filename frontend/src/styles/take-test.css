@@ -233,14 +233,21 @@
 }
 
 .passage-text [style*="text-align: left"],
-.passage-text .ql-align-left {
-  text-align: left !important;
+.passage-text .ql-align-left,
+.passage-text [style*="text-align: justify"],
+.passage-text .ql-align-justify {
+  text-align: justify !important;
 }
 
 /* Heading styles */
 .passage-text h1, .passage-text h2, .passage-text h3 {
   margin: 0.5em 0 !important;
   padding: 0 !important;
+}
+
+/* Size format support for span tags with inline styles */
+.passage-text span[style*="font-size"] {
+  /* Keep the font-size from the inline style */
 }
 
 .passage-text::-webkit-scrollbar {

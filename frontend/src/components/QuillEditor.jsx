@@ -1,6 +1,7 @@
 import React, { useRef, useState, useEffect } from 'react';
-import ReactQuill, { Quill } from 'react-quill';
+import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
+import Quill from 'quill';
 
 // Register custom size class
 const Size = Quill.import('formats/size');
@@ -91,10 +92,18 @@ const QuillEditor = ({ value, onChange, placeholder, showBlankButton = false }) 
   return (
     <div style={{ position: 'relative', zIndex: 10 }}>
       <style>{`
-        /* Fix Quill Heading spacing */
+        /* Fix Quill Heading spacing - remove excessive top padding */
         .ql-editor h1, .ql-editor h2, .ql-editor h3 {
-          margin: 0.5em 0 !important;
+          margin: 0 !important;
           padding: 0 !important;
+          margin-top: 0 !important;
+          margin-bottom: 0.5em !important;
+        }
+        .ql-editor h1 {
+          font-size: 2em !important;
+        }
+        .ql-editor h2 {
+          font-size: 1.5em !important;
         }
         .ql-editor h3 {
           font-size: 1.17em !important;
@@ -102,7 +111,7 @@ const QuillEditor = ({ value, onChange, placeholder, showBlankButton = false }) 
         
         /* Fix paragraph spacing */
         .ql-editor p {
-          margin: 0 !important;
+          margin: 0 0 0.5em 0 !important;
           padding: 0 !important;
         }
         
@@ -117,25 +126,30 @@ const QuillEditor = ({ value, onChange, placeholder, showBlankButton = false }) 
           padding-left: 1.5em !important;
         }
         
-        /* Size formats */
-        .ql-editor .ql-size-small {
-          font-size: 0.75em;
-        }
-        .ql-editor .ql-size-large {
-          font-size: 1.5em;
-        }
-        .ql-editor .ql-size-huge {
-          font-size: 2.5em;
+        /* Size formats - for span tags */
+        .ql-editor span[style*="font-size"] {
+          font-size: inherit !important;
         }
         
-        /* Align formats */
-        .ql-editor [style*="text-align: center"] {
+        /* Size class formats */
+        .ql-editor .ql-size-small {
+          font-size: 0.75em !important;
+        }
+        .ql-editor .ql-size-large {
+          font-size: 1.5em !important;
+        }
+        .ql-editor .ql-size-huge {
+          font-size: 2.5em !important;
+        }
+        
+        /* Align - support both class and style */
+        .ql-editor .ql-align-center {
           text-align: center !important;
         }
-        .ql-editor [style*="text-align: right"] {
+        .ql-editor .ql-align-right {
           text-align: right !important;
         }
-        .ql-editor [style*="text-align: justify"] {
+        .ql-editor .ql-align-justify {
           text-align: justify !important;
         }
       `}</style>
