@@ -266,10 +266,39 @@ const EditReadingTest = () => {
     }
   }, [passages]);
 
+  const handleAddPassage = useCallback(() => {
+    const newPassages = [...passages, { 
+      passageTitle: '', 
+      passageText: '', 
+      sections: [
+        {
+          sectionTitle: '',
+          sectionInstruction: '',
+          sectionImage: null,
+          questions: [{ questionNumber: 1, questionType: 'multiple-choice', questionText: '', options: [''], correctAnswer: '' }]
+        }
+      ]
+    }];
+    setPassages(newPassages);
+    setSelectedPassageIndex(newPassages.length - 1);
+  }, [passages]);
+
+  const handleDeletePassage = useCallback((passageIndex) => {
+    if (passages.length <= 1) {
+      return;
+    }
+    const newPassages = passages.filter((_, idx) => idx !== passageIndex);
+    setPassages(newPassages);
+    // Reset selected index if needed
+    if (selectedPassageIndex >= newPassages.length) {
+      setSelectedPassageIndex(Math.max(0, newPassages.length - 1));
+    }
+    setSelectedSectionIndex(null);
+  }, [passages, selectedPassageIndex]);
+
   const handleAddSection = useCallback((passageIndex) => {
     try {
       if (!passages || !Array.isArray(passages) || !passages[passageIndex]) {
-        setMessage('❌ Lỗi: Không tìm thấy passage');
         return;
       }
       const newPassages = [...passages];
@@ -285,7 +314,6 @@ const EditReadingTest = () => {
       setPassages(newPassages);
     } catch (error) {
       console.error('❌ Error in handleAddSection:', error);
-      setMessage('❌ Lỗi khi thêm section');
     }
   }, [passages]);
 
@@ -425,7 +453,8 @@ const EditReadingTest = () => {
       questionNumber: 1,
       questionType: type,
       questionText: '',
-      correctAnswer: ''
+      correctAnswer: '',
+      options: []  // All types need this as fallback
     };
 
     switch (type) {
@@ -434,15 +463,15 @@ const EditReadingTest = () => {
       case 'multi-select':
         return { ...baseQuestion, options: ['A', 'B', 'C', 'D'] };
       case 'fill-in-the-blanks':
-        return { ...baseQuestion, maxWords: 3 };
+        return { ...baseQuestion, maxWords: 3, options: [] };
       case 'matching':
-        return { ...baseQuestion, leftItems: [], rightItems: [], matches: [] };
+        return { ...baseQuestion, leftItems: [], rightItems: [], matches: [], options: [] };
       case 'true-false-not-given':
-        return baseQuestion;
+        return { ...baseQuestion, options: [] };
       case 'yes-no-not-given':
-        return baseQuestion;
+        return { ...baseQuestion, options: [] };
       case 'paragraph-matching':
-        return baseQuestion;
+        return { ...baseQuestion, options: [] };
       case 'sentence-completion':
         return { ...baseQuestion, options: [] };
       case 'paragraph-fill-blanks':
@@ -457,9 +486,9 @@ const EditReadingTest = () => {
           options: ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I']
         };
       case 'short-answer':
-        return { ...baseQuestion, maxWords: 5 };
+        return { ...baseQuestion, maxWords: 5, options: [] };
       default:
-        return baseQuestion;
+        return { ...baseQuestion, options: [] };
     }
   };
 
@@ -780,11 +809,6 @@ const EditReadingTest = () => {
                   {passages.map((passage, idx) => (
                     <div
                       key={idx}
-                      onClick={() => {
-                        console.log(`🖱️ Clicked passage ${idx}, title: ${passage.passageTitle}`);
-                        setSelectedPassageIndex(idx);
-                        setSelectedSectionIndex(null);
-                      }}
                       style={{
                         padding: '8px',
                         marginBottom: '6px',
@@ -794,14 +818,63 @@ const EditReadingTest = () => {
                         borderRadius: '4px',
                         cursor: 'pointer',
                         fontSize: '12px',
-                        fontWeight: selectedPassageIndex === idx ? 'bold' : 'normal'
+                        fontWeight: selectedPassageIndex === idx ? 'bold' : 'normal',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center'
                       }}
                     >
-                      Passage {idx + 1}
-                      <br />
-                      <small>{passage.passageTitle || '(Untitled)'}</small>
+                      <div
+                        onClick={() => {
+                          console.log(`🖱️ Clicked passage ${idx}, title: ${passage.passageTitle}`);
+                          setSelectedPassageIndex(idx);
+                          setSelectedSectionIndex(null);
+                        }}
+                        style={{ flex: 1 }}
+                      >
+                        Passage {idx + 1}
+                        <br />
+                        <small>{passage.passageTitle || '(Untitled)'}</small>
+                      </div>
+                      {passages.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => handleDeletePassage(idx)}
+                          style={{
+                            padding: '4px 8px',
+                            backgroundColor: '#dc3545',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '3px',
+                            cursor: 'pointer',
+                            fontSize: '11px',
+                            fontWeight: 'bold',
+                            marginLeft: '8px'
+                          }}
+                        >
+                          ✕
+                        </button>
+                      )}
                     </div>
                   ))}
+                  <button
+                    type="button"
+                    onClick={handleAddPassage}
+                    style={{
+                      width: '100%',
+                      padding: '8px',
+                      backgroundColor: '#0e276f',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      fontWeight: 'bold',
+                      marginTop: '8px',
+                      fontSize: '12px'
+                    }}
+                  >
+                    ➕ Thêm Passage
+                  </button>
                 </div>
               )}
             </div>

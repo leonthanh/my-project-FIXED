@@ -1,6 +1,12 @@
 import React from 'react';
 
 const MultiSelectQuestion = ({ question, onChange }) => {
+  if (!question) {
+    return <div style={{ color: 'red', padding: '10px' }}>❌ Error: Question object missing</div>;
+  }
+
+  const options = question.options || [''];
+
   const handleChange = (field, value) => {
     onChange({
       ...question,
@@ -9,7 +15,7 @@ const MultiSelectQuestion = ({ question, onChange }) => {
   };
 
   const handleOptionChange = (index, value) => {
-    const newOptions = [...question.options];
+    const newOptions = [...options];
     newOptions[index] = value;
     handleChange('options', newOptions);
   };
@@ -76,7 +82,7 @@ const MultiSelectQuestion = ({ question, onChange }) => {
       />
 
       <label style={styles.label}>🔤 Các lựa chọn (A-E):</label>
-      {question.options.map((option, index) => (
+      {options.map((option, index) => (
         <div key={index} style={styles.option}>
           <span style={styles.optionLabel}>{String.fromCharCode(65 + index)}</span>
           <input
@@ -91,7 +97,7 @@ const MultiSelectQuestion = ({ question, onChange }) => {
 
       <label style={styles.label}>✅ Đáp án đúng (chọn 2-3 đáp án):</label>
       <div style={styles.checkboxGroup}>
-        {question.options.map((_, index) => (
+        {options.map((_, index) => (
           <label key={index} style={styles.checkbox}>
             <input
               type="checkbox"
@@ -118,7 +124,7 @@ const MultiSelectQuestion = ({ question, onChange }) => {
         <div style={{ backgroundColor: 'white', padding: '15px', borderRadius: '4px' }}>
           <p>{question.questionText}</p>
           <p style={{ color: '#666' }}>Choose TWO letters, A-E.</p>
-          {question.options.map((option, index) => (
+          {options.map((option, index) => (
             <div key={index} style={{ margin: '8px 0' }}>
               <span style={{ marginRight: '10px', fontWeight: 'bold' }}>
                 {String.fromCharCode(65 + index)}.

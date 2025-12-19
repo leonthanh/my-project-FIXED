@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import QuillEditor from './QuillEditor';
 import MultipleChoiceQuestion from './MultipleChoiceQuestion';
 import MultiSelectQuestion from './MultiSelectQuestion';
@@ -26,6 +26,26 @@ const QuestionSection = ({
 }) => {
   const primaryBlue = '#0e276f';
   const dangerRed = '#e03';
+  
+  // State to track which questions are expanded - first question is expanded by default
+  const [expandedQuestions, setExpandedQuestions] = useState(() => {
+    const initial = {};
+    if (section?.questions && section.questions.length > 0) {
+      initial[0] = true; // First question expanded by default
+    }
+    return initial;
+  });
+
+  const toggleQuestionExpand = (questionIndex) => {
+    setExpandedQuestions(prev => ({
+      ...prev,
+      [questionIndex]: !prev[questionIndex]
+    }));
+  };
+
+  const collapseAllQuestions = () => {
+    setExpandedQuestions({});
+  };
 
   return (
     <div style={{
@@ -171,188 +191,225 @@ const QuestionSection = ({
             marginBottom: '12px',
             backgroundColor: '#fafafa'
           }}>
-            {/* Question Header */}
+            {/* Question Header with Collapse/Expand */}
             <div style={{
               display: 'flex',
               justifyContent: 'space-between',
               alignItems: 'center',
-              marginBottom: '12px'
+              marginBottom: expandedQuestions[questionIndex] ? '12px' : '0',
+              gap: '8px',
+              flexWrap: 'wrap'
             }}>
-              {/* Hide question numbers - teachers manage numbering manually */}
-              <div style={{ display: 'flex', gap: '8px' }}>
+              <div style={{ display: 'flex', gap: '8px', flex: 1 }}>
                 <button
                   type="button"
-                  onClick={() => onCopyQuestion(passageIndex, sectionIndex, questionIndex)}
+                  onClick={() => toggleQuestionExpand(questionIndex)}
                   style={{
                     padding: '4px 8px',
                     fontSize: '12px',
-                    backgroundColor: '#0e276f',
+                    backgroundColor: expandedQuestions[questionIndex] ? '#ffc107' : '#6c757d',
                     color: 'white',
                     border: 'none',
                     borderRadius: '4px',
-                    cursor: 'pointer'
+                    cursor: 'pointer',
+                    fontWeight: 'bold',
+                    minWidth: '30px'
                   }}
-                  title="Copy câu hỏi này"
+                  title={expandedQuestions[questionIndex] ? 'Thu nhỏ' : 'Mở rộng'}
                 >
-                  📋 Copy
+                  {expandedQuestions[questionIndex] ? '▼' : '▶'}
                 </button>
-                <button
-                  type="button"
-                  onClick={() => onDeleteQuestion(passageIndex, sectionIndex, questionIndex)}
-                  style={{
-                    padding: '4px 8px',
-                    fontSize: '12px',
-                    backgroundColor: dangerRed,
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '4px',
-                    cursor: 'pointer'
-                  }}
-                >
-                  🗑 Xóa
-                </button>
+                <span style={{ fontSize: '12px', fontWeight: 'bold', color: '#333', alignSelf: 'center' }}>
+                  Câu hỏi {questionIndex + 1}: {question.questionType === 'multiple-choice' ? 'Trắc nghiệm 1 đáp' : question.questionType}
+                </span>
               </div>
+              {expandedQuestions[questionIndex] && (
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button
+                    type="button"
+                    onClick={() => onCopyQuestion(passageIndex, sectionIndex, questionIndex)}
+                    style={{
+                      padding: '4px 8px',
+                      fontSize: '12px',
+                      backgroundColor: '#0e276f',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: 'pointer'
+                    }}
+                    title="Copy câu hỏi này"
+                  >
+                    📋 Copy
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onDeleteQuestion(passageIndex, sectionIndex, questionIndex)}
+                    style={{
+                      padding: '4px 8px',
+                      fontSize: '12px',
+                      backgroundColor: dangerRed,
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    🗑 Xóa
+                  </button>
+                </div>
+              )}
             </div>
 
-            {/* Question Number Input */}
-            <div style={{ marginBottom: '12px' }}>
-              <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>
-                Số câu hỏi (Question Number):
-              </label>
-              <p style={{ fontSize: '12px', color: '#666', margin: '0 0 6px 0' }}>
-                💡 Ví dụ: 38-40 hoặc 38, 39, 40 hoặc chỉ 38
-              </p>
-              <input
-                type="text"
-                placeholder="Ví dụ: 38-40 hoặc 38, 39, 40"
-                value={question.questionNumber || ''}
-                onChange={(e) => {
-                  const input = e.target.value.trim();
-                  const newQuestion = {
-                    ...question,
-                    questionNumber: input || '1'
-                  };
-                  onQuestionChange(passageIndex, sectionIndex, questionIndex, 'full', newQuestion);
-                }}
-                style={{
-                  width: '100%',
-                  padding: '8px',
-                  borderRadius: '4px',
-                  border: '2px solid #0e276f',
-                  fontSize: '14px',
-                  boxSizing: 'border-box',
-                  backgroundColor: '#fff'
-                }}
-              />
-            </div>
+            {/* Question Content - Only show when expanded */}
+            {expandedQuestions[questionIndex] && (
+              <>
+                {/* Question Number Input */}
+                <div style={{ marginBottom: '12px' }}>
+                  <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>
+                    Số câu hỏi (Question Number):
+                  </label>
+                  <p style={{ fontSize: '12px', color: '#666', margin: '0 0 6px 0' }}>
+                    💡 Ví dụ: 38-40 hoặc 38, 39, 40 hoặc chỉ 38
+                  </p>
+                  <input
+                    type="text"
+                    placeholder="Ví dụ: 38-40 hoặc 38, 39, 40"
+                    value={question.questionNumber || ''}
+                    onChange={(e) => {
+                      const input = e.target.value.trim();
+                      const newQuestion = {
+                        ...question,
+                        questionNumber: input || '1'
+                      };
+                      onQuestionChange(passageIndex, sectionIndex, questionIndex, 'full', newQuestion);
+                    }}
+                    style={{
+                      width: '100%',
+                      padding: '8px',
+                      borderRadius: '4px',
+                      border: '2px solid #0e276f',
+                      fontSize: '14px',
+                      boxSizing: 'border-box',
+                      backgroundColor: '#fff'
+                    }}
+                  />
+                </div>
 
-            {/* Question Type Select */}
-            <div style={{ marginBottom: '12px' }}>
-              <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>
-                Loại câu hỏi:
-              </label>
-              <select
-                value={question.questionType}
-                onChange={(e) => {
-                  const newType = e.target.value;
-                  const defaultObj = createDefaultQuestionByType(newType);
-                  const newQuestion = {
-                    ...question,
-                    ...defaultObj,
-                    questionNumber: question.questionNumber
-                  };
-                  onQuestionChange(passageIndex, sectionIndex, questionIndex, 'full', newQuestion);
-                }}
-                style={{
-                  padding: '8px',
-                  borderRadius: '4px',
-                  border: '1px solid #ccc',
-                  width: '100%'
-                }}
-              >
-                <option value="multiple-choice">Trắc nghiệm 1 đáp án</option>
-                <option value="multi-select">Trắc nghiệm nhiều đáp án</option>
-                <option value="fill-in-the-blanks">Điền vào chỗ trống</option>
-                <option value="matching">Ghép cặp / Combobox</option>
-                <option value="true-false-not-given">True/False/Not Given</option>
-                <option value="yes-no-not-given">Yes/No/Not Given</option>
-                <option value="paragraph-fill-blanks">Đoạn văn - Điền chỗ trống</option>
-                <option value="paragraph-matching">Tìm thông tin ở đoạn nào (A-G)</option>
-                <option value="sentence-completion">Hoàn thành câu (chọn từ danh sách)</option>
-                <option value="short-answer">Câu trả lời ngắn</option>
-              </select>
-            </div>
+                {/* Question Type Select */}
+                <div style={{ marginBottom: '12px' }}>
+                  <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>
+                    Loại câu hỏi: {question.questionType || '(not set)'}
+                  </label>
+                  <select
+                    value={question.questionType || 'multiple-choice'}
+                    onChange={(e) => {
+                      const newType = e.target.value;
+                      const defaultObj = createDefaultQuestionByType(newType);
+                      const newQuestion = {
+                        ...question,
+                        ...defaultObj,
+                        questionNumber: question.questionNumber
+                      };
+                      onQuestionChange(passageIndex, sectionIndex, questionIndex, 'full', newQuestion);
+                    }}
+                    style={{
+                      padding: '8px',
+                      borderRadius: '4px',
+                      border: '1px solid #ccc',
+                      width: '100%'
+                    }}
+                  >
+                    <option value="multiple-choice">Trắc nghiệm 1 đáp án</option>
+                    <option value="multi-select">Trắc nghiệm nhiều đáp án</option>
+                    <option value="fill-in-the-blanks">Điền vào chỗ trống</option>
+                    <option value="matching">Ghép cặp / Combobox</option>
+                    <option value="true-false-not-given">True/False/Not Given</option>
+                    <option value="yes-no-not-given">Yes/No/Not Given</option>
+                    <option value="paragraph-fill-blanks">Đoạn văn - Điền chỗ trống</option>
+                    <option value="paragraph-matching">Tìm thông tin ở đoạn nào (A-G)</option>
+                    <option value="sentence-completion">Hoàn thành câu (chọn từ danh sách)</option>
+                    <option value="short-answer">Câu trả lời ngắn</option>
+                  </select>
+                </div>
 
-            {/* Question Editors by Type */}
-            {question.questionType === 'multiple-choice' && (
-              <MultipleChoiceQuestion
-                question={question}
-                onChange={(q) => onQuestionChange(passageIndex, sectionIndex, questionIndex, 'full', q)}
-                type="abc"
-              />
-            )}
+                {/* Question Editors by Type */}
+                {(question.questionType || 'multiple-choice') === 'multiple-choice' && (
+                  <MultipleChoiceQuestion
+                    question={question}
+                    onChange={(q) => onQuestionChange(passageIndex, sectionIndex, questionIndex, 'full', q)}
+                    type="abc"
+                  />
+                )}
 
-            {question.questionType === 'multi-select' && (
-              <MultiSelectQuestion
-                question={question}
-                onChange={(q) => onQuestionChange(passageIndex, sectionIndex, questionIndex, 'full', q)}
-              />
-            )}
+                {(question.questionType || 'multiple-choice') === 'multi-select' && (
+                  <MultiSelectQuestion
+                    question={question}
+                    onChange={(q) => onQuestionChange(passageIndex, sectionIndex, questionIndex, 'full', q)}
+                  />
+                )}
 
-            {question.questionType === 'fill-in-the-blanks' && (
-              <FillBlankQuestion
-                question={question}
-                onChange={(q) => onQuestionChange(passageIndex, sectionIndex, questionIndex, 'full', q)}
-              />
-            )}
+                {(question.questionType || 'multiple-choice') === 'fill-in-the-blanks' && (
+                  <FillBlankQuestion
+                    question={question}
+                    onChange={(q) => onQuestionChange(passageIndex, sectionIndex, questionIndex, 'full', q)}
+                  />
+                )}
 
-            {question.questionType === 'matching' && (
-              <ComboboxQuestion
-                question={question}
-                onChange={(q) => onQuestionChange(passageIndex, sectionIndex, questionIndex, 'full', q)}
-              />
-            )}
+                {(question.questionType || 'multiple-choice') === 'matching' && (
+                  <ComboboxQuestion
+                    question={question}
+                    onChange={(q) => onQuestionChange(passageIndex, sectionIndex, questionIndex, 'full', q)}
+                  />
+                )}
 
-            {question.questionType === 'true-false-not-given' && (
-              <TrueFalseNotGivenQuestion
-                question={question}
-                onChange={(q) => onQuestionChange(passageIndex, sectionIndex, questionIndex, 'full', q)}
-              />
-            )}
+                {(question.questionType || 'multiple-choice') === 'true-false-not-given' && (
+                  <TrueFalseNotGivenQuestion
+                    question={question}
+                    onChange={(q) => onQuestionChange(passageIndex, sectionIndex, questionIndex, 'full', q)}
+                  />
+                )}
 
-            {question.questionType === 'yes-no-not-given' && (
-              <YesNoNotGivenQuestion
-                question={question}
-                onChange={(q) => onQuestionChange(passageIndex, sectionIndex, questionIndex, 'full', q)}
-              />
-            )}
+                {(question.questionType || 'multiple-choice') === 'yes-no-not-given' && (
+                  <YesNoNotGivenQuestion
+                    question={question}
+                    onChange={(q) => onQuestionChange(passageIndex, sectionIndex, questionIndex, 'full', q)}
+                  />
+                )}
 
-            {question.questionType === 'paragraph-matching' && (
-              <ParagraphMatchingQuestion
-                question={question}
-                onChange={(q) => onQuestionChange(passageIndex, sectionIndex, questionIndex, 'full', q)}
-              />
-            )}
+                {(question.questionType || 'multiple-choice') === 'paragraph-matching' && (
+                  <ParagraphMatchingQuestion
+                    question={question}
+                    onChange={(q) => onQuestionChange(passageIndex, sectionIndex, questionIndex, 'full', q)}
+                  />
+                )}
 
-            {question.questionType === 'sentence-completion' && (
-              <SentenceCompletionQuestion
-                question={question}
-                onChange={(q) => onQuestionChange(passageIndex, sectionIndex, questionIndex, 'full', q)}
-              />
-            )}
+                {(question.questionType || 'multiple-choice') === 'sentence-completion' && (
+                  <SentenceCompletionQuestion
+                    question={question}
+                    onChange={(q) => onQuestionChange(passageIndex, sectionIndex, questionIndex, 'full', q)}
+                  />
+                )}
 
-            {question.questionType === 'paragraph-fill-blanks' && (
-              <ParagraphFillBlanksQuestion
-                question={question}
-                onChange={(q) => onQuestionChange(passageIndex, sectionIndex, questionIndex, 'full', q)}
-              />
-            )}
+                {(question.questionType || 'multiple-choice') === 'paragraph-fill-blanks' && (
+                  <ParagraphFillBlanksQuestion
+                    question={question}
+                    onChange={(q) => onQuestionChange(passageIndex, sectionIndex, questionIndex, 'full', q)}
+                  />
+                )}
 
-            {question.questionType === 'short-answer' && (
-              <ShortAnswerQuestion
-                question={question}
-                onChange={(q) => onQuestionChange(passageIndex, sectionIndex, questionIndex, 'full', q)}
-              />
+                {(question.questionType || 'multiple-choice') === 'short-answer' && (
+                  <ShortAnswerQuestion
+                    question={question}
+                    onChange={(q) => onQuestionChange(passageIndex, sectionIndex, questionIndex, 'full', q)}
+                  />
+                )}
+
+                {!['multiple-choice', 'multi-select', 'fill-in-the-blanks', 'matching', 'true-false-not-given', 'yes-no-not-given', 'paragraph-matching', 'sentence-completion', 'paragraph-fill-blanks', 'short-answer'].includes(question.questionType || 'multiple-choice') && (
+                  <div style={{ color: 'red', padding: '8px', backgroundColor: '#ffe0e0', borderRadius: '4px' }}>
+                    ⚠️ Unknown question type: {question.questionType}
+                  </div>
+                )}
+              </>
             )}
           </div>
         ))}
@@ -360,7 +417,10 @@ const QuestionSection = ({
         {/* Add Question Button */}
         <button
           type="button"
-          onClick={() => onAddQuestion(passageIndex, sectionIndex)}
+          onClick={() => {
+            onAddQuestion(passageIndex, sectionIndex);
+            collapseAllQuestions();
+          }}
           style={{
             width: '100%',
             padding: '10px',

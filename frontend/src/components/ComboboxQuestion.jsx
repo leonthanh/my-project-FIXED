@@ -1,6 +1,10 @@
 import React from 'react';
 
 const ComboboxQuestion = ({ question, onChange }) => {
+  if (!question) {
+    return <div style={{ color: 'red', padding: '10px' }}>❌ Error: Question object missing</div>;
+  }
+
   const handleChange = (field, value) => {
     onChange({ ...question, [field]: value });
   };

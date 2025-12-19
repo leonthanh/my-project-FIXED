@@ -1,6 +1,14 @@
 import React from 'react';
 
 const MultipleChoiceQuestion = ({ question, onChange, type = 'abc' }) => {
+  // Defensive: Ensure question and required properties exist
+  if (!question) {
+    return <div style={{ color: 'red', padding: '10px' }}>❌ Error: Question object missing</div>;
+  }
+
+  const options = question.options || [''];
+  const questionText = question.questionText || '';
+
   const handleChange = (field, value) => {
     onChange({
       ...question,
@@ -9,18 +17,18 @@ const MultipleChoiceQuestion = ({ question, onChange, type = 'abc' }) => {
   };
 
   const handleOptionChange = (index, value) => {
-    const newOptions = [...question.options];
+    const newOptions = [...options];
     newOptions[index] = value;
     handleChange('options', newOptions);
   };
 
   const handleAddOption = () => {
-    const newOptions = [...question.options, ''];
+    const newOptions = [...options, ''];
     handleChange('options', newOptions);
   };
 
   const handleRemoveOption = (index) => {
-    const newOptions = question.options.filter((_, i) => i !== index);
+    const newOptions = options.filter((_, i) => i !== index);
     handleChange('options', newOptions);
   };
 
@@ -75,7 +83,7 @@ const MultipleChoiceQuestion = ({ question, onChange, type = 'abc' }) => {
     <div style={styles.container}>
       <label style={styles.label}>❓ Câu hỏi:</label>
       <textarea
-        value={question.questionText}
+        value={questionText}
         onChange={e => handleChange('questionText', e.target.value)}
         rows={3}
         style={{...styles.input, marginBottom: '8px', fontFamily: 'inherit'}}
@@ -83,7 +91,7 @@ const MultipleChoiceQuestion = ({ question, onChange, type = 'abc' }) => {
       />
 
       <label style={styles.label}>🔤 Các lựa chọn:</label>
-      {question.options.map((option, index) => (
+      {options.map((option, index) => (
         <div key={index} style={styles.option}>
           <span style={styles.optionLabel}>
             {type === 'abc' ? String.fromCharCode(65 + index) : String(index + 1)}
@@ -115,7 +123,7 @@ const MultipleChoiceQuestion = ({ question, onChange, type = 'abc' }) => {
         >
           + Add Option
         </button>
-        {question.options.length > 1 && (
+        {options.length > 1 && (
           <button
             type="button"
             style={{
@@ -128,7 +136,7 @@ const MultipleChoiceQuestion = ({ question, onChange, type = 'abc' }) => {
               fontSize: '13px',
               fontWeight: '600'
             }}
-            onClick={() => handleRemoveOption(question.options.length - 1)}
+            onClick={() => handleRemoveOption(options.length - 1)}
           >
             − Remove Last
           </button>
@@ -142,7 +150,7 @@ const MultipleChoiceQuestion = ({ question, onChange, type = 'abc' }) => {
         style={styles.input}
       >
         <option value="">Chọn đáp án đúng</option>
-        {question.options.map((_, index) => (
+        {options.map((_, index) => (
           <option key={index} value={type === 'abc' ? String.fromCharCode(65 + index) : index + 1}>
             {type === 'abc' ? String.fromCharCode(65 + index) : `Lựa chọn ${index + 1}`}
           </option>
@@ -154,7 +162,7 @@ const MultipleChoiceQuestion = ({ question, onChange, type = 'abc' }) => {
         <label style={styles.label}>👁 Preview:</label>
         <div style={{ backgroundColor: 'white', padding: '15px', borderRadius: '4px' }}>
           <p>{question.questionText}</p>
-          {question.options.map((option, index) => (
+          {options.map((option, index) => (
             <div key={index} style={{ margin: '8px 0' }}>
               <span style={{ marginRight: '10px', fontWeight: 'bold' }}>
                 {type === 'abc' ? String.fromCharCode(65 + index) : index + 1}.

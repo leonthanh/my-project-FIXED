@@ -263,7 +263,7 @@ const CreateReadingTest = () => {
   };
 
   const handleAddPassage = () => {
-    setPassages([...passages, { 
+    const newPassages = [...passages, { 
       passageTitle: '', 
       passageText: '', 
       sections: [
@@ -274,7 +274,22 @@ const CreateReadingTest = () => {
           questions: [{ questionNumber: 1, questionType: 'multiple-choice', questionText: '', options: [''], correctAnswer: '' }]
         }
       ]
-    }]);
+    }];
+    setPassages(newPassages);
+    setSelectedPassageIndex(newPassages.length - 1);
+  };
+
+  const handleDeletePassage = (passageIndex) => {
+    if (passages.length <= 1) {
+      return;
+    }
+    const newPassages = passages.filter((_, idx) => idx !== passageIndex);
+    setPassages(newPassages);
+    // Reset selected index if needed
+    if (selectedPassageIndex >= newPassages.length) {
+      setSelectedPassageIndex(Math.max(0, newPassages.length - 1));
+    }
+    setSelectedSectionIndex(null);
   };
 
   const handlePassageChange = (index, field, value) => {
@@ -306,7 +321,8 @@ const CreateReadingTest = () => {
           questionType: 'fill-in-the-blanks',
           questionText: '',
           correctAnswer: '',
-          maxWords: 3
+          maxWords: 3,
+          options: []
         };
       case 'matching':
         return {
@@ -314,25 +330,29 @@ const CreateReadingTest = () => {
           questionText: 'Match the items:',
           leftItems: ['Item A', 'Item B', 'Item C'],
           rightItems: ['Item 1', 'Item 2', 'Item 3'],
-          matches: ['1', '2', '3']
+          matches: ['1', '2', '3'],
+          options: []
         };
       case 'true-false-not-given':
         return {
           questionType: 'true-false-not-given',
           questionText: '',
-          correctAnswer: 'TRUE'
+          correctAnswer: 'TRUE',
+          options: []
         };
       case 'yes-no-not-given':
         return {
           questionType: 'yes-no-not-given',
           questionText: '',
-          correctAnswer: 'YES'
+          correctAnswer: 'YES',
+          options: []
         };
       case 'paragraph-matching':
         return {
           questionType: 'paragraph-matching',
           questionText: '',
-          correctAnswer: 'A'
+          correctAnswer: 'A',
+          options: []
         };
       case 'sentence-completion':
         return {
@@ -357,7 +377,8 @@ const CreateReadingTest = () => {
           questionType: 'short-answer',
           questionText: '',
           correctAnswer: '',
-          maxWords: 3
+          maxWords: 3,
+          options: []
         };
       default:
         return {
@@ -471,9 +492,13 @@ const CreateReadingTest = () => {
     setSelectedSectionIndex(sectionIndex + 1);
   };
 
-  const handleQuestionChange = (passageIndex, sectionIndex, questionIndex, updatedQuestion) => {
+  const handleQuestionChange = (passageIndex, sectionIndex, questionIndex, field, updatedQuestion) => {
     const newPassages = [...passages];
-    newPassages[passageIndex].sections[sectionIndex].questions[questionIndex] = updatedQuestion;
+    if (field === 'full') {
+      newPassages[passageIndex].sections[sectionIndex].questions[questionIndex] = updatedQuestion;
+    } else {
+      newPassages[passageIndex].sections[sectionIndex].questions[questionIndex][field] = updatedQuestion;
+    }
     setPassages(newPassages);
   };
 
@@ -709,10 +734,6 @@ const CreateReadingTest = () => {
                   {passages.map((passage, idx) => (
                     <div
                       key={idx}
-                      onClick={() => {
-                        setSelectedPassageIndex(idx);
-                        setSelectedSectionIndex(null);
-                      }}
                       style={{
                         padding: '8px',
                         marginBottom: '6px',
@@ -722,12 +743,42 @@ const CreateReadingTest = () => {
                         borderRadius: '4px',
                         cursor: 'pointer',
                         fontSize: '12px',
-                        fontWeight: selectedPassageIndex === idx ? 'bold' : 'normal'
+                        fontWeight: selectedPassageIndex === idx ? 'bold' : 'normal',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center'
                       }}
                     >
-                      Passage {idx + 1}
-                      <br />
-                      <small>{passage.passageTitle || '(Untitled)'}</small>
+                      <div
+                        onClick={() => {
+                          setSelectedPassageIndex(idx);
+                          setSelectedSectionIndex(null);
+                        }}
+                        style={{ flex: 1 }}
+                      >
+                        Passage {idx + 1}
+                        <br />
+                        <small>{passage.passageTitle || '(Untitled)'}</small>
+                      </div>
+                      {passages.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => handleDeletePassage(idx)}
+                          style={{
+                            padding: '4px 8px',
+                            backgroundColor: '#dc3545',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '3px',
+                            cursor: 'pointer',
+                            fontSize: '11px',
+                            fontWeight: 'bold',
+                            marginLeft: '8px'
+                          }}
+                        >
+                          ✕
+                        </button>
+                      )}
                     </div>
                   ))}
                   <button

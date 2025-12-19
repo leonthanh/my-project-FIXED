@@ -2,6 +2,10 @@ import React from 'react';
 import QuillEditor from './QuillEditor';
 
 const ParagraphMatchingQuestion = ({ question, onChange }) => {
+  if (!question) {
+    return <div style={{ color: 'red', padding: '10px' }}>❌ Error: Question object missing</div>;
+  }
+
   const handleChange = (field, value) => {
     onChange({ ...question, [field]: value });
   };
