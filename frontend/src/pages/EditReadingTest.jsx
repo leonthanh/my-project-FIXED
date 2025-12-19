@@ -1283,6 +1283,29 @@ const EditReadingTest = () => {
                         if (q.questionType === 'paragraph-fill-blanks') {
                           previewText = stripHtml(q.paragraphText || '').substring(0, 80);
                           answersDisplay = q.blanks?.map(b => b.correctAnswer).join(', ');
+                        } else if (q.questionType === 'cloze-test') {
+                          previewText = stripHtml(q.paragraphText || '').substring(0, 80);
+                          const blankCount = q.blanks?.length || 0;
+                          additionalInfo = `${blankCount} chỗ trống`;
+                          
+                          // Create detailed preview for cloze-test
+                          detailedPreview = (
+                            <div style={{ marginTop: '10px', backgroundColor: '#f9f9f9', padding: '10px', borderRadius: '4px' }}>
+                              <strong style={{ color: '#0e276f', display: 'block', marginBottom: '8px' }}>📖 Đoạn văn:</strong>
+                              <p style={{ margin: '0 0 8px 0', lineHeight: '1.6', fontSize: '13px' }}>{stripHtml(q.paragraphText || '')}</p>
+                              {q.blanks && q.blanks.length > 0 && (
+                                <div style={{ marginTop: '8px' }}>
+                                  <strong style={{ color: '#0e276f', fontSize: '12px' }}>✍️ Đáp án:</strong>
+                                  <ul style={{ margin: '6px 0 0 0', paddingLeft: '20px', fontSize: '12px' }}>
+                                    {q.blanks.map((blank, idx) => (
+                                      <li key={idx}>Chỗ trống #{blank.blankNumber}: <strong>{blank.correctAnswer || '(chưa nhập)'}</strong></li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              )}
+                            </div>
+                          );
+                          answersDisplay = q.blanks?.filter(b => b.correctAnswer).length ? `✅ ${q.blanks.length} đáp án` : '❌ Chưa đủ đáp án';
                         } else if (q.questionType === 'heading-matching' || q.questionType === 'matching') {
                           // For matching: show first left item as identifier
                           const firstLeftItem = q.leftItems?.[0] || '';
