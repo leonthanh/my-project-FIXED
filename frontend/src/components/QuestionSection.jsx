@@ -10,6 +10,7 @@ import ParagraphMatchingQuestion from './ParagraphMatchingQuestion';
 import SentenceCompletionQuestion from './SentenceCompletionQuestion';
 import ShortAnswerQuestion from './ShortAnswerQuestion';
 import ParagraphFillBlanksQuestion from './ParagraphFillBlanksQuestion';
+import ClozeTestQuestion from './ClozeTestQuestion';
 
 const QuestionSection = ({
   passageIndex,
@@ -325,6 +326,7 @@ const QuestionSection = ({
                     <option value="matching" title="Học sinh ghép các mục từ cột trái với cột phải (ghép cặp)">Ghép cặp / Combobox</option>
                     <option value="true-false-not-given" title="Học sinh chọn True (đúng), False (sai), hoặc Not Given (chưa đề cập)">True/False/Not Given</option>
                     <option value="yes-no-not-given" title="Học sinh chọn Yes (có), No (không), hoặc Not Given (chưa đề cập)">Yes/No/Not Given</option>
+                    <option value="cloze-test" title="Học sinh điền từ vào các chỗ trống nhúng trong đoạn văn (Cloze Test)">Cloze Test - Điền chỗ trống trong đoạn</option>
                     <option value="paragraph-fill-blanks" title="Học sinh điền từ vào các chỗ trống trong đoạn văn (từ danh sách gợi ý A-I)">Đoạn văn - Điền chỗ trống</option>
                     <option value="paragraph-matching" title="Học sinh tìm thông tin ở đoạn A-G để trả lời câu hỏi">Tìm thông tin ở đoạn nào (A-G)</option>
                     <option value="sentence-completion" title="Học sinh hoàn thành câu bằng cách chọn từ từ danh sách gợi ý">Hoàn thành câu (chọn từ danh sách)</option>
@@ -339,6 +341,7 @@ const QuestionSection = ({
                     {question.questionType === 'matching' && '✓ Học sinh ghép các mục từ cột trái với cột phải (ghép cặp)'}
                     {question.questionType === 'true-false-not-given' && '✓ Học sinh chọn: True (đúng), False (sai), hoặc Not Given (chưa đề cập)'}
                     {question.questionType === 'yes-no-not-given' && '✓ Học sinh chọn: Yes (có), No (không), hoặc Not Given (chưa đề cập)'}
+                    {question.questionType === 'cloze-test' && '✓ Học sinh điền từ vào các chỗ trống nhúng trong đoạn văn (sử dụng [BLANK] để đánh dấu)'}
                     {question.questionType === 'paragraph-fill-blanks' && '✓ Học sinh điền từ vào các chỗ trống trong đoạn văn (từ danh sách gợi ý A-I)'}
                     {question.questionType === 'paragraph-matching' && '✓ Học sinh tìm thông tin ở đoạn A-G để trả lời câu hỏi'}
                     {question.questionType === 'sentence-completion' && '✓ Học sinh hoàn thành câu bằng cách chọn từ từ danh sách gợi ý'}
@@ -404,6 +407,13 @@ const QuestionSection = ({
                   />
                 )}
 
+                {(question.questionType || 'multiple-choice') === 'cloze-test' && (
+                  <ClozeTestQuestion
+                    question={question}
+                    onChange={(q) => onQuestionChange(passageIndex, sectionIndex, questionIndex, 'full', q)}
+                  />
+                )}
+
                 {(question.questionType || 'multiple-choice') === 'paragraph-fill-blanks' && (
                   <ParagraphFillBlanksQuestion
                     question={question}
@@ -418,7 +428,7 @@ const QuestionSection = ({
                   />
                 )}
 
-                {!['multiple-choice', 'multi-select', 'fill-in-the-blanks', 'matching', 'true-false-not-given', 'yes-no-not-given', 'paragraph-matching', 'sentence-completion', 'paragraph-fill-blanks', 'short-answer'].includes(question.questionType || 'multiple-choice') && (
+                {!['multiple-choice', 'multi-select', 'fill-in-the-blanks', 'matching', 'true-false-not-given', 'yes-no-not-given', 'cloze-test', 'paragraph-matching', 'sentence-completion', 'paragraph-fill-blanks', 'short-answer'].includes(question.questionType || 'multiple-choice') && (
                   <div style={{ color: 'red', padding: '8px', backgroundColor: '#ffe0e0', borderRadius: '4px' }}>
                     ⚠️ Unknown question type: {question.questionType}
                   </div>

@@ -470,6 +470,17 @@ const EditReadingTest = () => {
         return { ...baseQuestion, options: [] };
       case 'yes-no-not-given':
         return { ...baseQuestion, options: [] };
+      case 'cloze-test':
+        return {
+          ...baseQuestion,
+          paragraphText: 'Another example of cheap technology helping poor people in the countryside is [BLANK]. Kerosene lamps and conventional bulbs give off less [BLANK] than GSBF lamps.',
+          maxWords: 3,
+          blanks: [
+            { id: 'blank_0', blankNumber: 1, correctAnswer: '' },
+            { id: 'blank_1', blankNumber: 2, correctAnswer: '' }
+          ],
+          options: []
+        };
       case 'paragraph-matching':
         return { ...baseQuestion, options: [] };
       case 'sentence-completion':
