@@ -116,6 +116,7 @@ const WritingTest = () => {
     }
   }, [task1, task2, timeLeft, user, selectedTestId, API_URL]);
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!started || submitted) return;
     if (timeLeft <= 0) {
