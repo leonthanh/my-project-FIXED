@@ -1149,6 +1149,19 @@ const CreateReadingTest = () => {
                     {section.sectionInstruction && (
                       <div style={{ backgroundColor: '#f0f0f0', padding: '10px', borderRadius: '4px', marginBottom: '10px', fontSize: '14px' }} dangerouslySetInnerHTML={{ __html: section.sectionInstruction }} />
                     )}
+                    {section.sectionImage && (
+                      <div style={{ marginBottom: '15px' }}>
+                        <img
+                          src={typeof section.sectionImage === 'string' 
+                            ? section.sectionImage 
+                            : section.sectionImage instanceof File || section.sectionImage instanceof Blob
+                              ? URL.createObjectURL(section.sectionImage)
+                              : ''}
+                          alt="Section"
+                          style={{ maxWidth: '100%', maxHeight: '300px', borderRadius: '4px' }}
+                        />
+                      </div>
+                    )}
                     {section.questions && section.questions.length > 0 && (
                       <>
                         <h6 style={{ marginTop: '10px' }}>Câu hỏi:</h6>

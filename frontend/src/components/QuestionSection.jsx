@@ -159,7 +159,8 @@ const QuestionSection = ({
           }}
         />
         {section.sectionImage && (
-          <div style={{ marginTop: '10px' }}>
+          <div style={{ marginTop: '10px', padding: '8px', backgroundColor: '#f0f0f0', borderRadius: '4px' }}>
+            <p style={{ margin: '0 0 8px 0', fontSize: '12px', fontWeight: 'bold', color: '#0e276f' }}>📷 Hình ảnh/Diagram:</p>
             {(() => {
               let imageSrc = '';
               if (typeof section.sectionImage === 'string') {
@@ -175,7 +176,7 @@ const QuestionSection = ({
                   style={{ maxWidth: '100%', maxHeight: '300px', borderRadius: '4px' }}
                 />
               ) : (
-                <div style={{ color: '#999', fontSize: '12px', padding: '10px', backgroundColor: '#f0f0f0', borderRadius: '4px', textAlign: 'center' }}>
+                <div style={{ color: '#999', fontSize: '12px', padding: '10px', textAlign: 'center' }}>
                   ❌ Không thể load hình ảnh
                 </div>
               );

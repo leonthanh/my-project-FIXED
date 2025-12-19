@@ -1283,6 +1283,19 @@ const EditReadingTest = () => {
                       <p style={{ margin: '5px 0', fontSize: '13px', color: '#555' }}>
                         {section.sectionInstruction ? stripHtml(section.sectionInstruction).substring(0, 100) + '...' : '(Không có hướng dẫn)'}
                       </p>
+                      {section.sectionImage && (
+                        <div style={{ margin: '10px 0' }}>
+                          <img
+                            src={typeof section.sectionImage === 'string' 
+                              ? section.sectionImage 
+                              : section.sectionImage instanceof File || section.sectionImage instanceof Blob
+                                ? URL.createObjectURL(section.sectionImage)
+                                : ''}
+                            alt="Section"
+                            style={{ maxWidth: '150px', maxHeight: '100px', borderRadius: '4px' }}
+                          />
+                        </div>
+                      )}
                       <p style={{ margin: '5px 0', fontSize: '13px', fontWeight: '600' }}>
                         Questions: {section.questions?.length || 0}
                       </p>
