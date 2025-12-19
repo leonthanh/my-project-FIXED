@@ -319,17 +319,31 @@ const QuestionSection = ({
                       width: '100%'
                     }}
                   >
-                    <option value="multiple-choice">Trắc nghiệm 1 đáp án</option>
-                    <option value="multi-select">Trắc nghiệm nhiều đáp án</option>
-                    <option value="fill-in-the-blanks">Điền vào chỗ trống</option>
-                    <option value="matching">Ghép cặp / Combobox</option>
-                    <option value="true-false-not-given">True/False/Not Given</option>
-                    <option value="yes-no-not-given">Yes/No/Not Given</option>
-                    <option value="paragraph-fill-blanks">Đoạn văn - Điền chỗ trống</option>
-                    <option value="paragraph-matching">Tìm thông tin ở đoạn nào (A-G)</option>
-                    <option value="sentence-completion">Hoàn thành câu (chọn từ danh sách)</option>
-                    <option value="short-answer">Câu trả lời ngắn</option>
+                    <option value="multiple-choice" title="Học sinh chọn 1 đáp án đúng từ 4-5 lựa chọn">Trắc nghiệm 1 đáp án</option>
+                    <option value="multi-select" title="Học sinh chọn nhiều đáp án đúng (tối thiểu 2 đáp án)">Trắc nghiệm nhiều đáp án</option>
+                    <option value="fill-in-the-blanks" title="Học sinh điền từ/cụm từ để hoàn thành câu (tối đa 3 từ)">Điền vào chỗ trống</option>
+                    <option value="matching" title="Học sinh ghép các mục từ cột trái với cột phải (ghép cặp)">Ghép cặp / Combobox</option>
+                    <option value="true-false-not-given" title="Học sinh chọn True (đúng), False (sai), hoặc Not Given (chưa đề cập)">True/False/Not Given</option>
+                    <option value="yes-no-not-given" title="Học sinh chọn Yes (có), No (không), hoặc Not Given (chưa đề cập)">Yes/No/Not Given</option>
+                    <option value="paragraph-fill-blanks" title="Học sinh điền từ vào các chỗ trống trong đoạn văn (từ danh sách gợi ý A-I)">Đoạn văn - Điền chỗ trống</option>
+                    <option value="paragraph-matching" title="Học sinh tìm thông tin ở đoạn A-G để trả lời câu hỏi">Tìm thông tin ở đoạn nào (A-G)</option>
+                    <option value="sentence-completion" title="Học sinh hoàn thành câu bằng cách chọn từ từ danh sách gợi ý">Hoàn thành câu (chọn từ danh sách)</option>
+                    <option value="short-answer" title="Học sinh viết câu trả lời ngắn (tối đa 3 từ)">Câu trả lời ngắn</option>
                   </select>
+                  
+                  {/* Help text for question types */}
+                  <div style={{ fontSize: '12px', color: '#666', marginTop: '6px', padding: '8px', backgroundColor: '#f0f8ff', borderRadius: '4px', borderLeft: '3px solid #0e276f' }}>
+                    {question.questionType === 'multiple-choice' && '✓ Học sinh chọn 1 đáp án đúng từ 4-5 lựa chọn'}
+                    {question.questionType === 'multi-select' && '✓ Học sinh chọn nhiều đáp án đúng (tối thiểu 2 đáp án)'}
+                    {question.questionType === 'fill-in-the-blanks' && '✓ Học sinh điền từ/cụm từ để hoàn thành câu (tối đa 3 từ)'}
+                    {question.questionType === 'matching' && '✓ Học sinh ghép các mục từ cột trái với cột phải (ghép cặp)'}
+                    {question.questionType === 'true-false-not-given' && '✓ Học sinh chọn: True (đúng), False (sai), hoặc Not Given (chưa đề cập)'}
+                    {question.questionType === 'yes-no-not-given' && '✓ Học sinh chọn: Yes (có), No (không), hoặc Not Given (chưa đề cập)'}
+                    {question.questionType === 'paragraph-fill-blanks' && '✓ Học sinh điền từ vào các chỗ trống trong đoạn văn (từ danh sách gợi ý A-I)'}
+                    {question.questionType === 'paragraph-matching' && '✓ Học sinh tìm thông tin ở đoạn A-G để trả lời câu hỏi'}
+                    {question.questionType === 'sentence-completion' && '✓ Học sinh hoàn thành câu bằng cách chọn từ từ danh sách gợi ý'}
+                    {question.questionType === 'short-answer' && '✓ Học sinh viết câu trả lời ngắn (tối đa 3 từ)'}
+                  </div>
                 </div>
 
                 {/* Question Editors by Type */}
