@@ -220,7 +220,6 @@ const EditReadingTest = () => {
       });
     });
     
-    console.log(`📊 Total Questions: ${total} (${debug.join(', ')})`);
     return total;
   };
 
@@ -962,7 +961,6 @@ const EditReadingTest = () => {
                         key={`${selectedPassageIndex}-${passages[selectedPassageIndex].passageTitle}`}
                         value={passages[selectedPassageIndex].passageText || ''}
                         onChange={(value) => {
-                          console.log(`✏️ Editing passage ${selectedPassageIndex}: ${value.substring(0, 50)}...`);
                           handlePassageChange(selectedPassageIndex, 'passageText', value);
                         }}
                         placeholder="Nhập nội dung passage..."
