@@ -201,7 +201,7 @@ const QuestionSection = ({
               gap: '8px',
               flexWrap: 'wrap'
             }}>
-              <div style={{ display: 'flex', gap: '8px', flex: 1 }}>
+              <div style={{ display: 'flex', gap: '8px', flex: 1, alignItems: 'center' }}>
                 <button
                   type="button"
                   onClick={() => toggleQuestionExpand(questionIndex)}
@@ -220,8 +220,30 @@ const QuestionSection = ({
                 >
                   {expandedQuestions[questionIndex] ? '▼' : '▶'}
                 </button>
-                <span style={{ fontSize: '12px', fontWeight: 'bold', color: '#333', alignSelf: 'center' }}>
-                  Câu hỏi {questionIndex + 1}: {question.questionType === 'multiple-choice' ? 'Trắc nghiệm 1 đáp' : question.questionType}
+                <input
+                  type="text"
+                  placeholder="Ví dụ: 38-40 hoặc 38, 39, 40"
+                  value={question.questionNumber || ''}
+                  onChange={(e) => {
+                    const input = e.target.value.trim();
+                    const newQuestion = {
+                      ...question,
+                      questionNumber: input || '1'
+                    };
+                    onQuestionChange(passageIndex, sectionIndex, questionIndex, 'full', newQuestion);
+                  }}
+                  style={{
+                    width: '120px',
+                    padding: '6px 8px',
+                    borderRadius: '4px',
+                    border: '2px solid #0e276f',
+                    fontSize: '12px',
+                    boxSizing: 'border-box',
+                    backgroundColor: '#fff'
+                  }}
+                />
+                <span style={{ fontSize: '12px', color: '#666', whiteSpace: 'nowrap' }}>
+                  ({question.questionType === 'multiple-choice' ? 'Trắc nghiệm 1 đáp án' : question.questionType})
                 </span>
               </div>
               {expandedQuestions[questionIndex] && (
@@ -264,38 +286,6 @@ const QuestionSection = ({
             {/* Question Content - Only show when expanded */}
             {expandedQuestions[questionIndex] && (
               <>
-                {/* Question Number Input */}
-                <div style={{ marginBottom: '12px' }}>
-                  <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>
-                    Số câu hỏi (Question Number):
-                  </label>
-                  <p style={{ fontSize: '12px', color: '#666', margin: '0 0 6px 0' }}>
-                    💡 Ví dụ: 38-40 hoặc 38, 39, 40 hoặc chỉ 38
-                  </p>
-                  <input
-                    type="text"
-                    placeholder="Ví dụ: 38-40 hoặc 38, 39, 40"
-                    value={question.questionNumber || ''}
-                    onChange={(e) => {
-                      const input = e.target.value.trim();
-                      const newQuestion = {
-                        ...question,
-                        questionNumber: input || '1'
-                      };
-                      onQuestionChange(passageIndex, sectionIndex, questionIndex, 'full', newQuestion);
-                    }}
-                    style={{
-                      width: '100%',
-                      padding: '8px',
-                      borderRadius: '4px',
-                      border: '2px solid #0e276f',
-                      fontSize: '14px',
-                      boxSizing: 'border-box',
-                      backgroundColor: '#fff'
-                    }}
-                  />
-                </div>
-
                 {/* Question Type Select */}
                 <div style={{ marginBottom: '12px' }}>
                   <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>
