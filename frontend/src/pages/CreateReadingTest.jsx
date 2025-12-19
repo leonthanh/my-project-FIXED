@@ -37,6 +37,7 @@ const CreateReadingTest = () => {
   const [isReviewing, setIsReviewing] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
+  const [message, setMessage] = useState('');
   
   // 4-column layout state
   const [selectedPassageIndex, setSelectedPassageIndex] = useState(0);
@@ -48,16 +49,10 @@ const CreateReadingTest = () => {
     col4: false  // Questions
   });
 
-  // 🔍 Debug: Log changes to selectedPassageIndex
   useEffect(() => {
-    console.log(`🎯 [CREATE] selectedPassageIndex changed to: ${selectedPassageIndex}`);
+    // Track passage selection
     if (passages && passages[selectedPassageIndex]) {
-      console.log(`📄 Current passage:`, {
-        index: selectedPassageIndex,
-        title: passages[selectedPassageIndex].passageTitle,
-        textLength: (passages[selectedPassageIndex].passageText || '').length,
-        textPreview: (passages[selectedPassageIndex].passageText || '').substring(0, 100)
-      });
+      // Selected passage updated
     }
   }, [selectedPassageIndex, passages]);
 
@@ -161,7 +156,7 @@ const CreateReadingTest = () => {
         teacherName
       };
       localStorage.setItem('readingTestDraft', JSON.stringify(dataToSave));
-      console.log('Draft saved:', new Date().toLocaleTimeString());
+
     } catch (error) {
       console.error('Error saving draft:', error);
     }
@@ -236,7 +231,6 @@ const CreateReadingTest = () => {
       });
     });
     
-    console.log(`📊 Total Questions: ${total} (${debug.join(', ')})`);
     return total;
   };
 
@@ -515,15 +509,39 @@ const CreateReadingTest = () => {
 
   const handleReview = (e) => {
     e.preventDefault();
-    if (!title.trim()) {
+    
+    // Validate title
+    if (!title || !title.trim()) {
+      setMessage('⚠️ Vui lòng nhập tiêu đề đề thi');
+      setTimeout(() => setMessage(''), 3000);
       return;
     }
-    if (!classCode.trim()) {
+    
+    // Validate passages
+    if (!passages || passages.length === 0) {
+      setMessage('⚠️ Cần có ít nhất 1 passage');
+      setTimeout(() => setMessage(''), 3000);
       return;
     }
-    if (!teacherName.trim()) {
+    
+    // Validate each passage has at least 1 section
+    const hasEmptySections = passages.some(p => !p.sections || p.sections.length === 0);
+    if (hasEmptySections) {
+      setMessage('⚠️ Mỗi passage cần có ít nhất 1 section');
+      setTimeout(() => setMessage(''), 3000);
       return;
     }
+    
+    // Validate each section has at least 1 question
+    const hasEmptyQuestions = passages.some(p => 
+      p.sections.some(s => !s.questions || s.questions.length === 0)
+    );
+    if (hasEmptyQuestions) {
+      setMessage('⚠️ Mỗi section cần có ít nhất 1 câu hỏi');
+      setTimeout(() => setMessage(''), 3000);
+      return;
+    }
+    
     setIsReviewing(true);
   };
 
@@ -851,7 +869,7 @@ const CreateReadingTest = () => {
                     type="text"
                     value={passages[selectedPassageIndex]?.passageTitle || ''}
                     onChange={(e) => {
-                      console.log(`✏️ [CREATE] Changed passage ${selectedPassageIndex} title to: ${e.target.value}`);
+
                       handlePassageChange(selectedPassageIndex, 'passageTitle', e.target.value);
                     }}
                     style={{
@@ -871,7 +889,7 @@ const CreateReadingTest = () => {
                         key={`${selectedPassageIndex}-${passages[selectedPassageIndex].passageTitle}`}
                         value={passages[selectedPassageIndex].passageText || ''}
                         onChange={(value) => {
-                          console.log(`✏️ [CREATE] Editing passage ${selectedPassageIndex}: ${value.substring(0, 50)}...`);
+
                           handlePassageChange(selectedPassageIndex, 'passageText', value);
                         }}
                         placeholder="Nhập nội dung passage..."
@@ -1075,6 +1093,24 @@ const CreateReadingTest = () => {
         </div>
       </div>
 
+      {message && (
+        <div style={{
+          padding: '15px',
+          marginBottom: '20px',
+          borderRadius: '6px',
+          backgroundColor: message.includes('❌') ? '#ffe6e6' : '#e6ffe6',
+          color: message.includes('❌') || message.includes('⚠️') ? '#d32f2f' : 'green',
+          fontWeight: 'bold',
+          position: 'fixed',
+          bottom: '20px',
+          right: '20px',
+          zIndex: 1000,
+          maxWidth: '300px'
+        }}>
+          {message}
+        </div>
+      )}
+
       {showPreview && (
         <div style={modalStyles}>
           <div style={modalContentStyles}>
@@ -1108,7 +1144,23 @@ const CreateReadingTest = () => {
                                 {q.options.map((opt, optIndex) => opt && <li key={optIndex}>{opt}</li>)}
                               </ul>
                             )}
-                            {q.leftItems && q.rightItems && (
+                            {q.questionType === 'cloze-test' && q.paragraphText && (
+                              <div style={{ marginBottom: '10px', backgroundColor: '#f9f9f9', padding: '10px', borderRadius: '4px' }}>
+                                <strong>Đoạn văn:</strong>
+                                <p style={{ marginTop: '8px', lineHeight: '1.6' }}>{q.paragraphText}</p>
+                                {q.blanks && q.blanks.length > 0 && (
+                                  <div style={{ marginTop: '8px' }}>
+                                    <strong>Đáp án các chỗ trống:</strong>
+                                    <ul style={{ marginLeft: '20px' }}>
+                                      {q.blanks.map((blank, idx) => (
+                                        <li key={idx}>Chỗ trống #{blank.blankNumber}: <strong>{blank.correctAnswer || '(chưa nhập)'}</strong></li>
+                                      ))}
+                                    </ul>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                            {q.leftItems && q.rightItems && q.questionType === 'matching' && (
                               <div style={{ marginBottom: '10px' }}>
                                 <strong>Left Items:</strong>
                                 <ul style={{ marginLeft: '20px' }}>
@@ -1118,6 +1170,22 @@ const CreateReadingTest = () => {
                                 <ul style={{ marginLeft: '20px' }}>
                                   {q.rightItems.map((item, idx) => <li key={idx}>{item}</li>)}
                                 </ul>
+                              </div>
+                            )}
+                            {q.questionType === 'paragraph-fill-blanks' && q.paragraphText && (
+                              <div style={{ marginBottom: '10px', backgroundColor: '#f9f9f9', padding: '10px', borderRadius: '4px' }}>
+                                <strong>Đoạn văn:</strong>
+                                <p style={{ marginTop: '8px', lineHeight: '1.6' }}>{q.paragraphText}</p>
+                                {q.blanks && q.blanks.length > 0 && (
+                                  <div style={{ marginTop: '8px' }}>
+                                    <strong>Các chỗ trống:</strong>
+                                    <ul style={{ marginLeft: '20px' }}>
+                                      {q.blanks.map((blank, idx) => (
+                                        <li key={idx}>Blank {idx + 1}: <strong>{blank.correctAnswer || '(chưa nhập)'}</strong></li>
+                                      ))}
+                                    </ul>
+                                  </div>
+                                )}
                               </div>
                             )}
                             <p style={{ color: '#666', marginTop: '5px' }}>
@@ -1185,7 +1253,39 @@ const CreateReadingTest = () => {
                                 {q.options?.map((opt, optIndex) => <li key={optIndex}>{opt}</li>)}
                               </ul>
                             )}
-                            {q.leftItems && q.rightItems && (
+                            {q.questionType === 'cloze-test' && q.paragraphText && (
+                              <div className="mb-2 p-2 bg-light rounded">
+                                <strong>Đoạn văn:</strong>
+                                <p style={{ marginTop: '8px', lineHeight: '1.6' }}>{q.paragraphText}</p>
+                                {q.blanks && q.blanks.length > 0 && (
+                                  <div style={{ marginTop: '8px' }}>
+                                    <strong>Đáp án:</strong>
+                                    <ul>
+                                      {q.blanks.map((blank, idx) => (
+                                        <li key={idx}>Chỗ trống #{blank.blankNumber}: <strong>{blank.correctAnswer || '(chưa nhập)'}</strong></li>
+                                      ))}
+                                    </ul>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                            {q.questionType === 'paragraph-fill-blanks' && q.paragraphText && (
+                              <div className="mb-2 p-2 bg-light rounded">
+                                <strong>Đoạn văn:</strong>
+                                <p style={{ marginTop: '8px', lineHeight: '1.6' }}>{q.paragraphText}</p>
+                                {q.blanks && q.blanks.length > 0 && (
+                                  <div style={{ marginTop: '8px' }}>
+                                    <strong>Các chỗ trống:</strong>
+                                    <ul>
+                                      {q.blanks.map((blank, idx) => (
+                                        <li key={idx}>Blank {idx + 1}: <strong>{blank.correctAnswer || '(chưa nhập)'}</strong></li>
+                                      ))}
+                                    </ul>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                            {q.leftItems && q.rightItems && q.questionType === 'matching' && (
                               <div className="mb-2">
                                 <strong>Left Items:</strong>
                                 <ul>

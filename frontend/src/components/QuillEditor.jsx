@@ -41,7 +41,6 @@ const QuillEditor = ({ value, onChange, placeholder, showBlankButton = false }) 
 
   // Update internal value when prop changes
   useEffect(() => {
-    console.log(`📝 QuillEditor: value prop changed to: ${(value || '').substring(0, 50)}...`);
     const cleanedValue = cleanupHTML(value || '');
     setInternalValue(cleanedValue);
     
@@ -222,7 +221,6 @@ const QuillEditor = ({ value, onChange, placeholder, showBlankButton = false }) 
           value={internalValue}
           onChange={(val) => {
             const cleanedVal = cleanupHTML(val);
-            console.log(`✏️ QuillEditor: content changed, cleaned length: ${cleanedVal.length}`);
             setInternalValue(cleanedVal);
             onChange(cleanedVal);
           }}

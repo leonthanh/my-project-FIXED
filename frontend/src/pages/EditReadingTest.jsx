@@ -33,14 +33,8 @@ const EditReadingTest = () => {
 
   // 🔍 Debug: Log changes to selectedPassageIndex
   useEffect(() => {
-    console.log(`🎯 selectedPassageIndex changed to: ${selectedPassageIndex}`);
     if (passages && passages[selectedPassageIndex]) {
-      console.log(`📄 Current passage:`, {
-        index: selectedPassageIndex,
-        title: passages[selectedPassageIndex].passageTitle,
-        textLength: (passages[selectedPassageIndex].passageText || '').length,
-        textPreview: (passages[selectedPassageIndex].passageText || '').substring(0, 100)
-      });
+      // Passage selected
     }
   }, [selectedPassageIndex, passages]);
   
@@ -134,7 +128,7 @@ const EditReadingTest = () => {
     
     const fetchTest = async () => {
       try {
-        console.log('🔄 Fetching test:', testId, 'API:', API);
+
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
         
@@ -142,17 +136,13 @@ const EditReadingTest = () => {
           signal: controller.signal
         });
         clearTimeout(timeoutId);
-        console.log('📦 Response status:', response.status);
+
         
         if (!response.ok) {
           throw new Error(`HTTP ${response.status}: Không tìm thấy đề thi`);
         }
         const data = await response.json();
-        console.log('✅ Data received:', data);
-        console.log('📊 Total passages:', Array.isArray(data.passages) ? data.passages.length : 0);
-        data.passages?.forEach((p, idx) => {
-          console.log(`  Passage ${idx}: "${p.passageTitle}" - ${p.passageText?.substring(0, 50)}...`);
-        });
+        // Data received and loaded
         
         setTitle(data.title || '');
         setClassCode(data.classCode || '');
@@ -171,7 +161,7 @@ const EditReadingTest = () => {
     if (testId && API && !hasLoaded) {
       fetchTest();
     } else if (!testId || !API) {
-      console.warn('⚠️ Missing testId or API:', { testId, API });
+
       setLoading(false);
       setHasLoaded(true);
     }
@@ -837,7 +827,7 @@ const EditReadingTest = () => {
                     >
                       <div
                         onClick={() => {
-                          console.log(`🖱️ Clicked passage ${idx}, title: ${passage.passageTitle}`);
+
                           setSelectedPassageIndex(idx);
                           setSelectedSectionIndex(null);
                         }}
@@ -938,7 +928,7 @@ const EditReadingTest = () => {
                     type="text"
                     value={passages[selectedPassageIndex]?.passageTitle || ''}
                     onChange={(e) => {
-                      console.log(`✏️ Changed passage ${selectedPassageIndex} title to: ${e.target.value}`);
+
                       handlePassageChange(selectedPassageIndex, 'passageTitle', e.target.value);
                     }}
                     style={{
