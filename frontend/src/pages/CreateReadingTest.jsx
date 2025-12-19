@@ -545,12 +545,22 @@ const CreateReadingTest = () => {
     setIsReviewing(true);
   };
 
+  // Convert File to Base64 string
+  const fileToBase64 = (file) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = error => reject(error);
+    });
+  };
+
   const handleConfirmSubmit = async () => {
     try {
       setIsCreating(true);
       
       // Clean up passages data before submitting
-      const cleanedPassages = passages.map(p => {
+      const cleanedPassages = await Promise.all(passages.map(async (p) => {
         // Flatten questions from all sections
         const allQuestions = [];
         p.sections?.forEach(section => {
@@ -566,18 +576,24 @@ const CreateReadingTest = () => {
         return {
           passageTitle: stripHtml(p.passageTitle || ''),
           passageText: cleanupPassageHTML(p.passageText || ''),
-          sections: p.sections?.map(section => ({
-            sectionTitle: stripHtml(section.sectionTitle || ''),
-            sectionInstruction: stripHtml(section.sectionInstruction || ''),
-            sectionImage: section.sectionImage,
-            questions: section.questions?.map(q => ({
-              ...q,
-              questionText: stripHtml(q.questionText || ''),
-              options: q.options ? q.options.map(opt => stripHtml(opt)) : undefined
-            })) || []
-          })) || []
+          sections: await Promise.all(p.sections?.map(async (section) => {
+            // Note: sectionImage không được gửi qua JSON (quá lớn khi Base64)
+            // Chỉ giữ lại sectionImage nếu nó là string (URL)
+            const imagesToSend = typeof section.sectionImage === 'string' ? section.sectionImage : null;
+            
+            return {
+              sectionTitle: stripHtml(section.sectionTitle || ''),
+              sectionInstruction: stripHtml(section.sectionInstruction || ''),
+              sectionImage: imagesToSend,
+              questions: section.questions?.map(q => ({
+                ...q,
+                questionText: stripHtml(q.questionText || ''),
+                options: q.options ? q.options.map(opt => stripHtml(opt)) : undefined
+              })) || []
+            };
+          }) || [])
         };
-      });
+      }));
 
       const response = await fetch(`${API}/api/reading-tests`, {
         method: 'POST',

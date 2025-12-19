@@ -527,6 +527,16 @@ const EditReadingTest = () => {
     setIsReviewing(true);
   };
 
+  // Convert File to Base64 string
+  const fileToBase64 = (file) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = error => reject(error);
+    });
+  };
+
   const handleConfirmUpdate = async () => {
     try {
       setIsUpdating(true);
@@ -544,7 +554,7 @@ const EditReadingTest = () => {
         throw new Error('Cần có ít nhất 1 passage');
       }
 
-      const cleanedPassages = passages.map((p, pIdx) => {
+      const cleanedPassages = await Promise.all(passages.map(async (p, pIdx) => {
         if (!p.passageText || !p.passageText.trim()) {
           throw new Error(`Passage ${pIdx + 1} không có nội dung`);
         }
@@ -552,24 +562,28 @@ const EditReadingTest = () => {
         return {
           passageTitle: stripHtml(p.passageTitle || '') || `Passage ${pIdx + 1}`,
           passageText: cleanupPassageHTML(p.passageText || ''),
-          sections: p.sections?.map((section, sIdx) => {
+          sections: await Promise.all(p.sections?.map(async (section, sIdx) => {
             if (!section.questions || section.questions.length === 0) {
               throw new Error(`Passage ${pIdx + 1}, Section ${sIdx + 1} phải có ít nhất 1 câu hỏi`);
             }
 
+            // Note: sectionImage không được gửi qua JSON (quá lớn khi Base64)
+            // Chỉ giữ lại sectionImage nếu nó là string (URL)
+            const imagesToSend = typeof section.sectionImage === 'string' ? section.sectionImage : null;
+
             return {
               sectionTitle: stripHtml(section.sectionTitle || '') || `Section ${sIdx + 1}`,
               sectionInstruction: section.sectionInstruction || '',
-              sectionImage: section.sectionImage,
+              sectionImage: imagesToSend,
               questions: section.questions?.map(q => ({
                 ...q,
                 questionText: q.questionText || '',
                 options: q.options ? q.options.map(opt => opt) : undefined
               })) || []
             };
-          }) || []
+          }) || [])
         };
-      });
+      }));
 
       const response = await fetch(`${API}/api/reading-tests/${testId}`, {
         method: 'PUT',
