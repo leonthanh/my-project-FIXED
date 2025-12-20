@@ -348,3 +348,122 @@
 .text-danger { color: #dc3545 !important; }
 .text-warning { color: #ffc107 !important; }
 .text-muted { color: #6c757d !important; }
+
+/* ========================================
+   11. DARK MODE STYLES
+   ======================================== */
+
+body.dark-mode .reading-test-editor,
+body.dark-mode .create-reading-test,
+body.dark-mode .edit-reading-test {
+  color: #e8e8e8;
+  background-color: #1a1a2e;
+}
+
+body.dark-mode .reading-test-editor label,
+body.dark-mode .create-reading-test label,
+body.dark-mode .edit-reading-test label {
+  color: #e8e8e8 !important;
+}
+
+body.dark-mode .reading-test-editor input,
+body.dark-mode .reading-test-editor select,
+body.dark-mode .reading-test-editor textarea,
+body.dark-mode .create-reading-test input,
+body.dark-mode .create-reading-test select,
+body.dark-mode .create-reading-test textarea,
+body.dark-mode .edit-reading-test input,
+body.dark-mode .edit-reading-test select,
+body.dark-mode .edit-reading-test textarea {
+  background-color: #16213e !important;
+  color: #e8e8e8 !important;
+  border-color: #3d3d5c !important;
+}
+
+body.dark-mode .reading-test-editor input:focus,
+body.dark-mode .reading-test-editor select:focus,
+body.dark-mode .reading-test-editor textarea:focus {
+  border-color: #4a90d9 !important;
+  box-shadow: 0 0 0 3px rgba(74, 144, 217, 0.2) !important;
+}
+
+/* Column headers */
+body.dark-mode .reading-test-editor [style*="background-color: #f5f5f5"],
+body.dark-mode .reading-test-editor [style*="backgroundColor: #f5f5f5"] {
+  background-color: #16213e !important;
+}
+
+body.dark-mode .reading-test-editor [style*="background-color: #fff"],
+body.dark-mode .reading-test-editor [style*="backgroundColor: #fff"],
+body.dark-mode .reading-test-editor [style*="backgroundColor: rgb(255, 255, 255)"] {
+  background-color: #1a1a2e !important;
+}
+
+/* Borders */
+body.dark-mode .reading-test-editor [style*="border: 1px solid #ddd"],
+body.dark-mode .reading-test-editor [style*="border-color: #ddd"] {
+  border-color: #3d3d5c !important;
+}
+
+/* Selected items */
+body.dark-mode .reading-test-editor [style*="background-color: #e3f2fd"] {
+  background-color: #0f3460 !important;
+}
+
+/* Messages */
+body.dark-mode .reading-test-editor [style*="background-color: #ffe6e6"] {
+  background-color: #5c1a1a !important;
+}
+
+body.dark-mode .reading-test-editor [style*="background-color: #e6ffe6"] {
+  background-color: #1a5c1a !important;
+}
+
+body.dark-mode .reading-test-editor [style*="background-color: #fff3cd"] {
+  background-color: #5c4a1a !important;
+}
+
+/* Buttons in dark mode */
+body.dark-mode .reading-test-editor button {
+  transition: all 0.2s ease;
+}
+
+/* Quill Editor in dark mode */
+body.dark-mode .reading-test-editor .ql-toolbar {
+  background-color: #0f3460 !important;
+  border-color: #3d3d5c !important;
+}
+
+body.dark-mode .reading-test-editor .ql-container {
+  background-color: #16213e !important;
+  border-color: #3d3d5c !important;
+}
+
+body.dark-mode .reading-test-editor .ql-editor {
+  color: #e8e8e8 !important;
+}
+
+body.dark-mode .reading-test-editor .ql-toolbar button {
+  color: #e8e8e8 !important;
+}
+
+body.dark-mode .reading-test-editor .ql-toolbar .ql-stroke {
+  stroke: #e8e8e8 !important;
+}
+
+body.dark-mode .reading-test-editor .ql-toolbar .ql-fill {
+  fill: #e8e8e8 !important;
+}
+
+body.dark-mode .reading-test-editor .ql-toolbar .ql-picker {
+  color: #e8e8e8 !important;
+}
+
+body.dark-mode .reading-test-editor .ql-toolbar .ql-picker-options {
+  background-color: #16213e !important;
+  border-color: #3d3d5c !important;
+}
+
+/* Text colors in dark mode */
+body.dark-mode .text-primary { color: #4a90d9 !important; }
+body.dark-mode .text-muted { color: #b0b0b0 !important; }

@@ -3,9 +3,9 @@ import { AdminNavbar, QuillEditor, QuestionSection, AutoSaveIndicator, KeyboardS
 import { useColumnLayout } from '../hooks';
 import useKeyboardShortcuts from '../../../shared/hooks/useKeyboardShortcuts';
 import { useTheme } from '../../../shared/contexts/ThemeContext';
-import StudentPreviewModal from './StudentPreviewModal';
-import TemplateLibrary from './TemplateLibrary';
-import ImportModal from './ImportModal';
+import StudentPreviewModal from '../../reading-test/components/StudentPreviewModal';
+import TemplateLibrary from '../../reading-test/components/TemplateLibrary';
+import ImportModal from '../../reading-test/components/ImportModal';
 import { 
   calculateTotalQuestions, 
   createDefaultQuestionByType 
@@ -246,8 +246,74 @@ const ReadingTestEditor = ({
             {/* Page title */}
             <h2 style={{ margin: 0, fontSize: '18px' }}>{pageTitle}</h2>
             
-            {/* Theme toggle placeholder - for future */}
-            <div style={{ width: '150px' }}></div>
+            {/* Tools buttons */}
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              <button
+                type="button"
+                onClick={() => setShowStudentPreview(true)}
+                title="Xem trước (Preview)"
+                style={{
+                  padding: '6px 12px',
+                  backgroundColor: isDarkMode ? '#3d3d5c' : '#e8f4ff',
+                  border: `1px solid ${isDarkMode ? '#4a90d9' : '#667eea'}`,
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '12px',
+                  color: isDarkMode ? '#4a90d9' : '#667eea',
+                  fontWeight: '500',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '5px',
+                  transition: 'all 0.2s'
+                }}
+              >
+                👁️ Preview
+              </button>
+              
+              <button
+                type="button"
+                onClick={() => setShowTemplateLibrary(true)}
+                title="Thư viện mẫu câu hỏi"
+                style={{
+                  padding: '6px 12px',
+                  backgroundColor: isDarkMode ? '#3d3d5c' : '#e6ffe6',
+                  border: `1px solid ${isDarkMode ? '#27ae60' : '#27ae60'}`,
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '12px',
+                  color: '#27ae60',
+                  fontWeight: '500',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '5px',
+                  transition: 'all 0.2s'
+                }}
+              >
+                📚 Templates
+              </button>
+              
+              <button
+                type="button"
+                onClick={() => setShowImportModal(true)}
+                title="Import từ Word/Excel"
+                style={{
+                  padding: '6px 12px',
+                  backgroundColor: isDarkMode ? '#3d3d5c' : '#fff3e6',
+                  border: `1px solid ${isDarkMode ? '#e67e22' : '#e67e22'}`,
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '12px',
+                  color: '#e67e22',
+                  fontWeight: '500',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '5px',
+                  transition: 'all 0.2s'
+                }}
+              >
+                📥 Import
+              </button>
+            </div>
           </div>
           
           {/* Form inputs */}
@@ -1270,6 +1336,79 @@ const ReadingTestEditor = ({
             </div>
           </div>
         )}
+
+        {/* Student Preview Modal */}
+        <StudentPreviewModal
+          isOpen={showStudentPreview}
+          onClose={() => setShowStudentPreview(false)}
+          testData={{
+            title,
+            passages,
+            questions: passages?.flatMap(p => 
+              p.sections?.flatMap(s => s.questions || []) || []
+            ) || [],
+            passage: passages?.[0]?.passageText || '',
+            content: passages?.[0]?.passageText || ''
+          }}
+        />
+
+        {/* Template Library Modal */}
+        <TemplateLibrary
+          isOpen={showTemplateLibrary}
+          onClose={() => setShowTemplateLibrary(false)}
+          onSelectTemplate={(template) => {
+            // Add template as new question to current section
+            if (selectedPassageIndex !== null && selectedSectionIndex !== null && onAddQuestion) {
+              // Add question then update it with template data
+              onAddQuestion(selectedPassageIndex, selectedSectionIndex, template.type);
+              
+              // Get the newly added question index
+              const currentQuestions = passages?.[selectedPassageIndex]?.sections?.[selectedSectionIndex]?.questions || [];
+              const newQuestionIndex = currentQuestions.length; // After adding, it will be at this index
+              
+              // Update the question with template data (slight delay to ensure state update)
+              setTimeout(() => {
+                if (onQuestionChange) {
+                  onQuestionChange(selectedPassageIndex, selectedSectionIndex, newQuestionIndex, template);
+                }
+              }, 100);
+            } else {
+              alert('Vui lòng chọn một Section trước khi thêm câu hỏi từ template!');
+            }
+          }}
+        />
+
+        {/* Import Modal */}
+        <ImportModal
+          isOpen={showImportModal}
+          onClose={() => setShowImportModal(false)}
+          onImport={(importedQuestions) => {
+            // Add imported questions to current section
+            if (selectedPassageIndex !== null && selectedSectionIndex !== null && onAddQuestion) {
+              importedQuestions.forEach((q, index) => {
+                // Add question with template
+                setTimeout(() => {
+                  onAddQuestion(selectedPassageIndex, selectedSectionIndex, q.type);
+                  
+                  // Get the newly added question index
+                  const currentQuestions = passages?.[selectedPassageIndex]?.sections?.[selectedSectionIndex]?.questions || [];
+                  const newQuestionIndex = currentQuestions.length + index;
+                  
+                  // Update with imported data
+                  setTimeout(() => {
+                    if (onQuestionChange) {
+                      onQuestionChange(selectedPassageIndex, selectedSectionIndex, newQuestionIndex, q);
+                    }
+                  }, 50);
+                }, index * 100);
+              });
+              
+              alert(`✅ Đã import ${importedQuestions.length} câu hỏi!`);
+            } else {
+              alert('Vui lòng chọn một Section trước khi import câu hỏi!');
+            }
+          }}
+        />
 
         {/* Custom children (loading state, etc.) */}
         {children}
