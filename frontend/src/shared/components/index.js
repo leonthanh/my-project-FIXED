@@ -8,6 +8,11 @@ export { default as Timer } from './Timer';
 export { default as ConfirmModal } from './ConfirmModal';
 export { default as ProtectedRoute } from './ProtectedRoute';
 
+// Theme & UX
+export { default as ThemeToggle } from './ThemeToggle';
+export { default as AutoSaveIndicator } from './AutoSaveIndicator';
+export { default as KeyboardShortcutsHelp } from './KeyboardShortcutsHelp';
+
 // Editors
 export { default as QuillEditor } from './QuillEditor';
 export { default as CustomEditor } from './CustomEditor';
@@ -32,3 +37,4 @@ export { default as ComboboxQuestion } from './ComboboxQuestion';
 export { default as ParagraphMatchingQuestion } from './ParagraphMatchingQuestion';
 export { default as ParagraphFillBlanksQuestion } from './ParagraphFillBlanksQuestion';
 export { default as SentenceCompletionQuestion } from './SentenceCompletionQuestion';
+export { default as IELTSMatchingHeadingsQuestion } from './IELTSMatchingHeadingsQuestion';

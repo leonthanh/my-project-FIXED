@@ -1,6 +1,11 @@
-import React from 'react';
-import { AdminNavbar, QuillEditor, QuestionSection } from '../../../shared/components';
+import React, { useState, useEffect } from 'react';
+import { AdminNavbar, QuillEditor, QuestionSection, AutoSaveIndicator, KeyboardShortcutsHelp } from '../../../shared/components';
 import { useColumnLayout } from '../hooks';
+import useKeyboardShortcuts from '../../../shared/hooks/useKeyboardShortcuts';
+import { useTheme } from '../../../shared/contexts/ThemeContext';
+import StudentPreviewModal from './StudentPreviewModal';
+import TemplateLibrary from './TemplateLibrary';
+import ImportModal from './ImportModal';
 import { 
   calculateTotalQuestions, 
   createDefaultQuestionByType 
@@ -21,6 +26,7 @@ import {
   compactCSS
 } from '../utils/styles';
 import 'react-quill/dist/quill.snow.css';
+import '../styles/reading-test-editor.css';
 
 /**
  * ReadingTestEditor - Base component cho Create và Edit Reading Test
@@ -65,6 +71,10 @@ import 'react-quill/dist/quill.snow.css';
  * @param {string} props.message - Thông báo
  * @param {boolean} props.showPreview - Hiển thị preview?
  * @param {Function} props.setShowPreview - Setter
+ * 
+ * @param {Date} props.lastSaved - Thời gian lưu gần nhất
+ * @param {boolean} props.isSaving - Đang lưu?
+ * @param {Function} props.onManualSave - Handler lưu thủ công
  * 
  * @param {React.ReactNode} props.children - Nội dung bổ sung (loading state, etc.)
  */
@@ -118,9 +128,25 @@ const ReadingTestEditor = ({
   showPreview,
   setShowPreview,
   
+  // Auto-save
+  lastSaved,
+  isSaving,
+  onManualSave,
+  
   // Children for custom content
   children
 }) => {
+  // State for keyboard shortcuts help
+  const [showShortcutsHelp, setShowShortcutsHelp] = useState(false);
+  
+  // State for new modals
+  const [showStudentPreview, setShowStudentPreview] = useState(false);
+  const [showTemplateLibrary, setShowTemplateLibrary] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
+  
+  // Theme context
+  const { isDarkMode } = useTheme();
+  
   // Use column layout hook
   const {
     collapsedColumns,
@@ -129,6 +155,48 @@ const ReadingTestEditor = ({
     handleMouseDown,
     getColumnWidth
   } = useColumnLayout();
+
+  // Keyboard shortcuts
+  useKeyboardShortcuts({
+    onSave: () => {
+      if (onManualSave) {
+        onManualSave();
+      }
+      if (onReview) {
+        onReview();
+      }
+    },
+    onAddQuestion: () => {
+      if (selectedPassageIndex !== null && selectedSectionIndex !== null && onAddQuestion) {
+        onAddQuestion(selectedPassageIndex, selectedSectionIndex);
+      }
+    },
+    onCloseModal: () => {
+      if (isReviewing) {
+        setIsReviewing(false);
+      }
+      if (showShortcutsHelp) {
+        setShowShortcutsHelp(false);
+      }
+    }
+  });
+
+  // Listen for '?' key to show shortcuts help
+  useEffect(() => {
+    const handleKeyPress = (e) => {
+      if (e.key === '?' && !e.ctrlKey && !e.altKey) {
+        const target = e.target;
+        const isInput = target.tagName === 'INPUT' || 
+                       target.tagName === 'TEXTAREA' || 
+                       target.isContentEditable;
+        if (!isInput) {
+          setShowShortcutsHelp(prev => !prev);
+        }
+      }
+    };
+    window.addEventListener('keypress', handleKeyPress);
+    return () => window.removeEventListener('keypress', handleKeyPress);
+  }, []);
 
   // Current passage and section
   const currentPassage = passages?.[selectedPassageIndex];
@@ -139,10 +207,48 @@ const ReadingTestEditor = ({
       <style>{compactCSS(className)}</style>
       <AdminNavbar />
       
+      {/* Keyboard Shortcuts Help Modal */}
+      <KeyboardShortcutsHelp 
+        isOpen={showShortcutsHelp} 
+        onClose={() => setShowShortcutsHelp(false)} 
+      />
+      
       <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }} className={className}>
         {/* HEADER */}
         <div style={{ padding: '10px 15px', backgroundColor: '#fff', borderBottom: '1px solid #ddd', overflowY: 'auto', flexShrink: 0 }}>
-          <h2 style={{ margin: '6px 0 10px 0', fontSize: '18px', textAlign: 'center' }}>{pageTitle}</h2>
+          {/* Top bar with title and tools */}
+          <div style={{ 
+            display: 'flex', 
+            justifyContent: 'space-between', 
+            alignItems: 'center',
+            marginBottom: '10px'
+          }}>
+            {/* Auto-save indicator */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <AutoSaveIndicator lastSaved={lastSaved} isSaving={isSaving} />
+              <button
+                type="button"
+                onClick={() => setShowShortcutsHelp(true)}
+                title="Keyboard Shortcuts (?)"
+                style={{
+                  padding: '6px 10px',
+                  backgroundColor: '#f0f0f0',
+                  border: '1px solid #ddd',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '12px'
+                }}
+              >
+                ⌨️ ?
+              </button>
+            </div>
+            
+            {/* Page title */}
+            <h2 style={{ margin: 0, fontSize: '18px' }}>{pageTitle}</h2>
+            
+            {/* Theme toggle placeholder - for future */}
+            <div style={{ width: '150px' }}></div>
+          </div>
           
           {/* Form inputs */}
           <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap', maxWidth: '800px', margin: '0 auto' }}>
@@ -477,39 +583,688 @@ const ReadingTestEditor = ({
           </div>
         </div>
 
-        {/* REVIEW MODAL */}
+        {/* REVIEW MODAL - Full Preview */}
         {isReviewing && (
           <div style={modalStyles}>
-            <div style={modalContentStyles}>
-              <div style={modalHeaderStyles}>
+            <div style={{
+              ...modalContentStyles,
+              width: '95%',
+              maxWidth: '1200px',
+              maxHeight: '95vh',
+              display: 'flex',
+              flexDirection: 'column'
+            }}>
+              {/* Modal Header with Close Button */}
+              <div style={{
+                ...modalHeaderStyles,
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center'
+              }}>
                 <h3 style={{ margin: 0 }}>📋 Xác nhận {submitButtonText}</h3>
+                <button
+                  type="button"
+                  onClick={() => setIsReviewing(false)}
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    color: 'white',
+                    fontSize: '24px',
+                    cursor: 'pointer',
+                    padding: '0 8px',
+                    lineHeight: 1
+                  }}
+                  title="Đóng"
+                >
+                  ✕
+                </button>
               </div>
               
-              <div style={{ marginBottom: '20px' }}>
-                <h4>📝 Thông tin đề thi:</h4>
-                <p><strong>Tiêu đề:</strong> {title}</p>
-                <p><strong>Mã lớp:</strong> {classCode || '(Không có)'}</p>
-                <p><strong>Giáo viên:</strong> {teacherName || '(Không có)'}</p>
-                <p><strong>Số passages:</strong> {passages?.length || 0}</p>
-                <p><strong>Tổng câu hỏi:</strong> {calculateTotalQuestions(passages)}</p>
+              {/* Test Info Summary */}
+              <div style={{ 
+                padding: '15px', 
+                backgroundColor: '#f8f9fa', 
+                borderRadius: '6px',
+                marginBottom: '15px',
+                display: 'flex',
+                flexWrap: 'wrap',
+                gap: '20px'
+              }}>
+                <div><strong>📝 Tiêu đề:</strong> {title}</div>
+                <div><strong>🏫 Mã lớp:</strong> {classCode || '(Không có)'}</div>
+                <div><strong>👨‍🏫 Giáo viên:</strong> {teacherName || '(Không có)'}</div>
+                <div><strong>📚 Passages:</strong> {passages?.length || 0}</div>
+                <div><strong>📌 Sections:</strong> {passages?.reduce((sum, p) => sum + (p.sections?.length || 0), 0) || 0}</div>
+                <div><strong>❓ Tổng câu hỏi:</strong> {calculateTotalQuestions(passages)}</div>
               </div>
               
-              <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+              {/* Full Preview Content - Scrollable */}
+              <div style={{ 
+                flex: 1, 
+                overflowY: 'auto', 
+                marginBottom: '15px',
+                border: '1px solid #ddd',
+                borderRadius: '6px'
+              }}>
+                {passages?.map((passage, pIdx) => (
+                  <div key={pIdx} style={{ 
+                    borderBottom: pIdx < passages.length - 1 ? '2px solid #0e276f' : 'none'
+                  }}>
+                    {/* Passage Header */}
+                    <div style={{ 
+                      backgroundColor: '#0e276f', 
+                      color: 'white', 
+                      padding: '10px 15px',
+                      fontWeight: 'bold',
+                      fontSize: '14px'
+                    }}>
+                      📚 Passage {pIdx + 1}: {passage.passageTitle || '(Untitled)'}
+                    </div>
+                    
+                    {/* Passage Content */}
+                    <div style={{ padding: '15px', backgroundColor: '#fafafa' }}>
+                      <div style={{ 
+                        backgroundColor: 'white', 
+                        padding: '15px', 
+                        borderRadius: '6px',
+                        border: '1px solid #ddd',
+                        maxHeight: '200px',
+                        overflowY: 'auto',
+                        marginBottom: '15px',
+                        fontSize: '13px',
+                        lineHeight: '1.6'
+                      }}>
+                        <div dangerouslySetInnerHTML={{ __html: passage.passageText || '<em>(Chưa có nội dung)</em>' }} />
+                      </div>
+                      
+                      {/* Sections */}
+                      {passage.sections?.map((section, sIdx) => (
+                        <div key={sIdx} style={{ 
+                          marginBottom: '15px',
+                          border: '1px solid #ff6b6b',
+                          borderRadius: '6px',
+                          overflow: 'hidden'
+                        }}>
+                          {/* Section Header */}
+                          <div style={{ 
+                            backgroundColor: '#ff6b6b', 
+                            color: 'white', 
+                            padding: '8px 12px',
+                            fontWeight: 'bold',
+                            fontSize: '13px'
+                          }}>
+                            📌 Section {sIdx + 1}: {section.sectionTitle || '(Untitled)'} 
+                            <span style={{ fontWeight: 'normal', marginLeft: '10px' }}>
+                              ({section.questions?.length || 0} câu hỏi)
+                            </span>
+                          </div>
+                          
+                          {/* Section Instruction */}
+                          {section.sectionInstruction && (
+                            <div style={{ 
+                              padding: '10px 12px', 
+                              backgroundColor: '#fff5f5',
+                              borderBottom: '1px solid #fdd',
+                              fontSize: '12px',
+                              fontStyle: 'italic'
+                            }}>
+                              <strong>Hướng dẫn:</strong>
+                              <div dangerouslySetInnerHTML={{ __html: section.sectionInstruction }} />
+                            </div>
+                          )}
+                          
+                          {/* Questions */}
+                          <div style={{ padding: '10px 12px' }}>
+                            {section.questions?.map((q, qIdx) => {
+                              const isClozeType = q.questionType === 'cloze-test' || q.questionType === 'paragraph-fill-blanks';
+                              const isMatchingType = q.questionType === 'matching' || q.questionType === 'matching-headings';
+                              const isIELTSMatchingHeadings = q.questionType === 'ielts-matching-headings';
+                              const isMultipleChoice = q.questionType === 'multiple-choice' || q.questionType === 'mcq';
+                              
+                              // Check for content based on question type
+                              const hasQuestionText = q.questionText && q.questionText.trim() && q.questionText !== '<p><br></p>';
+                              const hasParagraphText = q.paragraphText && q.paragraphText.trim(); // For cloze-test
+                              const hasMatchingItems = (q.leftItems && q.leftItems.length > 0) || (q.rightItems && q.rightItems.length > 0);
+                              const hasIELTSMatchingData = q.paragraphs && q.paragraphs.length > 0 && q.headings && q.headings.length > 0;
+                              
+                              // Determine if question has content
+                              const hasContent = isClozeType 
+                                ? (hasParagraphText || hasQuestionText)
+                                : isMatchingType 
+                                  ? (hasMatchingItems || hasQuestionText)
+                                  : isIELTSMatchingHeadings
+                                    ? hasIELTSMatchingData
+                                    : hasQuestionText;
+                              
+                              // Helper function to highlight blanks in text
+                              const highlightBlanks = (text) => {
+                                if (!text) return '';
+                                return text
+                                  .replace(/\[BLANK\]/g, '<span style="background:#fff3cd;padding:2px 8px;border-radius:3px;border:1px dashed #ffc107;font-weight:bold;">______</span>')
+                                  .replace(/_{3,}/g, '<span style="background:#fff3cd;padding:2px 8px;border-radius:3px;border:1px dashed #ffc107;font-weight:bold;">______</span>')
+                                  .replace(/\((\d+)\)/g, '<span style="background:#17a2b8;color:white;padding:1px 6px;border-radius:3px;font-size:10px;margin:0 2px;">$1</span>');
+                              };
+
+                              // Get border color based on question type
+                              const getBorderStyle = () => {
+                                if (isClozeType) return '2px solid #17a2b8';
+                                if (isMatchingType || isIELTSMatchingHeadings) return '2px solid #6f42c1';
+                                if (isMultipleChoice) return '2px solid #fd7e14';
+                                return '1px solid #eee';
+                              };
+
+                              // Get badge color based on question type
+                              const getBadgeColor = () => {
+                                if (isClozeType) return '#17a2b8';
+                                if (isMatchingType || isIELTSMatchingHeadings) return '#6f42c1';
+                                if (isMultipleChoice) return '#fd7e14';
+                                return '#ffc107';
+                              };
+                              
+                              return (
+                                <div key={qIdx} style={{ 
+                                  padding: '10px 12px',
+                                  marginBottom: '10px',
+                                  backgroundColor: 'white',
+                                  borderRadius: '6px',
+                                  border: getBorderStyle(),
+                                  fontSize: '12px'
+                                }}>
+                                  {/* Question Header */}
+                                  <div style={{ 
+                                    display: 'flex', 
+                                    gap: '10px', 
+                                    alignItems: 'center',
+                                    marginBottom: '8px',
+                                    paddingBottom: '8px',
+                                    borderBottom: '1px solid #eee',
+                                    flexWrap: 'wrap'
+                                  }}>
+                                    <span style={{ 
+                                      backgroundColor: getBadgeColor(), 
+                                      color: 'white',
+                                      padding: '3px 10px', 
+                                      borderRadius: '4px',
+                                      fontWeight: 'bold',
+                                      fontSize: '11px',
+                                      whiteSpace: 'nowrap'
+                                    }}>
+                                      Q{q.questionNumber || qIdx + 1}
+                                    </span>
+                                    <span style={{ 
+                                      backgroundColor: '#6c757d', 
+                                      color: 'white',
+                                      padding: '2px 8px', 
+                                      borderRadius: '4px',
+                                      fontSize: '10px'
+                                    }}>
+                                      {q.questionType}
+                                    </span>
+                                    {isClozeType && q.blanks && (
+                                      <span style={{ 
+                                        backgroundColor: '#28a745', 
+                                        color: 'white',
+                                        padding: '2px 8px', 
+                                        borderRadius: '4px',
+                                        fontSize: '10px'
+                                      }}>
+                                        {q.blanks.length} chỗ trống
+                                      </span>
+                                    )}
+                                    {isMatchingType && hasMatchingItems && (
+                                      <span style={{ 
+                                        backgroundColor: '#28a745', 
+                                        color: 'white',
+                                        padding: '2px 8px', 
+                                        borderRadius: '4px',
+                                        fontSize: '10px'
+                                      }}>
+                                        {q.rightItems?.length || 0} items
+                                      </span>
+                                    )}
+                                    {/* Warning if no content */}
+                                    {!hasContent && (
+                                      <span style={{ 
+                                        backgroundColor: '#dc3545', 
+                                        color: 'white',
+                                        padding: '2px 8px', 
+                                        borderRadius: '4px',
+                                        fontSize: '10px'
+                                      }}>
+                                        ⚠️ Chưa có nội dung
+                                      </span>
+                                    )}
+                                  </div>
+                                  
+                                  {/* Question Content */}
+                                  <div style={{ flex: 1 }}>
+                                    {/* Cloze-test: Show paragraphText OR questionText */}
+                                    {isClozeType && (
+                                      <div style={{ 
+                                        marginBottom: '10px',
+                                        padding: '12px',
+                                        backgroundColor: (hasParagraphText || hasQuestionText) ? '#e8f4fc' : '#fff3cd',
+                                        borderRadius: '6px',
+                                        border: (hasParagraphText || hasQuestionText) ? '1px solid #bee5eb' : '2px dashed #ffc107',
+                                        lineHeight: '1.8'
+                                      }}>
+                                        <div style={{ 
+                                          fontSize: '11px', 
+                                          color: (hasParagraphText || hasQuestionText) ? '#17a2b8' : '#856404', 
+                                          marginBottom: '6px',
+                                          fontWeight: 'bold'
+                                        }}>
+                                          📝 Đoạn văn câu hỏi:
+                                        </div>
+                                        {hasParagraphText ? (
+                                          <div 
+                                            dangerouslySetInnerHTML={{ __html: highlightBlanks(q.paragraphText) }}
+                                            style={{ fontSize: '13px' }}
+                                          />
+                                        ) : hasQuestionText ? (
+                                          <div 
+                                            dangerouslySetInnerHTML={{ __html: highlightBlanks(q.questionText) }}
+                                            style={{ fontSize: '13px' }}
+                                          />
+                                        ) : (
+                                          <div style={{ color: '#856404', fontStyle: 'italic' }}>
+                                            ⚠️ <strong>Chưa nhập đoạn văn câu hỏi!</strong> 
+                                            <br/>
+                                            <span style={{ fontSize: '11px' }}>
+                                              Vui lòng quay lại và nhập đoạn văn có chứa các chỗ trống [BLANK] để học sinh điền.
+                                            </span>
+                                          </div>
+                                        )}
+                                      </div>
+                                    )}
+                                    
+                                    {/* Matching: Show leftItems/rightItems OR questionText */}
+                                    {isMatchingType && (
+                                      <>
+                                        {/* Show matching items if available */}
+                                        {hasMatchingItems && (
+                                          <div style={{ 
+                                            marginBottom: '10px',
+                                            padding: '12px',
+                                            backgroundColor: '#f3e8ff',
+                                            borderRadius: '6px',
+                                            border: '1px solid #d4b5ff'
+                                          }}>
+                                            <div style={{ 
+                                              fontSize: '11px', 
+                                              color: '#6f42c1', 
+                                              marginBottom: '8px',
+                                              fontWeight: 'bold'
+                                            }}>
+                                              🔗 Danh sách Matching:
+                                            </div>
+                                            
+                                            {/* Right Items (Headings to match) */}
+                                            {q.rightItems && q.rightItems.length > 0 && (
+                                              <div style={{ marginBottom: '10px' }}>
+                                                <div style={{ fontSize: '10px', color: '#6c757d', marginBottom: '4px' }}>
+                                                  📋 Danh sách headings/options:
+                                                </div>
+                                                {q.rightItems.map((item, i) => (
+                                                  <div key={i} style={{
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    gap: '8px',
+                                                    marginBottom: '4px',
+                                                    padding: '6px 10px',
+                                                    backgroundColor: '#6f42c1',
+                                                    color: 'white',
+                                                    borderRadius: '4px',
+                                                    fontSize: '11px'
+                                                  }}>
+                                                    <span style={{ 
+                                                      backgroundColor: 'rgba(255,255,255,0.3)',
+                                                      padding: '2px 8px',
+                                                      borderRadius: '3px',
+                                                      fontWeight: 'bold',
+                                                      minWidth: '30px',
+                                                      textAlign: 'center'
+                                                    }}>
+                                                      {item.label || (i + 1)}
+                                                    </span>
+                                                    <span>{item.text || item}</span>
+                                                  </div>
+                                                ))}
+                                              </div>
+                                            )}
+                                            
+                                            {/* Left Items if any */}
+                                            {q.leftItems && q.leftItems.length > 0 && (
+                                              <div>
+                                                <div style={{ fontSize: '10px', color: '#6c757d', marginBottom: '4px' }}>
+                                                  📌 Các đoạn văn (Paragraphs):
+                                                </div>
+                                                {q.leftItems.map((item, i) => (
+                                                  <div key={i} style={{
+                                                    display: 'inline-block',
+                                                    margin: '2px 4px',
+                                                    padding: '4px 10px',
+                                                    backgroundColor: '#17a2b8',
+                                                    color: 'white',
+                                                    borderRadius: '4px',
+                                                    fontSize: '11px'
+                                                  }}>
+                                                    {item.label || String.fromCharCode(65 + i)}. {item.text || item}
+                                                  </div>
+                                                ))}
+                                              </div>
+                                            )}
+                                          </div>
+                                        )}
+                                        
+                                        {/* Show questionText if available */}
+                                        {hasQuestionText && (
+                                          <div style={{ 
+                                            marginBottom: '10px',
+                                            padding: '12px',
+                                            backgroundColor: '#f3e8ff',
+                                            borderRadius: '6px',
+                                            border: '1px solid #d4b5ff'
+                                          }}>
+                                            <div style={{ fontSize: '11px', color: '#6f42c1', marginBottom: '6px', fontWeight: 'bold' }}>
+                                              🔗 Nội dung câu hỏi:
+                                            </div>
+                                            <div 
+                                              dangerouslySetInnerHTML={{ __html: q.questionText }}
+                                              style={{ fontSize: '13px' }}
+                                            />
+                                          </div>
+                                        )}
+                                        
+                                        {/* Warning if no content */}
+                                        {!hasMatchingItems && !hasQuestionText && (
+                                          <div style={{ 
+                                            marginBottom: '10px',
+                                            padding: '12px',
+                                            backgroundColor: '#fff3cd',
+                                            borderRadius: '6px',
+                                            border: '2px dashed #ffc107'
+                                          }}>
+                                            <div style={{ color: '#856404', fontStyle: 'italic' }}>
+                                              ⚠️ <strong>Chưa nhập nội dung matching!</strong>
+                                              <br/>
+                                              <span style={{ fontSize: '11px' }}>
+                                                Vui lòng quay lại và nhập danh sách headings/statements cần match.
+                                              </span>
+                                            </div>
+                                          </div>
+                                        )}
+                                      </>
+                                    )}
+                                    
+                                    {/* IELTS Matching Headings */}
+                                    {isIELTSMatchingHeadings && (
+                                      <div style={{ 
+                                        marginBottom: '10px',
+                                        padding: '12px',
+                                        backgroundColor: '#f0f7ff',
+                                        borderRadius: '6px',
+                                        border: '2px solid #0e276f'
+                                      }}>
+                                        <div style={{ 
+                                          fontSize: '12px', 
+                                          color: '#0e276f', 
+                                          marginBottom: '10px',
+                                          fontWeight: 'bold'
+                                        }}>
+                                          🔗 IELTS Matching Headings
+                                        </div>
+                                        
+                                        {/* Headings List */}
+                                        {q.headings && q.headings.length > 0 && (
+                                          <div style={{ marginBottom: '12px' }}>
+                                            <div style={{ fontSize: '11px', color: '#6c757d', marginBottom: '6px', fontWeight: 'bold' }}>
+                                              📋 List of Headings:
+                                            </div>
+                                            {q.headings.map((h, i) => (
+                                              <div key={i} style={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '8px',
+                                                marginBottom: '4px',
+                                                padding: '6px 10px',
+                                                backgroundColor: '#6f42c1',
+                                                color: 'white',
+                                                borderRadius: '4px',
+                                                fontSize: '11px'
+                                              }}>
+                                                <span style={{ 
+                                                  backgroundColor: 'rgba(255,255,255,0.3)',
+                                                  padding: '2px 8px',
+                                                  borderRadius: '3px',
+                                                  fontWeight: 'bold',
+                                                  minWidth: '30px',
+                                                  textAlign: 'center'
+                                                }}>
+                                                  {h.label}
+                                                </span>
+                                                <span>{h.text}</span>
+                                              </div>
+                                            ))}
+                                          </div>
+                                        )}
+                                        
+                                        {/* Answer Table */}
+                                        {q.paragraphs && q.paragraphs.length > 0 && (
+                                          <div>
+                                            <div style={{ fontSize: '11px', color: '#6c757d', marginBottom: '6px', fontWeight: 'bold' }}>
+                                              ✅ Đáp án:
+                                            </div>
+                                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
+                                              <thead>
+                                                <tr>
+                                                  <th style={{ padding: '6px', backgroundColor: '#0e276f', color: 'white', textAlign: 'left' }}>Câu</th>
+                                                  <th style={{ padding: '6px', backgroundColor: '#0e276f', color: 'white', textAlign: 'left' }}>Paragraph</th>
+                                                  <th style={{ padding: '6px', backgroundColor: '#0e276f', color: 'white', textAlign: 'left' }}>Đáp án</th>
+                                                  <th style={{ padding: '6px', backgroundColor: '#0e276f', color: 'white', textAlign: 'left' }}>Heading</th>
+                                                </tr>
+                                              </thead>
+                                              <tbody>
+                                                {q.paragraphs.map((p, i) => {
+                                                  const answer = q.answers?.[p.id];
+                                                  const heading = q.headings?.find(h => h.label === answer);
+                                                  return (
+                                                    <tr key={i} style={{ backgroundColor: i % 2 === 0 ? '#f8f9fa' : 'white' }}>
+                                                      <td style={{ padding: '6px', borderBottom: '1px solid #ddd' }}>
+                                                        <strong>Q{i + 1}</strong>
+                                                      </td>
+                                                      <td style={{ padding: '6px', borderBottom: '1px solid #ddd' }}>
+                                                        <span style={{
+                                                          backgroundColor: '#0e276f',
+                                                          color: 'white',
+                                                          padding: '2px 8px',
+                                                          borderRadius: '4px'
+                                                        }}>
+                                                          {p.label}
+                                                        </span>
+                                                      </td>
+                                                      <td style={{ padding: '6px', borderBottom: '1px solid #ddd' }}>
+                                                        {answer ? (
+                                                          <span style={{
+                                                            backgroundColor: '#28a745',
+                                                            color: 'white',
+                                                            padding: '2px 10px',
+                                                            borderRadius: '4px',
+                                                            fontWeight: 'bold'
+                                                          }}>
+                                                            {answer}
+                                                          </span>
+                                                        ) : (
+                                                          <span style={{ color: '#999' }}>--</span>
+                                                        )}
+                                                      </td>
+                                                      <td style={{ padding: '6px', borderBottom: '1px solid #ddd', color: '#495057' }}>
+                                                        {heading ? heading.text : <span style={{ color: '#999' }}>Chưa chọn</span>}
+                                                      </td>
+                                                    </tr>
+                                                  );
+                                                })}
+                                              </tbody>
+                                            </table>
+                                          </div>
+                                        )}
+                                        
+                                        {/* Warning if no data */}
+                                        {!hasIELTSMatchingData && (
+                                          <div style={{ color: '#856404', fontStyle: 'italic', fontSize: '11px' }}>
+                                            ⚠️ Chưa nhập dữ liệu Matching Headings
+                                          </div>
+                                        )}
+                                      </div>
+                                    )}
+                                    
+                                    {/* Regular question text (non-cloze, non-matching) */}
+                                    {!isClozeType && !isMatchingType && !isIELTSMatchingHeadings && (
+                                      <div style={{ 
+                                        marginBottom: '10px',
+                                        padding: hasQuestionText ? '10px' : '12px',
+                                        backgroundColor: hasQuestionText ? '#f8f9fa' : '#fff3cd',
+                                        borderRadius: '6px',
+                                        border: hasQuestionText ? '1px solid #dee2e6' : '2px dashed #ffc107'
+                                      }}>
+                                        {hasQuestionText ? (
+                                          <>
+                                            <strong style={{ color: '#495057' }}>Câu hỏi:</strong>{' '}
+                                            <span dangerouslySetInnerHTML={{ __html: q.questionText }} />
+                                          </>
+                                        ) : (
+                                          <div style={{ color: '#856404', fontStyle: 'italic', fontSize: '11px' }}>
+                                            ⚠️ <strong>Chưa nhập nội dung câu hỏi!</strong>
+                                          </div>
+                                        )}
+                                      </div>
+                                    )}
+                                    
+                                    {/* Options for multiple choice (not matching - matching uses leftItems/rightItems) */}
+                                    {!isMatchingType && !isIELTSMatchingHeadings && q.options && q.options.length > 0 && q.options.some(o => o) && (
+                                      <div style={{ 
+                                        marginBottom: '10px',
+                                        padding: '10px',
+                                        backgroundColor: '#fff8e6',
+                                        borderRadius: '6px',
+                                        border: '1px solid #dee2e6'
+                                      }}>
+                                        <strong style={{ 
+                                          color: '#495057',
+                                          fontSize: '11px'
+                                        }}>
+                                          📋 Các lựa chọn:
+                                        </strong>
+                                        <div style={{ marginTop: '6px' }}>
+                                          {q.options.filter(o => o).map((opt, i) => (
+                                            <div key={i} style={{
+                                              display: 'inline-block',
+                                              margin: '3px 6px 3px 0',
+                                              padding: '4px 10px',
+                                              backgroundColor: '#fd7e14',
+                                              color: 'white',
+                                              borderRadius: '4px',
+                                              fontSize: '11px'
+                                            }}>
+                                              <span style={{ 
+                                                backgroundColor: 'rgba(255,255,255,0.3)',
+                                                padding: '1px 5px',
+                                                borderRadius: '3px',
+                                                marginRight: '6px',
+                                                fontWeight: 'bold'
+                                              }}>
+                                                {String.fromCharCode(65 + i)}
+                                              </span>
+                                              {opt}
+                                            </div>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    )}
+                                    
+                                    {/* Answers - Skip for IELTS Matching Headings (already shown above) */}
+                                    {!isIELTSMatchingHeadings && (
+                                      <div style={{ 
+                                        backgroundColor: '#d4edda', 
+                                        padding: '8px 12px', 
+                                        borderRadius: '4px',
+                                        marginTop: '8px'
+                                      }}>
+                                        <strong style={{ color: '#155724' }}>✅ Đáp án:</strong>
+                                        {isClozeType && q.blanks ? (
+                                          <div style={{ marginTop: '6px' }}>
+                                            {q.blanks.map((b, i) => (
+                                              <div key={i} style={{ 
+                                                display: 'inline-block',
+                                                margin: '3px 6px 3px 0',
+                                                padding: '4px 10px',
+                                                backgroundColor: '#28a745',
+                                                color: 'white',
+                                                borderRadius: '4px',
+                                                fontSize: '11px'
+                                              }}>
+                                                <span style={{ 
+                                                  backgroundColor: 'rgba(255,255,255,0.3)',
+                                                  padding: '1px 5px',
+                                                  borderRadius: '3px',
+                                                  marginRight: '6px'
+                                                }}>
+                                                  {i + 1}
+                                                </span>
+                                                {b.correctAnswer || '(trống)'}
+                                              </div>
+                                            ))}
+                                          </div>
+                                        ) : (
+                                          <span style={{ 
+                                            color: '#155724', 
+                                            fontWeight: 'bold',
+                                            marginLeft: '8px'
+                                          }}>
+                                            {q.correctAnswer || '(Chưa có)'}
+                                          </span>
+                                        )}
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              
+              {/* Action Buttons */}
+              <div style={{ 
+                display: 'flex', 
+                gap: '10px', 
+                justifyContent: 'flex-end',
+                paddingTop: '15px',
+                borderTop: '1px solid #ddd'
+              }}>
                 <button
                   type="button"
                   onClick={() => setIsReviewing(false)}
                   style={backButtonStyle}
                   disabled={isSubmitting}
                 >
-                  ← Quay lại
+                  ← Quay lại chỉnh sửa
                 </button>
                 <button
                   type="button"
                   onClick={onConfirmSubmit}
-                  style={confirmButtonStyle}
+                  style={{
+                    ...confirmButtonStyle,
+                    padding: '12px 24px',
+                    fontSize: '15px'
+                  }}
                   disabled={isSubmitting}
                 >
-                  {isSubmitting ? '⏳ Đang xử lý...' : `✅ ${submitButtonText}`}
+                  {isSubmitting ? '⏳ Đang xử lý...' : `✅ Xác nhận ${submitButtonText}`}
                 </button>
               </div>
             </div>

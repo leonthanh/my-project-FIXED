@@ -1,20 +1,26 @@
 import React from 'react';
+import QuillEditor from './QuillEditor';
 
-const MultipleChoiceQuestion = ({ question, onChange, type = 'abc' }) => {
-  // Defensive: Ensure question and required properties exist
+/**
+ * IELTS Multiple Choice Question Component
+ * 
+ * Dạng chọn một hoặc nhiều đáp án đúng:
+ * - Single choice: Chọn 1 đáp án đúng
+ * - Multiple choice: Chọn nhiều đáp án đúng
+ * - Thường có 4 lựa chọn (A, B, C, D)
+ */
+
+const MultipleChoiceQuestion = ({ question, onChange }) => {
   if (!question) {
     return <div style={{ color: 'red', padding: '10px' }}>❌ Error: Question object missing</div>;
   }
 
-  const options = question.options || [''];
-  const questionText = question.questionText || '';
-
   const handleChange = (field, value) => {
-    onChange({
-      ...question,
-      [field]: value
-    });
+    onChange({ ...question, [field]: value });
   };
+
+  // Initialize options if empty
+  const options = question.options || ['', '', '', ''];
 
   const handleOptionChange = (index, value) => {
     const newOptions = [...options];
@@ -22,160 +28,366 @@ const MultipleChoiceQuestion = ({ question, onChange, type = 'abc' }) => {
     handleChange('options', newOptions);
   };
 
-  const handleAddOption = () => {
-    const newOptions = [...options, ''];
-    handleChange('options', newOptions);
+  const addOption = () => {
+    handleChange('options', [...options, '']);
   };
 
-  const handleRemoveOption = (index) => {
+  const removeOption = (index) => {
+    if (options.length <= 2) return; // Minimum 2 options
     const newOptions = options.filter((_, i) => i !== index);
     handleChange('options', newOptions);
   };
 
+  const toggleCorrectAnswer = (index) => {
+    const letter = String.fromCharCode(65 + index); // A, B, C, D...
+    if (question.multiSelect) {
+      // Multiple selection mode
+      let currentAnswers = question.correctAnswer ? question.correctAnswer.split(',') : [];
+      if (currentAnswers.includes(letter)) {
+        currentAnswers = currentAnswers.filter(a => a !== letter);
+      } else {
+        currentAnswers.push(letter);
+        currentAnswers.sort();
+      }
+      handleChange('correctAnswer', currentAnswers.join(','));
+    } else {
+      // Single selection mode
+      handleChange('correctAnswer', letter);
+    }
+  };
+
+  const isCorrect = (index) => {
+    const letter = String.fromCharCode(65 + index);
+    if (!question.correctAnswer) return false;
+    return question.correctAnswer.includes(letter);
+  };
+
+  // Theme colors
+  const primaryBlue = '#0e276f';
+  const accentGreen = '#28a745';
+
   const styles = {
     container: {
-      padding: '15px',
-      backgroundColor: '#f8f9fa',
-      borderRadius: '8px',
-      marginBottom: '15px',
-      position: 'relative',
-      zIndex: 5
+      padding: '20px',
+      backgroundColor: '#e8f5e9',
+      borderRadius: '12px',
+      border: `2px solid ${accentGreen}`,
+      marginTop: '15px'
     },
-    label: {
-      fontWeight: 'bold',
-      marginBottom: '5px',
-      display: 'block'
-    },
-    input: {
-      width: '100%',
-      padding: '8px',
-      marginBottom: '8px',
-      borderRadius: '4px',
-      border: '2px solid #0e276f',
-      fontSize: '14px',
-      backgroundColor: '#fff',
-      cursor: 'text',
-      position: 'relative',
-      zIndex: 5
-    },
-    option: {
+    header: {
       display: 'flex',
       alignItems: 'center',
-      marginBottom: '8px',
-      gap: '8px',
-      position: 'relative',
-      zIndex: 5
+      gap: '10px',
+      marginBottom: '20px',
+      paddingBottom: '15px',
+      borderBottom: `2px solid ${accentGreen}`
     },
-    optionLabel: {
-      width: '30px',
-      height: '30px',
+    headerIcon: {
+      fontSize: '28px'
+    },
+    headerTitle: {
+      margin: 0,
+      color: accentGreen,
+      fontSize: '18px'
+    },
+    headerBadge: {
+      backgroundColor: accentGreen,
+      color: 'white',
+      padding: '4px 12px',
+      borderRadius: '20px',
+      fontSize: '12px',
+      marginLeft: 'auto'
+    },
+    section: {
+      marginBottom: '20px'
+    },
+    sectionTitle: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: '8px',
+      margin: '0 0 10px 0',
+      color: primaryBlue,
+      fontSize: '14px',
+      fontWeight: 'bold'
+    },
+    modeSwitch: {
+      display: 'flex',
+      gap: '10px',
+      marginBottom: '15px'
+    },
+    modeButton: {
+      padding: '10px 20px',
+      border: 'none',
+      borderRadius: '8px',
+      cursor: 'pointer',
+      fontSize: '14px',
+      fontWeight: 'bold',
+      transition: 'all 0.3s'
+    },
+    optionCard: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: '12px',
+      padding: '12px 15px',
+      backgroundColor: 'white',
+      border: '2px solid #ddd',
+      borderRadius: '8px',
+      marginBottom: '10px',
+      transition: 'all 0.3s',
+      cursor: 'pointer'
+    },
+    optionCardCorrect: {
+      backgroundColor: '#d4edda',
+      borderColor: accentGreen
+    },
+    optionLetter: {
+      width: '36px',
+      height: '36px',
+      borderRadius: '50%',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: '#0e276f',
-      color: 'white',
+      fontWeight: 'bold',
+      fontSize: '16px',
+      flexShrink: 0
+    },
+    optionInput: {
+      flex: 1,
+      padding: '10px',
+      border: '1px solid #ddd',
+      borderRadius: '6px',
+      fontSize: '14px'
+    },
+    removeBtn: {
+      width: '32px',
+      height: '32px',
       borderRadius: '50%',
+      border: 'none',
+      backgroundColor: '#dc3545',
+      color: 'white',
+      cursor: 'pointer',
+      fontSize: '16px'
+    },
+    addBtn: {
+      width: '100%',
+      padding: '12px',
+      border: '2px dashed #28a745',
+      borderRadius: '8px',
+      backgroundColor: 'transparent',
+      color: '#28a745',
+      cursor: 'pointer',
+      fontSize: '14px',
       fontWeight: 'bold'
+    },
+    preview: {
+      marginTop: '20px',
+      padding: '15px',
+      backgroundColor: '#d4edda',
+      borderRadius: '8px',
+      border: '1px solid #c3e6cb'
+    },
+    previewTitle: {
+      margin: '0 0 10px 0',
+      color: '#155724',
+      fontSize: '14px',
+      fontWeight: 'bold'
+    },
+    previewContent: {
+      backgroundColor: 'white',
+      padding: '15px',
+      borderRadius: '6px',
+      fontSize: '14px'
+    },
+    tip: {
+      marginTop: '15px',
+      padding: '12px',
+      backgroundColor: '#d4edda',
+      borderRadius: '6px',
+      fontSize: '12px',
+      color: '#155724',
+      borderLeft: `4px solid ${accentGreen}`
     }
   };
 
   return (
     <div style={styles.container}>
-      <label style={styles.label}>❓ Câu hỏi:</label>
-      <textarea
-        value={questionText}
-        onChange={e => handleChange('questionText', e.target.value)}
-        rows={3}
-        style={{...styles.input, marginBottom: '8px', fontFamily: 'inherit'}}
-        placeholder="Nhập nội dung câu hỏi"
-      />
+      {/* Header */}
+      <div style={styles.header}>
+        <span style={styles.headerIcon}>📋</span>
+        <h4 style={styles.headerTitle}>Multiple Choice</h4>
+        <span style={styles.headerBadge}>IELTS Reading</span>
+      </div>
 
-      <label style={styles.label}>🔤 Các lựa chọn:</label>
-      {options.map((option, index) => (
-        <div key={index} style={styles.option}>
-          <span style={styles.optionLabel}>
-            {type === 'abc' ? String.fromCharCode(65 + index) : String(index + 1)}
-          </span>
-          <input
-            type="text"
-            value={option}
-            onChange={e => handleOptionChange(index, e.target.value)}
-            style={{ ...styles.input, marginBottom: 0 }}
-            placeholder={`Nhập lựa chọn ${type === 'abc' ? String.fromCharCode(65 + index) : index + 1}`}
-          />
-        </div>
-      ))}
-
-      <div style={{ marginBottom: '12px', display: 'flex', gap: '8px' }}>
-        <button
-          type="button"
-          style={{
-            backgroundColor: '#0e276f',
-            color: 'white',
-            border: 'none',
-            padding: '6px 12px',
-            borderRadius: '4px',
-            cursor: 'pointer',
-            fontSize: '13px',
-            fontWeight: '600'
-          }}
-          onClick={handleAddOption}
-        >
-          + Add Option
-        </button>
-        {options.length > 1 && (
+      {/* Mode Switch */}
+      <div style={styles.section}>
+        <h5 style={styles.sectionTitle}>
+          <span>🔄</span> Chế độ chọn đáp án:
+        </h5>
+        <div style={styles.modeSwitch}>
           <button
-            type="button"
             style={{
-              backgroundColor: '#e03',
-              color: 'white',
-              border: 'none',
-              padding: '6px 12px',
-              borderRadius: '4px',
-              cursor: 'pointer',
-              fontSize: '13px',
-              fontWeight: '600'
+              ...styles.modeButton,
+              backgroundColor: !question.multiSelect ? accentGreen : '#e9ecef',
+              color: !question.multiSelect ? 'white' : '#495057'
             }}
-            onClick={() => handleRemoveOption(options.length - 1)}
+            onClick={() => handleChange('multiSelect', false)}
           >
-            − Remove Last
+            ◉ Single Choice (1 đáp án)
+          </button>
+          <button
+            style={{
+              ...styles.modeButton,
+              backgroundColor: question.multiSelect ? accentGreen : '#e9ecef',
+              color: question.multiSelect ? 'white' : '#495057'
+            }}
+            onClick={() => handleChange('multiSelect', true)}
+          >
+            ☑️ Multiple Choice (nhiều đáp án)
+          </button>
+        </div>
+      </div>
+
+      {/* Question */}
+      <div style={styles.section}>
+        <h5 style={styles.sectionTitle}>
+          <span>❓</span> Câu hỏi:
+        </h5>
+        <QuillEditor
+          value={question.questionText || ''}
+          onChange={(value) => handleChange('questionText', value)}
+          placeholder="Nhập câu hỏi..."
+        />
+      </div>
+
+      {/* Options */}
+      <div style={styles.section}>
+        <h5 style={styles.sectionTitle}>
+          <span>📝</span> Các lựa chọn (click để đánh dấu đáp án đúng):
+        </h5>
+        
+        {options.map((option, index) => {
+          const isCorrectOption = isCorrect(index);
+          const letter = String.fromCharCode(65 + index);
+          
+          return (
+            <div
+              key={index}
+              style={{
+                ...styles.optionCard,
+                ...(isCorrectOption ? styles.optionCardCorrect : {})
+              }}
+            >
+              {/* Option Letter - Click to mark correct */}
+              <div
+                onClick={() => toggleCorrectAnswer(index)}
+                style={{
+                  ...styles.optionLetter,
+                  backgroundColor: isCorrectOption ? accentGreen : '#e9ecef',
+                  color: isCorrectOption ? 'white' : '#495057',
+                  cursor: 'pointer'
+                }}
+                title={isCorrectOption ? 'Đáp án đúng' : 'Click để chọn là đáp án đúng'}
+              >
+                {isCorrectOption ? '✓' : letter}
+              </div>
+
+              {/* Option Label */}
+              <span style={{ fontWeight: 'bold', color: '#495057' }}>{letter}.</span>
+
+              {/* Option Input */}
+              <input
+                type="text"
+                value={option}
+                onChange={(e) => handleOptionChange(index, e.target.value)}
+                placeholder={`Nhập lựa chọn ${letter}...`}
+                style={styles.optionInput}
+              />
+
+              {/* Remove Button */}
+              {options.length > 2 && (
+                <button
+                  onClick={() => removeOption(index)}
+                  style={styles.removeBtn}
+                  title="Xóa lựa chọn này"
+                >
+                  ×
+                </button>
+              )}
+            </div>
+          );
+        })}
+
+        {/* Add Option Button */}
+        {options.length < 8 && (
+          <button onClick={addOption} style={styles.addBtn}>
+            + Thêm lựa chọn
           </button>
         )}
       </div>
 
-      <label style={styles.label}>✅ Đáp án đúng:</label>
-      <select
-        value={question.correctAnswer}
-        onChange={e => handleChange('correctAnswer', e.target.value)}
-        style={styles.input}
-      >
-        <option value="">Chọn đáp án đúng</option>
-        {options.map((_, index) => (
-          <option key={index} value={type === 'abc' ? String.fromCharCode(65 + index) : index + 1}>
-            {type === 'abc' ? String.fromCharCode(65 + index) : `Lựa chọn ${index + 1}`}
-          </option>
-        ))}
-      </select>
-
       {/* Preview */}
-      <div style={{ marginTop: '15px' }}>
-        <label style={styles.label}>👁 Preview:</label>
-        <div style={{ backgroundColor: 'white', padding: '15px', borderRadius: '4px' }}>
-          <p>{question.questionText}</p>
-          {options.map((option, index) => (
-            <div key={index} style={{ margin: '8px 0' }}>
-              <span style={{ marginRight: '10px', fontWeight: 'bold' }}>
-                {type === 'abc' ? String.fromCharCode(65 + index) : index + 1}.
-              </span>
-              {option}
+      {question.questionText && options.some(o => o) && (
+        <div style={styles.preview}>
+          <h5 style={styles.previewTitle}>👁 Preview - Học sinh sẽ thấy:</h5>
+          <div style={styles.previewContent}>
+            {/* Question */}
+            <div 
+              style={{ marginBottom: '15px' }}
+              dangerouslySetInnerHTML={{ __html: question.questionText }}
+            />
+
+            {/* Options */}
+            <div style={{ marginBottom: '15px' }}>
+              {options.map((option, index) => option && (
+                <div
+                  key={index}
+                  style={{
+                    padding: '10px 15px',
+                    marginBottom: '8px',
+                    backgroundColor: isCorrect(index) ? '#d4edda' : '#f8f9fa',
+                    borderRadius: '6px',
+                    border: isCorrect(index) ? `2px solid ${accentGreen}` : '1px solid #ddd'
+                  }}
+                >
+                  <strong style={{ marginRight: '8px' }}>
+                    {String.fromCharCode(65 + index)}.
+                  </strong>
+                  {option}
+                  {isCorrect(index) && <span style={{ marginLeft: '10px', color: accentGreen }}>✓</span>}
+                </div>
+              ))}
             </div>
-          ))}
-          {question.correctAnswer && (
-            <p style={{ color: 'green', marginTop: '10px' }}>
-              Đáp án: {question.correctAnswer}
-            </p>
-          )}
+
+            {/* Correct Answer Summary */}
+            <div style={{ paddingTop: '15px', borderTop: '1px solid #ddd' }}>
+              <strong>✅ Đáp án đúng:</strong>{' '}
+              {question.correctAnswer ? (
+                <span style={{
+                  padding: '4px 12px',
+                  backgroundColor: accentGreen,
+                  color: 'white',
+                  borderRadius: '20px',
+                  fontWeight: 'bold'
+                }}>
+                  {question.correctAnswer}
+                </span>
+              ) : (
+                <span style={{ color: '#999' }}>(Chưa chọn)</span>
+              )}
+            </div>
+          </div>
         </div>
+      )}
+
+      {/* Tips */}
+      <div style={styles.tip}>
+        <strong>💡 Hướng dẫn:</strong>
+        <ul style={{ margin: '8px 0 0 0', paddingLeft: '20px' }}>
+          <li>Click vào chữ cái (A, B, C...) để đánh dấu đáp án đúng</li>
+          <li>Ở chế độ Multiple Choice, có thể chọn nhiều đáp án đúng</li>
+          <li>Nên có ít nhất 4 lựa chọn (A-D) cho câu hỏi IELTS chuẩn</li>
+          <li>Đáp án đúng sẽ được highlight màu xanh</li>
+        </ul>
       </div>
     </div>
   );

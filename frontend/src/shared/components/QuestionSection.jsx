@@ -11,6 +11,7 @@ import SentenceCompletionQuestion from './SentenceCompletionQuestion';
 import ShortAnswerQuestion from './ShortAnswerQuestion';
 import ParagraphFillBlanksQuestion from './ParagraphFillBlanksQuestion';
 import ClozeTestQuestion from './ClozeTestQuestion';
+import IELTSMatchingHeadingsQuestion from './IELTSMatchingHeadingsQuestion';
 
 const QuestionSection = ({
   passageIndex,
@@ -58,7 +59,7 @@ const QuestionSection = ({
     }}>
       {/* Section Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px', gap: '10px', flexWrap: 'wrap' }}>
-        <h5 style={{ margin: 0, color: primaryBlue }}>📌 Section {sectionIndex + 1}</h5>
+        <h5 style={{ margin: 0, color: primaryBlue, fontSize: '15px' }}>📌 Section {sectionIndex + 1}</h5>
         <div style={{ display: 'flex', gap: '8px' }}>
           {onCopySection && (
             <button
@@ -104,7 +105,7 @@ const QuestionSection = ({
 
       {/* Section Title */}
       <div style={{ marginBottom: '12px', position: 'relative', zIndex: 5 }}>
-        <label style={{ fontWeight: 'bold', marginBottom: '5px', display: 'block' }}>
+        <label style={{ fontWeight: '600', marginBottom: '6px', display: 'block', fontSize: '14px' }}>
           📝 Tiêu đề Section:
         </label>
         <input
@@ -130,7 +131,7 @@ const QuestionSection = ({
 
       {/* Section Instructions */}
       <div style={{ marginBottom: '12px' }}>
-        <label style={{ fontWeight: 'bold', marginBottom: '5px', display: 'block' }}>
+        <label style={{ fontWeight: '600', marginBottom: '6px', display: 'block', fontSize: '14px' }}>
           📋 Hướng dẫn (Instructions):
         </label>
         <QuillEditor
@@ -149,7 +150,7 @@ const QuestionSection = ({
         borderRadius: '4px',
         marginBottom: '12px'
       }}>
-        <h6 style={{ marginTop: 0, marginBottom: '12px', color: primaryBlue }}>
+        <h6 style={{ marginTop: 0, marginBottom: '12px', color: primaryBlue, fontSize: '14px', fontWeight: '600' }}>
           ❓ Câu hỏi trong Section ({section.questions?.length || 0})
         </h6>
 
@@ -188,8 +189,8 @@ const QuestionSection = ({
               >
                 {expandedQuestions[questionIndex] ? '▼' : '▶'}
               </button>
-              <span style={{ fontSize: '12px', fontWeight: 'bold', color: '#333' }}>
-                Câu {question.questionNumber || '1'} <span style={{ color: '#0e276f', fontSize: '11px', fontWeight: 'normal' }}>({question.questionType === 'multiple-choice' ? 'Trắc nghiệm 1 đáp án' : question.questionType})</span>
+              <span style={{ fontSize: '14px', fontWeight: '600', color: '#333' }}>
+                Câu {question.questionNumber || '1'} <span style={{ color: '#0e276f', fontSize: '12px', fontWeight: 'normal' }}>({question.questionType === 'multiple-choice' ? 'Trắc nghiệm 1 đáp án' : question.questionType})</span>
               </span>
               {expandedQuestions[questionIndex] && (
                 <div style={{ display: 'flex', gap: '8px' }}>
@@ -233,8 +234,8 @@ const QuestionSection = ({
               <>
                 {/* Question Number Input */}
                 <div style={{ marginBottom: '12px' }}>
-                  <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>
-                    Số câu hỏi (Question Number): <span style={{ color: '#0e276f', fontSize: '11px', fontWeight: 'normal' }}>- {question.questionType === 'multiple-choice' ? 'Trắc nghiệm 1 đáp án' : question.questionType}</span>
+                  <label style={{ fontWeight: '600', display: 'block', marginBottom: '6px', fontSize: '14px' }}>
+                    Số câu hỏi (Question Number): <span style={{ color: '#0e276f', fontSize: '12px', fontWeight: 'normal' }}>- {question.questionType === 'multiple-choice' ? 'Trắc nghiệm 1 đáp án' : question.questionType}</span>
                   </label>
                   <p style={{ fontSize: '12px', color: '#666', margin: '0 0 6px 0' }}>
                     💡 Ví dụ: 38-40 hoặc 38, 39, 40 hoặc chỉ 38
@@ -265,7 +266,7 @@ const QuestionSection = ({
 
                 {/* Question Type Select */}
                 <div style={{ marginBottom: '12px' }}>
-                  <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>
+                  <label style={{ fontWeight: '600', display: 'block', marginBottom: '6px', fontSize: '14px' }}>
                     Loại câu hỏi: {question.questionType || '(not set)'}
                   </label>
                   <select
@@ -296,6 +297,7 @@ const QuestionSection = ({
                     <option value="cloze-test" title="Học sinh điền từ vào các chỗ trống nhúng trong đoạn văn (Cloze Test)">Cloze Test - Điền chỗ trống trong đoạn</option>
                     <option value="paragraph-fill-blanks" title="Học sinh điền từ vào các chỗ trống trong đoạn văn (từ danh sách gợi ý A-I)">Đoạn văn - Điền chỗ trống</option>
                     <option value="paragraph-matching" title="Học sinh tìm thông tin ở đoạn A-G để trả lời câu hỏi">Tìm thông tin ở đoạn nào (A-G)</option>
+                    <option value="ielts-matching-headings" title="IELTS: Ghép mỗi đoạn văn (A-G) với 1 heading phù hợp (i-x)">🔗 IELTS Matching Headings</option>
                     <option value="sentence-completion" title="Học sinh hoàn thành câu bằng cách chọn từ từ danh sách gợi ý">Hoàn thành câu (chọn từ danh sách)</option>
                     <option value="short-answer" title="Học sinh viết câu trả lời ngắn (tối đa 3 từ)">Câu trả lời ngắn</option>
                   </select>
@@ -311,6 +313,7 @@ const QuestionSection = ({
                     {question.questionType === 'cloze-test' && '✓ Học sinh điền từ vào các chỗ trống nhúng trong đoạn văn (sử dụng [BLANK] để đánh dấu)'}
                     {question.questionType === 'paragraph-fill-blanks' && '✓ Học sinh điền từ vào các chỗ trống trong đoạn văn (từ danh sách gợi ý A-I)'}
                     {question.questionType === 'paragraph-matching' && '✓ Học sinh tìm thông tin ở đoạn A-G để trả lời câu hỏi'}
+                    {question.questionType === 'ielts-matching-headings' && '✓ IELTS: Ghép mỗi đoạn văn (A-G) với 1 heading phù hợp (i-x). Có thể có headings dư.'}
                     {question.questionType === 'sentence-completion' && '✓ Học sinh hoàn thành câu bằng cách chọn từ từ danh sách gợi ý'}
                     {question.questionType === 'short-answer' && '✓ Học sinh viết câu trả lời ngắn (tối đa 3 từ)'}
                   </div>
@@ -367,6 +370,14 @@ const QuestionSection = ({
                   />
                 )}
 
+                {(question.questionType || 'multiple-choice') === 'ielts-matching-headings' && (
+                  <IELTSMatchingHeadingsQuestion
+                    question={question}
+                    onChange={(q) => onQuestionChange(passageIndex, sectionIndex, questionIndex, 'full', q)}
+                    questionNumbers={question.questionNumber}
+                  />
+                )}
+
                 {(question.questionType || 'multiple-choice') === 'sentence-completion' && (
                   <SentenceCompletionQuestion
                     question={question}
@@ -395,7 +406,7 @@ const QuestionSection = ({
                   />
                 )}
 
-                {!['multiple-choice', 'multi-select', 'fill-in-the-blanks', 'matching', 'true-false-not-given', 'yes-no-not-given', 'cloze-test', 'paragraph-matching', 'sentence-completion', 'paragraph-fill-blanks', 'short-answer'].includes(question.questionType || 'multiple-choice') && (
+                {!['multiple-choice', 'multi-select', 'fill-in-the-blanks', 'matching', 'true-false-not-given', 'yes-no-not-given', 'cloze-test', 'paragraph-matching', 'ielts-matching-headings', 'sentence-completion', 'paragraph-fill-blanks', 'short-answer'].includes(question.questionType || 'multiple-choice') && (
                   <div style={{ color: 'red', padding: '8px', backgroundColor: '#ffe0e0', borderRadius: '4px' }}>
                     ⚠️ Unknown question type: {question.questionType}
                   </div>

@@ -1,9 +1,22 @@
 import React, { useState, useEffect } from 'react';
 
+/**
+ * IELTS Cloze Test Question Component
+ * 
+ * Dạng điền chỗ trống trong đoạn văn:
+ * - Học sinh đọc đoạn văn có các chỗ trống
+ * - Điền từ/cụm từ phù hợp vào mỗi chỗ trống
+ * - Thường có giới hạn số từ
+ */
+
 const ClozeTestQuestion = ({ question, onChange }) => {
-  const [paragraphText, setParagraphText] = useState(question.paragraphText || '');
-  const [maxWords, setMaxWords] = useState(question.maxWords || 3);
-  const [blanks, setBlanks] = useState(question.blanks || []);
+  const [paragraphText, setParagraphText] = useState(question?.paragraphText || '');
+  const [maxWords, setMaxWords] = useState(question?.maxWords || 3);
+  const [blanks, setBlanks] = useState(question?.blanks || []);
+
+  // Theme colors
+  const primaryBlue = '#0e276f';
+  const accentCyan = '#0891b2';
 
   // Phát hiện [BLANK] và tạo blanks array
   useEffect(() => {
@@ -14,16 +27,20 @@ const ClozeTestQuestion = ({ question, onChange }) => {
       correctAnswer: blanks[idx]?.correctAnswer || ''
     }));
     setBlanks(newBlanks);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [paragraphText]);
 
   // Cập nhật question object
   useEffect(() => {
-    onChange({
-      ...question,
-      paragraphText,
-      maxWords,
-      blanks
-    });
+    if (onChange) {
+      onChange({
+        ...question,
+        paragraphText,
+        maxWords,
+        blanks
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [paragraphText, maxWords, blanks]);
 
   const handleBlankChange = (idx, value) => {
@@ -32,37 +49,58 @@ const ClozeTestQuestion = ({ question, onChange }) => {
     setBlanks(newBlanks);
   };
 
+  // Insert [BLANK] at cursor position
+  const insertBlank = () => {
+    const textarea = document.getElementById('cloze-textarea');
+    if (textarea) {
+      const start = textarea.selectionStart;
+      const end = textarea.selectionEnd;
+      const newText = paragraphText.substring(0, start) + '[BLANK]' + paragraphText.substring(end);
+      setParagraphText(newText);
+    } else {
+      setParagraphText(paragraphText + ' [BLANK]');
+    }
+  };
+
   // Hiển thị preview đoạn văn với input fields
   const renderPreview = () => {
     if (!paragraphText) return null;
 
     const parts = paragraphText.split(/\[BLANK\]/);
+    let questionNum = parseInt(question?.questionNumber) || 1;
+    
     return (
       <div style={{ 
-        backgroundColor: '#f9f9f9', 
-        padding: '12px', 
-        borderRadius: '4px',
-        marginTop: '10px',
-        lineHeight: '1.8',
-        fontSize: '14px'
+        backgroundColor: 'white', 
+        padding: '20px', 
+        borderRadius: '8px',
+        lineHeight: '2.2',
+        fontSize: '15px',
+        border: '1px solid #e0e0e0'
       }}>
         {parts.map((part, idx) => (
           <span key={idx}>
             {part}
             {idx < parts.length - 1 && (
               <span style={{ 
-                display: 'inline-block',
-                width: '120px',
-                height: '28px',
-                border: '2px solid #0e276f',
-                borderRadius: '4px',
-                margin: '0 4px',
-                backgroundColor: '#fff',
-                textAlign: 'center',
-                fontSize: '12px',
-                color: '#999'
+                display: 'inline-flex',
+                alignItems: 'center',
+                margin: '0 4px'
               }}>
-                {blanks[idx]?.blankNumber || idx + 1}
+                <span style={{
+                  display: 'inline-block',
+                  width: '130px',
+                  padding: '6px 12px',
+                  border: `2px solid ${accentCyan}`,
+                  borderRadius: '6px',
+                  backgroundColor: '#f0fdfa',
+                  textAlign: 'center',
+                  fontSize: '14px',
+                  color: accentCyan,
+                  fontWeight: 'bold'
+                }}>
+                  {questionNum + idx}
+                </span>
               </span>
             )}
           </span>
@@ -71,98 +109,277 @@ const ClozeTestQuestion = ({ question, onChange }) => {
     );
   };
 
+  const styles = {
+    container: {
+      padding: '20px',
+      backgroundColor: '#ecfeff',
+      borderRadius: '12px',
+      border: `2px solid ${accentCyan}`,
+      marginTop: '15px'
+    },
+    header: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: '10px',
+      marginBottom: '20px',
+      paddingBottom: '15px',
+      borderBottom: `2px solid ${accentCyan}`
+    },
+    headerIcon: {
+      fontSize: '28px'
+    },
+    headerTitle: {
+      margin: 0,
+      color: accentCyan,
+      fontSize: '18px'
+    },
+    headerBadge: {
+      backgroundColor: accentCyan,
+      color: 'white',
+      padding: '4px 12px',
+      borderRadius: '20px',
+      fontSize: '12px',
+      marginLeft: 'auto'
+    },
+    section: {
+      marginBottom: '20px'
+    },
+    sectionTitle: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: '8px',
+      margin: '0 0 10px 0',
+      color: primaryBlue,
+      fontSize: '14px',
+      fontWeight: 'bold'
+    },
+    textarea: {
+      width: '100%',
+      minHeight: '140px',
+      padding: '15px',
+      border: `2px solid ${accentCyan}`,
+      borderRadius: '8px',
+      fontSize: '14px',
+      fontFamily: 'Arial, sans-serif',
+      boxSizing: 'border-box',
+      lineHeight: '1.6',
+      resize: 'vertical'
+    },
+    tip: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: '8px',
+      marginTop: '10px',
+      padding: '10px 15px',
+      backgroundColor: '#fff7ed',
+      border: '1px solid #fed7aa',
+      borderRadius: '6px',
+      fontSize: '13px',
+      color: '#c2410c'
+    },
+    insertButton: {
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: '6px',
+      padding: '8px 16px',
+      backgroundColor: accentCyan,
+      color: 'white',
+      border: 'none',
+      borderRadius: '6px',
+      cursor: 'pointer',
+      fontSize: '13px',
+      fontWeight: 'bold',
+      marginTop: '10px'
+    },
+    wordLimitBox: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: '10px',
+      padding: '15px 20px',
+      backgroundColor: '#fef3c7',
+      border: '2px solid #fbbf24',
+      borderRadius: '8px',
+      fontSize: '14px'
+    },
+    preview: {
+      marginTop: '20px',
+      padding: '15px',
+      backgroundColor: '#cffafe',
+      borderRadius: '8px',
+      border: '1px solid #a5f3fc'
+    },
+    previewTitle: {
+      margin: '0 0 15px 0',
+      color: '#0e7490',
+      fontSize: '14px',
+      fontWeight: 'bold',
+      display: 'flex',
+      alignItems: 'center',
+      gap: '8px'
+    },
+    answersSection: {
+      marginTop: '20px',
+      padding: '20px',
+      backgroundColor: 'white',
+      borderRadius: '8px',
+      border: `2px solid ${accentCyan}`
+    },
+    answerRow: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: '15px',
+      marginBottom: '12px',
+      padding: '12px 15px',
+      backgroundColor: '#f8fafc',
+      borderRadius: '8px',
+      border: '1px solid #e2e8f0'
+    },
+    blankBadge: {
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      width: '80px',
+      padding: '8px 12px',
+      backgroundColor: accentCyan,
+      color: 'white',
+      borderRadius: '6px',
+      fontWeight: 'bold',
+      fontSize: '13px',
+      flexShrink: 0
+    },
+    answerInput: {
+      flex: 1,
+      padding: '10px 15px',
+      border: '2px solid #e2e8f0',
+      borderRadius: '6px',
+      fontSize: '14px',
+      transition: 'border-color 0.3s'
+    },
+    helpSection: {
+      marginTop: '15px',
+      padding: '15px',
+      backgroundColor: '#f0fdfa',
+      borderRadius: '8px',
+      fontSize: '13px',
+      color: '#0f766e',
+      borderLeft: `4px solid ${accentCyan}`
+    }
+  };
+
   return (
-    <div style={{ padding: '12px', backgroundColor: '#f0f5ff', borderRadius: '6px', marginTop: '10px' }}>
-      <h6 style={{ margin: '0 0 12px 0', color: '#0e276f' }}>📝 Cloze Test (Điền chỗ trống trong đoạn văn)</h6>
+    <div style={styles.container}>
+      {/* Header */}
+      <div style={styles.header}>
+        <span style={styles.headerIcon}>📄</span>
+        <h4 style={styles.headerTitle}>Cloze Test (Điền chỗ trống trong đoạn văn)</h4>
+        <span style={styles.headerBadge}>IELTS Reading/Listening</span>
+      </div>
 
       {/* Paragraph Input */}
-      <div style={{ marginBottom: '12px' }}>
-        <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '5px', fontSize: '12px' }}>
-          📖 Nhập đoạn văn (Đánh dấu chỗ trống bằng [BLANK]):
-        </label>
+      <div style={styles.section}>
+        <h5 style={styles.sectionTitle}>
+          <span>📖</span> Nhập đoạn văn (Đánh dấu chỗ trống bằng [BLANK]):
+        </h5>
         <textarea
+          id="cloze-textarea"
           value={paragraphText}
           onChange={(e) => setParagraphText(e.target.value)}
-          placeholder="VD: Another example of cheap technology helping poor people in the countryside is [BLANK]. Kerosene lamps and conventional bulbs give off less [BLANK] than GSBF lamps."
-          style={{
-            width: '100%',
-            minHeight: '120px',
-            padding: '10px',
-            border: '2px solid #0e276f',
-            borderRadius: '4px',
-            fontSize: '13px',
-            fontFamily: 'Arial, sans-serif',
-            boxSizing: 'border-box'
-          }}
+          placeholder="VD: The machinery used in the process of making the snow consumes a lot of 11 [BLANK] which is damaging to the environment. Artificial snow is used in agriculture as a type of 12 [BLANK] for plants in cold conditions."
+          style={styles.textarea}
         />
-        <small style={{ color: '#666', marginTop: '5px', display: 'block' }}>
-          💡 Tip: Sử dụng [BLANK] để đánh dấu mỗi chỗ trống trong đoạn văn
-        </small>
+        
+        {/* Insert BLANK button */}
+        <button 
+          type="button" 
+          onClick={insertBlank}
+          style={styles.insertButton}
+        >
+          ➕ Chèn [BLANK]
+        </button>
+
+        {/* Tip */}
+        <div style={styles.tip}>
+          <span>💡</span>
+          <span><strong>Tip:</strong> Sử dụng <code style={{ backgroundColor: '#fef3c7', padding: '2px 6px', borderRadius: '4px' }}>[BLANK]</code> để đánh dấu mỗi chỗ trống trong đoạn văn</span>
+        </div>
       </div>
 
       {/* Max Words */}
-      <div style={{ marginBottom: '12px' }}>
-        <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '5px', fontSize: '12px' }}>
-          🔢 Số từ tối đa cho mỗi chỗ trống:
-        </label>
-        <input
-          type="number"
-          value={maxWords}
-          onChange={(e) => setMaxWords(parseInt(e.target.value) || 1)}
-          min="1"
-          max="10"
-          style={{
-            width: '100%',
-            padding: '8px',
-            border: '1px solid #ccc',
-            borderRadius: '4px',
-            fontSize: '13px',
-            boxSizing: 'border-box'
-          }}
-        />
+      <div style={styles.section}>
+        <h5 style={styles.sectionTitle}>
+          <span>🔢</span> Số từ tối đa cho mỗi chỗ trống:
+        </h5>
+        <div style={styles.wordLimitBox}>
+          <span>Write <strong>NO MORE THAN</strong></span>
+          <input
+            type="number"
+            value={maxWords}
+            onChange={(e) => setMaxWords(parseInt(e.target.value) || 1)}
+            min="1"
+            max="10"
+            style={{
+              width: '60px',
+              padding: '8px',
+              border: '2px solid #fbbf24',
+              borderRadius: '6px',
+              textAlign: 'center',
+              fontWeight: 'bold',
+              fontSize: '16px'
+            }}
+          />
+          <span><strong>WORDS</strong> for each answer</span>
+        </div>
       </div>
 
       {/* Preview */}
       {paragraphText && (
-        <div style={{ marginBottom: '12px' }}>
-          <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '5px', fontSize: '12px' }}>
-            👁 Preview:
-          </label>
+        <div style={styles.preview}>
+          <h5 style={styles.previewTitle}>
+            <span>👁</span> Preview - Học sinh sẽ thấy:
+          </h5>
           {renderPreview()}
         </div>
       )}
 
       {/* Blank Answers */}
       {blanks.length > 0 && (
-        <div style={{ marginTop: '15px', padding: '12px', backgroundColor: '#fff', borderRadius: '4px', border: '1px solid #ddd' }}>
-          <h6 style={{ margin: '0 0 10px 0', color: '#0e276f' }}>✍️ Đáp án cho mỗi chỗ trống:</h6>
-          {blanks.map((blank, idx) => (
-            <div key={idx} style={{ marginBottom: '10px', paddingBottom: '10px', borderBottom: idx < blanks.length - 1 ? '1px solid #eee' : 'none' }}>
-              <label style={{ fontWeight: 'bold', fontSize: '12px', display: 'block', marginBottom: '4px' }}>
-                Chỗ trống #{blank.blankNumber}:
-              </label>
-              <input
-                type="text"
-                value={blank.correctAnswer}
-                onChange={(e) => handleBlankChange(idx, e.target.value)}
-                placeholder={`Nhập đáp án (tối đa ${maxWords} từ)`}
-                style={{
-                  width: '100%',
-                  padding: '8px',
-                  border: '1px solid #ccc',
-                  borderRadius: '4px',
-                  fontSize: '12px',
-                  boxSizing: 'border-box'
-                }}
-              />
-            </div>
-          ))}
+        <div style={styles.answersSection}>
+          <h5 style={styles.sectionTitle}>
+            <span>✍️</span> Đáp án cho mỗi chỗ trống:
+          </h5>
+          
+          {blanks.map((blank, idx) => {
+            const questionNum = parseInt(question?.questionNumber) || 1;
+            return (
+              <div key={idx} style={styles.answerRow}>
+                <div style={styles.blankBadge}>
+                  Câu {questionNum + idx}
+                </div>
+                <input
+                  type="text"
+                  value={blank.correctAnswer}
+                  onChange={(e) => handleBlankChange(idx, e.target.value)}
+                  placeholder={`Nhập đáp án (tối đa ${maxWords} từ)`}
+                  style={styles.answerInput}
+                />
+                {blank.correctAnswer && (
+                  <span style={{ color: '#10b981', fontSize: '18px' }}>✓</span>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
 
-      {/* Info */}
-      <div style={{ marginTop: '12px', padding: '10px', backgroundColor: '#e8f4f8', borderRadius: '4px', fontSize: '12px', color: '#0e276f', borderLeft: '3px solid #0e276f' }}>
-        <strong>ℹ️ Thông tin:</strong> Hệ thống đã phát hiện <strong>{blanks.length}</strong> chỗ trống trong đoạn văn
+      {/* Help Section */}
+      <div style={styles.helpSection}>
+        <strong>💡 Hướng dẫn sử dụng:</strong>
+        <ul style={{ margin: '8px 0 0 0', paddingLeft: '20px' }}>
+          <li>Nhập/paste đoạn văn gốc vào ô text</li>
+          <li>Đặt con trỏ vào vị trí cần tạo chỗ trống, nhấn nút <strong>"Chèn [BLANK]"</strong></li>
+          <li>Hệ thống sẽ tự động tạo các ô nhập đáp án bên dưới</li>
+          <li>Số câu hỏi sẽ nối tiếp từ số câu hỏi hiện tại (VD: câu 11 → 11, 12, 13...)</li>
+        </ul>
       </div>
     </div>
   );

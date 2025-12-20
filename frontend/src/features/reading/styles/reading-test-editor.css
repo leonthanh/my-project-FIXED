@@ -1,0 +1,350 @@
+/**
+ * Global Styles for Reading Test Editor
+ * Đồng bộ font-size và cải thiện UX cho toàn bộ trang Create/Edit Reading Test
+ */
+
+/* ========================================
+   1. BASE TYPOGRAPHY - Đồng bộ font-size
+   ======================================== */
+
+.reading-test-editor,
+.create-reading-test,
+.edit-reading-test {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #333;
+}
+
+/* Headings */
+.reading-test-editor h1,
+.create-reading-test h1,
+.edit-reading-test h1 {
+  font-size: 24px !important;
+  font-weight: 700;
+  margin-bottom: 16px;
+}
+
+.reading-test-editor h2,
+.create-reading-test h2,
+.edit-reading-test h2 {
+  font-size: 20px !important;
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+
+.reading-test-editor h3,
+.create-reading-test h3,
+.edit-reading-test h3 {
+  font-size: 16px !important;
+  font-weight: 600;
+  margin-bottom: 10px;
+}
+
+.reading-test-editor h4,
+.create-reading-test h4,
+.edit-reading-test h4 {
+  font-size: 15px !important;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.reading-test-editor h5,
+.create-reading-test h5,
+.edit-reading-test h5 {
+  font-size: 14px !important;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.reading-test-editor h6,
+.create-reading-test h6,
+.edit-reading-test h6 {
+  font-size: 13px !important;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+/* Labels */
+.reading-test-editor label,
+.create-reading-test label,
+.edit-reading-test label {
+  font-size: 13px !important;
+  font-weight: 600;
+  color: #333;
+  display: block;
+  margin-bottom: 6px;
+}
+
+/* Inputs, Selects, Textareas */
+.reading-test-editor input,
+.reading-test-editor select,
+.reading-test-editor textarea,
+.create-reading-test input,
+.create-reading-test select,
+.create-reading-test textarea,
+.edit-reading-test input,
+.edit-reading-test select,
+.edit-reading-test textarea {
+  font-size: 14px !important;
+  font-family: inherit;
+  padding: 10px 12px !important;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.reading-test-editor input:focus,
+.reading-test-editor select:focus,
+.reading-test-editor textarea:focus,
+.create-reading-test input:focus,
+.create-reading-test select:focus,
+.create-reading-test textarea:focus,
+.edit-reading-test input:focus,
+.edit-reading-test select:focus,
+.edit-reading-test textarea:focus {
+  outline: none;
+  border-color: #0e276f;
+  box-shadow: 0 0 0 3px rgba(14, 39, 111, 0.1);
+}
+
+/* Buttons */
+.reading-test-editor button,
+.create-reading-test button,
+.edit-reading-test button {
+  font-size: 13px !important;
+  font-family: inherit;
+  font-weight: 600;
+  padding: 10px 16px !important;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.reading-test-editor button:hover,
+.create-reading-test button:hover,
+.edit-reading-test button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.reading-test-editor button:active,
+.create-reading-test button:active,
+.edit-reading-test button:active {
+  transform: translateY(0);
+}
+
+/* Small text */
+.reading-test-editor small,
+.create-reading-test small,
+.edit-reading-test small,
+.reading-test-editor .text-muted,
+.create-reading-test .text-muted,
+.edit-reading-test .text-muted {
+  font-size: 12px !important;
+  color: #666;
+}
+
+/* Paragraphs */
+.reading-test-editor p,
+.create-reading-test p,
+.edit-reading-test p {
+  font-size: 14px;
+  line-height: 1.6;
+  margin-bottom: 10px;
+}
+
+/* ========================================
+   2. COLUMN HEADERS - Đồng bộ header columns
+   ======================================== */
+
+.column-header {
+  font-size: 13px !important;
+  font-weight: 700;
+  padding: 12px 14px !important;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* ========================================
+   3. LIST ITEMS - Passage/Section items
+   ======================================== */
+
+.list-item {
+  font-size: 13px !important;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+}
+
+.list-item:hover {
+  transform: translateX(2px);
+}
+
+.list-item small {
+  font-size: 11px !important;
+  opacity: 0.8;
+}
+
+/* ========================================
+   4. QUESTION COMPONENTS - Đồng bộ các component câu hỏi
+   ======================================== */
+
+/* Question Section container */
+.question-section-container {
+  font-size: 14px;
+}
+
+/* Question type components - override inline styles */
+[class*="Question"] h4,
+[class*="Question"] h5,
+[class*="Question"] h6 {
+  font-size: 14px !important;
+}
+
+[class*="Question"] label {
+  font-size: 13px !important;
+}
+
+[class*="Question"] input,
+[class*="Question"] select,
+[class*="Question"] textarea {
+  font-size: 14px !important;
+}
+
+[class*="Question"] button {
+  font-size: 13px !important;
+}
+
+[class*="Question"] p {
+  font-size: 13px !important;
+}
+
+/* ========================================
+   5. QUILL EDITOR - Đồng bộ editor
+   ======================================== */
+
+.quill .ql-editor {
+  font-size: 14px !important;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif !important;
+  line-height: 1.6;
+  min-height: 120px;
+}
+
+.quill .ql-editor p {
+  font-size: 14px !important;
+  margin-bottom: 8px;
+}
+
+.quill .ql-toolbar {
+  font-size: 12px;
+}
+
+.quill .ql-toolbar button {
+  padding: 4px 6px !important;
+}
+
+/* ========================================
+   6. MODAL - Review Modal
+   ======================================== */
+
+.review-modal h3 {
+  font-size: 18px !important;
+}
+
+.review-modal h4 {
+  font-size: 16px !important;
+}
+
+.review-modal h5 {
+  font-size: 14px !important;
+}
+
+.review-modal p,
+.review-modal li {
+  font-size: 14px !important;
+}
+
+/* ========================================
+   7. TOOLTIPS & TIPS
+   ======================================== */
+
+.tip-box,
+.help-text {
+  font-size: 12px !important;
+  line-height: 1.5;
+  padding: 10px 14px;
+  border-radius: 6px;
+}
+
+/* ========================================
+   8. BADGES & TAGS
+   ======================================== */
+
+.badge,
+.tag {
+  font-size: 11px !important;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-weight: 600;
+}
+
+/* ========================================
+   9. RESPONSIVE ADJUSTMENTS
+   ======================================== */
+
+@media (max-width: 1200px) {
+  .reading-test-editor,
+  .create-reading-test,
+  .edit-reading-test {
+    font-size: 13px;
+  }
+  
+  .reading-test-editor h2,
+  .create-reading-test h2,
+  .edit-reading-test h2 {
+    font-size: 18px !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .reading-test-editor,
+  .create-reading-test,
+  .edit-reading-test {
+    font-size: 14px;
+  }
+  
+  .reading-test-editor input,
+  .reading-test-editor select,
+  .reading-test-editor textarea,
+  .create-reading-test input,
+  .create-reading-test select,
+  .create-reading-test textarea,
+  .edit-reading-test input,
+  .edit-reading-test select,
+  .edit-reading-test textarea {
+    font-size: 16px !important; /* Prevent zoom on iOS */
+    padding: 12px !important;
+  }
+}
+
+/* ========================================
+   10. UTILITY CLASSES
+   ======================================== */
+
+.font-xs { font-size: 11px !important; }
+.font-sm { font-size: 12px !important; }
+.font-md { font-size: 14px !important; }
+.font-lg { font-size: 16px !important; }
+.font-xl { font-size: 18px !important; }
+
+.font-bold { font-weight: 700 !important; }
+.font-semibold { font-weight: 600 !important; }
+.font-normal { font-weight: 400 !important; }
+
+.text-primary { color: #0e276f !important; }
+.text-success { color: #28a745 !important; }
+.text-danger { color: #dc3545 !important; }
+.text-warning { color: #ffc107 !important; }
+.text-muted { color: #6c757d !important; }

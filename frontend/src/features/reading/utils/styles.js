@@ -204,26 +204,97 @@ export const resizeDividerStyle = (isActive) => ({
   justifyContent: 'center'
 });
 
-// CSS for compact interface
+// CSS for compact interface - Đồng bộ font-size toàn bộ
 export const compactCSS = (className) => `
+  /* Base Typography - Đồng bộ font-size */
   .${className} {
-    font-size: 13px;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
   }
+
+  /* Headings */
   .${className} h2 {
-    font-size: 18px !important;
+    font-size: 20px !important;
+    font-weight: 600;
   }
   .${className} h3 {
+    font-size: 16px !important;
+    font-weight: 600;
+  }
+  .${className} h4 {
+    font-size: 15px !important;
+    font-weight: 600;
+  }
+  .${className} h5 {
     font-size: 14px !important;
+    font-weight: 600;
   }
+  .${className} h6 {
+    font-size: 13px !important;
+    font-weight: 600;
+  }
+
+  /* Labels */
   .${className} label {
-    font-size: 12px !important;
+    font-size: 13px !important;
+    font-weight: 600;
+    margin-bottom: 6px;
   }
-  .${className} input, .${className} select, .${className} textarea {
-    font-size: 12px !important;
-    padding: 6px 8px !important;
+
+  /* Form Elements */
+  .${className} input, 
+  .${className} select, 
+  .${className} textarea {
+    font-size: 14px !important;
+    padding: 10px 12px !important;
+    border-radius: 6px;
+    transition: border-color 0.2s, box-shadow 0.2s;
   }
+  
+  .${className} input:focus, 
+  .${className} select:focus, 
+  .${className} textarea:focus {
+    outline: none;
+    border-color: #0e276f;
+    box-shadow: 0 0 0 3px rgba(14, 39, 111, 0.1);
+  }
+
+  /* Buttons */
   .${className} button {
+    font-size: 13px !important;
+    font-weight: 600;
+    padding: 10px 16px !important;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+  }
+  
+  .${className} button:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  }
+
+  /* Small text */
+  .${className} small,
+  .${className} .text-muted {
     font-size: 12px !important;
-    padding: 8px 12px !important;
+    color: #666;
+  }
+
+  /* Paragraphs */
+  .${className} p {
+    font-size: 14px;
+    line-height: 1.6;
+  }
+
+  /* Quill Editor */
+  .${className} .quill .ql-editor {
+    font-size: 14px !important;
+    font-family: inherit !important;
+    line-height: 1.6;
+    min-height: 120px;
+  }
+  .${className} .quill .ql-editor p {
+    font-size: 14px !important;
   }
 `;

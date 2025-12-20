@@ -36,6 +36,10 @@ const CreateReadingTest = () => {
   const [isReviewing, setIsReviewing] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
+  
+  // Auto-save state
+  const [lastSaved, setLastSaved] = useState(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   // Use passage handlers hook
   const {
@@ -60,9 +64,10 @@ const CreateReadingTest = () => {
     handleQuestionChange
   } = usePassageHandlers(savedData?.passages || [createNewPassage()]);
 
-  // Autosave function
+  // Autosave function with indicator
   const saveToLocalStorage = useCallback(() => {
     try {
+      setIsSaving(true);
       const dataToSave = {
         title,
         passages,
@@ -70,8 +75,11 @@ const CreateReadingTest = () => {
         teacherName
       };
       localStorage.setItem('readingTestDraft', JSON.stringify(dataToSave));
+      setLastSaved(new Date());
+      setIsSaving(false);
     } catch (error) {
       console.error('Error saving draft:', error);
+      setIsSaving(false);
     }
   }, [title, passages, classCode, teacherName]);
 
@@ -235,6 +243,11 @@ const CreateReadingTest = () => {
       onConfirmSubmit={handleConfirmSubmit}
       isSubmitting={isCreating}
       submitButtonText="Tạo đề"
+      
+      // Auto-save
+      lastSaved={lastSaved}
+      isSaving={isSaving}
+      onManualSave={saveToLocalStorage}
       
       // Messages & Preview
       message={message}

@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import ThemeToggle from './ThemeToggle';
 
 const AdminNavbar = () => {
   const navigate = useNavigate();
@@ -218,6 +219,7 @@ const AdminNavbar = () => {
 
       {/* 👨‍🏫 Hiển thị tên giáo viên và nút logout */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <ThemeToggle />
         <span style={{ fontWeight: 'bold' }}>👨‍🏫 {user?.name || 'Giáo viên'}</span>
         <button
           onClick={handleLogout}
