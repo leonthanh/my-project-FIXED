@@ -1,7 +1,10 @@
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect, useMemo } from 'react';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 import Quill from 'quill';
+
+// API URL
+const API = process.env.REACT_APP_API_URL;
 
 // Register custom size class
 const Size = Quill.import('formats/size');
@@ -16,6 +19,7 @@ Quill.register(Align, true);
 const QuillEditor = ({ value, onChange, placeholder, showBlankButton = false }) => {
   const quillRef = useRef(null);
   const [internalValue, setInternalValue] = useState(value || '');
+  const [uploading, setUploading] = useState(false);
 
   // Helper: Clean up HTML by removing empty paragraphs and unnecessary tags
   const cleanupHTML = (html) => {
@@ -37,6 +41,65 @@ const QuillEditor = ({ value, onChange, placeholder, showBlankButton = false }) 
     cleaned = cleaned.trim();
     
     return cleaned;
+  };
+
+  // Custom image handler - upload to server instead of base64
+  const imageHandler = () => {
+    const input = document.createElement('input');
+    input.setAttribute('type', 'file');
+    input.setAttribute('accept', 'image/*');
+    input.click();
+
+    input.onchange = async () => {
+      const file = input.files[0];
+      if (!file) return;
+
+      // Validate file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        alert('File quá lớn. Giới hạn tối đa 5MB');
+        return;
+      }
+
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        alert('Chỉ cho phép upload file hình ảnh');
+        return;
+      }
+
+      try {
+        setUploading(true);
+        
+        // Upload to server
+        const formData = new FormData();
+        formData.append('image', file);
+
+        const response = await fetch(`${API}/api/upload/image`, {
+          method: 'POST',
+          body: formData
+        });
+
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.message || 'Upload failed');
+        }
+
+        const data = await response.json();
+        
+        // Insert image into editor with full URL
+        const editor = quillRef.current?.getEditor();
+        if (editor) {
+          const range = editor.getSelection(true);
+          const imageUrl = `${API}${data.url}`;
+          editor.insertEmbed(range.index, 'image', imageUrl);
+          editor.setSelection(range.index + 1);
+        }
+      } catch (error) {
+        console.error('Upload error:', error);
+        alert(`Lỗi upload: ${error.message}`);
+      } finally {
+        setUploading(false);
+      }
+    };
   };
 
   // Update internal value when prop changes
@@ -65,18 +128,24 @@ const QuillEditor = ({ value, onChange, placeholder, showBlankButton = false }) 
     }
   };
 
-  const modules = {
-    toolbar: [
-      [{ 'header': [1, 2, 3, false] }],
-      ['bold', 'italic', 'underline', 'strike'],
-      [{ 'color': [] }, { 'background': [] }],
-      [{ 'font': [] }, { 'size': ['small', false, 'large', 'huge'] }],
-      [{ 'list': 'ordered'}, { 'list': 'bullet' }],
-      [{ 'align': [] }],
-      ['link', 'image'],
-      ['clean']
-    ]
-  };
+  // Modules with custom image handler - use useMemo to prevent re-creation
+  const modules = useMemo(() => ({
+    toolbar: {
+      container: [
+        [{ 'header': [1, 2, 3, false] }],
+        ['bold', 'italic', 'underline', 'strike'],
+        [{ 'color': [] }, { 'background': [] }],
+        [{ 'font': [] }, { 'size': ['small', false, 'large', 'huge'] }],
+        [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+        [{ 'align': [] }],
+        ['link', 'image'],
+        ['clean']
+      ],
+      handlers: {
+        image: imageHandler
+      }
+    }
+  }), []);
 
   const formats = [
     'header',
@@ -188,7 +257,60 @@ const QuillEditor = ({ value, onChange, placeholder, showBlankButton = false }) 
         .ql-editor .ql-align-justify {
           text-align: justify !important;
         }
+        
+        /* Images in editor */
+        .ql-editor img {
+          max-width: 100% !important;
+          height: auto !important;
+          border-radius: 4px;
+          margin: 8px 0;
+        }
+        
+        /* Upload indicator */
+        .quill-uploading {
+          position: relative;
+        }
+        .quill-uploading::after {
+          content: '⏳ Đang upload...';
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%);
+          background: rgba(0,0,0,0.7);
+          color: white;
+          padding: 10px 20px;
+          border-radius: 4px;
+          z-index: 100;
+        }
       `}</style>
+      
+      {/* Upload indicator */}
+      {uploading && (
+        <div style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(255,255,255,0.8)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 100,
+          borderRadius: '4px'
+        }}>
+          <span style={{ 
+            backgroundColor: '#0e276f', 
+            color: 'white', 
+            padding: '10px 20px', 
+            borderRadius: '4px',
+            fontWeight: 'bold'
+          }}>
+            ⏳ Đang upload hình ảnh...
+          </span>
+        </div>
+      )}
+      
       <div style={{ display: 'flex', gap: '10px', marginBottom: '10px', flexWrap: 'wrap' }}>
         {showBlankButton && (
           <button

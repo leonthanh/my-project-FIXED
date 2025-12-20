@@ -24,6 +24,7 @@ const listeningTestsRoute = require('./routes/listeningTests');
 const listeningSubmissionRoutes = require('./routes/listening-submission');
 const readingTestsRoute = require('./routes/readingTest');
 const readingSubmissionRoutes = require('./routes/reading-submission');
+const uploadRoutes = require('./routes/upload'); // ✅ Route upload hình ảnh
 const aiRoutes = require('./routes/ai'); // ✅ Đưa lên trước khi dùng
 
 // Middleware
@@ -51,6 +52,7 @@ app.use('/api/listening-tests', listeningTestsRoute);
 app.use('/api/listening-submissions', listeningSubmissionRoutes);
 app.use('/api/reading-tests', readingTestsRoute);
 app.use('/api/reading-submissions', readingSubmissionRoutes);
+app.use('/api/upload', uploadRoutes); // ✅ Route upload hình ảnh
 
 // ✅ Serve frontend React build
 const frontendPath = path.join(__dirname, '..', 'frontend', 'build');
