@@ -60,7 +60,7 @@ const SelectTest = () => {
   };
 
   const handleSelectReading = (testId) => {
-    navigate(`/reading-tests/${testId}`);
+    navigate(`/reading/${testId}`);
   };
 
   const handleSelectListening = (testId) => {

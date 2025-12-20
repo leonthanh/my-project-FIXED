@@ -332,23 +332,29 @@ const DoReadingTest = () => {
           {/* Multiple Choice */}
           {qType === 'multiple-choice' && (
             <div className="question-options">
-              {(question.options || []).map((opt, oi) => (
-                <label 
-                  key={oi} 
-                  className={`option-label ${answers[key] === opt ? 'selected' : ''}`}
-                >
-                  <input
-                    type="radio"
-                    name={key}
-                    value={opt}
-                    checked={answers[key] === opt}
-                    onChange={(e) => handleAnswerChange(key, e.target.value)}
-                    className="option-input"
-                  />
-                  <span className="option-letter">{String.fromCharCode(65 + oi)}</span>
-                  <span className="option-text" dangerouslySetInnerHTML={{ __html: opt }} />
-                </label>
-              ))}
+              {(question.options || []).map((opt, oi) => {
+                // Handle both string and object options {id, label, text}
+                const optText = typeof opt === 'object' ? (opt.text || opt.label || '') : opt;
+                const optValue = typeof opt === 'object' ? (opt.id || opt.label || optText) : opt;
+                
+                return (
+                  <label 
+                    key={oi} 
+                    className={`option-label ${answers[key] === optValue ? 'selected' : ''}`}
+                  >
+                    <input
+                      type="radio"
+                      name={key}
+                      value={optValue}
+                      checked={answers[key] === optValue}
+                      onChange={(e) => handleAnswerChange(key, e.target.value)}
+                      className="option-input"
+                    />
+                    <span className="option-letter">{String.fromCharCode(65 + oi)}</span>
+                    <span className="option-text" dangerouslySetInnerHTML={{ __html: optText }} />
+                  </label>
+                );
+              })}
             </div>
           )}
 
@@ -432,8 +438,11 @@ const DoReadingTest = () => {
                 Choose {question.maxSelection || 2} letters
               </p>
               {(question.options || []).map((opt, oi) => {
+                // Handle both string and object options
+                const optText = typeof opt === 'object' ? (opt.text || opt.label || '') : opt;
+                const optValue = typeof opt === 'object' ? (opt.id || opt.label || optText) : opt;
                 const currentAnswers = answers[key] ? answers[key].split(',').filter(Boolean) : [];
-                const isChecked = currentAnswers.includes(opt);
+                const isChecked = currentAnswers.includes(optValue);
                 return (
                   <label 
                     key={oi} 
@@ -442,11 +451,11 @@ const DoReadingTest = () => {
                     <input
                       type="checkbox"
                       checked={isChecked}
-                      onChange={(e) => handleMultiSelectChange(key, opt, e.target.checked)}
+                      onChange={(e) => handleMultiSelectChange(key, optValue, e.target.checked)}
                       className="option-input"
                     />
                     <span className="option-letter">{String.fromCharCode(65 + oi)}</span>
-                    <span className="option-text" dangerouslySetInnerHTML={{ __html: opt }} />
+                    <span className="option-text" dangerouslySetInnerHTML={{ __html: optText }} />
                   </label>
                 );
               })}
@@ -491,12 +500,15 @@ const DoReadingTest = () => {
               {question.rightItems && (
                 <div className="matching-options-list">
                   <p className="matching-options-title">Options:</p>
-                  {question.rightItems.map((item, idx) => (
-                    <div key={idx} className="matching-option">
-                      <span className="matching-option-number">{idx + 1}.</span>
-                      <span>{item}</span>
-                    </div>
-                  ))}
+                  {question.rightItems.map((item, idx) => {
+                    const itemText = typeof item === 'object' ? (item.text || item.label || '') : item;
+                    return (
+                      <div key={idx} className="matching-option">
+                        <span className="matching-option-number">{idx + 1}.</span>
+                        <span>{itemText}</span>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -508,12 +520,15 @@ const DoReadingTest = () => {
               {/* List of headings */}
               <div className="headings-list">
                 <p className="headings-title">📋 List of Headings</p>
-                {(question.headings || []).map((heading, hi) => (
-                  <div key={hi} className="heading-item">
-                    <span className="heading-number">{['i', 'ii', 'iii', 'iv', 'v', 'vi', 'vii', 'viii', 'ix', 'x'][hi] || hi + 1}.</span>
-                    <span className="heading-text">{heading}</span>
-                  </div>
-                ))}
+                {(question.headings || []).map((heading, hi) => {
+                  const headingText = typeof heading === 'object' ? (heading.text || heading.label || '') : heading;
+                  return (
+                    <div key={hi} className="heading-item">
+                      <span className="heading-number">{['i', 'ii', 'iii', 'iv', 'v', 'vi', 'vii', 'viii', 'ix', 'x'][hi] || hi + 1}.</span>
+                      <span className="heading-text">{headingText}</span>
+                    </div>
+                  );
+                })}
               </div>
               
               {/* Paragraphs to match */}
@@ -560,9 +575,12 @@ const DoReadingTest = () => {
                 <div className="word-bank">
                   <p className="word-bank-title">📝 Word Bank:</p>
                   <div className="word-bank-items">
-                    {question.wordBank.map((word, wi) => (
-                      <span key={wi} className="word-bank-item">{word}</span>
-                    ))}
+                    {question.wordBank.map((word, wi) => {
+                      const wordText = typeof word === 'object' ? (word.text || word.label || '') : word;
+                      return (
+                        <span key={wi} className="word-bank-item">{wordText}</span>
+                      );
+                    })}
                   </div>
                 </div>
               )}
