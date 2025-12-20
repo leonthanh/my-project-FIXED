@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import AdminNavbar from '../components/AdminNavbar';
-import FormQuestion from '../components/FormQuestion';
+import { AdminNavbar, FormQuestion } from '../../../shared/components';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 // import ReactQuill from 'react-quill'; // Thay thế CKEditor bằng ReactQuill

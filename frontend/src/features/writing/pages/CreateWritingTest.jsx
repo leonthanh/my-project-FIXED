@@ -1,7 +1,6 @@
-// src/pages/CreateWritingTest.jsx
+// src/features/writing/pages/CreateWritingTest.jsx
 import React, { useState } from 'react';
-import AdminNavbar from '../components/AdminNavbar';
-import CustomEditor from '../components/CustomEditor';
+import { AdminNavbar, CustomEditor } from '../../../shared/components';
 
 // 🎨 Thêm CSS tùy chỉnh cho editor - nền xám nhạt để dễ nhìn
 const editorStyles = `

@@ -1,9 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import Timer from '../components/Timer';
-import AudioPlayer from '../components/AudioPlayer';
-import ConfirmModal from '../components/ConfirmModal';
-import { PreviewSection } from '../components/PreviewSection';
+import { Timer, ConfirmModal, PreviewSection } from '../../../shared/components';
+import { AudioPlayer } from '../components';
 
 const DoListeningTest = () => {
   const { id } = useParams();

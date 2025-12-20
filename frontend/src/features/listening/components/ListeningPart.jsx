@@ -1,10 +1,5 @@
 import React from 'react';
-import FormQuestion from './FormQuestion';
-import MultipleChoiceQuestion from './MultipleChoiceQuestion';
-import MultiSelectQuestion from './MultiSelectQuestion';
-import ComboboxQuestion from './ComboboxQuestion';
-import DragDropQuestion from './DragDropQuestion';
-import PartInstructions from './PartInstructions';
+import { FormQuestion, MultipleChoiceQuestion, MultiSelectQuestion, ComboboxQuestion, DragDropQuestion, PartInstructions } from '../../../shared/components';
 
 const ListeningPart = ({ 
   partNumber, 

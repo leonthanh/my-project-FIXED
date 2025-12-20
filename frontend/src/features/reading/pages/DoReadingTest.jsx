@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import Timer from '../components/Timer';
-import ConfirmModal from '../components/ConfirmModal';
-import '../styles/do-reading-test.css'; // Import styles for 2-column layout
+import { Timer, ConfirmModal } from '../../../shared/components';
+import '../../../shared/styles/do-reading-test.css'; // Import styles for 2-column layout
 
 const DoReadingTest = () => {
   const { id } = useParams();

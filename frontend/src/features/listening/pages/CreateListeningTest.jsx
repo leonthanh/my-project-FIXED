@@ -1,8 +1,7 @@
 import React, { useState, useCallback } from 'react';
-import AdminNavbar from '../components/AdminNavbar';
-import PreviewSection from '../components/PreviewSection';
-import ListeningPart from '../components/ListeningPart';
-import '../styles/create-listening.css';
+import { AdminNavbar, PreviewSection } from '../../../shared/components';
+import { ListeningPart } from '../components';
+import '../../../shared/styles/create-listening.css';
 
 const CreateListeningTest = () => {
   // Load saved data from localStorage if available

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import '../styles/take-test.css';
+import '../../../shared/styles/take-test.css';
 
 const TakeReadingTest = () => {
   const { testId } = useParams();

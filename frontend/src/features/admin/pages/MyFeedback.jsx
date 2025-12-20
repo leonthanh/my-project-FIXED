@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import StudentNavbar from '../components/StudentNavbar';
+import { StudentNavbar } from '../../../shared/components';
 
 const MyFeedback = () => {
   const [submissions, setSubmissions] = useState([]);

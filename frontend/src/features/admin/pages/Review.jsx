@@ -1,7 +1,7 @@
-// frontend/src/pages/Review.jsx
+// frontend/src/features/admin/pages/Review.jsx
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import AdminNavbar from '../components/AdminNavbar';
+import { AdminNavbar } from '../../../shared/components';
 
 const Review = () => {
   const [unreviewed, setUnreviewed] = useState([]);

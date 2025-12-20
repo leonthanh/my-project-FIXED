@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import AdminNavbar from "../components/AdminNavbar";
+import { AdminNavbar } from "../../../shared/components";
 
 const AdminSubmissions = () => {
   const [data, setData] = useState([]);

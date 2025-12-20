@@ -1,8 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import AdminNavbar from '../components/AdminNavbar';
-import QuillEditor from '../components/QuillEditor';
-import QuestionSection from '../components/QuestionSection';
+import { AdminNavbar, QuillEditor, QuestionSection } from '../../../shared/components';
 import 'react-quill/dist/quill.snow.css';
 
 const EditReadingTest = () => {

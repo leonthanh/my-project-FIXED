@@ -1,5 +1,5 @@
 import React from 'react';
-import AudioPlayer from './AudioPlayer';
+import AudioPlayer from '../../features/listening/components/AudioPlayer';
 
 const PreviewSection = ({ 
   part, 

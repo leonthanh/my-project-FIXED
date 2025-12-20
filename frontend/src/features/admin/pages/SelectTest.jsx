@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import StudentNavbar from '../components/StudentNavbar';
-import AdminNavbar from '../components/AdminNavbar';
+import { StudentNavbar, AdminNavbar } from '../../../shared/components';
 
 const SelectTest = () => {
   const user = JSON.parse(localStorage.getItem('user'));

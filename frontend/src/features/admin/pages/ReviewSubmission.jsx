@@ -1,7 +1,7 @@
-// frontend/src/pages/ReviewSubmission.jsx
+// frontend/src/features/admin/pages/ReviewSubmission.jsx
 import React, { useEffect, useState, useCallback } from "react";
 import { useParams } from "react-router-dom";
-import AdminNavbar from "../components/AdminNavbar";
+import { AdminNavbar } from "../../../shared/components";
 
 const ReviewSubmission = () => {
   const { id } = useParams();
