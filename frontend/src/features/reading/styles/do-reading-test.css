@@ -49,55 +49,103 @@
   z-index: 100;
   background: linear-gradient(135deg, #0e276f 0%, #1a3a8f 100%);
   color: white;
-  padding: 12px 24px;
+  padding: 0 16px;
+  height: 50px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  box-shadow: 0 4px 20px rgba(14, 39, 111, 0.3);
+  box-shadow: 0 2px 10px rgba(14, 39, 111, 0.2);
 }
 
 .header-left {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 10px;
 }
 
 .test-badge {
   background: linear-gradient(135deg, #e03 0%, #ff6b6b 100%);
-  padding: 6px 14px;
-  border-radius: 20px;
-  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 10px;
   font-weight: 700;
-  letter-spacing: 1px;
-  box-shadow: 0 2px 8px rgba(224, 51, 51, 0.4);
+  letter-spacing: 0.5px;
 }
 
 .test-info h1 {
   margin: 0;
-  font-size: 1.3rem;
+  font-size: 1rem;
   font-weight: 600;
 }
 
 .test-meta {
-  margin: 4px 0 0;
-  font-size: 0.85rem;
-  opacity: 0.85;
+  display: none; /* Ẩn để gọn hơn */
 }
 
 .header-right {
   display: flex;
   align-items: center;
-  gap: 20px;
+  gap: 10px;
 }
 
-/* Timer - Enhanced */
+/* Auto-save in header - compact */
+.header-right .auto-save-indicator {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  background: rgba(39, 174, 96, 0.2);
+  border-radius: 12px;
+  font-size: 0.7rem;
+  color: #2ecc71;
+  font-weight: 500;
+}
+
+.header-right .auto-save-indicator .save-text {
+  display: none; /* Chỉ hiện icon */
+}
+
+/* Submit button in header - compact */
+.header-right .submit-button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  background: linear-gradient(135deg, #e03 0%, #ff6b6b 100%);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(224, 51, 51, 0.3);
+}
+
+.header-right .submit-button .submit-text {
+  /* Có thể ẩn trên mobile */
+}
+
+.header-right .submit-button:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(224, 51, 51, 0.4);
+}
+
+.header-right .submit-button:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
+}
+
+/* Timer - Compact */
 .timer-container {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 6px;
   background: rgba(255,255,255,0.15);
-  padding: 10px 18px;
-  border-radius: 12px;
+  padding: 0;
+  border-radius: 8px;
   backdrop-filter: blur(10px);
   transition: all 0.3s ease;
 }
@@ -124,26 +172,27 @@
 }
 
 .timer-icon {
-  font-size: 24px;
+  font-size: 18px;
 }
 
 .timer-display {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
+  align-items: center;
+  gap: 4px;
 }
 
 .timer-value {
-  font-size: 1.4rem;
+  font-size: 1.1rem;
   font-weight: 700;
   font-family: 'Courier New', monospace;
-  letter-spacing: 2px;
+  letter-spacing: 1px;
 }
 
 .timer-label {
-  font-size: 0.7rem;
-  opacity: 0.8;
+  font-size: 0.65rem;
+  opacity: 0.7;
   text-transform: uppercase;
-  letter-spacing: 1px;
 }
 
 .timer-critical-badge {
@@ -158,14 +207,14 @@
   animation: pulse 0.5s ease-in-out infinite;
 }
 
-/* Progress Ring */
+/* Progress Ring - Compact */
 .progress-container {
   position: relative;
 }
 
 .progress-ring {
-  width: 60px;
-  height: 60px;
+  width: 40px;
+  height: 40px;
   position: relative;
 }
 
@@ -195,17 +244,18 @@
   left: 50%;
   transform: translate(-50%, -50%);
   text-align: center;
-  font-size: 0.75rem;
+  font-size: 0.65rem;
+  line-height: 1;
 }
 
 .progress-value {
   font-weight: 700;
-  font-size: 1rem;
+  font-size: 0.8rem;
 }
 
 .progress-total {
   opacity: 0.7;
-  font-size: 0.7rem;
+  font-size: 0.6rem;
 }
 
 /* ========================================
@@ -1038,75 +1088,7 @@
   transform: scale(1.1);
 }
 
-/* ========================================
-   14. FOOTER
-   ======================================== */
-
-.reading-test-footer {
-  position: sticky;
-  bottom: 0;
-  z-index: 50;
-  background: white;
-  border-top: 2px solid #0e276f;
-  padding: 14px 24px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  box-shadow: 0 -4px 20px rgba(0,0,0,0.08);
-}
-
-.footer-left {
-  display: flex;
-  align-items: center;
-}
-
-.auto-save-indicator {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 14px;
-  background: #e8f8f0;
-  border-radius: 20px;
-  font-size: 0.85rem;
-  color: #27ae60;
-  font-weight: 500;
-}
-
-.save-icon {
-  font-size: 1rem;
-}
-
-.submit-button {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 14px 32px;
-  font-size: 1rem;
-  font-weight: 700;
-  background: linear-gradient(135deg, #e03 0%, #ff6b6b 100%);
-  color: white;
-  border: none;
-  border-radius: 12px;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  box-shadow: 0 4px 15px rgba(224, 51, 51, 0.3);
-}
-
-.submit-button:hover:not(:disabled) {
-  transform: translateY(-3px);
-  box-shadow: 0 8px 25px rgba(224, 51, 51, 0.4);
-}
-
-.submit-button:disabled {
-  background: #ccc;
-  cursor: not-allowed;
-  box-shadow: none;
-  transform: none;
-}
-
-.submit-icon {
-  font-size: 1.2rem;
-}
+/* Footer đã được chuyển lên header */
 
 /* ========================================
    15. RESPONSIVE
@@ -1143,7 +1125,7 @@
   }
 
   .timer-container {
-    padding: 8px 14px;
+    padding: 4px 10px;
   }
 
   .timer-value {

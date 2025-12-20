@@ -651,6 +651,28 @@ const DoReadingTest = () => {
               </div>
             </div>
           </div>
+
+          {/* Auto-save indicator */}
+          <div className="auto-save-indicator">
+            <span className="save-icon">💾</span>
+            <span className="save-text">Auto-saved</span>
+          </div>
+
+          {/* Submit button */}
+          <button 
+            onClick={handleSubmit} 
+            disabled={submitted}
+            className="submit-button"
+          >
+            {submitted ? (
+              <>✓ Đã nộp bài</>
+            ) : (
+              <>
+                <span className="submit-icon">📤</span>
+                <span className="submit-text">Nộp bài</span>
+              </>
+            )}
+          </button>
         </div>
       </header>
 
@@ -787,30 +809,7 @@ const DoReadingTest = () => {
         </div>
       </div>
 
-      {/* Footer */}
-      <footer className="reading-test-footer">
-        <div className="footer-left">
-          <div className="auto-save-indicator">
-            <span className="save-icon">💾</span>
-            <span className="save-text">Auto-saved</span>
-          </div>
-        </div>
-        
-        <button 
-          onClick={handleSubmit} 
-          disabled={submitted}
-          className="submit-button"
-        >
-          {submitted ? (
-            <>✓ Đã nộp bài</>
-          ) : (
-            <>
-              <span className="submit-icon">📤</span>
-              <span className="submit-text">Nộp bài</span>
-            </>
-          )}
-        </button>
-      </footer>
+
 
       {/* Confirm Modal */}
       <ConfirmModal 
