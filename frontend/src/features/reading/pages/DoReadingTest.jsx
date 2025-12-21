@@ -1,7 +1,13 @@
+
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ConfirmModal } from '../../../shared/components';
 import '../styles/do-reading-test.css';
+// Utility: Remove unwanted <span ...> tags from HTML
+function stripUnwantedHtml(html) {
+  if (!html) return '';
+  return html.replace(/<span[^>]*>|<\/span>/gi, '');
+}
 
 /**
  * DoReadingTest - Trang học sinh làm bài Reading IELTS
@@ -809,13 +815,13 @@ const DoReadingTest = () => {
                         const baseQuestionNum = question.startQuestion || questionNumber;
                         return clozeText.split(/\[BLANK\]/gi).map((part, idx, arr) => {
                           if (idx === arr.length - 1) {
-                            return <span key={idx} dangerouslySetInnerHTML={{ __html: part }} />;
+                            return <span key={idx} dangerouslySetInnerHTML={{ __html: stripUnwantedHtml(part) }} />;
                           }
                           const currentBlankIdx = blankIndex++;
                           const blankNum = baseQuestionNum + currentBlankIdx;
                           return (
                             <span key={idx}>
-                              <span dangerouslySetInnerHTML={{ __html: part }} />
+                              <span dangerouslySetInnerHTML={{ __html: stripUnwantedHtml(part) }} />
                               <span className="cloze-inline-wrapper">
                                 <span className="cloze-inline-number">{blankNum}</span>
                                 <input
