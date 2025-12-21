@@ -24,6 +24,8 @@ const DoReadingTest = () => {
   // Refs
   const questionRefs = useRef({});
   const passageRef = useRef(null);
+  const containerRef = useRef(null);
+  const isDragging = useRef(false);
 
   // State
   const [test, setTest] = useState(null);
@@ -34,6 +36,7 @@ const DoReadingTest = () => {
   const [currentPartIndex, setCurrentPartIndex] = useState(0);
   const [activeQuestion, setActiveQuestion] = useState(null);
   const [highlightedParagraph, setHighlightedParagraph] = useState(null);
+  const [leftPanelWidth, setLeftPanelWidth] = useState(50); // percentage
   
   // Timer state
   const [timeRemaining, setTimeRemaining] = useState(null);
@@ -149,13 +152,65 @@ const DoReadingTest = () => {
     test.passages.forEach((p) => {
       const sections = p.sections || [{ questions: p.questions }];
       sections.forEach((section) => {
-        (section.questions || []).forEach(() => {
-          total++;
-          const key = `q_${total}`;
-          if (answers[key] && answers[key].toString().trim() !== '') {
-            answered++;
+        (section.questions || []).forEach((q) => {
+          const qType = q.type || q.questionType || 'multiple-choice';
+          
+          // For matching headings, count each paragraph as a question
+          if (qType === 'ielts-matching-headings') {
+            const paragraphs = q.paragraphs || q.answers || [];
+            const key = `q_${total + 1}`;
+            let answerObj = {};
+            try {
+              answerObj = answers[key] ? JSON.parse(answers[key]) : {};
+            } catch (e) {
+              answerObj = {};
+            }
+            
+            paragraphs.forEach((para) => {
+              total++;
+              const paragraphId = typeof para === 'object' ? (para.id || para.paragraphId) : para;
+              if (answerObj[paragraphId] !== undefined && answerObj[paragraphId] !== '') {
+                answered++;
+              } else {
+                unanswered.push(total);
+              }
+            });
+          } 
+          // For cloze test, count each blank as a question
+          else if (qType === 'cloze-test' || qType === 'summary-completion') {
+            const clozeText = q.paragraphText || q.passageText || q.text || q.paragraph || 
+              (q.questionText && q.questionText.includes('[BLANK]') ? q.questionText : null);
+            
+            if (clozeText) {
+              const blankMatches = clozeText.match(/\[BLANK\]/gi) || [];
+              const baseKey = `q_${total + 1}`;
+              
+              blankMatches.forEach((_, bi) => {
+                total++;
+                const answerKey = `${baseKey}_${bi}`;
+                if (answers[answerKey] && answers[answerKey].toString().trim() !== '') {
+                  answered++;
+                } else {
+                  unanswered.push(total);
+                }
+              });
+            } else {
+              total++;
+              const key = `q_${total}`;
+              if (answers[key] && answers[key].toString().trim() !== '') {
+                answered++;
+              } else {
+                unanswered.push(total);
+              }
+            }
           } else {
-            unanswered.push(total);
+            total++;
+            const key = `q_${total}`;
+            if (answers[key] && answers[key].toString().trim() !== '') {
+              answered++;
+            } else {
+              unanswered.push(total);
+            }
           }
         });
       });
@@ -221,23 +276,78 @@ const DoReadingTest = () => {
     const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
     letters.forEach(letter => {
       // Look for paragraphs starting with bold letter markers like <strong>A</strong> or <b>A</b>
+      // Support multiple formats including with/without space
       const patterns = [
-        new RegExp(`(<p[^>]*>)\\s*<strong>${letter}</strong>`, 'gi'),
-        new RegExp(`(<p[^>]*>)\\s*<b>${letter}</b>`, 'gi'),
-        new RegExp(`(<p[^>]*>)\\s*<span[^>]*>${letter}</span>`, 'gi'),
-        new RegExp(`(<p[^>]*>)\\s*${letter}\\s+`, 'gi'),
+        // <p><strong>A</strong> or <p> <strong>A</strong>
+        new RegExp(`(<p[^>]*>)\\s*<strong>\\s*${letter}\\s*</strong>`, 'gi'),
+        // <p><b>A</b>
+        new RegExp(`(<p[^>]*>)\\s*<b>\\s*${letter}\\s*</b>`, 'gi'),
+        // <p><span>A</span>
+        new RegExp(`(<p[^>]*>)\\s*<span[^>]*>\\s*${letter}\\s*</span>`, 'gi'),
+        // <p>A (letter followed by space or non-letter)
+        new RegExp(`(<p[^>]*>)\\s*${letter}(?=\\s|[^A-Za-z])`, 'gi'),
+        // <p><em>A</em>
+        new RegExp(`(<p[^>]*>)\\s*<em>\\s*${letter}\\s*</em>`, 'gi'),
+        // Already has class but need to add marker - <p class="...">A
+        new RegExp(`(<p\\s+class="[^"]*">)\\s*${letter}(?=\\s|[^A-Za-z])`, 'gi'),
       ];
       
       patterns.forEach(pattern => {
         processed = processed.replace(pattern, (match, pTag) => {
+          // Skip if already processed
+          if (match.includes('data-paragraph')) return match;
+          if (match.includes('paragraph-marker')) return match;
+          
           const highlighted = highlightedParagraph === letter ? ' highlighted' : '';
-          return `<p data-paragraph="${letter}" class="paragraph-block${highlighted}"><span class="paragraph-marker">${letter}</span>`;
+          return `<p data-paragraph="${letter}" class="paragraph-block${highlighted}"><span class="paragraph-marker">${letter}</span> `;
         });
       });
     });
     
     return processed;
   }, [highlightedParagraph]);
+
+  // Resizable panel handlers
+  const handleMouseDown = useCallback((e) => {
+    e.preventDefault();
+    isDragging.current = true;
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+  }, []);
+
+  const handleMouseMove = useCallback((e) => {
+    if (!isDragging.current || !containerRef.current) return;
+    
+    // Use requestAnimationFrame for smooth performance
+    requestAnimationFrame(() => {
+      if (!containerRef.current) return;
+      const container = containerRef.current;
+      const containerRect = container.getBoundingClientRect();
+      const newLeftWidth = ((e.clientX - containerRect.left) / containerRect.width) * 100;
+      
+      // Limit between 25% and 75%
+      if (newLeftWidth >= 25 && newLeftWidth <= 75) {
+        setLeftPanelWidth(newLeftWidth);
+      }
+    });
+  }, []);
+
+  const handleMouseUp = useCallback(() => {
+    isDragging.current = false;
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+  }, []);
+
+  // Add/remove global mouse listeners for resize
+  useEffect(() => {
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+    
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [handleMouseMove, handleMouseUp]);
 
   // Validate and submit
   const handleSubmit = () => {
@@ -287,12 +397,32 @@ const DoReadingTest = () => {
   const currentPassage = test.passages[currentPartIndex];
   const stats = getStatistics();
   
+  // Helper function to count questions (matching headings & cloze test count as multiple questions)
+  const countQuestionsInSection = (questions) => {
+    return (questions || []).reduce((total, q) => {
+      const qType = q.type || q.questionType || 'multiple-choice';
+      if (qType === 'ielts-matching-headings') {
+        return total + (q.paragraphs || q.answers || []).length || 1;
+      }
+      if (qType === 'cloze-test' || qType === 'summary-completion') {
+        // Count blanks in cloze test
+        const clozeText = q.paragraphText || q.passageText || q.text || q.paragraph || 
+          (q.questionText && q.questionText.includes('[BLANK]') ? q.questionText : null);
+        if (clozeText) {
+          const blankMatches = clozeText.match(/\[BLANK\]/gi);
+          return total + (blankMatches ? blankMatches.length : 1);
+        }
+      }
+      return total + 1;
+    }, 0);
+  };
+  
   // Calculate question range for current passage
   let startQuestionNumber = 1;
   for (let i = 0; i < currentPartIndex; i++) {
     const p = test.passages[i];
     const sections = p.sections || [{ questions: p.questions }];
-    sections.forEach(s => startQuestionNumber += (s.questions || []).length);
+    sections.forEach(s => startQuestionNumber += countQuestionsInSection(s.questions));
   }
 
   // Get sections for current passage
@@ -301,7 +431,7 @@ const DoReadingTest = () => {
   
   // Total questions in current passage
   let totalQuestionsInPassage = 0;
-  currentSections.forEach(s => totalQuestionsInPassage += (s.questions || []).length);
+  currentSections.forEach(s => totalQuestionsInPassage += countQuestionsInSection(s.questions));
 
   // Render question based on type
   const renderQuestion = (question, questionNumber) => {
@@ -310,19 +440,40 @@ const DoReadingTest = () => {
     const isAnswered = answers[key] && answers[key].toString().trim() !== '';
     const isActive = activeQuestion === questionNumber;
     
+    // For matching headings, each paragraph is a separate question
+    const isMatchingHeadings = qType === 'ielts-matching-headings';
+    const paragraphCount = isMatchingHeadings ? (question.paragraphs || question.answers || []).length : 0;
+    
+    // For cloze test, count blanks
+    const isClozeTest = qType === 'cloze-test' || qType === 'summary-completion';
+    const clozeText = question.paragraphText || question.passageText || question.text || question.paragraph || 
+      (question.questionText && question.questionText.includes('[BLANK]') ? question.questionText : null);
+    const blankCount = isClozeTest && clozeText ? (clozeText.match(/\[BLANK\]/gi) || []).length : 0;
+    
+    // Check if short answer has inline dots
+    const isShortAnswerInline = (qType === 'fill-in-blank' || qType === 'short-answer' || qType === 'fill-in-the-blanks') && 
+      question.questionText && (question.questionText.includes('…') || question.questionText.includes('....'));
+    
+    // Should hide single question number for multi-question blocks
+    const isMultiQuestionBlock = isMatchingHeadings || (isClozeTest && blankCount > 0);
+    
     return (
       <div 
         key={key}
         ref={el => questionRefs.current[key] = el}
-        className={`question-item ${isAnswered ? 'answered' : ''} ${isActive ? 'active' : ''}`}
+        className={`question-item ${isAnswered ? 'answered' : ''} ${isActive ? 'active' : ''} ${isMultiQuestionBlock ? 'matching-headings-block' : ''}`}
         onClick={() => setActiveQuestion(questionNumber)}
       >
-        <div className={`question-number ${isAnswered ? 'answered' : ''}`}>
-          {questionNumber}
-        </div>
+        {/* Hide single question number for multi-question blocks - show range instead */}
+        {!isMultiQuestionBlock && (
+          <div className={`question-number ${isAnswered ? 'answered' : ''}`}>
+            {questionNumber}
+          </div>
+        )}
         
-        <div className="question-content">
-          {question.questionText && (
+        <div className={`question-content ${isMultiQuestionBlock ? 'full-width' : ''}`}>
+          {/* Hide questionText for inline short answer (it's shown in inline) and cloze test (shown in passage) */}
+          {question.questionText && !isShortAnswerInline && !(isClozeTest && clozeText) && (
             <div 
               className="question-text"
               dangerouslySetInnerHTML={{ __html: question.questionText }}
@@ -412,16 +563,48 @@ const DoReadingTest = () => {
             </div>
           )}
 
-          {/* Fill in Blank / Short Answer */}
+          {/* Fill in Blank / Short Answer - Inline style */}
           {(qType === 'fill-in-blank' || qType === 'short-answer' || qType === 'fill-in-the-blanks') && (
-            <div className="question-fill">
-              <input
-                type="text"
-                className={`fill-input ${isAnswered ? 'answered' : ''}`}
-                value={answers[key] || ''}
-                onChange={(e) => handleAnswerChange(key, e.target.value)}
-                placeholder={question.maxWords ? `No more than ${question.maxWords} words` : 'Type your answer...'}
-              />
+            <div className="question-fill-inline">
+              {/* If questionText contains blanks (.....), replace with input */}
+              {isShortAnswerInline ? (
+                <div className="inline-fill-text">
+                  {(() => {
+                    // Strip <p> tags and clean up HTML for inline display
+                    const cleanText = question.questionText
+                      .replace(/<p[^>]*>/gi, '')
+                      .replace(/<\/p>/gi, ' ')
+                      .replace(/<br\s*\/?>/gi, ' ')
+                      .trim();
+                    
+                    return cleanText.split(/(\.{3,}|…+)/).map((part, idx) => {
+                      if (part.match(/\.{3,}|…+/)) {
+                        return (
+                          <input
+                            key={idx}
+                            type="text"
+                            className={`inline-fill-input ${answers[key] ? 'answered' : ''}`}
+                            value={answers[key] || ''}
+                            onChange={(e) => handleAnswerChange(key, e.target.value)}
+                            placeholder={question.maxWords ? `≤${question.maxWords} words` : ''}
+                          />
+                        );
+                      }
+                      // Skip empty parts
+                      if (!part.trim()) return null;
+                      return <span key={idx}>{part}</span>;
+                    });
+                  })()}
+                </div>
+              ) : (
+                <input
+                  type="text"
+                  className={`fill-input ${isAnswered ? 'answered' : ''}`}
+                  value={answers[key] || ''}
+                  onChange={(e) => handleAnswerChange(key, e.target.value)}
+                  placeholder={question.maxWords ? `No more than ${question.maxWords} words` : 'Type your answer...'}
+                />
+              )}
               {question.maxWords && (
                 <p className="fill-hint">
                   <span className="hint-icon">ℹ️</span>
@@ -517,6 +700,13 @@ const DoReadingTest = () => {
           {/* IELTS Matching Headings */}
           {qType === 'ielts-matching-headings' && (
             <div className="question-matching-headings">
+              {/* Question range header */}
+              <div className="matching-headings-header">
+                <span className="matching-range-badge">
+                  Questions {question.startQuestion || questionNumber}–{(question.startQuestion || questionNumber) + paragraphCount - 1}
+                </span>
+              </div>
+              
               {/* List of headings */}
               <div className="headings-list">
                 <p className="headings-title">📋 List of Headings</p>
@@ -531,7 +721,7 @@ const DoReadingTest = () => {
                 })}
               </div>
               
-              {/* Paragraphs to match */}
+              {/* Paragraphs to match - with question numbers */}
               <div className="paragraphs-match">
                 {(question.paragraphs || question.answers || []).map((para, pi) => {
                   const paragraphId = typeof para === 'object' ? (para.id || para.paragraphId) : para;
@@ -542,12 +732,18 @@ const DoReadingTest = () => {
                     currentAnswerObj = {};
                   }
                   const selectedHeading = currentAnswerObj[paragraphId];
+                  // Use startQuestion from question data, or fall back to questionNumber
+                  const baseQuestion = question.startQuestion || questionNumber;
+                  const actualQuestionNum = baseQuestion + pi;
                   
                   return (
                     <div 
                       key={pi} 
-                      className="paragraph-match-row"
-                      onMouseEnter={() => handleParagraphHighlight(paragraphId)}                      onMouseLeave={handleParagraphUnhighlight}                    >
+                      className={`paragraph-match-row ${selectedHeading !== undefined && selectedHeading !== '' ? 'answered' : ''}`}
+                      onMouseEnter={() => handleParagraphHighlight(paragraphId)}
+                      onMouseLeave={handleParagraphUnhighlight}
+                    >
+                      <span className="paragraph-question-number">{actualQuestionNum}</span>
                       <span className="paragraph-label">Paragraph {paragraphId}</span>
                       <select
                         className={`heading-select ${selectedHeading !== undefined && selectedHeading !== '' ? 'answered' : ''}`}
@@ -555,11 +751,15 @@ const DoReadingTest = () => {
                         onChange={(e) => handleMatchingHeadingsChange(key, paragraphId, e.target.value)}
                       >
                         <option value="">Choose a heading...</option>
-                        {(question.headings || []).map((_, hi) => (
-                          <option key={hi} value={hi}>
-                            {['i', 'ii', 'iii', 'iv', 'v', 'vi', 'vii', 'viii', 'ix', 'x'][hi] || hi + 1}
-                          </option>
-                        ))}
+                        {(question.headings || []).map((heading, hi) => {
+                          const headingText = typeof heading === 'object' ? (heading.text || heading.label || '') : heading;
+                          const romanNum = ['i', 'ii', 'iii', 'iv', 'v', 'vi', 'vii', 'viii', 'ix', 'x'][hi] || hi + 1;
+                          return (
+                            <option key={hi} value={hi}>
+                              {romanNum}. {headingText}
+                            </option>
+                          );
+                        })}
                       </select>
                     </div>
                   );
@@ -571,6 +771,20 @@ const DoReadingTest = () => {
           {/* Cloze Test / Summary Completion */}
           {(qType === 'cloze-test' || qType === 'summary-completion') && (
             <div className="question-cloze">
+              {/* Question range header for cloze test */}
+              {blankCount > 0 && (
+                <div className="cloze-header">
+                  <span className="cloze-range-badge">
+                    Questions {question.startQuestion || questionNumber}–{(question.startQuestion || questionNumber) + blankCount - 1}
+                  </span>
+                  {question.maxWords && (
+                    <span className="cloze-max-words">
+                      ℹ️ No more than {question.maxWords} word(s) for each answer
+                    </span>
+                  )}
+                </div>
+              )}
+              
               {question.wordBank && question.wordBank.length > 0 && (
                 <div className="word-bank">
                   <p className="word-bank-title">📝 Word Bank:</p>
@@ -585,18 +799,55 @@ const DoReadingTest = () => {
                 </div>
               )}
               
-              {(question.blanks || []).map((blank, bi) => (
-                <div key={bi} className="cloze-blank-row">
-                  <span className="cloze-blank-number">{blank.id || bi + 1}.</span>
-                  <input
-                    type="text"
-                    className={`cloze-input ${answers[`${key}_${bi}`] ? 'answered' : ''}`}
-                    value={answers[`${key}_${bi}`] || ''}
-                    onChange={(e) => handleAnswerChange(`${key}_${bi}`, e.target.value)}
-                    placeholder="Type answer..."
-                  />
-                </div>
-              ))}
+              {/* If passage text exists with [BLANK], render inline */}
+              {(() => {
+                if (clozeText && clozeText.includes('[BLANK]')) {
+                  return (
+                    <div className="cloze-passage">
+                      {(() => {
+                        let blankIndex = 0;
+                        const baseQuestionNum = question.startQuestion || questionNumber;
+                        return clozeText.split(/\[BLANK\]/gi).map((part, idx, arr) => {
+                          if (idx === arr.length - 1) {
+                            return <span key={idx} dangerouslySetInnerHTML={{ __html: part }} />;
+                          }
+                          const currentBlankIdx = blankIndex++;
+                          const blankNum = baseQuestionNum + currentBlankIdx;
+                          return (
+                            <span key={idx}>
+                              <span dangerouslySetInnerHTML={{ __html: part }} />
+                              <span className="cloze-inline-wrapper">
+                                <span className="cloze-inline-number">{blankNum}</span>
+                                <input
+                                  type="text"
+                                  className={`cloze-inline-input ${answers[`${key}_${currentBlankIdx}`] ? 'answered' : ''}`}
+                                  value={answers[`${key}_${currentBlankIdx}`] || ''}
+                                  onChange={(e) => handleAnswerChange(`${key}_${currentBlankIdx}`, e.target.value)}
+                                  placeholder=""
+                                />
+                              </span>
+                            </span>
+                          );
+                        });
+                      })()}
+                    </div>
+                  );
+                } else {
+                  // Fallback to blank rows if no passage text
+                  return (question.blanks || []).map((blank, bi) => (
+                    <div key={bi} className="cloze-blank-row">
+                      <span className="cloze-blank-number">{blank.id || questionNumber + bi}.</span>
+                      <input
+                        type="text"
+                        className={`cloze-input ${answers[`${key}_${bi}`] ? 'answered' : ''}`}
+                        value={answers[`${key}_${bi}`] || ''}
+                        onChange={(e) => handleAnswerChange(`${key}_${bi}`, e.target.value)}
+                        placeholder="Type answer..."
+                      />
+                    </div>
+                  ));
+                }
+              })()}
             </div>
           )}
         </div>
@@ -677,9 +928,12 @@ const DoReadingTest = () => {
       </header>
 
       {/* Main Content */}
-      <main className="reading-test-main">
+      <main className="reading-test-main" ref={containerRef}>
         {/* Left: Passage */}
-        <div className="reading-passage-column">
+        <div 
+          className="reading-passage-column"
+          style={{ width: `${leftPanelWidth}%` }}
+        >
           <div className="passage-header">
             <div className="passage-part">PASSAGE {currentPartIndex + 1}</div>
             {currentPassage.passageTitle && (
@@ -732,8 +986,21 @@ const DoReadingTest = () => {
           </div>
         </div>
 
+        {/* Resizable Divider */}
+        <div 
+          className="resizable-divider"
+          onMouseDown={handleMouseDown}
+        >
+          <div className="divider-handle">
+            <span className="divider-dots">⋮⋮</span>
+          </div>
+        </div>
+
         {/* Right: Questions */}
-        <div className="reading-questions-column">
+        <div 
+          className="reading-questions-column"
+          style={{ width: `${100 - leftPanelWidth}%` }}
+        >
           <div className="questions-header">
             <h3>Questions</h3>
             <span className="questions-range">
@@ -768,7 +1035,27 @@ const DoReadingTest = () => {
                   
                   {/* Questions */}
                   {sectionQuestions.map((q) => {
-                    const qNum = currentQuestionNumber++;
+                    const qNum = currentQuestionNumber;
+                    const qType = q.type || q.questionType || 'multiple-choice';
+                    
+                    // For matching headings, count each paragraph as a question
+                    if (qType === 'ielts-matching-headings') {
+                      const paragraphCount = (q.paragraphs || q.answers || []).length;
+                      currentQuestionNumber += paragraphCount || 1;
+                    } 
+                    // For cloze test, count each blank as a question
+                    else if (qType === 'cloze-test' || qType === 'summary-completion') {
+                      const clozeText = q.paragraphText || q.passageText || q.text || q.paragraph || 
+                        (q.questionText && q.questionText.includes('[BLANK]') ? q.questionText : null);
+                      if (clozeText) {
+                        const blankMatches = clozeText.match(/\[BLANK\]/gi);
+                        currentQuestionNumber += blankMatches ? blankMatches.length : 1;
+                      } else {
+                        currentQuestionNumber++;
+                      }
+                    } else {
+                      currentQuestionNumber++;
+                    }
                     return renderQuestion(q, qNum);
                   })}
                 </div>
