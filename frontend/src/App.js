@@ -1,22 +1,13 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 
-import EditTest from './pages/EditTest';
-import WritingTest from './pages/WritingTest';
-import AdminSubmissions from './pages/AdminSubmissions';
-import Login from './pages/Login';
-import CreateWritingTest from './pages/CreateWritingTest';
-import SelectTest from './pages/SelectTest';
-import ProtectedRoute from './components/ProtectedRoute';
-import MyFeedback from './pages/MyFeedback';
-import ReviewSubmission from './pages/ReviewSubmission';
-
-import Review from './pages/Review';
-import CreateListeningTest from './pages/CreateListeningTest';
-import CreateReadingTest from './pages/CreateReadingTest';
-import EditReadingTest from './pages/EditReadingTest';
-import DoReadingTest from './pages/DoReadingTest';
-import TakeReadingTest from './pages/TakeReadingTest';
+// Import from new feature-based structure
+import { EditTest, AdminSubmissions, SelectTest, MyFeedback, ReviewSubmission, Review } from './features/admin';
+import { WritingTest, CreateWritingTest } from './features/writing';
+import { Login } from './features/auth';
+import { CreateReadingTest, EditReadingTest, DoReadingTest, TakeReadingTest } from './features/reading';
+import { CreateListeningTest } from './features/listening';
+import { ProtectedRoute } from './shared/components';
 
 const isLoggedIn = () => {
   const user = localStorage.getItem('user');

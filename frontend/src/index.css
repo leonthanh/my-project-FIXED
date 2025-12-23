@@ -5,7 +5,87 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
+
+/* ========================================
+   DARK MODE STYLES
+   ======================================== */
+
+body.dark-mode {
+  background-color: #1a1a2e;
+  color: #e8e8e8;
+}
+
+body.dark-mode input,
+body.dark-mode select,
+body.dark-mode textarea {
+  background-color: #16213e;
+  color: #e8e8e8;
+  border-color: #3d3d5c;
+}
+
+body.dark-mode input:focus,
+body.dark-mode select:focus,
+body.dark-mode textarea:focus {
+  border-color: #4a90d9;
+  box-shadow: 0 0 0 3px rgba(74, 144, 217, 0.2);
+}
+
+body.dark-mode button {
+  transition: all 0.2s ease;
+}
+
+body.dark-mode .quill {
+  background-color: #16213e;
+  border-color: #3d3d5c;
+}
+
+body.dark-mode .quill .ql-toolbar {
+  background-color: #0f3460;
+  border-color: #3d3d5c;
+}
+
+body.dark-mode .quill .ql-container {
+  border-color: #3d3d5c;
+}
+
+body.dark-mode .quill .ql-editor {
+  color: #e8e8e8;
+}
+
+body.dark-mode .quill .ql-toolbar button {
+  color: #e8e8e8;
+}
+
+body.dark-mode .quill .ql-toolbar button:hover {
+  color: #4a90d9;
+}
+
+body.dark-mode .quill .ql-toolbar .ql-stroke {
+  stroke: #e8e8e8;
+}
+
+body.dark-mode .quill .ql-toolbar .ql-fill {
+  fill: #e8e8e8;
+}
+
+body.dark-mode .quill .ql-toolbar .ql-picker {
+  color: #e8e8e8;
+}
+
+/* Dark mode for common containers */
+body.dark-mode .card,
+body.dark-mode .panel,
+body.dark-mode .box {
+  background-color: #16213e;
+  border-color: #3d3d5c;
+}
+
+/* ========================================
+   END DARK MODE STYLES
+   ======================================== */
+
 html, body, #root {
   height: 100%;
   margin: 0;

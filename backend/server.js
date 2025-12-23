@@ -18,14 +18,14 @@ require("./models/ReadingTest");
 require("./models/KETReading");
 
 // ✅ Routes
-const authRoutes = require("./routes/auth");
-const writingTestsRoute = require("./routes/writingTest");
-const writingSubmissionRoutes = require("./routes/writing-submission");
-const listeningTestsRoute = require("./routes/listeningTests");
-const listeningSubmissionRoutes = require("./routes/listening-submission");
-const readingTestsRoute = require("./routes/readingTest");
-const readingSubmissionRoutes = require("./routes/reading-submission");
-const aiRoutes = require("./routes/ai"); // ✅ Đưa lên trước khi dùng
+const authRoutes = require('./routes/auth');
+const writingTestsRoute = require('./routes/writingTest');
+const writingSubmissionRoutes = require('./routes/writing-submission');
+const listeningTestsRoute = require('./routes/listeningTests');
+const listeningSubmissionRoutes = require('./routes/listening-submission');
+const readingTestsRoute = require('./routes/readingTest');
+const readingSubmissionRoutes = require('./routes/reading-submission');
+const aiRoutes = require('./routes/ai'); // ✅ Đưa lên trước khi dùng
 
 // Middleware
 app.use(cors());
@@ -45,14 +45,14 @@ sequelize
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 // ✅ Routes API
-app.use("/api/ai", aiRoutes); // ✅ Bây giờ mới dùng
-app.use("/api/auth", authRoutes);
-app.use("/api/writing-tests", writingTestsRoute);
-app.use("/api/writing", writingSubmissionRoutes);
-app.use("/api/listening-tests", listeningTestsRoute);
-app.use("/api/listening-submissions", listeningSubmissionRoutes);
-app.use("/api/reading-tests", readingTestsRoute);
-app.use("/api/reading-submissions", readingSubmissionRoutes);
+app.use('/api/ai', aiRoutes); // ✅ Bây giờ mới dùng
+app.use('/api/auth', authRoutes);
+app.use('/api/writing-tests', writingTestsRoute);
+app.use('/api/writing', writingSubmissionRoutes);
+app.use('/api/listening-tests', listeningTestsRoute);
+app.use('/api/listening-submissions', listeningSubmissionRoutes);
+app.use('/api/reading-tests', readingTestsRoute);
+app.use('/api/reading-submissions', readingSubmissionRoutes);
 
 // ✅ Serve frontend React build
 const frontendPath = path.join(__dirname, "..", "frontend", "build");
