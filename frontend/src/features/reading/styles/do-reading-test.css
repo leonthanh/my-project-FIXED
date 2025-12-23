@@ -1069,6 +1069,32 @@
   flex-shrink: 0;
 }
 
+/* Highlight paragraph chosen by student for paragraph-matching */
+.paragraph-block.paragraph-chosen {
+  background: linear-gradient(135deg, #e8f8f0 0%, #d4edda 100%);
+  border-color: #27ae60;
+  box-shadow: 0 6px 18px rgba(39,174,96,0.08);
+  position: relative;
+}
+
+.paragraph-block.paragraph-chosen::after {
+  content: '✓';
+  position: absolute;
+  top: 8px;
+  right: 12px;
+  background: #27ae60;
+  color: #fff;
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  font-weight: 700;
+  font-size: 14px;
+}
+
+
 .paragraph-label::before {
   content: none;
 }
