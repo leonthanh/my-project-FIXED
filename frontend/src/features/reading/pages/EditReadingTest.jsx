@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { ReadingTestEditor } from '../components';
 import { usePassageHandlers } from '../hooks';
 import { stripHtml, cleanupPassageHTML } from '../utils';
+import { normalizeQuestionType } from '../utils/questionHelpers';
 import { AdminNavbar } from '../../../shared/components';
 
 /**
@@ -168,6 +169,7 @@ const EditReadingTest = () => {
               sectionImage: imagesToSend,
               questions: section.questions?.map(q => ({
                 ...q,
+                questionType: normalizeQuestionType(q.questionType || q.type || ''),
                 questionText: q.questionText || '',
                 options: q.options ? q.options.map(opt => opt) : undefined
               })) || []
