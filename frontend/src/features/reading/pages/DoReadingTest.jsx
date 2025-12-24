@@ -684,6 +684,26 @@ const DoReadingTest = () => {
     };
   }, [handleMouseMove, handleMouseUp]);
 
+  // Quick fix: remove stray single-brace text nodes ("{" or "}") that sometimes appear
+  // in the question list due to malformed HTML or legacy edits. This cleans up visible '}' marks.
+  useEffect(() => {
+    const ql = document.querySelector('.questions-list');
+    if (!ql) return;
+
+    const walker = document.createTreeWalker(ql, NodeFilter.SHOW_TEXT, {
+      acceptNode(node) {
+        const v = node.nodeValue && node.nodeValue.trim();
+        if (v === '}' || v === '{') return NodeFilter.FILTER_ACCEPT;
+        return NodeFilter.FILTER_REJECT;
+      }
+    });
+
+    const nodes = [];
+    let n;
+    while ((n = walker.nextNode())) nodes.push(n);
+    nodes.forEach((t) => t.parentNode && t.parentNode.removeChild(t));
+  }, [currentPartIndex, currentSections, answers]);
+
   // Validate and submit
   const handleSubmit = () => {
     const stats = getStatistics();
@@ -887,7 +907,10 @@ const DoReadingTest = () => {
             !isInlineAnswerType && (
               <div
                 className="question-text"
-                dangerouslySetInnerHTML={{ __html: question.questionText }}
+                dangerouslySetInnerHTML={{ __html: qType === 'sentence-completion' && answers[key]
+                  ? (question.questionText || '').replace(/_{3,}|…+/g, `<span class="sentence-blank-intext">${answers[key]}</span>`)
+                  : question.questionText
+                }}
               />
             )}
 
@@ -928,6 +951,37 @@ const DoReadingTest = () => {
                   </label>
                 );
               })}
+            </div>
+          )}
+
+          {/* Sentence completion - show dropdown (value stored as letter A/B/...) and a compact badge */}
+          {qType === "sentence-completion" && (
+            <div className="question-sentence-completion">
+              <div className="sentence-completion-inline">
+                <select
+                  className={`sentence-select ${answers[key] ? "answered" : ""}`}
+                  value={answers[key] || ""}
+                  onChange={(e) => handleAnswerChange(key, e.target.value)}
+                  onClick={(e) => e.stopPropagation()}
+                  aria-label="Choose ending"
+                >
+                  <option value="">-- Select --</option>
+                  {(question.options || []).map((opt, oi) => (
+                    <option key={oi} value={String.fromCharCode(65 + oi)}>
+                      {`${String.fromCharCode(65 + oi)}. ${stripUnwantedHtml(
+                        typeof opt === "object" ? opt.text || opt.label || "" : opt
+                      )}`}
+                    </option>
+                  ))}
+                </select>
+
+                <span
+                  className={`sentence-selected-badge ${answers[key] ? "selected" : ""}`}
+                  aria-hidden
+                >
+                  {answers[key] ? answers[key] : ""}
+                </span>
+              </div>
             </div>
           )}
 
@@ -1175,14 +1229,7 @@ const DoReadingTest = () => {
                                 <span className="paragraph-question-number">
                                   {questionNumber + thisIndex}
                                 </span>
-                                <div
-                                  style={{
-                                    display: "flex",
-                                    alignItems: "center",
-                                    gap: "12px",
-                                    flex: 1,
-                                  }}
-                                >
+                                <div className="paragraph-row-inner">
                                   <select
                                     className={`heading-select ${
                                       thisVal ? "answered" : ""
@@ -1213,7 +1260,6 @@ const DoReadingTest = () => {
 
                                   <div
                                     className="paragraph-text"
-                                    style={{ flex: 1 }}
                                     dangerouslySetInnerHTML={{
                                       __html: sentence,
                                     }}
@@ -2008,6 +2054,36 @@ const DoReadingTest = () => {
                       )}
                     </div>
                   )}
+
+                  {/* If this section contains sentence-completion questions, render the List of Endings once */}
+                  {sectionQuestions.some(sq => (sq.type || sq.questionType) === 'sentence-completion') && (() => {
+                    // If teacher already added a List of Endings in sectionInstruction or the passage text,
+                    // don't render our duplicate list.
+                    const hasTeacherList = (section.sectionInstruction && section.sectionInstruction.toLowerCase().includes('list of endings'))
+                      || (currentPassage && currentPassage.passageText && currentPassage.passageText.toLowerCase().includes('list of endings'));
+
+                    if (hasTeacherList) return null;
+
+                    const scQ = sectionQuestions.find(sq => (sq.type || sq.questionType) === 'sentence-completion');
+                    const scOptions = (scQ && scQ.options && scQ.options.length) ? scQ.options : [];
+                    const usedLetters = new Set(Object.values(answers || {}).filter(Boolean));
+                    return (
+                      <div className="sentence-completion-options">
+                        <p className="sc-title">List of Endings</p>
+                        <ul className="sc-list">
+                          {scOptions.map((opt, oi) => {
+                            const letter = String.fromCharCode(65 + oi);
+                            return (
+                              <li key={oi} className={`sc-item ${usedLetters.has(letter) ? 'used' : ''}`}>
+                                <span className="sc-letter">{letter}</span>
+                                <span className="sc-text" dangerouslySetInnerHTML={{ __html: stripUnwantedHtml(opt) }} />
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      </div>
+                    );
+                  })()}
 
                   {/* Questions */}
                   {sectionQuestions.map((q) => {

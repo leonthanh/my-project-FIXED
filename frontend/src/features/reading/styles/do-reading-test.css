@@ -660,6 +660,114 @@
    7. QUESTION OPTIONS - Beautiful hover
    ======================================== */
 
+/* Sentence Completion: List of Endings shown at section top */
+.sentence-completion-options {
+  padding: 12px;
+  background: linear-gradient(135deg, #f8f9ff 0%, #eef6ff 100%);
+  border-radius: 8px;
+  border: 1px solid #e6eefc;
+  margin: 10px 0 14px 0;
+}
+.sentence-completion-options .sc-title {
+  font-weight: 700;
+  color: #0e276f;
+  margin: 0 0 8px 0;
+}
+.sentence-completion-options .sc-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.sentence-completion-options .sc-item {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+.sentence-completion-options .sc-item.used .sc-letter {
+  background: #27ae60;
+  color: white;
+}
+.sentence-completion-options .sc-letter {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 28px;
+  background: #e9ecef;
+  border-radius: 6px;
+  font-weight: 700;
+  color: #495057;
+}
+.sentence-completion-options .sc-text {
+  color: #333;
+  font-size: 0.95rem;
+  line-height: 1.4;
+}
+
+/* Inline select & badge for each sentence-completion question */
+.question-sentence-completion {
+  margin-top: 6px;
+}
+.sentence-completion-inline {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.sentence-select {
+  min-width: 220px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 2px solid #e0e0e0;
+  background: white;
+  font-size: 0.95rem;
+}
+.sentence-select.answered {
+  border-color: #27ae60;
+  box-shadow: 0 0 0 4px rgba(39, 174, 96, 0.06);
+}
+
+/* Inline badge sitting inside question text for sentence-completion when letter chosen */
+.sentence-blank-intext {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 26px;
+  height: 22px;
+  padding: 0 6px;
+  background: #e9ecef;
+  border-radius: 6px;
+  font-weight: 700;
+  color: #495057;
+  margin-left: 6px;
+}
+.sentence-blank-intext:hover { transform: none; }
+.sentence-blank-intext:empty { display: none; }
+.sentence-selected-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  font-weight: 700;
+  color: #495057;
+  background: #e9ecef;
+}
+.sentence-selected-badge.selected {
+  background: #667eea;
+  color: white;
+}
+
+@media (max-width: 640px) {
+  .sentence-select { min-width: 140px; }
+  .sentence-completion-options .sc-list { gap: 6px; }
+  .sentence-completion-options .sc-item { flex-direction: column; align-items: flex-start; }
+  .sentence-completion-options .sc-text { font-size: 0.9rem; }
+}
+
 .question-options {
   display: flex;
   flex-direction: column;
@@ -1156,6 +1264,18 @@
   transition: all 0.2s ease;
   cursor: pointer;
   max-width: fit-content;
+}
+
+/* Inner wrapper for select + paragraph text in paragraph-matching rows */
+.paragraph-match-row .paragraph-row-inner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+}
+
+.paragraph-match-row .paragraph-text {
+  flex: 1;
 }
 
 .paragraph-match-row:hover {
