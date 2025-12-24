@@ -577,6 +577,7 @@
 
 .question-item {
   display: flex;
+  align-items: flex-start; /* align number with first line of question text */
   gap: 14px;
   padding: 10px;
   margin-bottom: 12px;
@@ -663,6 +664,19 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
+  align-self: flex-start; /* don't stretch to fill the question column */
+  width: fit-content; /* shrink to content width */
+  max-width: 720px; /* reasonable max so long options wrap */
+  flex-wrap: wrap; /* allow wrapping when necessary */
+  align-content: flex-start;
+}
+
+/* On small screens make options full width for readability */
+@media (max-width: 640px) {
+  .question-options {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
 }
 
 .option-label {
@@ -675,6 +689,13 @@
   border-radius: 10px;
   cursor: pointer;
   transition: all 0.2s ease;
+  width: auto; /* don't force full line width */
+  box-sizing: border-box;
+}
+
+/* For very narrow viewports make each option take full width */
+@media (max-width: 640px) {
+  .option-label { width: 100%; }
 }
 
 .option-label:hover {
