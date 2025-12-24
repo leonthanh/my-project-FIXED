@@ -370,102 +370,11 @@ const TakeReadingTest = () => {
 
           {question.questionType === "paragraph-fill-blanks" && (
             <div>
-              <div
-                style={{
-                  marginBottom: "20px",
-                  padding: "15px",
-                  backgroundColor: "#f5f5f5",
-                  borderRadius: "4px",
-                }}
-              >
-                <div
-                  dangerouslySetInnerHTML={{
-                    __html:
-                      question.paragraphText?.replace(
-                        /\[blank(\d+)\]/g,
-                        (
-                          match,
-                          num
-                        ) => `<select class="text-input" style="display: inline-block; width: 100px; margin: 0 5px;">
-                      <option value="">--</option>
-                      ${
-                        question.options
-                          ?.map(
-                            (opt) => `<option value="${opt}">${opt}</option>`
-                          )
-                          .join("") || ""
-                      }
-                    </select>`
-                      ) || "",
-                  }}
-                />
+              {/* Note: paragraph-fill-blanks rendering has been moved to `DoReadingTest.jsx` to consolidate behavior.
+                  Keep this placeholder while the project transitions. */}
+              <div className="paragraph-fill-redirect" style={{ padding: '10px', backgroundColor: '#fff7e6', borderRadius: 4 }}>
+                <em>Paragraph-fill-blanks are now rendered in the unified student view.</em>
               </div>
-              {question.blanks &&
-                question.blanks.map((blank, blankIndex) => {
-                  // Parse questionNumber string (38-40 or 38, 39, 40 or 38)
-                  let blankQuestionNum = question.questionNumber;
-                  const qNumStr = String(question.questionNumber || "");
-
-                  // Handle range: "38-40"
-                  if (qNumStr.includes("-") && !qNumStr.includes(",")) {
-                    const parts = qNumStr.split("-").map((p) => p.trim());
-                    if (parts.length === 2) {
-                      const start = parseInt(parts[0]);
-                      const end = parseInt(parts[1]);
-                      if (!isNaN(start) && !isNaN(end)) {
-                        blankQuestionNum = start + blankIndex;
-                      }
-                    }
-                  }
-                  // Handle comma: "38, 39, 40"
-                  else if (qNumStr.includes(",")) {
-                    const nums = qNumStr
-                      .split(",")
-                      .map((p) => {
-                        const n = parseInt(p.trim());
-                        return isNaN(n) ? null : n;
-                      })
-                      .filter((n) => n !== null);
-                    if (nums.length > blankIndex) {
-                      blankQuestionNum = nums[blankIndex];
-                    }
-                  }
-                  // Single number: "38"
-                  else {
-                    const single = parseInt(qNumStr);
-                    if (!isNaN(single)) {
-                      blankQuestionNum = single + blankIndex;
-                    }
-                  }
-
-                  return (
-                    <div key={blank.id} style={{ marginBottom: "10px" }}>
-                      <label
-                        style={{ marginRight: "10px", fontWeight: "bold" }}
-                      >
-                        Q{blankQuestionNum}:
-                      </label>
-                      <select
-                        className="text-input"
-                        value={answers[`${key}_${blank.id}`] || ""}
-                        onChange={(e) =>
-                          setAnswers((prev) => ({
-                            ...prev,
-                            [`${key}_${blank.id}`]: e.target.value,
-                          }))
-                        }
-                        style={{ width: "150px" }}
-                      >
-                        <option value="">-- Chọn --</option>
-                        {question.options?.map((opt, idx) => (
-                          <option key={idx} value={opt}>
-                            {opt}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  );
-                })}
             </div>
           )}
 
