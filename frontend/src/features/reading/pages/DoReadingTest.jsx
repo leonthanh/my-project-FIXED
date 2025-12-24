@@ -2034,9 +2034,11 @@ const DoReadingTest = () => {
                         </h4>
                       )}
                       {section.sectionInstruction && (
-                        <div
+                        <p
                           className="section-instruction"
-                          dangerouslySetInnerHTML={{ __html: section.sectionInstruction }}
+                          dangerouslySetInnerHTML={{
+                            __html: section.sectionInstruction,
+                          }}
                         />
                       )}
                       {section.sectionImage && (

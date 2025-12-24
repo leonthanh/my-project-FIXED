@@ -54,6 +54,10 @@ app.use('/api/listening-submissions', listeningSubmissionRoutes);
 app.use('/api/reading-tests', readingTestsRoute);
 app.use('/api/reading-submissions', readingSubmissionRoutes);
 
+// Upload routes (images) - mount upload router
+const uploadRoutes = require('./routes/upload');
+app.use('/api/upload', uploadRoutes);
+
 // ✅ Serve frontend React build
 const frontendPath = path.join(__dirname, "..", "frontend", "build");
 app.use(express.static(frontendPath));

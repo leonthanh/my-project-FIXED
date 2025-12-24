@@ -3,8 +3,8 @@ import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 import Quill from 'quill';
 
-// API URL
-const API = process.env.REACT_APP_API_URL;
+// API URL (allow empty for same-origin)
+const API = process.env.REACT_APP_API_URL || '';
 
 // Register custom size class
 const Size = Quill.import('formats/size');
@@ -68,7 +68,7 @@ const QuillEditor = ({ value, onChange, placeholder, showBlankButton = false }) 
 
       try {
         setUploading(true);
-        
+
         // Upload to server
         const formData = new FormData();
         formData.append('image', file);
@@ -78,24 +78,58 @@ const QuillEditor = ({ value, onChange, placeholder, showBlankButton = false }) 
           body: formData
         });
 
+        // If server responded with non-2xx, extract JSON or text for clearer error message
         if (!response.ok) {
-          const error = await response.json();
-          throw new Error(error.message || 'Upload failed');
+          const contentType = response.headers.get('content-type') || '';
+          let errMsg = `HTTP ${response.status}`;
+
+          try {
+            if (contentType.includes('application/json')) {
+              const errData = await response.json();
+              errMsg = errData.message || errMsg;
+            } else {
+              const text = await response.text();
+              errMsg = (text && text.trim()) ? text.slice(0, 300) : errMsg;
+            }
+          } catch (parseErr) {
+            console.warn('Error parsing error response', parseErr);
+          }
+
+          throw new Error(errMsg || 'Upload failed');
         }
 
-        const data = await response.json();
-        
-        // Insert image into editor with full URL
+        // Parse JSON on success; if not JSON, throw helpful message
+        let data = null;
+        try {
+          data = await response.json();
+        } catch (parseErr) {
+          const text = await response.text();
+          throw new Error(text ? text.slice(0, 300) : 'Upload succeeded but returned unexpected response');
+        }
+
+        // Insert image into editor with full URL (build safely to preserve protocol)
         const editor = quillRef.current?.getEditor();
         if (editor) {
           const range = editor.getSelection(true);
-          const imageUrl = `${API}${data.url}`;
+
+          // Build a safe absolute URL. Use `API` if provided, otherwise fall back to current origin.
+          const base = API || window.location.origin;
+          let imageUrl;
+          try {
+            imageUrl = new URL(data.url, base).toString();
+          } catch (err) {
+            // Fallback string concatenation if URL constructor fails
+            const cleanedBase = base.replace(/\/$/, '');
+            const cleanedPath = (data.url || '').replace(/^\//, '');
+            imageUrl = `${cleanedBase}/${cleanedPath}`;
+          }
+
           editor.insertEmbed(range.index, 'image', imageUrl);
           editor.setSelection(range.index + 1);
         }
       } catch (error) {
         console.error('Upload error:', error);
-        alert(`Lỗi upload: ${error.message}`);
+        alert(`Lỗi upload: ${error.message || 'Không thể upload hình ảnh'}`);
       } finally {
         setUploading(false);
       }
@@ -194,10 +228,10 @@ const QuillEditor = ({ value, onChange, placeholder, showBlankButton = false }) 
           padding-left: 1.5em !important;
         }
         
-        /* Size formats - for span tags */
-        .ql-editor span[style*="font-size"] {
-          font-size: inherit !important;
-        }
+        /* Size formats - for span tags
+           Allow Quill to apply inline font-size styles (do not force inherit) */
+        /* Previously we forced font-size to inherit which prevented the toolbar size from working. */
+        /* Keeping this comment for future reference. */
         
         /* Size class formats */
         .ql-editor .ql-size-small {
@@ -210,7 +244,7 @@ const QuillEditor = ({ value, onChange, placeholder, showBlankButton = false }) 
           font-size: 2.5em !important;
         }
         
-        /* Align - support both class and style */
+        /* Align - support both class and style (inside editor) */
         .ql-editor .ql-align-center {
           text-align: center !important;
         }
@@ -220,6 +254,39 @@ const QuillEditor = ({ value, onChange, placeholder, showBlankButton = false }) 
         .ql-editor .ql-align-justify {
           text-align: justify !important;
         }
+
+        /* Global alignment helpers - apply even outside .ql-editor (e.g., preview modal, saved HTML) */
+        .ql-align-center,
+        p.ql-align-center,
+        div.ql-align-center,
+        span.ql-align-center,
+        .ql-align-right,
+        p.ql-align-right,
+        div.ql-align-right,
+        span.ql-align-right,
+        .ql-align-justify,
+        p.ql-align-justify,
+        div.ql-align-justify,
+        span.ql-align-justify,
+        p[style*="text-align:center"],
+        div[style*="text-align:center"],
+        p[style*="text-align:right"],
+        div[style*="text-align:right"],
+        p[style*="text-align:justify"],
+        div[style*="text-align:justify"] {
+          /* center/right/justify handled by individual selectors above */
+        }
+
+        /* Specifically set text-align for each class to ensure preview renders correctly */
+        .ql-align-center, p.ql-align-center, div.ql-align-center, span.ql-align-center, p[style*="text-align:center"], div[style*="text-align:center"] {
+          text-align: center !important;
+        }
+        .ql-align-right, p.ql-align-right, div.ql-align-right, span.ql-align-right, p[style*="text-align:right"], div[style*="text-align:right"] {
+          text-align: right !important;
+        }
+        .ql-align-justify, p.ql-align-justify, div.ql-align-justify, span.ql-align-justify, p[style*="text-align:justify"], div[style*="text-align:justify"] {
+          text-align: justify !important;
+        }
         
         /* Images in editor */
         .ql-editor img {
@@ -227,6 +294,48 @@ const QuillEditor = ({ value, onChange, placeholder, showBlankButton = false }) 
           height: auto !important;
           border-radius: 4px;
           margin: 8px 0;
+          /* Default inline so text wraps if not centered */
+          display: inline-block;
+        }
+        /* Center alignment helpers: handle images wrapped in different alignment wrappers or with inline styles */
+        .ql-editor .ql-align-center img,
+        .ql-editor p.ql-align-center img,
+        .ql-editor div.ql-align-center img,
+        .ql-editor figure.ql-align-center img,
+        .ql-editor p[style*="text-align:center"] img,
+        .ql-editor div[style*="text-align:center"] img,
+        .ql-editor img[style*="display:block"],
+        .ql-editor img[style*="margin:auto"],
+        .ql-editor img[style*="margin:0 auto"],
+        .ql-editor img.ql-align-center {
+          display: inline-block !important;
+          margin-left: auto !important;
+          margin-right: auto !important;
+          float: none !important;
+        }
+
+        /* Ensure block wrappers with ql-align-center center their inline children (text and images) */
+        .ql-editor .ql-align-center,
+        .ql-editor p.ql-align-center,
+        .ql-editor div.ql-align-center,
+        .ql-editor figure.ql-align-center,
+        .ql-editor p[style*="text-align:center"],
+        .ql-editor div[style*="text-align:center"] {
+          text-align: center !important;
+        }
+
+        /* Images that were floated by other styles should be reset so centering can work */
+        .ql-editor img[style*="float:left"],
+        .ql-editor img[style*="float:right"] {
+          float: none !important;
+          display: inline-block !important;
+        }
+
+        /* If an image has width:100% inline, make it behave as block but ensure centering (it already fills container) */
+        .ql-editor img[style*="width:100%"] {
+          display: block !important;
+          margin-left: 0 !important;
+          margin-right: 0 !important;
         }
         
         /* Upload indicator */

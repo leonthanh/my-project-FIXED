@@ -165,7 +165,8 @@ const EditReadingTest = () => {
 
             return {
               sectionTitle: stripHtml(section.sectionTitle || '') || `Section ${sIdx + 1}`,
-              sectionInstruction: section.sectionInstruction || '',
+              // Preserve HTML formatting for instructions and sanitize empty tags
+              sectionInstruction: cleanupPassageHTML(section.sectionInstruction || ''),
               sectionImage: imagesToSend,
               questions: section.questions?.map(q => ({
                 ...q,

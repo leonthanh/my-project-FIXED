@@ -153,13 +153,15 @@ const CreateReadingTest = () => {
             
             return {
               sectionTitle: stripHtml(section.sectionTitle || ''),
-              sectionInstruction: stripHtml(section.sectionInstruction || ''),
+              // Preserve HTML/formatting from Quill for section instructions so font sizes, alignment, and images are kept
+              sectionInstruction: cleanupPassageHTML(section.sectionInstruction || ''),
               sectionImage: imagesToSend,
               questions: section.questions?.map(q => ({
                 ...q,
                 questionType: normalizeQuestionType(q.questionType || q.type || ''),
-                questionText: stripHtml(q.questionText || ''),
-                options: q.options ? q.options.map(opt => stripHtml(opt)) : undefined
+                // For question content we keep raw HTML where needed (some question types use rich text)
+                questionText: q.questionText || '',
+                options: q.options ? q.options.map(opt => opt) : undefined
               })) || []
             };
           }) || [])

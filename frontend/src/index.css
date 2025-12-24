@@ -41,37 +41,54 @@ body.dark-mode .quill {
   border-color: #3d3d5c;
 }
 
-body.dark-mode .quill .ql-toolbar {
-  background-color: #0f3460;
-  border-color: #3d3d5c;
+/* Quill toolbar - dark mode: ensure toolbar background and icons are visible */
+body.dark-mode .ql-snow .ql-toolbar,
+body.dark-mode .quill .ql-toolbar,
+body.dark-mode .ql-snow .ql-toolbar .ql-picker-label,
+body.dark-mode .ql-snow .ql-toolbar .ql-picker-options,
+body.dark-mode .ql-snow .ql-toolbar .ql-picker.ql-expanded .ql-picker-label {
+  background-color: #0f3460 !important;
+  border-color: #3d3d5c !important;
+  color: #e8e8e8 !important;
 }
 
+body.dark-mode .ql-snow .ql-toolbar button,
+body.dark-mode .ql-snow .ql-toolbar .ql-picker-label,
+body.dark-mode .ql-snow .ql-toolbar .ql-picker-item {
+  color: #e8e8e8 !important;
+  background: transparent !important;
+}
+
+body.dark-mode .ql-snow .ql-toolbar button:hover,
+body.dark-mode .ql-snow .ql-toolbar .ql-picker-label:hover,
+body.dark-mode .ql-snow .ql-toolbar .ql-picker-item:hover {
+  color: #4a90d9 !important;
+}
+
+body.dark-mode .ql-snow .ql-toolbar .ql-fill,
+body.dark-mode .ql-snow .ql-toolbar .ql-stroke,
+body.dark-mode .ql-snow .ql-toolbar svg {
+  fill: #e8e8e8 !important;
+  stroke: #e8e8e8 !important;
+}
+
+body.dark-mode .ql-snow .ql-picker-item:before,
+body.dark-mode .ql-snow .ql-picker-label:before {
+  color: #e8e8e8 !important;
+}
+
+body.dark-mode .ql-snow .ql-toolbar .ql-formats,
+body.dark-mode .ql-snow .ql-toolbar .ql-picker-options {
+  border-color: #3d3d5c !important;
+}
+
+/* Ensure editor container matches dark mode */
 body.dark-mode .quill .ql-container {
-  border-color: #3d3d5c;
+  border-color: #3d3d5c !important;
 }
 
 body.dark-mode .quill .ql-editor {
-  color: #e8e8e8;
-}
-
-body.dark-mode .quill .ql-toolbar button {
-  color: #e8e8e8;
-}
-
-body.dark-mode .quill .ql-toolbar button:hover {
-  color: #4a90d9;
-}
-
-body.dark-mode .quill .ql-toolbar .ql-stroke {
-  stroke: #e8e8e8;
-}
-
-body.dark-mode .quill .ql-toolbar .ql-fill {
-  fill: #e8e8e8;
-}
-
-body.dark-mode .quill .ql-toolbar .ql-picker {
-  color: #e8e8e8;
+  color: #e8e8e8 !important;
 }
 
 /* Dark mode for common containers */
@@ -80,6 +97,75 @@ body.dark-mode .panel,
 body.dark-mode .box {
   background-color: #16213e;
   border-color: #3d3d5c;
+}
+
+/* Handle elements that use inline white backgrounds - override them in dark mode */
+body.dark-mode [style*="background-color: #fff"],
+body.dark-mode [style*="backgroundColor: #fff"],
+body.dark-mode [style*="background-color: rgb(255, 255, 255)"],
+body.dark-mode [style*="backgroundColor: rgb(255, 255, 255)"] {
+  background-color: #16213e !important;
+  color: #e8e8e8 !important;
+  border-color: #3d3d5c !important;
+}
+
+/* Also target light-pink panels and other pale backgrounds commonly used for sections */
+body.dark-mode [style*="background-color: #fff5f5"],
+body.dark-mode [style*="backgroundColor: #fff5f5"],
+body.dark-mode [style*="background-color: #fffbf9"],
+body.dark-mode [style*="backgroundColor: #fffbf9"] {
+  background-color: #1f2b47 !important;
+}
+
+/* Aggressive fallback: convert most inline backgrounds to dark colors so components remain readable
+   Exclude <img> and <svg> elements from color forcing (images keep their pixels). */
+body.dark-mode [style*="background-color"]:not(img):not(svg),
+body.dark-mode [style*="backgroundColor"]:not(img):not(svg) {
+  background-color: #16213e !important;
+  color: #e8e8e8 !important;
+  border-color: #3d3d5c !important;
+}
+
+/* Ensure Quill editor container and content become dark */
+body.dark-mode .ql-container,
+body.dark-mode .ql-editor,
+body.dark-mode .quill .ql-container,
+body.dark-mode .quill .ql-editor {
+  background-color: #16213e !important;
+  color: #e8e8e8 !important;
+}
+
+/* Panels and common wrappers */
+body.dark-mode .panel,
+body.dark-mode .card,
+body.dark-mode .box,
+body.dark-mode .container,
+body.dark-mode .section,
+body.dark-mode .sidebar,
+body.dark-mode .question-section,
+body.dark-mode .review-modal {
+  background-color: #16213e !important;
+  color: #e8e8e8 !important;
+  border-color: #3d3d5c !important;
+}
+
+/* Ensure editor panel headings and list items are readable */
+body.dark-mode .reading-test-editor .section-title,
+body.dark-mode .reading-test-editor .section-header,
+body.dark-mode .reading-test-editor .list-item,
+body.dark-mode .reading-test-editor .column-header,
+body.dark-mode .reading-test-editor .panel h3,
+body.dark-mode .reading-test-editor .panel h4,
+body.dark-mode .reading-test-editor .panel h5,
+body.dark-mode .reading-test-editor .section-title a {
+  color: #e8e8e8 !important;
+}
+
+/* Slightly lighter small text */
+body.dark-mode .reading-test-editor .list-item small,
+body.dark-mode .reading-test-editor small,
+body.dark-mode .reading-test-editor .text-muted {
+  color: #c8d2e0 !important;
 }
 
 /* ========================================
