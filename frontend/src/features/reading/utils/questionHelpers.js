@@ -6,17 +6,17 @@
 /**
  * Tính số câu hỏi thực tế từ questionNumber
  * Xử lý các format: "38-40" (3 câu), "38" (1 câu), "38,39,40" (3 câu)
- * @param {string|number} questionNumber 
+ * @param {string|number} questionNumber
  * @returns {number} Số câu hỏi
  */
 export const getQuestionCount = (questionNumber) => {
   if (!questionNumber) return 1;
-  
+
   const qNum = String(questionNumber).trim();
-  
+
   // Handle range format: "38-40"
-  if (qNum.includes('-') && !qNum.includes(',')) {
-    const parts = qNum.split('-').map(p => p.trim());
+  if (qNum.includes("-") && !qNum.includes(",")) {
+    const parts = qNum.split("-").map((p) => p.trim());
     if (parts.length === 2) {
       const start = parseInt(parts[0], 10);
       const end = parseInt(parts[1], 10);
@@ -25,13 +25,16 @@ export const getQuestionCount = (questionNumber) => {
       }
     }
   }
-  
+
   // Handle comma-separated format: "38,39,40"
-  if (qNum.includes(',')) {
-    const parts = qNum.split(',').map(p => p.trim()).filter(p => p);
+  if (qNum.includes(",")) {
+    const parts = qNum
+      .split(",")
+      .map((p) => p.trim())
+      .filter((p) => p);
     return parts.length;
   }
-  
+
   // Single number: "38"
   return 1;
 };
@@ -43,9 +46,9 @@ export const getQuestionCount = (questionNumber) => {
  */
 export const calculateTotalQuestions = (passages) => {
   if (!passages || !Array.isArray(passages)) return 0;
-  
+
   let total = 0;
-  
+
   passages.forEach((p) => {
     p.sections?.forEach((sec) => {
       sec.questions?.forEach((q) => {
@@ -53,7 +56,7 @@ export const calculateTotalQuestions = (passages) => {
       });
     });
   });
-  
+
   return total;
 };
 
@@ -66,70 +69,75 @@ export const createDefaultQuestionByType = (type) => {
   const baseQuestion = {
     questionNumber: 1,
     questionType: type,
-    questionText: '',
-    correctAnswer: '',
-    options: []
+    questionText: "",
+    correctAnswer: "",
+    options: [],
   };
 
   switch (type) {
-    case 'multiple-choice':
-      return { ...baseQuestion, options: ['', '', '', ''] };
-    
-    case 'multi-select':
-      return { ...baseQuestion, options: ['', '', '', '', ''], maxSelection: 2 };
-    
-    case 'fill-in-the-blanks':
-      return { ...baseQuestion, maxWords: 3 };
-    
-    case 'matching':
-      return { 
-        ...baseQuestion, 
-        questionText: 'Match the items:',
-        leftItems: ['Item A', 'Item B', 'Item C'],
-        rightItems: ['Item 1', 'Item 2', 'Item 3'],
-        matches: ['1', '2', '3']
-      };
-    
-    case 'true-false-not-given':
-      return { ...baseQuestion, correctAnswer: 'TRUE' };
-    
-    case 'yes-no-not-given':
-      return { ...baseQuestion, correctAnswer: 'YES' };
-    
-    case 'cloze-test':
+    case "multiple-choice":
+      return { ...baseQuestion, options: ["", "", "", ""] };
+
+    case "multi-select":
       return {
         ...baseQuestion,
-        paragraphText: 'Another example of cheap technology helping poor people in the countryside is [BLANK]. Kerosene lamps and conventional bulbs give off less [BLANK] than GSBF lamps.',
+        options: ["", "", "", "", ""],
+        maxSelection: 2,
+      };
+
+    case "fill-in-the-blanks":
+      return { ...baseQuestion, maxWords: 3 };
+
+    case "matching":
+      return {
+        ...baseQuestion,
+        questionText: "Match the items:",
+        leftItems: ["Item A", "Item B", "Item C"],
+        rightItems: ["Item 1", "Item 2", "Item 3"],
+        matches: ["1", "2", "3"],
+      };
+
+    case "true-false-not-given":
+      return { ...baseQuestion, correctAnswer: "TRUE" };
+
+    case "yes-no-not-given":
+      return { ...baseQuestion, correctAnswer: "YES" };
+
+    case "cloze-test":
+      return {
+        ...baseQuestion,
+        paragraphText:
+          "Another example of cheap technology helping poor people in the countryside is [BLANK]. Kerosene lamps and conventional bulbs give off less [BLANK] than GSBF lamps.",
         maxWords: 3,
         blanks: [
-          { id: 'blank_0', blankNumber: 1, correctAnswer: '' },
-          { id: 'blank_1', blankNumber: 2, correctAnswer: '' }
-        ]
-      };
-    
-    case 'paragraph-matching':
-      return { ...baseQuestion, correctAnswer: 'A' };
-    
-    case 'sentence-completion':
-      return { ...baseQuestion, options: ['', '', '', ''], correctAnswer: 'A' };
-    
-    case 'paragraph-fill-blanks':
-      return { 
-        ...baseQuestion, 
-        paragraphText: '',
-        blanks: [
-          { id: 'blank1', correctAnswer: '' },
-          { id: 'blank2', correctAnswer: '' },
-          { id: 'blank3', correctAnswer: '' }
+          { id: "blank_0", blankNumber: 1, correctAnswer: "" },
+          { id: "blank_1", blankNumber: 2, correctAnswer: "" },
         ],
-        options: ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I']
       };
-    
-    case 'short-answer':
+
+    case "paragraph-matching":
+      return { ...baseQuestion, correctAnswer: "A" };
+
+    case "sentence-completion":
+      return { ...baseQuestion, options: ["", "", "", ""], correctAnswer: "A" };
+
+    case "paragraph-fill-blanks":
+      return {
+        ...baseQuestion,
+        paragraphText: "",
+        blanks: [
+          { id: "blank1", correctAnswer: "" },
+          { id: "blank2", correctAnswer: "" },
+          { id: "blank3", correctAnswer: "" },
+        ],
+        options: ["A", "B", "C", "D", "E", "F", "G", "H", "I"],
+      };
+
+    case "short-answer":
       return { ...baseQuestion, maxWords: 3 };
-    
+
     default:
-      return { ...baseQuestion, options: ['', '', '', ''] };
+      return { ...baseQuestion, options: ["", "", "", ""] };
   }
 };
 
@@ -138,22 +146,24 @@ export const createDefaultQuestionByType = (type) => {
  * @returns {Object} Passage mới
  */
 export const createNewPassage = () => ({
-  passageTitle: '', 
-  passageText: '', 
+  passageTitle: "",
+  passageText: "",
   sections: [
     {
-      sectionTitle: '',
-      sectionInstruction: '',
+      sectionTitle: "",
+      sectionInstruction: "",
       sectionImage: null,
-      questions: [{ 
-        questionNumber: 1, 
-        questionType: 'multiple-choice', 
-        questionText: '', 
-        options: [''], 
-        correctAnswer: '' 
-      }]
-    }
-  ]
+      questions: [
+        {
+          questionNumber: 1,
+          questionType: "multiple-choice",
+          questionText: "",
+          options: [""],
+          correctAnswer: "",
+        },
+      ],
+    },
+  ],
 });
 
 /**
@@ -163,9 +173,9 @@ export const createNewPassage = () => ({
  */
 export const createNewSection = (sectionNumber = 1) => ({
   sectionTitle: `Section ${sectionNumber}`,
-  sectionInstruction: '',
+  sectionInstruction: "",
   sectionImage: null,
-  questions: []
+  questions: [],
 });
 
 /**
@@ -175,8 +185,39 @@ export const createNewSection = (sectionNumber = 1) => ({
  */
 export const createNewQuestion = (questionNumber = 1) => ({
   questionNumber,
-  questionType: 'multiple-choice',
-  questionText: '',
-  options: [''],
-  correctAnswer: ''
+  questionType: "multiple-choice",
+  questionText: "",
+  options: [""],
+  correctAnswer: "",
 });
+
+/**
+ * Normalize question type string to canonical form used across the codebase.
+ * Accepts variants like 'true-false-notgiven' and returns 'true-false-not-given'.
+ * @param {string} type
+ * @returns {string}
+ */
+export const normalizeQuestionType = (type) => {
+  if (!type) return "multiple-choice";
+  const raw = String(type).trim();
+  // Normalize separators to single hyphen and lowercase
+  const normalized = raw
+    .replace(/[\s_]+/g, "-")
+    .replace(/-{2,}/g, "-")
+    .toLowerCase();
+
+  // Map common variants to canonical types
+  if (
+    normalized === "true-false-notgiven" ||
+    normalized === "true-false-not-given" ||
+    normalized === "true-false-not-givn"
+  ) {
+    return "true-false-not-given";
+  }
+  if (normalized === "yes-no-notgiven" || normalized === "yes-no-not-given") {
+    return "yes-no-not-given";
+  }
+
+  // Return normalized or original if not in mapping
+  return normalized;
+};

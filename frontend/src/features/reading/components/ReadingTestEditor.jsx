@@ -772,10 +772,10 @@ const ReadingTestEditor = ({
                               backgroundColor: '#fff5f5',
                               borderBottom: '1px solid #fdd',
                               fontSize: '12px',
-                              fontStyle: 'italic'
+                              /* Don't italicize the content - only the label should be italic */
                             }}>
-                              <strong>Hướng dẫn:</strong>
-                              <div dangerouslySetInnerHTML={{ __html: section.sectionInstruction }} />
+                              <strong style={{ fontStyle: 'italic', display: 'block', marginBottom: '8px' }}>Hướng dẫn:</strong>
+                              <div style={{ fontStyle: 'normal' }} dangerouslySetInnerHTML={{ __html: section.sectionInstruction }} />
                             </div>
                           )}
                           

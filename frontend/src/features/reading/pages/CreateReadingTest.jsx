@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { ReadingTestEditor } from '../components';
 import { usePassageHandlers } from '../hooks';
 import { stripHtml, cleanupPassageHTML, createNewPassage } from '../utils';
+import { normalizeQuestionType } from '../utils/questionHelpers';
 
 /**
  * CreateReadingTest - Trang tạo đề Reading IELTS mới
@@ -152,12 +153,15 @@ const CreateReadingTest = () => {
             
             return {
               sectionTitle: stripHtml(section.sectionTitle || ''),
-              sectionInstruction: stripHtml(section.sectionInstruction || ''),
+              // Preserve HTML/formatting from Quill for section instructions so font sizes, alignment, and images are kept
+              sectionInstruction: cleanupPassageHTML(section.sectionInstruction || ''),
               sectionImage: imagesToSend,
               questions: section.questions?.map(q => ({
                 ...q,
-                questionText: stripHtml(q.questionText || ''),
-                options: q.options ? q.options.map(opt => stripHtml(opt)) : undefined
+                questionType: normalizeQuestionType(q.questionType || q.type || ''),
+                // For question content we keep raw HTML where needed (some question types use rich text)
+                questionText: q.questionText || '',
+                options: q.options ? q.options.map(opt => opt) : undefined
               })) || []
             };
           }) || [])
