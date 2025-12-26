@@ -546,6 +546,28 @@ const DoReadingTest = () => {
         const element = questionRefs.current[`q_${questionNumber}`];
         if (element) {
           element.scrollIntoView({ behavior: "smooth", block: "center" });
+
+          // After scroll, focus the first focusable control inside the element (input, textarea, select, contenteditable)
+          setTimeout(() => {
+            try {
+              const focusable = element.querySelector
+                ? element.querySelector('input, textarea, select, [contenteditable="true"]')
+                : null;
+
+              if (focusable && typeof focusable.focus === 'function') {
+                focusable.focus({ preventScroll: true });
+                // place cursor at end for inputs
+                if (focusable.setSelectionRange && focusable.value != null) {
+                  const len = focusable.value.length;
+                  focusable.setSelectionRange(len, len);
+                }
+              } else if (element && typeof element.focus === 'function') {
+                element.focus({ preventScroll: true });
+              }
+            } catch (e) {
+              // ignore focus errors
+            }
+          }, 220);
         }
       }, 150);
     },
@@ -1508,6 +1530,7 @@ const DoReadingTest = () => {
                         return (
                           <input
                             key={idx}
+                            ref={(el) => (questionRefs.current[`q_${questionNumber}`] = el)}
                             type="text"
                             className={`inline-fill-input ${
                               answers[key] ? "answered" : ""
