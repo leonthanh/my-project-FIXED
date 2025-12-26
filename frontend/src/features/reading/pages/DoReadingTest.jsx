@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ConfirmModal } from "../../../shared/components";
 import "../styles/do-reading-test.css";
@@ -45,6 +45,110 @@ const DoReadingTest = () => {
   const [leftPanelWidth, setLeftPanelWidth] = useState(50); // percentage
   // Populated from the passage DOM when there's no structured paragraphs array
   const [passageParagraphOptions, setPassageParagraphOptions] = useState([]);
+
+  // Bottom palette helpers
+  const [expandedPart, setExpandedPart] = useState(0);
+
+  const isQuestionAnswered = useCallback((n) => {
+    const key = `q_${n}`;
+    const v = answers[key];
+    if (v) {
+      if (typeof v === 'string') {
+        try {
+          const parsed = JSON.parse(v);
+          if (parsed && Object.values(parsed).some(x => x !== undefined && x !== '')) return true;
+        } catch (e) {
+          // not JSON
+        }
+        if (v.toString().trim() !== '') return true;
+      } else {
+        return true;
+      }
+    }
+    for (const k of Object.keys(answers || {})) {
+      if (k.startsWith(`${key}_`) && answers[k] && answers[k].toString().trim() !== '') return true;
+    }
+    return false;
+  }, [answers]);
+
+  const paletteContainerRef = useRef(null);
+  const partItemsRefs = useRef({});
+
+  const togglePart = useCallback((idx) => setExpandedPart(prev => prev === idx ? null : idx), []);
+
+  // Auto-expand the part that contains the active question (if any)
+  useEffect(() => {
+    if (!paletteParts || !paletteParts.length || activeQuestion == null) return;
+    const part = paletteParts.find((p) => activeQuestion >= p.start && activeQuestion <= p.end);
+    if (part && expandedPart !== part.index) {
+      setExpandedPart(part.index);
+    }
+  }, [activeQuestion, paletteParts, expandedPart]);
+
+  // Auto-scroll palette to show active button and ensure part is visible
+  useEffect(() => {
+    if (!paletteContainerRef.current) return;
+
+    // Scroll the part container into view
+    const activePartEl = paletteContainerRef.current.querySelector(`.palette-part[data-part="${expandedPart}"]`);
+    if (activePartEl) activePartEl.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+
+    if (activeQuestion == null) return;
+    const btn = paletteContainerRef.current.querySelector(`.nav-question-btn[data-num="${activeQuestion}"]`);
+    if (btn) {
+      // scroll the button into view within the palette area
+      btn.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+    }
+  }, [activeQuestion, expandedPart]);
+
+  // Helper function to count questions (matching headings & cloze test count as multiple questions)
+  const countQuestionsInSection = useCallback((questions) => {
+    return (questions || []).reduce((total, q) => {
+      const qType = normalizeQuestionType(
+        q.type || q.questionType || "multiple-choice"
+      );
+
+      if (qType === "ielts-matching-headings") {
+        return total + ((q.paragraphs || q.answers || []).length || 1);
+      }
+
+      if (qType === "cloze-test" || qType === "summary-completion") {
+        const clozeText =
+          q.paragraphText || q.passageText || q.text || q.paragraph ||
+          (q.questionText && q.questionText.includes("[BLANK]") ? q.questionText : null);
+        if (clozeText) {
+          const blankMatches = clozeText.match(/\[BLANK\]/gi);
+          return total + (blankMatches ? blankMatches.length : 1);
+        }
+      }
+
+      if (q.type === 'paragraph-matching' || q.questionType === 'paragraph-matching') {
+        const paragraphBlankCount = q.questionText ? (q.questionText.match(/(\.{3,}|…+)/g) || []).length : 0;
+        if (paragraphBlankCount > 0) return total + paragraphBlankCount;
+      }
+
+      return total + 1;
+    }, 0);
+  }, [normalizeQuestionType]);
+
+  // Build palette parts with question ranges and answered counts
+  const paletteParts = useMemo(() => {
+    if (!test) return [];
+    let qNum = 1;
+    return test.passages.map((p, idx) => {
+      const sections = p.sections || [{ questions: p.questions }];
+      let count = 0;
+      sections.forEach((s) => (count += countQuestionsInSection(s.questions)));
+      const start = qNum;
+      const end = qNum + count - 1;
+      let answered = 0;
+      for (let i = start; i <= end; i++) {
+        if (isQuestionAnswered(i)) answered++;
+      }
+      qNum += count;
+      return { index: idx, start, end, count, answered };
+    });
+  }, [test, countQuestionsInSection, isQuestionAnswered]);
 
   // Timer state
   const [timeRemaining, setTimeRemaining] = useState(null);
@@ -756,33 +860,7 @@ const DoReadingTest = () => {
   const currentPassage = test.passages[currentPartIndex];
   const stats = getStatistics();
 
-  // Helper function to count questions (matching headings & cloze test count as multiple questions)
-  const countQuestionsInSection = (questions) => {
-    return (questions || []).reduce((total, q) => {
-      const qType = normalizeQuestionType(
-        q.type || q.questionType || "multiple-choice"
-      );
-      if (qType === "ielts-matching-headings") {
-        return total + (q.paragraphs || q.answers || []).length || 1;
-      }
-      if (qType === "cloze-test" || qType === "summary-completion") {
-        // Count blanks in cloze test
-        const clozeText =
-          q.paragraphText ||
-          q.passageText ||
-          q.text ||
-          q.paragraph ||
-          (q.questionText && q.questionText.includes("[BLANK]")
-            ? q.questionText
-            : null);
-        if (clozeText) {
-          const blankMatches = clozeText.match(/\[BLANK\]/gi);
-          return total + (blankMatches ? blankMatches.length : 1);
-        }
-      }
-      return total + 1;
-    }, 0);
-  };
+  // paletteParts is defined earlier (keeps hooks in stable order)
 
   // Calculate question range for current passage
   let startQuestionNumber = 1;
@@ -1222,6 +1300,7 @@ const DoReadingTest = () => {
                             const row = (
                               <div
                                 key={`blank-${thisIndex}`}
+                                ref={(el) => (questionRefs.current[`q_${questionNumber + thisIndex}`] = el)}
                                 className={`paragraph-match-row ${
                                   thisVal ? "answered" : ""
                                 }`}
@@ -1662,6 +1741,7 @@ const DoReadingTest = () => {
                     return (
                       <div
                         key={pi}
+                        ref={(el) => (questionRefs.current[`q_${actualQuestionNum}`] = el)}
                         className={`paragraph-match-row ${
                           selectedHeading !== undefined &&
                           selectedHeading !== ""
@@ -1802,7 +1882,7 @@ const DoReadingTest = () => {
                                     __html: stripUnwantedHtml(part),
                                   }}
                                 />
-                                <span className="cloze-inline-wrapper">
+                                <span className="cloze-inline-wrapper" ref={(el) => (questionRefs.current[`q_${blankNum}`] = el)}>
                                   <span className="cloze-inline-number">
                                     {blankNum}
                                   </span>
@@ -1834,7 +1914,7 @@ const DoReadingTest = () => {
                 } else {
                   // Fallback to blank rows if no passage text
                   return (question.blanks || []).map((blank, bi) => (
-                    <div key={bi} className="cloze-blank-row">
+                    <div key={bi} ref={(el) => (questionRefs.current[`q_${questionNumber + bi}`] = el)} className="cloze-blank-row">
                       <span className="cloze-blank-number">
                         {blank.id || questionNumber + bi}.
                       </span>
@@ -2154,27 +2234,48 @@ const DoReadingTest = () => {
             </span>
           </span>
         </div>
-        <div className="question-nav-grid">
-          {Array.from({ length: stats.total }, (_, i) => {
-            const qNum = i + 1;
-            const key = `q_${qNum}`;
-            const isAnswered =
-              answers[key] && answers[key].toString().trim() !== "";
-            const isActive = activeQuestion === qNum;
-
-            return (
+        <div className="question-nav-grid palette-inline" ref={paletteContainerRef}>
+          {paletteParts.map((part) => (
+            <div
+              key={part.index}
+              data-part={part.index}
+              className={`palette-part inline ${expandedPart === part.index ? 'expanded' : ''}`}
+            >
               <button
-                key={qNum}
-                className={`nav-question-btn ${isAnswered ? "answered" : ""} ${
-                  isActive ? "active" : ""
-                }`}
-                onClick={() => scrollToQuestion(qNum)}
-                title={isAnswered ? `Question ${qNum} ✓` : `Question ${qNum}`}
+                className={`palette-part-toggle ${expandedPart === part.index ? 'open' : ''}`}
+                onClick={() => togglePart(part.index)}
+                type="button"
               >
-                {qNum}
+                <span className="part-label">Part {part.index + 1}</span>
+                <span className="part-status"><span className="number">{part.answered}</span> of <span className="total">{part.count}</span></span>
+                <span className="part-caret">{expandedPart === part.index ? '▾' : '▸'}</span>
               </button>
-            );
-          })}
+
+              <div
+                ref={(el) => (partItemsRefs.current[part.index] = el)}
+                className={`palette-part-items ${expandedPart === part.index ? 'open' : 'closed'}`}
+                aria-hidden={expandedPart === part.index ? 'false' : 'true'}
+              >
+                {Array.from({ length: part.count }, (_, i) => {
+                  const num = part.start + i;
+                  const key = `q_${num}`;
+                  const isAnswered = answers[key] && answers[key].toString().trim() !== "";
+                  const isActive = activeQuestion === num;
+                  return (
+                    <button
+                      key={num}
+                      data-num={num}
+                      className={`nav-question-btn ${isAnswered ? "answered" : ""} ${isActive ? "active" : ""}`}
+                      title={isAnswered ? `Question ${num} ✓` : `Question ${num}`}
+                      onClick={(e) => { e.stopPropagation(); scrollToQuestion(num); setActiveQuestion(num); }}
+                    >
+                      {num}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
         </div>
       </div>
 

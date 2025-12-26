@@ -1617,6 +1617,87 @@
   transform: scale(1.1);
 }
 
+/* ========================================
+   Question Palette (IDP-like styling)
+   ======================================== */
+.palette-part {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  border-radius: 18px;
+  border: 2px solid #e6eefc;
+  background: white;
+  transition: all 0.18s ease;
+  min-width: 200px;
+}
+
+.palette-part.inline {
+  display: inline-flex;
+}
+
+.palette-part-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  background: transparent;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font-weight: 700;
+  color: #0b2a66;
+}
+
+.palette-part-toggle .part-label { margin-right: 6px }
+
+.palette-part .part-status { color:#374151; font-weight:600; font-size:0.85rem; margin-left:6px }
+
+.part-caret { opacity: 0.75; margin-left:8px }
+
+.palette-part-items {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  overflow: hidden;
+  max-width: 0;
+  opacity: 0;
+  transition: max-width 280ms cubic-bezier(.2,.9,.2,1), opacity 180ms ease;
+  margin-left: 8px;
+}
+
+.palette-part-items.open { max-width: 1000px; opacity: 1; }
+
+.palette-part-items.closed { max-width: 0; opacity: 0; }
+
+.palette-part-items .nav-question-btn {
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  display: inline-grid;
+  place-items:center;
+  transition: transform 120ms ease, box-shadow 120ms ease;
+}
+
+.palette-part-items .nav-question-btn.answered {
+  background: #1da755;
+  border-color: #1da755;
+  color: #fff;
+}
+
+.palette-part-items .nav-question-btn:hover { transform: translateY(-2px); box-shadow: 0 4px 18px rgba(16,24,40,0.08); }
+
+.palette-part.inline.expanded {
+  border-color: #bfe0ff;
+  background: linear-gradient(90deg,#f6fbff,#eef6ff);
+  box-shadow: 0 6px 24px rgba(9,30,66,0.06);
+}
+
+@media (max-width:768px){
+  .palette-part{min-width:140px;padding:8px}
+  .palette-part-items .nav-question-btn{width:32px;height:32px}
+}
+
 /* Footer đã được chuyển lên header */
 
 /* ========================================
