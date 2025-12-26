@@ -26,6 +26,29 @@
   color: white;
 }
 
+/* Start modal */
+.start-modal {
+  background: white;
+  padding: 22px;
+  border-radius: 12px;
+  box-shadow: 0 8px 30px rgba(8, 25, 60, 0.08);
+  text-align: center;
+  max-width: 560px;
+  color: teal;
+}
+
+.start-test-btn {
+  background: #0e276f;
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.start-test-btn:hover { transform: translateY(-2px); }
+
 .loading-spinner {
   width: 50px;
   height: 50px;
