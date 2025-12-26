@@ -1542,7 +1542,7 @@
 .question-nav-panel {
   background: white;
   border-top: 2px solid #0e276f;
-  padding: 12px 20px;
+  padding: 1px 20px;
   box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.08);
 }
 
@@ -1663,6 +1663,7 @@
   opacity: 0;
   transition: max-width 280ms cubic-bezier(.2,.9,.2,1), opacity 180ms ease;
   margin-left: 8px;
+  padding: 5px;
 }
 
 .palette-part-items.open { max-width: 1000px; opacity: 1; }

@@ -526,9 +526,7 @@ const DoReadingTest = () => {
         const passage = test.passages[i];
         const sections = passage.sections || [{ questions: passage.questions }];
         let passageQuestionCount = 0;
-        sections.forEach(
-          (s) => (passageQuestionCount += (s.questions || []).length)
-        );
+        sections.forEach((s) => (passageQuestionCount += countQuestionsInSection(s.questions)));
 
         if (counter + passageQuestionCount >= questionNumber) {
           targetPassageIndex = i;
@@ -551,7 +549,7 @@ const DoReadingTest = () => {
         }
       }, 150);
     },
-    [test, currentPartIndex]
+    [test, currentPartIndex, countQuestionsInSection]
   );
 
   // Highlight paragraph in passage
@@ -2243,7 +2241,7 @@ const DoReadingTest = () => {
             >
               <button
                 className={`palette-part-toggle ${expandedPart === part.index ? 'open' : ''}`}
-                onClick={() => togglePart(part.index)}
+                onClick={(e) => { e.stopPropagation(); setCurrentPartIndex(part.index); togglePart(part.index); setActiveQuestion(null); }}
                 type="button"
               >
                 <span className="part-label">Part {part.index + 1}</span>
