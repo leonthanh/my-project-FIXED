@@ -99,31 +99,34 @@ const DoReadingTest = () => {
     // Detect matching-headings answers stored as JSON under a base key q_M where each paragraph has an id
     // and visual question numbers are consecutive (M, M+1, ...).
     if (test && Array.isArray(test.passages)) {
-      let total = 0;
+      let qCounter = 1;
       for (const p of test.passages) {
         const sections = p.sections || [{ questions: p.questions }];
         for (const s of sections) {
           for (const q of (s.questions || [])) {
             const qType = q.type || q.questionType || "";
+
             if (qType === 'ielts-matching-headings' || qType === 'matching-headings') {
               const paragraphs = q.paragraphs || q.answers || [];
-              for (let j = 0; j < paragraphs.length; j++) {
-                const visualNum = total + 1;
-                if (visualNum === n) {
-                  const baseKey = `q_${visualNum}`;
-                  const raw = answers[baseKey];
-                  if (raw) {
-                    try {
-                      const parsed = JSON.parse(raw);
-                      const paragraphId = typeof paragraphs[j] === 'object' ? (paragraphs[j].id || paragraphs[j].paragraphId || paragraphs[j].paragraphId || '') : paragraphs[j];
-                      if (parsed && paragraphId && parsed[paragraphId] !== undefined && parsed[paragraphId] !== '') return true;
-                    } catch (e) {
-                      // not JSON
-                    }
+              const base = qCounter; // qCounter is the base question number for this matching-headings block
+
+              // If the visual question number falls inside this block, check the stored JSON under base key
+              if (n >= base && n < base + paragraphs.length) {
+                const raw = answers[`q_${base}`];
+                if (raw) {
+                  try {
+                    const parsed = JSON.parse(raw);
+                    const paragraphIndex = n - base;
+                    const paragraph = paragraphs[paragraphIndex];
+                    const paragraphId = typeof paragraph === 'object' ? (paragraph.id || paragraph.paragraphId || '') : paragraph;
+                    if (parsed && paragraphId && parsed[paragraphId] !== undefined && parsed[paragraphId] !== '') return true;
+                  } catch (e) {
+                    // not JSON
                   }
                 }
-                total++;
               }
+
+              qCounter += paragraphs.length;
               continue;
             }
 
@@ -132,10 +135,10 @@ const DoReadingTest = () => {
               const clozeText = q.paragraphText || q.passageText || q.text || q.paragraph || (q.questionText && q.questionText.includes("[BLANK]") ? q.questionText : null);
               if (clozeText) {
                 const blanks = (clozeText.match(/\[BLANK\]/gi) || []).length;
-                total += blanks || 1;
+                qCounter += blanks || 1;
                 continue;
               } else {
-                total++;
+                qCounter++;
                 continue;
               }
             }
@@ -144,13 +147,13 @@ const DoReadingTest = () => {
             if (qType === 'paragraph-matching') {
               const paragraphBlankCount = q.questionText ? (q.questionText.match(/(\.{3,}|…+)/g) || []).length : 0;
               if (paragraphBlankCount > 0) {
-                total += paragraphBlankCount;
+                qCounter += paragraphBlankCount;
                 continue;
               }
             }
 
             // Default: single question
-            total++;
+            qCounter++;
           }
         }
       }
@@ -466,17 +469,13 @@ const DoReadingTest = () => {
 
   // Handle answer change
   const handleAnswerChange = useCallback((qKey, value) => {
-    if (process.env.NODE_ENV !== 'production') {
-      console.log('[DEV] handleAnswerChange', { qKey, value });
-    }
+
     setAnswers((prev) => ({ ...prev, [qKey]: value }));
   }, []);
 
   // Handle multi-select change
   const handleMultiSelectChange = useCallback((qKey, value, isChecked) => {
-    if (process.env.NODE_ENV !== 'production') {
-      console.log('[DEV] handleMultiSelectChange', { qKey, value, isChecked });
-    }
+
     setAnswers((prev) => {
       const current = prev[qKey] ? prev[qKey].split(",").filter(Boolean) : [];
       if (isChecked) {
@@ -493,9 +492,7 @@ const DoReadingTest = () => {
   // Handle matching headings change
   const handleMatchingHeadingsChange = useCallback(
     (qKey, paragraphId, headingIndex) => {
-      if (process.env.NODE_ENV !== 'production') {
-        console.log('[DEV] handleMatchingHeadingsChange', { qKey, paragraphId, headingIndex });
-      }
+
       setAnswers((prev) => {
         const current = prev[qKey] ? JSON.parse(prev[qKey]) : {};
         return {
@@ -2447,10 +2444,7 @@ const DoReadingTest = () => {
                       data-num={num}
                       className={`nav-question-btn ${isAnswered ? "answered" : ""} ${isActive ? "active" : ""}`}
                       title={isAnswered ? `Question ${num} ✓` : `Question ${num}`}
-                      onClick={(e) => { e.stopPropagation(); if (process.env.NODE_ENV !== 'production') {
-                                  const sub = Object.keys(answers || {}).filter(k => k.startsWith(`${key}_`)).reduce((acc,k)=>{ acc[k]=answers[k]; return acc; }, {});
-                                  console.log('[DEV] palette-click', { num, key, value: answers[key], subkeys: sub });
-                                }
+                      onClick={(e) => { e.stopPropagation(); 
                                 scrollToQuestion(num); setActiveQuestion(num); }}
                     >
                       {num}
