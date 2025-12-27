@@ -68,7 +68,6 @@ const SelectTest = () => {
   };
 
   const handleEdit = (testId, testType) => {
-    console.log('🔧 Editing test:', testType, testId);
     if (testType === 'writing') {
       navigate(`/edit-test/${testId}`);
     } else if (testType === 'reading') {

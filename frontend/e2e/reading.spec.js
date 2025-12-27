@@ -100,8 +100,12 @@ test.describe('DoReadingTest E2E', () => {
     await expect(confirmBtn).toBeVisible({ timeout: 5000 });
     await confirmBtn.click();
 
-    // Expect navigation to the results page
+    // Expect navigation to the results page and show band
     await page.waitForURL('**/reading-results/1', { timeout: 10000 });
     expect(page.url()).toContain('/reading-results/1');
+
+    // Result page should display band and counts
+    await page.waitForSelector('[data-testid="result-band"]', { timeout: 5000 });
+    await expect(page.locator('[data-testid="result-band"]')).toBeVisible();
   });
 });

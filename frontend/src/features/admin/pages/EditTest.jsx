@@ -86,7 +86,6 @@ const EditTest = () => {
     e.preventDefault();
     
     try {
-      console.log('Submitting test data:', test);
 
       const response = await fetch(`${API_URL}/api/writing-tests/${id}`, {
         method: 'PUT',
@@ -154,7 +153,6 @@ const EditTest = () => {
               value={test.classCode || ''}
               onChange={(e) => {
                 const updatedTest = { ...test, classCode: e.target.value };
-                console.log('Updated test:', updatedTest);
                 setTest(updatedTest);
               }}
               style={{
@@ -175,7 +173,6 @@ const EditTest = () => {
               value={test.teacherName || ''}
               onChange={(e) => {
                 const updatedTest = { ...test, teacherName: e.target.value };
-                console.log('Updated test:', updatedTest);
                 setTest(updatedTest);
               }}
               style={{

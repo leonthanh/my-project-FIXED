@@ -39,9 +39,6 @@ const StudentNavbar = () => {
       // ✅ Đã sửa: Khai báo unseenFeedbacks trước khi sử dụng
       const unseenFeedbacks = mySubs.filter(sub => sub.feedback && !sub.feedbackSeen);
 
-      console.log('📋 Tổng số bài có feedback chưa xem:', unseenFeedbacks.length);
-      console.log('📋 Danh sách bài chưa xem:', unseenFeedbacks);
-
 
       const submittedTestIds = mySubs.map(sub => String(sub.testId)).filter(Boolean);
       const unsubmittedTests = testsRes.filter(test => !submittedTestIds.includes(String(test.id)));
@@ -74,7 +71,6 @@ const StudentNavbar = () => {
   // 🔹 Kiểm tra định kỳ sự thay đổi trong localStorage
   useEffect(() => {
     const interval = setInterval(() => {
-        console.log('🔄 Đang kiểm tra localStorage');
       const updatedUser = JSON.parse(localStorage.getItem('user'));
       if (updatedUser?.lastFeedbackCheck !== user?.lastFeedbackCheck) {
         setUser(updatedUser);

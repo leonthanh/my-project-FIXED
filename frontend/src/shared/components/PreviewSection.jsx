@@ -111,7 +111,6 @@ const PreviewSection = ({
         <AudioPlayer
           audioFiles={audioFiles} // string hoặc array tùy vào part
           startTimes={audioStartTimes} // Map số câu hỏi với thời điểm bắt đầu
-          onTimeUpdate={(time) => console.log(`Current time: ${time}`)}
         />
       </div>
       
