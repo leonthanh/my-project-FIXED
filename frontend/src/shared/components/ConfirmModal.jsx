@@ -121,12 +121,14 @@ const ConfirmModal = ({
 
         <div style={styles.buttonContainer}>
           <button
+            data-testid="confirm-cancel-btn"
             onClick={onClose}
             style={{ ...styles.button, ...styles.cancelButton }}
           >
             {cancelText}
           </button>
           <button
+            data-testid="confirm-btn"
             onClick={onConfirm}
             style={{ ...styles.button, ...styles.confirmButton }}
           >

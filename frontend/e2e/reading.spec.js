@@ -40,18 +40,18 @@ test.describe('DoReadingTest E2E', () => {
 
     await page.goto('/reading/1');
 
-    // Wait for the navigator/palette to render
-    await page.waitForSelector('.nav-question-btn', { timeout: 20000 });
+    // Wait for the navigator/palette to render (first nav button appears)
+    await page.waitForSelector('[data-testid="nav-question-1"]', { timeout: 20000 });
 
-    const part2 = page.locator('[title="Passage 2"]');
-    await expect(part2).toBeVisible({ timeout: 20000 });
-    await part2.click();
+    const partDot2 = page.locator('[data-testid="part-dot-1"]');
+    await expect(partDot2).toBeVisible({ timeout: 20000 });
+    await partDot2.click();
 
     // give a moment for UI animations & scroll to complete
     await page.waitForTimeout(600);
 
     // The first question in Passage 2 is expected to be Question 4 in fixtures
-    const q4 = page.locator('button[title^="Question 4"]');
+    const q4 = page.locator('[data-testid="nav-question-4"]');
     await expect(q4).toHaveClass(/active/, { timeout: 5000 });
   });
 
@@ -87,16 +87,16 @@ test.describe('DoReadingTest E2E', () => {
     await page.evaluate(() => { window.confirm = () => true; });
 
     // Click the submit button (wait until submit area is present)
-    await page.waitForSelector('span.submit-text', { timeout: 20000 });
-    const submitBtn = page.locator('button:has(span.submit-text)');
+    await page.waitForSelector('[data-testid="submit-button"]', { timeout: 20000 });
+    const submitBtn = page.locator('[data-testid="submit-button"]');
     await expect(submitBtn).toBeVisible({ timeout: 10000 });
     await submitBtn.click();
 
     // allow UI to show confirm modal animation
     await page.waitForTimeout(300);
 
-    // Confirm modal "Xác nhận" should appear
-    const confirmBtn = page.locator('button', { hasText: 'Xác nhận' });
+    // Confirm modal should appear and we click confirm by test id
+    const confirmBtn = page.locator('[data-testid="confirm-btn"]');
     await expect(confirmBtn).toBeVisible({ timeout: 5000 });
     await confirmBtn.click();
 

@@ -2236,6 +2236,7 @@ const DoReadingTest = () => {
 
           {/* Submit button */}
           <button
+            data-testid="submit-button"
             onClick={handleSubmit}
             disabled={submitted}
             className="submit-button"
@@ -2290,6 +2291,7 @@ const DoReadingTest = () => {
               {test.passages.map((_, idx) => (
                 <button
                   key={idx}
+                  data-testid={`part-dot-${idx}`}
                   className={`part-dot ${
                     idx === currentPartIndex ? "active" : ""
                   }`}
@@ -2472,9 +2474,11 @@ const DoReadingTest = () => {
             <div
               key={part.index}
               data-part={part.index}
+              data-testid={`palette-part-${part.index}`}
               className={`palette-part inline ${expandedPart === part.index ? 'expanded' : ''}`}
             >
               <button
+                data-testid={`palette-part-toggle-${part.index}`}
                 className={`palette-part-toggle ${expandedPart === part.index ? 'open' : ''}`}
                 onClick={(e) => { e.stopPropagation(); setCurrentPartIndex(part.index); togglePart(part.index); setActiveQuestion(null); }}
                 type="button"
@@ -2499,6 +2503,7 @@ const DoReadingTest = () => {
                     <button
                       key={num}
                       data-num={num}
+                      data-testid={`nav-question-${num}`}
                       className={`nav-question-btn ${isAnswered ? "answered" : ""} ${isActive ? "active" : ""}`}
                       title={isAnswered ? `Question ${num} ✓` : `Question ${num}`}
                       onClick={(e) => { e.stopPropagation(); 
