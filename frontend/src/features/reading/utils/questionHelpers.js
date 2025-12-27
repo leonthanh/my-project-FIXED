@@ -218,6 +218,11 @@ export const normalizeQuestionType = (type) => {
     return "yes-no-not-given";
   }
 
+  // Normalize matching headings variants to canonical form used across the app
+  if (normalized === "matching-headings" || normalized === "ielts-matching-headings") {
+    return "ielts-matching-headings";
+  }
+
   // Return normalized or original if not in mapping
   return normalized;
 };
