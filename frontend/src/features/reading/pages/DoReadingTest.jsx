@@ -2052,7 +2052,7 @@ const DoReadingTest = () => {
                                 "x",
                               ][hi] || hi + 1;
                             return (
-                              <option key={hi} value={hi}>
+                              <option key={hi} value={romanNum}>
                                 {romanNum}. {headingText}
                               </option>
                             );

@@ -1,5 +1,6 @@
 import React from 'react';
 import AudioPlayer from '../../features/listening/components/AudioPlayer';
+import { isAnswerCorrect } from '../utils/answerUtils';
 
 const PreviewSection = ({ 
   part, 
@@ -7,7 +8,11 @@ const PreviewSection = ({
   startFromNumber = 1, 
   type,
   audioFiles,  // array of files for multiple audio parts
-  audioStartTimes // object mapping question numbers to start times 
+  audioStartTimes, // object mapping question numbers to start times
+  // additional props for teacher preview
+  showAnswers = false, // show correct answers
+  studentAnswers = null, // object mapping q_1 => 'answer'
+  showCorrectness = false, // compute and show correctness
 }) => {
   const styles = {
     section: {
@@ -96,6 +101,9 @@ const PreviewSection = ({
     </div>
   );
 
+  // key helper: question key following app convention (q_1, q_2...)
+  const questionKey = (index) => `q_${startFromNumber + index}`;
+
   return (
     <div style={styles.section}>
       <div style={styles.title}>
@@ -117,6 +125,50 @@ const PreviewSection = ({
       {type === 'form' && questions.map((q, i) => renderFormQuestion(q, i))}
       {(type === 'abc' || type === 'abcd') && questions.map((q, i) => renderMultipleChoice(q, i))}
       {type === 'select' && questions.map((q, i) => renderMultiSelect(q, i))}
+
+      {/* Show answers / student answers comparison when provided */}
+      { (showAnswers || (showCorrectness && studentAnswers)) && (
+        <div style={{ marginTop: 18 }}>
+          {questions.map((q, i) => {
+            const key = questionKey(i);
+            const correctRaw = q.correctAnswer || q.answer || q.correct || "";
+            const studentRaw = (studentAnswers && (studentAnswers[key] || studentAnswers[String(startFromNumber + i)])) || "";
+            // split correct answers into array for display
+            const correctParts = (correctRaw || "").toString().split(/\s*\|\s*|\s*,\s*|\s*\/\s*/).filter(Boolean);
+            return (
+              <div key={`ans-${i}`} style={{ marginBottom: 12 }}>
+                <div style={{ background: '#f8f9fa', padding: 10, borderRadius: 6, border: '1px solid #e9ecef' }}>
+                  <div style={{ fontWeight: 700, color: '#0e276f' }}>Q{startFromNumber + i}</div>
+                  { showAnswers && (
+                    <div style={{ marginTop: 6 }}>
+                      <div style={{ background: '#e6f4ea', padding: 8, borderRadius: 4, color: '#1e6b2a' }}>
+                        <strong>Đáp án:</strong> {correctParts.join(' | ') || '—'}
+                      </div>
+                    </div>
+                  )}
+
+                  { studentRaw !== "" && (
+                    <div style={{ marginTop: 8 }}>
+                      <div style={{ background: '#fff3cd', padding: 8, borderRadius: 4, color: '#856404' }}>
+                        <strong>Học sinh:</strong> {studentRaw}
+                      </div>
+                    </div>
+                  )}
+
+                  { showCorrectness && studentRaw !== "" && (
+                    <div style={{ marginTop: 8 }}>
+                      {/* compute correctness using isAnswerCorrect helper */}
+                      <small style={{ color: isAnswerCorrect(correctRaw, studentRaw) ? '#155724' : '#721c24', fontWeight: 700 }}>
+                        Trạng thái: { isAnswerCorrect(correctRaw, studentRaw) ? '✓ Đúng' : '✕ Sai' }
+                      </small>
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 };
