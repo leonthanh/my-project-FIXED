@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ConfirmModal } from "../../../shared/components";
+import ResultModal from '../../../shared/components/ResultModal';
 import "../styles/do-reading-test.css";
 import { normalizeQuestionType } from "../utils/questionHelpers";
 // Utility: Remove unwanted <span ...> tags from HTML
@@ -42,6 +43,14 @@ const DoReadingTest = () => {
   const [currentPartIndex, setCurrentPartIndex] = useState(0);
   const [activeQuestion, setActiveQuestion] = useState(null);
   const [highlightedParagraph, setHighlightedParagraph] = useState(null);
+
+  // Result modal state
+  const [resultModalOpen, setResultModalOpen] = useState(false);
+  const [resultData, setResultData] = useState(null);
+
+  // Ensure ResultModal import
+  
+  
   const [leftPanelWidth, setLeftPanelWidth] = useState(50); // percentage
   // Populated from the passage DOM when there's no structured paragraphs array
   const [passageParagraphOptions, setPassageParagraphOptions] = useState([]);
@@ -896,7 +905,9 @@ const DoReadingTest = () => {
       // Clear saved answers
       localStorage.removeItem(`reading_test_${id}_answers`);
 
-      navigate(`/reading-results/${id}`, { state: { result: data } });
+      // Instead of navigating, show result modal
+      setResultData(data);
+      setResultModalOpen(true);
     } catch (err) {
       console.error("Error submitting reading test:", err);
       alert("Có lỗi khi nộp bài. Vui lòng thử lại.");
@@ -2532,6 +2543,17 @@ const DoReadingTest = () => {
         }
         type={timeUp ? "warning" : "info"}
         confirmText={timeUp ? "Nộp ngay" : "Xác nhận nộp"}
+      />
+
+      {/* Result Modal shown after submit */}
+      <ResultModal
+        isOpen={resultModalOpen}
+        onClose={() => setResultModalOpen(false)}
+        result={resultData}
+        onViewDetails={() => {
+          setResultModalOpen(false);
+          navigate(`/reading-results/${id}`, { state: { result: resultData } });
+        }}
       />
     </div>
   );

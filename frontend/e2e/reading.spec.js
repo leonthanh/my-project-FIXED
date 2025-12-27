@@ -61,7 +61,7 @@ test.describe('DoReadingTest E2E', () => {
       route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({ score: 35, total: 40, message: 'Mocked result' }),
+        body: JSON.stringify({ total: 40, correct: 35, band: 8, scorePercentage: 88 }),
       });
     });
 
@@ -100,12 +100,12 @@ test.describe('DoReadingTest E2E', () => {
     await expect(confirmBtn).toBeVisible({ timeout: 5000 });
     await confirmBtn.click();
 
-    // Expect navigation to the results page and show band
-    await page.waitForURL('**/reading-results/1', { timeout: 10000 });
-    expect(page.url()).toContain('/reading-results/1');
-
-    // Result page should display band and counts
-    await page.waitForSelector('[data-testid="result-band"]', { timeout: 5000 });
+    // Result modal should appear and show band
+    await page.waitForSelector('[data-testid="result-band"]', { timeout: 10000 });
     await expect(page.locator('[data-testid="result-band"]')).toBeVisible();
+
+    // Close modal
+    await page.locator('button:has-text("Đóng")').click();
+    await expect(page.locator('[data-testid="result-band"]')).toHaveCount(0);
   });
 });
