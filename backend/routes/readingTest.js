@@ -141,10 +141,12 @@ router.post('/:id/submit', async (req, res) => {
           `
         };
 
-        const info = await transporter.sendMail(mailOptions);
-        console.log('✅ Reading submission email sent', info && info.messageId ? info.messageId : 'no-message-id');
+        // Send email asynchronously (do not block response)
+        transporter.sendMail(mailOptions)
+          .then((info) => console.log('✅ Reading submission email sent', info && info.messageId ? info.messageId : 'no-message-id'))
+          .catch((emailErr) => console.error('❌ Error sending reading submission email:', emailErr && (emailErr.stack || emailErr)));
       } catch (emailErr) {
-        console.error('❌ Error sending reading submission email:', emailErr && (emailErr.stack || emailErr));
+        console.error('❌ Error preparing reading submission email:', emailErr && (emailErr.stack || emailErr));
       }
 
       return res.json({ submissionId: sub.id, ...result });

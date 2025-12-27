@@ -21,7 +21,7 @@ const ResultModal = ({ isOpen, onClose, result, onViewDetails }) => {
       <div className="result-modal" onClick={(e) => e.stopPropagation()}>
         <header className="result-modal-header">
           <h2>Reading — Kết quả</h2>
-          <button aria-label="close" className="close-btn" onClick={onClose}>✕</button>
+          <button type="button" aria-label="close" className="close-btn" onClick={onClose}>✕</button>
         </header>
 
         <div className="result-modal-body">
@@ -53,8 +53,8 @@ const ResultModal = ({ isOpen, onClose, result, onViewDetails }) => {
         </div>
 
         <footer className="result-modal-footer">
-          <button onClick={onViewDetails} className="btn btn-secondary">Xem chi tiết</button>
-          <button onClick={onClose} className="btn btn-primary">Đóng</button>
+          <button type="button" onClick={onViewDetails} className="btn btn-secondary">Xem chi tiết</button>
+          <button type="button" onClick={onClose} className="btn btn-primary">Đóng</button>
         </footer>
 
         <style jsx>{`

@@ -906,10 +906,15 @@ const DoReadingTest = () => {
       const data = await res.json();
       setSubmitted(true);
 
-      // Clear saved answers
+      // Clear saved answers and timer so returning student gets a fresh attempt
       localStorage.removeItem(`reading_test_${id}_answers`);
+      localStorage.removeItem(`reading_test_${id}_timeRemaining`);
+      localStorage.removeItem(`reading_test_${id}_started`);
+      // Also clear in-memory answers so the auto-save effect doesn't re-persist them
+      setAnswers({});
 
-      // Instead of navigating, show result modal
+      // Instead of navigating, show result modal (do not flip started state immediately
+      // because component returns early when !started and would prevent modal mounting)
       setResultData(data);
       setResultModalOpen(true);
     } catch (err) {
@@ -1064,6 +1069,9 @@ const DoReadingTest = () => {
     );
   }
 
+  // Calculate statistics early so start modal can display total questions
+  const stats = getStatistics();
+
   // If the test hasn't been started yet, show a start modal (60 minutes or test.duration)
   if (!started) {
     return (
@@ -1100,7 +1108,6 @@ const DoReadingTest = () => {
   }
 
   const currentPassage = test.passages[currentPartIndex];
-  const stats = getStatistics();
 
   // (moved earlier)
 
@@ -2552,7 +2559,25 @@ const DoReadingTest = () => {
       {/* Result Modal shown after submit */}
       <ResultModal
         isOpen={resultModalOpen}
-        onClose={() => setResultModalOpen(false)}
+        onClose={() => {
+          // When closing the result modal, reset started/timer so next visit is fresh
+          // Also explicitly remove persisted localStorage keys synchronously to avoid races
+          try {
+            localStorage.removeItem(`reading_test_${id}_answers`);
+            localStorage.removeItem(`reading_test_${id}_timeRemaining`);
+            localStorage.removeItem(`reading_test_${id}_started`);
+          } catch (e) {
+            // ignore
+          }
+
+          setResultModalOpen(false);
+          setTimeRemaining(null);
+          setStarted(false);
+          setTimeUp(false);
+
+          // Force reload so UI reflects cleared state immediately
+          try { window.location.reload(); } catch (e) { /* ignore in tests */ }
+        }}
         result={resultData}
         onViewDetails={() => {
           setResultModalOpen(false);

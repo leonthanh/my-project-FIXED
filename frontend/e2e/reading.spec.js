@@ -1,17 +1,20 @@
 const { test, expect } = require('@playwright/test');
 
-test.describe('DoReadingTest E2E', () => {
+test.describe.serial('DoReadingTest E2E', () => {
   test.beforeEach(async ({ page }) => {
-    // Ensure user is logged in via localStorage and test is marked started
+    // Ensure user is logged in via localStorage
     await page.addInitScript(() => {
       localStorage.setItem('user', JSON.stringify({ name: 'E2E Student', role: 'student', phone: '0912345678' }));
-      // Mark the reading test as started so the UI shows navigator and footer
-      localStorage.setItem('reading_test_1_started', 'true');
-      localStorage.removeItem('reading_test_1_answers');
     });
   });
 
   test('clicking part dot focuses first question of that part', async ({ page }) => {
+    // Ensure test starts as 'started' so navigator renders
+    await page.addInitScript(() => {
+      localStorage.setItem('reading_test_1_started', 'true');
+      localStorage.removeItem('reading_test_1_answers');
+    });
+
     // Mock the reading test GET response so the page loads predictable data
     await page.route('**/api/reading-tests/1', (route) => {
       // Make passage 1 contain 3 questions so passage 2 starts at question 4
@@ -57,8 +60,12 @@ test.describe('DoReadingTest E2E', () => {
 
   test('submitting the test posts answers and shows real result modal (no submit mock)', async ({ page }) => {
     // Prepare answers in localStorage to match mocked correct answers in test GET
-    await page.addInitScript(() => {
+    // Use explicit navigation and evaluate to avoid registering a persistent init script
+    // Ensure we are on the app origin so localStorage is available, then set initial answers
+    await page.goto('/');
+    await page.evaluate(() => {
       localStorage.setItem('reading_test_1_answers', JSON.stringify({ q_1: 'A', q_2: 'B' }));
+      localStorage.setItem('reading_test_1_started', 'true');
     });
 
     // Mock the reading test GET response so the page loads predictable data with correctAnswer fields
@@ -101,13 +108,32 @@ test.describe('DoReadingTest E2E', () => {
     await expect(confirmBtn).toBeVisible({ timeout: 5000 });
     await confirmBtn.click();
 
-    // Result modal should appear and show band and submission id
-    await page.waitForSelector('[data-testid="result-band"]', { timeout: 10000 });
-    await expect(page.locator('[data-testid="result-band"]')).toBeVisible();
-    await expect(page.locator('text=Submission ID')).toBeVisible();
+    // Wait for the submit network response from backend (real submit)
+    const submitResp = await page.waitForResponse(resp => resp.url().includes('/api/reading-tests/1/submit') && resp.status() === 200, { timeout: 20000 });
+    const submitData = await submitResp.json();
+    // debug log
+    console.log('submitData', submitData);
+    // ensure submission saved
+    await expect(submitData.submissionId).toBeTruthy();
 
-    // Close modal
+    // Result modal should appear and show band and submission id
+    await page.waitForSelector('[data-testid="result-band"]', { timeout: 20000 });
+    await expect(page.locator('[data-testid="result-band"]')).toBeVisible({ timeout: 20000 });
+    await expect(page.locator('text=Submission ID')).toBeVisible({ timeout: 20000 });
+
+    // Close modal — but first override reload so we can assert the in-memory state update
+    await page.evaluate(() => { window.location.reload = () => {}; });
     await page.locator('button:has-text("Đóng")').click();
     await expect(page.locator('[data-testid="result-band"]')).toHaveCount(0);
+
+    // Now the component should have cleared persisted keys (answers and timer)
+    await page.waitForTimeout(250);
+    const answersVal = await page.evaluate(() => localStorage.getItem('reading_test_1_answers'));
+    const timeVal = await page.evaluate(() => localStorage.getItem('reading_test_1_timeRemaining'));
+    console.log('after close localStorage answers=', answersVal, 'time=', timeVal);
+    expect(answersVal).toBeNull();
+    expect(timeVal).toBeNull();
+
+
   });
 });
