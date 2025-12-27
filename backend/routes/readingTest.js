@@ -85,144 +85,75 @@ router.post('/:id/submit', async (req, res) => {
     const data = test.toJSON();
     const passages = typeof data.passages === 'string' ? JSON.parse(data.passages) : data.passages || [];
 
-    let qCounter = 1;
-    let correct = 0;
-    let total = 0;
+    // Use scorer helper
+    const { scoreReadingTest } = require('../utils/readingScorer');
+    const result = scoreReadingTest({ passages }, answers || {});
 
-    const normalize = (v) => (v == null ? '' : String(v).trim().toLowerCase());
+    // Store submission to DB
+    try {
+      const ReadingSubmission = require('../models/ReadingSubmission');
+      const sub = await ReadingSubmission.create({
+        testId: id,
+        userName: req.body.studentName || (req.body.user && req.body.user.name) || 'Unknown',
+        userId: req.body.user && req.body.user.id ? req.body.user.id : null,
+        answers: answers || {},
+        correct: result.correct,
+        total: result.total,
+        band: result.band,
+        scorePercentage: result.scorePercentage
+      });
 
-    // Helper to map correctCount -> IELTS band (IDP table provided)
-    const bandFromCorrect = (c) => {
-      if (c >= 39) return 9;
-      if (c >= 37) return 8.5;
-      if (c >= 35) return 8;
-      if (c >= 33) return 7.5;
-      if (c >= 30) return 7;
-      if (c >= 27) return 6.5;
-      if (c >= 24) return 6;
-      if (c >= 20) return 5.5;
-      if (c >= 15) return 5;
-      if (c >= 13) return 4.5;
-      if (c >= 10) return 4;
-      return 3.5; // below table
-    };
+      console.log(`✅ Saved reading submission id=${sub.id} (test=${id}, user=${sub.userName})`);
 
-    // Iterate through passages/sections/questions mapping to visual question numbers
-    for (const p of passages) {
-      const sections = p.sections || [{ questions: p.questions }];
-      for (const s of sections) {
-        for (const q of (s.questions || [])) {
-          const qType = (q.questionType || q.type || '').toLowerCase();
-
-          if (qType === 'ielts-matching-headings' || qType === 'matching-headings') {
-            const paragraphs = q.paragraphs || q.answers || [];
-            const baseKey = `q_${qCounter}`;
-            const studentRaw = answers[baseKey];
-            let studentObj = {};
-            try { studentObj = studentRaw ? JSON.parse(studentRaw) : {}; } catch (e) { studentObj = {}; }
-
-            const correctMap = {};
-            // Expected answers: either q.answers mapping paragraphId->heading or blanks array
-            if (q.answers && typeof q.answers === 'object') {
-              Object.assign(correctMap, q.answers);
-            }
-            if (q.blanks && Array.isArray(q.blanks)) {
-              q.blanks.forEach((b, idx) => {
-                if (b && b.paragraphId) correctMap[b.paragraphId] = b.correctAnswer || '';
-                if (b && b.id && !correctMap[b.id]) correctMap[b.id] = b.correctAnswer || '';
-              });
-            }
-
-            for (let i = 0; i < (paragraphs.length || 0); i++) {
-              const para = paragraphs[i];
-              const paragraphId = typeof para === 'object' ? (para.id || para.paragraphId || '') : String(para);
-              const expected = normalize(correctMap[paragraphId] || '');
-              const student = normalize(studentObj[paragraphId] || '');
-              total++;
-              if (expected && student && expected === student) correct++;
-            }
-
-            qCounter += (paragraphs.length || 0) || 1;
-            continue;
-          }
-
-          // Cloze/Summary: count each [BLANK] as individual
-          if (qType === 'cloze-test' || qType === 'summary-completion') {
-            const clozeText = q.paragraphText || q.passageText || q.text || q.paragraph || (q.questionText && q.questionText.includes('[BLANK]') ? q.questionText : null);
-            if (clozeText) {
-              const blanks = clozeText.match(/\[BLANK\]/gi) || [];
-              const baseKey = `q_${qCounter}`;
-              for (let bi = 0; bi < blanks.length; bi++) {
-                const student = normalize(answers[`${baseKey}_${bi}`] || '');
-                // expected from q.blanks[bi]?.correctAnswer or q.answers array
-                let expected = '';
-                if (q.blanks && q.blanks[bi]) expected = normalize(q.blanks[bi].correctAnswer || '');
-                total++;
-                if (expected && student && expected === student) correct++;
-              }
-              qCounter += blanks.length || 1;
-              continue;
-            }
-          }
-
-          // Paragraph matching: count ellipsis blanks
-          if (qType === 'paragraph-matching') {
-            const text = (q.questionText || '').replace(/<p[^>]*>/gi, '').replace(/<\/p>/gi, ' ').replace(/<br\s*\/?/gi, ' ').trim();
-            const parts = text ? text.split(/(\.{3,}|…+)/) : [];
-            const blanks = parts.filter((p2) => p2 && p2.match(/\.{3,}|…+/));
-            const baseKey = `q_${qCounter}`;
-            if (blanks.length > 0) {
-              for (let bi = 0; bi < blanks.length; bi++) {
-                const student = normalize(answers[`${baseKey}_${bi}`] || '');
-                // expected: q.blanks[bi]?.correctAnswer or q.correctAnswers?
-                let expected = '';
-                if (q.blanks && q.blanks[bi]) expected = normalize(q.blanks[bi].correctAnswer || '');
-                total++;
-                if (expected && student && expected === student) correct++;
-              }
-            } else {
-              const student = normalize(answers[`${baseKey}_0`] || '');
-              const expected = normalize(q.correctAnswer || '');
-              total++;
-              if (expected && student && expected === student) correct++;
-            }
-
-            qCounter += blanks.length > 0 ? blanks.length : 1;
-            continue;
-          }
-
-          // Default: single visual question
-          const key = `q_${qCounter}`;
-          const studentVal = answers[key];
-          const expected = q.correctAnswer || '';
-
-          // Multi-select answers sometimes stored as comma-separated
-          const normalizeMulti = (str) => (str ? String(str).split(',').map(s => s.trim().toLowerCase()).filter(Boolean).sort() : []);
-
-          total++;
-          if (expected) {
-            if ((q.questionType || q.type) === 'multi-select') {
-              const expArr = normalizeMulti(expected);
-              const stuArr = normalizeMulti(studentVal);
-              if (expArr.length && stuArr.length && JSON.stringify(expArr) === JSON.stringify(stuArr)) correct++;
-            } else {
-              if (normalize(expected) && normalize(studentVal) && normalize(expected) === normalize(studentVal)) correct++;
-            }
-          }
-
-          qCounter++;
+      // Try sending notification email (non-blocking for response)
+      try {
+        const nodemailer = require('nodemailer');
+        let transporter;
+        if (process.env.SMTP_HOST) {
+          const smtpOpts = {
+            host: process.env.SMTP_HOST,
+            port: Number(process.env.SMTP_PORT) || 465,
+            secure: (process.env.SMTP_SECURE === 'true') || (process.env.SMTP_PORT == 465),
+          };
+          if (process.env.SMTP_USER && process.env.SMTP_PASS) smtpOpts.auth = { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS };
+          if (process.env.SMTP_TLS_REJECT === 'false') smtpOpts.tls = { rejectUnauthorized: false };
+          transporter = nodemailer.createTransport(smtpOpts);
+          console.log('ℹ️ Using SMTP transport for reading submission email');
+        } else if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
+          transporter = nodemailer.createTransport({ service: 'gmail', auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS } });
+          console.log('ℹ️ Using Gmail transport for reading submission email');
+        } else {
+          transporter = nodemailer.createTransport({ sendmail: true });
+          console.log('ℹ️ Using sendmail transport (fallback) for reading submission email');
         }
+
+        const mailOptions = {
+          from: process.env.EMAIL_FROM || process.env.EMAIL_USER || `no-reply@${req.hostname}`,
+          to: process.env.EMAIL_TO,
+          subject: `📨 Reading submission from ${sub.userName} — test ${id}`,
+          html: `
+            <p><strong>👤 Học sinh:</strong> ${sub.userName}</p>
+            <p><strong>📝 Test ID:</strong> ${id}</p>
+            <p><strong>✅ Correct / Total:</strong> ${result.correct} / ${result.total}</p>
+            <p><strong>🔢 Band (IDP):</strong> ${result.band} — ${result.scorePercentage}%</p>
+            <p>Submission ID: <b>${sub.id}</b></p>
+            <p><a href="${req.protocol}://${req.get('host')}/admin">Mở trang quản trị để xem chi tiết</a></p>
+          `
+        };
+
+        const info = await transporter.sendMail(mailOptions);
+        console.log('✅ Reading submission email sent', info && info.messageId ? info.messageId : 'no-message-id');
+      } catch (emailErr) {
+        console.error('❌ Error sending reading submission email:', emailErr && (emailErr.stack || emailErr));
       }
+
+      return res.json({ submissionId: sub.id, ...result });
+    } catch (e) {
+      console.error('Error saving submission:', e);
+      // Still return result if DB save fails
+      return res.json(result);
     }
 
-    const band = bandFromCorrect(correct);
-
-    return res.json({
-      total,
-      correct,
-      band,
-      scorePercentage: total > 0 ? Math.round((correct / total) * 100) : 0
-    });
   } catch (err) {
     console.error('Error scoring reading test:', err);
     res.status(500).json({ message: err.message });

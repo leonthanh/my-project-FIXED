@@ -893,10 +893,14 @@ const DoReadingTest = () => {
 
   const confirmSubmit = async () => {
     try {
+      const user = (() => {
+        try { return JSON.parse(localStorage.getItem('user') || 'null'); } catch (e) { return null; }
+      })();
+
       const res = await fetch(`${API}/api/reading-tests/${id}/submit`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ answers }),
+        body: JSON.stringify({ answers, user, studentName: user?.name || undefined, studentId: user?.id || undefined }),
       });
       if (!res.ok) throw new Error("Failed to submit");
       const data = await res.json();

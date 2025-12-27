@@ -47,6 +47,7 @@ const ResultModal = ({ isOpen, onClose, result, onViewDetails }) => {
               <li>Total questions: {total}</li>
               <li>Correct: {correct}</li>
               <li>Score percentage: {pct}%</li>
+              {result && result.submissionId && <li>Submission ID: <strong>{result.submissionId}</strong></li>}
             </ul>
           </div>
         </div>

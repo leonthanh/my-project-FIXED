@@ -1,10 +1,8 @@
 const express = require('express');
 const router = express.Router();
+const ReadingSubmission = require('../models/ReadingSubmission');
 
-// Temporary in-memory storage for submissions (should be replaced with DB)
-const submissions = [];
-
-// POST: Submit reading test answers
+// POST: Submit reading test answers (deprecated - prefer /api/reading-tests/:id/submit)
 router.post('/', async (req, res) => {
   try {
     const { testId, passages } = req.body;
@@ -13,66 +11,35 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ message: '❌ Dữ liệu không hợp lệ' });
     }
 
-    // Calculate score
-    let correctCount = 0;
-    let totalCount = 0;
-
-    passages.forEach(passage => {
-      passage.questions.forEach(q => {
-        totalCount++;
-        if (q.isCorrect) correctCount++;
-      });
-    });
-
-    const score = Math.round((correctCount / totalCount) * 100);
-
-    // Create submission object
-    const submission = {
-      id: Date.now().toString(),
+    const submission = await ReadingSubmission.create({
       testId,
-      passages,
-      correctCount,
-      totalCount,
-      score,
-      submittedAt: new Date(),
-      studentName: req.body.studentName || 'Unknown',
-      studentId: req.body.studentId || 'Unknown'
-    };
-
-    // Store submission (in real app, save to database)
-    submissions.push(submission);
-
-    res.status(201).json({
-      message: '✅ Nộp bài thành công!',
-      submissionId: submission.id,
-      score: submission.score
+      answers: { passages },
+      total: passages.reduce((acc, p) => acc + ((p.questions && p.questions.length) || 0), 0),
+      correct: 0,
+      band: 0,
+      scorePercentage: 0,
+      userName: req.body.studentName || 'Unknown'
     });
+
+    res.status(201).json({ message: '✅ Nộp bài thành công!', submissionId: submission.id });
   } catch (error) {
-    console.error('Error submitting reading test:', error);
-    res.status(500).json({
-      message: '❌ Lỗi khi nộp bài',
-      error: error.message
-    });
+    console.error('Error submitting reading test (legacy):', error);
+    res.status(500).json({ message: '❌ Lỗi khi nộp bài', error: error.message });
   }
 });
 
-// GET: Get submission result by ID
+// GET: Get submission result by ID (from DB)
 router.get('/:submissionId', async (req, res) => {
   try {
     const { submissionId } = req.params;
-    const submission = submissions.find(s => s.id === submissionId);
+    const submission = await ReadingSubmission.findByPk(submissionId);
 
-    if (!submission) {
-      return res.status(404).json({ message: '❌ Không tìm thấy bài nộp' });
-    }
+    if (!submission) return res.status(404).json({ message: '❌ Không tìm thấy bài nộp' });
 
     res.json(submission);
   } catch (error) {
     console.error('Error fetching submission:', error);
-    res.status(500).json({
-      message: '❌ Lỗi khi lấy kết quả',
-      error: error.message
-    });
+    res.status(500).json({ message: '❌ Lỗi khi lấy kết quả', error: error.message });
   }
 });
 
@@ -80,15 +47,12 @@ router.get('/:submissionId', async (req, res) => {
 router.get('/test/:testId', async (req, res) => {
   try {
     const { testId } = req.params;
-    const testSubmissions = submissions.filter(s => s.testId === testId);
+    const testSubmissions = await ReadingSubmission.findAll({ where: { testId }, order: [['createdAt', 'DESC']] });
 
     res.json(testSubmissions);
   } catch (error) {
     console.error('Error fetching submissions:', error);
-    res.status(500).json({
-      message: '❌ Lỗi khi lấy danh sách bài nộp',
-      error: error.message
-    });
+    res.status(500).json({ message: '❌ Lỗi khi lấy danh sách bài nộp', error: error.message });
   }
 });
 

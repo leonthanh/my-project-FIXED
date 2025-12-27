@@ -55,17 +55,13 @@ test.describe('DoReadingTest E2E', () => {
     await expect(q4).toHaveClass(/active/, { timeout: 5000 });
   });
 
-  test('submitting the test posts answers and navigates to results', async ({ page }) => {
-    // Mock the submit endpoint
-    await page.route('**/api/reading-tests/1/submit', (route) => {
-      route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ total: 40, correct: 35, band: 8, scorePercentage: 88 }),
-      });
+  test('submitting the test posts answers and shows real result modal (no submit mock)', async ({ page }) => {
+    // Prepare answers in localStorage to match mocked correct answers in test GET
+    await page.addInitScript(() => {
+      localStorage.setItem('reading_test_1_answers', JSON.stringify({ q_1: 'A', q_2: 'B' }));
     });
 
-    // Mock the reading test GET response so the page loads predictable data
+    // Mock the reading test GET response so the page loads predictable data with correctAnswer fields
     await page.route('**/api/reading-tests/1', (route) => {
       route.fulfill({
         status: 200,
@@ -74,12 +70,17 @@ test.describe('DoReadingTest E2E', () => {
           id: '1',
           title: 'E2E Reading Test',
           passages: [
-            { index: 1, passageTitle: 'Passage 1', questions: [{ type: 'multiple-choice', questionText: 'First Q' }] },
-            { index: 2, passageTitle: 'Passage 2', questions: [{ type: 'multiple-choice', questionText: 'Second Q' }] }
+            { index: 1, passageTitle: 'Passage 1', questions: [
+                { type: 'multiple-choice', questionText: 'Q1', correctAnswer: 'A' },
+                { type: 'multiple-choice', questionText: 'Q2', correctAnswer: 'B' }
+              ]
+            }
           ]
         }),
       });
     });
+
+    // Note: do NOT mock submit route — use real backend to score and persist
 
     await page.goto('/reading/1');
 
@@ -100,9 +101,10 @@ test.describe('DoReadingTest E2E', () => {
     await expect(confirmBtn).toBeVisible({ timeout: 5000 });
     await confirmBtn.click();
 
-    // Result modal should appear and show band
+    // Result modal should appear and show band and submission id
     await page.waitForSelector('[data-testid="result-band"]', { timeout: 10000 });
     await expect(page.locator('[data-testid="result-band"]')).toBeVisible();
+    await expect(page.locator('text=Submission ID')).toBeVisible();
 
     // Close modal
     await page.locator('button:has-text("Đóng")').click();

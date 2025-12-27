@@ -17,9 +17,10 @@ module.exports = defineConfig({
     trace: 'on-first-retry',
   },
   webServer: {
-    command: 'npm start',
+    // Start both backend and frontend so tests can hit real submit endpoint
+    command: 'node ./scripts/start-with-backend.js',
     port: 3000,
-    timeout: 120000,
+    timeout: 180000,
     reuseExistingServer: !process.env.CI,
   }
 });
