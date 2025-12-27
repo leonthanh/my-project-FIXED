@@ -54,7 +54,7 @@ const CreateListeningTest = () => {
         teacherName
       };
       localStorage.setItem('listeningTestDraft', JSON.stringify(dataToSave));
-      console.log('Draft saved:', new Date().toLocaleTimeString());
+      // Draft saved (debug log removed)
     } catch (error) {
       console.error('Error saving draft:', error);
     }

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useTheme } from "../../../shared/contexts/ThemeContext";
+import { isAnswerCorrect } from '../../../shared/utils/answerUtils';
 
 /**
  * StudentPreviewModal - Xem trước đề thi Reading như học sinh thấy
@@ -10,6 +11,8 @@ const StudentPreviewModal = ({ isOpen, onClose, testData }) => {
   const { isDarkMode, colors } = useTheme();
   const [currentAnswers, setCurrentAnswers] = useState({});
   const [showResults, setShowResults] = useState(false);
+  // Teacher preview option: show answers by default
+  const [showAnswers, setShowAnswers] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -19,6 +22,9 @@ const StudentPreviewModal = ({ isOpen, onClose, testData }) => {
   }, [isOpen]);
 
   if (!isOpen) return null;
+
+  // when teacher chooses showAnswers we reveal correct answers and compute correctness even before submit
+  const effectiveShowResults = showResults || showAnswers;
 
   const handleAnswerChange = (questionIndex, value) => {
     setCurrentAnswers((prev) => ({
@@ -74,6 +80,17 @@ const StudentPreviewModal = ({ isOpen, onClose, testData }) => {
     color: "white",
   };
 
+  // Header controls: show answers toggle for teacher preview
+  const headerControls = (
+    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+      <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 600 }}>
+        <input type="checkbox" checked={showAnswers} onChange={(e) => setShowAnswers(e.target.checked)} />
+        <span style={{ fontSize: 13 }}>Hiển thị đáp án</span>
+      </label>
+      <button onClick={onClose} style={{ background: 'transparent', border: 'none', color: 'white', fontSize: '20px', cursor: 'pointer' }}>✕</button>
+    </div>
+  );
+
   const bodyStyle = {
     flex: 1,
     overflow: "auto",
@@ -81,6 +98,14 @@ const StudentPreviewModal = ({ isOpen, onClose, testData }) => {
     gap: "20px",
     padding: "20px",
   };
+
+  // Render header at top of modal
+  const renderHeader = () => (
+    <div style={headerStyle}>
+      <div style={{ fontSize: '16px', fontWeight: 700 }}>{testData?.title || 'Preview Test'}</div>
+      {headerControls}
+    </div>
+  );
 
   const passageStyle = {
     flex: 1,
@@ -201,19 +226,26 @@ const StudentPreviewModal = ({ isOpen, onClose, testData }) => {
                     value={option}
                     checked={currentAnswers[qIndex] === option}
                     onChange={() => handleAnswerChange(qIndex, option)}
-                    disabled={showResults}
+                    disabled={effectiveShowResults}
                     style={{ width: "18px", height: "18px" }}
                   />
                   <span style={{ color: isDarkMode ? "#e8e8e8" : "#333" }}>
                     {option}
                   </span>
-                  {showResults && option === question.correctAnswer && (
+                  {effectiveShowResults && option === question.correctAnswer && (
                     <span style={{ marginLeft: "auto", color: "#27ae60" }}>
                       ✓ Đáp án đúng
                     </span>
                   )}
                 </label>
               ))}
+
+              {/* if teacher enabled showAnswers show a small label with correct answer */}
+              {showAnswers && question.correctAnswer && (
+                <div style={{ marginTop: 8, color: '#155724', fontWeight: 700 }}>
+                  Đáp án: {question.correctAnswer}
+                </div>
+              )}
             </div>
           </div>
         );
@@ -250,20 +282,15 @@ const StudentPreviewModal = ({ isOpen, onClose, testData }) => {
               disabled={showResults}
               style={inputStyle}
             />
-            {showResults && (
+            {effectiveShowResults && (
               <div
                 style={{
                   marginTop: "10px",
                   fontSize: "14px",
-                  color:
-                    currentAnswers[qIndex]?.toLowerCase() ===
-                    question.correctAnswer?.toLowerCase()
-                      ? "#27ae60"
-                      : "#e74c3c",
+                  color: isAnswerCorrect(question.correctAnswer, currentAnswers[qIndex]) ? "#27ae60" : "#e74c3c",
                 }}
               >
-                {currentAnswers[qIndex]?.toLowerCase() ===
-                question.correctAnswer?.toLowerCase()
+                {isAnswerCorrect(question.correctAnswer, currentAnswers[qIndex])
                   ? "✓ Chính xác!"
                   : `✗ Đáp án đúng: ${question.correctAnswer}`}
               </div>

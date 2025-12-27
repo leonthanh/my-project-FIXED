@@ -1151,21 +1151,42 @@ const ReadingTestEditor = ({
                                                       </td>
                                                       <td style={{ padding: '6px', borderBottom: '1px solid #ddd' }}>
                                                         {answer ? (
-                                                          <span style={{
-                                                            backgroundColor: '#28a745',
-                                                            color: 'white',
-                                                            padding: '2px 10px',
-                                                            borderRadius: '4px',
-                                                            fontWeight: 'bold'
-                                                          }}>
-                                                            {answer}
-                                                          </span>
+                                                          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                                            <small style={{ color: '#666' }}>Raw: {String(answer)}</small>
+                                                            <span style={{
+                                                              backgroundColor: '#28a745',
+                                                              color: 'white',
+                                                              padding: '2px 10px',
+                                                              borderRadius: '4px',
+                                                              fontWeight: 'bold'
+                                                            }}>
+                                                              {String(answer)}
+                                                            </span>
+                                                          </div>
                                                         ) : (
                                                           <span style={{ color: '#999' }}>--</span>
                                                         )}
                                                       </td>
                                                       <td style={{ padding: '6px', borderBottom: '1px solid #ddd', color: '#495057' }}>
-                                                        {heading ? heading.text : <span style={{ color: '#999' }}>Chưa chọn</span>}
+                                                        {
+                                                          (() => {
+                                                            // attempt to resolve numeric indices to headings for legacy data
+                                                            const raw = answer;
+                                                            let resolved = heading;
+                                                            let resolvedLabel = raw;
+                                                            if (!resolved && raw !== undefined && raw !== null) {
+                                                              const s = String(raw).trim();
+                                                              if (/^\d+$/.test(s) && Array.isArray(q.headings) && q.headings.length) {
+                                                                const n = Number(s);
+                                                                // try 0-based first then 1-based
+                                                                if (q.headings[n]) resolved = q.headings[n];
+                                                                else if (q.headings[n - 1]) resolved = q.headings[n - 1];
+                                                                resolvedLabel = resolved ? resolved.label : (n > 0 ? (['i','ii','iii','iv','v','vi','vii','viii','ix','x'][n-1] || String(n)) : String(n));
+                                                              }
+                                                            }
+                                                            return resolved ? resolved.text : <span style={{ color: '#999' }}>Chưa chọn</span>;
+                                                          })()
+                                                        }
                                                       </td>
                                                     </tr>
                                                   );

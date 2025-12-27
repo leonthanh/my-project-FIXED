@@ -30,6 +30,7 @@
     "start": "set NODE_ENV=development&& react-scripts start",
     "build": "set NODE_ENV=production&& react-scripts build",
     "test": "react-scripts test",
+    "test:e2e": "playwright test",
     "eject": "react-scripts eject"
   },
   "eslintConfig": {
@@ -54,6 +55,7 @@
   },
   "devDependencies": {
     "@babel/core": "^7.22.0",
+    "@playwright/test": "^1.38.0",
     "ajv": "^6.12.6",
     "ajv-keywords": "^3.5.2",
     "npm-force-resolutions": "^0.0.10",

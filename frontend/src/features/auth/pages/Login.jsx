@@ -93,7 +93,7 @@ const Login = () => {
 
     try {
       // Log API_URL để kiểm tra đúng endpoint chưa
-      console.log("Register API_URL:", `${API_URL}/api/auth/register`);
+      // (debug log removed)
       const res = await fetch(`${API_URL}/api/auth/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -189,9 +189,9 @@ const Login = () => {
       const data = await res.json();
       if (res.ok) {
         alert("✅ " + data.message);
-        // ✅ Dev mode: hiển thị OTP để test
+        // ✅ Dev mode: OTP available in response (not logged)
         if (data.testOtp) {
-          console.log(`OTP Test: ${data.testOtp}`);
+          /* OTP test available in dev response */
         }
       } else {
         alert("❌ " + data.message);

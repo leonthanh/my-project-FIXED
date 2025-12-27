@@ -103,7 +103,7 @@ const ReviewSubmission = () => {
       });
       const aiData = await aiRes.json();
 
-      console.log("🤖 AI Response:", aiData);
+      // AI response received (debug log removed)
 
       if (aiData.suggestion) {
         setFeedback(aiData.suggestion);

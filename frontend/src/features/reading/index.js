@@ -5,6 +5,7 @@ export { default as CreateReadingTest } from './pages/CreateReadingTest';
 export { default as EditReadingTest } from './pages/EditReadingTest';
 export { default as TakeReadingTest } from './pages/TakeReadingTest';
 export { default as DoReadingTest } from './pages/DoReadingTest';
+export { default as ReadingResults } from './pages/ReadingResults';
 
 // Components
 export * from './components';
