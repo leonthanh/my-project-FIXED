@@ -43,6 +43,7 @@ const AdminReadingSubmissions = () => {
                 <th style={cellStyle}>Student</th>
                 <th style={cellStyle}>Correct</th>
                 <th style={cellStyle}>Total</th>
+                <th style={cellStyle}>Band</th>
                 <th style={cellStyle}>Submitted At</th>
                 <th style={cellStyle}>Actions</th>
               </tr>
@@ -56,10 +57,10 @@ const AdminReadingSubmissions = () => {
                   <td style={cellStyle}>{s.userName || 'N/A'}</td>
                   <td style={cellStyle}>{s.correct}</td>
                   <td style={cellStyle}>{s.total}</td>
+                  <td style={cellStyle}>{s.band != null && Number.isFinite(Number(s.band)) ? Number(s.band).toFixed(1) : 'N/A'}</td>
                   <td style={cellStyle}>{new Date(s.createdAt).toLocaleString()}</td>
                   <td style={cellStyle}>
                     <button onClick={() => navigate(`/reading-results/${s.id}`)} style={actionBtn}>View</button>
-                    <button onClick={() => window.open(`${API}/api/reading-submissions/${s.id}/compare-html`, '_blank')} style={{ ...actionBtn, marginLeft: 8 }}>Open HTML</button>
                     <button onClick={async () => {
                       try {
                         const res = await fetch(`${API}/api/reading-submissions/${s.id}`);

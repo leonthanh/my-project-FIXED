@@ -46,7 +46,7 @@ const ReadingResults = () => {
         <p><strong>Total questions:</strong> {navResult.total}</p>
         <p><strong>Correct:</strong> {navResult.correct}</p>
         <p><strong>Score percentage:</strong> {navResult.scorePercentage}%</p>
-        <p><strong>IELTS Band:</strong> {navResult.band}</p>
+        <p><strong>IELTS Band:</strong> {navResult.band != null && Number.isFinite(Number(navResult.band)) ? Number(navResult.band).toFixed(1) : 'N/A'}</p>
         <p><button onClick={() => navigate(-1)}>Quay lại</button></p>
       </div>
     );

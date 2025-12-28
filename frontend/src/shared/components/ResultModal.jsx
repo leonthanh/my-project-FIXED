@@ -14,7 +14,10 @@ const ResultModal = ({ isOpen, onClose, result, onViewDetails }) => {
   const { total, correct, scorePercentage, band } = result;
   const pct = scorePercentage || (total > 0 ? Math.round((correct / total) * 100) : 0);
 
-  const color = getBandColor(band || 0);
+  const numericBand = (band != null && Number.isFinite(Number(band))) ? Number(band) : 0;
+  const formattedBand = (band != null && Number.isFinite(Number(band))) ? Number(band).toFixed(1) : 'N/A';
+
+  const color = getBandColor(numericBand || 0);
 
   return (
     <div role="dialog" aria-modal="true" className="result-modal-overlay" onClick={onClose}>
@@ -36,7 +39,7 @@ const ResultModal = ({ isOpen, onClose, result, onViewDetails }) => {
             <div>
               <div style={{ fontSize: 20, fontWeight: 700 }}>{pct}%</div>
               <div style={{ marginTop: 6 }}>
-                <span style={{ padding: '6px 10px', background: color, color: '#fff', borderRadius: 8, fontWeight: 700 }} data-testid="result-band">Band {band}</span>
+                <span style={{ padding: '6px 10px', background: color, color: '#fff', borderRadius: 8, fontWeight: 700 }} data-testid="result-band">Band {formattedBand}</span>
               </div>
             </div>
           </div>

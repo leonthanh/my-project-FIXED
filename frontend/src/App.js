@@ -2,7 +2,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 
 // Import from new feature-based structure
-import { EditTest, AdminSubmissions, SelectTest, MyFeedback, ReviewSubmission, Review, AdminReadingSubmissions } from './features/admin';
+import { EditTest, AdminWritingSubmissions, SelectTest, MyFeedback, ReviewSubmission, Review, AdminReadingSubmissions } from './features/admin';
 import { WritingTest, CreateWritingTest } from './features/writing';
 import { Login } from './features/auth';
 import { CreateReadingTest, EditReadingTest, DoReadingTest, TakeReadingTest, ReadingResults } from './features/reading';
@@ -74,10 +74,15 @@ function App() {
             <AdminReadingSubmissions />
           </ProtectedRoute>
         } />
-        {/* ✅ Trang giáo viên xem bài làm */}
+        <Route path="/admin/writing-submissions" element={
+          <ProtectedRoute role="teacher">
+            <AdminWritingSubmissions />
+          </ProtectedRoute>
+        } />
+        {/* Redirect legacy /admin to canonical writing submissions path */}
         <Route path="/admin" element={
           <ProtectedRoute role="teacher">
-            <AdminSubmissions />
+            <Navigate to="/admin/writing-submissions" replace />
           </ProtectedRoute>
         } />
       </Routes>
