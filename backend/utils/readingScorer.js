@@ -511,6 +511,102 @@ function getDetailedScoring(testData, answers = {}) {
           }
         }
 
+        // Paragraph matching (A-G style) — ensure we render per-paragraph details and accept answers like q_<base>_0 etc
+        if (qType === 'paragraph-matching' || qType === 'paragraph-fill-blanks') {
+          const text = (q.questionText || '').replace(/<p[^>]*>/gi, '').replace(/<\/p>/gi, ' ').replace(/<br\s*\/?/gi, ' ').trim();
+          const parts = text ? text.split(/(\.{3,}|…+)/) : [];
+          const blanks = parts.filter((p2) => p2 && p2.match(/\.{3,}|…+/));
+          const baseKey = `q_${qCounter}`;
+
+          if (blanks.length > 0) {
+            for (let bi = 0; bi < blanks.length; bi++) {
+              const studentRaw = (answers[`${baseKey}_${bi}`] !== undefined) ? answers[`${baseKey}_${bi}`] : '';
+              // Prefer blank-specific correctAnswer, fallback to question-level correctAnswer
+              let expectedRaw = '';
+              if (q.blanks && q.blanks[bi] && q.blanks[bi].correctAnswer) expectedRaw = q.blanks[bi].correctAnswer;
+              else if (q.correctAnswer) expectedRaw = q.correctAnswer;
+
+              const expectedLabel = normalize(expectedRaw || '');
+              const studentLabel = normalize(studentRaw || '');
+              details.push({
+                questionNumber: q.questionNumber || (qCounter + bi),
+                paragraphId: null,
+                questionText: q.questionText || q.question || q.text || '',
+                headings: q.headings || [],
+                passageSnippet: (p.title || p.heading || p.passageText || p.text || '').slice(0, 200),
+                expected: expectedRaw || '',
+                student: studentRaw || '',
+                expectedLabel,
+                studentLabel,
+                isCorrect: expectedLabel && studentLabel && expectedLabel === studentLabel
+              });
+            }
+          } else {
+            const studentRaw = (answers[`${baseKey}_0`] !== undefined) ? answers[`${baseKey}_0`] : '';
+            const expectedRaw = q.correctAnswer || '';
+            const expectedLabel = normalize(expectedRaw || '');
+            const studentLabel = normalize(studentRaw || '');
+            details.push({
+              questionNumber: q.questionNumber || qCounter,
+              paragraphId: null,
+              questionText: q.questionText || q.question || q.text || '',
+              headings: q.headings || [],
+              passageSnippet: (p.title || p.heading || p.passageText || p.text || '').slice(0, 200),
+              expected: expectedRaw || '',
+              student: studentRaw || '',
+              expectedLabel,
+              studentLabel,
+              isCorrect: expectedLabel && studentLabel && expectedLabel === studentLabel
+            });
+          }
+
+          qCounter += blanks.length > 0 ? blanks.length : 1;
+          continue;
+        }
+
+        // Helper: map a single-letter choice (A/B/C...) to option text (if available) and normalize
+        const resolveChoiceText = (questionObj, value) => {
+          if (!value && value !== 0) return '';
+          const s = String(value).trim();
+          // letter index
+          if (/^[A-Za-z]$/.test(s)) {
+            const idx = s.toUpperCase().charCodeAt(0) - 65;
+            if (Array.isArray(questionObj.options) && questionObj.options[idx]) {
+              const opt = questionObj.options[idx];
+              if (typeof opt === 'object') return normalize(opt.text || opt.label || String(opt));
+              return normalize(opt);
+            }
+            // fall back to answers lookup (some tests store answers mapping A->text)
+            if (questionObj.answers && questionObj.answers[s.toUpperCase()]) return normalize(questionObj.answers[s.toUpperCase()]);
+            return normalize(s);
+          }
+          // if already a text, normalize
+          return normalize(s);
+        };
+
+        // Special handling for multiple-choice and sentence-completion where student may submit letters (A,B,...) or full text
+        if (qType === 'multiple-choice' || qType === 'sentence-completion') {
+          const key = `q_${qCounter}`;
+          const rawStudentVal = answers[key];
+          const studentVal = rawStudentVal === undefined || rawStudentVal === null ? '' : rawStudentVal;
+
+          let expectedRaw = q.correctAnswer || '';
+          // If expected is a single letter, try to map to option text too
+          const expectedNorm = /^[A-Za-z]$/.test(String(expectedRaw).trim()) ? resolveChoiceText(q, expectedRaw) : normalize(expectedRaw || '');
+          const studentNorm = /^[A-Za-z]$/.test(String(studentVal).trim()) ? resolveChoiceText(q, studentVal) : normalize(studentVal || '');
+
+          const rowCopy = Object.assign({}, row);
+          rowCopy.student = (studentVal === null || studentVal === undefined) ? '' : String(studentVal);
+          rowCopy.expected = expectedRaw || '';
+          rowCopy.expectedLabel = expectedNorm;
+          rowCopy.studentLabel = studentNorm;
+          rowCopy.isCorrect = expectedNorm && studentNorm && expectedNorm === studentNorm;
+          details.push(rowCopy);
+
+          qCounter++;
+          continue;
+        }
+
         // default simple types
         const key = `q_${qCounter}`;
         const rawStudentVal = answers[key];
