@@ -13,8 +13,36 @@ const ReadingResults = () => {
   const API = process.env.REACT_APP_API_URL;
 
   useEffect(() => {
-    // If navigation provided result, show summary only; otherwise fetch compare details for submission id
-    if (navResult) return setMeta(navResult);
+    // If navigation provided result, show summary only; still try to fetch submission meta if available
+    if (navResult) {
+      setMeta(navResult);
+      if (navResult.submissionId) {
+        // fetch submission metadata and test info
+        (async () => {
+          try {
+            const r = await fetch(`${API}/api/reading-submissions/${navResult.submissionId}`);
+            if (r.ok) {
+              const s = await r.json();
+              const m = { submissionId: s.id, userName: s.userName, userPhone: s.userPhone, testId: s.testId };
+              // fetch test info
+              if (s.testId) {
+                try {
+                  const rt = await fetch(`${API}/api/reading-tests/${s.testId}`);
+                  if (rt.ok) {
+                    const t = await rt.json();
+                    m.testTitle = t.title || `#${t.id}`;
+                    m.classCode = t.classCode || '';
+                    m.teacherName = t.teacherName || '';
+                  }
+                } catch (e) { /* ignore */ }
+              }
+              setMeta(prev => ({ ...prev, ...m }));
+            }
+          } catch (e) { /* ignore */ }
+        })();
+      }
+      return;
+    }
 
     const fetchCompare = async () => {
       setLoading(true);
@@ -24,6 +52,28 @@ const ReadingResults = () => {
         const data = await res.json();
         setDetails(data.details || []);
         setMeta({ submissionId: data.submissionId });
+
+        // fetch submission metadata and test info using submissionId
+        try {
+          const r = await fetch(`${API}/api/reading-submissions/${data.submissionId}`);
+          if (r.ok) {
+            const s = await r.json();
+            const m = { submissionId: s.id, userName: s.userName, userPhone: s.userPhone, testId: s.testId };
+            if (s.testId) {
+              try {
+                const rt = await fetch(`${API}/api/reading-tests/${s.testId}`);
+                if (rt.ok) {
+                  const t = await rt.json();
+                  m.testTitle = t.title || `#${t.id}`;
+                  m.classCode = t.classCode || '';
+                  m.teacherName = t.teacherName || '';
+                }
+              } catch (e) { /* ignore */ }
+            }
+            setMeta(prev => ({ ...prev, ...m }));
+          }
+        } catch (e) { /* ignore */ }
+
       } catch (err) {
         console.error('Error fetching compare:', err);
         setDetails([]);
@@ -40,9 +90,19 @@ const ReadingResults = () => {
 
   // If navigation provided result summary, show summary
   if (navResult && !details.length) {
+    // if we have a submissionId, try to fetch submission and test meta (non-blocking)
     return (
       <div style={{ padding: 24 }}>
         <h2>Reading Results — Test {id}</h2>
+        {meta && (
+          <div style={{ marginBottom: 12 }}>
+            <p><strong>Test:</strong> {meta.testTitle || `#${meta.testId || ''}`}</p>
+            <p><strong>Mã lớp:</strong> {meta.classCode || 'N/A'}</p>
+            <p><strong>Giáo viên đề:</strong> {meta.teacherName || 'N/A'}</p>
+            <p><strong>Học sinh:</strong> {meta.userName || navResult.userName || 'N/A'}{meta.userPhone ? ` • ${meta.userPhone}` : ''}</p>
+          </div>
+        )}
+
         <p><strong>Total questions:</strong> {navResult.total}</p>
         <p><strong>Correct:</strong> {navResult.correct}</p>
         <p><strong>Score percentage:</strong> {navResult.scorePercentage}%</p>
@@ -63,6 +123,29 @@ const ReadingResults = () => {
   return (
     <div style={{ padding: 18, fontFamily: 'Arial, Helvetica, sans-serif' }}>
       <h2>Chi tiết chấm — Submission #{id}</h2>
+
+      {/* Meta block: test, class, teacher, student, band */}
+      {meta && (
+        <div style={{ marginBottom: 12, padding: 12, border: '1px solid #e5e7eb', borderRadius: 6, background: '#f8fafc', display: 'flex', justifyContent: 'space-between', gap: 20 }}>
+          <div>
+            <div><strong>Đề thi:</strong> {meta.testTitle || `#${meta.testId || ''}`}</div>
+            <div><strong>Mã lớp:</strong> {meta.classCode || 'N/A'}</div>
+            <div><strong>Giáo viên:</strong> {meta.teacherName || 'N/A'}</div>
+          </div>
+
+          <div>
+            <div><strong>Học sinh:</strong> {meta.userName || 'N/A'}{meta.userPhone ? ` • ${meta.userPhone}` : ''}</div>
+            {meta.submissionId && <div><strong>Submission:</strong> #{meta.submissionId}</div>}
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center' }}>
+            {meta.band != null && Number.isFinite(Number(meta.band)) && (
+              <div style={{ padding: '6px 10px', background: '#111827', color: '#fff', borderRadius: 8, fontWeight: 700 }}>Band {Number(meta.band).toFixed(1)}</div>
+            )}
+          </div>
+        </div>
+      )}
+
       <table style={{ width: '100%', borderCollapse: 'collapse' }}>
         <thead>
           <tr style={{ background: '#0e276f', color: 'white' }}>
