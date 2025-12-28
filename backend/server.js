@@ -16,6 +16,7 @@ require("./models/Submission");
 require("./models/ListeningTest");
 require("./models/ReadingTest");
 require("./models/KETReading");
+require("./models/ReadingSubmission");
 
 // ✅ Routes
 const authRoutes = require('./routes/auth');

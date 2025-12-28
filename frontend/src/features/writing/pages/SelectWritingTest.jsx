@@ -19,7 +19,6 @@ const SelectWritingTest = () => {
       console.error('❌ ID đề không hợp lệ:', id);
       return;
     }
-    console.log('📌 Đã chọn đề:', numericId);
     localStorage.setItem('selectedTestId', numericId);
     navigate('/writing-test'); // ✅ Chuyển đến trang làm bài
   };

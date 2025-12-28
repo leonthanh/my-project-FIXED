@@ -9,8 +9,10 @@ const AdminNavbar = () => {
   const [unreviewed, setUnreviewed] = useState([]);
   const [notificationDropdownVisible, setNotificationDropdownVisible] = useState(false);
   const [createTestDropdownVisible, setCreateTestDropdownVisible] = useState(false);
+  const [submissionDropdownVisible, setSubmissionDropdownVisible] = useState(false);
   const notificationDropdownRef = useRef(null);
   const createTestDropdownRef = useRef(null);
+  const submissionDropdownRef = useRef(null);
 
   const user = JSON.parse(localStorage.getItem('user'));
 
@@ -40,6 +42,9 @@ const AdminNavbar = () => {
       }
       if (createTestDropdownRef.current && !createTestDropdownRef.current.contains(event.target)) {
         setCreateTestDropdownVisible(false);
+      }
+      if (submissionDropdownRef.current && !submissionDropdownRef.current.contains(event.target)) {
+        setSubmissionDropdownVisible(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -71,7 +76,63 @@ const AdminNavbar = () => {
     }}>
       <div style={{ display: 'flex', alignItems: 'center' }}>
       <img src={`${API_URL}/uploads/staredu.jpg`} alt="Logo" style={{ height: 40, marginRight: 20 }} />
-        <Link to="/admin" style={linkStyle}>📄 Bài viết</Link>
+        <div style={{ display: 'inline-block', position: 'relative', marginRight: '20px' }} ref={submissionDropdownRef}>
+          <span
+            style={{
+              ...linkStyle,
+              cursor: 'pointer',
+              marginRight: '0'
+            }}
+            onClick={() => setSubmissionDropdownVisible(prev => !prev)}
+          >
+            📁 Bài nộp ▼
+          </span>
+          {submissionDropdownVisible && (
+            <div style={{
+              position: 'absolute',
+              top: '100%',
+              left: '0',
+              background: 'white',
+              border: '1px solid #ccc',
+              borderRadius: '4px',
+              boxShadow: '0 2px 6px rgba(0,0,0,0.1)',
+              zIndex: 1000,
+              minWidth: '200px'
+            }}>
+              <Link
+                to="/admin/reading-submissions"
+                style={{
+                  display: 'block',
+                  padding: '10px 15px',
+                  color: '#333',
+                  textDecoration: 'none',
+                  borderBottom: '1px solid #eee',
+                  transition: 'background 0.2s'
+                }}
+                onClick={() => setSubmissionDropdownVisible(false)}
+                onMouseOver={e => e.currentTarget.style.background = '#f0f0f0'}
+                onMouseOut={e => e.currentTarget.style.background = 'white'}
+              >
+                🔍 Reading submissions
+              </Link>
+              <Link
+                to="/admin/writing-submissions"
+                style={{
+                  display: 'block',
+                  padding: '10px 15px',
+                  color: '#333',
+                  textDecoration: 'none',
+                  transition: 'background 0.2s'
+                }}
+                onClick={() => setSubmissionDropdownVisible(false)}
+                onMouseOver={e => e.currentTarget.style.background = '#f0f0f0'}
+                onMouseOut={e => e.currentTarget.style.background = 'white'}
+              >
+                ✍️ Writing submissions
+              </Link>
+            </div>
+          )}
+        </div>
         <Link to="/select-test" style={linkStyle}>📋 Danh sách đề</Link>
         <div style={{ display: 'inline-block', position: 'relative', marginRight: '20px' }}>
           <span 

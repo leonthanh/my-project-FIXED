@@ -76,8 +76,6 @@ const CustomEditor = ({ value, onChange, placeholder }) => {
           placeholder: placeholder
         }}
         onReady={editor => {
-          console.log('Editor is ready to use!');
-          
           // Insert toolbar before editable area
           const toolbarContainer = editor.ui.view.toolbar.element;
           const editableArea = editor.ui.getEditableElement();
@@ -88,9 +86,6 @@ const CustomEditor = ({ value, onChange, placeholder }) => {
           
           // Enable editing features
           editor.isReadOnly = false;
-          
-          // Log available plugins
-          console.log('Loaded plugins:', Array.from(editor.plugins.names()));
         }}
         onChange={(event, editor) => onChange(editor.getData())}
       />

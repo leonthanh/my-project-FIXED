@@ -28,7 +28,7 @@ const Timer = ({
       setIsWarning(true);
       // Optional: Play warning sound
       const audio = new Audio('/warning.mp3');
-      audio.play().catch(err => console.log('Warning sound not available'));
+      audio.play().catch(() => { /* ignore warning sound errors */ });
     }
   }, [timeLeft, warningTime, isWarning]);
 

@@ -2,10 +2,10 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 
 // Import from new feature-based structure
-import { EditTest, AdminSubmissions, SelectTest, MyFeedback, ReviewSubmission, Review } from './features/admin';
+import { EditTest, AdminWritingSubmissions, SelectTest, MyFeedback, ReviewSubmission, Review, AdminReadingSubmissions } from './features/admin';
 import { WritingTest, CreateWritingTest } from './features/writing';
 import { Login } from './features/auth';
-import { CreateReadingTest, EditReadingTest, DoReadingTest, TakeReadingTest } from './features/reading';
+import { CreateReadingTest, EditReadingTest, DoReadingTest, TakeReadingTest, ReadingResults } from './features/reading';
 import { CreateListeningTest } from './features/listening';
 import { ProtectedRoute } from './shared/components';
 
@@ -58,6 +58,7 @@ function App() {
         <Route path="/reading-tests/:testId" element={isLoggedIn() ? <TakeReadingTest /> : <Navigate to="/login" replace />} />
         <Route path="/reading-tests" element={isLoggedIn() ? <SelectTest /> : <Navigate to="/login" replace />} />
         <Route path="/reading/:id" element={isLoggedIn() ? <DoReadingTest /> : <Navigate to="/login" replace />} />
+        <Route path="/reading-results/:id" element={isLoggedIn() ? <ReadingResults /> : <Navigate to="/login" replace />} />
         <Route path="/review/:id" element={
           <ProtectedRoute role="teacher">
             <ReviewSubmission />
@@ -68,10 +69,20 @@ function App() {
             <Review />
           </ProtectedRoute>
         } />
-        {/* ✅ Trang giáo viên xem bài làm */}
+        <Route path="/admin/reading-submissions" element={
+          <ProtectedRoute role="teacher">
+            <AdminReadingSubmissions />
+          </ProtectedRoute>
+        } />
+        <Route path="/admin/writing-submissions" element={
+          <ProtectedRoute role="teacher">
+            <AdminWritingSubmissions />
+          </ProtectedRoute>
+        } />
+        {/* Redirect legacy /admin to canonical writing submissions path */}
         <Route path="/admin" element={
           <ProtectedRoute role="teacher">
-            <AdminSubmissions />
+            <Navigate to="/admin/writing-submissions" replace />
           </ProtectedRoute>
         } />
       </Routes>
