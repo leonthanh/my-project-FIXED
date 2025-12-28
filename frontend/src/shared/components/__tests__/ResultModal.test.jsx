@@ -11,26 +11,27 @@ describe('ResultModal', () => {
 
   beforeEach(() => {
     jest.restoreAllMocks();
+    localStorage.removeItem('user');
   });
 
-  test('renders Xem chi tiết (chấm) button when submissionId exists and opens compare page in new tab', () => {
-    const mockOpen = jest.fn();
-    window.open = mockOpen;
+  test('does NOT render Xem chi tiết for students', () => {
+    const result = { submissionId: 123, score: 85 };
+    render(<ResultModal {...defaultProps} result={result} />);
+    const btn = screen.queryByRole('button', { name: /Xem chi tiết/i });
+    expect(btn).toBeNull();
+  });
 
+  test('renders Xem chi tiết for teacher and calls onViewDetails', () => {
+    const teacher = { id: 1, name: 'Ms', role: 'teacher' };
+    localStorage.setItem('user', JSON.stringify(teacher));
     const result = { submissionId: 123, score: 85 };
 
     render(<ResultModal {...defaultProps} result={result} />);
 
-    const button = screen.getByRole('button', { name: /Xem chi tiết \(chấm\)/i });
+    const button = screen.getByRole('button', { name: /Xem chi tiết/i });
     expect(button).toBeInTheDocument();
 
     fireEvent.click(button);
-    expect(mockOpen).toHaveBeenCalledWith('/api/reading-submissions/123/compare-html', '_blank');
-  });
-
-  test('does not render Xem chi tiết (chấm) button when no submissionId', () => {
-    render(<ResultModal {...defaultProps} result={{ score: 80 }} />);
-    const buttons = screen.queryAllByRole('button', { name: /Xem chi tiết \(chấm\)/i });
-    expect(buttons).toHaveLength(0);
+    expect(defaultProps.onViewDetails).toHaveBeenCalled();
   });
 });

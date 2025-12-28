@@ -2575,13 +2575,17 @@ const DoReadingTest = () => {
           setStarted(false);
           setTimeUp(false);
 
-          // Force reload so UI reflects cleared state immediately
-          try { window.location.reload(); } catch (e) { /* ignore in tests */ }
+          // Navigate student back to select-test page after closing modal
+          try { navigate('/select-test'); } catch (e) { /* ignore */ }
         }}
         result={resultData}
         onViewDetails={() => {
           setResultModalOpen(false);
-          navigate(`/reading-results/${id}`, { state: { result: resultData } });
+          if (resultData && resultData.submissionId) {
+            navigate(`/reading-results/${resultData.submissionId}`);
+          } else {
+            navigate(`/reading-results/${id}`, { state: { result: resultData } });
+          }
         }}
       />
     </div>

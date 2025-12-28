@@ -84,4 +84,52 @@ describe('DoReadingTest integration - part navigation and focus', () => {
       expect(q4Btn.classList.contains('active')).toBe(true);
     });
   });
+
+  it('after submit, closing result modal navigates to select-test', async () => {
+    // mock confirm to allow submit despite unanswered
+    jest.spyOn(window, 'confirm').mockImplementation(() => true);
+
+    // mock fetch to return test (first call) and submit response (second call)
+    const mockFetch = jest.spyOn(global, 'fetch').mockImplementation((url, opts) => {
+      if (String(url).endsWith('/submit')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ submissionId: 999, correctCount: 2, totalQuestions: 3, score: 66, scorePercentage: 66 }) });
+      }
+      return Promise.resolve({ ok: true, json: () => Promise.resolve(simpleTest) });
+    });
+
+    render(
+      <MemoryRouter initialEntries={["/reading/1"]}>
+        <Routes>
+          <Route path="/reading/:id" element={<DoReadingTest />} />
+          <Route path="/select-test" element={<div>SELECT TEST PAGE</div>} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    // wait for test to render
+    await screen.findByText('PASSAGE 1');
+
+    // click submit
+    const submitBtn = screen.getByTestId('submit-button');
+    fireEvent.click(submitBtn);
+
+    // Confirm modal appears; find confirm button and click
+    const confirmBtn = await screen.findByText('Xác nhận nộp');
+    fireEvent.click(confirmBtn);
+
+    // Wait for result modal to open (it contains text 'Reading — Kết quả')
+    await screen.findByText(/Reading — Kết quả/i);
+
+    // Click 'Đóng' on result modal and expect to navigate to select-test
+    const closeBtn = screen.getByText('Đóng');
+    fireEvent.click(closeBtn);
+
+    // Expect select-test route to be rendered
+    await waitFor(() => {
+      expect(screen.getByText('SELECT TEST PAGE')).toBeTruthy();
+    });
+
+    mockFetch.mockRestore();
+    window.confirm.mockRestore();
+  });
 });
