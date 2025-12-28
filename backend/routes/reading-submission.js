@@ -2,6 +2,31 @@ const express = require('express');
 const router = express.Router();
 const ReadingSubmission = require('../models/ReadingSubmission');
 
+// Helper to render compare HTML (exported via attaching to router)
+const buildCompareHtml = (submission, results) => {
+  let html = `<!doctype html><html><head><meta charset="utf-8"><title>Compare Submission ${submission.id}</title>
+  <style>body{font-family:Arial,Helvetica,sans-serif;padding:18px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #ddd;padding:8px}th{background:#0e276f;color:#fff}tr:nth-child(even){background:#f9f9f9}.ok{background:#e6f4ea;color:#155724}.bad{background:#ffe6e6;color:#721c24}.small{font-size:0.9em;color:#333}</style></head><body>
+  <h2>So sánh Submission #${submission.id} (Test ${submission.testId})</h2>
+  <p><strong>Học sinh:</strong> ${submission.userName || 'N/A'} &nbsp; <strong>Đúng :</strong> ${submission.correct} / ${submission.total} &nbsp; <strong>Score:</strong> ${submission.scorePercentage || submission.scorePercentage === 0 ? submission.scorePercentage + '%' : 'N/A'}</p>
+  <table><thead><tr><th>Q</th><th>Question Context</th><th>Paragraph</th><th>Expected (raw)</th><th>Expected Label</th><th>Student (raw)</th><th>Student Label</th><th>Result</th></tr></thead><tbody>`;
+
+  for (const r of results) {
+    const isOk = r.isCorrect;
+    const qText = r.questionText ? `<div><strong>${r.questionText}</strong></div>` : '';
+    const headings = (r.headings && r.headings.length) ? `<div class="small">Headings: ${r.headings.map(h => (h.label || h.id || h.text || h).toString()).join(' | ')}</div>` : '';
+    const snippet = r.passageSnippet ? `<div class="small">${r.passageSnippet}</div>` : '';
+    const studentRaw = (r.student && typeof r.student === 'object') ? JSON.stringify(r.student) : (r.student || '');
+    const expectedRaw = (r.expected && typeof r.expected === 'object') ? JSON.stringify(r.expected) : (r.expected || '');
+    html += `<tr class="${isOk ? 'ok' : 'bad'}"><td>${r.questionNumber}</td><td>${qText}${headings}${snippet}</td><td>${r.paragraphId || '-'}</td><td>${expectedRaw}</td><td>${(r.expectedLabel || '').toString()}</td><td>${studentRaw}</td><td>${(r.studentLabel || '').toString()}</td><td>${isOk ? '✓' : '✕'}</td></tr>`;
+  }
+
+  html += `</tbody></table><p style="margin-top:18px"><a href="/admin">Back to Admin</a></p></body></html>`;
+  return html;
+};
+
+// attach helper to router so tests can use it
+if (!router.buildCompareHtml) router.buildCompareHtml = buildCompareHtml;
+
 // POST: Submit reading test answers (deprecated - prefer /api/reading-tests/:id/submit)
 router.post('/', async (req, res) => {
   try {
@@ -52,6 +77,17 @@ router.get('/test/:testId', async (req, res) => {
     res.json(testSubmissions);
   } catch (error) {
     console.error('Error fetching submissions:', error);
+    res.status(500).json({ message: '❌ Lỗi khi lấy danh sách bài nộp', error: error.message });
+  }
+});
+
+// GET: Get all submissions across tests (admin listing)
+router.get('/', async (req, res) => {
+  try {
+    const subs = await ReadingSubmission.findAll({ order: [['createdAt', 'DESC']] });
+    res.json(subs);
+  } catch (error) {
+    console.error('Error fetching all submissions:', error);
     res.status(500).json({ message: '❌ Lỗi khi lấy danh sách bài nộp', error: error.message });
   }
 });
@@ -108,17 +144,32 @@ router.get('/:submissionId/compare-html', async (req, res) => {
     res.setHeader('Pragma', 'no-cache');
     res.setHeader('Expires', '0');
 
-    // Build a simple HTML table
-    let html = `<!doctype html><html><head><meta charset="utf-8"><title>Compare Submission ${submissionId}</title>
-      <style>body{font-family:Arial,Helvetica,sans-serif;padding:18px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #ddd;padding:8px}th{background:#0e276f;color:#fff}tr:nth-child(even){background:#f9f9f9}.ok{background:#e6f4ea;color:#155724}.bad{background:#ffe6e6;color:#721c24}</style></head><body>
-      <h2>So sánh Submission #${submissionId} (Test ${submission.testId})</h2>
+    // Build a simple HTML table via helper so we can test it
+    const buildCompareHtml = (submission, results) => {
+      let html = `<!doctype html><html><head><meta charset="utf-8"><title>Compare Submission ${submission.id}</title>
+      <style>body{font-family:Arial,Helvetica,sans-serif;padding:18px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #ddd;padding:8px}th{background:#0e276f;color:#fff}tr:nth-child(even){background:#f9f9f9}.ok{background:#e6f4ea;color:#155724}.bad{background:#ffe6e6;color:#721c24}.small{font-size:0.9em;color:#333}</style></head><body>
+      <h2>So sánh Submission #${submission.id} (Test ${submission.testId})</h2>
       <p><strong>Học sinh:</strong> ${submission.userName || 'N/A'} &nbsp; <strong>Đúng :</strong> ${submission.correct} / ${submission.total} &nbsp; <strong>Score:</strong> ${submission.scorePercentage || submission.scorePercentage === 0 ? submission.scorePercentage + '%' : 'N/A'}</p>
-      <table><thead><tr><th>Q</th><th>Paragraph</th><th>Expected (raw)</th><th>Expected Label</th><th>Student (raw)</th><th>Student Label</th><th>Result</th></tr></thead><tbody>`;
+      <table><thead><tr><th>Q</th><th>Question Context</th><th>Paragraph</th><th>Expected (raw)</th><th>Expected Label</th><th>Student (raw)</th><th>Student Label</th><th>Result</th></tr></thead><tbody>`;
 
-    for (const r of results) {
-      const isOk = r.isCorrect;
-      html += `<tr class="${isOk ? 'ok' : 'bad'}"><td>${r.questionNumber}</td><td>${r.paragraphId || '-'}</td><td>${(r.expected || '').toString()}</td><td>${(r.expectedLabel || '').toString()}</td><td>${(r.student || '').toString()}</td><td>${(r.studentLabel || '').toString()}</td><td>${isOk ? '✓' : '✕'}</td></tr>`;
-    }
+      for (const r of results) {
+        const isOk = r.isCorrect;
+        const qText = r.questionText ? `<div><strong>${r.questionText}</strong></div>` : '';
+        const headings = (r.headings && r.headings.length) ? `<div class="small">Headings: ${r.headings.map(h => (h.label || h.id || h.text || h).toString()).join(' | ')}</div>` : '';
+        const snippet = r.passageSnippet ? `<div class="small">${r.passageSnippet}</div>` : '';
+        const studentRaw = (r.student && typeof r.student === 'object') ? JSON.stringify(r.student) : (r.student || '');
+        const expectedRaw = (r.expected && typeof r.expected === 'object') ? JSON.stringify(r.expected) : (r.expected || '');
+        html += `<tr class="${isOk ? 'ok' : 'bad'}"><td>${r.questionNumber}</td><td>${qText}${headings}${snippet}</td><td>${r.paragraphId || '-'}</td><td>${expectedRaw}</td><td>${(r.expectedLabel || '').toString()}</td><td>${studentRaw}</td><td>${(r.studentLabel || '').toString()}</td><td>${isOk ? '✓' : '✕'}</td></tr>`;
+      }
+
+      html += `</tbody></table><p style="margin-top:18px"><a href="/admin">Back to Admin</a></p></body></html>`;
+      return html;
+    };
+
+    // attach helper to router so tests can use it
+    if (!router.buildCompareHtml) router.buildCompareHtml = buildCompareHtml;
+
+    const html = router.buildCompareHtml(submission, results);
 
     html += `</tbody></table><p style="margin-top:18px"><a href="/admin">Back to Admin</a></p></body></html>`;
 

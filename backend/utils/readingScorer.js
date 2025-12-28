@@ -44,9 +44,44 @@ function scoreReadingTest(testData, answers = {}) {
         if (qType === 'ielts-matching-headings' || qType === 'matching-headings') {
           const paragraphs = q.paragraphs || q.answers || [];
           const baseKey = `q_${qCounter}`;
-          const studentRaw = answers[baseKey];
+          let studentRaw = answers[baseKey];
+
+          // also accept student answers stored under the question's own questionNumber (editor may use q_<questionNumber>)
+          const altBaseKey = `q_${q.questionNumber || qCounter}`;
+          if (!studentRaw && answers[altBaseKey]) studentRaw = answers[altBaseKey];
+
+          // If still not found or empty, scan all answers keys to find a JSON/object mapping that mentions paragraph ids
           let studentObj = {};
-          try { studentObj = studentRaw ? JSON.parse(studentRaw) : {}; } catch (e) { studentObj = {}; }
+          const paragraphIds = ((q.paragraphs || q.answers || []) || []).map(p => (typeof p === 'object' ? (p.id || p.paragraphId || '') : String(p))).filter(Boolean);
+
+          if (studentRaw && typeof studentRaw === 'object') {
+            studentObj = studentRaw;
+          } else if (studentRaw && typeof studentRaw === 'string') {
+            try {
+              studentObj = JSON.parse(studentRaw);
+            } catch (e) {
+              studentObj = {};
+            }
+          } else {
+            // scan answers for an object whose keys intersect paragraphIds
+            for (const k of Object.keys(answers || {})) {
+              const val = answers[k];
+              if (!val) continue;
+              let parsed = null;
+              if (typeof val === 'object') parsed = val;
+              else if (typeof val === 'string') {
+                try { parsed = JSON.parse(val); } catch (e) { parsed = null; }
+              }
+              if (parsed && typeof parsed === 'object') {
+                const keys = Object.keys(parsed || {});
+                const intersects = keys.some(kk => paragraphIds.includes(kk));
+                if (intersects) {
+                  studentObj = parsed;
+                  break;
+                }
+              }
+            }
+          }
 
           const correctMap = {};
           if (q.answers && typeof q.answers === 'object') Object.assign(correctMap, q.answers);
@@ -102,24 +137,33 @@ function scoreReadingTest(testData, answers = {}) {
           const clozeText = q.paragraphText || q.passageText || q.text || q.paragraph || (q.questionText && q.questionText.includes('[BLANK]') ? q.questionText : null);
           if (clozeText) {
             const blanks = clozeText.match(/\[BLANK\]/gi) || [];
-            const baseKey = `q_${qCounter}`;
+            const baseKey = `q_${q.questionNumber || qCounter}`;
 
             // helper to find student answer robustly across different key naming conventions
             const findStudentBlank = (questionNumber, bi) => {
-              // 1) direct: q_<qCounter>_<bi>
+              // 1) direct: q_<qQuestionNumber or qCounter>_<bi>
               const direct = answers[`${baseKey}_${bi}`];
               if (direct !== undefined) return normalize(direct);
 
-              // 2) try q_<questionNumber> (for inputs that use q_<num> as base and blankIndex as suffix)
-              const alt1 = answers[`q_${questionNumber}_${0}`]; // not likely but check
+              // check for single-blank stored as q_<base> (no suffix)
+              const directBase = answers[baseKey];
+              if (directBase !== undefined) return normalize(directBase);
+
+              // 2) try q_<questionNumber>_<0> (for inputs that use q_<num> as base and blankIndex as suffix)
+              const alt1 = answers[`q_${questionNumber}_0`]; // not likely but check
+              if (alt1 !== undefined) return normalize(alt1);
 
               // 3) search keys that include the questionNumber (e.g., '0_10_2' or '10_2' or 'q_11_0')
               for (const k of Object.keys(answers || {})) {
                 if (!answers[k]) continue;
                 const keyStr = String(k);
+                // Prefer keys that end with _<bi> (e.g., '0_0_0') regardless of questionNumber
+                if (keyStr.endsWith(`_${bi}`) || new RegExp(`_${bi}($|_)`).test(keyStr)) {
+                  return normalize(answers[k]);
+                }
                 const pattern = new RegExp(`(^|_)${questionNumber}(_|$)`);
                 if (pattern.test(keyStr)) {
-                  // if key ends with _<bi> or contains _<bi> after questionNumber we prefer it
+                  // if key contains questionNumber and ends with _<bi>, prefer it
                   if (new RegExp(`_${bi}($|_)`).test(keyStr) || keyStr.endsWith(`_${bi}`)) {
                     return normalize(answers[k]);
                   }
@@ -132,13 +176,20 @@ function scoreReadingTest(testData, answers = {}) {
               return '';
             };
 
+            // helper: support multiple expected variants separated by |, /, or ;
+            const expectedVariantsFromRaw = (raw) => {
+              if (raw === null || raw === undefined) return [];
+              // split on pipe, slash, semicolon (and commas too just in case), trim and normalize
+              return String(raw).split(/\s*[|\/;,]\s*/).map(s => normalize(s)).filter(Boolean);
+            };
+
             for (let bi = 0; bi < blanks.length; bi++) {
               const questionNumber = (q.questionNumber || qCounter) + bi;
               const student = findStudentBlank(questionNumber, bi);
-              let expected = '';
-              if (q.blanks && q.blanks[bi]) expected = normalize(q.blanks[bi].correctAnswer || '');
+              const expectedRaw = (q.blanks && q.blanks[bi] && q.blanks[bi].correctAnswer) ? q.blanks[bi].correctAnswer : '';
+              const expectedVariants = expectedVariantsFromRaw(expectedRaw);
               total++;
-              if (expected && student && expected === student) correct++;
+              if (expectedVariants.length && student && expectedVariants.includes(student)) correct++;
             }
             qCounter += blanks.length || 1;
             continue;
@@ -190,10 +241,13 @@ function scoreReadingTest(testData, answers = {}) {
     }
   }
 
-  const band = bandFromCorrect(correct);
-  const scorePercentage = total > 0 ? Math.round((correct / total) * 100) : 0;
-
-  return { total, correct, band, scorePercentage };
+  // Delegate to detailed scoring for consistent per-question handling
+  const details = getDetailedScoring(testData, answers || {});
+  const aggTotal = details.length;
+  const aggCorrect = details.filter(d => d.isCorrect).length;
+  const band = bandFromCorrect(aggCorrect);
+  const scorePercentage = aggTotal > 0 ? Math.round((aggCorrect / aggTotal) * 100) : 0;
+  return { total: aggTotal, correct: aggCorrect, band, scorePercentage };
 }
 
 // Detailed per-question scoring utility
@@ -201,26 +255,92 @@ function getDetailedScoring(testData, answers = {}) {
   const details = [];
   let qCounter = 1;
 
+  // Accept answers stored as a JSON string (root) or with nested stringified JSON values
+  const safeParse = (v) => {
+    if (typeof v !== 'string') return v;
+    try { return JSON.parse(v); } catch (e) { return v; }
+  };
+
+  const safeString = (v) => {
+    if (v === undefined || v === null) return '';
+    if (typeof v === 'object') return JSON.stringify(v);
+    return String(v);
+  };
+
+  // parse root if needed
+  if (typeof answers === 'string') {
+    try { answers = JSON.parse(answers); } catch (e) { answers = {}; }
+  }
+
+  // Parse nested JSON strings (e.g., q_1: "{\"A\":\"v\"}") into objects for easier lookup
+  for (const k of Object.keys(answers || {})) {
+    const v = answers[k];
+    if (typeof v === 'string') {
+      const parsed = safeParse(v);
+      if (parsed !== v) answers[k] = parsed;
+    }
+  }
+
   for (const p of (testData.passages || [])) {
     const sections = p.sections || [{ questions: p.questions }];
     for (const s of sections) {
       for (const q of (s.questions || [])) {
         const qType = (q.questionType || q.type || '').toLowerCase();
-        // Default row
+        // Default row (include question text, headings and a short passage snippet for context)
+        const passageSnippet = (p.title || p.heading || p.passageText || p.text || '');
         const row = {
           questionNumber: q.questionNumber || qCounter,
           questionType: qType,
+          questionText: q.questionText || q.question || q.text || '',
+          headings: q.headings || [],
+          passageSnippet: passageSnippet ? String(passageSnippet).slice(0, 200) : '',
           expected: q.correctAnswer || q.answers || null,
+          expectedLabel: q.correctAnswer || '',
           student: null,
+          studentLabel: '',
           isCorrect: false
         };
 
         if (qType === 'ielts-matching-headings' || qType === 'matching-headings') {
-          const paragraphs = q.paragraphs || q.answers || [];
+          // base key is the block base q_<qCounter>
           const baseKey = `q_${qCounter}`;
-          const studentRaw = answers[baseKey];
+          let studentRaw = answers[baseKey];
+
+          // also accept student answers stored under the question's own questionNumber (editor may use q_<questionNumber>)
+          const altBaseKey = `q_${q.questionNumber || qCounter}`;
+          if (!studentRaw && answers[altBaseKey]) studentRaw = answers[altBaseKey];
+
+          // if still not found, scan answers keys for an object mapping that contains paragraph ids
           let studentObj = {};
-          try { studentObj = studentRaw ? JSON.parse(studentRaw) : {}; } catch (e) { studentObj = {}; }
+          const paragraphs = q.paragraphs || q.answers || [];
+          const paragraphIds = (paragraphs || []).map(p => (typeof p === 'object' ? (p.id || p.paragraphId || '') : String(p))).filter(Boolean);
+
+          if (studentRaw && typeof studentRaw === 'object') {
+            studentObj = studentRaw;
+          } else if (studentRaw && typeof studentRaw === 'string') {
+            try {
+              studentObj = JSON.parse(studentRaw);
+            } catch (e) {
+              studentObj = {};
+            }
+          } else {
+            for (const k of Object.keys(answers || {})) {
+              const val = answers[k];
+              if (!val) continue;
+              let parsed = null;
+              if (typeof val === 'object') parsed = val;
+              else if (typeof val === 'string') {
+                try { parsed = JSON.parse(val); } catch (e) { parsed = null; }
+              }
+              if (parsed && typeof parsed === 'object') {
+                const keys = Object.keys(parsed || {});
+                if (keys.some(kk => paragraphIds.includes(kk))) {
+                  studentObj = parsed;
+                  break;
+                }
+              }
+            }
+          }
           const correctMap = {};
           if (q.answers && typeof q.answers === 'object') Object.assign(correctMap, q.answers);
           if (q.blanks && Array.isArray(q.blanks)) {
@@ -262,6 +382,11 @@ function getDetailedScoring(testData, answers = {}) {
               // scan answers object for keys mentioning questionNum or ending with `_<questionNum>`
               for (const k of Object.keys((answers || {}))) {
                 const keyStr = String(k);
+                // Prefer keys that end with _<i> (e.g., '0_0_1')
+                if (keyStr.endsWith(`_${i}`) || new RegExp(`_${i}($|_)`).test(keyStr)) {
+                  studentRaw = (answers && answers[k]) || '';
+                  break;
+                }
                 if (new RegExp(`(^|_)${questionNum}(_|$)`).test(keyStr)) {
                   studentRaw = (answers && answers[k]) || '';
                   break;
@@ -270,11 +395,16 @@ function getDetailedScoring(testData, answers = {}) {
             }
 
             const studentLabel = toLabel(studentRaw || '', headingsArray);
+            // ensure student is a readable string
+            const studentValStr = (studentRaw && typeof studentRaw === 'object') ? JSON.stringify(studentRaw) : String(studentRaw || '');
             details.push({
               questionNumber: (q.questionNumber || qCounter) + i,
               paragraphId,
+              questionText: q.questionText || q.question || q.text || '',
+              headings: headingsArray || [],
+              passageSnippet: (p.title || p.heading || p.passageText || p.text || '').slice(0, 200),
               expected: correctMap[paragraphId] || '',
-              student: studentRaw || '',
+              student: studentValStr,
               expectedLabel,
               studentLabel,
               isCorrect: expectedLabel && studentLabel && expectedLabel === studentLabel
@@ -291,23 +421,37 @@ function getDetailedScoring(testData, answers = {}) {
           if (clozeText) {
             const blanks = clozeText.match(/\[BLANK\]/gi) || [];
 
+            const safeString = (v) => {
+              if (v === undefined || v === null) return '';
+              if (typeof v === 'object') return JSON.stringify(v);
+              return String(v);
+            };
+
             const findStudentBlank = (questionNumber, bi) => {
               // 1) direct q_<base>_<bi>
               const baseKey = `q_${q.questionNumber || qCounter}`;
               const direct = answers[`${baseKey}_${bi}`];
-              if (direct !== undefined && direct !== null && String(direct).trim() !== '') return String(direct);
+              if (direct !== undefined && direct !== null && String(direct).trim() !== '') return safeString(direct);
+
+              // check for single-blank stored as q_<base> (no suffix)
+              const directBase = answers[baseKey];
+              if (directBase !== undefined && directBase !== null && String(directBase).trim() !== '') return safeString(directBase);
 
               // 2) common frontend keys (e.g., '0_0_1', '0_1_2') which may include questionNumber
+              // also allow q_<questionNumber>_0 style
+              const alt1 = answers[`q_${questionNumber}_0`];
+              if (alt1 !== undefined && alt1 !== null && String(alt1).trim() !== '') return safeString(alt1);
+
               for (const k of Object.keys(answers || {})) {
                 const val = answers[k];
                 if (val === undefined || val === null || String(val).trim() === '') continue;
                 const keyStr = String(k);
-                // exact match ending with _<bi>
-                if (keyStr.endsWith(`_${bi}`) && keyStr.includes(String(questionNumber))) return String(val);
+                // Prefer keys that end with _<bi> (e.g., '0_0_1') regardless of questionNumber
+                if (keyStr.endsWith(`_${bi}`) || new RegExp(`_${bi}($|_)`).test(keyStr)) return safeString(val);
                 // contains question number and blank index anywhere
-                if (new RegExp(`(^|_)${questionNumber}(_|_)`).test(keyStr) && keyStr.includes(`_${bi}`)) return String(val);
+                if (new RegExp(`(^|_)${questionNumber}(_|_)`).test(keyStr) && keyStr.includes(`_${bi}`)) return safeString(val);
                 // contains question number alone -> fallback
-                if (new RegExp(`(^|_)${questionNumber}(_|$)`).test(keyStr)) return String(val);
+                if (new RegExp(`(^|_)${questionNumber}(_|$)`).test(keyStr)) return safeString(val);
               }
 
               return '';
@@ -317,16 +461,20 @@ function getDetailedScoring(testData, answers = {}) {
               const questionNumber = (q.questionNumber || qCounter) + bi;
               const studentRaw = findStudentBlank(questionNumber, bi) || '';
               const expectedRaw = (q.blanks && q.blanks[bi] && q.blanks[bi].correctAnswer) ? q.blanks[bi].correctAnswer : '';
-              const expectedNorm = normalize(expectedRaw);
-              const studentNorm = normalize(studentRaw);
-              details.push({
+            const expectedVariants = String(expectedRaw).split(/\s*[|\/;,]\s*/).map(s => normalize(s)).filter(Boolean);
+            const studentNorm = normalize(studentRaw);
+            const isCorrect = expectedVariants.length && studentNorm && expectedVariants.includes(studentNorm);
+            details.push({
                 questionNumber: questionNumber,
                 paragraphId: null,
+                questionText: q.questionText || q.question || q.text || '',
+                headings: q.headings || [],
+                passageSnippet: (p.title || p.heading || p.passageText || p.text || '').slice(0, 200),
                 expected: expectedRaw || '',
                 student: studentRaw || '',
-                expectedLabel: expectedRaw || '',
-                studentLabel: studentRaw || '',
-                isCorrect: expectedNorm && studentNorm && expectedNorm === studentNorm
+                expectedLabel: expectedVariants.join(' | '),
+                studentLabel: studentNorm || '',
+                isCorrect
               });
             }
 
@@ -338,7 +486,9 @@ function getDetailedScoring(testData, answers = {}) {
         // default simple types
         const key = `q_${qCounter}`;
         const studentVal = answers[key];
-        row.student = studentVal || '';
+        row.student = safeString(studentVal);
+        row.expectedLabel = normalize(q.correctAnswer || '');
+        row.studentLabel = normalize(safeString(studentVal));
         if ((q.questionType || q.type) === 'multi-select') {
           const expArr = normalizeMulti(q.correctAnswer || '');
           const stuArr = normalizeMulti(studentVal);
