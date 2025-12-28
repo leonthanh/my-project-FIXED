@@ -133,3 +133,63 @@ test('IELTS matching-headings: accepts top-level stringified answers and nested 
   expect(Array.isArray(details[0].headings)).toBe(true);
   expect(details[0].passageSnippet).toContain('Passage Title Sample');
 });
+
+// New test: short-answer accepts one-of variants
+test('Short answer: accepts one-of variants separated by | or /', () => {
+  const sample = { passages: [{ questions: [{ questionType: 'short-answer', questionNumber: 9, questionText: 'Fill in: water is atomised into ______', correctAnswer: 'tiny | droplets' }] }] };
+  const answers = { q_9: 'tiny' };
+  const details = getDetailedScoring(sample, answers);
+  expect(details.length).toBe(1);
+  expect(details[0].student).toBe('tiny');
+  expect(details[0].studentLabel).toBe('tiny');
+  expect(details[0].expectedLabel).toContain('tiny');
+  expect(details[0].isCorrect).toBe(true);
+});
+
+// New test: cloze/blank shouldn't pick up object mappings from other keys
+test('Cloze: does not treat object mapping values as blank answers', () => {
+  const sample = { passages: [{ questions: [ { questionType: 'ielts-matching-headings', questionNumber: 1, paragraphs: [{ id: 'A' }, { id: 'B' }], headings: [{ label: 'i' }, { label: 'ii' }], answers: { A: 'i', B: 'ii' } }, { questionType: 'cloze-test', questionNumber: 12, paragraphText: '... [BLANK] ...', blanks: [{ correctAnswer: 'insulation' }] } ] }] };
+  // answers contains only a mapping object under q_1 (should not be used for question 12 blank)
+  const answers = { q_1: { A: 'i', B: 'ii' } };
+  const details = getDetailedScoring(sample, answers);
+  const cloze = details.find(d => d.questionNumber === 12);
+  expect(cloze.student).toBe('');
+  expect(cloze.isCorrect).toBe(false);
+});
+
+// Regression test: a later blank (q 38) should NOT pick q_11_0 value (e.g., q_11_0='energy')
+test('Blank matching should not pick answers from other question blanks with same _<index> suffix', () => {
+  const sample = { passages: [{ questions: [
+    { questionType: 'short-answer', questionNumber: 11, paragraphText: '... [BLANK] ...', blanks: [{ correctAnswer: 'energy' }] },
+    { questionType: 'short-answer', questionNumber: 38, paragraphText: '... [BLANK] ...', blanks: [{ correctAnswer: 'E' }] }
+  ] }] };
+
+  const answers = { q_11_0: 'energy' };
+  const details = getDetailedScoring(sample, answers);
+  const blank38 = details.find(d => d.questionNumber === 38);
+  expect(blank38.student).toBe('');
+  expect(blank38.isCorrect).toBe(false);
+});
+
+// Grouped question numbers (e.g., '11,12,130') should map to q_<base>_<i> keys (e.g., q_11_0)
+test('Grouped questionNumber uses base numeric and maps blanks to q_<base>_<i>', () => {
+  const sample = { passages: [{ questions: [
+    {
+      questionType: 'cloze-test',
+      questionNumber: '11,12,130',
+      paragraphText: '[BLANK] [BLANK] [BLANK]',
+      blanks: [ { correctAnswer: 'energy' }, { correctAnswer: 'insulation' }, { correctAnswer: 'aircraft' } ]
+    }
+  ] }] };
+
+  const answers = { q_11_0: 'energy', q_11_1: 'insulation', q_11_2: 'aircraft' };
+  const details = getDetailedScoring(sample, answers);
+  // find the three blanks (they should have the same displayed questionNumber)
+  const blanks = details.filter(d => String(d.questionNumber).includes('11'));
+  expect(blanks.length).toBe(3);
+  expect(blanks[0].student).toBe('energy');
+  expect(blanks[0].studentLabel).toBe('energy');
+  expect(blanks[0].isCorrect).toBe(true);
+  expect(blanks[1].student).toBe('insulation');
+  expect(blanks[2].student).toBe('aircraft');
+});

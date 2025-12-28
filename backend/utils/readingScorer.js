@@ -375,18 +375,35 @@ function getDetailedScoring(testData, answers = {}) {
             const paragraphId = typeof para === 'object' ? (para.id || para.paragraphId || '') : String(para);
             const expectedLabel = toLabel(correctMap[paragraphId] || '', headingsArray);
 
+            // Determine numeric base question number (handles cases like '11,12,130')
+            const baseQuestionNumber = (() => {
+              const qn = q.questionNumber || qCounter;
+              if (typeof qn === 'number') return qn;
+              if (typeof qn === 'string') {
+                const m = qn.match(/(\d+)/);
+                if (m) return Number(m[1]);
+              }
+              return Number(qn) || qCounter;
+            })();
+
             // find student raw value robustly using question number as hint
-            const questionNum = (q.questionNumber || qCounter) + i;
+            const questionNum = baseQuestionNumber + i;
             let studentRaw = studentObj[paragraphId] || '';
             if (!studentRaw) {
-              // scan answers object for keys mentioning questionNum or ending with `_<questionNum>`
+              // scan answers object for keys referencing this base question number and blank index
               for (const k of Object.keys((answers || {}))) {
                 const keyStr = String(k);
-                // Prefer keys that end with _<i> (e.g., '0_0_1')
-                if (keyStr.endsWith(`_${i}`) || new RegExp(`_${i}($|_)`).test(keyStr)) {
+                // exact form: q_<base>_<i>
+                if (new RegExp(`(^|_)q_${baseQuestionNumber}_${i}($|_)`).test(keyStr)) {
                   studentRaw = (answers && answers[k]) || '';
                   break;
                 }
+                // contains both the base question number and the blank index (e.g., '0_11_0')
+                if (keyStr.includes(`_${i}`) && new RegExp(`(^|_)${baseQuestionNumber}(_|_)`).test(keyStr)) {
+                  studentRaw = (answers && answers[k]) || '';
+                  break;
+                }
+                // fallback: key that explicitly contains the computed questionNum (e.g., '11' or '130')
                 if (new RegExp(`(^|_)${questionNum}(_|$)`).test(keyStr)) {
                   studentRaw = (answers && answers[k]) || '';
                   break;
@@ -398,7 +415,7 @@ function getDetailedScoring(testData, answers = {}) {
             // ensure student is a readable string
             const studentValStr = (studentRaw && typeof studentRaw === 'object') ? JSON.stringify(studentRaw) : String(studentRaw || '');
             details.push({
-              questionNumber: (q.questionNumber || qCounter) + i,
+              questionNumber: q.questionNumber || (qCounter + i),
               paragraphId,
               questionText: q.questionText || q.question || q.text || '',
               headings: headingsArray || [],
@@ -427,9 +444,20 @@ function getDetailedScoring(testData, answers = {}) {
               return String(v);
             };
 
-            const findStudentBlank = (questionNumber, bi) => {
+            // derive a numeric base for question number (handles '11,12,130' style)
+            const baseQuestionNumber = (() => {
+              const qn = q.questionNumber || qCounter;
+              if (typeof qn === 'number') return qn;
+              if (typeof qn === 'string') {
+                const m = qn.match(/(\d+)/);
+                if (m) return Number(m[1]);
+              }
+              return Number(qn) || qCounter;
+            })();
+
+            const findStudentBlank = (baseNumber, bi) => {
               // 1) direct q_<base>_<bi>
-              const baseKey = `q_${q.questionNumber || qCounter}`;
+              const baseKey = `q_${baseNumber}`;
               const direct = answers[`${baseKey}_${bi}`];
               if (direct !== undefined && direct !== null && String(direct).trim() !== '') return safeString(direct);
 
@@ -437,35 +465,35 @@ function getDetailedScoring(testData, answers = {}) {
               const directBase = answers[baseKey];
               if (directBase !== undefined && directBase !== null && String(directBase).trim() !== '') return safeString(directBase);
 
-              // 2) common frontend keys (e.g., '0_0_1', '0_1_2') which may include questionNumber
-              // also allow q_<questionNumber>_0 style
-              const alt1 = answers[`q_${questionNumber}_0`];
+              // 2) common frontend keys which may include baseNumber
+              const alt1 = answers[`q_${baseNumber}_${bi}`];
               if (alt1 !== undefined && alt1 !== null && String(alt1).trim() !== '') return safeString(alt1);
 
               for (const k of Object.keys(answers || {})) {
                 const val = answers[k];
-                if (val === undefined || val === null || String(val).trim() === '') continue;
+                if (val === undefined || val === null) continue;
+                // only accept primitive values or arrays as a blank answer; skip objects (object mappings shouldn't be treated as a single blank)
+                if (typeof val === 'object' && !Array.isArray(val)) continue;
+                if (String(val).trim() === '') continue;
                 const keyStr = String(k);
-                // Prefer keys that end with _<bi> (e.g., '0_0_1') regardless of questionNumber
-                if (keyStr.endsWith(`_${bi}`) || new RegExp(`_${bi}($|_)`).test(keyStr)) return safeString(val);
-                // contains question number and blank index anywhere
-                if (new RegExp(`(^|_)${questionNumber}(_|_)`).test(keyStr) && keyStr.includes(`_${bi}`)) return safeString(val);
-                // contains question number alone -> fallback
-                if (new RegExp(`(^|_)${questionNumber}(_|$)`).test(keyStr)) return safeString(val);
+                // Accept keys only when they include the baseNumber context and the blank index
+                if ((new RegExp(`(^|_)q_${baseNumber}_${bi}($|_)`).test(keyStr)) || (keyStr.includes(`_${bi}`) && new RegExp(`(^|_)${baseNumber}(_|_)`).test(keyStr))) return safeString(val);
+                // fallback: contains baseNumber alone (no blank index), use only as last resort
+                if (new RegExp(`(^|_)${baseNumber}(_|$)`).test(keyStr)) return safeString(val);
               }
 
               return '';
             };
 
             for (let bi = 0; bi < blanks.length; bi++) {
-              const questionNumber = (q.questionNumber || qCounter) + bi;
-              const studentRaw = findStudentBlank(questionNumber, bi) || '';
+              const displayedQuestionNumber = q.questionNumber || (qCounter + bi);
+              const studentRaw = findStudentBlank(baseQuestionNumber, bi) || '';
               const expectedRaw = (q.blanks && q.blanks[bi] && q.blanks[bi].correctAnswer) ? q.blanks[bi].correctAnswer : '';
-            const expectedVariants = String(expectedRaw).split(/\s*[|\/;,]\s*/).map(s => normalize(s)).filter(Boolean);
-            const studentNorm = normalize(studentRaw);
-            const isCorrect = expectedVariants.length && studentNorm && expectedVariants.includes(studentNorm);
-            details.push({
-                questionNumber: questionNumber,
+              const expectedVariants = String(expectedRaw).split(/\s*[|\/;,]\s*/).map(s => normalize(s)).filter(Boolean);
+              const studentNorm = normalize(studentRaw);
+              const isCorrect = expectedVariants.length && studentNorm && expectedVariants.includes(studentNorm);
+              details.push({
+                questionNumber: displayedQuestionNumber,
                 paragraphId: null,
                 questionText: q.questionText || q.question || q.text || '',
                 headings: q.headings || [],
@@ -485,17 +513,29 @@ function getDetailedScoring(testData, answers = {}) {
 
         // default simple types
         const key = `q_${qCounter}`;
-        const studentVal = answers[key];
+        const rawStudentVal = answers[key];
+        // ignore object-mappings (these are likely matching-heading maps), accept primitives/arrays only
+        const studentVal = (typeof rawStudentVal === 'object' && !Array.isArray(rawStudentVal)) ? '' : rawStudentVal;
         row.student = safeString(studentVal);
-        row.expectedLabel = normalize(q.correctAnswer || '');
-        row.studentLabel = normalize(safeString(studentVal));
-        if ((q.questionType || q.type) === 'multi-select') {
+        // Short answers and sentence completions may have multiple acceptable variants separated by |,/ or ;
+        const expectedRaw = q.correctAnswer || '';
+        if (qType === 'short-answer' || qType === 'sentence-completion') {
+          const expectedVariants = String(expectedRaw).split(/\s*[|\/;,]\s*/).map(s => normalize(s)).filter(Boolean);
+          const studentNorm = normalize(studentVal || '');
+          row.expectedLabel = expectedVariants.join(' | ');
+          row.studentLabel = studentNorm;
+          row.isCorrect = (expectedVariants.length && studentNorm && expectedVariants.includes(studentNorm));
+        } else if ((q.questionType || q.type) === 'multi-select') {
           const expArr = normalizeMulti(q.correctAnswer || '');
           const stuArr = normalizeMulti(studentVal);
+          row.expectedLabel = normalize(q.correctAnswer || '');
+          row.studentLabel = normalize(safeString(studentVal));
           row.isCorrect = (expArr.length && stuArr.length && JSON.stringify(expArr) === JSON.stringify(stuArr));
         } else {
-          const expectedNorm = normalize(q.correctAnswer || '');
+          const expectedNorm = normalize(expectedRaw || '');
           const studentNorm = normalize(studentVal || '');
+          row.expectedLabel = expectedNorm;
+          row.studentLabel = studentNorm;
           row.isCorrect = expectedNorm && studentNorm && expectedNorm === studentNorm;
         }
         details.push(row);

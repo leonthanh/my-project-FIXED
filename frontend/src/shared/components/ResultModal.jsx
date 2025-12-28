@@ -53,17 +53,19 @@ const ResultModal = ({ isOpen, onClose, result, onViewDetails }) => {
         </div>
 
         <footer className="result-modal-footer">
-          <button type="button" onClick={onViewDetails} className="btn btn-secondary">Xem chi tiết</button>
-          {result && result.submissionId && (
-            <button
-              type="button"
-              onClick={() => window.open(`/api/reading-submissions/${result.submissionId}/compare-html`, '_blank')}
-              className="btn btn-secondary"
-              title="Mở trang so sánh chi tiết chấm"
-            >
-              Xem chi tiết (chấm)
-            </button>
-          )}
+          {/* Show detail button only to teachers */}
+          {(() => {
+            try {
+              const user = JSON.parse(localStorage.getItem('user') || 'null');
+              if (user && user.role === 'teacher') {
+                return <button type="button" onClick={onViewDetails} className="btn btn-secondary">Xem chi tiết</button>;
+              }
+            } catch (e) {
+              // ignore
+            }
+            return null;
+          })()}
+
           <button type="button" onClick={onClose} className="btn btn-primary">Đóng</button>
         </footer>
 

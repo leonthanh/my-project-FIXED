@@ -170,6 +170,11 @@ const AdminSubmissions = () => {
       <AdminNavbar />
       <div style={{ padding: "30px" }}>
         <h2>📋 Danh sách bài viết đã nộp</h2>
+        <div style={{ marginTop: 12, marginBottom: 18 }}>
+          <button onClick={() => window.location.href = '/admin/reading-submissions'} style={{ padding: '8px 12px', background: '#0e276f', color: 'white', border: 'none', borderRadius: 6, cursor: 'pointer' }}>
+            🔎 Reading Submissions
+          </button>
+        </div>
 
         {/* 🔍 Form tìm kiếm */}
         <div
