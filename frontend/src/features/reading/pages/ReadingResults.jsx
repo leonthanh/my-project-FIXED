@@ -128,7 +128,7 @@ const ReadingResults = () => {
       {meta && (
         <div style={{ marginBottom: 12, padding: 12, border: '1px solid #e5e7eb', borderRadius: 6, background: '#f8fafc', display: 'flex', justifyContent: 'space-between', gap: 20 }}>
           <div>
-            <div><strong>Đề thi:</strong> {meta.testTitle || `#${meta.testId || ''}`}</div>
+            <div><strong>Reading:</strong> {meta.testTitle || `#${meta.testId || ''}`}</div>
             <div><strong>Mã lớp:</strong> {meta.classCode || 'N/A'}</div>
             <div><strong>Giáo viên:</strong> {meta.teacherName || 'N/A'}</div>
           </div>

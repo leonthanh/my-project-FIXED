@@ -81,11 +81,27 @@ router.get('/test/:testId', async (req, res) => {
   }
 });
 
-// GET: Get all submissions across tests (admin listing)
+// GET: Get all submissions across tests (admin listing) — include test metadata (classCode, teacherName)
 router.get('/', async (req, res) => {
   try {
     const subs = await ReadingSubmission.findAll({ order: [['createdAt', 'DESC']] });
-    res.json(subs);
+
+    // Attach test metadata to each submission for admin convenience
+    const ReadingTest = require('../models/ReadingTest');
+    const testIds = Array.from(new Set(subs.map(s => s.testId).filter(Boolean)));
+    const tests = testIds.length ? await ReadingTest.findAll({ where: { id: testIds } }) : [];
+    const testMap = {};
+    tests.forEach(t => { testMap[String(t.id)] = t; });
+
+    const out = subs.map(s => {
+      const obj = s.toJSON();
+      const t = testMap[String(s.testId)];
+      obj.classCode = t ? (t.classCode || '') : '';
+      obj.teacherName = t ? (t.teacherName || '') : '';
+      return obj;
+    });
+
+    res.json(out);
   } catch (error) {
     console.error('Error fetching all submissions:', error);
     res.status(500).json({ message: '❌ Lỗi khi lấy danh sách bài nộp', error: error.message });

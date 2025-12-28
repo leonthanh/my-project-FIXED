@@ -60,7 +60,7 @@ const ResultModal = ({ isOpen, onClose, result, onViewDetails }) => {
           <button type="button" onClick={onClose} className="btn btn-primary">Đóng</button>
         </footer>
 
-        <style jsx>{`
+        <style>{`
           .result-modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.45); display:flex; align-items:center; justify-content:center; z-index:10000 }
           .result-modal { width: 600px; background: #fff; border-radius: 10px; padding: 18px; box-shadow: 0 8px 30px rgba(0,0,0,0.15) }
           .result-modal-header { display:flex; justify-content:space-between; align-items:center }

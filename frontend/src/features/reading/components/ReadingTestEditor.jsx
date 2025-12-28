@@ -3,7 +3,6 @@ import { AdminNavbar, QuillEditor, QuestionSection, AutoSaveIndicator, KeyboardS
 import { useColumnLayout } from '../hooks';
 import useKeyboardShortcuts from '../../../shared/hooks/useKeyboardShortcuts';
 import { useTheme } from '../../../shared/contexts/ThemeContext';
-import StudentPreviewModal from '../../reading-test/components/StudentPreviewModal';
 import TemplateLibrary from '../../reading-test/components/TemplateLibrary';
 import ImportModal from '../../reading-test/components/ImportModal';
 import { 
@@ -94,6 +93,8 @@ const ReadingTestEditor = ({
   // Passages state
   passages,
   selectedPassageIndex,
+  // (optional) test id (for edit page previews)
+  testId,
   setSelectedPassageIndex,
   selectedSectionIndex,
   setSelectedSectionIndex,
@@ -140,7 +141,6 @@ const ReadingTestEditor = ({
   const [showShortcutsHelp, setShowShortcutsHelp] = useState(false);
   
   // State for new modals
-  const [showStudentPreview, setShowStudentPreview] = useState(false);
   const [showTemplateLibrary, setShowTemplateLibrary] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
   
@@ -248,27 +248,7 @@ const ReadingTestEditor = ({
             
             {/* Tools buttons */}
             <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-              <button
-                type="button"
-                onClick={() => setShowStudentPreview(true)}
-                title="Xem trước (Preview)"
-                style={{
-                  padding: '6px 12px',
-                  backgroundColor: isDarkMode ? '#3d3d5c' : '#e8f4ff',
-                  border: `1px solid ${isDarkMode ? '#4a90d9' : '#667eea'}`,
-                  borderRadius: '6px',
-                  cursor: 'pointer',
-                  fontSize: '12px',
-                  color: isDarkMode ? '#4a90d9' : '#667eea',
-                  fontWeight: '500',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '5px',
-                  transition: 'all 0.2s'
-                }}
-              >
-                👁️ Preview
-              </button>
+
               
               <button
                 type="button"
@@ -1358,20 +1338,6 @@ const ReadingTestEditor = ({
           </div>
         )}
 
-        {/* Student Preview Modal */}
-        <StudentPreviewModal
-          isOpen={showStudentPreview}
-          onClose={() => setShowStudentPreview(false)}
-          testData={{
-            title,
-            passages,
-            questions: passages?.flatMap(p => 
-              p.sections?.flatMap(s => s.questions || []) || []
-            ) || [],
-            passage: passages?.[0]?.passageText || '',
-            content: passages?.[0]?.passageText || ''
-          }}
-        />
 
         {/* Template Library Modal */}
         <TemplateLibrary

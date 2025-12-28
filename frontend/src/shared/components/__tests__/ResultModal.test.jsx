@@ -21,17 +21,18 @@ describe('ResultModal', () => {
     expect(btn).toBeNull();
   });
 
-  test('renders Xem chi tiết for teacher and calls onViewDetails', () => {
+  test('does not render Xem chi tiết even for teacher; close works', () => {
     const teacher = { id: 1, name: 'Ms', role: 'teacher' };
     localStorage.setItem('user', JSON.stringify(teacher));
     const result = { submissionId: 123, score: 85 };
 
     render(<ResultModal {...defaultProps} result={result} />);
 
-    const button = screen.getByRole('button', { name: /Xem chi tiết/i });
-    expect(button).toBeInTheDocument();
+    const button = screen.queryByRole('button', { name: /Xem chi tiết/i });
+    expect(button).toBeNull();
 
-    fireEvent.click(button);
-    expect(defaultProps.onViewDetails).toHaveBeenCalled();
+    const closeBtn = screen.getByRole('button', { name: /Đóng/i });
+    fireEvent.click(closeBtn);
+    expect(defaultProps.onClose).toHaveBeenCalled();
   });
 });

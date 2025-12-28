@@ -38,8 +38,8 @@ const AdminReadingSubmissions = () => {
             <thead>
               <tr style={{ background: '#f3f4f6' }}>
                 <th style={cellStyle}>#</th>
-                <th style={cellStyle}>Submission ID</th>
-                <th style={cellStyle}>Test ID</th>
+                <th style={cellStyle}>Mã lớp</th>
+                <th style={cellStyle}>Giáo viên</th>
                 <th style={cellStyle}>Student</th>
                 <th style={cellStyle}>Correct</th>
                 <th style={cellStyle}>Total</th>
@@ -52,8 +52,8 @@ const AdminReadingSubmissions = () => {
               {subs.map((s, idx) => (
                 <tr key={s.id} style={{ borderBottom: '1px solid #eee' }}>
                   <td style={cellStyle}>{idx + 1}</td>
-                  <td style={cellStyle}>{s.id}</td>
-                  <td style={cellStyle}>{s.testId}</td>
+                  <td style={cellStyle}>{s.classCode || 'N/A'}</td>
+                  <td style={cellStyle}>{s.teacherName || 'N/A'}</td>
                   <td style={cellStyle}>{s.userName || 'N/A'}</td>
                   <td style={cellStyle}>{s.correct}</td>
                   <td style={cellStyle}>{s.total}</td>

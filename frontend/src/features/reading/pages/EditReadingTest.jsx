@@ -317,6 +317,7 @@ const EditReadingTest = () => {
       onConfirmSubmit={handleConfirmUpdate}
       isSubmitting={isUpdating}
       submitButtonText="Cập nhật"
+      testId={testId}
       
       // Messages
       message={message}
