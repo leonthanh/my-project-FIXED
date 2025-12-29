@@ -1,10 +1,11 @@
-import React, { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { AdminNavbar, FormQuestion } from '../../../shared/components';
-import ReactQuill from 'react-quill';
-import 'react-quill/dist/quill.snow.css';
+import React, { useEffect, useState } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import { AdminNavbar, FormQuestion } from "../../../shared/components";
+import ReactQuill from "react-quill";
+import { apiPath } from "../../../shared/utils/api";
+import "react-quill/dist/quill.snow.css";
 // import ReactQuill from 'react-quill'; // Thay thế CKEditor bằng ReactQuill
-import 'react-quill/dist/quill.snow.css'; // Import CSS cho ReactQuill
+import "react-quill/dist/quill.snow.css"; // Import CSS cho ReactQuill
 
 // 🎨 Thêm CSS tùy chỉnh cho ReactQuill - nền xám nhạt để dễ nhìn
 const quillStyles = `
@@ -38,8 +39,8 @@ const quillStyles = `
 `;
 
 // Thêm style vào head
-if (typeof document !== 'undefined') {
-  const style = document.createElement('style');
+if (typeof document !== "undefined") {
+  const style = document.createElement("style");
   style.textContent = quillStyles;
   document.head.appendChild(style);
 }
@@ -49,13 +50,12 @@ const EditTest = () => {
   const navigate = useNavigate();
   const [test, setTest] = useState(null);
   const [loading, setLoading] = useState(true);
-  const API_URL = process.env.REACT_APP_API_URL;
 
   // Kiểm tra quyền truy cập
   useEffect(() => {
-    const user = JSON.parse(localStorage.getItem('user'));
-    if (!user || user.role !== 'teacher') {
-      navigate('/');
+    const user = JSON.parse(localStorage.getItem("user"));
+    if (!user || user.role !== "teacher") {
+      navigate("/");
       return;
     }
   }, [navigate]);
@@ -64,63 +64,62 @@ const EditTest = () => {
   useEffect(() => {
     const fetchTest = async () => {
       try {
-        const response = await fetch(`${API_URL}/api/writing-tests/${id}`);
+        const response = await fetch(apiPath(`writing-tests/${id}`));
         if (!response.ok) {
-          throw new Error('Không tìm thấy đề thi');
+          throw new Error("Không tìm thấy đề thi");
         }
         const data = await response.json();
         setTest(data);
       } catch (error) {
-        console.error('❌ Lỗi khi lấy thông tin đề:', error);
-        alert('Không thể tải thông tin đề thi. Vui lòng thử lại sau.');
-        navigate('/select-test');
+        console.error("❌ Lỗi khi lấy thông tin đề:", error);
+        alert("Không thể tải thông tin đề thi. Vui lòng thử lại sau.");
+        navigate("/select-test");
       } finally {
         setLoading(false);
       }
     };
 
     fetchTest();
-  }, [id, API_URL, navigate]);
+  }, [id, navigate]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    try {
 
-      const response = await fetch(`${API_URL}/api/writing-tests/${id}`, {
-        method: 'PUT',
+    try {
+      const response = await fetch(apiPath(`writing-tests/${id}`), {
+        method: "PUT",
         headers: {
-          'Content-Type': 'application/json'
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
           classCode: test.classCode,
           teacherName: test.teacherName,
           task1: test.task1,
           task2: test.task2,
-          questions: test.questions
-        })
+          questions: test.questions,
+        }),
       });
 
       if (!response.ok) {
-        throw new Error('Lỗi khi cập nhật đề thi');
+        throw new Error("Lỗi khi cập nhật đề thi");
       }
 
-      alert('✅ Cập nhật đề thi thành công!');
-      navigate('/select-test');
+      alert("✅ Cập nhật đề thi thành công!");
+      navigate("/select-test");
     } catch (error) {
-      console.error('❌ Lỗi:', error);
-      alert('Có lỗi xảy ra khi cập nhật đề thi. Vui lòng thử lại.');
+      console.error("❌ Lỗi:", error);
+      alert("Có lỗi xảy ra khi cập nhật đề thi. Vui lòng thử lại.");
     }
   };
 
   const handleQuestionChange = (index, updatedQuestion) => {
-    setTest(prev => {
+    setTest((prev) => {
       if (!prev || !prev.questions) return prev;
       return {
         ...prev,
-        questions: prev.questions.map((q, i) => 
+        questions: prev.questions.map((q, i) =>
           i === index ? updatedQuestion : q
-        )
+        ),
       };
     });
   };
@@ -136,120 +135,141 @@ const EditTest = () => {
   return (
     <>
       <AdminNavbar />
-      <div style={{
-        padding: '20px',
-        maxWidth: '800px',
-        margin: '0 auto'
-      }}>
+      <div
+        style={{
+          padding: "20px",
+          maxWidth: "800px",
+          margin: "0 auto",
+        }}
+      >
         <h2>✏️ Sửa đề thi Writing {test.index}</h2>
-        
+
         <form onSubmit={handleSubmit}>
-          <div style={{ marginBottom: '20px' }}>
-            <label style={{ display: 'block', marginBottom: '5px' }}>
+          <div style={{ marginBottom: "20px" }}>
+            <label style={{ display: "block", marginBottom: "5px" }}>
               Mã lớp:
             </label>
             <input
               type="text"
-              value={test.classCode || ''}
+              value={test.classCode || ""}
               onChange={(e) => {
                 const updatedTest = { ...test, classCode: e.target.value };
                 setTest(updatedTest);
               }}
               style={{
-                width: '100%',
-                padding: '8px',
-                borderRadius: '4px',
-                border: '1px solid #ddd'
+                width: "100%",
+                padding: "8px",
+                borderRadius: "4px",
+                border: "1px solid #ddd",
               }}
             />
           </div>
 
-          <div style={{ marginBottom: '20px' }}>
-            <label style={{ display: 'block', marginBottom: '5px' }}>
+          <div style={{ marginBottom: "20px" }}>
+            <label style={{ display: "block", marginBottom: "5px" }}>
               Giáo viên:
             </label>
             <input
               type="text"
-              value={test.teacherName || ''}
+              value={test.teacherName || ""}
               onChange={(e) => {
                 const updatedTest = { ...test, teacherName: e.target.value };
                 setTest(updatedTest);
               }}
               style={{
-                width: '100%',
-                padding: '8px',
-                borderRadius: '4px',
-                border: '1px solid #ddd'
+                width: "100%",
+                padding: "8px",
+                borderRadius: "4px",
+                border: "1px solid #ddd",
               }}
             />
           </div>
 
-          <div style={{ marginBottom: '20px' }}>
-            <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
+          <div style={{ marginBottom: "20px" }}>
+            <label
+              style={{
+                display: "block",
+                marginBottom: "5px",
+                fontWeight: "bold",
+              }}
+            >
               Task 1:
             </label>
             <ReactQuill
-              value={test.task1 || ''}
-              onChange={(content) => setTest(prev => ({ ...prev, task1: content }))}
+              value={test.task1 || ""}
+              onChange={(content) =>
+                setTest((prev) => ({ ...prev, task1: content }))
+              }
               modules={{
                 toolbar: [
-                  [{ 'header': [1, 2, 3, false] }],
-                  ['bold', 'italic', 'underline', 'strike'],
-                  [{ 'color': [] }, { 'background': [] }],
-                  [{ 'list': 'ordered' }, { 'list': 'bullet' }],
-                  [{ 'align': [] }],
-                  ['link', 'image'],
-                  ['clean']
-                ]
+                  [{ header: [1, 2, 3, false] }],
+                  ["bold", "italic", "underline", "strike"],
+                  [{ color: [] }, { background: [] }],
+                  [{ list: "ordered" }, { list: "bullet" }],
+                  [{ align: [] }],
+                  ["link", "image"],
+                  ["clean"],
+                ],
               }}
               theme="snow"
             />
           </div>
 
-          <div style={{ marginBottom: '20px' }}>
-            <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
+          <div style={{ marginBottom: "20px" }}>
+            <label
+              style={{
+                display: "block",
+                marginBottom: "5px",
+                fontWeight: "bold",
+              }}
+            >
               Task 2:
             </label>
             <ReactQuill
-              value={test.task2 || ''}
-              onChange={(content) => setTest(prev => ({ ...prev, task2: content }))}
+              value={test.task2 || ""}
+              onChange={(content) =>
+                setTest((prev) => ({ ...prev, task2: content }))
+              }
               modules={{
                 toolbar: [
-                  [{ 'header': [1, 2, 3, false] }],
-                  ['bold', 'italic', 'underline', 'strike'],
-                  [{ 'color': [] }, { 'background': [] }],
-                  [{ 'list': 'ordered' }, { 'list': 'bullet' }],
-                  [{ 'align': [] }],
-                  ['link', 'image'],
-                  ['clean']
-                ]
+                  [{ header: [1, 2, 3, false] }],
+                  ["bold", "italic", "underline", "strike"],
+                  [{ color: [] }, { background: [] }],
+                  [{ list: "ordered" }, { list: "bullet" }],
+                  [{ align: [] }],
+                  ["link", "image"],
+                  ["clean"],
+                ],
               }}
               theme="snow"
             />
           </div>
 
           <h3>Câu hỏi:</h3>
-          {test.questions && test.questions.map((question, index) => (
-            <div key={index} style={{ marginBottom: '30px' }}>
-              <h4>Câu {index + 1}</h4>
-              <FormQuestion
-                question={question}
-                onChange={(updatedQuestion) => handleQuestionChange(index, updatedQuestion)}
-              />
-            </div>
-          ))}
+          {test.questions &&
+            test.questions.map((question, index) => (
+              <div key={index} style={{ marginBottom: "30px" }}>
+                <h4>Câu {index + 1}</h4>
+                <FormQuestion
+                  question={question}
+                  onChange={(updatedQuestion) =>
+                    handleQuestionChange(index, updatedQuestion)
+                  }
+                />
+              </div>
+            ))}
 
-          <div style={{ marginTop: '20px', textAlign: 'center' }}>
+          <div style={{ marginTop: "20px", textAlign: "center" }}>
             <button
               type="submit"
               style={{
-                backgroundColor: '#0e276f',
-                color: 'white',
-                border: 'none',
-                padding: '10px 30px',
-                borderRadius: '5px',
-                fontSize: '16px',
-                cursor: 'pointer'
+                backgroundColor: "#0e276f",
+                color: "white",
+                border: "none",
+                padding: "10px 30px",
+                borderRadius: "5px",
+                fontSize: "16px",
+                cursor: "pointer",
               }}
             >
               💾 Lưu thay đổi

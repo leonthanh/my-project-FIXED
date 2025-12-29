@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import Split from "react-split";
+import { apiPath, hostPath } from "../../../shared/utils/api";
 
 // ====== STYLE FOR HEADER & MODAL ======
 const writingHeaderStyle = {
@@ -130,7 +131,6 @@ const WritingTest = () => {
 
   const user = JSON.parse(localStorage.getItem("user"));
   const selectedTestId = localStorage.getItem("selectedTestId");
-  const API_URL = process.env.REACT_APP_API_URL;
 
   useEffect(() => {
     localStorage.setItem("writing_task1", task1);
@@ -165,7 +165,7 @@ const WritingTest = () => {
     const fetchTestData = async () => {
       try {
         const res = await fetch(
-          `${API_URL}/api/writing-tests/detail/${selectedTestId}`
+          apiPath(`writing-tests/detail/${selectedTestId}`)
         );
         if (!res.ok) {
           throw new Error(`Lỗi ${res.status}: Đề không tồn tại.`);
@@ -179,7 +179,7 @@ const WritingTest = () => {
     };
 
     fetchTestData();
-  }, [selectedTestId, API_URL]);
+  }, [selectedTestId]);
 
   const handleSubmit = useCallback(async () => {
     const numericTestId = parseInt(selectedTestId, 10);
@@ -191,7 +191,7 @@ const WritingTest = () => {
     setSubmitted(true);
 
     try {
-      const res = await fetch(`${API_URL}/api/writing/submit`, {
+      const res = await fetch(apiPath("writing/submit"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -220,9 +220,8 @@ const WritingTest = () => {
       console.error("Lỗi nộp bài:", err);
       setMessage("❌ Lỗi khi gửi bài.");
     }
-  }, [task1, task2, timeLeft, user, selectedTestId, API_URL]);
+  }, [task1, task2, timeLeft, user, selectedTestId]);
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!started || submitted) return;
     if (timeLeft <= 0) {
@@ -231,19 +230,19 @@ const WritingTest = () => {
     }
     const timer = setInterval(() => setTimeLeft((prev) => prev - 1), 1000);
     return () => clearInterval(timer);
-  }, [started, submitted, timeLeft]);
+  }, [started, submitted, timeLeft, handleSubmit]);
 
   useEffect(() => {
     if (!user || !user.phone) return;
 
-    fetch(`${API_URL}/api/writing/list`)
+    fetch(apiPath("writing/list"))
       .then((res) => res.json())
       .then((list) => {
         const last = list.find((item) => item.user?.phone === user.phone);
         if (last) setFeedback(last.feedback || "");
       })
       .catch((err) => console.error("❌ Lỗi lấy feedback:", err));
-  }, [submitted, API_URL, user]);
+  }, [submitted, user]);
 
   const formatTime = (s) => {
     const m = Math.floor(s / 60)
@@ -309,9 +308,12 @@ const WritingTest = () => {
       <div style={modalOverlay}>
         <div style={modalBox}>
           <div style={{ fontSize: 48, marginBottom: 12 }}>✍️</div>
-          <h2 style={{ fontWeight: 700, marginBottom: 10 }}>Bắt đầu bài viết IELTS</h2>
+          <h2 style={{ fontWeight: 700, marginBottom: 10 }}>
+            Bắt đầu bài viết IELTS
+          </h2>
           <p style={{ fontSize: 16, marginBottom: 18 }}>
-            Bạn có <b>60 phút</b> để làm cả Task 1 và Task 2.<br />
+            Bạn có <b>60 phút</b> để làm cả Task 1 và Task 2.
+            <br />
             Hãy chuẩn bị sẵn sàng trước khi bắt đầu!
           </p>
           <button
@@ -337,29 +339,52 @@ const WritingTest = () => {
       <header style={writingHeaderStyle}>
         <div style={writingHeaderLeft}>
           <div style={writingBadge}>IELTS</div>
-          <span style={{ fontWeight: 600, fontSize: 18 }}>IELTS - WRITING TEST</span>
+          <span style={{ fontWeight: 600, fontSize: 18 }}>
+            IELTS - WRITING TEST
+          </span>
         </div>
         <div style={writingHeaderRight}>
           <div style={writingTimer}>
             <span style={{ fontSize: 18, marginRight: 4 }}>⏱️</span>
-            <span style={{ fontWeight: 700, fontFamily: 'Courier New, monospace', fontSize: 18 }}>{formatTime(timeLeft)}</span>
-            <span style={{ fontSize: 13, marginLeft: 6, opacity: 0.7 }}>REMAINING</span>
+            <span
+              style={{
+                fontWeight: 700,
+                fontFamily: "Courier New, monospace",
+                fontSize: 18,
+              }}
+            >
+              {formatTime(timeLeft)}
+            </span>
+            <span style={{ fontSize: 13, marginLeft: 6, opacity: 0.7 }}>
+              REMAINING
+            </span>
           </div>
           {/* Progress Ring giống Reading */}
           <div style={progressRingStyle}>
             <svg viewBox="0 0 36 36" style={{ width: 40, height: 40 }}>
               <path
-                style={{ fill: "none", stroke: "rgba(255,255,255,0.2)", strokeWidth: 3 }}
+                style={{
+                  fill: "none",
+                  stroke: "rgba(255,255,255,0.2)",
+                  strokeWidth: 3,
+                }}
                 d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
               />
               <path
-                style={{ fill: "none", stroke: "#2ecc71", strokeWidth: 3, strokeLinecap: "round" }}
+                style={{
+                  fill: "none",
+                  stroke: "#2ecc71",
+                  strokeWidth: 3,
+                  strokeLinecap: "round",
+                }}
                 strokeDasharray={`${Math.round(progress * 100)}, 100`}
                 d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
               />
             </svg>
             <div style={progressTextStyle}>
-              <span style={{ fontWeight: 700, fontSize: 15 }}>{totalWords}</span>
+              <span style={{ fontWeight: 700, fontSize: 15 }}>
+                {totalWords}
+              </span>
               <span style={{ opacity: 0.7, fontSize: 12 }}>/400</span>
             </div>
           </div>
@@ -411,7 +436,7 @@ const WritingTest = () => {
               <div dangerouslySetInnerHTML={{ __html: testData.task1 }} />
               {testData.task1Image && (
                 <img
-                  src={`${API_URL}${testData.task1Image}`}
+                  src={hostPath(testData.task1Image)}
                   alt="Task 1"
                   style={{ maxWidth: "80%" }}
                 />

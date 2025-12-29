@@ -145,7 +145,7 @@ jobs:
             echo "EMAIL_USER=stareduelt@gmail.com" >> backend-temp/.env
             echo "EMAIL_PASS=xrrz fqwq xwdc hujb" >> backend-temp/.env
             echo "EMAIL_TO=thanhlh@siec-star.edu.vn" >> backend-temp/.env
-            echo "REACT_APP_API_URL=https://ix.star-siec.edu.vn/api/" >> backend-temp/.env
+            echo "REACT_APP_API_URL=https://ix.star-siec.edu.vn" >> backend-temp/.env
             echo "OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}" >> backend-temp/.env
           fi
           ls -la backend-temp || true
