@@ -1,7 +1,11 @@
-import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { Timer, ConfirmModal, PreviewSection } from '../../../shared/components';
-import { AudioPlayer } from '../components';
+import React, { useState, useEffect } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import {
+  Timer,
+  ConfirmModal,
+  PreviewSection,
+} from "../../../shared/components";
+import { apiPath } from "../../../shared/utils/api";
 
 const DoListeningTest = () => {
   const { id } = useParams();
@@ -11,43 +15,46 @@ const DoListeningTest = () => {
   const [submitted, setSubmitted] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [timeUp, setTimeUp] = useState(false);
-  
-  const API = process.env.REACT_APP_API_URL;
 
   useEffect(() => {
     const fetchTest = async () => {
       try {
-        const res = await fetch(`${API}/api/listening-tests/${id}`);
-        if (!res.ok) throw new Error('Failed to fetch test');
+        const res = await fetch(apiPath(`listening-tests/${id}`));
+        if (!res.ok) throw new Error("Failed to fetch test");
         const data = await res.json();
         setTest(data);
       } catch (err) {
-        console.error('Error fetching test:', err);
+        console.error("Error fetching test:", err);
         // Hiển thị thông báo lỗi cho người dùng
       }
     };
     fetchTest();
-  }, [id, API]);
+  }, [id]);
 
   const handleAnswerChange = (part, questionIndex, value) => {
     const key = `${part}_${questionIndex}`;
-    setAnswers(prev => ({
+    setAnswers((prev) => ({
       ...prev,
-      [key]: value
+      [key]: value,
     }));
   };
 
   const validateAnswers = () => {
     // Kiểm tra xem đã trả lời hết các câu hỏi chưa
     let unansweredQuestions = [];
-    
+
     Object.entries(test.questions).forEach(([part, questions]) => {
       questions.forEach((_, index) => {
         const key = `${part}_${index}`;
         if (!answers[key]) {
-          const questionNumber = part === 'part1' ? index + 1 :
-                               part === 'part2' ? index + 11 :
-                               part === 'part3' ? index + 21 : index + 31;
+          const questionNumber =
+            part === "part1"
+              ? index + 1
+              : part === "part2"
+              ? index + 11
+              : part === "part3"
+              ? index + 21
+              : index + 31;
           unansweredQuestions.push(questionNumber);
         }
       });
@@ -59,7 +66,7 @@ const DoListeningTest = () => {
   const handleSubmit = async () => {
     const unanswered = validateAnswers();
     if (unanswered.length > 0) {
-      alert(`⚠️ Bạn chưa trả lời các câu: ${unanswered.join(', ')}`);
+      alert(`⚠️ Bạn chưa trả lời các câu: ${unanswered.join(", ")}`);
       return;
     }
 
@@ -68,60 +75,67 @@ const DoListeningTest = () => {
 
   const confirmSubmit = async () => {
     try {
-      const res = await fetch(`${API}/api/listening-tests/${id}/submit`, {
-        method: 'POST',
+      const res = await fetch(apiPath(`listening-tests/${id}/submit`), {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json'
+          "Content-Type": "application/json",
         },
-        body: JSON.stringify({ answers })
+        body: JSON.stringify({ answers }),
       });
 
-      if (!res.ok) throw new Error('Failed to submit test');
-      
+      if (!res.ok) throw new Error("Failed to submit test");
+
       const data = await res.json();
       setSubmitted(true);
       // Chuyển đến trang kết quả
-      navigate(`/listening-results/${id}`, { 
-        state: { score: data.score, answers: data.answers } 
+      navigate(`/listening-results/${id}`, {
+        state: { score: data.score, answers: data.answers },
       });
     } catch (err) {
-      console.error('Error submitting test:', err);
-      alert('❌ Có lỗi xảy ra khi nộp bài. Vui lòng thử lại!');
+      console.error("Error submitting test:", err);
+      alert("❌ Có lỗi xảy ra khi nộp bài. Vui lòng thử lại!");
     } finally {
       setShowConfirm(false);
     }
   };
 
-  if (!test) return (
-    <div style={{ 
-      display: 'flex', 
-      justifyContent: 'center', 
-      alignItems: 'center',
-      height: '100vh',
-      fontSize: '1.2rem'
-    }}>
-      ⏳ Đang tải đề thi...
-    </div>
-  );
+  if (!test)
+    return (
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          height: "100vh",
+          fontSize: "1.2rem",
+        }}
+      >
+        ⏳ Đang tải đề thi...
+      </div>
+    );
 
   return (
-    <div style={{ maxWidth: '1000px', margin: '20px auto', padding: '0 20px' }}>
-      <div style={{ 
-        position: 'sticky', 
-        top: 0,
-        backgroundColor: 'white',
-        padding: '10px 0',
-        zIndex: 100,
-        borderBottom: '1px solid #eee'
-      }}>
-        <div style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginBottom: '20px'
-        }}>
-          <h2 style={{ margin: 0 }}>🎧 {test.title || 'Bài thi Listening'}</h2>
-          <Timer 
+    <div style={{ maxWidth: "1000px", margin: "20px auto", padding: "0 20px" }}>
+      <div
+        style={{
+          position: "sticky",
+          top: 0,
+          backgroundColor: "white",
+          padding: "10px 0",
+          zIndex: 100,
+          borderBottom: "1px solid #eee",
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            marginBottom: "20px",
+          }}
+        >
+          <h2 style={{ margin: 0 }}>🎧 {test.title || "Bài thi Listening"}</h2>
+          <Timer
             duration={40 * 60} // 40 minutes
             onTimeUp={() => {
               setTimeUp(true);
@@ -131,7 +145,7 @@ const DoListeningTest = () => {
         </div>
       </div>
 
-      <div style={{ marginBottom: '30px' }}>
+      <div style={{ marginBottom: "30px" }}>
         <h3>📝 Hướng dẫn:</h3>
         <div dangerouslySetInnerHTML={{ __html: test.instructions }} />
       </div>
@@ -145,8 +159,9 @@ const DoListeningTest = () => {
           type="form"
           audioFiles={test.audioFiles?.part1 || test.audioFile}
           audioStartTimes={test.audioStartTimes?.part1}
-          onAnswerChange={(questionIndex, value) => 
-            handleAnswerChange('part1', questionIndex, value)}
+          onAnswerChange={(questionIndex, value) =>
+            handleAnswerChange("part1", questionIndex, value)
+          }
           answers={answers}
           isSubmitted={submitted}
         />
@@ -159,8 +174,9 @@ const DoListeningTest = () => {
           type="abc"
           audioFiles={test.audioFiles?.part2 || test.audioFile}
           audioStartTimes={test.audioStartTimes?.part2}
-          onAnswerChange={(questionIndex, value) => 
-            handleAnswerChange('part2', questionIndex, value)}
+          onAnswerChange={(questionIndex, value) =>
+            handleAnswerChange("part2", questionIndex, value)
+          }
           answers={answers}
           isSubmitted={submitted}
         />
@@ -173,8 +189,9 @@ const DoListeningTest = () => {
           type="select"
           audioFiles={test.audioFiles?.part3 || test.audioFile}
           audioStartTimes={test.audioStartTimes?.part3}
-          onAnswerChange={(questionIndex, value) => 
-            handleAnswerChange('part3', questionIndex, value)}
+          onAnswerChange={(questionIndex, value) =>
+            handleAnswerChange("part3", questionIndex, value)
+          }
           answers={answers}
           isSubmitted={submitted}
         />
@@ -187,36 +204,39 @@ const DoListeningTest = () => {
           type="abcd"
           audioFiles={test.audioFiles?.part4 || test.audioFile}
           audioStartTimes={test.audioStartTimes?.part4}
-          onAnswerChange={(questionIndex, value) => 
-            handleAnswerChange('part4', questionIndex, value)}
+          onAnswerChange={(questionIndex, value) =>
+            handleAnswerChange("part4", questionIndex, value)
+          }
           answers={answers}
           isSubmitted={submitted}
         />
       </div>
 
-      <div style={{
-        position: 'sticky',
-        bottom: 0,
-        backgroundColor: 'white',
-        padding: '20px 0',
-        borderTop: '1px solid #eee',
-        textAlign: 'center'
-      }}>
+      <div
+        style={{
+          position: "sticky",
+          bottom: 0,
+          backgroundColor: "white",
+          padding: "20px 0",
+          borderTop: "1px solid #eee",
+          textAlign: "center",
+        }}
+      >
         <button
           onClick={handleSubmit}
           disabled={submitted}
           style={{
-            padding: '12px 30px',
-            fontSize: '1.1rem',
-            backgroundColor: submitted ? '#ccc' : '#0e276f',
-            color: 'white',
-            border: 'none',
-            borderRadius: '8px',
-            cursor: submitted ? 'not-allowed' : 'pointer',
-            transition: 'all 0.3s ease'
+            padding: "12px 30px",
+            fontSize: "1.1rem",
+            backgroundColor: submitted ? "#ccc" : "#0e276f",
+            color: "white",
+            border: "none",
+            borderRadius: "8px",
+            cursor: submitted ? "not-allowed" : "pointer",
+            transition: "all 0.3s ease",
           }}
         >
-          {submitted ? '✅ Đã nộp bài' : '📤 Nộp bài'}
+          {submitted ? "✅ Đã nộp bài" : "📤 Nộp bài"}
         </button>
       </div>
 
@@ -227,7 +247,7 @@ const DoListeningTest = () => {
         onConfirm={confirmSubmit}
         title={timeUp ? "⏰ Hết giờ làm bài!" : "Xác nhận nộp bài"}
         message={
-          timeUp 
+          timeUp
             ? "Đã hết thời gian làm bài. Bài làm của bạn sẽ được nộp tự động."
             : "Bạn có chắc chắn muốn nộp bài? Sau khi nộp bài bạn sẽ không thể chỉnh sửa."
         }

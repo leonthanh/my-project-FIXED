@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import "../../../shared/styles/Login.css";
+import { API_BASE } from "../../../shared/utils/api";
 
 const Login = () => {
   const [name, setName] = useState("");
@@ -17,10 +18,7 @@ const Login = () => {
   const [isLoginMode, setIsLoginMode] = useState(true); // ✅ Tab mode: true = Login, false = Register
 
   const navigate = useNavigate();
-  const API_URL = process.env.REACT_APP_API_URL;
-  // NODE_ENV === 'development'
-  //   ? 'http://localhost:5000'  // Development URL
-  //   : 'https://ix.star-siec.edu.vn/api'; // Production URL
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     const user = JSON.parse(localStorage.getItem("user"));
@@ -46,7 +44,9 @@ const Login = () => {
     }
 
     try {
-      const res = await fetch(`${API_URL}/api/auth/login`, {
+      if (loading) return;
+      setLoading(true);
+      const res = await fetch(`${API_BASE}/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ phone, password }), // ✅ Chỉ gửi phone và password
@@ -63,6 +63,8 @@ const Login = () => {
     } catch (err) {
       setMessage("Lỗi kết nối server.");
       console.error("❌ Lỗi:", err);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -94,7 +96,7 @@ const Login = () => {
     try {
       // Log API_URL để kiểm tra đúng endpoint chưa
       // (debug log removed)
-      const res = await fetch(`${API_URL}/api/auth/register`, {
+      const res = await fetch(`${API_BASE}/auth/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, phone, email, password, role }),
@@ -145,7 +147,7 @@ const Login = () => {
     }
 
     try {
-      const res = await fetch(`${API_URL}/api/auth/reset-password`, {
+      const res = await fetch(`${API_BASE}/auth/reset-password`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -180,7 +182,7 @@ const Login = () => {
     }
 
     try {
-      const res = await fetch(`${API_URL}/api/auth/send-otp`, {
+      const res = await fetch(`${API_BASE}/auth/send-otp`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ phone: resetPhone }),
@@ -290,8 +292,8 @@ const Login = () => {
                 style={inputStyle}
               />
 
-              <button onClick={handleLogin} style={loginBtn}>
-                Login
+              <button onClick={handleLogin} style={loginBtn} disabled={loading}>
+                {loading ? "Đang đăng nhập..." : "Login"}
               </button>
 
               <p style={{ color: "#d00", margin: "10px 0" }}>{message}</p>
