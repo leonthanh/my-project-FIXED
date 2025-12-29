@@ -238,7 +238,7 @@ const CATEGORY_INFO = {
 };
 
 const TemplateLibrary = ({ isOpen, onClose, onSelectTemplate }) => {
-  const { isDarkMode, colors } = useTheme();
+  const { isDarkMode } = useTheme();
   const [selectedCategory, setSelectedCategory] = useState("multiple-choice");
   const [searchTerm, setSearchTerm] = useState("");
 
