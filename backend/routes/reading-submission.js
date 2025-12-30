@@ -113,7 +113,7 @@ router.get('/:submissionId/compare', async (req, res) => {
   try {
     const { submissionId } = req.params;
     const submission = await ReadingSubmission.findByPk(submissionId);
-    console.log(`ℹ️ compare requested for submission=${submissionId}`);
+    // Removed noisy debug log to avoid spamming the backend terminal
     if (!submission) return res.status(404).json({ message: '❌ Không tìm thấy bài nộp' });
 
     const ReadingTest = require('../models/ReadingTest');

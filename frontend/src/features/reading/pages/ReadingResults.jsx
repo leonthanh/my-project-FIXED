@@ -171,16 +171,6 @@ const ReadingResults = () => {
   return (
     <div style={{ padding: 18, fontFamily: "Arial, Helvetica, sans-serif" }}>
       <h2>Chi tiết chấm — Submission #{id}</h2>
-      <div style={{ marginTop: 8, marginBottom: 12 }}>
-        <a
-          href={apiPath(`reading-submissions/${id}/compare-html`)}
-          target="_blank"
-          rel="noopener noreferrer"
-          style={{ color: '#0e276f', textDecoration: 'none', padding: '6px 10px', background: '#e6f4ea', borderRadius: 6 }}
-        >
-          Mở trang so sánh (plain)
-        </a>
-      </div>
 
       {/* Meta block: test, class, teacher, student, band */}
       {meta && (
