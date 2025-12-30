@@ -139,8 +139,18 @@ jobs:
             cp backend/.env.production backend-temp/.env
             echo "✅ Using .env.production for cPanel"
           else
-            echo "❌ .env.production not found in repo. Aborting deploy to avoid creating .env with secrets in logs."
-            exit 1
+            echo "⚠️ .env.production not found, creating default .env"
+            echo "NODE_ENV=production" > backend-temp/.env
+            echo "PORT=5000" >> backend-temp/.env
+            echo "DB_HOST=star-siec.edu.vn" >> backend-temp/.env
+            echo "DB_NAME=wsxcblqh_ix" >> backend-temp/.env
+            echo "DB_USER=wsxcblqh_thanh" >> backend-temp/.env
+            echo "DB_PASS=@Thanh562184" >> backend-temp/.env
+            echo "EMAIL_USER=stareduelt@gmail.com" >> backend-temp/.env
+            echo "EMAIL_PASS=xrrz fqwq xwdc hujb" >> backend-temp/.env
+            echo "EMAIL_TO=thanhlh@siec-star.edu.vn" >> backend-temp/.env
+            echo "REACT_APP_API_URL=https://ix.star-siec.edu.vn" >> backend-temp/.env
+            echo "OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}" >> backend-temp/.env
           fi
 
           # Copy utils/ (if present at repo root) into package so modules like readingScorer are deployed

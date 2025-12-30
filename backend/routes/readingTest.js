@@ -127,7 +127,6 @@ function loadReadingScorer() {
 // Get all reading tests
 router.get("/", async (req, res) => {
   try {
-
     const tests = await ReadingTest.findAll({ order: [["createdAt", "DESC"]] });
     // Parse passages JSON if it's a string
     const parsed = tests.map((test) => {
@@ -165,9 +164,7 @@ router.get("/:id/email-preview", async (req, res) => {
       typeof data.passages === "string"
         ? JSON.parse(data.passages)
         : data.passages || [];
-<<<<<<< HEAD
-    const { scoreReadingTest } = require("../utils/readingScorer");
-=======
+
     const scorerModule = loadReadingScorer();
     let scoreReadingTest;
     if (scorerModule && scorerModule.scoreReadingTest) {
@@ -181,7 +178,6 @@ router.get("/:id/email-preview", async (req, res) => {
         return { total, correct: 0, band: 3.5, scorePercentage: 0 };
       };
     }
->>>>>>> feature/reading-test
     const result = scoreReadingTest({ passages }, submission.answers || {});
 
     // Try to resolve phone from User if linked
@@ -295,23 +291,6 @@ router.post("/:id/submit", async (req, res) => {
       typeof data.passages === "string"
         ? JSON.parse(data.passages)
         : data.passages || [];
-<<<<<<< HEAD
-
-    // Use scorer helper (with safe fallback when module missing on host)
-    let scoreReadingTest;
-    try {
-      ({ scoreReadingTest } = require("../utils/readingScorer"));
-    } catch (e) {
-      console.error(
-        "❌ readingScorer module missing — using fallback scorer to avoid 500:",
-        e && (e.stack || e)
-      );
-      scoreReadingTest = ({ passages } = {}, _answers = {}) => {
-        const total = countQuestions(passages || []);
-        return { total, correct: 0, band: 3.5, scorePercentage: 0 };
-      };
-    }
-=======
 
     // Use scorer helper (robust loader + fallback)
     const scorerModule = loadReadingScorer();
@@ -327,8 +306,6 @@ router.post("/:id/submit", async (req, res) => {
         return { total, correct: 0, band: 3.5, scorePercentage: 0 };
       };
     }
-
->>>>>>> feature/reading-test
     const result = scoreReadingTest({ passages }, answers || {});
 
     // Store submission to DB
