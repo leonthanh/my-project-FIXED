@@ -72,6 +72,14 @@ const AdminReadingSubmissions = () => {
                     >
                       View
                     </button>
+                    <a
+                      href={apiPath(`reading-submissions/${s.id}/compare-html`)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ ...actionBtn, marginLeft: 8, background: "#10b981", textDecoration: 'none', display: 'inline-block', lineHeight: '20px' }}
+                    >
+                      Compare
+                    </a>
                     <button
                       onClick={async () => {
                         try {
