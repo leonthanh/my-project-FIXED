@@ -2,6 +2,29 @@ const express = require('express');
 const router = express.Router();
 const ReadingTest = require('../models/ReadingTest');
 
+// Build simple email summary HTML + text fallback for reading submissions (teacher requested minimal fields)
+const buildReadingSummaryEmail = (sub, result, req, meta = {}) => {
+  // Prefer explicit FRONTEND_URL (useful for deployments where frontend runs on separate host/port)
+  const frontendHost = process.env.FRONTEND_URL && String(process.env.FRONTEND_URL).trim().replace(/\/+$/,'');
+  const host = frontendHost || `${req.protocol}://${req.get('host')}`;
+  const detailsUrl = `${host}/reading-results/${sub.id}`;
+  const html = `
+    <div style="font-family:Arial,Helvetica,sans-serif;color:#222;line-height:1.4">
+      <p>👤 <strong>Học sinh:</strong> ${sub.userName || 'N/A'}</p>
+      <p>📞 <strong>Số điện thoại:</strong> ${meta.phone || 'N/A'}</p>
+      <p>📝 <strong>Mã đề:</strong> ${meta.testId || sub.testId || ''}</p>
+      <p>🏫 <strong>Mã lớp:</strong> ${meta.classCode || ''}</p>
+      <p>👨‍🏫 <strong>Giáo viên ra đề:</strong> ${meta.teacherName || ''}</p>
+      <p>✅ <strong>Correct / Total:</strong> ${result.correct} / ${result.total}</p>
+      <p>🔢 <strong>Band (IDP):</strong> ${result.band}</p>
+      <p><strong>Submission ID:</strong> <b>${sub.id}</b></p>
+      <p style="margin-top:8px"><a href="${detailsUrl}" style="display:inline-block;padding:8px 12px;background:#0e276f;color:#fff;border-radius:6px;text-decoration:none;">Xem chi tiết (UI)</a></p>
+    </div>
+  `;
+  const text = `Học sinh: ${sub.userName || 'N/A'}\nSố điện thoại: ${meta.phone || 'N/A'}\nMã đề: ${meta.testId || sub.testId || ''}\nMã lớp: ${meta.classCode || ''}\nGiáo viên ra đề: ${meta.teacherName || ''}\nCorrect / Total: ${result.correct}/${result.total}\nBand (IDP): ${result.band}\nSubmission ID: ${sub.id}\nView: ${detailsUrl}`;
+  return { html, text };
+};
+
 // Get all reading tests
 router.get('/', async (req, res) => {
   try {
@@ -17,6 +40,54 @@ router.get('/', async (req, res) => {
     res.json(parsed);
   } catch (err) {
     res.status(500).json({ message: err.message });
+  }
+});
+
+// GET: Email preview for a submission (renders the compact summary email HTML) — helpful for testing
+router.get('/:id/email-preview', async (req, res) => {
+  try {
+    const { id } = req.params;
+    console.log(`ℹ️ Email preview requested for submission=${id} from host=${req.get('host')}`);
+    const ReadingSubmission = require('../models/ReadingSubmission');
+    const submission = await ReadingSubmission.findByPk(id);
+    if (!submission) return res.status(404).send('<h3>❌ Không tìm thấy bài nộp</h3>');
+
+    const test = await ReadingTest.findByPk(submission.testId);
+    if (!test) return res.status(404).send('<h3>❌ Không tìm thấy đề</h3>');
+
+    const data = test.toJSON();
+    const passages = typeof data.passages === 'string' ? JSON.parse(data.passages) : data.passages || [];
+    const { scoreReadingTest } = require('../utils/readingScorer');
+    const result = scoreReadingTest({ passages }, submission.answers || {});
+
+    // Try to resolve phone from User if linked
+    let phone = 'N/A';
+    if (submission.userId) {
+      try {
+        const User = require('../models/User');
+        const u = await User.findByPk(submission.userId);
+        phone = u ? (u.phone || 'N/A') : 'N/A';
+      } catch (e) {
+        // ignore and fallback to N/A
+        phone = 'N/A';
+      }
+    }
+
+    const meta = { testId: test.id, classCode: test.classCode || '', teacherName: test.teacherName || '', phone };
+
+    // Debug: show which frontend URL will be used for the UI link
+    const frontendHost = process.env.FRONTEND_URL && String(process.env.FRONTEND_URL).trim().replace(/\/+$/,'');
+    const host = frontendHost || `${req.protocol}://${req.get('host')}`;
+    const detailsUrl = `${host}/reading-results/${submission.id}`;
+    console.log(`ℹ️ Email preview link -> FRONTEND_URL='${frontendHost || ''}' | resolved detailsUrl='${detailsUrl}'`);
+
+    const { html } = buildReadingSummaryEmail(submission, result, req, meta);
+
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.send(html);
+  } catch (err) {
+    console.error('Error rendering email preview:', err);
+    res.status(500).send('<h3>❌ Lỗi khi tạo preview email</h3>');
   }
 });
 
@@ -127,18 +198,15 @@ router.post('/:id/submit', async (req, res) => {
           console.log('ℹ️ Using sendmail transport (fallback) for reading submission email');
         }
 
+        const meta = { testId: id, classCode: test.classCode || '', teacherName: test.teacherName || '', phone: (req.body.user && req.body.user.phone) || 'N/A' };
+        const { html: emailHtml, text: emailText } = buildReadingSummaryEmail(sub, result, req, meta);
+
         const mailOptions = {
           from: process.env.EMAIL_FROM || process.env.EMAIL_USER || `no-reply@${req.hostname}`,
           to: process.env.EMAIL_TO,
           subject: `📨 Reading submission from ${sub.userName} — test ${id}`,
-          html: `
-            <p><strong>👤 Học sinh:</strong> ${sub.userName}</p>
-            <p><strong>📝 Test ID:</strong> ${id}</p>
-            <p><strong>✅ Correct / Total:</strong> ${result.correct} / ${result.total}</p>
-            <p><strong>🔢 Band (IDP):</strong> ${result.band} — ${result.scorePercentage}%</p>
-            <p>Submission ID: <b>${sub.id}</b></p>
-            <p><a href="${req.protocol}://${req.get('host')}/admin">Mở trang quản trị để xem chi tiết</a></p>
-          `
+          html: emailHtml,
+          text: emailText
         };
 
         // Send email asynchronously (do not block response)

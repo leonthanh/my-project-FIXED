@@ -55,6 +55,12 @@ app.use('/api/listening-submissions', listeningSubmissionRoutes);
 app.use('/api/reading-tests', readingTestsRoute);
 app.use('/api/reading-submissions', readingSubmissionRoutes);
 
+// Debug route: return important env vars (useful to verify FRONTEND_URL)
+app.get('/api/debug/env', (req, res) => {
+  console.log(`ℹ️ /api/debug/env requested — FRONTEND_URL='${process.env.FRONTEND_URL || ''}'`);
+  res.json({ FRONTEND_URL: process.env.FRONTEND_URL || null });
+});
+
 // Upload routes (images) - mount upload router
 const uploadRoutes = require('./routes/upload');
 app.use('/api/upload', uploadRoutes);
