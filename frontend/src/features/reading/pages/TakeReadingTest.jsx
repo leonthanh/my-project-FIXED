@@ -2,11 +2,11 @@ import React, { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import "../../../shared/styles/take-test.css";
 import { normalizeQuestionType } from "../utils/questionHelpers";
+import { apiPath } from "../../../shared/utils/api";
 
 const TakeReadingTest = () => {
   const { testId } = useParams();
   const navigate = useNavigate();
-  const API = process.env.REACT_APP_API_URL;
 
   const [test, setTest] = useState(null);
   const [answers, setAnswers] = useState({});
@@ -23,7 +23,7 @@ const TakeReadingTest = () => {
   const fetchTest = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await fetch(`${API}/api/reading-tests/${testId}`);
+      const response = await fetch(apiPath(`reading-tests/${testId}`));
       if (!response.ok) throw new Error("Không tìm thấy đề thi");
 
       const data = await response.json();
@@ -103,7 +103,7 @@ const TakeReadingTest = () => {
     } finally {
       setLoading(false);
     }
-  }, [testId, API]);
+  }, [testId]);
 
   // Timer effect
   useEffect(() => {
@@ -372,8 +372,18 @@ const TakeReadingTest = () => {
             <div>
               {/* Note: paragraph-fill-blanks rendering has been moved to `DoReadingTest.jsx` to consolidate behavior.
                   Keep this placeholder while the project transitions. */}
-              <div className="paragraph-fill-redirect" style={{ padding: '10px', backgroundColor: '#fff7e6', borderRadius: 4 }}>
-                <em>Paragraph-fill-blanks are now rendered in the unified student view.</em>
+              <div
+                className="paragraph-fill-redirect"
+                style={{
+                  padding: "10px",
+                  backgroundColor: "#fff7e6",
+                  borderRadius: 4,
+                }}
+              >
+                <em>
+                  Paragraph-fill-blanks are now rendered in the unified student
+                  view.
+                </em>
               </div>
             </div>
           )}
@@ -432,7 +442,7 @@ const TakeReadingTest = () => {
         })),
       };
 
-      const response = await fetch(`${API}/api/reading-submissions`, {
+      const response = await fetch(apiPath("reading-submissions"), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

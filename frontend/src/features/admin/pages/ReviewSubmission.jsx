@@ -2,6 +2,7 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { useParams } from "react-router-dom";
 import { AdminNavbar } from "../../../shared/components";
+import { apiPath } from "../../../shared/utils/api";
 
 const ReviewSubmission = () => {
   const { id } = useParams();
@@ -12,12 +13,11 @@ const ReviewSubmission = () => {
   const [aiLoading, setAiLoading] = useState(false); // ✅ Thêm AI loading state
   const [saveLoading, setSaveLoading] = useState(false); // ✅ Thêm Save loading state
   const [hasSavedFeedback, setHasSavedFeedback] = useState(false); // ✅ Track nếu đã save feedback
-  const API_URL = process.env.REACT_APP_API_URL;
 
   // 🔹 Lấy thông tin bài viết
   const fetchSubmission = useCallback(async () => {
     try {
-      const res = await fetch(`${API_URL}/api/writing/list`);
+      const res = await fetch(apiPath("writing/list"));
       const allSubs = await res.json();
       const found = allSubs.find((s) => String(s.id) === String(id));
       setSubmission(found || null);
@@ -38,7 +38,7 @@ const ReviewSubmission = () => {
     } finally {
       setLoading(false);
     }
-  }, [id, API_URL]);
+  }, [id]);
 
   useEffect(() => {
     fetchSubmission();
@@ -58,7 +58,7 @@ const ReviewSubmission = () => {
     setSaveLoading(true); // ✅ Bắt đầu save loading
 
     try {
-      const res = await fetch(`${API_URL}/api/writing/comment`, {
+      const res = await fetch(apiPath("writing/comment"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -93,7 +93,7 @@ const ReviewSubmission = () => {
     setAiLoading(true); // ✅ Bắt đầu loading
 
     try {
-      const aiRes = await fetch(`${API_URL}/api/ai/generate-feedback`, {
+      const aiRes = await fetch(apiPath("ai/generate-feedback"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

@@ -24,53 +24,6 @@ const ImportModal = ({ isOpen, onClose, onImport }) => {
     }
   }, []);
 
-  const handleDrop = useCallback((e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragActive(false);
-
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      handleFile(e.dataTransfer.files[0]);
-    }
-  }, []);
-
-  const handleFileInput = (e) => {
-    if (e.target.files && e.target.files[0]) {
-      handleFile(e.target.files[0]);
-    }
-  };
-
-  const handleFile = async (selectedFile) => {
-    const validTypes = [
-      "application/vnd.openxmlformats-officedocument.wordprocessingml.document", // .docx
-      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", // .xlsx
-      "text/plain", // .txt
-      "text/csv", // .csv
-    ];
-
-    const extension = selectedFile.name.split(".").pop().toLowerCase();
-
-    if (!["docx", "xlsx", "txt", "csv"].includes(extension)) {
-      setError("Chỉ hỗ trợ file .docx, .xlsx, .txt hoặc .csv");
-      return;
-    }
-
-    setFile(selectedFile);
-    setError("");
-    setIsLoading(true);
-
-    try {
-      // Đọc file và parse
-      const content = await readFileContent(selectedFile, extension);
-      const questions = parseContent(content, extension);
-      setParsedData(questions);
-    } catch (err) {
-      setError("Không thể đọc file: " + err.message);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   const readFileContent = (file, extension) => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -99,33 +52,7 @@ const ImportModal = ({ isOpen, onClose, onImport }) => {
     });
   };
 
-  const parseContent = (content, extension) => {
-    // Parse theo format của file
-    // Giả sử format:
-    // Q1. [question text]
-    // A) option A
-    // B) option B
-    // C) option C
-    // D) option D
-    // Answer: A
-
-    if (extension === "txt" || typeof content === "string") {
-      return parseTextContent(content);
-    }
-
-    // Với docx/xlsx cần library riêng
-    // Tạm return mẫu
-    return [
-      {
-        type: "multiple-choice",
-        questionText: "Sample question from " + extension + " file",
-        options: ["Option A", "Option B", "Option C", "Option D"],
-        correctAnswer: "Option A",
-      },
-    ];
-  };
-
-  const parseTextContent = (text) => {
+  const parseTextContent = useCallback((text) => {
     const questions = [];
     const lines = text
       .split("\n")
@@ -189,7 +116,7 @@ const ImportModal = ({ isOpen, onClose, onImport }) => {
     }
 
     return questions;
-  };
+  }, []);
 
   const createQuestion = (text, options, correctIndex = 0) => {
     if (options.length > 0) {
@@ -207,6 +134,73 @@ const ImportModal = ({ isOpen, onClose, onImport }) => {
       questionText: text,
       correctAnswer: "",
     };
+  };
+
+  // Parse content wrapper and file handler (defined after parseTextContent to avoid use-before-define)
+  const parseContent = useCallback(
+    (content, extension) => {
+      if (extension === "txt" || typeof content === "string") {
+        return parseTextContent(content);
+      }
+
+      // Với docx/xlsx cần library riêng
+      // Tạm return mẫu
+      return [
+        {
+          type: "multiple-choice",
+          questionText: "Sample question from " + extension + " file",
+          options: ["Option A", "Option B", "Option C", "Option D"],
+          correctAnswer: "Option A",
+        },
+      ];
+    },
+    [parseTextContent]
+  );
+
+  const handleFile = useCallback(
+    async (selectedFile) => {
+      const extension = selectedFile.name.split(".").pop().toLowerCase();
+
+      if (!["docx", "xlsx", "txt", "csv"].includes(extension)) {
+        setError("Chỉ hỗ trợ file .docx, .xlsx, .txt hoặc .csv");
+        return;
+      }
+
+      setFile(selectedFile);
+      setError("");
+      setIsLoading(true);
+
+      try {
+        // Đọc file và parse
+        const content = await readFileContent(selectedFile, extension);
+        const questions = parseContent(content, extension);
+        setParsedData(questions);
+      } catch (err) {
+        setError("Không thể đọc file: " + err.message);
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [parseContent]
+  );
+
+  const handleDrop = useCallback(
+    (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setDragActive(false);
+
+      if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+        handleFile(e.dataTransfer.files[0]);
+      }
+    },
+    [handleFile]
+  );
+
+  const handleFileInput = (e) => {
+    if (e.target.files && e.target.files[0]) {
+      handleFile(e.target.files[0]);
+    }
   };
 
   const handleImport = () => {

@@ -1,9 +1,17 @@
-import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import React, {
+  useState,
+  useEffect,
+  useCallback,
+  useRef,
+  useMemo,
+} from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ConfirmModal } from "../../../shared/components";
-import ResultModal from '../../../shared/components/ResultModal';
+import ResultModal from "../../../shared/components/ResultModal";
 import "../styles/do-reading-test.css";
 import { normalizeQuestionType } from "../utils/questionHelpers";
+import { apiPath, hostPath } from "../../../shared/utils/api";
+/* eslint-disable no-loop-func */
 // Utility: Remove unwanted <span ...> tags from HTML
 function stripUnwantedHtml(html) {
   if (!html) return "";
@@ -26,7 +34,6 @@ function stripUnwantedHtml(html) {
 const DoReadingTest = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const API = process.env.REACT_APP_API_URL;
 
   // Refs
   const questionRefs = useRef({});
@@ -49,8 +56,7 @@ const DoReadingTest = () => {
   const [resultData, setResultData] = useState(null);
 
   // Ensure ResultModal import
-  
-  
+
   const [leftPanelWidth, setLeftPanelWidth] = useState(50); // percentage
   // Populated from the passage DOM when there's no structured paragraphs array
   const [passageParagraphOptions, setPassageParagraphOptions] = useState([]);
@@ -61,120 +67,161 @@ const DoReadingTest = () => {
   // Started flag for the test (show start modal and control timer)
   const [started, setStarted] = useState(() => {
     try {
-      return localStorage.getItem(`reading_test_${id}_started`) === 'true';
+      return localStorage.getItem(`reading_test_${id}_started`) === "true";
     } catch (e) {
       return false;
     }
   });
 
-  const isQuestionAnswered = useCallback((n) => {
-    const key = `q_${n}`;
+  const isQuestionAnswered = useCallback(
+    (n) => {
+      const key = `q_${n}`;
 
-    // Direct value (string, JSON, or non-string)
-    const v = answers[key];
-    if (v) {
-      if (typeof v === 'string') {
-        // JSON encoded composite answers (matching headings etc.)
-        try {
-          const parsed = JSON.parse(v);
-          if (parsed && Object.values(parsed).some(x => x !== undefined && x !== '')) return true;
-        } catch (e) {
-          // not JSON
-        }
-        if (v.toString().trim() !== '') return true;
-      } else {
-        return true;
-      }
-    }
-
-    // Sub-keys under the same base: q_N_0, q_N_1
-    for (const k of Object.keys(answers || {})) {
-      if (k.startsWith(`${key}_`) && answers[k] && answers[k].toString().trim() !== '') return true;
-    }
-
-    // Also detect answers stored under a different base with a numeric suffix: q_M_i
-    // Some renderers store blanks as q_M_i where the visual question number is M + i
-    for (const k of Object.keys(answers || {})) {
-      const m = k.match(/^q_(\d+)_(\d+)$/);
-      if (m) {
-        const base = Number(m[1]);
-        const sub = Number(m[2]);
-        if (!Number.isNaN(base) && !Number.isNaN(sub)) {
-          if (base + sub === n && answers[k] && answers[k].toString().trim() !== '') return true;
+      // Direct value (string, JSON, or non-string)
+      const v = answers[key];
+      if (v) {
+        if (typeof v === "string") {
+          // JSON encoded composite answers (matching headings etc.)
+          try {
+            const parsed = JSON.parse(v);
+            if (
+              parsed &&
+              Object.values(parsed).some((x) => x !== undefined && x !== "")
+            )
+              return true;
+          } catch (e) {
+            // not JSON
+          }
+          if (v.toString().trim() !== "") return true;
+        } else {
+          return true;
         }
       }
-    }
 
-    // Detect matching-headings answers stored as JSON under a base key q_M where each paragraph has an id
-    // and visual question numbers are consecutive (M, M+1, ...).
-    if (test && Array.isArray(test.passages)) {
-      let qCounter = 1;
-      for (const p of test.passages) {
-        const sections = p.sections || [{ questions: p.questions }];
-        for (const s of sections) {
-          for (const q of (s.questions || [])) {
-            const qType = q.type || q.questionType || "";
+      // Sub-keys under the same base: q_N_0, q_N_1
+      for (const k of Object.keys(answers || {})) {
+        if (
+          k.startsWith(`${key}_`) &&
+          answers[k] &&
+          answers[k].toString().trim() !== ""
+        )
+          return true;
+      }
 
-            if (qType === 'ielts-matching-headings' || qType === 'matching-headings') {
-              const paragraphs = q.paragraphs || q.answers || [];
-              const base = qCounter; // qCounter is the base question number for this matching-headings block
-
-              // If the visual question number falls inside this block, check the stored JSON under base key
-              if (n >= base && n < base + paragraphs.length) {
-                const raw = answers[`q_${base}`];
-                if (raw) {
-                  try {
-                    const parsed = JSON.parse(raw);
-                    const paragraphIndex = n - base;
-                    const paragraph = paragraphs[paragraphIndex];
-                    const paragraphId = typeof paragraph === 'object' ? (paragraph.id || paragraph.paragraphId || '') : paragraph;
-                    if (parsed && paragraphId && parsed[paragraphId] !== undefined && parsed[paragraphId] !== '') return true;
-                  } catch (e) {
-                    // not JSON
-                  }
-                }
-              }
-
-              qCounter += paragraphs.length;
-              continue;
-            }
-
-            // Cloze / summary handling: multiple blanks count individually
-            if (qType === "cloze-test" || qType === "summary-completion") {
-              const clozeText = q.paragraphText || q.passageText || q.text || q.paragraph || (q.questionText && q.questionText.includes("[BLANK]") ? q.questionText : null);
-              if (clozeText) {
-                const blanks = (clozeText.match(/\[BLANK\]/gi) || []).length;
-                qCounter += blanks || 1;
-                continue;
-              } else {
-                qCounter++;
-                continue;
-              }
-            }
-
-            // Paragraph-matching: count blanks
-            if (qType === 'paragraph-matching') {
-              const paragraphBlankCount = q.questionText ? (q.questionText.match(/(\.{3,}|…+)/g) || []).length : 0;
-              if (paragraphBlankCount > 0) {
-                qCounter += paragraphBlankCount;
-                continue;
-              }
-            }
-
-            // Default: single question
-            qCounter++;
+      // Also detect answers stored under a different base with a numeric suffix: q_M_i
+      // Some renderers store blanks as q_M_i where the visual question number is M + i
+      for (const k of Object.keys(answers || {})) {
+        const m = k.match(/^q_(\d+)_(\d+)$/);
+        if (m) {
+          const base = Number(m[1]);
+          const sub = Number(m[2]);
+          if (!Number.isNaN(base) && !Number.isNaN(sub)) {
+            if (
+              base + sub === n &&
+              answers[k] &&
+              answers[k].toString().trim() !== ""
+            )
+              return true;
           }
         }
       }
-    }
 
-    return false;
-  }, [answers, test]);
+      // Detect matching-headings answers stored as JSON under a base key q_M where each paragraph has an id
+      // and visual question numbers are consecutive (M, M+1, ...).
+      if (test && Array.isArray(test.passages)) {
+        let qCounter = 1;
+        for (const p of test.passages) {
+          const sections = p.sections || [{ questions: p.questions }];
+          for (const s of sections) {
+            for (const q of s.questions || []) {
+              const qType = q.type || q.questionType || "";
+
+              if (
+                qType === "ielts-matching-headings" ||
+                qType === "matching-headings"
+              ) {
+                const paragraphs = q.paragraphs || q.answers || [];
+                const base = qCounter; // qCounter is the base question number for this matching-headings block
+
+                // If the visual question number falls inside this block, check the stored JSON under base key
+                if (n >= base && n < base + paragraphs.length) {
+                  const raw = answers[`q_${base}`];
+                  if (raw) {
+                    try {
+                      const parsed = JSON.parse(raw);
+                      const paragraphIndex = n - base;
+                      const paragraph = paragraphs[paragraphIndex];
+                      const paragraphId =
+                        typeof paragraph === "object"
+                          ? paragraph.id || paragraph.paragraphId || ""
+                          : paragraph;
+                      if (
+                        parsed &&
+                        paragraphId &&
+                        parsed[paragraphId] !== undefined &&
+                        parsed[paragraphId] !== ""
+                      )
+                        return true;
+                    } catch (e) {
+                      // not JSON
+                    }
+                  }
+                }
+
+                qCounter += paragraphs.length;
+                continue;
+              }
+
+              // Cloze / summary handling: multiple blanks count individually
+              if (qType === "cloze-test" || qType === "summary-completion") {
+                const clozeText =
+                  q.paragraphText ||
+                  q.passageText ||
+                  q.text ||
+                  q.paragraph ||
+                  (q.questionText && q.questionText.includes("[BLANK]")
+                    ? q.questionText
+                    : null);
+                if (clozeText) {
+                  const blanks = (clozeText.match(/\[BLANK\]/gi) || []).length;
+                  qCounter += blanks || 1;
+                  continue;
+                } else {
+                  qCounter++;
+                  continue;
+                }
+              }
+
+              // Paragraph-matching: count blanks
+              if (qType === "paragraph-matching") {
+                const paragraphBlankCount = q.questionText
+                  ? (q.questionText.match(/(\.{3,}|…+)/g) || []).length
+                  : 0;
+                if (paragraphBlankCount > 0) {
+                  qCounter += paragraphBlankCount;
+                  continue;
+                }
+              }
+
+              // Default: single question
+              qCounter++;
+            }
+          }
+        }
+      }
+
+      return false;
+    },
+    [answers, test]
+  );
 
   const paletteContainerRef = useRef(null);
   const partItemsRefs = useRef({});
 
-  const togglePart = useCallback((idx) => setExpandedPart(prev => prev === idx ? null : idx), []);
+  const togglePart = useCallback(
+    (idx) => setExpandedPart((prev) => (prev === idx ? null : idx)),
+    []
+  );
 
   // Scroll and expand a part in the palette (used when user navigates by prev/next/part dots)
   const scrollPaletteToPart = useCallback((index) => {
@@ -188,12 +235,24 @@ const DoReadingTest = () => {
     setExpandedPart(index);
     setTimeout(() => {
       try {
-        const el = paletteContainerRef.current.querySelector(`.palette-part[data-part="${index}"]`);
-        if (el) el.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+        const el = paletteContainerRef.current.querySelector(
+          `.palette-part[data-part="${index}"]`
+        );
+        if (el)
+          el.scrollIntoView({
+            behavior: "smooth",
+            inline: "center",
+            block: "nearest",
+          });
 
         // Scroll the first question button inside the part into view
-        const btn = el && el.querySelector('.nav-question-btn');
-        if (btn) btn.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+        const btn = el && el.querySelector(".nav-question-btn");
+        if (btn)
+          btn.scrollIntoView({
+            behavior: "smooth",
+            inline: "center",
+            block: "nearest",
+          });
       } catch (e) {
         // ignore
       }
@@ -213,22 +272,32 @@ const DoReadingTest = () => {
 
       if (qType === "cloze-test" || qType === "summary-completion") {
         const clozeText =
-          q.paragraphText || q.passageText || q.text || q.paragraph ||
-          (q.questionText && q.questionText.includes("[BLANK]") ? q.questionText : null);
+          q.paragraphText ||
+          q.passageText ||
+          q.text ||
+          q.paragraph ||
+          (q.questionText && q.questionText.includes("[BLANK]")
+            ? q.questionText
+            : null);
         if (clozeText) {
           const blankMatches = clozeText.match(/\[BLANK\]/gi);
           return total + (blankMatches ? blankMatches.length : 1);
         }
       }
 
-      if (q.type === 'paragraph-matching' || q.questionType === 'paragraph-matching') {
-        const paragraphBlankCount = q.questionText ? (q.questionText.match(/(\.{3,}|…+)/g) || []).length : 0;
+      if (
+        q.type === "paragraph-matching" ||
+        q.questionType === "paragraph-matching"
+      ) {
+        const paragraphBlankCount = q.questionText
+          ? (q.questionText.match(/(\.{3,}|…+)/g) || []).length
+          : 0;
         if (paragraphBlankCount > 0) return total + paragraphBlankCount;
       }
 
       return total + 1;
     }, 0);
-  }, [normalizeQuestionType]);
+  }, []);
 
   // Build palette parts with question ranges and answered counts
   const paletteParts = useMemo(() => {
@@ -252,7 +321,9 @@ const DoReadingTest = () => {
   // Auto-expand the part that contains the active question (if any)
   useEffect(() => {
     if (!paletteParts || !paletteParts.length || activeQuestion == null) return;
-    const part = paletteParts.find((p) => activeQuestion >= p.start && activeQuestion <= p.end);
+    const part = paletteParts.find(
+      (p) => activeQuestion >= p.start && activeQuestion <= p.end
+    );
     if (part && expandedPart !== part.index) {
       setExpandedPart(part.index);
     }
@@ -263,14 +334,27 @@ const DoReadingTest = () => {
     if (!paletteContainerRef.current) return;
 
     // Scroll the part container into view
-    const activePartEl = paletteContainerRef.current.querySelector(`.palette-part[data-part="${expandedPart}"]`);
-    if (activePartEl) activePartEl.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+    const activePartEl = paletteContainerRef.current.querySelector(
+      `.palette-part[data-part="${expandedPart}"]`
+    );
+    if (activePartEl)
+      activePartEl.scrollIntoView({
+        behavior: "smooth",
+        inline: "center",
+        block: "nearest",
+      });
 
     if (activeQuestion == null) return;
-    const btn = paletteContainerRef.current.querySelector(`.nav-question-btn[data-num="${activeQuestion}"]`);
+    const btn = paletteContainerRef.current.querySelector(
+      `.nav-question-btn[data-num="${activeQuestion}"]`
+    );
     if (btn) {
       // scroll the button into view within the palette area
-      btn.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+      btn.scrollIntoView({
+        behavior: "smooth",
+        inline: "center",
+        block: "nearest",
+      });
     }
   }, [activeQuestion, expandedPart]);
 
@@ -304,10 +388,16 @@ const DoReadingTest = () => {
   // Persist time remaining and started flag so a refresh retains state
   useEffect(() => {
     try {
-      if (typeof timeRemaining === 'number') {
-        localStorage.setItem(`reading_test_${id}_timeRemaining`, String(timeRemaining));
+      if (typeof timeRemaining === "number") {
+        localStorage.setItem(
+          `reading_test_${id}_timeRemaining`,
+          String(timeRemaining)
+        );
       }
-      localStorage.setItem(`reading_test_${id}_started`, started ? 'true' : 'false');
+      localStorage.setItem(
+        `reading_test_${id}_started`,
+        started ? "true" : "false"
+      );
     } catch (e) {
       // ignore storage errors
     }
@@ -317,7 +407,7 @@ const DoReadingTest = () => {
   useEffect(() => {
     const fetchTest = async () => {
       try {
-        const res = await fetch(`${API}/api/reading-tests/${id}`);
+        const res = await fetch(apiPath(`reading-tests/${id}`));
         if (!res.ok) throw new Error("Failed to fetch test");
         const data = await res.json();
         // Normalize question type names across the test data
@@ -357,8 +447,11 @@ const DoReadingTest = () => {
 
         // If there's a saved timer and the test was started, restore it; otherwise use test default
         try {
-          const savedStarted = localStorage.getItem(`reading_test_${id}_started`) === 'true';
-          const savedTime = localStorage.getItem(`reading_test_${id}_timeRemaining`);
+          const savedStarted =
+            localStorage.getItem(`reading_test_${id}_started`) === "true";
+          const savedTime = localStorage.getItem(
+            `reading_test_${id}_timeRemaining`
+          );
 
           if (savedStarted && savedTime) {
             setTimeRemaining(Number(savedTime));
@@ -383,7 +476,9 @@ const DoReadingTest = () => {
               const sections = p.sections || [{ questions: p.questions }];
               sections.forEach((section) => {
                 (section.questions || []).forEach((q) => {
-                  const qType = normalizeQuestionType(q.type || q.questionType || "multiple-choice");
+                  const qType = normalizeQuestionType(
+                    q.type || q.questionType || "multiple-choice"
+                  );
                   if (qType === "ielts-matching-headings") {
                     const paragraphCount =
                       (q.paragraphs || q.answers || []).length || 1;
@@ -458,7 +553,7 @@ const DoReadingTest = () => {
       }
     };
     fetchTest();
-  }, [id, API]);
+  }, [id]);
 
   // Timer countdown (runs only when started)
   useEffect(() => {
@@ -502,13 +597,11 @@ const DoReadingTest = () => {
 
   // Handle answer change
   const handleAnswerChange = useCallback((qKey, value) => {
-
     setAnswers((prev) => ({ ...prev, [qKey]: value }));
   }, []);
 
   // Handle multi-select change
   const handleMultiSelectChange = useCallback((qKey, value, isChecked) => {
-
     setAnswers((prev) => {
       const current = prev[qKey] ? prev[qKey].split(",").filter(Boolean) : [];
       if (isChecked) {
@@ -525,7 +618,6 @@ const DoReadingTest = () => {
   // Handle matching headings change
   const handleMatchingHeadingsChange = useCallback(
     (qKey, paragraphId, headingIndex) => {
-
       setAnswers((prev) => {
         const current = prev[qKey] ? JSON.parse(prev[qKey]) : {};
         return {
@@ -549,7 +641,9 @@ const DoReadingTest = () => {
       const sections = p.sections || [{ questions: p.questions }];
       sections.forEach((section) => {
         (section.questions || []).forEach((q) => {
-          const qType = normalizeQuestionType(q.type || q.questionType || "multiple-choice");
+          const qType = normalizeQuestionType(
+            q.type || q.questionType || "multiple-choice"
+          );
 
           // For matching headings, count each paragraph as a question
           if (qType === "ielts-matching-headings") {
@@ -679,7 +773,9 @@ const DoReadingTest = () => {
         const passage = test.passages[i];
         const sections = passage.sections || [{ questions: passage.questions }];
         let passageQuestionCount = 0;
-        sections.forEach((s) => (passageQuestionCount += countQuestionsInSection(s.questions)));
+        sections.forEach(
+          (s) => (passageQuestionCount += countQuestionsInSection(s.questions))
+        );
 
         if (counter + passageQuestionCount >= questionNumber) {
           targetPassageIndex = i;
@@ -704,17 +800,19 @@ const DoReadingTest = () => {
           setTimeout(() => {
             try {
               const focusable = element.querySelector
-                ? element.querySelector('input, textarea, select, [contenteditable="true"]')
+                ? element.querySelector(
+                    'input, textarea, select, [contenteditable="true"]'
+                  )
                 : null;
 
-              if (focusable && typeof focusable.focus === 'function') {
+              if (focusable && typeof focusable.focus === "function") {
                 focusable.focus({ preventScroll: true });
                 // place cursor at end for inputs
                 if (focusable.setSelectionRange && focusable.value != null) {
                   const len = focusable.value.length;
                   focusable.setSelectionRange(len, len);
                 }
-              } else if (element && typeof element.focus === 'function') {
+              } else if (element && typeof element.focus === "function") {
                 element.focus({ preventScroll: true });
               }
             } catch (e) {
@@ -728,28 +826,31 @@ const DoReadingTest = () => {
   );
 
   // Navigate to a part (expand palette, scroll navigator, and optionally focus first question)
-  const goToPart = useCallback((index, { focusFirst = true } = {}) => {
-    if (index == null) return;
+  const goToPart = useCallback(
+    (index, { focusFirst = true } = {}) => {
+      if (index == null) return;
 
-    // set the current part index so UI updates
-    setCurrentPartIndex(index);
+      // set the current part index so UI updates
+      setCurrentPartIndex(index);
 
-    // ensure palette is expanded & scrolled into view
-    scrollPaletteToPart(index);
+      // ensure palette is expanded & scrolled into view
+      scrollPaletteToPart(index);
 
-    // Optionally focus the first question in the part
-    if (focusFirst && Array.isArray(paletteParts) && paletteParts.length) {
-      const part = paletteParts.find((p) => p.index === index);
-      const firstQ = part ? part.start : null;
-      if (firstQ != null) {
-        // small timeout to ensure UI has updated
-        setTimeout(() => {
-          setActiveQuestion(firstQ);
-          scrollToQuestion(firstQ);
-        }, 180);
+      // Optionally focus the first question in the part
+      if (focusFirst && Array.isArray(paletteParts) && paletteParts.length) {
+        const part = paletteParts.find((p) => p.index === index);
+        const firstQ = part ? part.start : null;
+        if (firstQ != null) {
+          // small timeout to ensure UI has updated
+          setTimeout(() => {
+            setActiveQuestion(firstQ);
+            scrollToQuestion(firstQ);
+          }, 180);
+        }
       }
-    }
-  }, [scrollPaletteToPart, paletteParts, scrollToQuestion]);
+    },
+    [scrollPaletteToPart, paletteParts, scrollToQuestion]
+  );
 
   // Highlight paragraph in passage
   const handleParagraphHighlight = useCallback((paragraphId) => {
@@ -810,8 +911,6 @@ const DoReadingTest = () => {
     [highlightedParagraph]
   );
 
-
-
   // Resizable panel handlers
   const handleMouseDown = useCallback((e) => {
     e.preventDefault();
@@ -858,15 +957,15 @@ const DoReadingTest = () => {
   // Quick fix: remove stray single-brace text nodes ("{" or "}") that sometimes appear
   // in the question list due to malformed HTML or legacy edits. This cleans up visible '}' marks.
   useEffect(() => {
-    const ql = document.querySelector('.questions-list');
+    const ql = document.querySelector(".questions-list");
     if (!ql) return;
 
     const walker = document.createTreeWalker(ql, NodeFilter.SHOW_TEXT, {
       acceptNode(node) {
         const v = node.nodeValue && node.nodeValue.trim();
-        if (v === '}' || v === '{') return NodeFilter.FILTER_ACCEPT;
+        if (v === "}" || v === "{") return NodeFilter.FILTER_ACCEPT;
         return NodeFilter.FILTER_REJECT;
-      }
+      },
     });
 
     const nodes = [];
@@ -894,13 +993,22 @@ const DoReadingTest = () => {
   const confirmSubmit = async () => {
     try {
       const user = (() => {
-        try { return JSON.parse(localStorage.getItem('user') || 'null'); } catch (e) { return null; }
+        try {
+          return JSON.parse(localStorage.getItem("user") || "null");
+        } catch (e) {
+          return null;
+        }
       })();
 
-      const res = await fetch(`${API}/api/reading-tests/${id}/submit`, {
+      const res = await fetch(apiPath(`reading-tests/${id}/submit`), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ answers, user, studentName: user?.name || undefined, studentId: user?.id || undefined }),
+        body: JSON.stringify({
+          answers,
+          user,
+          studentName: user?.name || undefined,
+          studentId: user?.id || undefined,
+        }),
       });
       if (!res.ok) throw new Error("Failed to submit");
       const data = await res.json();
@@ -927,11 +1035,15 @@ const DoReadingTest = () => {
 
   // Build passage paragraph options if structured data not provided
   useEffect(() => {
-    const currentPassageLocal = test && test.passages && test.passages[currentPartIndex];
+    const currentPassageLocal =
+      test && test.passages && test.passages[currentPartIndex];
     if (!currentPassageLocal || !passageRef.current) return;
 
     // Structured paragraphs first
-    if (currentPassageLocal.paragraphs && currentPassageLocal.paragraphs.length) {
+    if (
+      currentPassageLocal.paragraphs &&
+      currentPassageLocal.paragraphs.length
+    ) {
       const opts = currentPassageLocal.paragraphs.map((p) => {
         if (typeof p === "object") {
           const id = (p.id || p.label || p.paragraphId || "").toString();
@@ -994,9 +1106,9 @@ const DoReadingTest = () => {
     for (let i = 0; i < currentPartIndex; i++) {
       const p = test.passages[i];
       const sections = p.sections || [{ questions: p.questions }];
-      sections.forEach(
-        (s) => (startQuestionNumber += countQuestionsInSection(s.questions))
-      );
+      for (const s of sections) {
+        startQuestionNumber += countQuestionsInSection(s.questions);
+      }
     }
 
     const currentPassageLocal = test.passages[currentPartIndex];
@@ -1008,7 +1120,9 @@ const DoReadingTest = () => {
     currentSectionsLocal.forEach((section) => {
       const sectionQuestions = section.questions || [];
       sectionQuestions.forEach((q) => {
-        const qType = normalizeQuestionType(q.type || q.questionType || "multiple-choice");
+        const qType = normalizeQuestionType(
+          q.type || q.questionType || "multiple-choice"
+        );
 
         if (qType === "paragraph-matching") {
           const clean = (q.questionText || "")
@@ -1051,13 +1165,7 @@ const DoReadingTest = () => {
         }
       });
     });
-  }, [
-    answers,
-    currentPartIndex,
-    test,
-    countQuestionsInSection,
-    passageRef,
-  ]);
+  }, [answers, currentPartIndex, test, countQuestionsInSection, passageRef]);
 
   // Loading state
   if (!test) {
@@ -1079,19 +1187,22 @@ const DoReadingTest = () => {
         <div className="start-modal">
           <h2>Bắt đầu làm bài Reading</h2>
           <p>
-            Bạn có <b>{Math.round((test.durationMinutes || 60))} phút</b> để hoàn tất bài làm. Bài làm sẽ được tự động lưu.
+            Bạn có <b>{Math.round(test.durationMinutes || 60)} phút</b> để hoàn
+            tất bài làm. Bài làm sẽ được tự động lưu.
           </p>
           <p style={{ marginTop: 12 }}>
-            Số Passage: <b>{test.passages.length}</b> • Tổng số câu: <b>{stats.total}</b>
+            Số Passage: <b>{test.passages.length}</b> • Tổng số câu:{" "}
+            <b>{stats.total}</b>
           </p>
           <div style={{ marginTop: 18 }}>
             <button
               className="start-test-btn"
               onClick={() => {
                 setStarted(true);
-                localStorage.setItem(`reading_test_${id}_started`, 'true');
+                localStorage.setItem(`reading_test_${id}_started`, "true");
                 // ensure timeRemaining is initialized if not yet
-                if (timeRemaining === null) setTimeRemaining((test.durationMinutes || 60) * 60);
+                if (timeRemaining === null)
+                  setTimeRemaining((test.durationMinutes || 60) * 60);
                 // focus first question after small delay
                 setTimeout(() => {
                   setActiveQuestion(1);
@@ -1111,8 +1222,6 @@ const DoReadingTest = () => {
 
   // (moved earlier)
 
-
-
   // paletteParts is defined earlier (keeps hooks in stable order)
 
   // Calculate question range for current passage
@@ -1120,9 +1229,9 @@ const DoReadingTest = () => {
   for (let i = 0; i < currentPartIndex; i++) {
     const p = test.passages[i];
     const sections = p.sections || [{ questions: p.questions }];
-    sections.forEach(
-      (s) => (startQuestionNumber += countQuestionsInSection(s.questions))
-    );
+    for (const s of sections) {
+      startQuestionNumber += countQuestionsInSection(s.questions);
+    }
   }
 
   // Get sections for current passage
@@ -1133,9 +1242,9 @@ const DoReadingTest = () => {
 
   // Total questions in current passage
   let totalQuestionsInPassage = 0;
-  currentSections.forEach(
-    (s) => (totalQuestionsInPassage += countQuestionsInSection(s.questions))
-  );
+  for (const s of currentSections) {
+    totalQuestionsInPassage += countQuestionsInSection(s.questions);
+  }
 
   // Render question based on type
   const renderQuestion = (question, questionNumber) => {
@@ -1239,9 +1348,14 @@ const DoReadingTest = () => {
             !isInlineAnswerType && (
               <div
                 className="question-text"
-                dangerouslySetInnerHTML={{ __html: qType === 'sentence-completion' && answers[key]
-                  ? (question.questionText || '').replace(/_{3,}|…+/g, `<span class="sentence-blank-intext">${answers[key]}</span>`)
-                  : question.questionText
+                dangerouslySetInnerHTML={{
+                  __html:
+                    qType === "sentence-completion" && answers[key]
+                      ? (question.questionText || "").replace(
+                          /_{3,}|…+/g,
+                          `<span class="sentence-blank-intext">${answers[key]}</span>`
+                        )
+                      : question.questionText,
                 }}
               />
             )}
@@ -1291,7 +1405,9 @@ const DoReadingTest = () => {
             <div className="question-sentence-completion">
               <div className="sentence-completion-inline">
                 <select
-                  className={`sentence-select ${answers[key] ? "answered" : ""}`}
+                  className={`sentence-select ${
+                    answers[key] ? "answered" : ""
+                  }`}
                   value={answers[key] || ""}
                   onChange={(e) => handleAnswerChange(key, e.target.value)}
                   onClick={(e) => e.stopPropagation()}
@@ -1301,14 +1417,18 @@ const DoReadingTest = () => {
                   {(question.options || []).map((opt, oi) => (
                     <option key={oi} value={String.fromCharCode(65 + oi)}>
                       {`${String.fromCharCode(65 + oi)}. ${stripUnwantedHtml(
-                        typeof opt === "object" ? opt.text || opt.label || "" : opt
+                        typeof opt === "object"
+                          ? opt.text || opt.label || ""
+                          : opt
                       )}`}
                     </option>
                   ))}
                 </select>
 
                 <span
-                  className={`sentence-selected-badge ${answers[key] ? "selected" : ""}`}
+                  className={`sentence-selected-badge ${
+                    answers[key] ? "selected" : ""
+                  }`}
                   aria-hidden
                 >
                   {answers[key] ? answers[key] : ""}
@@ -1487,6 +1607,7 @@ const DoReadingTest = () => {
                                 ];
                               let qNum = startQuestionNumber;
 
+                              /* eslint-disable no-loop-func */
                               currentSections.forEach((section) => {
                                 (section.questions || []).forEach((q2) => {
                                   const qType2 =
@@ -1546,15 +1667,20 @@ const DoReadingTest = () => {
                                   }
                                 });
                               });
+                              /* eslint-enable no-loop-func */
                             }
 
                             // Render an own row for this blank: show number, select and the sentence text
                             const sentence = (parts[idx + 1] || "").trim();
-                            blankCounter = blankCounter; // ensure blankCounter value preserved
+
                             const row = (
                               <div
                                 key={`blank-${thisIndex}`}
-                                ref={(el) => (questionRefs.current[`q_${questionNumber + thisIndex}`] = el)}
+                                ref={(el) =>
+                                  (questionRefs.current[
+                                    `q_${questionNumber + thisIndex}`
+                                  ] = el)
+                                }
                                 className={`paragraph-match-row ${
                                   thisVal ? "answered" : ""
                                 }`}
@@ -1642,18 +1768,18 @@ const DoReadingTest = () => {
                           const sections = p.sections || [
                             { questions: p.questions },
                           ];
-                          sections.forEach(
-                            (s) =>
-                              (startQuestionNumber += countQuestionsInSection(
-                                s.questions
-                              ))
-                          );
+                          for (const s of sections) {
+                            startQuestionNumber += countQuestionsInSection(
+                              s.questions
+                            );
+                          }
                         }
 
                         const currentSections = currentPassage.sections || [
                           { questions: currentPassage.questions },
                         ];
                         let qNum = startQuestionNumber;
+                        /* eslint-disable no-loop-func */
                         currentSections.forEach((section) => {
                           (section.questions || []).forEach((q2) => {
                             const qType2 =
@@ -1705,6 +1831,7 @@ const DoReadingTest = () => {
                             }
                           });
                         });
+                        /* eslint-enable no-loop-func */
                       }
 
                       return (
@@ -1764,7 +1891,9 @@ const DoReadingTest = () => {
                         return (
                           <input
                             key={idx}
-                            ref={(el) => (questionRefs.current[`q_${questionNumber}`] = el)}
+                            ref={(el) =>
+                              (questionRefs.current[`q_${questionNumber}`] = el)
+                            }
                             type="text"
                             className={`inline-fill-input ${
                               answers[key] ? "answered" : ""
@@ -1996,7 +2125,9 @@ const DoReadingTest = () => {
                     return (
                       <div
                         key={pi}
-                        ref={(el) => (questionRefs.current[`q_${actualQuestionNum}`] = el)}
+                        ref={(el) =>
+                          (questionRefs.current[`q_${actualQuestionNum}`] = el)
+                        }
                         className={`paragraph-match-row ${
                           selectedHeading !== undefined &&
                           selectedHeading !== ""
@@ -2137,7 +2268,12 @@ const DoReadingTest = () => {
                                     __html: stripUnwantedHtml(part),
                                   }}
                                 />
-                                <span className="cloze-inline-wrapper" ref={(el) => (questionRefs.current[`q_${blankNum}`] = el)}>
+                                <span
+                                  className="cloze-inline-wrapper"
+                                  ref={(el) =>
+                                    (questionRefs.current[`q_${blankNum}`] = el)
+                                  }
+                                >
                                   <span className="cloze-inline-number">
                                     {blankNum}
                                   </span>
@@ -2169,7 +2305,13 @@ const DoReadingTest = () => {
                 } else {
                   // Fallback to blank rows if no passage text
                   return (question.blanks || []).map((blank, bi) => (
-                    <div key={bi} ref={(el) => (questionRefs.current[`q_${questionNumber + bi}`] = el)} className="cloze-blank-row">
+                    <div
+                      key={bi}
+                      ref={(el) =>
+                        (questionRefs.current[`q_${questionNumber + bi}`] = el)
+                      }
+                      className="cloze-blank-row"
+                    >
                       <span className="cloze-blank-number">
                         {blank.id || questionNumber + bi}.
                       </span>
@@ -2317,7 +2459,10 @@ const DoReadingTest = () => {
                   className={`part-dot ${
                     idx === currentPartIndex ? "active" : ""
                   }`}
-                  onClick={(e) => { e.stopPropagation(); goToPart(idx); }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    goToPart(idx);
+                  }}
                   title={`Passage ${idx + 1}`}
                 >
                   {idx + 1}
@@ -2328,7 +2473,11 @@ const DoReadingTest = () => {
             <button
               className="nav-btn next"
               disabled={currentPartIndex === test.passages.length - 1}
-              onClick={() => goToPart(Math.min(test.passages.length - 1, currentPartIndex + 1))}
+              onClick={() =>
+                goToPart(
+                  Math.min(test.passages.length - 1, currentPartIndex + 1)
+                )
+              }
             >
               <span className="nav-text">Next</span>
               <span className="nav-icon">→</span>
@@ -2383,7 +2532,7 @@ const DoReadingTest = () => {
                           src={
                             section.sectionImage.startsWith("http")
                               ? section.sectionImage
-                              : `${API}${section.sectionImage}`
+                              : hostPath(section.sectionImage)
                           }
                           alt="Section diagram"
                           className="section-image"
@@ -2393,39 +2542,71 @@ const DoReadingTest = () => {
                   )}
 
                   {/* If this section contains sentence-completion questions, render the List of Endings once */}
-                  {sectionQuestions.some(sq => (sq.type || sq.questionType) === 'sentence-completion') && (() => {
-                    // If teacher already added a List of Endings in sectionInstruction or the passage text,
-                    // don't render our duplicate list.
-                    const hasTeacherList = (section.sectionInstruction && section.sectionInstruction.toLowerCase().includes('list of endings'))
-                      || (currentPassage && currentPassage.passageText && currentPassage.passageText.toLowerCase().includes('list of endings'));
+                  {sectionQuestions.some(
+                    (sq) =>
+                      (sq.type || sq.questionType) === "sentence-completion"
+                  ) &&
+                    (() => {
+                      // If teacher already added a List of Endings in sectionInstruction or the passage text,
+                      // don't render our duplicate list.
+                      const hasTeacherList =
+                        (section.sectionInstruction &&
+                          section.sectionInstruction
+                            .toLowerCase()
+                            .includes("list of endings")) ||
+                        (currentPassage &&
+                          currentPassage.passageText &&
+                          currentPassage.passageText
+                            .toLowerCase()
+                            .includes("list of endings"));
 
-                    if (hasTeacherList) return null;
+                      if (hasTeacherList) return null;
 
-                    const scQ = sectionQuestions.find(sq => (sq.type || sq.questionType) === 'sentence-completion');
-                    const scOptions = (scQ && scQ.options && scQ.options.length) ? scQ.options : [];
-                    const usedLetters = new Set(Object.values(answers || {}).filter(Boolean));
-                    return (
-                      <div className="sentence-completion-options">
-                        <p className="sc-title">List of Endings</p>
-                        <ul className="sc-list">
-                          {scOptions.map((opt, oi) => {
-                            const letter = String.fromCharCode(65 + oi);
-                            return (
-                              <li key={oi} className={`sc-item ${usedLetters.has(letter) ? 'used' : ''}`}>
-                                <span className="sc-letter">{letter}</span>
-                                <span className="sc-text" dangerouslySetInnerHTML={{ __html: stripUnwantedHtml(opt) }} />
-                              </li>
-                            );
-                          })}
-                        </ul>
-                      </div>
-                    );
-                  })()}
+                      const scQ = sectionQuestions.find(
+                        (sq) =>
+                          (sq.type || sq.questionType) === "sentence-completion"
+                      );
+                      const scOptions =
+                        scQ && scQ.options && scQ.options.length
+                          ? scQ.options
+                          : [];
+                      const usedLetters = new Set(
+                        Object.values(answers || {}).filter(Boolean)
+                      );
+                      return (
+                        <div className="sentence-completion-options">
+                          <p className="sc-title">List of Endings</p>
+                          <ul className="sc-list">
+                            {scOptions.map((opt, oi) => {
+                              const letter = String.fromCharCode(65 + oi);
+                              return (
+                                <li
+                                  key={oi}
+                                  className={`sc-item ${
+                                    usedLetters.has(letter) ? "used" : ""
+                                  }`}
+                                >
+                                  <span className="sc-letter">{letter}</span>
+                                  <span
+                                    className="sc-text"
+                                    dangerouslySetInnerHTML={{
+                                      __html: stripUnwantedHtml(opt),
+                                    }}
+                                  />
+                                </li>
+                              );
+                            })}
+                          </ul>
+                        </div>
+                      );
+                    })()}
 
                   {/* Questions */}
                   {sectionQuestions.map((q) => {
                     const qNum = currentQuestionNumber;
-                    const qType = normalizeQuestionType(q.type || q.questionType || "multiple-choice");
+                    const qType = normalizeQuestionType(
+                      q.type || q.questionType || "multiple-choice"
+                    );
 
                     // For matching headings, count each paragraph as a question
                     if (qType === "ielts-matching-headings") {
@@ -2491,33 +2672,51 @@ const DoReadingTest = () => {
             </span>
           </span>
         </div>
-        <div className="question-nav-grid palette-inline" ref={paletteContainerRef}>
+        <div
+          className="question-nav-grid palette-inline"
+          ref={paletteContainerRef}
+        >
           {paletteParts.map((part) => (
             <div
               key={part.index}
               data-part={part.index}
               data-testid={`palette-part-${part.index}`}
-              className={`palette-part inline ${expandedPart === part.index ? 'expanded' : ''}`}
+              className={`palette-part inline ${
+                expandedPart === part.index ? "expanded" : ""
+              }`}
             >
               <button
                 data-testid={`palette-part-toggle-${part.index}`}
-                className={`palette-part-toggle ${expandedPart === part.index ? 'open' : ''}`}
-                onClick={(e) => { e.stopPropagation(); setCurrentPartIndex(part.index); togglePart(part.index); setActiveQuestion(null); }}
+                className={`palette-part-toggle ${
+                  expandedPart === part.index ? "open" : ""
+                }`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setCurrentPartIndex(part.index);
+                  togglePart(part.index);
+                  setActiveQuestion(null);
+                }}
                 type="button"
               >
                 <span className="part-label">Part {part.index + 1}</span>
-                <span className="part-status"><span className="number">{part.answered}</span> of <span className="total">{part.count}</span></span>
-                <span className="part-caret">{expandedPart === part.index ? '▾' : '▸'}</span>
+                <span className="part-status">
+                  <span className="number">{part.answered}</span> of{" "}
+                  <span className="total">{part.count}</span>
+                </span>
+                <span className="part-caret">
+                  {expandedPart === part.index ? "▾" : "▸"}
+                </span>
               </button>
 
               <div
                 ref={(el) => (partItemsRefs.current[part.index] = el)}
-                className={`palette-part-items ${expandedPart === part.index ? 'open' : 'closed'}`}
-                aria-hidden={expandedPart === part.index ? 'false' : 'true'}
+                className={`palette-part-items ${
+                  expandedPart === part.index ? "open" : "closed"
+                }`}
+                aria-hidden={expandedPart === part.index ? "false" : "true"}
               >
                 {Array.from({ length: part.count }, (_, i) => {
                   const num = part.start + i;
-                  const key = `q_${num}`;
                   // Use canonical check to detect answers stored as JSON, sub-keys (q_X_Y), or simple strings
                   const isAnswered = isQuestionAnswered(num);
                   const isActive = activeQuestion === num;
@@ -2526,10 +2725,17 @@ const DoReadingTest = () => {
                       key={num}
                       data-num={num}
                       data-testid={`nav-question-${num}`}
-                      className={`nav-question-btn ${isAnswered ? "answered" : ""} ${isActive ? "active" : ""}`}
-                      title={isAnswered ? `Question ${num} ✓` : `Question ${num}`}
-                      onClick={(e) => { e.stopPropagation(); 
-                                scrollToQuestion(num); setActiveQuestion(num); }}
+                      className={`nav-question-btn ${
+                        isAnswered ? "answered" : ""
+                      } ${isActive ? "active" : ""}`}
+                      title={
+                        isAnswered ? `Question ${num} ✓` : `Question ${num}`
+                      }
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        scrollToQuestion(num);
+                        setActiveQuestion(num);
+                      }}
                     >
                       {num}
                     </button>
@@ -2576,7 +2782,11 @@ const DoReadingTest = () => {
           setTimeUp(false);
 
           // Navigate student back to select-test page after closing modal
-          try { navigate('/select-test'); } catch (e) { /* ignore */ }
+          try {
+            navigate("/select-test");
+          } catch (e) {
+            /* ignore */
+          }
         }}
         result={resultData}
         onViewDetails={() => {
@@ -2584,12 +2794,16 @@ const DoReadingTest = () => {
           if (resultData && resultData.submissionId) {
             navigate(`/reading-results/${resultData.submissionId}`);
           } else {
-            navigate(`/reading-results/${id}`, { state: { result: resultData } });
+            navigate(`/reading-results/${id}`, {
+              state: { result: resultData },
+            });
           }
         }}
       />
     </div>
   );
 };
+
+/* eslint-enable no-loop-func */
 
 export default DoReadingTest;

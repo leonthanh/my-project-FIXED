@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { AdminNavbar } from "../../../shared/components";
+import { apiPath } from "../../../shared/utils/api";
 
 const AdminWritingSubmissions = () => {
   const [data, setData] = useState([]);
@@ -16,11 +17,10 @@ const AdminWritingSubmissions = () => {
   const [searchFeedbackBy, setSearchFeedbackBy] = useState("");
   const [filteredData, setFilteredData] = useState([]);
 
-  const API_URL = process.env.REACT_APP_API_URL;
   const teacher = JSON.parse(localStorage.getItem("user")); // 👈 lấy tên giáo viên
 
   useEffect(() => {
-    fetch(`${API_URL}/api/writing/list`)
+    fetch(apiPath("writing/list"))
       .then((res) => res.json())
       .then((data) => {
         setData(data);
@@ -35,7 +35,7 @@ const AdminWritingSubmissions = () => {
         setHasSaved(savedMap);
       })
       .catch((err) => console.error("Lỗi khi lấy dữ liệu:", err));
-  }, [API_URL]);
+  }, []);
 
   // 🔍 Hàm lọc dữ liệu khi tìm kiếm thay đổi
   useEffect(() => {
@@ -70,7 +70,13 @@ const AdminWritingSubmissions = () => {
     }
 
     setFilteredData(filtered);
-  }, [searchClassCode, searchTeacher, searchStudentName, searchFeedbackBy, data]);
+  }, [
+    searchClassCode,
+    searchTeacher,
+    searchStudentName,
+    searchFeedbackBy,
+    data,
+  ]);
 
   // ✅ Hàm gửi nhận xét
   const handleSendFeedback = async (submissionId) => {
@@ -83,7 +89,7 @@ const AdminWritingSubmissions = () => {
     setSendLoading((prev) => ({ ...prev, [submissionId]: true })); // ✅ Bắt đầu loading
 
     try {
-      const res = await fetch(`${API_URL}/api/writing/comment`, {
+      const res = await fetch(apiPath("writing/comment"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -128,7 +134,7 @@ const AdminWritingSubmissions = () => {
     setAiLoading((prev) => ({ ...prev, [submission.id]: true })); // ✅ Bắt đầu loading
 
     try {
-      const aiRes = await fetch(`${API_URL}/api/ai/generate-feedback`, {
+      const aiRes = await fetch(apiPath("ai/generate-feedback"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -171,7 +177,19 @@ const AdminWritingSubmissions = () => {
       <div style={{ padding: "30px" }}>
         <h2>📋 Writing Submissions</h2>
         <div style={{ marginTop: 12, marginBottom: 18 }}>
-          <button onClick={() => window.location.href = '/admin/reading-submissions'} style={{ padding: '8px 12px', background: '#0e276f', color: 'white', border: 'none', borderRadius: 6, cursor: 'pointer' }}>
+          <button
+            onClick={() =>
+              (window.location.href = "/admin/reading-submissions")
+            }
+            style={{
+              padding: "8px 12px",
+              background: "#0e276f",
+              color: "white",
+              border: "none",
+              borderRadius: 6,
+              cursor: "pointer",
+            }}
+          >
             🔎 Reading Submissions
           </button>
         </div>
@@ -190,7 +208,13 @@ const AdminWritingSubmissions = () => {
           }}
         >
           <div>
-            <label style={{ display: "block", marginBottom: "5px", fontWeight: "bold" }}>
+            <label
+              style={{
+                display: "block",
+                marginBottom: "5px",
+                fontWeight: "bold",
+              }}
+            >
               👤 Tên học sinh:
             </label>
             <input
@@ -210,7 +234,13 @@ const AdminWritingSubmissions = () => {
           </div>
 
           <div>
-            <label style={{ display: "block", marginBottom: "5px", fontWeight: "bold" }}>
+            <label
+              style={{
+                display: "block",
+                marginBottom: "5px",
+                fontWeight: "bold",
+              }}
+            >
               🧾 Mã lớp:
             </label>
             <input
@@ -230,7 +260,13 @@ const AdminWritingSubmissions = () => {
           </div>
 
           <div>
-            <label style={{ display: "block", marginBottom: "5px", fontWeight: "bold" }}>
+            <label
+              style={{
+                display: "block",
+                marginBottom: "5px",
+                fontWeight: "bold",
+              }}
+            >
               👨‍🏫 Giáo viên đề:
             </label>
             <input
@@ -250,7 +286,13 @@ const AdminWritingSubmissions = () => {
           </div>
 
           <div>
-            <label style={{ display: "block", marginBottom: "5px", fontWeight: "bold" }}>
+            <label
+              style={{
+                display: "block",
+                marginBottom: "5px",
+                fontWeight: "bold",
+              }}
+            >
               ✍️ Giáo viên chấm:
             </label>
             <input
@@ -295,7 +337,11 @@ const AdminWritingSubmissions = () => {
         {/* Hiển thị kết quả tìm kiếm */}
         <p style={{ color: "#666", marginBottom: "15px" }}>
           📊 Tổng cộng: <strong>{filteredData.length}</strong> bài viết
-          {(searchClassCode || searchTeacher || searchStudentName || searchFeedbackBy) && ` (lọc từ ${data.length})`}
+          {(searchClassCode ||
+            searchTeacher ||
+            searchStudentName ||
+            searchFeedbackBy) &&
+            ` (lọc từ ${data.length})`}
         </p>
 
         {filteredData.length === 0 && (
