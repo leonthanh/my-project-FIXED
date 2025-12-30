@@ -143,10 +143,16 @@ jobs:
             exit 1
           fi
 
-          # Copy utils/ (if present) into package so modules like readingScorer are deployed
+          # Copy utils/ (if present at repo root) into package so modules like readingScorer are deployed
           if [ -d "utils" ]; then
             cp -r utils backend-temp/utils
             echo "✅ Copied utils into backend-temp"
+          fi
+
+          # Also copy backend/utils into package (some projects keep helpers inside backend/)
+          if [ -d "backend/utils" ]; then
+            cp -r backend/utils backend-temp/utils
+            echo "✅ Copied backend/utils into backend-temp"
           fi
 
           ls -la backend-temp || true
