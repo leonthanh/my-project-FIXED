@@ -35,10 +35,15 @@ jobs:
           fi
           if [ -d backend ]; then
             backend_hash=$(git rev-list --objects HEAD -- backend | git hash-object --stdin 2>/dev/null || echo "")
-            echo "backend=$backend_hash" >> $GITHUB_OUTPUT
           else
-            echo "backend=" >> $GITHUB_OUTPUT
+            backend_hash=""
           fi
+          # Include utils dir changes so deploy triggers when utils/ changes
+          if [ -d utils ]; then
+            utils_hash=$(git rev-list --objects HEAD -- utils | git hash-object --stdin 2>/dev/null || echo "")
+            backend_hash="${backend_hash}${utils_hash}"
+          fi
+          echo "backend=$backend_hash" >> $GITHUB_OUTPUT
       - name: Create frontend artifact
         if: steps.hash.outputs.frontend != ''
         run: |
@@ -134,20 +139,22 @@ jobs:
             cp backend/.env.production backend-temp/.env
             echo "✅ Using .env.production for cPanel"
           else
-            # Fallback: tạo .env mới nếu không có file
-            echo "⚠️ .env.production not found, creating default .env"
-            echo "NODE_ENV=production" > backend-temp/.env
-            echo "PORT=5000" >> backend-temp/.env
-            echo "DB_HOST=star-siec.edu.vn" >> backend-temp/.env
-            echo "DB_NAME=wsxcblqh_ix" >> backend-temp/.env
-            echo "DB_USER=wsxcblqh_thanh" >> backend-temp/.env
-            echo "DB_PASS=@Thanh562184" >> backend-temp/.env
-            echo "EMAIL_USER=stareduelt@gmail.com" >> backend-temp/.env
-            echo "EMAIL_PASS=xrrz fqwq xwdc hujb" >> backend-temp/.env
-            echo "EMAIL_TO=thanhlh@siec-star.edu.vn" >> backend-temp/.env
-            echo "REACT_APP_API_URL=https://ix.star-siec.edu.vn" >> backend-temp/.env
-            echo "OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}" >> backend-temp/.env
+            echo "❌ .env.production not found in repo. Aborting deploy to avoid creating .env with secrets in logs."
+            exit 1
           fi
+
+          # Copy utils/ (if present at repo root) into package so modules like readingScorer are deployed
+          if [ -d "utils" ]; then
+            cp -r utils backend-temp/utils
+            echo "✅ Copied utils into backend-temp"
+          fi
+
+          # Also copy backend/utils into package (some projects keep helpers inside backend/)
+          if [ -d "backend/utils" ]; then
+            cp -r backend/utils backend-temp/utils
+            echo "✅ Copied backend/utils into backend-temp"
+          fi
+
           ls -la backend-temp || true
       - name: Deploy Backend
         uses: SamKirkland/FTP-Deploy-Action@4.3.3
@@ -170,3 +177,16 @@ jobs:
         run: |
           echo "✅ Backend đã được deploy lên cPanel."
           echo "📌 Vui lòng đăng nhập vào cPanel → Setup Node.js App → chọn app → nhấn Restart để khởi động lại server."
+
+      - name: Post-deploy smoke check (non-blocking)
+        run: |
+          echo "⏱️ Running post-deploy smoke check (non-blocking) against /api/reading-tests"
+          set +e
+          status=$(curl -s -o /dev/null -w "%{http_code}" https://ix.star-siec.edu.vn/api/reading-tests || echo "000")
+          echo "Smoke check HTTP status: $status"
+          if [ "$status" = "200" ]; then
+            echo "✅ Smoke check OK"
+          else
+            echo "⚠️ Smoke check returned $status. If you just restarted the app, wait a few seconds and re-run checks."
+          fi
+          set -e

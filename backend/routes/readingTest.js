@@ -86,9 +86,48 @@ function countQuestions(passages = []) {
   return qCounter;
 }
 
+// Robust loader for readingScorer: tries multiple candidate locations (helps when deploy copies only backend/ folder)
+const path = require("path");
+function loadReadingScorer() {
+  const candidates = [
+    path.join(__dirname, "..", "utils", "readingScorer"), // ../utils relative to backend/routes
+    path.join(__dirname, "..", "..", "utils", "readingScorer"), // project-root utils when server cwd is backend/
+    path.join(process.cwd(), "utils", "readingScorer"), // process cwd based
+    path.join(__dirname, "..", "backend", "utils", "readingScorer"), // backend/utils if utils placed inside backend
+    path.join(__dirname, "..", "..", "backend", "utils", "readingScorer"),
+    "../utils/readingScorer",
+  ];
+
+  for (const c of candidates) {
+    try {
+      const mod = require(c);
+      if (mod && mod.scoreReadingTest) {
+        console.log(`ℹ️ Loaded readingScorer from ${c}`);
+        return mod;
+      }
+    } catch (e) {
+      // ignore and try next
+    }
+  }
+
+  // as last resort, try require by module name (node_modules)
+  try {
+    const mod = require("readingScorer");
+    if (mod && mod.scoreReadingTest) {
+      console.log("ℹ️ Loaded readingScorer from module readingScorer");
+      return mod;
+    }
+  } catch (e) {
+    // ignore
+  }
+
+  return null;
+}
+
 // Get all reading tests
 router.get("/", async (req, res) => {
   try {
+
     const tests = await ReadingTest.findAll({ order: [["createdAt", "DESC"]] });
     // Parse passages JSON if it's a string
     const parsed = tests.map((test) => {
@@ -126,7 +165,23 @@ router.get("/:id/email-preview", async (req, res) => {
       typeof data.passages === "string"
         ? JSON.parse(data.passages)
         : data.passages || [];
+<<<<<<< HEAD
     const { scoreReadingTest } = require("../utils/readingScorer");
+=======
+    const scorerModule = loadReadingScorer();
+    let scoreReadingTest;
+    if (scorerModule && scorerModule.scoreReadingTest) {
+      scoreReadingTest = scorerModule.scoreReadingTest;
+    } else {
+      console.error(
+        "❌ readingScorer not found for email preview; using fallback"
+      );
+      scoreReadingTest = ({ passages } = {}, _answers = {}) => {
+        const total = countQuestions(passages || []);
+        return { total, correct: 0, band: 3.5, scorePercentage: 0 };
+      };
+    }
+>>>>>>> feature/reading-test
     const result = scoreReadingTest({ passages }, submission.answers || {});
 
     // Try to resolve phone from User if linked
@@ -240,6 +295,7 @@ router.post("/:id/submit", async (req, res) => {
       typeof data.passages === "string"
         ? JSON.parse(data.passages)
         : data.passages || [];
+<<<<<<< HEAD
 
     // Use scorer helper (with safe fallback when module missing on host)
     let scoreReadingTest;
@@ -255,6 +311,24 @@ router.post("/:id/submit", async (req, res) => {
         return { total, correct: 0, band: 3.5, scorePercentage: 0 };
       };
     }
+=======
+
+    // Use scorer helper (robust loader + fallback)
+    const scorerModule = loadReadingScorer();
+    let scoreReadingTest;
+    if (scorerModule && scorerModule.scoreReadingTest) {
+      scoreReadingTest = scorerModule.scoreReadingTest;
+    } else {
+      console.error(
+        "❌ readingScorer module missing — using fallback scorer to avoid 500"
+      );
+      scoreReadingTest = ({ passages } = {}, _answers = {}) => {
+        const total = countQuestions(passages || []);
+        return { total, correct: 0, band: 3.5, scorePercentage: 0 };
+      };
+    }
+
+>>>>>>> feature/reading-test
     const result = scoreReadingTest({ passages }, answers || {});
 
     // Store submission to DB
