@@ -1,0 +1,18 @@
+{
+  "name": "your-project-name",
+  "version": "1.0.0",
+  "description": "Your project description",
+  "main": "index.js",
+  "scripts": {
+    "test": "mocha --recursive tests --exit"
+  },
+  "author": "Your Name",
+  "license": "ISC",
+  "dependencies": {
+    // ...your dependencies...
+  },
+  "devDependencies": {
+    "mocha": "^8.0.0",
+    "chai": "^4.0.0"
+  }
+}
