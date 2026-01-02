@@ -8,9 +8,7 @@
   },
   "author": "Your Name",
   "license": "ISC",
-  "dependencies": {
-    // ...your dependencies...
-  },
+  "dependencies": {},
   "devDependencies": {
     "mocha": "^8.0.0",
     "chai": "^4.0.0"
