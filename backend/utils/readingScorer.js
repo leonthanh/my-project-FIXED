@@ -644,4 +644,199 @@ function getDetailedScoring(testData, answers = {}) {
   return details;
 }
 
-module.exports = { scoreReadingTest, bandFromCorrect, getDetailedScoring };
+/**
+ * Generate analysis breakdown by question type
+ * Returns detailed statistics and improvement suggestions
+ */
+function generateAnalysisBreakdown(testData, answers = {}) {
+  const details = getDetailedScoring(testData, answers);
+  
+  // Group by question type
+  const byType = {};
+  for (const d of details) {
+    const type = d.questionType || 'unknown';
+    if (!byType[type]) {
+      byType[type] = { correct: 0, total: 0, questions: [] };
+    }
+    byType[type].total++;
+    if (d.isCorrect) byType[type].correct++;
+    byType[type].questions.push({
+      questionNumber: d.questionNumber,
+      isCorrect: d.isCorrect,
+      expected: d.expectedLabel,
+      student: d.studentLabel
+    });
+  }
+
+  // Calculate percentages and generate suggestions
+  const typeAnalysis = [];
+  const questionTypeLabels = {
+    'true-false-not-given': 'True/False/Not Given',
+    'yes-no-not-given': 'Yes/No/Not Given',
+    'ielts-matching-headings': 'Matching Headings',
+    'matching-headings': 'Matching Headings',
+    'multiple-choice': 'Multiple Choice',
+    'cloze-test': 'Fill in the Blanks (Cloze)',
+    'summary-completion': 'Summary Completion',
+    'short-answer': 'Short Answer',
+    'sentence-completion': 'Sentence Completion',
+    'paragraph-matching': 'Paragraph Matching',
+    'paragraph-fill-blanks': 'Paragraph Fill Blanks',
+    'multi-select': 'Multi-Select',
+    'unknown': 'Other'
+  };
+
+  const suggestions = {
+    'true-false-not-given': {
+      good: 'Bạn nắm vững kỹ năng phân biệt thông tin trong bài đọc.',
+      improve: 'Chú ý phân biệt giữa FALSE (thông tin sai) và NOT GIVEN (không có thông tin). Đọc kỹ từng từ trong câu hỏi.'
+    },
+    'yes-no-not-given': {
+      good: 'Bạn hiểu rõ quan điểm của tác giả trong bài.',
+      improve: 'Tập trung vào quan điểm/ý kiến của tác giả, không phải sự thật. NOT GIVEN = tác giả không đề cập.'
+    },
+    'ielts-matching-headings': {
+      good: 'Kỹ năng skimming và tìm ý chính của bạn tốt.',
+      improve: 'Đọc câu đầu và câu cuối mỗi đoạn. Tìm từ khóa chính, bỏ qua chi tiết. Lưu ý các heading có thể gây nhầm lẫn.'
+    },
+    'matching-headings': {
+      good: 'Kỹ năng skimming và tìm ý chính của bạn tốt.',
+      improve: 'Đọc câu đầu và câu cuối mỗi đoạn. Tìm từ khóa chính, bỏ qua chi tiết. Lưu ý các heading có thể gây nhầm lẫn.'
+    },
+    'multiple-choice': {
+      good: 'Bạn đọc hiểu tốt và chọn đáp án chính xác.',
+      improve: 'Đọc kỹ tất cả các đáp án trước khi chọn. Loại trừ các đáp án sai trước. Chú ý các từ như "always", "never", "only".'
+    },
+    'cloze-test': {
+      good: 'Bạn nắm vững từ vựng và ngữ pháp trong ngữ cảnh.',
+      improve: 'Chú ý word form (noun/verb/adj/adv). Đọc cả câu trước và sau chỗ trống. Kiểm tra ngữ pháp của từ điền.'
+    },
+    'summary-completion': {
+      good: 'Bạn tóm tắt thông tin tốt và chọn từ phù hợp.',
+      improve: 'Scanning để tìm vị trí thông tin trong bài. Chú ý giới hạn số từ. Đảm bảo từ điền phù hợp ngữ pháp.'
+    },
+    'short-answer': {
+      good: 'Bạn tìm và trích xuất thông tin chính xác.',
+      improve: 'Chú ý giới hạn số từ trong câu trả lời. Sử dụng từ trong bài, không paraphrase. Kiểm tra spelling.'
+    },
+    'sentence-completion': {
+      good: 'Bạn hoàn thành câu logic và chính xác.',
+      improve: 'Đảm bảo câu hoàn chỉnh có nghĩa. Chú ý ngữ pháp khi ghép câu. Tìm đúng vị trí thông tin trong bài.'
+    },
+    'paragraph-matching': {
+      good: 'Bạn liên kết thông tin giữa các đoạn tốt.',
+      improve: 'Đọc kỹ yêu cầu từng câu hỏi. Scanning từ khóa trong các đoạn. Một đoạn có thể dùng nhiều lần hoặc không dùng.'
+    },
+    'default': {
+      good: 'Bạn làm tốt dạng câu hỏi này.',
+      improve: 'Tiếp tục luyện tập để cải thiện kỹ năng đọc hiểu.'
+    }
+  };
+
+  for (const [type, data] of Object.entries(byType)) {
+    const percentage = data.total > 0 ? Math.round((data.correct / data.total) * 100) : 0;
+    const label = questionTypeLabels[type] || type;
+    const suggestionData = suggestions[type] || suggestions['default'];
+    
+    let status = 'good';
+    let suggestion = suggestionData.good;
+    
+    if (percentage < 50) {
+      status = 'weak';
+      suggestion = suggestionData.improve;
+    } else if (percentage < 70) {
+      status = 'average';
+      suggestion = suggestionData.improve;
+    }
+
+    typeAnalysis.push({
+      type,
+      label,
+      correct: data.correct,
+      total: data.total,
+      percentage,
+      status,
+      suggestion,
+      wrongQuestions: data.questions.filter(q => !q.isCorrect).map(q => q.questionNumber)
+    });
+  }
+
+  // Sort by percentage (weakest first for improvement focus)
+  typeAnalysis.sort((a, b) => a.percentage - b.percentage);
+
+  // Generate overall summary
+  const totalCorrect = details.filter(d => d.isCorrect).length;
+  const totalQuestions = details.length;
+  const overallPercentage = totalQuestions > 0 ? Math.round((totalCorrect / totalQuestions) * 100) : 0;
+  const band = bandFromCorrect(totalCorrect);
+
+  // Identify top 3 weak areas
+  const weakAreas = typeAnalysis
+    .filter(t => t.status !== 'good' && t.total >= 2)
+    .slice(0, 3)
+    .map(t => ({
+      label: t.label,
+      percentage: t.percentage,
+      suggestion: t.suggestion
+    }));
+
+  // Identify strong areas
+  const strongAreas = typeAnalysis
+    .filter(t => t.status === 'good' && t.total >= 2)
+    .map(t => ({
+      label: t.label,
+      percentage: t.percentage
+    }));
+
+  return {
+    summary: {
+      totalCorrect,
+      totalQuestions,
+      overallPercentage,
+      band
+    },
+    byType: typeAnalysis,
+    weakAreas,
+    strongAreas,
+    generatedAt: new Date().toISOString()
+  };
+}
+
+/**
+ * Generate human-readable analysis text (Vietnamese)
+ */
+function generateAnalysisText(breakdown) {
+  if (!breakdown) return '';
+  
+  const { summary, byType, weakAreas, strongAreas } = breakdown;
+  
+  let text = `📊 KẾT QUẢ BÀI THI READING\n`;
+  text += `━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+  text += `✅ Đúng: ${summary.totalCorrect}/${summary.totalQuestions} (${summary.overallPercentage}%)\n`;
+  text += `🎯 Band Score: ${summary.band}\n\n`;
+  
+  text += `📈 PHÂN TÍCH THEO DẠNG CÂU HỎI:\n`;
+  for (const t of byType) {
+    const icon = t.status === 'good' ? '✓' : t.status === 'average' ? '⚠️' : '❌';
+    const statusText = t.status === 'good' ? 'Tốt' : t.status === 'average' ? 'Trung bình' : 'Cần cải thiện';
+    text += `• ${t.label}: ${t.correct}/${t.total} (${t.percentage}%) ${icon} ${statusText}\n`;
+  }
+  
+  if (weakAreas.length > 0) {
+    text += `\n💡 GỢI Ý CẢI THIỆN:\n`;
+    weakAreas.forEach((area, idx) => {
+      text += `${idx + 1}. ${area.label} (${area.percentage}%):\n   ${area.suggestion}\n`;
+    });
+  }
+  
+  if (strongAreas.length > 0) {
+    text += `\n🌟 ĐIỂM MẠNH:\n`;
+    strongAreas.forEach(area => {
+      text += `• ${area.label} (${area.percentage}%)\n`;
+    });
+  }
+  
+  return text;
+}
+
+module.exports = { scoreReadingTest, bandFromCorrect, getDetailedScoring, generateAnalysisBreakdown, generateAnalysisText };

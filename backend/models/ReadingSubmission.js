@@ -36,7 +36,34 @@ const ReadingSubmission = sequelize.define('ReadingSubmission', {
     defaultValue: 0
   },
   band: DataTypes.FLOAT,
-  scorePercentage: DataTypes.INTEGER
+  scorePercentage: DataTypes.INTEGER,
+  // Analysis fields - auto-generated breakdown by question type
+  analysisBreakdown: {
+    type: DataTypes.JSON,
+    allowNull: true,
+    comment: 'Auto-generated analysis breakdown by question type'
+  },
+  // Feedback fields - similar to Writing
+  feedback: {
+    type: DataTypes.TEXT,
+    allowNull: true,
+    comment: 'Teacher feedback/comments'
+  },
+  feedbackBy: {
+    type: DataTypes.STRING(100),
+    allowNull: true,
+    comment: 'Name of teacher who gave feedback'
+  },
+  feedbackAt: {
+    type: DataTypes.DATE,
+    allowNull: true,
+    comment: 'When feedback was given'
+  },
+  feedbackSeen: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false,
+    comment: 'Whether student has seen the feedback'
+  }
 }, {
   tableName: 'reading_submissions',
   timestamps: true
