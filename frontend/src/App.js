@@ -6,7 +6,7 @@ import { EditTest, AdminWritingSubmissions, SelectTest, MyFeedback, ReviewSubmis
 import { WritingTest, CreateWritingTest } from './features/writing';
 import { Login } from './features/auth';
 import { CreateReadingTest, EditReadingTest, DoReadingTest, TakeReadingTest, ReadingResults } from './features/reading';
-import { CreateListeningTest } from './features/listening';
+import { CreateListeningTest, DoListeningTest, ListeningResults } from './features/listening';
 import { ProtectedRoute } from './shared/components';
 
 const isLoggedIn = () => {
@@ -59,6 +59,11 @@ function App() {
         <Route path="/reading-tests" element={isLoggedIn() ? <SelectTest /> : <Navigate to="/login" replace />} />
         <Route path="/reading/:id" element={isLoggedIn() ? <DoReadingTest /> : <Navigate to="/login" replace />} />
         <Route path="/reading-results/:id" element={isLoggedIn() ? <ReadingResults /> : <Navigate to="/login" replace />} />
+        
+        {/* Listening Test Routes */}
+        <Route path="/listening/:id" element={isLoggedIn() ? <DoListeningTest /> : <Navigate to="/login" replace />} />
+        <Route path="/listening-results/:id" element={isLoggedIn() ? <ListeningResults /> : <Navigate to="/login" replace />} />
+        
         <Route path="/review/:id" element={
           <ProtectedRoute role="teacher">
             <ReviewSubmission />

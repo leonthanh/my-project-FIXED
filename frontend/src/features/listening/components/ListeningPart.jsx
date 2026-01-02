@@ -1,5 +1,14 @@
 import React from 'react';
-import { FormQuestion, MultipleChoiceQuestion, MultiSelectQuestion, ComboboxQuestion, DragDropQuestion, PartInstructions } from '../../../shared/components';
+import { 
+  FormQuestion, 
+  MultipleChoiceQuestion, 
+  MultiSelectQuestion, 
+  ComboboxQuestion, 
+  DragDropQuestion, 
+  PartInstructions,
+  MapLabelingQuestion,
+  FlowchartQuestion
+} from '../../../shared/components';
 
 const ListeningPart = ({ 
   partNumber, 
@@ -36,6 +45,9 @@ const ListeningPart = ({
             <option value="combobox">Chọn từ danh sách (Combobox)</option>
             <option value="dragdrop-text">Kéo thả cụm từ</option>
             <option value="dragdrop-image">Kéo thả hình ảnh</option>
+            <option value="map-labeling">🗺️ Map/Plan Labeling</option>
+            <option value="flowchart">📊 Flowchart Completion</option>
+            <option value="matching">🔗 Matching (A, B, C)</option>
           </select>
         </div>
 
@@ -46,7 +58,69 @@ const ListeningPart = ({
         />
       </div>
 
-      {questions.map((question, index) => (
+      {/* Map Labeling - Single question for whole part */}
+      {partType === 'map-labeling' && (
+        <MapLabelingQuestion
+          question={questions[0] || { items: [], mapImageUrl: '' }}
+          onChange={(updatedQuestion) => onQuestionChange(0, updatedQuestion)}
+          mode="edit"
+          questionNumber={startFromNumber}
+        />
+      )}
+
+      {/* Flowchart - Single question for whole part */}
+      {partType === 'flowchart' && (
+        <FlowchartQuestion
+          question={questions[0] || { steps: [], options: [] }}
+          onChange={(updatedQuestion) => onQuestionChange(0, updatedQuestion)}
+          mode="edit"
+          questionNumber={startFromNumber}
+        />
+      )}
+
+      {/* Matching questions (A, B, C style) */}
+      {partType === 'matching' && questions.map((question, index) => (
+        <div key={index} style={{
+          marginBottom: '30px',
+          padding: '15px',
+          border: '1px solid #eee',
+          borderRadius: '8px',
+          backgroundColor: '#f9f9f9'
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+            <h4 style={{ margin: 0 }}>
+              Câu {index + startFromNumber}
+            </h4>
+            {onRemoveQuestion && (
+              <button
+                type="button"
+                onClick={() => onRemoveQuestion(index)}
+                style={{
+                  padding: '6px 12px',
+                  fontSize: '13px',
+                  backgroundColor: '#e03',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  whiteSpace: 'nowrap'
+                }}
+              >
+                🗑 Xóa câu
+              </button>
+            )}
+          </div>
+          <MultipleChoiceQuestion
+            question={question}
+            onChange={(updatedQuestion) => onQuestionChange(index, updatedQuestion)}
+            optionsCount={3}
+          />
+        </div>
+      ))}
+
+      {/* Other question types */}
+      {!['map-labeling', 'flowchart', 'matching'].includes(partType) && 
+        questions.map((question, index) => (
         <div key={index} style={{
           marginBottom: '30px',
           padding: '15px',
