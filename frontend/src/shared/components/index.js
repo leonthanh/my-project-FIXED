@@ -38,3 +38,7 @@ export { default as ParagraphMatchingQuestion } from './ParagraphMatchingQuestio
 export { default as ParagraphFillBlanksQuestion } from './ParagraphFillBlanksQuestion';
 export { default as SentenceCompletionQuestion } from './SentenceCompletionQuestion';
 export { default as IELTSMatchingHeadingsQuestion } from './IELTSMatchingHeadingsQuestion';
+
+// Listening Question Types
+export { default as MapLabelingQuestion } from './MapLabelingQuestion';
+export { default as FlowchartQuestion } from './FlowchartQuestion';

@@ -127,6 +127,91 @@ router.get('/:id', async (req, res) => {
   }
 });
 
+// API nộp bài thi listening - Calculate score and return results
+router.post('/:id/submit', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { answers } = req.body;
+
+    // Get the test to check correct answers
+    const test = await ListeningTest.findByPk(id);
+    if (!test) {
+      return res.status(404).json({ message: '❌ Không tìm thấy đề thi' });
+    }
+
+    // Calculate score
+    let correctCount = 0;
+    let totalCount = 0;
+    const results = {};
+
+    // Handle both old format (passages) and new format (questions)
+    const questions = test.questions || {};
+    const passages = test.passages || [];
+
+    if (Object.keys(questions).length > 0) {
+      // New format with questions by part (part1, part2, etc.)
+      Object.entries(questions).forEach(([partKey, partQuestions]) => {
+        if (!Array.isArray(partQuestions)) return;
+        
+        partQuestions.forEach((q, idx) => {
+          const answerKey = `${partKey}_${idx}`;
+          totalCount++;
+          
+          const studentAnswer = (answers[answerKey] || '').toString().toLowerCase().trim();
+          const correctAnswer = (q.correctAnswer || '').toString().toLowerCase().trim();
+          
+          const isCorrect = studentAnswer === correctAnswer;
+          if (isCorrect) correctCount++;
+          
+          results[answerKey] = {
+            studentAnswer: answers[answerKey] || '',
+            correctAnswer: q.correctAnswer || '',
+            isCorrect
+          };
+        });
+      });
+    } else if (passages.length > 0) {
+      // Old format with passages array
+      passages.forEach((passage, pIdx) => {
+        if (!passage.questions) return;
+        
+        passage.questions.forEach((q, qIdx) => {
+          const answerKey = `passage${pIdx}_${qIdx}`;
+          totalCount++;
+          
+          const studentAnswer = (answers[answerKey] || '').toString().toLowerCase().trim();
+          const correctAnswer = (q.correctAnswer || '').toString().toLowerCase().trim();
+          
+          const isCorrect = studentAnswer === correctAnswer;
+          if (isCorrect) correctCount++;
+          
+          results[answerKey] = {
+            studentAnswer: answers[answerKey] || '',
+            correctAnswer: q.correctAnswer || '',
+            isCorrect
+          };
+        });
+      });
+    }
+
+    const scorePercentage = totalCount > 0 ? Math.round((correctCount / totalCount) * 100) : 0;
+
+    res.json({
+      message: '✅ Nộp bài thành công!',
+      score: correctCount,
+      total: totalCount,
+      percentage: scorePercentage,
+      answers: results
+    });
+  } catch (error) {
+    console.error('Error submitting listening test:', error);
+    res.status(500).json({
+      message: '❌ Lỗi khi nộp bài',
+      error: error.message
+    });
+  }
+});
+
 // API cập nhật đề thi
 router.put('/:id', upload.fields([
   { name: 'audioFile', maxCount: 1 },
