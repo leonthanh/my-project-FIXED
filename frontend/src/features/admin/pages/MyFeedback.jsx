@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { StudentNavbar } from "../../../shared/components";
 import { apiPath, hostPath } from "../../../shared/utils/api";
 
@@ -26,17 +26,24 @@ const MyFeedback = () => {
   const [analysisData, setAnalysisData] = useState(null);
   const [loadingAnalysis, setLoadingAnalysis] = useState(false);
 
-  const user = JSON.parse(localStorage.getItem("user"));
+  // Use useMemo to prevent user object from changing on every render
+  const user = useMemo(() => {
+    const stored = localStorage.getItem("user");
+    return stored ? JSON.parse(stored) : null;
+  }, []);
+  
+  // Use ref to track if data has been fetched
+  const hasFetched = useRef(false);
 
   // Fetch Writing submissions
-  const fetchWritingData = useCallback(async () => {
-    if (!user) return;
+  const fetchWritingData = useCallback(async (userPhone) => {
+    if (!userPhone) return;
     try {
       const res = await fetch(apiPath("writing/list"));
       const allSubs = await res.json();
 
       const userSubs = allSubs.filter(
-        (sub) => sub.User?.phone === user.phone || sub.userPhone === user.phone
+        (sub) => sub.User?.phone === userPhone || sub.userPhone === userPhone
       );
 
       const unseenIds = userSubs
@@ -59,13 +66,13 @@ const MyFeedback = () => {
     } catch (err) {
       console.error("❌ Lỗi khi tải bài viết:", err);
     }
-  }, [user]);
+  }, []);
 
   // Fetch Reading submissions
-  const fetchReadingData = useCallback(async () => {
-    if (!user) return;
+  const fetchReadingData = useCallback(async (userPhone) => {
+    if (!userPhone) return;
     try {
-      const res = await fetch(apiPath(`reading-submissions/user/${user.phone}`));
+      const res = await fetch(apiPath(`reading-submissions/user/${userPhone}`));
       const subs = await res.json();
 
       const unseenIds = subs
@@ -88,14 +95,15 @@ const MyFeedback = () => {
     } catch (err) {
       console.error("❌ Lỗi khi tải bài Reading:", err);
     }
-  }, [user]);
+  }, []);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user?.phone || hasFetched.current) return;
+    hasFetched.current = true;
     
     const fetchAll = async () => {
       setLoading(true);
-      await Promise.all([fetchWritingData(), fetchReadingData()]);
+      await Promise.all([fetchWritingData(user.phone), fetchReadingData(user.phone)]);
       setLoading(false);
     };
     
@@ -151,14 +159,36 @@ const MyFeedback = () => {
   // Load analysis for a Reading submission
   const loadAnalysis = async (submissionId) => {
     setLoadingAnalysis(true);
+    setAnalysisData(null);
     try {
-      const res = await fetch(apiPath(`reading-submissions/${submissionId}/analysis`));
-      const data = await res.json();
-      setAnalysisData(data);
-      setShowAnalysis(true);
+      // First try to get existing analysis
+      let res = await fetch(apiPath(`reading-submissions/${submissionId}/analysis`));
+      let data = await res.json();
+      
+      // If no analysis exists, generate it first
+      if (!data || !data.breakdown || Object.keys(data.breakdown || {}).length === 0) {
+        // Generate analysis
+        const genRes = await fetch(apiPath(`reading-submissions/${submissionId}/generate-analysis`), {
+          method: "POST",
+        });
+        if (genRes.ok) {
+          // Fetch again after generating
+          res = await fetch(apiPath(`reading-submissions/${submissionId}/analysis`));
+          data = await res.json();
+        }
+      }
+      
+      if (data && data.breakdown && Object.keys(data.breakdown).length > 0) {
+        setAnalysisData(data);
+        setShowAnalysis(true);
+      } else {
+        setAnalysisData(null);
+        setShowAnalysis(true); // Still show modal with "no data" message
+      }
     } catch (err) {
       console.error("❌ Lỗi khi tải phân tích:", err);
-      alert("Không thể tải phân tích");
+      setAnalysisData(null);
+      setShowAnalysis(true);
     } finally {
       setLoadingAnalysis(false);
     }

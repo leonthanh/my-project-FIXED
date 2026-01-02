@@ -599,28 +599,79 @@ router.get("/:submissionId/analysis", async (req, res) => {
       return res.status(404).json({ message: "❌ Không tìm thấy bài nộp" });
     }
 
-    // If no analysis exists, generate it on-the-fly
-    if (!submission.analysisBreakdown) {
+    // Parse stored breakdown if it's a string
+    let existingBreakdown = submission.analysisBreakdown;
+    if (typeof existingBreakdown === 'string') {
+      try {
+        existingBreakdown = JSON.parse(existingBreakdown);
+      } catch (e) {
+        existingBreakdown = null;
+      }
+    }
+
+    // If no analysis exists or it's empty, generate it on-the-fly
+    if (!existingBreakdown || !existingBreakdown.summary) {
       const ReadingTest = require("../models/ReadingTest");
       const test = await ReadingTest.findByPk(submission.testId);
       if (test) {
         const data = test.toJSON();
         const passages = typeof data.passages === 'string' ? JSON.parse(data.passages) : (data.passages || []);
+        
+        // Parse submission answers - handle different formats
+        let studentAnswers = submission.answers || {};
+        if (typeof studentAnswers === 'string') {
+          try {
+            studentAnswers = JSON.parse(studentAnswers);
+          } catch (e) {
+            studentAnswers = {};
+          }
+        }
+        // If answers is wrapped in { passages: [...] }, extract flat answer map
+        if (studentAnswers.passages && Array.isArray(studentAnswers.passages)) {
+          const flatAnswers = {};
+          studentAnswers.passages.forEach((p, pIdx) => {
+            if (p.questions && Array.isArray(p.questions)) {
+              p.questions.forEach((q) => {
+                if (q.questionNumber && q.answer !== undefined) {
+                  flatAnswers[`q_${q.questionNumber}`] = q.answer;
+                }
+              });
+            }
+          });
+          studentAnswers = flatAnswers;
+        }
+        
         const scorerModule = loadReadingScorer();
         if (scorerModule && scorerModule.generateAnalysisBreakdown) {
-          const breakdown = scorerModule.generateAnalysisBreakdown({ passages }, submission.answers || {});
-          submission.analysisBreakdown = breakdown;
-          await submission.save();
+          try {
+            const breakdown = scorerModule.generateAnalysisBreakdown({ passages }, studentAnswers);
+            if (breakdown && breakdown.summary) {
+              submission.analysisBreakdown = breakdown;
+              await submission.save();
+              existingBreakdown = breakdown;
+            }
+          } catch (genError) {
+            console.error("Error generating analysis:", genError);
+          }
         }
       }
     }
 
-    const scorerModule = loadReadingScorer();
-    const analysisText = (scorerModule && scorerModule.generateAnalysisText && submission.analysisBreakdown) ? 
-      scorerModule.generateAnalysisText(submission.analysisBreakdown) : '';
+    // Generate text version if we have breakdown
+    let analysisText = '';
+    if (existingBreakdown && existingBreakdown.summary) {
+      const scorerModule = loadReadingScorer();
+      if (scorerModule && scorerModule.generateAnalysisText) {
+        try {
+          analysisText = scorerModule.generateAnalysisText(existingBreakdown);
+        } catch (textError) {
+          console.error("Error generating analysis text:", textError);
+        }
+      }
+    }
 
     res.json({
-      breakdown: submission.analysisBreakdown,
+      breakdown: existingBreakdown || {},
       analysisText
     });
   } catch (error) {
