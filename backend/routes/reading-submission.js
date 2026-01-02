@@ -434,4 +434,296 @@ router.get("/:submissionId/compare-html", async (req, res) => {
   }
 });
 
+// ==================== FEEDBACK ROUTES ====================
+
+// GET: Get all submissions for a specific user (by phone) - for MyFeedback page
+router.get("/user/:phone", async (req, res) => {
+  try {
+    const { phone } = req.params;
+    const User = require("../models/User");
+    const ReadingTest = require("../models/ReadingTest");
+    
+    // Find user by phone
+    const user = await User.findOne({ where: { phone } });
+    if (!user) {
+      return res.json([]); // Return empty if user not found
+    }
+
+    // Find all submissions by this user
+    const submissions = await ReadingSubmission.findAll({
+      where: { userId: user.id },
+      order: [["createdAt", "DESC"]],
+    });
+
+    // Attach test metadata
+    const testIds = [...new Set(submissions.map(s => s.testId).filter(Boolean))];
+    const tests = testIds.length ? await ReadingTest.findAll({ where: { id: testIds } }) : [];
+    const testMap = {};
+    tests.forEach(t => { testMap[String(t.id)] = t; });
+
+    const result = submissions.map(s => {
+      const obj = s.toJSON();
+      const t = testMap[String(s.testId)];
+      obj.ReadingTest = t ? {
+        id: t.id,
+        title: t.title,
+        classCode: t.classCode || '',
+        teacherName: t.teacherName || ''
+      } : null;
+      obj.User = { phone: user.phone, name: user.name };
+      return obj;
+    });
+
+    res.json(result);
+  } catch (error) {
+    console.error("Error fetching user submissions:", error);
+    res.status(500).json({ message: "❌ Lỗi khi lấy bài nộp", error: error.message });
+  }
+});
+
+// GET: List all submissions with test and user info (for admin panel)
+router.get("/admin/list", async (req, res) => {
+  try {
+    const User = require("../models/User");
+    const ReadingTest = require("../models/ReadingTest");
+    
+    const submissions = await ReadingSubmission.findAll({
+      order: [["createdAt", "DESC"]],
+      include: [{ model: User, attributes: ['id', 'name', 'phone'] }]
+    });
+
+    // Attach test metadata
+    const testIds = [...new Set(submissions.map(s => s.testId).filter(Boolean))];
+    const tests = testIds.length ? await ReadingTest.findAll({ where: { id: testIds } }) : [];
+    const testMap = {};
+    tests.forEach(t => { testMap[String(t.id)] = t; });
+
+    const result = submissions.map(s => {
+      const obj = s.toJSON();
+      const t = testMap[String(s.testId)];
+      obj.ReadingTest = t ? {
+        id: t.id,
+        title: t.title,
+        classCode: t.classCode || '',
+        teacherName: t.teacherName || ''
+      } : null;
+      return obj;
+    });
+
+    res.json(result);
+  } catch (error) {
+    console.error("Error fetching admin list:", error);
+    res.status(500).json({ message: "❌ Lỗi khi lấy danh sách", error: error.message });
+  }
+});
+
+// POST: Add/update feedback for a submission (teacher action)
+router.post("/:submissionId/feedback", async (req, res) => {
+  try {
+    const { submissionId } = req.params;
+    const { feedback, feedbackBy } = req.body;
+
+    const submission = await ReadingSubmission.findByPk(submissionId);
+    if (!submission) {
+      return res.status(404).json({ message: "❌ Không tìm thấy bài nộp" });
+    }
+
+    // Update feedback fields
+    submission.feedback = feedback || '';
+    submission.feedbackBy = feedbackBy || '';
+    submission.feedbackAt = new Date();
+    submission.feedbackSeen = false; // Reset so student sees notification
+
+    await submission.save();
+
+    res.json({ 
+      message: "✅ Đã lưu nhận xét!", 
+      submission: submission.toJSON() 
+    });
+  } catch (error) {
+    console.error("Error saving feedback:", error);
+    res.status(500).json({ message: "❌ Lỗi khi lưu nhận xét", error: error.message });
+  }
+});
+
+// POST: Generate and save auto-analysis for a submission
+router.post("/:submissionId/generate-analysis", async (req, res) => {
+  try {
+    const { submissionId } = req.params;
+    const submission = await ReadingSubmission.findByPk(submissionId);
+    if (!submission) {
+      return res.status(404).json({ message: "❌ Không tìm thấy bài nộp" });
+    }
+
+    const ReadingTest = require("../models/ReadingTest");
+    const test = await ReadingTest.findByPk(submission.testId);
+    if (!test) {
+      return res.status(404).json({ message: "❌ Không tìm thấy đề" });
+    }
+
+    const data = test.toJSON();
+    const passages = typeof data.passages === 'string' ? JSON.parse(data.passages) : (data.passages || []);
+
+    const scorerModule = loadReadingScorer();
+    if (!scorerModule || !scorerModule.generateAnalysisBreakdown) {
+      return res.status(500).json({ message: "❌ Không thể tạo phân tích" });
+    }
+
+    const breakdown = scorerModule.generateAnalysisBreakdown({ passages }, submission.answers || {});
+    
+    // Save to submission
+    submission.analysisBreakdown = breakdown;
+    await submission.save();
+
+    // Generate text version
+    const analysisText = scorerModule.generateAnalysisText ? 
+      scorerModule.generateAnalysisText(breakdown) : '';
+
+    res.json({ 
+      message: "✅ Đã tạo phân tích!", 
+      breakdown,
+      analysisText
+    });
+  } catch (error) {
+    console.error("Error generating analysis:", error);
+    res.status(500).json({ message: "❌ Lỗi khi tạo phân tích", error: error.message });
+  }
+});
+
+// GET: Get analysis for a submission
+router.get("/:submissionId/analysis", async (req, res) => {
+  try {
+    const { submissionId } = req.params;
+    const submission = await ReadingSubmission.findByPk(submissionId);
+    if (!submission) {
+      return res.status(404).json({ message: "❌ Không tìm thấy bài nộp" });
+    }
+
+    // Parse stored breakdown if it's a string
+    let existingBreakdown = submission.analysisBreakdown;
+    if (typeof existingBreakdown === 'string') {
+      try {
+        existingBreakdown = JSON.parse(existingBreakdown);
+      } catch (e) {
+        existingBreakdown = null;
+      }
+    }
+
+    // If no analysis exists or it's empty, generate it on-the-fly
+    if (!existingBreakdown || !existingBreakdown.summary) {
+      const ReadingTest = require("../models/ReadingTest");
+      const test = await ReadingTest.findByPk(submission.testId);
+      if (test) {
+        const data = test.toJSON();
+        const passages = typeof data.passages === 'string' ? JSON.parse(data.passages) : (data.passages || []);
+        
+        // Parse submission answers - handle different formats
+        let studentAnswers = submission.answers || {};
+        if (typeof studentAnswers === 'string') {
+          try {
+            studentAnswers = JSON.parse(studentAnswers);
+          } catch (e) {
+            studentAnswers = {};
+          }
+        }
+        // If answers is wrapped in { passages: [...] }, extract flat answer map
+        if (studentAnswers.passages && Array.isArray(studentAnswers.passages)) {
+          const flatAnswers = {};
+          studentAnswers.passages.forEach((p, pIdx) => {
+            if (p.questions && Array.isArray(p.questions)) {
+              p.questions.forEach((q) => {
+                if (q.questionNumber && q.answer !== undefined) {
+                  flatAnswers[`q_${q.questionNumber}`] = q.answer;
+                }
+              });
+            }
+          });
+          studentAnswers = flatAnswers;
+        }
+        
+        const scorerModule = loadReadingScorer();
+        if (scorerModule && scorerModule.generateAnalysisBreakdown) {
+          try {
+            const breakdown = scorerModule.generateAnalysisBreakdown({ passages }, studentAnswers);
+            if (breakdown && breakdown.summary) {
+              submission.analysisBreakdown = breakdown;
+              await submission.save();
+              existingBreakdown = breakdown;
+            }
+          } catch (genError) {
+            console.error("Error generating analysis:", genError);
+          }
+        }
+      }
+    }
+
+    // Generate text version if we have breakdown
+    let analysisText = '';
+    if (existingBreakdown && existingBreakdown.summary) {
+      const scorerModule = loadReadingScorer();
+      if (scorerModule && scorerModule.generateAnalysisText) {
+        try {
+          analysisText = scorerModule.generateAnalysisText(existingBreakdown);
+        } catch (textError) {
+          console.error("Error generating analysis text:", textError);
+        }
+      }
+    }
+
+    res.json({
+      breakdown: existingBreakdown || {},
+      analysisText
+    });
+  } catch (error) {
+    console.error("Error getting analysis:", error);
+    res.status(500).json({ message: "❌ Lỗi khi lấy phân tích", error: error.message });
+  }
+});
+
+// POST: Mark feedback as seen (student action)
+router.post("/mark-feedback-seen", async (req, res) => {
+  try {
+    const { ids } = req.body;
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ message: "❌ Thiếu danh sách IDs" });
+    }
+
+    await ReadingSubmission.update(
+      { feedbackSeen: true },
+      { where: { id: ids } }
+    );
+
+    res.json({ message: "✅ Đã đánh dấu đã xem", updatedCount: ids.length });
+  } catch (error) {
+    console.error("Error marking feedback seen:", error);
+    res.status(500).json({ message: "❌ Lỗi khi cập nhật", error: error.message });
+  }
+});
+
+// GET: Count unseen feedback for a user (for notification bell)
+router.get("/unseen-count/:phone", async (req, res) => {
+  try {
+    const { phone } = req.params;
+    const User = require("../models/User");
+    
+    const user = await User.findOne({ where: { phone } });
+    if (!user) {
+      return res.json({ count: 0 });
+    }
+
+    const count = await ReadingSubmission.count({
+      where: {
+        userId: user.id,
+        feedback: { [require('sequelize').Op.ne]: null },
+        feedbackSeen: false
+      }
+    });
+
+    res.json({ count });
+  } catch (error) {
+    console.error("Error counting unseen feedback:", error);
+    res.status(500).json({ message: "❌ Lỗi", error: error.message });
+  }
+});
+
 module.exports = router;
