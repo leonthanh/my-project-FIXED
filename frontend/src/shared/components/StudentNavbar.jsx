@@ -6,7 +6,8 @@ const StudentNavbar = () => {
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
 
-  const [feedbackCount, setFeedbackCount] = useState(0);
+  const [writingFeedbackCount, setWritingFeedbackCount] = useState(0);
+  const [readingFeedbackCount, setReadingFeedbackCount] = useState(0);
   const [newTestCount, setNewTestCount] = useState(0);
 
   // Lấy thông tin user từ localStorage
@@ -29,6 +30,7 @@ const StudentNavbar = () => {
     if (!user?.phone) return;
 
     try {
+      // Fetch Writing notifications
       const [testsRes, submissionsRes] = await Promise.all([
         fetch(apiPath("writing-tests")).then((res) => res.json()),
         fetch(apiPath("writing/list")).then((res) => res.json()),
@@ -38,8 +40,7 @@ const StudentNavbar = () => {
         (sub) => sub.userPhone === user.phone
       );
 
-      // ✅ Đã sửa: Khai báo unseenFeedbacks trước khi sử dụng
-      const unseenFeedbacks = mySubs.filter(
+      const unseenWritingFeedbacks = mySubs.filter(
         (sub) => sub.feedback && !sub.feedbackSeen
       );
 
@@ -50,12 +51,24 @@ const StudentNavbar = () => {
         (test) => !submittedTestIds.includes(String(test.id))
       );
 
-      setFeedbackCount(unseenFeedbacks.length);
+      setWritingFeedbackCount(unseenWritingFeedbacks.length);
       setNewTestCount(unsubmittedTests.length);
+
+      // Fetch Reading notifications
+      try {
+        const readingRes = await fetch(apiPath(`reading-submissions/unseen-count/${user.phone}`));
+        if (readingRes.ok) {
+          const { count } = await readingRes.json();
+          setReadingFeedbackCount(count || 0);
+        }
+      } catch (err) {
+        console.error("❌ Lỗi khi tải Reading notifications:", err);
+        setReadingFeedbackCount(0);
+      }
     } catch (err) {
       console.error("❌ Lỗi khi tải thông báo:", err);
     }
-  }, [user]); // Giữ nguyên dependencies của useCallback
+  }, [user]);
 
   useEffect(() => {
     if (user?.phone) {
@@ -89,22 +102,46 @@ const StudentNavbar = () => {
 
   const markFeedbackAsSeen = async () => {
     try {
+      // Mark Writing feedback as seen
       const res = await fetch(apiPath("writing/list"));
       const allSubs = await res.json();
       const mySubs = allSubs.filter(
         (sub) =>
           sub.userPhone === user.phone && sub.feedback && !sub.feedbackSeen
       );
-      const unseenIds = mySubs.map((sub) => sub.id);
+      const writingUnseenIds = mySubs.map((sub) => sub.id);
 
-      if (unseenIds.length > 0) {
+      if (writingUnseenIds.length > 0) {
         await fetch(apiPath("writing/mark-feedback-seen"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ ids: unseenIds }),
+          body: JSON.stringify({ ids: writingUnseenIds }),
         });
       }
-      setFeedbackCount(0);
+
+      // Mark Reading feedback as seen
+      try {
+        const readingRes = await fetch(apiPath(`reading-submissions/user/${user.phone}`));
+        if (readingRes.ok) {
+          const readingSubs = await readingRes.json();
+          const readingUnseenIds = readingSubs
+            .filter((sub) => sub.feedback && !sub.feedbackSeen)
+            .map((sub) => sub.id);
+
+          if (readingUnseenIds.length > 0) {
+            await fetch(apiPath("reading-submissions/mark-feedback-seen"), {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ ids: readingUnseenIds }),
+            });
+          }
+        }
+      } catch (err) {
+        console.error("❌ Lỗi khi đánh dấu Reading đã xem:", err);
+      }
+
+      setWritingFeedbackCount(0);
+      setReadingFeedbackCount(0);
     } catch (err) {
       console.error("❌ Lỗi khi đánh dấu đã xem nhận xét:", err);
     }
@@ -135,6 +172,7 @@ const StudentNavbar = () => {
     fontSize: "16px",
   };
 
+  const feedbackCount = writingFeedbackCount + readingFeedbackCount;
   const totalNotifications = feedbackCount + newTestCount;
 
   return (
