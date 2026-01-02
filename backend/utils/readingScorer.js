@@ -806,33 +806,41 @@ function generateAnalysisBreakdown(testData, answers = {}) {
  * Generate human-readable analysis text (Vietnamese)
  */
 function generateAnalysisText(breakdown) {
-  if (!breakdown) return '';
+  if (!breakdown || !breakdown.summary) return '';
   
-  const { summary, byType, weakAreas, strongAreas } = breakdown;
+  const { summary, byType = [], weakAreas = [], strongAreas = [] } = breakdown;
+  
+  // Safely get summary values with defaults
+  const totalCorrect = summary.totalCorrect || 0;
+  const totalQuestions = summary.totalQuestions || 0;
+  const overallPercentage = summary.overallPercentage || 0;
+  const band = summary.band || 0;
   
   let text = `📊 KẾT QUẢ BÀI THI READING\n`;
   text += `━━━━━━━━━━━━━━━━━━━━━━━━\n`;
-  text += `✅ Đúng: ${summary.totalCorrect}/${summary.totalQuestions} (${summary.overallPercentage}%)\n`;
-  text += `🎯 Band Score: ${summary.band}\n\n`;
+  text += `✅ Đúng: ${totalCorrect}/${totalQuestions} (${overallPercentage}%)\n`;
+  text += `🎯 Band Score: ${band}\n\n`;
   
-  text += `📈 PHÂN TÍCH THEO DẠNG CÂU HỎI:\n`;
-  for (const t of byType) {
-    const icon = t.status === 'good' ? '✓' : t.status === 'average' ? '⚠️' : '❌';
-    const statusText = t.status === 'good' ? 'Tốt' : t.status === 'average' ? 'Trung bình' : 'Cần cải thiện';
-    text += `• ${t.label}: ${t.correct}/${t.total} (${t.percentage}%) ${icon} ${statusText}\n`;
+  if (byType && byType.length > 0) {
+    text += `📈 PHÂN TÍCH THEO DẠNG CÂU HỎI:\n`;
+    for (const t of byType) {
+      const icon = t.status === 'good' ? '✓' : t.status === 'average' ? '⚠️' : '❌';
+      const statusText = t.status === 'good' ? 'Tốt' : t.status === 'average' ? 'Trung bình' : 'Cần cải thiện';
+      text += `• ${t.label || t.type}: ${t.correct || 0}/${t.total || 0} (${t.percentage || 0}%) ${icon} ${statusText}\n`;
+    }
   }
   
-  if (weakAreas.length > 0) {
+  if (weakAreas && weakAreas.length > 0) {
     text += `\n💡 GỢI Ý CẢI THIỆN:\n`;
     weakAreas.forEach((area, idx) => {
-      text += `${idx + 1}. ${area.label} (${area.percentage}%):\n   ${area.suggestion}\n`;
+      text += `${idx + 1}. ${area.label} (${area.percentage || 0}%):\n   ${area.suggestion || ''}\n`;
     });
   }
   
-  if (strongAreas.length > 0) {
+  if (strongAreas && strongAreas.length > 0) {
     text += `\n🌟 ĐIỂM MẠNH:\n`;
     strongAreas.forEach(area => {
-      text += `• ${area.label} (${area.percentage}%)\n`;
+      text += `• ${area.label} (${area.percentage || 0}%)\n`;
     });
   }
   
