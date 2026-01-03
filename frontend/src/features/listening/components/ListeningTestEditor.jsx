@@ -25,6 +25,34 @@ import {
 import { calculateTotalQuestions } from "../hooks/useListeningHandlers";
 
 /**
+ * Tính số câu hỏi bắt đầu cho một section cụ thể
+ * Dựa trên tổng số câu hỏi của tất cả parts/sections trước đó
+ */
+const calculateStartingQuestionNumber = (parts, partIndex, sectionIndex) => {
+  let total = 1; // Bắt đầu từ câu 1
+  
+  // Đếm tất cả câu hỏi từ các Part trước
+  for (let p = 0; p < partIndex; p++) {
+    const part = parts[p];
+    if (part?.sections) {
+      for (const section of part.sections) {
+        total += section.questions?.length || 0;
+      }
+    }
+  }
+  
+  // Đếm câu hỏi từ các Section trước trong Part hiện tại
+  const currentPart = parts[partIndex];
+  if (currentPart?.sections) {
+    for (let s = 0; s < sectionIndex; s++) {
+      total += currentPart.sections[s]?.questions?.length || 0;
+    }
+  }
+  
+  return total;
+};
+
+/**
  * ListeningTestEditor - Component chính cho Create/Edit Listening Test
  * Layout 4 cột: Parts → Part Content (Audio) → Sections → Questions
  */
@@ -588,30 +616,50 @@ const ListeningTestEditor = ({
 
               {!collapsedColumns.col3 && currentPart ? (
                 <div style={{ flex: 1, overflow: "auto", padding: "10px" }}>
-                  {currentPart.sections?.map((section, idx) => (
-                    <div
-                      key={idx}
-                      onClick={() => setSelectedSectionIndex(idx)}
-                      style={itemStyle(selectedSectionIndex === idx, colors.sectionOrange)}
-                    >
-                      <div style={{ flex: 1 }}>
-                        <strong>{section.sectionTitle || `Section ${idx + 1}`}</strong>
-                        <br />
-                        <small style={{ opacity: 0.8 }}>
-                          {section.questions?.length || 0} câu • {section.questionType || 'fill'}
-                        </small>
+                  {currentPart.sections?.map((section, idx) => {
+                    // Tính số câu bắt đầu cho section này
+                    const startQ = calculateStartingQuestionNumber(parts, selectedPartIndex, idx);
+                    const endQ = startQ + (section.questions?.length || 1) - 1;
+                    const questionRange = section.questions?.length > 0 
+                      ? `Q${startQ}-${endQ}` 
+                      : `Q${startQ}`;
+                    
+                    return (
+                      <div
+                        key={idx}
+                        onClick={() => setSelectedSectionIndex(idx)}
+                        style={itemStyle(selectedSectionIndex === idx, colors.sectionOrange)}
+                      >
+                        <div style={{ flex: 1 }}>
+                          <strong>{section.sectionTitle || `Questions ${startQ}-${endQ}`}</strong>
+                          <br />
+                          <small style={{ opacity: 0.8 }}>
+                            {section.questions?.length || 0} câu • {section.questionType || 'fill'}
+                          </small>
+                          <span style={{
+                            marginLeft: "6px",
+                            padding: "2px 6px",
+                            backgroundColor: "#fef3c7",
+                            color: "#92400e",
+                            borderRadius: "4px",
+                            fontSize: "10px",
+                            fontWeight: "bold",
+                          }}>
+                            {questionRange}
+                          </span>
+                        </div>
+                        {currentPart.sections.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); onDeleteSection(selectedPartIndex, idx); }}
+                            style={deleteButtonSmallStyle}
+                          >
+                            ✕
+                          </button>
+                        )}
                       </div>
-                      {currentPart.sections.length > 1 && (
-                        <button
-                          type="button"
-                          onClick={(e) => { e.stopPropagation(); onDeleteSection(selectedPartIndex, idx); }}
-                          style={deleteButtonSmallStyle}
-                        >
-                          ✕
-                        </button>
-                      )}
-                    </div>
-                  ))}
+                    );
+                  })}
                   <button
                     type="button"
                     onClick={() => onAddSection(selectedPartIndex)}
@@ -671,31 +719,129 @@ const ListeningTestEditor = ({
 
               {!collapsedColumns.col4 && currentSection ? (
                 <div style={{ flex: 1, overflow: "auto", padding: "16px" }}>
-                  {/* Section Header */}
-                  <div style={{
-                    display: "flex",
-                    gap: "12px",
-                    marginBottom: "16px",
-                    alignItems: "center",
-                    flexWrap: "wrap",
-                  }}>
-                    <input
-                      type="text"
-                      value={currentSection.sectionTitle || ""}
-                      onChange={(e) => onSectionChange(selectedPartIndex, selectedSectionIndex, "sectionTitle", e.target.value)}
-                      placeholder="VD: Questions 1-5"
-                      style={{ ...compactInputStyle, flex: 1, minWidth: "150px" }}
-                    />
-                    <select
-                      value={currentSection.questionType || "fill"}
-                      onChange={(e) => onSectionChange(selectedPartIndex, selectedSectionIndex, "questionType", e.target.value)}
-                      style={{ ...compactInputStyle, width: "auto" }}
-                    >
-                      {questionTypes.map(qt => (
-                        <option key={qt.value} value={qt.value}>{qt.label}</option>
-                      ))}
-                    </select>
-                  </div>
+                  {/* Section Header with auto Question Range */}
+                  {(() => {
+                    const autoStartQ = calculateStartingQuestionNumber(parts, selectedPartIndex, selectedSectionIndex);
+                    // Use override if set, otherwise auto-calculate
+                    const startQ = currentSection.startingQuestionNumber || autoStartQ;
+                    const endQ = startQ + (currentSection.questions?.length || 1) - 1;
+                    const suggestedTitle = `Questions ${startQ}-${endQ}`;
+                    
+                    return (
+                      <>
+                        {/* Auto Question Range Banner */}
+                        <div style={{
+                          padding: "8px 12px",
+                          backgroundColor: "#dbeafe",
+                          borderRadius: "8px",
+                          marginBottom: "12px",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                        }}>
+                          <span style={{ fontSize: "13px", color: "#1e40af" }}>
+                            📊 <strong>Phạm vi câu hỏi:</strong> {startQ} - {endQ} 
+                            <span style={{ opacity: 0.7, marginLeft: "8px" }}>
+                              (tự động tính)
+                            </span>
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => onSectionChange(selectedPartIndex, selectedSectionIndex, "sectionTitle", suggestedTitle)}
+                            style={{
+                              padding: "4px 10px",
+                              backgroundColor: "#3b82f6",
+                              color: "white",
+                              border: "none",
+                              borderRadius: "4px",
+                              fontSize: "11px",
+                              cursor: "pointer",
+                            }}
+                          >
+                            Áp dụng tên "{suggestedTitle}"
+                          </button>
+                        </div>
+                        
+                        {/* Override starting question number */}
+                        <div style={{
+                          display: "flex",
+                          gap: "8px",
+                          marginBottom: "12px",
+                          alignItems: "center",
+                          padding: "8px 12px",
+                          backgroundColor: "#fef3c7",
+                          borderRadius: "8px",
+                          border: "1px solid #fcd34d",
+                        }}>
+                          <label style={{ fontSize: "12px", color: "#92400e", fontWeight: 600, whiteSpace: "nowrap" }}>
+                            🔢 Số câu bắt đầu:
+                          </label>
+                          <input
+                            type="number"
+                            min="1"
+                            max="40"
+                            value={currentSection.startingQuestionNumber || startQ}
+                            onChange={(e) => {
+                              const val = parseInt(e.target.value) || startQ;
+                              onSectionChange(selectedPartIndex, selectedSectionIndex, "startingQuestionNumber", val);
+                            }}
+                            style={{ 
+                              ...compactInputStyle, 
+                              width: "80px", 
+                              marginBottom: 0,
+                              textAlign: "center",
+                              fontWeight: "bold",
+                            }}
+                          />
+                          <span style={{ fontSize: "11px", color: "#92400e" }}>
+                            (Nhập số để override, hoặc để trống để tự động tính)
+                          </span>
+                          {currentSection.startingQuestionNumber && (
+                            <button
+                              type="button"
+                              onClick={() => onSectionChange(selectedPartIndex, selectedSectionIndex, "startingQuestionNumber", null)}
+                              style={{
+                                padding: "2px 8px",
+                                backgroundColor: "#fca5a5",
+                                color: "#991b1b",
+                                border: "none",
+                                borderRadius: "4px",
+                                fontSize: "10px",
+                                cursor: "pointer",
+                              }}
+                            >
+                              Reset
+                            </button>
+                          )}
+                        </div>
+                        
+                        <div style={{
+                          display: "flex",
+                          gap: "12px",
+                          marginBottom: "16px",
+                          alignItems: "center",
+                          flexWrap: "wrap",
+                        }}>
+                          <input
+                            type="text"
+                            value={currentSection.sectionTitle || ""}
+                            onChange={(e) => onSectionChange(selectedPartIndex, selectedSectionIndex, "sectionTitle", e.target.value)}
+                            placeholder={suggestedTitle}
+                            style={{ ...compactInputStyle, flex: 1, minWidth: "150px" }}
+                          />
+                          <select
+                            value={currentSection.questionType || "fill"}
+                            onChange={(e) => onSectionChange(selectedPartIndex, selectedSectionIndex, "questionType", e.target.value)}
+                            style={{ ...compactInputStyle, width: "auto" }}
+                          >
+                            {questionTypes.map(qt => (
+                              <option key={qt.value} value={qt.value}>{qt.label}</option>
+                            ))}
+                          </select>
+                        </div>
+                      </>
+                    );
+                  })()}
 
                   {/* Section Instructions */}
                   <textarea
@@ -712,49 +858,84 @@ const ListeningTestEditor = ({
 
                   {/* Questions List */}
                   <div style={{ marginBottom: "16px" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
-                      <h4 style={{ margin: 0, color: colors.questionYellow }}>
-                        Câu hỏi ({currentSection.questions?.length || 0})
-                      </h4>
-                      <div style={{ display: "flex", gap: "6px" }}>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setTemplateLibraryMode('question');
-                            setShowTemplateLibrary(true);
-                          }}
-                          style={{ ...secondaryButtonStyle, padding: "6px 10px", fontSize: "11px" }}
-                        >
-                          📚 Template
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setShowBulkAddModal(true)}
-                          style={{ ...secondaryButtonStyle, padding: "6px 10px", fontSize: "11px" }}
-                        >
-                          ➕ Thêm nhiều
-                        </button>
-                      </div>
-                    </div>
+                    {(() => {
+                      const autoSectionStartQ = calculateStartingQuestionNumber(parts, selectedPartIndex, selectedSectionIndex);
+                      // Use override if set
+                      const sectionStartQ = currentSection.startingQuestionNumber || autoSectionStartQ;
+                      const sectionType = currentSection.questionType || "fill";
+                      
+                      // For matching type, we show different UI
+                      const isMatchingType = sectionType === "matching";
+                      // For form-completion type, show similar to matching (range of questions)
+                      const isFormCompletionType = sectionType === "form-completion";
+                      
+                      // Calculate total questions for this section
+                      let totalSubQuestions = 0;
+                      if (isMatchingType) {
+                        totalSubQuestions = currentSection.questions?.[0]?.leftItems?.length || 0;
+                      } else if (isFormCompletionType) {
+                        // Count blanks in form-completion
+                        totalSubQuestions = currentSection.questions?.[0]?.formRows?.filter(r => r.isBlank)?.length || 0;
+                      } else {
+                        totalSubQuestions = currentSection.questions?.length || 0;
+                      }
+                      
+                      // Show range for multi-question types (matching, form-completion)
+                      const showRange = isMatchingType || isFormCompletionType;
+                      
+                      return (
+                        <>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
+                            <h4 style={{ margin: 0, color: colors.questionYellow }}>
+                              {showRange 
+                                ? `${isMatchingType ? 'Matching' : 'Form Completion'} Block (${totalSubQuestions} câu: ${sectionStartQ}-${sectionStartQ + totalSubQuestions - 1})`
+                                : `Câu hỏi (${currentSection.questions?.length || 0})`
+                              }
+                            </h4>
+                            <div style={{ display: "flex", gap: "6px" }}>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setTemplateLibraryMode('question');
+                                  setShowTemplateLibrary(true);
+                                }}
+                                style={{ ...secondaryButtonStyle, padding: "6px 10px", fontSize: "11px" }}
+                              >
+                                📚 Template
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setShowBulkAddModal(true)}
+                                style={{ ...secondaryButtonStyle, padding: "6px 10px", fontSize: "11px" }}
+                              >
+                                ➕ Thêm nhiều
+                              </button>
+                            </div>
+                          </div>
 
-                    {currentSection.questions?.map((question, qIdx) => (
-                      <ListeningQuestionEditor
-                        key={qIdx}
-                        question={question}
-                        questionIndex={qIdx}
-                        questionType={currentSection.questionType || question.questionType}
-                        onChange={(field, value) => 
-                          onQuestionChange(selectedPartIndex, selectedSectionIndex, qIdx, field, value)
-                        }
-                        onDelete={() => 
-                          onDeleteQuestion(selectedPartIndex, selectedSectionIndex, qIdx)
-                        }
-                        onCopy={() =>
-                          onCopyQuestion(selectedPartIndex, selectedSectionIndex, qIdx)
-                        }
-                        canDelete={currentSection.questions.length > 1}
-                      />
-                    ))}
+                          {currentSection.questions?.map((question, qIdx) => (
+                            <ListeningQuestionEditor
+                              key={qIdx}
+                              question={question}
+                              questionIndex={qIdx}
+                              questionType={currentSection.questionType || question.questionType}
+                              globalQuestionNumber={sectionStartQ + qIdx}
+                              sectionStartingNumber={sectionStartQ}
+                              onChange={(field, value) => 
+                                onQuestionChange(selectedPartIndex, selectedSectionIndex, qIdx, field, value)
+                              }
+                              onDelete={() => 
+                                onDeleteQuestion(selectedPartIndex, selectedSectionIndex, qIdx)
+                              }
+                              onCopy={() =>
+                                onCopyQuestion(selectedPartIndex, selectedSectionIndex, qIdx)
+                              }
+                              canDelete={currentSection.questions.length > 1}
+                            />
+                          ))}
+                        </>
+                      );
+                    })()}
                   </div>
 
                   {/* Add Question Button */}

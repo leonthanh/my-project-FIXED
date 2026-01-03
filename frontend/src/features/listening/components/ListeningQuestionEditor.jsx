@@ -13,9 +13,13 @@ const ListeningQuestionEditor = ({
   onDelete,
   onCopy,
   canDelete = true,
+  globalQuestionNumber = null, // Số câu hỏi toàn cục (1-40)
+  sectionStartingNumber = null, // Số câu bắt đầu của section (cho matching)
 }) => {
   const [isExpanded, setIsExpanded] = useState(true);
 
+  // IMPORTANT: Prioritize section's questionType prop over question's own type
+  // This ensures form-completion section shows correctly even if question has questionType: "fill"
   const type = questionType || question.questionType || "fill";
 
   // Render based on question type
@@ -666,89 +670,213 @@ const ListeningQuestionEditor = ({
     </div>
   );
 
-  // Matching question
-  const renderMatchingQuestion = () => (
-    <div>
-      <label style={labelStyle}>Câu hỏi / Mô tả</label>
-      <input
-        type="text"
-        value={question.questionText || ""}
-        onChange={(e) => onChange("questionText", e.target.value)}
-        placeholder="VD: Match each speaker with their opinion"
-        style={compactInputStyle}
-      />
+  // Matching question - với số câu global
+  const renderMatchingQuestion = () => {
+    const leftItems = question.leftItems || [""];
+    const startNum = sectionStartingNumber || globalQuestionNumber || 1;
+    
+    return (
+      <div>
+        {/* Info banner */}
+        <div style={{
+          padding: "10px 12px",
+          backgroundColor: "#dbeafe",
+          borderRadius: "8px",
+          marginBottom: "12px",
+          border: "1px solid #3b82f6",
+          fontSize: "12px",
+        }}>
+          <strong style={{ color: "#1d4ed8" }}>📋 Matching Question</strong>
+          <p style={{ margin: "4px 0 0", color: "#1e40af" }}>
+            Mỗi item bên trái = 1 câu hỏi. Số câu sẽ tự động đánh từ <strong>{startNum}</strong> đến <strong>{startNum + leftItems.length - 1}</strong>.
+          </p>
+        </div>
+        
+        <label style={labelStyle}>Câu hỏi / Mô tả</label>
+        <input
+          type="text"
+          value={question.questionText || ""}
+          onChange={(e) => onChange("questionText", e.target.value)}
+          placeholder="VD: What characteristics have been offered for each facility?"
+          style={compactInputStyle}
+        />
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginTop: "12px" }}>
-        {/* Left items (numbered) */}
-        <div>
-          <label style={labelStyle}>Items (Số thứ tự)</label>
-          {(question.leftItems || [""]).map((item, idx) => (
-            <div key={idx} style={{ display: "flex", gap: "8px", marginBottom: "8px" }}>
-              <span style={optionLabelStyle}>{idx + 1}</span>
-              <input
-                type="text"
-                value={item}
-                onChange={(e) => {
-                  const newItems = [...(question.leftItems || [""])];
-                  newItems[idx] = e.target.value;
-                  onChange("leftItems", newItems);
-                }}
-                placeholder={`Item ${idx + 1}`}
-                style={{ ...compactInputStyle, flex: 1 }}
-              />
-            </div>
-          ))}
-          <button
-            type="button"
-            onClick={() => onChange("leftItems", [...(question.leftItems || []), ""])}
-            style={addItemButtonStyle}
-          >
-            + Item
-          </button>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginTop: "12px" }}>
+          {/* Left items (global numbered) */}
+          <div>
+            <label style={labelStyle}>
+              Items (Câu {startNum}-{startNum + leftItems.length - 1})
+            </label>
+            {leftItems.map((item, idx) => {
+              const questionNum = startNum + idx;
+              return (
+                <div key={idx} style={{ display: "flex", gap: "8px", marginBottom: "8px", alignItems: "center" }}>
+                  <span style={{
+                    ...optionLabelStyle,
+                    backgroundColor: "#3b82f6",
+                    color: "white",
+                    minWidth: "32px",
+                  }}>
+                    {questionNum}
+                  </span>
+                  <input
+                    type="text"
+                    value={item}
+                    onChange={(e) => {
+                      const newItems = [...leftItems];
+                      newItems[idx] = e.target.value;
+                      onChange("leftItems", newItems);
+                    }}
+                    placeholder={`Facility/Item ${idx + 1}`}
+                    style={{ ...compactInputStyle, flex: 1, marginBottom: 0 }}
+                  />
+                  {leftItems.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const newItems = leftItems.filter((_, i) => i !== idx);
+                        onChange("leftItems", newItems);
+                      }}
+                      style={deleteButtonSmallStyle}
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+            <button
+              type="button"
+              onClick={() => onChange("leftItems", [...leftItems, ""])}
+              style={addItemButtonStyle}
+            >
+              + Thêm Item (Câu {startNum + leftItems.length})
+            </button>
+          </div>
+
+          {/* Right items (lettered options) */}
+          <div>
+            <label style={labelStyle}>Options (A, B, C...)</label>
+            {(question.rightItems || ["A.", "B.", "C."]).map((item, idx) => (
+              <div key={idx} style={{ display: "flex", gap: "8px", marginBottom: "8px", alignItems: "center" }}>
+                <span style={optionLabelStyle}>{String.fromCharCode(65 + idx)}</span>
+                <input
+                  type="text"
+                  value={item.replace(/^[A-Z]\.\s*/, "")}
+                  onChange={(e) => {
+                    const newItems = [...(question.rightItems || [])];
+                    newItems[idx] = `${String.fromCharCode(65 + idx)}. ${e.target.value}`;
+                    onChange("rightItems", newItems);
+                  }}
+                  placeholder={`Option ${String.fromCharCode(65 + idx)}`}
+                  style={{ ...compactInputStyle, flex: 1, marginBottom: 0 }}
+                />
+                {(question.rightItems?.length || 3) > 3 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const newItems = (question.rightItems || []).filter((_, i) => i !== idx);
+                      onChange("rightItems", newItems);
+                    }}
+                    style={deleteButtonSmallStyle}
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+            ))}
+            <button
+              type="button"
+              onClick={() => {
+                const newLetter = String.fromCharCode(65 + (question.rightItems?.length || 3));
+                onChange("rightItems", [...(question.rightItems || []), `${newLetter}.`]);
+              }}
+              style={addItemButtonStyle}
+            >
+              + Thêm Option
+            </button>
+          </div>
         </div>
 
-        {/* Right items (lettered options) */}
-        <div>
-          <label style={labelStyle}>Options (A, B, C...)</label>
-          {(question.rightItems || ["A.", "B.", "C."]).map((item, idx) => (
-            <div key={idx} style={{ display: "flex", gap: "8px", marginBottom: "8px" }}>
-              <span style={optionLabelStyle}>{String.fromCharCode(65 + idx)}</span>
-              <input
-                type="text"
-                value={item.replace(/^[A-Z]\.\s*/, "")}
-                onChange={(e) => {
-                  const newItems = [...(question.rightItems || [])];
-                  newItems[idx] = `${String.fromCharCode(65 + idx)}. ${e.target.value}`;
-                  onChange("rightItems", newItems);
-                }}
-                placeholder={`Option ${String.fromCharCode(65 + idx)}`}
-                style={{ ...compactInputStyle, flex: 1 }}
-              />
-            </div>
-          ))}
-          <button
-            type="button"
-            onClick={() => {
-              const newLetter = String.fromCharCode(65 + (question.rightItems?.length || 3));
-              onChange("rightItems", [...(question.rightItems || []), `${newLetter}.`]);
-            }}
-            style={addItemButtonStyle}
-          >
-            + Option
-          </button>
+        {/* Answers section */}
+        <div style={{ marginTop: "16px" }}>
+          <label style={labelStyle}>✅ Đáp án</label>
+          <div style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))",
+            gap: "8px",
+          }}>
+            {leftItems.map((item, idx) => {
+              const questionNum = startNum + idx;
+              const answers = question.answers || {};
+              return (
+                <div key={idx} style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  padding: "6px 8px",
+                  backgroundColor: "#f0fdf4",
+                  borderRadius: "6px",
+                  border: "1px solid #86efac",
+                }}>
+                  <span style={{
+                    background: "#22c55e",
+                    color: "white",
+                    width: "24px",
+                    height: "24px",
+                    borderRadius: "50%",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: "11px",
+                    fontWeight: "bold",
+                    flexShrink: 0,
+                  }}>
+                    {questionNum}
+                  </span>
+                  <select
+                    value={answers[questionNum] || ""}
+                    onChange={(e) => {
+                      const newAnswers = { ...answers, [questionNum]: e.target.value };
+                      onChange("answers", newAnswers);
+                    }}
+                    style={{ 
+                      ...compactInputStyle, 
+                      flex: 1, 
+                      marginBottom: 0, 
+                      fontSize: "12px",
+                      padding: "4px 8px",
+                    }}
+                  >
+                    <option value="">--</option>
+                    {(question.rightItems || ["A.", "B.", "C."]).map((_, optIdx) => (
+                      <option key={optIdx} value={String.fromCharCode(65 + optIdx)}>
+                        {String.fromCharCode(65 + optIdx)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+        
+        {/* Alternative text input for answers */}
+        <div style={{ marginTop: "12px" }}>
+          <label style={{ ...labelStyle, fontSize: "11px", color: "#6b7280" }}>
+            Hoặc nhập đáp án dạng text (VD: 15-B, 16-A, 17-C)
+          </label>
+          <input
+            type="text"
+            value={question.correctAnswer || ""}
+            onChange={(e) => onChange("correctAnswer", e.target.value)}
+            placeholder={`${startNum}-B, ${startNum + 1}-A, ${startNum + 2}-C...`}
+            style={{ ...compactInputStyle, fontSize: "12px" }}
+          />
         </div>
       </div>
-
-      <label style={{ ...labelStyle, marginTop: "12px" }}>Đáp án (VD: 1-B, 2-A, 3-C)</label>
-      <input
-        type="text"
-        value={question.correctAnswer || ""}
-        onChange={(e) => onChange("correctAnswer", e.target.value)}
-        placeholder="1-B, 2-A, 3-C, 4-D"
-        style={compactInputStyle}
-      />
-    </div>
-  );
+    );
+  };
 
   // Multi-select question (Choose 2 letters)
   const renderMultiSelectQuestion = () => {
@@ -1095,6 +1223,18 @@ const ListeningQuestionEditor = ({
     </div>
   );
 
+  // Check if this is a matching type (shows differently)
+  const isMatchingType = type === "matching";
+  // Check if this is form-completion type (also shows range like matching)
+  const isFormCompletionType = type === "form-completion";
+  const leftItemsCount = question.leftItems?.length || 0;
+  const startNum = sectionStartingNumber || globalQuestionNumber || 1;
+  
+  // For form-completion, get blank count from formRows
+  const formBlankCount = isFormCompletionType 
+    ? (question.formRows?.filter(r => r.isBlank)?.length || 0)
+    : 0;
+
   return (
     <div style={questionCardStyle}>
       {/* Header */}
@@ -1104,7 +1244,59 @@ const ListeningQuestionEditor = ({
       >
         <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
           <span style={{ fontSize: "11px" }}>{isExpanded ? "▼" : "▶"}</span>
-          <strong>Câu {questionIndex + 1}</strong>
+          
+          {/* Different display for matching and form-completion vs other types */}
+          {isMatchingType ? (
+            <strong style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+              <span style={{
+                background: "linear-gradient(135deg, #3b82f6, #8b5cf6)",
+                color: "white",
+                padding: "3px 10px",
+                borderRadius: "12px",
+                fontSize: "11px",
+                fontWeight: "bold",
+              }}>
+                Q{startNum}-{startNum + leftItemsCount - 1}
+              </span>
+              <span style={{ color: "#6b7280", fontSize: "12px" }}>
+                ({leftItemsCount} items)
+              </span>
+            </strong>
+          ) : isFormCompletionType ? (
+            <strong style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+              <span style={{
+                background: "linear-gradient(135deg, #10b981, #059669)",
+                color: "white",
+                padding: "3px 10px",
+                borderRadius: "12px",
+                fontSize: "11px",
+                fontWeight: "bold",
+              }}>
+                Q{startNum}-{startNum + formBlankCount - 1}
+              </span>
+              <span style={{ color: "#6b7280", fontSize: "12px" }}>
+                ({formBlankCount} blanks)
+              </span>
+            </strong>
+          ) : globalQuestionNumber ? (
+            <strong style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+              <span style={{
+                background: "#3b82f6",
+                color: "white",
+                padding: "2px 8px",
+                borderRadius: "10px",
+                fontSize: "11px",
+                fontWeight: "bold",
+              }}>
+                {globalQuestionNumber}
+              </span>
+              <span style={{ color: "#6b7280", fontSize: "11px" }}>
+                (#{questionIndex + 1} trong section)
+              </span>
+            </strong>
+          ) : (
+            <strong>Câu {questionIndex + 1}</strong>
+          )}
           <span style={typeBadgeStyle}>{type}</span>
         </div>
         <div style={{ display: "flex", gap: "4px" }}>
