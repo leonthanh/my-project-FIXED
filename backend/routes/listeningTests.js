@@ -65,17 +65,111 @@ router.post('/', upload.fields([
         audioFile = `/uploads/audio/${req.files[`audioFile_passage_${index}`][0].filename}`;
       }
       
+      // Also check for audioFile_part_X (frontend sends this)
+      if (req.files && req.files[`audioFile_part_${index}`]) {
+        audioFile = `/uploads/audio/${req.files[`audioFile_part_${index}`][0].filename}`;
+      }
+      
       return {
         ...passage,
         audioFile
       };
     });
 
+    // Transform passages to match database model structure
+    // Model expects: partTypes, partInstructions, questions (JSON fields)
+    const partTypes = processedPassages.map(part => {
+      // Get all question types from all sections in this part
+      const types = part.sections?.map(s => s.questionType || 'fill') || ['fill'];
+      return types;
+    });
+
+    const partInstructions = processedPassages.map(part => ({
+      title: part.title || '',
+      instruction: part.instruction || '',
+      transcript: part.transcript || '',
+      audioFile: part.audioFile || null,
+      sections: part.sections?.map(s => ({
+        sectionTitle: s.sectionTitle || '',
+        sectionInstruction: s.sectionInstruction || '',
+        questionType: s.questionType || 'fill',
+        startingQuestionNumber: s.startingQuestionNumber || null,
+      })) || []
+    }));
+
+    // Flatten all questions from all parts/sections with proper indexing
+    const questions = [];
+    let globalQuestionNum = 1;
+    
+    processedPassages.forEach((part, partIndex) => {
+      part.sections?.forEach((section, sectionIndex) => {
+        section.questions?.forEach((q, qIndex) => {
+          questions.push({
+            partIndex,
+            sectionIndex,
+            questionIndex: qIndex,
+            globalNumber: globalQuestionNum,
+            questionType: q.questionType || section.questionType || 'fill',
+            questionText: q.questionText || '',
+            correctAnswer: q.correctAnswer || '',
+            options: q.options || null,
+            // Form completion specific
+            formTitle: q.formTitle || null,
+            formRows: q.formRows || null,
+            questionRange: q.questionRange || null,
+            answers: q.answers || null,
+            // Matching specific
+            leftItems: q.leftItems || null,
+            rightItems: q.rightItems || null,
+            items: q.items || null,
+            // Notes completion specific
+            notesText: q.notesText || null,
+            notesTitle: q.notesTitle || null,
+            // Multi-select specific
+            requiredAnswers: q.requiredAnswers || null,
+            // Other
+            wordLimit: q.wordLimit || null,
+          });
+          
+          // Calculate how many questions this item represents
+          const qType = q.questionType || section.questionType || 'fill';
+          
+          if (qType === 'matching') {
+            globalQuestionNum += (q.leftItems?.length || 1);
+          } else if (qType === 'form-completion') {
+            const blankCount = q.formRows?.filter(r => r.isBlank)?.length || 1;
+            globalQuestionNum += blankCount;
+          } else if (qType === 'notes-completion') {
+            // Count blanks in notesText
+            const notesText = q.notesText || '';
+            const blanks = notesText.match(/\d+\s*[_…]+|[_…]{2,}/g) || [];
+            globalQuestionNum += blanks.length || 1;
+          } else if (qType === 'multi-select') {
+            globalQuestionNum += (q.requiredAnswers || 2);
+          } else {
+            globalQuestionNum += 1;
+          }
+        });
+      });
+    });
+
+    // Build part audio URLs object
+    const partAudioUrls = {};
+    processedPassages.forEach((part, idx) => {
+      if (part.audioFile) {
+        partAudioUrls[idx] = part.audioFile;
+      }
+    });
+
     // Create the listening test
     const listeningTest = await ListeningTest.create({
       classCode,
       teacherName,
-      passages: processedPassages
+      mainAudioUrl,
+      partAudioUrls,
+      partTypes,
+      partInstructions,
+      questions
     });
 
     res.status(201).json({
@@ -101,9 +195,12 @@ router.post('/', upload.fields([
 // API lấy danh sách đề thi
 router.get('/', async (req, res) => {
   try {
-    const tests = await ListeningTest.find().sort({ createdAt: -1 });
+    const tests = await ListeningTest.findAll({
+      order: [['createdAt', 'DESC']]
+    });
     res.json(tests);
   } catch (error) {
+    console.error('Error fetching listening tests:', error);
     res.status(500).json({
       message: '❌ Lỗi khi lấy danh sách đề thi',
       error: error.message
@@ -215,10 +312,10 @@ router.post('/:id/submit', async (req, res) => {
 // API cập nhật đề thi
 router.put('/:id', upload.fields([
   { name: 'audioFile', maxCount: 1 },
-  { name: 'audioFile_part1', maxCount: 1 },
-  { name: 'audioFile_part2', maxCount: 1 },
-  { name: 'audioFile_part3', maxCount: 1 },
-  { name: 'audioFile_part4', maxCount: 1 }
+  { name: 'audioFile_part_0', maxCount: 1 },
+  { name: 'audioFile_part_1', maxCount: 1 },
+  { name: 'audioFile_part_2', maxCount: 1 },
+  { name: 'audioFile_part_3', maxCount: 1 }
 ]), async (req, res) => {
   try {
     const test = await ListeningTest.findByPk(req.params.id);
@@ -226,29 +323,125 @@ router.put('/:id', upload.fields([
       return res.status(404).json({ message: '❌ Không tìm thấy đề thi' });
     }
 
-    const { questions, partInstructions, partTypes } = req.body;
+    console.log('Update request body:', req.body);
+    console.log('Update request files:', req.files ? Object.keys(req.files) : 'none');
+
+    const { classCode, teacherName, passages, title } = req.body;
+    
+    let updates = {};
+    
+    // Update basic fields
+    if (classCode) updates.classCode = classCode;
+    if (teacherName) updates.teacherName = teacherName;
+    if (title) updates.title = title;
     
     // Process file updates if any
-    let updates = {};
     if (req.files) {
       if (req.files.audioFile) {
         updates.mainAudioUrl = `/uploads/audio/${req.files.audioFile[0].filename}`;
       }
-      
-      const newPartAudioUrls = { ...test.partAudioUrls };
-      ['part1', 'part2', 'part3', 'part4'].forEach(part => {
-        const fileKey = `audioFile_${part}`;
-        if (req.files[fileKey]) {
-          newPartAudioUrls[part] = `/uploads/audio/${req.files[fileKey][0].filename}`;
-        }
-      });
-      updates.partAudioUrls = newPartAudioUrls;
     }
 
-    // Update other fields
-    if (questions) updates.questions = JSON.parse(questions);
-    if (partInstructions) updates.partInstructions = JSON.parse(partInstructions);
-    if (partTypes) updates.partTypes = JSON.parse(partTypes);
+    // If passages provided, transform like in POST route
+    if (passages) {
+      const parsedPassages = typeof passages === 'string' ? JSON.parse(passages) : passages;
+      
+      // Process audio files for each part
+      const processedPassages = parsedPassages.map((passage, index) => {
+        let audioFile = passage.audioFile || test.mainAudioUrl;
+        
+        if (req.files && req.files[`audioFile_part_${index}`]) {
+          audioFile = `/uploads/audio/${req.files[`audioFile_part_${index}`][0].filename}`;
+        }
+        
+        return { ...passage, audioFile };
+      });
+
+      // Transform to database format (same as POST)
+      const partTypes = processedPassages.map(part => {
+        const types = part.sections?.map(s => s.questionType || 'fill') || ['fill'];
+        return types;
+      });
+
+      const partInstructions = processedPassages.map(part => ({
+        title: part.title || '',
+        instruction: part.instruction || '',
+        transcript: part.transcript || '',
+        audioFile: part.audioFile || null,
+        sections: part.sections?.map(s => ({
+          sectionTitle: s.sectionTitle || '',
+          sectionInstruction: s.sectionInstruction || '',
+          questionType: s.questionType || 'fill',
+          startingQuestionNumber: s.startingQuestionNumber || null,
+        })) || []
+      }));
+
+      // Flatten questions
+      const questions = [];
+      let globalQuestionNum = 1;
+      
+      processedPassages.forEach((part, partIndex) => {
+        part.sections?.forEach((section, sectionIndex) => {
+          section.questions?.forEach((q, qIndex) => {
+            questions.push({
+              partIndex,
+              sectionIndex,
+              questionIndex: qIndex,
+              globalNumber: globalQuestionNum,
+              questionType: q.questionType || section.questionType || 'fill',
+              questionText: q.questionText || '',
+              correctAnswer: q.correctAnswer || '',
+              options: q.options || null,
+              formTitle: q.formTitle || null,
+              formRows: q.formRows || null,
+              questionRange: q.questionRange || null,
+              answers: q.answers || null,
+              leftItems: q.leftItems || null,
+              rightItems: q.rightItems || null,
+              items: q.items || null,
+              wordLimit: q.wordLimit || null,
+              // Notes completion fields
+              notesText: q.notesText || null,
+              notesTitle: q.notesTitle || null,
+              // Multi-select fields
+              requiredAnswers: q.requiredAnswers || null,
+            });
+            
+            // Calculate question count based on question type
+            const qType = q.questionType || section.questionType || 'fill';
+            
+            if (qType === 'matching') {
+              globalQuestionNum += (q.leftItems?.length || 1);
+            } else if (qType === 'form-completion') {
+              const blankCount = q.formRows?.filter(r => r.isBlank)?.length || 1;
+              globalQuestionNum += blankCount;
+            } else if (qType === 'notes-completion') {
+              // Count blanks in notesText
+              const notesText = q.notesText || '';
+              const blanks = notesText.match(/\d+\s*[_…]+|[_…]{2,}/g) || [];
+              globalQuestionNum += blanks.length || 1;
+            } else if (qType === 'multi-select') {
+              globalQuestionNum += (q.requiredAnswers || 2);
+            } else {
+              globalQuestionNum += 1;
+            }
+          });
+        });
+      });
+
+      // Build part audio URLs
+      const partAudioUrls = {};
+      processedPassages.forEach((part, idx) => {
+        if (part.audioFile) {
+          partAudioUrls[idx] = part.audioFile;
+        }
+      });
+
+      updates.partTypes = partTypes;
+      updates.partInstructions = partInstructions;
+      updates.questions = questions;
+      updates.partAudioUrls = partAudioUrls;
+    }
 
     // Update the test
     await test.update(updates);
