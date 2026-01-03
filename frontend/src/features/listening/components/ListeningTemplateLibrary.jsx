@@ -14,7 +14,87 @@ import { useTheme } from "../../../shared/contexts/ThemeContext";
 const QUESTION_TEMPLATES = {
   "form-completion": [
     {
-      name: "Form điền thông tin cá nhân",
+      name: "📋 Form cá nhân (Personal Details)",
+      template: {
+        questionType: "form-completion",
+        formTitle: "PERSONAL DETAILS FOR HOMESTAY APPLICATION",
+        questionRange: "Questions 1-5",
+        formContent: `<table border="1" cellpadding="8" cellspacing="0" style="width: 100%; border-collapse: collapse;">
+  <tr><td style="width: 40%;"><strong>First name</strong></td><td>{{1}}</td></tr>
+  <tr><td><strong>Family name</strong></td><td>Yuichini</td></tr>
+  <tr><td><strong>Gender</strong></td><td>Female</td></tr>
+  <tr><td><strong>Age</strong></td><td>28</td></tr>
+  <tr><td><strong>Passport number</strong></td><td>{{2}}</td></tr>
+  <tr><td><strong>Nationality</strong></td><td>Japanese</td></tr>
+  <tr><td><strong>Course enrolled</strong></td><td>{{3}}</td></tr>
+  <tr><td><strong>Length of the course</strong></td><td>{{4}}</td></tr>
+  <tr><td><strong>Homestay time</strong></td><td>{{5}}</td></tr>
+</table>`,
+        answers: {},
+      },
+    },
+    {
+      name: "📋 Form thuê văn phòng (Office Rental)",
+      template: {
+        questionType: "form-completion",
+        formTitle: "OFFICE RENTAL",
+        questionRange: "Questions 1-10",
+        formContent: `<div style="line-height: 2;">
+<p><strong>Address:</strong> 21 North Avenue</p>
+<p>– Type of company: {{1}}</p>
+<p>– Full name: Jonathan Smith</p>
+<p>– Position: {{2}}</p>
+<p>– Preferred location: near the {{3}}</p>
+<p>– No. of people: 30</p>
+<p>– Preferred size of the area: {{4}} ft²</p>
+<p>– Requirements: 24-hour {{5}}</p>
+<p>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{{6}} on ground floor</p>
+<p>– Preferred facilities: a {{7}} for employees</p>
+<p>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;a {{8}} away from the workspace</p>
+<p>– No. of power sockets: 40</p>
+<p>– Daily exercise: at a {{9}}</p>
+<p>– Unnecessary: furniture</p>
+<p>– Other requirements: WIFI</p>
+<p>– Arrangement of viewing: Thursday, at {{10}}</p>
+</div>`,
+        answers: {},
+      },
+    },
+    {
+      name: "📋 Form ghi chú (Notes Template)",
+      template: {
+        questionType: "form-completion",
+        formTitle: "NOTES",
+        questionRange: "Questions 11-20",
+        formContent: `<table border="1" cellpadding="10" cellspacing="0" style="width: 100%; border-collapse: collapse;">
+<tr><td>
+<p><strong>VISAS</strong></p>
+<p>Now visas are needed by almost all nationalities.</p>
+<p>Normal visas last {{11}}</p>
+<p>You need to pay {{12}} for the visa.</p>
+<p>Price may change from time to time.</p>
+<br/>
+<p><strong>SOME MISCELLANEOUS GENERAL ADVICE</strong></p>
+<p>If you carry a lot of money, you need to complete a {{13}}</p>
+<p>Remember to declare all your items on a {{14}}</p>
+<p>You are advised to carry a health certificate: {{15}}</p>
+<br/>
+<p><strong>NOTES FOR STUDENTS</strong></p>
+<p>If you wish to get a youth fare card, you should show your {{16}}</p>
+<p>You are advised to take at least {{17}} passport photos.</p>
+<br/>
+<p><strong>CURRENCY</strong></p>
+<p>Pounds and US dollars are not very useful now, so take {{18}} or {{19}} with you.</p>
+<p>Credit cards: {{20}}</p>
+</td></tr>
+</table>`,
+        answers: {},
+      },
+    },
+  ],
+  "fill-blank": [
+    {
+      name: "Fill blank - Tên/Name",
       template: {
         questionType: "fill",
         questionText: "Name: _____",
@@ -23,7 +103,7 @@ const QUESTION_TEMPLATES = {
       },
     },
     {
-      name: "Form điền số điện thoại",
+      name: "Fill blank - Số điện thoại",
       template: {
         questionType: "fill",
         questionText: "Phone number: _____",
@@ -32,7 +112,7 @@ const QUESTION_TEMPLATES = {
       },
     },
     {
-      name: "Form điền địa chỉ",
+      name: "Fill blank - Địa chỉ",
       template: {
         questionType: "fill",
         questionText: "Address: _____ Street",
@@ -41,10 +121,19 @@ const QUESTION_TEMPLATES = {
       },
     },
     {
-      name: "Form điền ngày tháng",
+      name: "Fill blank - Ngày tháng",
       template: {
         questionType: "fill",
         questionText: "Date: _____",
+        correctAnswer: "",
+        wordLimit: 1,
+      },
+    },
+    {
+      name: "Fill blank - Giá tiền",
+      template: {
+        questionType: "fill",
+        questionText: "Price: $ _____",
         correctAnswer: "",
         wordLimit: 1,
       },
@@ -251,10 +340,41 @@ const QUESTION_TEMPLATES = {
 
 // ==================== SECTION TEMPLATES (IELTS Format) ====================
 const SECTION_TEMPLATES = {
-  "part1-form": {
-    name: "📋 Part 1: Form Completion (10 câu)",
-    description: "Form điền thông tin - Q1-10",
+  "part1-form-table": {
+    name: "📋 Part 1: Form/Table Completion (IELTS)",
+    description: "Form đầy đủ với bảng - Q1-10 (Recommended)",
     icon: "📋",
+    color: "#3b82f6",
+    section: {
+      title: "Part 1: Form Completion",
+      instructions: "Complete the form below. Write NO MORE THAN TWO WORDS AND/OR A NUMBER for each answer.",
+      questionType: "form-completion",
+      questions: [{
+        id: "q1-10",
+        questionType: "form-completion",
+        formTitle: "PERSONAL DETAILS",
+        questionRange: "Questions 1-10",
+        formContent: `<table border="1" cellpadding="10" cellspacing="0" style="width: 100%; border-collapse: collapse;">
+  <tr><td style="width: 40%;"><strong>First name</strong></td><td>{{1}}</td></tr>
+  <tr><td><strong>Family name</strong></td><td>Smith</td></tr>
+  <tr><td><strong>Date of birth</strong></td><td>{{2}}</td></tr>
+  <tr><td><strong>Address</strong></td><td>{{3}} Street</td></tr>
+  <tr><td><strong>Postcode</strong></td><td>{{4}}</td></tr>
+  <tr><td><strong>Phone number</strong></td><td>{{5}}</td></tr>
+  <tr><td><strong>Email</strong></td><td>{{6}}@gmail.com</td></tr>
+  <tr><td><strong>Occupation</strong></td><td>{{7}}</td></tr>
+  <tr><td><strong>Department</strong></td><td>{{8}}</td></tr>
+  <tr><td><strong>Start date</strong></td><td>{{9}}</td></tr>
+  <tr><td><strong>Reference number</strong></td><td>{{10}}</td></tr>
+</table>`,
+        answers: {},
+      }],
+    },
+  },
+  "part1-form": {
+    name: "📝 Part 1: Fill Blanks riêng lẻ (10 câu)",
+    description: "10 câu fill riêng biệt - Q1-10",
+    icon: "📝",
     color: "#3498db",
     section: {
       title: "Part 1: Form Completion",
@@ -366,11 +486,12 @@ const SECTION_TEMPLATES = {
 
 // Category info for UI
 const CATEGORY_INFO = {
-  "form-completion": { icon: "📋", label: "Form Completion", color: "#3498db" },
+  "form-completion": { icon: "📋", label: "Form/Table Completion", color: "#3b82f6" },
+  "fill-blank": { icon: "📝", label: "Fill in Blank", color: "#06b6d4" },
   "multiple-choice": { icon: "🔘", label: "Multiple Choice", color: "#27ae60" },
   "matching": { icon: "🔗", label: "Matching", color: "#e67e22" },
   "multi-select": { icon: "✅", label: "Multi Select", color: "#e74c3c" },
-  "note-completion": { icon: "📝", label: "Note Completion", color: "#1abc9c" },
+  "note-completion": { icon: "📓", label: "Note Completion", color: "#1abc9c" },
   "map-labeling": { icon: "🗺️", label: "Map Labeling", color: "#9b59b6" },
   "flowchart": { icon: "📊", label: "Flowchart", color: "#f39c12" },
 };

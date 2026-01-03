@@ -133,7 +133,8 @@ const ListeningTestEditor = ({
 
   // Question types for Listening
   const questionTypes = [
-    { value: 'fill', label: '📝 Fill in the blank', desc: 'Điền từ vào chỗ trống' },
+    { value: 'fill', label: '📝 Fill in the blank', desc: 'Điền từ vào chỗ trống (từng câu)' },
+    { value: 'form-completion', label: '📋 Form/Table Completion', desc: 'Form có bảng với nhiều blank' },
     { value: 'abc', label: '🔘 Multiple Choice (A/B/C)', desc: '3 lựa chọn' },
     { value: 'abcd', label: '🔘 Multiple Choice (A/B/C/D)', desc: '4 lựa chọn' },
     { value: 'matching', label: '🔗 Matching', desc: 'Nối cột A-B' },

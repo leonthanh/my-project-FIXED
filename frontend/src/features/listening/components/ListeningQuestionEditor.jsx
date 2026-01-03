@@ -23,6 +23,8 @@ const ListeningQuestionEditor = ({
     switch (type) {
       case "fill":
         return renderFillQuestion();
+      case "form-completion":
+        return renderFormCompletionQuestion();
       case "abc":
         return renderMultipleChoice(["A", "B", "C"]);
       case "abcd":
@@ -61,6 +63,203 @@ const ListeningQuestionEditor = ({
       />
     </div>
   );
+
+  // Form/Table Completion - Cho phép nhập HTML form với blanks
+  const renderFormCompletionQuestion = () => {
+    // Parse blanks từ formContent để tìm số blank
+    const formContent = question.formContent || '';
+    const blankMatches = formContent.match(/\{\{(\d+)\}\}/g) || [];
+    const blankNumbers = blankMatches.map(m => parseInt(m.replace(/\{\{|\}\}/g, ''))).sort((a, b) => a - b);
+    const answers = question.answers || {};
+
+    // Preview function - replace {{n}} with styled input
+    const renderPreview = () => {
+      if (!formContent) return null;
+      
+      let previewHtml = formContent;
+      blankNumbers.forEach(num => {
+        const inputHtml = `<span style="display: inline-flex; align-items: center; gap: 4px;">
+          <span style="background: #3b82f6; color: white; width: 22px; height: 22px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold;">${num}</span>
+          <input type="text" disabled placeholder="..." style="width: 120px; padding: 6px 10px; border: 2px solid #3b82f6; border-radius: 6px; background: #eff6ff;" />
+        </span>`;
+        previewHtml = previewHtml.replace(`{{${num}}}`, inputHtml);
+      });
+      
+      return previewHtml;
+    };
+
+    return (
+      <div>
+        {/* Info Banner */}
+        <div style={{
+          padding: "12px 16px",
+          backgroundColor: "#dbeafe",
+          borderRadius: "8px",
+          marginBottom: "16px",
+          border: "1px solid #3b82f6",
+        }}>
+          <strong style={{ color: "#1d4ed8" }}>📋 Form/Table Completion</strong>
+          <p style={{ margin: "8px 0 0", fontSize: "13px", color: "#1e40af" }}>
+            Dùng <code style={{ background: "#bfdbfe", padding: "2px 6px", borderRadius: "4px" }}>{`{{1}}`}</code>, 
+            <code style={{ background: "#bfdbfe", padding: "2px 6px", borderRadius: "4px", marginLeft: "4px" }}>{`{{2}}`}</code>... 
+            để đánh dấu chỗ trống trong form. Học sinh sẽ thấy form đầy đủ với các ô input được đánh số.
+          </p>
+        </div>
+
+        {/* Form Title */}
+        <label style={labelStyle}>📌 Tiêu đề Form (VD: Office Rental, Personal Details...)</label>
+        <input
+          type="text"
+          value={question.formTitle || ""}
+          onChange={(e) => onChange("formTitle", e.target.value)}
+          placeholder="VD: PERSONAL DETAILS FOR HOMESTAY APPLICATION"
+          style={{ ...compactInputStyle, fontWeight: 600 }}
+        />
+
+        {/* Question Range */}
+        <label style={labelStyle}>📊 Phạm vi câu hỏi</label>
+        <input
+          type="text"
+          value={question.questionRange || ""}
+          onChange={(e) => onChange("questionRange", e.target.value)}
+          placeholder="VD: Questions 1-10"
+          style={compactInputStyle}
+        />
+
+        {/* Form Content (HTML) */}
+        <label style={labelStyle}>📝 Nội dung Form (HTML hoặc plain text)</label>
+        <textarea
+          value={formContent}
+          onChange={(e) => onChange("formContent", e.target.value)}
+          placeholder={`Nhập nội dung form với {{số}} để đánh dấu blank. Ví dụ:
+
+<table>
+  <tr><td>First name</td><td>{{1}}</td></tr>
+  <tr><td>Family name</td><td>Yuichini</td></tr>
+  <tr><td>Passport number</td><td>{{2}}</td></tr>
+  <tr><td>Course enrolled</td><td>{{3}}</td></tr>
+</table>
+
+Hoặc dạng text:
+Address: 21 North Avenue
+– Type of company: {{1}}
+– Full name: Jonathan Smith
+– Position: {{2}}
+– Preferred location: near the {{3}}`}
+          style={{
+            ...compactInputStyle,
+            minHeight: "200px",
+            resize: "vertical",
+            fontFamily: "monospace",
+            fontSize: "12px",
+          }}
+        />
+
+        {/* Answers for each blank */}
+        {blankNumbers.length > 0 && (
+          <div style={{ marginTop: "16px" }}>
+            <label style={labelStyle}>✅ Đáp án cho từng blank</label>
+            <div style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))",
+              gap: "10px",
+            }}>
+              {blankNumbers.map(num => (
+                <div key={num} style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px",
+                  padding: "8px",
+                  backgroundColor: "#f0fdf4",
+                  borderRadius: "8px",
+                  border: "1px solid #86efac",
+                }}>
+                  <span style={{
+                    background: "#22c55e",
+                    color: "white",
+                    width: "26px",
+                    height: "26px",
+                    borderRadius: "50%",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: "12px",
+                    fontWeight: "bold",
+                    flexShrink: 0,
+                  }}>
+                    {num}
+                  </span>
+                  <input
+                    type="text"
+                    value={answers[num] || ""}
+                    onChange={(e) => {
+                      const newAnswers = { ...answers, [num]: e.target.value };
+                      onChange("answers", newAnswers);
+                    }}
+                    placeholder={`Đáp án câu ${num}`}
+                    style={{ ...compactInputStyle, flex: 1, marginBottom: 0 }}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Preview */}
+        {formContent && (
+          <div style={{ marginTop: "20px" }}>
+            <label style={labelStyle}>👁 Preview - Học sinh sẽ thấy:</label>
+            <div style={{
+              padding: "20px",
+              backgroundColor: "#fff",
+              border: "2px solid #e5e7eb",
+              borderRadius: "12px",
+              maxHeight: "400px",
+              overflow: "auto",
+            }}>
+              {question.formTitle && (
+                <h3 style={{
+                  textAlign: "center",
+                  margin: "0 0 16px",
+                  padding: "12px",
+                  backgroundColor: "#f8fafc",
+                  borderRadius: "8px",
+                  color: "#1f2937",
+                }}>
+                  {question.formTitle}
+                </h3>
+              )}
+              <div 
+                dangerouslySetInnerHTML={{ __html: renderPreview() }}
+                style={{
+                  lineHeight: "2",
+                  fontSize: "14px",
+                }}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Tips */}
+        <div style={{
+          marginTop: "16px",
+          padding: "12px",
+          backgroundColor: "#fef3c7",
+          borderRadius: "8px",
+          border: "1px solid #fcd34d",
+          fontSize: "12px",
+        }}>
+          <strong>💡 Mẹo:</strong>
+          <ul style={{ margin: "8px 0 0", paddingLeft: "20px", lineHeight: "1.8" }}>
+            <li>Dùng HTML <code>&lt;table&gt;</code> để tạo bảng form như IELTS thật</li>
+            <li>Mỗi <code>{`{{số}}`}</code> sẽ thành 1 ô input cho học sinh điền</li>
+            <li>Số trong <code>{`{{n}}`}</code> sẽ là số câu hỏi hiển thị</li>
+            <li>Đáp án tự động xuất hiện khi bạn thêm blank</li>
+          </ul>
+        </div>
+      </div>
+    );
+  };
 
   // Multiple choice (ABC / ABCD)
   const renderMultipleChoice = (options) => (
