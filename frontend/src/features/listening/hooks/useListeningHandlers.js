@@ -340,12 +340,51 @@ export const createNewQuestion = (type = 'fill') => {
 };
 
 /**
+ * Đếm số câu hỏi thực tế của một section
+ * Tính đến các loại câu hỏi đặc biệt: matching, form-completion, multi-select
+ */
+const countSectionQuestions = (section) => {
+  if (!section?.questions) return 0;
+  
+  const questionType = section.questionType || 'fill';
+  
+  // Matching: Số câu = số leftItems
+  if (questionType === 'matching') {
+    return section.questions[0]?.leftItems?.length || 0;
+  }
+  
+  // Form-completion: Số câu = số ô trống (isBlank)
+  if (questionType === 'form-completion') {
+    return section.questions[0]?.formRows?.filter(r => r.isBlank)?.length || 0;
+  }
+  
+  // Notes-completion: Số câu = số blanks trong notesText
+  if (questionType === 'notes-completion') {
+    const notesText = section.questions[0]?.notesText || '';
+    const blanks = notesText.match(/\d+\s*[_…]+|[_…]{2,}/g) || [];
+    return blanks.length;
+  }
+  
+  // Multi-select: Mỗi câu tính theo số đáp án cần chọn (requiredAnswers)
+  // VD: "Choose TWO" = 2 câu hỏi, "Choose THREE" = 3 câu hỏi
+  if (questionType === 'multi-select') {
+    return section.questions.reduce((sum, q) => {
+      return sum + (q.requiredAnswers || 2); // Mặc định là 2
+    }, 0);
+  }
+  
+  // Các loại khác (fill, abc, abcd): 1 câu = 1 question
+  return section.questions.length;
+};
+
+/**
  * Calculate total questions across all parts
+ * Considers special question types: matching, form-completion, multi-select, notes-completion
  */
 export const calculateTotalQuestions = (parts) => {
   return parts.reduce((total, part) => {
     return total + (part.sections || []).reduce((sTotal, section) => {
-      return sTotal + (section.questions?.length || 0);
+      return sTotal + countSectionQuestions(section);
     }, 0);
   }, 0);
 };

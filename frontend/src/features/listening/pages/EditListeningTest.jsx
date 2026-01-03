@@ -133,6 +133,11 @@ const EditListeningTest = () => {
           rightItems: q.rightItems || [],
           items: q.items || [],
           wordLimit: q.wordLimit || null,
+          // Notes completion fields
+          notesText: q.notesText || "",
+          notesTitle: q.notesTitle || "",
+          // Multi-select fields
+          requiredAnswers: q.requiredAnswers || 2,
         }));
         
         return {

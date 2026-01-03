@@ -25,6 +25,44 @@ import {
 import { calculateTotalQuestions } from "../hooks/useListeningHandlers";
 
 /**
+ * Đếm số câu hỏi thực tế của một section
+ * Tính đến các loại câu hỏi đặc biệt: matching, form-completion, multi-select, notes-completion
+ */
+const countSectionQuestions = (section) => {
+  if (!section?.questions) return 0;
+  
+  const questionType = section.questionType || 'fill';
+  
+  // Matching: Số câu = số leftItems
+  if (questionType === 'matching') {
+    return section.questions[0]?.leftItems?.length || 0;
+  }
+  
+  // Form-completion: Số câu = số ô trống (isBlank)
+  if (questionType === 'form-completion') {
+    return section.questions[0]?.formRows?.filter(r => r.isBlank)?.length || 0;
+  }
+  
+  // Notes-completion: Số câu = số blanks trong notesText
+  if (questionType === 'notes-completion') {
+    const notesText = section.questions[0]?.notesText || '';
+    const blanks = notesText.match(/\d+\s*[_…]+|[_…]{2,}/g) || [];
+    return blanks.length;
+  }
+  
+  // Multi-select: Mỗi câu tính theo số đáp án cần chọn (requiredAnswers)
+  // VD: "Choose TWO" = 2 câu hỏi, "Choose THREE" = 3 câu hỏi
+  if (questionType === 'multi-select') {
+    return section.questions.reduce((sum, q) => {
+      return sum + (q.requiredAnswers || 2); // Mặc định là 2
+    }, 0);
+  }
+  
+  // Các loại khác (fill, abc, abcd): 1 câu = 1 question
+  return section.questions.length;
+};
+
+/**
  * Tính số câu hỏi bắt đầu cho một section cụ thể
  * Dựa trên tổng số câu hỏi của tất cả parts/sections trước đó
  */
@@ -36,7 +74,7 @@ const calculateStartingQuestionNumber = (parts, partIndex, sectionIndex) => {
     const part = parts[p];
     if (part?.sections) {
       for (const section of part.sections) {
-        total += section.questions?.length || 0;
+        total += countSectionQuestions(section);
       }
     }
   }
@@ -45,7 +83,7 @@ const calculateStartingQuestionNumber = (parts, partIndex, sectionIndex) => {
   const currentPart = parts[partIndex];
   if (currentPart?.sections) {
     for (let s = 0; s < sectionIndex; s++) {
-      total += currentPart.sections[s]?.questions?.length || 0;
+      total += countSectionQuestions(currentPart.sections[s]);
     }
   }
   
@@ -163,6 +201,7 @@ const ListeningTestEditor = ({
   const questionTypes = [
     { value: 'fill', label: '📝 Fill in the blank', desc: 'Điền từ vào chỗ trống (từng câu)' },
     { value: 'form-completion', label: '📋 Form/Table Completion', desc: 'Form có bảng với nhiều blank' },
+    { value: 'notes-completion', label: '📝 Notes Completion', desc: 'Paste notes có ___ tự tách câu hỏi' },
     { value: 'abc', label: '🔘 Multiple Choice (A/B/C)', desc: '3 lựa chọn' },
     { value: 'abcd', label: '🔘 Multiple Choice (A/B/C/D)', desc: '4 lựa chọn' },
     { value: 'matching', label: '🔗 Matching', desc: 'Nối cột A-B' },
@@ -619,8 +658,9 @@ const ListeningTestEditor = ({
                   {currentPart.sections?.map((section, idx) => {
                     // Tính số câu bắt đầu cho section này
                     const startQ = calculateStartingQuestionNumber(parts, selectedPartIndex, idx);
-                    const endQ = startQ + (section.questions?.length || 1) - 1;
-                    const questionRange = section.questions?.length > 0 
+                    const sectionQCount = countSectionQuestions(section);
+                    const endQ = startQ + sectionQCount - 1;
+                    const questionRange = sectionQCount > 0 
                       ? `Q${startQ}-${endQ}` 
                       : `Q${startQ}`;
                     
@@ -634,7 +674,7 @@ const ListeningTestEditor = ({
                           <strong>{section.sectionTitle || `Questions ${startQ}-${endQ}`}</strong>
                           <br />
                           <small style={{ opacity: 0.8 }}>
-                            {section.questions?.length || 0} câu • {section.questionType || 'fill'}
+                            {sectionQCount} câu • {section.questionType || 'fill'}
                           </small>
                           <span style={{
                             marginLeft: "6px",
@@ -724,7 +764,8 @@ const ListeningTestEditor = ({
                     const autoStartQ = calculateStartingQuestionNumber(parts, selectedPartIndex, selectedSectionIndex);
                     // Use override if set, otherwise auto-calculate
                     const startQ = currentSection.startingQuestionNumber || autoStartQ;
-                    const endQ = startQ + (currentSection.questions?.length || 1) - 1;
+                    const sectionQCount = countSectionQuestions(currentSection);
+                    const endQ = startQ + sectionQCount - 1;
                     const suggestedTitle = `Questions ${startQ}-${endQ}`;
                     
                     return (
@@ -913,26 +954,37 @@ const ListeningTestEditor = ({
                             </div>
                           </div>
 
-                          {currentSection.questions?.map((question, qIdx) => (
-                            <ListeningQuestionEditor
-                              key={qIdx}
-                              question={question}
-                              questionIndex={qIdx}
-                              questionType={currentSection.questionType || question.questionType}
-                              globalQuestionNumber={sectionStartQ + qIdx}
-                              sectionStartingNumber={sectionStartQ}
-                              onChange={(field, value) => 
-                                onQuestionChange(selectedPartIndex, selectedSectionIndex, qIdx, field, value)
+                          {currentSection.questions?.map((question, qIdx) => {
+                            // Calculate questions before this one in section (for multi-select)
+                            let questionsBeforeInSection = 0;
+                            if (currentSection.questionType === 'multi-select') {
+                              for (let i = 0; i < qIdx; i++) {
+                                questionsBeforeInSection += currentSection.questions[i]?.requiredAnswers || 2;
                               }
-                              onDelete={() => 
-                                onDeleteQuestion(selectedPartIndex, selectedSectionIndex, qIdx)
-                              }
-                              onCopy={() =>
-                                onCopyQuestion(selectedPartIndex, selectedSectionIndex, qIdx)
-                              }
-                              canDelete={currentSection.questions.length > 1}
-                            />
-                          ))}
+                            }
+                            
+                            return (
+                              <ListeningQuestionEditor
+                                key={qIdx}
+                                question={question}
+                                questionIndex={qIdx}
+                                questionType={currentSection.questionType || question.questionType}
+                                globalQuestionNumber={sectionStartQ + qIdx}
+                                sectionStartingNumber={sectionStartQ}
+                                questionsBeforeInSection={questionsBeforeInSection}
+                                onChange={(field, value) => 
+                                  onQuestionChange(selectedPartIndex, selectedSectionIndex, qIdx, field, value)
+                                }
+                                onDelete={() => 
+                                  onDeleteQuestion(selectedPartIndex, selectedSectionIndex, qIdx)
+                                }
+                                onCopy={() =>
+                                  onCopyQuestion(selectedPartIndex, selectedSectionIndex, qIdx)
+                                }
+                                canDelete={currentSection.questions.length > 1}
+                              />
+                            );
+                          })}
                         </>
                       );
                     })()}

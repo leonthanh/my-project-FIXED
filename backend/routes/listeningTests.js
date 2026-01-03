@@ -122,16 +122,30 @@ router.post('/', upload.fields([
             leftItems: q.leftItems || null,
             rightItems: q.rightItems || null,
             items: q.items || null,
+            // Notes completion specific
+            notesText: q.notesText || null,
+            notesTitle: q.notesTitle || null,
+            // Multi-select specific
+            requiredAnswers: q.requiredAnswers || null,
             // Other
             wordLimit: q.wordLimit || null,
           });
           
           // Calculate how many questions this item represents
-          if (q.questionType === 'matching' || section.questionType === 'matching') {
+          const qType = q.questionType || section.questionType || 'fill';
+          
+          if (qType === 'matching') {
             globalQuestionNum += (q.leftItems?.length || 1);
-          } else if (q.questionType === 'form-completion' || section.questionType === 'form-completion') {
+          } else if (qType === 'form-completion') {
             const blankCount = q.formRows?.filter(r => r.isBlank)?.length || 1;
             globalQuestionNum += blankCount;
+          } else if (qType === 'notes-completion') {
+            // Count blanks in notesText
+            const notesText = q.notesText || '';
+            const blanks = notesText.match(/\d+\s*[_…]+|[_…]{2,}/g) || [];
+            globalQuestionNum += blanks.length || 1;
+          } else if (qType === 'multi-select') {
+            globalQuestionNum += (q.requiredAnswers || 2);
           } else {
             globalQuestionNum += 1;
           }
@@ -386,14 +400,28 @@ router.put('/:id', upload.fields([
               rightItems: q.rightItems || null,
               items: q.items || null,
               wordLimit: q.wordLimit || null,
+              // Notes completion fields
+              notesText: q.notesText || null,
+              notesTitle: q.notesTitle || null,
+              // Multi-select fields
+              requiredAnswers: q.requiredAnswers || null,
             });
             
-            // Calculate question count
-            if (q.questionType === 'matching' || section.questionType === 'matching') {
+            // Calculate question count based on question type
+            const qType = q.questionType || section.questionType || 'fill';
+            
+            if (qType === 'matching') {
               globalQuestionNum += (q.leftItems?.length || 1);
-            } else if (q.questionType === 'form-completion' || section.questionType === 'form-completion') {
+            } else if (qType === 'form-completion') {
               const blankCount = q.formRows?.filter(r => r.isBlank)?.length || 1;
               globalQuestionNum += blankCount;
+            } else if (qType === 'notes-completion') {
+              // Count blanks in notesText
+              const notesText = q.notesText || '';
+              const blanks = notesText.match(/\d+\s*[_…]+|[_…]{2,}/g) || [];
+              globalQuestionNum += blanks.length || 1;
+            } else if (qType === 'multi-select') {
+              globalQuestionNum += (q.requiredAnswers || 2);
             } else {
               globalQuestionNum += 1;
             }

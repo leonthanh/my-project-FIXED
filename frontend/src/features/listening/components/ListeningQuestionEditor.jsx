@@ -15,6 +15,7 @@ const ListeningQuestionEditor = ({
   canDelete = true,
   globalQuestionNumber = null, // Số câu hỏi toàn cục (1-40)
   sectionStartingNumber = null, // Số câu bắt đầu của section (cho matching)
+  questionsBeforeInSection = 0, // Số câu hỏi của các questions trước đó trong cùng section (cho multi-select)
 }) => {
   const [isExpanded, setIsExpanded] = useState(true);
 
@@ -29,6 +30,8 @@ const ListeningQuestionEditor = ({
         return renderFillQuestion();
       case "form-completion":
         return renderFormCompletionQuestion();
+      case "notes-completion":
+        return renderNotesCompletionQuestion();
       case "abc":
         return renderMultipleChoice(["A", "B", "C"]);
       case "abcd":
@@ -628,6 +631,237 @@ const ListeningQuestionEditor = ({
     );
   };
 
+  // Notes Completion - Paste text với ___ hoặc số câu, hệ thống tự tách
+  const renderNotesCompletionQuestion = () => {
+    const notesText = question.notesText || '';
+    const notesTitle = question.notesTitle || '';
+    const wordLimit = question.wordLimit || 'ONE WORD ONLY';
+    const answers = question.answers || {};
+    
+    // Parse blanks from text - matches "31 ___" or "___" or "………"
+    const parseBlankPattern = /(\d+)\s*[_…]+|[_…]{2,}/g;
+    const blanks = [];
+    let match;
+    let blankIndex = 0;
+    const startQ = sectionStartingNumber || globalQuestionNumber || 1;
+    
+    // Extract all blanks with their positions
+    const textCopy = notesText;
+    while ((match = parseBlankPattern.exec(textCopy)) !== null) {
+      const questionNum = match[1] ? parseInt(match[1]) : startQ + blankIndex;
+      blanks.push({
+        questionNum,
+        fullMatch: match[0],
+        index: match.index,
+      });
+      blankIndex++;
+    }
+    
+    // Generate preview with highlighted blanks
+    const generatePreview = () => {
+      if (!notesText) return null;
+      
+      let previewHtml = notesText;
+      // Replace blanks with styled spans (reverse order to preserve indices)
+      [...blanks].reverse().forEach((blank) => {
+        const before = previewHtml.slice(0, blank.index);
+        const after = previewHtml.slice(blank.index + blank.fullMatch.length);
+        const answer = answers[blank.questionNum] || '';
+        previewHtml = before + 
+          `<span style="background:#fef3c7;padding:2px 8px;border-radius:4px;font-weight:bold;border:1px dashed #f59e0b;">${blank.questionNum}. ${answer || '________'}</span>` + 
+          after;
+      });
+      
+      return previewHtml;
+    };
+
+    return (
+      <div>
+        {/* Question Range Badge */}
+        <div style={{
+          padding: "10px 12px",
+          backgroundColor: "#e0f2fe",
+          borderRadius: "8px",
+          marginBottom: "12px",
+          border: "1px solid #7dd3fc",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+        }}>
+          <span style={{ fontWeight: 600, color: "#0369a1" }}>
+            📝 Notes Completion: {blanks.length > 0 ? `Questions ${startQ} - ${startQ + blanks.length - 1}` : 'Chưa có câu hỏi'}
+          </span>
+          <span style={{
+            padding: "4px 10px",
+            backgroundColor: "#0ea5e9",
+            color: "white",
+            borderRadius: "20px",
+            fontSize: "12px",
+            fontWeight: "bold",
+          }}>
+            {blanks.length} câu
+          </span>
+        </div>
+
+        {/* Instructions */}
+        <div style={{
+          padding: "10px 12px",
+          backgroundColor: "#dcfce7",
+          borderRadius: "8px",
+          marginBottom: "12px",
+          border: "1px solid #86efac",
+          fontSize: "13px",
+        }}>
+          <strong>💡 Hướng dẫn:</strong> Paste notes vào ô bên dưới. Dùng <code>___</code> hoặc <code>31 ___</code> để đánh dấu chỗ trống.
+          <br/>
+          VD: <code>People moved to cities to work in the 31 ___</code>
+        </div>
+
+        {/* Title */}
+        <label style={labelStyle}>Tiêu đề Notes</label>
+        <input
+          type="text"
+          value={notesTitle}
+          onChange={(e) => onChange("notesTitle", e.target.value)}
+          placeholder="VD: History of Music in Britain"
+          style={compactInputStyle}
+        />
+
+        {/* Word Limit */}
+        <label style={labelStyle}>Giới hạn từ</label>
+        <select
+          value={wordLimit}
+          onChange={(e) => onChange("wordLimit", e.target.value)}
+          style={{ ...compactInputStyle, width: "250px" }}
+        >
+          <option value="ONE WORD ONLY">ONE WORD ONLY</option>
+          <option value="NO MORE THAN TWO WORDS">NO MORE THAN TWO WORDS</option>
+          <option value="NO MORE THAN THREE WORDS">NO MORE THAN THREE WORDS</option>
+          <option value="ONE WORD AND/OR A NUMBER">ONE WORD AND/OR A NUMBER</option>
+          <option value="NO MORE THAN TWO WORDS AND/OR A NUMBER">NO MORE THAN TWO WORDS AND/OR A NUMBER</option>
+        </select>
+
+        {/* Notes Text Input */}
+        <label style={labelStyle}>Nội dung Notes (paste từ đề)</label>
+        <textarea
+          value={notesText}
+          onChange={(e) => onChange("notesText", e.target.value)}
+          placeholder={`Paste nội dung notes ở đây. Dùng ___ để đánh dấu chỗ trống.
+
+VD:
+– During the Industrial Revolution people moved to cities to work in the 31 ___
+– In the 1850s, the 32 ___ was also influenced greatly by immigration.
+– Originally music reflected the work life of different 33 ___ in those days.`}
+          style={{
+            ...compactInputStyle,
+            minHeight: "200px",
+            resize: "vertical",
+            fontFamily: "monospace",
+            fontSize: "13px",
+            lineHeight: "1.6",
+          }}
+        />
+
+        {/* Quick Parse Button */}
+        {notesText && blanks.length === 0 && (
+          <div style={{
+            padding: "10px",
+            backgroundColor: "#fef2f2",
+            borderRadius: "8px",
+            marginTop: "8px",
+            border: "1px solid #fecaca",
+            fontSize: "13px",
+          }}>
+            ⚠️ Không tìm thấy chỗ trống. Hãy thêm <code>___</code> hoặc <code>31 ___</code> vào text.
+          </div>
+        )}
+
+        {/* Answers Section */}
+        {blanks.length > 0 && (
+          <div style={{ marginTop: "16px" }}>
+            <label style={labelStyle}>Đáp án ({blanks.length} câu)</label>
+            <div style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(2, 1fr)",
+              gap: "8px",
+            }}>
+              {blanks.map((blank, idx) => (
+                <div key={idx} style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px",
+                  padding: "8px",
+                  backgroundColor: "#f8fafc",
+                  borderRadius: "6px",
+                  border: "1px solid #e5e7eb",
+                }}>
+                  <span style={{
+                    backgroundColor: "#3b82f6",
+                    color: "white",
+                    padding: "4px 10px",
+                    borderRadius: "20px",
+                    fontSize: "12px",
+                    fontWeight: "bold",
+                    minWidth: "40px",
+                    textAlign: "center",
+                  }}>
+                    {blank.questionNum}
+                  </span>
+                  <input
+                    type="text"
+                    value={answers[blank.questionNum] || ""}
+                    onChange={(e) => {
+                      const newAnswers = { ...answers, [blank.questionNum]: e.target.value };
+                      onChange("answers", newAnswers);
+                    }}
+                    placeholder="Đáp án"
+                    style={{
+                      ...compactInputStyle,
+                      flex: 1,
+                      marginBottom: 0,
+                      fontSize: "13px",
+                    }}
+                  />
+                </div>
+              ))}
+            </div>
+            <p style={{ fontSize: "11px", color: "#6b7280", marginTop: "8px" }}>
+              💡 Tip: Dùng <code>|</code> để có nhiều đáp án đúng. VD: <code>factories|factory</code>
+            </p>
+          </div>
+        )}
+
+        {/* Preview */}
+        {notesText && blanks.length > 0 && (
+          <div style={{ marginTop: "16px" }}>
+            <label style={labelStyle}>👁️ Preview (như học sinh nhìn thấy)</label>
+            <div style={{
+              padding: "16px",
+              backgroundColor: "#fffbeb",
+              borderRadius: "8px",
+              border: "1px solid #fcd34d",
+            }}>
+              <h4 style={{ margin: "0 0 8px 0", color: "#92400e" }}>
+                {notesTitle || "Notes"}
+              </h4>
+              <p style={{ margin: "0 0 12px 0", fontSize: "13px", color: "#b45309", fontStyle: "italic" }}>
+                Write {wordLimit} for each answer.
+              </p>
+              <div 
+                style={{
+                  whiteSpace: "pre-wrap",
+                  lineHeight: "1.8",
+                  fontSize: "14px",
+                }}
+                dangerouslySetInnerHTML={{ __html: generatePreview() }}
+              />
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   // Multiple choice (ABC / ABCD)
   const renderMultipleChoice = (options) => (
     <div>
@@ -878,11 +1112,16 @@ const ListeningQuestionEditor = ({
     );
   };
 
-  // Multi-select question (Choose 2 letters)
+  // Multi-select question (Choose 2+ letters) - e.g., Questions 25 and 26
   const renderMultiSelectQuestion = () => {
     const options = question.options || ["A. ", "B. ", "C. ", "D. ", "E. "];
     const requiredAnswers = question.requiredAnswers || 2;
     const correctAnswers = question.correctAnswer ? question.correctAnswer.split(',') : [];
+
+    // Calculate question range - add offset from previous questions in this section
+    const baseStartQ = sectionStartingNumber || globalQuestionNumber || 1;
+    const startQ = baseStartQ + questionsBeforeInSection;
+    const endQ = startQ + requiredAnswers - 1;
 
     const toggleAnswer = (letter) => {
       let newAnswers = [...correctAnswers];
@@ -897,6 +1136,32 @@ const ListeningQuestionEditor = ({
 
     return (
       <div>
+        {/* Question Range Badge - like matching */}
+        <div style={{
+          padding: "10px 12px",
+          backgroundColor: "#e0f2fe",
+          borderRadius: "8px",
+          marginBottom: "12px",
+          border: "1px solid #7dd3fc",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+        }}>
+          <span style={{ fontWeight: 600, color: "#0369a1" }}>
+            ✅ Questions {startQ} and {endQ}
+          </span>
+          <span style={{
+            padding: "4px 10px",
+            backgroundColor: "#0ea5e9",
+            color: "white",
+            borderRadius: "20px",
+            fontSize: "12px",
+            fontWeight: "bold",
+          }}>
+            Q{startQ}-{endQ}
+          </span>
+        </div>
+
         <div style={{
           padding: "10px 12px",
           backgroundColor: "#fef3c7",
@@ -905,14 +1170,14 @@ const ListeningQuestionEditor = ({
           border: "1px solid #fcd34d",
           fontSize: "13px",
         }}>
-          <strong>✅ Multi-Select:</strong> Học sinh chọn <strong>{requiredAnswers}</strong> đáp án đúng
+          <strong>Choose {requiredAnswers === 2 ? 'TWO' : requiredAnswers === 3 ? 'THREE' : requiredAnswers} letters:</strong> Học sinh chọn <strong>{requiredAnswers}</strong> đáp án đúng = <strong>{requiredAnswers} câu hỏi</strong>
         </div>
 
         <label style={labelStyle}>Câu hỏi</label>
         <textarea
           value={question.questionText || ""}
           onChange={(e) => onChange("questionText", e.target.value)}
-          placeholder="VD: Which TWO features does the speaker mention about the course?"
+          placeholder="VD: What are the speakers' opinions about the literature lectures?"
           style={{ ...compactInputStyle, minHeight: "60px", resize: "vertical" }}
         />
 
@@ -924,13 +1189,13 @@ const ListeningQuestionEditor = ({
               onChange={(e) => onChange("requiredAnswers", parseInt(e.target.value))}
               style={{ ...compactInputStyle, width: "100px" }}
             >
-              <option value={2}>2 đáp án</option>
-              <option value={3}>3 đáp án</option>
+              <option value={2}>2 đáp án (TWO)</option>
+              <option value={3}>3 đáp án (THREE)</option>
             </select>
           </div>
         </div>
 
-        <label style={labelStyle}>Các lựa chọn (Click ✓ để đánh dấu đáp án đúng)</label>
+        <label style={labelStyle}>Các lựa chọn A-E (Click ✓ để đánh dấu đáp án đúng)</label>
         {options.map((opt, idx) => {
           const letter = String.fromCharCode(65 + idx);
           const isCorrect = correctAnswers.includes(letter);
