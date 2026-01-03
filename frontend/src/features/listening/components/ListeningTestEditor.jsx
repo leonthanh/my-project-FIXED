@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { AdminNavbar, AutoSaveIndicator } from "../../../shared/components";
 import { useColumnLayout } from "../hooks";
 import ListeningQuestionEditor from "./ListeningQuestionEditor";
+import ListeningTemplateLibrary from "./ListeningTemplateLibrary";
 import {
   colors,
   compactInputStyle,
@@ -105,6 +106,10 @@ const ListeningTestEditor = ({
   const [bulkAddCount, setBulkAddCount] = useState(5);
   const [bulkAddType, setBulkAddType] = useState('fill');
 
+  // Template library modal state
+  const [showTemplateLibrary, setShowTemplateLibrary] = useState(false);
+  const [templateLibraryMode, setTemplateLibraryMode] = useState('question'); // 'question' | 'section'
+
   // Current part and section
   const currentPart = parts?.[selectedPartIndex];
   const currentSection = currentPart?.sections?.[selectedSectionIndex];
@@ -132,9 +137,58 @@ const ListeningTestEditor = ({
     { value: 'abc', label: '🔘 Multiple Choice (A/B/C)', desc: '3 lựa chọn' },
     { value: 'abcd', label: '🔘 Multiple Choice (A/B/C/D)', desc: '4 lựa chọn' },
     { value: 'matching', label: '🔗 Matching', desc: 'Nối cột A-B' },
+    { value: 'multi-select', label: '✅ Multi Select', desc: 'Chọn 2+ đáp án' },
     { value: 'map-labeling', label: '🗺️ Map/Plan Labeling', desc: 'Gắn nhãn bản đồ' },
     { value: 'flowchart', label: '📊 Flowchart Completion', desc: 'Hoàn thành sơ đồ' },
   ];
+
+  // Handle template selection (single question)
+  const handleSelectTemplate = (template) => {
+    if (selectedPartIndex !== null && selectedSectionIndex !== null) {
+      // Add the template as a new question
+      onAddQuestion(selectedPartIndex, selectedSectionIndex, template.questionType);
+      // Update the last added question with template data
+      const newQuestionIndex = currentSection?.questions?.length || 0;
+      Object.entries(template).forEach(([key, value]) => {
+        if (key !== 'questionType') {
+          onQuestionChange(selectedPartIndex, selectedSectionIndex, newQuestionIndex, key, value);
+        }
+      });
+    }
+  };
+
+  // Handle section template selection
+  const handleSelectSectionTemplate = (sectionTemplate) => {
+    if (selectedPartIndex !== null) {
+      // Add a new section with the template
+      onAddSection(selectedPartIndex);
+      const newSectionIndex = currentPart?.sections?.length || 0;
+      
+      // Update section properties
+      onSectionChange(selectedPartIndex, newSectionIndex, 'sectionTitle', sectionTemplate.title);
+      onSectionChange(selectedPartIndex, newSectionIndex, 'sectionInstruction', sectionTemplate.instructions);
+      onSectionChange(selectedPartIndex, newSectionIndex, 'questionType', sectionTemplate.questionType);
+      
+      // Add template questions
+      sectionTemplate.questions.forEach((q, idx) => {
+        if (idx === 0) {
+          // First question already exists, update it
+          Object.entries(q).forEach(([key, value]) => {
+            onQuestionChange(selectedPartIndex, newSectionIndex, 0, key, value);
+          });
+        } else {
+          // Add more questions
+          onAddQuestion(selectedPartIndex, newSectionIndex, sectionTemplate.questionType);
+          Object.entries(q).forEach(([key, value]) => {
+            onQuestionChange(selectedPartIndex, newSectionIndex, idx, key, value);
+          });
+        }
+      });
+      
+      // Select the new section
+      setSelectedSectionIndex(newSectionIndex);
+    }
+  };
 
   return (
     <div
@@ -193,6 +247,21 @@ const ListeningTestEditor = ({
               >
                 📊 {totalQuestions} câu hỏi
               </span>
+              <button
+                type="button"
+                onClick={() => {
+                  setTemplateLibraryMode('section');
+                  setShowTemplateLibrary(true);
+                }}
+                style={{
+                  ...primaryButtonStyle,
+                  padding: "6px 14px",
+                  fontSize: "13px",
+                  background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+                }}
+              >
+                📚 Template Library
+              </button>
               <button
                 type="button"
                 onClick={() => setShowPreview(!showPreview)}
@@ -549,6 +618,21 @@ const ListeningTestEditor = ({
                   >
                     ➕ Thêm Section
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTemplateLibraryMode('section');
+                      setShowTemplateLibrary(true);
+                    }}
+                    style={{
+                      ...addButtonStyle(colors.primaryPurple),
+                      marginTop: "8px",
+                      background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+                      color: "white",
+                    }}
+                  >
+                    📚 Section từ Template
+                  </button>
                 </div>
               ) : (
                 !collapsedColumns.col3 && (
@@ -631,13 +715,25 @@ const ListeningTestEditor = ({
                       <h4 style={{ margin: 0, color: colors.questionYellow }}>
                         Câu hỏi ({currentSection.questions?.length || 0})
                       </h4>
-                      <button
-                        type="button"
-                        onClick={() => setShowBulkAddModal(true)}
-                        style={{ ...secondaryButtonStyle, padding: "6px 12px", fontSize: "12px" }}
-                      >
-                        ➕ Thêm nhiều
-                      </button>
+                      <div style={{ display: "flex", gap: "6px" }}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setTemplateLibraryMode('question');
+                            setShowTemplateLibrary(true);
+                          }}
+                          style={{ ...secondaryButtonStyle, padding: "6px 10px", fontSize: "11px" }}
+                        >
+                          📚 Template
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setShowBulkAddModal(true)}
+                          style={{ ...secondaryButtonStyle, padding: "6px 10px", fontSize: "11px" }}
+                        >
+                          ➕ Thêm nhiều
+                        </button>
+                      </div>
                     </div>
 
                     {currentSection.questions?.map((question, qIdx) => (
@@ -829,6 +925,15 @@ const ListeningTestEditor = ({
           </div>
         </div>
       )}
+
+      {/* TEMPLATE LIBRARY MODAL */}
+      <ListeningTemplateLibrary
+        isOpen={showTemplateLibrary}
+        onClose={() => setShowTemplateLibrary(false)}
+        onSelectTemplate={handleSelectTemplate}
+        onSelectSectionTemplate={handleSelectSectionTemplate}
+        mode={templateLibraryMode}
+      />
     </div>
   );
 };

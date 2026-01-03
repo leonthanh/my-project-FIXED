@@ -29,6 +29,8 @@ const ListeningQuestionEditor = ({
         return renderMultipleChoice(["A", "B", "C", "D"]);
       case "matching":
         return renderMatchingQuestion();
+      case "multi-select":
+        return renderMultiSelectQuestion();
       case "map-labeling":
         return renderMapLabelingQuestion();
       case "flowchart":
@@ -185,6 +187,158 @@ const ListeningQuestionEditor = ({
       />
     </div>
   );
+
+  // Multi-select question (Choose 2 letters)
+  const renderMultiSelectQuestion = () => {
+    const options = question.options || ["A. ", "B. ", "C. ", "D. ", "E. "];
+    const requiredAnswers = question.requiredAnswers || 2;
+    const correctAnswers = question.correctAnswer ? question.correctAnswer.split(',') : [];
+
+    const toggleAnswer = (letter) => {
+      let newAnswers = [...correctAnswers];
+      if (newAnswers.includes(letter)) {
+        newAnswers = newAnswers.filter(a => a !== letter);
+      } else {
+        newAnswers.push(letter);
+        newAnswers.sort();
+      }
+      onChange("correctAnswer", newAnswers.join(','));
+    };
+
+    return (
+      <div>
+        <div style={{
+          padding: "10px 12px",
+          backgroundColor: "#fef3c7",
+          borderRadius: "8px",
+          marginBottom: "12px",
+          border: "1px solid #fcd34d",
+          fontSize: "13px",
+        }}>
+          <strong>✅ Multi-Select:</strong> Học sinh chọn <strong>{requiredAnswers}</strong> đáp án đúng
+        </div>
+
+        <label style={labelStyle}>Câu hỏi</label>
+        <textarea
+          value={question.questionText || ""}
+          onChange={(e) => onChange("questionText", e.target.value)}
+          placeholder="VD: Which TWO features does the speaker mention about the course?"
+          style={{ ...compactInputStyle, minHeight: "60px", resize: "vertical" }}
+        />
+
+        <div style={{ display: "flex", gap: "12px", marginTop: "12px", marginBottom: "12px" }}>
+          <div>
+            <label style={labelStyle}>Số đáp án cần chọn</label>
+            <select
+              value={requiredAnswers}
+              onChange={(e) => onChange("requiredAnswers", parseInt(e.target.value))}
+              style={{ ...compactInputStyle, width: "100px" }}
+            >
+              <option value={2}>2 đáp án</option>
+              <option value={3}>3 đáp án</option>
+            </select>
+          </div>
+        </div>
+
+        <label style={labelStyle}>Các lựa chọn (Click ✓ để đánh dấu đáp án đúng)</label>
+        {options.map((opt, idx) => {
+          const letter = String.fromCharCode(65 + idx);
+          const isCorrect = correctAnswers.includes(letter);
+          
+          return (
+            <div key={idx} style={{
+              display: "flex",
+              gap: "8px",
+              marginBottom: "8px",
+              alignItems: "center",
+              padding: "8px",
+              backgroundColor: isCorrect ? "#dcfce7" : "#f8fafc",
+              borderRadius: "8px",
+              border: isCorrect ? "2px solid #22c55e" : "1px solid #e5e7eb",
+            }}>
+              <button
+                type="button"
+                onClick={() => toggleAnswer(letter)}
+                style={{
+                  ...optionLabelStyle,
+                  backgroundColor: isCorrect ? "#22c55e" : colors.primaryPurple + "15",
+                  color: isCorrect ? "white" : colors.primaryPurple,
+                  cursor: "pointer",
+                  border: "none",
+                }}
+                title={isCorrect ? "Bỏ chọn đáp án" : "Chọn là đáp án đúng"}
+              >
+                {isCorrect ? "✓" : letter}
+              </button>
+              <input
+                type="text"
+                value={opt.replace(/^[A-Z]\.\s*/, "")}
+                onChange={(e) => {
+                  const newOptions = [...options];
+                  newOptions[idx] = `${letter}. ${e.target.value}`;
+                  onChange("options", newOptions);
+                }}
+                placeholder={`Lựa chọn ${letter}`}
+                style={{ ...compactInputStyle, flex: 1, marginBottom: 0 }}
+              />
+              {options.length > 3 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const newOptions = options.filter((_, i) => i !== idx);
+                    onChange("options", newOptions);
+                    // Remove from correct answers if selected
+                    if (isCorrect) {
+                      onChange("correctAnswer", correctAnswers.filter(a => a !== letter).join(','));
+                    }
+                  }}
+                  style={deleteButtonSmallStyle}
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+          );
+        })}
+
+        {options.length < 7 && (
+          <button
+            type="button"
+            onClick={() => {
+              const newLetter = String.fromCharCode(65 + options.length);
+              onChange("options", [...options, `${newLetter}. `]);
+            }}
+            style={addItemButtonStyle}
+          >
+            + Thêm lựa chọn
+          </button>
+        )}
+
+        {/* Answer Preview */}
+        <div style={{
+          marginTop: "12px",
+          padding: "10px",
+          backgroundColor: "#f0fdf4",
+          borderRadius: "8px",
+          border: "1px solid #86efac",
+        }}>
+          <strong style={{ color: "#15803d" }}>✅ Đáp án đúng: </strong>
+          {correctAnswers.length > 0 ? (
+            <span style={{ color: "#15803d", fontWeight: 600 }}>
+              {correctAnswers.join(', ')}
+            </span>
+          ) : (
+            <span style={{ color: "#9ca3af" }}>(Chưa chọn)</span>
+          )}
+          {correctAnswers.length !== requiredAnswers && correctAnswers.length > 0 && (
+            <span style={{ color: "#dc2626", marginLeft: "10px", fontSize: "12px" }}>
+              ⚠️ Cần chọn đúng {requiredAnswers} đáp án
+            </span>
+          )}
+        </div>
+      </div>
+    );
+  };
 
   // Map labeling question
   const renderMapLabelingQuestion = () => (
