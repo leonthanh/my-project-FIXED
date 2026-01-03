@@ -64,12 +64,12 @@ const ListeningQuestionEditor = ({
     </div>
   );
 
-  // Form/Table Completion - Visual Form Builder (không cần biết HTML)
+  // Form/Table Completion - Visual Form Builder với 4 cột (IELTS format)
   const renderFormCompletionQuestion = () => {
-    // Initialize rows if empty
+    // Initialize rows with new 4-column structure
     const rows = question.formRows || [
-      { label: "First name", value: "", isBlank: true, blankNumber: 1 },
-      { label: "Family name", value: "Smith", isBlank: false, blankNumber: null },
+      { label: "– Type of company:", prefix: "", isBlank: true, blankNumber: 1, suffix: "" },
+      { label: "– Full name:", prefix: "", isBlank: false, blankNumber: null, suffix: "Jonathan Smith" },
     ];
     const answers = question.answers || {};
 
@@ -82,8 +82,16 @@ const ListeningQuestionEditor = ({
 
     // Add new row
     const addRow = () => {
-      const nextBlankNum = Math.max(0, ...rows.map(r => r.blankNumber || 0)) + 1;
-      const newRows = [...rows, { label: "", value: "", isBlank: false, blankNumber: null }];
+      const newRows = [...rows, { label: "", prefix: "", isBlank: false, blankNumber: null, suffix: "" }];
+      onChange("formRows", newRows);
+    };
+
+    // Add sub-row (indented, no label)
+    const addSubRow = () => {
+      const newRows = [...rows, { label: "", prefix: "", isBlank: true, blankNumber: null, suffix: "", isSubRow: true }];
+      // Auto-assign blank number
+      const maxBlank = Math.max(0, ...rows.map(r => r.blankNumber || 0));
+      newRows[newRows.length - 1].blankNumber = maxBlank + 1;
       onChange("formRows", newRows);
     };
 
@@ -97,7 +105,6 @@ const ListeningQuestionEditor = ({
         if (value) {
           const maxBlank = Math.max(0, ...rows.map(r => r.blankNumber || 0));
           newRows[index].blankNumber = maxBlank + 1;
-          newRows[index].value = ""; // Clear value when it's a blank
         } else {
           newRows[index].blankNumber = null;
         }
@@ -129,67 +136,67 @@ const ListeningQuestionEditor = ({
       onChange("formRows", newRows);
     };
 
-    // Render preview table
-    const renderPreviewTable = () => {
+    // Render preview - IELTS style list format
+    const renderPreviewList = () => {
       return (
-        <table style={{
-          width: "100%",
-          borderCollapse: "collapse",
-          border: "1px solid #d1d5db",
-        }}>
-          <tbody>
-            {rows.map((row, idx) => (
-              <tr key={idx}>
-                <td style={{
-                  padding: "12px 16px",
-                  border: "1px solid #d1d5db",
-                  backgroundColor: "#f9fafb",
-                  fontWeight: 600,
-                  width: "40%",
+        <div style={{ lineHeight: "2.2", fontSize: "14px" }}>
+          {rows.map((row, idx) => (
+            <div key={idx} style={{
+              display: "flex",
+              alignItems: "baseline",
+              gap: "6px",
+              paddingLeft: row.isSubRow ? "140px" : "0",
+              marginBottom: "4px",
+            }}>
+              {/* Label */}
+              {row.label && (
+                <span style={{ 
+                  fontWeight: 500, 
+                  minWidth: row.isSubRow ? "0" : "140px",
+                  flexShrink: 0,
                 }}>
                   {row.label}
-                </td>
-                <td style={{
-                  padding: "12px 16px",
-                  border: "1px solid #d1d5db",
-                }}>
-                  {row.isBlank ? (
-                    <span style={{ display: "inline-flex", alignItems: "center", gap: "8px" }}>
-                      <span style={{
-                        background: "#3b82f6",
-                        color: "white",
-                        width: "24px",
-                        height: "24px",
-                        borderRadius: "50%",
-                        display: "inline-flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        fontSize: "12px",
-                        fontWeight: "bold",
-                      }}>
-                        {row.blankNumber}
-                      </span>
-                      <input
-                        type="text"
-                        disabled
-                        placeholder="..............."
-                        style={{
-                          width: "150px",
-                          padding: "8px 12px",
-                          border: "2px solid #3b82f6",
-                          borderRadius: "6px",
-                          background: "#eff6ff",
-                        }}
-                      />
-                    </span>
-                  ) : (
-                    row.value
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                </span>
+              )}
+              
+              {/* Prefix text */}
+              {row.prefix && <span>{row.prefix}</span>}
+              
+              {/* Blank or Value */}
+              {row.isBlank ? (
+                <span style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                  <span style={{
+                    background: "#3b82f6",
+                    color: "white",
+                    width: "20px",
+                    height: "20px",
+                    borderRadius: "50%",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: "11px",
+                    fontWeight: "bold",
+                  }}>
+                    {row.blankNumber}
+                  </span>
+                  <span style={{
+                    display: "inline-block",
+                    width: "120px",
+                    borderBottom: "2px solid #3b82f6",
+                    height: "20px",
+                    background: "linear-gradient(90deg, #eff6ff 0%, #dbeafe 100%)",
+                    borderRadius: "4px",
+                  }}></span>
+                </span>
+              ) : (
+                <span>{row.suffix}</span>
+              )}
+              
+              {/* Suffix text (only for blanks) */}
+              {row.isBlank && row.suffix && <span>{row.suffix}</span>}
+            </div>
+          ))}
+        </div>
       );
     };
 
@@ -203,9 +210,9 @@ const ListeningQuestionEditor = ({
           marginBottom: "16px",
           border: "1px solid #3b82f6",
         }}>
-          <strong style={{ color: "#1d4ed8" }}>📋 Form Builder - Tạo bảng trực quan</strong>
+          <strong style={{ color: "#1d4ed8" }}>📋 Form Builder - Format IELTS</strong>
           <p style={{ margin: "8px 0 0", fontSize: "13px", color: "#1e40af" }}>
-            Thêm từng dòng vào form. Tick ☑️ "Blank" nếu đó là chỗ trống học sinh cần điền.
+            Tạo form theo format đề IELTS với: <b>Label</b> + <b>Prefix</b> + <b>[Blank/Value]</b> + <b>Suffix</b>
           </p>
         </div>
 
@@ -215,7 +222,7 @@ const ListeningQuestionEditor = ({
           type="text"
           value={question.formTitle || ""}
           onChange={(e) => onChange("formTitle", e.target.value)}
-          placeholder="VD: PERSONAL DETAILS FOR HOMESTAY APPLICATION"
+          placeholder="VD: Office Rental"
           style={{ ...compactInputStyle, fontWeight: 600 }}
         />
 
@@ -229,7 +236,7 @@ const ListeningQuestionEditor = ({
           style={compactInputStyle}
         />
 
-        {/* Visual Form Builder */}
+        {/* Visual Form Builder - 4 columns */}
         <label style={labelStyle}>📝 Các dòng trong Form</label>
         <div style={{
           border: "2px solid #e5e7eb",
@@ -239,20 +246,21 @@ const ListeningQuestionEditor = ({
           {/* Header */}
           <div style={{
             display: "grid",
-            gridTemplateColumns: "40px 1fr 1fr 80px 60px 80px",
-            gap: "8px",
-            padding: "10px 12px",
+            gridTemplateColumns: "30px 1fr 0.8fr 60px 50px 0.8fr 70px",
+            gap: "6px",
+            padding: "10px 8px",
             backgroundColor: "#f1f5f9",
             borderBottom: "2px solid #e5e7eb",
             fontWeight: 600,
-            fontSize: "12px",
+            fontSize: "11px",
             color: "#475569",
           }}>
             <span>#</span>
-            <span>Nhãn (Label)</span>
-            <span>Giá trị / Nội dung</span>
-            <span style={{ textAlign: "center" }}>☑️ Blank?</span>
-            <span style={{ textAlign: "center" }}>Câu số</span>
+            <span>Label (nhãn)</span>
+            <span>Prefix (trước)</span>
+            <span style={{ textAlign: "center" }}>Blank?</span>
+            <span style={{ textAlign: "center" }}>Số</span>
+            <span>Suffix (sau) / Value</span>
             <span></span>
           </div>
 
@@ -260,39 +268,37 @@ const ListeningQuestionEditor = ({
           {rows.map((row, idx) => (
             <div key={idx} style={{
               display: "grid",
-              gridTemplateColumns: "40px 1fr 1fr 80px 60px 80px",
-              gap: "8px",
-              padding: "10px 12px",
+              gridTemplateColumns: "30px 1fr 0.8fr 60px 50px 0.8fr 70px",
+              gap: "6px",
+              padding: "8px",
               borderBottom: "1px solid #e5e7eb",
-              backgroundColor: row.isBlank ? "#eff6ff" : "#fff",
+              backgroundColor: row.isBlank ? "#eff6ff" : (row.isSubRow ? "#fefce8" : "#fff"),
               alignItems: "center",
             }}>
               {/* Row number */}
-              <span style={{ color: "#9ca3af", fontSize: "12px" }}>{idx + 1}</span>
+              <span style={{ color: "#9ca3af", fontSize: "11px" }}>{idx + 1}</span>
               
               {/* Label */}
               <input
                 type="text"
-                value={row.label}
+                value={row.label || ""}
                 onChange={(e) => updateRow(idx, "label", e.target.value)}
-                placeholder="VD: First name"
-                style={{ ...compactInputStyle, marginBottom: 0 }}
+                placeholder={row.isSubRow ? "(dòng con)" : "– Label:"}
+                style={{ 
+                  ...compactInputStyle, 
+                  marginBottom: 0, 
+                  fontSize: "12px",
+                  backgroundColor: row.isSubRow ? "#fef9c3" : "#fff",
+                }}
               />
               
-              {/* Value (disabled if blank) */}
+              {/* Prefix */}
               <input
                 type="text"
-                value={row.isBlank ? "(Học sinh điền)" : row.value}
-                onChange={(e) => updateRow(idx, "value", e.target.value)}
-                placeholder={row.isBlank ? "Học sinh sẽ điền" : "VD: Smith"}
-                disabled={row.isBlank}
-                style={{
-                  ...compactInputStyle,
-                  marginBottom: 0,
-                  backgroundColor: row.isBlank ? "#e0e7ff" : "#fff",
-                  color: row.isBlank ? "#6366f1" : "#1f2937",
-                  fontStyle: row.isBlank ? "italic" : "normal",
-                }}
+                value={row.prefix || ""}
+                onChange={(e) => updateRow(idx, "prefix", e.target.value)}
+                placeholder="near the / a"
+                style={{ ...compactInputStyle, marginBottom: 0, fontSize: "12px" }}
               />
               
               {/* Is Blank checkbox */}
@@ -301,7 +307,7 @@ const ListeningQuestionEditor = ({
                   type="checkbox"
                   checked={row.isBlank}
                   onChange={(e) => updateRow(idx, "isBlank", e.target.checked)}
-                  style={{ width: "20px", height: "20px", cursor: "pointer" }}
+                  style={{ width: "18px", height: "18px", cursor: "pointer" }}
                 />
               </div>
               
@@ -311,9 +317,9 @@ const ListeningQuestionEditor = ({
                   <span style={{
                     background: "#3b82f6",
                     color: "white",
-                    padding: "4px 10px",
-                    borderRadius: "12px",
-                    fontSize: "12px",
+                    padding: "2px 8px",
+                    borderRadius: "10px",
+                    fontSize: "11px",
                     fontWeight: "bold",
                   }}>
                     {row.blankNumber}
@@ -321,21 +327,35 @@ const ListeningQuestionEditor = ({
                 )}
               </div>
               
+              {/* Suffix / Value */}
+              <input
+                type="text"
+                value={row.suffix || ""}
+                onChange={(e) => updateRow(idx, "suffix", e.target.value)}
+                placeholder={row.isBlank ? "ft² / for employees" : "Jonathan Smith"}
+                style={{ 
+                  ...compactInputStyle, 
+                  marginBottom: 0, 
+                  fontSize: "12px",
+                  backgroundColor: row.isBlank ? "#dbeafe" : "#f0fdf4",
+                }}
+              />
+              
               {/* Actions */}
-              <div style={{ display: "flex", gap: "4px" }}>
+              <div style={{ display: "flex", gap: "2px" }}>
                 <button
                   type="button"
                   onClick={() => moveRow(idx, -1)}
                   disabled={idx === 0}
                   style={{
-                    padding: "4px 8px",
+                    padding: "2px 6px",
                     border: "none",
-                    borderRadius: "4px",
+                    borderRadius: "3px",
                     cursor: idx === 0 ? "not-allowed" : "pointer",
                     backgroundColor: "#f1f5f9",
                     opacity: idx === 0 ? 0.5 : 1,
+                    fontSize: "12px",
                   }}
-                  title="Di chuyển lên"
                 >
                   ↑
                 </button>
@@ -344,14 +364,14 @@ const ListeningQuestionEditor = ({
                   onClick={() => moveRow(idx, 1)}
                   disabled={idx === rows.length - 1}
                   style={{
-                    padding: "4px 8px",
+                    padding: "2px 6px",
                     border: "none",
-                    borderRadius: "4px",
+                    borderRadius: "3px",
                     cursor: idx === rows.length - 1 ? "not-allowed" : "pointer",
                     backgroundColor: "#f1f5f9",
                     opacity: idx === rows.length - 1 ? 0.5 : 1,
+                    fontSize: "12px",
                   }}
-                  title="Di chuyển xuống"
                 >
                   ↓
                 </button>
@@ -360,15 +380,15 @@ const ListeningQuestionEditor = ({
                   onClick={() => deleteRow(idx)}
                   disabled={rows.length <= 1}
                   style={{
-                    padding: "4px 8px",
+                    padding: "2px 6px",
                     border: "none",
-                    borderRadius: "4px",
+                    borderRadius: "3px",
                     cursor: rows.length <= 1 ? "not-allowed" : "pointer",
                     backgroundColor: "#fee2e2",
                     color: "#dc2626",
                     opacity: rows.length <= 1 ? 0.5 : 1,
+                    fontSize: "12px",
                   }}
-                  title="Xóa dòng"
                 >
                   ✕
                 </button>
@@ -376,23 +396,95 @@ const ListeningQuestionEditor = ({
             </div>
           ))}
 
-          {/* Add Row Button */}
-          <button
-            type="button"
-            onClick={addRow}
-            style={{
-              width: "100%",
-              padding: "12px",
-              border: "none",
-              backgroundColor: "#f0fdf4",
-              color: "#16a34a",
-              cursor: "pointer",
-              fontSize: "14px",
-              fontWeight: 600,
-            }}
-          >
-            ➕ Thêm dòng mới
-          </button>
+          {/* Add Row Buttons */}
+          <div style={{ display: "flex", borderTop: "1px solid #e5e7eb" }}>
+            <button
+              type="button"
+              onClick={addRow}
+              style={{
+                flex: 1,
+                padding: "10px",
+                border: "none",
+                borderRight: "1px solid #e5e7eb",
+                backgroundColor: "#f0fdf4",
+                color: "#16a34a",
+                cursor: "pointer",
+                fontSize: "13px",
+                fontWeight: 600,
+              }}
+            >
+              ➕ Thêm dòng
+            </button>
+            <button
+              type="button"
+              onClick={addSubRow}
+              style={{
+                flex: 1,
+                padding: "10px",
+                border: "none",
+                backgroundColor: "#fefce8",
+                color: "#ca8a04",
+                cursor: "pointer",
+                fontSize: "13px",
+                fontWeight: 600,
+              }}
+            >
+              ↳ Thêm dòng con (blank)
+            </button>
+          </div>
+        </div>
+
+        {/* Example guide */}
+        <div style={{
+          marginTop: "12px",
+          padding: "10px 12px",
+          backgroundColor: "#f8fafc",
+          borderRadius: "8px",
+          border: "1px solid #e2e8f0",
+          fontSize: "12px",
+        }}>
+          <strong>📖 Ví dụ cách nhập:</strong>
+          <table style={{ width: "100%", marginTop: "8px", fontSize: "11px", borderCollapse: "collapse" }}>
+            <thead>
+              <tr style={{ backgroundColor: "#f1f5f9" }}>
+                <th style={{ padding: "4px 6px", textAlign: "left", border: "1px solid #e2e8f0" }}>Đề gốc</th>
+                <th style={{ padding: "4px 6px", textAlign: "left", border: "1px solid #e2e8f0" }}>Label</th>
+                <th style={{ padding: "4px 6px", textAlign: "left", border: "1px solid #e2e8f0" }}>Prefix</th>
+                <th style={{ padding: "4px 6px", textAlign: "left", border: "1px solid #e2e8f0" }}>Blank?</th>
+                <th style={{ padding: "4px 6px", textAlign: "left", border: "1px solid #e2e8f0" }}>Suffix/Value</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style={{ padding: "4px 6px", border: "1px solid #e2e8f0" }}>– Preferred location: near the <b>[3]___</b></td>
+                <td style={{ padding: "4px 6px", border: "1px solid #e2e8f0" }}>– Preferred location:</td>
+                <td style={{ padding: "4px 6px", border: "1px solid #e2e8f0" }}>near the</td>
+                <td style={{ padding: "4px 6px", border: "1px solid #e2e8f0" }}>☑️</td>
+                <td style={{ padding: "4px 6px", border: "1px solid #e2e8f0" }}>(trống)</td>
+              </tr>
+              <tr>
+                <td style={{ padding: "4px 6px", border: "1px solid #e2e8f0" }}>– Preferred size: <b>[4]___</b> ft²</td>
+                <td style={{ padding: "4px 6px", border: "1px solid #e2e8f0" }}>– Preferred size:</td>
+                <td style={{ padding: "4px 6px", border: "1px solid #e2e8f0" }}>(trống)</td>
+                <td style={{ padding: "4px 6px", border: "1px solid #e2e8f0" }}>☑️</td>
+                <td style={{ padding: "4px 6px", border: "1px solid #e2e8f0" }}>ft²</td>
+              </tr>
+              <tr>
+                <td style={{ padding: "4px 6px", border: "1px solid #e2e8f0" }}>&nbsp;&nbsp;&nbsp;&nbsp;a <b>[7]___</b> for employees</td>
+                <td style={{ padding: "4px 6px", border: "1px solid #e2e8f0" }}>(dòng con - trống)</td>
+                <td style={{ padding: "4px 6px", border: "1px solid #e2e8f0" }}>a</td>
+                <td style={{ padding: "4px 6px", border: "1px solid #e2e8f0" }}>☑️</td>
+                <td style={{ padding: "4px 6px", border: "1px solid #e2e8f0" }}>for employees</td>
+              </tr>
+              <tr>
+                <td style={{ padding: "4px 6px", border: "1px solid #e2e8f0" }}>– Full name: Jonathan Smith</td>
+                <td style={{ padding: "4px 6px", border: "1px solid #e2e8f0" }}>– Full name:</td>
+                <td style={{ padding: "4px 6px", border: "1px solid #e2e8f0" }}>(trống)</td>
+                <td style={{ padding: "4px 6px", border: "1px solid #e2e8f0" }}>❌</td>
+                <td style={{ padding: "4px 6px", border: "1px solid #e2e8f0" }}>Jonathan Smith</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
 
         {/* Answers for each blank */}
@@ -401,29 +493,29 @@ const ListeningQuestionEditor = ({
             <label style={labelStyle}>✅ Đáp án cho từng câu</label>
             <div style={{
               display: "grid",
-              gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))",
-              gap: "10px",
+              gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))",
+              gap: "8px",
             }}>
               {blankNumbers.map(num => (
                 <div key={num} style={{
                   display: "flex",
                   alignItems: "center",
-                  gap: "8px",
-                  padding: "8px",
+                  gap: "6px",
+                  padding: "6px 8px",
                   backgroundColor: "#f0fdf4",
-                  borderRadius: "8px",
+                  borderRadius: "6px",
                   border: "1px solid #86efac",
                 }}>
                   <span style={{
                     background: "#22c55e",
                     color: "white",
-                    width: "26px",
-                    height: "26px",
+                    width: "22px",
+                    height: "22px",
                     borderRadius: "50%",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    fontSize: "12px",
+                    fontSize: "11px",
                     fontWeight: "bold",
                     flexShrink: 0,
                   }}>
@@ -436,8 +528,8 @@ const ListeningQuestionEditor = ({
                       const newAnswers = { ...answers, [num]: e.target.value };
                       onChange("answers", newAnswers);
                     }}
-                    placeholder={`Đáp án câu ${num}`}
-                    style={{ ...compactInputStyle, flex: 1, marginBottom: 0 }}
+                    placeholder={`Đáp án ${num}`}
+                    style={{ ...compactInputStyle, flex: 1, marginBottom: 0, fontSize: "12px" }}
                   />
                 </div>
               ))}
@@ -459,11 +551,12 @@ const ListeningQuestionEditor = ({
                 <h3 style={{
                   textAlign: "center",
                   margin: "0 0 16px",
-                  padding: "12px",
+                  padding: "12px 20px",
                   backgroundColor: "#1f2937",
                   color: "white",
                   borderRadius: "8px",
                   fontSize: "16px",
+                  fontWeight: "bold",
                 }}>
                   {question.formTitle}
                 </h3>
@@ -473,32 +566,15 @@ const ListeningQuestionEditor = ({
                   color: "#dc2626",
                   fontWeight: 600,
                   marginBottom: "16px",
+                  fontSize: "14px",
                 }}>
                   {question.questionRange}
                 </p>
               )}
-              {renderPreviewTable()}
+              {renderPreviewList()}
             </div>
           </div>
         )}
-
-        {/* Quick Tips */}
-        <div style={{
-          marginTop: "16px",
-          padding: "12px",
-          backgroundColor: "#ecfdf5",
-          borderRadius: "8px",
-          border: "1px solid #6ee7b7",
-          fontSize: "12px",
-        }}>
-          <strong>💡 Hướng dẫn nhanh:</strong>
-          <ul style={{ margin: "8px 0 0", paddingLeft: "20px", lineHeight: "1.8" }}>
-            <li>Tick ☑️ <strong>Blank</strong> nếu ô đó là chỗ học sinh cần điền</li>
-            <li>Số câu hỏi sẽ tự động đánh số theo thứ tự</li>
-            <li>Dùng ↑↓ để sắp xếp lại thứ tự các dòng</li>
-            <li>Preview sẽ hiện đúng như giao diện học sinh sẽ thấy</li>
-          </ul>
-        </div>
       </div>
     );
   };
