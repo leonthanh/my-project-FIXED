@@ -490,49 +490,94 @@ const ListeningQuestionEditor = ({
         {/* Answers for each blank */}
         {blankNumbers.length > 0 && (
           <div style={{ marginTop: "16px" }}>
-            <label style={labelStyle}>✅ Đáp án cho từng câu</label>
+            <label style={labelStyle}>✅ Đáp án cho từng câu <span style={{ fontWeight: "normal", color: "#6b7280", fontSize: "12px" }}>(dùng | để phân cách nhiều đáp án đúng)</span></label>
             <div style={{
               display: "grid",
-              gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))",
-              gap: "8px",
+              gridTemplateColumns: "repeat(auto-fill, minmax(250px, 1fr))",
+              gap: "10px",
             }}>
-              {blankNumbers.map(num => (
-                <div key={num} style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "6px",
-                  padding: "6px 8px",
-                  backgroundColor: "#f0fdf4",
-                  borderRadius: "6px",
-                  border: "1px solid #86efac",
-                }}>
-                  <span style={{
-                    background: "#22c55e",
-                    color: "white",
-                    width: "22px",
-                    height: "22px",
-                    borderRadius: "50%",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontSize: "11px",
-                    fontWeight: "bold",
-                    flexShrink: 0,
+              {blankNumbers.map(num => {
+                const answerValue = answers[num] || "";
+                const multipleAnswers = answerValue.split("|").map(a => a.trim()).filter(a => a);
+                const hasMultiple = multipleAnswers.length > 1;
+                
+                return (
+                  <div key={num} style={{
+                    padding: "8px 10px",
+                    backgroundColor: "#f0fdf4",
+                    borderRadius: "8px",
+                    border: "1px solid #86efac",
                   }}>
-                    {num}
-                  </span>
-                  <input
-                    type="text"
-                    value={answers[num] || ""}
-                    onChange={(e) => {
-                      const newAnswers = { ...answers, [num]: e.target.value };
-                      onChange("answers", newAnswers);
-                    }}
-                    placeholder={`Đáp án ${num}`}
-                    style={{ ...compactInputStyle, flex: 1, marginBottom: 0, fontSize: "12px" }}
-                  />
-                </div>
-              ))}
+                    {/* Input row */}
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                      <span style={{
+                        background: "#22c55e",
+                        color: "white",
+                        width: "24px",
+                        height: "24px",
+                        borderRadius: "50%",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontSize: "12px",
+                        fontWeight: "bold",
+                        flexShrink: 0,
+                      }}>
+                        {num}
+                      </span>
+                      <input
+                        type="text"
+                        value={answerValue}
+                        onChange={(e) => {
+                          const newAnswers = { ...answers, [num]: e.target.value };
+                          onChange("answers", newAnswers);
+                        }}
+                        placeholder="VD: 10,000 | 10 thousand"
+                        style={{ ...compactInputStyle, flex: 1, marginBottom: 0, fontSize: "12px" }}
+                      />
+                    </div>
+                    
+                    {/* Multiple answers preview */}
+                    {hasMultiple && (
+                      <div style={{
+                        marginTop: "6px",
+                        paddingTop: "6px",
+                        borderTop: "1px dashed #86efac",
+                        display: "flex",
+                        flexWrap: "wrap",
+                        gap: "4px",
+                      }}>
+                        <span style={{ fontSize: "10px", color: "#16a34a", marginRight: "4px" }}>Chấp nhận:</span>
+                        {multipleAnswers.map((ans, i) => (
+                          <span key={i} style={{
+                            fontSize: "11px",
+                            padding: "2px 6px",
+                            backgroundColor: "#dcfce7",
+                            borderRadius: "4px",
+                            color: "#15803d",
+                          }}>
+                            {ans}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            
+            {/* Hint */}
+            <div style={{
+              marginTop: "8px",
+              padding: "8px 12px",
+              backgroundColor: "#fef3c7",
+              borderRadius: "6px",
+              border: "1px solid #fcd34d",
+              fontSize: "11px",
+              color: "#92400e",
+            }}>
+              💡 <strong>Mẹo:</strong> Dùng dấu <code style={{ background: "#fde68a", padding: "1px 4px", borderRadius: "3px" }}>|</code> để nhập nhiều đáp án đúng. 
+              VD: <code style={{ background: "#fde68a", padding: "1px 4px", borderRadius: "3px" }}>10,000 | 10 thousand | ten thousand</code>
             </div>
           </div>
         )}
