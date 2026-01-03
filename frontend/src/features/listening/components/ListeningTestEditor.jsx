@@ -1042,45 +1042,478 @@ const ListeningTestEditor = ({
       {/* REVIEW MODAL */}
       {isReviewing && (
         <div style={modalStyles}>
-          <div style={modalContentStyles}>
-            <div style={modalHeaderStyles}>
-              <span style={{ fontSize: "20px" }}>📋</span>
-              <h3 style={{ margin: 0 }}>Xác nhận tạo đề thi</h3>
+          <div style={{
+            ...modalContentStyles,
+            maxWidth: "1000px",
+            maxHeight: "90vh",
+            display: "flex",
+            flexDirection: "column",
+          }}>
+            {/* Header */}
+            <div style={{
+              ...modalHeaderStyles,
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+            }}>
+              <h3 style={{ margin: 0 }}>📋 Xác nhận {submitButtonText === "Cập nhật" ? "cập nhật" : "tạo"} đề thi</h3>
+              <button
+                type="button"
+                onClick={() => setIsReviewing(false)}
+                style={{
+                  background: "transparent",
+                  border: "none",
+                  color: "white",
+                  fontSize: "24px",
+                  cursor: "pointer",
+                  padding: "0 8px",
+                  lineHeight: 1,
+                }}
+                title="Đóng"
+              >
+                ✕
+              </button>
             </div>
 
-            <div style={{ marginBottom: "20px" }}>
-              <h4>📊 Tổng quan:</h4>
-              <ul style={{ lineHeight: 1.8 }}>
-                <li><strong>Tiêu đề:</strong> {title || "(Chưa đặt)"}</li>
-                <li><strong>Mã lớp:</strong> {classCode || "(Chưa nhập)"}</li>
-                <li><strong>Giáo viên:</strong> {teacherName || "(Chưa nhập)"}</li>
-                <li><strong>Số Part:</strong> {parts?.length || 0}</li>
-                <li><strong>Tổng số câu hỏi:</strong> {totalQuestions}</li>
-              </ul>
+            {/* Test Info Summary */}
+            <div style={{
+              padding: "15px",
+              backgroundColor: "#f0f9ff",
+              borderRadius: "6px",
+              marginBottom: "15px",
+              display: "flex",
+              flexWrap: "wrap",
+              gap: "20px",
+            }}>
+              <div><strong>📝 Tiêu đề:</strong> {title || "(Chưa đặt)"}</div>
+              <div><strong>🏫 Mã lớp:</strong> {classCode || "(Không có)"}</div>
+              <div><strong>👨‍🏫 Giáo viên:</strong> {teacherName || "(Không có)"}</div>
+              <div><strong>🎧 Parts:</strong> {parts?.length || 0}</div>
+              <div><strong>❓ Tổng câu hỏi:</strong> {totalQuestions}</div>
+            </div>
 
-              <h4 style={{ marginTop: "20px" }}>🎧 Chi tiết từng Part:</h4>
-              {parts?.map((part, idx) => (
-                <div key={idx} style={{
-                  padding: "12px",
-                  backgroundColor: "#f8fafc",
-                  borderRadius: "8px",
-                  marginBottom: "8px",
-                  borderLeft: `4px solid ${colors.partBlue}`,
-                }}>
-                  <strong>{part.title}</strong>
-                  <span style={{ ...partTypeBadgeStyle(colors.audioGreen), marginLeft: "8px" }}>
-                    {part.audioFile ? "🎵 Có audio" : "⚠️ Chưa có audio"}
-                  </span>
-                  <div style={{ marginTop: "8px", fontSize: "13px", color: colors.gray }}>
-                    {part.sections?.length || 0} sections, {
-                      part.sections?.reduce((t, s) => t + (s.questions?.length || 0), 0) || 0
-                    } câu hỏi
+            {/* Full Preview Content - Scrollable */}
+            <div style={{
+              flex: 1,
+              overflowY: "auto",
+              marginBottom: "15px",
+              border: "1px solid #ddd",
+              borderRadius: "6px",
+            }}>
+              {parts?.map((part, partIdx) => {
+                // Calculate starting question number for this part
+                let partStartQ = 1;
+                for (let p = 0; p < partIdx; p++) {
+                  parts[p].sections?.forEach(s => {
+                    partStartQ += countSectionQuestions(s);
+                  });
+                }
+
+                return (
+                  <div key={partIdx} style={{
+                    borderBottom: partIdx < parts.length - 1 ? "2px solid #3b82f6" : "none",
+                  }}>
+                    {/* Part Header */}
+                    <div style={{
+                      backgroundColor: colors.partBlue,
+                      color: "white",
+                      padding: "10px 15px",
+                      fontWeight: "bold",
+                      fontSize: "14px",
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                    }}>
+                      <span>🎧 {part.title || `Part ${partIdx + 1}`}</span>
+                      <span style={{
+                        padding: "3px 10px",
+                        backgroundColor: part.audioFile ? "#22c55e" : "#ef4444",
+                        borderRadius: "20px",
+                        fontSize: "11px",
+                      }}>
+                        {part.audioFile ? "🎵 CÓ AUDIO" : "⚠️ CHƯA CÓ AUDIO"}
+                      </span>
+                    </div>
+
+                    {/* Part Instruction */}
+                    {part.instruction && (
+                      <div style={{
+                        padding: "10px 15px",
+                        backgroundColor: "#f8fafc",
+                        borderBottom: "1px solid #e5e7eb",
+                        fontSize: "13px",
+                        fontStyle: "italic",
+                      }}>
+                        📝 {part.instruction}
+                      </div>
+                    )}
+
+                    {/* Sections */}
+                    {part.sections?.map((section, sIdx) => {
+                      const sectionQCount = countSectionQuestions(section);
+                      // Calculate starting question for this section
+                      let sectionStartQ = partStartQ;
+                      for (let s = 0; s < sIdx; s++) {
+                        sectionStartQ += countSectionQuestions(part.sections[s]);
+                      }
+
+                      return (
+                        <div key={sIdx} style={{
+                          margin: "10px",
+                          border: `1px solid ${colors.sectionOrange}`,
+                          borderRadius: "6px",
+                          overflow: "hidden",
+                        }}>
+                          {/* Section Header */}
+                          <div style={{
+                            backgroundColor: colors.sectionOrange,
+                            color: "white",
+                            padding: "8px 12px",
+                            fontWeight: "bold",
+                            fontSize: "13px",
+                            display: "flex",
+                            justifyContent: "space-between",
+                          }}>
+                            <span>📌 {section.sectionTitle || `Questions ${sectionStartQ}-${sectionStartQ + sectionQCount - 1}`}</span>
+                            <span style={{ fontWeight: "normal" }}>
+                              {sectionQCount} câu | {section.questionType}
+                            </span>
+                          </div>
+
+                          {/* Section Instruction */}
+                          {section.sectionInstruction && (
+                            <div style={{
+                              padding: "10px 12px",
+                              backgroundColor: "#fffbeb",
+                              borderBottom: "1px solid #fcd34d",
+                              fontSize: "12px",
+                              whiteSpace: "pre-wrap",
+                            }}>
+                              <strong>Hướng dẫn:</strong><br/>
+                              {section.sectionInstruction}
+                            </div>
+                          )}
+
+                          {/* Questions based on type */}
+                          <div style={{ padding: "10px 12px", backgroundColor: "white" }}>
+                            {/* NOTES COMPLETION */}
+                            {section.questionType === 'notes-completion' && section.questions[0] && (
+                              <div>
+                                <div style={{
+                                  padding: "12px",
+                                  backgroundColor: "#f9fafb",
+                                  borderRadius: "6px",
+                                  marginBottom: "12px",
+                                  whiteSpace: "pre-wrap",
+                                  lineHeight: "1.8",
+                                  fontSize: "13px",
+                                  border: "1px solid #e5e7eb",
+                                }}>
+                                  <strong style={{ display: "block", marginBottom: "8px", color: "#1f2937" }}>
+                                    {section.questions[0].notesTitle || "Notes"}
+                                  </strong>
+                                  {section.questions[0].notesText}
+                                </div>
+                                {/* Show answers */}
+                                <div style={{
+                                  padding: "10px",
+                                  backgroundColor: "#dcfce7",
+                                  borderRadius: "6px",
+                                  border: "1px solid #86efac",
+                                }}>
+                                  <strong style={{ fontSize: "12px", color: "#166534" }}>✅ Đáp án:</strong>
+                                  <div style={{
+                                    display: "grid",
+                                    gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))",
+                                    gap: "6px",
+                                    marginTop: "8px",
+                                  }}>
+                                    {Object.entries(section.questions[0].answers || {}).map(([num, ans]) => (
+                                      <span key={num} style={{
+                                        padding: "4px 8px",
+                                        backgroundColor: "white",
+                                        borderRadius: "4px",
+                                        fontSize: "12px",
+                                      }}>
+                                        <strong>{num}.</strong> {ans}
+                                      </span>
+                                    ))}
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* FORM COMPLETION */}
+                            {section.questionType === 'form-completion' && section.questions[0] && (
+                              <div>
+                                <div style={{
+                                  padding: "12px",
+                                  backgroundColor: "#f9fafb",
+                                  borderRadius: "6px",
+                                  marginBottom: "12px",
+                                  border: "1px solid #e5e7eb",
+                                }}>
+                                  <strong style={{ display: "block", marginBottom: "10px" }}>
+                                    {section.questions[0].formTitle || "Form"}
+                                  </strong>
+                                  {section.questions[0].formRows?.map((row, rIdx) => (
+                                    <div key={rIdx} style={{
+                                      display: "flex",
+                                      gap: "8px",
+                                      padding: "4px 0",
+                                      borderBottom: "1px dashed #e5e7eb",
+                                      fontSize: "12px",
+                                    }}>
+                                      <span style={{ minWidth: "120px", color: "#6b7280" }}>{row.label}</span>
+                                      <span>{row.prefix}</span>
+                                      {row.isBlank ? (
+                                        <span style={{
+                                          padding: "2px 12px",
+                                          backgroundColor: "#fef3c7",
+                                          borderRadius: "4px",
+                                          fontWeight: "bold",
+                                          border: "1px dashed #f59e0b",
+                                        }}>
+                                          {row.blankNumber}. ________
+                                        </span>
+                                      ) : (
+                                        <span>{row.suffix}</span>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                                {/* Show answers */}
+                                <div style={{
+                                  padding: "10px",
+                                  backgroundColor: "#dcfce7",
+                                  borderRadius: "6px",
+                                  border: "1px solid #86efac",
+                                }}>
+                                  <strong style={{ fontSize: "12px", color: "#166534" }}>✅ Đáp án:</strong>
+                                  <div style={{
+                                    display: "grid",
+                                    gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))",
+                                    gap: "6px",
+                                    marginTop: "8px",
+                                  }}>
+                                    {Object.entries(section.questions[0].answers || {}).map(([num, ans]) => (
+                                      <span key={num} style={{
+                                        padding: "4px 8px",
+                                        backgroundColor: "white",
+                                        borderRadius: "4px",
+                                        fontSize: "12px",
+                                      }}>
+                                        <strong>{num}.</strong> {ans}
+                                      </span>
+                                    ))}
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* MATCHING */}
+                            {section.questionType === 'matching' && section.questions[0] && (
+                              <div>
+                                <div style={{ display: "flex", gap: "30px", marginBottom: "12px" }}>
+                                  <div style={{ flex: 1 }}>
+                                    <strong style={{ display: "block", marginBottom: "8px", fontSize: "12px" }}>Items:</strong>
+                                    {section.questions[0].leftItems?.map((item, i) => (
+                                      <div key={i} style={{ padding: "4px 0", fontSize: "12px" }}>
+                                        <strong>{sectionStartQ + i}.</strong> {item}
+                                      </div>
+                                    ))}
+                                  </div>
+                                  <div style={{ flex: 1 }}>
+                                    <strong style={{ display: "block", marginBottom: "8px", fontSize: "12px" }}>Options:</strong>
+                                    {section.questions[0].rightItems?.map((item, i) => (
+                                      <div key={i} style={{ padding: "4px 0", fontSize: "12px" }}>
+                                        {item}
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                                {/* Show answers */}
+                                <div style={{
+                                  padding: "10px",
+                                  backgroundColor: "#dcfce7",
+                                  borderRadius: "6px",
+                                  border: "1px solid #86efac",
+                                }}>
+                                  <strong style={{ fontSize: "12px", color: "#166534" }}>✅ Đáp án:</strong>
+                                  <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", marginTop: "8px" }}>
+                                    {Object.entries(section.questions[0].answers || {}).map(([num, ans]) => (
+                                      <span key={num} style={{
+                                        padding: "4px 10px",
+                                        backgroundColor: "white",
+                                        borderRadius: "4px",
+                                        fontSize: "12px",
+                                      }}>
+                                        <strong>{num}.</strong> {ans}
+                                      </span>
+                                    ))}
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* MULTI-SELECT */}
+                            {section.questionType === 'multi-select' && (
+                              <div>
+                                {section.questions?.map((q, qIdx) => {
+                                  const qNum = sectionStartQ + (section.questions.slice(0, qIdx).reduce((sum, prevQ) => sum + (prevQ.requiredAnswers || 2), 0));
+                                  const qEnd = qNum + (q.requiredAnswers || 2) - 1;
+                                  
+                                  return (
+                                    <div key={qIdx} style={{
+                                      padding: "10px",
+                                      marginBottom: "10px",
+                                      backgroundColor: "#f8fafc",
+                                      borderRadius: "6px",
+                                      border: "1px solid #e5e7eb",
+                                    }}>
+                                      <div style={{ fontWeight: "bold", marginBottom: "8px", fontSize: "13px" }}>
+                                        Questions {qNum} and {qEnd}
+                                      </div>
+                                      <div style={{ marginBottom: "8px", fontSize: "13px" }}>{q.questionText}</div>
+                                      <div style={{ paddingLeft: "12px" }}>
+                                        {q.options?.map((opt, oIdx) => (
+                                          <div key={oIdx} style={{
+                                            padding: "3px 0",
+                                            fontSize: "12px",
+                                            color: q.correctAnswer?.includes(String.fromCharCode(65 + oIdx)) ? "#16a34a" : "#4b5563",
+                                            fontWeight: q.correctAnswer?.includes(String.fromCharCode(65 + oIdx)) ? "bold" : "normal",
+                                          }}>
+                                            {q.correctAnswer?.includes(String.fromCharCode(65 + oIdx)) ? "✓ " : "☐ "}{opt}
+                                          </div>
+                                        ))}
+                                      </div>
+                                      <div style={{
+                                        marginTop: "8px",
+                                        padding: "6px 10px",
+                                        backgroundColor: "#dcfce7",
+                                        borderRadius: "4px",
+                                        fontSize: "12px",
+                                      }}>
+                                        <strong>✅ Đáp án:</strong> {q.correctAnswer || "(Chưa có)"}
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
+
+                            {/* ABC / ABCD */}
+                            {(section.questionType === 'abc' || section.questionType === 'abcd') && (
+                              <div>
+                                {section.questions?.map((q, qIdx) => {
+                                  const qNum = sectionStartQ + qIdx;
+                                  
+                                  return (
+                                    <div key={qIdx} style={{
+                                      padding: "10px",
+                                      marginBottom: "8px",
+                                      backgroundColor: "#f8fafc",
+                                      borderRadius: "6px",
+                                      border: "1px solid #e5e7eb",
+                                    }}>
+                                      <div style={{ fontWeight: "bold", marginBottom: "6px", fontSize: "13px" }}>
+                                        <span style={{
+                                          backgroundColor: "#3b82f6",
+                                          color: "white",
+                                          padding: "2px 8px",
+                                          borderRadius: "4px",
+                                          marginRight: "8px",
+                                        }}>Q{qNum}</span>
+                                        {q.questionText}
+                                      </div>
+                                      <div style={{ paddingLeft: "12px" }}>
+                                        {q.options?.map((opt, oIdx) => (
+                                          <div key={oIdx} style={{
+                                            padding: "3px 0",
+                                            fontSize: "12px",
+                                            color: q.correctAnswer === String.fromCharCode(65 + oIdx) ? "#16a34a" : "#4b5563",
+                                            fontWeight: q.correctAnswer === String.fromCharCode(65 + oIdx) ? "bold" : "normal",
+                                          }}>
+                                            {q.correctAnswer === String.fromCharCode(65 + oIdx) ? "✓ " : ""}{opt}
+                                          </div>
+                                        ))}
+                                      </div>
+                                      <div style={{
+                                        marginTop: "6px",
+                                        padding: "4px 8px",
+                                        backgroundColor: "#dcfce7",
+                                        borderRadius: "4px",
+                                        fontSize: "11px",
+                                        display: "inline-block",
+                                      }}>
+                                        ✅ Đáp án: <strong>{q.correctAnswer || "(Chưa có)"}</strong>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
+
+                            {/* FILL */}
+                            {section.questionType === 'fill' && (
+                              <div>
+                                {section.questions?.map((q, qIdx) => {
+                                  const qNum = sectionStartQ + qIdx;
+                                  
+                                  return (
+                                    <div key={qIdx} style={{
+                                      padding: "8px 10px",
+                                      marginBottom: "6px",
+                                      backgroundColor: "#f8fafc",
+                                      borderRadius: "6px",
+                                      border: "1px solid #e5e7eb",
+                                      fontSize: "12px",
+                                      display: "flex",
+                                      justifyContent: "space-between",
+                                      alignItems: "center",
+                                    }}>
+                                      <div>
+                                        <span style={{
+                                          backgroundColor: "#3b82f6",
+                                          color: "white",
+                                          padding: "2px 8px",
+                                          borderRadius: "4px",
+                                          marginRight: "8px",
+                                          fontSize: "11px",
+                                        }}>Q{qNum}</span>
+                                        {q.questionText || "________"}
+                                      </div>
+                                      <span style={{
+                                        padding: "4px 10px",
+                                        backgroundColor: "#dcfce7",
+                                        borderRadius: "4px",
+                                        color: "#166534",
+                                        fontWeight: "bold",
+                                      }}>
+                                        {q.correctAnswer || "(Chưa có đáp án)"}
+                                      </span>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
-            <div style={{ display: "flex", gap: "12px", justifyContent: "flex-end" }}>
+            {/* Footer Buttons */}
+            <div style={{
+              display: "flex",
+              gap: "12px",
+              justifyContent: "flex-end",
+              paddingTop: "15px",
+              borderTop: "1px solid #e5e7eb",
+            }}>
               <button
                 type="button"
                 onClick={() => setIsReviewing(false)}
@@ -1094,8 +1527,264 @@ const ListeningTestEditor = ({
                 style={primaryButtonStyle}
                 disabled={isSubmitting}
               >
-                {isSubmitting ? "⏳ Đang tạo..." : "✅ Xác nhận tạo đề"}
+                {isSubmitting ? "⏳ Đang xử lý..." : `✅ Xác nhận ${submitButtonText || "tạo đề"}`}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* BULK ADD MODAL */}
+      {showPreview && (
+        <div style={modalStyles}>
+          <div style={{ ...modalContentStyles, maxWidth: "900px", maxHeight: "90vh", overflow: "auto" }}>
+            <div style={{ ...modalHeaderStyles, position: "sticky", top: 0, backgroundColor: "white", zIndex: 10 }}>
+              <span style={{ fontSize: "20px" }}>👁️</span>
+              <h3 style={{ margin: 0 }}>Xem trước đề thi</h3>
+              <button
+                type="button"
+                onClick={() => setShowPreview(false)}
+                style={{
+                  marginLeft: "auto",
+                  padding: "6px 12px",
+                  backgroundColor: "#ef4444",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "6px",
+                  cursor: "pointer",
+                }}
+              >
+                ✕ Đóng
+              </button>
+            </div>
+
+            <div style={{ padding: "20px 0" }}>
+              {/* Test Header */}
+              <div style={{
+                textAlign: "center",
+                marginBottom: "30px",
+                padding: "20px",
+                backgroundColor: "#f0f9ff",
+                borderRadius: "12px",
+              }}>
+                <h2 style={{ margin: "0 0 10px 0", color: "#1e40af" }}>
+                  🎧 {title || "LISTENING TEST"}
+                </h2>
+                <p style={{ margin: 0, color: "#6b7280" }}>
+                  {classCode && `Mã lớp: ${classCode}`} {teacherName && `| Giáo viên: ${teacherName}`}
+                </p>
+                <p style={{ margin: "8px 0 0 0", fontSize: "14px", color: "#6b7280" }}>
+                  Tổng: {totalQuestions} câu hỏi | {parts?.length || 0} parts
+                </p>
+              </div>
+
+              {/* Parts Preview */}
+              {parts?.map((part, partIdx) => {
+                let questionCounter = 1;
+                // Calculate starting question for this part
+                for (let p = 0; p < partIdx; p++) {
+                  parts[p].sections?.forEach(s => {
+                    questionCounter += countSectionQuestions(s);
+                  });
+                }
+                const partStartQ = questionCounter;
+                
+                return (
+                  <div key={partIdx} style={{
+                    marginBottom: "30px",
+                    border: "1px solid #e5e7eb",
+                    borderRadius: "12px",
+                    overflow: "hidden",
+                  }}>
+                    {/* Part Header */}
+                    <div style={{
+                      padding: "16px 20px",
+                      backgroundColor: colors.partBlue,
+                      color: "white",
+                    }}>
+                      <h3 style={{ margin: 0 }}>
+                        {part.title || `PART ${partIdx + 1}`}
+                      </h3>
+                      {part.audioFile && (
+                        <span style={{ fontSize: "12px", opacity: 0.9 }}>🎵 Có audio</span>
+                      )}
+                    </div>
+
+                    {/* Part Instruction */}
+                    {part.instruction && (
+                      <div style={{
+                        padding: "12px 20px",
+                        backgroundColor: "#f8fafc",
+                        borderBottom: "1px solid #e5e7eb",
+                        fontStyle: "italic",
+                        fontSize: "14px",
+                      }}>
+                        {part.instruction}
+                      </div>
+                    )}
+
+                    {/* Sections */}
+                    {part.sections?.map((section, sIdx) => {
+                      const sectionQCount = countSectionQuestions(section);
+                      // Calculate starting question for this section
+                      let sectionStartQ = partStartQ;
+                      for (let s = 0; s < sIdx; s++) {
+                        sectionStartQ += countSectionQuestions(part.sections[s]);
+                      }
+                      
+                      return (
+                        <div key={sIdx} style={{ padding: "16px 20px", borderBottom: "1px solid #f3f4f6" }}>
+                          <h4 style={{
+                            margin: "0 0 12px 0",
+                            color: colors.sectionOrange,
+                            fontSize: "16px",
+                          }}>
+                            {section.sectionTitle || `Questions ${sectionStartQ}-${sectionStartQ + sectionQCount - 1}`}
+                          </h4>
+                          
+                          {section.sectionInstruction && (
+                            <p style={{
+                              margin: "0 0 16px 0",
+                              padding: "10px",
+                              backgroundColor: "#fffbeb",
+                              borderRadius: "8px",
+                              fontSize: "14px",
+                              whiteSpace: "pre-wrap",
+                            }}>
+                              {section.sectionInstruction}
+                            </p>
+                          )}
+
+                          {/* Questions based on type */}
+                          <div style={{ paddingLeft: "10px" }}>
+                            {section.questionType === 'notes-completion' && section.questions[0]?.notesText && (
+                              <div style={{
+                                padding: "16px",
+                                backgroundColor: "#f9fafb",
+                                borderRadius: "8px",
+                                whiteSpace: "pre-wrap",
+                                lineHeight: "1.8",
+                                fontFamily: "Georgia, serif",
+                              }}>
+                                <strong style={{ display: "block", marginBottom: "12px" }}>
+                                  {section.questions[0].notesTitle || "Notes"}
+                                </strong>
+                                {section.questions[0].notesText}
+                              </div>
+                            )}
+                            
+                            {section.questionType === 'form-completion' && section.questions[0]?.formRows && (
+                              <div style={{
+                                padding: "16px",
+                                backgroundColor: "#f9fafb",
+                                borderRadius: "8px",
+                                border: "1px solid #e5e7eb",
+                              }}>
+                                <strong style={{ display: "block", marginBottom: "12px" }}>
+                                  {section.questions[0].formTitle || "Form"}
+                                </strong>
+                                {section.questions[0].formRows.map((row, rIdx) => (
+                                  <div key={rIdx} style={{
+                                    display: "flex",
+                                    gap: "8px",
+                                    padding: "6px 0",
+                                    borderBottom: "1px dashed #e5e7eb",
+                                  }}>
+                                    <span style={{ minWidth: "150px" }}>{row.label}</span>
+                                    <span>{row.prefix}</span>
+                                    {row.isBlank ? (
+                                      <span style={{
+                                        padding: "2px 16px",
+                                        backgroundColor: "#fef3c7",
+                                        borderRadius: "4px",
+                                        fontWeight: "bold",
+                                      }}>
+                                        {row.blankNumber}. ________
+                                      </span>
+                                    ) : (
+                                      <span>{row.suffix}</span>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+
+                            {section.questionType === 'matching' && section.questions[0] && (
+                              <div style={{ display: "flex", gap: "40px" }}>
+                                <div>
+                                  <strong>Items:</strong>
+                                  {section.questions[0].leftItems?.map((item, i) => (
+                                    <div key={i} style={{ padding: "4px 0" }}>
+                                      {sectionStartQ + i}. {item}
+                                    </div>
+                                  ))}
+                                </div>
+                                <div>
+                                  <strong>Options:</strong>
+                                  {section.questions[0].rightItems?.map((item, i) => (
+                                    <div key={i} style={{ padding: "4px 0" }}>
+                                      {item}
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
+                            {(section.questionType === 'abc' || section.questionType === 'abcd') && (
+                              <div>
+                                {section.questions?.map((q, qIdx) => (
+                                  <div key={qIdx} style={{ marginBottom: "16px" }}>
+                                    <strong>{sectionStartQ + qIdx}.</strong> {q.questionText}
+                                    <div style={{ paddingLeft: "20px", marginTop: "8px" }}>
+                                      {q.options?.map((opt, oIdx) => (
+                                        <div key={oIdx} style={{ padding: "4px 0" }}>
+                                          {opt}
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+
+                            {section.questionType === 'multi-select' && (
+                              <div>
+                                {section.questions?.map((q, qIdx) => {
+                                  const qStartNum = sectionStartQ + (qIdx * (q.requiredAnswers || 2));
+                                  const qEndNum = qStartNum + (q.requiredAnswers || 2) - 1;
+                                  return (
+                                    <div key={qIdx} style={{ marginBottom: "20px" }}>
+                                      <strong>Questions {qStartNum} and {qEndNum}</strong>
+                                      <p style={{ margin: "8px 0" }}>{q.questionText}</p>
+                                      <div style={{ paddingLeft: "20px" }}>
+                                        {q.options?.map((opt, oIdx) => (
+                                          <div key={oIdx} style={{ padding: "4px 0" }}>
+                                            ☐ {opt}
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
+
+                            {section.questionType === 'fill' && (
+                              <div>
+                                {section.questions?.map((q, qIdx) => (
+                                  <div key={qIdx} style={{ marginBottom: "12px" }}>
+                                    <strong>{sectionStartQ + qIdx}.</strong> {q.questionText || "________"}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>
