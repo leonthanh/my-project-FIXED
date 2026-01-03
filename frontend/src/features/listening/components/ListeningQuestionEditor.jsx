@@ -64,28 +64,133 @@ const ListeningQuestionEditor = ({
     </div>
   );
 
-  // Form/Table Completion - Cho phép nhập HTML form với blanks
+  // Form/Table Completion - Visual Form Builder (không cần biết HTML)
   const renderFormCompletionQuestion = () => {
-    // Parse blanks từ formContent để tìm số blank
-    const formContent = question.formContent || '';
-    const blankMatches = formContent.match(/\{\{(\d+)\}\}/g) || [];
-    const blankNumbers = blankMatches.map(m => parseInt(m.replace(/\{\{|\}\}/g, ''))).sort((a, b) => a - b);
+    // Initialize rows if empty
+    const rows = question.formRows || [
+      { label: "First name", value: "", isBlank: true, blankNumber: 1 },
+      { label: "Family name", value: "Smith", isBlank: false, blankNumber: null },
+    ];
     const answers = question.answers || {};
 
-    // Preview function - replace {{n}} with styled input
-    const renderPreview = () => {
-      if (!formContent) return null;
+    // Get all blank numbers from rows
+    const blankNumbers = rows
+      .filter(r => r.isBlank)
+      .map(r => r.blankNumber)
+      .filter(n => n)
+      .sort((a, b) => a - b);
+
+    // Add new row
+    const addRow = () => {
+      const nextBlankNum = Math.max(0, ...rows.map(r => r.blankNumber || 0)) + 1;
+      const newRows = [...rows, { label: "", value: "", isBlank: false, blankNumber: null }];
+      onChange("formRows", newRows);
+    };
+
+    // Update row
+    const updateRow = (index, field, value) => {
+      const newRows = [...rows];
+      newRows[index] = { ...newRows[index], [field]: value };
       
-      let previewHtml = formContent;
-      blankNumbers.forEach(num => {
-        const inputHtml = `<span style="display: inline-flex; align-items: center; gap: 4px;">
-          <span style="background: #3b82f6; color: white; width: 22px; height: 22px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold;">${num}</span>
-          <input type="text" disabled placeholder="..." style="width: 120px; padding: 6px 10px; border: 2px solid #3b82f6; border-radius: 6px; background: #eff6ff;" />
-        </span>`;
-        previewHtml = previewHtml.replace(`{{${num}}}`, inputHtml);
+      // Auto-assign blank number when toggling isBlank
+      if (field === "isBlank") {
+        if (value) {
+          const maxBlank = Math.max(0, ...rows.map(r => r.blankNumber || 0));
+          newRows[index].blankNumber = maxBlank + 1;
+          newRows[index].value = ""; // Clear value when it's a blank
+        } else {
+          newRows[index].blankNumber = null;
+        }
+      }
+      
+      onChange("formRows", newRows);
+    };
+
+    // Delete row
+    const deleteRow = (index) => {
+      if (rows.length <= 1) return;
+      const newRows = rows.filter((_, i) => i !== index);
+      // Re-number blanks
+      let blankNum = 1;
+      newRows.forEach(row => {
+        if (row.isBlank) {
+          row.blankNumber = blankNum++;
+        }
       });
-      
-      return previewHtml;
+      onChange("formRows", newRows);
+    };
+
+    // Move row up/down
+    const moveRow = (index, direction) => {
+      const newIndex = index + direction;
+      if (newIndex < 0 || newIndex >= rows.length) return;
+      const newRows = [...rows];
+      [newRows[index], newRows[newIndex]] = [newRows[newIndex], newRows[index]];
+      onChange("formRows", newRows);
+    };
+
+    // Render preview table
+    const renderPreviewTable = () => {
+      return (
+        <table style={{
+          width: "100%",
+          borderCollapse: "collapse",
+          border: "1px solid #d1d5db",
+        }}>
+          <tbody>
+            {rows.map((row, idx) => (
+              <tr key={idx}>
+                <td style={{
+                  padding: "12px 16px",
+                  border: "1px solid #d1d5db",
+                  backgroundColor: "#f9fafb",
+                  fontWeight: 600,
+                  width: "40%",
+                }}>
+                  {row.label}
+                </td>
+                <td style={{
+                  padding: "12px 16px",
+                  border: "1px solid #d1d5db",
+                }}>
+                  {row.isBlank ? (
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: "8px" }}>
+                      <span style={{
+                        background: "#3b82f6",
+                        color: "white",
+                        width: "24px",
+                        height: "24px",
+                        borderRadius: "50%",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontSize: "12px",
+                        fontWeight: "bold",
+                      }}>
+                        {row.blankNumber}
+                      </span>
+                      <input
+                        type="text"
+                        disabled
+                        placeholder="..............."
+                        style={{
+                          width: "150px",
+                          padding: "8px 12px",
+                          border: "2px solid #3b82f6",
+                          borderRadius: "6px",
+                          background: "#eff6ff",
+                        }}
+                      />
+                    </span>
+                  ) : (
+                    row.value
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      );
     };
 
     return (
@@ -98,16 +203,14 @@ const ListeningQuestionEditor = ({
           marginBottom: "16px",
           border: "1px solid #3b82f6",
         }}>
-          <strong style={{ color: "#1d4ed8" }}>📋 Form/Table Completion</strong>
+          <strong style={{ color: "#1d4ed8" }}>📋 Form Builder - Tạo bảng trực quan</strong>
           <p style={{ margin: "8px 0 0", fontSize: "13px", color: "#1e40af" }}>
-            Dùng <code style={{ background: "#bfdbfe", padding: "2px 6px", borderRadius: "4px" }}>{`{{1}}`}</code>, 
-            <code style={{ background: "#bfdbfe", padding: "2px 6px", borderRadius: "4px", marginLeft: "4px" }}>{`{{2}}`}</code>... 
-            để đánh dấu chỗ trống trong form. Học sinh sẽ thấy form đầy đủ với các ô input được đánh số.
+            Thêm từng dòng vào form. Tick ☑️ "Blank" nếu đó là chỗ trống học sinh cần điền.
           </p>
         </div>
 
         {/* Form Title */}
-        <label style={labelStyle}>📌 Tiêu đề Form (VD: Office Rental, Personal Details...)</label>
+        <label style={labelStyle}>📌 Tiêu đề Form</label>
         <input
           type="text"
           value={question.formTitle || ""}
@@ -126,39 +229,176 @@ const ListeningQuestionEditor = ({
           style={compactInputStyle}
         />
 
-        {/* Form Content (HTML) */}
-        <label style={labelStyle}>📝 Nội dung Form (HTML hoặc plain text)</label>
-        <textarea
-          value={formContent}
-          onChange={(e) => onChange("formContent", e.target.value)}
-          placeholder={`Nhập nội dung form với {{số}} để đánh dấu blank. Ví dụ:
-
-<table>
-  <tr><td>First name</td><td>{{1}}</td></tr>
-  <tr><td>Family name</td><td>Yuichini</td></tr>
-  <tr><td>Passport number</td><td>{{2}}</td></tr>
-  <tr><td>Course enrolled</td><td>{{3}}</td></tr>
-</table>
-
-Hoặc dạng text:
-Address: 21 North Avenue
-– Type of company: {{1}}
-– Full name: Jonathan Smith
-– Position: {{2}}
-– Preferred location: near the {{3}}`}
-          style={{
-            ...compactInputStyle,
-            minHeight: "200px",
-            resize: "vertical",
-            fontFamily: "monospace",
+        {/* Visual Form Builder */}
+        <label style={labelStyle}>📝 Các dòng trong Form</label>
+        <div style={{
+          border: "2px solid #e5e7eb",
+          borderRadius: "12px",
+          overflow: "hidden",
+        }}>
+          {/* Header */}
+          <div style={{
+            display: "grid",
+            gridTemplateColumns: "40px 1fr 1fr 80px 60px 80px",
+            gap: "8px",
+            padding: "10px 12px",
+            backgroundColor: "#f1f5f9",
+            borderBottom: "2px solid #e5e7eb",
+            fontWeight: 600,
             fontSize: "12px",
-          }}
-        />
+            color: "#475569",
+          }}>
+            <span>#</span>
+            <span>Nhãn (Label)</span>
+            <span>Giá trị / Nội dung</span>
+            <span style={{ textAlign: "center" }}>☑️ Blank?</span>
+            <span style={{ textAlign: "center" }}>Câu số</span>
+            <span></span>
+          </div>
+
+          {/* Rows */}
+          {rows.map((row, idx) => (
+            <div key={idx} style={{
+              display: "grid",
+              gridTemplateColumns: "40px 1fr 1fr 80px 60px 80px",
+              gap: "8px",
+              padding: "10px 12px",
+              borderBottom: "1px solid #e5e7eb",
+              backgroundColor: row.isBlank ? "#eff6ff" : "#fff",
+              alignItems: "center",
+            }}>
+              {/* Row number */}
+              <span style={{ color: "#9ca3af", fontSize: "12px" }}>{idx + 1}</span>
+              
+              {/* Label */}
+              <input
+                type="text"
+                value={row.label}
+                onChange={(e) => updateRow(idx, "label", e.target.value)}
+                placeholder="VD: First name"
+                style={{ ...compactInputStyle, marginBottom: 0 }}
+              />
+              
+              {/* Value (disabled if blank) */}
+              <input
+                type="text"
+                value={row.isBlank ? "(Học sinh điền)" : row.value}
+                onChange={(e) => updateRow(idx, "value", e.target.value)}
+                placeholder={row.isBlank ? "Học sinh sẽ điền" : "VD: Smith"}
+                disabled={row.isBlank}
+                style={{
+                  ...compactInputStyle,
+                  marginBottom: 0,
+                  backgroundColor: row.isBlank ? "#e0e7ff" : "#fff",
+                  color: row.isBlank ? "#6366f1" : "#1f2937",
+                  fontStyle: row.isBlank ? "italic" : "normal",
+                }}
+              />
+              
+              {/* Is Blank checkbox */}
+              <div style={{ textAlign: "center" }}>
+                <input
+                  type="checkbox"
+                  checked={row.isBlank}
+                  onChange={(e) => updateRow(idx, "isBlank", e.target.checked)}
+                  style={{ width: "20px", height: "20px", cursor: "pointer" }}
+                />
+              </div>
+              
+              {/* Blank number */}
+              <div style={{ textAlign: "center" }}>
+                {row.isBlank && (
+                  <span style={{
+                    background: "#3b82f6",
+                    color: "white",
+                    padding: "4px 10px",
+                    borderRadius: "12px",
+                    fontSize: "12px",
+                    fontWeight: "bold",
+                  }}>
+                    {row.blankNumber}
+                  </span>
+                )}
+              </div>
+              
+              {/* Actions */}
+              <div style={{ display: "flex", gap: "4px" }}>
+                <button
+                  type="button"
+                  onClick={() => moveRow(idx, -1)}
+                  disabled={idx === 0}
+                  style={{
+                    padding: "4px 8px",
+                    border: "none",
+                    borderRadius: "4px",
+                    cursor: idx === 0 ? "not-allowed" : "pointer",
+                    backgroundColor: "#f1f5f9",
+                    opacity: idx === 0 ? 0.5 : 1,
+                  }}
+                  title="Di chuyển lên"
+                >
+                  ↑
+                </button>
+                <button
+                  type="button"
+                  onClick={() => moveRow(idx, 1)}
+                  disabled={idx === rows.length - 1}
+                  style={{
+                    padding: "4px 8px",
+                    border: "none",
+                    borderRadius: "4px",
+                    cursor: idx === rows.length - 1 ? "not-allowed" : "pointer",
+                    backgroundColor: "#f1f5f9",
+                    opacity: idx === rows.length - 1 ? 0.5 : 1,
+                  }}
+                  title="Di chuyển xuống"
+                >
+                  ↓
+                </button>
+                <button
+                  type="button"
+                  onClick={() => deleteRow(idx)}
+                  disabled={rows.length <= 1}
+                  style={{
+                    padding: "4px 8px",
+                    border: "none",
+                    borderRadius: "4px",
+                    cursor: rows.length <= 1 ? "not-allowed" : "pointer",
+                    backgroundColor: "#fee2e2",
+                    color: "#dc2626",
+                    opacity: rows.length <= 1 ? 0.5 : 1,
+                  }}
+                  title="Xóa dòng"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+          ))}
+
+          {/* Add Row Button */}
+          <button
+            type="button"
+            onClick={addRow}
+            style={{
+              width: "100%",
+              padding: "12px",
+              border: "none",
+              backgroundColor: "#f0fdf4",
+              color: "#16a34a",
+              cursor: "pointer",
+              fontSize: "14px",
+              fontWeight: 600,
+            }}
+          >
+            ➕ Thêm dòng mới
+          </button>
+        </div>
 
         {/* Answers for each blank */}
         {blankNumbers.length > 0 && (
           <div style={{ marginTop: "16px" }}>
-            <label style={labelStyle}>✅ Đáp án cho từng blank</label>
+            <label style={labelStyle}>✅ Đáp án cho từng câu</label>
             <div style={{
               display: "grid",
               gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))",
@@ -206,7 +446,7 @@ Address: 21 North Avenue
         )}
 
         {/* Preview */}
-        {formContent && (
+        {rows.length > 0 && (
           <div style={{ marginTop: "20px" }}>
             <label style={labelStyle}>👁 Preview - Học sinh sẽ thấy:</label>
             <div style={{
@@ -214,47 +454,49 @@ Address: 21 North Avenue
               backgroundColor: "#fff",
               border: "2px solid #e5e7eb",
               borderRadius: "12px",
-              maxHeight: "400px",
-              overflow: "auto",
             }}>
               {question.formTitle && (
                 <h3 style={{
                   textAlign: "center",
                   margin: "0 0 16px",
                   padding: "12px",
-                  backgroundColor: "#f8fafc",
+                  backgroundColor: "#1f2937",
+                  color: "white",
                   borderRadius: "8px",
-                  color: "#1f2937",
+                  fontSize: "16px",
                 }}>
                   {question.formTitle}
                 </h3>
               )}
-              <div 
-                dangerouslySetInnerHTML={{ __html: renderPreview() }}
-                style={{
-                  lineHeight: "2",
-                  fontSize: "14px",
-                }}
-              />
+              {question.questionRange && (
+                <p style={{
+                  color: "#dc2626",
+                  fontWeight: 600,
+                  marginBottom: "16px",
+                }}>
+                  {question.questionRange}
+                </p>
+              )}
+              {renderPreviewTable()}
             </div>
           </div>
         )}
 
-        {/* Tips */}
+        {/* Quick Tips */}
         <div style={{
           marginTop: "16px",
           padding: "12px",
-          backgroundColor: "#fef3c7",
+          backgroundColor: "#ecfdf5",
           borderRadius: "8px",
-          border: "1px solid #fcd34d",
+          border: "1px solid #6ee7b7",
           fontSize: "12px",
         }}>
-          <strong>💡 Mẹo:</strong>
+          <strong>💡 Hướng dẫn nhanh:</strong>
           <ul style={{ margin: "8px 0 0", paddingLeft: "20px", lineHeight: "1.8" }}>
-            <li>Dùng HTML <code>&lt;table&gt;</code> để tạo bảng form như IELTS thật</li>
-            <li>Mỗi <code>{`{{số}}`}</code> sẽ thành 1 ô input cho học sinh điền</li>
-            <li>Số trong <code>{`{{n}}`}</code> sẽ là số câu hỏi hiển thị</li>
-            <li>Đáp án tự động xuất hiện khi bạn thêm blank</li>
+            <li>Tick ☑️ <strong>Blank</strong> nếu ô đó là chỗ học sinh cần điền</li>
+            <li>Số câu hỏi sẽ tự động đánh số theo thứ tự</li>
+            <li>Dùng ↑↓ để sắp xếp lại thứ tự các dòng</li>
+            <li>Preview sẽ hiện đúng như giao diện học sinh sẽ thấy</li>
           </ul>
         </div>
       </div>

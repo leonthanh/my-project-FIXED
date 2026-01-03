@@ -19,18 +19,18 @@ const QUESTION_TEMPLATES = {
         questionType: "form-completion",
         formTitle: "PERSONAL DETAILS FOR HOMESTAY APPLICATION",
         questionRange: "Questions 1-5",
-        formContent: `<table border="1" cellpadding="8" cellspacing="0" style="width: 100%; border-collapse: collapse;">
-  <tr><td style="width: 40%;"><strong>First name</strong></td><td>{{1}}</td></tr>
-  <tr><td><strong>Family name</strong></td><td>Yuichini</td></tr>
-  <tr><td><strong>Gender</strong></td><td>Female</td></tr>
-  <tr><td><strong>Age</strong></td><td>28</td></tr>
-  <tr><td><strong>Passport number</strong></td><td>{{2}}</td></tr>
-  <tr><td><strong>Nationality</strong></td><td>Japanese</td></tr>
-  <tr><td><strong>Course enrolled</strong></td><td>{{3}}</td></tr>
-  <tr><td><strong>Length of the course</strong></td><td>{{4}}</td></tr>
-  <tr><td><strong>Homestay time</strong></td><td>{{5}}</td></tr>
-</table>`,
-        answers: {},
+        formRows: [
+          { label: "First name", value: "", isBlank: true, blankNumber: 1 },
+          { label: "Family name", value: "Yuichini", isBlank: false, blankNumber: null },
+          { label: "Gender", value: "Female", isBlank: false, blankNumber: null },
+          { label: "Age", value: "28", isBlank: false, blankNumber: null },
+          { label: "Passport number", value: "", isBlank: true, blankNumber: 2 },
+          { label: "Nationality", value: "Japanese", isBlank: false, blankNumber: null },
+          { label: "Course enrolled", value: "", isBlank: true, blankNumber: 3 },
+          { label: "Length of the course", value: "", isBlank: true, blankNumber: 4 },
+          { label: "Homestay time", value: "", isBlank: true, blankNumber: 5 },
+        ],
+        answers: { 1: "", 2: "", 3: "", 4: "", 5: "" },
       },
     },
     {
@@ -39,56 +39,63 @@ const QUESTION_TEMPLATES = {
         questionType: "form-completion",
         formTitle: "OFFICE RENTAL",
         questionRange: "Questions 1-10",
-        formContent: `<div style="line-height: 2;">
-<p><strong>Address:</strong> 21 North Avenue</p>
-<p>– Type of company: {{1}}</p>
-<p>– Full name: Jonathan Smith</p>
-<p>– Position: {{2}}</p>
-<p>– Preferred location: near the {{3}}</p>
-<p>– No. of people: 30</p>
-<p>– Preferred size of the area: {{4}} ft²</p>
-<p>– Requirements: 24-hour {{5}}</p>
-<p>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{{6}} on ground floor</p>
-<p>– Preferred facilities: a {{7}} for employees</p>
-<p>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;a {{8}} away from the workspace</p>
-<p>– No. of power sockets: 40</p>
-<p>– Daily exercise: at a {{9}}</p>
-<p>– Unnecessary: furniture</p>
-<p>– Other requirements: WIFI</p>
-<p>– Arrangement of viewing: Thursday, at {{10}}</p>
-</div>`,
-        answers: {},
+        formRows: [
+          { label: "Address", value: "21 North Avenue", isBlank: false, blankNumber: null },
+          { label: "Type of company", value: "", isBlank: true, blankNumber: 1 },
+          { label: "Full name", value: "Jonathan Smith", isBlank: false, blankNumber: null },
+          { label: "Position", value: "", isBlank: true, blankNumber: 2 },
+          { label: "Preferred location", value: "", isBlank: true, blankNumber: 3 },
+          { label: "No. of people", value: "30", isBlank: false, blankNumber: null },
+          { label: "Preferred size of the area (ft²)", value: "", isBlank: true, blankNumber: 4 },
+          { label: "Requirements: 24-hour", value: "", isBlank: true, blankNumber: 5 },
+          { label: "Ground floor", value: "", isBlank: true, blankNumber: 6 },
+          { label: "Preferred facilities (for employees)", value: "", isBlank: true, blankNumber: 7 },
+          { label: "Preferred facilities (away from workspace)", value: "", isBlank: true, blankNumber: 8 },
+          { label: "No. of power sockets", value: "40", isBlank: false, blankNumber: null },
+          { label: "Daily exercise at", value: "", isBlank: true, blankNumber: 9 },
+          { label: "Unnecessary", value: "furniture", isBlank: false, blankNumber: null },
+          { label: "Other requirements", value: "WIFI", isBlank: false, blankNumber: null },
+          { label: "Arrangement of viewing (Thursday)", value: "", isBlank: true, blankNumber: 10 },
+        ],
+        answers: { 1: "", 2: "", 3: "", 4: "", 5: "", 6: "", 7: "", 8: "", 9: "", 10: "" },
       },
     },
     {
-      name: "📋 Form ghi chú (Notes Template)",
+      name: "📋 Form đặt phòng khách sạn (Hotel Booking)",
       template: {
         questionType: "form-completion",
-        formTitle: "NOTES",
-        questionRange: "Questions 11-20",
-        formContent: `<table border="1" cellpadding="10" cellspacing="0" style="width: 100%; border-collapse: collapse;">
-<tr><td>
-<p><strong>VISAS</strong></p>
-<p>Now visas are needed by almost all nationalities.</p>
-<p>Normal visas last {{11}}</p>
-<p>You need to pay {{12}} for the visa.</p>
-<p>Price may change from time to time.</p>
-<br/>
-<p><strong>SOME MISCELLANEOUS GENERAL ADVICE</strong></p>
-<p>If you carry a lot of money, you need to complete a {{13}}</p>
-<p>Remember to declare all your items on a {{14}}</p>
-<p>You are advised to carry a health certificate: {{15}}</p>
-<br/>
-<p><strong>NOTES FOR STUDENTS</strong></p>
-<p>If you wish to get a youth fare card, you should show your {{16}}</p>
-<p>You are advised to take at least {{17}} passport photos.</p>
-<br/>
-<p><strong>CURRENCY</strong></p>
-<p>Pounds and US dollars are not very useful now, so take {{18}} or {{19}} with you.</p>
-<p>Credit cards: {{20}}</p>
-</td></tr>
-</table>`,
-        answers: {},
+        formTitle: "HOTEL BOOKING FORM",
+        questionRange: "Questions 1-8",
+        formRows: [
+          { label: "Guest name", value: "", isBlank: true, blankNumber: 1 },
+          { label: "Email", value: "", isBlank: true, blankNumber: 2 },
+          { label: "Phone number", value: "", isBlank: true, blankNumber: 3 },
+          { label: "Check-in date", value: "", isBlank: true, blankNumber: 4 },
+          { label: "Check-out date", value: "", isBlank: true, blankNumber: 5 },
+          { label: "Room type", value: "", isBlank: true, blankNumber: 6 },
+          { label: "Number of guests", value: "", isBlank: true, blankNumber: 7 },
+          { label: "Special requests", value: "", isBlank: true, blankNumber: 8 },
+        ],
+        answers: { 1: "", 2: "", 3: "", 4: "", 5: "", 6: "", 7: "", 8: "" },
+      },
+    },
+    {
+      name: "📋 Form đăng ký khóa học (Course Registration)",
+      template: {
+        questionType: "form-completion",
+        formTitle: "COURSE REGISTRATION",
+        questionRange: "Questions 1-6",
+        formRows: [
+          { label: "Student name", value: "", isBlank: true, blankNumber: 1 },
+          { label: "Student ID", value: "", isBlank: true, blankNumber: 2 },
+          { label: "Course name", value: "", isBlank: true, blankNumber: 3 },
+          { label: "Course code", value: "ENG101", isBlank: false, blankNumber: null },
+          { label: "Start date", value: "", isBlank: true, blankNumber: 4 },
+          { label: "Duration", value: "", isBlank: true, blankNumber: 5 },
+          { label: "Tuition fee", value: "", isBlank: true, blankNumber: 6 },
+          { label: "Payment method", value: "Bank transfer", isBlank: false, blankNumber: null },
+        ],
+        answers: { 1: "", 2: "", 3: "", 4: "", 5: "", 6: "" },
       },
     },
   ],
@@ -354,20 +361,20 @@ const SECTION_TEMPLATES = {
         questionType: "form-completion",
         formTitle: "PERSONAL DETAILS",
         questionRange: "Questions 1-10",
-        formContent: `<table border="1" cellpadding="10" cellspacing="0" style="width: 100%; border-collapse: collapse;">
-  <tr><td style="width: 40%;"><strong>First name</strong></td><td>{{1}}</td></tr>
-  <tr><td><strong>Family name</strong></td><td>Smith</td></tr>
-  <tr><td><strong>Date of birth</strong></td><td>{{2}}</td></tr>
-  <tr><td><strong>Address</strong></td><td>{{3}} Street</td></tr>
-  <tr><td><strong>Postcode</strong></td><td>{{4}}</td></tr>
-  <tr><td><strong>Phone number</strong></td><td>{{5}}</td></tr>
-  <tr><td><strong>Email</strong></td><td>{{6}}@gmail.com</td></tr>
-  <tr><td><strong>Occupation</strong></td><td>{{7}}</td></tr>
-  <tr><td><strong>Department</strong></td><td>{{8}}</td></tr>
-  <tr><td><strong>Start date</strong></td><td>{{9}}</td></tr>
-  <tr><td><strong>Reference number</strong></td><td>{{10}}</td></tr>
-</table>`,
-        answers: {},
+        formRows: [
+          { label: "First name", value: "", isBlank: true, blankNumber: 1 },
+          { label: "Family name", value: "Smith", isBlank: false, blankNumber: null },
+          { label: "Date of birth", value: "", isBlank: true, blankNumber: 2 },
+          { label: "Address", value: "", isBlank: true, blankNumber: 3 },
+          { label: "Postcode", value: "", isBlank: true, blankNumber: 4 },
+          { label: "Phone number", value: "", isBlank: true, blankNumber: 5 },
+          { label: "Email", value: "", isBlank: true, blankNumber: 6 },
+          { label: "Occupation", value: "", isBlank: true, blankNumber: 7 },
+          { label: "Department", value: "", isBlank: true, blankNumber: 8 },
+          { label: "Start date", value: "", isBlank: true, blankNumber: 9 },
+          { label: "Reference number", value: "", isBlank: true, blankNumber: 10 },
+        ],
+        answers: { 1: "", 2: "", 3: "", 4: "", 5: "", 6: "", 7: "", 8: "", 9: "", 10: "" },
       }],
     },
   },
