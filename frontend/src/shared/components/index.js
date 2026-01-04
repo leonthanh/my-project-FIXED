@@ -43,3 +43,6 @@ export { default as IELTSMatchingHeadingsQuestion } from './IELTSMatchingHeading
 // Listening Question Types
 export { default as MapLabelingQuestion } from './MapLabelingQuestion';
 export { default as FlowchartQuestion } from './FlowchartQuestion';
+
+// New Question Editors (Shared - for Admin creating/editing tests)
+export * from './questions';
