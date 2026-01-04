@@ -317,16 +317,27 @@ const DoListeningTest = () => {
         } else if (sectionQType === "notes-completion") {
           const firstQ = sectionQuestions[0];
           const notesText = firstQ?.notesText || "";
-          const blanks = notesText.match(/\d+\s*[_…]+|[_…]{2,}/g) || [];
-          for (let i = 0; i < blanks.length; i++) {
-            items.push({
-              type: "single",
-              startNum: currentQNum,
-              endNum: currentQNum,
-              label: `${currentQNum}`,
-              questionKey: `q${currentQNum}`,
-            });
-            currentQNum++;
+          // Extract actual question numbers from notes text (e.g., "31 ___", "32 ___")
+          const matches = notesText.match(/(\d+)\s*[_…]+/g) || [];
+          matches.forEach((match) => {
+            const qNumMatch = match.match(/^(\d+)/);
+            if (qNumMatch) {
+              const qNum = parseInt(qNumMatch[1], 10);
+              items.push({
+                type: "single",
+                startNum: qNum,
+                endNum: qNum,
+                label: `${qNum}`,
+                questionKey: `q${qNum}`,
+              });
+            }
+          });
+          // Update currentQNum to after these questions
+          if (matches.length > 0) {
+            const lastMatch = matches[matches.length - 1].match(/^(\d+)/);
+            if (lastMatch) {
+              currentQNum = parseInt(lastMatch[1], 10) + 1;
+            }
           }
         } else {
           // abc, abcd, fill - individual questions
@@ -871,52 +882,66 @@ const DoListeningTest = () => {
     );
   };
 
-  // Render notes completion (Part 1 style with inline gaps)
+  // Render notes completion (Part 4 style with inline gaps)
   const renderNotesCompletion = (question, startNumber) => {
     const notesText = question.notesText || "";
     const notesTitle = question.notesTitle || "";
     
-    // Parse notes text and replace blanks with inputs
-    let questionNum = startNumber;
-    const renderNotesWithInputs = () => {
-      // Match patterns like "1 ______" or just "______" or "…"
-      const parts = notesText.split(/(\d+\s*[_…]+|[_…]{2,})/g);
+    // Split by line breaks first to preserve them
+    const lines = notesText.split(/\n/);
+    
+    const renderLine = (line, lineIdx) => {
+      // Match patterns like "31 ___" or "the 32 ___" (number followed by underscores)
+      const parts = line.split(/(\d+\s*[_…]+|[_…]{2,})/g);
       
-      return parts.map((part, idx) => {
-        if (part.match(/\d+\s*[_…]+|[_…]{2,}/)) {
-          const qNum = questionNum++;
-          return (
-            <span
-              key={idx}
-              ref={(el) => (questionRefs.current[qNum] = el)}
-              style={styles.gapWrapper}
-            >
-              <input
-                type="text"
-                value={answers[`q${qNum}`] || ""}
-                onChange={(e) => handleAnswerChange(`q${qNum}`, e.target.value)}
-                onFocus={() => setActiveQuestion(qNum)}
-                disabled={submitted}
-                style={{
-                  ...styles.gapInput,
-                  borderColor: activeQuestion === qNum ? "#3b82f6" : "#d1d5db",
-                  boxShadow: activeQuestion === qNum ? "0 0 0 1px #418ec8" : "none",
-                }}
-              />
-              {!answers[`q${qNum}`] && (
-                <span style={styles.gapPlaceholder}>{qNum}</span>
-              )}
-            </span>
-          );
-        }
-        return <span key={idx} dangerouslySetInnerHTML={{ __html: part }} />;
-      });
+      return (
+        <div key={lineIdx} style={styles.notesLine}>
+          {parts.map((part, partIdx) => {
+            // Check if this part is a blank (number + underscores)
+            const match = part.match(/^(\d+)\s*[_…]+$/);
+            if (match) {
+              const qNum = parseInt(match[1], 10); // Use the number from the text
+              return (
+                <span
+                  key={partIdx}
+                  ref={(el) => (questionRefs.current[qNum] = el)}
+                  style={styles.gapWrapper}
+                >
+                  <input
+                    type="text"
+                    value={answers[`q${qNum}`] || ""}
+                    onChange={(e) => handleAnswerChange(`q${qNum}`, e.target.value)}
+                    onFocus={() => setActiveQuestion(qNum)}
+                    disabled={submitted}
+                    style={{
+                      ...styles.gapInput,
+                      borderColor: activeQuestion === qNum ? "#3b82f6" : "#d1d5db",
+                      boxShadow: activeQuestion === qNum ? "0 0 0 1px #418ec8" : "none",
+                    }}
+                  />
+                  {!answers[`q${qNum}`] && (
+                    <span style={styles.gapPlaceholder}>{qNum}</span>
+                  )}
+                </span>
+              );
+            }
+            // Check for standalone underscores without number (use sequential)
+            if (part.match(/^[_…]{2,}$/)) {
+              // Find next available number based on context
+              return <span key={partIdx} style={styles.notesBlank}>______</span>;
+            }
+            return <span key={partIdx}>{part}</span>;
+          })}
+        </div>
+      );
     };
 
     return (
       <div style={styles.notesContainer}>
         {notesTitle && <div style={styles.notesTitle}>{notesTitle}</div>}
-        <div style={styles.notesContent}>{renderNotesWithInputs()}</div>
+        <div style={styles.notesContent}>
+          {lines.map((line, idx) => renderLine(line, idx))}
+        </div>
       </div>
     );
   };
@@ -1824,8 +1849,17 @@ const styles = {
     color: "#1f2937",
   },
   notesContent: {
-    lineHeight: 2,
+    lineHeight: 1.8,
     fontSize: "14px",
+  },
+  notesLine: {
+    marginBottom: "8px",
+    display: "block",
+  },
+  notesBlank: {
+    display: "inline-block",
+    borderBottom: "1px solid #999",
+    minWidth: "60px",
   },
 
   // Form Title
