@@ -256,6 +256,122 @@ const DoListeningTest = () => {
     [getPartQuestionRange]
   );
 
+  // Build navigator items for a part - groups multi-select questions
+  const getNavigatorItems = useCallback(
+    (partIndex) => {
+      const allQuestions = test?.questions || [];
+      const partQuestions = allQuestions.filter((q) => q.partIndex === partIndex);
+      const partInstructions = test?.partInstructions || [];
+      const partInfo = partInstructions[partIndex];
+      const sections = partInfo?.sections || [];
+      
+      const items = [];
+      let currentQNum = getPartQuestionRange(partIndex).start;
+      
+      sections.forEach((section, sIdx) => {
+        const sectionQuestions = partQuestions.filter((q) => q.sectionIndex === sIdx);
+        const sectionQType = section.questionType || "fill";
+        
+        if (sectionQType === "multi-select") {
+          // Group multi-select questions (e.g., 25-26, 27-28, 29-30)
+          sectionQuestions.forEach((q) => {
+            const count = q.requiredAnswers || 2;
+            const startNum = currentQNum;
+            const endNum = currentQNum + count - 1;
+            items.push({
+              type: "multi-select",
+              startNum,
+              endNum,
+              label: `${startNum}-${endNum}`,
+              questionKey: `q${startNum}`,
+            });
+            currentQNum += count;
+          });
+        } else if (sectionQType === "matching") {
+          // Matching questions - individual numbers
+          const firstQ = sectionQuestions[0];
+          const leftItems = firstQ?.leftItems || [];
+          leftItems.forEach((_, idx) => {
+            items.push({
+              type: "single",
+              startNum: currentQNum,
+              endNum: currentQNum,
+              label: `${currentQNum}`,
+              questionKey: `q${currentQNum}`,
+            });
+            currentQNum++;
+          });
+        } else if (sectionQType === "form-completion") {
+          const firstQ = sectionQuestions[0];
+          const blankCount = firstQ?.formRows?.filter((r) => r.isBlank)?.length || 0;
+          for (let i = 0; i < blankCount; i++) {
+            items.push({
+              type: "single",
+              startNum: currentQNum,
+              endNum: currentQNum,
+              label: `${currentQNum}`,
+              questionKey: `q${currentQNum}`,
+            });
+            currentQNum++;
+          }
+        } else if (sectionQType === "notes-completion") {
+          const firstQ = sectionQuestions[0];
+          const notesText = firstQ?.notesText || "";
+          const blanks = notesText.match(/\d+\s*[_…]+|[_…]{2,}/g) || [];
+          for (let i = 0; i < blanks.length; i++) {
+            items.push({
+              type: "single",
+              startNum: currentQNum,
+              endNum: currentQNum,
+              label: `${currentQNum}`,
+              questionKey: `q${currentQNum}`,
+            });
+            currentQNum++;
+          }
+        } else {
+          // abc, abcd, fill - individual questions
+          sectionQuestions.forEach(() => {
+            items.push({
+              type: "single",
+              startNum: currentQNum,
+              endNum: currentQNum,
+              label: `${currentQNum}`,
+              questionKey: `q${currentQNum}`,
+            });
+            currentQNum++;
+          });
+        }
+      });
+      
+      return items;
+    },
+    [test?.questions, test?.partInstructions, getPartQuestionRange]
+  );
+
+  // Check if navigator item is answered
+  const isNavItemAnswered = useCallback(
+    (item) => {
+      if (item.type === "multi-select") {
+        const ans = answers[item.questionKey];
+        return Array.isArray(ans) && ans.length > 0;
+      }
+      const ans = answers[item.questionKey];
+      return !!ans;
+    },
+    [answers]
+  );
+
+  // Check if navigator item is active
+  const isNavItemActive = useCallback(
+    (item) => {
+      if (item.type === "multi-select") {
+        return activeQuestion >= item.startNum && activeQuestion <= item.endNum;
+      }
+      return activeQuestion === item.startNum;
+    },
+    [activeQuestion]
+  );
+
   // Check if question is answered
   const isQuestionAnswered = useCallback(
     (qNum) => {
@@ -373,7 +489,7 @@ const DoListeningTest = () => {
     );
   };
 
-  // Render multiple choice many (checkboxes) - Questions 17-18, 19-20 style
+  // Render multiple choice many (checkboxes) - Questions 25-26 style (IELTS multi-select)
   const renderMultipleChoiceMany = (question, startNumber, count = 2) => {
     const options = question.options || [];
     const questionKey = `q${startNumber}`;
@@ -385,44 +501,54 @@ const DoListeningTest = () => {
         id={`question-${startNumber}`}
         ref={(el) => (questionRefs.current[startNumber] = el)}
         style={{
-          ...styles.questionItem,
-          backgroundColor: activeQuestion === startNumber ? "#eff6ff" : "transparent",
+          ...styles.multiSelectContainer,
+          backgroundColor: activeQuestion === startNumber ? "#eff6ff" : "#e8f4fc",
         }}
       >
-        <div style={styles.questionHeader}>
-          <div style={styles.questionNumberWide}>{startNumber}-{endNumber}</div>
-          <span style={styles.questionText}>{question.questionText}</span>
+        {/* Question number badge */}
+        <div style={styles.multiSelectHeader}>
+          <span style={styles.multiSelectBadge}>{startNumber}-{endNumber}</span>
+          <span style={styles.multiSelectQuestionText}>{question.questionText}</span>
         </div>
-        <ul style={styles.optionsList}>
+        
+        {/* Options with checkboxes */}
+        <div style={styles.multiSelectOptions}>
           {options.map((opt, idx) => {
             const optionId = `q${startNumber}checkbox${idx}`;
             const isSelected = selectedAnswers.includes(idx);
+            // Check if option already has letter prefix like "A. " or "A "
+            const hasPrefix = /^[A-Z][\.\s]/.test(opt);
+            const letterLabel = String.fromCharCode(65 + idx); // A, B, C...
 
             return (
-              <li key={idx} style={styles.optionItem}>
-                <label
-                  htmlFor={optionId}
-                  style={{
-                    ...styles.optionLabel,
-                    backgroundColor: isSelected ? "#dbeafe" : "transparent",
-                  }}
-                >
-                  <span style={styles.optionText}>{opt}</span>
-                </label>
+              <label
+                key={idx}
+                htmlFor={optionId}
+                style={{
+                  ...styles.multiSelectOption,
+                  backgroundColor: isSelected ? "#d1e7dd" : "#fff",
+                  borderColor: isSelected ? "#0f5132" : "#dee2e6",
+                }}
+              >
                 <input
                   id={optionId}
                   type="checkbox"
-                  style={styles.checkboxInput}
+                  style={styles.multiSelectCheckbox}
                   checked={isSelected}
                   onChange={(e) =>
                     handleCheckboxChange(questionKey, idx, e.target.checked, count)
                   }
+                  onFocus={() => setActiveQuestion(startNumber)}
                   disabled={submitted}
                 />
-              </li>
+                <span style={styles.multiSelectOptionText}>
+                  {!hasPrefix && <strong>{letterLabel}. </strong>}
+                  {opt}
+                </span>
+              </label>
             );
           })}
-        </ul>
+        </div>
       </div>
     );
   };
@@ -635,21 +761,27 @@ const DoListeningTest = () => {
 
     const firstQ = sectionQuestions[0];
     
-    // Detect question type - prioritize explicit questionType, then check data structure
-    // This ensures abc/abcd is not confused with multi-select
-    let qType = firstQ?.questionType || section.questionType || "fill";
+    // Detect question type - priority order:
+    // 1) section.questionType (from partInstructions - most reliable)
+    // 2) explicit questionType from question (abc, abcd, multi-select, etc.)
+    // 3) detect from data structure
+    const sectionQType = section.questionType;
+    let qType = sectionQType || firstQ?.questionType || "fill";
     
-    // Override based on data structure only for special types
-    if (firstQ?.formRows && firstQ.formRows.length > 0) {
-      qType = "form-completion";
-    } else if (firstQ?.notesText) {
-      qType = "notes-completion";
-    } else if (firstQ?.leftItems && firstQ.leftItems.length > 0) {
-      qType = "matching";
-    } else if (qType === "fill" && firstQ?.options && firstQ.options.length > 0) {
-      // Only override to multiple choice if current type is fill
-      qType = firstQ.options.length === 3 ? "abc" : "abcd";
+    // Only override for special data structures when type is still "fill"
+    if (qType === "fill") {
+      if (firstQ?.formRows && firstQ.formRows.length > 0) {
+        qType = "form-completion";
+      } else if (firstQ?.notesText) {
+        qType = "notes-completion";
+      } else if (firstQ?.leftItems && firstQ.leftItems.length > 0) {
+        qType = "matching";
+      } else if (firstQ?.options && firstQ.options.length > 0) {
+        // Detect abc/abcd from options count
+        qType = firstQ.options.length === 3 ? "abc" : "abcd";
+      }
     }
+    // Note: multi-select, abc, abcd, matching must be explicitly set in section.questionType
     
     // Calculate startNum based on all previous parts and sections
     const partRange = getPartQuestionRange(currentPartIndex);
@@ -981,36 +1113,33 @@ const DoListeningTest = () => {
                 {/* Question Numbers (expanded) */}
                 {isExpanded && (
                   <div style={styles.questionNumbers}>
-                    {Array.from(
-                      { length: range.end - range.start + 1 },
-                      (_, i) => {
-                        const qNum = range.start + i;
-                        const isAnswered = isQuestionAnswered(qNum);
-                        const isActive = activeQuestion === qNum;
+                    {getNavigatorItems(idx).map((item, itemIdx) => {
+                      const isAnswered = isNavItemAnswered(item);
+                      const isActive = isNavItemActive(item);
 
-                        return (
-                          <div
-                            key={qNum}
-                            style={{
-                              ...styles.questionNumBox,
-                              borderColor: isActive
-                                ? "#3b82f6"
-                                : isAnswered
-                                ? "#22c55e"
-                                : "transparent",
-                              backgroundColor: isAnswered ? "#dcfce7" : "#fff",
-                              boxShadow: isActive ? "0 0 0 1px #418ec8" : "none",
-                            }}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              scrollToQuestion(qNum);
-                            }}
-                          >
-                            {qNum}
-                          </div>
-                        );
-                      }
-                    )}
+                      return (
+                        <div
+                          key={itemIdx}
+                          style={{
+                            ...styles.questionNumBox,
+                            ...(item.type === "multi-select" ? styles.questionNumBoxWide : {}),
+                            borderColor: isActive
+                              ? "#3b82f6"
+                              : isAnswered
+                              ? "#22c55e"
+                              : "transparent",
+                            backgroundColor: isAnswered ? "#dcfce7" : "#fff",
+                            boxShadow: isActive ? "0 0 0 1px #418ec8" : "none",
+                          }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            scrollToQuestion(item.startNum);
+                          }}
+                        >
+                          {item.label}
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -1313,6 +1442,61 @@ const styles = {
   },
   fillQuestionsContainer: { display: "flex", flexDirection: "column" },
 
+  // Multi-select (Choose TWO letters style)
+  multiSelectContainer: {
+    padding: "16px 20px",
+    marginBottom: "16px",
+    borderRadius: "8px",
+    border: "1px solid #cce5ff",
+  },
+  multiSelectHeader: {
+    display: "flex",
+    alignItems: "flex-start",
+    gap: "12px",
+    marginBottom: "12px",
+  },
+  multiSelectBadge: {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: "4px 10px",
+    backgroundColor: "#0d6efd",
+    color: "#fff",
+    borderRadius: "4px",
+    fontWeight: 600,
+    fontSize: "14px",
+    whiteSpace: "nowrap",
+  },
+  multiSelectQuestionText: {
+    fontSize: "15px",
+    color: "#333",
+    lineHeight: 1.5,
+  },
+  multiSelectOptions: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "8px",
+  },
+  multiSelectOption: {
+    display: "flex",
+    alignItems: "center",
+    gap: "10px",
+    padding: "10px 14px",
+    border: "1px solid #dee2e6",
+    borderRadius: "6px",
+    cursor: "pointer",
+    transition: "all 0.2s",
+  },
+  multiSelectCheckbox: {
+    width: "18px",
+    height: "18px",
+    cursor: "pointer",
+  },
+  multiSelectOptionText: {
+    fontSize: "14px",
+    color: "#333",
+  },
+
   // Matching
   matchingContainer: {
     display: "flex",
@@ -1511,7 +1695,7 @@ const styles = {
     flexWrap: "wrap",
   },
   questionNumBox: {
-    width: "28px",
+    minWidth: "28px",
     height: "28px",
     display: "flex",
     alignItems: "center",
@@ -1521,6 +1705,12 @@ const styles = {
     fontSize: "12px",
     cursor: "pointer",
     backgroundColor: "#fff",
+    padding: "0 4px",
+  },
+  questionNumBoxWide: {
+    minWidth: "40px",
+    padding: "0 6px",
+    fontSize: "11px",
   },
   submitIcon: {
     padding: "16px",
