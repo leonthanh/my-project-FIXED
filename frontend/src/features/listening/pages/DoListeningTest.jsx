@@ -190,23 +190,32 @@ const DoListeningTest = () => {
       return q.formRows.filter((r) => r.isBlank).length;
     } else if (q.leftItems && q.leftItems.length > 0) {
       return q.leftItems.length;
-    } else if (q.requiredAnswers && q.requiredAnswers > 1) {
+    } else if (q.questionType === "multi-select" && q.requiredAnswers > 1) {
       return q.requiredAnswers;
     }
     return 1;
   }, []);
 
   // Get question range for a part (considering multi-question types)
+  // Calculate start number based on all previous parts to ensure continuous numbering
   const getPartQuestionRange = useCallback(
     (partIndex) => {
       const allQuestions = test?.questions || [];
+      
+      // Calculate start number by summing questions from all previous parts
+      let startNum = 1;
+      for (let p = 0; p < partIndex; p++) {
+        const prevPartQuestions = allQuestions.filter((q) => q.partIndex === p);
+        prevPartQuestions.forEach((q) => {
+          startNum += getQuestionCount(q);
+        });
+      }
+      
+      // Get questions for this part
       const partQuestions = allQuestions.filter(
         (q) => q.partIndex === partIndex
       );
       if (partQuestions.length === 0) return { start: 0, end: 0, questions: [] };
-      
-      // Find start number
-      const startNum = Math.min(...partQuestions.map((q) => q.globalNumber));
       
       // Calculate total questions in this part
       let totalCount = 0;
@@ -446,7 +455,18 @@ const DoListeningTest = () => {
   // Render matching question - Part 3 style with drag items and options
   const renderMatching = (question, startNumber) => {
     const leftItems = question.leftItems || question.items || [];
-    const rightItems = question.options || [];
+    // Options can be in different formats: array of strings, or array of objects
+    // Note: Use options if it has items, otherwise fall back to rightItems
+    let rightItems = (question.options && question.options.length > 0) 
+      ? question.options 
+      : (question.rightItems || []);
+    
+    // If rightItems are objects with label/text, extract text
+    if (rightItems.length > 0 && typeof rightItems[0] === 'object') {
+      rightItems = rightItems.map(opt => opt.text || opt.label || opt);
+    }
+
+
 
     return (
       <div style={styles.matchingContainer}>
@@ -456,6 +476,8 @@ const DoListeningTest = () => {
             {leftItems.map((item, idx) => {
               const qNum = startNumber + idx;
               const selectedValue = answers[`q${qNum}`];
+              // Handle item as string or object
+              const itemText = typeof item === 'object' ? (item.text || item.label || item) : item;
 
               return (
                 <div
@@ -466,7 +488,8 @@ const DoListeningTest = () => {
                     backgroundColor: activeQuestion === qNum ? "#eff6ff" : "transparent",
                   }}
                 >
-                  <span style={styles.matchingItemText}>{item}</span>
+                  <span style={styles.matchingQuestionNum}>{qNum}</span>
+                  <span style={styles.matchingItemText}>{itemText}</span>
                   <div style={styles.matchingDropdownWrapper}>
                     <select
                       value={selectedValue || ""}
@@ -475,7 +498,7 @@ const DoListeningTest = () => {
                       disabled={submitted}
                       style={styles.matchingSelect}
                     >
-                      <option value="">{qNum}</option>
+                      <option value="">--</option>
                       {rightItems.map((_, optIdx) => (
                         <option key={optIdx} value={String.fromCharCode(65 + optIdx)}>
                           {String.fromCharCode(65 + optIdx)}
@@ -493,11 +516,19 @@ const DoListeningTest = () => {
         <div style={styles.matchingRight}>
           <div style={styles.optionsTitle}>List of options</div>
           <div style={styles.optionsContainer}>
-            {rightItems.map((opt, idx) => (
-              <div key={idx} style={styles.optionCard}>
-                {opt}
-              </div>
-            ))}
+            {rightItems.map((opt, idx) => {
+              const optText = typeof opt === 'object' ? (opt.text || opt.label || JSON.stringify(opt)) : opt;
+              // Check if optText already has letter prefix like "A. " or "A "
+              const hasPrefix = /^[A-Z][\.\s]/.test(optText);
+              return (
+                <div key={idx} style={styles.optionCard}>
+                  {!hasPrefix && (
+                    <strong style={{ marginRight: '8px' }}>{String.fromCharCode(65 + idx)}</strong>
+                  )}
+                  {optText}
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>
@@ -505,10 +536,10 @@ const DoListeningTest = () => {
   };
 
   // Render form completion (IELTS format: label + prefix + [blank/value] + suffix)
-  const renderFormCompletion = (section, question) => {
+  const renderFormCompletion = (section, question, calculatedStartNum) => {
     const formTitle = question?.formTitle || "";
     const formRows = question?.formRows || [];
-    const startNum = question?.globalNumber || 1;
+    const startNum = calculatedStartNum || question?.globalNumber || 1;
 
     if (formRows && formRows.length > 0) {
       // Use blankNumber from row data if available
@@ -604,26 +635,33 @@ const DoListeningTest = () => {
 
     const firstQ = sectionQuestions[0];
     
-    // Detect question type - check data structure first, then fall back to questionType field
-    // This handles cases where questionType is "fill" but data has formRows (form-completion)
-    let qType = "fill";
+    // Detect question type - prioritize explicit questionType, then check data structure
+    // This ensures abc/abcd is not confused with multi-select
+    let qType = firstQ?.questionType || section.questionType || "fill";
+    
+    // Override based on data structure only for special types
     if (firstQ?.formRows && firstQ.formRows.length > 0) {
       qType = "form-completion";
     } else if (firstQ?.notesText) {
       qType = "notes-completion";
     } else if (firstQ?.leftItems && firstQ.leftItems.length > 0) {
       qType = "matching";
-    } else if (firstQ?.requiredAnswers && firstQ.requiredAnswers > 1) {
-      qType = "multi-select";
-    } else if (firstQ?.options && firstQ.options.length > 0) {
-      // Multiple choice - check number of options
+    } else if (qType === "fill" && firstQ?.options && firstQ.options.length > 0) {
+      // Only override to multiple choice if current type is fill
       qType = firstQ.options.length === 3 ? "abc" : "abcd";
-    } else {
-      // Fall back to explicit questionType
-      qType = firstQ?.questionType || section.questionType || "fill";
     }
     
-    const startNum = firstQ?.globalNumber || 1;
+    // Calculate startNum based on all previous parts and sections
+    const partRange = getPartQuestionRange(currentPartIndex);
+    let startNum = partRange.start;
+    
+    // Add questions from previous sections in current part
+    for (let s = 0; s < sectionIndex; s++) {
+      const prevSectionQuestions = currentPartQuestions.filter((q) => q.sectionIndex === s);
+      prevSectionQuestions.forEach((q) => {
+        startNum += getQuestionCount(q);
+      });
+    }
 
     // Calculate actual question count based on type
     let actualQuestionCount = 0;
@@ -632,7 +670,7 @@ const DoListeningTest = () => {
         actualQuestionCount += q.formRows.filter((r) => r.isBlank)?.length || 1;
       } else if (q.leftItems && q.leftItems.length > 0) {
         actualQuestionCount += q.leftItems.length;
-      } else if (q.requiredAnswers && q.requiredAnswers > 1) {
+      } else if (q.questionType === "multi-select" && q.requiredAnswers > 1) {
         actualQuestionCount += q.requiredAnswers;
       } else {
         actualQuestionCount += 1;
@@ -661,28 +699,41 @@ const DoListeningTest = () => {
         {/* Questions based on type */}
         <div style={styles.questionsWrapper}>
           {qType === "multiple-choice" || qType === "abc" || qType === "abcd"
-            ? sectionQuestions.map((q) => (
-                <React.Fragment key={q.globalNumber}>
-                  {renderMultipleChoice(q, q.globalNumber)}
-                </React.Fragment>
-              ))
+            ? sectionQuestions.map((q, qIdx) => {
+                const qNum = startNum + qIdx;
+                return (
+                  <React.Fragment key={qNum}>
+                    {renderMultipleChoice(q, qNum)}
+                  </React.Fragment>
+                );
+              })
             : qType === "multi-select"
-            ? sectionQuestions.map((q) => (
-                <React.Fragment key={q.globalNumber}>
-                  {renderMultipleChoiceMany(q, q.globalNumber, q.requiredAnswers || 2)}
-                </React.Fragment>
-              ))
+            ? (() => {
+                let qNum = startNum;
+                return sectionQuestions.map((q, qIdx) => {
+                  const currentQNum = qNum;
+                  qNum += q.requiredAnswers || 2;
+                  return (
+                    <React.Fragment key={currentQNum}>
+                      {renderMultipleChoiceMany(q, currentQNum, q.requiredAnswers || 2)}
+                    </React.Fragment>
+                  );
+                });
+              })()
             : qType === "matching"
             ? renderMatching(firstQ, startNum)
             : qType === "form-completion"
-            ? renderFormCompletion({ ...section, sectionIndex }, firstQ)
+            ? renderFormCompletion({ ...section, sectionIndex }, firstQ, startNum)
             : qType === "notes-completion"
             ? renderNotesCompletion(firstQ, startNum)
-            : sectionQuestions.map((q) => (
-                <React.Fragment key={q.globalNumber}>
-                  {renderFillQuestion(q, q.globalNumber)}
-                </React.Fragment>
-              ))}
+            : sectionQuestions.map((q, qIdx) => {
+                const qNum = startNum + qIdx;
+                return (
+                  <React.Fragment key={qNum}>
+                    {renderFillQuestion(q, qNum)}
+                  </React.Fragment>
+                );
+              })}
         </div>
       </div>
     );
@@ -1275,9 +1326,22 @@ const styles = {
   matchingRow: {
     display: "flex",
     alignItems: "center",
-    gap: "8px",
-    padding: "8px",
+    gap: "12px",
+    padding: "8px 12px",
     borderRadius: "4px",
+  },
+  matchingQuestionNum: {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    width: "32px",
+    height: "32px",
+    backgroundColor: "#3b82f6",
+    color: "#fff",
+    borderRadius: "50%",
+    fontWeight: 600,
+    fontSize: "14px",
+    flexShrink: 0,
   },
   matchingItemText: { flex: 1 },
   matchingDropdownWrapper: { minWidth: "80px" },
