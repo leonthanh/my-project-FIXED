@@ -17,6 +17,8 @@ require("./models/ListeningTest");
 require("./models/ReadingTest");
 require("./models/KETReading");
 require("./models/ReadingSubmission");
+require("./models/CambridgeListening");
+require("./models/CambridgeReading");
 
 // ✅ Routes
 const authRoutes = require('./routes/auth');
@@ -26,7 +28,8 @@ const listeningTestsRoute = require('./routes/listeningTests');
 const listeningSubmissionRoutes = require('./routes/listening-submission');
 const readingTestsRoute = require('./routes/readingTest');
 const readingSubmissionRoutes = require('./routes/reading-submission');
-const aiRoutes = require('./routes/ai'); // ✅ Đưa lên trước khi dùng
+const aiRoutes = require('./routes/ai');
+const cambridgeRoutes = require('./routes/cambridgeTests'); // ✅ Cambridge tests
 
 // Middleware
 app.use(cors());
@@ -54,6 +57,7 @@ app.use('/api/listening-tests', listeningTestsRoute);
 app.use('/api/listening-submissions', listeningSubmissionRoutes);
 app.use('/api/reading-tests', readingTestsRoute);
 app.use('/api/reading-submissions', readingSubmissionRoutes);
+app.use('/api/cambridge', cambridgeRoutes); // ✅ Cambridge tests (KET, PET, etc.)
 
 // Debug route: return important env vars (useful to verify FRONTEND_URL)
 app.get('/api/debug/env', (req, res) => {

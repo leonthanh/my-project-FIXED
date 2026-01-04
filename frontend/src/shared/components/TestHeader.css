@@ -1,0 +1,262 @@
+/* TestHeader - Shared header styles for IELTS tests */
+
+.test-header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: linear-gradient(135deg, #0e276f 0%, #1a3a8f 100%);
+  padding: 0 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  height: 60px;
+  box-shadow: 0 2px 8px rgba(14, 39, 111, 0.3);
+}
+
+/* Left side */
+.test-header .header-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.test-header .test-badge {
+  background-color: #e03;
+  color: white;
+  padding: 6px 12px;
+  border-radius: 4px;
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 1px;
+}
+
+.test-header .test-info h1 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: white;
+  letter-spacing: 0.5px;
+}
+
+.test-header .test-meta {
+  margin: 2px 0 0 0;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+/* Right side */
+.test-header .header-right {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+/* Timer */
+.test-header .timer-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  padding: 3px 16px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.test-header .timer-container.warning {
+  background: rgba(245, 158, 11, 0.2);
+  border-color: #f59e0b;
+}
+
+.test-header .timer-container.critical {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: #ef4444;
+  animation: pulse-critical 1s infinite;
+}
+
+@keyframes pulse-critical {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+.test-header .timer-icon {
+  font-size: 18px;
+}
+
+.test-header .timer-display {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.test-header .timer-value {
+  font-size: 18px;
+  font-weight: 700;
+  color: white;
+  font-family: 'Courier New', monospace;
+  letter-spacing: 1px;
+}
+
+.test-header .timer-label {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.7);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.test-header .timer-critical-badge {
+  font-size: 16px;
+  margin-left: 4px;
+}
+
+.test-header .timer-critical-badge.pulse {
+  animation: fire-pulse 0.5s infinite;
+}
+
+@keyframes fire-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.2); }
+}
+
+/* Progress Ring */
+.test-header .progress-container {
+  display: flex;
+  align-items: center;
+}
+
+.test-header .progress-ring {
+  position: relative;
+  width: 44px;
+  height: 44px;
+}
+
+.test-header .progress-ring svg {
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+
+.test-header .progress-bg {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.2);
+  stroke-width: 3;
+}
+
+.test-header .progress-bar {
+  fill: none;
+  stroke: #22c55e;
+  stroke-width: 3;
+  stroke-linecap: round;
+  transition: stroke-dasharray 0.3s ease;
+}
+
+.test-header .progress-text {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  color: white;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.1;
+}
+
+.test-header .progress-value {
+  display: block;
+  font-size: 13px;
+}
+
+.test-header .progress-total {
+  display: block;
+  font-size: 10px;
+  opacity: 0.7;
+}
+
+/* Auto-save */
+.test-header .auto-save-indicator {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 14px;
+}
+
+.test-header .save-icon {
+  font-size: 16px;
+}
+
+/* Submit Button */
+.test-header .submit-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  background: linear-gradient(135deg, #e03 0%, #c60 100%);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(224, 0, 51, 0.3);
+}
+
+.test-header .submit-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(224, 0, 51, 0.4);
+}
+
+.test-header .submit-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.test-header .submit-icon {
+  font-size: 16px;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .test-header {
+    padding: 0 12px;
+    height: 56px;
+  }
+
+  .test-header .header-left {
+    gap: 10px;
+  }
+
+  .test-header .test-info h1 {
+    font-size: 14px;
+  }
+
+  .test-header .header-right {
+    gap: 12px;
+  }
+
+  .test-header .timer-container {
+    padding: 6px 10px;
+  }
+
+  .test-header .timer-value {
+    font-size: 14px;
+  }
+
+  .test-header .timer-label {
+    display: none;
+  }
+
+  .test-header .auto-save-indicator .save-text {
+    display: none;
+  }
+
+  .test-header .submit-btn {
+    padding: 8px 12px;
+  }
+
+  .test-header .submit-text {
+    display: none;
+  }
+}

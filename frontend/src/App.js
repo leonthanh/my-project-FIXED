@@ -7,6 +7,7 @@ import { WritingTest, CreateWritingTest } from './features/writing';
 import { Login } from './features/auth';
 import { CreateReadingTest, EditReadingTest, DoReadingTest, TakeReadingTest, ReadingResults } from './features/reading';
 import { CreateListeningTest, EditListeningTest, DoListeningTest, ListeningResults } from './features/listening';
+import { CreateKETListeningTest, CreateKETReadingTest } from './features/cambridge';
 import { ProtectedRoute } from './shared/components';
 
 const isLoggedIn = () => {
@@ -89,6 +90,19 @@ function App() {
             <AdminWritingSubmissions />
           </ProtectedRoute>
         } />
+        
+        {/* Cambridge KET Routes */}
+        <Route path="/admin/create-ket-listening" element={
+          <ProtectedRoute role="teacher">
+            <CreateKETListeningTest />
+          </ProtectedRoute>
+        } />
+        <Route path="/admin/create-ket-reading" element={
+          <ProtectedRoute role="teacher">
+            <CreateKETReadingTest />
+          </ProtectedRoute>
+        } />
+        
         {/* Redirect legacy /admin to canonical writing submissions path */}
         <Route path="/admin" element={
           <ProtectedRoute role="teacher">

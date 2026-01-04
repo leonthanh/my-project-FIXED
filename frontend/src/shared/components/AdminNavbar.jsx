@@ -13,9 +13,12 @@ const AdminNavbar = () => {
     useState(false);
   const [submissionDropdownVisible, setSubmissionDropdownVisible] =
     useState(false);
+  const [cambridgeDropdownVisible, setCambridgeDropdownVisible] =
+    useState(false);
   const notificationDropdownRef = useRef(null);
   const createTestDropdownRef = useRef(null);
   const submissionDropdownRef = useRef(null);
+  const cambridgeDropdownRef = useRef(null);
 
   const user = JSON.parse(localStorage.getItem("user"));
 
@@ -59,6 +62,12 @@ const AdminNavbar = () => {
         !submissionDropdownRef.current.contains(event.target)
       ) {
         setSubmissionDropdownVisible(false);
+      }
+      if (
+        cambridgeDropdownRef.current &&
+        !cambridgeDropdownRef.current.contains(event.target)
+      ) {
+        setCambridgeDropdownVisible(false);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
@@ -252,6 +261,125 @@ const AdminNavbar = () => {
             </div>
           )}
         </div>
+
+        {/* Cambridge Tests Dropdown */}
+        <div
+          style={{
+            display: "inline-block",
+            position: "relative",
+            marginRight: "20px",
+          }}
+          ref={cambridgeDropdownRef}
+        >
+          <span
+            style={{
+              ...linkStyle,
+              cursor: "pointer",
+              marginRight: "0",
+            }}
+            onClick={() => setCambridgeDropdownVisible((prev) => !prev)}
+          >
+            🎓 Cambridge ▼
+          </span>
+          {cambridgeDropdownVisible && (
+            <div
+              style={{
+                position: "absolute",
+                top: "100%",
+                left: "0",
+                background: "white",
+                border: "1px solid #ccc",
+                borderRadius: "4px",
+                boxShadow: "0 2px 6px rgba(0,0,0,0.1)",
+                zIndex: 1000,
+                minWidth: "180px",
+              }}
+            >
+              <div style={{
+                padding: "8px 15px",
+                color: "#666",
+                fontSize: "12px",
+                fontWeight: "bold",
+                borderBottom: "1px solid #eee",
+                background: "#f8f8f8",
+              }}>
+                📚 KET (A2 Key)
+              </div>
+              <Link
+                to="/admin/create-ket-listening"
+                style={{
+                  display: "block",
+                  padding: "10px 15px",
+                  color: "#333",
+                  textDecoration: "none",
+                  borderBottom: "1px solid #eee",
+                  transition: "background 0.2s",
+                }}
+                onClick={() => setCambridgeDropdownVisible(false)}
+                onMouseOver={(e) =>
+                  (e.currentTarget.style.background = "#f0f0f0")
+                }
+                onMouseOut={(e) => (e.currentTarget.style.background = "white")}
+              >
+                🎧 KET Listening
+              </Link>
+              <Link
+                to="/admin/create-ket-reading"
+                style={{
+                  display: "block",
+                  padding: "10px 15px",
+                  color: "#333",
+                  textDecoration: "none",
+                  borderBottom: "1px solid #eee",
+                  transition: "background 0.2s",
+                }}
+                onClick={() => setCambridgeDropdownVisible(false)}
+                onMouseOver={(e) =>
+                  (e.currentTarget.style.background = "#f0f0f0")
+                }
+                onMouseOut={(e) => (e.currentTarget.style.background = "white")}
+              >
+                📖 KET Reading
+              </Link>
+              <div style={{
+                padding: "8px 15px",
+                color: "#666",
+                fontSize: "12px",
+                fontWeight: "bold",
+                borderBottom: "1px solid #eee",
+                background: "#f8f8f8",
+              }}>
+                📚 PET (B1 Preliminary)
+              </div>
+              <Link
+                to="/admin/create-pet-listening"
+                style={{
+                  display: "block",
+                  padding: "10px 15px",
+                  color: "#999",
+                  textDecoration: "none",
+                  borderBottom: "1px solid #eee",
+                  cursor: "not-allowed",
+                }}
+              >
+                🎧 PET Listening (Sắp ra)
+              </Link>
+              <Link
+                to="/admin/create-pet-reading"
+                style={{
+                  display: "block",
+                  padding: "10px 15px",
+                  color: "#999",
+                  textDecoration: "none",
+                  cursor: "not-allowed",
+                }}
+              >
+                📖 PET Reading (Sắp ra)
+              </Link>
+            </div>
+          )}
+        </div>
+
         <Link to="/review" style={linkStyle}>
           📝 Nhận xét bài
         </Link>

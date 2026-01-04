@@ -7,6 +7,7 @@ export { default as StudentNavbar } from './StudentNavbar';
 export { default as Timer } from './Timer';
 export { default as ConfirmModal } from './ConfirmModal';
 export { default as ProtectedRoute } from './ProtectedRoute';
+export { default as TestHeader } from './TestHeader';
 
 // Theme & UX
 export { default as ThemeToggle } from './ThemeToggle';
@@ -42,3 +43,6 @@ export { default as IELTSMatchingHeadingsQuestion } from './IELTSMatchingHeading
 // Listening Question Types
 export { default as MapLabelingQuestion } from './MapLabelingQuestion';
 export { default as FlowchartQuestion } from './FlowchartQuestion';
+
+// New Question Editors (Shared - for Admin creating/editing tests)
+export * from './questions';

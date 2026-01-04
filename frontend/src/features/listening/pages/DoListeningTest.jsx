@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { apiPath, hostPath } from "../../../shared/utils/api";
+import { TestHeader } from "../../../shared/components";
 
 /**
  * DoListeningTest - Trang làm bài thi Listening IELTS
@@ -232,6 +233,76 @@ const DoListeningTest = () => {
     [test?.questions, getQuestionCount]
   );
 
+  // Get actual question range for display (accounts for embedded numbers in notes)
+  const getPartDisplayRange = useCallback(
+    (partIndex) => {
+      const partInstructions = test?.partInstructions || [];
+      const allQuestions = test?.questions || [];
+      const partInfo = partInstructions[partIndex];
+      const sections = partInfo?.sections || [];
+      const partQuestions = allQuestions.filter((q) => q.partIndex === partIndex);
+      
+      let minNum = Infinity;
+      let maxNum = -Infinity;
+      
+      sections.forEach((section, sIdx) => {
+        const sectionQType = section.questionType || "fill";
+        const sectionQuestions = partQuestions.filter((q) => q.sectionIndex === sIdx);
+        const firstQ = sectionQuestions[0];
+        
+        if (sectionQType === "notes-completion" && firstQ?.notesText) {
+          // Extract numbers from notes text
+          const matches = firstQ.notesText.match(/(\d+)\s*[_…]+/g) || [];
+          matches.forEach((match) => {
+            const numMatch = match.match(/^(\d+)/);
+            if (numMatch) {
+              const num = parseInt(numMatch[1], 10);
+              minNum = Math.min(minNum, num);
+              maxNum = Math.max(maxNum, num);
+            }
+          });
+        } else if (sectionQType === "form-completion" && firstQ?.formRows) {
+          // Get blank numbers from formRows
+          firstQ.formRows.forEach((row) => {
+            if (row.isBlank && row.blankNumber) {
+              minNum = Math.min(minNum, row.blankNumber);
+              maxNum = Math.max(maxNum, row.blankNumber);
+            }
+          });
+        } else if (sectionQType === "matching" && firstQ?.answers) {
+          // Get numbers from answers object
+          Object.keys(firstQ.answers).forEach((key) => {
+            const num = parseInt(key, 10);
+            if (!isNaN(num)) {
+              minNum = Math.min(minNum, num);
+              maxNum = Math.max(maxNum, num);
+            }
+          });
+        } else if (section.startingQuestionNumber) {
+          // Use starting number from section
+          const start = section.startingQuestionNumber;
+          minNum = Math.min(minNum, start);
+          // Estimate end based on question count
+          if (sectionQType === "multi-select") {
+            const count = sectionQuestions.reduce((sum, q) => sum + (q.requiredAnswers || 2), 0);
+            maxNum = Math.max(maxNum, start + count - 1);
+          } else {
+            maxNum = Math.max(maxNum, start + sectionQuestions.length - 1);
+          }
+        }
+      });
+      
+      // Fallback to calculated range
+      if (minNum === Infinity || maxNum === -Infinity) {
+        const calcRange = getPartQuestionRange(partIndex);
+        return calcRange;
+      }
+      
+      return { start: minNum, end: maxNum };
+    },
+    [test?.partInstructions, test?.questions, getPartQuestionRange]
+  );
+
   // Count answered questions in a part
   const getAnsweredCount = useCallback(
     (partIndex) => {
@@ -256,6 +327,133 @@ const DoListeningTest = () => {
     [getPartQuestionRange]
   );
 
+  // Build navigator items for a part - groups multi-select questions
+  const getNavigatorItems = useCallback(
+    (partIndex) => {
+      const allQuestions = test?.questions || [];
+      const partQuestions = allQuestions.filter((q) => q.partIndex === partIndex);
+      const partInstructions = test?.partInstructions || [];
+      const partInfo = partInstructions[partIndex];
+      const sections = partInfo?.sections || [];
+      
+      const items = [];
+      let currentQNum = getPartQuestionRange(partIndex).start;
+      
+      sections.forEach((section, sIdx) => {
+        const sectionQuestions = partQuestions.filter((q) => q.sectionIndex === sIdx);
+        const sectionQType = section.questionType || "fill";
+        
+        if (sectionQType === "multi-select") {
+          // Group multi-select questions (e.g., 25-26, 27-28, 29-30)
+          sectionQuestions.forEach((q) => {
+            const count = q.requiredAnswers || 2;
+            const startNum = currentQNum;
+            const endNum = currentQNum + count - 1;
+            items.push({
+              type: "multi-select",
+              startNum,
+              endNum,
+              label: `${startNum}-${endNum}`,
+              questionKey: `q${startNum}`,
+            });
+            currentQNum += count;
+          });
+        } else if (sectionQType === "matching") {
+          // Matching questions - individual numbers
+          const firstQ = sectionQuestions[0];
+          const leftItems = firstQ?.leftItems || [];
+          leftItems.forEach((_, idx) => {
+            items.push({
+              type: "single",
+              startNum: currentQNum,
+              endNum: currentQNum,
+              label: `${currentQNum}`,
+              questionKey: `q${currentQNum}`,
+            });
+            currentQNum++;
+          });
+        } else if (sectionQType === "form-completion") {
+          const firstQ = sectionQuestions[0];
+          const blankCount = firstQ?.formRows?.filter((r) => r.isBlank)?.length || 0;
+          for (let i = 0; i < blankCount; i++) {
+            items.push({
+              type: "single",
+              startNum: currentQNum,
+              endNum: currentQNum,
+              label: `${currentQNum}`,
+              questionKey: `q${currentQNum}`,
+            });
+            currentQNum++;
+          }
+        } else if (sectionQType === "notes-completion") {
+          const firstQ = sectionQuestions[0];
+          const notesText = firstQ?.notesText || "";
+          // Extract actual question numbers from notes text (e.g., "31 ___", "32 ___")
+          const matches = notesText.match(/(\d+)\s*[_…]+/g) || [];
+          matches.forEach((match) => {
+            const qNumMatch = match.match(/^(\d+)/);
+            if (qNumMatch) {
+              const qNum = parseInt(qNumMatch[1], 10);
+              items.push({
+                type: "single",
+                startNum: qNum,
+                endNum: qNum,
+                label: `${qNum}`,
+                questionKey: `q${qNum}`,
+              });
+            }
+          });
+          // Update currentQNum to after these questions
+          if (matches.length > 0) {
+            const lastMatch = matches[matches.length - 1].match(/^(\d+)/);
+            if (lastMatch) {
+              currentQNum = parseInt(lastMatch[1], 10) + 1;
+            }
+          }
+        } else {
+          // abc, abcd, fill - individual questions
+          sectionQuestions.forEach(() => {
+            items.push({
+              type: "single",
+              startNum: currentQNum,
+              endNum: currentQNum,
+              label: `${currentQNum}`,
+              questionKey: `q${currentQNum}`,
+            });
+            currentQNum++;
+          });
+        }
+      });
+      
+      return items;
+    },
+    [test?.questions, test?.partInstructions, getPartQuestionRange]
+  );
+
+  // Check if navigator item is answered
+  const isNavItemAnswered = useCallback(
+    (item) => {
+      if (item.type === "multi-select") {
+        const ans = answers[item.questionKey];
+        return Array.isArray(ans) && ans.length > 0;
+      }
+      const ans = answers[item.questionKey];
+      return !!ans;
+    },
+    [answers]
+  );
+
+  // Check if navigator item is active
+  const isNavItemActive = useCallback(
+    (item) => {
+      if (item.type === "multi-select") {
+        return activeQuestion >= item.startNum && activeQuestion <= item.endNum;
+      }
+      return activeQuestion === item.startNum;
+    },
+    [activeQuestion]
+  );
+
   // Check if question is answered
   const isQuestionAnswered = useCallback(
     (qNum) => {
@@ -265,6 +463,37 @@ const DoListeningTest = () => {
     },
     [answers]
   );
+
+  // Calculate total answered questions
+  const totalAnswered = useMemo(() => {
+    let count = 0;
+    Object.keys(answers).forEach((key) => {
+      const ans = answers[key];
+      if (Array.isArray(ans)) {
+        if (ans.length > 0) count++;
+      } else if (ans) {
+        count++;
+      }
+    });
+    return count;
+  }, [answers]);
+
+  // Calculate total questions
+  const totalQuestions = useMemo(() => {
+    if (!test?.partInstructions) return 40;
+    let total = 0;
+    test.partInstructions.forEach((_, partIndex) => {
+      const range = getPartDisplayRange(partIndex);
+      if (range.start && range.end) {
+        total = Math.max(total, range.end);
+      }
+    });
+    return total || 40;
+  }, [test?.partInstructions, getPartDisplayRange]);
+
+  // Timer warning states
+  const timerWarning = timeRemaining <= 300 && timeRemaining > 60; // < 5 min
+  const timerCritical = timeRemaining <= 60; // < 1 min
 
   // Scroll to question
   const scrollToQuestion = useCallback((qNum) => {
@@ -373,7 +602,7 @@ const DoListeningTest = () => {
     );
   };
 
-  // Render multiple choice many (checkboxes) - Questions 17-18, 19-20 style
+  // Render multiple choice many (checkboxes) - Questions 25-26 style (IELTS multi-select)
   const renderMultipleChoiceMany = (question, startNumber, count = 2) => {
     const options = question.options || [];
     const questionKey = `q${startNumber}`;
@@ -385,44 +614,54 @@ const DoListeningTest = () => {
         id={`question-${startNumber}`}
         ref={(el) => (questionRefs.current[startNumber] = el)}
         style={{
-          ...styles.questionItem,
-          backgroundColor: activeQuestion === startNumber ? "#eff6ff" : "transparent",
+          ...styles.multiSelectContainer,
+          backgroundColor: activeQuestion === startNumber ? "#eff6ff" : "#e8f4fc",
         }}
       >
-        <div style={styles.questionHeader}>
-          <div style={styles.questionNumberWide}>{startNumber}-{endNumber}</div>
-          <span style={styles.questionText}>{question.questionText}</span>
+        {/* Question number badge */}
+        <div style={styles.multiSelectHeader}>
+          <span style={styles.multiSelectBadge}>{startNumber}-{endNumber}</span>
+          <span style={styles.multiSelectQuestionText}>{question.questionText}</span>
         </div>
-        <ul style={styles.optionsList}>
+        
+        {/* Options with checkboxes */}
+        <div style={styles.multiSelectOptions}>
           {options.map((opt, idx) => {
             const optionId = `q${startNumber}checkbox${idx}`;
             const isSelected = selectedAnswers.includes(idx);
+            // Check if option already has letter prefix like "A. " or "A "
+            const hasPrefix = /^[A-Z][\.\s]/.test(opt);
+            const letterLabel = String.fromCharCode(65 + idx); // A, B, C...
 
             return (
-              <li key={idx} style={styles.optionItem}>
-                <label
-                  htmlFor={optionId}
-                  style={{
-                    ...styles.optionLabel,
-                    backgroundColor: isSelected ? "#dbeafe" : "transparent",
-                  }}
-                >
-                  <span style={styles.optionText}>{opt}</span>
-                </label>
+              <label
+                key={idx}
+                htmlFor={optionId}
+                style={{
+                  ...styles.multiSelectOption,
+                  backgroundColor: isSelected ? "#d1e7dd" : "#fff",
+                  borderColor: isSelected ? "#0f5132" : "#dee2e6",
+                }}
+              >
                 <input
                   id={optionId}
                   type="checkbox"
-                  style={styles.checkboxInput}
+                  style={styles.multiSelectCheckbox}
                   checked={isSelected}
                   onChange={(e) =>
                     handleCheckboxChange(questionKey, idx, e.target.checked, count)
                   }
+                  onFocus={() => setActiveQuestion(startNumber)}
                   disabled={submitted}
                 />
-              </li>
+                <span style={styles.multiSelectOptionText}>
+                  {!hasPrefix && <strong>{letterLabel}. </strong>}
+                  {opt}
+                </span>
+              </label>
             );
           })}
-        </ul>
+        </div>
       </div>
     );
   };
@@ -635,21 +874,27 @@ const DoListeningTest = () => {
 
     const firstQ = sectionQuestions[0];
     
-    // Detect question type - prioritize explicit questionType, then check data structure
-    // This ensures abc/abcd is not confused with multi-select
-    let qType = firstQ?.questionType || section.questionType || "fill";
+    // Detect question type - priority order:
+    // 1) section.questionType (from partInstructions - most reliable)
+    // 2) explicit questionType from question (abc, abcd, multi-select, etc.)
+    // 3) detect from data structure
+    const sectionQType = section.questionType;
+    let qType = sectionQType || firstQ?.questionType || "fill";
     
-    // Override based on data structure only for special types
-    if (firstQ?.formRows && firstQ.formRows.length > 0) {
-      qType = "form-completion";
-    } else if (firstQ?.notesText) {
-      qType = "notes-completion";
-    } else if (firstQ?.leftItems && firstQ.leftItems.length > 0) {
-      qType = "matching";
-    } else if (qType === "fill" && firstQ?.options && firstQ.options.length > 0) {
-      // Only override to multiple choice if current type is fill
-      qType = firstQ.options.length === 3 ? "abc" : "abcd";
+    // Only override for special data structures when type is still "fill"
+    if (qType === "fill") {
+      if (firstQ?.formRows && firstQ.formRows.length > 0) {
+        qType = "form-completion";
+      } else if (firstQ?.notesText) {
+        qType = "notes-completion";
+      } else if (firstQ?.leftItems && firstQ.leftItems.length > 0) {
+        qType = "matching";
+      } else if (firstQ?.options && firstQ.options.length > 0) {
+        // Detect abc/abcd from options count
+        qType = firstQ.options.length === 3 ? "abc" : "abcd";
+      }
     }
+    // Note: multi-select, abc, abcd, matching must be explicitly set in section.questionType
     
     // Calculate startNum based on all previous parts and sections
     const partRange = getPartQuestionRange(currentPartIndex);
@@ -739,52 +984,66 @@ const DoListeningTest = () => {
     );
   };
 
-  // Render notes completion (Part 1 style with inline gaps)
+  // Render notes completion (Part 4 style with inline gaps)
   const renderNotesCompletion = (question, startNumber) => {
     const notesText = question.notesText || "";
     const notesTitle = question.notesTitle || "";
     
-    // Parse notes text and replace blanks with inputs
-    let questionNum = startNumber;
-    const renderNotesWithInputs = () => {
-      // Match patterns like "1 ______" or just "______" or "…"
-      const parts = notesText.split(/(\d+\s*[_…]+|[_…]{2,})/g);
+    // Split by line breaks first to preserve them
+    const lines = notesText.split(/\n/);
+    
+    const renderLine = (line, lineIdx) => {
+      // Match patterns like "31 ___" or "the 32 ___" (number followed by underscores)
+      const parts = line.split(/(\d+\s*[_…]+|[_…]{2,})/g);
       
-      return parts.map((part, idx) => {
-        if (part.match(/\d+\s*[_…]+|[_…]{2,}/)) {
-          const qNum = questionNum++;
-          return (
-            <span
-              key={idx}
-              ref={(el) => (questionRefs.current[qNum] = el)}
-              style={styles.gapWrapper}
-            >
-              <input
-                type="text"
-                value={answers[`q${qNum}`] || ""}
-                onChange={(e) => handleAnswerChange(`q${qNum}`, e.target.value)}
-                onFocus={() => setActiveQuestion(qNum)}
-                disabled={submitted}
-                style={{
-                  ...styles.gapInput,
-                  borderColor: activeQuestion === qNum ? "#3b82f6" : "#d1d5db",
-                  boxShadow: activeQuestion === qNum ? "0 0 0 1px #418ec8" : "none",
-                }}
-              />
-              {!answers[`q${qNum}`] && (
-                <span style={styles.gapPlaceholder}>{qNum}</span>
-              )}
-            </span>
-          );
-        }
-        return <span key={idx} dangerouslySetInnerHTML={{ __html: part }} />;
-      });
+      return (
+        <div key={lineIdx} style={styles.notesLine}>
+          {parts.map((part, partIdx) => {
+            // Check if this part is a blank (number + underscores)
+            const match = part.match(/^(\d+)\s*[_…]+$/);
+            if (match) {
+              const qNum = parseInt(match[1], 10); // Use the number from the text
+              return (
+                <span
+                  key={partIdx}
+                  ref={(el) => (questionRefs.current[qNum] = el)}
+                  style={styles.gapWrapper}
+                >
+                  <input
+                    type="text"
+                    value={answers[`q${qNum}`] || ""}
+                    onChange={(e) => handleAnswerChange(`q${qNum}`, e.target.value)}
+                    onFocus={() => setActiveQuestion(qNum)}
+                    disabled={submitted}
+                    style={{
+                      ...styles.gapInput,
+                      borderColor: activeQuestion === qNum ? "#3b82f6" : "#d1d5db",
+                      boxShadow: activeQuestion === qNum ? "0 0 0 1px #418ec8" : "none",
+                    }}
+                  />
+                  {!answers[`q${qNum}`] && (
+                    <span style={styles.gapPlaceholder}>{qNum}</span>
+                  )}
+                </span>
+              );
+            }
+            // Check for standalone underscores without number (use sequential)
+            if (part.match(/^[_…]{2,}$/)) {
+              // Find next available number based on context
+              return <span key={partIdx} style={styles.notesBlank}>______</span>;
+            }
+            return <span key={partIdx}>{part}</span>;
+          })}
+        </div>
+      );
     };
 
     return (
       <div style={styles.notesContainer}>
         {notesTitle && <div style={styles.notesTitle}>{notesTitle}</div>}
-        <div style={styles.notesContent}>{renderNotesWithInputs()}</div>
+        <div style={styles.notesContent}>
+          {lines.map((line, idx) => renderLine(line, idx))}
+        </div>
       </div>
     );
   };
@@ -815,6 +1074,7 @@ const DoListeningTest = () => {
   const currentPart = parts[currentPartIndex];
   const audioUrl = test?.partAudioUrls?.[currentPartIndex] || test?.mainAudioUrl;
   const currentRange = getPartQuestionRange(currentPartIndex);
+  const displayRange = getPartDisplayRange(currentPartIndex);
 
   return (
     <div style={styles.pageWrapper}>
@@ -834,33 +1094,20 @@ const DoListeningTest = () => {
         }
       `}</style>
 
-      {/* Header - Youpass Style */}
-      <header style={styles.header}>
-        <div style={styles.headerContent}>
-          {/* Logo */}
-          <div style={styles.logoWrapper}>
-            <span style={styles.logoText}>🎧 IELTS</span>
-          </div>
-
-          {/* Test Info */}
-          <div style={styles.testInfo}>
-            <div style={styles.testTitle}>{test?.title || "IELTS Listening Test"}</div>
-            <div style={styles.timeInfo}>
-              <span style={styles.audioIcon}>🔊</span>
-              <span>{formatTime(timeRemaining)}</span>
-            </div>
-          </div>
-
-          {/* Submit Button */}
-          <button
-            onClick={handleSubmit}
-            disabled={submitted}
-            style={styles.submitButton}
-          >
-            Nộp bài
-          </button>
-        </div>
-      </header>
+      {/* Header - Shared Component */}
+      <TestHeader
+        testType="LISTENING"
+        testTitle={test?.title || "Listening Test"}
+        testMeta={`${parts.length} Parts • ${totalQuestions} Questions`}
+        timeRemaining={timeRemaining}
+        answeredCount={totalAnswered}
+        totalQuestions={totalQuestions}
+        onSubmit={handleSubmit}
+        submitted={submitted}
+        timerWarning={timerWarning}
+        timerCritical={timerCritical}
+        showAutoSave={true}
+      />
 
       {/* Part Info Box */}
       <div style={styles.partInfoBox}>
@@ -868,7 +1115,7 @@ const DoListeningTest = () => {
           {currentPart?.title || `Part ${currentPartIndex + 1}`}
         </div>
         <div style={styles.partDescription}>
-          Read the text and answer questions {currentRange.start}-{currentRange.end}
+          Read the text and answer questions {displayRange.start}-{displayRange.end}
         </div>
       </div>
 
@@ -981,36 +1228,33 @@ const DoListeningTest = () => {
                 {/* Question Numbers (expanded) */}
                 {isExpanded && (
                   <div style={styles.questionNumbers}>
-                    {Array.from(
-                      { length: range.end - range.start + 1 },
-                      (_, i) => {
-                        const qNum = range.start + i;
-                        const isAnswered = isQuestionAnswered(qNum);
-                        const isActive = activeQuestion === qNum;
+                    {getNavigatorItems(idx).map((item, itemIdx) => {
+                      const isAnswered = isNavItemAnswered(item);
+                      const isActive = isNavItemActive(item);
 
-                        return (
-                          <div
-                            key={qNum}
-                            style={{
-                              ...styles.questionNumBox,
-                              borderColor: isActive
-                                ? "#3b82f6"
-                                : isAnswered
-                                ? "#22c55e"
-                                : "transparent",
-                              backgroundColor: isAnswered ? "#dcfce7" : "#fff",
-                              boxShadow: isActive ? "0 0 0 1px #418ec8" : "none",
-                            }}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              scrollToQuestion(qNum);
-                            }}
-                          >
-                            {qNum}
-                          </div>
-                        );
-                      }
-                    )}
+                      return (
+                        <div
+                          key={itemIdx}
+                          style={{
+                            ...styles.questionNumBox,
+                            ...(item.type === "multi-select" ? styles.questionNumBoxWide : {}),
+                            borderColor: isActive
+                              ? "#3b82f6"
+                              : isAnswered
+                              ? "#22c55e"
+                              : "transparent",
+                            backgroundColor: isAnswered ? "#dcfce7" : "#fff",
+                            boxShadow: isActive ? "0 0 0 1px #418ec8" : "none",
+                          }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            scrollToQuestion(item.startNum);
+                          }}
+                        >
+                          {item.label}
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -1243,24 +1487,35 @@ const styles = {
 
   // Multiple Choice
   questionItem: { marginBottom: "16px", padding: "8px", borderRadius: "4px" },
-  questionHeader: { display: "flex", gap: "8px", marginBottom: "8px" },
+  questionHeader: { display: "flex", gap: "12px", marginBottom: "8px", alignItems: "flex-start" },
   questionNumber: {
-    fontWeight: "bold",
-    minWidth: "28px",
-    padding: "0 4px",
-    display: "flex",
+    display: "inline-flex",
     alignItems: "center",
     justifyContent: "center",
+    minWidth: "32px",
+    height: "32px",
+    backgroundColor: "#0e276f",
+    color: "#fff",
+    borderRadius: "50%",
+    fontWeight: 600,
+    fontSize: "14px",
+    flexShrink: 0,
   },
   questionNumberWide: {
-    fontWeight: "bold",
-    minWidth: "48px",
-    padding: "0 4px",
-    display: "flex",
+    display: "inline-flex",
     alignItems: "center",
     justifyContent: "center",
+    minWidth: "48px",
+    height: "32px",
+    backgroundColor: "#0e276f",
+    color: "#fff",
+    borderRadius: "16px",
+    fontWeight: 600,
+    fontSize: "13px",
+    padding: "0 8px",
+    flexShrink: 0,
   },
-  questionText: { flex: 1, marginTop: "2px", lineHeight: 1.5 },
+  questionText: { flex: 1, marginTop: "4px", lineHeight: 1.5 },
   optionsList: {
     listStyle: "none",
     margin: 0,
@@ -1302,7 +1557,19 @@ const styles = {
     padding: "8px",
     borderRadius: "4px",
   },
-  fillQuestionNumber: { fontWeight: "bold", minWidth: "28px" },
+  fillQuestionNumber: {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    minWidth: "32px",
+    height: "32px",
+    backgroundColor: "#0e276f",
+    color: "#fff",
+    borderRadius: "50%",
+    fontWeight: 600,
+    fontSize: "14px",
+    flexShrink: 0,
+  },
   fillInput: {
     flex: 1,
     border: "1px solid #d1d5db",
@@ -1312,6 +1579,61 @@ const styles = {
     outline: "none",
   },
   fillQuestionsContainer: { display: "flex", flexDirection: "column" },
+
+  // Multi-select (Choose TWO letters style)
+  multiSelectContainer: {
+    padding: "16px 20px",
+    marginBottom: "16px",
+    borderRadius: "8px",
+    border: "1px solid #cce5ff",
+  },
+  multiSelectHeader: {
+    display: "flex",
+    alignItems: "flex-start",
+    gap: "12px",
+    marginBottom: "12px",
+  },
+  multiSelectBadge: {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: "4px 10px",
+    backgroundColor: "#0e276f",
+    color: "#fff",
+    borderRadius: "4px",
+    fontWeight: 600,
+    fontSize: "14px",
+    whiteSpace: "nowrap",
+  },
+  multiSelectQuestionText: {
+    fontSize: "15px",
+    color: "#333",
+    lineHeight: 1.5,
+  },
+  multiSelectOptions: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "8px",
+  },
+  multiSelectOption: {
+    display: "flex",
+    alignItems: "center",
+    gap: "10px",
+    padding: "10px 14px",
+    border: "1px solid #dee2e6",
+    borderRadius: "6px",
+    cursor: "pointer",
+    transition: "all 0.2s",
+  },
+  multiSelectCheckbox: {
+    width: "18px",
+    height: "18px",
+    cursor: "pointer",
+  },
+  multiSelectOptionText: {
+    fontSize: "14px",
+    color: "#333",
+  },
 
   // Matching
   matchingContainer: {
@@ -1336,7 +1658,7 @@ const styles = {
     justifyContent: "center",
     width: "32px",
     height: "32px",
-    backgroundColor: "#3b82f6",
+    backgroundColor: "#0e276f",
     color: "#fff",
     borderRadius: "50%",
     fontWeight: 600,
@@ -1502,25 +1824,32 @@ const styles = {
     gap: "8px",
     whiteSpace: "nowrap",
   },
-  partLabelText: { fontWeight: "bold", fontSize: "14px" },
-  partProgress: { fontSize: "13px", color: "#6b7280" },
+  partLabelText: { fontWeight: "bold", fontSize: "16px" },
+  partProgress: { fontSize: "14px", color: "#6b7280" },
   questionNumbers: {
     display: "flex",
-    gap: "4px",
+    flexWrap: "nowrap",
+    gap: "8px",
     marginTop: "8px",
-    flexWrap: "wrap",
+    justifyContent: "space-around",
   },
   questionNumBox: {
-    width: "28px",
+    minWidth: "28px",
     height: "28px",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
     border: "1px solid transparent",
     borderRadius: "4px",
-    fontSize: "12px",
+    fontSize: "15px",
     cursor: "pointer",
     backgroundColor: "#fff",
+    padding: "0 4px",
+  },
+  questionNumBoxWide: {
+    minWidth: "40px",
+    padding: "0 6px",
+    fontSize: "14px",
   },
   submitIcon: {
     padding: "16px",
@@ -1634,8 +1963,17 @@ const styles = {
     color: "#1f2937",
   },
   notesContent: {
-    lineHeight: 2,
+    lineHeight: 1.8,
     fontSize: "14px",
+  },
+  notesLine: {
+    marginBottom: "8px",
+    display: "block",
+  },
+  notesBlank: {
+    display: "inline-block",
+    borderBottom: "1px solid #999",
+    minWidth: "60px",
   },
 
   // Form Title
