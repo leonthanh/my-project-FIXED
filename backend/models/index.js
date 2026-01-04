@@ -5,6 +5,8 @@ const WritingTest = require("./WritingTests");
 const ReadingTest = require("./ReadingTest");
 const KETReading = require("./KETReading");
 const Submission = require("./Submission");
+const CambridgeListening = require("./CambridgeListening");
+const CambridgeReading = require("./CambridgeReading");
 
 // Quan hệ WritingTest ↔ Submission
 WritingTest.hasMany(Submission, { foreignKey: "testId" });
@@ -21,4 +23,6 @@ module.exports = {
   ReadingTest,
   KETReading,
   Submission,
+  CambridgeListening,
+  CambridgeReading,
 };

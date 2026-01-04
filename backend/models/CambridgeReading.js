@@ -1,0 +1,67 @@
+const { DataTypes } = require('sequelize');
+const sequelize = require('../db');
+
+/**
+ * CambridgeReading Model
+ * Lưu trữ đề thi reading cho các bài thi Cambridge (KET, PET, FLYERS, etc.)
+ */
+const CambridgeReading = sequelize.define('CambridgeReading', {
+  id: {
+    type: DataTypes.INTEGER,
+    primaryKey: true,
+    autoIncrement: true
+  },
+  title: {
+    type: DataTypes.STRING,
+    allowNull: false
+  },
+  classCode: {
+    type: DataTypes.STRING,
+    allowNull: false
+  },
+  teacherName: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    defaultValue: ''
+  },
+  testType: {
+    type: DataTypes.STRING,
+    allowNull: false,
+    comment: 'ket-reading, pet-reading, flyers-reading, movers-reading, starters-reading'
+  },
+  parts: {
+    type: DataTypes.JSON,
+    allowNull: false,
+    comment: 'Array of parts with sections and questions'
+  },
+  totalQuestions: {
+    type: DataTypes.INTEGER,
+    defaultValue: 0
+  },
+  duration: {
+    type: DataTypes.INTEGER,
+    defaultValue: 60,
+    comment: 'Duration in minutes'
+  },
+  status: {
+    type: DataTypes.ENUM('draft', 'published', 'archived'),
+    defaultValue: 'draft'
+  },
+  createdBy: {
+    type: DataTypes.STRING,
+    allowNull: true
+  },
+  createdAt: {
+    type: DataTypes.DATE,
+    defaultValue: DataTypes.NOW
+  },
+  updatedAt: {
+    type: DataTypes.DATE,
+    defaultValue: DataTypes.NOW
+  }
+}, {
+  tableName: 'cambridge_reading_tests',
+  timestamps: true
+});
+
+module.exports = CambridgeReading;

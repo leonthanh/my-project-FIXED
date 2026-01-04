@@ -1,4 +1,6 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { AdminNavbar } from "../../shared/components";
 import { 
   QuestionTypeSelector, 
   QuestionEditorFactory,
@@ -9,16 +11,23 @@ import {
   getTestConfig,
   TEST_CONFIGS,
 } from "../../shared/config/questionTypes";
+import { apiPath } from "../../shared/utils/api";
 
 /**
- * CambridgeTestBuilder - Example component cho việc tạo đề Cambridge tests
+ * CambridgeTestBuilder - Component cho việc tạo đề Cambridge tests
  * Có thể dùng cho: KET, PET, FLYERS, MOVERS, STARTERS
- * 
- * Đây là template/example để tham khảo cách sử dụng các shared components
  */
 const CambridgeTestBuilder = ({ testType = 'ket-listening' }) => {
+  const navigate = useNavigate();
   const testConfig = getTestConfig(testType);
   const availableTypes = getQuestionTypesForTest(testType);
+
+  // Form fields
+  const [title, setTitle] = useState('');
+  const [classCode, setClassCode] = useState('');
+  const [teacherName, setTeacherName] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [message, setMessage] = useState({ type: '', text: '' });
 
   // State
   const [parts, setParts] = useState([
@@ -26,6 +35,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening' }) => {
       partNumber: 1,
       title: 'Part 1',
       instruction: '',
+      audioUrl: '', // For listening tests
       sections: [
         {
           sectionTitle: '',
@@ -68,6 +78,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening' }) => {
         partNumber: parts.length + 1,
         title: `Part ${parts.length + 1}`,
         instruction: '',
+        audioUrl: '',
         sections: [
           {
             sectionTitle: '',
@@ -79,6 +90,102 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening' }) => {
     ]);
     setSelectedPartIndex(parts.length);
     setSelectedSectionIndex(0);
+  };
+
+  const handleAddSection = () => {
+    const newParts = [...parts];
+    newParts[selectedPartIndex].sections.push({
+      sectionTitle: '',
+      questionType: availableTypes[0]?.id || 'fill',
+      questions: [getDefaultQuestionData(availableTypes[0]?.id || 'fill')],
+    });
+    setParts(newParts);
+    setSelectedSectionIndex(newParts[selectedPartIndex].sections.length - 1);
+  };
+
+  const handleAddQuestion = () => {
+    const newParts = [...parts];
+    const currentType = currentSection.questionType;
+    newParts[selectedPartIndex].sections[selectedSectionIndex].questions.push(
+      getDefaultQuestionData(currentType)
+    );
+    setParts(newParts);
+  };
+
+  const handleDeleteQuestion = (qIndex) => {
+    const newParts = [...parts];
+    newParts[selectedPartIndex].sections[selectedSectionIndex].questions.splice(qIndex, 1);
+    setParts(newParts);
+  };
+
+  // Calculate starting question number
+  const calculateStartingNumber = (partIdx, sectionIdx, questionIdx) => {
+    let count = 1;
+    for (let p = 0; p < partIdx; p++) {
+      for (const section of parts[p].sections) {
+        count += section.questions.length;
+      }
+    }
+    for (let s = 0; s < sectionIdx; s++) {
+      count += parts[partIdx].sections[s].questions.length;
+    }
+    return count + questionIdx;
+  };
+
+  // Save handler
+  const handleSave = async () => {
+    // Validation
+    if (!title.trim()) {
+      setMessage({ type: 'error', text: '❌ Vui lòng nhập tiêu đề đề thi!' });
+      return;
+    }
+    if (!classCode.trim()) {
+      setMessage({ type: 'error', text: '❌ Vui lòng nhập mã lớp!' });
+      return;
+    }
+
+    setIsSubmitting(true);
+    setMessage({ type: '', text: '' });
+
+    try {
+      const payload = {
+        title,
+        classCode,
+        teacherName,
+        testType,
+        parts,
+        totalQuestions: parts.reduce((sum, part) => 
+          sum + part.sections.reduce((sSum, sec) => sSum + sec.questions.length, 0), 0
+        ),
+      };
+
+      // Determine API endpoint based on test type
+      const isListening = testType.includes('listening');
+      const endpoint = isListening ? 'cambridge/listening-tests' : 'cambridge/reading-tests';
+
+      const response = await fetch(apiPath(endpoint), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        throw new Error('Lỗi khi lưu đề thi');
+      }
+
+      const result = await response.json();
+      setMessage({ type: 'success', text: '✅ Tạo đề thành công!' });
+      
+      // Redirect after success
+      setTimeout(() => {
+        navigate('/select-test');
+      }, 1500);
+    } catch (error) {
+      console.error('Save error:', error);
+      setMessage({ type: 'error', text: '❌ Lỗi: ' + error.message });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   if (!testConfig) {
@@ -98,12 +205,15 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening' }) => {
   }
 
   return (
-    <div style={{ 
-      display: 'grid', 
-      gridTemplateColumns: '250px 1fr', 
-      minHeight: '100vh',
-      backgroundColor: '#f8fafc',
-    }}>
+    <div style={{ minHeight: '100vh', backgroundColor: '#f8fafc' }}>
+      {/* AdminNavbar */}
+      <AdminNavbar />
+
+      <div style={{ 
+        display: 'grid', 
+        gridTemplateColumns: '280px 1fr', 
+        minHeight: 'calc(100vh - 60px)',
+      }}>
       {/* Sidebar */}
       <div style={{
         backgroundColor: '#1e293b',
@@ -171,6 +281,51 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening' }) => {
           ➕ Thêm Part
         </button>
 
+        {/* Sections in current Part */}
+        {currentPart && currentPart.sections.length > 0 && (
+          <div style={{ marginTop: '24px' }}>
+            <h4 style={{ margin: '0 0 12px', fontSize: '14px', color: '#94a3b8' }}>
+              📑 Sections trong Part {selectedPartIndex + 1}
+            </h4>
+            {currentPart.sections.map((sec, idx) => (
+              <div
+                key={idx}
+                onClick={() => setSelectedSectionIndex(idx)}
+                style={{
+                  padding: '10px',
+                  marginBottom: '6px',
+                  backgroundColor: selectedSectionIndex === idx ? '#6366f1' : '#475569',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '13px',
+                }}
+              >
+                Section {idx + 1}: {sec.questionType}
+                <div style={{ fontSize: '11px', color: '#cbd5e1', marginTop: '2px' }}>
+                  {sec.questions.length} câu hỏi
+                </div>
+              </div>
+            ))}
+            <button
+              onClick={handleAddSection}
+              style={{
+                width: '100%',
+                padding: '8px',
+                backgroundColor: '#8b5cf6',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontWeight: 600,
+                marginTop: '8px',
+                fontSize: '13px',
+              }}
+            >
+              ➕ Thêm Section
+            </button>
+          </div>
+        )}
+
         {/* Available Question Types */}
         <div style={{ marginTop: '24px' }}>
           <h4 style={{ margin: '0 0 12px', fontSize: '14px', color: '#94a3b8' }}>
@@ -193,7 +348,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening' }) => {
 
       {/* Main Content */}
       <div style={{ padding: '24px' }}>
-        {/* Header */}
+        {/* Header with Title and Save */}
         <div style={{
           display: 'flex',
           justifyContent: 'space-between',
@@ -204,18 +359,122 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening' }) => {
             🎓 Tạo Đề {testConfig.name}
           </h1>
           <button
+            onClick={handleSave}
+            disabled={isSubmitting}
             style={{
               padding: '12px 24px',
-              backgroundColor: '#3b82f6',
+              backgroundColor: isSubmitting ? '#94a3b8' : '#3b82f6',
               color: 'white',
               border: 'none',
               borderRadius: '8px',
-              cursor: 'pointer',
+              cursor: isSubmitting ? 'not-allowed' : 'pointer',
               fontWeight: 600,
             }}
           >
-            💾 Lưu đề
+            {isSubmitting ? '⏳ Đang lưu...' : '💾 Lưu đề'}
           </button>
+        </div>
+
+        {/* Message */}
+        {message.text && (
+          <div style={{
+            padding: '12px 16px',
+            borderRadius: '8px',
+            marginBottom: '20px',
+            backgroundColor: message.type === 'error' ? '#fef2f2' : '#f0fdf4',
+            border: `1px solid ${message.type === 'error' ? '#fecaca' : '#bbf7d0'}`,
+            color: message.type === 'error' ? '#dc2626' : '#16a34a',
+          }}>
+            {message.text}
+          </div>
+        )}
+
+        {/* Test Info Form */}
+        <div style={{
+          backgroundColor: 'white',
+          borderRadius: '12px',
+          padding: '20px',
+          marginBottom: '20px',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+        }}>
+          <h3 style={{ margin: '0 0 16px', color: '#374151' }}>📝 Thông tin đề thi</h3>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px' }}>
+            <div>
+              <label style={{ 
+                display: 'block', 
+                marginBottom: '6px', 
+                fontWeight: 600, 
+                color: '#374151',
+                fontSize: '14px',
+              }}>
+                Tiêu đề đề thi *
+              </label>
+              <input
+                type="text"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="VD: KET Listening Test 1"
+                style={{
+                  width: '100%',
+                  padding: '10px 12px',
+                  border: '1px solid #d1d5db',
+                  borderRadius: '8px',
+                  fontSize: '14px',
+                  boxSizing: 'border-box',
+                }}
+              />
+            </div>
+            <div>
+              <label style={{ 
+                display: 'block', 
+                marginBottom: '6px', 
+                fontWeight: 600, 
+                color: '#374151',
+                fontSize: '14px',
+              }}>
+                Mã lớp *
+              </label>
+              <input
+                type="text"
+                value={classCode}
+                onChange={(e) => setClassCode(e.target.value)}
+                placeholder="VD: KET-2024-A"
+                style={{
+                  width: '100%',
+                  padding: '10px 12px',
+                  border: '1px solid #d1d5db',
+                  borderRadius: '8px',
+                  fontSize: '14px',
+                  boxSizing: 'border-box',
+                }}
+              />
+            </div>
+            <div>
+              <label style={{ 
+                display: 'block', 
+                marginBottom: '6px', 
+                fontWeight: 600, 
+                color: '#374151',
+                fontSize: '14px',
+              }}>
+                Tên giáo viên
+              </label>
+              <input
+                type="text"
+                value={teacherName}
+                onChange={(e) => setTeacherName(e.target.value)}
+                placeholder="VD: Cô Lan"
+                style={{
+                  width: '100%',
+                  padding: '10px 12px',
+                  border: '1px solid #d1d5db',
+                  borderRadius: '8px',
+                  fontSize: '14px',
+                  boxSizing: 'border-box',
+                }}
+              />
+            </div>
+          </div>
         </div>
 
         {/* Current Part Editor */}
@@ -297,13 +556,75 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening' }) => {
                   borderRadius: '8px',
                   border: '1px solid #e5e7eb',
                 }}>
-                  <QuestionEditorFactory
-                    questionType={currentSection.questionType}
-                    question={currentSection.questions[0] || {}}
-                    onChange={handleQuestionChange}
-                    questionIndex={0}
-                    startingNumber={1}
-                  />
+                  {currentSection.questions.map((question, qIdx) => (
+                    <div key={qIdx} style={{
+                      marginBottom: '20px',
+                      paddingBottom: '20px',
+                      borderBottom: qIdx < currentSection.questions.length - 1 ? '2px dashed #e5e7eb' : 'none',
+                    }}>
+                      <div style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        marginBottom: '12px',
+                      }}>
+                        <span style={{ 
+                          fontWeight: 600, 
+                          color: '#6366f1',
+                          fontSize: '14px',
+                        }}>
+                          Câu hỏi #{calculateStartingNumber(selectedPartIndex, selectedSectionIndex, qIdx)}
+                        </span>
+                        {currentSection.questions.length > 1 && (
+                          <button
+                            onClick={() => handleDeleteQuestion(qIdx)}
+                            style={{
+                              padding: '4px 8px',
+                              backgroundColor: '#ef4444',
+                              color: 'white',
+                              border: 'none',
+                              borderRadius: '4px',
+                              cursor: 'pointer',
+                              fontSize: '12px',
+                            }}
+                          >
+                            🗑️ Xóa
+                          </button>
+                        )}
+                      </div>
+                      <QuestionEditorFactory
+                        questionType={currentSection.questionType}
+                        question={question}
+                        onChange={(field, value) => {
+                          const newParts = [...parts];
+                          newParts[selectedPartIndex].sections[selectedSectionIndex].questions[qIdx] = {
+                            ...question,
+                            [field]: value,
+                          };
+                          setParts(newParts);
+                        }}
+                        questionIndex={qIdx}
+                        startingNumber={calculateStartingNumber(selectedPartIndex, selectedSectionIndex, qIdx)}
+                      />
+                    </div>
+                  ))}
+                  
+                  <button
+                    onClick={handleAddQuestion}
+                    style={{
+                      width: '100%',
+                      padding: '10px',
+                      backgroundColor: '#10b981',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      fontWeight: 600,
+                      marginTop: '12px',
+                    }}
+                  >
+                    ➕ Thêm câu hỏi
+                  </button>
                 </div>
               </div>
             )}
@@ -341,6 +662,8 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening' }) => {
           </table>
         </div>
       </div>
+      {/* End grid */}
+    </div>
     </div>
   );
 };
