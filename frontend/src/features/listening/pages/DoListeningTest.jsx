@@ -1,15 +1,18 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { apiPath, hostPath } from "../../../shared/utils/api";
-import { StudentNavbar } from "../../../shared/components";
 
 /**
  * DoListeningTest - Trang làm bài thi Listening IELTS
- * Hỗ trợ các question types: form-completion, fill, abc, abcd, matching, multi-select
+ * - Audio chỉ nghe 1 lần (không tua lại được)
+ * - Thời gian 30 phút
+ * - Giao diện theo mẫu youpass.vn
  */
 const DoListeningTest = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  
+  // States
   const [test, setTest] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -18,8 +21,13 @@ const DoListeningTest = () => {
   const [showConfirm, setShowConfirm] = useState(false);
   const [results, setResults] = useState(null);
   const [currentPartIndex, setCurrentPartIndex] = useState(0);
-  const [timeRemaining, setTimeRemaining] = useState(40 * 60); // 40 minutes
+  const [timeRemaining, setTimeRemaining] = useState(30 * 60); // 30 minutes
+  const [audioPlayed, setAudioPlayed] = useState({}); // Track which parts have been played
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [focusedQuestion, setFocusedQuestion] = useState(null);
+  
   const audioRef = useRef(null);
+  const questionRefs = useRef({});
 
   // Fetch test data
   useEffect(() => {
@@ -362,25 +370,36 @@ const DoListeningTest = () => {
     
     return (
       <div key={sectionIndex} style={sectionStyle}>
-        <h4 style={{ color: "#059669", marginBottom: "12px" }}>
+        <h4 style={{ color: "#1e40af", marginBottom: "12px", fontSize: "16px" }}>
           📝 {section.sectionTitle}
         </h4>
         
         {section.sectionInstruction && (
           <div style={{
-            padding: "12px",
-            backgroundColor: "#fef3c7",
+            padding: "12px 16px",
+            backgroundColor: "#fef9c3",
             borderRadius: "8px",
             marginBottom: "16px",
             fontSize: "14px",
             whiteSpace: "pre-wrap",
+            borderLeft: "4px solid #facc15",
           }}>
             {section.sectionInstruction}
           </div>
         )}
         
         {questions.map((q, idx) => (
-          <div key={idx}>
+          <div 
+            key={idx}
+            ref={el => questionRefs.current[q.globalNumber] = el}
+            style={{
+              transition: 'all 0.3s ease',
+              backgroundColor: focusedQuestion === q.globalNumber ? '#dbeafe' : 'transparent',
+              borderRadius: '8px',
+              margin: '-4px',
+              padding: '4px',
+            }}
+          >
             {renderQuestion(q, section.questionType)}
           </div>
         ))}
@@ -388,66 +407,59 @@ const DoListeningTest = () => {
     );
   };
 
-  // Render a part
-  const renderPart = (part, partIndex) => {
-    const audioUrl = test.partAudioUrls?.[partIndex] || test.mainAudioUrl;
-    
-    return (
-      <div key={partIndex} style={partStyle}>
-        <div style={partHeaderStyle}>
-          <h3 style={{ margin: 0 }}>🎧 {part.title}</h3>
-        </div>
-        
-        {/* Audio Player */}
-        {audioUrl && (
-          <div style={audioContainerStyle}>
-            <audio
-              ref={audioRef}
-              controls
-              style={{ width: "100%" }}
-              src={hostPath(audioUrl)}
-            >
-              Your browser does not support the audio element.
-            </audio>
-          </div>
-        )}
-        
-        {/* Part Instruction */}
-        {part.instruction && (
-          <div style={{
-            padding: "12px",
-            backgroundColor: "#eff6ff",
-            borderRadius: "8px",
-            marginBottom: "16px",
-          }}>
-            <div dangerouslySetInnerHTML={{ __html: part.instruction }} />
-          </div>
-        )}
-        
-        {/* Sections */}
-        {part.sections?.map((section, sIdx) => renderSection(section, partIndex, sIdx))}
-        
-        {/* Transcript (shown after submit) */}
-        {submitted && part.transcript && (
-          <details style={{ marginTop: "16px" }}>
-            <summary style={{ cursor: "pointer", fontWeight: 600, color: "#6b7280" }}>
-              📜 Xem Transcript
-            </summary>
-            <div style={{
-              marginTop: "8px",
-              padding: "12px",
-              backgroundColor: "#f9fafb",
-              borderRadius: "8px",
-              whiteSpace: "pre-wrap",
-              fontSize: "14px",
-            }}>
-              {part.transcript}
-            </div>
-          </details>
-        )}
-      </div>
-    );
-  };
+  // Get question ranges for each part
+  const getPartQuestionRange = useCallback((partIndex) => {
+    const allQuestions = test?.questions || [];
+    const partQuestions = allQuestions.filter(q => q.partIndex === partIndex);
+    if (partQuestions.length === 0) return { start: 0, end: 0 };
+    const nums = partQuestions.map(q => q.globalNumber);
+    return { start: Math.min(...nums), end: Math.max(...nums) };
+  }, [test?.questions]);
+
+  // Count answered questions in a part
+  const getAnsweredCount = useCallback((partIndex) => {
+    const range = getPartQuestionRange(partIndex);
+    let count = 0;
+    for (let i = range.start; i <= range.end; i++) {
+      if (answers[`q${i}`]) count++;
+    }
+    return count;
+  }, [getPartQuestionRange, answers]);
+
+  // Get total questions in a part
+  const getPartTotalQuestions = useCallback((partIndex) => {
+    const range = getPartQuestionRange(partIndex);
+    return range.end - range.start + 1;
+  }, [getPartQuestionRange]);
+
+  // Scroll to question
+  const scrollToQuestion = useCallback((qNum) => {
+    const el = questionRefs.current[qNum];
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      setFocusedQuestion(qNum);
+      setTimeout(() => setFocusedQuestion(null), 2000);
+    }
+  }, []);
+
+  // Handle audio ended
+  const handleAudioEnded = useCallback((partIndex) => {
+    setAudioPlayed(prev => ({ ...prev, [partIndex]: true }));
+    setIsPlaying(false);
+  }, []);
+
+  // Handle audio play - prevent replay
+  const handleAudioPlay = useCallback((partIndex) => {
+    if (audioPlayed[partIndex]) {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.currentTime = audioRef.current.duration;
+      }
+      alert('⚠️ Audio này chỉ được nghe 1 lần!');
+      return;
+    }
+    setIsPlaying(true);
+  }, [audioPlayed]);
 
   // Loading state
   if (loading) {
@@ -480,225 +492,445 @@ const DoListeningTest = () => {
   console.log("Rendering - currentPartIndex:", currentPartIndex);
 
   return (
-    <>
-      <StudentNavbar />
-      
-      <div style={containerStyle}>
-        {/* Debug Info - Remove in production */}
-        {parts.length === 0 && (
-          <div style={{ 
-            padding: "16px", 
-            backgroundColor: "#fef2f2", 
-            borderRadius: "8px", 
-            marginBottom: "20px",
-            border: "1px solid #fecaca"
-          }}>
-            <strong>⚠️ Debug:</strong> Không có parts data
-            <pre style={{ fontSize: "11px", overflow: "auto", maxHeight: "200px" }}>
-              {JSON.stringify(test, null, 2)}
-            </pre>
-          </div>
-        )}
+    <div style={pageWrapperStyle}>
+      {/* Top Header - youpass style */}
+      <header style={topHeaderStyle}>
+        <div style={headerLeftStyle}>
+          <button 
+            onClick={() => navigate('/select-test')} 
+            style={backButtonStyle}
+          >
+            ← Thoát
+          </button>
+          <h1 style={testTitleStyle}>IELTS Listening Test</h1>
+        </div>
         
-        {/* Header */}
-        <div style={headerStyle}>
-          <div>
-            <h2 style={{ margin: 0 }}>🎧 Bài thi Listening</h2>
-            <p style={{ margin: "4px 0 0", color: "#6b7280", fontSize: "14px" }}>
-              {test.classCode} • {test.teacherName}
-            </p>
-          </div>
-          
-          <div style={timerStyle}>
-            <span style={{ fontSize: "12px", color: "#6b7280" }}>⏱️ Thời gian còn lại</span>
-            <span style={{
-              fontSize: "24px",
-              fontWeight: "bold",
-              color: timeRemaining < 300 ? "#ef4444" : "#059669",
-            }}>
+        <div style={headerRightStyle}>
+          <div style={{
+            ...timerBoxStyle,
+            backgroundColor: timeRemaining < 300 ? '#fee2e2' : '#dcfce7',
+            color: timeRemaining < 300 ? '#dc2626' : '#16a34a',
+          }}>
+            <span style={{ fontSize: '12px', opacity: 0.8 }}>⏱ Còn lại</span>
+            <span style={{ fontSize: '24px', fontWeight: 'bold' }}>
               {formatTime(timeRemaining)}
             </span>
           </div>
-        </div>
-
-        {/* Part Navigation */}
-        <div style={partNavStyle}>
-          {parts.map((part, idx) => (
-            <button
-              key={idx}
-              onClick={() => setCurrentPartIndex(idx)}
-              style={{
-                ...partNavButtonStyle,
-                backgroundColor: currentPartIndex === idx ? "#3b82f6" : "#f3f4f6",
-                color: currentPartIndex === idx ? "white" : "#374151",
-              }}
-            >
-              {part.title}
-            </button>
-          ))}
-        </div>
-
-        {/* Current Part Content */}
-        <div style={contentStyle}>
-          {parts[currentPartIndex] && renderPart(parts[currentPartIndex], currentPartIndex)}
-        </div>
-
-        {/* Submit Button */}
-        <div style={submitBarStyle}>
-          <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
-            <button
-              onClick={() => setCurrentPartIndex(Math.max(0, currentPartIndex - 1))}
-              disabled={currentPartIndex === 0}
-              style={{
-                ...secondaryButtonStyle,
-                opacity: currentPartIndex === 0 ? 0.5 : 1,
-              }}
-            >
-              ← Phần trước
-            </button>
-            
-            <button
-              onClick={() => setCurrentPartIndex(Math.min(parts.length - 1, currentPartIndex + 1))}
-              disabled={currentPartIndex === parts.length - 1}
-              style={{
-                ...secondaryButtonStyle,
-                opacity: currentPartIndex === parts.length - 1 ? 0.5 : 1,
-              }}
-            >
-              Phần sau →
-            </button>
-          </div>
           
           <button
-            onClick={() => handleSubmit()}
+            onClick={handleSubmit}
             disabled={submitted}
-            style={{
-              ...primaryButtonStyle,
-              opacity: submitted ? 0.5 : 1,
-            }}
+            style={submitButtonStyle}
           >
-            {submitted ? "✅ Đã nộp bài" : "📤 Nộp bài"}
+            📤 Nộp bài
           </button>
         </div>
+      </header>
 
-        {/* Confirm Modal */}
-        {showConfirm && (
-          <div style={modalOverlayStyle}>
-            <div style={modalStyle}>
-              <h3 style={{ marginTop: 0 }}>📋 Xác nhận nộp bài</h3>
-              <p>Bạn có chắc chắn muốn nộp bài?</p>
-              <p style={{ color: "#6b7280", fontSize: "14px" }}>
-                Sau khi nộp, bạn sẽ không thể chỉnh sửa câu trả lời.
-              </p>
-              <div style={{ display: "flex", gap: "12px", justifyContent: "flex-end", marginTop: "20px" }}>
-                <button onClick={() => setShowConfirm(false)} style={secondaryButtonStyle}>
-                  Hủy
-                </button>
-                <button onClick={confirmSubmit} style={primaryButtonStyle}>
-                  ✅ Xác nhận nộp
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Results Modal */}
-        {results && (
-          <div style={modalOverlayStyle}>
-            <div style={{ ...modalStyle, maxWidth: "500px" }}>
-              <h3 style={{ marginTop: 0, textAlign: "center" }}>🎉 Kết quả bài thi</h3>
-              
-              <div style={{
-                textAlign: "center",
-                padding: "20px",
-                backgroundColor: "#f0fdf4",
-                borderRadius: "12px",
-                marginBottom: "20px",
-              }}>
-                <div style={{ fontSize: "48px", fontWeight: "bold", color: "#059669" }}>
-                  {results.score || 0}/{results.total || 40}
+      {/* Main Content Area */}
+      <main style={mainContentStyle}>
+        {/* Audio Player - Fixed at top of content */}
+        {(() => {
+          const audioUrl = test?.partAudioUrls?.[currentPartIndex] || test?.mainAudioUrl;
+          const hasPlayed = audioPlayed[currentPartIndex];
+          
+          return audioUrl && (
+            <div style={audioSectionStyle}>
+              <div style={audioPlayerWrapperStyle}>
+                <div style={audioInfoStyle}>
+                  <span style={audioLabelStyle}>🎧 Audio {parts[currentPartIndex]?.title}</span>
+                  {hasPlayed && (
+                    <span style={audioPlayedBadgeStyle}>✓ Đã phát xong</span>
+                  )}
                 </div>
-                <p style={{ margin: "8px 0 0", color: "#6b7280" }}>Số câu đúng</p>
-              </div>
-              
-              <div style={{ display: "flex", gap: "12px", justifyContent: "center" }}>
-                <button
-                  onClick={() => navigate("/select-test")}
-                  style={secondaryButtonStyle}
-                >
-                  ← Về trang chủ
-                </button>
-                <button
-                  onClick={() => navigate(`/listening-results/${id}`)}
-                  style={primaryButtonStyle}
-                >
-                  📊 Xem chi tiết
-                </button>
+                <audio
+                  ref={audioRef}
+                  controls
+                  controlsList="nodownload noplaybackrate"
+                  style={{ 
+                    width: '100%', 
+                    opacity: hasPlayed ? 0.5 : 1,
+                    pointerEvents: hasPlayed ? 'none' : 'auto'
+                  }}
+                  src={hostPath(audioUrl)}
+                  onPlay={() => handleAudioPlay(currentPartIndex)}
+                  onEnded={() => handleAudioEnded(currentPartIndex)}
+                  onSeeking={(e) => {
+                    // Prevent seeking backwards
+                    if (audioRef.current && e.target.currentTime < audioRef.current.currentTime) {
+                      e.target.currentTime = audioRef.current.currentTime;
+                    }
+                  }}
+                />
+                {hasPlayed && (
+                  <p style={audioWarningStyle}>⚠️ Audio chỉ được nghe 1 lần. Bạn đã nghe xong phần này.</p>
+                )}
               </div>
             </div>
+          );
+        })()}
+
+        {/* Part Content */}
+        <div style={contentAreaStyle}>
+          {parts[currentPartIndex] && (
+            <>
+              {/* Part Header */}
+              <div style={partTitleBarStyle}>
+                <h2 style={{ margin: 0, fontSize: '18px' }}>
+                  {parts[currentPartIndex].title}
+                </h2>
+                <span style={questionRangeStyle}>
+                  Câu {getPartQuestionRange(currentPartIndex).start} - {getPartQuestionRange(currentPartIndex).end}
+                </span>
+              </div>
+
+              {/* Part Instruction */}
+              {parts[currentPartIndex].instruction && (
+                <div style={instructionBoxStyle}>
+                  <div dangerouslySetInnerHTML={{ __html: parts[currentPartIndex].instruction }} />
+                </div>
+              )}
+
+              {/* Sections */}
+              {parts[currentPartIndex].sections?.map((section, sIdx) => 
+                renderSection(section, currentPartIndex, sIdx)
+              )}
+            </>
+          )}
+        </div>
+      </main>
+
+      {/* Bottom Navigation Bar - youpass style */}
+      <nav style={bottomNavStyle}>
+        {/* Part Tabs */}
+        <div style={partTabsContainerStyle}>
+          {parts.map((part, idx) => {
+            const range = getPartQuestionRange(idx);
+            const answered = getAnsweredCount(idx);
+            const total = getPartTotalQuestions(idx);
+            
+            return (
+              <button
+                key={idx}
+                onClick={() => setCurrentPartIndex(idx)}
+                style={{
+                  ...partTabStyle,
+                  backgroundColor: currentPartIndex === idx ? '#3b82f6' : '#f1f5f9',
+                  color: currentPartIndex === idx ? 'white' : '#475569',
+                  borderColor: currentPartIndex === idx ? '#3b82f6' : '#e2e8f0',
+                }}
+              >
+                <span style={partTabTitleStyle}>{part.title}</span>
+                <span style={partTabRangeStyle}>Câu {range.start}-{range.end}</span>
+                <span style={{
+                  ...partTabProgressStyle,
+                  backgroundColor: currentPartIndex === idx ? 'rgba(255,255,255,0.2)' : '#e2e8f0',
+                }}>
+                  {answered}/{total}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Question Number Grid */}
+        <div style={questionGridStyle}>
+          {(() => {
+            const range = getPartQuestionRange(currentPartIndex);
+            const buttons = [];
+            for (let i = range.start; i <= range.end; i++) {
+              const isAnswered = !!answers[`q${i}`];
+              const isFocused = focusedQuestion === i;
+              buttons.push(
+                <button
+                  key={i}
+                  onClick={() => scrollToQuestion(i)}
+                  style={{
+                    ...questionNumButtonStyle,
+                    backgroundColor: isAnswered ? '#22c55e' : '#f1f5f9',
+                    color: isAnswered ? 'white' : '#64748b',
+                    borderColor: isFocused ? '#3b82f6' : (isAnswered ? '#22c55e' : '#e2e8f0'),
+                    transform: isFocused ? 'scale(1.1)' : 'scale(1)',
+                  }}
+                >
+                  {i}
+                </button>
+              );
+            }
+            return buttons;
+          })()}
+        </div>
+
+        {/* Navigation Arrows */}
+        <div style={navArrowsStyle}>
+          <button
+            onClick={() => setCurrentPartIndex(Math.max(0, currentPartIndex - 1))}
+            disabled={currentPartIndex === 0}
+            style={{
+              ...navArrowButtonStyle,
+              opacity: currentPartIndex === 0 ? 0.3 : 1,
+            }}
+          >
+            ← Phần trước
+          </button>
+          <button
+            onClick={() => setCurrentPartIndex(Math.min(parts.length - 1, currentPartIndex + 1))}
+            disabled={currentPartIndex === parts.length - 1}
+            style={{
+              ...navArrowButtonStyle,
+              opacity: currentPartIndex === parts.length - 1 ? 0.3 : 1,
+            }}
+          >
+            Phần sau →
+          </button>
+        </div>
+      </nav>
+
+      {/* Confirm Modal */}
+      {showConfirm && (
+        <div style={modalOverlayStyle}>
+          <div style={modalStyle}>
+            <h3 style={{ marginTop: 0, color: '#1e40af' }}>📋 Xác nhận nộp bài</h3>
+            <p>Bạn có chắc chắn muốn nộp bài?</p>
+            
+            {/* Summary */}
+            <div style={{ 
+              padding: '12px', 
+              backgroundColor: '#f8fafc', 
+              borderRadius: '8px',
+              marginBottom: '16px'
+            }}>
+              <p style={{ margin: '0 0 8px', fontSize: '14px', color: '#64748b' }}>
+                Tổng quan bài làm:
+              </p>
+              {parts.map((part, idx) => {
+                const answered = getAnsweredCount(idx);
+                const total = getPartTotalQuestions(idx);
+                return (
+                  <div key={idx} style={{ 
+                    display: 'flex', 
+                    justifyContent: 'space-between',
+                    padding: '4px 0',
+                    fontSize: '14px'
+                  }}>
+                    <span>{part.title}</span>
+                    <span style={{ 
+                      color: answered === total ? '#22c55e' : '#f59e0b',
+                      fontWeight: 500
+                    }}>
+                      {answered}/{total} câu
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+            
+            <p style={{ color: '#ef4444', fontSize: '14px', margin: '0 0 16px' }}>
+              ⚠️ Sau khi nộp, bạn sẽ không thể chỉnh sửa câu trả lời.
+            </p>
+            
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+              <button onClick={() => setShowConfirm(false)} style={cancelButtonStyle}>
+                Hủy
+              </button>
+              <button onClick={confirmSubmit} style={confirmButtonStyle}>
+                ✅ Xác nhận nộp
+              </button>
+            </div>
           </div>
-        )}
-      </div>
-    </>
+        </div>
+      )}
+
+      {/* Results Modal */}
+      {results && (
+        <div style={modalOverlayStyle}>
+          <div style={{ ...modalStyle, maxWidth: '500px' }}>
+            <h3 style={{ marginTop: 0, textAlign: 'center', color: '#059669' }}>
+              🎉 Kết quả bài thi
+            </h3>
+            
+            <div style={{
+              textAlign: 'center',
+              padding: '24px',
+              backgroundColor: '#f0fdf4',
+              borderRadius: '12px',
+              marginBottom: '20px',
+            }}>
+              <div style={{ fontSize: '56px', fontWeight: 'bold', color: '#059669' }}>
+                {results.score || 0}/{results.total || 40}
+              </div>
+              <p style={{ margin: '8px 0 0', color: '#6b7280' }}>Số câu đúng</p>
+              
+              {/* Band Score Estimate */}
+              <div style={{ 
+                marginTop: '16px', 
+                padding: '8px 16px', 
+                backgroundColor: 'white', 
+                borderRadius: '8px',
+                display: 'inline-block'
+              }}>
+                <span style={{ fontSize: '14px', color: '#6b7280' }}>Band Score: </span>
+                <span style={{ fontSize: '20px', fontWeight: 'bold', color: '#1e40af' }}>
+                  {Math.min(9, Math.max(1, Math.round((results.score / 40) * 9 * 2) / 2)).toFixed(1)}
+                </span>
+              </div>
+            </div>
+            
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
+              <button
+                onClick={() => navigate('/select-test')}
+                style={cancelButtonStyle}
+              >
+                ← Về trang chủ
+              </button>
+              <button
+                onClick={() => navigate(`/listening-results/${id}`)}
+                style={confirmButtonStyle}
+              >
+                📊 Xem chi tiết
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
   );
 };
 
-// Styles
-const containerStyle = {
-  maxWidth: "900px",
-  margin: "0 auto",
-  padding: "20px",
+// Styles - youpass.vn inspired design
+const pageWrapperStyle = {
+  minHeight: "100vh",
+  backgroundColor: "#f1f5f9",
+  display: "flex",
+  flexDirection: "column",
 };
 
-const headerStyle = {
+const topHeaderStyle = {
   display: "flex",
   justifyContent: "space-between",
   alignItems: "center",
-  padding: "16px 20px",
-  backgroundColor: "#fff",
-  borderRadius: "12px",
-  boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
-  marginBottom: "20px",
+  padding: "12px 24px",
+  backgroundColor: "#1e40af",
+  color: "white",
+  position: "sticky",
+  top: 0,
+  zIndex: 100,
+  boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
 };
 
-const timerStyle = {
+const headerLeftStyle = {
+  display: "flex",
+  alignItems: "center",
+  gap: "16px",
+};
+
+const backButtonStyle = {
+  padding: "8px 16px",
+  backgroundColor: "rgba(255,255,255,0.15)",
+  color: "white",
+  border: "none",
+  borderRadius: "6px",
+  cursor: "pointer",
+  fontSize: "14px",
+  fontWeight: 500,
+};
+
+const testTitleStyle = {
+  margin: 0,
+  fontSize: "18px",
+  fontWeight: 600,
+};
+
+const headerRightStyle = {
+  display: "flex",
+  alignItems: "center",
+  gap: "16px",
+};
+
+const timerBoxStyle = {
   display: "flex",
   flexDirection: "column",
   alignItems: "center",
   padding: "8px 16px",
-  backgroundColor: "#f0fdf4",
   borderRadius: "8px",
+  minWidth: "100px",
 };
 
-const partNavStyle = {
-  display: "flex",
-  gap: "8px",
-  marginBottom: "20px",
-  flexWrap: "wrap",
-};
-
-const partNavButtonStyle = {
-  padding: "10px 20px",
+const submitButtonStyle = {
+  padding: "10px 24px",
+  backgroundColor: "#22c55e",
+  color: "white",
   border: "none",
   borderRadius: "8px",
   cursor: "pointer",
   fontWeight: 600,
+  fontSize: "15px",
   transition: "all 0.2s",
 };
 
-const contentStyle = {
-  backgroundColor: "#fff",
-  borderRadius: "12px",
-  padding: "24px",
-  boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+const mainContentStyle = {
+  flex: 1,
+  padding: "20px",
+  paddingBottom: "200px", // Space for bottom nav
+  maxWidth: "900px",
+  margin: "0 auto",
+  width: "100%",
+  boxSizing: "border-box",
+};
+
+const audioSectionStyle = {
   marginBottom: "20px",
 };
 
-const partStyle = {
-  marginBottom: "24px",
+const audioPlayerWrapperStyle = {
+  padding: "16px",
+  backgroundColor: "white",
+  borderRadius: "12px",
+  boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
 };
 
-const partHeaderStyle = {
+const audioInfoStyle = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  marginBottom: "12px",
+};
+
+const audioLabelStyle = {
+  fontSize: "15px",
+  fontWeight: 600,
+  color: "#1e40af",
+};
+
+const audioPlayedBadgeStyle = {
+  padding: "4px 12px",
+  backgroundColor: "#dcfce7",
+  color: "#16a34a",
+  borderRadius: "16px",
+  fontSize: "13px",
+  fontWeight: 500,
+};
+
+const audioWarningStyle = {
+  margin: "12px 0 0",
+  padding: "8px 12px",
+  backgroundColor: "#fef3c7",
+  color: "#b45309",
+  borderRadius: "6px",
+  fontSize: "13px",
+};
+
+const contentAreaStyle = {
+  backgroundColor: "white",
+  borderRadius: "12px",
+  padding: "24px",
+  boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+};
+
+const partTitleBarStyle = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
   padding: "12px 16px",
   backgroundColor: "#1e40af",
   color: "white",
@@ -706,45 +938,56 @@ const partHeaderStyle = {
   marginBottom: "16px",
 };
 
-const audioContainerStyle = {
-  padding: "12px",
-  backgroundColor: "#f3f4f6",
+const questionRangeStyle = {
+  padding: "4px 12px",
+  backgroundColor: "rgba(255,255,255,0.2)",
+  borderRadius: "16px",
+  fontSize: "13px",
+};
+
+const instructionBoxStyle = {
+  padding: "16px",
+  backgroundColor: "#eff6ff",
   borderRadius: "8px",
-  marginBottom: "16px",
+  marginBottom: "20px",
+  borderLeft: "4px solid #3b82f6",
 };
 
 const sectionStyle = {
-  padding: "16px",
-  border: "1px solid #e5e7eb",
-  borderRadius: "8px",
-  marginBottom: "16px",
+  padding: "20px",
+  border: "1px solid #e2e8f0",
+  borderRadius: "12px",
+  marginBottom: "20px",
+  backgroundColor: "#fafafa",
 };
 
 const formContainerStyle = {
   padding: "16px",
-  backgroundColor: "#fafafa",
+  backgroundColor: "#fff",
   borderRadius: "8px",
+  border: "1px solid #e2e8f0",
 };
 
 const questionItemStyle = {
-  padding: "12px",
+  padding: "16px",
   marginBottom: "12px",
   backgroundColor: "#fff",
   borderRadius: "8px",
-  border: "1px solid #e5e7eb",
+  border: "1px solid #e2e8f0",
+  transition: "all 0.2s",
 };
 
 const questionNumberStyle = {
   display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",
-  width: "28px",
-  height: "28px",
+  width: "32px",
+  height: "32px",
   backgroundColor: "#3b82f6",
   color: "white",
   borderRadius: "50%",
   fontWeight: "bold",
-  fontSize: "13px",
+  fontSize: "14px",
   flexShrink: 0,
 };
 
@@ -752,8 +995,8 @@ const blankNumberStyle = {
   display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",
-  width: "24px",
-  height: "24px",
+  width: "26px",
+  height: "26px",
   backgroundColor: "#3b82f6",
   color: "white",
   borderRadius: "50%",
@@ -762,43 +1005,147 @@ const blankNumberStyle = {
 };
 
 const inputStyle = {
-  padding: "8px 12px",
-  border: "2px solid #d1d5db",
-  borderRadius: "6px",
-  fontSize: "14px",
-  width: "200px",
-  transition: "border-color 0.2s",
+  padding: "10px 14px",
+  border: "2px solid #cbd5e1",
+  borderRadius: "8px",
+  fontSize: "15px",
+  width: "220px",
+  transition: "all 0.2s",
+  outline: "none",
 };
 
 const selectStyle = {
-  padding: "8px 12px",
-  border: "2px solid #d1d5db",
-  borderRadius: "6px",
-  fontSize: "14px",
-  minWidth: "120px",
+  padding: "10px 14px",
+  border: "2px solid #cbd5e1",
+  borderRadius: "8px",
+  fontSize: "15px",
+  minWidth: "140px",
   cursor: "pointer",
+  backgroundColor: "white",
 };
 
 const optionStyle = {
   display: "flex",
   alignItems: "center",
-  padding: "10px 14px",
+  padding: "12px 16px",
   borderRadius: "8px",
   cursor: "pointer",
   border: "2px solid",
   transition: "all 0.2s",
 };
 
-const submitBarStyle = {
+// Bottom Navigation Styles
+const bottomNavStyle = {
+  position: "fixed",
+  bottom: 0,
+  left: 0,
+  right: 0,
+  backgroundColor: "white",
+  borderTop: "1px solid #e2e8f0",
+  boxShadow: "0 -4px 12px rgba(0,0,0,0.1)",
+  padding: "12px 20px",
+  zIndex: 100,
+};
+
+const partTabsContainerStyle = {
   display: "flex",
-  justifyContent: "space-between",
+  gap: "8px",
+  marginBottom: "12px",
+  justifyContent: "center",
+  flexWrap: "wrap",
+};
+
+const partTabStyle = {
+  display: "flex",
+  flexDirection: "column",
   alignItems: "center",
-  padding: "16px 20px",
-  backgroundColor: "#fff",
-  borderRadius: "12px",
-  boxShadow: "0 -2px 8px rgba(0,0,0,0.1)",
-  position: "sticky",
-  bottom: "20px",
+  padding: "8px 16px",
+  border: "2px solid",
+  borderRadius: "8px",
+  cursor: "pointer",
+  transition: "all 0.2s",
+  minWidth: "100px",
+  backgroundColor: "transparent",
+};
+
+const partTabTitleStyle = {
+  fontSize: "13px",
+  fontWeight: 600,
+};
+
+const partTabRangeStyle = {
+  fontSize: "11px",
+  opacity: 0.8,
+};
+
+const partTabProgressStyle = {
+  fontSize: "11px",
+  padding: "2px 8px",
+  borderRadius: "10px",
+  marginTop: "4px",
+};
+
+const questionGridStyle = {
+  display: "flex",
+  flexWrap: "wrap",
+  gap: "6px",
+  justifyContent: "center",
+  marginBottom: "12px",
+  maxHeight: "60px",
+  overflowY: "auto",
+};
+
+const questionNumButtonStyle = {
+  width: "32px",
+  height: "32px",
+  border: "2px solid",
+  borderRadius: "6px",
+  cursor: "pointer",
+  fontSize: "13px",
+  fontWeight: 600,
+  transition: "all 0.2s",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  backgroundColor: "transparent",
+};
+
+const navArrowsStyle = {
+  display: "flex",
+  justifyContent: "center",
+  gap: "12px",
+};
+
+const navArrowButtonStyle = {
+  padding: "8px 20px",
+  border: "1px solid #e2e8f0",
+  borderRadius: "6px",
+  cursor: "pointer",
+  fontSize: "14px",
+  fontWeight: 500,
+  backgroundColor: "#f8fafc",
+  color: "#475569",
+  transition: "all 0.2s",
+};
+
+const loadingStyle = {
+  display: "flex",
+  flexDirection: "column",
+  justifyContent: "center",
+  alignItems: "center",
+  height: "100vh",
+  fontSize: "1.2rem",
+  backgroundColor: "#f1f5f9",
+};
+
+const errorStyle = {
+  display: "flex",
+  flexDirection: "column",
+  justifyContent: "center",
+  alignItems: "center",
+  height: "100vh",
+  textAlign: "center",
+  backgroundColor: "#f1f5f9",
 };
 
 const primaryButtonStyle = {
@@ -812,41 +1159,13 @@ const primaryButtonStyle = {
   fontSize: "15px",
 };
 
-const secondaryButtonStyle = {
-  padding: "10px 20px",
-  backgroundColor: "#f3f4f6",
-  color: "#374151",
-  border: "1px solid #d1d5db",
-  borderRadius: "8px",
-  cursor: "pointer",
-  fontWeight: 500,
-};
-
-const loadingStyle = {
-  display: "flex",
-  flexDirection: "column",
-  justifyContent: "center",
-  alignItems: "center",
-  height: "100vh",
-  fontSize: "1.2rem",
-};
-
-const errorStyle = {
-  display: "flex",
-  flexDirection: "column",
-  justifyContent: "center",
-  alignItems: "center",
-  height: "100vh",
-  textAlign: "center",
-};
-
 const modalOverlayStyle = {
   position: "fixed",
   top: 0,
   left: 0,
   right: 0,
   bottom: 0,
-  backgroundColor: "rgba(0,0,0,0.5)",
+  backgroundColor: "rgba(0,0,0,0.6)",
   display: "flex",
   justifyContent: "center",
   alignItems: "center",
@@ -855,11 +1174,33 @@ const modalOverlayStyle = {
 
 const modalStyle = {
   backgroundColor: "white",
-  padding: "24px",
-  borderRadius: "12px",
-  maxWidth: "400px",
+  padding: "28px",
+  borderRadius: "16px",
+  maxWidth: "420px",
   width: "90%",
-  boxShadow: "0 4px 20px rgba(0,0,0,0.2)",
+  boxShadow: "0 8px 32px rgba(0,0,0,0.25)",
+};
+
+const cancelButtonStyle = {
+  padding: "10px 20px",
+  backgroundColor: "#f1f5f9",
+  color: "#475569",
+  border: "1px solid #e2e8f0",
+  borderRadius: "8px",
+  cursor: "pointer",
+  fontWeight: 500,
+  fontSize: "14px",
+};
+
+const confirmButtonStyle = {
+  padding: "10px 24px",
+  backgroundColor: "#22c55e",
+  color: "white",
+  border: "none",
+  borderRadius: "8px",
+  cursor: "pointer",
+  fontWeight: 600,
+  fontSize: "14px",
 };
 
 export default DoListeningTest;

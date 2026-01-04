@@ -77,60 +77,15 @@ const DoReadingTest = () => {
     (n) => {
       const key = `q_${n}`;
 
-      // Direct value (string, JSON, or non-string)
-      const v = answers[key];
-      if (v) {
-        if (typeof v === "string") {
-          // JSON encoded composite answers (matching headings etc.)
-          try {
-            const parsed = JSON.parse(v);
-            if (
-              parsed &&
-              Object.values(parsed).some((x) => x !== undefined && x !== "")
-            )
-              return true;
-          } catch (e) {
-            // not JSON
-          }
-          if (v.toString().trim() !== "") return true;
-        } else {
-          return true;
-        }
-      }
+      // For matching-headings and cloze-test, skip the direct key check here
+      // because they use composite storage (JSON or sub-keys) and are handled below.
+      // First, determine if question n is part of a matching-headings or cloze block.
+      let isPartOfMatchingHeadings = false;
+      let isPartOfClozeTest = false;
 
-      // Sub-keys under the same base: q_N_0, q_N_1
-      for (const k of Object.keys(answers || {})) {
-        if (
-          k.startsWith(`${key}_`) &&
-          answers[k] &&
-          answers[k].toString().trim() !== ""
-        )
-          return true;
-      }
-
-      // Also detect answers stored under a different base with a numeric suffix: q_M_i
-      // Some renderers store blanks as q_M_i where the visual question number is M + i
-      for (const k of Object.keys(answers || {})) {
-        const m = k.match(/^q_(\d+)_(\d+)$/);
-        if (m) {
-          const base = Number(m[1]);
-          const sub = Number(m[2]);
-          if (!Number.isNaN(base) && !Number.isNaN(sub)) {
-            if (
-              base + sub === n &&
-              answers[k] &&
-              answers[k].toString().trim() !== ""
-            )
-              return true;
-          }
-        }
-      }
-
-      // Detect matching-headings answers stored as JSON under a base key q_M where each paragraph has an id
-      // and visual question numbers are consecutive (M, M+1, ...).
       if (test && Array.isArray(test.passages)) {
         let qCounter = 1;
-        for (const p of test.passages) {
+        outerLoop: for (const p of test.passages) {
           const sections = p.sections || [{ questions: p.questions }];
           for (const s of sections) {
             for (const q of s.questions || []) {
@@ -141,38 +96,14 @@ const DoReadingTest = () => {
                 qType === "matching-headings"
               ) {
                 const paragraphs = q.paragraphs || q.answers || [];
-                const base = qCounter; // qCounter is the base question number for this matching-headings block
-
-                // If the visual question number falls inside this block, check the stored JSON under base key
-                if (n >= base && n < base + paragraphs.length) {
-                  const raw = answers[`q_${base}`];
-                  if (raw) {
-                    try {
-                      const parsed = JSON.parse(raw);
-                      const paragraphIndex = n - base;
-                      const paragraph = paragraphs[paragraphIndex];
-                      const paragraphId =
-                        typeof paragraph === "object"
-                          ? paragraph.id || paragraph.paragraphId || ""
-                          : paragraph;
-                      if (
-                        parsed &&
-                        paragraphId &&
-                        parsed[paragraphId] !== undefined &&
-                        parsed[paragraphId] !== ""
-                      )
-                        return true;
-                    } catch (e) {
-                      // not JSON
-                    }
-                  }
+                if (n >= qCounter && n < qCounter + paragraphs.length) {
+                  isPartOfMatchingHeadings = true;
+                  break outerLoop;
                 }
-
                 qCounter += paragraphs.length;
                 continue;
               }
 
-              // Cloze / summary handling: multiple blanks count individually
               if (qType === "cloze-test" || qType === "summary-completion") {
                 const clozeText =
                   q.paragraphText ||
@@ -184,15 +115,16 @@ const DoReadingTest = () => {
                     : null);
                 if (clozeText) {
                   const blanks = (clozeText.match(/\[BLANK\]/gi) || []).length;
+                  if (n >= qCounter && n < qCounter + blanks) {
+                    isPartOfClozeTest = true;
+                    break outerLoop;
+                  }
                   qCounter += blanks || 1;
-                  continue;
-                } else {
-                  qCounter++;
                   continue;
                 }
               }
 
-              // Paragraph-matching: count blanks
+              // Paragraph-matching with blanks
               if (qType === "paragraph-matching") {
                 const paragraphBlankCount = q.questionText
                   ? (q.questionText.match(/(\.{3,}|…+)/g) || []).length
@@ -203,10 +135,124 @@ const DoReadingTest = () => {
                 }
               }
 
-              // Default: single question
               qCounter++;
             }
           }
+        }
+      }
+
+      // For matching-headings, handle specifically below (don't use direct key check)
+      if (isPartOfMatchingHeadings) {
+        // Find the matching-headings block and check the specific paragraph
+        if (test && Array.isArray(test.passages)) {
+          let qCounter = 1;
+          for (const p of test.passages) {
+            const sections = p.sections || [{ questions: p.questions }];
+            for (const s of sections) {
+              for (const q of s.questions || []) {
+                const qType = q.type || q.questionType || "";
+
+                if (
+                  qType === "ielts-matching-headings" ||
+                  qType === "matching-headings"
+                ) {
+                  const paragraphs = q.paragraphs || q.answers || [];
+                  const base = qCounter;
+
+                  if (n >= base && n < base + paragraphs.length) {
+                    const raw = answers[`q_${base}`];
+                    if (raw) {
+                      try {
+                        const parsed = JSON.parse(raw);
+                        const paragraphIndex = n - base;
+                        const paragraph = paragraphs[paragraphIndex];
+                        const paragraphId =
+                          typeof paragraph === "object"
+                            ? paragraph.id || paragraph.paragraphId || ""
+                            : paragraph;
+                        if (
+                          parsed &&
+                          paragraphId &&
+                          parsed[paragraphId] !== undefined &&
+                          parsed[paragraphId] !== ""
+                        ) {
+                          return true;
+                        }
+                      } catch (e) {
+                        // not JSON
+                      }
+                    }
+                    return false;
+                  }
+
+                  qCounter += paragraphs.length;
+                  continue;
+                }
+
+                // Skip other types in this loop
+                if (qType === "cloze-test" || qType === "summary-completion") {
+                  const clozeText =
+                    q.paragraphText ||
+                    q.passageText ||
+                    q.text ||
+                    q.paragraph ||
+                    (q.questionText && q.questionText.includes("[BLANK]")
+                      ? q.questionText
+                      : null);
+                  if (clozeText) {
+                    const blanks =
+                      (clozeText.match(/\[BLANK\]/gi) || []).length;
+                    qCounter += blanks || 1;
+                    continue;
+                  }
+                }
+
+                if (qType === "paragraph-matching") {
+                  const paragraphBlankCount = q.questionText
+                    ? (q.questionText.match(/(\.{3,}|…+)/g) || []).length
+                    : 0;
+                  if (paragraphBlankCount > 0) {
+                    qCounter += paragraphBlankCount;
+                    continue;
+                  }
+                }
+
+                qCounter++;
+              }
+            }
+          }
+        }
+        return false;
+      }
+
+      // For cloze-test, check sub-keys q_base_index where base + index === n
+      if (isPartOfClozeTest) {
+        for (const k of Object.keys(answers || {})) {
+          const m = k.match(/^q_(\d+)_(\d+)$/);
+          if (m) {
+            const base = Number(m[1]);
+            const sub = Number(m[2]);
+            if (!Number.isNaN(base) && !Number.isNaN(sub)) {
+              if (
+                base + sub === n &&
+                answers[k] &&
+                answers[k].toString().trim() !== ""
+              ) {
+                return true;
+              }
+            }
+          }
+        }
+        return false;
+      }
+
+      // Direct value (string, JSON, or non-string) - for regular question types
+      const v = answers[key];
+      if (v) {
+        if (typeof v === "string") {
+          if (v.toString().trim() !== "") return true;
+        } else {
+          return true;
         }
       }
 
@@ -2134,6 +2180,10 @@ const DoReadingTest = () => {
                             ? "answered"
                             : ""
                         }`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setActiveQuestion(actualQuestionNum);
+                        }}
                         onMouseEnter={() =>
                           handleParagraphHighlight(paragraphId)
                         }
@@ -2162,6 +2212,7 @@ const DoReadingTest = () => {
                               e.target.value
                             )
                           }
+                          onFocus={() => setActiveQuestion(actualQuestionNum)}
                         >
                           <option value="">Choose a heading...</option>
                           {(question.headings || []).map((heading, hi) => {
@@ -2273,6 +2324,10 @@ const DoReadingTest = () => {
                                   ref={(el) =>
                                     (questionRefs.current[`q_${blankNum}`] = el)
                                   }
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setActiveQuestion(blankNum);
+                                  }}
                                 >
                                   <span className="cloze-inline-number">
                                     {blankNum}
@@ -2293,6 +2348,7 @@ const DoReadingTest = () => {
                                         e.target.value
                                       )
                                     }
+                                    onFocus={() => setActiveQuestion(blankNum)}
                                     placeholder=""
                                   />
                                 </span>
@@ -2304,30 +2360,38 @@ const DoReadingTest = () => {
                   );
                 } else {
                   // Fallback to blank rows if no passage text
-                  return (question.blanks || []).map((blank, bi) => (
-                    <div
-                      key={bi}
-                      ref={(el) =>
-                        (questionRefs.current[`q_${questionNumber + bi}`] = el)
-                      }
-                      className="cloze-blank-row"
-                    >
-                      <span className="cloze-blank-number">
-                        {blank.id || questionNumber + bi}.
-                      </span>
-                      <input
-                        type="text"
-                        className={`cloze-input ${
-                          answers[`${key}_${bi}`] ? "answered" : ""
-                        }`}
-                        value={answers[`${key}_${bi}`] || ""}
-                        onChange={(e) =>
-                          handleAnswerChange(`${key}_${bi}`, e.target.value)
+                  return (question.blanks || []).map((blank, bi) => {
+                    const blankQuestionNum = questionNumber + bi;
+                    return (
+                      <div
+                        key={bi}
+                        ref={(el) =>
+                          (questionRefs.current[`q_${blankQuestionNum}`] = el)
                         }
-                        placeholder="Type answer..."
-                      />
-                    </div>
-                  ));
+                        className="cloze-blank-row"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setActiveQuestion(blankQuestionNum);
+                        }}
+                      >
+                        <span className="cloze-blank-number">
+                          {blank.id || blankQuestionNum}.
+                        </span>
+                        <input
+                          type="text"
+                          className={`cloze-input ${
+                            answers[`${key}_${bi}`] ? "answered" : ""
+                          }`}
+                          value={answers[`${key}_${bi}`] || ""}
+                          onChange={(e) =>
+                            handleAnswerChange(`${key}_${bi}`, e.target.value)
+                          }
+                          onFocus={() => setActiveQuestion(blankQuestionNum)}
+                          placeholder="Type answer..."
+                        />
+                      </div>
+                    );
+                  });
                 }
               })()}
             </div>
