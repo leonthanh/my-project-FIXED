@@ -196,6 +196,9 @@ const StudentNavbar = () => {
         <Link to="/select-test" style={navLinkStyle}>
           📝 Chọn đề
         </Link>
+        <Link to="/cambridge" style={navLinkStyle}>
+          🎓 Cambridge
+        </Link>
         <Link to="/my-feedback" style={navLinkStyle}>
           📄 Xem Nhận xét
         </Link>

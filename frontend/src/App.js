@@ -7,7 +7,7 @@ import { WritingTest, CreateWritingTest } from './features/writing';
 import { Login } from './features/auth';
 import { CreateReadingTest, EditReadingTest, DoReadingTest, TakeReadingTest, ReadingResults } from './features/reading';
 import { CreateListeningTest, EditListeningTest, DoListeningTest, ListeningResults } from './features/listening';
-import { CreateKETListeningTest, CreateKETReadingTest } from './features/cambridge';
+import { CreateKETListeningTest, CreateKETReadingTest, SelectCambridgeTest, DoCambridgeListeningTest, DoCambridgeReadingTest } from './features/cambridge';
 import { ProtectedRoute } from './shared/components';
 
 const isLoggedIn = () => {
@@ -102,6 +102,13 @@ function App() {
             <CreateKETReadingTest />
           </ProtectedRoute>
         } />
+        
+        {/* Cambridge Student Routes */}
+        <Route path="/cambridge" element={isLoggedIn() ? <SelectCambridgeTest /> : <Navigate to="/login" replace />} />
+        <Route path="/cambridge/ket-listening/:id" element={isLoggedIn() ? <DoCambridgeListeningTest /> : <Navigate to="/login" replace />} />
+        <Route path="/cambridge/pet-listening/:id" element={isLoggedIn() ? <DoCambridgeListeningTest /> : <Navigate to="/login" replace />} />
+        <Route path="/cambridge/ket-reading/:id" element={isLoggedIn() ? <DoCambridgeReadingTest /> : <Navigate to="/login" replace />} />
+        <Route path="/cambridge/pet-reading/:id" element={isLoggedIn() ? <DoCambridgeReadingTest /> : <Navigate to="/login" replace />} />
         
         {/* Redirect legacy /admin to canonical writing submissions path */}
         <Route path="/admin" element={

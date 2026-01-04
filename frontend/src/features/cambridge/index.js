@@ -2,4 +2,10 @@
 export { default as CambridgeTestBuilder } from './CambridgeTestBuilder';
 
 // Pages
-export { CreateKETListeningTest, CreateKETReadingTest } from './pages';
+export { 
+  CreateKETListeningTest, 
+  CreateKETReadingTest,
+  SelectCambridgeTest,
+  DoCambridgeListeningTest,
+  DoCambridgeReadingTest,
+} from './pages';
