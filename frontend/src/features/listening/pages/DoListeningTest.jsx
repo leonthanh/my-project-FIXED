@@ -232,6 +232,76 @@ const DoListeningTest = () => {
     [test?.questions, getQuestionCount]
   );
 
+  // Get actual question range for display (accounts for embedded numbers in notes)
+  const getPartDisplayRange = useCallback(
+    (partIndex) => {
+      const partInstructions = test?.partInstructions || [];
+      const allQuestions = test?.questions || [];
+      const partInfo = partInstructions[partIndex];
+      const sections = partInfo?.sections || [];
+      const partQuestions = allQuestions.filter((q) => q.partIndex === partIndex);
+      
+      let minNum = Infinity;
+      let maxNum = -Infinity;
+      
+      sections.forEach((section, sIdx) => {
+        const sectionQType = section.questionType || "fill";
+        const sectionQuestions = partQuestions.filter((q) => q.sectionIndex === sIdx);
+        const firstQ = sectionQuestions[0];
+        
+        if (sectionQType === "notes-completion" && firstQ?.notesText) {
+          // Extract numbers from notes text
+          const matches = firstQ.notesText.match(/(\d+)\s*[_…]+/g) || [];
+          matches.forEach((match) => {
+            const numMatch = match.match(/^(\d+)/);
+            if (numMatch) {
+              const num = parseInt(numMatch[1], 10);
+              minNum = Math.min(minNum, num);
+              maxNum = Math.max(maxNum, num);
+            }
+          });
+        } else if (sectionQType === "form-completion" && firstQ?.formRows) {
+          // Get blank numbers from formRows
+          firstQ.formRows.forEach((row) => {
+            if (row.isBlank && row.blankNumber) {
+              minNum = Math.min(minNum, row.blankNumber);
+              maxNum = Math.max(maxNum, row.blankNumber);
+            }
+          });
+        } else if (sectionQType === "matching" && firstQ?.answers) {
+          // Get numbers from answers object
+          Object.keys(firstQ.answers).forEach((key) => {
+            const num = parseInt(key, 10);
+            if (!isNaN(num)) {
+              minNum = Math.min(minNum, num);
+              maxNum = Math.max(maxNum, num);
+            }
+          });
+        } else if (section.startingQuestionNumber) {
+          // Use starting number from section
+          const start = section.startingQuestionNumber;
+          minNum = Math.min(minNum, start);
+          // Estimate end based on question count
+          if (sectionQType === "multi-select") {
+            const count = sectionQuestions.reduce((sum, q) => sum + (q.requiredAnswers || 2), 0);
+            maxNum = Math.max(maxNum, start + count - 1);
+          } else {
+            maxNum = Math.max(maxNum, start + sectionQuestions.length - 1);
+          }
+        }
+      });
+      
+      // Fallback to calculated range
+      if (minNum === Infinity || maxNum === -Infinity) {
+        const calcRange = getPartQuestionRange(partIndex);
+        return calcRange;
+      }
+      
+      return { start: minNum, end: maxNum };
+    },
+    [test?.partInstructions, test?.questions, getPartQuestionRange]
+  );
+
   // Count answered questions in a part
   const getAnsweredCount = useCallback(
     (partIndex) => {
@@ -972,6 +1042,7 @@ const DoListeningTest = () => {
   const currentPart = parts[currentPartIndex];
   const audioUrl = test?.partAudioUrls?.[currentPartIndex] || test?.mainAudioUrl;
   const currentRange = getPartQuestionRange(currentPartIndex);
+  const displayRange = getPartDisplayRange(currentPartIndex);
 
   return (
     <div style={styles.pageWrapper}>
@@ -1025,7 +1096,7 @@ const DoListeningTest = () => {
           {currentPart?.title || `Part ${currentPartIndex + 1}`}
         </div>
         <div style={styles.partDescription}>
-          Read the text and answer questions {currentRange.start}-{currentRange.end}
+          Read the text and answer questions {displayRange.start}-{displayRange.end}
         </div>
       </div>
 
@@ -1397,24 +1468,35 @@ const styles = {
 
   // Multiple Choice
   questionItem: { marginBottom: "16px", padding: "8px", borderRadius: "4px" },
-  questionHeader: { display: "flex", gap: "8px", marginBottom: "8px" },
+  questionHeader: { display: "flex", gap: "12px", marginBottom: "8px", alignItems: "flex-start" },
   questionNumber: {
-    fontWeight: "bold",
-    minWidth: "28px",
-    padding: "0 4px",
-    display: "flex",
+    display: "inline-flex",
     alignItems: "center",
     justifyContent: "center",
+    minWidth: "32px",
+    height: "32px",
+    backgroundColor: "#0e276f",
+    color: "#fff",
+    borderRadius: "50%",
+    fontWeight: 600,
+    fontSize: "14px",
+    flexShrink: 0,
   },
   questionNumberWide: {
-    fontWeight: "bold",
-    minWidth: "48px",
-    padding: "0 4px",
-    display: "flex",
+    display: "inline-flex",
     alignItems: "center",
     justifyContent: "center",
+    minWidth: "48px",
+    height: "32px",
+    backgroundColor: "#0e276f",
+    color: "#fff",
+    borderRadius: "16px",
+    fontWeight: 600,
+    fontSize: "13px",
+    padding: "0 8px",
+    flexShrink: 0,
   },
-  questionText: { flex: 1, marginTop: "2px", lineHeight: 1.5 },
+  questionText: { flex: 1, marginTop: "4px", lineHeight: 1.5 },
   optionsList: {
     listStyle: "none",
     margin: 0,
@@ -1456,7 +1538,19 @@ const styles = {
     padding: "8px",
     borderRadius: "4px",
   },
-  fillQuestionNumber: { fontWeight: "bold", minWidth: "28px" },
+  fillQuestionNumber: {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    minWidth: "32px",
+    height: "32px",
+    backgroundColor: "#0e276f",
+    color: "#fff",
+    borderRadius: "50%",
+    fontWeight: 600,
+    fontSize: "14px",
+    flexShrink: 0,
+  },
   fillInput: {
     flex: 1,
     border: "1px solid #d1d5db",
@@ -1485,7 +1579,7 @@ const styles = {
     alignItems: "center",
     justifyContent: "center",
     padding: "4px 10px",
-    backgroundColor: "#0d6efd",
+    backgroundColor: "#0e276f",
     color: "#fff",
     borderRadius: "4px",
     fontWeight: 600,
@@ -1545,7 +1639,7 @@ const styles = {
     justifyContent: "center",
     width: "32px",
     height: "32px",
-    backgroundColor: "#3b82f6",
+    backgroundColor: "#0e276f",
     color: "#fff",
     borderRadius: "50%",
     fontWeight: 600,
