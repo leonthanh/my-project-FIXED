@@ -49,7 +49,6 @@ const FlowchartQuestion = ({
   // Render step text with blank
   const renderStepWithBlank = (step, qNum, isEdit = false) => {
     const text = step.text || '';
-    const blankPos = step.blankPosition || 0;
     
     // Find [____] or similar blank markers in text
     const blankMatch = text.match(/\[[\s_]+\]|\{[\s_]+\}|_{3,}/);

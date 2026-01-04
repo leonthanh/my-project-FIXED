@@ -624,21 +624,15 @@ const DoListeningTest = () => {
     }
     
     const startNum = firstQ?.globalNumber || 1;
-    const endNum = sectionQuestions[sectionQuestions.length - 1]?.globalNumber || startNum;
 
     // Calculate actual question count based on type
     let actualQuestionCount = 0;
     sectionQuestions.forEach((q) => {
-      // Re-detect type for each question
-      let type = "fill";
       if (q.formRows && q.formRows.length > 0) {
-        type = "form-completion";
         actualQuestionCount += q.formRows.filter((r) => r.isBlank)?.length || 1;
       } else if (q.leftItems && q.leftItems.length > 0) {
-        type = "matching";
         actualQuestionCount += q.leftItems.length;
       } else if (q.requiredAnswers && q.requiredAnswers > 1) {
-        type = "multi-select";
         actualQuestionCount += q.requiredAnswers;
       } else {
         actualQuestionCount += 1;

@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ListeningTestEditor } from "../components";
 import { useListeningHandlers, createNewPart } from "../hooks";
@@ -30,9 +30,9 @@ const EditListeningTest = () => {
   const [isUpdating, setIsUpdating] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
 
-  // Auto-save state
-  const [lastSaved, setLastSaved] = useState(null);
-  const [isSaving, setIsSaving] = useState(false);
+  // Auto-save state (reserved for future use)
+  const [lastSaved] = useState(null);
+  const [isSaving] = useState(false);
 
   // Use listening handlers hook with empty initial
   const {
