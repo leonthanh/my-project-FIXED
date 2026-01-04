@@ -1,17 +1,15 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { apiPath, hostPath } from "../../../shared/utils/api";
 
 /**
  * DoListeningTest - Trang làm bài thi Listening IELTS
- * - Audio chỉ nghe 1 lần (không tua lại được)
- * - Thời gian 30 phút
- * - Giao diện theo mẫu youpass.vn
+ * Giao diện theo mẫu youpass.vn
  */
 const DoListeningTest = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  
+
   // States
   const [test, setTest] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -21,13 +19,14 @@ const DoListeningTest = () => {
   const [showConfirm, setShowConfirm] = useState(false);
   const [results, setResults] = useState(null);
   const [currentPartIndex, setCurrentPartIndex] = useState(0);
-  const [timeRemaining, setTimeRemaining] = useState(30 * 60); // 30 minutes
-  const [audioPlayed, setAudioPlayed] = useState({}); // Track which parts have been played
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [focusedQuestion, setFocusedQuestion] = useState(null);
-  
+  const [expandedPart, setExpandedPart] = useState(0);
+  const [timeRemaining, setTimeRemaining] = useState(30 * 60);
+  const [audioPlayed, setAudioPlayed] = useState({});
+  const [activeQuestion, setActiveQuestion] = useState(null);
+
   const audioRef = useRef(null);
   const questionRefs = useRef({});
+  const listQuestionRef = useRef(null);
 
   // Fetch test data
   useEffect(() => {
@@ -37,18 +36,46 @@ const DoListeningTest = () => {
         const res = await fetch(apiPath(`listening-tests/${id}`));
         if (!res.ok) throw new Error("Không tìm thấy đề thi");
         const data = await res.json();
-        console.log("Raw test data:", data);
+
+        // Parse JSON fields if they're strings
+        let parsedQuestions = typeof data.questions === "string"
+          ? JSON.parse(data.questions)
+          : data.questions;
         
-        // Parse JSON strings if needed (Sequelize returns JSON as strings)
+        // Ensure nested JSON fields in questions are parsed
+        if (Array.isArray(parsedQuestions)) {
+          parsedQuestions = parsedQuestions.map((q) => ({
+            ...q,
+            formRows: typeof q.formRows === "string" ? JSON.parse(q.formRows) : q.formRows,
+            leftItems: typeof q.leftItems === "string" ? JSON.parse(q.leftItems) : q.leftItems,
+            rightItems: typeof q.rightItems === "string" ? JSON.parse(q.rightItems) : q.rightItems,
+            options: typeof q.options === "string" ? JSON.parse(q.options) : q.options,
+            answers: typeof q.answers === "string" ? JSON.parse(q.answers) : q.answers,
+          }));
+        }
+
         const parsedData = {
           ...data,
-          partTypes: typeof data.partTypes === 'string' ? JSON.parse(data.partTypes) : data.partTypes,
-          partInstructions: typeof data.partInstructions === 'string' ? JSON.parse(data.partInstructions) : data.partInstructions,
-          questions: typeof data.questions === 'string' ? JSON.parse(data.questions) : data.questions,
-          partAudioUrls: typeof data.partAudioUrls === 'string' ? JSON.parse(data.partAudioUrls) : data.partAudioUrls,
+          partTypes:
+            typeof data.partTypes === "string"
+              ? JSON.parse(data.partTypes)
+              : data.partTypes,
+          partInstructions:
+            typeof data.partInstructions === "string"
+              ? JSON.parse(data.partInstructions)
+              : data.partInstructions,
+          questions: parsedQuestions,
+          partAudioUrls:
+            typeof data.partAudioUrls === "string"
+              ? JSON.parse(data.partAudioUrls)
+              : data.partAudioUrls,
         };
-        console.log("Parsed test data:", parsedData);
+        
         setTest(parsedData);
+
+        if (parsedData.duration) {
+          setTimeRemaining(parsedData.duration * 60);
+        }
       } catch (err) {
         console.error("Error fetching test:", err);
         setError(err.message);
@@ -62,12 +89,12 @@ const DoListeningTest = () => {
   // Timer countdown
   useEffect(() => {
     if (submitted || !test) return;
-    
+
     const timer = setInterval(() => {
-      setTimeRemaining(prev => {
+      setTimeRemaining((prev) => {
         if (prev <= 1) {
           clearInterval(timer);
-          handleAutoSubmit(); // Auto submit when time's up
+          confirmSubmit();
           return 0;
         }
         return prev - 1;
@@ -75,34 +102,54 @@ const DoListeningTest = () => {
     }, 1000);
 
     return () => clearInterval(timer);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [test, submitted]);
 
   // Format time display
   const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    return `${mins} minutes remaining`;
   };
 
   // Handle answer change
-  const handleAnswerChange = (questionKey, value) => {
-    if (submitted) return;
-    setAnswers(prev => ({
-      ...prev,
-      [questionKey]: value.trim()
-    }));
-  };
+  const handleAnswerChange = useCallback(
+    (questionKey, value) => {
+      if (submitted) return;
+      setAnswers((prev) => ({
+        ...prev,
+        [questionKey]: value,
+      }));
+    },
+    [submitted]
+  );
+
+  // Handle checkbox change for multiple choice many
+  const handleCheckboxChange = useCallback(
+    (questionKey, optionIndex, checked, maxSelections = 2) => {
+      if (submitted) return;
+
+      setAnswers((prev) => {
+        const currentAnswers = prev[questionKey] || [];
+        let newAnswers;
+
+        if (checked) {
+          if (currentAnswers.length < maxSelections) {
+            newAnswers = [...currentAnswers, optionIndex];
+          } else {
+            return prev;
+          }
+        } else {
+          newAnswers = currentAnswers.filter((idx) => idx !== optionIndex);
+        }
+
+        return { ...prev, [questionKey]: newAnswers };
+      });
+    },
+    [submitted]
+  );
 
   // Handle submit
-  const handleSubmit = () => {
-    setShowConfirm(true);
-  };
-
-  // Auto submit when time's up
-  const handleAutoSubmit = async () => {
-    await confirmSubmit();
-  };
+  const handleSubmit = () => setShowConfirm(true);
 
   // Confirm and submit
   const confirmSubmit = async () => {
@@ -125,615 +172,862 @@ const DoListeningTest = () => {
     }
   };
 
-  // Get parts data from test
-  const getParts = () => {
+  // Get parts data
+  const parts = useMemo(() => {
     if (!test) return [];
-    
-    console.log("getParts - test.partInstructions:", test.partInstructions);
-    console.log("getParts - is array:", Array.isArray(test.partInstructions));
-    
-    // New structure: partInstructions contains parts info
-    if (test.partInstructions && Array.isArray(test.partInstructions)) {
-      return test.partInstructions;
+    return test.partInstructions || [];
+  }, [test]);
+
+  // Get all questions for current part
+  const currentPartQuestions = useMemo(() => {
+    if (!test?.questions) return [];
+    return test.questions.filter((q) => q.partIndex === currentPartIndex);
+  }, [test?.questions, currentPartIndex]);
+
+  // Calculate actual question count for a question (considering form-completion, matching, etc.)
+  const getQuestionCount = useCallback((q) => {
+    if (q.formRows && q.formRows.length > 0) {
+      return q.formRows.filter((r) => r.isBlank).length;
+    } else if (q.leftItems && q.leftItems.length > 0) {
+      return q.leftItems.length;
+    } else if (q.requiredAnswers && q.requiredAnswers > 1) {
+      return q.requiredAnswers;
     }
-    
-    return [];
-  };
+    return 1;
+  }, []);
 
-  // Get questions for a specific part and section
-  const getQuestionsForSection = (partIndex, sectionIndex) => {
-    if (!test || !test.questions) return [];
-    
-    console.log("getQuestionsForSection - questions:", test.questions);
-    
-    const filtered = test.questions.filter(q => 
-      q.partIndex === partIndex && q.sectionIndex === sectionIndex
-    );
-    console.log(`Questions for part ${partIndex}, section ${sectionIndex}:`, filtered);
-    return filtered;
-  };
-
-  // Render form completion question
-  const renderFormCompletion = (question) => {
-    const formRows = question.formRows || [];
-    
-    return (
-      <div style={formContainerStyle}>
-        {question.formTitle && (
-          <h4 style={{ marginBottom: "16px", color: "#1e40af" }}>
-            📋 {question.formTitle}
-          </h4>
-        )}
-        
-        <div style={{ lineHeight: "2.2" }}>
-          {formRows.map((row, idx) => (
-            <div key={idx} style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "8px",
-              marginBottom: "8px",
-              paddingLeft: row.isSubRow ? "40px" : "0",
-            }}>
-              {/* Label */}
-              {row.label && (
-                <span style={{ fontWeight: 500, minWidth: "180px" }}>
-                  {row.label}
-                </span>
-              )}
-              
-              {/* Prefix */}
-              {row.prefix && <span>{row.prefix}</span>}
-              
-              {/* Blank or Value */}
-              {row.isBlank ? (
-                <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
-                  <span style={blankNumberStyle}>{row.blankNumber}</span>
-                  <input
-                    type="text"
-                    value={answers[`q${row.blankNumber}`] || ""}
-                    onChange={(e) => handleAnswerChange(`q${row.blankNumber}`, e.target.value)}
-                    disabled={submitted}
-                    style={inputStyle}
-                    placeholder="Nhập đáp án..."
-                  />
-                </span>
-              ) : (
-                <span>{row.suffix}</span>
-              )}
-              
-              {/* Suffix (for blanks) */}
-              {row.isBlank && row.suffix && <span>{row.suffix}</span>}
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  };
-
-  // Render fill in the blank question
-  const renderFillQuestion = (question, globalNumber) => {
-    return (
-      <div style={questionItemStyle}>
-        <div style={{ display: "flex", gap: "12px", alignItems: "flex-start" }}>
-          <span style={questionNumberStyle}>{globalNumber}</span>
-          <div style={{ flex: 1 }}>
-            <p style={{ margin: "0 0 8px 0" }}>{question.questionText}</p>
-            <input
-              type="text"
-              value={answers[`q${globalNumber}`] || ""}
-              onChange={(e) => handleAnswerChange(`q${globalNumber}`, e.target.value)}
-              disabled={submitted}
-              style={inputStyle}
-              placeholder="Nhập đáp án..."
-            />
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  // Render multiple choice question (abc/abcd)
-  const renderMultipleChoice = (question, globalNumber) => {
-    const options = question.options || [];
-    
-    return (
-      <div style={questionItemStyle}>
-        <div style={{ display: "flex", gap: "12px", alignItems: "flex-start" }}>
-          <span style={questionNumberStyle}>{globalNumber}</span>
-          <div style={{ flex: 1 }}>
-            <p style={{ margin: "0 0 12px 0", fontWeight: 500 }}>{question.questionText}</p>
-            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-              {options.map((opt, idx) => {
-                const optionLetter = String.fromCharCode(65 + idx); // A, B, C, D
-                const isSelected = answers[`q${globalNumber}`] === optionLetter;
-                
-                return (
-                  <label
-                    key={idx}
-                    style={{
-                      ...optionStyle,
-                      backgroundColor: isSelected ? "#dbeafe" : "#f9fafb",
-                      borderColor: isSelected ? "#3b82f6" : "#e5e7eb",
-                    }}
-                  >
-                    <input
-                      type="radio"
-                      name={`q${globalNumber}`}
-                      value={optionLetter}
-                      checked={isSelected}
-                      onChange={(e) => handleAnswerChange(`q${globalNumber}`, e.target.value)}
-                      disabled={submitted}
-                      style={{ marginRight: "10px" }}
-                    />
-                    <span>{opt}</span>
-                  </label>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  // Render matching question
-  const renderMatching = (question, startNumber) => {
-    const leftItems = question.leftItems || [];
-    const rightItems = question.rightItems || question.items || [];
-    
-    return (
-      <div style={formContainerStyle}>
-        <p style={{ marginBottom: "16px", fontWeight: 500 }}>{question.questionText}</p>
-        
-        {/* Options box */}
-        <div style={{
-          padding: "12px 16px",
-          backgroundColor: "#f0fdf4",
-          borderRadius: "8px",
-          marginBottom: "16px",
-          border: "1px solid #86efac",
-        }}>
-          <strong>Lựa chọn:</strong>
-          <div style={{ marginTop: "8px", display: "flex", flexWrap: "wrap", gap: "8px" }}>
-            {rightItems.map((item, idx) => (
-              <span key={idx} style={{
-                padding: "4px 12px",
-                backgroundColor: "white",
-                borderRadius: "16px",
-                fontSize: "13px",
-                border: "1px solid #d1d5db",
-              }}>
-                {typeof item === 'object' ? `${item.label}. ${item.text}` : item}
-              </span>
-            ))}
-          </div>
-        </div>
-        
-        {/* Questions */}
-        {leftItems.map((item, idx) => {
-          const qNum = startNumber + idx;
-          return (
-            <div key={idx} style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "12px",
-              marginBottom: "12px",
-              padding: "10px",
-              backgroundColor: "#f9fafb",
-              borderRadius: "8px",
-            }}>
-              <span style={questionNumberStyle}>{qNum}</span>
-              <span style={{ flex: 1 }}>{item}</span>
-              <select
-                value={answers[`q${qNum}`] || ""}
-                onChange={(e) => handleAnswerChange(`q${qNum}`, e.target.value)}
-                disabled={submitted}
-                style={selectStyle}
-              >
-                <option value="">-- Chọn --</option>
-                {rightItems.map((opt, optIdx) => {
-                  const label = typeof opt === 'object' ? opt.label : String.fromCharCode(65 + optIdx);
-                  return (
-                    <option key={optIdx} value={label}>{label}</option>
-                  );
-                })}
-              </select>
-            </div>
-          );
-        })}
-      </div>
-    );
-  };
-
-  // Render questions based on type
-  const renderQuestion = (question, sectionType) => {
-    const qType = question.questionType || sectionType || "fill";
-    const globalNum = question.globalNumber;
-    
-    switch (qType) {
-      case "form-completion":
-        return renderFormCompletion(question);
-      case "abc":
-      case "abcd":
-        return renderMultipleChoice(question, globalNum);
-      case "matching":
-        return renderMatching(question, globalNum);
-      case "fill":
-      default:
-        return renderFillQuestion(question, globalNum);
-    }
-  };
-
-  // Render a section
-  const renderSection = (section, partIndex, sectionIndex) => {
-    const questions = getQuestionsForSection(partIndex, sectionIndex);
-    
-    return (
-      <div key={sectionIndex} style={sectionStyle}>
-        <h4 style={{ color: "#1e40af", marginBottom: "12px", fontSize: "16px" }}>
-          📝 {section.sectionTitle}
-        </h4>
-        
-        {section.sectionInstruction && (
-          <div style={{
-            padding: "12px 16px",
-            backgroundColor: "#fef9c3",
-            borderRadius: "8px",
-            marginBottom: "16px",
-            fontSize: "14px",
-            whiteSpace: "pre-wrap",
-            borderLeft: "4px solid #facc15",
-          }}>
-            {section.sectionInstruction}
-          </div>
-        )}
-        
-        {questions.map((q, idx) => (
-          <div 
-            key={idx}
-            ref={el => questionRefs.current[q.globalNumber] = el}
-            style={{
-              transition: 'all 0.3s ease',
-              backgroundColor: focusedQuestion === q.globalNumber ? '#dbeafe' : 'transparent',
-              borderRadius: '8px',
-              margin: '-4px',
-              padding: '4px',
-            }}
-          >
-            {renderQuestion(q, section.questionType)}
-          </div>
-        ))}
-      </div>
-    );
-  };
-
-  // Get question ranges for each part
-  const getPartQuestionRange = useCallback((partIndex) => {
-    const allQuestions = test?.questions || [];
-    const partQuestions = allQuestions.filter(q => q.partIndex === partIndex);
-    if (partQuestions.length === 0) return { start: 0, end: 0 };
-    const nums = partQuestions.map(q => q.globalNumber);
-    return { start: Math.min(...nums), end: Math.max(...nums) };
-  }, [test?.questions]);
+  // Get question range for a part (considering multi-question types)
+  const getPartQuestionRange = useCallback(
+    (partIndex) => {
+      const allQuestions = test?.questions || [];
+      const partQuestions = allQuestions.filter(
+        (q) => q.partIndex === partIndex
+      );
+      if (partQuestions.length === 0) return { start: 0, end: 0, questions: [] };
+      
+      // Find start number
+      const startNum = Math.min(...partQuestions.map((q) => q.globalNumber));
+      
+      // Calculate total questions in this part
+      let totalCount = 0;
+      partQuestions.forEach((q) => {
+        totalCount += getQuestionCount(q);
+      });
+      
+      return { 
+        start: startNum, 
+        end: startNum + totalCount - 1,
+        questions: partQuestions 
+      };
+    },
+    [test?.questions, getQuestionCount]
+  );
 
   // Count answered questions in a part
-  const getAnsweredCount = useCallback((partIndex) => {
-    const range = getPartQuestionRange(partIndex);
-    let count = 0;
-    for (let i = range.start; i <= range.end; i++) {
-      if (answers[`q${i}`]) count++;
-    }
-    return count;
-  }, [getPartQuestionRange, answers]);
+  const getAnsweredCount = useCallback(
+    (partIndex) => {
+      const range = getPartQuestionRange(partIndex);
+      let count = 0;
+      for (let i = range.start; i <= range.end; i++) {
+        const ans = answers[`q${i}`];
+        if (Array.isArray(ans) ? ans.length > 0 : !!ans) count++;
+      }
+      return count;
+    },
+    [getPartQuestionRange, answers]
+  );
 
   // Get total questions in a part
-  const getPartTotalQuestions = useCallback((partIndex) => {
-    const range = getPartQuestionRange(partIndex);
-    return range.end - range.start + 1;
-  }, [getPartQuestionRange]);
+  const getPartTotalQuestions = useCallback(
+    (partIndex) => {
+      const range = getPartQuestionRange(partIndex);
+      if (range.start === 0 && range.end === 0) return 0;
+      return range.end - range.start + 1;
+    },
+    [getPartQuestionRange]
+  );
+
+  // Check if question is answered
+  const isQuestionAnswered = useCallback(
+    (qNum) => {
+      const ans = answers[`q${qNum}`];
+      if (Array.isArray(ans)) return ans.length > 0;
+      return !!ans;
+    },
+    [answers]
+  );
 
   // Scroll to question
   const scrollToQuestion = useCallback((qNum) => {
     const el = questionRefs.current[qNum];
     if (el) {
-      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      setFocusedQuestion(qNum);
-      setTimeout(() => setFocusedQuestion(null), 2000);
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      setActiveQuestion(qNum);
+      setTimeout(() => setActiveQuestion(null), 2000);
     }
   }, []);
 
-  // Handle audio ended
-  const handleAudioEnded = useCallback((partIndex) => {
-    setAudioPlayed(prev => ({ ...prev, [partIndex]: true }));
-    setIsPlaying(false);
-  }, []);
+  // Navigate to next/prev question
+  const navigateQuestion = useCallback(
+    (direction) => {
+      const range = getPartQuestionRange(currentPartIndex);
+      const current = activeQuestion || range.start;
+      const next =
+        direction === "next"
+          ? Math.min(current + 1, range.end)
+          : Math.max(current - 1, range.start);
+      scrollToQuestion(next);
+    },
+    [currentPartIndex, activeQuestion, getPartQuestionRange, scrollToQuestion]
+  );
 
-  // Handle audio play - prevent replay
-  const handleAudioPlay = useCallback((partIndex) => {
-    if (audioPlayed[partIndex]) {
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current.currentTime = audioRef.current.duration;
+  // Handle part click
+  const handlePartClick = useCallback(
+    (partIndex) => {
+      if (currentPartIndex !== partIndex) {
+        setCurrentPartIndex(partIndex);
       }
-      alert('⚠️ Audio này chỉ được nghe 1 lần!');
-      return;
-    }
-    setIsPlaying(true);
-  }, [audioPlayed]);
+      setExpandedPart(expandedPart === partIndex ? -1 : partIndex);
+    },
+    [currentPartIndex, expandedPart]
+  );
 
-  // Loading state
+  // Handle audio events
+  const handleAudioEnded = useCallback((partIndex) => {
+    setAudioPlayed((prev) => ({ ...prev, [partIndex]: true }));
+  }, []);
+
+  const handleAudioPlay = useCallback(
+    (partIndex) => {
+      if (audioPlayed[partIndex]) {
+        if (audioRef.current) {
+          audioRef.current.pause();
+          audioRef.current.currentTime = audioRef.current.duration;
+        }
+        alert("⚠️ Audio này chỉ được nghe 1 lần!");
+      }
+    },
+    [audioPlayed]
+  );
+
+  // ===================== RENDER FUNCTIONS =====================
+
+  // Render multiple choice question (single answer) - Part 2 style
+  const renderMultipleChoice = (question, globalNumber) => {
+    const options = question.options || [];
+    const selectedAnswer = answers[`q${globalNumber}`];
+
+    return (
+      <div
+        id={`question-${globalNumber}`}
+        ref={(el) => (questionRefs.current[globalNumber] = el)}
+        style={{
+          ...styles.questionItem,
+          backgroundColor: activeQuestion === globalNumber ? "#eff6ff" : "transparent",
+        }}
+      >
+        <div style={styles.questionHeader}>
+          <div style={styles.questionNumber}>{globalNumber}</div>
+          <div style={styles.questionText}>{question.questionText}</div>
+        </div>
+        <ul style={styles.optionsList}>
+          {options.map((opt, idx) => {
+            const optionId = `q${globalNumber}opt${idx}`;
+            const optionLetter = String.fromCharCode(65 + idx);
+            const isSelected = selectedAnswer === optionLetter;
+
+            return (
+              <li key={idx} style={styles.optionItem}>
+                <label
+                  htmlFor={optionId}
+                  style={{
+                    ...styles.optionLabel,
+                    backgroundColor: isSelected ? "#dbeafe" : "transparent",
+                  }}
+                >
+                  <span style={styles.optionText}>{opt}</span>
+                </label>
+                <input
+                  id={optionId}
+                  type="radio"
+                  name={`q${globalNumber}`}
+                  style={styles.radioInput}
+                  checked={isSelected}
+                  onChange={() => handleAnswerChange(`q${globalNumber}`, optionLetter)}
+                  disabled={submitted}
+                />
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+    );
+  };
+
+  // Render multiple choice many (checkboxes) - Questions 17-18, 19-20 style
+  const renderMultipleChoiceMany = (question, startNumber, count = 2) => {
+    const options = question.options || [];
+    const questionKey = `q${startNumber}`;
+    const selectedAnswers = answers[questionKey] || [];
+    const endNumber = startNumber + count - 1;
+
+    return (
+      <div
+        id={`question-${startNumber}`}
+        ref={(el) => (questionRefs.current[startNumber] = el)}
+        style={{
+          ...styles.questionItem,
+          backgroundColor: activeQuestion === startNumber ? "#eff6ff" : "transparent",
+        }}
+      >
+        <div style={styles.questionHeader}>
+          <div style={styles.questionNumberWide}>{startNumber}-{endNumber}</div>
+          <span style={styles.questionText}>{question.questionText}</span>
+        </div>
+        <ul style={styles.optionsList}>
+          {options.map((opt, idx) => {
+            const optionId = `q${startNumber}checkbox${idx}`;
+            const isSelected = selectedAnswers.includes(idx);
+
+            return (
+              <li key={idx} style={styles.optionItem}>
+                <label
+                  htmlFor={optionId}
+                  style={{
+                    ...styles.optionLabel,
+                    backgroundColor: isSelected ? "#dbeafe" : "transparent",
+                  }}
+                >
+                  <span style={styles.optionText}>{opt}</span>
+                </label>
+                <input
+                  id={optionId}
+                  type="checkbox"
+                  style={styles.checkboxInput}
+                  checked={isSelected}
+                  onChange={(e) =>
+                    handleCheckboxChange(questionKey, idx, e.target.checked, count)
+                  }
+                  disabled={submitted}
+                />
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+    );
+  };
+
+  // Render gap filling question (input style)
+  const renderFillQuestion = (question, globalNumber) => {
+    return (
+      <div
+        id={`question-${globalNumber}`}
+        ref={(el) => (questionRefs.current[globalNumber] = el)}
+        style={{
+          ...styles.fillQuestionItem,
+          backgroundColor: activeQuestion === globalNumber ? "#eff6ff" : "transparent",
+        }}
+      >
+        <span style={styles.fillQuestionNumber}>{globalNumber}</span>
+        <input
+          type="text"
+          value={answers[`q${globalNumber}`] || ""}
+          onChange={(e) => handleAnswerChange(`q${globalNumber}`, e.target.value)}
+          onFocus={() => setActiveQuestion(globalNumber)}
+          disabled={submitted}
+          style={styles.fillInput}
+          placeholder="Type your answer..."
+        />
+      </div>
+    );
+  };
+
+  // Render matching question - Part 3 style with drag items and options
+  const renderMatching = (question, startNumber) => {
+    const leftItems = question.leftItems || question.items || [];
+    const rightItems = question.options || [];
+
+    return (
+      <div style={styles.matchingContainer}>
+        {/* Left side - items with dropdowns */}
+        <div style={styles.matchingLeft}>
+          <div style={styles.matchingItemsList}>
+            {leftItems.map((item, idx) => {
+              const qNum = startNumber + idx;
+              const selectedValue = answers[`q${qNum}`];
+
+              return (
+                <div
+                  key={idx}
+                  ref={(el) => (questionRefs.current[qNum] = el)}
+                  style={{
+                    ...styles.matchingRow,
+                    backgroundColor: activeQuestion === qNum ? "#eff6ff" : "transparent",
+                  }}
+                >
+                  <span style={styles.matchingItemText}>{item}</span>
+                  <div style={styles.matchingDropdownWrapper}>
+                    <select
+                      value={selectedValue || ""}
+                      onChange={(e) => handleAnswerChange(`q${qNum}`, e.target.value)}
+                      onFocus={() => setActiveQuestion(qNum)}
+                      disabled={submitted}
+                      style={styles.matchingSelect}
+                    >
+                      <option value="">{qNum}</option>
+                      {rightItems.map((_, optIdx) => (
+                        <option key={optIdx} value={String.fromCharCode(65 + optIdx)}>
+                          {String.fromCharCode(65 + optIdx)}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Right side - list of options */}
+        <div style={styles.matchingRight}>
+          <div style={styles.optionsTitle}>List of options</div>
+          <div style={styles.optionsContainer}>
+            {rightItems.map((opt, idx) => (
+              <div key={idx} style={styles.optionCard}>
+                {opt}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Render form completion (IELTS format: label + prefix + [blank/value] + suffix)
+  const renderFormCompletion = (section, question) => {
+    const formTitle = question?.formTitle || "";
+    const formRows = question?.formRows || [];
+    const startNum = question?.globalNumber || 1;
+
+    if (formRows && formRows.length > 0) {
+      // Use blankNumber from row data if available
+      const renderBlankInput = (row, rowIdx) => {
+        // blankNumber starts from 1, so qNum = startNum + (blankNumber - 1)
+        const qNum = row.blankNumber ? startNum + row.blankNumber - 1 : startNum + rowIdx;
+        
+        return (
+          <span
+            key={`blank-${rowIdx}`}
+            ref={(el) => (questionRefs.current[qNum] = el)}
+            style={styles.formGapWrapper}
+          >
+            <input
+              type="text"
+              value={answers[`q${qNum}`] || ""}
+              onChange={(e) => handleAnswerChange(`q${qNum}`, e.target.value)}
+              onFocus={() => setActiveQuestion(qNum)}
+              disabled={submitted}
+              placeholder={`${qNum}`}
+              style={{
+                ...styles.formGapInput,
+                borderColor: activeQuestion === qNum ? "#3b82f6" : "#d1d5db",
+                boxShadow: activeQuestion === qNum ? "0 0 0 2px rgba(59, 130, 246, 0.2)" : "none",
+              }}
+            />
+          </span>
+        );
+      };
+
+      return (
+        <div style={styles.formContainer}>
+          {formTitle && <div style={styles.formTitle}>{formTitle}</div>}
+          <div style={styles.formContent}>
+            {formRows.map((row, rowIdx) => (
+              <div
+                key={rowIdx}
+                style={{
+                  ...styles.formRow,
+                  paddingLeft: row.isSubRow ? "24px" : "0",
+                }}
+              >
+                {/* Label */}
+                {row.label && (
+                  <span style={styles.formLabel}>{row.label}</span>
+                )}
+                
+                {/* Prefix + Blank/Value + Suffix */}
+                <span style={styles.formValue}>
+                  {row.prefix && <span>{row.prefix} </span>}
+                  
+                  {row.isBlank ? (
+                    renderBlankInput(row, rowIdx)
+                  ) : (
+                    <span style={styles.formFixedValue}>{row.suffix || row.value || ""}</span>
+                  )}
+                  
+                  {row.isBlank && row.suffix && <span> {row.suffix}</span>}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    // Fallback: If no formRows, render simple fill questions for this section
+    const questions = currentPartQuestions.filter(
+      (q) => q.sectionIndex === section.sectionIndex
+    );
+    
+    if (questions.length === 0) {
+      return (
+        <div style={{ color: "#6b7280", fontStyle: "italic", padding: "16px" }}>
+          Không có câu hỏi cho section này. Vui lòng kiểm tra lại đề thi.
+        </div>
+      );
+    }
+    
+    return (
+      <div style={styles.fillQuestionsContainer}>
+        {questions.map((q) => renderFillQuestion(q, q.globalNumber))}
+      </div>
+    );
+  };
+
+  // Render a section based on question type
+  const renderSection = (section, sectionIndex) => {
+    const sectionQuestions = currentPartQuestions.filter(
+      (q) => q.sectionIndex === sectionIndex
+    );
+    if (sectionQuestions.length === 0) return null;
+
+    const firstQ = sectionQuestions[0];
+    
+    // Detect question type - check data structure first, then fall back to questionType field
+    // This handles cases where questionType is "fill" but data has formRows (form-completion)
+    let qType = "fill";
+    if (firstQ?.formRows && firstQ.formRows.length > 0) {
+      qType = "form-completion";
+    } else if (firstQ?.notesText) {
+      qType = "notes-completion";
+    } else if (firstQ?.leftItems && firstQ.leftItems.length > 0) {
+      qType = "matching";
+    } else if (firstQ?.requiredAnswers && firstQ.requiredAnswers > 1) {
+      qType = "multi-select";
+    } else if (firstQ?.options && firstQ.options.length > 0) {
+      // Multiple choice - check number of options
+      qType = firstQ.options.length === 3 ? "abc" : "abcd";
+    } else {
+      // Fall back to explicit questionType
+      qType = firstQ?.questionType || section.questionType || "fill";
+    }
+    
+    const startNum = firstQ?.globalNumber || 1;
+    const endNum = sectionQuestions[sectionQuestions.length - 1]?.globalNumber || startNum;
+
+    // Calculate actual question count based on type
+    let actualQuestionCount = 0;
+    sectionQuestions.forEach((q) => {
+      // Re-detect type for each question
+      let type = "fill";
+      if (q.formRows && q.formRows.length > 0) {
+        type = "form-completion";
+        actualQuestionCount += q.formRows.filter((r) => r.isBlank)?.length || 1;
+      } else if (q.leftItems && q.leftItems.length > 0) {
+        type = "matching";
+        actualQuestionCount += q.leftItems.length;
+      } else if (q.requiredAnswers && q.requiredAnswers > 1) {
+        type = "multi-select";
+        actualQuestionCount += q.requiredAnswers;
+      } else {
+        actualQuestionCount += 1;
+      }
+    });
+
+    const displayEndNum = startNum + actualQuestionCount - 1;
+
+    return (
+      <div key={sectionIndex} style={styles.sectionContainer}>
+        {/* Section Title */}
+        <div style={styles.sectionTitle}>
+          {section.sectionTitle || `Questions ${startNum}-${displayEndNum}`}
+        </div>
+
+        {/* Section Instruction */}
+        {(section.sectionInstruction || section.instruction) && (
+          <div
+            style={styles.sectionInstruction}
+            dangerouslySetInnerHTML={{
+              __html: section.sectionInstruction || section.instruction,
+            }}
+          />
+        )}
+
+        {/* Questions based on type */}
+        <div style={styles.questionsWrapper}>
+          {qType === "multiple-choice" || qType === "abc" || qType === "abcd"
+            ? sectionQuestions.map((q) => (
+                <React.Fragment key={q.globalNumber}>
+                  {renderMultipleChoice(q, q.globalNumber)}
+                </React.Fragment>
+              ))
+            : qType === "multi-select"
+            ? sectionQuestions.map((q) => (
+                <React.Fragment key={q.globalNumber}>
+                  {renderMultipleChoiceMany(q, q.globalNumber, q.requiredAnswers || 2)}
+                </React.Fragment>
+              ))
+            : qType === "matching"
+            ? renderMatching(firstQ, startNum)
+            : qType === "form-completion"
+            ? renderFormCompletion({ ...section, sectionIndex }, firstQ)
+            : qType === "notes-completion"
+            ? renderNotesCompletion(firstQ, startNum)
+            : sectionQuestions.map((q) => (
+                <React.Fragment key={q.globalNumber}>
+                  {renderFillQuestion(q, q.globalNumber)}
+                </React.Fragment>
+              ))}
+        </div>
+      </div>
+    );
+  };
+
+  // Render notes completion (Part 1 style with inline gaps)
+  const renderNotesCompletion = (question, startNumber) => {
+    const notesText = question.notesText || "";
+    const notesTitle = question.notesTitle || "";
+    
+    // Parse notes text and replace blanks with inputs
+    let questionNum = startNumber;
+    const renderNotesWithInputs = () => {
+      // Match patterns like "1 ______" or just "______" or "…"
+      const parts = notesText.split(/(\d+\s*[_…]+|[_…]{2,})/g);
+      
+      return parts.map((part, idx) => {
+        if (part.match(/\d+\s*[_…]+|[_…]{2,}/)) {
+          const qNum = questionNum++;
+          return (
+            <span
+              key={idx}
+              ref={(el) => (questionRefs.current[qNum] = el)}
+              style={styles.gapWrapper}
+            >
+              <input
+                type="text"
+                value={answers[`q${qNum}`] || ""}
+                onChange={(e) => handleAnswerChange(`q${qNum}`, e.target.value)}
+                onFocus={() => setActiveQuestion(qNum)}
+                disabled={submitted}
+                style={{
+                  ...styles.gapInput,
+                  borderColor: activeQuestion === qNum ? "#3b82f6" : "#d1d5db",
+                  boxShadow: activeQuestion === qNum ? "0 0 0 1px #418ec8" : "none",
+                }}
+              />
+              {!answers[`q${qNum}`] && (
+                <span style={styles.gapPlaceholder}>{qNum}</span>
+              )}
+            </span>
+          );
+        }
+        return <span key={idx} dangerouslySetInnerHTML={{ __html: part }} />;
+      });
+    };
+
+    return (
+      <div style={styles.notesContainer}>
+        {notesTitle && <div style={styles.notesTitle}>{notesTitle}</div>}
+        <div style={styles.notesContent}>{renderNotesWithInputs()}</div>
+      </div>
+    );
+  };
+
+  // ===================== MAIN RENDER =====================
+
   if (loading) {
     return (
-      <div style={loadingStyle}>
-        <div className="spinner" style={{ marginBottom: "16px" }}></div>
-        ⏳ Đang tải đề thi...
+      <div style={styles.loadingContainer}>
+        <div style={styles.spinner}></div>
+        <p style={styles.loadingText}>Đang tải đề thi...</p>
       </div>
     );
   }
 
-  // Error state
   if (error) {
     return (
-      <div style={errorStyle}>
-        <h2>❌ Lỗi</h2>
-        <p>{error}</p>
-        <button onClick={() => navigate("/select-test")} style={primaryButtonStyle}>
+      <div style={styles.errorContainer}>
+        <h2 style={styles.errorTitle}>❌ Lỗi</h2>
+        <p style={styles.errorText}>{error}</p>
+        <button onClick={() => navigate("/select-test")} style={styles.backButton}>
           ← Quay lại
         </button>
       </div>
     );
   }
 
-  const parts = getParts();
-
-  // Debug output
-  console.log("Rendering - parts:", parts);
-  console.log("Rendering - parts.length:", parts.length);
-  console.log("Rendering - currentPartIndex:", currentPartIndex);
+  const currentPart = parts[currentPartIndex];
+  const audioUrl = test?.partAudioUrls?.[currentPartIndex] || test?.mainAudioUrl;
+  const currentRange = getPartQuestionRange(currentPartIndex);
 
   return (
-    <div style={pageWrapperStyle}>
-      {/* Top Header - youpass style */}
-      <header style={topHeaderStyle}>
-        <div style={headerLeftStyle}>
-          <button 
-            onClick={() => navigate('/select-test')} 
-            style={backButtonStyle}
-          >
-            ← Thoát
-          </button>
-          <h1 style={testTitleStyle}>IELTS Listening Test</h1>
-        </div>
-        
-        <div style={headerRightStyle}>
-          <div style={{
-            ...timerBoxStyle,
-            backgroundColor: timeRemaining < 300 ? '#fee2e2' : '#dcfce7',
-            color: timeRemaining < 300 ? '#dc2626' : '#16a34a',
-          }}>
-            <span style={{ fontSize: '12px', opacity: 0.8 }}>⏱ Còn lại</span>
-            <span style={{ fontSize: '24px', fontWeight: 'bold' }}>
-              {formatTime(timeRemaining)}
-            </span>
+    <div style={styles.pageWrapper}>
+      {/* Global Styles */}
+      <style>{`
+        * { box-sizing: border-box; }
+        body { margin: 0; font-family: Arial, sans-serif; }
+        ::-webkit-scrollbar { width: 10px; height: 10px; }
+        ::-webkit-scrollbar-thumb { background-color: #8a8a8a; border-radius: 5px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        input[type="radio"], input[type="checkbox"] { 
+          width: 16px; height: 16px; cursor: pointer; 
+        }
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+      `}</style>
+
+      {/* Header - Youpass Style */}
+      <header style={styles.header}>
+        <div style={styles.headerContent}>
+          {/* Logo */}
+          <div style={styles.logoWrapper}>
+            <span style={styles.logoText}>🎧 IELTS</span>
           </div>
-          
+
+          {/* Test Info */}
+          <div style={styles.testInfo}>
+            <div style={styles.testTitle}>{test?.title || "IELTS Listening Test"}</div>
+            <div style={styles.timeInfo}>
+              <span style={styles.audioIcon}>🔊</span>
+              <span>{formatTime(timeRemaining)}</span>
+            </div>
+          </div>
+
+          {/* Submit Button */}
           <button
             onClick={handleSubmit}
             disabled={submitted}
-            style={submitButtonStyle}
+            style={styles.submitButton}
           >
-            📤 Nộp bài
+            Nộp bài
           </button>
         </div>
       </header>
 
+      {/* Part Info Box */}
+      <div style={styles.partInfoBox}>
+        <div style={styles.partTitle}>
+          {currentPart?.title || `Part ${currentPartIndex + 1}`}
+        </div>
+        <div style={styles.partDescription}>
+          Read the text and answer questions {currentRange.start}-{currentRange.end}
+        </div>
+      </div>
+
       {/* Main Content Area */}
-      <main style={mainContentStyle}>
-        {/* Audio Player - Fixed at top of content */}
-        {(() => {
-          const audioUrl = test?.partAudioUrls?.[currentPartIndex] || test?.mainAudioUrl;
-          const hasPlayed = audioPlayed[currentPartIndex];
-          
-          return audioUrl && (
-            <div style={audioSectionStyle}>
-              <div style={audioPlayerWrapperStyle}>
-                <div style={audioInfoStyle}>
-                  <span style={audioLabelStyle}>🎧 Audio {parts[currentPartIndex]?.title}</span>
-                  {hasPlayed && (
-                    <span style={audioPlayedBadgeStyle}>✓ Đã phát xong</span>
-                  )}
-                </div>
-                <audio
-                  ref={audioRef}
-                  controls
-                  controlsList="nodownload noplaybackrate"
-                  style={{ 
-                    width: '100%', 
-                    opacity: hasPlayed ? 0.5 : 1,
-                    pointerEvents: hasPlayed ? 'none' : 'auto'
-                  }}
-                  src={hostPath(audioUrl)}
-                  onPlay={() => handleAudioPlay(currentPartIndex)}
-                  onEnded={() => handleAudioEnded(currentPartIndex)}
-                  onSeeking={(e) => {
-                    // Prevent seeking backwards
-                    if (audioRef.current && e.target.currentTime < audioRef.current.currentTime) {
-                      e.target.currentTime = audioRef.current.currentTime;
-                    }
-                  }}
-                />
-                {hasPlayed && (
-                  <p style={audioWarningStyle}>⚠️ Audio chỉ được nghe 1 lần. Bạn đã nghe xong phần này.</p>
-                )}
-              </div>
-            </div>
-          );
-        })()}
+      <main style={styles.mainContent}>
+        {/* Audio Player */}
+        {audioUrl && (
+          <div style={styles.audioContainer}>
+            <audio
+              ref={audioRef}
+              controls
+              controlsList="nodownload noplaybackrate"
+              style={{
+                ...styles.audioPlayer,
+                opacity: audioPlayed[currentPartIndex] ? 0.5 : 1,
+                pointerEvents: audioPlayed[currentPartIndex] ? "none" : "auto",
+              }}
+              src={hostPath(audioUrl)}
+              onPlay={() => handleAudioPlay(currentPartIndex)}
+              onEnded={() => handleAudioEnded(currentPartIndex)}
+            />
+            {audioPlayed[currentPartIndex] && (
+              <p style={styles.audioWarning}>⚠️ Audio chỉ được nghe 1 lần</p>
+            )}
+          </div>
+        )}
 
-        {/* Part Content */}
-        <div style={contentAreaStyle}>
-          {parts[currentPartIndex] && (
-            <>
-              {/* Part Header */}
-              <div style={partTitleBarStyle}>
-                <h2 style={{ margin: 0, fontSize: '18px' }}>
-                  {parts[currentPartIndex].title}
-                </h2>
-                <span style={questionRangeStyle}>
-                  Câu {getPartQuestionRange(currentPartIndex).start} - {getPartQuestionRange(currentPartIndex).end}
-                </span>
-              </div>
+        {/* Questions List */}
+        <div ref={listQuestionRef} style={styles.questionsList}>
+          {currentPart?.sections?.map((section, idx) => renderSection(section, idx))}
 
-              {/* Part Instruction */}
-              {parts[currentPartIndex].instruction && (
-                <div style={instructionBoxStyle}>
-                  <div dangerouslySetInnerHTML={{ __html: parts[currentPartIndex].instruction }} />
-                </div>
-              )}
+          {/* Fallback if no sections */}
+          {(!currentPart?.sections || currentPart.sections.length === 0) &&
+            currentPartQuestions.map((q) => (
+              <React.Fragment key={q.globalNumber}>
+                {q.questionType === "multiple-choice" ||
+                q.questionType === "abc" ||
+                q.questionType === "abcd"
+                  ? renderMultipleChoice(q, q.globalNumber)
+                  : renderFillQuestion(q, q.globalNumber)}
+              </React.Fragment>
+            ))}
 
-              {/* Sections */}
-              {parts[currentPartIndex].sections?.map((section, sIdx) => 
-                renderSection(section, currentPartIndex, sIdx)
-              )}
-            </>
-          )}
+          <div style={{ height: "100px" }}></div>
         </div>
       </main>
 
-      {/* Bottom Navigation Bar - youpass style */}
-      <nav style={bottomNavStyle}>
-        {/* Part Tabs */}
-        <div style={partTabsContainerStyle}>
+      {/* Floating Navigation Arrows */}
+      <div style={styles.floatingNav}>
+        <button onClick={() => navigateQuestion("prev")} style={styles.navArrowLeft}>
+          <svg
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="white"
+            strokeWidth="2"
+          >
+            <path d="m12 19-7-7 7-7" />
+            <path d="M19 12H5" />
+          </svg>
+        </button>
+        <button onClick={() => navigateQuestion("next")} style={styles.navArrowRight}>
+          <svg
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="white"
+            strokeWidth="2"
+          >
+            <path d="M5 12h14" />
+            <path d="m12 5 7 7-7 7" />
+          </svg>
+        </button>
+      </div>
+
+      {/* Bottom Navigation - Youpass Style */}
+      <nav style={styles.bottomNav}>
+        <div style={styles.partsContainer}>
           {parts.map((part, idx) => {
             const range = getPartQuestionRange(idx);
             const answered = getAnsweredCount(idx);
             const total = getPartTotalQuestions(idx);
-            
+            const isCurrentPart = currentPartIndex === idx;
+            const isExpanded = expandedPart === idx;
+
             return (
-              <button
+              <div
                 key={idx}
-                onClick={() => setCurrentPartIndex(idx)}
                 style={{
-                  ...partTabStyle,
-                  backgroundColor: currentPartIndex === idx ? '#3b82f6' : '#f1f5f9',
-                  color: currentPartIndex === idx ? 'white' : '#475569',
-                  borderColor: currentPartIndex === idx ? '#3b82f6' : '#e2e8f0',
+                  ...styles.partTab,
+                  backgroundColor: isCurrentPart ? "#fff" : "transparent",
+                  borderTop: isCurrentPart ? "2px solid #3b82f6" : "2px solid transparent",
                 }}
+                onClick={() => handlePartClick(idx)}
               >
-                <span style={partTabTitleStyle}>{part.title}</span>
-                <span style={partTabRangeStyle}>Câu {range.start}-{range.end}</span>
-                <span style={{
-                  ...partTabProgressStyle,
-                  backgroundColor: currentPartIndex === idx ? 'rgba(255,255,255,0.2)' : '#e2e8f0',
-                }}>
-                  {answered}/{total}
-                </span>
-              </button>
+                {/* Part Label */}
+                <div style={styles.partLabel}>
+                  <span style={styles.partLabelText}>
+                    {part.title || `Part ${idx + 1}`}
+                  </span>
+                  {!isExpanded && (
+                    <span style={styles.partProgress}>
+                      {answered} of {total}
+                    </span>
+                  )}
+                </div>
+
+                {/* Question Numbers (expanded) */}
+                {isExpanded && (
+                  <div style={styles.questionNumbers}>
+                    {Array.from(
+                      { length: range.end - range.start + 1 },
+                      (_, i) => {
+                        const qNum = range.start + i;
+                        const isAnswered = isQuestionAnswered(qNum);
+                        const isActive = activeQuestion === qNum;
+
+                        return (
+                          <div
+                            key={qNum}
+                            style={{
+                              ...styles.questionNumBox,
+                              borderColor: isActive
+                                ? "#3b82f6"
+                                : isAnswered
+                                ? "#22c55e"
+                                : "transparent",
+                              backgroundColor: isAnswered ? "#dcfce7" : "#fff",
+                              boxShadow: isActive ? "0 0 0 1px #418ec8" : "none",
+                            }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              scrollToQuestion(qNum);
+                            }}
+                          >
+                            {qNum}
+                          </div>
+                        );
+                      }
+                    )}
+                  </div>
+                )}
+              </div>
             );
           })}
-        </div>
 
-        {/* Question Number Grid */}
-        <div style={questionGridStyle}>
-          {(() => {
-            const range = getPartQuestionRange(currentPartIndex);
-            const buttons = [];
-            for (let i = range.start; i <= range.end; i++) {
-              const isAnswered = !!answers[`q${i}`];
-              const isFocused = focusedQuestion === i;
-              buttons.push(
-                <button
-                  key={i}
-                  onClick={() => scrollToQuestion(i)}
-                  style={{
-                    ...questionNumButtonStyle,
-                    backgroundColor: isAnswered ? '#22c55e' : '#f1f5f9',
-                    color: isAnswered ? 'white' : '#64748b',
-                    borderColor: isFocused ? '#3b82f6' : (isAnswered ? '#22c55e' : '#e2e8f0'),
-                    transform: isFocused ? 'scale(1.1)' : 'scale(1)',
-                  }}
-                >
-                  {i}
-                </button>
-              );
-            }
-            return buttons;
-          })()}
-        </div>
-
-        {/* Navigation Arrows */}
-        <div style={navArrowsStyle}>
-          <button
-            onClick={() => setCurrentPartIndex(Math.max(0, currentPartIndex - 1))}
-            disabled={currentPartIndex === 0}
-            style={{
-              ...navArrowButtonStyle,
-              opacity: currentPartIndex === 0 ? 0.3 : 1,
-            }}
-          >
-            ← Phần trước
-          </button>
-          <button
-            onClick={() => setCurrentPartIndex(Math.min(parts.length - 1, currentPartIndex + 1))}
-            disabled={currentPartIndex === parts.length - 1}
-            style={{
-              ...navArrowButtonStyle,
-              opacity: currentPartIndex === parts.length - 1 ? 0.3 : 1,
-            }}
-          >
-            Phần sau →
-          </button>
+          {/* Submit Icon */}
+          <div style={styles.submitIcon} onClick={handleSubmit}>
+            <svg
+              width="24"
+              height="24"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <path d="M20 6 9 17l-5-5" />
+            </svg>
+          </div>
         </div>
       </nav>
 
       {/* Confirm Modal */}
       {showConfirm && (
-        <div style={modalOverlayStyle}>
-          <div style={modalStyle}>
-            <h3 style={{ marginTop: 0, color: '#1e40af' }}>📋 Xác nhận nộp bài</h3>
-            <p>Bạn có chắc chắn muốn nộp bài?</p>
-            
-            {/* Summary */}
-            <div style={{ 
-              padding: '12px', 
-              backgroundColor: '#f8fafc', 
-              borderRadius: '8px',
-              marginBottom: '16px'
-            }}>
-              <p style={{ margin: '0 0 8px', fontSize: '14px', color: '#64748b' }}>
-                Tổng quan bài làm:
-              </p>
+        <div style={styles.modalOverlay}>
+          <div style={styles.modalContent}>
+            <h3 style={styles.modalTitle}>📋 Xác nhận nộp bài</h3>
+            <p style={styles.modalText}>Bạn có chắc chắn muốn nộp bài?</p>
+
+            <div style={styles.summaryBox}>
+              <p style={styles.summaryLabel}>Tổng quan bài làm:</p>
               {parts.map((part, idx) => {
                 const answered = getAnsweredCount(idx);
                 const total = getPartTotalQuestions(idx);
                 return (
-                  <div key={idx} style={{ 
-                    display: 'flex', 
-                    justifyContent: 'space-between',
-                    padding: '4px 0',
-                    fontSize: '14px'
-                  }}>
-                    <span>{part.title}</span>
-                    <span style={{ 
-                      color: answered === total ? '#22c55e' : '#f59e0b',
-                      fontWeight: 500
-                    }}>
+                  <div key={idx} style={styles.summaryRow}>
+                    <span>{part.title || `Part ${idx + 1}`}</span>
+                    <span
+                      style={{
+                        color: answered === total ? "#22c55e" : "#f59e0b",
+                        fontWeight: 500,
+                      }}
+                    >
                       {answered}/{total} câu
                     </span>
                   </div>
                 );
               })}
             </div>
-            
-            <p style={{ color: '#ef4444', fontSize: '14px', margin: '0 0 16px' }}>
+
+            <p style={styles.warningText}>
               ⚠️ Sau khi nộp, bạn sẽ không thể chỉnh sửa câu trả lời.
             </p>
-            
-            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
-              <button onClick={() => setShowConfirm(false)} style={cancelButtonStyle}>
+
+            <div style={styles.modalButtons}>
+              <button
+                onClick={() => setShowConfirm(false)}
+                style={styles.cancelButton}
+              >
                 Hủy
               </button>
-              <button onClick={confirmSubmit} style={confirmButtonStyle}>
+              <button onClick={confirmSubmit} style={styles.confirmButton}>
                 ✅ Xác nhận nộp
               </button>
             </div>
@@ -743,49 +1037,37 @@ const DoListeningTest = () => {
 
       {/* Results Modal */}
       {results && (
-        <div style={modalOverlayStyle}>
-          <div style={{ ...modalStyle, maxWidth: '500px' }}>
-            <h3 style={{ marginTop: 0, textAlign: 'center', color: '#059669' }}>
-              🎉 Kết quả bài thi
-            </h3>
-            
-            <div style={{
-              textAlign: 'center',
-              padding: '24px',
-              backgroundColor: '#f0fdf4',
-              borderRadius: '12px',
-              marginBottom: '20px',
-            }}>
-              <div style={{ fontSize: '56px', fontWeight: 'bold', color: '#059669' }}>
+        <div style={styles.modalOverlay}>
+          <div style={styles.modalContent}>
+            <h3 style={styles.resultsTitle}>🎉 Kết quả bài thi</h3>
+
+            <div style={styles.scoreBox}>
+              <div style={styles.scoreNumber}>
                 {results.score || 0}/{results.total || 40}
               </div>
-              <p style={{ margin: '8px 0 0', color: '#6b7280' }}>Số câu đúng</p>
-              
-              {/* Band Score Estimate */}
-              <div style={{ 
-                marginTop: '16px', 
-                padding: '8px 16px', 
-                backgroundColor: 'white', 
-                borderRadius: '8px',
-                display: 'inline-block'
-              }}>
-                <span style={{ fontSize: '14px', color: '#6b7280' }}>Band Score: </span>
-                <span style={{ fontSize: '20px', fontWeight: 'bold', color: '#1e40af' }}>
-                  {Math.min(9, Math.max(1, Math.round((results.score / 40) * 9 * 2) / 2)).toFixed(1)}
+              <p style={styles.scoreLabel}>Số câu đúng</p>
+
+              <div style={styles.bandScore}>
+                <span style={styles.bandLabel}>Band Score: </span>
+                <span style={styles.bandValue}>
+                  {Math.min(
+                    9,
+                    Math.max(1, Math.round(((results.score || 0) / 40) * 9 * 2) / 2)
+                  ).toFixed(1)}
                 </span>
               </div>
             </div>
-            
-            <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
+
+            <div style={styles.resultsButtons}>
               <button
-                onClick={() => navigate('/select-test')}
-                style={cancelButtonStyle}
+                onClick={() => navigate("/select-test")}
+                style={styles.cancelButton}
               >
                 ← Về trang chủ
               </button>
               <button
                 onClick={() => navigate(`/listening-results/${id}`)}
-                style={confirmButtonStyle}
+                style={styles.confirmButton}
               >
                 📊 Xem chi tiết
               </button>
@@ -797,410 +1079,516 @@ const DoListeningTest = () => {
   );
 };
 
-// Styles - youpass.vn inspired design
-const pageWrapperStyle = {
-  minHeight: "100vh",
-  backgroundColor: "#f1f5f9",
-  display: "flex",
-  flexDirection: "column",
-};
+// ===================== STYLES =====================
+const styles = {
+  pageWrapper: {
+    width: "100%",
+    minHeight: "100vh",
+    display: "flex",
+    flexDirection: "column",
+    fontFamily: "Arial, sans-serif",
+    fontWeight: 500,
+    backgroundColor: "#fff",
+  },
 
-const topHeaderStyle = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center",
-  padding: "12px 24px",
-  backgroundColor: "#1e40af",
-  color: "white",
-  position: "sticky",
-  top: 0,
-  zIndex: 100,
-  boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
-};
+  // Loading & Error
+  loadingContainer: {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    height: "100vh",
+    backgroundColor: "#f3f4f6",
+  },
+  spinner: {
+    width: "48px",
+    height: "48px",
+    border: "4px solid #e5e7eb",
+    borderTopColor: "#3b82f6",
+    borderRadius: "50%",
+    animation: "spin 1s linear infinite",
+    marginBottom: "16px",
+  },
+  loadingText: { color: "#6b7280", fontSize: "16px" },
+  errorContainer: {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    height: "100vh",
+    backgroundColor: "#f3f4f6",
+  },
+  errorTitle: { color: "#dc2626", fontSize: "24px", marginBottom: "8px" },
+  errorText: { color: "#6b7280", marginBottom: "16px" },
+  backButton: {
+    padding: "12px 24px",
+    backgroundColor: "#3b82f6",
+    color: "#fff",
+    border: "none",
+    borderRadius: "8px",
+    cursor: "pointer",
+    fontSize: "14px",
+  },
 
-const headerLeftStyle = {
-  display: "flex",
-  alignItems: "center",
-  gap: "16px",
-};
+  // Header
+  header: {
+    borderBottom: "1px solid #d1d5db",
+    backgroundColor: "#fff",
+  },
+  headerContent: {
+    display: "flex",
+    alignItems: "center",
+    padding: "0 16px",
+    height: "56px",
+  },
+  logoWrapper: { padding: "8px 16px" },
+  logoText: { fontSize: "20px", fontWeight: "bold", color: "#1e40af" },
+  testInfo: { flex: 1, paddingLeft: "16px" },
+  testTitle: { fontWeight: "bold", fontSize: "16px", color: "#1f2937" },
+  timeInfo: {
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+    fontSize: "14px",
+    color: "#6b7280",
+  },
+  audioIcon: { fontSize: "16px" },
+  submitButton: {
+    padding: "8px 20px",
+    backgroundColor: "#22c55e",
+    color: "#fff",
+    border: "none",
+    borderRadius: "6px",
+    cursor: "pointer",
+    fontWeight: 600,
+    fontSize: "14px",
+  },
 
-const backButtonStyle = {
-  padding: "8px 16px",
-  backgroundColor: "rgba(255,255,255,0.15)",
-  color: "white",
-  border: "none",
-  borderRadius: "6px",
-  cursor: "pointer",
-  fontSize: "14px",
-  fontWeight: 500,
-};
+  // Part Info Box
+  partInfoBox: {
+    margin: "16px",
+    padding: "16px",
+    backgroundColor: "#f1f2ec",
+    border: "1px solid #d5d5d5",
+    borderRadius: "4px",
+  },
+  partTitle: { fontWeight: 900, fontSize: "16px", color: "#1f2937" },
+  partDescription: { fontSize: "14px", color: "#4b5563", marginTop: "4px" },
 
-const testTitleStyle = {
-  margin: 0,
-  fontSize: "18px",
-  fontWeight: 600,
-};
+  // Main Content
+  mainContent: {
+    flex: 1,
+    position: "relative",
+    paddingBottom: "80px",
+  },
+  audioContainer: { padding: "0 24px", marginBottom: "16px" },
+  audioPlayer: { width: "100%", height: "40px" },
+  audioWarning: { color: "#d97706", fontSize: "13px", marginTop: "4px" },
+  questionsList: {
+    padding: "0 24px",
+    overflowY: "auto",
+    maxHeight: "calc(100vh - 280px)",
+  },
 
-const headerRightStyle = {
-  display: "flex",
-  alignItems: "center",
-  gap: "16px",
-};
+  // Section
+  sectionContainer: { marginBottom: "32px" },
+  sectionTitle: { fontWeight: "bold", fontSize: "16px", marginBottom: "8px" },
+  sectionInstruction: { marginBottom: "16px", color: "#4b5563", lineHeight: 1.6 },
+  questionsWrapper: { display: "flex", flexDirection: "column", gap: "8px" },
 
-const timerBoxStyle = {
-  display: "flex",
-  flexDirection: "column",
-  alignItems: "center",
-  padding: "8px 16px",
-  borderRadius: "8px",
-  minWidth: "100px",
-};
+  // Multiple Choice
+  questionItem: { marginBottom: "16px", padding: "8px", borderRadius: "4px" },
+  questionHeader: { display: "flex", gap: "8px", marginBottom: "8px" },
+  questionNumber: {
+    fontWeight: "bold",
+    minWidth: "28px",
+    padding: "0 4px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  questionNumberWide: {
+    fontWeight: "bold",
+    minWidth: "48px",
+    padding: "0 4px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  questionText: { flex: 1, marginTop: "2px", lineHeight: 1.5 },
+  optionsList: {
+    listStyle: "none",
+    margin: 0,
+    padding: 0,
+    display: "flex",
+    flexDirection: "column",
+    gap: "2px",
+  },
+  optionItem: { position: "relative" },
+  optionLabel: {
+    display: "flex",
+    gap: "8px",
+    padding: "10px 12px",
+    borderRadius: "4px",
+    cursor: "pointer",
+    transition: "background-color 0.2s",
+  },
+  optionText: { marginLeft: "20px" },
+  radioInput: {
+    position: "absolute",
+    top: "50%",
+    transform: "translateY(-50%)",
+    left: "8px",
+  },
+  checkboxInput: {
+    position: "absolute",
+    top: "50%",
+    transform: "translateY(-50%)",
+    left: "8px",
+    backgroundColor: "#fff",
+  },
 
-const submitButtonStyle = {
-  padding: "10px 24px",
-  backgroundColor: "#22c55e",
-  color: "white",
-  border: "none",
-  borderRadius: "8px",
-  cursor: "pointer",
-  fontWeight: 600,
-  fontSize: "15px",
-  transition: "all 0.2s",
-};
+  // Fill Question
+  fillQuestionItem: {
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+    marginBottom: "12px",
+    padding: "8px",
+    borderRadius: "4px",
+  },
+  fillQuestionNumber: { fontWeight: "bold", minWidth: "28px" },
+  fillInput: {
+    flex: 1,
+    border: "1px solid #d1d5db",
+    borderRadius: "4px",
+    padding: "8px 12px",
+    fontSize: "14px",
+    outline: "none",
+  },
+  fillQuestionsContainer: { display: "flex", flexDirection: "column" },
 
-const mainContentStyle = {
-  flex: 1,
-  padding: "20px",
-  paddingBottom: "200px", // Space for bottom nav
-  maxWidth: "900px",
-  margin: "0 auto",
-  width: "100%",
-  boxSizing: "border-box",
-};
+  // Matching
+  matchingContainer: {
+    display: "flex",
+    flexDirection: "row",
+    gap: "32px",
+    flexWrap: "wrap",
+  },
+  matchingLeft: { flex: 1, minWidth: "280px" },
+  matchingRight: { flex: 1, minWidth: "200px" },
+  matchingItemsList: { display: "flex", flexDirection: "column", gap: "8px" },
+  matchingRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+    padding: "8px",
+    borderRadius: "4px",
+  },
+  matchingItemText: { flex: 1 },
+  matchingDropdownWrapper: { minWidth: "80px" },
+  matchingSelect: {
+    width: "100%",
+    padding: "6px 8px",
+    border: "1px solid #d1d5db",
+    borderRadius: "4px",
+    backgroundColor: "#fff",
+    cursor: "pointer",
+  },
+  optionsTitle: { fontWeight: 600, marginBottom: "8px" },
+  optionsContainer: { display: "flex", flexDirection: "column", gap: "4px" },
+  optionCard: {
+    padding: "8px 12px",
+    border: "1px solid #c5c5c5",
+    borderRadius: "6px",
+    backgroundColor: "#fff",
+    fontSize: "14px",
+  },
 
-const audioSectionStyle = {
-  marginBottom: "20px",
-};
+  // Form/Table Completion - IELTS Style
+  formContainer: {
+    backgroundColor: "#f9fafb",
+    border: "1px solid #e5e7eb",
+    borderRadius: "8px",
+    overflow: "hidden",
+  },
+  formContent: {
+    padding: "16px 20px",
+    lineHeight: "2.4",
+  },
+  formRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+    marginBottom: "4px",
+    flexWrap: "wrap",
+  },
+  formLabel: {
+    fontWeight: "500",
+    color: "#374151",
+    minWidth: "fit-content",
+  },
+  formValue: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "4px",
+    flexWrap: "wrap",
+  },
+  formFixedValue: {
+    color: "#1f2937",
+    fontWeight: "500",
+  },
+  formGapWrapper: {
+    display: "inline-flex",
+    alignItems: "center",
+  },
+  formGapInput: {
+    width: "150px",
+    padding: "6px 12px",
+    border: "2px solid #d1d5db",
+    borderRadius: "6px",
+    fontSize: "14px",
+    outline: "none",
+    backgroundColor: "#fff",
+    transition: "border-color 0.2s, box-shadow 0.2s",
+  },
+  
+  // Legacy Form/Table styles (kept for compatibility)
+  formTable: { overflowX: "auto" },
+  table: {
+    width: "100%",
+    borderCollapse: "collapse",
+    border: "1px solid #d1d5db",
+  },
+  tableCell: {
+    padding: "12px",
+    border: "1px solid #d1d5db",
+    verticalAlign: "middle",
+  },
+  gapWrapper: { position: "relative", display: "inline-flex", marginLeft: "4px" },
+  gapInput: {
+    width: "120px",
+    padding: "4px 8px",
+    border: "1px solid #d1d5db",
+    borderRadius: "4px",
+    fontSize: "14px",
+    outline: "none",
+  },
+  gapPlaceholder: {
+    position: "absolute",
+    top: "50%",
+    left: "50%",
+    transform: "translate(-50%, -50%)",
+    color: "#9ca3af",
+    pointerEvents: "none",
+  },
 
-const audioPlayerWrapperStyle = {
-  padding: "16px",
-  backgroundColor: "white",
-  borderRadius: "12px",
-  boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-};
+  // Floating Navigation
+  floatingNav: {
+    position: "fixed",
+    bottom: "80px",
+    right: "24px",
+    display: "flex",
+    gap: "8px",
+    zIndex: 20,
+  },
+  navArrowLeft: {
+    width: "56px",
+    height: "56px",
+    backgroundColor: "#374151",
+    border: "none",
+    borderRadius: "4px",
+    cursor: "pointer",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  navArrowRight: {
+    width: "56px",
+    height: "56px",
+    backgroundColor: "#111827",
+    border: "none",
+    borderRadius: "4px",
+    cursor: "pointer",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+  },
 
-const audioInfoStyle = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center",
-  marginBottom: "12px",
-};
+  // Bottom Navigation
+  bottomNav: {
+    position: "fixed",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: "#f8fafc",
+    borderTop: "1px solid #d1d5db",
+    zIndex: 30,
+  },
+  partsContainer: {
+    display: "flex",
+    overflowX: "auto",
+  },
+  partTab: {
+    flex: 1,
+    minWidth: "100px",
+    padding: "12px 16px",
+    cursor: "pointer",
+    borderLeft: "1px solid #e5e7eb",
+    transition: "background-color 0.2s",
+  },
+  partLabel: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: "8px",
+    whiteSpace: "nowrap",
+  },
+  partLabelText: { fontWeight: "bold", fontSize: "14px" },
+  partProgress: { fontSize: "13px", color: "#6b7280" },
+  questionNumbers: {
+    display: "flex",
+    gap: "4px",
+    marginTop: "8px",
+    flexWrap: "wrap",
+  },
+  questionNumBox: {
+    width: "28px",
+    height: "28px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    border: "1px solid transparent",
+    borderRadius: "4px",
+    fontSize: "12px",
+    cursor: "pointer",
+    backgroundColor: "#fff",
+  },
+  submitIcon: {
+    padding: "16px",
+    backgroundColor: "#e5e7eb",
+    cursor: "pointer",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+  },
 
-const audioLabelStyle = {
-  fontSize: "15px",
-  fontWeight: 600,
-  color: "#1e40af",
-};
+  // Modals
+  modalOverlay: {
+    position: "fixed",
+    inset: 0,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 50,
+  },
+  modalContent: {
+    backgroundColor: "#fff",
+    padding: "28px",
+    borderRadius: "16px",
+    maxWidth: "480px",
+    width: "90%",
+    boxShadow: "0 8px 32px rgba(0,0,0,0.25)",
+  },
+  modalTitle: {
+    fontSize: "20px",
+    fontWeight: "bold",
+    color: "#1e40af",
+    marginBottom: "16px",
+  },
+  modalText: { marginBottom: "16px", color: "#4b5563" },
+  summaryBox: {
+    padding: "12px",
+    backgroundColor: "#f9fafb",
+    borderRadius: "8px",
+    marginBottom: "16px",
+  },
+  summaryLabel: { fontSize: "13px", color: "#6b7280", marginBottom: "8px" },
+  summaryRow: {
+    display: "flex",
+    justifyContent: "space-between",
+    padding: "4px 0",
+    fontSize: "14px",
+  },
+  warningText: { color: "#dc2626", fontSize: "13px", marginBottom: "16px" },
+  modalButtons: { display: "flex", gap: "12px", justifyContent: "flex-end" },
+  cancelButton: {
+    padding: "10px 20px",
+    backgroundColor: "#f1f5f9",
+    color: "#475569",
+    border: "1px solid #e2e8f0",
+    borderRadius: "8px",
+    cursor: "pointer",
+    fontWeight: 500,
+    fontSize: "14px",
+  },
+  confirmButton: {
+    padding: "10px 24px",
+    backgroundColor: "#22c55e",
+    color: "#fff",
+    border: "none",
+    borderRadius: "8px",
+    cursor: "pointer",
+    fontWeight: 600,
+    fontSize: "14px",
+  },
 
-const audioPlayedBadgeStyle = {
-  padding: "4px 12px",
-  backgroundColor: "#dcfce7",
-  color: "#16a34a",
-  borderRadius: "16px",
-  fontSize: "13px",
-  fontWeight: 500,
-};
+  // Results
+  resultsTitle: {
+    fontSize: "20px",
+    fontWeight: "bold",
+    color: "#15803d",
+    textAlign: "center",
+    marginBottom: "16px",
+  },
+  scoreBox: {
+    textAlign: "center",
+    padding: "24px",
+    backgroundColor: "#f0fdf4",
+    borderRadius: "12px",
+    marginBottom: "20px",
+  },
+  scoreNumber: { fontSize: "48px", fontWeight: "bold", color: "#16a34a" },
+  scoreLabel: { color: "#6b7280", marginTop: "8px" },
+  bandScore: {
+    display: "inline-block",
+    marginTop: "16px",
+    padding: "8px 16px",
+    backgroundColor: "#fff",
+    borderRadius: "8px",
+  },
+  bandLabel: { fontSize: "13px", color: "#6b7280" },
+  bandValue: { fontSize: "20px", fontWeight: "bold", color: "#1e40af" },
+  resultsButtons: { display: "flex", gap: "12px", justifyContent: "center" },
 
-const audioWarningStyle = {
-  margin: "12px 0 0",
-  padding: "8px 12px",
-  backgroundColor: "#fef3c7",
-  color: "#b45309",
-  borderRadius: "6px",
-  fontSize: "13px",
-};
+  // Notes Completion
+  notesContainer: {
+    backgroundColor: "#f9fafb",
+    border: "1px solid #e5e7eb",
+    borderRadius: "8px",
+    padding: "16px",
+  },
+  notesTitle: {
+    fontWeight: "bold",
+    fontSize: "15px",
+    marginBottom: "12px",
+    color: "#1f2937",
+  },
+  notesContent: {
+    lineHeight: 2,
+    fontSize: "14px",
+  },
 
-const contentAreaStyle = {
-  backgroundColor: "white",
-  borderRadius: "12px",
-  padding: "24px",
-  boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-};
-
-const partTitleBarStyle = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center",
-  padding: "12px 16px",
-  backgroundColor: "#1e40af",
-  color: "white",
-  borderRadius: "8px",
-  marginBottom: "16px",
-};
-
-const questionRangeStyle = {
-  padding: "4px 12px",
-  backgroundColor: "rgba(255,255,255,0.2)",
-  borderRadius: "16px",
-  fontSize: "13px",
-};
-
-const instructionBoxStyle = {
-  padding: "16px",
-  backgroundColor: "#eff6ff",
-  borderRadius: "8px",
-  marginBottom: "20px",
-  borderLeft: "4px solid #3b82f6",
-};
-
-const sectionStyle = {
-  padding: "20px",
-  border: "1px solid #e2e8f0",
-  borderRadius: "12px",
-  marginBottom: "20px",
-  backgroundColor: "#fafafa",
-};
-
-const formContainerStyle = {
-  padding: "16px",
-  backgroundColor: "#fff",
-  borderRadius: "8px",
-  border: "1px solid #e2e8f0",
-};
-
-const questionItemStyle = {
-  padding: "16px",
-  marginBottom: "12px",
-  backgroundColor: "#fff",
-  borderRadius: "8px",
-  border: "1px solid #e2e8f0",
-  transition: "all 0.2s",
-};
-
-const questionNumberStyle = {
-  display: "inline-flex",
-  alignItems: "center",
-  justifyContent: "center",
-  width: "32px",
-  height: "32px",
-  backgroundColor: "#3b82f6",
-  color: "white",
-  borderRadius: "50%",
-  fontWeight: "bold",
-  fontSize: "14px",
-  flexShrink: 0,
-};
-
-const blankNumberStyle = {
-  display: "inline-flex",
-  alignItems: "center",
-  justifyContent: "center",
-  width: "26px",
-  height: "26px",
-  backgroundColor: "#3b82f6",
-  color: "white",
-  borderRadius: "50%",
-  fontWeight: "bold",
-  fontSize: "12px",
-};
-
-const inputStyle = {
-  padding: "10px 14px",
-  border: "2px solid #cbd5e1",
-  borderRadius: "8px",
-  fontSize: "15px",
-  width: "220px",
-  transition: "all 0.2s",
-  outline: "none",
-};
-
-const selectStyle = {
-  padding: "10px 14px",
-  border: "2px solid #cbd5e1",
-  borderRadius: "8px",
-  fontSize: "15px",
-  minWidth: "140px",
-  cursor: "pointer",
-  backgroundColor: "white",
-};
-
-const optionStyle = {
-  display: "flex",
-  alignItems: "center",
-  padding: "12px 16px",
-  borderRadius: "8px",
-  cursor: "pointer",
-  border: "2px solid",
-  transition: "all 0.2s",
-};
-
-// Bottom Navigation Styles
-const bottomNavStyle = {
-  position: "fixed",
-  bottom: 0,
-  left: 0,
-  right: 0,
-  backgroundColor: "white",
-  borderTop: "1px solid #e2e8f0",
-  boxShadow: "0 -4px 12px rgba(0,0,0,0.1)",
-  padding: "12px 20px",
-  zIndex: 100,
-};
-
-const partTabsContainerStyle = {
-  display: "flex",
-  gap: "8px",
-  marginBottom: "12px",
-  justifyContent: "center",
-  flexWrap: "wrap",
-};
-
-const partTabStyle = {
-  display: "flex",
-  flexDirection: "column",
-  alignItems: "center",
-  padding: "8px 16px",
-  border: "2px solid",
-  borderRadius: "8px",
-  cursor: "pointer",
-  transition: "all 0.2s",
-  minWidth: "100px",
-  backgroundColor: "transparent",
-};
-
-const partTabTitleStyle = {
-  fontSize: "13px",
-  fontWeight: 600,
-};
-
-const partTabRangeStyle = {
-  fontSize: "11px",
-  opacity: 0.8,
-};
-
-const partTabProgressStyle = {
-  fontSize: "11px",
-  padding: "2px 8px",
-  borderRadius: "10px",
-  marginTop: "4px",
-};
-
-const questionGridStyle = {
-  display: "flex",
-  flexWrap: "wrap",
-  gap: "6px",
-  justifyContent: "center",
-  marginBottom: "12px",
-  maxHeight: "60px",
-  overflowY: "auto",
-};
-
-const questionNumButtonStyle = {
-  width: "32px",
-  height: "32px",
-  border: "2px solid",
-  borderRadius: "6px",
-  cursor: "pointer",
-  fontSize: "13px",
-  fontWeight: 600,
-  transition: "all 0.2s",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  backgroundColor: "transparent",
-};
-
-const navArrowsStyle = {
-  display: "flex",
-  justifyContent: "center",
-  gap: "12px",
-};
-
-const navArrowButtonStyle = {
-  padding: "8px 20px",
-  border: "1px solid #e2e8f0",
-  borderRadius: "6px",
-  cursor: "pointer",
-  fontSize: "14px",
-  fontWeight: 500,
-  backgroundColor: "#f8fafc",
-  color: "#475569",
-  transition: "all 0.2s",
-};
-
-const loadingStyle = {
-  display: "flex",
-  flexDirection: "column",
-  justifyContent: "center",
-  alignItems: "center",
-  height: "100vh",
-  fontSize: "1.2rem",
-  backgroundColor: "#f1f5f9",
-};
-
-const errorStyle = {
-  display: "flex",
-  flexDirection: "column",
-  justifyContent: "center",
-  alignItems: "center",
-  height: "100vh",
-  textAlign: "center",
-  backgroundColor: "#f1f5f9",
-};
-
-const primaryButtonStyle = {
-  padding: "12px 24px",
-  backgroundColor: "#3b82f6",
-  color: "white",
-  border: "none",
-  borderRadius: "8px",
-  cursor: "pointer",
-  fontWeight: 600,
-  fontSize: "15px",
-};
-
-const modalOverlayStyle = {
-  position: "fixed",
-  top: 0,
-  left: 0,
-  right: 0,
-  bottom: 0,
-  backgroundColor: "rgba(0,0,0,0.6)",
-  display: "flex",
-  justifyContent: "center",
-  alignItems: "center",
-  zIndex: 1000,
-};
-
-const modalStyle = {
-  backgroundColor: "white",
-  padding: "28px",
-  borderRadius: "16px",
-  maxWidth: "420px",
-  width: "90%",
-  boxShadow: "0 8px 32px rgba(0,0,0,0.25)",
-};
-
-const cancelButtonStyle = {
-  padding: "10px 20px",
-  backgroundColor: "#f1f5f9",
-  color: "#475569",
-  border: "1px solid #e2e8f0",
-  borderRadius: "8px",
-  cursor: "pointer",
-  fontWeight: 500,
-  fontSize: "14px",
-};
-
-const confirmButtonStyle = {
-  padding: "10px 24px",
-  backgroundColor: "#22c55e",
-  color: "white",
-  border: "none",
-  borderRadius: "8px",
-  cursor: "pointer",
-  fontWeight: 600,
-  fontSize: "14px",
+  // Form Title
+  formTitle: {
+    fontWeight: "bold",
+    fontSize: "15px",
+    marginBottom: "12px",
+    padding: "8px 12px",
+    backgroundColor: "#e5e7eb",
+    borderRadius: "4px 4px 0 0",
+  },
 };
 
 export default DoListeningTest;
