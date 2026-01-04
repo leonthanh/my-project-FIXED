@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { apiPath, hostPath } from "../../../shared/utils/api";
+import { TestHeader } from "../../../shared/components";
 
 /**
  * DoListeningTest - Trang làm bài thi Listening IELTS
@@ -462,6 +463,37 @@ const DoListeningTest = () => {
     },
     [answers]
   );
+
+  // Calculate total answered questions
+  const totalAnswered = useMemo(() => {
+    let count = 0;
+    Object.keys(answers).forEach((key) => {
+      const ans = answers[key];
+      if (Array.isArray(ans)) {
+        if (ans.length > 0) count++;
+      } else if (ans) {
+        count++;
+      }
+    });
+    return count;
+  }, [answers]);
+
+  // Calculate total questions
+  const totalQuestions = useMemo(() => {
+    if (!test?.partInstructions) return 40;
+    let total = 0;
+    test.partInstructions.forEach((_, partIndex) => {
+      const range = getPartDisplayRange(partIndex);
+      if (range.start && range.end) {
+        total = Math.max(total, range.end);
+      }
+    });
+    return total || 40;
+  }, [test?.partInstructions, getPartDisplayRange]);
+
+  // Timer warning states
+  const timerWarning = timeRemaining <= 300 && timeRemaining > 60; // < 5 min
+  const timerCritical = timeRemaining <= 60; // < 1 min
 
   // Scroll to question
   const scrollToQuestion = useCallback((qNum) => {
@@ -1062,33 +1094,20 @@ const DoListeningTest = () => {
         }
       `}</style>
 
-      {/* Header - Youpass Style */}
-      <header style={styles.header}>
-        <div style={styles.headerContent}>
-          {/* Logo */}
-          <div style={styles.logoWrapper}>
-            <span style={styles.logoText}>🎧 IELTS</span>
-          </div>
-
-          {/* Test Info */}
-          <div style={styles.testInfo}>
-            <div style={styles.testTitle}>{test?.title || "IELTS Listening Test"}</div>
-            <div style={styles.timeInfo}>
-              <span style={styles.audioIcon}>🔊</span>
-              <span>{formatTime(timeRemaining)}</span>
-            </div>
-          </div>
-
-          {/* Submit Button */}
-          <button
-            onClick={handleSubmit}
-            disabled={submitted}
-            style={styles.submitButton}
-          >
-            Nộp bài
-          </button>
-        </div>
-      </header>
+      {/* Header - Shared Component */}
+      <TestHeader
+        testType="LISTENING"
+        testTitle={test?.title || "Listening Test"}
+        testMeta={`${parts.length} Parts • ${totalQuestions} Questions`}
+        timeRemaining={timeRemaining}
+        answeredCount={totalAnswered}
+        totalQuestions={totalQuestions}
+        onSubmit={handleSubmit}
+        submitted={submitted}
+        timerWarning={timerWarning}
+        timerCritical={timerCritical}
+        showAutoSave={true}
+      />
 
       {/* Part Info Box */}
       <div style={styles.partInfoBox}>
@@ -1805,13 +1824,14 @@ const styles = {
     gap: "8px",
     whiteSpace: "nowrap",
   },
-  partLabelText: { fontWeight: "bold", fontSize: "14px" },
-  partProgress: { fontSize: "13px", color: "#6b7280" },
+  partLabelText: { fontWeight: "bold", fontSize: "16px" },
+  partProgress: { fontSize: "14px", color: "#6b7280" },
   questionNumbers: {
     display: "flex",
-    gap: "4px",
+    flexWrap: "nowrap",
+    gap: "8px",
     marginTop: "8px",
-    flexWrap: "wrap",
+    justifyContent: "space-around",
   },
   questionNumBox: {
     minWidth: "28px",
@@ -1821,7 +1841,7 @@ const styles = {
     justifyContent: "center",
     border: "1px solid transparent",
     borderRadius: "4px",
-    fontSize: "12px",
+    fontSize: "15px",
     cursor: "pointer",
     backgroundColor: "#fff",
     padding: "0 4px",
@@ -1829,7 +1849,7 @@ const styles = {
   questionNumBoxWide: {
     minWidth: "40px",
     padding: "0 6px",
-    fontSize: "11px",
+    fontSize: "14px",
   },
   submitIcon: {
     padding: "16px",

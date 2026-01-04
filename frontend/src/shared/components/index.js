@@ -7,6 +7,7 @@ export { default as StudentNavbar } from './StudentNavbar';
 export { default as Timer } from './Timer';
 export { default as ConfirmModal } from './ConfirmModal';
 export { default as ProtectedRoute } from './ProtectedRoute';
+export { default as TestHeader } from './TestHeader';
 
 // Theme & UX
 export { default as ThemeToggle } from './ThemeToggle';
