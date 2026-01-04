@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useRef } from "react";
 import { AdminNavbar, AutoSaveIndicator } from "../../../shared/components";
 import { useColumnLayout } from "../hooks";
 import ListeningQuestionEditor from "./ListeningQuestionEditor";
@@ -1104,6 +1104,7 @@ const ListeningTestEditor = ({
                 // Calculate starting question number for this part
                 let partStartQ = 1;
                 for (let p = 0; p < partIdx; p++) {
+                  // eslint-disable-next-line no-loop-func
                   parts[p].sections?.forEach(s => {
                     partStartQ += countSectionQuestions(s);
                   });
@@ -1583,6 +1584,7 @@ const ListeningTestEditor = ({
                 let questionCounter = 1;
                 // Calculate starting question for this part
                 for (let p = 0; p < partIdx; p++) {
+                  // eslint-disable-next-line no-loop-func
                   parts[p].sections?.forEach(s => {
                     questionCounter += countSectionQuestions(s);
                   });

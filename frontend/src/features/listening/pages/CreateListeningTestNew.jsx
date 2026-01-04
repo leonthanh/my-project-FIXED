@@ -170,6 +170,7 @@ const CreateListeningTestNew = () => {
       formData.append("title", stripHtml(title));
       formData.append("classCode", classCode);
       formData.append("teacherName", teacherName);
+      // Backend expects 'passages' not 'parts'
       formData.append("passages", JSON.stringify(cleanedParts));
 
       // Add global audio if selected
