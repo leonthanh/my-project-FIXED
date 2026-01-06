@@ -220,8 +220,8 @@ export const QUESTION_TYPES = {
 
   'cloze-test': {
     id: 'cloze-test',
-    label: 'Cloze Test',
-    labelVi: 'Điền chỗ trống trong đoạn',
+    label: 'Open Cloze (Part 5)',
+    labelVi: 'Điền chỗ trống (Part 5)',
     icon: '📄',
     description: 'Điền từ vào các chỗ trống trong đoạn văn',
     editor: 'ClozeTestEditor', // Will create later
@@ -248,20 +248,166 @@ export const QUESTION_TYPES = {
     supportedTests: ['ielts-reading', 'ket-reading'],
   },
 
-  // =========== KET SPECIFIC ===========
+  // =========== KET SPECIFIC PARTS ===========
+  'sign-message': {
+    id: 'sign-message',
+    label: 'Signs & Messages (Part 1)',
+    labelVi: 'Biển báo & Thông báo',
+    icon: '🪧',
+    description: 'KET Part 1: Đọc biển báo + chọn ý nghĩa đúng (A/B/C)',
+    editor: 'SignMessageEditor',
+    defaultData: {
+      imageUrl: '',
+      imageAlt: '',
+      signText: '',
+      options: ['A. ', 'B. ', 'C. '],
+      correctAnswer: '',
+    },
+    supportedTests: ['ket-reading'],
+  },
+
+  'people-matching': {
+    id: 'people-matching',
+    label: 'People Matching (Part 2)',
+    labelVi: 'Nối người với văn bản',
+    icon: '👥',
+    description: 'KET Part 2: 5 người + 8 texts, nối cặp phù hợp',
+    editor: 'PeopleMatchingEditor',
+    defaultData: {
+      description: '',
+      people: [
+        { id: 'A', name: '', need: '' },
+        { id: 'B', name: '', need: '' },
+        { id: 'C', name: '', need: '' },
+        { id: 'D', name: '', need: '' },
+        { id: 'E', name: '', need: '' },
+      ],
+      texts: [
+        { id: '1', title: '', content: '' },
+        { id: '2', title: '', content: '' },
+        { id: '3', title: '', content: '' },
+        { id: '4', title: '', content: '' },
+        { id: '5', title: '', content: '' },
+        { id: '6', title: '', content: '' },
+        { id: '7', title: '', content: '' },
+        { id: '8', title: '', content: '' },
+      ],
+      answers: {},
+    },
+    supportedTests: ['ket-reading'],
+  },
+
+  'long-text-mc': {
+    id: 'long-text-mc',
+    label: 'Long Text + MC (Part 3)',
+    labelVi: 'Đoạn văn dài + Trắc nghiệm',
+    icon: '📰',
+    description: 'KET Part 3: 1 đoạn văn dài + 5 câu MC',
+    editor: 'LongTextMCEditor',
+    defaultData: {
+      passageTitle: '',
+      passage: '',
+      passageType: 'conversation',
+      questions: [
+        { questionText: '', options: ['A. ', 'B. ', 'C. '], correctAnswer: '' },
+        { questionText: '', options: ['A. ', 'B. ', 'C. '], correctAnswer: '' },
+        { questionText: '', options: ['A. ', 'B. ', 'C. '], correctAnswer: '' },
+        { questionText: '', options: ['A. ', 'B. ', 'C. '], correctAnswer: '' },
+        { questionText: '', options: ['A. ', 'B. ', 'C. '], correctAnswer: '' },
+      ],
+    },
+    supportedTests: ['ket-reading', 'pet-reading'],
+  },
+
+  'cloze-mc': {
+    id: 'cloze-mc',
+    label: 'Multiple Choice Cloze (Part 4)',
+    labelVi: 'Cloze trắc nghiệm',
+    icon: '📋',
+    description: 'KET Part 4: Đoạn văn + chọn từ A/B/C cho mỗi blank',
+    editor: 'ClozeMCEditor',
+    defaultData: {
+      passageTitle: '',
+      passage: '',
+      blanks: [
+        { number: 16, options: ['A. ', 'B. ', 'C. '], correctAnswer: '' },
+        { number: 17, options: ['A. ', 'B. ', 'C. '], correctAnswer: '' },
+        { number: 18, options: ['A. ', 'B. ', 'C. '], correctAnswer: '' },
+        { number: 19, options: ['A. ', 'B. ', 'C. '], correctAnswer: '' },
+        { number: 20, options: ['A. ', 'B. ', 'C. '], correctAnswer: '' },
+      ],
+    },
+    supportedTests: ['ket-reading', 'pet-reading'],
+  },
+
+  'word-form': {
+    id: 'word-form',
+    label: 'Word Formation (Part 6)',
+    labelVi: 'Biến đổi từ',
+    icon: '🔤',
+    description: 'KET Part 6: Cho từ gốc, biến đổi điền vào chỗ trống',
+    editor: 'WordFormEditor',
+    defaultData: {
+      sentences: [
+        { sentence: '', rootWord: '', correctAnswer: '' },
+        { sentence: '', rootWord: '', correctAnswer: '' },
+        { sentence: '', rootWord: '', correctAnswer: '' },
+        { sentence: '', rootWord: '', correctAnswer: '' },
+        { sentence: '', rootWord: '', correctAnswer: '' },
+        { sentence: '', rootWord: '', correctAnswer: '' },
+      ],
+    },
+    supportedTests: ['ket-reading', 'pet-reading'],
+  },
+
   'sentence-transformation': {
     id: 'sentence-transformation',
     label: 'Sentence Transformation',
     labelVi: 'Biến đổi câu',
     icon: '🔄',
     description: 'Viết lại câu giữ nguyên nghĩa',
-    editor: 'SentenceTransformationEditor', // Will create later
+    editor: 'SentenceTransformationEditor',
     defaultData: {
       originalSentence: '',
       promptWord: '',
       correctAnswer: '',
     },
     supportedTests: ['ket-reading', 'pet-reading'],
+  },
+
+  // =========== KET/PET WRITING ===========
+  'short-message': {
+    id: 'short-message',
+    label: 'Short Message/Email (Part 7)',
+    labelVi: 'Tin nhắn ngắn/Email (Part 7)',
+    icon: '✉️',
+    description: 'Viết tin nhắn ngắn (KET Part 7: 25-35 words)',
+    editor: 'ShortMessageEditor',
+    defaultData: {
+      situation: '', // Mô tả tình huống
+      recipient: '', // Người nhận (friend, teacher, etc.)
+      messageType: 'email', // email, note, postcard
+      bulletPoints: ['', '', ''], // 3 bullet points
+      wordLimit: { min: 25, max: 35 },
+      sampleAnswer: '', // Sample answer cho teacher
+    },
+    supportedTests: ['ket-reading', 'pet-reading'],
+  },
+
+  'story-writing': {
+    id: 'story-writing',
+    label: 'Story Writing',
+    labelVi: 'Viết truyện ngắn',
+    icon: '📖',
+    description: 'Viết truyện ngắn (PET Part 7: ~100 words)',
+    editor: 'StoryWritingEditor',
+    defaultData: {
+      openingSentence: '', // Câu mở đầu bắt buộc
+      prompt: '', // Hướng dẫn thêm
+      wordLimit: { min: 80, max: 100 },
+      sampleAnswer: '',
+    },
+    supportedTests: ['pet-reading'],
   },
 
   // =========== YOUNG LEARNERS SPECIFIC ===========
@@ -378,20 +524,23 @@ export const TEST_CONFIGS = {
     parts: 7,
     duration: 60, // minutes
     questionTypes: [
-      'abc',
-      'matching',
-      'fill',
-      'cloze-test',
-      'sentence-transformation',
+      // Part-specific editors for KET Reading & Writing
+      'sign-message',      // Part 1: Signs & Messages
+      'people-matching',   // Part 2: Matching People & Texts
+      'long-text-mc',      // Part 3: Long Text + MC
+      'cloze-mc',          // Part 4: Multiple Choice Cloze
+      'cloze-test',        // Part 5: Open Cloze
+      'word-form',         // Part 6: Word Formation
+      'short-message',     // Part 7: Writing Task
     ],
     partStructure: [
-      { part: 1, questions: '1-6', description: 'Signs & Messages - Multiple Choice' },
-      { part: 2, questions: '7-13', description: 'Matching - People & Texts' },
-      { part: 3, questions: '14-18', description: 'Long Text - Multiple Choice' },
-      { part: 4, questions: '19-24', description: 'Cloze Test - Multiple Choice' },
-      { part: 5, questions: '25-30', description: 'Cloze Test - Open Gap Fill' },
-      { part: 6, questions: '31-35', description: 'Sentence Transformation' },
-      { part: 7, questions: 'Writing', description: 'Writing Task' },
+      { part: 1, questions: '1-6', questionType: 'sign-message', description: 'Signs & Messages - Hình biển báo + chọn A/B/C' },
+      { part: 2, questions: '7-13', questionType: 'people-matching', description: 'Matching - 5 người nối với 8 texts' },
+      { part: 3, questions: '14-18', questionType: 'long-text-mc', description: 'Long Text - Đoạn văn dài + 5 câu MC' },
+      { part: 4, questions: '19-24', questionType: 'cloze-mc', description: 'Cloze MC - Chọn từ A/B/C cho mỗi blank' },
+      { part: 5, questions: '25-30', questionType: 'cloze-test', description: 'Open Cloze - Điền từ vào chỗ trống' },
+      { part: 6, questions: '31-36', questionType: 'word-form', description: 'Word Formation - Biến đổi từ' },
+      { part: 7, questions: 'Writing', questionType: 'short-message', description: 'Writing Task - Short Message (25-35 words)' },
     ],
   },
 

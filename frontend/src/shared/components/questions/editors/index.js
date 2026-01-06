@@ -11,3 +11,15 @@ export { default as FormCompletionEditor } from './FormCompletionEditor';
 export { default as NotesCompletionEditor } from './NotesCompletionEditor';
 export { default as MapLabelingEditor } from './MapLabelingEditor';
 export { default as FlowchartEditor } from './FlowchartEditor';
+
+// Cambridge KET/PET specific
+export { default as ClozeTestEditor } from './ClozeTestEditor';
+export { default as SentenceTransformationEditor } from './SentenceTransformationEditor';
+export { default as ShortMessageEditor } from './ShortMessageEditor';
+
+// KET Part-specific editors
+export { default as SignMessageEditor } from './SignMessageEditor'; // Part 1
+export { default as PeopleMatchingEditor } from './PeopleMatchingEditor'; // Part 2
+export { default as LongTextMCEditor } from './LongTextMCEditor'; // Part 3
+export { default as ClozeMCEditor } from './ClozeMCEditor'; // Part 4
+export { default as WordFormEditor } from './WordFormEditor'; // Part 6
