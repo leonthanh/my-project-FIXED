@@ -21,11 +21,11 @@ import React from "react";
  * @param {number} props.startingNumber - Số câu bắt đầu (thường 27)
  */
 const WordFormEditor = ({
-  question,
+  question = {},
   onChange,
   startingNumber = 27,
 }) => {
-  const sentences = question.sentences || [
+  const sentences = question?.sentences || [ 
     { sentence: '', rootWord: '', correctAnswer: '' },
     { sentence: '', rootWord: '', correctAnswer: '' },
     { sentence: '', rootWord: '', correctAnswer: '' },

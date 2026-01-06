@@ -8,6 +8,58 @@ const { logError } = require("../logger");
  * Routes cho việc quản lý các đề thi Cambridge (KET, PET, etc.)
  */
 
+// ===== GET ALL CAMBRIDGE TESTS (Reading + Listening combined) =====
+router.get("/", async (req, res) => {
+  try {
+    const { testType } = req.query;
+    const where = testType ? { testType } : {};
+
+    // Fetch both reading and listening tests
+    const [readingTests, listeningTests] = await Promise.all([
+      CambridgeReading.findAll({
+        where,
+        order: [["createdAt", "DESC"]],
+        attributes: [
+          "id",
+          "title", 
+          "classCode",
+          "teacherName",
+          "testType",
+          "totalQuestions",
+          "status",
+          "createdAt",
+        ],
+      }),
+      CambridgeListening.findAll({
+        where,
+        order: [["createdAt", "DESC"]],
+        attributes: [
+          "id",
+          "title",
+          "classCode",
+          "teacherName", 
+          "testType",
+          "totalQuestions",
+          "status",
+          "createdAt",
+        ],
+      }),
+    ]);
+
+    // Add category tag to distinguish
+    const allTests = [
+      ...readingTests.map(t => ({ ...t.toJSON(), category: 'reading' })),
+      ...listeningTests.map(t => ({ ...t.toJSON(), category: 'listening' })),
+    ].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+    res.json(allTests);
+  } catch (err) {
+    console.error("❌ Lỗi khi lấy danh sách Cambridge tests:", err);
+    logError("Lỗi khi lấy danh sách Cambridge tests", err);
+    res.status(500).json({ message: "Lỗi server khi lấy danh sách đề thi." });
+  }
+});
+
 // ===== LISTENING TESTS =====
 
 // GET all listening tests
@@ -123,7 +175,7 @@ router.put("/listening-tests/:id", async (req, res) => {
       classCode: classCode || test.classCode,
       teacherName: teacherName || test.teacherName,
       testType: testType || test.testType,
-      parts: parts ? JSON.stringify(parts) : test.parts,
+      parts: parts || test.parts, // JSON type - Sequelize handles serialization
       totalQuestions: totalQuestions ?? test.totalQuestions,
       status: status || test.status,
     });
@@ -231,7 +283,7 @@ router.post("/reading-tests", async (req, res) => {
       classCode,
       teacherName: teacherName || '',
       testType,
-      parts: JSON.stringify(parts),
+      parts: parts, // JSON type - Sequelize handles serialization
       totalQuestions: totalQuestions || 0,
       status: 'draft',
     });
@@ -273,7 +325,7 @@ router.put("/reading-tests/:id", async (req, res) => {
       classCode: classCode || test.classCode,
       teacherName: teacherName || test.teacherName,
       testType: testType || test.testType,
-      parts: parts ? JSON.stringify(parts) : test.parts,
+      parts: parts || test.parts, // JSON type - Sequelize handles serialization
       totalQuestions: totalQuestions ?? test.totalQuestions,
       status: status || test.status,
     });

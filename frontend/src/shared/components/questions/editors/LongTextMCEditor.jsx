@@ -18,14 +18,14 @@ import React from "react";
  * @param {number} props.startingNumber - Số câu bắt đầu (thường 11)
  */
 const LongTextMCEditor = ({
-  question,
+  question = {},
   onChange,
   startingNumber = 11,
 }) => {
-  const passageTitle = question.passageTitle || '';
-  const passage = question.passage || '';
-  const passageType = question.passageType || 'conversation'; // conversation, article, email, story
-  const questions = question.questions || [
+  const passageTitle = question?.passageTitle || '';
+  const passage = question?.passage || '';
+  const passageType = question?.passageType || 'conversation'; // conversation, article, email, story
+  const questions = question?.questions || [ 
     { questionText: '', options: ['A. ', 'B. ', 'C. '], correctAnswer: '' },
     { questionText: '', options: ['A. ', 'B. ', 'C. '], correctAnswer: '' },
     { questionText: '', options: ['A. ', 'B. ', 'C. '], correctAnswer: '' },

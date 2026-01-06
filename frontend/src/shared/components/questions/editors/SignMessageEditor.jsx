@@ -16,15 +16,15 @@ import React from "react";
  * @param {number} props.startingNumber - Số câu hỏi (hiển thị)
  */
 const SignMessageEditor = ({
-  question,
+  question = {},
   onChange,
   startingNumber = 1,
 }) => {
-  const imageUrl = question.imageUrl || '';
-  const imageAlt = question.imageAlt || '';
-  const signText = question.signText || ''; // Optional: text on the sign
-  const options = question.options || ['A. ', 'B. ', 'C. '];
-  const correctAnswer = question.correctAnswer || '';
+  const imageUrl = question?.imageUrl || '';
+  const imageAlt = question?.imageAlt || '';
+  const signText = question?.signText || ''; // Optional: text on the sign
+  const options = question?.options || ['A. ', 'B. ', 'C. '];
+  const correctAnswer = question?.correctAnswer || ''; 
 
   return (
     <div>

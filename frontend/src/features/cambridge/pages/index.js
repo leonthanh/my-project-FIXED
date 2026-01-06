@@ -3,6 +3,7 @@
 // Admin - Create/Edit pages
 export { default as CreateKETListeningTest } from './CreateKETListeningTest';
 export { default as CreateKETReadingTest } from './CreateKETReadingTest';
+export { default as EditCambridgeReadingTest } from './EditCambridgeReadingTest';
 
 // Student - Select and Do test pages
 export { default as SelectCambridgeTest } from './SelectCambridgeTest';
