@@ -129,9 +129,21 @@ const DoCambridgeReadingTest = () => {
       if (!res.ok) throw new Error("Lỗi khi nộp bài");
 
       const data = await res.json();
-      setResults(data);
-      setSubmitted(true);
-      setShowConfirm(false);
+      
+      // Navigate to result page with submission data
+      navigate(`/cambridge/result/${data.submissionId}`, {
+        state: {
+          submission: {
+            ...data,
+            testTitle: test?.title,
+            testType: testType,
+            timeSpent,
+            classCode: test?.classCode,
+            submittedAt: new Date().toISOString()
+          },
+          test
+        }
+      });
     } catch (err) {
       console.error("Error submitting:", err);
       // Calculate locally if backend not ready
