@@ -133,10 +133,24 @@ const DoCambridgeListeningTest = () => {
   // Confirm and submit
   const confirmSubmit = async () => {
     try {
+      // Get user info from localStorage
+      const user = JSON.parse(localStorage.getItem("user") || "{}");
+      const initialTime = (testConfig.duration || 30) * 60;
+      const timeSpent = initialTime - timeRemaining;
+
       const res = await fetch(apiPath(`cambridge/listening-tests/${id}/submit`), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ answers }),
+        body: JSON.stringify({ 
+          answers,
+          studentName: user.name || user.username || 'Unknown',
+          studentPhone: user.phone || null,
+          studentEmail: user.email || null,
+          classCode: test?.classCode || null,
+          userId: user.id || null,
+          timeRemaining,
+          timeSpent
+        }),
       });
 
       if (!res.ok) throw new Error("Lỗi khi nộp bài");
