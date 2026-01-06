@@ -376,6 +376,34 @@ const AdminNavbar = () => {
               >
                 📖 PET Reading (Sắp ra)
               </Link>
+              <div style={{
+                padding: "8px 15px",
+                color: "#666",
+                fontSize: "12px",
+                fontWeight: "bold",
+                borderBottom: "1px solid #eee",
+                background: "#f8f8f8",
+                marginTop: "4px",
+              }}>
+                📊 Quản lý
+              </div>
+              <Link
+                to="/admin/cambridge-submissions"
+                style={{
+                  display: "block",
+                  padding: "10px 15px",
+                  color: "#333",
+                  textDecoration: "none",
+                  transition: "background 0.2s",
+                }}
+                onClick={() => setCambridgeDropdownVisible(false)}
+                onMouseOver={(e) =>
+                  (e.currentTarget.style.background = "#f0f0f0")
+                }
+                onMouseOut={(e) => (e.currentTarget.style.background = "white")}
+              >
+                📋 Xem bài làm
+              </Link>
             </div>
           )}
         </div>

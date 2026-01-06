@@ -6,3 +6,4 @@ export { default as EditTest } from './EditTest';
 export { default as SelectTest } from './SelectTest';
 export { default as MyFeedback } from './MyFeedback';
 export { default as AdminReadingSubmissions } from './AdminReadingSubmissions';
+export { default as CambridgeSubmissionsPage } from './CambridgeSubmissionsPage';
