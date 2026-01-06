@@ -10,6 +10,7 @@ const SelectTest = () => {
     writing: [],
     reading: [],
     listening: [],
+    cambridge: [],
   });
   const [activeTab, setActiveTab] = useState("writing");
   const [loading, setLoading] = useState(true);
@@ -19,20 +20,23 @@ const SelectTest = () => {
     const fetchAllTests = async () => {
       try {
         setLoading(true);
-        const [writingRes, readingRes, listeningRes] = await Promise.all([
+        const [writingRes, readingRes, listeningRes, cambridgeRes] = await Promise.all([
           fetch(apiPath("writing-tests")),
           fetch(apiPath("reading-tests")),
           fetch(apiPath("listening-tests")),
+          fetch(apiPath("cambridge")), // Route: /api/cambridge
         ]);
 
         const writingData = await writingRes.json();
         const readingData = await readingRes.json();
         const listeningData = await listeningRes.json();
+        const cambridgeData = cambridgeRes.ok ? await cambridgeRes.json() : [];
 
         setTests({
           writing: Array.isArray(writingData) ? writingData : [],
           reading: Array.isArray(readingData) ? readingData : [],
           listening: Array.isArray(listeningData) ? listeningData : [],
+          cambridge: Array.isArray(cambridgeData) ? cambridgeData : [],
         });
       } catch (err) {
         console.error("❌ Lỗi khi tải đề:", err);
@@ -40,6 +44,7 @@ const SelectTest = () => {
           writing: [],
           reading: [],
           listening: [],
+          cambridge: [],
         });
       } finally {
         setLoading(false);
@@ -67,13 +72,29 @@ const SelectTest = () => {
     navigate(`/listening/${testId}`);
   };
 
-  const handleEdit = (testId, testType) => {
+  const handleSelectCambridge = (test) => {
+    // Navigate based on category (reading or listening)
+    if (test.category === 'listening') {
+      navigate(`/cambridge/listening/${test.id}`);
+    } else {
+      navigate(`/cambridge/reading/${test.id}`);
+    }
+  };
+
+  const handleEdit = (testId, testType, test = null) => {
     if (testType === "writing") {
       navigate(`/edit-test/${testId}`);
     } else if (testType === "reading") {
       navigate(`/reading-tests/${testId}/edit`);
     } else if (testType === "listening") {
       navigate(`/listening/${testId}/edit`);
+    } else if (testType === "cambridge" && test) {
+      // Navigate based on category
+      if (test.category === 'listening') {
+        navigate(`/cambridge/listening/${testId}/edit`);
+      } else {
+        navigate(`/cambridge/reading/${testId}/edit`);
+      }
     }
   };
 
@@ -103,6 +124,7 @@ const SelectTest = () => {
               if (testType === "writing") handleSelectWriting(test.id);
               else if (testType === "reading") handleSelectReading(test.id);
               else if (testType === "listening") handleSelectListening(test.id);
+              else if (testType === "cambridge") handleSelectCambridge(test);
             }}
             style={{
               backgroundColor: "#0e276f",
@@ -121,15 +143,18 @@ const SelectTest = () => {
                 ? "📝"
                 : testType === "reading"
                 ? "📖"
-                : "🎧"}{" "}
-              {testType.charAt(0).toUpperCase() + testType.slice(1)}{" "}
-              {test.index || index + 1} – {test.classCode || "N/A"} –{" "}
+                : testType === "listening"
+                ? "🎧"
+                : "🏆"}{" "}
+              {testType === "cambridge" 
+                ? `${test.testType?.toUpperCase() || 'KET'} ${test.category === 'listening' ? '🎧' : '📖'} ${test.title || ''}`
+                : `${testType.charAt(0).toUpperCase() + testType.slice(1)} ${test.index || index + 1}`} – {test.classCode || "N/A"} –{" "}
               {test.teacherName || "N/A"}
             </h3>
           </button>
           {isTeacher && (
             <button
-              onClick={() => handleEdit(test.id, testType)}
+              onClick={() => handleEdit(test.id, testType, test)}
               style={{
                 backgroundColor: "#e03",
                 color: "white",
@@ -189,9 +214,10 @@ const SelectTest = () => {
               marginBottom: "30px",
               borderBottom: "2px solid #eee",
               padding: "0 0 20px 0",
+              flexWrap: "wrap",
             }}
           >
-            {["writing", "reading", "listening"].map((tab) => (
+            {["writing", "reading", "listening", "cambridge"].map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
@@ -210,7 +236,9 @@ const SelectTest = () => {
                   ? "📝 Writing"
                   : tab === "reading"
                   ? "📖 Reading"
-                  : "🎧 Listening"}
+                  : tab === "listening"
+                  ? "🎧 Listening"
+                  : "🏆 Cambridge"}
               </button>
             ))}
           </div>
