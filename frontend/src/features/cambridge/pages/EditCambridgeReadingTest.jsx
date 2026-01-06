@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { AdminNavbar } from "../../../shared/components";
 import { 
@@ -20,7 +20,8 @@ const EditCambridgeReadingTest = () => {
   const navigate = useNavigate();
   const testType = 'ket-reading';
   const testConfig = getTestConfig(testType);
-  const availableTypes = getQuestionTypesForTest(testType);
+  // Memoize available types so the array identity doesn't change each render
+  const availableTypes = useMemo(() => getQuestionTypesForTest(testType), [testType]);
 
   // Loading states
   const [loading, setLoading] = useState(true);
@@ -76,7 +77,7 @@ const EditCambridgeReadingTest = () => {
     };
 
     if (id) fetchTest();
-  }, [id, availableTypes]);
+  }, [id]);
 
   const currentPart = parts[selectedPartIndex];
   const currentSection = currentPart?.sections?.[selectedSectionIndex];
