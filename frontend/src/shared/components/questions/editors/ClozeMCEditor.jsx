@@ -23,7 +23,7 @@ const ClozeMCEditor = ({
 }) => {
   const passageTitle = question?.passageTitle || '';
   const passage = question?.passage || '';
-  const blanks = question?.blanks || [
+  const blanks = question?.blanks || [ 
     { number: 16, options: ['A. ', 'B. ', 'C. '], correctAnswer: '' },
     { number: 17, options: ['A. ', 'B. ', 'C. '], correctAnswer: '' },
     { number: 18, options: ['A. ', 'B. ', 'C. '], correctAnswer: '' },

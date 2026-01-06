@@ -25,7 +25,7 @@ const LongTextMCEditor = ({
   const passageTitle = question?.passageTitle || '';
   const passage = question?.passage || '';
   const passageType = question?.passageType || 'conversation'; // conversation, article, email, story
-  const questions = question?.questions || [
+  const questions = question?.questions || [ 
     { questionText: '', options: ['A. ', 'B. ', 'C. '], correctAnswer: '' },
     { questionText: '', options: ['A. ', 'B. ', 'C. '], correctAnswer: '' },
     { questionText: '', options: ['A. ', 'B. ', 'C. '], correctAnswer: '' },

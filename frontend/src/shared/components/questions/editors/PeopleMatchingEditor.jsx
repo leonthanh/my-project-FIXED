@@ -24,13 +24,14 @@ const PeopleMatchingEditor = ({
   startingNumber = 6, // Part 2 thường bắt đầu từ câu 6
 }) => {
   const description = question?.description || '';
-  const people = question?.people || [
+  const people = question?.people || [ 
     { id: 'A', name: '', need: '' },
     { id: 'B', name: '', need: '' },
     { id: 'C', name: '', need: '' },
     { id: 'D', name: '', need: '' },
     { id: 'E', name: '', need: '' },
   ];
+
   const texts = question?.texts || [
     { id: '1', title: '', content: '' },
     { id: '2', title: '', content: '' },
@@ -41,6 +42,7 @@ const PeopleMatchingEditor = ({
     { id: '7', title: '', content: '' },
     { id: '8', title: '', content: '' },
   ];
+
   const answers = question?.answers || {}; // { A: '3', B: '1', ... }
 
   const handlePeopleChange = (index, field, value) => {

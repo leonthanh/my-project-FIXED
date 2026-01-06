@@ -24,7 +24,7 @@ const SignMessageEditor = ({
   const imageAlt = question?.imageAlt || '';
   const signText = question?.signText || ''; // Optional: text on the sign
   const options = question?.options || ['A. ', 'B. ', 'C. '];
-  const correctAnswer = question?.correctAnswer || '';
+  const correctAnswer = question?.correctAnswer || ''; 
 
   return (
     <div>

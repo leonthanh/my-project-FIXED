@@ -25,7 +25,7 @@ const WordFormEditor = ({
   onChange,
   startingNumber = 27,
 }) => {
-  const sentences = question?.sentences || [
+  const sentences = question?.sentences || [ 
     { sentence: '', rootWord: '', correctAnswer: '' },
     { sentence: '', rootWord: '', correctAnswer: '' },
     { sentence: '', rootWord: '', correctAnswer: '' },
