@@ -11,6 +11,12 @@ import {
   ClozeTestEditor,
   SentenceTransformationEditor,
   ShortMessageEditor,
+  // KET Part-specific editors
+  SignMessageEditor,
+  PeopleMatchingEditor,
+  LongTextMCEditor,
+  ClozeMCEditor,
+  WordFormEditor,
 } from "./editors";
 
 /**
@@ -85,6 +91,22 @@ const QuestionEditorFactory = ({
 
     case 'short-message':
       return <ShortMessageEditor {...commonProps} />;
+
+    // KET Part-specific editors
+    case 'sign-message':
+      return <SignMessageEditor {...commonProps} />;
+
+    case 'people-matching':
+      return <PeopleMatchingEditor {...commonProps} />;
+
+    case 'long-text-mc':
+      return <LongTextMCEditor {...commonProps} />;
+
+    case 'cloze-mc':
+      return <ClozeMCEditor {...commonProps} />;
+
+    case 'word-form':
+      return <WordFormEditor {...commonProps} />;
 
     // Placeholder for future types
     case 'true-false-not-given':
