@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { AdminNavbar } from "../../shared/components";
 import { 
@@ -17,7 +17,7 @@ import { apiPath } from "../../shared/utils/api";
  * CambridgeTestBuilder - Component cho việc tạo đề Cambridge tests
  * Có thể dùng cho: KET, PET, FLYERS, MOVERS, STARTERS
  */
-const CambridgeTestBuilder = ({ testType = 'ket-listening' }) => {
+const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initialData = null }) => {
   const navigate = useNavigate();
   const testConfig = getTestConfig(testType);
   const availableTypes = getQuestionTypesForTest(testType);
@@ -28,6 +28,30 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening' }) => {
   const [teacherName, setTeacherName] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
+
+  // Support edit mode via props
+  useEffect(() => {
+    if (initialData) {
+      setTitle(initialData.title || '');
+      setClassCode(initialData.classCode || '');
+      setTeacherName(initialData.teacherName || '');
+
+      // parts may be stored as string in older records -> parse safely
+      let partsData = initialData.parts;
+      if (typeof partsData === 'string') {
+        try {
+          partsData = JSON.parse(partsData);
+        } catch (err) {
+          console.warn('Could not parse parts JSON - falling back to default:', err);
+          partsData = null;
+        }
+      }
+
+      if (Array.isArray(partsData)) {
+        setParts(partsData);
+      }
+    }
+  }, [initialData]);
 
   // State
   const [parts, setParts] = useState([
@@ -163,19 +187,33 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening' }) => {
       const isListening = testType.includes('listening');
       const endpoint = isListening ? 'cambridge/listening-tests' : 'cambridge/reading-tests';
 
-      const response = await fetch(apiPath(endpoint), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
+      // If editId is provided, update instead of create
+      if (editId) {
+        const res = await fetch(apiPath(`${endpoint}/${editId}`), {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        if (!res.ok) {
+          const err = await res.json();
+          throw new Error(err.message || 'Lỗi khi cập nhật đề');
+        }
+        setMessage({ type: 'success', text: '✅ Cập nhật đề thành công!' });
+      } else {
+        const response = await fetch(apiPath(endpoint), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
 
-      if (!response.ok) {
-        throw new Error('Lỗi khi lưu đề thi');
+        if (!response.ok) {
+          throw new Error('Lỗi khi lưu đề thi');
+        }
+
+        const result = await response.json();
+        setMessage({ type: 'success', text: '✅ Tạo đề thành công!' });
       }
 
-      const result = await response.json();
-      setMessage({ type: 'success', text: '✅ Tạo đề thành công!' });
-      
       // Redirect after success
       setTimeout(() => {
         navigate('/select-test');

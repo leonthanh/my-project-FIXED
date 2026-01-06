@@ -11,6 +11,7 @@ import {
   getTestConfig,
 } from "../../../shared/config/questionTypes";
 import { apiPath } from "../../../shared/utils/api";
+import CambridgeTestBuilder from "../CambridgeTestBuilder";
 
 /**
  * EditCambridgeReadingTest - Trang sửa đề Cambridge Reading
@@ -39,35 +40,28 @@ const EditCambridgeReadingTest = () => {
   const [selectedSectionIndex, setSelectedSectionIndex] = useState(0);
 
   // Fetch test data on mount
+  const [fetchedData, setFetchedData] = useState(null);
+
   useEffect(() => {
     const fetchTest = async () => {
       try {
         setLoading(true);
         const res = await fetch(apiPath(`cambridge/reading-tests/${id}`));
         if (!res.ok) throw new Error('Không thể tải đề thi');
-        
+
         const data = await res.json();
-        
-        setTitle(data.title || '');
-        setClassCode(data.classCode || '');
-        setTeacherName(data.teacherName || '');
-        
-        // Parse parts from data
-        if (data.parts && Array.isArray(data.parts)) {
-          setParts(data.parts);
-        } else {
-          // Default empty part
-          setParts([{
-            partNumber: 1,
-            title: 'Part 1',
-            instruction: '',
-            sections: [{
-              sectionTitle: '',
-              questionType: availableTypes[0]?.id || 'fill',
-              questions: [getDefaultQuestionData(availableTypes[0]?.id || 'fill')],
-            }]
-          }]);
+
+        // Ensure parts is parsed if string
+        if (typeof data.parts === 'string') {
+          try {
+            data.parts = JSON.parse(data.parts);
+          } catch (err) {
+            console.warn('Could not parse parts JSON from DB:', err);
+            data.parts = null;
+          }
         }
+
+        setFetchedData(data);
       } catch (err) {
         console.error('❌ Lỗi khi tải đề:', err);
         setMessage({ type: 'error', text: 'Không thể tải đề thi. ' + err.message });
@@ -78,6 +72,20 @@ const EditCambridgeReadingTest = () => {
 
     if (id) fetchTest();
   }, [id]);
+
+  if (loading) {
+    return (
+      <>
+        <AdminNavbar />
+        <div style={{ padding: '50px', textAlign: 'center' }}>
+          <p>⏳ Đang tải đề thi...</p>
+        </div>
+      </>
+    );
+  }
+
+  // Render the creator with initial data for identical UI
+  return <CambridgeTestBuilder testType={testType} editId={id} initialData={fetchedData} />;
 
   const currentPart = parts[selectedPartIndex];
   const currentSection = currentPart?.sections?.[selectedSectionIndex];
