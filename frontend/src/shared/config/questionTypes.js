@@ -264,6 +264,41 @@ export const QUESTION_TYPES = {
     supportedTests: ['ket-reading', 'pet-reading'],
   },
 
+  // =========== KET/PET WRITING ===========
+  'short-message': {
+    id: 'short-message',
+    label: 'Short Message/Email',
+    labelVi: 'Tin nhắn ngắn/Email',
+    icon: '✉️',
+    description: 'Viết tin nhắn ngắn (KET Part 7: 25-35 words)',
+    editor: 'ShortMessageEditor',
+    defaultData: {
+      situation: '', // Mô tả tình huống
+      recipient: '', // Người nhận (friend, teacher, etc.)
+      messageType: 'email', // email, note, postcard
+      bulletPoints: ['', '', ''], // 3 bullet points
+      wordLimit: { min: 25, max: 35 },
+      sampleAnswer: '', // Sample answer cho teacher
+    },
+    supportedTests: ['ket-reading', 'pet-reading'],
+  },
+
+  'story-writing': {
+    id: 'story-writing',
+    label: 'Story Writing',
+    labelVi: 'Viết truyện ngắn',
+    icon: '📖',
+    description: 'Viết truyện ngắn (PET Part 7: ~100 words)',
+    editor: 'StoryWritingEditor',
+    defaultData: {
+      openingSentence: '', // Câu mở đầu bắt buộc
+      prompt: '', // Hướng dẫn thêm
+      wordLimit: { min: 80, max: 100 },
+      sampleAnswer: '',
+    },
+    supportedTests: ['pet-reading'],
+  },
+
   // =========== YOUNG LEARNERS SPECIFIC ===========
   'matching-pictures': {
     id: 'matching-pictures',
@@ -383,6 +418,7 @@ export const TEST_CONFIGS = {
       'fill',
       'cloze-test',
       'sentence-transformation',
+      'short-message', // Part 7 Writing Task
     ],
     partStructure: [
       { part: 1, questions: '1-6', description: 'Signs & Messages - Multiple Choice' },
@@ -391,7 +427,7 @@ export const TEST_CONFIGS = {
       { part: 4, questions: '19-24', description: 'Cloze Test - Multiple Choice' },
       { part: 5, questions: '25-30', description: 'Cloze Test - Open Gap Fill' },
       { part: 6, questions: '31-35', description: 'Sentence Transformation' },
-      { part: 7, questions: 'Writing', description: 'Writing Task' },
+      { part: 7, questions: 'Writing', description: 'Writing Task - Short Message (25-35 words)' },
     ],
   },
 

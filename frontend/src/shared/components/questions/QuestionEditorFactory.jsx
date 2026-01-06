@@ -8,6 +8,9 @@ import {
   NotesCompletionEditor,
   MapLabelingEditor,
   FlowchartEditor,
+  ClozeTestEditor,
+  SentenceTransformationEditor,
+  ShortMessageEditor,
 } from "./editors";
 
 /**
@@ -74,17 +77,25 @@ const QuestionEditorFactory = ({
     case 'flowchart':
       return <FlowchartEditor {...commonProps} />;
 
+    case 'cloze-test':
+      return <ClozeTestEditor {...commonProps} />;
+
+    case 'sentence-transformation':
+      return <SentenceTransformationEditor {...commonProps} />;
+
+    case 'short-message':
+      return <ShortMessageEditor {...commonProps} />;
+
     // Placeholder for future types
     case 'true-false-not-given':
     case 'yes-no-not-given':
     case 'matching-headings':
     case 'paragraph-matching':
-    case 'cloze-test':
     case 'sentence-completion':
-    case 'sentence-transformation':
     case 'matching-pictures':
     case 'multiple-choice-pictures':
     case 'tick-cross':
+    case 'story-writing':
       return (
         <div style={{
           padding: "20px",

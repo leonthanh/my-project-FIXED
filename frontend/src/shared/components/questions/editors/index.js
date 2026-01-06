@@ -11,3 +11,8 @@ export { default as FormCompletionEditor } from './FormCompletionEditor';
 export { default as NotesCompletionEditor } from './NotesCompletionEditor';
 export { default as MapLabelingEditor } from './MapLabelingEditor';
 export { default as FlowchartEditor } from './FlowchartEditor';
+
+// Cambridge KET/PET specific
+export { default as ClozeTestEditor } from './ClozeTestEditor';
+export { default as SentenceTransformationEditor } from './SentenceTransformationEditor';
+export { default as ShortMessageEditor } from './ShortMessageEditor';
