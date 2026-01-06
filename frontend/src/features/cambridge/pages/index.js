@@ -8,3 +8,6 @@ export { default as CreateKETReadingTest } from './CreateKETReadingTest';
 export { default as SelectCambridgeTest } from './SelectCambridgeTest';
 export { default as DoCambridgeListeningTest } from './DoCambridgeListeningTest';
 export { default as DoCambridgeReadingTest } from './DoCambridgeReadingTest';
+
+// Result page
+export { default as CambridgeResultPage } from './CambridgeResultPage';

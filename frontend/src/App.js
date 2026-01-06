@@ -2,12 +2,12 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 
 // Import from new feature-based structure
-import { EditTest, AdminWritingSubmissions, SelectTest, MyFeedback, ReviewSubmission, Review, AdminReadingSubmissions } from './features/admin';
+import { EditTest, AdminWritingSubmissions, SelectTest, MyFeedback, ReviewSubmission, Review, AdminReadingSubmissions, CambridgeSubmissionsPage } from './features/admin';
 import { WritingTest, CreateWritingTest } from './features/writing';
 import { Login } from './features/auth';
 import { CreateReadingTest, EditReadingTest, DoReadingTest, TakeReadingTest, ReadingResults } from './features/reading';
 import { CreateListeningTest, EditListeningTest, DoListeningTest, ListeningResults } from './features/listening';
-import { CreateKETListeningTest, CreateKETReadingTest, SelectCambridgeTest, DoCambridgeListeningTest, DoCambridgeReadingTest } from './features/cambridge';
+import { CreateKETListeningTest, CreateKETReadingTest, SelectCambridgeTest, DoCambridgeListeningTest, DoCambridgeReadingTest, CambridgeResultPage } from './features/cambridge';
 import { ProtectedRoute } from './shared/components';
 
 const isLoggedIn = () => {
@@ -102,6 +102,11 @@ function App() {
             <CreateKETReadingTest />
           </ProtectedRoute>
         } />
+        <Route path="/admin/cambridge-submissions" element={
+          <ProtectedRoute role="teacher">
+            <CambridgeSubmissionsPage />
+          </ProtectedRoute>
+        } />
         
         {/* Cambridge Student Routes */}
         <Route path="/cambridge" element={isLoggedIn() ? <SelectCambridgeTest /> : <Navigate to="/login" replace />} />
@@ -109,6 +114,7 @@ function App() {
         <Route path="/cambridge/pet-listening/:id" element={isLoggedIn() ? <DoCambridgeListeningTest /> : <Navigate to="/login" replace />} />
         <Route path="/cambridge/ket-reading/:id" element={isLoggedIn() ? <DoCambridgeReadingTest /> : <Navigate to="/login" replace />} />
         <Route path="/cambridge/pet-reading/:id" element={isLoggedIn() ? <DoCambridgeReadingTest /> : <Navigate to="/login" replace />} />
+        <Route path="/cambridge/result/:submissionId" element={isLoggedIn() ? <CambridgeResultPage /> : <Navigate to="/login" replace />} />
         
         {/* Redirect legacy /admin to canonical writing submissions path */}
         <Route path="/admin" element={

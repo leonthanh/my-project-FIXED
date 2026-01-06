@@ -8,4 +8,5 @@ export {
   SelectCambridgeTest,
   DoCambridgeListeningTest,
   DoCambridgeReadingTest,
+  CambridgeResultPage,
 } from './pages';

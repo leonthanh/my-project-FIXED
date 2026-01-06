@@ -106,18 +106,44 @@ const DoCambridgeReadingTest = () => {
   // Confirm and submit
   const confirmSubmit = async () => {
     try {
+      // Get user info from localStorage
+      const user = JSON.parse(localStorage.getItem("user") || "{}");
+      const initialTime = (testConfig.duration || 60) * 60;
+      const timeSpent = initialTime - timeRemaining;
+
       const res = await fetch(apiPath(`cambridge/reading-tests/${id}/submit`), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ answers }),
+        body: JSON.stringify({ 
+          answers,
+          studentName: user.name || user.username || 'Unknown',
+          studentPhone: user.phone || null,
+          studentEmail: user.email || null,
+          classCode: test?.classCode || null,
+          userId: user.id || null,
+          timeRemaining,
+          timeSpent
+        }),
       });
 
       if (!res.ok) throw new Error("Lỗi khi nộp bài");
 
       const data = await res.json();
-      setResults(data);
-      setSubmitted(true);
-      setShowConfirm(false);
+      
+      // Navigate to result page with submission data
+      navigate(`/cambridge/result/${data.submissionId}`, {
+        state: {
+          submission: {
+            ...data,
+            testTitle: test?.title,
+            testType: testType,
+            timeSpent,
+            classCode: test?.classCode,
+            submittedAt: new Date().toISOString()
+          },
+          test
+        }
+      });
     } catch (err) {
       console.error("Error submitting:", err);
       // Calculate locally if backend not ready
