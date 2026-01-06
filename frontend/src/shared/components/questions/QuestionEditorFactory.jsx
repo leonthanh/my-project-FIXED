@@ -23,22 +23,28 @@ import {
  * QuestionEditorFactory - Render đúng editor component dựa trên question type
  * 
  * @param {string} questionType - ID của question type
- * @param {Object} question - Question data
- * @param {Function} onChange - Handler khi thay đổi field
+ * @param {Object} question - Question data (alias: questionData)
+ * @param {Function} onChange - Handler khi thay đổi field (alias: onQuestionChange)
  * @param {number} questionIndex - Index của câu hỏi
  * @param {number} startingNumber - Số câu bắt đầu
  */
 const QuestionEditorFactory = ({
   questionType,
   question,
+  questionData, // alias for question
   onChange,
+  onQuestionChange, // alias for onChange
   questionIndex = 0,
   startingNumber = 1,
 }) => {
+  // Support both prop naming conventions
+  const actualQuestion = question || questionData || {};
+  const actualOnChange = onChange || onQuestionChange || (() => {});
+
   // Common props for all editors
   const commonProps = {
-    question,
-    onChange,
+    question: actualQuestion,
+    onChange: actualOnChange,
     startingNumber,
   };
 

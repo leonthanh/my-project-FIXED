@@ -175,7 +175,7 @@ router.put("/listening-tests/:id", async (req, res) => {
       classCode: classCode || test.classCode,
       teacherName: teacherName || test.teacherName,
       testType: testType || test.testType,
-      parts: parts ? JSON.stringify(parts) : test.parts,
+      parts: parts || test.parts, // JSON type - Sequelize handles serialization
       totalQuestions: totalQuestions ?? test.totalQuestions,
       status: status || test.status,
     });
@@ -283,7 +283,7 @@ router.post("/reading-tests", async (req, res) => {
       classCode,
       teacherName: teacherName || '',
       testType,
-      parts: JSON.stringify(parts),
+      parts: parts, // JSON type - Sequelize handles serialization
       totalQuestions: totalQuestions || 0,
       status: 'draft',
     });
@@ -325,7 +325,7 @@ router.put("/reading-tests/:id", async (req, res) => {
       classCode: classCode || test.classCode,
       teacherName: teacherName || test.teacherName,
       testType: testType || test.testType,
-      parts: parts ? JSON.stringify(parts) : test.parts,
+      parts: parts || test.parts, // JSON type - Sequelize handles serialization
       totalQuestions: totalQuestions ?? test.totalQuestions,
       status: status || test.status,
     });

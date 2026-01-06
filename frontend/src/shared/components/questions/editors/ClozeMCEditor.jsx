@@ -17,13 +17,13 @@ import React from "react";
  * @param {number} props.startingNumber - Số câu bắt đầu (thường 16)
  */
 const ClozeMCEditor = ({
-  question,
+  question = {},
   onChange,
   startingNumber = 16,
 }) => {
-  const passageTitle = question.passageTitle || '';
-  const passage = question.passage || '';
-  const blanks = question.blanks || [
+  const passageTitle = question?.passageTitle || '';
+  const passage = question?.passage || '';
+  const blanks = question?.blanks || [
     { number: 16, options: ['A. ', 'B. ', 'C. '], correctAnswer: '' },
     { number: 17, options: ['A. ', 'B. ', 'C. '], correctAnswer: '' },
     { number: 18, options: ['A. ', 'B. ', 'C. '], correctAnswer: '' },
