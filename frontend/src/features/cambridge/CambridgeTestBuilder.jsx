@@ -72,6 +72,30 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
     }
   }, [initialData]);
 
+  // Support edit mode via props
+  useEffect(() => {
+    if (initialData) {
+      setTitle(initialData.title || '');
+      setClassCode(initialData.classCode || '');
+      setTeacherName(initialData.teacherName || '');
+
+      // parts may be stored as string in older records -> parse safely
+      let partsData = initialData.parts;
+      if (typeof partsData === 'string') {
+        try {
+          partsData = JSON.parse(partsData);
+        } catch (err) {
+          console.warn('Could not parse parts JSON - falling back to default:', err);
+          partsData = null;
+        }
+      }
+
+      if (Array.isArray(partsData)) {
+        setParts(partsData);
+      }
+    }
+  }, [initialData]);
+
   // State
   const [parts, setParts] = useState([
     {
