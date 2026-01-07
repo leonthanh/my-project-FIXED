@@ -29,6 +29,9 @@ const DoListeningTest = () => {
   const questionRefs = useRef({});
   const listQuestionRef = useRef(null);
 
+  // Key for persisting timer across page reloads (resets only when the test is submitted)
+  const expiresKey = `listening:${id}:expiresAt`;
+
   // Fetch test data
   useEffect(() => {
     const fetchTest = async () => {
@@ -74,8 +77,16 @@ const DoListeningTest = () => {
         
         setTest(parsedData);
 
-        if (parsedData.duration) {
-          setTimeRemaining(parsedData.duration * 60);
+        const durationSeconds = parsedData.duration ? parsedData.duration * 60 : 30 * 60;
+        const stored = localStorage.getItem(expiresKey);
+        if (stored) {
+          const expiresAt = parseInt(stored, 10);
+          const remaining = Math.max(0, Math.ceil((expiresAt - Date.now()) / 1000));
+          setTimeRemaining(remaining);
+        } else {
+          const expiresAt = Date.now() + durationSeconds * 1000;
+          localStorage.setItem(expiresKey, String(expiresAt));
+          setTimeRemaining(durationSeconds);
         }
       } catch (err) {
         console.error("Error fetching test:", err);
@@ -87,19 +98,22 @@ const DoListeningTest = () => {
     fetchTest();
   }, [id]);
 
-  // Timer countdown
+  // Timer countdown (compute remaining from persisted expiresAt to survive F5)
   useEffect(() => {
     if (submitted || !test) return;
 
+    const stored = localStorage.getItem(expiresKey);
+    const expiresAt = stored ? parseInt(stored, 10) : Date.now() + (test?.duration ? test.duration * 60 * 1000 : 30 * 60 * 1000);
+
     const timer = setInterval(() => {
-      setTimeRemaining((prev) => {
-        if (prev <= 1) {
-          clearInterval(timer);
-          confirmSubmit();
-          return 0;
-        }
-        return prev - 1;
-      });
+      const remaining = Math.max(0, Math.ceil((expiresAt - Date.now()) / 1000));
+      if (remaining <= 0) {
+        clearInterval(timer);
+        setTimeRemaining(0);
+        if (!submitted) confirmSubmit();
+        return;
+      }
+      setTimeRemaining(remaining);
     }, 1000);
 
     return () => clearInterval(timer);
@@ -154,6 +168,8 @@ const DoListeningTest = () => {
 
   // Confirm and submit
   const confirmSubmit = async () => {
+    if (submitted) return; // prevent double-submits
+
     try {
       const res = await fetch(apiPath(`listening-tests/${id}/submit`), {
         method: "POST",
@@ -167,6 +183,13 @@ const DoListeningTest = () => {
       setResults(data);
       setSubmitted(true);
       setShowConfirm(false);
+
+      // Clear persisted timer so next visit starts fresh
+      try {
+        localStorage.removeItem(expiresKey);
+      } catch (e) {
+        // ignore
+      }
     } catch (err) {
       console.error("Error submitting:", err);
       alert("❌ Có lỗi xảy ra khi nộp bài!");
@@ -502,21 +525,84 @@ const DoListeningTest = () => {
       el.scrollIntoView({ behavior: "smooth", block: "center" });
       setActiveQuestion(qNum);
       setTimeout(() => setActiveQuestion(null), 2000);
+      // try to focus the first interactive control inside the question for better UX
+      try {
+        const input = el.querySelector("input, select, textarea, button");
+        if (input) input.focus({ preventScroll: true });
+      } catch (e) {}
     }
   }, []);
 
-  // Navigate to next/prev question
+  // Find currently visible question (center of viewport or nearest to container center)
+  const findVisibleQuestion = useCallback(() => {
+    const keys = Object.keys(questionRefs.current).map(Number).sort((a, b) => a - b);
+    if (keys.length === 0) return null;
+
+    const containerRect = listQuestionRef.current ? listQuestionRef.current.getBoundingClientRect() : null;
+    const centerY = containerRect ? (containerRect.top + containerRect.bottom) / 2 : (typeof window !== 'undefined' ? window.innerHeight / 2 : 0);
+
+    let best = null;
+    let bestDist = Infinity;
+
+    for (const k of keys) {
+      const el = questionRefs.current[k];
+      if (!el || !el.getBoundingClientRect) continue;
+      const r = el.getBoundingClientRect();
+      const elCenter = (r.top + r.bottom) / 2;
+      const dist = Math.abs(elCenter - centerY);
+      if (dist < bestDist) {
+        bestDist = dist;
+        best = k;
+      }
+    }
+
+    return best;
+  }, []);
+
+  // Navigate to next/prev question (robust: use visible question when none is active)
   const navigateQuestion = useCallback(
     (direction) => {
       const range = getPartQuestionRange(currentPartIndex);
-      const current = activeQuestion || range.start;
-      const next =
-        direction === "next"
-          ? Math.min(current + 1, range.end)
-          : Math.max(current - 1, range.start);
-      scrollToQuestion(next);
+      if (!range || (range.start === 0 && range.end === 0)) return;
+
+      const visible = findVisibleQuestion();
+      const current = activeQuestion || visible || range.start;
+      let target = current;
+
+      if (direction === "next") {
+        for (let i = current + 1; i <= range.end; i++) {
+          if (questionRefs.current[i]) {
+            target = i;
+            break;
+          }
+        }
+      } else {
+        for (let i = current - 1; i >= range.start; i--) {
+          if (questionRefs.current[i]) {
+            target = i;
+            break;
+          }
+        }
+      }
+
+      // If still not moved, try wrapping to nearest in the part
+      if (target === current) {
+        const keys = Object.keys(questionRefs.current)
+          .map(Number)
+          .filter((k) => k >= range.start && k <= range.end)
+          .sort((a, b) => a - b);
+        if (keys.length > 0) {
+          target = direction === "next" ? keys[keys.length - 1] : keys[0];
+        }
+      }
+
+      if (questionRefs.current[target]) {
+        scrollToQuestion(target);
+      } else if (listQuestionRef.current) {
+        listQuestionRef.current.scrollIntoView({ behavior: "smooth" });
+      }
     },
-    [currentPartIndex, activeQuestion, getPartQuestionRange, scrollToQuestion]
+    [currentPartIndex, activeQuestion, getPartQuestionRange, scrollToQuestion, findVisibleQuestion]
   );
 
   // Handle part click
@@ -1770,7 +1856,7 @@ const styles = {
     right: "24px",
     display: "flex",
     gap: "8px",
-    zIndex: 20,
+    zIndex: 80,
   },
   navArrowLeft: {
     width: "56px",
