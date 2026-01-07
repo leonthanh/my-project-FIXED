@@ -71,6 +71,16 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
   ]);
   const [selectedPartIndex, setSelectedPartIndex] = useState(0);
   const [selectedSectionIndex, setSelectedSectionIndex] = useState(0);
+  
+  // Collapse/Expand state
+  const [collapsedQuestions, setCollapsedQuestions] = useState({});
+  
+  // Copy state
+  const [copiedQuestion, setCopiedQuestion] = useState(null);
+  
+  // Drag & Drop state
+  const [draggedQuestion, setDraggedQuestion] = useState(null);
+  const [dragSource, setDragSource] = useState(null);
 
   const currentPart = parts[selectedPartIndex];
   const currentSection = currentPart?.sections?.[selectedSectionIndex];
@@ -141,7 +151,78 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
     newParts[selectedPartIndex].sections[selectedSectionIndex].questions.splice(qIndex, 1);
     setParts(newParts);
   };
+  // Toggle collapse/expand for a question
+  const toggleCollapseQuestion = (qIdx) => {
+    const key = `${selectedPartIndex}-${selectedSectionIndex}-${qIdx}`;
+    setCollapsedQuestions(prev => ({
+      ...prev,
+      [key]: !prev[key]
+    }));
+  };
 
+  // Copy a question
+  const handleCopyQuestion = (qIdx) => {
+    const questionToCopy = {
+      ...parts[selectedPartIndex].sections[selectedSectionIndex].questions[qIdx]
+    };
+    setCopiedQuestion(questionToCopy);
+  };
+
+  // Paste copied question
+  const handlePasteQuestion = () => {
+    if (!copiedQuestion) return;
+    const newParts = [...parts];
+    newParts[selectedPartIndex].sections[selectedSectionIndex].questions.push({
+      ...JSON.parse(JSON.stringify(copiedQuestion)) // Deep copy
+    });
+    setParts(newParts);
+  };
+
+  // Drag start handler
+  const handleDragStart = (qIdx, e) => {
+    setDraggedQuestion(qIdx);
+    setDragSource({ partIdx: selectedPartIndex, sectionIdx: selectedSectionIndex, qIdx });
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  // Drag over handler
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  };
+
+  // Drop handler
+  const handleDrop = (targetQIdx, e) => {
+    e.preventDefault();
+    if (!dragSource) return;
+
+    const sourcePartIdx = dragSource.partIdx;
+    const sourceSectionIdx = dragSource.sectionIdx;
+    const sourceQIdx = dragSource.qIdx;
+
+    // Only allow reordering within same section for now
+    if (sourcePartIdx !== selectedPartIndex || sourceSectionIdx !== selectedSectionIndex) {
+      alert('Chỉ có thể sắp xếp lại câu hỏi trong cùng một section!');
+      setDraggedQuestion(null);
+      setDragSource(null);
+      return;
+    }
+
+    if (sourceQIdx === targetQIdx) {
+      setDraggedQuestion(null);
+      setDragSource(null);
+      return;
+    }
+
+    const newParts = [...parts];
+    const questions = newParts[selectedPartIndex].sections[selectedSectionIndex].questions;
+    const [movedQuestion] = questions.splice(sourceQIdx, 1);
+    questions.splice(targetQIdx, 0, movedQuestion);
+    
+    setParts(newParts);
+    setDraggedQuestion(null);
+    setDragSource(null);
+  };
   // Calculate starting question number
   const calculateStartingNumber = (partIdx, sectionIdx, questionIdx) => {
     let count = 1;
@@ -594,58 +675,193 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
                   borderRadius: '8px',
                   border: '1px solid #e5e7eb',
                 }}>
-                  {currentSection.questions.map((question, qIdx) => (
-                    <div key={qIdx} style={{
-                      marginBottom: '20px',
-                      paddingBottom: '20px',
-                      borderBottom: qIdx < currentSection.questions.length - 1 ? '2px dashed #e5e7eb' : 'none',
-                    }}>
-                      <div style={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                        marginBottom: '12px',
-                      }}>
-                        <span style={{ 
-                          fontWeight: 600, 
-                          color: '#6366f1',
-                          fontSize: '14px',
+                  {currentSection.questions.map((question, qIdx) => {
+                    const isCollapsed = collapsedQuestions[`${selectedPartIndex}-${selectedSectionIndex}-${qIdx}`];
+                    const isDragging = draggedQuestion === qIdx;
+                    const startNum = calculateStartingNumber(selectedPartIndex, selectedSectionIndex, qIdx);
+                    
+                    // Generate question preview text
+                    const getQuestionPreview = () => {
+                      if (question.questionText) return question.questionText;
+                      if (question.items?.length) return `${question.items.length} matching items`;
+                      if (question.options?.length) return `${question.options.length} options`;
+                      return 'Empty question';
+                    };
+                    
+                    return (
+                      <div 
+                        key={qIdx} 
+                        draggable
+                        onDragStart={(e) => handleDragStart(qIdx, e)}
+                        onDragOver={handleDragOver}
+                        onDrop={(e) => handleDrop(qIdx, e)}
+                        style={{
+                          marginBottom: '16px',
+                          paddingBottom: '16px',
+                          borderBottom: qIdx < currentSection.questions.length - 1 ? '2px dashed #e5e7eb' : 'none',
+                          opacity: isDragging ? 0.5 : 1,
+                          transition: 'all 0.2s',
+                          cursor: 'grab',
+                          border: isDragging ? '2px solid #3b82f6' : 'none',
+                          borderRadius: '6px',
+                          padding: isDragging ? '12px' : '0',
+                        }}
+                      >
+                        {/* Question Header with Controls */}
+                        <div style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          marginBottom: isCollapsed ? '0' : '12px',
+                          flexWrap: 'wrap',
+                          gap: '8px',
                         }}>
-                          Câu hỏi #{calculateStartingNumber(selectedPartIndex, selectedSectionIndex, qIdx)}
-                        </span>
-                        {currentSection.questions.length > 1 && (
-                          <button
-                            onClick={() => handleDeleteQuestion(qIdx)}
-                            style={{
-                              padding: '4px 8px',
-                              backgroundColor: '#ef4444',
-                              color: 'white',
-                              border: 'none',
-                              borderRadius: '4px',
-                              cursor: 'pointer',
-                              fontSize: '12px',
-                            }}
-                          >
-                            🗑️ Xóa
-                          </button>
+                          <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '12px',
+                            flex: 1,
+                          }}>
+                            {/* Drag Handle Icon */}
+                            <span style={{
+                              cursor: 'grab',
+                              fontSize: '18px',
+                              color: '#9ca3af',
+                            }}>
+                              ⋮⋮
+                            </span>
+                            
+                            <span style={{ 
+                              fontWeight: 600, 
+                              color: '#6366f1',
+                              fontSize: '14px',
+                            }}>
+                              Câu hỏi #{startNum}
+                            </span>
+                            
+                            {/* Collapsed Preview */}
+                            {isCollapsed && (
+                              <span style={{
+                                fontSize: '13px',
+                                color: '#6b7280',
+                                fontStyle: 'italic',
+                              }}>
+                                {getQuestionPreview().substring(0, 50)}...
+                              </span>
+                            )}
+                          </div>
+                          
+                          {/* Action Buttons */}
+                          <div style={{
+                            display: 'flex',
+                            gap: '6px',
+                            flexWrap: 'wrap',
+                          }}>
+                            {/* Collapse/Expand Button */}
+                            <button
+                              onClick={() => toggleCollapseQuestion(qIdx)}
+                              style={{
+                                padding: '6px 10px',
+                                backgroundColor: isCollapsed ? '#3b82f6' : '#e0e7ff',
+                                color: isCollapsed ? 'white' : '#4f46e5',
+                                border: 'none',
+                                borderRadius: '4px',
+                                cursor: 'pointer',
+                                fontSize: '12px',
+                                fontWeight: 500,
+                              }}
+                              title={isCollapsed ? 'Mở rộng' : 'Thu nhỏ'}
+                            >
+                              {isCollapsed ? '👁️ Mở' : '👁️ Ẩn'}
+                            </button>
+                            
+                            {/* Copy Button */}
+                            <button
+                              onClick={() => handleCopyQuestion(qIdx)}
+                              style={{
+                                padding: '6px 10px',
+                                backgroundColor: '#10b981',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '4px',
+                                cursor: 'pointer',
+                                fontSize: '12px',
+                                fontWeight: 500,
+                              }}
+                              title="Sao chép câu hỏi"
+                            >
+                              📋 Copy
+                            </button>
+                            
+                            {/* Paste Button - only show if something is copied */}
+                            {copiedQuestion && (
+                              <button
+                                onClick={handlePasteQuestion}
+                                style={{
+                                  padding: '6px 10px',
+                                  backgroundColor: '#8b5cf6',
+                                  color: 'white',
+                                  border: 'none',
+                                  borderRadius: '4px',
+                                  cursor: 'pointer',
+                                  fontSize: '12px',
+                                  fontWeight: 500,
+                                }}
+                                title="Dán câu hỏi đã copy"
+                              >
+                                📌 Paste
+                              </button>
+                            )}
+                            
+                            {/* Delete Button */}
+                            {currentSection.questions.length > 1 && (
+                              <button
+                                onClick={() => handleDeleteQuestion(qIdx)}
+                                style={{
+                                  padding: '6px 10px',
+                                  backgroundColor: '#ef4444',
+                                  color: 'white',
+                                  border: 'none',
+                                  borderRadius: '4px',
+                                  cursor: 'pointer',
+                                  fontSize: '12px',
+                                  fontWeight: 500,
+                                }}
+                                title="Xóa câu hỏi"
+                              >
+                                🗑️ Xóa
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                        
+                        {/* Question Details - shown when NOT collapsed */}
+                        {!isCollapsed && (
+                          <div style={{
+                            backgroundColor: '#f9fafb',
+                            padding: '16px',
+                            borderRadius: '6px',
+                            border: '1px solid #e5e7eb',
+                          }}>
+                            <QuestionEditorFactory
+                              questionType={currentSection.questionType}
+                              question={question}
+                              onChange={(field, value) => {
+                                const newParts = [...parts];
+                                newParts[selectedPartIndex].sections[selectedSectionIndex].questions[qIdx] = {
+                                  ...question,
+                                  [field]: value,
+                                };
+                                setParts(newParts);
+                              }}
+                              questionIndex={qIdx}
+                              startingNumber={startNum}
+                            />
+                          </div>
                         )}
                       </div>
-                      <QuestionEditorFactory
-                        questionType={currentSection.questionType}
-                        question={question}
-                        onChange={(field, value) => {
-                          const newParts = [...parts];
-                          newParts[selectedPartIndex].sections[selectedSectionIndex].questions[qIdx] = {
-                            ...question,
-                            [field]: value,
-                          };
-                          setParts(newParts);
-                        }}
-                        questionIndex={qIdx}
-                        startingNumber={calculateStartingNumber(selectedPartIndex, selectedSectionIndex, qIdx)}
-                      />
-                    </div>
-                  ))}
+                    );
+                  })}
                   
                   <button
                     onClick={handleAddQuestion}
