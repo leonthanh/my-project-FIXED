@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { AdminNavbar } from "../../shared/components";
 import { 
@@ -22,12 +22,55 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
   const testConfig = getTestConfig(testType);
   const availableTypes = getQuestionTypesForTest(testType);
 
+  // Load saved data from localStorage
+  const loadSavedData = () => {
+    try {
+      const savedData = localStorage.getItem(`cambridgeTestDraft-${testType}`);
+      if (savedData) {
+        return JSON.parse(savedData);
+      }
+    } catch (error) {
+      console.error('Error loading saved data:', error);
+    }
+    return null;
+  };
+
+  const savedData = loadSavedData();
+
   // Form fields
-  const [title, setTitle] = useState('');
-  const [classCode, setClassCode] = useState('');
-  const [teacherName, setTeacherName] = useState('');
+  const [title, setTitle] = useState(savedData?.title || '');
+  const [classCode, setClassCode] = useState(savedData?.classCode || '');
+  const [teacherName, setTeacherName] = useState(savedData?.teacherName || '');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
+  
+  // Auto-save state
+  const [lastSaved, setLastSaved] = useState(null);
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Support edit mode via props
+  useEffect(() => {
+    if (initialData) {
+      setTitle(initialData.title || '');
+      setClassCode(initialData.classCode || '');
+      setTeacherName(initialData.teacherName || '');
+
+      // parts may be stored as string in older records -> parse safely
+      let partsData = initialData.parts;
+      if (typeof partsData === 'string') {
+        try {
+          partsData = JSON.parse(partsData);
+        } catch (err) {
+          console.warn('Could not parse parts JSON - falling back to default:', err);
+          partsData = null;
+        }
+      }
+
+      if (Array.isArray(partsData)) {
+        setParts(partsData);
+      }
+    }
+  }, [initialData]);
 
   // Support edit mode via props
   useEffect(() => {
@@ -237,6 +280,41 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
     return count + questionIdx;
   };
 
+  // Autosave function
+  const saveToLocalStorage = useCallback(() => {
+    try {
+      setIsSaving(true);
+      const dataToSave = {
+        title,
+        classCode,
+        teacherName,
+        parts,
+        testType,
+      };
+      localStorage.setItem(`cambridgeTestDraft-${testType}`, JSON.stringify(dataToSave));
+      setLastSaved(new Date());
+      setIsSaving(false);
+    } catch (error) {
+      console.error('Error saving draft:', error);
+      setIsSaving(false);
+    }
+  }, [title, classCode, teacherName, parts, testType]);
+
+  // Auto save every 30 seconds and on page unload
+  useEffect(() => {
+    const autosaveInterval = setInterval(saveToLocalStorage, 30000);
+
+    const handleBeforeUnload = () => {
+      saveToLocalStorage();
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    return () => {
+      clearInterval(autosaveInterval);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [saveToLocalStorage]);
+
   // Save handler
   const handleSave = async () => {
     // Validation
@@ -280,6 +358,8 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
           throw new Error(err.message || 'Lỗi khi cập nhật đề');
         }
         setMessage({ type: 'success', text: '✅ Cập nhật đề thành công!' });
+        // Clear draft after successful save
+        localStorage.removeItem(`cambridgeTestDraft-${testType}`);
       } else {
         const response = await fetch(apiPath(endpoint), {
           method: 'POST',
@@ -293,6 +373,8 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
 
         const result = await response.json();
         setMessage({ type: 'success', text: '✅ Tạo đề thành công!' });
+        // Clear draft after successful save
+        localStorage.removeItem(`cambridgeTestDraft-${testType}`);
       }
 
       // Redirect after success
@@ -473,10 +555,31 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
           justifyContent: 'space-between',
           alignItems: 'center',
           marginBottom: '24px',
+          flexWrap: 'wrap',
+          gap: '12px',
         }}>
-          <h1 style={{ margin: 0, fontSize: '24px', color: '#1e293b' }}>
-            🎓 Tạo Đề {testConfig.name}
-          </h1>
+          <div>
+            <h1 style={{ margin: 0, fontSize: '24px', color: '#1e293b' }}>
+              🎓 Tạo Đề {testConfig.name}
+            </h1>
+            {/* Auto-save indicator */}
+            <div style={{
+              fontSize: '12px',
+              color: isSaving ? '#f59e0b' : lastSaved ? '#22c55e' : '#9ca3af',
+              marginTop: '6px',
+              fontStyle: 'italic',
+            }}>
+              {isSaving ? (
+                <span>💾 Đang lưu...</span>
+              ) : lastSaved ? (
+                <span>
+                  ✅ Lưu lần cuối: {lastSaved.toLocaleTimeString('vi-VN')}
+                </span>
+              ) : (
+                <span>Chưa lưu</span>
+              )}
+            </div>
+          </div>
           <button
             onClick={handleSave}
             disabled={isSubmitting}
