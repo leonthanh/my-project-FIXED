@@ -871,6 +871,21 @@ const DoReadingTest = () => {
                 unanswered.push(total);
               }
             }
+          }
+          // For multi-select, count each required answer as a separate question
+          else if (qType === "multi-select") {
+            const requiredAnswers = q.requiredAnswers || 2;
+            const baseKey = `q_${total + 1}`;
+
+            for (let i = 0; i < requiredAnswers; i++) {
+              total++;
+              const answerArray = answers[baseKey] || [];
+              if (Array.isArray(answerArray) && answerArray.length > 0) {
+                answered++;
+              } else {
+                unanswered.push(total);
+              }
+            }
           } else {
             total++;
             const key = `q_${total}`;
