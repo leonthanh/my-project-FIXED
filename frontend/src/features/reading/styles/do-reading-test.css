@@ -876,6 +876,104 @@
 }
 
 /* ========================================
+   7a. MULTI-SELECT CONTAINER (Matching Listening style)
+   ======================================== */
+
+.multi-select-container {
+  background: #e8f4fc;
+  border: 1px solid #dce6f0;
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 12px;
+  transition: background 0.2s ease;
+}
+
+.multi-select-container.active {
+  background: #eff6ff;
+  border-color: #667eea;
+}
+
+.multi-select-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.multi-select-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 48px;
+  height: 32px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 0.9rem;
+  flex-shrink: 0;
+}
+
+.multi-select-question-text {
+  flex: 1;
+  font-size: 0.95rem;
+  color: #333;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.multi-select-options {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.multi-select-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 14px;
+  background: white;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.multi-select-option:hover {
+  border-color: #667eea;
+  background: #f8f9ff;
+  transform: translateX(2px);
+}
+
+.multi-select-option.selected {
+  border-color: #667eea;
+  background: linear-gradient(135deg, #e8f4ff 0%, #d4e2ff 100%);
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.2);
+}
+
+.multi-select-checkbox {
+  margin-top: 2px;
+  width: 18px;
+  height: 18px;
+  accent-color: #667eea;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.multi-select-option:has(> .multi-select-checkbox:disabled) {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.multi-select-option-text {
+  flex: 1;
+  font-size: 0.9rem;
+  color: #333;
+  line-height: 1.5;
+}
+
+/* ========================================
    8. TRUE/FALSE/NOT GIVEN - Special style
    ======================================== */
 

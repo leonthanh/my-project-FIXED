@@ -341,6 +341,11 @@ const DoReadingTest = () => {
         if (paragraphBlankCount > 0) return total + paragraphBlankCount;
       }
 
+      // Handle multi-select (like listening - count as multiple questions)
+      if (qType === "multi-select") {
+        return total + (q.requiredAnswers || 2);
+      }
+
       return total + 1;
     }, 0);
   }, []);
@@ -647,19 +652,30 @@ const DoReadingTest = () => {
   }, []);
 
   // Handle multi-select change
-  const handleMultiSelectChange = useCallback((qKey, value, isChecked) => {
-    setAnswers((prev) => {
-      const current = prev[qKey] ? prev[qKey].split(",").filter(Boolean) : [];
-      if (isChecked) {
-        return { ...prev, [qKey]: [...current, value].sort().join(",") };
-      } else {
-        return {
-          ...prev,
-          [qKey]: current.filter((v) => v !== value).join(","),
-        };
-      }
-    });
-  }, []);
+  // Handle checkbox change for multi-select (matching listening style)
+  const handleCheckboxChange = useCallback(
+    (questionKey, optionIndex, checked, maxSelections = 2) => {
+      if (submitted) return;
+
+      setAnswers((prev) => {
+        const currentAnswers = prev[questionKey] || [];
+        let newAnswers;
+
+        if (checked) {
+          if (currentAnswers.length < maxSelections) {
+            newAnswers = [...currentAnswers, optionIndex];
+          } else {
+            return prev;
+          }
+        } else {
+          newAnswers = currentAnswers.filter((idx) => idx !== optionIndex);
+        }
+
+        return { ...prev, [questionKey]: newAnswers };
+      });
+    },
+    [submitted]
+  );
 
   // Handle matching headings change
   const handleMatchingHeadingsChange = useCallback(
@@ -1291,6 +1307,66 @@ const DoReadingTest = () => {
   for (const s of currentSections) {
     totalQuestionsInPassage += countQuestionsInSection(s.questions);
   }
+
+  // Render multiple choice many (checkboxes) - Multi-select style (matching listening)
+  const renderMultipleChoiceMany = (question, startNumber, count = 2) => {
+    const options = question.options || [];
+    const questionKey = `q_${startNumber}`;
+    const selectedAnswers = answers[questionKey] || [];
+    const endNumber = startNumber + count - 1;
+
+    return (
+      <div
+        id={`question-${startNumber}`}
+        key={startNumber}
+        className="multi-select-container"
+        style={{
+          backgroundColor: activeQuestion === startNumber ? "#eff6ff" : "#e8f4fc",
+        }}
+      >
+        {/* Question number badge + text */}
+        <div className="multi-select-header">
+          <span className="multi-select-badge">{startNumber}-{endNumber}</span>
+          <span className="multi-select-question-text">{question.questionText}</span>
+        </div>
+        
+        {/* Options with checkboxes */}
+        <div className="multi-select-options">
+          {options.map((opt, idx) => {
+            const optionId = `q_${startNumber}checkbox${idx}`;
+            const isSelected = selectedAnswers.includes(idx);
+            // Check if option already has letter prefix like "A. " or "A "
+            const hasPrefix = /^[A-Z][\.\s]/.test(opt);
+            const letterLabel = String.fromCharCode(65 + idx); // A, B, C...
+
+            return (
+              <label
+                key={idx}
+                htmlFor={optionId}
+                className={`multi-select-option ${isSelected ? "selected" : ""}`}
+              >
+                <input
+                  id={optionId}
+                  type="checkbox"
+                  className="multi-select-checkbox"
+                  checked={isSelected}
+                  onChange={(e) =>
+                    handleCheckboxChange(questionKey, idx, e.target.checked, count)
+                  }
+                  onFocus={() => setActiveQuestion(startNumber)}
+                  disabled={submitted}
+                />
+                <span className="multi-select-option-text">
+                  {!hasPrefix && <strong>{letterLabel}. </strong>}
+                  {opt}
+                </span>
+              </label>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
 
   // Render question based on type
   const renderQuestion = (question, questionNumber) => {
@@ -1985,48 +2061,7 @@ const DoReadingTest = () => {
           )}
 
           {/* Multi-Select */}
-          {qType === "multi-select" && (
-            <div className="question-options">
-              <p className="multi-select-hint">
-                Choose {question.maxSelection || 2} letters
-              </p>
-              {(question.options || []).map((opt, oi) => {
-                // Handle both string and object options
-                const optText =
-                  typeof opt === "object" ? opt.text || opt.label || "" : opt;
-                const optValue =
-                  typeof opt === "object"
-                    ? opt.id || opt.label || optText
-                    : opt;
-                const currentAnswers = answers[key]
-                  ? answers[key].split(",").filter(Boolean)
-                  : [];
-                const isChecked = currentAnswers.includes(optValue);
-                return (
-                  <label
-                    key={oi}
-                    className={`option-label ${isChecked ? "selected" : ""}`}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={isChecked}
-                      onChange={(e) =>
-                        handleMultiSelectChange(key, optValue, e.target.checked)
-                      }
-                      className="option-input"
-                    />
-                    <span className="option-letter">
-                      {String.fromCharCode(65 + oi)}
-                    </span>
-                    <span
-                      className="option-text"
-                      dangerouslySetInnerHTML={{ __html: optText }}
-                    />
-                  </label>
-                );
-              })}
-            </div>
-          )}
+          {qType === "multi-select" && renderMultipleChoiceMany(question, currentQuestionNumber, question.requiredAnswers || 2)}
 
           {/* Matching */}
           {qType === "matching" && (
