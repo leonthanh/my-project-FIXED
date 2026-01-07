@@ -369,6 +369,71 @@ const DoReadingTest = () => {
     });
   }, [test, countQuestionsInSection, isQuestionAnswered]);
 
+  // Build question groups (merging ONLY multi-select questions into ranges like 12-13)
+  const buildQuestionGroups = useCallback((partIndex) => {
+    if (!test || !test.passages || !test.passages[partIndex]) return [];
+    
+    const passage = test.passages[partIndex];
+    const sections = passage.sections || [{ questions: passage.questions }];
+    const groups = [];
+    let currentNum = 1;
+    
+    // Calculate starting number for this passage
+    for (let i = 0; i < partIndex; i++) {
+      const p = test.passages[i];
+      const s = p.sections || [{ questions: p.questions }];
+      s.forEach((sec) => {
+        currentNum += countQuestionsInSection(sec.questions);
+      });
+    }
+    
+    // Process each section
+    sections.forEach((section) => {
+      (section.questions || []).forEach((q) => {
+        const qType = normalizeQuestionType(q.type || q.questionType || "multiple-choice");
+        const startNum = currentNum;
+        
+        // Only merge multi-select questions, all others are single
+        if (qType === "multi-select") {
+          const count = q.requiredAnswers || 2;
+          groups.push({ type: "multi-select", start: startNum, end: startNum + count - 1, count });
+          currentNum += count;
+        } else if (qType === "ielts-matching-headings") {
+          const count = (q.paragraphs || q.answers || []).length || 1;
+          for (let i = 0; i < count; i++) {
+            groups.push({ type: "single", start: startNum + i, count: 1 });
+          }
+          currentNum += count;
+        } else if (qType === "paragraph-matching") {
+          const clean = (q.questionText || "")
+            .replace(/<p[^>]*>/gi, "")
+            .replace(/<\/p>/gi, " ")
+            .replace(/<br\s*\/?/gi, " ")
+            .trim();
+          const parts = clean ? clean.split(/(\.{3,}|…+)/) : [];
+          const blankCount = parts.filter((p) => p && p.match(/\.{3,}|…+/)).length || 1;
+          for (let i = 0; i < blankCount; i++) {
+            groups.push({ type: "single", start: startNum + i, count: 1 });
+          }
+          currentNum += blankCount;
+        } else if (qType === "cloze-test" || qType === "summary-completion") {
+          const clozeText = q.paragraphText || q.passageText || q.text || q.paragraph || 
+            (q.questionText && q.questionText.includes("[BLANK]") ? q.questionText : null);
+          const blankCount = clozeText ? (clozeText.match(/\[BLANK\]/gi) || []).length : 1;
+          for (let i = 0; i < blankCount; i++) {
+            groups.push({ type: "single", start: startNum + i, count: 1 });
+          }
+          currentNum += blankCount;
+        } else {
+          groups.push({ type: "single", start: startNum, count: 1 });
+          currentNum += 1;
+        }
+      });
+    });
+    
+    return groups;
+  }, [test, countQuestionsInSection]);
+
   // Auto-expand the part that contains the active question (if any)
   useEffect(() => {
     if (!paletteParts || !paletteParts.length || activeQuestion == null) return;
@@ -1431,10 +1496,12 @@ const DoReadingTest = () => {
     // (moved earlier)
 
     // Should hide single question number for multi-question blocks
+    const isMultiSelectQuestion = qType === "multi-select";
     const isMultiQuestionBlock =
       isMatchingHeadings ||
       (isClozeTest && blankCount > 0) ||
-      (isParagraphMatching && paragraphBlankCount > 0);
+      (isParagraphMatching && paragraphBlankCount > 0) ||
+      isMultiSelectQuestion;
 
     const isInlineAnswerType =
       qType === "true-false-not-given" || qType === "yes-no-not-given";
@@ -2061,7 +2128,7 @@ const DoReadingTest = () => {
           )}
 
           {/* Multi-Select */}
-          {qType === "multi-select" && renderMultipleChoiceMany(question, currentQuestionNumber, question.requiredAnswers || 2)}
+          {qType === "multi-select" && renderMultipleChoiceMany(question, questionNumber, question.requiredAnswers || 2)}
 
           {/* Matching */}
           {qType === "matching" && (
@@ -2607,6 +2674,18 @@ const DoReadingTest = () => {
           <div className="questions-list">
             {currentSections.map((section, sectionIdx) => {
               const sectionQuestions = section.questions || [];
+              
+              // Extract starting question number from section instructions (e.g., "Questions 10-11" -> 10)
+              const extractSectionStartNumber = (instruction) => {
+                if (!instruction) return null;
+                // Strip HTML tags first
+                const plainText = instruction.replace(/<[^>]*>/g, '');
+                const match = plainText.match(/[Qq]uestions?\s+(\d+)/);
+                return match ? parseInt(match[1], 10) : null;
+              };
+              
+              const sectionStartNumber = extractSectionStartNumber(section.sectionInstruction);
+              let sectionQuestionNumber = sectionStartNumber || currentQuestionNumber;
 
               return (
                 <div key={sectionIdx} className="question-section">
@@ -2702,7 +2781,7 @@ const DoReadingTest = () => {
 
                   {/* Questions */}
                   {sectionQuestions.map((q) => {
-                    const qNum = currentQuestionNumber;
+                    const qNum = sectionQuestionNumber;
                     const qType = normalizeQuestionType(
                       q.type || q.questionType || "multiple-choice"
                     );
@@ -2711,7 +2790,7 @@ const DoReadingTest = () => {
                     if (qType === "ielts-matching-headings") {
                       const paragraphCount = (q.paragraphs || q.answers || [])
                         .length;
-                      currentQuestionNumber += paragraphCount || 1;
+                      sectionQuestionNumber += paragraphCount || 1;
                     }
                     // For paragraph-matching, count each ellipsis as separate question
                     else if (qType === "paragraph-matching") {
@@ -2724,7 +2803,12 @@ const DoReadingTest = () => {
                       const blankMatches = parts.filter(
                         (p) => p && p.match(/\.{3,}|…+/)
                       );
-                      currentQuestionNumber += blankMatches.length || 1;
+                      sectionQuestionNumber += blankMatches.length || 1;
+                    }
+                    // For multi-select, count as requiredAnswers questions
+                    else if (qType === "multi-select") {
+                      const requiredAnswers = q.requiredAnswers || 2;
+                      sectionQuestionNumber += requiredAnswers;
                     }
                     // For cloze test, count each blank as a question
                     else if (
@@ -2741,14 +2825,14 @@ const DoReadingTest = () => {
                           : null);
                       if (clozeText) {
                         const blankMatches = clozeText.match(/\[BLANK\]/gi);
-                        currentQuestionNumber += blankMatches
+                        sectionQuestionNumber += blankMatches
                           ? blankMatches.length
                           : 1;
                       } else {
-                        currentQuestionNumber++;
+                        sectionQuestionNumber++;
                       }
                     } else {
-                      currentQuestionNumber++;
+                      sectionQuestionNumber++;
                     }
                     return renderQuestion(q, qNum);
                   })}
@@ -2814,29 +2898,34 @@ const DoReadingTest = () => {
                 }`}
                 aria-hidden={expandedPart === part.index ? "false" : "true"}
               >
-                {Array.from({ length: part.count }, (_, i) => {
-                  const num = part.start + i;
-                  // Use canonical check to detect answers stored as JSON, sub-keys (q_X_Y), or simple strings
-                  const isAnswered = isQuestionAnswered(num);
-                  const isActive = activeQuestion === num;
+                {buildQuestionGroups(part.index).map((group, idx) => {
+                  const isAnswered = group.type === "single" 
+                    ? isQuestionAnswered(group.start)
+                    : Array.from({ length: group.count }, (_, i) => group.start + i).every((n) => isQuestionAnswered(n));
+                  const isActive = group.type === "single"
+                    ? activeQuestion === group.start
+                    : activeQuestion >= group.start && activeQuestion <= group.end;
+                  const label = group.type === "single" ? group.start : `${group.start}-${group.end}`;
+                  const isMerged = group.type === "multi-select";
+                  
                   return (
                     <button
-                      key={num}
-                      data-num={num}
-                      data-testid={`nav-question-${num}`}
+                      key={idx}
+                      data-num={group.start}
+                      data-testid={`nav-question-${group.start}`}
                       className={`nav-question-btn ${
                         isAnswered ? "answered" : ""
-                      } ${isActive ? "active" : ""}`}
+                      } ${isActive ? "active" : ""} ${isMerged ? "merged" : ""}`}
                       title={
-                        isAnswered ? `Question ${num} ✓` : `Question ${num}`
+                        isAnswered ? `Questions ${label} ✓` : `Questions ${label}`
                       }
                       onClick={(e) => {
                         e.stopPropagation();
-                        scrollToQuestion(num);
-                        setActiveQuestion(num);
+                        scrollToQuestion(group.start);
+                        setActiveQuestion(group.start);
                       }}
                     >
-                      {num}
+                      {label}
                     </button>
                   );
                 })}
