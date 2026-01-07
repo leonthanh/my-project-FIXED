@@ -77,11 +77,13 @@ const DoReadingTest = () => {
     (n) => {
       const key = `q_${n}`;
 
-      // For matching-headings and cloze-test, skip the direct key check here
+      // For matching-headings, cloze-test, paragraph-matching and multi-select, skip the direct key check here
       // because they use composite storage (JSON or sub-keys) and are handled below.
-      // First, determine if question n is part of a matching-headings or cloze block.
+      // First, determine if question n is part of these blocks.
       let isPartOfMatchingHeadings = false;
       let isPartOfClozeTest = false;
+      let isPartOfParagraphMatching = false;
+      let isPartOfMultiSelect = false;
 
       if (test && Array.isArray(test.passages)) {
         let qCounter = 1;
@@ -89,7 +91,7 @@ const DoReadingTest = () => {
           const sections = p.sections || [{ questions: p.questions }];
           for (const s of sections) {
             for (const q of s.questions || []) {
-              const qType = q.type || q.questionType || "";
+              const qType = normalizeQuestionType(q.type || q.questionType || "");
 
               if (
                 qType === "ielts-matching-headings" ||
@@ -130,9 +132,24 @@ const DoReadingTest = () => {
                   ? (q.questionText.match(/(\.{3,}|…+)/g) || []).length
                   : 0;
                 if (paragraphBlankCount > 0) {
+                  if (n >= qCounter && n < qCounter + paragraphBlankCount) {
+                    isPartOfParagraphMatching = true;
+                    break outerLoop;
+                  }
                   qCounter += paragraphBlankCount;
                   continue;
                 }
+              }
+
+              // Multi-select: count each required answer as separate question
+              if (qType === "multi-select") {
+                const requiredAnswers = q.requiredAnswers || 2;
+                if (n >= qCounter && n < qCounter + requiredAnswers) {
+                  isPartOfMultiSelect = true;
+                  break outerLoop;
+                }
+                qCounter += requiredAnswers;
+                continue;
               }
 
               qCounter++;
@@ -246,7 +263,37 @@ const DoReadingTest = () => {
         return false;
       }
 
-      // Direct value (string, JSON, or non-string) - for regular question types
+      // For paragraph-matching, check sub-keys q_base_index where base + index === n
+      if (isPartOfParagraphMatching) {
+        for (const k of Object.keys(answers || {})) {
+          const m = k.match(/^q_(\d+)_(\d+)$/);
+          if (m) {
+            const base = Number(m[1]);
+            const sub = Number(m[2]);
+            if (!Number.isNaN(base) && !Number.isNaN(sub)) {
+              if (
+                base + sub === n &&
+                answers[k] &&
+                answers[k].toString().trim() !== ""
+              ) {
+                return true;
+              }
+            }
+          }
+        }
+        return false;
+      }
+
+      // For multi-select, check if answer array has selections
+      if (isPartOfMultiSelect) {
+        const v = answers[key];
+        if (Array.isArray(v) && v.length > 0) {
+          return true;
+        }
+        return false;
+      }
+
+      // Direct value (string, JSON, or non-string) - for regular question types (including true/false/not given)
       const v = answers[key];
       if (v) {
         if (typeof v === "string") {
@@ -1912,9 +1959,6 @@ const DoReadingTest = () => {
                                       <option
                                         key={opt.id}
                                         value={opt.id}
-                                        disabled={
-                                          used.has(opt.id) && opt.id !== thisVal
-                                        }
                                       >
                                         {opt.id}
                                       </option>
@@ -2058,9 +2102,6 @@ const DoReadingTest = () => {
                             <option
                               key={opt.id}
                               value={opt.id}
-                              disabled={
-                                used.has(opt.id) && opt.id !== singleValue
-                              }
                             >
                               {opt.id}
                             </option>
@@ -2914,7 +2955,9 @@ const DoReadingTest = () => {
                 aria-hidden={expandedPart === part.index ? "false" : "true"}
               >
                 {buildQuestionGroups(part.index).map((group, idx) => {
-                  const isAnswered = group.type === "single" 
+                  const isAnswered = group.type === "multi-select"
+                    ? isQuestionAnswered(group.start)
+                    : group.type === "single"
                     ? isQuestionAnswered(group.start)
                     : Array.from({ length: group.count }, (_, i) => group.start + i).every((n) => isQuestionAnswered(n));
                   const isActive = group.type === "single"
