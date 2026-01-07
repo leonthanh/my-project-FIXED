@@ -195,16 +195,22 @@ const EditReadingTest = () => {
                   ),
                   sectionImage: imagesToSend,
                   questions:
-                    section.questions?.map((q) => ({
-                      ...q,
-                      questionType: normalizeQuestionType(
-                        q.questionType || q.type || ""
-                      ),
-                      questionText: q.questionText || "",
-                      options: q.options
-                        ? q.options.map((opt) => opt)
-                        : undefined,
-                    })) || [],
+                    section.questions?.map((q) => {
+                      const qType = normalizeQuestionType(q.questionType || q.type || "");
+                      const questionObj = {
+                        ...q,
+                        questionType: qType,
+                        questionText: q.questionText || "",
+                        options: q.options
+                          ? q.options.map((opt) => opt)
+                          : undefined,
+                      };
+                      // Preserve requiredAnswers for multi-select questions
+                      if (qType === "multi-select" && (q.requiredAnswers || q.maxSelection)) {
+                        questionObj.requiredAnswers = q.requiredAnswers || q.maxSelection || 2;
+                      }
+                      return questionObj;
+                    }) || [],
                 };
               }) || []
             ),
