@@ -9,6 +9,12 @@ env:
   OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
   EMAIL_USER: ${{ secrets.EMAIL_USER }}
   EMAIL_PASS: ${{ secrets.EMAIL_PASS }}
+  EMAIL_TO: ${{ secrets.EMAIL_TO }}
+  DB_HOST: ${{ secrets.DB_HOST }}
+  DB_NAME: ${{ secrets.DB_NAME }}
+  DB_USER: ${{ secrets.DB_USER }}
+  DB_PASS: ${{ secrets.DB_PASS }}
+  REACT_APP_API_URL: ${{ secrets.REACT_APP_API_URL }}
 
 concurrency:
   group: deploy-to-cpanel
@@ -55,7 +61,10 @@ jobs:
         run: |
           set -e
           cd backend
-          zip -r ../backend-artifact.zip server.js db.js routes models uploads package.json package-lock.json || true
+          # Include backend files and both backend/utils and repo-root utils so helpers like readingScorer are deployed
+          zip -r ../backend-artifact.zip \
+            server.js db.js routes models uploads package.json package-lock.json \
+            utils ../utils || true
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -139,18 +148,18 @@ jobs:
             cp backend/.env.production backend-temp/.env
             echo "✅ Using .env.production for cPanel"
           else
-            echo "⚠️ .env.production not found, creating default .env"
+            echo "⚠️ .env.production not found, creating .env from secrets"
             echo "NODE_ENV=production" > backend-temp/.env
             echo "PORT=5000" >> backend-temp/.env
-            echo "DB_HOST=star-siec.edu.vn" >> backend-temp/.env
-            echo "DB_NAME=wsxcblqh_ix" >> backend-temp/.env
-            echo "DB_USER=wsxcblqh_thanh" >> backend-temp/.env
-            echo "DB_PASS=@Thanh562184" >> backend-temp/.env
-            echo "EMAIL_USER=stareduelt@gmail.com" >> backend-temp/.env
-            echo "EMAIL_PASS=xrrz fqwq xwdc hujb" >> backend-temp/.env
-            echo "EMAIL_TO=thanhlh@siec-star.edu.vn" >> backend-temp/.env
-            echo "REACT_APP_API_URL=https://ix.star-siec.edu.vn" >> backend-temp/.env
-            echo "OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}" >> backend-temp/.env
+            echo "DB_HOST=${{ env.DB_HOST }}" >> backend-temp/.env
+            echo "DB_NAME=${{ env.DB_NAME }}" >> backend-temp/.env
+            echo "DB_USER=${{ env.DB_USER }}" >> backend-temp/.env
+            echo "DB_PASS=${{ env.DB_PASS }}" >> backend-temp/.env
+            echo "EMAIL_USER=${{ env.EMAIL_USER }}" >> backend-temp/.env
+            echo "EMAIL_PASS=${{ env.EMAIL_PASS }}" >> backend-temp/.env
+            echo "EMAIL_TO=${{ env.EMAIL_TO }}" >> backend-temp/.env
+            echo "REACT_APP_API_URL=${{ env.REACT_APP_API_URL }}" >> backend-temp/.env
+            echo "OPENAI_API_KEY=${{ env.OPENAI_API_KEY }}" >> backend-temp/.env
           fi
 
           # Copy utils/ (if present at repo root) into package so modules like readingScorer are deployed
