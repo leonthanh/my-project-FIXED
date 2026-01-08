@@ -102,6 +102,11 @@ function countQuestions(passages = []) {
           qCounter += blanks.length > 0 ? blanks.length : 1;
           continue;
         }
+        if (qType === "multi-select") {
+          const required = q.requiredAnswers || q.maxSelection || 2;
+          qCounter += required || 1;
+          continue;
+        }
         qCounter += 1;
       }
     }
@@ -122,10 +127,7 @@ function loadReadingScorer() {
   for (const c of candidates) {
     try {
       const mod = require(c);
-      if (mod) {
-        console.log(`ℹ️ Loaded readingScorer from ${c}`);
-        return mod;
-      }
+      if (mod) return mod;
     } catch (e) {
       // ignore
     }

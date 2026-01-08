@@ -15,6 +15,61 @@ function normalizeMulti(str) {
   return str ? String(str).split(',').map(s => normalize(s)).filter(Boolean).sort() : []; 
 }
 
+// Normalize multi-select answers (supports arrays, comma strings, letters, indices)
+function normalizeMultiTokens(raw, options = []) {
+  if (raw === undefined || raw === null) return [];
+
+  const toToken = (val) => {
+    if (val === undefined || val === null) return '';
+    const s = String(val).trim();
+    if (!s) return '';
+
+    const letterToOption = (ch) => {
+      const idx = ch.toUpperCase().charCodeAt(0) - 65;
+      if (Array.isArray(options) && options[idx] !== undefined) {
+        const opt = options[idx];
+        const optText = (typeof opt === 'object') ? (opt.text || opt.label || opt.id || '') : opt;
+        if (optText) return normalize(optText);
+      }
+      return ch.toLowerCase();
+    };
+
+    // If teacher wrote combined letters like "de" (no separator), split and map each letter to option text
+    if (/^[A-Za-z]{2,}$/.test(s)) {
+      return s
+        .split('')
+        .map((ch) => letterToOption(ch))
+        .filter(Boolean);
+    }
+
+    // Numeric index → map to option text if possible, else to letter A/B/...
+    if (/^\d+$/.test(s)) {
+      const idx = Number(s);
+      if (Array.isArray(options) && options[idx] !== undefined) {
+        const opt = options[idx];
+        const optText = (typeof opt === 'object') ? (opt.text || opt.label || opt.id || '') : opt;
+        if (optText) return normalize(optText);
+      }
+      if (idx >= 0 && idx < 26) return letterToOption(String.fromCharCode(65 + idx));
+      return s.toLowerCase();
+    }
+
+    // Single letter choice → map to option text if available
+    if (/^[A-Za-z]$/.test(s)) return letterToOption(s);
+
+    // Fallback: normalize free text
+    return normalize(s);
+  };
+
+  const parts = Array.isArray(raw) ? raw : String(raw).split(/[\s,;/]+/);
+  const tokens = parts
+    .flatMap((p) => toToken(p))
+    .filter(Boolean)
+    .map((t) => (Array.isArray(t) ? t : [t]))
+    .flat();
+  return Array.from(new Set(tokens));
+}
+
 function bandFromCorrect(c) {
   if (c >= 39) return 9;
   if (c >= 37) return 8.5;
@@ -220,6 +275,20 @@ function scoreReadingTest(testData, answers = {}) {
           continue;
         }
 
+        // Multi-select (treat each required answer as one mark)
+        if ((q.questionType || q.type) === 'multi-select') {
+          const key = `q_${qCounter}`;
+          const studentVal = answers[key];
+          const expectedTokens = normalizeMultiTokens(q.correctAnswer || q.answers || '', q.options || []);
+          const studentTokens = normalizeMultiTokens(studentVal, q.options || []);
+          const required = q.requiredAnswers || q.maxSelection || expectedTokens.length || 2;
+          const matched = expectedTokens.filter(t => studentTokens.includes(t)).length;
+          total += required;
+          correct += matched;
+          qCounter += required;
+          continue;
+        }
+
         // Default
         const key = `q_${qCounter}`;
         const studentVal = answers[key];
@@ -227,10 +296,19 @@ function scoreReadingTest(testData, answers = {}) {
 
         total++;
         if (expected) {
-          if ((q.questionType || q.type) === 'multi-select') {
-            const expArr = normalizeMulti(expected);
-            const stuArr = normalizeMulti(studentVal);
-            if (expArr.length && stuArr.length && JSON.stringify(expArr) === JSON.stringify(stuArr)) correct++;
+          const qBaseType = (q.questionType || q.type || '').toLowerCase();
+          const isShortLike = (
+            qBaseType === 'short-answer' ||
+            qBaseType === 'sentence-completion' ||
+            qBaseType === 'fill-in-the-blanks' ||
+            qBaseType === 'fill-in-blank' ||
+            qBaseType === 'fill-in'
+          );
+
+          if (isShortLike) {
+            const expectedVariants = String(expected).split(/\s*[|\/;,]\s*/).map(s => normalize(s)).filter(Boolean);
+            const studentNorm = normalize(studentVal || '');
+            if (expectedVariants.length && studentNorm && expectedVariants.includes(studentNorm)) correct++;
           } else {
             if (normalize(expected) && normalize(studentVal) && normalize(expected) === normalize(studentVal)) correct++;
           }
@@ -584,6 +662,39 @@ function getDetailedScoring(testData, answers = {}) {
           return normalize(s);
         };
 
+        // Multi-select: expand into per-answer rows so numbering matches UI (e.g., 23-24)
+        if (qType === 'multi-select') {
+          const key = `q_${qCounter}`;
+          const rawStudentVal = answers[key];
+          const expectedTokens = normalizeMultiTokens(q.correctAnswer || q.answers || '', q.options || []);
+          const studentTokens = normalizeMultiTokens(rawStudentVal, q.options || []);
+          const required = q.requiredAnswers || q.maxSelection || expectedTokens.length || studentTokens.length || 2;
+          const count = Math.max(required, expectedTokens.length || 0);
+
+          for (let mi = 0; mi < count; mi++) {
+            const questionNum = (q.questionNumber || qCounter) + mi;
+            const expectedToken = expectedTokens[mi] || expectedTokens[0] || '';
+            const studentHasExpected = expectedToken ? studentTokens.includes(expectedToken) : false;
+            const studentToken = studentHasExpected ? expectedToken : (studentTokens[mi] || '');
+
+            details.push({
+              questionNumber: questionNum,
+              questionType: qType,
+              questionText: q.questionText || q.question || q.text || '',
+              headings: q.headings || [],
+              passageSnippet: (p.title || p.heading || p.passageText || p.text || '').slice(0, 200),
+              expected: expectedToken,
+              student: studentToken,
+              expectedLabel: expectedToken,
+              studentLabel: studentToken,
+              isCorrect: studentHasExpected
+            });
+          }
+
+          qCounter += count || 1;
+          continue;
+        }
+
         // Special handling for multiple-choice and sentence-completion where student may submit letters (A,B,...) or full text
         if (qType === 'multiple-choice' || qType === 'sentence-completion') {
           const key = `q_${qCounter}`;
@@ -615,7 +726,15 @@ function getDetailedScoring(testData, answers = {}) {
         row.student = safeString(studentVal);
         // Short answers and sentence completions may have multiple acceptable variants separated by |,/ or ;
         const expectedRaw = q.correctAnswer || '';
-        if (qType === 'short-answer' || qType === 'sentence-completion') {
+        const isShortLike = (
+          qType === 'short-answer' ||
+          qType === 'sentence-completion' ||
+          qType === 'fill-in-the-blanks' ||
+          qType === 'fill-in-blank' ||
+          qType === 'fill-in'
+        );
+
+        if (isShortLike) {
           const expectedVariants = String(expectedRaw).split(/\s*[|\/;,]\s*/).map(s => normalize(s)).filter(Boolean);
           const studentNorm = normalize(studentVal || '');
           row.expectedLabel = expectedVariants.join(' | ');

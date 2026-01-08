@@ -45,12 +45,14 @@ function countQuestions(passages = []) {
     for (const s of sections) {
       for (const q of s.questions || []) {
         const qType = (q.questionType || q.type || "").toLowerCase();
-        if (
-          qType === "ielts-matching-headings" ||
-          qType === "matching-headings"
-        ) {
+        if (qType === "ielts-matching-headings" || qType === "matching-headings") {
           const paragraphs = q.paragraphs || q.answers || [];
           qCounter += paragraphs.length || 0;
+          continue;
+        }
+        if (qType === "multi-select") {
+          const required = q.requiredAnswers || q.maxSelection || 2;
+          qCounter += required || 1;
           continue;
         }
         if (qType === "cloze-test" || qType === "summary-completion") {
