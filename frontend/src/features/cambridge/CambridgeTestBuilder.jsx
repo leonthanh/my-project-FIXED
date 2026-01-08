@@ -415,11 +415,16 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
         gridTemplateColumns: '280px 1fr', 
         minHeight: 'calc(100vh - 60px)',
       }}>
-      {/* Sidebar */}
+      {/* Sidebar - Fixed/Sticky */}
       <div style={{
         backgroundColor: '#1e293b',
         color: 'white',
         padding: '20px',
+        position: 'sticky',
+        top: 0,
+        height: '100vh',
+        overflowY: 'auto',
+        zIndex: 100,
       }}>
         {/* Test Info */}
         <div style={{
@@ -548,52 +553,50 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
       </div>
 
       {/* Main Content */}
-      <div style={{ padding: '24px' }}>
-        {/* Header with Title and Save */}
+      <div style={{ 
+        padding: '24px',
+        overflowY: 'auto',
+        height: '100vh',
+      }}>
+        {/* Header with Title and Save - Compact */}
         <div style={{
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
-          marginBottom: '24px',
-          flexWrap: 'wrap',
-          gap: '12px',
+          marginBottom: '12px',
+          padding: '12px 16px',
+          backgroundColor: 'white',
+          borderRadius: '8px',
+          boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
         }}>
-          <div>
-            <h1 style={{ margin: 0, fontSize: '24px', color: '#1e293b' }}>
-              🎓 Tạo Đề {testConfig.name}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <h1 style={{ margin: 0, fontSize: '18px', color: '#1e293b', fontWeight: 600 }}>
+              🎓 {testConfig.name}
             </h1>
             {/* Auto-save indicator */}
             <div style={{
-              fontSize: '12px',
+              fontSize: '11px',
               color: isSaving ? '#f59e0b' : lastSaved ? '#22c55e' : '#9ca3af',
-              marginTop: '6px',
               fontStyle: 'italic',
             }}>
-              {isSaving ? (
-                <span>💾 Đang lưu...</span>
-              ) : lastSaved ? (
-                <span>
-                  ✅ Lưu lần cuối: {lastSaved.toLocaleTimeString('vi-VN')}
-                </span>
-              ) : (
-                <span>Chưa lưu</span>
-              )}
+              {isSaving ? '💾' : lastSaved ? `✅ ${lastSaved.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}` : '○'}
             </div>
           </div>
           <button
             onClick={handleSave}
             disabled={isSubmitting}
             style={{
-              padding: '12px 24px',
+              padding: '8px 16px',
               backgroundColor: isSubmitting ? '#94a3b8' : '#3b82f6',
               color: 'white',
               border: 'none',
-              borderRadius: '8px',
+              borderRadius: '6px',
               cursor: isSubmitting ? 'not-allowed' : 'pointer',
               fontWeight: 600,
+              fontSize: '13px',
             }}
           >
-            {isSubmitting ? '⏳ Đang lưu...' : '💾 Lưu đề'}
+            {isSubmitting ? '⏳' : '💾 Lưu'}
           </button>
         </div>
 
@@ -611,23 +614,22 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
           </div>
         )}
 
-        {/* Test Info Form */}
+        {/* Test Info Form - Compact */}
         <div style={{
           backgroundColor: 'white',
-          borderRadius: '12px',
-          padding: '20px',
-          marginBottom: '20px',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+          borderRadius: '8px',
+          padding: '12px 16px',
+          marginBottom: '12px',
+          boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
         }}>
-          <h3 style={{ margin: '0 0 16px', color: '#374151' }}>📝 Thông tin đề thi</h3>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
             <div>
               <label style={{ 
                 display: 'block', 
-                marginBottom: '6px', 
+                marginBottom: '4px', 
                 fontWeight: 600, 
-                color: '#374151',
-                fontSize: '14px',
+                color: '#6b7280',
+                fontSize: '12px',
               }}>
                 Tiêu đề đề thi *
               </label>
@@ -635,10 +637,10 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
                 type="text"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="VD: KET Listening Test 1"
+                placeholder="VD: KET Test 1"
                 style={{
                   width: '100%',
-                  padding: '10px 12px',
+                  padding: '7px 10px',
                   border: '1px solid #d1d5db',
                   borderRadius: '8px',
                   fontSize: '14px',
@@ -649,10 +651,10 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
             <div>
               <label style={{ 
                 display: 'block', 
-                marginBottom: '6px', 
+                marginBottom: '4px', 
                 fontWeight: 600, 
-                color: '#374151',
-                fontSize: '14px',
+                color: '#6b7280',
+                fontSize: '12px',
               }}>
                 Mã lớp *
               </label>
@@ -660,13 +662,13 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
                 type="text"
                 value={classCode}
                 onChange={(e) => setClassCode(e.target.value)}
-                placeholder="VD: KET-2024-A"
+                placeholder="VD: KET-631-A"
                 style={{
                   width: '100%',
-                  padding: '10px 12px',
+                  padding: '7px 10px',
                   border: '1px solid #d1d5db',
-                  borderRadius: '8px',
-                  fontSize: '14px',
+                  borderRadius: '6px',
+                  fontSize: '13px',
                   boxSizing: 'border-box',
                 }}
               />
@@ -674,10 +676,10 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
             <div>
               <label style={{ 
                 display: 'block', 
-                marginBottom: '6px', 
+                marginBottom: '4px', 
                 fontWeight: 600, 
-                color: '#374151',
-                fontSize: '14px',
+                color: '#6b7280',
+                fontSize: '12px',
               }}>
                 Tên giáo viên
               </label>
@@ -688,10 +690,10 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
                 placeholder="VD: Cô Lan"
                 style={{
                   width: '100%',
-                  padding: '10px 12px',
+                  padding: '7px 10px',
                   border: '1px solid #d1d5db',
-                  borderRadius: '8px',
-                  fontSize: '14px',
+                  borderRadius: '6px',
+                  fontSize: '13px',
                   boxSizing: 'border-box',
                 }}
               />
@@ -731,7 +733,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
                 placeholder="Nhập hướng dẫn cho part này..."
                 style={{
                   width: '100%',
-                  padding: '12px',
+                  padding: '5px',
                   border: '1px solid #d1d5db',
                   borderRadius: '8px',
                   minHeight: '80px',
