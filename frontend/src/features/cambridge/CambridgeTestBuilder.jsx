@@ -288,6 +288,32 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
     return count + questionIdx;
   };
 
+  // Calculate starting number for a section (for multi-question types like long-text-mc)
+  const calculateSectionStartingNumber = (partIdx, sectionIdx) => {
+    let count = 1;
+    // Đếm tất cả câu hỏi từ các part trước
+    for (let p = 0; p < partIdx; p++) {
+      for (const section of parts[p].sections) {
+        // Với long-text-mc, mỗi question object chứa nhiều câu
+        if (section.questionType === 'long-text-mc' && section.questions[0]?.questions) {
+          count += section.questions[0].questions.length;
+        } else {
+          count += section.questions.length;
+        }
+      }
+    }
+    // Đếm các section trước trong cùng part
+    for (let s = 0; s < sectionIdx; s++) {
+      const section = parts[partIdx].sections[s];
+      if (section.questionType === 'long-text-mc' && section.questions[0]?.questions) {
+        count += section.questions[0].questions.length;
+      } else {
+        count += section.questions.length;
+      }
+    }
+    return count;
+  };
+
   // Autosave function
   const saveToLocalStorage = useCallback(() => {
     try {
@@ -793,6 +819,9 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
                     const isDragging = draggedQuestion === qIdx;
                     const startNum = calculateStartingNumber(selectedPartIndex, selectedSectionIndex, qIdx);
                     
+                    // For multi-question types (like long-text-mc), use section-based starting number
+                    const sectionStartNum = calculateSectionStartingNumber(selectedPartIndex, selectedSectionIndex);
+                    
                     // Generate question preview text
                     const getQuestionPreview = () => {
                       if (question.questionText) return question.questionText;
@@ -968,7 +997,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
                                 setParts(newParts);
                               }}
                               questionIndex={qIdx}
-                              startingNumber={startNum}
+                              startingNumber={currentSection.questionType === 'long-text-mc' ? sectionStartNum : startNum}
                             />
                           </div>
                         )}
