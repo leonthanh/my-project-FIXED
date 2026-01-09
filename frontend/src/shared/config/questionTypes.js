@@ -220,8 +220,8 @@ export const QUESTION_TYPES = {
 
   'cloze-test': {
     id: 'cloze-test',
-    label: 'Open Cloze (Part 5)',
-    labelVi: 'Điền chỗ trống (Part 5)',
+    label: 'Open Cloze',
+    labelVi: 'Điền chỗ trống',
     icon: '📄',
     description: 'Điền từ vào các chỗ trống trong đoạn văn',
     editor: 'ClozeTestEditor', // Will create later
@@ -251,7 +251,7 @@ export const QUESTION_TYPES = {
   // =========== KET SPECIFIC PARTS ===========
   'sign-message': {
     id: 'sign-message',
-    label: 'Signs & Messages (Part 1)',
+    label: 'Signs & Messages',
     labelVi: 'Biển báo & Thông báo',
     icon: '🪧',
     description: 'KET Part 1: Đọc biển báo + chọn ý nghĩa đúng (A/B/C)',
@@ -268,7 +268,7 @@ export const QUESTION_TYPES = {
 
   'people-matching': {
     id: 'people-matching',
-    label: 'People Matching (Part 2)',
+    label: 'People Matching',
     labelVi: 'Nối người với văn bản',
     icon: '👥',
     description: 'KET Part 2: 5 người + 8 texts, nối cặp phù hợp',
@@ -299,7 +299,7 @@ export const QUESTION_TYPES = {
 
   'long-text-mc': {
     id: 'long-text-mc',
-    label: 'Long Text + MC (Part 3)',
+    label: 'Long Text + Multiple Choice',
     labelVi: 'Đoạn văn dài + Trắc nghiệm',
     icon: '📰',
     description: 'KET Part 3: 1 đoạn văn dài + 5 câu MC',
@@ -321,7 +321,7 @@ export const QUESTION_TYPES = {
 
   'cloze-mc': {
     id: 'cloze-mc',
-    label: 'Multiple Choice Cloze (Part 4)',
+    label: 'Multiple Choice Cloze',
     labelVi: 'Cloze trắc nghiệm',
     icon: '📋',
     description: 'KET Part 4: Đoạn văn + chọn từ A/B/C cho mỗi blank',
@@ -342,7 +342,7 @@ export const QUESTION_TYPES = {
 
   'word-form': {
     id: 'word-form',
-    label: 'Word Formation (Part 6)',
+    label: 'Word Formation',
     labelVi: 'Biến đổi từ',
     icon: '🔤',
     description: 'KET Part 6: Cho từ gốc, biến đổi điền vào chỗ trống',
@@ -378,8 +378,8 @@ export const QUESTION_TYPES = {
   // =========== KET/PET WRITING ===========
   'short-message': {
     id: 'short-message',
-    label: 'Short Message/Email (Part 7)',
-    labelVi: 'Tin nhắn ngắn/Email (Part 7)',
+    label: 'Short Message/Email',
+    labelVi: 'Tin nhắn ngắn/Email',
     icon: '✉️',
     description: 'Viết tin nhắn ngắn (KET Part 7: 25-35 words)',
     editor: 'ShortMessageEditor',
