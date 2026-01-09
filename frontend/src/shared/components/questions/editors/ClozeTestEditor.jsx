@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from "react";
+import ReactQuill from "react-quill";
+import "react-quill/dist/quill.snow.css";
 
 /**
  * ClozeTestEditor - Editor cho dạng Cloze Test (điền vào chỗ trống trong đoạn văn)
@@ -72,6 +74,33 @@ const ClozeTestEditor = ({
     onChange("answers", newAnswers);
   };
 
+  // Quill modules configuration with image support
+  const modules = {
+    toolbar: [
+      [{ header: [1, 2, 3, false] }],
+      ["bold", "italic", "underline"],
+      [{ color: [] }, { background: [] }],
+      [{ list: "ordered" }, { list: "bullet" }],
+      [{ align: [] }],
+      ["link", "image"],
+      ["clean"],
+    ],
+  };
+
+  const formats = [
+    "header",
+    "bold",
+    "italic",
+    "underline",
+    "color",
+    "background",
+    "list",
+    "bullet",
+    "align",
+    "link",
+    "image",
+  ];
+
   // Generate preview with highlighted blanks
   const generatePreview = () => {
     if (!passageText) return null;
@@ -137,27 +166,34 @@ const ClozeTestEditor = ({
       </div>
 
       {/* Passage Text */}
-      <div style={{ marginBottom: "12px" }}>
+      <div style={{ marginBottom: "12px" }} className="cloze-test-editor">
         <label style={styles.label}>
           Đoạn văn (dùng (1), (2)... hoặc ___ cho chỗ trống)
         </label>
-        <textarea
-          value={passageText}
-          onChange={(e) => onChange("passageText", e.target.value)}
-          placeholder={`VD: Last summer, I (1) _______ to the beach with my family. We (2) _______ there for two weeks. The weather (3) _______ very hot and sunny.
+        <div style={{
+          border: "1px solid #d1d5db",
+          borderRadius: "6px",
+          backgroundColor: "white",
+        }}>
+          <ReactQuill
+            theme="snow"
+            value={passageText}
+            onChange={(content) => onChange("passageText", content)}
+            placeholder={`VD: Last summer, I (1) _______ to the beach with my family. We (2) _______ there for two weeks. The weather (3) _______ very hot and sunny.
 
 Hoặc:
 
 Last summer, I ___ to the beach with my family. We ___ there for two weeks.`}
-          style={{
-            ...styles.input,
-            minHeight: "200px",
-            fontFamily: "monospace",
-            lineHeight: 1.6,
-          }}
-        />
+            modules={modules}
+            formats={formats}
+            style={{
+              minHeight: "200px",
+              backgroundColor: "white",
+            }}
+          />
+        </div>
         <p style={{ fontSize: "11px", color: "#6b7280", marginTop: "4px" }}>
-          💡 Tip: Copy đoạn văn từ đề, dùng (1), (2), (3)... hoặc ___ để đánh dấu chỗ trống
+          💡 Tip: Copy đoạn văn từ đề, dùng (1), (2), (3)... hoặc ___ để đánh dấu chỗ trống. Có thể thêm hình, định dạng text...
         </p>
       </div>
 
@@ -266,5 +302,58 @@ const styles = {
     color: "#6b7280",
   },
 };
+
+// Custom styles for ReactQuill in this editor
+const quillStyles = `
+  .cloze-test-editor .ql-container {
+    min-height: 200px;
+    font-size: 14px;
+    line-height: 1.8;
+    transition: all 0.2s ease;
+  }
+  .cloze-test-editor .ql-editor {
+    min-height: 200px;
+    background-color: #ffffff;
+  }
+  .cloze-test-editor .ql-editor.ql-blank::before {
+    font-style: italic;
+    color: #9ca3af;
+  }
+  
+  /* Highlight khi focus vào ReactQuill */
+  .cloze-test-editor .ql-container.ql-snow {
+    border-color: #d1d5db;
+  }
+  .cloze-test-editor .ql-container.ql-snow:focus-within {
+    background-color: #eff6ff;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  }
+  .cloze-test-editor .ql-editor:focus {
+    background-color: #eff6ff;
+    outline: none;
+  }
+  
+  /* Highlight toolbar khi đang active */
+  .cloze-test-editor .ql-toolbar.ql-snow {
+    border-color: #d1d5db;
+    background-color: #f9fafb;
+  }
+  .cloze-test-editor:focus-within .ql-toolbar.ql-snow {
+    background-color: #dbeafe;
+    border-color: #3b82f6;
+  }
+`;
+
+// Inject styles
+if (typeof document !== 'undefined') {
+  const styleId = 'cloze-test-quill-styles';
+  if (!document.getElementById(styleId)) {
+    const styleEl = document.createElement('style');
+    styleEl.id = styleId;
+    styleEl.textContent = quillStyles;
+    document.head.appendChild(styleEl);
+  }
+}
 
 export default ClozeTestEditor;
