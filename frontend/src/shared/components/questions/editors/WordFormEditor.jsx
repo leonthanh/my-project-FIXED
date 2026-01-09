@@ -24,6 +24,7 @@ const WordFormEditor = ({
   question = {},
   onChange,
   startingNumber = 27,
+  partIndex = 5, // Default to Part 6 (index 5)
 }) => {
   const sentences = question?.sentences || [ 
     { sentence: '', rootWord: '', correctAnswer: '' },
@@ -68,7 +69,7 @@ const WordFormEditor = ({
             borderRadius: "12px",
             fontSize: "12px",
             fontWeight: 700,
-          }}>Part 6</span>
+          }}>Part {partIndex + 1}</span>
           <span style={{ fontWeight: 600 }}>Word Formation</span>
           <span style={{
             marginLeft: "auto",

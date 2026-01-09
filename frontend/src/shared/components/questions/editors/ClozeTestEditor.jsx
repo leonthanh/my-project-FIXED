@@ -17,6 +17,7 @@ const ClozeTestEditor = ({
   question,
   onChange,
   startingNumber = 1,
+  partIndex = 4, // Default to Part 5 (index 4)
 }) => {
   const passageText = question.passageText || '';
   const passageTitle = question.passageTitle || '';
@@ -33,7 +34,10 @@ const ClozeTestEditor = ({
     ];
     
     const foundBlanks = [];
-    let text = passageText;
+    // Strip HTML tags for parsing (but keep original passageText for rendering)
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = passageText;
+    let text = tempDiv.textContent || tempDiv.innerText || passageText;
     
     // Try numbered patterns first
     let match;
@@ -107,50 +111,84 @@ const ClozeTestEditor = ({
     
     let previewHtml = passageText;
     
-    // Replace blanks with styled spans (reverse order to preserve indices)
-    [...blanks].reverse().forEach((blank) => {
-      const before = previewHtml.slice(0, blank.index);
-      const after = previewHtml.slice(blank.index + blank.fullMatch.length);
-      const answer = answers[blank.questionNum] || '';
-      previewHtml = before + 
-        `<span style="background:#dbeafe;padding:2px 8px;border-radius:4px;font-weight:bold;border:1px solid #3b82f6;color:#1e40af;">(${blank.questionNum}) ${answer || '______'}</span>` + 
-        after;
+    // Strip HTML tags to get plain text for finding blank positions
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = passageText;
+    const plainText = tempDiv.textContent || tempDiv.innerText || '';
+    
+    // Find blanks in plain text
+    const blankMatches = [];
+    blanks.forEach(blank => {
+      const regex = new RegExp(`\\(${blank.questionNum}\\)|\\[${blank.questionNum}\\]`, 'g');
+      let match;
+      while ((match = regex.exec(plainText)) !== null) {
+        blankMatches.push({
+          questionNum: blank.questionNum,
+          text: match[0],
+          plainTextIndex: match.index
+        });
+      }
     });
     
-    // Convert newlines to <br>
-    previewHtml = previewHtml.replace(/\n/g, '<br>');
+    // Replace in HTML using regex to find the patterns
+    blankMatches.forEach(match => {
+      const answer = answers[match.questionNum] || '';
+      const regex = new RegExp(`\\(${match.questionNum}\\)|\\[${match.questionNum}\\]`, 'g');
+      previewHtml = previewHtml.replace(regex, 
+        `<span style="background:#dbeafe;padding:2px 8px;border-radius:4px;font-weight:bold;border:1px solid #3b82f6;color:#1e40af;">(${match.questionNum}) ${answer || '______'}</span>`
+      );
+    });
     
     return previewHtml;
   };
 
   return (
     <div>
-      {/* Question Range Badge */}
+      {/* Part Header */}
       <div style={{
-        padding: "10px 12px",
-        backgroundColor: "#dbeafe",
+        padding: "12px 16px",
+        background: "linear-gradient(135deg, #3b82f6 0%, #60a5fa 100%)",
         borderRadius: "8px",
-        marginBottom: "12px",
-        border: "1px solid #93c5fd",
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "center",
+        marginBottom: "16px",
+        color: "white",
       }}>
-        <span style={{ fontWeight: 600, color: "#1e40af" }}>
-          📝 Cloze Test: {blanks.length > 0 
-            ? `Questions ${Math.min(...blanks.map(b => b.questionNum))} - ${Math.max(...blanks.map(b => b.questionNum))}` 
-            : 'Chưa có câu hỏi'}
-        </span>
-        <span style={{
-          padding: "4px 10px",
-          backgroundColor: "#3b82f6",
-          color: "white",
-          borderRadius: "12px",
-          fontSize: "12px",
-          fontWeight: 600,
-        }}>
-          {blanks.length} blanks
-        </span>
+        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+          <span style={{
+            backgroundColor: "white",
+            color: "#3b82f6",
+            padding: "4px 12px",
+            borderRadius: "12px",
+            fontSize: "12px",
+            fontWeight: 700,
+          }}>Part {partIndex + 1}</span>
+          <span style={{ fontWeight: 600 }}>Open Cloze</span>
+          {blanks.length > 0 && (
+            <span style={{
+              marginLeft: "auto",
+              fontSize: "13px",
+              opacity: 0.9,
+            }}>Questions {Math.min(...blanks.map(b => b.questionNum))}-{Math.max(...blanks.map(b => b.questionNum))}</span>
+          )}
+        </div>
+      </div>
+
+      {/* Instructions */}
+      <div style={{
+        padding: "12px 16px",
+        backgroundColor: "#eff6ff",
+        borderRadius: "8px",
+        marginBottom: "16px",
+        border: "1px solid #bfdbfe",
+      }}>
+        <p style={{ margin: 0, fontSize: "13px", color: "#1e40af" }}>
+          💡 <strong>Hướng dẫn:</strong> Paste đoạn văn có chỗ trống đánh số (1), (2)... hoặc dùng ___. 
+          Có thể nhập nhiều đáp án cách nhau bằng <code style={{
+            backgroundColor: "#dbeafe",
+            padding: "2px 6px",
+            borderRadius: "3px",
+            fontWeight: 600
+          }}>|</code> (VD: but | though | however)
+        </p>
       </div>
 
       {/* Title */}
@@ -215,36 +253,16 @@ Last summer, I ___ to the beach with my family. We ___ there for two weeks.`}
             <h4 style={{ margin: 0, fontSize: "14px", color: "#475569" }}>
               📝 Nhập đáp án cho từng chỗ trống:
             </h4>
-          </div>
-          
-          {/* Helper/Tip về multiple answers */}
-          <div style={{
-            padding: "10px 12px",
-            backgroundColor: "#ecfdf5",
-            borderRadius: "6px",
-            marginBottom: "12px",
-            border: "1px solid #a7f3d0",
-          }}>
-            <p style={{ 
-              margin: 0, 
-              fontSize: "12px", 
-              color: "#065f46",
-              display: "flex",
-              alignItems: "center",
-              gap: "6px"
+            <span style={{
+              padding: "4px 10px",
+              backgroundColor: "#3b82f6",
+              color: "white",
+              borderRadius: "12px",
+              fontSize: "12px",
+              fontWeight: 600,
             }}>
-              <span style={{ fontSize: "16px" }}>💡</span>
-              <strong>Tip:</strong> Có thể nhập nhiều đáp án đúng cách nhau bằng dấu <code style={{
-                backgroundColor: "#d1fae5",
-                padding: "2px 6px",
-                borderRadius: "3px",
-                fontWeight: 600
-              }}>|</code>
-              <br/>
-              <span style={{ marginLeft: "24px", fontStyle: "italic" }}>
-                VD: <code style={{backgroundColor: "#d1fae5", padding: "2px 6px", borderRadius: "3px"}}>but | though | however | so</code> → Học sinh gõ bất kỳ từ nào cũng đúng
-              </span>
-            </p>
+              {blanks.length} blanks
+            </span>
           </div>
           
           <div style={{

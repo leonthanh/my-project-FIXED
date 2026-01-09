@@ -21,6 +21,8 @@ import "react-quill/dist/quill.snow.css";
 const ShortMessageEditor = ({
   question,
   onChange,
+  partIndex = 6, // Default to Part 7 (index 6)
+  startingNumber = 31, // Default starting number
 }) => {
   const situation = question.situation || '';
   const recipient = question.recipient || '';
@@ -84,14 +86,21 @@ const ShortMessageEditor = ({
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
           <span style={{ fontSize: "24px" }}>✉️</span>
-          <div>
+          <div style={{ flex: 1 }}>
             <h3 style={{ margin: 0, fontSize: "16px", fontWeight: 600 }}>
-              Part 7 - Writing Task
+              Part {partIndex + 1} - Writing Task
             </h3>
             <p style={{ margin: "4px 0 0 0", fontSize: "12px", opacity: 0.9 }}>
               Short Message / Email ({wordLimit.min}-{wordLimit.max} words)
             </p>
           </div>
+          <span style={{
+            fontSize: "13px",
+            opacity: 0.9,
+            fontWeight: 600,
+          }}>
+            Question {startingNumber}
+          </span>
         </div>
       </div>
 
@@ -316,13 +325,14 @@ const ShortMessageEditor = ({
               fontSize: "14px",
               fontWeight: 600,
             }}>
-              Part 7
+              Part {partIndex + 1}
             </div>
 
             {/* Task Description */}
-            <p style={{ margin: "0 0 12px 0", fontSize: "14px", color: "#1e293b" }}>
-              {situation || '(Tình huống sẽ hiển thị ở đây)'}
-            </p>
+            <div 
+              style={{ margin: "0 0 12px 0", fontSize: "14px", color: "#1e293b" }}
+              dangerouslySetInnerHTML={{ __html: situation || '<em style="color: #9ca3af;">(Tình huống sẽ hiển thị ở đây)</em>' }}
+            />
 
             {/* Write instruction */}
             <p style={{ margin: "0 0 12px 0", fontSize: "14px", color: "#1e293b" }}>

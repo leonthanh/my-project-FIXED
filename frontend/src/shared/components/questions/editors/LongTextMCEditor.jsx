@@ -23,6 +23,7 @@ const LongTextMCEditor = ({
   question = {},
   onChange,
   startingNumber = 7,
+  partIndex = 2, // Default to Part 3 (index 2)
 }) => {
   const passageTitle = question?.passageTitle || '';
   const passage = question?.passage || '';
@@ -114,7 +115,7 @@ const LongTextMCEditor = ({
             borderRadius: "12px",
             fontSize: "12px",
             fontWeight: 700,
-          }}>Part 3</span>
+          }}>Part {partIndex + 1}</span>
           <span style={{ fontWeight: 600 }}>Long Text - Multiple Choice</span>
           <span style={{
             marginLeft: "auto",

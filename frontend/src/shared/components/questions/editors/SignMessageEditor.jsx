@@ -19,6 +19,7 @@ const SignMessageEditor = ({
   question = {},
   onChange,
   startingNumber = 1,
+  partIndex = 0, // Default to Part 1 (index 0)
 }) => {
   const imageUrl = question?.imageUrl || '';
   const imageAlt = question?.imageAlt || '';
@@ -43,7 +44,7 @@ const SignMessageEditor = ({
             borderRadius: "12px",
             fontSize: "12px",
             fontWeight: 700,
-          }}>Part 1</span>
+          }}>Part {partIndex + 1}</span>
           <span style={{ fontWeight: 600 }}>Signs & Messages</span>
           <span style={{
             marginLeft: "auto",

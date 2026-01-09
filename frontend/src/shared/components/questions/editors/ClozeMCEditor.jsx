@@ -22,6 +22,7 @@ const ClozeMCEditor = ({
   question = {},
   onChange,
   startingNumber = 16,
+  partIndex = 3, // Default to Part 4 (index 3)
 }) => {
   const passageTitle = question?.passageTitle || '';
   const passage = question?.passage || '';
@@ -125,7 +126,7 @@ const ClozeMCEditor = ({
             borderRadius: "12px",
             fontSize: "12px",
             fontWeight: 700,
-          }}>Part 4</span>
+          }}>Part {partIndex + 1}</span>
           <span style={{ fontWeight: 600 }}>Multiple Choice Cloze</span>
           <span style={{
             marginLeft: "auto",

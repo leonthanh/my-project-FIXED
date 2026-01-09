@@ -294,47 +294,47 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
     // Đếm tất cả câu hỏi từ các part trước
     for (let p = 0; p < partIdx; p++) {
       for (const section of parts[p].sections) {
-        // Với long-text-mc, mỗi question object chứa nhiều câu
-        if (section.questionType === 'long-text-mc' && section.questions[0]?.questions) {
-          count += section.questions[0].questions.length;
-        } 
-        // Với cloze-mc, mỗi question object chứa nhiều blanks
-        else if (section.questionType === 'cloze-mc' && section.questions[0]?.blanks) {
-          count += section.questions[0].blanks.length;
-        }
-        // Với cloze-test, đếm số blanks từ answers object
-        else if (section.questionType === 'cloze-test' && section.questions[0]?.answers) {
-          count += Object.keys(section.questions[0].answers).length;
-        }
-        // Với short-message, đếm số bullet points
-        else if (section.questionType === 'short-message' && section.questions[0]?.bulletPoints) {
-          count += section.questions[0].bulletPoints.length;
-        }
-        else {
-          count += section.questions.length;
-        }
+        count += getQuestionCountForSection(section);
       }
     }
     // Đếm các section trước trong cùng part
     for (let s = 0; s < sectionIdx; s++) {
       const section = parts[partIdx].sections[s];
-      if (section.questionType === 'long-text-mc' && section.questions[0]?.questions) {
-        count += section.questions[0].questions.length;
-      } 
-      else if (section.questionType === 'cloze-mc' && section.questions[0]?.blanks) {
-        count += section.questions[0].blanks.length;
-      }
-      else if (section.questionType === 'cloze-test' && section.questions[0]?.answers) {
-        count += Object.keys(section.questions[0].answers).length;
-      }
-      else if (section.questionType === 'short-message' && section.questions[0]?.bulletPoints) {
-        count += section.questions[0].bulletPoints.length;
-      }
-      else {
-        count += section.questions.length;
-      }
+      count += getQuestionCountForSection(section);
     }
     return count;
+  };
+
+  // Helper function to count questions in a section
+  const getQuestionCountForSection = (section) => {
+    // Long text MC: đếm số câu hỏi trong questions array
+    if (section.questionType === 'long-text-mc' && section.questions[0]?.questions) {
+      return section.questions[0].questions.length;
+    } 
+    // Cloze MC: đếm số blanks
+    else if (section.questionType === 'cloze-mc' && section.questions[0]?.blanks) {
+      return section.questions[0].blanks.length;
+    }
+    // Open Cloze: đếm số blanks từ answers object
+    else if (section.questionType === 'cloze-test' && section.questions[0]?.answers) {
+      return Object.keys(section.questions[0].answers).length;
+    }
+    // Short Message/Writing Task: chỉ tính 1 câu (không đếm bulletPoints)
+    else if (section.questionType === 'short-message') {
+      return 1; // Writing Task là 1 câu duy nhất
+    }
+    // People Matching: 5 people (A-E)
+    else if (section.questionType === 'people-matching' && section.questions[0]?.people) {
+      return section.questions[0].people.length; // Usually 5
+    }
+    // Word Formation: đếm số sentences
+    else if (section.questionType === 'word-form' && section.questions[0]?.sentences) {
+      return section.questions[0].sentences.length;
+    }
+    // Default: single question types (sign-message, etc.)
+    else {
+      return section.questions.length;
+    }
   };
 
   // Autosave function
@@ -897,7 +897,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
                             </span>
                             
                             {/* Chỉ hiện số câu hỏi cho question types đơn giản, không hiện cho multi-question types */}
-                            {!['long-text-mc', 'cloze-mc', 'cloze-test', 'short-message'].includes(currentSection.questionType) && (
+                            {!['long-text-mc', 'cloze-mc', 'cloze-test', 'short-message', 'people-matching', 'word-form'].includes(currentSection.questionType) && (
                               <span style={{ 
                                 fontWeight: 600, 
                                 color: '#6366f1',
@@ -1023,7 +1023,8 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
                                 setParts(newParts);
                               }}
                               questionIndex={qIdx}
-                              startingNumber={['long-text-mc', 'cloze-mc', 'cloze-test', 'short-message'].includes(currentSection.questionType) ? sectionStartNum : startNum}
+                              startingNumber={['long-text-mc', 'cloze-mc', 'cloze-test', 'short-message', 'people-matching', 'word-form'].includes(currentSection.questionType) ? sectionStartNum : startNum}
+                              partIndex={selectedPartIndex}
                             />
                           </div>
                         )}
