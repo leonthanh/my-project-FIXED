@@ -47,6 +47,28 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
   // Auto-save state
   const [lastSaved, setLastSaved] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
+  
+  // Initial parts from savedData or default
+  const getInitialParts = () => {
+    if (savedData?.parts && Array.isArray(savedData.parts)) {
+      return savedData.parts;
+    }
+    return [
+      {
+        partNumber: 1,
+        title: 'Part 1',
+        instruction: '',
+        audioUrl: '',
+        sections: [
+          {
+            sectionTitle: '',
+            questionType: availableTypes[0]?.id || 'fill',
+            questions: [getDefaultQuestionData(availableTypes[0]?.id || 'fill')],
+          }
+        ]
+      }
+    ];
+  };
 
   // Support edit mode via props
   useEffect(() => {
@@ -96,22 +118,8 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
     }
   }, [initialData]);
 
-  // State
-  const [parts, setParts] = useState([
-    {
-      partNumber: 1,
-      title: 'Part 1',
-      instruction: '',
-      audioUrl: '', // For listening tests
-      sections: [
-        {
-          sectionTitle: '',
-          questionType: availableTypes[0]?.id || 'fill',
-          questions: [getDefaultQuestionData(availableTypes[0]?.id || 'fill')],
-        }
-      ]
-    }
-  ]);
+  // State - Load from savedData if available
+  const [parts, setParts] = useState(getInitialParts());
   const [selectedPartIndex, setSelectedPartIndex] = useState(0);
   const [selectedSectionIndex, setSelectedSectionIndex] = useState(0);
   
