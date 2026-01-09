@@ -288,7 +288,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
     return count + questionIdx;
   };
 
-  // Calculate starting number for a section (for multi-question types like long-text-mc)
+  // Calculate starting number for a section (for multi-question types like long-text-mc, cloze-mc)
   const calculateSectionStartingNumber = (partIdx, sectionIdx) => {
     let count = 1;
     // Đếm tất cả câu hỏi từ các part trước
@@ -297,7 +297,12 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
         // Với long-text-mc, mỗi question object chứa nhiều câu
         if (section.questionType === 'long-text-mc' && section.questions[0]?.questions) {
           count += section.questions[0].questions.length;
-        } else {
+        } 
+        // Với cloze-mc, mỗi question object chứa nhiều blanks
+        else if (section.questionType === 'cloze-mc' && section.questions[0]?.blanks) {
+          count += section.questions[0].blanks.length;
+        } 
+        else {
           count += section.questions.length;
         }
       }
@@ -307,7 +312,11 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
       const section = parts[partIdx].sections[s];
       if (section.questionType === 'long-text-mc' && section.questions[0]?.questions) {
         count += section.questions[0].questions.length;
-      } else {
+      } 
+      else if (section.questionType === 'cloze-mc' && section.questions[0]?.blanks) {
+        count += section.questions[0].blanks.length;
+      } 
+      else {
         count += section.questions.length;
       }
     }
@@ -873,13 +882,16 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
                               ⋮⋮
                             </span>
                             
-                            <span style={{ 
-                              fontWeight: 600, 
-                              color: '#6366f1',
-                              fontSize: '14px',
-                            }}>
-                              Câu hỏi #{startNum}
-                            </span>
+                            {/* Chỉ hiện số câu hỏi cho question types đơn giản, không hiện cho multi-question types */}
+                            {!['long-text-mc', 'cloze-mc'].includes(currentSection.questionType) && (
+                              <span style={{ 
+                                fontWeight: 600, 
+                                color: '#6366f1',
+                                fontSize: '14px',
+                              }}>
+                                Câu hỏi #{startNum}
+                              </span>
+                            )}
                             
                             {/* Collapsed Preview */}
                             {isCollapsed && (
@@ -997,7 +1009,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
                                 setParts(newParts);
                               }}
                               questionIndex={qIdx}
-                              startingNumber={currentSection.questionType === 'long-text-mc' ? sectionStartNum : startNum}
+                              startingNumber={['long-text-mc', 'cloze-mc'].includes(currentSection.questionType) ? sectionStartNum : startNum}
                             />
                           </div>
                         )}
