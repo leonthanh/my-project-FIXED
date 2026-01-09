@@ -206,43 +206,105 @@ Last summer, I ___ to the beach with my family. We ___ there for two weeks.`}
           border: "1px solid #e2e8f0",
           marginBottom: "16px",
         }}>
-          <h4 style={{ margin: "0 0 12px 0", fontSize: "14px", color: "#475569" }}>
-            📝 Nhập đáp án cho từng chỗ trống:
-          </h4>
+          <div style={{ 
+            display: "flex", 
+            justifyContent: "space-between", 
+            alignItems: "center",
+            marginBottom: "12px" 
+          }}>
+            <h4 style={{ margin: 0, fontSize: "14px", color: "#475569" }}>
+              📝 Nhập đáp án cho từng chỗ trống:
+            </h4>
+          </div>
+          
+          {/* Helper/Tip về multiple answers */}
+          <div style={{
+            padding: "10px 12px",
+            backgroundColor: "#ecfdf5",
+            borderRadius: "6px",
+            marginBottom: "12px",
+            border: "1px solid #a7f3d0",
+          }}>
+            <p style={{ 
+              margin: 0, 
+              fontSize: "12px", 
+              color: "#065f46",
+              display: "flex",
+              alignItems: "center",
+              gap: "6px"
+            }}>
+              <span style={{ fontSize: "16px" }}>💡</span>
+              <strong>Tip:</strong> Có thể nhập nhiều đáp án đúng cách nhau bằng dấu <code style={{
+                backgroundColor: "#d1fae5",
+                padding: "2px 6px",
+                borderRadius: "3px",
+                fontWeight: 600
+              }}>|</code>
+              <br/>
+              <span style={{ marginLeft: "24px", fontStyle: "italic" }}>
+                VD: <code style={{backgroundColor: "#d1fae5", padding: "2px 6px", borderRadius: "3px"}}>but | though | however | so</code> → Học sinh gõ bất kỳ từ nào cũng đúng
+              </span>
+            </p>
+          </div>
+          
           <div style={{
             display: "grid",
             gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))",
             gap: "12px",
           }}>
-            {blanks.map((blank) => (
-              <div key={blank.questionNum} style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                <span style={{
-                  minWidth: "32px",
-                  height: "32px",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  backgroundColor: "#3b82f6",
-                  color: "white",
-                  borderRadius: "50%",
-                  fontSize: "13px",
-                  fontWeight: 600,
-                }}>
-                  {blank.questionNum}
-                </span>
-                <input
-                  type="text"
-                  value={answers[blank.questionNum] || ''}
-                  onChange={(e) => handleAnswerChange(blank.questionNum, e.target.value)}
-                  placeholder="Đáp án..."
-                  style={{
-                    ...styles.input,
-                    marginBottom: 0,
-                    flex: 1,
-                  }}
-                />
-              </div>
-            ))}
+            {blanks.map((blank) => {
+              const hasMultipleAnswers = answers[blank.questionNum]?.includes('|');
+              return (
+                <div key={blank.questionNum} style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  <span style={{
+                    minWidth: "32px",
+                    height: "32px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    backgroundColor: hasMultipleAnswers ? "#10b981" : "#3b82f6",
+                    color: "white",
+                    borderRadius: "50%",
+                    fontSize: "13px",
+                    fontWeight: 600,
+                    position: "relative",
+                  }}>
+                    {blank.questionNum}
+                    {hasMultipleAnswers && (
+                      <span style={{
+                        position: "absolute",
+                        top: "-4px",
+                        right: "-4px",
+                        width: "16px",
+                        height: "16px",
+                        backgroundColor: "#fbbf24",
+                        borderRadius: "50%",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontSize: "10px",
+                        border: "2px solid white",
+                      }} title="Có nhiều đáp án đúng">
+                        ✓
+                      </span>
+                    )}
+                  </span>
+                  <input
+                    type="text"
+                    value={answers[blank.questionNum] || ''}
+                    onChange={(e) => handleAnswerChange(blank.questionNum, e.target.value)}
+                    placeholder="VD: but | though | however"
+                    style={{
+                      ...styles.input,
+                      marginBottom: 0,
+                      flex: 1,
+                      borderColor: hasMultipleAnswers ? "#10b981" : "#d1d5db",
+                      backgroundColor: hasMultipleAnswers ? "#f0fdf4" : "white",
+                    }}
+                  />
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
