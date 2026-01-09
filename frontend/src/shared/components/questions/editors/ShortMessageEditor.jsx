@@ -1,4 +1,6 @@
 import React from "react";
+import ReactQuill from "react-quill";
+import "react-quill/dist/quill.snow.css";
 
 /**
  * ShortMessageEditor - Editor cho KET/PET Part 7 Writing Task
@@ -19,6 +21,8 @@ import React from "react";
 const ShortMessageEditor = ({
   question,
   onChange,
+  partIndex = 6, // Default to Part 7 (index 6)
+  startingNumber = 31, // Default starting number
 }) => {
   const situation = question.situation || '';
   const recipient = question.recipient || '';
@@ -43,6 +47,33 @@ const ShortMessageEditor = ({
     onChange('bulletPoints', newBullets);
   };
 
+  // Quill modules configuration
+  const modules = {
+    toolbar: [
+      [{ header: [1, 2, 3, false] }],
+      ["bold", "italic", "underline"],
+      [{ color: [] }, { background: [] }],
+      [{ list: "ordered" }, { list: "bullet" }],
+      [{ align: [] }],
+      ["link", "image"],
+      ["clean"],
+    ],
+  };
+
+  const formats = [
+    "header",
+    "bold",
+    "italic",
+    "underline",
+    "color",
+    "background",
+    "list",
+    "bullet",
+    "align",
+    "link",
+    "image",
+  ];
+
   return (
     <div>
       {/* Header Badge */}
@@ -55,14 +86,21 @@ const ShortMessageEditor = ({
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
           <span style={{ fontSize: "24px" }}>✉️</span>
-          <div>
+          <div style={{ flex: 1 }}>
             <h3 style={{ margin: 0, fontSize: "16px", fontWeight: 600 }}>
-              Part 7 - Writing Task
+              Part {partIndex + 1} - Writing Task
             </h3>
             <p style={{ margin: "4px 0 0 0", fontSize: "12px", opacity: 0.9 }}>
               Short Message / Email ({wordLimit.min}-{wordLimit.max} words)
             </p>
           </div>
+          <span style={{
+            fontSize: "13px",
+            opacity: 0.9,
+            fontWeight: 600,
+          }}>
+            Question {startingNumber}
+          </span>
         </div>
       </div>
 
@@ -136,20 +174,28 @@ const ShortMessageEditor = ({
       </div>
 
       {/* Situation */}
-      <div style={{ marginBottom: "16px" }}>
+      <div style={{ marginBottom: "16px" }} className="short-message-editor">
         <label style={styles.label}>Tình huống (Situation) *</label>
-        <textarea
-          value={situation}
-          onChange={(e) => onChange('situation', e.target.value)}
-          placeholder="VD: You want to go to the cinema with your English friend Sam."
-          style={{
-            ...styles.input,
-            minHeight: "80px",
-            resize: "vertical",
-          }}
-        />
+        <div style={{
+          border: "1px solid #d1d5db",
+          borderRadius: "6px",
+          backgroundColor: "white",
+        }}>
+          <ReactQuill
+            theme="snow"
+            value={situation}
+            onChange={(content) => onChange('situation', content)}
+            placeholder="VD: You want to go to the cinema with your English friend Sam."
+            modules={modules}
+            formats={formats}
+            style={{
+              minHeight: "80px",
+              backgroundColor: "white",
+            }}
+          />
+        </div>
         <p style={{ fontSize: "11px", color: "#6b7280", marginTop: "4px" }}>
-          💡 Mô tả tình huống học sinh cần viết tin nhắn
+          💡 Mô tả tình huống học sinh cần viết. Có thể thêm hình, định dạng text...
         </p>
       </div>
 
@@ -279,13 +325,14 @@ const ShortMessageEditor = ({
               fontSize: "14px",
               fontWeight: 600,
             }}>
-              Part 7
+              Part {partIndex + 1}
             </div>
 
             {/* Task Description */}
-            <p style={{ margin: "0 0 12px 0", fontSize: "14px", color: "#1e293b" }}>
-              {situation || '(Tình huống sẽ hiển thị ở đây)'}
-            </p>
+            <div 
+              style={{ margin: "0 0 12px 0", fontSize: "14px", color: "#1e293b" }}
+              dangerouslySetInnerHTML={{ __html: situation || '<em style="color: #9ca3af;">(Tình huống sẽ hiển thị ở đây)</em>' }}
+            />
 
             {/* Write instruction */}
             <p style={{ margin: "0 0 12px 0", fontSize: "14px", color: "#1e293b" }}>
@@ -360,5 +407,58 @@ const styles = {
     color: "#374151",
   },
 };
+
+// Custom styles for ReactQuill in this editor
+const quillStyles = `
+  .short-message-editor .ql-container {
+    min-height: 80px;
+    font-size: 14px;
+    line-height: 1.8;
+    transition: all 0.2s ease;
+  }
+  .short-message-editor .ql-editor {
+    min-height: 80px;
+    background-color: #ffffff;
+  }
+  .short-message-editor .ql-editor.ql-blank::before {
+    font-style: italic;
+    color: #9ca3af;
+  }
+  
+  /* Highlight khi focus vào ReactQuill */
+  .short-message-editor .ql-container.ql-snow {
+    border-color: #d1d5db;
+  }
+  .short-message-editor .ql-container.ql-snow:focus-within {
+    background-color: #f5f3ff;
+    border-color: #8b5cf6;
+    box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1);
+  }
+  .short-message-editor .ql-editor:focus {
+    background-color: #f5f3ff;
+    outline: none;
+  }
+  
+  /* Highlight toolbar khi đang active */
+  .short-message-editor .ql-toolbar.ql-snow {
+    border-color: #d1d5db;
+    background-color: #f9fafb;
+  }
+  .short-message-editor:focus-within .ql-toolbar.ql-snow {
+    background-color: #ede9fe;
+    border-color: #8b5cf6;
+  }
+`;
+
+// Inject styles
+if (typeof document !== 'undefined') {
+  const styleId = 'short-message-quill-styles';
+  if (!document.getElementById(styleId)) {
+    const styleEl = document.createElement('style');
+    styleEl.id = styleId;
+    styleEl.textContent = quillStyles;
+    document.head.appendChild(styleEl);
+  }
+}
 
 export default ShortMessageEditor;

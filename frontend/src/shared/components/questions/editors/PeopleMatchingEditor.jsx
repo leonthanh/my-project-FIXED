@@ -22,6 +22,7 @@ const PeopleMatchingEditor = ({
   question = {},
   onChange,
   startingNumber = 6, // Part 2 thường bắt đầu từ câu 6
+  partIndex = 1, // Default to Part 2 (index 1)
 }) => {
   const description = question?.description || '';
   const people = question?.people || [ 
@@ -91,7 +92,7 @@ const PeopleMatchingEditor = ({
             borderRadius: "12px",
             fontSize: "12px",
             fontWeight: 700,
-          }}>Part 2</span>
+          }}>Part {partIndex + 1}</span>
           <span style={{ fontWeight: 600 }}>Matching - People & Texts</span>
           <span style={{
             marginLeft: "auto",

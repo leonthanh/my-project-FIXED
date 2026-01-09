@@ -1,4 +1,6 @@
 import React from "react";
+import ReactQuill from "react-quill";
+import "react-quill/dist/quill.snow.css";
 
 /**
  * LongTextMCEditor - KET Part 3: Long Text + Multiple Choice
@@ -15,17 +17,20 @@ import React from "react";
  * @param {Object} props
  * @param {Object} props.question - Question data
  * @param {Function} props.onChange - Handler khi thay đổi field
- * @param {number} props.startingNumber - Số câu bắt đầu (thường 11)
+ * @param {number} props.startingNumber - Số câu bắt đầu (thường 7)
  */
 const LongTextMCEditor = ({
   question = {},
   onChange,
-  startingNumber = 11,
+  startingNumber = 7,
+  partIndex = 2, // Default to Part 3 (index 2)
 }) => {
   const passageTitle = question?.passageTitle || '';
   const passage = question?.passage || '';
   const passageType = question?.passageType || 'conversation'; // conversation, article, email, story
   const questions = question?.questions || [ 
+    { questionText: '', options: ['A. ', 'B. ', 'C. '], correctAnswer: '' },
+    { questionText: '', options: ['A. ', 'B. ', 'C. '], correctAnswer: '' },
     { questionText: '', options: ['A. ', 'B. ', 'C. '], correctAnswer: '' },
     { questionText: '', options: ['A. ', 'B. ', 'C. '], correctAnswer: '' },
     { questionText: '', options: ['A. ', 'B. ', 'C. '], correctAnswer: '' },
@@ -46,6 +51,52 @@ const LongTextMCEditor = ({
     onChange("questions", newQuestions);
   };
 
+  // Thêm câu hỏi mới
+  const handleAddQuestion = () => {
+    const newQuestions = [...questions, {
+      questionText: '',
+      options: ['A. ', 'B. ', 'C. '],
+      correctAnswer: ''
+    }];
+    onChange("questions", newQuestions);
+  };
+
+  // Xóa câu hỏi
+  const handleDeleteQuestion = (qIndex) => {
+    if (questions.length <= 1) {
+      alert('⚠️ Phải có ít nhất 1 câu hỏi!');
+      return;
+    }
+    const newQuestions = questions.filter((_, idx) => idx !== qIndex);
+    onChange("questions", newQuestions);
+  };
+
+  // Quill modules configuration
+  const modules = {
+    toolbar: [
+      [{ header: [1, 2, 3, false] }],
+      ["bold", "italic", "underline"],
+      [{ color: [] }, { background: [] }],
+      [{ list: "ordered" }, { list: "bullet" }],
+      [{ align: [] }],
+      ["link"],
+      ["clean"],
+    ],
+  };
+
+  const formats = [
+    "header",
+    "bold",
+    "italic",
+    "underline",
+    "color",
+    "background",
+    "list",
+    "bullet",
+    "align",
+    "link",
+  ];
+
   return (
     <div>
       {/* Part Header */}
@@ -64,13 +115,13 @@ const LongTextMCEditor = ({
             borderRadius: "12px",
             fontSize: "12px",
             fontWeight: 700,
-          }}>Part 3</span>
+          }}>Part {partIndex + 1}</span>
           <span style={{ fontWeight: 600 }}>Long Text - Multiple Choice</span>
           <span style={{
             marginLeft: "auto",
             fontSize: "13px",
             opacity: 0.9,
-          }}>Questions {startingNumber}-{startingNumber + 4}</span>
+          }}>Questions {startingNumber}-{startingNumber + questions.length - 1}</span>
         </div>
       </div>
 
@@ -113,30 +164,38 @@ const LongTextMCEditor = ({
           value={passageTitle}
           onChange={(e) => onChange("passageTitle", e.target.value)}
           placeholder="VD: A conversation between Sarah and Tom"
+          className="long-text-mc-question-input"
           style={styles.input}
         />
       </div>
 
       {/* Passage Text */}
-      <div style={{ marginBottom: "20px" }}>
+      <div style={{ marginBottom: "20px" }} className="long-text-mc-editor">
         <label style={styles.label}>📝 Nội dung đoạn văn *</label>
-        <textarea
-          value={passage}
-          onChange={(e) => onChange("passage", e.target.value)}
-          placeholder={
-            passageType === 'conversation' 
-              ? "Sarah: Hi Tom! What are you doing this weekend?\nTom: I'm not sure yet. Maybe visiting my grandmother.\nSarah: Oh, that sounds nice..."
-              : "Paste nội dung đoạn văn ở đây..."
-          }
-          style={{
-            ...styles.input,
-            minHeight: "200px",
-            fontFamily: passageType === 'conversation' ? "'Courier New', monospace" : "inherit",
-            lineHeight: "1.8",
-          }}
-        />
+        <div style={{
+          border: "1px solid #d1d5db",
+          borderRadius: "6px",
+          backgroundColor: "white",
+        }}>
+          <ReactQuill
+            theme="snow"
+            value={passage}
+            onChange={(content) => onChange("passage", content)}
+            placeholder={
+              passageType === 'conversation' 
+                ? "VD: Sarah: Hi Tom! What are you doing this weekend?\nTom: I'm not sure yet. Maybe visiting my grandmother..."
+                : "Nhập nội dung đoạn văn ở đây..."
+            }
+            modules={modules}
+            formats={formats}
+            style={{
+              minHeight: "200px",
+              backgroundColor: "white",
+            }}
+          />
+        </div>
         <p style={{ fontSize: "11px", color: "#6b7280", marginTop: "4px" }}>
-          💡 Với hội thoại: Dùng format "Tên: Lời nói" mỗi dòng
+          💡 Với hội thoại: Dùng format "Tên: Lời nói". Có thể định dạng text, thêm link, list...
         </p>
       </div>
 
@@ -147,9 +206,35 @@ const LongTextMCEditor = ({
         borderRadius: "8px",
         border: "1px solid #e2e8f0",
       }}>
-        <h3 style={{ margin: "0 0 16px 0", fontSize: "14px", color: "#374151" }}>
-          ❓ 5 Câu hỏi Multiple Choice
-        </h3>
+        <div style={{ 
+          display: "flex", 
+          justifyContent: "space-between", 
+          alignItems: "center",
+          marginBottom: "16px" 
+        }}>
+          <h3 style={{ margin: 0, fontSize: "14px", color: "#374151" }}>
+            ❓ {questions.length} Câu hỏi Multiple Choice
+          </h3>
+          <button
+            type="button"
+            onClick={handleAddQuestion}
+            style={{
+              padding: "6px 12px",
+              backgroundColor: "#059669",
+              color: "white",
+              border: "none",
+              borderRadius: "6px",
+              cursor: "pointer",
+              fontSize: "12px",
+              fontWeight: 600,
+              display: "flex",
+              alignItems: "center",
+              gap: "4px",
+            }}
+          >
+            ➕ Thêm câu hỏi
+          </button>
+        </div>
 
         {questions.map((q, qIdx) => (
           <div key={qIdx} style={{
@@ -158,7 +243,32 @@ const LongTextMCEditor = ({
             borderRadius: "8px",
             marginBottom: "12px",
             border: "1px solid #e5e7eb",
+            position: "relative",
           }}>
+            {/* Delete button */}
+            {questions.length > 1 && (
+              <button
+                type="button"
+                onClick={() => handleDeleteQuestion(qIdx)}
+                style={{
+                  position: "absolute",
+                  top: "8px",
+                  right: "8px",
+                  padding: "4px 8px",
+                  backgroundColor: "#ef4444",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "4px",
+                  cursor: "pointer",
+                  fontSize: "11px",
+                  fontWeight: 600,
+                }}
+                title="Xóa câu hỏi này"
+              >
+                ✕
+              </button>
+            )}
+            
             {/* Question number & text */}
             <div style={{ display: "flex", gap: "10px", marginBottom: "12px" }}>
               <span style={{
@@ -180,6 +290,7 @@ const LongTextMCEditor = ({
                 value={q.questionText}
                 onChange={(e) => handleQuestionChange(qIdx, 'questionText', e.target.value)}
                 placeholder={`Câu hỏi ${startingNumber + qIdx}...`}
+                className="long-text-mc-question-input"
                 style={{ ...styles.input, flex: 1, marginBottom: 0, fontWeight: 500 }}
               />
             </div>
@@ -209,9 +320,16 @@ const LongTextMCEditor = ({
                   </span>
                   <input
                     type="text"
-                    value={q.options?.[optIdx]?.replace(`${opt}.`, "").replace(`${opt}`, "").trim() || ""}
+                    value={
+                      q.options?.[optIdx]
+                        ? q.options[optIdx].startsWith(`${opt}. `)
+                          ? q.options[optIdx].substring(3)
+                          : q.options[optIdx].replace(/^[A-C]\. /, "")
+                        : ""
+                    }
                     onChange={(e) => handleOptionChange(qIdx, optIdx, e.target.value)}
                     placeholder={`Lựa chọn ${opt}`}
+                    className="long-text-mc-option-input"
                     style={{ ...styles.input, flex: 1, marginBottom: 0, fontSize: "12px" }}
                   />
                   <label style={{
@@ -287,5 +405,73 @@ const styles = {
     color: "#374151",
   },
 };
+
+// Custom styles for ReactQuill in this editor
+const quillStyles = `
+  .long-text-mc-editor .ql-container {
+    min-height: 200px;
+    font-size: 14px;
+    line-height: 1.8;
+    transition: all 0.2s ease;
+  }
+  .long-text-mc-editor .ql-editor {
+    min-height: 200px;
+    background-color: #ffffff;
+  }
+  .long-text-mc-editor .ql-editor.ql-blank::before {
+    font-style: italic;
+    color: #9ca3af;
+  }
+  
+  /* Highlight khi focus vào ReactQuill */
+  .long-text-mc-editor .ql-container.ql-snow {
+    border-color: #d1d5db;
+  }
+  .long-text-mc-editor .ql-container.ql-snow:focus-within {
+    background-color: #fffbeb;
+    border-color: #fbbf24;
+    box-shadow: 0 0 0 3px rgba(251, 191, 36, 0.1);
+  }
+  .long-text-mc-editor .ql-editor:focus {
+    background-color: #fffbeb;
+    outline: none;
+  }
+  
+  /* Highlight toolbar khi đang active */
+  .long-text-mc-editor .ql-toolbar.ql-snow {
+    border-color: #d1d5db;
+    background-color: #f9fafb;
+  }
+  .long-text-mc-editor:focus-within .ql-toolbar.ql-snow {
+    background-color: #fef3c7;
+    border-color: #fbbf24;
+  }
+  
+  /* Styles cho input fields */
+  .long-text-mc-question-input:focus {
+    background-color: #eff6ff !important;
+    border-color: #3b82f6 !important;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1) !important;
+    outline: none !important;
+  }
+  
+  .long-text-mc-option-input:focus {
+    background-color: #f0fdf4 !important;
+    border-color: #10b981 !important;
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1) !important;
+    outline: none !important;
+  }
+`;
+
+// Inject styles
+if (typeof document !== 'undefined') {
+  const styleId = 'long-text-mc-quill-styles';
+  if (!document.getElementById(styleId)) {
+    const styleEl = document.createElement('style');
+    styleEl.id = styleId;
+    styleEl.textContent = quillStyles;
+    document.head.appendChild(styleEl);
+  }
+}
 
 export default LongTextMCEditor;

@@ -1,4 +1,6 @@
 import React from "react";
+import ReactQuill from "react-quill";
+import "react-quill/dist/quill.snow.css";
 
 /**
  * ClozeMCEditor - KET Part 4: Multiple Choice Cloze
@@ -20,6 +22,7 @@ const ClozeMCEditor = ({
   question = {},
   onChange,
   startingNumber = 16,
+  partIndex = 3, // Default to Part 4 (index 3)
 }) => {
   const passageTitle = question?.passageTitle || '';
   const passage = question?.passage || '';
@@ -59,6 +62,33 @@ const ClozeMCEditor = ({
     onChange("blanks", newBlanks);
   };
 
+  // Quill modules configuration with image support
+  const modules = {
+    toolbar: [
+      [{ header: [1, 2, 3, false] }],
+      ["bold", "italic", "underline"],
+      [{ color: [] }, { background: [] }],
+      [{ list: "ordered" }, { list: "bullet" }],
+      [{ align: [] }],
+      ["link", "image"],
+      ["clean"],
+    ],
+  };
+
+  const formats = [
+    "header",
+    "bold",
+    "italic",
+    "underline",
+    "color",
+    "background",
+    "list",
+    "bullet",
+    "align",
+    "link",
+    "image",
+  ];
+
   // Parse passage to highlight blanks
   const getHighlightedPassage = () => {
     if (!passage) return null;
@@ -96,7 +126,7 @@ const ClozeMCEditor = ({
             borderRadius: "12px",
             fontSize: "12px",
             fontWeight: 700,
-          }}>Part 4</span>
+          }}>Part {partIndex + 1}</span>
           <span style={{ fontWeight: 600 }}>Multiple Choice Cloze</span>
           <span style={{
             marginLeft: "auto",
@@ -133,20 +163,28 @@ const ClozeMCEditor = ({
       </div>
 
       {/* Passage Text */}
-      <div style={{ marginBottom: "20px" }}>
+      <div style={{ marginBottom: "20px" }} className="cloze-mc-editor">
         <label style={styles.label}>📝 Đoạn văn với chỗ trống *</label>
-        <textarea
-          value={passage}
-          onChange={(e) => onChange("passage", e.target.value)}
-          placeholder={`VD: Last summer, I (${startingNumber}) to Italy with my family. We (${startingNumber + 1}) in a beautiful hotel near the beach. Every day, we (${startingNumber + 2}) swimming and...`}
-          style={{
-            ...styles.input,
-            minHeight: "150px",
-            lineHeight: "1.8",
-          }}
-        />
+        <div style={{
+          border: "1px solid #d1d5db",
+          borderRadius: "6px",
+          backgroundColor: "white",
+        }}>
+          <ReactQuill
+            theme="snow"
+            value={passage}
+            onChange={(content) => onChange("passage", content)}
+            placeholder={`VD: Last summer, I (${startingNumber}) to Italy with my family. We (${startingNumber + 1}) in a beautiful hotel near the beach...`}
+            modules={modules}
+            formats={formats}
+            style={{
+              minHeight: "150px",
+              backgroundColor: "white",
+            }}
+          />
+        </div>
         <p style={{ fontSize: "11px", color: "#6b7280", marginTop: "4px" }}>
-          💡 Dùng (16), (17)... để đánh dấu chỗ trống
+          💡 Dùng (16), (17)... để đánh dấu chỗ trống. Có thể thêm hình, định dạng text...
         </p>
       </div>
 
@@ -346,5 +384,58 @@ const styles = {
     color: "#374151",
   },
 };
+
+// Custom styles for ReactQuill in this editor
+const quillStyles = `
+  .cloze-mc-editor .ql-container {
+    min-height: 150px;
+    font-size: 14px;
+    line-height: 1.8;
+    transition: all 0.2s ease;
+  }
+  .cloze-mc-editor .ql-editor {
+    min-height: 150px;
+    background-color: #ffffff;
+  }
+  .cloze-mc-editor .ql-editor.ql-blank::before {
+    font-style: italic;
+    color: #9ca3af;
+  }
+  
+  /* Highlight khi focus vào ReactQuill */
+  .cloze-mc-editor .ql-container.ql-snow {
+    border-color: #d1d5db;
+  }
+  .cloze-mc-editor .ql-container.ql-snow:focus-within {
+    background-color: #fef2f2;
+    border-color: #dc2626;
+    box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.1);
+  }
+  .cloze-mc-editor .ql-editor:focus {
+    background-color: #fef2f2;
+    outline: none;
+  }
+  
+  /* Highlight toolbar khi đang active */
+  .cloze-mc-editor .ql-toolbar.ql-snow {
+    border-color: #d1d5db;
+    background-color: #f9fafb;
+  }
+  .cloze-mc-editor:focus-within .ql-toolbar.ql-snow {
+    background-color: #fee2e2;
+    border-color: #dc2626;
+  }
+`;
+
+// Inject styles
+if (typeof document !== 'undefined') {
+  const styleId = 'cloze-mc-quill-styles';
+  if (!document.getElementById(styleId)) {
+    const styleEl = document.createElement('style');
+    styleEl.id = styleId;
+    styleEl.textContent = quillStyles;
+    document.head.appendChild(styleEl);
+  }
+}
 
 export default ClozeMCEditor;
