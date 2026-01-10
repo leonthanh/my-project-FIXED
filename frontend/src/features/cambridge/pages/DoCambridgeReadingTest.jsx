@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { apiPath, hostPath } from "../../../shared/utils/api";
 import { TestHeader } from "../../../shared/components";
 import { TEST_CONFIGS } from "../../../shared/config/questionTypes";
+import QuestionDisplayFactory from "../../../shared/components/questions/displays/QuestionDisplayFactory";
 
 /**
  * DoCambridgeReadingTest - Trang làm bài thi Reading Cambridge (KET, PET, etc.)
@@ -211,208 +212,6 @@ const DoCambridgeReadingTest = () => {
     return { start: startNum, end: startNum + count - 1 };
   }, [test?.parts]);
 
-  // Render question based on type
-  const renderQuestion = (question, questionKey, questionNum) => {
-    const qType = question.questionType || 'fill';
-    const userAnswer = answers[questionKey];
-    const isCorrect = submitted && results?.answers?.[questionKey]?.isCorrect;
-
-    switch (qType) {
-      case 'fill':
-        return (
-          <div style={styles.questionCard}>
-            <div style={styles.questionHeader}>
-              <span style={styles.questionNum}>{questionNum}</span>
-              <span style={styles.questionText}>{question.questionText}</span>
-            </div>
-            <input
-              type="text"
-              value={userAnswer || ''}
-              onChange={(e) => handleAnswerChange(questionKey, e.target.value)}
-              disabled={submitted}
-              placeholder="Nhập đáp án..."
-              style={{
-                ...styles.input,
-                ...(submitted && {
-                  backgroundColor: isCorrect ? '#dcfce7' : '#fee2e2',
-                  borderColor: isCorrect ? '#22c55e' : '#ef4444',
-                }),
-              }}
-            />
-            {submitted && question.correctAnswer && (
-              <div style={styles.correctAnswer}>
-                ✓ Đáp án đúng: {question.correctAnswer}
-              </div>
-            )}
-          </div>
-        );
-
-      case 'abc':
-      case 'abcd':
-        const options = question.options || [];
-        return (
-          <div style={styles.questionCard}>
-            <div style={styles.questionHeader}>
-              <span style={styles.questionNum}>{questionNum}</span>
-              <span style={styles.questionText}>{question.questionText}</span>
-            </div>
-            <div style={styles.optionsContainer}>
-              {options.map((opt, idx) => {
-                const optionLabel = String.fromCharCode(65 + idx);
-                const isSelected = userAnswer === optionLabel;
-                const isCorrectOption = submitted && question.correctAnswer === optionLabel;
-
-                return (
-                  <label
-                    key={idx}
-                    style={{
-                      ...styles.optionLabel,
-                      ...(isSelected && styles.optionSelected),
-                      ...(submitted && isCorrectOption && styles.optionCorrect),
-                      ...(submitted && isSelected && !isCorrectOption && styles.optionWrong),
-                    }}
-                  >
-                    <input
-                      type="radio"
-                      name={questionKey}
-                      checked={isSelected}
-                      onChange={() => handleAnswerChange(questionKey, optionLabel)}
-                      disabled={submitted}
-                      style={{ marginRight: '10px' }}
-                    />
-                    <span style={styles.optionText}>{opt}</span>
-                  </label>
-                );
-              })}
-            </div>
-          </div>
-        );
-
-      case 'matching':
-        const leftItems = question.leftItems || [];
-        const rightItems = question.rightItems || [];
-        return (
-          <div style={styles.questionCard}>
-            <div style={styles.questionHeader}>
-              <span style={styles.questionNum}>{questionNum}</span>
-              <span style={styles.questionText}>{question.questionText || 'Match the items'}</span>
-            </div>
-            <div style={styles.matchingContainer}>
-              {leftItems.map((item, idx) => (
-                <div key={idx} style={styles.matchingRow}>
-                  <span style={styles.matchingItem}>{idx + 1}. {item}</span>
-                  <select
-                    value={answers[`${questionKey}-${idx}`] || ''}
-                    onChange={(e) => handleAnswerChange(`${questionKey}-${idx}`, e.target.value)}
-                    disabled={submitted}
-                    style={styles.matchingSelect}
-                  >
-                    <option value="">-- Chọn --</option>
-                    {rightItems.map((right, rIdx) => (
-                      <option key={rIdx} value={String.fromCharCode(65 + rIdx)}>
-                        {String.fromCharCode(65 + rIdx)}. {right}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              ))}
-            </div>
-            {/* Right items reference */}
-            <div style={styles.rightItemsRef}>
-              <strong>Options:</strong>
-              <div style={{ marginTop: '8px', display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                {rightItems.map((item, idx) => (
-                  <span key={idx} style={styles.rightItemBadge}>
-                    {String.fromCharCode(65 + idx)}. {item}
-                  </span>
-                ))}
-              </div>
-            </div>
-          </div>
-        );
-
-      case 'cloze-test':
-        // Cloze test with passage and blanks
-        return (
-          <div style={styles.questionCard}>
-            <div style={styles.questionHeader}>
-              <span style={styles.questionNum}>{questionNum}</span>
-            </div>
-            {question.passage && (
-              <div 
-                style={styles.passage}
-                dangerouslySetInnerHTML={{ __html: question.passage }}
-              />
-            )}
-            <input
-              type="text"
-              value={userAnswer || ''}
-              onChange={(e) => handleAnswerChange(questionKey, e.target.value)}
-              disabled={submitted}
-              placeholder="Nhập đáp án..."
-              style={styles.input}
-            />
-            {submitted && question.correctAnswer && (
-              <div style={styles.correctAnswer}>
-                ✓ Đáp án đúng: {question.correctAnswer}
-              </div>
-            )}
-          </div>
-        );
-
-      case 'sentence-transformation':
-        return (
-          <div style={styles.questionCard}>
-            <div style={styles.questionHeader}>
-              <span style={styles.questionNum}>{questionNum}</span>
-              <span style={styles.questionText}>{question.questionText}</span>
-            </div>
-            {question.originalSentence && (
-              <div style={styles.originalSentence}>
-                <strong>Original:</strong> {question.originalSentence}
-              </div>
-            )}
-            {question.promptWord && (
-              <div style={styles.promptWord}>
-                <strong>Key word:</strong> <span style={{ color: '#dc2626', fontWeight: 600 }}>{question.promptWord}</span>
-              </div>
-            )}
-            <input
-              type="text"
-              value={userAnswer || ''}
-              onChange={(e) => handleAnswerChange(questionKey, e.target.value)}
-              disabled={submitted}
-              placeholder="Hoàn thành câu..."
-              style={styles.input}
-            />
-            {submitted && question.correctAnswer && (
-              <div style={styles.correctAnswer}>
-                ✓ Đáp án đúng: {question.correctAnswer}
-              </div>
-            )}
-          </div>
-        );
-
-      default:
-        return (
-          <div style={styles.questionCard}>
-            <div style={styles.questionHeader}>
-              <span style={styles.questionNum}>{questionNum}</span>
-              <span style={styles.questionText}>{question.questionText}</span>
-            </div>
-            <input
-              type="text"
-              value={userAnswer || ''}
-              onChange={(e) => handleAnswerChange(questionKey, e.target.value)}
-              disabled={submitted}
-              placeholder="Nhập đáp án..."
-              style={styles.input}
-            />
-          </div>
-        );
-    }
-  };
-
   // Loading state
   if (loading) {
     return (
@@ -523,7 +322,10 @@ const DoCambridgeReadingTest = () => {
                   {currentPart.title || `Part ${currentPartIndex + 1}`}
                 </h2>
                 {currentPart.instruction && (
-                  <p style={styles.partInstruction}>{currentPart.instruction}</p>
+                  <div 
+                    style={styles.partInstruction}
+                    dangerouslySetInnerHTML={{ __html: currentPart.instruction }}
+                  />
                 )}
               </div>
 
@@ -540,11 +342,12 @@ const DoCambridgeReadingTest = () => {
               {/* Sections & Questions */}
               {currentPart.sections?.map((section, secIdx) => {
                 const partRange = getPartQuestionRange(currentPartIndex);
-                let questionNum = partRange.start;
+                let startingNumber = partRange.start;
                 
                 // Calculate starting question for this section
                 for (let s = 0; s < secIdx; s++) {
-                  questionNum += currentPart.sections[s]?.questions?.length || 0;
+                  const prevSection = currentPart.sections[s];
+                  startingNumber += prevSection?.questions?.length || 0;
                 }
 
                 return (
@@ -553,21 +356,15 @@ const DoCambridgeReadingTest = () => {
                       <h3 style={styles.sectionTitle}>{section.sectionTitle}</h3>
                     )}
                     
-                    {/* Section passage (for individual reading texts) */}
-                    {section.passage && (
-                      <div style={styles.sectionPassage}>
-                        <div dangerouslySetInnerHTML={{ __html: section.passage }} />
-                      </div>
-                    )}
-                    
-                    {section.questions?.map((q, qIdx) => {
-                      const questionKey = `${currentPartIndex}-${secIdx}-${qIdx}`;
-                      return (
-                        <div key={qIdx} ref={(el) => (questionRefs.current[questionKey] = el)}>
-                          {renderQuestion(q, questionKey, questionNum + qIdx)}
-                        </div>
-                      );
-                    })}
+                    {/* Use QuestionDisplayFactory to render appropriate display component */}
+                    <QuestionDisplayFactory
+                      section={{ ...section, id: `${currentPartIndex}-${secIdx}` }}
+                      questionType={section.questionType}
+                      startingNumber={startingNumber}
+                      onAnswerChange={handleAnswerChange}
+                      answers={answers}
+                      submitted={submitted}
+                    />
                   </div>
                 );
               })}
