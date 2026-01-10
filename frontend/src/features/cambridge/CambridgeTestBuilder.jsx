@@ -788,6 +788,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
                 backgroundColor: 'white',
               }}>
                 <ReactQuill
+                  key={`part-instruction-${selectedPartIndex}`}
                   theme="snow"
                   value={currentPart.instruction || ''}
                   onChange={(content) => {
