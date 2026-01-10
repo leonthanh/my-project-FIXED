@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
+import ReactQuill from "react-quill";
+import "react-quill/dist/quill.snow.css";
 import { AdminNavbar } from "../../shared/components";
 import { 
   QuestionTypeSelector, 
@@ -771,7 +773,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
             </h2>
 
             {/* Part Instruction */}
-            <div style={{ marginBottom: '20px' }}>
+            <div style={{ marginBottom: '20px' }} className="part-instruction-editor">
               <label style={{ 
                 display: 'block', 
                 marginBottom: '8px', 
@@ -780,24 +782,53 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
               }}>
                 Hướng dẫn Part:
               </label>
-              <textarea
-                value={currentPart.instruction}
-                onChange={(e) => {
-                  const newParts = [...parts];
-                  newParts[selectedPartIndex].instruction = e.target.value;
-                  setParts(newParts);
-                }}
-                placeholder="Nhập hướng dẫn cho part này..."
-                style={{
-                  width: '100%',
-                  padding: '5px',
-                  border: '1px solid #d1d5db',
-                  borderRadius: '8px',
-                  minHeight: '80px',
-                  resize: 'vertical',
-                  boxSizing: 'border-box',
-                }}
-              />
+              <div style={{
+                border: '1px solid #d1d5db',
+                borderRadius: '8px',
+                backgroundColor: 'white',
+              }}>
+                <ReactQuill
+                  theme="snow"
+                  value={currentPart.instruction || ''}
+                  onChange={(content) => {
+                    const newParts = [...parts];
+                    newParts[selectedPartIndex].instruction = content;
+                    setParts(newParts);
+                  }}
+                  placeholder="Nhập hướng dẫn cho part này..."
+                  modules={{
+                    toolbar: [
+                      [{ header: [1, 2, 3, false] }],
+                      ['bold', 'italic', 'underline'],
+                      [{ color: [] }, { background: [] }],
+                      [{ list: 'ordered' }, { list: 'bullet' }],
+                      [{ align: [] }],
+                      ['link', 'image'],
+                      ['clean'],
+                    ],
+                  }}
+                  formats={[
+                    'header',
+                    'bold',
+                    'italic',
+                    'underline',
+                    'color',
+                    'background',
+                    'list',
+                    'bullet',
+                    'align',
+                    'link',
+                    'image',
+                  ]}
+                  style={{
+                    minHeight: '100px',
+                    backgroundColor: 'white',
+                  }}
+                />
+              </div>
+              <p style={{ fontSize: '11px', color: '#6b7280', marginTop: '4px' }}>
+                💡 Có thể thêm hình ảnh, định dạng text, màu sắc...
+              </p>
             </div>
 
             {/* Section */}
