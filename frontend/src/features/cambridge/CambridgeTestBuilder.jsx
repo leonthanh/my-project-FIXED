@@ -1122,4 +1122,57 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
   );
 };
 
+// Custom styles for ReactQuill in Part Instruction
+const quillStyles = `
+  .part-instruction-editor .ql-container {
+    min-height: 100px;
+    font-size: 14px;
+    line-height: 1.8;
+    transition: all 0.2s ease;
+  }
+  .part-instruction-editor .ql-editor {
+    min-height: 100px;
+    background-color: #ffffff;
+  }
+  .part-instruction-editor .ql-editor.ql-blank::before {
+    font-style: italic;
+    color: #9ca3af;
+  }
+  
+  /* Highlight khi focus vào ReactQuill */
+  .part-instruction-editor .ql-container.ql-snow {
+    border-color: #d1d5db;
+  }
+  .part-instruction-editor .ql-container.ql-snow:focus-within {
+    background-color: #fef3c7;
+    border-color: #f59e0b;
+    box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.1);
+  }
+  .part-instruction-editor .ql-editor:focus {
+    background-color: #fef3c7;
+    outline: none;
+  }
+  
+  /* Highlight toolbar khi đang active */
+  .part-instruction-editor .ql-toolbar.ql-snow {
+    border-color: #d1d5db;
+    background-color: #f9fafb;
+  }
+  .part-instruction-editor:focus-within .ql-toolbar.ql-snow {
+    background-color: #fef9e7;
+    border-color: #f59e0b;
+  }
+`;
+
+// Inject styles
+if (typeof document !== 'undefined') {
+  const styleId = 'part-instruction-quill-styles';
+  if (!document.getElementById(styleId)) {
+    const styleEl = document.createElement('style');
+    styleEl.id = styleId;
+    styleEl.textContent = quillStyles;
+    document.head.appendChild(styleEl);
+  }
+}
+
 export default CambridgeTestBuilder;
