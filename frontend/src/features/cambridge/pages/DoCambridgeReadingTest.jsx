@@ -27,6 +27,11 @@ const DoCambridgeReadingTest = () => {
   const [activeQuestion, setActiveQuestion] = useState(null);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0); // Current question number
   const [flaggedQuestions, setFlaggedQuestions] = useState(new Set()); // Flagged questions
+  
+  // Divider resize state
+  const [leftWidth, setLeftWidth] = useState(50); // Percentage
+  const [isResizing, setIsResizing] = useState(false);
+  const containerRef = useRef(null);
 
   const questionRefs = useRef({});
 
@@ -233,16 +238,36 @@ const DoCambridgeReadingTest = () => {
     test.parts.forEach((part, pIdx) => {
       part.sections?.forEach((section, sIdx) => {
         section.questions?.forEach((q, qIdx) => {
-          questions.push({
-            partIndex: pIdx,
-            sectionIndex: sIdx,
-            questionIndex: qIdx,
-            questionNumber: qNum++,
-            key: `${pIdx}-${sIdx}-${qIdx}`,
-            question: q,
-            section: section,
-            part: part,
-          });
+          // Check if this is long-text-mc with nested questions
+          if (section.questionType === 'long-text-mc' && q.questions && Array.isArray(q.questions)) {
+            // For long-text-mc: create separate entries for each nested question
+            q.questions.forEach((nestedQ, nestedIdx) => {
+              questions.push({
+                partIndex: pIdx,
+                sectionIndex: sIdx,
+                questionIndex: qIdx,
+                nestedIndex: nestedIdx,
+                questionNumber: qNum++,
+                key: `${pIdx}-${sIdx}-${nestedIdx}`,
+                question: q, // Keep parent question object (has passage)
+                nestedQuestion: nestedQ, // Individual question data
+                section: section,
+                part: part,
+              });
+            });
+          } else {
+            // Regular questions
+            questions.push({
+              partIndex: pIdx,
+              sectionIndex: sIdx,
+              questionIndex: qIdx,
+              questionNumber: qNum++,
+              key: `${pIdx}-${sIdx}-${qIdx}`,
+              question: q,
+              section: section,
+              part: part,
+            });
+          }
         });
       });
     });
@@ -262,6 +287,14 @@ const DoCambridgeReadingTest = () => {
       const q = allQuestions[index];
       setCurrentPartIndex(q.partIndex);
       setActiveQuestion(q.key);
+      
+      // Scroll to question element
+      setTimeout(() => {
+        const questionElement = document.getElementById(`question-${q.questionNumber}`);
+        if (questionElement) {
+          questionElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }, 100);
     }
   };
 
@@ -277,6 +310,40 @@ const DoCambridgeReadingTest = () => {
       return newSet;
     });
   };
+
+  // Divider resize handlers
+  const handleMouseDown = (e) => {
+    e.preventDefault();
+    setIsResizing(true);
+  };
+
+  const handleMouseMove = useCallback((e) => {
+    if (!isResizing || !containerRef.current) return;
+    
+    const container = containerRef.current;
+    const containerRect = container.getBoundingClientRect();
+    const newLeftWidth = ((e.clientX - containerRect.left) / containerRect.width) * 100;
+    
+    // Limit between 20% and 80%
+    if (newLeftWidth >= 20 && newLeftWidth <= 80) {
+      setLeftWidth(newLeftWidth);
+    }
+  }, [isResizing]);
+
+  const handleMouseUp = useCallback(() => {
+    setIsResizing(false);
+  }, []);
+
+  useEffect(() => {
+    if (isResizing) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+      return () => {
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mouseup', handleMouseUp);
+      };
+    }
+  }, [isResizing, handleMouseMove, handleMouseUp]);
 
   // Loading state
   if (loading) {
@@ -435,21 +502,22 @@ const DoCambridgeReadingTest = () => {
       ) : (
         /* Other Parts: Split-view layout (Passage left | Questions right) */
         <>
-          <div className="cambridge-main-content">
+          {/* Part Instruction - Above split view */}
+          {currentQuestion && currentQuestion.part.instruction && (
+            <div 
+              className="cambridge-part-instruction"
+              style={{ margin: '20px 32px', backgroundColor: '#f0f7ff', borderLeft: '3px solid #0052cc' }}
+              dangerouslySetInnerHTML={{ __html: currentQuestion.part.instruction }}
+            />
+          )}
+
+          <div className="cambridge-main-content" ref={containerRef} style={{ position: 'relative' }}>
             {/* Left Column - Passage */}
-            <div className="cambridge-passage-column">
+            <div className="cambridge-passage-column" style={{ width: `${leftWidth}%` }}>
               {currentQuestion && (
                 <>
-                  {/* Part Instruction */}
-                  {currentQuestion.part.instruction && (
-                    <div 
-                      className="cambridge-part-instruction"
-                      style={{ marginBottom: '20px' }}
-                      dangerouslySetInnerHTML={{ __html: currentQuestion.part.instruction }}
-                    />
-                  )}
 
-                  {/* Passage (if exists) */}
+                  {/* Passage - check both part.passage and question.passage for long-text-mc */}
                   {currentQuestion.part.passage ? (
                     <div className="cambridge-passage-container">
                       {currentQuestion.part.title && (
@@ -460,6 +528,19 @@ const DoCambridgeReadingTest = () => {
                       <div 
                         className="cambridge-passage-content"
                         dangerouslySetInnerHTML={{ __html: currentQuestion.part.passage }}
+                      />
+                    </div>
+                  ) : currentQuestion.question.passage && currentQuestion.question.passage !== '<p><br></p>' ? (
+                    /* For long-text-mc: passage is in question object */
+                    <div className="cambridge-passage-container">
+                      {currentQuestion.question.passageTitle && (
+                        <h3 className="cambridge-passage-title">
+                          {currentQuestion.question.passageTitle}
+                        </h3>
+                      )}
+                      <div 
+                        className="cambridge-passage-content"
+                        dangerouslySetInnerHTML={{ __html: currentQuestion.question.passage }}
                       />
                     </div>
                   ) : (
@@ -479,50 +560,150 @@ const DoCambridgeReadingTest = () => {
               )}
             </div>
 
-        {/* Right Column - Questions */}
-        <div className="cambridge-questions-column">
-          {currentQuestion && (
-            <div className="cambridge-content-wrapper">
-              {/* Section Title */}
-              {currentQuestion.section.sectionTitle && (
-                <h3 className="cambridge-section-title">
-                  {currentQuestion.section.sectionTitle}
-                </h3>
-              )}
-
-              {/* Question Display */}
-              <div className={`cambridge-question-wrapper ${answers[currentQuestion.key] ? 'answered' : ''}`}>
-                {/* Flag Button */}
-                <button
-                  className={`cambridge-flag-button ${flaggedQuestions.has(currentQuestion.key) ? 'flagged' : ''}`}
-                  onClick={() => toggleFlag(currentQuestion.key)}
-                  aria-label="Flag question"
-                >
-                  {flaggedQuestions.has(currentQuestion.key) ? '🚩' : '⚐'}
-                </button>
-
-                {/* Question Content */}
-                <div style={{ paddingRight: '50px' }}>
-                  <span className="cambridge-question-number">
-                    {currentQuestion.questionNumber}
-                  </span>
-                  
-                  <QuestionDisplayFactory
-                    section={{ 
-                      ...currentQuestion.section,
-                      id: `${currentQuestion.partIndex}-${currentQuestion.sectionIndex}`,
-                      questions: [currentQuestion.question],
-                    }}
-                    questionType={currentQuestion.section.questionType}
-                    startingNumber={currentQuestion.questionNumber}
-                    onAnswerChange={handleAnswerChange}
-                    answers={answers}
-                    submitted={submitted}
-                    singleQuestionMode={true}
-                    questionIndex={currentQuestion.questionIndex}
-                  />
-                </div>
+            {/* Draggable Divider */}
+            <div 
+              className="cambridge-divider"
+              onMouseDown={handleMouseDown}
+              style={{ 
+                left: `${leftWidth}%`,
+                cursor: isResizing ? 'col-resize' : 'col-resize'
+              }}
+            >
+              <div className="cambridge-resize-handle">
+                <i className="fa fa-arrows-h"></i>
               </div>
+            </div>
+
+            {/* Right Column - Questions */}
+            <div className="cambridge-questions-column" style={{ width: `${100 - leftWidth}%` }}>
+              {currentQuestion && (
+                <div className="cambridge-content-wrapper">
+                  {/* Section Title */}
+                  {currentQuestion.section.sectionTitle && (
+                    <h3 className="cambridge-section-title">
+                      {currentQuestion.section.sectionTitle}
+                    </h3>
+                  )}
+
+              {/* For long-text-mc: Show ALL questions in section */}
+              {currentQuestion.section.questionType === 'long-text-mc' && currentQuestion.question.questions ? (
+                <div>
+                  {/* Render all nested questions at once */}
+                  {allQuestions
+                    .filter(q => 
+                      q.partIndex === currentQuestion.partIndex && 
+                      q.sectionIndex === currentQuestion.sectionIndex &&
+                      q.section.questionType === 'long-text-mc'
+                    )
+                    .map((q) => (
+                      <div 
+                        key={q.key}
+                        id={`question-${q.questionNumber}`}
+                        className={`cambridge-question-wrapper ${answers[q.key] ? 'answered' : ''} ${q.key === currentQuestion.key ? 'active-question' : ''}`}
+                        style={{ marginBottom: '24px', scrollMarginTop: '20px' }}
+                      >
+                        {/* Flag Button */}
+                        <button
+                          className={`cambridge-flag-button ${flaggedQuestions.has(q.key) ? 'flagged' : ''}`}
+                          onClick={() => toggleFlag(q.key)}
+                          aria-label={`Flag question ${q.questionNumber}`}
+                        >
+                          {flaggedQuestions.has(q.key) ? '🚩' : '⚐'}
+                        </button>
+
+                        {/* Question Content */}
+                        <div style={{ paddingRight: '50px' }}>
+                          {/* Question Number + Text */}
+                          <div style={{ marginBottom: '12px' }}>
+                            <span className="cambridge-question-number">
+                              {q.questionNumber}
+                            </span>
+                            {q.nestedQuestion?.questionText && (
+                              <span style={{ 
+                                marginLeft: '12px', 
+                                fontSize: '15px', 
+                                fontWeight: '600',
+                                color: '#1a1a1a' 
+                              }}>
+                                {q.nestedQuestion.questionText}
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Options */}
+                          {q.nestedQuestion?.options && (
+                            <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+                              {q.nestedQuestion.options.map((option, optIdx) => {
+                                const optionLetter = String.fromCharCode(65 + optIdx);
+                                const isSelected = answers[q.key] === optionLetter;
+
+                                return (
+                                  <li key={optIdx} style={{ marginBottom: '8px' }}>
+                                    <label style={{ 
+                                      display: 'flex',
+                                      alignItems: 'flex-start',
+                                      gap: '10px',
+                                      cursor: 'pointer',
+                                      padding: '8px 0'
+                                    }}>
+                                      <input
+                                        type="radio"
+                                        name={`question-${q.questionNumber}`}
+                                        value={optionLetter}
+                                        checked={isSelected}
+                                        onChange={() => handleAnswerChange(q.key, optionLetter)}
+                                        disabled={submitted}
+                                        style={{ cursor: 'pointer', marginTop: '4px' }}
+                                      />
+                                      <span style={{ fontSize: '15px', lineHeight: '1.6' }}>
+                                        {option}
+                                      </span>
+                                    </label>
+                                  </li>
+                                );
+                              })}
+                            </ul>
+                          )}
+                        </div>
+                      </div>
+                    ))
+                  }
+                </div>
+              ) : (
+                /* Other question types: Show single question */
+                <div className={`cambridge-question-wrapper ${answers[currentQuestion.key] ? 'answered' : ''}`}>
+                  {/* Flag Button */}
+                  <button
+                    className={`cambridge-flag-button ${flaggedQuestions.has(currentQuestion.key) ? 'flagged' : ''}`}
+                    onClick={() => toggleFlag(currentQuestion.key)}
+                    aria-label="Flag question"
+                  >
+                    {flaggedQuestions.has(currentQuestion.key) ? '🚩' : '⚐'}
+                  </button>
+
+                  {/* Question Content */}
+                  <div style={{ paddingRight: '50px' }}>
+                    <span className="cambridge-question-number">
+                      {currentQuestion.questionNumber}
+                    </span>
+                    
+                    <QuestionDisplayFactory
+                      section={{ 
+                        ...currentQuestion.section,
+                        id: `${currentQuestion.partIndex}-${currentQuestion.sectionIndex}`,
+                        questions: [currentQuestion.question],
+                      }}
+                      questionType={currentQuestion.section.questionType}
+                      startingNumber={currentQuestion.questionNumber}
+                      onAnswerChange={handleAnswerChange}
+                      answers={answers}
+                      submitted={submitted}
+                      singleQuestionMode={true}
+                      questionIndex={currentQuestion.questionIndex}
+                    />
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -601,7 +782,7 @@ const DoCambridgeReadingTest = () => {
           })}
         </div>
 
-        {/* Review Button */}
+        {/* Review Button
         <button 
           className="cambridge-review-button"
           onClick={handleSubmit}
@@ -609,7 +790,7 @@ const DoCambridgeReadingTest = () => {
         >
           <i className="fa fa-check"></i>
           Review
-        </button>
+        </button> */}
       </footer>
 
       {/* Results Modal */}
