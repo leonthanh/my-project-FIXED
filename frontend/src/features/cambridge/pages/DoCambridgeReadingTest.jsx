@@ -4,10 +4,11 @@ import { apiPath, hostPath } from "../../../shared/utils/api";
 import { TestHeader } from "../../../shared/components";
 import { TEST_CONFIGS } from "../../../shared/config/questionTypes";
 import QuestionDisplayFactory from "../../../shared/components/questions/displays/QuestionDisplayFactory";
+import "./DoCambridgeReadingTest.css";
 
 /**
- * DoCambridgeReadingTest - Trang làm bài thi Reading Cambridge (KET, PET, etc.)
- * Support: KET, PET, FLYERS, MOVERS, STARTERS
+ * DoCambridgeReadingTest - Cambridge Reading Test (Authentic UI)
+ * Replicate real Cambridge test interface for KET, PET, FLYERS, etc.
  */
 const DoCambridgeReadingTest = () => {
   const { testType, id } = useParams(); // testType: ket-reading, pet-reading, etc.
@@ -24,13 +25,24 @@ const DoCambridgeReadingTest = () => {
   const [currentPartIndex, setCurrentPartIndex] = useState(0);
   const [timeRemaining, setTimeRemaining] = useState(60 * 60);
   const [activeQuestion, setActiveQuestion] = useState(null);
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0); // Current question number
+  const [flaggedQuestions, setFlaggedQuestions] = useState(new Set()); // Flagged questions
 
   const questionRefs = useRef({});
 
-  // Get test config
+  // Get test config - will be updated once test data is loaded
   const testConfig = useMemo(() => {
-    return TEST_CONFIGS[testType] || TEST_CONFIGS['ket-reading'];
-  }, [testType]);
+    // If testType from URL, use it
+    if (testType) {
+      return TEST_CONFIGS[testType] || TEST_CONFIGS['ket-reading'];
+    }
+    // If test data loaded, use testType from test
+    if (test?.testType) {
+      return TEST_CONFIGS[test.testType] || TEST_CONFIGS['ket-reading'];
+    }
+    // Fallback
+    return TEST_CONFIGS['ket-reading'];
+  }, [testType, test?.testType]);
 
   // Fetch test data
   useEffect(() => {
@@ -212,12 +224,66 @@ const DoCambridgeReadingTest = () => {
     return { start: startNum, end: startNum + count - 1 };
   }, [test?.parts]);
 
+  // Get all questions flattened
+  const allQuestions = useMemo(() => {
+    if (!test?.parts) return [];
+    const questions = [];
+    let qNum = 1;
+    
+    test.parts.forEach((part, pIdx) => {
+      part.sections?.forEach((section, sIdx) => {
+        section.questions?.forEach((q, qIdx) => {
+          questions.push({
+            partIndex: pIdx,
+            sectionIndex: sIdx,
+            questionIndex: qIdx,
+            questionNumber: qNum++,
+            key: `${pIdx}-${sIdx}-${qIdx}`,
+            question: q,
+            section: section,
+            part: part,
+          });
+        });
+      });
+    });
+    
+    return questions;
+  }, [test?.parts]);
+
+  // Get current question data
+  const currentQuestion = useMemo(() => {
+    return allQuestions[currentQuestionIndex] || null;
+  }, [allQuestions, currentQuestionIndex]);
+
+  // Navigate to question
+  const goToQuestion = (index) => {
+    if (index >= 0 && index < allQuestions.length) {
+      setCurrentQuestionIndex(index);
+      const q = allQuestions[index];
+      setCurrentPartIndex(q.partIndex);
+      setActiveQuestion(q.key);
+    }
+  };
+
+  // Toggle flag
+  const toggleFlag = (questionKey) => {
+    setFlaggedQuestions(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(questionKey)) {
+        newSet.delete(questionKey);
+      } else {
+        newSet.add(questionKey);
+      }
+      return newSet;
+    });
+  };
+
   // Loading state
   if (loading) {
     return (
-      <div style={styles.loadingContainer}>
+      <div className="cambridge-loading">
         <div style={{ fontSize: '48px', marginBottom: '20px' }}>⏳</div>
-        <h2>Đang tải đề thi...</h2>
+        <h2>Loading test...</h2>
       </div>
     );
   }
@@ -225,193 +291,341 @@ const DoCambridgeReadingTest = () => {
   // Error state
   if (error) {
     return (
-      <div style={styles.errorContainer}>
+      <div className="cambridge-error">
         <div style={{ fontSize: '48px', marginBottom: '20px' }}>❌</div>
-        <h2>Lỗi: {error}</h2>
-        <button onClick={() => navigate(-1)} style={styles.backButton}>
-          ← Quay lại
+        <h2>Error: {error}</h2>
+        <button onClick={() => navigate(-1)} className="cambridge-nav-button">
+          ← Go back
         </button>
       </div>
     );
   }
 
   return (
-    <div style={styles.container}>
+    <div className="cambridge-test-container">
       {/* Header */}
       <TestHeader
         title={test?.title || `${testConfig.name}`}
         classCode={test?.classCode}
         teacherName={test?.teacherName}
-        timeRemaining={formatTime(timeRemaining)}
+        timeRemaining={timeRemaining}
+        answeredCount={Object.keys(answers).length}
+        totalQuestions={test?.totalQuestions || allQuestions.length}
         onSubmit={handleSubmit}
         submitted={submitted}
+        examType={testConfig.name?.split(' ')[0]}
+        timerWarning={timeRemaining > 0 && timeRemaining <= 300}
+        timerCritical={timeRemaining > 0 && timeRemaining <= 60}
       />
 
-      {/* Main Content */}
-      <div style={styles.mainContent}>
-        {/* Sidebar - Parts Navigation */}
-        <div style={styles.sidebar}>
-          <div style={styles.sidebarHeader}>
-            <h3 style={{ margin: 0, fontSize: '16px' }}>📋 Parts</h3>
+      {/* Main Content - Split View or Single Column based on question type */}
+      {currentQuestion && currentQuestion.section.questionType === 'sign-message' ? (
+        /* Part 1 (Sign & Message): Single column with inline image + options */
+        <div style={{ flex: 1, overflowY: 'auto', padding: '24px' }}>
+          <div style={{ maxWidth: '900px', margin: '0 auto' }}>
+            {/* Part Instruction */}
+            {currentQuestion.part.instruction && (
+              <div 
+                className="cambridge-part-instruction"
+                style={{ marginBottom: '20px' }}
+                dangerouslySetInnerHTML={{ __html: currentQuestion.part.instruction }}
+              />
+            )}
+
+            {/* Question Wrapper with Flag */}
+            <div className={`cambridge-question-wrapper ${answers[currentQuestion.key] ? 'answered' : ''}`} style={{ position: 'relative' }}>
+              {/* Flag Button */}
+              <button
+                className={`cambridge-flag-button ${flaggedQuestions.has(currentQuestion.key) ? 'flagged' : ''}`}
+                onClick={() => toggleFlag(currentQuestion.key)}
+                aria-label="Flag question"
+              >
+                {flaggedQuestions.has(currentQuestion.key) ? '🚩' : '⚐'}
+              </button>
+
+              {/* Inline Layout: Image (30%) + Question/Options (70%) */}
+              <div style={{ display: 'flex', gap: '30px', paddingRight: '50px', alignItems: 'flex-start' }}>
+                {/* Left: Image/Sign (30% width) */}
+                {(currentQuestion.question.imageUrl || currentQuestion.question.signText) && (
+                  <div style={{ width: '30%', minWidth: '200px', maxWidth: '362px', flexShrink: 0 }}>
+                    {currentQuestion.question.imageUrl && (
+                      <img 
+                        src={currentQuestion.question.imageUrl}
+                        alt={currentQuestion.question.imageAlt || 'Sign'}
+                        style={{ 
+                          width: '100%', 
+                          height: 'auto',
+                          border: '1px solid #ddd'
+                        }}
+                      />
+                    )}
+                    {currentQuestion.question.signText && (
+                      <div style={{
+                        marginTop: currentQuestion.question.imageUrl ? '12px' : '0',
+                        padding: '16px',
+                        border: '2px solid #333',
+                        borderRadius: '4px',
+                        fontSize: '16px',
+                        fontWeight: '600',
+                        textAlign: 'center',
+                        background: 'white',
+                        lineHeight: '1.5'
+                      }}
+                      dangerouslySetInnerHTML={{ __html: currentQuestion.question.signText }}
+                      />
+                    )}
+                  </div>
+                )}
+
+                {/* Right: Question Number + Options (70%) */}
+                <div style={{ flex: 1 }}>
+                  {/* Question Number */}
+                  <div style={{ marginBottom: '16px' }}>
+                    <span className="cambridge-question-number">
+                      {currentQuestion.questionNumber}
+                    </span>
+                    {currentQuestion.question.questionText && (
+                      <span style={{ marginLeft: '12px', fontSize: '15px', color: '#333' }}>
+                        {currentQuestion.question.questionText}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Options List */}
+                  {currentQuestion.question.options && (
+                    <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+                      {currentQuestion.question.options.map((option, idx) => {
+                        const optionLetter = String.fromCharCode(65 + idx); // A, B, C
+                        const questionKey = currentQuestion.key;
+                        const isSelected = answers[questionKey] === optionLetter;
+
+                        return (
+                          <li key={idx} style={{ marginBottom: '8px' }}>
+                            <label style={{ 
+                              display: 'flex',
+                              alignItems: 'flex-start',
+                              gap: '10px',
+                              cursor: 'pointer',
+                              padding: '8px 0'
+                            }}>
+                              <input
+                                type="radio"
+                                name={`question-${currentQuestion.questionNumber}`}
+                                value={optionLetter}
+                                checked={isSelected}
+                                onChange={() => handleAnswerChange(questionKey, optionLetter)}
+                                disabled={submitted}
+                                style={{ cursor: 'pointer', marginTop: '4px' }}
+                              />
+                              <span style={{ fontSize: '15px', lineHeight: '1.6' }}>
+                                {option}
+                              </span>
+                            </label>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
+        </div>
+      ) : (
+        /* Other Parts: Split-view layout (Passage left | Questions right) */
+        <>
+          <div className="cambridge-main-content">
+            {/* Left Column - Passage */}
+            <div className="cambridge-passage-column">
+              {currentQuestion && (
+                <>
+                  {/* Part Instruction */}
+                  {currentQuestion.part.instruction && (
+                    <div 
+                      className="cambridge-part-instruction"
+                      style={{ marginBottom: '20px' }}
+                      dangerouslySetInnerHTML={{ __html: currentQuestion.part.instruction }}
+                    />
+                  )}
+
+                  {/* Passage (if exists) */}
+                  {currentQuestion.part.passage ? (
+                    <div className="cambridge-passage-container">
+                      {currentQuestion.part.title && (
+                        <h3 className="cambridge-passage-title">
+                          {currentQuestion.part.title}
+                        </h3>
+                      )}
+                      <div 
+                        className="cambridge-passage-content"
+                        dangerouslySetInnerHTML={{ __html: currentQuestion.part.passage }}
+                      />
+                    </div>
+                  ) : (
+                    /* Fallback */
+                    <div className="cambridge-passage-container">
+                      <div style={{ 
+                        padding: '40px', 
+                        textAlign: 'center', 
+                        color: '#999',
+                        fontSize: '14px'
+                      }}>
+                        No passage for this part
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+
+        {/* Right Column - Questions */}
+        <div className="cambridge-questions-column">
+          {currentQuestion && (
+            <div className="cambridge-content-wrapper">
+              {/* Section Title */}
+              {currentQuestion.section.sectionTitle && (
+                <h3 className="cambridge-section-title">
+                  {currentQuestion.section.sectionTitle}
+                </h3>
+              )}
+
+              {/* Question Display */}
+              <div className={`cambridge-question-wrapper ${answers[currentQuestion.key] ? 'answered' : ''}`}>
+                {/* Flag Button */}
+                <button
+                  className={`cambridge-flag-button ${flaggedQuestions.has(currentQuestion.key) ? 'flagged' : ''}`}
+                  onClick={() => toggleFlag(currentQuestion.key)}
+                  aria-label="Flag question"
+                >
+                  {flaggedQuestions.has(currentQuestion.key) ? '🚩' : '⚐'}
+                </button>
+
+                {/* Question Content */}
+                <div style={{ paddingRight: '50px' }}>
+                  <span className="cambridge-question-number">
+                    {currentQuestion.questionNumber}
+                  </span>
+                  
+                  <QuestionDisplayFactory
+                    section={{ 
+                      ...currentQuestion.section,
+                      id: `${currentQuestion.partIndex}-${currentQuestion.sectionIndex}`,
+                      questions: [currentQuestion.question],
+                    }}
+                    questionType={currentQuestion.section.questionType}
+                    startingNumber={currentQuestion.questionNumber}
+                    onAnswerChange={handleAnswerChange}
+                    answers={answers}
+                    submitted={submitted}
+                    singleQuestionMode={true}
+                    questionIndex={currentQuestion.questionIndex}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+        </>
+      )}
+
+      {/* Footer Navigation */}
+      <footer className="cambridge-footer">
+        {/* Previous/Next Arrows */}
+        <div className="cambridge-footer-nav">
+          <button
+            className="cambridge-footer-arrow"
+            onClick={() => goToQuestion(currentQuestionIndex - 1)}
+            disabled={currentQuestionIndex === 0}
+            aria-label="Previous"
+          >
+            <i className="fa fa-arrow-left"></i>
+          </button>
+          <button
+            className="cambridge-footer-arrow"
+            onClick={() => goToQuestion(currentQuestionIndex + 1)}
+            disabled={currentQuestionIndex === allQuestions.length - 1}
+            aria-label="Next"
+          >
+            <i className="fa fa-arrow-right"></i>
+          </button>
+        </div>
+
+        {/* Parts Tabs with Question Numbers */}
+        <div className="cambridge-parts-container">
           {test?.parts?.map((part, idx) => {
             const range = getPartQuestionRange(idx);
             const isActive = currentPartIndex === idx;
+            const partQuestions = allQuestions.filter(q => q.partIndex === idx);
+            const answeredInPart = partQuestions.filter(q => answers[q.key]).length;
+
             return (
-              <div
-                key={idx}
-                onClick={() => setCurrentPartIndex(idx)}
-                style={{
-                  ...styles.partItem,
-                  ...(isActive && styles.partItemActive),
-                }}
-              >
-                <strong>Part {idx + 1}</strong>
-                <div style={{ fontSize: '12px', opacity: 0.8, marginTop: '4px' }}>
-                  Questions {range.start}-{range.end}
-                </div>
+              <div key={idx} className="cambridge-part-wrapper">
+                {/* Part Tab */}
+                <button
+                  className={`cambridge-part-tab ${isActive ? 'active' : ''}`}
+                  onClick={() => {
+                    // Jump to first question of this part
+                    const firstQ = partQuestions[0];
+                    if (firstQ) goToQuestion(firstQ.questionNumber - 1);
+                  }}
+                >
+                  <span className="cambridge-part-label">Part</span>
+                  <span className="cambridge-part-number">{idx + 1}</span>
+                </button>
+
+                {/* Show question numbers only for active part */}
+                {isActive && (
+                  <div className="cambridge-questions-inline">
+                    {partQuestions.map((q) => (
+                      <button
+                        key={q.key}
+                        className={`cambridge-question-num-btn ${answers[q.key] ? 'answered' : ''} ${currentQuestionIndex === q.questionNumber - 1 ? 'active' : ''} ${flaggedQuestions.has(q.key) ? 'flagged' : ''}`}
+                        onClick={() => goToQuestion(q.questionNumber - 1)}
+                      >
+                        {q.questionNumber}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {/* Show count for inactive parts */}
+                {!isActive && (
+                  <span className="cambridge-part-count">
+                    {answeredInPart} of {partQuestions.length}
+                  </span>
+                )}
               </div>
             );
           })}
-
-          {/* Question Navigator */}
-          <div style={styles.questionNav}>
-            <h4 style={{ margin: '0 0 12px', fontSize: '14px', color: '#64748b' }}>
-              📝 Câu hỏi
-            </h4>
-            <div style={styles.questionGrid}>
-              {(() => {
-                let num = 1;
-                return test?.parts?.map((part, pIdx) => 
-                  part.sections?.map((sec, sIdx) =>
-                    sec.questions?.map((q, qIdx) => {
-                      const key = `${pIdx}-${sIdx}-${qIdx}`;
-                      const isAnswered = !!answers[key];
-                      const currentNum = num++;
-                      return (
-                        <div
-                          key={key}
-                          onClick={() => {
-                            setCurrentPartIndex(pIdx);
-                            setActiveQuestion(key);
-                          }}
-                          style={{
-                            ...styles.questionNavItem,
-                            ...(isAnswered && styles.questionNavAnswered),
-                            ...(activeQuestion === key && styles.questionNavActive),
-                          }}
-                        >
-                          {currentNum}
-                        </div>
-                      );
-                    })
-                  )
-                );
-              })()}
-            </div>
-          </div>
         </div>
 
-        {/* Main Question Area */}
-        <div style={styles.questionArea}>
-          {currentPart && (
-            <>
-              {/* Part Header */}
-              <div style={styles.partHeader}>
-                <h2 style={{ margin: 0, color: '#0e276f' }}>
-                  {currentPart.title || `Part ${currentPartIndex + 1}`}
-                </h2>
-                {currentPart.instruction && (
-                  <div 
-                    style={styles.partInstruction}
-                    dangerouslySetInnerHTML={{ __html: currentPart.instruction }}
-                  />
-                )}
-              </div>
-
-              {/* Reading Passage (if any) */}
-              {currentPart.passage && (
-                <div style={styles.passageContainer}>
-                  <div 
-                    style={styles.passageContent}
-                    dangerouslySetInnerHTML={{ __html: currentPart.passage }}
-                  />
-                </div>
-              )}
-
-              {/* Sections & Questions */}
-              {currentPart.sections?.map((section, secIdx) => {
-                const partRange = getPartQuestionRange(currentPartIndex);
-                let startingNumber = partRange.start;
-                
-                // Calculate starting question for this section
-                for (let s = 0; s < secIdx; s++) {
-                  const prevSection = currentPart.sections[s];
-                  startingNumber += prevSection?.questions?.length || 0;
-                }
-
-                return (
-                  <div key={secIdx} style={styles.section}>
-                    {section.sectionTitle && (
-                      <h3 style={styles.sectionTitle}>{section.sectionTitle}</h3>
-                    )}
-                    
-                    {/* Use QuestionDisplayFactory to render appropriate display component */}
-                    <QuestionDisplayFactory
-                      section={{ ...section, id: `${currentPartIndex}-${secIdx}` }}
-                      questionType={section.questionType}
-                      startingNumber={startingNumber}
-                      onAnswerChange={handleAnswerChange}
-                      answers={answers}
-                      submitted={submitted}
-                    />
-                  </div>
-                );
-              })}
-            </>
-          )}
-
-          {/* Navigation Buttons */}
-          <div style={styles.navButtons}>
-            <button
-              onClick={() => setCurrentPartIndex((prev) => Math.max(0, prev - 1))}
-              disabled={currentPartIndex === 0}
-              style={{
-                ...styles.navButton,
-                ...(currentPartIndex === 0 && styles.navButtonDisabled),
-              }}
-            >
-              ← Previous Part
-            </button>
-            <button
-              onClick={() => setCurrentPartIndex((prev) => Math.min((test?.parts?.length || 1) - 1, prev + 1))}
-              disabled={currentPartIndex === (test?.parts?.length || 1) - 1}
-              style={{
-                ...styles.navButton,
-                ...(currentPartIndex === (test?.parts?.length || 1) - 1 && styles.navButtonDisabled),
-              }}
-            >
-              Next Part →
-            </button>
-          </div>
-        </div>
-      </div>
+        {/* Review Button */}
+        <button 
+          className="cambridge-review-button"
+          onClick={handleSubmit}
+          aria-label="Review your answers"
+        >
+          <i className="fa fa-check"></i>
+          Review
+        </button>
+      </footer>
 
       {/* Results Modal */}
       {submitted && results && (
-        <div style={styles.resultsOverlay}>
-          <div style={styles.resultsModal}>
-            <h2 style={{ margin: '0 0 20px', color: '#0e276f' }}>📊 Kết quả bài thi</h2>
-            <div style={styles.scoreDisplay}>
-              <div style={styles.scoreNumber}>{results.score}/{results.total}</div>
-              <div style={styles.scorePercent}>{results.percentage}%</div>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+          <div style={{ background: 'white', padding: '32px', borderRadius: '16px', textAlign: 'center', maxWidth: '400px', width: '90%' }}>
+            <h2 style={{ margin: '0 0 20px', color: '#0052cc' }}>📊 Test Results</h2>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '24px', padding: '24px', background: '#f0fdf4', borderRadius: '12px' }}>
+              <div style={{ fontSize: '36px', fontWeight: 700, color: '#0052cc' }}>{results.score}/{results.total}</div>
+              <div style={{ fontSize: '28px', fontWeight: 600, color: '#22c55e' }}>{results.percentage}%</div>
             </div>
             <div style={{ marginTop: '20px', display: 'flex', gap: '12px', justifyContent: 'center' }}>
-              <button onClick={() => navigate('/cambridge')} style={styles.primaryButton}>
-                📋 Chọn đề khác
+              <button onClick={() => navigate('/cambridge')} style={{ padding: '12px 24px', background: '#0052cc', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '14px' }}>
+                📋 Select another test
               </button>
-              <button onClick={() => window.location.reload()} style={styles.secondaryButton}>
-                🔄 Làm lại
+              <button onClick={() => window.location.reload()} style={{ padding: '12px 24px', background: '#f1f5f9', color: '#374151', border: '1px solid #d1d5db', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '14px' }}>
+                🔄 Try again
               </button>
             </div>
           </div>
@@ -420,19 +634,19 @@ const DoCambridgeReadingTest = () => {
 
       {/* Confirm Submit Modal */}
       {showConfirm && (
-        <div style={styles.resultsOverlay}>
-          <div style={styles.confirmModal}>
-            <h3 style={{ margin: '0 0 16px' }}>⚠️ Xác nhận nộp bài</h3>
-            <p>Bạn có chắc chắn muốn nộp bài?</p>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+          <div style={{ background: 'white', padding: '24px', borderRadius: '12px', textAlign: 'center', maxWidth: '360px', width: '90%' }}>
+            <h3 style={{ margin: '0 0 16px' }}>⚠️ Confirm Submission</h3>
+            <p>Are you sure you want to submit?</p>
             <p style={{ fontSize: '14px', color: '#666' }}>
-              Đã trả lời: {Object.keys(answers).length} câu
+              Answered: {Object.keys(answers).length}/{allQuestions.length} questions
             </p>
             <div style={{ marginTop: '20px', display: 'flex', gap: '12px', justifyContent: 'center' }}>
-              <button onClick={confirmSubmit} style={styles.primaryButton}>
-                ✓ Nộp bài
+              <button onClick={confirmSubmit} style={{ padding: '12px 24px', background: '#0052cc', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '14px' }}>
+                ✓ Submit
               </button>
-              <button onClick={() => setShowConfirm(false)} style={styles.secondaryButton}>
-                ✕ Hủy
+              <button onClick={() => setShowConfirm(false)} style={{ padding: '12px 24px', background: '#f1f5f9', color: '#374151', border: '1px solid #d1d5db', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '14px' }}>
+                ✕ Cancel
               </button>
             </div>
           </div>
@@ -440,383 +654,6 @@ const DoCambridgeReadingTest = () => {
       )}
     </div>
   );
-};
-
-// ============================================
-// STYLES
-// ============================================
-const styles = {
-  container: {
-    minHeight: '100vh',
-    backgroundColor: '#f8fafc',
-  },
-  loadingContainer: {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: '100vh',
-    backgroundColor: '#f8fafc',
-  },
-  errorContainer: {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: '100vh',
-    backgroundColor: '#f8fafc',
-  },
-  mainContent: {
-    display: 'grid',
-    gridTemplateColumns: '280px 1fr',
-    gap: '24px',
-    padding: '24px',
-    maxWidth: '1400px',
-    margin: '0 auto',
-  },
-  sidebar: {
-    backgroundColor: '#fff',
-    borderRadius: '12px',
-    boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-    padding: '16px',
-    height: 'fit-content',
-    position: 'sticky',
-    top: '24px',
-  },
-  sidebarHeader: {
-    paddingBottom: '12px',
-    borderBottom: '1px solid #e5e7eb',
-    marginBottom: '12px',
-  },
-  partItem: {
-    padding: '12px',
-    borderRadius: '8px',
-    cursor: 'pointer',
-    marginBottom: '8px',
-    backgroundColor: '#f1f5f9',
-    transition: 'all 0.2s',
-  },
-  partItemActive: {
-    backgroundColor: '#0e276f',
-    color: 'white',
-  },
-  questionNav: {
-    marginTop: '20px',
-    paddingTop: '16px',
-    borderTop: '1px solid #e5e7eb',
-  },
-  questionGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(5, 1fr)',
-    gap: '6px',
-  },
-  questionNavItem: {
-    width: '32px',
-    height: '32px',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: '6px',
-    backgroundColor: '#f1f5f9',
-    cursor: 'pointer',
-    fontSize: '13px',
-    fontWeight: 500,
-    transition: 'all 0.2s',
-  },
-  questionNavAnswered: {
-    backgroundColor: '#22c55e',
-    color: 'white',
-  },
-  questionNavActive: {
-    backgroundColor: '#0e276f',
-    color: 'white',
-  },
-  questionArea: {
-    backgroundColor: '#fff',
-    borderRadius: '12px',
-    boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-    padding: '24px',
-  },
-  partHeader: {
-    marginBottom: '20px',
-    paddingBottom: '16px',
-    borderBottom: '2px solid #e5e7eb',
-  },
-  partInstruction: {
-    margin: '12px 0 0',
-    color: '#4b5563',
-    fontSize: '15px',
-    lineHeight: 1.6,
-    backgroundColor: '#f0f9ff',
-    padding: '12px 16px',
-    borderRadius: '8px',
-    borderLeft: '4px solid #3b82f6',
-  },
-  passageContainer: {
-    marginBottom: '24px',
-    padding: '20px',
-    backgroundColor: '#fffbeb',
-    borderRadius: '12px',
-    border: '1px solid #fcd34d',
-  },
-  passageContent: {
-    lineHeight: 1.8,
-    fontSize: '15px',
-    color: '#1f2937',
-  },
-  section: {
-    marginBottom: '24px',
-  },
-  sectionTitle: {
-    fontSize: '16px',
-    fontWeight: 600,
-    color: '#374151',
-    margin: '0 0 16px',
-    padding: '8px 12px',
-    backgroundColor: '#f1f5f9',
-    borderRadius: '6px',
-  },
-  sectionPassage: {
-    marginBottom: '16px',
-    padding: '16px',
-    backgroundColor: '#f8fafc',
-    borderRadius: '8px',
-    border: '1px solid #e5e7eb',
-    lineHeight: 1.7,
-    fontSize: '14px',
-  },
-  questionCard: {
-    padding: '16px',
-    marginBottom: '16px',
-    backgroundColor: '#fafafa',
-    borderRadius: '8px',
-    border: '1px solid #e5e7eb',
-  },
-  questionHeader: {
-    display: 'flex',
-    alignItems: 'flex-start',
-    gap: '12px',
-    marginBottom: '12px',
-  },
-  questionNum: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: '28px',
-    height: '28px',
-    backgroundColor: '#0e276f',
-    color: '#fff',
-    borderRadius: '50%',
-    fontWeight: 600,
-    fontSize: '13px',
-    flexShrink: 0,
-  },
-  questionText: {
-    flex: 1,
-    fontSize: '15px',
-    lineHeight: 1.5,
-  },
-  input: {
-    width: '100%',
-    padding: '10px 14px',
-    border: '1px solid #d1d5db',
-    borderRadius: '6px',
-    fontSize: '15px',
-    boxSizing: 'border-box',
-    transition: 'border-color 0.2s',
-  },
-  correctAnswer: {
-    marginTop: '8px',
-    padding: '8px 12px',
-    backgroundColor: '#dcfce7',
-    color: '#166534',
-    borderRadius: '6px',
-    fontSize: '14px',
-  },
-  originalSentence: {
-    padding: '12px',
-    backgroundColor: '#f0f9ff',
-    borderRadius: '6px',
-    marginBottom: '12px',
-    fontSize: '14px',
-    lineHeight: 1.6,
-  },
-  promptWord: {
-    padding: '8px 12px',
-    backgroundColor: '#fef3c7',
-    borderRadius: '6px',
-    marginBottom: '12px',
-    fontSize: '14px',
-  },
-  passage: {
-    padding: '12px',
-    backgroundColor: '#f8fafc',
-    borderRadius: '6px',
-    marginBottom: '12px',
-    lineHeight: 1.7,
-    fontSize: '14px',
-  },
-  optionsContainer: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '8px',
-  },
-  optionLabel: {
-    display: 'flex',
-    alignItems: 'center',
-    padding: '12px',
-    backgroundColor: '#fff',
-    border: '1px solid #e5e7eb',
-    borderRadius: '6px',
-    cursor: 'pointer',
-    transition: 'all 0.2s',
-  },
-  optionSelected: {
-    backgroundColor: '#dbeafe',
-    borderColor: '#3b82f6',
-  },
-  optionCorrect: {
-    backgroundColor: '#dcfce7',
-    borderColor: '#22c55e',
-  },
-  optionWrong: {
-    backgroundColor: '#fee2e2',
-    borderColor: '#ef4444',
-  },
-  optionText: {
-    flex: 1,
-    fontSize: '14px',
-  },
-  matchingContainer: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '12px',
-  },
-  matchingRow: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '16px',
-  },
-  matchingItem: {
-    flex: 1,
-    fontSize: '14px',
-  },
-  matchingSelect: {
-    padding: '8px 12px',
-    border: '1px solid #d1d5db',
-    borderRadius: '6px',
-    fontSize: '14px',
-    minWidth: '200px',
-  },
-  rightItemsRef: {
-    marginTop: '16px',
-    padding: '12px',
-    backgroundColor: '#f0f9ff',
-    borderRadius: '8px',
-  },
-  rightItemBadge: {
-    padding: '6px 12px',
-    backgroundColor: '#fff',
-    border: '1px solid #bae6fd',
-    borderRadius: '6px',
-    fontSize: '13px',
-  },
-  navButtons: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    marginTop: '24px',
-    paddingTop: '20px',
-    borderTop: '1px solid #e5e7eb',
-  },
-  navButton: {
-    padding: '12px 24px',
-    backgroundColor: '#0e276f',
-    color: 'white',
-    border: 'none',
-    borderRadius: '8px',
-    cursor: 'pointer',
-    fontWeight: 600,
-    fontSize: '14px',
-    transition: 'all 0.2s',
-  },
-  navButtonDisabled: {
-    backgroundColor: '#94a3b8',
-    cursor: 'not-allowed',
-  },
-  resultsOverlay: {
-    position: 'fixed',
-    inset: 0,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 1000,
-  },
-  resultsModal: {
-    backgroundColor: 'white',
-    padding: '32px',
-    borderRadius: '16px',
-    textAlign: 'center',
-    maxWidth: '400px',
-    width: '90%',
-  },
-  confirmModal: {
-    backgroundColor: 'white',
-    padding: '24px',
-    borderRadius: '12px',
-    textAlign: 'center',
-    maxWidth: '360px',
-    width: '90%',
-  },
-  scoreDisplay: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: '24px',
-    padding: '24px',
-    backgroundColor: '#f0fdf4',
-    borderRadius: '12px',
-  },
-  scoreNumber: {
-    fontSize: '36px',
-    fontWeight: 700,
-    color: '#0e276f',
-  },
-  scorePercent: {
-    fontSize: '28px',
-    fontWeight: 600,
-    color: '#22c55e',
-  },
-  primaryButton: {
-    padding: '12px 24px',
-    backgroundColor: '#0e276f',
-    color: 'white',
-    border: 'none',
-    borderRadius: '8px',
-    cursor: 'pointer',
-    fontWeight: 600,
-    fontSize: '14px',
-  },
-  secondaryButton: {
-    padding: '12px 24px',
-    backgroundColor: '#f1f5f9',
-    color: '#374151',
-    border: '1px solid #d1d5db',
-    borderRadius: '8px',
-    cursor: 'pointer',
-    fontWeight: 600,
-    fontSize: '14px',
-  },
-  backButton: {
-    marginTop: '20px',
-    padding: '12px 24px',
-    backgroundColor: '#0e276f',
-    color: 'white',
-    border: 'none',
-    borderRadius: '8px',
-    cursor: 'pointer',
-    fontWeight: 600,
-  },
 };
 
 export default DoCambridgeReadingTest;

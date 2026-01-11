@@ -115,10 +115,12 @@ function App() {
         
         {/* Cambridge Student Routes */}
         <Route path="/cambridge" element={isLoggedIn() ? <SelectCambridgeTest /> : <Navigate to="/login" replace />} />
-        <Route path="/cambridge/ket-listening/:id" element={isLoggedIn() ? <DoCambridgeListeningTest /> : <Navigate to="/login" replace />} />
-        <Route path="/cambridge/pet-listening/:id" element={isLoggedIn() ? <DoCambridgeListeningTest /> : <Navigate to="/login" replace />} />
-        <Route path="/cambridge/ket-reading/:id" element={isLoggedIn() ? <DoCambridgeReadingTest /> : <Navigate to="/login" replace />} />
-        <Route path="/cambridge/pet-reading/:id" element={isLoggedIn() ? <DoCambridgeReadingTest /> : <Navigate to="/login" replace />} />
+        {/* Generic routes for any Cambridge test type */}
+        <Route path="/cambridge/reading/:id" element={isLoggedIn() ? <DoCambridgeReadingTest /> : <Navigate to="/login" replace />} />
+        <Route path="/cambridge/listening/:id" element={isLoggedIn() ? <DoCambridgeListeningTest /> : <Navigate to="/login" replace />} />
+        {/* Specific test type routes (legacy support) */}
+        <Route path="/cambridge/:testType-reading/:id" element={isLoggedIn() ? <DoCambridgeReadingTest /> : <Navigate to="/login" replace />} />
+        <Route path="/cambridge/:testType-listening/:id" element={isLoggedIn() ? <DoCambridgeListeningTest /> : <Navigate to="/login" replace />} />
         <Route path="/cambridge/result/:submissionId" element={isLoggedIn() ? <CambridgeResultPage /> : <Navigate to="/login" replace />} />
         
         {/* Redirect legacy /admin to canonical writing submissions path */}
