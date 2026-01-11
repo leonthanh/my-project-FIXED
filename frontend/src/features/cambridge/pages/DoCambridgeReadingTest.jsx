@@ -4,6 +4,7 @@ import { apiPath, hostPath } from "../../../shared/utils/api";
 import { TestHeader } from "../../../shared/components";
 import { TEST_CONFIGS } from "../../../shared/config/questionTypes";
 import QuestionDisplayFactory from "../../../shared/components/questions/displays/QuestionDisplayFactory";
+import ClozeMCDisplay from "../../../shared/components/questions/displays/ClozeMCDisplay";
 import "./DoCambridgeReadingTest.css";
 
 /**
@@ -255,6 +256,22 @@ const DoCambridgeReadingTest = () => {
                 part: part,
               });
             });
+          } else if (section.questionType === 'cloze-mc' && q.blanks && Array.isArray(q.blanks)) {
+            // For cloze-mc: create separate entries for each blank
+            q.blanks.forEach((blank, blankIdx) => {
+              questions.push({
+                partIndex: pIdx,
+                sectionIndex: sIdx,
+                questionIndex: qIdx,
+                blankIndex: blankIdx,
+                questionNumber: qNum++,
+                key: `${pIdx}-${sIdx}-${blankIdx}`,
+                question: q, // Keep parent question object (has passage)
+                blank: blank, // Individual blank data
+                section: section,
+                part: part,
+              });
+            });
           } else {
             // Regular questions
             questions.push({
@@ -394,7 +411,6 @@ const DoCambridgeReadingTest = () => {
             {currentQuestion.part.instruction && (
               <div 
                 className="cambridge-part-instruction"
-                style={{ marginBottom: '20px' }}
                 dangerouslySetInnerHTML={{ __html: currentQuestion.part.instruction }}
               />
             )}
@@ -499,6 +515,142 @@ const DoCambridgeReadingTest = () => {
             </div>
           </div>
         </div>
+      ) : currentQuestion && currentQuestion.section.questionType === 'cloze-mc' ? (
+        /* Part 4 (Cloze MC): Single column with inline dropdowns */
+        <>
+          {/* Part Instruction - Fixed, doesn't scroll */}
+          {currentQuestion.part.instruction && (
+            <div 
+              className="cambridge-part-instruction"
+              dangerouslySetInnerHTML={{ __html: currentQuestion.part.instruction }}
+            />
+          )}
+
+          {/* Scrollable Content */}
+          <div style={{ flex: 1, overflowY: 'auto', padding: '24px' }}>
+            <div style={{ maxWidth: '900px', margin: '0 auto' }}>
+              {(() => {
+                const questionData = currentQuestion.section.questions?.[0] || {};
+                const { passage = '', blanks = [], passageTitle = '' } = questionData;
+                
+                const renderPassageWithDropdowns = () => {
+                  if (!passage) return null;
+                  
+                  const elements = [];
+                  let lastIndex = 0;
+                  
+                  // Find all (19), (20), etc. patterns
+                  const regex = /\((\d+)\)/g;
+                  let match;
+                  
+                  while ((match = regex.exec(passage)) !== null) {
+                    const questionNumber = parseInt(match[1]);
+                    const blankIndex = questionNumber - currentQuestion.questionNumber;
+                    
+                    // Only process if this blank exists in our data
+                    if (blankIndex >= 0 && blankIndex < blanks.length) {
+                      // Add text before this blank
+                      if (match.index > lastIndex) {
+                        elements.push(
+                          <span 
+                            key={`text-${lastIndex}`}
+                            dangerouslySetInnerHTML={{ __html: passage.substring(lastIndex, match.index) }}
+                          />
+                        );
+                      }
+                      
+                      // Add dropdown
+                      const blank = blanks[blankIndex];
+                      const questionKey = `${currentQuestion.part.partIndex}-${currentQuestion.section.sectionIndex}-${blankIndex}`;
+                      const userAnswer = answers[questionKey];
+                      
+                      elements.push(
+                        <select
+                          key={`dropdown-${questionNumber}`}
+                          id={`question-${questionNumber}`}
+                          value={userAnswer || ''}
+                          onChange={(e) => handleAnswerChange(questionKey, e.target.value)}
+                          disabled={submitted}
+                          style={{
+                            display: 'inline-block',
+                            margin: '0 4px',
+                            padding: '6px 10px',
+                            fontSize: '15px',
+                            fontWeight: '600',
+                            border: '2px solid #0e276f',
+                            borderRadius: '4px',
+                            backgroundColor: userAnswer ? '#dbeafe' : 'white',
+                            color: '#0e276f',
+                            cursor: 'pointer',
+                            minWidth: '140px',
+                            scrollMarginTop: '100px'
+                          }}
+                        >
+                          <option value="">({questionNumber})</option>
+                          {blank.options.map((option, optIdx) => {
+                            const optionLabel = String.fromCharCode(65 + optIdx);
+                            const cleanOption = option.replace(/^[A-C]\.\s*/, '');
+                            return (
+                              <option key={optIdx} value={optionLabel}>
+                                {optionLabel}. {cleanOption}
+                              </option>
+                            );
+                          })}
+                        </select>
+                      );
+                      
+                      lastIndex = match.index + match[0].length;
+                    }
+                  }
+                  
+                  // Add remaining text
+                  if (lastIndex < passage.length) {
+                    elements.push(
+                      <span 
+                        key={`text-${lastIndex}`}
+                        dangerouslySetInnerHTML={{ __html: passage.substring(lastIndex) }}
+                      />
+                    );
+                  }
+                  
+                  return elements;
+                };
+                
+                return (
+                  <div className="cambridge-question-wrapper">
+                    {/* Passage Title */}
+                    {passageTitle && (
+                      <h3 
+                        style={{ 
+                          marginBottom: '16px',
+                          fontSize: '18px',
+                          fontWeight: 600,
+                          color: '#0e276f'
+                        }}
+                        dangerouslySetInnerHTML={{ __html: passageTitle }}
+                      />
+                    )}
+                    
+                    {/* Passage with inline dropdowns */}
+                    <div 
+                      className="cambridge-passage-content"
+                      style={{
+                        padding: '20px',
+                        backgroundColor: '#fefce8',
+                        border: '2px solid #fde047',
+                        borderRadius: '12px',
+                        fontSize: '15px',
+                        lineHeight: 2,
+                      }}
+                    >
+                      {renderPassageWithDropdowns()}
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+          </div>
+        </>
       ) : (
         /* Other Parts: Split-view layout (Passage left | Questions right) */
         <>
@@ -506,7 +658,6 @@ const DoCambridgeReadingTest = () => {
           {currentQuestion && currentQuestion.part.instruction && (
             <div 
               className="cambridge-part-instruction"
-              style={{ margin: '20px 32px', backgroundColor: '#f0f7ff', borderLeft: '3px solid #0052cc' }}
               dangerouslySetInnerHTML={{ __html: currentQuestion.part.instruction }}
             />
           )}
