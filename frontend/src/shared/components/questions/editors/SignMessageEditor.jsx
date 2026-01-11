@@ -1,4 +1,6 @@
 import React from "react";
+import ReactQuill from "react-quill";
+import "react-quill/dist/quill.snow.css";
 
 /**
  * SignMessageEditor - KET Part 1: Signs & Messages
@@ -105,13 +107,21 @@ const SignMessageEditor = ({
           <label style={{ ...styles.label, color: "#64748b" }}>
             📝 Text trên biển (tùy chọn - để tham khảo)
           </label>
-          <input
-            type="text"
-            value={signText}
-            onChange={(e) => onChange("signText", e.target.value)}
-            placeholder="VD: CAMPSITE - Groups of 4+ please call ahead"
-            style={{ ...styles.input, backgroundColor: "#f1f5f9" }}
-          />
+          <div className="sign-text-editor">
+            <ReactQuill
+              value={signText}
+              onChange={(value) => onChange("signText", value)}
+              placeholder="VD: CAMPSITE - Groups of 4+ please call ahead"
+              style={{ backgroundColor: "white", borderRadius: "6px" }}
+              modules={{
+                toolbar: [
+                  ['bold', 'italic', 'underline'],
+                  [{ 'align': [] }],
+                  ['clean']
+                ]
+              }}
+            />
+          </div>
         </div>
       </div>
 
@@ -288,5 +298,18 @@ const styles = {
     fontSize: "14px",
   },
 };
+
+// CSS for sign text editor - minimal styling, let ReactQuill handle alignment
+const styleSheet = document.createElement("style");
+styleSheet.textContent = `
+  .sign-text-editor .ql-editor {
+    padding: 12px 15px;
+    min-height: 80px;
+  }
+`;
+if (!document.head.querySelector('style[data-sign-text-editor]')) {
+  styleSheet.setAttribute('data-sign-text-editor', 'true');
+  document.head.appendChild(styleSheet);
+}
 
 export default SignMessageEditor;

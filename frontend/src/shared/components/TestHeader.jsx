@@ -2,12 +2,15 @@ import React from "react";
 import "./TestHeader.css";
 
 /**
- * TestHeader - Shared header component for IELTS test pages
+ * TestHeader - Shared header component for IELTS & Cambridge test pages
  * 
  * @param {string} testType - "READING" | "LISTENING" | "WRITING"
  * @param {string} testTitle - Title of the test
+ * @param {string} title - Alternative prop for test title (Cambridge)
  * @param {string} testMeta - Meta info (e.g., "3 Passages • 40 Questions")
- * @param {number} timeRemaining - Time remaining in seconds
+ * @param {string} classCode - Class code (Cambridge)
+ * @param {string} teacherName - Teacher name (Cambridge)
+ * @param {number} timeRemaining - Time remaining in seconds OR formatted string
  * @param {number} answeredCount - Number of questions answered
  * @param {number} totalQuestions - Total number of questions
  * @param {function} onSubmit - Submit handler
@@ -15,11 +18,15 @@ import "./TestHeader.css";
  * @param {boolean} timerWarning - Show warning style (< 5 min)
  * @param {boolean} timerCritical - Show critical style (< 1 min)
  * @param {boolean} showAutoSave - Show auto-save indicator
+ * @param {string} examType - "IELTS" | "KET" | "PET" | "FLYERS" | etc.
  */
 const TestHeader = ({
   testType = "LISTENING",
   testTitle = "Test",
+  title, // Cambridge prop
   testMeta = "",
+  classCode,
+  teacherName,
   timeRemaining = 0,
   answeredCount = 0,
   totalQuestions = 0,
@@ -28,9 +35,25 @@ const TestHeader = ({
   timerWarning = false,
   timerCritical = false,
   showAutoSave = true,
+  examType, // Auto-detect from title or classCode
 }) => {
-  // Format time as mm:ss
-  const formatTime = (seconds) => {
+  // Auto-detect exam type from props
+  const detectedExamType = examType || (
+    (title || testTitle).toLowerCase().includes('ket') ? 'KET' :
+    (title || testTitle).toLowerCase().includes('pet') ? 'PET' :
+    (title || testTitle).toLowerCase().includes('flyers') ? 'FLYERS' :
+    (title || testTitle).toLowerCase().includes('movers') ? 'MOVERS' :
+    (title || testTitle).toLowerCase().includes('starters') ? 'STARTERS' :
+    'IELTS'
+  );
+
+  const isCambridge = detectedExamType !== 'IELTS';
+  const displayTitle = title || testTitle;
+
+  // Format time as mm:ss if it's a number
+  const formatTime = (time) => {
+    if (typeof time === 'string') return time; // Already formatted
+    const seconds = time || 0;
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
@@ -44,10 +67,18 @@ const TestHeader = ({
   return (
     <header className="test-header">
       <div className="header-left">
-        <div className="test-badge">IELTS</div>
+        <div className="test-badge" style={isCambridge ? {background: '#0052CC'} : {}}>
+          {detectedExamType}
+        </div>
         <div className="test-info">
-          <h1>IELTS - {testType} TEST</h1>
-          <p className="test-meta">{testMeta || testTitle}</p>
+          <h1>
+            {isCambridge ? displayTitle : `IELTS - ${testType} TEST`}
+          </h1>
+          <p className="test-meta">
+            {isCambridge && classCode && `Class: ${classCode}`}
+            {isCambridge && teacherName && ` • ${teacherName}`}
+            {!isCambridge && (testMeta || testTitle)}
+          </p>
         </div>
       </div>
 
@@ -61,7 +92,7 @@ const TestHeader = ({
           <div className="timer-icon">⏱️</div>
           <div className="timer-display">
             <span className="timer-value">{formatTime(timeRemaining)}</span>
-            <span className="timer-label">REMAINING</span>
+            <span className="timer-label">{isCambridge ? 'TIME LEFT' : 'REMAINING'}</span>
           </div>
           {timerCritical && (
             <div className="timer-critical-badge pulse">🔥</div>

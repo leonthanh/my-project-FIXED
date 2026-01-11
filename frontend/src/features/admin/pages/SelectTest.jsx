@@ -73,12 +73,13 @@ const SelectTest = () => {
   };
 
   const handleSelectCambridge = (test) => {
-    // Navigate based on category (reading or listening)
-    if (test.category === 'listening') {
-      navigate(`/cambridge/listening/${test.id}`);
-    } else {
-      navigate(`/cambridge/reading/${test.id}`);
-    }
+    // Navigate with testType for proper config loading
+    // testType format: "ket-reading", "pet-listening", etc.
+    const testType = test.testType || 'ket-reading'; // fallback
+    const category = test.category || 'reading';
+    
+    // Use testType-based URL for proper config
+    navigate(`/cambridge/${testType}/${test.id}`);
   };
 
   const handleEdit = (testId, testType, test = null) => {
