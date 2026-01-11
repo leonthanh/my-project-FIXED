@@ -446,3 +446,25 @@
     font-size: 12px;
   }
 }
+
+/* Sign Text - Allow ReactQuill alignment classes to work naturally */
+.cambridge-sign-text {
+  /* ReactQuill will handle text-align via ql-align-* classes */
+}
+
+/* ReactQuill Alignment Support */
+.cambridge-sign-text .ql-align-center {
+  text-align: center;
+}
+
+.cambridge-sign-text .ql-align-right {
+  text-align: right;
+}
+
+.cambridge-sign-text .ql-align-left {
+  text-align: left;
+}
+
+.cambridge-sign-text .ql-align-justify {
+  text-align: justify;
+}

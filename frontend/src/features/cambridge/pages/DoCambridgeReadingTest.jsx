@@ -360,18 +360,19 @@ const DoCambridgeReadingTest = () => {
                       />
                     )}
                     {currentQuestion.question.signText && (
-                      <div style={{
-                        marginTop: currentQuestion.question.imageUrl ? '12px' : '0',
-                        padding: '16px',
-                        border: '2px solid #333',
-                        borderRadius: '4px',
-                        fontSize: '16px',
-                        fontWeight: '600',
-                        textAlign: 'center',
-                        background: 'white',
-                        lineHeight: '1.5'
-                      }}
-                      dangerouslySetInnerHTML={{ __html: currentQuestion.question.signText }}
+                      <div 
+                        className="cambridge-sign-text"
+                        style={{
+                          marginTop: currentQuestion.question.imageUrl ? '12px' : '0',
+                          padding: '16px',
+                          border: '2px solid #333',
+                          borderRadius: '4px',
+                          fontSize: '16px',
+                          fontWeight: '600',
+                          background: 'white',
+                          lineHeight: '1.5'
+                        }}
+                        dangerouslySetInnerHTML={{ __html: currentQuestion.question.signText }}
                       />
                     )}
                   </div>
