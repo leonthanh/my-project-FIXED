@@ -939,8 +939,190 @@ const DoCambridgeReadingTest = () => {
             </div>
           </div>
         </>
+      ) : currentQuestion && currentQuestion.section.questionType === 'short-message' ? (
+        /* Part 6 (Writing Task): Split-view with divider (Instructions left | Textarea right) */
+        <>
+          {/* Part Instruction - Fixed, doesn't scroll */}
+          {currentQuestion.part.instruction && (
+            <div 
+              className="cambridge-part-instruction"
+              dangerouslySetInnerHTML={{ __html: currentQuestion.part.instruction }}
+            />
+          )}
+
+          <div className="cambridge-main-content" ref={containerRef} style={{ position: 'relative' }}>
+            {/* Left Column - Instructions/Requirements */}
+            <div className="cambridge-passage-column" style={{ width: `${leftWidth}%` }}>
+              {currentQuestion && (
+                <div className="cambridge-passage-container">
+                  {(() => {
+                    const q = currentQuestion.question || {};
+                    const situation = q.situation || '';
+                    const bulletPoints = q.bulletPoints || [];
+                    
+                    return (
+                      <>
+                        {/* Situation */}
+                        {situation && (
+                          <div style={{ marginBottom: '24px' }}>
+                            <h4 style={{ 
+                              margin: '0 0 12px', 
+                              fontSize: '16px', 
+                              fontWeight: 700, 
+                              color: '#1f2937' 
+                            }}>
+                              Situation:
+                            </h4>
+                            <div 
+                              style={{
+                                fontSize: '14px',
+                                lineHeight: '1.6',
+                                color: '#374151'
+                              }}
+                              dangerouslySetInnerHTML={{ __html: situation }}
+                            />
+                          </div>
+                        )}
+
+                        {/* Requirements */}
+                        {bulletPoints && bulletPoints.length > 0 && (
+                          <div style={{ marginBottom: '24px' }}>
+                            <h4 style={{ 
+                              margin: '0 0 12px', 
+                              fontSize: '16px', 
+                              fontWeight: 700, 
+                              color: '#1f2937' 
+                            }}>
+                              In your email:
+                            </h4>
+                            <ul style={{ 
+                              margin: 0, 
+                              paddingLeft: '20px',
+                              fontSize: '14px',
+                              lineHeight: '1.8',
+                              color: '#374151'
+                            }}>
+                              {bulletPoints.map((point, idx) => (
+                                <li key={idx} style={{ marginBottom: '8px' }}>
+                                  {point || '(empty)'}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </>
+                    );
+                  })()}
+                </div>
+              )}
+            </div>
+
+            {/* Draggable Divider */}
+            <div 
+              className="cambridge-divider"
+              onMouseDown={handleMouseDown}
+              style={{ 
+                left: `${leftWidth}%`,
+                cursor: isResizing ? 'col-resize' : 'col-resize'
+              }}
+            >
+              <div className="cambridge-resize-handle">
+                <i className="fa fa-arrows-h"></i>
+              </div>
+            </div>
+
+            {/* Right Column - Writing Area */}
+            <div className="cambridge-questions-column" style={{ width: `${100 - leftWidth}%` }}>
+              {currentQuestion && (
+                <div className="cambridge-content-wrapper">
+                  {(() => {
+                    const q = currentQuestion.question || {};
+                    const messageType = q.messageType || 'email';
+                    const wordLimit = q.wordLimit || { min: 25, max: 35 };
+                    const questionKey = currentQuestion.key;
+                    const userAnswer = answers[questionKey] || '';
+                    const wordCount = userAnswer.trim().split(/\s+/).filter(w => w).length;
+                    
+                    return (
+                      <div className={`cambridge-question-wrapper ${flaggedQuestions.has(currentQuestion.key) ? 'flagged-section' : ''}`} style={{ position: 'relative' }}>
+                        {/* Flag Button */}
+                        <button
+                          className={`cambridge-flag-button ${flaggedQuestions.has(currentQuestion.key) ? 'flagged' : ''}`}
+                          onClick={() => toggleFlag(currentQuestion.key)}
+                          aria-label="Flag question"
+                          style={{ position: 'absolute', top: 0, right: 0 }}
+                        >
+                          {flaggedQuestions.has(currentQuestion.key) ? '🚩' : '⚐'}
+                        </button>
+
+                        {/* Writing Instructions */}
+                        <div style={{ marginBottom: '20px', paddingRight: '50px' }}>
+                          <h3 style={{ 
+                            margin: '0 0 8px', 
+                            fontSize: '16px', 
+                            fontWeight: 600, 
+                            color: '#0c4a6e' 
+                          }}>
+                            Write your {messageType}:
+                          </h3>
+                          <p style={{ 
+                            margin: 0, 
+                            fontSize: '13px', 
+                            color: '#6b7280' 
+                          }}>
+                            {wordLimit.min} words or more
+                          </p>
+                        </div>
+
+                        {/* Textarea */}
+                        <textarea
+                          id={`question-${currentQuestion.questionNumber}`}
+                          value={userAnswer}
+                          onChange={(e) => handleAnswerChange(questionKey, e.target.value)}
+                          disabled={submitted}
+                          placeholder={`Write your ${messageType} here (${wordLimit.min}-${wordLimit.max} words)...`}
+                          style={{
+                            width: '100%',
+                            minHeight: '400px',
+                            padding: '16px',
+                            fontSize: '15px',
+                            lineHeight: '1.6',
+                            border: '2px solid #0284c7',
+                            borderRadius: '6px',
+                            fontFamily: 'inherit',
+                            resize: 'vertical',
+                            backgroundColor: userAnswer ? '#f0f9ff' : 'white',
+                            color: '#0c4a6e',
+                            marginBottom: '12px'
+                          }}
+                        />
+
+                        {/* Word Count */}
+                        <div style={{
+                          display: 'flex',
+                          justifyContent: 'flex-end',
+                          fontSize: '13px',
+                          color: '#6b7280',
+                          paddingRight: '50px'
+                        }}>
+                          <div>
+                            Words: <strong style={{
+                              color: wordCount < wordLimit.min ? '#dc2626' : 
+                                     wordCount > wordLimit.max ? '#dc2626' : '#16a34a'
+                            }}>
+                              {wordCount}
+                            </strong>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
+              )}
+            </div>
+          </div>
+        </>
       ) : (
-        /* Other Parts: Split-view layout (Passage left | Questions right) */
         <>
           {/* Part Instruction - Above split view */}
           {currentQuestion && currentQuestion.part.instruction && (
