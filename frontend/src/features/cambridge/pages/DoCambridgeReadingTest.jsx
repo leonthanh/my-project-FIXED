@@ -1307,26 +1307,28 @@ const DoCambridgeReadingTest = () => {
 
       {/* Footer Navigation */}
       <footer className="cambridge-footer">
-        {/* Previous/Next Arrows */}
-        <div className="cambridge-footer-nav">
+        {/* Navigation Arrows - Top Right */}
+        <div className="cambridge-footer-arrows">
           <button
-            className="cambridge-footer-arrow"
+            className="cambridge-nav-arrow-btn"
             onClick={() => goToQuestion(currentQuestionIndex - 1)}
             disabled={currentQuestionIndex === 0}
             aria-label="Previous"
+            title="Previous question"
           >
             <i className="fa fa-arrow-left"></i>
           </button>
           <button
-            className="cambridge-footer-arrow"
+            className="cambridge-nav-arrow-btn"
             onClick={() => goToQuestion(currentQuestionIndex + 1)}
             disabled={currentQuestionIndex === allQuestions.length - 1}
             aria-label="Next"
+            title="Next question"
           >
             <i className="fa fa-arrow-right"></i>
           </button>
         </div>
-
+        
         {/* Parts Tabs with Question Numbers */}
         <div className="cambridge-parts-container">
           {test?.parts?.map((part, idx) => {

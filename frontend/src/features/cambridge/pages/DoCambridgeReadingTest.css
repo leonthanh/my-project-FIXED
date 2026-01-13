@@ -304,13 +304,26 @@
 
 /* Footer Navigation */
 .cambridge-footer {
-  background: #1a1a1a;
-  border-top: 1px solid #333;
-  padding: 12px 20px;
+  background: transparent;
+  border-top: none;
+  padding: 1px 20px;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.1);
+  box-shadow: none;
+  z-index: 100;
+  gap: 16px;
+  position: relative;
+  min-height: 15%
+}
+
+/* Navigation Arrows in Footer - Top Right */
+.cambridge-footer-arrows {
+  display: flex;
+      position: absolute;
+    right: 2rem;
+    bottom: 5.5rem;
+    z-index: 100;
 }
 
 .cambridge-footer-nav {
@@ -320,23 +333,27 @@
 }
 
 .cambridge-footer-arrow {
-  background: transparent;
-  border: none;
-  color: white;
-  font-size: 20px;
+  background: #f3f4f6;
+  border: 1px solid #d1d5db;
+  color: #374151;
+  font-size: 18px;
   cursor: pointer;
   padding: 8px 12px;
-  border-radius: 4px;
-  transition: background 0.2s;
+  border-radius: 6px;
+  transition: all 0.2s;
 }
 
 .cambridge-footer-arrow:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.1);
+  background: #e5e7eb;
+  border-color: #9ca3af;
+  color: #1f2937;
 }
 
 .cambridge-footer-arrow:disabled {
-  opacity: 0.3;
+  opacity: 0.4;
   cursor: not-allowed;
+  background: #f9fafb;
+  color: #9ca3af;
 }
 
 /* Parts Tabs */
@@ -367,9 +384,9 @@
 }
 
 .cambridge-part-tab {
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  color: white;
+  background: #f3f4f6;
+  border: 1px solid #d1d5db;
+  color: #374151;
   padding: 6px 12px;
   border-radius: 4px;
   cursor: pointer;
@@ -383,7 +400,8 @@
 }
 
 .cambridge-part-tab:hover {
-  background: rgba(255, 255, 255, 0.2);
+  background: #e5e7eb;
+  border-color: #9ca3af;
 }
 
 .cambridge-part-tab.active {
@@ -393,7 +411,7 @@
 }
 
 .cambridge-part-label {
-  font-size: 11px;
+  font-size: 16px;
   opacity: 0.9;
 }
 
@@ -418,9 +436,9 @@
 .cambridge-question-num-btn {
   width: 32px;
   height: 32px;
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  color: white;
+  background: #f3f4f6;
+  border: 1px solid #d1d5db;
+  color: #374151;
   font-size: 12px;
   font-weight: 500;
   border-radius: 4px;
@@ -430,7 +448,8 @@
 }
 
 .cambridge-question-num-btn:hover {
-  background: rgba(255, 255, 255, 0.25);
+  background: #e5e7eb;
+  border-color: #9ca3af;
   transform: translateY(-1px);
 }
 
@@ -574,4 +593,51 @@
   display: block;
   margin: 12px 0;
   border-radius: 6px;
+}
+
+/* Fixed Navigation Arrows - Top Right */
+.cambridge-fixed-nav-arrows {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  display: flex;
+  gap: 8px;
+  z-index: 1000;
+}
+
+/* Navigation Bar - Above Footer */
+.cambridge-nav-bar {
+  display: none;
+}
+
+.cambridge-nav-arrow-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 6px;
+  border: 1px solid #d1d5db;
+  background: #374151;
+  color: white;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  transition: all 0.2s;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.cambridge-nav-arrow-btn:hover:not(:disabled) {
+  background: #1f2937;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+}
+
+.cambridge-nav-arrow-btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.cambridge-nav-arrow-btn:disabled {
+  background: #9ca3af;
+  cursor: not-allowed;
+  opacity: 0.5;
 }
