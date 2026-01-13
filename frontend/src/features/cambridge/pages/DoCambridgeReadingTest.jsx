@@ -272,6 +272,22 @@ const DoCambridgeReadingTest = () => {
                 part: part,
               });
             });
+          } else if (section.questionType === 'cloze-test' && q.blanks && Array.isArray(q.blanks)) {
+            // For cloze-test (Open Cloze): create separate entries for each blank
+            q.blanks.forEach((blank, blankIdx) => {
+              questions.push({
+                partIndex: pIdx,
+                sectionIndex: sIdx,
+                questionIndex: qIdx,
+                blankIndex: blankIdx,
+                questionNumber: qNum++,
+                key: `${pIdx}-${sIdx}-${blankIdx}`,
+                question: q, // Keep parent question object (has passage)
+                blank: blank, // Individual blank data
+                section: section,
+                part: part,
+              });
+            });
           } else {
             // Regular questions
             questions.push({
@@ -309,7 +325,6 @@ const DoCambridgeReadingTest = () => {
       // Scroll to question element and open dropdown
       setTimeout(() => {
         const questionElement = document.getElementById(`question-${q.questionNumber}`);
-        console.log(`Looking for question-${q.questionNumber}`, questionElement); // Debug
         
         if (questionElement) {
           questionElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -322,9 +337,8 @@ const DoCambridgeReadingTest = () => {
             if (questionElement.showPicker && typeof questionElement.showPicker === 'function') {
               try {
                 questionElement.showPicker();
-                console.log('showPicker() called successfully for question-' + q.questionNumber);
               } catch (e) {
-                console.warn('showPicker() failed:', e);
+                // Fallback silently
               }
             } else {
               // Fallback: try keyboard event
@@ -337,15 +351,10 @@ const DoCambridgeReadingTest = () => {
                 cancelable: true
               });
               questionElement.dispatchEvent(keyEvent);
-              console.log('KeyboardEvent dispatched for question-' + q.questionNumber);
             }
           }
-        } else {
-          console.warn(`Element not found: question-${q.questionNumber}`);
         }
       }, 200);
-    } else {
-      console.warn(`Invalid index: ${index}, total: ${allQuestions.length}`);
     }
   };
 
@@ -549,6 +558,183 @@ const DoCambridgeReadingTest = () => {
             </div>
           </div>
         </div>
+      ) : currentQuestion && currentQuestion.section.questionType === 'cloze-test' ? (
+        /* Part 5 (Open Cloze): Single column with inline text inputs */
+        <>
+          {/* Part Instruction - Fixed, doesn't scroll */}
+          {currentQuestion.part.instruction && (
+            <div 
+              className="cambridge-part-instruction"
+              dangerouslySetInnerHTML={{ __html: currentQuestion.part.instruction }}
+            />
+          )}
+
+          {/* Scrollable Content */}
+          <div style={{ flex: 1, overflowY: 'auto', padding: '24px' }}>
+            <div style={{ maxWidth: '900px', margin: '0 auto' }}>
+              {(() => {
+                const questionData = currentQuestion.section.questions?.[0] || {};
+                const passageText = questionData.passageText || questionData.passage || '';
+                const passageTitle = questionData.passageTitle || '';
+                let blanks = questionData.blanks || []; // Use pre-parsed blanks from backend
+                
+                // Fallback: If no blanks from backend, parse them dynamically
+                if (blanks.length === 0 && passageText) {
+                  const tempDiv = document.createElement('div');
+                  tempDiv.innerHTML = passageText;
+                  const plainText = tempDiv.textContent || tempDiv.innerText || '';
+                  
+                  const blankMatches = [];
+                  const regex = /\((\d+)\)|\[(\d+)\]/g;
+                  let match;
+                  
+                  while ((match = regex.exec(plainText)) !== null) {
+                    const num = parseInt(match[1] || match[2]);
+                    blankMatches.push({
+                      questionNum: num,
+                      fullMatch: match[0],
+                      index: match.index
+                    });
+                  }
+                  
+                  // If still no numbered blanks, look for underscores
+                  if (blankMatches.length === 0) {
+                    const underscorePattern = /[_…]{3,}/g;
+                    let blankIndex = 0;
+                    const firstQNum = currentQuestion.questionNumber;
+                    
+                    while ((match = underscorePattern.exec(plainText)) !== null) {
+                      blankMatches.push({
+                        questionNum: firstQNum + blankIndex,
+                        fullMatch: match[0],
+                        index: match.index
+                      });
+                      blankIndex++;
+                    }
+                  }
+                  
+                  blanks = blankMatches.sort((a, b) => a.questionNum - b.questionNum);
+                }
+                
+                const renderPassageWithInputs = () => {
+                  if (!passageText) return null;
+                  
+                  const elements = [];
+                  let lastIndex = 0;
+                  
+                  // Find all (25), (26), etc. patterns or [25], [26], etc.
+                  const regex = /\((\d+)\)|\[(\d+)\]/g;
+                  let match;
+                  
+                  while ((match = regex.exec(passageText)) !== null) {
+                    const questionNumber = parseInt(match[1] || match[2]);
+                    const firstQuestionNum = currentQuestion.questionNumber - (allQuestions[currentQuestionIndex].blankIndex || 0);
+                    const blankIndex = questionNumber - firstQuestionNum;
+                    
+                    // Only process if this blank exists in our data
+                    if (blankIndex >= 0 && blankIndex < blanks.length) {
+                      // Add text before this blank
+                      if (match.index > lastIndex) {
+                        elements.push(
+                          <span 
+                            key={`text-${lastIndex}`}
+                            dangerouslySetInnerHTML={{ __html: passageText.substring(lastIndex, match.index) }}
+                          />
+                        );
+                      }
+                      
+                      // Add text input
+                      const questionKey = `${currentQuestion.partIndex}-${currentQuestion.sectionIndex}-${blankIndex}`;
+                      const userAnswer = answers[questionKey] || '';
+                      
+                      elements.push(
+                        <input
+                          key={`input-${questionNumber}`}
+                          id={`question-${questionNumber}`}
+                          type="text"
+                          value={userAnswer}
+                          onChange={(e) => handleAnswerChange(questionKey, e.target.value.trim())}
+                          disabled={submitted}
+                          placeholder={`(${questionNumber})`}
+                          style={{
+                            display: 'inline-block',
+                            margin: '0 4px',
+                            padding: '6px 10px',
+                            fontSize: '15px',
+                            fontWeight: '600',
+                            border: '2px solid #0284c7',
+                            borderRadius: '4px',
+                            backgroundColor: userAnswer ? '#f0f9ff' : 'white',
+                            color: '#0e7490',
+                            width: '150px',
+                            textAlign: 'center',
+                            scrollMarginTop: '100px'
+                          }}
+                        />
+                      );
+                      
+                      lastIndex = match.index + match[0].length;
+                    }
+                  }
+                  
+                  // Add remaining text
+                  if (lastIndex < passageText.length) {
+                    elements.push(
+                      <span 
+                        key={`text-${lastIndex}`}
+                        dangerouslySetInnerHTML={{ __html: passageText.substring(lastIndex) }}
+                      />
+                    );
+                  }
+                  
+                  return elements;
+                };
+                
+                return (
+                  <div className={`cambridge-question-wrapper ${flaggedQuestions.has(currentQuestion.key) ? 'flagged-section' : ''}`} style={{ position: 'relative' }}>
+                    {/* Flag Button */}
+                    <button
+                      className={`cambridge-flag-button ${flaggedQuestions.has(currentQuestion.key) ? 'flagged' : ''}`}
+                      onClick={() => toggleFlag(currentQuestion.key)}
+                      aria-label="Flag question"
+                      style={{ position: 'absolute', top: 0, right: 0 }}
+                    >
+                      {flaggedQuestions.has(currentQuestion.key) ? '🚩' : '⚐'}
+                    </button>
+
+                    {/* Passage Title */}
+                    {passageTitle && (
+                      <h3 
+                        style={{ 
+                          marginBottom: '16px',
+                          fontSize: '18px',
+                          fontWeight: 600,
+                          color: '#0c4a6e'
+                        }}
+                        dangerouslySetInnerHTML={{ __html: passageTitle }}
+                      />
+                    )}
+                    
+                    {/* Passage with inline text inputs */}
+                    <div 
+                      className="cambridge-passage-content"
+                      style={{
+                        padding: '20px',
+                        backgroundColor: '#f0f9ff',
+                        border: '2px solid #0284c7',
+                        borderRadius: '12px',
+                        fontSize: '15px',
+                        lineHeight: 2,
+                      }}
+                    >
+                      {renderPassageWithInputs()}
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+          </div>
+        </>
       ) : currentQuestion && currentQuestion.section.questionType === 'cloze-mc' ? (
         /* Part 4 (Cloze MC): Single column with inline dropdowns */
         <>
@@ -653,7 +839,17 @@ const DoCambridgeReadingTest = () => {
                 };
                 
                 return (
-                  <div className="cambridge-question-wrapper">
+                  <div className={`cambridge-question-wrapper ${flaggedQuestions.has(currentQuestion.key) ? 'flagged-section' : ''}`} style={{ position: 'relative' }}>
+                    {/* Flag Button */}
+                    <button
+                      className={`cambridge-flag-button ${flaggedQuestions.has(currentQuestion.key) ? 'flagged' : ''}`}
+                      onClick={() => toggleFlag(currentQuestion.key)}
+                      aria-label="Flag question"
+                      style={{ position: 'absolute', top: 0, right: 0 }}
+                    >
+                      {flaggedQuestions.has(currentQuestion.key) ? '🚩' : '⚐'}
+                    </button>
+
                     {/* Passage Title */}
                     {passageTitle && (
                       <h3 

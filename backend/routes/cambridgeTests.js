@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const { CambridgeListening, CambridgeReading, CambridgeSubmission } = require("../models");
 const { logError } = require("../logger");
+const { processTestParts } = require("../utils/clozParser");
 
 /**
  * Cambridge Tests Routes
@@ -278,12 +279,15 @@ router.post("/reading-tests", async (req, res) => {
       });
     }
 
+    // Process parts to add blanks array for cloze-test questions
+    const processedParts = processTestParts(parts);
+
     const newTest = await CambridgeReading.create({
       title,
       classCode,
       teacherName: teacherName || '',
       testType,
-      parts: parts, // JSON type - Sequelize handles serialization
+      parts: processedParts, // JSON type - Sequelize handles serialization
       totalQuestions: totalQuestions || 0,
       status: 'draft',
     });
@@ -320,12 +324,15 @@ router.put("/reading-tests/:id", async (req, res) => {
       status,
     } = req.body;
 
+    // Process parts to add blanks array for cloze-test questions
+    const processedParts = parts ? processTestParts(parts) : test.parts;
+
     await test.update({
       title: title || test.title,
       classCode: classCode || test.classCode,
       teacherName: teacherName || test.teacherName,
       testType: testType || test.testType,
-      parts: parts || test.parts, // JSON type - Sequelize handles serialization
+      parts: processedParts, // JSON type - Sequelize handles serialization
       totalQuestions: totalQuestions ?? test.totalQuestions,
       status: status || test.status,
     });
