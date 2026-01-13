@@ -236,6 +236,41 @@ const DoCambridgeReadingTest = () => {
     const questions = [];
     let qNum = 1;
     
+    // Helper: Parse blanks from cloze-test passage
+    const parseBlanksFromPassage = (passageText, startingNum) => {
+      if (!passageText) return [];
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = passageText;
+      const plainText = tempDiv.textContent || tempDiv.innerText || '';
+      
+      const blanks = [];
+      const regex = /\((\d+)\)|\[(\d+)\]/g;
+      let match;
+      
+      while ((match = regex.exec(plainText)) !== null) {
+        blanks.push({
+          questionNum: parseInt(match[1] || match[2]),
+          fullMatch: match[0],
+          index: match.index
+        });
+      }
+      
+      if (blanks.length === 0) {
+        const underscorePattern = /[_…]{3,}/g;
+        let blankIndex = 0;
+        while ((match = underscorePattern.exec(plainText)) !== null) {
+          blanks.push({
+            questionNum: startingNum + blankIndex,
+            fullMatch: match[0],
+            index: match.index
+          });
+          blankIndex++;
+        }
+      }
+      
+      return blanks.sort((a, b) => a.questionNum - b.questionNum);
+    };
+    
     test.parts.forEach((part, pIdx) => {
       part.sections?.forEach((section, sIdx) => {
         section.questions?.forEach((q, qIdx) => {
@@ -272,22 +307,39 @@ const DoCambridgeReadingTest = () => {
                 part: part,
               });
             });
-          } else if (section.questionType === 'cloze-test' && q.blanks && Array.isArray(q.blanks)) {
-            // For cloze-test (Open Cloze): create separate entries for each blank
-            q.blanks.forEach((blank, blankIdx) => {
+          } else if (section.questionType === 'cloze-test') {
+            // For cloze-test (Open Cloze): parse blanks from passage
+            const passageText = q.passageText || q.passage || '';
+            const blanks = (q.blanks && q.blanks.length > 0) ? q.blanks : parseBlanksFromPassage(passageText, qNum);
+            
+            if (blanks.length > 0) {
+              blanks.forEach((blank, blankIdx) => {
+                questions.push({
+                  partIndex: pIdx,
+                  sectionIndex: sIdx,
+                  questionIndex: qIdx,
+                  blankIndex: blankIdx,
+                  questionNumber: qNum++,
+                  key: `${pIdx}-${sIdx}-${blankIdx}`,
+                  question: q, // Keep parent question object (has passage)
+                  blank: blank, // Individual blank data
+                  section: section,
+                  part: part,
+                });
+              });
+            } else {
+              // No blanks found, treat as regular question
               questions.push({
                 partIndex: pIdx,
                 sectionIndex: sIdx,
                 questionIndex: qIdx,
-                blankIndex: blankIdx,
                 questionNumber: qNum++,
-                key: `${pIdx}-${sIdx}-${blankIdx}`,
-                question: q, // Keep parent question object (has passage)
-                blank: blank, // Individual blank data
+                key: `${pIdx}-${sIdx}-${qIdx}`,
+                question: q,
                 section: section,
                 part: part,
               });
-            });
+            }
           } else {
             // Regular questions
             questions.push({
@@ -322,7 +374,7 @@ const DoCambridgeReadingTest = () => {
       setCurrentPartIndex(q.partIndex);
       setActiveQuestion(q.key);
       
-      // Scroll to question element and open dropdown
+      // Scroll to question element and focus/open
       setTimeout(() => {
         const questionElement = document.getElementById(`question-${q.questionNumber}`);
         
@@ -352,6 +404,10 @@ const DoCambridgeReadingTest = () => {
               });
               questionElement.dispatchEvent(keyEvent);
             }
+          } else if (questionElement.tagName === 'INPUT') {
+            // For cloze-test text inputs
+            questionElement.focus();
+            questionElement.select(); // Select all text to show cursor and highlight
           }
         }
       }, 200);
@@ -1142,15 +1198,21 @@ const DoCambridgeReadingTest = () => {
                 {/* Show question numbers only for active part */}
                 {isActive && (
                   <div className="cambridge-questions-inline">
-                    {partQuestions.map((q) => (
-                      <button
-                        key={q.key}
-                        className={`cambridge-question-num-btn ${answers[q.key] ? 'answered' : ''} ${currentQuestionIndex === q.questionNumber - 1 ? 'active' : ''} ${flaggedQuestions.has(q.key) ? 'flagged' : ''}`}
-                        onClick={() => goToQuestion(q.questionNumber - 1)}
-                      >
-                        {q.questionNumber}
-                      </button>
-                    ))}
+                    {partQuestions.length > 0 ? (
+                      partQuestions.map((q) => (
+                        <button
+                          key={q.key}
+                          className={`cambridge-question-num-btn ${answers[q.key] ? 'answered' : ''} ${currentQuestionIndex === q.questionNumber - 1 ? 'active' : ''} ${flaggedQuestions.has(q.key) ? 'flagged' : ''}`}
+                          onClick={() => goToQuestion(q.questionNumber - 1)}
+                        >
+                          {q.questionNumber}
+                        </button>
+                      ))
+                    ) : (
+                      <span style={{ fontSize: '12px', color: '#999', padding: '0 8px' }}>
+                        Writing task
+                      </span>
+                    )}
                   </div>
                 )}
 
