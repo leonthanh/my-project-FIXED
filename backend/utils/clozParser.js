@@ -68,6 +68,12 @@ function parseClozeTestBlanks(passageHtml, startingNumber = 25) {
  * @returns {string} Plain text
  */
 function stripHtmlTags(html) {
+  // For Node.js environment (backend)
+  if (typeof document === 'undefined') {
+    return html.replace(/<[^>]*>/g, '');
+  }
+  
+  // For browser environment
   const div = document.createElement('div');
   div.innerHTML = html;
   return div.textContent || div.innerText || '';
@@ -103,8 +109,31 @@ function processClozeTestQuestion(question) {
 }
 
 /**
+ * Normalize question data
+ * Rename 'answer' field to 'correctAnswer' for consistency with scoring logic
+ * 
+ * @param {Object} question - Question data
+ * @returns {Object} Question with normalized fields
+ */
+function normalizeQuestion(question) {
+  if (!question) return question;
+  
+  // If question has 'answer' but not 'correctAnswer', rename it
+  if (question.answer !== undefined && question.correctAnswer === undefined) {
+    const { answer, ...rest } = question;
+    return {
+      ...rest,
+      correctAnswer: answer
+    };
+  }
+  
+  return question;
+}
+
+/**
  * Process all questions in a test part
  * For cloze-test questions, parse and add blanks array
+ * Also normalize all questions to have 'correctAnswer' field
  * 
  * @param {Object} part - Test part with questions
  * @returns {Object} Part with processed questions
@@ -117,14 +146,16 @@ function processPartQuestions(part) {
   return {
     ...part,
     sections: part.sections.map(section => {
-      // Only process cloze-test questions
-      if (section.questionType !== 'cloze-test') {
-        return section;
-      }
-      
       return {
         ...section,
-        questions: section.questions.map(q => processClozeTestQuestion(q))
+        questions: section.questions.map(q => {
+          // For cloze-test, parse blanks first, then normalize
+          if (section.questionType === 'cloze-test') {
+            q = processClozeTestQuestion(q);
+          }
+          // Always normalize to have correctAnswer field
+          return normalizeQuestion(q);
+        })
       };
     })
   };
@@ -149,6 +180,7 @@ module.exports = {
   parseClozeTestBlanks,
   stripHtmlTags,
   processClozeTestQuestion,
+  normalizeQuestion,
   processPartQuestions,
   processTestParts
 };

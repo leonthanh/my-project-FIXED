@@ -85,6 +85,53 @@ const CambridgeResultPage = () => {
     };
   }, [submission]);
 
+  // Build mapping of answer keys to question numbers
+  const questionNumberMap = useMemo(() => {
+    const map = {};
+    let questionNum = 0;
+
+    if (!test?.parts) return map;
+
+    test.parts?.forEach((part, partIdx) => {
+      part.sections?.forEach((section, secIdx) => {
+        section.questions?.forEach((question, qIdx) => {
+          // Handle long-text-mc with nested questions
+          if (section.questionType === 'long-text-mc' && question.questions && Array.isArray(question.questions)) {
+            question.questions.forEach((nestedQ, nestedIdx) => {
+              const key = `${partIdx}-${secIdx}-${nestedIdx}`;
+              map[key] = questionNum + 1;
+              questionNum++;
+            });
+          }
+          // Handle cloze-mc with blanks
+          else if (section.questionType === 'cloze-mc' && question.blanks && Array.isArray(question.blanks)) {
+            question.blanks.forEach((blank, blankIdx) => {
+              const key = `${partIdx}-${secIdx}-${blankIdx}`;
+              map[key] = questionNum + 1;
+              questionNum++;
+            });
+          }
+          // Handle cloze-test with blanks
+          else if (section.questionType === 'cloze-test' && question.blanks && Array.isArray(question.blanks)) {
+            question.blanks.forEach((blank, blankIdx) => {
+              const key = `${partIdx}-${secIdx}-${blankIdx}`;
+              map[key] = questionNum + 1;
+              questionNum++;
+            });
+          }
+          // Regular question
+          else {
+            const key = `${partIdx}-${secIdx}-${qIdx}`;
+            map[key] = questionNum + 1;
+            questionNum++;
+          }
+        });
+      });
+    });
+
+    return map;
+  }, [test?.parts]);
+
   // Get grade based on percentage
   function getGrade(percentage) {
     if (percentage >= 90) return { label: 'Xuất sắc', color: '#22c55e', icon: '🏆' };
@@ -294,21 +341,7 @@ const CambridgeResultPage = () => {
               <h3 style={styles.summaryTitle}>Tóm tắt kết quả</h3>
               <div style={styles.questionGrid}>
                 {submission.detailedResults && Object.entries(submission.detailedResults).map(([key, result]) => {
-                  const [partIdx, secIdx, qIdx] = key.split('-').map(Number);
-                  let questionNum = 1;
-                  
-                  // Calculate question number
-                  if (test?.parts) {
-                    for (let p = 0; p < partIdx; p++) {
-                      test.parts[p]?.sections?.forEach(sec => {
-                        questionNum += sec.questions?.length || 0;
-                      });
-                    }
-                    for (let s = 0; s < secIdx; s++) {
-                      questionNum += test.parts[partIdx]?.sections?.[s]?.questions?.length || 0;
-                    }
-                    questionNum += qIdx;
-                  }
+                  const questionNum = questionNumberMap[key] || 0;
 
                   return (
                     <div
@@ -322,7 +355,7 @@ const CambridgeResultPage = () => {
                       }}
                       title={result.isCorrect ? 'Đúng' : 'Sai'}
                     >
-                      {questionNum + 1}
+                      {questionNum}
                     </div>
                   );
                 })}
@@ -358,103 +391,219 @@ const CambridgeResultPage = () => {
                         )}
                         
                         {section.questions?.map((question, qIdx) => {
-                          const key = `${partIdx}-${secIdx}-${qIdx}`;
-                          const result = submission.detailedResults?.[key] || {};
-                          const isCorrect = result.isCorrect;
-                          const userAnswer = result.userAnswer;
-                          const correctAnswer = result.correctAnswer || question.correctAnswer;
+                          // Handle long-text-mc with nested questions
+                          if (section.questionType === 'long-text-mc' && question.questions && Array.isArray(question.questions)) {
+                            return (
+                              <React.Fragment key={`section-${qIdx}`}>
+                                {question.questions.map((nestedQ, nestedIdx) => {
+                                  const key = `${partIdx}-${secIdx}-${nestedIdx}`;
+                                  const result = submission.detailedResults?.[key] || {};
+                                  const questionNum = questionNumberMap[key] || 0;
 
-                          // Calculate question number
-                          let questionNum = 1;
-                          for (let p = 0; p < partIdx; p++) {
-                            test.parts[p]?.sections?.forEach(sec => {
-                              questionNum += sec.questions?.length || 0;
-                            });
+                                  return (
+                                    <div 
+                                      key={`${qIdx}-${nestedIdx}`}
+                                      style={{
+                                        ...styles.questionReviewCard,
+                                        borderLeftColor: result.isCorrect ? '#22c55e' : '#ef4444'
+                                      }}
+                                    >
+                                      <div style={styles.questionReviewHeader}>
+                                        <span style={{
+                                          ...styles.questionNum,
+                                          backgroundColor: result.isCorrect ? '#22c55e' : '#ef4444'
+                                        }}>
+                                          {questionNum}
+                                        </span>
+                                        <span style={styles.questionStatus}>
+                                          {result.isCorrect ? '✓ Đúng' : '✕ Sai'}
+                                        </span>
+                                      </div>
+                                      
+                                      <div style={styles.questionText}>
+                                        {nestedQ.questionText || 'Question'}
+                                      </div>
+
+                                      <div style={styles.answersCompare}>
+                                        <div style={styles.answerRow}>
+                                          <span style={styles.answerLabel}>Câu trả lời của bạn:</span>
+                                          <span style={{
+                                            ...styles.answerValue,
+                                            color: result.isCorrect ? '#166534' : '#991b1b',
+                                            backgroundColor: result.isCorrect ? '#dcfce7' : '#fee2e2'
+                                          }}>
+                                            {result.userAnswer || '(Không trả lời)'}
+                                          </span>
+                                        </div>
+                                        {!result.isCorrect && (
+                                          <div style={styles.answerRow}>
+                                            <span style={styles.answerLabel}>Đáp án đúng:</span>
+                                            <span style={{
+                                              ...styles.answerValue,
+                                              color: '#166534',
+                                              backgroundColor: '#dcfce7'
+                                            }}>
+                                              {result.correctAnswer}
+                                            </span>
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </React.Fragment>
+                            );
                           }
-                          for (let s = 0; s < secIdx; s++) {
-                            questionNum += test.parts[partIdx]?.sections?.[s]?.questions?.length || 0;
+                          // Handle cloze-mc and cloze-test with blanks
+                          else if ((section.questionType === 'cloze-mc' || section.questionType === 'cloze-test') && 
+                                   question.blanks && Array.isArray(question.blanks)) {
+                            return (
+                              <React.Fragment key={`section-${qIdx}`}>
+                                {question.blanks.map((blank, blankIdx) => {
+                                  const key = `${partIdx}-${secIdx}-${blankIdx}`;
+                                  const result = submission.detailedResults?.[key] || {};
+                                  const questionNum = questionNumberMap[key] || 0;
+
+                                  return (
+                                    <div 
+                                      key={`${qIdx}-${blankIdx}`}
+                                      style={{
+                                        ...styles.questionReviewCard,
+                                        borderLeftColor: result.isCorrect ? '#22c55e' : '#ef4444'
+                                      }}
+                                    >
+                                      <div style={styles.questionReviewHeader}>
+                                        <span style={{
+                                          ...styles.questionNum,
+                                          backgroundColor: result.isCorrect ? '#22c55e' : '#ef4444'
+                                        }}>
+                                          {questionNum}
+                                        </span>
+                                        <span style={styles.questionStatus}>
+                                          {result.isCorrect ? '✓ Đúng' : '✕ Sai'}
+                                        </span>
+                                      </div>
+                                      
+                                      <div style={styles.questionText}>
+                                        {blank.questionText || 'Question'}
+                                      </div>
+
+                                      <div style={styles.answersCompare}>
+                                        <div style={styles.answerRow}>
+                                          <span style={styles.answerLabel}>Câu trả lời của bạn:</span>
+                                          <span style={{
+                                            ...styles.answerValue,
+                                            color: result.isCorrect ? '#166534' : '#991b1b',
+                                            backgroundColor: result.isCorrect ? '#dcfce7' : '#fee2e2'
+                                          }}>
+                                            {result.userAnswer || '(Không trả lời)'}
+                                          </span>
+                                        </div>
+                                        {!result.isCorrect && (
+                                          <div style={styles.answerRow}>
+                                            <span style={styles.answerLabel}>Đáp án đúng:</span>
+                                            <span style={{
+                                              ...styles.answerValue,
+                                              color: '#166534',
+                                              backgroundColor: '#dcfce7'
+                                            }}>
+                                              {result.correctAnswer}
+                                            </span>
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </React.Fragment>
+                            );
                           }
-                          questionNum += qIdx;
+                          // Regular questions
+                          else {
+                            const key = `${partIdx}-${secIdx}-${qIdx}`;
+                            const result = submission.detailedResults?.[key] || {};
+                            const questionNum = questionNumberMap[key] || 0;
 
-                          return (
-                            <div 
-                              key={qIdx} 
-                              style={{
-                                ...styles.questionReviewCard,
-                                borderLeftColor: isCorrect ? '#22c55e' : '#ef4444'
-                              }}
-                            >
-                              <div style={styles.questionReviewHeader}>
-                                <span style={{
-                                  ...styles.questionNum,
-                                  backgroundColor: isCorrect ? '#22c55e' : '#ef4444'
-                                }}>
-                                  {questionNum + 1}
-                                </span>
-                                <span style={styles.questionStatus}>
-                                  {isCorrect ? '✓ Đúng' : '✕ Sai'}
-                                </span>
-                              </div>
-                              
-                              <div style={styles.questionText}>
-                                {question.questionText || 'Question'}
-                              </div>
-
-                              <div style={styles.answersCompare}>
-                                <div style={styles.answerRow}>
-                                  <span style={styles.answerLabel}>Câu trả lời của bạn:</span>
+                            return (
+                              <div 
+                                key={qIdx} 
+                                style={{
+                                  ...styles.questionReviewCard,
+                                  borderLeftColor: result.isCorrect ? '#22c55e' : '#ef4444'
+                                }}
+                              >
+                                <div style={styles.questionReviewHeader}>
                                   <span style={{
-                                    ...styles.answerValue,
-                                    color: isCorrect ? '#166534' : '#991b1b',
-                                    backgroundColor: isCorrect ? '#dcfce7' : '#fee2e2'
+                                    ...styles.questionNum,
+                                    backgroundColor: result.isCorrect ? '#22c55e' : '#ef4444'
                                   }}>
-                                    {userAnswer || '(Không trả lời)'}
+                                    {questionNum}
+                                  </span>
+                                  <span style={styles.questionStatus}>
+                                    {result.isCorrect ? '✓ Đúng' : '✕ Sai'}
                                   </span>
                                 </div>
-                                {!isCorrect && (
+                                
+                                <div style={styles.questionText}>
+                                  {question.questionText || 'Question'}
+                                </div>
+
+                                <div style={styles.answersCompare}>
                                   <div style={styles.answerRow}>
-                                    <span style={styles.answerLabel}>Đáp án đúng:</span>
+                                    <span style={styles.answerLabel}>Câu trả lời của bạn:</span>
                                     <span style={{
                                       ...styles.answerValue,
-                                      color: '#166534',
-                                      backgroundColor: '#dcfce7'
+                                      color: result.isCorrect ? '#166534' : '#991b1b',
+                                      backgroundColor: result.isCorrect ? '#dcfce7' : '#fee2e2'
                                     }}>
-                                      {correctAnswer}
+                                      {result.userAnswer || '(Không trả lời)'}
                                     </span>
+                                  </div>
+                                  {!result.isCorrect && (
+                                    <div style={styles.answerRow}>
+                                      <span style={styles.answerLabel}>Đáp án đúng:</span>
+                                      <span style={{
+                                        ...styles.answerValue,
+                                        color: '#166534',
+                                        backgroundColor: '#dcfce7'
+                                      }}>
+                                        {result.correctAnswer}
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
+
+                                {/* Show options for multiple choice */}
+                                {(question.questionType === 'abc' || question.questionType === 'abcd') && question.options && (
+                                  <div style={styles.optionsList}>
+                                    {question.options.map((opt, optIdx) => {
+                                      const optLabel = String.fromCharCode(65 + optIdx);
+                                      const isSelected = result.userAnswer === optLabel;
+                                      const isCorrectOpt = result.correctAnswer === optLabel;
+                                      
+                                      return (
+                                        <div 
+                                          key={optIdx}
+                                          style={{
+                                            ...styles.optionItem,
+                                            backgroundColor: isCorrectOpt ? '#dcfce7' : 
+                                              (isSelected && !isCorrectOpt) ? '#fee2e2' : '#f8fafc',
+                                            borderColor: isCorrectOpt ? '#22c55e' : 
+                                              (isSelected && !isCorrectOpt) ? '#ef4444' : '#e5e7eb'
+                                          }}
+                                        >
+                                          <span style={styles.optionLabel}>{optLabel}.</span>
+                                          <span>{opt}</span>
+                                          {isCorrectOpt && <span style={styles.correctMark}>✓</span>}
+                                          {isSelected && !isCorrectOpt && <span style={styles.wrongMark}>✕</span>}
+                                        </div>
+                                      );
+                                    })}
                                   </div>
                                 )}
                               </div>
-
-                              {/* Show options for multiple choice */}
-                              {(question.questionType === 'abc' || question.questionType === 'abcd') && question.options && (
-                                <div style={styles.optionsList}>
-                                  {question.options.map((opt, optIdx) => {
-                                    const optLabel = String.fromCharCode(65 + optIdx);
-                                    const isSelected = userAnswer === optLabel;
-                                    const isCorrectOpt = correctAnswer === optLabel;
-                                    
-                                    return (
-                                      <div 
-                                        key={optIdx}
-                                        style={{
-                                          ...styles.optionItem,
-                                          backgroundColor: isCorrectOpt ? '#dcfce7' : 
-                                            (isSelected && !isCorrectOpt) ? '#fee2e2' : '#f8fafc',
-                                          borderColor: isCorrectOpt ? '#22c55e' : 
-                                            (isSelected && !isCorrectOpt) ? '#ef4444' : '#e5e7eb'
-                                        }}
-                                      >
-                                        <span style={styles.optionLabel}>{optLabel}.</span>
-                                        <span>{opt}</span>
-                                        {isCorrectOpt && <span style={styles.correctMark}>✓</span>}
-                                        {isSelected && !isCorrectOpt && <span style={styles.wrongMark}>✕</span>}
-                                      </div>
-                                    );
-                                  })}
-                                </div>
-                              )}
-                            </div>
-                          );
+                            );
+                          }
                         })}
                       </div>
                     ))}

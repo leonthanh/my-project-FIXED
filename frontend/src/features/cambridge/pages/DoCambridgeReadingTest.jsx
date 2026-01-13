@@ -5,6 +5,7 @@ import { TestHeader } from "../../../shared/components";
 import { TEST_CONFIGS } from "../../../shared/config/questionTypes";
 import QuestionDisplayFactory from "../../../shared/components/questions/displays/QuestionDisplayFactory";
 import ClozeMCDisplay from "../../../shared/components/questions/displays/ClozeMCDisplay";
+import CambridgeResultsModal from "../components/CambridgeResultsModal";
 import "./DoCambridgeReadingTest.css";
 
 /**
@@ -181,33 +182,14 @@ const DoCambridgeReadingTest = () => {
 
       if (!res.ok) throw new Error("Lỗi khi nộp bài");
 
-      const data = await res.json();
-      
       // Clear saved data from localStorage
       localStorage.removeItem(`test-time-${id}`);
       localStorage.removeItem(`test-answers-${id}`);
       
-      // Navigate to result page with calculated results
-      navigate(`/cambridge/result/${data.submissionId || id}`, {
-        state: {
-          submission: {
-            ...data,
-            testTitle: test?.title,
-            testType: testType,
-            timeSpent,
-            classCode: test?.classCode,
-            submittedAt: new Date().toISOString(),
-            score: localResults.score,
-            correct: localResults.correct,
-            incorrect: localResults.incorrect,
-            total: localResults.total,
-            percentage: localResults.percentage,
-            writingQuestions: localResults.writingQuestions,
-          },
-          test,
-          results: localResults,
-        }
-      });
+      // Show results modal instead of redirecting
+      setResults(localResults);
+      setSubmitted(true);
+      setShowConfirm(false);
     } catch (err) {
       console.error("Error submitting:", err);
       // Calculate locally and show results even if backend fails
@@ -226,6 +208,7 @@ const DoCambridgeReadingTest = () => {
     let correct = 0;
     let incorrect = 0;
     let writingQuestions = [];
+    let debugInfo = [];
 
     // Use allQuestions for accurate scoring
     allQuestions.forEach((q) => {
@@ -242,18 +225,39 @@ const DoCambridgeReadingTest = () => {
 
       const userAnswer = answers[q.key];
       const question = q.question;
+      const correctAnswer = question?.correctAnswer;
 
-      // Check if question has correctAnswer
-      if (question?.correctAnswer) {
-        if (typeof question.correctAnswer === 'string') {
-          if (userAnswer?.toLowerCase?.() === question.correctAnswer.toLowerCase()) {
-            correct++;
-          } else if (userAnswer) {
-            incorrect++;
-          }
-        } else if (userAnswer === question.correctAnswer) {
+      // Debug: Log questions without correctAnswer
+      if (!correctAnswer) {
+        debugInfo.push(`Q${q.questionNumber}: No correctAnswer field`);
+      }
+
+      // Check if question has correctAnswer and user answered
+      if (correctAnswer !== undefined && correctAnswer !== null && userAnswer) {
+        let isCorrect = false;
+
+        // Handle string answers (case-insensitive)
+        if (typeof correctAnswer === 'string') {
+          const userNorm = String(userAnswer).trim().toLowerCase();
+          const correctNorm = String(correctAnswer).trim().toLowerCase();
+          
+          // Support multiple correct answers separated by /
+          const acceptedAnswers = correctNorm.split('/').map(a => a.trim());
+          isCorrect = acceptedAnswers.includes(userNorm);
+        } 
+        // Handle non-string answers (exact match)
+        else {
+          isCorrect = userAnswer === correctAnswer;
+        }
+
+        if (isCorrect) {
           correct++;
-        } else if (userAnswer) {
+        } else {
+          incorrect++;
+        }
+      } else if (userAnswer) {
+        // User answered but no correctAnswer defined or no user answer
+        if (correctAnswer) {
           incorrect++;
         }
       }
@@ -261,6 +265,11 @@ const DoCambridgeReadingTest = () => {
 
     const scorableQuestions = 30; // Questions 1-30
     const score = correct;
+
+    // Log debug info if there are issues
+    if (debugInfo.length > 0) {
+      console.warn('⚠️ Scoring debug info:', debugInfo.slice(0, 5));
+    }
 
     return {
       score,
@@ -1503,6 +1512,20 @@ const DoCambridgeReadingTest = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Results Modal */}
+      {results && submitted && (
+        <CambridgeResultsModal
+          results={results}
+          testTitle={test?.title}
+          studentName={JSON.parse(localStorage.getItem("user") || "{}").name || JSON.parse(localStorage.getItem("user") || "{}").username}
+          onClose={() => {
+            setResults(null);
+            setSubmitted(false);
+            navigate(-1);
+          }}
+        />
       )}
     </div>
   );

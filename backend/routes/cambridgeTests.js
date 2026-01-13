@@ -371,8 +371,9 @@ router.delete("/reading-tests/:id", async (req, res) => {
 
 /**
  * Hàm chấm điểm Cambridge test
+ * Xử lý tất cả loại question: simple, long-text-mc (nested), cloze-mc (blanks), cloze-test (blanks)
  * @param {Object} test - Test data with parts
- * @param {Object} answers - Student answers { "partIdx-secIdx-qIdx": "answer" }
+ * @param {Object} answers - Student answers { "partIdx-secIdx-blankIdx": "answer" }
  * @returns {Object} { score, total, percentage, detailedResults }
  */
 const scoreTest = (test, answers) => {
@@ -385,52 +386,85 @@ const scoreTest = (test, answers) => {
   parts?.forEach((part, partIdx) => {
     part.sections?.forEach((section, secIdx) => {
       section.questions?.forEach((question, qIdx) => {
-        total++;
-        const key = `${partIdx}-${secIdx}-${qIdx}`;
-        const userAnswer = answers[key];
-        const correctAnswer = question.correctAnswer;
-
-        let isCorrect = false;
-
-        if (correctAnswer !== undefined && correctAnswer !== null) {
-          // Handle different question types
-          if (question.questionType === 'fill') {
-            // Fill-in-the-blank: case insensitive, trim whitespace
-            const userNorm = String(userAnswer || '').trim().toLowerCase();
+        
+        // Handle long-text-mc with nested questions
+        if (section.questionType === 'long-text-mc' && question.questions && Array.isArray(question.questions)) {
+          question.questions.forEach((nestedQ, nestedIdx) => {
+            total++;
+            const key = `${partIdx}-${secIdx}-${nestedIdx}`;
+            const userAnswer = answers[key];
+            const correctAnswer = nestedQ.correctAnswer;
             
-            // Support multiple correct answers separated by /
-            if (typeof correctAnswer === 'string') {
-              const acceptedAnswers = correctAnswer.split('/').map(a => a.trim().toLowerCase());
-              isCorrect = acceptedAnswers.includes(userNorm);
-            } else {
-              isCorrect = userNorm === String(correctAnswer).toLowerCase();
-            }
-          } else if (question.questionType === 'abc' || question.questionType === 'abcd') {
-            // Multiple choice: exact match (A, B, C, D)
-            isCorrect = userAnswer === correctAnswer;
-          } else if (question.questionType === 'matching') {
-            // Matching: exact match
-            isCorrect = userAnswer === correctAnswer;
-          } else if (question.questionType === 'cloze-test') {
-            // Cloze: case insensitive
-            const userNorm = String(userAnswer || '').trim().toLowerCase();
-            const correctNorm = String(correctAnswer).trim().toLowerCase();
-            isCorrect = userNorm === correctNorm;
-          } else {
-            // Default comparison
-            isCorrect = userAnswer === correctAnswer;
-          }
+            let isCorrect = scoreQuestion(userAnswer, correctAnswer, nestedQ.questionType);
+            if (isCorrect) score++;
+            
+            detailedResults[key] = {
+              isCorrect,
+              userAnswer: userAnswer || null,
+              correctAnswer,
+              questionType: nestedQ.questionType || 'abc',
+              questionText: nestedQ.questionText || ''
+            };
+          });
         }
-
-        if (isCorrect) score++;
-
-        detailedResults[key] = {
-          isCorrect,
-          userAnswer: userAnswer || null,
-          correctAnswer,
-          questionType: question.questionType || 'fill',
-          questionText: question.questionText || ''
-        };
+        // Handle cloze-mc with blanks
+        else if (section.questionType === 'cloze-mc' && question.blanks && Array.isArray(question.blanks)) {
+          question.blanks.forEach((blank, blankIdx) => {
+            total++;
+            const key = `${partIdx}-${secIdx}-${blankIdx}`;
+            const userAnswer = answers[key];
+            const correctAnswer = blank.correctAnswer || question.correctAnswer;
+            
+            let isCorrect = scoreQuestion(userAnswer, correctAnswer, 'abc');
+            if (isCorrect) score++;
+            
+            detailedResults[key] = {
+              isCorrect,
+              userAnswer: userAnswer || null,
+              correctAnswer,
+              questionType: 'abc',
+              questionText: blank.questionText || ''
+            };
+          });
+        }
+        // Handle cloze-test with blanks
+        else if (section.questionType === 'cloze-test' && question.blanks && Array.isArray(question.blanks)) {
+          question.blanks.forEach((blank, blankIdx) => {
+            total++;
+            const key = `${partIdx}-${secIdx}-${blankIdx}`;
+            const userAnswer = answers[key];
+            const correctAnswer = blank.correctAnswer || question.correctAnswer;
+            
+            let isCorrect = scoreQuestion(userAnswer, correctAnswer, 'fill');
+            if (isCorrect) score++;
+            
+            detailedResults[key] = {
+              isCorrect,
+              userAnswer: userAnswer || null,
+              correctAnswer,
+              questionType: 'fill',
+              questionText: blank.questionText || ''
+            };
+          });
+        }
+        // Regular question (not nested)
+        else {
+          total++;
+          const key = `${partIdx}-${secIdx}-${qIdx}`;
+          const userAnswer = answers[key];
+          const correctAnswer = question.correctAnswer;
+          
+          let isCorrect = scoreQuestion(userAnswer, correctAnswer, question.questionType);
+          if (isCorrect) score++;
+          
+          detailedResults[key] = {
+            isCorrect,
+            userAnswer: userAnswer || null,
+            correctAnswer,
+            questionType: question.questionType || 'fill',
+            questionText: question.questionText || ''
+          };
+        }
       });
     });
   });
@@ -441,6 +475,47 @@ const scoreTest = (test, answers) => {
     percentage: total > 0 ? Math.round((score / total) * 100) : 0,
     detailedResults
   };
+};
+
+/**
+ * Helper function to score a single question
+ * @param {*} userAnswer - User's answer
+ * @param {*} correctAnswer - Correct answer
+ * @param {string} questionType - Type of question (fill, abc, abcd, matching, etc.)
+ * @returns {boolean} Whether the answer is correct
+ */
+const scoreQuestion = (userAnswer, correctAnswer, questionType) => {
+  if (correctAnswer === undefined || correctAnswer === null) {
+    return false;
+  }
+
+  if (!userAnswer) {
+    return false;
+  }
+
+  // Fill-in-the-blank: case insensitive
+  if (questionType === 'fill' || questionType === 'cloze-test') {
+    const userNorm = String(userAnswer).trim().toLowerCase();
+    const correctNorm = String(correctAnswer).trim().toLowerCase();
+    
+    // Support multiple correct answers separated by /
+    if (typeof correctAnswer === 'string' && correctAnswer.includes('/')) {
+      const acceptedAnswers = correctNorm.split('/').map(a => a.trim());
+      return acceptedAnswers.includes(userNorm);
+    }
+    
+    return userNorm === correctNorm;
+  }
+  // Multiple choice: exact match (A, B, C, D)
+  else if (questionType === 'abc' || questionType === 'abcd' || questionType === 'matching') {
+    return userAnswer === correctAnswer;
+  }
+  // Default: case-insensitive string comparison
+  else {
+    const userNorm = String(userAnswer).trim().toLowerCase();
+    const correctNorm = String(correctAnswer).trim().toLowerCase();
+    return userNorm === correctNorm;
+  }
 };
 
 // POST submit listening test
