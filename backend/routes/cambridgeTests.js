@@ -4,6 +4,42 @@ const { CambridgeListening, CambridgeReading, CambridgeSubmission } = require(".
 const { logError } = require("../logger");
 const { processTestParts } = require("../utils/clozParser");
 
+// Compute total questions from parts so frontend displays stay in sync with teacher view
+const countTotalQuestions = (rawParts = []) => {
+  const parts = typeof rawParts === "string" ? (() => {
+    try {
+      return JSON.parse(rawParts);
+    } catch (e) {
+      return [];
+    }
+  })() : rawParts || [];
+
+  let total = 0;
+
+  parts.forEach(part => {
+    part.sections?.forEach(section => {
+      const questions = section.questions || [];
+
+      questions.forEach(question => {
+        if (section.questionType === "long-text-mc" && Array.isArray(question.questions)) {
+          total += question.questions.length;
+          return;
+        }
+
+        if (["cloze-mc", "cloze-test"].includes(section.questionType) && Array.isArray(question.blanks)) {
+          total += question.blanks.length > 0 ? question.blanks.length : 1;
+          return;
+        }
+
+        // Fallback for single question items
+        total += 1;
+      });
+    });
+  });
+
+  return total;
+};
+
 /**
  * Cambridge Tests Routes
  * Routes cho việc quản lý các đề thi Cambridge (KET, PET, etc.)
@@ -223,19 +259,19 @@ router.get("/reading-tests", async (req, res) => {
     const tests = await CambridgeReading.findAll({
       where,
       order: [["createdAt", "DESC"]],
-      attributes: [
-        "id",
-        "title",
-        "classCode",
-        "teacherName",
-        "testType",
-        "totalQuestions",
-        "status",
-        "createdAt",
-      ],
     });
 
-    res.json(tests);
+    const normalized = tests.map(test => {
+      const json = test.toJSON();
+      const computedTotal = countTotalQuestions(json.parts);
+      delete json.parts; // keep list response light
+      return {
+        ...json,
+        totalQuestions: Math.max(computedTotal || 0, json.totalQuestions || 0),
+      };
+    });
+
+    res.json(normalized);
   } catch (err) {
     console.error("❌ Lỗi khi lấy danh sách Cambridge Reading:", err);
     logError("Lỗi khi lấy danh sách Cambridge Reading", err);
@@ -252,7 +288,21 @@ router.get("/reading-tests/:id", async (req, res) => {
       return res.status(404).json({ message: "Không tìm thấy đề thi." });
     }
 
-    res.json(test);
+    const json = test.toJSON();
+    const computedTotal = countTotalQuestions(json.parts);
+    const parsedParts = typeof json.parts === "string" ? (() => {
+      try {
+        return JSON.parse(json.parts);
+      } catch (e) {
+        return [];
+      }
+    })() : json.parts;
+
+    res.json({
+      ...json,
+      parts: parsedParts,
+      totalQuestions: Math.max(computedTotal || 0, json.totalQuestions || 0),
+    });
   } catch (err) {
     console.error("❌ Lỗi khi lấy chi tiết Cambridge Reading:", err);
     logError("Lỗi khi lấy chi tiết Cambridge Reading", err);
