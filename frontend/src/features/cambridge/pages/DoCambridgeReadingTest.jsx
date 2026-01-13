@@ -24,7 +24,7 @@ const DoCambridgeReadingTest = () => {
   const [showConfirm, setShowConfirm] = useState(false);
   const [results, setResults] = useState(null);
   const [currentPartIndex, setCurrentPartIndex] = useState(0);
-  const [timeRemaining, setTimeRemaining] = useState(60 * 60);
+  const [timeRemaining, setTimeRemaining] = useState(null); // Will be set from localStorage or config
   const [activeQuestion, setActiveQuestion] = useState(null);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0); // Current question number
   const [flaggedQuestions, setFlaggedQuestions] = useState(new Set()); // Flagged questions
@@ -70,7 +70,26 @@ const DoCambridgeReadingTest = () => {
         };
 
         setTest(parsedData);
-        setTimeRemaining((testConfig.duration || 60) * 60);
+        
+        // Check if there's saved data for this test
+        const savedTime = localStorage.getItem(`test-time-${id}`);
+        const savedAnswers = localStorage.getItem(`test-answers-${id}`);
+        
+        if (savedTime && savedAnswers) {
+          // Restore existing progress
+          setTimeRemaining(parseInt(savedTime));
+          try {
+            setAnswers(JSON.parse(savedAnswers));
+          } catch (e) {
+            console.error("Error parsing saved answers:", e);
+          }
+        } else {
+          // New test - clean up any old saved data and start fresh
+          localStorage.removeItem(`test-time-${id}`);
+          localStorage.removeItem(`test-answers-${id}`);
+          setTimeRemaining((testConfig.duration || 60) * 60);
+          setAnswers({});
+        }
       } catch (err) {
         console.error("Error fetching test:", err);
         setError(err.message);
@@ -83,7 +102,7 @@ const DoCambridgeReadingTest = () => {
 
   // Timer countdown
   useEffect(() => {
-    if (submitted || !test) return;
+    if (submitted || !test || timeRemaining === null) return;
 
     const timer = setInterval(() => {
       setTimeRemaining((prev) => {
@@ -92,13 +111,15 @@ const DoCambridgeReadingTest = () => {
           confirmSubmit();
           return 0;
         }
+        // Save to localStorage every second
+        localStorage.setItem(`test-time-${id}`, prev - 1);
         return prev - 1;
       });
     }, 1000);
 
     return () => clearInterval(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [test, submitted]);
+  }, [test, submitted, timeRemaining]);
 
   // Format time display
   const formatTime = (seconds) => {
@@ -111,12 +132,17 @@ const DoCambridgeReadingTest = () => {
   const handleAnswerChange = useCallback(
     (questionKey, value) => {
       if (submitted) return;
-      setAnswers((prev) => ({
-        ...prev,
-        [questionKey]: value,
-      }));
+      setAnswers((prev) => {
+        const newAnswers = {
+          ...prev,
+          [questionKey]: value,
+        };
+        // Save to localStorage
+        localStorage.setItem(`test-answers-${id}`, JSON.stringify(newAnswers));
+        return newAnswers;
+      });
     },
-    [submitted]
+    [submitted, id]
   );
 
   // Handle submit
@@ -149,6 +175,10 @@ const DoCambridgeReadingTest = () => {
 
       const data = await res.json();
       
+      // Clear saved data from localStorage
+      localStorage.removeItem(`test-time-${id}`);
+      localStorage.removeItem(`test-answers-${id}`);
+      
       // Navigate to result page with submission data
       navigate(`/cambridge/result/${data.submissionId}`, {
         state: {
@@ -170,6 +200,9 @@ const DoCambridgeReadingTest = () => {
       setResults(localResults);
       setSubmitted(true);
       setShowConfirm(false);
+      // Clear saved data on error too
+      localStorage.removeItem(`test-time-${id}`);
+      localStorage.removeItem(`test-answers-${id}`);
     }
   };
 
@@ -493,7 +526,7 @@ const DoCambridgeReadingTest = () => {
         teacherName={test?.teacherName}
         timeRemaining={timeRemaining}
         answeredCount={Object.keys(answers).length}
-        totalQuestions={test?.totalQuestions || allQuestions.length}
+        totalQuestions={allQuestions.length}
         onSubmit={handleSubmit}
         submitted={submitted}
         examType={testConfig.name?.split(' ')[0]}

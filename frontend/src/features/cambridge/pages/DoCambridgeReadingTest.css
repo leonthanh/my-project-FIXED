@@ -308,13 +308,13 @@
   border-top: none;
   padding: 1px 20px;
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   box-shadow: none;
   z-index: 100;
   gap: 16px;
   position: relative;
-  min-height: 15%
+  min-height: 10%
 }
 
 /* Navigation Arrows in Footer - Top Right */
@@ -362,10 +362,10 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  gap: 4px;
+  gap: 10px;
   overflow-x: auto;
   padding: 0 20px;
-  scrollbar-width: thin;
+  /* scrollbar-width: thin; */
 }
 
 .cambridge-parts-container::-webkit-scrollbar {
@@ -380,7 +380,7 @@
 .cambridge-part-wrapper {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 10px;
 }
 
 .cambridge-part-tab {
@@ -405,9 +405,10 @@
 }
 
 .cambridge-part-tab.active {
-  background: #0052cc;
-  border-color: #0052cc;
-  font-weight: 600;
+ background: teal;
+    border-color: #3b82f6;
+    color: white;
+    font-weight: 600;
 }
 
 .cambridge-part-label {
@@ -429,7 +430,7 @@
 /* Question Numbers - Always Visible for Active Part */
 .cambridge-questions-inline {
   display: flex;
-  gap: 4px;
+  gap: 10px;
   align-items: center;
 }
 
@@ -459,10 +460,11 @@
 }
 
 .cambridge-question-num-btn.active {
-  background: #0052cc;
-  border-color: #0052cc;
-  box-shadow: 0 0 0 2px rgba(0, 82, 204, 0.4);
-  transform: scale(1.1);
+ background: teal;
+    border-color: teal;
+    box-shadow: 0 0 0 2px rgba(0, 82, 204, 0.4);
+    transform: scale(1.1);
+    color: white;
 }
 
 .cambridge-question-num-btn.flagged::after {
