@@ -26,26 +26,8 @@ const ShortMessageEditor = ({
 }) => {
   const situation = question.situation || '';
   const recipient = question.recipient || '';
-  const messageType = question.messageType || 'email';
-  const bulletPoints = question.bulletPoints || ['', '', ''];
   const wordLimit = question.wordLimit || { min: 25, max: 35 };
   const sampleAnswer = question.sampleAnswer || '';
-
-  const handleBulletChange = (index, value) => {
-    const newBullets = [...bulletPoints];
-    newBullets[index] = value;
-    onChange('bulletPoints', newBullets);
-  };
-
-  const addBulletPoint = () => {
-    onChange('bulletPoints', [...bulletPoints, '']);
-  };
-
-  const removeBulletPoint = (index) => {
-    if (bulletPoints.length <= 2) return; // Min 2 bullet points
-    const newBullets = bulletPoints.filter((_, i) => i !== index);
-    onChange('bulletPoints', newBullets);
-  };
 
   // Quill modules configuration
   const modules = {
@@ -101,38 +83,6 @@ const ShortMessageEditor = ({
           }}>
             Question {startingNumber}
           </span>
-        </div>
-      </div>
-
-      {/* Message Type */}
-      <div style={{ marginBottom: "16px" }}>
-        <label style={styles.label}>Loại tin nhắn</label>
-        <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-          {[
-            { value: 'email', label: '📧 Email', color: '#3b82f6' },
-            { value: 'note', label: '📝 Note', color: '#10b981' },
-            { value: 'postcard', label: '🏝️ Postcard', color: '#f59e0b' },
-            { value: 'message', label: '💬 Message', color: '#8b5cf6' },
-          ].map(type => (
-            <button
-              key={type.value}
-              type="button"
-              onClick={() => onChange('messageType', type.value)}
-              style={{
-                padding: "8px 16px",
-                borderRadius: "20px",
-                border: messageType === type.value ? "none" : "1px solid #d1d5db",
-                backgroundColor: messageType === type.value ? type.color : "white",
-                color: messageType === type.value ? "white" : "#374151",
-                cursor: "pointer",
-                fontSize: "13px",
-                fontWeight: messageType === type.value ? 600 : 400,
-                transition: "all 0.2s",
-              }}
-            >
-              {type.label}
-            </button>
-          ))}
         </div>
       </div>
 
@@ -199,76 +149,6 @@ const ShortMessageEditor = ({
         </p>
       </div>
 
-      {/* Bullet Points */}
-      <div style={{ marginBottom: "16px" }}>
-        <label style={styles.label}>
-          Yêu cầu (Bullet Points) *
-        </label>
-        <p style={{ fontSize: "12px", color: "#6b7280", marginBottom: "8px" }}>
-          Những điều học sinh cần đề cập trong bài viết
-        </p>
-        
-        {bulletPoints.map((bullet, index) => (
-          <div key={index} style={{ display: "flex", gap: "8px", marginBottom: "8px" }}>
-            <span style={{
-              minWidth: "24px",
-              height: "24px",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              backgroundColor: "#f3f4f6",
-              borderRadius: "50%",
-              fontSize: "12px",
-              fontWeight: 600,
-              color: "#6b7280",
-            }}>
-              •
-            </span>
-            <input
-              type="text"
-              value={bullet}
-              onChange={(e) => handleBulletChange(index, e.target.value)}
-              placeholder={`VD: ${index === 0 ? 'say which film you want to see' : index === 1 ? 'suggest a day' : 'ask Sam to buy the tickets'}`}
-              style={{ ...styles.input, flex: 1, marginBottom: 0 }}
-            />
-            {bulletPoints.length > 2 && (
-              <button
-                type="button"
-                onClick={() => removeBulletPoint(index)}
-                style={{
-                  padding: "4px 8px",
-                  backgroundColor: "#fee2e2",
-                  color: "#dc2626",
-                  border: "none",
-                  borderRadius: "4px",
-                  cursor: "pointer",
-                  fontSize: "14px",
-                }}
-              >
-                ✕
-              </button>
-            )}
-          </div>
-        ))}
-        
-        <button
-          type="button"
-          onClick={addBulletPoint}
-          style={{
-            padding: "6px 12px",
-            backgroundColor: "#f0fdf4",
-            color: "#16a34a",
-            border: "1px dashed #86efac",
-            borderRadius: "6px",
-            cursor: "pointer",
-            fontSize: "12px",
-            marginTop: "4px",
-          }}
-        >
-          + Thêm bullet point
-        </button>
-      </div>
-
       {/* Sample Answer (for teacher reference) */}
       <div style={{ marginBottom: "16px" }}>
         <label style={styles.label}>
@@ -297,7 +177,7 @@ const ShortMessageEditor = ({
       </div>
 
       {/* Preview */}
-      {(situation || bulletPoints.some(b => b)) && (
+      {situation && (
         <div style={{
           backgroundColor: "#f0f9ff",
           padding: "16px",
@@ -336,23 +216,8 @@ const ShortMessageEditor = ({
 
             {/* Write instruction */}
             <p style={{ margin: "0 0 12px 0", fontSize: "14px", color: "#1e293b" }}>
-              Write {messageType === 'email' ? 'an email' : `a ${messageType}`} to {recipient || '...'}.
-              In your {messageType}:
+              Write a message to {recipient || '...'}:
             </p>
-
-            {/* Bullet points */}
-            <ul style={{ 
-              margin: "0 0 16px 0", 
-              paddingLeft: "20px",
-              color: "#1e293b",
-              fontSize: "14px",
-            }}>
-              {bulletPoints.filter(b => b).map((bullet, i) => (
-                <li key={i} style={{ marginBottom: "4px" }}>
-                  {bullet}
-                </li>
-              ))}
-            </ul>
 
             {/* Word limit instruction */}
             <p style={{

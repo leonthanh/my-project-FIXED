@@ -958,7 +958,6 @@ const DoCambridgeReadingTest = () => {
                   {(() => {
                     const q = currentQuestion.question || {};
                     const situation = q.situation || '';
-                    const bulletPoints = q.bulletPoints || [];
                     
                     return (
                       <>
@@ -980,34 +979,8 @@ const DoCambridgeReadingTest = () => {
                                 color: '#374151'
                               }}
                               dangerouslySetInnerHTML={{ __html: situation }}
+                              className="situation-content"
                             />
-                          </div>
-                        )}
-
-                        {/* Requirements */}
-                        {bulletPoints && bulletPoints.length > 0 && (
-                          <div style={{ marginBottom: '24px' }}>
-                            <h4 style={{ 
-                              margin: '0 0 12px', 
-                              fontSize: '16px', 
-                              fontWeight: 700, 
-                              color: '#1f2937' 
-                            }}>
-                              In your email:
-                            </h4>
-                            <ul style={{ 
-                              margin: 0, 
-                              paddingLeft: '20px',
-                              fontSize: '14px',
-                              lineHeight: '1.8',
-                              color: '#374151'
-                            }}>
-                              {bulletPoints.map((point, idx) => (
-                                <li key={idx} style={{ marginBottom: '8px' }}>
-                                  {point || '(empty)'}
-                                </li>
-                              ))}
-                            </ul>
                           </div>
                         )}
                       </>

@@ -566,3 +566,12 @@
 .cambridge-sign-text .ql-align-justify {
   text-align: justify;
 }
+
+/* Part 7 Situation - Full width images */
+.situation-content img {
+  width: 100%;
+  height: auto;
+  display: block;
+  margin: 12px 0;
+  border-radius: 6px;
+}
