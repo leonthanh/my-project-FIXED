@@ -300,18 +300,52 @@ const DoCambridgeReadingTest = () => {
   // Navigate to question
   const goToQuestion = (index) => {
     if (index >= 0 && index < allQuestions.length) {
-      setCurrentQuestionIndex(index);
       const q = allQuestions[index];
+      
+      setCurrentQuestionIndex(index);
       setCurrentPartIndex(q.partIndex);
       setActiveQuestion(q.key);
       
-      // Scroll to question element
+      // Scroll to question element and open dropdown
       setTimeout(() => {
         const questionElement = document.getElementById(`question-${q.questionNumber}`);
+        console.log(`Looking for question-${q.questionNumber}`, questionElement); // Debug
+        
         if (questionElement) {
-          questionElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          questionElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          
+          // If it's a select element (cloze-mc), focus and trigger open
+          if (questionElement.tagName === 'SELECT') {
+            questionElement.focus();
+            
+            // Try modern API first (Chrome 99+, Firefox 97+, Safari 16+)
+            if (questionElement.showPicker && typeof questionElement.showPicker === 'function') {
+              try {
+                questionElement.showPicker();
+                console.log('showPicker() called successfully for question-' + q.questionNumber);
+              } catch (e) {
+                console.warn('showPicker() failed:', e);
+              }
+            } else {
+              // Fallback: try keyboard event
+              const keyEvent = new KeyboardEvent('keydown', {
+                key: 'ArrowDown',
+                code: 'ArrowDown',
+                keyCode: 40,
+                altKey: true,
+                bubbles: true,
+                cancelable: true
+              });
+              questionElement.dispatchEvent(keyEvent);
+              console.log('KeyboardEvent dispatched for question-' + q.questionNumber);
+            }
+          }
+        } else {
+          console.warn(`Element not found: question-${q.questionNumber}`);
         }
-      }, 100);
+      }, 200);
+    } else {
+      console.warn(`Invalid index: ${index}, total: ${allQuestions.length}`);
     }
   };
 
@@ -545,7 +579,9 @@ const DoCambridgeReadingTest = () => {
                   
                   while ((match = regex.exec(passage)) !== null) {
                     const questionNumber = parseInt(match[1]);
-                    const blankIndex = questionNumber - currentQuestion.questionNumber;
+                    // Get the first question number in this part to calculate correct blank index
+                    const firstQuestionNum = currentQuestion.questionNumber - (allQuestions[currentQuestionIndex].blankIndex || 0);
+                    const blankIndex = questionNumber - firstQuestionNum;
                     
                     // Only process if this blank exists in our data
                     if (blankIndex >= 0 && blankIndex < blanks.length) {
@@ -561,7 +597,7 @@ const DoCambridgeReadingTest = () => {
                       
                       // Add dropdown
                       const blank = blanks[blankIndex];
-                      const questionKey = `${currentQuestion.part.partIndex}-${currentQuestion.section.sectionIndex}-${blankIndex}`;
+                      const questionKey = `${currentQuestion.partIndex}-${currentQuestion.sectionIndex}-${blankIndex}`;
                       const userAnswer = answers[questionKey];
                       
                       elements.push(
