@@ -156,6 +156,10 @@ const DoCambridgeReadingTest = () => {
       const initialTime = (testConfig.duration || 60) * 60;
       const timeSpent = initialTime - timeRemaining;
 
+      // Calculate results locally
+      const localResults = calculateLocalResults();
+
+      // Submit to backend
       const res = await fetch(apiPath(`cambridge/reading-tests/${id}/submit`), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -167,7 +171,11 @@ const DoCambridgeReadingTest = () => {
           classCode: test?.classCode || null,
           userId: user.id || null,
           timeRemaining,
-          timeSpent
+          timeSpent,
+          score: localResults.score,
+          correct: localResults.correct,
+          incorrect: localResults.incorrect,
+          total: localResults.total,
         }),
       });
 
@@ -179,8 +187,8 @@ const DoCambridgeReadingTest = () => {
       localStorage.removeItem(`test-time-${id}`);
       localStorage.removeItem(`test-answers-${id}`);
       
-      // Navigate to result page with submission data
-      navigate(`/cambridge/result/${data.submissionId}`, {
+      // Navigate to result page with calculated results
+      navigate(`/cambridge/result/${data.submissionId || id}`, {
         state: {
           submission: {
             ...data,
@@ -188,14 +196,21 @@ const DoCambridgeReadingTest = () => {
             testType: testType,
             timeSpent,
             classCode: test?.classCode,
-            submittedAt: new Date().toISOString()
+            submittedAt: new Date().toISOString(),
+            score: localResults.score,
+            correct: localResults.correct,
+            incorrect: localResults.incorrect,
+            total: localResults.total,
+            percentage: localResults.percentage,
+            writingQuestions: localResults.writingQuestions,
           },
-          test
+          test,
+          results: localResults,
         }
       });
     } catch (err) {
       console.error("Error submitting:", err);
-      // Calculate locally if backend not ready
+      // Calculate locally and show results even if backend fails
       const localResults = calculateLocalResults();
       setResults(localResults);
       setSubmitted(true);
@@ -209,32 +224,52 @@ const DoCambridgeReadingTest = () => {
   // Calculate results locally (fallback)
   const calculateLocalResults = () => {
     let correct = 0;
-    let total = 0;
+    let incorrect = 0;
+    let writingQuestions = [];
 
-    test?.parts?.forEach((part, partIdx) => {
-      part.sections?.forEach((section, secIdx) => {
-        section.questions?.forEach((q, qIdx) => {
-          total++;
-          const key = `${partIdx}-${secIdx}-${qIdx}`;
-          const userAnswer = answers[key];
-          
-          if (q.correctAnswer) {
-            if (typeof q.correctAnswer === 'string') {
-              if (userAnswer?.toLowerCase?.() === q.correctAnswer.toLowerCase()) {
-                correct++;
-              }
-            } else if (userAnswer === q.correctAnswer) {
-              correct++;
-            }
-          }
+    // Use allQuestions for accurate scoring
+    allQuestions.forEach((q) => {
+      // Skip writing questions (31-32)
+      if (q.questionNumber >= 31) {
+        writingQuestions.push({
+          questionNumber: q.questionNumber,
+          sectionType: q.section.questionType,
+          answered: answers[q.key] ? true : false,
+          answer: answers[q.key] || null,
         });
-      });
+        return;
+      }
+
+      const userAnswer = answers[q.key];
+      const question = q.question;
+
+      // Check if question has correctAnswer
+      if (question?.correctAnswer) {
+        if (typeof question.correctAnswer === 'string') {
+          if (userAnswer?.toLowerCase?.() === question.correctAnswer.toLowerCase()) {
+            correct++;
+          } else if (userAnswer) {
+            incorrect++;
+          }
+        } else if (userAnswer === question.correctAnswer) {
+          correct++;
+        } else if (userAnswer) {
+          incorrect++;
+        }
+      }
     });
 
+    const scorableQuestions = 30; // Questions 1-30
+    const score = correct;
+
     return {
-      score: correct,
-      total,
-      percentage: total > 0 ? Math.round((correct / total) * 100) : 0,
+      score,
+      correct,
+      incorrect,
+      total: scorableQuestions,
+      percentage: scorableQuestions > 0 ? Math.round((correct / scorableQuestions) * 100) : 0,
+      writingQuestions,
+      writingCount: writingQuestions.length,
     };
   };
 
