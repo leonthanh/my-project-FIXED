@@ -89,8 +89,8 @@ function stripHtmlTags(html) {
 function processClozeTestQuestion(question) {
   if (!question) return question;
   
-  // Already has blanks, return as-is
-  if (question.blanks && Array.isArray(question.blanks)) {
+  // Already has blanks (non-empty), return as-is
+  if (Array.isArray(question.blanks) && question.blanks.length > 0) {
     return question;
   }
   

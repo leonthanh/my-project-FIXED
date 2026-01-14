@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { StudentNavbar, AdminNavbar } from "../../../shared/components";
 import { apiPath, hostPath } from "../../../shared/utils/api";
 import { TEST_CONFIGS } from "../../../shared/config/questionTypes";
+import "./SelectCambridgeTest.css";
 
 /**
  * SelectCambridgeTest - Trang chọn đề Cambridge cho học sinh
@@ -89,8 +90,8 @@ const SelectCambridgeTest = () => {
   const renderTestList = (testList, testType) => {
     if (loading) {
       return (
-        <div style={{ textAlign: "center", padding: "40px", color: "#666" }}>
-          <div style={{ fontSize: "32px", marginBottom: "12px" }}>⏳</div>
+        <div className="cambridge-state cambridge-loading">
+          <div className="cambridge-state__icon">⏳</div>
           Đang tải danh sách đề...
         </div>
       );
@@ -98,8 +99,8 @@ const SelectCambridgeTest = () => {
 
     if (error) {
       return (
-        <div style={{ textAlign: "center", padding: "40px", color: "#dc2626" }}>
-          <div style={{ fontSize: "32px", marginBottom: "12px" }}>❌</div>
+        <div className="cambridge-state cambridge-error">
+          <div className="cambridge-state__icon">❌</div>
           {error}
         </div>
       );
@@ -107,22 +108,13 @@ const SelectCambridgeTest = () => {
 
     if (testList.length === 0) {
       return (
-        <div style={{ textAlign: "center", padding: "40px", color: "#999" }}>
-          <div style={{ fontSize: "48px", marginBottom: "12px" }}>📭</div>
+        <div className="cambridge-state cambridge-empty">
+          <div className="cambridge-state__icon cambridge-state__icon--large">📭</div>
           <p>Chưa có đề {testType === "listening" ? "Listening" : "Reading"} cho {activeTestType.toUpperCase()}</p>
           {isTeacher && (
             <button
               onClick={() => navigate(`/admin/create-${activeTestType}-${testType}`)}
-              style={{
-                marginTop: "16px",
-                padding: "12px 24px",
-                backgroundColor: "#22c55e",
-                color: "white",
-                border: "none",
-                borderRadius: "8px",
-                cursor: "pointer",
-                fontWeight: 600,
-              }}
+              className="cambridge-btn cambridge-btn--success"
             >
               ➕ Tạo đề mới
             </button>
@@ -134,49 +126,29 @@ const SelectCambridgeTest = () => {
     const config = getTestConfig(testType);
 
     return (
-      <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+      <div className="cambridge-test-list">
         {testList.map((test, index) => (
           <div
             key={test.id}
-            style={{
-              border: "1px solid #e5e7eb",
-              padding: "16px 20px",
-              borderRadius: "12px",
-              backgroundColor: "#fff",
-              boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
-              transition: "all 0.2s",
-            }}
+            className="cambridge-test-item"
           >
-            <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
+            <div className="cambridge-test-row">
               <button
                 onClick={() => {
                   if (testType === "listening") handleSelectListening(test.id);
                   else handleSelectReading(test.id);
                 }}
-                style={{
-                  backgroundColor: "#0e276f",
-                  color: "white",
-                  border: "none",
-                  padding: "14px 20px",
-                  borderRadius: "8px",
-                  cursor: "pointer",
-                  fontSize: "15px",
-                  flex: 1,
-                  textAlign: "left",
-                  transition: "background 0.2s",
-                }}
-                onMouseOver={(e) => (e.currentTarget.style.backgroundColor = "#1a3a8f")}
-                onMouseOut={(e) => (e.currentTarget.style.backgroundColor = "#0e276f")}
+                className="cambridge-test-main"
               >
-                <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                  <span style={{ fontSize: "24px" }}>
+                <div className="cambridge-test-main__content">
+                  <span className="cambridge-test-main__icon">
                     {testType === "listening" ? "🎧" : "📖"}
                   </span>
                   <div>
-                    <h3 style={{ margin: "0 0 4px", fontSize: "16px" }}>
+                    <h3 className="cambridge-test-main__title">
                       {test.title || `${activeTestType.toUpperCase()} ${testType.charAt(0).toUpperCase() + testType.slice(1)} ${index + 1}`}
                     </h3>
-                    <div style={{ fontSize: "13px", opacity: 0.85 }}>
+                    <div className="cambridge-test-main__meta">
                       📚 {test.classCode || "N/A"} • 👨‍🏫 {test.teacherName || "N/A"} • 📊 {test.totalQuestions || config.totalQuestions || "?"} câu • ⏱️ {config.duration || 30} phút
                     </div>
                   </div>
@@ -185,17 +157,7 @@ const SelectCambridgeTest = () => {
               {isTeacher && (
                 <button
                   onClick={() => handleEdit(test.id, testType)}
-                  style={{
-                    backgroundColor: "#f59e0b",
-                    color: "white",
-                    border: "none",
-                    padding: "12px 16px",
-                    borderRadius: "8px",
-                    cursor: "pointer",
-                    fontSize: "14px",
-                    fontWeight: 600,
-                    minWidth: "90px",
-                  }}
+                  className="cambridge-btn cambridge-btn--warning"
                 >
                   ✏️ Sửa
                 </button>
@@ -210,159 +172,64 @@ const SelectCambridgeTest = () => {
   return (
     <>
       {isTeacher ? <AdminNavbar /> : <StudentNavbar />}
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          padding: "40px 20px",
-          fontFamily: "sans-serif",
-          backgroundColor: "#f4f8ff",
-          minHeight: "100vh",
-        }}
-      >
-        <div
-          style={{
-            maxWidth: "900px",
-            width: "100%",
-            backgroundColor: "white",
-            borderRadius: "16px",
-            boxShadow: "0 4px 20px rgba(0, 0, 0, 0.08)",
-            padding: "30px",
-          }}
-        >
-          {/* Header */}
-          <div style={{ textAlign: "center", marginBottom: "24px" }}>
+      <div className="cambridge-page">
+        <div className="cambridge-card">
+          <div className="cambridge-header">
             <img
               src={hostPath("uploads/staredu.jpg")}
               alt="StarEdu"
-              style={{ height: 60, marginBottom: 12 }}
+              className="cambridge-header__logo"
             />
-            <h1 style={{ margin: "0", fontSize: "24px", color: "#0e276f" }}>
-              🎓 Bài Thi Cambridge English
-            </h1>
-            <p style={{ margin: "8px 0 0", color: "#666" }}>
-              Chọn loại bài thi và đề bạn muốn làm
-            </p>
+            <h1 className="cambridge-header__title">🎓 Bài Thi Cambridge English</h1>
+            <p className="cambridge-header__subtitle">Chọn loại bài thi và đề bạn muốn làm</p>
           </div>
 
-          {/* Test Type Selector */}
-          <div
-            style={{
-              display: "flex",
-              gap: "8px",
-              marginBottom: "20px",
-              flexWrap: "wrap",
-              justifyContent: "center",
-            }}
-          >
+          <div className="cambridge-type-list">
             {testTypes.map((type) => (
               <button
                 key={type.id}
                 onClick={() => setActiveTestType(type.id)}
-                style={{
-                  padding: "10px 16px",
-                  backgroundColor: activeTestType === type.id ? "#0e276f" : "#f1f5f9",
-                  color: activeTestType === type.id ? "white" : "#374151",
-                  border: activeTestType === type.id ? "2px solid #0e276f" : "2px solid #e5e7eb",
-                  borderRadius: "8px",
-                  cursor: "pointer",
-                  fontWeight: activeTestType === type.id ? 600 : 500,
-                  fontSize: "14px",
-                  transition: "all 0.2s",
-                }}
+                className={`cambridge-type-btn${activeTestType === type.id ? " cambridge-type-btn--active" : ""}`}
               >
                 {type.icon} {type.name}
               </button>
             ))}
           </div>
 
-          {/* Skill Tab Navigation */}
-          <div
-            style={{
-              display: "flex",
-              gap: "0",
-              marginBottom: "24px",
-              borderBottom: "2px solid #e5e7eb",
-            }}
-          >
+          <div className="cambridge-tabs">
             {["listening", "reading"].map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
-                style={{
-                  padding: "14px 28px",
-                  backgroundColor: "transparent",
-                  color: activeTab === tab ? "#0e276f" : "#6b7280",
-                  border: "none",
-                  borderBottom: activeTab === tab ? "3px solid #0e276f" : "3px solid transparent",
-                  cursor: "pointer",
-                  fontWeight: activeTab === tab ? 700 : 500,
-                  fontSize: "16px",
-                  transition: "all 0.2s",
-                  marginBottom: "-2px",
-                }}
+                className={`cambridge-tab${activeTab === tab ? " cambridge-tab--active" : ""}`}
               >
                 {tab === "listening" ? "🎧 Listening" : "📖 Reading"}
-                <span
-                  style={{
-                    marginLeft: "8px",
-                    padding: "2px 8px",
-                    backgroundColor: activeTab === tab ? "#0e276f" : "#e5e7eb",
-                    color: activeTab === tab ? "white" : "#6b7280",
-                    borderRadius: "12px",
-                    fontSize: "12px",
-                  }}
-                >
-                  {tests[tab].length}
-                </span>
+                <span className="cambridge-tab__badge">{tests[tab].length}</span>
               </button>
             ))}
           </div>
 
-          {/* Test Info Banner */}
-          <div
-            style={{
-              padding: "16px 20px",
-              backgroundColor: "#f0f9ff",
-              borderRadius: "10px",
-              marginBottom: "20px",
-              border: "1px solid #bae6fd",
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-              <span style={{ fontSize: "28px" }}>
-                {testTypes.find((t) => t.id === activeTestType)?.icon}
-              </span>
-              <div>
-                <h3 style={{ margin: "0 0 4px", color: "#0369a1", fontSize: "16px" }}>
-                  {testTypes.find((t) => t.id === activeTestType)?.name} - {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}
-                </h3>
-                <p style={{ margin: 0, fontSize: "13px", color: "#0284c7" }}>
-                  {getTestConfig(activeTab).totalQuestions || "?"} câu hỏi • {getTestConfig(activeTab).parts || "?"} parts • {getTestConfig(activeTab).duration || "?"} phút
-                </p>
-              </div>
+          <div className="cambridge-info">
+            <div className="cambridge-info__icon">
+              {testTypes.find((t) => t.id === activeTestType)?.icon}
+            </div>
+            <div>
+              <h3 className="cambridge-info__title">
+                {testTypes.find((t) => t.id === activeTestType)?.name} - {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}
+              </h3>
+              <p className="cambridge-info__meta">
+                {getTestConfig(activeTab).totalQuestions || "?"} câu hỏi • {getTestConfig(activeTab).parts || "?"} parts • {getTestConfig(activeTab).duration || "?"} phút
+              </p>
             </div>
           </div>
 
-          {/* Test List */}
           {renderTestList(tests[activeTab], activeTab)}
 
-          {/* Teacher Quick Actions */}
           {isTeacher && tests[activeTab].length > 0 && (
-            <div style={{ marginTop: "24px", textAlign: "center" }}>
+            <div className="cambridge-actions">
               <button
                 onClick={() => navigate(`/admin/create-${activeTestType}-${activeTab}`)}
-                style={{
-                  padding: "12px 24px",
-                  backgroundColor: "#22c55e",
-                  color: "white",
-                  border: "none",
-                  borderRadius: "8px",
-                  cursor: "pointer",
-                  fontWeight: 600,
-                  fontSize: "15px",
-                }}
+                className="cambridge-btn cambridge-btn--success"
               >
                 ➕ Tạo đề {activeTestType.toUpperCase()} {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} mới
               </button>

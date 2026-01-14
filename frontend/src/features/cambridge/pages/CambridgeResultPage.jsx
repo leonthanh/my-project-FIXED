@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { apiPath } from "../../../shared/utils/api";
 import { StudentNavbar } from "../../../shared/components";
@@ -15,68 +15,180 @@ const CambridgeResultPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
+  const getDetailedResult = (primaryKey, legacyKey) => {
+    const dr = submission?.detailedResults;
+    if (!dr || typeof dr !== 'object') return null;
+    if (primaryKey && Object.prototype.hasOwnProperty.call(dr, primaryKey)) return dr[primaryKey];
+    if (legacyKey && Object.prototype.hasOwnProperty.call(dr, legacyKey)) return dr[legacyKey];
+    return null;
+  };
+
+  const getResultStatus = (result) => {
+    const isUnanswered = !result || result.userAnswer === null || result.userAnswer === '';
+    if (result?.isCorrect === null) {
+      return { label: '⏳ Chờ chấm', color: '#0ea5e9', bg: '#e0f2fe', text: '#075985' };
+    }
+    if (result?.isCorrect === true) {
+      return { label: '✓ Đúng', color: '#22c55e', bg: '#dcfce7', text: '#166534' };
+    }
+    if (isUnanswered) {
+      return { label: '○ Bỏ trống', color: '#94a3b8', bg: '#f1f5f9', text: '#64748b' };
+    }
+    return { label: '✕ Sai', color: '#ef4444', bg: '#fee2e2', text: '#991b1b' };
+  };
+
+  const normalizeSubmission = (raw) => {
+    if (!raw) return null;
+    const normalized = { ...raw };
+
+    // Backend may return JSON columns as stringified JSON
+    if (typeof normalized.answers === 'string') {
+      try {
+        normalized.answers = JSON.parse(normalized.answers);
+      } catch {
+        // keep as-is
+      }
+    }
+    if (typeof normalized.detailedResults === 'string') {
+      try {
+        normalized.detailedResults = JSON.parse(normalized.detailedResults);
+      } catch {
+        // keep as-is
+      }
+    }
+
+    return normalized;
+  };
+
   // State from navigation (if available) or fetch from API
-  const [submission, setSubmission] = useState(location.state?.submission || null);
+  const [submission, setSubmission] = useState(() => normalizeSubmission(location.state?.submission) || null);
   const [test, setTest] = useState(location.state?.test || null);
   const [loading, setLoading] = useState(!location.state?.submission);
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('overview'); // overview, review
   const [expandedParts, setExpandedParts] = useState({});
+  const lastFetchedTestKeyRef = useRef(null);
 
-  // Fetch submission data if not passed via navigation state
+  const testNeedsRefresh = (t) => {
+    if (!t || !Array.isArray(t.parts)) return true;
+    // If any cloze-test question is missing blanks (or blanks empty), the UI can't render Part 5 properly
+    for (const part of t.parts) {
+      for (const section of (part?.sections || [])) {
+        if (section?.questionType !== 'cloze-test') continue;
+        for (const q of (section?.questions || [])) {
+          if (!Array.isArray(q?.blanks) || q.blanks.length === 0) return true;
+        }
+      }
+    }
+    return false;
+  };
+
+  // Fetch submission data only once per submissionId (avoid refetch loops)
   useEffect(() => {
-    if (location.state?.submission) return;
+    const navSubmission = location.state?.submission;
+    if (navSubmission) {
+      setLoading(false);
+      return;
+    }
 
-    const fetchSubmission = async () => {
+    let cancelled = false;
+    const controller = new AbortController();
+
+    (async () => {
       try {
         setLoading(true);
-        const res = await fetch(apiPath(`cambridge/submissions/${submissionId}`));
+        setError(null);
+        const res = await fetch(apiPath(`cambridge/submissions/${submissionId}`), { signal: controller.signal });
         if (!res.ok) throw new Error("Không tìm thấy kết quả");
         const data = await res.json();
-        setSubmission(data);
-
-        // Fetch test data for question details
-        const testType = data.testType.includes('listening') ? 'listening' : 'reading';
-        const testRes = await fetch(apiPath(`cambridge/${testType}-tests/${data.testId}`));
-        if (testRes.ok) {
-          const testData = await testRes.json();
-          testData.parts = typeof testData.parts === 'string' 
-            ? JSON.parse(testData.parts) 
-            : testData.parts;
-          setTest(testData);
-        }
+        if (!cancelled) setSubmission(normalizeSubmission(data));
       } catch (err) {
+        if (cancelled) return;
+        if (err?.name === 'AbortError') return;
         console.error("Error fetching submission:", err);
-        setError(err.message);
+        setError(err.message || 'Lỗi khi tải kết quả');
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
-    };
+    })();
 
-    fetchSubmission();
-  }, [submissionId, location.state]);
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [submissionId, location.state?.submission]);
+
+  // Ensure we have test data for rendering Part 5 + mapping keys
+  useEffect(() => {
+    const sub = normalizeSubmission(location.state?.submission) || submission;
+    if (!sub?.testId || !sub?.testType) return;
+
+    const category = sub.testType.includes('listening') ? 'listening' : 'reading';
+    const fetchKey = `${category}:${sub.testId}`;
+    const shouldFetch = !test || String(test.id) !== String(sub.testId) || testNeedsRefresh(test);
+    if (!shouldFetch) return;
+    if (lastFetchedTestKeyRef.current === fetchKey) return;
+    lastFetchedTestKeyRef.current = fetchKey;
+
+    let cancelled = false;
+    const controller = new AbortController();
+
+    (async () => {
+      try {
+        const testRes = await fetch(apiPath(`cambridge/${category}-tests/${sub.testId}`), { signal: controller.signal });
+        if (!testRes.ok) return;
+        const testData = await testRes.json();
+        testData.parts = typeof testData.parts === 'string' ? JSON.parse(testData.parts) : testData.parts;
+        if (!cancelled) setTest(testData);
+      } catch (err) {
+        if (cancelled) return;
+        if (err?.name === 'AbortError') return;
+        console.error('Error fetching test:', err);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [submission, location.state?.submission, test]);
+
+  const formatQuestionLabel = (questionNum) => {
+    if (!questionNum || questionNum <= 0) return '';
+    return String(questionNum);
+  };
 
   // Calculate stats
   const stats = useMemo(() => {
     if (!submission) return null;
     
-    const { score, totalQuestions, percentage, detailedResults } = submission;
+    const { score, percentage, detailedResults } = submission;
     
     let correctCount = 0;
     let wrongCount = 0;
     let unansweredCount = 0;
+    let totalCount = 0;
 
-    if (detailedResults) {
+    if (detailedResults && typeof detailedResults === 'object') {
       Object.values(detailedResults).forEach(result => {
-        if (result.isCorrect) correctCount++;
-        else if (result.userAnswer === null || result.userAnswer === '') unansweredCount++;
-        else wrongCount++;
+        if (!result || typeof result !== 'object') return;
+
+        // Only count questions with isCorrect !== null (exclude skipped/missing answers)
+        if (result.isCorrect !== null) {
+          totalCount++;
+          if (result.isCorrect) correctCount++;
+          else if (result.userAnswer === null || result.userAnswer === '') unansweredCount++;
+          else wrongCount++;
+        }
       });
     }
 
+    // If no valid results, use submission.totalQuestions as fallback
+    const total = totalCount > 0 ? totalCount : (submission.totalQuestions || 0);
+
     return {
       score: score || 0,
-      total: totalQuestions || 0,
+      total: total,
       percentage: percentage || 0,
       correct: correctCount,
       wrong: wrongCount,
@@ -98,24 +210,30 @@ const CambridgeResultPage = () => {
           // Handle long-text-mc with nested questions
           if (section.questionType === 'long-text-mc' && question.questions && Array.isArray(question.questions)) {
             question.questions.forEach((nestedQ, nestedIdx) => {
-              const key = `${partIdx}-${secIdx}-${nestedIdx}`;
+              const key = `${partIdx}-${secIdx}-${qIdx}-${nestedIdx}`;
+              const legacyKey = `${partIdx}-${secIdx}-${nestedIdx}`;
               map[key] = questionNum + 1;
+              map[legacyKey] = questionNum + 1; // backward compatibility
               questionNum++;
             });
           }
           // Handle cloze-mc with blanks
           else if (section.questionType === 'cloze-mc' && question.blanks && Array.isArray(question.blanks)) {
             question.blanks.forEach((blank, blankIdx) => {
-              const key = `${partIdx}-${secIdx}-${blankIdx}`;
+              const key = `${partIdx}-${secIdx}-${qIdx}-${blankIdx}`;
+              const legacyKey = `${partIdx}-${secIdx}-${blankIdx}`;
               map[key] = questionNum + 1;
+              map[legacyKey] = questionNum + 1; // backward compatibility
               questionNum++;
             });
           }
           // Handle cloze-test with blanks
           else if (section.questionType === 'cloze-test' && question.blanks && Array.isArray(question.blanks)) {
             question.blanks.forEach((blank, blankIdx) => {
-              const key = `${partIdx}-${secIdx}-${blankIdx}`;
+              const key = `${partIdx}-${secIdx}-${qIdx}-${blankIdx}`;
+              const legacyKey = `${partIdx}-${secIdx}-${blankIdx}`;
               map[key] = questionNum + 1;
+              map[legacyKey] = questionNum + 1; // backward compatibility
               questionNum++;
             });
           }
@@ -156,6 +274,198 @@ const CambridgeResultPage = () => {
       ...prev,
       [partIdx]: !prev[partIdx]
     }));
+  };
+
+  const renderClozeTestPassageWithResults = ({ passageText, blanks, partIdx, secIdx, qIdx }) => {
+    if (!passageText || typeof passageText !== 'string') return null;
+    const safeBlanks = Array.isArray(blanks) ? blanks : [];
+
+    const blankIndexByQuestionNum = new Map(
+      safeBlanks
+        .map((b, idx) => [Number(b?.questionNum), idx])
+        .filter(([n]) => Number.isFinite(n))
+    );
+
+    const buildBlankPill = (blankIdx, explicitQuestionNum) => {
+      const key = `${partIdx}-${secIdx}-${qIdx}-${blankIdx}`;
+      const legacyKey = `${partIdx}-${secIdx}-${blankIdx}`;
+      const result = getDetailedResult(key, legacyKey) || {};
+      const status = getResultStatus(result);
+
+      const mappedNum = questionNumberMap[key];
+      const blankNum =
+        Number(explicitQuestionNum) ||
+        Number(safeBlanks?.[blankIdx]?.questionNum) ||
+        Number(mappedNum);
+
+      const label = Number.isFinite(blankNum) ? `(${blankNum})` : '(?)';
+      const userAnswer = (result?.userAnswer ?? '').toString();
+      const correctAnswer = (result?.correctAnswer ?? '').toString();
+      const title = `${label} ${status.label}\nBạn: ${userAnswer || '(Không trả lời)'}${result?.isCorrect === false ? `\nĐúng: ${correctAnswer}` : ''}`;
+
+      return (
+        <span
+          key={`blank-pill-${blankIdx}-${label}`}
+          title={title}
+          style={{
+            ...styles.clozeBlankPill,
+            borderColor: status.color,
+            backgroundColor: status.bg,
+            color: status.text,
+          }}
+        >
+          <span style={styles.clozeBlankNum}>{label}</span>
+          <span style={styles.clozeBlankAns}>{userAnswer || '____'}</span>
+        </span>
+      );
+    };
+
+    const renderInline = () => {
+      const elements = [];
+      let lastIndex = 0;
+
+      // Prefer numbered placeholders: (25) or [25]
+      const numberedRegex = /\((\d+)\)|\[(\d+)\]/g;
+      let match;
+      let foundNumbered = false;
+
+      while ((match = numberedRegex.exec(passageText)) !== null) {
+        const questionNum = parseInt(match[1] || match[2], 10);
+        if (!Number.isFinite(questionNum)) continue;
+
+        const blankIdx = blankIndexByQuestionNum.has(questionNum)
+          ? blankIndexByQuestionNum.get(questionNum)
+          : null;
+        if (blankIdx === null || blankIdx === undefined) continue;
+
+        foundNumbered = true;
+
+        if (match.index > lastIndex) {
+          elements.push(
+            <span
+              key={`text-${lastIndex}`}
+              dangerouslySetInnerHTML={{ __html: passageText.substring(lastIndex, match.index) }}
+            />
+          );
+        }
+
+        elements.push(buildBlankPill(blankIdx, questionNum));
+        lastIndex = match.index + match[0].length;
+      }
+
+      if (foundNumbered) {
+        if (lastIndex < passageText.length) {
+          elements.push(
+            <span
+              key={`text-${lastIndex}-end`}
+              dangerouslySetInnerHTML={{ __html: passageText.substring(lastIndex) }}
+            />
+          );
+        }
+        return elements;
+      }
+
+      // Fallback: underscore/ellipsis placeholders (___ or ………)
+      const underscoreRegex = /[_…]{3,}/g;
+      let underscoreMatch;
+      let blankIdx = 0;
+      lastIndex = 0;
+
+      while ((underscoreMatch = underscoreRegex.exec(passageText)) !== null) {
+        if (underscoreMatch.index > lastIndex) {
+          elements.push(
+            <span
+              key={`text2-${lastIndex}`}
+              dangerouslySetInnerHTML={{ __html: passageText.substring(lastIndex, underscoreMatch.index) }}
+            />
+          );
+        }
+
+        if (blankIdx < safeBlanks.length) {
+          elements.push(buildBlankPill(blankIdx, safeBlanks?.[blankIdx]?.questionNum));
+        } else {
+          elements.push(
+            <span
+              key={`blank-missing-${blankIdx}`}
+              style={{ ...styles.clozeBlankPill, borderColor: '#94a3b8', backgroundColor: '#f1f5f9', color: '#64748b' }}
+            >
+              <span style={styles.clozeBlankNum}>(?)</span>
+              <span style={styles.clozeBlankAns}>____</span>
+            </span>
+          );
+        }
+
+        blankIdx++;
+        lastIndex = underscoreMatch.index + underscoreMatch[0].length;
+      }
+
+      if (elements.length === 0) return null;
+      if (lastIndex < passageText.length) {
+        elements.push(
+          <span
+            key={`text2-${lastIndex}-end`}
+            dangerouslySetInnerHTML={{ __html: passageText.substring(lastIndex) }}
+          />
+        );
+      }
+      return elements;
+    };
+
+    const inline = renderInline();
+    if (!inline) return null;
+
+    return (
+      <div style={styles.clozePassageCard}>
+        <div style={styles.clozePassageBody}>{inline}</div>
+
+        {safeBlanks.length > 0 && (
+          <div style={styles.clozeAnswerGrid}>
+            {safeBlanks.map((b, blankIdx) => {
+              const key = `${partIdx}-${secIdx}-${qIdx}-${blankIdx}`;
+              const legacyKey = `${partIdx}-${secIdx}-${blankIdx}`;
+              const result = getDetailedResult(key, legacyKey) || {};
+              const status = getResultStatus(result);
+              const qNum =
+                Number(questionNumberMap[key]) ||
+                Number(b?.questionNum);
+              const label = Number.isFinite(qNum) ? qNum : '?';
+
+              return (
+                <div
+                  key={`blank-summary-${blankIdx}`}
+                  style={{
+                    ...styles.clozeAnswerItem,
+                    borderLeftColor: status.color,
+                    backgroundColor: '#ffffff',
+                  }}
+                >
+                  <div style={styles.clozeAnswerItemHeader}>
+                    <span style={{ ...styles.clozeAnswerNum, backgroundColor: status.bg, color: status.text }}>
+                      {label}
+                    </span>
+                    <span style={styles.clozeAnswerStatus}>{status.label}</span>
+                  </div>
+                  <div style={styles.clozeAnswerRow}>
+                    <span style={styles.answerLabel}>Bạn:</span>
+                    <span style={{ ...styles.answerValue, color: status.text, backgroundColor: status.bg }}>
+                      {result.userAnswer || '(Không trả lời)'}
+                    </span>
+                  </div>
+                  {result?.isCorrect === false && (
+                    <div style={styles.clozeAnswerRow}>
+                      <span style={styles.answerLabel}>Đúng:</span>
+                      <span style={{ ...styles.answerValue, color: '#166534', backgroundColor: '#dcfce7' }}>
+                        {result.correctAnswer}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
   };
 
   // Loading state
@@ -341,21 +651,21 @@ const CambridgeResultPage = () => {
               <h3 style={styles.summaryTitle}>Tóm tắt kết quả</h3>
               <div style={styles.questionGrid}>
                 {submission.detailedResults && Object.entries(submission.detailedResults).map(([key, result]) => {
-                  const questionNum = questionNumberMap[key] || 0;
+                  const questionNum = questionNumberMap[key];
+                  const label = questionNum ? formatQuestionLabel(questionNum) : '?';
+                  const status = getResultStatus(result);
 
                   return (
                     <div
                       key={key}
                       style={{
                         ...styles.questionBadge,
-                        backgroundColor: result.isCorrect ? '#dcfce7' : 
-                          (result.userAnswer === null || result.userAnswer === '') ? '#f1f5f9' : '#fee2e2',
-                        color: result.isCorrect ? '#166534' : 
-                          (result.userAnswer === null || result.userAnswer === '') ? '#64748b' : '#991b1b'
+                        backgroundColor: status.bg,
+                        color: status.text
                       }}
-                      title={result.isCorrect ? 'Đúng' : 'Sai'}
+                      title={status.label}
                     >
-                      {questionNum}
+                        {label}
                     </div>
                   );
                 })}
@@ -364,6 +674,7 @@ const CambridgeResultPage = () => {
                 <span style={styles.legendItem}><span style={{...styles.legendDot, backgroundColor: '#dcfce7'}}></span> Đúng</span>
                 <span style={styles.legendItem}><span style={{...styles.legendDot, backgroundColor: '#fee2e2'}}></span> Sai</span>
                 <span style={styles.legendItem}><span style={{...styles.legendDot, backgroundColor: '#f1f5f9'}}></span> Bỏ trống</span>
+                <span style={styles.legendItem}><span style={{...styles.legendDot, backgroundColor: '#e0f2fe'}}></span> Chờ chấm</span>
               </div>
             </div>
 
@@ -396,27 +707,29 @@ const CambridgeResultPage = () => {
                             return (
                               <React.Fragment key={`section-${qIdx}`}>
                                 {question.questions.map((nestedQ, nestedIdx) => {
-                                  const key = `${partIdx}-${secIdx}-${nestedIdx}`;
-                                  const result = submission.detailedResults?.[key] || {};
-                                  const questionNum = questionNumberMap[key] || 0;
+                                  const key = `${partIdx}-${secIdx}-${qIdx}-${nestedIdx}`;
+                                  const result = getDetailedResult(key, `${partIdx}-${secIdx}-${nestedIdx}`) || {};
+                                  const questionNum = questionNumberMap[key];
+                                  const label = questionNum ? formatQuestionLabel(questionNum) : '?';
+                                  const status = getResultStatus(result);
 
                                   return (
                                     <div 
                                       key={`${qIdx}-${nestedIdx}`}
                                       style={{
                                         ...styles.questionReviewCard,
-                                        borderLeftColor: result.isCorrect ? '#22c55e' : '#ef4444'
+                                        borderLeftColor: status.color
                                       }}
                                     >
                                       <div style={styles.questionReviewHeader}>
                                         <span style={{
                                           ...styles.questionNum,
-                                          backgroundColor: result.isCorrect ? '#22c55e' : '#ef4444'
+                                          backgroundColor: status.color
                                         }}>
-                                          {questionNum}
+                                          {label}
                                         </span>
                                         <span style={styles.questionStatus}>
-                                          {result.isCorrect ? '✓ Đúng' : '✕ Sai'}
+                                          {status.label}
                                         </span>
                                       </div>
                                       
@@ -429,13 +742,13 @@ const CambridgeResultPage = () => {
                                           <span style={styles.answerLabel}>Câu trả lời của bạn:</span>
                                           <span style={{
                                             ...styles.answerValue,
-                                            color: result.isCorrect ? '#166534' : '#991b1b',
-                                            backgroundColor: result.isCorrect ? '#dcfce7' : '#fee2e2'
+                                            color: status.text,
+                                            backgroundColor: status.bg
                                           }}>
                                             {result.userAnswer || '(Không trả lời)'}
                                           </span>
                                         </div>
-                                        {!result.isCorrect && (
+                                        {result?.isCorrect === false && (
                                           <div style={styles.answerRow}>
                                             <span style={styles.answerLabel}>Đáp án đúng:</span>
                                             <span style={{
@@ -454,33 +767,121 @@ const CambridgeResultPage = () => {
                               </React.Fragment>
                             );
                           }
+                          // Handle cloze-test: show full passage with inline blanks
+                          else if (section.questionType === 'cloze-test') {
+                            const passageText = question.passageText || question.passage || '';
+                            const rendered = renderClozeTestPassageWithResults({
+                              passageText,
+                              blanks: question.blanks,
+                              partIdx,
+                              secIdx,
+                              qIdx,
+                            });
+
+                            // Fallback to old per-blank cards if passage can't be rendered
+                            if (!rendered && question.blanks && Array.isArray(question.blanks)) {
+                              return (
+                                <React.Fragment key={`section-${qIdx}`}>
+                                  {question.blanks.map((blank, blankIdx) => {
+                                    const key = `${partIdx}-${secIdx}-${qIdx}-${blankIdx}`;
+                                    const result = getDetailedResult(key, `${partIdx}-${secIdx}-${blankIdx}`) || {};
+                                    const questionNum = questionNumberMap[key];
+                                    const label = questionNum ? formatQuestionLabel(questionNum) : '?';
+                                    const status = getResultStatus(result);
+
+                                    return (
+                                      <div
+                                        key={`${qIdx}-${blankIdx}`}
+                                        style={{
+                                          ...styles.questionReviewCard,
+                                          borderLeftColor: status.color
+                                        }}
+                                      >
+                                        <div style={styles.questionReviewHeader}>
+                                          <span style={{
+                                            ...styles.questionNum,
+                                            backgroundColor: status.color
+                                          }}>
+                                            {label}
+                                          </span>
+                                          <span style={styles.questionStatus}>
+                                            {status.label}
+                                          </span>
+                                        </div>
+
+                                        <div style={styles.questionText}>
+                                          {blank.questionText || 'Question'}
+                                        </div>
+
+                                        <div style={styles.answersCompare}>
+                                          <div style={styles.answerRow}>
+                                            <span style={styles.answerLabel}>Câu trả lời của bạn:</span>
+                                            <span style={{
+                                              ...styles.answerValue,
+                                              color: status.text,
+                                              backgroundColor: status.bg
+                                            }}>
+                                              {result.userAnswer || '(Không trả lời)'}
+                                            </span>
+                                          </div>
+                                          {result?.isCorrect === false && (
+                                            <div style={styles.answerRow}>
+                                              <span style={styles.answerLabel}>Đáp án đúng:</span>
+                                              <span style={{
+                                                ...styles.answerValue,
+                                                color: '#166534',
+                                                backgroundColor: '#dcfce7'
+                                              }}>
+                                                {result.correctAnswer}
+                                              </span>
+                                            </div>
+                                          )}
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                                </React.Fragment>
+                              );
+                            }
+
+                            return (
+                              <div key={qIdx}>
+                                {question.passageTitle && (
+                                  <div style={styles.clozePassageTitle}>{question.passageTitle}</div>
+                                )}
+                                {rendered}
+                              </div>
+                            );
+                          }
                           // Handle cloze-mc and cloze-test with blanks
-                          else if ((section.questionType === 'cloze-mc' || section.questionType === 'cloze-test') && 
+                          else if (section.questionType === 'cloze-mc' && 
                                    question.blanks && Array.isArray(question.blanks)) {
                             return (
                               <React.Fragment key={`section-${qIdx}`}>
                                 {question.blanks.map((blank, blankIdx) => {
-                                  const key = `${partIdx}-${secIdx}-${blankIdx}`;
-                                  const result = submission.detailedResults?.[key] || {};
-                                  const questionNum = questionNumberMap[key] || 0;
+                                  const key = `${partIdx}-${secIdx}-${qIdx}-${blankIdx}`;
+                                  const result = getDetailedResult(key, `${partIdx}-${secIdx}-${blankIdx}`) || {};
+                                  const questionNum = questionNumberMap[key];
+                                  const label = questionNum ? formatQuestionLabel(questionNum) : '?';
+                                  const status = getResultStatus(result);
 
                                   return (
                                     <div 
                                       key={`${qIdx}-${blankIdx}`}
                                       style={{
                                         ...styles.questionReviewCard,
-                                        borderLeftColor: result.isCorrect ? '#22c55e' : '#ef4444'
+                                        borderLeftColor: status.color
                                       }}
                                     >
                                       <div style={styles.questionReviewHeader}>
                                         <span style={{
                                           ...styles.questionNum,
-                                          backgroundColor: result.isCorrect ? '#22c55e' : '#ef4444'
+                                          backgroundColor: status.color
                                         }}>
-                                          {questionNum}
+                                          {label}
                                         </span>
                                         <span style={styles.questionStatus}>
-                                          {result.isCorrect ? '✓ Đúng' : '✕ Sai'}
+                                          {status.label}
                                         </span>
                                       </div>
                                       
@@ -493,13 +894,13 @@ const CambridgeResultPage = () => {
                                           <span style={styles.answerLabel}>Câu trả lời của bạn:</span>
                                           <span style={{
                                             ...styles.answerValue,
-                                            color: result.isCorrect ? '#166534' : '#991b1b',
-                                            backgroundColor: result.isCorrect ? '#dcfce7' : '#fee2e2'
+                                            color: status.text,
+                                            backgroundColor: status.bg
                                           }}>
                                             {result.userAnswer || '(Không trả lời)'}
                                           </span>
                                         </div>
-                                        {!result.isCorrect && (
+                                        {result?.isCorrect === false && (
                                           <div style={styles.answerRow}>
                                             <span style={styles.answerLabel}>Đáp án đúng:</span>
                                             <span style={{
@@ -521,26 +922,28 @@ const CambridgeResultPage = () => {
                           // Regular questions
                           else {
                             const key = `${partIdx}-${secIdx}-${qIdx}`;
-                            const result = submission.detailedResults?.[key] || {};
-                            const questionNum = questionNumberMap[key] || 0;
+                            const result = getDetailedResult(key) || {};
+                            const questionNum = questionNumberMap[key];
+                            const label = questionNum ? formatQuestionLabel(questionNum) : '?';
+                            const status = getResultStatus(result);
 
                             return (
                               <div 
                                 key={qIdx} 
                                 style={{
                                   ...styles.questionReviewCard,
-                                  borderLeftColor: result.isCorrect ? '#22c55e' : '#ef4444'
+                                  borderLeftColor: status.color
                                 }}
                               >
                                 <div style={styles.questionReviewHeader}>
                                   <span style={{
                                     ...styles.questionNum,
-                                    backgroundColor: result.isCorrect ? '#22c55e' : '#ef4444'
+                                    backgroundColor: status.color
                                   }}>
-                                    {questionNum}
+                                    {label}
                                   </span>
                                   <span style={styles.questionStatus}>
-                                    {result.isCorrect ? '✓ Đúng' : '✕ Sai'}
+                                    {status.label}
                                   </span>
                                 </div>
                                 
@@ -553,13 +956,13 @@ const CambridgeResultPage = () => {
                                     <span style={styles.answerLabel}>Câu trả lời của bạn:</span>
                                     <span style={{
                                       ...styles.answerValue,
-                                      color: result.isCorrect ? '#166534' : '#991b1b',
-                                      backgroundColor: result.isCorrect ? '#dcfce7' : '#fee2e2'
+                                      color: status.text,
+                                      backgroundColor: status.bg
                                     }}>
                                       {result.userAnswer || '(Không trả lời)'}
                                     </span>
                                   </div>
-                                  {!result.isCorrect && (
+                                  {result?.isCorrect === false && (
                                     <div style={styles.answerRow}>
                                       <span style={styles.answerLabel}>Đáp án đúng:</span>
                                       <span style={{
@@ -724,6 +1127,89 @@ const styles = {
     maxWidth: '1200px',
     margin: '0 auto',
     padding: '24px',
+  },
+
+  // Cloze-test (Part 5) passage styles
+  clozePassageTitle: {
+    fontSize: '16px',
+    fontWeight: 700,
+    color: '#0f172a',
+    margin: '12px 0 10px',
+  },
+  clozePassageCard: {
+    backgroundColor: 'white',
+    border: '1px solid #e5e7eb',
+    borderRadius: '12px',
+    padding: '16px',
+    boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
+  },
+  clozePassageBody: {
+    fontSize: '16px',
+    lineHeight: 1.9,
+    color: '#0f172a',
+    wordBreak: 'break-word',
+  },
+  clozeBlankPill: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '8px',
+    padding: '4px 10px',
+    margin: '0 4px',
+    borderRadius: '999px',
+    border: '2px solid #e5e7eb',
+    fontWeight: 700,
+    whiteSpace: 'nowrap',
+    verticalAlign: 'baseline',
+  },
+  clozeBlankNum: {
+    fontSize: '13px',
+    fontWeight: 800,
+    opacity: 0.9,
+  },
+  clozeBlankAns: {
+    fontSize: '14px',
+    fontWeight: 700,
+  },
+  clozeAnswerGrid: {
+    marginTop: '14px',
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
+    gap: '10px',
+  },
+  clozeAnswerItem: {
+    borderRadius: '12px',
+    border: '1px solid #e5e7eb',
+    borderLeft: '6px solid #e5e7eb',
+    padding: '10px 12px',
+  },
+  clozeAnswerItemHeader: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: '10px',
+    marginBottom: '8px',
+  },
+  clozeAnswerNum: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '34px',
+    height: '26px',
+    borderRadius: '999px',
+    fontSize: '13px',
+    fontWeight: 800,
+  },
+  clozeAnswerStatus: {
+    fontSize: '13px',
+    fontWeight: 600,
+    color: '#334155',
+  },
+  clozeAnswerRow: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: '10px',
+    marginTop: '6px',
   },
   
   // Overview styles

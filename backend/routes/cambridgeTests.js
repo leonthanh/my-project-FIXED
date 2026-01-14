@@ -298,9 +298,12 @@ router.get("/reading-tests/:id", async (req, res) => {
       }
     })() : json.parts;
 
+    // Ensure cloze-test questions have blanks[] even for older saved tests
+    const processedParts = processTestParts(parsedParts);
+
     res.json({
       ...json,
-      parts: parsedParts,
+      parts: processedParts,
       totalQuestions: Math.max(computedTotal || 0, json.totalQuestions || 0),
     });
   } catch (err) {
@@ -431,7 +434,28 @@ const scoreTest = (test, answers) => {
   let total = 0;
   const detailedResults = {};
 
-  const parts = typeof test.parts === 'string' ? JSON.parse(test.parts) : test.parts;
+  let parts = test?.parts;
+  if (typeof parts === 'string') {
+    try {
+      parts = JSON.parse(parts);
+    } catch (e) {
+      parts = [];
+    }
+  }
+  parts = processTestParts(parts);
+
+  // Helper to read answer with backward-compatible keys
+  const pickAnswer = (primaryKey, legacyKeys = []) => {
+    if (answers && Object.prototype.hasOwnProperty.call(answers, primaryKey)) {
+      return answers[primaryKey];
+    }
+    for (const key of legacyKeys) {
+      if (answers && Object.prototype.hasOwnProperty.call(answers, key)) {
+        return answers[key];
+      }
+    }
+    return undefined;
+  };
 
   parts?.forEach((part, partIdx) => {
     part.sections?.forEach((section, secIdx) => {
@@ -440,12 +464,27 @@ const scoreTest = (test, answers) => {
         // Handle long-text-mc with nested questions
         if (section.questionType === 'long-text-mc' && question.questions && Array.isArray(question.questions)) {
           question.questions.forEach((nestedQ, nestedIdx) => {
-            total++;
-            const key = `${partIdx}-${secIdx}-${nestedIdx}`;
-            const userAnswer = answers[key];
-            const correctAnswer = nestedQ.correctAnswer;
+            const key = `${partIdx}-${secIdx}-${qIdx}-${nestedIdx}`;
+            const legacyKey = `${partIdx}-${secIdx}-${nestedIdx}`;
+            const userAnswer = pickAnswer(key, [legacyKey]);
+            const correctAnswer = nestedQ.correctAnswer
+              ?? nestedQ.answers
+              ?? nestedQ.answer
+              ?? nestedQ.correct;
             
-            let isCorrect = scoreQuestion(userAnswer, correctAnswer, nestedQ.questionType);
+            if (correctAnswer === undefined || correctAnswer === null) {
+              detailedResults[key] = {
+                isCorrect: null,
+                userAnswer: userAnswer || null,
+                correctAnswer: null,
+                questionType: nestedQ.questionType || 'abc',
+                questionText: nestedQ.questionText || ''
+              };
+              return;
+            }
+
+            total++;
+            const isCorrect = scoreQuestion(userAnswer, correctAnswer, nestedQ.questionType);
             if (isCorrect) score++;
             
             detailedResults[key] = {
@@ -460,12 +499,31 @@ const scoreTest = (test, answers) => {
         // Handle cloze-mc with blanks
         else if (section.questionType === 'cloze-mc' && question.blanks && Array.isArray(question.blanks)) {
           question.blanks.forEach((blank, blankIdx) => {
-            total++;
-            const key = `${partIdx}-${secIdx}-${blankIdx}`;
-            const userAnswer = answers[key];
-            const correctAnswer = blank.correctAnswer || question.correctAnswer;
+            const key = `${partIdx}-${secIdx}-${qIdx}-${blankIdx}`;
+            const legacyKey = `${partIdx}-${secIdx}-${blankIdx}`;
+            const userAnswer = pickAnswer(key, [legacyKey]);
+            const correctAnswer = blank.correctAnswer
+              ?? blank.answers
+              ?? blank.answer
+              ?? blank.correct
+              ?? question.correctAnswer
+              ?? question.answers
+              ?? question.answer
+              ?? question.correct;
             
-            let isCorrect = scoreQuestion(userAnswer, correctAnswer, 'abc');
+            if (correctAnswer === undefined || correctAnswer === null) {
+              detailedResults[key] = {
+                isCorrect: null,
+                userAnswer: userAnswer || null,
+                correctAnswer: null,
+                questionType: 'abc',
+                questionText: blank.questionText || ''
+              };
+              return;
+            }
+
+            total++;
+            const isCorrect = scoreQuestion(userAnswer, correctAnswer, 'abc');
             if (isCorrect) score++;
             
             detailedResults[key] = {
@@ -480,12 +538,42 @@ const scoreTest = (test, answers) => {
         // Handle cloze-test with blanks
         else if (section.questionType === 'cloze-test' && question.blanks && Array.isArray(question.blanks)) {
           question.blanks.forEach((blank, blankIdx) => {
-            total++;
-            const key = `${partIdx}-${secIdx}-${blankIdx}`;
-            const userAnswer = answers[key];
-            const correctAnswer = blank.correctAnswer || question.correctAnswer;
+            const key = `${partIdx}-${secIdx}-${qIdx}-${blankIdx}`;
+            const legacyKey = `${partIdx}-${secIdx}-${blankIdx}`;
+            const userAnswer = pickAnswer(key, [legacyKey]);
             
-            let isCorrect = scoreQuestion(userAnswer, correctAnswer, 'fill');
+            // Resolve correctAnswer: try blank-level first, then question.answers[questionNum], then question-level
+            let correctAnswer = blank.correctAnswer
+              ?? blank.answers
+              ?? blank.answer
+              ?? blank.correct;
+            
+            // If not found at blank level, try to get from question.answers object (keyed by questionNum)
+            if (!correctAnswer && question.answers && typeof question.answers === 'object' && !Array.isArray(question.answers)) {
+              correctAnswer = question.answers[blank.questionNum || blank.number];
+            }
+            
+            // Fallback to question-level correctAnswer
+            if (!correctAnswer) {
+              correctAnswer = question.correctAnswer
+                ?? question.answers
+                ?? question.answer
+                ?? question.correct;
+            }
+            
+            if (correctAnswer === undefined || correctAnswer === null) {
+              detailedResults[key] = {
+                isCorrect: null,
+                userAnswer: userAnswer || null,
+                correctAnswer: null,
+                questionType: 'fill',
+                questionText: blank.questionText || ''
+              };
+              return;
+            }
+
+            total++;
+            const isCorrect = scoreQuestion(userAnswer, correctAnswer, 'fill');
             if (isCorrect) score++;
             
             detailedResults[key] = {
@@ -499,12 +587,26 @@ const scoreTest = (test, answers) => {
         }
         // Regular question (not nested)
         else {
-          total++;
           const key = `${partIdx}-${secIdx}-${qIdx}`;
           const userAnswer = answers[key];
-          const correctAnswer = question.correctAnswer;
+          const correctAnswer = question.correctAnswer
+            ?? question.answers
+            ?? question.answer
+            ?? question.correct;
           
-          let isCorrect = scoreQuestion(userAnswer, correctAnswer, question.questionType);
+          if (correctAnswer === undefined || correctAnswer === null) {
+            detailedResults[key] = {
+              isCorrect: null,
+              userAnswer: userAnswer || null,
+              correctAnswer: null,
+              questionType: question.questionType || 'fill',
+              questionText: question.questionText || ''
+            };
+            return;
+          }
+
+          total++;
+          const isCorrect = scoreQuestion(userAnswer, correctAnswer, question.questionType);
           if (isCorrect) score++;
           
           detailedResults[key] = {
@@ -535,37 +637,38 @@ const scoreTest = (test, answers) => {
  * @returns {boolean} Whether the answer is correct
  */
 const scoreQuestion = (userAnswer, correctAnswer, questionType) => {
-  if (correctAnswer === undefined || correctAnswer === null) {
-    return false;
-  }
-
   if (!userAnswer) {
     return false;
   }
 
-  // Fill-in-the-blank: case insensitive
-  if (questionType === 'fill' || questionType === 'cloze-test') {
-    const userNorm = String(userAnswer).trim().toLowerCase();
-    const correctNorm = String(correctAnswer).trim().toLowerCase();
-    
-    // Support multiple correct answers separated by /
-    if (typeof correctAnswer === 'string' && correctAnswer.includes('/')) {
-      const acceptedAnswers = correctNorm.split('/').map(a => a.trim());
-      return acceptedAnswers.includes(userNorm);
+  const toArray = (val) => {
+    if (Array.isArray(val)) return val;
+    if (typeof val === 'string' && (val.includes('/') || val.includes('|'))) {
+      return val.split(/[\/|]/).map((v) => v.trim()).filter(Boolean);
     }
-    
-    return userNorm === correctNorm;
+    return [val];
+  };
+
+  const normalize = (val) => String(val).trim().toLowerCase();
+  const normalizeMc = (val) => String(val).trim().toUpperCase();
+
+  const acceptedAnswers = toArray(correctAnswer);
+
+  // Fill-in-the-blank style: case-insensitive, allow multiple answers
+  if (questionType === 'fill' || questionType === 'cloze-test') {
+    const userNorm = normalize(userAnswer);
+    return acceptedAnswers.some((ans) => normalize(ans) === userNorm);
   }
-  // Multiple choice: exact match (A, B, C, D)
-  else if (questionType === 'abc' || questionType === 'abcd' || questionType === 'matching') {
-    return userAnswer === correctAnswer;
+
+  // Multiple choice: normalize to uppercase letters
+  if (questionType === 'abc' || questionType === 'abcd' || questionType === 'matching') {
+    const userNorm = normalizeMc(userAnswer);
+    return acceptedAnswers.some((ans) => normalizeMc(ans) === userNorm);
   }
+
   // Default: case-insensitive string comparison
-  else {
-    const userNorm = String(userAnswer).trim().toLowerCase();
-    const correctNorm = String(correctAnswer).trim().toLowerCase();
-    return userNorm === correctNorm;
-  }
+  const userNorm = normalize(userAnswer);
+  return acceptedAnswers.some((ans) => normalize(ans) === userNorm);
 };
 
 // POST submit listening test
@@ -840,6 +943,92 @@ router.get("/submissions/:id", async (req, res) => {
     console.error("❌ Lỗi khi lấy chi tiết submission:", err);
     logError("Lỗi khi lấy chi tiết submission", err);
     res.status(500).json({ message: "Lỗi server khi lấy chi tiết bài nộp." });
+  }
+});
+
+// POST rescore a submission (recalculate score based on stored answers)
+router.post("/submissions/:id/rescore", async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const submission = await CambridgeSubmission.findByPk(id);
+    if (!submission) {
+      return res.status(404).json({ message: "Không tìm thấy bài nộp." });
+    }
+
+    const parseJsonIfString = (val) => {
+      if (typeof val !== "string") return val;
+      try {
+        return JSON.parse(val);
+      } catch (e) {
+        return val;
+      }
+    };
+
+    const answers = parseJsonIfString(submission.answers);
+    if (!answers || typeof answers !== "object" || Array.isArray(answers)) {
+      return res.status(400).json({
+        message: "Submission không có answers hợp lệ để chấm lại.",
+      });
+    }
+
+    // Determine which test model to use
+    const tt = String(submission.testType || "").toLowerCase();
+    const isListening = tt.includes("listening");
+    const isReading = tt.includes("reading");
+
+    let test = null;
+
+    if (isListening) {
+      test = await CambridgeListening.findByPk(submission.testId);
+    } else if (isReading) {
+      test = await CambridgeReading.findByPk(submission.testId);
+    } else {
+      // Fallback: try both if testType doesn't indicate
+      test = await CambridgeReading.findByPk(submission.testId);
+      if (!test) test = await CambridgeListening.findByPk(submission.testId);
+    }
+
+    if (!test) {
+      return res.status(404).json({
+        message: "Không tìm thấy đề thi tương ứng với submission này.",
+      });
+    }
+
+    const testJson = test.toJSON();
+    const rawParts = parseJsonIfString(testJson.parts);
+    const processedParts = Array.isArray(rawParts) ? processTestParts(rawParts) : rawParts;
+
+    const scoringTest = {
+      ...testJson,
+      parts: processedParts,
+    };
+
+    const before = {
+      score: submission.score,
+      totalQuestions: submission.totalQuestions,
+      percentage: submission.percentage,
+    };
+
+    const { score, total, percentage, detailedResults } = scoreTest(scoringTest, answers);
+
+    await submission.update({
+      score,
+      totalQuestions: total,
+      percentage,
+      detailedResults,
+    });
+
+    res.json({
+      message: "Rescore thành công!",
+      submissionId: submission.id,
+      before,
+      after: { score, totalQuestions: total, percentage },
+    });
+  } catch (err) {
+    console.error("❌ Lỗi khi rescore submission:", err);
+    logError("Lỗi khi rescore submission", err);
+    res.status(500).json({ message: "Lỗi server khi chấm lại bài nộp." });
   }
 });
 

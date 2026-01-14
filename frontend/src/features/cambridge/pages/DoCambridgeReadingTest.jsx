@@ -209,6 +209,7 @@ const DoCambridgeReadingTest = () => {
     let incorrect = 0;
     let writingQuestions = [];
     let debugInfo = [];
+    let scorableCount = 0;
 
     // Use allQuestions for accurate scoring
     allQuestions.forEach((q) => {
@@ -224,59 +225,87 @@ const DoCambridgeReadingTest = () => {
       }
 
       const userAnswer = answers[q.key];
-      const question = q.question;
-      const correctAnswer = question?.correctAnswer;
+      let resolvedCorrect = q.nestedQuestion?.correctAnswer
+        ?? q.nestedQuestion?.answers
+        ?? q.nestedQuestion?.answer
+        ?? q.nestedQuestion?.correct
+        ?? q.blank?.correctAnswer
+        ?? q.blank?.answers
+        ?? q.blank?.answer
+        ?? q.blank?.correct
+        ?? q.question?.correctAnswer
+        ?? q.question?.answers
+        ?? q.question?.answer
+        ?? q.question?.correct;
 
-      // Debug: Log questions without correctAnswer
-      if (!correctAnswer) {
+      // Object-form correct answers keyed by question number (e.g., {"25":"the"})
+      if (resolvedCorrect && typeof resolvedCorrect === 'object' && !Array.isArray(resolvedCorrect)) {
+        const key = String(q.blank?.questionNum || q.questionNumber);
+        resolvedCorrect = resolvedCorrect[key] ?? Object.values(resolvedCorrect)[0];
+      }
+      const questionType = q.nestedQuestion?.questionType
+        || q.section?.questionType
+        || q.question?.questionType;
+
+      // Missing correct answer: do not penalize, just log
+      if (resolvedCorrect === undefined || resolvedCorrect === null) {
         debugInfo.push(`Q${q.questionNumber}: No correctAnswer field`);
+        return;
       }
 
-      // Check if question has correctAnswer and user answered
-      if (correctAnswer !== undefined && correctAnswer !== null && userAnswer) {
-        let isCorrect = false;
+      scorableCount++;
 
-        // Handle string answers (case-insensitive)
-        if (typeof correctAnswer === 'string') {
-          const userNorm = String(userAnswer).trim().toLowerCase();
-          const correctNorm = String(correctAnswer).trim().toLowerCase();
-          
-          // Support multiple correct answers separated by /
-          const acceptedAnswers = correctNorm.split('/').map(a => a.trim());
-          isCorrect = acceptedAnswers.includes(userNorm);
-        } 
-        // Handle non-string answers (exact match)
-        else {
-          isCorrect = userAnswer === correctAnswer;
+      if (!userAnswer) return;
+
+      const normalize = (val) => String(val).trim().toLowerCase();
+
+      const explode = (val) => {
+        if (Array.isArray(val)) return val;
+        if (typeof val === 'string' && (val.includes('/') || val.includes('|'))) {
+          return val.split(/[\/|]/).map((v) => v.trim()).filter(Boolean);
+        }
+        return [val];
+      };
+
+      const checkArray = (expected, actual) => {
+        const normalizedActual = normalize(actual);
+        return expected.some((ans) => normalize(ans) === normalizedActual);
+      };
+
+      const checkAnswer = () => {
+        // MC types: case-insensitive letter compare
+        if (questionType === 'abc' || questionType === 'abcd' || questionType === 'long-text-mc' || questionType === 'cloze-mc') {
+          return normalize(userAnswer) === normalize(resolvedCorrect);
         }
 
-        if (isCorrect) {
-          correct++;
-        } else {
-          incorrect++;
-        }
-      } else if (userAnswer) {
-        // User answered but no correctAnswer defined or no user answer
-        if (correctAnswer) {
-          incorrect++;
-        }
+        const accepted = explode(resolvedCorrect);
+        return checkArray(accepted, userAnswer);
+      };
+
+      if (checkAnswer()) {
+        correct++;
+      } else {
+        incorrect++;
+        debugInfo.push(
+          `Q${q.questionNumber}: user=${JSON.stringify(userAnswer)} expected=${JSON.stringify(resolvedCorrect)}`
+        );
       }
     });
 
-    const scorableQuestions = 30; // Questions 1-30
+    const scorableQuestions = scorableCount; // Only count questions with an answer key
     const score = correct;
 
     // Log debug info if there are issues
     if (debugInfo.length > 0) {
-      console.warn('⚠️ Scoring debug info:', debugInfo.slice(0, 5));
+      console.warn('⚠️ Scoring debug info:', debugInfo.slice(0, 10));
     }
 
     return {
       score,
       correct,
       incorrect,
-      total: scorableQuestions,
-      percentage: scorableQuestions > 0 ? Math.round((correct / scorableQuestions) * 100) : 0,
+    total: scorableQuestions,
+    percentage: scorableQuestions > 0 ? Math.round((correct / scorableQuestions) * 100) : 0,
       writingQuestions,
       writingCount: writingQuestions.length,
     };
@@ -361,7 +390,7 @@ const DoCambridgeReadingTest = () => {
                 questionIndex: qIdx,
                 nestedIndex: nestedIdx,
                 questionNumber: qNum++,
-                key: `${pIdx}-${sIdx}-${nestedIdx}`,
+                key: `${pIdx}-${sIdx}-${qIdx}-${nestedIdx}`,
                 question: q, // Keep parent question object (has passage)
                 nestedQuestion: nestedQ, // Individual question data
                 section: section,
@@ -377,7 +406,7 @@ const DoCambridgeReadingTest = () => {
                 questionIndex: qIdx,
                 blankIndex: blankIdx,
                 questionNumber: qNum++,
-                key: `${pIdx}-${sIdx}-${blankIdx}`,
+                key: `${pIdx}-${sIdx}-${qIdx}-${blankIdx}`,
                 question: q, // Keep parent question object (has passage)
                 blank: blank, // Individual blank data
                 section: section,
@@ -397,7 +426,7 @@ const DoCambridgeReadingTest = () => {
                   questionIndex: qIdx,
                   blankIndex: blankIdx,
                   questionNumber: qNum++,
-                  key: `${pIdx}-${sIdx}-${blankIdx}`,
+                  key: `${pIdx}-${sIdx}-${qIdx}-${blankIdx}`,
                   question: q, // Keep parent question object (has passage)
                   blank: blank, // Individual blank data
                   section: section,
@@ -777,7 +806,7 @@ const DoCambridgeReadingTest = () => {
                       }
                       
                       // Add text input
-                      const questionKey = `${currentQuestion.partIndex}-${currentQuestion.sectionIndex}-${blankIndex}`;
+                      const questionKey = `${currentQuestion.partIndex}-${currentQuestion.sectionIndex}-${currentQuestion.questionIndex}-${blankIndex}`;
                       const userAnswer = answers[questionKey] || '';
                       
                       elements.push(
@@ -916,7 +945,7 @@ const DoCambridgeReadingTest = () => {
                       
                       // Add dropdown
                       const blank = blanks[blankIndex];
-                      const questionKey = `${currentQuestion.partIndex}-${currentQuestion.sectionIndex}-${blankIndex}`;
+                      const questionKey = `${currentQuestion.partIndex}-${currentQuestion.sectionIndex}-${currentQuestion.questionIndex}-${blankIndex}`;
                       const userAnswer = answers[questionKey];
                       
                       elements.push(
