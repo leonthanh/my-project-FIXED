@@ -19,7 +19,11 @@ import CambridgeTestBuilder from "../CambridgeTestBuilder";
 const EditCambridgeReadingTest = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const testType = 'ket-reading';
+
+  // Fetch test data on mount
+  const [fetchedData, setFetchedData] = useState(null);
+
+  const testType = fetchedData?.testType || 'ket-reading';
   const testConfig = getTestConfig(testType);
   // Memoize available types so the array identity doesn't change each render
   const availableTypes = useMemo(() => getQuestionTypesForTest(testType), [testType]);
@@ -38,9 +42,6 @@ const EditCambridgeReadingTest = () => {
   const [parts, setParts] = useState([]);
   const [selectedPartIndex, setSelectedPartIndex] = useState(0);
   const [selectedSectionIndex, setSelectedSectionIndex] = useState(0);
-
-  // Fetch test data on mount
-  const [fetchedData, setFetchedData] = useState(null);
 
   useEffect(() => {
     const fetchTest = async () => {
@@ -176,19 +177,25 @@ const EditCambridgeReadingTest = () => {
   // Count total questions
   const getTotalQuestions = () => {
     let total = 0;
+
     parts.forEach(part => {
       part.sections?.forEach(section => {
-        const q = section.questions?.[0];
-        if (q) {
-          if (q.options) total += q.options.length;
-          else if (q.blanks) total += q.blanks.length;
-          else if (q.items) total += q.items.length;
-          else if (q.people) total += q.people.length;
-          else if (q.questions) total += q.questions.length;
-          else total += 1;
-        }
+        (section.questions || []).forEach(question => {
+          if (section.questionType === "long-text-mc" && Array.isArray(question.questions)) {
+            total += question.questions.length;
+            return;
+          }
+
+          if (["cloze-mc", "cloze-test"].includes(section.questionType) && Array.isArray(question.blanks)) {
+            total += question.blanks.length > 0 ? question.blanks.length : 1;
+            return;
+          }
+
+          total += 1;
+        });
       });
     });
+
     return total;
   };
 

@@ -520,7 +520,7 @@ export const TEST_CONFIGS = {
     id: 'ket-reading',
     name: 'KET Reading & Writing',
     nameVi: 'KET Reading & Writing',
-    totalQuestions: 35,
+    totalQuestions: 32,
     parts: 7,
     duration: 60, // minutes
     questionTypes: [

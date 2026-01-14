@@ -2,6 +2,94 @@ const express = require("express");
 const router = express.Router();
 const { CambridgeListening, CambridgeReading, CambridgeSubmission } = require("../models");
 const { logError } = require("../logger");
+const { processTestParts } = require("../utils/clozParser");
+
+// Compute total questions from parts so frontend displays stay in sync with teacher view
+const safeParseParts = (rawParts) => {
+  if (!rawParts) return [];
+  if (Array.isArray(rawParts)) return rawParts;
+  if (typeof rawParts === 'string') {
+    try {
+      const parsed = JSON.parse(rawParts);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
+};
+
+const countTotalQuestionsFromParts = (rawParts = []) => {
+  const parts = safeParseParts(rawParts);
+  // Ensure cloze-test blanks are generated for legacy tests before counting
+  const processedParts = processTestParts(parts);
+
+  let total = 0;
+
+  processedParts.forEach(part => {
+    (part.sections || []).forEach(section => {
+      const questions = section.questions || [];
+
+      questions.forEach(question => {
+        if (section.questionType === "long-text-mc" && Array.isArray(question.questions)) {
+          total += question.questions.length;
+          return;
+        }
+
+        if (section.questionType === 'people-matching' && Array.isArray(question.people)) {
+          total += question.people.length > 0 ? question.people.length : 1;
+          return;
+        }
+
+        if (section.questionType === 'word-form' && Array.isArray(question.sentences)) {
+          total += question.sentences.length > 0 ? question.sentences.length : 1;
+          return;
+        }
+
+        if (section.questionType === 'short-message') {
+          total += 1;
+          return;
+        }
+
+        if (section.questionType === "cloze-mc" && Array.isArray(question.blanks)) {
+          total += question.blanks.length > 0 ? question.blanks.length : 1;
+          return;
+        }
+
+        if (section.questionType === "cloze-test") {
+          if (Array.isArray(question.blanks) && question.blanks.length > 0) {
+            total += question.blanks.length;
+            return;
+          }
+          if (question.answers && typeof question.answers === 'object' && !Array.isArray(question.answers)) {
+            const n = Object.keys(question.answers).length;
+            total += n > 0 ? n : 1;
+            return;
+          }
+          total += 1;
+          return;
+        }
+
+        // Fallback for single question items
+        total += 1;
+      });
+    });
+  });
+
+  return total;
+};
+
+// Backward-compatible alias used below
+const countTotalQuestions = countTotalQuestionsFromParts;
+
+const requireAdminKeyIfConfigured = (req, res) => {
+  const expected = process.env.ADMIN_KEY;
+  if (!expected) return true;
+  const got = req.headers['x-admin-key'];
+  if (got && String(got) === String(expected)) return true;
+  res.status(403).json({ message: 'Forbidden' });
+  return false;
+};
 
 /**
  * Cambridge Tests Routes
@@ -57,6 +145,66 @@ router.get("/", async (req, res) => {
     console.error("❌ Lỗi khi lấy danh sách Cambridge tests:", err);
     logError("Lỗi khi lấy danh sách Cambridge tests", err);
     res.status(500).json({ message: "Lỗi server khi lấy danh sách đề thi." });
+  }
+});
+
+// ===== ADMIN: RECALCULATE totalQuestions FOR LEGACY TESTS =====
+// POST /api/cambridge/admin/recalculate-total-questions?scope=both|reading|listening&testType=ket-reading&dryRun=true
+router.post('/admin/recalculate-total-questions', async (req, res) => {
+  try {
+    if (!requireAdminKeyIfConfigured(req, res)) return;
+
+    const scope = String(req.query.scope || 'both').toLowerCase();
+    const dryRun = String(req.query.dryRun ?? 'true').toLowerCase() !== 'false';
+    const testType = req.query.testType ? String(req.query.testType) : null;
+
+    const where = testType ? { testType } : {};
+    const targets = [];
+    if (scope === 'both' || scope === 'reading') targets.push({ name: 'reading', Model: CambridgeReading });
+    if (scope === 'both' || scope === 'listening') targets.push({ name: 'listening', Model: CambridgeListening });
+
+    const changes = [];
+    let totalCount = 0;
+
+    for (const t of targets) {
+      const tests = await t.Model.findAll({ where, order: [['id', 'ASC']] });
+      totalCount += tests.length;
+
+      for (const test of tests) {
+        const json = test.toJSON();
+        const computedTotal = countTotalQuestionsFromParts(json.parts);
+        const before = Number(json.totalQuestions) || 0;
+        const after = Number(computedTotal) || 0;
+
+        if (before !== after) {
+          changes.push({
+            category: t.name,
+            id: json.id,
+            testType: json.testType,
+            title: json.title,
+            before,
+            after,
+          });
+
+          if (!dryRun) {
+            await test.update({ totalQuestions: after });
+          }
+        }
+      }
+    }
+
+    res.json({
+      dryRun,
+      scope,
+      filter: { testType },
+      totalCount,
+      changedCount: changes.length,
+      changes,
+    });
+  } catch (err) {
+    console.error('❌ Lỗi khi recalculate totalQuestions:', err);
+    logError('Lỗi khi recalculate totalQuestions', err);
+    res.status(500).json({ message: 'Lỗi server khi recalculate totalQuestions.' });
   }
 });
 
@@ -222,19 +370,19 @@ router.get("/reading-tests", async (req, res) => {
     const tests = await CambridgeReading.findAll({
       where,
       order: [["createdAt", "DESC"]],
-      attributes: [
-        "id",
-        "title",
-        "classCode",
-        "teacherName",
-        "testType",
-        "totalQuestions",
-        "status",
-        "createdAt",
-      ],
     });
 
-    res.json(tests);
+    const normalized = tests.map(test => {
+      const json = test.toJSON();
+      const computedTotal = countTotalQuestions(json.parts);
+      delete json.parts; // keep list response light
+      return {
+        ...json,
+        totalQuestions: Math.max(computedTotal || 0, json.totalQuestions || 0),
+      };
+    });
+
+    res.json(normalized);
   } catch (err) {
     console.error("❌ Lỗi khi lấy danh sách Cambridge Reading:", err);
     logError("Lỗi khi lấy danh sách Cambridge Reading", err);
@@ -251,7 +399,24 @@ router.get("/reading-tests/:id", async (req, res) => {
       return res.status(404).json({ message: "Không tìm thấy đề thi." });
     }
 
-    res.json(test);
+    const json = test.toJSON();
+    const computedTotal = countTotalQuestions(json.parts);
+    const parsedParts = typeof json.parts === "string" ? (() => {
+      try {
+        return JSON.parse(json.parts);
+      } catch (e) {
+        return [];
+      }
+    })() : json.parts;
+
+    // Ensure cloze-test questions have blanks[] even for older saved tests
+    const processedParts = processTestParts(parsedParts);
+
+    res.json({
+      ...json,
+      parts: processedParts,
+      totalQuestions: Math.max(computedTotal || 0, json.totalQuestions || 0),
+    });
   } catch (err) {
     console.error("❌ Lỗi khi lấy chi tiết Cambridge Reading:", err);
     logError("Lỗi khi lấy chi tiết Cambridge Reading", err);
@@ -278,12 +443,15 @@ router.post("/reading-tests", async (req, res) => {
       });
     }
 
+    // Process parts to add blanks array for cloze-test questions
+    const processedParts = processTestParts(parts);
+
     const newTest = await CambridgeReading.create({
       title,
       classCode,
       teacherName: teacherName || '',
       testType,
-      parts: parts, // JSON type - Sequelize handles serialization
+      parts: processedParts, // JSON type - Sequelize handles serialization
       totalQuestions: totalQuestions || 0,
       status: 'draft',
     });
@@ -320,12 +488,15 @@ router.put("/reading-tests/:id", async (req, res) => {
       status,
     } = req.body;
 
+    // Process parts to add blanks array for cloze-test questions
+    const processedParts = parts ? processTestParts(parts) : test.parts;
+
     await test.update({
       title: title || test.title,
       classCode: classCode || test.classCode,
       teacherName: teacherName || test.teacherName,
       testType: testType || test.testType,
-      parts: parts || test.parts, // JSON type - Sequelize handles serialization
+      parts: processedParts, // JSON type - Sequelize handles serialization
       totalQuestions: totalQuestions ?? test.totalQuestions,
       status: status || test.status,
     });
@@ -364,8 +535,9 @@ router.delete("/reading-tests/:id", async (req, res) => {
 
 /**
  * Hàm chấm điểm Cambridge test
+ * Xử lý tất cả loại question: simple, long-text-mc (nested), cloze-mc (blanks), cloze-test (blanks)
  * @param {Object} test - Test data with parts
- * @param {Object} answers - Student answers { "partIdx-secIdx-qIdx": "answer" }
+ * @param {Object} answers - Student answers { "partIdx-secIdx-blankIdx": "answer" }
  * @returns {Object} { score, total, percentage, detailedResults }
  */
 const scoreTest = (test, answers) => {
@@ -373,57 +545,189 @@ const scoreTest = (test, answers) => {
   let total = 0;
   const detailedResults = {};
 
-  const parts = typeof test.parts === 'string' ? JSON.parse(test.parts) : test.parts;
+  let parts = test?.parts;
+  if (typeof parts === 'string') {
+    try {
+      parts = JSON.parse(parts);
+    } catch (e) {
+      parts = [];
+    }
+  }
+  parts = processTestParts(parts);
+
+  // Helper to read answer with backward-compatible keys
+  const pickAnswer = (primaryKey, legacyKeys = []) => {
+    if (answers && Object.prototype.hasOwnProperty.call(answers, primaryKey)) {
+      return answers[primaryKey];
+    }
+    for (const key of legacyKeys) {
+      if (answers && Object.prototype.hasOwnProperty.call(answers, key)) {
+        return answers[key];
+      }
+    }
+    return undefined;
+  };
 
   parts?.forEach((part, partIdx) => {
     part.sections?.forEach((section, secIdx) => {
       section.questions?.forEach((question, qIdx) => {
-        total++;
-        const key = `${partIdx}-${secIdx}-${qIdx}`;
-        const userAnswer = answers[key];
-        const correctAnswer = question.correctAnswer;
-
-        let isCorrect = false;
-
-        if (correctAnswer !== undefined && correctAnswer !== null) {
-          // Handle different question types
-          if (question.questionType === 'fill') {
-            // Fill-in-the-blank: case insensitive, trim whitespace
-            const userNorm = String(userAnswer || '').trim().toLowerCase();
+        
+        // Handle long-text-mc with nested questions
+        if (section.questionType === 'long-text-mc' && question.questions && Array.isArray(question.questions)) {
+          question.questions.forEach((nestedQ, nestedIdx) => {
+            const key = `${partIdx}-${secIdx}-${qIdx}-${nestedIdx}`;
+            const legacyKey = `${partIdx}-${secIdx}-${nestedIdx}`;
+            const userAnswer = pickAnswer(key, [legacyKey]);
+            const correctAnswer = nestedQ.correctAnswer
+              ?? nestedQ.answers
+              ?? nestedQ.answer
+              ?? nestedQ.correct;
             
-            // Support multiple correct answers separated by /
-            if (typeof correctAnswer === 'string') {
-              const acceptedAnswers = correctAnswer.split('/').map(a => a.trim().toLowerCase());
-              isCorrect = acceptedAnswers.includes(userNorm);
-            } else {
-              isCorrect = userNorm === String(correctAnswer).toLowerCase();
+            if (correctAnswer === undefined || correctAnswer === null) {
+              detailedResults[key] = {
+                isCorrect: null,
+                userAnswer: userAnswer || null,
+                correctAnswer: null,
+                questionType: nestedQ.questionType || 'abc',
+                questionText: nestedQ.questionText || ''
+              };
+              return;
             }
-          } else if (question.questionType === 'abc' || question.questionType === 'abcd') {
-            // Multiple choice: exact match (A, B, C, D)
-            isCorrect = userAnswer === correctAnswer;
-          } else if (question.questionType === 'matching') {
-            // Matching: exact match
-            isCorrect = userAnswer === correctAnswer;
-          } else if (question.questionType === 'cloze-test') {
-            // Cloze: case insensitive
-            const userNorm = String(userAnswer || '').trim().toLowerCase();
-            const correctNorm = String(correctAnswer).trim().toLowerCase();
-            isCorrect = userNorm === correctNorm;
-          } else {
-            // Default comparison
-            isCorrect = userAnswer === correctAnswer;
-          }
+
+            total++;
+            const isCorrect = scoreQuestion(userAnswer, correctAnswer, nestedQ.questionType);
+            if (isCorrect) score++;
+            
+            detailedResults[key] = {
+              isCorrect,
+              userAnswer: userAnswer || null,
+              correctAnswer,
+              questionType: nestedQ.questionType || 'abc',
+              questionText: nestedQ.questionText || ''
+            };
+          });
         }
+        // Handle cloze-mc with blanks
+        else if (section.questionType === 'cloze-mc' && question.blanks && Array.isArray(question.blanks)) {
+          question.blanks.forEach((blank, blankIdx) => {
+            const key = `${partIdx}-${secIdx}-${qIdx}-${blankIdx}`;
+            const legacyKey = `${partIdx}-${secIdx}-${blankIdx}`;
+            const userAnswer = pickAnswer(key, [legacyKey]);
+            const correctAnswer = blank.correctAnswer
+              ?? blank.answers
+              ?? blank.answer
+              ?? blank.correct
+              ?? question.correctAnswer
+              ?? question.answers
+              ?? question.answer
+              ?? question.correct;
+            
+            if (correctAnswer === undefined || correctAnswer === null) {
+              detailedResults[key] = {
+                isCorrect: null,
+                userAnswer: userAnswer || null,
+                correctAnswer: null,
+                questionType: 'abc',
+                questionText: blank.questionText || ''
+              };
+              return;
+            }
 
-        if (isCorrect) score++;
+            total++;
+            const isCorrect = scoreQuestion(userAnswer, correctAnswer, 'abc');
+            if (isCorrect) score++;
+            
+            detailedResults[key] = {
+              isCorrect,
+              userAnswer: userAnswer || null,
+              correctAnswer,
+              questionType: 'abc',
+              questionText: blank.questionText || ''
+            };
+          });
+        }
+        // Handle cloze-test with blanks
+        else if (section.questionType === 'cloze-test' && question.blanks && Array.isArray(question.blanks)) {
+          question.blanks.forEach((blank, blankIdx) => {
+            const key = `${partIdx}-${secIdx}-${qIdx}-${blankIdx}`;
+            const legacyKey = `${partIdx}-${secIdx}-${blankIdx}`;
+            const userAnswer = pickAnswer(key, [legacyKey]);
+            
+            // Resolve correctAnswer: try blank-level first, then question.answers[questionNum], then question-level
+            let correctAnswer = blank.correctAnswer
+              ?? blank.answers
+              ?? blank.answer
+              ?? blank.correct;
+            
+            // If not found at blank level, try to get from question.answers object (keyed by questionNum)
+            if (!correctAnswer && question.answers && typeof question.answers === 'object' && !Array.isArray(question.answers)) {
+              correctAnswer = question.answers[blank.questionNum || blank.number];
+            }
+            
+            // Fallback to question-level correctAnswer
+            if (!correctAnswer) {
+              correctAnswer = question.correctAnswer
+                ?? question.answers
+                ?? question.answer
+                ?? question.correct;
+            }
+            
+            if (correctAnswer === undefined || correctAnswer === null) {
+              detailedResults[key] = {
+                isCorrect: null,
+                userAnswer: userAnswer || null,
+                correctAnswer: null,
+                questionType: 'fill',
+                questionText: blank.questionText || ''
+              };
+              return;
+            }
 
-        detailedResults[key] = {
-          isCorrect,
-          userAnswer: userAnswer || null,
-          correctAnswer,
-          questionType: question.questionType || 'fill',
-          questionText: question.questionText || ''
-        };
+            total++;
+            const isCorrect = scoreQuestion(userAnswer, correctAnswer, 'fill');
+            if (isCorrect) score++;
+            
+            detailedResults[key] = {
+              isCorrect,
+              userAnswer: userAnswer || null,
+              correctAnswer,
+              questionType: 'fill',
+              questionText: blank.questionText || ''
+            };
+          });
+        }
+        // Regular question (not nested)
+        else {
+          const key = `${partIdx}-${secIdx}-${qIdx}`;
+          const userAnswer = answers[key];
+          const correctAnswer = question.correctAnswer
+            ?? question.answers
+            ?? question.answer
+            ?? question.correct;
+          
+          if (correctAnswer === undefined || correctAnswer === null) {
+            detailedResults[key] = {
+              isCorrect: null,
+              userAnswer: userAnswer || null,
+              correctAnswer: null,
+              questionType: question.questionType || 'fill',
+              questionText: question.questionText || ''
+            };
+            return;
+          }
+
+          total++;
+          const isCorrect = scoreQuestion(userAnswer, correctAnswer, question.questionType);
+          if (isCorrect) score++;
+          
+          detailedResults[key] = {
+            isCorrect,
+            userAnswer: userAnswer || null,
+            correctAnswer,
+            questionType: question.questionType || 'fill',
+            questionText: question.questionText || ''
+          };
+        }
       });
     });
   });
@@ -434,6 +738,48 @@ const scoreTest = (test, answers) => {
     percentage: total > 0 ? Math.round((score / total) * 100) : 0,
     detailedResults
   };
+};
+
+/**
+ * Helper function to score a single question
+ * @param {*} userAnswer - User's answer
+ * @param {*} correctAnswer - Correct answer
+ * @param {string} questionType - Type of question (fill, abc, abcd, matching, etc.)
+ * @returns {boolean} Whether the answer is correct
+ */
+const scoreQuestion = (userAnswer, correctAnswer, questionType) => {
+  if (!userAnswer) {
+    return false;
+  }
+
+  const toArray = (val) => {
+    if (Array.isArray(val)) return val;
+    if (typeof val === 'string' && (val.includes('/') || val.includes('|'))) {
+      return val.split(/[\/|]/).map((v) => v.trim()).filter(Boolean);
+    }
+    return [val];
+  };
+
+  const normalize = (val) => String(val).trim().toLowerCase();
+  const normalizeMc = (val) => String(val).trim().toUpperCase();
+
+  const acceptedAnswers = toArray(correctAnswer);
+
+  // Fill-in-the-blank style: case-insensitive, allow multiple answers
+  if (questionType === 'fill' || questionType === 'cloze-test') {
+    const userNorm = normalize(userAnswer);
+    return acceptedAnswers.some((ans) => normalize(ans) === userNorm);
+  }
+
+  // Multiple choice: normalize to uppercase letters
+  if (questionType === 'abc' || questionType === 'abcd' || questionType === 'matching') {
+    const userNorm = normalizeMc(userAnswer);
+    return acceptedAnswers.some((ans) => normalizeMc(ans) === userNorm);
+  }
+
+  // Default: case-insensitive string comparison
+  const userNorm = normalize(userAnswer);
+  return acceptedAnswers.some((ans) => normalize(ans) === userNorm);
 };
 
 // POST submit listening test
@@ -694,6 +1040,90 @@ router.get("/submissions", async (req, res) => {
   }
 });
 
+// GET: List submissions for a student by phone (for MyFeedback)
+router.get("/submissions/user/:phone", async (req, res) => {
+  try {
+    const { phone } = req.params;
+    if (!phone) return res.status(400).json({ message: "Thiếu số điện thoại" });
+
+    const submissions = await CambridgeSubmission.findAll({
+      where: { studentPhone: phone },
+      order: [["submittedAt", "DESC"]],
+      attributes: [
+        "id",
+        "testId",
+        "testType",
+        "testTitle",
+        "studentName",
+        "studentPhone",
+        "classCode",
+        "score",
+        "totalQuestions",
+        "percentage",
+        "teacherName",
+        "feedback",
+        "feedbackBy",
+        "feedbackAt",
+        "feedbackSeen",
+        "status",
+        "submittedAt",
+      ],
+    });
+
+    res.json(submissions);
+  } catch (err) {
+    console.error("❌ Lỗi khi lấy Cambridge submissions theo user:", err);
+    logError("Lỗi khi lấy Cambridge submissions theo user", err);
+    res.status(500).json({ message: "Lỗi server khi lấy danh sách bài nộp." });
+  }
+});
+
+// GET: Count unseen feedback for a student by phone (for StudentNavbar bell)
+router.get("/submissions/unseen-count/:phone", async (req, res) => {
+  try {
+    const { phone } = req.params;
+    if (!phone) return res.json({ count: 0 });
+
+    const { Op } = require("sequelize");
+    const count = await CambridgeSubmission.count({
+      where: {
+        studentPhone: phone,
+        feedback: { [Op.ne]: null },
+        feedbackSeen: false,
+      },
+    });
+
+    res.json({ count });
+  } catch (err) {
+    console.error("❌ Lỗi khi đếm Cambridge feedback chưa xem:", err);
+    res.status(500).json({ message: "Lỗi server." });
+  }
+});
+
+// POST: Mark Cambridge feedback as seen (student action)
+router.post("/submissions/mark-feedback-seen", async (req, res) => {
+  try {
+    const { phone, ids } = req.body;
+    if (!phone) {
+      return res.status(400).json({ message: "Thiếu số điện thoại" });
+    }
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ message: "❌ Thiếu danh sách IDs" });
+    }
+
+    const { Op } = require("sequelize");
+    const [updatedCount] = await CambridgeSubmission.update(
+      { feedbackSeen: true },
+      { where: { studentPhone: phone, id: { [Op.in]: ids } } }
+    );
+
+    res.json({ message: "✅ Đã đánh dấu là đã xem", updatedCount });
+  } catch (err) {
+    console.error("❌ Lỗi khi đánh dấu Cambridge feedback đã xem:", err);
+    res.status(500).json({ message: "❌ Server error khi đánh dấu đã xem" });
+  }
+});
+
 // GET single submission detail (for review)
 router.get("/submissions/:id", async (req, res) => {
   try {
@@ -708,6 +1138,92 @@ router.get("/submissions/:id", async (req, res) => {
     console.error("❌ Lỗi khi lấy chi tiết submission:", err);
     logError("Lỗi khi lấy chi tiết submission", err);
     res.status(500).json({ message: "Lỗi server khi lấy chi tiết bài nộp." });
+  }
+});
+
+// POST rescore a submission (recalculate score based on stored answers)
+router.post("/submissions/:id/rescore", async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const submission = await CambridgeSubmission.findByPk(id);
+    if (!submission) {
+      return res.status(404).json({ message: "Không tìm thấy bài nộp." });
+    }
+
+    const parseJsonIfString = (val) => {
+      if (typeof val !== "string") return val;
+      try {
+        return JSON.parse(val);
+      } catch (e) {
+        return val;
+      }
+    };
+
+    const answers = parseJsonIfString(submission.answers);
+    if (!answers || typeof answers !== "object" || Array.isArray(answers)) {
+      return res.status(400).json({
+        message: "Submission không có answers hợp lệ để chấm lại.",
+      });
+    }
+
+    // Determine which test model to use
+    const tt = String(submission.testType || "").toLowerCase();
+    const isListening = tt.includes("listening");
+    const isReading = tt.includes("reading");
+
+    let test = null;
+
+    if (isListening) {
+      test = await CambridgeListening.findByPk(submission.testId);
+    } else if (isReading) {
+      test = await CambridgeReading.findByPk(submission.testId);
+    } else {
+      // Fallback: try both if testType doesn't indicate
+      test = await CambridgeReading.findByPk(submission.testId);
+      if (!test) test = await CambridgeListening.findByPk(submission.testId);
+    }
+
+    if (!test) {
+      return res.status(404).json({
+        message: "Không tìm thấy đề thi tương ứng với submission này.",
+      });
+    }
+
+    const testJson = test.toJSON();
+    const rawParts = parseJsonIfString(testJson.parts);
+    const processedParts = Array.isArray(rawParts) ? processTestParts(rawParts) : rawParts;
+
+    const scoringTest = {
+      ...testJson,
+      parts: processedParts,
+    };
+
+    const before = {
+      score: submission.score,
+      totalQuestions: submission.totalQuestions,
+      percentage: submission.percentage,
+    };
+
+    const { score, total, percentage, detailedResults } = scoreTest(scoringTest, answers);
+
+    await submission.update({
+      score,
+      totalQuestions: total,
+      percentage,
+      detailedResults,
+    });
+
+    res.json({
+      message: "Rescore thành công!",
+      submissionId: submission.id,
+      before,
+      after: { score, totalQuestions: total, percentage },
+    });
+  } catch (err) {
+    console.error("❌ Lỗi khi rescore submission:", err);
+    logError("Lỗi khi rescore submission", err);
+    res.status(500).json({ message: "Lỗi server khi chấm lại bài nộp." });
   }
 });
 

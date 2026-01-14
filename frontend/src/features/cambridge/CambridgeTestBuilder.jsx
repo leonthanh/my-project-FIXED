@@ -1,5 +1,7 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
+import ReactQuill from "react-quill";
+import "react-quill/dist/quill.snow.css";
 import { AdminNavbar } from "../../shared/components";
 import { 
   QuestionTypeSelector, 
@@ -17,10 +19,22 @@ import { apiPath } from "../../shared/utils/api";
  * CambridgeTestBuilder - Component cho việc tạo đề Cambridge tests
  * Có thể dùng cho: KET, PET, FLYERS, MOVERS, STARTERS
  */
-const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initialData = null }) => {
+const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initialData = null, resetDraftOnLoad = false }) => {
   const navigate = useNavigate();
   const testConfig = getTestConfig(testType);
   const availableTypes = getQuestionTypesForTest(testType);
+
+  const didResetDraftRef = useRef(false);
+
+  useEffect(() => {
+    if (!resetDraftOnLoad || didResetDraftRef.current) return;
+    try {
+      localStorage.removeItem(`cambridgeTestDraft-${testType}`);
+    } catch {
+      // ignore
+    }
+    didResetDraftRef.current = true;
+  }, [resetDraftOnLoad, testType]);
 
   // Load saved data from localStorage
   const loadSavedData = () => {
@@ -35,7 +49,8 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
     return null;
   };
 
-  const savedData = loadSavedData();
+  const shouldUseDraft = !resetDraftOnLoad && !editId && !initialData;
+  const savedData = shouldUseDraft ? loadSavedData() : null;
 
   // Form fields
   const [title, setTitle] = useState(savedData?.title || '');
@@ -394,8 +409,9 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
         teacherName,
         testType,
         parts,
-        totalQuestions: parts.reduce((sum, part) => 
-          sum + part.sections.reduce((sSum, sec) => sSum + sec.questions.length, 0), 0
+        totalQuestions: parts.reduce(
+          (sum, part) => sum + part.sections.reduce((sSum, sec) => sSum + getQuestionCountForSection(sec), 0),
+          0
         ),
       };
 
@@ -771,7 +787,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
             </h2>
 
             {/* Part Instruction */}
-            <div style={{ marginBottom: '20px' }}>
+            <div style={{ marginBottom: '20px' }} className="part-instruction-editor">
               <label style={{ 
                 display: 'block', 
                 marginBottom: '8px', 
@@ -780,24 +796,54 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
               }}>
                 Hướng dẫn Part:
               </label>
-              <textarea
-                value={currentPart.instruction}
-                onChange={(e) => {
-                  const newParts = [...parts];
-                  newParts[selectedPartIndex].instruction = e.target.value;
-                  setParts(newParts);
-                }}
-                placeholder="Nhập hướng dẫn cho part này..."
-                style={{
-                  width: '100%',
-                  padding: '5px',
-                  border: '1px solid #d1d5db',
-                  borderRadius: '8px',
-                  minHeight: '80px',
-                  resize: 'vertical',
-                  boxSizing: 'border-box',
-                }}
-              />
+              <div style={{
+                border: '1px solid #d1d5db',
+                borderRadius: '8px',
+                backgroundColor: 'white',
+              }}>
+                <ReactQuill
+                  key={`part-instruction-${selectedPartIndex}`}
+                  theme="snow"
+                  value={currentPart.instruction || ''}
+                  onChange={(content) => {
+                    const newParts = [...parts];
+                    newParts[selectedPartIndex].instruction = content;
+                    setParts(newParts);
+                  }}
+                  placeholder="Nhập hướng dẫn cho part này..."
+                  modules={{
+                    toolbar: [
+                      [{ header: [1, 2, 3, false] }],
+                      ['bold', 'italic', 'underline'],
+                      [{ color: [] }, { background: [] }],
+                      [{ list: 'ordered' }, { list: 'bullet' }],
+                      [{ align: [] }],
+                      ['link', 'image'],
+                      ['clean'],
+                    ],
+                  }}
+                  formats={[
+                    'header',
+                    'bold',
+                    'italic',
+                    'underline',
+                    'color',
+                    'background',
+                    'list',
+                    'bullet',
+                    'align',
+                    'link',
+                    'image',
+                  ]}
+                  style={{
+                    minHeight: '100px',
+                    backgroundColor: 'white',
+                  }}
+                />
+              </div>
+              <p style={{ fontSize: '11px', color: '#6b7280', marginTop: '4px' }}>
+                💡 Có thể thêm hình ảnh, định dạng text, màu sắc...
+              </p>
             </div>
 
             {/* Section */}
@@ -1090,5 +1136,58 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
     </div>
   );
 };
+
+// Custom styles for ReactQuill in Part Instruction
+const quillStyles = `
+  .part-instruction-editor .ql-container {
+    min-height: 100px;
+    font-size: 14px;
+    line-height: 1.8;
+    transition: all 0.2s ease;
+  }
+  .part-instruction-editor .ql-editor {
+    min-height: 100px;
+    background-color: #ffffff;
+  }
+  .part-instruction-editor .ql-editor.ql-blank::before {
+    font-style: italic;
+    color: #9ca3af;
+  }
+  
+  /* Highlight khi focus vào ReactQuill */
+  .part-instruction-editor .ql-container.ql-snow {
+    border-color: #d1d5db;
+  }
+  .part-instruction-editor .ql-container.ql-snow:focus-within {
+    background-color: #fef3c7;
+    border-color: #f59e0b;
+    box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.1);
+  }
+  .part-instruction-editor .ql-editor:focus {
+    background-color: #fef3c7;
+    outline: none;
+  }
+  
+  /* Highlight toolbar khi đang active */
+  .part-instruction-editor .ql-toolbar.ql-snow {
+    border-color: #d1d5db;
+    background-color: #f9fafb;
+  }
+  .part-instruction-editor:focus-within .ql-toolbar.ql-snow {
+    background-color: #fef9e7;
+    border-color: #f59e0b;
+  }
+`;
+
+// Inject styles
+if (typeof document !== 'undefined') {
+  const styleId = 'part-instruction-quill-styles';
+  if (!document.getElementById(styleId)) {
+    const styleEl = document.createElement('style');
+    styleEl.id = styleId;
+    styleEl.textContent = quillStyles;
+    document.head.appendChild(styleEl);
+  }
+}
 
 export default CambridgeTestBuilder;
