@@ -16,6 +16,8 @@ const DoCambridgeReadingTest = () => {
   const { testType, id } = useParams(); // testType: ket-reading, pet-reading, etc.
   const navigate = useNavigate();
 
+  const startedKey = useMemo(() => `cambridge_reading_test_${id}_started`, [id]);
+
   // States
   const [test, setTest] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -29,6 +31,16 @@ const DoCambridgeReadingTest = () => {
   const [activeQuestion, setActiveQuestion] = useState(null);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0); // Current question number
   const [flaggedQuestions, setFlaggedQuestions] = useState(new Set()); // Flagged questions
+  const [hasSavedProgress, setHasSavedProgress] = useState(false);
+
+  // Started flag for the test (show start modal and control timer)
+  const [started, setStarted] = useState(() => {
+    try {
+      return localStorage.getItem(`cambridge_reading_test_${id}_started`) === "true";
+    } catch (e) {
+      return false;
+    }
+  });
   
   // Divider resize state
   const [leftWidth, setLeftWidth] = useState(50); // Percentage
@@ -78,6 +90,7 @@ const DoCambridgeReadingTest = () => {
         
         if (savedTime && savedAnswers) {
           // Restore existing progress
+          setHasSavedProgress(true);
           setTimeRemaining(parseInt(savedTime));
           try {
             setAnswers(JSON.parse(savedAnswers));
@@ -86,8 +99,12 @@ const DoCambridgeReadingTest = () => {
           }
         } else {
           // New test - clean up any old saved data and start fresh
+          setHasSavedProgress(false);
           localStorage.removeItem(`test-time-${id}`);
           localStorage.removeItem(`test-answers-${id}`);
+          // If there's no saved progress, force start modal again
+          localStorage.removeItem(startedKey);
+          setStarted(false);
           setTimeRemaining((testConfig.duration || 60) * 60);
           setAnswers({});
         }
@@ -99,11 +116,11 @@ const DoCambridgeReadingTest = () => {
       }
     };
     fetchTest();
-  }, [id, testConfig.duration]);
+  }, [id, testConfig.duration, startedKey]);
 
   // Timer countdown
   useEffect(() => {
-    if (submitted || !test || timeRemaining === null) return;
+    if (!started || submitted || !test || timeRemaining === null) return;
 
     const timer = setInterval(() => {
       setTimeRemaining((prev) => {
@@ -120,7 +137,7 @@ const DoCambridgeReadingTest = () => {
 
     return () => clearInterval(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [test, submitted, timeRemaining]);
+  }, [test, submitted, timeRemaining, started]);
 
   // Format time display
   const formatTime = (seconds) => {
@@ -185,6 +202,7 @@ const DoCambridgeReadingTest = () => {
       // Clear saved data from localStorage
       localStorage.removeItem(`test-time-${id}`);
       localStorage.removeItem(`test-answers-${id}`);
+      localStorage.removeItem(startedKey);
       
       // Show results modal instead of redirecting
       setResults(localResults);
@@ -200,6 +218,7 @@ const DoCambridgeReadingTest = () => {
       // Clear saved data on error too
       localStorage.removeItem(`test-time-${id}`);
       localStorage.removeItem(`test-answers-${id}`);
+      localStorage.removeItem(startedKey);
     }
   };
 
@@ -592,6 +611,142 @@ const DoCambridgeReadingTest = () => {
 
   return (
     <div className="cambridge-test-container">
+      {/* Start Modal (only starts timer after click) */}
+      {!started && !submitted && !loading && !error && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.5)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1200,
+          }}
+        >
+          <div
+            style={{
+              background: "white",
+              padding: "26px",
+              borderRadius: "14px",
+              width: "90%",
+              maxWidth: "520px",
+              boxShadow: "0 10px 30px rgba(0,0,0,0.25)",
+            }}
+          >
+            <h2 style={{ margin: 0, marginBottom: 12 }}>Bắt đầu làm bài Cambridge Reading</h2>
+            {hasSavedProgress ? (
+              <>
+                <p style={{ margin: 0, color: "#374151", lineHeight: 1.6 }}>
+                  Phát hiện bài làm đã được lưu.
+                </p>
+                <p style={{ marginTop: 10, marginBottom: 0, color: "#6b7280" }}>
+                  Thời gian còn lại: <b>{timeRemaining !== null ? formatTime(timeRemaining) : "--:--"}</b>
+                </p>
+              </>
+            ) : (
+              <p style={{ margin: 0, color: "#374151", lineHeight: 1.6 }}>
+                Bạn có <b>{Math.round(testConfig.duration || 60)} phút</b> để hoàn tất bài làm. Bài làm sẽ được tự động lưu.
+              </p>
+            )}
+            <p style={{ marginTop: 10, marginBottom: 0, color: "#6b7280" }}>
+              Đề: <b>{test?.title || testConfig.name || "Cambridge Reading"}</b>
+            </p>
+            <p style={{ marginTop: 6, marginBottom: 0, color: "#6b7280" }}>
+              Tổng số câu: <b>{allQuestions.length}</b>
+            </p>
+
+            <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 18, flexWrap: "wrap" }}>
+              <button
+                onClick={() => navigate(-1)}
+                style={{
+                  padding: "10px 14px",
+                  background: "#f1f5f9",
+                  color: "#374151",
+                  border: "1px solid #d1d5db",
+                  borderRadius: 10,
+                  cursor: "pointer",
+                  fontWeight: 700,
+                }}
+              >
+                Thoát
+              </button>
+
+              {hasSavedProgress && (
+                <button
+                  onClick={() => {
+                    const ok = window.confirm(
+                      "Bạn chắc chắn muốn làm lại từ đầu? Tất cả tiến độ đã lưu sẽ bị xóa."
+                    );
+                    if (!ok) return;
+
+                    try {
+                      localStorage.removeItem(`test-time-${id}`);
+                      localStorage.removeItem(`test-answers-${id}`);
+                      localStorage.removeItem(startedKey);
+                    } catch {
+                      // ignore
+                    }
+
+                    setAnswers({});
+                    setFlaggedQuestions(new Set());
+                    setCurrentPartIndex(0);
+                    setCurrentQuestionIndex(0);
+                    setActiveQuestion(null);
+                    setTimeRemaining((testConfig.duration || 60) * 60);
+                    setHasSavedProgress(false);
+                    setStarted(false);
+                  }}
+                  style={{
+                    padding: "10px 14px",
+                    background: "#fff",
+                    color: "#b91c1c",
+                    border: "1px solid #fecaca",
+                    borderRadius: 10,
+                    cursor: "pointer",
+                    fontWeight: 800,
+                  }}
+                >
+                  🔄 Làm lại từ đầu
+                </button>
+              )}
+
+              <button
+                onClick={() => {
+                  setStarted(true);
+                  try {
+                    localStorage.setItem(startedKey, "true");
+                  } catch {
+                    // ignore
+                  }
+                  if (timeRemaining === null) {
+                    setTimeRemaining((testConfig.duration || 60) * 60);
+                  }
+                  // focus first question after small delay
+                  setTimeout(() => {
+                    const el = document.getElementById("question-1");
+                    if (el && typeof el.scrollIntoView === "function") {
+                      el.scrollIntoView({ behavior: "smooth", block: "center" });
+                    }
+                  }, 250);
+                }}
+                style={{
+                  padding: "10px 16px",
+                  background: "#0052cc",
+                  color: "white",
+                  border: "none",
+                  borderRadius: 10,
+                  cursor: "pointer",
+                  fontWeight: 800,
+                }}
+              >
+                {hasSavedProgress ? "Tiếp tục" : "Bắt đầu làm bài"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <TestHeader
         title={test?.title || `${testConfig.name}`}

@@ -7,7 +7,7 @@ import { WritingTest, CreateWritingTest } from './features/writing';
 import { Login } from './features/auth';
 import { CreateReadingTest, EditReadingTest, DoReadingTest, TakeReadingTest, ReadingResults } from './features/reading';
 import { CreateListeningTest, EditListeningTest, DoListeningTest, ListeningResults } from './features/listening';
-import { CreateKETListeningTest, CreateKETReadingTest, EditCambridgeReadingTest, EditCambridgeListeningTest, SelectCambridgeTest, DoCambridgeListeningTest, DoCambridgeReadingTest, CambridgeResultPage } from './features/cambridge';
+import { CreateKETListeningTest, CreateKETReadingTest, CreateCambridgeTest, EditCambridgeReadingTest, EditCambridgeListeningTest, SelectCambridgeTest, DoCambridgeListeningTest, DoCambridgeReadingTest, CambridgeResultPage } from './features/cambridge';
 import { ProtectedRoute } from './shared/components';
 
 const isLoggedIn = () => {
@@ -100,6 +100,12 @@ function App() {
         <Route path="/admin/create-ket-reading" element={
           <ProtectedRoute role="teacher">
             <CreateKETReadingTest />
+          </ProtectedRoute>
+        } />
+        {/* Generic Cambridge create routes (PET/Flyers/Movers/Starters...) */}
+        <Route path="/admin/create-:testType" element={
+          <ProtectedRoute role="teacher">
+            <CreateCambridgeTest />
           </ProtectedRoute>
         } />
         <Route path="/cambridge/reading/:id/edit" element={
