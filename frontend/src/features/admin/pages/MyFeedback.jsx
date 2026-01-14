@@ -13,6 +13,10 @@ const MyFeedback = () => {
   // Reading state
   const [readingSubmissions, setReadingSubmissions] = useState([]);
   const [filteredReading, setFilteredReading] = useState([]);
+
+  // Cambridge state
+  const [cambridgeSubmissions, setCambridgeSubmissions] = useState([]);
+  const [filteredCambridge, setFilteredCambridge] = useState([]);
   
   const [loading, setLoading] = useState(true);
 
@@ -97,18 +101,53 @@ const MyFeedback = () => {
     }
   }, []);
 
+  // Fetch Cambridge submissions
+  const fetchCambridgeData = useCallback(async (userPhone) => {
+    if (!userPhone) return;
+    try {
+      const res = await fetch(apiPath(`cambridge/submissions/user/${userPhone}`));
+      const subs = await res.json();
+      const userSubs = Array.isArray(subs) ? subs : [];
+
+      const unseenIds = userSubs
+        .filter((sub) => sub.feedback && !sub.feedbackSeen)
+        .map((sub) => sub.id);
+
+      if (unseenIds.length > 0) {
+        await fetch(apiPath("cambridge/submissions/mark-feedback-seen"), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ phone: userPhone, ids: unseenIds }),
+        });
+        window.dispatchEvent(new Event("feedbackSeen"));
+      }
+
+      const updatedSubs = userSubs.map((sub) =>
+        unseenIds.includes(sub.id) ? { ...sub, feedbackSeen: true } : sub
+      );
+      setCambridgeSubmissions(updatedSubs);
+    } catch (err) {
+      console.error("❌ Lỗi khi tải Cambridge submissions:", err);
+      setCambridgeSubmissions([]);
+    }
+  }, []);
+
   useEffect(() => {
     if (!user?.phone || hasFetched.current) return;
     hasFetched.current = true;
     
     const fetchAll = async () => {
       setLoading(true);
-      await Promise.all([fetchWritingData(user.phone), fetchReadingData(user.phone)]);
+      await Promise.all([
+        fetchWritingData(user.phone),
+        fetchReadingData(user.phone),
+        fetchCambridgeData(user.phone),
+      ]);
       setLoading(false);
     };
     
     fetchAll();
-  }, [fetchWritingData, fetchReadingData, user]);
+  }, [fetchWritingData, fetchReadingData, fetchCambridgeData, user]);
 
   // Filter Writing submissions
   useEffect(() => {
@@ -156,6 +195,35 @@ const MyFeedback = () => {
     setFilteredReading(filtered);
   }, [searchClassCode, searchTeacher, searchFeedbackBy, readingSubmissions]);
 
+  // Filter Cambridge submissions
+  useEffect(() => {
+    let filtered = cambridgeSubmissions;
+
+    if (searchClassCode.trim()) {
+      filtered = filtered.filter((item) =>
+        String(item.classCode || "")
+          .toLowerCase()
+          .includes(searchClassCode.toLowerCase())
+      );
+    }
+    if (searchTeacher.trim()) {
+      filtered = filtered.filter((item) =>
+        String(item.teacherName || "")
+          .toLowerCase()
+          .includes(searchTeacher.toLowerCase())
+      );
+    }
+    if (searchFeedbackBy.trim()) {
+      filtered = filtered.filter((item) =>
+        String(item.feedbackBy || "")
+          .toLowerCase()
+          .includes(searchFeedbackBy.toLowerCase())
+      );
+    }
+
+    setFilteredCambridge(filtered);
+  }, [searchClassCode, searchTeacher, searchFeedbackBy, cambridgeSubmissions]);
+
   // Load analysis for a Reading submission
   const loadAnalysis = async (submissionId) => {
     setLoadingAnalysis(true);
@@ -196,7 +264,12 @@ const MyFeedback = () => {
 
   if (!user) return <p style={{ padding: 40 }}>❌ Bạn chưa đăng nhập.</p>;
 
-  const currentSubmissions = activeTab === "writing" ? filteredWriting : filteredReading;
+  const currentSubmissions =
+    activeTab === "writing"
+      ? filteredWriting
+      : activeTab === "reading"
+        ? filteredReading
+        : filteredCambridge;
 
   return (
     <>
@@ -235,6 +308,22 @@ const MyFeedback = () => {
             }}
           >
             📖 Reading ({readingSubmissions.length})
+          </button>
+
+          <button
+            onClick={() => setActiveTab("cambridge")}
+            style={{
+              padding: "12px 24px",
+              backgroundColor: activeTab === "cambridge" ? "#0e276f" : "#e0e0e0",
+              color: activeTab === "cambridge" ? "white" : "#333",
+              border: "none",
+              borderRadius: 8,
+              cursor: "pointer",
+              fontSize: 16,
+              fontWeight: activeTab === "cambridge" ? "bold" : "normal",
+            }}
+          >
+            🎓 Cambridge ({cambridgeSubmissions.length})
           </button>
         </div>
 
@@ -335,9 +424,15 @@ const MyFeedback = () => {
         {/* Results count */}
         <p style={{ color: "#666", marginBottom: 15 }}>
           📊 Tổng cộng: <strong>{currentSubmissions.length}</strong> bài{" "}
-          {activeTab === "writing" ? "viết" : "đọc"}
+          {activeTab === "writing" ? "viết" : activeTab === "reading" ? "đọc" : "Cambridge"}
           {(searchClassCode || searchTeacher || searchFeedbackBy) &&
-            ` (lọc từ ${activeTab === "writing" ? writingSubmissions.length : readingSubmissions.length})`}
+            ` (lọc từ ${
+              activeTab === "writing"
+                ? writingSubmissions.length
+                : activeTab === "reading"
+                  ? readingSubmissions.length
+                  : cambridgeSubmissions.length
+            })`}
         </p>
 
         {loading && <p>⏳ Đang tải dữ liệu...</p>}
@@ -346,7 +441,9 @@ const MyFeedback = () => {
           <p style={{ color: "#d32f2f", fontWeight: "bold" }}>
             🙁 {searchClassCode || searchTeacher || searchFeedbackBy
               ? "Không tìm thấy bài phù hợp."
-              : `Bạn chưa nộp bài ${activeTab === "writing" ? "viết" : "đọc"} nào.`}
+              : `Bạn chưa nộp bài ${
+                  activeTab === "writing" ? "viết" : activeTab === "reading" ? "đọc" : "Cambridge"
+                } nào.`}
           </p>
         )}
 
@@ -532,6 +629,89 @@ const MyFeedback = () => {
                 }}
               >
                 📋 Xem chi tiết đáp án →
+              </a>
+            </div>
+          </div>
+        ))}
+
+        {/* Cambridge submissions list */}
+        {activeTab === "cambridge" && filteredCambridge.map((sub, idx) => (
+          <div
+            key={sub.id || idx}
+            style={{
+              border: "1px solid #ccc",
+              borderRadius: 8,
+              padding: 20,
+              marginBottom: 20,
+              backgroundColor: "#f9f9f9",
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+              <div>
+                <p>
+                  <strong>📋 Loại bài:</strong> {sub.testType || "Cambridge"}
+                </p>
+                <p>
+                  <strong>📝 Tên đề:</strong> {sub.testTitle || "N/A"}
+                </p>
+                <p>
+                  <strong>🧾 Lớp:</strong> {sub.classCode || "(Không xác định)"}
+                </p>
+                <p>
+                  <strong>👨‍🏫 Giáo viên đề:</strong> {sub.teacherName || "(Không xác định)"}
+                </p>
+                <p>
+                  <strong>⏰ Nộp lúc:</strong>{" "}
+                  {new Date(sub.submittedAt || sub.createdAt).toLocaleString("vi-VN")}
+                </p>
+              </div>
+
+              <div style={{
+                padding: "12px 16px",
+                background: "#111827",
+                color: "#fff",
+                borderRadius: 8,
+                textAlign: "center"
+              }}>
+                <div style={{ fontSize: 20, fontWeight: "bold" }}>
+                  {typeof sub.score === "number" && typeof sub.totalQuestions === "number"
+                    ? `${sub.score}/${sub.totalQuestions}`
+                    : "--"}
+                </div>
+                <div style={{ fontSize: 12 }}>Score</div>
+              </div>
+            </div>
+
+            {/* Teacher feedback */}
+            <h4 style={{ marginTop: 10 }}>
+              📩 Nhận xét từ giáo viên:{" "}
+              <span style={{ color: "#0e276f", fontWeight: "bold" }}>
+                {sub.feedbackBy || "Chưa có"}
+              </span>
+            </h4>
+            {sub.feedback ? (
+              <div style={{ background: "#e7f4e4", padding: 10, borderRadius: 6 }}>
+                <p style={{ marginBottom: 8, whiteSpace: "pre-line" }}>{sub.feedback}</p>
+                <p style={{ fontSize: 14, color: "#555" }}>
+                  🕐 <strong>Thời gian nhận xét:</strong>{" "}
+                  {sub.feedbackAt ? new Date(sub.feedbackAt).toLocaleString("vi-VN") : "Không rõ"}
+                </p>
+              </div>
+            ) : (
+              <p style={{ fontStyle: "italic", color: "#999" }}>Chưa có nhận xét từ giáo viên.</p>
+            )}
+
+            {/* View details link */}
+            <div style={{ marginTop: 15 }}>
+              <a
+                href={`/cambridge/result/${sub.id}`}
+                style={{
+                  color: "#0e276f",
+                  textDecoration: "underline",
+                  fontSize: 14
+                }}
+              >
+                📋 Xem chi tiết bài làm →
               </a>
             </div>
           </div>

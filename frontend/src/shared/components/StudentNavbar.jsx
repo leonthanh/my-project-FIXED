@@ -8,6 +8,7 @@ const StudentNavbar = () => {
 
   const [writingFeedbackCount, setWritingFeedbackCount] = useState(0);
   const [readingFeedbackCount, setReadingFeedbackCount] = useState(0);
+  const [cambridgeFeedbackCount, setCambridgeFeedbackCount] = useState(0);
   const [newTestCount, setNewTestCount] = useState(0);
 
   // Lấy thông tin user từ localStorage
@@ -64,6 +65,18 @@ const StudentNavbar = () => {
       } catch (err) {
         console.error("❌ Lỗi khi tải Reading notifications:", err);
         setReadingFeedbackCount(0);
+      }
+
+      // Fetch Cambridge notifications
+      try {
+        const camRes = await fetch(apiPath(`cambridge/submissions/unseen-count/${user.phone}`));
+        if (camRes.ok) {
+          const { count } = await camRes.json();
+          setCambridgeFeedbackCount(count || 0);
+        }
+      } catch (err) {
+        console.error("❌ Lỗi khi tải Cambridge notifications:", err);
+        setCambridgeFeedbackCount(0);
       }
     } catch (err) {
       console.error("❌ Lỗi khi tải thông báo:", err);
@@ -140,8 +153,30 @@ const StudentNavbar = () => {
         console.error("❌ Lỗi khi đánh dấu Reading đã xem:", err);
       }
 
+      // Mark Cambridge feedback as seen
+      try {
+        const camRes = await fetch(apiPath(`cambridge/submissions/user/${user.phone}`));
+        if (camRes.ok) {
+          const camSubs = await camRes.json();
+          const camUnseenIds = (Array.isArray(camSubs) ? camSubs : [])
+            .filter((sub) => sub.feedback && !sub.feedbackSeen)
+            .map((sub) => sub.id);
+
+          if (camUnseenIds.length > 0) {
+            await fetch(apiPath("cambridge/submissions/mark-feedback-seen"), {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ phone: user.phone, ids: camUnseenIds }),
+            });
+          }
+        }
+      } catch (err) {
+        console.error("❌ Lỗi khi đánh dấu Cambridge đã xem:", err);
+      }
+
       setWritingFeedbackCount(0);
       setReadingFeedbackCount(0);
+      setCambridgeFeedbackCount(0);
     } catch (err) {
       console.error("❌ Lỗi khi đánh dấu đã xem nhận xét:", err);
     }
@@ -172,7 +207,7 @@ const StudentNavbar = () => {
     fontSize: "16px",
   };
 
-  const feedbackCount = writingFeedbackCount + readingFeedbackCount;
+  const feedbackCount = writingFeedbackCount + readingFeedbackCount + cambridgeFeedbackCount;
   const totalNotifications = feedbackCount + newTestCount;
 
   return (

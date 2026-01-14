@@ -1040,6 +1040,90 @@ router.get("/submissions", async (req, res) => {
   }
 });
 
+// GET: List submissions for a student by phone (for MyFeedback)
+router.get("/submissions/user/:phone", async (req, res) => {
+  try {
+    const { phone } = req.params;
+    if (!phone) return res.status(400).json({ message: "Thiếu số điện thoại" });
+
+    const submissions = await CambridgeSubmission.findAll({
+      where: { studentPhone: phone },
+      order: [["submittedAt", "DESC"]],
+      attributes: [
+        "id",
+        "testId",
+        "testType",
+        "testTitle",
+        "studentName",
+        "studentPhone",
+        "classCode",
+        "score",
+        "totalQuestions",
+        "percentage",
+        "teacherName",
+        "feedback",
+        "feedbackBy",
+        "feedbackAt",
+        "feedbackSeen",
+        "status",
+        "submittedAt",
+      ],
+    });
+
+    res.json(submissions);
+  } catch (err) {
+    console.error("❌ Lỗi khi lấy Cambridge submissions theo user:", err);
+    logError("Lỗi khi lấy Cambridge submissions theo user", err);
+    res.status(500).json({ message: "Lỗi server khi lấy danh sách bài nộp." });
+  }
+});
+
+// GET: Count unseen feedback for a student by phone (for StudentNavbar bell)
+router.get("/submissions/unseen-count/:phone", async (req, res) => {
+  try {
+    const { phone } = req.params;
+    if (!phone) return res.json({ count: 0 });
+
+    const { Op } = require("sequelize");
+    const count = await CambridgeSubmission.count({
+      where: {
+        studentPhone: phone,
+        feedback: { [Op.ne]: null },
+        feedbackSeen: false,
+      },
+    });
+
+    res.json({ count });
+  } catch (err) {
+    console.error("❌ Lỗi khi đếm Cambridge feedback chưa xem:", err);
+    res.status(500).json({ message: "Lỗi server." });
+  }
+});
+
+// POST: Mark Cambridge feedback as seen (student action)
+router.post("/submissions/mark-feedback-seen", async (req, res) => {
+  try {
+    const { phone, ids } = req.body;
+    if (!phone) {
+      return res.status(400).json({ message: "Thiếu số điện thoại" });
+    }
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ message: "❌ Thiếu danh sách IDs" });
+    }
+
+    const { Op } = require("sequelize");
+    const [updatedCount] = await CambridgeSubmission.update(
+      { feedbackSeen: true },
+      { where: { studentPhone: phone, id: { [Op.in]: ids } } }
+    );
+
+    res.json({ message: "✅ Đã đánh dấu là đã xem", updatedCount });
+  } catch (err) {
+    console.error("❌ Lỗi khi đánh dấu Cambridge feedback đã xem:", err);
+    res.status(500).json({ message: "❌ Server error khi đánh dấu đã xem" });
+  }
+});
+
 // GET single submission detail (for review)
 router.get("/submissions/:id", async (req, res) => {
   try {
