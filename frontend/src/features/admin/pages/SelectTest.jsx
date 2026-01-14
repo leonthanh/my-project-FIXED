@@ -110,7 +110,11 @@ const SelectTest = () => {
 
     return testList.map((test, index) => (
       <div
-        key={test.id}
+        key={
+          testType === 'cambridge'
+            ? `cambridge-${test.category || 'unknown'}-${test.id}`
+            : `${testType}-${test.id}`
+        }
         style={{
           border: "1px solid #eee",
           padding: "15px",
