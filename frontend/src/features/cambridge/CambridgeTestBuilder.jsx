@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import ReactQuill from "react-quill";
 import "react-quill/dist/quill.snow.css";
@@ -19,10 +19,22 @@ import { apiPath } from "../../shared/utils/api";
  * CambridgeTestBuilder - Component cho việc tạo đề Cambridge tests
  * Có thể dùng cho: KET, PET, FLYERS, MOVERS, STARTERS
  */
-const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initialData = null }) => {
+const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initialData = null, resetDraftOnLoad = false }) => {
   const navigate = useNavigate();
   const testConfig = getTestConfig(testType);
   const availableTypes = getQuestionTypesForTest(testType);
+
+  const didResetDraftRef = useRef(false);
+
+  useEffect(() => {
+    if (!resetDraftOnLoad || didResetDraftRef.current) return;
+    try {
+      localStorage.removeItem(`cambridgeTestDraft-${testType}`);
+    } catch {
+      // ignore
+    }
+    didResetDraftRef.current = true;
+  }, [resetDraftOnLoad, testType]);
 
   // Load saved data from localStorage
   const loadSavedData = () => {
@@ -37,7 +49,8 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
     return null;
   };
 
-  const savedData = loadSavedData();
+  const shouldUseDraft = !resetDraftOnLoad && !editId && !initialData;
+  const savedData = shouldUseDraft ? loadSavedData() : null;
 
   // Form fields
   const [title, setTitle] = useState(savedData?.title || '');
@@ -396,8 +409,9 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
         teacherName,
         testType,
         parts,
-        totalQuestions: parts.reduce((sum, part) => 
-          sum + part.sections.reduce((sSum, sec) => sSum + sec.questions.length, 0), 0
+        totalQuestions: parts.reduce(
+          (sum, part) => sum + part.sections.reduce((sSum, sec) => sSum + getQuestionCountForSection(sec), 0),
+          0
         ),
       };
 

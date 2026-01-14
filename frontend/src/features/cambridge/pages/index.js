@@ -4,6 +4,7 @@
 export { default as CreateKETListeningTest } from './CreateKETListeningTest';
 export { default as CreateKETReadingTest } from './CreateKETReadingTest';
 export { default as EditCambridgeReadingTest } from './EditCambridgeReadingTest';
+export { default as EditCambridgeListeningTest } from './EditCambridgeListeningTest';
 
 // Student - Select and Do test pages
 export { default as SelectCambridgeTest } from './SelectCambridgeTest';

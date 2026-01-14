@@ -6,6 +6,7 @@ export {
   CreateKETListeningTest, 
   CreateKETReadingTest,
   EditCambridgeReadingTest,
+  EditCambridgeListeningTest,
   SelectCambridgeTest,
   DoCambridgeListeningTest,
   DoCambridgeReadingTest,

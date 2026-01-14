@@ -19,7 +19,11 @@ import CambridgeTestBuilder from "../CambridgeTestBuilder";
 const EditCambridgeReadingTest = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const testType = 'ket-reading';
+
+  // Fetch test data on mount
+  const [fetchedData, setFetchedData] = useState(null);
+
+  const testType = fetchedData?.testType || 'ket-reading';
   const testConfig = getTestConfig(testType);
   // Memoize available types so the array identity doesn't change each render
   const availableTypes = useMemo(() => getQuestionTypesForTest(testType), [testType]);
@@ -38,9 +42,6 @@ const EditCambridgeReadingTest = () => {
   const [parts, setParts] = useState([]);
   const [selectedPartIndex, setSelectedPartIndex] = useState(0);
   const [selectedSectionIndex, setSelectedSectionIndex] = useState(0);
-
-  // Fetch test data on mount
-  const [fetchedData, setFetchedData] = useState(null);
 
   useEffect(() => {
     const fetchTest = async () => {

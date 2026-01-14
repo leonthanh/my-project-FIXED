@@ -1,16 +1,40 @@
-import React from "react";
+import React, { useEffect, useMemo, useRef } from "react";
 
 const CambridgeResultsModal = ({ results, onClose, testTitle, studentName }) => {
-  if (!results) return null;
+  const modalRef = useRef(null);
 
-  const {
-    score,
-    correct,
-    incorrect,
-    total,
-    percentage,
-    writingQuestions = [],
-  } = results;
+  const safe = useMemo(() => {
+    const r = results || {};
+    const score = Number(r.score) || 0;
+    const correct = Number(r.correct) || 0;
+    const incorrect = Number(r.incorrect) || 0;
+    const total = Number(r.total) || 0;
+    const rawPct = Number(r.percentage);
+    const percentage = Number.isFinite(rawPct) ? Math.max(0, Math.min(100, rawPct)) : 0;
+
+    return {
+      score,
+      correct,
+      incorrect,
+      total,
+      percentage,
+      writingQuestions: Array.isArray(r.writingQuestions) ? r.writingQuestions : [],
+    };
+  }, [results]);
+
+  const { score, correct, incorrect, total, percentage, writingQuestions } = safe;
+
+  useEffect(() => {
+    if (!results) return;
+    modalRef.current?.focus();
+    const onKeyDown = (e) => {
+      if (e.key === "Escape") onClose?.();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [onClose]);
+
+  if (!results) return null;
 
   // Circular Progress
   const CircularProgress = ({ percentage, size = 100, strokeWidth = 8 }) => {
@@ -83,6 +107,11 @@ const CambridgeResultsModal = ({ results, onClose, testTitle, studentName }) => 
           overflow: "auto",
           animation: "slideUp 0.3s ease-out",
         }}
+        ref={modalRef}
+        tabIndex={-1}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Kết quả bài thi"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -191,7 +220,7 @@ const CambridgeResultsModal = ({ results, onClose, testTitle, studentName }) => 
               }}
             >
               <div style={{ fontSize: "12px", color: "#64748b", marginBottom: "6px" }}>
-                CÂUĐÚNG
+                CÂU ĐÚNG
               </div>
               <div style={{ fontSize: "24px", fontWeight: 700, color: "#16a34a" }}>
                 {correct}
@@ -206,7 +235,7 @@ const CambridgeResultsModal = ({ results, onClose, testTitle, studentName }) => 
               }}
             >
               <div style={{ fontSize: "12px", color: "#64748b", marginBottom: "6px" }}>
-                CÂUSAI
+                CÂU SAI
               </div>
               <div style={{ fontSize: "24px", fontWeight: 700, color: "#dc2626" }}>
                 {incorrect}
@@ -281,7 +310,7 @@ const CambridgeResultsModal = ({ results, onClose, testTitle, studentName }) => 
               onMouseOver={(e) => (e.target.style.background = "#003d99")}
               onMouseOut={(e) => (e.target.style.background = "#0052cc")}
             >
-              Quay lại trang chủ
+              Đóng
             </button>
           </div>
         </div>

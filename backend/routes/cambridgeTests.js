@@ -5,19 +5,29 @@ const { logError } = require("../logger");
 const { processTestParts } = require("../utils/clozParser");
 
 // Compute total questions from parts so frontend displays stay in sync with teacher view
-const countTotalQuestions = (rawParts = []) => {
-  const parts = typeof rawParts === "string" ? (() => {
+const safeParseParts = (rawParts) => {
+  if (!rawParts) return [];
+  if (Array.isArray(rawParts)) return rawParts;
+  if (typeof rawParts === 'string') {
     try {
-      return JSON.parse(rawParts);
-    } catch (e) {
+      const parsed = JSON.parse(rawParts);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
       return [];
     }
-  })() : rawParts || [];
+  }
+  return [];
+};
+
+const countTotalQuestionsFromParts = (rawParts = []) => {
+  const parts = safeParseParts(rawParts);
+  // Ensure cloze-test blanks are generated for legacy tests before counting
+  const processedParts = processTestParts(parts);
 
   let total = 0;
 
-  parts.forEach(part => {
-    part.sections?.forEach(section => {
+  processedParts.forEach(part => {
+    (part.sections || []).forEach(section => {
       const questions = section.questions || [];
 
       questions.forEach(question => {
@@ -26,8 +36,37 @@ const countTotalQuestions = (rawParts = []) => {
           return;
         }
 
-        if (["cloze-mc", "cloze-test"].includes(section.questionType) && Array.isArray(question.blanks)) {
+        if (section.questionType === 'people-matching' && Array.isArray(question.people)) {
+          total += question.people.length > 0 ? question.people.length : 1;
+          return;
+        }
+
+        if (section.questionType === 'word-form' && Array.isArray(question.sentences)) {
+          total += question.sentences.length > 0 ? question.sentences.length : 1;
+          return;
+        }
+
+        if (section.questionType === 'short-message') {
+          total += 1;
+          return;
+        }
+
+        if (section.questionType === "cloze-mc" && Array.isArray(question.blanks)) {
           total += question.blanks.length > 0 ? question.blanks.length : 1;
+          return;
+        }
+
+        if (section.questionType === "cloze-test") {
+          if (Array.isArray(question.blanks) && question.blanks.length > 0) {
+            total += question.blanks.length;
+            return;
+          }
+          if (question.answers && typeof question.answers === 'object' && !Array.isArray(question.answers)) {
+            const n = Object.keys(question.answers).length;
+            total += n > 0 ? n : 1;
+            return;
+          }
+          total += 1;
           return;
         }
 
@@ -38,6 +77,18 @@ const countTotalQuestions = (rawParts = []) => {
   });
 
   return total;
+};
+
+// Backward-compatible alias used below
+const countTotalQuestions = countTotalQuestionsFromParts;
+
+const requireAdminKeyIfConfigured = (req, res) => {
+  const expected = process.env.ADMIN_KEY;
+  if (!expected) return true;
+  const got = req.headers['x-admin-key'];
+  if (got && String(got) === String(expected)) return true;
+  res.status(403).json({ message: 'Forbidden' });
+  return false;
 };
 
 /**
@@ -94,6 +145,66 @@ router.get("/", async (req, res) => {
     console.error("❌ Lỗi khi lấy danh sách Cambridge tests:", err);
     logError("Lỗi khi lấy danh sách Cambridge tests", err);
     res.status(500).json({ message: "Lỗi server khi lấy danh sách đề thi." });
+  }
+});
+
+// ===== ADMIN: RECALCULATE totalQuestions FOR LEGACY TESTS =====
+// POST /api/cambridge/admin/recalculate-total-questions?scope=both|reading|listening&testType=ket-reading&dryRun=true
+router.post('/admin/recalculate-total-questions', async (req, res) => {
+  try {
+    if (!requireAdminKeyIfConfigured(req, res)) return;
+
+    const scope = String(req.query.scope || 'both').toLowerCase();
+    const dryRun = String(req.query.dryRun ?? 'true').toLowerCase() !== 'false';
+    const testType = req.query.testType ? String(req.query.testType) : null;
+
+    const where = testType ? { testType } : {};
+    const targets = [];
+    if (scope === 'both' || scope === 'reading') targets.push({ name: 'reading', Model: CambridgeReading });
+    if (scope === 'both' || scope === 'listening') targets.push({ name: 'listening', Model: CambridgeListening });
+
+    const changes = [];
+    let totalCount = 0;
+
+    for (const t of targets) {
+      const tests = await t.Model.findAll({ where, order: [['id', 'ASC']] });
+      totalCount += tests.length;
+
+      for (const test of tests) {
+        const json = test.toJSON();
+        const computedTotal = countTotalQuestionsFromParts(json.parts);
+        const before = Number(json.totalQuestions) || 0;
+        const after = Number(computedTotal) || 0;
+
+        if (before !== after) {
+          changes.push({
+            category: t.name,
+            id: json.id,
+            testType: json.testType,
+            title: json.title,
+            before,
+            after,
+          });
+
+          if (!dryRun) {
+            await test.update({ totalQuestions: after });
+          }
+        }
+      }
+    }
+
+    res.json({
+      dryRun,
+      scope,
+      filter: { testType },
+      totalCount,
+      changedCount: changes.length,
+      changes,
+    });
+  } catch (err) {
+    console.error('❌ Lỗi khi recalculate totalQuestions:', err);
+    logError('Lỗi khi recalculate totalQuestions', err);
+    res.status(500).json({ message: 'Lỗi server khi recalculate totalQuestions.' });
   }
 });
 

@@ -76,9 +76,9 @@ const SelectCambridgeTest = () => {
 
   const handleEdit = (testId, testType) => {
     if (testType === "listening") {
-      navigate(`/admin/edit-${activeTestType}-listening/${testId}`);
+      navigate(`/cambridge/listening/${testId}/edit`);
     } else {
-      navigate(`/admin/edit-${activeTestType}-reading/${testId}`);
+      navigate(`/cambridge/reading/${testId}/edit`);
     }
   };
 
@@ -149,7 +149,7 @@ const SelectCambridgeTest = () => {
                       {test.title || `${activeTestType.toUpperCase()} ${testType.charAt(0).toUpperCase() + testType.slice(1)} ${index + 1}`}
                     </h3>
                     <div className="cambridge-test-main__meta">
-                      📚 {test.classCode || "N/A"} • 👨‍🏫 {test.teacherName || "N/A"} • 📊 {test.totalQuestions || config.totalQuestions || "?"} câu • ⏱️ {config.duration || 30} phút
+                      📚 {test.classCode || "N/A"} • 👨‍🏫 {test.teacherName || "N/A"} • 📊 {config.totalQuestions || test.totalQuestions || "?"} câu • ⏱️ {config.duration || 30} phút
                     </div>
                   </div>
                 </div>
