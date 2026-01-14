@@ -37,6 +37,13 @@ const CambridgeResultPage = () => {
     return { label: '✕ Sai', color: '#ef4444', bg: '#fee2e2', text: '#991b1b' };
   };
 
+  const canShowCorrectAnswer = (result) => {
+    if (!result || typeof result !== 'object') return false;
+    if (result.isCorrect === null) return false; // pending grading (writing)
+    const ca = result.correctAnswer;
+    return ca !== undefined && ca !== null && String(ca).trim() !== '';
+  };
+
   const normalizeSubmission = (raw) => {
     if (!raw) return null;
     const normalized = { ...raw };
@@ -301,7 +308,7 @@ const CambridgeResultPage = () => {
       const label = Number.isFinite(blankNum) ? `(${blankNum})` : '(?)';
       const userAnswer = (result?.userAnswer ?? '').toString();
       const correctAnswer = (result?.correctAnswer ?? '').toString();
-      const title = `${label} ${status.label}\nBạn: ${userAnswer || '(Không trả lời)'}${result?.isCorrect === false ? `\nĐúng: ${correctAnswer}` : ''}`;
+      const title = `${label} ${status.label}\nBạn: ${userAnswer || '(Không trả lời)'}${canShowCorrectAnswer(result) ? `\nĐúng: ${correctAnswer}` : ''}`;
 
       return (
         <span
@@ -451,7 +458,7 @@ const CambridgeResultPage = () => {
                       {result.userAnswer || '(Không trả lời)'}
                     </span>
                   </div>
-                  {result?.isCorrect === false && (
+                  {canShowCorrectAnswer(result) && (
                     <div style={styles.clozeAnswerRow}>
                       <span style={styles.answerLabel}>Đúng:</span>
                       <span style={{ ...styles.answerValue, color: '#166534', backgroundColor: '#dcfce7' }}>
@@ -748,7 +755,7 @@ const CambridgeResultPage = () => {
                                             {result.userAnswer || '(Không trả lời)'}
                                           </span>
                                         </div>
-                                        {result?.isCorrect === false && (
+                                        {canShowCorrectAnswer(result) && (
                                           <div style={styles.answerRow}>
                                             <span style={styles.answerLabel}>Đáp án đúng:</span>
                                             <span style={{
@@ -824,7 +831,7 @@ const CambridgeResultPage = () => {
                                               {result.userAnswer || '(Không trả lời)'}
                                             </span>
                                           </div>
-                                          {result?.isCorrect === false && (
+                                          {canShowCorrectAnswer(result) && (
                                             <div style={styles.answerRow}>
                                               <span style={styles.answerLabel}>Đáp án đúng:</span>
                                               <span style={{
@@ -900,7 +907,7 @@ const CambridgeResultPage = () => {
                                             {result.userAnswer || '(Không trả lời)'}
                                           </span>
                                         </div>
-                                        {result?.isCorrect === false && (
+                                        {canShowCorrectAnswer(result) && (
                                           <div style={styles.answerRow}>
                                             <span style={styles.answerLabel}>Đáp án đúng:</span>
                                             <span style={{
@@ -962,7 +969,7 @@ const CambridgeResultPage = () => {
                                       {result.userAnswer || '(Không trả lời)'}
                                     </span>
                                   </div>
-                                  {result?.isCorrect === false && (
+                                  {canShowCorrectAnswer(result) && (
                                     <div style={styles.answerRow}>
                                       <span style={styles.answerLabel}>Đáp án đúng:</span>
                                       <span style={{
