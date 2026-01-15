@@ -13,7 +13,7 @@ import {
   getTestConfig,
   TEST_CONFIGS,
 } from "../../shared/config/questionTypes";
-import { apiPath } from "../../shared/utils/api";
+import { apiPath, hostPath } from "../../shared/utils/api";
 
 /**
  * CambridgeTestBuilder - Component cho việc tạo đề Cambridge tests
@@ -23,6 +23,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
   const navigate = useNavigate();
   const testConfig = getTestConfig(testType);
   const availableTypes = getQuestionTypesForTest(testType);
+  const isListeningTest = testType.includes('listening');
 
   const didResetDraftRef = useRef(false);
 
@@ -109,30 +110,6 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
     }
   }, [initialData]);
 
-  // Support edit mode via props
-  useEffect(() => {
-    if (initialData) {
-      setTitle(initialData.title || '');
-      setClassCode(initialData.classCode || '');
-      setTeacherName(initialData.teacherName || '');
-
-      // parts may be stored as string in older records -> parse safely
-      let partsData = initialData.parts;
-      if (typeof partsData === 'string') {
-        try {
-          partsData = JSON.parse(partsData);
-        } catch (err) {
-          console.warn('Could not parse parts JSON - falling back to default:', err);
-          partsData = null;
-        }
-      }
-
-      if (Array.isArray(partsData)) {
-        setParts(partsData);
-      }
-    }
-  }, [initialData]);
-
   // State - Load from savedData if available
   const [parts, setParts] = useState(getInitialParts());
   const [selectedPartIndex, setSelectedPartIndex] = useState(0);
@@ -148,8 +125,57 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
   const [draggedQuestion, setDraggedQuestion] = useState(null);
   const [dragSource, setDragSource] = useState(null);
 
+  // Audio upload state (listening only)
+  const [uploadingAudioPartIndex, setUploadingAudioPartIndex] = useState(null);
+  const [audioUploadError, setAudioUploadError] = useState('');
+
   const currentPart = parts[selectedPartIndex];
   const currentSection = currentPart?.sections?.[selectedSectionIndex];
+
+  const uploadAudioForPart = async (partIndex, file) => {
+    if (!file) return;
+
+    setAudioUploadError('');
+    setUploadingAudioPartIndex(partIndex);
+
+    try {
+      const formData = new FormData();
+      formData.append('audio', file);
+
+      const res = await fetch(apiPath('upload/audio'), {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!res.ok) {
+        let errMsg = 'Lỗi khi upload audio';
+        try {
+          const err = await res.json();
+          errMsg = err?.message || errMsg;
+        } catch {
+          // ignore
+        }
+        throw new Error(errMsg);
+      }
+
+      const data = await res.json();
+      const url = data?.url;
+      if (!url) throw new Error('Upload thành công nhưng không nhận được URL audio');
+
+      setParts(prev => {
+        const next = [...prev];
+        next[partIndex] = {
+          ...next[partIndex],
+          audioUrl: url,
+        };
+        return next;
+      });
+    } catch (err) {
+      setAudioUploadError(err?.message || 'Lỗi khi upload audio');
+    } finally {
+      setUploadingAudioPartIndex(null);
+    }
+  };
 
   // Handlers
   const handleQuestionTypeChange = (newType) => {
@@ -845,6 +871,105 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
                 💡 Có thể thêm hình ảnh, định dạng text, màu sắc...
               </p>
             </div>
+
+            {/* Part Audio (Listening only) */}
+            {isListeningTest && (
+              <div style={{ marginBottom: '20px' }}>
+                <label
+                  style={{
+                    display: 'block',
+                    marginBottom: '8px',
+                    fontWeight: 600,
+                    color: '#374151',
+                  }}
+                >
+                  Audio (file nghe cho Part này):
+                </label>
+
+                <div
+                  style={{
+                    border: '1px solid #d1d5db',
+                    borderRadius: '8px',
+                    padding: '12px',
+                    backgroundColor: 'white',
+                  }}
+                >
+                  {currentPart.audioUrl ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                      <audio
+                        controls
+                        src={hostPath(currentPart.audioUrl)}
+                        style={{ width: '100%' }}
+                      >
+                        Your browser does not support audio.
+                      </audio>
+
+                      <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+                        <a
+                          href={hostPath(currentPart.audioUrl)}
+                          target="_blank"
+                          rel="noreferrer"
+                          style={{ color: '#2563eb', textDecoration: 'none', fontSize: '13px' }}
+                        >
+                          Mở file audio
+                        </a>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const newParts = [...parts];
+                            newParts[selectedPartIndex].audioUrl = '';
+                            setParts(newParts);
+                          }}
+                          style={{
+                            border: '1px solid #ef4444',
+                            background: 'white',
+                            color: '#ef4444',
+                            padding: '6px 10px',
+                            borderRadius: '6px',
+                            cursor: 'pointer',
+                            fontSize: '13px',
+                          }}
+                        >
+                          Xoá audio
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{ fontSize: '13px', color: '#6b7280' }}>
+                      Chưa có audio cho part này.
+                    </div>
+                  )}
+
+                  <div style={{ marginTop: '12px' }}>
+                    <input
+                      type="file"
+                      accept="audio/*"
+                      disabled={uploadingAudioPartIndex === selectedPartIndex}
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        // allow re-uploading same file
+                        e.target.value = '';
+                        if (!file) return;
+                        await uploadAudioForPart(selectedPartIndex, file);
+                      }}
+                    />
+                    {uploadingAudioPartIndex === selectedPartIndex && (
+                      <div style={{ marginTop: '8px', fontSize: '12px', color: '#0e276f' }}>
+                        Đang upload audio...
+                      </div>
+                    )}
+                    {audioUploadError && (
+                      <div style={{ marginTop: '8px', fontSize: '12px', color: '#ef4444' }}>
+                        ❌ {audioUploadError}
+                      </div>
+                    )}
+                    <div style={{ marginTop: '6px', fontSize: '11px', color: '#6b7280' }}>
+                      💡 Hỗ trợ file audio (mp3/wav/m4a/ogg...). Backend giới hạn 50MB.
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Section */}
             {currentSection && (
