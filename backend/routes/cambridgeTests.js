@@ -1004,9 +1004,19 @@ router.get("/reading-tests/:id/submissions", async (req, res) => {
 router.get("/submissions", async (req, res) => {
   try {
     const { testType, classCode, page = 1, limit = 50 } = req.query;
+    const { Op } = require("sequelize");
     
     const where = {};
-    if (testType) where.testType = testType;
+    if (testType) {
+      const normalized = String(testType).trim().toLowerCase();
+
+      // Support tab filters from frontend: reading | listening
+      // Stored values are typically like: ket-reading, ket-listening, pet-reading...
+      if (normalized === "reading") where.testType = { [Op.like]: "%-reading" };
+      else if (normalized === "listening")
+        where.testType = { [Op.like]: "%-listening" };
+      else where.testType = testType;
+    }
     if (classCode) where.classCode = classCode;
 
     const offset = (parseInt(page) - 1) * parseInt(limit);

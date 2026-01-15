@@ -1,56 +1,22 @@
 // src/features/writing/pages/CreateWritingTest.jsx
 import React, { useState } from "react";
-import { AdminNavbar, CustomEditor } from "../../../shared/components";
+import ReactQuill from "react-quill";
+import { AdminNavbar } from "../../../shared/components";
 import { apiPath } from "../../../shared/utils/api";
 
-// 🎨 Thêm CSS tùy chỉnh cho editor - nền xám nhạt để dễ nhìn
-const editorStyles = `
-  .ck-content {
-    background-color: #f8f8f8 !important;
-    color: #000 !important;
-    caret-color: #000 !important;
-    cursor: text !important;
-    min-height: 200px;
-    border-radius: 4px !important;
-  }
-  .ck.ck-editor__main > .ck-editor__editable {
-    background-color: #f8f8f8 !important;
-    border: 1px solid #ddd !important;
-  }
-  .ck.ck-editor__main > .ck-editor__editable:focus {
-    background-color: #f5f5f5 !important;
-    box-shadow: inset 0 0 5px rgba(0,0,0,0.1);
-  }
-  /* Cho ReactQuill (nếu có) */
-  .ql-editor {
-    background-color: #f8f8f8 !important;
-    color: #000 !important;
-    caret-color: #000 !important;
-    cursor: text !important;
-    min-height: 200px;
-    border-radius: 4px;
-  }
-  .ql-editor:focus {
-    background-color: #f5f5f5 !important;
-    box-shadow: inset 0 0 5px rgba(0,0,0,0.1);
-  }
-  .ql-editor.ql-blank::before {
-    color: #999;
-    font-style: italic;
-  }
-  .ql-toolbar {
-    background-color: #fff !important;
-    border: 1px solid #ddd !important;
-    border-radius: 4px 4px 0 0;
-  }
-`;
+import "./CreateWritingTest.css";
 
-// Thêm style vào head
-if (typeof document !== "undefined") {
-  const style = document.createElement("style");
-  style.textContent = editorStyles;
-  document.head.appendChild(style);
-}
+const quillModules = {
+  toolbar: [
+    [{ header: [1, 2, 3, false] }],
+    ["bold", "italic", "underline", "strike"],
+    [{ list: "ordered" }, { list: "bullet" }],
+    [{ align: [] }],
+    ["blockquote", "code-block"],
+    ["link", "image"],
+    ["clean"],
+  ],
+};
 
 const CreateWritingTest = () => {
   const [task1, setTask1] = useState("");
@@ -69,23 +35,43 @@ const CreateWritingTest = () => {
       return;
     }
 
-    const formData = new FormData();
-    formData.append("task1", task1);
-    formData.append("task2", task2);
-    formData.append("classCode", classCode);
-    formData.append("teacherName", teacherName);
-    if (image) formData.append("image", image);
-
     try {
-      const endpoint = image
-        ? apiPath("writing-tests/with-image")
-        : apiPath("writing-tests");
-      const res = await fetch(endpoint, {
-        method: "POST",
-        body: formData,
-      });
+      const endpoint = image ? apiPath("writing-tests/with-image") : apiPath("writing-tests");
 
-      const data = await res.json();
+      let res;
+      if (image) {
+        const formData = new FormData();
+        formData.append("task1", task1);
+        formData.append("task2", task2);
+        formData.append("classCode", classCode);
+        formData.append("teacherName", teacherName);
+        formData.append("image", image);
+
+        res = await fetch(endpoint, {
+          method: "POST",
+          body: formData,
+        });
+      } else {
+        res = await fetch(endpoint, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            task1,
+            task2,
+            classCode,
+            teacherName,
+          }),
+        });
+      }
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setMessage(data.message || "❌ Lỗi khi tạo đề");
+        return;
+      }
+
       setMessage(data.message || "✅ Đã tạo đề");
 
       setTask1("");
@@ -112,8 +98,8 @@ const CreateWritingTest = () => {
   return (
     <>
       <AdminNavbar />
-      <div style={{ maxWidth: "800px", margin: "20px auto" }}>
-        <h2>📝 Thêm đề Writing</h2>
+      <div className="create-writing-container">
+        <h2>📝 Create Writing</h2>
         <form onSubmit={handleSubmit}>
           <input
             type="text"
@@ -134,22 +120,30 @@ const CreateWritingTest = () => {
             <label>
               <b>Nội dung Task 1:</b>
             </label>
-            <CustomEditor
-              value={task1}
-              onChange={(data) => setTask1(data)}
-              placeholder="Nhập nội dung Task 1"
-            />
+            <div className="create-writing-quill">
+              <ReactQuill
+                theme="snow"
+                value={task1}
+                onChange={setTask1}
+                placeholder="Nhập nội dung Task 1"
+                modules={quillModules}
+              />
+            </div>
           </div>
 
           <div style={{ marginBottom: "20px" }}>
             <label>
               <b>Nội dung Task 2:</b>
             </label>
-            <CustomEditor
-              value={task2}
-              onChange={(data) => setTask2(data)}
-              placeholder="Nhập nội dung Task 2"
-            />
+            <div className="create-writing-quill">
+              <ReactQuill
+                theme="snow"
+                value={task2}
+                onChange={setTask2}
+                placeholder="Nhập nội dung Task 2"
+                modules={quillModules}
+              />
+            </div>
           </div>
 
           <input

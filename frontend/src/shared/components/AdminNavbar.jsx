@@ -10,18 +10,20 @@ const AdminNavbar = () => {
   const [unreviewed, setUnreviewed] = useState([]);
   const [notificationDropdownVisible, setNotificationDropdownVisible] =
     useState(false);
-  const [createTestDropdownVisible, setCreateTestDropdownVisible] =
-    useState(false);
   const [submissionDropdownVisible, setSubmissionDropdownVisible] =
     useState(false);
   const [cambridgeDropdownVisible, setCambridgeDropdownVisible] =
     useState(false);
   const notificationDropdownRef = useRef(null);
-  const createTestDropdownRef = useRef(null);
   const submissionDropdownRef = useRef(null);
   const cambridgeDropdownRef = useRef(null);
 
-  const user = JSON.parse(localStorage.getItem("user"));
+  let user = null;
+  try {
+    user = JSON.parse(localStorage.getItem("user"));
+  } catch {
+    user = null;
+  }
 
   useEffect(() => {
     const fetchUnreviewed = async () => {
@@ -53,12 +55,6 @@ const AdminNavbar = () => {
         setNotificationDropdownVisible(false);
       }
       if (
-        createTestDropdownRef.current &&
-        !createTestDropdownRef.current.contains(event.target)
-      ) {
-        setCreateTestDropdownVisible(false);
-      }
-      if (
         submissionDropdownRef.current &&
         !submissionDropdownRef.current.contains(event.target)
       ) {
@@ -88,80 +84,9 @@ const AdminNavbar = () => {
           alt="Logo"
           className="adminNavbar__logo"
         />
-        <div
-          className="adminNavbar__dropdown"
-          ref={submissionDropdownRef}
-        >
-          <span
-            className="adminNavbar__link adminNavbar__dropdownToggle"
-            onClick={() => setSubmissionDropdownVisible((prev) => !prev)}
-          >
-            📁 Ielts ▼
-          </span>
-          {submissionDropdownVisible && (
-            <div className="adminNavbar__menu adminNavbar__menu--wide">
-              <Link
-                to="/admin/reading-submissions"
-                className="adminNavbar__menuItem"
-                onClick={() => setSubmissionDropdownVisible(false)}
-              >
-                🔍 Reading submissions
-              </Link>
-              <Link
-                to="/admin/writing-submissions"
-                className="adminNavbar__menuItem"
-                onClick={() => setSubmissionDropdownVisible(false)}
-              >
-                ✍️ Writing submissions
-              </Link>
-            </div>
-          )}
-        </div>
-        <Link to="/select-test" className="adminNavbar__link">
-          📋 Danh sách đề
-        </Link>
-        <div
-          className="adminNavbar__dropdown"
-          ref={createTestDropdownRef}
-        >
-          <span
-            className="adminNavbar__link adminNavbar__dropdownToggle"
-            onClick={() => setCreateTestDropdownVisible((prev) => !prev)}
-          >
-            ✏️ Tạo đề ▼
-          </span>
-          {createTestDropdownVisible && (
-            <div className="adminNavbar__menu">
-              <Link
-                to="/admin/create-writing"
-                className="adminNavbar__menuItem"
-                onClick={() => setCreateTestDropdownVisible(false)}
-              >
-                ✍️ Writing
-              </Link>
-              <Link
-                to="/admin/create-listening"
-                className="adminNavbar__menuItem"
-                onClick={() => setCreateTestDropdownVisible(false)}
-              >
-                🎧 Listening
-              </Link>
-              <Link
-                to="/admin/create-reading"
-                className="adminNavbar__menuItem"
-                onClick={() => setCreateTestDropdownVisible(false)}
-              >
-                📖 Reading
-              </Link>
-            </div>
-          )}
-        </div>
 
         {/* Cambridge Tests Dropdown */}
-        <div
-          className="adminNavbar__dropdown"
-          ref={cambridgeDropdownRef}
-        >
+        <div className="adminNavbar__dropdown" ref={cambridgeDropdownRef}>
           <span
             className="adminNavbar__link adminNavbar__dropdownToggle"
             onClick={() => setCambridgeDropdownVisible((prev) => !prev)}
@@ -171,8 +96,7 @@ const AdminNavbar = () => {
           {cambridgeDropdownVisible && (
             <div className="adminNavbar__menu">
               <div className="adminNavbar__menuHeader">📚 KET (A2 Key)</div>
-                📚 KET (A2 Key)
-              
+
               <Link
                 to="/admin/create-ket-listening"
                 className="adminNavbar__menuItem"
@@ -206,7 +130,9 @@ const AdminNavbar = () => {
                 📖 PET Reading (Sắp ra)
               </Link>
 
-              <div className="adminNavbar__menuHeader adminNavbar__menuHeader--spaced">📊 Quản lý</div>
+              <div className="adminNavbar__menuHeader adminNavbar__menuHeader--spaced">
+                📊 Quản lý
+              </div>
               <Link
                 to="/admin/cambridge-submissions"
                 className="adminNavbar__menuItem"
@@ -217,6 +143,65 @@ const AdminNavbar = () => {
             </div>
           )}
         </div>
+
+        <div
+          className="adminNavbar__dropdown"
+          ref={submissionDropdownRef}
+        >
+          <span
+            className="adminNavbar__link adminNavbar__dropdownToggle"
+            onClick={() => setSubmissionDropdownVisible((prev) => !prev)}
+          >
+            📁 Ielts ▼
+          </span>
+          {submissionDropdownVisible && (
+            <div className="adminNavbar__menu adminNavbar__menu--wide">
+              <div className="adminNavbar__menuHeader">📥 Submissions</div>
+              <Link
+                to="/admin/reading-submissions"
+                className="adminNavbar__menuItem"
+                onClick={() => setSubmissionDropdownVisible(false)}
+              >
+                🔍 Reading
+              </Link>
+              <Link
+                to="/admin/writing-submissions"
+                className="adminNavbar__menuItem"
+                onClick={() => setSubmissionDropdownVisible(false)}
+              >
+                ✍️ Writing 
+              </Link>
+
+              <div className="adminNavbar__menuHeader adminNavbar__menuHeader--spaced">
+                ✏️ Create
+              </div>
+              <Link
+                to="/admin/create-writing"
+                className="adminNavbar__menuItem"
+                onClick={() => setSubmissionDropdownVisible(false)}
+              >
+                ✍️ Writing
+              </Link>
+              <Link
+                to="/admin/create-listening"
+                className="adminNavbar__menuItem"
+                onClick={() => setSubmissionDropdownVisible(false)}
+              >
+                🎧 Listening
+              </Link>
+              <Link
+                to="/admin/create-reading"
+                className="adminNavbar__menuItem"
+                onClick={() => setSubmissionDropdownVisible(false)}
+              >
+                📖 Reading
+              </Link>
+            </div>
+          )}
+        </div>
+        <Link to="/select-test" className="adminNavbar__link">
+          📋 Danh sách đề
+        </Link>
 
         <Link to="/review" className="adminNavbar__link">
           📝 Nhận xét bài
