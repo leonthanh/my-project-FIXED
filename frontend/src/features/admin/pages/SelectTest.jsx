@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { StudentNavbar, AdminNavbar } from "../../../shared/components";
 import { apiPath, hostPath } from "../../../shared/utils/api";
 
+import "./SelectTest.css";
+
 const SelectTest = () => {
   const user = JSON.parse(localStorage.getItem("user"));
   const isTeacher = user && user.role === "teacher";
@@ -14,6 +16,9 @@ const SelectTest = () => {
   });
   const [activeTab, setActiveTab] = useState("writing");
   const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [sortMode, setSortMode] = useState("newest");
+  const [visibleCount, setVisibleCount] = useState(12);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -53,6 +58,12 @@ const SelectTest = () => {
 
     fetchAllTests();
   }, []);
+
+  useEffect(() => {
+    setVisibleCount(12);
+    setSearchQuery("");
+    setSortMode("newest");
+  }, [activeTab]);
 
   const handleSelectWriting = (testId) => {
     const numericId = parseInt(testId, 10);
@@ -99,143 +110,85 @@ const SelectTest = () => {
     }
   };
 
-  const renderTestList = (testList, testType) => {
-    if (testList.length === 0) {
-      return (
-        <p style={{ textAlign: "center", color: "#999" }}>
-          Chưa có đề thi loại này
-        </p>
-      );
+  const normalizeText = (value) => String(value ?? "").toLowerCase();
+  const getTestTitle = (test, testType, fallbackIndex) => {
+    if (testType === "cambridge") {
+      const level = (test.testType || "KET").toUpperCase();
+      const cat = test.category === "listening" ? "Listening" : "Reading";
+      return `${level} ${cat}`;
     }
-
-    return testList.map((test, index) => (
-      <div
-        key={
-          testType === 'cambridge'
-            ? `cambridge-${test.category || 'unknown'}-${test.id}`
-            : `${testType}-${test.id}`
-        }
-        style={{
-          border: "1px solid #eee",
-          padding: "15px",
-          borderRadius: "10px",
-          marginBottom: "15px",
-          backgroundColor: "#f9f9f9",
-        }}
-      >
-        <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
-          <button
-            onClick={() => {
-              if (testType === "writing") handleSelectWriting(test.id);
-              else if (testType === "reading") handleSelectReading(test.id);
-              else if (testType === "listening") handleSelectListening(test.id);
-              else if (testType === "cambridge") handleSelectCambridge(test);
-            }}
-            style={{
-              backgroundColor: "#0e276f",
-              color: "white",
-              border: "none",
-              padding: "12px 20px",
-              borderRadius: "8px",
-              cursor: "pointer",
-              fontSize: "16px",
-              flex: 1,
-              textAlign: "left",
-            }}
-          >
-            <h3 style={{ margin: "0px" }}>
-              {testType === "writing"
-                ? "📝"
-                : testType === "reading"
-                ? "📖"
-                : testType === "listening"
-                ? "🎧"
-                : "🏆"}{" "}
-              {testType === "cambridge" 
-                ? `${test.testType?.toUpperCase() || 'KET'} ${test.category === 'listening' ? '🎧' : '📖'} ${test.title || ''}`
-                : `${testType.charAt(0).toUpperCase() + testType.slice(1)} ${test.index || index + 1}`} – {test.classCode || "N/A"} –{" "}
-              {test.teacherName || "N/A"}
-            </h3>
-          </button>
-          {isTeacher && (
-            <button
-              onClick={() => handleEdit(test.id, testType, test)}
-              style={{
-                backgroundColor: "#e03",
-                color: "white",
-                border: "none",
-                padding: "12px 20px",
-                borderRadius: "8px",
-                cursor: "pointer",
-                fontSize: "16px",
-                minWidth: "100px",
-              }}
-            >
-              ✏️ Sửa đề
-            </button>
-          )}
-        </div>
-      </div>
-    ));
+    const label = testType.charAt(0).toUpperCase() + testType.slice(1);
+    return `${label} ${test.index || fallbackIndex}`;
   };
+
+  const getTestIcon = (testType) => {
+    if (testType === "writing") return "📝";
+    if (testType === "reading") return "📖";
+    if (testType === "listening") return "🎧";
+    return "🏆";
+  };
+
+  const filterAndSort = (list, testType) => {
+    const q = normalizeText(searchQuery).trim();
+
+    const filtered = (Array.isArray(list) ? list : []).filter((t) => {
+      if (!q) return true;
+
+      const haystack = [
+        t.id,
+        t.index,
+        t.classCode,
+        t.teacherName,
+        t.title,
+        t.testType,
+        t.category,
+      ]
+        .map((v) => normalizeText(v))
+        .join(" ");
+
+      return haystack.includes(q);
+    });
+
+    const getCreatedOrId = (t) => {
+      const created = t.createdAt ? Date.parse(t.createdAt) : NaN;
+      if (!Number.isNaN(created)) return created;
+      return Number(t.id || 0);
+    };
+
+    const sorted = [...filtered].sort((a, b) => {
+      if (sortMode === "oldest") return getCreatedOrId(a) - getCreatedOrId(b);
+      if (sortMode === "index-asc") return Number(a.index || 0) - Number(b.index || 0);
+      if (sortMode === "index-desc") return Number(b.index || 0) - Number(a.index || 0);
+      return getCreatedOrId(b) - getCreatedOrId(a);
+    });
+
+    return sorted;
+  };
+
+  const activeList = filterAndSort(tests[activeTab], activeTab);
+  const visibleList = activeList.slice(0, visibleCount);
+  const remainingCount = Math.max(0, activeList.length - visibleList.length);
 
   return (
     <>
       {isTeacher ? <AdminNavbar /> : <StudentNavbar />}
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          padding: "50px 20px",
-          fontFamily: "sans-serif",
-          backgroundColor: "#f4f8ff",
-          minHeight: "100vh",
-        }}
-      >
-        <div
-          style={{
-            maxWidth: "800px",
-            width: "100%",
-            backgroundColor: "white",
-            borderRadius: "12px",
-            boxShadow: "0 4px 20px rgba(0, 0, 0, 0.1)",
-            padding: "30px",
-          }}
-        >
-          <div style={{ textAlign: "center", marginBottom: 30 }}>
+      <div className="select-test-page">
+        <div className="select-test-shell">
+          <div className="select-test-header">
             <img
               src={hostPath("uploads/staredu.jpg")}
               alt="StarEdu"
-              style={{ height: 60, marginBottom: 10 }}
+              className="select-test-logo"
             />
           </div>
 
           {/* Tab Navigation */}
-          <div
-            style={{
-              display: "flex",
-              gap: "10px",
-              marginBottom: "30px",
-              borderBottom: "2px solid #eee",
-              padding: "0 0 20px 0",
-              flexWrap: "wrap",
-            }}
-          >
+          <div className="select-test-tabs">
             {["writing", "reading", "listening", "cambridge"].map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
-                style={{
-                  padding: "10px 20px",
-                  backgroundColor: activeTab === tab ? "#0e276f" : "#e0e0e0",
-                  color: activeTab === tab ? "white" : "#333",
-                  border: "none",
-                  borderRadius: "6px",
-                  cursor: "pointer",
-                  fontSize: "16px",
-                  fontWeight: activeTab === tab ? "bold" : "normal",
-                }}
+                className={`select-test-tab ${activeTab === tab ? "active" : ""}`}
               >
                 {tab === "writing"
                   ? "📝 Writing"
@@ -248,34 +201,112 @@ const SelectTest = () => {
             ))}
           </div>
 
+          <div className="select-test-controls">
+            <input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Tìm theo mã lớp, giáo viên, số đề..."
+              className="select-test-search"
+            />
+
+            <select
+              value={sortMode}
+              onChange={(e) => setSortMode(e.target.value)}
+              className="select-test-sort"
+            >
+              <option value="newest">Mới nhất</option>
+              <option value="oldest">Cũ nhất</option>
+              <option value="index-desc">Index giảm dần</option>
+              <option value="index-asc">Index tăng dần</option>
+            </select>
+          </div>
+
           {/* Test List */}
           {loading ? (
-            <p
-              style={{
-                textAlign: "center",
-                fontStyle: "italic",
-                color: "#666",
-              }}
-            >
-              ⏳ Đang tải đề...
-            </p>
+            <p className="select-test-loading">⏳ Đang tải đề...</p>
+          ) : activeList.length === 0 ? (
+            <p className="select-test-empty">Chưa có đề thi loại này</p>
           ) : (
-            renderTestList(tests[activeTab], activeTab)
+            <>
+              <div className="select-test-meta">
+                <span>
+                  Tổng: <b>{activeList.length}</b>
+                </span>
+                {searchQuery.trim() ? (
+                  <span>
+                    Đang lọc: <b>“{searchQuery.trim()}”</b>
+                  </span>
+                ) : null}
+              </div>
+
+              <div className="select-test-grid">
+                {visibleList.map((test, index) => {
+                  const title = getTestTitle(test, activeTab, index + 1);
+                  const icon = getTestIcon(activeTab);
+                  const classCode = test.classCode || "N/A";
+                  const teacherName = test.teacherName || "N/A";
+
+                  return (
+                    <div
+                      key={
+                        activeTab === "cambridge"
+                          ? `cambridge-${test.category || "unknown"}-${test.id}`
+                          : `${activeTab}-${test.id}`
+                      }
+                      className="select-test-card"
+                    >
+                      <button
+                        type="button"
+                        className="select-test-cardMain"
+                        onClick={() => {
+                          if (activeTab === "writing") handleSelectWriting(test.id);
+                          else if (activeTab === "reading") handleSelectReading(test.id);
+                          else if (activeTab === "listening") handleSelectListening(test.id);
+                          else if (activeTab === "cambridge") handleSelectCambridge(test);
+                        }}
+                      >
+                        <div className="select-test-cardTitle">
+                          <span className="select-test-cardIcon">{icon}</span>
+                          <span className="select-test-cardText">{title}</span>
+                        </div>
+
+                        <div className="select-test-cardMeta">
+                          <div>
+                            <span className="select-test-chip">{classCode}</span>
+                          </div>
+                          <div className="select-test-cardTeacher">{teacherName}</div>
+                        </div>
+                      </button>
+
+                      {isTeacher ? (
+                        <button
+                          type="button"
+                          className="select-test-edit"
+                          onClick={() => handleEdit(test.id, activeTab, test)}
+                        >
+                          ✏️ Sửa đề
+                        </button>
+                      ) : null}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {remainingCount > 0 ? (
+                <button
+                  type="button"
+                  className="select-test-loadMore"
+                  onClick={() => setVisibleCount((c) => c + 12)}
+                >
+                  Xem thêm ({remainingCount})
+                </button>
+              ) : null}
+            </>
           )}
 
           <button
             onClick={() => (window.location.href = "/my-feedback")}
-            style={{
-              marginTop: "30px",
-              padding: "12px 20px",
-              backgroundColor: "#e03",
-              color: "white",
-              border: "none",
-              borderRadius: "8px",
-              cursor: "pointer",
-              fontSize: "16px",
-              width: "100%",
-            }}
+            className="select-test-feedback"
           >
             📄 Xem nhận xét
           </button>
