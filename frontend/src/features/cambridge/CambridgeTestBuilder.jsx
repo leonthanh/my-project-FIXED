@@ -110,30 +110,6 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
     }
   }, [initialData]);
 
-  // Support edit mode via props
-  useEffect(() => {
-    if (initialData) {
-      setTitle(initialData.title || '');
-      setClassCode(initialData.classCode || '');
-      setTeacherName(initialData.teacherName || '');
-
-      // parts may be stored as string in older records -> parse safely
-      let partsData = initialData.parts;
-      if (typeof partsData === 'string') {
-        try {
-          partsData = JSON.parse(partsData);
-        } catch (err) {
-          console.warn('Could not parse parts JSON - falling back to default:', err);
-          partsData = null;
-        }
-      }
-
-      if (Array.isArray(partsData)) {
-        setParts(partsData);
-      }
-    }
-  }, [initialData]);
-
   // State - Load from savedData if available
   const [parts, setParts] = useState(getInitialParts());
   const [selectedPartIndex, setSelectedPartIndex] = useState(0);
@@ -899,24 +875,32 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
             {/* Part Audio (Listening only) */}
             {isListeningTest && (
               <div style={{ marginBottom: '20px' }}>
-                <label style={{
-                  display: 'block',
-                  marginBottom: '8px',
-                  fontWeight: 600,
-                  color: '#374151',
-                }}>
+                <label
+                  style={{
+                    display: 'block',
+                    marginBottom: '8px',
+                    fontWeight: 600,
+                    color: '#374151',
+                  }}
+                >
                   Audio (file nghe cho Part này):
                 </label>
 
-                <div style={{
-                  border: '1px solid #d1d5db',
-                  borderRadius: '8px',
-                  padding: '12px',
-                  backgroundColor: 'white',
-                }}>
+                <div
+                  style={{
+                    border: '1px solid #d1d5db',
+                    borderRadius: '8px',
+                    padding: '12px',
+                    backgroundColor: 'white',
+                  }}
+                >
                   {currentPart.audioUrl ? (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                      <audio controls src={hostPath(currentPart.audioUrl)} style={{ width: '100%' }}>
+                      <audio
+                        controls
+                        src={hostPath(currentPart.audioUrl)}
+                        style={{ width: '100%' }}
+                      >
                         Your browser does not support audio.
                       </audio>
 
