@@ -1,0 +1,239 @@
+.select-test-page {
+  min-height: 100vh;
+  background: #f4f8ff;
+  padding: 32px 16px;
+  display: flex;
+  justify-content: center;
+  font-family: sans-serif;
+}
+
+.select-test-shell {
+  width: min(1400px, 100%);
+  background: #fff;
+  border-radius: 14px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.08);
+  padding: 24px;
+}
+
+.select-test-header {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 18px;
+}
+
+.select-test-logo {
+  height: 60px;
+  width: auto;
+}
+
+.select-test-tabs {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 14px;
+  border-bottom: 2px solid #eee;
+  padding-bottom: 14px;
+  flex-wrap: wrap;
+}
+
+.select-test-tab {
+  padding: 10px 18px;
+  background: #e0e0e0;
+  color: #333;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 16px;
+}
+
+.select-test-tab.active {
+  background: #0e276f;
+  color: #fff;
+  font-weight: 700;
+}
+
+.select-test-controls {
+  display: grid;
+  grid-template-columns: 1fr 220px;
+  gap: 12px;
+  margin: 12px 0 18px;
+}
+
+@media (max-width: 640px) {
+  .select-test-controls {
+    grid-template-columns: 1fr;
+  }
+}
+
+.select-test-search {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid #d9d9d9;
+  border-radius: 10px;
+  font-size: 15px;
+  outline: none;
+}
+
+.select-test-search:focus {
+  border-color: #0e276f;
+  box-shadow: 0 0 0 3px rgba(14, 39, 111, 0.12);
+}
+
+.select-test-sort {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid #d9d9d9;
+  border-radius: 10px;
+  font-size: 15px;
+  outline: none;
+  background: #fff;
+}
+
+.select-test-loading,
+.select-test-empty {
+  text-align: center;
+  color: #666;
+  font-style: italic;
+  padding: 18px 0;
+}
+
+.select-test-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  color: #333;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.select-test-grid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 680px) {
+  .select-test-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 980px) {
+  .select-test-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (min-width: 1200px) {
+  .select-test-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+.select-test-card {
+  border: 1px solid #eee;
+  border-radius: 14px;
+  background: #fbfbfe;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.select-test-cardMain {
+  border: none;
+  background: transparent;
+  padding: 14px;
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+}
+
+.select-test-cardMain:hover {
+  background: rgba(14, 39, 111, 0.04);
+}
+
+.select-test-cardTitle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 800;
+  color: #0e276f;
+}
+
+.select-test-cardIcon {
+  font-size: 20px;
+}
+
+.select-test-cardText {
+  font-size: 16px;
+  line-height: 1.2;
+}
+
+.select-test-cardMeta {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.select-test-chip {
+  display: inline-block;
+  background: rgba(14, 39, 111, 0.08);
+  color: #0e276f;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.select-test-cardTeacher {
+  color: #333;
+  font-size: 14px;
+}
+
+.select-test-edit {
+  border: none;
+  background: #0e276f;
+  color: #fff;
+  padding: 12px 14px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.select-test-edit:hover {
+  filter: brightness(0.95);
+}
+
+.select-test-loadMore {
+  margin-top: 16px;
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid #d9d9d9;
+  background: #fff;
+  cursor: pointer;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.select-test-loadMore:hover {
+  background: #f6f8ff;
+}
+
+.select-test-feedback {
+  margin-top: 20px;
+  width: 20%;
+  padding: 12px 14px;
+  background: #e03;
+  color: #fff;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.select-test-feedback:hover {
+  filter: brightness(0.95);
+}
