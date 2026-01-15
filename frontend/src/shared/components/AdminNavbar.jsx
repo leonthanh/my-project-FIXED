@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import ThemeToggle from "./ThemeToggle";
 import { apiPath, hostPath } from "../utils/api";
+import "./AdminNavbar.css";
 
 const AdminNavbar = () => {
   const navigate = useNavigate();
@@ -9,18 +10,20 @@ const AdminNavbar = () => {
   const [unreviewed, setUnreviewed] = useState([]);
   const [notificationDropdownVisible, setNotificationDropdownVisible] =
     useState(false);
-  const [createTestDropdownVisible, setCreateTestDropdownVisible] =
-    useState(false);
   const [submissionDropdownVisible, setSubmissionDropdownVisible] =
     useState(false);
   const [cambridgeDropdownVisible, setCambridgeDropdownVisible] =
     useState(false);
   const notificationDropdownRef = useRef(null);
-  const createTestDropdownRef = useRef(null);
   const submissionDropdownRef = useRef(null);
   const cambridgeDropdownRef = useRef(null);
 
-  const user = JSON.parse(localStorage.getItem("user"));
+  let user = null;
+  try {
+    user = JSON.parse(localStorage.getItem("user"));
+  } catch {
+    user = null;
+  }
 
   useEffect(() => {
     const fetchUnreviewed = async () => {
@@ -52,12 +55,6 @@ const AdminNavbar = () => {
         setNotificationDropdownVisible(false);
       }
       if (
-        createTestDropdownRef.current &&
-        !createTestDropdownRef.current.contains(event.target)
-      ) {
-        setCreateTestDropdownVisible(false);
-      }
-      if (
         submissionDropdownRef.current &&
         !submissionDropdownRef.current.contains(event.target)
       ) {
@@ -79,328 +76,67 @@ const AdminNavbar = () => {
     navigate("/login");
   };
 
-  const linkStyle = {
-    color: "white",
-    marginRight: "20px",
-    textDecoration: "none",
-    fontWeight: "bold",
-  };
-
   return (
-    <nav
-      style={{
-        padding: "12px 24px",
-        background: "#0e276f",
-        color: "white",
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "center",
-        boxShadow: "0 2px 6px rgba(0,0,0,0.2)",
-        position: "relative",
-      }}
-    >
-      <div style={{ display: "flex", alignItems: "center" }}>
+    <nav className="adminNavbar">
+      <div className="adminNavbar__left">
         <img
           src={hostPath("uploads/staredu.jpg")}
           alt="Logo"
-          style={{ height: 40, marginRight: 20 }}
+          className="adminNavbar__logo"
         />
-        <div
-          style={{
-            display: "inline-block",
-            position: "relative",
-            marginRight: "20px",
-          }}
-          ref={submissionDropdownRef}
-        >
-          <span
-            style={{
-              ...linkStyle,
-              cursor: "pointer",
-              marginRight: "0",
-            }}
-            onClick={() => setSubmissionDropdownVisible((prev) => !prev)}
-          >
-            📁 Bài nộp ▼
-          </span>
-          {submissionDropdownVisible && (
-            <div
-              style={{
-                position: "absolute",
-                top: "100%",
-                left: "0",
-                background: "white",
-                border: "1px solid #ccc",
-                borderRadius: "4px",
-                boxShadow: "0 2px 6px rgba(0,0,0,0.1)",
-                zIndex: 1000,
-                minWidth: "200px",
-              }}
-            >
-              <Link
-                to="/admin/reading-submissions"
-                style={{
-                  display: "block",
-                  padding: "10px 15px",
-                  color: "#333",
-                  textDecoration: "none",
-                  borderBottom: "1px solid #eee",
-                  transition: "background 0.2s",
-                }}
-                onClick={() => setSubmissionDropdownVisible(false)}
-                onMouseOver={(e) =>
-                  (e.currentTarget.style.background = "#f0f0f0")
-                }
-                onMouseOut={(e) => (e.currentTarget.style.background = "white")}
-              >
-                🔍 Reading submissions
-              </Link>
-              <Link
-                to="/admin/writing-submissions"
-                style={{
-                  display: "block",
-                  padding: "10px 15px",
-                  color: "#333",
-                  textDecoration: "none",
-                  transition: "background 0.2s",
-                }}
-                onClick={() => setSubmissionDropdownVisible(false)}
-                onMouseOver={(e) =>
-                  (e.currentTarget.style.background = "#f0f0f0")
-                }
-                onMouseOut={(e) => (e.currentTarget.style.background = "white")}
-              >
-                ✍️ Writing submissions
-              </Link>
-            </div>
-          )}
-        </div>
-        <Link to="/select-test" style={linkStyle}>
-          📋 Danh sách đề
-        </Link>
-        <div
-          style={{
-            display: "inline-block",
-            position: "relative",
-            marginRight: "20px",
-          }}
-        >
-          <span
-            style={{
-              ...linkStyle,
-              cursor: "pointer",
-              marginRight: "0",
-            }}
-            onClick={() => setCreateTestDropdownVisible((prev) => !prev)}
-          >
-            ✏️ Tạo đề ▼
-          </span>
-          {createTestDropdownVisible && (
-            <div
-              style={{
-                position: "absolute",
-                top: "100%",
-                left: "0",
-                background: "white",
-                border: "1px solid #ccc",
-                borderRadius: "4px",
-                boxShadow: "0 2px 6px rgba(0,0,0,0.1)",
-                zIndex: 1000,
-                minWidth: "150px",
-              }}
-            >
-              <Link
-                to="/admin/create-writing"
-                style={{
-                  display: "block",
-                  padding: "10px 15px",
-                  color: "#333",
-                  textDecoration: "none",
-                  borderBottom: "1px solid #eee",
-                  transition: "background 0.2s",
-                }}
-                onMouseOver={(e) =>
-                  (e.currentTarget.style.background = "#f0f0f0")
-                }
-                onMouseOut={(e) => (e.currentTarget.style.background = "white")}
-              >
-                ✍️ Writing
-              </Link>
-              <Link
-                to="/admin/create-listening"
-                style={{
-                  display: "block",
-                  padding: "10px 15px",
-                  color: "#333",
-                  textDecoration: "none",
-                  transition: "background 0.2s",
-                }}
-                onMouseOver={(e) =>
-                  (e.currentTarget.style.background = "#f0f0f0")
-                }
-                onMouseOut={(e) => (e.currentTarget.style.background = "white")}
-              >
-                🎧 Listening
-              </Link>
-              <Link
-                to="/admin/create-reading"
-                style={{
-                  display: "block",
-                  padding: "10px 15px",
-                  color: "#333",
-                  textDecoration: "none",
-                  transition: "background 0.2s",
-                }}
-                onMouseOver={(e) =>
-                  (e.currentTarget.style.background = "#f0f0f0")
-                }
-                onMouseOut={(e) => (e.currentTarget.style.background = "white")}
-              >
-                📖 Reading
-              </Link>
-            </div>
-          )}
-        </div>
 
         {/* Cambridge Tests Dropdown */}
-        <div
-          style={{
-            display: "inline-block",
-            position: "relative",
-            marginRight: "20px",
-          }}
-          ref={cambridgeDropdownRef}
-        >
+        <div className="adminNavbar__dropdown" ref={cambridgeDropdownRef}>
           <span
-            style={{
-              ...linkStyle,
-              cursor: "pointer",
-              marginRight: "0",
-            }}
+            className="adminNavbar__link adminNavbar__dropdownToggle"
             onClick={() => setCambridgeDropdownVisible((prev) => !prev)}
           >
             🎓 Cambridge ▼
           </span>
           {cambridgeDropdownVisible && (
-            <div
-              style={{
-                position: "absolute",
-                top: "100%",
-                left: "0",
-                background: "white",
-                border: "1px solid #ccc",
-                borderRadius: "4px",
-                boxShadow: "0 2px 6px rgba(0,0,0,0.1)",
-                zIndex: 1000,
-                minWidth: "180px",
-              }}
-            >
-              <div style={{
-                padding: "8px 15px",
-                color: "#666",
-                fontSize: "12px",
-                fontWeight: "bold",
-                borderBottom: "1px solid #eee",
-                background: "#f8f8f8",
-              }}>
-                📚 KET (A2 Key)
-              </div>
+            <div className="adminNavbar__menu">
+              <div className="adminNavbar__menuHeader">📚 KET (A2 Key)</div>
+
               <Link
                 to="/admin/create-ket-listening"
-                style={{
-                  display: "block",
-                  padding: "10px 15px",
-                  color: "#333",
-                  textDecoration: "none",
-                  borderBottom: "1px solid #eee",
-                  transition: "background 0.2s",
-                }}
+                className="adminNavbar__menuItem"
                 onClick={() => setCambridgeDropdownVisible(false)}
-                onMouseOver={(e) =>
-                  (e.currentTarget.style.background = "#f0f0f0")
-                }
-                onMouseOut={(e) => (e.currentTarget.style.background = "white")}
               >
                 🎧 KET Listening
               </Link>
               <Link
                 to="/admin/create-ket-reading"
-                style={{
-                  display: "block",
-                  padding: "10px 15px",
-                  color: "#333",
-                  textDecoration: "none",
-                  borderBottom: "1px solid #eee",
-                  transition: "background 0.2s",
-                }}
+                className="adminNavbar__menuItem"
                 onClick={() => setCambridgeDropdownVisible(false)}
-                onMouseOver={(e) =>
-                  (e.currentTarget.style.background = "#f0f0f0")
-                }
-                onMouseOut={(e) => (e.currentTarget.style.background = "white")}
               >
                 📖 KET Reading
               </Link>
-              <div style={{
-                padding: "8px 15px",
-                color: "#666",
-                fontSize: "12px",
-                fontWeight: "bold",
-                borderBottom: "1px solid #eee",
-                background: "#f8f8f8",
-              }}>
+
+              <div className="adminNavbar__menuHeader adminNavbar__menuHeader--spaced">
                 📚 PET (B1 Preliminary)
               </div>
               <Link
                 to="/admin/create-pet-listening"
-                style={{
-                  display: "block",
-                  padding: "10px 15px",
-                  color: "#999",
-                  textDecoration: "none",
-                  borderBottom: "1px solid #eee",
-                  cursor: "not-allowed",
-                }}
+                className="adminNavbar__menuItem adminNavbar__menuItem--disabled"
+                onClick={(e) => e.preventDefault()}
               >
                 🎧 PET Listening (Sắp ra)
               </Link>
               <Link
                 to="/admin/create-pet-reading"
-                style={{
-                  display: "block",
-                  padding: "10px 15px",
-                  color: "#999",
-                  textDecoration: "none",
-                  cursor: "not-allowed",
-                }}
+                className="adminNavbar__menuItem adminNavbar__menuItem--disabled"
+                onClick={(e) => e.preventDefault()}
               >
                 📖 PET Reading (Sắp ra)
               </Link>
-              <div style={{
-                padding: "8px 15px",
-                color: "#666",
-                fontSize: "12px",
-                fontWeight: "bold",
-                borderBottom: "1px solid #eee",
-                background: "#f8f8f8",
-                marginTop: "4px",
-              }}>
+
+              <div className="adminNavbar__menuHeader adminNavbar__menuHeader--spaced">
                 📊 Quản lý
               </div>
               <Link
                 to="/admin/cambridge-submissions"
-                style={{
-                  display: "block",
-                  padding: "10px 15px",
-                  color: "#333",
-                  textDecoration: "none",
-                  transition: "background 0.2s",
-                }}
+                className="adminNavbar__menuItem"
                 onClick={() => setCambridgeDropdownVisible(false)}
-                onMouseOver={(e) =>
-                  (e.currentTarget.style.background = "#f0f0f0")
-                }
-                onMouseOut={(e) => (e.currentTarget.style.background = "white")}
               >
                 📋 Xem bài làm
               </Link>
@@ -408,18 +144,75 @@ const AdminNavbar = () => {
           )}
         </div>
 
-        <Link to="/review" style={linkStyle}>
+        <div
+          className="adminNavbar__dropdown"
+          ref={submissionDropdownRef}
+        >
+          <span
+            className="adminNavbar__link adminNavbar__dropdownToggle"
+            onClick={() => setSubmissionDropdownVisible((prev) => !prev)}
+          >
+            📁 Ielts ▼
+          </span>
+          {submissionDropdownVisible && (
+            <div className="adminNavbar__menu adminNavbar__menu--wide">
+              <div className="adminNavbar__menuHeader">📥 Submissions</div>
+              <Link
+                to="/admin/reading-submissions"
+                className="adminNavbar__menuItem"
+                onClick={() => setSubmissionDropdownVisible(false)}
+              >
+                🔍 Reading
+              </Link>
+              <Link
+                to="/admin/writing-submissions"
+                className="adminNavbar__menuItem"
+                onClick={() => setSubmissionDropdownVisible(false)}
+              >
+                ✍️ Writing 
+              </Link>
+
+              <div className="adminNavbar__menuHeader adminNavbar__menuHeader--spaced">
+                ✏️ Create
+              </div>
+              <Link
+                to="/admin/create-writing"
+                className="adminNavbar__menuItem"
+                onClick={() => setSubmissionDropdownVisible(false)}
+              >
+                ✍️ Writing
+              </Link>
+              <Link
+                to="/admin/create-listening"
+                className="adminNavbar__menuItem"
+                onClick={() => setSubmissionDropdownVisible(false)}
+              >
+                🎧 Listening
+              </Link>
+              <Link
+                to="/admin/create-reading"
+                className="adminNavbar__menuItem"
+                onClick={() => setSubmissionDropdownVisible(false)}
+              >
+                📖 Reading
+              </Link>
+            </div>
+          )}
+        </div>
+        <Link to="/select-test" className="adminNavbar__link">
+          📋 Danh sách đề
+        </Link>
+
+        <Link to="/review" className="adminNavbar__link">
           📝 Nhận xét bài
         </Link>
 
         <div
-          style={{
-            position: "relative",
-            marginRight: "20px",
-            cursor: "pointer",
-            fontSize: "20px",
-            animation: unreviewed.length > 0 ? "shake 0.5s infinite" : "none",
-          }}
+          className={
+            unreviewed.length > 0
+              ? "adminNavbar__bell adminNavbar__bell--shake"
+              : "adminNavbar__bell"
+          }
           onClick={() =>
             setNotificationDropdownVisible(!notificationDropdownVisible)
           }
@@ -427,63 +220,25 @@ const AdminNavbar = () => {
         >
           🔔
           {unreviewed.length > 0 && (
-            <span
-              style={{
-                position: "absolute",
-                top: -6,
-                right: -10,
-                background: "red",
-                color: "white",
-                borderRadius: "50%",
-                padding: "2px 6px",
-                fontSize: "12px",
-                fontWeight: "bold",
-              }}
-            >
+            <span className="adminNavbar__badge">
               {unreviewed.length}
             </span>
           )}
         </div>
 
         {notificationDropdownVisible && (
-          <div
-            ref={notificationDropdownRef}
-            style={{
-              position: "absolute",
-              top: "60px",
-              right: "20px",
-              background: "white",
-              color: "black",
-              border: "1px solid #ccc",
-              borderRadius: 6,
-              padding: 10,
-              zIndex: 1000,
-              width: 320,
-              boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
-            }}
-          >
+          <div ref={notificationDropdownRef} className="adminNavbar__notifyMenu">
             {unreviewed.length === 0 ? (
               <div>✅ Không có bài chưa chấm</div>
             ) : (
               unreviewed.map((sub, i) => (
                 <div
                   key={i}
-                  style={{
-                    padding: "8px",
-                    cursor: "pointer",
-                    borderBottom: "1px solid #eee",
-                    transition: "background 0.2s",
-                  }}
+                  className="adminNavbar__notifyItem"
                   onClick={() => {
                     setNotificationDropdownVisible(false);
                     navigate(`/review/${sub.id}`);
                   }}
-                  onMouseOver={(e) =>
-                    (e.currentTarget.style.background = "#f0f0f0")
-                  }
-                  onMouseOut={(e) =>
-                    (e.currentTarget.style.background = "white")
-                  }
                 >
                   👤 {sub.User?.name || sub.userName || "N/A"} - 📞{" "}
                   {sub.User?.phone || sub.userPhone || "N/A"}
@@ -495,41 +250,17 @@ const AdminNavbar = () => {
       </div>
 
       {/* 👨‍🏫 Hiển thị tên giáo viên và nút logout */}
-      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+      <div className="adminNavbar__right">
         <ThemeToggle />
-        <span style={{ fontWeight: "bold" }}>
-          👨‍🏫 {user?.name || "Giáo viên"}
-        </span>
+        <span className="adminNavbar__teacherName">👨‍🏫 {user?.name || "Giáo viên"}</span>
         <button
           onClick={handleLogout}
-          style={{
-            background: "#e03",
-            border: "none",
-            padding: "8px 16px",
-            borderRadius: "6px",
-            color: "white",
-            fontWeight: "bold",
-            cursor: "pointer",
-            transition: "background 0.3s",
-          }}
-          onMouseOver={(e) => (e.currentTarget.style.background = "#c0392b")}
-          onMouseOut={(e) => (e.currentTarget.style.background = "#e03")}
+          className="adminNavbar__logout"
         >
           🔓 Đăng xuất
         </button>
       </div>
 
-      <style>
-        {`
-          @keyframes shake {
-            0% { transform: rotate(0deg); }
-            25% { transform: rotate(10deg); }
-            50% { transform: rotate(-10deg); }
-            75% { transform: rotate(10deg); }
-            100% { transform: rotate(0deg); }
-          }
-        `}
-      </style>
     </nav>
   );
 };

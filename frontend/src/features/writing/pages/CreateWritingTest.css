@@ -1,0 +1,29 @@
+.create-writing-container {
+  max-width: 800px;
+  margin: 20px auto;
+  padding: 0 12px;
+}
+
+.create-writing-quill .ql-toolbar {
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 6px 6px 0 0;
+}
+
+.create-writing-quill .ql-container {
+  border: 1px solid #ddd;
+  border-top: 0;
+  border-radius: 0 0 6px 6px;
+}
+
+.create-writing-quill .ql-editor {
+  background: #f8f8f8;
+  color: #000;
+  caret-color: #000;
+  min-height: 200px;
+}
+
+.create-writing-quill .ql-editor.ql-blank::before {
+  color: #999;
+  font-style: italic;
+}

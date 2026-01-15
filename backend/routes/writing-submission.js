@@ -115,20 +115,30 @@ router.get('/list', async (req, res) => {
       where.userPhone = req.query.phone;
     }
 
-    const submissions = await Submission.findAll({
-      where,
-      include: [
-  { model: WritingTest, attributes: ['index', 'classCode', 'teacherName', 'task1Image', 'task1', 'task2'] },
-  { model: User, attributes: ['name', 'phone'] }
-],
-
-      order: [['createdAt', 'DESC']],
-    });
+    let submissions;
+    try {
+      submissions = await Submission.findAll({
+        where,
+        include: [
+          { model: WritingTest, attributes: ['index', 'classCode', 'teacherName', 'task1Image', 'task1', 'task2'] },
+          { model: User, attributes: ['name', 'phone'] }
+        ],
+        order: [['createdAt', 'DESC']],
+      });
+    } catch (includeErr) {
+      console.error('⚠️ GET /writing/list include failed; falling back to plain submissions query:', includeErr);
+      submissions = await Submission.findAll({
+        where,
+        order: [['createdAt', 'DESC']],
+      });
+    }
 
     // Đảm bảo trả về mảng, tránh null → fix lỗi e.find is not a function
     const result = Array.isArray(submissions) ? submissions.map(s => ({
       ...s.toJSON(),
-      user: s.User || null
+      user: s.User || null,
+      WritingTest: s.WritingTest || null,
+      User: s.User || null,
     })) : [];
 
     res.json(result);

@@ -1,0 +1,189 @@
+.adminNavbar {
+  padding: 12px 24px;
+  background: #0e276f;
+  color: #fff;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+  position: relative;
+}
+
+.adminNavbar__left {
+  display: flex;
+  align-items: center;
+}
+
+.adminNavbar__logo {
+  height: 40px;
+  margin-right: 20px;
+}
+
+.adminNavbar__link {
+  color: #fff;
+  margin-right: 20px;
+  text-decoration: none;
+  font-weight: 700;
+}
+
+.adminNavbar__dropdown {
+  display: inline-block;
+  position: relative;
+  margin-right: 20px;
+}
+
+.adminNavbar__dropdownToggle {
+  cursor: pointer;
+  margin-right: 0;
+}
+
+.adminNavbar__menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  background: #fff;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+  z-index: 1000;
+  min-width: 180px;
+  overflow: hidden;
+}
+
+.adminNavbar__menu--wide {
+  min-width: 200px;
+}
+
+.adminNavbar__menuItem {
+  display: block;
+  padding: 10px 15px;
+  color: #333;
+  text-decoration: none;
+  border-bottom: 1px solid #eee;
+  transition: background 0.2s;
+}
+
+.adminNavbar__menuItem:hover {
+  background: #f0f0f0;
+}
+
+.adminNavbar__menuItem:last-child {
+  border-bottom: none;
+}
+
+.adminNavbar__menuHeader {
+  padding: 8px 15px;
+  color: #666;
+  font-size: 12px;
+  font-weight: 700;
+  border-bottom: 1px solid #eee;
+  background: #f8f8f8;
+}
+
+.adminNavbar__menuHeader--spaced {
+  margin-top: 4px;
+}
+
+.adminNavbar__menuItem--disabled {
+  color: #999;
+  cursor: not-allowed;
+}
+
+.adminNavbar__menuItem--disabled:hover {
+  background: #fff;
+}
+
+.adminNavbar__bell {
+  position: relative;
+  margin-right: 20px;
+  cursor: pointer;
+  font-size: 20px;
+}
+
+.adminNavbar__bell--shake {
+  animation: adminNavbarShake 0.5s infinite;
+}
+
+.adminNavbar__badge {
+  position: absolute;
+  top: -6px;
+  right: -10px;
+  background: red;
+  color: #fff;
+  border-radius: 50%;
+  padding: 2px 6px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.adminNavbar__notifyMenu {
+  position: absolute;
+  top: 60px;
+  right: 20px;
+  background: #fff;
+  color: #000;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  padding: 10px;
+  z-index: 1100;
+  width: 320px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.adminNavbar__notifyItem {
+  padding: 8px;
+  cursor: pointer;
+  border-bottom: 1px solid #eee;
+  transition: background 0.2s;
+}
+
+.adminNavbar__notifyItem:hover {
+  background: #f0f0f0;
+}
+
+.adminNavbar__notifyItem:last-child {
+  border-bottom: none;
+}
+
+.adminNavbar__right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.adminNavbar__teacherName {
+  font-weight: 700;
+}
+
+.adminNavbar__logout {
+  background: #e03;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  color: #fff;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.3s;
+}
+
+.adminNavbar__logout:hover {
+  background: #c0392b;
+}
+
+@keyframes adminNavbarShake {
+  0% {
+    transform: rotate(0deg);
+  }
+  25% {
+    transform: rotate(10deg);
+  }
+  50% {
+    transform: rotate(-10deg);
+  }
+  75% {
+    transform: rotate(10deg);
+  }
+  100% {
+    transform: rotate(0deg);
+  }
+}
