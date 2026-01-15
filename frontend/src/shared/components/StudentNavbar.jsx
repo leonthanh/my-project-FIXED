@@ -229,7 +229,7 @@ const StudentNavbar = () => {
           style={{ height: 40, marginRight: 20 }}
         />
         <Link to="/select-test" style={navLinkStyle}>
-          📝 Chọn đề
+          📝 Ielts
         </Link>
         <Link to="/cambridge" style={navLinkStyle}>
           🎓 Cambridge
