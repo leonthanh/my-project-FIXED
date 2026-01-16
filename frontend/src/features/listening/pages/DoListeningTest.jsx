@@ -29,6 +29,10 @@ const DoListeningTest = () => {
   const questionRefs = useRef({});
   const listQuestionRef = useRef(null);
 
+  // When switching parts via navigator/arrows, we may need to wait for the new part
+  // to render before scrolling to the target question.
+  const pendingScrollToRef = useRef(null);
+
   // Key for persisting timer across page reloads (resets only when the test is submitted)
   const expiresKey = `listening:${id}:expiresAt`;
 
@@ -210,13 +214,30 @@ const DoListeningTest = () => {
 
   // Calculate actual question count for a question (considering form-completion, matching, etc.)
   const getQuestionCount = useCallback((q) => {
+    if (!q) return 0;
+
     if (q.formRows && q.formRows.length > 0) {
-      return q.formRows.filter((r) => r.isBlank).length;
-    } else if (q.leftItems && q.leftItems.length > 0) {
-      return q.leftItems.length;
-    } else if (q.questionType === "multi-select" && q.requiredAnswers > 1) {
-      return q.requiredAnswers;
+      const blanks = q.formRows.filter((r) => r.isBlank).length;
+      return Math.max(1, blanks);
     }
+
+    // Notes-completion: number of blanks in notesText (supports both numbered and unnumbered blanks)
+    if (typeof q.notesText === "string" && q.notesText.trim()) {
+      // IMPORTANT: Only numbered blanks actually render inputs in renderNotesCompletion.
+      // Unnumbered underscores are just placeholders and should not affect numbering/navigation.
+      const blanks = q.notesText.match(/(\d+)\s*[_…]+/g) || [];
+      return Math.max(1, blanks.length);
+    }
+
+    if (q.leftItems && q.leftItems.length > 0) {
+      return Math.max(1, q.leftItems.length);
+    }
+
+    // Multi-select: each question counts by requiredAnswers (e.g. Choose TWO = 2)
+    if ((q.questionType === "multi-select" || (q.requiredAnswers && q.requiredAnswers > 1)) && q.requiredAnswers) {
+      return Math.max(1, q.requiredAnswers);
+    }
+
     return 1;
   }, []);
 
@@ -358,6 +379,146 @@ const DoListeningTest = () => {
       const partInstructions = test?.partInstructions || [];
       const partInfo = partInstructions[partIndex];
       const sections = partInfo?.sections || [];
+
+      const buildItemsFromQuestions = () => {
+        const items = [];
+        const sorted = [...partQuestions].sort(
+          (a, b) => (Number(a?.globalNumber) || 0) - (Number(b?.globalNumber) || 0)
+        );
+
+        for (const q of sorted) {
+          const baseNum = Number(q?.globalNumber);
+          const startNum = Number.isFinite(baseNum) && baseNum > 0 ? baseNum : null;
+
+          // Derive type from question data when section metadata is missing
+          const derivedType =
+            q?.questionType ||
+            (q?.formRows?.length ? "form-completion" : null) ||
+            (q?.notesText ? "notes-completion" : null) ||
+            (q?.leftItems?.length ? "matching" : null) ||
+            (q?.requiredAnswers && q.requiredAnswers > 1 ? "multi-select" : null) ||
+            "single";
+
+          if (derivedType === "multi-select") {
+            const count = q?.requiredAnswers || 2;
+            const start = startNum ?? 1;
+            const end = start + count - 1;
+            items.push({
+              type: "multi-select",
+              startNum: start,
+              endNum: end,
+              label: `${start}-${end}`,
+              questionKey: `q${start}`,
+            });
+            continue;
+          }
+
+          if (derivedType === "matching") {
+            const leftItems = q?.leftItems || q?.items || [];
+            const start = startNum ?? 1;
+            leftItems.forEach((_, idx) => {
+              const num = start + idx;
+              items.push({
+                type: "single",
+                startNum: num,
+                endNum: num,
+                label: `${num}`,
+                questionKey: `q${num}`,
+              });
+            });
+            if (leftItems.length === 0 && startNum != null) {
+              items.push({
+                type: "single",
+                startNum,
+                endNum: startNum,
+                label: `${startNum}`,
+                questionKey: `q${startNum}`,
+              });
+            }
+            continue;
+          }
+
+          if (derivedType === "form-completion") {
+            const start = startNum ?? 1;
+            const blanks = (q?.formRows || []).filter((r) => r?.isBlank);
+            blanks.forEach((row, idx) => {
+              const num = row?.blankNumber
+                ? start + row.blankNumber - 1
+                : start + idx;
+              items.push({
+                type: "single",
+                startNum: num,
+                endNum: num,
+                label: `${num}`,
+                questionKey: `q${num}`,
+              });
+            });
+            if (blanks.length === 0 && startNum != null) {
+              items.push({
+                type: "single",
+                startNum,
+                endNum: startNum,
+                label: `${startNum}`,
+                questionKey: `q${startNum}`,
+              });
+            }
+            continue;
+          }
+
+          if (derivedType === "notes-completion") {
+            const notesText = q?.notesText || "";
+            const matches = notesText.match(/(\d+)\s*[_…]+/g) || [];
+
+            matches.forEach((m) => {
+              const numMatch = m.match(/^(\d+)/);
+              if (!numMatch) return;
+              const num = parseInt(numMatch[1], 10);
+              if (!Number.isFinite(num)) return;
+              items.push({
+                type: "single",
+                startNum: num,
+                endNum: num,
+                label: `${num}`,
+                questionKey: `q${num}`,
+              });
+            });
+
+            // Fallback: if no numbered blanks, still provide a nav target so arrows don't break
+            if (matches.length === 0 && startNum != null) {
+              items.push({
+                type: "single",
+                startNum,
+                endNum: startNum,
+                label: `${startNum}`,
+                questionKey: `q${startNum}`,
+              });
+            }
+            continue;
+          }
+
+          // Default single question
+          if (startNum != null) {
+            items.push({
+              type: "single",
+              startNum,
+              endNum: startNum,
+              label: `${startNum}`,
+              questionKey: `q${startNum}`,
+            });
+          }
+        }
+
+        // De-dup by startNum (can happen when data is inconsistent)
+        const seen = new Set();
+        const deduped = [];
+        for (const it of items) {
+          if (seen.has(it.startNum)) continue;
+          seen.add(it.startNum);
+          deduped.push(it);
+        }
+        deduped.sort((a, b) => a.startNum - b.startNum);
+        return deduped;
+      };
       
       const items = [];
       let currentQNum = getPartQuestionRange(partIndex).start;
@@ -365,6 +526,11 @@ const DoListeningTest = () => {
       sections.forEach((section, sIdx) => {
         const sectionQuestions = partQuestions.filter((q) => q.sectionIndex === sIdx);
         const sectionQType = section.questionType || "fill";
+
+        // If the section explicitly defines its start number, treat it as authoritative.
+        if (typeof section.startingQuestionNumber === "number" && section.startingQuestionNumber > 0) {
+          currentQNum = section.startingQuestionNumber;
+        }
         
         if (sectionQType === "multi-select") {
           // Group multi-select questions (e.g., 25-26, 27-28, 29-30)
@@ -411,28 +577,24 @@ const DoListeningTest = () => {
         } else if (sectionQType === "notes-completion") {
           const firstQ = sectionQuestions[0];
           const notesText = firstQ?.notesText || "";
-          // Extract actual question numbers from notes text (e.g., "31 ___", "32 ___")
+          // Only numbered blanks render real inputs/refs.
           const matches = notesText.match(/(\d+)\s*[_…]+/g) || [];
-          matches.forEach((match) => {
-            const qNumMatch = match.match(/^(\d+)/);
-            if (qNumMatch) {
-              const qNum = parseInt(qNumMatch[1], 10);
-              items.push({
-                type: "single",
-                startNum: qNum,
-                endNum: qNum,
-                label: `${qNum}`,
-                questionKey: `q${qNum}`,
-              });
-            }
+          matches.forEach((token) => {
+            const numMatch = token.match(/^(\d+)/);
+            if (!numMatch) return;
+            const qNum = parseInt(numMatch[1], 10);
+            if (!Number.isFinite(qNum)) return;
+
+            items.push({
+              type: "single",
+              startNum: qNum,
+              endNum: qNum,
+              label: `${qNum}`,
+              questionKey: `q${qNum}`,
+            });
+
+            currentQNum = Math.max(currentQNum, qNum + 1);
           });
-          // Update currentQNum to after these questions
-          if (matches.length > 0) {
-            const lastMatch = matches[matches.length - 1].match(/^(\d+)/);
-            if (lastMatch) {
-              currentQNum = parseInt(lastMatch[1], 10) + 1;
-            }
-          }
         } else {
           // abc, abcd, fill - individual questions
           sectionQuestions.forEach(() => {
@@ -447,11 +609,31 @@ const DoListeningTest = () => {
           });
         }
       });
-      
+
+      // If section metadata is missing/mismatched, fall back to question-driven navigator.
+      // This prevents arrows getting stuck at the end of Part 1 (e.g., stopping at 10).
+      if (!sections.length || (partQuestions.length > 0 && items.length === 0)) {
+        return buildItemsFromQuestions();
+      }
+
       return items;
     },
     [test?.questions, test?.partInstructions, getPartQuestionRange]
   );
+
+  // Flatten navigator items across all parts (used by arrow navigation)
+  const allNavigatorItems = useMemo(() => {
+    const partCount = test?.partInstructions?.length || 0;
+    if (!partCount) return [];
+
+    const items = [];
+    for (let p = 0; p < partCount; p++) {
+      const partItems = getNavigatorItems(p);
+      partItems.forEach((it) => items.push({ ...it, partIndex: p }));
+    }
+    items.sort((a, b) => a.startNum - b.startNum);
+    return items;
+  }, [test?.partInstructions, getNavigatorItems]);
 
   // Check if navigator item is answered
   const isNavItemAnswered = useCallback(
@@ -524,7 +706,6 @@ const DoListeningTest = () => {
     if (el) {
       el.scrollIntoView({ behavior: "smooth", block: "center" });
       setActiveQuestion(qNum);
-      setTimeout(() => setActiveQuestion(null), 2000);
       // try to focus the first interactive control inside the question for better UX
       try {
         const input = el.querySelector("input, select, textarea, button");
@@ -532,6 +713,51 @@ const DoListeningTest = () => {
       } catch (e) {}
     }
   }, []);
+
+  const goToNavItem = useCallback(
+    (item) => {
+      if (!item) return;
+
+      // Keep the footer expanded on the destination part (like KET-reading)
+      setExpandedPart(item.partIndex);
+
+      if (item.partIndex !== currentPartIndex) {
+        pendingScrollToRef.current = item.startNum;
+        setCurrentPartIndex(item.partIndex);
+        return;
+      }
+
+      scrollToQuestion(item.startNum);
+    },
+    [currentPartIndex, scrollToQuestion]
+  );
+
+  // After switching parts, perform any pending scroll once the question anchors exist.
+  useEffect(() => {
+    let rafId = null;
+    let tries = 0;
+
+    const attempt = () => {
+      const target = pendingScrollToRef.current;
+      if (target == null) return;
+
+      if (questionRefs.current[target]) {
+        pendingScrollToRef.current = null;
+        scrollToQuestion(target);
+        return;
+      }
+
+      tries += 1;
+      if (tries < 12) {
+        rafId = requestAnimationFrame(attempt);
+      }
+    };
+
+    attempt();
+    return () => {
+      if (rafId) cancelAnimationFrame(rafId);
+    };
+  }, [currentPartIndex, scrollToQuestion]);
 
   // Find currently visible question (center of viewport or nearest to container center)
   const findVisibleQuestion = useCallback(() => {
@@ -559,61 +785,89 @@ const DoListeningTest = () => {
     return best;
   }, []);
 
+  // NOTE:
+  // We intentionally do NOT continuously overwrite activeQuestion based on viewport center.
+  // That behavior caused "Q1 -> jump to Q3" and wrong boundary disable states.
+  // activeQuestion is treated as a navigation cursor, updated via focus/click and arrow navigation.
+
+  // Ensure we always have a sane activeQuestion (for boundary disable states)
+  useEffect(() => {
+    if (activeQuestion != null) return;
+    if (!allNavigatorItems.length) return;
+    setActiveQuestion(allNavigatorItems[0].startNum);
+  }, [activeQuestion, allNavigatorItems]);
+
+  const currentNavIndex = useMemo(() => {
+    if (!allNavigatorItems.length) return -1;
+    const currentNum = activeQuestion ?? allNavigatorItems[0].startNum;
+
+    let idx = allNavigatorItems.findIndex(
+      (it) => currentNum >= it.startNum && currentNum <= it.endNum
+    );
+    if (idx === -1) {
+      idx = allNavigatorItems.findIndex((it) => it.startNum >= currentNum);
+      if (idx === -1) idx = allNavigatorItems.length - 1;
+    }
+    return idx;
+  }, [activeQuestion, allNavigatorItems]);
+
+  const canGoPrev = currentNavIndex > 0;
+  const canGoNext =
+    currentNavIndex !== -1 && currentNavIndex < allNavigatorItems.length - 1;
+
   // Navigate to next/prev question (robust: use visible question when none is active)
   const navigateQuestion = useCallback(
     (direction) => {
-      const range = getPartQuestionRange(currentPartIndex);
-      if (!range || (range.start === 0 && range.end === 0)) return;
+      if (!allNavigatorItems.length) return;
 
       const visible = findVisibleQuestion();
-      const current = activeQuestion || visible || range.start;
-      let target = current;
+      const currentNum = activeQuestion ?? visible ?? allNavigatorItems[0].startNum;
 
-      if (direction === "next") {
-        for (let i = current + 1; i <= range.end; i++) {
-          if (questionRefs.current[i]) {
-            target = i;
-            break;
-          }
-        }
-      } else {
-        for (let i = current - 1; i >= range.start; i--) {
-          if (questionRefs.current[i]) {
-            target = i;
-            break;
-          }
-        }
+      // Find the current nav item by range match (supports multi-select ranges)
+      let currentIndex = allNavigatorItems.findIndex(
+        (it) => currentNum >= it.startNum && currentNum <= it.endNum
+      );
+
+      // If not found, choose the nearest item by startNum
+      if (currentIndex === -1) {
+        currentIndex = allNavigatorItems.findIndex((it) => it.startNum >= currentNum);
+        if (currentIndex === -1) currentIndex = allNavigatorItems.length - 1;
       }
 
-      // If still not moved, try wrapping to nearest in the part
-      if (target === current) {
-        const keys = Object.keys(questionRefs.current)
-          .map(Number)
-          .filter((k) => k >= range.start && k <= range.end)
-          .sort((a, b) => a - b);
-        if (keys.length > 0) {
-          target = direction === "next" ? keys[keys.length - 1] : keys[0];
-        }
-      }
+      // Boundary behavior like DoKetReading: disable at the ends
+      if (direction === "prev" && currentIndex <= 0) return;
+      if (direction === "next" && currentIndex >= allNavigatorItems.length - 1) return;
 
-      if (questionRefs.current[target]) {
-        scrollToQuestion(target);
-      } else if (listQuestionRef.current) {
-        listQuestionRef.current.scrollIntoView({ behavior: "smooth" });
-      }
+      const targetIndex =
+        direction === "next"
+          ? Math.min(allNavigatorItems.length - 1, currentIndex + 1)
+          : Math.max(0, currentIndex - 1);
+
+      const targetItem = allNavigatorItems[targetIndex];
+      goToNavItem(targetItem);
     },
-    [currentPartIndex, activeQuestion, getPartQuestionRange, scrollToQuestion, findVisibleQuestion]
+    [activeQuestion, allNavigatorItems, findVisibleQuestion, goToNavItem]
   );
 
   // Handle part click
   const handlePartClick = useCallback(
     (partIndex) => {
-      if (currentPartIndex !== partIndex) {
+      // Match KET-reading behavior: clicking a Part jumps to the first question of that part
+      const firstItem = getNavigatorItems(partIndex)[0];
+
+      setExpandedPart(partIndex);
+
+      if (partIndex !== currentPartIndex) {
+        pendingScrollToRef.current = firstItem?.startNum ?? null;
         setCurrentPartIndex(partIndex);
+        return;
       }
-      setExpandedPart(expandedPart === partIndex ? -1 : partIndex);
+
+      if (firstItem) {
+        scrollToQuestion(firstItem.startNum);
+      }
     },
-    [currentPartIndex, expandedPart]
+    [currentPartIndex, getNavigatorItems, scrollToQuestion]
   );
 
   // Handle audio events
@@ -645,6 +899,7 @@ const DoListeningTest = () => {
       <div
         id={`question-${globalNumber}`}
         ref={(el) => (questionRefs.current[globalNumber] = el)}
+        onClick={() => setActiveQuestion(globalNumber)}
         style={{
           ...styles.questionItem,
           backgroundColor: activeQuestion === globalNumber ? "#eff6ff" : "transparent",
@@ -678,6 +933,7 @@ const DoListeningTest = () => {
                   style={styles.radioInput}
                   checked={isSelected}
                   onChange={() => handleAnswerChange(`q${globalNumber}`, optionLetter)}
+                  onFocus={() => setActiveQuestion(globalNumber)}
                   disabled={submitted}
                 />
               </li>
@@ -983,30 +1239,25 @@ const DoListeningTest = () => {
     // Note: multi-select, abc, abcd, matching must be explicitly set in section.questionType
     
     // Calculate startNum based on all previous parts and sections
+    // If the section explicitly defines a start number, treat it as authoritative.
     const partRange = getPartQuestionRange(currentPartIndex);
-    let startNum = partRange.start;
-    
-    // Add questions from previous sections in current part
-    for (let s = 0; s < sectionIndex; s++) {
-      const prevSectionQuestions = currentPartQuestions.filter((q) => q.sectionIndex === s);
-      prevSectionQuestions.forEach((q) => {
-        startNum += getQuestionCount(q);
-      });
+    let startNum =
+      typeof section.startingQuestionNumber === "number" && section.startingQuestionNumber > 0
+        ? section.startingQuestionNumber
+        : partRange.start;
+
+    // Add questions from previous sections in current part (only when start is not explicitly set)
+    if (!(typeof section.startingQuestionNumber === "number" && section.startingQuestionNumber > 0)) {
+      for (let s = 0; s < sectionIndex; s++) {
+        const prevSectionQuestions = currentPartQuestions.filter((q) => q.sectionIndex === s);
+        prevSectionQuestions.forEach((q) => {
+          startNum += getQuestionCount(q);
+        });
+      }
     }
 
     // Calculate actual question count based on type
-    let actualQuestionCount = 0;
-    sectionQuestions.forEach((q) => {
-      if (q.formRows && q.formRows.length > 0) {
-        actualQuestionCount += q.formRows.filter((r) => r.isBlank)?.length || 1;
-      } else if (q.leftItems && q.leftItems.length > 0) {
-        actualQuestionCount += q.leftItems.length;
-      } else if (q.questionType === "multi-select" && q.requiredAnswers > 1) {
-        actualQuestionCount += q.requiredAnswers;
-      } else {
-        actualQuestionCount += 1;
-      }
-    });
+    const actualQuestionCount = sectionQuestions.reduce((sum, q) => sum + getQuestionCount(q), 0);
 
     const displayEndNum = startNum + actualQuestionCount - 1;
 
@@ -1251,7 +1502,15 @@ const DoListeningTest = () => {
 
       {/* Floating Navigation Arrows */}
       <div style={styles.floatingNav}>
-        <button onClick={() => navigateQuestion("prev")} style={styles.navArrowLeft}>
+        <button
+          onClick={() => navigateQuestion("prev")}
+          disabled={!canGoPrev}
+          style={{
+            ...styles.navArrowLeft,
+            opacity: canGoPrev ? 1 : 0.4,
+            cursor: canGoPrev ? "pointer" : "not-allowed",
+          }}
+        >
           <svg
             width="24"
             height="24"
@@ -1264,7 +1523,15 @@ const DoListeningTest = () => {
             <path d="M19 12H5" />
           </svg>
         </button>
-        <button onClick={() => navigateQuestion("next")} style={styles.navArrowRight}>
+        <button
+          onClick={() => navigateQuestion("next")}
+          disabled={!canGoNext}
+          style={{
+            ...styles.navArrowRight,
+            opacity: canGoNext ? 1 : 0.4,
+            cursor: canGoNext ? "pointer" : "not-allowed",
+          }}
+        >
           <svg
             width="24"
             height="24"
@@ -1287,7 +1554,7 @@ const DoListeningTest = () => {
             const answered = getAnsweredCount(idx);
             const total = getPartTotalQuestions(idx);
             const isCurrentPart = currentPartIndex === idx;
-            const isExpanded = expandedPart === idx;
+            const isExpanded = isCurrentPart;
 
             return (
               <div
@@ -1334,6 +1601,7 @@ const DoListeningTest = () => {
                           }}
                           onClick={(e) => {
                             e.stopPropagation();
+                            setExpandedPart(idx);
                             scrollToQuestion(item.startNum);
                           }}
                         >
