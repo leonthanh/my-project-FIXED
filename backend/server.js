@@ -17,6 +17,7 @@ require("./models/ListeningTest");
 require("./models/ReadingTest");
 require("./models/KETReading");
 require("./models/ReadingSubmission");
+require("./models/ListeningSubmission");
 require("./models/CambridgeListening");
 require("./models/CambridgeReading");
 
@@ -35,16 +36,6 @@ const cambridgeRoutes = require('./routes/cambridgeTests'); // ✅ Cambridge tes
 app.use(cors());
 app.use(express.json({ limit: '50mb' })); // Tăng limit để support base64 images
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
-
-// ✅ Kết nối và sync Sequelize
-sequelize
-  .authenticate()
-  .then(() => {
-    console.log("✅ MySQL connected");
-    return sequelize.sync({ alter: true });
-  })
-  .then(() => console.log("✅ Sequelize models synced"))
-  .catch((err) => console.error("❌ MySQL error:", err));
 
 // ✅ Serve ảnh tĩnh
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
@@ -77,8 +68,40 @@ app.get(/^\/(?!api).*/, (req, res) => {
   res.sendFile(path.join(frontendPath, "index.html"));
 });
 
-// ✅ Start server
+// ✅ Connect DB, sync models, then start server
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-  console.log(`✅ Server is running on port ${PORT}`);
-});
+sequelize
+  .authenticate()
+  .then(() => {
+    console.log("✅ MySQL connected");
+
+    // If legacy/seed data contains orphaned `submissions.testId` values, MySQL will
+    // reject adding the FK during `sync({ alter: true })`. Clean them up first.
+    return sequelize
+      .query(
+        `UPDATE submissions s
+         LEFT JOIN writing_tests w ON s.testId = w.id
+         SET s.testId = NULL
+         WHERE s.testId IS NOT NULL AND w.id IS NULL;`
+      )
+      .catch((cleanupErr) => {
+        // Non-fatal: tables/columns may not exist yet on first boot.
+        console.warn(
+          "⚠️ Pre-sync cleanup skipped (submissions/testId/writing_tests not ready):",
+          cleanupErr?.message || cleanupErr
+        );
+      });
+  })
+  .then(() => {
+    return sequelize.sync({ alter: true });
+  })
+  .then(() => {
+    console.log("✅ Sequelize models synced");
+    app.listen(PORT, () => {
+      console.log(`✅ Server is running on port ${PORT}`);
+    });
+  })
+  .catch((err) => {
+    console.error("❌ MySQL error:", err);
+    process.exit(1);
+  });

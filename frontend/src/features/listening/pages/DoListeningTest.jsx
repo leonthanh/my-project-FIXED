@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import { useParams, useNavigate } from "react-router-dom";
 import { apiPath, hostPath } from "../../../shared/utils/api";
 import { TestHeader } from "../../../shared/components";
+import ResultModal from "../../../shared/components/ResultModal";
+import styles from "./DoListeningTest.styles";
 
 /**
  * DoListeningTest - Trang làm bài thi Listening IELTS
@@ -18,7 +20,8 @@ const DoListeningTest = () => {
   const [answers, setAnswers] = useState({});
   const [submitted, setSubmitted] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
-  const [results, setResults] = useState(null);
+  const [resultData, setResultData] = useState(null);
+  const [resultModalOpen, setResultModalOpen] = useState(false);
   const [currentPartIndex, setCurrentPartIndex] = useState(0);
   const [expandedPart, setExpandedPart] = useState(0);
   const [timeRemaining, setTimeRemaining] = useState(30 * 60);
@@ -174,17 +177,44 @@ const DoListeningTest = () => {
   const confirmSubmit = async () => {
     if (submitted) return; // prevent double-submits
 
+    let user = null;
+    try {
+      user = JSON.parse(localStorage.getItem("user") || "null");
+    } catch (e) {
+      user = null;
+    }
+
+    const studentName = user?.name || user?.username || user?.email || null;
+    const studentId = user?.id || null;
+
     try {
       const res = await fetch(apiPath(`listening-tests/${id}/submit`), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ answers }),
+        body: JSON.stringify({ answers, user, studentName, studentId }),
       });
 
-      if (!res.ok) throw new Error("Lỗi khi nộp bài");
+      const payload = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(payload?.message || "Lỗi khi nộp bài");
 
-      const data = await res.json();
-      setResults(data);
+      const totalRaw = payload?.total ?? payload?.totalQuestions;
+      const totalParsed = Number(totalRaw);
+      const totalFinal = Number.isFinite(totalParsed) && totalParsed > 0 ? totalParsed : 40;
+
+      const correctRaw = payload?.correct ?? payload?.score;
+      const correctParsed = Number(correctRaw);
+      const correctFinal = Number.isFinite(correctParsed) ? correctParsed : 0;
+
+      const result = {
+        submissionId: payload?.submissionId,
+        total: totalFinal,
+        correct: correctFinal,
+        scorePercentage: payload?.scorePercentage ?? payload?.percentage,
+        band: payload?.band,
+      };
+
+      setResultData(result);
+      setResultModalOpen(true);
       setSubmitted(true);
       setShowConfirm(false);
 
@@ -196,7 +226,7 @@ const DoListeningTest = () => {
       }
     } catch (err) {
       console.error("Error submitting:", err);
-      alert("❌ Có lỗi xảy ra khi nộp bài!");
+      alert(`❌ Có lỗi xảy ra khi nộp bài!${err?.message ? `\n${err.message}` : ""}`);
     }
   };
 
@@ -234,7 +264,7 @@ const DoListeningTest = () => {
     }
 
     // Multi-select: each question counts by requiredAnswers (e.g. Choose TWO = 2)
-    if ((q.questionType === "multi-select" || (q.requiredAnswers && q.requiredAnswers > 1)) && q.requiredAnswers) {
+      if (q.questionType === "multi-select" && q.requiredAnswers) {
       return Math.max(1, q.requiredAnswers);
     }
 
@@ -348,27 +378,119 @@ const DoListeningTest = () => {
   );
 
   // Count answered questions in a part
+  const getPartSlots = useCallback(
+    (partIndex) => {
+      const allQuestions = test?.questions || [];
+      const partQuestions = allQuestions
+        .filter((q) => q.partIndex === partIndex)
+        .sort((a, b) => (Number(a?.globalNumber) || 0) - (Number(b?.globalNumber) || 0));
+
+      const slots = [];
+
+      for (const q of partQuestions) {
+        const baseNum = Number(q?.globalNumber);
+        const startNum = Number.isFinite(baseNum) && baseNum > 0 ? baseNum : null;
+
+        const explicitType = String(q?.questionType || "").toLowerCase();
+        const derivedType =
+          (explicitType && explicitType !== "fill" && explicitType !== "single")
+            ? explicitType
+            : (q?.formRows?.length ? "form-completion" : null) ||
+              (q?.notesText ? "notes-completion" : null) ||
+              ((q?.leftItems?.length || q?.items?.length) ? "matching" : null) ||
+              (explicitType === "multi-select" ? "multi-select" : null) ||
+              "single";
+
+        if (derivedType === "multi-select") {
+          const count = q?.requiredAnswers || 2;
+          const keyNum = startNum ?? 1;
+          slots.push({ type: "multi-select", key: `q${keyNum}`, slots: count });
+          continue;
+        }
+
+        if (derivedType === "matching") {
+          const leftItems = q?.leftItems || q?.items || [];
+          const start = startNum ?? 1;
+          if (leftItems.length > 0) {
+            leftItems.forEach((_, idx) => {
+              slots.push({ type: "single", key: `q${start + idx}` });
+            });
+          } else {
+            slots.push({ type: "single", key: `q${start}` });
+          }
+          continue;
+        }
+
+        if (derivedType === "form-completion") {
+          const rows = Array.isArray(q?.formRows) ? q.formRows : [];
+          const blanks = rows.filter((r) => r && r.isBlank);
+          const start = startNum ?? 1;
+          if (blanks.length > 0) {
+            blanks.forEach((row, idx) => {
+              const num = row?.blankNumber ? start + Number(row.blankNumber) - 1 : start + idx;
+              slots.push({ type: "single", key: `q${num}` });
+            });
+          } else {
+            slots.push({ type: "single", key: `q${start}` });
+          }
+          continue;
+        }
+
+        if (derivedType === "notes-completion") {
+          const notesText = String(q?.notesText || "");
+          const matches = notesText.match(/(\d+)\s*[_…]+/g) || [];
+          if (matches.length > 0) {
+            matches.forEach((token) => {
+              const m = token.match(/^(\d+)/);
+              if (!m) return;
+              const num = parseInt(m[1], 10);
+              if (Number.isFinite(num)) slots.push({ type: "single", key: `q${num}` });
+            });
+          } else {
+            const start = startNum ?? 1;
+            slots.push({ type: "single", key: `q${start}` });
+          }
+          continue;
+        }
+
+        // Default single-slot question
+        const start = startNum ?? 1;
+        slots.push({ type: "single", key: `q${start}` });
+      }
+
+      return slots;
+    },
+    [test?.questions]
+  );
+
   const getAnsweredCount = useCallback(
     (partIndex) => {
-      const range = getPartQuestionRange(partIndex);
+      const slots = getPartSlots(partIndex);
       let count = 0;
-      for (let i = range.start; i <= range.end; i++) {
-        const ans = answers[`q${i}`];
+
+      for (const s of slots) {
+        if (s.type === "multi-select") {
+          const ans = answers[s.key];
+          const filled = Array.isArray(ans) ? Math.min(ans.length, s.slots || 2) : 0;
+          count += filled;
+          continue;
+        }
+        const ans = answers[s.key];
         if (Array.isArray(ans) ? ans.length > 0 : !!ans) count++;
       }
+
       return count;
     },
-    [getPartQuestionRange, answers]
+    [getPartSlots, answers]
   );
 
   // Get total questions in a part
   const getPartTotalQuestions = useCallback(
     (partIndex) => {
-      const range = getPartQuestionRange(partIndex);
-      if (range.start === 0 && range.end === 0) return 0;
-      return range.end - range.start + 1;
+      const slots = getPartSlots(partIndex);
+      return slots.reduce((sum, s) => sum + (s.type === "multi-select" ? (s.slots || 2) : 1), 0);
     },
-    [getPartQuestionRange]
+    [getPartSlots]
   );
 
   // Build navigator items for a part - groups multi-select questions
@@ -391,13 +513,15 @@ const DoListeningTest = () => {
           const startNum = Number.isFinite(baseNum) && baseNum > 0 ? baseNum : null;
 
           // Derive type from question data when section metadata is missing
+          const explicitType = String(q?.questionType || "").toLowerCase();
           const derivedType =
-            q?.questionType ||
-            (q?.formRows?.length ? "form-completion" : null) ||
-            (q?.notesText ? "notes-completion" : null) ||
-            (q?.leftItems?.length ? "matching" : null) ||
-            (q?.requiredAnswers && q.requiredAnswers > 1 ? "multi-select" : null) ||
-            "single";
+            (explicitType && explicitType !== "fill" && explicitType !== "single")
+              ? explicitType
+              : (q?.formRows?.length ? "form-completion" : null) ||
+                (q?.notesText ? "notes-completion" : null) ||
+                ((q?.leftItems?.length || q?.items?.length) ? "matching" : null) ||
+                (explicitType === "multi-select" ? "multi-select" : null) ||
+                "single";
 
           if (derivedType === "multi-select") {
             const count = q?.requiredAnswers || 2;
@@ -1678,667 +1802,26 @@ const DoListeningTest = () => {
         </div>
       )}
 
-      {/* Results Modal */}
-      {results && (
-        <div style={styles.modalOverlay}>
-          <div style={styles.modalContent}>
-            <h3 style={styles.resultsTitle}>🎉 Kết quả bài thi</h3>
+      <ResultModal
+        isOpen={resultModalOpen}
+        onClose={() => {
+          setResultModalOpen(false);
+          setResultData(null);
 
-            <div style={styles.scoreBox}>
-              <div style={styles.scoreNumber}>
-                {results.score || 0}/{results.total || 40}
-              </div>
-              <p style={styles.scoreLabel}>Số câu đúng</p>
+          // Ensure timer key is cleared so next attempt is fresh
+          try {
+            localStorage.removeItem(expiresKey);
+          } catch (e) {
+            // ignore
+          }
 
-              <div style={styles.bandScore}>
-                <span style={styles.bandLabel}>Band Score: </span>
-                <span style={styles.bandValue}>
-                  {Math.min(
-                    9,
-                    Math.max(1, Math.round(((results.score || 0) / 40) * 9 * 2) / 2)
-                  ).toFixed(1)}
-                </span>
-              </div>
-            </div>
-
-            <div style={styles.resultsButtons}>
-              <button
-                onClick={() => navigate("/select-test")}
-                style={styles.cancelButton}
-              >
-                ← Về trang chủ
-              </button>
-              <button
-                onClick={() => navigate(`/listening-results/${id}`)}
-                style={styles.confirmButton}
-              >
-                📊 Xem chi tiết
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+          navigate("/select-test");
+        }}
+        result={resultData}
+        title="Listening — Kết quả"
+      />
     </div>
   );
-};
-
-// ===================== STYLES =====================
-const styles = {
-  pageWrapper: {
-    width: "100%",
-    minHeight: "100vh",
-    display: "flex",
-    flexDirection: "column",
-    fontFamily: "Arial, sans-serif",
-    fontWeight: 500,
-    backgroundColor: "#fff",
-  },
-
-  // Loading & Error
-  loadingContainer: {
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    justifyContent: "center",
-    height: "100vh",
-    backgroundColor: "#f3f4f6",
-  },
-  spinner: {
-    width: "48px",
-    height: "48px",
-    border: "4px solid #e5e7eb",
-    borderTopColor: "#3b82f6",
-    borderRadius: "50%",
-    animation: "spin 1s linear infinite",
-    marginBottom: "16px",
-  },
-  loadingText: { color: "#6b7280", fontSize: "16px" },
-  errorContainer: {
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    justifyContent: "center",
-    height: "100vh",
-    backgroundColor: "#f3f4f6",
-  },
-  errorTitle: { color: "#dc2626", fontSize: "24px", marginBottom: "8px" },
-  errorText: { color: "#6b7280", marginBottom: "16px" },
-  backButton: {
-    padding: "12px 24px",
-    backgroundColor: "#3b82f6",
-    color: "#fff",
-    border: "none",
-    borderRadius: "8px",
-    cursor: "pointer",
-    fontSize: "14px",
-  },
-
-  // Header
-  header: {
-    borderBottom: "1px solid #d1d5db",
-    backgroundColor: "#fff",
-  },
-  headerContent: {
-    display: "flex",
-    alignItems: "center",
-    padding: "0 16px",
-    height: "56px",
-  },
-  logoWrapper: { padding: "8px 16px" },
-  logoText: { fontSize: "20px", fontWeight: "bold", color: "#1e40af" },
-  testInfo: { flex: 1, paddingLeft: "16px" },
-  testTitle: { fontWeight: "bold", fontSize: "16px", color: "#1f2937" },
-  timeInfo: {
-    display: "flex",
-    alignItems: "center",
-    gap: "8px",
-    fontSize: "14px",
-    color: "#6b7280",
-  },
-  audioIcon: { fontSize: "16px" },
-  submitButton: {
-    padding: "8px 20px",
-    backgroundColor: "#22c55e",
-    color: "#fff",
-    border: "none",
-    borderRadius: "6px",
-    cursor: "pointer",
-    fontWeight: 600,
-    fontSize: "14px",
-  },
-
-  // Part Info Box
-  partInfoBox: {
-    margin: "16px",
-    padding: "16px",
-    backgroundColor: "#f1f2ec",
-    border: "1px solid #d5d5d5",
-    borderRadius: "4px",
-  },
-  partTitle: { fontWeight: 900, fontSize: "16px", color: "#1f2937" },
-  partDescription: { fontSize: "14px", color: "#4b5563", marginTop: "4px" },
-
-  // Main Content
-  mainContent: {
-    flex: 1,
-    position: "relative",
-    paddingBottom: "80px",
-  },
-  audioContainer: { padding: "0 24px", marginBottom: "16px" },
-  audioPlayer: { width: "100%", height: "40px" },
-  audioWarning: { color: "#d97706", fontSize: "13px", marginTop: "4px" },
-  questionsList: {
-    padding: "0 24px",
-    overflowY: "auto",
-    maxHeight: "calc(100vh - 280px)",
-  },
-
-  // Section
-  sectionContainer: { marginBottom: "32px" },
-  sectionTitle: { fontWeight: "bold", fontSize: "16px", marginBottom: "8px" },
-  sectionInstruction: { marginBottom: "16px", color: "#4b5563", lineHeight: 1.6 },
-  questionsWrapper: { display: "flex", flexDirection: "column", gap: "8px" },
-
-  // Multiple Choice
-  questionItem: { marginBottom: "16px", padding: "8px", borderRadius: "4px" },
-  questionHeader: { display: "flex", gap: "12px", marginBottom: "8px", alignItems: "flex-start" },
-  questionNumber: {
-    display: "inline-flex",
-    alignItems: "center",
-    justifyContent: "center",
-    minWidth: "32px",
-    height: "32px",
-    backgroundColor: "#0e276f",
-    color: "#fff",
-    borderRadius: "50%",
-    fontWeight: 600,
-    fontSize: "14px",
-    flexShrink: 0,
-  },
-  questionNumberWide: {
-    display: "inline-flex",
-    alignItems: "center",
-    justifyContent: "center",
-    minWidth: "48px",
-    height: "32px",
-    backgroundColor: "#0e276f",
-    color: "#fff",
-    borderRadius: "16px",
-    fontWeight: 600,
-    fontSize: "13px",
-    padding: "0 8px",
-    flexShrink: 0,
-  },
-  questionText: { flex: 1, marginTop: "4px", lineHeight: 1.5 },
-  optionsList: {
-    listStyle: "none",
-    margin: 0,
-    padding: 0,
-    display: "flex",
-    flexDirection: "column",
-    gap: "2px",
-  },
-  optionItem: { position: "relative" },
-  optionLabel: {
-    display: "flex",
-    gap: "8px",
-    padding: "10px 12px",
-    borderRadius: "4px",
-    cursor: "pointer",
-    transition: "background-color 0.2s",
-  },
-  optionText: { marginLeft: "20px" },
-  radioInput: {
-    position: "absolute",
-    top: "50%",
-    transform: "translateY(-50%)",
-    left: "8px",
-  },
-  checkboxInput: {
-    position: "absolute",
-    top: "50%",
-    transform: "translateY(-50%)",
-    left: "8px",
-    backgroundColor: "#fff",
-  },
-
-  // Fill Question
-  fillQuestionItem: {
-    display: "flex",
-    alignItems: "center",
-    gap: "8px",
-    marginBottom: "12px",
-    padding: "8px",
-    borderRadius: "4px",
-  },
-  fillQuestionNumber: {
-    display: "inline-flex",
-    alignItems: "center",
-    justifyContent: "center",
-    minWidth: "32px",
-    height: "32px",
-    backgroundColor: "#0e276f",
-    color: "#fff",
-    borderRadius: "50%",
-    fontWeight: 600,
-    fontSize: "14px",
-    flexShrink: 0,
-  },
-  fillInput: {
-    flex: 1,
-    border: "1px solid #d1d5db",
-    borderRadius: "4px",
-    padding: "8px 12px",
-    fontSize: "14px",
-    outline: "none",
-  },
-  fillQuestionsContainer: { display: "flex", flexDirection: "column" },
-
-  // Multi-select (Choose TWO letters style)
-  multiSelectContainer: {
-    padding: "16px 20px",
-    marginBottom: "16px",
-    borderRadius: "8px",
-    border: "1px solid #cce5ff",
-  },
-  multiSelectHeader: {
-    display: "flex",
-    alignItems: "flex-start",
-    gap: "12px",
-    marginBottom: "12px",
-  },
-  multiSelectBadge: {
-    display: "inline-flex",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: "4px 10px",
-    backgroundColor: "#0e276f",
-    color: "#fff",
-    borderRadius: "4px",
-    fontWeight: 600,
-    fontSize: "14px",
-    whiteSpace: "nowrap",
-  },
-  multiSelectQuestionText: {
-    fontSize: "15px",
-    color: "#333",
-    lineHeight: 1.5,
-  },
-  multiSelectOptions: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "8px",
-  },
-  multiSelectOption: {
-    display: "flex",
-    alignItems: "center",
-    gap: "10px",
-    padding: "10px 14px",
-    border: "1px solid #dee2e6",
-    borderRadius: "6px",
-    cursor: "pointer",
-    transition: "all 0.2s",
-  },
-  multiSelectCheckbox: {
-    width: "18px",
-    height: "18px",
-    cursor: "pointer",
-  },
-  multiSelectOptionText: {
-    fontSize: "14px",
-    color: "#333",
-  },
-
-  // Matching
-  matchingContainer: {
-    display: "flex",
-    flexDirection: "row",
-    gap: "32px",
-    flexWrap: "wrap",
-  },
-  matchingLeft: { flex: 1, minWidth: "280px" },
-  matchingRight: { flex: 1, minWidth: "200px" },
-  matchingItemsList: { display: "flex", flexDirection: "column", gap: "8px" },
-  matchingRow: {
-    display: "flex",
-    alignItems: "center",
-    gap: "12px",
-    padding: "8px 12px",
-    borderRadius: "4px",
-  },
-  matchingQuestionNum: {
-    display: "inline-flex",
-    alignItems: "center",
-    justifyContent: "center",
-    width: "32px",
-    height: "32px",
-    backgroundColor: "#0e276f",
-    color: "#fff",
-    borderRadius: "50%",
-    fontWeight: 600,
-    fontSize: "14px",
-    flexShrink: 0,
-  },
-  matchingItemText: { flex: 1 },
-  matchingDropdownWrapper: { minWidth: "80px" },
-  matchingSelect: {
-    width: "100%",
-    padding: "6px 8px",
-    border: "1px solid #d1d5db",
-    borderRadius: "4px",
-    backgroundColor: "#fff",
-    cursor: "pointer",
-  },
-  optionsTitle: { fontWeight: 600, marginBottom: "8px" },
-  optionsContainer: { display: "flex", flexDirection: "column", gap: "4px" },
-  optionCard: {
-    padding: "8px 12px",
-    border: "1px solid #c5c5c5",
-    borderRadius: "6px",
-    backgroundColor: "#fff",
-    fontSize: "14px",
-  },
-
-  // Form/Table Completion - IELTS Style
-  formContainer: {
-    backgroundColor: "#f9fafb",
-    border: "1px solid #e5e7eb",
-    borderRadius: "8px",
-    overflow: "hidden",
-  },
-  formContent: {
-    padding: "16px 20px",
-    lineHeight: "2.4",
-  },
-  formRow: {
-    display: "flex",
-    alignItems: "center",
-    gap: "8px",
-    marginBottom: "4px",
-    flexWrap: "wrap",
-  },
-  formLabel: {
-    fontWeight: "500",
-    color: "#374151",
-    minWidth: "fit-content",
-  },
-  formValue: {
-    display: "inline-flex",
-    alignItems: "center",
-    gap: "4px",
-    flexWrap: "wrap",
-  },
-  formFixedValue: {
-    color: "#1f2937",
-    fontWeight: "500",
-  },
-  formGapWrapper: {
-    display: "inline-flex",
-    alignItems: "center",
-  },
-  formGapInput: {
-    width: "150px",
-    padding: "6px 12px",
-    border: "2px solid #d1d5db",
-    borderRadius: "6px",
-    fontSize: "14px",
-    outline: "none",
-    backgroundColor: "#fff",
-    transition: "border-color 0.2s, box-shadow 0.2s",
-  },
-  
-  // Legacy Form/Table styles (kept for compatibility)
-  formTable: { overflowX: "auto" },
-  table: {
-    width: "100%",
-    borderCollapse: "collapse",
-    border: "1px solid #d1d5db",
-  },
-  tableCell: {
-    padding: "12px",
-    border: "1px solid #d1d5db",
-    verticalAlign: "middle",
-  },
-  gapWrapper: { position: "relative", display: "inline-flex", marginLeft: "4px" },
-  gapInput: {
-    width: "120px",
-    padding: "4px 8px",
-    border: "1px solid #d1d5db",
-    borderRadius: "4px",
-    fontSize: "14px",
-    outline: "none",
-  },
-  gapPlaceholder: {
-    position: "absolute",
-    top: "50%",
-    left: "50%",
-    transform: "translate(-50%, -50%)",
-    color: "#9ca3af",
-    pointerEvents: "none",
-  },
-
-  // Floating Navigation
-  floatingNav: {
-    position: "fixed",
-    bottom: "80px",
-    right: "24px",
-    display: "flex",
-    gap: "8px",
-    zIndex: 80,
-  },
-  navArrowLeft: {
-    width: "56px",
-    height: "56px",
-    backgroundColor: "#374151",
-    border: "none",
-    borderRadius: "4px",
-    cursor: "pointer",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  navArrowRight: {
-    width: "56px",
-    height: "56px",
-    backgroundColor: "#111827",
-    border: "none",
-    borderRadius: "4px",
-    cursor: "pointer",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-
-  // Bottom Navigation
-  bottomNav: {
-    position: "fixed",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: "#f8fafc",
-    borderTop: "1px solid #d1d5db",
-    zIndex: 30,
-  },
-  partsContainer: {
-    display: "flex",
-    overflowX: "auto",
-  },
-  partTab: {
-    flex: 1,
-    minWidth: "100px",
-    padding: "12px 16px",
-    cursor: "pointer",
-    borderLeft: "1px solid #e5e7eb",
-    transition: "background-color 0.2s",
-  },
-  partLabel: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: "8px",
-    whiteSpace: "nowrap",
-  },
-  partLabelText: { fontWeight: "bold", fontSize: "16px" },
-  partProgress: { fontSize: "14px", color: "#6b7280" },
-  questionNumbers: {
-    display: "flex",
-    flexWrap: "nowrap",
-    gap: "8px",
-    marginTop: "8px",
-    justifyContent: "space-around",
-  },
-  questionNumBox: {
-    minWidth: "28px",
-    height: "28px",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    border: "1px solid transparent",
-    borderRadius: "4px",
-    fontSize: "15px",
-    cursor: "pointer",
-    backgroundColor: "#fff",
-    padding: "0 4px",
-  },
-  questionNumBoxWide: {
-    minWidth: "40px",
-    padding: "0 6px",
-    fontSize: "14px",
-  },
-  submitIcon: {
-    padding: "16px",
-    backgroundColor: "#e5e7eb",
-    cursor: "pointer",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-
-  // Modals
-  modalOverlay: {
-    position: "fixed",
-    inset: 0,
-    backgroundColor: "rgba(0,0,0,0.6)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    zIndex: 50,
-  },
-  modalContent: {
-    backgroundColor: "#fff",
-    padding: "28px",
-    borderRadius: "16px",
-    maxWidth: "480px",
-    width: "90%",
-    boxShadow: "0 8px 32px rgba(0,0,0,0.25)",
-  },
-  modalTitle: {
-    fontSize: "20px",
-    fontWeight: "bold",
-    color: "#1e40af",
-    marginBottom: "16px",
-  },
-  modalText: { marginBottom: "16px", color: "#4b5563" },
-  summaryBox: {
-    padding: "12px",
-    backgroundColor: "#f9fafb",
-    borderRadius: "8px",
-    marginBottom: "16px",
-  },
-  summaryLabel: { fontSize: "13px", color: "#6b7280", marginBottom: "8px" },
-  summaryRow: {
-    display: "flex",
-    justifyContent: "space-between",
-    padding: "4px 0",
-    fontSize: "14px",
-  },
-  warningText: { color: "#dc2626", fontSize: "13px", marginBottom: "16px" },
-  modalButtons: { display: "flex", gap: "12px", justifyContent: "flex-end" },
-  cancelButton: {
-    padding: "10px 20px",
-    backgroundColor: "#f1f5f9",
-    color: "#475569",
-    border: "1px solid #e2e8f0",
-    borderRadius: "8px",
-    cursor: "pointer",
-    fontWeight: 500,
-    fontSize: "14px",
-  },
-  confirmButton: {
-    padding: "10px 24px",
-    backgroundColor: "#22c55e",
-    color: "#fff",
-    border: "none",
-    borderRadius: "8px",
-    cursor: "pointer",
-    fontWeight: 600,
-    fontSize: "14px",
-  },
-
-  // Results
-  resultsTitle: {
-    fontSize: "20px",
-    fontWeight: "bold",
-    color: "#15803d",
-    textAlign: "center",
-    marginBottom: "16px",
-  },
-  scoreBox: {
-    textAlign: "center",
-    padding: "24px",
-    backgroundColor: "#f0fdf4",
-    borderRadius: "12px",
-    marginBottom: "20px",
-  },
-  scoreNumber: { fontSize: "48px", fontWeight: "bold", color: "#16a34a" },
-  scoreLabel: { color: "#6b7280", marginTop: "8px" },
-  bandScore: {
-    display: "inline-block",
-    marginTop: "16px",
-    padding: "8px 16px",
-    backgroundColor: "#fff",
-    borderRadius: "8px",
-  },
-  bandLabel: { fontSize: "13px", color: "#6b7280" },
-  bandValue: { fontSize: "20px", fontWeight: "bold", color: "#1e40af" },
-  resultsButtons: { display: "flex", gap: "12px", justifyContent: "center" },
-
-  // Notes Completion
-  notesContainer: {
-    backgroundColor: "#f9fafb",
-    border: "1px solid #e5e7eb",
-    borderRadius: "8px",
-    padding: "16px",
-  },
-  notesTitle: {
-    fontWeight: "bold",
-    fontSize: "15px",
-    marginBottom: "12px",
-    color: "#1f2937",
-  },
-  notesContent: {
-    lineHeight: 1.8,
-    fontSize: "14px",
-  },
-  notesLine: {
-    marginBottom: "8px",
-    display: "block",
-  },
-  notesBlank: {
-    display: "inline-block",
-    borderBottom: "1px solid #999",
-    minWidth: "60px",
-  },
-
-  // Form Title
-  formTitle: {
-    fontWeight: "bold",
-    fontSize: "15px",
-    marginBottom: "12px",
-    padding: "8px 12px",
-    backgroundColor: "#e5e7eb",
-    borderRadius: "4px 4px 0 0",
-  },
 };
 
 export default DoListeningTest;

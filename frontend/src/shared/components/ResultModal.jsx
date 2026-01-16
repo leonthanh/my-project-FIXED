@@ -8,7 +8,7 @@ const getBandColor = (band) => {
   return '#6b7280'; // gray
 };
 
-const ResultModal = ({ isOpen, onClose, result, onViewDetails }) => {
+const ResultModal = ({ isOpen, onClose, result, onViewDetails, title = 'Reading — Kết quả' }) => {
   if (!isOpen || !result) return null;
 
   const { total, correct, scorePercentage, band } = result;
@@ -23,7 +23,7 @@ const ResultModal = ({ isOpen, onClose, result, onViewDetails }) => {
     <div role="dialog" aria-modal="true" className="result-modal-overlay" onClick={onClose}>
       <div className="result-modal" style={{color:'#0e276f'}} onClick={(e) => e.stopPropagation()}>
         <header className="result-modal-header">
-          <h2>Reading — Kết quả</h2>
+          <h2>{title}</h2>
           <button type="button" aria-label="close" className="close-btn" onClick={onClose}>✕</button>
         </header>
 

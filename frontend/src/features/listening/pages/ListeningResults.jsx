@@ -306,6 +306,21 @@ const ListeningResults = () => {
       setLoading(true);
       
       try {
+        // Preferred: id is a DB submissionId
+        const subRes = await fetch(apiPath(`listening-submissions/${id}`));
+        if (subRes.ok) {
+          const payload = await subRes.json();
+          const dbSub = payload?.submission || null;
+          const dbTest = payload?.test || null;
+
+          if (dbSub) {
+            setSubmission(dbSub);
+            setTest(dbTest);
+            setDetails(Array.isArray(dbSub.details) ? dbSub.details : []);
+            return;
+          }
+        }
+
         // If we have navigation state with score, use it
         if (navResult?.score !== undefined) {
           setSubmission({
@@ -315,7 +330,7 @@ const ListeningResults = () => {
           });
         }
 
-        // Fetch test data
+        // Legacy fallback: treat id as testId
         const testRes = await fetch(apiPath(`listening-tests/${id}`));
         if (testRes.ok) {
           const testData = await testRes.json();
@@ -342,15 +357,41 @@ const ListeningResults = () => {
     const details = [];
     let questionNumber = 1;
 
-    Object.entries(questions).forEach(([partKey, partQuestions]) => {
+    // Support both legacy object-by-part and newer flat array questions
+    if (Array.isArray(questions)) {
+      questions.forEach((q) => {
+        const qNum = q.globalNumber || questionNumber;
+        const studentAnswer = answers?.[`q${qNum}`];
+        const expected = q.correctAnswer || q.answer || q.answers;
+        const isCorrect =
+          studentAnswer != null && expected != null
+            ? String(studentAnswer).trim().toLowerCase() === String(expected).trim().toLowerCase()
+            : false;
+
+        details.push({
+          questionNumber: qNum,
+          part: (q.partIndex != null ? Number(q.partIndex) + 1 : 1),
+          questionType: q.questionType || 'fill',
+          studentAnswer: studentAnswer || '',
+          correctAnswer: expected || '',
+          isCorrect,
+          questionText: q.questionText || q.text || '',
+        });
+        questionNumber = Math.max(questionNumber, qNum + 1);
+      });
+      return details;
+    }
+
+    Object.entries(questions || {}).forEach(([partKey, partQuestions]) => {
       const partNum = parseInt(partKey.replace('part', ''));
-      
-      partQuestions.forEach((q, idx) => {
+
+      (partQuestions || []).forEach((q, idx) => {
         const answerKey = `${partKey}_${idx}`;
         const studentAnswer = answers[answerKey] || '';
         const correctAnswer = q.correctAnswer || '';
-        const isCorrect = studentAnswer.toString().toLowerCase().trim() === 
-                          correctAnswer.toString().toLowerCase().trim();
+        const isCorrect =
+          studentAnswer.toString().toLowerCase().trim() ===
+          correctAnswer.toString().toLowerCase().trim();
 
         details.push({
           questionNumber,
@@ -373,7 +414,13 @@ const ListeningResults = () => {
     if (!details.length) return {};
     const groups = {};
     details.forEach((d) => {
-      const part = `Part ${d.part}`;
+      const partNum =
+        d.part != null
+          ? Number(d.part)
+          : d.partIndex != null
+          ? Number(d.partIndex) + 1
+          : 1;
+      const part = `Part ${partNum}`;
       if (!groups[part]) groups[part] = [];
       groups[part].push(d);
     });
@@ -392,7 +439,13 @@ const ListeningResults = () => {
   const partAnalysis = useMemo(() => {
     const analysis = {};
     details.forEach(d => {
-      const part = `Part ${d.part}`;
+      const partNum =
+        d.part != null
+          ? Number(d.part)
+          : d.partIndex != null
+          ? Number(d.partIndex) + 1
+          : 1;
+      const part = `Part ${partNum}`;
       if (!analysis[part]) {
         analysis[part] = { correct: 0, total: 0 };
       }
@@ -425,10 +478,18 @@ const ListeningResults = () => {
     );
   }
 
-  const correct = submission?.correct || details.filter(d => d.isCorrect).length;
-  const total = submission?.total || details.length || 40;
-  const scorePercentage = total > 0 ? Math.round((correct / total) * 100) : 0;
-  const band = bandFromCorrect(correct);
+  const correct = submission?.correct ?? details.filter(d => d.isCorrect).length;
+  const total = submission?.total ?? (details.length || 40);
+  const scorePercentage =
+    submission?.scorePercentage != null
+      ? Number(submission.scorePercentage)
+      : total > 0
+      ? Math.round((correct / total) * 100)
+      : 0;
+  const band =
+    submission?.band != null && Number.isFinite(Number(submission.band))
+      ? Number(submission.band)
+      : bandFromCorrect(correct);
   const wrongCount = details.filter((d) => !d.isCorrect).length;
 
   return (
@@ -446,7 +507,7 @@ const ListeningResults = () => {
         <div style={styles.metaGrid}>
           <div style={styles.metaItem}>
             <span style={styles.metaLabel}>📚 Bài test:</span>
-            <span style={styles.metaValue}>{test.title || `Listening #${id}`}</span>
+            <span style={styles.metaValue}>{test.title || `Listening Test #${test.id || submission?.testId || ""}`}</span>
           </div>
           <div style={styles.metaItem}>
             <span style={styles.metaLabel}>🏫 Mã lớp:</span>
@@ -456,6 +517,18 @@ const ListeningResults = () => {
             <span style={styles.metaLabel}>👨‍🏫 Giáo viên:</span>
             <span style={styles.metaValue}>{test.teacherName || "N/A"}</span>
           </div>
+        </div>
+      )}
+
+      {submission?.feedback && (
+        <div style={styles.feedbackBox}>
+          <div style={styles.feedbackHeader}>
+            <strong>📝 Nhận xét giáo viên</strong>
+            {submission.feedbackBy && (
+              <span style={{ color: "#92400e" }}>({submission.feedbackBy})</span>
+            )}
+          </div>
+          <div style={{ whiteSpace: "pre-wrap", color: "#111827" }}>{submission.feedback}</div>
         </div>
       )}
 
@@ -652,7 +725,9 @@ const ListeningResults = () => {
                 {filteredDetails.map((r, idx) => (
                   <tr key={idx} style={r.isCorrect ? styles.rowCorrect : styles.rowWrong}>
                     <td style={styles.td}><strong>{r.questionNumber}</strong></td>
-                    <td style={styles.td}>Part {r.part}</td>
+                    <td style={styles.td}>
+                      Part {r.part != null ? r.part : r.partIndex != null ? Number(r.partIndex) + 1 : 1}
+                    </td>
                     <td style={styles.td}>
                       <span style={{ color: "#166534", fontWeight: 500 }}>
                         {r.correctAnswer}
