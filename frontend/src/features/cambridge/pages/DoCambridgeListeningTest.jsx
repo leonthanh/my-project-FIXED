@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { apiPath, hostPath } from "../../../shared/utils/api";
 import { TestHeader } from "../../../shared/components";
 import { TEST_CONFIGS } from "../../../shared/config/questionTypes";
+import './DoCambridgeReadingTest.css';
 
 /**
  * DoCambridgeListeningTest - Trang làm bài thi Listening Cambridge (KET, PET, etc.)
@@ -39,6 +40,8 @@ const DoCambridgeListeningTest = () => {
   // Cambridge-style start gate (must click Play)
   const [testStarted, setTestStarted] = useState(false);
   const [startedAudioByPart, setStartedAudioByPart] = useState({});
+  const [showAudioTip, setShowAudioTip] = useState(false);
+  const [flaggedQuestions, setFlaggedQuestions] = useState(() => new Set());
 
   const audioRef = useRef(null);
   const questionRefs = useRef({});
@@ -85,6 +88,26 @@ const DoCambridgeListeningTest = () => {
     return Boolean(test?.parts?.some((p) => p?.audioUrl));
   }, [test]);
 
+  // If teacher uploads only one mp3 (usually in Part 1), treat it as global audio.
+  const globalAudioUrl = useMemo(() => {
+    const parts = test?.parts || [];
+    const first = parts.find((p) => p?.audioUrl)?.audioUrl;
+    return first || '';
+  }, [test]);
+
+  const audioMeta = useMemo(() => {
+    const urls = new Set(
+      (test?.parts || [])
+        .map((p) => (p?.audioUrl ? String(p.audioUrl).trim() : ''))
+        .filter(Boolean)
+    );
+    return {
+      hasAudio: urls.size > 0,
+      uniqueCount: urls.size,
+      isSingleFile: urls.size === 1,
+    };
+  }, [test]);
+
   // Build global question order + ranges (for footer nav)
   const questionIndex = useMemo(() => {
     const parts = test?.parts || [];
@@ -100,11 +123,66 @@ const DoCambridgeListeningTest = () => {
       const sections = part?.sections || [];
       for (let sIdx = 0; sIdx < sections.length; sIdx++) {
         const sec = sections[sIdx];
+        const q0 = sec?.questions?.[0] || {};
+        const secType =
+          sec?.questionType ||
+          q0?.questionType ||
+          q0?.type ||
+          (Array.isArray(q0?.people) ? 'people-matching' : '') ||
+          (Array.isArray(q0?.sentences) ? 'word-form' : '') ||
+          '';
         const questions = sec?.questions || [];
+
         for (let qIdx = 0; qIdx < questions.length; qIdx++) {
+          const q = questions[qIdx];
+
+          // Nested / multi-item section types
+          if (secType === 'long-text-mc' && Array.isArray(q?.questions)) {
+            for (let nestedIdx = 0; nestedIdx < q.questions.length; nestedIdx++) {
+              const key = `${pIdx}-${sIdx}-${qIdx}-${nestedIdx}`;
+              const num = globalNumber++;
+              partKeys.push({ key, number: num, sectionIndex: sIdx });
+              orderedKeys.push({ key, partIndex: pIdx, number: num });
+            }
+            continue;
+          }
+
+          if ((secType === 'cloze-mc' || secType === 'cloze-test') && Array.isArray(q?.blanks)) {
+            for (let blankIdx = 0; blankIdx < q.blanks.length; blankIdx++) {
+              const key = `${pIdx}-${sIdx}-${qIdx}-${blankIdx}`;
+              const num = globalNumber++;
+              partKeys.push({ key, number: num, sectionIndex: sIdx });
+              orderedKeys.push({ key, partIndex: pIdx, number: num });
+            }
+            continue;
+          }
+
+          if (secType === 'word-form' && Array.isArray(q?.sentences)) {
+            for (let sentIdx = 0; sentIdx < q.sentences.length; sentIdx++) {
+              const key = `${pIdx}-${sIdx}-${qIdx}-${sentIdx}`;
+              const num = globalNumber++;
+              partKeys.push({ key, number: num, sectionIndex: sIdx });
+              orderedKeys.push({ key, partIndex: pIdx, number: num });
+            }
+            continue;
+          }
+
+          if (secType === 'people-matching' && Array.isArray(q?.people)) {
+            for (let personIdx = 0; personIdx < q.people.length; personIdx++) {
+              const person = q.people[personIdx];
+              const personId = person?.id || String.fromCharCode(65 + personIdx);
+              const key = `${pIdx}-${sIdx}-${qIdx}-${personId}`;
+              const num = globalNumber++;
+              partKeys.push({ key, number: num, sectionIndex: sIdx });
+              orderedKeys.push({ key, partIndex: pIdx, number: num });
+            }
+            continue;
+          }
+
+          // Regular question
           const key = `${pIdx}-${sIdx}-${qIdx}`;
           const num = globalNumber++;
-          partKeys.push({ key, number: num });
+          partKeys.push({ key, number: num, sectionIndex: sIdx });
           orderedKeys.push({ key, partIndex: pIdx, number: num });
         }
       }
@@ -161,11 +239,17 @@ const DoCambridgeListeningTest = () => {
     return test?.parts?.[currentPartIndex] || null;
   }, [test, currentPartIndex]);
 
+  const currentAudioUrl = useMemo(() => {
+    return currentPart?.audioUrl || globalAudioUrl || '';
+  }, [currentPart, globalAudioUrl]);
+
   const isStartGateVisible = useMemo(() => {
     if (submitted) return false;
-    if (!currentPart?.audioUrl) return false;
+    if (!currentAudioUrl) return false;
+    // If only one audio file for whole test, show gate once at the beginning.
+    if (audioMeta.isSingleFile) return !testStarted;
     return !startedAudioByPart?.[currentPartIndex];
-  }, [submitted, currentPart, startedAudioByPart, currentPartIndex]);
+  }, [submitted, currentAudioUrl, startedAudioByPart, currentPartIndex, audioMeta.isSingleFile, testStarted]);
 
   const markPartAudioStarted = useCallback((partIndex) => {
     setStartedAudioByPart((prev) => {
@@ -193,17 +277,19 @@ const DoCambridgeListeningTest = () => {
   const handleAudioPause = useCallback(() => {
     const audio = audioRef.current;
     if (!audio) return;
-    if (!startedAudioByPart?.[currentPartIndex]) return;
+    const isStarted = audioMeta.isSingleFile ? testStarted : startedAudioByPart?.[currentPartIndex];
+    if (!isStarted) return;
     if (audio.ended) return;
     audio.play().catch(() => {
       // ignore
     });
-  }, [currentPartIndex, startedAudioByPart]);
+  }, [currentPartIndex, startedAudioByPart, audioMeta.isSingleFile, testStarted]);
 
   const handleAudioTimeUpdate = useCallback(() => {
     const audio = audioRef.current;
     if (!audio) return;
-    if (!startedAudioByPart?.[currentPartIndex]) return;
+    const isStarted = audioMeta.isSingleFile ? testStarted : startedAudioByPart?.[currentPartIndex];
+    if (!isStarted) return;
     const t = Number(audio.currentTime || 0);
     const prevMax = Number(maxPlayedTimeByPartRef.current?.[currentPartIndex] || 0);
     if (t > prevMax) {
@@ -212,13 +298,14 @@ const DoCambridgeListeningTest = () => {
         [currentPartIndex]: t,
       };
     }
-  }, [currentPartIndex, startedAudioByPart]);
+  }, [currentPartIndex, startedAudioByPart, audioMeta.isSingleFile, testStarted]);
 
   const handleAudioSeeking = useCallback(() => {
     if (ignoreSeekRef.current) return;
     const audio = audioRef.current;
     if (!audio) return;
-    if (!startedAudioByPart?.[currentPartIndex]) return;
+    const isStarted = audioMeta.isSingleFile ? testStarted : startedAudioByPart?.[currentPartIndex];
+    if (!isStarted) return;
 
     const max = Number(maxPlayedTimeByPartRef.current?.[currentPartIndex] || 0);
     const t = Number(audio.currentTime || 0);
@@ -231,7 +318,7 @@ const DoCambridgeListeningTest = () => {
         ignoreSeekRef.current = false;
       }, 0);
     }
-  }, [currentPartIndex, startedAudioByPart]);
+  }, [currentPartIndex, startedAudioByPart, audioMeta.isSingleFile, testStarted]);
 
   // Format time display
   const formatTime = (seconds) => {
@@ -260,6 +347,23 @@ const DoCambridgeListeningTest = () => {
     return s;
   }, []);
 
+  const sanitizeBasicHtml = useCallback((html) => {
+    const s = String(html || "");
+    return s.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "");
+  }, []);
+
+  const renderMaybeHtml = useCallback(
+    (value) => {
+      const s = String(value || "");
+      if (!s) return null;
+      if (s.includes("<") && s.includes(">")) {
+        return <div dangerouslySetInnerHTML={{ __html: sanitizeBasicHtml(s) }} />;
+      }
+      return <div>{s}</div>;
+    },
+    [sanitizeBasicHtml]
+  );
+
   // Handle checkbox change for multi-select
   const handleCheckboxChange = useCallback(
     (questionKey, optionIndex, checked, maxSelections = 2) => {
@@ -287,6 +391,15 @@ const DoCambridgeListeningTest = () => {
 
   // Handle submit
   const handleSubmit = () => setShowConfirm(true);
+
+  const toggleFlag = useCallback((questionKey) => {
+    setFlaggedQuestions((prev) => {
+      const next = new Set(prev);
+      if (next.has(questionKey)) next.delete(questionKey);
+      else next.add(questionKey);
+      return next;
+    });
+  }, []);
 
   // Confirm and submit
   const confirmSubmit = async () => {
@@ -471,12 +584,35 @@ const DoCambridgeListeningTest = () => {
       case 'multiple-choice-pictures':
         const imageOptions = Array.isArray(question.imageOptions) ? question.imageOptions : [];
         return (
-          <div style={styles.questionCard}>
-            <div style={styles.questionHeader}>
-              <span style={styles.questionNum}>{questionNum}</span>
-              <span style={styles.questionText}>{question.questionText}</span>
+          <div style={styles.pictureQuestionCard}>
+            <div style={styles.pictureQuestionHeader}>
+              <div
+                style={{
+                  ...styles.questionHeader,
+                  padding: 0,
+                  background: 'transparent',
+                  border: 'none',
+                  borderRadius: 0,
+                }}
+              >
+                <span style={styles.questionNum}>{questionNum}</span>
+                <span style={styles.questionText}>{question.questionText}</span>
+              </div>
+
+              <button
+                type="button"
+                aria-label={`Flag question ${questionNum}`}
+                onClick={() => toggleFlag(questionKey)}
+                style={{
+                  ...styles.flagButton,
+                  ...(flaggedQuestions.has(questionKey) ? styles.flagButtonActive : null),
+                }}
+              >
+                {flaggedQuestions.has(questionKey) ? '⚑' : '⚐'}
+              </button>
             </div>
-            <div style={styles.optionsContainer}>
+
+            <div style={styles.pictureChoicesRow} role="radiogroup" aria-label={`Question ${questionNum}`}> 
               {[0, 1, 2].map((idx) => {
                 const optionLabel = String.fromCharCode(65 + idx); // A/B/C
                 const opt = imageOptions[idx] || {};
@@ -484,51 +620,39 @@ const DoCambridgeListeningTest = () => {
                 const isCorrectOption = submitted && question.correctAnswer === optionLabel;
 
                 return (
-                  <label
-                    key={idx}
-                    style={{
-                      ...styles.optionLabel,
-                      ...(isSelected && styles.optionSelected),
-                      ...(submitted && isCorrectOption && styles.optionCorrect),
-                      ...(submitted && isSelected && !isCorrectOption && styles.optionWrong),
-                      display: 'grid',
-                      gridTemplateColumns: '24px 1fr',
-                      gap: '10px',
-                      alignItems: 'start',
-                    }}
-                  >
-                    <input
-                      type="radio"
-                      name={questionKey}
-                      checked={isSelected}
-                      onChange={() => handleAnswerChange(questionKey, optionLabel)}
-                      disabled={submitted}
-                      style={{ marginTop: '4px' }}
-                    />
-                    <div>
-                      <div style={{ fontWeight: 700, marginBottom: '8px' }}>{optionLabel}</div>
+                  <div key={idx} style={styles.pictureChoiceItem}>
+                    <label
+                      style={{
+                        ...styles.pictureChoiceLabelWrap,
+                        ...(isSelected ? styles.pictureChoiceSelected : null),
+                        ...(submitted && isCorrectOption ? styles.pictureChoiceCorrect : null),
+                        ...(submitted && isSelected && !isCorrectOption ? styles.pictureChoiceWrong : null),
+                      }}
+                    >
                       {opt.imageUrl ? (
                         <img
                           src={resolveImgSrc(opt.imageUrl)}
-                          alt={`Option ${optionLabel}`}
-                          style={{
-                            width: '100%',
-                            maxWidth: '260px',
-                            height: 'auto',
-                            borderRadius: '8px',
-                            border: '1px solid #e5e7eb',
-                            background: 'white',
-                          }}
+                          alt=""
+                          style={styles.pictureChoiceImage}
                           onError={(e) => {
                             e.currentTarget.style.display = 'none';
                           }}
                         />
-                      ) : null}
-                      {opt.text ? (
-                        <div style={{ marginTop: '8px', color: '#334155' }}>{opt.text}</div>
-                      ) : null}
-                    </div>
-                  </label>
+                      ) : (
+                        <div style={styles.pictureChoiceImagePlaceholder} />
+                      )}
+                      <input
+                        type="radio"
+                        name={questionKey}
+                        value={optionLabel}
+                        checked={isSelected}
+                        onChange={() => handleAnswerChange(questionKey, optionLabel)}
+                        disabled={submitted}
+                        style={styles.pictureChoiceRadio}
+                        aria-label={`Option ${optionLabel}`}
+                      />
+                    </label>
+                  </div>
                 );
               })}
             </div>
@@ -665,7 +789,7 @@ const DoCambridgeListeningTest = () => {
                   <div style={styles.rubricBlock}>
                     <h3 style={styles.rubricTitle}>Questions {range.start}–{range.end}</h3>
                     <div style={styles.rubricText}>
-                      {currentPart.instruction || 'For each question, choose the correct answer.'}
+                      {renderMaybeHtml(currentPart.instruction || 'For each question, choose the correct answer.')}
                     </div>
                   </div>
                 );
@@ -679,12 +803,12 @@ const DoCambridgeListeningTest = () => {
               </div>
 
               {/* Audio Player */}
-              {currentPart.audioUrl && (
+              {currentAudioUrl && (
                 <div style={styles.audioContainer}>
                   <span style={{ marginRight: '12px' }}>🎧</span>
                   <audio
                     ref={audioRef}
-                    src={hostPath(currentPart.audioUrl)}
+                    src={hostPath(currentAudioUrl)}
                     preload="auto"
                     controls={false}
                     controlsList="nodownload noplaybackrate"
@@ -697,34 +821,537 @@ const DoCambridgeListeningTest = () => {
                   >
                     Your browser does not support audio.
                   </audio>
-                  <div style={styles.audioHint}>No pause / no rewind</div>
+                  <div
+                    style={styles.audioTipWrap}
+                    onMouseEnter={() => setShowAudioTip(true)}
+                    onMouseLeave={() => setShowAudioTip(false)}
+                  >
+                    <button type="button" style={styles.audioTipButton} aria-label="Audio restrictions">
+                      i
+                    </button>
+                    {showAudioTip && (
+                      <div style={styles.audioTipBubble} role="tooltip">
+                        No pause / no rewind
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
 
               {/* Sections & Questions */}
               {currentPart.sections?.map((section, secIdx) => {
                 const partRange = getPartQuestionRange(currentPartIndex);
-                let questionNum = partRange.start;
-                
-                // Calculate starting question for this section
-                for (let s = 0; s < secIdx; s++) {
-                  questionNum += currentPart.sections[s]?.questions?.length || 0;
-                }
+                const sectionStartNum =
+                  questionIndex.byPart?.[currentPartIndex]?.keys?.find((k) => k.sectionIndex === secIdx)?.number ||
+                  partRange.start;
+
+                // Robust section type detection (some legacy data stores type on question instead of section)
+                const q0 = section?.questions?.[0] || {};
+                const sectionType =
+                  section?.questionType ||
+                  q0?.questionType ||
+                  q0?.type ||
+                  (Array.isArray(q0?.people) ? 'people-matching' : '') ||
+                  (Array.isArray(q0?.sentences) ? 'word-form' : '') ||
+                  '';
 
                 return (
                   <div key={secIdx} style={styles.section}>
                     {section.sectionTitle && (
                       <h3 style={styles.sectionTitle}>{section.sectionTitle}</h3>
                     )}
-                    
-                    {section.questions?.map((q, qIdx) => {
-                      const questionKey = `${currentPartIndex}-${secIdx}-${qIdx}`;
-                      return (
-                        <div key={qIdx} ref={(el) => (questionRefs.current[questionKey] = el)}>
-                          {renderQuestion(q, questionKey, questionNum + qIdx)}
-                        </div>
-                      );
-                    })}
+
+                    {/* Section-based types (KET Reading style) */}
+                    {sectionType === 'long-text-mc' && section.questions?.[0]?.questions ? (
+                      (() => {
+                        const qIdx = 0;
+                        const container = section.questions[0] || {};
+                        const passageHtml = container.passage || container.passageText || container.passageTitle || '';
+                        const nested = Array.isArray(container.questions) ? container.questions : [];
+                        return (
+                          <div>
+                            {passageHtml ? (
+                              <div style={{ ...styles.questionCard, background: '#fffbeb', borderColor: '#fcd34d' }}>
+                                <div style={{ fontSize: '15px', lineHeight: 1.8 }}>
+                                  {renderMaybeHtml(passageHtml)}
+                                </div>
+                              </div>
+                            ) : null}
+
+                            {nested.map((nq, nestedIdx) => {
+                              const key = `${currentPartIndex}-${secIdx}-${qIdx}-${nestedIdx}`;
+                              const num = sectionStartNum + nestedIdx;
+                              const opts = nq.options || [];
+                              const userAnswer = answers[key] || '';
+                              const correct = nq.correctAnswer;
+
+                              return (
+                                <div key={key} ref={(el) => (questionRefs.current[key] = el)}>
+                                  <div style={styles.questionCard}>
+                                    <div style={styles.questionHeader}>
+                                      <span style={styles.questionNum}>{num}</span>
+                                      <span style={styles.questionText}>{nq.questionText || ''}</span>
+                                    </div>
+                                    <div style={styles.optionsContainer}>
+                                      {opts.map((opt, optIdx) => {
+                                        const letter = String.fromCharCode(65 + optIdx);
+                                        const isSelected = userAnswer === letter;
+                                        const isCorrectOption = submitted && String(correct || '').toUpperCase() === letter;
+                                        return (
+                                          <label
+                                            key={letter}
+                                            style={{
+                                              ...styles.optionLabel,
+                                              ...(isSelected && styles.optionSelected),
+                                              ...(submitted && isCorrectOption && styles.optionCorrect),
+                                              ...(submitted && isSelected && !isCorrectOption && styles.optionWrong),
+                                            }}
+                                          >
+                                            <input
+                                              type="radio"
+                                              name={key}
+                                              checked={isSelected}
+                                              onChange={() => handleAnswerChange(key, letter)}
+                                              disabled={submitted}
+                                              style={{ marginRight: '10px' }}
+                                            />
+                                            <span style={styles.optionText}>{opt}</span>
+                                          </label>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        );
+                      })()
+                    ) : sectionType === 'cloze-mc' && section.questions?.[0]?.blanks ? (
+                      (() => {
+                        const qIdx = 0;
+                        const container = section.questions[0] || {};
+                        const passageHtml = container.passage || container.passageText || container.passageTitle || '';
+                        const blanks = Array.isArray(container.blanks) ? container.blanks : [];
+                        return (
+                          <div>
+                            {passageHtml ? (
+                              <div style={{ ...styles.questionCard, background: '#fffbeb', borderColor: '#fcd34d' }}>
+                                <div style={{ fontSize: '15px', lineHeight: 1.8 }}>
+                                  {renderMaybeHtml(passageHtml)}
+                                </div>
+                              </div>
+                            ) : null}
+
+                            {blanks.map((blank, blankIdx) => {
+                              const key = `${currentPartIndex}-${secIdx}-${qIdx}-${blankIdx}`;
+                              const num = sectionStartNum + blankIdx;
+                              const userAnswer = answers[key] || '';
+                              const opts = blank.options || [];
+                              const correct = blank.correctAnswer;
+
+                              return (
+                                <div key={key} ref={(el) => (questionRefs.current[key] = el)}>
+                                  <div style={styles.questionCard}>
+                                    <div style={styles.questionHeader}>
+                                      <span style={styles.questionNum}>{num}</span>
+                                      <span style={styles.questionText}>{blank.questionText || ''}</span>
+                                    </div>
+                                    <div style={styles.optionsContainer}>
+                                      {opts.map((opt, optIdx) => {
+                                        const letter = String.fromCharCode(65 + optIdx);
+                                        const isSelected = userAnswer === letter;
+                                        const isCorrectOption = submitted && String(correct || '').toUpperCase() === letter;
+                                        return (
+                                          <label
+                                            key={letter}
+                                            style={{
+                                              ...styles.optionLabel,
+                                              ...(isSelected && styles.optionSelected),
+                                              ...(submitted && isCorrectOption && styles.optionCorrect),
+                                              ...(submitted && isSelected && !isCorrectOption && styles.optionWrong),
+                                            }}
+                                          >
+                                            <input
+                                              type="radio"
+                                              name={key}
+                                              checked={isSelected}
+                                              onChange={() => handleAnswerChange(key, letter)}
+                                              disabled={submitted}
+                                              style={{ marginRight: '10px' }}
+                                            />
+                                            <span style={styles.optionText}>{opt}</span>
+                                          </label>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        );
+                      })()
+                    ) : sectionType === 'cloze-test' && section.questions?.[0]?.blanks ? (
+                      (() => {
+                        const qIdx = 0;
+                        const container = section.questions[0] || {};
+                        const passageHtml = container.passage || container.passageText || container.passageTitle || '';
+                        const blanks = Array.isArray(container.blanks) ? container.blanks : [];
+                        return (
+                          <div>
+                            {passageHtml ? (
+                              <div style={{ ...styles.questionCard, background: '#fffbeb', borderColor: '#fcd34d' }}>
+                                <div style={{ fontSize: '15px', lineHeight: 1.8 }}>
+                                  {renderMaybeHtml(passageHtml)}
+                                </div>
+                              </div>
+                            ) : null}
+
+                            {blanks.map((blank, blankIdx) => {
+                              const key = `${currentPartIndex}-${secIdx}-${qIdx}-${blankIdx}`;
+                              const num = sectionStartNum + blankIdx;
+                              const userAnswer = answers[key] || '';
+                              const correct = blank.correctAnswer;
+                              const isCorrect = submitted && String(userAnswer || '').trim().toLowerCase() === String(correct || '').trim().toLowerCase();
+
+                              return (
+                                <div key={key} ref={(el) => (questionRefs.current[key] = el)}>
+                                  <div style={styles.questionCard}>
+                                    <div style={styles.questionHeader}>
+                                      <span style={styles.questionNum}>{num}</span>
+                                      <span style={styles.questionText}>{blank.questionText || ''}</span>
+                                    </div>
+                                    <input
+                                      type="text"
+                                      value={userAnswer}
+                                      onChange={(e) => handleAnswerChange(key, e.target.value)}
+                                      disabled={submitted}
+                                      placeholder="Type your answer..."
+                                      style={{
+                                        ...styles.input,
+                                        ...(submitted && {
+                                          backgroundColor: isCorrect ? '#dcfce7' : '#fee2e2',
+                                          borderColor: isCorrect ? '#22c55e' : '#ef4444',
+                                        }),
+                                      }}
+                                    />
+                                    {submitted && correct && !isCorrect && (
+                                      <div style={styles.correctAnswer}>✓ Đáp án đúng: {correct}</div>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        );
+                      })()
+                    ) : sectionType === 'word-form' ? (
+                      (() => {
+                        const qIdx = 0;
+                        const container = section.questions[0] || {};
+                        const sentences = (Array.isArray(container.sentences) && container.sentences.length > 0)
+                          ? container.sentences
+                          : [
+                              { sentence: '', rootWord: '', correctAnswer: '' },
+                              { sentence: '', rootWord: '', correctAnswer: '' },
+                              { sentence: '', rootWord: '', correctAnswer: '' },
+                              { sentence: '', rootWord: '', correctAnswer: '' },
+                              { sentence: '', rootWord: '', correctAnswer: '' },
+                              { sentence: '', rootWord: '', correctAnswer: '' },
+                            ];
+                        return (
+                          <div>
+                            {sentences.map((s, sentIdx) => {
+                              const key = `${currentPartIndex}-${secIdx}-${qIdx}-${sentIdx}`;
+                              const num = sectionStartNum + sentIdx;
+                              const userAnswer = answers[key] || '';
+                              const sentenceText = s.sentence || s.text || '';
+                              const rootWord = s.rootWord || '';
+                              const correct = s.correctAnswer;
+                              const isCorrect = submitted && String(userAnswer || '').trim().toLowerCase() === String(correct || '').trim().toLowerCase();
+
+                              return (
+                                <div
+                                  key={key}
+                                  ref={(el) => (questionRefs.current[key] = el)}
+                                  className={
+                                    `cambridge-question-wrapper ` +
+                                    `${userAnswer ? 'answered' : ''} ` +
+                                    `${activeQuestion === key ? 'active-question' : ''}`
+                                  }
+                                >
+                                  <button
+                                    className={`cambridge-flag-button ${flaggedQuestions.has(key) ? 'flagged' : ''}`}
+                                    onClick={() => toggleFlag(key)}
+                                    aria-label="Flag question"
+                                    type="button"
+                                  >
+                                    {flaggedQuestions.has(key) ? '🚩' : '⚐'}
+                                  </button>
+
+                                  <div style={{ paddingRight: '50px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', marginBottom: '14px' }}>
+                                      <span className="cambridge-question-number">{num}</span>
+                                      <div style={{ fontSize: '15px', lineHeight: 1.7, color: '#1f2937' }}>{sentenceText}</div>
+                                    </div>
+
+                                    <div style={{ display: 'grid', gridTemplateColumns: '180px 1fr', gap: '12px', alignItems: 'center' }}>
+                                      <div style={{ padding: '10px 12px', background: '#fef3c7', border: '1px solid #fbbf24', borderRadius: '6px', color: '#78350f' }}>
+                                        Root word: <strong>{rootWord}</strong>
+                                      </div>
+                                      <input
+                                        type="text"
+                                        value={userAnswer}
+                                        onChange={(e) => handleAnswerChange(key, e.target.value)}
+                                        disabled={submitted}
+                                        placeholder="Type the correct form..."
+                                        style={{
+                                          ...styles.input,
+                                          ...(submitted && {
+                                            backgroundColor: isCorrect ? '#dcfce7' : '#fee2e2',
+                                            borderColor: isCorrect ? '#22c55e' : '#ef4444',
+                                          }),
+                                        }}
+                                      />
+                                    </div>
+
+                                    {submitted && correct && !isCorrect && (
+                                      <div style={styles.correctAnswer}>✓ Đáp án đúng: {correct}</div>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        );
+                      })()
+                    ) : sectionType === 'people-matching' ? (
+                      (() => {
+                        const qIdx = 0;
+                        const container = section.questions[0] || {};
+                        const people = (Array.isArray(container.people) && container.people.length > 0)
+                          ? container.people
+                          : [
+                              { id: 'A', name: '', need: '' },
+                              { id: 'B', name: '', need: '' },
+                              { id: 'C', name: '', need: '' },
+                              { id: 'D', name: '', need: '' },
+                              { id: 'E', name: '', need: '' },
+                            ];
+                        const texts = (Array.isArray(container.texts) && container.texts.length > 0)
+                          ? container.texts
+                          : [
+                              { id: '1', title: '', content: '' },
+                              { id: '2', title: '', content: '' },
+                              { id: '3', title: '', content: '' },
+                              { id: '4', title: '', content: '' },
+                              { id: '5', title: '', content: '' },
+                              { id: '6', title: '', content: '' },
+                              { id: '7', title: '', content: '' },
+                              { id: '8', title: '', content: '' },
+                            ];
+                        return (
+                          <div>
+                            <div className="cambridge-question-wrapper" style={{ marginBottom: '16px' }}>
+                              <div style={{ paddingRight: '50px' }}>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                                  <div style={{ border: '1px solid #bae6fd', background: '#f0f9ff', borderRadius: '10px', padding: '12px' }}>
+                                    <div style={{ fontWeight: 700, color: '#0e276f', marginBottom: '8px' }}>People</div>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                      {people.map((p, idx) => {
+                                        const pid = p?.id || String.fromCharCode(65 + idx);
+                                        return (
+                                          <div key={pid} style={{ padding: '10px', background: '#fff', border: '1px solid #bae6fd', borderRadius: '8px' }}>
+                                            <strong>{pid}.</strong> {p?.name || ''} {p?.need ? `— ${p.need}` : ''}
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+
+                                  <div style={{ border: '1px solid #e5e7eb', background: '#fff', borderRadius: '10px', padding: '12px' }}>
+                                    <div style={{ fontWeight: 700, color: '#0e276f', marginBottom: '8px' }}>Texts</div>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                      {texts.map((t) => (
+                                        <div key={t?.id || t?.title || Math.random()} style={{ padding: '10px', background: '#fafafa', border: '1px solid #e5e7eb', borderRadius: '8px' }}>
+                                          <strong>{t?.id}.</strong> {t?.title ? <strong>{t.title}</strong> : null}
+                                          <div style={{ marginTop: t?.title ? '6px' : 0 }}>{t?.content || ''}</div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                              {people.map((p, idx) => {
+                                const pid = p?.id || String.fromCharCode(65 + idx);
+                                const key = `${currentPartIndex}-${secIdx}-${qIdx}-${pid}`;
+                                const num = sectionStartNum + idx;
+                                const userAnswer = answers[key] || '';
+                                const correct = container?.answers?.[pid];
+                                const isCorrect = submitted && String(userAnswer || '').trim() === String(correct || '').trim();
+
+                                return (
+                                  <div
+                                    key={key}
+                                    ref={(el) => (questionRefs.current[key] = el)}
+                                    className={
+                                      `cambridge-question-wrapper ` +
+                                      `${userAnswer ? 'answered' : ''} ` +
+                                      `${activeQuestion === key ? 'active-question' : ''}`
+                                    }
+                                  >
+                                    <button
+                                      className={`cambridge-flag-button ${flaggedQuestions.has(key) ? 'flagged' : ''}`}
+                                      onClick={() => toggleFlag(key)}
+                                      aria-label="Flag question"
+                                      type="button"
+                                    >
+                                      {flaggedQuestions.has(key) ? '🚩' : '⚐'}
+                                    </button>
+
+                                    <div style={{ paddingRight: '50px', display: 'grid', gridTemplateColumns: '56px 1fr 160px', gap: '12px', alignItems: 'center' }}>
+                                      <span className="cambridge-question-number">{num}</span>
+                                      <div style={{ color: '#1f2937' }}>
+                                        <strong>{pid}.</strong> {p?.name || ''}
+                                      </div>
+                                      <select
+                                        value={userAnswer}
+                                        disabled={submitted}
+                                        onChange={(e) => handleAnswerChange(key, e.target.value)}
+                                        style={{
+                                          padding: '10px 12px',
+                                          border: '2px solid #d1d5db',
+                                          borderRadius: '8px',
+                                          fontSize: '14px',
+                                          fontWeight: 700,
+                                          background: '#fff',
+                                          ...(submitted
+                                            ? {
+                                                borderColor: isCorrect ? '#22c55e' : '#ef4444',
+                                                background: isCorrect ? '#dcfce7' : '#fee2e2',
+                                              }
+                                            : null),
+                                        }}
+                                      >
+                                        <option value="">—</option>
+                                        {texts.map((t) => (
+                                          <option key={t?.id} value={String(t?.id || '').trim()}>
+                                            {t?.id}
+                                          </option>
+                                        ))}
+                                      </select>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      })()
+                    ) : section.questionType === 'short-message' && section.questions?.[0] ? (
+                      (() => {
+                        const qIdx = 0;
+                        const q = section.questions[0] || {};
+                        const key = `${currentPartIndex}-${secIdx}-${qIdx}`;
+                        const num = sectionStartNum;
+                        const userAnswer = answers[key] || '';
+                        return (
+                          <div ref={(el) => (questionRefs.current[key] = el)} style={styles.questionCard}>
+                            <div style={styles.questionHeader}>
+                              <span style={styles.questionNum}>{num}</span>
+                              <span style={styles.questionText}>{q.situation || 'Write a short message.'}</span>
+                            </div>
+
+                            {Array.isArray(q.bulletPoints) && q.bulletPoints.some(Boolean) && (
+                              <ul style={{ marginTop: '8px', marginBottom: '12px', color: '#334155' }}>
+                                {q.bulletPoints.filter(Boolean).map((b, i) => (
+                                  <li key={i}>{b}</li>
+                                ))}
+                              </ul>
+                            )}
+
+                            <textarea
+                              value={userAnswer}
+                              onChange={(e) => handleAnswerChange(key, e.target.value)}
+                              disabled={submitted}
+                              rows={6}
+                              style={{ width: '100%', padding: '12px 14px', borderRadius: '8px', border: '2px solid #d1d5db', fontSize: '14px', lineHeight: 1.6, resize: 'vertical' }}
+                              placeholder="Type your answer..."
+                            />
+                            {submitted && (
+                              <div style={{ marginTop: '10px', color: '#64748b', fontSize: '13px' }}>
+                                (This question is not auto-scored.)
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()
+                    ) : section.questionType === 'sign-message' ? (
+                      section.questions?.map((q, qIdx) => {
+                        const key = `${currentPartIndex}-${secIdx}-${qIdx}`;
+                        return (
+                          <div key={key} ref={(el) => (questionRefs.current[key] = el)}>
+                            <div style={styles.questionCard}>
+                              <div style={styles.questionHeader}>
+                                <span style={styles.questionNum}>{sectionStartNum + qIdx}</span>
+                                <span style={styles.questionText}>{q.signText || q.questionText || ''}</span>
+                              </div>
+                              {q.imageUrl ? (
+                                <div style={{ marginBottom: '12px' }}>
+                                  <img
+                                    src={resolveImgSrc(q.imageUrl)}
+                                    alt=""
+                                    style={{ maxWidth: '100%', height: 'auto', borderRadius: '10px', border: '1px solid #e5e7eb' }}
+                                  />
+                                </div>
+                              ) : null}
+                              <div style={styles.optionsContainer}>
+                                {(q.options || []).slice(0, 3).map((opt, idx) => {
+                                  const letter = String.fromCharCode(65 + idx);
+                                  const isSelected = (answers[key] || '') === letter;
+                                  const isCorrectOption = submitted && String(q.correctAnswer || '').toUpperCase() === letter;
+                                  return (
+                                    <label
+                                      key={letter}
+                                      style={{
+                                        ...styles.optionLabel,
+                                        ...(isSelected && styles.optionSelected),
+                                        ...(submitted && isCorrectOption && styles.optionCorrect),
+                                        ...(submitted && isSelected && !isCorrectOption && styles.optionWrong),
+                                      }}
+                                    >
+                                      <input
+                                        type="radio"
+                                        name={key}
+                                        checked={isSelected}
+                                        onChange={() => handleAnswerChange(key, letter)}
+                                        disabled={submitted}
+                                        style={{ marginRight: '10px' }}
+                                      />
+                                      <span style={styles.optionText}>{opt}</span>
+                                    </label>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })
+                    ) : (
+                      // Default per-question rendering
+                      section.questions?.map((q, qIdx) => {
+                        const questionKey = `${currentPartIndex}-${secIdx}-${qIdx}`;
+                        return (
+                          <div key={qIdx} ref={(el) => (questionRefs.current[questionKey] = el)}>
+                            {renderQuestion(q, questionKey, sectionStartNum + qIdx)}
+                          </div>
+                        );
+                      })
+                    )}
                   </div>
                 );
               })}
@@ -973,11 +1600,120 @@ const styles = {
     fontSize: '14px',
     color: '#475569',
   },
-  audioHint: {
-    marginLeft: '12px',
+  pictureQuestionCard: {
+    padding: '10px 0 18px',
+    marginBottom: '18px',
+    backgroundColor: 'transparent',
+    borderBottom: '1px solid #e5e7eb',
+  },
+  pictureQuestionHeader: {
+    position: 'relative',
+    marginBottom: '10px',
+  },
+  flagButton: {
+    position: 'absolute',
+    right: 0,
+    top: 0,
+    width: '34px',
+    height: '34px',
+    borderRadius: '10px',
+    border: '1px solid transparent',
+    background: 'transparent',
+    cursor: 'pointer',
+    fontSize: '16px',
+    opacity: 0.85,
+  },
+  flagButtonActive: {
+    opacity: 1,
+  },
+  pictureChoicesRow: {
+    display: 'flex',
+    gap: '34px',
+    alignItems: 'flex-start',
+    justifyContent: 'center',
+    flexWrap: 'nowrap',
+    padding: '12px 0 6px',
+    overflowX: 'auto',
+  },
+  pictureChoiceItem: {
+    width: '295px',
+    flex: '0 0 295px',
+  },
+  pictureChoiceLabelWrap: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: '10px',
+    cursor: 'pointer',
+    userSelect: 'none',
+    borderRadius: '8px',
+    padding: '6px',
+  },
+  pictureChoiceSelected: {
+    outline: '2px solid rgba(14,39,111,0.22)',
+    outlineOffset: '2px',
+  },
+  pictureChoiceCorrect: {
+    outline: '2px solid rgba(34,197,94,0.35)',
+    outlineOffset: '2px',
+  },
+  pictureChoiceWrong: {
+    outline: '2px solid rgba(239,68,68,0.35)',
+    outlineOffset: '2px',
+  },
+  pictureChoiceImage: {
+    width: '295px',
+    height: 'auto',
+    display: 'block',
+    borderRadius: '0px',
+  },
+  pictureChoiceImagePlaceholder: {
+    width: '295px',
+    height: '220px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    color: '#94a3b8',
+    background: '#f8fafc',
+    borderRadius: '0px',
     fontSize: '12px',
-    color: '#64748b',
+  },
+  pictureChoiceRadio: {
+    marginTop: '6px',
+  },
+  audioTipWrap: {
+    position: 'relative',
+    marginLeft: '10px',
+    flex: '0 0 auto',
+  },
+  audioTipButton: {
+    width: '22px',
+    height: '22px',
+    borderRadius: '999px',
+    border: '1px solid #cbd5e1',
+    background: '#ffffff',
+    color: '#334155',
+    fontSize: '12px',
+    fontWeight: 800,
+    cursor: 'default',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 0,
+    lineHeight: 1,
+  },
+  audioTipBubble: {
+    position: 'absolute',
+    right: 0,
+    top: '28px',
+    background: '#0f172a',
+    color: '#ffffff',
+    fontSize: '12px',
+    padding: '8px 10px',
+    borderRadius: '10px',
     whiteSpace: 'nowrap',
+    boxShadow: '0 12px 30px rgba(0,0,0,0.22)',
+    zIndex: 10,
   },
   footerBar: {
     position: 'fixed',
@@ -1096,7 +1832,7 @@ const styles = {
   },
   mainContent: {
     padding: '24px',
-    maxWidth: '980px',
+    maxWidth: '1400px',
     margin: '0 auto',
   },
   questionArea: {

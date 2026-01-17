@@ -28,35 +28,43 @@ const countTotalQuestionsFromParts = (rawParts = []) => {
 
   processedParts.forEach(part => {
     (part.sections || []).forEach(section => {
+      const q0 = section?.questions?.[0] || {};
+      const sectionType =
+        section?.questionType ||
+        q0?.questionType ||
+        q0?.type ||
+        (Array.isArray(q0?.people) ? 'people-matching' : '') ||
+        (Array.isArray(q0?.sentences) ? 'word-form' : '') ||
+        '';
       const questions = section.questions || [];
 
       questions.forEach(question => {
-        if (section.questionType === "long-text-mc" && Array.isArray(question.questions)) {
+        if (sectionType === "long-text-mc" && Array.isArray(question.questions)) {
           total += question.questions.length;
           return;
         }
 
-        if (section.questionType === 'people-matching' && Array.isArray(question.people)) {
+        if (sectionType === 'people-matching' && Array.isArray(question.people)) {
           total += question.people.length > 0 ? question.people.length : 1;
           return;
         }
 
-        if (section.questionType === 'word-form' && Array.isArray(question.sentences)) {
+        if (sectionType === 'word-form' && Array.isArray(question.sentences)) {
           total += question.sentences.length > 0 ? question.sentences.length : 1;
           return;
         }
 
-        if (section.questionType === 'short-message') {
+        if (sectionType === 'short-message') {
           total += 1;
           return;
         }
 
-        if (section.questionType === "cloze-mc" && Array.isArray(question.blanks)) {
+        if (sectionType === "cloze-mc" && Array.isArray(question.blanks)) {
           total += question.blanks.length > 0 ? question.blanks.length : 1;
           return;
         }
 
-        if (section.questionType === "cloze-test") {
+        if (sectionType === "cloze-test") {
           if (Array.isArray(question.blanks) && question.blanks.length > 0) {
             total += question.blanks.length;
             return;
@@ -570,10 +578,104 @@ const scoreTest = (test, answers) => {
 
   parts?.forEach((part, partIdx) => {
     part.sections?.forEach((section, secIdx) => {
+      const q0 = section?.questions?.[0] || {};
+      const sectionType =
+        section?.questionType ||
+        q0?.questionType ||
+        q0?.type ||
+        (Array.isArray(q0?.people) ? 'people-matching' : '') ||
+        (Array.isArray(q0?.sentences) ? 'word-form' : '') ||
+        '';
       section.questions?.forEach((question, qIdx) => {
+
+        // KET Part 2: people-matching (score each person)
+        if (sectionType === 'people-matching' && Array.isArray(question?.people)) {
+          const people = question.people;
+          const correctMap = question.answers && typeof question.answers === 'object' ? question.answers : {};
+
+          people.forEach((person, personIdx) => {
+            const personId = person?.id || String.fromCharCode(65 + personIdx);
+            const key = `${partIdx}-${secIdx}-${qIdx}-${personId}`;
+            const legacyKey = `${partIdx}-${secIdx}-${personId}`;
+            const userAnswer = pickAnswer(key, [legacyKey]);
+            const correctAnswer = correctMap?.[personId];
+
+            if (correctAnswer === undefined || correctAnswer === null) {
+              detailedResults[key] = {
+                isCorrect: null,
+                userAnswer: userAnswer || null,
+                correctAnswer: null,
+                questionType: 'matching',
+                questionText: ''
+              };
+              return;
+            }
+
+            total++;
+            const isCorrect = scoreQuestion(userAnswer, correctAnswer, 'matching');
+            if (isCorrect) score++;
+
+            detailedResults[key] = {
+              isCorrect,
+              userAnswer: userAnswer || null,
+              correctAnswer,
+              questionType: 'matching',
+              questionText: ''
+            };
+          });
+          return;
+        }
+
+        // KET Part 6: word-form (score each sentence)
+        if (sectionType === 'word-form' && Array.isArray(question?.sentences)) {
+          question.sentences.forEach((s, sentIdx) => {
+            const key = `${partIdx}-${secIdx}-${qIdx}-${sentIdx}`;
+            const legacyKey = `${partIdx}-${secIdx}-${sentIdx}`;
+            const userAnswer = pickAnswer(key, [legacyKey]);
+            const correctAnswer = s?.correctAnswer;
+
+            if (correctAnswer === undefined || correctAnswer === null) {
+              detailedResults[key] = {
+                isCorrect: null,
+                userAnswer: userAnswer || null,
+                correctAnswer: null,
+                questionType: 'fill',
+                questionText: s?.sentence || s?.text || ''
+              };
+              return;
+            }
+
+            total++;
+            const isCorrect = scoreQuestion(userAnswer, correctAnswer, 'fill');
+            if (isCorrect) score++;
+
+            detailedResults[key] = {
+              isCorrect,
+              userAnswer: userAnswer || null,
+              correctAnswer,
+              questionType: 'fill',
+              questionText: s?.sentence || s?.text || ''
+            };
+          });
+          return;
+        }
+
+        // KET Writing: short-message (not auto-scored)
+        if (sectionType === 'short-message') {
+          const key = `${partIdx}-${secIdx}-${qIdx}`;
+          const userAnswer = answers?.[key];
+          detailedResults[key] = {
+            isCorrect: null,
+            userAnswer: userAnswer || null,
+            correctAnswer: null,
+            questionType: 'short-message',
+            questionText: question?.situation || question?.questionText || ''
+          };
+          return;
+        }
         
         // Handle long-text-mc with nested questions
-        if (section.questionType === 'long-text-mc' && question.questions && Array.isArray(question.questions)) {
+        if (sectionType === 'long-text-mc' && question.questions && Array.isArray(question.questions)) {
           question.questions.forEach((nestedQ, nestedIdx) => {
             const key = `${partIdx}-${secIdx}-${qIdx}-${nestedIdx}`;
             const legacyKey = `${partIdx}-${secIdx}-${nestedIdx}`;
@@ -608,7 +710,7 @@ const scoreTest = (test, answers) => {
           });
         }
         // Handle cloze-mc with blanks
-        else if (section.questionType === 'cloze-mc' && question.blanks && Array.isArray(question.blanks)) {
+        else if (sectionType === 'cloze-mc' && question.blanks && Array.isArray(question.blanks)) {
           question.blanks.forEach((blank, blankIdx) => {
             const key = `${partIdx}-${secIdx}-${qIdx}-${blankIdx}`;
             const legacyKey = `${partIdx}-${secIdx}-${blankIdx}`;
@@ -647,7 +749,7 @@ const scoreTest = (test, answers) => {
           });
         }
         // Handle cloze-test with blanks
-        else if (section.questionType === 'cloze-test' && question.blanks && Array.isArray(question.blanks)) {
+        else if (sectionType === 'cloze-test' && question.blanks && Array.isArray(question.blanks)) {
           question.blanks.forEach((blank, blankIdx) => {
             const key = `${partIdx}-${secIdx}-${qIdx}-${blankIdx}`;
             const legacyKey = `${partIdx}-${secIdx}-${blankIdx}`;
@@ -716,15 +818,20 @@ const scoreTest = (test, answers) => {
             return;
           }
 
+          // sign-message uses A/B/C, but many records don't set question.questionType
+          const effectiveType = sectionType === 'sign-message'
+            ? 'abc'
+            : (question.questionType || 'fill');
+
           total++;
-          const isCorrect = scoreQuestion(userAnswer, correctAnswer, question.questionType);
+          const isCorrect = scoreQuestion(userAnswer, correctAnswer, effectiveType);
           if (isCorrect) score++;
           
           detailedResults[key] = {
             isCorrect,
             userAnswer: userAnswer || null,
             correctAnswer,
-            questionType: question.questionType || 'fill',
+            questionType: effectiveType,
             questionText: question.questionText || ''
           };
         }

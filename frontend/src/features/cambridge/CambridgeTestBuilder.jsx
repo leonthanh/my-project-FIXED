@@ -164,10 +164,17 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
 
       setParts(prev => {
         const next = [...prev];
-        next[partIndex] = {
-          ...next[partIndex],
-          audioUrl: url,
-        };
+        next[partIndex] = { ...next[partIndex], audioUrl: url };
+
+        // Teacher workflow: Cambridge/KET Listening usually uses ONE mp3 for the whole test.
+        // If user uploads audio to Part 1, reuse it for other parts that are still empty.
+        if (isListeningTest && partIndex === 0) {
+          for (let i = 0; i < next.length; i++) {
+            if (!next[i]?.audioUrl) {
+              next[i] = { ...next[i], audioUrl: url };
+            }
+          }
+        }
         return next;
       });
     } catch (err) {
@@ -198,13 +205,14 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
   };
 
   const handleAddPart = () => {
+    const inheritedAudioUrl = isListeningTest ? (parts?.[0]?.audioUrl || '') : '';
     setParts([
       ...parts,
       {
         partNumber: parts.length + 1,
         title: `Part ${parts.length + 1}`,
         instruction: '',
-        audioUrl: '',
+        audioUrl: inheritedAudioUrl,
         sections: [
           {
             sectionTitle: '',

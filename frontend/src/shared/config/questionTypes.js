@@ -464,6 +464,24 @@ export const QUESTION_TYPES = {
 // TEST TYPE CONFIGURATIONS
 // ============================================
 
+// Keep KET Listening + KET Reading builder question types in sync
+const KET_UNIFIED_QUESTION_TYPES = [
+  // KET Reading & Writing (Part-specific)
+  'sign-message',
+  'people-matching',
+  'long-text-mc',
+  'cloze-mc',
+  'cloze-test',
+  'word-form',
+  'short-message',
+
+  // KET Listening (common types)
+  'abc',
+  'multiple-choice-pictures',
+  'fill',
+  'matching',
+];
+
 export const TEST_CONFIGS = {
   // IELTS Tests
   'ielts-listening': {
@@ -527,16 +545,7 @@ export const TEST_CONFIGS = {
     totalQuestions: 32,
     parts: 7,
     duration: 60, // minutes
-    questionTypes: [
-      // Part-specific editors for KET Reading & Writing
-      'sign-message',      // Part 1: Signs & Messages
-      'people-matching',   // Part 2: Matching People & Texts
-      'long-text-mc',      // Part 3: Long Text + MC
-      'cloze-mc',          // Part 4: Multiple Choice Cloze
-      'cloze-test',        // Part 5: Open Cloze
-      'word-form',         // Part 6: Word Formation
-      'short-message',     // Part 7: Writing Task
-    ],
+    questionTypes: KET_UNIFIED_QUESTION_TYPES,
     partStructure: [
       { part: 1, questions: '1-6', questionType: 'sign-message', description: 'Signs & Messages - Hình biển báo + chọn A/B/C' },
       { part: 2, questions: '7-13', questionType: 'people-matching', description: 'Matching - 5 người nối với 8 texts' },
@@ -555,12 +564,7 @@ export const TEST_CONFIGS = {
     totalQuestions: 25,
     parts: 5,
     duration: 30, // minutes
-    questionTypes: [
-      'abc',
-      'multiple-choice-pictures',
-      'fill',
-      'matching',
-    ],
+    questionTypes: KET_UNIFIED_QUESTION_TYPES,
     partStructure: [
       { part: 1, questions: '1-5', description: 'Short Conversations - 3-option Multiple Choice' },
       { part: 2, questions: '6-10', description: 'Longer Conversation - Gap Fill' },
