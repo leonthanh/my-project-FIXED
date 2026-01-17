@@ -39,6 +39,8 @@ const DoListeningTest = () => {
   // Key for persisting timer across page reloads (resets only when the test is submitted)
   const expiresKey = `listening:${id}:expiresAt`;
 
+  const expiresAtRef = useRef(null);
+
   // Fetch test data
   useEffect(() => {
     const fetchTest = async () => {
@@ -106,26 +108,45 @@ const DoListeningTest = () => {
   }, [id]);
 
   // Timer countdown (compute remaining from persisted expiresAt to survive F5)
+  // Auto-submit reliably even if the tab is backgrounded/throttled.
   useEffect(() => {
     if (submitted || !test) return;
 
     const stored = localStorage.getItem(expiresKey);
-    const expiresAt = stored ? parseInt(stored, 10) : Date.now() + (test?.duration ? test.duration * 60 * 1000 : 30 * 60 * 1000);
+    const expiresAt = stored
+      ? parseInt(stored, 10)
+      : Date.now() + (test?.duration ? test.duration * 60 * 1000 : 30 * 60 * 1000);
+    expiresAtRef.current = expiresAt;
 
-    const timer = setInterval(() => {
+    let done = false;
+    const tick = () => {
+      if (done) return;
       const remaining = Math.max(0, Math.ceil((expiresAt - Date.now()) / 1000));
-      if (remaining <= 0) {
-        clearInterval(timer);
-        setTimeRemaining(0);
-        if (!submitted) confirmSubmit();
-        return;
-      }
       setTimeRemaining(remaining);
-    }, 1000);
+      if (remaining <= 0) {
+        done = true;
+        confirmSubmit();
+      }
+    };
 
-    return () => clearInterval(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [test, submitted]);
+    // Run immediately so reaching 00:00 triggers submit without waiting 1s.
+    tick();
+
+    const intervalId = setInterval(tick, 1000);
+    const msUntilExpire = Math.max(0, expiresAt - Date.now());
+    const timeoutId = setTimeout(tick, msUntilExpire + 50);
+
+    const onCheck = () => tick();
+    window.addEventListener("focus", onCheck);
+    document.addEventListener("visibilitychange", onCheck);
+
+    return () => {
+      clearInterval(intervalId);
+      clearTimeout(timeoutId);
+      window.removeEventListener("focus", onCheck);
+      document.removeEventListener("visibilitychange", onCheck);
+    };
+  }, [test, submitted, expiresKey, confirmSubmit]);
 
   // Format time display
   const formatTime = (seconds) => {
@@ -174,7 +195,7 @@ const DoListeningTest = () => {
   const handleSubmit = () => setShowConfirm(true);
 
   // Confirm and submit
-  const confirmSubmit = async () => {
+  const confirmSubmit = useCallback(async () => {
     if (submitted) return; // prevent double-submits
 
     let user = null;
@@ -195,7 +216,11 @@ const DoListeningTest = () => {
       });
 
       const payload = await res.json().catch(() => null);
-      if (!res.ok) throw new Error(payload?.message || "Lỗi khi nộp bài");
+      if (!res.ok) {
+        const msg = payload?.message || "Lỗi khi nộp bài";
+        const detail = payload?.error ? ` (${payload.error})` : "";
+        throw new Error(`${msg}${detail}`);
+      }
 
       const totalRaw = payload?.total ?? payload?.totalQuestions;
       const totalParsed = Number(totalRaw);
@@ -228,7 +253,7 @@ const DoListeningTest = () => {
       console.error("Error submitting:", err);
       alert(`❌ Có lỗi xảy ra khi nộp bài!${err?.message ? `\n${err.message}` : ""}`);
     }
-  };
+  }, [answers, expiresKey, id, submitted]);
 
   // Get parts data
   const parts = useMemo(() => {
@@ -381,86 +406,104 @@ const DoListeningTest = () => {
   const getPartSlots = useCallback(
     (partIndex) => {
       const allQuestions = test?.questions || [];
-      const partQuestions = allQuestions
-        .filter((q) => q.partIndex === partIndex)
-        .sort((a, b) => (Number(a?.globalNumber) || 0) - (Number(b?.globalNumber) || 0));
-
+      const partInfo = (test?.partInstructions || [])[partIndex];
+      const sections = partInfo?.sections || [];
       const slots = [];
 
-      for (const q of partQuestions) {
-        const baseNum = Number(q?.globalNumber);
-        const startNum = Number.isFinite(baseNum) && baseNum > 0 ? baseNum : null;
+      const getSectionQuestions = (sectionIndex) =>
+        allQuestions
+          .filter((q) => q.partIndex === partIndex && q.sectionIndex === sectionIndex)
+          .sort((a, b) => (Number(a?.questionIndex) || 0) - (Number(b?.questionIndex) || 0));
 
-        const explicitType = String(q?.questionType || "").toLowerCase();
-        const derivedType =
-          (explicitType && explicitType !== "fill" && explicitType !== "single")
-            ? explicitType
-            : (q?.formRows?.length ? "form-completion" : null) ||
-              (q?.notesText ? "notes-completion" : null) ||
-              ((q?.leftItems?.length || q?.items?.length) ? "matching" : null) ||
-              (explicitType === "multi-select" ? "multi-select" : null) ||
-              "single";
+      const numericKeys = (obj) =>
+        obj && typeof obj === "object" && !Array.isArray(obj)
+          ? Object.keys(obj)
+              .map((k) => parseInt(k, 10))
+              .filter((n) => Number.isFinite(n))
+              .sort((a, b) => a - b)
+          : [];
 
-        if (derivedType === "multi-select") {
-          const count = q?.requiredAnswers || 2;
-          const keyNum = startNum ?? 1;
-          slots.push({ type: "multi-select", key: `q${keyNum}`, slots: count });
-          continue;
-        }
+      sections.forEach((section, sectionIndex) => {
+        const sectionType = String(section?.questionType || "fill").toLowerCase();
+        const sectionQuestions = getSectionQuestions(sectionIndex);
+        if (!sectionQuestions.length) return;
 
-        if (derivedType === "matching") {
-          const leftItems = q?.leftItems || q?.items || [];
-          const start = startNum ?? 1;
-          if (leftItems.length > 0) {
-            leftItems.forEach((_, idx) => {
-              slots.push({ type: "single", key: `q${start + idx}` });
-            });
+        const firstQ = sectionQuestions[0];
+
+        if (sectionType === "form-completion") {
+          const keys = numericKeys(firstQ?.answers);
+          if (keys.length) {
+            keys.forEach((n) => slots.push({ type: "single", key: `q${n}` }));
           } else {
-            slots.push({ type: "single", key: `q${start}` });
-          }
-          continue;
-        }
-
-        if (derivedType === "form-completion") {
-          const rows = Array.isArray(q?.formRows) ? q.formRows : [];
-          const blanks = rows.filter((r) => r && r.isBlank);
-          const start = startNum ?? 1;
-          if (blanks.length > 0) {
+            const blanks = (firstQ?.formRows || []).filter((r) => r && r.isBlank);
+            const start = 1;
             blanks.forEach((row, idx) => {
               const num = row?.blankNumber ? start + Number(row.blankNumber) - 1 : start + idx;
               slots.push({ type: "single", key: `q${num}` });
             });
-          } else {
-            slots.push({ type: "single", key: `q${start}` });
           }
-          continue;
+          return;
         }
 
-        if (derivedType === "notes-completion") {
-          const notesText = String(q?.notesText || "");
-          const matches = notesText.match(/(\d+)\s*[_…]+/g) || [];
-          if (matches.length > 0) {
+        if (sectionType === "notes-completion") {
+          const keys = numericKeys(firstQ?.answers);
+          if (keys.length) {
+            keys.forEach((n) => slots.push({ type: "single", key: `q${n}` }));
+          } else {
+            const notesText = String(firstQ?.notesText || "");
+            const matches = notesText.match(/(\d+)\s*[_…]+/g) || [];
             matches.forEach((token) => {
               const m = token.match(/^(\d+)/);
               if (!m) return;
               const num = parseInt(m[1], 10);
               if (Number.isFinite(num)) slots.push({ type: "single", key: `q${num}` });
             });
-          } else {
-            const start = startNum ?? 1;
-            slots.push({ type: "single", key: `q${start}` });
           }
-          continue;
+          return;
         }
 
-        // Default single-slot question
-        const start = startNum ?? 1;
-        slots.push({ type: "single", key: `q${start}` });
-      }
+        if (sectionType === "matching") {
+          const keys = numericKeys(firstQ?.answers);
+          if (keys.length) {
+            keys.forEach((n) => slots.push({ type: "single", key: `q${n}` }));
+          } else {
+            const start = Number(section?.startingQuestionNumber) || 1;
+            const leftItems = firstQ?.leftItems || firstQ?.items || [];
+            leftItems.forEach((_, idx) => slots.push({ type: "single", key: `q${start + idx}` }));
+          }
+          return;
+        }
+
+        if (sectionType === "multi-select") {
+          let groupStart = Number(section?.startingQuestionNumber) || 1;
+          sectionQuestions.forEach((q) => {
+            const required = Number(q?.requiredAnswers) || 2;
+            slots.push({ type: "multi-select", key: `q${groupStart}`, slots: required });
+            groupStart += required;
+          });
+          return;
+        }
+
+        // Default: sequential single-slot questions from startingQuestionNumber
+        const start = Number(section?.startingQuestionNumber) || null;
+        if (!start) {
+          // best-effort: parse leading number in questionText like "11   ..."
+          const m = String(firstQ?.questionText || "").trim().match(/^(\d+)\b/);
+          if (m) {
+            const parsed = parseInt(m[1], 10);
+            if (Number.isFinite(parsed)) {
+              sectionQuestions.forEach((_, idx) => slots.push({ type: "single", key: `q${parsed + idx}` }));
+              return;
+            }
+          }
+        }
+        const startNum = start || 1;
+        sectionQuestions.forEach((_, idx) => slots.push({ type: "single", key: `q${startNum + idx}` }));
+      });
 
       return slots;
     },
-    [test?.questions]
+    [test?.questions, test?.partInstructions]
   );
 
   const getAnsweredCount = useCallback(
@@ -476,15 +519,14 @@ const DoListeningTest = () => {
           continue;
         }
         const ans = answers[s.key];
-        if (Array.isArray(ans) ? ans.length > 0 : !!ans) count++;
+        if (ans != null && String(ans).trim() !== "") count += 1;
       }
 
       return count;
     },
-    [getPartSlots, answers]
+    [answers, getPartSlots]
   );
 
-  // Get total questions in a part
   const getPartTotalQuestions = useCallback(
     (partIndex) => {
       const slots = getPartSlots(partIndex);
@@ -493,256 +535,47 @@ const DoListeningTest = () => {
     [getPartSlots]
   );
 
-  // Build navigator items for a part - groups multi-select questions
   const getNavigatorItems = useCallback(
     (partIndex) => {
-      const allQuestions = test?.questions || [];
-      const partQuestions = allQuestions.filter((q) => q.partIndex === partIndex);
-      const partInstructions = test?.partInstructions || [];
-      const partInfo = partInstructions[partIndex];
-      const sections = partInfo?.sections || [];
-
-      const buildItemsFromQuestions = () => {
-        const items = [];
-        const sorted = [...partQuestions].sort(
-          (a, b) => (Number(a?.globalNumber) || 0) - (Number(b?.globalNumber) || 0)
-        );
-
-        for (const q of sorted) {
-          const baseNum = Number(q?.globalNumber);
-          const startNum = Number.isFinite(baseNum) && baseNum > 0 ? baseNum : null;
-
-          // Derive type from question data when section metadata is missing
-          const explicitType = String(q?.questionType || "").toLowerCase();
-          const derivedType =
-            (explicitType && explicitType !== "fill" && explicitType !== "single")
-              ? explicitType
-              : (q?.formRows?.length ? "form-completion" : null) ||
-                (q?.notesText ? "notes-completion" : null) ||
-                ((q?.leftItems?.length || q?.items?.length) ? "matching" : null) ||
-                (explicitType === "multi-select" ? "multi-select" : null) ||
-                "single";
-
-          if (derivedType === "multi-select") {
-            const count = q?.requiredAnswers || 2;
-            const start = startNum ?? 1;
-            const end = start + count - 1;
-            items.push({
-              type: "multi-select",
-              startNum: start,
-              endNum: end,
-              label: `${start}-${end}`,
-              questionKey: `q${start}`,
-            });
-            continue;
-          }
-
-          if (derivedType === "matching") {
-            const leftItems = q?.leftItems || q?.items || [];
-            const start = startNum ?? 1;
-            leftItems.forEach((_, idx) => {
-              const num = start + idx;
-              items.push({
-                type: "single",
-                startNum: num,
-                endNum: num,
-                label: `${num}`,
-                questionKey: `q${num}`,
-              });
-            });
-            if (leftItems.length === 0 && startNum != null) {
-              items.push({
-                type: "single",
-                startNum,
-                endNum: startNum,
-                label: `${startNum}`,
-                questionKey: `q${startNum}`,
-              });
-            }
-            continue;
-          }
-
-          if (derivedType === "form-completion") {
-            const start = startNum ?? 1;
-            const blanks = (q?.formRows || []).filter((r) => r?.isBlank);
-            blanks.forEach((row, idx) => {
-              const num = row?.blankNumber
-                ? start + row.blankNumber - 1
-                : start + idx;
-              items.push({
-                type: "single",
-                startNum: num,
-                endNum: num,
-                label: `${num}`,
-                questionKey: `q${num}`,
-              });
-            });
-            if (blanks.length === 0 && startNum != null) {
-              items.push({
-                type: "single",
-                startNum,
-                endNum: startNum,
-                label: `${startNum}`,
-                questionKey: `q${startNum}`,
-              });
-            }
-            continue;
-          }
-
-          if (derivedType === "notes-completion") {
-            const notesText = q?.notesText || "";
-            const matches = notesText.match(/(\d+)\s*[_…]+/g) || [];
-
-            matches.forEach((m) => {
-              const numMatch = m.match(/^(\d+)/);
-              if (!numMatch) return;
-              const num = parseInt(numMatch[1], 10);
-              if (!Number.isFinite(num)) return;
-              items.push({
-                type: "single",
-                startNum: num,
-                endNum: num,
-                label: `${num}`,
-                questionKey: `q${num}`,
-              });
-            });
-
-            // Fallback: if no numbered blanks, still provide a nav target so arrows don't break
-            if (matches.length === 0 && startNum != null) {
-              items.push({
-                type: "single",
-                startNum,
-                endNum: startNum,
-                label: `${startNum}`,
-                questionKey: `q${startNum}`,
-              });
-            }
-            continue;
-          }
-
-          // Default single question
-          if (startNum != null) {
-            items.push({
-              type: "single",
-              startNum,
-              endNum: startNum,
-              label: `${startNum}`,
-              questionKey: `q${startNum}`,
-            });
-          }
-        }
-
-        // De-dup by startNum (can happen when data is inconsistent)
-        const seen = new Set();
-        const deduped = [];
-        for (const it of items) {
-          if (seen.has(it.startNum)) continue;
-          seen.add(it.startNum);
-          deduped.push(it);
-        }
-        deduped.sort((a, b) => a.startNum - b.startNum);
-        return deduped;
-      };
-      
+      const slots = getPartSlots(partIndex);
       const items = [];
-      let currentQNum = getPartQuestionRange(partIndex).start;
-      
-      sections.forEach((section, sIdx) => {
-        const sectionQuestions = partQuestions.filter((q) => q.sectionIndex === sIdx);
-        const sectionQType = section.questionType || "fill";
 
-        // If the section explicitly defines its start number, treat it as authoritative.
-        if (typeof section.startingQuestionNumber === "number" && section.startingQuestionNumber > 0) {
-          currentQNum = section.startingQuestionNumber;
-        }
-        
-        if (sectionQType === "multi-select") {
-          // Group multi-select questions (e.g., 25-26, 27-28, 29-30)
-          sectionQuestions.forEach((q) => {
-            const count = q.requiredAnswers || 2;
-            const startNum = currentQNum;
-            const endNum = currentQNum + count - 1;
-            items.push({
-              type: "multi-select",
-              startNum,
-              endNum,
-              label: `${startNum}-${endNum}`,
-              questionKey: `q${startNum}`,
-            });
-            currentQNum += count;
-          });
-        } else if (sectionQType === "matching") {
-          // Matching questions - individual numbers
-          const firstQ = sectionQuestions[0];
-          const leftItems = firstQ?.leftItems || [];
-          leftItems.forEach((_, idx) => {
-            items.push({
-              type: "single",
-              startNum: currentQNum,
-              endNum: currentQNum,
-              label: `${currentQNum}`,
-              questionKey: `q${currentQNum}`,
-            });
-            currentQNum++;
-          });
-        } else if (sectionQType === "form-completion") {
-          const firstQ = sectionQuestions[0];
-          const blankCount = firstQ?.formRows?.filter((r) => r.isBlank)?.length || 0;
-          for (let i = 0; i < blankCount; i++) {
-            items.push({
-              type: "single",
-              startNum: currentQNum,
-              endNum: currentQNum,
-              label: `${currentQNum}`,
-              questionKey: `q${currentQNum}`,
-            });
-            currentQNum++;
-          }
-        } else if (sectionQType === "notes-completion") {
-          const firstQ = sectionQuestions[0];
-          const notesText = firstQ?.notesText || "";
-          // Only numbered blanks render real inputs/refs.
-          const matches = notesText.match(/(\d+)\s*[_…]+/g) || [];
-          matches.forEach((token) => {
-            const numMatch = token.match(/^(\d+)/);
-            if (!numMatch) return;
-            const qNum = parseInt(numMatch[1], 10);
-            if (!Number.isFinite(qNum)) return;
+      slots.forEach((s) => {
+        const startNum = parseInt(String(s.key).replace(/^q/, ""), 10);
+        if (!Number.isFinite(startNum)) return;
 
-            items.push({
-              type: "single",
-              startNum: qNum,
-              endNum: qNum,
-              label: `${qNum}`,
-              questionKey: `q${qNum}`,
-            });
-
-            currentQNum = Math.max(currentQNum, qNum + 1);
+        if (s.type === "multi-select") {
+          const count = s.slots || 2;
+          const endNum = startNum + count - 1;
+          items.push({
+            type: "multi-select",
+            startNum,
+            endNum,
+            label: `${startNum}-${endNum}`,
+            questionKey: s.key,
           });
         } else {
-          // abc, abcd, fill - individual questions
-          sectionQuestions.forEach(() => {
-            items.push({
-              type: "single",
-              startNum: currentQNum,
-              endNum: currentQNum,
-              label: `${currentQNum}`,
-              questionKey: `q${currentQNum}`,
-            });
-            currentQNum++;
+          items.push({
+            type: "single",
+            startNum,
+            endNum: startNum,
+            label: `${startNum}`,
+            questionKey: s.key,
           });
         }
       });
 
-      // If section metadata is missing/mismatched, fall back to question-driven navigator.
-      // This prevents arrows getting stuck at the end of Part 1 (e.g., stopping at 10).
-      if (!sections.length || (partQuestions.length > 0 && items.length === 0)) {
-        return buildItemsFromQuestions();
+      const seen = new Set();
+      const deduped = [];
+      for (const it of items) {
+        if (seen.has(it.startNum)) continue;
+        seen.add(it.startNum);
+        deduped.push(it);
       }
-
-      return items;
+      deduped.sort((a, b) => a.startNum - b.startNum);
+      return deduped;
     },
-    [test?.questions, test?.partInstructions, getPartQuestionRange]
+    [getPartSlots]
   );
 
   // Flatten navigator items across all parts (used by arrow navigation)

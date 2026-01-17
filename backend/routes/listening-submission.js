@@ -162,9 +162,30 @@ router.get('/:submissionId', async (req, res) => {
 
     const test = submission.testId ? await ListeningTest.findByPk(submission.testId) : null;
 
+    const safeParseJson = (value) => {
+      if (typeof value !== 'string') return value;
+      try {
+        return JSON.parse(value);
+      } catch (e) {
+        return value;
+      }
+    };
+
+    const subJson = submission.toJSON();
+    subJson.answers = safeParseJson(subJson.answers);
+    subJson.details = safeParseJson(subJson.details);
+
+    const testJson = test ? test.toJSON() : null;
+    if (testJson) {
+      testJson.questions = safeParseJson(testJson.questions);
+      testJson.partInstructions = safeParseJson(testJson.partInstructions);
+      testJson.partTypes = safeParseJson(testJson.partTypes);
+      testJson.partAudioUrls = safeParseJson(testJson.partAudioUrls);
+    }
+
     res.json({
-      submission: submission.toJSON(),
-      test: test ? test.toJSON() : null,
+      submission: subJson,
+      test: testJson,
     });
   } catch (error) {
     console.error('Error fetching submission:', error);

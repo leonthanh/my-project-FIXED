@@ -130,10 +130,275 @@ const scoreListening = ({ test, answers }) => {
 
   const questions = parseIfJsonString(test?.questions);
   const passages = parseIfJsonString(test?.passages) || [];
+  const partInstructions = parseIfJsonString(test?.partInstructions);
 
   let correctCount = 0;
   let totalCount = 0;
   const details = [];
+
+  const parseLeadingNumber = (text) => {
+    const s = String(text || "").trim();
+    const m = s.match(/^(\d+)\b/);
+    return m ? parseInt(m[1], 10) : null;
+  };
+
+  const getSectionQuestions = (pIdx, sIdx) => {
+    if (!Array.isArray(questions)) return [];
+    return questions
+      .filter((q) => Number(q?.partIndex) === Number(pIdx) && Number(q?.sectionIndex) === Number(sIdx))
+      .sort((a, b) => (Number(a?.questionIndex) || 0) - (Number(b?.questionIndex) || 0));
+  };
+
+  const numericKeys = (obj) =>
+    obj && typeof obj === "object" && !Array.isArray(obj)
+      ? Object.keys(obj)
+          .map((k) => parseInt(k, 10))
+          .filter((n) => Number.isFinite(n))
+          .sort((a, b) => a - b)
+      : [];
+
+  const scoreFromSections = () => {
+    if (!Array.isArray(partInstructions) || !Array.isArray(questions)) return false;
+
+    for (let pIdx = 0; pIdx < partInstructions.length; pIdx++) {
+      const part = partInstructions[pIdx];
+      const sections = Array.isArray(part?.sections) ? part.sections : [];
+
+      for (let sIdx = 0; sIdx < sections.length; sIdx++) {
+        const section = sections[sIdx] || {};
+        const sectionType = String(section?.questionType || "fill").toLowerCase();
+        const sectionQuestions = getSectionQuestions(pIdx, sIdx);
+        if (!sectionQuestions.length) continue;
+
+        const firstQ = sectionQuestions[0];
+        const firstAnswers = parseIfJsonString(firstQ?.answers);
+        const firstFormRows = parseIfJsonString(firstQ?.formRows);
+        const firstLeftItems = parseIfJsonString(firstQ?.leftItems);
+        const firstItems = parseIfJsonString(firstQ?.items);
+
+        if (sectionType === "form-completion") {
+          const map = firstAnswers && typeof firstAnswers === "object" && !Array.isArray(firstAnswers) ? firstAnswers : null;
+          const keys = numericKeys(map);
+          if (keys.length) {
+            for (const num of keys) {
+              totalCount++;
+              const expected = map[String(num)];
+              const student = normalizedAnswers[`q${num}`];
+              const accepted = explodeAccepted(expected).map(normalize);
+              const ok = accepted.length ? accepted.includes(normalize(student)) : normalize(student) === normalize(expected);
+              if (ok) correctCount++;
+              details.push({
+                questionNumber: num,
+                partIndex: pIdx,
+                sectionIndex: sIdx,
+                questionType: sectionType,
+                studentAnswer: student ?? "",
+                correctAnswer: expected ?? "",
+                isCorrect: ok,
+              });
+            }
+          } else {
+            const rows = Array.isArray(firstFormRows) ? firstFormRows : [];
+            const blanks = rows.filter((r) => r && r.isBlank);
+            const start =
+              typeof section?.startingQuestionNumber === "number" && section.startingQuestionNumber > 0
+                ? section.startingQuestionNumber
+                : 1;
+            blanks.forEach((row, idx) => {
+              const num = row?.blankNumber ? Number(row.blankNumber) : start + idx;
+              if (!Number.isFinite(num)) return;
+              totalCount++;
+              const expected =
+                row?.correctAnswer ??
+                row?.answer ??
+                row?.correct ??
+                (map ? map[String(num)] : "") ??
+                "";
+              const student = normalizedAnswers[`q${num}`];
+              const accepted = explodeAccepted(expected).map(normalize);
+              const ok = accepted.length ? accepted.includes(normalize(student)) : normalize(student) === normalize(expected);
+              if (ok) correctCount++;
+              details.push({
+                questionNumber: num,
+                partIndex: pIdx,
+                sectionIndex: sIdx,
+                questionType: sectionType,
+                studentAnswer: student ?? "",
+                correctAnswer: expected ?? "",
+                isCorrect: ok,
+              });
+            });
+          }
+          continue;
+        }
+
+        if (sectionType === "notes-completion") {
+          const map = firstAnswers && typeof firstAnswers === "object" && !Array.isArray(firstAnswers) ? firstAnswers : null;
+          const keys = numericKeys(map);
+          if (keys.length) {
+            for (const num of keys) {
+              totalCount++;
+              const expected = map[String(num)];
+              const student = normalizedAnswers[`q${num}`];
+              const accepted = explodeAccepted(expected).map(normalize);
+              const ok = accepted.length ? accepted.includes(normalize(student)) : normalize(student) === normalize(expected);
+              if (ok) correctCount++;
+              details.push({
+                questionNumber: num,
+                partIndex: pIdx,
+                sectionIndex: sIdx,
+                questionType: sectionType,
+                studentAnswer: student ?? "",
+                correctAnswer: expected ?? "",
+                isCorrect: ok,
+              });
+            }
+          } else {
+            const notesText = String(firstQ?.notesText || "");
+            const matches = notesText.match(/(\d+)\s*[_…]+/g) || [];
+            for (const token of matches) {
+              const m = token.match(/^(\d+)/);
+              if (!m) continue;
+              const num = parseInt(m[1], 10);
+              if (!Number.isFinite(num)) continue;
+              totalCount++;
+              const expected = map ? map[String(num)] : firstQ?.correctAnswer;
+              const student = normalizedAnswers[`q${num}`];
+              const accepted = explodeAccepted(expected).map(normalize);
+              const ok = accepted.length ? accepted.includes(normalize(student)) : normalize(student) === normalize(expected);
+              if (ok) correctCount++;
+              details.push({
+                questionNumber: num,
+                partIndex: pIdx,
+                sectionIndex: sIdx,
+                questionType: sectionType,
+                studentAnswer: student ?? "",
+                correctAnswer: expected ?? "",
+                isCorrect: ok,
+              });
+            }
+          }
+          continue;
+        }
+
+        if (sectionType === "matching") {
+          const map = firstAnswers && typeof firstAnswers === "object" && !Array.isArray(firstAnswers) ? firstAnswers : null;
+          const keys = numericKeys(map);
+          if (keys.length) {
+            for (const num of keys) {
+              totalCount++;
+              const expected = map[String(num)];
+              const student = normalizedAnswers[`q${num}`];
+              const ok = normalize(student) === normalize(expected);
+              if (ok) correctCount++;
+              details.push({
+                questionNumber: num,
+                partIndex: pIdx,
+                sectionIndex: sIdx,
+                questionType: sectionType,
+                studentAnswer: student ?? "",
+                correctAnswer: expected ?? "",
+                isCorrect: ok,
+              });
+            }
+          } else {
+            const start =
+              typeof section?.startingQuestionNumber === "number" && section.startingQuestionNumber > 0
+                ? section.startingQuestionNumber
+                : parseLeadingNumber(firstQ?.questionText);
+            const left = Array.isArray(firstLeftItems)
+              ? firstLeftItems
+              : Array.isArray(firstItems)
+                ? firstItems
+                : [];
+            if (left.length) {
+              for (let idx = 0; idx < left.length; idx++) {
+                const num = Number.isFinite(start) ? start + idx : idx + 1;
+                totalCount++;
+                const expected = map ? map[String(num)] : "";
+                const student = normalizedAnswers[`q${num}`];
+                const ok = expected ? normalize(student) === normalize(expected) : false;
+                if (ok) correctCount++;
+                details.push({
+                  questionNumber: num,
+                  partIndex: pIdx,
+                  sectionIndex: sIdx,
+                  questionType: sectionType,
+                  studentAnswer: student ?? "",
+                  correctAnswer: expected ?? "",
+                  isCorrect: ok,
+                });
+              }
+            }
+          }
+          continue;
+        }
+
+        if (sectionType === "multi-select") {
+          let groupStart =
+            typeof section?.startingQuestionNumber === "number" && section.startingQuestionNumber > 0
+              ? section.startingQuestionNumber
+              : parseLeadingNumber(sectionQuestions[0]?.questionText) || 1;
+
+          for (const q of sectionQuestions) {
+            const required = Number(q?.requiredAnswers) || 2;
+            const student = normalizedAnswers[`q${groupStart}`];
+            const expectedRaw = q?.correctAnswer ?? q?.answers;
+            const studentIndices = toIndices(student);
+            const expectedIndices = toIndices(expectedRaw);
+            totalCount += required;
+            const ok = expectedIndices.length ? setEq(studentIndices, expectedIndices) : false;
+            if (ok) correctCount += required;
+            details.push({
+              questionNumber: groupStart,
+              partIndex: pIdx,
+              sectionIndex: sIdx,
+              questionType: sectionType,
+              studentAnswer: student ?? "",
+              correctAnswer: expectedRaw ?? "",
+              isCorrect: ok,
+            });
+            groupStart += required;
+          }
+          continue;
+        }
+
+        const start =
+          typeof section?.startingQuestionNumber === "number" && section.startingQuestionNumber > 0
+            ? section.startingQuestionNumber
+            : parseLeadingNumber(sectionQuestions[0]?.questionText);
+        if (!Number.isFinite(start)) continue;
+
+        sectionQuestions.forEach((q, idx) => {
+          const num = start + idx;
+          totalCount++;
+          const expected = q?.correctAnswer;
+          const student = normalizedAnswers[`q${num}`];
+          const accepted = explodeAccepted(expected).map(normalize);
+          const ok = accepted.length ? accepted.includes(normalize(student)) : normalize(student) === normalize(expected);
+          if (ok) correctCount++;
+          details.push({
+            questionNumber: num,
+            partIndex: pIdx,
+            sectionIndex: sIdx,
+            questionType: sectionType,
+            studentAnswer: student ?? "",
+            correctAnswer: expected ?? "",
+            isCorrect: ok,
+          });
+        });
+      }
+    }
+
+    return totalCount > 0;
+  };
+
+  // 0) Preferred when available: partInstructions + questions (aligns to 1..40)
+  if (scoreFromSections()) {
+    const scorePercentage = totalCount > 0 ? Math.round((correctCount / totalCount) * 100) : 0;
+    const band = bandFromCorrect(correctCount);
+    return { correctCount, totalCount, scorePercentage, band, details };
+  }
 
   // 1) Current format: flat array with globalNumber and student answers keyed by q<number>
   if (Array.isArray(questions) && questions.length > 0) {
