@@ -16,6 +16,16 @@ const DoCambridgeReadingTest = () => {
   const { testType, id } = useParams(); // testType: ket-reading, pet-reading, etc.
   const navigate = useNavigate();
 
+  const examType = useMemo(() => {
+    const s = String(testType || "").trim().toLowerCase();
+    if (s.includes("ket")) return "KET";
+    if (s.includes("pet")) return "PET";
+    if (s.includes("flyers")) return "FLYERS";
+    if (s.includes("movers")) return "MOVERS";
+    if (s.includes("starters")) return "STARTERS";
+    return "CAMBRIDGE";
+  }, [testType]);
+
   const startedKey = useMemo(() => `cambridge_reading_test_${id}_started`, [id]);
 
   // States
@@ -749,7 +759,7 @@ const DoCambridgeReadingTest = () => {
 
       {/* Header */}
       <TestHeader
-        title={test?.title || `${testConfig.name}`}
+        title={testConfig.name}
         classCode={test?.classCode}
         teacherName={test?.teacherName}
         timeRemaining={timeRemaining}
@@ -757,7 +767,7 @@ const DoCambridgeReadingTest = () => {
         totalQuestions={allQuestions.length}
         onSubmit={handleSubmit}
         submitted={submitted}
-        examType={testConfig.name?.split(' ')[0]}
+        examType={examType}
         timerWarning={timeRemaining > 0 && timeRemaining <= 300}
         timerCritical={timeRemaining > 0 && timeRemaining <= 60}
       />

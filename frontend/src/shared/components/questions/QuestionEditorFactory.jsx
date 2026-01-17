@@ -17,6 +17,7 @@ import {
   LongTextMCEditor,
   ClozeMCEditor,
   WordFormEditor,
+  MultipleChoicePicturesEditor,
 } from "./editors";
 
 /**
@@ -116,6 +117,9 @@ const QuestionEditorFactory = ({
     case 'word-form':
       return <WordFormEditor {...commonProps} />;
 
+    case 'multiple-choice-pictures':
+      return <MultipleChoicePicturesEditor {...commonProps} />;
+
     // Placeholder for future types
     case 'true-false-not-given':
     case 'yes-no-not-given':
@@ -123,7 +127,6 @@ const QuestionEditorFactory = ({
     case 'paragraph-matching':
     case 'sentence-completion':
     case 'matching-pictures':
-    case 'multiple-choice-pictures':
     case 'tick-cross':
     case 'story-writing':
       return (

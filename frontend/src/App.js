@@ -7,7 +7,7 @@ import { WritingTest, CreateWritingTest } from './features/writing';
 import { Login } from './features/auth';
 import { CreateReadingTest, EditReadingTest, DoReadingTest, TakeReadingTest, ReadingResults } from './features/reading';
 import { CreateListeningTest, EditListeningTest, DoListeningTest, ListeningResults } from './features/listening';
-import { CreateKETListeningTest, CreateKETReadingTest, CreateCambridgeTest, EditCambridgeReadingTest, EditCambridgeListeningTest, SelectCambridgeTest, DoCambridgeListeningTest, DoCambridgeReadingTest, CambridgeResultPage } from './features/cambridge';
+import { CreateKETListeningTest, CreateKETReadingTest, CreateCambridgeTest, EditCambridgeReadingTest, EditCambridgeListeningTest, SelectCambridgeTest, DoCambridgeTestEntry, DoCambridgeListeningTest, DoCambridgeReadingTest, CambridgeResultPage } from './features/cambridge';
 import { ProtectedRoute } from './shared/components';
 
 const isLoggedIn = () => {
@@ -131,12 +131,11 @@ function App() {
         
         {/* Cambridge Student Routes */}
         <Route path="/cambridge" element={isLoggedIn() ? <SelectCambridgeTest /> : <Navigate to="/login" replace />} />
-        {/* Generic routes for any Cambridge test type */}
+        {/* Direct routes */}
         <Route path="/cambridge/reading/:id" element={isLoggedIn() ? <DoCambridgeReadingTest /> : <Navigate to="/login" replace />} />
         <Route path="/cambridge/listening/:id" element={isLoggedIn() ? <DoCambridgeListeningTest /> : <Navigate to="/login" replace />} />
-        {/* Specific test type routes (legacy support) */}
-        <Route path="/cambridge/:testType-reading/:id" element={isLoggedIn() ? <DoCambridgeReadingTest /> : <Navigate to="/login" replace />} />
-        <Route path="/cambridge/:testType-listening/:id" element={isLoggedIn() ? <DoCambridgeListeningTest /> : <Navigate to="/login" replace />} />
+        {/* Generic testType route: /cambridge/ket-listening/:id, /cambridge/pet-reading/:id, ... */}
+        <Route path="/cambridge/:testType/:id" element={isLoggedIn() ? <DoCambridgeTestEntry /> : <Navigate to="/login" replace />} />
         <Route path="/cambridge/result/:submissionId" element={isLoggedIn() ? <CambridgeResultPage /> : <Navigate to="/login" replace />} />
         
         {/* Redirect legacy /admin to canonical writing submissions path */}

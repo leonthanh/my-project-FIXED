@@ -772,7 +772,7 @@ const scoreQuestion = (userAnswer, correctAnswer, questionType) => {
   }
 
   // Multiple choice: normalize to uppercase letters
-  if (questionType === 'abc' || questionType === 'abcd' || questionType === 'matching') {
+  if (questionType === 'abc' || questionType === 'abcd' || questionType === 'matching' || questionType === 'multiple-choice-pictures') {
     const userNorm = normalizeMc(userAnswer);
     return acceptedAnswers.some((ans) => normalizeMc(ans) === userNorm);
   }

@@ -435,10 +435,14 @@ export const QUESTION_TYPES = {
     editor: 'MultipleChoicePicturesEditor', // Will create later
     defaultData: {
       questionText: '',
-      imageOptions: [],
+      imageOptions: [
+        { imageUrl: '', text: '' },
+        { imageUrl: '', text: '' },
+        { imageUrl: '', text: '' },
+      ],
       correctAnswer: '',
     },
-    supportedTests: ['flyers', 'movers', 'starters'],
+    supportedTests: ['ket-listening', 'flyers', 'movers', 'starters'],
   },
 
   'tick-cross': {
@@ -553,6 +557,7 @@ export const TEST_CONFIGS = {
     duration: 30, // minutes
     questionTypes: [
       'abc',
+      'multiple-choice-pictures',
       'fill',
       'matching',
     ],

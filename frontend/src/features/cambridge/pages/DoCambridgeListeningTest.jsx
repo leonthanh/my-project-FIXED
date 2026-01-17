@@ -12,6 +12,17 @@ const DoCambridgeListeningTest = () => {
   const { testType, id } = useParams(); // testType: ket-listening, pet-listening, etc.
   const navigate = useNavigate();
 
+  const examType = useMemo(() => {
+    const s = String(testType || "").trim().toLowerCase();
+    if (s.includes("ket")) return "KET";
+    if (s.includes("pet")) return "PET";
+    if (s.includes("flyers")) return "FLYERS";
+    if (s.includes("movers")) return "MOVERS";
+    if (s.includes("starters")) return "STARTERS";
+    // fallback to Cambridge style if unknown
+    return "CAMBRIDGE";
+  }, [testType]);
+
   // States
   const [test, setTest] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -25,8 +36,14 @@ const DoCambridgeListeningTest = () => {
   const [timeRemaining, setTimeRemaining] = useState(30 * 60);
   const [activeQuestion, setActiveQuestion] = useState(null);
 
+  // Cambridge-style start gate (must click Play)
+  const [testStarted, setTestStarted] = useState(false);
+  const [startedAudioByPart, setStartedAudioByPart] = useState({});
+
   const audioRef = useRef(null);
   const questionRefs = useRef({});
+  const maxPlayedTimeByPartRef = useRef({});
+  const ignoreSeekRef = useRef(false);
 
   // Get test config
   const testConfig = useMemo(() => {
@@ -64,9 +81,66 @@ const DoCambridgeListeningTest = () => {
     fetchTest();
   }, [id, testConfig.duration]);
 
+  const hasAnyAudio = useMemo(() => {
+    return Boolean(test?.parts?.some((p) => p?.audioUrl));
+  }, [test]);
+
+  // Build global question order + ranges (for footer nav)
+  const questionIndex = useMemo(() => {
+    const parts = test?.parts || [];
+    let globalNumber = 1;
+    const byPart = [];
+    const orderedKeys = [];
+
+    for (let pIdx = 0; pIdx < parts.length; pIdx++) {
+      const part = parts[pIdx];
+      const partKeys = [];
+      const start = globalNumber;
+
+      const sections = part?.sections || [];
+      for (let sIdx = 0; sIdx < sections.length; sIdx++) {
+        const sec = sections[sIdx];
+        const questions = sec?.questions || [];
+        for (let qIdx = 0; qIdx < questions.length; qIdx++) {
+          const key = `${pIdx}-${sIdx}-${qIdx}`;
+          const num = globalNumber++;
+          partKeys.push({ key, number: num });
+          orderedKeys.push({ key, partIndex: pIdx, number: num });
+        }
+      }
+
+      const end = globalNumber - 1;
+      byPart.push({ partIndex: pIdx, start, end, keys: partKeys });
+    }
+
+    return { byPart, orderedKeys };
+  }, [test]);
+
+  // Init active question to first question
+  useEffect(() => {
+    if (!test) return;
+    const first = questionIndex?.orderedKeys?.[0]?.key;
+    if (first && !activeQuestion) {
+      setCurrentPartIndex(questionIndex.orderedKeys[0].partIndex);
+      setExpandedPart(questionIndex.orderedKeys[0].partIndex);
+      setActiveQuestion(first);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [test, questionIndex]);
+
+  // Scroll to active question when changed
+  useEffect(() => {
+    if (!activeQuestion) return;
+    const el = questionRefs.current?.[activeQuestion];
+    if (el?.scrollIntoView) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, [activeQuestion]);
+
   // Timer countdown
   useEffect(() => {
     if (submitted || !test) return;
+    if (hasAnyAudio && !testStarted) return;
 
     const timer = setInterval(() => {
       setTimeRemaining((prev) => {
@@ -82,6 +156,82 @@ const DoCambridgeListeningTest = () => {
     return () => clearInterval(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [test, submitted]);
+
+  const currentPart = useMemo(() => {
+    return test?.parts?.[currentPartIndex] || null;
+  }, [test, currentPartIndex]);
+
+  const isStartGateVisible = useMemo(() => {
+    if (submitted) return false;
+    if (!currentPart?.audioUrl) return false;
+    return !startedAudioByPart?.[currentPartIndex];
+  }, [submitted, currentPart, startedAudioByPart, currentPartIndex]);
+
+  const markPartAudioStarted = useCallback((partIndex) => {
+    setStartedAudioByPart((prev) => {
+      if (prev?.[partIndex]) return prev;
+      return { ...(prev || {}), [partIndex]: true };
+    });
+    setTestStarted(true);
+  }, []);
+
+  const handlePlayGate = useCallback(async () => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    try {
+      await audio.play();
+      markPartAudioStarted(currentPartIndex);
+    } catch (e) {
+      console.error('Audio play failed:', e);
+    }
+  }, [currentPartIndex, markPartAudioStarted]);
+
+  const handleAudioPlay = useCallback(() => {
+    markPartAudioStarted(currentPartIndex);
+  }, [currentPartIndex, markPartAudioStarted]);
+
+  const handleAudioPause = useCallback(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    if (!startedAudioByPart?.[currentPartIndex]) return;
+    if (audio.ended) return;
+    audio.play().catch(() => {
+      // ignore
+    });
+  }, [currentPartIndex, startedAudioByPart]);
+
+  const handleAudioTimeUpdate = useCallback(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    if (!startedAudioByPart?.[currentPartIndex]) return;
+    const t = Number(audio.currentTime || 0);
+    const prevMax = Number(maxPlayedTimeByPartRef.current?.[currentPartIndex] || 0);
+    if (t > prevMax) {
+      maxPlayedTimeByPartRef.current = {
+        ...(maxPlayedTimeByPartRef.current || {}),
+        [currentPartIndex]: t,
+      };
+    }
+  }, [currentPartIndex, startedAudioByPart]);
+
+  const handleAudioSeeking = useCallback(() => {
+    if (ignoreSeekRef.current) return;
+    const audio = audioRef.current;
+    if (!audio) return;
+    if (!startedAudioByPart?.[currentPartIndex]) return;
+
+    const max = Number(maxPlayedTimeByPartRef.current?.[currentPartIndex] || 0);
+    const t = Number(audio.currentTime || 0);
+    // Block any seeking (rewind or fast-forward). Cambridge flow: no pause/rewind;
+    // we also prevent skipping ahead via keyboard/media controls.
+    if (Math.abs(t - max) > 0.25) {
+      ignoreSeekRef.current = true;
+      audio.currentTime = max;
+      setTimeout(() => {
+        ignoreSeekRef.current = false;
+      }, 0);
+    }
+  }, [currentPartIndex, startedAudioByPart]);
 
   // Format time display
   const formatTime = (seconds) => {
@@ -101,6 +251,14 @@ const DoCambridgeListeningTest = () => {
     },
     [submitted]
   );
+
+  const resolveImgSrc = useCallback((url) => {
+    if (!url) return "";
+    const s = String(url);
+    if (/^https?:\/\//i.test(s)) return s;
+    if (s.startsWith("/")) return hostPath(s);
+    return s;
+  }, []);
 
   // Handle checkbox change for multi-select
   const handleCheckboxChange = useCallback(
@@ -213,11 +371,6 @@ const DoCambridgeListeningTest = () => {
     };
   };
 
-  // Get current part questions
-  const currentPart = useMemo(() => {
-    return test?.parts?.[currentPartIndex] || null;
-  }, [test?.parts, currentPartIndex]);
-
   // Calculate question number range for a part
   const getPartQuestionRange = useCallback((partIndex) => {
     if (!test?.parts) return { start: 1, end: 1 };
@@ -315,6 +468,73 @@ const DoCambridgeListeningTest = () => {
           </div>
         );
 
+      case 'multiple-choice-pictures':
+        const imageOptions = Array.isArray(question.imageOptions) ? question.imageOptions : [];
+        return (
+          <div style={styles.questionCard}>
+            <div style={styles.questionHeader}>
+              <span style={styles.questionNum}>{questionNum}</span>
+              <span style={styles.questionText}>{question.questionText}</span>
+            </div>
+            <div style={styles.optionsContainer}>
+              {[0, 1, 2].map((idx) => {
+                const optionLabel = String.fromCharCode(65 + idx); // A/B/C
+                const opt = imageOptions[idx] || {};
+                const isSelected = userAnswer === optionLabel;
+                const isCorrectOption = submitted && question.correctAnswer === optionLabel;
+
+                return (
+                  <label
+                    key={idx}
+                    style={{
+                      ...styles.optionLabel,
+                      ...(isSelected && styles.optionSelected),
+                      ...(submitted && isCorrectOption && styles.optionCorrect),
+                      ...(submitted && isSelected && !isCorrectOption && styles.optionWrong),
+                      display: 'grid',
+                      gridTemplateColumns: '24px 1fr',
+                      gap: '10px',
+                      alignItems: 'start',
+                    }}
+                  >
+                    <input
+                      type="radio"
+                      name={questionKey}
+                      checked={isSelected}
+                      onChange={() => handleAnswerChange(questionKey, optionLabel)}
+                      disabled={submitted}
+                      style={{ marginTop: '4px' }}
+                    />
+                    <div>
+                      <div style={{ fontWeight: 700, marginBottom: '8px' }}>{optionLabel}</div>
+                      {opt.imageUrl ? (
+                        <img
+                          src={resolveImgSrc(opt.imageUrl)}
+                          alt={`Option ${optionLabel}`}
+                          style={{
+                            width: '100%',
+                            maxWidth: '260px',
+                            height: 'auto',
+                            borderRadius: '8px',
+                            border: '1px solid #e5e7eb',
+                            background: 'white',
+                          }}
+                          onError={(e) => {
+                            e.currentTarget.style.display = 'none';
+                          }}
+                        />
+                      ) : null}
+                      {opt.text ? (
+                        <div style={{ marginTop: '8px', color: '#334155' }}>{opt.text}</div>
+                      ) : null}
+                    </div>
+                  </label>
+                );
+              })}
+            </div>
+          </div>
+        );
+
       case 'matching':
         const leftItems = question.leftItems || [];
         const rightItems = question.rightItems || [];
@@ -405,7 +625,8 @@ const DoCambridgeListeningTest = () => {
     <div style={styles.container}>
       {/* Header */}
       <TestHeader
-        title={test?.title || `${testConfig.name}`}
+        title={testConfig.name}
+        examType={examType}
         classCode={test?.classCode}
         teacherName={test?.teacherName}
         timeRemaining={formatTime(timeRemaining)}
@@ -413,92 +634,70 @@ const DoCambridgeListeningTest = () => {
         submitted={submitted}
       />
 
-      {/* Main Content */}
-      <div style={styles.mainContent}>
-        {/* Sidebar - Parts Navigation */}
-        <div style={styles.sidebar}>
-          <div style={styles.sidebarHeader}>
-            <h3 style={{ margin: 0, fontSize: '16px' }}>📋 Parts</h3>
-          </div>
-          {test?.parts?.map((part, idx) => {
-            const range = getPartQuestionRange(idx);
-            const isActive = currentPartIndex === idx;
-            return (
-              <div
-                key={idx}
-                onClick={() => setCurrentPartIndex(idx)}
-                style={{
-                  ...styles.partItem,
-                  ...(isActive && styles.partItemActive),
-                }}
-              >
-                <strong>Part {idx + 1}</strong>
-                <div style={{ fontSize: '12px', opacity: 0.8, marginTop: '4px' }}>
-                  Questions {range.start}-{range.end}
-                </div>
-              </div>
-            );
-          })}
-
-          {/* Question Navigator */}
-          <div style={styles.questionNav}>
-            <h4 style={{ margin: '0 0 12px', fontSize: '14px', color: '#64748b' }}>
-              📝 Câu hỏi
-            </h4>
-            <div style={styles.questionGrid}>
-              {(() => {
-                let num = 1;
-                return test?.parts?.map((part, pIdx) => 
-                  part.sections?.map((sec, sIdx) =>
-                    sec.questions?.map((q, qIdx) => {
-                      const key = `${pIdx}-${sIdx}-${qIdx}`;
-                      const isAnswered = !!answers[key];
-                      const currentNum = num++;
-                      return (
-                        <div
-                          key={key}
-                          onClick={() => {
-                            setCurrentPartIndex(pIdx);
-                            setActiveQuestion(key);
-                          }}
-                          style={{
-                            ...styles.questionNavItem,
-                            ...(isAnswered && styles.questionNavAnswered),
-                            ...(activeQuestion === key && styles.questionNavActive),
-                          }}
-                        >
-                          {currentNum}
-                        </div>
-                      );
-                    })
-                  )
-                );
-              })()}
-            </div>
+      {/* Cambridge-style Play gate overlay */}
+      {isStartGateVisible && (
+        <div style={styles.playGateOverlay} role="dialog" aria-modal="true" tabIndex={-1}>
+          <div style={styles.playGateCard}>
+            <div style={{ fontSize: 42, marginBottom: 10 }}>🎧</div>
+            <p style={{ margin: '0 0 8px', lineHeight: 1.4 }}>
+              You will be listening to an audio clip during this test. You will not be permitted to pause or rewind the audio while answering the questions.
+            </p>
+            <p style={{ margin: '0 0 16px', lineHeight: 1.4 }}>
+              To continue, click Play.
+            </p>
+            <button type="button" onClick={handlePlayGate} style={styles.playGateButton}>
+              ▶ Play
+            </button>
           </div>
         </div>
+      )}
 
+      {/* Main Content */}
+      <div style={styles.mainContent}>
         {/* Main Question Area */}
         <div style={styles.questionArea}>
           {currentPart && (
             <>
+              {/* Rubric block (Cambridge-style) */}
+              {(() => {
+                const range = getPartQuestionRange(currentPartIndex);
+                return (
+                  <div style={styles.rubricBlock}>
+                    <h3 style={styles.rubricTitle}>Questions {range.start}–{range.end}</h3>
+                    <div style={styles.rubricText}>
+                      {currentPart.instruction || 'For each question, choose the correct answer.'}
+                    </div>
+                  </div>
+                );
+              })()}
+
               {/* Part Header */}
               <div style={styles.partHeader}>
                 <h2 style={{ margin: 0, color: '#0e276f' }}>
                   {currentPart.title || `Part ${currentPartIndex + 1}`}
                 </h2>
-                {currentPart.instruction && (
-                  <p style={styles.partInstruction}>{currentPart.instruction}</p>
-                )}
               </div>
 
               {/* Audio Player */}
               {currentPart.audioUrl && (
                 <div style={styles.audioContainer}>
                   <span style={{ marginRight: '12px' }}>🎧</span>
-                  <audio controls src={hostPath(currentPart.audioUrl)} style={{ flex: 1 }}>
+                  <audio
+                    ref={audioRef}
+                    src={hostPath(currentPart.audioUrl)}
+                    preload="auto"
+                    controls={false}
+                    controlsList="nodownload noplaybackrate"
+                    onPlay={handleAudioPlay}
+                    onPause={handleAudioPause}
+                    onTimeUpdate={handleAudioTimeUpdate}
+                    onSeeking={handleAudioSeeking}
+                    onContextMenu={(e) => e.preventDefault()}
+                    style={{ flex: 1, width: '100%' }}
+                  >
                     Your browser does not support audio.
                   </audio>
+                  <div style={styles.audioHint}>No pause / no rewind</div>
                 </div>
               )}
 
@@ -558,6 +757,121 @@ const DoCambridgeListeningTest = () => {
         </div>
       </div>
 
+      {/* Footer navigation (Cambridge-style) */}
+      {test && (
+        <footer style={styles.footerBar} aria-label="Questions">
+          <div style={styles.footerNavButtons} role="navigation" aria-label="Previous / next question">
+            <button
+              type="button"
+              aria-label="Previous"
+              style={styles.footerArrowBtn}
+              disabled={!activeQuestion || questionIndex.orderedKeys.findIndex((x) => x.key === activeQuestion) <= 0}
+              onClick={() => {
+                const idx = questionIndex.orderedKeys.findIndex((x) => x.key === activeQuestion);
+                if (idx > 0) {
+                  const prev = questionIndex.orderedKeys[idx - 1];
+                  setCurrentPartIndex(prev.partIndex);
+                  setExpandedPart(prev.partIndex);
+                  setActiveQuestion(prev.key);
+                }
+              }}
+            >
+              ←
+            </button>
+            <button
+              type="button"
+              aria-label="Next"
+              style={styles.footerArrowBtn}
+              disabled={!activeQuestion || questionIndex.orderedKeys.findIndex((x) => x.key === activeQuestion) >= (questionIndex.orderedKeys.length - 1)}
+              onClick={() => {
+                const idx = questionIndex.orderedKeys.findIndex((x) => x.key === activeQuestion);
+                if (idx >= 0 && idx < questionIndex.orderedKeys.length - 1) {
+                  const next = questionIndex.orderedKeys[idx + 1];
+                  setCurrentPartIndex(next.partIndex);
+                  setExpandedPart(next.partIndex);
+                  setActiveQuestion(next.key);
+                }
+              }}
+            >
+              →
+            </button>
+          </div>
+
+          <div style={styles.footerPartsRow} role="tablist" aria-label="Parts">
+            {questionIndex.byPart.map((p) => {
+              const total = p.keys.length;
+              const attempted = p.keys.reduce((acc, item) => acc + (answers[item.key] ? 1 : 0), 0);
+              const isExpanded = expandedPart === p.partIndex;
+              return (
+                <div key={p.partIndex} style={styles.footerPartWrapper}>
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={currentPartIndex === p.partIndex}
+                    onClick={() => {
+                      setExpandedPart(p.partIndex);
+                      const firstKey = p.keys?.[0]?.key;
+                      if (firstKey) {
+                        setCurrentPartIndex(p.partIndex);
+                        setActiveQuestion(firstKey);
+                      } else {
+                        setCurrentPartIndex(p.partIndex);
+                      }
+                    }}
+                    style={{
+                      ...styles.footerPartBtn,
+                      ...(currentPartIndex === p.partIndex ? styles.footerPartBtnActive : null),
+                    }}
+                  >
+                    <span style={{ opacity: 0.85 }}>Part </span>
+                    <span style={{ fontWeight: 700 }}>{p.partIndex + 1}</span>
+                    <span style={styles.footerAttemptedCount} aria-hidden="true">
+                      {attempted}/{total}
+                    </span>
+                  </button>
+
+                  {isExpanded && (
+                    <div style={styles.footerSubquestions} role="group" aria-label={`Part ${p.partIndex + 1} questions`}>
+                      {p.keys.map((item) => {
+                        const isAnswered = !!answers[item.key];
+                        const isActive = activeQuestion === item.key;
+                        return (
+                          <button
+                            key={item.key}
+                            type="button"
+                            onClick={() => {
+                              setCurrentPartIndex(p.partIndex);
+                              setActiveQuestion(item.key);
+                            }}
+                            style={{
+                              ...styles.footerSubquestionBtn,
+                              ...(isAnswered ? styles.footerSubquestionAnswered : null),
+                              ...(isActive ? styles.footerSubquestionActive : null),
+                            }}
+                          >
+                            {item.number}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+
+            <button
+              id="deliver-button"
+              type="button"
+              aria-label="Review your answers"
+              onClick={() => setShowConfirm(true)}
+              style={styles.footerDeliverBtn}
+            >
+              ✓
+            </button>
+          </div>
+        </footer>
+      )}
+
       {/* Results Modal */}
       {submitted && results && (
         <div style={styles.resultsOverlay}>
@@ -610,6 +924,159 @@ const styles = {
   container: {
     minHeight: '100vh',
     backgroundColor: '#f8fafc',
+    paddingBottom: '130px',
+  },
+  playGateOverlay: {
+    position: 'fixed',
+    inset: 0,
+    background: 'rgba(15, 23, 42, 0.6)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 9999,
+    padding: '20px',
+  },
+  playGateCard: {
+    width: '100%',
+    maxWidth: '520px',
+    background: '#ffffff',
+    borderRadius: '16px',
+    padding: '22px 20px',
+    textAlign: 'center',
+    boxShadow: '0 20px 60px rgba(0,0,0,0.35)',
+  },
+  playGateButton: {
+    background: '#0e276f',
+    color: '#fff',
+    border: 'none',
+    borderRadius: '999px',
+    padding: '12px 18px',
+    fontSize: '16px',
+    fontWeight: 700,
+    cursor: 'pointer',
+    minWidth: '160px',
+  },
+  rubricBlock: {
+    background: '#ffffff',
+    border: '1px solid #e5e7eb',
+    borderRadius: '12px',
+    padding: '14px 16px',
+    marginBottom: '14px',
+  },
+  rubricTitle: {
+    margin: 0,
+    fontSize: '16px',
+    color: '#0f172a',
+  },
+  rubricText: {
+    marginTop: '6px',
+    fontSize: '14px',
+    color: '#475569',
+  },
+  audioHint: {
+    marginLeft: '12px',
+    fontSize: '12px',
+    color: '#64748b',
+    whiteSpace: 'nowrap',
+  },
+  footerBar: {
+    position: 'fixed',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    background: '#ffffff',
+    borderTop: '1px solid #e5e7eb',
+    zIndex: 1000,
+    padding: '10px 12px',
+  },
+  footerNavButtons: {
+    display: 'flex',
+    gap: '8px',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: '8px',
+  },
+  footerArrowBtn: {
+    width: '40px',
+    height: '36px',
+    borderRadius: '10px',
+    border: '1px solid #e5e7eb',
+    background: '#ffffff',
+    cursor: 'pointer',
+    fontSize: '18px',
+    lineHeight: 1,
+  },
+  footerPartsRow: {
+    display: 'flex',
+    gap: '10px',
+    alignItems: 'flex-start',
+    overflowX: 'auto',
+    paddingBottom: '4px',
+  },
+  footerPartWrapper: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '8px',
+    minWidth: '140px',
+  },
+  footerPartBtn: {
+    border: '1px solid #e5e7eb',
+    background: '#f8fafc',
+    borderRadius: '12px',
+    padding: '8px 10px',
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: '8px',
+    fontSize: '13px',
+    color: '#0f172a',
+  },
+  footerPartBtnActive: {
+    background: '#ffffff',
+    borderColor: '#0e276f',
+    boxShadow: '0 0 0 2px rgba(14,39,111,0.08)',
+  },
+  footerAttemptedCount: {
+    fontSize: '12px',
+    color: '#64748b',
+    marginLeft: 'auto',
+  },
+  footerSubquestions: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: '6px',
+  },
+  footerSubquestionBtn: {
+    width: '34px',
+    height: '34px',
+    borderRadius: '10px',
+    border: '1px solid #e5e7eb',
+    background: '#ffffff',
+    cursor: 'pointer',
+    fontSize: '12px',
+    color: '#0f172a',
+  },
+  footerSubquestionAnswered: {
+    background: '#ecfeff',
+    borderColor: '#06b6d4',
+  },
+  footerSubquestionActive: {
+    background: '#0e276f',
+    borderColor: '#0e276f',
+    color: '#ffffff',
+  },
+  footerDeliverBtn: {
+    marginLeft: 'auto',
+    width: '44px',
+    height: '44px',
+    borderRadius: '14px',
+    border: '1px solid #e5e7eb',
+    background: '#0e276f',
+    color: '#ffffff',
+    fontWeight: 900,
+    cursor: 'pointer',
+    flex: '0 0 auto',
   },
   loadingContainer: {
     display: 'flex',
@@ -628,69 +1095,9 @@ const styles = {
     backgroundColor: '#f8fafc',
   },
   mainContent: {
-    display: 'grid',
-    gridTemplateColumns: '280px 1fr',
-    gap: '24px',
     padding: '24px',
-    maxWidth: '1400px',
+    maxWidth: '980px',
     margin: '0 auto',
-  },
-  sidebar: {
-    backgroundColor: '#fff',
-    borderRadius: '12px',
-    boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-    padding: '16px',
-    height: 'fit-content',
-    position: 'sticky',
-    top: '24px',
-  },
-  sidebarHeader: {
-    paddingBottom: '12px',
-    borderBottom: '1px solid #e5e7eb',
-    marginBottom: '12px',
-  },
-  partItem: {
-    padding: '12px',
-    borderRadius: '8px',
-    cursor: 'pointer',
-    marginBottom: '8px',
-    backgroundColor: '#f1f5f9',
-    transition: 'all 0.2s',
-  },
-  partItemActive: {
-    backgroundColor: '#0e276f',
-    color: 'white',
-  },
-  questionNav: {
-    marginTop: '20px',
-    paddingTop: '16px',
-    borderTop: '1px solid #e5e7eb',
-  },
-  questionGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(5, 1fr)',
-    gap: '6px',
-  },
-  questionNavItem: {
-    width: '32px',
-    height: '32px',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: '6px',
-    backgroundColor: '#f1f5f9',
-    cursor: 'pointer',
-    fontSize: '13px',
-    fontWeight: 500,
-    transition: 'all 0.2s',
-  },
-  questionNavAnswered: {
-    backgroundColor: '#22c55e',
-    color: 'white',
-  },
-  questionNavActive: {
-    backgroundColor: '#0e276f',
-    color: 'white',
   },
   questionArea: {
     backgroundColor: '#fff',

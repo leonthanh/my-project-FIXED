@@ -16,6 +16,12 @@ if (!fs.existsSync(audioUploadDir)) {
   fs.mkdirSync(audioUploadDir, { recursive: true });
 }
 
+// Tạo thư mục uploads/cambridge nếu chưa tồn tại (KET/PET assets)
+const cambridgeUploadDir = path.join(__dirname, '..', 'uploads', 'cambridge');
+if (!fs.existsSync(cambridgeUploadDir)) {
+  fs.mkdirSync(cambridgeUploadDir, { recursive: true });
+}
+
 // Cấu hình multer storage (images)
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
@@ -38,6 +44,18 @@ const audioStorage = multer.diskStorage({
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
     const ext = path.extname(file.originalname);
     cb(null, `audio-${uniqueSuffix}${ext}`);
+  }
+});
+
+// Cấu hình multer storage (cambridge images)
+const cambridgeImageStorage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, cambridgeUploadDir);
+  },
+  filename: function (req, file, cb) {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    const ext = path.extname(file.originalname);
+    cb(null, `cambridge-${uniqueSuffix}${ext}`);
   }
 });
 
@@ -75,6 +93,41 @@ const uploadAudio = multer({
   fileFilter: audioFileFilter,
   limits: {
     fileSize: 50 * 1024 * 1024 // Giới hạn 50MB
+  }
+});
+
+const uploadCambridgeImage = multer({
+  storage: cambridgeImageStorage,
+  fileFilter: fileFilter,
+  limits: {
+    fileSize: 5 * 1024 * 1024 // Giới hạn 5MB
+  }
+});
+
+/**
+ * POST /api/upload/cambridge-image
+ * Upload một hình ảnh (assets cho Cambridge tests)
+ * Body: FormData với field 'image'
+ * Response: { url: '/uploads/cambridge/filename.jpg' }
+ */
+router.post('/cambridge-image', uploadCambridgeImage.single('image'), (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: 'Không có file được upload' });
+    }
+
+    const imageUrl = `/uploads/cambridge/${req.file.filename}`;
+
+    res.json({
+      message: '✅ Upload hình ảnh Cambridge thành công!',
+      url: imageUrl,
+      filename: req.file.filename,
+      originalname: req.file.originalname,
+      size: req.file.size
+    });
+  } catch (error) {
+    console.error('❌ Upload cambridge image error:', error);
+    res.status(500).json({ message: 'Lỗi khi upload hình ảnh Cambridge' });
   }
 });
 

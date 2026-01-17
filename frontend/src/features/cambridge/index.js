@@ -9,6 +9,7 @@ export {
   EditCambridgeReadingTest,
   EditCambridgeListeningTest,
   SelectCambridgeTest,
+  DoCambridgeTestEntry,
   DoCambridgeListeningTest,
   DoCambridgeReadingTest,
   CambridgeResultPage,
