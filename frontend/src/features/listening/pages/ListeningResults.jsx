@@ -286,6 +286,408 @@ const bandFromCorrect = (c) => {
   return 3.5;
 };
 
+const safeParseJson = (value) => {
+  if (typeof value !== "string") return value;
+  try {
+    return JSON.parse(value);
+  } catch (e) {
+    return value;
+  }
+};
+
+const parseLeadingNumber = (text) => {
+  const m = String(text || "")
+    .trim()
+    .match(/^(\d+)\b/);
+  return m ? parseInt(m[1], 10) : null;
+};
+
+const normalizeText = (v) =>
+  String(v ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ");
+
+const isNumericThousands = (s) => /^\d{1,3}(,\d{3})+(\.\d+)?$/.test(String(s).trim());
+
+const parseEnglishNumber = (raw) => {
+  const s = normalizeText(raw)
+    .replace(/-/g, " ")
+    .replace(/\band\b/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!s) return null;
+
+  const small = {
+    zero: 0,
+    one: 1,
+    two: 2,
+    three: 3,
+    four: 4,
+    five: 5,
+    six: 6,
+    seven: 7,
+    eight: 8,
+    nine: 9,
+    ten: 10,
+    eleven: 11,
+    twelve: 12,
+    thirteen: 13,
+    fourteen: 14,
+    fifteen: 15,
+    sixteen: 16,
+    seventeen: 17,
+    eighteen: 18,
+    nineteen: 19,
+  };
+  const tens = {
+    twenty: 20,
+    thirty: 30,
+    forty: 40,
+    fifty: 50,
+    sixty: 60,
+    seventy: 70,
+    eighty: 80,
+    ninety: 90,
+  };
+  const scales = {
+    thousand: 1000,
+    million: 1000000,
+    billion: 1000000000,
+  };
+
+  const tokens = s.split(" ").filter(Boolean);
+  let total = 0;
+  let current = 0;
+  let seenAny = false;
+
+  for (const tok of tokens) {
+    if (small[tok] != null) {
+      current += small[tok];
+      seenAny = true;
+      continue;
+    }
+    if (tens[tok] != null) {
+      current += tens[tok];
+      seenAny = true;
+      continue;
+    }
+    if (tok === "hundred") {
+      if (!seenAny) return null;
+      current *= 100;
+      continue;
+    }
+    if (scales[tok] != null) {
+      if (!seenAny) return null;
+      total += current * scales[tok];
+      current = 0;
+      continue;
+    }
+    return null;
+  }
+
+  if (!seenAny) return null;
+  return total + current;
+};
+
+const tryParseNumber = (raw) => {
+  if (raw == null) return null;
+  if (typeof raw === "number" && Number.isFinite(raw)) return raw;
+
+  const s0 = normalizeText(raw);
+  if (!s0) return null;
+
+  const compactDigits = s0
+    .replace(/,/g, "")
+    .replace(/(?<=\d)\s+(?=\d)/g, "");
+
+  if (/^\d+(\.\d+)?$/.test(compactDigits)) {
+    const n = Number(compactDigits);
+    return Number.isFinite(n) ? n : null;
+  }
+
+  const m = compactDigits.match(/^(\d+(?:\.\d+)?)\s*(thousand|million|billion)$/);
+  if (m) {
+    const base = Number(m[1]);
+    if (!Number.isFinite(base)) return null;
+    const unit = m[2];
+    const mult = unit === "thousand" ? 1000 : unit === "million" ? 1000000 : 1000000000;
+    return base * mult;
+  }
+
+  const words = parseEnglishNumber(compactDigits);
+  return words != null ? words : null;
+};
+
+const explodeAccepted = (raw) => {
+  if (raw == null) return [];
+  const parsed = safeParseJson(raw);
+  if (Array.isArray(parsed)) return parsed.flatMap((x) => explodeAccepted(x));
+  if (typeof parsed === "string") {
+    const s = parsed.trim();
+    if (!s) return [];
+    // Prioritize explicit variant separators (|, /, ;).
+    if (s.includes("|")) return s.split("|").map((t) => t.trim()).filter(Boolean);
+    if (s.includes("/")) return s.split("/").map((t) => t.trim()).filter(Boolean);
+    if (s.includes(";")) return s.split(";").map((t) => t.trim()).filter(Boolean);
+
+    // Avoid splitting numeric thousands separators like "10,000".
+    if (s.includes(",") && !isNumericThousands(s)) {
+      return s.split(",").map((t) => t.trim()).filter(Boolean);
+    }
+
+    return [s];
+  }
+  return [parsed];
+};
+
+const candidateKeys = (raw) => {
+  const text = normalizeText(raw);
+  const keys = text ? [text] : [];
+  const num = tryParseNumber(raw);
+  if (num != null) keys.push(`#num:${num}`);
+  return keys;
+};
+
+const isAnswerMatch = (student, expectedRaw) => {
+  const studentKeys = new Set(candidateKeys(student));
+  const variants = explodeAccepted(expectedRaw);
+  for (const v of variants) {
+    for (const k of candidateKeys(v)) {
+      if (studentKeys.has(k)) return true;
+    }
+  }
+  return false;
+};
+
+const setEq = (a, b) => {
+  if (!(a instanceof Set) || !(b instanceof Set)) return false;
+  if (a.size !== b.size) return false;
+  for (const x of a) if (!b.has(x)) return false;
+  return true;
+};
+
+const idxToLetter = (idx) => {
+  const n = Number(idx);
+  if (!Number.isFinite(n) || n < 0) return "";
+  return String.fromCharCode(65 + n);
+};
+
+const formatChoiceList = (indices) => {
+  const arr = Array.isArray(indices)
+    ? indices
+        .map((x) => Number(x))
+        .filter((n) => Number.isFinite(n))
+        .sort((a, b) => a - b)
+    : [];
+  return arr.map(idxToLetter).filter(Boolean).join(", ");
+};
+
+const parseQuestionsDeep = (questions) => {
+  let parsed = safeParseJson(questions);
+  if (!Array.isArray(parsed)) return parsed;
+  return parsed.map((q) => ({
+    ...q,
+    formRows: safeParseJson(q?.formRows),
+    leftItems: safeParseJson(q?.leftItems),
+    rightItems: safeParseJson(q?.rightItems),
+    options: safeParseJson(q?.options),
+    answers: safeParseJson(q?.answers),
+  }));
+};
+
+const generateDetailsFromSections = (test, answers) => {
+  const questions = Array.isArray(test?.questions) ? test.questions : [];
+  const parts = Array.isArray(test?.partInstructions) ? test.partInstructions : [];
+  const normalizedAnswers = answers && typeof answers === "object" ? answers : {};
+
+  const details = [];
+
+  const getSectionQuestions = (partIndex, sectionIndex) =>
+    questions
+      .filter((q) => Number(q?.partIndex) === Number(partIndex) && Number(q?.sectionIndex) === Number(sectionIndex))
+      .sort((a, b) => (Number(a?.questionIndex) || 0) - (Number(b?.questionIndex) || 0));
+
+  for (let pIdx = 0; pIdx < parts.length; pIdx++) {
+    const p = parts[pIdx];
+    const sections = Array.isArray(p?.sections) ? p.sections : [];
+    for (let sIdx = 0; sIdx < sections.length; sIdx++) {
+      const section = sections[sIdx] || {};
+      const sectionType = String(section?.questionType || "fill").toLowerCase();
+      const sectionQuestions = getSectionQuestions(pIdx, sIdx);
+      if (!sectionQuestions.length) continue;
+
+      const firstQ = sectionQuestions[0];
+
+      // FORM / NOTES: score using answers map keyed by questionNumber
+      if (sectionType === "form-completion" || sectionType === "notes-completion") {
+        const map =
+          firstQ?.answers && typeof firstQ.answers === "object" && !Array.isArray(firstQ.answers)
+            ? firstQ.answers
+            : null;
+        if (!map) continue;
+        const keys = Object.keys(map)
+          .map((k) => parseInt(k, 10))
+          .filter((n) => Number.isFinite(n))
+          .sort((a, b) => a - b);
+
+        for (const num of keys) {
+          const expected = map[String(num)];
+          const student = normalizedAnswers[`q${num}`];
+          const ok = isAnswerMatch(student, expected);
+          details.push({
+            questionNumber: num,
+            partIndex: pIdx,
+            sectionIndex: sIdx,
+            questionType: sectionType,
+            studentAnswer: student ?? "",
+            correctAnswer: expected ?? "",
+            isCorrect: ok,
+          });
+        }
+        continue;
+      }
+
+      // MATCHING: answers map keyed by questionNumber => correct letter
+      if (sectionType === "matching") {
+        const map =
+          firstQ?.answers && typeof firstQ.answers === "object" && !Array.isArray(firstQ.answers)
+            ? firstQ.answers
+            : null;
+        if (map) {
+          const keys = Object.keys(map)
+            .map((k) => parseInt(k, 10))
+            .filter((n) => Number.isFinite(n))
+            .sort((a, b) => a - b);
+          for (const num of keys) {
+            const expected = map[String(num)];
+            const student = normalizedAnswers[`q${num}`];
+            const ok = expected ? isAnswerMatch(student, expected) : false;
+            details.push({
+              questionNumber: num,
+              partIndex: pIdx,
+              sectionIndex: sIdx,
+              questionType: sectionType,
+              studentAnswer: student ?? "",
+              correctAnswer: expected ?? "",
+              isCorrect: ok,
+            });
+          }
+          continue;
+        }
+
+        const start =
+          typeof section?.startingQuestionNumber === "number" && section.startingQuestionNumber > 0
+            ? section.startingQuestionNumber
+            : parseLeadingNumber(firstQ?.questionText) || 1;
+        const left = Array.isArray(firstQ?.leftItems)
+          ? firstQ.leftItems
+          : Array.isArray(firstQ?.items)
+            ? firstQ.items
+            : [];
+        for (let i = 0; i < left.length; i++) {
+          const num = start + i;
+          const expected = "";
+          const student = normalizedAnswers[`q${num}`];
+          details.push({
+            questionNumber: num,
+            partIndex: pIdx,
+            sectionIndex: sIdx,
+            questionType: sectionType,
+            studentAnswer: student ?? "",
+            correctAnswer: expected,
+            isCorrect: false,
+          });
+        }
+        continue;
+      }
+
+      // MULTI-SELECT: expand group into requiredAnswer slots (so table reaches 40 rows)
+      if (sectionType === "multi-select") {
+        let groupStart =
+          typeof section?.startingQuestionNumber === "number" && section.startingQuestionNumber > 0
+            ? section.startingQuestionNumber
+            : parseLeadingNumber(sectionQuestions[0]?.questionText) || 1;
+
+        for (const q of sectionQuestions) {
+          const required = Number(q?.requiredAnswers) || 2;
+          const studentRaw = normalizedAnswers[`q${groupStart}`];
+          const expectedRaw = q?.correctAnswer ?? q?.answers;
+
+          const studentIndicesArr = Array.isArray(studentRaw)
+            ? studentRaw.map((x) => Number(x)).filter((n) => Number.isFinite(n))
+            : explodeAccepted(studentRaw)
+                .map((x) => {
+                  const t = String(x).trim();
+                  if (/^[A-Z]$/i.test(t)) return t.toUpperCase().charCodeAt(0) - 65;
+                  const n = Number(t);
+                  return Number.isFinite(n) ? n : null;
+                })
+                .filter((n) => n != null);
+
+          const expectedIndicesArr = explodeAccepted(expectedRaw)
+            .map((x) => {
+              const t = String(x).trim();
+              if (/^[A-Z]$/i.test(t)) return t.toUpperCase().charCodeAt(0) - 65;
+              const n = Number(t);
+              return Number.isFinite(n) ? n : null;
+            })
+            .filter((n) => n != null);
+
+          const ok = expectedIndicesArr.length
+            ? setEq(new Set(studentIndicesArr), new Set(expectedIndicesArr))
+            : false;
+
+          const studentDisplay = formatChoiceList(studentIndicesArr);
+          const expectedDisplay = formatChoiceList(expectedIndicesArr) || String(expectedRaw ?? "");
+
+          for (let i = 0; i < required; i++) {
+            details.push({
+              questionNumber: groupStart + i,
+              partIndex: pIdx,
+              sectionIndex: sIdx,
+              questionType: sectionType,
+              studentAnswer: studentDisplay || (Array.isArray(studentRaw) ? "" : String(studentRaw ?? "")),
+              correctAnswer: expectedDisplay,
+              isCorrect: ok,
+            });
+          }
+
+          groupStart += required;
+        }
+        continue;
+      }
+
+      // DEFAULT (abc/abcd/fill): sequential numbering from startingQuestionNumber
+      const start =
+        typeof section?.startingQuestionNumber === "number" && section.startingQuestionNumber > 0
+          ? section.startingQuestionNumber
+          : parseLeadingNumber(sectionQuestions[0]?.questionText);
+      if (!Number.isFinite(start)) continue;
+
+      sectionQuestions.forEach((q, idx) => {
+        const num = start + idx;
+        const expected = q?.correctAnswer;
+        const student = normalizedAnswers[`q${num}`];
+        const ok = isAnswerMatch(student, expected);
+
+        details.push({
+          questionNumber: num,
+          partIndex: pIdx,
+          sectionIndex: sIdx,
+          questionType: String(sectionType || q?.questionType || "fill").toLowerCase(),
+          studentAnswer: student ?? "",
+          correctAnswer: expected ?? "",
+          isCorrect: ok,
+        });
+      });
+    }
+  }
+
+  details.sort((a, b) => (Number(a?.questionNumber) || 0) - (Number(b?.questionNumber) || 0));
+  return details;
+};
+
 // ===== MAIN COMPONENT =====
 const ListeningResults = () => {
   const { id } = useParams();
@@ -306,6 +708,51 @@ const ListeningResults = () => {
       setLoading(true);
       
       try {
+        // Preferred: id is a DB submissionId
+        const subRes = await fetch(apiPath(`listening-submissions/${id}`));
+        if (subRes.ok) {
+          const payload = await subRes.json();
+          const dbSub = payload?.submission || null;
+          const dbTest = payload?.test || null;
+
+          if (dbSub) {
+            const parsedSub = {
+              ...dbSub,
+              answers: safeParseJson(dbSub.answers),
+              details: safeParseJson(dbSub.details),
+            };
+
+            const parsedTest = dbTest
+              ? {
+                  ...dbTest,
+                  partInstructions: safeParseJson(dbTest.partInstructions),
+                  partTypes: safeParseJson(dbTest.partTypes),
+                  partAudioUrls: safeParseJson(dbTest.partAudioUrls),
+                  questions: parseQuestionsDeep(dbTest.questions),
+                }
+              : null;
+
+            setSubmission(parsedSub);
+            setTest(parsedTest);
+
+            const parsedDetails = Array.isArray(parsedSub.details) ? parsedSub.details : [];
+            const totalTarget = Number(parsedSub.total) || 40;
+
+            // Prefer stored details when they look complete; otherwise regenerate to ensure a full 1..40 table.
+            if (parsedTest && parsedSub.answers && typeof parsedSub.answers === "object") {
+              const generated = generateDetailsFromSections(parsedTest, parsedSub.answers);
+              if (generated.length && (parsedDetails.length !== totalTarget || parsedDetails.length < generated.length)) {
+                setDetails(generated);
+              } else {
+                setDetails(parsedDetails);
+              }
+            } else {
+              setDetails(parsedDetails);
+            }
+            return;
+          }
+        }
+
         // If we have navigation state with score, use it
         if (navResult?.score !== undefined) {
           setSubmission({
@@ -315,16 +762,23 @@ const ListeningResults = () => {
           });
         }
 
-        // Fetch test data
+        // Legacy fallback: treat id as testId
         const testRes = await fetch(apiPath(`listening-tests/${id}`));
         if (testRes.ok) {
-          const testData = await testRes.json();
+          const testDataRaw = await testRes.json();
+          const testData = {
+            ...testDataRaw,
+            partInstructions: safeParseJson(testDataRaw.partInstructions),
+            partTypes: safeParseJson(testDataRaw.partTypes),
+            partAudioUrls: safeParseJson(testDataRaw.partAudioUrls),
+            questions: parseQuestionsDeep(testDataRaw.questions),
+          };
           setTest(testData);
           
           // Generate details from answers and test data
           if (navResult?.answers && testData.questions) {
-            const generatedDetails = generateDetails(testData.questions, navResult.answers);
-            setDetails(generatedDetails);
+            const generatedDetails = generateDetailsFromSections(testData, navResult.answers);
+            setDetails(generatedDetails.length ? generatedDetails : generateDetails(testData.questions, navResult.answers));
           }
         }
       } catch (err) {
@@ -342,15 +796,41 @@ const ListeningResults = () => {
     const details = [];
     let questionNumber = 1;
 
-    Object.entries(questions).forEach(([partKey, partQuestions]) => {
+    // Support both legacy object-by-part and newer flat array questions
+    if (Array.isArray(questions)) {
+      questions.forEach((q) => {
+        const qNum = q.globalNumber || questionNumber;
+        const studentAnswer = answers?.[`q${qNum}`];
+        const expected = q.correctAnswer || q.answer || q.answers;
+        const isCorrect =
+          studentAnswer != null && expected != null
+            ? String(studentAnswer).trim().toLowerCase() === String(expected).trim().toLowerCase()
+            : false;
+
+        details.push({
+          questionNumber: qNum,
+          part: (q.partIndex != null ? Number(q.partIndex) + 1 : 1),
+          questionType: q.questionType || 'fill',
+          studentAnswer: studentAnswer || '',
+          correctAnswer: expected || '',
+          isCorrect,
+          questionText: q.questionText || q.text || '',
+        });
+        questionNumber = Math.max(questionNumber, qNum + 1);
+      });
+      return details;
+    }
+
+    Object.entries(questions || {}).forEach(([partKey, partQuestions]) => {
       const partNum = parseInt(partKey.replace('part', ''));
-      
-      partQuestions.forEach((q, idx) => {
+
+      (partQuestions || []).forEach((q, idx) => {
         const answerKey = `${partKey}_${idx}`;
         const studentAnswer = answers[answerKey] || '';
         const correctAnswer = q.correctAnswer || '';
-        const isCorrect = studentAnswer.toString().toLowerCase().trim() === 
-                          correctAnswer.toString().toLowerCase().trim();
+        const isCorrect =
+          studentAnswer.toString().toLowerCase().trim() ===
+          correctAnswer.toString().toLowerCase().trim();
 
         details.push({
           questionNumber,
@@ -373,7 +853,13 @@ const ListeningResults = () => {
     if (!details.length) return {};
     const groups = {};
     details.forEach((d) => {
-      const part = `Part ${d.part}`;
+      const partNum =
+        d.part != null
+          ? Number(d.part)
+          : d.partIndex != null
+          ? Number(d.partIndex) + 1
+          : 1;
+      const part = `Part ${partNum}`;
       if (!groups[part]) groups[part] = [];
       groups[part].push(d);
     });
@@ -392,7 +878,13 @@ const ListeningResults = () => {
   const partAnalysis = useMemo(() => {
     const analysis = {};
     details.forEach(d => {
-      const part = `Part ${d.part}`;
+      const partNum =
+        d.part != null
+          ? Number(d.part)
+          : d.partIndex != null
+          ? Number(d.partIndex) + 1
+          : 1;
+      const part = `Part ${partNum}`;
       if (!analysis[part]) {
         analysis[part] = { correct: 0, total: 0 };
       }
@@ -425,11 +917,22 @@ const ListeningResults = () => {
     );
   }
 
-  const correct = submission?.correct || details.filter(d => d.isCorrect).length;
-  const total = submission?.total || details.length || 40;
-  const scorePercentage = total > 0 ? Math.round((correct / total) * 100) : 0;
-  const band = bandFromCorrect(correct);
+  const correct = submission?.correct ?? details.filter(d => d.isCorrect).length;
+  const total = submission?.total ?? (details.length || 40);
+  const scorePercentage =
+    submission?.scorePercentage != null
+      ? Number(submission.scorePercentage)
+      : total > 0
+      ? Math.round((correct / total) * 100)
+      : 0;
+  const band =
+    submission?.band != null && Number.isFinite(Number(submission.band))
+      ? Number(submission.band)
+      : bandFromCorrect(correct);
   const wrongCount = details.filter((d) => !d.isCorrect).length;
+
+  const retryTestId = test?.id || submission?.testId || id;
+  const submittedAt = submission?.submittedAt || submission?.createdAt;
 
   return (
     <div style={styles.container}>
@@ -446,7 +949,7 @@ const ListeningResults = () => {
         <div style={styles.metaGrid}>
           <div style={styles.metaItem}>
             <span style={styles.metaLabel}>📚 Bài test:</span>
-            <span style={styles.metaValue}>{test.title || `Listening #${id}`}</span>
+            <span style={styles.metaValue}>{test.title || `Listening Test #${test.id || submission?.testId || ""}`}</span>
           </div>
           <div style={styles.metaItem}>
             <span style={styles.metaLabel}>🏫 Mã lớp:</span>
@@ -456,6 +959,32 @@ const ListeningResults = () => {
             <span style={styles.metaLabel}>👨‍🏫 Giáo viên:</span>
             <span style={styles.metaValue}>{test.teacherName || "N/A"}</span>
           </div>
+          {submission?.userName && (
+            <div style={styles.metaItem}>
+              <span style={styles.metaLabel}>👤 Học sinh:</span>
+              <span style={styles.metaValue}>{submission.userName}</span>
+            </div>
+          )}
+          {submittedAt && (
+            <div style={styles.metaItem}>
+              <span style={styles.metaLabel}>📅 Ngày nộp:</span>
+              <span style={styles.metaValue}>
+                {new Date(submittedAt).toLocaleString("vi-VN")}
+              </span>
+            </div>
+          )}
+        </div>
+      )}
+
+      {submission?.feedback && (
+        <div style={styles.feedbackBox}>
+          <div style={styles.feedbackHeader}>
+            <strong>📝 Nhận xét giáo viên</strong>
+            {submission.feedbackBy && (
+              <span style={{ color: "#92400e" }}>({submission.feedbackBy})</span>
+            )}
+          </div>
+          <div style={{ whiteSpace: "pre-wrap", color: "#111827" }}>{submission.feedback}</div>
         </div>
       )}
 
@@ -652,7 +1181,9 @@ const ListeningResults = () => {
                 {filteredDetails.map((r, idx) => (
                   <tr key={idx} style={r.isCorrect ? styles.rowCorrect : styles.rowWrong}>
                     <td style={styles.td}><strong>{r.questionNumber}</strong></td>
-                    <td style={styles.td}>Part {r.part}</td>
+                    <td style={styles.td}>
+                      Part {r.part != null ? r.part : r.partIndex != null ? Number(r.partIndex) + 1 : 1}
+                    </td>
                     <td style={styles.td}>
                       <span style={{ color: "#166534", fontWeight: 500 }}>
                         {r.correctAnswer}
@@ -682,7 +1213,7 @@ const ListeningResults = () => {
       <div style={styles.actionsBar}>
         <button
           style={{ ...styles.actionBtn, ...styles.primaryBtn }}
-          onClick={() => navigate(`/listening/${id}`)}
+          onClick={() => navigate(`/listening/${retryTestId}`)}
         >
           🔄 Làm lại bài này
         </button>

@@ -8,6 +8,17 @@ const Submission = sequelize.define('Submission', {
     autoIncrement: true,
     primaryKey: true, // 👈 Bắt buộc có primary key
   },
+  // 👇 Foreign key (WritingTest)
+  testId: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    references: {
+      model: 'writing_tests',
+      key: 'id',
+    },
+    onDelete: 'SET NULL',
+    onUpdate: 'CASCADE',
+  },
   task1: DataTypes.TEXT,
   task2: DataTypes.TEXT,
   timeLeft: DataTypes.INTEGER,

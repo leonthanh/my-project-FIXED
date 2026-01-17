@@ -165,6 +165,13 @@ const AdminNavbar = () => {
                 🔍 Reading
               </Link>
               <Link
+                to="/admin/listening-submissions"
+                className="adminNavbar__menuItem"
+                onClick={() => setSubmissionDropdownVisible(false)}
+              >
+                🎧 Listening
+              </Link>
+              <Link
                 to="/admin/writing-submissions"
                 className="adminNavbar__menuItem"
                 onClick={() => setSubmissionDropdownVisible(false)}

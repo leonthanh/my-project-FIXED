@@ -2,7 +2,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 
 // Import from new feature-based structure
-import { EditTest, AdminWritingSubmissions, SelectTest, MyFeedback, ReviewSubmission, Review, AdminReadingSubmissions, CambridgeSubmissionsPage } from './features/admin';
+import { EditTest, AdminWritingSubmissions, SelectTest, MyFeedback, ReviewSubmission, Review, AdminReadingSubmissions, AdminListeningSubmissions, CambridgeSubmissionsPage } from './features/admin';
 import { WritingTest, CreateWritingTest } from './features/writing';
 import { Login } from './features/auth';
 import { CreateReadingTest, EditReadingTest, DoReadingTest, TakeReadingTest, ReadingResults } from './features/reading';
@@ -83,6 +83,11 @@ function App() {
         <Route path="/admin/reading-submissions" element={
           <ProtectedRoute role="teacher">
             <AdminReadingSubmissions />
+          </ProtectedRoute>
+        } />
+        <Route path="/admin/listening-submissions" element={
+          <ProtectedRoute role="teacher">
+            <AdminListeningSubmissions />
           </ProtectedRoute>
         } />
         <Route path="/admin/writing-submissions" element={
