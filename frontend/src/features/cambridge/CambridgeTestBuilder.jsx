@@ -25,6 +25,81 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
   const availableTypes = getQuestionTypesForTest(testType);
   const isListeningTest = testType.includes('listening');
 
+  const normalizePeopleMatchingIds = useCallback((partsData) => {
+    if (!Array.isArray(partsData)) return partsData;
+
+    const isNumericId = (id) => typeof id === 'string' && /^\d+$/.test(id.trim());
+
+    const detectSectionType = (section) => {
+      const q0 = section?.questions?.[0];
+      return (
+        section?.questionType ||
+        q0?.questionType ||
+        q0?.type ||
+        (Array.isArray(q0?.people) ? 'people-matching' : '')
+      );
+    };
+
+    const mapNumericIdsToLetters = (texts) => {
+      const ids = (texts || []).map(t => String(t?.id || '').trim()).filter(Boolean);
+      if (ids.length === 0) return null;
+      if (!ids.every(isNumericId)) return null;
+      if (texts.length > 26) return null;
+
+      const uniqueSorted = Array.from(new Set(ids)).sort((a, b) => parseInt(a, 10) - parseInt(b, 10));
+      if (uniqueSorted.length > 26) return null;
+
+      const mapping = {};
+      for (let i = 0; i < uniqueSorted.length; i++) {
+        mapping[uniqueSorted[i]] = String.fromCharCode(65 + i);
+      }
+      return mapping;
+    };
+
+    const normalizeQuestion = (question) => {
+      const texts = Array.isArray(question?.texts) ? question.texts : [];
+      const mapping = mapNumericIdsToLetters(texts);
+      if (!mapping) return question;
+
+      const nextTexts = texts.map(t => {
+        const oldId = String(t?.id || '').trim();
+        const mapped = mapping[oldId];
+        return mapped ? { ...t, id: mapped } : t;
+      });
+
+      const answers = question?.answers && typeof question.answers === 'object' ? question.answers : {};
+      const nextAnswers = Object.fromEntries(
+        Object.entries(answers).map(([personId, chosenId]) => {
+          const chosen = String(chosenId || '').trim();
+          return [personId, mapping[chosen] || chosenId];
+        })
+      );
+
+      return { ...question, texts: nextTexts, answers: nextAnswers };
+    };
+
+    let changed = false;
+    const nextParts = partsData.map(part => {
+      const nextSections = (part?.sections || []).map(section => {
+        const sectionType = detectSectionType(section);
+        if (sectionType !== 'people-matching') return section;
+
+        const nextQuestions = (section?.questions || []).map(q => normalizeQuestion(q));
+        const sectionChanged = nextQuestions.some((q, idx) => q !== section.questions[idx]);
+        if (!sectionChanged) return section;
+        changed = true;
+        return { ...section, questions: nextQuestions };
+      });
+
+      const partChanged = nextSections.some((s, idx) => s !== part.sections?.[idx]);
+      if (!partChanged) return part;
+      changed = true;
+      return { ...part, sections: nextSections };
+    });
+
+    return changed ? nextParts : partsData;
+  }, []);
+
   const didResetDraftRef = useRef(false);
 
   useEffect(() => {
@@ -67,7 +142,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
   // Initial parts from savedData or default
   const getInitialParts = () => {
     if (savedData?.parts && Array.isArray(savedData.parts)) {
-      return savedData.parts;
+      return normalizePeopleMatchingIds(savedData.parts);
     }
     return [
       {
@@ -105,10 +180,10 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
       }
 
       if (Array.isArray(partsData)) {
-        setParts(partsData);
+        setParts(normalizePeopleMatchingIds(partsData));
       }
     }
-  }, [initialData]);
+  }, [initialData, normalizePeopleMatchingIds]);
 
   // State - Load from savedData if available
   const [parts, setParts] = useState(getInitialParts());

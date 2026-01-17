@@ -24,6 +24,43 @@ const PeopleMatchingEditor = ({
   startingNumber = 6, // Part 2 thường bắt đầu từ câu 6
   partIndex = 1, // Default to Part 2 (index 1)
 }) => {
+  const isNumericId = (id) => typeof id === 'string' && /^\d+$/.test(id.trim());
+  const isSingleLetterId = (id) => typeof id === 'string' && /^[A-Z]$/.test(id.trim());
+
+  const getTextDisplayLabel = (text) => {
+    const id = String(text?.id || '').trim();
+    const content = String(text?.title || text?.content || '').trim();
+    return content ? `${id} ${content}`.trim() : id;
+  };
+
+  const getNextTextId = (existingTexts) => {
+    const ids = (existingTexts || []).map(t => String(t?.id || '').trim()).filter(Boolean);
+    const allNumeric = ids.length > 0 && ids.every(isNumericId);
+    const allLetters = ids.length > 0 && ids.every(isSingleLetterId);
+
+    if (allLetters) {
+      const used = new Set(ids);
+      for (let i = 0; i < 26; i++) {
+        const candidate = String.fromCharCode(65 + i);
+        if (!used.has(candidate)) return candidate;
+      }
+      return (existingTexts?.length || 0) + 1;
+    }
+
+    if (allNumeric) {
+      const max = ids.reduce((acc, cur) => Math.max(acc, parseInt(cur, 10)), 0);
+      return String(max + 1);
+    }
+
+    // Default to letters for Cambridge people-matching
+    const used = new Set(ids);
+    for (let i = 0; i < 26; i++) {
+      const candidate = String.fromCharCode(65 + i);
+      if (!used.has(candidate)) return candidate;
+    }
+    return String((existingTexts?.length || 0) + 1);
+  };
+
   const description = question?.description || '';
   const people = question?.people || [ 
     { id: 'A', name: '', need: '' },
@@ -34,14 +71,14 @@ const PeopleMatchingEditor = ({
   ];
 
   const texts = question?.texts || [
-    { id: '1', title: '', content: '' },
-    { id: '2', title: '', content: '' },
-    { id: '3', title: '', content: '' },
-    { id: '4', title: '', content: '' },
-    { id: '5', title: '', content: '' },
-    { id: '6', title: '', content: '' },
-    { id: '7', title: '', content: '' },
-    { id: '8', title: '', content: '' },
+    { id: 'A', title: '', content: '' },
+    { id: 'B', title: '', content: '' },
+    { id: 'C', title: '', content: '' },
+    { id: 'D', title: '', content: '' },
+    { id: 'E', title: '', content: '' },
+    { id: 'F', title: '', content: '' },
+    { id: 'G', title: '', content: '' },
+    { id: 'H', title: '', content: '' },
   ];
 
   const answers = question?.answers || {}; // { A: '3', B: '1', ... }
@@ -64,8 +101,8 @@ const PeopleMatchingEditor = ({
   };
 
   const addText = () => {
-    const newId = (texts.length + 1).toString();
-    onChange("texts", [...texts, { id: newId, title: '', content: '' }]);
+    const newId = getNextTextId(texts);
+    onChange("texts", [...texts, { id: String(newId), title: '', content: '' }]);
   };
 
   const removeText = (index) => {
@@ -111,8 +148,8 @@ const PeopleMatchingEditor = ({
         border: "1px solid #e9d5ff",
       }}>
         <p style={{ margin: 0, fontSize: "13px", color: "#6b21a8" }}>
-          💡 <strong>Hướng dẫn:</strong> Tạo 5 người (A-E) với mô tả nhu cầu, và 8 texts để học sinh nối. 
-          Sau đó chọn đáp án đúng cho mỗi người.
+          💡 <strong>Hướng dẫn:</strong> Tạo 5 người (A-E) và 8 lựa chọn (A-H). 
+          Mỗi người chọn đúng 1 lựa chọn.
         </p>
       </div>
 
@@ -177,7 +214,7 @@ const PeopleMatchingEditor = ({
               <textarea
                 value={person.need}
                 onChange={(e) => handlePeopleChange(idx, 'need', e.target.value)}
-                placeholder="Mô tả nhu cầu (VD: wants to buy comfortable shoes for running)"
+                placeholder="Mô tả (optional) (VD: wants to buy comfortable shoes for running)"
                 style={{ ...styles.input, minHeight: "50px", marginBottom: 0 }}
               />
               
@@ -196,9 +233,9 @@ const PeopleMatchingEditor = ({
                   }}
                 >
                   <option value="">-- Chọn text --</option>
-                  {texts.map((text, i) => (
+                  {texts.map((text) => (
                     <option key={text.id} value={text.id}>
-                      Text {text.id}
+                      {getTextDisplayLabel(text)}
                     </option>
                   ))}
                 </select>
@@ -288,14 +325,14 @@ const PeopleMatchingEditor = ({
                     type="text"
                     value={text.title}
                     onChange={(e) => handleTextChange(idx, 'title', e.target.value)}
-                    placeholder="Tiêu đề (VD: NEW SPORTS WORLD)"
+                    placeholder="Nội dung ngắn (VD: cycling)"
                     style={{ ...styles.input, marginBottom: 0, flex: 1, fontWeight: 600 }}
                   />
                 </div>
                 <textarea
                   value={text.content}
                   onChange={(e) => handleTextChange(idx, 'content', e.target.value)}
-                  placeholder="Nội dung (VD: 50% off all trainers this week! Best selection of running shoes in town.)"
+                  placeholder="Mô tả thêm (optional)"
                   style={{ ...styles.input, minHeight: "50px", marginBottom: 0 }}
                 />
               </div>
@@ -316,17 +353,22 @@ const PeopleMatchingEditor = ({
           ✅ Đáp án đã chọn:
         </h4>
         <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
-          {people.map((person) => (
-            <div key={person.id} style={{
-              padding: "8px 12px",
-              backgroundColor: answers[person.id] ? "#dcfce7" : "#fee2e2",
-              borderRadius: "6px",
-              fontSize: "13px",
-              fontWeight: 500,
-            }}>
-              {person.id} → {answers[person.id] || '?'}
-            </div>
-          ))}
+          {people.map((person) => {
+            const selectedId = answers[person.id];
+            const selectedText = texts.find(t => String(t?.id || '').trim() === String(selectedId || '').trim());
+            const display = selectedText ? getTextDisplayLabel(selectedText) : (selectedId || '?');
+            return (
+              <div key={person.id} style={{
+                padding: "8px 12px",
+                backgroundColor: answers[person.id] ? "#dcfce7" : "#fee2e2",
+                borderRadius: "6px",
+                fontSize: "13px",
+                fontWeight: 500,
+              }}>
+                {person.id} → {display}
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>

@@ -1130,6 +1130,11 @@ const DoCambridgeListeningTest = () => {
                       (() => {
                         const qIdx = 0;
                         const container = section.questions[0] || {};
+                        const getOptionLabel = (t) => {
+                          const id = String(t?.id || '').trim();
+                          const content = String(t?.title || t?.content || '').trim();
+                          return content ? `${id} ${content}`.trim() : id;
+                        };
                         const people = (Array.isArray(container.people) && container.people.length > 0)
                           ? container.people
                           : [
@@ -1142,14 +1147,14 @@ const DoCambridgeListeningTest = () => {
                         const texts = (Array.isArray(container.texts) && container.texts.length > 0)
                           ? container.texts
                           : [
-                              { id: '1', title: '', content: '' },
-                              { id: '2', title: '', content: '' },
-                              { id: '3', title: '', content: '' },
-                              { id: '4', title: '', content: '' },
-                              { id: '5', title: '', content: '' },
-                              { id: '6', title: '', content: '' },
-                              { id: '7', title: '', content: '' },
-                              { id: '8', title: '', content: '' },
+                              { id: 'A', title: '', content: '' },
+                              { id: 'B', title: '', content: '' },
+                              { id: 'C', title: '', content: '' },
+                              { id: 'D', title: '', content: '' },
+                              { id: 'E', title: '', content: '' },
+                              { id: 'F', title: '', content: '' },
+                              { id: 'G', title: '', content: '' },
+                              { id: 'H', title: '', content: '' },
                             ];
                         return (
                           <div>
@@ -1175,8 +1180,11 @@ const DoCambridgeListeningTest = () => {
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                                       {texts.map((t) => (
                                         <div key={t?.id || t?.title || Math.random()} style={{ padding: '10px', background: '#fafafa', border: '1px solid #e5e7eb', borderRadius: '8px' }}>
-                                          <strong>{t?.id}.</strong> {t?.title ? <strong>{t.title}</strong> : null}
-                                          <div style={{ marginTop: t?.title ? '6px' : 0 }}>{t?.content || ''}</div>
+                                          <strong>{String(t?.id || '').trim()}.</strong>
+                                          <span style={{ marginLeft: '6px' }}>{String(t?.title || t?.content || '').trim()}</span>
+                                          {t?.title && t?.content ? (
+                                            <div style={{ marginTop: '6px' }}>{t?.content || ''}</div>
+                                          ) : null}
                                         </div>
                                       ))}
                                     </div>
@@ -1240,7 +1248,7 @@ const DoCambridgeListeningTest = () => {
                                         <option value="">—</option>
                                         {texts.map((t) => (
                                           <option key={t?.id} value={String(t?.id || '').trim()}>
-                                            {t?.id}
+                                            {getOptionLabel(t)}
                                           </option>
                                         ))}
                                       </select>
