@@ -13,6 +13,17 @@ const { notFound, errorHandler } = require('./middlewares/errorHandler');
 
 const app = express();
 
+// Friendly startup logs (hide secrets)
+const envSnapshot = {
+  NODE_ENV: process.env.NODE_ENV || 'development',
+  DB_HOST: process.env.DB_HOST || 'localhost',
+  DB_NAME: process.env.DB_NAME || null,
+  DB_USER: process.env.DB_USER || null,
+};
+if (process.env.SHOW_ENV_LOG !== 'false') {
+  console.log('Environment:', envSnapshot);
+}
+
 // ✅ MySQL (Sequelize) – chỉ require 1 lần
 const sequelize = require("./db");
 
@@ -44,24 +55,27 @@ const aiRoutes = require('./routes/ai');
 const cambridgeRoutes = require('./routes/cambridgeTests'); // ✅ Cambridge tests
 
 // Middleware
-app.use(
-  pinoHttp({
-    logger,
-    genReqId: (req, res) => {
-      const existing = req.headers['x-request-id'];
-      if (existing) return String(existing);
-      const id = (globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random()}`);
-      res.setHeader('X-Request-Id', id);
-      return id;
-    },
-    customLogLevel: function (_req, res, err) {
-      if (res.statusCode >= 500 || err) return 'error';
-      if (res.statusCode >= 400) return 'warn';
-      return 'info';
-    },
-    redact: ['req.headers.authorization', 'req.headers.cookie'],
-  })
-);
+const shouldLogHttp = String(process.env.SHOW_HTTP_LOG || '').toLowerCase() === 'true';
+if (shouldLogHttp) {
+  app.use(
+    pinoHttp({
+      logger,
+      genReqId: (req, res) => {
+        const existing = req.headers['x-request-id'];
+        if (existing) return String(existing);
+        const id = (globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random()}`);
+        res.setHeader('X-Request-Id', id);
+        return id;
+      },
+      customLogLevel: function (_req, res, err) {
+        if (res.statusCode >= 500 || err) return 'error';
+        if (res.statusCode >= 400) return 'warn';
+        return 'info';
+      },
+      redact: ['req.headers.authorization', 'req.headers.cookie'],
+    })
+  );
+}
 
 // Allow the React dev server (localhost:3000) to load images/audio from this API origin.
 // Otherwise browsers may block embedded resources with:
@@ -140,6 +154,9 @@ sequelize
   .authenticate()
   .then(() => {
     logger.info('MySQL connected');
+    if (process.env.SHOW_ENV_LOG !== 'false') {
+      console.log('✅ Kết nối database thành công');
+    }
 
     // If legacy/seed data contains orphaned `submissions.testId` values, MySQL will
     // reject adding the FK during `sync({ alter: true })`. Clean them up first.
@@ -165,6 +182,9 @@ sequelize
     logger.info('Sequelize models synced');
     app.listen(PORT, () => {
       logger.info({ port: PORT }, 'Server started');
+      if (process.env.SHOW_ENV_LOG !== 'false') {
+        console.log(`✅ Server is running on port ${PORT}`);
+      }
     });
   })
   .catch((err) => {

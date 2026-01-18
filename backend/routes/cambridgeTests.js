@@ -273,6 +273,7 @@ router.post("/listening-tests", async (req, res) => {
       classCode,
       teacherName,
       testType,
+      mainAudioUrl,
       parts,
       totalQuestions,
     } = req.body;
@@ -289,6 +290,7 @@ router.post("/listening-tests", async (req, res) => {
       classCode,
       teacherName: teacherName || '',
       testType,
+      mainAudioUrl: mainAudioUrl || null,
       parts: JSON.stringify(parts),
       totalQuestions: totalQuestions || 0,
       status: 'draft',
@@ -321,6 +323,7 @@ router.put("/listening-tests/:id", async (req, res) => {
       classCode,
       teacherName,
       testType,
+      mainAudioUrl,
       parts,
       totalQuestions,
       status,
@@ -331,6 +334,7 @@ router.put("/listening-tests/:id", async (req, res) => {
       classCode: classCode || test.classCode,
       teacherName: teacherName || test.teacherName,
       testType: testType || test.testType,
+      mainAudioUrl: mainAudioUrl ?? test.mainAudioUrl,
       parts: parts || test.parts, // JSON type - Sequelize handles serialization
       totalQuestions: totalQuestions ?? test.totalQuestions,
       status: status || test.status,

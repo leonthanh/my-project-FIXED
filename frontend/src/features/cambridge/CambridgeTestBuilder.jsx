@@ -132,6 +132,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
   const [title, setTitle] = useState(savedData?.title || '');
   const [classCode, setClassCode] = useState(savedData?.classCode || '');
   const [teacherName, setTeacherName] = useState(savedData?.teacherName || '');
+  const [mainAudioUrl, setMainAudioUrl] = useState(savedData?.mainAudioUrl || '');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
   
@@ -167,6 +168,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
       setTitle(initialData.title || '');
       setClassCode(initialData.classCode || '');
       setTeacherName(initialData.teacherName || '');
+      setMainAudioUrl(initialData.mainAudioUrl || '');
 
       // parts may be stored as string in older records -> parse safely
       let partsData = initialData.parts;
@@ -203,6 +205,8 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
   // Audio upload state (listening only)
   const [uploadingAudioPartIndex, setUploadingAudioPartIndex] = useState(null);
   const [audioUploadError, setAudioUploadError] = useState('');
+  const [uploadingMainAudio, setUploadingMainAudio] = useState(false);
+  const [mainAudioUploadError, setMainAudioUploadError] = useState('');
 
   const currentPart = parts[selectedPartIndex];
   const currentSection = currentPart?.sections?.[selectedSectionIndex];
@@ -259,6 +263,44 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
     }
   };
 
+  const uploadMainAudio = async (file) => {
+    if (!file) return;
+
+    setMainAudioUploadError('');
+    setUploadingMainAudio(true);
+
+    try {
+      const formData = new FormData();
+      formData.append('audio', file);
+
+      const res = await fetch(apiPath('upload/audio'), {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!res.ok) {
+        let errMsg = 'Lỗi khi upload audio';
+        try {
+          const err = await res.json();
+          errMsg = err?.message || errMsg;
+        } catch {
+          // ignore
+        }
+        throw new Error(errMsg);
+      }
+
+      const data = await res.json();
+      const url = data?.url;
+      if (!url) throw new Error('Upload thành công nhưng không nhận được URL audio');
+
+      setMainAudioUrl(url);
+    } catch (err) {
+      setMainAudioUploadError(err?.message || 'Lỗi khi upload audio');
+    } finally {
+      setUploadingMainAudio(false);
+    }
+  };
+
   // Handlers
   const handleQuestionTypeChange = (newType) => {
     const newParts = [...parts];
@@ -280,7 +322,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
   };
 
   const handleAddPart = () => {
-    const inheritedAudioUrl = isListeningTest ? (parts?.[0]?.audioUrl || '') : '';
+    const inheritedAudioUrl = isListeningTest ? (mainAudioUrl ? '' : (parts?.[0]?.audioUrl || '')) : '';
     setParts([
       ...parts,
       {
@@ -469,6 +511,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
         title,
         classCode,
         teacherName,
+        mainAudioUrl,
         parts,
         testType,
       };
@@ -479,7 +522,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
       console.error('Error saving draft:', error);
       setIsSaving(false);
     }
-  }, [title, classCode, teacherName, parts, testType]);
+  }, [title, classCode, teacherName, mainAudioUrl, parts, testType]);
 
   // Auto save every 30 seconds and on page unload
   useEffect(() => {
@@ -517,6 +560,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
         classCode,
         teacherName,
         testType,
+        mainAudioUrl,
         parts,
         totalQuestions: parts.reduce(
           (sum, part) => sum + part.sections.reduce((sSum, sec) => sSum + getQuestionCountForSection(sec), 0),
@@ -882,6 +926,91 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
             </div>
           </div>
         </div>
+
+        {/* Global Audio (Listening only) */}
+        {isListeningTest && (
+          <div style={{
+            backgroundColor: 'white',
+            borderRadius: '8px',
+            padding: '12px 16px',
+            marginBottom: '12px',
+            boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+          }}>
+            <label style={{
+              display: 'block',
+              marginBottom: '8px',
+              fontWeight: 600,
+              color: '#374151',
+              fontSize: '13px',
+            }}>
+              🎧 Audio chung (toàn bài)
+            </label>
+
+            {mainAudioUrl ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <audio controls src={hostPath(mainAudioUrl)} style={{ width: '100%' }}>
+                  Your browser does not support audio.
+                </audio>
+                <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+                  <a
+                    href={hostPath(mainAudioUrl)}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{ color: '#2563eb', textDecoration: 'none', fontSize: '13px' }}
+                  >
+                    Mở file audio
+                  </a>
+                  <button
+                    type="button"
+                    onClick={() => setMainAudioUrl('')}
+                    style={{
+                      border: '1px solid #ef4444',
+                      background: 'white',
+                      color: '#ef4444',
+                      padding: '6px 10px',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      fontSize: '13px',
+                    }}
+                  >
+                    Xoá audio
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div style={{ fontSize: '13px', color: '#6b7280' }}>
+                Chưa có audio chung cho bài listening.
+              </div>
+            )}
+
+            <div style={{ marginTop: '12px' }}>
+              <input
+                type="file"
+                accept="audio/*"
+                disabled={uploadingMainAudio}
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  e.target.value = '';
+                  if (!file) return;
+                  await uploadMainAudio(file);
+                }}
+              />
+              {uploadingMainAudio && (
+                <div style={{ marginTop: '8px', fontSize: '12px', color: '#0e276f' }}>
+                  Đang upload audio...
+                </div>
+              )}
+              {mainAudioUploadError && (
+                <div style={{ marginTop: '8px', fontSize: '12px', color: '#ef4444' }}>
+                  ❌ {mainAudioUploadError}
+                </div>
+              )}
+              <div style={{ marginTop: '6px', fontSize: '11px', color: '#6b7280' }}>
+                💡 Audio chung sẽ phát xuyên suốt khi học sinh chuyển part.
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Current Part Editor */}
         {currentPart && (

@@ -18,6 +18,7 @@ import "./TestHeader.css";
  * @param {boolean} timerWarning - Show warning style (< 5 min)
  * @param {boolean} timerCritical - Show critical style (< 1 min)
  * @param {boolean} showAutoSave - Show auto-save indicator
+ * @param {string} audioStatusText - Optional audio status label (e.g., "Audio is playing")
  * @param {string} examType - "IELTS" | "KET" | "PET" | "FLYERS" | etc.
  */
 const TestHeader = ({
@@ -35,6 +36,7 @@ const TestHeader = ({
   timerWarning = false,
   timerCritical = false,
   showAutoSave = true,
+  audioStatusText = '',
   examType, // Auto-detect from title or classCode
 }) => {
   // Auto-detect exam type from props
@@ -83,6 +85,12 @@ const TestHeader = ({
       </div>
 
       <div className="header-right">
+        {audioStatusText && (
+          <div className="audio-status" aria-live="polite">
+            <span className="audio-status-icon">🔊</span>
+            <span className="audio-status-text">{audioStatusText}</span>
+          </div>
+        )}
         {/* Timer */}
         <div
           className={`timer-container ${timerWarning ? "warning" : ""} ${

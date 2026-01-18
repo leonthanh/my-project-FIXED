@@ -44,12 +44,14 @@ const DoCambridgeListeningTest = () => {
   const [showAudioTip, setShowAudioTip] = useState(false);
   const [flaggedQuestions, setFlaggedQuestions] = useState(() => new Set());
   const [audioError, setAudioError] = useState(null);
+  const [isAudioPlaying, setIsAudioPlaying] = useState(false);
 
   const audioRef = useRef(null);
   const questionRefs = useRef({});
   const maxPlayedTimeByPartRef = useRef({});
   const ignoreSeekRef = useRef(false);
   const switchingAudioSrcRef = useRef(false);
+  const lastAudioSrcRef = useRef('');
 
   // Cambridge Reading-like splitter
   const [leftWidth, setLeftWidth] = useState(42);
@@ -93,17 +95,26 @@ const DoCambridgeListeningTest = () => {
   }, [id, testConfig.duration]);
 
   const hasAnyAudio = useMemo(() => {
-    return Boolean(test?.parts?.some((p) => p?.audioUrl));
+    return Boolean(test?.mainAudioUrl || test?.parts?.some((p) => p?.audioUrl));
   }, [test]);
 
   // If teacher uploads only one mp3 (usually in Part 1), treat it as global audio.
   const globalAudioUrl = useMemo(() => {
+    if (test?.mainAudioUrl) return test.mainAudioUrl;
     const parts = test?.parts || [];
     const first = parts.find((p) => p?.audioUrl)?.audioUrl;
     return first || '';
   }, [test]);
 
   const audioMeta = useMemo(() => {
+    if (test?.mainAudioUrl) {
+      return {
+        hasAudio: true,
+        uniqueCount: 1,
+        isSingleFile: true,
+        usesMain: true,
+      };
+    }
     const urls = new Set(
       (test?.parts || [])
         .map((p) => (p?.audioUrl ? String(p.audioUrl).trim() : ''))
@@ -113,8 +124,13 @@ const DoCambridgeListeningTest = () => {
       hasAudio: urls.size > 0,
       uniqueCount: urls.size,
       isSingleFile: urls.size === 1,
+      usesMain: false,
     };
   }, [test]);
+
+  const showGlobalAudioBar = useMemo(() => {
+    return Boolean(audioMeta.usesMain && resolvedAudioSrc);
+  }, [audioMeta.usesMain, resolvedAudioSrc]);
 
   // Build global question order + ranges (for footer nav)
   const questionIndex = useMemo(() => {
@@ -298,8 +314,8 @@ const DoCambridgeListeningTest = () => {
   }, [currentPartIndex, currentPart]);
 
   const currentAudioUrl = useMemo(() => {
-    return currentPart?.audioUrl || globalAudioUrl || '';
-  }, [currentPart, globalAudioUrl]);
+    return test?.mainAudioUrl || currentPart?.audioUrl || globalAudioUrl || '';
+  }, [test?.mainAudioUrl, currentPart, globalAudioUrl]);
 
   const resolveAudioSrc = useCallback((url) => {
     if (!url) return '';
@@ -320,6 +336,13 @@ const DoCambridgeListeningTest = () => {
     const audio = audioRef.current;
     if (!audio) return;
 
+    const prevSrc = lastAudioSrcRef.current;
+    const nextSrc = resolvedAudioSrc;
+    if (audioMeta.isSingleFile && prevSrc && prevSrc === nextSrc) {
+      return;
+    }
+    lastAudioSrcRef.current = nextSrc;
+
     // When switching parts/audio, reset playback bookkeeping without the pause-handler forcing replay.
     switchingAudioSrcRef.current = true;
     try {
@@ -339,7 +362,21 @@ const DoCambridgeListeningTest = () => {
     }, 0);
 
     return () => clearTimeout(t);
-  }, [resolvedAudioSrc, currentPartIndex]);
+  }, [resolvedAudioSrc, currentPartIndex, audioMeta.isSingleFile]);
+
+  useEffect(() => {
+    if (!audioMeta.isSingleFile) return;
+    const audio = audioRef.current;
+    if (!audio) return;
+    const currentTime = Number(audio.currentTime || 0);
+    maxPlayedTimeByPartRef.current = {
+      ...(maxPlayedTimeByPartRef.current || {}),
+      [currentPartIndex]: Math.max(
+        Number(maxPlayedTimeByPartRef.current?.[currentPartIndex] || 0),
+        currentTime
+      ),
+    };
+  }, [currentPartIndex, audioMeta.isSingleFile]);
 
   const isStartGateVisible = useMemo(() => {
     if (submitted) return false;
@@ -358,8 +395,15 @@ const DoCambridgeListeningTest = () => {
   }, []);
 
   const handlePlayGate = useCallback(async () => {
-    const audio = audioRef.current;
-    if (!audio) return;
+    const audio =
+      audioRef.current ||
+      (typeof document !== 'undefined'
+        ? document.querySelector('audio[data-listening-audio="true"]')
+        : null);
+    if (!audio) {
+      setAudioError('Audio element is not ready yet. Please refresh and try again.');
+      return;
+    }
     if (!resolvedAudioSrc) {
       setAudioError('Audio source is missing.');
       return;
@@ -369,6 +413,11 @@ const DoCambridgeListeningTest = () => {
       audio.load?.();
       await audio.play();
       markPartAudioStarted(currentPartIndex);
+      setTimeout(() => {
+        if (audio.paused) {
+          setAudioError('Audio did not start. Please check the audio file or try another browser.');
+        }
+      }, 300);
     } catch (e) {
       console.error('Audio play failed:', e);
       setAudioError(
@@ -381,7 +430,12 @@ const DoCambridgeListeningTest = () => {
 
   const handleAudioPlay = useCallback(() => {
     markPartAudioStarted(currentPartIndex);
+    setIsAudioPlaying(true);
   }, [currentPartIndex, markPartAudioStarted]);
+
+  const handleAudioEnded = useCallback(() => {
+    setIsAudioPlaying(false);
+  }, []);
 
   const handleAudioPause = useCallback(() => {
     if (switchingAudioSrcRef.current) return;
@@ -1333,9 +1387,77 @@ const DoCambridgeListeningTest = () => {
         classCode={test?.classCode}
         teacherName={test?.teacherName}
         timeRemaining={formatTime(timeRemaining)}
+        audioStatusText={hasAnyAudio && isAudioPlaying ? 'Audio is playing' : ''}
         onSubmit={handleSubmit}
         submitted={submitted}
       />
+
+      {/* Hidden global audio element (used when a single audio file is provided for the whole test) */}
+      {audioMeta.usesMain && resolvedAudioSrc && (
+        <audio
+          ref={audioRef}
+          data-listening-audio="true"
+          src={resolvedAudioSrc}
+          preload="auto"
+          controls={false}
+          controlsList="nodownload noplaybackrate"
+          onPlay={handleAudioPlay}
+          onPause={handleAudioPause}
+          onTimeUpdate={handleAudioTimeUpdate}
+          onSeeking={handleAudioSeeking}
+          onEnded={handleAudioEnded}
+          onError={(e) => {
+            const mediaErr = e?.currentTarget?.error;
+            const code = mediaErr?.code;
+            setAudioError(
+              `Audio failed to load${code ? ` (code ${code})` : ''}. Please verify the uploaded file and URL.`
+            );
+          }}
+          onContextMenu={(e) => e.preventDefault()}
+          style={{ display: 'none' }}
+        >
+          Your browser does not support audio.
+        </audio>
+      )}
+
+      {/* Global audio bar (single audio for whole test) */}
+      {showGlobalAudioBar && (
+        <div
+          className="cambridge-global-audio"
+          style={{ padding: '10px 24px', background: '#f8fafc', borderBottom: '1px solid #e5e7eb' }}
+        >
+          <div style={styles.audioContainer}>
+            <span style={{ marginRight: '12px' }}>🎧</span>
+            <div style={{ flex: 1, fontSize: 14, color: '#0f172a' }}>
+              Global audio is ready for this test.
+            </div>
+            <div
+              style={styles.audioTipWrap}
+              onMouseEnter={() => setShowAudioTip(true)}
+              onMouseLeave={() => setShowAudioTip(false)}
+            >
+              <button type="button" style={styles.audioTipButton} aria-label="Audio restrictions">
+                i
+              </button>
+              {showAudioTip && (
+                <div style={styles.audioTipBubble} role="tooltip">
+                  No pause / no rewind
+                </div>
+              )}
+            </div>
+          </div>
+
+          {audioError && (
+            <div style={styles.audioErrorBox} role="alert">
+              <div style={{ fontWeight: 600, marginBottom: 6 }}>Audio issue</div>
+              <div style={{ marginBottom: 8 }}>{audioError}</div>
+              <a href={resolvedAudioSrc} target="_blank" rel="noreferrer" style={styles.audioOpenLink}>
+                Open audio in a new tab
+              </a>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Cambridge-style Play gate overlay */}
       {isStartGateVisible && (
@@ -1389,11 +1511,12 @@ const DoCambridgeListeningTest = () => {
                     );
                   })()}
 
-                  {resolvedAudioSrc && (
+                  {resolvedAudioSrc && !audioMeta.usesMain && (
                     <div style={{ ...styles.audioContainer, marginBottom: 12 }}>
                       <span style={{ marginRight: '12px' }}>🎧</span>
                       <audio
                         ref={audioRef}
+                        data-listening-audio="true"
                         src={resolvedAudioSrc}
                         preload="auto"
                         controls={false}
@@ -1402,6 +1525,7 @@ const DoCambridgeListeningTest = () => {
                         onPause={handleAudioPause}
                         onTimeUpdate={handleAudioTimeUpdate}
                         onSeeking={handleAudioSeeking}
+                        onEnded={handleAudioEnded}
                         onError={(e) => {
                           const mediaErr = e?.currentTarget?.error;
                           const code = mediaErr?.code;
@@ -1431,7 +1555,7 @@ const DoCambridgeListeningTest = () => {
                     </div>
                   )}
 
-                  {resolvedAudioSrc && audioError && (
+                  {resolvedAudioSrc && audioError && !audioMeta.usesMain && (
                     <div style={styles.audioErrorBox} role="alert">
                       <div style={{ fontWeight: 600, marginBottom: 6 }}>Audio issue</div>
                       <div style={{ marginBottom: 8 }}>{audioError}</div>
@@ -1614,11 +1738,12 @@ const DoCambridgeListeningTest = () => {
                   })()}
 
                   {/* Audio Player */}
-                  {resolvedAudioSrc && (
+                  {resolvedAudioSrc && !audioMeta.usesMain && (
                     <div style={{ ...styles.audioContainer, marginBottom: 12 }}>
                       <span style={{ marginRight: '12px' }}>🎧</span>
                       <audio
                         ref={audioRef}
+                        data-listening-audio="true"
                         src={resolvedAudioSrc}
                         preload="auto"
                         controls={false}
@@ -1627,6 +1752,7 @@ const DoCambridgeListeningTest = () => {
                         onPause={handleAudioPause}
                         onTimeUpdate={handleAudioTimeUpdate}
                         onSeeking={handleAudioSeeking}
+                        onEnded={handleAudioEnded}
                         onError={(e) => {
                           const mediaErr = e?.currentTarget?.error;
                           const code = mediaErr?.code;
@@ -1656,7 +1782,7 @@ const DoCambridgeListeningTest = () => {
                     </div>
                   )}
 
-                  {resolvedAudioSrc && audioError && (
+                  {resolvedAudioSrc && audioError && !audioMeta.usesMain && (
                     <div style={styles.audioErrorBox} role="alert">
                       <div style={{ fontWeight: 600, marginBottom: 6 }}>Audio issue</div>
                       <div style={{ marginBottom: 8 }}>{audioError}</div>
