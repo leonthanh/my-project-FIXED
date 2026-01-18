@@ -166,35 +166,35 @@ const Review = () => {
   return (
     <>
       <AdminNavbar />
-
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 20 }}>
-        <h3 style={{ margin: 0 }}>📝 Danh sách bài cần nhận xét</h3>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <div style={{ position: "relative", padding: "6px 10px", border: "1px solid #e5e7eb", borderRadius: 8, background: "#fff" }}>
-            🔔 Cambridge
-            {cambridgeNeedsReviewCount > 0 && (
-              <span
-                style={{
-                  position: "absolute",
-                  top: -8,
-                  right: -8,
-                  background: "#ef4444",
-                  color: "#fff",
-                  borderRadius: 999,
-                  padding: "2px 8px",
-                  fontSize: 12,
-                  fontWeight: 700,
-                }}
-              >
-                {cambridgeNeedsReviewCount}
-              </span>
-            )}
+      <div className="admin-page">
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 20 }} className="admin-header-row">
+          <h3 style={{ margin: 0 }}>📝 Danh sách bài cần nhận xét</h3>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{ position: "relative", padding: "6px 10px", border: "1px solid #e5e7eb", borderRadius: 8, background: "#fff" }}>
+              🔔 Cambridge
+              {cambridgeNeedsReviewCount > 0 && (
+                <span
+                  style={{
+                    position: "absolute",
+                    top: -8,
+                    right: -8,
+                    background: "#ef4444",
+                    color: "#fff",
+                    borderRadius: 999,
+                    padding: "2px 8px",
+                    fontSize: 12,
+                    fontWeight: 700,
+                  }}
+                >
+                  {cambridgeNeedsReviewCount}
+                </span>
+              )}
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Tabs */}
-      <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
+        {/* Tabs */}
+        <div style={{ display: "flex", gap: 10, marginTop: 14 }} className="admin-tabs">
         <button
           onClick={() => setActiveTab("writing")}
           style={{
@@ -443,6 +443,7 @@ const Review = () => {
           )}
         </>
       )}
+      </div>
     </>
   );
 };
