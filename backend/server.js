@@ -63,7 +63,14 @@ app.use(
   })
 );
 
-app.use(helmet());
+// Allow the React dev server (localhost:3000) to load images/audio from this API origin.
+// Otherwise browsers may block embedded resources with:
+// net::ERR_BLOCKED_BY_RESPONSE.NotSameOrigin
+app.use(
+  helmet({
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
+  })
+);
 app.use(cookieParser());
 
 const allowedOrigins = (process.env.FRONTEND_URL || '')

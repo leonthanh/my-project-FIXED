@@ -120,7 +120,7 @@ OPENAI_API_KEY=sk-proj-xxxxxxxxxxxx
 | `OPENAI_API_KEY` | `sk-proj-xxxxxxxxxxxx`                    |
 | `GEMINI_API_KEY` | `AIzaSyCNdfCuSNp6pG5281BxfP30ElK8oHDzob0` |
 | `EMAIL_USER`     | `stareduelt@gmail.com`                    |
-| `EMAIL_PASS`     | `xrrz fqwq xwdc hujb`                     |
+| `EMAIL_PASS`     | `xxxx xxxx xxxx xxxx`                     |
 | `FTP_USERNAME`   | `wsxcblqh`                                |
 | `FTP_PASSWORD`   | `xxxxxxxxxxxx`                            |
 
