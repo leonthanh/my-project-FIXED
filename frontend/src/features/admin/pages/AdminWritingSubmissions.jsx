@@ -174,7 +174,7 @@ const AdminWritingSubmissions = () => {
   return (
     <>
       <AdminNavbar />
-      <div style={{ padding: "30px" }}>
+      <div style={{ padding: "30px" }} className="admin-page">
         <h2>📋 Writing Submissions</h2>
         <div style={{ marginTop: 12, marginBottom: 18 }}>
           <button
@@ -196,6 +196,7 @@ const AdminWritingSubmissions = () => {
 
         {/* 🔍 Form tìm kiếm */}
         <div
+          className="admin-filter-grid"
           style={{
             background: "#f0f0f0",
             padding: "20px",
@@ -353,6 +354,7 @@ const AdminWritingSubmissions = () => {
         {filteredData.map((item) => (
           <div
             key={item.id}
+            className="admin-card"
             style={{
               border: "1px solid #ccc",
               padding: "20px",
@@ -438,7 +440,7 @@ const AdminWritingSubmissions = () => {
                 }
               />
 
-              <div style={{ display: "flex", gap: 10, marginTop: 10 }}>
+              <div style={{ display: "flex", gap: 10, marginTop: 10 }} className="admin-button-row">
                 <button
                   onClick={() => handleSendFeedback(item.id)}
                   disabled={

@@ -133,7 +133,7 @@ const CambridgeSubmissionsPage = () => {
     <div style={styles.container}>
       <AdminNavbar />
 
-      <div style={styles.content}>
+      <div style={styles.content} className="admin-page">
         {/* Header */}
         <div style={styles.header}>
           <h1 style={styles.title}>📊 Quản lý bài làm Cambridge</h1>
@@ -143,7 +143,7 @@ const CambridgeSubmissionsPage = () => {
         </div>
 
         {/* Tabs */}
-        <div style={styles.tabsContainer}>
+        <div style={styles.tabsContainer} className="admin-tabs">
           <button
             onClick={() => setActiveTab('all')}
             style={{
@@ -174,8 +174,8 @@ const CambridgeSubmissionsPage = () => {
         </div>
 
         {/* Filters */}
-        <div style={styles.filtersContainer}>
-          <div style={styles.filterGroup}>
+        <div style={styles.filtersContainer} className="admin-filters-row">
+          <div style={styles.filterGroup} className="admin-filter-group">
             <label style={styles.filterLabel}>Mã lớp:</label>
             <input
               type="text"
@@ -185,7 +185,7 @@ const CambridgeSubmissionsPage = () => {
               style={styles.filterInput}
             />
           </div>
-          <div style={styles.filterGroup}>
+          <div style={styles.filterGroup} className="admin-filter-group">
             <label style={styles.filterLabel}>Tên học sinh:</label>
             <input
               type="text"
@@ -195,7 +195,7 @@ const CambridgeSubmissionsPage = () => {
               style={styles.filterInput}
             />
           </div>
-          <div style={styles.filterStats}>
+          <div style={styles.filterStats} className="admin-filter-stats">
             <span>Tổng: <strong>{pagination.total}</strong> bài</span>
           </div>
         </div>
@@ -224,8 +224,8 @@ const CambridgeSubmissionsPage = () => {
         {/* Submissions Table */}
         {!loading && !error && (
           <>
-            <div style={styles.tableContainer}>
-              <table style={styles.table}>
+            <div style={styles.tableContainer} className="admin-table-wrap">
+              <table style={styles.table} className="admin-table">
                 <thead>
                   <tr>
                     <th style={styles.th}>#</th>
