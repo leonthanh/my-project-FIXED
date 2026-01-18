@@ -123,6 +123,27 @@ const DoCambridgeListeningTest = () => {
     const byPart = [];
     const orderedKeys = [];
 
+    const countClozeBlanks = (question) => {
+      if (Array.isArray(question?.blanks) && question.blanks.length) return question.blanks.length;
+      const passageHtml = question?.passageText || question?.passage || '';
+      if (!passageHtml) return 0;
+
+      let plainText = passageHtml;
+      if (typeof document !== 'undefined') {
+        const temp = document.createElement('div');
+        temp.innerHTML = passageHtml;
+        plainText = temp.textContent || temp.innerText || passageHtml;
+      } else {
+        plainText = String(passageHtml).replace(/<[^>]*>/g, ' ');
+      }
+
+      const numbered = plainText.match(/\((\d+)\)|\[(\d+)\]/g);
+      if (numbered && numbered.length) return numbered.length;
+
+      const underscores = plainText.match(/[_…]{3,}/g);
+      return underscores ? underscores.length : 0;
+    };
+
     for (let pIdx = 0; pIdx < parts.length; pIdx++) {
       const part = parts[pIdx];
       const partKeys = [];
@@ -155,7 +176,7 @@ const DoCambridgeListeningTest = () => {
             continue;
           }
 
-          if ((secType === 'cloze-mc' || secType === 'cloze-test') && Array.isArray(q?.blanks)) {
+          if (secType === 'cloze-mc' && Array.isArray(q?.blanks)) {
             for (let blankIdx = 0; blankIdx < q.blanks.length; blankIdx++) {
               const key = `${pIdx}-${sIdx}-${qIdx}-${blankIdx}`;
               const num = globalNumber++;
@@ -163,6 +184,19 @@ const DoCambridgeListeningTest = () => {
               orderedKeys.push({ key, partIndex: pIdx, number: num });
             }
             continue;
+          }
+
+          if (secType === 'cloze-test') {
+            const blanksCount = countClozeBlanks(q);
+            if (blanksCount > 0) {
+              for (let blankIdx = 0; blankIdx < blanksCount; blankIdx++) {
+                const key = `${pIdx}-${sIdx}-${qIdx}-${blankIdx}`;
+                const num = globalNumber++;
+                partKeys.push({ key, number: num, sectionIndex: sIdx });
+                orderedKeys.push({ key, partIndex: pIdx, number: num });
+              }
+              continue;
+            }
           }
 
           if (secType === 'word-form' && Array.isArray(q?.sentences)) {
@@ -246,6 +280,22 @@ const DoCambridgeListeningTest = () => {
   const currentPart = useMemo(() => {
     return test?.parts?.[currentPartIndex] || null;
   }, [test, currentPartIndex]);
+
+  const isSinglePanelPart = useMemo(() => {
+    if (currentPartIndex === 0) return true;
+    const sections = currentPart?.sections || [];
+    return sections.some((section) => {
+      const q0 = section?.questions?.[0] || {};
+      const sectionType =
+        section?.questionType ||
+        q0?.questionType ||
+        q0?.type ||
+        (Array.isArray(q0?.people) ? 'people-matching' : '') ||
+        (Array.isArray(q0?.sentences) ? 'word-form' : '') ||
+        '';
+      return sectionType === 'cloze-test';
+    });
+  }, [currentPartIndex, currentPart]);
 
   const currentAudioUrl = useMemo(() => {
     return currentPart?.audioUrl || globalAudioUrl || '';
@@ -475,6 +525,255 @@ const DoCambridgeListeningTest = () => {
     [sanitizeBasicHtml]
   );
 
+  const normalizeClozeHtml = useCallback((html) => {
+    const s = String(html || '');
+    return s
+      .replace(/<\s*br\s*\/?>/gi, ' ')
+      .replace(/<\s*\/\s*p\s*>/gi, '</span>')
+      .replace(/<\s*p[^>]*>/gi, '<span>')
+      .replace(/<\s*\/\s*div\s*>/gi, '</span>')
+      .replace(/<\s*div[^>]*>/gi, '<span>');
+  }, []);
+
+  const renderOpenClozeSection = (section, secIdx, sectionStartNum) => {
+    const qIdx = 0;
+    const container = section.questions[0] || {};
+    const passageText = container.passageText || container.passage || '';
+    const normalizedPassageText = normalizeClozeHtml(passageText);
+    const passageTitle = container.passageTitle || '';
+    let blanks = Array.isArray(container.blanks) ? container.blanks : [];
+
+    // Fallback: parse blanks from passage if backend didn't provide them.
+    if (!blanks.length && passageText) {
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = passageText;
+      const plainText = tempDiv.textContent || tempDiv.innerText || '';
+
+      const blankMatches = [];
+      const regex = /\((\d+)\)|\[(\d+)\]/g;
+      let match;
+
+      while ((match = regex.exec(plainText)) !== null) {
+        const num = parseInt(match[1] || match[2]);
+        blankMatches.push({
+          questionNum: num,
+          fullMatch: match[0],
+          index: match.index,
+        });
+      }
+
+      if (!blankMatches.length) {
+        const underscorePattern = /[_…]{3,}/g;
+        let blankIndex = 0;
+        while ((match = underscorePattern.exec(plainText)) !== null) {
+          blankMatches.push({
+            questionNum: sectionStartNum + blankIndex,
+            fullMatch: match[0],
+            index: match.index,
+          });
+          blankIndex++;
+        }
+      }
+
+      blanks = blankMatches.sort((a, b) => a.questionNum - b.questionNum);
+    }
+
+    const renderInlineWithInputs = (html, lineKeyPrefix, firstNumberInPassage) => {
+      if (!html) return [];
+
+      const elements = [];
+      let lastIndex = 0;
+      const regex = /\((\d+)\)|\[(\d+)\]/g;
+      let match;
+      let matchedAnyNumber = false;
+
+      while ((match = regex.exec(html)) !== null) {
+        matchedAnyNumber = true;
+        const questionNumber = parseInt(match[1] || match[2]);
+        const blankIndex = questionNumber - firstNumberInPassage;
+
+        if (blankIndex >= 0 && blankIndex < blanks.length) {
+          if (match.index > lastIndex) {
+            elements.push(
+              <span
+                key={`${lineKeyPrefix}-text-${lastIndex}`}
+                dangerouslySetInnerHTML={{ __html: html.substring(lastIndex, match.index) }}
+              />
+            );
+          }
+
+          const questionKey = `${currentPartIndex}-${secIdx}-${qIdx}-${blankIndex}`;
+          const userAnswer = answers[questionKey] || '';
+
+          elements.push(
+            <input
+              key={`${lineKeyPrefix}-input-${questionNumber}`}
+              id={`question-${questionNumber}`}
+              type="text"
+              value={userAnswer}
+              onChange={(e) => handleAnswerChange(questionKey, e.target.value.trim())}
+              disabled={submitted}
+              placeholder={`(${questionNumber})`}
+              style={{
+                display: 'inline-block',
+                margin: '0 4px',
+                padding: '6px 10px',
+                fontSize: '15px',
+                fontWeight: '600',
+                border: '2px solid #0284c7',
+                borderRadius: '4px',
+                backgroundColor: userAnswer ? '#f0f9ff' : 'white',
+                color: '#0e7490',
+                width: '120px',
+                textAlign: 'center',
+                scrollMarginTop: '100px',
+              }}
+            />
+          );
+
+          lastIndex = match.index + match[0].length;
+        }
+      }
+
+      if (!matchedAnyNumber) {
+        const underscorePattern = /[_…]{3,}/g;
+        let blankIndex = 0;
+        lastIndex = 0;
+        let um;
+
+        while ((um = underscorePattern.exec(html)) !== null) {
+          if (um.index > lastIndex) {
+            elements.push(
+              <span
+                key={`${lineKeyPrefix}-text-${lastIndex}`}
+                dangerouslySetInnerHTML={{ __html: html.substring(lastIndex, um.index) }}
+              />
+            );
+          }
+
+          if (blankIndex < blanks.length) {
+            const questionNumber = sectionStartNum + blankIndex;
+            const questionKey = `${currentPartIndex}-${secIdx}-${qIdx}-${blankIndex}`;
+            const userAnswer = answers[questionKey] || '';
+
+            elements.push(
+              <input
+                key={`${lineKeyPrefix}-input-${questionNumber}`}
+                id={`question-${questionNumber}`}
+                type="text"
+                value={userAnswer}
+                onChange={(e) => handleAnswerChange(questionKey, e.target.value.trim())}
+                disabled={submitted}
+                placeholder={`(${questionNumber})`}
+                style={{
+                  display: 'inline-block',
+                  margin: '0 4px',
+                  padding: '6px 10px',
+                  fontSize: '15px',
+                  fontWeight: '600',
+                  border: '2px solid #0284c7',
+                  borderRadius: '4px',
+                  backgroundColor: userAnswer ? '#f0f9ff' : 'white',
+                  color: '#0e7490',
+                  width: '120px',
+                  textAlign: 'center',
+                  scrollMarginTop: '100px',
+                }}
+              />
+            );
+            blankIndex++;
+          }
+
+          lastIndex = um.index + um[0].length;
+        }
+      }
+
+      if (lastIndex < html.length) {
+        elements.push(
+          <span
+            key={`${lineKeyPrefix}-text-${lastIndex}`}
+            dangerouslySetInnerHTML={{ __html: html.substring(lastIndex) }}
+          />
+        );
+      }
+
+      return elements;
+    };
+
+    const renderPassageWithInputs = () => {
+      if (!normalizedPassageText) return null;
+
+      const listContainer = document.createElement('div');
+      listContainer.innerHTML = passageText;
+      const listItems = Array.from(listContainer.querySelectorAll('li'));
+
+      const regex = /\((\d+)\)|\[(\d+)\]/g;
+      const firstNumberMatch = regex.exec(normalizedPassageText);
+      const firstNumberInPassage = firstNumberMatch
+        ? parseInt(firstNumberMatch[1] || firstNumberMatch[2])
+        : sectionStartNum;
+      regex.lastIndex = 0;
+
+      if (listItems.length > 0) {
+        return (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            {listItems.map((li, idx) => (
+              <div
+                key={`cloze-line-${idx}`}
+                style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '6px' }}
+              >
+                {renderInlineWithInputs(li.innerHTML, `line-${idx}`, firstNumberInPassage)}
+              </div>
+            ))}
+          </div>
+        );
+      }
+
+      return renderInlineWithInputs(normalizedPassageText, 'inline', firstNumberInPassage);
+    };
+
+    const sectionKey = `${currentPartIndex}-${secIdx}-${qIdx}`;
+
+    return (
+      <div className={`cambridge-question-wrapper ${flaggedQuestions.has(sectionKey) ? 'flagged-section' : ''}`} style={{ position: 'relative' }}>
+        <button
+          className={`cambridge-flag-button ${flaggedQuestions.has(sectionKey) ? 'flagged' : ''}`}
+          onClick={() => toggleFlag(sectionKey)}
+          aria-label="Flag question"
+          style={{ position: 'absolute', top: 0, right: 0 }}
+        >
+          {flaggedQuestions.has(sectionKey) ? '🚩' : '⚐'}
+        </button>
+
+        {passageTitle ? (
+          <h3
+            style={{
+              marginBottom: '16px',
+              fontSize: '18px',
+              fontWeight: 600,
+              color: '#0c4a6e',
+            }}
+            dangerouslySetInnerHTML={{ __html: passageTitle }}
+          />
+        ) : null}
+
+        <div
+          className="cambridge-passage-content"
+          style={{
+            padding: '20px',
+            backgroundColor: '#f0f9ff',
+            border: '2px solid #0284c7',
+            borderRadius: '12px',
+            fontSize: '15px',
+            lineHeight: 2,
+          }}
+        >
+          {renderPassageWithInputs()}
+        </div>
+      </div>
+    );
+  };
+
   // Handle checkbox change for multi-select
   const handleCheckboxChange = useCallback(
     (questionKey, optionIndex, checked, maxSelections = 2) => {
@@ -564,6 +863,17 @@ const DoCambridgeListeningTest = () => {
       setCurrentPartIndex(next.partIndex);
       setExpandedPart(next.partIndex);
       setActiveQuestion(next.key);
+
+      // Focus the matching blank/input if it exists (Open Cloze and similar).
+      if (next?.number) {
+        setTimeout(() => {
+          const el = document.getElementById(`question-${next.number}`);
+          if (el && typeof el.focus === 'function') {
+            el.focus({ preventScroll: true });
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+        }, 0);
+      }
     },
     [questionIndex]
   );
@@ -1057,7 +1367,7 @@ const DoCambridgeListeningTest = () => {
 
       {/* Main Content */}
       <div className="cambridge-main-content" ref={containerRef} style={{ position: 'relative' }}>
-        {currentPartIndex === 0 ? (
+        {isSinglePanelPart ? (
           // Part 1: single panel (teacher request)
           <div className="cambridge-questions-column" style={{ width: '100%' }}>
             <div className="cambridge-content-wrapper">
@@ -1256,6 +1566,8 @@ const DoCambridgeListeningTest = () => {
                           // fall through to existing renderer below in the 2-panel branch
                           return null;
                         })()
+                      ) : sectionType === 'cloze-test' ? (
+                        renderOpenClozeSection(section, secIdx, sectionStartNum)
                       ) : (
                         // Default per-question rendering
                         section.questions?.map((q, qIdx) => {
@@ -1534,60 +1846,8 @@ const DoCambridgeListeningTest = () => {
                           </div>
                         );
                       })()
-                    ) : sectionType === 'cloze-test' && section.questions?.[0]?.blanks ? (
-                      (() => {
-                        const qIdx = 0;
-                        const container = section.questions[0] || {};
-                        const passageHtml = container.passage || container.passageText || container.passageTitle || '';
-                        const blanks = Array.isArray(container.blanks) ? container.blanks : [];
-                        return (
-                          <div>
-                            {passageHtml ? (
-                              <div style={{ ...styles.questionCard, background: '#fffbeb', borderColor: '#fcd34d' }}>
-                                <div style={{ fontSize: '15px', lineHeight: 1.8 }}>
-                                  {renderMaybeHtml(passageHtml)}
-                                </div>
-                              </div>
-                            ) : null}
-
-                            {blanks.map((blank, blankIdx) => {
-                              const key = `${currentPartIndex}-${secIdx}-${qIdx}-${blankIdx}`;
-                              const num = sectionStartNum + blankIdx;
-                              const userAnswer = answers[key] || '';
-                              const correct = blank.correctAnswer;
-                              const isCorrect = submitted && String(userAnswer || '').trim().toLowerCase() === String(correct || '').trim().toLowerCase();
-
-                              return (
-                                <div key={key} ref={(el) => (questionRefs.current[key] = el)}>
-                                  <div style={styles.questionCard}>
-                                    <div style={styles.questionHeader}>
-                                      <span style={styles.questionNum}>{num}</span>
-                                      <span style={styles.questionText}>{blank.questionText || ''}</span>
-                                    </div>
-                                    <input
-                                      type="text"
-                                      value={userAnswer}
-                                      onChange={(e) => handleAnswerChange(key, e.target.value)}
-                                      disabled={submitted}
-                                      placeholder="Type your answer..."
-                                      style={{
-                                        ...styles.input,
-                                        ...(submitted && {
-                                          backgroundColor: isCorrect ? '#dcfce7' : '#fee2e2',
-                                          borderColor: isCorrect ? '#22c55e' : '#ef4444',
-                                        }),
-                                      }}
-                                    />
-                                    {submitted && correct && !isCorrect && (
-                                      <div style={styles.correctAnswer}>✓ Đáp án đúng: {correct}</div>
-                                    )}
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        );
-                      })()
+                    ) : sectionType === 'cloze-test' ? (
+                      renderOpenClozeSection(section, secIdx, sectionStartNum)
                     ) : sectionType === 'word-form' ? (
                       (() => {
                         const qIdx = 0;
