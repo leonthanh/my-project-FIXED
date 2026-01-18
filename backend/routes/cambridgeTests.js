@@ -34,6 +34,7 @@ const countTotalQuestionsFromParts = (rawParts = []) => {
         q0?.questionType ||
         q0?.type ||
         (Array.isArray(q0?.people) ? 'people-matching' : '') ||
+        (Array.isArray(q0?.leftItems) ? 'gap-match' : '') ||
         (Array.isArray(q0?.sentences) ? 'word-form' : '') ||
         '';
       const questions = section.questions || [];
@@ -46,6 +47,11 @@ const countTotalQuestionsFromParts = (rawParts = []) => {
 
         if (sectionType === 'people-matching' && Array.isArray(question.people)) {
           total += question.people.length > 0 ? question.people.length : 1;
+          return;
+        }
+
+        if (sectionType === 'gap-match' && Array.isArray(question.leftItems)) {
+          total += question.leftItems.length > 0 ? question.leftItems.length : 1;
           return;
         }
 
@@ -588,6 +594,7 @@ const scoreTest = (test, answers) => {
         q0?.questionType ||
         q0?.type ||
         (Array.isArray(q0?.people) ? 'people-matching' : '') ||
+        (Array.isArray(q0?.leftItems) ? 'gap-match' : '') ||
         (Array.isArray(q0?.sentences) ? 'word-form' : '') ||
         '';
       section.questions?.forEach((question, qIdx) => {
@@ -624,6 +631,43 @@ const scoreTest = (test, answers) => {
               userAnswer: userAnswer || null,
               correctAnswer,
               questionType: 'matching',
+              questionText: ''
+            };
+          });
+          return;
+        }
+
+        // KET Listening Part 5: gap-match (score each gap)
+        if (sectionType === 'gap-match' && Array.isArray(question?.leftItems)) {
+          const leftItems = question.leftItems;
+          const correctList = Array.isArray(question.correctAnswers) ? question.correctAnswers : [];
+
+          leftItems.forEach((_, itemIdx) => {
+            const key = `${partIdx}-${secIdx}-${qIdx}-${itemIdx}`;
+            const legacyKey = `${partIdx}-${secIdx}-${itemIdx}`;
+            const userAnswer = pickAnswer(key, [legacyKey]);
+            const correctAnswer = correctList[itemIdx];
+
+            if (correctAnswer === undefined || correctAnswer === null) {
+              detailedResults[key] = {
+                isCorrect: null,
+                userAnswer: userAnswer || null,
+                correctAnswer: null,
+                questionType: 'gap-match',
+                questionText: ''
+              };
+              return;
+            }
+
+            total++;
+            const isCorrect = scoreQuestion(userAnswer, correctAnswer, 'matching');
+            if (isCorrect) score++;
+
+            detailedResults[key] = {
+              isCorrect,
+              userAnswer: userAnswer || null,
+              correctAnswer,
+              questionType: 'gap-match',
               questionText: ''
             };
           });

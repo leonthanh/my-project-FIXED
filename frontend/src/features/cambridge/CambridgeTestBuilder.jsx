@@ -493,6 +493,10 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
     else if (section.questionType === 'people-matching' && section.questions[0]?.people) {
       return section.questions[0].people.length; // Usually 5
     }
+    // Gap Match (drag & drop): count left items
+    else if (section.questionType === 'gap-match' && section.questions[0]?.leftItems) {
+      return section.questions[0].leftItems.length;
+    }
     // Word Formation: đếm số sentences
     else if (section.questionType === 'word-form' && section.questions[0]?.sentences) {
       return section.questions[0].sentences.length;

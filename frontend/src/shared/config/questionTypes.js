@@ -74,6 +74,24 @@ export const QUESTION_TYPES = {
     supportedTests: ['ielts-listening', 'ielts-reading', 'ket-listening', 'ket-reading', 'pet-listening', 'pet-reading'],
   },
 
+  'gap-match': {
+    id: 'gap-match',
+    label: 'Gap Match (Drag & Drop)',
+    labelVi: 'Kéo chữ vào ô',
+    icon: '🧲',
+    description: 'Kéo lựa chọn vào các ô trống theo hàng (Part 5 Listening)',
+    editor: 'GapMatchEditor',
+    defaultData: {
+      questionText: '',
+      leftTitle: 'People',
+      rightTitle: 'Food',
+      leftItems: ['Barbara', 'Simon', 'Anita', 'Peter', 'Michael'],
+      options: ['bread', 'cheese', 'chicken', 'fish', 'fruit', 'ice cream', 'salad'],
+      correctAnswers: [],
+    },
+    supportedTests: ['ket-listening'],
+  },
+
   'multi-select': {
     id: 'multi-select',
     label: 'Multi Select',
@@ -480,6 +498,7 @@ const KET_UNIFIED_QUESTION_TYPES = [
   'multiple-choice-pictures',
   'fill',
   'matching',
+  'gap-match',
 ];
 
 export const TEST_CONFIGS = {

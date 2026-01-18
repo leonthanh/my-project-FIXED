@@ -14,6 +14,7 @@ import {
   // KET Part-specific editors
   SignMessageEditor,
   PeopleMatchingEditor,
+  GapMatchEditor,
   LongTextMCEditor,
   ClozeMCEditor,
   WordFormEditor,
@@ -107,6 +108,9 @@ const QuestionEditorFactory = ({
 
     case 'people-matching':
       return <PeopleMatchingEditor {...commonProps} />;
+
+    case 'gap-match':
+      return <GapMatchEditor {...commonProps} />;
 
     case 'long-text-mc':
       return <LongTextMCEditor {...commonProps} />;

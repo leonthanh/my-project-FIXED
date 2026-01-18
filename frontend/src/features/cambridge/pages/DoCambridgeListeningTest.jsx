@@ -45,6 +45,8 @@ const DoCambridgeListeningTest = () => {
   const [flaggedQuestions, setFlaggedQuestions] = useState(() => new Set());
   const [audioError, setAudioError] = useState(null);
   const [isAudioPlaying, setIsAudioPlaying] = useState(false);
+  const [hasResumeAudio, setHasResumeAudio] = useState(false);
+  const [audioEnded, setAudioEnded] = useState(false);
 
   const audioRef = useRef(null);
   const questionRefs = useRef({});
@@ -52,6 +54,9 @@ const DoCambridgeListeningTest = () => {
   const ignoreSeekRef = useRef(false);
   const switchingAudioSrcRef = useRef(false);
   const lastAudioSrcRef = useRef('');
+  const endTimeRef = useRef(null);
+  const lastAudioTimeRef = useRef(0);
+  const lastAudioSaveRef = useRef(0);
 
   // Cambridge Reading-like splitter
   const [leftWidth, setLeftWidth] = useState(42);
@@ -62,6 +67,10 @@ const DoCambridgeListeningTest = () => {
   const testConfig = useMemo(() => {
     return TEST_CONFIGS[testType] || TEST_CONFIGS['ket-listening'];
   }, [testType]);
+
+  const storageKey = useMemo(() => {
+    return `cambridgeListeningProgress-${testType || 'listening'}-${id || 'unknown'}`;
+  }, [testType, id]);
 
   // Fetch test data
   useEffect(() => {
@@ -83,7 +92,41 @@ const DoCambridgeListeningTest = () => {
         };
 
         setTest(parsedData);
-        setTimeRemaining((testConfig.duration || 30) * 60);
+        const initialSeconds = (testConfig.duration || 30) * 60;
+        setTimeRemaining(initialSeconds);
+
+        try {
+          const raw = localStorage.getItem(storageKey);
+          if (raw) {
+            const saved = JSON.parse(raw);
+            if (saved?.answers) setAnswers(saved.answers);
+            if (Number.isInteger(saved?.currentPartIndex)) {
+              setCurrentPartIndex(saved.currentPartIndex);
+              setExpandedPart(saved.currentPartIndex);
+            }
+            if (saved?.activeQuestion) setActiveQuestion(saved.activeQuestion);
+            if (saved?.startedAudioByPart) setStartedAudioByPart(saved.startedAudioByPart);
+            if (saved?.testStarted) {
+              setTestStarted(true);
+              setHasResumeAudio(true);
+            }
+
+            if (saved?.endTime) {
+              endTimeRef.current = saved.endTime;
+              const remaining = Math.max(0, Math.floor((saved.endTime - Date.now()) / 1000));
+              setTimeRemaining(remaining);
+            }
+
+            if (typeof saved?.audioCurrentTime === 'number') {
+              lastAudioTimeRef.current = saved.audioCurrentTime;
+              if (saved.audioCurrentTime > 0) {
+                setHasResumeAudio(true);
+              }
+            }
+          }
+        } catch {
+          // ignore restore errors
+        }
       } catch (err) {
         console.error("Error fetching test:", err);
         setError(err.message);
@@ -174,6 +217,7 @@ const DoCambridgeListeningTest = () => {
           q0?.questionType ||
           q0?.type ||
           (Array.isArray(q0?.people) ? 'people-matching' : '') ||
+          (Array.isArray(q0?.leftItems) ? 'gap-match' : '') ||
           (Array.isArray(q0?.sentences) ? 'word-form' : '') ||
           '';
         const questions = sec?.questions || [];
@@ -181,7 +225,6 @@ const DoCambridgeListeningTest = () => {
         for (let qIdx = 0; qIdx < questions.length; qIdx++) {
           const q = questions[qIdx];
 
-          // Nested / multi-item section types
           if (secType === 'long-text-mc' && Array.isArray(q?.questions)) {
             for (let nestedIdx = 0; nestedIdx < q.questions.length; nestedIdx++) {
               const key = `${pIdx}-${sIdx}-${qIdx}-${nestedIdx}`;
@@ -237,7 +280,16 @@ const DoCambridgeListeningTest = () => {
             continue;
           }
 
-          // Regular question
+          if (secType === 'gap-match' && Array.isArray(q?.leftItems)) {
+            for (let itemIdx = 0; itemIdx < q.leftItems.length; itemIdx++) {
+              const key = `${pIdx}-${sIdx}-${qIdx}-${itemIdx}`;
+              const num = globalNumber++;
+              partKeys.push({ key, number: num, sectionIndex: sIdx });
+              orderedKeys.push({ key, partIndex: pIdx, number: num });
+            }
+            continue;
+          }
+
           const key = `${pIdx}-${sIdx}-${qIdx}`;
           const num = globalNumber++;
           partKeys.push({ key, number: num, sectionIndex: sIdx });
@@ -276,22 +328,45 @@ const DoCambridgeListeningTest = () => {
   // Timer countdown
   useEffect(() => {
     if (submitted || !test) return;
-    if (hasAnyAudio && !testStarted) return;
+    if (hasAnyAudio && !testStarted && !endTimeRef.current) return;
+
+    if (!endTimeRef.current) {
+      endTimeRef.current = Date.now() + timeRemaining * 1000;
+    }
 
     const timer = setInterval(() => {
-      setTimeRemaining((prev) => {
-        if (prev <= 1) {
-          clearInterval(timer);
-          confirmSubmit();
-          return 0;
-        }
-        return prev - 1;
-      });
+      const remaining = Math.max(0, Math.floor((endTimeRef.current - Date.now()) / 1000));
+      if (remaining <= 0) {
+        clearInterval(timer);
+        setTimeRemaining(0);
+        confirmSubmit();
+        return;
+      }
+      setTimeRemaining(remaining);
     }, 1000);
 
     return () => clearInterval(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [test, submitted]);
+  }, [test, submitted, testStarted, hasAnyAudio, timeRemaining]);
+
+  useEffect(() => {
+    if (!test) return;
+    const payload = {
+      answers,
+      currentPartIndex,
+      activeQuestion,
+      startedAudioByPart,
+      testStarted,
+      endTime: endTimeRef.current,
+      audioCurrentTime: lastAudioTimeRef.current,
+      updatedAt: Date.now(),
+    };
+    try {
+      localStorage.setItem(storageKey, JSON.stringify(payload));
+    } catch {
+      // ignore storage errors
+    }
+  }, [answers, currentPartIndex, activeQuestion, startedAudioByPart, testStarted, storageKey, test]);
 
   const currentPart = useMemo(() => {
     return test?.parts?.[currentPartIndex] || null;
@@ -299,6 +374,7 @@ const DoCambridgeListeningTest = () => {
 
   const isSinglePanelPart = useMemo(() => {
     if (currentPartIndex === 0) return true;
+    if (currentPartIndex >= 2 && currentPartIndex <= 4) return true; // Parts 3-5
     const sections = currentPart?.sections || [];
     return sections.some((section) => {
       const q0 = section?.questions?.[0] || {};
@@ -324,7 +400,7 @@ const DoCambridgeListeningTest = () => {
     if (/^https?:\/\//i.test(s)) return s;
     if (s.startsWith('/')) return hostPath(s);
     return hostPath(`/${s}`);
-  }, []);
+  }, [timeRemaining]);
 
   const resolvedAudioSrc = useMemo(() => {
     return resolveAudioSrc(currentAudioUrl);
@@ -381,10 +457,14 @@ const DoCambridgeListeningTest = () => {
   const isStartGateVisible = useMemo(() => {
     if (submitted) return false;
     if (!resolvedAudioSrc) return false;
-    // If only one audio file for whole test, show gate once at the beginning.
-    if (audioMeta.isSingleFile) return !testStarted;
-    return !startedAudioByPart?.[currentPartIndex];
-  }, [submitted, resolvedAudioSrc, startedAudioByPart, currentPartIndex, audioMeta.isSingleFile, testStarted]);
+    const isStarted = audioMeta.isSingleFile
+      ? testStarted
+      : Boolean(startedAudioByPart?.[currentPartIndex]);
+    if (!isStarted) return true;
+    if (audioEnded) return false;
+    if (!isAudioPlaying && hasResumeAudio) return true;
+    return false;
+  }, [submitted, resolvedAudioSrc, startedAudioByPart, currentPartIndex, audioMeta.isSingleFile, testStarted, isAudioPlaying, hasResumeAudio, audioEnded]);
 
   const markPartAudioStarted = useCallback((partIndex) => {
     setStartedAudioByPart((prev) => {
@@ -392,6 +472,11 @@ const DoCambridgeListeningTest = () => {
       return { ...(prev || {}), [partIndex]: true };
     });
     setTestStarted(true);
+    setAudioEnded(false);
+    setHasResumeAudio(false);
+    if (!endTimeRef.current) {
+      endTimeRef.current = Date.now() + timeRemaining * 1000;
+    }
   }, []);
 
   const handlePlayGate = useCallback(async () => {
@@ -409,9 +494,33 @@ const DoCambridgeListeningTest = () => {
       return;
     }
     try {
+      const resumeAt = lastAudioTimeRef.current;
+
       // Ensure the element picks up the current src before attempting to play.
       audio.load?.();
-      await audio.play();
+
+      const playAfterReady = async () => {
+        if (resumeAt > 0 && Number.isFinite(resumeAt)) {
+          try {
+            audio.currentTime = resumeAt;
+          } catch {
+            // ignore
+          }
+        }
+        await audio.play();
+      };
+
+      if (audio.readyState < 1) {
+        const onMeta = () => {
+          audio.removeEventListener('loadedmetadata', onMeta);
+          playAfterReady().catch((e) => {
+            throw e;
+          });
+        };
+        audio.addEventListener('loadedmetadata', onMeta);
+      } else {
+        await playAfterReady();
+      }
       markPartAudioStarted(currentPartIndex);
       setTimeout(() => {
         if (audio.paused) {
@@ -431,10 +540,12 @@ const DoCambridgeListeningTest = () => {
   const handleAudioPlay = useCallback(() => {
     markPartAudioStarted(currentPartIndex);
     setIsAudioPlaying(true);
+    setAudioEnded(false);
   }, [currentPartIndex, markPartAudioStarted]);
 
   const handleAudioEnded = useCallback(() => {
     setIsAudioPlaying(false);
+    setAudioEnded(true);
   }, []);
 
   const handleAudioPause = useCallback(() => {
@@ -455,6 +566,25 @@ const DoCambridgeListeningTest = () => {
     const isStarted = audioMeta.isSingleFile ? testStarted : startedAudioByPart?.[currentPartIndex];
     if (!isStarted) return;
     const t = Number(audio.currentTime || 0);
+    lastAudioTimeRef.current = t;
+    const now = Date.now();
+    if (now - lastAudioSaveRef.current > 1000) {
+      lastAudioSaveRef.current = now;
+      try {
+        const raw = localStorage.getItem(storageKey);
+        const saved = raw ? JSON.parse(raw) : {};
+        localStorage.setItem(
+          storageKey,
+          JSON.stringify({
+            ...(saved || {}),
+            audioCurrentTime: t,
+            updatedAt: now,
+          })
+        );
+      } catch {
+        // ignore
+      }
+    }
     const prevMax = Number(maxPlayedTimeByPartRef.current?.[currentPartIndex] || 0);
     if (t > prevMax) {
       maxPlayedTimeByPartRef.current = {
@@ -462,7 +592,7 @@ const DoCambridgeListeningTest = () => {
         [currentPartIndex]: t,
       };
     }
-  }, [currentPartIndex, startedAudioByPart, audioMeta.isSingleFile, testStarted]);
+  }, [currentPartIndex, startedAudioByPart, audioMeta.isSingleFile, testStarted, storageKey]);
 
   const handleAudioSeeking = useCallback(() => {
     if (ignoreSeekRef.current) return;
@@ -828,6 +958,147 @@ const DoCambridgeListeningTest = () => {
     );
   };
 
+  const renderGapMatchSection = (section, secIdx, sectionStartNum) => {
+    const qIdx = 0;
+    const container = section.questions[0] || {};
+    const leftTitle = container.leftTitle || 'People';
+    const rightTitle = container.rightTitle || 'Options';
+    const leftItems = Array.isArray(container.leftItems) ? container.leftItems : [];
+    const options = Array.isArray(container.options) ? container.options : [];
+    const correctAnswers = Array.isArray(container.correctAnswers) ? container.correctAnswers : [];
+
+    const usedMap = {};
+    leftItems.forEach((_, idx) => {
+      const key = `${currentPartIndex}-${secIdx}-${qIdx}-${idx}`;
+      const val = answers[key];
+      if (val) usedMap[val] = key;
+    });
+
+    const setGapAnswer = (key, value) => {
+      setAnswers((prev) => {
+        const next = { ...prev, [key]: value };
+        if (value && usedMap[value] && usedMap[value] !== key) {
+          next[usedMap[value]] = '';
+        }
+        return next;
+      });
+    };
+
+    return (
+      <div className="cambridge-question-wrapper" >
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+          <div style={{ border: '1px solid #bae6fd', background: '#f0f9ff', borderRadius: '10px', padding: '12px' }}>
+            <div style={{ fontWeight: 700, color: '#0e276f', marginBottom: '8px' }}>{leftTitle}</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {leftItems.map((item, idx) => {
+                const key = `${currentPartIndex}-${secIdx}-${qIdx}-${idx}`;
+                const num = sectionStartNum + idx;
+                const userAnswer = answers[key] || '';
+                const correct = correctAnswers?.[idx];
+                const isCorrect = submitted && String(userAnswer || '').trim() === String(correct || '').trim();
+
+                return (
+                  <div
+                    key={key}
+                    ref={(el) => (questionRefs.current[key] = el)}
+                    className={`cambridge-question-wrapper ${userAnswer ? 'answered' : ''} ${activeQuestion === key ? 'active-question' : ''}`}
+                    style={{ padding: '10px', borderRadius: '8px', border: '1px solid #dbeafe', background: '#fff' }}
+                  >
+                    <button
+                      className={`cambridge-flag-button ${flaggedQuestions.has(key) ? 'flagged' : ''}`}
+                      onClick={() => toggleFlag(key)}
+                      aria-label="Flag question"
+                      type="button"
+                    >
+                      {flaggedQuestions.has(key) ? '🚩' : '⚐'}
+                    </button>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '56px 1fr', gap: '10px', alignItems: 'center' }}>
+                      <span className="cambridge-question-number">{num}</span>
+                      <div>
+                        <div style={{ fontWeight: 600, color: '#1f2937', marginBottom: 8 }}>{item || `Item ${idx + 1}`}</div>
+                        <div
+                          role="button"
+                          tabIndex={0}
+                          onDragOver={(e) => e.preventDefault()}
+                          onDrop={(e) => {
+                            if (submitted) return;
+                            const value = e.dataTransfer.getData('text/plain');
+                            if (value) setGapAnswer(key, value);
+                          }}
+                          onClick={() => {
+                            if (submitted) return;
+                            if (userAnswer) setGapAnswer(key, '');
+                          }}
+                          style={{
+                            minHeight: 36,
+                            border: '2px dashed #93c5fd',
+                            borderRadius: 8,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            padding: '6px 10px',
+                            fontWeight: 700,
+                            color: userAnswer ? '#0f172a' : '#94a3b8',
+                            background: userAnswer ? '#e0f2fe' : '#f8fafc',
+                            cursor: submitted ? 'default' : 'pointer',
+                            ...(submitted
+                              ? {
+                                  borderColor: isCorrect ? '#22c55e' : '#ef4444',
+                                  background: isCorrect ? '#dcfce7' : '#fee2e2',
+                                  color: '#0f172a',
+                                }
+                              : null),
+                          }}
+                        >
+                          {userAnswer || `Drop ${num}`}
+                        </div>
+                        {submitted && correct && !isCorrect && (
+                          <div style={styles.correctAnswer}>✓ Đáp án đúng: {correct}</div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          <div style={{ border: '1px solid #e5e7eb', background: '#fff', borderRadius: '10px', padding: '12px' }}>
+            <div style={{ fontWeight: 700, color: '#0e276f', marginBottom: '8px' }}>{rightTitle}</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {options.map((opt) => {
+                const usedBy = usedMap[opt];
+                const isUsed = Boolean(usedBy);
+                return (
+                  <div
+                    key={opt}
+                    draggable={!submitted && !isUsed}
+                    onDragStart={(e) => {
+                      if (submitted || isUsed) return;
+                      e.dataTransfer.setData('text/plain', opt);
+                    }}
+                    style={{
+                      padding: '10px 12px',
+                      borderRadius: '8px',
+                      border: '1px solid #e5e7eb',
+                      background: isUsed ? '#f1f5f9' : '#fafafa',
+                      opacity: isUsed ? 0.45 : 1,
+                      cursor: submitted || isUsed ? 'default' : 'grab',
+                      fontWeight: 600,
+                    }}
+                  >
+                    {opt}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   // Handle checkbox change for multi-select
   const handleCheckboxChange = useCallback(
     (questionKey, optionIndex, checked, maxSelections = 2) => {
@@ -958,6 +1229,13 @@ const DoCambridgeListeningTest = () => {
       if (!res.ok) throw new Error("Lỗi khi nộp bài");
 
       const data = await res.json();
+
+      endTimeRef.current = null;
+      try {
+        localStorage.removeItem(storageKey);
+      } catch {
+        // ignore
+      }
       
       // Navigate to result page with submission data
       navigate(`/cambridge/result/${data.submissionId}`, {
@@ -980,6 +1258,12 @@ const DoCambridgeListeningTest = () => {
       setResults(localResults);
       setSubmitted(true);
       setShowConfirm(false);
+      endTimeRef.current = null;
+      try {
+        localStorage.removeItem(storageKey);
+      } catch {
+        // ignore
+      }
     }
   };
 
@@ -990,11 +1274,33 @@ const DoCambridgeListeningTest = () => {
 
     test?.parts?.forEach((part, partIdx) => {
       part.sections?.forEach((section, secIdx) => {
+        const q0 = section?.questions?.[0] || {};
+        const sectionType =
+          section?.questionType ||
+          q0?.questionType ||
+          q0?.type ||
+          (Array.isArray(q0?.people) ? 'people-matching' : '') ||
+          (Array.isArray(q0?.leftItems) ? 'gap-match' : '') ||
+          (Array.isArray(q0?.sentences) ? 'word-form' : '') ||
+          '';
         section.questions?.forEach((q, qIdx) => {
+          if (sectionType === 'gap-match' && Array.isArray(q?.leftItems)) {
+            q.leftItems.forEach((_, itemIdx) => {
+              total++;
+              const key = `${partIdx}-${secIdx}-${qIdx}-${itemIdx}`;
+              const userAnswer = answers[key];
+              const correctAnswer = Array.isArray(q?.correctAnswers) ? q.correctAnswers[itemIdx] : undefined;
+              if (correctAnswer && String(userAnswer || '').trim().toLowerCase() === String(correctAnswer).trim().toLowerCase()) {
+                correct++;
+              }
+            });
+            return;
+          }
+
           total++;
           const key = `${partIdx}-${secIdx}-${qIdx}`;
           const userAnswer = answers[key];
-          
+
           if (q.correctAnswer) {
             if (typeof q.correctAnswer === 'string') {
               if (userAnswer?.toLowerCase?.() === q.correctAnswer.toLowerCase()) {
@@ -1590,6 +1896,7 @@ const DoCambridgeListeningTest = () => {
                     q0?.questionType ||
                     q0?.type ||
                     (Array.isArray(q0?.people) ? 'people-matching' : '') ||
+                    (Array.isArray(q0?.leftItems) ? 'gap-match' : '') ||
                     (Array.isArray(q0?.sentences) ? 'word-form' : '') ||
                     '';
 
@@ -1690,6 +1997,8 @@ const DoCambridgeListeningTest = () => {
                           // fall through to existing renderer below in the 2-panel branch
                           return null;
                         })()
+                      ) : sectionType === 'gap-match' ? (
+                        renderGapMatchSection(section, secIdx, sectionStartNum)
                       ) : sectionType === 'cloze-test' ? (
                         renderOpenClozeSection(section, secIdx, sectionStartNum)
                       ) : (
@@ -1823,6 +2132,7 @@ const DoCambridgeListeningTest = () => {
                   q0?.questionType ||
                   q0?.type ||
                   (Array.isArray(q0?.people) ? 'people-matching' : '') ||
+                  (Array.isArray(q0?.leftItems) ? 'gap-match' : '') ||
                   (Array.isArray(q0?.sentences) ? 'word-form' : '') ||
                   '';
 
@@ -2054,6 +2364,8 @@ const DoCambridgeListeningTest = () => {
                           </div>
                         );
                       })()
+                    ) : sectionType === 'gap-match' ? (
+                      renderGapMatchSection(section, secIdx, sectionStartNum)
                     ) : sectionType === 'people-matching' ? (
                       (() => {
                         const qIdx = 0;
@@ -2087,7 +2399,7 @@ const DoCambridgeListeningTest = () => {
                         return (
                           <div>
                             <div className="cambridge-question-wrapper" style={{ marginBottom: '16px' }}>
-                              <div style={{ paddingRight: '50px' }}>
+                              <div >
                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                                   <div style={{ border: '1px solid #bae6fd', background: '#f0f9ff', borderRadius: '10px', padding: '12px' }}>
                                     <div style={{ fontWeight: 700, color: '#0e276f', marginBottom: '8px' }}>People</div>
