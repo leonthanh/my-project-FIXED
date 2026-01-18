@@ -74,6 +74,24 @@ export const QUESTION_TYPES = {
     supportedTests: ['ielts-listening', 'ielts-reading', 'ket-listening', 'ket-reading', 'pet-listening', 'pet-reading'],
   },
 
+  'gap-match': {
+    id: 'gap-match',
+    label: 'Gap Match (Drag & Drop)',
+    labelVi: 'Kéo chữ vào ô',
+    icon: '🧲',
+    description: 'Kéo lựa chọn vào các ô trống theo hàng (Part 5 Listening)',
+    editor: 'GapMatchEditor',
+    defaultData: {
+      questionText: '',
+      leftTitle: 'People',
+      rightTitle: 'Food',
+      leftItems: ['Barbara', 'Simon', 'Anita', 'Peter', 'Michael'],
+      options: ['bread', 'cheese', 'chicken', 'fish', 'fruit', 'ice cream', 'salad'],
+      correctAnswers: [],
+    },
+    supportedTests: ['ket-listening'],
+  },
+
   'multi-select': {
     id: 'multi-select',
     label: 'Multi Select',
@@ -283,18 +301,18 @@ export const QUESTION_TYPES = {
         { id: 'E', name: '', need: '' },
       ],
       texts: [
-        { id: '1', title: '', content: '' },
-        { id: '2', title: '', content: '' },
-        { id: '3', title: '', content: '' },
-        { id: '4', title: '', content: '' },
-        { id: '5', title: '', content: '' },
-        { id: '6', title: '', content: '' },
-        { id: '7', title: '', content: '' },
-        { id: '8', title: '', content: '' },
+        { id: 'A', title: '', content: '' },
+        { id: 'B', title: '', content: '' },
+        { id: 'C', title: '', content: '' },
+        { id: 'D', title: '', content: '' },
+        { id: 'E', title: '', content: '' },
+        { id: 'F', title: '', content: '' },
+        { id: 'G', title: '', content: '' },
+        { id: 'H', title: '', content: '' },
       ],
       answers: {},
     },
-    supportedTests: ['ket-reading'],
+    supportedTests: ['ket-reading', 'ket-listening'],
   },
 
   'long-text-mc': {
@@ -435,10 +453,14 @@ export const QUESTION_TYPES = {
     editor: 'MultipleChoicePicturesEditor', // Will create later
     defaultData: {
       questionText: '',
-      imageOptions: [],
+      imageOptions: [
+        { imageUrl: '', text: '' },
+        { imageUrl: '', text: '' },
+        { imageUrl: '', text: '' },
+      ],
       correctAnswer: '',
     },
-    supportedTests: ['flyers', 'movers', 'starters'],
+    supportedTests: ['ket-listening', 'flyers', 'movers', 'starters'],
   },
 
   'tick-cross': {
@@ -459,6 +481,25 @@ export const QUESTION_TYPES = {
 // ============================================
 // TEST TYPE CONFIGURATIONS
 // ============================================
+
+// Keep KET Listening + KET Reading builder question types in sync
+const KET_UNIFIED_QUESTION_TYPES = [
+  // KET Reading & Writing (Part-specific)
+  'sign-message',
+  'people-matching',
+  'long-text-mc',
+  'cloze-mc',
+  'cloze-test',
+  'word-form',
+  'short-message',
+
+  // KET Listening (common types)
+  'abc',
+  'multiple-choice-pictures',
+  'fill',
+  'matching',
+  'gap-match',
+];
 
 export const TEST_CONFIGS = {
   // IELTS Tests
@@ -523,16 +564,7 @@ export const TEST_CONFIGS = {
     totalQuestions: 32,
     parts: 7,
     duration: 60, // minutes
-    questionTypes: [
-      // Part-specific editors for KET Reading & Writing
-      'sign-message',      // Part 1: Signs & Messages
-      'people-matching',   // Part 2: Matching People & Texts
-      'long-text-mc',      // Part 3: Long Text + MC
-      'cloze-mc',          // Part 4: Multiple Choice Cloze
-      'cloze-test',        // Part 5: Open Cloze
-      'word-form',         // Part 6: Word Formation
-      'short-message',     // Part 7: Writing Task
-    ],
+    questionTypes: KET_UNIFIED_QUESTION_TYPES,
     partStructure: [
       { part: 1, questions: '1-6', questionType: 'sign-message', description: 'Signs & Messages - Hình biển báo + chọn A/B/C' },
       { part: 2, questions: '7-13', questionType: 'people-matching', description: 'Matching - 5 người nối với 8 texts' },
@@ -551,11 +583,7 @@ export const TEST_CONFIGS = {
     totalQuestions: 25,
     parts: 5,
     duration: 30, // minutes
-    questionTypes: [
-      'abc',
-      'fill',
-      'matching',
-    ],
+    questionTypes: KET_UNIFIED_QUESTION_TYPES,
     partStructure: [
       { part: 1, questions: '1-5', description: 'Short Conversations - 3-option Multiple Choice' },
       { part: 2, questions: '6-10', description: 'Longer Conversation - Gap Fill' },

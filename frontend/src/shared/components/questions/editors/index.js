@@ -23,3 +23,5 @@ export { default as PeopleMatchingEditor } from './PeopleMatchingEditor'; // Par
 export { default as LongTextMCEditor } from './LongTextMCEditor'; // Part 3
 export { default as ClozeMCEditor } from './ClozeMCEditor'; // Part 4
 export { default as WordFormEditor } from './WordFormEditor'; // Part 6
+export { default as MultipleChoicePicturesEditor } from './MultipleChoicePicturesEditor';
+export { default as GapMatchEditor } from './GapMatchEditor';

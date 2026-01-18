@@ -8,6 +8,7 @@ const Submission = require("./Submission");
 const CambridgeListening = require("./CambridgeListening");
 const CambridgeReading = require("./CambridgeReading");
 const CambridgeSubmission = require("./CambridgeSubmission");
+const RefreshToken = require("./RefreshToken");
 
 // Quan hệ WritingTest ↔ Submission
 WritingTest.hasMany(Submission, { foreignKey: "testId" });
@@ -35,6 +36,10 @@ CambridgeReading.hasMany(CambridgeSubmission, {
 User.hasMany(CambridgeSubmission, { foreignKey: "userId" });
 CambridgeSubmission.belongsTo(User, { foreignKey: "userId" });
 
+// Refresh tokens
+User.hasMany(RefreshToken, { foreignKey: "userId" });
+RefreshToken.belongsTo(User, { foreignKey: "userId" });
+
 module.exports = {
   sequelize,
   User,
@@ -45,4 +50,5 @@ module.exports = {
   CambridgeListening,
   CambridgeReading,
   CambridgeSubmission,
+  RefreshToken,
 };

@@ -332,6 +332,7 @@ function scoreReadingTest(testData, answers = {}) {
 function getDetailedScoring(testData, answers = {}) {
   const details = [];
   let qCounter = 1;
+  let passageIndex = 0;
 
   // Accept answers stored as a JSON string (root) or with nested stringified JSON values
   const safeParse = (v) => {
@@ -360,9 +361,11 @@ function getDetailedScoring(testData, answers = {}) {
   }
 
   for (const p of (testData.passages || [])) {
+    let questionIndexInPassage = 0;
     const sections = p.sections || [{ questions: p.questions }];
     for (const s of sections) {
       for (const q of (s.questions || [])) {
+        const qIndex = questionIndexInPassage++;
         const qType = (q.questionType || q.type || '').toLowerCase();
         // Default row (include question text, headings and a short passage snippet for context)
         const passageSnippet = (p.title || p.heading || p.passageText || p.text || '');
@@ -502,7 +505,7 @@ function getDetailedScoring(testData, answers = {}) {
               student: studentValStr,
               expectedLabel,
               studentLabel,
-              isCorrect: expectedLabel && studentLabel && expectedLabel === studentLabel
+              isCorrect: Boolean(expectedLabel && studentLabel && expectedLabel === studentLabel)
             });
           }
 
@@ -539,6 +542,13 @@ function getDetailedScoring(testData, answers = {}) {
               const direct = answers[`${baseKey}_${bi}`];
               if (direct !== undefined && direct !== null && String(direct).trim() !== '') return safeString(direct);
 
+              // 1b) frontend DoReadingTest style: <passageIndex>_<questionIndex>_<blankIndex>
+              const byPassageQuestion = answers[`${passageIndex}_${qIndex}_${bi}`];
+              if (byPassageQuestion !== undefined && byPassageQuestion !== null && String(byPassageQuestion).trim() !== '') return safeString(byPassageQuestion);
+
+              const byPassageQuestionPrefixed = answers[`q_${passageIndex}_${qIndex}_${bi}`];
+              if (byPassageQuestionPrefixed !== undefined && byPassageQuestionPrefixed !== null && String(byPassageQuestionPrefixed).trim() !== '') return safeString(byPassageQuestionPrefixed);
+
               // check for single-blank stored as q_<base> (no suffix)
               const directBase = answers[baseKey];
               if (directBase !== undefined && directBase !== null && String(directBase).trim() !== '') return safeString(directBase);
@@ -556,6 +566,8 @@ function getDetailedScoring(testData, answers = {}) {
                 const keyStr = String(k);
                 // Accept keys only when they include the baseNumber context and the blank index
                 if ((new RegExp(`(^|_)q_${baseNumber}_${bi}($|_)`).test(keyStr)) || (keyStr.includes(`_${bi}`) && new RegExp(`(^|_)${baseNumber}(_|_)`).test(keyStr))) return safeString(val);
+                // Accept <passageIndex>_<questionIndex>_<blankIndex> (or with separators)
+                if (new RegExp(`(^|_)${passageIndex}(_|-)${qIndex}(_|-)+${bi}($|_)`).test(keyStr)) return safeString(val);
                 // fallback: contains baseNumber alone (no blank index), use only as last resort
                 if (new RegExp(`(^|_)${baseNumber}(_|$)`).test(keyStr)) return safeString(val);
               }
@@ -569,7 +581,7 @@ function getDetailedScoring(testData, answers = {}) {
               const expectedRaw = (q.blanks && q.blanks[bi] && q.blanks[bi].correctAnswer) ? q.blanks[bi].correctAnswer : '';
               const expectedVariants = String(expectedRaw).split(/\s*[|\/;,]\s*/).map(s => normalize(s)).filter(Boolean);
               const studentNorm = normalize(studentRaw);
-              const isCorrect = expectedVariants.length && studentNorm && expectedVariants.includes(studentNorm);
+              const isCorrect = Boolean(expectedVariants.length && studentNorm && expectedVariants.includes(studentNorm));
               details.push({
                 questionNumber: displayedQuestionNumber,
                 paragraphId: null,
@@ -616,7 +628,7 @@ function getDetailedScoring(testData, answers = {}) {
                 student: studentRaw || '',
                 expectedLabel,
                 studentLabel,
-                isCorrect: expectedLabel && studentLabel && expectedLabel === studentLabel
+                isCorrect: Boolean(expectedLabel && studentLabel && expectedLabel === studentLabel)
               });
             }
           } else {
@@ -634,7 +646,7 @@ function getDetailedScoring(testData, answers = {}) {
               student: studentRaw || '',
               expectedLabel,
               studentLabel,
-              isCorrect: expectedLabel && studentLabel && expectedLabel === studentLabel
+              isCorrect: Boolean(expectedLabel && studentLabel && expectedLabel === studentLabel)
             });
           }
 
@@ -665,9 +677,11 @@ function getDetailedScoring(testData, answers = {}) {
         // Multi-select: expand into per-answer rows so numbering matches UI (e.g., 23-24)
         if (qType === 'multi-select') {
           const key = `q_${qCounter}`;
+          const altKey = q.questionNumber ? `q_${q.questionNumber}` : null;
           const rawStudentVal = answers[key];
+          const rawStudentAlt = altKey ? answers[altKey] : undefined;
           const expectedTokens = normalizeMultiTokens(q.correctAnswer || q.answers || '', q.options || []);
-          const studentTokens = normalizeMultiTokens(rawStudentVal, q.options || []);
+          const studentTokens = normalizeMultiTokens((rawStudentVal !== undefined ? rawStudentVal : rawStudentAlt), q.options || []);
           const required = q.requiredAnswers || q.maxSelection || expectedTokens.length || studentTokens.length || 2;
           const count = Math.max(required, expectedTokens.length || 0);
 
@@ -698,7 +712,8 @@ function getDetailedScoring(testData, answers = {}) {
         // Special handling for multiple-choice and sentence-completion where student may submit letters (A,B,...) or full text
         if (qType === 'multiple-choice' || qType === 'sentence-completion') {
           const key = `q_${qCounter}`;
-          const rawStudentVal = answers[key];
+          const altKey = q.questionNumber ? `q_${q.questionNumber}` : null;
+          const rawStudentVal = (answers[key] !== undefined) ? answers[key] : (altKey ? answers[altKey] : undefined);
           const studentVal = rawStudentVal === undefined || rawStudentVal === null ? '' : rawStudentVal;
 
           let expectedRaw = q.correctAnswer || '';
@@ -711,7 +726,7 @@ function getDetailedScoring(testData, answers = {}) {
           rowCopy.expected = expectedRaw || '';
           rowCopy.expectedLabel = expectedNorm;
           rowCopy.studentLabel = studentNorm;
-          rowCopy.isCorrect = expectedNorm && studentNorm && expectedNorm === studentNorm;
+          rowCopy.isCorrect = Boolean(expectedNorm && studentNorm && expectedNorm === studentNorm);
           details.push(rowCopy);
 
           qCounter++;
@@ -720,7 +735,8 @@ function getDetailedScoring(testData, answers = {}) {
 
         // default simple types
         const key = `q_${qCounter}`;
-        const rawStudentVal = answers[key];
+        const altKey = q.questionNumber ? `q_${q.questionNumber}` : null;
+        const rawStudentVal = (answers[key] !== undefined) ? answers[key] : (altKey ? answers[altKey] : undefined);
         // ignore object-mappings (these are likely matching-heading maps), accept primitives/arrays only
         const studentVal = (typeof rawStudentVal === 'object' && !Array.isArray(rawStudentVal)) ? '' : rawStudentVal;
         row.student = safeString(studentVal);
@@ -739,7 +755,7 @@ function getDetailedScoring(testData, answers = {}) {
           const studentNorm = normalize(studentVal || '');
           row.expectedLabel = expectedVariants.join(' | ');
           row.studentLabel = studentNorm;
-          row.isCorrect = (expectedVariants.length && studentNorm && expectedVariants.includes(studentNorm));
+          row.isCorrect = Boolean(expectedVariants.length && studentNorm && expectedVariants.includes(studentNorm));
         } else if ((q.questionType || q.type) === 'multi-select') {
           const expArr = normalizeMulti(q.correctAnswer || '');
           const stuArr = normalizeMulti(studentVal);
@@ -751,13 +767,15 @@ function getDetailedScoring(testData, answers = {}) {
           const studentNorm = normalize(studentVal || '');
           row.expectedLabel = expectedNorm;
           row.studentLabel = studentNorm;
-          row.isCorrect = expectedNorm && studentNorm && expectedNorm === studentNorm;
+          row.isCorrect = Boolean(expectedNorm && studentNorm && expectedNorm === studentNorm);
         }
         details.push(row);
 
         qCounter++;
       }
     }
+
+    passageIndex++;
   }
 
   return details;

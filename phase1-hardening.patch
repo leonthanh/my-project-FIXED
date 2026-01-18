@@ -1,0 +1,1075 @@
+diff --git a/SETUP.md b/SETUP.md
+index a3a0a37a..17ee14e8 100644
+--- a/SETUP.md
++++ b/SETUP.md
+@@ -39,12 +39,12 @@ Tạo file `backend/.env` với nội dung:
+ DB_HOST=localhost
+ DB_NAME=wsxcblqh_ix
+ DB_USER=wsxcblqh_thanh
+-DB_PASS=@Thanh562184
++DB_PASS=
+ NODE_ENV=development
+ PORT=5000
+ EMAIL_USER=stareduelt@gmail.com
+-EMAIL_PASS=xrrz fqwq xwdc hujb
+-EMAIL_TO=thanhlh@siec-star.edu.vn
++EMAIL_PASS=
++EMAIL_TO=
+ REACT_APP_API_URL=http://localhost:5000
+ GEMINI_API_KEY=AIzaSyCNdfCuSNp6pG5281BxfP30ElK8oHDzob0
+ OPENAI_API_KEY=your_openai_api_key_here
+diff --git a/backend/db.js b/backend/db.js
+index b7b60cd1..d55a0d92 100644
+--- a/backend/db.js
++++ b/backend/db.js
+@@ -15,20 +15,5 @@ const sequelize = new Sequelize(
+     logging: false,
+   }
+ );
+-// Thêm đoạn code này vào backend/db.js
+-sequelize.authenticate()
+-  .then(() => {
+-    console.log('✅ Kết nối database thành công');
+-  })
+-  .catch(err => {
+-    console.error('❌ Lỗi kết nối database:', err.message);
+-  });
+-// Debug log
+-console.log('Environment:', {
+-  NODE_ENV: process.env.NODE_ENV,
+-  DB_HOST: isProd ? process.env.PROD_DB_HOST : process.env.DB_HOST,
+-  DB_NAME: isProd ? process.env.PROD_DB_NAME : process.env.DB_NAME,
+-  DB_USER: isProd ? process.env.PROD_DB_USER : process.env.DB_USER
+-});
+ 
+ module.exports = sequelize;
+diff --git a/backend/logger.js b/backend/logger.js
+index 8c99e7ac..f07453aa 100644
+--- a/backend/logger.js
++++ b/backend/logger.js
+@@ -1,18 +1,39 @@
+-const fs = require('fs');
+ const path = require('path');
++const pino = require('pino');
+ 
+-// Tạo hoặc ghi tiếp vào file error.log trong thư mục backend
+-const logStream = fs.createWriteStream(path.join(__dirname, 'error.log'), { flags: 'a' });
++const isProd = process.env.NODE_ENV === 'production';
++
++// Structured JSON logs. In production, keep console logging (for containers) and also write to a file.
++// NOTE: pino destination creates the file if missing.
++const logger = pino(
++  {
++    level: process.env.LOG_LEVEL || (isProd ? 'info' : 'debug'),
++    redact: {
++      paths: [
++        'req.headers.authorization',
++        'req.headers.cookie',
++        'password',
++        '*.password',
++        'refreshToken',
++        '*.refreshToken',
++        'accessToken',
++        '*.accessToken',
++      ],
++      remove: true,
++    },
++  },
++  pino.multistream([
++    { stream: process.stdout },
++    { stream: pino.destination({ dest: path.join(__dirname, 'app.log'), sync: false }) },
++  ])
++);
+ 
+ /**
+- * Ghi lỗi vào file error.log với timestamp
+- * @param {string} message - Mô tả lỗi
+- * @param {Error|string} error - Đối tượng lỗi hoặc chuỗi lỗi
++ * Backward compatible API used across routes.
+  */
+ function logError(message, error) {
+-  const timestamp = new Date().toISOString();
+-  const errorMessage = error instanceof Error ? error.stack : error;
+-  logStream.write(`[${timestamp}] ${message}: ${errorMessage}\n`);
++  const err = error instanceof Error ? error : new Error(String(error));
++  logger.error({ err }, message);
+ }
+ 
+-module.exports = { logError };
+\ No newline at end of file
++module.exports = { logger, logError };
+\ No newline at end of file
+diff --git a/backend/models/index.js b/backend/models/index.js
+index 51fa2a77..59242da9 100644
+--- a/backend/models/index.js
++++ b/backend/models/index.js
+@@ -8,6 +8,7 @@ const Submission = require("./Submission");
+ const CambridgeListening = require("./CambridgeListening");
+ const CambridgeReading = require("./CambridgeReading");
+ const CambridgeSubmission = require("./CambridgeSubmission");
++const RefreshToken = require("./RefreshToken");
+ 
+ // Quan hệ WritingTest ↔ Submission
+ WritingTest.hasMany(Submission, { foreignKey: "testId" });
+@@ -35,6 +36,10 @@ CambridgeReading.hasMany(CambridgeSubmission, {
+ User.hasMany(CambridgeSubmission, { foreignKey: "userId" });
+ CambridgeSubmission.belongsTo(User, { foreignKey: "userId" });
+ 
++// Refresh tokens
++User.hasMany(RefreshToken, { foreignKey: "userId" });
++RefreshToken.belongsTo(User, { foreignKey: "userId" });
++
+ module.exports = {
+   sequelize,
+   User,
+@@ -45,4 +50,5 @@ module.exports = {
+   CambridgeListening,
+   CambridgeReading,
+   CambridgeSubmission,
++  RefreshToken,
+ };
+diff --git a/backend/package.json b/backend/package.json
+index da9760de..84ef02bd 100644
+--- a/backend/package.json
++++ b/backend/package.json
+@@ -4,7 +4,8 @@
+   "main": "server.js",
+   "scripts": {
+     "dev": "cross-env NODE_ENV=development nodemon server.js",
+-    "start": "cross-env NODE_ENV=development node server.js"
++    "start": "cross-env NODE_ENV=production node server.js",
++    "test": "jest --runInBand"
+   },
+   "keywords": [],
+   "author": "",
+@@ -14,20 +15,35 @@
+     "@ckeditor/ckeditor5-build-classic": "^41.4.2",
+     "@ckeditor/ckeditor5-react": "^11.0.0",
+     "bcryptjs": "^3.0.2",
++    "cookie-parser": "^1.4.7",
+     "cors": "^2.8.5",
+     "cross-env": "^10.1.0",
+     "dotenv": "^17.2.0",
+     "express": "^5.1.0",
++    "express-rate-limit": "^7.5.1",
++    "helmet": "^8.1.0",
++    "jsonwebtoken": "^9.0.2",
+     "mongoose": "^8.16.1",
+     "multer": "^2.0.2",
+     "mysql2": "^3.14.3",
+     "nodemailer": "^7.0.11",
+     "openai": "^5.12.2",
++    "pino": "^9.9.0",
++    "pino-http": "^10.5.0",
+     "react-split": "^2.0.14",
+-    "sequelize": "^6.37.7"
++    "sequelize": "^6.37.7",
++    "zod": "^3.25.76"
+   },
+   "devDependencies": {
+     "@types/node": "^24.0.15",
+-    "mocha": "^11.7.5"
++    "jest": "^30.0.5",
++    "mocha": "^11.7.5",
++    "supertest": "^7.1.4"
++  },
++  "jest": {
++    "testEnvironment": "node",
++    "testMatch": [
++      "**/tests/**/*.test.js"
++    ]
+   }
+ }
+diff --git a/backend/routes/auth.js b/backend/routes/auth.js
+index 107afe42..092f511c 100644
+--- a/backend/routes/auth.js
++++ b/backend/routes/auth.js
+@@ -1,42 +1,127 @@
+ const express = require("express");
+ const router = express.Router();
+ const nodemailer = require("nodemailer");
++const rateLimit = require('express-rate-limit');
++const { z } = require('zod');
+ const User = require("../models/User"); // Sequelize model
++const RefreshToken = require('../models/RefreshToken');
+ const { logError } = require("../logger"); // ✅ Import logger
++const { validate } = require('../middlewares/validate');
++const { AppError } = require('../utils/AppError');
++const { signAccessToken, generateRefreshToken, hashRefreshToken } = require('../utils/tokens');
+ 
+ // ✅ Email OTP Configuration (Nodemailer + Gmail)
+ // Hướng dẫn:
+ // 1. Dùng Gmail: https://myaccount.google.com/apppasswords
+ // 2. Tạo app password (16 ký tự)
+ // 3. Thêm vào .env: EMAIL_USER và EMAIL_PASS
+-const transporter = nodemailer.createTransport({
+-  service: "gmail",
+-  auth: {
+-    user: process.env.EMAIL_USER || "stareduelt@gmail.com",
+-    pass: process.env.EMAIL_PASS, // App password từ Google
+-  },
+-});
++function createTransporter() {
++  if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
++    throw AppError.badRequest('Email OTP is not configured (EMAIL_USER/EMAIL_PASS missing)');
++  }
++  return nodemailer.createTransport({
++    service: 'gmail',
++    auth: {
++      user: process.env.EMAIL_USER,
++      pass: process.env.EMAIL_PASS,
++    },
++  });
++}
+ 
+ // Lưu OTP tạm thời (trong thực tế nên dùng Redis)
+ const otpStore = new Map();
+-// Đăng ký
+-router.post("/register", async (req, res) => {
+-  const { name, phone, email, password, role } = req.body; // ✅ Thêm email
+ 
+-  if (!name || !phone || !password) {
+-    // ✅ Yêu cầu password khi đăng ký
+-    return res.status(400).json({
+-      message: "Vui lòng nhập đầy đủ họ tên, số điện thoại và mật khẩu.",
+-    });
+-  }
++const authLimiter = rateLimit({
++  windowMs: 10 * 60 * 1000,
++  limit: 50,
++  standardHeaders: 'draft-7',
++  legacyHeaders: false,
++  handler: (_req, res) => {
++    res.status(429).json({ message: 'Quá nhiều yêu cầu. Vui lòng thử lại sau.' });
++  },
++});
+ 
+-  // ✅ Validate số điện thoại Việt Nam
+-  const vnPhoneRegex = /^(0)(3[2-9]|5[2689]|7[06-9]|8[1-9]|9[0-9])[0-9]{7}$/;
+-  if (!vnPhoneRegex.test(phone)) {
+-    return res.status(400).json({
+-      message: "Số điện thoại không hợp lệ. Vui lòng nhập số Việt Nam hợp lệ.",
+-    });
+-  }
++const otpLimiter = rateLimit({
++  windowMs: 10 * 60 * 1000,
++  limit: 10,
++  standardHeaders: 'draft-7',
++  legacyHeaders: false,
++  handler: (_req, res) => {
++    res.status(429).json({ message: 'Bạn đã yêu cầu OTP quá nhiều lần. Vui lòng thử lại sau.' });
++  },
++});
++
++function shouldReturnRefreshTokenInBody() {
++  if (process.env.AUTH_REFRESH_IN_BODY === 'true') return true;
++  return process.env.NODE_ENV !== 'production';
++}
++
++function setRefreshCookie(res, refreshToken) {
++  const isProd = process.env.NODE_ENV === 'production';
++  res.cookie('rt', refreshToken, {
++    httpOnly: true,
++    secure: isProd,
++    sameSite: 'lax',
++    path: '/api/auth/refresh',
++    maxAge: 30 * 24 * 60 * 60 * 1000,
++  });
++}
++
++async function issueTokens({ user, req, res }) {
++  const accessToken = signAccessToken({ userId: user.id, role: user.role });
++  const refreshToken = generateRefreshToken();
++
++  await RefreshToken.create({
++    userId: user.id,
++    tokenHash: hashRefreshToken(refreshToken),
++    expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
++    userAgent: req.get('user-agent') || null,
++    ip: req.ip || req.connection?.remoteAddress || null,
++  });
++
++  setRefreshCookie(res, refreshToken);
++
++  return {
++    accessToken,
++    refreshToken: shouldReturnRefreshTokenInBody() ? refreshToken : undefined,
++  };
++}
++
++const vnPhoneRegex = /^(0)(3[2-9]|5[2689]|7[06-9]|8[1-9]|9[0-9])[0-9]{7}$/;
++
++const registerSchema = z.object({
++  name: z.string().min(1),
++  phone: z.string().regex(vnPhoneRegex),
++  email: z.string().email().optional().nullable(),
++  password: z.string().min(6),
++  role: z.enum(['student', 'teacher', 'admin']).optional(),
++});
++
++const loginSchema = z.object({
++  phone: z.string().regex(vnPhoneRegex),
++  password: z.string().min(1),
++});
++
++const resetPasswordSchema = z.object({
++  phone: z.string().regex(vnPhoneRegex),
++  verificationCode: z.string().min(4).max(10),
++  newPassword: z.string().min(6),
++});
++
++const sendOtpSchema = z.object({
++  phone: z.string().regex(vnPhoneRegex),
++});
++
++const refreshSchema = z.object({
++  refreshToken: z.string().min(10).optional(),
++});
++// Đăng ký
++router.post(
++  "/register",
++  authLimiter,
++  validate({ body: registerSchema }),
++  async (req, res) => {
++    const { name, phone, email, password, role } = req.body; // ✅ Thêm email
+ 
+   try {
+     const existing = await User.findOne({ where: { phone } });
+@@ -68,26 +153,16 @@ router.post("/register", async (req, res) => {
+     logError("Lỗi khi đăng ký", err); // ✅ Ghi log vào error.log
+     res.status(500).json({ message: "Lỗi server khi đăng ký." });
+   }
+-});
+-
+-// Đăng nhập
+-router.post("/login", async (req, res) => {
+-  const { phone, password } = req.body; // ✅ Chỉ cần phone và password để đăng nhập
+-
+-  if (!phone || !password) {
+-    // ✅ Yêu cầu phone và password
+-    return res
+-      .status(400)
+-      .json({ message: "Vui lòng nhập đầy đủ số điện thoại và mật khẩu." });
+   }
++);
+ 
+-  // ✅ Validate số điện thoại Việt Nam
+-  const vnPhoneRegex = /^(0)(3[2-9]|5[2689]|7[06-9]|8[1-9]|9[0-9])[0-9]{7}$/;
+-  if (!vnPhoneRegex.test(phone)) {
+-    return res.status(400).json({
+-      message: "Số điện thoại không hợp lệ. Vui lòng nhập số Việt Nam hợp lệ.",
+-    });
+-  }
++// Đăng nhập
++router.post(
++  "/login",
++  authLimiter,
++  validate({ body: loginSchema }),
++  async (req, res) => {
++    const { phone, password } = req.body; // ✅ Chỉ cần phone và password để đăng nhập
+ 
+   try {
+     const user = await User.findOne({ where: { phone } });
+@@ -110,29 +185,82 @@ router.post("/login", async (req, res) => {
+     const userResponse = user.toJSON();
+     delete userResponse.password;
+ 
+-    res.json({ message: "Đăng nhập thành công", user: userResponse });
++    const tokens = await issueTokens({ user, req, res });
++
++    res.json({
++      message: "Đăng nhập thành công",
++      user: userResponse,
++      accessToken: tokens.accessToken,
++      refreshToken: tokens.refreshToken,
++    });
+   } catch (err) {
+     console.error("❌ Lỗi khi đăng nhập:", err);
+     logError("Lỗi khi đăng nhập", err); // ✅ Ghi log vào error.log
+     res.status(500).json({ message: "Lỗi server khi đăng nhập." });
+   }
+-});
++  }
++);
++
++// Refresh access token (rotating refresh token)
++router.post(
++  '/refresh',
++  authLimiter,
++  validate({ body: refreshSchema }),
++  async (req, res) => {
++    try {
++      const provided = req.cookies?.rt || req.body.refreshToken;
++      if (!provided) throw AppError.unauthorized('Missing refresh token');
+ 
+-// Reset mật khẩu
+-router.post("/reset-password", async (req, res) => {
+-  const { phone, verificationCode, newPassword } = req.body;
++      const tokenHash = hashRefreshToken(provided);
++      const record = await RefreshToken.findOne({ where: { tokenHash } });
++
++      if (!record || record.revokedAt) throw AppError.unauthorized('Invalid refresh token');
++      if (new Date(record.expiresAt).getTime() <= Date.now()) throw AppError.unauthorized('Refresh token expired');
++
++      // rotate
++      record.revokedAt = new Date();
++      await record.save();
+ 
+-  if (!phone || !verificationCode || !newPassword) {
+-    return res.status(400).json({ message: "Vui lòng nhập đầy đủ thông tin." });
++      const user = await User.findByPk(record.userId);
++      if (!user) throw AppError.unauthorized('User not found');
++
++      const tokens = await issueTokens({ user, req, res });
++      res.json({ accessToken: tokens.accessToken, refreshToken: tokens.refreshToken });
++    } catch (err) {
++      const appErr = err instanceof AppError ? err : AppError.unauthorized('Cannot refresh token');
++      logError('Refresh token error', err);
++      res.status(appErr.statusCode).json({ message: appErr.message });
++    }
+   }
++);
+ 
+-  // ✅ Validate số điện thoại Việt Nam
+-  const vnPhoneRegex = /^(0)(3[2-9]|5[2689]|7[06-9]|8[1-9]|9[0-9])[0-9]{7}$/;
+-  if (!vnPhoneRegex.test(phone)) {
+-    return res.status(400).json({
+-      message: "Số điện thoại không hợp lệ. Vui lòng nhập số Việt Nam hợp lệ.",
+-    });
++// Logout: revoke refresh token and clear cookie
++router.post('/logout', authLimiter, async (req, res) => {
++  try {
++    const provided = req.cookies?.rt;
++    if (provided) {
++      const tokenHash = hashRefreshToken(provided);
++      const record = await RefreshToken.findOne({ where: { tokenHash } });
++      if (record && !record.revokedAt) {
++        record.revokedAt = new Date();
++        await record.save();
++      }
++    }
++    res.clearCookie('rt', { path: '/api/auth/refresh' });
++    res.json({ message: 'Đăng xuất thành công' });
++  } catch (err) {
++    logError('Logout error', err);
++    res.status(500).json({ message: 'Lỗi server khi đăng xuất.' });
+   }
++});
++
++// Reset mật khẩu
++router.post(
++  "/reset-password",
++  authLimiter,
++  validate({ body: resetPasswordSchema }),
++  async (req, res) => {
++    const { phone, verificationCode, newPassword } = req.body;
+ 
+   try {
+     const user = await User.findOne({ where: { phone } });
+@@ -172,23 +300,16 @@ router.post("/reset-password", async (req, res) => {
+     logError("Lỗi khi reset mật khẩu", err);
+     res.status(500).json({ message: "Lỗi server khi reset mật khẩu." });
+   }
+-});
+-
+-// Gửi OTP qua Email
+-router.post("/send-otp", async (req, res) => {
+-  const { phone } = req.body;
+-
+-  if (!phone) {
+-    return res.status(400).json({ message: "Vui lòng nhập số điện thoại." });
+   }
++);
+ 
+-  // ✅ Validate số điện thoại Việt Nam
+-  const vnPhoneRegex = /^(0)(3[2-9]|5[2689]|7[06-9]|8[1-9]|9[0-9])[0-9]{7}$/;
+-  if (!vnPhoneRegex.test(phone)) {
+-    return res.status(400).json({
+-      message: "Số điện thoại không hợp lệ. Vui lòng nhập số Việt Nam hợp lệ.",
+-    });
+-  }
++// Gửi OTP qua Email
++router.post(
++  "/send-otp",
++  otpLimiter,
++  validate({ body: sendOtpSchema }),
++  async (req, res) => {
++    const { phone } = req.body;
+ 
+   try {
+     const user = await User.findOne({ where: { phone } });
+@@ -208,14 +329,7 @@ router.post("/send-otp", async (req, res) => {
+ 
+     // Gửi Email qua Nodemailer
+     try {
+-      const nodemailer = require("nodemailer");
+-      const transporter = nodemailer.createTransport({
+-        service: "gmail",
+-        auth: {
+-          user: process.env.EMAIL_USER,
+-          pass: process.env.EMAIL_PASS,
+-        },
+-      });
++      const transporter = createTransporter();
+ 
+       const htmlContent = `
+         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f5f5f5;">
+@@ -247,28 +361,22 @@ router.post("/send-otp", async (req, res) => {
+         subject: "🔐 Mã Xác Thực Đặt Lại Mật Khẩu",
+         html: htmlContent,
+       });
+-
+-      console.log(
+-        `✅ Email gửi thành công tới ${user.email || process.env.EMAIL_TO}`
+-      );
+     } catch (emailError) {
+       console.error("❌ Lỗi khi gửi Email:", emailError.message);
+       // Tiếp tục xử lý ngay cả khi lỗi Email (OTP vẫn được lưu)
+     }
+ 
+-    // Phát triển: Log OTP để test
+-    console.log(`✅ OTP cho ${phone}: ${otp}`);
+-
+     res.json({
+       message: "Mã xác thực đã được gửi. Vui lòng kiểm tra email của bạn.",
+-      // ✅ Chỉ để dev, xoá ở production
+-      testOtp: process.env.NODE_ENV === "development" ? otp : undefined,
++      // ✅ Chỉ để dev, tuyệt đối không bật ở production
++      testOtp: process.env.NODE_ENV !== "production" ? otp : undefined,
+     });
+   } catch (err) {
+     console.error("❌ Lỗi khi gửi OTP:", err);
+     logError("Lỗi khi gửi OTP", err);
+     res.status(500).json({ message: "Lỗi server khi gửi OTP." });
+   }
+-});
++  }
++);
+ 
+ module.exports = router;
+diff --git a/backend/server.js b/backend/server.js
+index e02d169a..33892659 100644
+--- a/backend/server.js
++++ b/backend/server.js
+@@ -2,8 +2,15 @@ require("dotenv").config(); // ✅ Đặt đầu tiên
+ 
+ const express = require("express");
+ const cors = require("cors");
++const helmet = require('helmet');
++const rateLimit = require('express-rate-limit');
++const cookieParser = require('cookie-parser');
++const pinoHttp = require('pino-http');
+ const path = require("path");
+ 
++const { logger } = require('./logger');
++const { notFound, errorHandler } = require('./middlewares/errorHandler');
++
+ const app = express();
+ 
+ // ✅ MySQL (Sequelize) – chỉ require 1 lần
+@@ -20,6 +27,10 @@ require("./models/ReadingSubmission");
+ require("./models/ListeningSubmission");
+ require("./models/CambridgeListening");
+ require("./models/CambridgeReading");
++require("./models/RefreshToken");
++
++// ✅ Initialize associations (models/index.js)
++require('./models');
+ 
+ // ✅ Routes
+ const authRoutes = require('./routes/auth');
+@@ -33,7 +44,54 @@ const aiRoutes = require('./routes/ai');
+ const cambridgeRoutes = require('./routes/cambridgeTests'); // ✅ Cambridge tests
+ 
+ // Middleware
+-app.use(cors());
++app.use(
++  pinoHttp({
++    logger,
++    genReqId: (req, res) => {
++      const existing = req.headers['x-request-id'];
++      if (existing) return String(existing);
++      const id = (globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random()}`);
++      res.setHeader('X-Request-Id', id);
++      return id;
++    },
++    customLogLevel: function (_req, res, err) {
++      if (res.statusCode >= 500 || err) return 'error';
++      if (res.statusCode >= 400) return 'warn';
++      return 'info';
++    },
++    redact: ['req.headers.authorization', 'req.headers.cookie'],
++  })
++);
++
++app.use(helmet());
++app.use(cookieParser());
++
++const allowedOrigins = (process.env.FRONTEND_URL || '')
++  .split(',')
++  .map((s) => s.trim())
++  .filter(Boolean);
++
++app.use(
++  cors({
++    origin: function (origin, cb) {
++      // allow non-browser calls (no Origin)
++      if (!origin) return cb(null, true);
++      if (!allowedOrigins.length) return cb(null, true); // fallback for local/dev
++      return cb(null, allowedOrigins.includes(origin));
++    },
++    credentials: true,
++  })
++);
++
++app.use(
++  rateLimit({
++    windowMs: 60 * 1000,
++    limit: 600,
++    standardHeaders: 'draft-7',
++    legacyHeaders: false,
++  })
++);
++
+ app.use(express.json({ limit: '50mb' })); // Tăng limit để support base64 images
+ app.use(express.urlencoded({ limit: '50mb', extended: true }));
+ 
+@@ -51,11 +109,12 @@ app.use('/api/reading-tests', readingTestsRoute);
+ app.use('/api/reading-submissions', readingSubmissionRoutes);
+ app.use('/api/cambridge', cambridgeRoutes); // ✅ Cambridge tests (KET, PET, etc.)
+ 
+-// Debug route: return important env vars (useful to verify FRONTEND_URL)
+-app.get('/api/debug/env', (req, res) => {
+-  console.log(`ℹ️ /api/debug/env requested — FRONTEND_URL='${process.env.FRONTEND_URL || ''}'`);
+-  res.json({ FRONTEND_URL: process.env.FRONTEND_URL || null });
+-});
++// Debug route: verify FRONTEND_URL (development only)
++if (process.env.NODE_ENV !== 'production') {
++  app.get('/api/debug/env', (req, res) => {
++    res.json({ FRONTEND_URL: process.env.FRONTEND_URL || null });
++  });
++}
+ 
+ // Upload routes (images) - mount upload router
+ const uploadRoutes = require('./routes/upload');
+@@ -73,7 +132,7 @@ const PORT = process.env.PORT || 5000;
+ sequelize
+   .authenticate()
+   .then(() => {
+-    console.log("✅ MySQL connected");
++    logger.info('MySQL connected');
+ 
+     // If legacy/seed data contains orphaned `submissions.testId` values, MySQL will
+     // reject adding the FK during `sync({ alter: true })`. Clean them up first.
+@@ -96,12 +155,16 @@ sequelize
+     return sequelize.sync({ alter: true });
+   })
+   .then(() => {
+-    console.log("✅ Sequelize models synced");
++    logger.info('Sequelize models synced');
+     app.listen(PORT, () => {
+-      console.log(`✅ Server is running on port ${PORT}`);
++      logger.info({ port: PORT }, 'Server started');
+     });
+   })
+   .catch((err) => {
+-    console.error("❌ MySQL error:", err);
++    logger.error({ err }, 'MySQL error');
+     process.exit(1);
+   });
++
++// Centralized error handling (must be after routes)
++app.use(notFound);
++app.use(errorHandler);
+diff --git a/backend/tests/clozParser.test.js b/backend/tests/clozParser.test.js
+index dafa8e7d..41f20f1f 100644
+--- a/backend/tests/clozParser.test.js
++++ b/backend/tests/clozParser.test.js
+@@ -1,101 +1,62 @@
+-/**
+- * Test for clozParser normalizeQuestion function
+- * Ensures that 'answer' field is properly renamed to 'correctAnswer'
+- */
+-
+ const { normalizeQuestion, processTestParts } = require('../utils/clozParser');
+ 
+-// Test normalizeQuestion
+-const testQuestion1 = {
+-  index: 1,
+-  questionText: 'What is the answer?',
+-  answer: 'C',  // Old format
+-  options: ['A', 'B', 'C']
+-};
+-
+-const testQuestion2 = {
+-  index: 2,
+-  questionText: 'What is the correct answer?',
+-  correctAnswer: 'B',  // Already normalized
+-  options: ['A', 'B', 'C']
+-};
+-
+-const testQuestion3 = {
+-  index: 3,
+-  questionText: 'About',
+-  answer: 'about'  // String answer
+-};
+-
+-console.log('Testing normalizeQuestion...\n');
+-
+-const normalized1 = normalizeQuestion(testQuestion1);
+-console.log('Input (with answer field):', testQuestion1);
+-console.log('Output (normalized):', normalized1);
+-console.log('Has correctAnswer?', 'correctAnswer' in normalized1);
+-console.log('correctAnswer value:', normalized1.correctAnswer);
+-console.log('');
+-
+-const normalized2 = normalizeQuestion(testQuestion2);
+-console.log('Input (already normalized):', testQuestion2);
+-console.log('Output (unchanged):', normalized2);
+-console.log('');
+-
+-const normalized3 = normalizeQuestion(testQuestion3);
+-console.log('Input (string answer):', testQuestion3);
+-console.log('Output (normalized):', normalized3);
+-console.log('correctAnswer value:', normalized3.correctAnswer);
+-console.log('');
+-
+-// Test processTestParts
+-const testParts = [
+-  {
+-    partIndex: 0,
+-    sections: [
+-      {
+-        questionType: 'long-text-mc',
+-        questions: [
+-          {
+-            questionText: 'Q1',
+-            answer: 'A'  // Should be renamed
+-          },
+-          {
+-            questionText: 'Q2',
+-            answer: 'B'
+-          }
+-        ]
+-      }
+-    ]
+-  },
+-  {
+-    partIndex: 1,
+-    sections: [
+-      {
+-        questionType: 'cloze-test',
+-        questions: [
+-          {
+-            questionText: 'Q3',
+-            answer: 'about',
+-            passageText: 'Test (3) passage'
+-          }
+-        ]
+-      }
+-    ]
+-  }
+-];
+-
+-console.log('Testing processTestParts...\n');
+-const processedParts = processTestParts(testParts);
+-console.log('Processed Part 0, Section 0, Question 0:');
+-console.log(processedParts[0].sections[0].questions[0]);
+-console.log('');
+-
+-console.log('Processed Part 1, Section 0, Question 0:');
+-console.log(processedParts[1].sections[0].questions[0]);
+-console.log('');
+-
+-// Verify correctAnswer exists and answer doesn't
+-console.log('✅ Verification:');
+-console.log('Part 0 Q0 has correctAnswer:', 'correctAnswer' in processedParts[0].sections[0].questions[0]);
+-console.log('Part 0 Q0 has answer:', 'answer' in processedParts[0].sections[0].questions[0]);
+-console.log('Part 1 Q0 has correctAnswer:', 'correctAnswer' in processedParts[1].sections[0].questions[0]);
+-console.log('Part 1 Q0 has answer:', 'answer' in processedParts[1].sections[0].questions[0]);
++test("normalizeQuestion: renames 'answer' to 'correctAnswer'", () => {
++  const q = {
++    index: 1,
++    questionText: 'What is the answer?',
++    answer: 'C',
++    options: ['A', 'B', 'C'],
++  };
++
++  const normalized = normalizeQuestion(q);
++  expect(normalized.answer).toBeUndefined();
++  expect(normalized.correctAnswer).toBe('C');
++});
++
++test('normalizeQuestion: preserves existing correctAnswer', () => {
++  const q = {
++    index: 2,
++    questionText: 'What is the correct answer?',
++    correctAnswer: 'B',
++    options: ['A', 'B', 'C'],
++  };
++
++  const normalized = normalizeQuestion(q);
++  expect(normalized.correctAnswer).toBe('B');
++});
++
++test('processTestParts: normalizes questions across parts', () => {
++  const parts = [
++    {
++      partIndex: 0,
++      sections: [
++        {
++          questionType: 'long-text-mc',
++          questions: [
++            { questionText: 'Q1', answer: 'A' },
++            { questionText: 'Q2', answer: 'B' },
++          ],
++        },
++      ],
++    },
++    {
++      partIndex: 1,
++      sections: [
++        {
++          questionType: 'cloze-test',
++          questions: [
++            { questionText: 'Q3', answer: 'about', passageText: 'Test (3) passage' },
++          ],
++        },
++      ],
++    },
++  ];
++
++  const processed = processTestParts(parts);
++
++  expect(processed[0].sections[0].questions[0].answer).toBeUndefined();
++  expect(processed[0].sections[0].questions[0].correctAnswer).toBe('A');
++
++  expect(processed[1].sections[0].questions[0].answer).toBeUndefined();
++  expect(processed[1].sections[0].questions[0].correctAnswer).toBe('about');
++});
+diff --git a/backend/tests/readingScorer.test.js b/backend/tests/readingScorer.test.js
+index 256be41e..77965e60 100644
+--- a/backend/tests/readingScorer.test.js
++++ b/backend/tests/readingScorer.test.js
+@@ -26,12 +26,20 @@ const sampleTest = {
+ const answersAllCorrect = { q_1: 'A', q_2: 'B', q_3: 'C', q_4: 'D', q_5: 'A' };
+ const answersSome = { q_1: 'A', q_2: 'X', q_3: 'C', q_4: 'D', q_5: '' };
+ 
+-if (require.main === module) {
+-  // Simple run assertions
+-  const r1 = scoreReadingTest(sampleTest, answersAllCorrect);
+-  console.log('All correct =>', r1);
+-  const r2 = scoreReadingTest(sampleTest, answersSome);
+-  console.log('Some correct =>', r2);
+-}
++test('scoreReadingTest: counts total and correct (all correct)', () => {
++  const r = scoreReadingTest(sampleTest, answersAllCorrect);
++  expect(r.total).toBe(5);
++  expect(r.correct).toBe(5);
++});
+ 
+-module.exports = { sampleTest, answersAllCorrect, answersSome };
++test('scoreReadingTest: counts total and correct (some correct)', () => {
++  const r = scoreReadingTest(sampleTest, answersSome);
++  expect(r.total).toBe(5);
++  expect(r.correct).toBe(3);
++});
++
++test('bandFromCorrect: returns expected band thresholds', () => {
++  expect(bandFromCorrect(39)).toBe(9);
++  expect(bandFromCorrect(20)).toBe(5.5);
++  expect(bandFromCorrect(10)).toBe(4);
++});
+diff --git a/backend/utils/readingScorer.js b/backend/utils/readingScorer.js
+index 297a6b26..74c4d56e 100644
+--- a/backend/utils/readingScorer.js
++++ b/backend/utils/readingScorer.js
+@@ -332,6 +332,7 @@ function scoreReadingTest(testData, answers = {}) {
+ function getDetailedScoring(testData, answers = {}) {
+   const details = [];
+   let qCounter = 1;
++  let passageIndex = 0;
+ 
+   // Accept answers stored as a JSON string (root) or with nested stringified JSON values
+   const safeParse = (v) => {
+@@ -360,9 +361,11 @@ function getDetailedScoring(testData, answers = {}) {
+   }
+ 
+   for (const p of (testData.passages || [])) {
++    let questionIndexInPassage = 0;
+     const sections = p.sections || [{ questions: p.questions }];
+     for (const s of sections) {
+       for (const q of (s.questions || [])) {
++        const qIndex = questionIndexInPassage++;
+         const qType = (q.questionType || q.type || '').toLowerCase();
+         // Default row (include question text, headings and a short passage snippet for context)
+         const passageSnippet = (p.title || p.heading || p.passageText || p.text || '');
+@@ -502,7 +505,7 @@ function getDetailedScoring(testData, answers = {}) {
+               student: studentValStr,
+               expectedLabel,
+               studentLabel,
+-              isCorrect: expectedLabel && studentLabel && expectedLabel === studentLabel
++              isCorrect: Boolean(expectedLabel && studentLabel && expectedLabel === studentLabel)
+             });
+           }
+ 
+@@ -539,6 +542,13 @@ function getDetailedScoring(testData, answers = {}) {
+               const direct = answers[`${baseKey}_${bi}`];
+               if (direct !== undefined && direct !== null && String(direct).trim() !== '') return safeString(direct);
+ 
++              // 1b) frontend DoReadingTest style: <passageIndex>_<questionIndex>_<blankIndex>
++              const byPassageQuestion = answers[`${passageIndex}_${qIndex}_${bi}`];
++              if (byPassageQuestion !== undefined && byPassageQuestion !== null && String(byPassageQuestion).trim() !== '') return safeString(byPassageQuestion);
++
++              const byPassageQuestionPrefixed = answers[`q_${passageIndex}_${qIndex}_${bi}`];
++              if (byPassageQuestionPrefixed !== undefined && byPassageQuestionPrefixed !== null && String(byPassageQuestionPrefixed).trim() !== '') return safeString(byPassageQuestionPrefixed);
++
+               // check for single-blank stored as q_<base> (no suffix)
+               const directBase = answers[baseKey];
+               if (directBase !== undefined && directBase !== null && String(directBase).trim() !== '') return safeString(directBase);
+@@ -556,6 +566,8 @@ function getDetailedScoring(testData, answers = {}) {
+                 const keyStr = String(k);
+                 // Accept keys only when they include the baseNumber context and the blank index
+                 if ((new RegExp(`(^|_)q_${baseNumber}_${bi}($|_)`).test(keyStr)) || (keyStr.includes(`_${bi}`) && new RegExp(`(^|_)${baseNumber}(_|_)`).test(keyStr))) return safeString(val);
++                // Accept <passageIndex>_<questionIndex>_<blankIndex> (or with separators)
++                if (new RegExp(`(^|_)${passageIndex}(_|-)${qIndex}(_|-)+${bi}($|_)`).test(keyStr)) return safeString(val);
+                 // fallback: contains baseNumber alone (no blank index), use only as last resort
+                 if (new RegExp(`(^|_)${baseNumber}(_|$)`).test(keyStr)) return safeString(val);
+               }
+@@ -569,7 +581,7 @@ function getDetailedScoring(testData, answers = {}) {
+               const expectedRaw = (q.blanks && q.blanks[bi] && q.blanks[bi].correctAnswer) ? q.blanks[bi].correctAnswer : '';
+               const expectedVariants = String(expectedRaw).split(/\s*[|\/;,]\s*/).map(s => normalize(s)).filter(Boolean);
+               const studentNorm = normalize(studentRaw);
+-              const isCorrect = expectedVariants.length && studentNorm && expectedVariants.includes(studentNorm);
++              const isCorrect = Boolean(expectedVariants.length && studentNorm && expectedVariants.includes(studentNorm));
+               details.push({
+                 questionNumber: displayedQuestionNumber,
+                 paragraphId: null,
+@@ -616,7 +628,7 @@ function getDetailedScoring(testData, answers = {}) {
+                 student: studentRaw || '',
+                 expectedLabel,
+                 studentLabel,
+-                isCorrect: expectedLabel && studentLabel && expectedLabel === studentLabel
++                isCorrect: Boolean(expectedLabel && studentLabel && expectedLabel === studentLabel)
+               });
+             }
+           } else {
+@@ -634,7 +646,7 @@ function getDetailedScoring(testData, answers = {}) {
+               student: studentRaw || '',
+               expectedLabel,
+               studentLabel,
+-              isCorrect: expectedLabel && studentLabel && expectedLabel === studentLabel
++              isCorrect: Boolean(expectedLabel && studentLabel && expectedLabel === studentLabel)
+             });
+           }
+ 
+@@ -665,9 +677,11 @@ function getDetailedScoring(testData, answers = {}) {
+         // Multi-select: expand into per-answer rows so numbering matches UI (e.g., 23-24)
+         if (qType === 'multi-select') {
+           const key = `q_${qCounter}`;
++          const altKey = q.questionNumber ? `q_${q.questionNumber}` : null;
+           const rawStudentVal = answers[key];
++          const rawStudentAlt = altKey ? answers[altKey] : undefined;
+           const expectedTokens = normalizeMultiTokens(q.correctAnswer || q.answers || '', q.options || []);
+-          const studentTokens = normalizeMultiTokens(rawStudentVal, q.options || []);
++          const studentTokens = normalizeMultiTokens((rawStudentVal !== undefined ? rawStudentVal : rawStudentAlt), q.options || []);
+           const required = q.requiredAnswers || q.maxSelection || expectedTokens.length || studentTokens.length || 2;
+           const count = Math.max(required, expectedTokens.length || 0);
+ 
+@@ -698,7 +712,8 @@ function getDetailedScoring(testData, answers = {}) {
+         // Special handling for multiple-choice and sentence-completion where student may submit letters (A,B,...) or full text
+         if (qType === 'multiple-choice' || qType === 'sentence-completion') {
+           const key = `q_${qCounter}`;
+-          const rawStudentVal = answers[key];
++          const altKey = q.questionNumber ? `q_${q.questionNumber}` : null;
++          const rawStudentVal = (answers[key] !== undefined) ? answers[key] : (altKey ? answers[altKey] : undefined);
+           const studentVal = rawStudentVal === undefined || rawStudentVal === null ? '' : rawStudentVal;
+ 
+           let expectedRaw = q.correctAnswer || '';
+@@ -711,7 +726,7 @@ function getDetailedScoring(testData, answers = {}) {
+           rowCopy.expected = expectedRaw || '';
+           rowCopy.expectedLabel = expectedNorm;
+           rowCopy.studentLabel = studentNorm;
+-          rowCopy.isCorrect = expectedNorm && studentNorm && expectedNorm === studentNorm;
++          rowCopy.isCorrect = Boolean(expectedNorm && studentNorm && expectedNorm === studentNorm);
+           details.push(rowCopy);
+ 
+           qCounter++;
+@@ -720,7 +735,8 @@ function getDetailedScoring(testData, answers = {}) {
+ 
+         // default simple types
+         const key = `q_${qCounter}`;
+-        const rawStudentVal = answers[key];
++        const altKey = q.questionNumber ? `q_${q.questionNumber}` : null;
++        const rawStudentVal = (answers[key] !== undefined) ? answers[key] : (altKey ? answers[altKey] : undefined);
+         // ignore object-mappings (these are likely matching-heading maps), accept primitives/arrays only
+         const studentVal = (typeof rawStudentVal === 'object' && !Array.isArray(rawStudentVal)) ? '' : rawStudentVal;
+         row.student = safeString(studentVal);
+@@ -739,7 +755,7 @@ function getDetailedScoring(testData, answers = {}) {
+           const studentNorm = normalize(studentVal || '');
+           row.expectedLabel = expectedVariants.join(' | ');
+           row.studentLabel = studentNorm;
+-          row.isCorrect = (expectedVariants.length && studentNorm && expectedVariants.includes(studentNorm));
++          row.isCorrect = Boolean(expectedVariants.length && studentNorm && expectedVariants.includes(studentNorm));
+         } else if ((q.questionType || q.type) === 'multi-select') {
+           const expArr = normalizeMulti(q.correctAnswer || '');
+           const stuArr = normalizeMulti(studentVal);
+@@ -751,13 +767,15 @@ function getDetailedScoring(testData, answers = {}) {
+           const studentNorm = normalize(studentVal || '');
+           row.expectedLabel = expectedNorm;
+           row.studentLabel = studentNorm;
+-          row.isCorrect = expectedNorm && studentNorm && expectedNorm === studentNorm;
++          row.isCorrect = Boolean(expectedNorm && studentNorm && expectedNorm === studentNorm);
+         }
+         details.push(row);
+ 
+         qCounter++;
+       }
+     }
++
++    passageIndex++;
+   }
+ 
+   return details;
+diff --git a/backend/utils/AppError.js b/backend/utils/AppError.js
+new file mode 100644
+index 00000000..d75383c0
+--- /dev/null
++++ b/backend/utils/AppError.js
+@@ -0,0 +1,36 @@
++class AppError extends Error {
++  /**
++   * @param {object} opts
++   * @param {string} opts.code
++   * @param {string} opts.message
++   * @param {number} [opts.statusCode]
++   * @param {unknown} [opts.details]
++   * @param {boolean} [opts.isOperational]
++   */
++  constructor({ code, message, statusCode = 500, details, isOperational = true }) {
++    super(message);
++    this.name = 'AppError';
++    this.code = code;
++    this.statusCode = statusCode;
++    this.details = details;
++    this.isOperational = isOperational;
++  }
++
++  static badRequest(message = 'Bad request', details) {
++    return new AppError({ code: 'BAD_REQUEST', message, statusCode: 400, details });
++  }
++
++  static unauthorized(message = 'Unauthorized', details) {
++    return new AppError({ code: 'UNAUTHORIZED', message, statusCode: 401, details });
++  }
++
++  static forbidden(message = 'Forbidden', details) {
++    return new AppError({ code: 'FORBIDDEN', message, statusCode: 403, details });
++  }
++
++  static notFound(message = 'Not found', details) {
++    return new AppError({ code: 'NOT_FOUND', message, statusCode: 404, details });
++  }
++}
++
++module.exports = { AppError };

@@ -29,6 +29,11 @@ const CambridgeListening = sequelize.define('CambridgeListening', {
     allowNull: false,
     comment: 'ket-listening, pet-listening, flyers-listening, movers-listening, starters-listening'
   },
+  mainAudioUrl: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    comment: 'Global audio file URL for the entire listening test'
+  },
   parts: {
     type: DataTypes.JSON,
     allowNull: false,

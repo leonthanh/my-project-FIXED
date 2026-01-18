@@ -25,6 +25,81 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
   const availableTypes = getQuestionTypesForTest(testType);
   const isListeningTest = testType.includes('listening');
 
+  const normalizePeopleMatchingIds = useCallback((partsData) => {
+    if (!Array.isArray(partsData)) return partsData;
+
+    const isNumericId = (id) => typeof id === 'string' && /^\d+$/.test(id.trim());
+
+    const detectSectionType = (section) => {
+      const q0 = section?.questions?.[0];
+      return (
+        section?.questionType ||
+        q0?.questionType ||
+        q0?.type ||
+        (Array.isArray(q0?.people) ? 'people-matching' : '')
+      );
+    };
+
+    const mapNumericIdsToLetters = (texts) => {
+      const ids = (texts || []).map(t => String(t?.id || '').trim()).filter(Boolean);
+      if (ids.length === 0) return null;
+      if (!ids.every(isNumericId)) return null;
+      if (texts.length > 26) return null;
+
+      const uniqueSorted = Array.from(new Set(ids)).sort((a, b) => parseInt(a, 10) - parseInt(b, 10));
+      if (uniqueSorted.length > 26) return null;
+
+      const mapping = {};
+      for (let i = 0; i < uniqueSorted.length; i++) {
+        mapping[uniqueSorted[i]] = String.fromCharCode(65 + i);
+      }
+      return mapping;
+    };
+
+    const normalizeQuestion = (question) => {
+      const texts = Array.isArray(question?.texts) ? question.texts : [];
+      const mapping = mapNumericIdsToLetters(texts);
+      if (!mapping) return question;
+
+      const nextTexts = texts.map(t => {
+        const oldId = String(t?.id || '').trim();
+        const mapped = mapping[oldId];
+        return mapped ? { ...t, id: mapped } : t;
+      });
+
+      const answers = question?.answers && typeof question.answers === 'object' ? question.answers : {};
+      const nextAnswers = Object.fromEntries(
+        Object.entries(answers).map(([personId, chosenId]) => {
+          const chosen = String(chosenId || '').trim();
+          return [personId, mapping[chosen] || chosenId];
+        })
+      );
+
+      return { ...question, texts: nextTexts, answers: nextAnswers };
+    };
+
+    let changed = false;
+    const nextParts = partsData.map(part => {
+      const nextSections = (part?.sections || []).map(section => {
+        const sectionType = detectSectionType(section);
+        if (sectionType !== 'people-matching') return section;
+
+        const nextQuestions = (section?.questions || []).map(q => normalizeQuestion(q));
+        const sectionChanged = nextQuestions.some((q, idx) => q !== section.questions[idx]);
+        if (!sectionChanged) return section;
+        changed = true;
+        return { ...section, questions: nextQuestions };
+      });
+
+      const partChanged = nextSections.some((s, idx) => s !== part.sections?.[idx]);
+      if (!partChanged) return part;
+      changed = true;
+      return { ...part, sections: nextSections };
+    });
+
+    return changed ? nextParts : partsData;
+  }, []);
+
   const didResetDraftRef = useRef(false);
 
   useEffect(() => {
@@ -57,6 +132,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
   const [title, setTitle] = useState(savedData?.title || '');
   const [classCode, setClassCode] = useState(savedData?.classCode || '');
   const [teacherName, setTeacherName] = useState(savedData?.teacherName || '');
+  const [mainAudioUrl, setMainAudioUrl] = useState(savedData?.mainAudioUrl || '');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
   
@@ -67,7 +143,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
   // Initial parts from savedData or default
   const getInitialParts = () => {
     if (savedData?.parts && Array.isArray(savedData.parts)) {
-      return savedData.parts;
+      return normalizePeopleMatchingIds(savedData.parts);
     }
     return [
       {
@@ -92,6 +168,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
       setTitle(initialData.title || '');
       setClassCode(initialData.classCode || '');
       setTeacherName(initialData.teacherName || '');
+      setMainAudioUrl(initialData.mainAudioUrl || '');
 
       // parts may be stored as string in older records -> parse safely
       let partsData = initialData.parts;
@@ -105,10 +182,10 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
       }
 
       if (Array.isArray(partsData)) {
-        setParts(partsData);
+        setParts(normalizePeopleMatchingIds(partsData));
       }
     }
-  }, [initialData]);
+  }, [initialData, normalizePeopleMatchingIds]);
 
   // State - Load from savedData if available
   const [parts, setParts] = useState(getInitialParts());
@@ -128,6 +205,8 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
   // Audio upload state (listening only)
   const [uploadingAudioPartIndex, setUploadingAudioPartIndex] = useState(null);
   const [audioUploadError, setAudioUploadError] = useState('');
+  const [uploadingMainAudio, setUploadingMainAudio] = useState(false);
+  const [mainAudioUploadError, setMainAudioUploadError] = useState('');
 
   const currentPart = parts[selectedPartIndex];
   const currentSection = currentPart?.sections?.[selectedSectionIndex];
@@ -164,16 +243,61 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
 
       setParts(prev => {
         const next = [...prev];
-        next[partIndex] = {
-          ...next[partIndex],
-          audioUrl: url,
-        };
+        next[partIndex] = { ...next[partIndex], audioUrl: url };
+
+        // Teacher workflow: Cambridge/KET Listening usually uses ONE mp3 for the whole test.
+        // If user uploads audio to Part 1, reuse it for other parts that are still empty.
+        if (isListeningTest && partIndex === 0) {
+          for (let i = 0; i < next.length; i++) {
+            if (!next[i]?.audioUrl) {
+              next[i] = { ...next[i], audioUrl: url };
+            }
+          }
+        }
         return next;
       });
     } catch (err) {
       setAudioUploadError(err?.message || 'Lỗi khi upload audio');
     } finally {
       setUploadingAudioPartIndex(null);
+    }
+  };
+
+  const uploadMainAudio = async (file) => {
+    if (!file) return;
+
+    setMainAudioUploadError('');
+    setUploadingMainAudio(true);
+
+    try {
+      const formData = new FormData();
+      formData.append('audio', file);
+
+      const res = await fetch(apiPath('upload/audio'), {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!res.ok) {
+        let errMsg = 'Lỗi khi upload audio';
+        try {
+          const err = await res.json();
+          errMsg = err?.message || errMsg;
+        } catch {
+          // ignore
+        }
+        throw new Error(errMsg);
+      }
+
+      const data = await res.json();
+      const url = data?.url;
+      if (!url) throw new Error('Upload thành công nhưng không nhận được URL audio');
+
+      setMainAudioUrl(url);
+    } catch (err) {
+      setMainAudioUploadError(err?.message || 'Lỗi khi upload audio');
+    } finally {
+      setUploadingMainAudio(false);
     }
   };
 
@@ -198,13 +322,14 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
   };
 
   const handleAddPart = () => {
+    const inheritedAudioUrl = isListeningTest ? (mainAudioUrl ? '' : (parts?.[0]?.audioUrl || '')) : '';
     setParts([
       ...parts,
       {
         partNumber: parts.length + 1,
         title: `Part ${parts.length + 1}`,
         instruction: '',
-        audioUrl: '',
+        audioUrl: inheritedAudioUrl,
         sections: [
           {
             sectionTitle: '',
@@ -368,6 +493,10 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
     else if (section.questionType === 'people-matching' && section.questions[0]?.people) {
       return section.questions[0].people.length; // Usually 5
     }
+    // Gap Match (drag & drop): count left items
+    else if (section.questionType === 'gap-match' && section.questions[0]?.leftItems) {
+      return section.questions[0].leftItems.length;
+    }
     // Word Formation: đếm số sentences
     else if (section.questionType === 'word-form' && section.questions[0]?.sentences) {
       return section.questions[0].sentences.length;
@@ -386,6 +515,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
         title,
         classCode,
         teacherName,
+        mainAudioUrl,
         parts,
         testType,
       };
@@ -396,7 +526,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
       console.error('Error saving draft:', error);
       setIsSaving(false);
     }
-  }, [title, classCode, teacherName, parts, testType]);
+  }, [title, classCode, teacherName, mainAudioUrl, parts, testType]);
 
   // Auto save every 30 seconds and on page unload
   useEffect(() => {
@@ -434,6 +564,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
         classCode,
         teacherName,
         testType,
+        mainAudioUrl,
         parts,
         totalQuestions: parts.reduce(
           (sum, part) => sum + part.sections.reduce((sSum, sec) => sSum + getQuestionCountForSection(sec), 0),
@@ -799,6 +930,91 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
             </div>
           </div>
         </div>
+
+        {/* Global Audio (Listening only) */}
+        {isListeningTest && (
+          <div style={{
+            backgroundColor: 'white',
+            borderRadius: '8px',
+            padding: '12px 16px',
+            marginBottom: '12px',
+            boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+          }}>
+            <label style={{
+              display: 'block',
+              marginBottom: '8px',
+              fontWeight: 600,
+              color: '#374151',
+              fontSize: '13px',
+            }}>
+              🎧 Audio chung (toàn bài)
+            </label>
+
+            {mainAudioUrl ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <audio controls src={hostPath(mainAudioUrl)} style={{ width: '100%' }}>
+                  Your browser does not support audio.
+                </audio>
+                <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+                  <a
+                    href={hostPath(mainAudioUrl)}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{ color: '#2563eb', textDecoration: 'none', fontSize: '13px' }}
+                  >
+                    Mở file audio
+                  </a>
+                  <button
+                    type="button"
+                    onClick={() => setMainAudioUrl('')}
+                    style={{
+                      border: '1px solid #ef4444',
+                      background: 'white',
+                      color: '#ef4444',
+                      padding: '6px 10px',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      fontSize: '13px',
+                    }}
+                  >
+                    Xoá audio
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div style={{ fontSize: '13px', color: '#6b7280' }}>
+                Chưa có audio chung cho bài listening.
+              </div>
+            )}
+
+            <div style={{ marginTop: '12px' }}>
+              <input
+                type="file"
+                accept="audio/*"
+                disabled={uploadingMainAudio}
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  e.target.value = '';
+                  if (!file) return;
+                  await uploadMainAudio(file);
+                }}
+              />
+              {uploadingMainAudio && (
+                <div style={{ marginTop: '8px', fontSize: '12px', color: '#0e276f' }}>
+                  Đang upload audio...
+                </div>
+              )}
+              {mainAudioUploadError && (
+                <div style={{ marginTop: '8px', fontSize: '12px', color: '#ef4444' }}>
+                  ❌ {mainAudioUploadError}
+                </div>
+              )}
+              <div style={{ marginTop: '6px', fontSize: '11px', color: '#6b7280' }}>
+                💡 Audio chung sẽ phát xuyên suốt khi học sinh chuyển part.
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Current Part Editor */}
         {currentPart && (
