@@ -1,18 +1,39 @@
-const fs = require('fs');
 const path = require('path');
+const pino = require('pino');
 
-// Tạo hoặc ghi tiếp vào file error.log trong thư mục backend
-const logStream = fs.createWriteStream(path.join(__dirname, 'error.log'), { flags: 'a' });
+const isProd = process.env.NODE_ENV === 'production';
+
+// Structured JSON logs. In production, keep console logging (for containers) and also write to a file.
+// NOTE: pino destination creates the file if missing.
+const logger = pino(
+  {
+    level: process.env.LOG_LEVEL || (isProd ? 'info' : 'debug'),
+    redact: {
+      paths: [
+        'req.headers.authorization',
+        'req.headers.cookie',
+        'password',
+        '*.password',
+        'refreshToken',
+        '*.refreshToken',
+        'accessToken',
+        '*.accessToken',
+      ],
+      remove: true,
+    },
+  },
+  pino.multistream([
+    { stream: process.stdout },
+    { stream: pino.destination({ dest: path.join(__dirname, 'app.log'), sync: false }) },
+  ])
+);
 
 /**
- * Ghi lỗi vào file error.log với timestamp
- * @param {string} message - Mô tả lỗi
- * @param {Error|string} error - Đối tượng lỗi hoặc chuỗi lỗi
+ * Backward compatible API used across routes.
  */
 function logError(message, error) {
-  const timestamp = new Date().toISOString();
-  const errorMessage = error instanceof Error ? error.stack : error;
-  logStream.write(`[${timestamp}] ${message}: ${errorMessage}\n`);
+  const err = error instanceof Error ? error : new Error(String(error));
+  logger.error({ err }, message);
 }
 
-module.exports = { logError };
+module.exports = { logger, logError };

@@ -1,42 +1,127 @@
 const express = require("express");
 const router = express.Router();
 const nodemailer = require("nodemailer");
+const rateLimit = require('express-rate-limit');
+const { z } = require('zod');
 const User = require("../models/User"); // Sequelize model
+const RefreshToken = require('../models/RefreshToken');
 const { logError } = require("../logger"); // ✅ Import logger
+const { validate } = require('../middlewares/validate');
+const { AppError } = require('../utils/AppError');
+const { signAccessToken, generateRefreshToken, hashRefreshToken } = require('../utils/tokens');
 
 // ✅ Email OTP Configuration (Nodemailer + Gmail)
 // Hướng dẫn:
 // 1. Dùng Gmail: https://myaccount.google.com/apppasswords
 // 2. Tạo app password (16 ký tự)
 // 3. Thêm vào .env: EMAIL_USER và EMAIL_PASS
-const transporter = nodemailer.createTransport({
-  service: "gmail",
-  auth: {
-    user: process.env.EMAIL_USER || "stareduelt@gmail.com",
-    pass: process.env.EMAIL_PASS, // App password từ Google
-  },
-});
+function createTransporter() {
+  if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+    throw AppError.badRequest('Email OTP is not configured (EMAIL_USER/EMAIL_PASS missing)');
+  }
+  return nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+      user: process.env.EMAIL_USER,
+      pass: process.env.EMAIL_PASS,
+    },
+  });
+}
 
 // Lưu OTP tạm thời (trong thực tế nên dùng Redis)
 const otpStore = new Map();
+
+const authLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  limit: 50,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  handler: (_req, res) => {
+    res.status(429).json({ message: 'Quá nhiều yêu cầu. Vui lòng thử lại sau.' });
+  },
+});
+
+const otpLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  limit: 10,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  handler: (_req, res) => {
+    res.status(429).json({ message: 'Bạn đã yêu cầu OTP quá nhiều lần. Vui lòng thử lại sau.' });
+  },
+});
+
+function shouldReturnRefreshTokenInBody() {
+  if (process.env.AUTH_REFRESH_IN_BODY === 'true') return true;
+  return process.env.NODE_ENV !== 'production';
+}
+
+function setRefreshCookie(res, refreshToken) {
+  const isProd = process.env.NODE_ENV === 'production';
+  res.cookie('rt', refreshToken, {
+    httpOnly: true,
+    secure: isProd,
+    sameSite: 'lax',
+    path: '/api/auth/refresh',
+    maxAge: 30 * 24 * 60 * 60 * 1000,
+  });
+}
+
+async function issueTokens({ user, req, res }) {
+  const accessToken = signAccessToken({ userId: user.id, role: user.role });
+  const refreshToken = generateRefreshToken();
+
+  await RefreshToken.create({
+    userId: user.id,
+    tokenHash: hashRefreshToken(refreshToken),
+    expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+    userAgent: req.get('user-agent') || null,
+    ip: req.ip || req.connection?.remoteAddress || null,
+  });
+
+  setRefreshCookie(res, refreshToken);
+
+  return {
+    accessToken,
+    refreshToken: shouldReturnRefreshTokenInBody() ? refreshToken : undefined,
+  };
+}
+
+const vnPhoneRegex = /^(0)(3[2-9]|5[2689]|7[06-9]|8[1-9]|9[0-9])[0-9]{7}$/;
+
+const registerSchema = z.object({
+  name: z.string().min(1),
+  phone: z.string().regex(vnPhoneRegex),
+  email: z.string().email().optional().nullable(),
+  password: z.string().min(6),
+  role: z.enum(['student', 'teacher', 'admin']).optional(),
+});
+
+const loginSchema = z.object({
+  phone: z.string().regex(vnPhoneRegex),
+  password: z.string().min(1),
+});
+
+const resetPasswordSchema = z.object({
+  phone: z.string().regex(vnPhoneRegex),
+  verificationCode: z.string().min(4).max(10),
+  newPassword: z.string().min(6),
+});
+
+const sendOtpSchema = z.object({
+  phone: z.string().regex(vnPhoneRegex),
+});
+
+const refreshSchema = z.object({
+  refreshToken: z.string().min(10).optional(),
+});
 // Đăng ký
-router.post("/register", async (req, res) => {
-  const { name, phone, email, password, role } = req.body; // ✅ Thêm email
-
-  if (!name || !phone || !password) {
-    // ✅ Yêu cầu password khi đăng ký
-    return res.status(400).json({
-      message: "Vui lòng nhập đầy đủ họ tên, số điện thoại và mật khẩu.",
-    });
-  }
-
-  // ✅ Validate số điện thoại Việt Nam
-  const vnPhoneRegex = /^(0)(3[2-9]|5[2689]|7[06-9]|8[1-9]|9[0-9])[0-9]{7}$/;
-  if (!vnPhoneRegex.test(phone)) {
-    return res.status(400).json({
-      message: "Số điện thoại không hợp lệ. Vui lòng nhập số Việt Nam hợp lệ.",
-    });
-  }
+router.post(
+  "/register",
+  authLimiter,
+  validate({ body: registerSchema }),
+  async (req, res) => {
+    const { name, phone, email, password, role } = req.body; // ✅ Thêm email
 
   try {
     const existing = await User.findOne({ where: { phone } });
@@ -68,26 +153,16 @@ router.post("/register", async (req, res) => {
     logError("Lỗi khi đăng ký", err); // ✅ Ghi log vào error.log
     res.status(500).json({ message: "Lỗi server khi đăng ký." });
   }
-});
+  }
+);
 
 // Đăng nhập
-router.post("/login", async (req, res) => {
-  const { phone, password } = req.body; // ✅ Chỉ cần phone và password để đăng nhập
-
-  if (!phone || !password) {
-    // ✅ Yêu cầu phone và password
-    return res
-      .status(400)
-      .json({ message: "Vui lòng nhập đầy đủ số điện thoại và mật khẩu." });
-  }
-
-  // ✅ Validate số điện thoại Việt Nam
-  const vnPhoneRegex = /^(0)(3[2-9]|5[2689]|7[06-9]|8[1-9]|9[0-9])[0-9]{7}$/;
-  if (!vnPhoneRegex.test(phone)) {
-    return res.status(400).json({
-      message: "Số điện thoại không hợp lệ. Vui lòng nhập số Việt Nam hợp lệ.",
-    });
-  }
+router.post(
+  "/login",
+  authLimiter,
+  validate({ body: loginSchema }),
+  async (req, res) => {
+    const { phone, password } = req.body; // ✅ Chỉ cần phone và password để đăng nhập
 
   try {
     const user = await User.findOne({ where: { phone } });
@@ -110,29 +185,82 @@ router.post("/login", async (req, res) => {
     const userResponse = user.toJSON();
     delete userResponse.password;
 
-    res.json({ message: "Đăng nhập thành công", user: userResponse });
+    const tokens = await issueTokens({ user, req, res });
+
+    res.json({
+      message: "Đăng nhập thành công",
+      user: userResponse,
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+    });
   } catch (err) {
     console.error("❌ Lỗi khi đăng nhập:", err);
     logError("Lỗi khi đăng nhập", err); // ✅ Ghi log vào error.log
     res.status(500).json({ message: "Lỗi server khi đăng nhập." });
   }
+  }
+);
+
+// Refresh access token (rotating refresh token)
+router.post(
+  '/refresh',
+  authLimiter,
+  validate({ body: refreshSchema }),
+  async (req, res) => {
+    try {
+      const provided = req.cookies?.rt || req.body.refreshToken;
+      if (!provided) throw AppError.unauthorized('Missing refresh token');
+
+      const tokenHash = hashRefreshToken(provided);
+      const record = await RefreshToken.findOne({ where: { tokenHash } });
+
+      if (!record || record.revokedAt) throw AppError.unauthorized('Invalid refresh token');
+      if (new Date(record.expiresAt).getTime() <= Date.now()) throw AppError.unauthorized('Refresh token expired');
+
+      // rotate
+      record.revokedAt = new Date();
+      await record.save();
+
+      const user = await User.findByPk(record.userId);
+      if (!user) throw AppError.unauthorized('User not found');
+
+      const tokens = await issueTokens({ user, req, res });
+      res.json({ accessToken: tokens.accessToken, refreshToken: tokens.refreshToken });
+    } catch (err) {
+      const appErr = err instanceof AppError ? err : AppError.unauthorized('Cannot refresh token');
+      logError('Refresh token error', err);
+      res.status(appErr.statusCode).json({ message: appErr.message });
+    }
+  }
+);
+
+// Logout: revoke refresh token and clear cookie
+router.post('/logout', authLimiter, async (req, res) => {
+  try {
+    const provided = req.cookies?.rt;
+    if (provided) {
+      const tokenHash = hashRefreshToken(provided);
+      const record = await RefreshToken.findOne({ where: { tokenHash } });
+      if (record && !record.revokedAt) {
+        record.revokedAt = new Date();
+        await record.save();
+      }
+    }
+    res.clearCookie('rt', { path: '/api/auth/refresh' });
+    res.json({ message: 'Đăng xuất thành công' });
+  } catch (err) {
+    logError('Logout error', err);
+    res.status(500).json({ message: 'Lỗi server khi đăng xuất.' });
+  }
 });
 
 // Reset mật khẩu
-router.post("/reset-password", async (req, res) => {
-  const { phone, verificationCode, newPassword } = req.body;
-
-  if (!phone || !verificationCode || !newPassword) {
-    return res.status(400).json({ message: "Vui lòng nhập đầy đủ thông tin." });
-  }
-
-  // ✅ Validate số điện thoại Việt Nam
-  const vnPhoneRegex = /^(0)(3[2-9]|5[2689]|7[06-9]|8[1-9]|9[0-9])[0-9]{7}$/;
-  if (!vnPhoneRegex.test(phone)) {
-    return res.status(400).json({
-      message: "Số điện thoại không hợp lệ. Vui lòng nhập số Việt Nam hợp lệ.",
-    });
-  }
+router.post(
+  "/reset-password",
+  authLimiter,
+  validate({ body: resetPasswordSchema }),
+  async (req, res) => {
+    const { phone, verificationCode, newPassword } = req.body;
 
   try {
     const user = await User.findOne({ where: { phone } });
@@ -172,23 +300,16 @@ router.post("/reset-password", async (req, res) => {
     logError("Lỗi khi reset mật khẩu", err);
     res.status(500).json({ message: "Lỗi server khi reset mật khẩu." });
   }
-});
+  }
+);
 
 // Gửi OTP qua Email
-router.post("/send-otp", async (req, res) => {
-  const { phone } = req.body;
-
-  if (!phone) {
-    return res.status(400).json({ message: "Vui lòng nhập số điện thoại." });
-  }
-
-  // ✅ Validate số điện thoại Việt Nam
-  const vnPhoneRegex = /^(0)(3[2-9]|5[2689]|7[06-9]|8[1-9]|9[0-9])[0-9]{7}$/;
-  if (!vnPhoneRegex.test(phone)) {
-    return res.status(400).json({
-      message: "Số điện thoại không hợp lệ. Vui lòng nhập số Việt Nam hợp lệ.",
-    });
-  }
+router.post(
+  "/send-otp",
+  otpLimiter,
+  validate({ body: sendOtpSchema }),
+  async (req, res) => {
+    const { phone } = req.body;
 
   try {
     const user = await User.findOne({ where: { phone } });
@@ -208,14 +329,7 @@ router.post("/send-otp", async (req, res) => {
 
     // Gửi Email qua Nodemailer
     try {
-      const nodemailer = require("nodemailer");
-      const transporter = nodemailer.createTransport({
-        service: "gmail",
-        auth: {
-          user: process.env.EMAIL_USER,
-          pass: process.env.EMAIL_PASS,
-        },
-      });
+      const transporter = createTransporter();
 
       const htmlContent = `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f5f5f5;">
@@ -247,28 +361,22 @@ router.post("/send-otp", async (req, res) => {
         subject: "🔐 Mã Xác Thực Đặt Lại Mật Khẩu",
         html: htmlContent,
       });
-
-      console.log(
-        `✅ Email gửi thành công tới ${user.email || process.env.EMAIL_TO}`
-      );
     } catch (emailError) {
       console.error("❌ Lỗi khi gửi Email:", emailError.message);
       // Tiếp tục xử lý ngay cả khi lỗi Email (OTP vẫn được lưu)
     }
 
-    // Phát triển: Log OTP để test
-    console.log(`✅ OTP cho ${phone}: ${otp}`);
-
     res.json({
       message: "Mã xác thực đã được gửi. Vui lòng kiểm tra email của bạn.",
-      // ✅ Chỉ để dev, xoá ở production
-      testOtp: process.env.NODE_ENV === "development" ? otp : undefined,
+      // ✅ Chỉ để dev, tuyệt đối không bật ở production
+      testOtp: process.env.NODE_ENV !== "production" ? otp : undefined,
     });
   } catch (err) {
     console.error("❌ Lỗi khi gửi OTP:", err);
     logError("Lỗi khi gửi OTP", err);
     res.status(500).json({ message: "Lỗi server khi gửi OTP." });
   }
-});
+  }
+);
 
 module.exports = router;

@@ -39,12 +39,12 @@ Tạo file `backend/.env` với nội dung:
 DB_HOST=localhost
 DB_NAME=wsxcblqh_ix
 DB_USER=wsxcblqh_thanh
-DB_PASS=@Thanh562184
+DB_PASS=
 NODE_ENV=development
 PORT=5000
 EMAIL_USER=stareduelt@gmail.com
-EMAIL_PASS=xrrz fqwq xwdc hujb
-EMAIL_TO=thanhlh@siec-star.edu.vn
+EMAIL_PASS=
+EMAIL_TO=
 REACT_APP_API_URL=http://localhost:5000
 GEMINI_API_KEY=AIzaSyCNdfCuSNp6pG5281BxfP30ElK8oHDzob0
 OPENAI_API_KEY=your_openai_api_key_here

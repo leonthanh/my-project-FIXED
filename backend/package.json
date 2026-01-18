@@ -4,7 +4,8 @@
   "main": "server.js",
   "scripts": {
     "dev": "cross-env NODE_ENV=development nodemon server.js",
-    "start": "cross-env NODE_ENV=development node server.js"
+    "start": "cross-env NODE_ENV=production node server.js",
+    "test": "jest --runInBand"
   },
   "keywords": [],
   "author": "",
@@ -14,20 +15,35 @@
     "@ckeditor/ckeditor5-build-classic": "^41.4.2",
     "@ckeditor/ckeditor5-react": "^11.0.0",
     "bcryptjs": "^3.0.2",
+    "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "cross-env": "^10.1.0",
     "dotenv": "^17.2.0",
     "express": "^5.1.0",
+    "express-rate-limit": "^7.5.1",
+    "helmet": "^8.1.0",
+    "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.16.1",
     "multer": "^2.0.2",
     "mysql2": "^3.14.3",
     "nodemailer": "^7.0.11",
     "openai": "^5.12.2",
+    "pino": "^9.9.0",
+    "pino-http": "^10.5.0",
     "react-split": "^2.0.14",
-    "sequelize": "^6.37.7"
+    "sequelize": "^6.37.7",
+    "zod": "^3.25.76"
   },
   "devDependencies": {
     "@types/node": "^24.0.15",
-    "mocha": "^11.7.5"
+    "jest": "^30.0.5",
+    "mocha": "^11.7.5",
+    "supertest": "^7.1.4"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "testMatch": [
+      "**/tests/**/*.test.js"
+    ]
   }
 }

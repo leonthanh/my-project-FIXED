@@ -2,7 +2,14 @@ require("dotenv").config(); // ✅ Đặt đầu tiên
 
 const express = require("express");
 const cors = require("cors");
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
+const cookieParser = require('cookie-parser');
+const pinoHttp = require('pino-http');
 const path = require("path");
+
+const { logger } = require('./logger');
+const { notFound, errorHandler } = require('./middlewares/errorHandler');
 
 const app = express();
 
@@ -20,6 +27,10 @@ require("./models/ReadingSubmission");
 require("./models/ListeningSubmission");
 require("./models/CambridgeListening");
 require("./models/CambridgeReading");
+require("./models/RefreshToken");
+
+// ✅ Initialize associations (models/index.js)
+require('./models');
 
 // ✅ Routes
 const authRoutes = require('./routes/auth');
@@ -33,7 +44,54 @@ const aiRoutes = require('./routes/ai');
 const cambridgeRoutes = require('./routes/cambridgeTests'); // ✅ Cambridge tests
 
 // Middleware
-app.use(cors());
+app.use(
+  pinoHttp({
+    logger,
+    genReqId: (req, res) => {
+      const existing = req.headers['x-request-id'];
+      if (existing) return String(existing);
+      const id = (globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random()}`);
+      res.setHeader('X-Request-Id', id);
+      return id;
+    },
+    customLogLevel: function (_req, res, err) {
+      if (res.statusCode >= 500 || err) return 'error';
+      if (res.statusCode >= 400) return 'warn';
+      return 'info';
+    },
+    redact: ['req.headers.authorization', 'req.headers.cookie'],
+  })
+);
+
+app.use(helmet());
+app.use(cookieParser());
+
+const allowedOrigins = (process.env.FRONTEND_URL || '')
+  .split(',')
+  .map((s) => s.trim())
+  .filter(Boolean);
+
+app.use(
+  cors({
+    origin: function (origin, cb) {
+      // allow non-browser calls (no Origin)
+      if (!origin) return cb(null, true);
+      if (!allowedOrigins.length) return cb(null, true); // fallback for local/dev
+      return cb(null, allowedOrigins.includes(origin));
+    },
+    credentials: true,
+  })
+);
+
+app.use(
+  rateLimit({
+    windowMs: 60 * 1000,
+    limit: 600,
+    standardHeaders: 'draft-7',
+    legacyHeaders: false,
+  })
+);
+
 app.use(express.json({ limit: '50mb' })); // Tăng limit để support base64 images
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
@@ -51,11 +109,12 @@ app.use('/api/reading-tests', readingTestsRoute);
 app.use('/api/reading-submissions', readingSubmissionRoutes);
 app.use('/api/cambridge', cambridgeRoutes); // ✅ Cambridge tests (KET, PET, etc.)
 
-// Debug route: return important env vars (useful to verify FRONTEND_URL)
-app.get('/api/debug/env', (req, res) => {
-  console.log(`ℹ️ /api/debug/env requested — FRONTEND_URL='${process.env.FRONTEND_URL || ''}'`);
-  res.json({ FRONTEND_URL: process.env.FRONTEND_URL || null });
-});
+// Debug route: verify FRONTEND_URL (development only)
+if (process.env.NODE_ENV !== 'production') {
+  app.get('/api/debug/env', (req, res) => {
+    res.json({ FRONTEND_URL: process.env.FRONTEND_URL || null });
+  });
+}
 
 // Upload routes (images) - mount upload router
 const uploadRoutes = require('./routes/upload');
@@ -73,7 +132,7 @@ const PORT = process.env.PORT || 5000;
 sequelize
   .authenticate()
   .then(() => {
-    console.log("✅ MySQL connected");
+    logger.info('MySQL connected');
 
     // If legacy/seed data contains orphaned `submissions.testId` values, MySQL will
     // reject adding the FK during `sync({ alter: true })`. Clean them up first.
@@ -96,12 +155,16 @@ sequelize
     return sequelize.sync({ alter: true });
   })
   .then(() => {
-    console.log("✅ Sequelize models synced");
+    logger.info('Sequelize models synced');
     app.listen(PORT, () => {
-      console.log(`✅ Server is running on port ${PORT}`);
+      logger.info({ port: PORT }, 'Server started');
     });
   })
   .catch((err) => {
-    console.error("❌ MySQL error:", err);
+    logger.error({ err }, 'MySQL error');
     process.exit(1);
   });
+
+// Centralized error handling (must be after routes)
+app.use(notFound);
+app.use(errorHandler);

@@ -26,12 +26,20 @@ const sampleTest = {
 const answersAllCorrect = { q_1: 'A', q_2: 'B', q_3: 'C', q_4: 'D', q_5: 'A' };
 const answersSome = { q_1: 'A', q_2: 'X', q_3: 'C', q_4: 'D', q_5: '' };
 
-if (require.main === module) {
-  // Simple run assertions
-  const r1 = scoreReadingTest(sampleTest, answersAllCorrect);
-  console.log('All correct =>', r1);
-  const r2 = scoreReadingTest(sampleTest, answersSome);
-  console.log('Some correct =>', r2);
-}
+test('scoreReadingTest: counts total and correct (all correct)', () => {
+  const r = scoreReadingTest(sampleTest, answersAllCorrect);
+  expect(r.total).toBe(5);
+  expect(r.correct).toBe(5);
+});
 
-module.exports = { sampleTest, answersAllCorrect, answersSome };
+test('scoreReadingTest: counts total and correct (some correct)', () => {
+  const r = scoreReadingTest(sampleTest, answersSome);
+  expect(r.total).toBe(5);
+  expect(r.correct).toBe(3);
+});
+
+test('bandFromCorrect: returns expected band thresholds', () => {
+  expect(bandFromCorrect(39)).toBe(9);
+  expect(bandFromCorrect(20)).toBe(5.5);
+  expect(bandFromCorrect(10)).toBe(4);
+});
