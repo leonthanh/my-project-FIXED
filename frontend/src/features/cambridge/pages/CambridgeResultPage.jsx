@@ -165,6 +165,56 @@ const CambridgeResultPage = () => {
     return String(questionNum);
   };
 
+  const getSectionType = (section) => {
+    const q0 = section?.questions?.[0] || {};
+    return (
+      section?.questionType ||
+      q0?.questionType ||
+      q0?.type ||
+      (Array.isArray(q0?.people) ? 'people-matching' : '') ||
+      (Array.isArray(q0?.leftItems) ? 'gap-match' : '') ||
+      (Array.isArray(q0?.sentences) ? 'word-form' : '') ||
+      ''
+    );
+  };
+
+  const parseClozeBlanks = (passageText, startNum = 1) => {
+    if (!passageText) return [];
+    let plainText = passageText;
+    if (typeof document !== 'undefined') {
+      const temp = document.createElement('div');
+      temp.innerHTML = passageText;
+      plainText = temp.textContent || temp.innerText || passageText;
+    } else {
+      plainText = String(passageText).replace(/<[^>]*>/g, ' ');
+    }
+
+    const blanks = [];
+    const numbered = /\((\d+)\)|\[(\d+)\]/g;
+    let match;
+    while ((match = numbered.exec(plainText)) !== null) {
+      const num = parseInt(match[1] || match[2], 10);
+      blanks.push({ questionNum: num, fullMatch: match[0], index: match.index });
+    }
+
+    if (blanks.length > 0) {
+      return blanks.sort((a, b) => a.questionNum - b.questionNum);
+    }
+
+    const underscorePattern = /[_…]{3,}/g;
+    let blankIndex = 0;
+    while ((match = underscorePattern.exec(plainText)) !== null) {
+      blanks.push({
+        questionNum: startNum + blankIndex,
+        fullMatch: match[0],
+        index: match.index,
+      });
+      blankIndex++;
+    }
+
+    return blanks;
+  };
+
   // Calculate stats
   const stats = useMemo(() => {
     if (!submission) return null;
@@ -213,43 +263,88 @@ const CambridgeResultPage = () => {
 
     test.parts?.forEach((part, partIdx) => {
       part.sections?.forEach((section, secIdx) => {
+        const sectionType = getSectionType(section);
+
         section.questions?.forEach((question, qIdx) => {
-          // Handle long-text-mc with nested questions
-          if (section.questionType === 'long-text-mc' && question.questions && Array.isArray(question.questions)) {
+          if (sectionType === 'long-text-mc' && question.questions && Array.isArray(question.questions)) {
             question.questions.forEach((nestedQ, nestedIdx) => {
               const key = `${partIdx}-${secIdx}-${qIdx}-${nestedIdx}`;
               const legacyKey = `${partIdx}-${secIdx}-${nestedIdx}`;
               map[key] = questionNum + 1;
-              map[legacyKey] = questionNum + 1; // backward compatibility
+              map[legacyKey] = questionNum + 1;
               questionNum++;
             });
+            return;
           }
-          // Handle cloze-mc with blanks
-          else if (section.questionType === 'cloze-mc' && question.blanks && Array.isArray(question.blanks)) {
+
+          if (sectionType === 'cloze-mc' && question.blanks && Array.isArray(question.blanks)) {
             question.blanks.forEach((blank, blankIdx) => {
               const key = `${partIdx}-${secIdx}-${qIdx}-${blankIdx}`;
               const legacyKey = `${partIdx}-${secIdx}-${blankIdx}`;
               map[key] = questionNum + 1;
-              map[legacyKey] = questionNum + 1; // backward compatibility
+              map[legacyKey] = questionNum + 1;
               questionNum++;
             });
+            return;
           }
-          // Handle cloze-test with blanks
-          else if (section.questionType === 'cloze-test' && question.blanks && Array.isArray(question.blanks)) {
-            question.blanks.forEach((blank, blankIdx) => {
-              const key = `${partIdx}-${secIdx}-${qIdx}-${blankIdx}`;
-              const legacyKey = `${partIdx}-${secIdx}-${blankIdx}`;
+
+          if (sectionType === 'cloze-test') {
+            const passageText = question?.passageText || question?.passage || '';
+            const blanks = Array.isArray(question?.blanks) && question.blanks.length > 0
+              ? question.blanks
+              : parseClozeBlanks(passageText, questionNum + 1);
+
+            if (Array.isArray(blanks) && blanks.length > 0) {
+              blanks.forEach((blank, blankIdx) => {
+                const key = `${partIdx}-${secIdx}-${qIdx}-${blankIdx}`;
+                const legacyKey = `${partIdx}-${secIdx}-${blankIdx}`;
+                const explicitNum = Number(blank?.questionNum);
+                const assignedNum = Number.isFinite(explicitNum) ? explicitNum : questionNum + 1;
+                map[key] = assignedNum;
+                map[legacyKey] = assignedNum;
+                questionNum = Math.max(questionNum + 1, assignedNum);
+              });
+              return;
+            }
+          }
+
+          if (sectionType === 'people-matching' && Array.isArray(question.people)) {
+            question.people.forEach((person, personIdx) => {
+              const pid = person?.id || String.fromCharCode(65 + personIdx);
+              const key = `${partIdx}-${secIdx}-${qIdx}-${pid}`;
+              const legacyKey = `${partIdx}-${secIdx}-${pid}`;
               map[key] = questionNum + 1;
-              map[legacyKey] = questionNum + 1; // backward compatibility
+              map[legacyKey] = questionNum + 1;
               questionNum++;
             });
+            return;
           }
-          // Regular question
-          else {
-            const key = `${partIdx}-${secIdx}-${qIdx}`;
-            map[key] = questionNum + 1;
-            questionNum++;
+
+          if (sectionType === 'gap-match' && Array.isArray(question.leftItems)) {
+            question.leftItems.forEach((_, itemIdx) => {
+              const key = `${partIdx}-${secIdx}-${qIdx}-${itemIdx}`;
+              const legacyKey = `${partIdx}-${secIdx}-${itemIdx}`;
+              map[key] = questionNum + 1;
+              map[legacyKey] = questionNum + 1;
+              questionNum++;
+            });
+            return;
           }
+
+          if (sectionType === 'word-form' && Array.isArray(question.sentences)) {
+            question.sentences.forEach((s, sentIdx) => {
+              const key = `${partIdx}-${secIdx}-${qIdx}-${sentIdx}`;
+              const legacyKey = `${partIdx}-${secIdx}-${sentIdx}`;
+              map[key] = questionNum + 1;
+              map[legacyKey] = questionNum + 1;
+              questionNum++;
+            });
+            return;
+          }
+
+          const key = `${partIdx}-${secIdx}-${qIdx}`;
+          map[key] = questionNum + 1;
+          questionNum++;
         });
       });
     });
@@ -702,7 +797,9 @@ const CambridgeResultPage = () => {
 
                 {expandedParts[partIdx] && (
                   <div style={styles.partContent}>
-                    {part.sections?.map((section, secIdx) => (
+                    {part.sections?.map((section, secIdx) => {
+                      const sectionType = getSectionType(section);
+                      return (
                       <div key={secIdx} style={styles.sectionBlock}>
                         {section.sectionTitle && (
                           <div style={styles.sectionTitle}>{section.sectionTitle}</div>
@@ -710,7 +807,7 @@ const CambridgeResultPage = () => {
                         
                         {section.questions?.map((question, qIdx) => {
                           // Handle long-text-mc with nested questions
-                          if (section.questionType === 'long-text-mc' && question.questions && Array.isArray(question.questions)) {
+                          if (sectionType === 'long-text-mc' && question.questions && Array.isArray(question.questions)) {
                             return (
                               <React.Fragment key={`section-${qIdx}`}>
                                 {question.questions.map((nestedQ, nestedIdx) => {
@@ -774,22 +871,160 @@ const CambridgeResultPage = () => {
                               </React.Fragment>
                             );
                           }
+                          // Handle people-matching
+                          else if (sectionType === 'people-matching' && Array.isArray(question.people)) {
+                            const people = question.people || [];
+                            const correctMap = question.answers && typeof question.answers === 'object' ? question.answers : {};
+                            return (
+                              <React.Fragment key={`section-${qIdx}`}>
+                                {people.map((person, personIdx) => {
+                                  const pid = person?.id || String.fromCharCode(65 + personIdx);
+                                  const key = `${partIdx}-${secIdx}-${qIdx}-${pid}`;
+                                  const result = getDetailedResult(key, `${partIdx}-${secIdx}-${pid}`) || {};
+                                  const questionNum = questionNumberMap[key];
+                                  const label = questionNum ? formatQuestionLabel(questionNum) : '?';
+                                  const status = getResultStatus(result);
+                                  const correctAnswer = correctMap?.[pid] ?? result.correctAnswer;
+
+                                  return (
+                                    <div
+                                      key={key}
+                                      style={{
+                                        ...styles.questionReviewCard,
+                                        borderLeftColor: status.color,
+                                      }}
+                                    >
+                                      <div style={styles.questionReviewHeader}>
+                                        <span style={{
+                                          ...styles.questionNum,
+                                          backgroundColor: status.color
+                                        }}>
+                                          {label}
+                                        </span>
+                                        <span style={styles.questionStatus}>{status.label}</span>
+                                      </div>
+
+                                      <div style={styles.questionText}>
+                                        {person?.name ? `${pid}. ${person.name}` : `Person ${pid}`}
+                                      </div>
+
+                                      <div style={styles.answersCompare}>
+                                        <div style={styles.answerRow}>
+                                          <span style={styles.answerLabel}>Câu trả lời của bạn:</span>
+                                          <span style={{
+                                            ...styles.answerValue,
+                                            color: status.text,
+                                            backgroundColor: status.bg
+                                          }}>
+                                            {result.userAnswer || '(Không trả lời)'}
+                                          </span>
+                                        </div>
+                                        {canShowCorrectAnswer({ ...result, correctAnswer }) && (
+                                          <div style={styles.answerRow}>
+                                            <span style={styles.answerLabel}>Đáp án đúng:</span>
+                                            <span style={{
+                                              ...styles.answerValue,
+                                              color: '#166534',
+                                              backgroundColor: '#dcfce7'
+                                            }}>
+                                              {correctAnswer}
+                                            </span>
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </React.Fragment>
+                            );
+                          }
+                          // Handle gap-match (drag & drop matching)
+                          else if (sectionType === 'gap-match' && Array.isArray(question.leftItems)) {
+                            const leftItems = question.leftItems || [];
+                            const correctList = Array.isArray(question.correctAnswers) ? question.correctAnswers : [];
+                            return (
+                              <React.Fragment key={`section-${qIdx}`}>
+                                {leftItems.map((item, itemIdx) => {
+                                  const key = `${partIdx}-${secIdx}-${qIdx}-${itemIdx}`;
+                                  const result = getDetailedResult(key, `${partIdx}-${secIdx}-${itemIdx}`) || {};
+                                  const questionNum = questionNumberMap[key];
+                                  const label = questionNum ? formatQuestionLabel(questionNum) : '?';
+                                  const status = getResultStatus(result);
+                                  const correctAnswer = correctList[itemIdx] ?? result.correctAnswer;
+
+                                  return (
+                                    <div
+                                      key={key}
+                                      style={{
+                                        ...styles.questionReviewCard,
+                                        borderLeftColor: status.color
+                                      }}
+                                    >
+                                      <div style={styles.questionReviewHeader}>
+                                        <span style={{
+                                          ...styles.questionNum,
+                                          backgroundColor: status.color
+                                        }}>
+                                          {label}
+                                        </span>
+                                        <span style={styles.questionStatus}>{status.label}</span>
+                                      </div>
+
+                                      <div style={styles.questionText}>
+                                        {item || 'Question'}
+                                      </div>
+
+                                      <div style={styles.answersCompare}>
+                                        <div style={styles.answerRow}>
+                                          <span style={styles.answerLabel}>Câu trả lời của bạn:</span>
+                                          <span style={{
+                                            ...styles.answerValue,
+                                            color: status.text,
+                                            backgroundColor: status.bg
+                                          }}>
+                                            {result.userAnswer || '(Không trả lời)'}
+                                          </span>
+                                        </div>
+                                        {canShowCorrectAnswer({ ...result, correctAnswer }) && (
+                                          <div style={styles.answerRow}>
+                                            <span style={styles.answerLabel}>Đáp án đúng:</span>
+                                            <span style={{
+                                              ...styles.answerValue,
+                                              color: '#166534',
+                                              backgroundColor: '#dcfce7'
+                                            }}>
+                                              {correctAnswer}
+                                            </span>
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </React.Fragment>
+                            );
+                          }
                           // Handle cloze-test: show full passage with inline blanks
-                          else if (section.questionType === 'cloze-test') {
+                          else if (sectionType === 'cloze-test') {
                             const passageText = question.passageText || question.passage || '';
+                            const firstKey = `${partIdx}-${secIdx}-${qIdx}-0`;
+                            const startNum = Number(questionNumberMap[firstKey]) || 1;
+                            const derivedBlanks = Array.isArray(question?.blanks) && question.blanks.length > 0
+                              ? question.blanks
+                              : parseClozeBlanks(passageText, startNum);
                             const rendered = renderClozeTestPassageWithResults({
                               passageText,
-                              blanks: question.blanks,
+                              blanks: derivedBlanks,
                               partIdx,
                               secIdx,
                               qIdx,
                             });
 
                             // Fallback to old per-blank cards if passage can't be rendered
-                            if (!rendered && question.blanks && Array.isArray(question.blanks)) {
+                            if (!rendered && derivedBlanks && Array.isArray(derivedBlanks)) {
                               return (
                                 <React.Fragment key={`section-${qIdx}`}>
-                                  {question.blanks.map((blank, blankIdx) => {
+                                  {derivedBlanks.map((blank, blankIdx) => {
                                     const key = `${partIdx}-${secIdx}-${qIdx}-${blankIdx}`;
                                     const result = getDetailedResult(key, `${partIdx}-${secIdx}-${blankIdx}`) || {};
                                     const questionNum = questionNumberMap[key];
@@ -861,7 +1096,7 @@ const CambridgeResultPage = () => {
                             );
                           }
                           // Handle cloze-mc and cloze-test with blanks
-                          else if (section.questionType === 'cloze-mc' && 
+                          else if (sectionType === 'cloze-mc' && 
                                    question.blanks && Array.isArray(question.blanks)) {
                             return (
                               <React.Fragment key={`section-${qIdx}`}>
@@ -1016,7 +1251,8 @@ const CambridgeResultPage = () => {
                           }
                         })}
                       </div>
-                    ))}
+                    );
+                    })}
                   </div>
                 )}
               </div>

@@ -1180,6 +1180,20 @@ const DoCambridgeListeningTest = () => {
     return idx >= 0 ? idx : 0;
   }, [questionIndex, activeQuestion]);
 
+  const totalQuestions = useMemo(() => {
+    return questionIndex?.orderedKeys?.length || 0;
+  }, [questionIndex]);
+
+  const answeredCount = useMemo(() => {
+    const list = questionIndex?.orderedKeys || [];
+    const isAnswered = (val) => {
+      if (Array.isArray(val)) return val.length > 0;
+      if (val && typeof val === 'object') return Object.keys(val).length > 0;
+      return String(val ?? '').trim() !== '';
+    };
+    return list.reduce((acc, item) => (isAnswered(answers[item.key]) ? acc + 1 : acc), 0);
+  }, [questionIndex, answers]);
+
   const goToKeyIndex = useCallback(
     (idx) => {
       const list = questionIndex?.orderedKeys || [];
@@ -1323,8 +1337,13 @@ const DoCambridgeListeningTest = () => {
 
   // Calculate question number range for a part
   const getPartQuestionRange = useCallback((partIndex) => {
+    const range = questionIndex?.byPart?.[partIndex];
+    if (range && typeof range.start === 'number' && typeof range.end === 'number') {
+      return { start: range.start, end: range.end };
+    }
+
     if (!test?.parts) return { start: 1, end: 1 };
-    
+
     let startNum = 1;
     for (let p = 0; p < partIndex; p++) {
       const part = test.parts[p];
@@ -1339,7 +1358,7 @@ const DoCambridgeListeningTest = () => {
     });
 
     return { start: startNum, end: startNum + count - 1 };
-  }, [test?.parts]);
+  }, [questionIndex, test?.parts]);
 
   // Render question based on type
   const renderQuestion = (question, questionKey, questionNum) => {
@@ -1661,6 +1680,101 @@ const DoCambridgeListeningTest = () => {
     }
   };
 
+  const renderCompactQuestion = (question, questionKey, questionNum) => {
+    const qType = question.questionType || 'fill';
+    const userAnswer = answers[questionKey];
+    const isCorrect = submitted && results?.answers?.[questionKey]?.isCorrect;
+    const isActive = activeQuestion === questionKey;
+    const isAnswered = (() => {
+      if (Array.isArray(userAnswer)) return userAnswer.length > 0;
+      if (userAnswer && typeof userAnswer === 'object') return Object.keys(userAnswer).length > 0;
+      return String(userAnswer ?? '').trim() !== '';
+    })();
+
+    const options = Array.isArray(question.options) ? question.options : [];
+
+    return (
+      <div
+        key={questionKey}
+        ref={(el) => (questionRefs.current[questionKey] = el)}
+        style={{
+          padding: '12px 8px',
+          borderBottom: '1px solid #e5e7eb',
+          background: isActive ? '#f8fafc' : 'transparent',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+          <span className="cambridge-question-number">{questionNum}</span>
+          <div style={{ flex: 1 }}>
+            <div className="cambridge-question-text" style={{ marginBottom: 8 }}>
+              {question.questionText}
+            </div>
+
+            {(qType === 'abc' || qType === 'abcd') && (
+              <div style={{ display: 'grid', gap: '8px' }}>
+                {options.map((opt, idx) => {
+                  const optionLabel = String.fromCharCode(65 + idx);
+                  const isSelected = userAnswer === optionLabel;
+                  const isCorrectOption = submitted && question.correctAnswer === optionLabel;
+
+                  return (
+                    <label
+                      key={idx}
+                      style={{
+                        ...styles.optionLabel,
+                        ...(isSelected && styles.optionSelected),
+                        ...(submitted && isCorrectOption && styles.optionCorrect),
+                        ...(submitted && isSelected && !isCorrectOption && styles.optionWrong),
+                        marginBottom: 0,
+                      }}
+                    >
+                      <input
+                        type="radio"
+                        name={questionKey}
+                        checked={isSelected}
+                        onChange={() => handleAnswerChange(questionKey, optionLabel)}
+                        disabled={submitted}
+                        style={{ marginRight: '10px' }}
+                      />
+                      <span style={styles.optionText}>{opt}</span>
+                    </label>
+                  );
+                })}
+              </div>
+            )}
+
+            {qType === 'fill' && (
+              <input
+                type="text"
+                value={userAnswer || ''}
+                onChange={(e) => handleAnswerChange(questionKey, e.target.value)}
+                disabled={submitted}
+                placeholder="Nhập đáp án..."
+                style={{
+                  ...styles.input,
+                  ...(submitted && {
+                    backgroundColor: isCorrect ? '#dcfce7' : '#fee2e2',
+                    borderColor: isCorrect ? '#22c55e' : '#ef4444',
+                  }),
+                }}
+              />
+            )}
+          </div>
+
+          <button
+            className={`cambridge-flag-button ${flaggedQuestions.has(questionKey) ? 'flagged' : ''}`}
+            onClick={() => toggleFlag(questionKey)}
+            aria-label="Flag question"
+            type="button"
+            style={{ marginTop: 2 }}
+          >
+            {flaggedQuestions.has(questionKey) ? '🚩' : '⚐'}
+          </button>
+        </div>
+      </div>
+    );
+  };
+
   // Loading state
   if (loading) {
     return (
@@ -1693,6 +1807,8 @@ const DoCambridgeListeningTest = () => {
         classCode={test?.classCode}
         teacherName={test?.teacherName}
         timeRemaining={formatTime(timeRemaining)}
+        answeredCount={answeredCount}
+        totalQuestions={totalQuestions}
         audioStatusText={hasAnyAudio && isAudioPlaying ? 'Audio is playing' : ''}
         onSubmit={handleSubmit}
         submitted={submitted}
@@ -1880,6 +1996,8 @@ const DoCambridgeListeningTest = () => {
                     questionIndex.byPart?.[currentPartIndex]?.keys?.find((k) => k.sectionIndex === secIdx)?.number ||
                     partRange.start;
 
+                  const isGroupedPart = currentPartIndex === 2 || currentPartIndex === 3; // Parts 3-4
+
                   // Teacher wants Part 1 displayed one question at a time (like the Cambridge player).
                   // We use the global `activeQuestion` key to decide which question to show.
                   const partKeys = questionIndex?.byPart?.[currentPartIndex]?.keys || [];
@@ -2001,13 +2119,23 @@ const DoCambridgeListeningTest = () => {
                         renderGapMatchSection(section, secIdx, sectionStartNum)
                       ) : sectionType === 'cloze-test' ? (
                         renderOpenClozeSection(section, secIdx, sectionStartNum)
+                      ) : isGroupedPart ? (
+                        <div
+                          className="cambridge-question-wrapper"
+                          style={{ padding: '10px 12px' }}
+                        >
+                          {section.questions?.map((q, qIdx) => {
+                            const questionKey = `${currentPartIndex}-${secIdx}-${qIdx}`;
+                            return renderCompactQuestion(q, questionKey, sectionStartNum + qIdx);
+                          })}
+                        </div>
                       ) : (
                         // Default per-question rendering
                         section.questions?.map((q, qIdx) => {
                           const questionKey = `${currentPartIndex}-${secIdx}-${qIdx}`;
 
                           // Part 1: render only the active question card.
-                          if (activeKeyForPart && questionKey !== activeKeyForPart) return null;
+                          if (currentPartIndex === 0 && activeKeyForPart && questionKey !== activeKeyForPart) return null;
 
                           return (
                             <div key={qIdx} ref={(el) => (questionRefs.current[questionKey] = el)}>
