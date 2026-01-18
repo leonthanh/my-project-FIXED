@@ -128,7 +128,7 @@ const ReviewSubmission = () => {
   return (
     <>
       <AdminNavbar />
-      <div style={{ padding: "30px", maxWidth: 800, margin: "auto" }}>
+      <div style={{ padding: "30px", maxWidth: 800, margin: "auto" }} className="admin-page">
         <h2>📄 Chi tiết bài viết</h2>
         <p>
           <strong>👤 Học sinh:</strong>{" "}

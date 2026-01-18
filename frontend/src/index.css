@@ -161,6 +161,131 @@ body.dark-mode .reading-test-editor .section-title a {
   color: #e8e8e8 !important;
 }
 
+/* ========================================
+   RESPONSIVE ADMIN / TEACHER PAGES
+   Target: iPhone 16 Plus & iPad Pro
+   ======================================== */
+.admin-page {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 24px;
+  box-sizing: border-box;
+}
+
+.admin-filter-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  align-items: end;
+}
+
+.admin-table-wrap {
+  width: 100%;
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  -webkit-overflow-scrolling: touch;
+}
+
+.admin-table {
+  min-width: 900px;
+}
+
+.admin-action-buttons {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.admin-button-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.admin-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.admin-filters-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: flex-end;
+}
+
+.admin-filter-group {
+  flex: 1 1 220px;
+  min-width: 0;
+}
+
+.admin-filter-stats {
+  margin-left: auto;
+}
+
+.admin-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 1024px) {
+  .admin-page {
+    padding: 16px;
+  }
+
+  .admin-filter-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .admin-table {
+    min-width: 780px;
+  }
+}
+
+@media (max-width: 768px) {
+  .admin-page {
+    padding: 14px;
+  }
+
+  .admin-filter-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .admin-filter-grid button {
+    width: 100%;
+  }
+
+  .admin-filter-stats {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .admin-table {
+    min-width: 720px;
+  }
+}
+
+@media (max-width: 480px) {
+  .admin-page {
+    padding: 12px;
+  }
+
+  .admin-action-buttons,
+  .admin-button-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .admin-action-buttons > button,
+  .admin-button-row > button {
+    width: 100%;
+  }
+}
+
 /* Slightly lighter small text */
 body.dark-mode .reading-test-editor .list-item small,
 body.dark-mode .reading-test-editor small,

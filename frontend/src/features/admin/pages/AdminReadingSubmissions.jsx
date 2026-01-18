@@ -113,11 +113,11 @@ const AdminReadingSubmissions = () => {
   return (
     <>
       <AdminNavbar />
-      <div style={{ padding: 24, maxWidth: 1400, margin: "0 auto" }}>
+      <div style={{ padding: 24, maxWidth: 1400, margin: "0 auto" }} className="admin-page">
         <h2>📥 Reading Submissions</h2>
 
         {/* Search/Filter */}
-        <div style={{
+        <div className="admin-filter-grid" style={{
           display: "grid",
           gridTemplateColumns: "1fr 1fr 1fr 150px",
           gap: 15,
@@ -165,7 +165,8 @@ const AdminReadingSubmissions = () => {
         {loading && <p>⏳ Loading...</p>}
         {!loading && filteredSubs.length === 0 && <p>Không có bài nộp phù hợp</p>}
         {!loading && filteredSubs.length > 0 && (
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <div className="admin-table-wrap">
+            <table className="admin-table" style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr style={{ background: "#0e276f", color: "white" }}>
                 <th style={cellStyle}>#</th>
@@ -214,7 +215,7 @@ const AdminReadingSubmissions = () => {
                     {new Date(s.createdAt).toLocaleString("vi-VN")}
                   </td>
                   <td style={cellStyle}>
-                    <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+                    <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }} className="admin-action-buttons">
                       <button
                         onClick={() => navigate(`/reading-results/${s.id}`)}
                         style={actionBtn}
@@ -241,7 +242,8 @@ const AdminReadingSubmissions = () => {
                 </tr>
               ))}
             </tbody>
-          </table>
+            </table>
+          </div>
         )}
       </div>
 

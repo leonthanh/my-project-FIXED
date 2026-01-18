@@ -170,6 +170,74 @@
   background: #c0392b;
 }
 
+/* Responsive admin navbar */
+@media (max-width: 1024px) {
+  .adminNavbar {
+    padding: 10px 16px;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .adminNavbar__left {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .adminNavbar__link,
+  .adminNavbar__dropdown {
+    margin-right: 12px;
+  }
+}
+
+@media (max-width: 768px) {
+  .adminNavbar {
+    align-items: flex-start;
+  }
+
+  .adminNavbar__left,
+  .adminNavbar__right {
+    width: 100%;
+    justify-content: space-between;
+    flex-wrap: wrap;
+  }
+
+  .adminNavbar__logo {
+    height: 32px;
+    margin-right: 10px;
+  }
+
+  .adminNavbar__link,
+  .adminNavbar__dropdownToggle {
+    font-size: 14px;
+  }
+
+  .adminNavbar__menu,
+  .adminNavbar__notifyMenu {
+    max-width: calc(100vw - 24px);
+  }
+
+  .adminNavbar__notifyMenu {
+    right: 12px;
+    top: 58px;
+    width: calc(100vw - 24px);
+  }
+}
+
+@media (max-width: 480px) {
+  .adminNavbar {
+    padding: 8px 12px;
+  }
+
+  .adminNavbar__link,
+  .adminNavbar__dropdownToggle {
+    font-size: 13px;
+  }
+
+  .adminNavbar__bell {
+    margin-right: 12px;
+  }
+}
+
 @keyframes adminNavbarShake {
   0% {
     transform: rotate(0deg);
