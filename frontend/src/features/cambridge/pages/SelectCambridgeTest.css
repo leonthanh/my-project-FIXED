@@ -255,6 +255,41 @@
   text-align: center;
 }
 
+@media (max-width: 900px) {
+  .cambridge-page {
+    padding: 28px 16px;
+  }
+
+  .cambridge-card {
+    padding: 24px;
+  }
+
+  .cambridge-tabs {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .cambridge-tab {
+    flex: 1 1 160px;
+    text-align: center;
+    padding: 12px 16px;
+  }
+
+  .cambridge-info {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .cambridge-test-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .cambridge-btn {
+    width: 100%;
+  }
+}
+
 @media (max-width: 640px) {
   .cambridge-card {
     padding: 20px;

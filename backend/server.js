@@ -26,7 +26,6 @@ if (process.env.SHOW_ENV_LOG !== 'false') {
 
 // ✅ MySQL (Sequelize) – chỉ require 1 lần
 const sequelize = require("./db");
-
 // ✅ Import models để Sequelize biết các bảng
 require("./models/User");
 require("./models/WritingTests");
@@ -44,15 +43,15 @@ require("./models/RefreshToken");
 require('./models');
 
 // ✅ Routes
-const authRoutes = require('./routes/auth');
-const writingTestsRoute = require('./routes/writingTest');
-const writingSubmissionRoutes = require('./routes/writing-submission');
-const listeningTestsRoute = require('./routes/listeningTests');
-const listeningSubmissionRoutes = require('./routes/listening-submission');
-const readingTestsRoute = require('./routes/readingTest');
-const readingSubmissionRoutes = require('./routes/reading-submission');
-const aiRoutes = require('./routes/ai');
-const cambridgeRoutes = require('./routes/cambridgeTests'); // ✅ Cambridge tests
+const authRoutes = require("./routes/auth");
+const writingTestsRoute = require("./routes/writingTest");
+const writingSubmissionRoutes = require("./routes/writing-submission");
+const listeningTestsRoute = require("./routes/listeningTests");
+const listeningSubmissionRoutes = require("./routes/listening-submission");
+const readingTestsRoute = require("./routes/readingTest");
+const readingSubmissionRoutes = require("./routes/reading-submission");
+const aiRoutes = require("./routes/ai");
+const cambridgeRoutes = require("./routes/cambridgeTests"); // ✅ Cambridge tests
 
 // Middleware
 const shouldLogHttp = String(process.env.SHOW_HTTP_LOG || '').toLowerCase() === 'true';
@@ -138,8 +137,8 @@ if (process.env.NODE_ENV !== 'production') {
 }
 
 // Upload routes (images) - mount upload router
-const uploadRoutes = require('./routes/upload');
-app.use('/api/upload', uploadRoutes);
+const uploadRoutes = require("./routes/upload");
+app.use("/api/upload", uploadRoutes);
 
 // ✅ Serve frontend React build
 const frontendPath = path.join(__dirname, "..", "frontend", "build");
@@ -165,13 +164,13 @@ sequelize
         `UPDATE submissions s
          LEFT JOIN writing_tests w ON s.testId = w.id
          SET s.testId = NULL
-         WHERE s.testId IS NOT NULL AND w.id IS NULL;`
+         WHERE s.testId IS NOT NULL AND w.id IS NULL;`,
       )
       .catch((cleanupErr) => {
         // Non-fatal: tables/columns may not exist yet on first boot.
         console.warn(
           "⚠️ Pre-sync cleanup skipped (submissions/testId/writing_tests not ready):",
-          cleanupErr?.message || cleanupErr
+          cleanupErr?.message || cleanupErr,
         );
       });
   })

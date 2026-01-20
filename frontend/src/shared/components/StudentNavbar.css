@@ -1,0 +1,204 @@
+.studentNavbar {
+  padding: 12px 24px;
+  background: #0e276f;
+  color: white;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+  gap: 12px;
+  position: sticky;
+  top: 0;
+  z-index: 1200;
+  width: 100%;
+  left: 0;
+  right: 0;
+  box-sizing: border-box;
+}
+
+.studentNavbar__left,
+.studentNavbar__right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.studentNavbar__logo {
+  height: 40px;
+}
+
+.studentNavbar__logoLink {
+  display: inline-flex;
+  align-items: center;
+}
+
+.studentNavbar__link,
+.studentNavbar__moreToggle {
+  color: white;
+  text-decoration: none;
+  font-weight: 700;
+  font-size: 16px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.studentNavbar__link--desktop {
+  display: inline-flex;
+}
+
+.studentNavbar__icon {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.studentNavbar__label {
+  white-space: nowrap;
+}
+
+.studentNavbar__bell {
+  position: relative;
+  margin-right: 8px;
+  cursor: pointer;
+  font-size: 20px;
+}
+
+.studentNavbar__bell--shake {
+  animation: shake 0.5s infinite;
+}
+
+.studentNavbar__badge {
+  position: absolute;
+  top: -6px;
+  right: -10px;
+  background: red;
+  color: white;
+  border-radius: 50%;
+  padding: 2px 6px;
+  font-size: 12px;
+  font-weight: bold;
+  z-index: 1;
+}
+
+.studentNavbar__user {
+  font-weight: 700;
+}
+
+.studentNavbar__logout {
+  background: #e03;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  color: white;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.3s;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.studentNavbar__logout:hover {
+  background: #c0392b;
+}
+
+.studentNavbar__more {
+  position: relative;
+  display: none;
+}
+
+.studentNavbar__menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  background: #fff;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+  z-index: 1000;
+  min-width: 180px;
+  overflow: hidden;
+}
+
+.studentNavbar__menuItem {
+  display: block;
+  padding: 10px 14px;
+  color: #333;
+  text-decoration: none;
+  border-bottom: 1px solid #eee;
+  transition: background 0.2s;
+}
+
+.studentNavbar__menuItem:hover {
+  background: #f0f0f0;
+}
+
+.studentNavbar__menuItem:last-child {
+  border-bottom: none;
+}
+
+@media (max-width: 1024px) {
+  .studentNavbar {
+    padding: 10px 16px;
+  }
+
+  .studentNavbar__link,
+  .studentNavbar__moreToggle {
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 520px) {
+  .studentNavbar {
+    padding: 8px 12px;
+  }
+
+  .studentNavbar__label {
+    display: none;
+  }
+
+  .studentNavbar__link {
+    gap: 4px;
+  }
+
+  .studentNavbar__more {
+    display: inline-flex;
+  }
+
+  .studentNavbar__link--desktop {
+    display: none;
+  }
+
+  .studentNavbar__link {
+    display: none;
+  }
+
+  .studentNavbar {
+    padding: 6px 8px;
+    gap: 6px;
+    flex-wrap: wrap;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+  }
+
+  .studentNavbar__left,
+  .studentNavbar__right {
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  .studentNavbar__logo {
+    height: 28px;
+  }
+
+  .studentNavbar__user {
+    display: none;
+  }
+
+  .studentNavbar__logoutLabel {
+    display: none;
+  }
+}

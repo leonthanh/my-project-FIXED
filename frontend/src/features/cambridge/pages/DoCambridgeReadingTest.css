@@ -528,6 +528,41 @@
 }
 
 /* Responsive */
+@media (max-width: 900px) {
+  .cambridge-main-content {
+    flex-direction: column;
+  }
+
+  .cambridge-passage-column,
+  .cambridge-questions-column {
+    width: 100%;
+    max-width: 100%;
+    padding: 12px 16px;
+  }
+
+  .cambridge-divider {
+    display: none;
+  }
+
+  .cambridge-question-wrapper {
+    width: 100%;
+  }
+
+  .cambridge-footer {
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .cambridge-footer-arrows {
+    position: static;
+    margin-left: auto;
+  }
+
+  .cambridge-parts-container {
+    padding: 0 12px;
+  }
+}
+
 @media (max-width: 768px) {
   .cambridge-main-content {
     padding: 20px 12px;
@@ -564,6 +599,31 @@
     width: 36px;
     height: 36px;
     font-size: 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .cambridge-part-title {
+    font-size: 18px;
+  }
+
+  .cambridge-passage-container {
+    padding: 14px;
+  }
+
+  .cambridge-question-number {
+    min-width: 28px;
+    height: 28px;
+    font-size: 12px;
+  }
+
+  .cambridge-question-text {
+    font-size: 14px;
+  }
+
+  .cambridge-review-button {
+    width: 100%;
+    justify-content: center;
   }
 }
 

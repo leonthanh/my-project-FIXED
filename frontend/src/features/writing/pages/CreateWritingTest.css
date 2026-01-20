@@ -27,3 +27,22 @@
   color: #999;
   font-style: italic;
 }
+
+@media (max-width: 900px) {
+  .create-writing-container {
+    max-width: 100%;
+    margin: 16px auto;
+    padding: 0 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  .create-writing-container {
+    margin: 12px auto;
+    padding: 0 12px;
+  }
+
+  .create-writing-quill .ql-editor {
+    min-height: 160px;
+  }
+}

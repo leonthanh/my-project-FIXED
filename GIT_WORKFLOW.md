@@ -7,6 +7,7 @@
 ## ⚠️ **LỖI CHÍNH GÂY CONFLICT**
 
 Bạn bị conflict vì:
+
 1. ❌ **Tạo quá nhiều feature branches** (feature/reading, feature/pet, feature/cam...)
 2. ❌ **Merge từng branch vào main một cách riêng rẽ** → main thay đổi liên tục
 3. ❌ **Không pull trước push** → local không đồng bộ với remote
@@ -17,6 +18,7 @@ Bạn bị conflict vì:
 ## ✅ **GIẢI PHÁP: Dùng 1 Feature Branch cho cả 2 PC**
 
 ### **Ý tưởng chính:**
+
 - Tạo **1 branch duy nhất**: `feature/cam` (hoặc `develop`)
 - Cả 2 PC (`công ty` + `nhà`) đều **làm việc trên cùng branch này**
 - **KHÔNG bao giờ merge vào main** cho đến khi thực sự xong
@@ -39,6 +41,7 @@ origin/feature/cam (GitHub) ← KHÔNG conflict vì cùng branch!
 ### **Bước 1: Lần đầu tiên (Setup một lần)**
 
 #### **PC Công ty:**
+
 ```bash
 # Tạo feature branch
 git checkout -b feature/cam
@@ -48,6 +51,7 @@ git push -u origin feature/cam
 ```
 
 #### **PC Nhà (khi quay về):**
+
 ```bash
 # Download feature/cam từ GitHub
 git fetch origin
@@ -128,6 +132,7 @@ git pull origin feature/cam
 ### **Bước 6: Lặp lại 2-5 cho đến khi xong**
 
 Cứ lặp đi lặp lại:
+
 - Công ty làm → push
 - Nhà pull → làm → push
 - Công ty pull → làm → push
@@ -168,6 +173,7 @@ git push origin feature/cam
 ```
 
 **Giải thích:**
+
 - `git pull --rebase` = Pull code mới + "Xây dựng lại" commit của bạn trên top
 - Tránh "merge commits" không cần thiết
 - History sạch, không bị rối
@@ -177,12 +183,14 @@ git push origin feature/cam
 ## 📋 **CHEAT SHEET - Chỉ cần nhớ 3 lệnh này**
 
 ### **Khi bắt đầu ngày (bất kỳ PC nào)**
+
 ```bash
 git checkout feature/cam
 git pull --rebase origin feature/cam
 ```
 
 ### **Khi xong công việc**
+
 ```bash
 git add .
 git commit -m "Mô tả thay đổi"
@@ -190,6 +198,7 @@ git push origin feature/cam
 ```
 
 ### **Hàng ngày - Quick version**
+
 ```bash
 # Trước làm việc
 git pull --rebase origin feature/cam
@@ -244,6 +253,7 @@ GitHub: main ← Có tất cả features ✅
 ## 🛠️ **COMMANDS THƯỜNG DÙNG**
 
 ### **Kiểm tra**
+
 ```bash
 git branch           # Xem branch hiện tại
 git status          # Xem file thay đổi
@@ -251,6 +261,7 @@ git log --oneline   # Xem history commits
 ```
 
 ### **Làm việc hàng ngày**
+
 ```bash
 # Cập nhật code (LUÔN LUÔN LÀMĐẦU TIÊN)
 git pull --rebase origin feature/cam
@@ -264,6 +275,7 @@ git push origin feature/cam
 ```
 
 ### **Nếu push bị reject**
+
 ```bash
 # Đừng panic! Chỉ cần:
 git pull --rebase origin feature/cam
@@ -275,6 +287,7 @@ git push origin feature/cam
 ## ⚠️ **TRÁNH NHẦM LẦN**
 
 ### **❌ KHÔNG NÊN**
+
 ```bash
 # Commit trực tiếp vào main
 git checkout main && git add . && git commit -m "..."  ← SAI!
@@ -287,6 +300,7 @@ git push origin feature/cam  ← SAI! (có thể bị conflict)
 ```
 
 ### **✅ NÊN LÀM**
+
 ```bash
 # Luôn trên feature/cam (hoặc feature branch)
 git checkout feature/cam
@@ -303,6 +317,7 @@ git push origin feature/cam
 ## 📞 **NẾUCÓ CONFLICT**
 
 ### **Nếu bị conflict khi pull:**
+
 ```bash
 # Git sẽ báo: "CONFLICT in file/path"
 
@@ -322,6 +337,7 @@ git push origin feature/cam
 ```
 
 ### **Nếu pull bị fail - reset lại:**
+
 ```bash
 # Quay lại trạng thái sạch
 git rebase --abort
@@ -332,13 +348,13 @@ git pull --rebase origin feature/cam
 
 ## 📊 **SO SÁNH: Cách làm cũ vs Cách làm mới**
 
-| Yếu tố | Cách cũ (Bị conflict) | Cách mới (Không conflict) |
-|--------|----------------------|--------------------------|
-| Branches | Nhiều (feature/reading, feature/pet, feature/cam...) | 1 cái (feature/cam) |
-| Merge vào main | Mỗi khi xong 1 feature | Chỉ khi hết việc |
-| Pull strategy | Không pull/Lỗi pull | `git pull --rebase` |
-| Conflict | Thường xuyên | Hiếm |
-| Phức tạp | Cao | Thấp |
+| Yếu tố         | Cách cũ (Bị conflict)                                | Cách mới (Không conflict) |
+| -------------- | ---------------------------------------------------- | ------------------------- |
+| Branches       | Nhiều (feature/reading, feature/pet, feature/cam...) | 1 cái (feature/cam)       |
+| Merge vào main | Mỗi khi xong 1 feature                               | Chỉ khi hết việc          |
+| Pull strategy  | Không pull/Lỗi pull                                  | `git pull --rebase`       |
+| Conflict       | Thường xuyên                                         | Hiếm                      |
+| Phức tạp       | Cao                                                  | Thấp                      |
 
 ---
 
@@ -362,13 +378,12 @@ git checkout main && git pull && git merge feature/cam && git push
 
 **Good luck! Không còn conflict nữa! 🚀**
 
-*Cập nhật: 07/01/2026 - Phiên bản dành cho người làm 2 PC*
-
-
+_Cập nhật: 07/01/2026 - Phiên bản dành cho người làm 2 PC_
 
 ---
 
 ### **Kiểm tra**
+
 ```bash
 git branch           # Xem branch hiện tại
 git status          # Xem file thay đổi
@@ -376,6 +391,7 @@ git log --oneline   # Xem history commits
 ```
 
 ### **Làm việc hàng ngày**
+
 ```bash
 # Cập nhật code (LUÔN LUÔN LÀM ĐẦU TIÊN)
 git pull --rebase origin feature/cam
@@ -389,6 +405,7 @@ git push origin feature/cam
 ```
 
 ### **Nếu push bị rejected**
+
 ```bash
 # Đừng panic! Chỉ cần:
 git pull --rebase origin feature/cam
@@ -400,6 +417,7 @@ git push origin feature/cam
 ## ⚠️ **TRÁNH NHẦM LẦN**
 
 ### **❌ KHÔNG NÊN**
+
 ```bash
 # Commit trực tiếp vào main
 git checkout main && git add . && git commit -m "..."  ← SAI!
@@ -412,6 +430,7 @@ git push origin feature/cam  ← SAI! (có thể bị conflict)
 ```
 
 ### **✅ NÊN LÀM**
+
 ```bash
 # Luôn trên feature/cam (hoặc feature branch)
 git checkout feature/cam
@@ -428,6 +447,7 @@ git push origin feature/cam
 ## 📞 **NẾU CÓ CONFLICT**
 
 ### **Nếu bị conflict khi pull:**
+
 ```bash
 # Git sẽ báo: "CONFLICT in file/path"
 
@@ -447,6 +467,7 @@ git push origin feature/cam
 ```
 
 ### **Nếu pull bị fail - reset lại:**
+
 ```bash
 # Quay lại trạng thái sạch
 git rebase --abort
@@ -457,13 +478,13 @@ git pull --rebase origin feature/cam
 
 ## 📊 **SO SÁNH: Cách làm cũ vs Cách làm mới**
 
-| Yếu tố | Cách cũ (Bị conflict) | Cách mới (Không conflict) |
-|--------|----------------------|--------------------------|
-| Branches | Nhiều (feature/reading, feature/pet, feature/cam...) | 1 cái (feature/cam) |
-| Merge vào main | Mỗi khi xong 1 feature | Chỉ khi hết việc |
-| Pull strategy | Không pull/Lỗi pull | `git pull --rebase` |
-| Conflict | Thường xuyên | Hiếm |
-| Phức tạp | Cao | Thấp |
+| Yếu tố         | Cách cũ (Bị conflict)                                | Cách mới (Không conflict) |
+| -------------- | ---------------------------------------------------- | ------------------------- |
+| Branches       | Nhiều (feature/reading, feature/pet, feature/cam...) | 1 cái (feature/cam)       |
+| Merge vào main | Mỗi khi xong 1 feature                               | Chỉ khi hết việc          |
+| Pull strategy  | Không pull/Lỗi pull                                  | `git pull --rebase`       |
+| Conflict       | Thường xuyên                                         | Hiếm                      |
+| Phức tạp       | Cao                                                  | Thấp                      |
 
 ---
 
@@ -487,9 +508,10 @@ git checkout main && git pull && git merge feature/cam && git push
 
 **Good luck! Không còn conflict nữa! 🚀**
 
-*Cập nhật: 07/01/2026 - Phiên bản dành cho người làm 2 PC*
+_Cập nhật: 07/01/2026 - Phiên bản dành cho người làm 2 PC_
 
 ### **Kiểm tra trạng thái**
+
 ```bash
 # Xem branch hiện tại
 git branch
@@ -508,6 +530,7 @@ git log -p -1
 ```
 
 ### **Tạo & Chuyển branch**
+
 ```bash
 # Tạo branch mới
 git checkout -b feature/tên-tính-năng
@@ -522,6 +545,7 @@ git switch -c feature/pet-test  # Tạo + chuyển
 ```
 
 ### **Commit & Push**
+
 ```bash
 # Thêm tất cả file
 git add .
@@ -540,6 +564,7 @@ git push -u origin feature/reading-test
 ```
 
 ### **Update code từ main**
+
 ```bash
 # Cách 1: Merge (khuyến khích)
 git checkout feature/reading-test
@@ -551,6 +576,7 @@ git rebase main
 ```
 
 ### **Xoá branch**
+
 ```bash
 # Xoá local
 git branch -d feature/reading-test
@@ -568,6 +594,7 @@ git push origin --delete feature/reading-test  # remote
 ## 🔀 **Merge & Rebase**
 
 ### **Merge (Khuyến khích cho bạn)**
+
 ```bash
 # Merge feature vào main
 git checkout main
@@ -580,6 +607,7 @@ git merge feature/reading-test
 ```
 
 ### **Rebase (Nâng cao)**
+
 ```bash
 # Rebase feature lên main
 git checkout feature/reading-test
@@ -592,6 +620,7 @@ git rebase main
 ```
 
 **Lời khuyên:**
+
 - ✅ **Merge** khi merge vào main (an toàn)
 - ✅ **Rebase** khi update code từ main (history sạch)
 
@@ -600,6 +629,7 @@ git rebase main
 ## ⚠️ **Troubleshooting**
 
 ### **1. Quên branch, commit vào main**
+
 ```bash
 # Hoàn tác commit cuối cùng
 git reset --soft HEAD~1
@@ -614,6 +644,7 @@ git push origin feature/missed-feature
 ```
 
 ### **2. Commit trên branch sai**
+
 ```bash
 # Xem branch hiện tại
 git branch
@@ -629,6 +660,7 @@ git branch -d feature/wrong-name
 ```
 
 ### **3. Merge conflict (xung đột)**
+
 ```bash
 # Khi merge xảy ra conflict
 git merge feature/reading-test
@@ -642,6 +674,7 @@ git push origin main
 ```
 
 ### **4. Muốn quay lại commit cũ**
+
 ```bash
 # Xem lịch sử
 git log --oneline
@@ -654,6 +687,7 @@ git reset --hard abc1234  # ⚠️ Cẩn thận, không thể hoàn tác!
 ```
 
 ### **5. Push bị reject (server có code mới)**
+
 ```bash
 # Pull code mới từ server trước
 git pull origin feature/reading-test
@@ -736,12 +770,14 @@ git push origin main
 ## 📞 **Khi cần giúp đỡ**
 
 Nếu lúng túng, hãy kiểm tra:
+
 1. **Branch hiện tại:** `git branch`
 2. **Status:** `git status`
 3. **Commits:** `git log --oneline -5`
 4. **Xem file thay đổi:** `git diff`
 
 Hoặc reset về trạng thái sạch:
+
 ```bash
 git reset --hard origin/main
 git checkout main
@@ -752,4 +788,4 @@ git pull origin main
 
 **Good luck! Chúc bạn code vui! 🚀**
 
-*Cập nhật lần cuối: 12/12/2025*
+_Cập nhật lần cuối: 12/12/2025_

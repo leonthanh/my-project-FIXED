@@ -69,3 +69,36 @@
 @keyframes spin{
   to { transform: rotate(360deg); }
 }
+
+@media (max-width: 900px){
+  .review-modal{
+    width: 95%;
+    max-height: 92vh;
+  }
+
+  .review-modal-header{
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .review-modal-body{
+    padding: 14px;
+  }
+}
+
+@media (max-width: 480px){
+  .review-modal{
+    border-radius: 10px;
+  }
+
+  .review-modal-header{
+    padding: 12px 14px;
+  }
+
+  .review-modal .btn-primary,
+  .review-modal .btn-secondary{
+    width: 100%;
+    justify-content: center;
+  }
+}
