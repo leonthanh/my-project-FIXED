@@ -508,7 +508,33 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
   };
 
   // Autosave function
+  const sanitizeDraftData = useCallback((value) => {
+    const dataUrlRegex = /data:image\/[a-zA-Z]+;base64,[^"'\s)]+/g;
+    const walk = (input) => {
+      if (typeof input === 'string') {
+        const withoutDataUrls = input.replace(dataUrlRegex, '[image]');
+        return withoutDataUrls.length > 200000 ? withoutDataUrls.slice(0, 200000) : withoutDataUrls;
+      }
+      if (Array.isArray(input)) {
+        return input.map(walk);
+      }
+      if (input && typeof input === 'object') {
+        return Object.entries(input).reduce((acc, [key, val]) => {
+          if (typeof val === 'string' && /data:image\//i.test(val)) {
+            acc[key] = '[image]';
+            return acc;
+          }
+          acc[key] = walk(val);
+          return acc;
+        }, {});
+      }
+      return input;
+    };
+    return walk(value);
+  }, []);
+
   const saveToLocalStorage = useCallback(() => {
+    const storageKey = `cambridgeTestDraft-${testType}`;
     try {
       setIsSaving(true);
       const dataToSave = {
@@ -519,14 +545,32 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
         parts,
         testType,
       };
-      localStorage.setItem(`cambridgeTestDraft-${testType}`, JSON.stringify(dataToSave));
-      setLastSaved(new Date());
-      setIsSaving(false);
-    } catch (error) {
-      console.error('Error saving draft:', error);
+
+      try {
+        localStorage.setItem(storageKey, JSON.stringify(dataToSave));
+        setLastSaved(new Date());
+      } catch (error) {
+        const isQuota =
+          error?.name === 'QuotaExceededError' ||
+          /quota/i.test(error?.message || '');
+        if (isQuota) {
+          try {
+            const trimmed = sanitizeDraftData(dataToSave);
+            localStorage.setItem(storageKey, JSON.stringify(trimmed));
+            setLastSaved(new Date());
+            console.warn('Draft trimmed to fit localStorage quota.');
+          } catch (secondaryError) {
+            localStorage.removeItem(storageKey);
+            console.warn('Draft disabled due to storage quota limits.');
+          }
+        } else {
+          console.error('Error saving draft:', error);
+        }
+      }
+    } finally {
       setIsSaving(false);
     }
-  }, [title, classCode, teacherName, mainAudioUrl, parts, testType]);
+  }, [title, classCode, teacherName, mainAudioUrl, parts, testType, sanitizeDraftData]);
 
   // Auto save every 30 seconds and on page unload
   useEffect(() => {

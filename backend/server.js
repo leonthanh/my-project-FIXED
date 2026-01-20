@@ -82,6 +82,12 @@ if (shouldLogHttp) {
 // net::ERR_BLOCKED_BY_RESPONSE.NotSameOrigin
 app.use(
   helmet({
+    contentSecurityPolicy: {
+      useDefaults: true,
+      directives: {
+        "img-src": ["'self'", "data:", "https:", "blob:"],
+      },
+    },
     crossOriginResourcePolicy: { policy: 'cross-origin' },
   })
 );
