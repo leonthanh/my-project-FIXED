@@ -8,7 +8,8 @@ const cookieParser = require('cookie-parser');
 const pinoHttp = require('pino-http');
 const path = require("path");
 
-const { logger } = require('./logger');
+const loggerModule = require('./logger');
+const logger = loggerModule?.logger || loggerModule?.default || loggerModule || console;
 const { notFound, errorHandler } = require('./middlewares/errorHandler');
 
 const app = express();

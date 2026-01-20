@@ -63,7 +63,7 @@ jobs:
           cd backend
           # Include backend files and both backend/utils and repo-root utils so helpers like readingScorer are deployed
           zip -r ../backend-artifact.zip \
-            server.js db.js routes models middlewares uploads package.json package-lock.json \
+            server.js db.js logger.js routes models middlewares uploads package.json package-lock.json \
             utils ../utils || true
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
