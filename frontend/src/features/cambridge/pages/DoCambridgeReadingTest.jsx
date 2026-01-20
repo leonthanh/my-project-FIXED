@@ -97,15 +97,20 @@ const DoCambridgeReadingTest = () => {
         // Check if there's saved data for this test
         const savedTime = localStorage.getItem(`test-time-${id}`);
         const savedAnswers = localStorage.getItem(`test-answers-${id}`);
-        
-        if (savedTime && savedAnswers) {
-          // Restore existing progress
+
+        if (savedTime || savedAnswers) {
+          // Restore existing progress (even if answers are empty)
           setHasSavedProgress(true);
-          setTimeRemaining(parseInt(savedTime));
+          if (savedTime) {
+            setTimeRemaining(parseInt(savedTime));
+          } else {
+            setTimeRemaining((testConfig.duration || 60) * 60);
+          }
           try {
-            setAnswers(JSON.parse(savedAnswers));
+            setAnswers(savedAnswers ? JSON.parse(savedAnswers) : {});
           } catch (e) {
             console.error("Error parsing saved answers:", e);
+            setAnswers({});
           }
         } else {
           // New test - clean up any old saved data and start fresh
@@ -724,13 +729,18 @@ const DoCambridgeReadingTest = () => {
               <button
                 onClick={() => {
                   setStarted(true);
+                  const initialSeconds = (testConfig.duration || 60) * 60;
                   try {
                     localStorage.setItem(startedKey, "true");
+                    localStorage.setItem(`test-time-${id}`, String(timeRemaining ?? initialSeconds));
+                    if (!localStorage.getItem(`test-answers-${id}`)) {
+                      localStorage.setItem(`test-answers-${id}`, JSON.stringify(answers || {}));
+                    }
                   } catch {
                     // ignore
                   }
                   if (timeRemaining === null) {
-                    setTimeRemaining((testConfig.duration || 60) * 60);
+                    setTimeRemaining(initialSeconds);
                   }
                   // focus first question after small delay
                   setTimeout(() => {
