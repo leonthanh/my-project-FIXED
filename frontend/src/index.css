@@ -387,3 +387,42 @@ code {
   margin: 0 0 10px 18px;
   padding: 0;
 }
+
+/* Long Text MC editor: reduce Quill paragraph spacing */
+.long-text-mc-editor .ql-editor p {
+  margin: 0 0 6px;
+  line-height: 1.6;
+}
+
+.long-text-mc-editor .ql-editor p:last-child {
+  margin-bottom: 0;
+}
+
+.long-text-mc-editor .ql-editor p:empty {
+  margin: 0;
+}
+
+.long-text-mc-editor .ql-editor p > br {
+  display: none;
+}
+
+.long-text-mc-editor .ql-editor p.ql-align-center:empty,
+.long-text-mc-editor .ql-editor p.ql-align-left:empty,
+.long-text-mc-editor .ql-editor p.ql-align-right:empty,
+.long-text-mc-editor .ql-editor p.ql-align-justify:empty {
+  display: none;
+}
+
+.long-text-mc-editor .ql-editor p + p {
+  margin-top: 0;
+}
+
+.long-text-mc-editor .ql-editor h1,
+.long-text-mc-editor .ql-editor h2,
+.long-text-mc-editor .ql-editor h3,
+.long-text-mc-editor .ql-editor h4,
+.long-text-mc-editor .ql-editor h5,
+.long-text-mc-editor .ql-editor h6 {
+  margin: 8px 0 6px;
+  line-height: 1.4;
+}

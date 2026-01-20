@@ -45,10 +45,14 @@ const LongTextMCEditor = ({
   };
 
   const handleOptionChange = (qIndex, optIndex, value) => {
-    const newQuestions = [...questions];
     const opt = ['A', 'B', 'C'][optIndex];
-    newQuestions[qIndex].options[optIndex] = `${opt}. ${value}`;
-    onChange("questions", newQuestions);
+    const nextQuestions = questions.map((q, idx) => {
+      if (idx !== qIndex) return q;
+      const prevOptions = Array.isArray(q?.options) ? q.options : ['A. ', 'B. ', 'C. '];
+      const nextOptions = prevOptions.map((o, i) => (i === optIndex ? `${opt}. ${value}` : o));
+      return { ...q, options: nextOptions };
+    });
+    onChange("questions", nextQuestions);
   };
 
   // Thêm câu hỏi mới

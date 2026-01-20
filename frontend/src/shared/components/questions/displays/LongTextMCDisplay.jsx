@@ -20,7 +20,6 @@ const LongTextMCDisplay = ({
         <div style={styles.passageContainer}>
           <div 
             style={styles.passageContent}
-            className="long-text-mc-passage"
             dangerouslySetInnerHTML={{ __html: passage }}
           />
         </div>

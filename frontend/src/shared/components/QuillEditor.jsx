@@ -26,7 +26,8 @@ const QuillEditor = ({
 
   // Helper: Clean up HTML by removing empty paragraphs and unnecessary tags
   const cleanupHTML = (html) => {
-    if (!html) return "";
+    if (html === null || html === undefined) return "";
+    if (typeof html !== "string") return String(html || "");
 
     // Remove empty <p><br></p> tags
     let cleaned = html.replace(/<p><br><\/p>/g, "");
@@ -445,9 +446,15 @@ const QuillEditor = ({
           theme="snow"
           value={internalValue}
           onChange={(val) => {
-            const cleanedVal = cleanupHTML(val);
-            setInternalValue(cleanedVal);
-            onChange(cleanedVal);
+            try {
+              const cleanedVal = cleanupHTML(val);
+              setInternalValue(cleanedVal);
+              if (typeof onChange === "function") {
+                onChange(cleanedVal);
+              }
+            } catch (err) {
+              console.error("Quill onChange error:", err);
+            }
           }}
           modules={modules}
           formats={formats}
