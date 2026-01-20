@@ -2,27 +2,26 @@ require("dotenv").config(); // ✅ Đặt đầu tiên
 
 const express = require("express");
 const cors = require("cors");
-const helmet = require("helmet");
-const rateLimit = require("express-rate-limit");
-const cookieParser = require("cookie-parser");
-const pinoHttp = require("pino-http");
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
+const cookieParser = require('cookie-parser');
+const pinoHttp = require('pino-http');
 const path = require("path");
 
-const loggerModule = require("./logger");
-const logger = loggerModule?.logger || console;
-const { notFound, errorHandler } = require("./middlewares/errorHandler");
+const { logger } = require('./logger');
+const { notFound, errorHandler } = require('./middlewares/errorHandler');
 
 const app = express();
 
 // Friendly startup logs (hide secrets)
 const envSnapshot = {
-  NODE_ENV: process.env.NODE_ENV || "development",
-  DB_HOST: process.env.DB_HOST || "localhost",
+  NODE_ENV: process.env.NODE_ENV || 'development',
+  DB_HOST: process.env.DB_HOST || 'localhost',
   DB_NAME: process.env.DB_NAME || null,
   DB_USER: process.env.DB_USER || null,
 };
-if (process.env.SHOW_ENV_LOG !== "false") {
-  console.log("Environment:", envSnapshot);
+if (process.env.SHOW_ENV_LOG !== 'false') {
+  console.log('Environment:', envSnapshot);
 }
 
 // ✅ MySQL (Sequelize) – chỉ require 1 lần
@@ -41,7 +40,7 @@ require("./models/CambridgeReading");
 require("./models/RefreshToken");
 
 // ✅ Initialize associations (models/index.js)
-require("./models");
+require('./models');
 
 // ✅ Routes
 const authRoutes = require("./routes/auth");
@@ -55,27 +54,25 @@ const aiRoutes = require("./routes/ai");
 const cambridgeRoutes = require("./routes/cambridgeTests"); // ✅ Cambridge tests
 
 // Middleware
-const shouldLogHttp =
-  String(process.env.SHOW_HTTP_LOG || "").toLowerCase() === "true";
+const shouldLogHttp = String(process.env.SHOW_HTTP_LOG || '').toLowerCase() === 'true';
 if (shouldLogHttp) {
   app.use(
     pinoHttp({
       logger,
       genReqId: (req, res) => {
-        const existing = req.headers["x-request-id"];
+        const existing = req.headers['x-request-id'];
         if (existing) return String(existing);
-        const id =
-          globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random()}`;
-        res.setHeader("X-Request-Id", id);
+        const id = (globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random()}`);
+        res.setHeader('X-Request-Id', id);
         return id;
       },
       customLogLevel: function (_req, res, err) {
-        if (res.statusCode >= 500 || err) return "error";
-        if (res.statusCode >= 400) return "warn";
-        return "info";
+        if (res.statusCode >= 500 || err) return 'error';
+        if (res.statusCode >= 400) return 'warn';
+        return 'info';
       },
-      redact: ["req.headers.authorization", "req.headers.cookie"],
-    }),
+      redact: ['req.headers.authorization', 'req.headers.cookie'],
+    })
   );
 }
 
@@ -84,13 +81,13 @@ if (shouldLogHttp) {
 // net::ERR_BLOCKED_BY_RESPONSE.NotSameOrigin
 app.use(
   helmet({
-    crossOriginResourcePolicy: { policy: "cross-origin" },
-  }),
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
+  })
 );
 app.use(cookieParser());
 
-const allowedOrigins = (process.env.FRONTEND_URL || "")
-  .split(",")
+const allowedOrigins = (process.env.FRONTEND_URL || '')
+  .split(',')
   .map((s) => s.trim())
   .filter(Boolean);
 
@@ -103,38 +100,38 @@ app.use(
       return cb(null, allowedOrigins.includes(origin));
     },
     credentials: true,
-  }),
+  })
 );
 
 app.use(
   rateLimit({
     windowMs: 60 * 1000,
     limit: 600,
-    standardHeaders: "draft-7",
+    standardHeaders: 'draft-7',
     legacyHeaders: false,
-  }),
+  })
 );
 
-app.use(express.json({ limit: "50mb" })); // Tăng limit để support base64 images
-app.use(express.urlencoded({ limit: "50mb", extended: true }));
+app.use(express.json({ limit: '50mb' })); // Tăng limit để support base64 images
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 // ✅ Serve ảnh tĩnh
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 // ✅ Routes API
-app.use("/api/ai", aiRoutes); // ✅ Bây giờ mới dùng
-app.use("/api/auth", authRoutes);
-app.use("/api/writing-tests", writingTestsRoute);
-app.use("/api/writing", writingSubmissionRoutes);
-app.use("/api/listening-tests", listeningTestsRoute);
-app.use("/api/listening-submissions", listeningSubmissionRoutes);
-app.use("/api/reading-tests", readingTestsRoute);
-app.use("/api/reading-submissions", readingSubmissionRoutes);
-app.use("/api/cambridge", cambridgeRoutes); // ✅ Cambridge tests (KET, PET, etc.)
+app.use('/api/ai', aiRoutes); // ✅ Bây giờ mới dùng
+app.use('/api/auth', authRoutes);
+app.use('/api/writing-tests', writingTestsRoute);
+app.use('/api/writing', writingSubmissionRoutes);
+app.use('/api/listening-tests', listeningTestsRoute);
+app.use('/api/listening-submissions', listeningSubmissionRoutes);
+app.use('/api/reading-tests', readingTestsRoute);
+app.use('/api/reading-submissions', readingSubmissionRoutes);
+app.use('/api/cambridge', cambridgeRoutes); // ✅ Cambridge tests (KET, PET, etc.)
 
 // Debug route: verify FRONTEND_URL (development only)
-if (process.env.NODE_ENV !== "production") {
-  app.get("/api/debug/env", (req, res) => {
+if (process.env.NODE_ENV !== 'production') {
+  app.get('/api/debug/env', (req, res) => {
     res.json({ FRONTEND_URL: process.env.FRONTEND_URL || null });
   });
 }
@@ -155,9 +152,9 @@ const PORT = process.env.PORT || 5000;
 sequelize
   .authenticate()
   .then(() => {
-    logger.info("MySQL connected");
-    if (process.env.SHOW_ENV_LOG !== "false") {
-      console.log("✅ Kết nối database thành công");
+    logger.info('MySQL connected');
+    if (process.env.SHOW_ENV_LOG !== 'false') {
+      console.log('✅ Kết nối database thành công');
     }
 
     // If legacy/seed data contains orphaned `submissions.testId` values, MySQL will
@@ -181,16 +178,16 @@ sequelize
     return sequelize.sync({ alter: true });
   })
   .then(() => {
-    logger.info("Sequelize models synced");
+    logger.info('Sequelize models synced');
     app.listen(PORT, () => {
-      logger.info({ port: PORT }, "Server started");
-      if (process.env.SHOW_ENV_LOG !== "false") {
+      logger.info({ port: PORT }, 'Server started');
+      if (process.env.SHOW_ENV_LOG !== 'false') {
         console.log(`✅ Server is running on port ${PORT}`);
       }
     });
   })
   .catch((err) => {
-    logger.error({ err }, "MySQL error");
+    logger.error({ err }, 'MySQL error');
     process.exit(1);
   });
 
