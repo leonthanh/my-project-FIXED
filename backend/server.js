@@ -1,4 +1,8 @@
-require("dotenv").config(); // ✅ Đặt đầu tiên
+// Load env reliably on hosts where process.cwd() is NOT the backend folder (e.g., cPanel/Passenger)
+const path = require("path");
+require("dotenv").config({ path: path.join(__dirname, ".env") });
+// Optional fallback: allow a repo-root .env (won't override already-set vars)
+require("dotenv").config({ path: path.join(__dirname, "..", ".env") });
 
 const express = require("express");
 const cors = require("cors");
@@ -6,7 +10,6 @@ const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const cookieParser = require('cookie-parser');
 const pinoHttp = require('pino-http');
-const path = require("path");
 
 const loggerModule = require('./logger');
 const logger = loggerModule?.logger || loggerModule?.default || loggerModule || console;
