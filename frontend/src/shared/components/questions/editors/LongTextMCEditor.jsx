@@ -79,7 +79,7 @@ const LongTextMCEditor = ({
       [{ color: [] }, { background: [] }],
       [{ list: "ordered" }, { list: "bullet" }],
       [{ align: [] }],
-      ["link"],
+      ["link", "image"],
       ["clean"],
     ],
   };
@@ -95,6 +95,7 @@ const LongTextMCEditor = ({
     "bullet",
     "align",
     "link",
+    "image",
   ];
 
   return (
