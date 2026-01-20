@@ -629,8 +629,8 @@
 
 /* Sign Text - Allow ReactQuill alignment classes to work naturally */
 /* .cambridge-sign-text {
-  /* ReactQuill will handle text-align via ql-align-* classes */
- */
+  ReactQuill will handle text-align via ql-align-* classes
+} */
 
 /* ReactQuill Alignment Support */
 .cambridge-sign-text .ql-align-center {
