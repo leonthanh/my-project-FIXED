@@ -9,7 +9,7 @@
 
 @media (max-width: 520px) {
   .select-test-page {
-    padding: 8px 0;
+    padding: 64px 0 8px;
     justify-content: stretch;
   }
 }
@@ -107,6 +107,21 @@
   grid-template-columns: 1fr 220px;
   gap: 12px;
   margin: 12px 0 18px;
+}
+
+@media (max-width: 900px) {
+  .select-test-shell {
+    padding: 18px;
+  }
+
+  .select-test-tab {
+    padding: 10px 14px;
+    font-size: 15px;
+  }
+
+  .select-test-controls {
+    grid-template-columns: 1fr 200px;
+  }
 }
 
 @media (max-width: 860px) {

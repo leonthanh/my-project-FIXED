@@ -79,19 +79,24 @@ const AdminNavbar = () => {
   return (
     <nav className="adminNavbar">
       <div className="adminNavbar__left">
-        <img
-          src={hostPath("uploads/staredu.jpg")}
-          alt="Logo"
-          className="adminNavbar__logo"
-        />
+        <Link to="/select-test" className="adminNavbar__logoLink" title="Danh sách đề">
+          <img
+            src={hostPath("uploads/staredu.jpg")}
+            alt="Logo"
+            className="adminNavbar__logo"
+          />
+        </Link>
 
         {/* Cambridge Tests Dropdown */}
         <div className="adminNavbar__dropdown" ref={cambridgeDropdownRef}>
           <span
             className="adminNavbar__link adminNavbar__dropdownToggle"
             onClick={() => setCambridgeDropdownVisible((prev) => !prev)}
+            title="Orange"
           >
-            🎓 Cambridge ▼
+            <span className="adminNavbar__icon">🍊</span>
+            <span className="adminNavbar__label">Orange</span>
+            <span className="adminNavbar__caret">▼</span>
           </span>
           {cambridgeDropdownVisible && (
             <div className="adminNavbar__menu">
@@ -120,25 +125,25 @@ const AdminNavbar = () => {
                 className="adminNavbar__menuItem adminNavbar__menuItem--disabled"
                 onClick={(e) => e.preventDefault()}
               >
-                🎧 PET Listening (Sắp ra)
+                🎧 PET Listening (Coming soon)
               </Link>
               <Link
                 to="/admin/create-pet-reading"
                 className="adminNavbar__menuItem adminNavbar__menuItem--disabled"
                 onClick={(e) => e.preventDefault()}
               >
-                📖 PET Reading (Sắp ra)
+                📖 PET Reading (Coming soon)
               </Link>
 
               <div className="adminNavbar__menuHeader adminNavbar__menuHeader--spaced">
-                📊 Quản lý
+                📊 Management
               </div>
               <Link
                 to="/admin/cambridge-submissions"
                 className="adminNavbar__menuItem"
                 onClick={() => setCambridgeDropdownVisible(false)}
               >
-                📋 Xem bài làm
+                📋 View submissions
               </Link>
             </div>
           )}
@@ -151,8 +156,11 @@ const AdminNavbar = () => {
           <span
             className="adminNavbar__link adminNavbar__dropdownToggle"
             onClick={() => setSubmissionDropdownVisible((prev) => !prev)}
+            title="IELTS"
           >
-            📁 Ielts ▼
+            <span className="adminNavbar__icon">📚</span>
+            <span className="adminNavbar__label">IELTS</span>
+            <span className="adminNavbar__caret">▼</span>
           </span>
           {submissionDropdownVisible && (
             <div className="adminNavbar__menu adminNavbar__menu--wide">
@@ -206,12 +214,14 @@ const AdminNavbar = () => {
             </div>
           )}
         </div>
-        <Link to="/select-test" className="adminNavbar__link">
-          📋 Danh sách đề
+        <Link to="/select-test" className="adminNavbar__link" title="Test list">
+          <span className="adminNavbar__icon">🧾</span>
+          <span className="adminNavbar__label">Test list</span>
         </Link>
 
-        <Link to="/review" className="adminNavbar__link">
-          📝 Nhận xét bài
+        <Link to="/review" className="adminNavbar__link" title="Review">
+          <span className="adminNavbar__icon">✍️</span>
+          <span className="adminNavbar__label">Review</span>
         </Link>
 
         <div
@@ -223,7 +233,7 @@ const AdminNavbar = () => {
           onClick={() =>
             setNotificationDropdownVisible(!notificationDropdownVisible)
           }
-          title="Bài chưa chấm"
+          title="Unreviewed"
         >
           🔔
           {unreviewed.length > 0 && (
@@ -236,7 +246,7 @@ const AdminNavbar = () => {
         {notificationDropdownVisible && (
           <div ref={notificationDropdownRef} className="adminNavbar__notifyMenu">
             {unreviewed.length === 0 ? (
-              <div>✅ Không có bài chưa chấm</div>
+              <div>✅ No unreviewed submissions</div>
             ) : (
               unreviewed.map((sub, i) => (
                 <div
@@ -259,12 +269,14 @@ const AdminNavbar = () => {
       {/* 👨‍🏫 Hiển thị tên giáo viên và nút logout */}
       <div className="adminNavbar__right">
         <ThemeToggle />
-        <span className="adminNavbar__teacherName">👨‍🏫 {user?.name || "Giáo viên"}</span>
+        <span className="adminNavbar__teacherName">👨‍🏫 {user?.name || "Teacher"}</span>
         <button
           onClick={handleLogout}
           className="adminNavbar__logout"
+          title="Logout"
         >
-          🔓 Đăng xuất
+          <span className="adminNavbar__icon">🔓</span>
+          <span className="adminNavbar__logoutLabel">Logout</span>
         </button>
       </div>
 

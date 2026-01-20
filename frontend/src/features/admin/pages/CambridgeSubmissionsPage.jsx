@@ -308,8 +308,10 @@ const CambridgeSubmissionsPage = () => {
                             <button
                               onClick={() => handleViewDetail(sub.id)}
                               style={styles.viewButton}
+                              className="admin-view-button"
                             >
-                              👁️ Xem
+                              <span className="admin-view-button__icon">👁️</span>
+                              <span className="admin-view-button__label">Xem</span>
                             </button>
                           </td>
                         </tr>
@@ -470,7 +472,9 @@ const styles = {
     backgroundColor: 'white',
     borderRadius: '12px',
     boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-    overflow: 'hidden',
+    overflowX: 'auto',
+    overflowY: 'hidden',
+    WebkitOverflowScrolling: 'touch',
   },
   table: {
     width: '100%',
@@ -569,6 +573,9 @@ const styles = {
     fontSize: '13px',
     fontWeight: 500,
     transition: 'all 0.2s',
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '6px',
   },
   pagination: {
     display: 'flex',

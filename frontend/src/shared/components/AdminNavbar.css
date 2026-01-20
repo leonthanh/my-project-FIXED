@@ -7,10 +7,26 @@
   align-items: center;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
   position: relative;
+  flex-wrap: nowrap;
+  gap: 12px;
+  position: sticky;
+  top: 0;
+  z-index: 1200;
+  width: 100%;
+  left: 0;
+  right: 0;
+  box-sizing: border-box;
 }
 
 .adminNavbar__left {
   display: flex;
+  align-items: center;
+  flex-wrap: nowrap;
+  gap: 12px;
+}
+
+.adminNavbar__logoLink {
+  display: inline-flex;
   align-items: center;
 }
 
@@ -24,6 +40,13 @@
   margin-right: 20px;
   text-decoration: none;
   font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.adminNavbar__link--desktop {
+  display: inline-flex;
 }
 
 .adminNavbar__dropdown {
@@ -35,6 +58,20 @@
 .adminNavbar__dropdownToggle {
   cursor: pointer;
   margin-right: 0;
+}
+
+.adminNavbar__icon {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.adminNavbar__label {
+  white-space: nowrap;
+}
+
+.adminNavbar__caret {
+  font-size: 12px;
+  opacity: 0.85;
 }
 
 .adminNavbar__menu {
@@ -149,7 +186,9 @@
   display: flex;
   align-items: center;
   gap: 12px;
+  flex-wrap: nowrap;
 }
+
 
 .adminNavbar__teacherName {
   font-weight: 700;
@@ -164,6 +203,9 @@
   font-weight: 700;
   cursor: pointer;
   transition: background 0.3s;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .adminNavbar__logout:hover {
@@ -174,18 +216,50 @@
 @media (max-width: 1024px) {
   .adminNavbar {
     padding: 10px 16px;
-    flex-wrap: wrap;
-    gap: 10px;
+    gap: 8px;
   }
 
   .adminNavbar__left {
-    flex-wrap: wrap;
-    gap: 10px;
+    gap: 8px;
   }
 
   .adminNavbar__link,
   .adminNavbar__dropdown {
     margin-right: 12px;
+  }
+}
+
+@media (max-width: 900px) {
+  .adminNavbar {
+    padding: 10px 14px;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .adminNavbar__left,
+  .adminNavbar__right {
+    flex-wrap: nowrap;
+  }
+
+  .adminNavbar__left {
+    gap: 8px;
+  }
+
+  .adminNavbar__right {
+    gap: 8px;
+  }
+
+  .adminNavbar__teacherName {
+    font-size: 14px;
+    max-width: 160px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .adminNavbar__logout {
+    padding: 6px 12px;
+    font-size: 13px;
   }
 }
 
@@ -196,9 +270,7 @@
 
   .adminNavbar__left,
   .adminNavbar__right {
-    width: 100%;
-    justify-content: space-between;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
   }
 
   .adminNavbar__logo {
@@ -235,6 +307,66 @@
 
   .adminNavbar__bell {
     margin-right: 12px;
+  }
+
+  .adminNavbar__teacherName {
+    max-width: 120px;
+  }
+}
+
+@media (max-width: 520px) {
+  .adminNavbar__label {
+    display: none;
+  }
+
+  .adminNavbar__caret {
+    display: none;
+  }
+
+  .adminNavbar__link {
+    margin-right: 12px;
+    gap: 4px;
+  }
+
+  .adminNavbar__link--desktop {
+    display: none;
+  }
+
+  .adminNavbar__more {
+    display: inline-flex;
+  }
+
+  .adminNavbar__teacherName {
+    display: none;
+  }
+
+  .adminNavbar__logoutLabel {
+    display: none;
+  }
+
+  .adminNavbar {
+    padding: 6px 8px;
+    gap: 6px;
+    flex-wrap: wrap;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+  }
+
+  .adminNavbar__left,
+  .adminNavbar__right {
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  .adminNavbar__logo {
+    height: 28px;
+    margin-right: 6px;
+  }
+
+  .adminNavbar__link {
+    margin-right: 6px;
   }
 }
 

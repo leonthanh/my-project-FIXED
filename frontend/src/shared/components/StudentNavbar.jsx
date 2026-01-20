@@ -1,6 +1,7 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { apiPath, hostPath } from "../utils/api";
+import "./StudentNavbar.css";
 
 const StudentNavbar = () => {
   const navigate = useNavigate();
@@ -10,6 +11,8 @@ const StudentNavbar = () => {
   const [readingFeedbackCount, setReadingFeedbackCount] = useState(0);
   const [cambridgeFeedbackCount, setCambridgeFeedbackCount] = useState(0);
   const [newTestCount, setNewTestCount] = useState(0);
+  const [moreDropdownVisible, setMoreDropdownVisible] = useState(false);
+  const moreDropdownRef = useRef(null);
 
   // Lấy thông tin user từ localStorage
   useEffect(() => {
@@ -99,6 +102,19 @@ const StudentNavbar = () => {
       window.removeEventListener("feedbackSeen", handleFeedbackSeen);
     };
   }, [fetchNotifications]);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (
+        moreDropdownRef.current &&
+        !moreDropdownRef.current.contains(event.target)
+      ) {
+        setMoreDropdownVisible(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   // 🔹 Kiểm tra định kỳ sự thay đổi trong localStorage
   useEffect(() => {
@@ -199,96 +215,96 @@ const StudentNavbar = () => {
 
   if (!user) return null;
 
-  const navLinkStyle = {
-    color: "white",
-    marginRight: "20px",
-    textDecoration: "none",
-    fontWeight: "bold",
-    fontSize: "16px",
-  };
-
   const feedbackCount = writingFeedbackCount + readingFeedbackCount + cambridgeFeedbackCount;
   const totalNotifications = feedbackCount + newTestCount;
 
   return (
-    <nav
-      style={{
-        padding: "12px 24px",
-        background: "#0e276f",
-        color: "white",
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "center",
-        boxShadow: "0 2px 6px rgba(0,0,0,0.2)",
-      }}
-    >
-      <div style={{ display: "flex", alignItems: "center" }}>
-        <img
-          src={hostPath("uploads/staredu.jpg")}
-          alt="Logo"
-          style={{ height: 40, marginRight: 20 }}
-        />
-        <Link to="/select-test" style={navLinkStyle}>
-          📝 Ielts
+    <nav className="studentNavbar">
+      <div className="studentNavbar__left">
+        <Link to="/select-test" className="studentNavbar__logoLink" title="Danh sách đề">
+          <img
+            src={hostPath("uploads/staredu.jpg")}
+            alt="Logo"
+            className="studentNavbar__logo"
+          />
         </Link>
-        <Link to="/cambridge" style={navLinkStyle}>
-          🎓 Cambridge
+        <Link to="/select-test" className="studentNavbar__link" title="IELTS">
+          <span className="studentNavbar__icon">📚</span>
+          <span className="studentNavbar__label">IELTS</span>
         </Link>
-        <Link to="/my-feedback" style={navLinkStyle}>
-          📄 Xem Nhận xét
+        <Link to="/cambridge" className="studentNavbar__link" title="Orange">
+          <span className="studentNavbar__icon">🍊</span>
+          <span className="studentNavbar__label">Orange</span>
         </Link>
 
+        <Link to="/my-feedback" className="studentNavbar__link studentNavbar__link--desktop" title="Xem nhận xét">
+          <span className="studentNavbar__icon">📄</span>
+          <span className="studentNavbar__label">Xem nhận xét</span>
+        </Link>
+
+        <div className="studentNavbar__more" ref={moreDropdownRef}>
+          <span
+            className="studentNavbar__moreToggle"
+            onClick={() => setMoreDropdownVisible((prev) => !prev)}
+            title="Thêm"
+          >
+            <span className="studentNavbar__icon">⋯</span>
+            <span className="studentNavbar__label">Thêm</span>
+          </span>
+          {moreDropdownVisible && (
+            <div className="studentNavbar__menu">
+              <Link
+                to="/select-test"
+                className="studentNavbar__menuItem"
+                onClick={() => setMoreDropdownVisible(false)}
+              >
+                📚 IELTS
+              </Link>
+              <Link
+                to="/cambridge"
+                className="studentNavbar__menuItem"
+                onClick={() => setMoreDropdownVisible(false)}
+              >
+                🍊 Orange
+              </Link>
+              <Link
+                to="/my-feedback"
+                className="studentNavbar__menuItem"
+                onClick={() => setMoreDropdownVisible(false)}
+              >
+                📄 Xem nhận xét
+              </Link>
+            </div>
+          )}
+        </div>
+
         <div
-          style={{
-            position: "relative",
-            marginRight: "20px",
-            cursor: "pointer",
-            fontSize: "20px",
-            animation: totalNotifications > 0 ? "shake 0.5s infinite" : "none",
-          }}
+          className={
+            totalNotifications > 0
+              ? "studentNavbar__bell studentNavbar__bell--shake"
+              : "studentNavbar__bell"
+          }
           onClick={handleNotificationClick}
           title="Thông báo mới"
         >
           🔔
           {totalNotifications > 0 && (
-            <span
-              style={{
-                position: "absolute",
-                top: -6,
-                right: -10,
-                background: "red",
-                color: "white",
-                borderRadius: "50%",
-                padding: "2px 6px",
-                fontSize: "12px",
-                fontWeight: "bold",
-                zIndex: 1, // Thêm zIndex để đảm bảo thông báo luôn nằm trên
-              }}
-            >
+            <span className="studentNavbar__badge">
               {totalNotifications}
             </span>
           )}
         </div>
       </div>
 
-      <div style={{ display: "flex", alignItems: "center" }}>
-        <span style={{ marginRight: 16 }}>👤 {user.name}</span>
+      <div className="studentNavbar__right">
+        <span className="studentNavbar__user">👤 {user.name}</span>
         <button
           onClick={handleLogout}
-          style={{
-            background: "#e03",
-            border: "none",
-            padding: "8px 16px",
-            borderRadius: "6px",
-            color: "white",
-            fontWeight: "bold",
-            cursor: "pointer",
-            transition: "background 0.3s",
-          }}
-          onMouseOver={(e) => (e.currentTarget.style.background = "#c0392b")}
-          onMouseOut={(e) => (e.currentTarget.style.background = "#e03")}
+          className="studentNavbar__logout"
+          title="Đăng xuất"
         >
-          🔓 Đăng xuất
+          <span className="studentNavbar__icon">🔓</span>
+          <span className="studentNavbar__logoutLabel">Đăng xuất</span>
         </button>
       </div>
 

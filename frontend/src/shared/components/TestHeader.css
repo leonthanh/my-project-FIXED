@@ -238,6 +238,26 @@
 }
 
 /* Responsive */
+@media (max-width: 900px) {
+  .test-header {
+    padding: 0 16px;
+    height: 56px;
+  }
+
+  .test-header .header-right {
+    gap: 12px;
+  }
+
+  .test-header .timer-container {
+    padding: 4px 12px;
+  }
+
+  .test-header .progress-ring {
+    width: 40px;
+    height: 40px;
+  }
+}
+
 @media (max-width: 768px) {
   .test-header {
     padding: 0 12px;

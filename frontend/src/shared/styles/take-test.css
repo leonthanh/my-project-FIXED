@@ -820,6 +820,31 @@
   }
 }
 
+@media (max-width: 900px) {
+  .take-test-header {
+    padding: 10px 16px;
+  }
+
+  .header-right {
+    gap: 12px;
+  }
+
+  .timer-display {
+    min-width: 150px;
+    font-size: 16px;
+  }
+
+  .btn-submit {
+    padding: 8px 14px;
+    font-size: 14px;
+  }
+
+  .passage-text,
+  .question-text {
+    font-size: 14px;
+  }
+}
+
 @media (max-width: 768px) {
   .take-test-body {
     flex-direction: column;
