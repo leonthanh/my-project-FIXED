@@ -733,7 +733,21 @@ export const getDefaultQuestionData = (questionTypeId) => {
   if (!questionType) {
     return { questionText: '', correctAnswer: '' };
   }
-  return { ...questionType.defaultData, questionType: questionTypeId };
+
+  // IMPORTANT:
+  // `defaultData` contains nested arrays/objects (e.g., long-text-mc.questions).
+  // A shallow spread would share nested references across parts/sections.
+  // That can cause editing one part to accidentally change another.
+  let cloned;
+  try {
+    cloned = typeof structuredClone === 'function'
+      ? structuredClone(questionType.defaultData)
+      : JSON.parse(JSON.stringify(questionType.defaultData));
+  } catch (e) {
+    cloned = JSON.parse(JSON.stringify(questionType.defaultData));
+  }
+
+  return { ...cloned, questionType: questionTypeId };
 };
 
 /**

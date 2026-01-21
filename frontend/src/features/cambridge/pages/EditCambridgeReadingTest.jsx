@@ -20,6 +20,28 @@ const EditCambridgeReadingTest = () => {
   const { id } = useParams();
   const navigate = useNavigate();
 
+  const stripDataUrlsFromParts = (partsData) => {
+    const dataUrlRegex = /data:image\/[a-zA-Z]+;base64,[^"'\s)]+/g;
+
+    const walk = (input) => {
+      if (typeof input === 'string') {
+        return dataUrlRegex.test(input) ? input.replace(dataUrlRegex, '') : input;
+      }
+      if (Array.isArray(input)) {
+        return input.map(walk);
+      }
+      if (input && typeof input === 'object') {
+        return Object.entries(input).reduce((acc, [key, val]) => {
+          acc[key] = walk(val);
+          return acc;
+        }, {});
+      }
+      return input;
+    };
+
+    return walk(partsData);
+  };
+
   // Fetch test data on mount
   const [fetchedData, setFetchedData] = useState(null);
 
@@ -60,6 +82,10 @@ const EditCambridgeReadingTest = () => {
             console.warn('Could not parse parts JSON from DB:', err);
             data.parts = null;
           }
+        }
+
+        if (data?.parts) {
+          data.parts = stripDataUrlsFromParts(data.parts);
         }
 
         setFetchedData(data);

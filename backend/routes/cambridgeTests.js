@@ -96,6 +96,27 @@ const countTotalQuestionsFromParts = (rawParts = []) => {
 // Backward-compatible alias used below
 const countTotalQuestions = countTotalQuestionsFromParts;
 
+const stripDataUrls = (value) => {
+  const dataUrlRegex = /data:image\/[a-zA-Z]+;base64,[^"'\s)]+/g;
+
+  const walk = (input) => {
+    if (typeof input === "string") {
+      return dataUrlRegex.test(input) ? input.replace(dataUrlRegex, "") : input;
+    }
+    if (Array.isArray(input)) {
+      return input.map(walk);
+    }
+    if (input && typeof input === "object") {
+      return Object.fromEntries(
+        Object.entries(input).map(([key, val]) => [key, walk(val)])
+      );
+    }
+    return input;
+  };
+
+  return walk(value);
+};
+
 const requireAdminKeyIfConfigured = (req, res) => {
   const expected = process.env.ADMIN_KEY;
   if (!expected) return true;
@@ -432,7 +453,7 @@ router.get("/reading-tests/:id", async (req, res) => {
 
     res.json({
       ...json,
-      parts: processedParts,
+      parts: stripDataUrls(processedParts),
       totalQuestions: Math.max(computedTotal || 0, json.totalQuestions || 0),
     });
   } catch (err) {

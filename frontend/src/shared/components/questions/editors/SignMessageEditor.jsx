@@ -26,8 +26,35 @@ const SignMessageEditor = ({
   const imageUrl = question?.imageUrl || '';
   const imageAlt = question?.imageAlt || '';
   const signText = question?.signText || ''; // Optional: text on the sign
+  const signTextValue = typeof signText === 'string' ? signText : '';
   const options = question?.options || ['A. ', 'B. ', 'C. '];
   const correctAnswer = question?.correctAnswer || ''; 
+
+  const modules = {
+    toolbar: [
+      [{ header: [1, 2, 3, false] }],
+      ["bold", "italic", "underline"],
+      [{ color: [] }, { background: [] }],
+      [{ list: "ordered" }, { list: "bullet" }],
+      [{ align: [] }],
+      ["link", "image"],
+      ["clean"],
+    ],
+  };
+
+  const formats = [
+    "header",
+    "bold",
+    "italic",
+    "underline",
+    "color",
+    "background",
+    "list",
+    "bullet",
+    "align",
+    "link",
+    "image",
+  ];
 
   return (
     <div>
@@ -109,17 +136,12 @@ const SignMessageEditor = ({
           </label>
           <div className="sign-text-editor">
             <ReactQuill
-              value={signText}
-              onChange={(value) => onChange("signText", value)}
+              value={signTextValue}
+              onChange={(value) => onChange("signText", value || '')}
               placeholder="VD: CAMPSITE - Groups of 4+ please call ahead"
-              style={{ backgroundColor: "white", borderRadius: "6px" }}
-              modules={{
-                toolbar: [
-                  ['bold', 'italic', 'underline'],
-                  [{ 'align': [] }],
-                  ['clean']
-                ]
-              }}
+              modules={modules}
+              formats={formats}
+              style={{ backgroundColor: "white", borderRadius: "6px", minHeight: "120px" }}
             />
           </div>
         </div>

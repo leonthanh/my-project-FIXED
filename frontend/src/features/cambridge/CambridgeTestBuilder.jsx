@@ -303,22 +303,35 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
 
   // Handlers
   const handleQuestionTypeChange = (newType) => {
-    const newParts = [...parts];
-    newParts[selectedPartIndex].sections[selectedSectionIndex].questionType = newType;
-    // Reset questions with default data for new type
-    newParts[selectedPartIndex].sections[selectedSectionIndex].questions = [
-      getDefaultQuestionData(newType)
-    ];
-    setParts(newParts);
+    setParts(prevParts => prevParts.map((part, pIdx) => {
+      if (pIdx !== selectedPartIndex) return part;
+      const nextSections = (part.sections || []).map((section, sIdx) => {
+        if (sIdx !== selectedSectionIndex) return section;
+        return {
+          ...section,
+          questionType: newType,
+          questions: [getDefaultQuestionData(newType)],
+        };
+      });
+      return { ...part, sections: nextSections };
+    }));
   };
 
   const handleQuestionChange = (field, value) => {
-    const newParts = [...parts];
-    newParts[selectedPartIndex].sections[selectedSectionIndex].questions[0] = {
-      ...newParts[selectedPartIndex].sections[selectedSectionIndex].questions[0],
-      [field]: value,
-    };
-    setParts(newParts);
+    setParts(prevParts => prevParts.map((part, pIdx) => {
+      if (pIdx !== selectedPartIndex) return part;
+      const nextSections = (part.sections || []).map((section, sIdx) => {
+        if (sIdx !== selectedSectionIndex) return section;
+        const prevQuestions = Array.isArray(section.questions) ? section.questions : [];
+        if (prevQuestions.length === 0) return { ...section, questions: [{ [field]: value }] };
+        const nextQuestions = prevQuestions.map((q, qIdx) => {
+          if (qIdx !== 0) return q;
+          return { ...q, [field]: value };
+        });
+        return { ...section, questions: nextQuestions };
+      });
+      return { ...part, sections: nextSections };
+    }));
   };
 
   const handleAddPart = () => {
@@ -344,29 +357,50 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
   };
 
   const handleAddSection = () => {
-    const newParts = [...parts];
-    newParts[selectedPartIndex].sections.push({
+    const nextSection = {
       sectionTitle: '',
       questionType: availableTypes[0]?.id || 'fill',
       questions: [getDefaultQuestionData(availableTypes[0]?.id || 'fill')],
-    });
-    setParts(newParts);
-    setSelectedSectionIndex(newParts[selectedPartIndex].sections.length - 1);
+    };
+
+    setParts(prevParts => prevParts.map((part, pIdx) => {
+      if (pIdx !== selectedPartIndex) return part;
+      const nextSections = [...(part.sections || []), nextSection];
+      return { ...part, sections: nextSections };
+    }));
+
+    setSelectedSectionIndex((currentPart?.sections?.length || 0));
   };
 
   const handleAddQuestion = () => {
-    const newParts = [...parts];
-    const currentType = currentSection.questionType;
-    newParts[selectedPartIndex].sections[selectedSectionIndex].questions.push(
-      getDefaultQuestionData(currentType)
-    );
-    setParts(newParts);
+    const currentType = currentSection?.questionType;
+    setParts(prevParts => prevParts.map((part, pIdx) => {
+      if (pIdx !== selectedPartIndex) return part;
+      const nextSections = (part.sections || []).map((section, sIdx) => {
+        if (sIdx !== selectedSectionIndex) return section;
+        const prevQuestions = Array.isArray(section.questions) ? section.questions : [];
+        return {
+          ...section,
+          questions: [...prevQuestions, getDefaultQuestionData(currentType)],
+        };
+      });
+      return { ...part, sections: nextSections };
+    }));
   };
 
   const handleDeleteQuestion = (qIndex) => {
-    const newParts = [...parts];
-    newParts[selectedPartIndex].sections[selectedSectionIndex].questions.splice(qIndex, 1);
-    setParts(newParts);
+    setParts(prevParts => prevParts.map((part, pIdx) => {
+      if (pIdx !== selectedPartIndex) return part;
+      const nextSections = (part.sections || []).map((section, sIdx) => {
+        if (sIdx !== selectedSectionIndex) return section;
+        const prevQuestions = Array.isArray(section.questions) ? section.questions : [];
+        return {
+          ...section,
+          questions: prevQuestions.filter((_, idx) => idx !== qIndex),
+        };
+      });
+      return { ...part, sections: nextSections };
+    }));
   };
   // Toggle collapse/expand for a question
   const toggleCollapseQuestion = (qIdx) => {
@@ -1090,10 +1124,10 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
                 <ReactQuill
                   key={`part-instruction-${selectedPartIndex}`}
                   theme="snow"
-                  value={currentPart.instruction || ''}
+                  value={typeof currentPart?.instruction === 'string' ? currentPart.instruction : ''}
                   onChange={(content) => {
                     const newParts = [...parts];
-                    newParts[selectedPartIndex].instruction = content;
+                    newParts[selectedPartIndex].instruction = content || '';
                     setParts(newParts);
                   }}
                   placeholder="Nhập hướng dẫn cho part này..."
@@ -1286,7 +1320,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
                     
                     return (
                       <div 
-                        key={qIdx} 
+                        key={`${selectedPartIndex}-${selectedSectionIndex}-${qIdx}`}
                         draggable
                         onDragStart={(e) => handleDragStart(qIdx, e)}
                         onDragOver={handleDragOver}
@@ -1446,12 +1480,20 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
                               questionType={currentSection.questionType}
                               question={question}
                               onChange={(field, value) => {
-                                const newParts = [...parts];
-                                newParts[selectedPartIndex].sections[selectedSectionIndex].questions[qIdx] = {
-                                  ...question,
-                                  [field]: value,
-                                };
-                                setParts(newParts);
+                                setParts(prevParts => prevParts.map((part, pIdx) => {
+                                  if (pIdx !== selectedPartIndex) return part;
+                                  const nextSections = (part.sections || []).map((section, sIdx) => {
+                                    if (sIdx !== selectedSectionIndex) return section;
+                                    const prevQuestions = Array.isArray(section.questions) ? section.questions : [];
+                                    const prevQuestion = prevQuestions[qIdx] || {};
+                                    const nextQuestions = prevQuestions.map((q, idx) => {
+                                      if (idx !== qIdx) return q;
+                                      return { ...prevQuestion, [field]: value };
+                                    });
+                                    return { ...section, questions: nextQuestions };
+                                  });
+                                  return { ...part, sections: nextSections };
+                                }));
                               }}
                               questionIndex={qIdx}
                               startingNumber={['long-text-mc', 'cloze-mc', 'cloze-test', 'short-message', 'people-matching', 'word-form'].includes(currentSection.questionType) ? sectionStartNum : startNum}

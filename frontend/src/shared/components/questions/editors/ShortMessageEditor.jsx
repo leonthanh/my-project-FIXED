@@ -19,12 +19,13 @@ import "react-quill/dist/quill.snow.css";
  * @param {Function} props.onChange - Handler khi thay đổi field
  */
 const ShortMessageEditor = ({
-  question,
+  question = {},
   onChange,
   partIndex = 6, // Default to Part 7 (index 6)
   startingNumber = 31, // Default starting number
 }) => {
   const situation = question.situation || '';
+  const situationValue = typeof situation === 'string' ? situation : '';
   const recipient = question.recipient || '';
   const wordLimit = question.wordLimit || { min: 25, max: 35 };
   const sampleAnswer = question.sampleAnswer || '';
@@ -133,8 +134,8 @@ const ShortMessageEditor = ({
         }}>
           <ReactQuill
             theme="snow"
-            value={situation}
-            onChange={(content) => onChange('situation', content)}
+            value={situationValue}
+            onChange={(content) => onChange('situation', content || '')}
             placeholder="VD: You want to go to the cinema with your English friend Sam."
             modules={modules}
             formats={formats}
