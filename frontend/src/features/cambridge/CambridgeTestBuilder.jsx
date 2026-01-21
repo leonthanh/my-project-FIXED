@@ -14,6 +14,7 @@ import {
   TEST_CONFIGS,
 } from "../../shared/config/questionTypes";
 import { apiPath, hostPath } from "../../shared/utils/api";
+import useQuillImageUpload from "../../shared/hooks/useQuillImageUpload";
 
 /**
  * CambridgeTestBuilder - Component cho việc tạo đề Cambridge tests
@@ -24,6 +25,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
   const testConfig = getTestConfig(testType);
   const availableTypes = getQuestionTypesForTest(testType);
   const isListeningTest = testType.includes('listening');
+  const { quillRef: partInstructionRef, modules: partInstructionModules } = useQuillImageUpload();
 
   const normalizePeopleMatchingIds = useCallback((partsData) => {
     if (!Array.isArray(partsData)) return partsData;
@@ -1123,6 +1125,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
               }}>
                 <ReactQuill
                   key={`part-instruction-${selectedPartIndex}`}
+                  ref={partInstructionRef}
                   theme="snow"
                   value={typeof currentPart?.instruction === 'string' ? currentPart.instruction : ''}
                   onChange={(content) => {
@@ -1131,17 +1134,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
                     setParts(newParts);
                   }}
                   placeholder="Nhập hướng dẫn cho part này..."
-                  modules={{
-                    toolbar: [
-                      [{ header: [1, 2, 3, false] }],
-                      ['bold', 'italic', 'underline'],
-                      [{ color: [] }, { background: [] }],
-                      [{ list: 'ordered' }, { list: 'bullet' }],
-                      [{ align: [] }],
-                      ['link', 'image'],
-                      ['clean'],
-                    ],
-                  }}
+                  modules={partInstructionModules}
                   formats={[
                     'header',
                     'bold',

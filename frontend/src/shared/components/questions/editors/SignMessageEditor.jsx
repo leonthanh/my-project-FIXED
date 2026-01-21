@@ -1,6 +1,7 @@
 import React from "react";
 import ReactQuill from "react-quill";
 import "react-quill/dist/quill.snow.css";
+import useQuillImageUpload from "../../../hooks/useQuillImageUpload";
 
 /**
  * SignMessageEditor - KET Part 1: Signs & Messages
@@ -23,6 +24,7 @@ const SignMessageEditor = ({
   startingNumber = 1,
   partIndex = 0, // Default to Part 1 (index 0)
 }) => {
+  const { quillRef, modules } = useQuillImageUpload();
   const imageUrl = question?.imageUrl || '';
   const imageAlt = question?.imageAlt || '';
   const signText = question?.signText || ''; // Optional: text on the sign
@@ -30,17 +32,7 @@ const SignMessageEditor = ({
   const options = question?.options || ['A. ', 'B. ', 'C. '];
   const correctAnswer = question?.correctAnswer || ''; 
 
-  const modules = {
-    toolbar: [
-      [{ header: [1, 2, 3, false] }],
-      ["bold", "italic", "underline"],
-      [{ color: [] }, { background: [] }],
-      [{ list: "ordered" }, { list: "bullet" }],
-      [{ align: [] }],
-      ["link", "image"],
-      ["clean"],
-    ],
-  };
+  // modules provided by useQuillImageUpload
 
   const formats = [
     "header",
@@ -136,6 +128,7 @@ const SignMessageEditor = ({
           </label>
           <div className="sign-text-editor">
             <ReactQuill
+              ref={quillRef}
               value={signTextValue}
               onChange={(value) => onChange("signText", value || '')}
               placeholder="VD: CAMPSITE - Groups of 4+ please call ahead"

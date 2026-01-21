@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
+import useQuillImageUpload from '../hooks/useQuillImageUpload';
 
 const FormQuestion = ({ question, onChange }) => {
   const handleChange = (field, value) => {
@@ -14,15 +15,26 @@ const FormQuestion = ({ question, onChange }) => {
     handleChange('question', value);
   };
 
-  const modules = {
-    toolbar: [
-      [{ header: [1, 2, false] }],
-      ['bold', 'italic', 'underline'],
-      ['link', 'image'],
-      [{ list: 'ordered' }, { list: 'bullet' }],
-      ['clean']
-    ]
-  };
+  const questionToolbar = useMemo(() => [
+    [{ header: [1, 2, false] }],
+    ['bold', 'italic', 'underline'],
+    ['link', 'image'],
+    [{ list: 'ordered' }, { list: 'bullet' }],
+    ['clean']
+  ], []);
+
+  const formToolbar = useMemo(() => [
+    [{ header: [1, 2, false] }],
+    ['bold', 'italic', 'underline', 'strike'],
+    [{ color: [] }, { background: [] }],
+    [{ list: 'ordered' }, { list: 'bullet' }],
+    [{ align: [] }],
+    ['link', 'image'],
+    ['clean']
+  ], []);
+
+  const { quillRef: formQuillRef, modules: formModules } = useQuillImageUpload({ toolbar: formToolbar });
+  const { quillRef: questionQuillRef, modules: questionModules } = useQuillImageUpload({ toolbar: questionToolbar });
 
   const formats = [
     'header',
@@ -70,19 +82,10 @@ const FormQuestion = ({ question, onChange }) => {
     <div style={styles.container}>
       <label style={styles.label}>📝 Form Template:</label>
       <ReactQuill
+        ref={formQuillRef}
         value={question.formTemplate || ''}
         onChange={(content) => handleChange('formTemplate', content)}
-        modules={{
-          toolbar: [
-            [{ 'header': [1, 2, false] }],
-            ['bold', 'italic', 'underline', 'strike'],
-            [{ 'color': [] }, { 'background': [] }],
-            [{ 'list': 'ordered'}, { 'list': 'bullet' }],
-            [{ 'align': [] }],
-            ['link', 'image'],
-            ['clean']
-          ]
-        }}
+        modules={formModules}
         formats={[
           'header',
           'bold', 'italic', 'underline', 'strike',
@@ -97,9 +100,10 @@ const FormQuestion = ({ question, onChange }) => {
 
       <label style={styles.label}>✍️ Câu hỏi:</label>
       <ReactQuill
+        ref={questionQuillRef}
         value={question.question}
         onChange={handleQuestionChange}
-        modules={modules}
+        modules={questionModules}
         formats={formats}
         theme="snow"
       />
