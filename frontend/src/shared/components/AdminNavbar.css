@@ -354,6 +354,11 @@
     right: 0;
   }
 
+  /* Ensure page content isn't hidden behind the fixed mobile navbar */
+  .admin-page {
+    padding-top: 64px; /* adjust if navbar height changes */
+  }
+
   .adminNavbar__left,
   .adminNavbar__right {
     gap: 6px;

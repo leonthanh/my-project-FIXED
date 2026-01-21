@@ -302,6 +302,17 @@ body.dark-mode .reading-test-editor .section-title a {
   .admin-view-button__label {
     display: none;
   }
+
+  /* Specific offset for Cambridge submissions page so navbar doesn't cover content on small screens */
+  .admin-page.cambridge-page {
+    padding-top: 50px !important; /* matches taller wrapped navbar */
+  }
+
+  @media (max-width: 360px) {
+    .admin-page.cambridge-page {
+      padding-top: 120px !important; /* extra space for very narrow phones */
+    }
+  }
 }
 
 /* Slightly lighter small text */
