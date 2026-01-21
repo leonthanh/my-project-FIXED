@@ -1,7 +1,7 @@
 import React, { useCallback, useMemo, useRef } from "react";
 import ReactQuill from "react-quill";
 import "react-quill/dist/quill.snow.css";
-import { apiPath, hostPath } from "../../../utils/api";
+import useQuillImageUpload from "../../../hooks/useQuillImageUpload";
 
 /**
  * LongTextMCEditor - KET Part 3: Long Text + Multiple Choice
@@ -26,7 +26,7 @@ const LongTextMCEditor = ({
   startingNumber = 7,
   partIndex = 2, // Default to Part 3 (index 2)
 }) => {
-  const quillRef = useRef(null);
+  const { quillRef, modules } = useQuillImageUpload();
   const safeQuestion = question && typeof question === 'object' && !Array.isArray(question) ? question : {};
   const passageTitle = safeQuestion?.passageTitle || '';
   const passage = safeQuestion?.passage || '';
@@ -79,75 +79,7 @@ const LongTextMCEditor = ({
     onChange("questions", newQuestions);
   };
 
-  const insertImageAtCursor = useCallback((imageUrl) => {
-    const editor = quillRef.current?.getEditor?.();
-    if (!editor) return;
-    const range = editor.getSelection(true);
-    const index = range ? range.index : editor.getLength();
-    editor.insertEmbed(index, "image", imageUrl, "user");
-    editor.setSelection(index + 1);
-  }, []);
-
-  const uploadImage = useCallback(async (file) => {
-    const formData = new FormData();
-    formData.append("image", file);
-
-    const res = await fetch(apiPath("upload/cambridge-image"), {
-      method: "POST",
-      body: formData,
-    });
-
-    if (!res.ok) {
-      let errMsg = "Lỗi khi upload hình ảnh";
-      try {
-        const err = await res.json();
-        errMsg = err?.message || errMsg;
-      } catch {
-        // ignore
-      }
-      throw new Error(errMsg);
-    }
-
-    const data = await res.json();
-    if (!data?.url) throw new Error("Upload thành công nhưng không nhận được URL hình ảnh");
-    return hostPath(data.url);
-  }, []);
-
-  const handleImageInsert = useCallback(() => {
-    const input = document.createElement("input");
-    input.setAttribute("type", "file");
-    input.setAttribute("accept", "image/*");
-    input.onchange = async () => {
-      const file = input.files?.[0];
-      if (!file) return;
-      try {
-        const imageUrl = await uploadImage(file);
-        insertImageAtCursor(imageUrl);
-      } catch (err) {
-        console.error("Upload image error:", err);
-        alert(err?.message || "Lỗi khi upload hình ảnh");
-      }
-    };
-    input.click();
-  }, [insertImageAtCursor, uploadImage]);
-
-  // Quill modules configuration
-  const modules = useMemo(() => ({
-    toolbar: {
-      container: [
-        [{ header: [1, 2, 3, false] }],
-        ["bold", "italic", "underline"],
-        [{ color: [] }, { background: [] }],
-        [{ list: "ordered" }, { list: "bullet" }],
-        [{ align: [] }],
-        ["link", "image"],
-        ["clean"],
-      ],
-      handlers: {
-        image: handleImageInsert,
-      },
-    },
-  }), [handleImageInsert]);
+  // modules provided by useQuillImageUpload
 
   const formats = [
     "header",

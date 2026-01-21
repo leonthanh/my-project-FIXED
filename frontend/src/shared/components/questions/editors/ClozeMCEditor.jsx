@@ -1,6 +1,7 @@
 import React from "react";
 import ReactQuill from "react-quill";
 import "react-quill/dist/quill.snow.css";
+import useQuillImageUpload from "../../../hooks/useQuillImageUpload";
 
 /**
  * ClozeMCEditor - KET Part 4: Multiple Choice Cloze
@@ -24,6 +25,7 @@ const ClozeMCEditor = ({
   startingNumber = 16,
   partIndex = 3, // Default to Part 4 (index 3)
 }) => {
+  const { quillRef, modules } = useQuillImageUpload();
   const passageTitle = question?.passageTitle || '';
   const passage = question?.passage || '';
   const passageValue = typeof passage === 'string' ? passage : '';
@@ -63,18 +65,7 @@ const ClozeMCEditor = ({
     onChange("blanks", newBlanks);
   };
 
-  // Quill modules configuration with image support
-  const modules = {
-    toolbar: [
-      [{ header: [1, 2, 3, false] }],
-      ["bold", "italic", "underline"],
-      [{ color: [] }, { background: [] }],
-      [{ list: "ordered" }, { list: "bullet" }],
-      [{ align: [] }],
-      ["link", "image"],
-      ["clean"],
-    ],
-  };
+  // modules provided by useQuillImageUpload
 
   const formats = [
     "header",
@@ -172,6 +163,7 @@ const ClozeMCEditor = ({
           backgroundColor: "white",
         }}>
           <ReactQuill
+            ref={quillRef}
             theme="snow"
             value={passageValue}
             onChange={(content) => onChange("passage", content || '')}

@@ -1,6 +1,7 @@
 import React from "react";
 import ReactQuill from "react-quill";
 import "react-quill/dist/quill.snow.css";
+import useQuillImageUpload from "../../../hooks/useQuillImageUpload";
 
 /**
  * ShortMessageEditor - Editor cho KET/PET Part 7 Writing Task
@@ -30,18 +31,7 @@ const ShortMessageEditor = ({
   const wordLimit = question.wordLimit || { min: 25, max: 35 };
   const sampleAnswer = question.sampleAnswer || '';
 
-  // Quill modules configuration
-  const modules = {
-    toolbar: [
-      [{ header: [1, 2, 3, false] }],
-      ["bold", "italic", "underline"],
-      [{ color: [] }, { background: [] }],
-      [{ list: "ordered" }, { list: "bullet" }],
-      [{ align: [] }],
-      ["link", "image"],
-      ["clean"],
-    ],
-  };
+  const { quillRef, modules } = useQuillImageUpload();
 
   const formats = [
     "header",
@@ -133,6 +123,7 @@ const ShortMessageEditor = ({
           backgroundColor: "white",
         }}>
           <ReactQuill
+            ref={quillRef}
             theme="snow"
             value={situationValue}
             onChange={(content) => onChange('situation', content || '')}

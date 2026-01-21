@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import ReactQuill from "react-quill";
 import "react-quill/dist/quill.snow.css";
+import useQuillImageUpload from "../../../hooks/useQuillImageUpload";
 
 /**
  * ClozeTestEditor - Editor cho dạng Cloze Test (điền vào chỗ trống trong đoạn văn)
@@ -78,18 +79,7 @@ const ClozeTestEditor = ({
     onChange("answers", newAnswers);
   };
 
-  // Quill modules configuration with image support
-  const modules = {
-    toolbar: [
-      [{ header: [1, 2, 3, false] }],
-      ["bold", "italic", "underline"],
-      [{ color: [] }, { background: [] }],
-      [{ list: "ordered" }, { list: "bullet" }],
-      [{ align: [] }],
-      ["link", "image"],
-      ["clean"],
-    ],
-  };
+  const { quillRef, modules } = useQuillImageUpload();
 
   const formats = [
     "header",
@@ -214,6 +204,7 @@ const ClozeTestEditor = ({
           backgroundColor: "white",
         }}>
           <ReactQuill
+            ref={quillRef}
             theme="snow"
             value={passageText}
             onChange={(content) => onChange("passageText", content || '')}
