@@ -1124,10 +1124,10 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
                 <ReactQuill
                   key={`part-instruction-${selectedPartIndex}`}
                   theme="snow"
-                  value={currentPart.instruction || ''}
+                  value={typeof currentPart?.instruction === 'string' ? currentPart.instruction : ''}
                   onChange={(content) => {
                     const newParts = [...parts];
-                    newParts[selectedPartIndex].instruction = content;
+                    newParts[selectedPartIndex].instruction = content || '';
                     setParts(newParts);
                   }}
                   placeholder="Nhập hướng dẫn cho part này..."

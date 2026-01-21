@@ -1,6 +1,7 @@
-import React from "react";
+import React, { useCallback, useMemo, useRef } from "react";
 import ReactQuill from "react-quill";
 import "react-quill/dist/quill.snow.css";
+import { apiPath, hostPath } from "../../../utils/api";
 
 /**
  * LongTextMCEditor - KET Part 3: Long Text + Multiple Choice
@@ -25,10 +26,13 @@ const LongTextMCEditor = ({
   startingNumber = 7,
   partIndex = 2, // Default to Part 3 (index 2)
 }) => {
-  const passageTitle = question?.passageTitle || '';
-  const passage = question?.passage || '';
-  const passageType = question?.passageType || 'conversation'; // conversation, article, email, story
-  const questions = question?.questions || [ 
+  const quillRef = useRef(null);
+  const safeQuestion = question && typeof question === 'object' && !Array.isArray(question) ? question : {};
+  const passageTitle = safeQuestion?.passageTitle || '';
+  const passage = safeQuestion?.passage || '';
+  const passageValue = typeof passage === 'string' ? passage : '';
+  const passageType = safeQuestion?.passageType || 'conversation'; // conversation, article, email, story
+  const questions = Array.isArray(safeQuestion?.questions) ? safeQuestion.questions : [ 
     { questionText: '', options: ['A. ', 'B. ', 'C. '], correctAnswer: '' },
     { questionText: '', options: ['A. ', 'B. ', 'C. '], correctAnswer: '' },
     { questionText: '', options: ['A. ', 'B. ', 'C. '], correctAnswer: '' },
@@ -75,18 +79,75 @@ const LongTextMCEditor = ({
     onChange("questions", newQuestions);
   };
 
+  const insertImageAtCursor = useCallback((imageUrl) => {
+    const editor = quillRef.current?.getEditor?.();
+    if (!editor) return;
+    const range = editor.getSelection(true);
+    const index = range ? range.index : editor.getLength();
+    editor.insertEmbed(index, "image", imageUrl, "user");
+    editor.setSelection(index + 1);
+  }, []);
+
+  const uploadImage = useCallback(async (file) => {
+    const formData = new FormData();
+    formData.append("image", file);
+
+    const res = await fetch(apiPath("upload/cambridge-image"), {
+      method: "POST",
+      body: formData,
+    });
+
+    if (!res.ok) {
+      let errMsg = "Lỗi khi upload hình ảnh";
+      try {
+        const err = await res.json();
+        errMsg = err?.message || errMsg;
+      } catch {
+        // ignore
+      }
+      throw new Error(errMsg);
+    }
+
+    const data = await res.json();
+    if (!data?.url) throw new Error("Upload thành công nhưng không nhận được URL hình ảnh");
+    return hostPath(data.url);
+  }, []);
+
+  const handleImageInsert = useCallback(() => {
+    const input = document.createElement("input");
+    input.setAttribute("type", "file");
+    input.setAttribute("accept", "image/*");
+    input.onchange = async () => {
+      const file = input.files?.[0];
+      if (!file) return;
+      try {
+        const imageUrl = await uploadImage(file);
+        insertImageAtCursor(imageUrl);
+      } catch (err) {
+        console.error("Upload image error:", err);
+        alert(err?.message || "Lỗi khi upload hình ảnh");
+      }
+    };
+    input.click();
+  }, [insertImageAtCursor, uploadImage]);
+
   // Quill modules configuration
-  const modules = {
-    toolbar: [
-      [{ header: [1, 2, 3, false] }],
-      ["bold", "italic", "underline"],
-      [{ color: [] }, { background: [] }],
-      [{ list: "ordered" }, { list: "bullet" }],
-      [{ align: [] }],
-      ["link", "image"],
-      ["clean"],
-    ],
-  };
+  const modules = useMemo(() => ({
+    toolbar: {
+      container: [
+        [{ header: [1, 2, 3, false] }],
+        ["bold", "italic", "underline"],
+        [{ color: [] }, { background: [] }],
+        [{ list: "ordered" }, { list: "bullet" }],
+        [{ align: [] }],
+        ["link", "image"],
+        ["clean"],
+      ],
+      handlers: {
+        image: handleImageInsert,
+      },
+    },
+  }), [handleImageInsert]);
 
   const formats = [
     "header",
@@ -183,9 +244,11 @@ const LongTextMCEditor = ({
           backgroundColor: "white",
         }}>
           <ReactQuill
+            ref={quillRef}
             theme="snow"
-            value={passage}
-            onChange={(content) => onChange("passage", content)}
+            key={`long-text-mc-${partIndex}-${startingNumber}`}
+            value={passageValue}
+            onChange={(content) => onChange("passage", content || '')}
             placeholder={
               passageType === 'conversation' 
                 ? "VD: Sarah: Hi Tom! What are you doing this weekend?\nTom: I'm not sure yet. Maybe visiting my grandmother..."

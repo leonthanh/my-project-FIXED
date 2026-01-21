@@ -1,0 +1,9 @@
+{
+  "compilerOptions": {
+    "checkJs": false,
+    "types": ["node"],
+    "module": "commonjs",
+    "target": "es2020"
+  },
+  "exclude": ["node_modules"]
+}

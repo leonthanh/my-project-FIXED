@@ -26,6 +26,7 @@ const ClozeMCEditor = ({
 }) => {
   const passageTitle = question?.passageTitle || '';
   const passage = question?.passage || '';
+  const passageValue = typeof passage === 'string' ? passage : '';
   const blanks = question?.blanks || [ 
     { number: 16, options: ['A. ', 'B. ', 'C. '], correctAnswer: '' },
     { number: 17, options: ['A. ', 'B. ', 'C. '], correctAnswer: '' },
@@ -172,8 +173,8 @@ const ClozeMCEditor = ({
         }}>
           <ReactQuill
             theme="snow"
-            value={passage}
-            onChange={(content) => onChange("passage", content)}
+            value={passageValue}
+            onChange={(content) => onChange("passage", content || '')}
             placeholder={`VD: Last summer, I (${startingNumber}) to Italy with my family. We (${startingNumber + 1}) in a beautiful hotel near the beach...`}
             modules={modules}
             formats={formats}

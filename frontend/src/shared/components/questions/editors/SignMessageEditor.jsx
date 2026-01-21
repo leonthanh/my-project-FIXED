@@ -26,6 +26,7 @@ const SignMessageEditor = ({
   const imageUrl = question?.imageUrl || '';
   const imageAlt = question?.imageAlt || '';
   const signText = question?.signText || ''; // Optional: text on the sign
+  const signTextValue = typeof signText === 'string' ? signText : '';
   const options = question?.options || ['A. ', 'B. ', 'C. '];
   const correctAnswer = question?.correctAnswer || ''; 
 
@@ -135,8 +136,8 @@ const SignMessageEditor = ({
           </label>
           <div className="sign-text-editor">
             <ReactQuill
-              value={signText}
-              onChange={(value) => onChange("signText", value)}
+              value={signTextValue}
+              onChange={(value) => onChange("signText", value || '')}
               placeholder="VD: CAMPSITE - Groups of 4+ please call ahead"
               modules={modules}
               formats={formats}

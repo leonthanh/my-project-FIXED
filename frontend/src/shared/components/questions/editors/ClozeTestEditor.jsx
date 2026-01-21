@@ -14,12 +14,12 @@ import "react-quill/dist/quill.snow.css";
  * @param {number} props.startingNumber - Số câu bắt đầu (default: 1)
  */
 const ClozeTestEditor = ({
-  question,
+  question = {},
   onChange,
   startingNumber = 1,
   partIndex = 4, // Default to Part 5 (index 4)
 }) => {
-  const passageText = question.passageText || '';
+  const passageText = typeof question?.passageText === 'string' ? question.passageText : '';
   const passageTitle = question.passageTitle || '';
   const answers = question.answers || {};
   const [blanks, setBlanks] = useState([]);
@@ -216,7 +216,7 @@ const ClozeTestEditor = ({
           <ReactQuill
             theme="snow"
             value={passageText}
-            onChange={(content) => onChange("passageText", content)}
+            onChange={(content) => onChange("passageText", content || '')}
             placeholder={`VD: Last summer, I (1) _______ to the beach with my family. We (2) _______ there for two weeks. The weather (3) _______ very hot and sunny.
 
 Hoặc:
