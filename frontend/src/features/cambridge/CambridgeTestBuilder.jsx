@@ -1320,7 +1320,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
                     
                     return (
                       <div 
-                        key={qIdx} 
+                        key={`${selectedPartIndex}-${selectedSectionIndex}-${qIdx}`}
                         draggable
                         onDragStart={(e) => handleDragStart(qIdx, e)}
                         onDragOver={handleDragOver}
