@@ -1,230 +1,60 @@
-# 📚 Git Workflow - Hướng dẫn làm việc với 2 PC
+# Git Workflow — minimal & practical
 
-**Dành cho dự án IELTS/PET Test Platform - Người làm việc 1 mình ở 2 PC (Công ty + Nhà)**
+Mục tiêu: làm việc trên 2 PC (Công ty + Nhà) **chung 1 branch** `feature/ket` để tránh conflict, giữ lịch sử sạch và đơn giản.
 
----
+Quick summary
+- Trước khi làm: git checkout feature/ket && git pull --rebase origin feature/ket
+- Làm việc → commit nhỏ thường xuyên
+- Push: git push origin feature/ket
+- Nếu push bị reject: git pull --rebase origin feature/ket → fix conflict → git rebase --continue → git push
+- Khi hoàn tất feature: tạo PR / merge vào `main` (test trước)
 
-## ⚠️ **LỖI CHÍNH GÂY CONFLICT**
-
-Bạn bị conflict vì:
-
-1. ❌ **Tạo quá nhiều feature branches** (feature/reading, feature/pet, feature/cam...)
-2. ❌ **Merge từng branch vào main một cách riêng rẽ** → main thay đổi liên tục
-3. ❌ **Không pull trước push** → local không đồng bộ với remote
-4. ❌ **Push vào main từ 2 PC khác nhau** → xung đột commits
-
----
-
-## ✅ **GIẢI PHÁP: Dùng 1 Feature Branch cho cả 2 PC**
-
-### **Ý tưởng chính:**
-
-- Tạo **1 branch duy nhất**: `feature/cam` (hoặc `develop`)
-- Cả 2 PC (`công ty` + `nhà`) đều **làm việc trên cùng branch này**
-- **KHÔNG bao giờ merge vào main** cho đến khi thực sự xong
-- **Luôn pull trước push** để tránh conflict
-
-```
-PC Công ty (Tạo 39 câu KET Part 1)
-    ↓ commit & push
-origin/feature/cam (GitHub)
-    ↓ pull
-PC Nhà (Tiếp tục làm thêm 20 câu PET Part 2)
-    ↓ commit & push
-origin/feature/cam (GitHub) ← KHÔNG conflict vì cùng branch!
-```
-
----
-
-## 🎯 **WORKFLOW THỰC TẾ - 7 bước đơn giản**
-
-### **Bước 1: Lần đầu tiên (Setup một lần)**
-
-#### **PC Công ty:**
+Daily workflow
+1) Start work (each machine):
 
 ```bash
-# Tạo feature branch
-git checkout -b feature/cam
-git push -u origin feature/cam
-
-# ✅ Xong! Giờ feature/cam đã tồn tại trên GitHub
+git checkout feature/ket
+git pull --rebase origin feature/ket
 ```
 
-#### **PC Nhà (khi quay về):**
-
-```bash
-# Download feature/cam từ GitHub
-git fetch origin
-git checkout -b feature/cam origin/feature/cam
-
-# ✅ Bây giờ nhà cũng có feature/cam
-```
-
----
-
-### **Bước 2: Công ty - Làm KET Reading**
-
-```bash
-# Đảm bảo đang trên feature/cam
-git checkout feature/cam
-
-# (Quan trọng!) Pull code mới nhất từ nhà
-git pull origin feature/cam
-
-# Làm việc... tạo 39 câu hỏi
-
-# Commit thường xuyên
-git add .
-git commit -m "Add: KET Reading Part 1 - 39 questions"
-
-# Push lên GitHub
-git push origin feature/cam
-# ✅ Code đã backup + sẵn sàng cho nhà
-```
-
----
-
-### **Bước 3: Nhà - Lấy code từ Công ty**
-
-```bash
-# Đảm bảo đang trên feature/cam
-git checkout feature/cam
-
-# (Quan trọng!) Pull code mới từ công ty
-git pull origin feature/cam
-
-# Output: "Fast-forward..." ← Không conflict!
-
-# Giờ bạn có tất cả 39 câu từ công ty ✅
-```
-
----
-
-### **Bước 4: Nhà - Làm PET Cambridge**
-
-```bash
-# Tiếp tục trên feature/cam
-# Làm thêm 20 câu PET
-
-git add .
-git commit -m "Add: PET Reading Part 1 - 20 questions"
-
-# Push lên GitHub
-git push origin feature/cam
-# ✅ Công ty có thể pull lại code mới
-```
-
----
-
-### **Bước 5: Công ty - Lấy code từ Nhà**
-
-```bash
-git checkout feature/cam
-
-# Pull code mới từ nhà
-git pull origin feature/cam
-
-# Giờ có tất cả (39 KET + 20 PET) ✅
-```
-
----
-
-### **Bước 6: Lặp lại 2-5 cho đến khi xong**
-
-Cứ lặp đi lặp lại:
-
-- Công ty làm → push
-- Nhà pull → làm → push
-- Công ty pull → làm → push
-- ...
-
-**KHÔNG bao giờ merge vào main trong quá trình này!**
-
----
-
-### **Bước 7: Khi THỰC SỰ xong ALL features**
-
-```bash
-# Công ty hoặc Nhà làm (một trong hai)
-git checkout main
-git pull origin main
-
-# Merge feature vào main
-git merge feature/cam
-
-# Push lên GitHub
-git push origin main
-
-# (Tuỳ chọn) Xoá feature/cam khi không cần nữa
-git branch -d feature/cam
-git push origin --delete feature/cam
-```
-
----
-
-## 🚨 **QUY TẮC VÀNG - Tránh conflict 100%**
-
-### **Lúc này vẫn còn risk, vậy cách tránh:**
-
-```bash
-# ✅ Lệnh magic - Luôn luôn pull + rebase trước push
-git pull --rebase origin feature/cam
-git push origin feature/cam
-```
-
-**Giải thích:**
-
-- `git pull --rebase` = Pull code mới + "Xây dựng lại" commit của bạn trên top
-- Tránh "merge commits" không cần thiết
-- History sạch, không bị rối
-
----
-
-## 📋 **CHEAT SHEET - Chỉ cần nhớ 3 lệnh này**
-
-### **Khi bắt đầu ngày (bất kỳ PC nào)**
-
-```bash
-git checkout feature/cam
-git pull --rebase origin feature/cam
-```
-
-### **Khi xong công việc**
+2) Work & save frequently:
 
 ```bash
 git add .
-git commit -m "Mô tả thay đổi"
-git push origin feature/cam
+git commit -m "feat: ..."
 ```
 
-### **Hàng ngày - Quick version**
+3) Push changes:
 
 ```bash
-# Trước làm việc
-git pull --rebase origin feature/cam
-
-# Xong công việc
-git add . && git commit -m "..." && git push origin feature/cam
+git push origin feature/ket
 ```
 
----
+Handling push rejection (remote changed):
 
-## ✅ **WORKFLOW ĐƠNGIẢN CHO BẠN**
-
+```bash
+# bring remote changes in, replay your commits on top
+git pull --rebase origin feature/ket
+# resolve conflicts if any
+# when done
+git rebase --continue
+git push origin feature/ket
 ```
-NGÀY 1 (Công ty):
-┌─ git checkout -b feature/cam
-├─ Tạo 39 câu KET Reading
-├─ git add . && git commit -m "KET Reading - 39 questions"
-└─ git push -u origin feature/cam
-   ↓
-GitHub: feature/cam ← Có 39 câu ✅
 
-NGÀY 1 (Nhà - Chiều/Tối):
-┌─ git fetch origin && git checkout -b feature/cam origin/feature/cam
-├─ git pull origin feature/cam  (lấy 39 câu từ công ty)
-├─ Thêm 20 câu PET
-├─ git add . && git commit -m "PET - 20 questions"
+When feature is done
+- Open PR or merge into `main` after tests pass.
+
+Useful commands
+- status: git status
+- recent commits: git log --oneline -n 20
+- switch branch: git checkout feature/ket
+
+Best practices
+- Keep commits small & descriptive
+- Pull (rebase) before you start and before you push
+- Merge into main only when feature is complete and tested
+
+If you want, I can shorten or tailor this further and commit the change for you.├─ git add . && git commit -m "PET - 20 questions"
 └─ git push origin feature/cam
    ↓
 GitHub: feature/cam ← Có 39 + 20 = 59 câu ✅
@@ -263,7 +93,7 @@ git log --oneline   # Xem history commits
 ### **Làm việc hàng ngày**
 
 ```bash
-# Cập nhật code (LUÔN LUÔN LÀMĐẦU TIÊN)
+# Cập nhật code (LUÔN LUÔN LÀM ĐẦU TIÊN)
 git pull --rebase origin feature/cam
 
 # Làm việc... (tạo/sửa file)

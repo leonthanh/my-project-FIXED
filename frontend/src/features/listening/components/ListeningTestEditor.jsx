@@ -1,5 +1,5 @@
 import React, { useState, useRef } from "react";
-import { AdminNavbar, AutoSaveIndicator } from "../../../shared/components";
+import { IeltsTestEditorShell } from "../../../shared/components";
 import { useColumnLayout } from "../hooks";
 import ListeningQuestionEditor from "./ListeningQuestionEditor";
 import ListeningTemplateLibrary from "./ListeningTemplateLibrary";
@@ -259,121 +259,83 @@ const ListeningTestEditor = ({
   };
 
   return (
-    <div
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        height: "100vh",
-        fontSize: "14px",
-        backgroundColor: "#f8fafc",
-      }}
-    >
+    <>
       <style>{compactCSS(className)}</style>
-      <AdminNavbar />
 
-      <div
+      <IeltsTestEditorShell
         className={className}
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          flex: 1,
-          overflow: "hidden",
-        }}
-      >
-        {/* HEADER */}
-        <div
-          style={{
-            padding: "12px 20px",
-            backgroundColor: "#fff",
-            borderBottom: "1px solid #e5e7eb",
-            boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
-          }}
-        >
-          {/* Top bar */}
+        pageTitle={pageTitle}
+        title={title}
+        setTitle={setTitle}
+        classCode={classCode}
+        setClassCode={setClassCode}
+        teacherName={teacherName}
+        setTeacherName={setTeacherName}
+        lastSaved={lastSaved}
+        isSaving={isSaving}
+        message={message}
+        renderMessage={(currentMessage) => (
           <div
             style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              marginBottom: "12px",
+              textAlign: "center",
+              padding: "10px",
+              marginTop: "10px",
+              backgroundColor: currentMessage.includes("❌")
+                ? "#fee2e2"
+                : currentMessage.includes("✅")
+                ? "#dcfce7"
+                : "#fef3c7",
+              borderRadius: "8px",
+              color: currentMessage.includes("❌")
+                ? colors.dangerRed
+                : currentMessage.includes("✅")
+                ? colors.successGreen
+                : "#92400e",
+              fontWeight: 500,
             }}
           >
-            <AutoSaveIndicator lastSaved={lastSaved} isSaving={isSaving} />
-            <h2 style={{ margin: 0, fontSize: "18px", color: colors.primaryPurple }}>
-              {pageTitle}
-            </h2>
-            <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-              <span
-                style={{
-                  padding: "6px 12px",
-                  backgroundColor: colors.primaryPurple + "15",
-                  color: colors.primaryPurple,
-                  borderRadius: "20px",
-                  fontSize: "12px",
-                  fontWeight: 600,
-                }}
-              >
-                📊 {totalQuestions} câu hỏi
-              </span>
-              <button
-                type="button"
-                onClick={() => {
-                  setTemplateLibraryMode('section');
-                  setShowTemplateLibrary(true);
-                }}
-                style={{
-                  ...primaryButtonStyle,
-                  padding: "6px 14px",
-                  fontSize: "13px",
-                  background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-                }}
-              >
-                📚 Template Library
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowPreview(!showPreview)}
-                style={secondaryButtonStyle}
-              >
-                👁️ Preview
-              </button>
-            </div>
+            {currentMessage}
           </div>
-
-          {/* Form inputs */}
-          <div
-            style={{
-              display: "flex",
-              gap: "12px",
-              flexWrap: "wrap",
-              maxWidth: "900px",
-              margin: "0 auto",
-            }}
-          >
-            <input
-              type="text"
-              placeholder="Tiêu đề đề thi"
-              value={title || ""}
-              onChange={(e) => setTitle(e.target.value)}
-              style={{ ...compactInputStyle, flex: "1 1 40%", minWidth: "200px" }}
-            />
-            <input
-              type="text"
-              placeholder="Mã lớp"
-              value={classCode || ""}
-              onChange={(e) => setClassCode(e.target.value)}
-              style={{ ...compactInputStyle, flex: "1 1 20%", minWidth: "120px" }}
-            />
-            <input
-              type="text"
-              placeholder="Tên giáo viên"
-              value={teacherName || ""}
-              onChange={(e) => setTeacherName(e.target.value)}
-              style={{ ...compactInputStyle, flex: "1 1 25%", minWidth: "150px" }}
-            />
-          </div>
-
-          {/* Global Audio Upload */}
+        )}
+        rightControls={
+          <>
+            <span
+              style={{
+                padding: "6px 12px",
+                backgroundColor: colors.primaryPurple + "15",
+                color: colors.primaryPurple,
+                borderRadius: "20px",
+                fontSize: "12px",
+                fontWeight: 600,
+              }}
+            >
+              📊 {totalQuestions} câu hỏi
+            </span>
+            <button
+              type="button"
+              onClick={() => {
+                setTemplateLibraryMode("section");
+                setShowTemplateLibrary(true);
+              }}
+              style={{
+                ...primaryButtonStyle,
+                padding: "6px 14px",
+                fontSize: "13px",
+                background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+              }}
+            >
+              📚 Template Library
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowPreview(!showPreview)}
+              style={secondaryButtonStyle}
+            >
+              👁️ Preview
+            </button>
+          </>
+        }
+        afterInputs={
           <div style={{ marginTop: "12px", maxWidth: "900px", margin: "12px auto 0" }}>
             <div
               style={globalAudioFile?.url ? audioUploadActiveStyle : audioUploadStyle}
@@ -403,25 +365,44 @@ const ListeningTestEditor = ({
               )}
             </div>
           </div>
-
-          {/* Message */}
-          {message && (
-            <div
-              style={{
-                textAlign: "center",
-                padding: "10px",
-                marginTop: "10px",
-                backgroundColor: message.includes("❌") ? "#fee2e2" : message.includes("✅") ? "#dcfce7" : "#fef3c7",
-                borderRadius: "8px",
-                color: message.includes("❌") ? colors.dangerRed : message.includes("✅") ? colors.successGreen : "#92400e",
-                fontWeight: 500,
-              }}
-            >
-              {message}
-            </div>
-          )}
-        </div>
-
+        }
+        shellStyle={{
+          display: "flex",
+          flexDirection: "column",
+          height: "100vh",
+          fontSize: "14px",
+          backgroundColor: "#f8fafc",
+        }}
+        containerStyle={{
+          display: "flex",
+          flexDirection: "column",
+          flex: 1,
+          overflow: "hidden",
+        }}
+        headerStyle={{
+          padding: "12px 20px",
+          backgroundColor: "#fff",
+          borderBottom: "1px solid #e5e7eb",
+          boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
+        }}
+        topBarStyle={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          marginBottom: "12px",
+        }}
+        titleStyle={{ margin: 0, fontSize: "18px", color: colors.primaryPurple }}
+        inputLayoutStyle={{
+          display: "flex",
+          gap: "12px",
+          flexWrap: "wrap",
+          maxWidth: "900px",
+          margin: "0 auto",
+        }}
+        titleInputStyle={{ ...compactInputStyle, flex: "1 1 40%", minWidth: "200px" }}
+        classCodeInputStyle={{ ...compactInputStyle, flex: "1 1 20%", minWidth: "120px" }}
+        teacherInputStyle={{ ...compactInputStyle, flex: "1 1 25%", minWidth: "150px" }}
+      >
         {/* 4-COLUMN LAYOUT */}
         <form
           onSubmit={onReview}
@@ -1037,7 +1018,6 @@ const ListeningTestEditor = ({
             </button>
           </div>
         </form>
-      </div>
 
       {/* REVIEW MODAL */}
       {isReviewing && (
@@ -1859,7 +1839,8 @@ const ListeningTestEditor = ({
         onSelectSectionTemplate={handleSelectSectionTemplate}
         mode={templateLibraryMode}
       />
-    </div>
+    </IeltsTestEditorShell>
+  </>
   );
 };
 

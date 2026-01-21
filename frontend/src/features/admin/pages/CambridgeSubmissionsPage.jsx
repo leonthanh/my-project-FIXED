@@ -133,7 +133,7 @@ const CambridgeSubmissionsPage = () => {
     <div style={styles.container}>
       <AdminNavbar />
 
-      <div style={styles.content} className="admin-page">
+      <div style={styles.content} className="admin-page cambridge-page">
         {/* Header */}
         <div style={styles.header}>
           <h1 style={styles.title}>📊 Quản lý bài làm Cambridge</h1>

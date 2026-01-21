@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import QuillEditor from './QuillEditor';
 
 /**
  * IELTS Cloze Test Question Component
@@ -13,14 +14,23 @@ const ClozeTestQuestion = ({ question, onChange }) => {
   const [paragraphText, setParagraphText] = useState(question?.paragraphText || '');
   const [maxWords, setMaxWords] = useState(question?.maxWords || 3);
   const [blanks, setBlanks] = useState(question?.blanks || []);
+  const quillRef = useRef(null);
 
   // Theme colors
   const primaryBlue = '#0e276f';
   const accentCyan = '#0891b2';
 
+  const stripHtml = (html) => {
+    if (!html) return '';
+    const temp = document.createElement('div');
+    temp.innerHTML = html;
+    return temp.textContent || temp.innerText || '';
+  };
+
   // Phát hiện [BLANK] và tạo blanks array
   useEffect(() => {
-    const blankMatches = paragraphText.match(/\[BLANK\]/g) || [];
+    const plainText = stripHtml(paragraphText);
+    const blankMatches = plainText.match(/\[BLANK\]/g) || [];
     const newBlanks = blankMatches.map((_, idx) => ({
       id: `blank_${idx}`,
       blankNumber: idx + 1,
@@ -51,23 +61,28 @@ const ClozeTestQuestion = ({ question, onChange }) => {
 
   // Insert [BLANK] at cursor position
   const insertBlank = () => {
-    const textarea = document.getElementById('cloze-textarea');
-    if (textarea) {
-      const start = textarea.selectionStart;
-      const end = textarea.selectionEnd;
-      const newText = paragraphText.substring(0, start) + '[BLANK]' + paragraphText.substring(end);
-      setParagraphText(newText);
-    } else {
-      setParagraphText(paragraphText + ' [BLANK]');
+    const editor = quillRef.current?.getEditor?.();
+    if (editor) {
+      const cursorPosition = editor.getSelection()?.index ?? editor.getLength();
+      editor.insertText(cursorPosition, '[BLANK]');
+      editor.setSelection(cursorPosition + '[BLANK]'.length);
+      return;
     }
+    setParagraphText((prev) => `${prev || ''} [BLANK]`);
   };
 
   // Hiển thị preview đoạn văn với input fields
   const renderPreview = () => {
     if (!paragraphText) return null;
 
-    const parts = paragraphText.split(/\[BLANK\]/);
     let questionNum = parseInt(question?.questionNumber) || 1;
+    let blankIndex = 0;
+    const blankStyle = `display:inline-block;min-width:130px;padding:6px 12px;border:2px solid ${accentCyan};border-radius:6px;background:#f0fdfa;text-align:center;font-size:14px;color:${accentCyan};font-weight:bold;`;
+    const htmlWithBlanks = (paragraphText || '').replace(/\[BLANK\]/g, () => {
+      const label = questionNum + blankIndex;
+      blankIndex += 1;
+      return `<span style="${blankStyle}">${label}</span>`;
+    });
     
     return (
       <div style={{ 
@@ -78,33 +93,7 @@ const ClozeTestQuestion = ({ question, onChange }) => {
         fontSize: '15px',
         border: '1px solid #e0e0e0'
       }}>
-        {parts.map((part, idx) => (
-          <span key={idx}>
-            {part}
-            {idx < parts.length - 1 && (
-              <span style={{ 
-                display: 'inline-flex',
-                alignItems: 'center',
-                margin: '0 4px'
-              }}>
-                <span style={{
-                  display: 'inline-block',
-                  width: '130px',
-                  padding: '6px 12px',
-                  border: `2px solid ${accentCyan}`,
-                  borderRadius: '6px',
-                  backgroundColor: '#f0fdfa',
-                  textAlign: 'center',
-                  fontSize: '14px',
-                  color: accentCyan,
-                  fontWeight: 'bold'
-                }}>
-                  {questionNum + idx}
-                </span>
-              </span>
-            )}
-          </span>
-        ))}
+        <div dangerouslySetInnerHTML={{ __html: htmlWithBlanks }} />
       </div>
     );
   };
@@ -280,18 +269,21 @@ const ClozeTestQuestion = ({ question, onChange }) => {
         <h5 style={styles.sectionTitle}>
           <span>📖</span> Nhập đoạn văn (Đánh dấu chỗ trống bằng [BLANK]):
         </h5>
-        <textarea
-          id="cloze-textarea"
+        <QuillEditor
+          editorRef={quillRef}
           value={paragraphText}
-          onChange={(e) => setParagraphText(e.target.value)}
+          onChange={(value) => setParagraphText(value)}
           placeholder="VD: The machinery used in the process of making the snow consumes a lot of 11 [BLANK] which is damaging to the environment. Artificial snow is used in agriculture as a type of 12 [BLANK] for plants in cold conditions."
-          style={styles.textarea}
+          insertBlankText="[BLANK]"
         />
         
         {/* Insert BLANK button */}
         <button 
           type="button" 
-          onClick={insertBlank}
+          onClick={(e) => {
+            e.preventDefault();
+            insertBlank();
+          }}
           style={styles.insertButton}
         >
           ➕ Chèn [BLANK]

@@ -13,6 +13,7 @@ export { default as TestHeader } from './TestHeader';
 export { default as ThemeToggle } from './ThemeToggle';
 export { default as AutoSaveIndicator } from './AutoSaveIndicator';
 export { default as KeyboardShortcutsHelp } from './KeyboardShortcutsHelp';
+export { default as IeltsTestEditorShell } from './IeltsTestEditorShell';
 
 // Editors
 export { default as QuillEditor } from './QuillEditor';

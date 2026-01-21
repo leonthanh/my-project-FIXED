@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from "react";
 import {
-  AdminNavbar,
+  IeltsTestEditorShell,
   QuillEditor,
   QuestionSection,
-  AutoSaveIndicator,
   KeyboardShortcutsHelp,
 } from "../../../shared/components";
 import { useColumnLayout } from "../hooks";
@@ -211,16 +210,8 @@ const ReadingTestEditor = ({
   const currentSection = currentPassage?.sections?.[selectedSectionIndex];
 
   return (
-    <div
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        height: "100vh",
-        fontSize: "13px",
-      }}
-    >
+    <>
       <style>{compactCSS(className)}</style>
-      <AdminNavbar />
 
       {/* Keyboard Shortcuts Help Modal */}
       <KeyboardShortcutsHelp
@@ -228,178 +219,153 @@ const ReadingTestEditor = ({
         onClose={() => setShowShortcutsHelp(false)}
       />
 
-      <div
-        style={{
+      <IeltsTestEditorShell
+        className={className}
+        pageTitle={pageTitle}
+        title={title}
+        setTitle={setTitle}
+        classCode={classCode}
+        setClassCode={setClassCode}
+        teacherName={teacherName}
+        setTeacherName={setTeacherName}
+        lastSaved={lastSaved}
+        isSaving={isSaving}
+        message={message}
+        renderMessage={(currentMessage) => (
+          <div
+            style={{
+              textAlign: "center",
+              padding: "8px",
+              marginTop: "8px",
+              backgroundColor: currentMessage.includes("❌")
+                ? "#ffe6e6"
+                : currentMessage.includes("✅")
+                ? "#e6ffe6"
+                : "#fff3cd",
+              borderRadius: "4px",
+              color: currentMessage.includes("❌")
+                ? "red"
+                : currentMessage.includes("✅")
+                ? "green"
+                : "#856404",
+            }}
+          >
+            {currentMessage}
+          </div>
+        )}
+        leftControls={
+          <button
+            type="button"
+            onClick={() => setShowShortcutsHelp(true)}
+            title="Keyboard Shortcuts (?)"
+            style={{
+              padding: "6px 10px",
+              backgroundColor: "#f0f0f0",
+              border: "1px solid #ddd",
+              borderRadius: "6px",
+              cursor: "pointer",
+              fontSize: "12px",
+            }}
+          >
+            ⌨️ ?
+          </button>
+        }
+        rightControls={
+          <>
+            <button
+              type="button"
+              onClick={() => setShowTemplateLibrary(true)}
+              title="Thư viện mẫu câu hỏi"
+              style={{
+                padding: "6px 12px",
+                backgroundColor: isDarkMode ? "#3d3d5c" : "#e6ffe6",
+                border: `1px solid ${isDarkMode ? "#27ae60" : "#27ae60"}`,
+                borderRadius: "6px",
+                cursor: "pointer",
+                fontSize: "12px",
+                color: "#27ae60",
+                fontWeight: "500",
+                display: "flex",
+                alignItems: "center",
+                gap: "5px",
+                transition: "all 0.2s",
+              }}
+            >
+              📚 Templates
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowImportModal(true)}
+              title="Import từ Word/Excel"
+              style={{
+                padding: "6px 12px",
+                backgroundColor: isDarkMode ? "#3d3d5c" : "#fff3e6",
+                border: `1px solid ${isDarkMode ? "#e67e22" : "#e67e22"}`,
+                borderRadius: "6px",
+                cursor: "pointer",
+                fontSize: "12px",
+                color: "#e67e22",
+                fontWeight: "500",
+                display: "flex",
+                alignItems: "center",
+                gap: "5px",
+                transition: "all 0.2s",
+              }}
+            >
+              📥 Import
+            </button>
+          </>
+        }
+        shellStyle={{
+          display: "flex",
+          flexDirection: "column",
+          height: "100vh",
+          fontSize: "13px",
+        }}
+        containerStyle={{
           display: "flex",
           flexDirection: "column",
           flex: 1,
           overflow: "hidden",
         }}
-        className={className}
+        headerStyle={{
+          padding: "10px 15px",
+          backgroundColor: "#fff",
+          borderBottom: "1px solid #ddd",
+          overflowY: "auto",
+          flexShrink: 0,
+        }}
+        topBarStyle={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          marginBottom: "10px",
+        }}
+        titleStyle={{ margin: 0, fontSize: "18px" }}
+        inputLayoutStyle={{
+          display: "flex",
+          gap: "12px",
+          justifyContent: "center",
+          flexWrap: "wrap",
+          maxWidth: "800px",
+          margin: "0 auto",
+        }}
+        titleInputStyle={{
+          ...compactInputStyle,
+          flex: "1 1 45%",
+          minWidth: "200px",
+        }}
+        classCodeInputStyle={{
+          ...compactInputStyle,
+          flex: "1 1 20%",
+          minWidth: "120px",
+        }}
+        teacherInputStyle={{
+          ...compactInputStyle,
+          flex: "1 1 25%",
+          minWidth: "150px",
+        }}
       >
-        {/* HEADER */}
-        <div
-          style={{
-            padding: "10px 15px",
-            backgroundColor: "#fff",
-            borderBottom: "1px solid #ddd",
-            overflowY: "auto",
-            flexShrink: 0,
-          }}
-        >
-          {/* Top bar with title and tools */}
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              marginBottom: "10px",
-            }}
-          >
-            {/* Auto-save indicator */}
-            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-              <AutoSaveIndicator lastSaved={lastSaved} isSaving={isSaving} />
-              <button
-                type="button"
-                onClick={() => setShowShortcutsHelp(true)}
-                title="Keyboard Shortcuts (?)"
-                style={{
-                  padding: "6px 10px",
-                  backgroundColor: "#f0f0f0",
-                  border: "1px solid #ddd",
-                  borderRadius: "6px",
-                  cursor: "pointer",
-                  fontSize: "12px",
-                }}
-              >
-                ⌨️ ?
-              </button>
-            </div>
-
-            {/* Page title */}
-            <h2 style={{ margin: 0, fontSize: "18px" }}>{pageTitle}</h2>
-
-            {/* Tools buttons */}
-            <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-              <button
-                type="button"
-                onClick={() => setShowTemplateLibrary(true)}
-                title="Thư viện mẫu câu hỏi"
-                style={{
-                  padding: "6px 12px",
-                  backgroundColor: isDarkMode ? "#3d3d5c" : "#e6ffe6",
-                  border: `1px solid ${isDarkMode ? "#27ae60" : "#27ae60"}`,
-                  borderRadius: "6px",
-                  cursor: "pointer",
-                  fontSize: "12px",
-                  color: "#27ae60",
-                  fontWeight: "500",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "5px",
-                  transition: "all 0.2s",
-                }}
-              >
-                📚 Templates
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setShowImportModal(true)}
-                title="Import từ Word/Excel"
-                style={{
-                  padding: "6px 12px",
-                  backgroundColor: isDarkMode ? "#3d3d5c" : "#fff3e6",
-                  border: `1px solid ${isDarkMode ? "#e67e22" : "#e67e22"}`,
-                  borderRadius: "6px",
-                  cursor: "pointer",
-                  fontSize: "12px",
-                  color: "#e67e22",
-                  fontWeight: "500",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "5px",
-                  transition: "all 0.2s",
-                }}
-              >
-                📥 Import
-              </button>
-            </div>
-          </div>
-
-          {/* Form inputs */}
-          <div
-            style={{
-              display: "flex",
-              gap: "12px",
-              justifyContent: "center",
-              flexWrap: "wrap",
-              maxWidth: "800px",
-              margin: "0 auto",
-            }}
-          >
-            <input
-              type="text"
-              placeholder="Tiêu đề đề thi"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              style={{
-                ...compactInputStyle,
-                flex: "1 1 45%",
-                minWidth: "200px",
-              }}
-            />
-
-            <input
-              type="text"
-              placeholder="Mã lớp"
-              value={classCode}
-              onChange={(e) => setClassCode(e.target.value)}
-              style={{
-                ...compactInputStyle,
-                flex: "1 1 20%",
-                minWidth: "120px",
-              }}
-            />
-
-            <input
-              type="text"
-              placeholder="Tên giáo viên"
-              value={teacherName}
-              onChange={(e) => setTeacherName(e.target.value)}
-              style={{
-                ...compactInputStyle,
-                flex: "1 1 25%",
-                minWidth: "150px",
-              }}
-            />
-          </div>
-
-          {/* Message */}
-          {message && (
-            <div
-              style={{
-                textAlign: "center",
-                padding: "8px",
-                marginTop: "8px",
-                backgroundColor: message.includes("❌")
-                  ? "#ffe6e6"
-                  : message.includes("✅")
-                  ? "#e6ffe6"
-                  : "#fff3cd",
-                borderRadius: "4px",
-                color: message.includes("❌")
-                  ? "red"
-                  : message.includes("✅")
-                  ? "green"
-                  : "#856404",
-              }}
-            >
-              {message}
-            </div>
-          )}
-        </div>
-
         {/* 4-COLUMN LAYOUT */}
         <form
           onSubmit={onReview}
@@ -2070,8 +2036,8 @@ const ReadingTestEditor = ({
 
         {/* Custom children (loading state, etc.) */}
         {children}
-      </div>
-    </div>
+      </IeltsTestEditorShell>
+    </>
   );
 };
 

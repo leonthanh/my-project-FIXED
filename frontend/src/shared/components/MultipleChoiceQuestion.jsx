@@ -225,22 +225,30 @@ const MultipleChoiceQuestion = ({ question, onChange }) => {
         </h5>
         <div style={styles.modeSwitch}>
           <button
+            type="button"
             style={{
               ...styles.modeButton,
               backgroundColor: !question.multiSelect ? accentGreen : '#e9ecef',
               color: !question.multiSelect ? 'white' : '#495057'
             }}
-            onClick={() => handleChange('multiSelect', false)}
+            onClick={(e) => {
+              e.preventDefault();
+              handleChange('multiSelect', false);
+            }}
           >
             ◉ Single Choice (1 đáp án)
           </button>
           <button
+            type="button"
             style={{
               ...styles.modeButton,
               backgroundColor: question.multiSelect ? accentGreen : '#e9ecef',
               color: question.multiSelect ? 'white' : '#495057'
             }}
-            onClick={() => handleChange('multiSelect', true)}
+            onClick={(e) => {
+              e.preventDefault();
+              handleChange('multiSelect', true);
+            }}
           >
             ☑️ Multiple Choice (nhiều đáp án)
           </button>
@@ -319,7 +327,14 @@ const MultipleChoiceQuestion = ({ question, onChange }) => {
 
         {/* Add Option Button */}
         {options.length < 8 && (
-          <button onClick={addOption} style={styles.addBtn}>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              addOption();
+            }}
+            style={styles.addBtn}
+          >
             + Thêm lựa chọn
           </button>
         )}

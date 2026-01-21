@@ -12,6 +12,8 @@ import ShortAnswerQuestion from './ShortAnswerQuestion';
 import ParagraphFillBlanksQuestion from './ParagraphFillBlanksQuestion';
 import ClozeTestQuestion from './ClozeTestQuestion';
 import IELTSMatchingHeadingsQuestion from './IELTSMatchingHeadingsQuestion';
+import { QuestionEditorFactory } from './questions';
+import { getDefaultQuestionData, getQuestionTypeInfo } from '../config/questionTypes';
 
 const QuestionSection = ({
   passageIndex,
@@ -28,6 +30,29 @@ const QuestionSection = ({
 }) => {
   const primaryBlue = '#0e276f';
   const dangerRed = '#e03';
+  const legacyQuestionTypes = [
+    'multiple-choice',
+    'multi-select',
+    'fill-in-the-blanks',
+    'matching',
+    'true-false-not-given',
+    'yes-no-not-given',
+    'cloze-test',
+    'paragraph-fill-blanks',
+    'paragraph-matching',
+    'ielts-matching-headings',
+    'sentence-completion',
+    'short-answer',
+  ];
+  const listeningCompatTypes = [
+    'fill',
+    'abc',
+    'abcd',
+    'form-completion',
+    'notes-completion',
+    'map-labeling',
+    'flowchart',
+  ];
   
   // State to track which questions are expanded - first question is expanded by default
   const [expandedQuestions, setExpandedQuestions] = useState(() => {
@@ -273,7 +298,9 @@ const QuestionSection = ({
                     value={question.questionType || 'multiple-choice'}
                     onChange={(e) => {
                       const newType = e.target.value;
-                      const defaultObj = createDefaultQuestionByType(newType);
+                      const defaultObj = legacyQuestionTypes.includes(newType)
+                        ? createDefaultQuestionByType(newType)
+                        : getDefaultQuestionData(newType);
                       const newQuestion = {
                         ...question,
                         ...defaultObj,
@@ -300,6 +327,15 @@ const QuestionSection = ({
                     <option value="ielts-matching-headings" title="IELTS: Ghép mỗi đoạn văn (A-G) với 1 heading phù hợp (i-x)">🔗 IELTS Matching Headings</option>
                     <option value="sentence-completion" title="Học sinh hoàn thành câu bằng cách chọn từ từ danh sách gợi ý">Hoàn thành câu (chọn từ danh sách)</option>
                     <option value="short-answer" title="Học sinh viết câu trả lời ngắn (tối đa 3 từ)">Câu trả lời ngắn</option>
+                    <optgroup label="Listening IELTS (dùng chung)">
+                      <option value="fill" title="Điền từ vào chỗ trống (từng câu)">📝 Listening: Fill in the blank</option>
+                      <option value="abc" title="3 lựa chọn A, B, C">🔘 Listening: Multiple Choice (A/B/C)</option>
+                      <option value="abcd" title="4 lựa chọn A, B, C, D">🔘 Listening: Multiple Choice (A/B/C/D)</option>
+                      <option value="form-completion" title="Form có bảng với nhiều blank (IELTS format)">📋 Listening: Form/Table Completion</option>
+                      <option value="notes-completion" title="Paste notes có ___ tự tách câu hỏi">📝 Listening: Notes Completion</option>
+                      <option value="map-labeling" title="Gắn nhãn vị trí trên bản đồ A-H">🗺️ Listening: Map/Plan Labeling</option>
+                      <option value="flowchart" title="Hoàn thành các bước trong sơ đồ">📊 Listening: Flowchart Completion</option>
+                    </optgroup>
                   </select>
                   
                   {/* Help text for question types */}
@@ -316,6 +352,7 @@ const QuestionSection = ({
                     {question.questionType === 'ielts-matching-headings' && '✓ IELTS: Ghép mỗi đoạn văn (A-G) với 1 heading phù hợp (i-x). Có thể có headings dư.'}
                     {question.questionType === 'sentence-completion' && '✓ Học sinh hoàn thành câu bằng cách chọn từ từ danh sách gợi ý'}
                     {question.questionType === 'short-answer' && '✓ Học sinh viết câu trả lời ngắn (tối đa 3 từ)'}
+                    {listeningCompatTypes.includes(question.questionType) && getQuestionTypeInfo(question.questionType)?.description}
                   </div>
                 </div>
 
@@ -406,7 +443,17 @@ const QuestionSection = ({
                   />
                 )}
 
-                {!['multiple-choice', 'multi-select', 'fill-in-the-blanks', 'matching', 'true-false-not-given', 'yes-no-not-given', 'cloze-test', 'paragraph-matching', 'ielts-matching-headings', 'sentence-completion', 'paragraph-fill-blanks', 'short-answer'].includes(question.questionType || 'multiple-choice') && (
+                {listeningCompatTypes.includes(question.questionType) && (
+                  <QuestionEditorFactory
+                    questionType={question.questionType}
+                    question={question}
+                    questionIndex={questionIndex}
+                    startingNumber={parseInt(question.questionNumber, 10) || 1}
+                    onChange={(q) => onQuestionChange(passageIndex, sectionIndex, questionIndex, 'full', q)}
+                  />
+                )}
+
+                {![...legacyQuestionTypes, ...listeningCompatTypes].includes(question.questionType || 'multiple-choice') && (
                   <div style={{ color: 'red', padding: '8px', backgroundColor: '#ffe0e0', borderRadius: '4px' }}>
                     ⚠️ Unknown question type: {question.questionType}
                   </div>
