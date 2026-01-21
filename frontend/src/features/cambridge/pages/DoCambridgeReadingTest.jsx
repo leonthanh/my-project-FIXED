@@ -73,6 +73,34 @@ const DoCambridgeReadingTest = () => {
     return TEST_CONFIGS['ket-reading'];
   }, [testType, test?.testType]);
 
+  const sanitizeQuillHtml = useCallback((html) => {
+    if (typeof html !== 'string' || !html.trim()) return '';
+    try {
+      const doc = new DOMParser().parseFromString(html, 'text/html');
+
+      // Remove empty images
+      doc.querySelectorAll('img').forEach(img => {
+        const src = (img.getAttribute('src') || '').trim();
+        if (!src) img.remove();
+      });
+
+      // Remove empty paragraphs and collapse repeated <br>
+      doc.querySelectorAll('p').forEach(p => {
+        const text = (p.textContent || '').replace(/\u00a0/g, ' ').trim();
+        const hasImg = p.querySelector('img');
+        const brCount = p.querySelectorAll('br').length;
+        if (!text && !hasImg && brCount > 0) {
+          p.remove();
+        }
+      });
+
+      return doc.body.innerHTML;
+    } catch (err) {
+      console.warn('sanitizeQuillHtml failed:', err);
+      return html;
+    }
+  }, []);
+
   // Fetch test data
   useEffect(() => {
     const fetchTest = async () => {
@@ -1402,7 +1430,7 @@ const DoCambridgeReadingTest = () => {
                       )}
                       <div 
                         className="cambridge-passage-content"
-                        dangerouslySetInnerHTML={{ __html: currentQuestion.part.passage }}
+                        dangerouslySetInnerHTML={{ __html: sanitizeQuillHtml(currentQuestion.part.passage) }}
                       />
                     </div>
                   ) : currentQuestion.question.passage && currentQuestion.question.passage !== '<p><br></p>' ? (
@@ -1415,7 +1443,7 @@ const DoCambridgeReadingTest = () => {
                       )}
                       <div 
                         className="cambridge-passage-content"
-                        dangerouslySetInnerHTML={{ __html: currentQuestion.question.passage }}
+                        dangerouslySetInnerHTML={{ __html: sanitizeQuillHtml(currentQuestion.question.passage) }}
                       />
                     </div>
                   ) : (
