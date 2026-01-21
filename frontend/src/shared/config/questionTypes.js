@@ -38,7 +38,7 @@ export const QUESTION_TYPES = {
       options: ['A. ', 'B. ', 'C. '],
       correctAnswer: '',
     },
-    supportedTests: ['ielts-listening', 'ket-listening', 'ket-reading', 'pet-listening', 'pet-reading', 'flyers', 'movers'],
+    supportedTests: ['ielts-listening', 'ielts-reading', 'ket-listening', 'ket-reading', 'pet-listening', 'pet-reading', 'flyers', 'movers'],
   },
 
   'abcd': {
@@ -141,7 +141,7 @@ export const QUESTION_TYPES = {
       wordLimit: 'ONE WORD ONLY',
       answers: {},
     },
-    supportedTests: ['ielts-listening'],
+    supportedTests: ['ielts-listening', 'ielts-reading'],
   },
 
   'map-labeling': {
@@ -158,7 +158,7 @@ export const QUESTION_TYPES = {
       items: [{ label: 'A', text: '' }],
       correctAnswer: '',
     },
-    supportedTests: ['ielts-listening'],
+    supportedTests: ['ielts-listening', 'ielts-reading'],
   },
 
   'flowchart': {
@@ -175,7 +175,7 @@ export const QUESTION_TYPES = {
       options: ['A.', 'B.', 'C.', 'D.', 'E.', 'F.', 'G.'],
       correctAnswer: '',
     },
-    supportedTests: ['ielts-listening'],
+    supportedTests: ['ielts-listening', 'ielts-reading'],
   },
 
   // =========== IELTS READING SPECIFIC ===========

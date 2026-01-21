@@ -19,8 +19,11 @@ const QuillEditor = ({
   onChange,
   placeholder,
   showBlankButton = false,
+  editorRef,
+  insertBlankText = "…………",
 }) => {
-  const quillRef = useRef(null);
+  const localRef = useRef(null);
+  const quillRef = editorRef || localRef;
   const [internalValue, setInternalValue] = useState(value || "");
   const [uploading, setUploading] = useState(false);
 
@@ -165,8 +168,8 @@ const QuillEditor = ({
     if (quillRef.current) {
       const editor = quillRef.current.getEditor();
       const cursorPosition = editor.getSelection()?.index || editor.getLength();
-      editor.insertText(cursorPosition, "…………");
-      editor.setSelection(cursorPosition + "…………".length);
+      editor.insertText(cursorPosition, insertBlankText);
+      editor.setSelection(cursorPosition + insertBlankText.length);
     }
   };
 
