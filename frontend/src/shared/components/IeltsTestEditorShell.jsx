@@ -28,6 +28,8 @@ const IeltsTestEditorShell = ({
   setClassCode,
   teacherName,
   setTeacherName,
+  showResultModal,
+  setShowResultModal,
   lastSaved,
   isSaving,
   message,
@@ -86,6 +88,14 @@ const IeltsTestEditorShell = ({
               onChange={handleChange(setTeacherName)}
               style={teacherInputStyle}
             />
+            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px' }}>
+              <input
+                type="checkbox"
+                checked={showResultModal ?? true}
+                onChange={(e) => setShowResultModal(e.target.checked)}
+              />
+              Hiển thị kết quả sau khi nộp bài
+            </label>
           </div>
 
           {afterInputs}

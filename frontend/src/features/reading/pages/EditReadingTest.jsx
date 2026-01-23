@@ -20,6 +20,7 @@ const EditReadingTest = () => {
   const [title, setTitle] = useState("");
   const [classCode, setClassCode] = useState("");
   const [teacherName, setTeacherName] = useState("");
+  const [showResultModal, setShowResultModal] = useState(true);
 
   // Loading & Error state
   const [loading, setLoading] = useState(true);
@@ -77,6 +78,7 @@ const EditReadingTest = () => {
         setTitle(data.title || "");
         setClassCode(data.classCode || "");
         setTeacherName(data.teacherName || "");
+        setShowResultModal(data.showResultModal ?? true);
         setPassages(
           Array.isArray(data.passages)
             ? data.passages
@@ -228,6 +230,7 @@ const EditReadingTest = () => {
           title: cleanTitle,
           classCode: cleanClassCode,
           teacherName: cleanTeacherName,
+          showResultModal,
           passages: cleanedPassages,
         }),
       });
@@ -340,6 +343,8 @@ const EditReadingTest = () => {
       setClassCode={setClassCode}
       teacherName={teacherName}
       setTeacherName={setTeacherName}
+      showResultModal={showResultModal}
+      setShowResultModal={setShowResultModal}
       // Passages state
       passages={passages}
       selectedPassageIndex={selectedPassageIndex}

@@ -243,13 +243,14 @@ router.get("/:id", async (req, res) => {
 
 // Create a new reading test
 router.post("/", async (req, res) => {
-  const { title, classCode, teacherName, passages } = req.body;
+  const { title, classCode, teacherName, showResultModal, passages } = req.body;
 
   try {
     const newTest = await ReadingTest.create({
       title,
       classCode,
       teacherName,
+      showResultModal,
       passages,
     });
     res
