@@ -239,7 +239,12 @@ const DoListeningTest = () => {
       };
 
       setResultData(result);
-      setResultModalOpen(true);
+      if (test?.showResultModal !== false) {
+        setResultModalOpen(true);
+      } else {
+        alert("✅ Nộp bài thành công! Giáo viên sẽ xem kết quả của bạn.");
+        navigate("/select-test");
+      }
       setSubmitted(true);
       setShowConfirm(false);
 

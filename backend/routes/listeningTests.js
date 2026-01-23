@@ -39,7 +39,7 @@ router.post('/', upload.fields([
     console.log('Request body:', req.body);
     console.log('Request files:', req.files ? Object.keys(req.files) : 'none');
 
-    const { classCode, teacherName, passages } = req.body;
+    const { classCode, teacherName, passages, showResultModal } = req.body;
     
     if (!classCode || !teacherName) {
       return res.status(400).json({ message: '❌ Vui lòng nhập mã lớp và tên giáo viên' });
@@ -170,7 +170,8 @@ router.post('/', upload.fields([
       partAudioUrls,
       partTypes,
       partInstructions,
-      questions
+      questions,
+      showResultModal: showResultModal !== undefined ? showResultModal : true
     });
 
     res.status(201).json({
@@ -1075,7 +1076,7 @@ router.put('/:id', upload.fields([
     console.log('Update request body:', req.body);
     console.log('Update request files:', req.files ? Object.keys(req.files) : 'none');
 
-    const { classCode, teacherName, passages, title } = req.body;
+    const { classCode, teacherName, passages, title, showResultModal } = req.body;
     
     let updates = {};
     
@@ -1083,6 +1084,7 @@ router.put('/:id', upload.fields([
     if (classCode) updates.classCode = classCode;
     if (teacherName) updates.teacherName = teacherName;
     if (title) updates.title = title;
+    if (showResultModal !== undefined) updates.showResultModal = showResultModal;
     
     // Process file updates if any
     if (req.files) {

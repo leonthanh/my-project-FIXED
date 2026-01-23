@@ -14,6 +14,7 @@ const CreateListeningTestNew = () => {
   const [title, setTitle] = useState("");
   const [classCode, setClassCode] = useState("");
   const [teacherName, setTeacherName] = useState("");
+  const [showResultModal, setShowResultModal] = useState(true);
 
   // Global audio
   const [globalAudioFile, setGlobalAudioFile] = useState(null);
@@ -170,6 +171,7 @@ const CreateListeningTestNew = () => {
       formData.append("title", stripHtml(title));
       formData.append("classCode", classCode);
       formData.append("teacherName", teacherName);
+      formData.append("showResultModal", showResultModal);
       // Backend expects 'passages' not 'parts'
       formData.append("passages", JSON.stringify(cleanedParts));
 
@@ -253,6 +255,8 @@ const CreateListeningTestNew = () => {
       setClassCode={setClassCode}
       teacherName={teacherName}
       setTeacherName={setTeacherName}
+      showResultModal={showResultModal}
+      setShowResultModal={setShowResultModal}
       // Parts state
       parts={parts}
       selectedPartIndex={selectedPartIndex}
