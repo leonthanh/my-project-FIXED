@@ -4,14 +4,23 @@ Dưới đây là hướng dẫn đơn giản và giải thích chi tiết về 
 Git là hệ thống quản lý phiên bản, giúp theo dõi thay đổi code. Dưới đây là các lệnh phổ biến bạn dùng trong workflow:
 
 - **`git add <file>` hoặc `git add .`**: Thêm file(s) vào "staging area" (khu vực chuẩn bị commit). Ví dụ: `git add index.css` để chuẩn bị commit file CSS.
+
 - **`git commit -m "message"`**: Tạo một "commit" (điểm lưu trữ thay đổi) từ staging area. Ví dụ: `git commit -m "Fix CSS styling"` – commit sẽ lưu lại thay đổi với thông điệp mô tả.
+
 - **`git push origin <branch>`**: Đẩy commit lên remote repository (GitHub). Ví dụ: `git push origin feature-branch` – đẩy branch "feature-branch" lên GitHub.
+
 - **`git fetch origin`**: Tải xuống thông tin mới nhất từ remote (như commits, branches) mà **không merge** vào local branch của bạn. Ví dụ: Sau khi merge trên GitHub, dùng `git fetch origin` để cập nhật danh sách branches local.
+
 - **`git pull origin <branch>`**: Kết hợp `git fetch` và `git merge` – tải xuống và hợp nhất thay đổi từ remote vào branch local. Ví dụ: `git pull origin main` để kéo thay đổi từ main branch.
+
 - **`git merge <branch>`**: Hợp nhất branch khác vào branch hiện tại. Ví dụ: `git merge main` để merge main vào branch feature.
+
 - **`git rebase <branch>`**: Di chuyển commits của branch hiện tại lên trên branch đích, làm lịch sử commit thẳng hàng hơn. Ví dụ: `git rebase main` để rebase branch feature lên main.
+
 - **`git status`**: Kiểm tra trạng thái repo (file nào thay đổi, có gì trong staging, branch hiện tại).
+
 - **`git log --oneline`**: Xem lịch sử commits ngắn gọn.
+
 - **`git branch -d <branch>`**: Xóa branch local sau khi merge.
 
 **Lưu ý chung**: Luôn dùng `git status` để kiểm tra trước khi commit/push. Nếu sai, dùng `git reset` để undo.
@@ -108,3 +117,43 @@ Tuyệt! Bạn đã push thành công và PR đã tạo trên GitHub. Để ti�
 - **Tránh conflict**: Luôn `git pull` trước khi code. Nếu conflict khi pull, resolve như hướng dẫn trước.
 - **Sync giữa PC**: Nếu bạn code ở nhiều PC, luôn push/pull để đồng bộ.
 - **Nếu quên branch**: `git branch -a` để xem tất cả branches.
+
+
+
+Không, bạn **không cần `git checkout main`** trước khi code ở PC nhà trong kịch bản của bạn (code một mình, không có ai push khác). Dưới đây là giải thích chi tiết cho từng phần, dựa trên workflow bạn mô tả. Tôi sẽ xác nhận kịch bản và gợi ý tối ưu để tránh conflict.
+
+### 1. **Kịch bản ở PC nhà (chưa squash merge trên GitHub)**:
+- Bạn mở VSCode, thấy đang ở branch `feature/ket`.
+- `git fetch origin`: Tải info từ GitHub (cập nhật danh sách branches).
+- `git pull origin feature/ket`: Kéo thay đổi mới nhất từ branch `feature/ket` trên GitHub (nếu có, nhưng vì code một mình, thường không có thay đổi mới).
+- Rồi code, `git add .`, `git commit -m "message"`, `git push origin feature/ket`.
+
+**Tại sao không cần `git checkout main`?**
+- Bạn đang làm việc trên `feature/ket`, và PR so sánh branch này với `main` trên GitHub (không phải local). Không cần sync với `main` local trừ khi bạn muốn test merge local hoặc tránh conflict tiềm ẩn.
+- Nếu bạn code tiếp mà không sync `main`, PR vẫn hoạt động bình thường. Conflict chỉ xảy ra nếu code của bạn "chồng chéo" với thay đổi trên `main` (nhưng vì code một mình, `main` ít thay đổi).
+- Tuy nhiên, **khuyến nghị**: Sau khi pull, nếu muốn an toàn, bạn có thể `git checkout main && git pull origin main && git checkout feature/ket` để sync nhanh. Nhưng không bắt buộc.
+
+PR sẽ tự update với commits mới của bạn. Không cần tạo PR mới.
+
+### 2. **Kịch bản nếu lỡ squash merge trên GitHub (mai lên công ty)**:
+Đúng, workflow bạn mô tả là chuẩn để sync sau khi merge. Đây là cách tránh conflict trong tương lai:
+
+- `git checkout main`: Chuyển sang main.
+- `git pull origin main`: Kéo commit squash mới từ GitHub (main giờ đã có thay đổi từ PR).
+- `git checkout feature/ket`: Quay lại branch feature.
+- `git merge main`: Merge main vào feature/ket. Nếu conflict (local), resolve ngay (mở file, chọn thay đổi, `git add`, `git commit`).
+- Code tiếp: Bây giờ feature-branch đã sync với main, code thoải mái.
+- Push: `git add .`, `git commit -m "message"`, `git push origin feature-branch`. PR mới (nếu tạo) sẽ không conflict.
+
+**Lý do đúng**:
+- Squash merge chỉ update `main` trên GitHub, không tự động sync branch feature local. Bước merge này đảm bảo branch feature "biết" về thay đổi trên main.
+- Nếu không làm, code tiếp trên feature cũ sẽ dễ conflict khi tạo PR mới (vì GitHub so sánh với main mới).
+- Vì code một mình, conflict ít xảy ra, nhưng tốt nhất là sync để clean.
+
+### Lưu ý chung cho dự án solo:
+- **Backup thường xuyên**: Push ngay sau commit để tránh mất code.
+- **Nếu muốn đơn giản hơn**: Dùng `git pull --rebase origin feature/ket` thay vì pull/merge để lịch sử thẳng (nhưng rebase có thể conflict nếu main thay đổi).
+- **Test merge local**: Trước khi push, bạn có thể `git merge main` (dry-run) để check conflict mà không commit.
+- Production ổn vì bạn đã merge trên GitHub.
+
+Nếu bạn thử và gặp vấn đề, paste output nhé! Bạn có muốn tôi update file `GIT_WORKFLOW.md` để thêm kịch bản này không?

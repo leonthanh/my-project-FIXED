@@ -32,6 +32,7 @@ const CreateReadingTest = () => {
   const [title, setTitle] = useState(savedData?.title || "");
   const [classCode, setClassCode] = useState(savedData?.classCode || "");
   const [teacherName, setTeacherName] = useState(savedData?.teacherName || "");
+  const [showResultModal, setShowResultModal] = useState(savedData?.showResultModal ?? true);
 
   // Review & Submit state
   const [isReviewing, setIsReviewing] = useState(false);
@@ -74,6 +75,7 @@ const CreateReadingTest = () => {
         passages,
         classCode,
         teacherName,
+        showResultModal,
       };
       localStorage.setItem("readingTestDraft", JSON.stringify(dataToSave));
       setLastSaved(new Date());
@@ -82,7 +84,7 @@ const CreateReadingTest = () => {
       console.error("Error saving draft:", error);
       setIsSaving(false);
     }
-  }, [title, passages, classCode, teacherName]);
+  }, [title, passages, classCode, teacherName, showResultModal]);
 
   // Auto save every 30 seconds and on page unload
   useEffect(() => {
@@ -198,6 +200,7 @@ const CreateReadingTest = () => {
           title: stripHtml(title),
           classCode: stripHtml(classCode),
           teacherName: stripHtml(teacherName),
+          showResultModal,
           passages: cleanedPassages,
         }),
       });
@@ -235,6 +238,8 @@ const CreateReadingTest = () => {
       setClassCode={setClassCode}
       teacherName={teacherName}
       setTeacherName={setTeacherName}
+      showResultModal={showResultModal}
+      setShowResultModal={setShowResultModal}
       // Passages state
       passages={passages}
       selectedPassageIndex={selectedPassageIndex}

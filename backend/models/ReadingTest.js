@@ -14,6 +14,12 @@ const ReadingTest = sequelize.define('ReadingTest', {
     type: DataTypes.STRING(100),
     allowNull: true,
   },
+  showResultModal: {
+    type: DataTypes.BOOLEAN,
+    allowNull: false,
+    defaultValue: true,
+    comment: 'Whether to show result modal after submission'
+  },
   passages: {
     type: DataTypes.JSON, // Store complex nested structure
     allowNull: false,

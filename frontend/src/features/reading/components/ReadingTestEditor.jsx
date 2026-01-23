@@ -43,6 +43,8 @@ import "../styles/reading-test-editor.css";
  * @param {Function} props.setClassCode - Setter cho classCode
  * @param {string} props.teacherName - Tên giáo viên
  * @param {Function} props.setTeacherName - Setter cho teacherName
+ * @param {boolean} props.showResultModal - Hiển thị modal kết quả sau khi nộp bài?
+ * @param {Function} props.setShowResultModal - Setter cho showResultModal
  *
  * @param {Array} props.passages - Mảng passages
  * @param {number} props.selectedPassageIndex - Index passage đang chọn
@@ -91,6 +93,8 @@ const ReadingTestEditor = ({
   setClassCode,
   teacherName,
   setTeacherName,
+  showResultModal,
+  setShowResultModal,
 
   // Passages state
   passages,
@@ -228,6 +232,8 @@ const ReadingTestEditor = ({
         setClassCode={setClassCode}
         teacherName={teacherName}
         setTeacherName={setTeacherName}
+        showResultModal={showResultModal}
+        setShowResultModal={setShowResultModal}
         lastSaved={lastSaved}
         isSaving={isSaving}
         message={message}

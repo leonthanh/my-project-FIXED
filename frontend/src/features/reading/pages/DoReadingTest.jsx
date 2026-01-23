@@ -1213,7 +1213,13 @@ const DoReadingTest = () => {
       // Instead of navigating, show result modal (do not flip started state immediately
       // because component returns early when !started and would prevent modal mounting)
       setResultData(data);
-      setResultModalOpen(true);
+      if (test?.showResultModal !== false) {
+        setResultModalOpen(true);
+      } else {
+        // If teacher disabled result modal, show success message and navigate back
+        alert("✅ Đã nộp bài thành công! Giáo viên sẽ xem kết quả của bạn.");
+        navigate("/select-test");
+      }
     } catch (err) {
       console.error("Error submitting reading test:", err);
       alert("Có lỗi khi nộp bài. Vui lòng thử lại.");
