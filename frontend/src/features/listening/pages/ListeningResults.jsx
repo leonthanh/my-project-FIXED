@@ -508,6 +508,9 @@ const generateDetailsFromSections = (test, answers) => {
       .filter((q) => Number(q?.partIndex) === Number(partIndex) && Number(q?.sectionIndex) === Number(sectionIndex))
       .sort((a, b) => (Number(a?.questionIndex) || 0) - (Number(b?.questionIndex) || 0));
 
+  // Maintain a running counter for question numbering across sections/parts when no explicit startingQuestionNumber is provided
+  let runningStart = 1;
+
   for (let pIdx = 0; pIdx < parts.length; pIdx++) {
     const p = parts[pIdx];
     const sections = Array.isArray(p?.sections) ? p.sections : [];
@@ -518,6 +521,16 @@ const generateDetailsFromSections = (test, answers) => {
       if (!sectionQuestions.length) continue;
 
       const firstQ = sectionQuestions[0];
+
+      // Determine sectionStart: prefer explicit override, otherwise runningStart
+      const explicitSectionStart = Number(section?.startingQuestionNumber);
+      const hasExplicitStart = Number.isFinite(explicitSectionStart) && explicitSectionStart > 0;
+      const sectionStart = hasExplicitStart ? explicitSectionStart : runningStart;
+
+      // Helper to increment runningStart by count
+      const advanceRunning = (count) => {
+        runningStart = Math.max(runningStart, sectionStart + count);
+      };
 
       // FORM / NOTES: score using answers map keyed by questionNumber
       if (sectionType === "form-completion" || sectionType === "notes-completion") {
@@ -545,6 +558,7 @@ const generateDetailsFromSections = (test, answers) => {
             isCorrect: ok,
           });
         }
+        advanceRunning(keys.length);
         continue;
       }
 
@@ -573,13 +587,11 @@ const generateDetailsFromSections = (test, answers) => {
               isCorrect: ok,
             });
           }
+          advanceRunning(keys.length);
           continue;
         }
 
-        const start =
-          typeof section?.startingQuestionNumber === "number" && section.startingQuestionNumber > 0
-            ? section.startingQuestionNumber
-            : parseLeadingNumber(firstQ?.questionText) || 1;
+        const start = sectionStart;
         const left = Array.isArray(firstQ?.leftItems)
           ? firstQ.leftItems
           : Array.isArray(firstQ?.items)
@@ -599,16 +611,14 @@ const generateDetailsFromSections = (test, answers) => {
             isCorrect: false,
           });
         }
+        advanceRunning(left.length);
         continue;
       }
 
       // MULTI-SELECT: expand group into requiredAnswer slots (so table reaches 40 rows)
       if (sectionType === "multi-select") {
-        let groupStart =
-          typeof section?.startingQuestionNumber === "number" && section.startingQuestionNumber > 0
-            ? section.startingQuestionNumber
-            : parseLeadingNumber(sectionQuestions[0]?.questionText) || 1;
-
+        let groupStart = sectionStart;
+        let totalCount = 0;
         for (const q of sectionQuestions) {
           const required = Number(q?.requiredAnswers) || 2;
           const studentRaw = normalizedAnswers[`q${groupStart}`];
@@ -654,19 +664,21 @@ const generateDetailsFromSections = (test, answers) => {
           }
 
           groupStart += required;
+          totalCount += required;
         }
+        advanceRunning(totalCount);
         continue;
       }
 
-      // DEFAULT (abc/abcd/fill): sequential numbering from startingQuestionNumber
-      const start =
-        typeof section?.startingQuestionNumber === "number" && section.startingQuestionNumber > 0
-          ? section.startingQuestionNumber
-          : parseLeadingNumber(sectionQuestions[0]?.questionText);
-      if (!Number.isFinite(start)) continue;
+      // DEFAULT (abc/abcd/fill): sequential numbering from sectionStart
+      const startNum = sectionStart;
+      // If still invalid, try fallback to first question's globalNumber
+      const fallbackStart = Number(sectionQuestions[0]?.globalNumber) || null;
+      const finalStart = Number.isFinite(startNum) && startNum > 0 ? startNum : fallbackStart;
+      if (!Number.isFinite(finalStart)) continue;
 
       sectionQuestions.forEach((q, idx) => {
-        const num = start + idx;
+        const num = finalStart + idx;
         const expected = q?.correctAnswer;
         const student = normalizedAnswers[`q${num}`];
         const ok = isAnswerMatch(student, expected);
@@ -681,6 +693,9 @@ const generateDetailsFromSections = (test, answers) => {
           isCorrect: ok,
         });
       });
+
+      // advance runningStart
+      advanceRunning(sectionQuestions.length);
     }
   }
 
@@ -741,6 +756,7 @@ const ListeningResults = () => {
             // Prefer stored details when they look complete; otherwise regenerate to ensure a full 1..40 table.
             if (parsedTest && parsedSub.answers && typeof parsedSub.answers === "object") {
               const generated = generateDetailsFromSections(parsedTest, parsedSub.answers);
+              // Prefer generated details when parsed/stored details look incomplete
               if (generated.length && (parsedDetails.length !== totalTarget || parsedDetails.length < generated.length)) {
                 setDetails(generated);
               } else {
@@ -918,7 +934,13 @@ const ListeningResults = () => {
   }
 
   const correct = submission?.correct ?? details.filter(d => d.isCorrect).length;
-  const total = submission?.total ?? (details.length || 40);
+  // Prefer the generated details length when available (fix cases where stored submission.total is stale)
+  const total = details.length > 0 ? details.length : (submission?.total ?? 40);
+
+  // If there's a stored submission total that doesn't match generated details,
+  // we prefer the generated `details.length` when rendering to avoid showing stale totals.
+  // (Debug logging removed.)
+
   const scorePercentage =
     submission?.scorePercentage != null
       ? Number(submission.scorePercentage)
@@ -1233,4 +1255,5 @@ const ListeningResults = () => {
   );
 };
 
+export { generateDetailsFromSections };
 export default ListeningResults;

@@ -107,6 +107,9 @@ const DoListeningTest = () => {
     fetchTest();
   }, [id]);
 
+  // Keep a ref to confirmSubmit to avoid referencing it before initialization in effects
+  const confirmSubmitRef = useRef(null);
+
   // Timer countdown (compute remaining from persisted expiresAt to survive F5)
   // Auto-submit reliably even if the tab is backgrounded/throttled.
   useEffect(() => {
@@ -125,7 +128,8 @@ const DoListeningTest = () => {
       setTimeRemaining(remaining);
       if (remaining <= 0) {
         done = true;
-        confirmSubmit();
+        // call via ref so effect doesn't require confirmSubmit in its deps
+        if (confirmSubmitRef.current) confirmSubmitRef.current();
       }
     };
 
@@ -146,7 +150,7 @@ const DoListeningTest = () => {
       window.removeEventListener("focus", onCheck);
       document.removeEventListener("visibilitychange", onCheck);
     };
-  }, [test, submitted, expiresKey, confirmSubmit]);
+  }, [test, submitted, expiresKey]);
 
   // Format time display
   const formatTime = (seconds) => {
@@ -260,6 +264,11 @@ const DoListeningTest = () => {
     }
   }, [answers, expiresKey, id, submitted]);
 
+  // Keep ref up-to-date with the latest confirmSubmit implementation
+  useEffect(() => {
+    confirmSubmitRef.current = confirmSubmit;
+  }, [confirmSubmit]);
+
   // Get parts data
   const parts = useMemo(() => {
     if (!test) return [];
@@ -294,47 +303,107 @@ const DoListeningTest = () => {
     }
 
     // Multi-select: each question counts by requiredAnswers (e.g. Choose TWO = 2)
-      if (q.questionType === "multi-select" && q.requiredAnswers) {
-      return Math.max(1, q.requiredAnswers);
+    // NOTE: some tests store multi-select questions with `questionType: 'fill'` but with
+    // `requiredAnswers` set. Treat any question that has `requiredAnswers` as occupying
+    // that many slots so numbering remains consistent with the editor.
+    if ((q.questionType === "multi-select" || Number(q?.requiredAnswers)) && q.requiredAnswers) {
+      return Math.max(1, Number(q.requiredAnswers));
     }
 
     return 1;
   }, []);
+
+  // Count questions for a section using section metadata and actual questions
+  const getSectionQuestionCount = (section, sectionQuestions) => {
+    if (!section) return 0;
+    const sectionType = String(section?.questionType || "fill").toLowerCase();
+
+    if (sectionType === "form-completion") {
+      const firstQ = sectionQuestions[0] || {};
+      const keys = firstQ?.answers && typeof firstQ.answers === "object" && !Array.isArray(firstQ.answers)
+        ? Object.keys(firstQ.answers).map((k) => parseInt(k, 10)).filter((n) => Number.isFinite(n))
+        : [];
+      if (keys.length) return keys.length;
+      return (firstQ?.formRows || []).filter((r) => r && r.isBlank).length || 0;
+    }
+
+    if (sectionType === "notes-completion") {
+      const firstQ = sectionQuestions[0] || {};
+      const keys = firstQ?.answers && typeof firstQ.answers === "object" && !Array.isArray(firstQ.answers)
+        ? Object.keys(firstQ.answers).map((k) => parseInt(k, 10)).filter((n) => Number.isFinite(n))
+        : [];
+      if (keys.length) return keys.length;
+      const matches = String(firstQ?.notesText || "").match(/(\d+)\s*[_…]+/g) || [];
+      return matches.length || 0;
+    }
+
+    if (sectionType === "matching") {
+      const firstQ = sectionQuestions[0] || {};
+      const keys = firstQ?.answers && typeof firstQ.answers === "object" && !Array.isArray(firstQ.answers)
+        ? Object.keys(firstQ.answers).map((k) => parseInt(k, 10)).filter((n) => Number.isFinite(n))
+        : [];
+      if (keys.length) return keys.length;
+      const leftItems = firstQ?.leftItems || firstQ?.items || [];
+      return leftItems.length || 0;
+    }
+
+    if (sectionType === "multi-select") {
+      return sectionQuestions.reduce((sum, q) => sum + (Number(q?.requiredAnswers) || 2), 0);
+    }
+
+    // Default: each question counts as 1 (abc/abcd/fill)
+    return sectionQuestions.length;
+  };
 
   // Get question range for a part (considering multi-question types)
   // Calculate start number based on all previous parts to ensure continuous numbering
   const getPartQuestionRange = useCallback(
     (partIndex) => {
       const allQuestions = test?.questions || [];
-      
-      // Calculate start number by summing questions from all previous parts
+      const partInstructions = test?.partInstructions || [];
+
+      // Calculate start number by summing section-level counts from all previous parts
       let startNum = 1;
       for (let p = 0; p < partIndex; p++) {
-        const prevPartQuestions = allQuestions.filter((q) => q.partIndex === p);
-        prevPartQuestions.forEach((q) => {
-          startNum += getQuestionCount(q);
+        const partInfo = partInstructions[p] || {};
+        const sections = Array.isArray(partInfo?.sections) ? partInfo.sections : [];
+        for (let sIdx = 0; sIdx < sections.length; sIdx++) {
+          const section = sections[sIdx] || {};
+          const sectionQuestions = allQuestions.filter((q) => q.partIndex === p && q.sectionIndex === sIdx);
+          const qCount = getSectionQuestionCount(section, sectionQuestions);
+          startNum += qCount;
+        }
+      }
+
+      // Get questions for this part
+      const partQuestions = allQuestions.filter((q) => q.partIndex === partIndex);
+      if (partQuestions.length === 0) return { start: 0, end: 0, questions: [] };
+
+      // Calculate total questions in this part by summing section-level counts
+      const partInfo = partInstructions[partIndex] || {};
+      const sections = Array.isArray(partInfo?.sections) ? partInfo.sections : [];
+
+      let totalCount = 0;
+      if (sections.length) {
+        for (let sIdx = 0; sIdx < sections.length; sIdx++) {
+          const section = sections[sIdx] || {};
+          const sectionQuestions = allQuestions.filter((q) => q.partIndex === partIndex && q.sectionIndex === sIdx);
+          totalCount += getSectionQuestionCount(section, sectionQuestions);
+        }
+      } else {
+        // Fallback: count per question
+        partQuestions.forEach((q) => {
+          totalCount += getQuestionCount(q);
         });
       }
-      
-      // Get questions for this part
-      const partQuestions = allQuestions.filter(
-        (q) => q.partIndex === partIndex
-      );
-      if (partQuestions.length === 0) return { start: 0, end: 0, questions: [] };
-      
-      // Calculate total questions in this part
-      let totalCount = 0;
-      partQuestions.forEach((q) => {
-        totalCount += getQuestionCount(q);
-      });
-      
-      return { 
-        start: startNum, 
+
+      return {
+        start: startNum,
         end: startNum + totalCount - 1,
-        questions: partQuestions 
+        questions: partQuestions,
       };
     },
-    [test?.questions, getQuestionCount]
+    [test?.questions, test?.partInstructions, getQuestionCount]
   );
 
   // Get actual question range for display (accounts for embedded numbers in notes)
@@ -428,6 +497,10 @@ const DoListeningTest = () => {
               .sort((a, b) => a - b)
           : [];
 
+      // Calculate part range to get starting number
+      const partRange = getPartQuestionRange(partIndex);
+      let currentStart = partRange.start;
+
       sections.forEach((section, sectionIndex) => {
         const sectionType = String(section?.questionType || "fill").toLowerCase();
         const sectionQuestions = getSectionQuestions(sectionIndex);
@@ -435,17 +508,27 @@ const DoListeningTest = () => {
 
         const firstQ = sectionQuestions[0];
 
+        // Calculate section start number
+        let sectionStartNum = typeof section.startingQuestionNumber === "number" && section.startingQuestionNumber > 0
+          ? section.startingQuestionNumber
+          : currentStart;
+
         if (sectionType === "form-completion") {
           const keys = numericKeys(firstQ?.answers);
           if (keys.length) {
             keys.forEach((n) => slots.push({ type: "single", key: `q${n}` }));
           } else {
             const blanks = (firstQ?.formRows || []).filter((r) => r && r.isBlank);
-            const start = 1;
             blanks.forEach((row, idx) => {
-              const num = row?.blankNumber ? start + Number(row.blankNumber) - 1 : start + idx;
+              const num = row?.blankNumber ? sectionStartNum + Number(row.blankNumber) - 1 : sectionStartNum + idx;
               slots.push({ type: "single", key: `q${num}` });
             });
+          }
+          // Update currentStart for next section
+          if (!(typeof section.startingQuestionNumber === "number" && section.startingQuestionNumber > 0)) {
+            const keys = numericKeys(firstQ?.answers);
+            const questionCount = keys.length || (firstQ?.formRows || []).filter((r) => r && r.isBlank).length;
+            currentStart += questionCount;
           }
           return;
         }
@@ -464,6 +547,13 @@ const DoListeningTest = () => {
               if (Number.isFinite(num)) slots.push({ type: "single", key: `q${num}` });
             });
           }
+          // Update currentStart for next section
+          if (!(typeof section.startingQuestionNumber === "number" && section.startingQuestionNumber > 0)) {
+            const keys = numericKeys(firstQ?.answers);
+            const matches = String(firstQ?.notesText || "").match(/(\d+)\s*[_…]+/g) || [];
+            const questionCount = keys.length || matches.length;
+            currentStart += questionCount;
+          }
           return;
         }
 
@@ -472,20 +562,31 @@ const DoListeningTest = () => {
           if (keys.length) {
             keys.forEach((n) => slots.push({ type: "single", key: `q${n}` }));
           } else {
-            const start = Number(section?.startingQuestionNumber) || 1;
             const leftItems = firstQ?.leftItems || firstQ?.items || [];
-            leftItems.forEach((_, idx) => slots.push({ type: "single", key: `q${start + idx}` }));
+            leftItems.forEach((_, idx) => slots.push({ type: "single", key: `q${sectionStartNum + idx}` }));
+          }
+          // Update currentStart for next section
+          if (!(typeof section.startingQuestionNumber === "number" && section.startingQuestionNumber > 0)) {
+            const keys = numericKeys(firstQ?.answers);
+            const leftItems = firstQ?.leftItems || firstQ?.items || [];
+            const questionCount = keys.length || leftItems.length;
+            currentStart += questionCount;
           }
           return;
         }
 
         if (sectionType === "multi-select") {
-          let groupStart = Number(section?.startingQuestionNumber) || 1;
+          let groupStart = sectionStartNum;
           sectionQuestions.forEach((q) => {
             const required = Number(q?.requiredAnswers) || 2;
             slots.push({ type: "multi-select", key: `q${groupStart}`, slots: required });
             groupStart += required;
           });
+          // Update currentStart for next section
+          if (!(typeof section.startingQuestionNumber === "number" && section.startingQuestionNumber > 0)) {
+            const totalRequired = sectionQuestions.reduce((sum, q) => sum + (Number(q?.requiredAnswers) || 2), 0);
+            currentStart += totalRequired;
+          }
           return;
         }
 
@@ -498,17 +599,25 @@ const DoListeningTest = () => {
             const parsed = parseInt(m[1], 10);
             if (Number.isFinite(parsed)) {
               sectionQuestions.forEach((_, idx) => slots.push({ type: "single", key: `q${parsed + idx}` }));
+              // Update currentStart
+              if (!(typeof section.startingQuestionNumber === "number" && section.startingQuestionNumber > 0)) {
+                currentStart += sectionQuestions.length;
+              }
               return;
             }
           }
         }
-        const startNum = start || 1;
+        const startNum = start || sectionStartNum;
         sectionQuestions.forEach((_, idx) => slots.push({ type: "single", key: `q${startNum + idx}` }));
+        // Update currentStart for next section
+        if (!(typeof section.startingQuestionNumber === "number" && section.startingQuestionNumber > 0)) {
+          currentStart += sectionQuestions.length;
+        }
       });
 
       return slots;
     },
-    [test?.questions, test?.partInstructions]
+    [test?.questions, test?.partInstructions, getPartQuestionRange]
   );
 
   const getAnsweredCount = useCallback(
@@ -1210,11 +1319,12 @@ const DoListeningTest = () => {
 
     // Add questions from previous sections in current part (only when start is not explicitly set)
     if (!(typeof section.startingQuestionNumber === "number" && section.startingQuestionNumber > 0)) {
+      const partInfo = test?.partInstructions?.[currentPartIndex] || {};
+      const prevSections = Array.isArray(partInfo?.sections) ? partInfo.sections : [];
       for (let s = 0; s < sectionIndex; s++) {
+        const prevSection = prevSections[s] || {};
         const prevSectionQuestions = currentPartQuestions.filter((q) => q.sectionIndex === s);
-        prevSectionQuestions.forEach((q) => {
-          startNum += getQuestionCount(q);
-        });
+        startNum += getSectionQuestionCount(prevSection, prevSectionQuestions);
       }
     }
 
