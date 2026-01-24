@@ -2,6 +2,30 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AdminNavbar } from "../../../shared/components";
 import { apiPath } from "../../../shared/utils/api";
+import { generateDetailsFromSections } from "../../listening/pages/ListeningResults";
+
+// Small helpers (copied from ListeningResults) to safely parse test data
+const safeParseJson = (value) => {
+  if (typeof value !== "string") return value;
+  try {
+    return JSON.parse(value);
+  } catch (e) {
+    return value;
+  }
+};
+
+const parseQuestionsDeep = (questions) => {
+  let parsed = safeParseJson(questions);
+  if (!Array.isArray(parsed)) return parsed;
+  return parsed.map((q) => ({
+    ...q,
+    formRows: safeParseJson(q?.formRows),
+    leftItems: safeParseJson(q?.leftItems),
+    rightItems: safeParseJson(q?.rightItems),
+    options: safeParseJson(q?.options),
+    answers: safeParseJson(q?.answers),
+  }));
+};
 
 const AdminListeningSubmissions = () => {
   const [subs, setSubs] = useState([]);
@@ -28,7 +52,37 @@ const AdminListeningSubmissions = () => {
         const res = await fetch(apiPath("listening-submissions/admin/list"));
         if (!res.ok) throw new Error("Fetch failed");
         const data = await res.json();
-        setSubs(data || []);
+        // Map submissions to compute a reliable total for display (prefer generated details when available)
+        const mapped = (data || []).map((s) => {
+          const parsedDetails = Array.isArray(s.details) ? s.details : (safeParseJson(s.details) || []);
+          const parsedAnswers = safeParseJson(s.answers) || {};
+
+          // Prefer server-provided computedTotal when present (added by backend admin list route)
+          let computedTotal = Number(s.computedTotal) || Number(s.total) || (parsedDetails.length ? parsedDetails.length : 40);
+
+          const testObj = s.ListeningTest
+            ? {
+                ...s.ListeningTest,
+                partInstructions: safeParseJson(s.ListeningTest.partInstructions),
+                questions: parseQuestionsDeep(s.ListeningTest.questions),
+              }
+            : null;
+
+          // If we have full test data in the payload and answers, prefer generated details length
+          if (testObj && parsedAnswers && typeof parsedAnswers === "object") {
+            const generated = generateDetailsFromSections(testObj, parsedAnswers);
+            if (generated.length && (parsedDetails.length !== computedTotal || parsedDetails.length < generated.length)) {
+              computedTotal = generated.length;
+            }
+          }
+
+          const correct = Number(s.correct) || 0;
+          const percentage = s.computedPercentage != null ? Number(s.computedPercentage) : (computedTotal ? Math.round((correct / computedTotal) * 100) : 0);
+
+          return { ...s, parsedDetails, computedTotal, computedPercentage: percentage };
+        });
+
+        setSubs(mapped);
       } catch (err) {
         console.error("Error fetching listening submissions:", err);
         setSubs([]);
@@ -199,11 +253,11 @@ const AdminListeningSubmissions = () => {
                   <td style={cellStyle}>{s.userName || "N/A"}</td>
                   <td style={cellStyle}>
                     <span style={{ fontWeight: "bold" }}>
-                      {s.correct}/{s.total}
+                      {Number(s.correct) || 0}/{s.computedTotal || s.total || 40}
                     </span>
                     <span style={{ color: "#666", fontSize: 12 }}>
                       {" "}
-                      ({s.scorePercentage || 0}%)
+                      ({s.computedPercentage != null ? s.computedPercentage : (s.scorePercentage || 0)}%)
                     </span>
                   </td>
                   <td style={cellStyle}>

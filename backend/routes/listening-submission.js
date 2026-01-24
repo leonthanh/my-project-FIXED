@@ -90,9 +90,88 @@ router.get('/admin/list', async (req, res) => {
       testMap[String(t.id)] = t;
     });
 
+    // Helper to compute expected total from test structure
+    const parseIfJsonString = (value) => {
+      if (typeof value !== 'string') return value;
+      try {
+        return JSON.parse(value);
+      } catch (e) {
+        return value;
+      }
+    };
+
+    const computeTestTotal = (testObj) => {
+      if (!testObj) return 40;
+      const questions = Array.isArray(parseIfJsonString(testObj.questions)) ? parseIfJsonString(testObj.questions) : [];
+      const parts = Array.isArray(parseIfJsonString(testObj.partInstructions)) ? parseIfJsonString(testObj.partInstructions) : [];
+
+      const getSectionQuestions = (partIndex, sectionIndex) =>
+        questions
+          .filter((q) => Number(q?.partIndex) === Number(partIndex) && Number(q?.sectionIndex) === Number(sectionIndex))
+          .sort((a, b) => (Number(a?.questionIndex) || 0) - (Number(b?.questionIndex) || 0));
+
+      let total = 0;
+      for (let pIdx = 0; pIdx < parts.length; pIdx++) {
+        const p = parts[pIdx];
+        const sections = Array.isArray(p?.sections) ? p.sections : [];
+        for (let sIdx = 0; sIdx < sections.length; sIdx++) {
+          const section = sections[sIdx] || {};
+          const sectionType = String(section?.questionType || 'fill').toLowerCase();
+          const sectionQuestions = getSectionQuestions(pIdx, sIdx);
+          if (!sectionQuestions.length) continue;
+
+          if (sectionType === 'form-completion' || sectionType === 'notes-completion') {
+            const firstQ = sectionQuestions[0];
+            const map = firstQ?.answers && typeof firstQ.answers === 'object' && !Array.isArray(firstQ.answers) ? firstQ.answers : null;
+            if (map) {
+              const keys = Object.keys(map).map((k) => parseInt(k, 10)).filter((n) => Number.isFinite(n));
+              total += keys.length;
+            } else {
+              const rows = Array.isArray(firstQ?.formRows) ? firstQ.formRows : [];
+              const blanks = rows.filter((r) => r && r.isBlank);
+              total += blanks.length;
+            }
+            continue;
+          }
+
+          if (sectionType === 'matching') {
+            const firstQ = sectionQuestions[0];
+            const map = firstQ?.answers && typeof firstQ.answers === 'object' && !Array.isArray(firstQ.answers) ? firstQ.answers : null;
+            if (map) {
+              const keys = Object.keys(map).map((k) => parseInt(k, 10)).filter((n) => Number.isFinite(n));
+              total += keys.length;
+            } else {
+              const left = Array.isArray(firstQ?.leftItems) ? firstQ.leftItems : Array.isArray(firstQ?.items) ? firstQ.items : [];
+              total += left.length;
+            }
+            continue;
+          }
+
+          if (sectionType === 'multi-select') {
+            for (const q of sectionQuestions) {
+              const required = Number(q?.requiredAnswers) || 2;
+              total += required;
+            }
+            continue;
+          }
+
+          // default
+          total += sectionQuestions.length;
+        }
+      }
+
+      return total || 40;
+    };
+
     const result = subs.map((s) => {
       const obj = s.toJSON();
       const t = testMap[String(s.testId)];
+      // compute a displayable total from test structure when possible
+      const testFull = t ? (t.toJSON ? t.toJSON() : t) : null;
+      const computedTotal = computeTestTotal(testFull);
+      const correct = Number(obj.correct) || 0;
+      const computedPercentage = computedTotal ? Math.round((correct / computedTotal) * 100) : 0;
+
       obj.ListeningTest = t
         ? {
             id: t.id,
@@ -101,6 +180,8 @@ router.get('/admin/list', async (req, res) => {
             teacherName: t.teacherName || '',
           }
         : null;
+      obj.computedTotal = computedTotal;
+      obj.computedPercentage = computedPercentage;
       return obj;
     });
 
