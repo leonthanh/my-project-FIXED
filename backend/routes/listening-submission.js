@@ -182,6 +182,9 @@ router.get('/admin/list', async (req, res) => {
         : null;
       obj.computedTotal = computedTotal;
       obj.computedPercentage = computedPercentage;
+      // Backwards-compatible override: set stored fields so older frontends (served from build) show corrected totals
+      obj.total = computedTotal;
+      obj.scorePercentage = computedPercentage;
       return obj;
     });
 
