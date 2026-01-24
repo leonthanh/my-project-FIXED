@@ -43,12 +43,18 @@ const parseArgs = () => {
 };
 
 const parseIfJsonString = (val) => {
-  if (typeof val !== "string") return val;
-  try {
-    return JSON.parse(val);
-  } catch (e) {
-    return val;
+  // Be tolerant: allow values that are JSON strings, possibly encoded more than once.
+  let v = val;
+  let attempts = 0;
+  while (typeof v === "string" && attempts < 3) {
+    try {
+      v = JSON.parse(v);
+    } catch (e) {
+      break;
+    }
+    attempts++;
   }
+  return v;
 };
 
 const normalize = (val) => (val == null ? "" : String(val)).trim().toLowerCase();
@@ -160,6 +166,12 @@ const scoreListening = ({ test, answers }) => {
   const scoreFromSections = () => {
     if (!Array.isArray(partInstructions) || !Array.isArray(questions)) return false;
 
+    // runningStart fallback (matches frontend generateDetailsFromSections behavior)
+    let runningStart = 1;
+    const advanceRunning = (count, sectionStart) => {
+      runningStart = Math.max(runningStart, (Number.isFinite(sectionStart) ? sectionStart : runningStart) + count);
+    };
+
     for (let pIdx = 0; pIdx < partInstructions.length; pIdx++) {
       const part = partInstructions[pIdx];
       const sections = Array.isArray(part?.sections) ? part.sections : [];
@@ -176,64 +188,30 @@ const scoreListening = ({ test, answers }) => {
         const firstLeftItems = parseIfJsonString(firstQ?.leftItems);
         const firstItems = parseIfJsonString(firstQ?.items);
 
-        if (sectionType === "form-completion") {
+        const explicitSectionStart = Number(section?.startingQuestionNumber);
+        const hasExplicitStart = Number.isFinite(explicitSectionStart) && explicitSectionStart > 0;
+        const sectionStart = hasExplicitStart ? explicitSectionStart : runningStart;
+
+        // FORM / NOTES
+        if (sectionType === "form-completion" || sectionType === "notes-completion") {
           const map = firstAnswers && typeof firstAnswers === "object" && !Array.isArray(firstAnswers) ? firstAnswers : null;
-          const keys = numericKeys(map);
-          if (keys.length) {
-            for (const num of keys) {
-              totalCount++;
-              const expected = map[String(num)];
-              const student = normalizedAnswers[`q${num}`];
-              const accepted = explodeAccepted(expected).map(normalize);
-              const ok = accepted.length ? accepted.includes(normalize(student)) : normalize(student) === normalize(expected);
-              if (ok) correctCount++;
-              details.push({
-                questionNumber: num,
-                partIndex: pIdx,
-                sectionIndex: sIdx,
-                questionType: sectionType,
-                studentAnswer: student ?? "",
-                correctAnswer: expected ?? "",
-                isCorrect: ok,
-              });
-            }
-          } else {
+          if (!map) {
             const rows = Array.isArray(firstFormRows) ? firstFormRows : [];
             const blanks = rows.filter((r) => r && r.isBlank);
-            const start =
-              typeof section?.startingQuestionNumber === "number" && section.startingQuestionNumber > 0
-                ? section.startingQuestionNumber
-                : 1;
             blanks.forEach((row, idx) => {
-              const num = row?.blankNumber ? Number(row.blankNumber) : start + idx;
-              if (!Number.isFinite(num)) return;
+              const num = row?.blankNumber ? sectionStart + Number(row.blankNumber) - 1 : sectionStart + idx;
               totalCount++;
-              const expected =
-                row?.correctAnswer ??
-                row?.answer ??
-                row?.correct ??
-                (map ? map[String(num)] : "") ??
-                "";
+              const expected = row?.correctAnswer ?? row?.answer ?? row?.correct ?? "";
               const student = normalizedAnswers[`q${num}`];
               const accepted = explodeAccepted(expected).map(normalize);
               const ok = accepted.length ? accepted.includes(normalize(student)) : normalize(student) === normalize(expected);
               if (ok) correctCount++;
-              details.push({
-                questionNumber: num,
-                partIndex: pIdx,
-                sectionIndex: sIdx,
-                questionType: sectionType,
-                studentAnswer: student ?? "",
-                correctAnswer: expected ?? "",
-                isCorrect: ok,
-              });
+              details.push({ questionNumber: num, partIndex: pIdx, sectionIndex: sIdx, questionType: sectionType, studentAnswer: student ?? "", correctAnswer: expected ?? "", isCorrect: ok });
             });
+            advanceRunning(blanks.length, sectionStart);
+            continue;
           }
-          continue;
-        }
 
-        if (sectionType === "notes-completion") {
-          const map = firstAnswers && typeof firstAnswers === "object" && !Array.isArray(firstAnswers) ? firstAnswers : null;
           const keys = numericKeys(map);
           if (keys.length) {
             for (const num of keys) {
@@ -243,150 +221,87 @@ const scoreListening = ({ test, answers }) => {
               const accepted = explodeAccepted(expected).map(normalize);
               const ok = accepted.length ? accepted.includes(normalize(student)) : normalize(student) === normalize(expected);
               if (ok) correctCount++;
-              details.push({
-                questionNumber: num,
-                partIndex: pIdx,
-                sectionIndex: sIdx,
-                questionType: sectionType,
-                studentAnswer: student ?? "",
-                correctAnswer: expected ?? "",
-                isCorrect: ok,
-              });
+              details.push({ questionNumber: num, partIndex: pIdx, sectionIndex: sIdx, questionType: sectionType, studentAnswer: student ?? "", correctAnswer: expected ?? "", isCorrect: ok });
             }
-          } else {
-            const notesText = String(firstQ?.notesText || "");
-            const matches = notesText.match(/(\d+)\s*[_…]+/g) || [];
-            for (const token of matches) {
-              const m = token.match(/^(\d+)/);
-              if (!m) continue;
-              const num = parseInt(m[1], 10);
-              if (!Number.isFinite(num)) continue;
-              totalCount++;
-              const expected = map ? map[String(num)] : firstQ?.correctAnswer;
-              const student = normalizedAnswers[`q${num}`];
-              const accepted = explodeAccepted(expected).map(normalize);
-              const ok = accepted.length ? accepted.includes(normalize(student)) : normalize(student) === normalize(expected);
-              if (ok) correctCount++;
-              details.push({
-                questionNumber: num,
-                partIndex: pIdx,
-                sectionIndex: sIdx,
-                questionType: sectionType,
-                studentAnswer: student ?? "",
-                correctAnswer: expected ?? "",
-                isCorrect: ok,
-              });
-            }
+            advanceRunning(keys.length, sectionStart);
+            continue;
           }
-          continue;
         }
 
+        // MATCHING
         if (sectionType === "matching") {
           const map = firstAnswers && typeof firstAnswers === "object" && !Array.isArray(firstAnswers) ? firstAnswers : null;
-          const keys = numericKeys(map);
-          if (keys.length) {
+          if (map) {
+            const keys = numericKeys(map);
             for (const num of keys) {
               totalCount++;
               const expected = map[String(num)];
               const student = normalizedAnswers[`q${num}`];
               const ok = normalize(student) === normalize(expected);
               if (ok) correctCount++;
-              details.push({
-                questionNumber: num,
-                partIndex: pIdx,
-                sectionIndex: sIdx,
-                questionType: sectionType,
-                studentAnswer: student ?? "",
-                correctAnswer: expected ?? "",
-                isCorrect: ok,
-              });
+              details.push({ questionNumber: num, partIndex: pIdx, sectionIndex: sIdx, questionType: sectionType, studentAnswer: student ?? "", correctAnswer: expected ?? "", isCorrect: ok });
             }
-          } else {
-            const start =
-              typeof section?.startingQuestionNumber === "number" && section.startingQuestionNumber > 0
-                ? section.startingQuestionNumber
-                : parseLeadingNumber(firstQ?.questionText);
-            const left = Array.isArray(firstLeftItems)
-              ? firstLeftItems
-              : Array.isArray(firstItems)
-                ? firstItems
-                : [];
-            if (left.length) {
-              for (let idx = 0; idx < left.length; idx++) {
-                const num = Number.isFinite(start) ? start + idx : idx + 1;
-                totalCount++;
-                const expected = map ? map[String(num)] : "";
-                const student = normalizedAnswers[`q${num}`];
-                const ok = expected ? normalize(student) === normalize(expected) : false;
-                if (ok) correctCount++;
-                details.push({
-                  questionNumber: num,
-                  partIndex: pIdx,
-                  sectionIndex: sIdx,
-                  questionType: sectionType,
-                  studentAnswer: student ?? "",
-                  correctAnswer: expected ?? "",
-                  isCorrect: ok,
-                });
-              }
-            }
+            advanceRunning(keys.length, sectionStart);
+            continue;
           }
+
+          const left = Array.isArray(firstQ?.leftItems) ? firstQ.leftItems : Array.isArray(firstItems) ? firstItems : [];
+          for (let i = 0; i < left.length; i++) {
+            const num = sectionStart + i;
+            totalCount++;
+            const expected = "";
+            const student = normalizedAnswers[`q${num}`];
+            details.push({ questionNumber: num, partIndex: pIdx, sectionIndex: sIdx, questionType: sectionType, studentAnswer: student ?? "", correctAnswer: expected, isCorrect: false });
+          }
+          advanceRunning(left.length, sectionStart);
           continue;
         }
 
+        // MULTI-SELECT
         if (sectionType === "multi-select") {
-          let groupStart =
-            typeof section?.startingQuestionNumber === "number" && section.startingQuestionNumber > 0
-              ? section.startingQuestionNumber
-              : parseLeadingNumber(sectionQuestions[0]?.questionText) || 1;
-
+          let groupStart = sectionStart;
+          let totalCountForSection = 0;
           for (const q of sectionQuestions) {
             const required = Number(q?.requiredAnswers) || 2;
             const student = normalizedAnswers[`q${groupStart}`];
             const expectedRaw = q?.correctAnswer ?? q?.answers;
             const studentIndices = toIndices(student);
             const expectedIndices = toIndices(expectedRaw);
+            const ok = expectedIndices.length ? setEq(new Set(studentIndices), new Set(expectedIndices)) : false;
             totalCount += required;
-            const ok = expectedIndices.length ? setEq(studentIndices, expectedIndices) : false;
             if (ok) correctCount += required;
-            details.push({
-              questionNumber: groupStart,
-              partIndex: pIdx,
-              sectionIndex: sIdx,
-              questionType: sectionType,
-              studentAnswer: student ?? "",
-              correctAnswer: expectedRaw ?? "",
-              isCorrect: ok,
-            });
+            details.push({ questionNumber: groupStart, partIndex: pIdx, sectionIndex: sIdx, questionType: sectionType, studentAnswer: student ?? "", correctAnswer: expectedRaw ?? "", isCorrect: ok });
             groupStart += required;
+            totalCountForSection += required;
           }
+          advanceRunning(totalCountForSection, sectionStart);
           continue;
         }
 
-        const start =
-          typeof section?.startingQuestionNumber === "number" && section.startingQuestionNumber > 0
-            ? section.startingQuestionNumber
-            : parseLeadingNumber(sectionQuestions[0]?.questionText);
-        if (!Number.isFinite(start)) continue;
+        // DEFAULT (abc/abcd/fill)
+        const startNum = sectionStart;
+        const fallbackStart = Number(sectionQuestions[0]?.globalNumber) || null;
+        const finalStart = Number.isFinite(startNum) && startNum > 0 ? startNum : fallbackStart;
+        if (!Number.isFinite(finalStart)) {
+          // if we still can't determine a start, fall back to counting number of questions
+          totalCount += sectionQuestions.length;
+          advanceRunning(sectionQuestions.length, sectionStart);
+          continue;
+        }
 
         sectionQuestions.forEach((q, idx) => {
-          const num = start + idx;
+          const num = finalStart + idx;
           totalCount++;
           const expected = q?.correctAnswer;
           const student = normalizedAnswers[`q${num}`];
           const accepted = explodeAccepted(expected).map(normalize);
           const ok = accepted.length ? accepted.includes(normalize(student)) : normalize(student) === normalize(expected);
           if (ok) correctCount++;
-          details.push({
-            questionNumber: num,
-            partIndex: pIdx,
-            sectionIndex: sIdx,
-            questionType: sectionType,
-            studentAnswer: student ?? "",
-            correctAnswer: expected ?? "",
-            isCorrect: ok,
-          });
+          details.push({ questionNumber: num, partIndex: pIdx, sectionIndex: sIdx, questionType: String(sectionType || q?.questionType || "fill").toLowerCase(), studentAnswer: student ?? "", correctAnswer: expected ?? "", isCorrect: ok });
         });
+
+        // advance runningStart
+        advanceRunning(sectionQuestions.length, sectionStart);
       }
     }
 
