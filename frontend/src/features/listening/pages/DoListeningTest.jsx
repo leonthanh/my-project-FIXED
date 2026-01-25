@@ -39,7 +39,19 @@ const DoListeningTest = () => {
   // Key for persisting timer across page reloads (resets only when the test is submitted)
   const expiresKey = `listening:${id}:expiresAt`;
 
+  // Key for persisting full state (answers + expiresAt). Includes user id to allow per-user isolation.
+  const userForStorage = (() => {
+    try {
+      return JSON.parse(localStorage.getItem("user") || "null");
+    } catch (e) {
+      return null;
+    }
+  })();
+  const storageUserId = userForStorage?.id || "anon";
+  const stateKey = `listening:${id}:state:${storageUserId}`;
+
   const expiresAtRef = useRef(null);
+  const saveTimeoutRef = useRef(null);
 
   // Fetch test data
   useEffect(() => {
@@ -96,6 +108,25 @@ const DoListeningTest = () => {
           const expiresAt = Date.now() + durationSeconds * 1000;
           localStorage.setItem(expiresKey, String(expiresAt));
           setTimeRemaining(durationSeconds);
+        }
+
+        // Restore saved answers+expires if present (resume after F5/power loss).
+        try {
+          const storedState = localStorage.getItem(stateKey);
+          if (storedState) {
+            const parsedState = JSON.parse(storedState);
+            if (parsedState?.answers) {
+              setAnswers(parsedState.answers);
+            }
+            if (parsedState?.expiresAt) {
+              localStorage.setItem(expiresKey, String(parsedState.expiresAt));
+              expiresAtRef.current = parsedState.expiresAt;
+              const remaining = Math.max(0, Math.ceil((parsedState.expiresAt - Date.now()) / 1000));
+              setTimeRemaining(remaining);
+            }
+          }
+        } catch (e) {
+          // ignore malformed storage
         }
       } catch (err) {
         console.error("Error fetching test:", err);
@@ -252,9 +283,10 @@ const DoListeningTest = () => {
       setSubmitted(true);
       setShowConfirm(false);
 
-      // Clear persisted timer so next visit starts fresh
+      // Clear persisted timer and saved state so next visit starts fresh
       try {
         localStorage.removeItem(expiresKey);
+        localStorage.removeItem(stateKey);
       } catch (e) {
         // ignore
       }
@@ -268,6 +300,62 @@ const DoListeningTest = () => {
   useEffect(() => {
     confirmSubmitRef.current = confirmSubmit;
   }, [confirmSubmit]);
+
+  // Auto-save answers to localStorage (debounced) and sync across tabs.
+  useEffect(() => {
+    if (submitted) return;
+    // Save function
+    const saveState = () => {
+      try {
+        const expiresStored = localStorage.getItem(expiresKey);
+        const expiresAt = expiresStored ? parseInt(expiresStored, 10) : expiresAtRef.current || null;
+        const payload = { answers, expiresAt, lastSavedAt: Date.now() };
+        localStorage.setItem(stateKey, JSON.stringify(payload));
+      } catch (e) {
+        // ignore
+      }
+    };
+
+    // Debounced save on answers change
+    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    saveTimeoutRef.current = setTimeout(saveState, 500);
+
+    // Periodic save (every 30s) to handle timer-only changes
+    const intervalId = setInterval(saveState, 30000);
+
+    // Save before unload
+    const onBeforeUnload = () => {
+      saveState();
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+
+    // Storage event to sync across tabs
+    const onStorage = (e) => {
+      if (!e.key) return;
+      if (e.key === stateKey) {
+        try {
+          const parsed = JSON.parse(e.newValue || "{}");
+          if (parsed.answers) setAnswers(parsed.answers);
+          if (parsed.expiresAt) {
+            localStorage.setItem(expiresKey, String(parsed.expiresAt));
+            expiresAtRef.current = parsed.expiresAt;
+            const remaining = Math.max(0, Math.ceil((parsed.expiresAt - Date.now()) / 1000));
+            setTimeRemaining(remaining);
+          }
+        } catch (err) {
+          // ignore
+        }
+      }
+    };
+    window.addEventListener("storage", onStorage);
+
+    return () => {
+      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+      clearInterval(intervalId);
+      window.removeEventListener("beforeunload", onBeforeUnload);
+      window.removeEventListener("storage", onStorage);
+    };
+  }, [answers, submitted, stateKey, expiresKey]);
 
   // Get parts data
   const parts = useMemo(() => {
@@ -743,16 +831,47 @@ const DoListeningTest = () => {
   // Calculate total answered questions
   const totalAnswered = useMemo(() => {
     let count = 0;
+
+    // Build a map of required slots for multi-select questions by their globalNumber
+    const requiredMap = {};
+    if (Array.isArray(test?.questions)) {
+      test.questions.forEach((q) => {
+        const num = Number(q?.globalNumber);
+        if (!Number.isFinite(num)) return;
+        const req = Number(q?.requiredAnswers);
+        if (Number.isFinite(req) && req > 0) requiredMap[num] = req;
+        else if (String(q?.questionType || '').toLowerCase() === 'multi-select') requiredMap[num] = 2;
+      });
+    }
+
     Object.keys(answers).forEach((key) => {
+      const m = key.match(/^q(\d+)$/);
+      if (!m) return;
+      const qNum = Number(m[1]);
       const ans = answers[key];
+
+      // If the answer is an array (checkbox multi-select), count number of selections
       if (Array.isArray(ans)) {
-        if (ans.length > 0) count++;
-      } else if (ans) {
-        count++;
+        const selected = ans.filter((x) => x != null).length;
+        const cap = requiredMap[qNum] || 2;
+        count += Math.min(selected, cap);
+        return;
       }
+
+      // If it's a string that looks like a multi selection (csv, pipe or slash), split and count
+      if (typeof ans === 'string' && (ans.includes(',') || ans.includes('|') || ans.includes('/'))) {
+        const parts = ans.split(/[,|\/]/).map((s) => s.trim()).filter(Boolean);
+        const cap = requiredMap[qNum] || 2;
+        count += Math.min(parts.length, cap);
+        return;
+      }
+
+      // Default truthy value counts as 1 slot
+      if (ans != null && String(ans).trim() !== '') count += 1;
     });
+
     return count;
-  }, [answers]);
+  }, [answers, test?.questions]);
 
   // Calculate total questions
   const totalQuestions = useMemo(() => {
