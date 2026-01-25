@@ -52,6 +52,8 @@ const DoListeningTest = () => {
 
   const expiresAtRef = useRef(null);
   const saveTimeoutRef = useRef(null);
+  // Track server-side partial submission id (for anonymous resume we will store id locally)
+  const submissionIdRef = useRef(null);
 
   // Fetch test data
   useEffect(() => {
@@ -124,10 +126,51 @@ const DoListeningTest = () => {
               const remaining = Math.max(0, Math.ceil((parsedState.expiresAt - Date.now()) / 1000));
               setTimeRemaining(remaining);
             }
+            if (parsedState?.submissionId) {
+              submissionIdRef.current = parsedState.submissionId;
+            }
           }
         } catch (e) {
           // ignore malformed storage
         }
+
+        // Try to resume from server if available (prefer server state when authenticated or we have a submissionId)
+        (async () => {
+          try {
+            const submissionId = submissionIdRef.current;
+            const user = userForStorage;
+            const query = submissionId ? `?submissionId=${submissionId}` : user?.id ? `?userId=${user.id}` : '';
+            if (query !== '') {
+              const res = await fetch(apiPath(`listening-submissions/${id}/active${query}`));
+              if (res.ok) {
+                const payload = await res.json().catch(() => null);
+                const sub = payload?.submission || null;
+                if (sub && !sub.finished) {
+                  // Server has an active attempt - prefer its answers/expiresAt
+                  const serverAnswers = sub.answers ? (typeof sub.answers === 'string' ? JSON.parse(sub.answers) : sub.answers) : null;
+                  if (serverAnswers) setAnswers(serverAnswers);
+                  if (sub.expiresAt) {
+                    const eAt = typeof sub.expiresAt === 'string' ? new Date(sub.expiresAt).getTime() : sub.expiresAt;
+                    localStorage.setItem(expiresKey, String(eAt));
+                    expiresAtRef.current = eAt;
+                    const remaining = Math.max(0, Math.ceil((eAt - Date.now()) / 1000));
+                    setTimeRemaining(remaining);
+                  }
+                  if (sub.id) submissionIdRef.current = sub.id;
+                  // persist submissionId and server answers locally
+                  try {
+                    const cur = JSON.parse(localStorage.getItem(stateKey) || '{}') || {};
+                    cur.submissionId = sub.id;
+                    if (serverAnswers) cur.answers = serverAnswers;
+                    localStorage.setItem(stateKey, JSON.stringify(cur));
+                  } catch (e) {}
+                }
+              }
+            }
+          } catch (err) {
+            // ignore server resume errors
+          }
+        })();
       } catch (err) {
         console.error("Error fetching test:", err);
         setError(err.message);
@@ -247,7 +290,7 @@ const DoListeningTest = () => {
       const res = await fetch(apiPath(`listening-tests/${id}/submit`), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ answers, user, studentName, studentId }),
+        body: JSON.stringify({ answers, user, studentName, studentId, submissionId: submissionIdRef.current }),
       });
 
       const payload = await res.json().catch(() => null);
@@ -290,6 +333,22 @@ const DoListeningTest = () => {
       } catch (e) {
         // ignore
       }
+
+      // Tell server to cleanup any leftover unfinished autosaves for this user/test
+      try {
+        if (user && user.id) {
+          fetch(apiPath(`listening-submissions/${id}/cleanup`), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user }),
+          }).catch(() => {});
+        }
+      } catch (e) {
+        // ignore
+      }
+
+      // Clear local submission ref
+      submissionIdRef.current = null;
     } catch (err) {
       console.error("Error submitting:", err);
       alert(`❌ Có lỗi xảy ra khi nộp bài!${err?.message ? `\n${err.message}` : ""}`);
@@ -320,12 +379,56 @@ const DoListeningTest = () => {
     if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
     saveTimeoutRef.current = setTimeout(saveState, 500);
 
+    // Also attempt server autosave (debounced + non-blocking)
+    const serverAutosave = async () => {
+      try {
+        const payload = { submissionId: submissionIdRef.current, answers, expiresAt: expiresAtRef.current, user: userForStorage };
+        const res = await fetch(apiPath(`listening-submissions/${id}/autosave`), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        if (res.ok) {
+          const json = await res.json().catch(() => null);
+          if (json?.submissionId) {
+            submissionIdRef.current = json.submissionId;
+            // persist submissionId locally
+            try {
+              const cur = JSON.parse(localStorage.getItem(stateKey) || '{}') || {};
+              cur.submissionId = json.submissionId;
+              cur.answers = payload.answers || cur.answers;
+              localStorage.setItem(stateKey, JSON.stringify(cur));
+            } catch (e) {}
+          }
+        }
+      } catch (err) {
+        // ignore server autosave failures (we still have localStorage fallback)
+      }
+    };
+
+    // Debounce server autosave slightly
+    setTimeout(serverAutosave, 700);
+
     // Periodic save (every 30s) to handle timer-only changes
     const intervalId = setInterval(saveState, 30000);
+
+    // Periodic server autosave
+    const serverIntervalId = setInterval(serverAutosave, 30000);
 
     // Save before unload
     const onBeforeUnload = () => {
       saveState();
+      // Try one last synchronous navigator send via sendBeacon (best-effort)
+      try {
+        const payload = { submissionId: submissionIdRef.current, answers, expiresAt: expiresAtRef.current, user: userForStorage };
+        const url = apiPath(`listening-submissions/${id}/autosave`);
+        if (navigator.sendBeacon) {
+          const blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
+          navigator.sendBeacon(url, blob);
+        }
+      } catch (e) {
+        // ignore
+      }
     };
     window.addEventListener("beforeunload", onBeforeUnload);
 
@@ -342,6 +445,7 @@ const DoListeningTest = () => {
             const remaining = Math.max(0, Math.ceil((parsed.expiresAt - Date.now()) / 1000));
             setTimeRemaining(remaining);
           }
+          if (parsed.submissionId) submissionIdRef.current = parsed.submissionId;
         } catch (err) {
           // ignore
         }
@@ -352,6 +456,7 @@ const DoListeningTest = () => {
     return () => {
       if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
       clearInterval(intervalId);
+      clearInterval(serverIntervalId);
       window.removeEventListener("beforeunload", onBeforeUnload);
       window.removeEventListener("storage", onStorage);
     };

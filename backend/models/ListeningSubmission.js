@@ -64,6 +64,21 @@ const ListeningSubmission = sequelize.define(
       type: DataTypes.BOOLEAN,
       defaultValue: false,
     },
+
+    // Autosave / resume fields
+    expiresAt: {
+      type: DataTypes.DATE,
+      allowNull: true,
+    },
+    finished: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: false,
+    },
+    lastSavedAt: {
+      type: DataTypes.DATE,
+      allowNull: true,
+    },
   },
   {
     tableName: "listening_submissions",

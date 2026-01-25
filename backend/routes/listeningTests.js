@@ -229,6 +229,7 @@ router.get('/:id', async (req, res) => {
 // API nộp bài thi listening - Calculate score and return results
 router.post('/:id/submit', async (req, res) => {
   try {
+    console.log(`[DEBUG] POST /api/listening-tests/${req.params.id}/submit - body:`, JSON.stringify(req.body).slice(0,2000));
     const { id } = req.params;
     const { answers, user, studentName, studentId } = req.body;
 
@@ -1031,17 +1032,44 @@ router.post('/:id/submit', async (req, res) => {
       null;
     const resolvedUserId = studentId || user?.id || null;
 
-    const submission = await ListeningSubmission.create({
-      testId: Number(id),
-      userId: resolvedUserId,
-      userName: resolvedUserName,
-      answers: normalizedAnswers,
-      details,
-      correct: correctCount,
-      total: totalCount,
-      scorePercentage,
-      band,
-    });
+    // If an unfinished autosave attempt exists for this user and test, update it and mark finished
+    let submission = null;
+    if (resolvedUserId) {
+      const existing = await ListeningSubmission.findOne({ where: { testId: Number(id), userId: resolvedUserId, finished: false }, order: [['updatedAt', 'DESC']] });
+      if (existing) {
+        existing.answers = normalizedAnswers;
+        existing.details = details;
+        existing.correct = correctCount;
+        existing.total = totalCount;
+        existing.scorePercentage = scorePercentage;
+        existing.band = band;
+        existing.finished = true;
+        existing.expiresAt = null;
+        existing.lastSavedAt = new Date();
+        await existing.save();
+        submission = existing;
+      }
+    }
+
+    if (!submission) {
+      submission = await ListeningSubmission.create({
+        testId: Number(id),
+        userId: resolvedUserId,
+        userName: resolvedUserName,
+        answers: normalizedAnswers,
+        details,
+        correct: correctCount,
+        total: totalCount,
+        scorePercentage,
+        band,
+        finished: true,
+      });
+      console.log(`[DEBUG] Created submission id=${submission.id} finished=${submission.finished}`);
+    } else {
+      console.log(`[DEBUG] Updated existing submission id=${submission.id} finished=${submission.finished}`);
+    }
+
+    console.log(`[DEBUG] Responding to submit for test ${id}: submissionId=${submission.id}, correct=${correctCount}, total=${totalCount}`);
 
     res.json({
       submissionId: submission.id,

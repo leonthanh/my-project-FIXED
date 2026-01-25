@@ -159,34 +159,11 @@ const AdminNavbar = () => {
             title="IELTS"
           >
             <span className="adminNavbar__icon">📚</span>
-            <span className="adminNavbar__label">IELTS</span>
+            <span className="adminNavbar__label">IX</span>
             <span className="adminNavbar__caret">▼</span>
           </span>
           {submissionDropdownVisible && (
             <div className="adminNavbar__menu adminNavbar__menu--wide">
-              <div className="adminNavbar__menuHeader">📥 Submissions</div>
-              <Link
-                to="/admin/reading-submissions"
-                className="adminNavbar__menuItem"
-                onClick={() => setSubmissionDropdownVisible(false)}
-              >
-                🔍 Reading
-              </Link>
-              <Link
-                to="/admin/listening-submissions"
-                className="adminNavbar__menuItem"
-                onClick={() => setSubmissionDropdownVisible(false)}
-              >
-                🎧 Listening
-              </Link>
-              <Link
-                to="/admin/writing-submissions"
-                className="adminNavbar__menuItem"
-                onClick={() => setSubmissionDropdownVisible(false)}
-              >
-                ✍️ Writing 
-              </Link>
-
               <div className="adminNavbar__menuHeader adminNavbar__menuHeader--spaced">
                 ✏️ Create
               </div>
@@ -198,19 +175,44 @@ const AdminNavbar = () => {
                 ✍️ Writing
               </Link>
               <Link
-                to="/admin/create-listening"
-                className="adminNavbar__menuItem"
-                onClick={() => setSubmissionDropdownVisible(false)}
-              >
-                🎧 Listening
-              </Link>
-              <Link
                 to="/admin/create-reading"
                 className="adminNavbar__menuItem"
                 onClick={() => setSubmissionDropdownVisible(false)}
               >
                 📖 Reading
               </Link>
+              <Link
+                to="/admin/create-listening"
+                className="adminNavbar__menuItem"
+                onClick={() => setSubmissionDropdownVisible(false)}
+              >
+                🎧 Listening
+              </Link>
+              
+              <div className="adminNavbar__menuHeader">📥 Submissions</div>
+              <Link
+                to="/admin/writing-submissions"
+                className="adminNavbar__menuItem"
+                onClick={() => setSubmissionDropdownVisible(false)}
+              >
+                ✍️ Writing 
+              </Link>
+              <Link
+                to="/admin/reading-submissions"
+                className="adminNavbar__menuItem"
+                onClick={() => setSubmissionDropdownVisible(false)}
+              >
+                📖 Reading
+              </Link>
+              <Link
+                to="/admin/listening-submissions"
+                className="adminNavbar__menuItem"
+                onClick={() => setSubmissionDropdownVisible(false)}
+              >
+                🎧 Listening
+              </Link>
+              
+
             </div>
           )}
         </div>

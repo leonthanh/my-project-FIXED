@@ -213,6 +213,123 @@ router.get('/test/:testId', async (req, res) => {
   }
 });
 
+// POST: Autosave partial answers for a test (create or update an active attempt)
+router.post('/:testId/autosave', async (req, res) => {
+  try {
+    const { testId } = req.params;
+    const { submissionId, answers, expiresAt, user } = req.body;
+    // DEBUG: log autosave payload to help E2E debugging (dev only)
+    try { console.log(`[DEBUG] POST /api/listening-submissions/${testId}/autosave - body:`, JSON.stringify(req.body).slice(0,2000)); } catch (e) { console.error('[DEBUG] Could not stringify autosave body', e); }
+
+    const resolvedUserId = user?.id || null;
+    const resolvedUserName = user?.name || user?.username || user?.email || null;
+
+    // If submissionId provided, update that record (if not finished)
+    if (submissionId) {
+      const sub = await ListeningSubmission.findByPk(submissionId);
+      if (!sub) return res.status(404).json({ message: '❌ Không tìm thấy attempt' });
+      if (sub.finished) return res.status(400).json({ message: '❌ Attempt đã hoàn thành' });
+
+      sub.answers = answers || sub.answers;
+      sub.expiresAt = expiresAt ? new Date(expiresAt) : sub.expiresAt;
+      sub.lastSavedAt = new Date();
+      await sub.save();
+
+      return res.json({ message: '✅ Đã lưu tạm', submissionId: sub.id, savedAt: sub.lastSavedAt });
+    }
+
+    // Try to find an existing unfinished attempt for this user + test
+    if (resolvedUserId) {
+      const existing = await ListeningSubmission.findOne({
+        where: { testId: Number(testId), userId: resolvedUserId, finished: false },
+        order: [['updatedAt', 'DESC']],
+      });
+      if (existing) {
+        existing.answers = answers || existing.answers;
+        existing.expiresAt = expiresAt ? new Date(expiresAt) : existing.expiresAt;
+        existing.lastSavedAt = new Date();
+        await existing.save();
+        return res.json({ message: '✅ Đã lưu tạm', submissionId: existing.id, savedAt: existing.lastSavedAt });
+      }
+    }
+
+    // Otherwise create a new partial attempt (user may be anonymous)
+    const created = await ListeningSubmission.create({
+      testId: Number(testId),
+      userId: resolvedUserId,
+      userName: resolvedUserName,
+      answers: answers || {},
+      correct: 0,
+      total: 0,
+      scorePercentage: 0,
+      finished: false,
+      expiresAt: expiresAt ? new Date(expiresAt) : null,
+      lastSavedAt: new Date(),
+    });
+
+    res.status(201).json({ message: '✅ Tạo attempt tạm', submissionId: created.id, savedAt: created.lastSavedAt });
+  } catch (error) {
+    console.error('Error autosaving attempt:', error);
+    res.status(500).json({ message: '❌ Lỗi khi autosave', error: error.message });
+  }
+});
+
+// GET: Get active attempt for a test (by submissionId or current user)
+router.get('/:testId/active', async (req, res) => {
+  try {
+    const { testId } = req.params;
+    const { submissionId, userId } = req.query;
+    console.log(`[DEBUG] GET /api/listening-submissions/${testId}/active - query:`, req.query);
+
+    if (submissionId) {
+      const sub = await ListeningSubmission.findByPk(submissionId);
+      if (!sub) {
+        console.log(`[DEBUG] GET /api/listening-submissions/${testId}/active - no submission for submissionId=${submissionId}`);
+        return res.status(404).json({ message: '❌ Không tìm thấy attempt' });
+      }
+      console.log(`[DEBUG] GET /api/listening-submissions/${testId}/active - returning submissionId=${sub.id}`);
+      return res.json({ submission: sub.toJSON() });
+    }
+
+    if (userId) {
+      const sub = await ListeningSubmission.findOne({ where: { testId: Number(testId), userId: Number(userId), finished: false }, order: [['updatedAt', 'DESC']] });
+      if (!sub) {
+        console.log(`[DEBUG] GET /api/listening-submissions/${testId}/active - no active submission for userId=${userId}`);
+        return res.json({ submission: null });
+      }
+      console.log(`[DEBUG] GET /api/listening-submissions/${testId}/active - returning submissionId=${sub.id} for userId=${userId}`);
+      return res.json({ submission: sub.toJSON() });
+    }
+
+    // No identifying info, return null
+    return res.json({ submission: null });
+  } catch (error) {
+    console.error('Error fetching active attempt:', error);
+    res.status(500).json({ message: '❌ Lỗi khi lấy attempt', error: error.message });
+  }
+});
+
+// POST: Cleanup unfinished attempts for a test for a given user (mark finished)
+router.post('/:testId/cleanup', async (req, res) => {
+  try {
+    const { testId } = req.params;
+    const { user } = req.body;
+    const resolvedUserId = user?.id || null;
+    if (!resolvedUserId) return res.status(400).json({ message: '❌ Thiếu user id' });
+
+    const updated = await ListeningSubmission.update(
+      { finished: true, lastSavedAt: new Date() },
+      { where: { testId: Number(testId), userId: resolvedUserId, finished: false } }
+    );
+
+    console.log(`[DEBUG] Cleanup for test ${testId} user ${resolvedUserId} - updated rows: ${updated[0]}`);
+    return res.json({ message: '✅ Cleanup completed', updated: updated[0] });
+  } catch (error) {
+    console.error('Error during cleanup:', error);
+    res.status(500).json({ message: '❌ Lỗi khi cleanup', error: error.message });
+  }
+});
+
 // POST: Add/update feedback for a submission (teacher action)
 router.post('/:submissionId/feedback', async (req, res) => {
   try {
