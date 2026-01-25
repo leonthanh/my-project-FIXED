@@ -201,9 +201,17 @@ const DoListeningTest = () => {
       const remaining = Math.max(0, Math.ceil((expiresAt - Date.now()) / 1000));
       setTimeRemaining(remaining);
       if (remaining <= 0) {
-        done = true;
-        // call via ref so effect doesn't require confirmSubmit in its deps
-        if (confirmSubmitRef.current) confirmSubmitRef.current();
+        // Ensure we don't mark the timer as 'done' until we've actually invoked submit.
+        // This avoids a race where tick runs before `confirmSubmitRef` is initialized
+        // and permanently prevents the auto-submit from happening.
+        if (confirmSubmitRef.current) {
+          confirmSubmitRef.current();
+          done = true;
+        } else {
+          // Leave `done` false so future ticks will try again once `confirmSubmitRef` is set.
+          // Also ensure the UI shows 0s remaining immediately.
+          setTimeRemaining(0);
+        }
       }
     };
 
@@ -287,6 +295,20 @@ const DoListeningTest = () => {
     const studentId = user?.id || null;
 
     try {
+      // If there are no answers and we don't have a server attempt, avoid creating an empty submission.
+      if ((!answers || (typeof answers === 'object' && Object.keys(answers).length === 0)) && !submissionIdRef.current) {
+        // Mark as submitted locally (no server record created) and clear local state.
+        setSubmitted(true);
+        setShowConfirm(false);
+        try {
+          localStorage.removeItem(expiresKey);
+          localStorage.removeItem(stateKey);
+        } catch (e) {}
+        alert('⏱️ Hết giờ nhưng bạn chưa trả lời câu nào. Không tạo bài nộp trống.');
+        navigate('/select-test');
+        return;
+      }
+
       const res = await fetch(apiPath(`listening-tests/${id}/submit`), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -382,6 +404,13 @@ const DoListeningTest = () => {
     // Also attempt server autosave (debounced + non-blocking)
     const serverAutosave = async () => {
       try {
+        // Don't create a server attempt if we have no answers yet and no submissionId.
+        // This prevents creating an empty attempt that will later be auto-submitted as 0/40.
+        if (!submissionIdRef.current && (!answers || (typeof answers === 'object' && Object.keys(answers).length === 0))) {
+          // nothing to save yet
+          return;
+        }
+
         const payload = { submissionId: submissionIdRef.current, answers, expiresAt: expiresAtRef.current, user: userForStorage };
         const res = await fetch(apiPath(`listening-submissions/${id}/autosave`), {
           method: 'POST',

@@ -103,6 +103,7 @@ const styles = {
   },
   audioContainer: { padding: "0 24px", marginBottom: "16px" },
   audioPlayer: { width: "100%", height: "40px" },
+  playButton: { backgroundColor: "#0e276f", color: "#fff", border: "none", borderRadius: "8px", padding: "10px 16px", cursor: "pointer", fontSize: "15px" },
   audioWarning: { color: "#d97706", fontSize: "13px", marginTop: "4px" },
   questionsList: {
     padding: "0 24px",
@@ -550,6 +551,69 @@ const styles = {
     cursor: "pointer",
     fontWeight: 600,
     fontSize: "14px",
+  },
+
+  // Play gate (Cambridge-style start modal)
+  playGateOverlay: {
+    position: 'fixed',
+    inset: 0,
+    background: 'rgba(15, 23, 42, 0.6)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 9999,
+    padding: '20px',
+  },
+  playGateCard: {
+    width: '100%',
+    maxWidth: '520px',
+    background: '#ffffff',
+    borderRadius: '16px',
+    padding: '22px 20px',
+    textAlign: 'center',
+    boxShadow: '0 20px 60px rgba(0,0,0,0.35)',
+  },
+  playGateButton: {
+    background: '#0e276f',
+    color: '#fff',
+    border: 'none',
+    borderRadius: '999px',
+    padding: '12px 18px',
+    fontSize: '16px',
+    fontWeight: 700,
+    cursor: 'pointer',
+    minWidth: '160px',
+  },
+  audioErrorBox: {
+    marginTop: '-12px',
+    marginBottom: '20px',
+    padding: '12px 14px',
+    backgroundColor: '#fff7ed',
+    border: '1px solid #fed7aa',
+    borderRadius: '10px',
+    color: '#7c2d12',
+    fontSize: '14px',
+  },
+  audioOpenLink: {
+    display: 'inline-block',
+    color: '#0e276f',
+    fontWeight: 700,
+    textDecoration: 'underline',
+  },
+
+  // Play button style (KET modal)
+  playButton: {
+    padding: "12px 28px",
+    backgroundColor: "#0e276f",
+    color: "#fff",
+    borderRadius: "999px",
+    border: "none",
+    cursor: "pointer",
+    fontSize: "16px",
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "12px",
+    boxShadow: "0 6px 18px rgba(14,39,111,0.15)",
   },
 
   // Results (legacy keys; kept because some JSX still references them)
