@@ -8,9 +8,13 @@ import { apiPath } from "../../../shared/utils/api";
  * EditListeningTest - Trang sửa đề Listening IELTS
  * Load dữ liệu từ API và cho phép chỉnh sửa
  */
+import { canManageCategory } from '../../../shared/utils/permissions';
+
 const EditListeningTest = () => {
   const navigate = useNavigate();
   const { id } = useParams();
+  const user = JSON.parse(localStorage.getItem('user'));
+  const allowedToManage = canManageCategory(user, 'listening');
   
   // Loading state
   const [loading, setLoading] = useState(true);
@@ -106,6 +110,16 @@ const EditListeningTest = () => {
       fetchTest();
     }
   }, [id, setParts]);
+
+  if (!allowedToManage) {
+    return (
+      <div style={{ padding: 40, textAlign: 'center' }}>
+        <h2>⚠️ Bạn không có quyền sửa đề Listening</h2>
+        <p>Nếu bạn cho rằng đây là lỗi, vui lòng liên hệ quản trị hệ thống.</p>
+        <button onClick={() => navigate('/select-test')} style={{ marginTop: 16, padding: '8px 14px' }}>Quay lại</button>
+      </div>
+    );
+  }
 
   // Reconstruct parts from database format to editor format
   const reconstructParts = (partInstructions, questions, partAudioUrls) => {

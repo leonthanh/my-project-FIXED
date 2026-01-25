@@ -34,6 +34,7 @@ const DoCambridgeListeningTest = () => {
   const [showConfirm, setShowConfirm] = useState(false);
   const [results, setResults] = useState(null);
   const [currentPartIndex, setCurrentPartIndex] = useState(0);
+  /* eslint-disable-next-line no-unused-vars */
   const [expandedPart, setExpandedPart] = useState(0);
   const [timeRemaining, setTimeRemaining] = useState(30 * 60);
   const [activeQuestion, setActiveQuestion] = useState(null);
@@ -1100,6 +1101,7 @@ const DoCambridgeListeningTest = () => {
   };
 
   // Handle checkbox change for multi-select
+  /* eslint-disable-next-line no-unused-vars */
   const handleCheckboxChange = useCallback(
     (questionKey, optionIndex, checked, maxSelections = 2) => {
       if (submitted) return;

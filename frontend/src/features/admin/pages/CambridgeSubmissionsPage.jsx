@@ -9,6 +9,7 @@ import { apiPath } from "../../../shared/utils/api";
  */
 const CambridgeSubmissionsPage = () => {
   const navigate = useNavigate();
+  /* eslint-disable-next-line no-unused-vars */
   const teacher = JSON.parse(localStorage.getItem("user"));
 
   // States

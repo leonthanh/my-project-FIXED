@@ -7,8 +7,12 @@ import { apiPath } from "../../../shared/utils/api";
 /**
  * CreateListeningTestNew - Trang tạo đề Listening IELTS với 4-column editor
  */
+import { canManageCategory } from '../../../shared/utils/permissions';
+
 const CreateListeningTestNew = () => {
   const navigate = useNavigate();
+  const user = JSON.parse(localStorage.getItem('user'));
+  const allowedToManage = canManageCategory(user, 'listening');
 
   // Form fields
   const [title, setTitle] = useState("");
@@ -96,6 +100,16 @@ const CreateListeningTestNew = () => {
     const interval = setInterval(saveDraft, 30000);
     return () => clearInterval(interval);
   }, [saveDraft]);
+
+  if (!allowedToManage) {
+    return (
+      <div style={{ padding: 40, textAlign: 'center' }}>
+        <h2>⚠️ Bạn không có quyền tạo đề Listening</h2>
+        <p>Nếu bạn cho rằng đây là lỗi, vui lòng liên hệ quản trị hệ thống.</p>
+        <button onClick={() => navigate('/select-test')} style={{ marginTop: 16, padding: '8px 14px' }}>Quay lại</button>
+      </div>
+    );
+  }
 
   // Helper to strip HTML
   const stripHtml = (html) => {

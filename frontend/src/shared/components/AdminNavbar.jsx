@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import ThemeToggle from "./ThemeToggle";
 import { apiPath, hostPath } from "../utils/api";
+import { canManageCategory } from "../utils/permissions";
 import "./AdminNavbar.css";
 
 const AdminNavbar = () => {
@@ -102,20 +103,24 @@ const AdminNavbar = () => {
             <div className="adminNavbar__menu">
               <div className="adminNavbar__menuHeader">📚 KET (A2 Key)</div>
 
-              <Link
-                to="/admin/create-ket-listening"
-                className="adminNavbar__menuItem"
-                onClick={() => setCambridgeDropdownVisible(false)}
-              >
-                🎧 KET Listening
-              </Link>
-              <Link
-                to="/admin/create-ket-reading"
-                className="adminNavbar__menuItem"
-                onClick={() => setCambridgeDropdownVisible(false)}
-              >
-                📖 KET Reading
-              </Link>
+              {canManageCategory(user, 'listening') && (
+                <Link
+                  to="/admin/create-ket-listening"
+                  className="adminNavbar__menuItem"
+                  onClick={() => setCambridgeDropdownVisible(false)}
+                >
+                  🎧 KET Listening
+                </Link>
+              )}
+              {canManageCategory(user, 'reading') && (
+                <Link
+                  to="/admin/create-ket-reading"
+                  className="adminNavbar__menuItem"
+                  onClick={() => setCambridgeDropdownVisible(false)}
+                >
+                  📖 KET Reading
+                </Link>
+              )}
 
               <div className="adminNavbar__menuHeader adminNavbar__menuHeader--spaced">
                 📚 PET (B1 Preliminary)
@@ -167,27 +172,31 @@ const AdminNavbar = () => {
               <div className="adminNavbar__menuHeader adminNavbar__menuHeader--spaced">
                 ✏️ Create
               </div>
-              <Link
+                            <Link
                 to="/admin/create-writing"
                 className="adminNavbar__menuItem"
                 onClick={() => setSubmissionDropdownVisible(false)}
               >
                 ✍️ Writing
               </Link>
-              <Link
-                to="/admin/create-reading"
-                className="adminNavbar__menuItem"
-                onClick={() => setSubmissionDropdownVisible(false)}
-              >
-                📖 Reading
-              </Link>
-              <Link
-                to="/admin/create-listening"
-                className="adminNavbar__menuItem"
-                onClick={() => setSubmissionDropdownVisible(false)}
-              >
-                🎧 Listening
-              </Link>
+              {canManageCategory(user, 'reading') && (
+                <Link
+                  to="/admin/create-reading"
+                  className="adminNavbar__menuItem"
+                  onClick={() => setSubmissionDropdownVisible(false)}
+                >
+                  📖 Reading
+                </Link>
+              )}
+              {canManageCategory(user, 'listening') && (
+                <Link
+                  to="/admin/create-listening"
+                  className="adminNavbar__menuItem"
+                  onClick={() => setSubmissionDropdownVisible(false)}
+                >
+                  🎧 Listening
+                </Link>
+              )}
               
               <div className="adminNavbar__menuHeader">📥 Submissions</div>
               <Link

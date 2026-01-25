@@ -23,6 +23,7 @@ const DoListeningTest = () => {
   const [resultData, setResultData] = useState(null);
   const [resultModalOpen, setResultModalOpen] = useState(false);
   const [currentPartIndex, setCurrentPartIndex] = useState(0);
+  /* eslint-disable-next-line no-unused-vars */
   const [expandedPart, setExpandedPart] = useState(0);
   const [timeRemaining, setTimeRemaining] = useState(30 * 60);
   const [audioPlayed, setAudioPlayed] = useState({});

@@ -293,7 +293,9 @@ router.get("/listening-tests/:id", async (req, res) => {
 });
 
 // POST create listening test
-router.post("/listening-tests", async (req, res) => {
+const { requireAuth } = require('../middlewares/auth');
+const { requireTestPermission } = require('../middlewares/testPermissions');
+router.post("/listening-tests", requireAuth, requireTestPermission('cambridge'), async (req, res) => {
   try {
     const {
       title,
@@ -337,7 +339,7 @@ router.post("/listening-tests", async (req, res) => {
 });
 
 // PUT update listening test
-router.put("/listening-tests/:id", async (req, res) => {
+router.put("/listening-tests/:id", requireAuth, requireTestPermission('cambridge'), async (req, res) => {
   try {
     const test = await CambridgeListening.findByPk(req.params.id);
 
@@ -464,7 +466,7 @@ router.get("/reading-tests/:id", async (req, res) => {
 });
 
 // POST create reading test
-router.post("/reading-tests", async (req, res) => {
+router.post("/reading-tests", requireAuth, requireTestPermission('cambridge'), async (req, res) => {
   try {
     const {
       title,
@@ -509,7 +511,7 @@ router.post("/reading-tests", async (req, res) => {
 });
 
 // PUT update reading test
-router.put("/reading-tests/:id", async (req, res) => {
+router.put("/reading-tests/:id", requireAuth, requireTestPermission('cambridge'), async (req, res) => {
   try {
     const test = await CambridgeReading.findByPk(req.params.id);
 

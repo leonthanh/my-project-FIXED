@@ -12,9 +12,13 @@ import { AdminNavbar } from "../../../shared/components";
  */
 import { apiPath } from "../../../shared/utils/api";
 
+import { canManageCategory } from '../../../shared/utils/permissions';
+
 const EditReadingTest = () => {
   const navigate = useNavigate();
   const { testId } = useParams();
+  const user = JSON.parse(localStorage.getItem('user'));
+  const allowedToManage = canManageCategory(user, 'reading');
 
   // Form fields
   const [title, setTitle] = useState("");
@@ -103,6 +107,16 @@ const EditReadingTest = () => {
       setHasLoaded(true);
     }
   }, [testId, hasLoaded, setPassages]);
+
+  if (!allowedToManage) {
+    return (
+      <div style={{ padding: 40, textAlign: 'center' }}>
+        <h2>⚠️ Bạn không có quyền sửa đề Reading</h2>
+        <p>Nếu bạn cho rằng đây là lỗi, vui lòng liên hệ quản trị hệ thống.</p>
+        <button onClick={() => navigate('/select-test')} style={{ marginTop: 16, padding: '8px 14px' }}>Quay lại</button>
+      </div>
+    );
+  }
 
   // Handle review
   const handleReview = (e) => {

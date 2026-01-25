@@ -49,8 +49,10 @@ router.get('/detail/:id', async (req, res) => {
   }
 });
 
+const { requireAuth, requireRole } = require('../middlewares/auth');
+
 // 📌 Tạo đề (không ảnh)
-router.post('/', async (req, res) => {
+router.post('/', requireAuth, requireRole('teacher','admin'), async (req, res) => {
   try {
     const { task1, task2, classCode, teacherName } = req.body;
     if (!task1 || !task2) {
@@ -120,7 +122,7 @@ router.get('/:id', async (req, res) => {
 });
 
 // ✅ Route cập nhật đề thi
-router.put('/:id', async (req, res) => {
+router.put('/:id', requireAuth, requireRole('teacher','admin'), async (req, res) => {
   try {
     const { classCode, teacherName, task1, task2, questions } = req.body;
     const test = await WritingTest.findByPk(req.params.id);

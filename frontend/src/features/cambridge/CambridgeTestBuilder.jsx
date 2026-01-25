@@ -15,6 +15,7 @@ import {
 } from "../../shared/config/questionTypes";
 import { apiPath, hostPath } from "../../shared/utils/api";
 import useQuillImageUpload from "../../shared/hooks/useQuillImageUpload";
+import { canManageCategory } from '../../shared/utils/permissions';
 
 /**
  * CambridgeTestBuilder - Component cho việc tạo đề Cambridge tests
@@ -22,11 +23,14 @@ import useQuillImageUpload from "../../shared/hooks/useQuillImageUpload";
  */
 const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initialData = null, resetDraftOnLoad = false }) => {
   const navigate = useNavigate();
+  const user = JSON.parse(localStorage.getItem('user'));
+
   const testConfig = getTestConfig(testType);
   const availableTypes = getQuestionTypesForTest(testType);
   const isListeningTest = testType.includes('listening');
-  const { quillRef: partInstructionRef, modules: partInstructionModules } = useQuillImageUpload();
 
+  // Hooks (must run unconditionally)
+  const { quillRef: partInstructionRef, modules: partInstructionModules } = useQuillImageUpload();
   const normalizePeopleMatchingIds = useCallback((partsData) => {
     if (!Array.isArray(partsData)) return partsData;
 
@@ -101,6 +105,10 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
 
     return changed ? nextParts : partsData;
   }, []);
+
+  // Evaluate permission early but do not return yet (hooks must run first)
+  const category = testType.includes('listening') ? 'listening' : 'reading';
+  const allowedToManage = canManageCategory(user, category);
 
   const didResetDraftRef = useRef(false);
 
@@ -319,6 +327,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
     }));
   };
 
+  /* eslint-disable-next-line no-unused-vars */
   const handleQuestionChange = (field, value) => {
     setParts(prevParts => prevParts.map((part, pIdx) => {
       if (pIdx !== selectedPartIndex) return part;
@@ -681,6 +690,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
           throw new Error('Lỗi khi lưu đề thi');
         }
 
+        /* eslint-disable-next-line no-unused-vars */
         const result = await response.json();
         setMessage({ type: 'success', text: '✅ Tạo đề thành công!' });
         // Clear draft after successful save
@@ -698,6 +708,16 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
       setIsSubmitting(false);
     }
   };
+
+  if (!allowedToManage) {
+    return (
+      <div style={{ padding: 40, textAlign: 'center' }}>
+        <h2>⚠️ Bạn không có quyền tạo/sửa đề {category === 'listening' ? 'Listening' : 'Reading'}</h2>
+        <p>Nếu bạn cho rằng đây là lỗi, vui lòng liên hệ quản trị hệ thống.</p>
+        <button onClick={() => navigate('/select-test')} style={{ marginTop: 16, padding: '8px 14px' }}>Quay lại</button>
+      </div>
+    );
+  }
 
   if (!testConfig) {
     return (

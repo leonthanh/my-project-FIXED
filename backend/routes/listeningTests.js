@@ -28,7 +28,9 @@ const upload = multer({
 });
 
 // API tạo đề thi listening mới
-router.post('/', upload.fields([
+const { requireAuth } = require('../middlewares/auth');
+const { requireTestPermission } = require('../middlewares/testPermissions');
+router.post('/', requireAuth, requireTestPermission('listening'), upload.fields([
   { name: 'audioFile', maxCount: 1 },
   { name: 'audioFile_passage_0', maxCount: 1 },
   { name: 'audioFile_passage_1', maxCount: 1 },
@@ -1088,7 +1090,7 @@ router.post('/:id/submit', async (req, res) => {
 });
 
 // API cập nhật đề thi
-router.put('/:id', upload.fields([
+router.put('/:id', requireAuth, requireTestPermission('listening'), upload.fields([
   { name: 'audioFile', maxCount: 1 },
   { name: 'audioFile_part_0', maxCount: 1 },
   { name: 'audioFile_part_1', maxCount: 1 },

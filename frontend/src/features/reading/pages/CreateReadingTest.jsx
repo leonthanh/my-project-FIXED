@@ -10,8 +10,12 @@ import { apiPath } from "../../../shared/utils/api";
  * CreateReadingTest - Trang tạo đề Reading IELTS mới
  * Sử dụng ReadingTestEditor component và usePassageHandlers hook
  */
+import { canManageCategory } from '../../../shared/utils/permissions';
+
 const CreateReadingTest = () => {
   const navigate = useNavigate();
+  const user = JSON.parse(localStorage.getItem('user'));
+  const allowedToManage = canManageCategory(user, 'reading');
 
   // Load saved data from localStorage
   const loadSavedData = () => {
@@ -100,6 +104,16 @@ const CreateReadingTest = () => {
       window.removeEventListener("beforeunload", handleBeforeUnload);
     };
   }, [saveToLocalStorage]);
+
+  if (!allowedToManage) {
+    return (
+      <div style={{ padding: 40, textAlign: 'center' }}>
+        <h2>⚠️ Bạn không có quyền tạo đề Reading</h2>
+        <p>Nếu bạn cho rằng đây là lỗi, vui lòng liên hệ quản trị hệ thống.</p>
+        <button onClick={() => navigate('/select-test')} style={{ marginTop: 16, padding: '8px 14px' }}>Quay lại</button>
+      </div>
+    );
+  }
 
   // Handle review
   const handleReview = (e) => {

@@ -59,14 +59,14 @@ describe('Listening test numbering', () => {
     part2Btn.click();
 
     // Wait for the part and section titles to appear
-    await waitFor(() => expect(screen.getByText(/Questions 11-14/)).toBeInTheDocument());
+    await screen.findByText(/Questions 11-14/);
     // The matching section should render as Questions 15-20 (not 19-24)
     expect(screen.getByText(/Questions 15-20/)).toBeInTheDocument();
 
     // Also check Part 3 remains correct
     const part3Btn = await screen.findByText(/Part 3/);
     part3Btn.click();
-    await waitFor(() => expect(screen.getByText(/Questions 21-22/)).toBeInTheDocument());
+    await screen.findByText(/Questions 21-22/);
     expect(screen.getByText(/Questions 23-27/)).toBeInTheDocument();
   });
 });
