@@ -368,25 +368,7 @@ const TakeReadingTest = () => {
             </div>
           )}
 
-          {question.questionType === "paragraph-fill-blanks" && (
-            <div>
-              {/* Note: paragraph-fill-blanks rendering has been moved to `DoReadingTest.jsx` to consolidate behavior.
-                  Keep this placeholder while the project transitions. */}
-              <div
-                className="paragraph-fill-redirect"
-                style={{
-                  padding: "10px",
-                  backgroundColor: "#fff7e6",
-                  borderRadius: 4,
-                }}
-              >
-                <em>
-                  Paragraph-fill-blanks are now rendered in the unified student
-                  view.
-                </em>
-              </div>
-            </div>
-          )}
+
 
           {question.questionType === "multi-select" && (
             <div className="options-group">

@@ -5,6 +5,7 @@ import {
   LongTextMCDisplay,
   ClozeMCDisplay,
   ClozeTestDisplay,
+  SummaryCompletionDisplay,
   WordFormDisplay,
   ShortMessageDisplay,
 } from './index';
@@ -75,6 +76,18 @@ const QuestionDisplayFactory = ({
       // Part 5: Passage with blanks, text input
       return (
         <ClozeTestDisplay
+          section={section}
+          startingNumber={startingNumber}
+          onAnswerChange={onAnswerChange}
+          answers={answers}
+          submitted={submitted}
+        />
+      );
+
+    case 'summary-completion':
+      // Summary completion using list of lettered options (A-L)
+      return (
+        <SummaryCompletionDisplay
           section={section}
           startingNumber={startingNumber}
           onAnswerChange={onAnswerChange}

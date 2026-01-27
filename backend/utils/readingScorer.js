@@ -240,9 +240,29 @@ function scoreReadingTest(testData, answers = {}) {
 
             for (let bi = 0; bi < blanks.length; bi++) {
               const questionNumber = (q.questionNumber || qCounter) + bi;
-              const student = findStudentBlank(questionNumber, bi);
-              const expectedRaw = (q.blanks && q.blanks[bi] && q.blanks[bi].correctAnswer) ? q.blanks[bi].correctAnswer : '';
-              const expectedVariants = expectedVariantsFromRaw(expectedRaw);
+              let student = findStudentBlank(questionNumber, bi);
+
+              let expectedRaw = (q.blanks && q.blanks[bi] && q.blanks[bi].correctAnswer) ? q.blanks[bi].correctAnswer : '';
+
+              // If summary-completion, map letter(s) to option texts (A->options[0], B->options[1], ...)
+              let expectedVariants = [];
+              if (qType === 'summary-completion') {
+                const letters = String(expectedRaw).split(/\s*[|\/,;]\s*/).map(s => s.trim().toUpperCase()).filter(Boolean);
+                expectedVariants = letters.map(l => {
+                  const idx = l.charCodeAt(0) - 65;
+                  return (Array.isArray(q.options) && q.options[idx]) ? normalize(q.options[idx]) : '';
+                }).filter(Boolean);
+
+                // If student entered a letter, map it to option text
+                if (student && /^[A-Z]$/.test(student.toUpperCase())) {
+                  const sidx = student.toUpperCase().charCodeAt(0) - 65;
+                  student = (Array.isArray(q.options) && q.options[sidx]) ? normalize(q.options[sidx]) : student;
+                }
+
+              } else {
+                expectedVariants = expectedVariantsFromRaw(expectedRaw);
+              }
+
               total++;
               if (expectedVariants.length && student && expectedVariants.includes(student)) correct++;
             }
@@ -602,7 +622,7 @@ function getDetailedScoring(testData, answers = {}) {
         }
 
         // Paragraph matching (A-G style) — ensure we render per-paragraph details and accept answers like q_<base>_0 etc
-        if (qType === 'paragraph-matching' || qType === 'paragraph-fill-blanks') {
+        if (qType === 'paragraph-matching') {
           const text = (q.questionText || '').replace(/<p[^>]*>/gi, '').replace(/<\/p>/gi, ' ').replace(/<br\s*\/?/gi, ' ').trim();
           const parts = text ? text.split(/(\.{3,}|…+)/) : [];
           const blanks = parts.filter((p2) => p2 && p2.match(/\.{3,}|…+/));
@@ -818,7 +838,6 @@ function generateAnalysisBreakdown(testData, answers = {}) {
     'short-answer': 'Short Answer',
     'sentence-completion': 'Sentence Completion',
     'paragraph-matching': 'Paragraph Matching',
-    'paragraph-fill-blanks': 'Paragraph Fill Blanks',
     'multi-select': 'Multi-Select',
     'unknown': 'Other'
   };

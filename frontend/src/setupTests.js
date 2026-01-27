@@ -14,8 +14,17 @@ jest.mock('@ckeditor/ckeditor5-react', () => ({
 
 jest.mock('@ckeditor/ckeditor5-build-decoupled-document', () => ({}));
 
-// Suppress React Router future-flag warnings in tests (they are informational and clutter CI output)
+// Mock ReactQuill to avoid findDOMNode deprecation during tests
+jest.mock('react-quill', () => {
+  return ({ value = '', onChange }) => {
+    const React = require('react');
+    return React.createElement('textarea', { 'data-testid': 'react-quill-mock', value, onChange: (e) => onChange && onChange(e.target.value) });
+  };
+});
+
+// Suppress React Router future-flag warnings and findDOMNode deprecation in tests (they are informational and clutter CI output)
 const _origWarn = console.warn;
+const _origError = console.error;
 beforeAll(() => {
   jest.spyOn(console, 'warn').mockImplementation((...args) => {
     try {
@@ -26,7 +35,17 @@ beforeAll(() => {
     } catch (e) {}
     return _origWarn.apply(console, args);
   });
+  jest.spyOn(console, 'error').mockImplementation((...args) => {
+    try {
+      const msg = String(args[0] || '');
+      if (msg.includes('findDOMNode is deprecated')) {
+        return; // ignore findDOMNode deprecation errors originating from ReactQuill in tests
+      }
+    } catch (e) {}
+    return _origError.apply(console, args);
+  });
 });
 afterAll(() => {
   console.warn.mockRestore && console.warn.mockRestore();
+  console.error.mockRestore && console.error.mockRestore();
 });

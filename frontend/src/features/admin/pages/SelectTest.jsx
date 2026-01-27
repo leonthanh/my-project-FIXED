@@ -116,7 +116,8 @@ const SelectTest = () => {
   const normalizeText = (value) => String(value ?? "").toLowerCase();
   const getTestTitle = (test, testType, fallbackIndex) => {
     if (testType === "cambridge") {
-      const level = (test.testType || "KET").toUpperCase();
+      const testTypeRaw = (test.testType || "ket").toString();
+      const level = testTypeRaw.split('-')[0].toUpperCase();
       const cat = test.category === "listening" ? "Listening" : "Reading";
       return `${level} ${cat}`;
     }

@@ -35,7 +35,7 @@ export { default as ClozeTestQuestion } from '../shared/components/ClozeTestQues
 export { default as DragDropQuestion } from '../shared/components/DragDropQuestion';
 export { default as ComboboxQuestion } from '../shared/components/ComboboxQuestion';
 export { default as ParagraphMatchingQuestion } from '../shared/components/ParagraphMatchingQuestion';
-export { default as ParagraphFillBlanksQuestion } from '../shared/components/ParagraphFillBlanksQuestion';
+
 export { default as SentenceCompletionQuestion } from '../shared/components/SentenceCompletionQuestion';
 
 // Listening-specific components

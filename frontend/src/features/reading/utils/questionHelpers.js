@@ -115,23 +115,21 @@ export const createDefaultQuestionByType = (type) => {
         ],
       };
 
+    case "summary-completion":
+      return {
+        ...baseQuestion,
+        questionText: "Complete the summary using the list of words A-L below. Write the correct letter next to each blank. Example: [BLANK] ...",
+        options: ["", "", "", "", "", "", "", "", "", "", "", ""], // A-L (12 empty slots)
+        blanks: [],
+      };
+
     case "paragraph-matching":
       return { ...baseQuestion, correctAnswer: "A" };
 
     case "sentence-completion":
       return { ...baseQuestion, options: ["", "", "", ""], correctAnswer: "A" };
 
-    case "paragraph-fill-blanks":
-      return {
-        ...baseQuestion,
-        paragraphText: "",
-        blanks: [
-          { id: "blank1", correctAnswer: "" },
-          { id: "blank2", correctAnswer: "" },
-          { id: "blank3", correctAnswer: "" },
-        ],
-        options: ["A", "B", "C", "D", "E", "F", "G", "H", "I"],
-      };
+
 
     case "short-answer":
       return { ...baseQuestion, maxWords: 3 };

@@ -9,6 +9,7 @@ import {
   MapLabelingEditor,
   FlowchartEditor,
   ClozeTestEditor,
+  SummaryCompletionEditor,
   SentenceTransformationEditor,
   ShortMessageEditor,
   // KET Part-specific editors
@@ -95,6 +96,9 @@ const QuestionEditorFactory = ({
 
     case 'cloze-test':
       return <ClozeTestEditor {...commonProps} />;
+
+    case 'summary-completion':
+      return <SummaryCompletionEditor {...commonProps} />;
 
     case 'sentence-transformation':
       return <SentenceTransformationEditor {...commonProps} />;

@@ -1,5 +1,6 @@
 import React from 'react';
-import { act, render, screen } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import DoListeningTest from '../pages/DoListeningTest';
 
@@ -56,7 +57,7 @@ describe('Listening test numbering', () => {
 
     // navigate to Part 2 (footer tab) to check its sections render correctly
     const part2Btn = await screen.findByText(/Part 2/);
-    part2Btn.click();
+    await userEvent.click(part2Btn);
 
     // Wait for the part and section titles to appear
     await screen.findByText(/Questions 11-14/);
@@ -65,7 +66,7 @@ describe('Listening test numbering', () => {
 
     // Also check Part 3 remains correct
     const part3Btn = await screen.findByText(/Part 3/);
-    await act(async () => { part3Btn.click(); });
+    await userEvent.click(part3Btn);
     await screen.findByText(/Questions 21-22/);
     expect(screen.getByText(/Questions 23-27/)).toBeInTheDocument();
   });
