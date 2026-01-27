@@ -3,7 +3,7 @@ import QuillEditor from './QuillEditor';
 
 /**
  * IELTS Sentence Completion Question Component
- * 
+ * Hoàn thành câu (chọn từ danh sách)
  * Dạng hoàn thành câu:
  * - Cho câu chưa hoàn chỉnh
  * - Học sinh chọn từ/cụm từ để hoàn thành
@@ -310,6 +310,7 @@ const SentenceCompletionQuestion = ({ question, onChange }) => {
                 />
                 {options.length > 2 && (
                   <button
+                    type="button"
                     onClick={() => removeOption(index)}
                     style={styles.removeBtn}
                     title="Xóa"
@@ -323,7 +324,7 @@ const SentenceCompletionQuestion = ({ question, onChange }) => {
 
           {/* Add Option Button */}
           {options.length < 10 && (
-            <button onClick={addOption} style={styles.addBtn}>
+            <button type="button" onClick={addOption} style={styles.addBtn}>
               + Thêm lựa chọn
             </button>
           )}
