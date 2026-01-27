@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import Split from "react-split";
 import { apiPath, hostPath } from "../../../shared/utils/api";
 
@@ -119,6 +119,10 @@ const WritingTest = () => {
     const saved = localStorage.getItem("writing_timeLeft");
     return saved ? parseInt(saved, 10) : 60 * 60;
   });
+  const [endAt, setEndAt] = useState(() => {
+    const saved = localStorage.getItem("writing_endAt");
+    return saved ? parseInt(saved, 10) : 0;
+  });
   const [started, setStarted] = useState(
     localStorage.getItem("writing_started") === "true"
   );
@@ -127,7 +131,7 @@ const WritingTest = () => {
   const [activeTask, setActiveTask] = useState("task1");
   const [testData, setTestData] = useState(null);
   const [feedback, setFeedback] = useState("");
-  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+  const [isMobile, setIsMobile] = useState(typeof window !== "undefined" ? window.innerWidth <= 768 : false);
 
   const user = JSON.parse(localStorage.getItem("user"));
   const selectedTestId = localStorage.getItem("selectedTestId");
@@ -210,6 +214,7 @@ const WritingTest = () => {
       localStorage.removeItem("writing_task2");
       localStorage.removeItem("writing_timeLeft");
       localStorage.removeItem("writing_started");
+      localStorage.removeItem("writing_endAt");
       localStorage.removeItem("selectedTestId");
       localStorage.removeItem("user");
 
@@ -222,15 +227,49 @@ const WritingTest = () => {
     }
   }, [task1, task2, timeLeft, user, selectedTestId]);
 
+  // keep a stable ref to the submit function so the timer effect doesn't re-run when
+  // handleSubmit changes on typing (avoids interval reset)
+  const submitRef = useRef(handleSubmit);
   useEffect(() => {
-    if (!started || submitted) return;
-    if (timeLeft <= 0) {
-      handleSubmit();
-      return;
+    submitRef.current = handleSubmit;
+  }, [handleSubmit]);
+
+  // persist endAt so we can resume after reload
+  useEffect(() => {
+    if (endAt) {
+      localStorage.setItem("writing_endAt", endAt.toString());
+    } else {
+      localStorage.removeItem("writing_endAt");
     }
-    const timer = setInterval(() => setTimeLeft((prev) => prev - 1), 1000);
+  }, [endAt]);
+
+  // when starting, if we don't already have an endAt, set it using current timeLeft
+  useEffect(() => {
+    if (started && !endAt) {
+      const e = Date.now() + timeLeft * 1000;
+      setEndAt(e);
+    }
+  }, [started, endAt, timeLeft]);
+
+  // TIMER: dựa trên endAt, không phụ thuộc timeLeft (tránh reset interval khi re-render do typing)
+  useEffect(() => {
+    if (!started || submitted || !endAt) return;
+
+    const tick = () => {
+      const remain = Math.max(0, Math.floor((endAt - Date.now()) / 1000));
+      setTimeLeft(remain);
+      if (remain <= 0) {
+        // hết giờ -> nộp bài (dùng ref để không phụ thuộc vào identity của handleSubmit)
+        if (submitRef.current) submitRef.current();
+      }
+    };
+
+    // chạy ngay 1 lần để sync UI
+    tick();
+    const timer = setInterval(tick, 1000);
     return () => clearInterval(timer);
-  }, [started, submitted, timeLeft, handleSubmit]);
+    // CHÚ Ý: không thêm timeLeft/handleSubmit vào dependency!
+  }, [started, submitted, endAt]);
 
   useEffect(() => {
     if (!user || !user.phone) return;
@@ -320,7 +359,11 @@ const WritingTest = () => {
             style={btnHover ? { ...modalBtn, ...modalBtnHover } : modalBtn}
             onMouseEnter={() => setBtnHover(true)}
             onMouseLeave={() => setBtnHover(false)}
-            onClick={() => setStarted(true)}
+            onClick={() => {
+              const e = Date.now() + timeLeft * 1000;
+              setEndAt(e);
+              setStarted(true);
+            }}
           >
             Bắt đầu làm bài
           </button>
@@ -406,6 +449,7 @@ const WritingTest = () => {
         gutterSize={8}
         direction={isMobile ? "vertical" : "horizontal"}
         gutter={() => {
+          if (typeof document === "undefined") return null;
           const gutter = document.createElement("div");
           gutter.style.backgroundColor = "#e03";
           gutter.style.backgroundRepeat = "no-repeat";

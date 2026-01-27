@@ -240,9 +240,29 @@ function scoreReadingTest(testData, answers = {}) {
 
             for (let bi = 0; bi < blanks.length; bi++) {
               const questionNumber = (q.questionNumber || qCounter) + bi;
-              const student = findStudentBlank(questionNumber, bi);
-              const expectedRaw = (q.blanks && q.blanks[bi] && q.blanks[bi].correctAnswer) ? q.blanks[bi].correctAnswer : '';
-              const expectedVariants = expectedVariantsFromRaw(expectedRaw);
+              let student = findStudentBlank(questionNumber, bi);
+
+              let expectedRaw = (q.blanks && q.blanks[bi] && q.blanks[bi].correctAnswer) ? q.blanks[bi].correctAnswer : '';
+
+              // If summary-completion, map letter(s) to option texts (A->options[0], B->options[1], ...)
+              let expectedVariants = [];
+              if (qType === 'summary-completion') {
+                const letters = String(expectedRaw).split(/\s*[|\/,;]\s*/).map(s => s.trim().toUpperCase()).filter(Boolean);
+                expectedVariants = letters.map(l => {
+                  const idx = l.charCodeAt(0) - 65;
+                  return (Array.isArray(q.options) && q.options[idx]) ? normalize(q.options[idx]) : '';
+                }).filter(Boolean);
+
+                // If student entered a letter, map it to option text
+                if (student && /^[A-Z]$/.test(student.toUpperCase())) {
+                  const sidx = student.toUpperCase().charCodeAt(0) - 65;
+                  student = (Array.isArray(q.options) && q.options[sidx]) ? normalize(q.options[sidx]) : student;
+                }
+
+              } else {
+                expectedVariants = expectedVariantsFromRaw(expectedRaw);
+              }
+
               total++;
               if (expectedVariants.length && student && expectedVariants.includes(student)) correct++;
             }

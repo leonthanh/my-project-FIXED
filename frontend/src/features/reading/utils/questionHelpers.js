@@ -115,6 +115,14 @@ export const createDefaultQuestionByType = (type) => {
         ],
       };
 
+    case "summary-completion":
+      return {
+        ...baseQuestion,
+        questionText: "Complete the summary using the list of words A-L below. Write the correct letter next to each blank. Example: [BLANK] ...",
+        options: ["", "", "", "", "", "", "", "", "", "", "", ""], // A-L (12 empty slots)
+        blanks: [],
+      };
+
     case "paragraph-matching":
       return { ...baseQuestion, correctAnswer: "A" };
 

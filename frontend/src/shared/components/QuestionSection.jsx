@@ -320,6 +320,7 @@ const QuestionSection = ({
                     <option value="true-false-not-given" title="Học sinh chọn True (đúng), False (sai), hoặc Not Given (chưa đề cập)">True/False/Not Given</option>
                     <option value="yes-no-not-given" title="Học sinh chọn Yes (có), No (không), hoặc Not Given (chưa đề cập)">Yes/No/Not Given</option>
                     <option value="cloze-test" title="Học sinh điền từ vào các chỗ trống nhúng trong đoạn văn (Cloze Test)">Cloze Test - Điền chỗ trống trong đoạn</option>
+                    <option value="summary-completion" title="Hoàn thành đoạn tóm tắt bằng cách ghi chữ cái A-L tương ứng (Summary Completion)">Summary Completion - Complete the summary (A-L)</option>
                     <option value="paragraph-matching" title="Học sinh tìm thông tin ở đoạn A-G để trả lời câu hỏi">Tìm thông tin ở đoạn nào (A-G)</option>
                     <option value="ielts-matching-headings" title="IELTS: Ghép mỗi đoạn văn (A-G) với 1 heading phù hợp (i-x)">🔗 IELTS Matching Headings</option>
                     <option value="sentence-completion" title="Học sinh hoàn thành câu bằng cách chọn từ từ danh sách gợi ý">Hoàn thành câu (chọn từ danh sách)</option>

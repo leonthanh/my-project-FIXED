@@ -34,6 +34,7 @@ export { default as TrueFalseNotGivenQuestion } from './TrueFalseNotGivenQuestio
 export { default as YesNoNotGivenQuestion } from './YesNoNotGivenQuestion';
 export { default as ShortAnswerQuestion } from './ShortAnswerQuestion';
 export { default as ClozeTestQuestion } from './ClozeTestQuestion';
+export { default as SummaryCompletionQuestion } from './SummaryCompletionQuestion';
 export { default as DragDropQuestion } from './DragDropQuestion';
 export { default as ComboboxQuestion } from './ComboboxQuestion';
 export { default as ParagraphMatchingQuestion } from './ParagraphMatchingQuestion';

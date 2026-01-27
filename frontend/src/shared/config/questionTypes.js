@@ -251,6 +251,21 @@ export const QUESTION_TYPES = {
     supportedTests: ['ielts-reading', 'ket-reading', 'pet-reading'],
   },
 
+  'summary-completion': {
+    id: 'summary-completion',
+    label: 'Summary Completion (A-L)',
+    labelVi: 'Hoàn thành đoạn (A-L)',
+    icon: '🅰️',
+    description: 'Hoàn thành đoạn bằng cách ghi chữ cái A-L tương ứng với danh sách từ cho sẵn',
+    editor: 'SummaryCompletionEditor',
+    defaultData: {
+      questionText: '',
+      options: [],
+      blanks: [],
+    },
+    supportedTests: ['ielts-reading', 'ket-reading'],
+  },
+
   'sentence-completion': {
     id: 'sentence-completion',
     label: 'Sentence Completion',
