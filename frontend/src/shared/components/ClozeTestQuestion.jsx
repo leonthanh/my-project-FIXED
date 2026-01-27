@@ -342,18 +342,30 @@ const ClozeTestQuestion = ({ question, onChange }) => {
           
           {blanks.map((blank, idx) => {
             const questionNum = parseInt(question?.questionNumber) || 1;
+            const variants = (blank.correctAnswer || '').split('|').map(v => v.trim()).filter(Boolean);
             return (
               <div key={idx} style={styles.answerRow}>
                 <div style={styles.blankBadge}>
                   Câu {questionNum + idx}
                 </div>
-                <input
-                  type="text"
-                  value={blank.correctAnswer}
-                  onChange={(e) => handleBlankChange(idx, e.target.value)}
-                  placeholder={`Nhập đáp án (tối đa ${maxWords} từ)`}
-                  style={styles.answerInput}
-                />
+                <div style={{ flex: 1 }}>
+                  <input
+                    type="text"
+                    value={blank.correctAnswer}
+                    onChange={(e) => handleBlankChange(idx, e.target.value)}
+                    placeholder={`Nhập đáp án (tối đa ${maxWords} từ). Nếu có nhiều biến thể, tách bằng | (ví dụ: willow tree|willow bark)`}
+                    style={styles.answerInput}
+                  />
+                  {variants.length > 0 && (
+                    <div style={{ marginTop: 6, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                      {variants.map((v, i) => (
+                        <span key={i} style={{ background: '#e6fffa', color: '#065f46', padding: '4px 8px', borderRadius: 6, fontSize: 12 }}>
+                          {v}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
                 {blank.correctAnswer && (
                   <span style={{ color: '#10b981', fontSize: '18px' }}>✓</span>
                 )}
@@ -371,6 +383,7 @@ const ClozeTestQuestion = ({ question, onChange }) => {
           <li>Đặt con trỏ vào vị trí cần tạo chỗ trống, nhấn nút <strong>"Chèn [BLANK]"</strong></li>
           <li>Hệ thống sẽ tự động tạo các ô nhập đáp án bên dưới</li>
           <li>Số câu hỏi sẽ nối tiếp từ số câu hỏi hiện tại (VD: câu 11 → 11, 12, 13...)</li>
+          <li>Nếu có nhiều đáp án đúng (biến thể), dùng dấu <strong>|</strong> để tách. Ví dụ: <code>willow tree|willow bark</code></li>
         </ul>
       </div>
     </div>
