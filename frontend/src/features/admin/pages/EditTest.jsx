@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { AdminNavbar, FormQuestion } from "../../../shared/components";
 import ReactQuill from "react-quill";
-import { apiPath } from "../../../shared/utils/api";
+import { apiPath, authFetch } from "../../../shared/utils/api";
 import "react-quill/dist/quill.snow.css";
 // import ReactQuill from 'react-quill'; // Thay thế CKEditor bằng ReactQuill
 import "react-quill/dist/quill.snow.css"; // Import CSS cho ReactQuill
@@ -82,11 +82,18 @@ const EditTest = () => {
     fetchTest();
   }, [id, navigate]);
 
+  const saveDraft = () => {
+    try {
+      const payload = { classCode: test.classCode, teacherName: test.teacherName, task1: test.task1, task2: test.task2, questions: test.questions };
+      localStorage.setItem(`writingTestDraftEdit-${id}`, JSON.stringify(payload));
+    } catch (e) { console.error('Error saving writing edit draft', e); }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
     try {
-      const response = await fetch(apiPath(`writing-tests/${id}`), {
+      const response = await authFetch(apiPath(`writing-tests/${id}`), {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -100,8 +107,17 @@ const EditTest = () => {
         }),
       });
 
+      const data = await response.json().catch(() => ({}));
+
       if (!response.ok) {
-        throw new Error("Lỗi khi cập nhật đề thi");
+        if (response.status === 401) {
+          try { saveDraft(); } catch (e) {}
+          alert('❌ Token đã hết hạn hoặc không hợp lệ. Bản nháp đã được lưu. Vui lòng đăng nhập lại.');
+          localStorage.setItem('postLoginRedirect', window.location.pathname);
+          window.location.href = '/login';
+          return;
+        }
+        throw new Error(data.message || "Lỗi khi cập nhật đề thi");
       }
 
       alert("✅ Cập nhật đề thi thành công!");

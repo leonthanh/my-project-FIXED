@@ -1469,7 +1469,7 @@ const DoReadingTest = () => {
             const optionId = `q_${startNumber}checkbox${idx}`;
             const isSelected = selectedAnswers.includes(idx);
             // Check if option already has letter prefix like "A. " or "A "
-            const hasPrefix = /^[A-Z][\.\s]/.test(opt);
+            const hasPrefix = /^[A-Z][.\s]/.test(opt);
             const letterLabel = String.fromCharCode(65 + idx); // A, B, C...
 
             return (

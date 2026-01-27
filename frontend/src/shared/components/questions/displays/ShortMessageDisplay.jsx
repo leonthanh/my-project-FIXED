@@ -41,7 +41,7 @@ const ShortMessageDisplay = ({
               <div key={idx} style={styles.imageCard}>
                 <img 
                   src={hostPath(imageUrl)} 
-                  alt={`Picture ${idx + 1}`}
+                  alt={`Scene ${idx + 1}`}
                   style={styles.image}
                 />
               </div>

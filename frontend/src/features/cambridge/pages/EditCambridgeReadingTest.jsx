@@ -11,7 +11,7 @@ import {
   getTestConfig,
 } from "../../../shared/config/questionTypes";
 import { apiPath } from "../../../shared/utils/api";
-import CambridgeTestBuilder from "../CambridgeTestBuilder";
+
 
 /**
  * EditCambridgeReadingTest - Trang sửa đề Cambridge Reading
@@ -111,8 +111,7 @@ const EditCambridgeReadingTest = () => {
     );
   }
 
-  // Render the creator with initial data for identical UI
-  return <CambridgeTestBuilder testType={testType} editId={id} initialData={fetchedData} />;
+
 
   const currentPart = parts[selectedPartIndex];
   const currentSection = currentPart?.sections?.[selectedSectionIndex];

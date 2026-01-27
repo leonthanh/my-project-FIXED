@@ -103,7 +103,7 @@ const styles = {
   },
   audioContainer: { padding: "0 24px", marginBottom: "16px" },
   audioPlayer: { width: "100%", height: "40px" },
-  playButton: { backgroundColor: "#0e276f", color: "#fff", border: "none", borderRadius: "8px", padding: "10px 16px", cursor: "pointer", fontSize: "15px" },
+  playButtonSmall: { backgroundColor: "#0e276f", color: "#fff", border: "none", borderRadius: "8px", padding: "10px 16px", cursor: "pointer", fontSize: "15px" },
   audioWarning: { color: "#d97706", fontSize: "13px", marginTop: "4px" },
   questionsList: {
     padding: "0 24px",

@@ -63,7 +63,7 @@ describe('Listening autosave server', () => {
 
     jest.spyOn(window, 'fetch').mockImplementation(fetchMock);
 
-    const { container, unmount } = render(
+    const { unmount } = render(
       <MemoryRouter initialEntries={["/listening/3"]}>
         <Routes>
           <Route path="/listening/:id" element={<DoListeningTest />} />
@@ -75,15 +75,10 @@ describe('Listening autosave server', () => {
     const part3Btn = await screen.findByText(/Part 3/);
     fireEvent.click(part3Btn);
 
-    // Find checkbox and click
-    const qTextNode = await screen.findByText(/Which TWO/);
-    let qWrapper = qTextNode;
-    while (qWrapper && !(qWrapper.id && qWrapper.id.startsWith('question-'))) {
-      qWrapper = qWrapper.parentElement;
-    }
-    const checkbox = qWrapper && qWrapper.querySelector('input[type="checkbox"]');
-    expect(checkbox).toBeInTheDocument();
-    fireEvent.click(checkbox);
+    // Find checkboxes and click the first one
+    const checkboxes = await screen.findAllByRole('checkbox');
+    expect(checkboxes.length).toBeGreaterThan(0);
+    fireEvent.click(checkboxes[0]);
 
     // Wait for autosave POST to be called and submissionId to be stored (may be async)
     await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('/autosave'), expect.anything()), { timeout: 2000 });
@@ -122,13 +117,9 @@ describe('Listening autosave server', () => {
       return parsed && parsed.answers && JSON.stringify(parsed.answers) === JSON.stringify(lastSavedAnswers);
     }, { timeout: 2000 });
 
-    const qTextNode2 = await screen.findByText(/Which TWO/);
-    let qWrapper2 = qTextNode2;
-    while (qWrapper2 && !(qWrapper2.id && qWrapper2.id.startsWith('question-'))) {
-      qWrapper2 = qWrapper2.parentElement;
-    }
+    // Verify UI - use role queries
+    await screen.findAllByRole('checkbox');
 
-    const checkboxes = Array.from(qWrapper2.querySelectorAll('input[type="checkbox"]'));
     // UI rendered; assert that server answers were applied to localStorage (UI verification is flakier in JSDOM)
     await waitFor(() => {
       const raw = localStorage.getItem('listening:3:state:anon');

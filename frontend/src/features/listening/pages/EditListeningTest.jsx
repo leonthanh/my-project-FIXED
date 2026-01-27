@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ListeningTestEditor } from "../components";
 import { useListeningHandlers, createNewPart } from "../hooks";
-import { apiPath } from "../../../shared/utils/api";
+import { apiPath, authFetch } from "../../../shared/utils/api";
 
 /**
  * EditListeningTest - Trang sửa đề Listening IELTS
@@ -38,6 +38,9 @@ const EditListeningTest = () => {
   // Auto-save state (reserved for future use)
   const [lastSaved] = useState(null);
   const [isSaving] = useState(false);
+
+  // Show login banner when refresh fails
+  const [requiresLogin, setRequiresLogin] = useState(false);
 
   // Use listening handlers hook with empty initial
   const {
@@ -256,14 +259,20 @@ const EditListeningTest = () => {
         }
       });
 
-      const response = await fetch(apiPath(`listening-tests/${id}`), {
+      const response = await authFetch(apiPath(`listening-tests/${id}`), {
         method: "PUT",
         body: formData,
       });
 
-      const data = await response.json();
+      const data = await response.json().catch(() => ({}));
 
       if (!response.ok) {
+        if (response.status === 401) {
+          try { localStorage.setItem(`listeningTestDraftEdit-${id}`, JSON.stringify({ title, classCode, teacherName, parts, showResultModal })); } catch (e) {}
+          setMessage('❌ Token đã hết hạn hoặc không hợp lệ. Vui lòng đăng nhập lại để tiếp tục. Bản nháp đã được lưu.');
+          setRequiresLogin(true);
+          return;
+        }
         throw new Error(data.message || "Lỗi khi cập nhật đề thi");
       }
 
@@ -340,10 +349,20 @@ const EditListeningTest = () => {
   }
 
   return (
-    <ListeningTestEditor
-      // Page info
-      pageTitle={`✏️ Sửa Đề Listening - ID: ${id}`}
-      className="edit-listening-test"
+    <div>
+      {requiresLogin && (
+        <div style={{ padding: 12, background: '#fff0f0', border: '1px solid #ffcccc', borderRadius: 6, marginBottom: 12 }}>
+          <strong>⚠️ Bạn cần đăng nhập lại để hoàn tất thao tác.</strong>
+          <div style={{ marginTop: 8 }}>
+            Bản nháp đã được lưu. <button style={{ marginLeft: 8, padding: '6px 10px' }} onClick={() => { localStorage.setItem('postLoginRedirect', window.location.pathname); window.location.href = '/login'; }}>Đăng nhập lại</button>
+          </div>
+        </div>
+      )}
+
+      <ListeningTestEditor
+        // Page info
+        pageTitle={`✏️ Sửa Đề Listening - ID: ${id}`}
+        className="edit-listening-test"
       // Form fields
       title={title}
       setTitle={setTitle}
@@ -396,6 +415,7 @@ const EditListeningTest = () => {
       // Total questions
       totalQuestions={totalQuestions}
     />
+    </div>
   );
 };
 

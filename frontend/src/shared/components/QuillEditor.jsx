@@ -2,7 +2,7 @@ import React, { useRef, useState, useEffect, useMemo } from "react";
 import ReactQuill from "react-quill";
 import "react-quill/dist/quill.snow.css";
 import Quill from "quill";
-import { apiPath, API_HOST } from "../utils/api";
+import { apiPath, API_HOST, authFetch } from "../utils/api";
 
 // Register custom size class
 const Size = Quill.import("formats/size");
@@ -50,102 +50,6 @@ const QuillEditor = ({
     return cleaned;
   };
 
-  // Custom image handler - upload to server instead of base64
-  const imageHandler = () => {
-    const input = document.createElement("input");
-    input.setAttribute("type", "file");
-    input.setAttribute("accept", "image/*");
-    input.click();
-
-    input.onchange = async () => {
-      const file = input.files[0];
-      if (!file) return;
-
-      // Validate file size (max 5MB)
-      if (file.size > 5 * 1024 * 1024) {
-        alert("File quá lớn. Giới hạn tối đa 5MB");
-        return;
-      }
-
-      // Validate file type
-      if (!file.type.startsWith("image/")) {
-        alert("Chỉ cho phép upload file hình ảnh");
-        return;
-      }
-
-      try {
-        setUploading(true);
-
-        // Upload to server
-        const formData = new FormData();
-        formData.append("image", file);
-
-        const response = await fetch(apiPath("upload/image"), {
-          method: "POST",
-          body: formData,
-        });
-
-        // If server responded with non-2xx, extract JSON or text for clearer error message
-        if (!response.ok) {
-          const contentType = response.headers.get("content-type") || "";
-          let errMsg = `HTTP ${response.status}`;
-
-          try {
-            if (contentType.includes("application/json")) {
-              const errData = await response.json();
-              errMsg = errData.message || errMsg;
-            } else {
-              const text = await response.text();
-              errMsg = text && text.trim() ? text.slice(0, 300) : errMsg;
-            }
-          } catch (parseErr) {
-            console.warn("Error parsing error response", parseErr);
-          }
-
-          throw new Error(errMsg || "Upload failed");
-        }
-
-        // Parse JSON on success; if not JSON, throw helpful message
-        let data = null;
-        try {
-          data = await response.json();
-        } catch (parseErr) {
-          const text = await response.text();
-          throw new Error(
-            text
-              ? text.slice(0, 300)
-              : "Upload succeeded but returned unexpected response"
-          );
-        }
-
-        // Insert image into editor with full URL (build safely to preserve protocol)
-        const editor = quillRef.current?.getEditor();
-        if (editor) {
-          const range = editor.getSelection(true);
-
-          // Build a safe absolute URL. Use configured host if provided, otherwise fall back to current origin.
-          const base = API_HOST || window.location.origin;
-          let imageUrl;
-          try {
-            imageUrl = new URL(data.url, base).toString();
-          } catch (err) {
-            // Fallback string concatenation if URL constructor fails
-            const cleanedBase = base.replace(/\/$/, "");
-            const cleanedPath = (data.url || "").replace(/^\//, "");
-            imageUrl = `${cleanedBase}/${cleanedPath}`;
-          }
-
-          editor.insertEmbed(range.index, "image", imageUrl);
-          editor.setSelection(range.index + 1);
-        }
-      } catch (error) {
-        console.error("Upload error:", error);
-        alert(`Lỗi upload: ${error.message || "Không thể upload hình ảnh"}`);
-      } finally {
-        setUploading(false);
-      }
-    };
-  };
 
   // Update internal value when prop changes
   useEffect(() => {
@@ -162,7 +66,7 @@ const QuillEditor = ({
         }
       }
     }
-  }, [value]);
+  }, [value, quillRef]);
 
   const handleInsertBlank = () => {
     if (quillRef.current) {
@@ -174,8 +78,85 @@ const QuillEditor = ({
   };
 
   // Modules with custom image handler - use useMemo to prevent re-creation
-  const modules = useMemo(
-    () => ({
+  const modules = useMemo(() => {
+    const imageHandlerLocal = () => {
+      const input = document.createElement("input");
+      input.setAttribute("type", "file");
+      input.setAttribute("accept", "image/*");
+      input.click();
+
+      input.onchange = async () => {
+        const file = input.files[0];
+        if (!file) return;
+
+        // Validate file size (max 5MB)
+        if (file.size > 5 * 1024 * 1024) {
+          alert("File quá lớn. Giới hạn tối đa 5MB");
+          return;
+        }
+
+        // Validate file type
+        if (!file.type.startsWith("image/")) {
+          alert("Chỉ cho phép upload file hình ảnh");
+          return;
+        }
+
+        try {
+          setUploading(true);
+
+          // Upload to server
+          const formData = new FormData();
+          formData.append("image", file);
+
+          const response = await authFetch(apiPath("upload/image"), {
+            method: "POST",
+            // FormData: let browser set Content-Type
+            body: formData,
+          });
+
+          // If server responded with non-2xx, extract JSON or text for clearer error message
+          if (!response.ok) {
+            const contentType = response.headers.get("content-type") || "";
+            let msg = "Upload failed";
+            try {
+              if (contentType.includes('application/json')) {
+                const json = await response.json();
+                msg = json?.message || msg;
+              } else {
+                const txt = await response.text();
+                if (txt) msg = txt;
+              }
+            } catch (e) {}
+            throw new Error(msg);
+          }
+
+          const json = await response.json().catch(() => null);
+          if (json?.url) {
+            const editor = quillRef.current?.getEditor?.();
+            if (editor) {
+              const cursor = editor.getSelection()?.index || editor.getLength();
+              const base = API_HOST || window.location.origin;
+              let imageUrl;
+              try {
+                imageUrl = new URL(json.url, base).toString();
+              } catch (err) {
+                const cleanedBase = base.replace(/\/$/, "");
+                const cleanedPath = (json.url || "").replace(/^\//, "");
+                imageUrl = `${cleanedBase}/${cleanedPath}`;
+              }
+              editor.insertEmbed(cursor, 'image', imageUrl);
+            }
+          }
+        } catch (err) {
+          console.error('Upload error:', err);
+          alert(`Lỗi upload: ${err.message || "Không thể upload hình ảnh"}`);
+        } finally {
+          setUploading(false);
+        }
+      };
+    };
+
+    return {
       toolbar: {
         container: [
           [{ header: [1, 2, 3, false] }],
@@ -188,12 +169,11 @@ const QuillEditor = ({
           ["clean"],
         ],
         handlers: {
-          image: imageHandler,
+          image: imageHandlerLocal,
         },
       },
-    }),
-    []
-  );
+    };
+  }, [quillRef]);
 
   const formats = [
     "header",

@@ -32,7 +32,7 @@ const CambridgeResultsModal = ({ results, onClose, testTitle, studentName }) => 
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [onClose]);
+  }, [onClose, results]);
 
   if (!results) return null;
 

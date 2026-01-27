@@ -12,5 +12,64 @@ function hostPath(p) {
   return `${API_HOST}/${String(p).replace(/^\/+/, "")}`;
 }
 
-export { API_HOST, API_BASE, apiPath, hostPath };
+function getAuthHeaders() {
+  const token = localStorage.getItem('accessToken');
+  if (!token) return {};
+  return { Authorization: `Bearer ${token}` };
+}
+
+async function refreshAccessToken() {
+  const refreshToken = localStorage.getItem('refreshToken');
+  if (!refreshToken) return false;
+
+  try {
+    console.debug('auth: attempting refresh with refreshToken present');
+    const res = await fetch(`${API_BASE}/auth/refresh`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refreshToken }),
+    });
+
+    if (!res.ok) {
+      console.debug('auth: refresh failed', res.status);
+      // clear possibly invalid tokens
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('refreshToken');
+      return false;
+    }
+
+    const data = await res.json().catch(() => ({}));
+    if (data.accessToken) localStorage.setItem('accessToken', data.accessToken);
+    if (data.refreshToken) localStorage.setItem('refreshToken', data.refreshToken);
+    console.debug('auth: refresh succeeded');
+    return true;
+  } catch (err) {
+    console.debug('auth: refresh exception', err?.message || err);
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('refreshToken');
+    return false;
+  }
+}
+
+/**
+ * authFetch - wrapper that adds Authorization header and tries to refresh access token once when 401 occurs
+ */
+async function authFetch(url, opts = {}) {
+  const mergedOpts = { ...opts };
+  mergedOpts.headers = { ...(mergedOpts.headers || {}), ...getAuthHeaders() };
+
+  let res = await fetch(url, mergedOpts);
+  if (res.status !== 401) return res;
+
+  // Try refresh once
+  const refreshed = await refreshAccessToken();
+  if (!refreshed) return res; // still 401
+
+  // Retry with new token
+  mergedOpts.headers = { ...(mergedOpts.headers || {}), ...getAuthHeaders() };
+  return fetch(url, mergedOpts);
+}
+
+export { API_HOST, API_BASE, apiPath, hostPath, getAuthHeaders, authFetch, refreshAccessToken };
 export default API_BASE;

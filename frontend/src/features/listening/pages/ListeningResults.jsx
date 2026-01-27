@@ -295,6 +295,7 @@ const safeParseJson = (value) => {
   }
 };
 
+/* eslint-disable-next-line no-unused-vars */
 const parseLeadingNumber = (text) => {
   const m = String(text || "")
     .trim()
@@ -527,11 +528,6 @@ const generateDetailsFromSections = (test, answers) => {
       const hasExplicitStart = Number.isFinite(explicitSectionStart) && explicitSectionStart > 0;
       const sectionStart = hasExplicitStart ? explicitSectionStart : runningStart;
 
-      // Helper to increment runningStart by count
-      const advanceRunning = (count) => {
-        runningStart = Math.max(runningStart, sectionStart + count);
-      };
-
       // FORM / NOTES: score using answers map keyed by questionNumber
       if (sectionType === "form-completion" || sectionType === "notes-completion") {
         const map =
@@ -558,7 +554,7 @@ const generateDetailsFromSections = (test, answers) => {
             isCorrect: ok,
           });
         }
-        advanceRunning(keys.length);
+        runningStart = Math.max(runningStart, sectionStart + keys.length);
         continue;
       }
 
@@ -587,7 +583,7 @@ const generateDetailsFromSections = (test, answers) => {
               isCorrect: ok,
             });
           }
-          advanceRunning(keys.length);
+          runningStart = Math.max(runningStart, sectionStart + keys.length);
           continue;
         }
 
@@ -611,7 +607,7 @@ const generateDetailsFromSections = (test, answers) => {
             isCorrect: false,
           });
         }
-        advanceRunning(left.length);
+        runningStart = Math.max(runningStart, sectionStart + left.length);
         continue;
       }
 
@@ -666,7 +662,7 @@ const generateDetailsFromSections = (test, answers) => {
           groupStart += required;
           totalCount += required;
         }
-        advanceRunning(totalCount);
+        runningStart = Math.max(runningStart, sectionStart + totalCount);
         continue;
       }
 
@@ -695,7 +691,7 @@ const generateDetailsFromSections = (test, answers) => {
       });
 
       // advance runningStart
-      advanceRunning(sectionQuestions.length);
+      runningStart = Math.max(runningStart, sectionStart + sectionQuestions.length);
     }
   }
 

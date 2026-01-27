@@ -55,7 +55,19 @@ const Login = () => {
       const data = await res.json();
       if (res.ok) {
         localStorage.setItem("user", JSON.stringify(data.user));
+        // Store access token so we can send Authorization headers for protected endpoints
+        if (data.accessToken) localStorage.setItem('accessToken', data.accessToken);
+        if (data.refreshToken) localStorage.setItem('refreshToken', data.refreshToken);
+
         setMessage("✅ " + data.message);
+        // If a redirect was requested before login, go back there
+        const redirectTo = localStorage.getItem('postLoginRedirect');
+        if (redirectTo) {
+          localStorage.removeItem('postLoginRedirect');
+          window.location.href = redirectTo;
+          return;
+        }
+
         window.location.href = data.user.role === "teacher" ? "/admin" : "/";
       } else {
         setMessage("❌ " + data.message);

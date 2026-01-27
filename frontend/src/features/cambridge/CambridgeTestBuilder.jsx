@@ -13,7 +13,7 @@ import {
   getTestConfig,
   TEST_CONFIGS,
 } from "../../shared/config/questionTypes";
-import { apiPath, hostPath } from "../../shared/utils/api";
+import { apiPath, hostPath, authFetch } from "../../shared/utils/api";
 import useQuillImageUpload from "../../shared/hooks/useQuillImageUpload";
 import { canManageCategory } from '../../shared/utils/permissions';
 
@@ -149,6 +149,8 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
   // Auto-save state
   const [lastSaved, setLastSaved] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
+  // Show login banner when refresh fails
+  const [requiresLogin, setRequiresLogin] = useState(false);
   
   // Initial parts from savedData or default
   const getInitialParts = () => {
@@ -667,26 +669,39 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
 
       // If editId is provided, update instead of create
       if (editId) {
-        const res = await fetch(apiPath(`${endpoint}/${editId}`), {
+        const res = await authFetch(apiPath(`${endpoint}/${editId}`), {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
         });
         if (!res.ok) {
-          const err = await res.json();
-          throw new Error(err.message || 'Lỗi khi cập nhật đề');
+          if (res.status === 401) {
+            // Save draft and prompt re-login
+            try { saveToLocalStorage(); } catch (e) {}
+            setMessage({ type: 'error', text: '❌ Token đã hết hạn hoặc không hợp lệ. Vui lòng đăng nhập lại để tiếp tục. Bản nháp đã được lưu.' });
+            setRequiresLogin(true);
+            return;
+          }
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err?.message || 'Lỗi khi cập nhật đề');
         }
         setMessage({ type: 'success', text: '✅ Cập nhật đề thành công!' });
         // Clear draft after successful save
         localStorage.removeItem(`cambridgeTestDraft-${testType}`);
       } else {
-        const response = await fetch(apiPath(endpoint), {
+        const response = await authFetch(apiPath(endpoint), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
         });
 
         if (!response.ok) {
+          if (response.status === 401) {
+            try { saveToLocalStorage(); } catch (e) {}
+            setMessage({ type: 'error', text: '❌ Token đã hết hạn hoặc không hợp lệ. Vui lòng đăng nhập lại để tiếp tục. Bản nháp đã được lưu.' });
+            setRequiresLogin(true);
+            return;
+          }
           throw new Error('Lỗi khi lưu đề thi');
         }
 
@@ -738,6 +753,14 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#f8fafc' }}>
       {/* AdminNavbar */}
+      {requiresLogin && (
+        <div style={{ padding: 12, background: '#fff0f0', border: '1px solid #ffcccc', borderRadius: 6, margin: '12px auto', maxWidth: 1000 }}>
+          <strong>⚠️ Bạn cần đăng nhập lại để hoàn tất thao tác.</strong>
+          <div style={{ marginTop: 8 }}>
+            Bản nháp đã được lưu. <button style={{ marginLeft: 8, padding: '6px 10px' }} onClick={() => { localStorage.setItem('postLoginRedirect', window.location.pathname); window.location.href = '/login'; }}>Đăng nhập lại</button>
+          </div>
+        </div>
+      )}
       <AdminNavbar />
 
       <div style={{ 

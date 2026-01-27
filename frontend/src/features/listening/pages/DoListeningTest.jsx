@@ -180,7 +180,7 @@ const DoListeningTest = () => {
       }
     };
     fetchTest();
-  }, [id]);
+  }, [id, stateKey, userForStorage, expiresKey]);
 
   // Keep a ref to confirmSubmit to avoid referencing it before initialization in effects
   const confirmSubmitRef = useRef(null);
@@ -236,6 +236,7 @@ const DoListeningTest = () => {
   }, [test, submitted, expiresKey]);
 
   // Format time display
+  /* eslint-disable-next-line no-unused-vars */
   const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60);
     return `${mins} minutes remaining`;
@@ -376,7 +377,7 @@ const DoListeningTest = () => {
       console.error("Error submitting:", err);
       alert(`❌ Có lỗi xảy ra khi nộp bài!${err?.message ? `\n${err.message}` : ""}`);
     }
-  }, [answers, expiresKey, id, submitted]);
+  }, [answers, expiresKey, id, navigate, submitted, stateKey, test?.showResultModal]);
 
   // Keep ref up-to-date with the latest confirmSubmit implementation
   useEffect(() => {
@@ -490,7 +491,7 @@ const DoListeningTest = () => {
       window.removeEventListener("beforeunload", onBeforeUnload);
       window.removeEventListener("storage", onStorage);
     };
-  }, [answers, submitted, stateKey, expiresKey]);
+  }, [answers, submitted, stateKey, expiresKey, id, userForStorage]);
 
   // Get parts data
   const parts = useMemo(() => {
@@ -954,6 +955,7 @@ const DoListeningTest = () => {
   );
 
   // Check if question is answered
+  /* eslint-disable-next-line no-unused-vars */
   const isQuestionAnswered = useCallback(
     (qNum) => {
       const ans = answers[`q${qNum}`];
@@ -995,7 +997,7 @@ const DoListeningTest = () => {
 
       // If it's a string that looks like a multi selection (csv, pipe or slash), split and count
       if (typeof ans === 'string' && (ans.includes(',') || ans.includes('|') || ans.includes('/'))) {
-        const parts = ans.split(/[,|\/]/).map((s) => s.trim()).filter(Boolean);
+        const parts = ans.split(new RegExp('[,|/]')).map((s) => s.trim()).filter(Boolean);
         const cap = requiredMap[qNum] || 2;
         count += Math.min(parts.length, cap);
         return;
@@ -1297,7 +1299,7 @@ const DoListeningTest = () => {
             const optionId = `q${startNumber}checkbox${idx}`;
             const isSelected = selectedAnswers.includes(idx);
             // Check if option already has letter prefix like "A. " or "A "
-            const hasPrefix = /^[A-Z][\.\s]/.test(opt);
+            const hasPrefix = /^[A-Z][.\s]/.test(opt);
             const letterLabel = String.fromCharCode(65 + idx); // A, B, C...
 
             return (
@@ -1425,7 +1427,7 @@ const DoListeningTest = () => {
             {rightItems.map((opt, idx) => {
               const optText = typeof opt === 'object' ? (opt.text || opt.label || JSON.stringify(opt)) : opt;
               // Check if optText already has letter prefix like "A. " or "A "
-              const hasPrefix = /^[A-Z][\.\s]/.test(optText);
+              const hasPrefix = /^[A-Z][.\s]/.test(optText);
               return (
                 <div key={idx} style={styles.optionCard}>
                   {!hasPrefix && (
@@ -1736,6 +1738,7 @@ const DoListeningTest = () => {
 
   const currentPart = parts[currentPartIndex];
   const audioUrl = test?.partAudioUrls?.[currentPartIndex] || test?.mainAudioUrl;
+  /* eslint-disable-next-line no-unused-vars */
   const currentRange = getPartQuestionRange(currentPartIndex);
   const displayRange = getPartDisplayRange(currentPartIndex);
 
@@ -1876,6 +1879,7 @@ const DoListeningTest = () => {
       <nav style={styles.bottomNav}>
         <div style={styles.partsContainer}>
           {parts.map((part, idx) => {
+            /* eslint-disable-next-line no-unused-vars */
             const range = getPartQuestionRange(idx);
             const answered = getAnsweredCount(idx);
             const total = getPartTotalQuestions(idx);

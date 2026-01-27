@@ -10,7 +10,7 @@ import { AdminNavbar } from "../../../shared/components";
  * EditReadingTest - Trang sửa đề Reading IELTS
  * Sử dụng ReadingTestEditor component và usePassageHandlers hook
  */
-import { apiPath } from "../../../shared/utils/api";
+import { apiPath, authFetch } from "../../../shared/utils/api";
 
 import { canManageCategory } from '../../../shared/utils/permissions';
 
@@ -34,6 +34,8 @@ const EditReadingTest = () => {
   // Review & Submit state
   const [isReviewing, setIsReviewing] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
+  // Track if re-login is required (used to show banner and save draft)
+  const [requiresLogin, setRequiresLogin] = useState(false);
 
   // Use passage handlers hook
   const {
@@ -157,6 +159,21 @@ const EditReadingTest = () => {
     setIsReviewing(true);
   };
 
+  const saveToLocalStorage = () => {
+    try {
+      const dataToSave = {
+        title,
+        passages,
+        classCode,
+        teacherName,
+        showResultModal,
+      };
+      localStorage.setItem("readingTestDraft", JSON.stringify(dataToSave));
+    } catch (e) {
+      console.error('Error saving draft:', e);
+    }
+  };
+
   // Handle confirm update
   const handleConfirmUpdate = async () => {
     try {
@@ -234,7 +251,7 @@ const EditReadingTest = () => {
         })
       );
 
-      const response = await fetch(apiPath(`reading-tests/${testId}`), {
+      const response = await authFetch(apiPath(`reading-tests/${testId}`), {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -249,10 +266,26 @@ const EditReadingTest = () => {
         }),
       });
 
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.message || "Lỗi khi cập nhật");
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        if (response.status === 401) {
+          // Save draft before prompting user to log in again
+          try { saveToLocalStorage(); } catch (e) { /* ignore */ }
+          setMessage('❌ Token đã hết hạn hoặc không hợp lệ. Vui lòng đăng nhập lại để tiếp tục. Bản nháp đã được lưu.');
+          setRequiresLogin(true);
+          return;
+        }
+
+        if (response.status === 403) {
+          setMessage('❌ Bạn không có quyền cập nhật đề thi.');
+          return;
+        }
+
+        throw new Error(data.message || "Lỗi khi cập nhật");
+      }
 
       setMessage("✅ Đã cập nhật đề thành công!");
+      localStorage.removeItem("readingTestDraft");
       setTimeout(() => {
         navigate("/select-test");
       }, 1500);
@@ -346,50 +379,61 @@ const EditReadingTest = () => {
   }
 
   return (
-    <ReadingTestEditor
-      // Page info
-      pageTitle="✏️ Sửa Đề Reading IELTS"
-      className="edit-reading-test"
-      // Form fields
-      title={title}
-      setTitle={setTitle}
-      classCode={classCode}
-      setClassCode={setClassCode}
-      teacherName={teacherName}
-      setTeacherName={setTeacherName}
-      showResultModal={showResultModal}
-      setShowResultModal={setShowResultModal}
-      // Passages state
-      passages={passages}
-      selectedPassageIndex={selectedPassageIndex}
-      setSelectedPassageIndex={setSelectedPassageIndex}
-      selectedSectionIndex={selectedSectionIndex}
-      setSelectedSectionIndex={setSelectedSectionIndex}
-      // Passage handlers
-      onPassageChange={handlePassageChange}
-      onAddPassage={handleAddPassage}
-      onDeletePassage={handleDeletePassage}
-      // Section handlers
-      onSectionChange={handleSectionChange}
-      onAddSection={handleAddSection}
-      onDeleteSection={handleDeleteSection}
-      onCopySection={handleCopySection}
-      // Question handlers
-      onQuestionChange={handleQuestionChange}
-      onAddQuestion={handleAddQuestion}
-      onDeleteQuestion={handleDeleteQuestion}
-      onCopyQuestion={handleCopyQuestion}
-      // Review & Submit
-      isReviewing={isReviewing}
-      setIsReviewing={setIsReviewing}
-      onReview={handleReview}
-      onConfirmSubmit={handleConfirmUpdate}
-      isSubmitting={isUpdating}
-      submitButtonText="Cập nhật"
-      testId={testId}
-      // Messages
-      message={message}
-    />
+    <div>
+      {requiresLogin && (
+        <div style={{ padding: 12, background: '#fff0f0', border: '1px solid #ffcccc', borderRadius: 6, marginBottom: 12 }}>
+          <strong>⚠️ Bạn cần đăng nhập lại để hoàn tất thao tác.</strong>
+          <div style={{ marginTop: 8 }}>
+            Bản nháp đã được lưu. <button style={{ marginLeft: 8, padding: '6px 10px' }} onClick={() => { localStorage.setItem('postLoginRedirect', window.location.pathname); window.location.href = '/login'; }}>Đăng nhập lại</button>
+          </div>
+        </div>
+      )}
+
+      <ReadingTestEditor
+        // Page info
+        pageTitle="✏️ Sửa Đề Reading IELTS"
+        className="edit-reading-test"
+        // Form fields
+        title={title}
+        setTitle={setTitle}
+        classCode={classCode}
+        setClassCode={setClassCode}
+        teacherName={teacherName}
+        setTeacherName={setTeacherName}
+        showResultModal={showResultModal}
+        setShowResultModal={setShowResultModal}
+        // Passages state
+        passages={passages}
+        selectedPassageIndex={selectedPassageIndex}
+        setSelectedPassageIndex={setSelectedPassageIndex}
+        selectedSectionIndex={selectedSectionIndex}
+        setSelectedSectionIndex={setSelectedSectionIndex}
+        // Passage handlers
+        onPassageChange={handlePassageChange}
+        onAddPassage={handleAddPassage}
+        onDeletePassage={handleDeletePassage}
+        // Section handlers
+        onSectionChange={handleSectionChange}
+        onAddSection={handleAddSection}
+        onDeleteSection={handleDeleteSection}
+        onCopySection={handleCopySection}
+        // Question handlers
+        onQuestionChange={handleQuestionChange}
+        onAddQuestion={handleAddQuestion}
+        onDeleteQuestion={handleDeleteQuestion}
+        onCopyQuestion={handleCopyQuestion}
+        // Review & Submit
+        isReviewing={isReviewing}
+        setIsReviewing={setIsReviewing}
+        onReview={handleReview}
+        onConfirmSubmit={handleConfirmUpdate}
+        isSubmitting={isUpdating}
+        submitButtonText="Cập nhật"
+        testId={testId}
+        // Messages
+        message={message}
+      />
+    </div>
   );
 };
 

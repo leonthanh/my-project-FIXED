@@ -40,6 +40,7 @@ const DoCambridgeReadingTest = () => {
   const [results, setResults] = useState(null);
   const [currentPartIndex, setCurrentPartIndex] = useState(0);
   const [timeRemaining, setTimeRemaining] = useState(null); // Will be set from localStorage or config
+  /* eslint-disable-next-line no-unused-vars */
   const [activeQuestion, setActiveQuestion] = useState(null);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0); // Current question number
   const [flaggedQuestions, setFlaggedQuestions] = useState(new Set()); // Flagged questions
@@ -59,6 +60,7 @@ const DoCambridgeReadingTest = () => {
   const [isResizing, setIsResizing] = useState(false);
   const containerRef = useRef(null);
 
+  /* eslint-disable-next-line no-unused-vars */
   const questionRefs = useRef({});
 
   // Get test config - will be updated once test data is loaded
@@ -326,7 +328,7 @@ const DoCambridgeReadingTest = () => {
       const explode = (val) => {
         if (Array.isArray(val)) return val;
         if (typeof val === 'string' && (val.includes('/') || val.includes('|'))) {
-          return val.split(/[\/|]/).map((v) => v.trim()).filter(Boolean);
+          return val.split(new RegExp('[\\/|]')).map((v) => v.trim()).filter(Boolean);
         }
         return [val];
       };
@@ -376,6 +378,7 @@ const DoCambridgeReadingTest = () => {
   };
 
   // Get current part data
+  /* eslint-disable-next-line no-unused-vars */
   const currentPart = useMemo(() => {
     return test?.parts?.[currentPartIndex] || null;
   }, [test?.parts, currentPartIndex]);
@@ -387,15 +390,15 @@ const DoCambridgeReadingTest = () => {
     let startNum = 1;
     for (let p = 0; p < partIndex; p++) {
       const part = test.parts[p];
-      part?.sections?.forEach((sec) => {
+      for (const sec of part?.sections || []) {
         startNum += sec.questions?.length || 0;
-      });
+      }
     }
 
     let count = 0;
-    test.parts[partIndex]?.sections?.forEach((sec) => {
+    for (const sec of test.parts[partIndex]?.sections || []) {
       count += sec.questions?.length || 0;
-    });
+    }
 
     return { start: startNum, end: startNum + count - 1 };
   }, [test?.parts]);
@@ -1643,6 +1646,7 @@ const DoCambridgeReadingTest = () => {
         {/* Parts Tabs with Question Numbers */}
         <div className="cambridge-parts-container">
           {test?.parts?.map((part, idx) => {
+            /* eslint-disable-next-line no-unused-vars */
             const range = getPartQuestionRange(idx);
             const isActive = currentPartIndex === idx;
             const partQuestions = allQuestions.filter(q => q.partIndex === idx);

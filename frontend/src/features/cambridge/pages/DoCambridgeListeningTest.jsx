@@ -136,7 +136,7 @@ const DoCambridgeListeningTest = () => {
       }
     };
     fetchTest();
-  }, [id, testConfig.duration]);
+  }, [id, testConfig.duration, storageKey]);
 
   const hasAnyAudio = useMemo(() => {
     return Boolean(test?.mainAudioUrl || test?.parts?.some((p) => p?.audioUrl));
@@ -172,9 +172,6 @@ const DoCambridgeListeningTest = () => {
     };
   }, [test]);
 
-  const showGlobalAudioBar = useMemo(() => {
-    return Boolean(audioMeta.usesMain && resolvedAudioSrc);
-  }, [audioMeta.usesMain, resolvedAudioSrc]);
 
   // Build global question order + ranges (for footer nav)
   const questionIndex = useMemo(() => {
@@ -401,7 +398,7 @@ const DoCambridgeListeningTest = () => {
     if (/^https?:\/\//i.test(s)) return s;
     if (s.startsWith('/')) return hostPath(s);
     return hostPath(`/${s}`);
-  }, [timeRemaining]);
+  }, []);
 
   const resolvedAudioSrc = useMemo(() => {
     return resolveAudioSrc(currentAudioUrl);
@@ -467,6 +464,11 @@ const DoCambridgeListeningTest = () => {
     return false;
   }, [submitted, resolvedAudioSrc, startedAudioByPart, currentPartIndex, audioMeta.isSingleFile, testStarted, isAudioPlaying, hasResumeAudio, audioEnded]);
 
+  /* eslint-disable-next-line react-hooks/exhaustive-deps */
+  const showGlobalAudioBar = useMemo(() => {
+    return Boolean(audioMeta.usesMain && resolvedAudioSrc);
+  }, [audioMeta.usesMain, resolvedAudioSrc]);
+
   const markPartAudioStarted = useCallback((partIndex) => {
     setStartedAudioByPart((prev) => {
       if (prev?.[partIndex]) return prev;
@@ -478,7 +480,7 @@ const DoCambridgeListeningTest = () => {
     if (!endTimeRef.current) {
       endTimeRef.current = Date.now() + timeRemaining * 1000;
     }
-  }, []);
+  }, [timeRemaining]);
 
   const handlePlayGate = useCallback(async () => {
     const audio =
@@ -1349,15 +1351,15 @@ const DoCambridgeListeningTest = () => {
     let startNum = 1;
     for (let p = 0; p < partIndex; p++) {
       const part = test.parts[p];
-      part?.sections?.forEach((sec) => {
+      for (const sec of part?.sections || []) {
         startNum += sec.questions?.length || 0;
-      });
+      }
     }
 
     let count = 0;
-    test.parts[partIndex]?.sections?.forEach((sec) => {
+    for (const sec of test.parts[partIndex]?.sections || []) {
       count += sec.questions?.length || 0;
-    });
+    }
 
     return { start: startNum, end: startNum + count - 1 };
   }, [questionIndex, test?.parts]);
@@ -1687,6 +1689,7 @@ const DoCambridgeListeningTest = () => {
     const userAnswer = answers[questionKey];
     const isCorrect = submitted && results?.answers?.[questionKey]?.isCorrect;
     const isActive = activeQuestion === questionKey;
+    /* eslint-disable-next-line no-unused-vars */
     const isAnswered = (() => {
       if (Array.isArray(userAnswer)) return userAnswer.length > 0;
       if (userAnswer && typeof userAnswer === 'object') return Object.keys(userAnswer).length > 0;

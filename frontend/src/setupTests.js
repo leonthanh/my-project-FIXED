@@ -13,3 +13,20 @@ jest.mock('@ckeditor/ckeditor5-react', () => ({
 }));
 
 jest.mock('@ckeditor/ckeditor5-build-decoupled-document', () => ({}));
+
+// Suppress React Router future-flag warnings in tests (they are informational and clutter CI output)
+const _origWarn = console.warn;
+beforeAll(() => {
+  jest.spyOn(console, 'warn').mockImplementation((...args) => {
+    try {
+      const msg = String(args[0] || '');
+      if (msg.includes('React Router Future Flag') || msg.includes('Relative route resolution within Splat routes') || msg.includes('findDOMNode is deprecated')) {
+        return; // ignore these specific warnings
+      }
+    } catch (e) {}
+    return _origWarn.apply(console, args);
+  });
+});
+afterAll(() => {
+  console.warn.mockRestore && console.warn.mockRestore();
+});

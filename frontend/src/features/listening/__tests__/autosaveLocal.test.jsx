@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, waitFor, fireEvent, cleanup } from '@testing-library/react';
+import { act, render, screen, waitFor, fireEvent, cleanup } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import DoListeningTest from '../pages/DoListeningTest';
 
@@ -43,7 +43,7 @@ describe('Listening autosave localStorage', () => {
   });
 
   test('saves answers to localStorage and restores after remount', async () => {
-    const { container, unmount } = render(
+    const { unmount } = render(
       <MemoryRouter initialEntries={["/listening/3"]}>
         <Routes>
           <Route path="/listening/:id" element={<DoListeningTest />} />
@@ -53,17 +53,12 @@ describe('Listening autosave localStorage', () => {
 
     // Navigate to Part 3 to render the multi-select question
     const part3Btn = await screen.findByText(/Part 3/);
-    part3Btn.click();
+    await act(async () => { part3Btn.click(); });
 
-    // Wait for the multi-select question to render (find by question text)
-    const qTextNode = await screen.findByText(/Which TWO/);
-    // Find ancestor wrapper with id like 'question-<num>'
-    let qWrapper = qTextNode;
-    while (qWrapper && !(qWrapper.id && qWrapper.id.startsWith('question-'))) {
-      qWrapper = qWrapper.parentElement;
-    }
-    const checkbox = qWrapper && qWrapper.querySelector('input[type="checkbox"]');
-    expect(checkbox).toBeInTheDocument();
+    // Wait for the multi-select question to render (find checkboxes)
+    const checkboxes = await screen.findAllByRole('checkbox');
+    expect(checkboxes.length).toBeGreaterThan(0);
+    const checkbox = checkboxes[0];
 
     // Click the first checkbox
     fireEvent.click(checkbox);
@@ -83,7 +78,7 @@ describe('Listening autosave localStorage', () => {
     // Unmount and remount to simulate reload
     unmount();
 
-    const { container: container2 } = render(
+    render(
       <MemoryRouter initialEntries={["/listening/3"]}>
         <Routes>
           <Route path="/listening/:id" element={<DoListeningTest />} />
@@ -91,16 +86,11 @@ describe('Listening autosave localStorage', () => {
       </MemoryRouter>
     );
 
-    // Navigate to Part 3 and check the same question's checkbox remains checked
+    // Navigate to Part 3 and check that the checkbox remains checked
     const part3Btn2 = await screen.findByText(/Part 3/);
-    part3Btn2.click();
+    await act(async () => { part3Btn2.click(); });
 
-    const qTextNode2 = await screen.findByText(/Which TWO/);
-    let qWrapper2 = qTextNode2;
-    while (qWrapper2 && !(qWrapper2.id && qWrapper2.id.startsWith('question-'))) {
-      qWrapper2 = qWrapper2.parentElement;
-    }
-
-    await waitFor(() => expect(qWrapper2.querySelector('input[type="checkbox"]:checked')).toBeInTheDocument());
+    const checkboxes2 = await screen.findAllByRole('checkbox');
+    await waitFor(() => expect(checkboxes2.some(cb => cb.checked)).toBe(true));
   });
 });

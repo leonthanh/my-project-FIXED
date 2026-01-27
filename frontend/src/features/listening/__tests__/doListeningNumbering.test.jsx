@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import DoListeningTest from '../pages/DoListeningTest';
 
@@ -65,7 +65,7 @@ describe('Listening test numbering', () => {
 
     // Also check Part 3 remains correct
     const part3Btn = await screen.findByText(/Part 3/);
-    part3Btn.click();
+    await act(async () => { part3Btn.click(); });
     await screen.findByText(/Questions 21-22/);
     expect(screen.getByText(/Questions 23-27/)).toBeInTheDocument();
   });
