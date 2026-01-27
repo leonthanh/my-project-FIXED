@@ -805,15 +805,5 @@ export const getQuestionTypesByCategory = () => {
   }));
 };
 
-const exported = {
-  QUESTION_TYPES,
-  TEST_CONFIGS,
-  getQuestionTypesForTest,
-  getDefaultQuestionData,
-  getQuestionTypeInfo,
-  getTestConfig,
-  getAllTestTypes,
-  getQuestionTypesByCategory,
-};
+// Default export removed in favor of named exports (QUESTION_TYPES, TEST_CONFIGS, and helpers).
 
-export default exported;
