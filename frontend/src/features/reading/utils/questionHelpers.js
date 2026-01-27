@@ -121,17 +121,7 @@ export const createDefaultQuestionByType = (type) => {
     case "sentence-completion":
       return { ...baseQuestion, options: ["", "", "", ""], correctAnswer: "A" };
 
-    case "paragraph-fill-blanks":
-      return {
-        ...baseQuestion,
-        paragraphText: "",
-        blanks: [
-          { id: "blank1", correctAnswer: "" },
-          { id: "blank2", correctAnswer: "" },
-          { id: "blank3", correctAnswer: "" },
-        ],
-        options: ["A", "B", "C", "D", "E", "F", "G", "H", "I"],
-      };
+
 
     case "short-answer":
       return { ...baseQuestion, maxWords: 3 };

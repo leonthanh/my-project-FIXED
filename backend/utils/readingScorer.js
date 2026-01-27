@@ -602,7 +602,7 @@ function getDetailedScoring(testData, answers = {}) {
         }
 
         // Paragraph matching (A-G style) — ensure we render per-paragraph details and accept answers like q_<base>_0 etc
-        if (qType === 'paragraph-matching' || qType === 'paragraph-fill-blanks') {
+        if (qType === 'paragraph-matching') {
           const text = (q.questionText || '').replace(/<p[^>]*>/gi, '').replace(/<\/p>/gi, ' ').replace(/<br\s*\/?/gi, ' ').trim();
           const parts = text ? text.split(/(\.{3,}|…+)/) : [];
           const blanks = parts.filter((p2) => p2 && p2.match(/\.{3,}|…+/));
@@ -818,7 +818,6 @@ function generateAnalysisBreakdown(testData, answers = {}) {
     'short-answer': 'Short Answer',
     'sentence-completion': 'Sentence Completion',
     'paragraph-matching': 'Paragraph Matching',
-    'paragraph-fill-blanks': 'Paragraph Fill Blanks',
     'multi-select': 'Multi-Select',
     'unknown': 'Other'
   };

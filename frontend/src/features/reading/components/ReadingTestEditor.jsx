@@ -971,9 +971,7 @@ const ReadingTestEditor = ({
                           {/* Questions */}
                           <div style={{ padding: "10px 12px" }}>
                             {section.questions?.map((q, qIdx) => {
-                              const isClozeType =
-                                q.questionType === "cloze-test" ||
-                                q.questionType === "paragraph-fill-blanks";
+                              const isClozeType = q.questionType === "cloze-test"; 
                               const isMatchingType =
                                 q.questionType === "matching" ||
                                 q.questionType === "matching-headings";

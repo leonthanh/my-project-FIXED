@@ -37,7 +37,7 @@ export { default as ClozeTestQuestion } from './ClozeTestQuestion';
 export { default as DragDropQuestion } from './DragDropQuestion';
 export { default as ComboboxQuestion } from './ComboboxQuestion';
 export { default as ParagraphMatchingQuestion } from './ParagraphMatchingQuestion';
-export { default as ParagraphFillBlanksQuestion } from './ParagraphFillBlanksQuestion';
+
 export { default as SentenceCompletionQuestion } from './SentenceCompletionQuestion';
 export { default as IELTSMatchingHeadingsQuestion } from './IELTSMatchingHeadingsQuestion';
 
