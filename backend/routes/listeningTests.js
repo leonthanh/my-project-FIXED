@@ -28,7 +28,9 @@ const upload = multer({
 });
 
 // API tạo đề thi listening mới
-router.post('/', upload.fields([
+const { requireAuth } = require('../middlewares/auth');
+const { requireTestPermission } = require('../middlewares/testPermissions');
+router.post('/', requireAuth, requireTestPermission('listening'), upload.fields([
   { name: 'audioFile', maxCount: 1 },
   { name: 'audioFile_passage_0', maxCount: 1 },
   { name: 'audioFile_passage_1', maxCount: 1 },
@@ -39,7 +41,7 @@ router.post('/', upload.fields([
     console.log('Request body:', req.body);
     console.log('Request files:', req.files ? Object.keys(req.files) : 'none');
 
-    const { classCode, teacherName, passages } = req.body;
+    const { classCode, teacherName, passages, showResultModal } = req.body;
     
     if (!classCode || !teacherName) {
       return res.status(400).json({ message: '❌ Vui lòng nhập mã lớp và tên giáo viên' });
@@ -170,7 +172,8 @@ router.post('/', upload.fields([
       partAudioUrls,
       partTypes,
       partInstructions,
-      questions
+      questions,
+      showResultModal: showResultModal !== undefined ? showResultModal : true
     });
 
     res.status(201).json({
@@ -228,6 +231,7 @@ router.get('/:id', async (req, res) => {
 // API nộp bài thi listening - Calculate score and return results
 router.post('/:id/submit', async (req, res) => {
   try {
+    console.log(`[DEBUG] POST /api/listening-tests/${req.params.id}/submit - body:`, JSON.stringify(req.body).slice(0,2000));
     const { id } = req.params;
     const { answers, user, studentName, studentId } = req.body;
 
@@ -1030,17 +1034,44 @@ router.post('/:id/submit', async (req, res) => {
       null;
     const resolvedUserId = studentId || user?.id || null;
 
-    const submission = await ListeningSubmission.create({
-      testId: Number(id),
-      userId: resolvedUserId,
-      userName: resolvedUserName,
-      answers: normalizedAnswers,
-      details,
-      correct: correctCount,
-      total: totalCount,
-      scorePercentage,
-      band,
-    });
+    // If an unfinished autosave attempt exists for this user and test, update it and mark finished
+    let submission = null;
+    if (resolvedUserId) {
+      const existing = await ListeningSubmission.findOne({ where: { testId: Number(id), userId: resolvedUserId, finished: false }, order: [['updatedAt', 'DESC']] });
+      if (existing) {
+        existing.answers = normalizedAnswers;
+        existing.details = details;
+        existing.correct = correctCount;
+        existing.total = totalCount;
+        existing.scorePercentage = scorePercentage;
+        existing.band = band;
+        existing.finished = true;
+        existing.expiresAt = null;
+        existing.lastSavedAt = new Date();
+        await existing.save();
+        submission = existing;
+      }
+    }
+
+    if (!submission) {
+      submission = await ListeningSubmission.create({
+        testId: Number(id),
+        userId: resolvedUserId,
+        userName: resolvedUserName,
+        answers: normalizedAnswers,
+        details,
+        correct: correctCount,
+        total: totalCount,
+        scorePercentage,
+        band,
+        finished: true,
+      });
+      console.log(`[DEBUG] Created submission id=${submission.id} finished=${submission.finished}`);
+    } else {
+      console.log(`[DEBUG] Updated existing submission id=${submission.id} finished=${submission.finished}`);
+    }
+
+    console.log(`[DEBUG] Responding to submit for test ${id}: submissionId=${submission.id}, correct=${correctCount}, total=${totalCount}`);
 
     res.json({
       submissionId: submission.id,
@@ -1059,7 +1090,7 @@ router.post('/:id/submit', async (req, res) => {
 });
 
 // API cập nhật đề thi
-router.put('/:id', upload.fields([
+router.put('/:id', requireAuth, requireTestPermission('listening'), upload.fields([
   { name: 'audioFile', maxCount: 1 },
   { name: 'audioFile_part_0', maxCount: 1 },
   { name: 'audioFile_part_1', maxCount: 1 },
@@ -1075,7 +1106,7 @@ router.put('/:id', upload.fields([
     console.log('Update request body:', req.body);
     console.log('Update request files:', req.files ? Object.keys(req.files) : 'none');
 
-    const { classCode, teacherName, passages, title } = req.body;
+    const { classCode, teacherName, passages, title, showResultModal } = req.body;
     
     let updates = {};
     
@@ -1083,6 +1114,7 @@ router.put('/:id', upload.fields([
     if (classCode) updates.classCode = classCode;
     if (teacherName) updates.teacherName = teacherName;
     if (title) updates.title = title;
+    if (showResultModal !== undefined) updates.showResultModal = showResultModal;
     
     // Process file updates if any
     if (req.files) {

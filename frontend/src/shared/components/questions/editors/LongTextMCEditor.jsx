@@ -1,3 +1,4 @@
+/* eslint-disable-next-line no-unused-vars */
 import React, { useCallback, useMemo, useRef } from "react";
 import ReactQuill from "react-quill";
 import "react-quill/dist/quill.snow.css";

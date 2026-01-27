@@ -23,6 +23,7 @@ const DoListeningTest = () => {
   const [resultData, setResultData] = useState(null);
   const [resultModalOpen, setResultModalOpen] = useState(false);
   const [currentPartIndex, setCurrentPartIndex] = useState(0);
+  /* eslint-disable-next-line no-unused-vars */
   const [expandedPart, setExpandedPart] = useState(0);
   const [timeRemaining, setTimeRemaining] = useState(30 * 60);
   const [audioPlayed, setAudioPlayed] = useState({});
@@ -39,7 +40,21 @@ const DoListeningTest = () => {
   // Key for persisting timer across page reloads (resets only when the test is submitted)
   const expiresKey = `listening:${id}:expiresAt`;
 
+  // Key for persisting full state (answers + expiresAt). Includes user id to allow per-user isolation.
+  const userForStorage = (() => {
+    try {
+      return JSON.parse(localStorage.getItem("user") || "null");
+    } catch (e) {
+      return null;
+    }
+  })();
+  const storageUserId = userForStorage?.id || "anon";
+  const stateKey = `listening:${id}:state:${storageUserId}`;
+
   const expiresAtRef = useRef(null);
+  const saveTimeoutRef = useRef(null);
+  // Track server-side partial submission id (for anonymous resume we will store id locally)
+  const submissionIdRef = useRef(null);
 
   // Fetch test data
   useEffect(() => {
@@ -97,6 +112,66 @@ const DoListeningTest = () => {
           localStorage.setItem(expiresKey, String(expiresAt));
           setTimeRemaining(durationSeconds);
         }
+
+        // Restore saved answers+expires if present (resume after F5/power loss).
+        try {
+          const storedState = localStorage.getItem(stateKey);
+          if (storedState) {
+            const parsedState = JSON.parse(storedState);
+            if (parsedState?.answers) {
+              setAnswers(parsedState.answers);
+            }
+            if (parsedState?.expiresAt) {
+              localStorage.setItem(expiresKey, String(parsedState.expiresAt));
+              expiresAtRef.current = parsedState.expiresAt;
+              const remaining = Math.max(0, Math.ceil((parsedState.expiresAt - Date.now()) / 1000));
+              setTimeRemaining(remaining);
+            }
+            if (parsedState?.submissionId) {
+              submissionIdRef.current = parsedState.submissionId;
+            }
+          }
+        } catch (e) {
+          // ignore malformed storage
+        }
+
+        // Try to resume from server if available (prefer server state when authenticated or we have a submissionId)
+        (async () => {
+          try {
+            const submissionId = submissionIdRef.current;
+            const user = userForStorage;
+            const query = submissionId ? `?submissionId=${submissionId}` : user?.id ? `?userId=${user.id}` : '';
+            if (query !== '') {
+              const res = await fetch(apiPath(`listening-submissions/${id}/active${query}`));
+              if (res.ok) {
+                const payload = await res.json().catch(() => null);
+                const sub = payload?.submission || null;
+                if (sub && !sub.finished) {
+                  // Server has an active attempt - prefer its answers/expiresAt
+                  const serverAnswers = sub.answers ? (typeof sub.answers === 'string' ? JSON.parse(sub.answers) : sub.answers) : null;
+                  if (serverAnswers) setAnswers(serverAnswers);
+                  if (sub.expiresAt) {
+                    const eAt = typeof sub.expiresAt === 'string' ? new Date(sub.expiresAt).getTime() : sub.expiresAt;
+                    localStorage.setItem(expiresKey, String(eAt));
+                    expiresAtRef.current = eAt;
+                    const remaining = Math.max(0, Math.ceil((eAt - Date.now()) / 1000));
+                    setTimeRemaining(remaining);
+                  }
+                  if (sub.id) submissionIdRef.current = sub.id;
+                  // persist submissionId and server answers locally
+                  try {
+                    const cur = JSON.parse(localStorage.getItem(stateKey) || '{}') || {};
+                    cur.submissionId = sub.id;
+                    if (serverAnswers) cur.answers = serverAnswers;
+                    localStorage.setItem(stateKey, JSON.stringify(cur));
+                  } catch (e) {}
+                }
+              }
+            }
+          } catch (err) {
+            // ignore server resume errors
+          }
+        })();
       } catch (err) {
         console.error("Error fetching test:", err);
         setError(err.message);
@@ -105,7 +180,10 @@ const DoListeningTest = () => {
       }
     };
     fetchTest();
-  }, [id]);
+  }, [id, stateKey, userForStorage, expiresKey]);
+
+  // Keep a ref to confirmSubmit to avoid referencing it before initialization in effects
+  const confirmSubmitRef = useRef(null);
 
   // Timer countdown (compute remaining from persisted expiresAt to survive F5)
   // Auto-submit reliably even if the tab is backgrounded/throttled.
@@ -124,8 +202,17 @@ const DoListeningTest = () => {
       const remaining = Math.max(0, Math.ceil((expiresAt - Date.now()) / 1000));
       setTimeRemaining(remaining);
       if (remaining <= 0) {
-        done = true;
-        confirmSubmit();
+        // Ensure we don't mark the timer as 'done' until we've actually invoked submit.
+        // This avoids a race where tick runs before `confirmSubmitRef` is initialized
+        // and permanently prevents the auto-submit from happening.
+        if (confirmSubmitRef.current) {
+          confirmSubmitRef.current();
+          done = true;
+        } else {
+          // Leave `done` false so future ticks will try again once `confirmSubmitRef` is set.
+          // Also ensure the UI shows 0s remaining immediately.
+          setTimeRemaining(0);
+        }
       }
     };
 
@@ -146,9 +233,10 @@ const DoListeningTest = () => {
       window.removeEventListener("focus", onCheck);
       document.removeEventListener("visibilitychange", onCheck);
     };
-  }, [test, submitted, expiresKey, confirmSubmit]);
+  }, [test, submitted, expiresKey]);
 
   // Format time display
+  /* eslint-disable-next-line no-unused-vars */
   const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60);
     return `${mins} minutes remaining`;
@@ -209,10 +297,24 @@ const DoListeningTest = () => {
     const studentId = user?.id || null;
 
     try {
+      // If there are no answers and we don't have a server attempt, avoid creating an empty submission.
+      if ((!answers || (typeof answers === 'object' && Object.keys(answers).length === 0)) && !submissionIdRef.current) {
+        // Mark as submitted locally (no server record created) and clear local state.
+        setSubmitted(true);
+        setShowConfirm(false);
+        try {
+          localStorage.removeItem(expiresKey);
+          localStorage.removeItem(stateKey);
+        } catch (e) {}
+        alert('⏱️ Hết giờ nhưng bạn chưa trả lời câu nào. Không tạo bài nộp trống.');
+        navigate('/select-test');
+        return;
+      }
+
       const res = await fetch(apiPath(`listening-tests/${id}/submit`), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ answers, user, studentName, studentId }),
+        body: JSON.stringify({ answers, user, studentName, studentId, submissionId: submissionIdRef.current }),
       });
 
       const payload = await res.json().catch(() => null);
@@ -239,21 +341,157 @@ const DoListeningTest = () => {
       };
 
       setResultData(result);
-      setResultModalOpen(true);
+      if (test?.showResultModal !== false) {
+        setResultModalOpen(true);
+      } else {
+        alert("✅ Nộp bài thành công! Giáo viên sẽ xem kết quả của bạn.");
+        navigate("/select-test");
+      }
       setSubmitted(true);
       setShowConfirm(false);
 
-      // Clear persisted timer so next visit starts fresh
+      // Clear persisted timer and saved state so next visit starts fresh
       try {
         localStorage.removeItem(expiresKey);
+        localStorage.removeItem(stateKey);
       } catch (e) {
         // ignore
       }
+
+      // Tell server to cleanup any leftover unfinished autosaves for this user/test
+      try {
+        if (user && user.id) {
+          fetch(apiPath(`listening-submissions/${id}/cleanup`), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user }),
+          }).catch(() => {});
+        }
+      } catch (e) {
+        // ignore
+      }
+
+      // Clear local submission ref
+      submissionIdRef.current = null;
     } catch (err) {
       console.error("Error submitting:", err);
       alert(`❌ Có lỗi xảy ra khi nộp bài!${err?.message ? `\n${err.message}` : ""}`);
     }
-  }, [answers, expiresKey, id, submitted]);
+  }, [answers, expiresKey, id, navigate, submitted, stateKey, test?.showResultModal]);
+
+  // Keep ref up-to-date with the latest confirmSubmit implementation
+  useEffect(() => {
+    confirmSubmitRef.current = confirmSubmit;
+  }, [confirmSubmit]);
+
+  // Auto-save answers to localStorage (debounced) and sync across tabs.
+  useEffect(() => {
+    if (submitted) return;
+    // Save function
+    const saveState = () => {
+      try {
+        const expiresStored = localStorage.getItem(expiresKey);
+        const expiresAt = expiresStored ? parseInt(expiresStored, 10) : expiresAtRef.current || null;
+        const payload = { answers, expiresAt, lastSavedAt: Date.now() };
+        localStorage.setItem(stateKey, JSON.stringify(payload));
+      } catch (e) {
+        // ignore
+      }
+    };
+
+    // Debounced save on answers change
+    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    saveTimeoutRef.current = setTimeout(saveState, 500);
+
+    // Also attempt server autosave (debounced + non-blocking)
+    const serverAutosave = async () => {
+      try {
+        // Don't create a server attempt if we have no answers yet and no submissionId.
+        // This prevents creating an empty attempt that will later be auto-submitted as 0/40.
+        if (!submissionIdRef.current && (!answers || (typeof answers === 'object' && Object.keys(answers).length === 0))) {
+          // nothing to save yet
+          return;
+        }
+
+        const payload = { submissionId: submissionIdRef.current, answers, expiresAt: expiresAtRef.current, user: userForStorage };
+        const res = await fetch(apiPath(`listening-submissions/${id}/autosave`), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        if (res.ok) {
+          const json = await res.json().catch(() => null);
+          if (json?.submissionId) {
+            submissionIdRef.current = json.submissionId;
+            // persist submissionId locally
+            try {
+              const cur = JSON.parse(localStorage.getItem(stateKey) || '{}') || {};
+              cur.submissionId = json.submissionId;
+              cur.answers = payload.answers || cur.answers;
+              localStorage.setItem(stateKey, JSON.stringify(cur));
+            } catch (e) {}
+          }
+        }
+      } catch (err) {
+        // ignore server autosave failures (we still have localStorage fallback)
+      }
+    };
+
+    // Debounce server autosave slightly
+    setTimeout(serverAutosave, 700);
+
+    // Periodic save (every 30s) to handle timer-only changes
+    const intervalId = setInterval(saveState, 30000);
+
+    // Periodic server autosave
+    const serverIntervalId = setInterval(serverAutosave, 30000);
+
+    // Save before unload
+    const onBeforeUnload = () => {
+      saveState();
+      // Try one last synchronous navigator send via sendBeacon (best-effort)
+      try {
+        const payload = { submissionId: submissionIdRef.current, answers, expiresAt: expiresAtRef.current, user: userForStorage };
+        const url = apiPath(`listening-submissions/${id}/autosave`);
+        if (navigator.sendBeacon) {
+          const blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
+          navigator.sendBeacon(url, blob);
+        }
+      } catch (e) {
+        // ignore
+      }
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+
+    // Storage event to sync across tabs
+    const onStorage = (e) => {
+      if (!e.key) return;
+      if (e.key === stateKey) {
+        try {
+          const parsed = JSON.parse(e.newValue || "{}");
+          if (parsed.answers) setAnswers(parsed.answers);
+          if (parsed.expiresAt) {
+            localStorage.setItem(expiresKey, String(parsed.expiresAt));
+            expiresAtRef.current = parsed.expiresAt;
+            const remaining = Math.max(0, Math.ceil((parsed.expiresAt - Date.now()) / 1000));
+            setTimeRemaining(remaining);
+          }
+          if (parsed.submissionId) submissionIdRef.current = parsed.submissionId;
+        } catch (err) {
+          // ignore
+        }
+      }
+    };
+    window.addEventListener("storage", onStorage);
+
+    return () => {
+      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+      clearInterval(intervalId);
+      clearInterval(serverIntervalId);
+      window.removeEventListener("beforeunload", onBeforeUnload);
+      window.removeEventListener("storage", onStorage);
+    };
+  }, [answers, submitted, stateKey, expiresKey, id, userForStorage]);
 
   // Get parts data
   const parts = useMemo(() => {
@@ -289,47 +527,107 @@ const DoListeningTest = () => {
     }
 
     // Multi-select: each question counts by requiredAnswers (e.g. Choose TWO = 2)
-      if (q.questionType === "multi-select" && q.requiredAnswers) {
-      return Math.max(1, q.requiredAnswers);
+    // NOTE: some tests store multi-select questions with `questionType: 'fill'` but with
+    // `requiredAnswers` set. Treat any question that has `requiredAnswers` as occupying
+    // that many slots so numbering remains consistent with the editor.
+    if ((q.questionType === "multi-select" || Number(q?.requiredAnswers)) && q.requiredAnswers) {
+      return Math.max(1, Number(q.requiredAnswers));
     }
 
     return 1;
   }, []);
+
+  // Count questions for a section using section metadata and actual questions
+  const getSectionQuestionCount = (section, sectionQuestions) => {
+    if (!section) return 0;
+    const sectionType = String(section?.questionType || "fill").toLowerCase();
+
+    if (sectionType === "form-completion") {
+      const firstQ = sectionQuestions[0] || {};
+      const keys = firstQ?.answers && typeof firstQ.answers === "object" && !Array.isArray(firstQ.answers)
+        ? Object.keys(firstQ.answers).map((k) => parseInt(k, 10)).filter((n) => Number.isFinite(n))
+        : [];
+      if (keys.length) return keys.length;
+      return (firstQ?.formRows || []).filter((r) => r && r.isBlank).length || 0;
+    }
+
+    if (sectionType === "notes-completion") {
+      const firstQ = sectionQuestions[0] || {};
+      const keys = firstQ?.answers && typeof firstQ.answers === "object" && !Array.isArray(firstQ.answers)
+        ? Object.keys(firstQ.answers).map((k) => parseInt(k, 10)).filter((n) => Number.isFinite(n))
+        : [];
+      if (keys.length) return keys.length;
+      const matches = String(firstQ?.notesText || "").match(/(\d+)\s*[_…]+/g) || [];
+      return matches.length || 0;
+    }
+
+    if (sectionType === "matching") {
+      const firstQ = sectionQuestions[0] || {};
+      const keys = firstQ?.answers && typeof firstQ.answers === "object" && !Array.isArray(firstQ.answers)
+        ? Object.keys(firstQ.answers).map((k) => parseInt(k, 10)).filter((n) => Number.isFinite(n))
+        : [];
+      if (keys.length) return keys.length;
+      const leftItems = firstQ?.leftItems || firstQ?.items || [];
+      return leftItems.length || 0;
+    }
+
+    if (sectionType === "multi-select") {
+      return sectionQuestions.reduce((sum, q) => sum + (Number(q?.requiredAnswers) || 2), 0);
+    }
+
+    // Default: each question counts as 1 (abc/abcd/fill)
+    return sectionQuestions.length;
+  };
 
   // Get question range for a part (considering multi-question types)
   // Calculate start number based on all previous parts to ensure continuous numbering
   const getPartQuestionRange = useCallback(
     (partIndex) => {
       const allQuestions = test?.questions || [];
-      
-      // Calculate start number by summing questions from all previous parts
+      const partInstructions = test?.partInstructions || [];
+
+      // Calculate start number by summing section-level counts from all previous parts
       let startNum = 1;
       for (let p = 0; p < partIndex; p++) {
-        const prevPartQuestions = allQuestions.filter((q) => q.partIndex === p);
-        prevPartQuestions.forEach((q) => {
-          startNum += getQuestionCount(q);
+        const partInfo = partInstructions[p] || {};
+        const sections = Array.isArray(partInfo?.sections) ? partInfo.sections : [];
+        for (let sIdx = 0; sIdx < sections.length; sIdx++) {
+          const section = sections[sIdx] || {};
+          const sectionQuestions = allQuestions.filter((q) => q.partIndex === p && q.sectionIndex === sIdx);
+          const qCount = getSectionQuestionCount(section, sectionQuestions);
+          startNum += qCount;
+        }
+      }
+
+      // Get questions for this part
+      const partQuestions = allQuestions.filter((q) => q.partIndex === partIndex);
+      if (partQuestions.length === 0) return { start: 0, end: 0, questions: [] };
+
+      // Calculate total questions in this part by summing section-level counts
+      const partInfo = partInstructions[partIndex] || {};
+      const sections = Array.isArray(partInfo?.sections) ? partInfo.sections : [];
+
+      let totalCount = 0;
+      if (sections.length) {
+        for (let sIdx = 0; sIdx < sections.length; sIdx++) {
+          const section = sections[sIdx] || {};
+          const sectionQuestions = allQuestions.filter((q) => q.partIndex === partIndex && q.sectionIndex === sIdx);
+          totalCount += getSectionQuestionCount(section, sectionQuestions);
+        }
+      } else {
+        // Fallback: count per question
+        partQuestions.forEach((q) => {
+          totalCount += getQuestionCount(q);
         });
       }
-      
-      // Get questions for this part
-      const partQuestions = allQuestions.filter(
-        (q) => q.partIndex === partIndex
-      );
-      if (partQuestions.length === 0) return { start: 0, end: 0, questions: [] };
-      
-      // Calculate total questions in this part
-      let totalCount = 0;
-      partQuestions.forEach((q) => {
-        totalCount += getQuestionCount(q);
-      });
-      
-      return { 
-        start: startNum, 
+
+      return {
+        start: startNum,
         end: startNum + totalCount - 1,
-        questions: partQuestions 
+        questions: partQuestions,
       };
     },
-    [test?.questions, getQuestionCount]
+    [test?.questions, test?.partInstructions, getQuestionCount]
   );
 
   // Get actual question range for display (accounts for embedded numbers in notes)
@@ -423,6 +721,10 @@ const DoListeningTest = () => {
               .sort((a, b) => a - b)
           : [];
 
+      // Calculate part range to get starting number
+      const partRange = getPartQuestionRange(partIndex);
+      let currentStart = partRange.start;
+
       sections.forEach((section, sectionIndex) => {
         const sectionType = String(section?.questionType || "fill").toLowerCase();
         const sectionQuestions = getSectionQuestions(sectionIndex);
@@ -430,17 +732,27 @@ const DoListeningTest = () => {
 
         const firstQ = sectionQuestions[0];
 
+        // Calculate section start number
+        let sectionStartNum = typeof section.startingQuestionNumber === "number" && section.startingQuestionNumber > 0
+          ? section.startingQuestionNumber
+          : currentStart;
+
         if (sectionType === "form-completion") {
           const keys = numericKeys(firstQ?.answers);
           if (keys.length) {
             keys.forEach((n) => slots.push({ type: "single", key: `q${n}` }));
           } else {
             const blanks = (firstQ?.formRows || []).filter((r) => r && r.isBlank);
-            const start = 1;
             blanks.forEach((row, idx) => {
-              const num = row?.blankNumber ? start + Number(row.blankNumber) - 1 : start + idx;
+              const num = row?.blankNumber ? sectionStartNum + Number(row.blankNumber) - 1 : sectionStartNum + idx;
               slots.push({ type: "single", key: `q${num}` });
             });
+          }
+          // Update currentStart for next section
+          if (!(typeof section.startingQuestionNumber === "number" && section.startingQuestionNumber > 0)) {
+            const keys = numericKeys(firstQ?.answers);
+            const questionCount = keys.length || (firstQ?.formRows || []).filter((r) => r && r.isBlank).length;
+            currentStart += questionCount;
           }
           return;
         }
@@ -459,6 +771,13 @@ const DoListeningTest = () => {
               if (Number.isFinite(num)) slots.push({ type: "single", key: `q${num}` });
             });
           }
+          // Update currentStart for next section
+          if (!(typeof section.startingQuestionNumber === "number" && section.startingQuestionNumber > 0)) {
+            const keys = numericKeys(firstQ?.answers);
+            const matches = String(firstQ?.notesText || "").match(/(\d+)\s*[_…]+/g) || [];
+            const questionCount = keys.length || matches.length;
+            currentStart += questionCount;
+          }
           return;
         }
 
@@ -467,20 +786,31 @@ const DoListeningTest = () => {
           if (keys.length) {
             keys.forEach((n) => slots.push({ type: "single", key: `q${n}` }));
           } else {
-            const start = Number(section?.startingQuestionNumber) || 1;
             const leftItems = firstQ?.leftItems || firstQ?.items || [];
-            leftItems.forEach((_, idx) => slots.push({ type: "single", key: `q${start + idx}` }));
+            leftItems.forEach((_, idx) => slots.push({ type: "single", key: `q${sectionStartNum + idx}` }));
+          }
+          // Update currentStart for next section
+          if (!(typeof section.startingQuestionNumber === "number" && section.startingQuestionNumber > 0)) {
+            const keys = numericKeys(firstQ?.answers);
+            const leftItems = firstQ?.leftItems || firstQ?.items || [];
+            const questionCount = keys.length || leftItems.length;
+            currentStart += questionCount;
           }
           return;
         }
 
         if (sectionType === "multi-select") {
-          let groupStart = Number(section?.startingQuestionNumber) || 1;
+          let groupStart = sectionStartNum;
           sectionQuestions.forEach((q) => {
             const required = Number(q?.requiredAnswers) || 2;
             slots.push({ type: "multi-select", key: `q${groupStart}`, slots: required });
             groupStart += required;
           });
+          // Update currentStart for next section
+          if (!(typeof section.startingQuestionNumber === "number" && section.startingQuestionNumber > 0)) {
+            const totalRequired = sectionQuestions.reduce((sum, q) => sum + (Number(q?.requiredAnswers) || 2), 0);
+            currentStart += totalRequired;
+          }
           return;
         }
 
@@ -493,17 +823,25 @@ const DoListeningTest = () => {
             const parsed = parseInt(m[1], 10);
             if (Number.isFinite(parsed)) {
               sectionQuestions.forEach((_, idx) => slots.push({ type: "single", key: `q${parsed + idx}` }));
+              // Update currentStart
+              if (!(typeof section.startingQuestionNumber === "number" && section.startingQuestionNumber > 0)) {
+                currentStart += sectionQuestions.length;
+              }
               return;
             }
           }
         }
-        const startNum = start || 1;
+        const startNum = start || sectionStartNum;
         sectionQuestions.forEach((_, idx) => slots.push({ type: "single", key: `q${startNum + idx}` }));
+        // Update currentStart for next section
+        if (!(typeof section.startingQuestionNumber === "number" && section.startingQuestionNumber > 0)) {
+          currentStart += sectionQuestions.length;
+        }
       });
 
       return slots;
     },
-    [test?.questions, test?.partInstructions]
+    [test?.questions, test?.partInstructions, getPartQuestionRange]
   );
 
   const getAnsweredCount = useCallback(
@@ -617,6 +955,7 @@ const DoListeningTest = () => {
   );
 
   // Check if question is answered
+  /* eslint-disable-next-line no-unused-vars */
   const isQuestionAnswered = useCallback(
     (qNum) => {
       const ans = answers[`q${qNum}`];
@@ -629,16 +968,47 @@ const DoListeningTest = () => {
   // Calculate total answered questions
   const totalAnswered = useMemo(() => {
     let count = 0;
+
+    // Build a map of required slots for multi-select questions by their globalNumber
+    const requiredMap = {};
+    if (Array.isArray(test?.questions)) {
+      test.questions.forEach((q) => {
+        const num = Number(q?.globalNumber);
+        if (!Number.isFinite(num)) return;
+        const req = Number(q?.requiredAnswers);
+        if (Number.isFinite(req) && req > 0) requiredMap[num] = req;
+        else if (String(q?.questionType || '').toLowerCase() === 'multi-select') requiredMap[num] = 2;
+      });
+    }
+
     Object.keys(answers).forEach((key) => {
+      const m = key.match(/^q(\d+)$/);
+      if (!m) return;
+      const qNum = Number(m[1]);
       const ans = answers[key];
+
+      // If the answer is an array (checkbox multi-select), count number of selections
       if (Array.isArray(ans)) {
-        if (ans.length > 0) count++;
-      } else if (ans) {
-        count++;
+        const selected = ans.filter((x) => x != null).length;
+        const cap = requiredMap[qNum] || 2;
+        count += Math.min(selected, cap);
+        return;
       }
+
+      // If it's a string that looks like a multi selection (csv, pipe or slash), split and count
+      if (typeof ans === 'string' && (ans.includes(',') || ans.includes('|') || ans.includes('/'))) {
+        const parts = ans.split(new RegExp('[,|/]')).map((s) => s.trim()).filter(Boolean);
+        const cap = requiredMap[qNum] || 2;
+        count += Math.min(parts.length, cap);
+        return;
+      }
+
+      // Default truthy value counts as 1 slot
+      if (ans != null && String(ans).trim() !== '') count += 1;
     });
+
     return count;
-  }, [answers]);
+  }, [answers, test?.questions]);
 
   // Calculate total questions
   const totalQuestions = useMemo(() => {
@@ -929,7 +1299,7 @@ const DoListeningTest = () => {
             const optionId = `q${startNumber}checkbox${idx}`;
             const isSelected = selectedAnswers.includes(idx);
             // Check if option already has letter prefix like "A. " or "A "
-            const hasPrefix = /^[A-Z][\.\s]/.test(opt);
+            const hasPrefix = /^[A-Z][.\s]/.test(opt);
             const letterLabel = String.fromCharCode(65 + idx); // A, B, C...
 
             return (
@@ -1057,7 +1427,7 @@ const DoListeningTest = () => {
             {rightItems.map((opt, idx) => {
               const optText = typeof opt === 'object' ? (opt.text || opt.label || JSON.stringify(opt)) : opt;
               // Check if optText already has letter prefix like "A. " or "A "
-              const hasPrefix = /^[A-Z][\.\s]/.test(optText);
+              const hasPrefix = /^[A-Z][.\s]/.test(optText);
               return (
                 <div key={idx} style={styles.optionCard}>
                   {!hasPrefix && (
@@ -1205,11 +1575,12 @@ const DoListeningTest = () => {
 
     // Add questions from previous sections in current part (only when start is not explicitly set)
     if (!(typeof section.startingQuestionNumber === "number" && section.startingQuestionNumber > 0)) {
+      const partInfo = test?.partInstructions?.[currentPartIndex] || {};
+      const prevSections = Array.isArray(partInfo?.sections) ? partInfo.sections : [];
       for (let s = 0; s < sectionIndex; s++) {
+        const prevSection = prevSections[s] || {};
         const prevSectionQuestions = currentPartQuestions.filter((q) => q.sectionIndex === s);
-        prevSectionQuestions.forEach((q) => {
-          startNum += getQuestionCount(q);
-        });
+        startNum += getSectionQuestionCount(prevSection, prevSectionQuestions);
       }
     }
 
@@ -1367,6 +1738,7 @@ const DoListeningTest = () => {
 
   const currentPart = parts[currentPartIndex];
   const audioUrl = test?.partAudioUrls?.[currentPartIndex] || test?.mainAudioUrl;
+  /* eslint-disable-next-line no-unused-vars */
   const currentRange = getPartQuestionRange(currentPartIndex);
   const displayRange = getPartDisplayRange(currentPartIndex);
 
@@ -1507,6 +1879,7 @@ const DoListeningTest = () => {
       <nav style={styles.bottomNav}>
         <div style={styles.partsContainer}>
           {parts.map((part, idx) => {
+            /* eslint-disable-next-line no-unused-vars */
             const range = getPartQuestionRange(idx);
             const answered = getAnsweredCount(idx);
             const total = getPartTotalQuestions(idx);

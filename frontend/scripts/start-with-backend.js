@@ -18,7 +18,7 @@ const backend = spawnCmd('npm', ['run', 'dev'], { cwd: backendDir });
 
 // Give backend a bit of time before starting frontend (db sync etc)
 setTimeout(() => {
-  console.log('Starting frontend...');
+  console.log('Starting frontend... (delayed to allow backend to init)');
   const frontend = spawnCmd('npm', ['start'], { cwd: frontendDir });
 
   const shutdown = () => {
@@ -29,4 +29,4 @@ setTimeout(() => {
 
   process.on('SIGINT', shutdown);
   process.on('SIGTERM', shutdown);
-}, 1200);
+}, 3000);

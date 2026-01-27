@@ -27,6 +27,7 @@ const ClozeTestEditor = ({
 
   // Parse blanks from passage - matches patterns like (1), (2), ___, ______, (31), etc.
   useEffect(() => {
+    /* eslint-disable-next-line no-unused-vars */
     const patterns = [
       /\((\d+)\)/g,           // (1), (2), (31)
       /\[(\d+)\]/g,           // [1], [2]

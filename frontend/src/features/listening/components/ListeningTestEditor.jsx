@@ -106,6 +106,8 @@ const ListeningTestEditor = ({
   setClassCode,
   teacherName,
   setTeacherName,
+  showResultModal,
+  setShowResultModal,
 
   // Parts state (thay vì passages)
   parts,
@@ -271,6 +273,8 @@ const ListeningTestEditor = ({
         setClassCode={setClassCode}
         teacherName={teacherName}
         setTeacherName={setTeacherName}
+        showResultModal={showResultModal}
+        setShowResultModal={setShowResultModal}
         lastSaved={lastSaved}
         isSaving={isSaving}
         message={message}

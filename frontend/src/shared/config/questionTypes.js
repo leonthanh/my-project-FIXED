@@ -805,7 +805,7 @@ export const getQuestionTypesByCategory = () => {
   }));
 };
 
-export default {
+const exported = {
   QUESTION_TYPES,
   TEST_CONFIGS,
   getQuestionTypesForTest,
@@ -815,3 +815,5 @@ export default {
   getAllTestTypes,
   getQuestionTypesByCategory,
 };
+
+export default exported;

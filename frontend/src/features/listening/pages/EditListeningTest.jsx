@@ -2,15 +2,19 @@ import React, { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ListeningTestEditor } from "../components";
 import { useListeningHandlers, createNewPart } from "../hooks";
-import { apiPath } from "../../../shared/utils/api";
+import { apiPath, authFetch } from "../../../shared/utils/api";
 
 /**
  * EditListeningTest - Trang sửa đề Listening IELTS
  * Load dữ liệu từ API và cho phép chỉnh sửa
  */
+import { canManageCategory } from '../../../shared/utils/permissions';
+
 const EditListeningTest = () => {
   const navigate = useNavigate();
   const { id } = useParams();
+  const user = JSON.parse(localStorage.getItem('user'));
+  const allowedToManage = canManageCategory(user, 'listening');
   
   // Loading state
   const [loading, setLoading] = useState(true);
@@ -20,6 +24,7 @@ const EditListeningTest = () => {
   const [title, setTitle] = useState("");
   const [classCode, setClassCode] = useState("");
   const [teacherName, setTeacherName] = useState("");
+  const [showResultModal, setShowResultModal] = useState(true);
 
   // Global audio
   const [globalAudioFile, setGlobalAudioFile] = useState(null);
@@ -33,6 +38,9 @@ const EditListeningTest = () => {
   // Auto-save state (reserved for future use)
   const [lastSaved] = useState(null);
   const [isSaving] = useState(false);
+
+  // Show login banner when refresh fails
+  const [requiresLogin, setRequiresLogin] = useState(false);
 
   // Use listening handlers hook with empty initial
   const {
@@ -85,6 +93,7 @@ const EditListeningTest = () => {
         setTitle(data.title || "");
         setClassCode(data.classCode || "");
         setTeacherName(data.teacherName || "");
+        setShowResultModal(data.showResultModal ?? true);
         setExistingAudioUrl(data.mainAudioUrl);
         
         // Reconstruct parts from partInstructions and questions
@@ -104,6 +113,16 @@ const EditListeningTest = () => {
       fetchTest();
     }
   }, [id, setParts]);
+
+  if (!allowedToManage) {
+    return (
+      <div style={{ padding: 40, textAlign: 'center' }}>
+        <h2>⚠️ Bạn không có quyền sửa đề Listening</h2>
+        <p>Nếu bạn cho rằng đây là lỗi, vui lòng liên hệ quản trị hệ thống.</p>
+        <button onClick={() => navigate('/select-test')} style={{ marginTop: 16, padding: '8px 14px' }}>Quay lại</button>
+      </div>
+    );
+  }
 
   // Reconstruct parts from database format to editor format
   const reconstructParts = (partInstructions, questions, partAudioUrls) => {
@@ -225,6 +244,7 @@ const EditListeningTest = () => {
       formData.append("title", stripHtml(title));
       formData.append("classCode", classCode);
       formData.append("teacherName", teacherName);
+      formData.append("showResultModal", showResultModal);
       formData.append("passages", JSON.stringify(cleanedParts));
 
       // Add global audio if new file selected
@@ -239,14 +259,20 @@ const EditListeningTest = () => {
         }
       });
 
-      const response = await fetch(apiPath(`listening-tests/${id}`), {
+      const response = await authFetch(apiPath(`listening-tests/${id}`), {
         method: "PUT",
         body: formData,
       });
 
-      const data = await response.json();
+      const data = await response.json().catch(() => ({}));
 
       if (!response.ok) {
+        if (response.status === 401) {
+          try { localStorage.setItem(`listeningTestDraftEdit-${id}`, JSON.stringify({ title, classCode, teacherName, parts, showResultModal })); } catch (e) {}
+          setMessage('❌ Token đã hết hạn hoặc không hợp lệ. Vui lòng đăng nhập lại để tiếp tục. Bản nháp đã được lưu.');
+          setRequiresLogin(true);
+          return;
+        }
         throw new Error(data.message || "Lỗi khi cập nhật đề thi");
       }
 
@@ -323,10 +349,20 @@ const EditListeningTest = () => {
   }
 
   return (
-    <ListeningTestEditor
-      // Page info
-      pageTitle={`✏️ Sửa Đề Listening - ID: ${id}`}
-      className="edit-listening-test"
+    <div>
+      {requiresLogin && (
+        <div style={{ padding: 12, background: '#fff0f0', border: '1px solid #ffcccc', borderRadius: 6, marginBottom: 12 }}>
+          <strong>⚠️ Bạn cần đăng nhập lại để hoàn tất thao tác.</strong>
+          <div style={{ marginTop: 8 }}>
+            Bản nháp đã được lưu. <button style={{ marginLeft: 8, padding: '6px 10px' }} onClick={() => { localStorage.setItem('postLoginRedirect', window.location.pathname); window.location.href = '/login'; }}>Đăng nhập lại</button>
+          </div>
+        </div>
+      )}
+
+      <ListeningTestEditor
+        // Page info
+        pageTitle={`✏️ Sửa Đề Listening - ID: ${id}`}
+        className="edit-listening-test"
       // Form fields
       title={title}
       setTitle={setTitle}
@@ -334,6 +370,8 @@ const EditListeningTest = () => {
       setClassCode={setClassCode}
       teacherName={teacherName}
       setTeacherName={setTeacherName}
+      showResultModal={showResultModal}
+      setShowResultModal={setShowResultModal}
       // Parts state
       parts={parts}
       selectedPartIndex={selectedPartIndex}
@@ -377,6 +415,7 @@ const EditListeningTest = () => {
       // Total questions
       totalQuestions={totalQuestions}
     />
+    </div>
   );
 };
 

@@ -156,4 +156,97 @@ PR sẽ tự update với commits mới của bạn. Không cần tạo PR mới
 - **Test merge local**: Trước khi push, bạn có thể `git merge main` (dry-run) để check conflict mà không commit.
 - Production ổn vì bạn đã merge trên GitHub.
 
-Nếu bạn thử và gặp vấn đề, paste output nhé! Bạn có muốn tôi update file `GIT_WORKFLOW.md` để thêm kịch bản này không?
+--------------------
+23/01/2026
+Đúng rồi! Sau khi squash merge thành công trên GitHub, để tiếp tục code trên branch `feature/ket` mà tránh conflict sau này, bạn cần sync branch này với `main` (vì `main` giờ đã có commit squash mới). Đây là workflow chuẩn:
+
+## ✅ Các bước cần làm:
+
+```bash
+# 1. Chuyển sang main và pull thay đổi mới
+git checkout main
+git pull origin main
+
+# 2. Quay lại feature/ket
+git checkout feature/ket
+
+# 3. Merge main vào feature/ket để sync
+git merge main
+```
+
+## 📝 Giải thích:
+
+- **Sau squash merge**: `main` trên GitHub đã có commit mới (gộp từ `feature/ket`), nhưng branch `feature/ket` local của bạn vẫn ở trạng thái cũ.
+- **Sync giúp**: Merge `main` vào `feature/ket` đảm bảo branch feature "biết" về thay đổi trên main, tránh conflict khi tạo PR mới sau này.
+- **Nếu conflict**: Khi merge, nếu có conflict (ít xảy ra vì code solo), VSCode sẽ highlight - bạn resolve bằng cách chọn thay đổi, rồi `git add .` và `git commit`.
+
+## 🎯 Sau khi sync xong:
+
+- Code tiếp trên `feature/ket` như bình thường
+- Khi muốn tạo PR mới: `git push origin feature/ket` → Tạo PR từ `feature/ket` lên `main`
+
+Bạn thử làm theo nhé! Nếu gặp conflict hoặc cần hướng dẫn resolve, paste output cho tôi. 🚀
+
+*P.S.: Một số người tạo branch mới từ main sau merge để clean hơn, nhưng tiếp tục trên `feature/ket` cũng ổn.*
+-----------------
+Đây là tình huống bình thường khi `git merge main` tạo ra một merge commit (vì có thay đổi từ main cần hợp nhất). Git đang mở editor để bạn nhập commit message cho merge này.
+
+## ✅ Cách xử lý:
+
+### Nếu bạn muốn **hoàn thành merge**:
+1. Nhập message mô tả (ví dụ: "Merge main into feature/ket to sync after squash merge")
+2. Save và exit:
+   - **VSCode**: Ctrl+S để save, rồi đóng tab
+   - **Terminal**: Nhấn `Esc`, gõ `:wq` (write and quit) nếu dùng Vim
+
+### Nếu bạn muốn **hủy merge** (ít cần thiết):
+- Trong editor: Nhấn `Esc`, gõ `:q!` (quit without saving) để abort merge
+
+## 📝 Message gợi ý:
+```
+Merge main into feature/ket to sync after squash merge
+
+- Sync latest changes from main after successful deployment
+- Prepare for continued development on feature/ket
+```
+
+Sau khi save, merge sẽ hoàn thành và bạn có thể tiếp tục code trên `feature/ket`.
+
+Tôi hiểu rồi! Bạn đang dùng Git Bash trên Windows, và `Ctrl+S` đã "freeze" terminal thay vì save. Đây là vấn đề phổ biến với Git Bash.
+
+## ✅ Cách thoát và hoàn thành merge:
+
+### Bước 1: **Unfreeze terminal**
+- Nhấn `Ctrl+Q` để unfreeze (đối nghịch với Ctrl+S)
+
+### Bước 2: **Thoát editor và save**
+- Nhấn `Esc` để thoát insert mode (nếu đang insert)
+- Gõ `:wq` và nhấn Enter để write (save) và quit
+
+### Bước 3: **Kiểm tra merge thành công**
+Sau khi thoát, terminal sẽ hiển thị:
+```
+Merge made by the 'recursive' strategy.
+```
+
+## 🔧 Nếu vẫn bị stuck:
+
+### Thay đổi Git editor (khuyến nghị):
+```bash
+git config --global core.editor "code --wait"
+```
+(Lệnh này set VSCode làm Git editor mặc định)
+
+### Hoặc dùng nano/vim:
+```bash
+git config --global core.editor nano
+```
+
+### Hoặc abort merge nếu muốn thử lại:
+```bash
+git merge --abort
+```
+
+Bạn thử nhấn `Ctrl+Q` trước, rồi `:wq` nhé! Nếu vẫn không được, paste screenshot terminal cho tôi. 🚀
+
+*P.S.: Ctrl+S trong terminal = stop output, Ctrl+Q = resume.*

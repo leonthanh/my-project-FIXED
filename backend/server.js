@@ -185,10 +185,15 @@ sequelize
       });
   })
   .then(() => {
-    return sequelize.sync({ alter: true });
+    // Attempt a schema alter but don't let an alter failure crash the dev server.
+    return sequelize.sync({ alter: true }).catch((syncErr) => {
+      console.warn('⚠️ sequelize.sync({ alter: true }) failed - continuing in dev:', syncErr?.message || syncErr);
+      // Still resolve so the server can start; in prod we expect proper migrations to handle schema.
+      return Promise.resolve();
+    });
   })
   .then(() => {
-    logger.info('Sequelize models synced');
+    logger.info('Sequelize models synced (or sync-alter skipped)');
     app.listen(PORT, () => {
       logger.info({ port: PORT }, 'Server started');
       if (process.env.SHOW_ENV_LOG !== 'false') {

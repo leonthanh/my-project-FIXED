@@ -31,8 +31,11 @@
     "build": "set NODE_ENV=production&& react-scripts build",
     "test": "react-scripts test",
     "test:e2e": "playwright test",
+    "lint": "cross-env BABEL_ENV=development npx eslint \"src/**/*.{js,jsx}\"",
+    "lint:fix": "cross-env BABEL_ENV=development npx eslint \"src/**/*.{js,jsx}\" --fix",
     "eject": "react-scripts eject"
   },
+  "proxy": "http://localhost:5000",
   "eslintConfig": {
     "extends": [
       "react-app",
@@ -58,6 +61,7 @@
     "@playwright/test": "^1.38.0",
     "ajv": "^6.12.6",
     "ajv-keywords": "^3.5.2",
+    "cross-env": "^7.0.3",
     "npm-force-resolutions": "^0.0.10",
     "webpack": "^5.101.3",
     "webpack-dev-server": "^5.2.2"

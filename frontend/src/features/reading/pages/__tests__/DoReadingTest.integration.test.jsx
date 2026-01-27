@@ -57,11 +57,7 @@ describe('DoReadingTest integration - part navigation and focus', () => {
     fireEvent.click(part2);
 
     // after click, the first question of part 2 is q_4
-    await waitFor(() => {
-      const q4Btn = document.querySelector('.nav-question-btn[data-num="4"]');
-      expect(q4Btn).toBeTruthy();
-      expect(q4Btn.classList.contains('active')).toBe(true);
-    });
+    await waitFor(() => expect(screen.getByTestId('nav-question-4')).toHaveClass('active'));
   });
 
   it('clicking Next focuses first question of next part', async () => {
@@ -78,11 +74,7 @@ describe('DoReadingTest integration - part navigation and focus', () => {
     const nextBtn = screen.getByText('Next');
     fireEvent.click(nextBtn);
 
-    await waitFor(() => {
-      const q4Btn = document.querySelector('.nav-question-btn[data-num="4"]');
-      expect(q4Btn).toBeTruthy();
-      expect(q4Btn.classList.contains('active')).toBe(true);
-    });
+    await waitFor(() => expect(screen.getByTestId('nav-question-4')).toHaveClass('active'));
   });
 
   it('after submit, closing result modal navigates to select-test', async () => {

@@ -2,7 +2,7 @@
 import React, { useState } from "react";
 import ReactQuill from "react-quill";
 import { AdminNavbar } from "../../../shared/components";
-import { apiPath } from "../../../shared/utils/api";
+import { apiPath, authFetch } from "../../../shared/utils/api";
 
 import "./CreateWritingTest.css";
 
@@ -26,6 +26,15 @@ const CreateWritingTest = () => {
   const [image, setImage] = useState(null);
   const [message, setMessage] = useState("");
   const [showPreview, setShowPreview] = useState(false);
+  // show login banner when refresh fails
+  const [requiresLogin, setRequiresLogin] = useState(false);
+
+  const saveDraft = () => {
+    try {
+      const draft = { task1, task2, classCode, teacherName };
+      localStorage.setItem('writingTestDraft', JSON.stringify(draft));
+    } catch (e) { console.error('Error saving writing draft', e); }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -47,12 +56,12 @@ const CreateWritingTest = () => {
         formData.append("teacherName", teacherName);
         formData.append("image", image);
 
-        res = await fetch(endpoint, {
+        res = await authFetch(endpoint, {
           method: "POST",
           body: formData,
         });
       } else {
-        res = await fetch(endpoint, {
+        res = await authFetch(endpoint, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -67,7 +76,15 @@ const CreateWritingTest = () => {
       }
 
       const data = await res.json().catch(() => ({}));
+
       if (!res.ok) {
+        if (res.status === 401) {
+          // Save draft and prompt login
+          try { saveDraft(); } catch (e) {}
+          setMessage('❌ Token đã hết hạn hoặc không hợp lệ. Vui lòng đăng nhập lại. Bản nháp đã được lưu.');
+          setRequiresLogin(true);
+          return;
+        }
         setMessage(data.message || "❌ Lỗi khi tạo đề");
         return;
       }
@@ -99,6 +116,14 @@ const CreateWritingTest = () => {
     <>
       <AdminNavbar />
       <div className="create-writing-container">
+        {requiresLogin && (
+          <div style={{ padding: 12, background: '#fff0f0', border: '1px solid #ffcccc', borderRadius: 6, marginBottom: 12 }}>
+            <strong>⚠️ Bạn cần đăng nhập lại để hoàn tất thao tác.</strong>
+            <div style={{ marginTop: 8 }}>
+              Bản nháp đã được lưu. <button style={{ marginLeft: 8, padding: '6px 10px' }} onClick={() => { localStorage.setItem('postLoginRedirect', window.location.pathname); window.location.href = '/login'; }}>Đăng nhập lại</button>
+            </div>
+          </div>
+        )}
         <h2>📝 Create Writing</h2>
         <form onSubmit={handleSubmit}>
           <input

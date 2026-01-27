@@ -242,7 +242,9 @@ router.get("/:id", async (req, res) => {
 });
 
 // Create a new reading test
-router.post("/", async (req, res) => {
+const { requireAuth } = require('../middlewares/auth');
+const { requireTestPermission } = require('../middlewares/testPermissions');
+router.post("/", requireAuth, requireTestPermission('reading'), async (req, res) => {
   const { title, classCode, teacherName, showResultModal, passages } = req.body;
 
   try {
@@ -262,7 +264,7 @@ router.post("/", async (req, res) => {
 });
 
 // Update a reading test
-router.put("/:id", async (req, res) => {
+router.put("/:id", requireAuth, requireTestPermission('reading'), async (req, res) => {
   try {
     const test = await ReadingTest.findByPk(req.params.id);
     if (!test) {

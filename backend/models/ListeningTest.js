@@ -35,6 +35,10 @@ const ListeningTest = sequelize.define('ListeningTest', {
     type: DataTypes.JSON,
     allowNull: false
   },
+  showResultModal: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: true
+  },
   createdAt: {
     type: DataTypes.DATE,
     defaultValue: DataTypes.NOW

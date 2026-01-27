@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { StudentNavbar, AdminNavbar } from "../../../shared/components";
 import { apiPath, hostPath } from "../../../shared/utils/api";
 import { TEST_CONFIGS } from "../../../shared/config/questionTypes";
+import { canManageCategory } from "../../../shared/utils/permissions";
 import "./SelectCambridgeTest.css";
 
 /**
@@ -111,7 +112,7 @@ const SelectCambridgeTest = () => {
         <div className="cambridge-state cambridge-empty">
           <div className="cambridge-state__icon cambridge-state__icon--large">📭</div>
           <p>Chưa có đề {testType === "listening" ? "Listening" : "Reading"} cho {activeTestType.toUpperCase()}</p>
-          {isTeacher && (
+          {canManageCategory(user, testType) && (
             <button
               onClick={() => navigate(`/admin/create-${activeTestType}-${testType}`)}
               className="cambridge-btn cambridge-btn--success"
@@ -154,7 +155,7 @@ const SelectCambridgeTest = () => {
                   </div>
                 </div>
               </button>
-              {isTeacher && (
+              {canManageCategory(user, testType) && (
                 <button
                   onClick={() => handleEdit(test.id, testType)}
                   className="cambridge-btn cambridge-btn--warning"
@@ -225,7 +226,7 @@ const SelectCambridgeTest = () => {
 
           {renderTestList(tests[activeTab], activeTab)}
 
-          {isTeacher && tests[activeTab].length > 0 && (
+          {canManageCategory(user, activeTab) && tests[activeTab].length > 0 && (
             <div className="cambridge-actions">
               <button
                 onClick={() => navigate(`/admin/create-${activeTestType}-${activeTab}`)}

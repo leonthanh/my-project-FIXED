@@ -2,12 +2,14 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { StudentNavbar, AdminNavbar } from "../../../shared/components";
 import { apiPath, hostPath } from "../../../shared/utils/api";
+import { canManageCategory } from "../../../shared/utils/permissions";
 
 import "./SelectTest.css";
 
 const SelectTest = () => {
   const user = JSON.parse(localStorage.getItem("user"));
   const isTeacher = user && user.role === "teacher";
+
   const [tests, setTests] = useState({
     writing: [],
     reading: [],
@@ -87,6 +89,7 @@ const SelectTest = () => {
     // Navigate with testType for proper config loading
     // testType format: "ket-reading", "pet-listening", etc.
     const testType = test.testType || 'ket-reading'; // fallback
+    /* eslint-disable-next-line no-unused-vars */
     const category = test.category || 'reading';
     
     // Use testType-based URL for proper config
@@ -196,7 +199,7 @@ const SelectTest = () => {
                   ? "📖 Reading"
                   : tab === "listening"
                   ? "🎧 Listening"
-                  : "🏆 Cambridge"}
+                  : "🍊 Orange"}
               </button>
             ))}
           </div>
@@ -278,7 +281,7 @@ const SelectTest = () => {
                         </div>
                       </button>
 
-                      {isTeacher ? (
+                      {canManageCategory(user, activeTab) ? (
                         <button
                           type="button"
                           className="select-test-edit"

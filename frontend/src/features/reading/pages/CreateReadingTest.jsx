@@ -4,14 +4,18 @@ import { ReadingTestEditor } from "../components";
 import { usePassageHandlers } from "../hooks";
 import { stripHtml, cleanupPassageHTML, createNewPassage } from "../utils";
 import { normalizeQuestionType } from "../utils/questionHelpers";
-import { apiPath } from "../../../shared/utils/api";
+import { apiPath, authFetch } from "../../../shared/utils/api";
 
 /**
  * CreateReadingTest - Trang tạo đề Reading IELTS mới
  * Sử dụng ReadingTestEditor component và usePassageHandlers hook
  */
+import { canManageCategory } from '../../../shared/utils/permissions';
+
 const CreateReadingTest = () => {
   const navigate = useNavigate();
+  const user = JSON.parse(localStorage.getItem('user'));
+  const allowedToManage = canManageCategory(user, 'reading');
 
   // Load saved data from localStorage
   const loadSavedData = () => {
@@ -86,6 +90,9 @@ const CreateReadingTest = () => {
     }
   }, [title, passages, classCode, teacherName, showResultModal]);
 
+  // Local state to track if re-login is required
+  const [requiresLogin, setRequiresLogin] = useState(false);
+
   // Auto save every 30 seconds and on page unload
   useEffect(() => {
     const autosaveInterval = setInterval(saveToLocalStorage, 30000);
@@ -100,6 +107,16 @@ const CreateReadingTest = () => {
       window.removeEventListener("beforeunload", handleBeforeUnload);
     };
   }, [saveToLocalStorage]);
+
+  if (!allowedToManage) {
+    return (
+      <div style={{ padding: 40, textAlign: 'center' }}>
+        <h2>⚠️ Bạn không có quyền tạo đề Reading</h2>
+        <p>Nếu bạn cho rằng đây là lỗi, vui lòng liên hệ quản trị hệ thống.</p>
+        <button onClick={() => navigate('/select-test')} style={{ marginTop: 16, padding: '8px 14px' }}>Quay lại</button>
+      </div>
+    );
+  }
 
   // Handle review
   const handleReview = (e) => {
@@ -191,7 +208,7 @@ const CreateReadingTest = () => {
         })
       );
 
-      const response = await fetch(apiPath("reading-tests"), {
+      const response = await authFetch(apiPath("reading-tests"), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -205,9 +222,22 @@ const CreateReadingTest = () => {
         }),
       });
 
-      const data = await response.json();
+      const data = await response.json().catch(() => ({}));
 
       if (!response.ok) {
+        if (response.status === 401) {
+          // Save draft before prompting user to log in again
+          try { saveToLocalStorage(); } catch (e) { /* ignore */ }
+          setMessage('❌ Token đã hết hạn hoặc không hợp lệ. Vui lòng đăng nhập lại để tiếp tục. Bản nháp đã được lưu.');
+          setRequiresLogin(true);
+          return;
+        }
+
+        if (response.status === 403) {
+          setMessage('❌ Bạn không có quyền tạo đề thi (Insufficient permissions).');
+          return;
+        }
+
         throw new Error(data.message || "Lỗi khi tạo đề thi");
       }
 
@@ -227,55 +257,66 @@ const CreateReadingTest = () => {
   };
 
   return (
-    <ReadingTestEditor
-      // Page info
-      pageTitle="📚 Tạo Đề Reading IELTS"
-      className="create-reading-test"
-      // Form fields
-      title={title}
-      setTitle={setTitle}
-      classCode={classCode}
-      setClassCode={setClassCode}
-      teacherName={teacherName}
-      setTeacherName={setTeacherName}
-      showResultModal={showResultModal}
-      setShowResultModal={setShowResultModal}
-      // Passages state
-      passages={passages}
-      selectedPassageIndex={selectedPassageIndex}
-      setSelectedPassageIndex={setSelectedPassageIndex}
-      selectedSectionIndex={selectedSectionIndex}
-      setSelectedSectionIndex={setSelectedSectionIndex}
-      // Passage handlers
-      onPassageChange={handlePassageChange}
-      onAddPassage={handleAddPassage}
-      onDeletePassage={handleDeletePassage}
-      // Section handlers
-      onSectionChange={handleSectionChange}
-      onAddSection={handleAddSection}
-      onDeleteSection={handleDeleteSection}
-      onCopySection={handleCopySection}
-      // Question handlers
-      onQuestionChange={handleQuestionChange}
-      onAddQuestion={handleAddQuestion}
-      onDeleteQuestion={handleDeleteQuestion}
-      onCopyQuestion={handleCopyQuestion}
-      // Review & Submit
-      isReviewing={isReviewing}
-      setIsReviewing={setIsReviewing}
-      onReview={handleReview}
-      onConfirmSubmit={handleConfirmSubmit}
-      isSubmitting={isCreating}
-      submitButtonText="Tạo đề"
-      // Auto-save
-      lastSaved={lastSaved}
-      isSaving={isSaving}
-      onManualSave={saveToLocalStorage}
-      // Messages & Preview
-      message={message}
-      showPreview={showPreview}
-      setShowPreview={setShowPreview}
-    />
+    <div>
+      {requiresLogin && (
+        <div style={{ padding: 12, background: '#fff0f0', border: '1px solid #ffcccc', borderRadius: 6, marginBottom: 12 }}>
+          <strong>⚠️ Bạn cần đăng nhập lại để hoàn tất thao tác.</strong>
+          <div style={{ marginTop: 8 }}>
+            Bản nháp đã được lưu. <button style={{ marginLeft: 8, padding: '6px 10px' }} onClick={() => { localStorage.setItem('postLoginRedirect', window.location.pathname); window.location.href = '/login'; }}>Đăng nhập lại</button>
+          </div>
+        </div>
+      )}
+
+      <ReadingTestEditor
+        // Page info
+        pageTitle="📚 Tạo Đề Reading IELTS"
+        className="create-reading-test"
+        // Form fields
+        title={title}
+        setTitle={setTitle}
+        classCode={classCode}
+        setClassCode={setClassCode}
+        teacherName={teacherName}
+        setTeacherName={setTeacherName}
+        showResultModal={showResultModal}
+        setShowResultModal={setShowResultModal}
+        // Passages state
+        passages={passages}
+        selectedPassageIndex={selectedPassageIndex}
+        setSelectedPassageIndex={setSelectedPassageIndex}
+        selectedSectionIndex={selectedSectionIndex}
+        setSelectedSectionIndex={setSelectedSectionIndex}
+        // Passage handlers
+        onPassageChange={handlePassageChange}
+        onAddPassage={handleAddPassage}
+        onDeletePassage={handleDeletePassage}
+        // Section handlers
+        onSectionChange={handleSectionChange}
+        onAddSection={handleAddSection}
+        onDeleteSection={handleDeleteSection}
+        onCopySection={handleCopySection}
+        // Question handlers
+        onQuestionChange={handleQuestionChange}
+        onAddQuestion={handleAddQuestion}
+        onDeleteQuestion={handleDeleteQuestion}
+        onCopyQuestion={handleCopyQuestion}
+        // Review & Submit
+        isReviewing={isReviewing}
+        setIsReviewing={setIsReviewing}
+        onReview={handleReview}
+        onConfirmSubmit={handleConfirmSubmit}
+        isSubmitting={isCreating}
+        submitButtonText="Tạo đề"
+        // Auto-save
+        lastSaved={lastSaved}
+        isSaving={isSaving}
+        onManualSave={saveToLocalStorage}
+        // Messages & Preview
+        message={message}
+        showPreview={showPreview}
+        setShowPreview={setShowPreview}
+      />
+    </div>
   );
 };
 

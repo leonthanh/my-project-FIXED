@@ -2,18 +2,23 @@ import React, { useState, useCallback, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { ListeningTestEditor } from "../components";
 import { useListeningHandlers, createNewPart } from "../hooks";
-import { apiPath } from "../../../shared/utils/api";
+import { apiPath, authFetch } from "../../../shared/utils/api";
 
 /**
  * CreateListeningTestNew - Trang tạo đề Listening IELTS với 4-column editor
  */
+import { canManageCategory } from '../../../shared/utils/permissions';
+
 const CreateListeningTestNew = () => {
   const navigate = useNavigate();
+  const user = JSON.parse(localStorage.getItem('user'));
+  const allowedToManage = canManageCategory(user, 'listening');
 
   // Form fields
   const [title, setTitle] = useState("");
   const [classCode, setClassCode] = useState("");
   const [teacherName, setTeacherName] = useState("");
+  const [showResultModal, setShowResultModal] = useState(true);
 
   // Global audio
   const [globalAudioFile, setGlobalAudioFile] = useState(null);
@@ -90,11 +95,24 @@ const CreateListeningTestNew = () => {
     }
   }, [title, classCode, teacherName, parts]);
 
+  // Local state to show login banner when refresh fails
+  const [requiresLogin, setRequiresLogin] = useState(false);
+
   // Auto-save every 30 seconds
   useEffect(() => {
     const interval = setInterval(saveDraft, 30000);
     return () => clearInterval(interval);
   }, [saveDraft]);
+
+  if (!allowedToManage) {
+    return (
+      <div style={{ padding: 40, textAlign: 'center' }}>
+        <h2>⚠️ Bạn không có quyền tạo đề Listening</h2>
+        <p>Nếu bạn cho rằng đây là lỗi, vui lòng liên hệ quản trị hệ thống.</p>
+        <button onClick={() => navigate('/select-test')} style={{ marginTop: 16, padding: '8px 14px' }}>Quay lại</button>
+      </div>
+    );
+  }
 
   // Helper to strip HTML
   const stripHtml = (html) => {
@@ -170,6 +188,7 @@ const CreateListeningTestNew = () => {
       formData.append("title", stripHtml(title));
       formData.append("classCode", classCode);
       formData.append("teacherName", teacherName);
+      formData.append("showResultModal", showResultModal);
       // Backend expects 'passages' not 'parts'
       formData.append("passages", JSON.stringify(cleanedParts));
 
@@ -185,14 +204,22 @@ const CreateListeningTestNew = () => {
         }
       });
 
-      const response = await fetch(apiPath("listening-tests"), {
+      const response = await authFetch(apiPath("listening-tests"), {
         method: "POST",
+        // Don't set Content-Type; browser will set multipart boundary for FormData
         body: formData,
       });
 
-      const data = await response.json();
+      const data = await response.json().catch(() => ({}));
 
       if (!response.ok) {
+        if (response.status === 401) {
+          // Save draft and prompt re-login
+          try { saveDraft(); } catch (e) { /* ignore */ }
+          setMessage('❌ Token đã hết hạn hoặc không hợp lệ. Vui lòng đăng nhập lại để tiếp tục. Bản nháp đã được lưu.');
+          setRequiresLogin(true);
+          return;
+        }
         throw new Error(data.message || "Lỗi khi tạo đề thi");
       }
 
@@ -242,59 +269,72 @@ const CreateListeningTestNew = () => {
   const totalQuestions = calculateTotalQuestions();
 
   return (
-    <ListeningTestEditor
-      // Page info
-      pageTitle="🎧 Tạo Đề Listening IELTS"
-      className="create-listening-test"
-      // Form fields
-      title={title}
-      setTitle={setTitle}
-      classCode={classCode}
-      setClassCode={setClassCode}
-      teacherName={teacherName}
-      setTeacherName={setTeacherName}
-      // Parts state
-      parts={parts}
-      selectedPartIndex={selectedPartIndex}
-      setSelectedPartIndex={setSelectedPartIndex}
-      selectedSectionIndex={selectedSectionIndex}
-      setSelectedSectionIndex={setSelectedSectionIndex}
-      // Part handlers
-      onPartChange={handlePartChange}
-      onAddPart={handleAddPart}
-      onDeletePart={handleDeletePart}
-      // Section handlers
-      onSectionChange={handleSectionChange}
-      onAddSection={handleAddSection}
-      onDeleteSection={handleDeleteSection}
-      onCopySection={handleCopySection}
-      // Question handlers
-      onQuestionChange={handleQuestionChange}
-      onAddQuestion={handleAddQuestion}
-      onDeleteQuestion={handleDeleteQuestion}
-      onCopyQuestion={handleCopyQuestion}
-      onBulkAddQuestions={handleBulkAddQuestions}
-      // Review & Submit
-      isReviewing={isReviewing}
-      setIsReviewing={setIsReviewing}
-      onReview={handleReview}
-      onConfirmSubmit={handleConfirmSubmit}
-      isSubmitting={isSubmitting}
-      submitButtonText="Tạo đề"
-      // Auto-save
-      lastSaved={lastSaved}
-      isSaving={isSaving}
-      onManualSave={saveDraft}
-      // Messages & Preview
-      message={message}
-      showPreview={showPreview}
-      setShowPreview={setShowPreview}
-      // Global audio
-      globalAudioFile={globalAudioFile}
-      setGlobalAudioFile={setGlobalAudioFile}
-      // Total questions
-      totalQuestions={totalQuestions}
-    />
+    <div>
+      {requiresLogin && (
+        <div style={{ padding: 12, background: '#fff0f0', border: '1px solid #ffcccc', borderRadius: 6, marginBottom: 12 }}>
+          <strong>⚠️ Bạn cần đăng nhập lại để hoàn tất thao tác.</strong>
+          <div style={{ marginTop: 8 }}>
+            Bản nháp đã được lưu. <button style={{ marginLeft: 8, padding: '6px 10px' }} onClick={() => { localStorage.setItem('postLoginRedirect', window.location.pathname); window.location.href = '/login'; }}>Đăng nhập lại</button>
+          </div>
+        </div>
+      )}
+
+      <ListeningTestEditor
+        // Page info
+        pageTitle="🎧 Tạo Đề Listening IELTS"
+        className="create-listening-test"
+        // Form fields
+        title={title}
+        setTitle={setTitle}
+        classCode={classCode}
+        setClassCode={setClassCode}
+        teacherName={teacherName}
+        setTeacherName={setTeacherName}
+        showResultModal={showResultModal}
+        setShowResultModal={setShowResultModal}
+        // Parts state
+        parts={parts}
+        selectedPartIndex={selectedPartIndex}
+        setSelectedPartIndex={setSelectedPartIndex}
+        selectedSectionIndex={selectedSectionIndex}
+        setSelectedSectionIndex={setSelectedSectionIndex}
+        // Part handlers
+        onPartChange={handlePartChange}
+        onAddPart={handleAddPart}
+        onDeletePart={handleDeletePart}
+        // Section handlers
+        onSectionChange={handleSectionChange}
+        onAddSection={handleAddSection}
+        onDeleteSection={handleDeleteSection}
+        onCopySection={handleCopySection}
+        // Question handlers
+        onQuestionChange={handleQuestionChange}
+        onAddQuestion={handleAddQuestion}
+        onDeleteQuestion={handleDeleteQuestion}
+        onCopyQuestion={handleCopyQuestion}
+        onBulkAddQuestions={handleBulkAddQuestions}
+        // Review & Submit
+        isReviewing={isReviewing}
+        setIsReviewing={setIsReviewing}
+        onReview={handleReview}
+        onConfirmSubmit={handleConfirmSubmit}
+        isSubmitting={isSubmitting}
+        submitButtonText="Tạo đề"
+        // Auto-save
+        lastSaved={lastSaved}
+        isSaving={isSaving}
+        onManualSave={saveDraft}
+        // Messages & Preview
+        message={message}
+        showPreview={showPreview}
+        setShowPreview={setShowPreview}
+        // Global audio
+        globalAudioFile={globalAudioFile}
+        setGlobalAudioFile={setGlobalAudioFile}
+        // Total questions
+        totalQuestions={totalQuestions}
+      />
+    </div>
   );
 };
 
