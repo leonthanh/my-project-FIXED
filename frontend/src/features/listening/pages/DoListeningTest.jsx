@@ -180,7 +180,7 @@ const DoListeningTest = () => {
       }
     };
     fetchTest();
-  }, [id, stateKey, userForStorage, expiresKey]);
+  }, [id, stateKey, storageUserId, expiresKey]);
 
   // Keep a ref to confirmSubmit to avoid referencing it before initialization in effects
   const confirmSubmitRef = useRef(null);

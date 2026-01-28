@@ -27,6 +27,22 @@ const parseQuestionsDeep = (questions) => {
   }));
 };
 
+// Local helper to compute band from correct count (mirror of listening results logic)
+const bandFromCorrect = (c) => {
+  if (c >= 39) return 9;
+  if (c >= 37) return 8.5;
+  if (c >= 35) return 8;
+  if (c >= 32) return 7.5;
+  if (c >= 30) return 7;
+  if (c >= 26) return 6.5;
+  if (c >= 23) return 6;
+  if (c >= 18) return 5.5;
+  if (c >= 16) return 5;
+  if (c >= 13) return 4.5;
+  if (c >= 11) return 4;
+  return 3.5;
+};
+
 const AdminListeningSubmissions = () => {
   const [subs, setSubs] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -76,13 +92,129 @@ const AdminListeningSubmissions = () => {
             }
           }
 
-          const correct = Number(s.correct) || 0;
-          const percentage = s.computedPercentage != null ? Number(s.computedPercentage) : (computedTotal ? Math.round((correct / computedTotal) * 100) : 0);
+          // Compute correct count: parsed details will be considered later when deciding preference
 
-          return { ...s, parsedDetails, computedTotal, computedPercentage: percentage };
+          // If we have full test data + answers, try to generate details and prefer that when more complete
+          let generatedCorrect = null;
+          let generatedLength = 0;
+          if (testObj && parsedAnswers && typeof parsedAnswers === 'object') {
+            const generated = generateDetailsFromSections(testObj, parsedAnswers);
+            if (generated && generated.length) {
+              generatedCorrect = generated.filter((d) => d.isCorrect).length;
+              generatedLength = generated.length;
+              // prefer generated length as computedTotal when it seems more complete
+              if (generated.length && (parsedDetails.length !== computedTotal || parsedDetails.length < generated.length)) {
+                computedTotal = generated.length;
+              }
+            }
+          }
+
+          // Prefer parsedDetails when it is as complete or more complete than generated; otherwise prefer generated result.
+          const parsedCorrectFromDetails = Array.isArray(parsedDetails) && parsedDetails.length ? parsedDetails.filter((d) => d.isCorrect).length : null;
+          const storedCorrect = Number.isFinite(Number(s.correct)) && Number(s.correct) > 0 ? Number(s.correct) : null;
+
+          let computedCorrect;
+          if (parsedCorrectFromDetails != null && (parsedDetails.length >= generatedLength || generatedLength === 0)) {
+            computedCorrect = parsedCorrectFromDetails;
+          } else if (generatedLength > 0) {
+            computedCorrect = generatedCorrect != null ? generatedCorrect : (storedCorrect != null ? storedCorrect : (Number(s.correct) || 0));
+          } else if (storedCorrect != null) {
+            computedCorrect = storedCorrect;
+          } else if (s.computedPercentage != null) {
+            computedCorrect = Math.round((Number(s.computedPercentage) / 100) * computedTotal);
+          } else {
+            computedCorrect = Number(s.correct) || 0;
+          }
+
+          const percentage = s.computedPercentage != null ? Number(s.computedPercentage) : (computedTotal ? Math.round((computedCorrect / computedTotal) * 100) : 0);
+
+          return { ...s, parsedDetails, computedTotal, computedPercentage: percentage, computedCorrect };
+
         });
 
         setSubs(mapped);
+
+        // Enrich results for submissions that lack stored details but have answers
+        // (these are typically unfinished attempts where backend did not compute details).
+        const toEnrich = mapped.filter(s => {
+          const parsedLen = (s.parsedDetails || []).length;
+          const hasTestQuestions = !!(s.ListeningTest && s.ListeningTest.questions);
+          // Enrich when answers exist and either test payload lacks questions (so we cannot generate),
+          // or parsedDetails exist but look incomplete (less than computedTotal)
+          return s.answers && (!hasTestQuestions || (parsedLen > 0 && parsedLen < (s.computedTotal || 40)) || parsedLen === 0);
+        });
+
+        if (toEnrich.length) {
+          await Promise.all(
+            toEnrich.map(async (s) => {
+              try {
+                // Prefer the authoritative submission endpoint which returns submission + test + generated details
+                const subRes = await fetch(apiPath(`listening-submissions/${s.id}`));
+                if (!subRes.ok) return null;
+                const payload = await subRes.json().catch(() => null);
+                const sub = payload?.submission || null;
+                const testRaw = payload?.test || null;
+
+                if (sub) {
+                  const parsedDetails = Array.isArray(sub.details) ? sub.details : (safeParseJson(sub.details) || []);
+                  const parsedAnswersFromSub = safeParseJson(sub.answers) || {};
+
+                  if (parsedDetails.length) {
+                    // If we also have test payload, check whether generated details would be more complete
+                    if (testRaw) {
+                      const testObjFromSub = {
+                        ...testRaw,
+                        partInstructions: safeParseJson(testRaw.partInstructions),
+                        questions: parseQuestionsDeep(testRaw.questions),
+                      };
+                      const generatedFromSub = generateDetailsFromSections(testObjFromSub, parsedAnswersFromSub);
+                      if (generatedFromSub && generatedFromSub.length > parsedDetails.length) {
+                        s.computedCorrect = generatedFromSub.filter((d) => d.isCorrect).length;
+                        s.computedTotal = generatedFromSub.length;
+                        s.computedPercentage = s.computedTotal ? Math.round((s.computedCorrect / s.computedTotal) * 100) : 0;
+                        return;
+                      }
+                    }
+
+                    // Default: use stored details
+                    s.computedCorrect = parsedDetails.filter((d) => d.isCorrect).length;
+                    s.computedTotal = parsedDetails.length;
+                    s.computedPercentage = s.computedTotal ? Math.round((s.computedCorrect / s.computedTotal) * 100) : 0;
+                    return;
+                  }
+                }
+
+                // Fallback: if submission endpoint did not provide details but test exists, try fetching test and generating locally
+                const parsedAnswers = safeParseJson(s.answers) || {};
+                const testObj = s.ListeningTest && s.ListeningTest.questions ? {
+                  ...s.ListeningTest,
+                  partInstructions: safeParseJson(s.ListeningTest.partInstructions),
+                  questions: parseQuestionsDeep(s.ListeningTest.questions),
+                } : (testRaw ? { ...testRaw, partInstructions: safeParseJson(testRaw.partInstructions), questions: parseQuestionsDeep(testRaw.questions) } : null);
+
+                if (testObj) {
+                  const generated = generateDetailsFromSections(testObj, parsedAnswers);
+                  if (generated && generated.length) {
+                    s.computedCorrect = generated.filter(d => d.isCorrect).length;
+                    s.computedTotal = generated.length;
+                    s.computedPercentage = s.computedTotal ? Math.round((s.computedCorrect / s.computedTotal) * 100) : 0;
+                  }
+                }
+              } catch (e) {
+                // ignore per-row errors
+              }
+            })
+          );
+
+          // Update state with enriched data
+          setSubs((prev) => prev.map((x) => {
+            const enriched = mapped.find((m) => m.id === x.id);
+            if (enriched && (enriched.computedCorrect != null || enriched.computedTotal != null)) {
+              return { ...x, computedCorrect: enriched.computedCorrect, computedTotal: enriched.computedTotal, computedPercentage: enriched.computedPercentage };
+            }
+            return x;
+          }));
+        }
       } catch (err) {
         console.error("Error fetching listening submissions:", err);
         setSubs([]);
@@ -90,7 +222,6 @@ const AdminListeningSubmissions = () => {
         setLoading(false);
       }
     };
-
     fetchSubs();
 
     const user = JSON.parse(localStorage.getItem("user") || "{}");
@@ -215,6 +346,27 @@ const AdminListeningSubmissions = () => {
           📊 Hiển thị: <strong>{filteredSubs.length}</strong> / {subs.length} bài nộp
         </p>
 
+        <div style={{ marginBottom: 12, display: 'flex', gap: 8 }}>
+          <button
+            style={{ ...actionBtn, background: '#0ea5a3' }}
+            onClick={async () => {
+              if (!window.confirm('Chạy rescore cho các bài thiếu/không khớp (an toàn). Bạn có muốn tiếp tục?')) return;
+              try {
+                const res = await fetch(apiPath('listening-submissions/rescore'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ dryRun: false }) });
+                const payload = await res.json();
+                if (!res.ok) throw new Error(payload?.message || 'Rescore failed');
+                alert(`✅ Rescore completed. Updated ${payload.updated} submissions.`);
+                // Refresh list
+                window.location.reload();
+              } catch (err) {
+                alert('❌ Rescore error: ' + err.message);
+              }
+            }}
+          >
+            🔁 Rescore missing / inconsistent
+          </button>
+        </div>
+
         {loading && <p>⏳ Loading...</p>}
         {!loading && filteredSubs.length === 0 && <p>Không có bài nộp phù hợp</p>}
 
@@ -252,28 +404,49 @@ const AdminListeningSubmissions = () => {
                   </td>
                   <td style={cellStyle}>{s.userName || "N/A"}</td>
                   <td style={cellStyle}>
-                    <span style={{ fontWeight: "bold" }}>
-                      {Number(s.correct) || 0}/{s.computedTotal || s.total || 40}
-                    </span>
-                    <span style={{ color: "#666", fontSize: 12 }}>
-                      {" "}
-                      ({s.computedPercentage != null ? s.computedPercentage : (s.scorePercentage || 0)}%)
-                    </span>
+                    {(() => {
+                      const displayCorrect = Number.isFinite(Number(s.computedCorrect)) ? s.computedCorrect : (Number(s.correct) || 0);
+                      const displayTotal = s.computedTotal || s.total || 40;
+                      const displayPct = s.computedPercentage != null ? Number(s.computedPercentage) : (displayTotal ? Math.round((displayCorrect / displayTotal) * 100) : 0);
+                      return (
+                        <>
+                          <span style={{ fontWeight: "bold" }}>
+                            {displayCorrect}/{displayTotal}
+                          </span>
+                          <span style={{ color: "#666", fontSize: 12 }}>
+                            {" "}({displayPct}%)
+                          </span>
+                        </>
+                      );
+                    })()}
                   </td>
                   <td style={cellStyle}>
-                    <span
-                      style={{
-                        padding: "4px 8px",
-                        background: "#111827",
-                        color: "#fff",
-                        borderRadius: 4,
-                        fontWeight: "bold",
-                      }}
-                    >
-                      {s.band != null && Number.isFinite(Number(s.band))
-                        ? Number(s.band).toFixed(1)
-                        : "N/A"}
-                    </span>
+                    {(() => {
+                      // Prefer band computed from authoritative computedCorrect when available
+                      const displayCorrect = Number.isFinite(Number(s.computedCorrect)) ? Number(s.computedCorrect) : (Number(s.correct) || null);
+                      let bandVal = null;
+                      if (Number.isFinite(displayCorrect)) {
+                        // Use computed correct (reflects any rescore) to derive band
+                        bandVal = bandFromCorrect(displayCorrect);
+                      } else if (s.band != null && Number.isFinite(Number(s.band))) {
+                        // Fallback to stored band if computed correct not available
+                        bandVal = Number(s.band);
+                      }
+
+                      return (
+                        <span
+                          style={{
+                            padding: "4px 8px",
+                            background: "#111827",
+                            color: "#fff",
+                            borderRadius: 4,
+                            fontWeight: "bold",
+                          }}
+                        >
+                          {bandVal != null ? Number(bandVal).toFixed(1) : "N/A"}
+                        </span>
+                      );
+                    })()}
                   </td>
                   <td style={cellStyle}>
                     {s.feedback ? (

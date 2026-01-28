@@ -929,24 +929,27 @@ const ListeningResults = () => {
     );
   }
 
-  const correct = submission?.correct ?? details.filter(d => d.isCorrect).length;
-  // Prefer the generated details length when available (fix cases where stored submission.total is stale)
-  const total = details.length > 0 ? details.length : (submission?.total ?? 40);
+  // Prefer computed values from `details` when available to avoid showing stale stored fields
+  const computedCorrect = details.filter((d) => d.isCorrect).length;
+  const computedTotal = details.length > 0 ? details.length : (submission?.total ?? 40);
 
-  // If there's a stored submission total that doesn't match generated details,
-  // we prefer the generated `details.length` when rendering to avoid showing stale totals.
-  // (Debug logging removed.)
+  // Use computed values when we have details, otherwise fall back to stored submission fields
+  const correct = details.length > 0
+    ? computedCorrect
+    : (Number.isFinite(Number(submission?.correct)) ? Number(submission.correct) : computedCorrect);
 
-  const scorePercentage =
-    submission?.scorePercentage != null
-      ? Number(submission.scorePercentage)
-      : total > 0
-      ? Math.round((correct / total) * 100)
-      : 0;
-  const band =
-    submission?.band != null && Number.isFinite(Number(submission.band))
-      ? Number(submission.band)
-      : bandFromCorrect(correct);
+  const total = computedTotal;
+
+  // Score percentage: prefer computed when details exist
+  const scorePercentage = details.length > 0
+    ? (total > 0 ? Math.round((computedCorrect / total) * 100) : 0)
+    : (submission?.scorePercentage != null ? Number(submission.scorePercentage) : 0);
+
+  // Band: prefer stored band only when we don't have detailed computed results
+  const band = details.length > 0
+    ? bandFromCorrect(correct)
+    : (submission?.band != null && Number.isFinite(Number(submission.band)) ? Number(submission.band) : bandFromCorrect(correct));
+
   const wrongCount = details.filter((d) => !d.isCorrect).length;
 
   const retryTestId = test?.id || submission?.testId || id;
