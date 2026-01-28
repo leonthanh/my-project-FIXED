@@ -8,6 +8,10 @@ const { scoreListening } = require('../utils/listeningScorer');
 const { requireAuth } = require('../middlewares/auth');
 const { requireTestPermission } = require('../middlewares/testPermissions');
 
+// Simple runtime debug helper - enable by setting DEBUG_LISTENING=1 or DEBUG=1
+const DEBUG_LISTENING = process.env.DEBUG_LISTENING === '1' || process.env.DEBUG === '1';
+const debug = (...args) => { if (DEBUG_LISTENING) console.log('[DEBUG]', ...args); };
+
 // POST: Submit listening test answers
 router.post('/', async (req, res) => {
   try {
@@ -392,7 +396,7 @@ router.post('/:testId/autosave', async (req, res) => {
     const { testId } = req.params;
     const { submissionId, answers, expiresAt, user } = req.body;
     // DEBUG: log autosave payload to help E2E debugging (dev only)
-    try { console.log(`[DEBUG] POST /api/listening-submissions/${testId}/autosave - body:`, JSON.stringify(req.body).slice(0,2000)); } catch (e) { console.error('[DEBUG] Could not stringify autosave body', e); }
+    try { debug(`POST /api/listening-submissions/${testId}/autosave - body:`, JSON.stringify(req.body).slice(0,2000)); } catch (e) { console.error('Could not stringify autosave body', e); }
 
     const resolvedUserId = user?.id || null;
     const resolvedUserName = user?.name || user?.username || user?.email || null;
@@ -452,25 +456,25 @@ router.get('/:testId/active', async (req, res) => {
   try {
     const { testId } = req.params;
     const { submissionId, userId } = req.query;
-    console.log(`[DEBUG] GET /api/listening-submissions/${testId}/active - query:`, req.query);
+    debug(`GET /api/listening-submissions/${testId}/active - query:`, req.query);
 
     if (submissionId) {
       const sub = await ListeningSubmission.findByPk(submissionId);
       if (!sub) {
-        console.log(`[DEBUG] GET /api/listening-submissions/${testId}/active - no submission for submissionId=${submissionId}`);
+        debug(`GET /api/listening-submissions/${testId}/active - no submission for submissionId=${submissionId}`);
         return res.status(404).json({ message: '❌ Không tìm thấy attempt' });
       }
-      console.log(`[DEBUG] GET /api/listening-submissions/${testId}/active - returning submissionId=${sub.id}`);
+      debug(`GET /api/listening-submissions/${testId}/active - returning submissionId=${sub.id}`);
       return res.json({ submission: sub.toJSON() });
     }
 
     if (userId) {
       const sub = await ListeningSubmission.findOne({ where: { testId: Number(testId), userId: Number(userId), finished: false }, order: [['updatedAt', 'DESC']] });
       if (!sub) {
-        console.log(`[DEBUG] GET /api/listening-submissions/${testId}/active - no active submission for userId=${userId}`);
+        debug(`GET /api/listening-submissions/${testId}/active - no active submission for userId=${userId}`);
         return res.json({ submission: null });
       }
-      console.log(`[DEBUG] GET /api/listening-submissions/${testId}/active - returning submissionId=${sub.id} for userId=${userId}`);
+      debug(`GET /api/listening-submissions/${testId}/active - returning submissionId=${sub.id} for userId=${userId}`);
       return res.json({ submission: sub.toJSON() });
     }
 
@@ -495,7 +499,7 @@ router.post('/:testId/cleanup', async (req, res) => {
       { where: { testId: Number(testId), userId: resolvedUserId, finished: false } }
     );
 
-    console.log(`[DEBUG] Cleanup for test ${testId} user ${resolvedUserId} - updated rows: ${updated[0]}`);
+    debug(`Cleanup for test ${testId} user ${resolvedUserId} - updated rows: ${updated[0]}`);
     return res.json({ message: '✅ Cleanup completed', updated: updated[0] });
   } catch (error) {
     console.error('Error during cleanup:', error);
