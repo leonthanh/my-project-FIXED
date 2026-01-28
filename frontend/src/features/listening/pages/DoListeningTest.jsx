@@ -3,7 +3,24 @@ import { useParams, useNavigate } from "react-router-dom";
 import { apiPath, hostPath } from "../../../shared/utils/api";
 import { TestHeader } from "../../../shared/components";
 import ResultModal from "../../../shared/components/ResultModal";
+import { generateDetailsFromSections } from "./ListeningResults";
 import styles from "./DoListeningTest.styles";
+
+// Local helper to compute band (mirror of listening results logic)
+const bandFromCorrect = (c) => {
+  if (c >= 39) return 9;
+  if (c >= 37) return 8.5;
+  if (c >= 35) return 8;
+  if (c >= 32) return 7.5;
+  if (c >= 30) return 7;
+  if (c >= 26) return 6.5;
+  if (c >= 23) return 6;
+  if (c >= 18) return 5.5;
+  if (c >= 16) return 5;
+  if (c >= 13) return 4.5;
+  if (c >= 11) return 4;
+  return 3.5;
+};
 
 /**
  * DoListeningTest - Trang làm bài thi Listening IELTS
@@ -337,7 +354,7 @@ const DoListeningTest = () => {
       const correctParsed = Number(correctRaw);
       const correctFinal = Number.isFinite(correctParsed) ? correctParsed : 0;
 
-      const result = {
+      let result = {
         submissionId: payload?.submissionId,
         total: totalFinal,
         correct: correctFinal,
@@ -345,7 +362,94 @@ const DoListeningTest = () => {
         band: payload?.band,
       };
 
+      // Client-side override: if we can generate full details from `test` + `answers` and
+      // that generated result is more complete or more correct than server payload, prefer it
+      // for immediate user feedback (doesn't persist server-side; use rescore script to persist).
+      try {
+        if (test && answers && typeof answers === 'object') {
+          const generated = generateDetailsFromSections(test, answers || {});
+          if (Array.isArray(generated) && generated.length) {
+            const genCorrect = generated.filter((d) => d.isCorrect).length;
+            const genTotal = generated.length;
+            // Prefer generated result when it appears more complete or more correct
+            if (genTotal > (result.total || 0) || genCorrect > (result.correct || 0)) {
+              result = {
+                ...result,
+                total: genTotal,
+                correct: genCorrect,
+                scorePercentage: genTotal ? Math.round((genCorrect / genTotal) * 100) : result.scorePercentage,
+                band: bandFromCorrect(genCorrect),
+                // provide details for potential later use in modal
+                details: generated,
+              };
+            }
+          }
+        }
+      } catch (e) {
+        // ignore - fall back to server result
+      }
+
       setResultData(result);
+
+      // Try to fetch authoritative submission details from server and prefer that if more complete.
+      if (result.submissionId) {
+        (async () => {
+          try {
+            const subRes = await fetch(apiPath(`listening-submissions/${result.submissionId}`));
+            if (!subRes.ok) return;
+            const payload = await subRes.json().catch(() => null);
+            const sub = payload?.submission || null;
+            const serverTest = payload?.test || null;
+            if (sub) {
+              // Try to use stored details if present
+              const parsedDetails = Array.isArray(sub.details) ? sub.details : (typeof sub.details === 'string' ? JSON.parse(sub.details || '[]') : []);
+              if (Array.isArray(parsedDetails) && parsedDetails.length) {
+                const parsedCorrect = parsedDetails.filter((d) => d.isCorrect).length;
+                const parsedTotal = parsedDetails.length;
+                setResultData((prev) => ({
+                  ...prev,
+                  total: parsedTotal,
+                  correct: parsedCorrect,
+                  scorePercentage: parsedTotal ? Math.round((parsedCorrect / parsedTotal) * 100) : prev.scorePercentage,
+                  band: bandFromCorrect(parsedCorrect),
+                  details: parsedDetails,
+                }));
+                return;
+              }
+
+              // Fallback: if server returned test structure, try to generate details locally and prefer that
+              if (serverTest && sub.answers) {
+                try {
+                  const testObj = {
+                    ...serverTest,
+                    partInstructions: typeof serverTest.partInstructions === 'string' ? JSON.parse(serverTest.partInstructions) : serverTest.partInstructions,
+                    questions: typeof serverTest.questions === 'string' ? JSON.parse(serverTest.questions) : serverTest.questions,
+                  };
+                  const generated = generateDetailsFromSections(testObj, sub.answers || {});
+                  if (Array.isArray(generated) && generated.length) {
+                    const gCorrect = generated.filter((d) => d.isCorrect).length;
+                    const gTotal = generated.length;
+                    setResultData((prev) => ({
+                      ...prev,
+                      total: gTotal,
+                      correct: gCorrect,
+                      scorePercentage: gTotal ? Math.round((gCorrect / gTotal) * 100) : prev.scorePercentage,
+                      band: bandFromCorrect(gCorrect),
+                      details: generated,
+                    }));
+                    return;
+                  }
+                } catch (e) {
+                  // ignore generation errors
+                }
+              }
+            }
+          } catch (e) {
+            // ignore network errors
+          }
+        })();
+      }
+
       if (test?.showResultModal !== false) {
         setResultModalOpen(true);
       } else {
