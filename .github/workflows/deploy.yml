@@ -1,5 +1,6 @@
 name: Deploy to cPanel
 
+# Playwright tests are disabled for automatic runs (team request) — use manual workflow for E2E when needed.
 on:
   push:
     branches: [main]

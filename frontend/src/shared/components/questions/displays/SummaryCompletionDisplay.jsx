@@ -1,11 +1,5 @@
 import React from 'react';
 
-const letterToIndex = (letter) => {
-  if (!letter) return -1;
-  const L = String(letter).trim().toUpperCase();
-  return L.charCodeAt(0) - 65;
-};
-
 const SummaryCompletionDisplay = ({ section, startingNumber, onAnswerChange, answers, submitted }) => {
   const questions = section.questions || [];
 

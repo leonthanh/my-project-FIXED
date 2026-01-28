@@ -4,6 +4,9 @@ const router = express.Router();
 const ListeningSubmission = require('../models/ListeningSubmission');
 const ListeningTest = require('../models/ListeningTest');
 
+const { requireAuth } = require('../middlewares/auth');
+const { requireTestPermission } = require('../middlewares/testPermissions');
+
 // POST: Submit listening test answers
 router.post('/', async (req, res) => {
   try {
@@ -163,13 +166,163 @@ router.get('/admin/list', async (req, res) => {
       return total || 40;
     };
 
+    // Helper: safe parse
+    const safeParseJson = (value) => {
+      if (typeof value !== 'string') return value;
+      try {
+        return JSON.parse(value);
+      } catch (e) {
+        return value;
+      }
+    };
+
+    // Generate details from test structure and answers (port of front-end helper)
+    const generateDetailsFromSections = (test, answers) => {
+      const questions = Array.isArray(test?.questions) ? test.questions : [];
+      const parts = Array.isArray(test?.partInstructions) ? test.partInstructions : [];
+      const normalizedAnswers = answers && typeof answers === 'object' ? answers : {};
+
+      const details = [];
+
+      const getSectionQuestions = (partIndex, sectionIndex) =>
+        questions
+          .filter((q) => Number(q?.partIndex) === Number(partIndex) && Number(q?.sectionIndex) === Number(sectionIndex))
+          .sort((a, b) => (Number(a?.questionIndex) || 0) - (Number(b?.questionIndex) || 0));
+
+      let runningStart = 1;
+
+      for (let pIdx = 0; pIdx < parts.length; pIdx++) {
+        const p = parts[pIdx];
+        const sections = Array.isArray(p?.sections) ? p.sections : [];
+        for (let sIdx = 0; sIdx < sections.length; sIdx++) {
+          const section = sections[sIdx] || {};
+          const sectionType = String(section?.questionType || 'fill').toLowerCase();
+          const sectionQuestions = getSectionQuestions(pIdx, sIdx);
+          if (!sectionQuestions.length) continue;
+
+          const firstQ = sectionQuestions[0];
+
+          const explicitSectionStart = Number(section?.startingQuestionNumber);
+          const hasExplicitStart = Number.isFinite(explicitSectionStart) && explicitSectionStart > 0;
+          const sectionStart = hasExplicitStart ? explicitSectionStart : runningStart;
+
+          if (sectionType === 'form-completion' || sectionType === 'notes-completion') {
+            const map = firstQ?.answers && typeof firstQ.answers === 'object' && !Array.isArray(firstQ.answers) ? firstQ.answers : null;
+            if (!map) continue;
+            const keys = Object.keys(map).map((k) => parseInt(k, 10)).filter((n) => Number.isFinite(n)).sort((a,b)=>a-b);
+            for (const num of keys) {
+              const expected = map[String(num)];
+              const student = normalizedAnswers[`q${num}`];
+              const ok = false; // defer matching to simpler equals (server-side) - attempt basic match
+              const studentVal = student ?? '';
+              const expectedVal = expected ?? '';
+              const isCorrect = String(studentVal).trim().toLowerCase() === String(expectedVal).trim().toLowerCase();
+              details.push({ questionNumber: num, partIndex: pIdx, sectionIndex: sIdx, questionType: sectionType, studentAnswer: studentVal, correctAnswer: expectedVal, isCorrect });
+            }
+            runningStart = Math.max(runningStart, sectionStart + keys.length);
+            continue;
+          }
+
+          if (sectionType === 'matching') {
+            const map = firstQ?.answers && typeof firstQ.answers === 'object' && !Array.isArray(firstQ.answers) ? firstQ.answers : null;
+            if (map) {
+              const keys = Object.keys(map).map((k) => parseInt(k, 10)).filter((n) => Number.isFinite(n)).sort((a,b)=>a-b);
+              for (const num of keys) {
+                const expected = map[String(num)];
+                const student = normalizedAnswers[`q${num}`];
+                const isCorrect = expected ? String(student).trim().toLowerCase() === String(expected).trim().toLowerCase() : false;
+                details.push({ questionNumber: num, partIndex: pIdx, sectionIndex: sIdx, questionType: sectionType, studentAnswer: student ?? '', correctAnswer: expected ?? '', isCorrect });
+              }
+              runningStart = Math.max(runningStart, sectionStart + keys.length);
+              continue;
+            }
+
+            const start = sectionStart;
+            const left = Array.isArray(firstQ?.leftItems) ? firstQ.leftItems : Array.isArray(firstQ?.items) ? firstQ.items : [];
+            for (let i = 0; i < left.length; i++) {
+              const num = start + i;
+              const student = normalizedAnswers[`q${num}`];
+              details.push({ questionNumber: num, partIndex: pIdx, sectionIndex: sIdx, questionType: sectionType, studentAnswer: student ?? '', correctAnswer: '', isCorrect: false });
+            }
+            runningStart = Math.max(runningStart, sectionStart + left.length);
+            continue;
+          }
+
+          if (sectionType === 'multi-select') {
+            let groupStart = sectionStart;
+            let totalCount = 0;
+            for (const q of sectionQuestions) {
+              const required = Number(q?.requiredAnswers) || 2;
+              const studentRaw = normalizedAnswers[`q${groupStart}`];
+              const expectedRaw = q?.correctAnswer ?? q?.answers;
+
+              const studentDisplay = Array.isArray(studentRaw) ? studentRaw.join(',') : String(studentRaw ?? '');
+              const expectedDisplay = Array.isArray(expectedRaw) ? expectedRaw.join(',') : String(expectedRaw ?? '');
+
+              const ok = studentDisplay && expectedDisplay ? String(studentDisplay).trim().toLowerCase() === String(expectedDisplay).trim().toLowerCase() : false;
+
+              for (let i = 0; i < required; i++) {
+                details.push({ questionNumber: groupStart + i, partIndex: pIdx, sectionIndex: sIdx, questionType: sectionType, studentAnswer: studentDisplay, correctAnswer: expectedDisplay, isCorrect: ok });
+              }
+
+              groupStart += required;
+              totalCount += required;
+            }
+            runningStart = Math.max(runningStart, sectionStart + totalCount);
+            continue;
+          }
+
+          const startNum = sectionStart;
+          const fallbackStart = Number(sectionQuestions[0]?.globalNumber) || null;
+          const finalStart = Number.isFinite(startNum) && startNum > 0 ? startNum : fallbackStart;
+          if (!Number.isFinite(finalStart)) continue;
+
+          sectionQuestions.forEach((q, idx) => {
+            const num = finalStart + idx;
+            const expected = q?.correctAnswer;
+            const student = normalizedAnswers[`q${num}`];
+            const ok = student != null && expected != null ? String(student).trim().toLowerCase() === String(expected).trim().toLowerCase() : false;
+            details.push({ questionNumber: num, partIndex: pIdx, sectionIndex: sIdx, questionType: String(sectionType || q?.questionType || 'fill').toLowerCase(), studentAnswer: student ?? '', correctAnswer: expected ?? '', isCorrect: ok });
+          });
+
+          runningStart = Math.max(runningStart, sectionStart + sectionQuestions.length);
+        }
+      }
+
+      details.sort((a, b) => (Number(a?.questionNumber) || 0) - (Number(b?.questionNumber) || 0));
+      return details;
+    };
+
     const result = subs.map((s) => {
       const obj = s.toJSON();
       const t = testMap[String(s.testId)];
       // compute a displayable total from test structure when possible
       const testFull = t ? (t.toJSON ? t.toJSON() : t) : null;
       const computedTotal = computeTestTotal(testFull);
-      const correct = Number(obj.correct) || 0;
+
+      // compute a 'correct' count using details when available, otherwise attempt to generate
+      let parsedDetails = obj.details && typeof obj.details === 'string' ? safeParseJson(obj.details) : obj.details;
+      parsedDetails = Array.isArray(parsedDetails) ? parsedDetails : [];
+      let computedCorrect = parsedDetails.length ? parsedDetails.filter(d => d.isCorrect).length : null;
+
+      // If we don't have parsedDetails but have test structure and answers, try generating
+      if ((!parsedDetails || parsedDetails.length === 0) && testFull && obj.answers) {
+        try {
+          const parsedAnswers = safeParseJson(obj.answers) || {};
+          const generated = generateDetailsFromSections({
+            ...testFull,
+            partInstructions: safeParseJson(testFull.partInstructions),
+            questions: Array.isArray(testFull.questions) ? testFull.questions : (safeParseJson(testFull.questions) || [])
+          }, parsedAnswers);
+          if (generated && generated.length) {
+            computedCorrect = generated.filter(d => d.isCorrect).length;
+          }
+        } catch (e) {
+          // ignore
+        }
+      }
+
+      const correct = computedCorrect != null ? computedCorrect : (Number(obj.correct) || 0);
       const computedPercentage = computedTotal ? Math.round((correct / computedTotal) * 100) : 0;
 
       obj.ListeningTest = t
@@ -182,6 +335,7 @@ router.get('/admin/list', async (req, res) => {
         : null;
       obj.computedTotal = computedTotal;
       obj.computedPercentage = computedPercentage;
+      obj.computedCorrect = Number.isFinite(Number(correct)) ? Number(correct) : 0;
       // Backwards-compatible override: set stored fields so older frontends (served from build) show corrected totals
       obj.total = computedTotal;
       obj.scorePercentage = computedPercentage;
@@ -394,6 +548,226 @@ router.get('/:submissionId', async (req, res) => {
       message: '❌ Lỗi khi lấy kết quả',
       error: error.message
     });
+  }
+});
+
+// POST: Admin rescore endpoint (teacher only) — safe to run on demand
+router.post('/rescore', requireAuth, requireTestPermission('listening'), async (req, res) => {
+  try {
+    const { testId, submissionIds = [], dryRun = false, force = false, limit = null } = req.body || {};
+
+    // Build where clause similar to scripts/rescore-listening-submissions.js
+    const where = {};
+    if (!force) {
+      where[Op.or] = [{ total: 0 }, { total: { [Op.is]: null } }];
+    }
+    if (Array.isArray(submissionIds) && submissionIds.length) {
+      where.id = submissionIds;
+    }
+    if (testId) where.testId = Number(testId);
+
+    const subs = await ListeningSubmission.findAll({ where, order: [['id', 'ASC']], ...(limit ? { limit } : {}) });
+
+    let updated = 0;
+    const report = [];
+
+    // Inline reuse of score logic from scripts/rescore-listening-submissions.js
+    const parseIfJsonString = (val) => {
+      let v = val;
+      let attempts = 0;
+      while (typeof v === 'string' && attempts < 3) {
+        try { v = JSON.parse(v); } catch (e) { break; }
+        attempts++;
+      }
+      return v;
+    };
+
+    const normalize = (val) => (val == null ? '' : String(val)).trim().toLowerCase();
+    const explodeAccepted = (val) => {
+      if (val == null) return [];
+      if (Array.isArray(val)) return val;
+      const s = String(val);
+      if (s.includes('|')) return s.split('|').map((x) => x.trim()).filter(Boolean);
+      if (s.includes('/')) return s.split('/').map((x) => x.trim()).filter(Boolean);
+      if (s.includes(',')) return s.split(',').map((x) => x.trim()).filter(Boolean);
+      return [s];
+    };
+
+    const bandFromCorrect = (c) => {
+      if (c >= 39) return 9;
+      if (c >= 37) return 8.5;
+      if (c >= 35) return 8;
+      if (c >= 32) return 7.5;
+      if (c >= 30) return 7;
+      if (c >= 26) return 6.5;
+      if (c >= 23) return 6;
+      if (c >= 18) return 5.5;
+      if (c >= 16) return 5;
+      if (c >= 13) return 4.5;
+      if (c >= 11) return 4;
+      return 3.5;
+    };
+
+    // Minimal scoring helper (covers common structures) — mirrors script behavior
+    const scoreListening = ({ test, answers }) => {
+      const normalizedAnswers = answers && typeof answers === 'object' ? answers : {};
+      const questions = parseIfJsonString(test?.questions);
+      const partInstructions = parseIfJsonString(test?.partInstructions);
+      let correctCount = 0;
+      let totalCount = 0;
+      const details = [];
+
+      const numericKeys = (obj) =>
+        obj && typeof obj === 'object' && !Array.isArray(obj)
+          ? Object.keys(obj).map((k) => parseInt(k, 10)).filter((n) => Number.isFinite(n)).sort((a,b)=>a-b)
+          : [];
+
+      const getSectionQuestions = (pIdx, sIdx) =>
+        Array.isArray(questions)
+          ? questions.filter((q) => Number(q?.partIndex) === Number(pIdx) && Number(q?.sectionIndex) === Number(sIdx)).sort((a,b)=> (Number(a?.questionIndex)||0)-(Number(b?.questionIndex)||0))
+          : [];
+
+      if (Array.isArray(partInstructions) && Array.isArray(questions)) {
+        let runningStart = 1;
+        const advanceRunning = (count, sectionStart) => { runningStart = Math.max(runningStart, (Number.isFinite(sectionStart) ? sectionStart : runningStart) + count); };
+
+        for (let pIdx = 0; pIdx < partInstructions.length; pIdx++) {
+          const part = partInstructions[pIdx];
+          const sections = Array.isArray(part?.sections) ? part.sections : [];
+          for (let sIdx = 0; sIdx < sections.length; sIdx++) {
+            const section = sections[sIdx] || {};
+            const sectionType = String(section?.questionType || 'fill').toLowerCase();
+            const sectionQuestions = getSectionQuestions(pIdx, sIdx);
+            if (!sectionQuestions.length) continue;
+
+            const firstQ = sectionQuestions[0];
+            const explicitSectionStart = Number(section?.startingQuestionNumber);
+            const hasExplicitStart = Number.isFinite(explicitSectionStart) && explicitSectionStart > 0;
+            const sectionStart = hasExplicitStart ? explicitSectionStart : runningStart;
+
+            if (sectionType === 'form-completion' || sectionType === 'notes-completion') {
+              const map = firstQ?.answers && typeof firstQ.answers === 'object' && !Array.isArray(firstQ.answers) ? firstQ.answers : null;
+              if (map) {
+                const keys = numericKeys(map);
+                for (const num of keys) {
+                  totalCount++;
+                  const expected = map[String(num)];
+                  const student = normalizedAnswers[`q${num}`];
+                  const accepted = explodeAccepted(expected).map(normalize);
+                  const ok = accepted.length ? accepted.includes(normalize(student)) : normalize(student) === normalize(expected);
+                  if (ok) correctCount++;
+                  details.push({ questionNumber: num, partIndex: pIdx, sectionIndex: sIdx, questionType: sectionType, studentAnswer: student ?? '', correctAnswer: expected ?? '', isCorrect: ok });
+                }
+                advanceRunning(keys.length, sectionStart);
+                continue;
+              }
+            }
+
+            if (sectionType === 'matching') {
+              const map = firstQ?.answers && typeof firstQ.answers === 'object' && !Array.isArray(firstQ.answers) ? firstQ.answers : null;
+              if (map) {
+                const keys = numericKeys(map);
+                for (const num of keys) {
+                  totalCount++;
+                  const expected = map[String(num)];
+                  const student = normalizedAnswers[`q${num}`];
+                  const ok = normalize(student) === normalize(expected);
+                  if (ok) correctCount++;
+                  details.push({ questionNumber: num, partIndex: pIdx, sectionIndex: sIdx, questionType: sectionType, studentAnswer: student ?? '', correctAnswer: expected ?? '', isCorrect: ok });
+                }
+                advanceRunning(keys.length, sectionStart);
+                continue;
+              }
+
+              const left = Array.isArray(firstQ?.leftItems) ? firstQ.leftItems : [];
+              for (let i = 0; i < left.length; i++) {
+                const num = sectionStart + i;
+                totalCount++;
+                const student = normalizedAnswers[`q${num}`];
+                details.push({ questionNumber: num, partIndex: pIdx, sectionIndex: sIdx, questionType: sectionType, studentAnswer: student ?? '', correctAnswer: '', isCorrect: false });
+              }
+              advanceRunning(left.length, sectionStart);
+              continue;
+            }
+
+            if (sectionType === 'multi-select') {
+              let groupStart = sectionStart;
+              let totalCountForSection = 0;
+              for (const q of sectionQuestions) {
+                const required = Number(q?.requiredAnswers) || 2;
+                const student = normalizedAnswers[`q${groupStart}`];
+                const expectedRaw = q?.correctAnswer ?? q?.answers;
+                const studentDisplay = Array.isArray(student) ? student.join(',') : String(student ?? '');
+                const expectedDisplay = Array.isArray(expectedRaw) ? expectedRaw.join(',') : String(expectedRaw ?? '');
+                const ok = studentDisplay && expectedDisplay ? String(studentDisplay).trim().toLowerCase() === String(expectedDisplay).trim().toLowerCase() : false;
+                totalCount += required;
+                if (ok) correctCount += required;
+                details.push({ questionNumber: groupStart, partIndex: pIdx, sectionIndex: sIdx, questionType: sectionType, studentAnswer: studentDisplay, correctAnswer: expectedDisplay, isCorrect: ok });
+                groupStart += required;
+                totalCountForSection += required;
+              }
+              advanceRunning(totalCountForSection, sectionStart);
+              continue;
+            }
+
+            // default
+            const startNum = sectionStart;
+            const fallbackStart = Number(sectionQuestions[0]?.globalNumber) || null;
+            const finalStart = Number.isFinite(startNum) && startNum > 0 ? startNum : fallbackStart;
+            if (!Number.isFinite(finalStart)) {
+              totalCount += sectionQuestions.length;
+              advanceRunning(sectionQuestions.length, sectionStart);
+              continue;
+            }
+
+            sectionQuestions.forEach((q, idx) => {
+              const num = finalStart + idx;
+              totalCount++;
+              const expected = q?.correctAnswer;
+              const student = normalizedAnswers[`q${num}`];
+              const accepted = explodeAccepted(expected).map(normalize);
+              const ok = accepted.length ? accepted.includes(normalize(student)) : normalize(student) === normalize(expected);
+              if (ok) correctCount++;
+              details.push({ questionNumber: num, partIndex: pIdx, sectionIndex: sIdx, questionType: String(sectionType || q?.questionType || 'fill').toLowerCase(), studentAnswer: student ?? '', correctAnswer: expected ?? '', isCorrect: ok });
+            });
+
+            advanceRunning(sectionQuestions.length, sectionStart);
+          }
+        }
+      }
+
+      const scorePercentage = totalCount > 0 ? Math.round((correctCount / totalCount) * 100) : 0;
+      const band = bandFromCorrect(correctCount);
+      return { correctCount, totalCount, scorePercentage, band, details };
+    };
+
+    for (const s of subs) {
+      const test = await ListeningTest.findByPk(s.testId);
+      if (!test) {
+        report.push({ id: s.id, skipped: 'no test' });
+        continue;
+      }
+
+      const sc = scoreListening({ test: test.toJSON ? test.toJSON() : test, answers: parseIfJsonString(s.answers) });
+      if (!(Number.isFinite(sc.totalCount) && sc.totalCount > 0)) {
+        report.push({ id: s.id, skipped: 'cannot compute' });
+        continue;
+      }
+
+      if (dryRun) {
+        report.push({ id: s.id, from: { correct: s.correct, total: s.total }, to: { correct: sc.correctCount, total: sc.totalCount, band: sc.band } });
+        continue;
+      }
+
+      await s.update({ correct: sc.correctCount, total: sc.totalCount, scorePercentage: sc.scorePercentage, band: sc.band, details: sc.details });
+      updated++;
+      report.push({ id: s.id, updated: true, to: { correct: sc.correctCount, total: sc.totalCount, band: sc.band } });
+    }
+
+    return res.json({ ok: true, updated, report });
+  } catch (err) {
+    console.error('Error during rescore endpoint:', err);
+    return res.status(500).json({ ok: false, message: 'Rescore failed', error: err.message });
   }
 });
 
