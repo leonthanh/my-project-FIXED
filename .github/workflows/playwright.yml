@@ -1,10 +1,10 @@
 name: Playwright E2E
 
+# NOTE: Disabled automatic runs to avoid blocking deploys for teachers.
+# This workflow is now manual-only. To run tests, use the "Run workflow" button
+# on the Actions page or trigger via API using workflow_dispatch.
 on:
-  pull_request:
-    branches: [ "main" ]
-  push:
-    branches: [ "main" ]
+  workflow_dispatch:
 
 jobs:
   e2e:
