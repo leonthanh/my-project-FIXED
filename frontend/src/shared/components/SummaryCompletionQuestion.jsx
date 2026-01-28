@@ -6,8 +6,11 @@ import QuillEditor from './QuillEditor';
 // - question.questionText contains the summary with [BLANK] placeholders
 // - question.options is an array of option texts (A, B, C...)
 // - question.blanks is an array of { id, blankNumber, correctAnswer } where correctAnswer is letter(s) like 'B' or 'B|C'
-
-const LETTERS = (n) => Array.from({ length: n }).map((_, i) => String.fromCharCode(65 + i));
+// Câu hỏi Tóm tắt Hoàn thành
+// Trình soạn thảo dành cho giáo viên cho câu hỏi "Hoàn thành phần tóm tắt bằng cách sử dụng danh sách các từ A-L".
+// - question.questionText chứa phần tóm tắt với các chỗ trống [BLANK]
+// - question.options là một mảng các văn bản lựa chọn (A, B, C...)
+// - question.blanks là một mảng gồm { id, blankNumber, correctAnswer } trong đó correctAnswer là chữ cái (hoặc các chữ cái) như 'B' hoặc 'B|C'
 
 const SummaryCompletionQuestion = ({ question = {}, onChange }) => {
   const [summary, setSummary] = useState(question.questionText || '');

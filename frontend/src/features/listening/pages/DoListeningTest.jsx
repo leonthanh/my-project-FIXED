@@ -41,14 +41,16 @@ const DoListeningTest = () => {
   const expiresKey = `listening:${id}:expiresAt`;
 
   // Key for persisting full state (answers + expiresAt). Includes user id to allow per-user isolation.
-  const userForStorage = (() => {
+  // Compute a stable storage user id once (so we can use it safely in dependency arrays).
+  const storageUserId = useMemo(() => {
     try {
-      return JSON.parse(localStorage.getItem("user") || "null");
+      const u = JSON.parse(localStorage.getItem("user") || "null");
+      return u?.id || "anon";
     } catch (e) {
-      return null;
+      return "anon";
     }
-  })();
-  const storageUserId = userForStorage?.id || "anon";
+  }, []);
+
   const stateKey = `listening:${id}:state:${storageUserId}`;
 
   const expiresAtRef = useRef(null);
@@ -139,7 +141,10 @@ const DoListeningTest = () => {
         (async () => {
           try {
             const submissionId = submissionIdRef.current;
-            const user = userForStorage;
+            // Read latest user from localStorage here so it's not an external dependency for the effect
+            const user = (() => {
+              try { return JSON.parse(localStorage.getItem('user') || 'null'); } catch (e) { return null; }
+            })();
             const query = submissionId ? `?submissionId=${submissionId}` : user?.id ? `?userId=${user.id}` : '';
             if (query !== '') {
               const res = await fetch(apiPath(`listening-submissions/${id}/active${query}`));
@@ -413,7 +418,8 @@ const DoListeningTest = () => {
           return;
         }
 
-        const payload = { submissionId: submissionIdRef.current, answers, expiresAt: expiresAtRef.current, user: userForStorage };
+        const user = (() => { try { return JSON.parse(localStorage.getItem('user') || 'null'); } catch (e) { return null; } })();
+        const payload = { submissionId: submissionIdRef.current, answers, expiresAt: expiresAtRef.current, user };
         const res = await fetch(apiPath(`listening-submissions/${id}/autosave`), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -451,7 +457,8 @@ const DoListeningTest = () => {
       saveState();
       // Try one last synchronous navigator send via sendBeacon (best-effort)
       try {
-        const payload = { submissionId: submissionIdRef.current, answers, expiresAt: expiresAtRef.current, user: userForStorage };
+        const user = (() => { try { return JSON.parse(localStorage.getItem('user')||'null'); } catch (e) { return null; } })();
+        const payload = { submissionId: submissionIdRef.current, answers, expiresAt: expiresAtRef.current, user };
         const url = apiPath(`listening-submissions/${id}/autosave`);
         if (navigator.sendBeacon) {
           const blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
@@ -491,7 +498,7 @@ const DoListeningTest = () => {
       window.removeEventListener("beforeunload", onBeforeUnload);
       window.removeEventListener("storage", onStorage);
     };
-  }, [answers, submitted, stateKey, expiresKey, id, userForStorage]);
+  }, [answers, submitted, stateKey, expiresKey, id]);
 
   // Get parts data
   const parts = useMemo(() => {

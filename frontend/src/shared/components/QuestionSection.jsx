@@ -50,6 +50,7 @@ const QuestionSection = ({
     'notes-completion',
     'map-labeling',
     'flowchart',
+    'summary-completion', // support summary completion in editor
   ];
   
   // State to track which questions are expanded - first question is expanded by default
