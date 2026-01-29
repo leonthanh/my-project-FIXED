@@ -51,7 +51,18 @@ const SummaryCompletionDisplay = ({ section, startingNumber, onAnswerChange, ans
                 return (
                   <div key={bi} style={{ display: 'grid', gridTemplateColumns: '40px 1fr auto', gap: 12, alignItems: 'center', padding: 12, background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8 }}>
                     <div style={{ width: 32, height: 32, borderRadius: 16, background: '#0e276f', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>{questionNumber}</div>
-                    <input type="text" value={userAnswer} onChange={(e) => onAnswerChange(questionKey, e.target.value)} disabled={submitted} placeholder="Viết chữ cái (A-L)" style={{ padding: '10px 14px', border: '2px solid #d1d5db', borderRadius: 6 }} />
+
+                    {opts.length > 0 ? (
+                      <select value={userAnswer} onChange={(e) => onAnswerChange(questionKey, e.target.value)} disabled={submitted} style={{ padding: '10px 14px', border: '2px solid #d1d5db', borderRadius: 6, height: 40 }}>
+                        <option value="">-- Chọn chữ cái --</option>
+                        {opts.map((opt, idx) => (
+                          <option key={idx} value={String.fromCharCode(65 + idx)}>{String.fromCharCode(65 + idx)}. {opt}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input type="text" value={userAnswer} onChange={(e) => onAnswerChange(questionKey, e.target.value)} disabled={submitted} placeholder="Viết chữ cái (A-L)" style={{ padding: '10px 14px', border: '2px solid #d1d5db', borderRadius: 6 }} />
+                    )}
+
                     {submitted && (
                       <div style={{ padding: '8px 12px', backgroundColor: '#dcfce7', color: '#166534', borderRadius: 6, fontWeight: 700 }}>
                         {submittedLetter || '(no answer)'}
