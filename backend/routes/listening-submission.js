@@ -3,9 +3,14 @@ const router = express.Router();
 
 const ListeningSubmission = require('../models/ListeningSubmission');
 const ListeningTest = require('../models/ListeningTest');
+const { scoreListening } = require('../utils/listeningScorer');
 
 const { requireAuth } = require('../middlewares/auth');
 const { requireTestPermission } = require('../middlewares/testPermissions');
+
+// Simple runtime debug helper - enable by setting DEBUG_LISTENING=1 or DEBUG=1
+const DEBUG_LISTENING = process.env.DEBUG_LISTENING === '1' || process.env.DEBUG === '1';
+const debug = (...args) => { if (DEBUG_LISTENING) console.log('[DEBUG]', ...args); };
 
 // POST: Submit listening test answers
 router.post('/', async (req, res) => {
@@ -13,24 +18,42 @@ router.post('/', async (req, res) => {
     // Legacy endpoint used by older client flows. Prefer /api/listening-tests/:id/submit.
     const { testId, passages, answers, user, studentName, studentId } = req.body;
 
-    // If client sends the new format, store it.
+    // If client sends the new format, store it and compute score server-side.
     if (testId && answers && typeof answers === 'object') {
       const resolvedUserName = studentName || user?.name || user?.username || null;
       const resolvedUserId = studentId || user?.id || null;
+
+      // Attempt to compute authoritative score using test structure
+      let sc = null;
+      const test = await ListeningTest.findByPk(testId);
+      if (test) {
+        try {
+          sc = scoreListening({ test: test.toJSON ? test.toJSON() : test, answers });
+        } catch (e) {
+          console.error('[WARN] scoreListening failed on submit:', e);
+        }
+      }
+
       const submission = await ListeningSubmission.create({
         testId: Number(testId),
         userId: resolvedUserId,
         userName: resolvedUserName,
         answers,
-        correct: 0,
-        total: 0,
-        scorePercentage: 0,
-        band: null,
+        correct: sc ? sc.correctCount : 0,
+        total: sc ? sc.totalCount : 0,
+        scorePercentage: sc ? sc.scorePercentage : 0,
+        band: sc ? sc.band : null,
+        details: sc ? sc.details : null,
+        finished: true,
       });
 
       return res.status(201).json({
         message: '✅ Nộp bài thành công!',
         submissionId: submission.id,
+        score: submission.scorePercentage,
+        correct: submission.correct,
+        total: submission.total,
+        band: submission.band,
       });
     }
 
@@ -373,7 +396,7 @@ router.post('/:testId/autosave', async (req, res) => {
     const { testId } = req.params;
     const { submissionId, answers, expiresAt, user } = req.body;
     // DEBUG: log autosave payload to help E2E debugging (dev only)
-    try { console.log(`[DEBUG] POST /api/listening-submissions/${testId}/autosave - body:`, JSON.stringify(req.body).slice(0,2000)); } catch (e) { console.error('[DEBUG] Could not stringify autosave body', e); }
+    try { debug(`POST /api/listening-submissions/${testId}/autosave - body:`, JSON.stringify(req.body).slice(0,2000)); } catch (e) { console.error('Could not stringify autosave body', e); }
 
     const resolvedUserId = user?.id || null;
     const resolvedUserName = user?.name || user?.username || user?.email || null;
@@ -433,25 +456,25 @@ router.get('/:testId/active', async (req, res) => {
   try {
     const { testId } = req.params;
     const { submissionId, userId } = req.query;
-    console.log(`[DEBUG] GET /api/listening-submissions/${testId}/active - query:`, req.query);
+    debug(`GET /api/listening-submissions/${testId}/active - query:`, req.query);
 
     if (submissionId) {
       const sub = await ListeningSubmission.findByPk(submissionId);
       if (!sub) {
-        console.log(`[DEBUG] GET /api/listening-submissions/${testId}/active - no submission for submissionId=${submissionId}`);
+        debug(`GET /api/listening-submissions/${testId}/active - no submission for submissionId=${submissionId}`);
         return res.status(404).json({ message: '❌ Không tìm thấy attempt' });
       }
-      console.log(`[DEBUG] GET /api/listening-submissions/${testId}/active - returning submissionId=${sub.id}`);
+      debug(`GET /api/listening-submissions/${testId}/active - returning submissionId=${sub.id}`);
       return res.json({ submission: sub.toJSON() });
     }
 
     if (userId) {
       const sub = await ListeningSubmission.findOne({ where: { testId: Number(testId), userId: Number(userId), finished: false }, order: [['updatedAt', 'DESC']] });
       if (!sub) {
-        console.log(`[DEBUG] GET /api/listening-submissions/${testId}/active - no active submission for userId=${userId}`);
+        debug(`GET /api/listening-submissions/${testId}/active - no active submission for userId=${userId}`);
         return res.json({ submission: null });
       }
-      console.log(`[DEBUG] GET /api/listening-submissions/${testId}/active - returning submissionId=${sub.id} for userId=${userId}`);
+      debug(`GET /api/listening-submissions/${testId}/active - returning submissionId=${sub.id} for userId=${userId}`);
       return res.json({ submission: sub.toJSON() });
     }
 
@@ -476,7 +499,7 @@ router.post('/:testId/cleanup', async (req, res) => {
       { where: { testId: Number(testId), userId: resolvedUserId, finished: false } }
     );
 
-    console.log(`[DEBUG] Cleanup for test ${testId} user ${resolvedUserId} - updated rows: ${updated[0]}`);
+    debug(`Cleanup for test ${testId} user ${resolvedUserId} - updated rows: ${updated[0]}`);
     return res.json({ message: '✅ Cleanup completed', updated: updated[0] });
   } catch (error) {
     console.error('Error during cleanup:', error);
@@ -582,164 +605,7 @@ router.post('/rescore', requireAuth, requireTestPermission('listening'), async (
       return v;
     };
 
-    const normalize = (val) => (val == null ? '' : String(val)).trim().toLowerCase();
-    const explodeAccepted = (val) => {
-      if (val == null) return [];
-      if (Array.isArray(val)) return val;
-      const s = String(val);
-      if (s.includes('|')) return s.split('|').map((x) => x.trim()).filter(Boolean);
-      if (s.includes('/')) return s.split('/').map((x) => x.trim()).filter(Boolean);
-      if (s.includes(',')) return s.split(',').map((x) => x.trim()).filter(Boolean);
-      return [s];
-    };
 
-    const bandFromCorrect = (c) => {
-      if (c >= 39) return 9;
-      if (c >= 37) return 8.5;
-      if (c >= 35) return 8;
-      if (c >= 32) return 7.5;
-      if (c >= 30) return 7;
-      if (c >= 26) return 6.5;
-      if (c >= 23) return 6;
-      if (c >= 18) return 5.5;
-      if (c >= 16) return 5;
-      if (c >= 13) return 4.5;
-      if (c >= 11) return 4;
-      return 3.5;
-    };
-
-    // Minimal scoring helper (covers common structures) — mirrors script behavior
-    const scoreListening = ({ test, answers }) => {
-      const normalizedAnswers = answers && typeof answers === 'object' ? answers : {};
-      const questions = parseIfJsonString(test?.questions);
-      const partInstructions = parseIfJsonString(test?.partInstructions);
-      let correctCount = 0;
-      let totalCount = 0;
-      const details = [];
-
-      const numericKeys = (obj) =>
-        obj && typeof obj === 'object' && !Array.isArray(obj)
-          ? Object.keys(obj).map((k) => parseInt(k, 10)).filter((n) => Number.isFinite(n)).sort((a,b)=>a-b)
-          : [];
-
-      const getSectionQuestions = (pIdx, sIdx) =>
-        Array.isArray(questions)
-          ? questions.filter((q) => Number(q?.partIndex) === Number(pIdx) && Number(q?.sectionIndex) === Number(sIdx)).sort((a,b)=> (Number(a?.questionIndex)||0)-(Number(b?.questionIndex)||0))
-          : [];
-
-      if (Array.isArray(partInstructions) && Array.isArray(questions)) {
-        let runningStart = 1;
-        const advanceRunning = (count, sectionStart) => { runningStart = Math.max(runningStart, (Number.isFinite(sectionStart) ? sectionStart : runningStart) + count); };
-
-        for (let pIdx = 0; pIdx < partInstructions.length; pIdx++) {
-          const part = partInstructions[pIdx];
-          const sections = Array.isArray(part?.sections) ? part.sections : [];
-          for (let sIdx = 0; sIdx < sections.length; sIdx++) {
-            const section = sections[sIdx] || {};
-            const sectionType = String(section?.questionType || 'fill').toLowerCase();
-            const sectionQuestions = getSectionQuestions(pIdx, sIdx);
-            if (!sectionQuestions.length) continue;
-
-            const firstQ = sectionQuestions[0];
-            const explicitSectionStart = Number(section?.startingQuestionNumber);
-            const hasExplicitStart = Number.isFinite(explicitSectionStart) && explicitSectionStart > 0;
-            const sectionStart = hasExplicitStart ? explicitSectionStart : runningStart;
-
-            if (sectionType === 'form-completion' || sectionType === 'notes-completion') {
-              const map = firstQ?.answers && typeof firstQ.answers === 'object' && !Array.isArray(firstQ.answers) ? firstQ.answers : null;
-              if (map) {
-                const keys = numericKeys(map);
-                for (const num of keys) {
-                  totalCount++;
-                  const expected = map[String(num)];
-                  const student = normalizedAnswers[`q${num}`];
-                  const accepted = explodeAccepted(expected).map(normalize);
-                  const ok = accepted.length ? accepted.includes(normalize(student)) : normalize(student) === normalize(expected);
-                  if (ok) correctCount++;
-                  details.push({ questionNumber: num, partIndex: pIdx, sectionIndex: sIdx, questionType: sectionType, studentAnswer: student ?? '', correctAnswer: expected ?? '', isCorrect: ok });
-                }
-                advanceRunning(keys.length, sectionStart);
-                continue;
-              }
-            }
-
-            if (sectionType === 'matching') {
-              const map = firstQ?.answers && typeof firstQ.answers === 'object' && !Array.isArray(firstQ.answers) ? firstQ.answers : null;
-              if (map) {
-                const keys = numericKeys(map);
-                for (const num of keys) {
-                  totalCount++;
-                  const expected = map[String(num)];
-                  const student = normalizedAnswers[`q${num}`];
-                  const ok = normalize(student) === normalize(expected);
-                  if (ok) correctCount++;
-                  details.push({ questionNumber: num, partIndex: pIdx, sectionIndex: sIdx, questionType: sectionType, studentAnswer: student ?? '', correctAnswer: expected ?? '', isCorrect: ok });
-                }
-                advanceRunning(keys.length, sectionStart);
-                continue;
-              }
-
-              const left = Array.isArray(firstQ?.leftItems) ? firstQ.leftItems : [];
-              for (let i = 0; i < left.length; i++) {
-                const num = sectionStart + i;
-                totalCount++;
-                const student = normalizedAnswers[`q${num}`];
-                details.push({ questionNumber: num, partIndex: pIdx, sectionIndex: sIdx, questionType: sectionType, studentAnswer: student ?? '', correctAnswer: '', isCorrect: false });
-              }
-              advanceRunning(left.length, sectionStart);
-              continue;
-            }
-
-            if (sectionType === 'multi-select') {
-              let groupStart = sectionStart;
-              let totalCountForSection = 0;
-              for (const q of sectionQuestions) {
-                const required = Number(q?.requiredAnswers) || 2;
-                const student = normalizedAnswers[`q${groupStart}`];
-                const expectedRaw = q?.correctAnswer ?? q?.answers;
-                const studentDisplay = Array.isArray(student) ? student.join(',') : String(student ?? '');
-                const expectedDisplay = Array.isArray(expectedRaw) ? expectedRaw.join(',') : String(expectedRaw ?? '');
-                const ok = studentDisplay && expectedDisplay ? String(studentDisplay).trim().toLowerCase() === String(expectedDisplay).trim().toLowerCase() : false;
-                totalCount += required;
-                if (ok) correctCount += required;
-                details.push({ questionNumber: groupStart, partIndex: pIdx, sectionIndex: sIdx, questionType: sectionType, studentAnswer: studentDisplay, correctAnswer: expectedDisplay, isCorrect: ok });
-                groupStart += required;
-                totalCountForSection += required;
-              }
-              advanceRunning(totalCountForSection, sectionStart);
-              continue;
-            }
-
-            // default
-            const startNum = sectionStart;
-            const fallbackStart = Number(sectionQuestions[0]?.globalNumber) || null;
-            const finalStart = Number.isFinite(startNum) && startNum > 0 ? startNum : fallbackStart;
-            if (!Number.isFinite(finalStart)) {
-              totalCount += sectionQuestions.length;
-              advanceRunning(sectionQuestions.length, sectionStart);
-              continue;
-            }
-
-            sectionQuestions.forEach((q, idx) => {
-              const num = finalStart + idx;
-              totalCount++;
-              const expected = q?.correctAnswer;
-              const student = normalizedAnswers[`q${num}`];
-              const accepted = explodeAccepted(expected).map(normalize);
-              const ok = accepted.length ? accepted.includes(normalize(student)) : normalize(student) === normalize(expected);
-              if (ok) correctCount++;
-              details.push({ questionNumber: num, partIndex: pIdx, sectionIndex: sIdx, questionType: String(sectionType || q?.questionType || 'fill').toLowerCase(), studentAnswer: student ?? '', correctAnswer: expected ?? '', isCorrect: ok });
-            });
-
-            advanceRunning(sectionQuestions.length, sectionStart);
-          }
-        }
-      }
-
-      const scorePercentage = totalCount > 0 ? Math.round((correctCount / totalCount) * 100) : 0;
-      const band = bandFromCorrect(correctCount);
-      return { correctCount, totalCount, scorePercentage, band, details };
-    };
 
     for (const s of subs) {
       const test = await ListeningTest.findByPk(s.testId);
