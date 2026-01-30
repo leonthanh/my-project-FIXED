@@ -41,7 +41,7 @@ const parseIfJsonString = (val) => {
     return [s];
   };
 
-  const normalize = (v) => (v == null ? '' : String(v)).trim().toLowerCase();
+  const normalize = (v) => (v == null ? "" : String(v).trim().toLowerCase());
   const toIndices = (val) => {
     const parts = Array.isArray(val) ? val : explodeAccepted(val);
     return parts.map((x) => {

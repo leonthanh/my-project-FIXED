@@ -380,7 +380,52 @@ const ReadingResults = () => {
         const analysisRes = await fetch(apiPath(`reading-submissions/${submissionId}/analysis`));
         if (analysisRes.ok) {
           const analysisData = await analysisRes.json();
-          setAnalysis(analysisData);
+
+          // Normalize analysis to ensure `analysis.breakdown` is a mapping { label: {correct,total,percentage,status,...} }
+          // Some older submissions store the full breakdown object (summary, byType, etc). Convert to frontend-friendly shape.
+          const normalizeAnalysis = (data = {}) => {
+            let normalized = { ...data };
+            const breakdownMap = {};
+            const suggestions = Array.isArray(normalized.suggestions) ? [...normalized.suggestions] : [];
+
+            if (normalized.breakdown && typeof normalized.breakdown === 'object' && Object.keys(normalized.breakdown).length > 0) {
+              // already in the expected shape
+              Object.assign(breakdownMap, normalized.breakdown);
+            } else if (Array.isArray(normalized.byType) && normalized.byType.length > 0) {
+              // Convert byType array into a lookup map keyed by label
+              normalized.byType.forEach((t) => {
+                const key = t.label || t.type || 'Other';
+                breakdownMap[key] = {
+                  correct: t.correct || 0,
+                  total: t.total || 0,
+                  percentage: t.percentage || 0,
+                  status: t.status || 'average',
+                  suggestion: t.suggestion || '',
+                  wrongQuestions: t.wrongQuestions || []
+                };
+                if (t.suggestion) suggestions.push(t.suggestion);
+              });
+            } else if (normalized.summary && (normalized.summary.totalQuestions || normalized.summary.totalCorrect || normalized.summary.overallPercentage !== undefined)) {
+              // Fallback: only overall summary available
+              breakdownMap['Summary'] = {
+                correct: normalized.summary.totalCorrect || 0,
+                total: normalized.summary.totalQuestions || 0,
+                percentage: normalized.summary.overallPercentage || 0,
+                status:
+                  (normalized.summary.overallPercentage || 0) >= 70
+                    ? 'good'
+                    : (normalized.summary.overallPercentage || 0) >= 50
+                      ? 'average'
+                      : 'weak'
+              };
+            }
+
+            normalized.breakdown = breakdownMap;
+            normalized.suggestions = suggestions;
+            return normalized;
+          };
+
+          setAnalysis(normalizeAnalysis(analysisData));
         }
       } catch (err) {
         console.error("Error fetching data:", err);
@@ -565,39 +610,7 @@ const ReadingResults = () => {
         </div>
       )}
 
-      {/* Analysis Breakdown */}
-      {analysis?.breakdown && Object.keys(analysis.breakdown).length > 0 && (
-        <div style={styles.analysisSection}>
-          <h3 style={styles.sectionTitle}>
-            📊 Phân tích theo dạng câu hỏi
-          </h3>
-          <div style={styles.analysisGrid}>
-            {Object.entries(analysis.breakdown).map(([type, data]) => (
-              <div key={type} style={styles.analysisItem}>
-                <div>
-                  <QuestionTypeBadge type={type} />
-                  <div style={{ fontSize: "0.85rem", color: "#64748b", marginTop: "4px" }}>
-                    {data.correct}/{data.total} câu đúng ({data.percentage}%)
-                  </div>
-                </div>
-                <StatusBadge status={data.status} />
-              </div>
-            ))}
-          </div>
-
-          {/* Suggestions */}
-          {analysis.suggestions && analysis.suggestions.length > 0 && (
-            <div style={{ marginTop: "16px", padding: "12px", background: "#fef3c7", borderRadius: "8px" }}>
-              <strong style={{ color: "#92400e" }}>💡 Gợi ý cải thiện:</strong>
-              <ul style={{ margin: "8px 0 0 20px", color: "#78350f" }}>
-                {analysis.suggestions.map((s, i) => (
-                  <li key={i}>{s}</li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </div>
-      )}
+      {/* Analysis Breakdown removed per request */}
 
       {/* Answer Comparison Table */}
       {details.length > 0 && (
