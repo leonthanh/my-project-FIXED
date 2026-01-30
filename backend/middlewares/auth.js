@@ -22,7 +22,15 @@ function requireAuth(req, _res, next) {
 
     next();
   } catch (err) {
-    next(AppError.unauthorized('Invalid or expired access token'));
+    // Preserve specific AppError where possible for clearer diagnostics
+    if (err && err instanceof AppError) return next(err);
+
+    // jwt may throw TokenExpiredError from jsonwebtoken
+    if (err && err.name === 'TokenExpiredError') return next(AppError.unauthorized('Access token expired'));
+
+    // Generic fallback
+    console.debug('requireAuth failed:', err && err.message ? err.message : err);
+    return next(AppError.unauthorized('Invalid or expired access token'));
   }
 }
 

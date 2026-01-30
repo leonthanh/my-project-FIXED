@@ -49,8 +49,15 @@ const SummaryCompletionQuestion = ({ question = {}, onChange }) => {
       <h4 style={{ color: '#065f46' }}>Summary Completion</h4>
 
       <div style={{ marginBottom: 12 }}>
-        <label style={{ fontWeight: 600 }}>Summary text (use <code>[BLANK]</code> for blanks)</label>
-        <QuillEditor editorRef={quillRef} value={summary} onChange={(v) => setSummary(v)} placeholder="Enter summary with [BLANK] placeholders" />
+        <label style={{ fontWeight: 600 }}>Summary text (use <code>[BLANK]</code> for blanks or click the <strong>➕ Thêm chỗ trống</strong> button in the editor)</label>
+        <QuillEditor
+          editorRef={quillRef}
+          value={summary}
+          onChange={(v) => setSummary(v)}
+          placeholder="Enter summary with [BLANK] placeholders"
+          showBlankButton={true}
+          insertBlankText="[BLANK]"
+        />
       </div>
 
       <div style={{ marginBottom: 12 }}>
@@ -75,13 +82,20 @@ const SummaryCompletionQuestion = ({ question = {}, onChange }) => {
           <p style={{ color: '#555' }}>No blanks found in summary. Add <code>[BLANK]</code> in the summary text.</p>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {blanks.map((b, idx) => (
-              <div key={b.id} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                <div style={{ width: 44, textAlign: 'center', fontWeight: 700, color: '#065f46' }}>Câu {b.blankNumber}</div>
-                <input value={b.correctAnswer} onChange={(e) => handleBlankChange(idx, e.target.value)} placeholder="Ví dụ: B hoặc B|C" style={{ flex: 1, padding: '8px 12px' }} />
-                <div style={{ fontSize: 12, color: '#666' }}>Letters A..{String.fromCharCode(65 + Math.max(0, options.length-1))}</div>
-              </div>
-            ))}
+            {blanks.map((b, idx) => {
+              // If teacher set a questionNumber like "27-31", prefer that as the starting number
+              const startNumRaw = question.questionNumber ? String(question.questionNumber).trim().split(/[,\- ]/)[0] : null;
+              const startNum = startNumRaw ? parseInt(startNumRaw, 10) : null;
+              const labelNumber = startNum ? startNum + idx : b.blankNumber;
+
+              return (
+                <div key={b.id} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <div style={{ width: 44, textAlign: 'center', fontWeight: 700, color: '#065f46' }}>Câu {labelNumber}</div>
+                  <input value={b.correctAnswer} onChange={(e) => handleBlankChange(idx, e.target.value)} placeholder="Ví dụ: B hoặc B|C" style={{ flex: 1, padding: '8px 12px' }} />
+                  <div style={{ fontSize: 12, color: '#666' }}>Letters A..{String.fromCharCode(65 + Math.max(0, options.length-1))}</div>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>

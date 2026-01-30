@@ -30,6 +30,10 @@ const upload = multer({
 // API tạo đề thi listening mới
 const { requireAuth } = require('../middlewares/auth');
 const { requireTestPermission } = require('../middlewares/testPermissions');
+
+// Simple runtime debug helper - enable with DEBUG_LISTENING=1 or DEBUG=1
+const DEBUG_LISTENING = process.env.DEBUG_LISTENING === '1' || process.env.DEBUG === '1';
+const debug = (...args) => { if (DEBUG_LISTENING) console.log('[DEBUG]', ...args); };
 router.post('/', requireAuth, requireTestPermission('listening'), upload.fields([
   { name: 'audioFile', maxCount: 1 },
   { name: 'audioFile_passage_0', maxCount: 1 },
@@ -231,7 +235,7 @@ router.get('/:id', async (req, res) => {
 // API nộp bài thi listening - Calculate score and return results
 router.post('/:id/submit', async (req, res) => {
   try {
-    console.log(`[DEBUG] POST /api/listening-tests/${req.params.id}/submit - body:`, JSON.stringify(req.body).slice(0,2000));
+    debug(`POST /api/listening-tests/${req.params.id}/submit - body:`, JSON.stringify(req.body).slice(0,2000));
     const { id } = req.params;
     const { answers, user, studentName, studentId } = req.body;
 
@@ -1066,12 +1070,12 @@ router.post('/:id/submit', async (req, res) => {
         band,
         finished: true,
       });
-      console.log(`[DEBUG] Created submission id=${submission.id} finished=${submission.finished}`);
+      debug(`Created submission id=${submission.id} finished=${submission.finished}`);
     } else {
-      console.log(`[DEBUG] Updated existing submission id=${submission.id} finished=${submission.finished}`);
+      debug(`Updated existing submission id=${submission.id} finished=${submission.finished}`);
     }
 
-    console.log(`[DEBUG] Responding to submit for test ${id}: submissionId=${submission.id}, correct=${correctCount}, total=${totalCount}`);
+    debug(`Responding to submit for test ${id}: submissionId=${submission.id}, correct=${correctCount}, total=${totalCount}`);
 
     res.json({
       submissionId: submission.id,

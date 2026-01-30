@@ -11,6 +11,7 @@ import { useTheme } from "../../../shared/contexts/ThemeContext";
 import TemplateLibrary from "../../reading-test/components/TemplateLibrary";
 import ImportModal from "../../reading-test/components/ImportModal";
 import { calculateTotalQuestions, createDefaultQuestionByType } from "../utils";
+import { getQuestionCount } from "../utils/questionHelpers";
 import {
   colors,
   compactInputStyle,
@@ -212,6 +213,39 @@ const ReadingTestEditor = ({
   // Current passage and section
   const currentPassage = passages?.[selectedPassageIndex];
   const currentSection = currentPassage?.sections?.[selectedSectionIndex];
+
+  // Compute starting question numbers for preview modal (handles blanks and explicit ranges)
+  const computeQuestionStarts = (passagesArr) => {
+    const starts = {};
+    let counter = 1;
+    if (!Array.isArray(passagesArr)) return starts;
+
+    passagesArr.forEach((p) => {
+      p.sections?.forEach((sec) => {
+        sec.questions?.forEach((q, qIdx) => {
+          const key = `${sec.id}-${qIdx}`;
+          const countFromNumber = q.questionNumber ? getQuestionCount(q.questionNumber) : null;
+          const plain = (q.questionText || q.paragraphText || '').replace(/<[^>]+>/g, '');
+          const blankCount = (plain.match(/\[BLANK\]/g) || []).length || 0;
+          const impliedCount = blankCount || 1;
+
+          if (q.questionNumber) {
+            const firstPart = String(q.questionNumber).trim().split(/[,\-]/)[0];
+            const start = parseInt(firstPart, 10) || counter;
+            starts[key] = start;
+            counter = start + (countFromNumber || impliedCount || 1);
+          } else {
+            starts[key] = counter;
+            counter += impliedCount || 1;
+          }
+        });
+      });
+    });
+
+    return starts;
+  };
+
+  const questionStarts = computeQuestionStarts(passages);
 
   return (
     <>
@@ -1006,6 +1040,88 @@ const ReadingTestEditor = ({
                                 ? hasIELTSMatchingData
                                 : hasQuestionText;
 
+                              // Compute starting number for this question (used for blanks numbering)
+                              const startNumber = questionStarts?.[`${section.id}-${qIdx}`] || (q.questionNumber ? String(q.questionNumber).trim().split(/[, -]/)[0] : null);
+
+                              // Special summary-completion preview: show teacher answers and continuous numbering
+                              if (q.questionType === 'summary-completion') {
+                                const passageHtml = q.questionText || '';
+                                const plainText = (passageHtml || '').replace(/<[^>]+>/g, '');
+                                const blankCount = (plainText.match(/\[BLANK\]/g) || []).length || 0;
+                                const opts = Array.isArray(q.options) ? q.options : [];
+
+                                // Local helpers so we don't rely on functions that are defined later in the file
+                                const localHighlight = (text) => {
+                                  if (!text) return '';
+                                  return text
+                                    .replace(/\[BLANK\]/g, '<span style="background:#fff3cd;padding:2px 8px;border-radius:3px;border:1px dashed #ffc107;font-weight:bold;">______</span>')
+                                    .replace(/_{3,}/g, '<span style="background:#fff3cd;padding:2px 8px;border-radius:3px;border:1px dashed #ffc107;font-weight:bold;">______</span>')
+                                    .replace(/\((\d+)\)/g, '<span style="background:#17a2b8;color:white;padding:1px 6px;border-radius:3px;font-size:10px;margin:0 2px;">$1</span>');
+                                };
+
+                                const localBorder = '1px solid #eee';
+                                const localBadgeColor = '#ffc107';
+
+                                // Prefer explicit questionNumber when present (e.g. "27-31"); otherwise fall back to computed start
+                                let baseStart = null;
+                                if (q.questionNumber) {
+                                  const firstPart = String(q.questionNumber).trim().split(/[, -]/)[0];
+                                  const parsed = parseInt(firstPart, 10);
+                                  baseStart = isNaN(parsed) ? null : parsed;
+                                }
+                                if (!baseStart) baseStart = questionStarts?.[`${section.id}-${qIdx}`] || (qIdx + 1);
+
+                                return (
+                                  <div key={qIdx} style={{ padding: '10px 12px', marginBottom: '10px', backgroundColor: 'white', borderRadius: '6px', border: localBorder, fontSize: '12px' }}>
+                                    {/* Question Header */}
+                                    <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '8px', paddingBottom: '8px', borderBottom: '1px solid #eee', flexWrap: 'wrap' }}>
+                                      <span style={{ backgroundColor: localBadgeColor, color: 'white', padding: '3px 10px', borderRadius: '4px', fontWeight: 'bold', fontSize: '11px', whiteSpace: 'nowrap' }}>
+                                        Q{q.questionNumber || baseStart || qIdx + 1}
+                                      </span>
+                                      <span style={{ backgroundColor: '#6c757d', color: 'white', padding: '2px 8px', borderRadius: '4px', fontSize: '10px' }}>{q.questionType}</span>
+                                      <span style={{ backgroundColor: '#28a745', color: 'white', padding: '2px 8px', borderRadius: '4px', fontSize: '10px' }}>{blankCount} chỗ trống</span>
+                                    </div>
+
+                                    <div style={{ marginBottom: '10px', padding: '12px', backgroundColor: '#e8f4fc', borderRadius: '6px', border: '1px solid #bee5eb', lineHeight: '1.8' }}>
+                                      <div dangerouslySetInnerHTML={{ __html: localHighlight(passageHtml) }} style={{ fontSize: '13px' }} />
+                                    </div>
+
+                                    {/* Blanks and teacher answers */}
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                                      {Array.from({ length: blankCount }).map((_, bi) => {
+                                        const number = (baseStart || (questionStarts?.[`${section.id}-${qIdx}`] || qIdx + 1)) + bi;
+                                        const teacherAnswer = q.blanks && q.blanks[bi] ? q.blanks[bi].correctAnswer : '';
+
+                                        return (
+                                          <div key={bi} style={{ display: 'grid', gridTemplateColumns: '40px 1fr auto', gap: 12, alignItems: 'center', padding: 12, background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8 }}>
+                                            <div style={{ width: 32, height: 32, borderRadius: 16, background: '#0e276f', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>{number}</div>
+                                            <div style={{ padding: '10px 14px', border: '2px solid #d1d5db', borderRadius: 6, minHeight: 36 }}>{teacherAnswer || <em style={{ color: '#666' }}>(chưa có đáp án)</em>}</div>
+                                            <div style={{ padding: '8px 12px', backgroundColor: teacherAnswer ? '#dcfce7' : '#fff7ed', color: teacherAnswer ? '#166534' : '#92400e', borderRadius: 6, fontWeight: 700 }}>
+                                              {teacherAnswer ? 'Đáp án GV' : 'Chưa có'}
+                                            </div>
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+
+                                    {/* Options list */}
+                                    {opts.length > 0 && (
+                                      <div style={{ marginTop: 12 }}>
+                                        <strong>Options:</strong>
+                                        <div style={{ marginTop: 8, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                                          {opts.map((opt, idx) => (
+                                            <div key={idx} style={{ background: '#fff7ed', padding: '6px 10px', borderRadius: 20, border: '1px solid #fcd34d', color: '#92400e' }}>
+                                              <strong style={{ marginRight: 6 }}>{String.fromCharCode(65 + idx)}</strong>{opt}
+                                            </div>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    )}
+
+                                  </div>
+                                );
+                              }
+
                               // Helper function to highlight blanks in text
                               const highlightBlanks = (text) => {
                                 if (!text) return "";
@@ -1078,7 +1194,7 @@ const ReadingTestEditor = ({
                                         whiteSpace: "nowrap",
                                       }}
                                     >
-                                      Q{q.questionNumber || qIdx + 1}
+                                      Q{q.questionNumber || startNumber || qIdx + 1}
                                     </span>
                                     <span
                                       style={{

@@ -920,6 +920,20 @@ function generateAnalysisBreakdown(testData, answers = {}) {
   // Sort by percentage (weakest first for improvement focus)
   typeAnalysis.sort((a, b) => a.percentage - b.percentage);
 
+  // Build a lookup mapping keyed by human-readable label (frontend expects a `breakdown` map)
+  const breakdown = {};
+  for (const t of typeAnalysis) {
+    const key = t.label || t.type;
+    breakdown[key] = {
+      correct: t.correct,
+      total: t.total,
+      percentage: t.percentage,
+      status: t.status,
+      suggestion: t.suggestion,
+      wrongQuestions: t.wrongQuestions
+    };
+  }
+
   // Generate overall summary
   const totalCorrect = details.filter(d => d.isCorrect).length;
   const totalQuestions = details.length;
@@ -952,6 +966,7 @@ function generateAnalysisBreakdown(testData, answers = {}) {
       band
     },
     byType: typeAnalysis,
+    breakdown,
     weakAreas,
     strongAreas,
     generatedAt: new Date().toISOString()
