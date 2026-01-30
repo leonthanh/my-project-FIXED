@@ -388,7 +388,14 @@ const ReadingResults = () => {
             const breakdownMap = {};
             const suggestions = Array.isArray(normalized.suggestions) ? [...normalized.suggestions] : [];
 
-            if (normalized.breakdown && typeof normalized.breakdown === 'object' && Object.keys(normalized.breakdown).length > 0) {
+            // If breakdown exists and looks like a proper map (not a legacy root object), use it.
+            const legacyKeys = ['summary','byType','weakAreas','strongAreas','generatedAt','suggestions','breakdown'];
+            if (
+              normalized.breakdown &&
+              typeof normalized.breakdown === 'object' &&
+              Object.keys(normalized.breakdown).length > 0 &&
+              !Object.keys(normalized.breakdown).some(k => legacyKeys.includes(k))
+            ) {
               // already in the expected shape
               Object.assign(breakdownMap, normalized.breakdown);
             } else if (Array.isArray(normalized.byType) && normalized.byType.length > 0) {
@@ -405,6 +412,30 @@ const ReadingResults = () => {
                 };
                 if (t.suggestion) suggestions.push(t.suggestion);
               });
+            } else if (normalized.breakdown && typeof normalized.breakdown === 'object' && Object.keys(normalized.breakdown).some(k => legacyKeys.includes(k))) {
+              // Legacy case: breakdown contains root-level fields (summary/byType). Try to rebuild from that.
+              const nb = normalized.breakdown;
+              if (Array.isArray(nb.byType) && nb.byType.length > 0) {
+                nb.byType.forEach((t) => {
+                  const key = t.label || t.type || 'Other';
+                  breakdownMap[key] = {
+                    correct: t.correct || 0,
+                    total: t.total || 0,
+                    percentage: t.percentage || 0,
+                    status: t.status || 'average',
+                    suggestion: t.suggestion || '',
+                    wrongQuestions: t.wrongQuestions || []
+                  };
+                  if (t.suggestion) suggestions.push(t.suggestion);
+                });
+              } else if (nb.summary) {
+                breakdownMap['Summary'] = {
+                  correct: nb.summary.totalCorrect || 0,
+                  total: nb.summary.totalQuestions || 0,
+                  percentage: nb.summary.overallPercentage || 0,
+                  status: (nb.summary.overallPercentage || 0) >= 70 ? 'good' : (nb.summary.overallPercentage || 0) >= 50 ? 'average' : 'weak'
+                };
+              }
             } else if (normalized.summary && (normalized.summary.totalQuestions || normalized.summary.totalCorrect || normalized.summary.overallPercentage !== undefined)) {
               // Fallback: only overall summary available
               breakdownMap['Summary'] = {
@@ -610,7 +641,68 @@ const ReadingResults = () => {
         </div>
       )}
 
-      {/* Analysis Breakdown removed per request */}
+      {/* Analysis Breakdown */}
+      {analysis?.breakdown && Object.keys(analysis.breakdown).length > 0 && (
+        <div style={styles.analysisSection}>
+          <h3 style={styles.sectionTitle}>
+            📊 Phân tích theo dạng câu hỏi
+          </h3>
+
+          <div style={styles.analysisGrid}>
+            {Object.entries(analysis.breakdown)
+              .filter(([label, d]) => d && (typeof d.total === 'number' ? d.total >= 0 : true))
+              .map(([label, d]) => (
+                <div key={label} style={styles.analysisItem}>
+                  <div>
+                    <QuestionTypeBadge type={label} />
+                    <div style={{ fontSize: '0.85rem', color: '#64748b', marginTop: '4px' }}>
+                      {d.correct}/{d.total} câu đúng ({d.percentage}%)
+                    </div>
+                    {d.suggestion && (
+                      <div style={{ fontSize: '0.8rem', color: '#8b5cf6', marginTop: '6px' }}>
+                        {d.suggestion}
+                      </div>
+                    )}
+                  </div>
+                  <StatusBadge status={d.status} />
+                </div>
+              ))}
+          </div>
+
+          {/* Weak Areas */}
+          {analysis.weakAreas && analysis.weakAreas.length > 0 && (
+            <div style={{ marginTop: '16px' }}>
+              <h4 style={{ margin: '8px 0' }}>💥 Điểm yếu cần cải thiện</h4>
+              <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                {analysis.weakAreas.map((w, i) => (
+                  <div key={i} style={{ background: '#fff5f5', padding: '12px', borderRadius: '8px', border: '1px solid #fee2e2', minWidth: '220px' }}>
+                    <strong>{w.label}</strong>
+                    <div style={{ fontSize: '0.85rem', color: '#64748b' }}>{w.percentage}% đúng</div>
+                    {w.wrongQuestions && w.wrongQuestions.length > 0 && (
+                      <div style={{ fontSize: '0.85rem', color: '#991b1b', marginTop: '6px' }}>
+                        Sai ở các câu: {w.wrongQuestions.join(', ')}
+                      </div>
+                    )}
+                    {w.suggestion && <div style={{ marginTop: '8px', color: '#92400e' }}>{w.suggestion}</div>}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* General suggestions */}
+          {analysis.suggestions && analysis.suggestions.length > 0 && (
+            <div style={{ marginTop: '16px', padding: '12px', background: '#fef3c7', borderRadius: '8px' }}>
+              <strong style={{ color: '#92400e' }}>💡 Gợi ý tổng quan:</strong>
+              <ul style={{ margin: '8px 0 0 20px', color: '#78350f' }}>
+                {analysis.suggestions.map((s, i) => (
+                  <li key={i}>{s}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Answer Comparison Table */}
       {details.length > 0 && (

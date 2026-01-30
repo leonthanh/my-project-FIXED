@@ -25,17 +25,18 @@ const explodeAccepted = (val) => {
 };
 
 const bandFromCorrect = (c) => {
+  // Align thresholds with Reading scorer so tests are consistent
   if (c >= 39) return 9;
   if (c >= 37) return 8.5;
   if (c >= 35) return 8;
-  if (c >= 32) return 7.5;
+  if (c >= 33) return 7.5;
   if (c >= 30) return 7;
-  if (c >= 26) return 6.5;
-  if (c >= 23) return 6;
-  if (c >= 18) return 5.5;
-  if (c >= 16) return 5;
+  if (c >= 27) return 6.5;
+  if (c >= 24) return 6;
+  if (c >= 20) return 5.5;
+  if (c >= 15) return 5;
   if (c >= 13) return 4.5;
-  if (c >= 11) return 4;
+  if (c >= 10) return 4;
   return 3.5;
 };
 
@@ -259,12 +260,12 @@ const scoreListening = ({ test, answers }) => {
 
       if (qType === 'form-completion') {
         const rows = Array.isArray(q?.formRows) ? q.formRows : [];
-        const blanks = rows.filter((r)=>r && r.isBlank);
-        const map = q?.answers && typeof q.answers==='object' && !Array.isArray(q.answers) ? q.answers : null;
+        const blanks = rows.filter((r) => r && r.isBlank);
+        const map = q?.answers && typeof q.answers === 'object' && !Array.isArray(q.answers) ? q.answers : null;
         if (Number.isFinite(baseNum)) {
           if (blanks.length > 0) {
-            blanks.forEach((row, idx)=>{
-              const num = row?.blankNumber ? baseNum + Number(row.blankNumber)-1 : baseNum + idx;
+            blanks.forEach((row, idx) => {
+              const num = row?.blankNumber ? baseNum + Number(row.blankNumber) - 1 : baseNum + idx;
               totalCount++;
               const expected = row?.correctAnswer ?? row?.answer ?? row?.correct ?? (map ? map[String(num)] : '') ?? '';
               const student = normalizedAnswers[`q${num}`];
@@ -276,6 +277,18 @@ const scoreListening = ({ test, answers }) => {
           }
         }
 
+      }
+
+      // Generic fallback for simple 'fill' or 'single' questions with a globalNumber
+      if ((qType === 'fill' || qType === 'single' || !qType) && Number.isFinite(baseNum)) {
+        totalCount++;
+        const expected = q?.correctAnswer ?? q?.answer ?? '';
+        const student = normalizedAnswers[`q${baseNum}`];
+        const accepted = explodeAccepted(expected).map(normalize);
+        const ok = accepted.length ? accepted.includes(normalize(student)) : normalize(student) === normalize(expected);
+        if (ok) correctCount++;
+        details.push({ questionNumber: baseNum, partIndex, sectionIndex, questionType: String(qType || 'fill'), studentAnswer: student ?? '', correctAnswer: expected ?? '', isCorrect: ok });
+        continue;
       }
 
     }
