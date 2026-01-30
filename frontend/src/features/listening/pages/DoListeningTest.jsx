@@ -45,6 +45,12 @@ const DoListeningTest = () => {
   const [timeRemaining, setTimeRemaining] = useState(30 * 60);
   const [audioPlayed, setAudioPlayed] = useState({});
   const [activeQuestion, setActiveQuestion] = useState(null);
+  // Modal & start state: control whether student has started the test (controls audio visibility)
+  const [showStartModal, setShowStartModal] = useState(true);
+  const [started, setStarted] = useState(false);
+  const [requestAutoPlay, setRequestAutoPlay] = useState(false);
+  // Track if audio is currently playing so we can show a status without controls
+  const [isAudioPlaying, setIsAudioPlaying] = useState(false);
 
   const audioRef = useRef(null);
   const questionRefs = useRef({});
@@ -127,8 +133,8 @@ const DoListeningTest = () => {
           const remaining = Math.max(0, Math.ceil((expiresAt - Date.now()) / 1000));
           setTimeRemaining(remaining);
         } else {
-          const expiresAt = Date.now() + durationSeconds * 1000;
-          localStorage.setItem(expiresKey, String(expiresAt));
+          // Do not start the timer automatically. Only display the full duration and
+          // start counting when the student confirms start via modal.
           setTimeRemaining(durationSeconds);
         }
 
@@ -148,6 +154,13 @@ const DoListeningTest = () => {
             }
             if (parsedState?.submissionId) {
               submissionIdRef.current = parsedState.submissionId;
+            }
+            if (parsedState?.audioPlayed) {
+              setAudioPlayed(parsedState.audioPlayed);
+            }
+            if (parsedState?.started) {
+              setStarted(Boolean(parsedState.started));
+              if (parsedState.started) setShowStartModal(false);
             }
           }
         } catch (e) {
@@ -187,6 +200,12 @@ const DoListeningTest = () => {
                     if (serverAnswers) cur.answers = serverAnswers;
                     localStorage.setItem(stateKey, JSON.stringify(cur));
                   } catch (e) {}
+
+                  // If we resumed from server and there are answers, skip the start modal (resume mode)
+                  if (serverAnswers && Object.keys(serverAnswers).length > 0) {
+                    setShowStartModal(false);
+                    setStarted(true);
+                  }
                 }
               }
             }
@@ -208,14 +227,23 @@ const DoListeningTest = () => {
   const confirmSubmitRef = useRef(null);
 
   // Timer countdown (compute remaining from persisted expiresAt to survive F5)
-  // Auto-submit reliably even if the tab is backgrounded/throttled.
+  // Timer starts only after the student explicitly confirms start.
   useEffect(() => {
-    if (submitted || !test) return;
+    // Don't start the timer until the student starts the test
+    if (submitted || !test || !started) return;
 
     const stored = localStorage.getItem(expiresKey);
     const expiresAt = stored
       ? parseInt(stored, 10)
       : Date.now() + (test?.duration ? test.duration * 60 * 1000 : 30 * 60 * 1000);
+
+    // Persist expiresAt if we just started and there's no stored value
+    if (!stored) {
+      try {
+        localStorage.setItem(expiresKey, String(expiresAt));
+      } catch (e) {}
+    }
+
     expiresAtRef.current = expiresAt;
 
     let done = false;
@@ -224,15 +252,10 @@ const DoListeningTest = () => {
       const remaining = Math.max(0, Math.ceil((expiresAt - Date.now()) / 1000));
       setTimeRemaining(remaining);
       if (remaining <= 0) {
-        // Ensure we don't mark the timer as 'done' until we've actually invoked submit.
-        // This avoids a race where tick runs before `confirmSubmitRef` is initialized
-        // and permanently prevents the auto-submit from happening.
         if (confirmSubmitRef.current) {
           confirmSubmitRef.current();
           done = true;
         } else {
-          // Leave `done` false so future ticks will try again once `confirmSubmitRef` is set.
-          // Also ensure the UI shows 0s remaining immediately.
           setTimeRemaining(0);
         }
       }
@@ -255,7 +278,7 @@ const DoListeningTest = () => {
       window.removeEventListener("focus", onCheck);
       document.removeEventListener("visibilitychange", onCheck);
     };
-  }, [test, submitted, expiresKey]);
+  }, [test, submitted, expiresKey, started]);
 
   // Format time display
   /* eslint-disable-next-line no-unused-vars */
@@ -501,7 +524,7 @@ const DoListeningTest = () => {
       try {
         const expiresStored = localStorage.getItem(expiresKey);
         const expiresAt = expiresStored ? parseInt(expiresStored, 10) : expiresAtRef.current || null;
-        const payload = { answers, expiresAt, lastSavedAt: Date.now() };
+        const payload = { answers, expiresAt, audioPlayed, started, lastSavedAt: Date.now() };
         localStorage.setItem(stateKey, JSON.stringify(payload));
       } catch (e) {
         // ignore
@@ -602,7 +625,7 @@ const DoListeningTest = () => {
       window.removeEventListener("beforeunload", onBeforeUnload);
       window.removeEventListener("storage", onStorage);
     };
-  }, [answers, submitted, stateKey, expiresKey, id]);
+  }, [answers, submitted, stateKey, expiresKey, id, audioPlayed, started]);
 
   // Get parts data
   const parts = useMemo(() => {
@@ -1318,13 +1341,59 @@ const DoListeningTest = () => {
       if (audioPlayed[partIndex]) {
         if (audioRef.current) {
           audioRef.current.pause();
-          audioRef.current.currentTime = audioRef.current.duration;
+          // Guard against invalid duration values in test envs (NaN) or slow metadata loading
+          const dur = Number(audioRef.current.duration);
+          if (Number.isFinite(dur)) {
+            try {
+              audioRef.current.currentTime = dur;
+            } catch (e) {
+              // ignore any errors setting currentTime
+            }
+          }
         }
         alert("⚠️ Audio này chỉ được nghe 1 lần!");
       }
     },
     [audioPlayed]
   );
+
+  // Start the test and (optionally) autoplay audio. This is invoked by the "start" modal.
+  const handleStartClick = useCallback(() => {
+    setShowStartModal(false);
+    setStarted(true);
+    setRequestAutoPlay(true);
+
+    // If timer wasn't already initialized, set expiresAt now so countdown begins
+    try {
+      const stored = localStorage.getItem(expiresKey);
+      if (!stored && test) {
+        const durationSeconds = test?.duration ? test.duration * 60 : 30 * 60;
+        const expiresAt = Date.now() + durationSeconds * 1000;
+        localStorage.setItem(expiresKey, String(expiresAt));
+        expiresAtRef.current = expiresAt;
+        setTimeRemaining(durationSeconds);
+      }
+    } catch (e) {}
+
+    // Attempt to play the audio as part of the user gesture
+    setTimeout(() => {
+      if (audioRef.current) {
+        try {
+          const p = audioRef.current.play();
+          if (p && typeof p.then === 'function') {
+            p.then(() => setIsAudioPlaying(true)).catch(() => {});
+          } else {
+            // immediate play
+            setIsAudioPlaying(true);
+          }
+        } catch (e) {
+          // ignore autoplay errors - user can click play manually
+        }
+      }
+    }, 0);
+    // Clear the request flag after a short delay so it doesn't stick around
+    setTimeout(() => setRequestAutoPlay(false), 1200);
+  }, [test]);
 
   // ===================== RENDER FUNCTIONS =====================
 
@@ -1855,6 +1924,18 @@ const DoListeningTest = () => {
 
   return (
     <div style={styles.pageWrapper}>
+      {showStartModal && (
+        <div style={styles.playGateOverlay}>
+          <div style={styles.playGateCard}>
+            <div style={styles.modalTitle}>Bắt đầu bài thi</div>
+            <div style={styles.modalText}>Khi bạn nhấn <strong>Bắt đầu</strong>, audio sẽ phát tự động và chỉ được nghe một lần. Hãy đảm bảo bạn đã sẵn sàng.</div>
+            <div style={{display: 'flex', gap: 12, justifyContent: 'center', marginTop: 8}}>
+              <button onClick={() => { setShowStartModal(false); setStarted(true); }} style={styles.cancelButton}>Bắt đầu không phát</button>
+              <button onClick={handleStartClick} style={styles.playGateButton}>Bắt đầu & Phát audio ▶</button>
+            </div>
+          </div>
+        </div>
+      )}
       {/* Global Styles */}
       <style>{`
         * { box-sizing: border-box; }
@@ -1898,27 +1979,82 @@ const DoListeningTest = () => {
 
       {/* Main Content Area */}
       <main style={styles.mainContent}>
-        {/* Audio Player */}
-        {audioUrl && (
-          <div style={styles.audioContainer}>
-            <audio
-              ref={audioRef}
-              controls
-              controlsList="nodownload noplaybackrate"
-              style={{
-                ...styles.audioPlayer,
-                opacity: audioPlayed[currentPartIndex] ? 0.5 : 1,
-                pointerEvents: audioPlayed[currentPartIndex] ? "none" : "auto",
-              }}
-              src={hostPath(audioUrl)}
-              onPlay={() => handleAudioPlay(currentPartIndex)}
-              onEnded={() => handleAudioEnded(currentPartIndex)}
-            />
-            {audioPlayed[currentPartIndex] && (
-              <p style={styles.audioWarning}>⚠️ Audio chỉ được nghe 1 lần</p>
-            )}
+{/* Audio Player / Start Gate */}
+      {audioUrl && !started && !showStartModal && (
+        <div style={styles.audioContainer}>
+          <div style={styles.audioErrorBox}>
+            Audio sẽ được kích hoạt khi bạn <strong>bắt đầu</strong> bài thi. Khi audio kết thúc nó sẽ không thể phát lại.
           </div>
-        )}
+          <div style={{ marginTop: 12 }}>
+            <button onClick={handleStartClick} style={styles.playGateButton}>Bắt đầu & Phát audio ▶</button>
+          </div>
+        </div>
+      )}
+
+      {audioUrl && started && (
+        <div style={styles.audioContainer}>
+          {/* Hidden audio element (no native controls). We surface status messages instead. */}
+          <audio
+            ref={audioRef}
+            autoPlay={requestAutoPlay}
+            aria-hidden="true"
+            style={{ display: 'none' }}
+            src={hostPath(audioUrl)}
+            onPlay={() => {
+              setIsAudioPlaying(true);
+              handleAudioPlay(currentPartIndex);
+            }}
+            onEnded={() => {
+              setIsAudioPlaying(false);
+              handleAudioEnded(currentPartIndex);
+              // Persist played flag immediately
+              try {
+                const cur = JSON.parse(localStorage.getItem(stateKey) || '{}') || {};
+                cur.audioPlayed = { ...(cur.audioPlayed || {}), [currentPartIndex]: true };
+                localStorage.setItem(stateKey, JSON.stringify(cur));
+              } catch (e) {}
+            }}
+          />
+
+          {/* Status messages (no visible controls) */}
+          {!audioPlayed[currentPartIndex] && !isAudioPlaying && (
+            <div>
+              <div style={{ color: '#0e276f', marginTop: 8 }}>Audio đã được bật, đang chờ phát (không hiển thị điều khiển).</div>
+              {/* Show a one-time Resume button if the student reloads or opened the test without autoplay */}
+              <div style={{ marginTop: 8 }}>
+                <button
+                  onClick={async () => {
+                    // User gesture to resume playback after reload
+                    try {
+                      setRequestAutoPlay(false);
+                      if (audioRef.current) {
+                        const p = audioRef.current.play();
+                        if (p && typeof p.then === 'function') {
+                          await p;
+                        }
+                        setIsAudioPlaying(true);
+                      }
+                    } catch (e) {
+                      // ignore play errors
+                    }
+                  }}
+                  style={styles.playGateButton}
+                >
+                  Phát lại audio ▶
+                </button>
+              </div>
+            </div>
+          )}
+
+          {isAudioPlaying && (
+            <div style={{ color: '#0e276f', marginTop: 8 }}>Audio đang phát... Vui lòng nghe cẩn thận.</div>
+          )}
+
+          {audioPlayed[currentPartIndex] && (
+            <p style={styles.audioWarning}>⚠️ Audio chỉ được nghe 1 lần</p>
+          )}
+        </div>
+      )}
 
         {/* Questions List */}
         <div ref={listQuestionRef} style={styles.questionsList}>
@@ -1951,6 +2087,42 @@ const DoListeningTest = () => {
             cursor: canGoPrev ? "pointer" : "not-allowed",
           }}
         >
+      
+      {/* Start Modal (Play Gate) */}
+      {showStartModal && (
+        <div style={styles.playGateOverlay} role="dialog" aria-modal="true">
+          <div style={styles.playGateCard}>
+            <div style={styles.modalTitle}>Bắt đầu làm bài</div>
+            <div style={styles.modalText}>
+              Khi bạn bấm "Play" âm thanh sẽ bắt đầu và bạn chỉ được nghe audio này một lần. Hãy chắc chắn bạn đã sẵn sàng.
+            </div>
+
+            <div style={styles.modalButtons}>
+              <button style={styles.cancelButton} onClick={() => { setShowStartModal(false); navigate('/select-test'); }}>
+                Hủy
+              </button>
+              <button
+                style={styles.playGateButton}
+                onClick={() => {
+                  handleStartClick();
+                  // persist that we started immediately for resume behavior
+                  try {
+                    const cur = JSON.parse(localStorage.getItem(stateKey) || '{}') || {};
+                    cur.started = true;
+                    localStorage.setItem(stateKey, JSON.stringify(cur));
+                  } catch (e) {}
+                }}
+              >
+                ▶️ Play & Bắt đầu
+              </button>
+            </div>
+
+            <div style={styles.audioErrorBox}>
+              Nếu trình duyệt chặn tự động phát, bạn có thể mở audio trong tab mới: <a href={hostPath(audioUrl)} target="_blank" rel="noreferrer" style={styles.audioOpenLink}>Mở audio</a>
+            </div>
+          </div>
+        </div>
+      )}
           <svg
             width="24"
             height="24"
