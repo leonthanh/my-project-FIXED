@@ -203,6 +203,7 @@ const ListeningTestEditor = ({
   const questionTypes = [
     { value: 'fill', label: '📝 Fill in the blank', desc: 'Điền từ vào chỗ trống (từng câu)' },
     { value: 'form-completion', label: '📋 Form/Table Completion', desc: 'Form có bảng với nhiều blank' },
+    { value: 'table-completion', label: '🧾 Table Completion (Vehicles / Cost / Comments)', desc: '3-column table / notes completion (Part 1)' },
     { value: 'notes-completion', label: '📝 Notes Completion', desc: 'Paste notes có ___ tự tách câu hỏi' },
     { value: 'abc', label: '🔘 Multiple Choice (A/B/C)', desc: '3 lựa chọn' },
     { value: 'abcd', label: '🔘 Multiple Choice (A/B/C/D)', desc: '4 lựa chọn' },

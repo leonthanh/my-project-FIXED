@@ -144,6 +144,27 @@ export const QUESTION_TYPES = {
     supportedTests: ['ielts-listening', 'ielts-reading'],
   },
 
+  'table-completion': {
+    id: 'table-completion',
+    label: 'Table Completion',
+    labelVi: 'Hoàn thành bảng/Ghi chú',
+    icon: '🧾',
+    description: 'Bảng 3 cột (Vehicles / Cost / Comments) với blanks đánh số',
+    editor: 'TableCompletionEditor',
+    defaultData: {
+      title: '',
+      instruction: 'Write NO MORE THAN TWO WORDS AND/OR A NUMBER for each answer.',
+      columns: ['Vehicles', 'Cost', 'Comments'],
+      rows: [
+        { vehicle: 'Motor scooter', cost: '1 $ ______ per day', comments: ['- fun to ride', '- they provide helmets and ______'] },
+        { vehicle: 'Economy car', cost: '$87.80 per day', comments: ['- four doors, five passengers', '- can drive on all the roads and to ______ for a swim'] },
+      ],
+      startingQuestionNumber: 1,
+      maxWords: 2,
+    },
+    supportedTests: ['ielts-listening'],
+  },
+
   'map-labeling': {
     id: 'map-labeling',
     label: 'Map/Plan Labeling',
@@ -528,6 +549,7 @@ export const TEST_CONFIGS = {
     questionTypes: [
       'fill',
       'form-completion',
+      'table-completion',
       'notes-completion',
       'abc',
       'abcd',

@@ -331,6 +331,7 @@ const QuestionSection = ({
                       <option value="abc" title="3 lựa chọn A, B, C">🔘 Listening: Multiple Choice (A/B/C)</option>
                       <option value="abcd" title="4 lựa chọn A, B, C, D">🔘 Listening: Multiple Choice (A/B/C/D)</option>
                       <option value="form-completion" title="Form có bảng với nhiều blank (IELTS format)">📋 Listening: Form/Table Completion</option>
+                      <option value="table-completion" title="Bảng 3 cột: Vehicles / Cost / Comments">🧾 Listening: Table Completion (Part 1)</option>
                       <option value="notes-completion" title="Paste notes có ___ tự tách câu hỏi">📝 Listening: Notes Completion</option>
                       <option value="map-labeling" title="Gắn nhãn vị trí trên bản đồ A-H">🗺️ Listening: Map/Plan Labeling</option>
                       <option value="flowchart" title="Hoàn thành các bước trong sơ đồ">📊 Listening: Flowchart Completion</option>
