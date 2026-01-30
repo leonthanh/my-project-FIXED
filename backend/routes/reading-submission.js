@@ -648,6 +648,7 @@ router.get("/:submissionId/analysis", async (req, res) => {
           try {
             const breakdown = scorerModule.generateAnalysisBreakdown({ passages }, studentAnswers);
             if (breakdown && breakdown.summary) {
+              // Ensure we persist the normalized breakdown mapping to avoid old-shape issues
               submission.analysisBreakdown = breakdown;
               await submission.save();
               existingBreakdown = breakdown;
@@ -656,6 +657,45 @@ router.get("/:submissionId/analysis", async (req, res) => {
             console.error("Error generating analysis:", genError);
           }
         }
+      }
+    }
+
+    // Normalize legacy analysis shapes (stored earlier with summary/byType but without breakdown map)
+    if (existingBreakdown && (!existingBreakdown.breakdown || typeof existingBreakdown.breakdown === 'object' && Object.keys(existingBreakdown.breakdown).some(k => ['summary','byType','weakAreas','strongAreas','generatedAt'].includes(k)))) {
+      try {
+        const normalized = Object.assign({}, existingBreakdown);
+        const breakdownMap = {};
+
+        if (Array.isArray(normalized.byType) && normalized.byType.length > 0) {
+          normalized.byType.forEach((t) => {
+            const key = t.label || t.type || 'Other';
+            breakdownMap[key] = {
+              correct: t.correct || 0,
+              total: t.total || 0,
+              percentage: t.percentage || 0,
+              status: t.status || 'average',
+              suggestion: t.suggestion || '',
+              wrongQuestions: t.wrongQuestions || []
+            };
+          });
+        } else if (normalized.summary && (normalized.summary.totalQuestions || normalized.summary.totalCorrect || normalized.summary.overallPercentage !== undefined)) {
+          breakdownMap['Summary'] = {
+            correct: normalized.summary.totalCorrect || 0,
+            total: normalized.summary.totalQuestions || 0,
+            percentage: normalized.summary.overallPercentage || 0,
+            status: (normalized.summary.overallPercentage || 0) >= 70 ? 'good' : (normalized.summary.overallPercentage || 0) >= 50 ? 'average' : 'weak'
+          };
+        }
+
+        normalized.breakdown = breakdownMap;
+        // rebuild suggestions array from weakAreas/strongAreas or existing suggestions
+        normalized.suggestions = normalized.suggestions || (Array.isArray(normalized.byType) ? normalized.byType.map(t => t.suggestion).filter(Boolean) : []);
+
+        submission.analysisBreakdown = normalized;
+        await submission.save();
+        existingBreakdown = normalized;
+      } catch (normErr) {
+        console.error('Error normalizing existing breakdown:', normErr);
       }
     }
 

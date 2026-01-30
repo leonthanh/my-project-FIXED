@@ -25,7 +25,7 @@ const explodeAccepted = (val) => {
 };
 
 const bandFromCorrect = (c) => {
-  // Align thresholds with reading scorer
+  // Align thresholds with Reading scorer so tests are consistent
   if (c >= 39) return 9;
   if (c >= 37) return 8.5;
   if (c >= 35) return 8;
@@ -277,28 +277,18 @@ const scoreListening = ({ test, answers }) => {
           }
         }
 
-        // Generic fallback: simple single/fill question with a globalNumber
-        if (Number.isFinite(baseNum)) {
-          totalCount++;
-          const expected = q?.correctAnswer ?? q?.answer ?? '';
-          const student = normalizedAnswers[`q${baseNum}`];
-          const accepted = explodeAccepted(expected).map(normalize);
-          const ok = accepted.length ? accepted.includes(normalize(student)) : normalize(student) === normalize(expected);
-          if (ok) correctCount++;
-          details.push({ questionNumber: baseNum, partIndex, sectionIndex, questionType: qType, studentAnswer: student ?? '', correctAnswer: expected ?? '', isCorrect: ok });
-          continue;
-        }
       }
 
+
       // Generic fallback for simple 'fill' or 'single' questions with a globalNumber
-      if (Number.isFinite(baseNum) && (qType === 'fill' || qType === 'single')) {
+      if ((qType === 'fill' || qType === 'single' || !qType) && Number.isFinite(baseNum)) {
         totalCount++;
         const expected = q?.correctAnswer ?? q?.answer ?? '';
         const student = normalizedAnswers[`q${baseNum}`];
         const accepted = explodeAccepted(expected).map(normalize);
         const ok = accepted.length ? accepted.includes(normalize(student)) : normalize(student) === normalize(expected);
         if (ok) correctCount++;
-        details.push({ questionNumber: baseNum, partIndex, sectionIndex, questionType: qType, studentAnswer: student ?? '', correctAnswer: expected ?? '', isCorrect: ok });
+        details.push({ questionNumber: baseNum, partIndex, sectionIndex, questionType: String(qType || 'fill'), studentAnswer: student ?? '', correctAnswer: expected ?? '', isCorrect: ok });
         continue;
       }
 

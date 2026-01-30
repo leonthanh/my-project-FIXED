@@ -825,7 +825,7 @@ function generateAnalysisBreakdown(testData, answers = {}) {
     });
   }
 
-  // Calculate percentages and generate suggestions
+  // Calculate percentages and generate suggestions (enhanced)
   const typeAnalysis = [];
   const questionTypeLabels = {
     'true-false-not-given': 'True/False/Not Given',
@@ -893,27 +893,29 @@ function generateAnalysisBreakdown(testData, answers = {}) {
     const percentage = data.total > 0 ? Math.round((data.correct / data.total) * 100) : 0;
     const label = questionTypeLabels[type] || type;
     const suggestionData = suggestions[type] || suggestions['default'];
-    
+
+    // Derive status with clear boundaries
     let status = 'good';
-    let suggestion = suggestionData.good;
-    
-    if (percentage < 50) {
-      status = 'weak';
-      suggestion = suggestionData.improve;
-    } else if (percentage < 70) {
-      status = 'average';
-      suggestion = suggestionData.improve;
+    if (percentage < 50) status = 'weak';
+    else if (percentage < 70) status = 'average';
+
+    // Compose a helpful suggestion text with examples of wrong questions
+    const wrongQs = Array.isArray(data.questions) ? data.questions.filter(q => !q.isCorrect).map(q => q.questionNumber).slice(0, 5) : [];
+    let suggestionText = status === 'good' ? suggestionData.good : suggestionData.improve;
+    if (wrongQs.length > 0) {
+      suggestionText += ` Ví dụ: sai ở câu ${wrongQs.join(', ')}.`;
     }
 
     typeAnalysis.push({
       type,
       label,
-      correct: data.correct,
-      total: data.total,
+      correct: data.correct || 0,
+      total: data.total || 0,
       percentage,
       status,
-      suggestion,
-      wrongQuestions: data.questions.filter(q => !q.isCorrect).map(q => q.questionNumber)
+      suggestion: suggestionText,
+      wrongQuestions: wrongQs,
+      questions: data.questions || []
     });
   }
 
@@ -940,14 +942,16 @@ function generateAnalysisBreakdown(testData, answers = {}) {
   const overallPercentage = totalQuestions > 0 ? Math.round((totalCorrect / totalQuestions) * 100) : 0;
   const band = bandFromCorrect(totalCorrect);
 
-  // Identify top 3 weak areas
+  // Identify weak areas (prioritise lowest percentage, include examples)
   const weakAreas = typeAnalysis
-    .filter(t => t.status !== 'good' && t.total >= 2)
+    .filter(t => t.status !== 'good' && t.total >= 1)
+    .sort((a, b) => a.percentage - b.percentage)
     .slice(0, 3)
     .map(t => ({
       label: t.label,
       percentage: t.percentage,
-      suggestion: t.suggestion
+      suggestion: t.suggestion,
+      wrongQuestions: t.wrongQuestions.slice(0, 5)
     }));
 
   // Identify strong areas
@@ -958,6 +962,18 @@ function generateAnalysisBreakdown(testData, answers = {}) {
       percentage: t.percentage
     }));
 
+  // Top-level suggestions array derived from typeAnalysis (unique)
+  const suggestionsArr = Array.from(new Set(
+    typeAnalysis
+      .filter(t => t.suggestion)
+      .map(t => t.suggestion)
+  ));
+
+  // Add an overall action suggestion when score is low
+  if (overallPercentage < 70) {
+    suggestionsArr.unshift(`Tổng quan: Đúng ${totalCorrect}/${totalQuestions} (${overallPercentage}%). Hãy tập trung vào các dạng yếu trong phần Gợi ý bên dưới.`);
+  }
+
   return {
     summary: {
       totalCorrect,
@@ -967,6 +983,7 @@ function generateAnalysisBreakdown(testData, answers = {}) {
     },
     byType: typeAnalysis,
     breakdown,
+    suggestions: suggestionsArr,
     weakAreas,
     strongAreas,
     generatedAt: new Date().toISOString()

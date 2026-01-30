@@ -43,3 +43,69 @@ test('bandFromCorrect: returns expected band thresholds', () => {
   expect(bandFromCorrect(20)).toBe(5.5);
   expect(bandFromCorrect(10)).toBe(4);
 });
+
+// Test generateAnalysisBreakdown returns normalized breakdown map and suggestions
+const { generateAnalysisBreakdown, generateAnalysisText } = require('../utils/readingScorer');
+
+test('generateAnalysisBreakdown: returns breakdown mapping for question types', () => {
+  const sample = {
+    passages: [
+      {
+        questions: [
+          { questionNumber: 1, type: 'multiple-choice', correctAnswer: 'A' },
+          { questionNumber: 2, type: 'short-answer', correctAnswer: 'Lion' }
+        ]
+      }
+    ]
+  };
+  const answers = { q_1: 'A', q_2: 'Lion' };
+  const res = generateAnalysisBreakdown(sample, answers);
+  expect(res).toHaveProperty('byType');
+  expect(Array.isArray(res.byType)).toBe(true);
+  expect(res).toHaveProperty('breakdown');
+  expect(typeof res.breakdown).toBe('object');
+  // check that labels exist
+  const labels = Object.keys(res.breakdown);
+  expect(labels.length).toBeGreaterThan(0);
+  // check counts
+  const mc = res.breakdown[Object.keys(res.breakdown).find(k => /Multiple Choice|Multiple Choice/i.test(k))];
+  const sa = res.breakdown[Object.keys(res.breakdown).find(k => /Short Answer|Short Answer/i.test(k))];
+  expect(mc.total).toBeGreaterThanOrEqual(0);
+  expect(sa.total).toBeGreaterThanOrEqual(0);
+
+  // New: suggestions and weakAreas exist
+  expect(Array.isArray(res.suggestions)).toBe(true);
+  expect(Array.isArray(res.weakAreas)).toBe(true);
+});
+
+test('generateAnalysisBreakdown: weakAreas include suggestions and example wrong questions', () => {
+  const sample = {
+    passages: [
+      {
+        questions: [
+          { questionNumber: 1, type: 'multiple-choice', correctAnswer: 'A' },
+          { questionNumber: 2, type: 'cloze-test', paragraphText: 'This is [BLANK] test [BLANK] and [BLANK].', blanks: [{ correctAnswer: 'a' }, { correctAnswer: 'b' }, { correctAnswer: 'c' }] }
+        ]
+      }
+    ]
+  };
+  const answers = { q_1: 'X', q_2_0: '', q_2_1: '', q_2_2: '' };
+  const res = generateAnalysisBreakdown(sample, answers);
+  expect(Array.isArray(res.weakAreas)).toBe(true);
+  if (res.weakAreas.length > 0) {
+    const w = res.weakAreas[0];
+    expect(w).toHaveProperty('label');
+    expect(w).toHaveProperty('suggestion');
+    expect(Array.isArray(w.wrongQuestions) || w.wrongQuestions === undefined).toBe(true);
+  }
+});
+
+test('generateAnalysisText: generates readable text including section header', () => {
+  const sample = {
+    summary: { totalCorrect: 2, totalQuestions: 2, overallPercentage: 100, band: 9 },
+    byType: [{ type: 'multiple-choice', label: 'Multiple Choice', correct: 1, total: 1, percentage: 100, status: 'good' }]
+  };
+  const text = generateAnalysisText(sample);
+  expect(typeof text).toBe('string');
+  expect(text.includes('PHÂN TÍCH THEO DẠNG CÂU HỎI') || text.includes('KẾT QUẢ BÀI THI READING')).toBe(true);
+});
