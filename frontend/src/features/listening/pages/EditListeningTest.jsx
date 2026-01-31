@@ -260,7 +260,7 @@ const EditListeningTest = () => {
 
       // Before sending, ensure per-blank answers from editor (row.commentBlankAnswers / row.correct) are merged
       // into the question answers map so backend receives them.
-      const BLANK_REGEX = /_{2,}|[\u2026]+/g;
+      const BLANK_REGEX = /\[BLANK\]|_{2,}|[\u2026]+/g;
       let globalQ = 1;
       cleanedParts.forEach((part) => {
         part.sections.forEach((section) => {
@@ -268,29 +268,57 @@ const EditListeningTest = () => {
             if (q.questionType === 'table-completion') {
               q.answers = q.answers && typeof q.answers === 'object' && !Array.isArray(q.answers) ? { ...q.answers } : {};
 
-              (q.rows || []).forEach((row) => {
-                // cost blanks
-                const costText = String(row.cost || '');
-                let match;
-                BLANK_REGEX.lastIndex = 0;
-                while ((match = BLANK_REGEX.exec(costText)) !== null) {
-                  const num = String(globalQ++);
-                  // prefer explicit answers map (if teacher entered in modal), else row.correct
-                  if (!q.answers[num] && row.correct) q.answers[num] = row.correct;
-                }
+              const cols = q.columns || [];
+              const rowsArr = q.rows || [];
+              const before = globalQ;
 
-                // comments blanks
-                (row.comments || []).forEach((line, li) => {
-                  let localIdx = 0;
+              const getFlatCommentAnswer = (commentBlankAnswers, flatIdx) => {
+                if (!Array.isArray(commentBlankAnswers)) return undefined;
+                let acc = 0;
+                for (let li = 0; li < commentBlankAnswers.length; li++) {
+                  const arr = commentBlankAnswers[li] || [];
+                  if (flatIdx < acc + (arr.length || 0)) return arr[flatIdx - acc];
+                  acc += (arr.length || 0);
+                }
+                return undefined;
+              };
+
+              rowsArr.forEach((rawRow) => {
+                const r = Array.isArray(rawRow.cells)
+                  ? rawRow
+                  : (() => {
+                      const cells = [];
+                      cells[0] = rawRow.vehicle || '';
+                      cells[1] = rawRow.cost || '';
+                      cells[2] = Array.isArray(rawRow.comments) ? rawRow.comments.join('\n') : rawRow.comments || '';
+                      while (cells.length < cols.length) cells.push('');
+                      return { ...rawRow, cells, cellBlankAnswers: rawRow.cellBlankAnswers || [], commentBlankAnswers: rawRow.commentBlankAnswers || [] };
+                    })();
+
+                for (let c = 0; c < cols.length; c++) {
+                  const text = String((r.cells && r.cells[c]) || '');
+                  let match;
                   BLANK_REGEX.lastIndex = 0;
-                  while ((match = BLANK_REGEX.exec(String(line || ''))) !== null) {
+                  let localIdx = 0;
+                  const isCommentsCol = /comment/i.test((q.columns || [])[c]);
+                  while ((match = BLANK_REGEX.exec(text)) !== null) {
                     const num = String(globalQ++);
-                    const cbVal = (row.commentBlankAnswers && row.commentBlankAnswers[li] && row.commentBlankAnswers[li][localIdx]) || '';
+                    const cbVal = isCommentsCol ? (getFlatCommentAnswer(r.commentBlankAnswers, localIdx) || '') : ((r.cellBlankAnswers && r.cellBlankAnswers[c] && r.cellBlankAnswers[c][localIdx]) || '');
                     if (!q.answers[num] && cbVal) q.answers[num] = cbVal;
+                    // fallback for cost-like column: prefer row.correct
+                    if (!q.answers[num] && c === 1 && r.correct) q.answers[num] = r.correct;
                     localIdx++;
                   }
-                });
+                }
               });
+
+              // If no explicit blanks were found, fall back to old behavior (one blank per row using cost/correct)
+              if (globalQ === before) {
+                (q.rows || []).forEach((row) => {
+                  const num = String(globalQ++);
+                  if (!q.answers[num]) q.answers[num] = row?.correct ?? row?.cost ?? '';
+                });
+              }
             } else if (q.questionType === 'form-completion') {
               // form-completion counts blanks too
               const rows = Array.isArray(q.formRows) ? q.formRows : [];

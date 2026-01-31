@@ -150,8 +150,21 @@ router.post('/', requireAuth, requireTestPermission('listening'), upload.fields(
             const blankCount = q.formRows?.filter(r => r.isBlank)?.length || 1;
             globalQuestionNum += blankCount;
           } else if (qType === 'table-completion') {
-            // Each row typically represents a blank to fill
-            globalQuestionNum += (q.rows?.length || 1);
+            const cols = q.columns || [];
+            const rowsArr = q.rows || [];
+            const BLANK_DETECT = /\[BLANK\]|_{2,}|[\u2026]+/g;
+            let blanksCount = 0;
+            rowsArr.forEach((row) => {
+              const r = Array.isArray(row.cells)
+                ? row
+                : { cells: [row.vehicle || '', row.cost || '', Array.isArray(row.comments) ? row.comments.join('\n') : row.comments || ''] };
+              for (let c = 0; c < cols.length; c++) {
+                const text = String(r.cells[c] || '');
+                const matches = text.match(BLANK_DETECT) || [];
+                blanksCount += matches.length;
+              }
+            });
+            globalQuestionNum += blanksCount > 0 ? blanksCount : (q.rows?.length || 1);
           } else if (qType === 'notes-completion') {
             // Count blanks in notesText
             const notesText = q.notesText || '';
@@ -870,16 +883,73 @@ router.post('/:id/submit', async (req, res) => {
           }
         }
 
-        // Table completion: rows (one blank per row typically)
+        // Table completion: support multiple blanks per cell (ROW-major ordering)
         if (qType === 'table-completion') {
-          const rows = Array.isArray(q?.rows) ? q.rows : [];
+          const cols = q.columns || [];
+          const rowsArr = Array.isArray(q?.rows) ? q.rows : [];
           const map = q?.answers && typeof q.answers === 'object' && !Array.isArray(q.answers) ? q.answers : null;
           if (Number.isFinite(baseNum)) {
-            if (rows.length > 0) {
-              rows.forEach((row, idx) => {
-                const num = baseNum + idx;
+            let offset = 0;
+            let foundAny = false;
+            const BLANK_DETECT = /\[BLANK\]|_{2,}|[\u2026]+/g;
+
+            for (let r = 0; r < rowsArr.length; r++) {
+              const rawRow = rowsArr[r];
+              const row = Array.isArray(rawRow.cells)
+                ? rawRow
+                : { cells: [rawRow.vehicle || '', rawRow.cost || '', Array.isArray(rawRow.comments) ? rawRow.comments.join('\n') : rawRow.comments || ''], cellBlankAnswers: rawRow.cellBlankAnswers || rawRow.commentBlankAnswers || [], commentBlankAnswers: rawRow.commentBlankAnswers || [] };
+
+              for (let c = 0; c < cols.length; c++) {
+                const text = String(row.cells[c] || '');
+                let match;
+                BLANK_DETECT.lastIndex = 0;
+                let localIdx = 0;
+                const isCommentsCol = /comment/i.test((q.columns || [])[c]);
+
+                while ((match = BLANK_DETECT.exec(text)) !== null) {
+                  foundAny = true;
+                  const num = baseNum + offset;
+                  totalCount++;
+
+                  let expected = '';
+                  if (map) {
+                    expected = map[String(num)] ?? '';
+                  } else {
+                    if (isCommentsCol) {
+                      // flatten per-line answers if present
+                      const flat = (row.commentBlankAnswers || []).flat();
+                      expected = flat[localIdx] || '';
+                    } else {
+                      expected = (row.cellBlankAnswers && row.cellBlankAnswers[c] && row.cellBlankAnswers[c][localIdx]) || '';
+                      if (!expected && c === 1) expected = row.correct || row.cost || '';
+                    }
+                  }
+
+                  const student = normalizedAnswers[`q${num}`];
+                  const ok = isAnswerMatch(student, expected);
+                  if (ok) correctCount++;
+                  details.push({
+                    questionNumber: num,
+                    partIndex,
+                    sectionIndex,
+                    questionType: qType,
+                    studentAnswer: student ?? '',
+                    correctAnswer: expected ?? '',
+                    isCorrect: ok,
+                  });
+
+                  localIdx++;
+                  offset++;
+                }
+              }
+            }
+
+            // fallback: if no blanks detected, treat as one blank per row (legacy)
+            if (!foundAny) {
+              for (let r = 0; r < rowsArr.length; r++) {
+                const num = baseNum + offset;
                 totalCount++;
-                // Expectation: try map then row.cost or row.correct
+                const row = rowsArr[r];
                 const expected = map ? (map[String(num)] ?? '') : (row?.cost ?? row?.correct ?? '');
                 const student = normalizedAnswers[`q${num}`];
                 const ok = isAnswerMatch(student, expected);
@@ -893,23 +963,10 @@ router.post('/:id/submit', async (req, res) => {
                   correctAnswer: expected ?? '',
                   isCorrect: ok,
                 });
-              });
-            } else {
-              totalCount++;
-              const expected = q?.correctAnswer ?? '';
-              const student = normalizedAnswers[`q${baseNum}`];
-              const ok = isAnswerMatch(student, expected);
-              if (ok) correctCount++;
-              details.push({
-                questionNumber: baseNum,
-                partIndex,
-                sectionIndex,
-                questionType: qType,
-                studentAnswer: student ?? '',
-                correctAnswer: expected ?? '',
-                isCorrect: ok,
-              });
+                offset++;
+              }
             }
+
             continue;
           }
         }

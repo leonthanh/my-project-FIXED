@@ -168,6 +168,13 @@ const ListeningTestEditor = ({
   const [collapsedHeader, setCollapsedHeader] = useState(false);
   const [manualHeaderOverride, setManualHeaderOverride] = useState(false);
 
+  // Runtime import guards (log if important components are missing)
+  useEffect(() => {
+    if (typeof TableCompletion !== 'function') {
+      console.error('ListeningTestEditor: TableCompletion component is undefined (import failed?)', TableCompletion);
+    }
+  }, []);
+
   useEffect(() => {
     const onScrollWindow = () => {
       if (manualHeaderOverride) {
@@ -1279,15 +1286,21 @@ const ListeningTestEditor = ({
                                   <strong style={{ display: "block", marginBottom: "10px" }}>
                                     {section.questions[0].title || "Table"}
                                   </strong>
-                                  <TableCompletion data={{
-                                    part: partIdx + 1,
-                                    title: section.questions[0].title || "",
-                                    instruction: section.questions[0].instruction || "",
-                                    columns: section.questions[0].columns || [],
-                                    rows: section.questions[0].rows || [],
-                                    rangeStart: sectionStartQ,
-                                    rangeEnd: sectionStartQ + ((section.questions[0].rows || []).length ? (section.questions[0].rows || []).length - 1 : 0),
-                                  }} startingQuestionNumber={sectionStartQ} />
+                                  {typeof TableCompletion === 'function' ? (
+                                    <TableCompletion data={{
+                                      part: partIdx + 1,
+                                      title: section.questions[0].title || "",
+                                      instruction: section.questions[0].instruction || "",
+                                      columns: section.questions[0].columns || [],
+                                      rows: section.questions[0].rows || [],
+                                      rangeStart: sectionStartQ,
+                                      rangeEnd: sectionStartQ + ((section.questions[0].rows || []).length ? (section.questions[0].rows || []).length - 1 : 0),
+                                    }} startingQuestionNumber={sectionStartQ} />
+                                  ) : (
+                                    <div style={{ padding: 12, background: '#fee2e2', borderRadius: 6, color: '#7f1d1d' }}>
+                                      Component <strong>TableCompletion</strong> not available. Check imports.
+                                    </div>
+                                  )}
                                 </div>
 
                                 {/* Show answers */}
@@ -1320,48 +1333,106 @@ const ListeningTestEditor = ({
                                         return parts;
                                       }
 
-                                      // Build numbered parts (like student view) starting at sectionStartQ
-                                      let q = sectionStartQ;
-                                      const numberedRows = (section.questions[0].rows || []).map((row) => {
-                                        const costParts = splitIntoParts(row.cost).map(p => p.type === 'blank' ? { ...p, q: q++ } : p);
-                                        const commentLines = (row.comments || []).map(line => splitIntoParts(line).map(p => p.type === 'blank' ? { ...p, q: q++ } : p));
-                                        return { ...row, costParts, commentLines };
-                                      });
+                                      // Build a live preview answers map from current rows/cells (ROW-major: left→right within row, then next row)
+                                      const buildPreviewAnswers = () => {
+                                        const map = {};
+                                        const BLANK_DETECT = /\[BLANK\]|_{2,}|[\u2026]+/g;
+                                        let num = sectionStartQ;
+                                        const cols2 = section.questions[0].columns || [];
+                                        const rows2 = section.questions[0].rows || [];
+                                        let foundAny = false;
 
-                                      // Always render editable inputs for each blank (cost + comments), pre-filled from answers map if present
-                                      const map = section.questions[0].answers && typeof section.questions[0].answers === 'object' && !Array.isArray(section.questions[0].answers) ? section.questions[0].answers : {};
-
-                                      return numberedRows.flatMap((r) => {
-                                        const inputs = [];
-
-                                        r.costParts.forEach((p) => {
-                                          if (p.type === 'blank') {
-                                            const qNum = p.q;
-                                            const value = map[String(qNum)] ?? (r.correct ?? '');
-                                            const onChange = (v) => {
-                                              const newMap = { ...(section.questions[0].answers || {}) };
-                                              newMap[String(qNum)] = v;
-                                              onQuestionChange(partIdx, sIdx, 0, 'answers', newMap);
-                                            };
-                                            inputs.push(
-                                              <div key={`c-${qNum}`} style={{ padding: '4px 8px', backgroundColor: 'white', borderRadius: '4px', fontSize: '12px' }}>
-                                                <strong style={{ display: 'block', marginBottom: 6 }}>{qNum}.</strong>
-                                                <input type="text" value={value} placeholder="(Chưa có)" onChange={(e) => onChange(e.target.value)} style={{ ...compactInputStyle, width: '100%' }} />
-                                              </div>
-                                            );
+                                        const getFlatCommentAnswer = (commentBlankAnswers, flatIdx) => {
+                                          if (!Array.isArray(commentBlankAnswers)) return undefined;
+                                          let acc = 0;
+                                          for (let li = 0; li < commentBlankAnswers.length; li++) {
+                                            const arr = commentBlankAnswers[li] || [];
+                                            if (flatIdx < acc + (arr.length || 0)) return arr[flatIdx - acc];
+                                            acc += (arr.length || 0);
                                           }
-                                        });
+                                          return undefined;
+                                        };
 
-                                        r.commentLines.forEach((lineParts, li) => {
-                                          let blankIdx = 0;
-                                          for (const p of lineParts) {
+                                        for (let r = 0; r < rows2.length; r++) {
+                                          const rawRow = rows2[r];
+                                          const row = Array.isArray(rawRow.cells)
+                                            ? rawRow
+                                            : { cells: [rawRow.vehicle || '', rawRow.cost || '', Array.isArray(rawRow.comments) ? rawRow.comments.join('\n') : rawRow.comments || ''], cellBlankAnswers: rawRow.cellBlankAnswers || [], commentBlankAnswers: rawRow.commentBlankAnswers || [], correct: rawRow.correct };
+
+                                          for (let c = 0; c < cols2.length; c++) {
+                                            const isCommentsCol = /comment/i.test(cols2[c]);
+                                            const text = String(row.cells[c] || '');
+                                            let match;
+                                            BLANK_DETECT.lastIndex = 0;
+                                            let localIdx = 0;
+
+                                            while ((match = BLANK_DETECT.exec(text)) !== null) {
+                                              foundAny = true;
+                                              const key = String(num++);
+                                              let cbVal = '';
+                                              if (isCommentsCol) {
+                                                cbVal = getFlatCommentAnswer(row.commentBlankAnswers, localIdx) || '';
+                                              } else {
+                                                cbVal = (row.cellBlankAnswers && row.cellBlankAnswers[c] && row.cellBlankAnswers[c][localIdx]) || '';
+                                              }
+
+                                              if (cbVal) map[key] = cbVal;
+                                              else if (c === 1 && row.correct) map[key] = row.correct;
+                                              localIdx++;
+                                            }
+                                          }
+                                        }
+
+                                        if (!foundAny) {
+                                          // fallback: one blank per row
+                                          for (let r = 0; r < (section.questions[0].rows || []).length; r++) {
+                                            const key = String(num++);
+                                            const row = section.questions[0].rows[r];
+                                            map[key] = (row?.correct ?? row?.cost ?? '') || '';
+                                          }
+                                        }
+
+                                        return map;
+                                      };
+
+                                      const previewMap = buildPreviewAnswers();
+
+                                      // Build editable inputs for each blank in table (ROW-major: left→right in row then next row)
+                                      const map = previewMap;
+                                      let qnum = sectionStartQ;
+                                      const cols = section.questions[0].columns || [];
+                                      const rowsArr = section.questions[0].rows || [];
+                                      const inputs = [];
+
+                                      for (let rIdx = 0; rIdx < rowsArr.length; rIdx++) {
+                                        const rawRow = rowsArr[rIdx];
+                                        const row = Array.isArray(rawRow.cells)
+                                          ? rawRow
+                                          : { cells: [rawRow.vehicle || '', rawRow.cost || '', Array.isArray(rawRow.comments) ? rawRow.comments.join('\n') : rawRow.comments || ''], cellBlankAnswers: rawRow.cellBlankAnswers || rawRow.commentBlankAnswers || [], commentBlankAnswers: rawRow.commentBlankAnswers || [] };
+
+                                        for (let c = 0; c < cols.length; c++) {
+                                          const parts = splitIntoParts(String(row.cells[c] || ''));
+                                          let localIdx = 0;
+                                          for (const p of parts) {
                                             if (p.type !== 'blank') continue;
+                                            const qNum = qnum++;
 
-                                            const qNum = p.q;
+                                            // handle commentBlankAnswers (per-line) by flattening index when needed
+                                            const getFlatCommentAnswer = (commentBlankAnswers, flatIdx) => {
+                                              if (!Array.isArray(commentBlankAnswers)) return undefined;
+                                              let acc = 0;
+                                              for (let li = 0; li < commentBlankAnswers.length; li++) {
+                                                const arr = commentBlankAnswers[li] || [];
+                                                if (flatIdx < acc + (arr.length || 0)) return arr[flatIdx - acc];
+                                                acc += (arr.length || 0);
+                                              }
+                                              return undefined;
+                                            };
 
-                                            // Determine fallback value sources: answers map -> row.commentBlankAnswers -> row.correct
-                                            const cbAnswers = (r.commentBlankAnswers && r.commentBlankAnswers[li]) || [];
-                                            const value = map[String(qNum)] ?? (cbAnswers[blankIdx] ?? (r.correct ?? ''));
+                                            const cbVal = /comment/i.test((section.questions[0].columns || [])[c])
+                                              ? (getFlatCommentAnswer(row.commentBlankAnswers, localIdx) || '')
+                                              : ((row.cellBlankAnswers && row.cellBlankAnswers[c] && row.cellBlankAnswers[c][localIdx]) || '');
+                                            const value = map[String(qNum)] ?? cbVal ?? (c === 1 ? (row.correct ?? '') : '');
 
                                             const onChange = (v) => {
                                               const newMap = { ...(section.questions[0].answers || {}) };
@@ -1370,18 +1441,24 @@ const ListeningTestEditor = ({
                                             };
 
                                             inputs.push(
-                                              <div key={`cm-${qNum}`} style={{ padding: '4px 8px', backgroundColor: 'white', borderRadius: '4px', fontSize: '12px' }}>
+                                              <div key={`tbl-${qNum}`} style={{ padding: '4px 8px', backgroundColor: 'white', borderRadius: '4px', fontSize: '12px' }}>
                                                 <strong style={{ display: 'block', marginBottom: 6 }}>{qNum}.</strong>
                                                 <input type="text" value={value} placeholder="(Chưa có)" onChange={(e) => onChange(e.target.value)} style={{ ...compactInputStyle, width: '100%' }} />
+                                                {/* If teacher entered multiple variants (separated by | / ;), show them as visual hint */}
+                                                {typeof value === 'string' && /\||\//.test(value) && (
+                                                  <div style={{ marginTop: 6, fontSize: 12, color: '#374151' }}>
+                                                    <em>Accepted variants:</em> {String(value).split(/\||\//).map(s => s.trim()).filter(Boolean).join(' | ')}
+                                                  </div>
+                                                )}
                                               </div>
                                             );
 
-                                            blankIdx++;
+                                            localIdx++;
                                           }
-                                        });
+                                        }
+                                      }
 
-                                        return inputs;
-                                      });
+                                      return inputs;
                                     })()}
                                   </div>
                                 </div>
