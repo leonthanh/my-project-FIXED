@@ -105,7 +105,7 @@ export default function TableCompletion({ data, onChange, startingQuestionNumber
         </tbody>
       </table>
 
-      <style jsx>{`
+      <style>{`
         .instruction { margin-bottom: 8px; font-style: italic; }
         table.ielts-table { width: 100%; border-collapse: collapse; }
         .ielts-table th, .ielts-table td { border: 1px solid #ccc; padding: 8px; vertical-align: top; }

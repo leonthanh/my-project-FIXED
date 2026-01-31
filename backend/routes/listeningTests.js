@@ -125,6 +125,9 @@ router.post('/', requireAuth, requireTestPermission('listening'), upload.fields(
             formRows: q.formRows || null,
             questionRange: q.questionRange || null,
             answers: q.answers || null,
+            // Table completion specific
+            columns: q.columns || null,
+            rows: q.rows || null,
             // Matching specific
             leftItems: q.leftItems || null,
             rightItems: q.rightItems || null,
@@ -146,6 +149,9 @@ router.post('/', requireAuth, requireTestPermission('listening'), upload.fields(
           } else if (qType === 'form-completion') {
             const blankCount = q.formRows?.filter(r => r.isBlank)?.length || 1;
             globalQuestionNum += blankCount;
+          } else if (qType === 'table-completion') {
+            // Each row typically represents a blank to fill
+            globalQuestionNum += (q.rows?.length || 1);
           } else if (qType === 'notes-completion') {
             // Count blanks in notesText
             const notesText = q.notesText || '';
@@ -860,11 +866,53 @@ router.post('/:id/submit', async (req, res) => {
                 isCorrect: ok,
               });
             }
+            continue;
           }
-          continue;
         }
 
-        // Notes completion: numbered blanks in notesText, expected answers in q.answers["31"]
+        // Table completion: rows (one blank per row typically)
+        if (qType === 'table-completion') {
+          const rows = Array.isArray(q?.rows) ? q.rows : [];
+          const map = q?.answers && typeof q.answers === 'object' && !Array.isArray(q.answers) ? q.answers : null;
+          if (Number.isFinite(baseNum)) {
+            if (rows.length > 0) {
+              rows.forEach((row, idx) => {
+                const num = baseNum + idx;
+                totalCount++;
+                // Expectation: try map then row.cost or row.correct
+                const expected = map ? (map[String(num)] ?? '') : (row?.cost ?? row?.correct ?? '');
+                const student = normalizedAnswers[`q${num}`];
+                const ok = isAnswerMatch(student, expected);
+                if (ok) correctCount++;
+                details.push({
+                  questionNumber: num,
+                  partIndex,
+                  sectionIndex,
+                  questionType: qType,
+                  studentAnswer: student ?? '',
+                  correctAnswer: expected ?? '',
+                  isCorrect: ok,
+                });
+              });
+            } else {
+              totalCount++;
+              const expected = q?.correctAnswer ?? '';
+              const student = normalizedAnswers[`q${baseNum}`];
+              const ok = isAnswerMatch(student, expected);
+              if (ok) correctCount++;
+              details.push({
+                questionNumber: baseNum,
+                partIndex,
+                sectionIndex,
+                questionType: qType,
+                studentAnswer: student ?? '',
+                correctAnswer: expected ?? '',
+                isCorrect: ok,
+              });
+            }
+            continue;
+          }
+        }
         if (qType === 'notes-completion') {
           const notesText = String(q?.notesText || '');
           const matches = notesText.match(/(\d+)\s*[_…]+/g) || [];
@@ -1181,6 +1229,9 @@ router.put('/:id', requireAuth, requireTestPermission('listening'), upload.field
               formRows: q.formRows || null,
               questionRange: q.questionRange || null,
               answers: q.answers || null,
+              // Table completion specific
+              columns: q.columns || null,
+              rows: q.rows || null,
               leftItems: q.leftItems || null,
               rightItems: q.rightItems || null,
               items: q.items || null,
@@ -1200,6 +1251,8 @@ router.put('/:id', requireAuth, requireTestPermission('listening'), upload.field
             } else if (qType === 'form-completion') {
               const blankCount = q.formRows?.filter(r => r.isBlank)?.length || 1;
               globalQuestionNum += blankCount;
+            } else if (qType === 'table-completion') {
+              globalQuestionNum += (q.rows?.length || 1);
             } else if (qType === 'notes-completion') {
               // Count blanks in notesText
               const notesText = q.notesText || '';

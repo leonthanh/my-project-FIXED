@@ -31,28 +31,52 @@ export default function TableCompletionEditor({ question = {}, onChange = () => 
   const updateRowField = (idx, field, value) => {
     const next = [...rows];
     next[idx] = { ...next[idx], [field]: value };
+
+    // If admin edits 'cost' directly and it contains no blank placeholder,
+    // treat it as the intended correct answer and populate row.correct
+    const BLANK_REGEX = /_{2,}|[\u2026]+/g;
+    if (field === 'cost') {
+      const hasBlank = BLANK_REGEX.test(String(value || ''));
+      if (!hasBlank && String(value || '').trim() !== '') {
+        next[idx] = { ...next[idx], correct: String(value).trim() };
+      }
+    }
+
     setRows(next);
   };
+
+  const BLANK_REGEX = /_{2,}|[\u2026]+/g;
 
   const updateCommentLine = (rowIdx, lineIdx, value) => {
     const next = [...rows];
     const comments = [...(next[rowIdx].comments || [])];
     comments[lineIdx] = value;
-    next[rowIdx] = { ...next[rowIdx], comments };
+
+    // Ensure commentBlankAnswers exists and aligns with number of blanks in this line
+    const blanks = (String(value).match(BLANK_REGEX) || []);
+    const existingAnswers = (next[rowIdx].commentBlankAnswers && next[rowIdx].commentBlankAnswers[lineIdx]) || [];
+    const newAnswers = blanks.map((_, i) => existingAnswers[i] || '');
+
+    const nextCommentBlankAnswers = [...(next[rowIdx].commentBlankAnswers || [])];
+    nextCommentBlankAnswers[lineIdx] = newAnswers;
+
+    next[rowIdx] = { ...next[rowIdx], comments, commentBlankAnswers: nextCommentBlankAnswers };
     setRows(next);
   };
 
   const addCommentLine = (rowIdx) => {
     const next = [...rows];
     const comments = [...(next[rowIdx].comments || []), ''];
-    next[rowIdx] = { ...next[rowIdx], comments };
+    const nextCommentBlankAnswers = [...(next[rowIdx].commentBlankAnswers || []), []];
+    next[rowIdx] = { ...next[rowIdx], comments, commentBlankAnswers: nextCommentBlankAnswers };
     setRows(next);
   };
 
   const deleteCommentLine = (rowIdx, lineIdx) => {
     const next = [...rows];
     const comments = (next[rowIdx].comments || []).filter((_, i) => i !== lineIdx);
-    next[rowIdx] = { ...next[rowIdx], comments };
+    const nextCommentBlankAnswers = (next[rowIdx].commentBlankAnswers || []).filter((_, i) => i !== lineIdx);
+    next[rowIdx] = { ...next[rowIdx], comments, commentBlankAnswers: nextCommentBlankAnswers };
     setRows(next);
   };
 
@@ -117,21 +141,53 @@ export default function TableCompletionEditor({ question = {}, onChange = () => 
                   placeholder="Cost (use ___ for blanks)"
                   style={{ ...compactInputStyle, flex: 1 }}
                 />
+                <input
+                  type="text"
+                  value={row.correct || ''}
+                  onChange={(e) => updateRowField(idx, 'correct', e.target.value)}
+                  placeholder="Correct answer (optional)"
+                  style={{ ...compactInputStyle, flex: 1 }}
+                />
                 <button type="button" onClick={() => deleteRow(idx)} style={{ padding: '6px 8px' }}>✕</button>
               </div>
 
               <div style={{ marginTop: 6 }}>
                 <strong>Comments</strong>
                 {(row.comments || []).map((line, li) => (
-                  <div key={li} style={{ display: 'flex', gap: 8, marginTop: 6 }}>
-                    <input
-                      type="text"
-                      value={line}
-                      onChange={(e) => updateCommentLine(idx, li, e.target.value)}
-                      placeholder="- comment line"
-                      style={{ ...compactInputStyle, flex: 1 }}
-                    />
-                    <button type="button" onClick={() => deleteCommentLine(idx, li)} style={{ padding: '6px 8px' }}>✕</button>
+                  <div key={li} style={{ marginTop: 6 }}>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <input
+                        type="text"
+                        value={line}
+                        onChange={(e) => updateCommentLine(idx, li, e.target.value)}
+                        placeholder="- comment line"
+                        style={{ ...compactInputStyle, flex: 1 }}
+                      />
+                      <button type="button" onClick={() => deleteCommentLine(idx, li)} style={{ padding: '6px 8px' }}>✕</button>
+                    </div>
+
+                    {/* If this line contains blanks, show per-blank answer inputs */}
+                    {String(line).match(BLANK_REGEX) && (
+                      <div style={{ marginTop: 8, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                        {String(line).match(BLANK_REGEX).map((_, bi) => (
+                          <input
+                            key={bi}
+                            type="text"
+                            value={(row.commentBlankAnswers && row.commentBlankAnswers[li] && row.commentBlankAnswers[li][bi]) || ''}
+                            onChange={(e) => {
+                              const next = [...rows];
+                              const cb = [...(next[idx].commentBlankAnswers || [])];
+                              cb[li] = cb[li] || [];
+                              cb[li][bi] = e.target.value;
+                              next[idx] = { ...next[idx], commentBlankAnswers: cb };
+                              setRows(next);
+                            }}
+                            placeholder="Answer for blank"
+                            style={{ ...compactInputStyle, width: 200 }}
+                          />
+                        ))}
+                      </div>
+                    )}
                   </div>
                 ))}
                 <div style={{ marginTop: 8 }}>

@@ -164,15 +164,9 @@ const EditListeningTest = () => {
           formRows: q.formRows || [],
           questionRange: q.questionRange || "",
           answers: q.answers || {},
-          leftItems: q.leftItems || [],
-          rightItems: q.rightItems || [],
-          items: q.items || [],
-          wordLimit: q.wordLimit || null,
-          // Notes completion fields
-          notesText: q.notesText || "",
-          notesTitle: q.notesTitle || "",
-          // Multi-select fields
-          requiredAnswers: q.requiredAnswers || 2,
+          // Table completion fields
+          columns: q.columns || [],
+          rows: q.rows || [],
         }));
         
         return {
@@ -263,6 +257,62 @@ const EditListeningTest = () => {
           })),
         })),
       }));
+
+      // Before sending, ensure per-blank answers from editor (row.commentBlankAnswers / row.correct) are merged
+      // into the question answers map so backend receives them.
+      const BLANK_REGEX = /_{2,}|[\u2026]+/g;
+      let globalQ = 1;
+      cleanedParts.forEach((part) => {
+        part.sections.forEach((section) => {
+          section.questions.forEach((q) => {
+            if (q.questionType === 'table-completion') {
+              q.answers = q.answers && typeof q.answers === 'object' && !Array.isArray(q.answers) ? { ...q.answers } : {};
+
+              (q.rows || []).forEach((row) => {
+                // cost blanks
+                const costText = String(row.cost || '');
+                let match;
+                BLANK_REGEX.lastIndex = 0;
+                while ((match = BLANK_REGEX.exec(costText)) !== null) {
+                  const num = String(globalQ++);
+                  // prefer explicit answers map (if teacher entered in modal), else row.correct
+                  if (!q.answers[num] && row.correct) q.answers[num] = row.correct;
+                }
+
+                // comments blanks
+                (row.comments || []).forEach((line, li) => {
+                  let localIdx = 0;
+                  BLANK_REGEX.lastIndex = 0;
+                  while ((match = BLANK_REGEX.exec(String(line || ''))) !== null) {
+                    const num = String(globalQ++);
+                    const cbVal = (row.commentBlankAnswers && row.commentBlankAnswers[li] && row.commentBlankAnswers[li][localIdx]) || '';
+                    if (!q.answers[num] && cbVal) q.answers[num] = cbVal;
+                    localIdx++;
+                  }
+                });
+              });
+            } else if (q.questionType === 'form-completion') {
+              // form-completion counts blanks too
+              const rows = Array.isArray(q.formRows) ? q.formRows : [];
+              rows.forEach((r) => {
+                if (r && r.isBlank) {
+                  globalQ++;
+                }
+              });
+            } else if (q.questionType === 'matching') {
+              globalQ += (q.leftItems?.length || 1);
+            } else if (q.questionType === 'notes-completion') {
+              const notesText = q.notesText || '';
+              const blanks = notesText.match(/\d+\s*[_…]+|[_…]{2,}/g) || [];
+              globalQ += blanks.length || 1;
+            } else if (q.questionType === 'multi-select') {
+              globalQ += (q.requiredAnswers || 2);
+            } else {
+              globalQ += 1;
+            }
+          });
+        });
+      });
 
       // Build FormData
       const formData = new FormData();

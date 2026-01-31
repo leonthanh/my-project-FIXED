@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { IeltsTestEditorShell } from "../../../shared/components";
 import { useColumnLayout } from "../hooks";
 import ListeningQuestionEditor from "./ListeningQuestionEditor";
+import TableCompletion from "../../../shared/components/questions/editors/TableCompletion";
 
 import {
   colors,
@@ -168,8 +169,7 @@ const ListeningTestEditor = ({
   const [manualHeaderOverride, setManualHeaderOverride] = useState(false);
 
   useEffect(() => {
-    const onScroll = () => {
-      // if user explicitly toggled header, ignore the next automatic update and clear override
+    const onScrollWindow = () => {
       if (manualHeaderOverride) {
         setManualHeaderOverride(false);
         return;
@@ -178,9 +178,26 @@ const ListeningTestEditor = ({
       else if (window.scrollY < 40) setCollapsedHeader(false);
     };
 
-    window.addEventListener('scroll', onScroll, { passive: true });
-    return () => window.removeEventListener('scroll', onScroll);
-  }, [manualHeaderOverride]);
+    // Also listen to scroll on the editor container (possible internal scroll)
+    const editorEl = document.querySelector(`.${className}`);
+    const onScrollEl = () => {
+      if (manualHeaderOverride) {
+        setManualHeaderOverride(false);
+        return;
+      }
+      const top = editorEl?.scrollTop || 0;
+      if (top > 80) setCollapsedHeader(true);
+      else if (top < 40) setCollapsedHeader(false);
+    };
+
+    window.addEventListener('scroll', onScrollWindow, { passive: true });
+    if (editorEl) editorEl.addEventListener('scroll', onScrollEl, { passive: true });
+
+    return () => {
+      window.removeEventListener('scroll', onScrollWindow);
+      if (editorEl) editorEl.removeEventListener('scroll', onScrollEl);
+    };
+  }, [manualHeaderOverride, className]);
 
   const toggleHeader = () => {
     setCollapsedHeader((p) => !p);
@@ -365,7 +382,13 @@ const ListeningTestEditor = ({
       
         titleStyle={{ margin: 0, fontSize: collapsedHeader ? "14px" : "16px", color: colors.primaryPurple }} 
       
-        inputLayoutStyle={{
+        inputLayoutStyle={collapsedHeader ? {
+          display: "none",
+          gap: "12px",
+          flexWrap: "wrap",
+          maxWidth: "1200px",
+          margin: "0 auto",
+        } : {
           display: "flex",
           gap: "12px",
           flexWrap: "wrap",
@@ -1238,6 +1261,128 @@ const ListeningTestEditor = ({
                                         <strong>{num}.</strong> {ans}
                                       </span>
                                     ))}
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* TABLE COMPLETION */}
+                            {section.questionType === 'table-completion' && section.questions[0] && (
+                              <div>
+                                <div style={{
+                                  padding: "12px",
+                                  backgroundColor: "#f9fafb",
+                                  borderRadius: "6px",
+                                  marginBottom: "12px",
+                                  border: "1px solid #e5e7eb",
+                                }}>
+                                  <strong style={{ display: "block", marginBottom: "10px" }}>
+                                    {section.questions[0].title || "Table"}
+                                  </strong>
+                                  <TableCompletion data={{
+                                    part: partIdx + 1,
+                                    title: section.questions[0].title || "",
+                                    instruction: section.questions[0].instruction || "",
+                                    columns: section.questions[0].columns || [],
+                                    rows: section.questions[0].rows || [],
+                                    rangeStart: sectionStartQ,
+                                    rangeEnd: sectionStartQ + ((section.questions[0].rows || []).length ? (section.questions[0].rows || []).length - 1 : 0),
+                                  }} startingQuestionNumber={sectionStartQ} />
+                                </div>
+
+                                {/* Show answers */}
+                                <div style={{
+                                  padding: "10px",
+                                  backgroundColor: "#dcfce7",
+                                  borderRadius: "6px",
+                                  border: "1px solid #86efac",
+                                }}>
+                                  <strong style={{ fontSize: "12px", color: "#166534" }}>✅ Đáp án:</strong>
+                                  <div style={{
+                                    display: "grid",
+                                    gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))",
+                                    gap: "6px",
+                                    marginTop: "8px",
+                                  }}>
+                                    {/* Render blanks (cost + comment lines) numbered sequentially and show editable inputs when no answers map provided */}
+                                    {(() => {
+                                      const BLANK_REGEX = /_{2,}|[\u2026]+/g;
+                                      function splitIntoParts(text = '') {
+                                        const parts = [];
+                                        let lastIndex = 0;
+                                        let match;
+                                        while ((match = BLANK_REGEX.exec(text)) !== null) {
+                                          if (match.index > lastIndex) parts.push({ type: 'text', value: text.slice(lastIndex, match.index) });
+                                          parts.push({ type: 'blank', raw: match[0] });
+                                          lastIndex = match.index + match[0].length;
+                                        }
+                                        if (lastIndex < text.length) parts.push({ type: 'text', value: text.slice(lastIndex) });
+                                        return parts;
+                                      }
+
+                                      // Build numbered parts (like student view) starting at sectionStartQ
+                                      let q = sectionStartQ;
+                                      const numberedRows = (section.questions[0].rows || []).map((row) => {
+                                        const costParts = splitIntoParts(row.cost).map(p => p.type === 'blank' ? { ...p, q: q++ } : p);
+                                        const commentLines = (row.comments || []).map(line => splitIntoParts(line).map(p => p.type === 'blank' ? { ...p, q: q++ } : p));
+                                        return { ...row, costParts, commentLines };
+                                      });
+
+                                      // Always render editable inputs for each blank (cost + comments), pre-filled from answers map if present
+                                      const map = section.questions[0].answers && typeof section.questions[0].answers === 'object' && !Array.isArray(section.questions[0].answers) ? section.questions[0].answers : {};
+
+                                      return numberedRows.flatMap((r) => {
+                                        const inputs = [];
+
+                                        r.costParts.forEach((p) => {
+                                          if (p.type === 'blank') {
+                                            const qNum = p.q;
+                                            const value = map[String(qNum)] ?? (r.correct ?? '');
+                                            const onChange = (v) => {
+                                              const newMap = { ...(section.questions[0].answers || {}) };
+                                              newMap[String(qNum)] = v;
+                                              onQuestionChange(partIdx, sIdx, 0, 'answers', newMap);
+                                            };
+                                            inputs.push(
+                                              <div key={`c-${qNum}`} style={{ padding: '4px 8px', backgroundColor: 'white', borderRadius: '4px', fontSize: '12px' }}>
+                                                <strong style={{ display: 'block', marginBottom: 6 }}>{qNum}.</strong>
+                                                <input type="text" value={value} placeholder="(Chưa có)" onChange={(e) => onChange(e.target.value)} style={{ ...compactInputStyle, width: '100%' }} />
+                                              </div>
+                                            );
+                                          }
+                                        });
+
+                                        r.commentLines.forEach((lineParts, li) => {
+                                          let blankIdx = 0;
+                                          for (const p of lineParts) {
+                                            if (p.type !== 'blank') continue;
+
+                                            const qNum = p.q;
+
+                                            // Determine fallback value sources: answers map -> row.commentBlankAnswers -> row.correct
+                                            const cbAnswers = (r.commentBlankAnswers && r.commentBlankAnswers[li]) || [];
+                                            const value = map[String(qNum)] ?? (cbAnswers[blankIdx] ?? (r.correct ?? ''));
+
+                                            const onChange = (v) => {
+                                              const newMap = { ...(section.questions[0].answers || {}) };
+                                              newMap[String(qNum)] = v;
+                                              onQuestionChange(partIdx, sIdx, 0, 'answers', newMap);
+                                            };
+
+                                            inputs.push(
+                                              <div key={`cm-${qNum}`} style={{ padding: '4px 8px', backgroundColor: 'white', borderRadius: '4px', fontSize: '12px' }}>
+                                                <strong style={{ display: 'block', marginBottom: 6 }}>{qNum}.</strong>
+                                                <input type="text" value={value} placeholder="(Chưa có)" onChange={(e) => onChange(e.target.value)} style={{ ...compactInputStyle, width: '100%' }} />
+                                              </div>
+                                            );
+
+                                            blankIdx++;
+                                          }
+                                        });
+
+                                        return inputs;
+                                      });
+                                    })()}
                                   </div>
                                 </div>
                               </div>
