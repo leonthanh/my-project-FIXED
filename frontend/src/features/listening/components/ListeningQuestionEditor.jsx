@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { colors, compactInputStyle, deleteButtonSmallStyle } from "../utils/styles";
+import TableCompletionEditor from "../../../shared/components/questions/editors/TableCompletionEditor";
 
 /**
  * ListeningQuestionEditor - Editor cho từng câu hỏi Listening
@@ -30,6 +31,8 @@ const ListeningQuestionEditor = ({
         return renderFillQuestion();
       case "form-completion":
         return renderFormCompletionQuestion();
+      case "table-completion":
+        return renderTableCompletionQuestion();
       case "notes-completion":
         return renderNotesCompletionQuestion();
       case "abc":
@@ -627,6 +630,19 @@ const ListeningQuestionEditor = ({
             </div>
           </div>
         )}
+      </div>
+    );
+  };
+
+  // Table Completion - use a dedicated editor component that supports columns/rows
+  const renderTableCompletionQuestion = () => {
+    return (
+      <div>
+        <TableCompletionEditor
+          question={question}
+          onChange={(field, value) => onChange(field, value)}
+          startingNumber={sectionStartingNumber || globalQuestionNumber || 1}
+        />
       </div>
     );
   };

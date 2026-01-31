@@ -1,8 +1,8 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { IeltsTestEditorShell } from "../../../shared/components";
 import { useColumnLayout } from "../hooks";
 import ListeningQuestionEditor from "./ListeningQuestionEditor";
-import ListeningTemplateLibrary from "./ListeningTemplateLibrary";
+
 import {
   colors,
   compactInputStyle,
@@ -142,10 +142,8 @@ const ListeningTestEditor = ({
   isSubmitting,
   submitButtonText = "Tạo đề",
 
-  // Messages & Preview
+  // Messages
   message,
-  showPreview,
-  setShowPreview,
 
   // Auto-save
   lastSaved,
@@ -165,6 +163,30 @@ const ListeningTestEditor = ({
     getColumnWidth,
   } = useColumnLayout();
 
+  // Header collapse state: auto-collapses on scroll or toggled manually
+  const [collapsedHeader, setCollapsedHeader] = useState(false);
+  const [manualHeaderOverride, setManualHeaderOverride] = useState(false);
+
+  useEffect(() => {
+    const onScroll = () => {
+      // if user explicitly toggled header, ignore the next automatic update and clear override
+      if (manualHeaderOverride) {
+        setManualHeaderOverride(false);
+        return;
+      }
+      if (window.scrollY > 80) setCollapsedHeader(true);
+      else if (window.scrollY < 40) setCollapsedHeader(false);
+    };
+
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, [manualHeaderOverride]);
+
+  const toggleHeader = () => {
+    setCollapsedHeader((p) => !p);
+    setManualHeaderOverride(true);
+  }; 
+
   // Audio input refs
   const globalAudioRef = useRef(null);
   const partAudioRef = useRef(null);
@@ -174,9 +196,6 @@ const ListeningTestEditor = ({
   const [bulkAddCount, setBulkAddCount] = useState(5);
   const [bulkAddType, setBulkAddType] = useState('fill');
 
-  // Template library modal state
-  const [showTemplateLibrary, setShowTemplateLibrary] = useState(false);
-  const [templateLibraryMode, setTemplateLibraryMode] = useState('question'); // 'question' | 'section'
 
   // Current part and section
   const currentPart = parts?.[selectedPartIndex];
@@ -213,53 +232,7 @@ const ListeningTestEditor = ({
     { value: 'flowchart', label: '📊 Flowchart Completion', desc: 'Hoàn thành sơ đồ' },
   ];
 
-  // Handle template selection (single question)
-  const handleSelectTemplate = (template) => {
-    if (selectedPartIndex !== null && selectedSectionIndex !== null) {
-      // Add the template as a new question
-      onAddQuestion(selectedPartIndex, selectedSectionIndex, template.questionType);
-      // Update the last added question with template data
-      const newQuestionIndex = currentSection?.questions?.length || 0;
-      Object.entries(template).forEach(([key, value]) => {
-        if (key !== 'questionType') {
-          onQuestionChange(selectedPartIndex, selectedSectionIndex, newQuestionIndex, key, value);
-        }
-      });
-    }
-  };
 
-  // Handle section template selection
-  const handleSelectSectionTemplate = (sectionTemplate) => {
-    if (selectedPartIndex !== null) {
-      // Add a new section with the template
-      onAddSection(selectedPartIndex);
-      const newSectionIndex = currentPart?.sections?.length || 0;
-      
-      // Update section properties
-      onSectionChange(selectedPartIndex, newSectionIndex, 'sectionTitle', sectionTemplate.title);
-      onSectionChange(selectedPartIndex, newSectionIndex, 'sectionInstruction', sectionTemplate.instructions);
-      onSectionChange(selectedPartIndex, newSectionIndex, 'questionType', sectionTemplate.questionType);
-      
-      // Add template questions
-      sectionTemplate.questions.forEach((q, idx) => {
-        if (idx === 0) {
-          // First question already exists, update it
-          Object.entries(q).forEach(([key, value]) => {
-            onQuestionChange(selectedPartIndex, newSectionIndex, 0, key, value);
-          });
-        } else {
-          // Add more questions
-          onAddQuestion(selectedPartIndex, newSectionIndex, sectionTemplate.questionType);
-          Object.entries(q).forEach(([key, value]) => {
-            onQuestionChange(selectedPartIndex, newSectionIndex, idx, key, value);
-          });
-        }
-      });
-      
-      // Select the new section
-      setSelectedSectionIndex(newSectionIndex);
-    }
-  };
 
   return (
     <>
@@ -316,32 +289,19 @@ const ListeningTestEditor = ({
             >
               📊 {totalQuestions} câu hỏi
             </span>
+
             <button
               type="button"
-              onClick={() => {
-                setTemplateLibraryMode("section");
-                setShowTemplateLibrary(true);
-              }}
-              style={{
-                ...primaryButtonStyle,
-                padding: "6px 14px",
-                fontSize: "13px",
-                background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-              }}
+              onClick={toggleHeader}
+              title={collapsedHeader ? "Mở rộng header" : "Thu nhỏ header"}
+              style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid #e5e7eb", background: collapsedHeader ? "#f3f4f6" : "transparent", marginLeft: 8 }}
             >
-              📚 Template Library
-            </button>
-            <button
-              type="button"
-              onClick={() => setShowPreview(!showPreview)}
-              style={secondaryButtonStyle}
-            >
-              👁️ Preview
+              {collapsedHeader ? "▼" : "▲"}
             </button>
           </>
         }
-        afterInputs={
-          <div style={{ marginTop: "12px", maxWidth: "900px", margin: "12px auto 0" }}>
+        afterInputs={!collapsedHeader && (
+          <div style={{ marginTop: "12px", maxWidth: "1200px", margin: "12px auto 0" }}>
             <div
               style={globalAudioFile?.url ? audioUploadActiveStyle : audioUploadStyle}
               onClick={() => globalAudioRef.current?.click()}
@@ -370,7 +330,7 @@ const ListeningTestEditor = ({
               )}
             </div>
           </div>
-        }
+        )}
         shellStyle={{
           display: "flex",
           flexDirection: "column",
@@ -384,26 +344,35 @@ const ListeningTestEditor = ({
           flex: 1,
           overflow: "hidden",
         }}
-        headerStyle={{
-          padding: "12px 20px",
+        headerStyle={collapsedHeader ? {
+          padding: "6px 12px",
           backgroundColor: "#fff",
           borderBottom: "1px solid #e5e7eb",
-          boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
-        }}
+          boxShadow: "0 1px 2px rgba(0,0,0,0.04)",
+        } : {
+          padding: "8px 12px",
+          backgroundColor: "#fff",
+          borderBottom: "1px solid #e5e7eb",
+          boxShadow: "0 1px 2px rgba(0,0,0,0.04)",
+        }} 
+      
         topBarStyle={{
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
-          marginBottom: "12px",
-        }}
-        titleStyle={{ margin: 0, fontSize: "18px", color: colors.primaryPurple }}
+          marginBottom: collapsedHeader ? "4px" : "8px",
+        }} 
+      
+        titleStyle={{ margin: 0, fontSize: collapsedHeader ? "14px" : "16px", color: colors.primaryPurple }} 
+      
         inputLayoutStyle={{
           display: "flex",
           gap: "12px",
           flexWrap: "wrap",
-          maxWidth: "900px",
+          maxWidth: "1200px",
           margin: "0 auto",
         }}
+      
         titleInputStyle={{ ...compactInputStyle, flex: "1 1 40%", minWidth: "200px" }}
         classCodeInputStyle={{ ...compactInputStyle, flex: "1 1 20%", minWidth: "120px" }}
         teacherInputStyle={{ ...compactInputStyle, flex: "1 1 25%", minWidth: "150px" }}
@@ -693,21 +662,7 @@ const ListeningTestEditor = ({
                   >
                     ➕ Thêm Section
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setTemplateLibraryMode('section');
-                      setShowTemplateLibrary(true);
-                    }}
-                    style={{
-                      ...addButtonStyle(colors.primaryPurple),
-                      marginTop: "8px",
-                      background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-                      color: "white",
-                    }}
-                  >
-                    📚 Section từ Template
-                  </button>
+
                 </div>
               ) : (
                 !collapsedColumns.col3 && (
@@ -920,16 +875,7 @@ const ListeningTestEditor = ({
                               }
                             </h4>
                             <div style={{ display: "flex", gap: "6px" }}>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setTemplateLibraryMode('question');
-                                  setShowTemplateLibrary(true);
-                                }}
-                                style={{ ...secondaryButtonStyle, padding: "6px 10px", fontSize: "11px" }}
-                              >
-                                📚 Template
-                              </button>
+
                               <button
                                 type="button"
                                 onClick={() => setShowBulkAddModal(true)}
@@ -1520,262 +1466,7 @@ const ListeningTestEditor = ({
         </div>
       )}
 
-      {/* BULK ADD MODAL */}
-      {showPreview && (
-        <div style={modalStyles}>
-          <div style={{ ...modalContentStyles, maxWidth: "900px", maxHeight: "90vh", overflow: "auto" }}>
-            <div style={{ ...modalHeaderStyles, position: "sticky", top: 0, backgroundColor: "white", zIndex: 10 }}>
-              <span style={{ fontSize: "20px" }}>👁️</span>
-              <h3 style={{ margin: 0 }}>Xem trước đề thi</h3>
-              <button
-                type="button"
-                onClick={() => setShowPreview(false)}
-                style={{
-                  marginLeft: "auto",
-                  padding: "6px 12px",
-                  backgroundColor: "#ef4444",
-                  color: "white",
-                  border: "none",
-                  borderRadius: "6px",
-                  cursor: "pointer",
-                }}
-              >
-                ✕ Đóng
-              </button>
-            </div>
 
-            <div style={{ padding: "20px 0" }}>
-              {/* Test Header */}
-              <div style={{
-                textAlign: "center",
-                marginBottom: "30px",
-                padding: "20px",
-                backgroundColor: "#f0f9ff",
-                borderRadius: "12px",
-              }}>
-                <h2 style={{ margin: "0 0 10px 0", color: "#1e40af" }}>
-                  🎧 {title || "LISTENING TEST"}
-                </h2>
-                <p style={{ margin: 0, color: "#6b7280" }}>
-                  {classCode && `Mã lớp: ${classCode}`} {teacherName && `| Giáo viên: ${teacherName}`}
-                </p>
-                <p style={{ margin: "8px 0 0 0", fontSize: "14px", color: "#6b7280" }}>
-                  Tổng: {totalQuestions} câu hỏi | {parts?.length || 0} parts
-                </p>
-              </div>
-
-              {/* Parts Preview */}
-              {parts?.map((part, partIdx) => {
-                let questionCounter = 1;
-                // Calculate starting question for this part
-                for (let p = 0; p < partIdx; p++) {
-                  // eslint-disable-next-line no-loop-func
-                  parts[p].sections?.forEach(s => {
-                    questionCounter += countSectionQuestions(s);
-                  });
-                }
-                const partStartQ = questionCounter;
-                
-                return (
-                  <div key={partIdx} style={{
-                    marginBottom: "30px",
-                    border: "1px solid #e5e7eb",
-                    borderRadius: "12px",
-                    overflow: "hidden",
-                  }}>
-                    {/* Part Header */}
-                    <div style={{
-                      padding: "16px 20px",
-                      backgroundColor: colors.partBlue,
-                      color: "white",
-                    }}>
-                      <h3 style={{ margin: 0 }}>
-                        {part.title || `PART ${partIdx + 1}`}
-                      </h3>
-                      {part.audioFile && (
-                        <span style={{ fontSize: "12px", opacity: 0.9 }}>🎵 Có audio</span>
-                      )}
-                    </div>
-
-                    {/* Part Instruction */}
-                    {part.instruction && (
-                      <div style={{
-                        padding: "12px 20px",
-                        backgroundColor: "#f8fafc",
-                        borderBottom: "1px solid #e5e7eb",
-                        fontStyle: "italic",
-                        fontSize: "14px",
-                      }}>
-                        {part.instruction}
-                      </div>
-                    )}
-
-                    {/* Sections */}
-                    {part.sections?.map((section, sIdx) => {
-                      const sectionQCount = countSectionQuestions(section);
-                      // Calculate starting question for this section
-                      let sectionStartQ = partStartQ;
-                      for (let s = 0; s < sIdx; s++) {
-                        sectionStartQ += countSectionQuestions(part.sections[s]);
-                      }
-                      
-                      return (
-                        <div key={sIdx} style={{ padding: "16px 20px", borderBottom: "1px solid #f3f4f6" }}>
-                          <h4 style={{
-                            margin: "0 0 12px 0",
-                            color: colors.sectionOrange,
-                            fontSize: "16px",
-                          }}>
-                            {section.sectionTitle || `Questions ${sectionStartQ}-${sectionStartQ + sectionQCount - 1}`}
-                          </h4>
-                          
-                          {section.sectionInstruction && (
-                            <p style={{
-                              margin: "0 0 16px 0",
-                              padding: "10px",
-                              backgroundColor: "#fffbeb",
-                              borderRadius: "8px",
-                              fontSize: "14px",
-                              whiteSpace: "pre-wrap",
-                            }}>
-                              {section.sectionInstruction}
-                            </p>
-                          )}
-
-                          {/* Questions based on type */}
-                          <div style={{ paddingLeft: "10px" }}>
-                            {section.questionType === 'notes-completion' && section.questions[0]?.notesText && (
-                              <div style={{
-                                padding: "16px",
-                                backgroundColor: "#f9fafb",
-                                borderRadius: "8px",
-                                whiteSpace: "pre-wrap",
-                                lineHeight: "1.8",
-                                fontFamily: "Georgia, serif",
-                              }}>
-                                <strong style={{ display: "block", marginBottom: "12px" }}>
-                                  {section.questions[0].notesTitle || "Notes"}
-                                </strong>
-                                {section.questions[0].notesText}
-                              </div>
-                            )}
-                            
-                            {section.questionType === 'form-completion' && section.questions[0]?.formRows && (
-                              <div style={{
-                                padding: "16px",
-                                backgroundColor: "#f9fafb",
-                                borderRadius: "8px",
-                                border: "1px solid #e5e7eb",
-                              }}>
-                                <strong style={{ display: "block", marginBottom: "12px" }}>
-                                  {section.questions[0].formTitle || "Form"}
-                                </strong>
-                                {section.questions[0].formRows.map((row, rIdx) => (
-                                  <div key={rIdx} style={{
-                                    display: "flex",
-                                    gap: "8px",
-                                    padding: "6px 0",
-                                    borderBottom: "1px dashed #e5e7eb",
-                                  }}>
-                                    <span style={{ minWidth: "150px" }}>{row.label}</span>
-                                    <span>{row.prefix}</span>
-                                    {row.isBlank ? (
-                                      <span style={{
-                                        padding: "2px 16px",
-                                        backgroundColor: "#fef3c7",
-                                        borderRadius: "4px",
-                                        fontWeight: "bold",
-                                      }}>
-                                        {row.blankNumber}. ________
-                                      </span>
-                                    ) : (
-                                      <span>{row.suffix}</span>
-                                    )}
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-
-                            {section.questionType === 'matching' && section.questions[0] && (
-                              <div style={{ display: "flex", gap: "40px" }}>
-                                <div>
-                                  <strong>Items:</strong>
-                                  {section.questions[0].leftItems?.map((item, i) => (
-                                    <div key={i} style={{ padding: "4px 0" }}>
-                                      {sectionStartQ + i}. {item}
-                                    </div>
-                                  ))}
-                                </div>
-                                <div>
-                                  <strong>Options:</strong>
-                                  {section.questions[0].rightItems?.map((item, i) => (
-                                    <div key={i} style={{ padding: "4px 0" }}>
-                                      {item}
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
-
-                            {(section.questionType === 'abc' || section.questionType === 'abcd') && (
-                              <div>
-                                {section.questions?.map((q, qIdx) => (
-                                  <div key={qIdx} style={{ marginBottom: "16px" }}>
-                                    <strong>{sectionStartQ + qIdx}.</strong> {q.questionText}
-                                    <div style={{ paddingLeft: "20px", marginTop: "8px" }}>
-                                      {q.options?.map((opt, oIdx) => (
-                                        <div key={oIdx} style={{ padding: "4px 0" }}>
-                                          {opt}
-                                        </div>
-                                      ))}
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-
-                            {section.questionType === 'multi-select' && (
-                              <div>
-                                {section.questions?.map((q, qIdx) => {
-                                  const qStartNum = sectionStartQ + (qIdx * (q.requiredAnswers || 2));
-                                  const qEndNum = qStartNum + (q.requiredAnswers || 2) - 1;
-                                  return (
-                                    <div key={qIdx} style={{ marginBottom: "20px" }}>
-                                      <strong>Questions {qStartNum} and {qEndNum}</strong>
-                                      <p style={{ margin: "8px 0" }}>{q.questionText}</p>
-                                      <div style={{ paddingLeft: "20px" }}>
-                                        {q.options?.map((opt, oIdx) => (
-                                          <div key={oIdx} style={{ padding: "4px 0" }}>
-                                            ☐ {opt}
-                                          </div>
-                                        ))}
-                                      </div>
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            )}
-
-                            {section.questionType === 'fill' && (
-                              <div>
-                                {section.questions?.map((q, qIdx) => (
-                                  <div key={qIdx} style={{ marginBottom: "12px" }}>
-                                    <strong>{sectionStartQ + qIdx}.</strong> {q.questionText || "________"}
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* BULK ADD MODAL */}
       {showBulkAddModal && (
@@ -1836,14 +1527,7 @@ const ListeningTestEditor = ({
         </div>
       )}
 
-      {/* TEMPLATE LIBRARY MODAL */}
-      <ListeningTemplateLibrary
-        isOpen={showTemplateLibrary}
-        onClose={() => setShowTemplateLibrary(false)}
-        onSelectTemplate={handleSelectTemplate}
-        onSelectSectionTemplate={handleSelectSectionTemplate}
-        mode={templateLibraryMode}
-      />
+
     </IeltsTestEditorShell>
   </>
   );

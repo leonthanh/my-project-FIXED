@@ -60,24 +60,36 @@ export const useListeningHandlers = (initialParts = []) => {
   /**
    * Add Section to Part
    */
-  const handleAddSection = useCallback((partIndex) => {
+  const handleAddSection = useCallback((partIndex, sectionTemplate) => {
+    // compute new section index inside the updater to avoid race with state
+    let newIndex = 0;
     setParts(prev => {
       const newParts = [...prev];
       const part = newParts[partIndex];
       const sectionCount = part.sections?.length || 0;
-      const newSection = createNewSection(sectionCount + 1);
+
+      const newSection = sectionTemplate
+        ? {
+            sectionTitle: sectionTemplate.title || sectionTemplate.sectionTitle || `Questions ${(sectionCount - 1) * 5 + 1}-${sectionCount * 5}`,
+            sectionInstruction: sectionTemplate.instructions || sectionTemplate.sectionInstruction || '',
+            questionType: sectionTemplate.questionType || 'fill',
+            startingQuestionNumber: sectionTemplate.startingQuestionNumber || null,
+            questions: (sectionTemplate.questions || []).map(q => ({ ...q }))
+          }
+        : createNewSection(sectionCount + 1);
       
       newParts[partIndex] = {
         ...part,
         sections: [...(part.sections || []), newSection]
       };
+
+      newIndex = sectionCount; // index of newly appended section
       return newParts;
     });
-    
-    // Select the new section
-    const newSectionIndex = parts[partIndex]?.sections?.length || 0;
-    setSelectedSectionIndex(newSectionIndex);
-  }, [parts]);
+
+    // select the new section
+    setSelectedSectionIndex(newIndex);
+  }, []);
 
   /**
    * Delete Section from Part
@@ -146,11 +158,13 @@ export const useListeningHandlers = (initialParts = []) => {
   /**
    * Add Question to Section
    */
-  const handleAddQuestion = useCallback((partIndex, sectionIndex, questionType = 'fill') => {
+  const handleAddQuestion = useCallback((partIndex, sectionIndex, questionTypeOrTemplate = 'fill') => {
     setParts(prev => {
       const newParts = [...prev];
       const sections = [...newParts[partIndex].sections];
-      const newQuestion = createNewQuestion(questionType);
+      const newQuestion = typeof questionTypeOrTemplate === 'object'
+        ? { ...questionTypeOrTemplate }
+        : createNewQuestion(questionTypeOrTemplate);
       
       sections[sectionIndex] = {
         ...sections[sectionIndex],
@@ -193,7 +207,9 @@ export const useListeningHandlers = (initialParts = []) => {
       const sections = [...newParts[partIndex].sections];
       const questions = [...sections[sectionIndex].questions];
       
-      questions[questionIndex] = { ...questions[questionIndex], [field]: value };
+      // If field is 'full', the editor passed the entire question object.
+      // Replace the whole question object instead of assigning it to a 'full' key.
+      questions[questionIndex] = field === 'full' ? value : { ...questions[questionIndex], [field]: value };
       sections[sectionIndex] = { ...sections[sectionIndex], questions };
       newParts[partIndex] = { ...newParts[partIndex], sections };
       return newParts;

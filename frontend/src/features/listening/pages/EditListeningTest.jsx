@@ -33,7 +33,6 @@ const EditListeningTest = () => {
   // Review & Submit state
   const [isReviewing, setIsReviewing] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
-  const [showPreview, setShowPreview] = useState(false);
 
   // Auto-save state (reserved for future use)
   const [lastSaved] = useState(null);
@@ -100,6 +99,23 @@ const EditListeningTest = () => {
         const reconstructedParts = reconstructParts(partInstructions, questions, partAudioUrls);
         console.log("Reconstructed parts:", reconstructedParts);
         setParts(reconstructedParts);
+
+        // If there's a local draft (from a failed update), offer to restore it
+        try {
+          const savedDraft = localStorage.getItem(`listeningTestDraftEdit-${id}`);
+          if (savedDraft) {
+            const draft = JSON.parse(savedDraft);
+            if (window.confirm("Tìm thấy bản nháp cục bộ. Khôi phục bản nháp?")) {
+              setTitle(draft.title || (data.title || ""));
+              setClassCode(draft.classCode || (data.classCode || ""));
+              setTeacherName(draft.teacherName || (data.teacherName || ""));
+              setShowResultModal(draft.showResultModal ?? (data.showResultModal ?? true));
+              if (draft.parts) setParts(draft.parts);
+            }
+          }
+        } catch (e) {
+          console.error("Error loading edit draft", e);
+        }
         
       } catch (err) {
         console.error("Error fetching test:", err);
@@ -219,6 +235,15 @@ const EditListeningTest = () => {
     try {
       setIsUpdating(true);
 
+      // Save a local draft now so user doesn't lose work if network/save fails
+      try {
+        localStorage.setItem(`listeningTestDraftEdit-${id}`, JSON.stringify({
+          title, classCode, teacherName, parts, showResultModal, savedAt: new Date().toISOString()
+        }));
+      } catch (e) {
+        console.error("Error saving edit draft", e);
+      }
+
       // Clean up parts data for submission
       const cleanedParts = parts.map((part) => ({
         title: part.title,
@@ -277,12 +302,19 @@ const EditListeningTest = () => {
       }
 
       setMessage("✅ Cập nhật đề thi thành công!");
+      try { localStorage.removeItem(`listeningTestDraftEdit-${id}`); } catch (e) { /* ignore */ }
 
       setTimeout(() => {
         navigate("/select-test");
       }, 1500);
     } catch (error) {
       console.error("Error:", error);
+      // Save current state as a draft to avoid data loss
+      try {
+        localStorage.setItem(`listeningTestDraftEdit-${id}`, JSON.stringify({
+          title, classCode, teacherName, parts, showResultModal, savedAt: new Date().toISOString()
+        }));
+      } catch (e) { console.error("Error saving edit draft after failure", e); }
       setMessage(`❌ ${error.message}`);
     } finally {
       setIsUpdating(false);
@@ -406,8 +438,6 @@ const EditListeningTest = () => {
       onManualSave={() => {}}
       // Messages & Preview
       message={message}
-      showPreview={showPreview}
-      setShowPreview={setShowPreview}
       // Global audio
       globalAudioFile={globalAudioFile}
       setGlobalAudioFile={setGlobalAudioFile}

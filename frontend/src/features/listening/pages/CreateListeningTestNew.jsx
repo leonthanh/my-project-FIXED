@@ -26,7 +26,6 @@ const CreateListeningTestNew = () => {
   // Review & Submit state
   const [isReviewing, setIsReviewing] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [showPreview, setShowPreview] = useState(false);
 
   // Auto-save state
   const [lastSaved, setLastSaved] = useState(null);
@@ -326,8 +325,6 @@ const CreateListeningTestNew = () => {
         onManualSave={saveDraft}
         // Messages & Preview
         message={message}
-        showPreview={showPreview}
-        setShowPreview={setShowPreview}
         // Global audio
         globalAudioFile={globalAudioFile}
         setGlobalAudioFile={setGlobalAudioFile}
