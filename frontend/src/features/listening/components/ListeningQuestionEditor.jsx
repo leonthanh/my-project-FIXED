@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import MapLabelingQuestion from '../../../shared/components/MapLabelingQuestion';
 import { colors, compactInputStyle, deleteButtonSmallStyle } from "../utils/styles";
 import TableCompletionEditor from "../../../shared/components/questions/editors/TableCompletionEditor";
 
@@ -19,6 +20,7 @@ const ListeningQuestionEditor = ({
   questionsBeforeInSection = 0, // Số câu hỏi của các questions trước đó trong cùng section (cho multi-select)
 }) => {
   const [isExpanded, setIsExpanded] = useState(true);
+
 
   // IMPORTANT: Prioritize section's questionType prop over question's own type
   // This ensures form-completion section shows correctly even if question has questionType: "fill"
@@ -1314,88 +1316,15 @@ VD:
   // Map labeling question
   const renderMapLabelingQuestion = () => (
     <div>
-      <label style={labelStyle}>Hướng dẫn</label>
-      <input
-        type="text"
-        value={question.questionText || ""}
-        onChange={(e) => onChange("questionText", e.target.value)}
-        placeholder="VD: Label the map below. Write the correct letter, A-H."
-        style={compactInputStyle}
-      />
-
-      <label style={labelStyle}>URL hình ảnh bản đồ</label>
-      <input
-        type="text"
-        value={question.imageUrl || ""}
-        onChange={(e) => onChange("imageUrl", e.target.value)}
-        placeholder="https://example.com/map.png hoặc /uploads/images/map.png"
-        style={compactInputStyle}
-      />
-      {question.imageUrl && (
-        <img
-          src={question.imageUrl}
-          alt="Map preview"
-          style={{ maxWidth: "100%", maxHeight: "200px", marginBottom: "12px", borderRadius: "8px" }}
-        />
-      )}
-
-      <label style={labelStyle}>Phạm vi câu hỏi</label>
-      <input
-        type="text"
-        value={question.questionRange || ""}
-        onChange={(e) => onChange("questionRange", e.target.value)}
-        placeholder="VD: 11-15"
-        style={compactInputStyle}
-      />
-
-      <label style={labelStyle}>Các vị trí cần gắn nhãn</label>
-      {(question.items || [{ label: "A", text: "" }]).map((item, idx) => (
-        <div key={idx} style={{ display: "flex", gap: "8px", marginBottom: "8px", alignItems: "center" }}>
-          <input
-            type="text"
-            value={item.label}
-            onChange={(e) => {
-              const newItems = [...question.items];
-              newItems[idx] = { ...newItems[idx], label: e.target.value };
-              onChange("items", newItems);
-            }}
-            placeholder="A"
-            style={{ ...compactInputStyle, width: "50px" }}
-          />
-          <input
-            type="text"
-            value={item.text}
-            onChange={(e) => {
-              const newItems = [...question.items];
-              newItems[idx] = { ...newItems[idx], text: e.target.value };
-              onChange("items", newItems);
-            }}
-            placeholder="Mô tả vị trí (VD: Reception desk)"
-            style={{ ...compactInputStyle, flex: 1 }}
-          />
-        </div>
-      ))}
-      <button
-        type="button"
-        onClick={() => {
-          const nextLabel = String.fromCharCode(65 + (question.items?.length || 0));
-          onChange("items", [...(question.items || []), { label: nextLabel, text: "" }]);
-        }}
-        style={addItemButtonStyle}
-      >
-        + Thêm vị trí
-      </button>
-
-      <label style={{ ...labelStyle, marginTop: "12px" }}>Đáp án (VD: 11-E, 12-A, 13-H)</label>
-      <input
-        type="text"
-        value={question.correctAnswer || ""}
-        onChange={(e) => onChange("correctAnswer", e.target.value)}
-        placeholder="11-E, 12-A, 13-H, 14-B, 15-G"
-        style={compactInputStyle}
+      <MapLabelingQuestion
+        question={question}
+        onChange={(field, value) => onChange(field, value)}
+        mode="edit"
+        questionNumber={globalQuestionNumber}
       />
     </div>
   );
+
 
   // Flowchart question
   const renderFlowchartQuestion = () => (

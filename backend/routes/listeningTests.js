@@ -1236,6 +1236,9 @@ router.put('/:id', requireAuth, requireTestPermission('listening'), upload.field
     if (passages) {
       const parsedPassages = typeof passages === 'string' ? JSON.parse(passages) : passages;
       
+      // Debug: show a short preview of parsed passages to inspect map items/positions
+      try { console.log('Parsed passages for update (preview):', JSON.stringify(parsedPassages).slice(0,2000)); } catch (e) { console.log('Parsed passages (could not stringify)'); }
+      
       // Process audio files for each part
       const processedPassages = parsedPassages.map((passage, index) => {
         let audioFile = passage.audioFile || test.mainAudioUrl;
@@ -1340,6 +1343,8 @@ router.put('/:id', requireAuth, requireTestPermission('listening'), upload.field
 
     // Update the test
     await test.update(updates);
+    // Reload to ensure we return the latest values (including updated JSON fields)
+    await test.reload();
 
     res.json({
       message: '✅ Đã cập nhật đề thi thành công!',

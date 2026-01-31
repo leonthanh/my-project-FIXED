@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useRef, useState } from "react";
 
 /**
  * MapLabelingEditor - Map/Plan Labeling question
@@ -14,6 +14,31 @@ const MapLabelingEditor = ({
   onChange,
   styles = {},
 }) => {
+  const fileInputRef = useRef(null);
+  const [previewUrl, setPreviewUrl] = useState(question?.imageUrl || '');
+
+  const safeOnChange = (field, value) => {
+    if (!onChange) return;
+    if (typeof onChange === 'function' && onChange.length >= 2) {
+      onChange(field, value);
+    } else {
+      onChange({ ...(question || {}), [field]: value });
+    }
+  };
+
+  const handleFileUpload = (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setPreviewUrl(reader.result);
+        safeOnChange('imageUrl', reader.result);
+        safeOnChange('imageFile', file);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   // Default styles
   const defaultStyles = {
     input: {
@@ -76,32 +101,57 @@ const MapLabelingEditor = ({
       <input
         type="text"
         value={question.questionText || ""}
-        onChange={(e) => onChange("questionText", e.target.value)}
+        onChange={(e) => safeOnChange("questionText", e.target.value)}
         placeholder="VD: Label the map below. Write the correct letter, A-H."
         style={defaultStyles.input}
       />
 
       <label style={defaultStyles.label}>URL hình ảnh bản đồ</label>
-      <input
-        type="text"
-        value={question.imageUrl || ""}
-        onChange={(e) => onChange("imageUrl", e.target.value)}
-        placeholder="https://example.com/map.png hoặc /uploads/images/map.png"
-        style={defaultStyles.input}
-      />
-      {question.imageUrl && (
+      <div style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
+        <input
+          type="file"
+          ref={fileInputRef}
+          accept="image/*"
+          onChange={handleFileUpload}
+          style={{ display: 'none' }}
+        />
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          style={{
+            padding: '8px 12px',
+            background: '#3b82f6',
+            color: 'white',
+            border: 'none',
+            borderRadius: '6px',
+            cursor: 'pointer'
+          }}
+        >
+          📁 Tải lên hình
+        </button>
+        <span style={{ color: '#64748b', alignSelf: 'center' }}>hoặc</span>
+        <input
+          type="text"
+          value={question.imageUrl || ''}
+          onChange={(e) => { setPreviewUrl(e.target.value); safeOnChange('imageUrl', e.target.value); }}
+          placeholder="https://example.com/map.png hoặc /uploads/images/map.png"
+          style={{ ...defaultStyles.input, marginBottom: 0 }}
+        />
+      </div>
+
+      {(previewUrl || question.imageUrl) && (
         <img
-          src={question.imageUrl}
+          src={previewUrl || question.imageUrl}
           alt="Map preview"
           style={{ maxWidth: "100%", maxHeight: "200px", marginBottom: "12px", borderRadius: "8px" }}
         />
-      )}
+      )} 
 
       <label style={defaultStyles.label}>Phạm vi câu hỏi</label>
       <input
         type="text"
         value={question.questionRange || ""}
-        onChange={(e) => onChange("questionRange", e.target.value)}
+        onChange={(e) => safeOnChange("questionRange", e.target.value)}
         placeholder="VD: 11-15"
         style={defaultStyles.input}
       />
@@ -115,7 +165,7 @@ const MapLabelingEditor = ({
             onChange={(e) => {
               const newItems = [...(question.items || [])];
               newItems[idx] = { ...newItems[idx], label: e.target.value };
-              onChange("items", newItems);
+              safeOnChange("items", newItems);
             }}
             placeholder="A"
             style={{ ...defaultStyles.input, width: "50px", marginBottom: 0 }}
@@ -126,7 +176,7 @@ const MapLabelingEditor = ({
             onChange={(e) => {
               const newItems = [...(question.items || [])];
               newItems[idx] = { ...newItems[idx], text: e.target.value };
-              onChange("items", newItems);
+              safeOnChange("items", newItems);
             }}
             placeholder="Mô tả vị trí (VD: Reception desk)"
             style={{ ...defaultStyles.input, flex: 1, marginBottom: 0 }}
@@ -136,7 +186,7 @@ const MapLabelingEditor = ({
               type="button"
               onClick={() => {
                 const newItems = (question.items || []).filter((_, i) => i !== idx);
-                onChange("items", newItems);
+                safeOnChange("items", newItems);
               }}
               style={defaultStyles.deleteButton}
             >
@@ -149,7 +199,7 @@ const MapLabelingEditor = ({
         type="button"
         onClick={() => {
           const nextLabel = String.fromCharCode(65 + (question.items?.length || 0));
-          onChange("items", [...(question.items || []), { label: nextLabel, text: "" }]);
+          safeOnChange("items", [...(question.items || []), { label: nextLabel, text: "" }]);
         }}
         style={defaultStyles.addButton}
       >
@@ -160,7 +210,7 @@ const MapLabelingEditor = ({
       <input
         type="text"
         value={question.correctAnswer || ""}
-        onChange={(e) => onChange("correctAnswer", e.target.value)}
+        onChange={(e) => safeOnChange("correctAnswer", e.target.value)}
         placeholder="11-E, 12-A, 13-H, 14-B, 15-G"
         style={defaultStyles.input}
       />

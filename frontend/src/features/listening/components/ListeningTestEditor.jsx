@@ -1510,6 +1510,46 @@ const ListeningTestEditor = ({
                               </div>
                             )}
 
+                            {/* MAP LABELING (preview for teacher) */}
+                            {section.questionType === 'map-labeling' && section.questions[0] && (() => {
+                              const q = section.questions[0];
+                              return (
+                                <div>
+                                  {(q.mapImageUrl || q.imageUrl) && (
+                                    <div style={{ maxWidth: '700px', margin: '0 auto 20px', border: '2px solid #e2e8f0', borderRadius: '8px', overflow: 'hidden' }}>
+                                      <div style={{ position: 'relative' }}>
+                                        <img src={q.mapImageUrl || q.imageUrl} alt="Map preview" style={{ width: '100%', display: 'block' }} />
+
+                                        {(q.items || []).map((item, idx) => {
+                                          const pos = item?.position || null;
+                                          if (!pos) return null;
+                                          return (
+                                            <div key={idx} style={{ position: 'absolute', left: `${pos.x}%`, top: `${pos.y}%`, transform: 'translate(-50%, -50%)', zIndex: 40 }}>
+                                              <div style={{ width: 30, height: 30, borderRadius: 15, background: '#ef4444', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>{item.correctAnswer || '?'}</div>
+                                            </div>
+                                          );
+                                        })}
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  {/* List items */}
+                                  <div style={{ padding: '8px 0', fontSize: 13 }}>
+                                    <strong>📍 Các địa điểm:</strong>
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '8px' }}>
+                                      {(q.items || []).map((item, i) => (
+                                        <div key={i} style={{ padding: '6px 10px', background: 'white', borderRadius: 6, border: '1px solid #e5e7eb' }}>
+                                          <strong>{sectionStartQ + i}.</strong> {item.label} <span style={{ marginLeft: 8, fontWeight: 700, color: '#ef4444' }}>{item.correctAnswer}</span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })()}
+
+
+
                             {/* MULTI-SELECT */}
                             {section.questionType === 'multi-select' && (
                               <div>
@@ -1677,7 +1717,15 @@ const ListeningTestEditor = ({
               </button>
               <button
                 type="button"
-                onClick={onConfirmSubmit}
+                onClick={() => {
+                  console.log('Review confirm clicked');
+                  try { console.log('Current parts at confirm:', parts); } catch (e) { console.error('Could not log parts', e); }
+                  if (typeof onConfirmSubmit === 'function') {
+                    onConfirmSubmit();
+                  } else {
+                    console.warn('onConfirmSubmit is not a function');
+                  }
+                }}
                 style={primaryButtonStyle}
                 disabled={isSubmitting}
               >

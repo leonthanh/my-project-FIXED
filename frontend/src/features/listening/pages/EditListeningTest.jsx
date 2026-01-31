@@ -167,6 +167,9 @@ const EditListeningTest = () => {
           // Table completion fields
           columns: q.columns || [],
           rows: q.rows || [],
+          // Map labeling fields (keep positions and image URL so editor can show markers)
+          items: q.items || [],
+          mapImageUrl: q.mapImageUrl || q.imageUrl || '',
         }));
         
         return {
@@ -226,8 +229,14 @@ const EditListeningTest = () => {
 
   // Handle confirm update
   const handleConfirmUpdate = async () => {
+    console.log("handleConfirmUpdate called");
+
+    // Tiny delay to allow any pending state updates (e.g. marker positions) to flush to `parts`
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
     try {
       setIsUpdating(true);
+      console.log('Parts at start of confirm:', parts);
 
       // Save a local draft now so user doesn't lose work if network/save fails
       try {
@@ -342,6 +351,8 @@ const EditListeningTest = () => {
         });
       });
 
+      console.log("Submitting cleanedParts:", JSON.stringify(cleanedParts));
+
       // Build FormData
       const formData = new FormData();
       formData.append("title", stripHtml(title));
@@ -367,7 +378,9 @@ const EditListeningTest = () => {
         body: formData,
       });
 
+      console.log("PUT response status:", response.status);
       const data = await response.json().catch(() => ({}));
+      console.log("PUT response body:", data);
 
       if (!response.ok) {
         if (response.status === 401) {

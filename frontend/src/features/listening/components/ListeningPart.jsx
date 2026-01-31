@@ -62,7 +62,7 @@ const ListeningPart = ({
       {partType === 'map-labeling' && (
         <MapLabelingQuestion
           question={questions[0] || { items: [], mapImageUrl: '' }}
-          onChange={(updatedQuestion) => onQuestionChange(0, updatedQuestion)}
+          onChange={(field, value) => onQuestionChange(0, field, value)}
           mode="edit"
           questionNumber={startFromNumber}
         />
