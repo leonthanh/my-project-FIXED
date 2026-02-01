@@ -18,6 +18,17 @@ function stripUnwantedHtml(html) {
   return html.replace(/<span[^>]*>|<\/span>/gi, "");
 }
 
+// Utility: Clean inline cloze text (remove paragraph/block breaks)
+function sanitizeInlineHtml(html) {
+  if (!html) return "";
+  return stripUnwantedHtml(html)
+    .replace(/<p[^>]*>/gi, "")
+    .replace(/<\/p>/gi, " ")
+    .replace(/<br\s*\/?\s*>/gi, " ")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
 /**
  * DoReadingTest - Trang học sinh làm bài Reading IELTS
  *
@@ -2481,7 +2492,7 @@ const DoReadingTest = () => {
                                 <span
                                   key={idx}
                                   dangerouslySetInnerHTML={{
-                                    __html: stripUnwantedHtml(part),
+                                    __html: sanitizeInlineHtml(part),
                                   }}
                                 />
                               );
@@ -2492,7 +2503,7 @@ const DoReadingTest = () => {
                               <span key={idx}>
                                 <span
                                   dangerouslySetInnerHTML={{
-                                    __html: stripUnwantedHtml(part),
+                                    __html: sanitizeInlineHtml(part),
                                   }}
                                 />
                                 <span
