@@ -334,7 +334,7 @@ export const createNewQuestion = (type = 'fill') => {
     case 'multiple-choice':
       return { ...base, options: ['', '', ''], correctAnswers: [] };
     case 'matching':
-      return { ...base, leftItems: [''], rightItems: ['A.', 'B.', 'C.', 'D.', 'E.'] };
+      return { ...base, leftTitle: 'Items', rightTitle: 'Options', leftItems: [''], rightItems: ['A.', 'B.', 'C.', 'D.', 'E.'] };
     case 'map-labeling':
       return { 
         ...base, 

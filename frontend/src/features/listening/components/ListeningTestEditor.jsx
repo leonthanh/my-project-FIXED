@@ -63,6 +63,13 @@ const countSectionQuestions = (section) => {
   return section.questions.length;
 };
 
+const formatNotesHtml = (notesText = '') => {
+  if (!notesText) return '';
+  const hasHtml = /<\/?[a-z][\s\S]*>/i.test(notesText);
+  if (hasHtml) return notesText;
+  return String(notesText).replace(/\n/g, '<br/>');
+};
+
 /**
  * Tính số câu hỏi bắt đầu cho một section cụ thể
  * Dựa trên tổng số câu hỏi của tất cả parts/sections trước đó
@@ -1213,7 +1220,6 @@ const ListeningTestEditor = ({
                                   backgroundColor: "#f9fafb",
                                   borderRadius: "6px",
                                   marginBottom: "12px",
-                                  whiteSpace: "pre-wrap",
                                   lineHeight: "1.8",
                                   fontSize: "13px",
                                   border: "1px solid #e5e7eb",
@@ -1221,7 +1227,10 @@ const ListeningTestEditor = ({
                                   <strong style={{ display: "block", marginBottom: "8px", color: "#1f2937" }}>
                                     {section.questions[0].notesTitle || "Notes"}
                                   </strong>
-                                  {section.questions[0].notesText}
+                                    <div
+                                      className="ql-editor"
+                                      dangerouslySetInnerHTML={{ __html: formatNotesHtml(section.questions[0].notesText) }}
+                                    />
                                 </div>
                                 {/* Show answers */}
                                 <div style={{

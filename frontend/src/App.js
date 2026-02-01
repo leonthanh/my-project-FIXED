@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 
 // Import from new feature-based structure
@@ -9,6 +9,7 @@ import { CreateReadingTest, EditReadingTest, DoReadingTest, TakeReadingTest, Rea
 import { CreateListeningTest, EditListeningTest, DoListeningTest, ListeningResults } from './features/listening';
 import { CreateKETListeningTest, CreateKETReadingTest, CreateCambridgeTest, EditCambridgeReadingTest, EditCambridgeListeningTest, SelectCambridgeTest, DoCambridgeTestEntry, DoCambridgeListeningTest, DoCambridgeReadingTest, CambridgeResultPage } from './features/cambridge';
 import { ProtectedRoute } from './shared/components';
+import { refreshAccessToken } from './shared/utils/api';
 
 const isLoggedIn = () => {
   const user = localStorage.getItem('user');
@@ -16,6 +17,23 @@ const isLoggedIn = () => {
 };
 
 function App() {
+  useEffect(() => {
+    const hasAccessToken = () => !!localStorage.getItem('accessToken');
+
+    const refresh = () => {
+      if (hasAccessToken()) {
+        refreshAccessToken();
+      }
+    };
+
+    // Run once on mount if token exists
+    refresh();
+
+    // refresh every 10 minutes
+    const intervalId = setInterval(refresh, 10 * 60 * 1000);
+    return () => clearInterval(intervalId);
+  }, []);
+
   return (
     <Router>
       <Routes>

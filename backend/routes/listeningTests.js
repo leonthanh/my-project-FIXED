@@ -148,6 +148,8 @@ router.post('/', requireAuth, requireTestPermission('listening'), upload.any(), 
             columns: q.columns || null,
             rows: q.rows || null,
             // Matching specific
+            leftTitle: q.leftTitle || null,
+            rightTitle: q.rightTitle || null,
             leftItems: q.leftItems || null,
             rightItems: q.rightItems || null,
             items: q.items || null,
@@ -1326,6 +1328,8 @@ router.put('/:id', requireAuth, requireTestPermission('listening'), upload.any()
               // Table completion specific
               columns: q.columns || null,
               rows: q.rows || null,
+              leftTitle: q.leftTitle || null,
+              rightTitle: q.rightTitle || null,
               leftItems: q.leftItems || null,
               rightItems: q.rightItems || null,
               items: q.items || null,

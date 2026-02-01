@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { apiPath, hostPath } from "../../../shared/utils/api";
+import { apiPath, hostPath, authFetch } from "../../../shared/utils/api";
 import { TestHeader } from "../../../shared/components";
 import ResultModal from "../../../shared/components/ResultModal";
 import { generateDetailsFromSections } from "./ListeningResults";
@@ -86,7 +86,7 @@ const DoListeningTest = () => {
     const fetchTest = async () => {
       try {
         setLoading(true);
-        const res = await fetch(apiPath(`listening-tests/${id}`));
+        const res = await authFetch(apiPath(`listening-tests/${id}`));
         if (!res.ok) throw new Error("Không tìm thấy đề thi");
         const data = await res.json();
 
@@ -356,7 +356,7 @@ const DoListeningTest = () => {
         return;
       }
 
-      const res = await fetch(apiPath(`listening-tests/${id}/submit`), {
+      const res = await authFetch(apiPath(`listening-tests/${id}/submit`), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ answers, user, studentName, studentId, submissionId: submissionIdRef.current }),
@@ -1543,6 +1543,8 @@ const DoListeningTest = () => {
   // Render matching question - Part 3 style with drag items and options
   const renderMatching = (question, startNumber) => {
     const leftItems = question.leftItems || question.items || [];
+    const leftTitle = question.leftTitle || "Items";
+    const rightTitle = question.rightTitle || "Options";
     // Options can be in different formats: array of strings, or array of objects
     // Note: Use options if it has items, otherwise fall back to rightItems
     let rightItems = (question.options && question.options.length > 0) 
@@ -1560,6 +1562,7 @@ const DoListeningTest = () => {
       <div style={styles.matchingContainer}>
         {/* Left side - items with dropdowns */}
         <div style={styles.matchingLeft}>
+          <div style={styles.optionsTitle}>{leftTitle}</div>
           <div style={styles.matchingItemsList}>
             {leftItems.map((item, idx) => {
               const qNum = startNumber + idx;
@@ -1602,7 +1605,7 @@ const DoListeningTest = () => {
 
         {/* Right side - list of options */}
         <div style={styles.matchingRight}>
-          <div style={styles.optionsTitle}>List of options</div>
+          <div style={styles.optionsTitle}>{rightTitle}</div>
           <div style={styles.optionsContainer}>
             {rightItems.map((opt, idx) => {
               const optText = typeof opt === 'object' ? (opt.text || opt.label || JSON.stringify(opt)) : opt;
@@ -1833,61 +1836,101 @@ const DoListeningTest = () => {
   const renderNotesCompletion = (question, startNumber) => {
     const notesText = question.notesText || "";
     const notesTitle = question.notesTitle || "";
-    
-    // Split by line breaks first to preserve them
-    const lines = notesText.split(/\n/);
-    
-    const renderLine = (line, lineIdx) => {
-      // Match patterns like "31 ___" or "the 32 ___" (number followed by underscores)
-      const parts = line.split(/(\d+\s*[_…]+|[_…]{2,})/g);
-      
-      return (
-        <div key={lineIdx} style={styles.notesLine}>
-          {parts.map((part, partIdx) => {
-            // Check if this part is a blank (number + underscores)
-            const match = part.match(/^(\d+)\s*[_…]+$/);
-            if (match) {
-              const qNum = parseInt(match[1], 10); // Use the number from the text
-              return (
-                <span
-                  key={partIdx}
-                  ref={(el) => (questionRefs.current[qNum] = el)}
-                  style={styles.gapWrapper}
-                >
-                  <input
-                    type="text"
-                    value={answers[`q${qNum}`] || ""}
-                    onChange={(e) => handleAnswerChange(`q${qNum}`, e.target.value)}
-                    onFocus={() => setActiveQuestion(qNum)}
-                    disabled={submitted}
-                    style={{
-                      ...styles.gapInput,
-                      borderColor: activeQuestion === qNum ? "#3b82f6" : "#d1d5db",
-                      boxShadow: activeQuestion === qNum ? "0 0 0 1px #418ec8" : "none",
-                    }}
-                  />
-                  {!answers[`q${qNum}`] && (
-                    <span style={styles.gapPlaceholder}>{qNum}</span>
-                  )}
-                </span>
-              );
-            }
-            // Check for standalone underscores without number (use sequential)
-            if (part.match(/^[_…]{2,}$/)) {
-              // Find next available number based on context
-              return <span key={partIdx} style={styles.notesBlank}>______</span>;
-            }
-            return <span key={partIdx}>{part}</span>;
-          })}
-        </div>
-      );
+
+    const parseBlankPattern = /(\d+)\s*[_…]+|[_…]{2,}/g;
+
+    const styleStringToObject = (styleString) => {
+      if (!styleString) return undefined;
+      return styleString
+        .split(';')
+        .map((s) => s.trim())
+        .filter(Boolean)
+        .reduce((acc, decl) => {
+          const [prop, value] = decl.split(':').map((v) => v.trim());
+          if (!prop || !value) return acc;
+          const camelProp = prop.replace(/-([a-z])/g, (_, c) => c.toUpperCase());
+          acc[camelProp] = value;
+          return acc;
+        }, {});
+    };
+
+    const renderTextWithGaps = (text, keyPrefix) => {
+      const parts = text.split(/(\d+\s*[_…]+|[_…]{2,})/g);
+      return parts.map((part, idx) => {
+        const key = `${keyPrefix}-t-${idx}`;
+        const match = part.match(/^(\d+)\s*[_…]+$/);
+        if (match) {
+          const qNum = parseInt(match[1], 10);
+          return (
+            <span
+              key={key}
+              ref={(el) => (questionRefs.current[qNum] = el)}
+              style={styles.gapWrapper}
+            >
+              <input
+                type="text"
+                value={answers[`q${qNum}`] || ""}
+                onChange={(e) => handleAnswerChange(`q${qNum}`, e.target.value)}
+                onFocus={() => setActiveQuestion(qNum)}
+                disabled={submitted}
+                style={{
+                  ...styles.gapInput,
+                  borderColor: activeQuestion === qNum ? "#3b82f6" : "#d1d5db",
+                  boxShadow: activeQuestion === qNum ? "0 0 0 1px #418ec8" : "none",
+                }}
+              />
+              {!answers[`q${qNum}`] && (
+                <span style={styles.gapPlaceholder}>{qNum}</span>
+              )}
+            </span>
+          );
+        }
+        if (part.match(/^[_…]{2,}$/)) {
+          return (
+            <span key={key} style={styles.notesBlank}>______</span>
+          );
+        }
+        return <span key={key}>{part}</span>;
+      });
+    };
+
+    const renderRichNotes = () => {
+      if (!notesText) return null;
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(notesText, 'text/html');
+
+      const walk = (node, keyPrefix) => {
+        if (node.nodeType === Node.TEXT_NODE) {
+          return renderTextWithGaps(node.textContent || '', keyPrefix);
+        }
+
+        if (node.nodeType !== Node.ELEMENT_NODE) return null;
+
+        const tag = node.tagName.toLowerCase();
+        if (tag === 'br') return <br key={keyPrefix} />;
+
+        const children = Array.from(node.childNodes)
+          .map((child, idx) => walk(child, `${keyPrefix}-${idx}`))
+          .flat()
+          .filter(Boolean);
+
+        const style = styleStringToObject(node.getAttribute('style'));
+        const className = node.getAttribute('class') || undefined;
+        const props = { key: keyPrefix, style, className };
+
+        return React.createElement(tag, props, children);
+      };
+
+      return Array.from(doc.body.childNodes)
+        .map((child, idx) => walk(child, `n-${idx}`))
+        .filter(Boolean);
     };
 
     return (
       <div style={styles.notesContainer}>
         {notesTitle && <div style={styles.notesTitle}>{notesTitle}</div>}
-        <div style={styles.notesContent}>
-          {lines.map((line, idx) => renderLine(line, idx))}
+        <div style={styles.notesContent} className="ql-editor">
+          {renderRichNotes()}
         </div>
       </div>
     );
