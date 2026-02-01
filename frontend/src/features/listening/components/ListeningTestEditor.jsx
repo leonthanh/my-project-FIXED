@@ -1516,7 +1516,9 @@ const ListeningTestEditor = ({
                               <div>
                                 <div style={{ display: "flex", gap: "30px", marginBottom: "12px" }}>
                                   <div style={{ flex: 1 }}>
-                                    <strong style={{ display: "block", marginBottom: "8px", fontSize: "12px" }}>Items:</strong>
+                                    <strong style={{ display: "block", marginBottom: "8px", fontSize: "12px" }}>
+                                      {section.questions[0].leftTitle || 'Items'}:
+                                    </strong>
                                     {section.questions[0].leftItems?.map((item, i) => (
                                       <div key={i} style={{ padding: "4px 0", fontSize: "12px" }}>
                                         <strong>{sectionStartQ + i}.</strong> {item}
@@ -1524,7 +1526,9 @@ const ListeningTestEditor = ({
                                     ))}
                                   </div>
                                   <div style={{ flex: 1 }}>
-                                    <strong style={{ display: "block", marginBottom: "8px", fontSize: "12px" }}>Options:</strong>
+                                    <strong style={{ display: "block", marginBottom: "8px", fontSize: "12px" }}>
+                                      {section.questions[0].rightTitle || 'Options'}:
+                                    </strong>
                                     {section.questions[0].rightItems?.map((item, i) => (
                                       <div key={i} style={{ padding: "4px 0", fontSize: "12px" }}>
                                         {item}

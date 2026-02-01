@@ -71,6 +71,8 @@ const MatchingEditor = ({
 
   const leftItems = question.leftItems || [""];
   const startNum = startingNumber;
+  const leftTitle = question.leftTitle || "Items";
+  const rightTitle = question.rightTitle || "Options";
   
   return (
     <div>
@@ -98,11 +100,34 @@ const MatchingEditor = ({
         style={defaultStyles.input}
       />
 
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginTop: "8px" }}>
+        <div>
+          <label style={defaultStyles.label}>Tiêu đề cột trái</label>
+          <input
+            type="text"
+            value={leftTitle}
+            onChange={(e) => onChange("leftTitle", e.target.value)}
+            placeholder="VD: Items"
+            style={defaultStyles.input}
+          />
+        </div>
+        <div>
+          <label style={defaultStyles.label}>Tiêu đề cột phải</label>
+          <input
+            type="text"
+            value={rightTitle}
+            onChange={(e) => onChange("rightTitle", e.target.value)}
+            placeholder="VD: Opinions"
+            style={defaultStyles.input}
+          />
+        </div>
+      </div>
+
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginTop: "12px" }}>
         {/* Left items (global numbered) */}
         <div>
           <label style={defaultStyles.label}>
-            Items (Câu {startNum}-{startNum + leftItems.length - 1})
+            {leftTitle} (Câu {startNum}-{startNum + leftItems.length - 1})
           </label>
           {leftItems.map((item, idx) => {
             const questionNum = startNum + idx;
@@ -153,7 +178,7 @@ const MatchingEditor = ({
 
         {/* Right items (lettered options) */}
         <div>
-          <label style={defaultStyles.label}>Options (A, B, C...)</label>
+          <label style={defaultStyles.label}>{rightTitle} (A, B, C...)</label>
           {(question.rightItems || ["A.", "B.", "C."]).map((item, idx) => (
             <div key={idx} style={{ display: "flex", gap: "8px", marginBottom: "8px", alignItems: "center" }}>
               <span style={defaultStyles.optionLabel}>{String.fromCharCode(65 + idx)}</span>

@@ -66,6 +66,8 @@ export const QUESTION_TYPES = {
     editor: 'MatchingEditor',
     defaultData: {
       questionText: '',
+      leftTitle: 'Items',
+      rightTitle: 'Options',
       leftItems: [''],
       rightItems: ['A. ', 'B. ', 'C. '],
       answers: {},

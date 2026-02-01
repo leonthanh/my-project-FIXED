@@ -71,7 +71,7 @@ const EditListeningTest = () => {
     const fetchTest = async () => {
       try {
         setLoading(true);
-        const res = await fetch(apiPath(`listening-tests/${id}`));
+        const res = await authFetch(apiPath(`listening-tests/${id}`));
         if (!res.ok) throw new Error("Không tìm thấy đề thi");
         
         const data = await res.json();
@@ -159,6 +159,10 @@ const EditListeningTest = () => {
           questionType: q.questionType || sectionInfo.questionType || "fill",
           questionText: q.questionText || "",
           correctAnswer: q.correctAnswer || "",
+          leftTitle: q.leftTitle || q.itemsTitle || q.itemsLabel || '',
+          rightTitle: q.rightTitle || q.optionsTitle || q.optionsLabel || '',
+          leftItems: q.leftItems || q.items || [],
+          rightItems: q.rightItems || q.options || [],
           options: q.options || [],
           formTitle: q.formTitle || "",
           formRows: q.formRows || [],
