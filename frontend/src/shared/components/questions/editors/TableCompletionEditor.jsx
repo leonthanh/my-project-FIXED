@@ -90,6 +90,7 @@ export default function TableCompletionEditor({ question = {}, onChange = () => 
 
 
 
+
   return (
     <div>
       <div style={{ marginBottom: 12, padding: 12, background: '#f8fafc', borderRadius: 8, border: '1px solid #e5e7eb' }}>
@@ -112,30 +113,43 @@ export default function TableCompletionEditor({ question = {}, onChange = () => 
         />
       </div>
 
-      <div style={{ display: 'flex', gap: 12, marginBottom: 12 }}>
-        <div style={{ flex: 1, border: '1px solid #e5e7eb', borderRadius: 8, padding: 12 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        {/* Columns - horizontal above rows */}
+        <div style={{ border: '1px solid #e5e7eb', borderRadius: 8, padding: 12 }}>
           <h4 style={{ marginTop: 0 }}>🧭 Columns</h4>
-          {columns.map((col, idx) => (
-            <div key={idx} style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
-              <input
-                type="text"
-                value={col}
-                onChange={(e) => updateColumn(idx, e.target.value)}
-                style={{ ...compactInputStyle, flex: 1 }}
-              />
-              <button type="button" onClick={() => deleteColumn(idx)} style={{ padding: '6px 8px' }}>✕</button>
-            </div>
-          ))}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
+            {columns.map((col, idx) => (
+              <div key={idx} style={{ display: 'flex', gap: 8, alignItems: 'center', minWidth: 200, flex: '1 1 220px' }}>
+                <input
+                  type="text"
+                  value={col}
+                  onChange={(e) => updateColumn(idx, e.target.value)}
+                  style={{ ...compactInputStyle, flex: 1, minWidth: 160 }}
+                />
+                <button type="button" onClick={() => deleteColumn(idx)} style={{ padding: '6px 8px' }}>✕</button>
+              </div>
+            ))}
+          </div>
           <div style={{ display: 'flex', gap: 8 }}>
             <button type="button" onClick={addColumn} style={{ padding: '8px 10px', fontWeight: 700 }}>➕ Thêm cột</button>
             <button type="button" onClick={() => setColumns(['Vehicles', 'Cost', 'Comments'])} style={{ padding: '8px 10px' }}>Reset</button>
           </div>
         </div>
 
-        <div style={{ flex: 2, border: '1px solid #e5e7eb', borderRadius: 8, padding: 12 }}>
+        {/* Rows - full width */}
+        <div style={{ border: '1px solid #e5e7eb', borderRadius: 8, padding: 12 }}>
           <h4 style={{ marginTop: 0 }}>🧾 Rows</h4>
           {rows.map((row, idx) => (
-            <div key={idx} style={{ border: '1px solid #f1f5f9', padding: 10, borderRadius: 6, marginBottom: 8 }}>
+            <div
+              key={idx}
+              style={{
+                border: '1px solid #f1f5f9',
+                padding: 10,
+                borderRadius: 6,
+                marginBottom: 8,
+                background: 'white',
+              }}
+            >
               <div style={{ display: 'flex', gap: 8, marginBottom: 8, alignItems: 'flex-start' }}>
                 {columns.map((col, cIdx) => {
                   const thisCell = (row.cells && row.cells[cIdx]) ?? '';
@@ -147,12 +161,12 @@ export default function TableCompletionEditor({ question = {}, onChange = () => 
                     const answersByLine = row.commentBlankAnswers || []; // legacy
 
                     return (
-                      <div key={cIdx} style={{ flex: 1, minWidth: 200 }}>
+                      <div key={cIdx} style={{ flex: 1, minWidth: 260 }}>
                         <div style={{ border: '1px solid #eef2f6', borderRadius: 8, padding: 8, background: '#fff' }}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
                             <div style={{ fontSize: 12, color: '#333', fontWeight: 700 }}>{col}</div>
                             <div style={{ display: 'flex', gap: 6 }}>
-                              <button type="button" onClick={() => insertBlank(idx, cIdx)} style={{ padding: '4px 8px', fontSize: 12 }}>[BLANK]</button>
+                              <button type="button" onClick={() => insertBlank(idx, cIdx)} style={{ padding: '2px 6px', fontSize: 10 }}>[BLANK]</button>
                             </div>
                           </div>
 
@@ -177,7 +191,7 @@ export default function TableCompletionEditor({ question = {}, onChange = () => 
                                         setRows(next);
                                       }}
                                       placeholder="- comment line"
-                                      style={{ ...compactInputStyle, flex: 1 }}
+                                      style={{ ...compactInputStyle, flex: 1, minWidth: 220 }}
                                     />
                                     <button type="button" onClick={() => {
                                       const next = [...rows];
@@ -212,7 +226,7 @@ export default function TableCompletionEditor({ question = {}, onChange = () => 
                                               setRows(next);
                                             }}
                                             placeholder="Answer"
-                                            style={{ ...compactInputStyle, width: 140 }}
+                                            style={{ ...compactInputStyle, width: 160 }}
                                           />
                                         </div>
                                       ))}
@@ -243,12 +257,12 @@ export default function TableCompletionEditor({ question = {}, onChange = () => 
                   // Default: regular cell editor
                   const blanks = String(thisCell || '').match(BLANK_REGEX) || [];
                   return (
-                    <div key={cIdx} style={{ flex: 1, minWidth: 160 }}>
+                    <div key={cIdx} style={{ flex: 1, minWidth: 220 }}>
                       <div style={{ border: '1px solid #eef2f6', borderRadius: 8, padding: 8, background: '#fff' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
                           <div style={{ fontSize: 12, color: '#333', fontWeight: 700 }}>{col}</div>
                           <div style={{ display: 'flex', gap: 6 }}>
-                            <button type="button" onClick={() => insertBlank(idx, cIdx)} style={{ padding: '4px 8px', fontSize: 12 }}>[BLANK]</button>
+                            <button type="button" onClick={() => insertBlank(idx, cIdx)} style={{ padding: '2px 6px', fontSize: 10 }}>[BLANK]</button>
                           </div>
                         </div>
 
@@ -258,7 +272,7 @@ export default function TableCompletionEditor({ question = {}, onChange = () => 
                             value={thisCell}
                             onChange={(e) => updateCellValue(idx, cIdx, e.target.value)}
                             placeholder={col}
-                            style={{ ...compactInputStyle, flex: 1, minWidth: 80 }}
+                            style={{ ...compactInputStyle, flex: 1, minWidth: 160 }}
                           />
                         </div>
 
@@ -280,7 +294,7 @@ export default function TableCompletionEditor({ question = {}, onChange = () => 
                                     setRows(next);
                                   }}
                                   placeholder="Answer"
-                                  style={{ ...compactInputStyle, width: 140 }}
+                                  style={{ ...compactInputStyle, width: 160 }}
                                 />
                               </div>
                             ))}
@@ -303,19 +317,19 @@ export default function TableCompletionEditor({ question = {}, onChange = () => 
             <button type="button" onClick={() => setRows([ensureRowCells({})])} style={{ padding: '8px 12px' }}>Reset</button>
           </div>
         </div>
-      </div>
 
-      <div style={{ border: '1px solid #e5e7eb', borderRadius: 8, padding: 12 }}>
-        <h4 style={{ marginTop: 0 }}>👁 Preview</h4>
-        <TableCompletion data={{
-          part: 1,
-          title: question.title || '',
-          instruction: question.instruction || '',
-          columns: columns,
-          rows: rows,
-          rangeStart: question.rangeStart,
-          rangeEnd: question.rangeEnd,
-        }} startingQuestionNumber={startingNumber} />
+        <div style={{ border: '1px solid #e5e7eb', borderRadius: 8, padding: 12 }}>
+          <h4 style={{ marginTop: 0 }}>👁 Preview</h4>
+          <TableCompletion data={{
+            part: 1,
+            title: question.title || '',
+            instruction: question.instruction || '',
+            columns: columns,
+            rows: rows,
+            rangeStart: question.rangeStart,
+            rangeEnd: question.rangeEnd,
+          }} startingQuestionNumber={startingNumber} />
+        </div>
       </div>
     </div>
   );
