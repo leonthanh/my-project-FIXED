@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { IeltsTestEditorShell } from "../../../shared/components";
 import { useColumnLayout } from "../hooks";
 import ListeningQuestionEditor from "./ListeningQuestionEditor";
-import TableCompletion from "../../../shared/components/questions/editors/TableCompletion";
+import TableCompletion from "../../../shared/components/questions/editors/TableCompletion.jsx";
 
 import {
   colors,
