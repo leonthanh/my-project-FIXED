@@ -12,6 +12,7 @@ import {
   SummaryCompletionEditor,
   SentenceTransformationEditor,
   ShortMessageEditor,
+  TableCompletionEditor,
   // KET Part-specific editors
   SignMessageEditor,
   PeopleMatchingEditor,
@@ -87,6 +88,9 @@ const QuestionEditorFactory = ({
 
     case 'notes-completion':
       return <NotesCompletionEditor {...commonProps} />;
+
+    case 'table-completion':
+      return <TableCompletionEditor {...commonProps} />;
 
     case 'map-labeling':
       return <MapLabelingEditor {...commonProps} />;

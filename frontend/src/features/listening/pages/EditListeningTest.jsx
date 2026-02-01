@@ -33,7 +33,6 @@ const EditListeningTest = () => {
   // Review & Submit state
   const [isReviewing, setIsReviewing] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
-  const [showPreview, setShowPreview] = useState(false);
 
   // Auto-save state (reserved for future use)
   const [lastSaved] = useState(null);
@@ -72,7 +71,7 @@ const EditListeningTest = () => {
     const fetchTest = async () => {
       try {
         setLoading(true);
-        const res = await fetch(apiPath(`listening-tests/${id}`));
+        const res = await authFetch(apiPath(`listening-tests/${id}`));
         if (!res.ok) throw new Error("Không tìm thấy đề thi");
         
         const data = await res.json();
@@ -100,6 +99,23 @@ const EditListeningTest = () => {
         const reconstructedParts = reconstructParts(partInstructions, questions, partAudioUrls);
         console.log("Reconstructed parts:", reconstructedParts);
         setParts(reconstructedParts);
+
+        // If there's a local draft (from a failed update), offer to restore it
+        try {
+          const savedDraft = localStorage.getItem(`listeningTestDraftEdit-${id}`);
+          if (savedDraft) {
+            const draft = JSON.parse(savedDraft);
+            if (window.confirm("Tìm thấy bản nháp cục bộ. Khôi phục bản nháp?")) {
+              setTitle(draft.title || (data.title || ""));
+              setClassCode(draft.classCode || (data.classCode || ""));
+              setTeacherName(draft.teacherName || (data.teacherName || ""));
+              setShowResultModal(draft.showResultModal ?? (data.showResultModal ?? true));
+              if (draft.parts) setParts(draft.parts);
+            }
+          }
+        } catch (e) {
+          console.error("Error loading edit draft", e);
+        }
         
       } catch (err) {
         console.error("Error fetching test:", err);
@@ -143,20 +159,25 @@ const EditListeningTest = () => {
           questionType: q.questionType || sectionInfo.questionType || "fill",
           questionText: q.questionText || "",
           correctAnswer: q.correctAnswer || "",
+          leftTitle: q.leftTitle || q.itemsTitle || q.itemsLabel || '',
+          rightTitle: q.rightTitle || q.optionsTitle || q.optionsLabel || '',
+          leftItems: q.leftItems || q.items || [],
+          rightItems: q.rightItems || q.options || [],
           options: q.options || [],
           formTitle: q.formTitle || "",
           formRows: q.formRows || [],
           questionRange: q.questionRange || "",
           answers: q.answers || {},
-          leftItems: q.leftItems || [],
-          rightItems: q.rightItems || [],
-          items: q.items || [],
-          wordLimit: q.wordLimit || null,
-          // Notes completion fields
           notesText: q.notesText || "",
           notesTitle: q.notesTitle || "",
-          // Multi-select fields
-          requiredAnswers: q.requiredAnswers || 2,
+          wordLimit: q.wordLimit || "ONE WORD ONLY",
+          // Table completion fields
+          columns: q.columns || [],
+          rows: q.rows || [],
+          // Map labeling fields (keep positions and image URL so editor can show markers in both editors)
+          items: q.items || [],
+          mapImageUrl: q.mapImageUrl || q.imageUrl || '',
+          imageUrl: q.imageUrl || q.mapImageUrl || '',
         }));
         
         return {
@@ -216,8 +237,23 @@ const EditListeningTest = () => {
 
   // Handle confirm update
   const handleConfirmUpdate = async () => {
+    console.log("handleConfirmUpdate called");
+
+    // Tiny delay to allow any pending state updates (e.g. marker positions) to flush to `parts`
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
     try {
       setIsUpdating(true);
+      console.log('Parts at start of confirm:', parts);
+
+      // Save a local draft now so user doesn't lose work if network/save fails
+      try {
+        localStorage.setItem(`listeningTestDraftEdit-${id}`, JSON.stringify({
+          title, classCode, teacherName, parts, showResultModal, savedAt: new Date().toISOString()
+        }));
+      } catch (e) {
+        console.error("Error saving edit draft", e);
+      }
 
       // Clean up parts data for submission
       const cleanedParts = parts.map((part) => ({
@@ -239,6 +275,91 @@ const EditListeningTest = () => {
         })),
       }));
 
+      // Before sending, ensure per-blank answers from editor (row.commentBlankAnswers / row.correct) are merged
+      // into the question answers map so backend receives them.
+      const BLANK_REGEX = /\[BLANK\]|_{2,}|[\u2026]+/g;
+      let globalQ = 1;
+      cleanedParts.forEach((part) => {
+        part.sections.forEach((section) => {
+          section.questions.forEach((q) => {
+            if (q.questionType === 'table-completion') {
+              q.answers = q.answers && typeof q.answers === 'object' && !Array.isArray(q.answers) ? { ...q.answers } : {};
+
+              const cols = q.columns || [];
+              const rowsArr = q.rows || [];
+              const before = globalQ;
+
+              const getFlatCommentAnswer = (commentBlankAnswers, flatIdx) => {
+                if (!Array.isArray(commentBlankAnswers)) return undefined;
+                let acc = 0;
+                for (let li = 0; li < commentBlankAnswers.length; li++) {
+                  const arr = commentBlankAnswers[li] || [];
+                  if (flatIdx < acc + (arr.length || 0)) return arr[flatIdx - acc];
+                  acc += (arr.length || 0);
+                }
+                return undefined;
+              };
+
+              rowsArr.forEach((rawRow) => {
+                const r = Array.isArray(rawRow.cells)
+                  ? rawRow
+                  : (() => {
+                      const cells = [];
+                      cells[0] = rawRow.vehicle || '';
+                      cells[1] = rawRow.cost || '';
+                      cells[2] = Array.isArray(rawRow.comments) ? rawRow.comments.join('\n') : rawRow.comments || '';
+                      while (cells.length < cols.length) cells.push('');
+                      return { ...rawRow, cells, cellBlankAnswers: rawRow.cellBlankAnswers || [], commentBlankAnswers: rawRow.commentBlankAnswers || [] };
+                    })();
+
+                for (let c = 0; c < cols.length; c++) {
+                  const text = String((r.cells && r.cells[c]) || '');
+                  BLANK_REGEX.lastIndex = 0;
+                  let localIdx = 0;
+                  const isCommentsCol = /comment/i.test((q.columns || [])[c]);
+                  while (BLANK_REGEX.exec(text) !== null) {
+                    const num = String(globalQ++);
+                    const cbVal = isCommentsCol ? (getFlatCommentAnswer(r.commentBlankAnswers, localIdx) || '') : ((r.cellBlankAnswers && r.cellBlankAnswers[c] && r.cellBlankAnswers[c][localIdx]) || '');
+                    if (!q.answers[num] && cbVal) q.answers[num] = cbVal;
+                    // fallback for cost-like column: prefer row.correct
+                    if (!q.answers[num] && c === 1 && r.correct) q.answers[num] = r.correct;
+                    localIdx++;
+                  }
+                }
+              });
+
+              // If no explicit blanks were found, fall back to old behavior (one blank per row using cost/correct)
+              if (globalQ === before) {
+                (q.rows || []).forEach((row) => {
+                  const num = String(globalQ++);
+                  if (!q.answers[num]) q.answers[num] = row?.correct ?? row?.cost ?? '';
+                });
+              }
+            } else if (q.questionType === 'form-completion') {
+              // form-completion counts blanks too
+              const rows = Array.isArray(q.formRows) ? q.formRows : [];
+              rows.forEach((r) => {
+                if (r && r.isBlank) {
+                  globalQ++;
+                }
+              });
+            } else if (q.questionType === 'matching') {
+              globalQ += (q.leftItems?.length || 1);
+            } else if (q.questionType === 'notes-completion') {
+              const notesText = q.notesText || '';
+              const blanks = notesText.match(/\d+\s*[_…]+|[_…]{2,}/g) || [];
+              globalQ += blanks.length || 1;
+            } else if (q.questionType === 'multi-select') {
+              globalQ += (q.requiredAnswers || 2);
+            } else {
+              globalQ += 1;
+            }
+          });
+        });
+      });
+
+      console.log("Submitting cleanedParts:", JSON.stringify(cleanedParts));
+
       // Build FormData
       const formData = new FormData();
       formData.append("title", stripHtml(title));
@@ -257,6 +378,17 @@ const EditListeningTest = () => {
         if (part.audioFile && part.audioFile instanceof File) {
           formData.append(`audioFile_part_${idx}`, part.audioFile);
         }
+
+        // Add map image files for any questions in this part
+        (part.sections || []).forEach((section, sIdx) => {
+          (section.questions || []).forEach((q, qIdx) => {
+            // Support both keys used by MapLabelingQuestion
+            const imgFile = q?.mapImageFile || q?.imageFile || null;
+            if (imgFile && imgFile instanceof File) {
+              formData.append(`mapImage_part_${idx}_section_${sIdx}_q_${qIdx}`, imgFile);
+            }
+          });
+        });
       });
 
       const response = await authFetch(apiPath(`listening-tests/${id}`), {
@@ -264,7 +396,9 @@ const EditListeningTest = () => {
         body: formData,
       });
 
+      console.log("PUT response status:", response.status);
       const data = await response.json().catch(() => ({}));
+      console.log("PUT response body:", data);
 
       if (!response.ok) {
         if (response.status === 401) {
@@ -277,12 +411,19 @@ const EditListeningTest = () => {
       }
 
       setMessage("✅ Cập nhật đề thi thành công!");
+      try { localStorage.removeItem(`listeningTestDraftEdit-${id}`); } catch (e) { /* ignore */ }
 
       setTimeout(() => {
         navigate("/select-test");
       }, 1500);
     } catch (error) {
       console.error("Error:", error);
+      // Save current state as a draft to avoid data loss
+      try {
+        localStorage.setItem(`listeningTestDraftEdit-${id}`, JSON.stringify({
+          title, classCode, teacherName, parts, showResultModal, savedAt: new Date().toISOString()
+        }));
+      } catch (e) { console.error("Error saving edit draft after failure", e); }
       setMessage(`❌ ${error.message}`);
     } finally {
       setIsUpdating(false);
@@ -406,8 +547,6 @@ const EditListeningTest = () => {
       onManualSave={() => {}}
       // Messages & Preview
       message={message}
-      showPreview={showPreview}
-      setShowPreview={setShowPreview}
       // Global audio
       globalAudioFile={globalAudioFile}
       setGlobalAudioFile={setGlobalAudioFile}

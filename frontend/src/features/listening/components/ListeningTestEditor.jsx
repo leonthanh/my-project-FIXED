@@ -1,8 +1,9 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { IeltsTestEditorShell } from "../../../shared/components";
 import { useColumnLayout } from "../hooks";
 import ListeningQuestionEditor from "./ListeningQuestionEditor";
-import ListeningTemplateLibrary from "./ListeningTemplateLibrary";
+import TableCompletion from "../../../shared/components/questions/editors/TableCompletion";
+
 import {
   colors,
   compactInputStyle,
@@ -22,12 +23,52 @@ import {
   partTypeBadgeStyle,
   compactCSS,
 } from "../utils/styles";
-import { calculateTotalQuestions } from "../hooks/useListeningHandlers";
+import { calculateTotalQuestions, computeQuestionStarts } from "../hooks/useListeningHandlers";
 
 /**
  * Đếm số câu hỏi thực tế của một section
  * Tính đến các loại câu hỏi đặc biệt: matching, form-completion, multi-select, notes-completion
  */
+const stripHtml = (html) => {
+  if (!html) return '';
+  const temp = document.createElement('div');
+  temp.innerHTML = html;
+  return temp.textContent || temp.innerText || '';
+};
+
+const countTableCompletionBlanks = (question) => {
+  const rowsArr = question?.rows || [];
+  const cols = question?.columns || [];
+  const BLANK_REGEX = /\[BLANK\]|_{2,}|[\u2026]+/g;
+  let blanksCount = 0;
+
+  rowsArr.forEach((row) => {
+    const r = Array.isArray(row?.cells)
+      ? row
+      : {
+          cells: [
+            row?.vehicle || '',
+            row?.cost || '',
+            Array.isArray(row?.comments) ? row.comments.join('\n') : row?.comments || '',
+          ],
+        };
+
+    const cells = Array.isArray(r.cells) ? r.cells : [];
+    const maxCols = cols.length ? cols.length : cells.length;
+    for (let c = 0; c < maxCols; c++) {
+      const text = String(cells[c] || '');
+      const matches = text.match(BLANK_REGEX) || [];
+      blanksCount += matches.length;
+    }
+  });
+
+  if (blanksCount === 0) {
+    return rowsArr.length || 0;
+  }
+
+  return blanksCount;
+};
+
 const countSectionQuestions = (section) => {
   if (!section?.questions) return 0;
   
@@ -45,9 +86,20 @@ const countSectionQuestions = (section) => {
   
   // Notes-completion: Số câu = số blanks trong notesText
   if (questionType === 'notes-completion') {
-    const notesText = section.questions[0]?.notesText || '';
+    const notesText = stripHtml(section.questions[0]?.notesText || '');
     const blanks = notesText.match(/\d+\s*[_…]+|[_…]{2,}/g) || [];
     return blanks.length;
+  }
+
+  // Table-completion: số câu = số blanks trong table
+  if (questionType === 'table-completion') {
+    return countTableCompletionBlanks(section.questions[0] || {});
+  }
+
+  // Map-labeling: số câu = số items
+  if (questionType === 'map-labeling') {
+    const items = section.questions[0]?.items || [];
+    return items.length;
   }
   
   // Multi-select: Mỗi câu tính theo số đáp án cần chọn (requiredAnswers)
@@ -60,6 +112,13 @@ const countSectionQuestions = (section) => {
   
   // Các loại khác (fill, abc, abcd): 1 câu = 1 question
   return section.questions.length;
+};
+
+const formatNotesHtml = (notesText = '') => {
+  if (!notesText) return '';
+  const hasHtml = /<\/?[a-z][\s\S]*>/i.test(notesText);
+  if (hasHtml) return notesText;
+  return String(notesText).replace(/\n/g, '<br/>');
 };
 
 /**
@@ -142,10 +201,8 @@ const ListeningTestEditor = ({
   isSubmitting,
   submitButtonText = "Tạo đề",
 
-  // Messages & Preview
+  // Messages
   message,
-  showPreview,
-  setShowPreview,
 
   // Auto-save
   lastSaved,
@@ -165,6 +222,53 @@ const ListeningTestEditor = ({
     getColumnWidth,
   } = useColumnLayout();
 
+  // Header collapse state: auto-collapses on scroll or toggled manually
+  const [collapsedHeader, setCollapsedHeader] = useState(false);
+  const [manualHeaderOverride, setManualHeaderOverride] = useState(false);
+
+  // Runtime import guards (log if important components are missing)
+  useEffect(() => {
+    if (typeof TableCompletion !== 'function') {
+      console.error('ListeningTestEditor: TableCompletion component is undefined (import failed?)', TableCompletion);
+    }
+  }, []);
+
+  useEffect(() => {
+    const onScrollWindow = () => {
+      if (manualHeaderOverride) {
+        setManualHeaderOverride(false);
+        return;
+      }
+      if (window.scrollY > 80) setCollapsedHeader(true);
+      else if (window.scrollY < 40) setCollapsedHeader(false);
+    };
+
+    // Also listen to scroll on the editor container (possible internal scroll)
+    const editorEl = document.querySelector(`.${className}`);
+    const onScrollEl = () => {
+      if (manualHeaderOverride) {
+        setManualHeaderOverride(false);
+        return;
+      }
+      const top = editorEl?.scrollTop || 0;
+      if (top > 80) setCollapsedHeader(true);
+      else if (top < 40) setCollapsedHeader(false);
+    };
+
+    window.addEventListener('scroll', onScrollWindow, { passive: true });
+    if (editorEl) editorEl.addEventListener('scroll', onScrollEl, { passive: true });
+
+    return () => {
+      window.removeEventListener('scroll', onScrollWindow);
+      if (editorEl) editorEl.removeEventListener('scroll', onScrollEl);
+    };
+  }, [manualHeaderOverride, className]);
+
+  const toggleHeader = () => {
+    setCollapsedHeader((p) => !p);
+    setManualHeaderOverride(true);
+  }; 
+
   // Audio input refs
   const globalAudioRef = useRef(null);
   const partAudioRef = useRef(null);
@@ -174,9 +278,6 @@ const ListeningTestEditor = ({
   const [bulkAddCount, setBulkAddCount] = useState(5);
   const [bulkAddType, setBulkAddType] = useState('fill');
 
-  // Template library modal state
-  const [showTemplateLibrary, setShowTemplateLibrary] = useState(false);
-  const [templateLibraryMode, setTemplateLibraryMode] = useState('question'); // 'question' | 'section'
 
   // Current part and section
   const currentPart = parts?.[selectedPartIndex];
@@ -203,6 +304,7 @@ const ListeningTestEditor = ({
   const questionTypes = [
     { value: 'fill', label: '📝 Fill in the blank', desc: 'Điền từ vào chỗ trống (từng câu)' },
     { value: 'form-completion', label: '📋 Form/Table Completion', desc: 'Form có bảng với nhiều blank' },
+    { value: 'table-completion', label: '🧾 Table Completion (Vehicles / Cost / Comments)', desc: '3-column table / notes completion (Part 1)' },
     { value: 'notes-completion', label: '📝 Notes Completion', desc: 'Paste notes có ___ tự tách câu hỏi' },
     { value: 'abc', label: '🔘 Multiple Choice (A/B/C)', desc: '3 lựa chọn' },
     { value: 'abcd', label: '🔘 Multiple Choice (A/B/C/D)', desc: '4 lựa chọn' },
@@ -212,52 +314,52 @@ const ListeningTestEditor = ({
     { value: 'flowchart', label: '📊 Flowchart Completion', desc: 'Hoàn thành sơ đồ' },
   ];
 
-  // Handle template selection (single question)
-  const handleSelectTemplate = (template) => {
-    if (selectedPartIndex !== null && selectedSectionIndex !== null) {
-      // Add the template as a new question
-      onAddQuestion(selectedPartIndex, selectedSectionIndex, template.questionType);
-      // Update the last added question with template data
-      const newQuestionIndex = currentSection?.questions?.length || 0;
-      Object.entries(template).forEach(([key, value]) => {
-        if (key !== 'questionType') {
-          onQuestionChange(selectedPartIndex, selectedSectionIndex, newQuestionIndex, key, value);
-        }
-      });
-    }
-  };
 
-  // Handle section template selection
-  const handleSelectSectionTemplate = (sectionTemplate) => {
-    if (selectedPartIndex !== null) {
-      // Add a new section with the template
-      onAddSection(selectedPartIndex);
-      const newSectionIndex = currentPart?.sections?.length || 0;
-      
-      // Update section properties
-      onSectionChange(selectedPartIndex, newSectionIndex, 'sectionTitle', sectionTemplate.title);
-      onSectionChange(selectedPartIndex, newSectionIndex, 'sectionInstruction', sectionTemplate.instructions);
-      onSectionChange(selectedPartIndex, newSectionIndex, 'questionType', sectionTemplate.questionType);
-      
-      // Add template questions
-      sectionTemplate.questions.forEach((q, idx) => {
-        if (idx === 0) {
-          // First question already exists, update it
-          Object.entries(q).forEach(([key, value]) => {
-            onQuestionChange(selectedPartIndex, newSectionIndex, 0, key, value);
-          });
-        } else {
-          // Add more questions
-          onAddQuestion(selectedPartIndex, newSectionIndex, sectionTemplate.questionType);
-          Object.entries(q).forEach(([key, value]) => {
-            onQuestionChange(selectedPartIndex, newSectionIndex, idx, key, value);
-          });
+
+  // Small helper component used in the review modal to render map image with pixel-accurate markers
+  const MapPreview = ({ q }) => {
+    const imgRef = useRef(null);
+    const [size, setSize] = useState({ w: 0, h: 0 });
+
+    useEffect(() => {
+      const update = () => {
+        if (imgRef.current) {
+          setSize({ w: imgRef.current.clientWidth, h: imgRef.current.clientHeight });
         }
-      });
-      
-      // Select the new section
-      setSelectedSectionIndex(newSectionIndex);
-    }
+      };
+      update();
+      window.addEventListener('resize', update);
+      return () => window.removeEventListener('resize', update);
+    }, []);
+
+    if (!q || !(q.mapImageUrl || q.imageUrl)) return null;
+
+    return (
+      <div style={{ maxWidth: '700px', margin: '0 auto 20px', border: '2px solid #e2e8f0', borderRadius: '8px', overflow: 'hidden' }}>
+        <div style={{ position: 'relative' }}>
+          <img
+            ref={imgRef}
+            src={q.mapImageUrl || q.imageUrl}
+            alt="Map preview"
+            style={{ width: '100%', display: 'block' }}
+            onLoad={() => { if (imgRef.current) setSize({ w: imgRef.current.clientWidth, h: imgRef.current.clientHeight }); }}
+          />
+
+          {(q.items || []).map((item, idx) => {
+            const pos = item?.position || null;
+            if (!pos) return null;
+            // Convert percent -> pixel and round to nearest integer for crisp rendering
+            const leftPx = size.w ? Math.round((pos.x / 100) * size.w) : null;
+            const topPx = size.h ? Math.round((pos.y / 100) * size.h) : null;
+            return (
+              <div key={`marker-${idx}`} title={`Item ${idx + 1}: ${item.label || ''}`} style={{ position: 'absolute', left: leftPx !== null ? `${leftPx}px` : `${pos.x}%`, top: topPx !== null ? `${topPx}px` : `${pos.y}%`, transform: 'translate(-50%, -50%)', zIndex: 40, willChange: 'transform' }}>
+                <div style={{ width: 30, height: 30, borderRadius: 15, background: '#ef4444', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>{item.correctAnswer || '?'}</div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -315,32 +417,19 @@ const ListeningTestEditor = ({
             >
               📊 {totalQuestions} câu hỏi
             </span>
+
             <button
               type="button"
-              onClick={() => {
-                setTemplateLibraryMode("section");
-                setShowTemplateLibrary(true);
-              }}
-              style={{
-                ...primaryButtonStyle,
-                padding: "6px 14px",
-                fontSize: "13px",
-                background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-              }}
+              onClick={toggleHeader}
+              title={collapsedHeader ? "Mở rộng header" : "Thu nhỏ header"}
+              style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid #e5e7eb", background: collapsedHeader ? "#f3f4f6" : "transparent", marginLeft: 8 }}
             >
-              📚 Template Library
-            </button>
-            <button
-              type="button"
-              onClick={() => setShowPreview(!showPreview)}
-              style={secondaryButtonStyle}
-            >
-              👁️ Preview
+              {collapsedHeader ? "▼" : "▲"}
             </button>
           </>
         }
-        afterInputs={
-          <div style={{ marginTop: "12px", maxWidth: "900px", margin: "12px auto 0" }}>
+        afterInputs={!collapsedHeader && (
+          <div style={{ marginTop: "12px", maxWidth: "1200px", margin: "12px auto 0" }}>
             <div
               style={globalAudioFile?.url ? audioUploadActiveStyle : audioUploadStyle}
               onClick={() => globalAudioRef.current?.click()}
@@ -369,7 +458,7 @@ const ListeningTestEditor = ({
               )}
             </div>
           </div>
-        }
+        )}
         shellStyle={{
           display: "flex",
           flexDirection: "column",
@@ -383,26 +472,41 @@ const ListeningTestEditor = ({
           flex: 1,
           overflow: "hidden",
         }}
-        headerStyle={{
-          padding: "12px 20px",
+        headerStyle={collapsedHeader ? {
+          padding: "6px 12px",
           backgroundColor: "#fff",
           borderBottom: "1px solid #e5e7eb",
-          boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
-        }}
+          boxShadow: "0 1px 2px rgba(0,0,0,0.04)",
+        } : {
+          padding: "8px 12px",
+          backgroundColor: "#fff",
+          borderBottom: "1px solid #e5e7eb",
+          boxShadow: "0 1px 2px rgba(0,0,0,0.04)",
+        }} 
+      
         topBarStyle={{
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
-          marginBottom: "12px",
-        }}
-        titleStyle={{ margin: 0, fontSize: "18px", color: colors.primaryPurple }}
-        inputLayoutStyle={{
+          marginBottom: collapsedHeader ? "4px" : "8px",
+        }} 
+      
+        titleStyle={{ margin: 0, fontSize: collapsedHeader ? "14px" : "16px", color: colors.primaryPurple }} 
+      
+        inputLayoutStyle={collapsedHeader ? {
+          display: "none",
+          gap: "12px",
+          flexWrap: "wrap",
+          maxWidth: "1200px",
+          margin: "0 auto",
+        } : {
           display: "flex",
           gap: "12px",
           flexWrap: "wrap",
-          maxWidth: "900px",
+          maxWidth: "1200px",
           margin: "0 auto",
         }}
+      
         titleInputStyle={{ ...compactInputStyle, flex: "1 1 40%", minWidth: "200px" }}
         classCodeInputStyle={{ ...compactInputStyle, flex: "1 1 20%", minWidth: "120px" }}
         teacherInputStyle={{ ...compactInputStyle, flex: "1 1 25%", minWidth: "150px" }}
@@ -692,21 +796,7 @@ const ListeningTestEditor = ({
                   >
                     ➕ Thêm Section
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setTemplateLibraryMode('section');
-                      setShowTemplateLibrary(true);
-                    }}
-                    style={{
-                      ...addButtonStyle(colors.primaryPurple),
-                      marginTop: "8px",
-                      background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-                      color: "white",
-                    }}
-                  >
-                    📚 Section từ Template
-                  </button>
+
                 </div>
               ) : (
                 !collapsedColumns.col3 && (
@@ -919,16 +1009,7 @@ const ListeningTestEditor = ({
                               }
                             </h4>
                             <div style={{ display: "flex", gap: "6px" }}>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setTemplateLibraryMode('question');
-                                  setShowTemplateLibrary(true);
-                                }}
-                                style={{ ...secondaryButtonStyle, padding: "6px 10px", fontSize: "11px" }}
-                              >
-                                📚 Template
-                              </button>
+
                               <button
                                 type="button"
                                 onClick={() => setShowBulkAddModal(true)}
@@ -1084,103 +1165,93 @@ const ListeningTestEditor = ({
               border: "1px solid #ddd",
               borderRadius: "6px",
             }}>
-              {parts?.map((part, partIdx) => {
-                // Calculate starting question number for this part
-                let partStartQ = 1;
-                for (let p = 0; p < partIdx; p++) {
-                  // eslint-disable-next-line no-loop-func
-                  parts[p].sections?.forEach(s => {
-                    partStartQ += countSectionQuestions(s);
-                  });
-                }
 
-                return (
+              {(() => {
+                const sectionStarts = computeQuestionStarts(parts || []);
+                return (parts || []).map((part, partIdx) => (
                   <div key={partIdx} style={{
                     borderBottom: partIdx < parts.length - 1 ? "2px solid #3b82f6" : "none",
                   }}>
-                    {/* Part Header */}
-                    <div style={{
-                      backgroundColor: colors.partBlue,
-                      color: "white",
-                      padding: "10px 15px",
-                      fontWeight: "bold",
-                      fontSize: "14px",
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                    }}>
-                      <span>🎧 {part.title || `Part ${partIdx + 1}`}</span>
-                      <span style={{
-                        padding: "3px 10px",
-                        backgroundColor: part.audioFile ? "#22c55e" : "#ef4444",
-                        borderRadius: "20px",
-                        fontSize: "11px",
-                      }}>
-                        {part.audioFile ? "🎵 CÓ AUDIO" : "⚠️ CHƯA CÓ AUDIO"}
-                      </span>
-                    </div>
-
-                    {/* Part Instruction */}
-                    {part.instruction && (
+                      {/* Part Header */}
                       <div style={{
+                        backgroundColor: colors.partBlue,
+                        color: "white",
                         padding: "10px 15px",
-                        backgroundColor: "#f8fafc",
-                        borderBottom: "1px solid #e5e7eb",
-                        fontSize: "13px",
-                        fontStyle: "italic",
+                        fontWeight: "bold",
+                        fontSize: "14px",
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
                       }}>
-                        📝 {part.instruction}
-                      </div>
-                    )}
-
-                    {/* Sections */}
-                    {part.sections?.map((section, sIdx) => {
-                      const sectionQCount = countSectionQuestions(section);
-                      // Calculate starting question for this section
-                      let sectionStartQ = partStartQ;
-                      for (let s = 0; s < sIdx; s++) {
-                        sectionStartQ += countSectionQuestions(part.sections[s]);
-                      }
-
-                      return (
-                        <div key={sIdx} style={{
-                          margin: "10px",
-                          border: `1px solid ${colors.sectionOrange}`,
-                          borderRadius: "6px",
-                          overflow: "hidden",
+                        <span>🎧 {part.title || `Part ${partIdx + 1}`}</span>
+                        <span style={{
+                          padding: "3px 10px",
+                          backgroundColor: part.audioFile ? "#22c55e" : "#ef4444",
+                          borderRadius: "20px",
+                          fontSize: "11px",
                         }}>
-                          {/* Section Header */}
-                          <div style={{
-                            backgroundColor: colors.sectionOrange,
-                            color: "white",
-                            padding: "8px 12px",
-                            fontWeight: "bold",
-                            fontSize: "13px",
-                            display: "flex",
-                            justifyContent: "space-between",
+                          {part.audioFile ? "🎵 CÓ AUDIO" : "⚠️ CHƯA CÓ AUDIO"}
+                        </span>
+                      </div>
+
+                      {/* Part Instruction */}
+                      {part.instruction && (
+                        <div style={{
+                          padding: "10px 15px",
+                          backgroundColor: "#f8fafc",
+                          borderBottom: "1px solid #e5e7eb",
+                          fontSize: "13px",
+                          fontStyle: "italic",
+                        }}>
+                          📝 {part.instruction}
+                        </div>
+                      )}
+
+                      {/* Sections */}
+                      {part.sections?.map((section, sIdx) => {
+                        const sectionQCount = countSectionQuestions(section);
+                        const sectionStartQ = sectionStarts?.[partIdx]?.[sIdx] || 1;
+
+                        return (
+                          <div key={sIdx} style={{
+                            margin: "10px",
+                            border: `1px solid ${colors.sectionOrange}`,
+                            borderRadius: "6px",
+                            overflow: "hidden",
                           }}>
-                            <span>📌 {section.sectionTitle || `Questions ${sectionStartQ}-${sectionStartQ + sectionQCount - 1}`}</span>
-                            <span style={{ fontWeight: "normal" }}>
-                              {sectionQCount} câu | {section.questionType}
-                            </span>
-                          </div>
-
-                          {/* Section Instruction */}
-                          {section.sectionInstruction && (
+                            {/* Section Header */}
                             <div style={{
-                              padding: "10px 12px",
-                              backgroundColor: "#fffbeb",
-                              borderBottom: "1px solid #fcd34d",
-                              fontSize: "12px",
-                              whiteSpace: "pre-wrap",
+                              backgroundColor: colors.sectionOrange,
+                              color: "white",
+                              padding: "8px 12px",
+                              fontWeight: "bold",
+                              fontSize: "13px",
+                              display: "flex",
+                              justifyContent: "space-between",
                             }}>
-                              <strong>Hướng dẫn:</strong><br/>
-                              {section.sectionInstruction}
+                              <span>📌 {section.sectionTitle || `Questions ${sectionStartQ}-${sectionStartQ + sectionQCount - 1}`}</span>
+                              <span style={{ fontWeight: "normal" }}>
+                                {sectionQCount} câu | {section.questionType}
+                              </span>
                             </div>
-                          )}
 
-                          {/* Questions based on type */}
-                          <div style={{ padding: "10px 12px", backgroundColor: "white" }}>
+                            {/* Section Instruction */}
+                            {section.sectionInstruction && (
+                              <div style={{
+                                padding: "10px 12px",
+                                backgroundColor: "#fffbeb",
+                                borderBottom: "1px solid #fcd34d",
+                                fontSize: "12px",
+                                whiteSpace: "pre-wrap",
+                              }}>
+                                <strong>Hướng dẫn:</strong><br/>
+                                {section.sectionInstruction}
+                              </div>
+                            )}
+
+                            {/* Questions based on type */}
+                            <div style={{ padding: "10px 12px", backgroundColor: "white" }}>
+
                             {/* NOTES COMPLETION */}
                             {section.questionType === 'notes-completion' && section.questions[0] && (
                               <div>
@@ -1189,7 +1260,6 @@ const ListeningTestEditor = ({
                                   backgroundColor: "#f9fafb",
                                   borderRadius: "6px",
                                   marginBottom: "12px",
-                                  whiteSpace: "pre-wrap",
                                   lineHeight: "1.8",
                                   fontSize: "13px",
                                   border: "1px solid #e5e7eb",
@@ -1197,7 +1267,10 @@ const ListeningTestEditor = ({
                                   <strong style={{ display: "block", marginBottom: "8px", color: "#1f2937" }}>
                                     {section.questions[0].notesTitle || "Notes"}
                                   </strong>
-                                  {section.questions[0].notesText}
+                                    <div
+                                      className="ql-editor"
+                                      dangerouslySetInnerHTML={{ __html: formatNotesHtml(section.questions[0].notesText) }}
+                                    />
                                 </div>
                                 {/* Show answers */}
                                 <div style={{
@@ -1296,12 +1369,205 @@ const ListeningTestEditor = ({
                               </div>
                             )}
 
+                            {/* TABLE COMPLETION */}
+                            {section.questionType === 'table-completion' && section.questions[0] && (
+                              <div>
+                                <div style={{
+                                  padding: "12px",
+                                  backgroundColor: "#f9fafb",
+                                  borderRadius: "6px",
+                                  marginBottom: "12px",
+                                  border: "1px solid #e5e7eb",
+                                }}>
+                                  <strong style={{ display: "block", marginBottom: "10px" }}>
+                                    {section.questions[0].title || "Table"}
+                                  </strong>
+                                  {typeof TableCompletion === 'function' ? (
+                                    <TableCompletion data={{
+                                      part: partIdx + 1,
+                                      title: section.questions[0].title || "",
+                                      instruction: section.questions[0].instruction || "",
+                                      columns: section.questions[0].columns || [],
+                                      rows: section.questions[0].rows || [],
+                                      rangeStart: sectionStartQ,
+                                      rangeEnd: sectionStartQ + ((section.questions[0].rows || []).length ? (section.questions[0].rows || []).length - 1 : 0),
+                                    }} startingQuestionNumber={sectionStartQ} />
+                                  ) : (
+                                    <div style={{ padding: 12, background: '#fee2e2', borderRadius: 6, color: '#7f1d1d' }}>
+                                      Component <strong>TableCompletion</strong> not available. Check imports.
+                                    </div>
+                                  )}
+                                </div>
+
+                                {/* Show answers */}
+                                <div style={{
+                                  padding: "10px",
+                                  backgroundColor: "#dcfce7",
+                                  borderRadius: "6px",
+                                  border: "1px solid #86efac",
+                                }}>
+                                  <strong style={{ fontSize: "12px", color: "#166534" }}>✅ Đáp án:</strong>
+                                  <div style={{
+                                    display: "grid",
+                                    gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))",
+                                    gap: "6px",
+                                    marginTop: "8px",
+                                  }}>
+                                    {/* Render blanks (cost + comment lines) numbered sequentially and show editable inputs when no answers map provided */}
+                                    {(() => {
+                                      const BLANK_REGEX = /_{2,}|[\u2026]+/g;
+                                      function splitIntoParts(text = '') {
+                                        const parts = [];
+                                        let lastIndex = 0;
+                                        let match;
+                                        while ((match = BLANK_REGEX.exec(text)) !== null) {
+                                          if (match.index > lastIndex) parts.push({ type: 'text', value: text.slice(lastIndex, match.index) });
+                                          parts.push({ type: 'blank', raw: match[0] });
+                                          lastIndex = match.index + match[0].length;
+                                        }
+                                        if (lastIndex < text.length) parts.push({ type: 'text', value: text.slice(lastIndex) });
+                                        return parts;
+                                      }
+
+                                      // Build a live preview answers map from current rows/cells (ROW-major: left→right within row, then next row)
+                                      const buildPreviewAnswers = () => {
+                                        const map = {};
+                                        const BLANK_DETECT = /\[BLANK\]|_{2,}|[\u2026]+/g;
+                                        let num = sectionStartQ;
+                                        const cols2 = section.questions[0].columns || [];
+                                        const rows2 = section.questions[0].rows || [];
+                                        let foundAny = false;
+
+                                        const getFlatCommentAnswer = (commentBlankAnswers, flatIdx) => {
+                                          if (!Array.isArray(commentBlankAnswers)) return undefined;
+                                          let acc = 0;
+                                          for (let li = 0; li < commentBlankAnswers.length; li++) {
+                                            const arr = commentBlankAnswers[li] || [];
+                                            if (flatIdx < acc + (arr.length || 0)) return arr[flatIdx - acc];
+                                            acc += (arr.length || 0);
+                                          }
+                                          return undefined;
+                                        };
+
+                                        for (let r = 0; r < rows2.length; r++) {
+                                          const rawRow = rows2[r];
+                                          const row = Array.isArray(rawRow.cells)
+                                            ? rawRow
+                                            : { cells: [rawRow.vehicle || '', rawRow.cost || '', Array.isArray(rawRow.comments) ? rawRow.comments.join('\n') : rawRow.comments || ''], cellBlankAnswers: rawRow.cellBlankAnswers || [], commentBlankAnswers: rawRow.commentBlankAnswers || [], correct: rawRow.correct };
+
+                                          for (let c = 0; c < cols2.length; c++) {
+                                            const isCommentsCol = /comment/i.test(cols2[c]);
+                                            const text = String(row.cells[c] || '');
+                                            BLANK_DETECT.lastIndex = 0;
+                                            let localIdx = 0;
+
+                                            while (BLANK_DETECT.exec(text) !== null) {
+                                              foundAny = true;
+                                              const key = String(num++);
+                                              let cbVal = '';
+                                              if (isCommentsCol) {
+                                                cbVal = getFlatCommentAnswer(row.commentBlankAnswers, localIdx) || '';
+                                              } else {
+                                                cbVal = (row.cellBlankAnswers && row.cellBlankAnswers[c] && row.cellBlankAnswers[c][localIdx]) || '';
+                                              }
+
+                                              if (cbVal) map[key] = cbVal;
+                                              else if (c === 1 && row.correct) map[key] = row.correct;
+                                              localIdx++;
+                                            }
+                                          }
+                                        }
+
+                                        if (!foundAny) {
+                                          // fallback: one blank per row
+                                          for (let r = 0; r < (section.questions[0].rows || []).length; r++) {
+                                            const key = String(num++);
+                                            const row = section.questions[0].rows[r];
+                                            map[key] = (row?.correct ?? row?.cost ?? '') || '';
+                                          }
+                                        }
+
+                                        return map;
+                                      };
+
+                                      const previewMap = buildPreviewAnswers();
+
+                                      // Build editable inputs for each blank in table (ROW-major: left→right in row then next row)
+                                      const map = previewMap;
+                                      let qnum = sectionStartQ;
+                                      const cols = section.questions[0].columns || [];
+                                      const rowsArr = section.questions[0].rows || [];
+                                      const inputs = [];
+
+                                      for (let rIdx = 0; rIdx < rowsArr.length; rIdx++) {
+                                        const rawRow = rowsArr[rIdx];
+                                        const row = Array.isArray(rawRow.cells)
+                                          ? rawRow
+                                          : { cells: [rawRow.vehicle || '', rawRow.cost || '', Array.isArray(rawRow.comments) ? rawRow.comments.join('\n') : rawRow.comments || ''], cellBlankAnswers: rawRow.cellBlankAnswers || rawRow.commentBlankAnswers || [], commentBlankAnswers: rawRow.commentBlankAnswers || [] };
+
+                                        for (let c = 0; c < cols.length; c++) {
+                                          const parts = splitIntoParts(String(row.cells[c] || ''));
+                                          let localIdx = 0;
+                                          for (const p of parts) {
+                                            if (p.type !== 'blank') continue;
+                                            const qNum = qnum++;
+
+                                            // handle commentBlankAnswers (per-line) by flattening index when needed
+                                            const getFlatCommentAnswer = (commentBlankAnswers, flatIdx) => {
+                                              if (!Array.isArray(commentBlankAnswers)) return undefined;
+                                              let acc = 0;
+                                              for (let li = 0; li < commentBlankAnswers.length; li++) {
+                                                const arr = commentBlankAnswers[li] || [];
+                                                if (flatIdx < acc + (arr.length || 0)) return arr[flatIdx - acc];
+                                                acc += (arr.length || 0);
+                                              }
+                                              return undefined;
+                                            };
+
+                                            const cbVal = /comment/i.test((section.questions[0].columns || [])[c])
+                                              ? (getFlatCommentAnswer(row.commentBlankAnswers, localIdx) || '')
+                                              : ((row.cellBlankAnswers && row.cellBlankAnswers[c] && row.cellBlankAnswers[c][localIdx]) || '');
+                                            const value = map[String(qNum)] ?? cbVal ?? (c === 1 ? (row.correct ?? '') : '');
+
+                                            const onChange = (v) => {
+                                              const newMap = { ...(section.questions[0].answers || {}) };
+                                              newMap[String(qNum)] = v;
+                                              onQuestionChange(partIdx, sIdx, 0, 'answers', newMap);
+                                            };
+
+                                            inputs.push(
+                                              <div key={`tbl-${qNum}`} style={{ padding: '4px 8px', backgroundColor: 'white', borderRadius: '4px', fontSize: '12px' }}>
+                                                <strong style={{ display: 'block', marginBottom: 6 }}>{qNum}.</strong>
+                                                <input type="text" value={value} placeholder="(Chưa có)" onChange={(e) => onChange(e.target.value)} style={{ ...compactInputStyle, width: '100%' }} />
+                                                {/* If teacher entered multiple variants (separated by | / ;), show them as visual hint */}
+                                                {typeof value === 'string' && /\||\//.test(value) && (
+                                                  <div style={{ marginTop: 6, fontSize: 12, color: '#374151' }}>
+                                                    <em>Accepted variants:</em> {String(value).split(/\||\//).map(s => s.trim()).filter(Boolean).join(' | ')}
+                                                  </div>
+                                                )}
+                                              </div>
+                                            );
+
+                                            localIdx++;
+                                          }
+                                        }
+                                      }
+
+                                      return inputs;
+                                    })()}
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+
                             {/* MATCHING */}
                             {section.questionType === 'matching' && section.questions[0] && (
                               <div>
                                 <div style={{ display: "flex", gap: "30px", marginBottom: "12px" }}>
                                   <div style={{ flex: 1 }}>
-                                    <strong style={{ display: "block", marginBottom: "8px", fontSize: "12px" }}>Items:</strong>
+                                    <strong style={{ display: "block", marginBottom: "8px", fontSize: "12px" }}>
+                                      {section.questions[0].leftTitle || 'Items'}:
+                                    </strong>
                                     {section.questions[0].leftItems?.map((item, i) => (
                                       <div key={i} style={{ padding: "4px 0", fontSize: "12px" }}>
                                         <strong>{sectionStartQ + i}.</strong> {item}
@@ -1309,7 +1575,9 @@ const ListeningTestEditor = ({
                                     ))}
                                   </div>
                                   <div style={{ flex: 1 }}>
-                                    <strong style={{ display: "block", marginBottom: "8px", fontSize: "12px" }}>Options:</strong>
+                                    <strong style={{ display: "block", marginBottom: "8px", fontSize: "12px" }}>
+                                      {section.questions[0].rightTitle || 'Options'}:
+                                    </strong>
                                     {section.questions[0].rightItems?.map((item, i) => (
                                       <div key={i} style={{ padding: "4px 0", fontSize: "12px" }}>
                                         {item}
@@ -1340,6 +1608,33 @@ const ListeningTestEditor = ({
                                 </div>
                               </div>
                             )}
+
+                            {/* MAP LABELING (preview for teacher) */}
+                            {section.questionType === 'map-labeling' && section.questions[0] && (() => {
+                              const q = section.questions[0];
+                              return (
+                                <div>
+                                  <MapPreview q={q} />
+
+                                  {/* List items */}
+                                  <div style={{ padding: '8px 0', fontSize: 13 }}>
+                                    <strong>📍 Các địa điểm:</strong>
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '8px' }}>
+                                      {(q.items || []).map((item, i) => {
+                                        const baseNumber = section.startingQuestionNumber || sectionStartQ;
+                                        return (
+                                          <div key={i} style={{ padding: '6px 10px', background: 'white', borderRadius: 6, border: '1px solid #e5e7eb' }}>
+                                            <strong>{baseNumber + i}.</strong> {item.label} <span style={{ marginLeft: 8, fontWeight: 700, color: '#ef4444' }}>{item.correctAnswer}</span>
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })()}
+
+
 
                             {/* MULTI-SELECT */}
                             {section.questionType === 'multi-select' && (
@@ -1485,10 +1780,10 @@ const ListeningTestEditor = ({
                           </div>
                         </div>
                       );
-                    })}
+                      })}
                   </div>
-                );
-              })}
+                ));
+              })()}
             </div>
 
             {/* Footer Buttons */}
@@ -1508,7 +1803,15 @@ const ListeningTestEditor = ({
               </button>
               <button
                 type="button"
-                onClick={onConfirmSubmit}
+                onClick={() => {
+                  console.log('Review confirm clicked');
+                  try { console.log('Current parts at confirm:', parts); } catch (e) { console.error('Could not log parts', e); }
+                  if (typeof onConfirmSubmit === 'function') {
+                    onConfirmSubmit();
+                  } else {
+                    console.warn('onConfirmSubmit is not a function');
+                  }
+                }}
                 style={primaryButtonStyle}
                 disabled={isSubmitting}
               >
@@ -1519,262 +1822,7 @@ const ListeningTestEditor = ({
         </div>
       )}
 
-      {/* BULK ADD MODAL */}
-      {showPreview && (
-        <div style={modalStyles}>
-          <div style={{ ...modalContentStyles, maxWidth: "900px", maxHeight: "90vh", overflow: "auto" }}>
-            <div style={{ ...modalHeaderStyles, position: "sticky", top: 0, backgroundColor: "white", zIndex: 10 }}>
-              <span style={{ fontSize: "20px" }}>👁️</span>
-              <h3 style={{ margin: 0 }}>Xem trước đề thi</h3>
-              <button
-                type="button"
-                onClick={() => setShowPreview(false)}
-                style={{
-                  marginLeft: "auto",
-                  padding: "6px 12px",
-                  backgroundColor: "#ef4444",
-                  color: "white",
-                  border: "none",
-                  borderRadius: "6px",
-                  cursor: "pointer",
-                }}
-              >
-                ✕ Đóng
-              </button>
-            </div>
 
-            <div style={{ padding: "20px 0" }}>
-              {/* Test Header */}
-              <div style={{
-                textAlign: "center",
-                marginBottom: "30px",
-                padding: "20px",
-                backgroundColor: "#f0f9ff",
-                borderRadius: "12px",
-              }}>
-                <h2 style={{ margin: "0 0 10px 0", color: "#1e40af" }}>
-                  🎧 {title || "LISTENING TEST"}
-                </h2>
-                <p style={{ margin: 0, color: "#6b7280" }}>
-                  {classCode && `Mã lớp: ${classCode}`} {teacherName && `| Giáo viên: ${teacherName}`}
-                </p>
-                <p style={{ margin: "8px 0 0 0", fontSize: "14px", color: "#6b7280" }}>
-                  Tổng: {totalQuestions} câu hỏi | {parts?.length || 0} parts
-                </p>
-              </div>
-
-              {/* Parts Preview */}
-              {parts?.map((part, partIdx) => {
-                let questionCounter = 1;
-                // Calculate starting question for this part
-                for (let p = 0; p < partIdx; p++) {
-                  // eslint-disable-next-line no-loop-func
-                  parts[p].sections?.forEach(s => {
-                    questionCounter += countSectionQuestions(s);
-                  });
-                }
-                const partStartQ = questionCounter;
-                
-                return (
-                  <div key={partIdx} style={{
-                    marginBottom: "30px",
-                    border: "1px solid #e5e7eb",
-                    borderRadius: "12px",
-                    overflow: "hidden",
-                  }}>
-                    {/* Part Header */}
-                    <div style={{
-                      padding: "16px 20px",
-                      backgroundColor: colors.partBlue,
-                      color: "white",
-                    }}>
-                      <h3 style={{ margin: 0 }}>
-                        {part.title || `PART ${partIdx + 1}`}
-                      </h3>
-                      {part.audioFile && (
-                        <span style={{ fontSize: "12px", opacity: 0.9 }}>🎵 Có audio</span>
-                      )}
-                    </div>
-
-                    {/* Part Instruction */}
-                    {part.instruction && (
-                      <div style={{
-                        padding: "12px 20px",
-                        backgroundColor: "#f8fafc",
-                        borderBottom: "1px solid #e5e7eb",
-                        fontStyle: "italic",
-                        fontSize: "14px",
-                      }}>
-                        {part.instruction}
-                      </div>
-                    )}
-
-                    {/* Sections */}
-                    {part.sections?.map((section, sIdx) => {
-                      const sectionQCount = countSectionQuestions(section);
-                      // Calculate starting question for this section
-                      let sectionStartQ = partStartQ;
-                      for (let s = 0; s < sIdx; s++) {
-                        sectionStartQ += countSectionQuestions(part.sections[s]);
-                      }
-                      
-                      return (
-                        <div key={sIdx} style={{ padding: "16px 20px", borderBottom: "1px solid #f3f4f6" }}>
-                          <h4 style={{
-                            margin: "0 0 12px 0",
-                            color: colors.sectionOrange,
-                            fontSize: "16px",
-                          }}>
-                            {section.sectionTitle || `Questions ${sectionStartQ}-${sectionStartQ + sectionQCount - 1}`}
-                          </h4>
-                          
-                          {section.sectionInstruction && (
-                            <p style={{
-                              margin: "0 0 16px 0",
-                              padding: "10px",
-                              backgroundColor: "#fffbeb",
-                              borderRadius: "8px",
-                              fontSize: "14px",
-                              whiteSpace: "pre-wrap",
-                            }}>
-                              {section.sectionInstruction}
-                            </p>
-                          )}
-
-                          {/* Questions based on type */}
-                          <div style={{ paddingLeft: "10px" }}>
-                            {section.questionType === 'notes-completion' && section.questions[0]?.notesText && (
-                              <div style={{
-                                padding: "16px",
-                                backgroundColor: "#f9fafb",
-                                borderRadius: "8px",
-                                whiteSpace: "pre-wrap",
-                                lineHeight: "1.8",
-                                fontFamily: "Georgia, serif",
-                              }}>
-                                <strong style={{ display: "block", marginBottom: "12px" }}>
-                                  {section.questions[0].notesTitle || "Notes"}
-                                </strong>
-                                {section.questions[0].notesText}
-                              </div>
-                            )}
-                            
-                            {section.questionType === 'form-completion' && section.questions[0]?.formRows && (
-                              <div style={{
-                                padding: "16px",
-                                backgroundColor: "#f9fafb",
-                                borderRadius: "8px",
-                                border: "1px solid #e5e7eb",
-                              }}>
-                                <strong style={{ display: "block", marginBottom: "12px" }}>
-                                  {section.questions[0].formTitle || "Form"}
-                                </strong>
-                                {section.questions[0].formRows.map((row, rIdx) => (
-                                  <div key={rIdx} style={{
-                                    display: "flex",
-                                    gap: "8px",
-                                    padding: "6px 0",
-                                    borderBottom: "1px dashed #e5e7eb",
-                                  }}>
-                                    <span style={{ minWidth: "150px" }}>{row.label}</span>
-                                    <span>{row.prefix}</span>
-                                    {row.isBlank ? (
-                                      <span style={{
-                                        padding: "2px 16px",
-                                        backgroundColor: "#fef3c7",
-                                        borderRadius: "4px",
-                                        fontWeight: "bold",
-                                      }}>
-                                        {row.blankNumber}. ________
-                                      </span>
-                                    ) : (
-                                      <span>{row.suffix}</span>
-                                    )}
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-
-                            {section.questionType === 'matching' && section.questions[0] && (
-                              <div style={{ display: "flex", gap: "40px" }}>
-                                <div>
-                                  <strong>Items:</strong>
-                                  {section.questions[0].leftItems?.map((item, i) => (
-                                    <div key={i} style={{ padding: "4px 0" }}>
-                                      {sectionStartQ + i}. {item}
-                                    </div>
-                                  ))}
-                                </div>
-                                <div>
-                                  <strong>Options:</strong>
-                                  {section.questions[0].rightItems?.map((item, i) => (
-                                    <div key={i} style={{ padding: "4px 0" }}>
-                                      {item}
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
-
-                            {(section.questionType === 'abc' || section.questionType === 'abcd') && (
-                              <div>
-                                {section.questions?.map((q, qIdx) => (
-                                  <div key={qIdx} style={{ marginBottom: "16px" }}>
-                                    <strong>{sectionStartQ + qIdx}.</strong> {q.questionText}
-                                    <div style={{ paddingLeft: "20px", marginTop: "8px" }}>
-                                      {q.options?.map((opt, oIdx) => (
-                                        <div key={oIdx} style={{ padding: "4px 0" }}>
-                                          {opt}
-                                        </div>
-                                      ))}
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-
-                            {section.questionType === 'multi-select' && (
-                              <div>
-                                {section.questions?.map((q, qIdx) => {
-                                  const qStartNum = sectionStartQ + (qIdx * (q.requiredAnswers || 2));
-                                  const qEndNum = qStartNum + (q.requiredAnswers || 2) - 1;
-                                  return (
-                                    <div key={qIdx} style={{ marginBottom: "20px" }}>
-                                      <strong>Questions {qStartNum} and {qEndNum}</strong>
-                                      <p style={{ margin: "8px 0" }}>{q.questionText}</p>
-                                      <div style={{ paddingLeft: "20px" }}>
-                                        {q.options?.map((opt, oIdx) => (
-                                          <div key={oIdx} style={{ padding: "4px 0" }}>
-                                            ☐ {opt}
-                                          </div>
-                                        ))}
-                                      </div>
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            )}
-
-                            {section.questionType === 'fill' && (
-                              <div>
-                                {section.questions?.map((q, qIdx) => (
-                                  <div key={qIdx} style={{ marginBottom: "12px" }}>
-                                    <strong>{sectionStartQ + qIdx}.</strong> {q.questionText || "________"}
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* BULK ADD MODAL */}
       {showBulkAddModal && (
@@ -1835,14 +1883,7 @@ const ListeningTestEditor = ({
         </div>
       )}
 
-      {/* TEMPLATE LIBRARY MODAL */}
-      <ListeningTemplateLibrary
-        isOpen={showTemplateLibrary}
-        onClose={() => setShowTemplateLibrary(false)}
-        onSelectTemplate={handleSelectTemplate}
-        onSelectSectionTemplate={handleSelectSectionTemplate}
-        mode={templateLibraryMode}
-      />
+
     </IeltsTestEditorShell>
   </>
   );

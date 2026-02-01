@@ -1,5 +1,9 @@
 import React, { useState } from "react";
+import ReactQuill from "react-quill";
+import "react-quill/dist/quill.snow.css";
+import MapLabelingQuestion from '../../../shared/components/MapLabelingQuestion';
 import { colors, compactInputStyle, deleteButtonSmallStyle } from "../utils/styles";
+import TableCompletionEditor from "../../../shared/components/questions/editors/TableCompletionEditor";
 
 /**
  * ListeningQuestionEditor - Editor cho từng câu hỏi Listening
@@ -19,6 +23,7 @@ const ListeningQuestionEditor = ({
 }) => {
   const [isExpanded, setIsExpanded] = useState(true);
 
+
   // IMPORTANT: Prioritize section's questionType prop over question's own type
   // This ensures form-completion section shows correctly even if question has questionType: "fill"
   const type = questionType || question.questionType || "fill";
@@ -30,6 +35,8 @@ const ListeningQuestionEditor = ({
         return renderFillQuestion();
       case "form-completion":
         return renderFormCompletionQuestion();
+      case "table-completion":
+        return renderTableCompletionQuestion();
       case "notes-completion":
         return renderNotesCompletionQuestion();
       case "abc":
@@ -631,28 +638,46 @@ const ListeningQuestionEditor = ({
     );
   };
 
+  // Table Completion - use a dedicated editor component that supports columns/rows
+  const renderTableCompletionQuestion = () => {
+    return (
+      <div>
+        <TableCompletionEditor
+          question={question}
+          onChange={(field, value) => onChange(field, value)}
+          startingNumber={sectionStartingNumber || globalQuestionNumber || 1}
+        />
+      </div>
+    );
+  };
+
   // Notes Completion - Paste text với ___ hoặc số câu, hệ thống tự tách
   const renderNotesCompletionQuestion = () => {
     const notesText = question.notesText || '';
     const notesTitle = question.notesTitle || '';
     const wordLimit = question.wordLimit || 'ONE WORD ONLY';
     const answers = question.answers || {};
+
+    const stripHtml = (html) => {
+      if (!html) return '';
+      const temp = document.createElement('div');
+      temp.innerHTML = html;
+      return temp.textContent || temp.innerText || '';
+    };
     
     // Parse blanks from text - matches "31 ___" or "___" or "………"
     const parseBlankPattern = /(\d+)\s*[_…]+|[_…]{2,}/g;
+    const startQ = sectionStartingNumber || globalQuestionNumber || 1;
+
+    const plainText = stripHtml(notesText);
     const blanks = [];
     let match;
     let blankIndex = 0;
-    const startQ = sectionStartingNumber || globalQuestionNumber || 1;
-    
-    // Extract all blanks with their positions
-    const textCopy = notesText;
-    while ((match = parseBlankPattern.exec(textCopy)) !== null) {
-      const questionNum = match[1] ? parseInt(match[1]) : startQ + blankIndex;
+    while ((match = parseBlankPattern.exec(plainText)) !== null) {
+      const questionNum = match[1] ? parseInt(match[1], 10) : startQ + blankIndex;
       blanks.push({
         questionNum,
         fullMatch: match[0],
-        index: match.index,
       });
       blankIndex++;
     }
@@ -660,19 +685,25 @@ const ListeningQuestionEditor = ({
     // Generate preview with highlighted blanks
     const generatePreview = () => {
       if (!notesText) return null;
-      
-      let previewHtml = notesText;
-      // Replace blanks with styled spans (reverse order to preserve indices)
-      [...blanks].reverse().forEach((blank) => {
-        const before = previewHtml.slice(0, blank.index);
-        const after = previewHtml.slice(blank.index + blank.fullMatch.length);
-        const answer = answers[blank.questionNum] || '';
-        previewHtml = before + 
-          `<span style="background:#fef3c7;padding:2px 8px;border-radius:4px;font-weight:bold;border:1px dashed #f59e0b;">${blank.questionNum}. ${answer || '________'}</span>` + 
-          after;
+      let idx = 0;
+      const previewHtml = notesText.replace(parseBlankPattern, () => {
+        const blank = blanks[idx++];
+        const qNum = blank?.questionNum ?? '';
+        const answer = answers[qNum] || '';
+        return `<span style="background:#fef3c7;padding:2px 8px;border-radius:4px;font-weight:bold;border:1px dashed #f59e0b;">${qNum}. ${answer || '________'}</span>`;
       });
-      
       return previewHtml;
+    };
+
+    const quillModules = {
+      toolbar: [
+        [{ header: [1, 2, false] }],
+        ['bold', 'italic', 'underline'],
+        [{ color: [] }, { background: [] }],
+        [{ align: [] }],
+        [{ list: 'ordered' }, { list: 'bullet' }],
+        ['clean'],
+      ],
     };
 
     return (
@@ -743,9 +774,11 @@ const ListeningQuestionEditor = ({
 
         {/* Notes Text Input */}
         <label style={labelStyle}>Nội dung Notes (paste từ đề)</label>
-        <textarea
+        <ReactQuill
+          theme="snow"
           value={notesText}
-          onChange={(e) => onChange("notesText", e.target.value)}
+          onChange={(value) => onChange("notesText", value)}
+          modules={quillModules}
           placeholder={`Paste nội dung notes ở đây. Dùng ___ để đánh dấu chỗ trống.
 
 VD:
@@ -753,17 +786,13 @@ VD:
 – In the 1850s, the 32 ___ was also influenced greatly by immigration.
 – Originally music reflected the work life of different 33 ___ in those days.`}
           style={{
-            ...compactInputStyle,
-            minHeight: "200px",
-            resize: "vertical",
-            fontFamily: "monospace",
-            fontSize: "13px",
-            lineHeight: "1.6",
+            background: "white",
+            borderRadius: "8px",
           }}
         />
 
         {/* Quick Parse Button */}
-        {notesText && blanks.length === 0 && (
+        {plainText && blanks.length === 0 && (
           <div style={{
             padding: "10px",
             backgroundColor: "#fef2f2",
@@ -832,7 +861,7 @@ VD:
         )}
 
         {/* Preview */}
-        {notesText && blanks.length > 0 && (
+        {plainText && blanks.length > 0 && (
           <div style={{ marginTop: "16px" }}>
             <label style={labelStyle}>👁️ Preview (như học sinh nhìn thấy)</label>
             <div style={{
@@ -908,6 +937,8 @@ VD:
   const renderMatchingQuestion = () => {
     const leftItems = question.leftItems || [""];
     const startNum = sectionStartingNumber || globalQuestionNumber || 1;
+    const leftTitle = question.leftTitle || "Items";
+    const rightTitle = question.rightTitle || "Options";
     
     return (
       <div>
@@ -936,10 +967,33 @@ VD:
         />
 
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginTop: "12px" }}>
+          <div>
+            <label style={labelStyle}>Tiêu đề cột trái</label>
+            <input
+              type="text"
+              value={leftTitle}
+              onChange={(e) => onChange("leftTitle", e.target.value)}
+              placeholder="VD: Items"
+              style={compactInputStyle}
+            />
+          </div>
+          <div>
+            <label style={labelStyle}>Tiêu đề cột phải</label>
+            <input
+              type="text"
+              value={rightTitle}
+              onChange={(e) => onChange("rightTitle", e.target.value)}
+              placeholder="VD: Opinions"
+              style={compactInputStyle}
+            />
+          </div>
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginTop: "12px" }}>
           {/* Left items (global numbered) */}
           <div>
             <label style={labelStyle}>
-              Items (Câu {startNum}-{startNum + leftItems.length - 1})
+              {leftTitle} (Câu {startNum}-{startNum + leftItems.length - 1})
             </label>
             {leftItems.map((item, idx) => {
               const questionNum = startNum + idx;
@@ -990,7 +1044,7 @@ VD:
 
           {/* Right items (lettered options) */}
           <div>
-            <label style={labelStyle}>Options (A, B, C...)</label>
+            <label style={labelStyle}>{rightTitle} (A, B, C...)</label>
             {(question.rightItems || ["A.", "B.", "C."]).map((item, idx) => (
               <div key={idx} style={{ display: "flex", gap: "8px", marginBottom: "8px", alignItems: "center" }}>
                 <span style={optionLabelStyle}>{String.fromCharCode(65 + idx)}</span>
@@ -1298,88 +1352,15 @@ VD:
   // Map labeling question
   const renderMapLabelingQuestion = () => (
     <div>
-      <label style={labelStyle}>Hướng dẫn</label>
-      <input
-        type="text"
-        value={question.questionText || ""}
-        onChange={(e) => onChange("questionText", e.target.value)}
-        placeholder="VD: Label the map below. Write the correct letter, A-H."
-        style={compactInputStyle}
-      />
-
-      <label style={labelStyle}>URL hình ảnh bản đồ</label>
-      <input
-        type="text"
-        value={question.imageUrl || ""}
-        onChange={(e) => onChange("imageUrl", e.target.value)}
-        placeholder="https://example.com/map.png hoặc /uploads/images/map.png"
-        style={compactInputStyle}
-      />
-      {question.imageUrl && (
-        <img
-          src={question.imageUrl}
-          alt="Map preview"
-          style={{ maxWidth: "100%", maxHeight: "200px", marginBottom: "12px", borderRadius: "8px" }}
-        />
-      )}
-
-      <label style={labelStyle}>Phạm vi câu hỏi</label>
-      <input
-        type="text"
-        value={question.questionRange || ""}
-        onChange={(e) => onChange("questionRange", e.target.value)}
-        placeholder="VD: 11-15"
-        style={compactInputStyle}
-      />
-
-      <label style={labelStyle}>Các vị trí cần gắn nhãn</label>
-      {(question.items || [{ label: "A", text: "" }]).map((item, idx) => (
-        <div key={idx} style={{ display: "flex", gap: "8px", marginBottom: "8px", alignItems: "center" }}>
-          <input
-            type="text"
-            value={item.label}
-            onChange={(e) => {
-              const newItems = [...question.items];
-              newItems[idx] = { ...newItems[idx], label: e.target.value };
-              onChange("items", newItems);
-            }}
-            placeholder="A"
-            style={{ ...compactInputStyle, width: "50px" }}
-          />
-          <input
-            type="text"
-            value={item.text}
-            onChange={(e) => {
-              const newItems = [...question.items];
-              newItems[idx] = { ...newItems[idx], text: e.target.value };
-              onChange("items", newItems);
-            }}
-            placeholder="Mô tả vị trí (VD: Reception desk)"
-            style={{ ...compactInputStyle, flex: 1 }}
-          />
-        </div>
-      ))}
-      <button
-        type="button"
-        onClick={() => {
-          const nextLabel = String.fromCharCode(65 + (question.items?.length || 0));
-          onChange("items", [...(question.items || []), { label: nextLabel, text: "" }]);
-        }}
-        style={addItemButtonStyle}
-      >
-        + Thêm vị trí
-      </button>
-
-      <label style={{ ...labelStyle, marginTop: "12px" }}>Đáp án (VD: 11-E, 12-A, 13-H)</label>
-      <input
-        type="text"
-        value={question.correctAnswer || ""}
-        onChange={(e) => onChange("correctAnswer", e.target.value)}
-        placeholder="11-E, 12-A, 13-H, 14-B, 15-G"
-        style={compactInputStyle}
+      <MapLabelingQuestion
+        question={question}
+        onChange={(field, value) => onChange(field, value)}
+        mode="edit"
+        questionNumber={globalQuestionNumber}
       />
     </div>
   );
+
 
   // Flowchart question
   const renderFlowchartQuestion = () => (

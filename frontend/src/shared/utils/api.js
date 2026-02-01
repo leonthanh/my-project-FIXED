@@ -18,38 +18,48 @@ function getAuthHeaders() {
   return { Authorization: `Bearer ${token}` };
 }
 
+let refreshPromise = null;
+
 async function refreshAccessToken() {
-  const refreshToken = localStorage.getItem('refreshToken');
-  if (!refreshToken) return false;
+  if (refreshPromise) return refreshPromise;
 
-  try {
-    console.debug('auth: attempting refresh with refreshToken present');
-    const res = await fetch(`${API_BASE}/auth/refresh`, {
-      method: 'POST',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ refreshToken }),
-    });
+  refreshPromise = (async () => {
+    const refreshToken = localStorage.getItem('refreshToken');
+    const hasRefreshToken = Boolean(refreshToken);
 
-    if (!res.ok) {
-      console.debug('auth: refresh failed', res.status);
-      // clear possibly invalid tokens
+    try {
+      console.debug('auth: attempting refresh');
+      const res = await fetch(`${API_BASE}/auth/refresh`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(hasRefreshToken ? { refreshToken } : {}),
+      });
+
+      if (!res.ok) {
+        console.debug('auth: refresh failed', res.status);
+        // clear possibly invalid tokens
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('refreshToken');
+        return false;
+      }
+
+      const data = await res.json().catch(() => ({}));
+      if (data.accessToken) localStorage.setItem('accessToken', data.accessToken);
+      if (data.refreshToken) localStorage.setItem('refreshToken', data.refreshToken);
+      console.debug('auth: refresh succeeded');
+      return true;
+    } catch (err) {
+      console.debug('auth: refresh exception', err?.message || err);
       localStorage.removeItem('accessToken');
       localStorage.removeItem('refreshToken');
       return false;
+    } finally {
+      refreshPromise = null;
     }
+  })();
 
-    const data = await res.json().catch(() => ({}));
-    if (data.accessToken) localStorage.setItem('accessToken', data.accessToken);
-    if (data.refreshToken) localStorage.setItem('refreshToken', data.refreshToken);
-    console.debug('auth: refresh succeeded');
-    return true;
-  } catch (err) {
-    console.debug('auth: refresh exception', err?.message || err);
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('refreshToken');
-    return false;
-  }
+  return refreshPromise;
 }
 
 /**

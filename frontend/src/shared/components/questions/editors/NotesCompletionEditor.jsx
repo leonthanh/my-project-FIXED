@@ -1,4 +1,6 @@
-import React from "react";
+import React, { useMemo } from "react";
+import ReactQuill from "react-quill";
+import "react-quill/dist/quill.snow.css";
 
 /**
  * NotesCompletionEditor - Paste text với ___ hoặc số câu, hệ thống tự tách
@@ -41,42 +43,60 @@ const NotesCompletionEditor = ({
   const notesTitle = question.notesTitle || '';
   const wordLimit = question.wordLimit || 'ONE WORD ONLY';
   const answers = question.answers || {};
+
+  const stripHtml = (html) => {
+    if (!html) return '';
+    const temp = document.createElement('div');
+    temp.innerHTML = html;
+    return temp.textContent || temp.innerText || '';
+  };
   
   // Parse blanks from text - matches "31 ___" or "___" or "………"
   const parseBlankPattern = /(\d+)\s*[_…]+|[_…]{2,}/g;
-  const blanks = [];
-  let match;
-  let blankIndex = 0;
   const startQ = startingNumber;
-  
-  // Extract all blanks with their positions
-  const textCopy = notesText;
-  while ((match = parseBlankPattern.exec(textCopy)) !== null) {
-    const questionNum = match[1] ? parseInt(match[1]) : startQ + blankIndex;
-    blanks.push({
-      questionNum,
-      fullMatch: match[0],
-      index: match.index,
-    });
-    blankIndex++;
-  }
+
+  const plainText = stripHtml(notesText);
+
+  const blanks = useMemo(() => {
+    const text = plainText;
+    const result = [];
+    let match;
+    let blankIndex = 0;
+    while ((match = parseBlankPattern.exec(text)) !== null) {
+      const questionNum = match[1] ? parseInt(match[1], 10) : startQ + blankIndex;
+      result.push({
+        questionNum,
+        fullMatch: match[0],
+      });
+      blankIndex++;
+    }
+    return result;
+  }, [plainText, startQ]);
   
   // Generate preview with highlighted blanks
   const generatePreview = () => {
     if (!notesText) return null;
-    
-    let previewHtml = notesText;
-    // Replace blanks with styled spans (reverse order to preserve indices)
-    [...blanks].reverse().forEach((blank) => {
-      const before = previewHtml.slice(0, blank.index);
-      const after = previewHtml.slice(blank.index + blank.fullMatch.length);
-      const answer = answers[blank.questionNum] || '';
-      previewHtml = before + 
-        `<span style="background:#fef3c7;padding:2px 8px;border-radius:4px;font-weight:bold;border:1px dashed #f59e0b;">${blank.questionNum}. ${answer || '________'}</span>` + 
-        after;
+
+    let idx = 0;
+    const previewHtml = notesText.replace(parseBlankPattern, () => {
+      const blank = blanks[idx++];
+      const qNum = blank?.questionNum ?? '';
+      const answer = answers[qNum] || '';
+      return `<span style="background:#fef3c7;padding:2px 8px;border-radius:4px;font-weight:bold;border:1px dashed #f59e0b;">${qNum}. ${answer || '________'}</span>`;
     });
-    
+
     return previewHtml;
+  };
+
+  const quillModules = {
+    toolbar: [
+      [{ header: [1, 2, false] }],
+      ['bold', 'italic', 'underline'],
+      [{ color: [] }, { background: [] }],
+      [{ align: [] }],
+      [{ list: 'ordered' }, { list: 'bullet' }],
+      ['clean'],
+    ],
   };
 
   return (
@@ -147,9 +167,11 @@ const NotesCompletionEditor = ({
 
       {/* Notes Text Input */}
       <label style={defaultStyles.label}>Nội dung Notes (paste từ đề)</label>
-      <textarea
+      <ReactQuill
+        theme="snow"
         value={notesText}
-        onChange={(e) => onChange("notesText", e.target.value)}
+        onChange={(value) => onChange("notesText", value)}
+        modules={quillModules}
         placeholder={`Paste nội dung notes ở đây. Dùng ___ để đánh dấu chỗ trống.
 
 VD:
@@ -157,17 +179,13 @@ VD:
 – In the 1850s, the 32 ___ was also influenced greatly by immigration.
 – Originally music reflected the work life of different 33 ___ in those days.`}
         style={{
-          ...defaultStyles.input,
-          minHeight: "200px",
-          resize: "vertical",
-          fontFamily: "monospace",
-          fontSize: "13px",
-          lineHeight: "1.6",
+          background: "white",
+          borderRadius: "8px",
         }}
       />
 
       {/* Quick Parse Button */}
-      {notesText && blanks.length === 0 && (
+      {plainText && blanks.length === 0 && (
         <div style={{
           padding: "10px",
           backgroundColor: "#fef2f2",
@@ -236,7 +254,7 @@ VD:
       )}
 
       {/* Preview */}
-      {notesText && blanks.length > 0 && (
+      {plainText && blanks.length > 0 && (
         <div style={{ marginTop: "16px" }}>
           <label style={defaultStyles.label}>👁️ Preview (như học sinh nhìn thấy)</label>
           <div style={{

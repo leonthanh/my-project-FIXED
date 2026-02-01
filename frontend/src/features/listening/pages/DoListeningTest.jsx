@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { apiPath, hostPath } from "../../../shared/utils/api";
+import { apiPath, hostPath, authFetch } from "../../../shared/utils/api";
 import { TestHeader } from "../../../shared/components";
 import ResultModal from "../../../shared/components/ResultModal";
 import { generateDetailsFromSections } from "./ListeningResults";
@@ -20,6 +20,43 @@ const bandFromCorrect = (c) => {
   if (c >= 13) return 4.5;
   if (c >= 11) return 4;
   return 3.5;
+};
+
+const stripHtml = (html) => {
+  if (!html) return "";
+  const temp = document.createElement("div");
+  temp.innerHTML = html;
+  return temp.textContent || temp.innerText || "";
+};
+
+const countTableCompletionBlanks = (question) => {
+  const rowsArr = question?.rows || [];
+  const cols = question?.columns || [];
+  const BLANK_REGEX = /\[BLANK\]|_{2,}|[\u2026]+/g;
+  let blanksCount = 0;
+
+  rowsArr.forEach((row) => {
+    const r = Array.isArray(row?.cells)
+      ? row
+      : {
+          cells: [
+            row?.vehicle || '',
+            row?.cost || '',
+            Array.isArray(row?.comments) ? row.comments.join('\n') : row?.comments || '',
+          ],
+        };
+
+    const cells = Array.isArray(r.cells) ? r.cells : [];
+    const maxCols = cols.length ? cols.length : cells.length;
+    for (let c = 0; c < maxCols; c++) {
+      const text = String(cells[c] || '');
+      const matches = text.match(BLANK_REGEX) || [];
+      blanksCount += matches.length;
+    }
+  });
+
+  if (blanksCount === 0) return rowsArr.length || 0;
+  return blanksCount;
 };
 
 /**
@@ -45,6 +82,12 @@ const DoListeningTest = () => {
   const [timeRemaining, setTimeRemaining] = useState(30 * 60);
   const [audioPlayed, setAudioPlayed] = useState({});
   const [activeQuestion, setActiveQuestion] = useState(null);
+  // Modal & start state: control whether student has started the test (controls audio visibility)
+  const [showStartModal, setShowStartModal] = useState(true);
+  const [started, setStarted] = useState(false);
+  const [requestAutoPlay, setRequestAutoPlay] = useState(false);
+  // Track if audio is currently playing so we can show a status without controls
+  const [isAudioPlaying, setIsAudioPlaying] = useState(false);
 
   const audioRef = useRef(null);
   const questionRefs = useRef({});
@@ -80,7 +123,7 @@ const DoListeningTest = () => {
     const fetchTest = async () => {
       try {
         setLoading(true);
-        const res = await fetch(apiPath(`listening-tests/${id}`));
+        const res = await authFetch(apiPath(`listening-tests/${id}`));
         if (!res.ok) throw new Error("Không tìm thấy đề thi");
         const data = await res.json();
 
@@ -127,8 +170,8 @@ const DoListeningTest = () => {
           const remaining = Math.max(0, Math.ceil((expiresAt - Date.now()) / 1000));
           setTimeRemaining(remaining);
         } else {
-          const expiresAt = Date.now() + durationSeconds * 1000;
-          localStorage.setItem(expiresKey, String(expiresAt));
+          // Do not start the timer automatically. Only display the full duration and
+          // start counting when the student confirms start via modal.
           setTimeRemaining(durationSeconds);
         }
 
@@ -148,6 +191,13 @@ const DoListeningTest = () => {
             }
             if (parsedState?.submissionId) {
               submissionIdRef.current = parsedState.submissionId;
+            }
+            if (parsedState?.audioPlayed) {
+              setAudioPlayed(parsedState.audioPlayed);
+            }
+            if (parsedState?.started) {
+              setStarted(Boolean(parsedState.started));
+              if (parsedState.started) setShowStartModal(false);
             }
           }
         } catch (e) {
@@ -187,6 +237,12 @@ const DoListeningTest = () => {
                     if (serverAnswers) cur.answers = serverAnswers;
                     localStorage.setItem(stateKey, JSON.stringify(cur));
                   } catch (e) {}
+
+                  // If we resumed from server and there are answers, skip the start modal (resume mode)
+                  if (serverAnswers && Object.keys(serverAnswers).length > 0) {
+                    setShowStartModal(false);
+                    setStarted(true);
+                  }
                 }
               }
             }
@@ -208,14 +264,23 @@ const DoListeningTest = () => {
   const confirmSubmitRef = useRef(null);
 
   // Timer countdown (compute remaining from persisted expiresAt to survive F5)
-  // Auto-submit reliably even if the tab is backgrounded/throttled.
+  // Timer starts only after the student explicitly confirms start.
   useEffect(() => {
-    if (submitted || !test) return;
+    // Don't start the timer until the student starts the test
+    if (submitted || !test || !started) return;
 
     const stored = localStorage.getItem(expiresKey);
     const expiresAt = stored
       ? parseInt(stored, 10)
       : Date.now() + (test?.duration ? test.duration * 60 * 1000 : 30 * 60 * 1000);
+
+    // Persist expiresAt if we just started and there's no stored value
+    if (!stored) {
+      try {
+        localStorage.setItem(expiresKey, String(expiresAt));
+      } catch (e) {}
+    }
+
     expiresAtRef.current = expiresAt;
 
     let done = false;
@@ -224,15 +289,10 @@ const DoListeningTest = () => {
       const remaining = Math.max(0, Math.ceil((expiresAt - Date.now()) / 1000));
       setTimeRemaining(remaining);
       if (remaining <= 0) {
-        // Ensure we don't mark the timer as 'done' until we've actually invoked submit.
-        // This avoids a race where tick runs before `confirmSubmitRef` is initialized
-        // and permanently prevents the auto-submit from happening.
         if (confirmSubmitRef.current) {
           confirmSubmitRef.current();
           done = true;
         } else {
-          // Leave `done` false so future ticks will try again once `confirmSubmitRef` is set.
-          // Also ensure the UI shows 0s remaining immediately.
           setTimeRemaining(0);
         }
       }
@@ -255,7 +315,7 @@ const DoListeningTest = () => {
       window.removeEventListener("focus", onCheck);
       document.removeEventListener("visibilitychange", onCheck);
     };
-  }, [test, submitted, expiresKey]);
+  }, [test, submitted, expiresKey, started]);
 
   // Format time display
   /* eslint-disable-next-line no-unused-vars */
@@ -333,7 +393,7 @@ const DoListeningTest = () => {
         return;
       }
 
-      const res = await fetch(apiPath(`listening-tests/${id}/submit`), {
+      const res = await authFetch(apiPath(`listening-tests/${id}/submit`), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ answers, user, studentName, studentId, submissionId: submissionIdRef.current }),
@@ -501,7 +561,7 @@ const DoListeningTest = () => {
       try {
         const expiresStored = localStorage.getItem(expiresKey);
         const expiresAt = expiresStored ? parseInt(expiresStored, 10) : expiresAtRef.current || null;
-        const payload = { answers, expiresAt, lastSavedAt: Date.now() };
+        const payload = { answers, expiresAt, audioPlayed, started, lastSavedAt: Date.now() };
         localStorage.setItem(stateKey, JSON.stringify(payload));
       } catch (e) {
         // ignore
@@ -602,7 +662,7 @@ const DoListeningTest = () => {
       window.removeEventListener("beforeunload", onBeforeUnload);
       window.removeEventListener("storage", onStorage);
     };
-  }, [answers, submitted, stateKey, expiresKey, id]);
+  }, [answers, submitted, stateKey, expiresKey, id, audioPlayed, started]);
 
   // Get parts data
   const parts = useMemo(() => {
@@ -625,16 +685,25 @@ const DoListeningTest = () => {
       return Math.max(1, blanks);
     }
 
+    if ((q.columns && q.columns.length > 0) || (q.rows && q.rows.length > 0)) {
+      const blanks = countTableCompletionBlanks(q);
+      return Math.max(1, blanks);
+    }
+
     // Notes-completion: number of blanks in notesText (supports both numbered and unnumbered blanks)
     if (typeof q.notesText === "string" && q.notesText.trim()) {
       // IMPORTANT: Only numbered blanks actually render inputs in renderNotesCompletion.
       // Unnumbered underscores are just placeholders and should not affect numbering/navigation.
-      const blanks = q.notesText.match(/(\d+)\s*[_…]+/g) || [];
+      const blanks = stripHtml(q.notesText).match(/(\d+)\s*[_…]+/g) || [];
       return Math.max(1, blanks.length);
     }
 
     if (q.leftItems && q.leftItems.length > 0) {
       return Math.max(1, q.leftItems.length);
+    }
+
+    if (q.items && q.items.length > 0) {
+      return Math.max(1, q.items.length);
     }
 
     // Multi-select: each question counts by requiredAnswers (e.g. Choose TWO = 2)
@@ -668,7 +737,7 @@ const DoListeningTest = () => {
         ? Object.keys(firstQ.answers).map((k) => parseInt(k, 10)).filter((n) => Number.isFinite(n))
         : [];
       if (keys.length) return keys.length;
-      const matches = String(firstQ?.notesText || "").match(/(\d+)\s*[_…]+/g) || [];
+      const matches = stripHtml(String(firstQ?.notesText || "")).match(/(\d+)\s*[_…]+/g) || [];
       return matches.length || 0;
     }
 
@@ -684,6 +753,17 @@ const DoListeningTest = () => {
 
     if (sectionType === "multi-select") {
       return sectionQuestions.reduce((sum, q) => sum + (Number(q?.requiredAnswers) || 2), 0);
+    }
+
+    if (sectionType === "table-completion") {
+      const firstQ = sectionQuestions[0] || {};
+      return countTableCompletionBlanks(firstQ) || 0;
+    }
+
+    if (sectionType === "map-labeling") {
+      const firstQ = sectionQuestions[0] || {};
+      const items = firstQ?.items || [];
+      return items.length || 0;
     }
 
     // Default: each question counts as 1 (abc/abcd/fill)
@@ -760,7 +840,7 @@ const DoListeningTest = () => {
         
         if (sectionQType === "notes-completion" && firstQ?.notesText) {
           // Extract numbers from notes text
-          const matches = firstQ.notesText.match(/(\d+)\s*[_…]+/g) || [];
+          const matches = stripHtml(firstQ.notesText).match(/(\d+)\s*[_…]+/g) || [];
           matches.forEach((match) => {
             const numMatch = match.match(/^(\d+)/);
             if (numMatch) {
@@ -874,7 +954,7 @@ const DoListeningTest = () => {
             keys.forEach((n) => slots.push({ type: "single", key: `q${n}` }));
           } else {
             const notesText = String(firstQ?.notesText || "");
-            const matches = notesText.match(/(\d+)\s*[_…]+/g) || [];
+            const matches = stripHtml(notesText).match(/(\d+)\s*[_…]+/g) || [];
             matches.forEach((token) => {
               const m = token.match(/^(\d+)/);
               if (!m) return;
@@ -885,7 +965,7 @@ const DoListeningTest = () => {
           // Update currentStart for next section
           if (!(typeof section.startingQuestionNumber === "number" && section.startingQuestionNumber > 0)) {
             const keys = numericKeys(firstQ?.answers);
-            const matches = String(firstQ?.notesText || "").match(/(\d+)\s*[_…]+/g) || [];
+            const matches = stripHtml(String(firstQ?.notesText || "")).match(/(\d+)\s*[_…]+/g) || [];
             const questionCount = keys.length || matches.length;
             currentStart += questionCount;
           }
@@ -1318,13 +1398,59 @@ const DoListeningTest = () => {
       if (audioPlayed[partIndex]) {
         if (audioRef.current) {
           audioRef.current.pause();
-          audioRef.current.currentTime = audioRef.current.duration;
+          // Guard against invalid duration values in test envs (NaN) or slow metadata loading
+          const dur = Number(audioRef.current.duration);
+          if (Number.isFinite(dur)) {
+            try {
+              audioRef.current.currentTime = dur;
+            } catch (e) {
+              // ignore any errors setting currentTime
+            }
+          }
         }
         alert("⚠️ Audio này chỉ được nghe 1 lần!");
       }
     },
     [audioPlayed]
   );
+
+  // Start the test and (optionally) autoplay audio. This is invoked by the "start" modal.
+  const handleStartClick = useCallback(() => {
+    setShowStartModal(false);
+    setStarted(true);
+    setRequestAutoPlay(true);
+
+    // If timer wasn't already initialized, set expiresAt now so countdown begins
+    try {
+      const stored = localStorage.getItem(expiresKey);
+      if (!stored && test) {
+        const durationSeconds = test?.duration ? test.duration * 60 : 30 * 60;
+        const expiresAt = Date.now() + durationSeconds * 1000;
+        localStorage.setItem(expiresKey, String(expiresAt));
+        expiresAtRef.current = expiresAt;
+        setTimeRemaining(durationSeconds);
+      }
+    } catch (e) {}
+
+    // Attempt to play the audio as part of the user gesture
+    setTimeout(() => {
+      if (audioRef.current) {
+        try {
+          const p = audioRef.current.play();
+          if (p && typeof p.then === 'function') {
+            p.then(() => setIsAudioPlaying(true)).catch(() => {});
+          } else {
+            // immediate play
+            setIsAudioPlaying(true);
+          }
+        } catch (e) {
+          // ignore autoplay errors - user can click play manually
+        }
+      }
+    }, 0);
+    // Clear the request flag after a short delay so it doesn't stick around
+    setTimeout(() => setRequestAutoPlay(false), 1200);
+  }, [test]);
 
   // ===================== RENDER FUNCTIONS =====================
 
@@ -1474,6 +1600,8 @@ const DoListeningTest = () => {
   // Render matching question - Part 3 style with drag items and options
   const renderMatching = (question, startNumber) => {
     const leftItems = question.leftItems || question.items || [];
+    const leftTitle = question.leftTitle || "Items";
+    const rightTitle = question.rightTitle || "Options";
     // Options can be in different formats: array of strings, or array of objects
     // Note: Use options if it has items, otherwise fall back to rightItems
     let rightItems = (question.options && question.options.length > 0) 
@@ -1491,6 +1619,7 @@ const DoListeningTest = () => {
       <div style={styles.matchingContainer}>
         {/* Left side - items with dropdowns */}
         <div style={styles.matchingLeft}>
+          <div style={styles.optionsTitle}>{leftTitle}</div>
           <div style={styles.matchingItemsList}>
             {leftItems.map((item, idx) => {
               const qNum = startNumber + idx;
@@ -1533,7 +1662,7 @@ const DoListeningTest = () => {
 
         {/* Right side - list of options */}
         <div style={styles.matchingRight}>
-          <div style={styles.optionsTitle}>List of options</div>
+          <div style={styles.optionsTitle}>{rightTitle}</div>
           <div style={styles.optionsContainer}>
             {rightItems.map((opt, idx) => {
               const optText = typeof opt === 'object' ? (opt.text || opt.label || JSON.stringify(opt)) : opt;
@@ -1764,61 +1893,101 @@ const DoListeningTest = () => {
   const renderNotesCompletion = (question, startNumber) => {
     const notesText = question.notesText || "";
     const notesTitle = question.notesTitle || "";
-    
-    // Split by line breaks first to preserve them
-    const lines = notesText.split(/\n/);
-    
-    const renderLine = (line, lineIdx) => {
-      // Match patterns like "31 ___" or "the 32 ___" (number followed by underscores)
-      const parts = line.split(/(\d+\s*[_…]+|[_…]{2,})/g);
-      
-      return (
-        <div key={lineIdx} style={styles.notesLine}>
-          {parts.map((part, partIdx) => {
-            // Check if this part is a blank (number + underscores)
-            const match = part.match(/^(\d+)\s*[_…]+$/);
-            if (match) {
-              const qNum = parseInt(match[1], 10); // Use the number from the text
-              return (
-                <span
-                  key={partIdx}
-                  ref={(el) => (questionRefs.current[qNum] = el)}
-                  style={styles.gapWrapper}
-                >
-                  <input
-                    type="text"
-                    value={answers[`q${qNum}`] || ""}
-                    onChange={(e) => handleAnswerChange(`q${qNum}`, e.target.value)}
-                    onFocus={() => setActiveQuestion(qNum)}
-                    disabled={submitted}
-                    style={{
-                      ...styles.gapInput,
-                      borderColor: activeQuestion === qNum ? "#3b82f6" : "#d1d5db",
-                      boxShadow: activeQuestion === qNum ? "0 0 0 1px #418ec8" : "none",
-                    }}
-                  />
-                  {!answers[`q${qNum}`] && (
-                    <span style={styles.gapPlaceholder}>{qNum}</span>
-                  )}
-                </span>
-              );
-            }
-            // Check for standalone underscores without number (use sequential)
-            if (part.match(/^[_…]{2,}$/)) {
-              // Find next available number based on context
-              return <span key={partIdx} style={styles.notesBlank}>______</span>;
-            }
-            return <span key={partIdx}>{part}</span>;
-          })}
-        </div>
-      );
+
+    const parseBlankPattern = /(\d+)\s*[_…]+|[_…]{2,}/g;
+
+    const styleStringToObject = (styleString) => {
+      if (!styleString) return undefined;
+      return styleString
+        .split(';')
+        .map((s) => s.trim())
+        .filter(Boolean)
+        .reduce((acc, decl) => {
+          const [prop, value] = decl.split(':').map((v) => v.trim());
+          if (!prop || !value) return acc;
+          const camelProp = prop.replace(/-([a-z])/g, (_, c) => c.toUpperCase());
+          acc[camelProp] = value;
+          return acc;
+        }, {});
+    };
+
+    const renderTextWithGaps = (text, keyPrefix) => {
+      const parts = text.split(/(\d+\s*[_…]+|[_…]{2,})/g);
+      return parts.map((part, idx) => {
+        const key = `${keyPrefix}-t-${idx}`;
+        const match = part.match(/^(\d+)\s*[_…]+$/);
+        if (match) {
+          const qNum = parseInt(match[1], 10);
+          return (
+            <span
+              key={key}
+              ref={(el) => (questionRefs.current[qNum] = el)}
+              style={styles.gapWrapper}
+            >
+              <input
+                type="text"
+                value={answers[`q${qNum}`] || ""}
+                onChange={(e) => handleAnswerChange(`q${qNum}`, e.target.value)}
+                onFocus={() => setActiveQuestion(qNum)}
+                disabled={submitted}
+                style={{
+                  ...styles.gapInput,
+                  borderColor: activeQuestion === qNum ? "#3b82f6" : "#d1d5db",
+                  boxShadow: activeQuestion === qNum ? "0 0 0 1px #418ec8" : "none",
+                }}
+              />
+              {!answers[`q${qNum}`] && (
+                <span style={styles.gapPlaceholder}>{qNum}</span>
+              )}
+            </span>
+          );
+        }
+        if (part.match(/^[_…]{2,}$/)) {
+          return (
+            <span key={key} style={styles.notesBlank}>______</span>
+          );
+        }
+        return <span key={key}>{part}</span>;
+      });
+    };
+
+    const renderRichNotes = () => {
+      if (!notesText) return null;
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(notesText, 'text/html');
+
+      const walk = (node, keyPrefix) => {
+        if (node.nodeType === Node.TEXT_NODE) {
+          return renderTextWithGaps(node.textContent || '', keyPrefix);
+        }
+
+        if (node.nodeType !== Node.ELEMENT_NODE) return null;
+
+        const tag = node.tagName.toLowerCase();
+        if (tag === 'br') return <br key={keyPrefix} />;
+
+        const children = Array.from(node.childNodes)
+          .map((child, idx) => walk(child, `${keyPrefix}-${idx}`))
+          .flat()
+          .filter(Boolean);
+
+        const style = styleStringToObject(node.getAttribute('style'));
+        const className = node.getAttribute('class') || undefined;
+        const props = { key: keyPrefix, style, className };
+
+        return React.createElement(tag, props, children);
+      };
+
+      return Array.from(doc.body.childNodes)
+        .map((child, idx) => walk(child, `n-${idx}`))
+        .filter(Boolean);
     };
 
     return (
       <div style={styles.notesContainer}>
         {notesTitle && <div style={styles.notesTitle}>{notesTitle}</div>}
-        <div style={styles.notesContent}>
-          {lines.map((line, idx) => renderLine(line, idx))}
+        <div style={styles.notesContent} className="ql-editor">
+          {renderRichNotes()}
         </div>
       </div>
     );
@@ -1855,6 +2024,18 @@ const DoListeningTest = () => {
 
   return (
     <div style={styles.pageWrapper}>
+      {showStartModal && (
+        <div style={styles.playGateOverlay}>
+          <div style={styles.playGateCard}>
+            <div style={styles.modalTitle}>Bắt đầu bài thi</div>
+            <div style={styles.modalText}>Khi bạn nhấn <strong>Bắt đầu</strong>, audio sẽ phát tự động và chỉ được nghe một lần. Hãy đảm bảo bạn đã sẵn sàng.</div>
+            <div style={{display: 'flex', gap: 12, justifyContent: 'center', marginTop: 8}}>
+              <button onClick={() => { setShowStartModal(false); setStarted(true); }} style={styles.cancelButton}>Bắt đầu không phát</button>
+              <button onClick={handleStartClick} style={styles.playGateButton}>Bắt đầu & Phát audio ▶</button>
+            </div>
+          </div>
+        </div>
+      )}
       {/* Global Styles */}
       <style>{`
         * { box-sizing: border-box; }
@@ -1898,27 +2079,82 @@ const DoListeningTest = () => {
 
       {/* Main Content Area */}
       <main style={styles.mainContent}>
-        {/* Audio Player */}
-        {audioUrl && (
-          <div style={styles.audioContainer}>
-            <audio
-              ref={audioRef}
-              controls
-              controlsList="nodownload noplaybackrate"
-              style={{
-                ...styles.audioPlayer,
-                opacity: audioPlayed[currentPartIndex] ? 0.5 : 1,
-                pointerEvents: audioPlayed[currentPartIndex] ? "none" : "auto",
-              }}
-              src={hostPath(audioUrl)}
-              onPlay={() => handleAudioPlay(currentPartIndex)}
-              onEnded={() => handleAudioEnded(currentPartIndex)}
-            />
-            {audioPlayed[currentPartIndex] && (
-              <p style={styles.audioWarning}>⚠️ Audio chỉ được nghe 1 lần</p>
-            )}
+{/* Audio Player / Start Gate */}
+      {audioUrl && !started && !showStartModal && (
+        <div style={styles.audioContainer}>
+          <div style={styles.audioErrorBox}>
+            Audio sẽ được kích hoạt khi bạn <strong>bắt đầu</strong> bài thi. Khi audio kết thúc nó sẽ không thể phát lại.
           </div>
-        )}
+          <div style={{ marginTop: 12 }}>
+            <button onClick={handleStartClick} style={styles.playGateButton}>Bắt đầu & Phát audio ▶</button>
+          </div>
+        </div>
+      )}
+
+      {audioUrl && started && (
+        <div style={styles.audioContainer}>
+          {/* Hidden audio element (no native controls). We surface status messages instead. */}
+          <audio
+            ref={audioRef}
+            autoPlay={requestAutoPlay}
+            aria-hidden="true"
+            style={{ display: 'none' }}
+            src={hostPath(audioUrl)}
+            onPlay={() => {
+              setIsAudioPlaying(true);
+              handleAudioPlay(currentPartIndex);
+            }}
+            onEnded={() => {
+              setIsAudioPlaying(false);
+              handleAudioEnded(currentPartIndex);
+              // Persist played flag immediately
+              try {
+                const cur = JSON.parse(localStorage.getItem(stateKey) || '{}') || {};
+                cur.audioPlayed = { ...(cur.audioPlayed || {}), [currentPartIndex]: true };
+                localStorage.setItem(stateKey, JSON.stringify(cur));
+              } catch (e) {}
+            }}
+          />
+
+          {/* Status messages (no visible controls) */}
+          {!audioPlayed[currentPartIndex] && !isAudioPlaying && (
+            <div>
+              <div style={{ color: '#0e276f', marginTop: 8 }}>Audio đã được bật, đang chờ phát (không hiển thị điều khiển).</div>
+              {/* Show a one-time Resume button if the student reloads or opened the test without autoplay */}
+              <div style={{ marginTop: 8 }}>
+                <button
+                  onClick={async () => {
+                    // User gesture to resume playback after reload
+                    try {
+                      setRequestAutoPlay(false);
+                      if (audioRef.current) {
+                        const p = audioRef.current.play();
+                        if (p && typeof p.then === 'function') {
+                          await p;
+                        }
+                        setIsAudioPlaying(true);
+                      }
+                    } catch (e) {
+                      // ignore play errors
+                    }
+                  }}
+                  style={styles.playGateButton}
+                >
+                  Phát lại audio ▶
+                </button>
+              </div>
+            </div>
+          )}
+
+          {isAudioPlaying && (
+            <div style={{ color: '#0e276f', marginTop: 8 }}>Audio đang phát... Vui lòng nghe cẩn thận.</div>
+          )}
+
+          {audioPlayed[currentPartIndex] && (
+            <p style={styles.audioWarning}>⚠️ Audio chỉ được nghe 1 lần</p>
+          )}
+        </div>
+      )}
 
         {/* Questions List */}
         <div ref={listQuestionRef} style={styles.questionsList}>
@@ -1951,6 +2187,42 @@ const DoListeningTest = () => {
             cursor: canGoPrev ? "pointer" : "not-allowed",
           }}
         >
+      
+      {/* Start Modal (Play Gate) */}
+      {showStartModal && (
+        <div style={styles.playGateOverlay} role="dialog" aria-modal="true">
+          <div style={styles.playGateCard}>
+            <div style={styles.modalTitle}>Bắt đầu làm bài</div>
+            <div style={styles.modalText}>
+              Khi bạn bấm "Play" âm thanh sẽ bắt đầu và bạn chỉ được nghe audio này một lần. Hãy chắc chắn bạn đã sẵn sàng.
+            </div>
+
+            <div style={styles.modalButtons}>
+              <button style={styles.cancelButton} onClick={() => { setShowStartModal(false); navigate('/select-test'); }}>
+                Hủy
+              </button>
+              <button
+                style={styles.playGateButton}
+                onClick={() => {
+                  handleStartClick();
+                  // persist that we started immediately for resume behavior
+                  try {
+                    const cur = JSON.parse(localStorage.getItem(stateKey) || '{}') || {};
+                    cur.started = true;
+                    localStorage.setItem(stateKey, JSON.stringify(cur));
+                  } catch (e) {}
+                }}
+              >
+                ▶️ Play & Bắt đầu
+              </button>
+            </div>
+
+            <div style={styles.audioErrorBox}>
+              Nếu trình duyệt chặn tự động phát, bạn có thể mở audio trong tab mới: <a href={hostPath(audioUrl)} target="_blank" rel="noreferrer" style={styles.audioOpenLink}>Mở audio</a>
+            </div>
+          </div>
+        </div>
+      )}
           <svg
             width="24"
             height="24"

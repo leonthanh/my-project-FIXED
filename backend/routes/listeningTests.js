@@ -8,7 +8,9 @@ const ListeningSubmission = require('../models/ListeningSubmission');
 // Cấu hình multer cho việc upload file
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    cb(null, 'uploads/audio')
+    // Store audio and images in separate folders
+    const isImage = file.mimetype.startsWith('image/');
+    cb(null, isImage ? 'uploads/images' : 'uploads/audio');
   },
   filename: function (req, file, cb) {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9)
@@ -19,10 +21,11 @@ const storage = multer.diskStorage({
 const upload = multer({
   storage: storage,
   fileFilter: (req, file, cb) => {
-    if (file.mimetype.startsWith('audio/')) {
+    // Accept both audio and images for map-labeling
+    if (file.mimetype.startsWith('audio/') || file.mimetype.startsWith('image/')) {
       cb(null, true);
     } else {
-      cb(new Error('Not an audio file!'), false);
+      cb(new Error('Unsupported file type!'), false);
     }
   }
 });
@@ -34,13 +37,7 @@ const { requireTestPermission } = require('../middlewares/testPermissions');
 // Simple runtime debug helper - enable with DEBUG_LISTENING=1 or DEBUG=1
 const DEBUG_LISTENING = process.env.DEBUG_LISTENING === '1' || process.env.DEBUG === '1';
 const debug = (...args) => { if (DEBUG_LISTENING) console.log('[DEBUG]', ...args); };
-router.post('/', requireAuth, requireTestPermission('listening'), upload.fields([
-  { name: 'audioFile', maxCount: 1 },
-  { name: 'audioFile_passage_0', maxCount: 1 },
-  { name: 'audioFile_passage_1', maxCount: 1 },
-  { name: 'audioFile_passage_2', maxCount: 1 },
-  { name: 'audioFile_passage_3', maxCount: 1 }
-]), async (req, res) => {
+router.post('/', requireAuth, requireTestPermission('listening'), upload.any(), async (req, res) => {
   try {
     console.log('Request body:', req.body);
     console.log('Request files:', req.files ? Object.keys(req.files) : 'none');
@@ -68,13 +65,9 @@ router.post('/', requireAuth, requireTestPermission('listening'), upload.fields(
     const processedPassages = parsedPassages.map((passage, index) => {
       let audioFile = passage.audioFile || mainAudioUrl;
       
-      if (req.files && req.files[`audioFile_passage_${index}`]) {
-        audioFile = `/uploads/audio/${req.files[`audioFile_passage_${index}`][0].filename}`;
-      }
-      
-      // Also check for audioFile_part_X (frontend sends this)
-      if (req.files && req.files[`audioFile_part_${index}`]) {
-        audioFile = `/uploads/audio/${req.files[`audioFile_part_${index}`][0].filename}`;
+      if (req.files && Array.isArray(req.files)) {
+        const f = req.files.find(fi => fi.fieldname === `audioFile_passage_${index}` || fi.fieldname === `audioFile_part_${index}` || fi.fieldname === 'audioFile');
+        if (f) audioFile = `/uploads/audio/${f.filename}`;
       }
       
       return {
@@ -82,6 +75,32 @@ router.post('/', requireAuth, requireTestPermission('listening'), upload.fields(
         audioFile
       };
     });
+
+    // Attach any uploaded map images to the corresponding question's mapImageUrl
+    if (req.files && Array.isArray(req.files) && req.files.length) {
+      req.files.forEach(file => {
+        if (!file.fieldname || !file.filename) return;
+        if (!file.fieldname.startsWith('mapImage')) return;
+
+        // Expecting names like mapImage_part_1_section_0_q_0 or mapImage_part_1
+        const m = file.fieldname.match(/mapImage_part_(\d+)_section_(\d+)_q_(\d+)/);
+        if (m) {
+          const partIdx = Number(m[1]); const sectionIdx = Number(m[2]); const qIdx = Number(m[3]);
+          if (processedPassages[partIdx] && processedPassages[partIdx].sections && processedPassages[partIdx].sections[sectionIdx] && processedPassages[partIdx].sections[sectionIdx].questions && processedPassages[partIdx].sections[sectionIdx].questions[qIdx]) {
+            processedPassages[partIdx].sections[sectionIdx].questions[qIdx].mapImageUrl = `/uploads/images/${file.filename}`;
+          }
+        } else {
+          const m2 = file.fieldname.match(/mapImage_part_(\d+)/);
+          if (m2) {
+            const partIdx = Number(m2[1]);
+            const secIdx = (processedPassages[partIdx]?.sections || []).findIndex(s => s.questionType === 'map-labeling');
+            if (secIdx >= 0) {
+              processedPassages[partIdx].sections[secIdx].questions[0].mapImageUrl = `/uploads/images/${file.filename}`;
+            }
+          }
+        }
+      });
+    }
 
     // Transform passages to match database model structure
     // Model expects: partTypes, partInstructions, questions (JSON fields)
@@ -125,40 +144,60 @@ router.post('/', requireAuth, requireTestPermission('listening'), upload.fields(
             formRows: q.formRows || null,
             questionRange: q.questionRange || null,
             answers: q.answers || null,
+            // Table completion specific
+            columns: q.columns || null,
+            rows: q.rows || null,
             // Matching specific
+            leftTitle: q.leftTitle || null,
+            rightTitle: q.rightTitle || null,
             leftItems: q.leftItems || null,
             rightItems: q.rightItems || null,
             items: q.items || null,
-            // Notes completion specific
+            // Map image URL (if any)
+            mapImageUrl: q.mapImageUrl || q.imageUrl || null,
+            // Notes completion fields
             notesText: q.notesText || null,
             notesTitle: q.notesTitle || null,
-            // Multi-select specific
-            requiredAnswers: q.requiredAnswers || null,
-            // Other
             wordLimit: q.wordLimit || null,
           });
-          
-          // Calculate how many questions this item represents
-          const qType = q.questionType || section.questionType || 'fill';
-          
-          if (qType === 'matching') {
-            globalQuestionNum += (q.leftItems?.length || 1);
-          } else if (qType === 'form-completion') {
-            const blankCount = q.formRows?.filter(r => r.isBlank)?.length || 1;
-            globalQuestionNum += blankCount;
-          } else if (qType === 'notes-completion') {
-            // Count blanks in notesText
-            const notesText = q.notesText || '';
-            const blanks = notesText.match(/\d+\s*[_…]+|[_…]{2,}/g) || [];
-            globalQuestionNum += blanks.length || 1;
-          } else if (qType === 'multi-select') {
-            globalQuestionNum += (q.requiredAnswers || 2);
-          } else {
-            globalQuestionNum += 1;
-          }
+
+            // Calculate how many questions this item represents
+            const qType = q.questionType || section.questionType || 'fill';
+
+            if (qType === 'matching') {
+              globalQuestionNum += (q.leftItems?.length || 1);
+            } else if (qType === 'form-completion') {
+              const blankCount = q.formRows?.filter(r => r.isBlank)?.length || 1;
+              globalQuestionNum += blankCount;
+            } else if (qType === 'table-completion') {
+              const cols = q.columns || [];
+              const rowsArr = q.rows || [];
+              const BLANK_DETECT = /\[BLANK\]|_{2,}|[\u2026]+/g;
+              let blanksCount = 0;
+              rowsArr.forEach((row) => {
+                const r = Array.isArray(row.cells)
+                  ? row
+                  : { cells: [row.vehicle || '', row.cost || '', Array.isArray(row.comments) ? row.comments.join('\n') : row.comments || ''] };
+                for (let c = 0; c < cols.length; c++) {
+                  const text = String(r.cells[c] || '');
+                  const matches = text.match(BLANK_DETECT) || [];
+                  blanksCount += matches.length;
+                }
+              });
+              globalQuestionNum += blanksCount > 0 ? blanksCount : (q.rows?.length || 1);
+            } else if (qType === 'notes-completion') {
+              // Count blanks in notesText
+              const notesText = q.notesText || '';
+              const blanks = notesText.match(/\d+\s*[_…]+|[_…]{2,}/g) || [];
+              globalQuestionNum += blanks.length || 1;
+            } else if (qType === 'multi-select') {
+              globalQuestionNum += (q.requiredAnswers || 2);
+            } else {
+              globalQuestionNum += 1;
+            }
+          });
         });
       });
-    });
 
     // Build part audio URLs object
     const partAudioUrls = {};
@@ -860,11 +899,97 @@ router.post('/:id/submit', async (req, res) => {
                 isCorrect: ok,
               });
             }
+            continue;
           }
-          continue;
         }
 
-        // Notes completion: numbered blanks in notesText, expected answers in q.answers["31"]
+        // Table completion: support multiple blanks per cell (ROW-major ordering)
+        if (qType === 'table-completion') {
+          const cols = q.columns || [];
+          const rowsArr = Array.isArray(q?.rows) ? q.rows : [];
+          const map = q?.answers && typeof q.answers === 'object' && !Array.isArray(q.answers) ? q.answers : null;
+          if (Number.isFinite(baseNum)) {
+            let offset = 0;
+            let foundAny = false;
+            const BLANK_DETECT = /\[BLANK\]|_{2,}|[\u2026]+/g;
+
+            for (let r = 0; r < rowsArr.length; r++) {
+              const rawRow = rowsArr[r];
+              const row = Array.isArray(rawRow.cells)
+                ? rawRow
+                : { cells: [rawRow.vehicle || '', rawRow.cost || '', Array.isArray(rawRow.comments) ? rawRow.comments.join('\n') : rawRow.comments || ''], cellBlankAnswers: rawRow.cellBlankAnswers || rawRow.commentBlankAnswers || [], commentBlankAnswers: rawRow.commentBlankAnswers || [] };
+
+              for (let c = 0; c < cols.length; c++) {
+                const text = String(row.cells[c] || '');
+                let match;
+                BLANK_DETECT.lastIndex = 0;
+                let localIdx = 0;
+                const isCommentsCol = /comment/i.test((q.columns || [])[c]);
+
+                while ((match = BLANK_DETECT.exec(text)) !== null) {
+                  foundAny = true;
+                  const num = baseNum + offset;
+                  totalCount++;
+
+                  let expected = '';
+                  if (map) {
+                    expected = map[String(num)] ?? '';
+                  } else {
+                    if (isCommentsCol) {
+                      // flatten per-line answers if present
+                      const flat = (row.commentBlankAnswers || []).flat();
+                      expected = flat[localIdx] || '';
+                    } else {
+                      expected = (row.cellBlankAnswers && row.cellBlankAnswers[c] && row.cellBlankAnswers[c][localIdx]) || '';
+                      if (!expected && c === 1) expected = row.correct || row.cost || '';
+                    }
+                  }
+
+                  const student = normalizedAnswers[`q${num}`];
+                  const ok = isAnswerMatch(student, expected);
+                  if (ok) correctCount++;
+                  details.push({
+                    questionNumber: num,
+                    partIndex,
+                    sectionIndex,
+                    questionType: qType,
+                    studentAnswer: student ?? '',
+                    correctAnswer: expected ?? '',
+                    isCorrect: ok,
+                  });
+
+                  localIdx++;
+                  offset++;
+                }
+              }
+            }
+
+            // fallback: if no blanks detected, treat as one blank per row (legacy)
+            if (!foundAny) {
+              for (let r = 0; r < rowsArr.length; r++) {
+                const num = baseNum + offset;
+                totalCount++;
+                const row = rowsArr[r];
+                const expected = map ? (map[String(num)] ?? '') : (row?.cost ?? row?.correct ?? '');
+                const student = normalizedAnswers[`q${num}`];
+                const ok = isAnswerMatch(student, expected);
+                if (ok) correctCount++;
+                details.push({
+                  questionNumber: num,
+                  partIndex,
+                  sectionIndex,
+                  questionType: qType,
+                  studentAnswer: student ?? '',
+                  correctAnswer: expected ?? '',
+                  isCorrect: ok,
+                });
+                offset++;
+              }
+            }
+
+            continue;
+          }
+        }
         if (qType === 'notes-completion') {
           const notesText = String(q?.notesText || '');
           const matches = notesText.match(/(\d+)\s*[_…]+/g) || [];
@@ -1094,13 +1219,7 @@ router.post('/:id/submit', async (req, res) => {
 });
 
 // API cập nhật đề thi
-router.put('/:id', requireAuth, requireTestPermission('listening'), upload.fields([
-  { name: 'audioFile', maxCount: 1 },
-  { name: 'audioFile_part_0', maxCount: 1 },
-  { name: 'audioFile_part_1', maxCount: 1 },
-  { name: 'audioFile_part_2', maxCount: 1 },
-  { name: 'audioFile_part_3', maxCount: 1 }
-]), async (req, res) => {
+router.put('/:id', requireAuth, requireTestPermission('listening'), upload.any(), async (req, res) => {
   try {
     const test = await ListeningTest.findByPk(req.params.id);
     if (!test) {
@@ -1131,16 +1250,45 @@ router.put('/:id', requireAuth, requireTestPermission('listening'), upload.field
     if (passages) {
       const parsedPassages = typeof passages === 'string' ? JSON.parse(passages) : passages;
       
+      // Debug: show a short preview of parsed passages to inspect map items/positions
+      try { console.log('Parsed passages for update (preview):', JSON.stringify(parsedPassages).slice(0,2000)); } catch (e) { console.log('Parsed passages (could not stringify)'); }
+      
       // Process audio files for each part
       const processedPassages = parsedPassages.map((passage, index) => {
         let audioFile = passage.audioFile || test.mainAudioUrl;
         
-        if (req.files && req.files[`audioFile_part_${index}`]) {
-          audioFile = `/uploads/audio/${req.files[`audioFile_part_${index}`][0].filename}`;
+        if (req.files && Array.isArray(req.files)) {
+          const f = req.files.find(fi => fi.fieldname === `audioFile_part_${index}` || fi.fieldname === `audioFile_passage_${index}` || fi.fieldname === 'audioFile');
+          if (f) audioFile = `/uploads/audio/${f.filename}`;
         }
         
         return { ...passage, audioFile };
       });
+
+      // Attach uploaded map images to questions
+      if (req.files && Array.isArray(req.files) && req.files.length) {
+        req.files.forEach(file => {
+          if (!file.fieldname || !file.filename) return;
+          if (!file.fieldname.startsWith('mapImage')) return;
+
+          const m = file.fieldname.match(/mapImage_part_(\d+)_section_(\d+)_q_(\d+)/);
+          if (m) {
+            const partIdx = Number(m[1]); const sectionIdx = Number(m[2]); const qIdx = Number(m[3]);
+            if (processedPassages[partIdx] && processedPassages[partIdx].sections && processedPassages[partIdx].sections[sectionIdx] && processedPassages[partIdx].sections[sectionIdx].questions && processedPassages[partIdx].sections[sectionIdx].questions[qIdx]) {
+              processedPassages[partIdx].sections[sectionIdx].questions[qIdx].mapImageUrl = `/uploads/images/${file.filename}`;
+            }
+          } else {
+            const m2 = file.fieldname.match(/mapImage_part_(\d+)/);
+            if (m2) {
+              const partIdx = Number(m2[1]);
+              const secIdx = (processedPassages[partIdx]?.sections || []).findIndex(s => s.questionType === 'map-labeling');
+              if (secIdx >= 0) {
+                processedPassages[partIdx].sections[secIdx].questions[0].mapImageUrl = `/uploads/images/${file.filename}`;
+              }
+            }
+          }
+        });
+      }
 
       // Transform to database format (same as POST)
       const partTypes = processedPassages.map(part => {
@@ -1181,9 +1329,16 @@ router.put('/:id', requireAuth, requireTestPermission('listening'), upload.field
               formRows: q.formRows || null,
               questionRange: q.questionRange || null,
               answers: q.answers || null,
+              // Table completion specific
+              columns: q.columns || null,
+              rows: q.rows || null,
+              leftTitle: q.leftTitle || null,
+              rightTitle: q.rightTitle || null,
               leftItems: q.leftItems || null,
               rightItems: q.rightItems || null,
               items: q.items || null,
+              // Map image URL (if any)
+              mapImageUrl: q.mapImageUrl || q.imageUrl || null,
               wordLimit: q.wordLimit || null,
               // Notes completion fields
               notesText: q.notesText || null,
@@ -1200,6 +1355,8 @@ router.put('/:id', requireAuth, requireTestPermission('listening'), upload.field
             } else if (qType === 'form-completion') {
               const blankCount = q.formRows?.filter(r => r.isBlank)?.length || 1;
               globalQuestionNum += blankCount;
+            } else if (qType === 'table-completion') {
+              globalQuestionNum += (q.rows?.length || 1);
             } else if (qType === 'notes-completion') {
               // Count blanks in notesText
               const notesText = q.notesText || '';
@@ -1230,6 +1387,8 @@ router.put('/:id', requireAuth, requireTestPermission('listening'), upload.field
 
     // Update the test
     await test.update(updates);
+    // Reload to ensure we return the latest values (including updated JSON fields)
+    await test.reload();
 
     res.json({
       message: '✅ Đã cập nhật đề thi thành công!',

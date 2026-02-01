@@ -60,24 +60,36 @@ export const useListeningHandlers = (initialParts = []) => {
   /**
    * Add Section to Part
    */
-  const handleAddSection = useCallback((partIndex) => {
+  const handleAddSection = useCallback((partIndex, sectionTemplate) => {
+    // compute new section index inside the updater to avoid race with state
+    let newIndex = 0;
     setParts(prev => {
       const newParts = [...prev];
       const part = newParts[partIndex];
       const sectionCount = part.sections?.length || 0;
-      const newSection = createNewSection(sectionCount + 1);
+
+      const newSection = sectionTemplate
+        ? {
+            sectionTitle: sectionTemplate.title || sectionTemplate.sectionTitle || `Questions ${(sectionCount - 1) * 5 + 1}-${sectionCount * 5}`,
+            sectionInstruction: sectionTemplate.instructions || sectionTemplate.sectionInstruction || '',
+            questionType: sectionTemplate.questionType || 'fill',
+            startingQuestionNumber: sectionTemplate.startingQuestionNumber || null,
+            questions: (sectionTemplate.questions || []).map(q => ({ ...q }))
+          }
+        : createNewSection(sectionCount + 1);
       
       newParts[partIndex] = {
         ...part,
         sections: [...(part.sections || []), newSection]
       };
+
+      newIndex = sectionCount; // index of newly appended section
       return newParts;
     });
-    
-    // Select the new section
-    const newSectionIndex = parts[partIndex]?.sections?.length || 0;
-    setSelectedSectionIndex(newSectionIndex);
-  }, [parts]);
+
+    // select the new section
+    setSelectedSectionIndex(newIndex);
+  }, []);
 
   /**
    * Delete Section from Part
@@ -146,11 +158,13 @@ export const useListeningHandlers = (initialParts = []) => {
   /**
    * Add Question to Section
    */
-  const handleAddQuestion = useCallback((partIndex, sectionIndex, questionType = 'fill') => {
+  const handleAddQuestion = useCallback((partIndex, sectionIndex, questionTypeOrTemplate = 'fill') => {
     setParts(prev => {
       const newParts = [...prev];
       const sections = [...newParts[partIndex].sections];
-      const newQuestion = createNewQuestion(questionType);
+      const newQuestion = typeof questionTypeOrTemplate === 'object'
+        ? { ...questionTypeOrTemplate }
+        : createNewQuestion(questionTypeOrTemplate);
       
       sections[sectionIndex] = {
         ...sections[sectionIndex],
@@ -193,7 +207,9 @@ export const useListeningHandlers = (initialParts = []) => {
       const sections = [...newParts[partIndex].sections];
       const questions = [...sections[sectionIndex].questions];
       
-      questions[questionIndex] = { ...questions[questionIndex], [field]: value };
+      // If field is 'full', the editor passed the entire question object.
+      // Replace the whole question object instead of assigning it to a 'full' key.
+      questions[questionIndex] = field === 'full' ? value : { ...questions[questionIndex], [field]: value };
       sections[sectionIndex] = { ...sections[sectionIndex], questions };
       newParts[partIndex] = { ...newParts[partIndex], sections };
       return newParts;
@@ -318,7 +334,7 @@ export const createNewQuestion = (type = 'fill') => {
     case 'multiple-choice':
       return { ...base, options: ['', '', ''], correctAnswers: [] };
     case 'matching':
-      return { ...base, leftItems: [''], rightItems: ['A.', 'B.', 'C.', 'D.', 'E.'] };
+      return { ...base, leftTitle: 'Items', rightTitle: 'Options', leftItems: [''], rightItems: ['A.', 'B.', 'C.', 'D.', 'E.'] };
     case 'map-labeling':
       return { 
         ...base, 
@@ -358,11 +374,62 @@ const countSectionQuestions = (section) => {
     return section.questions[0]?.formRows?.filter(r => r.isBlank)?.length || 0;
   }
   
+  const stripHtml = (html) => {
+    if (!html) return '';
+    const temp = document.createElement('div');
+    temp.innerHTML = html;
+    return temp.textContent || temp.innerText || '';
+  };
+
+  const countTableCompletionBlanks = (question) => {
+    const rowsArr = question?.rows || [];
+    const cols = question?.columns || [];
+    const BLANK_REGEX = /\[BLANK\]|_{2,}|[\u2026]+/g;
+    let blanksCount = 0;
+
+    rowsArr.forEach((row) => {
+      const r = Array.isArray(row?.cells)
+        ? row
+        : {
+            cells: [
+              row?.vehicle || '',
+              row?.cost || '',
+              Array.isArray(row?.comments) ? row.comments.join('\n') : row?.comments || '',
+            ],
+          };
+
+      const cells = Array.isArray(r.cells) ? r.cells : [];
+      const maxCols = cols.length ? cols.length : cells.length;
+      for (let c = 0; c < maxCols; c++) {
+        const text = String(cells[c] || '');
+        const matches = text.match(BLANK_REGEX) || [];
+        blanksCount += matches.length;
+      }
+    });
+
+    if (blanksCount === 0) {
+      return rowsArr.length || 0;
+    }
+
+    return blanksCount;
+  };
+
   // Notes-completion: Số câu = số blanks trong notesText
   if (questionType === 'notes-completion') {
-    const notesText = section.questions[0]?.notesText || '';
+    const notesText = stripHtml(section.questions[0]?.notesText || '');
     const blanks = notesText.match(/\d+\s*[_…]+|[_…]{2,}/g) || [];
     return blanks.length;
+  }
+
+  // Table-completion: số câu = số blanks trong table
+  if (questionType === 'table-completion') {
+    return countTableCompletionBlanks(section.questions[0] || {});
+  }
+
+  // Map-labeling: số câu = số items
+  if (questionType === 'map-labeling') {
+    const items = section.questions[0]?.items || [];
+    return items.length;
   }
   
   // Multi-select: Mỗi câu tính theo số đáp án cần chọn (requiredAnswers)
@@ -387,6 +454,32 @@ export const calculateTotalQuestions = (parts) => {
       return sTotal + countSectionQuestions(section);
     }, 0);
   }, 0);
+};
+
+/**
+ * Compute starting question numbers for each section across parts (continuous numbering).
+ * Returns a 2D array: starts[partIndex][sectionIndex] = startNumber
+ */
+export const computeQuestionStarts = (parts = []) => {
+  const starts = [];
+  let runningStart = 1;
+
+  parts.forEach((part, pIdx) => {
+    const sections = part?.sections || [];
+    starts[pIdx] = [];
+
+    sections.forEach((section, sIdx) => {
+      const explicitStart = Number(section?.startingQuestionNumber);
+      const hasExplicit = Number.isFinite(explicitStart) && explicitStart > 0;
+      const start = hasExplicit ? explicitStart : runningStart;
+      const count = countSectionQuestions(section);
+
+      starts[pIdx][sIdx] = start;
+      runningStart = start + count;
+    });
+  });
+
+  return starts;
 };
 
 export default useListeningHandlers;

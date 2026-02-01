@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useState } from 'react';
 
-const ListeningPlayer = ({ audioUrl, onTimeUpdate, onDurationChange }) => {
+const ListeningPlayer = ({ audioUrl, onTimeUpdate, onDurationChange, autoPlay = false }) => {
   const audioRef = useRef(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -32,6 +32,20 @@ const ListeningPlayer = ({ audioUrl, onTimeUpdate, onDurationChange }) => {
       audio.removeEventListener('ended', handleEnded);
     };
   }, [onTimeUpdate, onDurationChange]);
+
+  // Auto-play when requested by parent
+  useEffect(() => {
+    if (autoPlay && audioRef.current && !isPlaying) {
+      // try to play, ignore errors (browser may block autoplay without user gesture)
+      const playPromise = audioRef.current.play();
+      if (playPromise && playPromise.catch) {
+        playPromise.catch(() => {
+          // ignore autoplay failure
+        });
+      }
+      setIsPlaying(true);
+    }
+  }, [autoPlay]);
 
   const togglePlay = () => {
     if (!audioRef.current) return;
