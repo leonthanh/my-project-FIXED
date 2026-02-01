@@ -90,13 +90,17 @@ const MapLabelingQuestion = ({
     return defaultLabels.filter(l => !usedLabels.includes(l));
   };
 
-  // Helper to set position of an item as percent relative to image container
+  // Helper refs: container and the actual <img> element
   const imgContainerRef = useRef(null);
+  const imgRef = useRef(null);
   const [selectedItemIndex, setSelectedItemIndex] = useState(null);
   const draggingRef = useRef({ index: null, offsetX: 0, offsetY: 0 });
 
+  // Compute position relative to the *image element* bounding rect (more accurate across layouts)
   const setItemPosition = (index, clientX, clientY) => {
-    const container = imgContainerRef.current;
+    const imgEl = imgRef.current;
+    // Fallback to container if imgRef not available
+    const container = imgEl || imgContainerRef.current;
     if (!container) return;
     const rect = container.getBoundingClientRect();
     const x = Math.max(0, Math.min(100, ((clientX - rect.left) / rect.width) * 100));
@@ -208,9 +212,11 @@ const MapLabelingQuestion = ({
               )}
 
               <img 
+                ref={imgRef}
                 src={previewUrl || question.imageUrl} 
                 alt="Map preview" 
                 style={{ width: '100%', display: 'block' }}
+                onClick={handleMapClickPlace}
               />
 
               {/* Markers overlay (edit mode) */}

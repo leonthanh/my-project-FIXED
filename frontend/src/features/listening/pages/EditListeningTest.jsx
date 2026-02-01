@@ -167,9 +167,10 @@ const EditListeningTest = () => {
           // Table completion fields
           columns: q.columns || [],
           rows: q.rows || [],
-          // Map labeling fields (keep positions and image URL so editor can show markers)
+          // Map labeling fields (keep positions and image URL so editor can show markers in both editors)
           items: q.items || [],
           mapImageUrl: q.mapImageUrl || q.imageUrl || '',
+          imageUrl: q.imageUrl || q.mapImageUrl || '',
         }));
         
         return {
@@ -306,11 +307,10 @@ const EditListeningTest = () => {
 
                 for (let c = 0; c < cols.length; c++) {
                   const text = String((r.cells && r.cells[c]) || '');
-                  let match;
                   BLANK_REGEX.lastIndex = 0;
                   let localIdx = 0;
                   const isCommentsCol = /comment/i.test((q.columns || [])[c]);
-                  while ((match = BLANK_REGEX.exec(text)) !== null) {
+                  while (BLANK_REGEX.exec(text) !== null) {
                     const num = String(globalQ++);
                     const cbVal = isCommentsCol ? (getFlatCommentAnswer(r.commentBlankAnswers, localIdx) || '') : ((r.cellBlankAnswers && r.cellBlankAnswers[c] && r.cellBlankAnswers[c][localIdx]) || '');
                     if (!q.answers[num] && cbVal) q.answers[num] = cbVal;
@@ -371,6 +371,17 @@ const EditListeningTest = () => {
         if (part.audioFile && part.audioFile instanceof File) {
           formData.append(`audioFile_part_${idx}`, part.audioFile);
         }
+
+        // Add map image files for any questions in this part
+        (part.sections || []).forEach((section, sIdx) => {
+          (section.questions || []).forEach((q, qIdx) => {
+            // Support both keys used by MapLabelingQuestion
+            const imgFile = q?.mapImageFile || q?.imageFile || null;
+            if (imgFile && imgFile instanceof File) {
+              formData.append(`mapImage_part_${idx}_section_${sIdx}_q_${qIdx}`, imgFile);
+            }
+          });
+        });
       });
 
       const response = await authFetch(apiPath(`listening-tests/${id}`), {

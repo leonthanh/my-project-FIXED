@@ -258,6 +258,51 @@ const ListeningTestEditor = ({
 
 
 
+  // Small helper component used in the review modal to render map image with pixel-accurate markers
+  const MapPreview = ({ q }) => {
+    const imgRef = useRef(null);
+    const [size, setSize] = useState({ w: 0, h: 0 });
+
+    useEffect(() => {
+      const update = () => {
+        if (imgRef.current) {
+          setSize({ w: imgRef.current.clientWidth, h: imgRef.current.clientHeight });
+        }
+      };
+      update();
+      window.addEventListener('resize', update);
+      return () => window.removeEventListener('resize', update);
+    }, []);
+
+    if (!q || !(q.mapImageUrl || q.imageUrl)) return null;
+
+    return (
+      <div style={{ maxWidth: '700px', margin: '0 auto 20px', border: '2px solid #e2e8f0', borderRadius: '8px', overflow: 'hidden' }}>
+        <div style={{ position: 'relative' }}>
+          <img
+            ref={imgRef}
+            src={q.mapImageUrl || q.imageUrl}
+            alt="Map preview"
+            style={{ width: '100%', display: 'block' }}
+            onLoad={() => { if (imgRef.current) setSize({ w: imgRef.current.clientWidth, h: imgRef.current.clientHeight }); }}
+          />
+
+          {(q.items || []).map((item, idx) => {
+            const pos = item?.position || null;
+            if (!pos) return null;
+            const left = size.w ? (pos.x / 100) * size.w : `${pos.x}%`;
+            const top = size.h ? (pos.y / 100) * size.h : `${pos.y}%`;
+            return (
+              <div key={`marker-${idx}`} title={`Item ${idx + 1}: ${item.label || ''}`} style={{ position: 'absolute', left: typeof left === 'number' ? `${left}px` : left, top: typeof top === 'number' ? `${top}px` : top, transform: 'translate(-50%, -50%)', zIndex: 40 }}>
+                <div style={{ width: 30, height: 30, borderRadius: 15, background: '#ef4444', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>{item.correctAnswer || '?'}</div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
   return (
     <>
       <style>{compactCSS(className)}</style>
@@ -1061,103 +1106,104 @@ const ListeningTestEditor = ({
               border: "1px solid #ddd",
               borderRadius: "6px",
             }}>
-              {parts?.map((part, partIdx) => {
-                // Calculate starting question number for this part
-                let partStartQ = 1;
-                for (let p = 0; p < partIdx; p++) {
-                  // eslint-disable-next-line no-loop-func
-                  parts[p].sections?.forEach(s => {
-                    partStartQ += countSectionQuestions(s);
-                  });
-                }
 
-                return (
-                  <div key={partIdx} style={{
-                    borderBottom: partIdx < parts.length - 1 ? "2px solid #3b82f6" : "none",
-                  }}>
-                    {/* Part Header */}
-                    <div style={{
-                      backgroundColor: colors.partBlue,
-                      color: "white",
-                      padding: "10px 15px",
-                      fontWeight: "bold",
-                      fontSize: "14px",
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
+              {parts?.map((part, partIdx) => {                  // Calculate starting question number for this part
+                  let partStartQ = 1;
+                  for (let p = 0; p < partIdx; p++) {
+                    // eslint-disable-next-line no-loop-func
+                    parts[p].sections?.forEach(s => {
+                      partStartQ += countSectionQuestions(s);
+                    });
+                  }
+
+                  return (
+                    <div key={partIdx} style={{
+                      borderBottom: partIdx < parts.length - 1 ? "2px solid #3b82f6" : "none",
                     }}>
-                      <span>🎧 {part.title || `Part ${partIdx + 1}`}</span>
-                      <span style={{
-                        padding: "3px 10px",
-                        backgroundColor: part.audioFile ? "#22c55e" : "#ef4444",
-                        borderRadius: "20px",
-                        fontSize: "11px",
-                      }}>
-                        {part.audioFile ? "🎵 CÓ AUDIO" : "⚠️ CHƯA CÓ AUDIO"}
-                      </span>
-                    </div>
-
-                    {/* Part Instruction */}
-                    {part.instruction && (
+                      {/* Part Header */}
                       <div style={{
+                        backgroundColor: colors.partBlue,
+                        color: "white",
                         padding: "10px 15px",
-                        backgroundColor: "#f8fafc",
-                        borderBottom: "1px solid #e5e7eb",
-                        fontSize: "13px",
-                        fontStyle: "italic",
+                        fontWeight: "bold",
+                        fontSize: "14px",
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
                       }}>
-                        📝 {part.instruction}
-                      </div>
-                    )}
-
-                    {/* Sections */}
-                    {part.sections?.map((section, sIdx) => {
-                      const sectionQCount = countSectionQuestions(section);
-                      // Calculate starting question for this section
-                      let sectionStartQ = partStartQ;
-                      for (let s = 0; s < sIdx; s++) {
-                        sectionStartQ += countSectionQuestions(part.sections[s]);
-                      }
-
-                      return (
-                        <div key={sIdx} style={{
-                          margin: "10px",
-                          border: `1px solid ${colors.sectionOrange}`,
-                          borderRadius: "6px",
-                          overflow: "hidden",
+                        <span>🎧 {part.title || `Part ${partIdx + 1}`}</span>
+                        <span style={{
+                          padding: "3px 10px",
+                          backgroundColor: part.audioFile ? "#22c55e" : "#ef4444",
+                          borderRadius: "20px",
+                          fontSize: "11px",
                         }}>
-                          {/* Section Header */}
-                          <div style={{
-                            backgroundColor: colors.sectionOrange,
-                            color: "white",
-                            padding: "8px 12px",
-                            fontWeight: "bold",
-                            fontSize: "13px",
-                            display: "flex",
-                            justifyContent: "space-between",
+                          {part.audioFile ? "🎵 CÓ AUDIO" : "⚠️ CHƯA CÓ AUDIO"}
+                        </span>
+                      </div>
+
+                      {/* Part Instruction */}
+                      {part.instruction && (
+                        <div style={{
+                          padding: "10px 15px",
+                          backgroundColor: "#f8fafc",
+                          borderBottom: "1px solid #e5e7eb",
+                          fontSize: "13px",
+                          fontStyle: "italic",
+                        }}>
+                          📝 {part.instruction}
+                        </div>
+                      )}
+
+                      {/* Sections */}
+                      {part.sections?.map((section, sIdx) => {
+                        const sectionQCount = countSectionQuestions(section);
+                        // Calculate starting question for this section
+                        let sectionStartQ = partStartQ;
+                        for (let s = 0; s < sIdx; s++) {
+                          sectionStartQ += countSectionQuestions(part.sections[s]);
+                        }
+
+                        return (
+                          <div key={sIdx} style={{
+                            margin: "10px",
+                            border: `1px solid ${colors.sectionOrange}`,
+                            borderRadius: "6px",
+                            overflow: "hidden",
                           }}>
-                            <span>📌 {section.sectionTitle || `Questions ${sectionStartQ}-${sectionStartQ + sectionQCount - 1}`}</span>
-                            <span style={{ fontWeight: "normal" }}>
-                              {sectionQCount} câu | {section.questionType}
-                            </span>
-                          </div>
-
-                          {/* Section Instruction */}
-                          {section.sectionInstruction && (
+                            {/* Section Header */}
                             <div style={{
-                              padding: "10px 12px",
-                              backgroundColor: "#fffbeb",
-                              borderBottom: "1px solid #fcd34d",
-                              fontSize: "12px",
-                              whiteSpace: "pre-wrap",
+                              backgroundColor: colors.sectionOrange,
+                              color: "white",
+                              padding: "8px 12px",
+                              fontWeight: "bold",
+                              fontSize: "13px",
+                              display: "flex",
+                              justifyContent: "space-between",
                             }}>
-                              <strong>Hướng dẫn:</strong><br/>
-                              {section.sectionInstruction}
+                              <span>📌 {section.sectionTitle || `Questions ${sectionStartQ}-${sectionStartQ + sectionQCount - 1}`}</span>
+                              <span style={{ fontWeight: "normal" }}>
+                                {sectionQCount} câu | {section.questionType}
+                              </span>
                             </div>
-                          )}
 
-                          {/* Questions based on type */}
-                          <div style={{ padding: "10px 12px", backgroundColor: "white" }}>
+                            {/* Section Instruction */}
+                            {section.sectionInstruction && (
+                              <div style={{
+                                padding: "10px 12px",
+                                backgroundColor: "#fffbeb",
+                                borderBottom: "1px solid #fcd34d",
+                                fontSize: "12px",
+                                whiteSpace: "pre-wrap",
+                              }}>
+                                <strong>Hướng dẫn:</strong><br/>
+                                {section.sectionInstruction}
+                              </div>
+                            )}
+
+                            {/* Questions based on type */}
+                            <div style={{ padding: "10px 12px", backgroundColor: "white" }}>
+
                             {/* NOTES COMPLETION */}
                             {section.questionType === 'notes-completion' && section.questions[0] && (
                               <div>
@@ -1362,11 +1408,10 @@ const ListeningTestEditor = ({
                                           for (let c = 0; c < cols2.length; c++) {
                                             const isCommentsCol = /comment/i.test(cols2[c]);
                                             const text = String(row.cells[c] || '');
-                                            let match;
                                             BLANK_DETECT.lastIndex = 0;
                                             let localIdx = 0;
 
-                                            while ((match = BLANK_DETECT.exec(text)) !== null) {
+                                            while (BLANK_DETECT.exec(text) !== null) {
                                               foundAny = true;
                                               const key = String(num++);
                                               let cbVal = '';
@@ -1515,33 +1560,20 @@ const ListeningTestEditor = ({
                               const q = section.questions[0];
                               return (
                                 <div>
-                                  {(q.mapImageUrl || q.imageUrl) && (
-                                    <div style={{ maxWidth: '700px', margin: '0 auto 20px', border: '2px solid #e2e8f0', borderRadius: '8px', overflow: 'hidden' }}>
-                                      <div style={{ position: 'relative' }}>
-                                        <img src={q.mapImageUrl || q.imageUrl} alt="Map preview" style={{ width: '100%', display: 'block' }} />
-
-                                        {(q.items || []).map((item, idx) => {
-                                          const pos = item?.position || null;
-                                          if (!pos) return null;
-                                          return (
-                                            <div key={idx} style={{ position: 'absolute', left: `${pos.x}%`, top: `${pos.y}%`, transform: 'translate(-50%, -50%)', zIndex: 40 }}>
-                                              <div style={{ width: 30, height: 30, borderRadius: 15, background: '#ef4444', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>{item.correctAnswer || '?'}</div>
-                                            </div>
-                                          );
-                                        })}
-                                      </div>
-                                    </div>
-                                  )}
+                                  <MapPreview q={q} />
 
                                   {/* List items */}
                                   <div style={{ padding: '8px 0', fontSize: 13 }}>
                                     <strong>📍 Các địa điểm:</strong>
                                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '8px' }}>
-                                      {(q.items || []).map((item, i) => (
-                                        <div key={i} style={{ padding: '6px 10px', background: 'white', borderRadius: 6, border: '1px solid #e5e7eb' }}>
-                                          <strong>{sectionStartQ + i}.</strong> {item.label} <span style={{ marginLeft: 8, fontWeight: 700, color: '#ef4444' }}>{item.correctAnswer}</span>
-                                        </div>
-                                      ))}
+                                      {(q.items || []).map((item, i) => {
+                                        const baseNumber = section.startingQuestionNumber || sectionStartQ;
+                                        return (
+                                          <div key={i} style={{ padding: '6px 10px', background: 'white', borderRadius: 6, border: '1px solid #e5e7eb' }}>
+                                            <strong>{baseNumber + i}.</strong> {item.label} <span style={{ marginLeft: 8, fontWeight: 700, color: '#ef4444' }}>{item.correctAnswer}</span>
+                                          </div>
+                                        );
+                                      })}
                                     </div>
                                   </div>
                                 </div>
