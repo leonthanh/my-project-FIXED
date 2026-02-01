@@ -103,8 +103,13 @@ const MapLabelingQuestion = ({
     const container = imgEl || imgContainerRef.current;
     if (!container) return;
     const rect = container.getBoundingClientRect();
-    const x = Math.max(0, Math.min(100, ((clientX - rect.left) / rect.width) * 100));
-    const y = Math.max(0, Math.min(100, ((clientY - rect.top) / rect.height) * 100));
+
+    // Calculate pixel offset relative to image and snap to nearest pixel to avoid subpixel drift
+    const pxX = Math.round(Math.max(0, Math.min(rect.width, clientX - rect.left)));
+    const pxY = Math.round(Math.max(0, Math.min(rect.height, clientY - rect.top)));
+
+    const x = Math.max(0, Math.min(100, (pxX / rect.width) * 100));
+    const y = Math.max(0, Math.min(100, (pxY / rect.height) * 100));
 
     const newItems = [...(question.items || [])];
     newItems[index] = { ...(newItems[index] || {}), position: { x, y } };
@@ -223,6 +228,18 @@ const MapLabelingQuestion = ({
               {(question.items || []).map((item, idx) => {
                 const pos = item.position || null;
                 if (!pos) return null;
+
+                // When image dimensions are known, snap marker to integer pixels for crisp display
+                let leftStyle = `${pos.x}%`;
+                let topStyle = `${pos.y}%`;
+                const imgEl = imgRef.current;
+                if (imgEl) {
+                  const w = imgEl.clientWidth;
+                  const h = imgEl.clientHeight;
+                  leftStyle = `${Math.round((pos.x / 100) * w)}px`;
+                  topStyle = `${Math.round((pos.y / 100) * h)}px`;
+                }
+
                 return (
                   <div
                     key={`marker-${idx}`}
@@ -231,11 +248,12 @@ const MapLabelingQuestion = ({
                     title={`Item ${idx + 1}: ${item.label || ''}`}
                     style={{
                       position: 'absolute',
-                      left: `${pos.x}%`,
-                      top: `${pos.y}%`,
+                      left: leftStyle,
+                      top: topStyle,
                       transform: 'translate(-50%, -50%)',
                       zIndex: selectedItemIndex === idx ? 40 : 30,
-                      cursor: 'grab'
+                      cursor: 'grab',
+                      willChange: 'transform'
                     }}
                   >
                     <div style={{

@@ -290,10 +290,11 @@ const ListeningTestEditor = ({
           {(q.items || []).map((item, idx) => {
             const pos = item?.position || null;
             if (!pos) return null;
-            const left = size.w ? (pos.x / 100) * size.w : `${pos.x}%`;
-            const top = size.h ? (pos.y / 100) * size.h : `${pos.y}%`;
+            // Convert percent -> pixel and round to nearest integer for crisp rendering
+            const leftPx = size.w ? Math.round((pos.x / 100) * size.w) : null;
+            const topPx = size.h ? Math.round((pos.y / 100) * size.h) : null;
             return (
-              <div key={`marker-${idx}`} title={`Item ${idx + 1}: ${item.label || ''}`} style={{ position: 'absolute', left: typeof left === 'number' ? `${left}px` : left, top: typeof top === 'number' ? `${top}px` : top, transform: 'translate(-50%, -50%)', zIndex: 40 }}>
+              <div key={`marker-${idx}`} title={`Item ${idx + 1}: ${item.label || ''}`} style={{ position: 'absolute', left: leftPx !== null ? `${leftPx}px` : `${pos.x}%`, top: topPx !== null ? `${topPx}px` : `${pos.y}%`, transform: 'translate(-50%, -50%)', zIndex: 40, willChange: 'transform' }}>
                 <div style={{ width: 30, height: 30, borderRadius: 15, background: '#ef4444', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>{item.correctAnswer || '?'}</div>
               </div>
             );
