@@ -22,6 +22,43 @@ const bandFromCorrect = (c) => {
   return 3.5;
 };
 
+const stripHtml = (html) => {
+  if (!html) return "";
+  const temp = document.createElement("div");
+  temp.innerHTML = html;
+  return temp.textContent || temp.innerText || "";
+};
+
+const countTableCompletionBlanks = (question) => {
+  const rowsArr = question?.rows || [];
+  const cols = question?.columns || [];
+  const BLANK_REGEX = /\[BLANK\]|_{2,}|[\u2026]+/g;
+  let blanksCount = 0;
+
+  rowsArr.forEach((row) => {
+    const r = Array.isArray(row?.cells)
+      ? row
+      : {
+          cells: [
+            row?.vehicle || '',
+            row?.cost || '',
+            Array.isArray(row?.comments) ? row.comments.join('\n') : row?.comments || '',
+          ],
+        };
+
+    const cells = Array.isArray(r.cells) ? r.cells : [];
+    const maxCols = cols.length ? cols.length : cells.length;
+    for (let c = 0; c < maxCols; c++) {
+      const text = String(cells[c] || '');
+      const matches = text.match(BLANK_REGEX) || [];
+      blanksCount += matches.length;
+    }
+  });
+
+  if (blanksCount === 0) return rowsArr.length || 0;
+  return blanksCount;
+};
+
 /**
  * DoListeningTest - Trang làm bài thi Listening IELTS
  * Giao diện theo mẫu youpass.vn
@@ -648,16 +685,25 @@ const DoListeningTest = () => {
       return Math.max(1, blanks);
     }
 
+    if ((q.columns && q.columns.length > 0) || (q.rows && q.rows.length > 0)) {
+      const blanks = countTableCompletionBlanks(q);
+      return Math.max(1, blanks);
+    }
+
     // Notes-completion: number of blanks in notesText (supports both numbered and unnumbered blanks)
     if (typeof q.notesText === "string" && q.notesText.trim()) {
       // IMPORTANT: Only numbered blanks actually render inputs in renderNotesCompletion.
       // Unnumbered underscores are just placeholders and should not affect numbering/navigation.
-      const blanks = q.notesText.match(/(\d+)\s*[_…]+/g) || [];
+      const blanks = stripHtml(q.notesText).match(/(\d+)\s*[_…]+/g) || [];
       return Math.max(1, blanks.length);
     }
 
     if (q.leftItems && q.leftItems.length > 0) {
       return Math.max(1, q.leftItems.length);
+    }
+
+    if (q.items && q.items.length > 0) {
+      return Math.max(1, q.items.length);
     }
 
     // Multi-select: each question counts by requiredAnswers (e.g. Choose TWO = 2)
@@ -691,7 +737,7 @@ const DoListeningTest = () => {
         ? Object.keys(firstQ.answers).map((k) => parseInt(k, 10)).filter((n) => Number.isFinite(n))
         : [];
       if (keys.length) return keys.length;
-      const matches = String(firstQ?.notesText || "").match(/(\d+)\s*[_…]+/g) || [];
+      const matches = stripHtml(String(firstQ?.notesText || "")).match(/(\d+)\s*[_…]+/g) || [];
       return matches.length || 0;
     }
 
@@ -707,6 +753,17 @@ const DoListeningTest = () => {
 
     if (sectionType === "multi-select") {
       return sectionQuestions.reduce((sum, q) => sum + (Number(q?.requiredAnswers) || 2), 0);
+    }
+
+    if (sectionType === "table-completion") {
+      const firstQ = sectionQuestions[0] || {};
+      return countTableCompletionBlanks(firstQ) || 0;
+    }
+
+    if (sectionType === "map-labeling") {
+      const firstQ = sectionQuestions[0] || {};
+      const items = firstQ?.items || [];
+      return items.length || 0;
     }
 
     // Default: each question counts as 1 (abc/abcd/fill)
@@ -783,7 +840,7 @@ const DoListeningTest = () => {
         
         if (sectionQType === "notes-completion" && firstQ?.notesText) {
           // Extract numbers from notes text
-          const matches = firstQ.notesText.match(/(\d+)\s*[_…]+/g) || [];
+          const matches = stripHtml(firstQ.notesText).match(/(\d+)\s*[_…]+/g) || [];
           matches.forEach((match) => {
             const numMatch = match.match(/^(\d+)/);
             if (numMatch) {
@@ -897,7 +954,7 @@ const DoListeningTest = () => {
             keys.forEach((n) => slots.push({ type: "single", key: `q${n}` }));
           } else {
             const notesText = String(firstQ?.notesText || "");
-            const matches = notesText.match(/(\d+)\s*[_…]+/g) || [];
+            const matches = stripHtml(notesText).match(/(\d+)\s*[_…]+/g) || [];
             matches.forEach((token) => {
               const m = token.match(/^(\d+)/);
               if (!m) return;
@@ -908,7 +965,7 @@ const DoListeningTest = () => {
           // Update currentStart for next section
           if (!(typeof section.startingQuestionNumber === "number" && section.startingQuestionNumber > 0)) {
             const keys = numericKeys(firstQ?.answers);
-            const matches = String(firstQ?.notesText || "").match(/(\d+)\s*[_…]+/g) || [];
+            const matches = stripHtml(String(firstQ?.notesText || "")).match(/(\d+)\s*[_…]+/g) || [];
             const questionCount = keys.length || matches.length;
             currentStart += questionCount;
           }

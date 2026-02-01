@@ -374,11 +374,62 @@ const countSectionQuestions = (section) => {
     return section.questions[0]?.formRows?.filter(r => r.isBlank)?.length || 0;
   }
   
+  const stripHtml = (html) => {
+    if (!html) return '';
+    const temp = document.createElement('div');
+    temp.innerHTML = html;
+    return temp.textContent || temp.innerText || '';
+  };
+
+  const countTableCompletionBlanks = (question) => {
+    const rowsArr = question?.rows || [];
+    const cols = question?.columns || [];
+    const BLANK_REGEX = /\[BLANK\]|_{2,}|[\u2026]+/g;
+    let blanksCount = 0;
+
+    rowsArr.forEach((row) => {
+      const r = Array.isArray(row?.cells)
+        ? row
+        : {
+            cells: [
+              row?.vehicle || '',
+              row?.cost || '',
+              Array.isArray(row?.comments) ? row.comments.join('\n') : row?.comments || '',
+            ],
+          };
+
+      const cells = Array.isArray(r.cells) ? r.cells : [];
+      const maxCols = cols.length ? cols.length : cells.length;
+      for (let c = 0; c < maxCols; c++) {
+        const text = String(cells[c] || '');
+        const matches = text.match(BLANK_REGEX) || [];
+        blanksCount += matches.length;
+      }
+    });
+
+    if (blanksCount === 0) {
+      return rowsArr.length || 0;
+    }
+
+    return blanksCount;
+  };
+
   // Notes-completion: Số câu = số blanks trong notesText
   if (questionType === 'notes-completion') {
-    const notesText = section.questions[0]?.notesText || '';
+    const notesText = stripHtml(section.questions[0]?.notesText || '');
     const blanks = notesText.match(/\d+\s*[_…]+|[_…]{2,}/g) || [];
     return blanks.length;
+  }
+
+  // Table-completion: số câu = số blanks trong table
+  if (questionType === 'table-completion') {
+    return countTableCompletionBlanks(section.questions[0] || {});
+  }
+
+  // Map-labeling: số câu = số items
+  if (questionType === 'map-labeling') {
+    const items = section.questions[0]?.items || [];
+    return items.length;
   }
   
   // Multi-select: Mỗi câu tính theo số đáp án cần chọn (requiredAnswers)
@@ -403,6 +454,32 @@ export const calculateTotalQuestions = (parts) => {
       return sTotal + countSectionQuestions(section);
     }, 0);
   }, 0);
+};
+
+/**
+ * Compute starting question numbers for each section across parts (continuous numbering).
+ * Returns a 2D array: starts[partIndex][sectionIndex] = startNumber
+ */
+export const computeQuestionStarts = (parts = []) => {
+  const starts = [];
+  let runningStart = 1;
+
+  parts.forEach((part, pIdx) => {
+    const sections = part?.sections || [];
+    starts[pIdx] = [];
+
+    sections.forEach((section, sIdx) => {
+      const explicitStart = Number(section?.startingQuestionNumber);
+      const hasExplicit = Number.isFinite(explicitStart) && explicitStart > 0;
+      const start = hasExplicit ? explicitStart : runningStart;
+      const count = countSectionQuestions(section);
+
+      starts[pIdx][sIdx] = start;
+      runningStart = start + count;
+    });
+  });
+
+  return starts;
 };
 
 export default useListeningHandlers;

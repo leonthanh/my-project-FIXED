@@ -23,12 +23,52 @@ import {
   partTypeBadgeStyle,
   compactCSS,
 } from "../utils/styles";
-import { calculateTotalQuestions } from "../hooks/useListeningHandlers";
+import { calculateTotalQuestions, computeQuestionStarts } from "../hooks/useListeningHandlers";
 
 /**
  * Đếm số câu hỏi thực tế của một section
  * Tính đến các loại câu hỏi đặc biệt: matching, form-completion, multi-select, notes-completion
  */
+const stripHtml = (html) => {
+  if (!html) return '';
+  const temp = document.createElement('div');
+  temp.innerHTML = html;
+  return temp.textContent || temp.innerText || '';
+};
+
+const countTableCompletionBlanks = (question) => {
+  const rowsArr = question?.rows || [];
+  const cols = question?.columns || [];
+  const BLANK_REGEX = /\[BLANK\]|_{2,}|[\u2026]+/g;
+  let blanksCount = 0;
+
+  rowsArr.forEach((row) => {
+    const r = Array.isArray(row?.cells)
+      ? row
+      : {
+          cells: [
+            row?.vehicle || '',
+            row?.cost || '',
+            Array.isArray(row?.comments) ? row.comments.join('\n') : row?.comments || '',
+          ],
+        };
+
+    const cells = Array.isArray(r.cells) ? r.cells : [];
+    const maxCols = cols.length ? cols.length : cells.length;
+    for (let c = 0; c < maxCols; c++) {
+      const text = String(cells[c] || '');
+      const matches = text.match(BLANK_REGEX) || [];
+      blanksCount += matches.length;
+    }
+  });
+
+  if (blanksCount === 0) {
+    return rowsArr.length || 0;
+  }
+
+  return blanksCount;
+};
+
 const countSectionQuestions = (section) => {
   if (!section?.questions) return 0;
   
@@ -46,9 +86,20 @@ const countSectionQuestions = (section) => {
   
   // Notes-completion: Số câu = số blanks trong notesText
   if (questionType === 'notes-completion') {
-    const notesText = section.questions[0]?.notesText || '';
+    const notesText = stripHtml(section.questions[0]?.notesText || '');
     const blanks = notesText.match(/\d+\s*[_…]+|[_…]{2,}/g) || [];
     return blanks.length;
+  }
+
+  // Table-completion: số câu = số blanks trong table
+  if (questionType === 'table-completion') {
+    return countTableCompletionBlanks(section.questions[0] || {});
+  }
+
+  // Map-labeling: số câu = số items
+  if (questionType === 'map-labeling') {
+    const items = section.questions[0]?.items || [];
+    return items.length;
   }
   
   // Multi-select: Mỗi câu tính theo số đáp án cần chọn (requiredAnswers)
@@ -1115,19 +1166,12 @@ const ListeningTestEditor = ({
               borderRadius: "6px",
             }}>
 
-              {parts?.map((part, partIdx) => {                  // Calculate starting question number for this part
-                  let partStartQ = 1;
-                  for (let p = 0; p < partIdx; p++) {
-                    // eslint-disable-next-line no-loop-func
-                    parts[p].sections?.forEach(s => {
-                      partStartQ += countSectionQuestions(s);
-                    });
-                  }
-
-                  return (
-                    <div key={partIdx} style={{
-                      borderBottom: partIdx < parts.length - 1 ? "2px solid #3b82f6" : "none",
-                    }}>
+              {(() => {
+                const sectionStarts = computeQuestionStarts(parts || []);
+                return (parts || []).map((part, partIdx) => (
+                  <div key={partIdx} style={{
+                    borderBottom: partIdx < parts.length - 1 ? "2px solid #3b82f6" : "none",
+                  }}>
                       {/* Part Header */}
                       <div style={{
                         backgroundColor: colors.partBlue,
@@ -1166,11 +1210,7 @@ const ListeningTestEditor = ({
                       {/* Sections */}
                       {part.sections?.map((section, sIdx) => {
                         const sectionQCount = countSectionQuestions(section);
-                        // Calculate starting question for this section
-                        let sectionStartQ = partStartQ;
-                        for (let s = 0; s < sIdx; s++) {
-                          sectionStartQ += countSectionQuestions(part.sections[s]);
-                        }
+                        const sectionStartQ = sectionStarts?.[partIdx]?.[sIdx] || 1;
 
                         return (
                           <div key={sIdx} style={{
@@ -1740,10 +1780,10 @@ const ListeningTestEditor = ({
                           </div>
                         </div>
                       );
-                    })}
+                      })}
                   </div>
-                );
-              })}
+                ));
+              })()}
             </div>
 
             {/* Footer Buttons */}

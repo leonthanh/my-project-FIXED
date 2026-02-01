@@ -168,6 +168,9 @@ const EditListeningTest = () => {
           formRows: q.formRows || [],
           questionRange: q.questionRange || "",
           answers: q.answers || {},
+          notesText: q.notesText || "",
+          notesTitle: q.notesTitle || "",
+          wordLimit: q.wordLimit || "ONE WORD ONLY",
           // Table completion fields
           columns: q.columns || [],
           rows: q.rows || [],

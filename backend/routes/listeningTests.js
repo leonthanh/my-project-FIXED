@@ -155,6 +155,10 @@ router.post('/', requireAuth, requireTestPermission('listening'), upload.any(), 
             items: q.items || null,
             // Map image URL (if any)
             mapImageUrl: q.mapImageUrl || q.imageUrl || null,
+            // Notes completion fields
+            notesText: q.notesText || null,
+            notesTitle: q.notesTitle || null,
+            wordLimit: q.wordLimit || null,
           });
 
             // Calculate how many questions this item represents

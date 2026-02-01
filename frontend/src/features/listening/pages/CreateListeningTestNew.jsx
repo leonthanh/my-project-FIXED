@@ -241,10 +241,47 @@ const CreateListeningTestNew = () => {
 
   // Calculate total questions
   const calculateTotalQuestions = () => {
+    const stripHtml = (html) => {
+      if (!html) return '';
+      const temp = document.createElement('div');
+      temp.innerHTML = html;
+      return temp.textContent || temp.innerText || '';
+    };
+
+    const countTableCompletionBlanks = (question) => {
+      const rowsArr = question?.rows || [];
+      const cols = question?.columns || [];
+      const BLANK_REGEX = /\[BLANK\]|_{2,}|[\u2026]+/g;
+      let blanksCount = 0;
+
+      rowsArr.forEach((row) => {
+        const r = Array.isArray(row?.cells)
+          ? row
+          : {
+              cells: [
+                row?.vehicle || '',
+                row?.cost || '',
+                Array.isArray(row?.comments) ? row.comments.join('\n') : row?.comments || '',
+              ],
+            };
+
+        const cells = Array.isArray(r.cells) ? r.cells : [];
+        const maxCols = cols.length ? cols.length : cells.length;
+        for (let c = 0; c < maxCols; c++) {
+          const text = String(cells[c] || '');
+          const matches = text.match(BLANK_REGEX) || [];
+          blanksCount += matches.length;
+        }
+      });
+
+      if (blanksCount === 0) return rowsArr.length || 0;
+      return blanksCount;
+    };
+
     return parts.reduce((total, part) => {
       return total + (part.sections || []).reduce((sTotal, section) => {
         const qType = section.questionType || 'fill';
-        
+
         if (qType === 'matching') {
           return sTotal + (section.questions[0]?.leftItems?.length || 0);
         }
@@ -252,14 +289,20 @@ const CreateListeningTestNew = () => {
           return sTotal + (section.questions[0]?.formRows?.filter(r => r.isBlank)?.length || 0);
         }
         if (qType === 'notes-completion') {
-          const notesText = section.questions[0]?.notesText || '';
+          const notesText = stripHtml(section.questions[0]?.notesText || '');
           const blanks = notesText.match(/\d+\s*[_…]+|[_…]{2,}/g) || [];
           return sTotal + blanks.length;
+        }
+        if (qType === 'table-completion') {
+          return sTotal + countTableCompletionBlanks(section.questions[0] || {});
+        }
+        if (qType === 'map-labeling') {
+          return sTotal + (section.questions[0]?.items?.length || 0);
         }
         if (qType === 'multi-select') {
           return sTotal + section.questions.reduce((sum, q) => sum + (q.requiredAnswers || 2), 0);
         }
-        
+
         return sTotal + (section.questions?.length || 0);
       }, 0);
     }, 0);
