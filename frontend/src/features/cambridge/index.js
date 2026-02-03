@@ -5,6 +5,8 @@ export { default as CambridgeTestBuilder } from './CambridgeTestBuilder';
 export { 
   CreateKETListeningTest, 
   CreateKETReadingTest,
+  CreatePETListeningTest,
+  CreatePETReadingTest,
   CreateCambridgeTest,
   EditCambridgeReadingTest,
   EditCambridgeListeningTest,

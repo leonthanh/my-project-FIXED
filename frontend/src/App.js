@@ -7,7 +7,7 @@ import { WritingTest, CreateWritingTest } from './features/writing';
 import { Login } from './features/auth';
 import { CreateReadingTest, EditReadingTest, DoReadingTest, TakeReadingTest, ReadingResults } from './features/reading';
 import { CreateListeningTest, EditListeningTest, DoListeningTest, ListeningResults } from './features/listening';
-import { CreateKETListeningTest, CreateKETReadingTest, CreateCambridgeTest, EditCambridgeReadingTest, EditCambridgeListeningTest, SelectCambridgeTest, DoCambridgeTestEntry, DoCambridgeListeningTest, DoCambridgeReadingTest, CambridgeResultPage } from './features/cambridge';
+import { CreateKETListeningTest, CreateKETReadingTest, CreatePETListeningTest, CreatePETReadingTest, CreateCambridgeTest, EditCambridgeReadingTest, EditCambridgeListeningTest, SelectCambridgeTest, DoCambridgeTestEntry, DoCambridgeListeningTest, DoCambridgeReadingTest, CambridgeResultPage } from './features/cambridge';
 import { ProtectedRoute } from './shared/components';
 import { refreshAccessToken } from './shared/utils/api';
 
@@ -123,6 +123,16 @@ function App() {
         <Route path="/admin/create-ket-reading" element={
           <ProtectedRoute role="teacher">
             <CreateKETReadingTest />
+          </ProtectedRoute>
+        } />
+        <Route path="/admin/create-pet-listening" element={
+          <ProtectedRoute role="teacher">
+            <CreatePETListeningTest />
+          </ProtectedRoute>
+        } />
+        <Route path="/admin/create-pet-reading" element={
+          <ProtectedRoute role="teacher">
+            <CreatePETReadingTest />
           </ProtectedRoute>
         } />
         {/* Generic Cambridge create routes (PET/Flyers/Movers/Starters...) */}

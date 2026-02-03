@@ -635,26 +635,20 @@ export const TEST_CONFIGS = {
   // PET (B1 Preliminary)
   'pet-reading': {
     id: 'pet-reading',
-    name: 'PET Reading',
-    nameVi: 'PET Reading',
+    name: 'PET Reading & Writing',
+    nameVi: 'PET Reading & Writing',
     totalQuestions: 32,
-    parts: 6,
-    duration: 45, // minutes
-    questionTypes: [
-      'abc',
-      'abcd',
-      'matching',
-      'fill',
-      'true-false-not-given',
-      'cloze-test',
-    ],
+    parts: 7,
+    duration: 60, // minutes
+    questionTypes: KET_UNIFIED_QUESTION_TYPES,
     partStructure: [
-      { part: 1, questions: '1-5', description: 'Short Texts - 3-option Multiple Choice' },
-      { part: 2, questions: '6-10', description: 'Matching - People & Texts' },
-      { part: 3, questions: '11-15', description: 'Long Text - 4-option Multiple Choice' },
-      { part: 4, questions: '16-20', description: 'Long Text - Gap Fill' },
-      { part: 5, questions: '21-26', description: 'Cloze Test - Multiple Choice' },
-      { part: 6, questions: '27-32', description: 'Cloze Test - Open Gap Fill' },
+      { part: 1, questions: '1-6', questionType: 'sign-message', description: 'Signs & Messages - Hình biển báo + chọn A/B/C' },
+      { part: 2, questions: '7-13', questionType: 'people-matching', description: 'Matching - 5 người nối với 8 texts' },
+      { part: 3, questions: '14-18', questionType: 'long-text-mc', description: 'Long Text - Đoạn văn dài + 5 câu MC' },
+      { part: 4, questions: '19-24', questionType: 'cloze-mc', description: 'Cloze MC - Chọn từ A/B/C cho mỗi blank' },
+      { part: 5, questions: '25-30', questionType: 'cloze-test', description: 'Open Cloze - Điền từ vào chỗ trống' },
+      { part: 6, questions: '31-36', questionType: 'word-form', description: 'Word Formation - Biến đổi từ' },
+      { part: 7, questions: 'Writing', questionType: 'short-message', description: 'Writing Task - Short Message (25-35 words)' },
     ],
   },
 
@@ -663,19 +657,15 @@ export const TEST_CONFIGS = {
     name: 'PET Listening',
     nameVi: 'PET Listening',
     totalQuestions: 25,
-    parts: 4,
-    duration: 36, // minutes
-    questionTypes: [
-      'abc',
-      'fill',
-      'matching',
-      'true-false-not-given',
-    ],
+    parts: 5,
+    duration: 30, // minutes
+    questionTypes: KET_UNIFIED_QUESTION_TYPES,
     partStructure: [
-      { part: 1, questions: '1-7', description: 'Short Conversations - 3-option Multiple Choice' },
-      { part: 2, questions: '8-13', description: 'Longer Monologue - Gap Fill' },
-      { part: 3, questions: '14-19', description: 'Longer Conversation - Matching' },
-      { part: 4, questions: '20-25', description: 'Interview - True/False' },
+      { part: 1, questions: '1-5', description: 'Short Conversations - 3-option Multiple Choice' },
+      { part: 2, questions: '6-10', description: 'Longer Conversation - Gap Fill' },
+      { part: 3, questions: '11-15', description: 'Longer Conversation - 3-option Multiple Choice' },
+      { part: 4, questions: '16-20', description: 'Longer Conversation - Gap Fill' },
+      { part: 5, questions: '21-25', description: 'Longer Monologue - Matching' },
     ],
   },
 
