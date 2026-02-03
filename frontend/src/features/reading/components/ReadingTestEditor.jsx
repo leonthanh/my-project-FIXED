@@ -147,6 +147,9 @@ const ReadingTestEditor = ({
   // State for keyboard shortcuts help
   const [showShortcutsHelp, setShowShortcutsHelp] = useState(false);
 
+  // Header collapse
+  const [collapsedHeader, setCollapsedHeader] = useState(false);
+
   // State for new modals
   const [showTemplateLibrary, setShowTemplateLibrary] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
@@ -369,11 +372,12 @@ const ReadingTestEditor = ({
           overflow: "hidden",
         }}
         headerStyle={{
-          padding: "10px 15px",
+          padding: collapsedHeader ? "6px 10px" : "10px 15px",
           backgroundColor: "#fff",
           borderBottom: "1px solid #ddd",
           overflowY: "auto",
           flexShrink: 0,
+          maxHeight: collapsedHeader ? "48px" : "none",
         }}
         topBarStyle={{
           display: "flex",
@@ -405,6 +409,8 @@ const ReadingTestEditor = ({
           flex: "1 1 25%",
           minWidth: "150px",
         }}
+        headerCollapsed={collapsedHeader}
+        onToggleHeader={() => setCollapsedHeader((prev) => !prev)}
       >
         {/* 4-COLUMN LAYOUT */}
         <form
