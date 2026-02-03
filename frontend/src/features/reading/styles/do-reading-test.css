@@ -1935,3 +1935,8 @@
 .questions-list::-webkit-scrollbar-thumb:hover {
   background: linear-gradient(135deg, #5a6fd6 0%, #6a4190 100%);
 }
+.cloze-inline-select {
+  padding: 5px;
+    border-radius: 5px;
+    border: 1px solid teal;
+}
