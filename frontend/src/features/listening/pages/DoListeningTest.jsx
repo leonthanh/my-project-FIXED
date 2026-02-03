@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import { useParams, useNavigate } from "react-router-dom";
 import { apiPath, hostPath, authFetch } from "../../../shared/utils/api";
 import { TestHeader } from "../../../shared/components";
+import MapLabelingQuestion from "../../../shared/components/MapLabelingQuestion";
+import TableCompletion from "../../../shared/components/questions/editors/TableCompletion.jsx";
 import ResultModal from "../../../shared/components/ResultModal";
 import { generateDetailsFromSections } from "./ListeningResults";
 import styles from "./DoListeningTest.styles";
@@ -692,9 +694,7 @@ const DoListeningTest = () => {
 
     // Notes-completion: number of blanks in notesText (supports both numbered and unnumbered blanks)
     if (typeof q.notesText === "string" && q.notesText.trim()) {
-      // IMPORTANT: Only numbered blanks actually render inputs in renderNotesCompletion.
-      // Unnumbered underscores are just placeholders and should not affect numbering/navigation.
-      const blanks = stripHtml(q.notesText).match(/(\d+)\s*[_…]+/g) || [];
+      const blanks = stripHtml(q.notesText).match(/(\d+)\s*[_…]+|[_…]{2,}/g) || [];
       return Math.max(1, blanks.length);
     }
 
@@ -737,7 +737,7 @@ const DoListeningTest = () => {
         ? Object.keys(firstQ.answers).map((k) => parseInt(k, 10)).filter((n) => Number.isFinite(n))
         : [];
       if (keys.length) return keys.length;
-      const matches = stripHtml(String(firstQ?.notesText || "")).match(/(\d+)\s*[_…]+/g) || [];
+      const matches = stripHtml(String(firstQ?.notesText || "")).match(/(\d+)\s*[_…]+|[_…]{2,}/g) || [];
       return matches.length || 0;
     }
 
@@ -834,21 +834,35 @@ const DoListeningTest = () => {
       let maxNum = -Infinity;
       
       sections.forEach((section, sIdx) => {
-        const sectionQType = section.questionType || "fill";
+        let sectionQType = section.questionType || "fill";
         const sectionQuestions = partQuestions.filter((q) => q.sectionIndex === sIdx);
         const firstQ = sectionQuestions[0];
+
+        if (sectionQType === "fill") {
+          if ((firstQ?.columns && firstQ.columns.length > 0) || (firstQ?.rows && firstQ.rows.length > 0)) {
+            sectionQType = "table-completion";
+          } else if (firstQ?.items && firstQ.items.length > 0) {
+            sectionQType = "map-labeling";
+          }
+        }
         
         if (sectionQType === "notes-completion" && firstQ?.notesText) {
-          // Extract numbers from notes text
-          const matches = stripHtml(firstQ.notesText).match(/(\d+)\s*[_…]+/g) || [];
+          const matches = stripHtml(firstQ.notesText).match(/(\d+)\s*[_…]+|[_…]{2,}/g) || [];
+          let foundNumbered = false;
           matches.forEach((match) => {
-            const numMatch = match.match(/^(\d+)/);
+            const numMatch = String(match).match(/^(\d+)/);
             if (numMatch) {
               const num = parseInt(numMatch[1], 10);
               minNum = Math.min(minNum, num);
               maxNum = Math.max(maxNum, num);
+              foundNumbered = true;
             }
           });
+          if (!foundNumbered && section.startingQuestionNumber) {
+            const start = section.startingQuestionNumber;
+            minNum = Math.min(minNum, start);
+            maxNum = Math.max(maxNum, start + Math.max(0, matches.length) - 1);
+          }
         } else if (sectionQType === "form-completion" && firstQ?.formRows) {
           // Get blank numbers from formRows
           firstQ.formRows.forEach((row) => {
@@ -874,6 +888,12 @@ const DoListeningTest = () => {
           if (sectionQType === "multi-select") {
             const count = sectionQuestions.reduce((sum, q) => sum + (q.requiredAnswers || 2), 0);
             maxNum = Math.max(maxNum, start + count - 1);
+          } else if (sectionQType === "table-completion") {
+            const count = countTableCompletionBlanks(firstQ) || 0;
+            maxNum = Math.max(maxNum, start + Math.max(0, count) - 1);
+          } else if (sectionQType === "map-labeling") {
+            const count = (firstQ?.items || []).length || 0;
+            maxNum = Math.max(maxNum, start + Math.max(0, count) - 1);
           } else {
             maxNum = Math.max(maxNum, start + sectionQuestions.length - 1);
           }
@@ -917,11 +937,19 @@ const DoListeningTest = () => {
       let currentStart = partRange.start;
 
       sections.forEach((section, sectionIndex) => {
-        const sectionType = String(section?.questionType || "fill").toLowerCase();
+        let sectionType = String(section?.questionType || "fill").toLowerCase();
         const sectionQuestions = getSectionQuestions(sectionIndex);
         if (!sectionQuestions.length) return;
 
         const firstQ = sectionQuestions[0];
+
+        if (sectionType === "fill") {
+          if ((firstQ?.columns && firstQ.columns.length > 0) || (firstQ?.rows && firstQ.rows.length > 0)) {
+            sectionType = "table-completion";
+          } else if (firstQ?.items && firstQ.items.length > 0) {
+            sectionType = "map-labeling";
+          }
+        }
 
         // Calculate section start number
         let sectionStartNum = typeof section.startingQuestionNumber === "number" && section.startingQuestionNumber > 0
@@ -954,18 +982,26 @@ const DoListeningTest = () => {
             keys.forEach((n) => slots.push({ type: "single", key: `q${n}` }));
           } else {
             const notesText = String(firstQ?.notesText || "");
-            const matches = stripHtml(notesText).match(/(\d+)\s*[_…]+/g) || [];
+            const matches = stripHtml(notesText).match(/(\d+)\s*[_…]+|[_…]{2,}/g) || [];
+            let autoNum = sectionStartNum;
             matches.forEach((token) => {
-              const m = token.match(/^(\d+)/);
-              if (!m) return;
-              const num = parseInt(m[1], 10);
-              if (Number.isFinite(num)) slots.push({ type: "single", key: `q${num}` });
+              const m = String(token).match(/^(\d+)/);
+              if (m) {
+                const num = parseInt(m[1], 10);
+                if (Number.isFinite(num)) {
+                  slots.push({ type: "single", key: `q${num}` });
+                  autoNum = Math.max(autoNum, num + 1);
+                }
+              } else {
+                slots.push({ type: "single", key: `q${autoNum}` });
+                autoNum += 1;
+              }
             });
           }
           // Update currentStart for next section
           if (!(typeof section.startingQuestionNumber === "number" && section.startingQuestionNumber > 0)) {
             const keys = numericKeys(firstQ?.answers);
-            const matches = stripHtml(String(firstQ?.notesText || "")).match(/(\d+)\s*[_…]+/g) || [];
+            const matches = stripHtml(String(firstQ?.notesText || "")).match(/(\d+)\s*[_…]+|[_…]{2,}/g) || [];
             const questionCount = keys.length || matches.length;
             currentStart += questionCount;
           }
@@ -1001,6 +1037,30 @@ const DoListeningTest = () => {
           if (!(typeof section.startingQuestionNumber === "number" && section.startingQuestionNumber > 0)) {
             const totalRequired = sectionQuestions.reduce((sum, q) => sum + (Number(q?.requiredAnswers) || 2), 0);
             currentStart += totalRequired;
+          }
+          return;
+        }
+
+        if (sectionType === "table-completion") {
+          const blanks = countTableCompletionBlanks(firstQ) || 0;
+          const count = Math.max(0, blanks);
+          for (let i = 0; i < count; i++) {
+            slots.push({ type: "single", key: `q${sectionStartNum + i}` });
+          }
+          if (!(typeof section.startingQuestionNumber === "number" && section.startingQuestionNumber > 0)) {
+            currentStart += count;
+          }
+          return;
+        }
+
+        if (sectionType === "map-labeling") {
+          const items = firstQ?.items || [];
+          const count = items.length || 0;
+          for (let i = 0; i < count; i++) {
+            slots.push({ type: "single", key: `q${sectionStartNum + i}` });
+          }
+          if (!(typeof section.startingQuestionNumber === "number" && section.startingQuestionNumber > 0)) {
+            currentStart += count;
           }
           return;
         }
@@ -1226,8 +1286,13 @@ const DoListeningTest = () => {
       setActiveQuestion(qNum);
       // try to focus the first interactive control inside the question for better UX
       try {
-        const input = el.querySelector("input, select, textarea, button");
-        if (input) input.focus({ preventScroll: true });
+        const isFocusable = el.matches && el.matches("input, select, textarea, button");
+        if (isFocusable) {
+          el.focus({ preventScroll: true });
+        } else {
+          const input = el.querySelector("input, select, textarea, button");
+          if (input) input.focus({ preventScroll: true });
+        }
       } catch (e) {}
     }
   }, []);
@@ -1774,6 +1839,79 @@ const DoListeningTest = () => {
     );
   };
 
+  const renderTableCompletion = (question, startNumber, endNumber) => {
+    const title = question?.title || '';
+    const instruction = question?.instruction || '';
+    const tableAnswers = {};
+
+    Object.entries(answers || {}).forEach(([key, value]) => {
+      const match = String(key).match(/^q(\d+)$/);
+      if (!match) return;
+      const num = Number(match[1]);
+      if (Number.isFinite(num)) tableAnswers[num] = value;
+    });
+
+    return (
+      <div style={{ width: '100%' }}>
+        {instruction && (
+          <div style={{ fontStyle: 'italic', marginBottom: 8 }}>{instruction}</div>
+        )}
+        {title && (
+          <div style={{ textAlign: 'center', fontWeight: 700, marginBottom: 8 }}>{title}</div>
+        )}
+        <TableCompletion
+          data={{
+            part: currentPartIndex + 1,
+            title,
+            instruction,
+            columns: question?.columns || [],
+            rows: question?.rows || [],
+            rangeStart: startNumber,
+            rangeEnd: endNumber,
+          }}
+          startingQuestionNumber={startNumber}
+          answers={tableAnswers}
+          showHeader={false}
+          onFocusQuestion={(qNum) => setActiveQuestion(qNum)}
+          registerQuestionRef={(qNum, el) => {
+            if (el) questionRefs.current[qNum] = el;
+          }}
+          onChange={(nextAns) => {
+            if (submitted) return;
+            setAnswers((prev) => {
+              const merged = { ...prev };
+              Object.entries(nextAns || {}).forEach(([num, val]) => {
+                merged[`q${num}`] = val;
+              });
+              return merged;
+            });
+          }}
+        />
+      </div>
+    );
+  };
+
+  const renderMapLabeling = (question, startNumber) => {
+    const safeQuestion = {
+      ...(question || {}),
+      mapImageUrl: question?.mapImageUrl || question?.imageUrl || '',
+    };
+
+    return (
+      <MapLabelingQuestion
+        question={safeQuestion}
+        mode="answer"
+        questionNumber={startNumber}
+        studentAnswer={answers}
+        onAnswerChange={(qNum, value) => handleAnswerChange(`q${qNum}`, value)}
+        registerQuestionRef={(qNum, el) => {
+          if (el) questionRefs.current[qNum] = el;
+        }}
+        onFocusQuestion={(qNum) => setActiveQuestion(qNum)}
+      />
+    );
+  };
+
   // Render a section based on question type
   const renderSection = (section, sectionIndex) => {
     const sectionQuestions = currentPartQuestions.filter(
@@ -1798,6 +1936,8 @@ const DoListeningTest = () => {
         qType = "notes-completion";
       } else if (firstQ?.leftItems && firstQ.leftItems.length > 0) {
         qType = "matching";
+      } else if ((firstQ?.columns && firstQ.columns.length > 0) || (firstQ?.rows && firstQ.rows.length > 0)) {
+        qType = "table-completion";
       } else if (firstQ?.options && firstQ.options.length > 0) {
         // Detect abc/abcd from options count
         qType = firstQ.options.length === 3 ? "abc" : "abcd";
@@ -1876,6 +2016,10 @@ const DoListeningTest = () => {
             ? renderFormCompletion({ ...section, sectionIndex }, firstQ, startNum)
             : qType === "notes-completion"
             ? renderNotesCompletion(firstQ, startNum)
+            : qType === "map-labeling"
+            ? renderMapLabeling(firstQ, startNum)
+            : qType === "table-completion"
+            ? renderTableCompletion(firstQ, startNum, displayEndNum)
             : sectionQuestions.map((q, qIdx) => {
                 const qNum = startNum + qIdx;
                 return (
@@ -1888,6 +2032,7 @@ const DoListeningTest = () => {
       </div>
     );
   };
+
 
   // Render notes completion (Part 4 style with inline gaps)
   const renderNotesCompletion = (question, startNumber) => {
@@ -1911,13 +2056,20 @@ const DoListeningTest = () => {
         }, {});
     };
 
-    const renderTextWithGaps = (text, keyPrefix) => {
+    const renderTextWithGaps = (text, keyPrefix, counter) => {
       const parts = text.split(/(\d+\s*[_…]+|[_…]{2,})/g);
       return parts.map((part, idx) => {
         const key = `${keyPrefix}-t-${idx}`;
         const match = part.match(/^(\d+)\s*[_…]+$/);
-        if (match) {
-          const qNum = parseInt(match[1], 10);
+        if (match || part.match(/^[_…]{2,}$/)) {
+          let qNum = null;
+          if (match) {
+            qNum = parseInt(match[1], 10);
+            if (Number.isFinite(qNum)) counter.value = Math.max(counter.value, qNum + 1);
+          } else {
+            qNum = counter.value;
+            counter.value += 1;
+          }
           return (
             <span
               key={key}
@@ -1942,11 +2094,6 @@ const DoListeningTest = () => {
             </span>
           );
         }
-        if (part.match(/^[_…]{2,}$/)) {
-          return (
-            <span key={key} style={styles.notesBlank}>______</span>
-          );
-        }
         return <span key={key}>{part}</span>;
       });
     };
@@ -1955,10 +2102,11 @@ const DoListeningTest = () => {
       if (!notesText) return null;
       const parser = new DOMParser();
       const doc = parser.parseFromString(notesText, 'text/html');
+      const counter = { value: startNumber };
 
       const walk = (node, keyPrefix) => {
         if (node.nodeType === Node.TEXT_NODE) {
-          return renderTextWithGaps(node.textContent || '', keyPrefix);
+          return renderTextWithGaps(node.textContent || '', keyPrefix, counter);
         }
 
         if (node.nodeType !== Node.ELEMENT_NODE) return null;

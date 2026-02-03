@@ -131,6 +131,40 @@ router.get('/admin/list', async (req, res) => {
       const questions = Array.isArray(parseIfJsonString(testObj.questions)) ? parseIfJsonString(testObj.questions) : [];
       const parts = Array.isArray(parseIfJsonString(testObj.partInstructions)) ? parseIfJsonString(testObj.partInstructions) : [];
 
+      const BLANK_REGEX = /\[BLANK\]|_{2,}|[\u2026]+/g;
+      const countTableBlanks = (question) => {
+        const columns = Array.isArray(question?.columns) ? question.columns : [];
+        const rows = Array.isArray(question?.rows) ? question.rows : [];
+        let count = 0;
+
+        const getCellText = (row, idx) => {
+          if (Array.isArray(row?.cells) && row.cells[idx] != null) return String(row.cells[idx] || '');
+          if (idx === 0) return String(row?.vehicle || '');
+          if (idx === 1) return String(row?.cost || '');
+          if (idx === 2) return Array.isArray(row?.comments) ? row.comments.join('\n') : String(row?.comments || '');
+          return '';
+        };
+
+        rows.forEach((row) => {
+          for (let c = 0; c < columns.length; c++) {
+            const text = getCellText(row, c);
+            const isComments = /comment/i.test(columns[c] || '');
+            if (isComments) {
+              const lines = String(text || '').split('\n');
+              lines.forEach((line) => {
+                const blanks = String(line || '').match(BLANK_REGEX) || [];
+                count += blanks.length;
+              });
+            } else {
+              const blanks = String(text || '').match(BLANK_REGEX) || [];
+              count += blanks.length;
+            }
+          }
+        });
+
+        return count;
+      };
+
       const getSectionQuestions = (partIndex, sectionIndex) =>
         questions
           .filter((q) => Number(q?.partIndex) === Number(partIndex) && Number(q?.sectionIndex) === Number(sectionIndex))
@@ -142,21 +176,45 @@ router.get('/admin/list', async (req, res) => {
         const sections = Array.isArray(p?.sections) ? p.sections : [];
         for (let sIdx = 0; sIdx < sections.length; sIdx++) {
           const section = sections[sIdx] || {};
-          const sectionType = String(section?.questionType || 'fill').toLowerCase();
+          let sectionType = String(section?.questionType || 'fill').toLowerCase();
           const sectionQuestions = getSectionQuestions(pIdx, sIdx);
           if (!sectionQuestions.length) continue;
 
+          const firstQ = sectionQuestions[0];
+          if (sectionType === 'fill') {
+            if ((firstQ?.columns && firstQ.columns.length > 0) || (firstQ?.rows && firstQ.rows.length > 0)) {
+              sectionType = 'table-completion';
+            } else if (Array.isArray(firstQ?.items) && firstQ.items.length > 0) {
+              sectionType = 'map-labeling';
+            }
+          }
+
           if (sectionType === 'form-completion' || sectionType === 'notes-completion') {
-            const firstQ = sectionQuestions[0];
             const map = firstQ?.answers && typeof firstQ.answers === 'object' && !Array.isArray(firstQ.answers) ? firstQ.answers : null;
             if (map) {
               const keys = Object.keys(map).map((k) => parseInt(k, 10)).filter((n) => Number.isFinite(n));
               total += keys.length;
             } else {
-              const rows = Array.isArray(firstQ?.formRows) ? firstQ.formRows : [];
-              const blanks = rows.filter((r) => r && r.isBlank);
-              total += blanks.length;
+              if (sectionType === 'notes-completion') {
+                const matches = String(firstQ?.notesText || '').match(/(\d+)\s*[_…]+|[_…]{2,}/g) || [];
+                total += matches.length;
+              } else {
+                const rows = Array.isArray(firstQ?.formRows) ? firstQ.formRows : [];
+                const blanks = rows.filter((r) => r && r.isBlank);
+                total += blanks.length;
+              }
             }
+            continue;
+          }
+
+          if (sectionType === 'table-completion') {
+            total += countTableBlanks(firstQ) || 0;
+            continue;
+          }
+
+          if (sectionType === 'map-labeling') {
+            const items = Array.isArray(firstQ?.items) ? firstQ.items : [];
+            total += items.length;
             continue;
           }
 
@@ -207,6 +265,47 @@ router.get('/admin/list', async (req, res) => {
 
       const details = [];
 
+      const BLANK_REGEX = /\[BLANK\]|_{2,}|[\u2026]+/g;
+      const getTableBlankEntries = (question, sectionStart) => {
+        const columns = Array.isArray(question?.columns) ? question.columns : [];
+        const rows = Array.isArray(question?.rows) ? question.rows : [];
+        let qNum = Number.isFinite(sectionStart) ? sectionStart : 1;
+        const entries = [];
+
+        const getCellText = (row, idx) => {
+          if (Array.isArray(row?.cells) && row.cells[idx] != null) return String(row.cells[idx] || '');
+          if (idx === 0) return String(row?.vehicle || '');
+          if (idx === 1) return String(row?.cost || '');
+          if (idx === 2) return Array.isArray(row?.comments) ? row.comments.join('\n') : String(row?.comments || '');
+          return '';
+        };
+
+        rows.forEach((row) => {
+          for (let c = 0; c < columns.length; c++) {
+            const text = getCellText(row, c);
+            const isComments = /comment/i.test(columns[c] || '');
+            if (isComments) {
+              const lines = String(text || '').split('\n');
+              lines.forEach((line, li) => {
+                const blanks = String(line || '').match(BLANK_REGEX) || [];
+                blanks.forEach((_, bi) => {
+                  const expected = row?.commentBlankAnswers?.[li]?.[bi] ?? '';
+                  entries.push({ num: qNum++, expected });
+                });
+              });
+            } else {
+              const blanks = String(text || '').match(BLANK_REGEX) || [];
+              blanks.forEach((_, bi) => {
+                const expected = row?.cellBlankAnswers?.[c]?.[bi] ?? '';
+                entries.push({ num: qNum++, expected });
+              });
+            }
+          }
+        });
+
+        return entries;
+      };
+
       const getSectionQuestions = (partIndex, sectionIndex) =>
         questions
           .filter((q) => Number(q?.partIndex) === Number(partIndex) && Number(q?.sectionIndex) === Number(sectionIndex))
@@ -219,11 +318,19 @@ router.get('/admin/list', async (req, res) => {
         const sections = Array.isArray(p?.sections) ? p.sections : [];
         for (let sIdx = 0; sIdx < sections.length; sIdx++) {
           const section = sections[sIdx] || {};
-          const sectionType = String(section?.questionType || 'fill').toLowerCase();
+          let sectionType = String(section?.questionType || 'fill').toLowerCase();
           const sectionQuestions = getSectionQuestions(pIdx, sIdx);
           if (!sectionQuestions.length) continue;
 
           const firstQ = sectionQuestions[0];
+
+          if (sectionType === 'fill') {
+            if ((firstQ?.columns && firstQ.columns.length > 0) || (firstQ?.rows && firstQ.rows.length > 0)) {
+              sectionType = 'table-completion';
+            } else if (Array.isArray(firstQ?.items) && firstQ.items.length > 0) {
+              sectionType = 'map-labeling';
+            }
+          }
 
           const explicitSectionStart = Number(section?.startingQuestionNumber);
           const hasExplicitStart = Number.isFinite(explicitSectionStart) && explicitSectionStart > 0;
@@ -231,18 +338,62 @@ router.get('/admin/list', async (req, res) => {
 
           if (sectionType === 'form-completion' || sectionType === 'notes-completion') {
             const map = firstQ?.answers && typeof firstQ.answers === 'object' && !Array.isArray(firstQ.answers) ? firstQ.answers : null;
-            if (!map) continue;
-            const keys = Object.keys(map).map((k) => parseInt(k, 10)).filter((n) => Number.isFinite(n)).sort((a,b)=>a-b);
-            for (const num of keys) {
-              const expected = map[String(num)];
+            if (map) {
+              const keys = Object.keys(map).map((k) => parseInt(k, 10)).filter((n) => Number.isFinite(n)).sort((a,b)=>a-b);
+              for (const num of keys) {
+                const expected = map[String(num)];
+                const student = normalizedAnswers[`q${num}`];
+                const studentVal = student ?? '';
+                const expectedVal = expected ?? '';
+                const isCorrect = String(studentVal).trim().toLowerCase() === String(expectedVal).trim().toLowerCase();
+                details.push({ questionNumber: num, partIndex: pIdx, sectionIndex: sIdx, questionType: sectionType, studentAnswer: studentVal, correctAnswer: expectedVal, isCorrect });
+              }
+              runningStart = Math.max(runningStart, sectionStart + keys.length);
+              continue;
+            }
+
+            if (sectionType === 'notes-completion') {
+              const matches = String(firstQ?.notesText || '').match(/(\d+)\s*[_…]+|[_…]{2,}/g) || [];
+              let autoNum = sectionStart;
+              matches.forEach((token) => {
+                const m = String(token).match(/^(\d+)/);
+                const num = m ? parseInt(m[1], 10) : autoNum++;
+                if (!Number.isFinite(num)) return;
+                const student = normalizedAnswers[`q${num}`];
+                details.push({ questionNumber: num, partIndex: pIdx, sectionIndex: sIdx, questionType: sectionType, studentAnswer: student ?? '', correctAnswer: '', isCorrect: false });
+              });
+              runningStart = Math.max(runningStart, sectionStart + matches.length);
+              continue;
+            }
+
+            continue;
+          }
+
+          if (sectionType === 'table-completion') {
+            const entries = getTableBlankEntries(firstQ, sectionStart);
+            entries.forEach(({ num, expected }) => {
               const student = normalizedAnswers[`q${num}`];
-              const ok = false; // defer matching to simpler equals (server-side) - attempt basic match
               const studentVal = student ?? '';
               const expectedVal = expected ?? '';
-              const isCorrect = String(studentVal).trim().toLowerCase() === String(expectedVal).trim().toLowerCase();
+              const isCorrect = expectedVal ? String(studentVal).trim().toLowerCase() === String(expectedVal).trim().toLowerCase() : false;
               details.push({ questionNumber: num, partIndex: pIdx, sectionIndex: sIdx, questionType: sectionType, studentAnswer: studentVal, correctAnswer: expectedVal, isCorrect });
-            }
-            runningStart = Math.max(runningStart, sectionStart + keys.length);
+            });
+            runningStart = Math.max(runningStart, sectionStart + entries.length);
+            continue;
+          }
+
+          if (sectionType === 'map-labeling') {
+            const items = Array.isArray(firstQ?.items) ? firstQ.items : [];
+            items.forEach((item, idx) => {
+              const num = sectionStart + idx;
+              const expected = item?.correctAnswer ?? '';
+              const student = normalizedAnswers[`q${num}`];
+              const studentVal = student ?? '';
+              const expectedVal = expected ?? '';
+              const isCorrect = expectedVal ? String(studentVal).trim().toLowerCase() === String(expectedVal).trim().toLowerCase() : false;
+              details.push({ questionNumber: num, partIndex: pIdx, sectionIndex: sIdx, questionType: sectionType, studentAnswer: studentVal, correctAnswer: expectedVal, isCorrect });
+            });
+            runningStart = Math.max(runningStart, sectionStart + items.length);
             continue;
           }
 
