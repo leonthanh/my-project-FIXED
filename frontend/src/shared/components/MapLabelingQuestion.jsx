@@ -13,7 +13,9 @@ const MapLabelingQuestion = ({
   onAnswerChange,
   studentAnswer,
   showCorrect = false,
-  questionNumber = 1
+  questionNumber = 1,
+  registerQuestionRef,
+  onFocusQuestion
 }) => {
   const fileInputRef = useRef(null);
   // Accept either mapImageUrl (legacy) or imageUrl (editor uses this key)
@@ -407,10 +409,11 @@ const MapLabelingQuestion = ({
 
   // ========== ANSWER MODE (Take test) ==========
   if (mode === 'answer') {
+    const mapUrl = question?.mapImageUrl || question?.imageUrl || '';
     return (
       <div style={{ padding: '15px' }}>
         {/* Map Image */}
-        {question.mapImageUrl && (
+        {mapUrl && (
           <div style={{ 
             maxWidth: '700px', 
             margin: '0 auto 20px',
@@ -419,7 +422,7 @@ const MapLabelingQuestion = ({
             overflow: 'hidden'
           }}>
             <img 
-              src={question.mapImageUrl} 
+              src={mapUrl} 
               alt="Map" 
               style={{ width: '100%', display: 'block' }}
             />
@@ -428,7 +431,10 @@ const MapLabelingQuestion = ({
 
         {/* Answer inputs */}
         <div style={{ maxWidth: '500px', margin: '0 auto' }}>
-          {(question.items || []).map((item, index) => (
+          {(question.items || []).map((item, index) => {
+            const qNum = questionNumber + index;
+            const currentValue = studentAnswer?.[`q_${qNum}`] ?? studentAnswer?.[`q${qNum}`] ?? '';
+            return (
             <div key={index} style={{ 
               display: 'flex', 
               alignItems: 'center',
@@ -443,14 +449,16 @@ const MapLabelingQuestion = ({
                 color: '#0e276f',
                 minWidth: '35px'
               }}>
-                {questionNumber + index}.
+                {qNum}.
               </span>
               
               <span style={{ flex: 1 }}>{item.label}</span>
 
               <select
-                value={studentAnswer?.[`q_${questionNumber + index}`] || ''}
-                onChange={(e) => onAnswerChange?.(questionNumber + index, e.target.value)}
+                ref={(el) => registerQuestionRef?.(qNum, el)}
+                onFocus={() => onFocusQuestion?.(qNum)}
+                value={currentValue}
+                onChange={(e) => onAnswerChange?.(qNum, e.target.value)}
                 style={{
                   padding: '8px 16px',
                   border: '2px solid #3b82f6',
@@ -466,7 +474,7 @@ const MapLabelingQuestion = ({
                 ))}
               </select>
             </div>
-          ))}
+          );})}
         </div>
       </div>
     );

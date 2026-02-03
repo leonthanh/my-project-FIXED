@@ -498,13 +498,54 @@ router.post('/:id/submit', async (req, res) => {
     const scoreFromSections = () => {
       if (!Array.isArray(partInstructions) || !Array.isArray(questions)) return false;
 
+      const BLANK_REGEX = /\[BLANK\]|_{2,}|[\u2026]+/g;
+      const getTableBlankEntries = (question, sectionStart) => {
+        const columns = Array.isArray(question?.columns) ? question.columns : [];
+        const rows = Array.isArray(question?.rows) ? question.rows : [];
+        let qNum = Number.isFinite(sectionStart) ? sectionStart : 1;
+        const entries = [];
+
+        const getCellText = (row, idx) => {
+          if (Array.isArray(row?.cells) && row.cells[idx] != null) return String(row.cells[idx] || '');
+          if (idx === 0) return String(row?.vehicle || '');
+          if (idx === 1) return String(row?.cost || '');
+          if (idx === 2) return Array.isArray(row?.comments) ? row.comments.join('\n') : String(row?.comments || '');
+          return '';
+        };
+
+        rows.forEach((row) => {
+          for (let c = 0; c < columns.length; c++) {
+            const text = getCellText(row, c);
+            const isComments = /comment/i.test(columns[c] || '');
+            if (isComments) {
+              const lines = String(text || '').split('\n');
+              lines.forEach((line, li) => {
+                const blanks = String(line || '').match(BLANK_REGEX) || [];
+                blanks.forEach((_, bi) => {
+                  const expected = row?.commentBlankAnswers?.[li]?.[bi] ?? '';
+                  entries.push({ num: qNum++, expected });
+                });
+              });
+            } else {
+              const blanks = String(text || '').match(BLANK_REGEX) || [];
+              blanks.forEach((_, bi) => {
+                const expected = row?.cellBlankAnswers?.[c]?.[bi] ?? '';
+                entries.push({ num: qNum++, expected });
+              });
+            }
+          }
+        });
+
+        return entries;
+      };
+
       for (let pIdx = 0; pIdx < partInstructions.length; pIdx++) {
         const part = partInstructions[pIdx];
         const sections = Array.isArray(part?.sections) ? part.sections : [];
 
         for (let sIdx = 0; sIdx < sections.length; sIdx++) {
           const section = sections[sIdx] || {};
-          const sectionType = String(section?.questionType || 'fill').toLowerCase();
+          let sectionType = String(section?.questionType || 'fill').toLowerCase();
           const sectionQuestions = getSectionQuestions(pIdx, sIdx);
           if (!sectionQuestions.length) continue;
 
@@ -513,6 +554,14 @@ router.post('/:id/submit', async (req, res) => {
           const firstFormRows = parseIfJsonString(firstQ?.formRows);
           const firstLeftItems = parseIfJsonString(firstQ?.leftItems);
           const firstItems = parseIfJsonString(firstQ?.items);
+
+          if (sectionType === 'fill') {
+            if ((firstQ?.columns && firstQ.columns.length > 0) || (firstQ?.rows && firstQ.rows.length > 0)) {
+              sectionType = 'table-completion';
+            } else if (Array.isArray(firstItems) && firstItems.length > 0) {
+              sectionType = 'map-labeling';
+            }
+          }
 
           // FORM COMPLETION
           if (sectionType === 'form-completion') {
@@ -611,18 +660,19 @@ router.post('/:id/submit', async (req, res) => {
                 });
               }
             } else {
-              // Fallback to parsing numbers from notesText
               const notesText = String(q?.notesText || '');
-              const matches = notesText.match(/(\d+)\s*[_…]+/g) || [];
+              const matches = notesText.match(/(\d+)\s*[_…]+|[_…]{2,}/g) || [];
+              let autoNum = (typeof section?.startingQuestionNumber === 'number' && section.startingQuestionNumber > 0)
+                ? section.startingQuestionNumber
+                : 1;
               for (const token of matches) {
-                const m = token.match(/^(\d+)/);
-                if (!m) continue;
-                const num = parseInt(m[1], 10);
+                const m = String(token).match(/^(\d+)/);
+                const num = m ? parseInt(m[1], 10) : autoNum++;
                 if (!Number.isFinite(num)) continue;
                 totalCount++;
                 const expected = map ? map[String(num)] : q?.correctAnswer;
                 const student = normalizedAnswers[`q${num}`];
-                const ok = isAnswerMatch(student, expected);
+                const ok = expected ? isAnswerMatch(student, expected) : false;
                 if (ok) correctCount++;
                 details.push({
                   questionNumber: num,
@@ -635,6 +685,56 @@ router.post('/:id/submit', async (req, res) => {
                 });
               }
             }
+            continue;
+          }
+
+          if (sectionType === 'table-completion') {
+            const start =
+              typeof section?.startingQuestionNumber === 'number' && section.startingQuestionNumber > 0
+                ? section.startingQuestionNumber
+                : 1;
+            const entries = getTableBlankEntries(firstQ, start);
+            entries.forEach(({ num, expected }) => {
+              totalCount++;
+              const student = normalizedAnswers[`q${num}`];
+              const ok = expected ? isAnswerMatch(student, expected) : false;
+              if (ok) correctCount++;
+              details.push({
+                questionNumber: num,
+                partIndex: pIdx,
+                sectionIndex: sIdx,
+                questionType: sectionType,
+                studentAnswer: student ?? '',
+                correctAnswer: expected ?? '',
+                isCorrect: ok,
+              });
+            });
+            continue;
+          }
+
+          if (sectionType === 'map-labeling') {
+            const start =
+              typeof section?.startingQuestionNumber === 'number' && section.startingQuestionNumber > 0
+                ? section.startingQuestionNumber
+                : 1;
+            const items = Array.isArray(firstItems) ? firstItems : [];
+            items.forEach((item, idx) => {
+              const num = start + idx;
+              totalCount++;
+              const expected = item?.correctAnswer ?? '';
+              const student = normalizedAnswers[`q${num}`];
+              const ok = expected ? isAnswerMatch(student, expected) : false;
+              if (ok) correctCount++;
+              details.push({
+                questionNumber: num,
+                partIndex: pIdx,
+                sectionIndex: sIdx,
+                questionType: sectionType,
+                studentAnswer: student ?? '',
+                correctAnswer: expected ?? '',
+                isCorrect: ok,
+              });
+            });
             continue;
           }
 

@@ -22,16 +22,22 @@ function validateAnswer(value, maxWords = 2) {
   // Count word tokens (words with letters or numbers)
   const tokens = trimmed.split(/\s+/).filter(Boolean);
   if (tokens.length > maxWords) return { ok: false, reason: `Không quá ${maxWords} từ.` };
-  // Allowed token pattern: starts with alnum then allow - , . / % ()
-  const allowed = /^[A-Za-z0-9][A-Za-z0-9\-.,/%()]*$/u;
-  const allOk = tokens.every(t => allowed.test(t));
-  if (!allOk) return { ok: false, reason: "Chỉ nhập chữ/số/ký tự đơn giản (-,./%)." };
   return { ok: true };
 }
 
-export default function TableCompletion({ data, onChange, startingQuestionNumber = 1, maxWords = 2 }) {
-  const [answers, setAnswers] = useState({});
+export default function TableCompletion({
+  data,
+  onChange,
+  startingQuestionNumber = 1,
+  maxWords = 2,
+  answers: externalAnswers,
+  registerQuestionRef,
+  onFocusQuestion,
+  showHeader = true,
+}) {
+  const [localAnswers, setLocalAnswers] = useState({});
   const [errors, setErrors] = useState({});
+  const answers = externalAnswers ?? localAnswers;
 
   // Number blanks sequentially across table - ROW-major (rows outer, columns left→right)
   const numbered = useMemo(() => {
@@ -86,7 +92,7 @@ export default function TableCompletion({ data, onChange, startingQuestionNumber
     const { ok, reason } = validateAnswer(v, maxWords);
     const nextAns = { ...answers, [qNum]: v };
     const nextErr = { ...errors, [qNum]: ok ? undefined : reason };
-    setAnswers(nextAns);
+    if (externalAnswers == null) setLocalAnswers(nextAns);
     setErrors(nextErr);
     onChange?.(nextAns, nextErr);
   }
@@ -101,6 +107,8 @@ export default function TableCompletion({ data, onChange, startingQuestionNumber
             aria-label={`Question ${p.q}`}
             value={answers[p.q] ?? ""}
             onChange={(e) => handleInput(p.q, e.target.value)}
+            onFocus={() => onFocusQuestion?.(p.q)}
+            ref={(el) => registerQuestionRef?.(p.q, el)}
             maxLength={60}
             className={`blank-input ${errors[p.q] ? "has-error" : ""}`}
             placeholder={`${p.q}`}
@@ -113,9 +121,13 @@ export default function TableCompletion({ data, onChange, startingQuestionNumber
 
   return (
     <div className="listening-part">
-      <h3>PART {data.part} – Questions {data.rangeStart ?? '1'}–{data.rangeEnd ?? 'N'}</h3>
-      <p className="instruction">{data.instruction}</p>
-      <h4 style={{ textAlign: "center" }}>{data.title}</h4>
+      {showHeader && (
+        <>
+          <h3>PART {data.part} – Questions {data.rangeStart ?? '1'}–{data.rangeEnd ?? 'N'}</h3>
+          <p className="instruction">{data.instruction}</p>
+          <h4 style={{ textAlign: "center" }}>{data.title}</h4>
+        </>
+      )}
       <table className="ielts-table">
         <thead>
           <tr>
@@ -172,4 +184,8 @@ TableCompletion.propTypes = {
   onChange: PropTypes.func,
   startingQuestionNumber: PropTypes.number,
   maxWords: PropTypes.number,
+  answers: PropTypes.object,
+  registerQuestionRef: PropTypes.func,
+  onFocusQuestion: PropTypes.func,
+  showHeader: PropTypes.bool,
 };

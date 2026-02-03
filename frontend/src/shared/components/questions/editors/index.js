@@ -13,7 +13,7 @@ export { default as MapLabelingEditor } from './MapLabelingEditor';
 export { default as FlowchartEditor } from './FlowchartEditor';
 
 // Table / Notes specific for IELTS Part 1
-export { default as TableCompletionEditor } from './TableCompletionEditor';
+export { default as TableCompletionEditor } from './TableCompletionEditor.jsx';
 
 // Cambridge KET/PET specific
 export { default as ClozeTestEditor } from './ClozeTestEditor';

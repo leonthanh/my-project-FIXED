@@ -3,7 +3,7 @@ import ReactQuill from "react-quill";
 import "react-quill/dist/quill.snow.css";
 import MapLabelingQuestion from '../../../shared/components/MapLabelingQuestion';
 import { colors, compactInputStyle, deleteButtonSmallStyle } from "../utils/styles";
-import TableCompletionEditor from "../../../shared/components/questions/editors/TableCompletionEditor";
+import TableCompletionEditor from "../../../shared/components/questions/editors/TableCompletionEditor.jsx";
 
 /**
  * ListeningQuestionEditor - Editor cho từng câu hỏi Listening
