@@ -98,6 +98,7 @@ const countTotalQuestions = countTotalQuestionsFromParts;
 
 const stripDataUrls = (value) => {
   const dataUrlRegex = /data:image\/[a-zA-Z]+;base64,[^"'\s)]+/g;
+  const allowDataUrlKeys = new Set(['imageUrl', 'mapImageUrl']);
 
   const walk = (input) => {
     if (typeof input === "string") {
@@ -108,7 +109,12 @@ const stripDataUrls = (value) => {
     }
     if (input && typeof input === "object") {
       return Object.fromEntries(
-        Object.entries(input).map(([key, val]) => [key, walk(val)])
+        Object.entries(input).map(([key, val]) => {
+          if (allowDataUrlKeys.has(key)) {
+            return [key, val];
+          }
+          return [key, walk(val)];
+        })
       );
     }
     return input;

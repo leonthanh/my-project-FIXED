@@ -11,7 +11,44 @@ const PeopleMatchingDisplay = ({
   answers, 
   submitted 
 }) => {
-  const { people = [], texts = [] } = section;
+  const { people = [], texts = [], textsTitle = '' } = section;
+
+  const getPersonNumber = (idx) => startingNumber + idx;
+
+  const getPersonName = (person) => {
+    if (person && typeof person === 'object') {
+      return person.name || '';
+    }
+    return String(person || '');
+  };
+
+  const getPersonNeed = (person) => {
+    if (person && typeof person === 'object') {
+      return person.need || '';
+    }
+    return '';
+  };
+
+  const getPersonImage = (person) => {
+    if (person && typeof person === 'object') {
+      return person.imageUrl || '';
+    }
+    return '';
+  };
+
+  const renderTextContent = (text) => {
+    if (text && typeof text === 'object') {
+      const title = String(text.title || '').trim();
+      const content = String(text.content || '').trim();
+      return (
+        <div style={styles.textBlock}>
+          {title && <div style={styles.textTitle}>{title}</div>}
+          {content && <div>{content}</div>}
+        </div>
+      );
+    }
+    return text;
+  };
 
   return (
     <div style={styles.container}>
@@ -22,9 +59,21 @@ const PeopleMatchingDisplay = ({
           {people.map((person, idx) => (
             <div key={idx} style={styles.personCard}>
               <div style={styles.personLetter}>
-                {String.fromCharCode(65 + idx)}
+                {getPersonNumber(idx)}
               </div>
-              <div style={styles.personName}>{person}</div>
+              {getPersonImage(person) && (
+                <img
+                  src={getPersonImage(person)}
+                  alt={getPersonName(person) || `Person ${getPersonNumber(idx)}`}
+                  style={styles.personImage}
+                />
+              )}
+              <div style={styles.personDetails}>
+                <div style={styles.personName}>{getPersonName(person)}</div>
+                {getPersonNeed(person) && (
+                  <div style={styles.personNeed}>{getPersonNeed(person)}</div>
+                )}
+              </div>
             </div>
           ))}
         </div>
@@ -32,7 +81,7 @@ const PeopleMatchingDisplay = ({
 
       {/* Matching Questions */}
       <div style={styles.questionsSection}>
-        <h4 style={styles.sectionTitle}>Match each text to a person</h4>
+        <h4 style={styles.sectionTitle}>{textsTitle || 'Match each text to a person'}</h4>
         <div style={styles.questionsList}>
           {texts.map((text, idx) => {
             const questionNumber = startingNumber + idx;
@@ -42,7 +91,7 @@ const PeopleMatchingDisplay = ({
             return (
               <div key={idx} style={styles.matchingRow}>
                 <div style={styles.questionNumber}>{questionNumber}</div>
-                <div style={styles.textContent}>{text}</div>
+                <div style={styles.textContent}>{renderTextContent(text)}</div>
                 <select
                   value={userAnswer || ''}
                   onChange={(e) => onAnswerChange(questionKey, e.target.value)}
@@ -101,6 +150,21 @@ const styles = {
     border: '1px solid #bae6fd',
     borderRadius: '8px',
   },
+  personImage: {
+    width: '48px',
+    height: '48px',
+    borderRadius: '8px',
+    objectFit: 'cover',
+    border: '1px solid #e5e7eb',
+    backgroundColor: '#f8fafc',
+    flexShrink: 0,
+  },
+  personDetails: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '4px',
+    flex: 1,
+  },
   personLetter: {
     display: 'inline-flex',
     alignItems: 'center',
@@ -119,6 +183,11 @@ const styles = {
     fontSize: '14px',
     fontWeight: 500,
     lineHeight: 1.4,
+  },
+  personNeed: {
+    fontSize: '12px',
+    lineHeight: 1.4,
+    color: '#4b5563',
   },
   questionsSection: {
     backgroundColor: '#fff',
@@ -157,6 +226,15 @@ const styles = {
     fontSize: '14px',
     lineHeight: 1.6,
     color: '#1f2937',
+  },
+  textBlock: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '6px',
+  },
+  textTitle: {
+    fontWeight: 700,
+    color: '#0f172a',
   },
   dropdown: {
     padding: '8px 12px',

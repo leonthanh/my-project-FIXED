@@ -169,7 +169,12 @@ const SignMessageEditor = ({
             {/* Option Text */}
             <input
               type="text"
-              value={options[idx]?.replace(`${opt}.`, "").replace(`${opt}`, "").trim() || ""}
+              value={
+                String(options[idx] || "")
+                  .replace(new RegExp(`^${opt}\\.\\s*`), "")
+                  .replace(new RegExp(`^${opt}\\s+`), "")
+                  .trim()
+              }
               onChange={(e) => {
                 const newOptions = [...options];
                 newOptions[idx] = `${opt}. ${e.target.value}`;
