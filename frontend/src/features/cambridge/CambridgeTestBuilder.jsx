@@ -1515,6 +1515,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
                             <QuestionEditorFactory
                               questionType={currentSection.questionType}
                               question={question}
+                              testType={testType}
                               onChange={(field, value) => {
                                 setParts(prevParts => prevParts.map((part, pIdx) => {
                                   if (pIdx !== selectedPartIndex) return part;

@@ -41,6 +41,7 @@ const QuestionEditorFactory = ({
   questionIndex = 0,
   startingNumber = 1,
   partIndex = 0,
+  testType,
 }) => {
   // Support both prop naming conventions
   const actualQuestion = question || questionData || {};
@@ -52,6 +53,7 @@ const QuestionEditorFactory = ({
     onChange: actualOnChange,
     startingNumber,
     partIndex,
+    testType,
   };
 
   // Render appropriate editor based on question type

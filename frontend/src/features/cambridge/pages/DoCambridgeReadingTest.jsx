@@ -5,6 +5,7 @@ import { apiPath, hostPath } from "../../../shared/utils/api";
 import { TestHeader } from "../../../shared/components";
 import { TEST_CONFIGS } from "../../../shared/config/questionTypes";
 import QuestionDisplayFactory from "../../../shared/components/questions/displays/QuestionDisplayFactory";
+import PeopleMatchingDisplay from "../../../shared/components/questions/displays/PeopleMatchingDisplay";
 /* eslint-disable-next-line no-unused-vars */
 import ClozeMCDisplay from "../../../shared/components/questions/displays/ClozeMCDisplay";
 import CambridgeResultsModal from "../components/CambridgeResultsModal";
@@ -513,6 +514,21 @@ const DoCambridgeReadingTest = () => {
                 part: part,
               });
             }
+          } else if (section.questionType === 'people-matching' && Array.isArray(q.people)) {
+            // For people-matching: create separate entries for each person
+            q.people.forEach((person, personIdx) => {
+              questions.push({
+                partIndex: pIdx,
+                sectionIndex: sIdx,
+                questionIndex: qIdx,
+                personIndex: personIdx,
+                questionNumber: qNum++,
+                key: `${pIdx}-${sIdx}-${personIdx}`,
+                question: q,
+                section: section,
+                part: part,
+              });
+            });
           } else {
             // Regular questions
             questions.push({
@@ -553,6 +569,10 @@ const DoCambridgeReadingTest = () => {
         
         if (questionElement) {
           questionElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          
+          if (typeof questionElement.focus === 'function') {
+            questionElement.focus();
+          }
           
           // If it's a select element (cloze-mc), focus and trigger open
           if (questionElement.tagName === 'SELECT') {
@@ -1451,6 +1471,34 @@ const DoCambridgeReadingTest = () => {
                         dangerouslySetInnerHTML={{ __html: sanitizeQuillHtml(currentQuestion.question.passage) }}
                       />
                     </div>
+                  ) : (currentQuestion.section.questionType === 'people-matching' || Array.isArray(currentQuestion.question?.people)) ? (
+                    <div className="cambridge-passage-container">
+                      {(() => {
+                        const peopleQuestions = allQuestions.filter(q => 
+                          q.partIndex === currentQuestion.partIndex &&
+                          q.sectionIndex === currentQuestion.sectionIndex &&
+                          (q.section.questionType === 'people-matching' || Array.isArray(q.question?.people))
+                        );
+                        const startNumber = peopleQuestions[0]?.questionNumber ?? currentQuestion.questionNumber;
+
+                        return (
+                          <PeopleMatchingDisplay
+                            section={{
+                              ...currentQuestion.section,
+                              id: `${currentQuestion.partIndex}-${currentQuestion.sectionIndex}`,
+                              questions: [currentQuestion.question],
+                            }}
+                            startingNumber={startNumber}
+                            answerKeyPrefix={`${currentQuestion.partIndex}-${currentQuestion.sectionIndex}`}
+                            onAnswerChange={handleAnswerChange}
+                            answers={answers}
+                            submitted={submitted}
+                            showPeople={true}
+                            showTexts={false}
+                          />
+                        );
+                      })()}
+                    </div>
                   ) : (
                     /* Fallback */
                     <div className="cambridge-passage-container">
@@ -1576,6 +1624,45 @@ const DoCambridgeReadingTest = () => {
                       </div>
                     ))
                   }
+                </div>
+              ) : (currentQuestion.section.questionType === 'people-matching' || Array.isArray(currentQuestion.question?.people)) ? (
+                <div className={`cambridge-question-wrapper ${answers[currentQuestion.key] ? 'answered' : ''}`}>
+                  {/* Flag Button */}
+                  <button
+                    className={`cambridge-flag-button ${flaggedQuestions.has(currentQuestion.key) ? 'flagged' : ''}`}
+                    onClick={() => toggleFlag(currentQuestion.key)}
+                    aria-label="Flag question"
+                  >
+                    {flaggedQuestions.has(currentQuestion.key) ? '🚩' : '⚐'}
+                  </button>
+
+                  <div style={{ paddingRight: '50px' }}>
+                    {(() => {
+                      const peopleQuestions = allQuestions.filter(q => 
+                        q.partIndex === currentQuestion.partIndex &&
+                        q.sectionIndex === currentQuestion.sectionIndex &&
+                        q.section.questionType === 'people-matching'
+                      );
+                      const startNumber = peopleQuestions[0]?.questionNumber ?? currentQuestion.questionNumber;
+
+                      return (
+                        <PeopleMatchingDisplay
+                          section={{
+                            ...currentQuestion.section,
+                            id: `${currentQuestion.partIndex}-${currentQuestion.sectionIndex}`,
+                            questions: [currentQuestion.question],
+                          }}
+                          startingNumber={startNumber}
+                          answerKeyPrefix={`${currentQuestion.partIndex}-${currentQuestion.sectionIndex}`}
+                          onAnswerChange={handleAnswerChange}
+                          answers={answers}
+                          submitted={submitted}
+                          showPeople={false}
+                          showTexts={true}
+                        />
+                      );
+                    })()}
+                  </div>
                 </div>
               ) : (
                 /* Other question types: Show single question */

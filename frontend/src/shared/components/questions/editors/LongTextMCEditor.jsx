@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import ReactQuill from "react-quill";
 import "react-quill/dist/quill.snow.css";
 import useQuillImageUpload from "../../../hooks/useQuillImageUpload";
@@ -25,6 +25,7 @@ const LongTextMCEditor = ({
   onChange,
   startingNumber = 7,
   partIndex = 2, // Default to Part 3 (index 2)
+  testType,
 }) => {
   const { quillRef, modules } = useQuillImageUpload();
   const safeQuestion = question && typeof question === 'object' && !Array.isArray(question) ? question : {};
@@ -32,15 +33,39 @@ const LongTextMCEditor = ({
   const passage = safeQuestion?.passage || '';
   const passageValue = typeof passage === 'string' ? passage : '';
   const passageType = safeQuestion?.passageType || 'conversation'; // conversation, article, email, story
+  const isPet = String(testType || '').toLowerCase().includes('pet');
+  const defaultOptionCount = isPet ? 4 : 3;
+  const buildDefaultOptions = (count) => Array.from({ length: count }, (_, idx) => `${String.fromCharCode(65 + idx)}. `);
   const questions = Array.isArray(safeQuestion?.questions) ? safeQuestion.questions : [ 
-    { questionText: '', options: ['A. ', 'B. ', 'C. '], correctAnswer: '' },
-    { questionText: '', options: ['A. ', 'B. ', 'C. '], correctAnswer: '' },
-    { questionText: '', options: ['A. ', 'B. ', 'C. '], correctAnswer: '' },
-    { questionText: '', options: ['A. ', 'B. ', 'C. '], correctAnswer: '' },
-    { questionText: '', options: ['A. ', 'B. ', 'C. '], correctAnswer: '' },
-    { questionText: '', options: ['A. ', 'B. ', 'C. '], correctAnswer: '' },
-    { questionText: '', options: ['A. ', 'B. ', 'C. '], correctAnswer: '' },
+    { questionText: '', options: buildDefaultOptions(defaultOptionCount), correctAnswer: '' },
+    { questionText: '', options: buildDefaultOptions(defaultOptionCount), correctAnswer: '' },
+    { questionText: '', options: buildDefaultOptions(defaultOptionCount), correctAnswer: '' },
+    { questionText: '', options: buildDefaultOptions(defaultOptionCount), correctAnswer: '' },
+    { questionText: '', options: buildDefaultOptions(defaultOptionCount), correctAnswer: '' },
+    { questionText: '', options: buildDefaultOptions(defaultOptionCount), correctAnswer: '' },
+    { questionText: '', options: buildDefaultOptions(defaultOptionCount), correctAnswer: '' },
   ];
+  const maxOptionLength = Math.max(
+    defaultOptionCount,
+    ...questions.map((q) => (Array.isArray(q?.options) ? q.options.length : 0))
+  );
+  const optionLabels = ['A', 'B', 'C', 'D'].slice(0, maxOptionLength);
+
+  useEffect(() => {
+    const needsNormalize = questions.some((q) => (Array.isArray(q?.options) ? q.options.length : 0) < maxOptionLength);
+    if (!needsNormalize) return;
+
+    const normalized = questions.map((q) => {
+      const prevOptions = Array.isArray(q?.options) ? [...q.options] : [];
+      while (prevOptions.length < maxOptionLength) {
+        const label = String.fromCharCode(65 + prevOptions.length);
+        prevOptions.push(`${label}. `);
+      }
+      return { ...q, options: prevOptions };
+    });
+
+    onChange("questions", normalized);
+  }, [questions, maxOptionLength, onChange]);
 
   const handleQuestionChange = (index, field, value) => {
     const newQuestions = [...questions];
@@ -49,10 +74,10 @@ const LongTextMCEditor = ({
   };
 
   const handleOptionChange = (qIndex, optIndex, value) => {
-    const opt = ['A', 'B', 'C'][optIndex];
+    const opt = optionLabels[optIndex];
     const nextQuestions = questions.map((q, idx) => {
       if (idx !== qIndex) return q;
-      const prevOptions = Array.isArray(q?.options) ? q.options : ['A. ', 'B. ', 'C. '];
+      const prevOptions = Array.isArray(q?.options) ? q.options : buildDefaultOptions(maxOptionLength);
       const nextOptions = prevOptions.map((o, i) => (i === optIndex ? `${opt}. ${value}` : o));
       return { ...q, options: nextOptions };
     });
@@ -63,7 +88,7 @@ const LongTextMCEditor = ({
   const handleAddQuestion = () => {
     const newQuestions = [...questions, {
       questionText: '',
-      options: ['A. ', 'B. ', 'C. '],
+      options: buildDefaultOptions(maxOptionLength),
       correctAnswer: ''
     }];
     onChange("questions", newQuestions);
@@ -297,7 +322,7 @@ const LongTextMCEditor = ({
 
             {/* Options */}
             <div style={{ marginLeft: "42px" }}>
-              {['A', 'B', 'C'].map((opt, optIdx) => (
+              {optionLabels.map((opt, optIdx) => (
                 <div key={opt} style={{ 
                   display: "flex", 
                   gap: "8px", 
@@ -324,7 +349,7 @@ const LongTextMCEditor = ({
                       q.options?.[optIdx]
                         ? q.options[optIdx].startsWith(`${opt}. `)
                           ? q.options[optIdx].substring(3)
-                          : q.options[optIdx].replace(/^[A-C]\. /, "")
+                          : q.options[optIdx].replace(/^[A-D]\. /, "")
                         : ""
                     }
                     onChange={(e) => handleOptionChange(qIdx, optIdx, e.target.value)}
