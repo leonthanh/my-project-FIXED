@@ -8,6 +8,7 @@ import {
   SummaryCompletionDisplay,
   WordFormDisplay,
   ShortMessageDisplay,
+  InlineChoiceDisplay,
 } from './index';
 
 /**
@@ -102,6 +103,17 @@ const QuestionDisplayFactory = ({
       // Part 6: 6 sentences with root words
       return (
         <WordFormDisplay
+          section={section}
+          startingNumber={startingNumber}
+          onAnswerChange={onAnswerChange}
+          answers={answers}
+          submitted={submitted}
+        />
+      );
+
+    case 'inline-choice':
+      return (
+        <InlineChoiceDisplay
           section={section}
           startingNumber={startingNumber}
           onAnswerChange={onAnswerChange}

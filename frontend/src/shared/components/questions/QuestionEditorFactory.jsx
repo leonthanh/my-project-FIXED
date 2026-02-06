@@ -21,6 +21,7 @@ import {
   ClozeMCEditor,
   WordFormEditor,
   MultipleChoicePicturesEditor,
+  InlineChoiceEditor,
 } from "./editors";
 
 /**
@@ -133,6 +134,9 @@ const QuestionEditorFactory = ({
 
     case 'multiple-choice-pictures':
       return <MultipleChoicePicturesEditor {...commonProps} />;
+
+    case 'inline-choice':
+      return <InlineChoiceEditor {...commonProps} />;
 
     // Placeholder for future types
     case 'true-false-not-given':

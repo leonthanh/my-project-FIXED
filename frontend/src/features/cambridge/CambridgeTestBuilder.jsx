@@ -528,6 +528,10 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
     else if (section.questionType === 'cloze-mc' && section.questions[0]?.blanks) {
       return section.questions[0].blanks.length;
     }
+    // Inline Choice: đếm số blanks
+    else if (section.questionType === 'inline-choice' && section.questions[0]?.blanks) {
+      return section.questions[0].blanks.length;
+    }
     // Open Cloze: đếm số blanks từ answers object
     else if (section.questionType === 'cloze-test' && section.questions[0]?.answers) {
       return Object.keys(section.questions[0].answers).length;

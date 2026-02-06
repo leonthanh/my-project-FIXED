@@ -396,6 +396,28 @@ export const QUESTION_TYPES = {
     supportedTests: ['ket-reading', 'pet-reading'],
   },
 
+  'inline-choice': {
+    id: 'inline-choice',
+    label: 'Inline Choice (PET Part 5)',
+    labelVi: 'Chon dap an trong doan van',
+    icon: '🔽',
+    description: 'PET Part 5: Chon dap an A-D ngay trong doan van',
+    editor: 'InlineChoiceEditor',
+    defaultData: {
+      passageTitle: '',
+      passage: '',
+      blanks: [
+        { number: 21, options: ['temperature', 'condition', 'climate', 'weather'], correctAnswer: '' },
+        { number: 22, options: ['temperature', 'condition', 'climate', 'weather'], correctAnswer: '' },
+        { number: 23, options: ['temperature', 'condition', 'climate', 'weather'], correctAnswer: '' },
+        { number: 24, options: ['temperature', 'condition', 'climate', 'weather'], correctAnswer: '' },
+        { number: 25, options: ['temperature', 'condition', 'climate', 'weather'], correctAnswer: '' },
+        { number: 26, options: ['temperature', 'condition', 'climate', 'weather'], correctAnswer: '' },
+      ],
+    },
+    supportedTests: ['pet-reading'],
+  },
+
   'word-form': {
     id: 'word-form',
     label: 'Word Formation',
@@ -539,6 +561,10 @@ const KET_UNIFIED_QUESTION_TYPES = [
   'gap-match',
 ];
 
+const PET_READING_QUESTION_TYPES = KET_UNIFIED_QUESTION_TYPES
+  .filter((type) => type !== 'cloze-test')
+  .concat('inline-choice');
+
 export const TEST_CONFIGS = {
   // IELTS Tests
   'ielts-listening': {
@@ -640,13 +666,13 @@ export const TEST_CONFIGS = {
     totalQuestions: 32,
     parts: 7,
     duration: 60, // minutes
-    questionTypes: KET_UNIFIED_QUESTION_TYPES,
+    questionTypes: PET_READING_QUESTION_TYPES,
     partStructure: [
       { part: 1, questions: '1-6', questionType: 'sign-message', description: 'Signs & Messages - Hình biển báo + chọn A/B/C' },
       { part: 2, questions: '7-13', questionType: 'people-matching', description: 'Matching - 5 người nối với 8 texts' },
       { part: 3, questions: '14-18', questionType: 'long-text-mc', description: 'Long Text - Đoạn văn dài + 5 câu MC' },
       { part: 4, questions: '19-24', questionType: 'cloze-mc', description: 'Cloze MC - Chọn từ A/B/C cho mỗi blank' },
-      { part: 5, questions: '25-30', questionType: 'cloze-test', description: 'Open Cloze - Điền từ vào chỗ trống' },
+      { part: 5, questions: '25-30', questionType: 'inline-choice', description: 'Inline Choice - Chọn từ trong đoạn văn' },
       { part: 6, questions: '31-36', questionType: 'word-form', description: 'Word Formation - Biến đổi từ' },
       { part: 7, questions: 'Writing', questionType: 'short-message', description: 'Writing Task - Short Message (25-35 words)' },
     ],

@@ -8,6 +8,7 @@ import QuestionDisplayFactory from "../../../shared/components/questions/display
 import PeopleMatchingDisplay from "../../../shared/components/questions/displays/PeopleMatchingDisplay";
 /* eslint-disable-next-line no-unused-vars */
 import ClozeMCDisplay from "../../../shared/components/questions/displays/ClozeMCDisplay";
+import InlineChoiceDisplay from "../../../shared/components/questions/displays/InlineChoiceDisplay";
 import CambridgeResultsModal from "../components/CambridgeResultsModal";
 import "./DoCambridgeReadingTest.css";
 
@@ -314,6 +315,10 @@ const DoCambridgeReadingTest = () => {
         || q.section?.questionType
         || q.question?.questionType;
 
+      if (questionType === 'inline-choice' && typeof resolvedCorrect === 'string') {
+        resolvedCorrect = String(resolvedCorrect).replace(/^[A-H]\.\s*/i, '').trim();
+      }
+
       // Missing correct answer: do not penalize, just log
       if (resolvedCorrect === undefined || resolvedCorrect === null) {
         debugInfo.push(`Q${q.questionNumber}: No correctAnswer field`);
@@ -477,6 +482,22 @@ const DoCambridgeReadingTest = () => {
                 key: `${pIdx}-${sIdx}-${qIdx}-${blankIdx}`,
                 question: q, // Keep parent question object (has passage)
                 blank: blank, // Individual blank data
+                section: section,
+                part: part,
+              });
+            });
+          } else if (section.questionType === 'inline-choice' && q.blanks && Array.isArray(q.blanks)) {
+            // For inline-choice: create separate entries for each blank
+            q.blanks.forEach((blank, blankIdx) => {
+              questions.push({
+                partIndex: pIdx,
+                sectionIndex: sIdx,
+                questionIndex: qIdx,
+                blankIndex: blankIdx,
+                questionNumber: qNum++,
+                key: `${pIdx}-${sIdx}-${qIdx}-${blankIdx}`,
+                question: q,
+                blank: blank,
                 section: section,
                 part: part,
               });
@@ -1119,6 +1140,67 @@ const DoCambridgeReadingTest = () => {
                     >
                       {renderPassageWithInputs()}
                     </div>
+                  </div>
+                );
+              })()}
+            </div>
+          </div>
+        </>
+      ) : currentQuestion && currentQuestion.section.questionType === 'inline-choice' ? (
+        /* Part 5 (Inline Choice): Single column with inline dropdowns */
+        <>
+          {currentQuestion.part.instruction && (
+            <div
+              className="cambridge-part-instruction"
+              dangerouslySetInnerHTML={{ __html: currentQuestion.part.instruction }}
+            />
+          )}
+
+          <div style={{ flex: 1, overflowY: 'auto', padding: '12px 16px' }}>
+            <div style={{ maxWidth: '100%', width: '100%', margin: '0 auto' }}>
+              {(() => {
+                const questionData = currentQuestion.section.questions?.[0] || {};
+                const { passageTitle = '' } = questionData;
+                const keyPrefix = `${currentQuestion.partIndex}-${currentQuestion.sectionIndex}-${currentQuestion.questionIndex}`;
+
+                return (
+                  <div
+                    className={`cambridge-question-wrapper ${flaggedQuestions.has(currentQuestion.key) ? 'flagged-section' : ''}`}
+                    style={{ position: 'relative', width: '100%' }}
+                  >
+                    <button
+                      className={`cambridge-flag-button ${flaggedQuestions.has(currentQuestion.key) ? 'flagged' : ''}`}
+                      onClick={() => toggleFlag(currentQuestion.key)}
+                      aria-label="Flag question"
+                      style={{ position: 'absolute', top: 0, right: 0 }}
+                    >
+                      {flaggedQuestions.has(currentQuestion.key) ? '🚩' : '⚐'}
+                    </button>
+
+                    {passageTitle && (
+                      <h3
+                        style={{
+                          marginBottom: '16px',
+                          fontSize: '18px',
+                          fontWeight: 600,
+                          color: '#0e276f'
+                        }}
+                        dangerouslySetInnerHTML={{ __html: passageTitle }}
+                      />
+                    )}
+
+                    <InlineChoiceDisplay
+                      section={{
+                        ...currentQuestion.section,
+                        ...questionData,
+                        id: keyPrefix,
+                      }}
+                      startingNumber={currentQuestion.questionNumber}
+                      onAnswerChange={handleAnswerChange}
+                      answers={answers}
+                      submitted={submitted}
+                      answerKeyPrefix={keyPrefix}
+                    />
                   </div>
                 );
               })()}
