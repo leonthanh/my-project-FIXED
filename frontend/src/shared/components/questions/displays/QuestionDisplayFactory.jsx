@@ -21,6 +21,7 @@ const QuestionDisplayFactory = ({
   onAnswerChange,
   answers,
   submitted,
+  testType,
 }) => {
   switch (questionType) {
     case 'sign-message':
@@ -69,6 +70,7 @@ const QuestionDisplayFactory = ({
           onAnswerChange={onAnswerChange}
           answers={answers}
           submitted={submitted}
+          testType={testType}
         />
       );
 

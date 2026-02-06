@@ -960,8 +960,8 @@ const DoCambridgeReadingTest = () => {
           )}
 
           {/* Scrollable Content */}
-          <div style={{ flex: 1, overflowY: 'auto', padding: '24px' }}>
-            <div style={{ maxWidth: '900px', margin: '0 auto' }}>
+          <div style={{ flex: 1, overflowY: 'auto', padding: '16px' }}>
+            <div style={{ maxWidth: '1100px', margin: '0 auto' }}>
               {(() => {
                 const questionData = currentQuestion.section.questions?.[0] || {};
                 const passageText = questionData.passageText || questionData.passage || '';
@@ -1126,7 +1126,7 @@ const DoCambridgeReadingTest = () => {
           </div>
         </>
       ) : currentQuestion && currentQuestion.section.questionType === 'cloze-mc' ? (
-        /* Part 4 (Cloze MC): Single column with inline dropdowns */
+        /* Part 4 (Cloze MC): PET drag & drop tokens or KET dropdowns */
         <>
           {/* Part Instruction - Fixed, doesn't scroll */}
           {currentQuestion.part.instruction && (
@@ -1137,12 +1137,58 @@ const DoCambridgeReadingTest = () => {
           )}
 
           {/* Scrollable Content */}
-          <div style={{ flex: 1, overflowY: 'auto', padding: '24px' }}>
-            <div style={{ maxWidth: '900px', margin: '0 auto' }}>
+          <div style={{ flex: 1, overflowY: 'auto', padding: '12px 16px' }}>
+            <div style={{ maxWidth: '100%', width: '100%', margin: '0 auto' }}>
               {(() => {
                 const questionData = currentQuestion.section.questions?.[0] || {};
                 const { passage = '', blanks = [], passageTitle = '' } = questionData;
-                
+                const isPetReading = String(testType || test?.testType || '').toLowerCase().includes('pet');
+                const keyPrefix = `${currentQuestion.partIndex}-${currentQuestion.sectionIndex}-${currentQuestion.questionIndex}`;
+
+                if (isPetReading) {
+                  return (
+                    <div
+                      className={`cambridge-question-wrapper ${flaggedQuestions.has(currentQuestion.key) ? 'flagged-section' : ''}`}
+                      style={{ position: 'relative', width: '100%' }}
+                    >
+                      <button
+                        className={`cambridge-flag-button ${flaggedQuestions.has(currentQuestion.key) ? 'flagged' : ''}`}
+                        onClick={() => toggleFlag(currentQuestion.key)}
+                        aria-label="Flag question"
+                        style={{ position: 'absolute', top: 0, right: 0 }}
+                      >
+                        {flaggedQuestions.has(currentQuestion.key) ? '🚩' : '⚐'}
+                      </button>
+
+                      {passageTitle && (
+                        <h3 
+                          style={{ 
+                            marginBottom: '16px',
+                            fontSize: '18px',
+                            fontWeight: 600,
+                            color: '#0e276f'
+                          }}
+                          dangerouslySetInnerHTML={{ __html: passageTitle }}
+                        />
+                      )}
+
+                      <ClozeMCDisplay
+                        section={{
+                          ...currentQuestion.section,
+                          ...questionData,
+                          id: keyPrefix,
+                        }}
+                        startingNumber={currentQuestion.questionNumber}
+                        onAnswerChange={handleAnswerChange}
+                        answers={answers}
+                        submitted={submitted}
+                        testType={testType}
+                        answerKeyPrefix={keyPrefix}
+                      />
+                    </div>
+                  );
+                }
+
                 const renderPassageWithDropdowns = () => {
                   if (!passage) return null;
                   
@@ -1229,7 +1275,10 @@ const DoCambridgeReadingTest = () => {
                 };
                 
                 return (
-                  <div className={`cambridge-question-wrapper ${flaggedQuestions.has(currentQuestion.key) ? 'flagged-section' : ''}`} style={{ position: 'relative' }}>
+                  <div
+                    className={`cambridge-question-wrapper ${flaggedQuestions.has(currentQuestion.key) ? 'flagged-section' : ''}`}
+                    style={{ position: 'relative', width: '100%' }}
+                  >
                     {/* Flag Button */}
                     <button
                       className={`cambridge-flag-button ${flaggedQuestions.has(currentQuestion.key) ? 'flagged' : ''}`}

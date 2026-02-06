@@ -33,6 +33,9 @@ const ClozeMCEditor = ({
   const isPet = String(testType || '').toLowerCase().includes('pet');
   const defaultOptionCount = isPet ? 8 : 3;
   const buildDefaultOptions = (count) => Array.from({ length: count }, (_, idx) => `${String.fromCharCode(65 + idx)}. `);
+  const initialSharedOptions = Array.isArray(question?.sharedOptions) && question.sharedOptions.length > 0
+    ? question.sharedOptions
+    : buildDefaultOptions(defaultOptionCount);
   const blanks = question?.blanks || [ 
     { number: 16, options: buildDefaultOptions(defaultOptionCount), correctAnswer: '' },
     { number: 17, options: buildDefaultOptions(defaultOptionCount), correctAnswer: '' },
@@ -77,6 +80,23 @@ const ClozeMCEditor = ({
     prevOptions[optIdx] = `${opt}. ${value}`;
     newBlanks[blankIdx].options = prevOptions;
     onChange("blanks", newBlanks);
+  };
+
+  const handleSharedOptionChange = (optIdx, value) => {
+    const opt = optionLabels[optIdx];
+    const nextShared = [...initialSharedOptions];
+    while (nextShared.length < maxOptionLength) {
+      const label = String.fromCharCode(65 + nextShared.length);
+      nextShared.push(`${label}. `);
+    }
+    nextShared[optIdx] = `${opt}. ${value}`;
+    onChange('sharedOptions', nextShared);
+
+    const nextBlanks = blanks.map((blank) => ({
+      ...blank,
+      options: nextShared,
+    }));
+    onChange('blanks', nextBlanks);
   };
 
   const addBlank = () => {
@@ -257,6 +277,47 @@ const ClozeMCEditor = ({
           </button>
         </div>
 
+        {isPet && (
+          <div style={{
+            padding: "12px",
+            backgroundColor: "#fff",
+            borderRadius: "8px",
+            border: "1px solid #fecaca",
+            marginBottom: "12px",
+          }}>
+            <div style={{ fontSize: "13px", fontWeight: 600, color: "#991b1b", marginBottom: "10px" }}>
+              🧩 Danh sách lựa chọn A–H (dùng chung cho tất cả chỗ trống)
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "10px" }}>
+              {optionLabels.map((opt, optIdx) => (
+                <div key={opt} style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                  <span style={{
+                    minWidth: "24px",
+                    height: "24px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    backgroundColor: "#f3f4f6",
+                    color: "#6366f1",
+                    borderRadius: "4px",
+                    fontWeight: 600,
+                    fontSize: "12px",
+                  }}>
+                    {opt}
+                  </span>
+                  <input
+                    type="text"
+                    value={initialSharedOptions?.[optIdx]?.replace(`${opt}.`, "").replace(`${opt}`, "").trim() || ""}
+                    onChange={(e) => handleSharedOptionChange(optIdx, e.target.value)}
+                    placeholder={`Option ${opt}`}
+                    style={{ ...styles.input, flex: 1, marginBottom: 0, fontSize: "12px", padding: "6px 10px" }}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Grid of blanks */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: "12px" }}>
           {blanks.map((blank, blankIdx) => (
@@ -305,8 +366,7 @@ const ClozeMCEditor = ({
                 Question {blank.number}
               </div>
 
-              {/* Options */}
-              {optionLabels.map((opt, optIdx) => (
+              {!isPet && optionLabels.map((opt, optIdx) => (
                 <div key={opt} style={{ 
                   display: "flex", 
                   gap: "6px", 
@@ -354,6 +414,28 @@ const ClozeMCEditor = ({
                   </label>
                 </div>
               ))}
+
+              {isPet && (
+                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  <span style={{ fontSize: "12px", color: "#6b7280" }}>Đáp án:</span>
+                  <select
+                    value={blank.correctAnswer || ''}
+                    onChange={(e) => handleBlankChange(blankIdx, 'correctAnswer', e.target.value)}
+                    style={{
+                      padding: "4px 8px",
+                      borderRadius: "4px",
+                      border: "1px solid #d1d5db",
+                      fontSize: "12px",
+                      backgroundColor: blank.correctAnswer ? "#dcfce7" : "white",
+                    }}
+                  >
+                    <option value="">-- Chọn đáp án --</option>
+                    {optionLabels.map((opt) => (
+                      <option key={opt} value={opt}>{opt}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
             </div>
           ))}
         </div>
