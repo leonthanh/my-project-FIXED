@@ -13,6 +13,7 @@ const InlineChoiceDisplay = ({
 }) => {
   const { passage, blanks = [] } = section;
   const resolvedKeyPrefix = answerKeyPrefix || section?.id || 'inline-choice';
+  const [openKey, setOpenKey] = React.useState(null);
 
   const blankIndexByNumber = useMemo(() => {
     const map = new Map();
@@ -24,7 +25,12 @@ const InlineChoiceDisplay = ({
     return map;
   }, [blanks]);
 
-  const stripOptionLabel = (raw = '') => String(raw).replace(/^[A-H]\.?\s*/i, '').trim();
+  // Only strip leading labels like "A. proud" or "A proud", NOT bare words like "convinced"
+  const stripOptionLabel = (raw = '') => {
+    const s = String(raw).trim();
+    const m = s.match(/^[A-H](?:\.\s*|\s+)(.+)$/i);
+    return m ? m[1].trim() : s;
+  };
 
   const renderInlineChoice = (number) => {
     const blankIdx = blankIndexByNumber.get(number);
@@ -39,32 +45,57 @@ const InlineChoiceDisplay = ({
     const normalizedCorrect = String(correctAnswer || '').trim().toLowerCase();
     const isCorrect = submitted && normalizedUser && normalizedUser === normalizedCorrect;
     const isWrong = submitted && normalizedUser && normalizedUser !== normalizedCorrect;
+    const displayValue = userAnswer ? stripOptionLabel(userAnswer) : '--';
 
     return (
       <span key={`inline-${number}`} style={styles.inlineWrapper}>
         <span style={styles.inlineNumber}>{number}</span>
-        <select
-          id={`question-${number}`}
-          value={userAnswer}
-          onChange={(event) => onAnswerChange(questionKey, event.target.value)}
-          disabled={submitted}
-          style={{
-            ...styles.inlineSelect,
-            ...(submitted && isCorrect ? styles.inlineSelectCorrect : null),
-            ...(submitted && isWrong ? styles.inlineSelectWrong : null),
-          }}
-        >
-          <option value="">({number})</option>
-          {options.map((opt, optIdx) => {
-            const label = String.fromCharCode(65 + optIdx);
-            const cleanOpt = stripOptionLabel(opt);
-            return (
-              <option key={`${label}-${optIdx}`} value={cleanOpt}>
-                {label} {cleanOpt}
-              </option>
-            );
-          })}
-        </select>
+        <span style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}>
+          <button
+            id={`question-${number}`}
+            data-inline-choice="true"
+            type="button"
+            disabled={submitted}
+            onClick={() => {
+              if (submitted) return;
+              setOpenKey((prev) => (prev === questionKey ? null : questionKey));
+            }}
+            onFocus={() => {
+              if (submitted) return;
+              setOpenKey((prev) => (prev === questionKey ? prev : questionKey));
+            }}
+            style={{
+              ...styles.inlineButton,
+              ...(submitted && isCorrect ? styles.inlineSelectCorrect : null),
+              ...(submitted && isWrong ? styles.inlineSelectWrong : null),
+            }}
+          >
+            {displayValue}
+          </button>
+
+          {openKey === questionKey && !submitted && (
+            <div style={styles.inlineMenu}>
+              {options.map((opt, optIdx) => {
+                const label = String.fromCharCode(65 + optIdx);
+                const cleanOpt = stripOptionLabel(opt);
+                return (
+                  <button
+                    key={`${label}-${optIdx}`}
+                    type="button"
+                    onClick={() => {
+                      onAnswerChange(questionKey, cleanOpt);
+                      setOpenKey(null);
+                    }}
+                    style={styles.inlineMenuItem}
+                  >
+                    <span style={styles.inlineMenuLabel}>{label}</span>
+                    <span>{cleanOpt}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </span>
         {submitted && isWrong && correctAnswer && (
           <span style={styles.inlineCorrect}>✓ {stripOptionLabel(correctAnswer)}</span>
         )}
@@ -172,8 +203,8 @@ const styles = {
     fontWeight: 700,
     fontSize: '12px',
   },
-  inlineSelect: {
-    minWidth: '160px',
+  inlineButton: {
+    minWidth: '120px',
     padding: '6px 10px',
     borderRadius: '6px',
     border: '1.5px solid #cbd5f5',
@@ -183,6 +214,48 @@ const styles = {
     fontSize: '13px',
     cursor: 'pointer',
     scrollMarginTop: '100px',
+  },
+  inlineMenu: {
+    position: 'absolute',
+    bottom: '100%',
+    left: 0,
+    marginBottom: '6px',
+    border: '1px solid #cbd5f5',
+    borderRadius: '8px',
+    backgroundColor: '#fff',
+    padding: '6px 8px',
+    display: 'flex',
+    flexDirection: 'row',
+    gap: '8px',
+    boxShadow: '0 8px 16px rgba(15, 23, 42, 0.12)',
+    zIndex: 5,
+    minWidth: 'max-content',
+    whiteSpace: 'nowrap',
+  },
+  inlineMenuItem: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '8px',
+    padding: '6px 10px',
+    borderRadius: '6px',
+    border: '1px solid #e2e8f0',
+    backgroundColor: '#f8fafc',
+    cursor: 'pointer',
+    fontSize: '13px',
+    color: '#0f172a',
+    textAlign: 'left',
+  },
+  inlineMenuLabel: {
+    minWidth: '20px',
+    height: '20px',
+    borderRadius: '4px',
+    backgroundColor: '#0e276f',
+    color: '#fff',
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: '11px',
+    fontWeight: 700,
   },
   inlineSelectCorrect: {
     borderColor: '#16a34a',
