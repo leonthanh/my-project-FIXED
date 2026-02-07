@@ -3,7 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 
 // Import from new feature-based structure
 import { EditTest, AdminWritingSubmissions, SelectTest, MyFeedback, ReviewSubmission, Review, AdminReadingSubmissions, AdminListeningSubmissions, CambridgeSubmissionsPage } from './features/admin';
-import { WritingTest, CreateWritingTest, PetWritingTest, CreatePetWritingTest, SelectPetWritingTest } from './features/writing';
+import { WritingTest, CreateWritingTest, PetWritingTest, CreatePetWritingTest, SelectPetWritingTest, EditPetWritingTest } from './features/writing';
 import { Login } from './features/auth';
 import { CreateReadingTest, EditReadingTest, DoReadingTest, TakeReadingTest, ReadingResults } from './features/reading';
 import { CreateListeningTest, EditListeningTest, DoListeningTest, ListeningResults } from './features/listening';
@@ -57,6 +57,11 @@ function App() {
         <Route path="/admin/create-pet-writing" element={
           <ProtectedRoute role="teacher">
             <CreatePetWritingTest />
+          </ProtectedRoute>
+        } />
+        <Route path="/admin/edit-pet-writing/:id" element={
+          <ProtectedRoute role="teacher">
+            <EditPetWritingTest />
           </ProtectedRoute>
         } />
         

@@ -5,3 +5,4 @@ export { default as SelectWritingTest } from './pages/SelectWritingTest';
 export { default as PetWritingTest } from './pages/PetWritingTest';
 export { default as CreatePetWritingTest } from './pages/CreatePetWritingTest';
 export { default as SelectPetWritingTest } from './pages/SelectPetWritingTest';
+export { default as EditPetWritingTest } from './pages/EditPetWritingTest';

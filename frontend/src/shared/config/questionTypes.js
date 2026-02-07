@@ -693,6 +693,20 @@ export const TEST_CONFIGS = {
     ],
   },
 
+  'pet-writing': {
+    id: 'pet-writing',
+    name: 'PET Writing',
+    nameVi: 'PET Writing',
+    totalQuestions: 2,
+    parts: 2,
+    duration: 45, // minutes
+    questionTypes: [],
+    partStructure: [
+      { part: 1, questions: '1', description: 'Email writing (about 100 words)' },
+      { part: 2, questions: '2-3', description: 'Answer one of two questions (about 100 words)' },
+    ],
+  },
+
   // Young Learners
   'flyers': {
     id: 'flyers',

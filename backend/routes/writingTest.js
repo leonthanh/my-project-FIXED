@@ -208,4 +208,51 @@ router.put('/:id', requireAuth, requireRole('teacher','admin'), async (req, res)
   }
 });
 
+// ✅ Route cập nhật đề thi (có ảnh)
+router.put('/:id/with-image', requireAuth, requireRole('teacher','admin'), upload.single('image'), async (req, res) => {
+  try {
+    const {
+      classCode,
+      teacherName,
+      task1,
+      task2,
+      testType,
+      part2Question2,
+      part2Question3,
+    } = req.body;
+    const test = await WritingTest.findByPk(req.params.id);
+
+    if (!test) {
+      return res.status(404).json({ message: 'Không tìm thấy đề thi' });
+    }
+
+    const resolvedType = testType || test.testType || 'writing';
+    const isPetWriting = resolvedType === 'pet-writing';
+
+    if (!task1 || (!isPetWriting && !task2)) {
+      return res.status(400).json({ message: 'Vui lòng nhập đầy đủ Task 1 và Task 2' });
+    }
+
+    if (isPetWriting && (!part2Question2 || !part2Question3)) {
+      return res.status(400).json({ message: 'Vui lòng nhập đầy đủ câu hỏi Part 2' });
+    }
+
+    await test.update({
+      classCode,
+      teacherName,
+      task1,
+      task2: isPetWriting ? (task2 || '') : task2,
+      testType: resolvedType,
+      part2Question2,
+      part2Question3,
+      task1Image: req.file ? `/uploads/${req.file.filename}` : test.task1Image,
+    });
+
+    res.json({ message: '✅ Đã cập nhật đề thi thành công', test });
+  } catch (err) {
+    console.error('❌ Lỗi cập nhật đề thi (có ảnh):', err);
+    res.status(500).json({ message: 'Lỗi server khi cập nhật đề thi' });
+  }
+});
+
 module.exports = router;

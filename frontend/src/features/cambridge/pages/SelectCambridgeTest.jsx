@@ -18,6 +18,7 @@ const SelectCambridgeTest = () => {
   const [tests, setTests] = useState({
     listening: [],
     reading: [],
+    writing: [],
   });
   const [activeTab, setActiveTab] = useState("listening");
   const [activeTestType, setActiveTestType] = useState("ket");
@@ -39,10 +40,19 @@ const SelectCambridgeTest = () => {
         setLoading(true);
         setError(null);
 
-        const [listeningRes, readingRes] = await Promise.all([
+        const requests = [
           fetch(apiPath(`cambridge/listening-tests?testType=${activeTestType}-listening`)),
           fetch(apiPath(`cambridge/reading-tests?testType=${activeTestType}-reading`)),
-        ]);
+        ];
+
+        if (activeTestType === "pet") {
+          requests.push(fetch(apiPath("writing-tests?testType=pet-writing")));
+        }
+
+        const responses = await Promise.all(requests);
+        const listeningRes = responses[0];
+        const readingRes = responses[1];
+        const writingRes = responses[2];
 
         if (!listeningRes.ok || !readingRes.ok) {
           throw new Error("Không thể tải danh sách đề");
@@ -50,15 +60,17 @@ const SelectCambridgeTest = () => {
 
         const listeningData = await listeningRes.json();
         const readingData = await readingRes.json();
+        const writingData = writingRes ? await writingRes.json() : [];
 
         setTests({
           listening: Array.isArray(listeningData) ? listeningData : [],
           reading: Array.isArray(readingData) ? readingData : [],
+          writing: Array.isArray(writingData) ? writingData : [],
         });
       } catch (err) {
         console.error("❌ Lỗi khi tải đề Cambridge:", err);
         setError(err.message);
-        setTests({ listening: [], reading: [] });
+        setTests({ listening: [], reading: [], writing: [] });
       } finally {
         setLoading(false);
       }
@@ -66,6 +78,12 @@ const SelectCambridgeTest = () => {
 
     fetchTests();
   }, [activeTestType]);
+
+  useEffect(() => {
+    if (activeTestType !== "pet" && activeTab === "writing") {
+      setActiveTab("listening");
+    }
+  }, [activeTestType, activeTab]);
 
   const handleSelectListening = (testId) => {
     navigate(`/cambridge/${activeTestType}-listening/${testId}`);
@@ -75,16 +93,29 @@ const SelectCambridgeTest = () => {
     navigate(`/cambridge/${activeTestType}-reading/${testId}`);
   };
 
+  const handleSelectWriting = (testId) => {
+    const numericId = parseInt(testId, 10);
+    if (!numericId || isNaN(numericId)) return;
+    localStorage.setItem("selectedPetWritingTestId", numericId);
+    localStorage.removeItem("selectedTestId");
+    navigate("/pet-writing");
+  };
+
   const handleEdit = (testId, testType) => {
     if (testType === "listening") {
       navigate(`/cambridge/listening/${testId}/edit`);
-    } else {
+    } else if (testType === "reading") {
       navigate(`/cambridge/reading/${testId}/edit`);
+    } else if (testType === "writing") {
+      navigate(`/admin/edit-pet-writing/${testId}`);
     }
   };
 
   const getTestConfig = (type) => {
     const key = `${activeTestType}-${type}`;
+    if (type === "writing") {
+      return TEST_CONFIGS["pet-writing"] || {};
+    }
     return TEST_CONFIGS[key] || {};
   };
 
@@ -111,10 +142,16 @@ const SelectCambridgeTest = () => {
       return (
         <div className="cambridge-state cambridge-empty">
           <div className="cambridge-state__icon cambridge-state__icon--large">📭</div>
-          <p>Chưa có đề {testType === "listening" ? "Listening" : "Reading"} cho {activeTestType.toUpperCase()}</p>
+          <p>
+            Chưa có đề {testType === "listening" ? "Listening" : testType === "reading" ? "Reading" : "Writing"} cho {activeTestType.toUpperCase()}
+          </p>
           {canManageCategory(user, testType) && (
             <button
-              onClick={() => navigate(`/admin/create-${activeTestType}-${testType}`)}
+              onClick={() =>
+                testType === "writing"
+                  ? navigate("/admin/create-pet-writing")
+                  : navigate(`/admin/create-${activeTestType}-${testType}`)
+              }
               className="cambridge-btn cambridge-btn--success"
             >
               ➕ Tạo đề mới
@@ -137,13 +174,14 @@ const SelectCambridgeTest = () => {
               <button
                 onClick={() => {
                   if (testType === "listening") handleSelectListening(test.id);
-                  else handleSelectReading(test.id);
+                  else if (testType === "reading") handleSelectReading(test.id);
+                  else handleSelectWriting(test.id);
                 }}
                 className="cambridge-test-main"
               >
                 <div className="cambridge-test-main__content">
                   <span className="cambridge-test-main__icon">
-                    {testType === "listening" ? "🎧" : "📖"}
+                    {testType === "listening" ? "🎧" : testType === "reading" ? "📖" : "✍️"}
                   </span>
                   <div>
                     <h3 className="cambridge-test-main__title">
@@ -198,13 +236,20 @@ const SelectCambridgeTest = () => {
           </div>
 
           <div className="cambridge-tabs">
-            {["listening", "reading"].map((tab) => (
+            {(activeTestType === "pet"
+              ? ["listening", "reading", "writing"]
+              : ["listening", "reading"]
+            ).map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
                 className={`cambridge-tab${activeTab === tab ? " cambridge-tab--active" : ""}`}
               >
-                {tab === "listening" ? "🎧 Listening" : "📖 Reading"}
+                {tab === "listening"
+                  ? "🎧 Listening"
+                  : tab === "reading"
+                  ? "📖 Reading"
+                  : "✍️ Writing"}
                 <span className="cambridge-tab__badge">{tests[tab].length}</span>
               </button>
             ))}
@@ -229,7 +274,11 @@ const SelectCambridgeTest = () => {
           {canManageCategory(user, activeTab) && tests[activeTab].length > 0 && (
             <div className="cambridge-actions">
               <button
-                onClick={() => navigate(`/admin/create-${activeTestType}-${activeTab}`)}
+                onClick={() =>
+                  activeTab === "writing"
+                    ? navigate("/admin/create-pet-writing")
+                    : navigate(`/admin/create-${activeTestType}-${activeTab}`)
+                }
                 className="cambridge-btn cambridge-btn--success"
               >
                 ➕ Tạo đề {activeTestType.toUpperCase()} {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} mới

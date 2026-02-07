@@ -39,11 +39,19 @@ const SelectTest = () => {
         const listeningData = await listeningRes.json();
         const cambridgeData = cambridgeRes.ok ? await cambridgeRes.json() : [];
 
+        const writingList = Array.isArray(writingData) ? writingData : [];
+        const petWriting = writingList.filter((t) => t?.testType === "pet-writing");
+        const ieltsWriting = writingList.filter((t) => t?.testType !== "pet-writing");
+        const cambridgeList = Array.isArray(cambridgeData) ? cambridgeData : [];
+        const cambridgeWithWriting = cambridgeList.concat(
+          petWriting.map((t) => ({ ...t, category: "writing", testType: "pet-writing" }))
+        );
+
         setTests({
-          writing: Array.isArray(writingData) ? writingData : [],
+          writing: ieltsWriting,
           reading: Array.isArray(readingData) ? readingData : [],
           listening: Array.isArray(listeningData) ? listeningData : [],
-          cambridge: Array.isArray(cambridgeData) ? cambridgeData : [],
+          cambridge: cambridgeWithWriting,
         });
       } catch (err) {
         console.error("❌ Lỗi khi tải đề:", err);
@@ -93,6 +101,14 @@ const SelectTest = () => {
   };
 
   const handleSelectCambridge = (test) => {
+    if (test?.testType === "pet-writing") {
+      const numericId = parseInt(test.id, 10);
+      if (!numericId || isNaN(numericId)) return;
+      localStorage.setItem("selectedPetWritingTestId", numericId);
+      localStorage.removeItem("selectedTestId");
+      navigate("/pet-writing");
+      return;
+    }
     // Navigate with testType for proper config loading
     // testType format: "ket-reading", "pet-listening", etc.
     const testType = test.testType || 'ket-reading'; // fallback
@@ -105,12 +121,20 @@ const SelectTest = () => {
 
   const handleEdit = (testId, testType, test = null) => {
     if (testType === "writing") {
+      if (test?.testType === "pet-writing") {
+        navigate(`/admin/edit-pet-writing/${testId}`);
+        return;
+      }
       navigate(`/edit-test/${testId}`);
     } else if (testType === "reading") {
       navigate(`/reading-tests/${testId}/edit`);
     } else if (testType === "listening") {
       navigate(`/listening/${testId}/edit`);
     } else if (testType === "cambridge" && test) {
+      if (test.testType === "pet-writing") {
+        navigate(`/admin/edit-pet-writing/${testId}`);
+        return;
+      }
       // Navigate based on category
       if (test.category === 'listening') {
         navigate(`/cambridge/listening/${testId}/edit`);
@@ -123,6 +147,9 @@ const SelectTest = () => {
   const normalizeText = (value) => String(value ?? "").toLowerCase();
   const getTestTitle = (test, testType, fallbackIndex) => {
     if (testType === "cambridge") {
+      if (test.testType === "pet-writing" || test.category === "writing") {
+        return `PET Writing ${test.index || fallbackIndex}`;
+      }
       const testTypeRaw = (test.testType || "ket").toString();
       const level = testTypeRaw.split('-')[0].toUpperCase();
       const cat = test.category === "listening" ? "Listening" : "Reading";
