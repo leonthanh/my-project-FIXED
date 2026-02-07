@@ -106,14 +106,11 @@ jobs:
         uses: SamKirkland/FTP-Deploy-Action@4.3.3
         with:
           server: ftp.star-siec.edu.vn
-          protocol: ftp
-          port: 21
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
           local-dir: frontend/build/
           server-dir: /ix.star-siec.edu.vn/frontend/build/
           dangerous-clean-slate: false
-          passive: true
           exclude: |
             **/*.map
             **/*.txt
@@ -183,14 +180,11 @@ jobs:
         uses: SamKirkland/FTP-Deploy-Action@4.3.3
         with:
           server: ftp.star-siec.edu.vn
-          protocol: ftp
-          port: 21
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
           local-dir: backend-temp/
           server-dir: /ix.star-siec.edu.vn/backend/
           dangerous-clean-slate: false
-          passive: true
           exclude: |
             **/node_modules/**
             **/*.map
