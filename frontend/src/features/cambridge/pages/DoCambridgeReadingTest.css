@@ -497,6 +497,57 @@
   box-shadow: 0 4px 12px rgba(224, 0, 51, 0.4);
 }
 
+@media (max-width: 1024px) {
+  .cambridge-passage-column {
+    padding: 10px 16px;
+  }
+
+  .cambridge-questions-column {
+    padding: 10px 20px;
+  }
+
+  .cambridge-question-wrapper {
+    width: 100%;
+  }
+
+  .cambridge-part-title {
+    font-size: 18px;
+  }
+
+  .cambridge-part-instruction {
+    padding: 4px 14px;
+    font-size: 13px;
+  }
+
+  .cambridge-passage-container {
+    padding: 16px;
+  }
+
+  .cambridge-question-text {
+    font-size: 14px;
+  }
+
+  .cambridge-footer {
+    padding: 6px 12px;
+  }
+
+  .cambridge-footer-arrows {
+    right: 1.5rem;
+    bottom: 3.5rem;
+  }
+
+  .cambridge-part-tab {
+    padding: 5px 10px;
+    font-size: 11px;
+  }
+
+  .cambridge-question-num-btn {
+    width: 30px;
+    height: 30px;
+    font-size: 11px;
+  }
+}
+
 /* Loading & Error States */
 .cambridge-loading {
   display: flex;
@@ -619,6 +670,75 @@
 
   .cambridge-question-text {
     font-size: 14px;
+  }
+
+  .cambridge-review-button {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 430px) {
+  .cambridge-test-container .test-header {
+    padding: 0 10px;
+    height: 52px;
+  }
+
+  .cambridge-test-container .test-header .test-badge {
+    padding: 4px 8px;
+    font-size: 10px;
+  }
+
+  .cambridge-test-container .test-header .test-info h1 {
+    font-size: 13px;
+  }
+
+  .cambridge-test-container .test-header .test-meta {
+    font-size: 10px;
+  }
+
+  .cambridge-test-container .test-header .timer-container {
+    padding: 2px 8px;
+  }
+
+  .cambridge-test-container .test-header .timer-value {
+    font-size: 14px;
+  }
+
+  .cambridge-test-container .test-header .progress-ring {
+    width: 34px;
+    height: 34px;
+  }
+
+  .cambridge-test-container .test-header .submit-btn {
+    padding: 6px 10px;
+    font-size: 12px;
+  }
+
+  .cambridge-passage-content {
+    font-size: 14px;
+    line-height: 1.6;
+  }
+
+  .cambridge-footer {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .cambridge-footer-arrows {
+    position: static;
+    margin-left: auto;
+  }
+
+  .cambridge-parts-container {
+    padding: 0 10px;
+    gap: 6px;
+  }
+
+  .cambridge-question-num-btn {
+    width: 28px;
+    height: 28px;
+    font-size: 10px;
   }
 
   .cambridge-review-button {

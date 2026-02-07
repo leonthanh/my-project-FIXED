@@ -313,6 +313,42 @@
   cursor: pointer;
 }
 
+@media (max-width: 1024px) {
+  .pet-writing-passage,
+  .pet-writing-questions {
+    padding: 14px 18px;
+  }
+
+  .pet-writing-left-content {
+    max-width: 640px;
+  }
+
+  .QuestionDisplay__questionDisplayWrapper___1n_b0 {
+    padding: 12px;
+  }
+
+  .plainTextWrapper__plainText____1GRn {
+    min-height: 220px;
+    font-size: 15px;
+  }
+
+  .pet-writing-footer {
+    padding: 6px 10px;
+    gap: 8px;
+  }
+
+  .footer__navButtons___Gtvxu {
+    right: 1.5rem;
+    bottom: 3rem;
+  }
+
+  .footer__arrowIconBtn___3AiJS {
+    width: 40px;
+    height: 44px;
+    font-size: 1.2rem;
+  }
+}
+
 @media (max-width: 900px) {
   .pet-writing-main {
     flex-direction: column;
@@ -325,5 +361,95 @@
 
   .cambridge-divider {
     display: none;
+  }
+}
+
+@media (max-width: 430px) {
+  .pet-writing-page .test-header {
+    padding: 0 10px;
+    height: 52px;
+  }
+
+  .pet-writing-page .test-header .test-badge {
+    padding: 4px 8px;
+    font-size: 10px;
+  }
+
+  .pet-writing-page .test-header .test-info h1 {
+    font-size: 13px;
+  }
+
+  .pet-writing-page .test-header .test-meta {
+    font-size: 10px;
+  }
+
+  .pet-writing-page .test-header .timer-container {
+    padding: 2px 8px;
+  }
+
+  .pet-writing-page .test-header .timer-value {
+    font-size: 14px;
+  }
+
+  .pet-writing-page .test-header .progress-ring {
+    width: 34px;
+    height: 34px;
+  }
+
+  .pet-writing-page .test-header .submit-btn {
+    padding: 6px 10px;
+    font-size: 12px;
+  }
+
+  .pet-writing-passage,
+  .pet-writing-questions {
+    padding: 12px 14px;
+  }
+
+  .pet-writing-instruction {
+    font-size: 13px;
+  }
+
+  .pet-writing-rich {
+    padding: 12px;
+  }
+
+  .plainTextWrapper__plainText____1GRn {
+    min-height: 200px;
+    font-size: 15px;
+  }
+
+  .pet-writing-footer {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .nav-row.perScorableItem {
+    flex-wrap: wrap;
+    justify-content: space-between;
+  }
+
+  .footer__navButtons___Gtvxu {
+    position: static;
+    align-self: flex-end;
+  }
+
+  .footer__questionWrapper___1tZ46 {
+    flex-wrap: wrap;
+  }
+
+  .footer__subquestionWrapper___9GgoP {
+    flex-wrap: wrap;
+  }
+
+  .footer__deliverButton___3FM07 {
+    align-self: flex-end;
+  }
+
+  .pet-writing-toast {
+    left: 12px;
+    right: 12px;
+    bottom: 12px;
   }
 }
