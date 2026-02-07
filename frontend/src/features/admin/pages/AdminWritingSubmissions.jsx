@@ -370,7 +370,10 @@ const AdminWritingSubmissions = () => {
               <strong>📞 Số điện thoại:</strong> {item.userPhone || "N/A"}
             </p>
             <p>
-              <strong>🧾 Mã đề:</strong> Writing{" "}
+              <strong>🧾 Mã đề:</strong>{" "}
+              {item.WritingTest?.testType === "pet-writing"
+                ? "PET Writing"
+                : "Writing"}{" "}
               {item.WritingTest?.index || "N/A"}
               {item.WritingTest?.classCode
                 ? ` – ${item.WritingTest.classCode}`

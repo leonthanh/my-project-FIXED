@@ -67,13 +67,20 @@ const SelectTest = () => {
     setSortMode("newest");
   }, [activeTab]);
 
-  const handleSelectWriting = (testId) => {
-    const numericId = parseInt(testId, 10);
+  const handleSelectWriting = (test) => {
+    const numericId = parseInt(test.id, 10);
     if (!numericId || isNaN(numericId)) {
-      console.error("❌ Test ID không hợp lệ:", testId);
+      console.error("❌ Test ID không hợp lệ:", test?.id);
+      return;
+    }
+    if (test?.testType === "pet-writing") {
+      localStorage.setItem("selectedPetWritingTestId", numericId);
+      localStorage.removeItem("selectedTestId");
+      navigate("/pet-writing");
       return;
     }
     localStorage.setItem("selectedTestId", numericId);
+    localStorage.removeItem("selectedPetWritingTestId");
     navigate("/writing-test");
   };
 
@@ -120,6 +127,9 @@ const SelectTest = () => {
       const level = testTypeRaw.split('-')[0].toUpperCase();
       const cat = test.category === "listening" ? "Listening" : "Reading";
       return `${level} ${cat}`;
+    }
+    if (testType === "writing" && test.testType === "pet-writing") {
+      return `PET Writing ${test.index || fallbackIndex}`;
     }
     const label = testType.charAt(0).toUpperCase() + testType.slice(1);
     return `${label} ${test.index || fallbackIndex}`;
@@ -263,7 +273,7 @@ const SelectTest = () => {
                         type="button"
                         className="select-test-cardMain"
                         onClick={() => {
-                          if (activeTab === "writing") handleSelectWriting(test.id);
+                          if (activeTab === "writing") handleSelectWriting(test);
                           else if (activeTab === "reading") handleSelectReading(test.id);
                           else if (activeTab === "listening") handleSelectListening(test.id);
                           else if (activeTab === "cambridge") handleSelectCambridge(test);

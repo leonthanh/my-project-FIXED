@@ -3,7 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 
 // Import from new feature-based structure
 import { EditTest, AdminWritingSubmissions, SelectTest, MyFeedback, ReviewSubmission, Review, AdminReadingSubmissions, AdminListeningSubmissions, CambridgeSubmissionsPage } from './features/admin';
-import { WritingTest, CreateWritingTest } from './features/writing';
+import { WritingTest, CreateWritingTest, PetWritingTest, CreatePetWritingTest, SelectPetWritingTest } from './features/writing';
 import { Login } from './features/auth';
 import { CreateReadingTest, EditReadingTest, DoReadingTest, TakeReadingTest, ReadingResults } from './features/reading';
 import { CreateListeningTest, EditListeningTest, DoListeningTest, ListeningResults } from './features/listening';
@@ -45,11 +45,18 @@ function App() {
         {/* ✅ Trang làm bài viết */}
         <Route path="/writing" element={isLoggedIn() ? <WritingTest /> : <Navigate to="/login" replace />} />
         <Route path="/writing-test" element={<WritingTest />} />
+        <Route path="/pet-writing" element={isLoggedIn() ? <PetWritingTest /> : <Navigate to="/login" replace />} />
+        <Route path="/pet-writing-select" element={isLoggedIn() ? <SelectPetWritingTest /> : <Navigate to="/login" replace />} />
         <Route path="/my-feedback" element={<MyFeedback />} />
         {/* ✅ Trang giáo viên tạo đề */}
         <Route path="/admin/create-writing" element={
           <ProtectedRoute role="teacher">
             <CreateWritingTest />
+          </ProtectedRoute>
+        } />
+        <Route path="/admin/create-pet-writing" element={
+          <ProtectedRoute role="teacher">
+            <CreatePetWritingTest />
           </ProtectedRoute>
         } />
         

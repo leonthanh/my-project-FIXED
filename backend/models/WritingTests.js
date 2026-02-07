@@ -7,6 +7,11 @@ const WritingTest = sequelize.define('WritingTest', {
     type: DataTypes.INTEGER,
     allowNull: false,
   },
+  testType: {
+    type: DataTypes.STRING(40),
+    allowNull: false,
+    defaultValue: 'writing',
+  },
   task1: {
     type: DataTypes.TEXT,
     allowNull: false,
@@ -17,6 +22,14 @@ const WritingTest = sequelize.define('WritingTest', {
   },
   task1Image: {
     type: DataTypes.STRING, // đường dẫn ảnh
+  },
+  part2Question2: {
+    type: DataTypes.TEXT,
+    allowNull: true,
+  },
+  part2Question3: {
+    type: DataTypes.TEXT,
+    allowNull: true,
   },
   classCode: { // ✅ Mã lớp
     type: DataTypes.STRING(50),
