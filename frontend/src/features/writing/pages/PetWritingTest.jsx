@@ -277,8 +277,8 @@ const PetWritingTest = () => {
   ).length;
   const part1Answered = task1Answer.trim().length > 0;
   const part2Answered = getSelectedAnswer().answer.trim().length > 0;
-  const answeredCount = (part1Answered ? 1 : 0) + (part2Answered ? 1 : 0);
-  const totalQuestions = 2;
+  const totalWords = countWords(task1Answer) + countWords(getSelectedAnswer().answer);
+  const totalWordTarget = 200;
 
   const goToStep = (index) => {
     const next = steps[index];
@@ -469,8 +469,8 @@ const PetWritingTest = () => {
         classCode={testData?.classCode}
         teacherName={testData?.teacherName}
         timeRemaining={timeLeft}
-        answeredCount={answeredCount}
-        totalQuestions={totalQuestions}
+        answeredCount={totalWords}
+        totalQuestions={totalWordTarget}
         onSubmit={handleSubmit}
         submitted={submitted}
         examType="PET"
@@ -533,7 +533,12 @@ const PetWritingTest = () => {
         </div>
 
         <nav className="nav-row perScorableItem" aria-label="Questions">
-          <div className="footer__questionWrapper___1tZ46 single" role="tablist">
+          <div
+            className={`footer__questionWrapper___1tZ46 single ${
+              activePanel === "part1" ? "selected" : ""
+            }`}
+            role="tablist"
+          >
             <button
               role="tab"
               className="footer__questionNo___3WNct"

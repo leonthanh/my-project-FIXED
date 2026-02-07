@@ -195,7 +195,7 @@
   border: 1px solid #d1d5db;
   border-radius: 6px;
   padding: 12px 14px;
-  font-size: 14px;
+  font-size: 16px;
   font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
   resize: none;
   min-height: 240px;
@@ -222,11 +222,15 @@
   justify-content: space-between;
   gap: 12px;
   flex-wrap: wrap;
+  min-height: auto;
 }
 
 .footer__navButtons___Gtvxu {
-  display: flex;
-  gap: 8px;
+      display: inline-block;
+    position: absolute;
+    right: 2rem;
+    bottom: 3.5rem;
+    z-index: 100;
 }
 
 .footer__arrowIconBtn___3AiJS {
@@ -236,6 +240,9 @@
   border: 1px solid #d1d5db;
   background: #f8fafc;
   cursor: pointer;
+      width: 45px;
+    height: 50px;
+    font-size: 1.5rem;
 }
 
 .footer__arrowIconBtn___3AiJS:disabled {
@@ -254,6 +261,11 @@
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.footer__questionWrapper___1tZ46 .attemptedCount {
+  margin-left: 10px;
+  display: inline-block;
 }
 
 .footer__questionNo___3WNct {
