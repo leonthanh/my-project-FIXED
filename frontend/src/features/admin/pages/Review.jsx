@@ -17,6 +17,7 @@ const Review = () => {
 
   // Writing IELTS
   const [unreviewedWriting, setUnreviewedWriting] = useState([]);
+  const [unreviewedPetWriting, setUnreviewedPetWriting] = useState([]);
   const [loadingWriting, setLoadingWriting] = useState(true);
 
   // Cambridge
@@ -38,10 +39,17 @@ const Review = () => {
 
         // lọc bài chưa có nhận xét
         const filtered = Array.isArray(all) ? all.filter((sub) => !sub.feedback) : [];
-        setUnreviewedWriting(filtered);
+        const petWriting = filtered.filter((sub) =>
+          String(sub?.writing_test?.testType || sub?.WritingTest?.testType || sub?.testType || "").toLowerCase() === "pet-writing"
+        );
+        const writingIelts = filtered.filter((sub) => !petWriting.includes(sub));
+
+        setUnreviewedPetWriting(petWriting);
+        setUnreviewedWriting(writingIelts);
       } catch (err) {
         console.error("❌ Lỗi khi tải bài chưa chấm:", err);
         setUnreviewedWriting([]);
+        setUnreviewedPetWriting([]);
       } finally {
         setLoadingWriting(false);
       }
@@ -77,7 +85,7 @@ const Review = () => {
     fetchCambridgeSubmissions();
   }, []);
 
-  const cambridgeNeedsReviewCount = cambridgeSubmissions.length;
+  const cambridgeNeedsReviewCount = cambridgeSubmissions.length + unreviewedPetWriting.length;
 
   const parseJsonIfString = (value) => {
     if (typeof value !== "string") return value;
@@ -102,6 +110,24 @@ const Review = () => {
 
     return pending;
   };
+
+  const mergedCambridgeRows = useMemo(() => {
+    const petRows = unreviewedPetWriting.map((sub) => ({
+      source: "pet-writing",
+      sub,
+      submittedAt: sub.submittedAt || sub.createdAt || 0,
+    }));
+
+    const cambridgeRows = cambridgeSubmissions.map((sub) => ({
+      source: "cambridge",
+      sub,
+      submittedAt: sub.submittedAt || 0,
+    }));
+
+    return [...petRows, ...cambridgeRows].sort((a, b) =>
+      new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime()
+    );
+  }, [unreviewedPetWriting, cambridgeSubmissions]);
 
   const handleToggleCambridgeDetail = async (submissionId) => {
     setExpandedCambridge((prev) => {
@@ -287,15 +313,16 @@ const Review = () => {
       {/* Cambridge tab */}
       {activeTab === "cambridge" && (
         <>
+          {loadingWriting && <p>⏳ Đang tải PET Writing...</p>}
           {loadingCambridge && <p>⏳ Đang tải Cambridge submissions...</p>}
           {!loadingCambridge && cambridgeError && (
             <p style={{ color: "#dc2626" }}>❌ {cambridgeError}</p>
           )}
-          {!loadingCambridge && !cambridgeError && cambridgeSubmissions.length === 0 && (
+          {!loadingWriting && !loadingCambridge && !cambridgeError && mergedCambridgeRows.length === 0 && (
             <p>✅ Không có bài Cambridge nào cần chấm.</p>
           )}
 
-          {!loadingCambridge && !cambridgeError && cambridgeSubmissions.length > 0 && (
+          {!loadingCambridge && !cambridgeError && mergedCambridgeRows.length > 0 && (
             <table
               style={{
                 width: "100%",
@@ -318,7 +345,35 @@ const Review = () => {
                 </tr>
               </thead>
               <tbody>
-                {cambridgeSubmissions.map((sub, idx) => {
+                {mergedCambridgeRows.map((row, idx) => {
+                  if (row.source === "pet-writing") {
+                    const sub = row.sub;
+                    const writingTest = sub.writing_test || sub.WritingTest || {};
+                    return (
+                      <tr key={`pet-${sub.id}`} style={{ borderBottom: "1px solid #ccc" }}>
+                        <td style={cellStyle}>{idx + 1}</td>
+                        <td style={cellStyle}>pet-writing</td>
+                        <td style={cellStyle}>{sub.userName || sub.user?.name || "N/A"}</td>
+                        <td style={cellStyle}>{sub.userPhone || sub.user?.phone || "N/A"}</td>
+                        <td style={cellStyle}>{writingTest.classCode || "N/A"}</td>
+                        <td style={cellStyle}>--</td>
+                        <td style={cellStyle}>
+                          {new Date(sub.submittedAt || sub.createdAt).toLocaleString()}
+                        </td>
+                        <td style={cellStyle}>--</td>
+                        <td style={cellStyle}>
+                          <button
+                            onClick={() => navigate(`/review/${sub.id}`)}
+                            style={primaryButtonStyle}
+                          >
+                            ✏️ Nhận xét
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  }
+
+                  const sub = row.sub;
                   const isExpanded = expandedCambridge.has(sub.id);
                   const detail = cambridgeDetailsById[sub.id];
                   const isLoadingDetail = !!cambridgeLoadingDetailById[sub.id];
@@ -326,7 +381,7 @@ const Review = () => {
                   const hasTwo = pendingAnswers.length >= 2;
 
                   return (
-                    <React.Fragment key={sub.id}>
+                    <React.Fragment key={`cam-${sub.id}`}>
                       <tr style={{ borderBottom: "1px solid #ccc" }}>
                         <td style={cellStyle}>{idx + 1}</td>
                         <td style={cellStyle}>{String(sub.testType || "Cambridge")}</td>
