@@ -11,4 +11,5 @@ export { default as ClozeTestDisplay } from './ClozeTestDisplay';
 export { default as SummaryCompletionDisplay } from './SummaryCompletionDisplay';
 export { default as WordFormDisplay } from './WordFormDisplay';
 export { default as ShortMessageDisplay } from './ShortMessageDisplay';
+export { default as InlineChoiceDisplay } from './InlineChoiceDisplay';
 export { default as QuestionDisplayFactory } from './QuestionDisplayFactory';

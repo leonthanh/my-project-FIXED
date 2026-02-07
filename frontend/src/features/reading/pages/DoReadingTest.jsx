@@ -1579,7 +1579,8 @@ const DoReadingTest = () => {
         qType === "fill-in-the-blanks") &&
       question.questionText &&
       (question.questionText.includes("…") ||
-        question.questionText.includes("...."));
+        question.questionText.includes("....") ||
+        /_{2,}/.test(question.questionText));
 
     // Paragraph-matching: count blanks (ellipsis) as multiple items
     // (moved earlier)
@@ -2158,8 +2159,8 @@ const DoReadingTest = () => {
                       .replace(/<br\s*\/?>/gi, " ")
                       .trim();
 
-                    return cleanText.split(/(\.{3,}|…+)/).map((part, idx) => {
-                      if (part.match(/\.{3,}|…+/)) {
+                    return cleanText.split(/(\.{3,}|…+|_{2,})/).map((part, idx) => {
+                      if (part.match(/\.{3,}|…+|_{2,}/)) {
                         return (
                           <input
                             key={idx}
@@ -2174,11 +2175,7 @@ const DoReadingTest = () => {
                             onChange={(e) =>
                               handleAnswerChange(key, e.target.value)
                             }
-                            placeholder={
-                              question.maxWords
-                                ? `≤${question.maxWords} words`
-                                : ""
-                            }
+                            placeholder=""
                           />
                         );
                       }
@@ -2194,18 +2191,8 @@ const DoReadingTest = () => {
                   className={`fill-input ${isAnswered ? "answered" : ""}`}
                   value={answers[key] || ""}
                   onChange={(e) => handleAnswerChange(key, e.target.value)}
-                  placeholder={
-                    question.maxWords
-                      ? `No more than ${question.maxWords} words`
-                      : "Type your answer..."
-                  }
+                  placeholder=""
                 />
-              )}
-              {question.maxWords && (
-                <p className="fill-hint">
-                  <span className="hint-icon">ℹ️</span>
-                  Maximum {question.maxWords} word(s)
-                </p>
               )}
             </div>
           )}

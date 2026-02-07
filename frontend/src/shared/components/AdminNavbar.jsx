@@ -125,20 +125,24 @@ const AdminNavbar = () => {
               <div className="adminNavbar__menuHeader adminNavbar__menuHeader--spaced">
                 📚 PET (B1 Preliminary)
               </div>
-              <Link
-                to="/admin/create-pet-listening"
-                className="adminNavbar__menuItem adminNavbar__menuItem--disabled"
-                onClick={(e) => e.preventDefault()}
-              >
-                🎧 PET Listening (Coming soon)
-              </Link>
-              <Link
-                to="/admin/create-pet-reading"
-                className="adminNavbar__menuItem adminNavbar__menuItem--disabled"
-                onClick={(e) => e.preventDefault()}
-              >
-                📖 PET Reading (Coming soon)
-              </Link>
+              {canManageCategory(user, 'listening') && (
+                <Link
+                  to="/admin/create-pet-listening"
+                  className="adminNavbar__menuItem"
+                  onClick={() => setCambridgeDropdownVisible(false)}
+                >
+                  🎧 PET Listening
+                </Link>
+              )}
+              {canManageCategory(user, 'reading') && (
+                <Link
+                  to="/admin/create-pet-reading"
+                  className="adminNavbar__menuItem"
+                  onClick={() => setCambridgeDropdownVisible(false)}
+                >
+                  📖 PET Reading
+                </Link>
+              )}
 
               <div className="adminNavbar__menuHeader adminNavbar__menuHeader--spaced">
                 📊 Management

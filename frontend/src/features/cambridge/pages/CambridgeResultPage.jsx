@@ -288,6 +288,17 @@ const CambridgeResultPage = () => {
             return;
           }
 
+          if (sectionType === 'inline-choice' && question.blanks && Array.isArray(question.blanks)) {
+            question.blanks.forEach((blank, blankIdx) => {
+              const key = `${partIdx}-${secIdx}-${qIdx}-${blankIdx}`;
+              const legacyKey = `${partIdx}-${secIdx}-${blankIdx}`;
+              map[key] = questionNum + 1;
+              map[legacyKey] = questionNum + 1;
+              questionNum++;
+            });
+            return;
+          }
+
           if (sectionType === 'cloze-test') {
             const passageText = question?.passageText || question?.passage || '';
             const blanks = Array.isArray(question?.blanks) && question.blanks.length > 0
@@ -313,8 +324,10 @@ const CambridgeResultPage = () => {
               const pid = person?.id || String.fromCharCode(65 + personIdx);
               const key = `${partIdx}-${secIdx}-${qIdx}-${pid}`;
               const legacyKey = `${partIdx}-${secIdx}-${pid}`;
+              const legacyIndexKey = `${partIdx}-${secIdx}-${personIdx}`;
               map[key] = questionNum + 1;
               map[legacyKey] = questionNum + 1;
+              map[legacyIndexKey] = questionNum + 1;
               questionNum++;
             });
             return;
@@ -1093,6 +1106,71 @@ const CambridgeResultPage = () => {
                                 )}
                                 {rendered}
                               </div>
+                            );
+                          }
+                          // Handle inline-choice (PET Part 5)
+                          else if (sectionType === 'inline-choice' &&
+                                   question.blanks && Array.isArray(question.blanks)) {
+                            return (
+                              <React.Fragment key={`section-${qIdx}`}>
+                                {question.blanks.map((blank, blankIdx) => {
+                                  const key = `${partIdx}-${secIdx}-${qIdx}-${blankIdx}`;
+                                  const result = getDetailedResult(key, `${partIdx}-${secIdx}-${blankIdx}`) || {};
+                                  const questionNum = questionNumberMap[key];
+                                  const label = questionNum ? formatQuestionLabel(questionNum) : '?';
+                                  const status = getResultStatus(result);
+                                  const correctAnswer = blank.correctAnswer || result.correctAnswer;
+
+                                  return (
+                                    <div
+                                      key={`${qIdx}-${blankIdx}`}
+                                      style={{
+                                        ...styles.questionReviewCard,
+                                        borderLeftColor: status.color
+                                      }}
+                                    >
+                                      <div style={styles.questionReviewHeader}>
+                                        <span style={{
+                                          ...styles.questionNum,
+                                          backgroundColor: status.color
+                                        }}>
+                                          {label}
+                                        </span>
+                                        <span style={styles.questionStatus}>{status.label}</span>
+                                      </div>
+
+                                      <div style={styles.questionText}>
+                                        Inline choice
+                                      </div>
+
+                                      <div style={styles.answersCompare}>
+                                        <div style={styles.answerRow}>
+                                          <span style={styles.answerLabel}>Cau tra loi cua ban:</span>
+                                          <span style={{
+                                            ...styles.answerValue,
+                                            color: status.text,
+                                            backgroundColor: status.bg
+                                          }}>
+                                            {result.userAnswer || '(Khong tra loi)'}
+                                          </span>
+                                        </div>
+                                        {canShowCorrectAnswer({ ...result, correctAnswer }) && (
+                                          <div style={styles.answerRow}>
+                                            <span style={styles.answerLabel}>Dap an dung:</span>
+                                            <span style={{
+                                              ...styles.answerValue,
+                                              color: '#166534',
+                                              backgroundColor: '#dcfce7'
+                                            }}>
+                                              {correctAnswer}
+                                            </span>
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </React.Fragment>
                             );
                           }
                           // Handle cloze-mc and cloze-test with blanks

@@ -84,6 +84,11 @@ const countTotalQuestionsFromParts = (rawParts = []) => {
           return;
         }
 
+        if (sectionType === "inline-choice" && Array.isArray(question.blanks)) {
+          total += question.blanks.length > 0 ? question.blanks.length : 1;
+          return;
+        }
+
         // Fallback for single question items
         total += 1;
       });
@@ -98,6 +103,7 @@ const countTotalQuestions = countTotalQuestionsFromParts;
 
 const stripDataUrls = (value) => {
   const dataUrlRegex = /data:image\/[a-zA-Z]+;base64,[^"'\s)]+/g;
+  const allowDataUrlKeys = new Set(['imageUrl', 'mapImageUrl']);
 
   const walk = (input) => {
     if (typeof input === "string") {
@@ -108,7 +114,12 @@ const stripDataUrls = (value) => {
     }
     if (input && typeof input === "object") {
       return Object.fromEntries(
-        Object.entries(input).map(([key, val]) => [key, walk(val)])
+        Object.entries(input).map(([key, val]) => {
+          if (allowDataUrlKeys.has(key)) {
+            return [key, val];
+          }
+          return [key, walk(val)];
+        })
       );
     }
     return input;
@@ -631,7 +642,8 @@ const scoreTest = (test, answers) => {
             const personId = person?.id || String.fromCharCode(65 + personIdx);
             const key = `${partIdx}-${secIdx}-${qIdx}-${personId}`;
             const legacyKey = `${partIdx}-${secIdx}-${personId}`;
-            const userAnswer = pickAnswer(key, [legacyKey]);
+            const legacyIndexKey = `${partIdx}-${secIdx}-${personIdx}`;
+            const userAnswer = pickAnswer(key, [legacyKey, legacyIndexKey]);
             const correctAnswer = correctMap?.[personId];
 
             if (correctAnswer === undefined || correctAnswer === null) {
@@ -865,6 +877,55 @@ const scoreTest = (test, answers) => {
               userAnswer: userAnswer || null,
               correctAnswer,
               questionType: 'fill',
+              questionText: blank.questionText || ''
+            };
+          });
+        }
+        // Handle inline-choice with blanks
+        else if (sectionType === 'inline-choice' && question.blanks && Array.isArray(question.blanks)) {
+          const stripChoiceLabel = (val) => {
+            if (val === undefined || val === null) return '';
+            const s = String(val).trim();
+            const m = s.match(/^[A-H](?:\.\s*|\s+)(.+)$/i);
+            return m ? m[1].trim() : s;
+          };
+
+          question.blanks.forEach((blank, blankIdx) => {
+            const key = `${partIdx}-${secIdx}-${qIdx}-${blankIdx}`;
+            const legacyKey = `${partIdx}-${secIdx}-${blankIdx}`;
+            const userAnswer = pickAnswer(key, [legacyKey]);
+            let correctAnswer = blank.correctAnswer
+              ?? blank.answers
+              ?? blank.answer
+              ?? blank.correct
+              ?? question.correctAnswer
+              ?? question.answers
+              ?? question.answer
+              ?? question.correct;
+
+            if (correctAnswer === undefined || correctAnswer === null) {
+              detailedResults[key] = {
+                isCorrect: null,
+                userAnswer: userAnswer || null,
+                correctAnswer: null,
+                questionType: 'inline-choice',
+                questionText: blank.questionText || ''
+              };
+              return;
+            }
+
+            correctAnswer = stripChoiceLabel(correctAnswer);
+            const normalizedUser = stripChoiceLabel(userAnswer);
+
+            total++;
+            const isCorrect = scoreQuestion(normalizedUser, correctAnswer, 'fill');
+            if (isCorrect) score++;
+
+            detailedResults[key] = {
+              isCorrect,
+              userAnswer: userAnswer || null,
+              correctAnswer,
+              questionType: 'inline-choice',
               questionText: blank.questionText || ''
             };
           });
@@ -1461,5 +1522,7 @@ router.put("/submissions/:id/seen", async (req, res) => {
     res.status(500).json({ message: "Lỗi server." });
   }
 });
+
+router.scoreTest = scoreTest;
 
 module.exports = router;

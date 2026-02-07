@@ -62,6 +62,7 @@ const PeopleMatchingEditor = ({
   };
 
   const description = question?.description || '';
+  const textsTitle = question?.textsTitle || '';
   const people = question?.people || [ 
     { id: 'A', name: '', need: '' },
     { id: 'B', name: '', need: '' },
@@ -87,6 +88,19 @@ const PeopleMatchingEditor = ({
     const newPeople = [...people];
     newPeople[index] = { ...newPeople[index], [field]: value };
     onChange("people", newPeople);
+  };
+
+  const getPersonNumber = (idx) => startingNumber + idx;
+
+  const handlePersonImageChange = (index, file) => {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const newPeople = [...people];
+      newPeople[index] = { ...newPeople[index], imageUrl: reader.result };
+      onChange("people", newPeople);
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleTextChange = (index, field, value) => {
@@ -188,6 +202,48 @@ const PeopleMatchingEditor = ({
               marginBottom: "10px",
               border: "1px solid #e9d5ff",
             }}>
+              {/* Image Upload */}
+              <div style={{ display: "flex", gap: "10px", alignItems: "center", marginBottom: "10px" }}>
+                {person.imageUrl ? (
+                  <img
+                    src={person.imageUrl}
+                    alt={person.name || `Person ${person.id}`}
+                    style={{
+                      width: "56px",
+                      height: "56px",
+                      borderRadius: "8px",
+                      objectFit: "cover",
+                      border: "1px solid #e9d5ff",
+                      backgroundColor: "#fff",
+                    }}
+                  />
+                ) : (
+                  <div style={{
+                    width: "56px",
+                    height: "56px",
+                    borderRadius: "8px",
+                    border: "1px dashed #c4b5fd",
+                    backgroundColor: "#f5f3ff",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: "12px",
+                    color: "#7c3aed",
+                  }}>
+                    Ảnh
+                  </div>
+                )}
+                <div style={{ flex: 1 }}>
+                  <label style={{ ...styles.label, marginBottom: "6px" }}>📷 Ảnh người</label>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => handlePersonImageChange(idx, e.target.files?.[0])}
+                    style={{ fontSize: "12px" }}
+                  />
+                </div>
+              </div>
+
               <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px" }}>
                 <span style={{
                   display: "flex",
@@ -201,7 +257,7 @@ const PeopleMatchingEditor = ({
                   fontWeight: 700,
                   fontSize: "14px",
                 }}>
-                  {person.id}
+                  {getPersonNumber(idx)}
                 </span>
                 <input
                   type="text"
@@ -272,6 +328,17 @@ const PeopleMatchingEditor = ({
             >
               + Thêm text
             </button>
+          </div>
+
+          <div style={{ marginBottom: "12px" }}>
+            <label style={styles.label}>🧾 Tiêu đề cột phải</label>
+            <input
+              type="text"
+              value={textsTitle}
+              onChange={(e) => onChange("textsTitle", e.target.value)}
+              placeholder="VD: Book reviews"
+              style={{ ...styles.input, marginBottom: 0 }}
+            />
           </div>
           
           <div style={{ maxHeight: "500px", overflowY: "auto", paddingRight: "8px" }}>
@@ -353,7 +420,7 @@ const PeopleMatchingEditor = ({
           ✅ Đáp án đã chọn:
         </h4>
         <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
-          {people.map((person) => {
+          {people.map((person, idx) => {
             const selectedId = answers[person.id];
             const selectedText = texts.find(t => String(t?.id || '').trim() === String(selectedId || '').trim());
             const display = selectedText ? getTextDisplayLabel(selectedText) : (selectedId || '?');
@@ -365,7 +432,7 @@ const PeopleMatchingEditor = ({
                 fontSize: "13px",
                 fontWeight: 500,
               }}>
-                {person.id} → {display}
+                {getPersonNumber(idx)} → {display}
               </div>
             );
           })}

@@ -46,6 +46,8 @@ const IeltsTestEditorShell = ({
   titleInputStyle,
   classCodeInputStyle,
   teacherInputStyle,
+  headerCollapsed = false,
+  onToggleHeader,
   children,
 }) => {
   const handleChange = (setter) => (e) => setter(e.target.value);
@@ -63,48 +65,69 @@ const IeltsTestEditorShell = ({
             <h2 style={titleStyle}>{pageTitle}</h2>
             <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
               {rightControls}
+              {onToggleHeader && (
+                <button
+                  type="button"
+                  onClick={onToggleHeader}
+                  style={{
+                    padding: "6px 10px",
+                    borderRadius: "6px",
+                    border: "1px solid #d1d5db",
+                    background: "#fff",
+                    cursor: "pointer",
+                    fontSize: "12px",
+                    fontWeight: 600,
+                  }}
+                >
+                  {headerCollapsed ? "▼ Mở rộng" : "▲ Thu gọn"}
+                </button>
+              )}
             </div>
           </div>
 
-          <div style={inputLayoutStyle}>
-            <input
-              type="text"
-              placeholder="Tiêu đề đề thi"
-              value={title || ""}
-              onChange={handleChange(setTitle)}
-              style={titleInputStyle}
-            />
-            <input
-              type="text"
-              placeholder="Mã lớp"
-              value={classCode || ""}
-              onChange={handleChange(setClassCode)}
-              style={classCodeInputStyle}
-            />
-            <input
-              type="text"
-              placeholder="Tên giáo viên"
-              value={teacherName || ""}
-              onChange={handleChange(setTeacherName)}
-              style={teacherInputStyle}
-            />
-            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px' }}>
-              <input
-                type="checkbox"
-                checked={showResultModal ?? true}
-                onChange={(e) => setShowResultModal(e.target.checked)}
-              />
-              Hiển thị kết quả sau khi nộp bài
-            </label>
-          </div>
+          {!headerCollapsed && (
+            <>
+              <div style={inputLayoutStyle}>
+                <input
+                  type="text"
+                  placeholder="Tiêu đề đề thi"
+                  value={title || ""}
+                  onChange={handleChange(setTitle)}
+                  style={titleInputStyle}
+                />
+                <input
+                  type="text"
+                  placeholder="Mã lớp"
+                  value={classCode || ""}
+                  onChange={handleChange(setClassCode)}
+                  style={classCodeInputStyle}
+                />
+                <input
+                  type="text"
+                  placeholder="Tên giáo viên"
+                  value={teacherName || ""}
+                  onChange={handleChange(setTeacherName)}
+                  style={teacherInputStyle}
+                />
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px' }}>
+                  <input
+                    type="checkbox"
+                    checked={showResultModal ?? true}
+                    onChange={(e) => setShowResultModal(e.target.checked)}
+                  />
+                  Hiển thị kết quả sau khi nộp bài
+                </label>
+              </div>
 
-          {afterInputs}
+              {afterInputs}
 
-          {message && (renderMessage ? renderMessage(message) : (
-            <div style={defaultMessageStyle(message)}>
-              {message}
-            </div>
-          ))}
+              {message && (renderMessage ? renderMessage(message) : (
+                <div style={defaultMessageStyle(message)}>
+                  {message}
+                </div>
+              ))}
+            </>
+          )}
         </div>
 
         {children}

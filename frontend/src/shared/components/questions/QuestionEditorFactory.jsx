@@ -21,6 +21,7 @@ import {
   ClozeMCEditor,
   WordFormEditor,
   MultipleChoicePicturesEditor,
+  InlineChoiceEditor,
 } from "./editors";
 
 /**
@@ -41,6 +42,7 @@ const QuestionEditorFactory = ({
   questionIndex = 0,
   startingNumber = 1,
   partIndex = 0,
+  testType,
 }) => {
   // Support both prop naming conventions
   const actualQuestion = question || questionData || {};
@@ -52,6 +54,7 @@ const QuestionEditorFactory = ({
     onChange: actualOnChange,
     startingNumber,
     partIndex,
+    testType,
   };
 
   // Render appropriate editor based on question type
@@ -131,6 +134,9 @@ const QuestionEditorFactory = ({
 
     case 'multiple-choice-pictures':
       return <MultipleChoicePicturesEditor {...commonProps} />;
+
+    case 'inline-choice':
+      return <InlineChoiceEditor {...commonProps} />;
 
     // Placeholder for future types
     case 'true-false-not-given':

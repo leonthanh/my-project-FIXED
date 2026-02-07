@@ -28,4 +28,5 @@ export { default as ClozeMCEditor } from './ClozeMCEditor'; // Part 4
 export { default as WordFormEditor } from './WordFormEditor'; // Part 6
 export { default as MultipleChoicePicturesEditor } from './MultipleChoicePicturesEditor';
 export { default as GapMatchEditor } from './GapMatchEditor';
+export { default as InlineChoiceEditor } from './InlineChoiceEditor';
 export { default as SummaryCompletionEditor } from './SummaryCompletionEditor';

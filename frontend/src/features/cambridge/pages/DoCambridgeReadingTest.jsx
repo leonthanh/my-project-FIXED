@@ -5,8 +5,10 @@ import { apiPath, hostPath } from "../../../shared/utils/api";
 import { TestHeader } from "../../../shared/components";
 import { TEST_CONFIGS } from "../../../shared/config/questionTypes";
 import QuestionDisplayFactory from "../../../shared/components/questions/displays/QuestionDisplayFactory";
+import PeopleMatchingDisplay from "../../../shared/components/questions/displays/PeopleMatchingDisplay";
 /* eslint-disable-next-line no-unused-vars */
 import ClozeMCDisplay from "../../../shared/components/questions/displays/ClozeMCDisplay";
+import InlineChoiceDisplay from "../../../shared/components/questions/displays/InlineChoiceDisplay";
 import CambridgeResultsModal from "../components/CambridgeResultsModal";
 import "./DoCambridgeReadingTest.css";
 
@@ -105,6 +107,12 @@ const DoCambridgeReadingTest = () => {
     }
   }, []);
 
+  const stripOptionLabel = useCallback((raw = '') => {
+    const s = String(raw).trim();
+    const m = s.match(/^[A-H](?:\.\s*|\s+)(.+)$/i);
+    return m ? m[1].trim() : s;
+  }, []);
+
   // Fetch test data
   useEffect(() => {
     const fetchTest = async () => {
@@ -129,14 +137,17 @@ const DoCambridgeReadingTest = () => {
         // Check if there's saved data for this test
         const savedTime = localStorage.getItem(`test-time-${id}`);
         const savedAnswers = localStorage.getItem(`test-answers-${id}`);
+        const durationSeconds = (testConfig.duration || 60) * 60;
 
         if (savedTime || savedAnswers) {
           // Restore existing progress (even if answers are empty)
           setHasSavedProgress(true);
           if (savedTime) {
-            setTimeRemaining(parseInt(savedTime));
+            const parsed = parseInt(savedTime, 10);
+            const nextTime = Number.isFinite(parsed) ? Math.min(parsed, durationSeconds) : durationSeconds;
+            setTimeRemaining(nextTime);
           } else {
-            setTimeRemaining((testConfig.duration || 60) * 60);
+            setTimeRemaining(durationSeconds);
           }
           try {
             setAnswers(savedAnswers ? JSON.parse(savedAnswers) : {});
@@ -152,7 +163,7 @@ const DoCambridgeReadingTest = () => {
           // If there's no saved progress, force start modal again
           localStorage.removeItem(startedKey);
           setStarted(false);
-          setTimeRemaining((testConfig.duration || 60) * 60);
+          setTimeRemaining(durationSeconds);
           setAnswers({});
         }
       } catch (err) {
@@ -277,15 +288,81 @@ const DoCambridgeReadingTest = () => {
     let debugInfo = [];
     let scorableCount = 0;
 
+    const normalize = (val) => String(val).trim().toLowerCase();
+
+    const explode = (val) => {
+      if (Array.isArray(val)) return val;
+      if (typeof val === 'string' && (val.includes('/') || val.includes('|'))) {
+        return val.split(new RegExp('[\\/|]')).map((v) => v.trim()).filter(Boolean);
+      }
+      return [val];
+    };
+
     // Use allQuestions for accurate scoring
     allQuestions.forEach((q) => {
-      // Skip writing questions (31-32)
-      if (q.questionNumber >= 31) {
+      const questionType = q.nestedQuestion?.questionType
+        || q.section?.questionType
+        || q.question?.questionType;
+
+      // Skip writing tasks (manual scoring)
+      if (questionType === 'short-message' || questionType === 'story-writing') {
         writingQuestions.push({
           questionNumber: q.questionNumber,
           sectionType: q.section.questionType,
           answered: answers[q.key] ? true : false,
           answer: answers[q.key] || null,
+        });
+        return;
+      }
+
+      if (questionType === 'people-matching' && Array.isArray(q.question?.people)) {
+        const person = q.question.people[q.personIndex] || {};
+        const personId = person?.id ? String(person.id).trim() : String.fromCharCode(65 + (q.personIndex || 0));
+        const primaryKey = `${q.partIndex}-${q.sectionIndex}-${personId}`;
+        const legacyKey = `${q.partIndex}-${q.sectionIndex}-${q.personIndex}`;
+        const userAnswer = answers[primaryKey] ?? answers[legacyKey];
+        const correctMap = (q.question?.answers && typeof q.question.answers === 'object') ? q.question.answers : {};
+        const correctAnswer = correctMap[personId];
+
+        if (correctAnswer === undefined || correctAnswer === null) {
+          debugInfo.push(`Q${q.questionNumber}: No correctAnswer field`);
+          return;
+        }
+
+        scorableCount++;
+        if (!userAnswer) return;
+
+        if (normalize(userAnswer) === normalize(correctAnswer)) {
+          correct++;
+        } else {
+          incorrect++;
+        }
+        return;
+      }
+
+      // Word-form: score each sentence using its own key
+      if (questionType === 'word-form' && Array.isArray(q.question?.sentences)) {
+        q.question.sentences.forEach((sentence, sentIdx) => {
+          const legacyKey = `${q.partIndex}-${q.sectionIndex}-${sentIdx}`;
+          const primaryKey = `${q.partIndex}-${q.sectionIndex}-${q.questionIndex}-${sentIdx}`;
+          const userAnswer = answers[primaryKey] ?? answers[legacyKey];
+          const correctAnswer = sentence?.correctAnswer;
+
+          if (correctAnswer === undefined || correctAnswer === null) {
+            debugInfo.push(`Q${q.questionNumber + sentIdx}: No correctAnswer field`);
+            return;
+          }
+
+          scorableCount++;
+          if (!userAnswer) return;
+
+          const accepted = explode(correctAnswer);
+          const isCorrect = accepted.some((ans) => normalize(ans) === normalize(userAnswer));
+          if (isCorrect) {
+            correct++;
+          } else {
+            incorrect++;
+          }
         });
         return;
       }
@@ -309,9 +386,9 @@ const DoCambridgeReadingTest = () => {
         const key = String(q.blank?.questionNum || q.questionNumber);
         resolvedCorrect = resolvedCorrect[key] ?? Object.values(resolvedCorrect)[0];
       }
-      const questionType = q.nestedQuestion?.questionType
-        || q.section?.questionType
-        || q.question?.questionType;
+      if (questionType === 'inline-choice' && typeof resolvedCorrect === 'string') {
+        resolvedCorrect = String(resolvedCorrect).replace(/^[A-H]\.\s*/i, '').trim();
+      }
 
       // Missing correct answer: do not penalize, just log
       if (resolvedCorrect === undefined || resolvedCorrect === null) {
@@ -322,16 +399,6 @@ const DoCambridgeReadingTest = () => {
       scorableCount++;
 
       if (!userAnswer) return;
-
-      const normalize = (val) => String(val).trim().toLowerCase();
-
-      const explode = (val) => {
-        if (Array.isArray(val)) return val;
-        if (typeof val === 'string' && (val.includes('/') || val.includes('|'))) {
-          return val.split(new RegExp('[\\/|]')).map((v) => v.trim()).filter(Boolean);
-        }
-        return [val];
-      };
 
       const checkArray = (expected, actual) => {
         const normalizedActual = normalize(actual);
@@ -480,6 +547,22 @@ const DoCambridgeReadingTest = () => {
                 part: part,
               });
             });
+          } else if (section.questionType === 'inline-choice' && q.blanks && Array.isArray(q.blanks)) {
+            // For inline-choice: create separate entries for each blank
+            q.blanks.forEach((blank, blankIdx) => {
+              questions.push({
+                partIndex: pIdx,
+                sectionIndex: sIdx,
+                questionIndex: qIdx,
+                blankIndex: blankIdx,
+                questionNumber: qNum++,
+                key: `${pIdx}-${sIdx}-${qIdx}-${blankIdx}`,
+                question: q,
+                blank: blank,
+                section: section,
+                part: part,
+              });
+            });
           } else if (section.questionType === 'cloze-test') {
             // For cloze-test (Open Cloze): parse blanks from passage
             const passageText = q.passageText || q.passage || '';
@@ -513,6 +596,21 @@ const DoCambridgeReadingTest = () => {
                 part: part,
               });
             }
+          } else if (section.questionType === 'people-matching' && Array.isArray(q.people)) {
+            // For people-matching: create separate entries for each person
+            q.people.forEach((person, personIdx) => {
+              questions.push({
+                partIndex: pIdx,
+                sectionIndex: sIdx,
+                questionIndex: qIdx,
+                personIndex: personIdx,
+                questionNumber: qNum++,
+                key: `${pIdx}-${sIdx}-${personIdx}`,
+                question: q,
+                section: section,
+                part: part,
+              });
+            });
           } else {
             // Regular questions
             questions.push({
@@ -532,6 +630,22 @@ const DoCambridgeReadingTest = () => {
     
     return questions;
   }, [test?.parts]);
+
+  const getPeopleMatchingAnswerKey = useCallback((q) => {
+    const person = q.question?.people?.[q.personIndex] || {};
+    const personId = person?.id
+      ? String(person.id).trim()
+      : String.fromCharCode(65 + (q.personIndex || 0));
+    return `${q.partIndex}-${q.sectionIndex}-${personId}`;
+  }, []);
+
+  const isQuestionAnswered = useCallback((q) => {
+    if (q.section?.questionType === 'people-matching' || Array.isArray(q.question?.people)) {
+      const key = getPeopleMatchingAnswerKey(q);
+      return Boolean(answers[key] ?? answers[q.key]);
+    }
+    return Boolean(answers[q.key]);
+  }, [answers, getPeopleMatchingAnswerKey]);
 
   // Get current question data
   const currentQuestion = useMemo(() => {
@@ -553,6 +667,10 @@ const DoCambridgeReadingTest = () => {
         
         if (questionElement) {
           questionElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          
+          if (typeof questionElement.focus === 'function') {
+            questionElement.focus();
+          }
           
           // If it's a select element (cloze-mc), focus and trigger open
           if (questionElement.tagName === 'SELECT') {
@@ -895,6 +1013,7 @@ const DoCambridgeReadingTest = () => {
                         const optionLetter = String.fromCharCode(65 + idx); // A, B, C
                         const questionKey = currentQuestion.key;
                         const isSelected = answers[questionKey] === optionLetter;
+                        const cleanOption = stripOptionLabel(option);
 
                         return (
                           <li key={idx} style={{ marginBottom: '8px' }}>
@@ -903,7 +1022,10 @@ const DoCambridgeReadingTest = () => {
                               alignItems: 'flex-start',
                               gap: '10px',
                               cursor: 'pointer',
-                              padding: '8px 0'
+                              padding: '8px 10px',
+                              borderRadius: '8px',
+                              border: '1px solid #e5e7eb',
+                              backgroundColor: isSelected ? '#eef2ff' : '#fff'
                             }}>
                               <input
                                 type="radio"
@@ -914,8 +1036,24 @@ const DoCambridgeReadingTest = () => {
                                 disabled={submitted}
                                 style={{ cursor: 'pointer', marginTop: '4px' }}
                               />
+                              <span style={{
+                                minWidth: '22px',
+                                height: '22px',
+                                borderRadius: '4px',
+                                backgroundColor: '#0e276f',
+                                color: '#fff',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontSize: '11px',
+                                fontWeight: 700,
+                                flexShrink: 0,
+                                marginTop: '2px'
+                              }}>
+                                {optionLetter}
+                              </span>
                               <span style={{ fontSize: '15px', lineHeight: '1.6' }}>
-                                {option}
+                                {cleanOption}
                               </span>
                             </label>
                           </li>
@@ -940,8 +1078,8 @@ const DoCambridgeReadingTest = () => {
           )}
 
           {/* Scrollable Content */}
-          <div style={{ flex: 1, overflowY: 'auto', padding: '24px' }}>
-            <div style={{ maxWidth: '900px', margin: '0 auto' }}>
+          <div style={{ flex: 1, overflowY: 'auto', padding: '16px' }}>
+            <div style={{ maxWidth: '1100px', margin: '0 auto' }}>
               {(() => {
                 const questionData = currentQuestion.section.questions?.[0] || {};
                 const passageText = questionData.passageText || questionData.passage || '';
@@ -1105,8 +1243,69 @@ const DoCambridgeReadingTest = () => {
             </div>
           </div>
         </>
+      ) : currentQuestion && currentQuestion.section.questionType === 'inline-choice' ? (
+        /* Part 5 (Inline Choice): Single column with inline dropdowns */
+        <>
+          {currentQuestion.part.instruction && (
+            <div
+              className="cambridge-part-instruction"
+              dangerouslySetInnerHTML={{ __html: currentQuestion.part.instruction }}
+            />
+          )}
+
+          <div style={{ flex: 1, overflowY: 'auto', padding: '12px 16px' }}>
+            <div style={{ maxWidth: '100%', width: '100%', margin: '0 auto' }}>
+              {(() => {
+                const questionData = currentQuestion.section.questions?.[0] || {};
+                const { passageTitle = '' } = questionData;
+                const keyPrefix = `${currentQuestion.partIndex}-${currentQuestion.sectionIndex}-${currentQuestion.questionIndex}`;
+
+                return (
+                  <div
+                    className={`cambridge-question-wrapper ${flaggedQuestions.has(currentQuestion.key) ? 'flagged-section' : ''}`}
+                    style={{ position: 'relative', width: '100%' }}
+                  >
+                    <button
+                      className={`cambridge-flag-button ${flaggedQuestions.has(currentQuestion.key) ? 'flagged' : ''}`}
+                      onClick={() => toggleFlag(currentQuestion.key)}
+                      aria-label="Flag question"
+                      style={{ position: 'absolute', top: 0, right: 0 }}
+                    >
+                      {flaggedQuestions.has(currentQuestion.key) ? '🚩' : '⚐'}
+                    </button>
+
+                    {passageTitle && (
+                      <h3
+                        style={{
+                          marginBottom: '16px',
+                          fontSize: '18px',
+                          fontWeight: 600,
+                          color: '#0e276f'
+                        }}
+                        dangerouslySetInnerHTML={{ __html: passageTitle }}
+                      />
+                    )}
+
+                    <InlineChoiceDisplay
+                      section={{
+                        ...currentQuestion.section,
+                        ...questionData,
+                        id: keyPrefix,
+                      }}
+                      startingNumber={currentQuestion.questionNumber}
+                      onAnswerChange={handleAnswerChange}
+                      answers={answers}
+                      submitted={submitted}
+                      answerKeyPrefix={keyPrefix}
+                    />
+                  </div>
+                );
+              })()}
+            </div>
+          </div>
+        </>
       ) : currentQuestion && currentQuestion.section.questionType === 'cloze-mc' ? (
-        /* Part 4 (Cloze MC): Single column with inline dropdowns */
+        /* Part 4 (Cloze MC): PET drag & drop tokens or KET dropdowns */
         <>
           {/* Part Instruction - Fixed, doesn't scroll */}
           {currentQuestion.part.instruction && (
@@ -1117,12 +1316,58 @@ const DoCambridgeReadingTest = () => {
           )}
 
           {/* Scrollable Content */}
-          <div style={{ flex: 1, overflowY: 'auto', padding: '24px' }}>
-            <div style={{ maxWidth: '900px', margin: '0 auto' }}>
+          <div style={{ flex: 1, overflowY: 'auto', padding: '12px 16px' }}>
+            <div style={{ maxWidth: '100%', width: '100%', margin: '0 auto' }}>
               {(() => {
                 const questionData = currentQuestion.section.questions?.[0] || {};
                 const { passage = '', blanks = [], passageTitle = '' } = questionData;
-                
+                const isPetReading = String(testType || test?.testType || '').toLowerCase().includes('pet');
+                const keyPrefix = `${currentQuestion.partIndex}-${currentQuestion.sectionIndex}-${currentQuestion.questionIndex}`;
+
+                if (isPetReading) {
+                  return (
+                    <div
+                      className={`cambridge-question-wrapper ${flaggedQuestions.has(currentQuestion.key) ? 'flagged-section' : ''}`}
+                      style={{ position: 'relative', width: '100%' }}
+                    >
+                      <button
+                        className={`cambridge-flag-button ${flaggedQuestions.has(currentQuestion.key) ? 'flagged' : ''}`}
+                        onClick={() => toggleFlag(currentQuestion.key)}
+                        aria-label="Flag question"
+                        style={{ position: 'absolute', top: 0, right: 0 }}
+                      >
+                        {flaggedQuestions.has(currentQuestion.key) ? '🚩' : '⚐'}
+                      </button>
+
+                      {passageTitle && (
+                        <h3 
+                          style={{ 
+                            marginBottom: '16px',
+                            fontSize: '18px',
+                            fontWeight: 600,
+                            color: '#0e276f'
+                          }}
+                          dangerouslySetInnerHTML={{ __html: passageTitle }}
+                        />
+                      )}
+
+                      <ClozeMCDisplay
+                        section={{
+                          ...currentQuestion.section,
+                          ...questionData,
+                          id: keyPrefix,
+                        }}
+                        startingNumber={currentQuestion.questionNumber}
+                        onAnswerChange={handleAnswerChange}
+                        answers={answers}
+                        submitted={submitted}
+                        testType={testType}
+                        answerKeyPrefix={keyPrefix}
+                      />
+                    </div>
+                  );
+                }
+
                 const renderPassageWithDropdowns = () => {
                   if (!passage) return null;
                   
@@ -1209,7 +1454,10 @@ const DoCambridgeReadingTest = () => {
                 };
                 
                 return (
-                  <div className={`cambridge-question-wrapper ${flaggedQuestions.has(currentQuestion.key) ? 'flagged-section' : ''}`} style={{ position: 'relative' }}>
+                  <div
+                    className={`cambridge-question-wrapper ${flaggedQuestions.has(currentQuestion.key) ? 'flagged-section' : ''}`}
+                    style={{ position: 'relative', width: '100%' }}
+                  >
                     {/* Flag Button */}
                     <button
                       className={`cambridge-flag-button ${flaggedQuestions.has(currentQuestion.key) ? 'flagged' : ''}`}
@@ -1451,6 +1699,34 @@ const DoCambridgeReadingTest = () => {
                         dangerouslySetInnerHTML={{ __html: sanitizeQuillHtml(currentQuestion.question.passage) }}
                       />
                     </div>
+                  ) : (currentQuestion.section.questionType === 'people-matching' || Array.isArray(currentQuestion.question?.people)) ? (
+                    <div className="cambridge-passage-container">
+                      {(() => {
+                        const peopleQuestions = allQuestions.filter(q => 
+                          q.partIndex === currentQuestion.partIndex &&
+                          q.sectionIndex === currentQuestion.sectionIndex &&
+                          (q.section.questionType === 'people-matching' || Array.isArray(q.question?.people))
+                        );
+                        const startNumber = peopleQuestions[0]?.questionNumber ?? currentQuestion.questionNumber;
+
+                        return (
+                          <PeopleMatchingDisplay
+                            section={{
+                              ...currentQuestion.section,
+                              id: `${currentQuestion.partIndex}-${currentQuestion.sectionIndex}`,
+                              questions: [currentQuestion.question],
+                            }}
+                            startingNumber={startNumber}
+                            answerKeyPrefix={`${currentQuestion.partIndex}-${currentQuestion.sectionIndex}`}
+                            onAnswerChange={handleAnswerChange}
+                            answers={answers}
+                            submitted={submitted}
+                            showPeople={true}
+                            showTexts={false}
+                          />
+                        );
+                      })()}
+                    </div>
                   ) : (
                     /* Fallback */
                     <div className="cambridge-passage-container">
@@ -1544,6 +1820,7 @@ const DoCambridgeReadingTest = () => {
                               {q.nestedQuestion.options.map((option, optIdx) => {
                                 const optionLetter = String.fromCharCode(65 + optIdx);
                                 const isSelected = answers[q.key] === optionLetter;
+                                const cleanOption = stripOptionLabel(option);
 
                                 return (
                                   <li key={optIdx} style={{ marginBottom: '8px' }}>
@@ -1552,7 +1829,10 @@ const DoCambridgeReadingTest = () => {
                                       alignItems: 'flex-start',
                                       gap: '10px',
                                       cursor: 'pointer',
-                                      padding: '8px 0'
+                                      padding: '8px 10px',
+                                      borderRadius: '8px',
+                                      border: '1px solid #e5e7eb',
+                                      backgroundColor: isSelected ? '#eef2ff' : '#fff'
                                     }}>
                                       <input
                                         type="radio"
@@ -1563,8 +1843,24 @@ const DoCambridgeReadingTest = () => {
                                         disabled={submitted}
                                         style={{ cursor: 'pointer', marginTop: '4px' }}
                                       />
+                                      <span style={{
+                                        minWidth: '22px',
+                                        height: '22px',
+                                        borderRadius: '4px',
+                                        backgroundColor: '#0e276f',
+                                        color: '#fff',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        fontSize: '11px',
+                                        fontWeight: 700,
+                                        flexShrink: 0,
+                                        marginTop: '2px'
+                                      }}>
+                                        {optionLetter}
+                                      </span>
                                       <span style={{ fontSize: '15px', lineHeight: '1.6' }}>
-                                        {option}
+                                        {cleanOption}
                                       </span>
                                     </label>
                                   </li>
@@ -1576,6 +1872,45 @@ const DoCambridgeReadingTest = () => {
                       </div>
                     ))
                   }
+                </div>
+              ) : (currentQuestion.section.questionType === 'people-matching' || Array.isArray(currentQuestion.question?.people)) ? (
+                <div className={`cambridge-question-wrapper ${isQuestionAnswered(currentQuestion) ? 'answered' : ''}`}>
+                  {/* Flag Button */}
+                  <button
+                    className={`cambridge-flag-button ${flaggedQuestions.has(currentQuestion.key) ? 'flagged' : ''}`}
+                    onClick={() => toggleFlag(currentQuestion.key)}
+                    aria-label="Flag question"
+                  >
+                    {flaggedQuestions.has(currentQuestion.key) ? '🚩' : '⚐'}
+                  </button>
+
+                  <div style={{ paddingRight: '50px' }}>
+                    {(() => {
+                      const peopleQuestions = allQuestions.filter(q => 
+                        q.partIndex === currentQuestion.partIndex &&
+                        q.sectionIndex === currentQuestion.sectionIndex &&
+                        q.section.questionType === 'people-matching'
+                      );
+                      const startNumber = peopleQuestions[0]?.questionNumber ?? currentQuestion.questionNumber;
+
+                      return (
+                        <PeopleMatchingDisplay
+                          section={{
+                            ...currentQuestion.section,
+                            id: `${currentQuestion.partIndex}-${currentQuestion.sectionIndex}`,
+                            questions: [currentQuestion.question],
+                          }}
+                          startingNumber={startNumber}
+                          answerKeyPrefix={`${currentQuestion.partIndex}-${currentQuestion.sectionIndex}`}
+                          onAnswerChange={handleAnswerChange}
+                          answers={answers}
+                          submitted={submitted}
+                          showPeople={false}
+                          showTexts={true}
+                        />
+                      );
+                    })()}
+                  </div>
                 </div>
               ) : (
                 /* Other question types: Show single question */
@@ -1650,7 +1985,7 @@ const DoCambridgeReadingTest = () => {
             const range = getPartQuestionRange(idx);
             const isActive = currentPartIndex === idx;
             const partQuestions = allQuestions.filter(q => q.partIndex === idx);
-            const answeredInPart = partQuestions.filter(q => answers[q.key]).length;
+            const answeredInPart = partQuestions.filter(q => isQuestionAnswered(q)).length;
 
             return (
               <div key={idx} className="cambridge-part-wrapper">
@@ -1674,7 +2009,7 @@ const DoCambridgeReadingTest = () => {
                       partQuestions.map((q) => (
                         <button
                           key={q.key}
-                          className={`cambridge-question-num-btn ${answers[q.key] ? 'answered' : ''} ${currentQuestionIndex === q.questionNumber - 1 ? 'active' : ''} ${flaggedQuestions.has(q.key) ? 'flagged' : ''}`}
+                          className={`cambridge-question-num-btn ${isQuestionAnswered(q) ? 'answered' : ''} ${currentQuestionIndex === q.questionNumber - 1 ? 'active' : ''} ${flaggedQuestions.has(q.key) ? 'flagged' : ''}`}
                           onClick={() => goToQuestion(q.questionNumber - 1)}
                         >
                           {q.questionNumber}
