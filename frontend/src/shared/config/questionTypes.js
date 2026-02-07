@@ -561,9 +561,7 @@ const KET_UNIFIED_QUESTION_TYPES = [
   'gap-match',
 ];
 
-const PET_READING_QUESTION_TYPES = KET_UNIFIED_QUESTION_TYPES
-  .filter((type) => type !== 'cloze-test')
-  .concat('inline-choice');
+const PET_READING_QUESTION_TYPES = KET_UNIFIED_QUESTION_TYPES.concat('inline-choice');
 
 export const TEST_CONFIGS = {
   // IELTS Tests
@@ -661,11 +659,11 @@ export const TEST_CONFIGS = {
   // PET (B1 Preliminary)
   'pet-reading': {
     id: 'pet-reading',
-    name: 'PET Reading & Writing',
-    nameVi: 'PET Reading & Writing',
+    name: 'PET Reading',
+    nameVi: 'PET Reading',
     totalQuestions: 32,
     parts: 7,
-    duration: 60, // minutes
+    duration: 45, // minutes
     questionTypes: PET_READING_QUESTION_TYPES,
     partStructure: [
       { part: 1, questions: '1-6', questionType: 'sign-message', description: 'Signs & Messages - Hình biển báo + chọn A/B/C' },
@@ -673,7 +671,7 @@ export const TEST_CONFIGS = {
       { part: 3, questions: '14-18', questionType: 'long-text-mc', description: 'Long Text - Đoạn văn dài + 5 câu MC' },
       { part: 4, questions: '19-24', questionType: 'cloze-mc', description: 'Cloze MC - Chọn từ A/B/C cho mỗi blank' },
       { part: 5, questions: '25-30', questionType: 'inline-choice', description: 'Inline Choice - Chọn từ trong đoạn văn' },
-      { part: 6, questions: '31-36', questionType: 'word-form', description: 'Word Formation - Biến đổi từ' },
+      { part: 6, questions: '31-36', questionType: 'word-form', description: 'Word Formation / Open Cloze - Biến đổi từ hoặc điền từ' },
       { part: 7, questions: 'Writing', questionType: 'short-message', description: 'Writing Task - Short Message (25-35 words)' },
     ],
   },

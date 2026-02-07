@@ -324,8 +324,10 @@ const CambridgeResultPage = () => {
               const pid = person?.id || String.fromCharCode(65 + personIdx);
               const key = `${partIdx}-${secIdx}-${qIdx}-${pid}`;
               const legacyKey = `${partIdx}-${secIdx}-${pid}`;
+              const legacyIndexKey = `${partIdx}-${secIdx}-${personIdx}`;
               map[key] = questionNum + 1;
               map[legacyKey] = questionNum + 1;
+              map[legacyIndexKey] = questionNum + 1;
               questionNum++;
             });
             return;

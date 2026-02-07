@@ -22,7 +22,18 @@ const PeopleMatchingDisplay = ({
   const resolvedKeyPrefix = answerKeyPrefix || section?.id || 'people-matching';
 
   const getPersonNumber = (idx) => startingNumber + idx;
-  const getAnswerKey = (idx) => `${resolvedKeyPrefix}-${idx}`;
+  const getPersonId = (person, idx) => {
+    if (person && typeof person === 'object' && person.id) {
+      return String(person.id).trim();
+    }
+    return String.fromCharCode(65 + idx);
+  };
+  const getAnswerKey = (idx) => `${resolvedKeyPrefix}-${getPersonId(people[idx], idx)}`;
+  const getAnswerValue = (idx) => {
+    const key = getAnswerKey(idx);
+    const legacyKey = `${resolvedKeyPrefix}-${idx}`;
+    return answers[key] ?? answers[legacyKey];
+  };
 
   const getPersonName = (person) => {
     if (person && typeof person === 'object') {
@@ -123,7 +134,7 @@ const PeopleMatchingDisplay = ({
                       }}
                     >
                       <span style={styles.dropZoneValue}>
-                        {answers[getAnswerKey(idx)] || '—'}
+                        {getAnswerValue(idx) || '—'}
                       </span>
                     </div>
                   </div>
