@@ -143,6 +143,13 @@ const AdminNavbar = () => {
                   📖 PET Reading
                 </Link>
               )}
+              <Link
+                to="/admin/create-pet-writing"
+                className="adminNavbar__menuItem"
+                onClick={() => setCambridgeDropdownVisible(false)}
+              >
+                ✍️ PET Writing
+              </Link>
 
               <div className="adminNavbar__menuHeader adminNavbar__menuHeader--spaced">
                 📊 Management

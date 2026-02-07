@@ -33,6 +33,8 @@ router.post('/submit', async (req, res) => {
     const index = writingTest?.index || 'Chưa rõ';
     const classCode = writingTest?.classCode || 'N/A';
     const teacherName = writingTest?.teacherName || 'N/A';
+    const testType = writingTest?.testType || 'writing';
+    const label = testType === 'pet-writing' ? 'PET Writing' : 'Writing';
 
     // Gửi email — chọn transporter theo biến môi trường. Nếu deploy trên cPanel
     // thường nên dùng SMTP do host cung cấp hoặc dùng sendmail nếu có.
@@ -71,11 +73,11 @@ router.post('/submit', async (req, res) => {
       const mailOptions = {
         from: process.env.EMAIL_FROM || process.env.EMAIL_USER || `no-reply@${req.hostname}`,
         to: process.env.EMAIL_TO,
-        subject: `📨 Bài viết mới từ ${user?.name || 'N/A'} – Writing ${index} – ${classCode} – ${teacherName}`,
+        subject: `📨 Bài viết mới từ ${user?.name || 'N/A'} – ${label} ${index} – ${classCode} – ${teacherName}`,
         html: `
           <p><strong>👤 Học sinh:</strong> ${user?.name || 'N/A'}</p>
           <p><strong>📞 Số điện thoại:</strong> ${user?.phone || 'N/A'}</p>
-          <p><strong>📝 Mã đề:</strong> Writing ${index}</p>
+          <p><strong>📝 Mã đề:</strong> ${label} ${index}</p>
           <p><strong>🏫 Mã lớp:</strong> ${classCode}</p>
           <p><strong>👨‍🏫 Giáo viên ra đề:</strong> ${teacherName}</p>
           <h2>Task 1</h2>
@@ -120,7 +122,7 @@ router.get('/list', async (req, res) => {
       submissions = await Submission.findAll({
         where,
         include: [
-          { model: WritingTest, attributes: ['index', 'classCode', 'teacherName', 'task1Image', 'task1', 'task2'] },
+          { model: WritingTest, attributes: ['index', 'classCode', 'teacherName', 'task1Image', 'task1', 'task2', 'testType'] },
           { model: User, attributes: ['name', 'phone'] }
         ],
         order: [['createdAt', 'DESC']],
