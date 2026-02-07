@@ -924,7 +924,7 @@ const DoCambridgeReadingTest = () => {
         classCode={test?.classCode}
         teacherName={test?.teacherName}
         timeRemaining={timeRemaining}
-        answeredCount={Object.keys(answers).length}
+        answeredCount={allQuestions.filter((q) => isQuestionAnswered(q)).length}
         totalQuestions={allQuestions.length}
         onSubmit={handleSubmit}
         submitted={submitted}

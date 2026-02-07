@@ -105,7 +105,7 @@ jobs:
       - name: Deploy Frontend
         uses: SamKirkland/FTP-Deploy-Action@4.3.3
         with:
-          server: star-siec.edu.vn
+          server: ftp.star-siec.edu.vn
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
           local-dir: frontend/build/
@@ -179,7 +179,7 @@ jobs:
       - name: Deploy Backend
         uses: SamKirkland/FTP-Deploy-Action@4.3.3
         with:
-          server: star-siec.edu.vn
+          server: ftp.star-siec.edu.vn
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
           local-dir: backend-temp/
