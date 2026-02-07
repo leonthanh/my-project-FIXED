@@ -1,9 +1,9 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import ReactQuill from "react-quill";
+import { useNavigate, useParams } from "react-router-dom";
 import { AdminNavbar } from "../../../shared/components";
-import { apiPath, authFetch } from "../../../shared/utils/api";
+import { apiPath, authFetch, hostPath } from "../../../shared/utils/api";
 import useQuillImageUpload from "../../../shared/hooks/useQuillImageUpload";
-
 import "./CreateWritingTest.css";
 
 const quillModules = {
@@ -18,21 +18,49 @@ const quillModules = {
   ],
 };
 
-const CreatePetWritingTest = () => {
+const EditPetWritingTest = () => {
+  const { id } = useParams();
+  const navigate = useNavigate();
   const [task1, setTask1] = useState("");
   const [part2Question2, setPart2Question2] = useState("");
   const [part2Question3, setPart2Question3] = useState("");
   const [classCode, setClassCode] = useState("");
   const [teacherName, setTeacherName] = useState("");
   const [image, setImage] = useState(null);
+  const [existingImage, setExistingImage] = useState("");
   const [message, setMessage] = useState("");
   const [showPreview, setShowPreview] = useState(false);
   const [requiresLogin, setRequiresLogin] = useState(false);
   const [activeTab, setActiveTab] = useState("part1");
   const [part2Tab, setPart2Tab] = useState("q2");
+  const [loading, setLoading] = useState(true);
+
   const task1Quill = useQuillImageUpload();
   const part2Q2Quill = useQuillImageUpload();
   const part2Q3Quill = useQuillImageUpload();
+
+  useEffect(() => {
+    const fetchTest = async () => {
+      try {
+        const res = await fetch(apiPath(`writing-tests/${id}`));
+        if (!res.ok) throw new Error("Không tìm thấy đề thi");
+        const data = await res.json();
+        setTask1(data.task1 || "");
+        setPart2Question2(data.part2Question2 || "");
+        setPart2Question3(data.part2Question3 || "");
+        setClassCode(data.classCode || "");
+        setTeacherName(data.teacherName || "");
+        setExistingImage(data.task1Image || "");
+      } catch (err) {
+        console.error("❌ Lỗi khi tải đề PET Writing:", err);
+        setMessage("❌ Không thể tải đề. Vui lòng thử lại.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchTest();
+  }, [id]);
 
   const saveDraft = () => {
     try {
@@ -43,7 +71,7 @@ const CreatePetWritingTest = () => {
         classCode,
         teacherName,
       };
-      localStorage.setItem("petWritingTestDraft", JSON.stringify(draft));
+      localStorage.setItem(`petWritingTestEditDraft-${id}`, JSON.stringify(draft));
     } catch (e) {
       console.error("Error saving PET writing draft", e);
     }
@@ -58,10 +86,6 @@ const CreatePetWritingTest = () => {
     }
 
     try {
-      const endpoint = image
-        ? apiPath("writing-tests/with-image")
-        : apiPath("writing-tests");
-
       let res;
       if (image) {
         const formData = new FormData();
@@ -74,16 +98,14 @@ const CreatePetWritingTest = () => {
         formData.append("testType", "pet-writing");
         formData.append("image", image);
 
-        res = await authFetch(endpoint, {
-          method: "POST",
+        res = await authFetch(apiPath(`writing-tests/${id}/with-image`), {
+          method: "PUT",
           body: formData,
         });
       } else {
-        res = await authFetch(endpoint, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
+        res = await authFetch(apiPath(`writing-tests/${id}`), {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             task1,
             task2: "",
@@ -109,22 +131,19 @@ const CreatePetWritingTest = () => {
           setRequiresLogin(true);
           return;
         }
-        setMessage(data.message || "❌ Lỗi khi tạo đề");
+        setMessage(data.message || "❌ Lỗi khi cập nhật đề");
         return;
       }
 
-      setMessage(data.message || "✅ Đã tạo đề PET Writing");
-
-      setTask1("");
-      setPart2Question2("");
-      setPart2Question3("");
-      setClassCode("");
-      setTeacherName("");
+      setMessage(data.message || "✅ Đã cập nhật đề PET Writing");
       setImage(null);
-      setTimeout(() => window.location.reload(), 2000);
+      if (data.test?.task1Image) {
+        setExistingImage(data.test.task1Image);
+      }
+      setTimeout(() => navigate("/cambridge"), 1200);
     } catch (err) {
       console.error(err);
-      setMessage("❌ Lỗi khi tạo đề");
+      setMessage("❌ Lỗi khi cập nhật đề");
     }
   };
 
@@ -136,6 +155,15 @@ const CreatePetWritingTest = () => {
     borderRadius: "6px",
     border: "1px solid #ccc",
   };
+
+  if (loading) {
+    return (
+      <>
+        <AdminNavbar />
+        <div className="create-writing-container">⏳ Đang tải...</div>
+      </>
+    );
+  }
 
   return (
     <>
@@ -157,10 +185,7 @@ const CreatePetWritingTest = () => {
               <button
                 style={{ marginLeft: 8, padding: "6px 10px" }}
                 onClick={() => {
-                  localStorage.setItem(
-                    "postLoginRedirect",
-                    window.location.pathname
-                  );
+                  localStorage.setItem("postLoginRedirect", window.location.pathname);
                   window.location.href = "/login";
                 }}
               >
@@ -169,7 +194,7 @@ const CreatePetWritingTest = () => {
             </div>
           </div>
         )}
-        <h2>📝 Create PET Writing</h2>
+        <h2>📝 Edit PET Writing</h2>
         <form onSubmit={handleSubmit}>
           <input
             type="text"
@@ -189,18 +214,14 @@ const CreatePetWritingTest = () => {
           <div className="create-writing-tabs">
             <button
               type="button"
-              className={`create-writing-tab ${
-                activeTab === "part1" ? "active" : ""
-              }`}
+              className={`create-writing-tab ${activeTab === "part1" ? "active" : ""}`}
               onClick={() => setActiveTab("part1")}
             >
               Part 1
             </button>
             <button
               type="button"
-              className={`create-writing-tab ${
-                activeTab === "part2" ? "active" : ""
-              }`}
+              className={`create-writing-tab ${activeTab === "part2" ? "active" : ""}`}
               onClick={() => setActiveTab("part2")}
             >
               Part 2
@@ -222,6 +243,18 @@ const CreatePetWritingTest = () => {
                   modules={task1Quill.modules}
                 />
               </div>
+
+              {existingImage && (
+                <div style={{ margin: "12px 0" }}>
+                  <div style={{ fontWeight: 600, marginBottom: 6 }}>Ảnh hiện tại:</div>
+                  <img
+                    src={hostPath(existingImage)}
+                    alt="Current"
+                    style={{ width: "100%", borderRadius: 8 }}
+                  />
+                </div>
+              )}
+
               <input
                 type="file"
                 accept="image/*"
@@ -236,18 +269,14 @@ const CreatePetWritingTest = () => {
               <div className="create-writing-subtabs">
                 <button
                   type="button"
-                  className={`create-writing-subtab ${
-                    part2Tab === "q2" ? "active" : ""
-                  }`}
+                  className={`create-writing-subtab ${part2Tab === "q2" ? "active" : ""}`}
                   onClick={() => setPart2Tab("q2")}
                 >
                   Question 2
                 </button>
                 <button
                   type="button"
-                  className={`create-writing-subtab ${
-                    part2Tab === "q3" ? "active" : ""
-                  }`}
+                  className={`create-writing-subtab ${part2Tab === "q3" ? "active" : ""}`}
                   onClick={() => setPart2Tab("q3")}
                 >
                   Question 3
@@ -305,9 +334,8 @@ const CreatePetWritingTest = () => {
                 cursor: "pointer",
               }}
             >
-              ➕ Tạo đề
+              💾 Lưu cập nhật
             </button>
-
             <button
               type="button"
               onClick={() => setShowPreview(true)}
@@ -366,11 +394,11 @@ const CreatePetWritingTest = () => {
               onClick={(e) => e.stopPropagation()}
             >
               <h3>📄 Xem trước đề PET Writing</h3>
-              {image && (
+              {(image || existingImage) && (
                 <div style={{ marginBottom: "15px" }}>
                   <h4>Hình minh họa:</h4>
                   <img
-                    src={URL.createObjectURL(image)}
+                    src={image ? URL.createObjectURL(image) : hostPath(existingImage)}
                     alt="Preview"
                     style={{ width: "100%", borderRadius: 8 }}
                   />
@@ -390,4 +418,4 @@ const CreatePetWritingTest = () => {
   );
 };
 
-export default CreatePetWritingTest;
+export default EditPetWritingTest;

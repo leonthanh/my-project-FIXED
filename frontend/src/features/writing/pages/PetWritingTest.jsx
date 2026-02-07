@@ -38,6 +38,14 @@ const PetWritingTest = () => {
     typeof window !== "undefined" ? window.innerWidth <= 900 : false
   );
 
+  const normalizeHtmlImages = (html) => {
+    if (!html) return "";
+    return html.replace(
+      /src=(['"])(\/?uploads\/[^'\"]+)\1/g,
+      (_match, quote, path) => `src=${quote}${hostPath(path)}${quote}`
+    );
+  };
+
   const user = JSON.parse(localStorage.getItem("user"));
   const selectedTestId =
     localStorage.getItem("selectedPetWritingTestId") ||
@@ -234,7 +242,9 @@ const PetWritingTest = () => {
           </p>
           <div
             className="pet-writing-rich"
-            dangerouslySetInnerHTML={{ __html: testData.task1 || "" }}
+            dangerouslySetInnerHTML={{
+              __html: normalizeHtmlImages(testData.task1 || ""),
+            }}
           />
           {testData.task1Image && (
             <div className="pet-writing-image-frame">
@@ -265,7 +275,9 @@ const PetWritingTest = () => {
         </div>
         <div
           className="pet-writing-rich"
-          dangerouslySetInnerHTML={{ __html: questionHtml || "" }}
+          dangerouslySetInnerHTML={{
+            __html: normalizeHtmlImages(questionHtml || ""),
+          }}
         />
       </div>
     );

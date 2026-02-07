@@ -28,6 +28,50 @@
   font-style: italic;
 }
 
+.create-writing-tabs {
+  display: flex;
+  gap: 10px;
+  margin: 6px 0 18px;
+}
+
+.create-writing-tab {
+  background: #fff;
+  border: 1px solid #ddd;
+  padding: 8px 14px;
+  border-radius: 999px;
+  font-weight: 600;
+  cursor: pointer;
+  color: #333;
+}
+
+.create-writing-tab.active {
+  border-color: #0e276f;
+  color: #0e276f;
+  box-shadow: 0 4px 10px rgba(14, 39, 111, 0.12);
+}
+
+.create-writing-subtabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.create-writing-subtab {
+  background: #f7f8fb;
+  border: 1px solid #e1e4ee;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-weight: 600;
+  cursor: pointer;
+  color: #4b5563;
+}
+
+.create-writing-subtab.active {
+  background: #fff;
+  border-color: #0e276f;
+  color: #0e276f;
+}
+
 @media (max-width: 900px) {
   .create-writing-container {
     max-width: 100%;
