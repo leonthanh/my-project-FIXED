@@ -107,6 +107,12 @@ const DoCambridgeReadingTest = () => {
     }
   }, []);
 
+  const stripOptionLabel = useCallback((raw = '') => {
+    const s = String(raw).trim();
+    const m = s.match(/^[A-H](?:\.\s*|\s+)(.+)$/i);
+    return m ? m[1].trim() : s;
+  }, []);
+
   // Fetch test data
   useEffect(() => {
     const fetchTest = async () => {
@@ -625,6 +631,22 @@ const DoCambridgeReadingTest = () => {
     return questions;
   }, [test?.parts]);
 
+  const getPeopleMatchingAnswerKey = useCallback((q) => {
+    const person = q.question?.people?.[q.personIndex] || {};
+    const personId = person?.id
+      ? String(person.id).trim()
+      : String.fromCharCode(65 + (q.personIndex || 0));
+    return `${q.partIndex}-${q.sectionIndex}-${personId}`;
+  }, []);
+
+  const isQuestionAnswered = useCallback((q) => {
+    if (q.section?.questionType === 'people-matching' || Array.isArray(q.question?.people)) {
+      const key = getPeopleMatchingAnswerKey(q);
+      return Boolean(answers[key] ?? answers[q.key]);
+    }
+    return Boolean(answers[q.key]);
+  }, [answers, getPeopleMatchingAnswerKey]);
+
   // Get current question data
   const currentQuestion = useMemo(() => {
     return allQuestions[currentQuestionIndex] || null;
@@ -991,6 +1013,7 @@ const DoCambridgeReadingTest = () => {
                         const optionLetter = String.fromCharCode(65 + idx); // A, B, C
                         const questionKey = currentQuestion.key;
                         const isSelected = answers[questionKey] === optionLetter;
+                        const cleanOption = stripOptionLabel(option);
 
                         return (
                           <li key={idx} style={{ marginBottom: '8px' }}>
@@ -999,7 +1022,10 @@ const DoCambridgeReadingTest = () => {
                               alignItems: 'flex-start',
                               gap: '10px',
                               cursor: 'pointer',
-                              padding: '8px 0'
+                              padding: '8px 10px',
+                              borderRadius: '8px',
+                              border: '1px solid #e5e7eb',
+                              backgroundColor: isSelected ? '#eef2ff' : '#fff'
                             }}>
                               <input
                                 type="radio"
@@ -1010,8 +1036,24 @@ const DoCambridgeReadingTest = () => {
                                 disabled={submitted}
                                 style={{ cursor: 'pointer', marginTop: '4px' }}
                               />
+                              <span style={{
+                                minWidth: '22px',
+                                height: '22px',
+                                borderRadius: '4px',
+                                backgroundColor: '#0e276f',
+                                color: '#fff',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontSize: '11px',
+                                fontWeight: 700,
+                                flexShrink: 0,
+                                marginTop: '2px'
+                              }}>
+                                {optionLetter}
+                              </span>
                               <span style={{ fontSize: '15px', lineHeight: '1.6' }}>
-                                {option}
+                                {cleanOption}
                               </span>
                             </label>
                           </li>
@@ -1778,6 +1820,7 @@ const DoCambridgeReadingTest = () => {
                               {q.nestedQuestion.options.map((option, optIdx) => {
                                 const optionLetter = String.fromCharCode(65 + optIdx);
                                 const isSelected = answers[q.key] === optionLetter;
+                                const cleanOption = stripOptionLabel(option);
 
                                 return (
                                   <li key={optIdx} style={{ marginBottom: '8px' }}>
@@ -1786,7 +1829,10 @@ const DoCambridgeReadingTest = () => {
                                       alignItems: 'flex-start',
                                       gap: '10px',
                                       cursor: 'pointer',
-                                      padding: '8px 0'
+                                      padding: '8px 10px',
+                                      borderRadius: '8px',
+                                      border: '1px solid #e5e7eb',
+                                      backgroundColor: isSelected ? '#eef2ff' : '#fff'
                                     }}>
                                       <input
                                         type="radio"
@@ -1797,8 +1843,24 @@ const DoCambridgeReadingTest = () => {
                                         disabled={submitted}
                                         style={{ cursor: 'pointer', marginTop: '4px' }}
                                       />
+                                      <span style={{
+                                        minWidth: '22px',
+                                        height: '22px',
+                                        borderRadius: '4px',
+                                        backgroundColor: '#0e276f',
+                                        color: '#fff',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        fontSize: '11px',
+                                        fontWeight: 700,
+                                        flexShrink: 0,
+                                        marginTop: '2px'
+                                      }}>
+                                        {optionLetter}
+                                      </span>
                                       <span style={{ fontSize: '15px', lineHeight: '1.6' }}>
-                                        {option}
+                                        {cleanOption}
                                       </span>
                                     </label>
                                   </li>
@@ -1812,7 +1874,7 @@ const DoCambridgeReadingTest = () => {
                   }
                 </div>
               ) : (currentQuestion.section.questionType === 'people-matching' || Array.isArray(currentQuestion.question?.people)) ? (
-                <div className={`cambridge-question-wrapper ${answers[currentQuestion.key] ? 'answered' : ''}`}>
+                <div className={`cambridge-question-wrapper ${isQuestionAnswered(currentQuestion) ? 'answered' : ''}`}>
                   {/* Flag Button */}
                   <button
                     className={`cambridge-flag-button ${flaggedQuestions.has(currentQuestion.key) ? 'flagged' : ''}`}
@@ -1923,7 +1985,7 @@ const DoCambridgeReadingTest = () => {
             const range = getPartQuestionRange(idx);
             const isActive = currentPartIndex === idx;
             const partQuestions = allQuestions.filter(q => q.partIndex === idx);
-            const answeredInPart = partQuestions.filter(q => answers[q.key]).length;
+            const answeredInPart = partQuestions.filter(q => isQuestionAnswered(q)).length;
 
             return (
               <div key={idx} className="cambridge-part-wrapper">
@@ -1947,7 +2009,7 @@ const DoCambridgeReadingTest = () => {
                       partQuestions.map((q) => (
                         <button
                           key={q.key}
-                          className={`cambridge-question-num-btn ${answers[q.key] ? 'answered' : ''} ${currentQuestionIndex === q.questionNumber - 1 ? 'active' : ''} ${flaggedQuestions.has(q.key) ? 'flagged' : ''}`}
+                          className={`cambridge-question-num-btn ${isQuestionAnswered(q) ? 'answered' : ''} ${currentQuestionIndex === q.questionNumber - 1 ? 'active' : ''} ${flaggedQuestions.has(q.key) ? 'flagged' : ''}`}
                           onClick={() => goToQuestion(q.questionNumber - 1)}
                         >
                           {q.questionNumber}
