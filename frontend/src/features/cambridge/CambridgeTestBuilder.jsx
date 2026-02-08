@@ -653,6 +653,29 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
     setIsSubmitting(true);
     setMessage({ type: '', text: '' });
 
+    const cleanupClozeHtml = (html) => {
+      if (!html) return '';
+      let cleaned = String(html);
+      cleaned = cleaned.replace(/<p>(?:\s|&nbsp;|<br\s*\/?>)*<\/p>/gi, '');
+      cleaned = cleaned.replace(/<p><\/p>/gi, '');
+      cleaned = cleaned.replace(/<p>\s*<\/p>/gi, '');
+      cleaned = cleaned.replace(/(<br\s*\/?>\s*){2,}/gi, '<br>');
+      return cleaned.trim();
+    };
+
+    const cleanedParts = parts.map((part) => ({
+      ...part,
+      sections: (part.sections || []).map((section) => ({
+        ...section,
+        questions: (section.questions || []).map((q) => {
+          if (section.questionType === 'cloze-test' || q.questionType === 'cloze-test') {
+            return { ...q, passageText: cleanupClozeHtml(q.passageText) };
+          }
+          return q;
+        }),
+      })),
+    }));
+
     try {
       const payload = {
         title,
@@ -660,8 +683,8 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
         teacherName,
         testType,
         mainAudioUrl,
-        parts,
-        totalQuestions: parts.reduce(
+        parts: cleanedParts,
+        totalQuestions: cleanedParts.reduce(
           (sum, part) => sum + part.sections.reduce((sSum, sec) => sSum + getQuestionCountForSection(sec), 0),
           0
         ),
