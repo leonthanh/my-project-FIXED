@@ -2,8 +2,9 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import { useParams, useNavigate } from "react-router-dom";
 import { apiPath, hostPath } from "../../../shared/utils/api";
 import { TestHeader } from "../../../shared/components";
+import { useTheme } from "../../../shared/contexts/ThemeContext";
 import { TEST_CONFIGS } from "../../../shared/config/questionTypes";
-import { styles } from "./DoCambridgeListeningTest.styles";
+import createStyles from "./DoCambridgeListeningTest.styles";
 import './DoCambridgeReadingTest.css';
 
 /**
@@ -13,6 +14,8 @@ import './DoCambridgeReadingTest.css';
 const DoCambridgeListeningTest = () => {
   const { testType, id } = useParams(); // testType: ket-listening, pet-listening, etc.
   const navigate = useNavigate();
+  const { isDarkMode } = useTheme();
+  const styles = useMemo(() => createStyles(isDarkMode), [isDarkMode]);
 
   const examType = useMemo(() => {
     const s = String(testType || "").trim().toLowerCase();

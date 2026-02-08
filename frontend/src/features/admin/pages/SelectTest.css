@@ -379,3 +379,76 @@
 .select-test-feedback:hover {
   filter: brightness(0.95);
 }
+
+/* Dark mode overrides */
+body.dark-mode .select-test-page {
+  background: #0f172a;
+}
+
+body.dark-mode .select-test-shell {
+  background: #111827;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.4);
+}
+
+body.dark-mode .select-test-tabs {
+  border-bottom-color: #1f2b47;
+}
+
+body.dark-mode .select-test-tab {
+  background: #1f2b47;
+  color: #e8e8e8;
+}
+
+body.dark-mode .select-test-tab.active {
+  background: #0f3460;
+}
+
+body.dark-mode .select-test-search,
+body.dark-mode .select-test-sort {
+  background: #16213e;
+  color: #e8e8e8;
+  border-color: #3d3d5c;
+}
+
+body.dark-mode .select-test-search:focus {
+  border-color: #4a90d9;
+  box-shadow: 0 0 0 3px rgba(74, 144, 217, 0.25);
+}
+
+body.dark-mode .select-test-loading,
+body.dark-mode .select-test-empty,
+body.dark-mode .select-test-meta {
+  color: #b0b0b0;
+}
+
+body.dark-mode .select-test-card {
+  background: #16213e;
+  border-color: #1f2b47;
+}
+
+body.dark-mode .select-test-cardMain:hover {
+  background: rgba(74, 144, 217, 0.12);
+}
+
+body.dark-mode .select-test-cardTitle {
+  color: #e8e8e8;
+}
+
+body.dark-mode .select-test-chip {
+  background: rgba(74, 144, 217, 0.18);
+  color: #cfe3ff;
+}
+
+body.dark-mode .select-test-cardTeacher {
+  color: #c7c7c7;
+}
+
+body.dark-mode .select-test-loadMore {
+  background: #16213e;
+  border-color: #3d3d5c;
+  color: #e8e8e8;
+}
+
+body.dark-mode .select-test-loadMore:hover {
+  background: #1f2b47;
+}

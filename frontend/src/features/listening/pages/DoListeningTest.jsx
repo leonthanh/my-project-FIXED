@@ -2,11 +2,12 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import { useParams, useNavigate } from "react-router-dom";
 import { apiPath, hostPath, authFetch } from "../../../shared/utils/api";
 import { TestHeader } from "../../../shared/components";
+import { useTheme } from "../../../shared/contexts/ThemeContext";
 import MapLabelingQuestion from "../../../shared/components/MapLabelingQuestion";
 import TableCompletion from "../../../shared/components/questions/editors/TableCompletion.jsx";
 import ResultModal from "../../../shared/components/ResultModal";
 import { generateDetailsFromSections } from "./ListeningResults";
-import styles from "./DoListeningTest.styles";
+import createStyles from "./DoListeningTest.styles";
 
 // Local helper to compute band (mirror of listening results logic)
 const bandFromCorrect = (c) => {
@@ -68,6 +69,8 @@ const countTableCompletionBlanks = (question) => {
 const DoListeningTest = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { isDarkMode } = useTheme();
+  const styles = useMemo(() => createStyles(isDarkMode), [isDarkMode]);
 
   // States
   const [test, setTest] = useState(null);

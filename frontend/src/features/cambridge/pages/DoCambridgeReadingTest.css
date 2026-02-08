@@ -824,3 +824,94 @@
   cursor: not-allowed;
   opacity: 0.5;
 }
+
+/* Dark mode overrides */
+body.dark-mode .cambridge-test-container {
+  background: #0f172a;
+  color: #e8e8e8;
+}
+
+body.dark-mode .cambridge-main-content {
+  background: #111827;
+  border-top-color: #1f2b47;
+}
+
+body.dark-mode .cambridge-passage-column {
+  background: #0f172a;
+}
+
+body.dark-mode .cambridge-questions-column {
+  background: #111827;
+}
+
+body.dark-mode .cambridge-divider:hover {
+  background: rgba(74, 144, 217, 0.2);
+}
+
+body.dark-mode .cambridge-resize-handle {
+  background: #4b5563;
+}
+
+body.dark-mode .cambridge-part-title,
+body.dark-mode .cambridge-section-title,
+body.dark-mode .cambridge-passage-title {
+  color: #e8e8e8;
+  border-bottom-color: #2a3350;
+}
+
+body.dark-mode .cambridge-part-instruction {
+  background: #0f172a;
+  border-left-color: #4a90d9;
+  color: #cbd5f5;
+}
+
+body.dark-mode .cambridge-passage-container {
+  background: #111827;
+  border-color: #2a3350;
+}
+
+body.dark-mode .cambridge-passage-content {
+  color: #e8e8e8;
+}
+
+body.dark-mode .cambridge-passage-content strong {
+  color: #ffffff;
+}
+
+body.dark-mode .cambridge-section-title {
+  border-bottom-color: #2a3350;
+}
+
+body.dark-mode .cambridge-question-wrapper {
+  background: #111827;
+  border-color: #2a3350;
+}
+
+body.dark-mode .cambridge-question-wrapper:hover {
+  border-color: #4b5563;
+}
+
+body.dark-mode .cambridge-question-wrapper.active-question {
+  background: #0f3460;
+  border-left-color: #4a90d9;
+}
+
+body.dark-mode .cambridge-flag-button {
+  color: #94a3b8;
+}
+
+body.dark-mode .cambridge-question-text,
+body.dark-mode .cambridge-question-instruction,
+body.dark-mode .cambridge-question-subtext {
+  color: #e8e8e8;
+}
+
+body.dark-mode .cambridge-footer {
+  background: #111827;
+  border-top-color: #2a3350;
+}
+
+body.dark-mode .cambridge-nav-arrow-btn {
+  background: #1f2b47;
+  border-color: #3d3d5c;
+}

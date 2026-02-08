@@ -138,6 +138,31 @@
   border-bottom: none;
 }
 
+body.dark-mode .studentNavbar {
+  background: #0f3460;
+  color: #e8e8e8;
+}
+
+body.dark-mode .studentNavbar__link,
+body.dark-mode .studentNavbar__moreToggle,
+body.dark-mode .studentNavbar__user {
+  color: #e8e8e8;
+}
+
+body.dark-mode .studentNavbar__menu {
+  background: #16213e;
+  border-color: #3d3d5c;
+}
+
+body.dark-mode .studentNavbar__menuItem {
+  color: #e8e8e8;
+  border-bottom: 1px solid #2a3350;
+}
+
+body.dark-mode .studentNavbar__menuItem:hover {
+  background: #1f2b47;
+}
+
 @media (max-width: 1024px) {
   .studentNavbar {
     padding: 10px 16px;

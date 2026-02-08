@@ -1,10 +1,34 @@
 // Centralized inline styles for DoCambridgeListeningTest
 // Keeping this in a separate file reduces noise in the component file.
 
-export const styles = {
+const createStyles = (isDarkMode = false) => {
+  const colors = isDarkMode
+    ? {
+        pageBg: "#0f172a",
+        surface: "#111827",
+        surfaceAlt: "#16213e",
+        text: "#e8e8e8",
+        muted: "#b0b0b0",
+        border: "#3d3d5c",
+        primary: "#4a90d9",
+        warning: "#f59e0b",
+      }
+    : {
+        pageBg: "#f8fafc",
+        surface: "#ffffff",
+        surfaceAlt: "#f8fafc",
+        text: "#0f172a",
+        muted: "#475569",
+        border: "#e5e7eb",
+        primary: "#0e276f",
+        warning: "#f59e0b",
+      };
+
+  return {
   container: {
     minHeight: '100vh',
-    backgroundColor: '#f8fafc',
+    backgroundColor: colors.pageBg,
+    color: colors.text,
     paddingBottom: '130px',
   },
   playGateOverlay: {
@@ -20,14 +44,14 @@ export const styles = {
   playGateCard: {
     width: '100%',
     maxWidth: '520px',
-    background: '#ffffff',
+    background: colors.surface,
     borderRadius: '16px',
     padding: '22px 20px',
     textAlign: 'center',
     boxShadow: '0 20px 60px rgba(0,0,0,0.35)',
   },
   playGateButton: {
-    background: '#0e276f',
+    background: colors.primary,
     color: '#fff',
     border: 'none',
     borderRadius: '999px',
@@ -38,8 +62,8 @@ export const styles = {
     minWidth: '160px',
   },
   rubricBlock: {
-    background: '#ffffff',
-    border: '1px solid #e5e7eb',
+    background: colors.surface,
+    border: `1px solid ${colors.border}`,
     borderRadius: '12px',
     padding: '14px 16px',
     marginBottom: '14px',
@@ -47,18 +71,18 @@ export const styles = {
   rubricTitle: {
     margin: 0,
     fontSize: '16px',
-    color: '#0f172a',
+    color: colors.text,
   },
   rubricText: {
     marginTop: '6px',
     fontSize: '14px',
-    color: '#475569',
+    color: colors.muted,
   },
   pictureQuestionCard: {
     padding: '10px 0 18px',
     marginBottom: '18px',
     backgroundColor: 'transparent',
-    borderBottom: '1px solid #e5e7eb',
+    borderBottom: `1px solid ${colors.border}`,
   },
   pictureQuestionHeader: {
     position: 'relative',
@@ -127,8 +151,8 @@ export const styles = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    color: '#94a3b8',
-    background: '#f8fafc',
+    color: colors.muted,
+    background: colors.surfaceAlt,
     borderRadius: '0px',
     fontSize: '12px',
   },
@@ -144,9 +168,9 @@ export const styles = {
     width: '22px',
     height: '22px',
     borderRadius: '999px',
-    border: '1px solid #cbd5e1',
-    background: '#ffffff',
-    color: '#334155',
+    border: `1px solid ${colors.border}`,
+    background: colors.surface,
+    color: colors.text,
     fontSize: '12px',
     fontWeight: 800,
     cursor: 'default',
@@ -174,8 +198,8 @@ export const styles = {
     left: 0,
     right: 0,
     bottom: 0,
-    background: '#ffffff',
-    borderTop: '1px solid #e5e7eb',
+    background: colors.surface,
+    borderTop: `1px solid ${colors.border}`,
     zIndex: 1000,
     padding: '10px 12px',
   },
@@ -190,8 +214,9 @@ export const styles = {
     width: '40px',
     height: '36px',
     borderRadius: '10px',
-    border: '1px solid #e5e7eb',
-    background: '#ffffff',
+    border: `1px solid ${colors.border}`,
+    background: colors.surfaceAlt,
+    color: colors.text,
     cursor: 'pointer',
     fontSize: '18px',
     lineHeight: 1,
@@ -499,7 +524,7 @@ export const styles = {
     width: '90%',
   },
   confirmModal: {
-    backgroundColor: 'white',
+    backgroundColor: colors.surface,
     padding: '24px',
     borderRadius: '12px',
     textAlign: 'center',
@@ -512,13 +537,13 @@ export const styles = {
     justifyContent: 'center',
     gap: '24px',
     padding: '24px',
-    backgroundColor: '#f0fdf4',
+    backgroundColor: isDarkMode ? '#0f2a1a' : '#f0fdf4',
     borderRadius: '12px',
   },
   scoreNumber: {
     fontSize: '36px',
     fontWeight: 700,
-    color: '#0e276f',
+    color: colors.primary,
   },
   scorePercent: {
     fontSize: '28px',
@@ -527,7 +552,7 @@ export const styles = {
   },
   primaryButton: {
     padding: '12px 24px',
-    backgroundColor: '#0e276f',
+    backgroundColor: colors.primary,
     color: 'white',
     border: 'none',
     borderRadius: '8px',
@@ -537,9 +562,9 @@ export const styles = {
   },
   secondaryButton: {
     padding: '12px 24px',
-    backgroundColor: '#f1f5f9',
-    color: '#374151',
-    border: '1px solid #d1d5db',
+    backgroundColor: colors.surfaceAlt,
+    color: colors.text,
+    border: `1px solid ${colors.border}`,
     borderRadius: '8px',
     cursor: 'pointer',
     fontWeight: 600,
@@ -548,11 +573,14 @@ export const styles = {
   backButton: {
     marginTop: '20px',
     padding: '12px 24px',
-    backgroundColor: '#0e276f',
+    backgroundColor: colors.primary,
     color: 'white',
     border: 'none',
     borderRadius: '8px',
     cursor: 'pointer',
     fontWeight: 600,
   },
+  };
 };
+
+export default createStyles;

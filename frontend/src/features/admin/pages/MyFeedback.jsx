@@ -1,8 +1,39 @@
 import React, { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { StudentNavbar } from "../../../shared/components";
 import { apiPath, hostPath } from "../../../shared/utils/api";
+import { useTheme } from "../../../shared/contexts/ThemeContext";
 
 const MyFeedback = () => {
+  const { isDarkMode } = useTheme();
+  const colors = useMemo(
+    () =>
+      isDarkMode
+        ? {
+            pageBg: "#0f172a",
+            surface: "#111827",
+            surfaceAlt: "#16213e",
+            border: "#2a3350",
+            text: "#e8e8e8",
+            muted: "#b0b0b0",
+            primary: "#4a90d9",
+            success: "#22c55e",
+            warning: "#f59e0b",
+            danger: "#ef4444",
+          }
+        : {
+            pageBg: "#ffffff",
+            surface: "#f9f9f9",
+            surfaceAlt: "#f0f0f0",
+            border: "#ccc",
+            text: "#1f2937",
+            muted: "#666",
+            primary: "#0e276f",
+            success: "#16a34a",
+            warning: "#ca8a04",
+            danger: "#d32f2f",
+          },
+    [isDarkMode]
+  );
   // Tab state
   const [activeTab, setActiveTab] = useState("writing");
   
@@ -274,8 +305,16 @@ const MyFeedback = () => {
   return (
     <>
       <StudentNavbar />
-      <div style={{ padding: "30px", maxWidth: 1200, margin: "0 auto" }}>
-        <h2>📚 Bài làm & Nhận xét của tôi</h2>
+      <div style={{ background: colors.pageBg, minHeight: "100vh" }}>
+        <div
+          style={{
+            padding: "30px",
+            maxWidth: 1200,
+            margin: "0 auto",
+            color: colors.text,
+          }}
+        >
+          <h2>📚 Bài làm & Nhận xét của tôi</h2>
 
         {/* Tab Navigation */}
         <div style={{ display: "flex", gap: 10, marginBottom: 20 }}>
@@ -283,9 +322,10 @@ const MyFeedback = () => {
             onClick={() => setActiveTab("writing")}
             style={{
               padding: "12px 24px",
-              backgroundColor: activeTab === "writing" ? "#0e276f" : "#e0e0e0",
-              color: activeTab === "writing" ? "white" : "#333",
-              border: "none",
+              backgroundColor:
+                activeTab === "writing" ? colors.primary : colors.surfaceAlt,
+              color: activeTab === "writing" ? "#fff" : colors.text,
+              border: `1px solid ${colors.border}`,
               borderRadius: 8,
               cursor: "pointer",
               fontSize: 16,
@@ -298,9 +338,10 @@ const MyFeedback = () => {
             onClick={() => setActiveTab("reading")}
             style={{
               padding: "12px 24px",
-              backgroundColor: activeTab === "reading" ? "#0e276f" : "#e0e0e0",
-              color: activeTab === "reading" ? "white" : "#333",
-              border: "none",
+              backgroundColor:
+                activeTab === "reading" ? colors.primary : colors.surfaceAlt,
+              color: activeTab === "reading" ? "#fff" : colors.text,
+              border: `1px solid ${colors.border}`,
               borderRadius: 8,
               cursor: "pointer",
               fontSize: 16,
@@ -314,9 +355,10 @@ const MyFeedback = () => {
             onClick={() => setActiveTab("cambridge")}
             style={{
               padding: "12px 24px",
-              backgroundColor: activeTab === "cambridge" ? "#0e276f" : "#e0e0e0",
-              color: activeTab === "cambridge" ? "white" : "#333",
-              border: "none",
+              backgroundColor:
+                activeTab === "cambridge" ? colors.primary : colors.surfaceAlt,
+              color: activeTab === "cambridge" ? "#fff" : colors.text,
+              border: `1px solid ${colors.border}`,
               borderRadius: 8,
               cursor: "pointer",
               fontSize: 16,
@@ -330,7 +372,7 @@ const MyFeedback = () => {
         {/* Search Form */}
         <div
           style={{
-            background: "#f0f0f0",
+            background: colors.surfaceAlt,
             padding: 20,
             borderRadius: 8,
             marginBottom: 20,
@@ -338,6 +380,7 @@ const MyFeedback = () => {
             gridTemplateColumns: "1fr 1fr 1fr auto",
             gap: 15,
             alignItems: "end",
+            border: `1px solid ${colors.border}`,
           }}
         >
           <div>
@@ -352,10 +395,12 @@ const MyFeedback = () => {
               style={{
                 width: "100%",
                 padding: 10,
-                border: "1px solid #ccc",
+                border: `1px solid ${colors.border}`,
                 borderRadius: 6,
                 fontSize: 14,
                 boxSizing: "border-box",
+                background: colors.surface,
+                color: colors.text,
               }}
             />
           </div>
@@ -372,10 +417,12 @@ const MyFeedback = () => {
               style={{
                 width: "100%",
                 padding: 10,
-                border: "1px solid #ccc",
+                border: `1px solid ${colors.border}`,
                 borderRadius: 6,
                 fontSize: 14,
                 boxSizing: "border-box",
+                background: colors.surface,
+                color: colors.text,
               }}
             />
           </div>
@@ -392,10 +439,12 @@ const MyFeedback = () => {
               style={{
                 width: "100%",
                 padding: 10,
-                border: "1px solid #ccc",
+                border: `1px solid ${colors.border}`,
                 borderRadius: 6,
                 fontSize: 14,
                 boxSizing: "border-box",
+                background: colors.surface,
+                color: colors.text,
               }}
             />
           </div>
@@ -408,7 +457,7 @@ const MyFeedback = () => {
             }}
             style={{
               padding: "10px 20px",
-              backgroundColor: "#666",
+              backgroundColor: isDarkMode ? colors.primary : "#666",
               color: "#fff",
               border: "none",
               borderRadius: 6,
@@ -422,7 +471,7 @@ const MyFeedback = () => {
         </div>
 
         {/* Results count */}
-        <p style={{ color: "#666", marginBottom: 15 }}>
+        <p style={{ color: colors.muted, marginBottom: 15 }}>
           📊 Tổng cộng: <strong>{currentSubmissions.length}</strong> bài{" "}
           {activeTab === "writing" ? "viết" : activeTab === "reading" ? "đọc" : "Cambridge"}
           {(searchClassCode || searchTeacher || searchFeedbackBy) &&
@@ -438,7 +487,7 @@ const MyFeedback = () => {
         {loading && <p>⏳ Đang tải dữ liệu...</p>}
 
         {!loading && currentSubmissions.length === 0 && (
-          <p style={{ color: "#d32f2f", fontWeight: "bold" }}>
+          <p style={{ color: colors.danger, fontWeight: "bold" }}>
             🙁 {searchClassCode || searchTeacher || searchFeedbackBy
               ? "Không tìm thấy bài phù hợp."
               : `Bạn chưa nộp bài ${
@@ -452,11 +501,11 @@ const MyFeedback = () => {
           <div
             key={sub.id || idx}
             style={{
-              border: "1px solid #ccc",
+              border: `1px solid ${colors.border}`,
               borderRadius: 8,
               padding: 20,
               marginBottom: 20,
-              backgroundColor: "#f9f9f9",
+              backgroundColor: colors.surface,
             }}
           >
             <p>
@@ -490,20 +539,27 @@ const MyFeedback = () => {
 
             <h4 style={{ marginTop: 20 }}>
               📩 Nhận xét từ giáo viên:{" "}
-              <span style={{ color: "#0e276f", fontWeight: "bold" }}>
+              <span style={{ color: colors.primary, fontWeight: "bold" }}>
                 {sub.feedbackBy || "Không xác định"}
               </span>
             </h4>
             {sub.feedback ? (
-              <div style={{ background: "#e7f4e4", padding: 10, borderRadius: 6 }}>
+              <div
+                style={{
+                  background: isDarkMode ? "#0f2a1a" : "#e7f4e4",
+                  padding: 10,
+                  borderRadius: 6,
+                  border: `1px solid ${colors.border}`,
+                }}
+              >
                 <p style={{ marginBottom: 8, whiteSpace: "pre-line" }}>{sub.feedback}</p>
-                <p style={{ fontSize: 14, color: "#555" }}>
+                <p style={{ fontSize: 14, color: colors.muted }}>
                   🕐 <strong>Thời gian nhận xét:</strong>{" "}
                   {sub.feedbackAt ? new Date(sub.feedbackAt).toLocaleString("vi-VN") : "Không rõ"}
                 </p>
               </div>
             ) : (
-              <p style={{ fontStyle: "italic", color: "#999" }}>Chưa có nhận xét nào.</p>
+              <p style={{ fontStyle: "italic", color: colors.muted }}>Chưa có nhận xét nào.</p>
             )}
           </div>
         ))}
@@ -513,11 +569,11 @@ const MyFeedback = () => {
           <div
             key={sub.id || idx}
             style={{
-              border: "1px solid #ccc",
+              border: `1px solid ${colors.border}`,
               borderRadius: 8,
               padding: 20,
               marginBottom: 20,
-              backgroundColor: "#f9f9f9",
+              backgroundColor: colors.surface,
             }}
           >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
@@ -539,8 +595,9 @@ const MyFeedback = () => {
               {/* Score badge */}
               <div style={{
                 padding: "12px 16px",
-                background: "#111827",
-                color: "#fff",
+                background: colors.surfaceAlt,
+                color: colors.text,
+                border: `1px solid ${colors.border}`,
                 borderRadius: 8,
                 textAlign: "center"
               }}>
@@ -558,26 +615,35 @@ const MyFeedback = () => {
               gap: 15,
               margin: "15px 0",
               padding: 15,
-              background: "#e8f4fd",
+              background: colors.surfaceAlt,
+              color: colors.text,
               borderRadius: 8
             }}>
               <div style={{ textAlign: "center" }}>
-                <div style={{ fontSize: 24, fontWeight: "bold", color: "#0e276f" }}>
+                <div style={{ fontSize: 24, fontWeight: "bold", color: colors.primary }}>
                   {sub.correct || 0}
                 </div>
-                <div style={{ fontSize: 12, color: "#666" }}>Câu đúng</div>
+                <div style={{ fontSize: 12, color: colors.muted }}>Câu đúng</div>
               </div>
               <div style={{ textAlign: "center" }}>
-                <div style={{ fontSize: 24, fontWeight: "bold", color: "#0e276f" }}>
+                <div style={{ fontSize: 24, fontWeight: "bold", color: colors.primary }}>
                   {sub.total || 0}
                 </div>
-                <div style={{ fontSize: 12, color: "#666" }}>Tổng câu</div>
+                <div style={{ fontSize: 12, color: colors.muted }}>Tổng câu</div>
               </div>
               <div style={{ textAlign: "center" }}>
-                <div style={{ fontSize: 24, fontWeight: "bold", color: sub.scorePercentage >= 70 ? "#16a34a" : sub.scorePercentage >= 50 ? "#ca8a04" : "#dc2626" }}>
+                <div style={{
+                  fontSize: 24,
+                  fontWeight: "bold",
+                  color: sub.scorePercentage >= 70
+                    ? colors.success
+                    : sub.scorePercentage >= 50
+                      ? colors.warning
+                      : colors.danger
+                }}>
                   {sub.scorePercentage || 0}%
                 </div>
-                <div style={{ fontSize: 12, color: "#666" }}>Tỷ lệ đúng</div>
+                <div style={{ fontSize: 12, color: colors.muted }}>Tỷ lệ đúng</div>
               </div>
             </div>
 
@@ -587,7 +653,7 @@ const MyFeedback = () => {
               disabled={loadingAnalysis}
               style={{
                 padding: "10px 20px",
-                backgroundColor: "#4f46e5",
+                backgroundColor: isDarkMode ? colors.primary : "#4f46e5",
                 color: "white",
                 border: "none",
                 borderRadius: 6,
@@ -602,20 +668,27 @@ const MyFeedback = () => {
             {/* Teacher feedback */}
             <h4 style={{ marginTop: 10 }}>
               📩 Nhận xét từ giáo viên:{" "}
-              <span style={{ color: "#0e276f", fontWeight: "bold" }}>
+              <span style={{ color: colors.primary, fontWeight: "bold" }}>
                 {sub.feedbackBy || "Chưa có"}
               </span>
             </h4>
             {sub.feedback ? (
-              <div style={{ background: "#e7f4e4", padding: 10, borderRadius: 6 }}>
+              <div
+                style={{
+                  background: isDarkMode ? "#0f2a1a" : "#e7f4e4",
+                  padding: 10,
+                  borderRadius: 6,
+                  border: `1px solid ${colors.border}`,
+                }}
+              >
                 <p style={{ marginBottom: 8, whiteSpace: "pre-line" }}>{sub.feedback}</p>
-                <p style={{ fontSize: 14, color: "#555" }}>
+                <p style={{ fontSize: 14, color: colors.muted }}>
                   🕐 <strong>Thời gian nhận xét:</strong>{" "}
                   {sub.feedbackAt ? new Date(sub.feedbackAt).toLocaleString("vi-VN") : "Không rõ"}
                 </p>
               </div>
             ) : (
-              <p style={{ fontStyle: "italic", color: "#999" }}>Chưa có nhận xét từ giáo viên.</p>
+              <p style={{ fontStyle: "italic", color: colors.muted }}>Chưa có nhận xét từ giáo viên.</p>
             )}
 
             {/* View details link */}
@@ -623,7 +696,7 @@ const MyFeedback = () => {
               <a
                 href={`/reading-results/${sub.id}`}
                 style={{
-                  color: "#0e276f",
+                  color: colors.primary,
                   textDecoration: "underline",
                   fontSize: 14
                 }}
@@ -639,11 +712,11 @@ const MyFeedback = () => {
           <div
             key={sub.id || idx}
             style={{
-              border: "1px solid #ccc",
+              border: `1px solid ${colors.border}`,
               borderRadius: 8,
               padding: 20,
               marginBottom: 20,
-              backgroundColor: "#f9f9f9",
+              backgroundColor: colors.surface,
             }}
           >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
@@ -668,8 +741,9 @@ const MyFeedback = () => {
 
               <div style={{
                 padding: "12px 16px",
-                background: "#111827",
-                color: "#fff",
+                background: colors.surfaceAlt,
+                color: colors.text,
+                border: `1px solid ${colors.border}`,
                 borderRadius: 8,
                 textAlign: "center"
               }}>
@@ -685,20 +759,27 @@ const MyFeedback = () => {
             {/* Teacher feedback */}
             <h4 style={{ marginTop: 10 }}>
               📩 Nhận xét từ giáo viên:{" "}
-              <span style={{ color: "#0e276f", fontWeight: "bold" }}>
+              <span style={{ color: colors.primary, fontWeight: "bold" }}>
                 {sub.feedbackBy || "Chưa có"}
               </span>
             </h4>
             {sub.feedback ? (
-              <div style={{ background: "#e7f4e4", padding: 10, borderRadius: 6 }}>
+              <div
+                style={{
+                  background: isDarkMode ? "#0f2a1a" : "#e7f4e4",
+                  padding: 10,
+                  borderRadius: 6,
+                  border: `1px solid ${colors.border}`,
+                }}
+              >
                 <p style={{ marginBottom: 8, whiteSpace: "pre-line" }}>{sub.feedback}</p>
-                <p style={{ fontSize: 14, color: "#555" }}>
+                <p style={{ fontSize: 14, color: colors.muted }}>
                   🕐 <strong>Thời gian nhận xét:</strong>{" "}
                   {sub.feedbackAt ? new Date(sub.feedbackAt).toLocaleString("vi-VN") : "Không rõ"}
                 </p>
               </div>
             ) : (
-              <p style={{ fontStyle: "italic", color: "#999" }}>Chưa có nhận xét từ giáo viên.</p>
+              <p style={{ fontStyle: "italic", color: colors.muted }}>Chưa có nhận xét từ giáo viên.</p>
             )}
 
             {/* View details link */}
@@ -706,7 +787,7 @@ const MyFeedback = () => {
               <a
                 href={`/cambridge/result/${sub.id}`}
                 style={{
-                  color: "#0e276f",
+                  color: colors.primary,
                   textDecoration: "underline",
                   fontSize: 14
                 }}
@@ -716,6 +797,7 @@ const MyFeedback = () => {
             </div>
           </div>
         ))}
+        </div>
       </div>
 
       {/* Analysis Modal */}
@@ -737,7 +819,8 @@ const MyFeedback = () => {
         >
           <div
             style={{
-              background: "white",
+              background: colors.surface,
+              color: colors.text,
               padding: 30,
               borderRadius: 12,
               maxWidth: 700,
@@ -755,7 +838,8 @@ const MyFeedback = () => {
                   background: "none",
                   border: "none",
                   fontSize: 24,
-                  cursor: "pointer"
+                  cursor: "pointer",
+                  color: colors.text
                 }}
               >
                 ✕
@@ -768,9 +852,10 @@ const MyFeedback = () => {
                 fontFamily: "inherit",
                 fontSize: 14,
                 lineHeight: 1.6,
-                background: "#f8fafc",
+                background: colors.surfaceAlt,
                 padding: 20,
-                borderRadius: 8
+                borderRadius: 8,
+                border: `1px solid ${colors.border}`
               }}>
                 {analysisData.analysisText}
               </pre>
@@ -789,19 +874,19 @@ const MyFeedback = () => {
                       display: "flex",
                       alignItems: "center",
                       padding: "10px 0",
-                      borderBottom: "1px solid #eee"
+                      borderBottom: `1px solid ${colors.border}`
                     }}
                   >
                     <div style={{ flex: 1 }}>
                       <strong>{t.label}</strong>
-                      <div style={{ fontSize: 12, color: "#666" }}>
+                      <div style={{ fontSize: 12, color: colors.muted }}>
                         {t.correct}/{t.total} câu đúng
                       </div>
                     </div>
                     <div style={{
                       width: 100,
                       height: 8,
-                      background: "#e5e7eb",
+                      background: colors.border,
                       borderRadius: 4,
                       overflow: "hidden",
                       marginRight: 10
@@ -816,7 +901,7 @@ const MyFeedback = () => {
                       width: 50,
                       textAlign: "right",
                       fontWeight: "bold",
-                      color: t.status === "good" ? "#16a34a" : t.status === "average" ? "#ca8a04" : "#dc2626"
+                      color: t.status === "good" ? colors.success : t.status === "average" ? colors.warning : colors.danger
                     }}>
                       {t.percentage}%
                     </div>
@@ -830,7 +915,7 @@ const MyFeedback = () => {
               style={{
                 marginTop: 20,
                 padding: "12px 24px",
-                backgroundColor: "#0e276f",
+                backgroundColor: colors.primary,
                 color: "white",
                 border: "none",
                 borderRadius: 6,

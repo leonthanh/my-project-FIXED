@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { apiPath, hostPath } from "../utils/api";
+import ThemeToggle from "./ThemeToggle";
 import "./StudentNavbar.css";
 
 const StudentNavbar = () => {
@@ -297,6 +298,7 @@ const StudentNavbar = () => {
       </div>
 
       <div className="studentNavbar__right">
+        <ThemeToggle />
         <span className="studentNavbar__user">👤 {user.name}</span>
         <button
           onClick={handleLogout}
