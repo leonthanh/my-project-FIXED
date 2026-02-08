@@ -488,6 +488,8 @@ const PetWritingTest = () => {
           </div>
         </div>
 
+        {isMobile && <div className="pet-writing-mobile-divider" aria-hidden="true"></div>}
+
         {!isMobile && (
           <div
             className="cambridge-divider"
