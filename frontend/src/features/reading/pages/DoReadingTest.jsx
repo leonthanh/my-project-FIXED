@@ -1473,10 +1473,9 @@ const DoReadingTest = () => {
       <div
         id={`question-${startNumber}`}
         key={startNumber}
-        className="multi-select-container"
-        style={{
-          backgroundColor: activeQuestion === startNumber ? "#eff6ff" : "#e8f4fc",
-        }}
+        className={`multi-select-container ${
+          activeQuestion === startNumber ? "active" : ""
+        }`}
       >
         {/* Question number badge + text */}
         <div className="multi-select-header">

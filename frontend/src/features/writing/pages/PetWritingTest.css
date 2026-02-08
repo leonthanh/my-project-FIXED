@@ -146,6 +146,72 @@
   box-shadow: 0 12px 24px rgba(8, 26, 74, 0.12);
 }
 
+/* Dark mode */
+body.dark-mode .pet-writing-page {
+  background: #0f172a;
+  color: #e5e7eb;
+}
+
+body.dark-mode .pet-writing-passage,
+body.dark-mode .pet-writing-questions,
+body.dark-mode .pet-writing-rich,
+body.dark-mode .pet-writing-image-frame,
+body.dark-mode .QuestionDisplay__questionDisplayWrapper___1n_b0 {
+  background: #111827;
+  border-color: #2a3350;
+  color: #e5e7eb;
+}
+
+body.dark-mode .pet-writing-section-label,
+body.dark-mode .pet-writing-instruction,
+body.dark-mode .pet-writing-answer-header,
+body.dark-mode .pet-writing-word-count,
+body.dark-mode .QuestionDisplay__questionPickStatus___oaKDN,
+body.dark-mode .WordCountText__wordCountText___3QyIr {
+  color: #cbd5f5;
+}
+
+body.dark-mode .pet-writing-question-chip {
+  background: #1f2b47;
+  color: #e5e7eb;
+  border: 1px solid #2a3350;
+}
+
+body.dark-mode .questionPickSelector,
+body.dark-mode .plainTextWrapper__plainText____1GRn {
+  background: #0f172a;
+  color: #e5e7eb;
+  border-color: #2a3350;
+}
+
+body.dark-mode .plainTextWrapper__plainText____1GRn:focus {
+  outline: 2px solid rgba(79, 109, 182, 0.35);
+  border-color: #4f6db6;
+}
+
+body.dark-mode .pet-writing-footer,
+body.dark-mode .footer__questionNo___3WNct,
+body.dark-mode .footer__subquestionWrapper___9GgoP .subQuestion,
+body.dark-mode .footer__arrowIconBtn___3AiJS {
+  background: #111827;
+  color: #e5e7eb;
+  border-color: #2a3350;
+}
+
+body.dark-mode .footer__questionWrapper___1tZ46.selected .footer__questionNo___3WNct,
+body.dark-mode .footer__subquestionWrapper___9GgoP .subQuestion.active,
+body.dark-mode .footer__deliverButton___3FM07 {
+  background: #1f2b47;
+  color: #e5e7eb;
+  border-color: #2a3350;
+}
+
+body.dark-mode .pet-writing-toast {
+  background: #111827;
+  color: #e5e7eb;
+  border-color: #2a3350;
+}
+
 
 .QuestionDisplay__questionDisplayWrapper___1n_b0 {
   border: 1px solid #e0e0e0;
@@ -313,6 +379,42 @@
   cursor: pointer;
 }
 
+@media (max-width: 1024px) {
+  .pet-writing-passage,
+  .pet-writing-questions {
+    padding: 14px 18px;
+  }
+
+  .pet-writing-left-content {
+    max-width: 640px;
+  }
+
+  .QuestionDisplay__questionDisplayWrapper___1n_b0 {
+    padding: 12px;
+  }
+
+  .plainTextWrapper__plainText____1GRn {
+    min-height: 220px;
+    font-size: 15px;
+  }
+
+  .pet-writing-footer {
+    padding: 6px 10px;
+    gap: 8px;
+  }
+
+  .footer__navButtons___Gtvxu {
+    right: 1.5rem;
+    bottom: 3rem;
+  }
+
+  .footer__arrowIconBtn___3AiJS {
+    width: 40px;
+    height: 44px;
+    font-size: 1.2rem;
+  }
+}
+
 @media (max-width: 900px) {
   .pet-writing-main {
     flex-direction: column;
@@ -325,5 +427,95 @@
 
   .cambridge-divider {
     display: none;
+  }
+}
+
+@media (max-width: 430px) {
+  .pet-writing-page .test-header {
+    padding: 0 10px;
+    height: 52px;
+  }
+
+  .pet-writing-page .test-header .test-badge {
+    padding: 4px 8px;
+    font-size: 10px;
+  }
+
+  .pet-writing-page .test-header .test-info h1 {
+    font-size: 13px;
+  }
+
+  .pet-writing-page .test-header .test-meta {
+    font-size: 10px;
+  }
+
+  .pet-writing-page .test-header .timer-container {
+    padding: 2px 8px;
+  }
+
+  .pet-writing-page .test-header .timer-value {
+    font-size: 14px;
+  }
+
+  .pet-writing-page .test-header .progress-ring {
+    width: 34px;
+    height: 34px;
+  }
+
+  .pet-writing-page .test-header .submit-btn {
+    padding: 6px 10px;
+    font-size: 12px;
+  }
+
+  .pet-writing-passage,
+  .pet-writing-questions {
+    padding: 12px 14px;
+  }
+
+  .pet-writing-instruction {
+    font-size: 13px;
+  }
+
+  .pet-writing-rich {
+    padding: 12px;
+  }
+
+  .plainTextWrapper__plainText____1GRn {
+    min-height: 200px;
+    font-size: 15px;
+  }
+
+  .pet-writing-footer {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .nav-row.perScorableItem {
+    flex-wrap: wrap;
+    justify-content: space-between;
+  }
+
+  .footer__navButtons___Gtvxu {
+    position: static;
+    align-self: flex-end;
+  }
+
+  .footer__questionWrapper___1tZ46 {
+    flex-wrap: wrap;
+  }
+
+  .footer__subquestionWrapper___9GgoP {
+    flex-wrap: wrap;
+  }
+
+  .footer__deliverButton___3FM07 {
+    align-self: flex-end;
+  }
+
+  .pet-writing-toast {
+    left: 12px;
+    right: 12px;
+    bottom: 12px;
   }
 }

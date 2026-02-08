@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AdminNavbar } from "../../../shared/components";
+import { useTheme } from "../../../shared/contexts/ThemeContext";
 import { apiPath } from "../../../shared/utils/api";
 import { generateDetailsFromSections } from "../../listening/pages/ListeningResults";
 
@@ -44,6 +45,7 @@ const bandFromCorrect = (c) => {
 };
 
 const AdminListeningSubmissions = () => {
+  const { isDarkMode } = useTheme();
   const [subs, setSubs] = useState([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
@@ -292,6 +294,29 @@ const AdminListeningSubmissions = () => {
     }
   };
 
+  const modalOverlayStyle = {
+    position: "fixed",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    background: isDarkMode ? "rgba(2,6,23,0.7)" : "rgba(0,0,0,0.5)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 10000,
+  };
+
+  const modalContentStyle = {
+    width: "min(720px, 92vw)",
+    background: isDarkMode ? "#111827" : "white",
+    color: isDarkMode ? "#e5e7eb" : "#111827",
+    padding: 24,
+    borderRadius: 10,
+    border: isDarkMode ? "1px solid #2a3350" : "1px solid transparent",
+    boxShadow: isDarkMode ? "0 20px 60px rgba(0,0,0,0.45)" : "0 20px 60px rgba(0,0,0,0.25)",
+  };
+
   return (
     <>
       <AdminNavbar />
@@ -498,7 +523,12 @@ const AdminListeningSubmissions = () => {
                   <input
                     value={feedbackBy}
                     onChange={(e) => setFeedbackBy(e.target.value)}
-                    style={inputStyle}
+                    style={{
+                      ...inputStyle,
+                      background: isDarkMode ? "#0f172a" : undefined,
+                      color: isDarkMode ? "#e5e7eb" : undefined,
+                      borderColor: isDarkMode ? "#2a3350" : undefined,
+                    }}
                     placeholder="Tên giáo viên"
                   />
                 </label>
@@ -508,7 +538,14 @@ const AdminListeningSubmissions = () => {
                   <textarea
                     value={feedbackText}
                     onChange={(e) => setFeedbackText(e.target.value)}
-                    style={{ ...inputStyle, minHeight: 140, resize: "vertical" }}
+                    style={{
+                      ...inputStyle,
+                      minHeight: 140,
+                      resize: "vertical",
+                      background: isDarkMode ? "#0f172a" : undefined,
+                      color: isDarkMode ? "#e5e7eb" : undefined,
+                      borderColor: isDarkMode ? "#2a3350" : undefined,
+                    }}
                     placeholder="Nhận xét cho học sinh..."
                   />
                 </label>
@@ -561,26 +598,6 @@ const actionBtn = {
   fontSize: 13,
   color: "#fff",
   background: "#0e276f",
-};
-
-const modalOverlayStyle = {
-  position: "fixed",
-  top: 0,
-  left: 0,
-  right: 0,
-  bottom: 0,
-  background: "rgba(0,0,0,0.5)",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  zIndex: 10000,
-};
-
-const modalContentStyle = {
-  width: "min(720px, 92vw)",
-  background: "white",
-  padding: 24,
-  borderRadius: 10,
 };
 
 export default AdminListeningSubmissions;

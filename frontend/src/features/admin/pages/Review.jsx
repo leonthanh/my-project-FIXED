@@ -2,9 +2,11 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AdminNavbar } from "../../../shared/components";
+import { useTheme } from "../../../shared/contexts/ThemeContext";
 import { apiPath } from "../../../shared/utils/api";
 
 const Review = () => {
+  const { isDarkMode } = useTheme();
   const teacher = useMemo(() => {
     try {
       return JSON.parse(localStorage.getItem("user")) || null;
@@ -17,6 +19,7 @@ const Review = () => {
 
   // Writing IELTS
   const [unreviewedWriting, setUnreviewedWriting] = useState([]);
+  const [unreviewedPetWriting, setUnreviewedPetWriting] = useState([]);
   const [loadingWriting, setLoadingWriting] = useState(true);
 
   // Cambridge
@@ -32,36 +35,38 @@ const Review = () => {
 
   useEffect(() => {
     const fetchUnreviewedWriting = async () => {
+      setLoadingWriting(true);
       try {
         const res = await fetch(apiPath("writing/list"));
         const all = await res.json();
 
         // lọc bài chưa có nhận xét
         const filtered = Array.isArray(all) ? all.filter((sub) => !sub.feedback) : [];
-        setUnreviewedWriting(filtered);
+        const petWriting = filtered.filter((sub) =>
+          String(sub?.writing_test?.testType || sub?.WritingTest?.testType || sub?.testType || "").toLowerCase() === "pet-writing"
+        );
+        const writingIelts = filtered.filter((sub) => !petWriting.includes(sub));
+
+        setUnreviewedPetWriting(petWriting);
+        setUnreviewedWriting(writingIelts);
       } catch (err) {
         console.error("❌ Lỗi khi tải bài chưa chấm:", err);
         setUnreviewedWriting([]);
+        setUnreviewedPetWriting([]);
       } finally {
         setLoadingWriting(false);
       }
     };
 
-    fetchUnreviewedWriting();
-  }, []);
-
-  useEffect(() => {
     const fetchCambridgeSubmissions = async () => {
       try {
         setLoadingCambridge(true);
         setCambridgeError(null);
-
         // Fetch recent submissions; filter client-side for items needing review
         const res = await fetch(apiPath("cambridge/submissions?page=1&limit=100"));
         if (!res.ok) throw new Error("Không thể tải danh sách bài nộp Cambridge");
         const data = await res.json();
-        const subs = Array.isArray(data?.submissions) ? data.submissions : [];
-
+        const subs = Array.isArray(data?.submissions) ? data.submissions : (Array.isArray(data) ? data : []);
         // Needs review: status !== reviewed (backend sets reviewed when feedback exists)
         const needReview = subs.filter((s) => String(s.status || "").toLowerCase() !== "reviewed");
         setCambridgeSubmissions(needReview);
@@ -74,10 +79,11 @@ const Review = () => {
       }
     };
 
+    fetchUnreviewedWriting();
     fetchCambridgeSubmissions();
   }, []);
 
-  const cambridgeNeedsReviewCount = cambridgeSubmissions.length;
+  const cambridgeNeedsReviewCount = cambridgeSubmissions.length + unreviewedPetWriting.length;
 
   const parseJsonIfString = (value) => {
     if (typeof value !== "string") return value;
@@ -102,6 +108,24 @@ const Review = () => {
 
     return pending;
   };
+
+  const mergedCambridgeRows = useMemo(() => {
+    const petRows = unreviewedPetWriting.map((sub) => ({
+      source: "pet-writing",
+      sub,
+      submittedAt: sub.submittedAt || sub.createdAt || 0,
+    }));
+
+    const cambridgeRows = cambridgeSubmissions.map((sub) => ({
+      source: "cambridge",
+      sub,
+      submittedAt: sub.submittedAt || 0,
+    }));
+
+    return [...petRows, ...cambridgeRows].sort((a, b) =>
+      new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime()
+    );
+  }, [unreviewedPetWriting, cambridgeSubmissions]);
 
   const handleToggleCambridgeDetail = async (submissionId) => {
     setExpandedCambridge((prev) => {
@@ -169,28 +193,6 @@ const Review = () => {
       <div className="admin-page">
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 20 }} className="admin-header-row">
           <h3 style={{ margin: 0 }}>📝 Danh sách bài cần nhận xét</h3>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{ position: "relative", padding: "6px 10px", border: "1px solid #e5e7eb", borderRadius: 8, background: "#fff" }}>
-              🔔 Cambridge
-              {cambridgeNeedsReviewCount > 0 && (
-                <span
-                  style={{
-                    position: "absolute",
-                    top: -8,
-                    right: -8,
-                    background: "#ef4444",
-                    color: "#fff",
-                    borderRadius: 999,
-                    padding: "2px 8px",
-                    fontSize: 12,
-                    fontWeight: 700,
-                  }}
-                >
-                  {cambridgeNeedsReviewCount}
-                </span>
-              )}
-            </div>
-          </div>
         </div>
 
         {/* Tabs */}
@@ -287,15 +289,16 @@ const Review = () => {
       {/* Cambridge tab */}
       {activeTab === "cambridge" && (
         <>
+          {loadingWriting && <p>⏳ Đang tải PET Writing...</p>}
           {loadingCambridge && <p>⏳ Đang tải Cambridge submissions...</p>}
           {!loadingCambridge && cambridgeError && (
             <p style={{ color: "#dc2626" }}>❌ {cambridgeError}</p>
           )}
-          {!loadingCambridge && !cambridgeError && cambridgeSubmissions.length === 0 && (
+          {!loadingWriting && !loadingCambridge && !cambridgeError && mergedCambridgeRows.length === 0 && (
             <p>✅ Không có bài Cambridge nào cần chấm.</p>
           )}
 
-          {!loadingCambridge && !cambridgeError && cambridgeSubmissions.length > 0 && (
+          {!loadingCambridge && !cambridgeError && mergedCambridgeRows.length > 0 && (
             <table
               style={{
                 width: "100%",
@@ -318,7 +321,35 @@ const Review = () => {
                 </tr>
               </thead>
               <tbody>
-                {cambridgeSubmissions.map((sub, idx) => {
+                {mergedCambridgeRows.map((row, idx) => {
+                  if (row.source === "pet-writing") {
+                    const sub = row.sub;
+                    const writingTest = sub.writing_test || sub.WritingTest || {};
+                    return (
+                      <tr key={`pet-${sub.id}`} style={{ borderBottom: "1px solid #ccc" }}>
+                        <td style={cellStyle}>{idx + 1}</td>
+                        <td style={cellStyle}>pet-writing</td>
+                        <td style={cellStyle}>{sub.userName || sub.user?.name || "N/A"}</td>
+                        <td style={cellStyle}>{sub.userPhone || sub.user?.phone || "N/A"}</td>
+                        <td style={cellStyle}>{writingTest.classCode || "N/A"}</td>
+                        <td style={cellStyle}>--</td>
+                        <td style={cellStyle}>
+                          {new Date(sub.submittedAt || sub.createdAt).toLocaleString()}
+                        </td>
+                        <td style={cellStyle}>--</td>
+                        <td style={cellStyle}>
+                          <button
+                            onClick={() => navigate(`/review/${sub.id}`)}
+                            style={primaryButtonStyle}
+                          >
+                            ✏️ Nhận xét
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  }
+
+                  const sub = row.sub;
                   const isExpanded = expandedCambridge.has(sub.id);
                   const detail = cambridgeDetailsById[sub.id];
                   const isLoadingDetail = !!cambridgeLoadingDetailById[sub.id];
@@ -326,7 +357,7 @@ const Review = () => {
                   const hasTwo = pendingAnswers.length >= 2;
 
                   return (
-                    <React.Fragment key={sub.id}>
+                    <React.Fragment key={`cam-${sub.id}`}>
                       <tr style={{ borderBottom: "1px solid #ccc" }}>
                         <td style={cellStyle}>{idx + 1}</td>
                         <td style={cellStyle}>{String(sub.testType || "Cambridge")}</td>
@@ -363,7 +394,15 @@ const Review = () => {
 
                       {isExpanded && (
                         <tr>
-                          <td style={{ ...cellStyle, background: "#fafafa" }} colSpan={9}>
+                          <td
+                            style={{
+                              ...cellStyle,
+                              background: isDarkMode ? "#0f172a" : "#fafafa",
+                              color: isDarkMode ? "#e5e7eb" : "inherit",
+                              borderColor: isDarkMode ? "#1f2b47" : cellStyle.border,
+                            }}
+                            colSpan={9}
+                          >
                             {isLoadingDetail && <div>⏳ Đang tải chi tiết...</div>}
                             {!isLoadingDetail && detail && (
                               <div style={{ display: "grid", gap: 10 }}>
@@ -372,20 +411,20 @@ const Review = () => {
                                     ✍️ Nội dung cần chấm (các câu isCorrect=null)
                                   </div>
                                   {pendingAnswers.length === 0 ? (
-                                    <div style={{ color: "#6b7280" }}>
+                                    <div style={{ color: isDarkMode ? "#9ca3af" : "#6b7280" }}>
                                       (Không tìm thấy câu tự luận/pending trong bài này. Bạn có thể bấm “📄 Xem bài” để kiểm tra.)
                                     </div>
                                   ) : (
                                     <div style={{ display: "grid", gap: 10 }}>
                                       <div style={{ display: "grid", gap: 8 }}>
-                                        <div style={answerBoxStyle}>
+                                        <div style={answerBoxStyle(isDarkMode)}>
                                           <div style={{ fontWeight: 700 }}>
                                             {hasTwo ? "Câu 31" : "Câu tự luận 1"}
                                           </div>
                                           <div style={{ whiteSpace: "pre-wrap" }}>{pendingAnswers[0]?.userAnswer}</div>
                                         </div>
                                         {pendingAnswers[1] && (
-                                          <div style={answerBoxStyle}>
+                                          <div style={answerBoxStyle(isDarkMode)}>
                                             <div style={{ fontWeight: 700 }}>
                                               {hasTwo ? "Câu 32" : "Câu tự luận 2"}
                                             </div>
@@ -412,9 +451,11 @@ const Review = () => {
                                     style={{
                                       width: "100%",
                                       padding: 10,
-                                      border: "1px solid #d1d5db",
+                                      border: `1px solid ${isDarkMode ? "#2a3350" : "#d1d5db"}`,
                                       borderRadius: 8,
                                       fontSize: 14,
+                                      background: isDarkMode ? "#0f172a" : "#fff",
+                                      color: isDarkMode ? "#e5e7eb" : "#111827",
                                     }}
                                   />
                                   <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
@@ -425,7 +466,7 @@ const Review = () => {
                                     >
                                       ✅ Lưu nhận xét
                                     </button>
-                                    <span style={{ color: "#6b7280", fontSize: 13 }}>
+                                    <span style={{ color: isDarkMode ? "#9ca3af" : "#6b7280", fontSize: 13 }}>
                                       Lưu sẽ chuyển bài sang trạng thái “reviewed”.
                                     </span>
                                   </div>
@@ -488,11 +529,12 @@ const secondaryButtonStyle = {
   cursor: "pointer",
 };
 
-const answerBoxStyle = {
-  border: "1px solid #e5e7eb",
+const answerBoxStyle = (isDarkMode) => ({
+  border: `1px solid ${isDarkMode ? "#2a3350" : "#e5e7eb"}`,
   borderRadius: 10,
-  background: "#fff",
+  background: isDarkMode ? "#111827" : "#fff",
+  color: isDarkMode ? "#e5e7eb" : "inherit",
   padding: 12,
-};
+});
 
 export default Review;

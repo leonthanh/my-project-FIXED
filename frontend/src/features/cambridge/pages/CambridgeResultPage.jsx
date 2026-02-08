@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { apiPath } from "../../../shared/utils/api";
 import { StudentNavbar } from "../../../shared/components";
+import { useTheme } from "../../../shared/contexts/ThemeContext";
 
 /**
  * CambridgeResultPage - Trang xem kết quả chi tiết sau khi nộp bài Cambridge test
@@ -14,6 +15,28 @@ const CambridgeResultPage = () => {
   const { submissionId } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
+  const { isDarkMode } = useTheme();
+  const styles = useMemo(() => createStyles(isDarkMode), [isDarkMode]);
+  const legendColors = useMemo(() => (
+    isDarkMode
+      ? {
+          correct: '#0f2a1a',
+          wrong: '#2a1515',
+          blank: '#1f2b47',
+          pending: '#0b1d2e',
+        }
+      : {
+          correct: '#dcfce7',
+          wrong: '#fee2e2',
+          blank: '#f1f5f9',
+          pending: '#e0f2fe',
+        }
+  ), [isDarkMode]);
+  const correctAnswerStyle = useMemo(() => (
+    isDarkMode
+      ? { color: '#a7f3d0', backgroundColor: '#0f2a1a' }
+      : { color: '#166534', backgroundColor: '#dcfce7' }
+  ), [isDarkMode]);
 
   const getDetailedResult = (primaryKey, legacyKey) => {
     const dr = submission?.detailedResults;
@@ -26,15 +49,23 @@ const CambridgeResultPage = () => {
   const getResultStatus = (result) => {
     const isUnanswered = !result || result.userAnswer === null || result.userAnswer === '';
     if (result?.isCorrect === null) {
-      return { label: '⏳ Chờ chấm', color: '#0ea5e9', bg: '#e0f2fe', text: '#075985' };
+      return isDarkMode
+        ? { label: '⏳ Chờ chấm', color: '#38bdf8', bg: '#0b1d2e', text: '#7dd3fc' }
+        : { label: '⏳ Chờ chấm', color: '#0ea5e9', bg: '#e0f2fe', text: '#075985' };
     }
     if (result?.isCorrect === true) {
-      return { label: '✓ Đúng', color: '#22c55e', bg: '#dcfce7', text: '#166534' };
+      return isDarkMode
+        ? { label: '✓ Đúng', color: '#22c55e', bg: '#0f2a1a', text: '#a7f3d0' }
+        : { label: '✓ Đúng', color: '#22c55e', bg: '#dcfce7', text: '#166534' };
     }
     if (isUnanswered) {
-      return { label: '○ Bỏ trống', color: '#94a3b8', bg: '#f1f5f9', text: '#64748b' };
+      return isDarkMode
+        ? { label: '○ Bỏ trống', color: '#94a3b8', bg: '#1f2b47', text: '#94a3b8' }
+        : { label: '○ Bỏ trống', color: '#94a3b8', bg: '#f1f5f9', text: '#64748b' };
     }
-    return { label: '✕ Sai', color: '#ef4444', bg: '#fee2e2', text: '#991b1b' };
+    return isDarkMode
+      ? { label: '✕ Sai', color: '#ef4444', bg: '#2a1515', text: '#fecaca' }
+      : { label: '✕ Sai', color: '#ef4444', bg: '#fee2e2', text: '#991b1b' };
   };
 
   const canShowCorrectAnswer = (result) => {
@@ -502,7 +533,12 @@ const CambridgeResultPage = () => {
           elements.push(
             <span
               key={`blank-missing-${blankIdx}`}
-              style={{ ...styles.clozeBlankPill, borderColor: '#94a3b8', backgroundColor: '#f1f5f9', color: '#64748b' }}
+              style={{
+                ...styles.clozeBlankPill,
+                borderColor: isDarkMode ? '#3d3d5c' : '#94a3b8',
+                backgroundColor: isDarkMode ? '#1f2b47' : '#f1f5f9',
+                color: isDarkMode ? '#94a3b8' : '#64748b',
+              }}
             >
               <span style={styles.clozeBlankNum}>(?)</span>
               <span style={styles.clozeBlankAns}>____</span>
@@ -551,7 +587,7 @@ const CambridgeResultPage = () => {
                   style={{
                     ...styles.clozeAnswerItem,
                     borderLeftColor: status.color,
-                    backgroundColor: '#ffffff',
+                    backgroundColor: isDarkMode ? '#111827' : '#ffffff',
                   }}
                 >
                   <div style={styles.clozeAnswerItemHeader}>
@@ -569,7 +605,7 @@ const CambridgeResultPage = () => {
                   {canShowCorrectAnswer(result) && (
                     <div style={styles.clozeAnswerRow}>
                       <span style={styles.answerLabel}>Đúng:</span>
-                      <span style={{ ...styles.answerValue, color: '#166534', backgroundColor: '#dcfce7' }}>
+                      <span style={{ ...styles.answerValue, ...correctAnswerStyle }}>
                         {result.correctAnswer}
                       </span>
                     </div>
@@ -786,10 +822,10 @@ const CambridgeResultPage = () => {
                 })}
               </div>
               <div style={styles.legendRow}>
-                <span style={styles.legendItem}><span style={{...styles.legendDot, backgroundColor: '#dcfce7'}}></span> Đúng</span>
-                <span style={styles.legendItem}><span style={{...styles.legendDot, backgroundColor: '#fee2e2'}}></span> Sai</span>
-                <span style={styles.legendItem}><span style={{...styles.legendDot, backgroundColor: '#f1f5f9'}}></span> Bỏ trống</span>
-                <span style={styles.legendItem}><span style={{...styles.legendDot, backgroundColor: '#e0f2fe'}}></span> Chờ chấm</span>
+                <span style={styles.legendItem}><span style={{...styles.legendDot, backgroundColor: legendColors.correct}}></span> Đúng</span>
+                <span style={styles.legendItem}><span style={{...styles.legendDot, backgroundColor: legendColors.wrong}}></span> Sai</span>
+                <span style={styles.legendItem}><span style={{...styles.legendDot, backgroundColor: legendColors.blank}}></span> Bỏ trống</span>
+                <span style={styles.legendItem}><span style={{...styles.legendDot, backgroundColor: legendColors.pending}}></span> Chờ chấm</span>
               </div>
             </div>
 
@@ -868,11 +904,7 @@ const CambridgeResultPage = () => {
                                         {canShowCorrectAnswer(result) && (
                                           <div style={styles.answerRow}>
                                             <span style={styles.answerLabel}>Đáp án đúng:</span>
-                                            <span style={{
-                                              ...styles.answerValue,
-                                              color: '#166534',
-                                              backgroundColor: '#dcfce7'
-                                            }}>
+                                            <span style={{ ...styles.answerValue, ...correctAnswerStyle }}>
                                               {result.correctAnswer}
                                             </span>
                                           </div>
@@ -935,11 +967,7 @@ const CambridgeResultPage = () => {
                                         {canShowCorrectAnswer({ ...result, correctAnswer }) && (
                                           <div style={styles.answerRow}>
                                             <span style={styles.answerLabel}>Đáp án đúng:</span>
-                                            <span style={{
-                                              ...styles.answerValue,
-                                              color: '#166534',
-                                              backgroundColor: '#dcfce7'
-                                            }}>
+                                            <span style={{ ...styles.answerValue, ...correctAnswerStyle }}>
                                               {correctAnswer}
                                             </span>
                                           </div>
@@ -1001,11 +1029,7 @@ const CambridgeResultPage = () => {
                                         {canShowCorrectAnswer({ ...result, correctAnswer }) && (
                                           <div style={styles.answerRow}>
                                             <span style={styles.answerLabel}>Đáp án đúng:</span>
-                                            <span style={{
-                                              ...styles.answerValue,
-                                              color: '#166534',
-                                              backgroundColor: '#dcfce7'
-                                            }}>
+                                            <span style={{ ...styles.answerValue, ...correctAnswerStyle }}>
                                               {correctAnswer}
                                             </span>
                                           </div>
@@ -1082,11 +1106,7 @@ const CambridgeResultPage = () => {
                                           {canShowCorrectAnswer(result) && (
                                             <div style={styles.answerRow}>
                                               <span style={styles.answerLabel}>Đáp án đúng:</span>
-                                              <span style={{
-                                                ...styles.answerValue,
-                                                color: '#166534',
-                                                backgroundColor: '#dcfce7'
-                                              }}>
+                                              <span style={{ ...styles.answerValue, ...correctAnswerStyle }}>
                                                 {result.correctAnswer}
                                               </span>
                                             </div>
@@ -1157,11 +1177,7 @@ const CambridgeResultPage = () => {
                                         {canShowCorrectAnswer({ ...result, correctAnswer }) && (
                                           <div style={styles.answerRow}>
                                             <span style={styles.answerLabel}>Dap an dung:</span>
-                                            <span style={{
-                                              ...styles.answerValue,
-                                              color: '#166534',
-                                              backgroundColor: '#dcfce7'
-                                            }}>
+                                            <span style={{ ...styles.answerValue, ...correctAnswerStyle }}>
                                               {correctAnswer}
                                             </span>
                                           </div>
@@ -1223,11 +1239,7 @@ const CambridgeResultPage = () => {
                                         {canShowCorrectAnswer(result) && (
                                           <div style={styles.answerRow}>
                                             <span style={styles.answerLabel}>Đáp án đúng:</span>
-                                            <span style={{
-                                              ...styles.answerValue,
-                                              color: '#166534',
-                                              backgroundColor: '#dcfce7'
-                                            }}>
+                                            <span style={{ ...styles.answerValue, ...correctAnswerStyle }}>
                                               {result.correctAnswer}
                                             </span>
                                           </div>
@@ -1309,10 +1321,16 @@ const CambridgeResultPage = () => {
                                           key={optIdx}
                                           style={{
                                             ...styles.optionItem,
-                                            backgroundColor: isCorrectOpt ? '#dcfce7' : 
-                                              (isSelected && !isCorrectOpt) ? '#fee2e2' : '#f8fafc',
-                                            borderColor: isCorrectOpt ? '#22c55e' : 
-                                              (isSelected && !isCorrectOpt) ? '#ef4444' : '#e5e7eb'
+                                              backgroundColor: isCorrectOpt
+                                                ? (isDarkMode ? '#0f2a1a' : '#dcfce7')
+                                                : (isSelected && !isCorrectOpt)
+                                                  ? (isDarkMode ? '#2a1515' : '#fee2e2')
+                                                  : (isDarkMode ? '#111827' : '#f8fafc'),
+                                              borderColor: isCorrectOpt
+                                                ? '#22c55e'
+                                                : (isSelected && !isCorrectOpt)
+                                                  ? '#ef4444'
+                                                  : (isDarkMode ? '#2a3350' : '#e5e7eb')
                                           }}
                                         >
                                           <span style={styles.optionLabel}>{optLabel}.</span>
@@ -1361,492 +1379,525 @@ const CambridgeResultPage = () => {
 // ============================================
 // STYLES
 // ============================================
-const styles = {
-  container: {
-    minHeight: '100vh',
-    backgroundColor: '#f8fafc',
-  },
-  loadingContainer: {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: '80vh',
-  },
-  spinner: {
-    width: '40px',
-    height: '40px',
-    border: '4px solid #e5e7eb',
-    borderTopColor: '#3b82f6',
-    borderRadius: '50%',
-    animation: 'spin 1s linear infinite',
-  },
-  errorContainer: {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: '80vh',
-    gap: '20px',
-  },
-  header: {
-    backgroundColor: '#0e276f',
-    color: 'white',
-    padding: '20px 24px',
-  },
-  headerContent: {
-    maxWidth: '1200px',
-    margin: '0 auto',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '20px',
-  },
-  backButton: {
-    padding: '8px 16px',
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    color: 'white',
-    border: '1px solid rgba(255,255,255,0.2)',
-    borderRadius: '6px',
-    cursor: 'pointer',
-    fontSize: '14px',
-  },
-  title: {
-    margin: 0,
-    fontSize: '24px',
-    fontWeight: 700,
-  },
-  subtitle: {
-    margin: '4px 0 0',
-    opacity: 0.8,
-    fontSize: '14px',
-  },
-  tabContainer: {
-    backgroundColor: 'white',
-    borderBottom: '1px solid #e5e7eb',
-    padding: '0 24px',
-    display: 'flex',
-    gap: '4px',
-    maxWidth: '1200px',
-    margin: '0 auto',
-  },
-  tab: {
-    padding: '16px 24px',
-    border: 'none',
-    backgroundColor: 'transparent',
-    cursor: 'pointer',
-    fontSize: '15px',
-    fontWeight: 500,
-    color: '#64748b',
-    borderBottom: '3px solid transparent',
-    transition: 'all 0.2s',
-  },
-  tabActive: {
-    color: '#0e276f',
-    borderBottomColor: '#0e276f',
-  },
-  mainContent: {
-    maxWidth: '1200px',
-    margin: '0 auto',
-    padding: '24px',
-  },
+const createStyles = (isDarkMode = false) => {
+  const colors = isDarkMode
+    ? {
+        pageBg: '#0f172a',
+        surface: '#111827',
+        surfaceAlt: '#1f2b47',
+        text: '#e5e7eb',
+        muted: '#94a3b8',
+        border: '#2a3350',
+        header: '#0b1d2e',
+        accent: '#4a90d9',
+        shadow: '0 2px 8px rgba(0,0,0,0.35)',
+        softShadow: '0 1px 4px rgba(0,0,0,0.35)',
+      }
+    : {
+        pageBg: '#f8fafc',
+        surface: '#ffffff',
+        surfaceAlt: '#f8fafc',
+        text: '#1e293b',
+        muted: '#64748b',
+        border: '#e5e7eb',
+        header: '#0e276f',
+        accent: '#0e276f',
+        shadow: '0 2px 8px rgba(0,0,0,0.08)',
+        softShadow: '0 1px 4px rgba(0,0,0,0.06)',
+      };
 
-  // Cloze-test (Part 5) passage styles
-  clozePassageTitle: {
-    fontSize: '16px',
-    fontWeight: 700,
-    color: '#0f172a',
-    margin: '12px 0 10px',
-  },
-  clozePassageCard: {
-    backgroundColor: 'white',
-    border: '1px solid #e5e7eb',
-    borderRadius: '12px',
-    padding: '16px',
-    boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
-  },
-  clozePassageBody: {
-    fontSize: '16px',
-    lineHeight: 1.9,
-    color: '#0f172a',
-    wordBreak: 'break-word',
-  },
-  clozeBlankPill: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: '8px',
-    padding: '4px 10px',
-    margin: '0 4px',
-    borderRadius: '999px',
-    border: '2px solid #e5e7eb',
-    fontWeight: 700,
-    whiteSpace: 'nowrap',
-    verticalAlign: 'baseline',
-  },
-  clozeBlankNum: {
-    fontSize: '13px',
-    fontWeight: 800,
-    opacity: 0.9,
-  },
-  clozeBlankAns: {
-    fontSize: '14px',
-    fontWeight: 700,
-  },
-  clozeAnswerGrid: {
-    marginTop: '14px',
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
-    gap: '10px',
-  },
-  clozeAnswerItem: {
-    borderRadius: '12px',
-    border: '1px solid #e5e7eb',
-    borderLeft: '6px solid #e5e7eb',
-    padding: '10px 12px',
-  },
-  clozeAnswerItemHeader: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: '10px',
-    marginBottom: '8px',
-  },
-  clozeAnswerNum: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: '34px',
-    height: '26px',
-    borderRadius: '999px',
-    fontSize: '13px',
-    fontWeight: 800,
-  },
-  clozeAnswerStatus: {
-    fontSize: '13px',
-    fontWeight: 600,
-    color: '#334155',
-  },
-  clozeAnswerRow: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: '10px',
-    marginTop: '6px',
-  },
-  
-  // Overview styles
-  overviewGrid: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '24px',
-  },
-  scoreCard: {
-    backgroundColor: 'white',
-    borderRadius: '16px',
-    padding: '32px',
-    textAlign: 'center',
-    boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
-  },
-  scoreCircle: {
-    display: 'flex',
-    alignItems: 'baseline',
-    justifyContent: 'center',
-    gap: '8px',
-    marginBottom: '20px',
-  },
-  scoreValue: {
-    fontSize: '64px',
-    fontWeight: 700,
-    color: '#0e276f',
-  },
-  scoreTotal: {
-    fontSize: '28px',
-    color: '#64748b',
-  },
-  percentageBar: {
-    height: '12px',
-    backgroundColor: '#e5e7eb',
-    borderRadius: '6px',
-    overflow: 'hidden',
-    marginBottom: '16px',
-  },
-  percentageFill: {
-    height: '100%',
-    borderRadius: '6px',
-    transition: 'width 0.5s ease-out',
-  },
-  gradeLabel: {
-    fontSize: '20px',
-    fontWeight: 600,
-  },
-  statsRow: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(3, 1fr)',
-    gap: '16px',
-  },
-  statCard: {
-    backgroundColor: 'white',
-    borderRadius: '12px',
-    padding: '20px',
-    textAlign: 'center',
-    boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
-    borderLeft: '4px solid',
-  },
-  statIcon: {
-    fontSize: '24px',
-    marginBottom: '8px',
-  },
-  statNumber: {
-    fontSize: '32px',
-    fontWeight: 700,
-    color: '#1e293b',
-  },
-  statLabel: {
-    fontSize: '14px',
-    color: '#64748b',
-    marginTop: '4px',
-  },
-  infoCard: {
-    backgroundColor: 'white',
-    borderRadius: '12px',
-    padding: '24px',
-    boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
-  },
-  infoTitle: {
-    margin: '0 0 16px',
-    fontSize: '18px',
-    color: '#1e293b',
-  },
-  infoGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(2, 1fr)',
-    gap: '16px',
-  },
-  infoItem: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    padding: '12px',
-    backgroundColor: '#f8fafc',
-    borderRadius: '8px',
-  },
-  infoLabel: {
-    color: '#64748b',
-    fontSize: '14px',
-  },
-  infoValue: {
-    fontWeight: 600,
-    color: '#1e293b',
-  },
-  actionsCard: {
-    display: 'flex',
-    gap: '16px',
-    justifyContent: 'center',
-  },
+  return {
+    container: {
+      minHeight: '100vh',
+      backgroundColor: colors.pageBg,
+    },
+    loadingContainer: {
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'center',
+      minHeight: '80vh',
+      color: colors.text,
+    },
+    spinner: {
+      width: '40px',
+      height: '40px',
+      border: `4px solid ${colors.border}`,
+      borderTopColor: colors.accent,
+      borderRadius: '50%',
+      animation: 'spin 1s linear infinite',
+    },
+    errorContainer: {
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'center',
+      minHeight: '80vh',
+      gap: '20px',
+      color: colors.text,
+    },
+    header: {
+      backgroundColor: colors.header,
+      color: 'white',
+      padding: '20px 24px',
+    },
+    headerContent: {
+      maxWidth: '1200px',
+      margin: '0 auto',
+      display: 'flex',
+      alignItems: 'center',
+      gap: '20px',
+    },
+    backButton: {
+      padding: '8px 16px',
+      backgroundColor: 'rgba(255,255,255,0.1)',
+      color: 'white',
+      border: '1px solid rgba(255,255,255,0.2)',
+      borderRadius: '6px',
+      cursor: 'pointer',
+      fontSize: '14px',
+    },
+    title: {
+      margin: 0,
+      fontSize: '24px',
+      fontWeight: 700,
+    },
+    subtitle: {
+      margin: '4px 0 0',
+      opacity: 0.8,
+      fontSize: '14px',
+    },
+    tabContainer: {
+      backgroundColor: colors.pageBg,
+      borderBottom: `1px solid ${colors.border}`,
+      padding: '0 24px',
+      display: 'flex',
+      gap: '4px',
+      maxWidth: '1200px',
+      margin: '0 auto',
+    },
+    tab: {
+      padding: '16px 24px',
+      border: 'none',
+      backgroundColor: 'transparent',
+      cursor: 'pointer',
+      fontSize: '15px',
+      fontWeight: 500,
+      color: colors.muted,
+      borderBottom: '3px solid transparent',
+      transition: 'all 0.2s',
+    },
+    tabActive: {
+      color: colors.accent,
+      borderBottomColor: colors.accent,
+    },
+    mainContent: {
+      maxWidth: '1200px',
+      margin: '0 auto',
+      padding: '24px',
+    },
 
-  // Review styles
-  reviewContainer: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '24px',
-  },
-  questionSummary: {
-    backgroundColor: 'white',
-    borderRadius: '12px',
-    padding: '24px',
-    boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
-  },
-  summaryTitle: {
-    margin: '0 0 16px',
-    fontSize: '18px',
-    color: '#1e293b',
-  },
-  questionGrid: {
-    display: 'flex',
-    flexWrap: 'wrap',
-    gap: '8px',
-  },
-  questionBadge: {
-    width: '36px',
-    height: '36px',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: '8px',
-    fontWeight: 600,
-    fontSize: '14px',
-  },
-  legendRow: {
-    display: 'flex',
-    gap: '24px',
-    marginTop: '16px',
-    paddingTop: '16px',
-    borderTop: '1px solid #e5e7eb',
-  },
-  legendItem: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-    fontSize: '14px',
-    color: '#64748b',
-  },
-  legendDot: {
-    width: '16px',
-    height: '16px',
-    borderRadius: '4px',
-    border: '1px solid #d1d5db',
-  },
-  partCard: {
-    backgroundColor: 'white',
-    borderRadius: '12px',
-    boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
-    overflow: 'hidden',
-  },
-  partHeader: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: '16px 20px',
-    backgroundColor: '#f8fafc',
-    cursor: 'pointer',
-    borderBottom: '1px solid #e5e7eb',
-  },
-  partTitle: {
-    fontSize: '16px',
-    fontWeight: 600,
-    color: '#1e293b',
-  },
-  expandIcon: {
-    color: '#64748b',
-    fontSize: '12px',
-  },
-  partContent: {
-    padding: '20px',
-  },
-  sectionBlock: {
-    marginBottom: '20px',
-  },
-  sectionTitle: {
-    fontSize: '14px',
-    fontWeight: 600,
-    color: '#64748b',
-    marginBottom: '12px',
-    padding: '8px 12px',
-    backgroundColor: '#f1f5f9',
-    borderRadius: '6px',
-  },
-  questionReviewCard: {
-    padding: '16px',
-    marginBottom: '12px',
-    backgroundColor: '#fafafa',
-    borderRadius: '8px',
-    borderLeft: '4px solid',
-  },
-  questionReviewHeader: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '12px',
-    marginBottom: '12px',
-  },
-  questionNum: {
-    width: '28px',
-    height: '28px',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: '50%',
-    color: 'white',
-    fontWeight: 600,
-    fontSize: '13px',
-  },
-  questionStatus: {
-    fontSize: '14px',
-    fontWeight: 600,
-  },
-  questionText: {
-    fontSize: '15px',
-    color: '#374151',
-    marginBottom: '12px',
-    lineHeight: 1.5,
-  },
-  answersCompare: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '8px',
-  },
-  answerRow: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '12px',
-  },
-  answerLabel: {
-    fontSize: '13px',
-    color: '#64748b',
-    minWidth: '140px',
-  },
-  answerValue: {
-    padding: '6px 12px',
-    borderRadius: '6px',
-    fontSize: '14px',
-    fontWeight: 500,
-  },
-  optionsList: {
-    marginTop: '12px',
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '8px',
-  },
-  optionItem: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-    padding: '10px 14px',
-    borderRadius: '6px',
-    border: '1px solid',
-    fontSize: '14px',
-  },
-  optionLabel: {
-    fontWeight: 600,
-    color: '#64748b',
-  },
-  correctMark: {
-    marginLeft: 'auto',
-    color: '#22c55e',
-    fontWeight: 700,
-  },
-  wrongMark: {
-    marginLeft: 'auto',
-    color: '#ef4444',
-    fontWeight: 700,
-  },
-  reviewActions: {
-    display: 'flex',
-    gap: '16px',
-    justifyContent: 'center',
-    marginTop: '24px',
-  },
+    // Cloze-test (Part 5) passage styles
+    clozePassageTitle: {
+      fontSize: '16px',
+      fontWeight: 700,
+      color: colors.text,
+      margin: '12px 0 10px',
+    },
+    clozePassageCard: {
+      backgroundColor: colors.surface,
+      border: `1px solid ${colors.border}`,
+      borderRadius: '12px',
+      padding: '16px',
+      boxShadow: colors.softShadow,
+    },
+    clozePassageBody: {
+      fontSize: '16px',
+      lineHeight: 1.9,
+      color: colors.text,
+      wordBreak: 'break-word',
+    },
+    clozeBlankPill: {
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: '8px',
+      padding: '4px 10px',
+      margin: '0 4px',
+      borderRadius: '999px',
+      border: `2px solid ${colors.border}`,
+      fontWeight: 700,
+      whiteSpace: 'nowrap',
+      verticalAlign: 'baseline',
+    },
+    clozeBlankNum: {
+      fontSize: '13px',
+      fontWeight: 800,
+      opacity: 0.9,
+    },
+    clozeBlankAns: {
+      fontSize: '14px',
+      fontWeight: 700,
+    },
+    clozeAnswerGrid: {
+      marginTop: '14px',
+      display: 'grid',
+      gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
+      gap: '10px',
+    },
+    clozeAnswerItem: {
+      borderRadius: '12px',
+      border: `1px solid ${colors.border}`,
+      borderLeft: `6px solid ${colors.border}`,
+      padding: '10px 12px',
+    },
+    clozeAnswerItemHeader: {
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: '10px',
+      marginBottom: '8px',
+    },
+    clozeAnswerNum: {
+      display: 'inline-flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      width: '34px',
+      height: '26px',
+      borderRadius: '999px',
+      fontSize: '13px',
+      fontWeight: 800,
+    },
+    clozeAnswerStatus: {
+      fontSize: '13px',
+      fontWeight: 600,
+      color: colors.muted,
+    },
+    clozeAnswerRow: {
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: '10px',
+      marginTop: '6px',
+    },
+    
+    // Overview styles
+    overviewGrid: {
+      display: 'flex',
+      flexDirection: 'column',
+      gap: '24px',
+    },
+    scoreCard: {
+      backgroundColor: colors.surface,
+      borderRadius: '16px',
+      padding: '32px',
+      textAlign: 'center',
+      boxShadow: colors.shadow,
+    },
+    scoreCircle: {
+      display: 'flex',
+      alignItems: 'baseline',
+      justifyContent: 'center',
+      gap: '8px',
+      marginBottom: '20px',
+    },
+    scoreValue: {
+      fontSize: '64px',
+      fontWeight: 700,
+      color: colors.accent,
+    },
+    scoreTotal: {
+      fontSize: '28px',
+      color: colors.muted,
+    },
+    percentageBar: {
+      height: '12px',
+      backgroundColor: colors.border,
+      borderRadius: '6px',
+      overflow: 'hidden',
+      marginBottom: '16px',
+    },
+    percentageFill: {
+      height: '100%',
+      borderRadius: '6px',
+      transition: 'width 0.5s ease-out',
+    },
+    gradeLabel: {
+      fontSize: '20px',
+      fontWeight: 600,
+      color: colors.text,
+    },
+    statsRow: {
+      display: 'grid',
+      gridTemplateColumns: 'repeat(3, 1fr)',
+      gap: '16px',
+    },
+    statCard: {
+      backgroundColor: colors.surface,
+      borderRadius: '12px',
+      padding: '20px',
+      textAlign: 'center',
+      boxShadow: colors.shadow,
+      borderLeft: '4px solid',
+    },
+    statIcon: {
+      fontSize: '24px',
+      marginBottom: '8px',
+    },
+    statNumber: {
+      fontSize: '32px',
+      fontWeight: 700,
+      color: colors.text,
+    },
+    statLabel: {
+      fontSize: '14px',
+      color: colors.muted,
+      marginTop: '4px',
+    },
+    infoCard: {
+      backgroundColor: colors.surface,
+      borderRadius: '12px',
+      padding: '24px',
+      boxShadow: colors.shadow,
+    },
+    infoTitle: {
+      margin: '0 0 16px',
+      fontSize: '18px',
+      color: colors.text,
+    },
+    infoGrid: {
+      display: 'grid',
+      gridTemplateColumns: 'repeat(2, 1fr)',
+      gap: '16px',
+    },
+    infoItem: {
+      display: 'flex',
+      justifyContent: 'space-between',
+      padding: '12px',
+      backgroundColor: colors.surfaceAlt,
+      borderRadius: '8px',
+    },
+    infoLabel: {
+      color: colors.muted,
+      fontSize: '14px',
+    },
+    infoValue: {
+      fontWeight: 600,
+      color: colors.text,
+    },
+    actionsCard: {
+      display: 'flex',
+      gap: '16px',
+      justifyContent: 'center',
+    },
 
-  // Buttons
-  primaryButton: {
-    padding: '14px 28px',
-    backgroundColor: '#0e276f',
-    color: 'white',
-    border: 'none',
-    borderRadius: '8px',
-    cursor: 'pointer',
-    fontWeight: 600,
-    fontSize: '15px',
-    transition: 'all 0.2s',
-  },
-  secondaryButton: {
-    padding: '14px 28px',
-    backgroundColor: '#f1f5f9',
-    color: '#374151',
-    border: '1px solid #d1d5db',
-    borderRadius: '8px',
-    cursor: 'pointer',
-    fontWeight: 600,
-    fontSize: '15px',
-    transition: 'all 0.2s',
-  },
+    // Review styles
+    reviewContainer: {
+      display: 'flex',
+      flexDirection: 'column',
+      gap: '24px',
+    },
+    questionSummary: {
+      backgroundColor: colors.surface,
+      borderRadius: '12px',
+      padding: '24px',
+      boxShadow: colors.shadow,
+    },
+    summaryTitle: {
+      margin: '0 0 16px',
+      fontSize: '18px',
+      color: colors.text,
+    },
+    questionGrid: {
+      display: 'flex',
+      flexWrap: 'wrap',
+      gap: '8px',
+    },
+    questionBadge: {
+      width: '36px',
+      height: '36px',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderRadius: '8px',
+      fontWeight: 600,
+      fontSize: '14px',
+    },
+    legendRow: {
+      display: 'flex',
+      gap: '24px',
+      marginTop: '16px',
+      paddingTop: '16px',
+      borderTop: `1px solid ${colors.border}`,
+    },
+    legendItem: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: '8px',
+      fontSize: '14px',
+      color: colors.muted,
+    },
+    legendDot: {
+      width: '16px',
+      height: '16px',
+      borderRadius: '4px',
+      border: `1px solid ${colors.border}`,
+    },
+    partCard: {
+      backgroundColor: colors.surface,
+      borderRadius: '12px',
+      boxShadow: colors.shadow,
+      overflow: 'hidden',
+    },
+    partHeader: {
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      padding: '16px 20px',
+      backgroundColor: colors.surfaceAlt,
+      cursor: 'pointer',
+      borderBottom: `1px solid ${colors.border}`,
+    },
+    partTitle: {
+      fontSize: '16px',
+      fontWeight: 600,
+      color: colors.text,
+    },
+    expandIcon: {
+      color: colors.muted,
+      fontSize: '12px',
+    },
+    partContent: {
+      padding: '20px',
+    },
+    sectionBlock: {
+      marginBottom: '20px',
+    },
+    sectionTitle: {
+      fontSize: '14px',
+      fontWeight: 600,
+      color: colors.muted,
+      marginBottom: '12px',
+      padding: '8px 12px',
+      backgroundColor: colors.surfaceAlt,
+      borderRadius: '6px',
+    },
+    questionReviewCard: {
+      padding: '16px',
+      marginBottom: '12px',
+      backgroundColor: colors.surfaceAlt,
+      borderRadius: '8px',
+      borderLeft: '4px solid',
+    },
+    questionReviewHeader: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: '12px',
+      marginBottom: '12px',
+    },
+    questionNum: {
+      width: '28px',
+      height: '28px',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderRadius: '50%',
+      color: 'white',
+      fontWeight: 600,
+      fontSize: '13px',
+    },
+    questionStatus: {
+      fontSize: '14px',
+      fontWeight: 600,
+      color: colors.text,
+    },
+    questionText: {
+      fontSize: '15px',
+      color: colors.text,
+      marginBottom: '12px',
+      lineHeight: 1.5,
+    },
+    answersCompare: {
+      display: 'flex',
+      flexDirection: 'column',
+      gap: '8px',
+    },
+    answerRow: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: '12px',
+    },
+    answerLabel: {
+      fontSize: '13px',
+      color: colors.muted,
+      minWidth: '140px',
+    },
+    answerValue: {
+      padding: '6px 12px',
+      borderRadius: '6px',
+      fontSize: '14px',
+      fontWeight: 500,
+    },
+    optionsList: {
+      marginTop: '12px',
+      display: 'flex',
+      flexDirection: 'column',
+      gap: '8px',
+    },
+    optionItem: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: '8px',
+      padding: '10px 14px',
+      borderRadius: '6px',
+      border: `1px solid ${colors.border}`,
+      fontSize: '14px',
+      color: colors.text,
+    },
+    optionLabel: {
+      fontWeight: 600,
+      color: colors.muted,
+    },
+    correctMark: {
+      marginLeft: 'auto',
+      color: '#22c55e',
+      fontWeight: 700,
+    },
+    wrongMark: {
+      marginLeft: 'auto',
+      color: '#ef4444',
+      fontWeight: 700,
+    },
+    reviewActions: {
+      display: 'flex',
+      gap: '16px',
+      justifyContent: 'center',
+      marginTop: '24px',
+    },
+
+    // Buttons
+    primaryButton: {
+      padding: '14px 28px',
+      backgroundColor: '#0e276f',
+      color: 'white',
+      border: 'none',
+      borderRadius: '8px',
+      cursor: 'pointer',
+      fontWeight: 600,
+      fontSize: '15px',
+      transition: 'all 0.2s',
+    },
+    secondaryButton: {
+      padding: '14px 28px',
+      backgroundColor: colors.surfaceAlt,
+      color: colors.text,
+      border: `1px solid ${colors.border}`,
+      borderRadius: '8px',
+      cursor: 'pointer',
+      fontWeight: 600,
+      fontSize: '15px',
+      transition: 'all 0.2s',
+    },
+  };
 };
 
 export default CambridgeResultPage;

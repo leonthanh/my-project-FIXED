@@ -1,10 +1,34 @@
 // Centralized inline styles for DoCambridgeListeningTest
 // Keeping this in a separate file reduces noise in the component file.
 
-export const styles = {
+const createStyles = (isDarkMode = false) => {
+  const colors = isDarkMode
+    ? {
+        pageBg: "#0f172a",
+        surface: "#111827",
+        surfaceAlt: "#16213e",
+        text: "#e8e8e8",
+        muted: "#b0b0b0",
+        border: "#3d3d5c",
+        primary: "#4a90d9",
+        warning: "#f59e0b",
+      }
+    : {
+        pageBg: "#f8fafc",
+        surface: "#ffffff",
+        surfaceAlt: "#f8fafc",
+        text: "#0f172a",
+        muted: "#475569",
+        border: "#e5e7eb",
+        primary: "#0e276f",
+        warning: "#f59e0b",
+      };
+
+  return {
   container: {
     minHeight: '100vh',
-    backgroundColor: '#f8fafc',
+    backgroundColor: colors.pageBg,
+    color: colors.text,
     paddingBottom: '130px',
   },
   playGateOverlay: {
@@ -20,14 +44,14 @@ export const styles = {
   playGateCard: {
     width: '100%',
     maxWidth: '520px',
-    background: '#ffffff',
+    background: colors.surface,
     borderRadius: '16px',
     padding: '22px 20px',
     textAlign: 'center',
     boxShadow: '0 20px 60px rgba(0,0,0,0.35)',
   },
   playGateButton: {
-    background: '#0e276f',
+    background: colors.primary,
     color: '#fff',
     border: 'none',
     borderRadius: '999px',
@@ -38,8 +62,8 @@ export const styles = {
     minWidth: '160px',
   },
   rubricBlock: {
-    background: '#ffffff',
-    border: '1px solid #e5e7eb',
+    background: colors.surface,
+    border: `1px solid ${colors.border}`,
     borderRadius: '12px',
     padding: '14px 16px',
     marginBottom: '14px',
@@ -47,18 +71,18 @@ export const styles = {
   rubricTitle: {
     margin: 0,
     fontSize: '16px',
-    color: '#0f172a',
+    color: colors.text,
   },
   rubricText: {
     marginTop: '6px',
     fontSize: '14px',
-    color: '#475569',
+    color: colors.muted,
   },
   pictureQuestionCard: {
     padding: '10px 0 18px',
     marginBottom: '18px',
     backgroundColor: 'transparent',
-    borderBottom: '1px solid #e5e7eb',
+    borderBottom: `1px solid ${colors.border}`,
   },
   pictureQuestionHeader: {
     position: 'relative',
@@ -127,8 +151,8 @@ export const styles = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    color: '#94a3b8',
-    background: '#f8fafc',
+    color: colors.muted,
+    background: colors.surfaceAlt,
     borderRadius: '0px',
     fontSize: '12px',
   },
@@ -144,9 +168,9 @@ export const styles = {
     width: '22px',
     height: '22px',
     borderRadius: '999px',
-    border: '1px solid #cbd5e1',
-    background: '#ffffff',
-    color: '#334155',
+    border: `1px solid ${colors.border}`,
+    background: colors.surface,
+    color: colors.text,
     fontSize: '12px',
     fontWeight: 800,
     cursor: 'default',
@@ -174,8 +198,8 @@ export const styles = {
     left: 0,
     right: 0,
     bottom: 0,
-    background: '#ffffff',
-    borderTop: '1px solid #e5e7eb',
+    background: colors.surface,
+    borderTop: `1px solid ${colors.border}`,
     zIndex: 1000,
     padding: '10px 12px',
   },
@@ -190,8 +214,9 @@ export const styles = {
     width: '40px',
     height: '36px',
     borderRadius: '10px',
-    border: '1px solid #e5e7eb',
-    background: '#ffffff',
+    border: `1px solid ${colors.border}`,
+    background: colors.surfaceAlt,
+    color: colors.text,
     cursor: 'pointer',
     fontSize: '18px',
     lineHeight: 1,
@@ -210,8 +235,8 @@ export const styles = {
     minWidth: '140px',
   },
   footerPartBtn: {
-    border: '1px solid #e5e7eb',
-    background: '#f8fafc',
+    border: `1px solid ${colors.border}`,
+    background: isDarkMode ? '#111827' : '#f8fafc',
     borderRadius: '12px',
     padding: '8px 10px',
     cursor: 'pointer',
@@ -220,16 +245,16 @@ export const styles = {
     justifyContent: 'space-between',
     gap: '8px',
     fontSize: '13px',
-    color: '#0f172a',
+    color: colors.text,
   },
   footerPartBtnActive: {
-    background: '#ffffff',
-    borderColor: '#0e276f',
-    boxShadow: '0 0 0 2px rgba(14,39,111,0.08)',
+    background: isDarkMode ? '#1f2b47' : '#ffffff',
+    borderColor: isDarkMode ? '#4f6db6' : '#0e276f',
+    boxShadow: isDarkMode ? '0 0 0 2px rgba(79,109,182,0.2)' : '0 0 0 2px rgba(14,39,111,0.08)',
   },
   footerAttemptedCount: {
     fontSize: '12px',
-    color: '#64748b',
+    color: isDarkMode ? '#94a3b8' : '#64748b',
     marginLeft: 'auto',
   },
   footerSubquestions: {
@@ -241,14 +266,14 @@ export const styles = {
     width: '34px',
     height: '34px',
     borderRadius: '10px',
-    border: '1px solid #e5e7eb',
-    background: '#ffffff',
+    border: `1px solid ${colors.border}`,
+    background: isDarkMode ? '#111827' : '#ffffff',
     cursor: 'pointer',
     fontSize: '12px',
-    color: '#0f172a',
+    color: colors.text,
   },
   footerSubquestionAnswered: {
-    background: '#ecfeff',
+    background: isDarkMode ? '#0f2a2e' : '#ecfeff',
     borderColor: '#06b6d4',
   },
   footerSubquestionActive: {
@@ -274,7 +299,7 @@ export const styles = {
     alignItems: 'center',
     justifyContent: 'center',
     minHeight: '100vh',
-    backgroundColor: '#f8fafc',
+    backgroundColor: colors.pageBg,
   },
   errorContainer: {
     display: 'flex',
@@ -282,7 +307,7 @@ export const styles = {
     alignItems: 'center',
     justifyContent: 'center',
     minHeight: '100vh',
-    backgroundColor: '#f8fafc',
+    backgroundColor: colors.pageBg,
   },
   mainContent: {
     padding: '24px',
@@ -290,7 +315,7 @@ export const styles = {
     margin: '0 auto',
   },
   questionArea: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.surface,
     borderRadius: '12px',
     boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
     padding: '24px',
@@ -302,19 +327,19 @@ export const styles = {
   },
   partInstruction: {
     margin: '12px 0 0',
-    color: '#4b5563',
+    color: isDarkMode ? '#cbd5f5' : '#4b5563',
     fontSize: '15px',
     lineHeight: 1.6,
-    backgroundColor: '#f0f9ff',
+    backgroundColor: isDarkMode ? '#0f172a' : '#f0f9ff',
     padding: '12px 16px',
     borderRadius: '8px',
-    borderLeft: '4px solid #3b82f6',
+    borderLeft: `4px solid ${isDarkMode ? '#4a90d9' : '#3b82f6'}`,
   },
   audioContainer: {
     display: 'flex',
     alignItems: 'center',
     padding: '16px',
-    backgroundColor: '#f8fafc',
+    backgroundColor: isDarkMode ? '#111827' : '#f8fafc',
     borderRadius: '8px',
     marginBottom: '20px',
   },
@@ -340,18 +365,18 @@ export const styles = {
   sectionTitle: {
     fontSize: '16px',
     fontWeight: 600,
-    color: '#374151',
+    color: isDarkMode ? '#e5e7eb' : '#374151',
     margin: '0 0 16px',
     padding: '8px 12px',
-    backgroundColor: '#f1f5f9',
+    backgroundColor: isDarkMode ? '#1f2b47' : '#f1f5f9',
     borderRadius: '6px',
   },
   questionCard: {
     padding: '16px',
     marginBottom: '16px',
-    backgroundColor: '#fafafa',
+    backgroundColor: isDarkMode ? '#111827' : '#fafafa',
     borderRadius: '8px',
-    border: '1px solid #e5e7eb',
+    border: `1px solid ${colors.border}`,
   },
   questionHeader: {
     display: 'flex',
@@ -380,11 +405,13 @@ export const styles = {
   input: {
     width: '100%',
     padding: '10px 14px',
-    border: '1px solid #d1d5db',
+    border: `1px solid ${isDarkMode ? '#3d3d5c' : '#d1d5db'}`,
     borderRadius: '6px',
     fontSize: '15px',
     boxSizing: 'border-box',
     transition: 'border-color 0.2s',
+    backgroundColor: isDarkMode ? '#1f2b47' : '#ffffff',
+    color: colors.text,
   },
   correctAnswer: {
     marginTop: '8px',
@@ -403,15 +430,16 @@ export const styles = {
     display: 'flex',
     alignItems: 'center',
     padding: '12px',
-    backgroundColor: '#fff',
-    border: '1px solid #e5e7eb',
+    backgroundColor: isDarkMode ? '#111827' : '#fff',
+    border: `1px solid ${colors.border}`,
     borderRadius: '6px',
     cursor: 'pointer',
     transition: 'all 0.2s',
+    color: colors.text,
   },
   optionSelected: {
-    backgroundColor: '#dbeafe',
-    borderColor: '#3b82f6',
+    backgroundColor: isDarkMode ? '#1e3a5f' : '#dbeafe',
+    borderColor: isDarkMode ? '#4f6db6' : '#3b82f6',
   },
   optionCorrect: {
     backgroundColor: '#dcfce7',
@@ -441,23 +469,26 @@ export const styles = {
   },
   matchingSelect: {
     padding: '8px 12px',
-    border: '1px solid #d1d5db',
+    border: `1px solid ${isDarkMode ? '#3d3d5c' : '#d1d5db'}`,
     borderRadius: '6px',
     fontSize: '14px',
     minWidth: '200px',
+    backgroundColor: isDarkMode ? '#1f2b47' : '#ffffff',
+    color: colors.text,
   },
   rightItemsRef: {
     marginTop: '16px',
     padding: '12px',
-    backgroundColor: '#f0f9ff',
+    backgroundColor: isDarkMode ? '#0f172a' : '#f0f9ff',
     borderRadius: '8px',
   },
   rightItemBadge: {
     padding: '6px 12px',
-    backgroundColor: '#fff',
-    border: '1px solid #bae6fd',
+    backgroundColor: isDarkMode ? '#111827' : '#fff',
+    border: `1px solid ${isDarkMode ? '#2a3350' : '#bae6fd'}`,
     borderRadius: '6px',
     fontSize: '13px',
+    color: colors.text,
   },
   navButtons: {
     display: 'flex',
@@ -491,7 +522,7 @@ export const styles = {
     zIndex: 1000,
   },
   resultsModal: {
-    backgroundColor: 'white',
+    backgroundColor: colors.surface,
     padding: '32px',
     borderRadius: '16px',
     textAlign: 'center',
@@ -499,7 +530,7 @@ export const styles = {
     width: '90%',
   },
   confirmModal: {
-    backgroundColor: 'white',
+    backgroundColor: colors.surface,
     padding: '24px',
     borderRadius: '12px',
     textAlign: 'center',
@@ -512,13 +543,13 @@ export const styles = {
     justifyContent: 'center',
     gap: '24px',
     padding: '24px',
-    backgroundColor: '#f0fdf4',
+    backgroundColor: isDarkMode ? '#0f2a1a' : '#f0fdf4',
     borderRadius: '12px',
   },
   scoreNumber: {
     fontSize: '36px',
     fontWeight: 700,
-    color: '#0e276f',
+    color: colors.primary,
   },
   scorePercent: {
     fontSize: '28px',
@@ -527,7 +558,7 @@ export const styles = {
   },
   primaryButton: {
     padding: '12px 24px',
-    backgroundColor: '#0e276f',
+    backgroundColor: colors.primary,
     color: 'white',
     border: 'none',
     borderRadius: '8px',
@@ -537,9 +568,9 @@ export const styles = {
   },
   secondaryButton: {
     padding: '12px 24px',
-    backgroundColor: '#f1f5f9',
-    color: '#374151',
-    border: '1px solid #d1d5db',
+    backgroundColor: colors.surfaceAlt,
+    color: colors.text,
+    border: `1px solid ${colors.border}`,
     borderRadius: '8px',
     cursor: 'pointer',
     fontWeight: 600,
@@ -548,11 +579,14 @@ export const styles = {
   backButton: {
     marginTop: '20px',
     padding: '12px 24px',
-    backgroundColor: '#0e276f',
+    backgroundColor: colors.primary,
     color: 'white',
     border: 'none',
     borderRadius: '8px',
     cursor: 'pointer',
     fontWeight: 600,
   },
+  };
 };
+
+export default createStyles;

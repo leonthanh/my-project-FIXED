@@ -117,6 +117,40 @@
   background: #f8f8f8;
 }
 
+body.dark-mode .adminNavbar {
+  background: #0f3460;
+  color: #e8e8e8;
+}
+
+body.dark-mode .adminNavbar__link,
+body.dark-mode .adminNavbar__dropdownToggle,
+body.dark-mode .adminNavbar__teacherName {
+  color: #e8e8e8;
+}
+
+body.dark-mode .adminNavbar__menu,
+body.dark-mode .adminNavbar__notifyMenu {
+  background: #16213e;
+  border-color: #3d3d5c;
+}
+
+body.dark-mode .adminNavbar__menuItem,
+body.dark-mode .adminNavbar__notifyItem {
+  color: #e8e8e8;
+  border-bottom: 1px solid #2a3350;
+}
+
+body.dark-mode .adminNavbar__menuItem:hover,
+body.dark-mode .adminNavbar__notifyItem:hover {
+  background: #1f2b47;
+}
+
+body.dark-mode .adminNavbar__menuHeader {
+  background: #1a1f36;
+  color: #b0b0b0;
+  border-bottom: 1px solid #2a3350;
+}
+
 .adminNavbar__menuHeader--spaced {
   margin-top: 4px;
 }

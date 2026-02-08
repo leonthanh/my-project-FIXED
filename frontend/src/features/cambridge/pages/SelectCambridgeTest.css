@@ -303,3 +303,87 @@
     width: 100%;
   }
 }
+
+/* Dark mode overrides */
+body.dark-mode .cambridge-page {
+  background-color: #0f172a;
+  color: #e8e8e8;
+}
+
+body.dark-mode .cambridge-card {
+  background-color: #111827;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.4);
+}
+
+body.dark-mode .cambridge-header__title {
+  color: #e8e8e8;
+}
+
+body.dark-mode .cambridge-header__subtitle {
+  color: #b0b0b0;
+}
+
+body.dark-mode .cambridge-type-btn {
+  background-color: #1f2b47;
+  color: #e8e8e8;
+  border-color: #3d3d5c;
+}
+
+body.dark-mode .cambridge-type-btn--active {
+  background-color: #0f3460;
+  border-color: #0f3460;
+}
+
+body.dark-mode .cambridge-tabs {
+  border-bottom-color: #1f2b47;
+}
+
+body.dark-mode .cambridge-tab {
+  color: #b0b0b0;
+}
+
+body.dark-mode .cambridge-tab--active {
+  color: #e8e8e8;
+  border-bottom-color: #4a90d9;
+}
+
+body.dark-mode .cambridge-tab__badge {
+  background-color: #1f2b47;
+  color: #b0b0b0;
+}
+
+body.dark-mode .cambridge-tab--active .cambridge-tab__badge {
+  background-color: #4a90d9;
+  color: #0f172a;
+}
+
+body.dark-mode .cambridge-info {
+  background-color: #0f3460;
+  border-color: #3d3d5c;
+}
+
+body.dark-mode .cambridge-info__title {
+  color: #e8e8e8;
+}
+
+body.dark-mode .cambridge-info__meta {
+  color: #b0b0b0;
+}
+
+body.dark-mode .cambridge-loading,
+body.dark-mode .cambridge-empty {
+  color: #b0b0b0;
+}
+
+body.dark-mode .cambridge-test-item {
+  background-color: #16213e;
+  border-color: #1f2b47;
+}
+
+body.dark-mode .cambridge-test-main {
+  background-color: #0f3460;
+}
+
+body.dark-mode .cambridge-test-main:hover {
+  background-color: #1a3a8f;
+}

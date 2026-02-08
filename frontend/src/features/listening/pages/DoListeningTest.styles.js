@@ -1,6 +1,33 @@
 // Extracted from DoListeningTest.jsx to keep the page component lean.
 
-const styles = {
+const createStyles = (isDarkMode = false) => {
+  const colors = isDarkMode
+    ? {
+        pageBg: "#0f172a",
+        surface: "#111827",
+        surfaceAlt: "#16213e",
+        text: "#e8e8e8",
+        muted: "#b0b0b0",
+        border: "#3d3d5c",
+        primary: "#4a90d9",
+        success: "#22c55e",
+        warning: "#f59e0b",
+        danger: "#dc2626",
+      }
+    : {
+        pageBg: "#fff",
+        surface: "#fff",
+        surfaceAlt: "#f8fafc",
+        text: "#1f2937",
+        muted: "#6b7280",
+        border: "#d1d5db",
+        primary: "#1e40af",
+        success: "#22c55e",
+        warning: "#d97706",
+        danger: "#dc2626",
+      };
+
+  return {
   pageWrapper: {
     width: "100%",
     minHeight: "100vh",
@@ -8,7 +35,8 @@ const styles = {
     flexDirection: "column",
     fontFamily: "Arial, sans-serif",
     fontWeight: 500,
-    backgroundColor: "#fff",
+    backgroundColor: colors.pageBg,
+    color: colors.text,
   },
 
   // Loading & Error
@@ -18,31 +46,31 @@ const styles = {
     alignItems: "center",
     justifyContent: "center",
     height: "100vh",
-    backgroundColor: "#f3f4f6",
+    backgroundColor: colors.pageBg,
   },
   spinner: {
     width: "48px",
     height: "48px",
-    border: "4px solid #e5e7eb",
-    borderTopColor: "#3b82f6",
+    border: `4px solid ${colors.border}`,
+    borderTopColor: colors.primary,
     borderRadius: "50%",
     animation: "spin 1s linear infinite",
     marginBottom: "16px",
   },
-  loadingText: { color: "#6b7280", fontSize: "16px" },
+  loadingText: { color: colors.muted, fontSize: "16px" },
   errorContainer: {
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
     justifyContent: "center",
     height: "100vh",
-    backgroundColor: "#f3f4f6",
+    backgroundColor: colors.pageBg,
   },
-  errorTitle: { color: "#dc2626", fontSize: "24px", marginBottom: "8px" },
-  errorText: { color: "#6b7280", marginBottom: "16px" },
+  errorTitle: { color: colors.danger, fontSize: "24px", marginBottom: "8px" },
+  errorText: { color: colors.muted, marginBottom: "16px" },
   backButton: {
     padding: "12px 24px",
-    backgroundColor: "#3b82f6",
+    backgroundColor: colors.primary,
     color: "#fff",
     border: "none",
     borderRadius: "8px",
@@ -52,8 +80,8 @@ const styles = {
 
   // Header
   header: {
-    borderBottom: "1px solid #d1d5db",
-    backgroundColor: "#fff",
+    borderBottom: `1px solid ${colors.border}`,
+    backgroundColor: colors.surface,
   },
   headerContent: {
     display: "flex",
@@ -62,20 +90,20 @@ const styles = {
     height: "56px",
   },
   logoWrapper: { padding: "8px 16px" },
-  logoText: { fontSize: "20px", fontWeight: "bold", color: "#1e40af" },
+  logoText: { fontSize: "20px", fontWeight: "bold", color: colors.primary },
   testInfo: { flex: 1, paddingLeft: "16px" },
-  testTitle: { fontWeight: "bold", fontSize: "16px", color: "#1f2937" },
+  testTitle: { fontWeight: "bold", fontSize: "16px", color: colors.text },
   timeInfo: {
     display: "flex",
     alignItems: "center",
     gap: "8px",
     fontSize: "14px",
-    color: "#6b7280",
+    color: colors.muted,
   },
   audioIcon: { fontSize: "16px" },
   submitButton: {
     padding: "8px 20px",
-    backgroundColor: "#22c55e",
+    backgroundColor: colors.success,
     color: "#fff",
     border: "none",
     borderRadius: "6px",
@@ -88,23 +116,24 @@ const styles = {
   partInfoBox: {
     margin: "16px",
     padding: "16px",
-    backgroundColor: "#f1f2ec",
-    border: "1px solid #d5d5d5",
+    backgroundColor: colors.surfaceAlt,
+    border: `1px solid ${colors.border}`,
     borderRadius: "4px",
   },
-  partTitle: { fontWeight: 900, fontSize: "16px", color: "#1f2937" },
-  partDescription: { fontSize: "14px", color: "#4b5563", marginTop: "4px" },
+  partTitle: { fontWeight: 900, fontSize: "16px", color: colors.text },
+  partDescription: { fontSize: "14px", color: colors.muted, marginTop: "4px" },
 
   // Main Content
   mainContent: {
     flex: 1,
     position: "relative",
     paddingBottom: "80px",
+    backgroundColor: colors.pageBg,
   },
   audioContainer: { padding: "0 24px", marginBottom: "16px" },
   audioPlayer: { width: "100%", height: "40px" },
-  playButtonSmall: { backgroundColor: "#0e276f", color: "#fff", border: "none", borderRadius: "8px", padding: "10px 16px", cursor: "pointer", fontSize: "15px" },
-  audioWarning: { color: "#d97706", fontSize: "13px", marginTop: "4px" },
+  playButtonSmall: { backgroundColor: colors.primary, color: "#fff", border: "none", borderRadius: "8px", padding: "10px 16px", cursor: "pointer", fontSize: "15px" },
+  audioWarning: { color: colors.warning, fontSize: "13px", marginTop: "4px" },
   questionsList: {
     padding: "0 24px",
     overflowY: "auto",
@@ -113,12 +142,18 @@ const styles = {
 
   // Section
   sectionContainer: { marginBottom: "32px" },
-  sectionTitle: { fontWeight: "bold", fontSize: "16px", marginBottom: "8px" },
-  sectionInstruction: { marginBottom: "16px", color: "#4b5563", lineHeight: 1.6 },
+  sectionTitle: { fontWeight: "bold", fontSize: "16px", marginBottom: "8px", color: colors.text },
+  sectionInstruction: { marginBottom: "16px", color: colors.muted, lineHeight: 1.6 },
   questionsWrapper: { display: "flex", flexDirection: "column", gap: "8px" },
 
   // Multiple Choice
-  questionItem: { marginBottom: "16px", padding: "8px", borderRadius: "4px" },
+  questionItem: {
+    marginBottom: "16px",
+    padding: "8px",
+    borderRadius: "4px",
+    backgroundColor: colors.surface,
+    border: `1px solid ${colors.border}`,
+  },
   questionHeader: { display: "flex", gap: "12px", marginBottom: "8px", alignItems: "flex-start" },
   questionNumber: {
     display: "inline-flex",
@@ -126,7 +161,7 @@ const styles = {
     justifyContent: "center",
     minWidth: "32px",
     height: "32px",
-    backgroundColor: "#0e276f",
+    backgroundColor: colors.primary,
     color: "#fff",
     borderRadius: "50%",
     fontWeight: 600,
@@ -139,7 +174,7 @@ const styles = {
     justifyContent: "center",
     minWidth: "48px",
     height: "32px",
-    backgroundColor: "#0e276f",
+    backgroundColor: colors.primary,
     color: "#fff",
     borderRadius: "16px",
     fontWeight: 600,
@@ -147,7 +182,7 @@ const styles = {
     padding: "0 8px",
     flexShrink: 0,
   },
-  questionText: { flex: 1, marginTop: "4px", lineHeight: 1.5 },
+  questionText: { flex: 1, marginTop: "4px", lineHeight: 1.5, color: colors.text },
   optionsList: {
     listStyle: "none",
     margin: 0,
@@ -162,10 +197,12 @@ const styles = {
     gap: "8px",
     padding: "10px 12px",
     borderRadius: "4px",
+    backgroundColor: isDarkMode ? colors.surfaceAlt : "transparent",
+    border: isDarkMode ? `1px solid ${colors.border}` : "1px solid transparent",
     cursor: "pointer",
     transition: "background-color 0.2s",
   },
-  optionText: { marginLeft: "20px" },
+  optionText: { marginLeft: "20px", color: colors.text },
   radioInput: {
     position: "absolute",
     top: "50%",
@@ -177,7 +214,7 @@ const styles = {
     top: "50%",
     transform: "translateY(-50%)",
     left: "8px",
-    backgroundColor: "#fff",
+    backgroundColor: colors.surface,
   },
 
   // Fill Question
@@ -188,6 +225,8 @@ const styles = {
     marginBottom: "12px",
     padding: "8px",
     borderRadius: "4px",
+    backgroundColor: colors.surface,
+    border: `1px solid ${colors.border}`,
   },
   fillQuestionNumber: {
     display: "inline-flex",
@@ -195,7 +234,7 @@ const styles = {
     justifyContent: "center",
     minWidth: "32px",
     height: "32px",
-    backgroundColor: "#0e276f",
+    backgroundColor: colors.primary,
     color: "#fff",
     borderRadius: "50%",
     fontWeight: 600,
@@ -204,11 +243,13 @@ const styles = {
   },
   fillInput: {
     flex: 1,
-    border: "1px solid #d1d5db",
+    border: `1px solid ${colors.border}`,
     borderRadius: "4px",
     padding: "8px 12px",
     fontSize: "14px",
     outline: "none",
+    backgroundColor: colors.surface,
+    color: colors.text,
   },
   fillQuestionsContainer: { display: "flex", flexDirection: "column" },
 
@@ -217,7 +258,8 @@ const styles = {
     padding: "16px 20px",
     marginBottom: "16px",
     borderRadius: "8px",
-    border: "1px solid #cce5ff",
+    border: `1px solid ${colors.border}`,
+    backgroundColor: colors.surfaceAlt,
   },
   multiSelectHeader: {
     display: "flex",
@@ -230,7 +272,7 @@ const styles = {
     alignItems: "center",
     justifyContent: "center",
     padding: "4px 10px",
-    backgroundColor: "#0e276f",
+    backgroundColor: colors.primary,
     color: "#fff",
     borderRadius: "4px",
     fontWeight: 600,
@@ -239,7 +281,7 @@ const styles = {
   },
   multiSelectQuestionText: {
     fontSize: "15px",
-    color: "#333",
+    color: colors.text,
     lineHeight: 1.5,
   },
   multiSelectOptions: {
@@ -252,8 +294,9 @@ const styles = {
     alignItems: "center",
     gap: "10px",
     padding: "10px 14px",
-    border: "1px solid #dee2e6",
+    border: `1px solid ${colors.border}`,
     borderRadius: "6px",
+    backgroundColor: colors.surface,
     cursor: "pointer",
     transition: "all 0.2s",
   },
@@ -264,7 +307,7 @@ const styles = {
   },
   multiSelectOptionText: {
     fontSize: "14px",
-    color: "#333",
+    color: colors.text,
   },
 
   // Matching
@@ -290,7 +333,7 @@ const styles = {
     justifyContent: "center",
     width: "32px",
     height: "32px",
-    backgroundColor: "#0e276f",
+    backgroundColor: colors.primary,
     color: "#fff",
     borderRadius: "50%",
     fontWeight: 600,
@@ -302,25 +345,27 @@ const styles = {
   matchingSelect: {
     width: "100%",
     padding: "6px 8px",
-    border: "1px solid #d1d5db",
+    border: `1px solid ${colors.border}`,
     borderRadius: "4px",
-    backgroundColor: "#fff",
+    backgroundColor: colors.surface,
+    color: colors.text,
     cursor: "pointer",
   },
   optionsTitle: { fontWeight: 600, marginBottom: "8px" },
   optionsContainer: { display: "flex", flexDirection: "column", gap: "4px" },
   optionCard: {
     padding: "8px 12px",
-    border: "1px solid #c5c5c5",
+    border: `1px solid ${colors.border}`,
     borderRadius: "6px",
-    backgroundColor: "#fff",
+    backgroundColor: colors.surface,
+    color: colors.text,
     fontSize: "14px",
   },
 
   // Form/Table Completion - IELTS Style
   formContainer: {
-    backgroundColor: "#f9fafb",
-    border: "1px solid #e5e7eb",
+    backgroundColor: colors.surfaceAlt,
+    border: `1px solid ${colors.border}`,
     borderRadius: "8px",
     overflow: "hidden",
   },
@@ -337,7 +382,7 @@ const styles = {
   },
   formLabel: {
     fontWeight: "500",
-    color: "#374151",
+    color: colors.text,
     minWidth: "fit-content",
   },
   formValue: {
@@ -347,7 +392,7 @@ const styles = {
     flexWrap: "wrap",
   },
   formFixedValue: {
-    color: "#1f2937",
+    color: colors.text,
     fontWeight: "500",
   },
   formGapWrapper: {
@@ -357,11 +402,12 @@ const styles = {
   formGapInput: {
     width: "150px",
     padding: "6px 12px",
-    border: "2px solid #d1d5db",
+    border: `2px solid ${colors.border}`,
     borderRadius: "6px",
     fontSize: "14px",
     outline: "none",
-    backgroundColor: "#fff",
+    backgroundColor: colors.surface,
+    color: colors.text,
     transition: "border-color 0.2s, box-shadow 0.2s",
   },
 
@@ -370,28 +416,31 @@ const styles = {
   table: {
     width: "100%",
     borderCollapse: "collapse",
-    border: "1px solid #d1d5db",
+    border: `1px solid ${colors.border}`,
   },
   tableCell: {
     padding: "12px",
-    border: "1px solid #d1d5db",
+    border: `1px solid ${colors.border}`,
     verticalAlign: "middle",
+    backgroundColor: colors.surface,
   },
   gapWrapper: { position: "relative", display: "inline-flex", marginLeft: "4px" },
   gapInput: {
     width: "120px",
     padding: "4px 8px",
-    border: "1px solid #d1d5db",
+    border: `1px solid ${colors.border}`,
     borderRadius: "4px",
     fontSize: "14px",
     outline: "none",
+    backgroundColor: colors.surface,
+    color: colors.text,
   },
   gapPlaceholder: {
     position: "absolute",
     top: "50%",
     left: "50%",
     transform: "translate(-50%, -50%)",
-    color: "#9ca3af",
+    color: colors.muted,
     pointerEvents: "none",
   },
 
@@ -407,7 +456,7 @@ const styles = {
   navArrowLeft: {
     width: "56px",
     height: "56px",
-    backgroundColor: "#374151",
+    backgroundColor: isDarkMode ? "#1f2b47" : "#374151",
     border: "none",
     borderRadius: "4px",
     cursor: "pointer",
@@ -418,7 +467,7 @@ const styles = {
   navArrowRight: {
     width: "56px",
     height: "56px",
-    backgroundColor: "#111827",
+    backgroundColor: isDarkMode ? "#111827" : "#111827",
     border: "none",
     borderRadius: "4px",
     cursor: "pointer",
@@ -433,8 +482,8 @@ const styles = {
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: "#f8fafc",
-    borderTop: "1px solid #d1d5db",
+    backgroundColor: colors.surfaceAlt,
+    borderTop: `1px solid ${colors.border}`,
     zIndex: 30,
   },
   partsContainer: {
@@ -446,7 +495,7 @@ const styles = {
     minWidth: "100px",
     padding: "12px 16px",
     cursor: "pointer",
-    borderLeft: "1px solid #e5e7eb",
+    borderLeft: `1px solid ${colors.border}`,
     transition: "background-color 0.2s",
   },
   partLabel: {
@@ -457,7 +506,7 @@ const styles = {
     whiteSpace: "nowrap",
   },
   partLabelText: { fontWeight: "bold", fontSize: "16px" },
-  partProgress: { fontSize: "14px", color: "#6b7280" },
+  partProgress: { fontSize: "14px", color: colors.muted },
   questionNumbers: {
     display: "flex",
     flexWrap: "nowrap",
@@ -471,11 +520,12 @@ const styles = {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    border: "1px solid transparent",
+    border: isDarkMode ? `1px solid ${colors.border}` : "1px solid transparent",
     borderRadius: "4px",
     fontSize: "15px",
     cursor: "pointer",
-    backgroundColor: "#fff",
+    backgroundColor: colors.surface,
+    color: colors.text,
     padding: "0 4px",
   },
   questionNumBoxWide: {
@@ -485,7 +535,7 @@ const styles = {
   },
   submitIcon: {
     padding: "16px",
-    backgroundColor: "#e5e7eb",
+    backgroundColor: colors.border,
     cursor: "pointer",
     display: "flex",
     alignItems: "center",
@@ -503,7 +553,7 @@ const styles = {
     zIndex: 50,
   },
   modalContent: {
-    backgroundColor: "#fff",
+    backgroundColor: colors.surface,
     padding: "28px",
     borderRadius: "16px",
     maxWidth: "480px",
@@ -513,30 +563,30 @@ const styles = {
   modalTitle: {
     fontSize: "20px",
     fontWeight: "bold",
-    color: "#1e40af",
+    color: colors.primary,
     marginBottom: "16px",
   },
-  modalText: { marginBottom: "16px", color: "#4b5563" },
+  modalText: { marginBottom: "16px", color: colors.muted },
   summaryBox: {
     padding: "12px",
-    backgroundColor: "#f9fafb",
+    backgroundColor: colors.surfaceAlt,
     borderRadius: "8px",
     marginBottom: "16px",
   },
-  summaryLabel: { fontSize: "13px", color: "#6b7280", marginBottom: "8px" },
+  summaryLabel: { fontSize: "13px", color: colors.muted, marginBottom: "8px" },
   summaryRow: {
     display: "flex",
     justifyContent: "space-between",
     padding: "4px 0",
     fontSize: "14px",
   },
-  warningText: { color: "#dc2626", fontSize: "13px", marginBottom: "16px" },
+  warningText: { color: colors.danger, fontSize: "13px", marginBottom: "16px" },
   modalButtons: { display: "flex", gap: "12px", justifyContent: "flex-end" },
   cancelButton: {
     padding: "10px 20px",
-    backgroundColor: "#f1f5f9",
-    color: "#475569",
-    border: "1px solid #e2e8f0",
+    backgroundColor: colors.surfaceAlt,
+    color: colors.text,
+    border: `1px solid ${colors.border}`,
     borderRadius: "8px",
     cursor: "pointer",
     fontWeight: 500,
@@ -544,7 +594,7 @@ const styles = {
   },
   confirmButton: {
     padding: "10px 24px",
-    backgroundColor: "#22c55e",
+    backgroundColor: colors.success,
     color: "#fff",
     border: "none",
     borderRadius: "8px",
@@ -567,14 +617,14 @@ const styles = {
   playGateCard: {
     width: '100%',
     maxWidth: '520px',
-    background: '#ffffff',
+    background: colors.surface,
     borderRadius: '16px',
     padding: '22px 20px',
     textAlign: 'center',
     boxShadow: '0 20px 60px rgba(0,0,0,0.35)',
   },
   playGateButton: {
-    background: '#0e276f',
+    background: colors.primary,
     color: '#fff',
     border: 'none',
     borderRadius: '999px',
@@ -588,15 +638,15 @@ const styles = {
     marginTop: '-12px',
     marginBottom: '20px',
     padding: '12px 14px',
-    backgroundColor: '#fff7ed',
-    border: '1px solid #fed7aa',
+    backgroundColor: isDarkMode ? '#3a1f0f' : '#fff7ed',
+    border: isDarkMode ? '1px solid #7c2d12' : '1px solid #fed7aa',
     borderRadius: '10px',
-    color: '#7c2d12',
+    color: isDarkMode ? '#fbd38d' : '#7c2d12',
     fontSize: '14px',
   },
   audioOpenLink: {
     display: 'inline-block',
-    color: '#0e276f',
+    color: colors.primary,
     fontWeight: 700,
     textDecoration: 'underline',
   },
@@ -604,7 +654,7 @@ const styles = {
   // Play button style (KET modal)
   playButton: {
     padding: "12px 28px",
-    backgroundColor: "#0e276f",
+    backgroundColor: colors.primary,
     color: "#fff",
     borderRadius: "999px",
     border: "none",
@@ -627,27 +677,27 @@ const styles = {
   scoreBox: {
     textAlign: "center",
     padding: "24px",
-    backgroundColor: "#f0fdf4",
+    backgroundColor: isDarkMode ? "#0f2a1a" : "#f0fdf4",
     borderRadius: "12px",
     marginBottom: "20px",
   },
   scoreNumber: { fontSize: "48px", fontWeight: "bold", color: "#16a34a" },
-  scoreLabel: { color: "#6b7280", marginTop: "8px" },
+  scoreLabel: { color: colors.muted, marginTop: "8px" },
   bandScore: {
     display: "inline-block",
     marginTop: "16px",
     padding: "8px 16px",
-    backgroundColor: "#fff",
+    backgroundColor: colors.surface,
     borderRadius: "8px",
   },
-  bandLabel: { fontSize: "13px", color: "#6b7280" },
-  bandValue: { fontSize: "20px", fontWeight: "bold", color: "#1e40af" },
+  bandLabel: { fontSize: "13px", color: colors.muted },
+  bandValue: { fontSize: "20px", fontWeight: "bold", color: colors.primary },
   resultsButtons: { display: "flex", gap: "12px", justifyContent: "center" },
 
   // Notes Completion
   notesContainer: {
-    backgroundColor: "#f9fafb",
-    border: "1px solid #e5e7eb",
+    backgroundColor: colors.surfaceAlt,
+    border: `1px solid ${colors.border}`,
     borderRadius: "8px",
     padding: "16px",
   },
@@ -655,7 +705,7 @@ const styles = {
     fontWeight: "bold",
     fontSize: "15px",
     marginBottom: "12px",
-    color: "#1f2937",
+    color: colors.text,
   },
   notesContent: {
     lineHeight: 1.8,
@@ -677,9 +727,11 @@ const styles = {
     fontSize: "15px",
     marginBottom: "12px",
     padding: "8px 12px",
-    backgroundColor: "#e5e7eb",
+    backgroundColor: colors.border,
+    color: colors.text,
     borderRadius: "4px 4px 0 0",
   },
+  };
 };
 
-export default styles;
+export default createStyles;
