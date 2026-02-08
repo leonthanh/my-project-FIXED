@@ -56,7 +56,7 @@ const PetWritingTest = () => {
   const normalizeHtmlImages = (html) => {
     if (!html) return "";
     return html.replace(
-      /src=(['"])(\/?uploads\/[^'\"]+)\1/g,
+      /src=(['"])(\/?uploads\/[^'"]+)\1/g,
       (_match, quote, path) => `src=${quote}${hostPath(path)}${quote}`
     );
   };
@@ -176,7 +176,7 @@ const PetWritingTest = () => {
     };
   }, [isResizing, handleMouseMove, handleMouseUp]);
 
-  const getSelectedAnswer = () => {
+  const getSelectedAnswer = useCallback(() => {
     const picked = questionPick.q2 === "YES" ? "2" : questionPick.q3 === "YES" ? "3" : null;
     const chosen = picked || (selectedQuestion === "3" ? "3" : "2");
     const primary = chosen === "2" ? task2Answer2 : task2Answer3;
@@ -190,7 +190,7 @@ const PetWritingTest = () => {
       return { answer: task2Answer3, chosen: "3" };
     }
     return { answer: "", chosen };
-  };
+  }, [questionPick.q2, questionPick.q3, selectedQuestion, task2Answer2, task2Answer3]);
 
   const handleSubmit = useCallback(async () => {
     if (!selectedTestId) {
@@ -242,7 +242,7 @@ const PetWritingTest = () => {
       setMessage("Failed to submit. Please try again.");
       setSubmitted(false);
     }
-  }, [selectedTestId, task1Answer, timeLeft, user, task2Answer2, task2Answer3, selectedQuestion]);
+  }, [selectedTestId, task1Answer, timeLeft, user, getSelectedAnswer]);
 
   const submitRef = useRef(handleSubmit);
   useEffect(() => {
@@ -276,7 +276,6 @@ const PetWritingTest = () => {
     (value) => value === "YES"
   ).length;
   const part1Answered = task1Answer.trim().length > 0;
-  const part2Answered = getSelectedAnswer().answer.trim().length > 0;
   const totalWords = countWords(task1Answer) + countWords(getSelectedAnswer().answer);
   const totalWordTarget = 200;
 
