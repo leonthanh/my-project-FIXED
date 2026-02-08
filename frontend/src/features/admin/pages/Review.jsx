@@ -2,9 +2,11 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AdminNavbar } from "../../../shared/components";
+import { useTheme } from "../../../shared/contexts/ThemeContext";
 import { apiPath } from "../../../shared/utils/api";
 
 const Review = () => {
+  const { isDarkMode } = useTheme();
   const teacher = useMemo(() => {
     try {
       return JSON.parse(localStorage.getItem("user")) || null;
@@ -33,6 +35,7 @@ const Review = () => {
 
   useEffect(() => {
     const fetchUnreviewedWriting = async () => {
+      setLoadingWriting(true);
       try {
         const res = await fetch(apiPath("writing/list"));
         const all = await res.json();
@@ -55,21 +58,15 @@ const Review = () => {
       }
     };
 
-    fetchUnreviewedWriting();
-  }, []);
-
-  useEffect(() => {
     const fetchCambridgeSubmissions = async () => {
       try {
         setLoadingCambridge(true);
         setCambridgeError(null);
-
         // Fetch recent submissions; filter client-side for items needing review
         const res = await fetch(apiPath("cambridge/submissions?page=1&limit=100"));
         if (!res.ok) throw new Error("Không thể tải danh sách bài nộp Cambridge");
         const data = await res.json();
-        const subs = Array.isArray(data?.submissions) ? data.submissions : [];
-
+        const subs = Array.isArray(data?.submissions) ? data.submissions : (Array.isArray(data) ? data : []);
         // Needs review: status !== reviewed (backend sets reviewed when feedback exists)
         const needReview = subs.filter((s) => String(s.status || "").toLowerCase() !== "reviewed");
         setCambridgeSubmissions(needReview);
@@ -82,6 +79,7 @@ const Review = () => {
       }
     };
 
+    fetchUnreviewedWriting();
     fetchCambridgeSubmissions();
   }, []);
 
@@ -195,28 +193,6 @@ const Review = () => {
       <div className="admin-page">
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 20 }} className="admin-header-row">
           <h3 style={{ margin: 0 }}>📝 Danh sách bài cần nhận xét</h3>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{ position: "relative", padding: "6px 10px", border: "1px solid #e5e7eb", borderRadius: 8, background: "#fff" }}>
-              🔔 Cambridge
-              {cambridgeNeedsReviewCount > 0 && (
-                <span
-                  style={{
-                    position: "absolute",
-                    top: -8,
-                    right: -8,
-                    background: "#ef4444",
-                    color: "#fff",
-                    borderRadius: 999,
-                    padding: "2px 8px",
-                    fontSize: 12,
-                    fontWeight: 700,
-                  }}
-                >
-                  {cambridgeNeedsReviewCount}
-                </span>
-              )}
-            </div>
-          </div>
         </div>
 
         {/* Tabs */}
@@ -418,7 +394,15 @@ const Review = () => {
 
                       {isExpanded && (
                         <tr>
-                          <td style={{ ...cellStyle, background: "#fafafa" }} colSpan={9}>
+                          <td
+                            style={{
+                              ...cellStyle,
+                              background: isDarkMode ? "#0f172a" : "#fafafa",
+                              color: isDarkMode ? "#e5e7eb" : "inherit",
+                              borderColor: isDarkMode ? "#1f2b47" : cellStyle.border,
+                            }}
+                            colSpan={9}
+                          >
                             {isLoadingDetail && <div>⏳ Đang tải chi tiết...</div>}
                             {!isLoadingDetail && detail && (
                               <div style={{ display: "grid", gap: 10 }}>
@@ -427,20 +411,20 @@ const Review = () => {
                                     ✍️ Nội dung cần chấm (các câu isCorrect=null)
                                   </div>
                                   {pendingAnswers.length === 0 ? (
-                                    <div style={{ color: "#6b7280" }}>
+                                    <div style={{ color: isDarkMode ? "#9ca3af" : "#6b7280" }}>
                                       (Không tìm thấy câu tự luận/pending trong bài này. Bạn có thể bấm “📄 Xem bài” để kiểm tra.)
                                     </div>
                                   ) : (
                                     <div style={{ display: "grid", gap: 10 }}>
                                       <div style={{ display: "grid", gap: 8 }}>
-                                        <div style={answerBoxStyle}>
+                                        <div style={answerBoxStyle(isDarkMode)}>
                                           <div style={{ fontWeight: 700 }}>
                                             {hasTwo ? "Câu 31" : "Câu tự luận 1"}
                                           </div>
                                           <div style={{ whiteSpace: "pre-wrap" }}>{pendingAnswers[0]?.userAnswer}</div>
                                         </div>
                                         {pendingAnswers[1] && (
-                                          <div style={answerBoxStyle}>
+                                          <div style={answerBoxStyle(isDarkMode)}>
                                             <div style={{ fontWeight: 700 }}>
                                               {hasTwo ? "Câu 32" : "Câu tự luận 2"}
                                             </div>
@@ -467,9 +451,11 @@ const Review = () => {
                                     style={{
                                       width: "100%",
                                       padding: 10,
-                                      border: "1px solid #d1d5db",
+                                      border: `1px solid ${isDarkMode ? "#2a3350" : "#d1d5db"}`,
                                       borderRadius: 8,
                                       fontSize: 14,
+                                      background: isDarkMode ? "#0f172a" : "#fff",
+                                      color: isDarkMode ? "#e5e7eb" : "#111827",
                                     }}
                                   />
                                   <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
@@ -480,7 +466,7 @@ const Review = () => {
                                     >
                                       ✅ Lưu nhận xét
                                     </button>
-                                    <span style={{ color: "#6b7280", fontSize: 13 }}>
+                                    <span style={{ color: isDarkMode ? "#9ca3af" : "#6b7280", fontSize: 13 }}>
                                       Lưu sẽ chuyển bài sang trạng thái “reviewed”.
                                     </span>
                                   </div>
@@ -543,11 +529,12 @@ const secondaryButtonStyle = {
   cursor: "pointer",
 };
 
-const answerBoxStyle = {
-  border: "1px solid #e5e7eb",
+const answerBoxStyle = (isDarkMode) => ({
+  border: `1px solid ${isDarkMode ? "#2a3350" : "#e5e7eb"}`,
   borderRadius: 10,
-  background: "#fff",
+  background: isDarkMode ? "#111827" : "#fff",
+  color: isDarkMode ? "#e5e7eb" : "inherit",
   padding: 12,
-};
+});
 
 export default Review;

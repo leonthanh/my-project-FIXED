@@ -810,10 +810,10 @@ const DoCambridgeListeningTest = () => {
                 padding: '6px 10px',
                 fontSize: '15px',
                 fontWeight: '600',
-                border: '2px solid #0284c7',
+                border: `2px solid ${isDarkMode ? '#4f6db6' : '#0284c7'}`,
                 borderRadius: '4px',
-                backgroundColor: userAnswer ? '#f0f9ff' : 'white',
-                color: '#0e7490',
+                backgroundColor: isDarkMode ? (userAnswer ? '#1e3a5f' : '#1f2b47') : (userAnswer ? '#f0f9ff' : 'white'),
+                color: isDarkMode ? '#e5e7eb' : '#0e7490',
                 width: '120px',
                 textAlign: 'center',
                 scrollMarginTop: '100px',
@@ -861,10 +861,10 @@ const DoCambridgeListeningTest = () => {
                   padding: '6px 10px',
                   fontSize: '15px',
                   fontWeight: '600',
-                  border: '2px solid #0284c7',
+                  border: `2px solid ${isDarkMode ? '#4f6db6' : '#0284c7'}`,
                   borderRadius: '4px',
-                  backgroundColor: userAnswer ? '#f0f9ff' : 'white',
-                  color: '#0e7490',
+                  backgroundColor: isDarkMode ? (userAnswer ? '#1e3a5f' : '#1f2b47') : (userAnswer ? '#f0f9ff' : 'white'),
+                  color: isDarkMode ? '#e5e7eb' : '#0e7490',
                   width: '120px',
                   textAlign: 'center',
                   scrollMarginTop: '100px',
@@ -941,7 +941,7 @@ const DoCambridgeListeningTest = () => {
               marginBottom: '16px',
               fontSize: '18px',
               fontWeight: 600,
-              color: '#0c4a6e',
+              color: isDarkMode ? '#e5e7eb' : '#0c4a6e',
             }}
             dangerouslySetInnerHTML={{ __html: passageTitle }}
           />
@@ -951,8 +951,8 @@ const DoCambridgeListeningTest = () => {
           className="cambridge-passage-content"
           style={{
             padding: '20px',
-            backgroundColor: '#f0f9ff',
-            border: '2px solid #0284c7',
+            backgroundColor: isDarkMode ? '#111827' : '#f0f9ff',
+            border: `2px solid ${isDarkMode ? '#2a3350' : '#0284c7'}`,
             borderRadius: '12px',
             fontSize: '15px',
             lineHeight: 2,
@@ -993,8 +993,8 @@ const DoCambridgeListeningTest = () => {
     return (
       <div className="cambridge-question-wrapper" >
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-          <div style={{ border: '1px solid #bae6fd', background: '#f0f9ff', borderRadius: '10px', padding: '12px' }}>
-            <div style={{ fontWeight: 700, color: '#0e276f', marginBottom: '8px' }}>{leftTitle}</div>
+          <div style={{ border: `1px solid ${isDarkMode ? '#2a3350' : '#bae6fd'}`, background: isDarkMode ? '#0f172a' : '#f0f9ff', borderRadius: '10px', padding: '12px' }}>
+            <div style={{ fontWeight: 700, color: isDarkMode ? '#e5e7eb' : '#0e276f', marginBottom: '8px' }}>{leftTitle}</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               {leftItems.map((item, idx) => {
                 const key = `${currentPartIndex}-${secIdx}-${qIdx}-${idx}`;
@@ -1008,7 +1008,7 @@ const DoCambridgeListeningTest = () => {
                     key={key}
                     ref={(el) => (questionRefs.current[key] = el)}
                     className={`cambridge-question-wrapper ${userAnswer ? 'answered' : ''} ${activeQuestion === key ? 'active-question' : ''}`}
-                    style={{ padding: '10px', borderRadius: '8px', border: '1px solid #dbeafe', background: '#fff' }}
+                    style={{ padding: '10px', borderRadius: '8px', border: `1px solid ${isDarkMode ? '#2a3350' : '#dbeafe'}`, background: isDarkMode ? '#111827' : '#fff' }}
                   >
                     <button
                       className={`cambridge-flag-button ${flaggedQuestions.has(key) ? 'flagged' : ''}`}
@@ -1022,7 +1022,7 @@ const DoCambridgeListeningTest = () => {
                     <div style={{ display: 'grid', gridTemplateColumns: '56px 1fr', gap: '10px', alignItems: 'center' }}>
                       <span className="cambridge-question-number">{num}</span>
                       <div>
-                        <div style={{ fontWeight: 600, color: '#1f2937', marginBottom: 8 }}>{item || `Item ${idx + 1}`}</div>
+                        <div style={{ fontWeight: 600, color: isDarkMode ? '#e5e7eb' : '#1f2937', marginBottom: 8 }}>{item || `Item ${idx + 1}`}</div>
                         <div
                           role="button"
                           tabIndex={0}
@@ -1045,14 +1045,14 @@ const DoCambridgeListeningTest = () => {
                             justifyContent: 'center',
                             padding: '6px 10px',
                             fontWeight: 700,
-                            color: userAnswer ? '#0f172a' : '#94a3b8',
-                            background: userAnswer ? '#e0f2fe' : '#f8fafc',
+                            color: userAnswer ? (isDarkMode ? '#e5e7eb' : '#0f172a') : '#94a3b8',
+                            background: userAnswer ? (isDarkMode ? '#1e3a5f' : '#e0f2fe') : (isDarkMode ? '#1f2b47' : '#f8fafc'),
                             cursor: submitted ? 'default' : 'pointer',
                             ...(submitted
                               ? {
                                   borderColor: isCorrect ? '#22c55e' : '#ef4444',
-                                  background: isCorrect ? '#dcfce7' : '#fee2e2',
-                                  color: '#0f172a',
+                                  background: isCorrect ? (isDarkMode ? '#0f2a1a' : '#dcfce7') : (isDarkMode ? '#2a1515' : '#fee2e2'),
+                                  color: isDarkMode ? '#e5e7eb' : '#0f172a',
                                 }
                               : null),
                           }}
@@ -1070,8 +1070,8 @@ const DoCambridgeListeningTest = () => {
             </div>
           </div>
 
-          <div style={{ border: '1px solid #e5e7eb', background: '#fff', borderRadius: '10px', padding: '12px' }}>
-            <div style={{ fontWeight: 700, color: '#0e276f', marginBottom: '8px' }}>{rightTitle}</div>
+          <div style={{ border: `1px solid ${isDarkMode ? '#2a3350' : '#e5e7eb'}`, background: isDarkMode ? '#0f172a' : '#fff', borderRadius: '10px', padding: '12px' }}>
+            <div style={{ fontWeight: 700, color: isDarkMode ? '#e5e7eb' : '#0e276f', marginBottom: '8px' }}>{rightTitle}</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               {options.map((opt) => {
                 const usedBy = usedMap[opt];
@@ -1087,11 +1087,12 @@ const DoCambridgeListeningTest = () => {
                     style={{
                       padding: '10px 12px',
                       borderRadius: '8px',
-                      border: '1px solid #e5e7eb',
-                      background: isUsed ? '#f1f5f9' : '#fafafa',
+                      border: `1px solid ${isDarkMode ? '#2a3350' : '#e5e7eb'}`,
+                      background: isUsed ? (isDarkMode ? '#1f2b47' : '#f1f5f9') : (isDarkMode ? '#111827' : '#fafafa'),
                       opacity: isUsed ? 0.45 : 1,
                       cursor: submitted || isUsed ? 'default' : 'grab',
                       fontWeight: 600,
+                      color: isDarkMode ? '#e5e7eb' : undefined,
                     }}
                   >
                     {opt}
@@ -1529,8 +1530,8 @@ const DoCambridgeListeningTest = () => {
                           height: styles.pictureChoiceImagePlaceholder.height,
                           overflow: 'hidden',
                           borderRadius: '10px',
-                          border: '1px solid #e5e7eb',
-                          background: '#f8fafc',
+                          border: `1px solid ${isDarkMode ? '#2a3350' : '#e5e7eb'}`,
+                          background: isDarkMode ? '#1f2b47' : '#f8fafc',
                         }}
                       >
                         <div style={{ ...styles.pictureChoiceImagePlaceholder, width: '100%', height: '100%' }}>
@@ -1614,7 +1615,7 @@ const DoCambridgeListeningTest = () => {
                       />
 
                       {opt.label ? (
-                        <div style={{ fontSize: '13px', color: '#475569', textAlign: 'center' }}>{opt.label}</div>
+                        <div style={{ fontSize: '13px', color: isDarkMode ? '#94a3b8' : '#475569', textAlign: 'center' }}>{opt.label}</div>
                       ) : null}
                     </label>
                   </div>
@@ -1707,8 +1708,8 @@ const DoCambridgeListeningTest = () => {
         ref={(el) => (questionRefs.current[questionKey] = el)}
         style={{
           padding: '12px 8px',
-          borderBottom: '1px solid #e5e7eb',
-          background: isActive ? '#f8fafc' : 'transparent',
+          borderBottom: `1px solid ${isDarkMode ? '#2a3350' : '#e5e7eb'}`,
+          background: isActive ? (isDarkMode ? '#1f2b47' : '#f8fafc') : 'transparent',
         }}
       >
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
@@ -1854,11 +1855,11 @@ const DoCambridgeListeningTest = () => {
       {showGlobalAudioBar && (
         <div
           className="cambridge-global-audio"
-          style={{ padding: '10px 24px', background: '#f8fafc', borderBottom: '1px solid #e5e7eb' }}
+          style={{ padding: '10px 24px', background: isDarkMode ? '#111827' : '#f8fafc', borderBottom: `1px solid ${isDarkMode ? '#2a3350' : '#e5e7eb'}` }}
         >
           <div style={styles.audioContainer}>
             <span style={{ marginRight: '12px' }}>🎧</span>
-            <div style={{ flex: 1, fontSize: 14, color: '#0f172a' }}>
+            <div style={{ flex: 1, fontSize: 14, color: isDarkMode ? '#e5e7eb' : '#0f172a' }}>
               Global audio is ready for this test.
             </div>
             <div
@@ -2040,7 +2041,7 @@ const DoCambridgeListeningTest = () => {
                           return (
                             <div>
                               {passageHtml ? (
-                                <div style={{ ...styles.questionCard, background: '#fffbeb', borderColor: '#fcd34d' }}>
+                                <div style={{ ...styles.questionCard, background: isDarkMode ? '#111827' : '#fffbeb', borderColor: isDarkMode ? '#2a3350' : '#fcd34d' }}>
                                   <div style={{ fontSize: '15px', lineHeight: 1.8 }}>
                                     {renderMaybeHtml(passageHtml)}
                                   </div>
@@ -2286,7 +2287,7 @@ const DoCambridgeListeningTest = () => {
                         return (
                           <div>
                             {passageHtml ? (
-                              <div style={{ ...styles.questionCard, background: '#fffbeb', borderColor: '#fcd34d' }}>
+                              <div style={{ ...styles.questionCard, background: isDarkMode ? '#111827' : '#fffbeb', borderColor: isDarkMode ? '#2a3350' : '#fcd34d' }}>
                                 <div style={{ fontSize: '15px', lineHeight: 1.8 }}>
                                   {renderMaybeHtml(passageHtml)}
                                 </div>
@@ -2362,7 +2363,7 @@ const DoCambridgeListeningTest = () => {
                         return (
                           <div>
                             {passageHtml ? (
-                              <div style={{ ...styles.questionCard, background: '#fffbeb', borderColor: '#fcd34d' }}>
+                              <div style={{ ...styles.questionCard, background: isDarkMode ? '#111827' : '#fffbeb', borderColor: isDarkMode ? '#2a3350' : '#fcd34d' }}>
                                 <div style={{ fontSize: '15px', lineHeight: 1.8 }}>
                                   {renderMaybeHtml(passageHtml)}
                                 </div>
@@ -2467,11 +2468,11 @@ const DoCambridgeListeningTest = () => {
                                   <div style={{ paddingRight: '50px' }}>
                                     <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', marginBottom: '14px' }}>
                                       <span className="cambridge-question-number">{num}</span>
-                                      <div style={{ fontSize: '15px', lineHeight: 1.7, color: '#1f2937' }}>{sentenceText}</div>
+                                      <div style={{ fontSize: '15px', lineHeight: 1.7, color: isDarkMode ? '#e5e7eb' : '#1f2937' }}>{sentenceText}</div>
                                     </div>
 
                                     <div style={{ display: 'grid', gridTemplateColumns: '180px 1fr', gap: '12px', alignItems: 'center' }}>
-                                      <div style={{ padding: '10px 12px', background: '#fef3c7', border: '1px solid #fbbf24', borderRadius: '6px', color: '#78350f' }}>
+                                      <div style={{ padding: '10px 12px', background: isDarkMode ? '#1f2b47' : '#fef3c7', border: `1px solid ${isDarkMode ? '#2a3350' : '#fbbf24'}`, borderRadius: '6px', color: isDarkMode ? '#e5e7eb' : '#78350f' }}>
                                         Root word: <strong>{rootWord}</strong>
                                       </div>
                                       <input
@@ -2537,13 +2538,13 @@ const DoCambridgeListeningTest = () => {
                             <div className="cambridge-question-wrapper" style={{ marginBottom: '16px' }}>
                               <div >
                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                                  <div style={{ border: '1px solid #bae6fd', background: '#f0f9ff', borderRadius: '10px', padding: '12px' }}>
-                                    <div style={{ fontWeight: 700, color: '#0e276f', marginBottom: '8px' }}>People</div>
+                                  <div style={{ border: `1px solid ${isDarkMode ? '#2a3350' : '#bae6fd'}`, background: isDarkMode ? '#0f172a' : '#f0f9ff', borderRadius: '10px', padding: '12px' }}>
+                                    <div style={{ fontWeight: 700, color: isDarkMode ? '#e5e7eb' : '#0e276f', marginBottom: '8px' }}>People</div>
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                                       {people.map((p, idx) => {
                                         const pid = p?.id || String.fromCharCode(65 + idx);
                                         return (
-                                          <div key={pid} style={{ padding: '10px', background: '#fff', border: '1px solid #bae6fd', borderRadius: '8px' }}>
+                                          <div key={pid} style={{ padding: '10px', background: isDarkMode ? '#111827' : '#fff', border: `1px solid ${isDarkMode ? '#2a3350' : '#bae6fd'}`, borderRadius: '8px', color: isDarkMode ? '#e5e7eb' : undefined }}>
                                             <strong>{pid}.</strong> {p?.name || ''} {p?.need ? `— ${p.need}` : ''}
                                           </div>
                                         );
@@ -2551,11 +2552,11 @@ const DoCambridgeListeningTest = () => {
                                     </div>
                                   </div>
 
-                                  <div style={{ border: '1px solid #e5e7eb', background: '#fff', borderRadius: '10px', padding: '12px' }}>
-                                    <div style={{ fontWeight: 700, color: '#0e276f', marginBottom: '8px' }}>Texts</div>
+                                  <div style={{ border: `1px solid ${isDarkMode ? '#2a3350' : '#e5e7eb'}`, background: isDarkMode ? '#0f172a' : '#fff', borderRadius: '10px', padding: '12px' }}>
+                                    <div style={{ fontWeight: 700, color: isDarkMode ? '#e5e7eb' : '#0e276f', marginBottom: '8px' }}>Texts</div>
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                                       {texts.map((t) => (
-                                        <div key={t?.id || t?.title || Math.random()} style={{ padding: '10px', background: '#fafafa', border: '1px solid #e5e7eb', borderRadius: '8px' }}>
+                                        <div key={t?.id || t?.title || Math.random()} style={{ padding: '10px', background: isDarkMode ? '#111827' : '#fafafa', border: `1px solid ${isDarkMode ? '#2a3350' : '#e5e7eb'}`, borderRadius: '8px', color: isDarkMode ? '#e5e7eb' : undefined }}>
                                           <strong>{String(t?.id || '').trim()}.</strong>
                                           <span style={{ marginLeft: '6px' }}>{String(t?.title || t?.content || '').trim()}</span>
                                           {t?.title && t?.content ? (
@@ -2599,7 +2600,7 @@ const DoCambridgeListeningTest = () => {
 
                                     <div style={{ paddingRight: '50px', display: 'grid', gridTemplateColumns: '56px 1fr 160px', gap: '12px', alignItems: 'center' }}>
                                       <span className="cambridge-question-number">{num}</span>
-                                      <div style={{ color: '#1f2937' }}>
+                                      <div style={{ color: isDarkMode ? '#e5e7eb' : '#1f2937' }}>
                                         <strong>{pid}.</strong> {p?.name || ''}
                                       </div>
                                       <select
@@ -2608,11 +2609,12 @@ const DoCambridgeListeningTest = () => {
                                         onChange={(e) => handleAnswerChange(key, e.target.value)}
                                         style={{
                                           padding: '10px 12px',
-                                          border: '2px solid #d1d5db',
+                                          border: `2px solid ${isDarkMode ? '#3d3d5c' : '#d1d5db'}`,
                                           borderRadius: '8px',
                                           fontSize: '14px',
                                           fontWeight: 700,
-                                          background: '#fff',
+                                          background: isDarkMode ? '#1f2b47' : '#fff',
+                                          color: isDarkMode ? '#e5e7eb' : undefined,
                                           ...(submitted
                                             ? {
                                                 borderColor: isCorrect ? '#22c55e' : '#ef4444',

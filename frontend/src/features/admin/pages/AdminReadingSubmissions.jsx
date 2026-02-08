@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AdminNavbar } from "../../../shared/components";
+import { useTheme } from "../../../shared/contexts/ThemeContext";
 import { apiPath } from "../../../shared/utils/api";
 
 const AdminReadingSubmissions = () => {
+  const { isDarkMode } = useTheme();
   const [subs, setSubs] = useState([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
@@ -249,14 +251,14 @@ const AdminReadingSubmissions = () => {
 
       {/* Feedback Modal */}
       {showFeedbackModal && selectedSubmission && (
-        <div style={modalOverlay} onClick={() => setShowFeedbackModal(false)}>
-          <div style={modalContent} onClick={(e) => e.stopPropagation()}>
+        <div style={modalOverlay(isDarkMode)} onClick={() => setShowFeedbackModal(false)}>
+          <div style={modalContent(isDarkMode)} onClick={(e) => e.stopPropagation()}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
               <h3 style={{ margin: 0 }}>✍️ Nhận xét bài làm</h3>
-              <button onClick={() => setShowFeedbackModal(false)} style={closeBtn}>✕</button>
+              <button onClick={() => setShowFeedbackModal(false)} style={closeBtn(isDarkMode)}>✕</button>
             </div>
 
-            <div style={{ marginBottom: 15, padding: 15, background: "#f3f4f6", borderRadius: 8 }}>
+            <div style={{ marginBottom: 15, padding: 15, background: isDarkMode ? "#0f172a" : "#f3f4f6", borderRadius: 8, border: isDarkMode ? "1px solid #2a3350" : "none" }}>
               <p><strong>Học sinh:</strong> {selectedSubmission.userName || "N/A"}</p>
               <p><strong>Mã lớp:</strong> {selectedSubmission.ReadingTest?.classCode || "N/A"}</p>
               <p><strong>Điểm:</strong> {selectedSubmission.correct}/{selectedSubmission.total} ({selectedSubmission.scorePercentage}%) - Band {selectedSubmission.band}</p>
@@ -271,7 +273,7 @@ const AdminReadingSubmissions = () => {
                 value={feedbackBy}
                 onChange={(e) => setFeedbackBy(e.target.value)}
                 placeholder="Tên giáo viên..."
-                style={{ ...inputStyle, width: "100%" }}
+                style={{ ...inputStyle, width: "100%", background: isDarkMode ? "#0f172a" : "#fff", color: isDarkMode ? "#e5e7eb" : "#111827", borderColor: isDarkMode ? "#2a3350" : "#ccc" }}
               />
             </div>
 
@@ -284,7 +286,7 @@ const AdminReadingSubmissions = () => {
                 onChange={(e) => setFeedbackText(e.target.value)}
                 placeholder="Nhập nhận xét cho học sinh..."
                 rows={8}
-                style={{ ...inputStyle, width: "100%", resize: "vertical" }}
+                style={{ ...inputStyle, width: "100%", resize: "vertical", background: isDarkMode ? "#0f172a" : "#fff", color: isDarkMode ? "#e5e7eb" : "#111827", borderColor: isDarkMode ? "#2a3350" : "#ccc" }}
               />
             </div>
 
@@ -309,11 +311,11 @@ const AdminReadingSubmissions = () => {
 
       {/* Analysis Modal */}
       {showAnalysisModal && analysisData && (
-        <div style={modalOverlay} onClick={() => setShowAnalysisModal(false)}>
-          <div style={{ ...modalContent, maxWidth: 700 }} onClick={(e) => e.stopPropagation()}>
+        <div style={modalOverlay(isDarkMode)} onClick={() => setShowAnalysisModal(false)}>
+          <div style={{ ...modalContent(isDarkMode), maxWidth: 700 }} onClick={(e) => e.stopPropagation()}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
               <h3 style={{ margin: 0 }}>📊 Phân tích chi tiết</h3>
-              <button onClick={() => setShowAnalysisModal(false)} style={closeBtn}>✕</button>
+              <button onClick={() => setShowAnalysisModal(false)} style={closeBtn(isDarkMode)}>✕</button>
             </div>
 
             {loadingAnalysis ? (
@@ -326,9 +328,11 @@ const AdminReadingSubmissions = () => {
                     fontFamily: "inherit",
                     fontSize: 14,
                     lineHeight: 1.6,
-                    background: "#f8fafc",
+                    background: isDarkMode ? "#0f172a" : "#f8fafc",
+                    color: isDarkMode ? "#e5e7eb" : "#111827",
                     padding: 20,
                     borderRadius: 8,
+                    border: isDarkMode ? "1px solid #2a3350" : "none",
                     maxHeight: 300,
                     overflow: "auto"
                   }}>
@@ -340,12 +344,12 @@ const AdminReadingSubmissions = () => {
                   <div style={{ marginTop: 20 }}>
                     <h4>📈 Theo dạng câu hỏi:</h4>
                     {analysisData.breakdown.byType.map((t, i) => (
-                      <div key={i} style={{ display: "flex", alignItems: "center", padding: "10px 0", borderBottom: "1px solid #eee" }}>
+                      <div key={i} style={{ display: "flex", alignItems: "center", padding: "10px 0", borderBottom: isDarkMode ? "1px solid #2a3350" : "1px solid #eee" }}>
                         <div style={{ flex: 1 }}>
                           <strong>{t.label}</strong>
-                          <div style={{ fontSize: 12, color: "#666" }}>{t.correct}/{t.total} câu đúng</div>
+                          <div style={{ fontSize: 12, color: isDarkMode ? "#9ca3af" : "#666" }}>{t.correct}/{t.total} câu đúng</div>
                         </div>
-                        <div style={{ width: 100, height: 8, background: "#e5e7eb", borderRadius: 4, overflow: "hidden", marginRight: 10 }}>
+                        <div style={{ width: 100, height: 8, background: isDarkMode ? "#1f2b47" : "#e5e7eb", borderRadius: 4, overflow: "hidden", marginRight: 10 }}>
                           <div style={{ width: `${t.percentage}%`, height: "100%", background: t.status === "good" ? "#22c55e" : t.status === "average" ? "#eab308" : "#ef4444" }} />
                         </div>
                         <div style={{ width: 50, textAlign: "right", fontWeight: "bold", color: t.status === "good" ? "#16a34a" : t.status === "average" ? "#ca8a04" : "#dc2626" }}>
@@ -357,12 +361,12 @@ const AdminReadingSubmissions = () => {
                 )}
 
                 {analysisData.breakdown?.weakAreas?.length > 0 && (
-                  <div style={{ marginTop: 20, padding: 15, background: "#fef2f2", borderRadius: 8 }}>
-                    <h4 style={{ margin: "0 0 10px 0", color: "#dc2626" }}>💡 Cần cải thiện:</h4>
+                  <div style={{ marginTop: 20, padding: 15, background: isDarkMode ? "#2a1b1b" : "#fef2f2", borderRadius: 8, border: isDarkMode ? "1px solid #4c1d1d" : "none" }}>
+                    <h4 style={{ margin: "0 0 10px 0", color: isDarkMode ? "#fca5a5" : "#dc2626" }}>💡 Cần cải thiện:</h4>
                     {analysisData.breakdown.weakAreas.map((area, i) => (
                       <div key={i} style={{ marginBottom: 10 }}>
                         <strong>{area.label}</strong> ({area.percentage}%)
-                        <p style={{ margin: "5px 0 0 0", fontSize: 13, color: "#666" }}>{area.suggestion}</p>
+                        <p style={{ margin: "5px 0 0 0", fontSize: 13, color: isDarkMode ? "#e5e7eb" : "#666" }}>{area.suggestion}</p>
                       </div>
                     ))}
                   </div>
@@ -386,8 +390,36 @@ const AdminReadingSubmissions = () => {
 const cellStyle = { padding: 8, border: "1px solid #ddd", textAlign: "left" };
 const inputStyle = { padding: 10, border: "1px solid #ccc", borderRadius: 6, fontSize: 14, boxSizing: "border-box" };
 const actionBtn = { padding: "6px 12px", background: "#0e276f", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer", fontSize: 13 };
-const modalOverlay = { position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 };
-const modalContent = { background: "white", padding: 30, borderRadius: 12, maxWidth: 600, width: "90%", maxHeight: "80vh", overflow: "auto" };
-const closeBtn = { background: "none", border: "none", fontSize: 24, cursor: "pointer" };
+const modalOverlay = (isDarkMode) => ({
+  position: "fixed",
+  top: 0,
+  left: 0,
+  right: 0,
+  bottom: 0,
+  backgroundColor: isDarkMode ? "rgba(2,6,23,0.7)" : "rgba(0,0,0,0.5)",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  zIndex: 1000,
+});
+const modalContent = (isDarkMode) => ({
+  background: isDarkMode ? "#111827" : "white",
+  color: isDarkMode ? "#e5e7eb" : "#111827",
+  padding: 30,
+  borderRadius: 12,
+  maxWidth: 600,
+  width: "90%",
+  maxHeight: "80vh",
+  overflow: "auto",
+  border: isDarkMode ? "1px solid #2a3350" : "none",
+  boxShadow: isDarkMode ? "0 20px 60px rgba(0,0,0,0.45)" : "0 20px 60px rgba(0,0,0,0.25)",
+});
+const closeBtn = (isDarkMode) => ({
+  background: "none",
+  border: "none",
+  fontSize: 24,
+  cursor: "pointer",
+  color: isDarkMode ? "#e5e7eb" : "#111827",
+});
 
 export default AdminReadingSubmissions;

@@ -915,3 +915,298 @@ body.dark-mode .cambridge-nav-arrow-btn {
   background: #1f2b47;
   border-color: #3d3d5c;
 }
+
+body.dark-mode .cambridge-part-tab,
+body.dark-mode .cambridge-question-num-btn,
+body.dark-mode .cambridge-part-label,
+body.dark-mode .cambridge-part-number,
+body.dark-mode .cambridge-part-count {
+  background: #111827;
+  border-color: #2a3350;
+  color: #e5e7eb;
+}
+
+body.dark-mode .cambridge-part-tab:hover,
+body.dark-mode .cambridge-question-num-btn:hover {
+  background: #1f2b47;
+  border-color: #3d3d5c;
+  color: #e5e7eb;
+}
+
+body.dark-mode .cambridge-part-tab.active,
+body.dark-mode .cambridge-question-num-btn.active {
+  background: #1f2b47;
+  border-color: #4f6db6;
+  color: #ffffff;
+  box-shadow: 0 0 0 2px rgba(79, 109, 182, 0.35);
+}
+
+body.dark-mode .cambridge-sign-text {
+  background: #0f172a !important;
+  border-color: #2a3350 !important;
+  color: #e5e7eb !important;
+}
+
+body.dark-mode .cambridge-question-wrapper label {
+  background: #111827 !important;
+  border-color: #2a3350 !important;
+  color: #e5e7eb !important;
+}
+
+body.dark-mode .cambridge-question-wrapper label span,
+body.dark-mode .cambridge-question-wrapper label * {
+  color: #e5e7eb !important;
+}
+
+body.dark-mode .cambridge-question-wrapper img {
+  border-color: #2a3350 !important;
+}
+
+/* =============================================
+   PART 2: People-Matching (PeopleMatchingDisplay)
+   ============================================= */
+
+/* People section container (left side - blue background) */
+body.dark-mode .cambridge-passage-container > div > div:first-child,
+body.dark-mode .cambridge-question-wrapper > div > div:first-child {
+  background-color: #0f172a !important;
+  border-color: #2a3350 !important;
+}
+
+/* Section titles (People / Texts) */
+body.dark-mode .cambridge-passage-container h4,
+body.dark-mode .cambridge-question-wrapper h4 {
+  color: #e5e7eb !important;
+}
+
+/* Person cards */
+body.dark-mode .cambridge-passage-container > div > div > div > div,
+body.dark-mode .cambridge-question-wrapper > div > div > div > div {
+  background-color: #111827 !important;
+  border-color: #2a3350 !important;
+  color: #e5e7eb !important;
+}
+
+/* All text inside people-matching and question sections */
+body.dark-mode .cambridge-passage-container div,
+body.dark-mode .cambridge-passage-container span {
+  color: #e5e7eb !important;
+}
+
+/* Person name */
+body.dark-mode .cambridge-passage-container div[style*="fontWeight"] {
+  color: #ffffff !important;
+}
+
+/* Person need text */
+body.dark-mode .cambridge-passage-container div[style*="color: rgb(75, 85, 99)"],
+body.dark-mode .cambridge-passage-container div[style*="#4b5563"] {
+  color: #94a3b8 !important;
+}
+
+/* Answer label */
+body.dark-mode .cambridge-passage-container span[style*="color: rgb(107, 114, 128)"],
+body.dark-mode .cambridge-passage-container span[style*="#6b7280"] {
+  color: #94a3b8 !important;
+}
+
+/* Drop zone (answer area) */
+body.dark-mode .cambridge-passage-container div[style*="dashed"],
+body.dark-mode .cambridge-question-wrapper div[style*="dashed"] {
+  background-color: #1f2b47 !important;
+  border-color: #4f6db6 !important;
+}
+
+/* Drop zone value text */
+body.dark-mode .cambridge-passage-container span[style*="fontWeight: 700"][style*="color"],
+body.dark-mode .cambridge-question-wrapper span[style*="fontWeight: 700"][style*="color"] {
+  color: #e5e7eb !important;
+}
+
+/* Texts section (right side - white background) */
+body.dark-mode .cambridge-question-wrapper > div > div[style*="backgroundColor: rgb(255, 255, 255)"],
+body.dark-mode .cambridge-question-wrapper > div > div[style*="background"] {
+  background-color: #0f172a !important;
+  border-color: #2a3350 !important;
+}
+
+/* Matching row items */
+body.dark-mode .cambridge-question-wrapper div[style*="backgroundColor: rgb(250, 250, 250)"],
+body.dark-mode .cambridge-question-wrapper div[style*="#fafafa"] {
+  background-color: #111827 !important;
+  border-color: #2a3350 !important;
+}
+
+/* Text content in matching rows */
+body.dark-mode .cambridge-question-wrapper div[style*="color: rgb(31, 41, 55)"],
+body.dark-mode .cambridge-question-wrapper div[style*="#1f2937"] {
+  color: #e5e7eb !important;
+}
+
+/* Text title in matching rows */
+body.dark-mode .cambridge-question-wrapper div[style*="color: rgb(15, 23, 42)"],
+body.dark-mode .cambridge-question-wrapper div[style*="#0f172a"] {
+  color: #ffffff !important;
+}
+
+/* Person image border */
+body.dark-mode .cambridge-passage-container img[style*="border"] {
+  border-color: #2a3350 !important;
+  background-color: #1f2b47 !important;
+}
+
+/* Dropdown in question wrapper */
+body.dark-mode .cambridge-question-wrapper select {
+  background-color: #1f2b47 !important;
+  border-color: #4f6db6 !important;
+  color: #e5e7eb !important;
+}
+
+/* =============================================
+   PART 4: Cloze-MC (ClozeMCDisplay) - token mode
+   ============================================= */
+
+/* Passage container with inline styles */
+body.dark-mode .cambridge-question-wrapper div[style*="backgroundColor: rgb(254, 252, 232)"],
+body.dark-mode .cambridge-question-wrapper div[style*="#fefce8"],
+body.dark-mode .cambridge-question-wrapper .cambridge-passage-content[style] {
+  background-color: #111827 !important;
+  border-color: #2a3350 !important;
+  color: #e5e7eb !important;
+}
+
+/* Passage container in ClozeMCDisplay */
+body.dark-mode .cambridge-question-wrapper div[style*="backgroundColor: rgb(255, 255, 255)"][style*="border"],
+body.dark-mode .cambridge-question-wrapper div[style*="boxShadow"] {
+  background-color: #111827 !important;
+  border-color: #2a3350 !important;
+}
+
+/* Passage content text in cloze */
+body.dark-mode .cambridge-question-wrapper div[style*="color: rgb(17, 24, 39)"],
+body.dark-mode .cambridge-question-wrapper div[style*="#111827"] {
+  color: #e5e7eb !important;
+}
+
+/* Token panel (right side with A-H options) */
+body.dark-mode .cambridge-question-wrapper div[style*="backgroundColor: rgb(248, 250, 252)"],
+body.dark-mode .cambridge-question-wrapper div[style*="#f8fafc"] {
+  background-color: #0f172a !important;
+  border-color: #2a3350 !important;
+}
+
+/* Individual token items */
+body.dark-mode .cambridge-question-wrapper div[style*="cursor: grab"],
+body.dark-mode .cambridge-question-wrapper div[draggable] {
+  background-color: #111827 !important;
+  border-color: #3d3d5c !important;
+  color: #e5e7eb !important;
+}
+
+/* Token text */
+body.dark-mode .cambridge-question-wrapper span[style*="color: rgb(15, 23, 42)"],
+body.dark-mode .cambridge-question-wrapper span[style*="#0f172a"] {
+  color: #e5e7eb !important;
+}
+
+/* Gap drop zones in cloze-mc */
+body.dark-mode .cambridge-question-wrapper span[style*="dashed"] {
+  background-color: #1f2b47 !important;
+  border-color: #4f6db6 !important;
+}
+
+/* Gap text in drop zones */
+body.dark-mode .cambridge-question-wrapper span[style*="dashed"] span {
+  color: #e5e7eb !important;
+}
+
+/* Cloze-mc question cards (KET mode with radio buttons) */
+body.dark-mode .cambridge-question-wrapper div[style*="backgroundColor: rgb(255, 255, 255)"][style*="padding: 16px"] {
+  background-color: #111827 !important;
+  border-color: #2a3350 !important;
+}
+
+/* Passage title in cloze */
+body.dark-mode .cambridge-question-wrapper h3[style*="color"] {
+  color: #e5e7eb !important;
+}
+
+/* =============================================
+   PART 5: Open Cloze / Inline Choice
+   ============================================= */
+
+/* Passage container - open cloze (blue border) */
+body.dark-mode .cambridge-question-wrapper div[style*="backgroundColor: rgb(240, 249, 255)"],
+body.dark-mode .cambridge-question-wrapper div[style*="#f0f9ff"] {
+  background-color: #111827 !important;
+  border-color: #2a3350 !important;
+  color: #e5e7eb !important;
+}
+
+/* Text inputs in open cloze */
+body.dark-mode .cambridge-question-wrapper input[type="text"] {
+  background-color: #1f2b47 !important;
+  border-color: #4f6db6 !important;
+  color: #e5e7eb !important;
+}
+
+/* Select dropdowns in cloze */
+body.dark-mode .cambridge-question-wrapper select[style] {
+  background-color: #1f2b47 !important;
+  border-color: #4f6db6 !important;
+  color: #e5e7eb !important;
+}
+
+/* Inline choice buttons */
+body.dark-mode .cambridge-question-wrapper button[data-inline-choice] {
+  background-color: #1f2b47 !important;
+  border-color: #4f6db6 !important;
+  color: #e5e7eb !important;
+}
+
+/* Inline choice dropdown menu */
+body.dark-mode .cambridge-question-wrapper div[style*="position: absolute"][style*="boxShadow"] {
+  background-color: #0f172a !important;
+  border-color: #2a3350 !important;
+}
+
+/* Inline choice menu items */
+body.dark-mode .cambridge-question-wrapper button[style*="backgroundColor: rgb(248, 250, 252)"] {
+  background-color: #111827 !important;
+  border-color: #2a3350 !important;
+  color: #e5e7eb !important;
+}
+
+/* InlineChoiceDisplay passage container */
+body.dark-mode .cambridge-question-wrapper div[style*="boxShadow"][style*="padding"] {
+  background-color: #111827 !important;
+  border-color: #2a3350 !important;
+  color: #e5e7eb !important;
+}
+
+/* =============================================
+   Wildcard overrides for all inline-styled elements
+   inside question wrappers (catch-all)
+   ============================================= */
+
+/* Force all text in cambridge-question-wrapper containers to be light */
+body.dark-mode .cambridge-question-wrapper,
+body.dark-mode .cambridge-question-wrapper *,
+body.dark-mode .cambridge-passage-container *  {
+  color: #e5e7eb !important;
+}
+
+/* Preserve white text on dark badge backgrounds */
+body.dark-mode .cambridge-question-wrapper div[style*="backgroundColor: rgb(14, 39, 111)"] span,
+body.dark-mode .cambridge-question-wrapper span[style*="backgroundColor: rgb(14, 39, 111)"],
+body.dark-mode .cambridge-question-wrapper div[style*="#0e276f"] {
+  color: #ffffff !important;
+}
+
+/* Force dark backgrounds on all wrapper and container children with light bg */
+body.dark-mode .cambridge-question-wrapper > div[style],
+body.dark-mode .cambridge-question-wrapper > div > div[style*="background"],
+body.dark-mode .cambridge-question-wrapper > div > div > div[style*="background"] {
+  background-color: #111827 !important;
+  border-color: #2a3350 !important;
+}

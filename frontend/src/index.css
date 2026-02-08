@@ -232,6 +232,76 @@ body.dark-mode .reading-test-editor .section-title a {
   flex-wrap: wrap;
 }
 
+/* ========================================
+   DARK MODE: ADMIN / TEACHER PAGES
+   ======================================== */
+body.dark-mode .admin-page {
+  background: #0f172a !important;
+  color: #e5e7eb !important;
+}
+
+body.dark-mode .admin-page h1,
+body.dark-mode .admin-page h2,
+body.dark-mode .admin-page h3,
+body.dark-mode .admin-page h4,
+body.dark-mode .admin-page p,
+body.dark-mode .admin-page label,
+body.dark-mode .admin-page span,
+body.dark-mode .admin-page strong {
+  color: #e5e7eb !important;
+}
+
+body.dark-mode .admin-filter-grid,
+body.dark-mode .admin-filters-row,
+body.dark-mode .admin-table-wrap,
+body.dark-mode .admin-card {
+  background: #0f172a !important;
+  border-color: #2a3350 !important;
+}
+
+body.dark-mode .admin-page input,
+body.dark-mode .admin-page select,
+body.dark-mode .admin-page textarea {
+  background: #111827 !important;
+  color: #e5e7eb !important;
+  border-color: #2a3350 !important;
+}
+
+body.dark-mode .admin-page input::placeholder,
+body.dark-mode .admin-page textarea::placeholder {
+  color: #94a3b8 !important;
+}
+
+body.dark-mode .admin-table {
+  color: #e5e7eb !important;
+}
+
+body.dark-mode .admin-table th {
+  background: #1f2b47 !important;
+  color: #e5e7eb !important;
+  border-color: #2a3350 !important;
+}
+
+body.dark-mode .admin-table td {
+  color: #e5e7eb !important;
+  border-color: #2a3350 !important;
+}
+
+body.dark-mode .admin-table tbody tr {
+  background: #111827 !important;
+}
+
+body.dark-mode .admin-table tbody tr:nth-child(even) {
+  background: #0f172a !important;
+}
+
+body.dark-mode .admin-filter-grid button,
+body.dark-mode .admin-action-buttons button,
+body.dark-mode .admin-button-row button,
+body.dark-mode .admin-view-button {
+  color: #ffffff !important;
+}
+
 @media (max-width: 1024px) {
   .admin-page {
     padding: 16px;

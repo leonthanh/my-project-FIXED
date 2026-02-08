@@ -1,7 +1,44 @@
 import React, { useEffect, useMemo, useRef } from "react";
+import { useTheme } from "../../../shared/contexts/ThemeContext";
 
 const CambridgeResultsModal = ({ results, onClose, testTitle, studentName }) => {
   const modalRef = useRef(null);
+  const { isDarkMode } = useTheme();
+  const colors = useMemo(() => (
+    isDarkMode
+      ? {
+          overlay: 'rgba(2, 6, 23, 0.7)',
+          surface: '#111827',
+          surfaceAlt: '#1f2b47',
+          text: '#e5e7eb',
+          muted: '#94a3b8',
+          border: '#2a3350',
+          headerBg: 'linear-gradient(135deg, #0b1d2e 0%, #12213a 100%)',
+          stroke: '#2a3350',
+          correctBg: '#0f2a1a',
+          correctBorder: '#14532d',
+          correctText: '#a7f3d0',
+          wrongBg: '#2a1515',
+          wrongBorder: '#7f1d1d',
+          wrongText: '#fecaca',
+        }
+      : {
+          overlay: 'rgba(0, 0, 0, 0.6)',
+          surface: '#fff',
+          surfaceAlt: '#f8fafc',
+          text: '#1e293b',
+          muted: '#64748b',
+          border: '#e2e8f0',
+          headerBg: 'linear-gradient(135deg, #0052cc 0%, #0066ff 100%)',
+          stroke: '#e2e8f0',
+          correctBg: '#f0fdf4',
+          correctBorder: '#bbf7d0',
+          correctText: '#16a34a',
+          wrongBg: '#fef2f2',
+          wrongBorder: '#fecaca',
+          wrongText: '#dc2626',
+        }
+  ), [isDarkMode]);
 
   const safe = useMemo(() => {
     const r = results || {};
@@ -55,7 +92,7 @@ const CambridgeResultsModal = ({ results, onClose, testTitle, studentName }) => 
           cy={size / 2}
           r={radius}
           fill="none"
-          stroke="#e2e8f0"
+          stroke={colors.stroke}
           strokeWidth={strokeWidth}
         />
         <circle
@@ -75,9 +112,19 @@ const CambridgeResultsModal = ({ results, onClose, testTitle, studentName }) => 
   };
 
   const getStatus = () => {
-    if (percentage >= 70) return { text: "Tốt", bg: "#dcfce7", color: "#166534", icon: "✅" };
-    if (percentage >= 50) return { text: "Trung bình", bg: "#fef3c7", color: "#92400e", icon: "⚠️" };
-    return { text: "Cần cải thiện", bg: "#fee2e2", color: "#991b1b", icon: "❌" };
+    if (percentage >= 70) {
+      return isDarkMode
+        ? { text: "Tốt", bg: "#0f2a1a", color: "#a7f3d0", icon: "✅" }
+        : { text: "Tốt", bg: "#dcfce7", color: "#166534", icon: "✅" };
+    }
+    if (percentage >= 50) {
+      return isDarkMode
+        ? { text: "Trung bình", bg: "#2a1f0f", color: "#fcd34d", icon: "⚠️" }
+        : { text: "Trung bình", bg: "#fef3c7", color: "#92400e", icon: "⚠️" };
+    }
+    return isDarkMode
+      ? { text: "Cần cải thiện", bg: "#2a1515", color: "#fecaca", icon: "❌" }
+      : { text: "Cần cải thiện", bg: "#fee2e2", color: "#991b1b", icon: "❌" };
   };
 
   const status = getStatus();
@@ -87,7 +134,7 @@ const CambridgeResultsModal = ({ results, onClose, testTitle, studentName }) => 
       style={{
         position: "fixed",
         inset: 0,
-        background: "rgba(0, 0, 0, 0.6)",
+        background: colors.overlay,
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
@@ -98,7 +145,7 @@ const CambridgeResultsModal = ({ results, onClose, testTitle, studentName }) => 
     >
       <div
         style={{
-          background: "#fff",
+          background: colors.surface,
           borderRadius: "16px",
           boxShadow: "0 20px 60px rgba(0, 0, 0, 0.3)",
           maxWidth: "600px",
@@ -117,7 +164,7 @@ const CambridgeResultsModal = ({ results, onClose, testTitle, studentName }) => 
         {/* Header */}
         <div
           style={{
-            background: "linear-gradient(135deg, #0052cc 0%, #0066ff 100%)",
+            background: colors.headerBg,
             padding: "32px 24px",
             color: "#fff",
             borderRadius: "16px 16px 0 0",
@@ -176,13 +223,13 @@ const CambridgeResultsModal = ({ results, onClose, testTitle, studentName }) => 
                   flexDirection: "column",
                 }}
               >
-                <div style={{ fontSize: "32px", fontWeight: 700, color: "#1e293b" }}>
+                <div style={{ fontSize: "32px", fontWeight: 700, color: colors.text }}>
                   {percentage}%
                 </div>
-                <div style={{ fontSize: "12px", color: "#64748b" }}>Score</div>
+                <div style={{ fontSize: "12px", color: colors.muted }}>Score</div>
               </div>
             </div>
-            <h3 style={{ fontSize: "20px", fontWeight: 700, margin: "16px 0 8px 0", color: "#1e293b" }}>
+            <h3 style={{ fontSize: "20px", fontWeight: 700, margin: "16px 0 8px 0", color: colors.text }}>
               {score}/{total} điểm
             </h3>
             <span
@@ -213,31 +260,31 @@ const CambridgeResultsModal = ({ results, onClose, testTitle, studentName }) => 
           >
             <div
               style={{
-                background: "#f0fdf4",
+                background: colors.correctBg,
                 padding: "16px",
                 borderRadius: "12px",
-                border: "1px solid #bbf7d0",
+                border: `1px solid ${colors.correctBorder}`,
               }}
             >
-              <div style={{ fontSize: "12px", color: "#64748b", marginBottom: "6px" }}>
+              <div style={{ fontSize: "12px", color: colors.muted, marginBottom: "6px" }}>
                 CÂU ĐÚNG
               </div>
-              <div style={{ fontSize: "24px", fontWeight: 700, color: "#16a34a" }}>
+              <div style={{ fontSize: "24px", fontWeight: 700, color: colors.correctText }}>
                 {correct}
               </div>
             </div>
             <div
               style={{
-                background: "#fef2f2",
+                background: colors.wrongBg,
                 padding: "16px",
                 borderRadius: "12px",
-                border: "1px solid #fecaca",
+                border: `1px solid ${colors.wrongBorder}`,
               }}
             >
-              <div style={{ fontSize: "12px", color: "#64748b", marginBottom: "6px" }}>
+              <div style={{ fontSize: "12px", color: colors.muted, marginBottom: "6px" }}>
                 CÂU SAI
               </div>
-              <div style={{ fontSize: "24px", fontWeight: 700, color: "#dc2626" }}>
+              <div style={{ fontSize: "24px", fontWeight: 700, color: colors.wrongText }}>
                 {incorrect}
               </div>
             </div>
@@ -247,20 +294,22 @@ const CambridgeResultsModal = ({ results, onClose, testTitle, studentName }) => 
           {writingQuestions && writingQuestions.length > 0 && (
             <div
               style={{
-                background: "linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)",
+                background: isDarkMode
+                  ? "linear-gradient(135deg, #2a1f0f 0%, #3a2a12 100%)"
+                  : "linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)",
                 borderRadius: "12px",
                 padding: "16px",
-                border: "1px solid #f59e0b",
+                border: `1px solid ${isDarkMode ? '#92400e' : '#f59e0b'}`,
                 marginBottom: "24px",
               }}
             >
               <div style={{ display: "flex", gap: "8px", marginBottom: "12px", alignItems: "center" }}>
                 <span style={{ fontSize: "18px" }}>📝</span>
-                <h4 style={{ margin: 0, fontSize: "14px", fontWeight: 600, color: "#92400e" }}>
+                <h4 style={{ margin: 0, fontSize: "14px", fontWeight: 600, color: isDarkMode ? '#fcd34d' : '#92400e' }}>
                   Writing Task (Câu {writingQuestions.map(q => q.questionNumber).join(", ")})
                 </h4>
               </div>
-              <p style={{ margin: "8px 0 0 0", fontSize: "13px", color: "#b45309" }}>
+              <p style={{ margin: "8px 0 0 0", fontSize: "13px", color: isDarkMode ? '#fcd34d' : '#b45309' }}>
                 ⏳ Đang chờ giáo viên chấm. Bạn sẽ được cập nhật điểm trong thời gian sớm nhất.
               </p>
             </div>
@@ -269,25 +318,25 @@ const CambridgeResultsModal = ({ results, onClose, testTitle, studentName }) => 
           {/* Info */}
           <div
             style={{
-              background: "#f8fafc",
+              background: colors.surfaceAlt,
               padding: "16px",
               borderRadius: "12px",
-              border: "1px solid #e2e8f0",
+              border: `1px solid ${colors.border}`,
               fontSize: "13px",
-              color: "#64748b",
+              color: colors.muted,
               lineHeight: "1.6",
             }}
           >
             {studentName && (
               <div style={{ marginBottom: "8px" }}>
-                <strong style={{ color: "#1e293b" }}>Học sinh:</strong> {studentName}
+                <strong style={{ color: colors.text }}>Học sinh:</strong> {studentName}
               </div>
             )}
             <div style={{ marginBottom: "8px" }}>
-              <strong style={{ color: "#1e293b" }}>Tổng điểm:</strong> {score} / {total}
+              <strong style={{ color: colors.text }}>Tổng điểm:</strong> {score} / {total}
             </div>
             <div>
-              <strong style={{ color: "#1e293b" }}>Tỷ lệ:</strong> {percentage}%
+              <strong style={{ color: colors.text }}>Tỷ lệ:</strong> {percentage}%
             </div>
           </div>
 
@@ -300,15 +349,15 @@ const CambridgeResultsModal = ({ results, onClose, testTitle, studentName }) => 
                 padding: "12px 16px",
                 borderRadius: "8px",
                 border: "none",
-                background: "#0052cc",
+                background: isDarkMode ? "#1f2b47" : "#0052cc",
                 color: "#fff",
                 fontSize: "14px",
                 fontWeight: 600,
                 cursor: "pointer",
                 transition: "background 0.2s",
               }}
-              onMouseOver={(e) => (e.target.style.background = "#003d99")}
-              onMouseOut={(e) => (e.target.style.background = "#0052cc")}
+              onMouseOver={(e) => (e.target.style.background = isDarkMode ? "#27354d" : "#003d99")}
+              onMouseOut={(e) => (e.target.style.background = isDarkMode ? "#1f2b47" : "#0052cc")}
             >
               Đóng
             </button>
