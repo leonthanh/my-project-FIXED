@@ -6,6 +6,8 @@
   height: 100vh;
   background: #f5f5f5;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+  max-width: 100vw;
+  overflow-x: hidden;
 }
 
 /* Main Content Area */
@@ -75,6 +77,8 @@
   padding: 1px 32px;
   background: white;
   flex-shrink: 0;
+  box-sizing: border-box;
+  max-width: 100vw;
 }
 
 .cambridge-content-wrapper {
@@ -679,50 +683,153 @@
 }
 
 @media (max-width: 430px) {
+  .cambridge-test-container {
+    max-width: 100vw;
+    overflow-x: hidden;
+  }
+
   .cambridge-test-container .test-header {
-    padding: 0 10px;
-    height: 52px;
+    padding: 0 8px;
+    height: 48px;
+    gap: 4px;
+    max-width: 100vw;
+    overflow: hidden;
+  }
+
+  .cambridge-test-container .test-header .header-left {
+    gap: 6px;
+    min-width: 0;
+    flex-shrink: 1;
+    overflow: hidden;
   }
 
   .cambridge-test-container .test-header .test-badge {
-    padding: 4px 8px;
-    font-size: 10px;
+    padding: 3px 6px;
+    font-size: 9px;
+    flex-shrink: 0;
+  }
+
+  .cambridge-test-container .test-header .test-info {
+    min-width: 0;
+    overflow: hidden;
   }
 
   .cambridge-test-container .test-header .test-info h1 {
-    font-size: 13px;
+    font-size: 12px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .cambridge-test-container .test-header .test-meta {
-    font-size: 10px;
+    display: none;
+  }
+
+  .cambridge-test-container .test-header .header-right {
+    gap: 6px;
+    flex-shrink: 0;
+  }
+
+  .cambridge-test-container .test-header .audio-status {
+    display: none;
   }
 
   .cambridge-test-container .test-header .timer-container {
-    padding: 2px 8px;
+    padding: 2px 6px;
+    gap: 4px;
+  }
+
+  .cambridge-test-container .test-header .timer-icon {
+    display: none;
   }
 
   .cambridge-test-container .test-header .timer-value {
-    font-size: 14px;
+    font-size: 13px;
+  }
+
+  .cambridge-test-container .test-header .timer-label {
+    display: none;
   }
 
   .cambridge-test-container .test-header .progress-ring {
-    width: 34px;
-    height: 34px;
+    width: 30px;
+    height: 30px;
+  }
+
+  .cambridge-test-container .test-header .progress-value {
+    font-size: 11px;
+  }
+
+  .cambridge-test-container .test-header .progress-total {
+    font-size: 8px;
+  }
+
+  .cambridge-test-container .test-header .auto-save-indicator {
+    display: none;
   }
 
   .cambridge-test-container .test-header .submit-btn {
+    padding: 5px 8px;
+    font-size: 11px;
+  }
+
+  .cambridge-test-container .test-header .submit-text {
+    display: none;
+  }
+
+  /* Main content */
+  .cambridge-main-content {
+    max-width: 100vw;
+    overflow-x: hidden;
+  }
+
+  .cambridge-questions-column {
+    padding: 8px 10px;
+    max-width: 100vw;
+    box-sizing: border-box;
+  }
+
+  .cambridge-question-wrapper {
+    width: 100%;
+    padding: 10px;
+    margin-bottom: 6px;
+    box-sizing: border-box;
+  }
+
+  .cambridge-part-instruction {
     padding: 6px 10px;
-    font-size: 12px;
+    margin: 2px 4px;
+    font-size: 13px;
   }
 
   .cambridge-passage-content {
     font-size: 14px;
     line-height: 1.6;
+    padding: 12px !important;
   }
 
+  .cambridge-question-number {
+    min-width: 26px;
+    height: 26px;
+    font-size: 12px;
+    margin-right: 8px;
+  }
+
+  .cambridge-question-text {
+    font-size: 14px;
+  }
+
+  .cambridge-flag-button {
+    top: 8px;
+    right: 8px;
+    font-size: 18px;
+  }
+
+  /* Footer */
   .cambridge-footer {
     flex-direction: column;
-    gap: 8px;
+    gap: 4px;
+    padding: 6px 8px;
   }
 
   .cambridge-footer-arrows {
@@ -730,20 +837,80 @@
     margin-left: auto;
   }
 
+  .cambridge-nav-arrow-btn {
+    width: 34px;
+    height: 34px;
+    font-size: 14px;
+  }
+
   .cambridge-parts-container {
-    padding: 0 10px;
-    gap: 6px;
+    padding: 0 4px;
+    gap: 4px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .cambridge-part-wrapper {
+    gap: 3px;
+    flex-shrink: 0;
+  }
+
+  /* Active part (has question numbers) takes full width row */
+  .cambridge-part-wrapper:has(.cambridge-questions-inline) {
+    flex-basis: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    justify-content: flex-start;
+  }
+
+  .cambridge-part-tab {
+    padding: 4px 8px;
+    font-size: 11px;
+    flex-shrink: 0;
+  }
+
+  .cambridge-part-label {
+    font-size: 11px;
+  }
+
+  .cambridge-part-number {
+    font-size: 11px;
+  }
+
+  .cambridge-questions-inline {
+    gap: 3px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
   }
 
   .cambridge-question-num-btn {
     width: 28px;
     height: 28px;
-    font-size: 10px;
+    font-size: 11px;
+    flex-shrink: 0;
   }
 
   .cambridge-review-button {
     width: 100%;
     justify-content: center;
+  }
+
+  /* Picture choices: stack vertically on mobile */
+  .cambridge-question-wrapper [role="radiogroup"] {
+    flex-direction: column !important;
+    align-items: center !important;
+    gap: 12px !important;
+  }
+
+  .cambridge-question-wrapper [role="radiogroup"] > div {
+    width: 100% !important;
+    flex: 1 1 auto !important;
+    max-width: 300px;
+  }
+
+  .cambridge-question-wrapper [role="radiogroup"] > div img {
+    width: 100% !important;
+    height: auto !important;
   }
 }
 

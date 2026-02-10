@@ -808,7 +808,7 @@ const DoCambridgeListeningTest = () => {
                 borderRadius: '4px',
                 backgroundColor: isDarkMode ? (userAnswer ? '#1e3a5f' : '#1f2b47') : (userAnswer ? '#f0f9ff' : 'white'),
                 color: isDarkMode ? '#e5e7eb' : '#0e7490',
-                width: '150px',
+                width: 'clamp(120px, 48vw, 150px)',
                 textAlign: 'center',
                 scrollMarginTop: '100px',
               }}
@@ -859,7 +859,7 @@ const DoCambridgeListeningTest = () => {
                   borderRadius: '4px',
                   backgroundColor: isDarkMode ? (userAnswer ? '#1e3a5f' : '#1f2b47') : (userAnswer ? '#f0f9ff' : 'white'),
                   color: isDarkMode ? '#e5e7eb' : '#0e7490',
-                  width: '150px',
+                  width: 'clamp(120px, 48vw, 150px)',
                   textAlign: 'center',
                   scrollMarginTop: '100px',
                 }}
