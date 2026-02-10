@@ -10,7 +10,7 @@ import PeopleMatchingDisplay from "../../../shared/components/questions/displays
 import ClozeMCDisplay from "../../../shared/components/questions/displays/ClozeMCDisplay";
 import InlineChoiceDisplay from "../../../shared/components/questions/displays/InlineChoiceDisplay";
 import CambridgeResultsModal from "../components/CambridgeResultsModal";
-import { computeQuestionStarts, getQuestionCountForSection } from "../utils/questionNumbering";
+import { computeQuestionStarts, getQuestionCountForSection, parseClozeBlanksFromText } from "../utils/questionNumbering";
 import "./DoCambridgeReadingTest.css";
 
 /**
@@ -474,41 +474,6 @@ const DoCambridgeReadingTest = () => {
     const questions = [];
     let qNum = 1;
     
-    // Helper: Parse blanks from cloze-test passage
-    const parseBlanksFromPassage = (passageText, startingNum) => {
-      if (!passageText) return [];
-      const tempDiv = document.createElement('div');
-      tempDiv.innerHTML = passageText;
-      const plainText = tempDiv.textContent || tempDiv.innerText || '';
-      
-      const blanks = [];
-      const regex = /\((\d+)\)|\[(\d+)\]/g;
-      let match;
-      
-      while ((match = regex.exec(plainText)) !== null) {
-        blanks.push({
-          questionNum: parseInt(match[1] || match[2]),
-          fullMatch: match[0],
-          index: match.index
-        });
-      }
-      
-      if (blanks.length === 0) {
-        const underscorePattern = /[_…]{3,}/g;
-        let blankIndex = 0;
-        while ((match = underscorePattern.exec(plainText)) !== null) {
-          blanks.push({
-            questionNum: startingNum + blankIndex,
-            fullMatch: match[0],
-            index: match.index
-          });
-          blankIndex++;
-        }
-      }
-      
-      return blanks.sort((a, b) => a.questionNum - b.questionNum);
-    };
-    
     test.parts.forEach((part, pIdx) => {
       part.sections?.forEach((section, sIdx) => {
         section.questions?.forEach((q, qIdx) => {
@@ -564,7 +529,7 @@ const DoCambridgeReadingTest = () => {
           } else if (section.questionType === 'cloze-test') {
             // For cloze-test (Open Cloze): parse blanks from passage
             const passageText = q.passageText || q.passage || '';
-            const blanks = (q.blanks && q.blanks.length > 0) ? q.blanks : parseBlanksFromPassage(passageText, qNum);
+            const blanks = (q.blanks && q.blanks.length > 0) ? q.blanks : parseClozeBlanksFromText(passageText, qNum);
             
             if (blanks.length > 0) {
               blanks.forEach((blank, blankIdx) => {
@@ -1086,40 +1051,7 @@ const DoCambridgeReadingTest = () => {
                 
                 // Fallback: If no blanks from backend, parse them dynamically
                 if (blanks.length === 0 && passageText) {
-                  const tempDiv = document.createElement('div');
-                  tempDiv.innerHTML = passageText;
-                  const plainText = tempDiv.textContent || tempDiv.innerText || '';
-                  
-                  const blankMatches = [];
-                  const regex = /\((\d+)\)|\[(\d+)\]/g;
-                  let match;
-                  
-                  while ((match = regex.exec(plainText)) !== null) {
-                    const num = parseInt(match[1] || match[2]);
-                    blankMatches.push({
-                      questionNum: num,
-                      fullMatch: match[0],
-                      index: match.index
-                    });
-                  }
-                  
-                  // If still no numbered blanks, look for underscores
-                  if (blankMatches.length === 0) {
-                    const underscorePattern = /[_…]{3,}/g;
-                    let blankIndex = 0;
-                    const firstQNum = currentQuestion.questionNumber;
-                    
-                    while ((match = underscorePattern.exec(plainText)) !== null) {
-                      blankMatches.push({
-                        questionNum: firstQNum + blankIndex,
-                        fullMatch: match[0],
-                        index: match.index
-                      });
-                      blankIndex++;
-                    }
-                  }
-                  
-                  blanks = blankMatches.sort((a, b) => a.questionNum - b.questionNum);
+                  blanks = parseClozeBlanksFromText(passageText, currentQuestion.questionNumber);
                 }
                 
                 const renderPassageWithInputs = () => {

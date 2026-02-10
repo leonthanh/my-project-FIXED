@@ -365,7 +365,9 @@ const DoCambridgeListeningTest = () => {
   }, [test, currentPartIndex]);
 
   const isSinglePanelPart = useMemo(() => {
+    const isPetListening = String(testType || '').toLowerCase().includes('pet');
     if (currentPartIndex === 0) return true;
+    if (isPetListening && currentPartIndex === 1) return true;
     if (currentPartIndex >= 2 && currentPartIndex <= 4) return true; // Parts 3-5
     const sections = currentPart?.sections || [];
     return sections.some((section) => {
@@ -379,7 +381,7 @@ const DoCambridgeListeningTest = () => {
         '';
       return sectionType === 'cloze-test';
     });
-  }, [currentPartIndex, currentPart]);
+  }, [currentPartIndex, currentPart, testType]);
 
   const currentAudioUrl = useMemo(() => {
     return test?.mainAudioUrl || currentPart?.audioUrl || globalAudioUrl || '';
@@ -709,11 +711,12 @@ const DoCambridgeListeningTest = () => {
   const normalizeClozeHtml = useCallback((html) => {
     const s = String(html || '');
     return s
-      .replace(/<\s*br\s*\/?>/gi, ' ')
-      .replace(/<\s*\/\s*p\s*>/gi, '</span>')
-      .replace(/<\s*p[^>]*>/gi, '<span>')
-      .replace(/<\s*\/\s*div\s*>/gi, '</span>')
-      .replace(/<\s*div[^>]*>/gi, '<span>');
+      .replace(/<\s*br\s*\/?>/gi, '<br/>')
+      .replace(/<\s*\/\s*p\s*>/gi, '<br/>')
+      .replace(/<\s*p[^>]*>/gi, '')
+      .replace(/<\s*\/\s*div\s*>/gi, '<br/>')
+      .replace(/<\s*div[^>]*>/gi, '')
+      .replace(/(<br\s*\/?>\s*){3,}/gi, '<br/><br/>');
   }, []);
 
   const renderOpenClozeSection = (section, secIdx, sectionStartNum) => {
@@ -744,7 +747,7 @@ const DoCambridgeListeningTest = () => {
       }
 
       if (!blankMatches.length) {
-        const underscorePattern = /[_…]{3,}/g;
+        const underscorePattern = /[_\u2026]{3,}/g;
         let blankIndex = 0;
         while ((match = underscorePattern.exec(plainText)) !== null) {
           blankMatches.push({
@@ -817,7 +820,7 @@ const DoCambridgeListeningTest = () => {
       }
 
       if (!matchedAnyNumber) {
-        const underscorePattern = /[_…]{3,}/g;
+        const underscorePattern = /[_\u2026]{3,}/g;
         let blankIndex = 0;
         lastIndex = 0;
         let um;

@@ -51,6 +51,45 @@ const getQuestionCountForSection = (section) => {
   return section.questions.length;
 };
 
+const parseClozeBlanksFromText = (passageText, startingNum = 1) => {
+  if (!passageText) return [];
+  let plainText = passageText;
+  if (typeof document !== 'undefined') {
+    const temp = document.createElement('div');
+    temp.innerHTML = passageText;
+    plainText = temp.textContent || temp.innerText || '';
+  } else {
+    plainText = String(passageText).replace(/<[^>]*>/g, ' ');
+  }
+
+  const blanks = [];
+  const regex = /\((\d+)\)|\[(\d+)\]/g;
+  let match;
+
+  while ((match = regex.exec(plainText)) !== null) {
+    blanks.push({
+      questionNum: parseInt(match[1] || match[2], 10),
+      fullMatch: match[0],
+      index: match.index,
+    });
+  }
+
+  if (blanks.length === 0) {
+    const underscorePattern = /[_\u2026]{3,}/g;
+    let blankIndex = 0;
+    while ((match = underscorePattern.exec(plainText)) !== null) {
+      blanks.push({
+        questionNum: startingNum + blankIndex,
+        fullMatch: match[0],
+        index: match.index,
+      });
+      blankIndex++;
+    }
+  }
+
+  return blanks.sort((a, b) => a.questionNum - b.questionNum);
+};
+
 const computeQuestionStarts = (passages) => {
   const sectionStart = {};
   const questionStart = {};
@@ -87,4 +126,4 @@ const computeQuestionStarts = (passages) => {
   return { sectionStart, questionStart };
 };
 
-export { countClozeBlanksFromText, getQuestionCountForSection, computeQuestionStarts };
+export { countClozeBlanksFromText, getQuestionCountForSection, parseClozeBlanksFromText, computeQuestionStarts };
