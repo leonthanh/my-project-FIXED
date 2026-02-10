@@ -909,7 +909,10 @@ VD:
           <span style={optionLabelStyle}>{opt}</span>
           <input
             type="text"
-            value={question.options?.[idx]?.replace(`${opt}.`, "").trim() || ""}
+            value={(() => {
+              const raw = question.options?.[idx] || "";
+              return raw.replace(new RegExp(`^${opt}\\.\\s?`), "");
+            })()}
             onChange={(e) => {
               const newOptions = [...(question.options || options.map(o => `${o}.`))];
               newOptions[idx] = `${opt}. ${e.target.value}`;

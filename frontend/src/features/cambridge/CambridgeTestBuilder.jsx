@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import ReactQuill from "react-quill";
 import "react-quill/dist/quill.snow.css";
@@ -16,6 +16,8 @@ import {
 import { apiPath, hostPath, authFetch } from "../../shared/utils/api";
 import useQuillImageUpload from "../../shared/hooks/useQuillImageUpload";
 import { canManageCategory } from '../../shared/utils/permissions';
+import { computeQuestionStarts, getQuestionCountForSection } from "./utils/questionNumbering";
+
 
 /**
  * CambridgeTestBuilder - Component cho việc tạo đề Cambridge tests
@@ -487,76 +489,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
     setDraggedQuestion(null);
     setDragSource(null);
   };
-  // Calculate starting question number
-  const calculateStartingNumber = (partIdx, sectionIdx, questionIdx) => {
-    let count = 1;
-    for (let p = 0; p < partIdx; p++) {
-      for (const section of parts[p].sections) {
-        count += section.questions.length;
-      }
-    }
-    for (let s = 0; s < sectionIdx; s++) {
-      count += parts[partIdx].sections[s].questions.length;
-    }
-    return count + questionIdx;
-  };
-
-  // Calculate starting number for a section (for multi-question types like long-text-mc, cloze-mc, cloze-test, short-message)
-  const calculateSectionStartingNumber = (partIdx, sectionIdx) => {
-    let count = 1;
-    // Đếm tất cả câu hỏi từ các part trước
-    for (let p = 0; p < partIdx; p++) {
-      for (const section of parts[p].sections) {
-        count += getQuestionCountForSection(section);
-      }
-    }
-    // Đếm các section trước trong cùng part
-    for (let s = 0; s < sectionIdx; s++) {
-      const section = parts[partIdx].sections[s];
-      count += getQuestionCountForSection(section);
-    }
-    return count;
-  };
-
-  // Helper function to count questions in a section
-  const getQuestionCountForSection = (section) => {
-    // Long text MC: đếm số câu hỏi trong questions array
-    if (section.questionType === 'long-text-mc' && section.questions[0]?.questions) {
-      return section.questions[0].questions.length;
-    } 
-    // Cloze MC: đếm số blanks
-    else if (section.questionType === 'cloze-mc' && section.questions[0]?.blanks) {
-      return section.questions[0].blanks.length;
-    }
-    // Inline Choice: đếm số blanks
-    else if (section.questionType === 'inline-choice' && section.questions[0]?.blanks) {
-      return section.questions[0].blanks.length;
-    }
-    // Open Cloze: đếm số blanks từ answers object
-    else if (section.questionType === 'cloze-test' && section.questions[0]?.answers) {
-      return Object.keys(section.questions[0].answers).length;
-    }
-    // Short Message/Writing Task: chỉ tính 1 câu (không đếm bulletPoints)
-    else if (section.questionType === 'short-message') {
-      return 1; // Writing Task là 1 câu duy nhất
-    }
-    // People Matching: 5 people (A-E)
-    else if (section.questionType === 'people-matching' && section.questions[0]?.people) {
-      return section.questions[0].people.length; // Usually 5
-    }
-    // Gap Match (drag & drop): count left items
-    else if (section.questionType === 'gap-match' && section.questions[0]?.leftItems) {
-      return section.questions[0].leftItems.length;
-    }
-    // Word Formation: đếm số sentences
-    else if (section.questionType === 'word-form' && section.questions[0]?.sentences) {
-      return section.questions[0].sentences.length;
-    }
-    // Default: single question types (sign-message, etc.)
-    else {
-      return section.questions.length;
-    }
-  };
+  const questionStarts = useMemo(() => computeQuestionStarts(parts), [parts]);
 
   // Autosave function
   const sanitizeDraftData = useCallback((value) => {
@@ -653,6 +586,29 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
     setIsSubmitting(true);
     setMessage({ type: '', text: '' });
 
+    const cleanupClozeHtml = (html) => {
+      if (!html) return '';
+      let cleaned = String(html);
+      cleaned = cleaned.replace(/<p>(?:\s|&nbsp;|<br\s*\/?>)*<\/p>/gi, '');
+      cleaned = cleaned.replace(/<p><\/p>/gi, '');
+      cleaned = cleaned.replace(/<p>\s*<\/p>/gi, '');
+      cleaned = cleaned.replace(/(<br\s*\/?>\s*){2,}/gi, '<br>');
+      return cleaned.trim();
+    };
+
+    const cleanedParts = parts.map((part) => ({
+      ...part,
+      sections: (part.sections || []).map((section) => ({
+        ...section,
+        questions: (section.questions || []).map((q) => {
+          if (section.questionType === 'cloze-test' || q.questionType === 'cloze-test') {
+            return { ...q, passageText: cleanupClozeHtml(q.passageText) };
+          }
+          return q;
+        }),
+      })),
+    }));
+
     try {
       const payload = {
         title,
@@ -660,8 +616,8 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
         teacherName,
         testType,
         mainAudioUrl,
-        parts,
-        totalQuestions: parts.reduce(
+        parts: cleanedParts,
+        totalQuestions: cleanedParts.reduce(
           (sum, part) => sum + part.sections.reduce((sSum, sec) => sSum + getQuestionCountForSection(sec), 0),
           0
         ),
@@ -1345,10 +1301,10 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
                   {currentSection.questions.map((question, qIdx) => {
                     const isCollapsed = collapsedQuestions[`${selectedPartIndex}-${selectedSectionIndex}-${qIdx}`];
                     const isDragging = draggedQuestion === qIdx;
-                    const startNum = calculateStartingNumber(selectedPartIndex, selectedSectionIndex, qIdx);
+                    const startNum = questionStarts.questionStart[`${selectedPartIndex}-${selectedSectionIndex}-${qIdx}`] || 1;
                     
                     // For multi-question types (like long-text-mc), use section-based starting number
-                    const sectionStartNum = calculateSectionStartingNumber(selectedPartIndex, selectedSectionIndex);
+                    const sectionStartNum = questionStarts.sectionStart[`${selectedPartIndex}-${selectedSectionIndex}`] || 1;
                     
                     // Generate question preview text
                     const getQuestionPreview = () => {
