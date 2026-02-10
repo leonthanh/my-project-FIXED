@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import ReactQuill from "react-quill";
 import "react-quill/dist/quill.snow.css";
@@ -16,6 +16,95 @@ import {
 import { apiPath, hostPath, authFetch } from "../../shared/utils/api";
 import useQuillImageUpload from "../../shared/hooks/useQuillImageUpload";
 import { canManageCategory } from '../../shared/utils/permissions';
+
+const countClozeBlanksFromText = (passageText) => {
+  if (!passageText) return 0;
+  let plainText = passageText;
+  if (typeof document !== 'undefined') {
+    const temp = document.createElement('div');
+    temp.innerHTML = passageText;
+    plainText = temp.textContent || temp.innerText || passageText;
+  } else {
+    plainText = String(passageText).replace(/<[^>]*>/g, ' ');
+  }
+
+  const numbered = plainText.match(/\((\d+)\)|\[(\d+)\]/g);
+  if (numbered && numbered.length) return numbered.length;
+
+  const underscores = plainText.match(/[_…]{3,}/g);
+  return underscores ? underscores.length : 0;
+};
+
+const getQuestionCountForSection = (section) => {
+  if (section.questionType === 'long-text-mc' && section.questions[0]?.questions) {
+    return section.questions[0].questions.length;
+  }
+  if (section.questionType === 'cloze-mc' && section.questions[0]?.blanks) {
+    return section.questions[0].blanks.length;
+  }
+  if (section.questionType === 'inline-choice' && section.questions[0]?.blanks) {
+    return section.questions[0].blanks.length;
+  }
+  if (section.questionType === 'cloze-test') {
+    const q0 = section.questions?.[0] || {};
+    const blanksCount = Array.isArray(q0?.blanks) && q0.blanks.length
+      ? q0.blanks.length
+      : (q0?.answers && typeof q0.answers === 'object'
+        ? Object.keys(q0.answers).length
+        : 0);
+    if (blanksCount > 0) return blanksCount;
+    return countClozeBlanksFromText(q0?.passageText || q0?.passage || q0?.clozeText || '');
+  }
+  if (section.questionType === 'short-message') {
+    return 1;
+  }
+  if (section.questionType === 'people-matching' && section.questions[0]?.people) {
+    return section.questions[0].people.length;
+  }
+  if (section.questionType === 'gap-match' && section.questions[0]?.leftItems) {
+    return section.questions[0].leftItems.length;
+  }
+  if (section.questionType === 'word-form' && section.questions[0]?.sentences) {
+    return section.questions[0].sentences.length;
+  }
+  return section.questions.length;
+};
+
+const computeQuestionStarts = (passages) => {
+  const sectionStart = {};
+  const questionStart = {};
+  const multiQuestionTypes = new Set([
+    'long-text-mc',
+    'cloze-mc',
+    'cloze-test',
+    'short-message',
+    'people-matching',
+    'word-form',
+    'gap-match',
+    'inline-choice',
+  ]);
+  let count = 1;
+
+  (passages || []).forEach((part, partIdx) => {
+    (part?.sections || []).forEach((section, sectionIdx) => {
+      sectionStart[`${partIdx}-${sectionIdx}`] = count;
+
+      const sectionCount = getQuestionCountForSection(section);
+      const questionType = section?.questionType || '';
+      if (!multiQuestionTypes.has(questionType)) {
+        const questions = Array.isArray(section?.questions) ? section.questions : [];
+        questions.forEach((_, qIdx) => {
+          questionStart[`${partIdx}-${sectionIdx}-${qIdx}`] = count + qIdx;
+        });
+        count += questions.length;
+      } else {
+        count += sectionCount;
+      }
+    });
+  });
+
+  return { sectionStart, questionStart };
+};
 
 /**
  * CambridgeTestBuilder - Component cho việc tạo đề Cambridge tests
@@ -487,76 +576,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
     setDraggedQuestion(null);
     setDragSource(null);
   };
-  // Calculate starting question number
-  const calculateStartingNumber = (partIdx, sectionIdx, questionIdx) => {
-    let count = 1;
-    for (let p = 0; p < partIdx; p++) {
-      for (const section of parts[p].sections) {
-        count += section.questions.length;
-      }
-    }
-    for (let s = 0; s < sectionIdx; s++) {
-      count += parts[partIdx].sections[s].questions.length;
-    }
-    return count + questionIdx;
-  };
-
-  // Calculate starting number for a section (for multi-question types like long-text-mc, cloze-mc, cloze-test, short-message)
-  const calculateSectionStartingNumber = (partIdx, sectionIdx) => {
-    let count = 1;
-    // Đếm tất cả câu hỏi từ các part trước
-    for (let p = 0; p < partIdx; p++) {
-      for (const section of parts[p].sections) {
-        count += getQuestionCountForSection(section);
-      }
-    }
-    // Đếm các section trước trong cùng part
-    for (let s = 0; s < sectionIdx; s++) {
-      const section = parts[partIdx].sections[s];
-      count += getQuestionCountForSection(section);
-    }
-    return count;
-  };
-
-  // Helper function to count questions in a section
-  const getQuestionCountForSection = (section) => {
-    // Long text MC: đếm số câu hỏi trong questions array
-    if (section.questionType === 'long-text-mc' && section.questions[0]?.questions) {
-      return section.questions[0].questions.length;
-    } 
-    // Cloze MC: đếm số blanks
-    else if (section.questionType === 'cloze-mc' && section.questions[0]?.blanks) {
-      return section.questions[0].blanks.length;
-    }
-    // Inline Choice: đếm số blanks
-    else if (section.questionType === 'inline-choice' && section.questions[0]?.blanks) {
-      return section.questions[0].blanks.length;
-    }
-    // Open Cloze: đếm số blanks từ answers object
-    else if (section.questionType === 'cloze-test' && section.questions[0]?.answers) {
-      return Object.keys(section.questions[0].answers).length;
-    }
-    // Short Message/Writing Task: chỉ tính 1 câu (không đếm bulletPoints)
-    else if (section.questionType === 'short-message') {
-      return 1; // Writing Task là 1 câu duy nhất
-    }
-    // People Matching: 5 people (A-E)
-    else if (section.questionType === 'people-matching' && section.questions[0]?.people) {
-      return section.questions[0].people.length; // Usually 5
-    }
-    // Gap Match (drag & drop): count left items
-    else if (section.questionType === 'gap-match' && section.questions[0]?.leftItems) {
-      return section.questions[0].leftItems.length;
-    }
-    // Word Formation: đếm số sentences
-    else if (section.questionType === 'word-form' && section.questions[0]?.sentences) {
-      return section.questions[0].sentences.length;
-    }
-    // Default: single question types (sign-message, etc.)
-    else {
-      return section.questions.length;
-    }
-  };
+  const questionStarts = useMemo(() => computeQuestionStarts(parts), [parts]);
 
   // Autosave function
   const sanitizeDraftData = useCallback((value) => {
@@ -1368,10 +1388,10 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
                   {currentSection.questions.map((question, qIdx) => {
                     const isCollapsed = collapsedQuestions[`${selectedPartIndex}-${selectedSectionIndex}-${qIdx}`];
                     const isDragging = draggedQuestion === qIdx;
-                    const startNum = calculateStartingNumber(selectedPartIndex, selectedSectionIndex, qIdx);
+                    const startNum = questionStarts.questionStart[`${selectedPartIndex}-${selectedSectionIndex}-${qIdx}`] || 1;
                     
                     // For multi-question types (like long-text-mc), use section-based starting number
-                    const sectionStartNum = calculateSectionStartingNumber(selectedPartIndex, selectedSectionIndex);
+                    const sectionStartNum = questionStarts.sectionStart[`${selectedPartIndex}-${selectedSectionIndex}`] || 1;
                     
                     // Generate question preview text
                     const getQuestionPreview = () => {
