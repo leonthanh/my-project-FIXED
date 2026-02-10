@@ -10,6 +10,7 @@ import PeopleMatchingDisplay from "../../../shared/components/questions/displays
 import ClozeMCDisplay from "../../../shared/components/questions/displays/ClozeMCDisplay";
 import InlineChoiceDisplay from "../../../shared/components/questions/displays/InlineChoiceDisplay";
 import CambridgeResultsModal from "../components/CambridgeResultsModal";
+import { computeQuestionStarts, getQuestionCountForSection } from "../utils/questionNumbering";
 import "./DoCambridgeReadingTest.css";
 
 /**
@@ -450,25 +451,22 @@ const DoCambridgeReadingTest = () => {
     return test?.parts?.[currentPartIndex] || null;
   }, [test?.parts, currentPartIndex]);
 
+  const questionStarts = useMemo(() => {
+    return computeQuestionStarts(test?.parts || []);
+  }, [test?.parts]);
+
   // Calculate question number range for a part
   const getPartQuestionRange = useCallback((partIndex) => {
     if (!test?.parts) return { start: 1, end: 1 };
-    
-    let startNum = 1;
-    for (let p = 0; p < partIndex; p++) {
-      const part = test.parts[p];
-      for (const sec of part?.sections || []) {
-        startNum += sec.questions?.length || 0;
-      }
-    }
 
+    const startNum = questionStarts.sectionStart[`${partIndex}-0`] || 1;
     let count = 0;
     for (const sec of test.parts[partIndex]?.sections || []) {
-      count += sec.questions?.length || 0;
+      count += getQuestionCountForSection(sec);
     }
 
-    return { start: startNum, end: startNum + count - 1 };
-  }, [test?.parts]);
+    return { start: startNum, end: count > 0 ? startNum + count - 1 : startNum };
+  }, [test?.parts, questionStarts]);
 
   // Get all questions flattened
   const allQuestions = useMemo(() => {

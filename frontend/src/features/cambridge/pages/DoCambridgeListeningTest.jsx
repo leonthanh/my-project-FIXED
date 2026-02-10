@@ -4,6 +4,7 @@ import { apiPath, hostPath } from "../../../shared/utils/api";
 import { TestHeader } from "../../../shared/components";
 import { useTheme } from "../../../shared/contexts/ThemeContext";
 import { TEST_CONFIGS } from "../../../shared/config/questionTypes";
+import { computeQuestionStarts, countClozeBlanksFromText, getQuestionCountForSection } from "../utils/questionNumbering";
 import createStyles from "./DoCambridgeListeningTest.styles";
 import './DoCambridgeReadingTest.css';
 
@@ -179,35 +180,24 @@ const DoCambridgeListeningTest = () => {
   // Build global question order + ranges (for footer nav)
   const questionIndex = useMemo(() => {
     const parts = test?.parts || [];
+    const starts = computeQuestionStarts(parts);
     let globalNumber = 1;
     const byPart = [];
     const orderedKeys = [];
 
     const countClozeBlanks = (question) => {
       if (Array.isArray(question?.blanks) && question.blanks.length) return question.blanks.length;
-      const passageHtml = question?.passageText || question?.passage || '';
-      if (!passageHtml) return 0;
-
-      let plainText = passageHtml;
-      if (typeof document !== 'undefined') {
-        const temp = document.createElement('div');
-        temp.innerHTML = passageHtml;
-        plainText = temp.textContent || temp.innerText || passageHtml;
-      } else {
-        plainText = String(passageHtml).replace(/<[^>]*>/g, ' ');
+      if (question?.answers && typeof question.answers === 'object') {
+        return Object.keys(question.answers).length;
       }
-
-      const numbered = plainText.match(/\((\d+)\)|\[(\d+)\]/g);
-      if (numbered && numbered.length) return numbered.length;
-
-      const underscores = plainText.match(/[_…]{3,}/g);
-      return underscores ? underscores.length : 0;
+      return countClozeBlanksFromText(question?.passageText || question?.passage || '');
     };
 
     for (let pIdx = 0; pIdx < parts.length; pIdx++) {
       const part = parts[pIdx];
       const partKeys = [];
-      const start = globalNumber;
+      const start = starts.sectionStart[`${pIdx}-0`] || globalNumber;
+      if (start !== globalNumber) globalNumber = start;
 
       const sections = part?.sections || [];
       for (let sIdx = 0; sIdx < sections.length; sIdx++) {
@@ -298,7 +288,8 @@ const DoCambridgeListeningTest = () => {
         }
       }
 
-      const end = globalNumber - 1;
+      const partCount = (part?.sections || []).reduce((sum, sec) => sum + getQuestionCountForSection(sec), 0);
+      const end = partCount > 0 ? start + partCount - 1 : globalNumber - 1;
       byPart.push({ partIndex: pIdx, start, end, keys: partKeys });
     }
 
