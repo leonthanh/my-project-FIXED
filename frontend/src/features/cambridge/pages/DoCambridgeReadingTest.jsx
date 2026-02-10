@@ -899,7 +899,7 @@ const DoCambridgeReadingTest = () => {
       {/* Main Content - Split View or Single Column based on question type */}
       {currentQuestion && currentQuestion.section.questionType === 'sign-message' ? (
         /* Part 1 (Sign & Message): Single column with inline image + options */
-        <div style={{ flex: 1, overflowY: 'auto', padding: '24px' }}>
+        <div className="cambridge-sign-container" style={{ flex: 1, overflowY: 'auto', padding: '24px' }}>
           <div style={{ maxWidth: '900px', margin: '0 auto' }}>
             {/* Part Instruction */}
             {currentQuestion.part.instruction && (
@@ -921,10 +921,10 @@ const DoCambridgeReadingTest = () => {
               </button>
 
               {/* Inline Layout: Image (30%) + Question/Options (70%) */}
-              <div style={{ display: 'flex', gap: '30px', paddingRight: '50px', alignItems: 'flex-start' }}>
+              <div className="cambridge-sign-layout" style={{ display: 'flex', gap: '30px', paddingRight: '50px', alignItems: 'flex-start' }}>
                 {/* Left: Image/Sign (30% width) */}
                 {(currentQuestion.question.imageUrl || currentQuestion.question.signText) && (
-                  <div style={{ width: '30%', minWidth: '200px', maxWidth: '362px', flexShrink: 0 }}>
+                  <div className="cambridge-sign-image-col" style={{ width: '30%', minWidth: '200px', maxWidth: '362px', flexShrink: 0 }}>
                     {currentQuestion.question.imageUrl && (
                       <img 
                         src={currentQuestion.question.imageUrl}

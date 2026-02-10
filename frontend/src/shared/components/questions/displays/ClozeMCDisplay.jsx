@@ -537,7 +537,7 @@ const styles = {
     padding: '6px 8px',
     border: '1.5px dashed #94a3b8',
     borderRadius: '6px',
-    minWidth: '150px',
+    minWidth: 'min(150px, 35vw)',
     minHeight: '34px',
     backgroundColor: '#f8fafc',
   },

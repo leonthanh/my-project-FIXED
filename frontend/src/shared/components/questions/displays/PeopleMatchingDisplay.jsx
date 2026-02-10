@@ -215,8 +215,9 @@ const styles = {
   },
   personImage: {
     width: '10%',
-    minWidth: '56px',
-    height: '110px',
+    minWidth: 'min(56px, 14vw)',
+    height: 'auto',
+    maxHeight: '90px',
     borderRadius: '8px',
     objectFit: 'cover',
     border: '1px solid #e5e7eb',

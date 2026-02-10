@@ -688,6 +688,114 @@
     overflow-x: hidden;
   }
 
+  /* ===== CRITICAL: Force split-view columns to stack vertically =====
+     The JSX sets inline style={{ width: '50%' }} on columns,
+     so we MUST use !important to override inline styles. */
+  .cambridge-main-content {
+    flex-direction: column !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+  }
+
+  .cambridge-passage-column {
+    width: 100% !important;
+    max-width: 100% !important;
+    padding: 8px 10px !important;
+    flex: 1 1 50% !important;
+    min-height: 0;
+    overflow-y: auto;
+    border-bottom: 2px solid #e5e7eb;
+  }
+
+  .cambridge-questions-column {
+    width: 100% !important;
+    max-width: 100% !important;
+    padding: 8px 10px !important;
+    flex: 1 1 50% !important;
+    min-height: 0;
+    overflow-y: auto;
+  }
+
+  .cambridge-divider {
+    display: none !important;
+  }
+
+  .cambridge-content-wrapper {
+    max-width: 100% !important;
+    padding: 0 !important;
+  }
+
+  .cambridge-section-title {
+    font-size: 16px;
+    margin-bottom: 8px;
+  }
+
+  /* Passage container */
+  .cambridge-passage-container {
+    padding: 12px;
+    margin: 0;
+    border-radius: 6px;
+  }
+
+  .cambridge-passage-title {
+    font-size: 16px;
+    margin-bottom: 8px;
+  }
+
+  /* People-matching: fix grid and images for mobile */
+  .cambridge-passage-column > div[style*="grid"] {
+    grid-template-columns: 1fr !important;
+  }
+
+  .cambridge-passage-column > div > div img {
+    max-width: 48px !important;
+    max-height: 48px !important;
+    min-width: 48px !important;
+  }
+
+  /* MCQ option labels: bigger tap targets */
+  .cambridge-question-wrapper label {
+    padding: 10px 12px !important;
+    font-size: 14px !important;
+  }
+
+  .cambridge-question-wrapper label input[type="radio"] {
+    width: 20px !important;
+    height: 20px !important;
+    min-width: 20px !important;
+  }
+
+  /* Sign-message (KET Part 1): stack image & options vertically */
+  .cambridge-sign-container {
+    padding: 10px !important;
+  }
+
+  .cambridge-sign-layout {
+    flex-direction: column !important;
+    gap: 12px !important;
+    padding-right: 0 !important;
+  }
+
+  .cambridge-sign-image-col {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+  }
+
+  .cambridge-sign-image-col img {
+    max-width: 280px;
+  }
+
+  .cambridge-sign-text {
+    font-size: 14px !important;
+  }
+
+  /* Cloze inputs: responsive width */
+  .cambridge-question-wrapper input[type="text"] {
+    max-width: 100% !important;
+    font-size: 14px !important;
+  }
+
   .cambridge-test-container .test-header {
     padding: 0 8px;
     height: 48px;
@@ -797,9 +905,11 @@
   }
 
   .cambridge-part-instruction {
-    padding: 6px 10px;
-    margin: 2px 4px;
-    font-size: 13px;
+    padding: 4px 8px;
+    margin: 1px 4px;
+    font-size: 11px;
+    line-height: 1.35;
+    border-left-width: 2px;
   }
 
   .cambridge-passage-content {
@@ -825,68 +935,70 @@
     font-size: 18px;
   }
 
-  /* Footer */
+  /* Footer - compact single-row */
   .cambridge-footer {
-    flex-direction: column;
+    flex-direction: row;
+    align-items: center;
     gap: 4px;
-    padding: 6px 8px;
+    padding: 4px 6px;
+    min-height: 0;
   }
 
   .cambridge-footer-arrows {
     position: static;
-    margin-left: auto;
-  }
-
-  .cambridge-nav-arrow-btn {
-    width: 34px;
-    height: 34px;
-    font-size: 14px;
-  }
-
-  .cambridge-parts-container {
-    padding: 0 4px;
-    gap: 4px;
-    justify-content: center;
-    flex-wrap: wrap;
-  }
-
-  .cambridge-part-wrapper {
-    gap: 3px;
+    margin-left: 0;
     flex-shrink: 0;
   }
 
-  /* Active part (has question numbers) takes full width row */
-  .cambridge-part-wrapper:has(.cambridge-questions-inline) {
-    flex-basis: 100%;
+  .cambridge-nav-arrow-btn {
+    width: 28px;
+    height: 28px;
+    font-size: 12px;
+  }
+
+  .cambridge-parts-container {
+    padding: 0 2px;
+    gap: 3px;
+    justify-content: flex-start;
+    flex-wrap: nowrap;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
-    justify-content: flex-start;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .cambridge-part-wrapper {
+    gap: 2px;
+    flex-shrink: 0;
   }
 
   .cambridge-part-tab {
-    padding: 4px 8px;
-    font-size: 11px;
+    padding: 3px 6px;
+    font-size: 10px;
     flex-shrink: 0;
   }
 
   .cambridge-part-label {
-    font-size: 11px;
+    font-size: 10px;
   }
 
   .cambridge-part-number {
-    font-size: 11px;
+    font-size: 10px;
+  }
+
+  .cambridge-part-count {
+    font-size: 8px;
+    display: none;
   }
 
   .cambridge-questions-inline {
-    gap: 3px;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
+    gap: 2px;
   }
 
   .cambridge-question-num-btn {
-    width: 28px;
-    height: 28px;
-    font-size: 11px;
+    width: 24px;
+    height: 24px;
+    font-size: 10px;
     flex-shrink: 0;
   }
 
