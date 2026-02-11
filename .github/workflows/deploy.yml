@@ -56,7 +56,9 @@ jobs:
         run: |
           set -e
           cd frontend
-          zip -r ../frontend-artifact.zip package.json package-lock.json public src .env.production || true
+          zip -r ../frontend-artifact.zip \
+            package.json package-lock.json index.html public src \
+            .env.production vite.config.mjs postcss.config.js tailwind.config.js || true
       - name: Create backend artifact
         if: steps.hash.outputs.backend != ''
         run: |
@@ -108,7 +110,7 @@ jobs:
           server: ftp.star-siec.edu.vn
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
-          local-dir: frontend/build/
+          local-dir: frontend/dist/
           server-dir: /ix.star-siec.edu.vn/frontend/build/
           dangerous-clean-slate: false
           exclude: |
