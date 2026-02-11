@@ -23,7 +23,7 @@
 /* Left Column - Passage */
 .cambridge-passage-column {
   overflow-y: auto;
-  padding: 5px;
+  padding: 8px 12px;
   border-right: none;
   background: #fafafa;
   flex-shrink: 0;
@@ -74,7 +74,7 @@
 /* Right Column - Questions */
 .cambridge-questions-column {
   overflow-y: auto;
-  padding: 1px 32px;
+  padding: 8px 16px;
   background: white;
   flex-shrink: 0;
   box-sizing: border-box;
@@ -115,7 +115,7 @@
   background: white;
   border: 1px solid #e0e0e0;
   border-radius: 4px;
-  padding: 20px;
+  padding: 16px;
   margin-bottom: 0;
 }
 
@@ -1046,6 +1046,36 @@
 
 .cambridge-sign-text .ql-align-justify {
   text-align: justify;
+}
+
+/* Cloze passage (Part 4): tighten heading spacing */
+.cambridge-cloze-passage h1,
+.cambridge-cloze-passage h2,
+.cambridge-cloze-passage h3 {
+  margin: 8px 0 10px;
+  line-height: 1.3;
+}
+
+.cambridge-cloze-passage p {
+  margin: 8px 0;
+}
+
+/* Inline choice (Part 5) passage spacing on mobile */
+@media (max-width: 430px) {
+  .cambridge-question-wrapper h3 {
+    margin: 6px 0 8px !important;
+    line-height: 1.25 !important;
+  }
+
+  .cambridge-question-wrapper h1,
+  .cambridge-question-wrapper h2 {
+    margin: 6px 0 8px !important;
+    line-height: 1.25 !important;
+  }
+
+  .cambridge-question-wrapper .cambridge-passage-content p {
+    margin: 6px 0 !important;
+  }
 }
 
 /* Part 7 Situation - Full width images */

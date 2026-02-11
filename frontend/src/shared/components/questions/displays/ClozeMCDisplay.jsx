@@ -226,10 +226,14 @@ const ClozeMCDisplay = ({
       {isTokenMode ? (
         isNarrow ? (
           <div style={styles.tokenModeLayoutNarrow}>
-            <div style={{ ...styles.passageContainer, marginBottom: 0 }}>
-              <div style={styles.passageContent}>{renderPassageWithGaps()}</div>
+            <div style={styles.passageContainerNarrow}>
+              <div className="cambridge-cloze-passage" style={styles.passageContent}>
+                {renderPassageWithGaps()}
+              </div>
             </div>
+            <div style={styles.horizontalDivider} aria-hidden="true"></div>
             <div style={styles.tokenPanelNarrow}>
+              <div style={styles.tokenPanelTitle}>Options</div>
               {tokenOptions.map((token) => (
                 <div
                   key={token.label}
@@ -249,7 +253,9 @@ const ClozeMCDisplay = ({
         ) : (
           <div ref={containerRef} style={styles.tokenModeSplit}>
             <div style={{ ...styles.passageContainer, marginBottom: 0, width: `${leftWidth}%` }}>
-              <div style={styles.passageContent}>{renderPassageWithGaps()}</div>
+              <div className="cambridge-cloze-passage" style={styles.passageContent}>
+                {renderPassageWithGaps()}
+              </div>
             </div>
             <div
               className="cambridge-divider"
@@ -281,7 +287,8 @@ const ClozeMCDisplay = ({
           {/* Passage with numbered blanks */}
           {passage && (
             <div style={styles.passageContainer}>
-              <div 
+              <div
+                className="cambridge-cloze-passage"
                 style={styles.passageContent}
                 dangerouslySetInnerHTML={{ __html: passage }}
               />
@@ -376,6 +383,32 @@ const styles = {
     display: 'flex',
     flexDirection: 'column',
     gap: '14px',
+    maxHeight: '70vh',
+    overflow: 'hidden',
+  },
+  passageContainerNarrow: {
+    padding: '18px 20px',
+    backgroundColor: '#ffffff',
+    border: '1px solid #e5e7eb',
+    borderRadius: '10px',
+    boxShadow: '0 1px 2px rgba(15, 23, 42, 0.08)',
+    marginBottom: '0',
+    flex: '1 1 50%',
+    overflowY: 'auto',
+  },
+  horizontalDivider: {
+    height: '6px',
+    backgroundColor: '#1e3a8a',
+    borderRadius: '999px',
+    margin: '8px 0',
+    boxShadow: '0 1px 6px rgba(30, 58, 138, 0.35)',
+  },
+  tokenPanelTitle: {
+    fontSize: '12px',
+    fontWeight: 700,
+    letterSpacing: '0.04em',
+    textTransform: 'uppercase',
+    color: '#64748b',
   },
   passageContainer: {
     padding: '18px 20px',
@@ -498,8 +531,9 @@ const styles = {
     flexDirection: 'column',
     gap: '10px',
     maxHeight: 'none',
-    overflowY: 'visible',
+    overflowY: 'auto',
     position: 'static',
+    flex: '1 1 50%',
   },
   tokenItem: {
     border: '1px solid #cbd5f5',
