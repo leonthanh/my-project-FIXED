@@ -742,12 +742,41 @@ const DoCambridgeReadingTest = () => {
     <div className="cambridge-test-container bg-slate-50">
       {/* Start Modal (only starts timer after click) */}
       {!started && !submitted && !loading && !error && (
-        <div className="fixed inset-0 z-[1200] flex items-center justify-center bg-black/50 px-4 py-6">
-          <div className="max-h-[85vh] w-full max-w-[520px] overflow-y-auto rounded-2xl bg-white p-5 shadow-[0_10px_30px_rgba(0,0,0,0.25)] sm:p-6">
-            <h2 className="text-base font-semibold text-slate-900 sm:text-lg">Bắt đầu làm bài Cambridge Reading</h2>
+        <div
+          className="fixed inset-0 z-[1200] flex items-center justify-center bg-slate-900/50 px-4 py-6 backdrop-blur-sm"
+          style={{
+            position: 'fixed',
+            inset: 0,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: 'rgba(15,23,42,0.6)',
+            zIndex: 1200
+          }}
+        >
+          <div
+            className="max-h-[85vh] w-full max-w-[520px] overflow-y-auto rounded-2xl bg-white p-5 shadow-[0_12px_32px_rgba(15,23,42,0.25)] sm:p-6"
+            style={{
+              background: 'linear-gradient(180deg, #f8fbff 0%, #ffffff 35%)',
+              border: '1px solid #dbeafe',
+              borderRadius: 14,
+              maxHeight: '85vh',
+              width: '100%',
+              maxWidth: 520,
+              overflowY: 'auto',
+              padding: 20,
+              boxShadow: '0 12px 32px rgba(15,23,42,0.25)'
+            }}
+          >
+            <h2 className="text-base font-semibold text-slate-900 sm:text-lg" style={{ color: '#0f2f5f' }}>
+              Bắt đầu làm bài Cambridge Reading
+            </h2>
+            <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-slate-400" style={{ color: '#2563eb' }}>
+              {examType} Reading
+            </p>
             {hasSavedProgress ? (
               <>
-                <p className="mt-2 text-sm leading-relaxed text-slate-700">
+                <p className="mt-3 text-sm leading-relaxed text-slate-700">
                   Phát hiện bài làm đã được lưu.
                 </p>
                 <p className="mt-2 text-sm text-slate-500">
@@ -755,21 +784,27 @@ const DoCambridgeReadingTest = () => {
                 </p>
               </>
             ) : (
-              <p className="mt-2 text-sm leading-relaxed text-slate-700">
+              <p className="mt-3 text-sm leading-relaxed text-slate-700">
                 Bạn có <b>{Math.round(testConfig.duration || 60)} phút</b> để hoàn tất bài làm. Bài làm sẽ được tự động lưu.
               </p>
             )}
-            <p className="mt-2 text-sm text-slate-500">
-              Đề: <b>{test?.title || testConfig.name || "Cambridge Reading"}</b>
-            </p>
-            <p className="mt-1 text-sm text-slate-500">
-              Tổng số câu: <b>{allQuestions.length}</b>
-            </p>
 
-            <div className="mt-4 flex flex-wrap justify-end gap-2">
+            <div className="mt-3 text-sm text-slate-600">
+              <div className="flex flex-wrap gap-x-2">
+                <span className="font-semibold text-slate-700" style={{ color: '#1d4ed8' }}>Đề: </span>
+                <span>{test?.title || testConfig.name || "Cambridge Reading"}</span>
+              </div>
+              <div className="mt-1 flex flex-wrap gap-x-2">
+                <span className="font-semibold text-slate-700" style={{ color: '#1d4ed8' }}>Tổng số câu: </span>
+                <span>{allQuestions.length}</span>
+              </div>
+            </div>
+
+            <div className="mt-5 flex flex-wrap justify-end gap-2">
               <button
                 onClick={() => navigate(-1)}
-                className="rounded-lg border border-slate-300 bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-200"
+                className="rounded-full border border-slate-300 bg-white px-5 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50"
+                style={{ borderColor: '#c7d2fe' }}
               >
                 Thoát
               </button>
@@ -799,7 +834,7 @@ const DoCambridgeReadingTest = () => {
                     setHasSavedProgress(false);
                     setStarted(false);
                   }}
-                  className="rounded-lg border border-red-200 bg-white px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-50"
+                  className="rounded-full border border-red-200 bg-red-50 px-5 py-2 text-sm font-semibold text-red-700 hover:bg-red-100"
                 >
                   🔄 Làm lại từ đầu
                 </button>
@@ -829,7 +864,12 @@ const DoCambridgeReadingTest = () => {
                     }
                   }, 250);
                 }}
-                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+                className="rounded-full bg-blue-600 px-6 py-2.5 text-[15px] font-semibold text-white hover:bg-blue-700"
+                style={{
+                  background: '#2563eb',
+                  color: '#fff',
+                  boxShadow: '0 8px 18px rgba(37,99,235,0.25)'
+                }}
               >
                 {hasSavedProgress ? "Tiếp tục" : "Bắt đầu làm bài"}
               </button>
