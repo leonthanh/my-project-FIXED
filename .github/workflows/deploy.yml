@@ -189,6 +189,8 @@ jobs:
           dangerous-clean-slate: false
           exclude: |
             **/node_modules/**
+            **/uploads/**
+            uploads/**
             **/*.map
             **/*.md
             package-lock.json
