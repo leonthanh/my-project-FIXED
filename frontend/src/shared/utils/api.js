@@ -1,5 +1,5 @@
 // API URL helper - normalize and export host/base helpers
-const RAW_API = process.env.REACT_APP_API_URL || "";
+const RAW_API = import.meta.env.VITE_API_URL || "";
 // Remove trailing slashes and a trailing '/api' if present
 const API_HOST = RAW_API.replace(/\/+$/g, "").replace(/\/api$/i, "");
 const API_BASE = API_HOST + "/api";

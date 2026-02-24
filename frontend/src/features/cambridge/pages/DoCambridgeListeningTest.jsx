@@ -795,7 +795,7 @@ const DoCambridgeListeningTest = () => {
               id={`question-${questionNumber}`}
               type="text"
               value={userAnswer}
-              onChange={(e) => handleAnswerChange(questionKey, e.target.value.trim())}
+              onChange={(e) => handleAnswerChange(questionKey, e.target.value)}
               disabled={submitted}
               placeholder={`(${questionNumber})`}
               style={{
@@ -808,7 +808,7 @@ const DoCambridgeListeningTest = () => {
                 borderRadius: '4px',
                 backgroundColor: isDarkMode ? (userAnswer ? '#1e3a5f' : '#1f2b47') : (userAnswer ? '#f0f9ff' : 'white'),
                 color: isDarkMode ? '#e5e7eb' : '#0e7490',
-                width: '120px',
+                width: 'clamp(120px, 48vw, 150px)',
                 textAlign: 'center',
                 scrollMarginTop: '100px',
               }}
@@ -846,7 +846,7 @@ const DoCambridgeListeningTest = () => {
                 id={`question-${questionNumber}`}
                 type="text"
                 value={userAnswer}
-                onChange={(e) => handleAnswerChange(questionKey, e.target.value.trim())}
+                onChange={(e) => handleAnswerChange(questionKey, e.target.value)}
                 disabled={submitted}
                 placeholder={`(${questionNumber})`}
                 style={{
@@ -859,7 +859,7 @@ const DoCambridgeListeningTest = () => {
                   borderRadius: '4px',
                   backgroundColor: isDarkMode ? (userAnswer ? '#1e3a5f' : '#1f2b47') : (userAnswer ? '#f0f9ff' : 'white'),
                   color: isDarkMode ? '#e5e7eb' : '#0e7490',
-                  width: '120px',
+                  width: 'clamp(120px, 48vw, 150px)',
                   textAlign: 'center',
                   scrollMarginTop: '100px',
                 }}
@@ -1439,6 +1439,7 @@ const DoCambridgeListeningTest = () => {
                       disabled={submitted}
                       style={{ marginRight: '10px' }}
                     />
+                    <span style={styles.optionBadge}>{optionLabel}</span>
                     <span style={styles.optionText}>{opt}</span>
                   </label>
                 );
@@ -1739,6 +1740,7 @@ const DoCambridgeListeningTest = () => {
                         disabled={submitted}
                         style={{ marginRight: '10px' }}
                       />
+                      <span style={styles.optionBadge}>{optionLabel}</span>
                       <span style={styles.optionText}>{opt}</span>
                     </label>
                   );

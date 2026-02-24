@@ -2,6 +2,60 @@ const express = require("express");
 const router = express.Router();
 const ReadingTest = require("../models/ReadingTest");
 
+const normalizeUploadsInHtml = (html, req) => {
+  if (!html || typeof html !== 'string') return html;
+
+  const host = `${req.protocol}://${req.get("host")}`;
+  const stripHost = (url) => url.replace(/^https?:\/\//i, '').replace(/^\/\//, '');
+  const normalize = (url) => {
+    const cleaned = String(url || '').trim();
+    if (!cleaned) return cleaned;
+    if (/^data:/i.test(cleaned)) return cleaned;
+    if (/^https?:\/\//i.test(cleaned) || cleaned.startsWith('//')) {
+      const withoutProto = stripHost(cleaned);
+      const idx = withoutProto.indexOf('/uploads/');
+      if (idx >= 0) return `${host}${withoutProto.slice(idx)}`;
+      return cleaned;
+    }
+    if (cleaned.startsWith('/uploads/')) return `${host}${cleaned}`;
+    return cleaned;
+  };
+
+  return html
+    .replace(/\bsrc\s*=\s*"([^"]+)"/gi, (_m, url) => `src="${normalize(url)}"`)
+    .replace(/\bsrc\s*=\s*'([^']+)'/gi, (_m, url) => `src='${normalize(url)}'`)
+    .replace(/\bhref\s*=\s*"([^"]+)"/gi, (_m, url) => `href="${normalize(url)}"`)
+    .replace(/\bhref\s*=\s*'([^']+)'/gi, (_m, url) => `href='${normalize(url)}'`)
+    .replace(/url\(([^)]+)\)/gi, (_m, rawUrl) => {
+      const url = String(rawUrl || '').trim().replace(/^['"]|['"]$/g, '');
+      return `url(${normalize(url)})`;
+    });
+};
+
+const normalizeUploadsInPassages = (passages, req) => {
+  if (!Array.isArray(passages)) return passages;
+  return passages.map((p) => ({
+    ...p,
+    passageText: normalizeUploadsInHtml(p.passageText, req),
+    passageTitle: normalizeUploadsInHtml(p.passageTitle, req),
+    sections: Array.isArray(p.sections)
+      ? p.sections.map((s) => ({
+          ...s,
+          sectionInstruction: normalizeUploadsInHtml(s.sectionInstruction, req),
+          sectionTitle: normalizeUploadsInHtml(s.sectionTitle, req),
+          questions: Array.isArray(s.questions)
+            ? s.questions.map((q) => ({
+                ...q,
+                questionText: normalizeUploadsInHtml(q.questionText, req),
+                paragraphText: normalizeUploadsInHtml(q.paragraphText, req),
+                passageText: normalizeUploadsInHtml(q.passageText, req),
+              }))
+            : s.questions,
+        }))
+      : p.sections,
+  }));
+};
+
 // Build simple email summary HTML + text fallback for reading submissions (teacher requested minimal fields)
 const buildReadingSummaryEmail = (sub, result, req, meta = {}) => {
   // Prefer explicit FRONTEND_URL (useful for deployments where frontend runs on separate host/port)
@@ -136,6 +190,7 @@ router.get("/", async (req, res) => {
       if (typeof data.passages === "string") {
         data.passages = JSON.parse(data.passages);
       }
+      data.passages = normalizeUploadsInPassages(data.passages, req);
       return data;
     });
     res.json(parsed);
@@ -235,6 +290,7 @@ router.get("/:id", async (req, res) => {
     if (typeof data.passages === "string") {
       data.passages = JSON.parse(data.passages);
     }
+    data.passages = normalizeUploadsInPassages(data.passages, req);
     res.json(data);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -275,6 +331,7 @@ router.put("/:id", requireAuth, requireTestPermission('reading'), async (req, re
     if (typeof data.passages === "string") {
       data.passages = JSON.parse(data.passages);
     }
+    data.passages = normalizeUploadsInPassages(data.passages, req);
     res.json({ message: "✅ Đã cập nhật đề Reading thành công!", test: data });
   } catch (err) {
     res.status(400).json({ message: err.message });

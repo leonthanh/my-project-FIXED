@@ -2,7 +2,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import './index.css';
 import 'react-quill/dist/quill.snow.css'; // Import React-Quill CSS
-import App from './App';
+import App from './App.jsx';
 import reportWebVitals from './reportWebVitals';
 import { ThemeProvider } from './shared/contexts/ThemeContext';
 

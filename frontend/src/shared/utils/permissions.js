@@ -10,7 +10,7 @@ export const isAdmin = (user) => !!(user && user.role === 'admin');
 export const isTeacher = (user) => !!(user && user.role === 'teacher');
 
 const normalizePhone = (s) => (s ? String(s).replace(/\D/g, '').replace(/^0+/, '') : '');
-const PRIVILEGED_PHONE = process.env.REACT_APP_PRIVILEGED_TEACHER_PHONE || '0784611179';
+const PRIVILEGED_PHONE = import.meta.env.VITE_PRIVILEGED_TEACHER_PHONE || '0784611179';
 
 export const isPrivilegedTeacher = (user) => {
   if (!isTeacher(user)) return false;

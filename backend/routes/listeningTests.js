@@ -2,15 +2,68 @@ const express = require('express');
 const router = express.Router();
 const multer = require('multer');
 const path = require('path');
+const fs = require('fs');
 const ListeningTest = require('../models/ListeningTest');
 const ListeningSubmission = require('../models/ListeningSubmission');
+
+const normalizeUploadsInText = (text, req) => {
+  if (!text || typeof text !== 'string') return text;
+  const host = `${req.protocol}://${req.get("host")}`;
+  const stripHost = (url) => url.replace(/^https?:\/\//i, '').replace(/^\/\//, '');
+  const normalize = (url) => {
+    const cleaned = String(url || '').trim();
+    if (!cleaned) return cleaned;
+    if (/^data:/i.test(cleaned)) return cleaned;
+    if (/^https?:\/\//i.test(cleaned) || cleaned.startsWith('//')) {
+      const withoutProto = stripHost(cleaned);
+      const idx = withoutProto.indexOf('/uploads/');
+      if (idx >= 0) return `${host}${withoutProto.slice(idx)}`;
+      return cleaned;
+    }
+    if (cleaned.startsWith('/uploads/')) return `${host}${cleaned}`;
+    return cleaned;
+  };
+
+  return text
+    .replace(/\bsrc\s*=\s*"([^"]+)"/gi, (_m, url) => `src="${normalize(url)}"`)
+    .replace(/\bsrc\s*=\s*'([^']+)'/gi, (_m, url) => `src='${normalize(url)}'`)
+    .replace(/\bhref\s*=\s*"([^"]+)"/gi, (_m, url) => `href="${normalize(url)}"`)
+    .replace(/\bhref\s*=\s*'([^']+)'/gi, (_m, url) => `href='${normalize(url)}'`)
+    .replace(/url\(([^)]+)\)/gi, (_m, rawUrl) => {
+      const url = String(rawUrl || '').trim().replace(/^['"]|['"]$/g, '');
+      return `url(${normalize(url)})`;
+    });
+};
+
+const normalizeUploadsInObject = (value, req) => {
+  if (!value) return value;
+  if (typeof value === 'string') return normalizeUploadsInText(value, req);
+  if (Array.isArray(value)) return value.map((v) => normalizeUploadsInObject(v, req));
+  if (typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value).map(([k, v]) => [k, normalizeUploadsInObject(v, req)])
+    );
+  }
+  return value;
+};
+
+// Ensure upload folders exist (absolute paths for cPanel/Passenger)
+const uploadsRoot = path.join(__dirname, '..', 'uploads');
+const uploadImagesDir = path.join(uploadsRoot, 'images');
+const uploadAudioDir = path.join(uploadsRoot, 'audio');
+if (!fs.existsSync(uploadImagesDir)) {
+  fs.mkdirSync(uploadImagesDir, { recursive: true });
+}
+if (!fs.existsSync(uploadAudioDir)) {
+  fs.mkdirSync(uploadAudioDir, { recursive: true });
+}
 
 // Cấu hình multer cho việc upload file
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
     // Store audio and images in separate folders
     const isImage = file.mimetype.startsWith('image/');
-    cb(null, isImage ? 'uploads/images' : 'uploads/audio');
+    cb(null, isImage ? uploadImagesDir : uploadAudioDir);
   },
   filename: function (req, file, cb) {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9)
@@ -245,7 +298,16 @@ router.get('/', async (req, res) => {
     const tests = await ListeningTest.findAll({
       order: [['createdAt', 'DESC']]
     });
-    res.json(tests);
+    const normalized = tests.map((t) => {
+      const data = t.toJSON ? t.toJSON() : t;
+      data.partInstructions = normalizeUploadsInObject(data.partInstructions, req);
+      data.questions = normalizeUploadsInObject(data.questions, req);
+      data.passages = normalizeUploadsInObject(data.passages, req);
+      data.mainAudioUrl = normalizeUploadsInObject(data.mainAudioUrl, req);
+      data.partAudioUrls = normalizeUploadsInObject(data.partAudioUrls, req);
+      return data;
+    });
+    res.json(normalized);
   } catch (error) {
     console.error('Error fetching listening tests:', error);
     res.status(500).json({
@@ -262,7 +324,13 @@ router.get('/:id', async (req, res) => {
     if (!test) {
       return res.status(404).json({ message: '❌ Không tìm thấy đề thi' });
     }
-    res.json(test);
+    const data = test.toJSON ? test.toJSON() : test;
+    data.partInstructions = normalizeUploadsInObject(data.partInstructions, req);
+    data.questions = normalizeUploadsInObject(data.questions, req);
+    data.passages = normalizeUploadsInObject(data.passages, req);
+    data.mainAudioUrl = normalizeUploadsInObject(data.mainAudioUrl, req);
+    data.partAudioUrls = normalizeUploadsInObject(data.partAudioUrls, req);
+    res.json(data);
   } catch (error) {
     res.status(500).json({
       message: '❌ Lỗi khi lấy thông tin đề thi',

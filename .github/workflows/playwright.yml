@@ -49,7 +49,7 @@ jobs:
           npm ci
           npm run build
           # Serve static build on port 3000 in background
-          npx serve -s build -l 3000 &>/dev/null &
+          npx serve -s dist -l 3000 &>/dev/null &
           # Wait up to 60s for server to be ready
           npx wait-on http://localhost:3000 -t 60000
 
