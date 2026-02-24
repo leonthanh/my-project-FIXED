@@ -520,7 +520,7 @@ const styles = {
     maxHeight: '64vh',
     overflowY: 'auto',
     position: 'sticky',
-    top: '12px',
+    top: '40px',
   },
   tokenPanelNarrow: {
     border: '1px solid #e5e7eb',

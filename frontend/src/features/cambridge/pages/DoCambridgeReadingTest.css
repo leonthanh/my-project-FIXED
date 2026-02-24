@@ -259,7 +259,7 @@
   justify-content: center;
   min-width: 32px;
   height: 32px;
-  background: #0052cc;
+  background: #0e276f;
   color: white;
   font-weight: 600;
   font-size: 14px;
@@ -501,7 +501,51 @@
   box-shadow: 0 4px 12px rgba(224, 0, 51, 0.4);
 }
 
+/* Sign-message (PET Part 1): intro left, questions right */
+.cambridge-sign-split {
+  display: flex;
+  align-items: flex-start;
+  gap: 24px;
+}
+
+.cambridge-sign-intro {
+  flex: 0 0 36%;
+  min-width: 260px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.cambridge-sign-card {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 12px;
+}
+
+.cambridge-sign-questions {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.cambridge-sign-question-card {
+  width: 100%;
+}
+
 @media (max-width: 1024px) {
+  .cambridge-sign-split {
+    flex-direction: column;
+  }
+
+  .cambridge-sign-intro {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .cambridge-sign-question-card {
+    width: 100%;
+  }
+
   .cambridge-passage-column {
     padding: 10px 16px;
   }

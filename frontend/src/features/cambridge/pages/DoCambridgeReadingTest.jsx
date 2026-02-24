@@ -80,6 +80,14 @@ const DoCambridgeReadingTest = () => {
     return TEST_CONFIGS['ket-reading'];
   }, [testType, test?.testType]);
 
+  const effectiveDuration = useMemo(() => {
+    const fromTest = Number(test?.duration);
+    if (Number.isFinite(fromTest) && fromTest > 0) return fromTest;
+    const fromConfig = Number(testConfig.duration);
+    if (Number.isFinite(fromConfig) && fromConfig > 0) return fromConfig;
+    return 60;
+  }, [test?.duration, testConfig.duration]);
+
   const sanitizeQuillHtml = useCallback((html) => {
     if (typeof html !== 'string' || !html.trim()) return '';
     try {
@@ -138,7 +146,11 @@ const DoCambridgeReadingTest = () => {
         // Check if there's saved data for this test
         const savedTime = localStorage.getItem(`test-time-${id}`);
         const savedAnswers = localStorage.getItem(`test-answers-${id}`);
-        const durationSeconds = (testConfig.duration || 60) * 60;
+        const rawDuration = Number(data.duration);
+        const resolvedDuration = Number.isFinite(rawDuration) && rawDuration > 0
+          ? rawDuration
+          : (testConfig.duration || 60);
+        const durationSeconds = resolvedDuration * 60;
 
         if (savedTime || savedAnswers) {
           // Restore existing progress (even if answers are empty)
@@ -230,7 +242,7 @@ const DoCambridgeReadingTest = () => {
     try {
       // Get user info from localStorage
       const user = JSON.parse(localStorage.getItem("user") || "{}");
-      const initialTime = (testConfig.duration || 60) * 60;
+      const initialTime = effectiveDuration * 60;
       const timeSpent = initialTime - timeRemaining;
 
       // Calculate results locally
@@ -784,9 +796,9 @@ const DoCambridgeReadingTest = () => {
                 </p>
               </>
             ) : (
-              <p className="mt-3 text-sm leading-relaxed text-slate-700">
-                Bạn có <b>{Math.round(testConfig.duration || 60)} phút</b> để hoàn tất bài làm. Bài làm sẽ được tự động lưu.
-              </p>
+                <p className="mt-3 text-sm leading-relaxed text-slate-700">
+                  Bạn có <b>{Math.round(effectiveDuration)} phút</b> để hoàn tất bài làm. Bài làm sẽ được tự động lưu.
+                </p>
             )}
 
             <div className="mt-3 text-sm text-slate-600">
@@ -830,7 +842,7 @@ const DoCambridgeReadingTest = () => {
                     setCurrentPartIndex(0);
                     setCurrentQuestionIndex(0);
                     setActiveQuestion(null);
-                    setTimeRemaining((testConfig.duration || 60) * 60);
+                    setTimeRemaining(effectiveDuration * 60);
                     setHasSavedProgress(false);
                     setStarted(false);
                   }}
@@ -843,7 +855,7 @@ const DoCambridgeReadingTest = () => {
               <button
                 onClick={() => {
                   setStarted(true);
-                  const initialSeconds = (testConfig.duration || 60) * 60;
+                  const initialSeconds = effectiveDuration * 60;
                   try {
                     localStorage.setItem(startedKey, "true");
                     localStorage.setItem(`test-time-${id}`, String(timeRemaining ?? initialSeconds));
@@ -895,46 +907,33 @@ const DoCambridgeReadingTest = () => {
 
       {/* Main Content - Split View or Single Column based on question type */}
       {currentQuestion && currentQuestion.section.questionType === 'sign-message' ? (
-        /* Part 1 (Sign & Message): Single column with inline image + options */
+        /* Part 1 (Sign & Message): instruction on top, sign left, options right */
         <div className="cambridge-sign-container flex-1 overflow-y-auto px-3 py-4 sm:p-6">
-          <div style={{ maxWidth: '900px', margin: '0 auto' }}>
-            {/* Part Instruction */}
+          <div style={{ maxWidth: '1100px', margin: '0 auto' }}>
             {currentQuestion.part.instruction && (
-              <div 
+              <div
                 className="cambridge-part-instruction px-4 py-2 text-[13px] leading-relaxed sm:text-sm"
-                dangerouslySetInnerHTML={{ __html: currentQuestion.part.instruction }}
+                dangerouslySetInnerHTML={{ __html: sanitizeQuillHtml(currentQuestion.part.instruction) }}
               />
             )}
 
-            {/* Question Wrapper with Flag */}
-            <div className={`cambridge-question-wrapper ${answers[currentQuestion.key] ? 'answered' : ''} !w-full sm:!w-[80%] p-3 sm:p-4`} style={{ position: 'relative' }}>
-              {/* Flag Button */}
-              <button
-                className={`cambridge-flag-button ${flaggedQuestions.has(currentQuestion.key) ? 'flagged' : ''}`}
-                onClick={() => toggleFlag(currentQuestion.key)}
-                aria-label="Flag question"
-              >
-                {flaggedQuestions.has(currentQuestion.key) ? '🚩' : '⚐'}
-              </button>
-
-              {/* Inline Layout: Image (30%) + Question/Options (70%) */}
-              <div className="cambridge-sign-layout flex flex-col items-start gap-4 sm:flex-row sm:gap-8 sm:pr-12">
-                {/* Left: Image/Sign (30% width) */}
+            <div className="cambridge-sign-split">
+              <div className="cambridge-sign-intro">
                 {(currentQuestion.question.imageUrl || currentQuestion.question.signText) && (
-                  <div className="cambridge-sign-image-col w-full sm:w-[30%] sm:min-w-[200px] sm:max-w-[362px] sm:flex-shrink-0">
+                  <div className="cambridge-sign-card">
                     {currentQuestion.question.imageUrl && (
-                      <img 
+                      <img
                         src={currentQuestion.question.imageUrl}
                         alt={currentQuestion.question.imageAlt || 'Sign'}
-                        style={{ 
-                          width: '100%', 
+                        style={{
+                          width: '100%',
                           height: 'auto',
                           border: '1px solid #ddd'
                         }}
                       />
                     )}
                     {currentQuestion.question.signText && (
-                      <div 
+                      <div
                         className="cambridge-sign-text"
                         style={{
                           marginTop: currentQuestion.question.imageUrl ? '12px' : '0',
@@ -946,15 +945,26 @@ const DoCambridgeReadingTest = () => {
                           background: 'white',
                           lineHeight: '1.5'
                         }}
-                        dangerouslySetInnerHTML={{ __html: currentQuestion.question.signText }}
+                        dangerouslySetInnerHTML={{ __html: sanitizeQuillHtml(currentQuestion.question.signText) }}
                       />
                     )}
                   </div>
                 )}
+              </div>
 
-                {/* Right: Question Number + Options (70%) */}
-                <div style={{ flex: 1 }}>
-                  {/* Question Number */}
+              <div className="cambridge-sign-questions">
+                <div
+                  className={`cambridge-question-wrapper ${answers[currentQuestion.key] ? 'answered' : ''} cambridge-sign-question-card p-3 sm:p-4`}
+                  style={{ position: 'relative' }}
+                >
+                  <button
+                    className={`cambridge-flag-button ${flaggedQuestions.has(currentQuestion.key) ? 'flagged' : ''}`}
+                    onClick={() => toggleFlag(currentQuestion.key)}
+                    aria-label="Flag question"
+                  >
+                    {flaggedQuestions.has(currentQuestion.key) ? '🚩' : '⚐'}
+                  </button>
+
                   <div className="mb-3">
                     <span className="cambridge-question-number">
                       {currentQuestion.questionNumber}
@@ -966,7 +976,6 @@ const DoCambridgeReadingTest = () => {
                     )}
                   </div>
 
-                  {/* Options List */}
                   {currentQuestion.question.options && (
                     <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
                       {currentQuestion.question.options.map((option, idx) => {
@@ -1028,7 +1037,7 @@ const DoCambridgeReadingTest = () => {
           {currentQuestion.part.instruction && (
             <div 
               className="cambridge-part-instruction px-4 py-2 text-[13px] leading-relaxed sm:text-sm"
-              dangerouslySetInnerHTML={{ __html: currentQuestion.part.instruction }}
+              dangerouslySetInnerHTML={{ __html: sanitizeQuillHtml(currentQuestion.part.instruction) }}
             />
           )}
 
@@ -1048,76 +1057,125 @@ const DoCambridgeReadingTest = () => {
                 
                 const renderPassageWithInputs = () => {
                   if (!passageText) return null;
-                  
-                  const elements = [];
-                  let lastIndex = 0;
-                  
-                  // Find all (25), (26), etc. patterns or [25], [26], etc.
-                  const regex = /\((\d+)\)|\[(\d+)\]/g;
-                  let match;
-                  
-                  while ((match = regex.exec(passageText)) !== null) {
-                    const questionNumber = parseInt(match[1] || match[2]);
-                    const firstQuestionNum = currentQuestion.questionNumber - (allQuestions[currentQuestionIndex].blankIndex || 0);
-                    const blankIndex = questionNumber - firstQuestionNum;
-                    
-                    // Only process if this blank exists in our data
-                    if (blankIndex >= 0 && blankIndex < blanks.length) {
-                      // Add text before this blank
+
+                  const safeHtml = sanitizeQuillHtml(passageText);
+                  const parser = new DOMParser();
+                  const doc = parser.parseFromString(safeHtml, 'text/html');
+                  const firstQuestionNum = currentQuestion.questionNumber - (allQuestions[currentQuestionIndex].blankIndex || 0);
+
+                  const toCamelCase = (value) => value.replace(/-([a-z])/g, (_, char) => char.toUpperCase());
+                  const parseStyle = (styleText) => {
+                    if (!styleText) return undefined;
+                    const style = {};
+                    styleText.split(';').forEach((rule) => {
+                      const [rawKey, rawValue] = rule.split(':');
+                      if (!rawKey || !rawValue) return;
+                      const key = toCamelCase(rawKey.trim().toLowerCase());
+                      const value = rawValue.trim();
+                      if (key) style[key] = value;
+                    });
+                    return Object.keys(style).length ? style : undefined;
+                  };
+
+                  const renderTextWithBlanks = (text, keyPrefix) => {
+                    if (!text) return null;
+                    const parts = [];
+                    const regex = /\((\d+)\)|\[(\d+)\]/g;
+                    let lastIndex = 0;
+                    let match;
+
+                    while ((match = regex.exec(text)) !== null) {
+                      const questionNumber = parseInt(match[1] || match[2], 10);
+                      const blankIndex = questionNumber - firstQuestionNum;
+
                       if (match.index > lastIndex) {
-                        elements.push(
-                          <span 
-                            key={`text-${lastIndex}`}
-                            dangerouslySetInnerHTML={{ __html: passageText.substring(lastIndex, match.index) }}
+                        parts.push(text.slice(lastIndex, match.index));
+                      }
+
+                      if (blankIndex >= 0 && blankIndex < blanks.length) {
+                        const questionKey = `${currentQuestion.partIndex}-${currentQuestion.sectionIndex}-${currentQuestion.questionIndex}-${blankIndex}`;
+                        const userAnswer = answers[questionKey] || '';
+                        parts.push(
+                          <input
+                            key={`${keyPrefix}-input-${questionNumber}`}
+                            id={`question-${questionNumber}`}
+                            type="text"
+                            value={userAnswer}
+                            onChange={(e) => handleAnswerChange(questionKey, e.target.value)}
+                            disabled={submitted}
+                            placeholder={`(${questionNumber})`}
+                            style={{
+                              display: 'inline-block',
+                              margin: '0 4px',
+                              padding: '6px 10px',
+                              fontSize: '15px',
+                              fontWeight: '600',
+                              border: '2px solid #0284c7',
+                              borderRadius: '4px',
+                              backgroundColor: userAnswer ? '#f0f9ff' : 'white',
+                              color: '#0e7490',
+                              width: '150px',
+                              textAlign: 'center',
+                              scrollMarginTop: '100px'
+                            }}
                           />
                         );
+                      } else {
+                        parts.push(match[0]);
                       }
-                      
-                      // Add text input
-                      const questionKey = `${currentQuestion.partIndex}-${currentQuestion.sectionIndex}-${currentQuestion.questionIndex}-${blankIndex}`;
-                      const userAnswer = answers[questionKey] || '';
-                      
-                      elements.push(
-                        <input
-                          key={`input-${questionNumber}`}
-                          id={`question-${questionNumber}`}
-                          type="text"
-                          value={userAnswer}
-                          onChange={(e) => handleAnswerChange(questionKey, e.target.value.trim())}
-                          disabled={submitted}
-                          placeholder={`(${questionNumber})`}
-                          style={{
-                            display: 'inline-block',
-                            margin: '0 4px',
-                            padding: '6px 10px',
-                            fontSize: '15px',
-                            fontWeight: '600',
-                            border: '2px solid #0284c7',
-                            borderRadius: '4px',
-                            backgroundColor: userAnswer ? '#f0f9ff' : 'white',
-                            color: '#0e7490',
-                            width: '150px',
-                            textAlign: 'center',
-                            scrollMarginTop: '100px'
-                          }}
-                        />
-                      );
-                      
+
                       lastIndex = match.index + match[0].length;
                     }
-                  }
-                  
-                  // Add remaining text
-                  if (lastIndex < passageText.length) {
-                    elements.push(
-                      <span 
-                        key={`text-${lastIndex}`}
-                        dangerouslySetInnerHTML={{ __html: passageText.substring(lastIndex) }}
-                      />
-                    );
-                  }
-                  
-                  return elements;
+
+                    if (lastIndex < text.length) {
+                      parts.push(text.slice(lastIndex));
+                    }
+
+                    return parts;
+                  };
+
+                  const renderNode = (node, keyPrefix) => {
+                    if (node.nodeType === Node.TEXT_NODE) {
+                      return renderTextWithBlanks(node.nodeValue || '', keyPrefix);
+                    }
+
+                    if (node.nodeType !== Node.ELEMENT_NODE) return null;
+
+                    const tag = node.tagName.toLowerCase();
+                    const props = { key: keyPrefix };
+
+                    Array.from(node.attributes || []).forEach((attr) => {
+                      const name = attr.name.toLowerCase();
+                      const value = attr.value;
+                      if (name === 'class') props.className = value;
+                      if (name === 'style') props.style = parseStyle(value);
+                      if (name === 'href') props.href = value;
+                      if (name === 'target') props.target = value;
+                      if (name === 'rel') props.rel = value;
+                      if (name === 'src') props.src = value;
+                      if (name === 'alt') props.alt = value;
+                      if (name === 'width') props.width = value;
+                      if (name === 'height') props.height = value;
+                      if (name.startsWith('data-')) props[name] = value;
+                    });
+
+                    const children = [];
+                    node.childNodes.forEach((child, idx) => {
+                      const rendered = renderNode(child, `${keyPrefix}-${idx}`);
+                      if (Array.isArray(rendered)) {
+                        children.push(...rendered);
+                      } else if (rendered !== null && rendered !== undefined) {
+                        children.push(rendered);
+                      }
+                    });
+
+                    return React.createElement(tag, props, children.length ? children : undefined);
+                  };
+
+                  const rootNodes = Array.from(doc.body.childNodes || []);
+                  const rendered = rootNodes.map((node, idx) => renderNode(node, `node-${idx}`));
+
+                  return rendered;
                 };
                 
                 return (
@@ -1141,7 +1199,7 @@ const DoCambridgeReadingTest = () => {
                           fontWeight: 600,
                           color: '#0c4a6e'
                         }}
-                        dangerouslySetInnerHTML={{ __html: passageTitle }}
+                        dangerouslySetInnerHTML={{ __html: sanitizeQuillHtml(passageTitle) }}
                       />
                     )}
                     
@@ -1171,7 +1229,7 @@ const DoCambridgeReadingTest = () => {
           {currentQuestion.part.instruction && (
             <div 
               className="cambridge-part-instruction px-4 py-2 text-[13px] leading-relaxed sm:text-sm"
-              dangerouslySetInnerHTML={{ __html: currentQuestion.part.instruction }}
+              dangerouslySetInnerHTML={{ __html: sanitizeQuillHtml(currentQuestion.part.instruction) }}
             />
           )}
 
@@ -1204,7 +1262,7 @@ const DoCambridgeReadingTest = () => {
                           fontWeight: 600,
                           color: '#0e276f'
                         }}
-                        dangerouslySetInnerHTML={{ __html: passageTitle }}
+                        dangerouslySetInnerHTML={{ __html: sanitizeQuillHtml(passageTitle) }}
                       />
                     )}
 
@@ -1233,7 +1291,7 @@ const DoCambridgeReadingTest = () => {
           {currentQuestion.part.instruction && (
             <div 
               className="cambridge-part-instruction px-4 py-2 text-[13px] leading-relaxed sm:text-sm"
-              dangerouslySetInnerHTML={{ __html: currentQuestion.part.instruction }}
+              dangerouslySetInnerHTML={{ __html: sanitizeQuillHtml(currentQuestion.part.instruction) }}
             />
           )}
 
@@ -1269,7 +1327,7 @@ const DoCambridgeReadingTest = () => {
                             fontWeight: 600,
                             color: '#0e276f'
                           }}
-                          dangerouslySetInnerHTML={{ __html: passageTitle }}
+                          dangerouslySetInnerHTML={{ __html: sanitizeQuillHtml(passageTitle) }}
                         />
                       )}
 
@@ -1313,7 +1371,7 @@ const DoCambridgeReadingTest = () => {
                         elements.push(
                           <span 
                             key={`text-${lastIndex}`}
-                            dangerouslySetInnerHTML={{ __html: passage.substring(lastIndex, match.index) }}
+                            dangerouslySetInnerHTML={{ __html: sanitizeQuillHtml(passage.substring(lastIndex, match.index)) }}
                           />
                         );
                       }
@@ -1367,7 +1425,7 @@ const DoCambridgeReadingTest = () => {
                     elements.push(
                       <span 
                         key={`text-${lastIndex}`}
-                        dangerouslySetInnerHTML={{ __html: passage.substring(lastIndex) }}
+                        dangerouslySetInnerHTML={{ __html: sanitizeQuillHtml(passage.substring(lastIndex)) }}
                       />
                     );
                   }
@@ -1399,7 +1457,7 @@ const DoCambridgeReadingTest = () => {
                           fontWeight: 600,
                           color: '#0e276f'
                         }}
-                        dangerouslySetInnerHTML={{ __html: passageTitle }}
+                        dangerouslySetInnerHTML={{ __html: sanitizeQuillHtml(passageTitle) }}
                       />
                     )}
                     
@@ -1430,7 +1488,7 @@ const DoCambridgeReadingTest = () => {
           {currentQuestion.part.instruction && (
             <div 
               className="cambridge-part-instruction px-4 py-2 text-[13px] leading-relaxed sm:text-sm"
-              dangerouslySetInnerHTML={{ __html: currentQuestion.part.instruction }}
+              dangerouslySetInnerHTML={{ __html: sanitizeQuillHtml(currentQuestion.part.instruction) }}
             />
           )}
 
@@ -1462,7 +1520,7 @@ const DoCambridgeReadingTest = () => {
                                 lineHeight: '1.6',
                                 color: '#374151'
                               }}
-                              dangerouslySetInnerHTML={{ __html: situation }}
+                              dangerouslySetInnerHTML={{ __html: sanitizeQuillHtml(situation) }}
                               className="situation-content"
                             />
                           </div>
@@ -1579,7 +1637,7 @@ const DoCambridgeReadingTest = () => {
           {currentQuestion && currentQuestion.part.instruction && (
             <div 
               className="cambridge-part-instruction px-4 py-2 text-[13px] leading-relaxed sm:text-sm"
-              dangerouslySetInnerHTML={{ __html: currentQuestion.part.instruction }}
+              dangerouslySetInnerHTML={{ __html: sanitizeQuillHtml(currentQuestion.part.instruction) }}
             />
           )}
 
