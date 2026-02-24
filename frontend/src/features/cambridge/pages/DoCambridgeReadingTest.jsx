@@ -1064,6 +1064,31 @@ const DoCambridgeReadingTest = () => {
                   const firstQuestionNum = currentQuestion.questionNumber - (allQuestions[currentQuestionIndex].blankIndex || 0);
 
                   const toCamelCase = (value) => value.replace(/-([a-z])/g, (_, char) => char.toUpperCase());
+                  const allowedTags = new Set([
+                    'p', 'br', 'strong', 'b', 'em', 'i', 'u', 's', 'span', 'div',
+                    'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+                    'ul', 'ol', 'li',
+                    'table', 'thead', 'tbody', 'tfoot', 'tr', 'th', 'td',
+                    'blockquote', 'code', 'pre',
+                    'a', 'img'
+                  ]);
+                  const allowedStyleProps = new Set([
+                    'textAlign', 'fontWeight', 'fontStyle', 'textDecoration',
+                    'color', 'backgroundColor',
+                    'margin', 'marginTop', 'marginRight', 'marginBottom', 'marginLeft',
+                    'padding', 'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft',
+                    'lineHeight', 'letterSpacing', 'wordSpacing', 'whiteSpace',
+                    'width', 'minWidth', 'maxWidth', 'height',
+                    'border', 'borderTop', 'borderRight', 'borderBottom', 'borderLeft',
+                    'borderCollapse', 'borderSpacing', 'borderColor', 'borderWidth', 'borderStyle',
+                    'verticalAlign'
+                  ]);
+                  const safeHref = (value = '') => {
+                    const href = String(value).trim();
+                    if (!href) return '';
+                    if (/^javascript:/i.test(href)) return '';
+                    return href;
+                  };
                   const parseStyle = (styleText) => {
                     if (!styleText) return undefined;
                     const style = {};
@@ -1072,7 +1097,7 @@ const DoCambridgeReadingTest = () => {
                       if (!rawKey || !rawValue) return;
                       const key = toCamelCase(rawKey.trim().toLowerCase());
                       const value = rawValue.trim();
-                      if (key) style[key] = value;
+                      if (key && allowedStyleProps.has(key)) style[key] = value;
                     });
                     return Object.keys(style).length ? style : undefined;
                   };
@@ -1142,6 +1167,16 @@ const DoCambridgeReadingTest = () => {
                     if (node.nodeType !== Node.ELEMENT_NODE) return null;
 
                     const tag = node.tagName.toLowerCase();
+                    if (!allowedTags.has(tag)) {
+                      const fallbackChildren = [];
+                      node.childNodes.forEach((child, idx) => {
+                        const rendered = renderNode(child, `${keyPrefix}-${idx}`);
+                        if (Array.isArray(rendered)) fallbackChildren.push(...rendered);
+                        else if (rendered !== null && rendered !== undefined) fallbackChildren.push(rendered);
+                      });
+                      return fallbackChildren;
+                    }
+
                     const props = { key: keyPrefix };
 
                     Array.from(node.attributes || []).forEach((attr) => {
@@ -1149,15 +1184,34 @@ const DoCambridgeReadingTest = () => {
                       const value = attr.value;
                       if (name === 'class') props.className = value;
                       if (name === 'style') props.style = parseStyle(value);
-                      if (name === 'href') props.href = value;
+                      if (name === 'href') props.href = safeHref(value);
                       if (name === 'target') props.target = value;
                       if (name === 'rel') props.rel = value;
                       if (name === 'src') props.src = value;
                       if (name === 'alt') props.alt = value;
                       if (name === 'width') props.width = value;
                       if (name === 'height') props.height = value;
+                      if (name === 'colspan') props.colSpan = value;
+                      if (name === 'rowspan') props.rowSpan = value;
                       if (name.startsWith('data-')) props[name] = value;
                     });
+
+                    if (tag === 'a') {
+                      const href = safeHref(props.href || '');
+                      if (!href) {
+                        delete props.href;
+                      } else {
+                        props.href = href;
+                        if (props.target === '_blank') {
+                          props.rel = 'noopener noreferrer';
+                        }
+                      }
+                    }
+
+                    if (tag === 'img') {
+                      const src = String(props.src || '').trim();
+                      if (!src) return null;
+                    }
 
                     const children = [];
                     node.childNodes.forEach((child, idx) => {
@@ -1168,6 +1222,35 @@ const DoCambridgeReadingTest = () => {
                         children.push(rendered);
                       }
                     });
+
+                    if (tag === 'table') {
+                      return React.createElement(
+                        'div',
+                        {
+                          key: `${keyPrefix}-table-wrap`,
+                          style: { overflowX: 'auto', marginBottom: '12px' }
+                        },
+                        React.createElement(
+                          'table',
+                          {
+                            ...props,
+                            style: {
+                              width: '100%',
+                              borderCollapse: 'collapse',
+                              ...(props.style || {})
+                            }
+                          },
+                          children.length ? children : undefined
+                        )
+                      );
+                    }
+
+                    if ((tag === 'ul' || tag === 'ol') && !props.style) {
+                      props.style = {
+                        paddingLeft: '1.25rem',
+                        marginBottom: '0.75rem'
+                      };
+                    }
 
                     return React.createElement(tag, props, children.length ? children : undefined);
                   };
