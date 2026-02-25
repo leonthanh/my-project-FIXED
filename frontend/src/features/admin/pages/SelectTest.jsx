@@ -1,10 +1,15 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { StudentNavbar, AdminNavbar } from "../../../shared/components";
 import { apiPath, hostPath } from "../../../shared/utils/api";
 import { canManageCategory } from "../../../shared/utils/permissions";
+import { TEST_CONFIGS } from "../../../shared/config/questionTypes";
 
 import "./SelectTest.css";
+// import Cambridge styles so we can reuse them for Orange platform
+import "../../cambridge/pages/SelectCambridgeTest.css";
+// bring in Cambridge styles so we can reuse classes when the teacher views Orange platform
+import "../../cambridge/pages/SelectCambridgeTest.css";
 
 const SelectTest = () => {
   const user = JSON.parse(localStorage.getItem("user"));
@@ -16,12 +21,39 @@ const SelectTest = () => {
     listening: [],
     cambridge: [],
   });
-  const [activeTab, setActiveTab] = useState("writing");
+  const [activePlatform, setActivePlatform] = useState("ix");
+  const [activeIxTab, setActiveIxTab] = useState("writing");
+  const [activeOrangeType, setActiveOrangeType] = useState("ket");
+  const [activeOrangeTab, setActiveOrangeTab] = useState("listening");
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [sortMode, setSortMode] = useState("newest");
   const [visibleCount, setVisibleCount] = useState(12);
   const navigate = useNavigate();
+
+  const orangeTypes = ["ket", "pet", "flyers", "movers", "starters"];
+  // map each orange type to the emoji used in student Cambridge page
+  const orangeTypeIcons = {
+    ket: "🔑",
+    pet: "📘",
+    flyers: "✈️",
+    movers: "🚗",
+    starters: "⭐",
+  };
+  const orangeTypeNames = {
+    ket: "KET (A2 Key)",
+    pet: "PET (B1 Preliminary)",
+    flyers: "Flyers (A2)",
+    movers: "Movers (A1)",
+    starters: "Starters (Pre-A1)",
+  };
+
+  // for info box we need to look up TEST_CONFIGS just like Cambridge page does
+  const getOrangeConfig = () => {
+    // writing is always pet-writing in orange
+    const key = activeOrangeTab === "writing" ? "pet-writing" : `${activeOrangeType}-${activeOrangeTab}`;
+    return TEST_CONFIGS[key] || {};
+  };
 
   useEffect(() => {
     const fetchAllTests = async () => {
@@ -73,7 +105,13 @@ const SelectTest = () => {
     setVisibleCount(12);
     setSearchQuery("");
     setSortMode("newest");
-  }, [activeTab]);
+  }, [activePlatform, activeIxTab, activeOrangeType, activeOrangeTab]);
+
+  useEffect(() => {
+    if (activeOrangeType !== "pet" && activeOrangeTab === "writing") {
+      setActiveOrangeTab("listening");
+    }
+  }, [activeOrangeType, activeOrangeTab]);
 
   const handleSelectWriting = (test) => {
     const numericId = parseInt(test.id, 10);
@@ -206,7 +244,47 @@ const SelectTest = () => {
     return sorted;
   };
 
-  const activeList = filterAndSort(tests[activeTab], activeTab);
+  const orangeFilteredByType = useMemo(() => {
+    return (tests.cambridge || []).filter((test) => {
+      const testTypeRaw = String(test?.testType || "").toLowerCase();
+      if (testTypeRaw === "pet-writing") return activeOrangeType === "pet";
+      return testTypeRaw.startsWith(`${activeOrangeType}-`);
+    });
+  }, [tests.cambridge, activeOrangeType]);
+
+  const orangeCounts = useMemo(() => {
+    const listening = orangeFilteredByType.filter((t) => String(t?.category || "").toLowerCase() === "listening").length;
+    const reading = orangeFilteredByType.filter((t) => String(t?.category || "").toLowerCase() === "reading").length;
+    const writing = orangeFilteredByType.filter((t) => String(t?.testType || "").toLowerCase() === "pet-writing").length;
+    return { listening, reading, writing };
+  }, [orangeFilteredByType]);
+
+  const currentContext = useMemo(() => {
+    if (activePlatform === "ix") {
+      return {
+        list: tests[activeIxTab] || [],
+        displayType: activeIxTab,
+        categoryForPermission: activeIxTab,
+        isOrange: false,
+      };
+    }
+
+    const selected = orangeFilteredByType.filter((test) => {
+      if (activeOrangeTab === "writing") {
+        return String(test?.testType || "").toLowerCase() === "pet-writing";
+      }
+      return String(test?.category || "").toLowerCase() === activeOrangeTab;
+    });
+
+    return {
+      list: selected,
+      displayType: "cambridge",
+      categoryForPermission: activeOrangeTab,
+      isOrange: true,
+    };
+  }, [activePlatform, activeIxTab, activeOrangeTab, tests, orangeFilteredByType]);
+
+  const activeList = filterAndSort(currentContext.list, currentContext.displayType);
   const visibleList = activeList.slice(0, visibleCount);
   const remainingCount = Math.max(0, activeList.length - visibleList.length);
 
@@ -225,22 +303,83 @@ const SelectTest = () => {
 
           {/* Tab Navigation */}
           <div className="select-test-tabs">
-            {["writing", "reading", "listening", "cambridge"].map((tab) => (
+            {[
+              { key: "ix", label: "📚 IX" },
+              { key: "orange", label: "🍊 Orange" },
+            ].map((tab) => (
               <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                className={`select-test-tab ${activeTab === tab ? "active" : ""}`}
+                key={tab.key}
+                onClick={() => setActivePlatform(tab.key)}
+                className={`select-test-tab ${activePlatform === tab.key ? "active" : ""}`}
               >
-                {tab === "writing"
-                  ? "📝 Writing"
-                  : tab === "reading"
-                  ? "📖 Reading"
-                  : tab === "listening"
-                  ? "🎧 Listening"
-                  : "🍊 Orange"}
+                {tab.label}
               </button>
             ))}
           </div>
+
+          {activePlatform === "ix" ? (
+            <div className="select-test-subtabs">
+              {["writing", "reading", "listening"].map((tab) => (
+                <button
+                  key={tab}
+                  onClick={() => setActiveIxTab(tab)}
+                  className={`select-test-tab select-test-subtab ${activeIxTab === tab ? "active" : ""}`}
+                >
+                  {tab === "writing" ? "📝 Writing" : tab === "reading" ? "📖 Reading" : "🎧 Listening"}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <>
+              {/* orange platform uses Cambridge-style tabs */}
+              <div className="cambridge-type-list">
+                {orangeTypes.map((type) => (
+                  <button
+                    key={type}
+                    onClick={() => setActiveOrangeType(type)}
+                    className={`cambridge-type-btn${activeOrangeType === type ? " cambridge-type-btn--active" : ""}`}
+                  >
+                    {orangeTypeIcons[type] || ""} {orangeTypeNames[type] || type.toUpperCase()}
+                  </button>
+                ))}
+              </div>
+
+              <div className="cambridge-tabs">
+                {[
+                  { key: "listening", label: "🎧 Listening", count: orangeCounts.listening },
+                  { key: "reading", label: "📖 Reading", count: orangeCounts.reading },
+                  ...(activeOrangeType === "pet"
+                    ? [{ key: "writing", label: "📝 Writing", count: orangeCounts.writing }]
+                    : []),
+                ].map((skill) => (
+                  <button
+                    key={skill.key}
+                    onClick={() => setActiveOrangeTab(skill.key)}
+                    className={`cambridge-tab${activeOrangeTab === skill.key ? " cambridge-tab--active" : ""}`}
+                  >
+                    {skill.label} <span className="cambridge-tab__badge">{skill.count}</span>
+                  </button>
+                ))}
+              </div>
+
+              {/* info box like student page */}
+              <div className="cambridge-info">
+                <div className="cambridge-info__icon">
+                  {orangeTypeIcons[activeOrangeType] || ""}
+                </div>
+                <div>
+                  <h3 className="cambridge-info__title">
+                    {`${activeOrangeType.toUpperCase()} - ${
+                      activeOrangeTab.charAt(0).toUpperCase() + activeOrangeTab.slice(1)
+                    }`}
+                  </h3>
+                  <p className="cambridge-info__meta">
+                    {getOrangeConfig().totalQuestions || "?"} câu hỏi • {getOrangeConfig().parts || "?"} parts • {getOrangeConfig().duration || "?"} phút
+                  </p>
+                </div>
+              </div>
+            </>
+          )}
 
           <div className="select-test-controls">
             <input
@@ -280,57 +419,119 @@ const SelectTest = () => {
                 ) : null}
               </div>
 
-              <div className="select-test-grid">
-                {visibleList.map((test, index) => {
-                  const title = getTestTitle(test, activeTab, index + 1);
-                  const icon = getTestIcon(activeTab);
-                  const classCode = test.classCode || "N/A";
-                  const teacherName = test.teacherName || "N/A";
+              <div className={`select-test-grid${currentContext.isOrange ? ' select-test-grid--full' : ''}`}>
+                {currentContext.isOrange ? (
+                  <div className="cambridge-test-list">
+                    {visibleList.map((test, index) => {
+                      const classCode = test.classCode || "N/A";
+                      const teacherName = test.teacherName || "N/A";
 
-                  return (
-                    <div
-                      key={
-                        activeTab === "cambridge"
-                          ? `cambridge-${test.category || "unknown"}-${test.id}`
-                          : `${activeTab}-${test.id}`
+                      // decide icon and title depending on orange skill
+                      let iconForSkill = "🏆";
+                      let displayTitle = "";
+                      if (activeOrangeTab === "writing") {
+                        iconForSkill = "✍️";
+                        displayTitle = "Writing";
+                      } else if (activeOrangeTab === "reading") {
+                        iconForSkill = "📖";
+                        displayTitle = "Reading";
+                      } else if (activeOrangeTab === "listening") {
+                        iconForSkill = "🎧";
+                        displayTitle = "Listening";
                       }
-                      className="select-test-card"
-                    >
-                      <button
-                        type="button"
-                        className="select-test-cardMain"
-                        onClick={() => {
-                          if (activeTab === "writing") handleSelectWriting(test);
-                          else if (activeTab === "reading") handleSelectReading(test.id);
-                          else if (activeTab === "listening") handleSelectListening(test.id);
-                          else if (activeTab === "cambridge") handleSelectCambridge(test);
-                        }}
-                      >
-                        <div className="select-test-cardTitle">
-                          <span className="select-test-cardIcon">{icon}</span>
-                          <span className="select-test-cardText">{title}</span>
-                        </div>
 
-                        <div className="select-test-cardMeta">
-                          <div>
-                            <span className="select-test-chip">{classCode}</span>
+                      return (
+                        <div
+                          key={`cambridge-${test.category || "unknown"}-${test.id}`}
+                          className="cambridge-test-item"
+                        >
+                          <div className="cambridge-test-row">
+                            <button
+                              type="button"
+                              className="cambridge-test-main"
+                              onClick={() => handleSelectCambridge(test)}
+                            >
+                              <div className="cambridge-test-main__content">
+                                <span className="cambridge-test-main__icon">
+                                  {iconForSkill}
+                                </span>
+                                <div>
+                                  <h3 className="cambridge-test-main__title">
+                                    {displayTitle}
+                                  </h3>
+                                  <div className="cambridge-test-main__meta">
+                                    📚 {classCode} • 👨‍🏫 {teacherName} • 📊 {getOrangeConfig().totalQuestions || "?"} câu • ⏱️ {getOrangeConfig().duration || "?"} phút
+                                  </div>
+                                </div>
+                              </div>
+                            </button>
+                            {canManageCategory(user, currentContext.categoryForPermission) && (
+                              <button
+                                type="button"
+                                className="cambridge-btn cambridge-btn--warning"
+                                onClick={() => handleEdit(test.id, "cambridge", test)}
+                              >
+                                ✏️ Sửa đề
+                              </button>
+                            )}
                           </div>
-                          <div className="select-test-cardTeacher">{teacherName}</div>
                         </div>
-                      </button>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  visibleList.map((test, index) => {
+                    const title = getTestTitle(test, currentContext.displayType, index + 1);
+                    const icon = getTestIcon(currentContext.displayType);
+                    const classCode = test.classCode || "N/A";
+                    const teacherName = test.teacherName || "N/A";
 
-                      {canManageCategory(user, activeTab) ? (
+                    return (
+                      <div
+                        key={
+                          currentContext.isOrange
+                            ? `cambridge-${test.category || "unknown"}-${test.id}`
+                            : `${activeIxTab}-${test.id}`
+                        }
+                        className="select-test-card"
+                      >
                         <button
                           type="button"
-                          className="select-test-edit"
-                          onClick={() => handleEdit(test.id, activeTab, test)}
+                          className="select-test-cardMain"
+                          onClick={() => {
+                            if (activeIxTab === "writing") handleSelectWriting(test);
+                            else if (activeIxTab === "reading") handleSelectReading(test.id);
+                            else if (activeIxTab === "listening") handleSelectListening(test.id);
+                          }}
                         >
-                          ✏️ Sửa đề
+                          <div className="select-test-cardTitle">
+                            <span className="select-test-cardIcon">{icon}</span>
+                            <span className="select-test-cardText">{title}</span>
+                          </div>
+
+                          <div className="select-test-cardMeta">
+                            <div>
+                              <span className="select-test-chip">{classCode}</span>
+                            </div>
+                            <div className="select-test-cardTeacher">{teacherName}</div>
+                          </div>
                         </button>
-                      ) : null}
-                    </div>
-                  );
-                })}
+
+                        {canManageCategory(user, currentContext.categoryForPermission) ? (
+                          <button
+                            type="button"
+                            className="select-test-edit"
+                            onClick={() => {
+                              handleEdit(test.id, activeIxTab, test);
+                            }}
+                          >
+                            ✏️ Sửa đề
+                          </button>
+                        ) : null}
+                      </div>
+                    );
+                  })
+                )}
               </div>
 
               {remainingCount > 0 ? (

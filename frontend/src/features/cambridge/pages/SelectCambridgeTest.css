@@ -171,6 +171,8 @@
   background-color: #fff;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
   transition: transform 0.2s ease, box-shadow 0.2s ease;
+  width: 100%; /* span entire column width */
+  box-sizing: border-box;
 }
 
 .cambridge-test-item:hover {
