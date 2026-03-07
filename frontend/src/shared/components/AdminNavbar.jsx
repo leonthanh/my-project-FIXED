@@ -152,6 +152,35 @@ const AdminNavbar = () => {
               </Link>
 
               <div className="adminNavbar__menuHeader adminNavbar__menuHeader--spaced">
+                🧒 Young Learners (Flyers / Movers / Starters)
+              </div>
+              {canManageCategory(user, 'reading') && (
+                <>
+                  <Link
+                    to="/admin/create/flyers"
+                    className="adminNavbar__menuItem"
+                    onClick={() => setCambridgeDropdownVisible(false)}
+                  >
+                    ✈️ Flyers (A2)
+                  </Link>
+                  <Link
+                    to="/admin/create/movers"
+                    className="adminNavbar__menuItem"
+                    onClick={() => setCambridgeDropdownVisible(false)}
+                  >
+                    🚗 Movers (A1)
+                  </Link>
+                  <Link
+                    to="/admin/create/starters"
+                    className="adminNavbar__menuItem"
+                    onClick={() => setCambridgeDropdownVisible(false)}
+                  >
+                    ⭐ Starters (Pre-A1)
+                  </Link>
+                </>
+              )}
+
+              <div className="adminNavbar__menuHeader adminNavbar__menuHeader--spaced">
                 📊 Management
               </div>
               <Link

@@ -734,7 +734,7 @@ export const TEST_CONFIGS = {
     id: 'movers',
     name: 'Cambridge Movers',
     nameVi: 'Cambridge Movers (A1)',
-    totalQuestions: 40,
+    totalQuestions: 35,
     parts: 6,
     duration: 30, // minutes (reading & writing)
     questionTypes: [
@@ -743,14 +743,17 @@ export const TEST_CONFIGS = {
       'abc',
       'fill',
       'tick-cross',
+      'cloze-mc',
+      'word-form',
+      'short-message',
     ],
     partStructure: [
-      { part: 1, questions: '1-5', description: 'Matching Names to People' },
-      { part: 2, questions: '6-10', description: 'True/False Picture' },
-      { part: 3, questions: '11-16', description: 'Conversation Gap Fill' },
-      { part: 4, questions: '17-23', description: 'Text Gap Fill' },
-      { part: 5, questions: '24-29', description: 'Story Completion' },
-      { part: 6, questions: '30-35', description: 'Story Writing' },
+      { part: 1, questions: '1-5', description: 'Word and definition matching' },
+      { part: 2, questions: '6-10', description: 'Short dialogues - choose A/B/C' },
+      { part: 3, questions: '11-15', description: 'Story gap fill - choose A/B/C' },
+      { part: 4, questions: '16-22', description: 'Cloze with options' },
+      { part: 5, questions: '23-29', description: 'Story short answers (1-3 words)' },
+      { part: 6, questions: '30-35', description: 'Picture-based sentences and writing' },
     ],
   },
 

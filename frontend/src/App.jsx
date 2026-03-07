@@ -148,9 +148,30 @@ function App() {
           </ProtectedRoute>
         } />
         {/* Generic Cambridge create routes (PET/Flyers/Movers/Starters...) */}
+        <Route path="/admin/create/:testType" element={
+          <ProtectedRoute role="teacher">
+            <CreateCambridgeTest />
+          </ProtectedRoute>
+        } />
         <Route path="/admin/create-:testType" element={
           <ProtectedRoute role="teacher">
             <CreateCambridgeTest />
+          </ProtectedRoute>
+        } />
+        {/* Legacy compatibility for direct links */}
+        <Route path="/admin/create-flyers" element={
+          <ProtectedRoute role="teacher">
+            <Navigate to="/admin/create/flyers" replace />
+          </ProtectedRoute>
+        } />
+        <Route path="/admin/create-movers" element={
+          <ProtectedRoute role="teacher">
+            <Navigate to="/admin/create/movers" replace />
+          </ProtectedRoute>
+        } />
+        <Route path="/admin/create-starters" element={
+          <ProtectedRoute role="teacher">
+            <Navigate to="/admin/create/starters" replace />
           </ProtectedRoute>
         } />
         <Route path="/cambridge/reading/:id/edit" element={

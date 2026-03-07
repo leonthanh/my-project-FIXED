@@ -17,6 +17,7 @@ import { apiPath, hostPath, authFetch } from "../../shared/utils/api";
 import useQuillImageUpload from "../../shared/hooks/useQuillImageUpload";
 import { canManageCategory } from '../../shared/utils/permissions';
 import { computeQuestionStarts, getQuestionCountForSection } from "./utils/questionNumbering";
+import { buildMoversPracticeTest1Template } from "./utils/moversPracticeTest1Template";
 
 
 /**
@@ -25,7 +26,12 @@ import { computeQuestionStarts, getQuestionCountForSection } from "./utils/quest
  */
 const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initialData = null, resetDraftOnLoad = false }) => {
   const navigate = useNavigate();
-  const user = JSON.parse(localStorage.getItem('user'));
+  let user = null;
+  try {
+    user = JSON.parse(localStorage.getItem('user') || 'null');
+  } catch (e) {
+    user = null;
+  }
 
   const testConfig = getTestConfig(testType);
   const availableTypes = getQuestionTypesForTest(testType);
@@ -224,6 +230,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
 
   const currentPart = parts[selectedPartIndex];
   const currentSection = currentPart?.sections?.[selectedSectionIndex];
+  const isMoversReading = !isListeningTest && String(testType || '').toLowerCase() === 'movers';
 
   const uploadAudioForPart = async (partIndex, file) => {
     if (!file) return;
@@ -401,6 +408,28 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
       });
       return { ...part, sections: nextSections };
     }));
+  };
+
+  const handleLoadMoversTemplate = () => {
+    const hasMeaningfulDraft =
+      title.trim() ||
+      classCode.trim() ||
+      teacherName.trim() ||
+      (Array.isArray(parts) && parts.length > 1);
+
+    if (hasMeaningfulDraft) {
+      const confirmed = window.confirm('Nạp template sẽ ghi đe phan noi dung dang tao. Ban co muon tiep tuc khong?');
+      if (!confirmed) return;
+    }
+
+    const template = buildMoversPracticeTest1Template();
+    setTitle(template.title || 'Movers Reading & Writing Practice Test 1');
+    setTeacherName(template.teacherName || '');
+    setMainAudioUrl(template.mainAudioUrl || '');
+    setParts(Array.isArray(template.parts) && template.parts.length > 0 ? template.parts : getInitialParts());
+    setSelectedPartIndex(0);
+    setSelectedSectionIndex(0);
+    setMessage({ type: 'success', text: '✅ Da nap Movers Practice Test 1. Ban co the chinh sua noi dung ngay tren builder.' });
   };
 
   const handleDeleteQuestion = (qIndex) => {
@@ -895,22 +924,44 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
               {isSaving ? '💾' : lastSaved ? `✅ ${lastSaved.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}` : '○'}
             </div>
           </div>
-          <button
-            onClick={handleSave}
-            disabled={isSubmitting}
-            style={{
-              padding: '8px 16px',
-              backgroundColor: isSubmitting ? '#94a3b8' : '#3b82f6',
-              color: 'white',
-              border: 'none',
-              borderRadius: '6px',
-              cursor: isSubmitting ? 'not-allowed' : 'pointer',
-              fontWeight: 600,
-              fontSize: '13px',
-            }}
-          >
-            {isSubmitting ? '⏳' : '💾 Lưu'}
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            {isMoversReading && (
+              <button
+                type="button"
+                onClick={handleLoadMoversTemplate}
+                disabled={isSubmitting}
+                style={{
+                  padding: '8px 12px',
+                  backgroundColor: '#f59e0b',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: isSubmitting ? 'not-allowed' : 'pointer',
+                  fontWeight: 600,
+                  fontSize: '12px',
+                }}
+                title="Nạp nhanh bo Movers Practice Test 1"
+              >
+                ⚡ Nạp Template Movers
+              </button>
+            )}
+            <button
+              onClick={handleSave}
+              disabled={isSubmitting}
+              style={{
+                padding: '8px 16px',
+                backgroundColor: isSubmitting ? '#94a3b8' : '#3b82f6',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: isSubmitting ? 'not-allowed' : 'pointer',
+                fontWeight: 600,
+                fontSize: '13px',
+              }}
+            >
+              {isSubmitting ? '⏳' : '💾 Lưu'}
+            </button>
+          </div>
         </div>
 
         {/* Message */}
