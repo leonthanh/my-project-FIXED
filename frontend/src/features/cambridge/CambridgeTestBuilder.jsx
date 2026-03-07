@@ -34,8 +34,21 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
   }
 
   const testConfig = getTestConfig(testType);
-  const availableTypes = getQuestionTypesForTest(testType);
   const isListeningTest = testType.includes('listening');
+  const youngLearnerSupportedTypeMap = {
+    movers: ['matching-pictures', 'fill', 'abc', 'cloze-mc', 'word-form', 'short-message'],
+  };
+  const supportedTypeIds = youngLearnerSupportedTypeMap[testType] || null;
+  const availableTypes = useMemo(() => {
+    const baseTypes = getQuestionTypesForTest(testType);
+    if (!supportedTypeIds) return baseTypes;
+    return baseTypes.filter((type) => supportedTypeIds.includes(type.id));
+  }, [supportedTypeIds, testType]);
+  const defaultQuestionType = availableTypes[0]?.id || 'fill';
+  const builderDisplayName = useMemo(() => {
+    if (testType === 'movers') return 'Cambridge Movers Reading & Writing';
+    return testConfig?.name || 'Cambridge Test';
+  }, [testConfig?.name, testType]);
 
   // Hooks (must run unconditionally)
   const { quillRef: partInstructionRef, modules: partInstructionModules } = useQuillImageUpload();
@@ -174,8 +187,8 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
         sections: [
           {
             sectionTitle: '',
-            questionType: availableTypes[0]?.id || 'fill',
-            questions: [getDefaultQuestionData(availableTypes[0]?.id || 'fill')],
+            questionType: defaultQuestionType,
+            questions: [getDefaultQuestionData(defaultQuestionType)],
           }
         ]
       }
@@ -205,7 +218,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
         setParts(normalizePeopleMatchingIds(partsData));
       }
     }
-  }, [initialData, normalizePeopleMatchingIds]);
+  }, [defaultQuestionType, initialData, normalizePeopleMatchingIds]);
 
   // State - Load from savedData if available
   const [parts, setParts] = useState(getInitialParts());
@@ -368,8 +381,8 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
         sections: [
           {
             sectionTitle: '',
-            questionType: availableTypes[0]?.id || 'fill',
-            questions: [getDefaultQuestionData(availableTypes[0]?.id || 'fill')],
+            questionType: defaultQuestionType,
+            questions: [getDefaultQuestionData(defaultQuestionType)],
           }
         ]
       }
@@ -381,8 +394,8 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
   const handleAddSection = () => {
     const nextSection = {
       sectionTitle: '',
-      questionType: availableTypes[0]?.id || 'fill',
-      questions: [getDefaultQuestionData(availableTypes[0]?.id || 'fill')],
+      questionType: defaultQuestionType,
+      questions: [getDefaultQuestionData(defaultQuestionType)],
     };
 
     setParts(prevParts => prevParts.map((part, pIdx) => {
@@ -466,11 +479,20 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
   // Paste copied question
   const handlePasteQuestion = () => {
     if (!copiedQuestion) return;
-    const newParts = [...parts];
-    newParts[selectedPartIndex].sections[selectedSectionIndex].questions.push({
-      ...JSON.parse(JSON.stringify(copiedQuestion)) // Deep copy
-    });
-    setParts(newParts);
+    setParts(prevParts => prevParts.map((part, pIdx) => {
+      if (pIdx !== selectedPartIndex) return part;
+      const nextSections = (part.sections || []).map((section, sIdx) => {
+        if (sIdx !== selectedSectionIndex) return section;
+        return {
+          ...section,
+          questions: [
+            ...(section.questions || []),
+            { ...JSON.parse(JSON.stringify(copiedQuestion)) },
+          ],
+        };
+      });
+      return { ...part, sections: nextSections };
+    }));
   };
 
   // Drag start handler
@@ -509,12 +531,17 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
       return;
     }
 
-    const newParts = [...parts];
-    const questions = newParts[selectedPartIndex].sections[selectedSectionIndex].questions;
-    const [movedQuestion] = questions.splice(sourceQIdx, 1);
-    questions.splice(targetQIdx, 0, movedQuestion);
-    
-    setParts(newParts);
+    setParts(prevParts => prevParts.map((part, pIdx) => {
+      if (pIdx !== selectedPartIndex) return part;
+      const nextSections = (part.sections || []).map((section, sIdx) => {
+        if (sIdx !== selectedSectionIndex) return section;
+        const questions = [...(section.questions || [])];
+        const [movedQuestion] = questions.splice(sourceQIdx, 1);
+        questions.splice(targetQIdx, 0, movedQuestion);
+        return { ...section, questions };
+      });
+      return { ...part, sections: nextSections };
+    }));
     setDraggedQuestion(null);
     setDragSource(null);
   };
@@ -703,6 +730,10 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
 
       // Redirect after success
       setTimeout(() => {
+        if (['movers', 'flyers', 'starters'].includes(testType)) {
+          navigate(`/select-test?platform=orange&type=${testType}&tab=reading`);
+          return;
+        }
         navigate('/select-test');
       }, 1500);
     } catch (error) {
@@ -776,7 +807,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
           marginBottom: '20px',
         }}>
           <h3 style={{ margin: '0 0 8px', fontSize: '16px' }}>
-            🎓 {testConfig.name}
+            🎓 {builderDisplayName}
           </h3>
           <div style={{ fontSize: '12px', color: '#94a3b8' }}>
             <p style={{ margin: '4px 0' }}>📊 {testConfig.totalQuestions} câu hỏi</p>
@@ -913,7 +944,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <h1 style={{ margin: 0, fontSize: '18px', color: '#1e293b', fontWeight: 600 }}>
-              🎓 {testConfig.name}
+              🎓 {builderDisplayName}
             </h1>
             {/* Auto-save indicator */}
             <div style={{
@@ -1183,9 +1214,10 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
                   theme="snow"
                   value={typeof currentPart?.instruction === 'string' ? currentPart.instruction : ''}
                   onChange={(content) => {
-                    const newParts = [...parts];
-                    newParts[selectedPartIndex].instruction = content || '';
-                    setParts(newParts);
+                    setParts(prevParts => prevParts.map((part, pIdx) => {
+                      if (pIdx !== selectedPartIndex) return part;
+                      return { ...part, instruction: content || '' };
+                    }));
                   }}
                   placeholder="Nhập hướng dẫn cho part này..."
                   modules={partInstructionModules}
@@ -1257,9 +1289,10 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
                         <button
                           type="button"
                           onClick={() => {
-                            const newParts = [...parts];
-                            newParts[selectedPartIndex].audioUrl = '';
-                            setParts(newParts);
+                            setParts(prevParts => prevParts.map((part, pIdx) => {
+                              if (pIdx !== selectedPartIndex) return part;
+                              return { ...part, audioUrl: '' };
+                            }));
                           }}
                           style={{
                             border: '1px solid #ef4444',
@@ -1336,6 +1369,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
                   </label>
                   <QuestionTypeSelector
                     testType={testType}
+                    questionTypes={availableTypes}
                     value={currentSection.questionType}
                     onChange={handleQuestionTypeChange}
                     style={{ maxWidth: '400px' }}
@@ -1409,7 +1443,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
                             </span>
                             
                             {/* Chỉ hiện số câu hỏi cho question types đơn giản, không hiện cho multi-question types */}
-                            {!['long-text-mc', 'cloze-mc', 'cloze-test', 'short-message', 'people-matching', 'word-form'].includes(currentSection.questionType) && (
+                            {!['long-text-mc', 'cloze-mc', 'cloze-test', 'short-message', 'people-matching', 'word-form', 'matching-pictures'].includes(currentSection.questionType) && (
                               <span style={{ 
                                 fontWeight: 600, 
                                 color: '#6366f1',
@@ -1544,7 +1578,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
                                 }));
                               }}
                               questionIndex={qIdx}
-                              startingNumber={['long-text-mc', 'cloze-mc', 'cloze-test', 'short-message', 'people-matching', 'word-form'].includes(currentSection.questionType) ? sectionStartNum : startNum}
+                              startingNumber={['long-text-mc', 'cloze-mc', 'cloze-test', 'short-message', 'people-matching', 'word-form', 'matching-pictures'].includes(currentSection.questionType) ? sectionStartNum : startNum}
                               partIndex={selectedPartIndex}
                             />
                           </div>
@@ -1584,7 +1618,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
           border: '1px solid #bae6fd',
         }}>
           <h3 style={{ margin: '0 0 16px', color: '#0369a1' }}>
-            📖 Cấu trúc đề chuẩn {testConfig.name}
+                    📖 Cấu trúc đề chuẩn {builderDisplayName}
           </h3>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
             <thead>

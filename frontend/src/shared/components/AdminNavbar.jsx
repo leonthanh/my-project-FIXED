@@ -154,30 +154,46 @@ const AdminNavbar = () => {
               <div className="adminNavbar__menuHeader adminNavbar__menuHeader--spaced">
                 🧒 Young Learners (Flyers / Movers / Starters)
               </div>
+              <div className="adminNavbar__menuHeader">✈️ Flyers (A2)</div>
+              <span className="adminNavbar__menuItem adminNavbar__menuItem--disabled">
+                🎧 Listening (làm sau)
+              </span>
               {canManageCategory(user, 'reading') && (
-                <>
-                  <Link
-                    to="/admin/create/flyers"
-                    className="adminNavbar__menuItem"
-                    onClick={() => setCambridgeDropdownVisible(false)}
-                  >
-                    ✈️ Flyers (A2)
-                  </Link>
-                  <Link
-                    to="/admin/create/movers"
-                    className="adminNavbar__menuItem"
-                    onClick={() => setCambridgeDropdownVisible(false)}
-                  >
-                    🚗 Movers (A1)
-                  </Link>
-                  <Link
-                    to="/admin/create/starters"
-                    className="adminNavbar__menuItem"
-                    onClick={() => setCambridgeDropdownVisible(false)}
-                  >
-                    ⭐ Starters (Pre-A1)
-                  </Link>
-                </>
+                <Link
+                  to="/admin/create/flyers"
+                  className="adminNavbar__menuItem"
+                  onClick={() => setCambridgeDropdownVisible(false)}
+                >
+                  📖 Reading & Writing
+                </Link>
+              )}
+
+              <div className="adminNavbar__menuHeader">🚗 Movers (A1)</div>
+              <span className="adminNavbar__menuItem adminNavbar__menuItem--disabled">
+                🎧 Listening (làm sau)
+              </span>
+              {canManageCategory(user, 'reading') && (
+                <Link
+                  to="/admin/create/movers"
+                  className="adminNavbar__menuItem"
+                  onClick={() => setCambridgeDropdownVisible(false)}
+                >
+                  📖 Reading & Writing
+                </Link>
+              )}
+
+              <div className="adminNavbar__menuHeader">⭐ Starters (Pre-A1)</div>
+              <span className="adminNavbar__menuItem adminNavbar__menuItem--disabled">
+                🎧 Listening (làm sau)
+              </span>
+              {canManageCategory(user, 'reading') && (
+                <Link
+                  to="/admin/create/starters"
+                  className="adminNavbar__menuItem"
+                  onClick={() => setCambridgeDropdownVisible(false)}
+                >
+                  📖 Reading & Writing
+                </Link>
               )}
 
               <div className="adminNavbar__menuHeader adminNavbar__menuHeader--spaced">

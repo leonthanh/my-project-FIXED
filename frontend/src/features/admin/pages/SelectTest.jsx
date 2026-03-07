@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { StudentNavbar, AdminNavbar } from "../../../shared/components";
 import { apiPath, hostPath } from "../../../shared/utils/api";
 import { canManageCategory } from "../../../shared/utils/permissions";
@@ -30,6 +30,7 @@ const SelectTest = () => {
   const [sortMode, setSortMode] = useState("newest");
   const [visibleCount, setVisibleCount] = useState(12);
   const navigate = useNavigate();
+  const location = useLocation();
 
   const orangeTypes = ["ket", "pet", "flyers", "movers", "starters"];
   // map each orange type to the emoji used in student Cambridge page
@@ -102,6 +103,23 @@ const SelectTest = () => {
   }, []);
 
   useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const platform = params.get('platform');
+    const type = params.get('type');
+    const tab = params.get('tab');
+
+    if (platform === 'orange') {
+      setActivePlatform('orange');
+    }
+    if (type && orangeTypes.includes(type)) {
+      setActiveOrangeType(type);
+    }
+    if (tab && ['listening', 'reading', 'writing'].includes(tab)) {
+      setActiveOrangeTab(tab);
+    }
+  }, [location.search]);
+
+  useEffect(() => {
     setVisibleCount(12);
     setSearchQuery("");
     setSortMode("newest");
@@ -149,12 +167,13 @@ const SelectTest = () => {
     }
     // Navigate with testType for proper config loading
     // testType format: "ket-reading", "pet-listening", etc.
-    const testType = test.testType || 'ket-reading'; // fallback
-    /* eslint-disable-next-line no-unused-vars */
-    const category = test.category || 'reading';
+    const rawTestType = String(test.testType || 'ket-reading').toLowerCase();
+    const category = String(test.category || 'reading').toLowerCase();
+    const hasSkillSuffix = rawTestType.includes('-reading') || rawTestType.includes('-listening');
+    const resolvedTestType = hasSkillSuffix ? rawTestType : `${rawTestType}-${category}`;
     
     // Use testType-based URL for proper config
-    navigate(`/cambridge/${testType}/${test.id}`);
+    navigate(`/cambridge/${resolvedTestType}/${test.id}`);
   };
 
   const handleEdit = (testId, testType, test = null) => {
@@ -183,6 +202,17 @@ const SelectTest = () => {
   };
 
   const normalizeText = (value) => String(value ?? "").toLowerCase();
+  const getCambridgeCategory = (test) => {
+    const rawType = String(test?.testType || "").toLowerCase();
+    const rawCategory = String(test?.category || "").toLowerCase();
+    if (rawCategory === "reading" || rawCategory === "listening" || rawCategory === "writing") {
+      return rawCategory;
+    }
+    if (rawType.includes("listening")) return "listening";
+    if (rawType === "pet-writing") return "writing";
+    // Movers/Flyers/Starters and generic reading tests default to reading.
+    return "reading";
+  };
   const getTestTitle = (test, testType, fallbackIndex) => {
     if (testType === "cambridge") {
       if (test.testType === "pet-writing" || test.category === "writing") {
@@ -248,13 +278,13 @@ const SelectTest = () => {
     return (tests.cambridge || []).filter((test) => {
       const testTypeRaw = String(test?.testType || "").toLowerCase();
       if (testTypeRaw === "pet-writing") return activeOrangeType === "pet";
-      return testTypeRaw.startsWith(`${activeOrangeType}-`);
+      return testTypeRaw === activeOrangeType || testTypeRaw.startsWith(`${activeOrangeType}-`);
     });
   }, [tests.cambridge, activeOrangeType]);
 
   const orangeCounts = useMemo(() => {
-    const listening = orangeFilteredByType.filter((t) => String(t?.category || "").toLowerCase() === "listening").length;
-    const reading = orangeFilteredByType.filter((t) => String(t?.category || "").toLowerCase() === "reading").length;
+    const listening = orangeFilteredByType.filter((t) => getCambridgeCategory(t) === "listening").length;
+    const reading = orangeFilteredByType.filter((t) => getCambridgeCategory(t) === "reading").length;
     const writing = orangeFilteredByType.filter((t) => String(t?.testType || "").toLowerCase() === "pet-writing").length;
     return { listening, reading, writing };
   }, [orangeFilteredByType]);
@@ -273,7 +303,7 @@ const SelectTest = () => {
       if (activeOrangeTab === "writing") {
         return String(test?.testType || "").toLowerCase() === "pet-writing";
       }
-      return String(test?.category || "").toLowerCase() === activeOrangeTab;
+      return getCambridgeCategory(test) === activeOrangeTab;
     });
 
     return {

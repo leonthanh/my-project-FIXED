@@ -6,6 +6,7 @@ import { TestHeader } from "../../../shared/components";
 import { TEST_CONFIGS } from "../../../shared/config/questionTypes";
 import QuestionDisplayFactory from "../../../shared/components/questions/displays/QuestionDisplayFactory";
 import PeopleMatchingDisplay from "../../../shared/components/questions/displays/PeopleMatchingDisplay";
+import MatchingPicturesDisplay from "../../../shared/components/questions/displays/MatchingPicturesDisplay";
 /* eslint-disable-next-line no-unused-vars */
 import ClozeMCDisplay from "../../../shared/components/questions/displays/ClozeMCDisplay";
 import InlineChoiceDisplay from "../../../shared/components/questions/displays/InlineChoiceDisplay";
@@ -353,6 +354,29 @@ const DoCambridgeReadingTest = () => {
         return;
       }
 
+      if (questionType === 'matching-pictures' && q.prompt) {
+        const promptId = String(q.prompt?.id || q.prompt?.number || (q.promptIndex || 0) + 1);
+        const primaryKey = `${q.partIndex}-${q.sectionIndex}-${promptId}`;
+        const legacyKey = `${q.partIndex}-${q.sectionIndex}-${q.promptIndex || 0}`;
+        const userAnswer = answers[primaryKey] ?? answers[legacyKey];
+        const correctAnswer = q.prompt?.correctAnswer;
+
+        if (correctAnswer === undefined || correctAnswer === null) {
+          debugInfo.push(`Q${q.questionNumber}: No correctAnswer field`);
+          return;
+        }
+
+        scorableCount++;
+        if (!userAnswer) return;
+
+        if (normalize(userAnswer) === normalize(correctAnswer)) {
+          correct++;
+        } else {
+          incorrect++;
+        }
+        return;
+      }
+
       // Word-form: score each sentence using its own key
       if (questionType === 'word-form' && Array.isArray(q.question?.sentences)) {
         q.question.sentences.forEach((sentence, sentIdx) => {
@@ -586,6 +610,21 @@ const DoCambridgeReadingTest = () => {
                 part: part,
               });
             });
+          } else if (section.questionType === 'matching-pictures' && Array.isArray(q.prompts)) {
+            q.prompts.forEach((prompt, promptIdx) => {
+              questions.push({
+                partIndex: pIdx,
+                sectionIndex: sIdx,
+                questionIndex: qIdx,
+                promptIndex: promptIdx,
+                questionNumber: qNum++,
+                key: `${pIdx}-${sIdx}-${qIdx}-${promptIdx}`,
+                question: q,
+                prompt,
+                section,
+                part,
+              });
+            });
           } else {
             // Regular questions
             questions.push({
@@ -614,13 +653,23 @@ const DoCambridgeReadingTest = () => {
     return `${q.partIndex}-${q.sectionIndex}-${personId}`;
   }, []);
 
+  const getMatchingPicturesAnswerKey = useCallback((q) => {
+    const prompt = q.question?.prompts?.[q.promptIndex] || q.prompt || {};
+    const promptId = String(prompt?.id || prompt?.number || (q.promptIndex || 0) + 1);
+    return `${q.partIndex}-${q.sectionIndex}-${promptId}`;
+  }, []);
+
   const isQuestionAnswered = useCallback((q) => {
     if (q.section?.questionType === 'people-matching' || Array.isArray(q.question?.people)) {
       const key = getPeopleMatchingAnswerKey(q);
       return Boolean(answers[key] ?? answers[q.key]);
     }
+    if (q.section?.questionType === 'matching-pictures' || Array.isArray(q.question?.prompts)) {
+      const key = getMatchingPicturesAnswerKey(q);
+      return Boolean(answers[key] ?? answers[q.key]);
+    }
     return Boolean(answers[q.key]);
-  }, [answers, getPeopleMatchingAnswerKey]);
+  }, [answers, getMatchingPicturesAnswerKey, getPeopleMatchingAnswerKey]);
 
   // Get current question data
   const currentQuestion = useMemo(() => {
@@ -1924,6 +1973,42 @@ const DoCambridgeReadingTest = () => {
                       </div>
                     ))
                   }
+                </div>
+              ) : (currentQuestion.section.questionType === 'matching-pictures' || Array.isArray(currentQuestion.question?.prompts)) ? (
+                <div className={`cambridge-question-wrapper ${isQuestionAnswered(currentQuestion) ? 'answered' : ''} !w-full sm:!w-[80%] p-3 sm:p-4`}>
+                  <button
+                    className={`cambridge-flag-button ${flaggedQuestions.has(currentQuestion.key) ? 'flagged' : ''}`}
+                    onClick={() => toggleFlag(currentQuestion.key)}
+                    aria-label="Flag question"
+                  >
+                    {flaggedQuestions.has(currentQuestion.key) ? '🚩' : '⚐'}
+                  </button>
+
+                  <div className="pr-4 sm:pr-12">
+                    {(() => {
+                      const promptQuestions = allQuestions.filter(q =>
+                        q.partIndex === currentQuestion.partIndex &&
+                        q.sectionIndex === currentQuestion.sectionIndex &&
+                        q.section.questionType === 'matching-pictures'
+                      );
+                      const startNumber = promptQuestions[0]?.questionNumber ?? currentQuestion.questionNumber;
+
+                      return (
+                        <MatchingPicturesDisplay
+                          section={{
+                            ...currentQuestion.section,
+                            id: `${currentQuestion.partIndex}-${currentQuestion.sectionIndex}`,
+                            questions: [currentQuestion.question],
+                          }}
+                          startingNumber={startNumber}
+                          answerKeyPrefix={`${currentQuestion.partIndex}-${currentQuestion.sectionIndex}`}
+                          onAnswerChange={handleAnswerChange}
+                          answers={answers}
+                          submitted={submitted}
+                        />
+                      );
+                    })()}
+                  </div>
                 </div>
               ) : (currentQuestion.section.questionType === 'people-matching' || Array.isArray(currentQuestion.question?.people)) ? (
                 <div className={`cambridge-question-wrapper ${isQuestionAnswered(currentQuestion) ? 'answered' : ''} !w-full sm:!w-[80%] p-3 sm:p-4`}>

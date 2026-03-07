@@ -8,6 +8,7 @@ import {
   SummaryCompletionDisplay,
   ShortMessageDisplay,
   InlineChoiceDisplay,
+  MatchingPicturesDisplay,
 } from './index';
 
 /**
@@ -130,6 +131,17 @@ const QuestionDisplayFactory = ({
         </div>
       );
     }
+
+    case 'matching-pictures':
+      return (
+        <MatchingPicturesDisplay
+          section={section}
+          startingNumber={startingNumber}
+          onAnswerChange={onAnswerChange}
+          answers={answers}
+          submitted={submitted}
+        />
+      );
 
     case 'sign-message':
       // Part 1: 6 sign/message images with ABC options

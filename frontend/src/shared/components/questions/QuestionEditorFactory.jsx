@@ -21,6 +21,7 @@ import {
   ClozeMCEditor,
   WordFormEditor,
   MultipleChoicePicturesEditor,
+  MatchingPicturesEditor,
   InlineChoiceEditor,
 } from "./editors";
 
@@ -135,6 +136,9 @@ const QuestionEditorFactory = ({
     case 'multiple-choice-pictures':
       return <MultipleChoicePicturesEditor {...commonProps} />;
 
+    case 'matching-pictures':
+      return <MatchingPicturesEditor {...commonProps} />;
+
     case 'inline-choice':
       return <InlineChoiceEditor {...commonProps} />;
 
@@ -144,7 +148,6 @@ const QuestionEditorFactory = ({
     case 'matching-headings':
     case 'paragraph-matching':
     case 'sentence-completion':
-    case 'matching-pictures':
     case 'tick-cross':
     case 'story-writing':
       return (
