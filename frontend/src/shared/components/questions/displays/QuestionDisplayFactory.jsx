@@ -87,7 +87,7 @@ const QuestionDisplayFactory = ({
       return (
         <div style={{ marginTop: 8 }}>
           {singleQuestion?.questionText && (
-            <div style={{ marginBottom: 12, fontSize: 15, lineHeight: 1.7, color: '#1f2937' }}>
+            <div style={{ marginBottom: 12, fontSize: 15, lineHeight: 1.7, color: '#1f2937', whiteSpace: 'pre-line' }}>
               {singleQuestion.questionText}
             </div>
           )}
