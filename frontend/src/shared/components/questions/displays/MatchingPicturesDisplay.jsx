@@ -74,15 +74,47 @@ const MatchingPicturesDisplay = ({
       )}
 
       {examplePrompt && (
-        <div style={{ marginBottom: '18px', padding: '12px', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '10px' }}>
-          <div style={{ fontWeight: 700, color: '#1d4ed8', marginBottom: '8px' }}>Example</div>
-          <div style={{ fontSize: '14px', lineHeight: 1.7, color: '#1f2937', marginBottom: '8px' }}>{examplePrompt}</div>
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '6px 10px', borderRadius: '999px', background: '#fff', border: '1px solid #93c5fd' }}>
-            {choiceMap[exampleAnswer]?.imageUrl ? (
-              <img src={resolveImgSrc(choiceMap[exampleAnswer].imageUrl)} alt={choiceMap[exampleAnswer]?.label || exampleAnswer} style={{ width: '28px', height: '28px', objectFit: 'cover', borderRadius: '999px' }} />
-            ) : null}
-            <strong style={{ color: '#1e40af' }}>{choiceMap[exampleAnswer]?.label || exampleAnswer}</strong>
+        <div style={{ marginBottom: '18px', padding: '14px', background: '#eff6ff', border: '2px solid #bfdbfe', borderRadius: '12px' }}>
+          {/* Header */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
+            <span style={{
+              background: '#1d4ed8', color: '#fff',
+              fontWeight: 800, fontSize: '13px',
+              padding: '3px 12px', borderRadius: '999px',
+              letterSpacing: '0.5px',
+            }}>EXAMPLE</span>
+            <span style={{ fontSize: '12px', color: '#3b82f6', fontStyle: 'italic' }}>(câu mẫu — không cần trả lời)</span>
           </div>
+          {/* Prompt text */}
+          <div style={{ fontSize: '15px', lineHeight: 1.7, color: '#1f2937', marginBottom: '12px' }}>{examplePrompt}</div>
+          {/* Answer display */}
+          {choiceMap[exampleAnswer] && (
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: '14px',
+              padding: '12px 14px', borderRadius: '12px',
+              background: '#fff', border: '2px solid #93c5fd',
+            }}>
+              {choiceMap[exampleAnswer].imageUrl && (
+                <img
+                  src={resolveImgSrc(choiceMap[exampleAnswer].imageUrl)}
+                  alt={choiceMap[exampleAnswer].label || exampleAnswer}
+                  style={{ width: '120px', height: '90px', objectFit: 'cover', borderRadius: '10px', border: '2px solid #bfdbfe', flexShrink: 0 }}
+                />
+              )}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <span style={{
+                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                  width: '38px', height: '38px', borderRadius: '8px',
+                  background: '#1d4ed8', color: '#fff',
+                  fontWeight: 900, fontSize: '22px',
+                  boxShadow: '0 2px 6px rgba(0,0,0,0.18)',
+                }}>
+                  {choiceMap[exampleAnswer].id || exampleAnswer}
+                </span>
+                <strong style={{ color: '#1e40af', fontSize: '14px' }}>{choiceMap[exampleAnswer].label || exampleAnswer}</strong>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -97,11 +129,16 @@ const MatchingPicturesDisplay = ({
           return (
             <div key={getAnswerKey(prompt, idx)} style={{ padding: '12px', borderRadius: '10px', border: '1px solid #e5e7eb', background: '#fafafa' }}>
               <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
-                <div style={{ width: '28px', height: '28px', borderRadius: '999px', background: '#0e276f', color: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '13px', flexShrink: 0 }}>
+                {/* Question number badge */}
+                <div style={{ width: '32px', height: '32px', borderRadius: '999px', background: '#0e276f', color: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '14px', flexShrink: 0 }}>
                   {startingNumber + idx}
                 </div>
+
                 <div style={{ flex: 1 }}>
+                  {/* Prompt text */}
                   <div style={{ fontSize: '15px', lineHeight: 1.7, color: '#1f2937', marginBottom: '10px' }}>{prompt.text}</div>
+
+                  {/* Drop zone */}
                   <div
                     id={`question-${startingNumber + idx}`}
                     tabIndex={0}
@@ -124,29 +161,62 @@ const MatchingPicturesDisplay = ({
                       assignChoice(prompt, idx, choiceId);
                     }}
                     style={{
-                      minHeight: '64px',
+                      minHeight: '110px',
                       borderRadius: '12px',
-                      border: `2px dashed ${activePromptIndex === idx ? '#2563eb' : isWrong ? '#ef4444' : isCorrect ? '#22c55e' : '#93c5fd'}`,
-                      background: activePromptIndex === idx ? '#eff6ff' : '#fff',
-                      padding: '10px 12px',
+                      border: `2px dashed ${
+                        activePromptIndex === idx ? '#2563eb'
+                        : isWrong ? '#ef4444'
+                        : isCorrect ? '#22c55e'
+                        : answerId ? '#93c5fd'
+                        : '#f59e0b'
+                      }`,
+                      background: activePromptIndex === idx ? '#eff6ff' : answerId ? '#fff' : '#fffbeb',
+                      padding: '10px 14px',
                       display: 'flex',
                       alignItems: 'center',
+                      gap: '14px',
                     }}
                   >
                     {answerChoice ? (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        {answerChoice.imageUrl ? (
-                          <img src={resolveImgSrc(answerChoice.imageUrl)} alt={answerChoice.label || answerChoice.id} style={{ width: '42px', height: '42px', objectFit: 'cover', borderRadius: '10px', border: '1px solid #e5e7eb' }} />
-                        ) : null}
-                        <strong style={{ color: '#0f172a' }}>{answerChoice.label || answerChoice.id}</strong>
-                      </div>
+                      <>
+                        {answerChoice.imageUrl && (
+                          <img src={resolveImgSrc(answerChoice.imageUrl)} alt={answerChoice.label || answerChoice.id} style={{ width: '120px', height: '90px', objectFit: 'cover', borderRadius: '10px', border: '2px solid #e5e7eb', flexShrink: 0 }} />
+                        )}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                          {/* Letter badge of the chosen answer */}
+                          <span style={{
+                            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                            width: '38px', height: '38px', borderRadius: '8px',
+                            background: '#0e276f', color: '#fff',
+                            fontWeight: 900, fontSize: '22px', flexShrink: 0,
+                            boxShadow: '0 2px 6px rgba(0,0,0,0.18)',
+                          }}>
+                            {answerChoice.id}
+                          </span>
+                          <strong style={{ color: '#0f172a', fontSize: '14px', lineHeight: 1.3 }}>{answerChoice.label}</strong>
+                        </div>
+                        {!submitted && (
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); onAnswerChange(getAnswerKey(prompt, idx), ''); }}
+                            style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', fontSize: '16px', padding: '2px 4px', lineHeight: 1 }}
+                            title="Xóa đáp án"
+                          >✕</button>
+                        )}
+                      </>
                     ) : (
-                      <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>Drop picture here</span>
+                      <>
+                        <span style={{ fontSize: '18px' }}>⚐</span>
+                        <span style={{ color: '#b45309', fontStyle: 'italic', fontSize: '14px' }}>Chưa trả lời — kéo ảnh vào đây</span>
+                      </>
                     )}
                   </div>
+
                   {submitted && isWrong && correctChoice && (
-                    <div style={{ marginTop: '8px', fontSize: '13px', color: '#166534' }}>
-                      Correct: <strong>{correctChoice.label || correctChoice.id}</strong>
+                    <div style={{ marginTop: '8px', fontSize: '13px', color: '#166534', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span>✅ Đáp án đúng:</span>
+                      {correctChoice.imageUrl && <img src={resolveImgSrc(correctChoice.imageUrl)} alt={correctChoice.label} style={{ width: '28px', height: '22px', objectFit: 'cover', borderRadius: '4px' }} />}
+                      <strong>{correctChoice.label || correctChoice.id}</strong>
                     </div>
                   )}
                 </div>
@@ -159,51 +229,130 @@ const MatchingPicturesDisplay = ({
   );
 
   // ── Picture Bank panel ─────────────────────────────────────────────────────
+  // Map: choiceId → which prompt index is currently using it (to show "used" badge)
+  const usedByPromptIndex = useMemo(() => {
+    const map = {};
+    prompts.forEach((prompt, idx) => {
+      const val = getUserAnswer(prompt, idx);
+      if (val) map[String(val)] = idx;
+    });
+    return map;
+  }, [prompts, answers]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const pictureBankPanel = (
     <div style={{ background: '#f8fafc', border: '1px solid #e5e7eb', borderRadius: '12px', padding: '16px', height: '100%', overflowY: 'auto' }}>
-      <div style={{ fontWeight: 700, color: '#0f172a', marginBottom: '10px' }}>Picture Bank</div>
-      <div style={{ fontSize: '12px', color: '#64748b', marginBottom: '12px' }}>
-        Kéo-thả ảnh vào chỗ trống. Trên màn hình cảm ứng, có thể chạm vào ảnh rồi chạm vào ô cần điền.
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginBottom: '6px' }}>
+        <div style={{ fontWeight: 800, fontSize: '16px', color: '#0e276f' }}>Picture Bank</div>
+        <div style={{ fontSize: '11px', color: '#64748b' }}>({choices.length} ảnh)</div>
       </div>
-      <div style={{ display: 'grid', gap: '10px' }}>
+      <div style={{ fontSize: '12px', color: '#64748b', marginBottom: '14px', lineHeight: 1.4 }}>
+        Kéo-thả ảnh vào chỗ trống. Trên màn hình cảm ứng, chạm vào ảnh rồi chạm vào ô cần điền.
+      </div>
+
+      {/* Grid: 2 columns */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
         {choices.map((choice) => {
           const selected = selectedChoiceId === String(choice.id);
+          const usedAtIdx = usedByPromptIndex[String(choice.id)];
+          const isUsed = usedAtIdx !== undefined;
+          const isExample = String(choice.id) === String(exampleAnswer);
+
           return (
             <button
               key={choice.id}
               type="button"
-              draggable={!submitted}
+              draggable={!submitted && !isExample}
               onDragStart={(e) => {
-                if (submitted) return;
+                if (submitted || isExample) return;
                 e.dataTransfer.setData('text/plain', choice.id);
               }}
               onClick={() => {
-                if (submitted) return;
+                if (submitted || isExample) return;
                 setSelectedChoiceId((prev) => (prev === String(choice.id) ? '' : String(choice.id)));
               }}
               style={{
-                display: 'grid',
-                gridTemplateColumns: '60px 1fr',
-                gap: '10px',
+                display: 'flex',
+                flexDirection: 'column',
                 alignItems: 'center',
-                textAlign: 'left',
-                padding: '10px',
-                borderRadius: '10px',
-                border: `2px solid ${selected ? '#2563eb' : '#e5e7eb'}`,
-                background: selected ? '#eff6ff' : '#fff',
-                cursor: submitted ? 'default' : 'grab',
+                gap: '8px',
+                padding: '10px 8px 12px',
+                borderRadius: '12px',
+                border: `2.5px solid ${
+                  isExample ? '#93c5fd'
+                  : selected ? '#2563eb'
+                  : isUsed ? '#22c55e'
+                  : '#e5e7eb'
+                }`,
+                background: isExample ? '#eff6ff' : selected ? '#eff6ff' : isUsed ? '#f0fdf4' : '#fff',
+                cursor: isExample ? 'not-allowed' : submitted ? 'default' : 'grab',
+                position: 'relative',
+                boxShadow: selected ? '0 0 0 3px rgba(37,99,235,0.2)' : 'none',
+                transition: 'border-color 0.15s, box-shadow 0.15s',
+                opacity: isExample ? 0.75 : 1,
               }}
             >
+              {/* "Example" badge — locked, không cho kéo */}
+              {isExample && (
+                <span style={{
+                  position: 'absolute', top: '6px', right: '6px',
+                  background: '#1d4ed8', color: '#fff',
+                  borderRadius: '999px', fontSize: '11px', fontWeight: 700,
+                  padding: '1px 8px', lineHeight: '18px',
+                }}>Example</span>
+              )}
+              {/* "Used" badge — shows which question number it's assigned to */}
+              {!isExample && isUsed && (
+                <span style={{
+                  position: 'absolute', top: '6px', right: '6px',
+                  background: '#22c55e', color: '#fff',
+                  borderRadius: '999px', fontSize: '11px', fontWeight: 700,
+                  padding: '1px 7px', lineHeight: '18px',
+                }}>✓ Q{startingNumber + usedAtIdx}</span>
+              )}
+
+              {/* Image */}
               {choice.imageUrl ? (
-                <img src={resolveImgSrc(choice.imageUrl)} alt={choice.label || choice.id} style={{ width: '60px', height: '60px', objectFit: 'cover', borderRadius: '10px', border: '1px solid #e5e7eb' }} />
+                <img
+                  src={resolveImgSrc(choice.imageUrl)}
+                  alt={choice.label || choice.id}
+                  style={{
+                    width: '200px', height: '160px',
+                    objectFit: 'cover',
+                    borderRadius: '8px',
+                    border: `2px solid ${selected ? '#93c5fd' : '#e5e7eb'}`,
+                    display: 'block',
+                  }}
+                />
               ) : (
-                <div style={{ width: '60px', height: '60px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '10px', border: '1px dashed #cbd5e1', color: '#64748b', fontSize: '11px' }}>
+                <div style={{
+                  width: '200px', height: '160px',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  borderRadius: '8px', border: '2px dashed #cbd5e1',
+                  color: '#64748b', fontSize: '13px', background: '#f1f5f9',
+                }}>
                   No image
                 </div>
               )}
-              <div>
-                <div style={{ fontWeight: 700, color: '#1f2937' }}>{choice.label || choice.id}</div>
-                <div style={{ fontSize: '12px', color: '#64748b' }}>{choice.id}</div>
+
+              {/* Letter badge + label row */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '2px' }}>
+                <span style={{
+                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                  width: '38px', height: '38px', borderRadius: '8px',
+                  background: selected ? '#2563eb' : isUsed ? '#16a34a' : '#0e276f',
+                  color: '#fff',
+                  fontWeight: 900, fontSize: '22px', flexShrink: 0,
+                  letterSpacing: '-0.5px',
+                  boxShadow: '0 2px 6px rgba(0,0,0,0.18)',
+                }}>
+                  {choice.id}
+                </span>
+                {choice.label && (
+                  <span style={{ fontWeight: 600, color: '#1f2937', fontSize: '14px', lineHeight: 1.3, textAlign: 'left' }}>
+                    {choice.label}
+                  </span>
+                )}
               </div>
             </button>
           );
