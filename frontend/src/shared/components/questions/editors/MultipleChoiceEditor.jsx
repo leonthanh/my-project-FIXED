@@ -29,6 +29,19 @@ const MultipleChoiceEditor = ({
       marginBottom: "8px",
       boxSizing: "border-box",
     },
+    textarea: {
+      width: "100%",
+      padding: "8px 12px",
+      border: "1px solid #d1d5db",
+      borderRadius: "6px",
+      fontSize: "13px",
+      marginBottom: "8px",
+      boxSizing: "border-box",
+      resize: "vertical",
+      lineHeight: 1.5,
+      minHeight: "72px",
+      fontFamily: "inherit",
+    },
     label: {
       display: "block",
       marginBottom: "6px",
@@ -54,12 +67,12 @@ const MultipleChoiceEditor = ({
   return (
     <div>
       <label style={defaultStyles.label}>Câu hỏi</label>
-      <input
-        type="text"
+      <textarea
+        rows={3}
         value={question.questionText || ""}
         onChange={(e) => onChange("questionText", e.target.value)}
-        placeholder="Nhập câu hỏi..."
-        style={defaultStyles.input}
+        placeholder="Nhập câu hỏi... (có thể Enter xuống dòng)"
+        style={defaultStyles.textarea}
       />
       
       <label style={defaultStyles.label}>Các lựa chọn</label>

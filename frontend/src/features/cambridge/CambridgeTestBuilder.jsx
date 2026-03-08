@@ -17,6 +17,7 @@ import { apiPath, hostPath, authFetch } from "../../shared/utils/api";
 import useQuillImageUpload from "../../shared/hooks/useQuillImageUpload";
 import { canManageCategory } from '../../shared/utils/permissions';
 import { computeQuestionStarts, getQuestionCountForSection } from "./utils/questionNumbering";
+import { buildMoversPracticeTest1Template } from "./utils/moversPracticeTest1Template";
 
 
 /**
@@ -25,11 +26,29 @@ import { computeQuestionStarts, getQuestionCountForSection } from "./utils/quest
  */
 const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initialData = null, resetDraftOnLoad = false }) => {
   const navigate = useNavigate();
-  const user = JSON.parse(localStorage.getItem('user'));
+  let user = null;
+  try {
+    user = JSON.parse(localStorage.getItem('user') || 'null');
+  } catch (e) {
+    user = null;
+  }
 
   const testConfig = getTestConfig(testType);
-  const availableTypes = getQuestionTypesForTest(testType);
   const isListeningTest = testType.includes('listening');
+  const youngLearnerSupportedTypeMap = {
+    movers: ['matching-pictures', 'fill', 'abc', 'cloze-mc', 'word-form', 'short-message'],
+  };
+  const supportedTypeIds = youngLearnerSupportedTypeMap[testType] || null;
+  const availableTypes = useMemo(() => {
+    const baseTypes = getQuestionTypesForTest(testType);
+    if (!supportedTypeIds) return baseTypes;
+    return baseTypes.filter((type) => supportedTypeIds.includes(type.id));
+  }, [supportedTypeIds, testType]);
+  const defaultQuestionType = availableTypes[0]?.id || 'fill';
+  const builderDisplayName = useMemo(() => {
+    if (testType === 'movers') return 'Cambridge Movers Reading & Writing';
+    return testConfig?.name || 'Cambridge Test';
+  }, [testConfig?.name, testType]);
 
   // Hooks (must run unconditionally)
   const { quillRef: partInstructionRef, modules: partInstructionModules } = useQuillImageUpload();
@@ -165,11 +184,12 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
         title: 'Part 1',
         instruction: '',
         audioUrl: '',
+        imageUrl: '',
         sections: [
           {
             sectionTitle: '',
-            questionType: availableTypes[0]?.id || 'fill',
-            questions: [getDefaultQuestionData(availableTypes[0]?.id || 'fill')],
+            questionType: defaultQuestionType,
+            questions: [getDefaultQuestionData(defaultQuestionType)],
           }
         ]
       }
@@ -199,7 +219,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
         setParts(normalizePeopleMatchingIds(partsData));
       }
     }
-  }, [initialData, normalizePeopleMatchingIds]);
+  }, [defaultQuestionType, initialData, normalizePeopleMatchingIds]);
 
   // State - Load from savedData if available
   const [parts, setParts] = useState(getInitialParts());
@@ -222,8 +242,13 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
   const [uploadingMainAudio, setUploadingMainAudio] = useState(false);
   const [mainAudioUploadError, setMainAudioUploadError] = useState('');
 
+  // Image upload state (reading/non-listening)
+  const [uploadingImagePartIndex, setUploadingImagePartIndex] = useState(null);
+  const [imageUploadError, setImageUploadError] = useState('');
+
   const currentPart = parts[selectedPartIndex];
   const currentSection = currentPart?.sections?.[selectedSectionIndex];
+  const isMoversReading = !isListeningTest && String(testType || '').toLowerCase() === 'movers';
 
   const uploadAudioForPart = async (partIndex, file) => {
     if (!file) return;
@@ -274,6 +299,48 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
       setAudioUploadError(err?.message || 'Lỗi khi upload audio');
     } finally {
       setUploadingAudioPartIndex(null);
+    }
+  };
+
+  const uploadImageForPart = async (partIndex, file) => {
+    if (!file) return;
+
+    setImageUploadError('');
+    setUploadingImagePartIndex(partIndex);
+
+    try {
+      const formData = new FormData();
+      formData.append('image', file);
+
+      const res = await fetch(apiPath('upload/cambridge-image'), {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!res.ok) {
+        let errMsg = 'Lỗi khi upload hình ảnh';
+        try {
+          const err = await res.json();
+          errMsg = err?.message || errMsg;
+        } catch {
+          // ignore
+        }
+        throw new Error(errMsg);
+      }
+
+      const data = await res.json();
+      const url = data?.url;
+      if (!url) throw new Error('Upload thành công nhưng không nhận được URL hình ảnh');
+
+      setParts(prev => {
+        const next = [...prev];
+        next[partIndex] = { ...next[partIndex], imageUrl: url };
+        return next;
+      });
+    } catch (err) {
+      setImageUploadError(err?.message || 'Lỗi khi upload hình ảnh');
+    } finally {
+      setUploadingImagePartIndex(null);
     }
   };
 
@@ -358,11 +425,12 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
         title: `Part ${parts.length + 1}`,
         instruction: '',
         audioUrl: inheritedAudioUrl,
+        imageUrl: '',
         sections: [
           {
             sectionTitle: '',
-            questionType: availableTypes[0]?.id || 'fill',
-            questions: [getDefaultQuestionData(availableTypes[0]?.id || 'fill')],
+            questionType: defaultQuestionType,
+            questions: [getDefaultQuestionData(defaultQuestionType)],
           }
         ]
       }
@@ -374,8 +442,8 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
   const handleAddSection = () => {
     const nextSection = {
       sectionTitle: '',
-      questionType: availableTypes[0]?.id || 'fill',
-      questions: [getDefaultQuestionData(availableTypes[0]?.id || 'fill')],
+      questionType: defaultQuestionType,
+      questions: [getDefaultQuestionData(defaultQuestionType)],
     };
 
     setParts(prevParts => prevParts.map((part, pIdx) => {
@@ -401,6 +469,28 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
       });
       return { ...part, sections: nextSections };
     }));
+  };
+
+  const handleLoadMoversTemplate = () => {
+    const hasMeaningfulDraft =
+      title.trim() ||
+      classCode.trim() ||
+      teacherName.trim() ||
+      (Array.isArray(parts) && parts.length > 1);
+
+    if (hasMeaningfulDraft) {
+      const confirmed = window.confirm('Nạp template sẽ ghi đe phan noi dung dang tao. Ban co muon tiep tuc khong?');
+      if (!confirmed) return;
+    }
+
+    const template = buildMoversPracticeTest1Template();
+    setTitle(template.title || 'Movers Reading & Writing Practice Test 1');
+    setTeacherName(template.teacherName || '');
+    setMainAudioUrl(template.mainAudioUrl || '');
+    setParts(Array.isArray(template.parts) && template.parts.length > 0 ? template.parts : getInitialParts());
+    setSelectedPartIndex(0);
+    setSelectedSectionIndex(0);
+    setMessage({ type: 'success', text: '✅ Da nap Movers Practice Test 1. Ban co the chinh sua noi dung ngay tren builder.' });
   };
 
   const handleDeleteQuestion = (qIndex) => {
@@ -437,11 +527,20 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
   // Paste copied question
   const handlePasteQuestion = () => {
     if (!copiedQuestion) return;
-    const newParts = [...parts];
-    newParts[selectedPartIndex].sections[selectedSectionIndex].questions.push({
-      ...JSON.parse(JSON.stringify(copiedQuestion)) // Deep copy
-    });
-    setParts(newParts);
+    setParts(prevParts => prevParts.map((part, pIdx) => {
+      if (pIdx !== selectedPartIndex) return part;
+      const nextSections = (part.sections || []).map((section, sIdx) => {
+        if (sIdx !== selectedSectionIndex) return section;
+        return {
+          ...section,
+          questions: [
+            ...(section.questions || []),
+            { ...JSON.parse(JSON.stringify(copiedQuestion)) },
+          ],
+        };
+      });
+      return { ...part, sections: nextSections };
+    }));
   };
 
   // Drag start handler
@@ -480,12 +579,17 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
       return;
     }
 
-    const newParts = [...parts];
-    const questions = newParts[selectedPartIndex].sections[selectedSectionIndex].questions;
-    const [movedQuestion] = questions.splice(sourceQIdx, 1);
-    questions.splice(targetQIdx, 0, movedQuestion);
-    
-    setParts(newParts);
+    setParts(prevParts => prevParts.map((part, pIdx) => {
+      if (pIdx !== selectedPartIndex) return part;
+      const nextSections = (part.sections || []).map((section, sIdx) => {
+        if (sIdx !== selectedSectionIndex) return section;
+        const questions = [...(section.questions || [])];
+        const [movedQuestion] = questions.splice(sourceQIdx, 1);
+        questions.splice(targetQIdx, 0, movedQuestion);
+        return { ...section, questions };
+      });
+      return { ...part, sections: nextSections };
+    }));
     setDraggedQuestion(null);
     setDragSource(null);
   };
@@ -674,6 +778,10 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
 
       // Redirect after success
       setTimeout(() => {
+        if (['movers', 'flyers', 'starters'].includes(testType)) {
+          navigate(`/select-test?platform=orange&type=${testType}&tab=reading`);
+          return;
+        }
         navigate('/select-test');
       }, 1500);
     } catch (error) {
@@ -747,7 +855,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
           marginBottom: '20px',
         }}>
           <h3 style={{ margin: '0 0 8px', fontSize: '16px' }}>
-            🎓 {testConfig.name}
+            🎓 {builderDisplayName}
           </h3>
           <div style={{ fontSize: '12px', color: '#94a3b8' }}>
             <p style={{ margin: '4px 0' }}>📊 {testConfig.totalQuestions} câu hỏi</p>
@@ -884,7 +992,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <h1 style={{ margin: 0, fontSize: '18px', color: '#1e293b', fontWeight: 600 }}>
-              🎓 {testConfig.name}
+              🎓 {builderDisplayName}
             </h1>
             {/* Auto-save indicator */}
             <div style={{
@@ -895,22 +1003,44 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
               {isSaving ? '💾' : lastSaved ? `✅ ${lastSaved.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}` : '○'}
             </div>
           </div>
-          <button
-            onClick={handleSave}
-            disabled={isSubmitting}
-            style={{
-              padding: '8px 16px',
-              backgroundColor: isSubmitting ? '#94a3b8' : '#3b82f6',
-              color: 'white',
-              border: 'none',
-              borderRadius: '6px',
-              cursor: isSubmitting ? 'not-allowed' : 'pointer',
-              fontWeight: 600,
-              fontSize: '13px',
-            }}
-          >
-            {isSubmitting ? '⏳' : '💾 Lưu'}
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            {isMoversReading && (
+              <button
+                type="button"
+                onClick={handleLoadMoversTemplate}
+                disabled={isSubmitting}
+                style={{
+                  padding: '8px 12px',
+                  backgroundColor: '#f59e0b',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: isSubmitting ? 'not-allowed' : 'pointer',
+                  fontWeight: 600,
+                  fontSize: '12px',
+                }}
+                title="Nạp nhanh bo Movers Practice Test 1"
+              >
+                ⚡ Nạp Template Movers
+              </button>
+            )}
+            <button
+              onClick={handleSave}
+              disabled={isSubmitting}
+              style={{
+                padding: '8px 16px',
+                backgroundColor: isSubmitting ? '#94a3b8' : '#3b82f6',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: isSubmitting ? 'not-allowed' : 'pointer',
+                fontWeight: 600,
+                fontSize: '13px',
+              }}
+            >
+              {isSubmitting ? '⏳' : '💾 Lưu'}
+            </button>
+          </div>
         </div>
 
         {/* Message */}
@@ -1132,9 +1262,10 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
                   theme="snow"
                   value={typeof currentPart?.instruction === 'string' ? currentPart.instruction : ''}
                   onChange={(content) => {
-                    const newParts = [...parts];
-                    newParts[selectedPartIndex].instruction = content || '';
-                    setParts(newParts);
+                    setParts(prevParts => prevParts.map((part, pIdx) => {
+                      if (pIdx !== selectedPartIndex) return part;
+                      return { ...part, instruction: content || '' };
+                    }));
                   }}
                   placeholder="Nhập hướng dẫn cho part này..."
                   modules={partInstructionModules}
@@ -1206,9 +1337,10 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
                         <button
                           type="button"
                           onClick={() => {
-                            const newParts = [...parts];
-                            newParts[selectedPartIndex].audioUrl = '';
-                            setParts(newParts);
+                            setParts(prevParts => prevParts.map((part, pIdx) => {
+                              if (pIdx !== selectedPartIndex) return part;
+                              return { ...part, audioUrl: '' };
+                            }));
                           }}
                           style={{
                             border: '1px solid #ef4444',
@@ -1261,6 +1393,183 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
               </div>
             )}
 
+            {/* Part Image (Reading/non-listening only) */}
+            {!isListeningTest && (
+              <div style={{ marginBottom: '20px' }}>
+                <label
+                  style={{
+                    display: 'block',
+                    marginBottom: '8px',
+                    fontWeight: 600,
+                    color: '#374151',
+                  }}
+                >
+                  Hình ảnh minh hoạ cho Part này:
+                </label>
+
+                <div
+                  style={{
+                    border: '1px solid #d1d5db',
+                    borderRadius: '8px',
+                    padding: '12px',
+                    backgroundColor: 'white',
+                  }}
+                >
+                  {currentPart.imageUrl ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                      <img
+                        src={hostPath(currentPart.imageUrl)}
+                        alt="Part image"
+                        style={{ maxWidth: '100%', maxHeight: '300px', objectFit: 'contain', borderRadius: '6px', border: '1px solid #e5e7eb' }}
+                      />
+                      <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+                        <a
+                          href={hostPath(currentPart.imageUrl)}
+                          target="_blank"
+                          rel="noreferrer"
+                          style={{ color: '#2563eb', textDecoration: 'none', fontSize: '13px' }}
+                        >
+                          Mở hình ảnh
+                        </a>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setParts(prevParts => prevParts.map((part, pIdx) => {
+                              if (pIdx !== selectedPartIndex) return part;
+                              return { ...part, imageUrl: '' };
+                            }));
+                          }}
+                          style={{
+                            border: '1px solid #ef4444',
+                            background: 'white',
+                            color: '#ef4444',
+                            padding: '6px 10px',
+                            borderRadius: '6px',
+                            cursor: 'pointer',
+                            fontSize: '13px',
+                          }}
+                        >
+                          Xoá hình
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{ fontSize: '13px', color: '#6b7280' }}>
+                      Chưa có hình ảnh cho part này.
+                    </div>
+                  )}
+
+                  <div style={{ marginTop: '12px' }}>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      disabled={uploadingImagePartIndex === selectedPartIndex}
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        e.target.value = '';
+                        if (!file) return;
+                        await uploadImageForPart(selectedPartIndex, file);
+                      }}
+                    />
+                    {uploadingImagePartIndex === selectedPartIndex && (
+                      <div style={{ marginTop: '8px', fontSize: '12px', color: '#0e276f' }}>
+                        Đang upload hình ảnh...
+                      </div>
+                    )}
+                    {imageUploadError && (
+                      <div style={{ marginTop: '8px', fontSize: '12px', color: '#ef4444' }}>
+                        ❌ {imageUploadError}
+                      </div>
+                    )}
+                    <div style={{ marginTop: '6px', fontSize: '11px', color: '#6b7280' }}>
+                      💡 Hỗ trợ file ảnh (jpg/png/webp...). Nên dùng ảnh rõ nét, tỉ lệ phù hợp với bài thi.
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Example Block (abc type only) - placed under part image area */}
+            {currentSection && currentSection.questionType === 'abc' && (
+              <div style={{ marginBottom: '20px', padding: '16px', background: '#fffbeb', border: '1px solid #fcd34d', borderRadius: '8px' }}>
+                <div style={{ fontWeight: 600, color: '#92400e', marginBottom: '12px', fontSize: '14px' }}>
+                  ⭐ Câu mẫu (Example)
+                </div>
+
+                <div style={{ marginBottom: '10px' }}>
+                  <label style={{ display: 'block', marginBottom: '4px', fontSize: '13px', color: '#374151', fontWeight: 500 }}>
+                    Nội dung câu mẫu (ví dụ: đoạn hội thoại mẫu):
+                  </label>
+                  <textarea
+                    rows={3}
+                    placeholder="Ví dụ: Nick: What did you do at the weekend? / Paul: ..."
+                    value={currentSection.exampleText || ''}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setParts(prevParts => prevParts.map((part, pIdx) => {
+                        if (pIdx !== selectedPartIndex) return part;
+                        return {
+                          ...part,
+                          sections: part.sections.map((sec, sIdx) => {
+                            if (sIdx !== selectedSectionIndex) return sec;
+                            return { ...sec, exampleText: val };
+                          }),
+                        };
+                      }));
+                    }}
+                    style={{
+                      width: '100%',
+                      padding: '8px',
+                      border: '1px solid #d1d5db',
+                      borderRadius: '6px',
+                      fontSize: '13px',
+                      resize: 'vertical',
+                      boxSizing: 'border-box',
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', color: '#374151', fontWeight: 500 }}>
+                    Đáp án đúng của câu mẫu:
+                  </label>
+                  <div style={{ display: 'flex', gap: '16px' }}>
+                    {['A', 'B', 'C'].map(letter => (
+                      <label key={letter} style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '14px', fontWeight: 500 }}>
+                        <input
+                          type="radio"
+                          name={`example-answer-${selectedPartIndex}-${selectedSectionIndex}`}
+                          value={letter}
+                          checked={(currentSection.exampleAnswer || '') === letter}
+                          onChange={() => {
+                            setParts(prevParts => prevParts.map((part, pIdx) => {
+                              if (pIdx !== selectedPartIndex) return part;
+                              return {
+                                ...part,
+                                sections: part.sections.map((sec, sIdx) => {
+                                  if (sIdx !== selectedSectionIndex) return sec;
+                                  return { ...sec, exampleAnswer: letter };
+                                }),
+                              };
+                            }));
+                          }}
+                        />
+                        <span style={{
+                          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                          width: '28px', height: '28px', borderRadius: '50%',
+                          background: (currentSection.exampleAnswer || '') === letter ? '#0e276f' : '#e5e7eb',
+                          color: (currentSection.exampleAnswer || '') === letter ? 'white' : '#374151',
+                          fontWeight: 700,
+                        }}>
+                          {letter}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Section */}
             {currentSection && (
               <div style={{
@@ -1285,6 +1594,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
                   </label>
                   <QuestionTypeSelector
                     testType={testType}
+                    questionTypes={availableTypes}
                     value={currentSection.questionType}
                     onChange={handleQuestionTypeChange}
                     style={{ maxWidth: '400px' }}
@@ -1358,7 +1668,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
                             </span>
                             
                             {/* Chỉ hiện số câu hỏi cho question types đơn giản, không hiện cho multi-question types */}
-                            {!['long-text-mc', 'cloze-mc', 'cloze-test', 'short-message', 'people-matching', 'word-form'].includes(currentSection.questionType) && (
+                            {!['long-text-mc', 'cloze-mc', 'cloze-test', 'short-message', 'people-matching', 'word-form', 'matching-pictures'].includes(currentSection.questionType) && (
                               <span style={{ 
                                 fontWeight: 600, 
                                 color: '#6366f1',
@@ -1493,7 +1803,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
                                 }));
                               }}
                               questionIndex={qIdx}
-                              startingNumber={['long-text-mc', 'cloze-mc', 'cloze-test', 'short-message', 'people-matching', 'word-form'].includes(currentSection.questionType) ? sectionStartNum : startNum}
+                              startingNumber={['long-text-mc', 'cloze-mc', 'cloze-test', 'short-message', 'people-matching', 'word-form', 'matching-pictures'].includes(currentSection.questionType) ? sectionStartNum : startNum}
                               partIndex={selectedPartIndex}
                             />
                           </div>
@@ -1533,7 +1843,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
           border: '1px solid #bae6fd',
         }}>
           <h3 style={{ margin: '0 0 16px', color: '#0369a1' }}>
-            📖 Cấu trúc đề chuẩn {testConfig.name}
+                    📖 Cấu trúc đề chuẩn {builderDisplayName}
           </h3>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
             <thead>

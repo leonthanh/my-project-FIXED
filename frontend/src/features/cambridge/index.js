@@ -8,6 +8,7 @@ export {
   CreatePETListeningTest,
   CreatePETReadingTest,
   CreateCambridgeTest,
+  CreateMoversReadingTest,
   EditCambridgeReadingTest,
   EditCambridgeListeningTest,
   SelectCambridgeTest,

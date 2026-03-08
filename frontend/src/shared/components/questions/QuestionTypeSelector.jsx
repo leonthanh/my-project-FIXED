@@ -18,9 +18,12 @@ const QuestionTypeSelector = ({
   style = {},
   showAll = false,
   className = '',
+  questionTypes = null,
 }) => {
   // Get available question types
-  const questionTypes = showAll 
+  const availableQuestionTypes = Array.isArray(questionTypes) && questionTypes.length > 0
+    ? questionTypes
+    : showAll 
     ? Object.values(QUESTION_TYPES)
     : getQuestionTypesForTest(testType);
 
@@ -41,7 +44,7 @@ const QuestionTypeSelector = ({
       style={{ ...defaultStyle, ...style }}
       className={className}
     >
-      {questionTypes.map((qt) => (
+      {availableQuestionTypes.map((qt) => (
         <option key={qt.id} value={qt.id} title={qt.description}>
           {qt.icon} {qt.label}
         </option>

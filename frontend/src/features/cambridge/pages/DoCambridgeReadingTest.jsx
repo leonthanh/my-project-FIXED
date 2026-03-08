@@ -6,6 +6,7 @@ import { TestHeader } from "../../../shared/components";
 import { TEST_CONFIGS } from "../../../shared/config/questionTypes";
 import QuestionDisplayFactory from "../../../shared/components/questions/displays/QuestionDisplayFactory";
 import PeopleMatchingDisplay from "../../../shared/components/questions/displays/PeopleMatchingDisplay";
+import MatchingPicturesDisplay from "../../../shared/components/questions/displays/MatchingPicturesDisplay";
 /* eslint-disable-next-line no-unused-vars */
 import ClozeMCDisplay from "../../../shared/components/questions/displays/ClozeMCDisplay";
 import InlineChoiceDisplay from "../../../shared/components/questions/displays/InlineChoiceDisplay";
@@ -48,6 +49,10 @@ const DoCambridgeReadingTest = () => {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0); // Current question number
   const [flaggedQuestions, setFlaggedQuestions] = useState(new Set()); // Flagged questions
   const [hasSavedProgress, setHasSavedProgress] = useState(false);
+
+  // Shared state for matching-pictures split view (questions left | picture bank right)
+  const [mpSelectedChoiceId, setMpSelectedChoiceId] = useState('');
+  const [mpActivePromptIndex, setMpActivePromptIndex] = useState(null);
 
   // Started flag for the test (show start modal and control timer)
   const [started, setStarted] = useState(() => {
@@ -353,6 +358,29 @@ const DoCambridgeReadingTest = () => {
         return;
       }
 
+      if (questionType === 'matching-pictures' && q.prompt) {
+        const promptId = String(q.prompt?.id || q.prompt?.number || (q.promptIndex || 0) + 1);
+        const primaryKey = `${q.partIndex}-${q.sectionIndex}-${promptId}`;
+        const legacyKey = `${q.partIndex}-${q.sectionIndex}-${q.promptIndex || 0}`;
+        const userAnswer = answers[primaryKey] ?? answers[legacyKey];
+        const correctAnswer = q.prompt?.correctAnswer;
+
+        if (correctAnswer === undefined || correctAnswer === null) {
+          debugInfo.push(`Q${q.questionNumber}: No correctAnswer field`);
+          return;
+        }
+
+        scorableCount++;
+        if (!userAnswer) return;
+
+        if (normalize(userAnswer) === normalize(correctAnswer)) {
+          correct++;
+        } else {
+          incorrect++;
+        }
+        return;
+      }
+
       // Word-form: score each sentence using its own key
       if (questionType === 'word-form' && Array.isArray(q.question?.sentences)) {
         q.question.sentences.forEach((sentence, sentIdx) => {
@@ -586,6 +614,21 @@ const DoCambridgeReadingTest = () => {
                 part: part,
               });
             });
+          } else if (section.questionType === 'matching-pictures' && Array.isArray(q.prompts)) {
+            q.prompts.forEach((prompt, promptIdx) => {
+              questions.push({
+                partIndex: pIdx,
+                sectionIndex: sIdx,
+                questionIndex: qIdx,
+                promptIndex: promptIdx,
+                questionNumber: qNum++,
+                key: `${pIdx}-${sIdx}-${qIdx}-${promptIdx}`,
+                question: q,
+                prompt,
+                section,
+                part,
+              });
+            });
           } else {
             // Regular questions
             questions.push({
@@ -614,13 +657,23 @@ const DoCambridgeReadingTest = () => {
     return `${q.partIndex}-${q.sectionIndex}-${personId}`;
   }, []);
 
+  const getMatchingPicturesAnswerKey = useCallback((q) => {
+    const prompt = q.question?.prompts?.[q.promptIndex] || q.prompt || {};
+    const promptId = String(prompt?.id || prompt?.number || (q.promptIndex || 0) + 1);
+    return `${q.partIndex}-${q.sectionIndex}-${promptId}`;
+  }, []);
+
   const isQuestionAnswered = useCallback((q) => {
     if (q.section?.questionType === 'people-matching' || Array.isArray(q.question?.people)) {
       const key = getPeopleMatchingAnswerKey(q);
       return Boolean(answers[key] ?? answers[q.key]);
     }
+    if (q.section?.questionType === 'matching-pictures' || Array.isArray(q.question?.prompts)) {
+      const key = getMatchingPicturesAnswerKey(q);
+      return Boolean(answers[key] ?? answers[q.key]);
+    }
     return Boolean(answers[q.key]);
-  }, [answers, getPeopleMatchingAnswerKey]);
+  }, [answers, getMatchingPicturesAnswerKey, getPeopleMatchingAnswerKey]);
 
   // Get current question data
   const currentQuestion = useMemo(() => {
@@ -1064,6 +1117,31 @@ const DoCambridgeReadingTest = () => {
                   const firstQuestionNum = currentQuestion.questionNumber - (allQuestions[currentQuestionIndex].blankIndex || 0);
 
                   const toCamelCase = (value) => value.replace(/-([a-z])/g, (_, char) => char.toUpperCase());
+                  const allowedTags = new Set([
+                    'p', 'br', 'strong', 'b', 'em', 'i', 'u', 's', 'span', 'div',
+                    'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+                    'ul', 'ol', 'li',
+                    'table', 'thead', 'tbody', 'tfoot', 'tr', 'th', 'td',
+                    'blockquote', 'code', 'pre',
+                    'a', 'img'
+                  ]);
+                  const allowedStyleProps = new Set([
+                    'textAlign', 'fontWeight', 'fontStyle', 'textDecoration',
+                    'color', 'backgroundColor',
+                    'margin', 'marginTop', 'marginRight', 'marginBottom', 'marginLeft',
+                    'padding', 'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft',
+                    'lineHeight', 'letterSpacing', 'wordSpacing', 'whiteSpace',
+                    'width', 'minWidth', 'maxWidth', 'height',
+                    'border', 'borderTop', 'borderRight', 'borderBottom', 'borderLeft',
+                    'borderCollapse', 'borderSpacing', 'borderColor', 'borderWidth', 'borderStyle',
+                    'verticalAlign'
+                  ]);
+                  const safeHref = (value = '') => {
+                    const href = String(value).trim();
+                    if (!href) return '';
+                    if (/^javascript:/i.test(href)) return '';
+                    return href;
+                  };
                   const parseStyle = (styleText) => {
                     if (!styleText) return undefined;
                     const style = {};
@@ -1072,7 +1150,7 @@ const DoCambridgeReadingTest = () => {
                       if (!rawKey || !rawValue) return;
                       const key = toCamelCase(rawKey.trim().toLowerCase());
                       const value = rawValue.trim();
-                      if (key) style[key] = value;
+                      if (key && allowedStyleProps.has(key)) style[key] = value;
                     });
                     return Object.keys(style).length ? style : undefined;
                   };
@@ -1142,6 +1220,16 @@ const DoCambridgeReadingTest = () => {
                     if (node.nodeType !== Node.ELEMENT_NODE) return null;
 
                     const tag = node.tagName.toLowerCase();
+                    if (!allowedTags.has(tag)) {
+                      const fallbackChildren = [];
+                      node.childNodes.forEach((child, idx) => {
+                        const rendered = renderNode(child, `${keyPrefix}-${idx}`);
+                        if (Array.isArray(rendered)) fallbackChildren.push(...rendered);
+                        else if (rendered !== null && rendered !== undefined) fallbackChildren.push(rendered);
+                      });
+                      return fallbackChildren;
+                    }
+
                     const props = { key: keyPrefix };
 
                     Array.from(node.attributes || []).forEach((attr) => {
@@ -1149,15 +1237,34 @@ const DoCambridgeReadingTest = () => {
                       const value = attr.value;
                       if (name === 'class') props.className = value;
                       if (name === 'style') props.style = parseStyle(value);
-                      if (name === 'href') props.href = value;
+                      if (name === 'href') props.href = safeHref(value);
                       if (name === 'target') props.target = value;
                       if (name === 'rel') props.rel = value;
                       if (name === 'src') props.src = value;
                       if (name === 'alt') props.alt = value;
                       if (name === 'width') props.width = value;
                       if (name === 'height') props.height = value;
+                      if (name === 'colspan') props.colSpan = value;
+                      if (name === 'rowspan') props.rowSpan = value;
                       if (name.startsWith('data-')) props[name] = value;
                     });
+
+                    if (tag === 'a') {
+                      const href = safeHref(props.href || '');
+                      if (!href) {
+                        delete props.href;
+                      } else {
+                        props.href = href;
+                        if (props.target === '_blank') {
+                          props.rel = 'noopener noreferrer';
+                        }
+                      }
+                    }
+
+                    if (tag === 'img') {
+                      const src = String(props.src || '').trim();
+                      if (!src) return null;
+                    }
 
                     const children = [];
                     node.childNodes.forEach((child, idx) => {
@@ -1168,6 +1275,35 @@ const DoCambridgeReadingTest = () => {
                         children.push(rendered);
                       }
                     });
+
+                    if (tag === 'table') {
+                      return React.createElement(
+                        'div',
+                        {
+                          key: `${keyPrefix}-table-wrap`,
+                          style: { overflowX: 'auto', marginBottom: '12px' }
+                        },
+                        React.createElement(
+                          'table',
+                          {
+                            ...props,
+                            style: {
+                              width: '100%',
+                              borderCollapse: 'collapse',
+                              ...(props.style || {})
+                            }
+                          },
+                          children.length ? children : undefined
+                        )
+                      );
+                    }
+
+                    if ((tag === 'ul' || tag === 'ol') && !props.style) {
+                      props.style = {
+                        paddingLeft: '1.25rem',
+                        marginBottom: '0.75rem'
+                      };
+                    }
 
                     return React.createElement(tag, props, children.length ? children : undefined);
                   };
@@ -1631,6 +1767,98 @@ const DoCambridgeReadingTest = () => {
             </div>
           </div>
         </>
+      ) : currentQuestion && (currentQuestion.section.questionType === 'matching-pictures' || Array.isArray(currentQuestion.question?.prompts)) ? (
+        /* Matching Pictures (e.g. Movers Part 1): Questions left | Divider | Picture Bank right */
+        <>
+          {/* Part Instruction */}
+          {currentQuestion.part.instruction && (
+            <div
+              className="cambridge-part-instruction px-4 py-2 text-[13px] leading-relaxed sm:text-sm"
+              dangerouslySetInnerHTML={{ __html: sanitizeQuillHtml(currentQuestion.part.instruction) }}
+            />
+          )}
+
+          <div className="cambridge-main-content" ref={containerRef} style={{ position: 'relative' }}>
+            {/* Left Column – Questions (prompts + drop zones) */}
+            <div className="cambridge-passage-column" style={{ width: `${leftWidth}%` }}>
+              <div className="cambridge-passage-container" style={{ padding: '12px' }}>
+                {(() => {
+                  const sectionData = {
+                    ...currentQuestion.section,
+                    id: `${currentQuestion.partIndex}-${currentQuestion.sectionIndex}`,
+                    questions: [currentQuestion.question],
+                  };
+                  const promptQs = allQuestions.filter(q =>
+                    q.partIndex === currentQuestion.partIndex &&
+                    q.sectionIndex === currentQuestion.sectionIndex &&
+                    (q.section.questionType === 'matching-pictures' || Array.isArray(q.question?.prompts))
+                  );
+                  const startNumber = promptQs[0]?.questionNumber ?? currentQuestion.questionNumber;
+                  return (
+                    <MatchingPicturesDisplay
+                      renderMode="questions"
+                      section={sectionData}
+                      startingNumber={startNumber}
+                      answerKeyPrefix={`${currentQuestion.partIndex}-${currentQuestion.sectionIndex}`}
+                      onAnswerChange={handleAnswerChange}
+                      answers={answers}
+                      submitted={submitted}
+                      sharedSelectedChoiceId={mpSelectedChoiceId}
+                      onSharedChoiceSelect={setMpSelectedChoiceId}
+                      sharedActivePromptIndex={mpActivePromptIndex}
+                      onSharedActivePromptChange={setMpActivePromptIndex}
+                    />
+                  );
+                })()}
+              </div>
+            </div>
+
+            {/* Draggable Divider */}
+            <div
+              className="cambridge-divider"
+              onMouseDown={handleMouseDown}
+              style={{ left: `${leftWidth}%`, cursor: 'col-resize' }}
+            >
+              <div className="cambridge-resize-handle">
+                <i className="fa fa-arrows-h"></i>
+              </div>
+            </div>
+
+            {/* Right Column – Picture Bank */}
+            <div className="cambridge-questions-column" style={{ width: `${100 - leftWidth}%` }}>
+              <div className="cambridge-content-wrapper">
+                {(() => {
+                  const sectionData = {
+                    ...currentQuestion.section,
+                    id: `${currentQuestion.partIndex}-${currentQuestion.sectionIndex}`,
+                    questions: [currentQuestion.question],
+                  };
+                  const promptQs = allQuestions.filter(q =>
+                    q.partIndex === currentQuestion.partIndex &&
+                    q.sectionIndex === currentQuestion.sectionIndex &&
+                    (q.section.questionType === 'matching-pictures' || Array.isArray(q.question?.prompts))
+                  );
+                  const startNumber = promptQs[0]?.questionNumber ?? currentQuestion.questionNumber;
+                  return (
+                    <MatchingPicturesDisplay
+                      renderMode="picturebank"
+                      section={sectionData}
+                      startingNumber={startNumber}
+                      answerKeyPrefix={`${currentQuestion.partIndex}-${currentQuestion.sectionIndex}`}
+                      onAnswerChange={handleAnswerChange}
+                      answers={answers}
+                      submitted={submitted}
+                      sharedSelectedChoiceId={mpSelectedChoiceId}
+                      onSharedChoiceSelect={setMpSelectedChoiceId}
+                      sharedActivePromptIndex={mpActivePromptIndex}
+                      onSharedActivePromptChange={setMpActivePromptIndex}
+                    />
+                  );
+                })()}
+              </div>
+            </div>
+          </div>
+        </>
       ) : (
         <>
           {/* Part Instruction - Above split view */}
@@ -1700,6 +1928,51 @@ const DoCambridgeReadingTest = () => {
                           />
                         );
                       })()}
+                    </div>
+                  ) : currentQuestion.part.imageUrl ? (
+                    /* Part scene image (e.g. Movers Part 2) */
+                    <div className="cambridge-passage-container" style={{ padding: '16px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'flex-start' }}>
+                        <img
+                          src={hostPath(currentQuestion.part.imageUrl)}
+                          alt="Part illustration"
+                          style={{ maxWidth: '100%', borderRadius: '8px', boxShadow: '0 2px 8px rgba(0,0,0,0.12)' }}
+                        />
+                      </div>
+
+                      {/* Example block for abc-type sections under part image */}
+                      {currentQuestion.section.questionType === 'abc' && (currentQuestion.section.exampleText || currentQuestion.section.exampleAnswer) && currentQuestion.questionIndex === 0 && (
+                        <div style={{
+                          marginTop: '14px',
+                          padding: '12px 14px',
+                          background: '#fffbeb',
+                          border: '1px solid #fcd34d',
+                          borderRadius: '8px',
+                          fontSize: '13px',
+                        }}>
+                          <div style={{ fontWeight: 700, color: '#92400e', marginBottom: '6px', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                            Example
+                          </div>
+                          {currentQuestion.section.exampleText && (
+                            <div style={{ whiteSpace: 'pre-wrap', color: '#374151', marginBottom: currentQuestion.section.exampleAnswer ? '8px' : '0', lineHeight: '1.6' }}>
+                              {currentQuestion.section.exampleText}
+                            </div>
+                          )}
+                          {currentQuestion.section.exampleAnswer && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <span style={{ fontSize: '12px', color: '#6b7280' }}>Đáp án mẫu:</span>
+                              <span style={{
+                                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                                width: '26px', height: '26px', borderRadius: '50%',
+                                background: '#0e276f', color: 'white',
+                                fontWeight: 700, fontSize: '13px',
+                              }}>
+                                {currentQuestion.section.exampleAnswer}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   ) : (
                     /* Fallback */
@@ -1842,6 +2115,42 @@ const DoCambridgeReadingTest = () => {
                     ))
                   }
                 </div>
+              ) : (currentQuestion.section.questionType === 'matching-pictures' || Array.isArray(currentQuestion.question?.prompts)) ? (
+                <div className={`cambridge-question-wrapper ${isQuestionAnswered(currentQuestion) ? 'answered' : ''} !w-full sm:!w-[80%] p-3 sm:p-4`}>
+                  <button
+                    className={`cambridge-flag-button ${flaggedQuestions.has(currentQuestion.key) ? 'flagged' : ''}`}
+                    onClick={() => toggleFlag(currentQuestion.key)}
+                    aria-label="Flag question"
+                  >
+                    {flaggedQuestions.has(currentQuestion.key) ? '🚩' : '⚐'}
+                  </button>
+
+                  <div className="pr-4 sm:pr-12">
+                    {(() => {
+                      const promptQuestions = allQuestions.filter(q =>
+                        q.partIndex === currentQuestion.partIndex &&
+                        q.sectionIndex === currentQuestion.sectionIndex &&
+                        q.section.questionType === 'matching-pictures'
+                      );
+                      const startNumber = promptQuestions[0]?.questionNumber ?? currentQuestion.questionNumber;
+
+                      return (
+                        <MatchingPicturesDisplay
+                          section={{
+                            ...currentQuestion.section,
+                            id: `${currentQuestion.partIndex}-${currentQuestion.sectionIndex}`,
+                            questions: [currentQuestion.question],
+                          }}
+                          startingNumber={startNumber}
+                          answerKeyPrefix={`${currentQuestion.partIndex}-${currentQuestion.sectionIndex}`}
+                          onAnswerChange={handleAnswerChange}
+                          answers={answers}
+                          submitted={submitted}
+                        />
+                      );
+                    })()}
+                  </div>
+                </div>
               ) : (currentQuestion.section.questionType === 'people-matching' || Array.isArray(currentQuestion.question?.people)) ? (
                 <div className={`cambridge-question-wrapper ${isQuestionAnswered(currentQuestion) ? 'answered' : ''} !w-full sm:!w-[80%] p-3 sm:p-4`}>
                   {/* Flag Button */}
@@ -1898,7 +2207,7 @@ const DoCambridgeReadingTest = () => {
                     <span className="cambridge-question-number">
                       {currentQuestion.questionNumber}
                     </span>
-                    
+
                     <QuestionDisplayFactory
                       section={{ 
                         ...currentQuestion.section,

@@ -8,6 +8,7 @@ export { default as CreatePETReadingTest } from './CreatePETReadingTest';
 export { default as CreateCambridgeTest } from './CreateCambridgeTest';
 export { default as EditCambridgeReadingTest } from './EditCambridgeReadingTest';
 export { default as EditCambridgeListeningTest } from './EditCambridgeListeningTest';
+export { default as CreateMoversReadingTest } from './CreateMoversReadingTest';
 
 // Student - Select and Do test pages
 export { default as SelectCambridgeTest } from './SelectCambridgeTest';

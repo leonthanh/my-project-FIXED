@@ -48,6 +48,9 @@ const getQuestionCountForSection = (section) => {
   if (section.questionType === 'word-form' && section.questions[0]?.sentences) {
     return section.questions[0].sentences.length;
   }
+  if (section.questionType === 'matching-pictures' && section.questions[0]?.prompts) {
+    return section.questions[0].prompts.length;
+  }
   return section.questions.length;
 };
 
@@ -102,6 +105,7 @@ const computeQuestionStarts = (passages) => {
     'word-form',
     'gap-match',
     'inline-choice',
+    'matching-pictures',
   ]);
   let count = 1;
 
