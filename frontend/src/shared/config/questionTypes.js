@@ -519,6 +519,28 @@ export const QUESTION_TYPES = {
     supportedTests: ['flyers', 'movers', 'starters'],
   },
 
+  'image-cloze': {
+    id: 'image-cloze',
+    label: 'Image Cloze (Drag & Drop)',
+    labelVi: 'Điền ảnh vào đoạn văn',
+    icon: '🖼️',
+    description: 'Kéo ảnh vào ô trống trong đoạn văn (Movers Part 3)',
+    editor: 'ImageClozeEditor',
+    defaultData: {
+      passageTitle: '',
+      passageText: '',
+      imageBank: [],
+      answers: {},
+      titleQuestion: {
+        enabled: false,
+        text: 'Now choose the best name for the story. Tick one box.',
+        options: ['', '', ''],
+        correctAnswer: '',
+      },
+    },
+    supportedTests: ['movers'],
+  },
+
   'multiple-choice-pictures': {
     id: 'multiple-choice-pictures',
     label: 'Multiple Choice with Pictures',
@@ -754,6 +776,7 @@ export const TEST_CONFIGS = {
     duration: 30, // minutes (reading & writing)
     questionTypes: [
       'matching-pictures',
+      'image-cloze',
       'multiple-choice-pictures',
       'abc',
       'fill',

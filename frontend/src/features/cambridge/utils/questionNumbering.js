@@ -51,6 +51,11 @@ const getQuestionCountForSection = (section) => {
   if (section.questionType === 'matching-pictures' && section.questions[0]?.prompts) {
     return section.questions[0].prompts.length;
   }
+  if (section.questionType === 'image-cloze') {
+    const q0 = section.questions?.[0] || {};
+    const blanks = [...(q0.passageText || '').matchAll(/\(\s*\d+\s*\)/g)].length;
+    return blanks + (q0.titleQuestion?.enabled ? 1 : 0);
+  }
   return section.questions.length;
 };
 
@@ -106,6 +111,7 @@ const computeQuestionStarts = (passages) => {
     'gap-match',
     'inline-choice',
     'matching-pictures',
+    'image-cloze',
   ]);
   let count = 1;
 

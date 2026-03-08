@@ -9,6 +9,7 @@ import {
   ShortMessageDisplay,
   InlineChoiceDisplay,
   MatchingPicturesDisplay,
+  ImageClozeDisplay,
 } from './index';
 
 /**
@@ -137,6 +138,18 @@ const QuestionDisplayFactory = ({
         <MatchingPicturesDisplay
           section={section}
           startingNumber={startingNumber}
+          onAnswerChange={onAnswerChange}
+          answers={answers}
+          submitted={submitted}
+        />
+      );
+
+    case 'image-cloze':
+      return (
+        <ImageClozeDisplay
+          section={section}
+          startingNumber={startingNumber}
+          answerKeyPrefix={section?.id}
           onAnswerChange={onAnswerChange}
           answers={answers}
           submitted={submitted}

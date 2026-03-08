@@ -36,7 +36,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
   const testConfig = getTestConfig(testType);
   const isListeningTest = testType.includes('listening');
   const youngLearnerSupportedTypeMap = {
-    movers: ['matching-pictures', 'fill', 'abc', 'cloze-mc', 'word-form', 'short-message'],
+    movers: ['matching-pictures', 'image-cloze', 'fill', 'abc', 'cloze-mc', 'word-form', 'short-message'],
   };
   const supportedTypeIds = youngLearnerSupportedTypeMap[testType] || null;
   const availableTypes = useMemo(() => {
@@ -1668,7 +1668,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
                             </span>
                             
                             {/* Chỉ hiện số câu hỏi cho question types đơn giản, không hiện cho multi-question types */}
-                            {!['long-text-mc', 'cloze-mc', 'cloze-test', 'short-message', 'people-matching', 'word-form', 'matching-pictures'].includes(currentSection.questionType) && (
+                            {!['long-text-mc', 'cloze-mc', 'cloze-test', 'short-message', 'people-matching', 'word-form', 'matching-pictures', 'image-cloze'].includes(currentSection.questionType) && (
                               <span style={{ 
                                 fontWeight: 600, 
                                 color: '#6366f1',
@@ -1803,7 +1803,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
                                 }));
                               }}
                               questionIndex={qIdx}
-                              startingNumber={['long-text-mc', 'cloze-mc', 'cloze-test', 'short-message', 'people-matching', 'word-form', 'matching-pictures'].includes(currentSection.questionType) ? sectionStartNum : startNum}
+                              startingNumber={['long-text-mc', 'cloze-mc', 'cloze-test', 'short-message', 'people-matching', 'word-form', 'matching-pictures', 'image-cloze'].includes(currentSection.questionType) ? sectionStartNum : startNum}
                               partIndex={selectedPartIndex}
                             />
                           </div>

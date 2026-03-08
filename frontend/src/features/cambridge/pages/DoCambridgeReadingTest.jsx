@@ -7,6 +7,7 @@ import { TEST_CONFIGS } from "../../../shared/config/questionTypes";
 import QuestionDisplayFactory from "../../../shared/components/questions/displays/QuestionDisplayFactory";
 import PeopleMatchingDisplay from "../../../shared/components/questions/displays/PeopleMatchingDisplay";
 import MatchingPicturesDisplay from "../../../shared/components/questions/displays/MatchingPicturesDisplay";
+import ImageClozeDisplay from "../../../shared/components/questions/displays/ImageClozeDisplay";
 /* eslint-disable-next-line no-unused-vars */
 import ClozeMCDisplay from "../../../shared/components/questions/displays/ClozeMCDisplay";
 import InlineChoiceDisplay from "../../../shared/components/questions/displays/InlineChoiceDisplay";
@@ -381,6 +382,32 @@ const DoCambridgeReadingTest = () => {
         return;
       }
 
+      if (questionType === 'image-cloze') {
+        const userAnswer = answers[q.key];
+        if (q.isTitleQuestion) {
+          const correctAnswer = q.question?.titleQuestion?.correctAnswer;
+          if (correctAnswer === undefined || correctAnswer === null) {
+            debugInfo.push(`Q${q.questionNumber}: No titleQuestion correctAnswer`);
+            return;
+          }
+          scorableCount++;
+          if (!userAnswer) return;
+          if (normalize(userAnswer) === normalize(correctAnswer)) correct++;
+          else incorrect++;
+        } else {
+          const correctImgId = q.question?.answers?.[String(q.blankNum)];
+          if (correctImgId === undefined || correctImgId === null) {
+            debugInfo.push(`Q${q.questionNumber}: No correct answer for blank ${q.blankNum}`);
+            return;
+          }
+          scorableCount++;
+          if (!userAnswer) return;
+          if (userAnswer === correctImgId) correct++;
+          else incorrect++;
+        }
+        return;
+      }
+
       // Word-form: score each sentence using its own key
       if (questionType === 'word-form' && Array.isArray(q.question?.sentences)) {
         q.question.sentences.forEach((sentence, sentIdx) => {
@@ -629,6 +656,38 @@ const DoCambridgeReadingTest = () => {
                 part,
               });
             });
+          } else if (section.questionType === 'image-cloze') {
+            // Expand blanks from passageText + optional title question
+            const passageText = q.passageText || '';
+            const blankMatches = [...passageText.matchAll(/\(\s*(\d+)\s*\)/g)];
+            const blankNums = blankMatches.map(m => parseInt(m[1], 10));
+            blankNums.forEach((blankNum) => {
+              questions.push({
+                partIndex: pIdx,
+                sectionIndex: sIdx,
+                questionIndex: qIdx,
+                questionNumber: qNum++,
+                key: `${pIdx}-${sIdx}-blank-${blankNum}`,
+                question: q,
+                section,
+                part,
+                blankNum,
+                isTitleQuestion: false,
+              });
+            });
+            if (q.titleQuestion?.enabled) {
+              questions.push({
+                partIndex: pIdx,
+                sectionIndex: sIdx,
+                questionIndex: qIdx,
+                questionNumber: qNum++,
+                key: `${pIdx}-${sIdx}-title`,
+                question: q,
+                section,
+                part,
+                isTitleQuestion: true,
+              });
+            }
           } else {
             // Regular questions
             questions.push({
@@ -1859,6 +1918,40 @@ const DoCambridgeReadingTest = () => {
             </div>
           </div>
         </>
+      ) : currentQuestion && currentQuestion.section.questionType === 'image-cloze' ? (
+        /* Image Cloze (Movers Part 3): self-contained full-width display */
+        <>
+          {currentQuestion.part.instruction && (
+            <div
+              className="cambridge-part-instruction px-4 py-2 text-[13px] leading-relaxed sm:text-sm"
+              dangerouslySetInnerHTML={{ __html: sanitizeQuillHtml(currentQuestion.part.instruction) }}
+            />
+          )}
+          <div style={{ padding: '12px' }}>
+            {(() => {
+              const icQuestions = allQuestions.filter(q =>
+                q.partIndex === currentQuestion.partIndex &&
+                q.sectionIndex === currentQuestion.sectionIndex &&
+                q.section.questionType === 'image-cloze'
+              );
+              const startNumber = icQuestions[0]?.questionNumber ?? currentQuestion.questionNumber;
+              return (
+                <ImageClozeDisplay
+                  section={{
+                    ...currentQuestion.section,
+                    id: `${currentQuestion.partIndex}-${currentQuestion.sectionIndex}`,
+                    questions: [currentQuestion.question],
+                  }}
+                  startingNumber={startNumber}
+                  answerKeyPrefix={`${currentQuestion.partIndex}-${currentQuestion.sectionIndex}`}
+                  onAnswerChange={handleAnswerChange}
+                  answers={answers}
+                  submitted={submitted}
+                />
+              );
+            })()}
+          </div>
+        </>
       ) : (
         <>
           {/* Part Instruction - Above split view */}
@@ -2136,6 +2229,40 @@ const DoCambridgeReadingTest = () => {
 
                       return (
                         <MatchingPicturesDisplay
+                          section={{
+                            ...currentQuestion.section,
+                            id: `${currentQuestion.partIndex}-${currentQuestion.sectionIndex}`,
+                            questions: [currentQuestion.question],
+                          }}
+                          startingNumber={startNumber}
+                          answerKeyPrefix={`${currentQuestion.partIndex}-${currentQuestion.sectionIndex}`}
+                          onAnswerChange={handleAnswerChange}
+                          answers={answers}
+                          submitted={submitted}
+                        />
+                      );
+                    })()}
+                  </div>
+                </div>
+              ) : currentQuestion.section.questionType === 'image-cloze' ? (
+                <div className={`cambridge-question-wrapper ${isQuestionAnswered(currentQuestion) ? 'answered' : ''} !w-full p-3 sm:p-4`}>
+                  <button
+                    className={`cambridge-flag-button ${flaggedQuestions.has(currentQuestion.key) ? 'flagged' : ''}`}
+                    onClick={() => toggleFlag(currentQuestion.key)}
+                    aria-label="Flag question"
+                  >
+                    {flaggedQuestions.has(currentQuestion.key) ? '🚩' : '⚐'}
+                  </button>
+                  <div className="pr-4 sm:pr-12">
+                    {(() => {
+                      const icQuestions = allQuestions.filter(q =>
+                        q.partIndex === currentQuestion.partIndex &&
+                        q.sectionIndex === currentQuestion.sectionIndex &&
+                        q.section.questionType === 'image-cloze'
+                      );
+                      const startNumber = icQuestions[0]?.questionNumber ?? currentQuestion.questionNumber;
+                      return (
+                        <ImageClozeDisplay
                           section={{
                             ...currentQuestion.section,
                             id: `${currentQuestion.partIndex}-${currentQuestion.sectionIndex}`,

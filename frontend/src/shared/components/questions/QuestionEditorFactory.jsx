@@ -22,6 +22,7 @@ import {
   WordFormEditor,
   MultipleChoicePicturesEditor,
   MatchingPicturesEditor,
+  ImageClozeEditor,
   InlineChoiceEditor,
 } from "./editors";
 
@@ -138,6 +139,9 @@ const QuestionEditorFactory = ({
 
     case 'matching-pictures':
       return <MatchingPicturesEditor {...commonProps} />;
+
+    case 'image-cloze':
+      return <ImageClozeEditor {...commonProps} />;
 
     case 'inline-choice':
       return <InlineChoiceEditor {...commonProps} />;
