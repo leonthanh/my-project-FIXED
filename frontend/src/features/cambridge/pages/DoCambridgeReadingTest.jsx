@@ -54,6 +54,7 @@ const DoCambridgeReadingTest = () => {
   // Shared state for matching-pictures split view (questions left | picture bank right)
   const [mpSelectedChoiceId, setMpSelectedChoiceId] = useState('');
   const [mpActivePromptIndex, setMpActivePromptIndex] = useState(null);
+  const [icSelectedImgId, setIcSelectedImgId] = useState(null); // image-cloze split panel
 
   // Started flag for the test (show start modal and control timer)
   const [started, setStarted] = useState(() => {
@@ -867,136 +868,141 @@ const DoCambridgeReadingTest = () => {
       {/* Start Modal (only starts timer after click) */}
       {!started && !submitted && !loading && !error && (
         <div
-          className="fixed inset-0 z-[1200] flex items-center justify-center bg-slate-900/50 px-4 py-6 backdrop-blur-sm"
           style={{
-            position: 'fixed',
-            inset: 0,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            background: 'rgba(15,23,42,0.6)',
-            zIndex: 1200
+            position: 'fixed', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+            background: 'rgba(15,23,42,0.65)', backdropFilter: 'blur(4px)', zIndex: 1200, padding: '16px',
           }}
         >
-          <div
-            className="max-h-[85vh] w-full max-w-[520px] overflow-y-auto rounded-2xl bg-white p-5 shadow-[0_12px_32px_rgba(15,23,42,0.25)] sm:p-6"
-            style={{
-              background: 'linear-gradient(180deg, #f8fbff 0%, #ffffff 35%)',
-              border: '1px solid #dbeafe',
-              borderRadius: 14,
-              maxHeight: '85vh',
-              width: '100%',
-              maxWidth: 520,
-              overflowY: 'auto',
-              padding: 20,
-              boxShadow: '0 12px 32px rgba(15,23,42,0.25)'
-            }}
-          >
-            <h2 className="text-base font-semibold text-slate-900 sm:text-lg" style={{ color: '#0f2f5f' }}>
-              Bắt đầu làm bài Cambridge Reading
-            </h2>
-            <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-slate-400" style={{ color: '#2563eb' }}>
-              {examType} Reading
-            </p>
-            {hasSavedProgress ? (
-              <>
-                <p className="mt-3 text-sm leading-relaxed text-slate-700">
-                  Phát hiện bài làm đã được lưu.
-                </p>
-                <p className="mt-2 text-sm text-slate-500">
-                  Thời gian còn lại: <b>{timeRemaining !== null ? formatTime(timeRemaining) : "--:--"}</b>
-                </p>
-              </>
-            ) : (
-                <p className="mt-3 text-sm leading-relaxed text-slate-700">
-                  Bạn có <b>{Math.round(effectiveDuration)} phút</b> để hoàn tất bài làm. Bài làm sẽ được tự động lưu.
-                </p>
-            )}
+          <div style={{ width: '100%', maxWidth: 480, borderRadius: 20, overflow: 'hidden', boxShadow: '0 24px 48px rgba(15,23,42,0.35)' }}>
 
-            <div className="mt-3 text-sm text-slate-600">
-              <div className="flex flex-wrap gap-x-2">
-                <span className="font-semibold text-slate-700" style={{ color: '#1d4ed8' }}>Đề: </span>
-                <span>{test?.title || testConfig.name || "Cambridge Reading"}</span>
+            {/* ── Header ── */}
+            <div style={{ background: 'linear-gradient(135deg, #1e3a8a 0%, #1d4ed8 55%, #0284c7 100%)', padding: '26px 28px 22px', position: 'relative', overflow: 'hidden' }}>
+              {/* Decorative circles */}
+              <div style={{ position: 'absolute', top: -40, right: -40, width: 160, height: 160, borderRadius: '50%', background: 'rgba(255,255,255,0.07)', pointerEvents: 'none' }} />
+              <div style={{ position: 'absolute', bottom: -30, left: -20, width: 100, height: 100, borderRadius: '50%', background: 'rgba(255,255,255,0.05)', pointerEvents: 'none' }} />
+
+              {/* Badge row */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14, position: 'relative', zIndex: 1 }}>
+                <div style={{ width: 44, height: 44, borderRadius: 12, background: 'rgba(255,255,255,0.18)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0 }}>
+                  📖
+                </div>
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 800, color: 'rgba(255,255,255,0.65)', textTransform: 'uppercase', letterSpacing: '0.12em' }}>
+                    Cambridge {examType}
+                  </div>
+                  <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.45)', letterSpacing: '0.06em' }}>Reading Test</div>
+                </div>
               </div>
-              <div className="mt-1 flex flex-wrap gap-x-2">
-                <span className="font-semibold text-slate-700" style={{ color: '#1d4ed8' }}>Tổng số câu: </span>
-                <span>{allQuestions.length}</span>
-              </div>
+
+              {/* Test title */}
+              <h2 style={{ fontSize: 18, fontWeight: 800, color: '#fff', margin: 0, lineHeight: 1.3, position: 'relative', zIndex: 1, textShadow: '0 1px 3px rgba(0,0,0,0.2)' }}>
+                {test?.title || testConfig.name || 'Cambridge Reading'}
+              </h2>
             </div>
 
-            <div className="mt-5 flex flex-wrap justify-end gap-2">
-              <button
-                onClick={() => navigate(-1)}
-                className="rounded-full border border-slate-300 bg-white px-5 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50"
-                style={{ borderColor: '#c7d2fe' }}
-              >
-                Thoát
-              </button>
+            {/* ── Body ── */}
+            <div style={{ background: '#fff', padding: '22px 24px' }}>
 
-              {hasSavedProgress && (
+              {/* Info cards */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 16 }}>
+                <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 12, padding: '14px 16px', textAlign: 'center' }}>
+                  <div style={{ fontSize: 28, fontWeight: 800, color: '#1d4ed8', lineHeight: 1 }}>{Math.round(effectiveDuration)}</div>
+                  <div style={{ fontSize: 11, color: '#3b82f6', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', marginTop: 4 }}>Phút</div>
+                </div>
+                <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 12, padding: '14px 16px', textAlign: 'center' }}>
+                  <div style={{ fontSize: 28, fontWeight: 800, color: '#15803d', lineHeight: 1 }}>{allQuestions.length}</div>
+                  <div style={{ fontSize: 11, color: '#16a34a', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', marginTop: 4 }}>Câu hỏi</div>
+                </div>
+              </div>
+
+              {hasSavedProgress ? (
+                <div style={{ background: '#fefce8', border: '1px solid #fde68a', borderRadius: 10, padding: '12px 14px', marginBottom: 18 }}>
+                  <div style={{ fontWeight: 700, color: '#92400e', fontSize: 13, marginBottom: 3 }}>⚡ Tiếp tục bài làm trước</div>
+                  <div style={{ fontSize: 13, color: '#b45309' }}>
+                    Thời gian còn lại: <b>{timeRemaining !== null ? formatTime(timeRemaining) : '--:--'}</b>
+                  </div>
+                </div>
+              ) : (
+                <p style={{ fontSize: 13, color: '#475569', marginBottom: 18, lineHeight: 1.6 }}>
+                  Bài làm sẽ được <b>tự động lưu</b>. Bạn có thể thoát và quay lại tiếp tục bất cứ lúc nào.
+                </p>
+              )}
+
+              {/* Action buttons */}
+              <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', flexWrap: 'wrap', alignItems: 'center' }}>
+                <button
+                  onClick={() => navigate(-1)}
+                  style={{ padding: '9px 18px', borderRadius: 20, border: '1.5px solid #e2e8f0', background: '#fff', fontSize: 13, fontWeight: 600, color: '#64748b', cursor: 'pointer' }}
+                >
+                  Thoát
+                </button>
+
+                {hasSavedProgress && (
+                  <button
+                    onClick={() => {
+                      const ok = window.confirm(
+                        "Bạn chắc chắn muốn làm lại từ đầu? Tất cả tiến độ đã lưu sẽ bị xóa."
+                      );
+                      if (!ok) return;
+
+                      try {
+                        localStorage.removeItem(`test-time-${id}`);
+                        localStorage.removeItem(`test-answers-${id}`);
+                        localStorage.removeItem(startedKey);
+                      } catch {
+                        // ignore
+                      }
+
+                      setAnswers({});
+                      setFlaggedQuestions(new Set());
+                      setCurrentPartIndex(0);
+                      setCurrentQuestionIndex(0);
+                      setActiveQuestion(null);
+                      setTimeRemaining(effectiveDuration * 60);
+                      setHasSavedProgress(false);
+                      setStarted(false);
+                    }}
+                    style={{ padding: '9px 18px', borderRadius: 20, border: '1.5px solid #fecaca', background: '#fef2f2', fontSize: 13, fontWeight: 600, color: '#dc2626', cursor: 'pointer' }}
+                  >
+                    🔄 Làm lại từ đầu
+                  </button>
+                )}
+
                 <button
                   onClick={() => {
-                    const ok = window.confirm(
-                      "Bạn chắc chắn muốn làm lại từ đầu? Tất cả tiến độ đã lưu sẽ bị xóa."
-                    );
-                    if (!ok) return;
-
+                    setStarted(true);
+                    const initialSeconds = effectiveDuration * 60;
                     try {
-                      localStorage.removeItem(`test-time-${id}`);
-                      localStorage.removeItem(`test-answers-${id}`);
-                      localStorage.removeItem(startedKey);
+                      localStorage.setItem(startedKey, "true");
+                      localStorage.setItem(`test-time-${id}`, String(timeRemaining ?? initialSeconds));
+                      if (!localStorage.getItem(`test-answers-${id}`)) {
+                        localStorage.setItem(`test-answers-${id}`, JSON.stringify(answers || {}));
+                      }
                     } catch {
                       // ignore
                     }
-
-                    setAnswers({});
-                    setFlaggedQuestions(new Set());
-                    setCurrentPartIndex(0);
-                    setCurrentQuestionIndex(0);
-                    setActiveQuestion(null);
-                    setTimeRemaining(effectiveDuration * 60);
-                    setHasSavedProgress(false);
-                    setStarted(false);
+                    if (timeRemaining === null) {
+                      setTimeRemaining(initialSeconds);
+                    }
+                    // focus first question after small delay
+                    setTimeout(() => {
+                      const el = document.getElementById("question-1");
+                      if (el && typeof el.scrollIntoView === "function") {
+                        el.scrollIntoView({ behavior: "smooth", block: "center" });
+                      }
+                    }, 250);
                   }}
-                  className="rounded-full border border-red-200 bg-red-50 px-5 py-2 text-sm font-semibold text-red-700 hover:bg-red-100"
+                  style={{
+                    padding: '11px 24px', borderRadius: 20,
+                    background: 'linear-gradient(135deg, #1d4ed8, #0284c7)',
+                    fontSize: 14, fontWeight: 700, color: '#fff', border: 'none', cursor: 'pointer',
+                    boxShadow: '0 4px 14px rgba(29,78,216,0.4)',
+                  }}
                 >
-                  🔄 Làm lại từ đầu
+                  {hasSavedProgress ? '▶ Tiếp tục' : '▶ Bắt đầu làm bài'}
                 </button>
-              )}
+              </div>
 
-              <button
-                onClick={() => {
-                  setStarted(true);
-                  const initialSeconds = effectiveDuration * 60;
-                  try {
-                    localStorage.setItem(startedKey, "true");
-                    localStorage.setItem(`test-time-${id}`, String(timeRemaining ?? initialSeconds));
-                    if (!localStorage.getItem(`test-answers-${id}`)) {
-                      localStorage.setItem(`test-answers-${id}`, JSON.stringify(answers || {}));
-                    }
-                  } catch {
-                    // ignore
-                  }
-                  if (timeRemaining === null) {
-                    setTimeRemaining(initialSeconds);
-                  }
-                  // focus first question after small delay
-                  setTimeout(() => {
-                    const el = document.getElementById("question-1");
-                    if (el && typeof el.scrollIntoView === "function") {
-                      el.scrollIntoView({ behavior: "smooth", block: "center" });
-                    }
-                  }, 250);
-                }}
-                className="rounded-full bg-blue-600 px-6 py-2.5 text-[15px] font-semibold text-white hover:bg-blue-700"
-                style={{
-                  background: '#2563eb',
-                  color: '#fff',
-                  boxShadow: '0 8px 18px rgba(37,99,235,0.25)'
-                }}
-              >
-                {hasSavedProgress ? "Tiếp tục" : "Bắt đầu làm bài"}
-              </button>
             </div>
           </div>
         </div>
@@ -1919,7 +1925,7 @@ const DoCambridgeReadingTest = () => {
           </div>
         </>
       ) : currentQuestion && currentQuestion.section.questionType === 'image-cloze' ? (
-        /* Image Cloze (Movers Part 3): self-contained full-width display */
+        /* Image Cloze (Movers Part 3): Passage left | Resizable Divider | Picture Bank right */
         <>
           {currentQuestion.part.instruction && (
             <div
@@ -1927,29 +1933,79 @@ const DoCambridgeReadingTest = () => {
               dangerouslySetInnerHTML={{ __html: sanitizeQuillHtml(currentQuestion.part.instruction) }}
             />
           )}
-          <div style={{ padding: '12px' }}>
-            {(() => {
-              const icQuestions = allQuestions.filter(q =>
-                q.partIndex === currentQuestion.partIndex &&
-                q.sectionIndex === currentQuestion.sectionIndex &&
-                q.section.questionType === 'image-cloze'
-              );
-              const startNumber = icQuestions[0]?.questionNumber ?? currentQuestion.questionNumber;
-              return (
-                <ImageClozeDisplay
-                  section={{
-                    ...currentQuestion.section,
-                    id: `${currentQuestion.partIndex}-${currentQuestion.sectionIndex}`,
-                    questions: [currentQuestion.question],
-                  }}
-                  startingNumber={startNumber}
-                  answerKeyPrefix={`${currentQuestion.partIndex}-${currentQuestion.sectionIndex}`}
-                  onAnswerChange={handleAnswerChange}
-                  answers={answers}
-                  submitted={submitted}
-                />
-              );
-            })()}
+          <div className="cambridge-main-content" ref={containerRef} style={{ position: 'relative' }}>
+            {/* Left Column – Passage with blank drop zones */}
+            <div className="cambridge-passage-column" style={{ width: `${leftWidth}%` }}>
+              <div className="cambridge-passage-container" style={{ padding: '12px' }}>
+                {(() => {
+                  const icQuestions = allQuestions.filter(q =>
+                    q.partIndex === currentQuestion.partIndex &&
+                    q.sectionIndex === currentQuestion.sectionIndex &&
+                    q.section.questionType === 'image-cloze'
+                  );
+                  const startNumber = icQuestions[0]?.questionNumber ?? currentQuestion.questionNumber;
+                  return (
+                    <ImageClozeDisplay
+                      renderMode="passage"
+                      section={{
+                        ...currentQuestion.section,
+                        id: `${currentQuestion.partIndex}-${currentQuestion.sectionIndex}`,
+                        questions: [currentQuestion.question],
+                      }}
+                      startingNumber={startNumber}
+                      answerKeyPrefix={`${currentQuestion.partIndex}-${currentQuestion.sectionIndex}`}
+                      onAnswerChange={handleAnswerChange}
+                      answers={answers}
+                      submitted={submitted}
+                      sharedSelectedImgId={icSelectedImgId}
+                      onSharedImgSelect={setIcSelectedImgId}
+                    />
+                  );
+                })()}
+              </div>
+            </div>
+
+            {/* Draggable Divider */}
+            <div
+              className="cambridge-divider"
+              onMouseDown={handleMouseDown}
+              style={{ left: `${leftWidth}%`, cursor: 'col-resize' }}
+            >
+              <div className="cambridge-resize-handle">
+                <i className="fa fa-arrows-h"></i>
+              </div>
+            </div>
+
+            {/* Right Column – Picture Bank */}
+            <div className="cambridge-questions-column" style={{ width: `${100 - leftWidth}%` }}>
+              <div className="cambridge-content-wrapper">
+                {(() => {
+                  const icQuestions = allQuestions.filter(q =>
+                    q.partIndex === currentQuestion.partIndex &&
+                    q.sectionIndex === currentQuestion.sectionIndex &&
+                    q.section.questionType === 'image-cloze'
+                  );
+                  const startNumber = icQuestions[0]?.questionNumber ?? currentQuestion.questionNumber;
+                  return (
+                    <ImageClozeDisplay
+                      renderMode="picturebank"
+                      section={{
+                        ...currentQuestion.section,
+                        id: `${currentQuestion.partIndex}-${currentQuestion.sectionIndex}`,
+                        questions: [currentQuestion.question],
+                      }}
+                      startingNumber={startNumber}
+                      answerKeyPrefix={`${currentQuestion.partIndex}-${currentQuestion.sectionIndex}`}
+                      onAnswerChange={handleAnswerChange}
+                      answers={answers}
+                      submitted={submitted}
+                      sharedSelectedImgId={icSelectedImgId}
+                      onSharedImgSelect={setIcSelectedImgId}
+                    />
+                  );
+                })()}
+              </div>
+            </div>
           </div>
         </>
       ) : (

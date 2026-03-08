@@ -30,6 +30,26 @@ const resolveImg = (url) => {
   return s;
 };
 
+/**
+ * Strip HTML tags từ ReactQuill output nhưng GIỮ LẠI vị trí blank (1)(2)...
+ * Trả về plain text để parsePassage có thể tách blank slots.
+ * <p>...</p> → text + newline, <br> → newline.
+ */
+const htmlToPlainWithBlanks = (html = "") => {
+  if (!html || !html.includes("<")) return html;
+  return html
+    .replace(/<\/p>/gi, "\n")
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+};
+
 const extractBlanks = (text = "") => {
   const matches = [...text.matchAll(/\(\s*(\d+)\s*\)/g)];
   return matches.map((m) => parseInt(m[1], 10)).sort((a, b) => a - b);
@@ -42,6 +62,9 @@ export default function ImageClozeDisplay({
   onAnswerChange,
   answers = {},
   submitted = false,
+  renderMode = "full",       // "full" | "passage" | "picturebank"
+  sharedSelectedImgId,       // controlled from parent in split mode
+  onSharedImgSelect,         // setter from parent in split mode
 }) {
   const q = section?.questions?.[0] || {};
   const {
@@ -52,15 +75,18 @@ export default function ImageClozeDisplay({
   } = q;
   const correctAnswers = q.answers || {}; // { '1': imgId, ... }
 
-  const [selectedImgId, setSelectedImgId] = useState(null); // click-to-place
+  const [localSelectedImgId, setLocalSelectedImgId] = useState(null);
   const [dragOverBlank, setDragOverBlank] = useState(null);
+  // In split panel mode the parent controls selection state; locally managed otherwise.
+  const effectiveSelectedImgId = onSharedImgSelect !== undefined ? sharedSelectedImgId : localSelectedImgId;
+  const setEffectiveSelectedImgId = onSharedImgSelect !== undefined ? onSharedImgSelect : setLocalSelectedImgId;
 
   const prefix = answerKeyPrefix || section?.id || "ic";
 
   const blankKey = (n) => `${prefix}-blank-${n}`;
   const titleKey = `${prefix}-title`;
 
-  const blanks = extractBlanks(passageText);
+  const blanks = extractBlanks(htmlToPlainWithBlanks(passageText));
 
   // Which images are already placed (excluding example)
   const placedIds = blanks.map((n) => answers[blankKey(n)]).filter(Boolean);
@@ -87,9 +113,9 @@ export default function ImageClozeDisplay({
         }
       });
       onAnswerChange(blankKey(blankN), imgId);
-      setSelectedImgId(null);
+      setEffectiveSelectedImgId(null);
     },
-    [submitted, answers, blanks, blankKey, onAnswerChange]
+    [submitted, answers, blanks, blankKey, onAnswerChange, setEffectiveSelectedImgId]
   );
 
   // Drag handlers
@@ -113,12 +139,12 @@ export default function ImageClozeDisplay({
   // Click-to-place: click image → select; click blank → place
   const handleImgClick = (img) => {
     if (submitted || img.isExample) return;
-    setSelectedImgId((prev) => (prev === img.id ? null : img.id));
+    setEffectiveSelectedImgId(effectiveSelectedImgId === img.id ? null : img.id);
   };
   const handleBlankClick = (blankN) => {
     if (submitted) return;
-    if (selectedImgId) {
-      placeImage(blankN, selectedImgId);
+    if (effectiveSelectedImgId) {
+      placeImage(blankN, effectiveSelectedImgId);
     } else if (answers[blankKey(blankN)]) {
       // click on filled blank to clear it
       onAnswerChange(blankKey(blankN), "");
@@ -127,22 +153,22 @@ export default function ImageClozeDisplay({
 
   // Parse passage into parts: text segments + blank slots
   const parsePassage = () => {
-    if (!passageText) return [{ type: "text", content: "" }];
+    const plain = htmlToPlainWithBlanks(passageText);
+    if (!plain) return [{ type: "text", content: "" }];
     const parts = [];
-    let remaining = passageText;
     const regex = /\(\s*(\d+)\s*\)/g;
     let match;
     let lastIndex = 0;
     regex.lastIndex = 0;
-    while ((match = regex.exec(passageText)) !== null) {
+    while ((match = regex.exec(plain)) !== null) {
       if (match.index > lastIndex) {
-        parts.push({ type: "text", content: passageText.slice(lastIndex, match.index) });
+        parts.push({ type: "text", content: plain.slice(lastIndex, match.index) });
       }
       parts.push({ type: "blank", num: parseInt(match[1], 10) });
       lastIndex = match.index + match[0].length;
     }
-    if (lastIndex < passageText.length) {
-      parts.push({ type: "text", content: passageText.slice(lastIndex) });
+    if (lastIndex < plain.length) {
+      parts.push({ type: "text", content: plain.slice(lastIndex) });
     }
     return parts;
   };
@@ -166,12 +192,99 @@ export default function ImageClozeDisplay({
   const titleOptions = titleQuestion?.options || [];
   const titleCorrect = String(titleQuestion?.correctAnswer || "").toUpperCase();
 
+  // ── Image bank grid (shared between "full" and "picturebank" modes) ──────────
+  const imageBankGrid = imageBank.map((img) => {
+    const isPlaced = placedIds.includes(img.id);
+    const isSelected = effectiveSelectedImgId === img.id;
+    const isExample = img.isExample;
+    let border = "2px solid #e5e7eb";
+    let opacity = 1;
+    let cursor = submitted ? "default" : "grab";
+    if (isExample) { border = "2px solid #fde047"; opacity = 0.7; cursor = "not-allowed"; }
+    else if (isPlaced) { border = "2px solid #86efac"; opacity = 0.55; }
+    else if (isSelected) { border = "2px solid #3b82f6"; }
+    return (
+      <div
+        key={img.id}
+        draggable={!submitted && !isExample && !isPlaced}
+        onDragStart={(e) => handleImgDragStart(e, img.id)}
+        onClick={() => handleImgClick(img)}
+        style={{
+          display: "flex", flexDirection: "column", alignItems: "center", gap: "5px",
+          padding: "8px 6px", borderRadius: "8px", border,
+          background: isSelected ? "#eff6ff" : "#fff", opacity, cursor,
+          userSelect: "none", transition: "all 0.15s", position: "relative",
+        }}
+        title={isExample ? `${img.word} (Example – đã dùng)` : isPlaced ? `${img.word} (đã đặt)` : `Kéo hoặc click: ${img.word}`}
+      >
+        {img.url ? (
+          <img
+            src={resolveImg(img.url)}
+            alt={img.word}
+            draggable={false}
+            style={{ width: "100%", maxWidth: "140px", height: "auto", aspectRatio: "5/4", objectFit: "contain", borderRadius: "6px", pointerEvents: "none", display: "block" }}
+          />
+        ) : (
+          <div style={{ width: "100%", maxWidth: "140px", aspectRatio: "5/4", background: "#f3f4f6", borderRadius: "6px", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "11px", color: "#9ca3af" }}>
+            No img
+          </div>
+        )}
+        <span style={{ fontSize: "11px", fontWeight: 600, color: isPlaced ? "#6b7280" : "#111827", textAlign: "center" }}>
+          {img.word}
+        </span>
+        {isExample && (
+          <span style={{ position: "absolute", top: "2px", left: "2px", fontSize: "9px", fontWeight: 700, background: "#fde047", color: "#78350f", borderRadius: "3px", padding: "1px 4px" }}>
+            Example
+          </span>
+        )}
+        {isPlaced && !isExample && (
+          <span style={{ position: "absolute", top: "2px", right: "2px", fontSize: "9px", background: "#bbf7d0", color: "#15803d", borderRadius: "3px", padding: "1px 4px", fontWeight: 700 }}>
+            ✓
+          </span>
+        )}
+        {isSelected && (
+          <span style={{ position: "absolute", top: "2px", right: "2px", fontSize: "9px", background: "#3b82f6", color: "#fff", borderRadius: "3px", padding: "1px 4px", fontWeight: 700 }}>
+            Selected
+          </span>
+        )}
+      </div>
+    );
+  });
+
+  // ── Picturebank-only mode (rendered in the right split panel column) ──────────
+  if (renderMode === "picturebank") {
+    return (
+      <div style={{ background: "#f0f9ff", border: "1px solid #bae6fd", borderRadius: "12px", padding: "14px", height: "100%", boxSizing: "border-box" }}>
+        <div style={{ fontWeight: 700, fontSize: "12px", color: "#0369a1", marginBottom: "12px", textAlign: "center", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+          🖼️ Picture Bank
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+          {imageBankGrid}
+        </div>
+        {effectiveSelectedImgId && !submitted && (
+          <div style={{ marginTop: "10px", fontSize: "11px", color: "#1d4ed8", fontWeight: 600, textAlign: "center", background: "#dbeafe", borderRadius: "6px", padding: "4px 6px" }}>
+            👆 Click vào ô trống trong đoạn văn để đặt ảnh
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
-      {/* ── Passage + Image Bank (2 columns) ──────────────────────────── */}
-      <div style={{ display: "flex", gap: "16px", alignItems: "flex-start" }}>
+      {/* ── Passage + Optional Image Bank ────────────────────────────── */}
+      <div style={renderMode === "full" ? { display: "flex", gap: 0, alignItems: "stretch" } : {}}>
         {/* Left – Passage with blank slots */}
-        <div style={{ flex: "1 1 55%", minWidth: 0 }}>
+        <div style={renderMode === "full" ? {
+          flex: "1 1 0",
+          minWidth: 0,
+          paddingRight: "20px",
+          borderRight: "2px solid #cbd5e1",
+          alignSelf: "stretch",
+        } : {
+          flex: "1 1 0",
+          minWidth: 0,
+        }}>
           {passageTitle && (
             <div
               style={{
@@ -266,13 +379,13 @@ export default function ImageClozeDisplay({
                     border: `2px ${placed || isOver ? "solid" : "dashed"} ${borderColor}`,
                     borderRadius: "8px",
                     background: bg,
-                    cursor: submitted ? "default" : (selectedImgId ? "copy" : placed ? "pointer" : "default"),
+                    cursor: submitted ? "default" : (effectiveSelectedImgId ? "copy" : placed ? "pointer" : "default"),
                     margin: "0 4px",
                     transition: "all 0.15s",
                     padding: "3px",
                     position: "relative",
                   }}
-                  title={submitted ? "" : placed ? "Click để bỏ ảnh" : selectedImgId ? "Click để đặt ảnh vào đây" : "Kéo hoặc chọn ảnh rồi click vào đây"}
+                  title={submitted ? "" : placed ? "Click để bỏ ảnh" : effectiveSelectedImgId ? "Click để đặt ảnh vào đây" : "Kéo hoặc chọn ảnh rồi click vào đây"}
                 >
                   <span
                     style={{
@@ -340,188 +453,32 @@ export default function ImageClozeDisplay({
           </div>
         </div>
 
-        {/* Right – Image Bank */}
-        <div
-          style={{
-            flex: "0 0 200px",
-            background: "#f0f9ff",
-            border: "1px solid #bae6fd",
-            borderRadius: "12px",
-            padding: "12px",
-          }}
-        >
+        {/* Right – Image Bank (full mode only) */}
+        {renderMode === "full" && (
           <div
             style={{
-              fontWeight: 700,
-              fontSize: "12px",
-              color: "#0369a1",
-              marginBottom: "10px",
-              textAlign: "center",
-              textTransform: "uppercase",
-              letterSpacing: "0.05em",
+              flex: "0 0 300px",
+              background: "#f0f9ff",
+              border: "1px solid #bae6fd",
+              borderRadius: "12px",
+              padding: "12px",
+              marginLeft: "20px",
+              alignSelf: "flex-start",
             }}
           >
-            🖼️ Picture Bank
-          </div>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "1fr 1fr",
-              gap: "8px",
-            }}
-          >
-            {imageBank.map((img) => {
-              const isPlaced = placedIds.includes(img.id);
-              const isSelected = selectedImgId === img.id;
-              const isExample = img.isExample;
-
-              let border = "2px solid #e5e7eb";
-              let opacity = 1;
-              let cursor = submitted ? "default" : "grab";
-              if (isExample) { border = "2px solid #fde047"; opacity = 0.7; cursor = "not-allowed"; }
-              else if (isPlaced) { border = "2px solid #86efac"; opacity = 0.55; }
-              else if (isSelected) { border = "2px solid #3b82f6"; background: "#eff6ff"; }
-
-              return (
-                <div
-                  key={img.id}
-                  draggable={!submitted && !isExample && !isPlaced}
-                  onDragStart={(e) => handleImgDragStart(e, img.id)}
-                  onClick={() => handleImgClick(img)}
-                  style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "center",
-                    gap: "4px",
-                    padding: "6px 4px",
-                    borderRadius: "8px",
-                    border,
-                    background: isSelected ? "#eff6ff" : "#fff",
-                    opacity,
-                    cursor,
-                    userSelect: "none",
-                    transition: "all 0.15s",
-                    position: "relative",
-                  }}
-                  title={
-                    isExample
-                      ? `${img.word} (Example – đã dùng)`
-                      : isPlaced
-                      ? `${img.word} (đã đặt)`
-                      : `Kéo hoặc click: ${img.word}`
-                  }
-                >
-                  {img.url ? (
-                    <img
-                      src={resolveImg(img.url)}
-                      alt={img.word}
-                      style={{
-                        width: "72px",
-                        height: "60px",
-                        objectFit: "contain",
-                        borderRadius: "4px",
-                        pointerEvents: "none",
-                      }}
-                    />
-                  ) : (
-                    <div
-                      style={{
-                        width: "72px",
-                        height: "60px",
-                        background: "#f3f4f6",
-                        borderRadius: "4px",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        fontSize: "10px",
-                        color: "#9ca3af",
-                      }}
-                    >
-                      No img
-                    </div>
-                  )}
-                  <span
-                    style={{
-                      fontSize: "11px",
-                      fontWeight: 600,
-                      color: isPlaced ? "#6b7280" : "#111827",
-                      textAlign: "center",
-                    }}
-                  >
-                    {img.word}
-                  </span>
-                  {isExample && (
-                    <span
-                      style={{
-                        position: "absolute",
-                        top: "2px",
-                        left: "2px",
-                        fontSize: "9px",
-                        fontWeight: 700,
-                        background: "#fde047",
-                        color: "#78350f",
-                        borderRadius: "3px",
-                        padding: "1px 4px",
-                      }}
-                    >
-                      Example
-                    </span>
-                  )}
-                  {isPlaced && !isExample && (
-                    <span
-                      style={{
-                        position: "absolute",
-                        top: "2px",
-                        right: "2px",
-                        fontSize: "9px",
-                        background: "#bbf7d0",
-                        color: "#15803d",
-                        borderRadius: "3px",
-                        padding: "1px 4px",
-                        fontWeight: 700,
-                      }}
-                    >
-                      ✓
-                    </span>
-                  )}
-                  {isSelected && (
-                    <span
-                      style={{
-                        position: "absolute",
-                        top: "2px",
-                        right: "2px",
-                        fontSize: "9px",
-                        background: "#3b82f6",
-                        color: "#fff",
-                        borderRadius: "3px",
-                        padding: "1px 4px",
-                        fontWeight: 700,
-                      }}
-                    >
-                      Selected
-                    </span>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-          {selectedImgId && !submitted && (
-            <div
-              style={{
-                marginTop: "10px",
-                fontSize: "11px",
-                color: "#1d4ed8",
-                fontWeight: 600,
-                textAlign: "center",
-                background: "#dbeafe",
-                borderRadius: "6px",
-                padding: "4px 6px",
-              }}
-            >
-              👆 Click vào ô trống trong đoạn văn để đặt ảnh
+            <div style={{ fontWeight: 700, fontSize: "12px", color: "#0369a1", marginBottom: "10px", textAlign: "center", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+              🖼️ Picture Bank
             </div>
-          )}
-        </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+              {imageBankGrid}
+            </div>
+            {effectiveSelectedImgId && !submitted && (
+              <div style={{ marginTop: "10px", fontSize: "11px", color: "#1d4ed8", fontWeight: 600, textAlign: "center", background: "#dbeafe", borderRadius: "6px", padding: "4px 6px" }}>
+                👆 Click vào ô trống trong đoạn văn để đặt ảnh
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* ── Title Question ─────────────────────────────────────────────── */}
