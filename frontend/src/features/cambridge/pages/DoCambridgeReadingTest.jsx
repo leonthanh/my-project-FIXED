@@ -50,6 +50,10 @@ const DoCambridgeReadingTest = () => {
   const [flaggedQuestions, setFlaggedQuestions] = useState(new Set()); // Flagged questions
   const [hasSavedProgress, setHasSavedProgress] = useState(false);
 
+  // Shared state for matching-pictures split view (questions left | picture bank right)
+  const [mpSelectedChoiceId, setMpSelectedChoiceId] = useState('');
+  const [mpActivePromptIndex, setMpActivePromptIndex] = useState(null);
+
   // Started flag for the test (show start modal and control timer)
   const [started, setStarted] = useState(() => {
     try {
@@ -1760,6 +1764,98 @@ const DoCambridgeReadingTest = () => {
                   })()}
                 </div>
               )}
+            </div>
+          </div>
+        </>
+      ) : currentQuestion && (currentQuestion.section.questionType === 'matching-pictures' || Array.isArray(currentQuestion.question?.prompts)) ? (
+        /* Matching Pictures (e.g. Movers Part 1): Questions left | Divider | Picture Bank right */
+        <>
+          {/* Part Instruction */}
+          {currentQuestion.part.instruction && (
+            <div
+              className="cambridge-part-instruction px-4 py-2 text-[13px] leading-relaxed sm:text-sm"
+              dangerouslySetInnerHTML={{ __html: sanitizeQuillHtml(currentQuestion.part.instruction) }}
+            />
+          )}
+
+          <div className="cambridge-main-content" ref={containerRef} style={{ position: 'relative' }}>
+            {/* Left Column – Questions (prompts + drop zones) */}
+            <div className="cambridge-passage-column" style={{ width: `${leftWidth}%` }}>
+              <div className="cambridge-passage-container" style={{ padding: '12px' }}>
+                {(() => {
+                  const sectionData = {
+                    ...currentQuestion.section,
+                    id: `${currentQuestion.partIndex}-${currentQuestion.sectionIndex}`,
+                    questions: [currentQuestion.question],
+                  };
+                  const promptQs = allQuestions.filter(q =>
+                    q.partIndex === currentQuestion.partIndex &&
+                    q.sectionIndex === currentQuestion.sectionIndex &&
+                    (q.section.questionType === 'matching-pictures' || Array.isArray(q.question?.prompts))
+                  );
+                  const startNumber = promptQs[0]?.questionNumber ?? currentQuestion.questionNumber;
+                  return (
+                    <MatchingPicturesDisplay
+                      renderMode="questions"
+                      section={sectionData}
+                      startingNumber={startNumber}
+                      answerKeyPrefix={`${currentQuestion.partIndex}-${currentQuestion.sectionIndex}`}
+                      onAnswerChange={handleAnswerChange}
+                      answers={answers}
+                      submitted={submitted}
+                      sharedSelectedChoiceId={mpSelectedChoiceId}
+                      onSharedChoiceSelect={setMpSelectedChoiceId}
+                      sharedActivePromptIndex={mpActivePromptIndex}
+                      onSharedActivePromptChange={setMpActivePromptIndex}
+                    />
+                  );
+                })()}
+              </div>
+            </div>
+
+            {/* Draggable Divider */}
+            <div
+              className="cambridge-divider"
+              onMouseDown={handleMouseDown}
+              style={{ left: `${leftWidth}%`, cursor: 'col-resize' }}
+            >
+              <div className="cambridge-resize-handle">
+                <i className="fa fa-arrows-h"></i>
+              </div>
+            </div>
+
+            {/* Right Column – Picture Bank */}
+            <div className="cambridge-questions-column" style={{ width: `${100 - leftWidth}%` }}>
+              <div className="cambridge-content-wrapper">
+                {(() => {
+                  const sectionData = {
+                    ...currentQuestion.section,
+                    id: `${currentQuestion.partIndex}-${currentQuestion.sectionIndex}`,
+                    questions: [currentQuestion.question],
+                  };
+                  const promptQs = allQuestions.filter(q =>
+                    q.partIndex === currentQuestion.partIndex &&
+                    q.sectionIndex === currentQuestion.sectionIndex &&
+                    (q.section.questionType === 'matching-pictures' || Array.isArray(q.question?.prompts))
+                  );
+                  const startNumber = promptQs[0]?.questionNumber ?? currentQuestion.questionNumber;
+                  return (
+                    <MatchingPicturesDisplay
+                      renderMode="picturebank"
+                      section={sectionData}
+                      startingNumber={startNumber}
+                      answerKeyPrefix={`${currentQuestion.partIndex}-${currentQuestion.sectionIndex}`}
+                      onAnswerChange={handleAnswerChange}
+                      answers={answers}
+                      submitted={submitted}
+                      sharedSelectedChoiceId={mpSelectedChoiceId}
+                      onSharedChoiceSelect={setMpSelectedChoiceId}
+                      sharedActivePromptIndex={mpActivePromptIndex}
+                      onSharedActivePromptChange={setMpActivePromptIndex}
+                    />
+                  );
+                })()}
+              </div>
             </div>
           </div>
         </>
