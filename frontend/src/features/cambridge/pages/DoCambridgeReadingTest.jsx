@@ -1929,6 +1929,51 @@ const DoCambridgeReadingTest = () => {
                         );
                       })()}
                     </div>
+                  ) : currentQuestion.part.imageUrl ? (
+                    /* Part scene image (e.g. Movers Part 2) */
+                    <div className="cambridge-passage-container" style={{ padding: '16px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'flex-start' }}>
+                        <img
+                          src={hostPath(currentQuestion.part.imageUrl)}
+                          alt="Part illustration"
+                          style={{ maxWidth: '100%', borderRadius: '8px', boxShadow: '0 2px 8px rgba(0,0,0,0.12)' }}
+                        />
+                      </div>
+
+                      {/* Example block for abc-type sections under part image */}
+                      {currentQuestion.section.questionType === 'abc' && (currentQuestion.section.exampleText || currentQuestion.section.exampleAnswer) && currentQuestion.questionIndex === 0 && (
+                        <div style={{
+                          marginTop: '14px',
+                          padding: '12px 14px',
+                          background: '#fffbeb',
+                          border: '1px solid #fcd34d',
+                          borderRadius: '8px',
+                          fontSize: '13px',
+                        }}>
+                          <div style={{ fontWeight: 700, color: '#92400e', marginBottom: '6px', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                            Example
+                          </div>
+                          {currentQuestion.section.exampleText && (
+                            <div style={{ whiteSpace: 'pre-wrap', color: '#374151', marginBottom: currentQuestion.section.exampleAnswer ? '8px' : '0', lineHeight: '1.6' }}>
+                              {currentQuestion.section.exampleText}
+                            </div>
+                          )}
+                          {currentQuestion.section.exampleAnswer && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <span style={{ fontSize: '12px', color: '#6b7280' }}>Đáp án mẫu:</span>
+                              <span style={{
+                                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                                width: '26px', height: '26px', borderRadius: '50%',
+                                background: '#0e276f', color: 'white',
+                                fontWeight: 700, fontSize: '13px',
+                              }}>
+                                {currentQuestion.section.exampleAnswer}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   ) : (
                     /* Fallback */
                     <div className="cambridge-passage-container">
@@ -2162,7 +2207,7 @@ const DoCambridgeReadingTest = () => {
                     <span className="cambridge-question-number">
                       {currentQuestion.questionNumber}
                     </span>
-                    
+
                     <QuestionDisplayFactory
                       section={{ 
                         ...currentQuestion.section,

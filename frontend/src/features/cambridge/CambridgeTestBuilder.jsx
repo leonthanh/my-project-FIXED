@@ -184,6 +184,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
         title: 'Part 1',
         instruction: '',
         audioUrl: '',
+        imageUrl: '',
         sections: [
           {
             sectionTitle: '',
@@ -241,6 +242,10 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
   const [uploadingMainAudio, setUploadingMainAudio] = useState(false);
   const [mainAudioUploadError, setMainAudioUploadError] = useState('');
 
+  // Image upload state (reading/non-listening)
+  const [uploadingImagePartIndex, setUploadingImagePartIndex] = useState(null);
+  const [imageUploadError, setImageUploadError] = useState('');
+
   const currentPart = parts[selectedPartIndex];
   const currentSection = currentPart?.sections?.[selectedSectionIndex];
   const isMoversReading = !isListeningTest && String(testType || '').toLowerCase() === 'movers';
@@ -294,6 +299,48 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
       setAudioUploadError(err?.message || 'Lỗi khi upload audio');
     } finally {
       setUploadingAudioPartIndex(null);
+    }
+  };
+
+  const uploadImageForPart = async (partIndex, file) => {
+    if (!file) return;
+
+    setImageUploadError('');
+    setUploadingImagePartIndex(partIndex);
+
+    try {
+      const formData = new FormData();
+      formData.append('image', file);
+
+      const res = await fetch(apiPath('upload/cambridge-image'), {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!res.ok) {
+        let errMsg = 'Lỗi khi upload hình ảnh';
+        try {
+          const err = await res.json();
+          errMsg = err?.message || errMsg;
+        } catch {
+          // ignore
+        }
+        throw new Error(errMsg);
+      }
+
+      const data = await res.json();
+      const url = data?.url;
+      if (!url) throw new Error('Upload thành công nhưng không nhận được URL hình ảnh');
+
+      setParts(prev => {
+        const next = [...prev];
+        next[partIndex] = { ...next[partIndex], imageUrl: url };
+        return next;
+      });
+    } catch (err) {
+      setImageUploadError(err?.message || 'Lỗi khi upload hình ảnh');
+    } finally {
+      setUploadingImagePartIndex(null);
     }
   };
 
@@ -378,6 +425,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
         title: `Part ${parts.length + 1}`,
         instruction: '',
         audioUrl: inheritedAudioUrl,
+        imageUrl: '',
         sections: [
           {
             sectionTitle: '',
@@ -1340,6 +1388,183 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
                     <div style={{ marginTop: '6px', fontSize: '11px', color: '#6b7280' }}>
                       💡 Hỗ trợ file audio (mp3/wav/m4a/ogg...). Backend giới hạn 50MB.
                     </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Part Image (Reading/non-listening only) */}
+            {!isListeningTest && (
+              <div style={{ marginBottom: '20px' }}>
+                <label
+                  style={{
+                    display: 'block',
+                    marginBottom: '8px',
+                    fontWeight: 600,
+                    color: '#374151',
+                  }}
+                >
+                  Hình ảnh minh hoạ cho Part này:
+                </label>
+
+                <div
+                  style={{
+                    border: '1px solid #d1d5db',
+                    borderRadius: '8px',
+                    padding: '12px',
+                    backgroundColor: 'white',
+                  }}
+                >
+                  {currentPart.imageUrl ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                      <img
+                        src={hostPath(currentPart.imageUrl)}
+                        alt="Part image"
+                        style={{ maxWidth: '100%', maxHeight: '300px', objectFit: 'contain', borderRadius: '6px', border: '1px solid #e5e7eb' }}
+                      />
+                      <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+                        <a
+                          href={hostPath(currentPart.imageUrl)}
+                          target="_blank"
+                          rel="noreferrer"
+                          style={{ color: '#2563eb', textDecoration: 'none', fontSize: '13px' }}
+                        >
+                          Mở hình ảnh
+                        </a>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setParts(prevParts => prevParts.map((part, pIdx) => {
+                              if (pIdx !== selectedPartIndex) return part;
+                              return { ...part, imageUrl: '' };
+                            }));
+                          }}
+                          style={{
+                            border: '1px solid #ef4444',
+                            background: 'white',
+                            color: '#ef4444',
+                            padding: '6px 10px',
+                            borderRadius: '6px',
+                            cursor: 'pointer',
+                            fontSize: '13px',
+                          }}
+                        >
+                          Xoá hình
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{ fontSize: '13px', color: '#6b7280' }}>
+                      Chưa có hình ảnh cho part này.
+                    </div>
+                  )}
+
+                  <div style={{ marginTop: '12px' }}>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      disabled={uploadingImagePartIndex === selectedPartIndex}
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        e.target.value = '';
+                        if (!file) return;
+                        await uploadImageForPart(selectedPartIndex, file);
+                      }}
+                    />
+                    {uploadingImagePartIndex === selectedPartIndex && (
+                      <div style={{ marginTop: '8px', fontSize: '12px', color: '#0e276f' }}>
+                        Đang upload hình ảnh...
+                      </div>
+                    )}
+                    {imageUploadError && (
+                      <div style={{ marginTop: '8px', fontSize: '12px', color: '#ef4444' }}>
+                        ❌ {imageUploadError}
+                      </div>
+                    )}
+                    <div style={{ marginTop: '6px', fontSize: '11px', color: '#6b7280' }}>
+                      💡 Hỗ trợ file ảnh (jpg/png/webp...). Nên dùng ảnh rõ nét, tỉ lệ phù hợp với bài thi.
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Example Block (abc type only) - placed under part image area */}
+            {currentSection && currentSection.questionType === 'abc' && (
+              <div style={{ marginBottom: '20px', padding: '16px', background: '#fffbeb', border: '1px solid #fcd34d', borderRadius: '8px' }}>
+                <div style={{ fontWeight: 600, color: '#92400e', marginBottom: '12px', fontSize: '14px' }}>
+                  ⭐ Câu mẫu (Example)
+                </div>
+
+                <div style={{ marginBottom: '10px' }}>
+                  <label style={{ display: 'block', marginBottom: '4px', fontSize: '13px', color: '#374151', fontWeight: 500 }}>
+                    Nội dung câu mẫu (ví dụ: đoạn hội thoại mẫu):
+                  </label>
+                  <textarea
+                    rows={3}
+                    placeholder="Ví dụ: Nick: What did you do at the weekend? / Paul: ..."
+                    value={currentSection.exampleText || ''}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setParts(prevParts => prevParts.map((part, pIdx) => {
+                        if (pIdx !== selectedPartIndex) return part;
+                        return {
+                          ...part,
+                          sections: part.sections.map((sec, sIdx) => {
+                            if (sIdx !== selectedSectionIndex) return sec;
+                            return { ...sec, exampleText: val };
+                          }),
+                        };
+                      }));
+                    }}
+                    style={{
+                      width: '100%',
+                      padding: '8px',
+                      border: '1px solid #d1d5db',
+                      borderRadius: '6px',
+                      fontSize: '13px',
+                      resize: 'vertical',
+                      boxSizing: 'border-box',
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', color: '#374151', fontWeight: 500 }}>
+                    Đáp án đúng của câu mẫu:
+                  </label>
+                  <div style={{ display: 'flex', gap: '16px' }}>
+                    {['A', 'B', 'C'].map(letter => (
+                      <label key={letter} style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '14px', fontWeight: 500 }}>
+                        <input
+                          type="radio"
+                          name={`example-answer-${selectedPartIndex}-${selectedSectionIndex}`}
+                          value={letter}
+                          checked={(currentSection.exampleAnswer || '') === letter}
+                          onChange={() => {
+                            setParts(prevParts => prevParts.map((part, pIdx) => {
+                              if (pIdx !== selectedPartIndex) return part;
+                              return {
+                                ...part,
+                                sections: part.sections.map((sec, sIdx) => {
+                                  if (sIdx !== selectedSectionIndex) return sec;
+                                  return { ...sec, exampleAnswer: letter };
+                                }),
+                              };
+                            }));
+                          }}
+                        />
+                        <span style={{
+                          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                          width: '28px', height: '28px', borderRadius: '50%',
+                          background: (currentSection.exampleAnswer || '') === letter ? '#0e276f' : '#e5e7eb',
+                          color: (currentSection.exampleAnswer || '') === letter ? 'white' : '#374151',
+                          fontWeight: 700,
+                        }}>
+                          {letter}
+                        </span>
+                      </label>
+                    ))}
                   </div>
                 </div>
               </div>
