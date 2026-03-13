@@ -787,6 +787,21 @@ const DoCambridgeReadingTest = () => {
             // For cloze-test text inputs
             questionElement.focus();
             questionElement.select(); // Select all text to show cursor and highlight
+          } else {
+            // For container elements (e.g. image-cloze title question), focus first radio inside
+            const firstRadio = questionElement.querySelector('input[type="radio"]');
+            if (firstRadio) {
+              firstRadio.focus();
+            }
+            // Visual pulse: briefly highlight the container so the user notices it
+            questionElement.style.transition = 'outline 0.15s ease, box-shadow 0.15s ease';
+            questionElement.style.outline = '3px solid #7c3aed';
+            questionElement.style.boxShadow = '0 0 0 6px rgba(124, 58, 237, 0.25)';
+            setTimeout(() => {
+              questionElement.style.outline = '';
+              questionElement.style.boxShadow = '';
+              questionElement.style.transition = '';
+            }, 1400);
           }
         }
       }, 200);

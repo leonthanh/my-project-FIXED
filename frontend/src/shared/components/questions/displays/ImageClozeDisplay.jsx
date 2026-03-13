@@ -364,6 +364,7 @@ export default function ImageClozeDisplay({
               return (
                 <span
                   key={idx}
+                  id={`question-${qNum}`}
                   onDragOver={(e) => handleBlankDragOver(e, n)}
                   onDrop={(e) => handleBlankDrop(e, n)}
                   onDragLeave={handleBlankDragLeave}
@@ -484,6 +485,7 @@ export default function ImageClozeDisplay({
       {/* ── Title Question ─────────────────────────────────────────────── */}
       {titleEnabled && titleOptions.length > 0 && (
         <div
+          id={`question-${startingNumber + blanks.length}`}
           style={{
             marginTop: "16px",
             background: "#faf5ff",
