@@ -541,6 +541,29 @@ export const QUESTION_TYPES = {
     supportedTests: ['movers'],
   },
 
+  'word-drag-cloze': {
+    id: 'word-drag-cloze',
+    label: 'Word Drag & Drop Cloze',
+    labelVi: 'Kéo từ vào chỗ trống',
+    icon: '🔤',
+    description: 'Movers Part 4: Đọc đoạn văn, kéo thả từ đúng vào chỗ trống (3 lựa chọn/blank)',
+    editor: 'WordDragClozeEditor',
+    defaultData: {
+      passageTitle: '',
+      passageImage: '',
+      passageText: 'Every city has a library and most small towns have (0)___.\n(1)___ are lots of books in the library and you can take them\nout for one or two weeks. When you are in the library, you\n(2)___ to talk quietly and you can\'t shout. Sometimes libraries have\ngot CDs and films that you can listen (3)___ and watch.\nIt\'s naughty to eat in the library because it makes the books dirty,\nand people don\'t want (4)___ food on them.\nYou can find books about plants, computers, sharks and trains.\nThere are stories about (5)___ football and stories about\ntreasures on the beach. Libraries are great!',
+      exampleAnswer: 'one',
+      blanks: [
+        { number: 1, options: ['There', 'They', 'Their'], correctAnswer: 'There' },
+        { number: 2, options: ['has', 'having', 'have'], correctAnswer: 'have' },
+        { number: 3, options: ['to', 'with', 'from'], correctAnswer: 'to' },
+        { number: 4, options: ['many', 'no', 'any'], correctAnswer: 'any' },
+        { number: 5, options: ['plays', 'playing', 'played'], correctAnswer: 'playing' },
+      ],
+    },
+    supportedTests: ['movers'],
+  },
+
   'multiple-choice-pictures': {
     id: 'multiple-choice-pictures',
     label: 'Multiple Choice with Pictures',
@@ -777,6 +800,7 @@ export const TEST_CONFIGS = {
     questionTypes: [
       'matching-pictures',
       'image-cloze',
+      'word-drag-cloze',
       'multiple-choice-pictures',
       'abc',
       'fill',

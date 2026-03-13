@@ -24,6 +24,7 @@ import {
   MatchingPicturesEditor,
   ImageClozeEditor,
   InlineChoiceEditor,
+  WordDragClozeEditor,
 } from "./editors";
 
 /**
@@ -145,6 +146,9 @@ const QuestionEditorFactory = ({
 
     case 'inline-choice':
       return <InlineChoiceEditor {...commonProps} />;
+
+    case 'word-drag-cloze':
+      return <WordDragClozeEditor {...commonProps} />;
 
     // Placeholder for future types
     case 'true-false-not-given':

@@ -32,3 +32,4 @@ export { default as ImageClozeEditor } from './ImageClozeEditor';
 export { default as GapMatchEditor } from './GapMatchEditor';
 export { default as InlineChoiceEditor } from './InlineChoiceEditor';
 export { default as SummaryCompletionEditor } from './SummaryCompletionEditor';
+export { default as WordDragClozeEditor } from './WordDragClozeEditor';

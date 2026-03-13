@@ -8,6 +8,7 @@ import QuestionDisplayFactory from "../../../shared/components/questions/display
 import PeopleMatchingDisplay from "../../../shared/components/questions/displays/PeopleMatchingDisplay";
 import MatchingPicturesDisplay from "../../../shared/components/questions/displays/MatchingPicturesDisplay";
 import ImageClozeDisplay from "../../../shared/components/questions/displays/ImageClozeDisplay";
+import WordDragClozeDisplay from "../../../shared/components/questions/displays/WordDragClozeDisplay";
 /* eslint-disable-next-line no-unused-vars */
 import ClozeMCDisplay from "../../../shared/components/questions/displays/ClozeMCDisplay";
 import InlineChoiceDisplay from "../../../shared/components/questions/displays/InlineChoiceDisplay";
@@ -55,6 +56,7 @@ const DoCambridgeReadingTest = () => {
   const [mpSelectedChoiceId, setMpSelectedChoiceId] = useState('');
   const [mpActivePromptIndex, setMpActivePromptIndex] = useState(null);
   const [icSelectedImgId, setIcSelectedImgId] = useState(null); // image-cloze split panel
+  const [wdcFocusedBlank, setWdcFocusedBlank] = useState(null); // word-drag-cloze split panel
 
   // Started flag for the test (show start modal and control timer)
   const [started, setStarted] = useState(() => {
@@ -689,6 +691,22 @@ const DoCambridgeReadingTest = () => {
                 isTitleQuestion: true,
               });
             }
+          } else if (section.questionType === 'word-drag-cloze' && q.blanks && Array.isArray(q.blanks)) {
+            // word-drag-cloze: one entry per blank (like cloze-mc)
+            q.blanks.forEach((blank, blankIdx) => {
+              questions.push({
+                partIndex: pIdx,
+                sectionIndex: sIdx,
+                questionIndex: qIdx,
+                blankIndex: blankIdx,
+                questionNumber: qNum++,
+                key: `${pIdx}-${sIdx}-${qIdx}-${blankIdx}`,
+                question: q,
+                blank: blank,
+                section: section,
+                part: part,
+              });
+            });
           } else {
             // Regular questions
             questions.push({
@@ -1932,6 +1950,92 @@ const DoCambridgeReadingTest = () => {
                       onSharedChoiceSelect={setMpSelectedChoiceId}
                       sharedActivePromptIndex={mpActivePromptIndex}
                       onSharedActivePromptChange={setMpActivePromptIndex}
+                    />
+                  );
+                })()}
+              </div>
+            </div>
+          </div>
+        </>
+      ) : currentQuestion && currentQuestion.section.questionType === 'word-drag-cloze' ? (
+        /* Movers Part 4: Word Drag & Drop Cloze – passage left | word bank right */
+        <>
+          {currentQuestion.part.instruction && (
+            <div
+              className="cambridge-part-instruction px-4 py-2 text-[13px] leading-relaxed sm:text-sm"
+              dangerouslySetInnerHTML={{ __html: sanitizeQuillHtml(currentQuestion.part.instruction) }}
+            />
+          )}
+          <div className="cambridge-main-content" ref={containerRef} style={{ position: 'relative' }}>
+            {/* Left Column – Passage with blank slots */}
+            <div className="cambridge-passage-column" style={{ width: `${leftWidth}%` }}>
+              <div className="cambridge-passage-container" style={{ padding: '12px' }}>
+                {(() => {
+                  const wdcPrefix = `${currentQuestion.partIndex}-${currentQuestion.sectionIndex}`;
+                  const wdcQuestions = allQuestions.filter(
+                    q => q.partIndex === currentQuestion.partIndex &&
+                         q.sectionIndex === currentQuestion.sectionIndex &&
+                         q.section.questionType === 'word-drag-cloze'
+                  );
+                  return (
+                    <WordDragClozeDisplay
+                      renderMode="passage"
+                      section={{ ...currentQuestion.section, id: wdcPrefix, questions: [currentQuestion.question] }}
+                      startingNumber={wdcQuestions[0]?.questionNumber ?? currentQuestion.questionNumber}
+                      answerKeyPrefix={wdcPrefix}
+                      onAnswerChange={handleAnswerChange}
+                      answers={answers}
+                      submitted={submitted}
+                      partImage={currentQuestion.part?.imageUrl || ""}
+                      sharedFocusedBlank={wdcFocusedBlank}
+                      onSharedFocusChange={setWdcFocusedBlank}
+                    />
+                  );
+                })()}
+              </div>
+            </div>
+
+            {/* Draggable Divider */}
+            <div
+              className="cambridge-divider"
+              onMouseDown={handleMouseDown}
+              style={{ left: `${leftWidth}%`, cursor: 'col-resize' }}
+            >
+              <div className="cambridge-resize-handle">
+                <i className="fa fa-arrows-h"></i>
+              </div>
+            </div>
+
+            {/* Right Column – Word Bank */}
+            <div className="cambridge-questions-column" style={{ width: `${100 - leftWidth}%` }}>
+              <div className="cambridge-content-wrapper" style={{ position: 'relative' }}>
+                <button
+                  className={`cambridge-flag-button ${flaggedQuestions.has(currentQuestion.key) ? 'flagged' : ''}`}
+                  onClick={() => toggleFlag(currentQuestion.key)}
+                  aria-label="Flag question"
+                  style={{ position: 'absolute', top: 8, right: 8, zIndex: 2 }}
+                >
+                  {flaggedQuestions.has(currentQuestion.key) ? '🚩' : '⚐'}
+                </button>
+                {(() => {
+                  const wdcPrefix = `${currentQuestion.partIndex}-${currentQuestion.sectionIndex}`;
+                  const wdcQuestions = allQuestions.filter(
+                    q => q.partIndex === currentQuestion.partIndex &&
+                         q.sectionIndex === currentQuestion.sectionIndex &&
+                         q.section.questionType === 'word-drag-cloze'
+                  );
+                  return (
+                    <WordDragClozeDisplay
+                      renderMode="wordbank"
+                      section={{ ...currentQuestion.section, id: wdcPrefix, questions: [currentQuestion.question] }}
+                      startingNumber={wdcQuestions[0]?.questionNumber ?? currentQuestion.questionNumber}
+                      answerKeyPrefix={wdcPrefix}
+                      onAnswerChange={handleAnswerChange}
+                      answers={answers}
+                      submitted={submitted}
+                      partImage={currentQuestion.part?.imageUrl || ""}
+                      sharedFocusedBlank={wdcFocusedBlank}
+                      onSharedFocusChange={setWdcFocusedBlank}
                     />
                   );
                 })()}

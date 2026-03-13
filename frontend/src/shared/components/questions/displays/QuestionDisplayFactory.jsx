@@ -10,6 +10,7 @@ import {
   InlineChoiceDisplay,
   MatchingPicturesDisplay,
   ImageClozeDisplay,
+  WordDragClozeDisplay,
 } from './index';
 
 /**
@@ -288,6 +289,18 @@ const QuestionDisplayFactory = ({
         <InlineChoiceDisplay
           section={section}
           startingNumber={startingNumber}
+          onAnswerChange={onAnswerChange}
+          answers={answers}
+          submitted={submitted}
+        />
+      );
+
+    case 'word-drag-cloze':
+      return (
+        <WordDragClozeDisplay
+          section={section}
+          startingNumber={startingNumber}
+          answerKeyPrefix={section?.id}
           onAnswerChange={onAnswerChange}
           answers={answers}
           submitted={submitted}
