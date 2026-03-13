@@ -1563,3 +1563,94 @@ body.dark-mode .cambridge-question-wrapper > div > div > div[style*="background"
   background-color: #111827 !important;
   border-color: #2a3350 !important;
 }
+
+/* =============================================
+   MOVERS: Font size 20px (học sinh 9-10 tuổi)
+   Chỉ áp dụng khi có class .cambridge-movers
+   ============================================= */
+
+/* Base: tất cả text trong hai panel đều kế thừa 20px */
+.cambridge-movers .cambridge-passage-column,
+.cambridge-movers .cambridge-questions-column {
+  font-size: 20px;
+}
+
+/* CSS classes */
+.cambridge-movers .cambridge-part-instruction  { font-size: 20px; }
+.cambridge-movers .cambridge-passage-title     { font-size: 22px; }
+.cambridge-movers .cambridge-passage-content   { font-size: 20px; }
+.cambridge-movers .cambridge-section-title     { font-size: 20px; }
+.cambridge-movers .cambridge-question-text     { font-size: 20px; }
+.cambridge-movers .cambridge-sign-text         { font-size: 20px !important; }
+
+/* MCQ option labels */
+.cambridge-movers .cambridge-question-wrapper label { font-size: 20px !important; }
+
+/* Override tất cả inline font-size trong passage column và question wrapper
+   (React render fontSize → font-size trong HTML) */
+.cambridge-movers .cambridge-passage-column    *[style*="font-size"],
+.cambridge-movers .cambridge-questions-column  *[style*="font-size"],
+.cambridge-movers .cambridge-question-wrapper  *[style*="font-size"] {
+  font-size: 20px !important;
+}
+
+/* Ngoại lệ: badge số thứ tự câu hỏi, progress ring,
+   image captions nhỏ, icon, nhãn chữ cái A/B/C/D giữ size nhỏ */
+.cambridge-movers .cambridge-question-number             { font-size: 14px !important; }
+.cambridge-movers [style*="borderRadius: '999px'"]       { font-size: 14px !important; }
+
+/* Caption dưới ảnh trong Picture Bank (MatchingPictures & ImageCloze) */
+.cambridge-movers .cambridge-passage-column div[style*="font-size: 11px"],
+.cambridge-movers .cambridge-passage-column div[style*="font-size: 12px"],
+.cambridge-movers .cambridge-passage-column span[style*="font-size: 11px"],
+.cambridge-movers .cambridge-passage-column span[style*="font-size: 12px"] {
+  font-size: 13px !important;
+}
+
+/* Nút xoá / clear nhỏ trong matching */
+.cambridge-movers button[style*="font-size: 16px"][style*="background: none"] {
+  font-size: 18px !important;
+}
+
+/* Text inputs (cloze-test) */
+.cambridge-movers .cambridge-question-wrapper input[type="text"]  { font-size: 20px !important; }
+.cambridge-movers .cambridge-question-wrapper input[type="text"][style] { font-size: 20px !important; }
+
+/* Dropdowns (cloze-mc KET mode) */
+.cambridge-movers .cambridge-question-wrapper select              { font-size: 20px !important; }
+
+/* InlineChoice button và menu */
+.cambridge-movers .cambridge-question-wrapper button              { font-size: 20px !important; }
+.cambridge-movers .cambridge-question-wrapper div[style*="position: absolute"] button { font-size: 18px !important; }
+
+/* Responsive: tablet */
+@media (max-width: 1024px) {
+  .cambridge-movers .cambridge-passage-column,
+  .cambridge-movers .cambridge-questions-column          { font-size: 18px; }
+  .cambridge-movers .cambridge-part-instruction          { font-size: 18px; }
+  .cambridge-movers .cambridge-passage-content           { font-size: 18px; }
+  .cambridge-movers .cambridge-question-text             { font-size: 18px; }
+  .cambridge-movers .cambridge-question-wrapper label    { font-size: 18px !important; }
+  .cambridge-movers .cambridge-passage-column *[style*="font-size"],
+  .cambridge-movers .cambridge-questions-column *[style*="font-size"],
+  .cambridge-movers .cambridge-question-wrapper *[style*="font-size"] { font-size: 18px !important; }
+  .cambridge-movers .cambridge-question-wrapper input[type="text"] { font-size: 18px !important; }
+  .cambridge-movers .cambridge-question-wrapper select   { font-size: 18px !important; }
+  .cambridge-movers .cambridge-question-wrapper button   { font-size: 18px !important; }
+}
+
+/* Responsive: mobile */
+@media (max-width: 480px) {
+  .cambridge-movers .cambridge-passage-column,
+  .cambridge-movers .cambridge-questions-column          { font-size: 16px; }
+  .cambridge-movers .cambridge-part-instruction          { font-size: 16px; }
+  .cambridge-movers .cambridge-passage-content           { font-size: 16px; }
+  .cambridge-movers .cambridge-question-text             { font-size: 16px; }
+  .cambridge-movers .cambridge-question-wrapper label    { font-size: 16px !important; }
+  .cambridge-movers .cambridge-passage-column *[style*="font-size"],
+  .cambridge-movers .cambridge-questions-column *[style*="font-size"],
+  .cambridge-movers .cambridge-question-wrapper *[style*="font-size"] { font-size: 16px !important; }
+  .cambridge-movers .cambridge-question-wrapper input[type="text"] { font-size: 16px !important; }
+  .cambridge-movers .cambridge-question-wrapper select   { font-size: 16px !important; }
+  .cambridge-movers .cambridge-question-wrapper button   { font-size: 16px !important; }
+}

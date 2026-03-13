@@ -879,7 +879,7 @@ const DoCambridgeReadingTest = () => {
   }
 
   return (
-    <div className="cambridge-test-container bg-slate-50">
+    <div className={`cambridge-test-container bg-slate-50${examType === 'MOVERS' ? ' cambridge-movers' : ''}`}>
       {/* Start Modal (only starts timer after click) */}
       {!started && !submitted && !loading && !error && (
         <div
@@ -1103,7 +1103,7 @@ const DoCambridgeReadingTest = () => {
                       {currentQuestion.questionNumber}
                     </span>
                     {currentQuestion.question.questionText && (
-                      <span className="ml-2 text-sm text-slate-700 sm:text-[15px]">
+                      <span style={{ fontSize: '15px', color: '#334155', marginLeft: '8px' }}>
                         {currentQuestion.question.questionText}
                       </span>
                     )}
@@ -1149,7 +1149,7 @@ const DoCambridgeReadingTest = () => {
                               }}>
                                 {optionLetter}
                               </span>
-                              <span className="text-sm leading-6 sm:text-[15px]">
+                              <span style={{ fontSize: '15px', lineHeight: '1.5' }}>
                                 {cleanOption}
                               </span>
                             </label>
@@ -1272,7 +1272,7 @@ const DoCambridgeReadingTest = () => {
                               borderRadius: '4px',
                               backgroundColor: userAnswer ? '#f0f9ff' : 'white',
                               color: '#0e7490',
-                              width: '150px',
+                              width: '160px',
                               textAlign: 'center',
                               scrollMarginTop: '100px'
                             }}
