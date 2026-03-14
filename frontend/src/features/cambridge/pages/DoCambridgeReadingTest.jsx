@@ -768,9 +768,10 @@ const DoCambridgeReadingTest = () => {
       return Boolean(answers[key] ?? answers[q.key]);
     }
     if (q.section?.questionType === 'story-completion') {
-      // key = `${pIdx}-${sIdx}-item-${itemIdx+1}`, value = char[]
-      const arr = answers[q.key];
-      return Array.isArray(arr) ? arr.some(Boolean) : Boolean(arr);
+      const val = answers[q.key];
+      if (typeof val === "string") return val.trim().length > 0;
+      if (Array.isArray(val)) return val.some(Boolean); // backward compat
+      return Boolean(val);
     }
     return Boolean(answers[q.key]);
   }, [answers, getMatchingPicturesAnswerKey, getPeopleMatchingAnswerKey]);

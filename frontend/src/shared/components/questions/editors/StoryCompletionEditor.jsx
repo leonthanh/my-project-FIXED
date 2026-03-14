@@ -56,12 +56,27 @@ const QUILL_FORMATS = [
   "size", "align", "list", "bullet", "link", "image",
 ];
 
-/** Tạo preview gạch dưới: "b _ _ _ d" */
-const buildLetterPreview = (answer = "") => {
-  const s = answer.trim();
+/** Tạo hint preview: "r..." (chữ đầu + ba chấm) */
+const buildHintPreview = (answer = "") => {
+  const firstAlt = (answer || "").split("/")[0].trim();
+  const primary = firstAlt.replace(/\s*\([^)]+\)/g, "").replace(/\s+/g, " ").trim();
+  const s = primary || answer.trim();
   if (!s) return "";
-  if (s.length === 1) return "_ ";
-  return s[0] + " " + "_ ".repeat(Math.max(0, s.length - 2)) + s[s.length - 1];
+  return s[0].toLowerCase() + "...";
+};
+
+/** Parse ký hiệu linh hoạt → tất cả đáp án được chấp nhận */
+const parseFlexibleAnswer = (answer) => {
+  if (!answer || typeof answer !== "string") return [];
+  const alts = answer.split("/").map((s) => s.trim()).filter(Boolean);
+  const variants = new Set();
+  alts.forEach((alt) => {
+    const without = alt.replace(/\s*\([^)]+\)/g, "").replace(/\s+/g, " ").trim();
+    const withOpt = alt.replace(/\(([^)]+)\)/g, "$1").replace(/\s+/g, " ").trim();
+    if (without) variants.add(without.toLowerCase());
+    if (withOpt) variants.add(withOpt.toLowerCase());
+  });
+  return [...variants].filter(Boolean);
 };
 
 export default function StoryCompletionEditor({
@@ -219,8 +234,8 @@ export default function StoryCompletionEditor({
                   onChange={(e) => updateExample(i, "answer", e.target.value)}
                 />
                 {ex.answer && (
-                  <div style={{ marginTop: 4, fontSize: 11, color: "#6b7280", letterSpacing: "0.1em" }}>
-                    → {buildLetterPreview(ex.answer)}
+                  <div style={{ marginTop: 4, fontSize: 11, color: "#6b7280" }}>
+                    → {ex.answer}
                   </div>
                 )}
               </div>
@@ -307,12 +322,12 @@ export default function StoryCompletionEditor({
               <input
                 style={INPUT}
                 value={item.answer}
-                placeholder="VD: river"
+                placeholder="river | (vegetable) soup | bowls / glasses"
                 onChange={(e) => updateItem(i, "answer", e.target.value)}
               />
-              {item.answer && (
-                <div style={{ marginTop: 4, fontSize: 11, color: "#0052cc", letterSpacing: "0.12em", fontFamily: "monospace" }}>
-                  {buildLetterPreview(item.answer)}
+              {item.answer && (item.answer.includes("(") || item.answer.includes("/")) && (
+                <div style={{ marginTop: 4, fontSize: 10, color: "#059669", background: "#f0fdf4", padding: "3px 6px", borderRadius: 4, lineHeight: 1.6 }}>
+                  ✓ Chấp nhận: {parseFlexibleAnswer(item.answer).join(" | ")}
                 </div>
               )}
             </div>
@@ -338,7 +353,9 @@ export default function StoryCompletionEditor({
         color: "#166534",
         lineHeight: 1.6,
       }}>
-        <strong>💡 Giao diện học sinh:</strong> Panel trái: ảnh + đoạn văn + ví dụ mẫu. Panel phải: từng câu hỏi với ô chữ cái riêng biệt để học sinh gõ từng chữ một. Chữ đầu và chữ cuối của đáp án sẽ hiển thị làm gợi ý.
+        <strong>💡 Giao diện học sinh:</strong> Panel trái: ảnh + đoạn văn + ví dụ mẫu. Panel phải: từng câu hỏi với ô text tự do. Gợi ý: chữ đầu tiên hiển thị (r...).<br/><br/>
+        <strong>📝 Ký hiệu đáp án linh hoạt:</strong> <code style={{background:"#dcfce7",padding:"1px 4px",borderRadius:3}}>(từ tùy chọn) đáp án</code> → chấp nhận có hoặc không có từ trong ngoặc.&nbsp;
+        <code style={{background:"#dcfce7",padding:"1px 4px",borderRadius:3}}>đáp án A / đáp án B</code> → chấp nhận một trong hai.
       </div>
     </div>
   );

@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useCallback } from "react";
 import { hostPath } from "../../../utils/api";
 
 /**
@@ -6,20 +6,36 @@ import { hostPath } from "../../../utils/api";
  *
  * renderMode:
  *   "story"    → cột trái: ảnh + đoạn văn + examples
- *   "questions" → cột phải: danh sách câu hỏi với ô chữ cái
+ *   "questions" → cột phải: danh sách câu hỏi với text input
  *   "full"     → toàn bộ (không split)
  *
- * Letter-box design:
- *   Mỗi câu trả lời được chia thành từng ô chữ cái riêng.
- *   Chữ đầu và chữ cuối hiển thị làm gợi ý (màu xanh).
- *   Các ô giữa để trống cho học sinh gõ.
- *   Ô đang focus có viền xanh đậm.
+ * Học sinh gõ tự do vào ô text (inline trong câu, thay thế ___).
+ * Đáp án linh hoạt: (từ tùy chọn) / lựa chọn A / lựa chọn B
  */
 
-const buildLetterSlots = (answer = "") => {
-  // Tạo mảng slot cho từng chữ cái
-  // answer có thể là multi-word: "red boat" → 8 ký tự (bao gồm cả dấu cách)
-  return answer.split("").map((ch, i) => ({ char: ch, isSpace: ch === " " }));
+/**
+ * Chuyển ký hiệu linh hoạt → danh sách tất cả đáp án được chấp nhận.
+ *  "(vegetable) soup"                     → ["soup", "vegetable soup"]
+ *  "bowls (and glasses) / glasses (and bowls)" → ["bowls", "bowls and glasses", "glasses", "glasses and bowls"]
+ */
+const parseFlexibleAnswer = (answer) => {
+  if (!answer || typeof answer !== "string") return [];
+  const alts = answer.split("/").map((s) => s.trim()).filter(Boolean);
+  const variants = new Set();
+  alts.forEach((alt) => {
+    const without = alt.replace(/\s*\([^)]+\)/g, "").replace(/\s+/g, " ").trim();
+    const withOpt = alt.replace(/\(([^)]+)\)/g, "$1").replace(/\s+/g, " ").trim();
+    if (without) variants.add(without.toLowerCase());
+    if (withOpt) variants.add(withOpt.toLowerCase());
+  });
+  return [...variants].filter(Boolean);
+};
+
+/** Đáp án chính (bỏ ngoặc tùy chọn, lấy lựa chọn đầu tiên) – dùng cho gợi ý chữ đầu. */
+const getPrimaryAnswer = (answer) => {
+  if (!answer) return "";
+  const firstAlt = answer.split("/")[0].trim();
+  return firstAlt.replace(/\s*\([^)]+\)/g, "").replace(/\s+/g, " ").trim();
 };
 
 export default function StoryCompletionDisplay({
@@ -46,42 +62,26 @@ export default function StoryCompletionDisplay({
 
   // State lưu giá trị từng ô chữ cho mỗi item
   // answers[itemKey] = mảng ký tự đã nhập, e.g. ['r','i','v','e','r']
-  const getLetterArray = useCallback((itemIdx) => {
-    const key = itemKey(itemIdx);
-    const stored = answers[key];
-    if (Array.isArray(stored)) return stored;
-    if (typeof stored === "string") return stored.split("");
-    return [];
+  const getTypedValue = useCallback((itemIdx) => {
+    const stored = answers[itemKey(itemIdx)];
+    if (typeof stored === "string") return stored;
+    if (Array.isArray(stored)) return stored.join(""); // backward compat
+    return "";
   }, [answers, prefix]);
 
-  const setLetter = (itemIdx, charIdx, value) => {
-    const key = itemKey(itemIdx);
-    const item = items[itemIdx];
-    if (!item) return;
-    const slots = buildLetterSlots(item.answer);
-    const current = getLetterArray(itemIdx);
-    const next = [...current];
-    // Pad mảng nếu cần
-    while (next.length < slots.length) next.push("");
-
-    // Không cho gõ vào ô dấu cách hoặc ô gợi ý (đầu/cuối)
-    if (slots[charIdx]?.isSpace) return;
-
-    next[charIdx] = value.slice(-1).toLowerCase();
-    onAnswerChange?.(key, next);
-  };
-
   const clearItem = (itemIdx) => {
-    onAnswerChange?.(itemKey(itemIdx), []);
+    onAnswerChange?.(itemKey(itemIdx), "");
   };
 
   const isCorrect = (itemIdx) => {
     if (!submitted) return null;
     const item = items[itemIdx];
     if (!item) return null;
-    const letters = getLetterArray(itemIdx);
-    const typed = letters.join("").toLowerCase().trim();
-    return typed === (item.answer || "").toLowerCase().trim();
+    const answer = item.answer || "";
+    const accepted = parseFlexibleAnswer(answer);
+    const typed = getTypedValue(itemIdx).toLowerCase().trim();
+    if (accepted.length === 0) return typed === answer.toLowerCase().trim();
+    return accepted.includes(typed);
   };
 
   // ── Render đoạn văn HTML (sanitized) ──
@@ -138,13 +138,12 @@ export default function StoryCompletionDisplay({
   const questionsPanel = (
     <div style={{ padding: "12px 16px" }}>
       <div style={{ fontSize: "0.75em", color: "#6b7280", marginBottom: 12, lineHeight: 1.5, paddingBottom: 8, borderBottom: "1px solid #e5e7eb" }}>
-        {submitted ? "✅ Kết quả đã nộp" : "✏️ Gõ từng chữ cái vào các ô. Chữ xanh là gợi ý sẵn."}
+        {submitted ? "✅ Kết quả đã nộp" : "✏️ Gõ đáp án vào ô trống trong câu."}
       </div>
 
       {items.map((item, i) => {
         const correct = isCorrect(i);
-        const letters = getLetterArray(i);
-        const slots = buildLetterSlots(item.answer || "");
+        const typedValue = getTypedValue(i);
         const qNum = startingNumber + i;
 
         return (
@@ -165,141 +164,27 @@ export default function StoryCompletionDisplay({
               transition: "background 0.15s",
             }}
           >
-            {/* Số câu + câu văn */}
-            <div style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 8 }}>
-              <span style={{ fontWeight: 800, color: "#0052cc", fontSize: "0.95em", flexShrink: 0, paddingTop: 1 }}>
+            {/* Số câu + câu văn với ô input inline thay ___ */}
+            <div style={{ display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
+              <span style={{ fontWeight: 800, color: "#0052cc", fontSize: "0.95em", flexShrink: 0 }}>
                 {qNum}
               </span>
-              <span style={{ fontSize: "0.9em", lineHeight: 1.6, color: "#1e293b" }}>
-                <ItemSentence sentence={item.sentence} />
+              <span style={{ fontSize: "0.9em", lineHeight: 1.8, color: "#1e293b" }}>
+                <InlineInputSentence
+                  sentence={item.sentence}
+                  typedValue={typedValue}
+                  submitted={submitted}
+                  correct={correct}
+                  onAnswerChange={(val) => !submitted && onAnswerChange?.(itemKey(i), val)}
+                  onClear={() => clearItem(i)}
+                />
               </span>
-            </div>
-
-            {/* Ô chữ cái */}
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 3, alignItems: "center", paddingLeft: 22 }}>
-              {slots.map((slot, ci) => {
-                const isHint = ci === 0 || ci === slots.length - 1;
-                const isSpaceSlot = slot.isSpace;
-                const typedChar = letters[ci] || "";
-
-                if (isSpaceSlot) {
-                  // Dấu cách → khoảng trắng nhỏ giữa các từ
-                  return <div key={ci} style={{ width: 8 }} />;
-                }
-
-                if (isHint) {
-                  // Chữ gợi ý: hiển thị sẵn, không cho sửa
-                  return (
-                    <div
-                      key={ci}
-                      style={{
-                        width: 28,
-                        height: 32,
-                        border: "2px solid #3b82f6",
-                        borderRadius: 4,
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        fontWeight: 800,
-                        fontSize: "1em",
-                        color: "#1d4ed8",
-                        background: "#eff6ff",
-                        userSelect: "none",
-                      }}
-                    >
-                      {slot.char}
-                    </div>
-                  );
-                }
-
-                // Ô nhập chữ cái của học sinh
-                return (
-                  <input
-                    key={ci}
-                    type="text"
-                    maxLength={1}
-                    disabled={submitted}
-                    value={typedChar}
-                    onChange={(e) => {
-                      if (!submitted) setLetter(i, ci, e.target.value);
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === "Backspace" && !typedChar) {
-                        // Lùi về ô trước
-                        const prev = e.target.closest("[data-item]")
-                          ?.querySelectorAll("input[type=text]");
-                        if (prev) {
-                          const inputs = Array.from(prev);
-                          const idx = inputs.indexOf(e.target);
-                          if (idx > 0) inputs[idx - 1].focus();
-                        }
-                      } else if (e.target.value && e.key !== "Backspace") {
-                        // Tự động chuyển ô tiếp theo
-                        const container = e.target.closest("[data-item]");
-                        if (container) {
-                          const inputs = Array.from(container.querySelectorAll("input[type=text]"));
-                          const idx = inputs.indexOf(e.target);
-                          let next = idx + 1;
-                          while (next < inputs.length && inputs[next].disabled) next++;
-                          if (next < inputs.length) inputs[next].focus();
-                        }
-                      }
-                    }}
-                    onFocus={(e) => e.target.select()}
-                    data-letter-idx={ci}
-                    style={{
-                      width: 28,
-                      height: 32,
-                      border: submitted
-                        ? correct ? "2px solid #22c55e" : "2px solid #ef4444"
-                        : "2px solid #9ca3af",
-                      borderRadius: 4,
-                      textAlign: "center",
-                      fontSize: "1em",
-                      fontWeight: 700,
-                      color: submitted ? (correct ? "#166534" : "#b91c1c") : "#1e293b",
-                      background: submitted ? (correct ? "#f0fdf4" : "#fef2f2") : "#fff",
-                      outline: "none",
-                      caretColor: "#3b82f6",
-                      padding: 0,
-                      cursor: submitted ? "default" : "text",
-                      transition: "border 0.1s",
-                    }}
-                    onFocusCapture={(e) => {
-                      if (!submitted) e.target.style.border = "2px solid #3b82f6";
-                    }}
-                    onBlur={(e) => {
-                      if (!submitted) e.target.style.border = "2px solid #9ca3af";
-                    }}
-                  />
-                );
-              })}
-
-              {/* Nút xóa (khi chưa nộp) */}
-              {!submitted && letters.some(Boolean) && (
-                <button
-                  type="button"
-                  onClick={() => clearItem(i)}
-                  style={{
-                    marginLeft: 4,
-                    padding: "2px 8px",
-                    fontSize: "0.7em",
-                    color: "#9ca3af",
-                    background: "none",
-                    border: "1px solid #e5e7eb",
-                    borderRadius: 4,
-                    cursor: "pointer",
-                  }}
-                >
-                  ✕
-                </button>
-              )}
             </div>
 
             {/* Hiện đáp án đúng khi sai */}
             {submitted && !correct && (
-              <div style={{ marginTop: 6, paddingLeft: 22, fontSize: "0.78em", color: "#166534", fontWeight: 600 }}>
-                ✓ {item.answer}
+              <div style={{ marginTop: 4, fontSize: "0.78em", color: "#166534", fontWeight: 600 }}>
+                ✓ {parseFlexibleAnswer(item.answer).join(" / ") || item.answer}
               </div>
             )}
           </div>
@@ -352,8 +237,8 @@ function ExampleSentence({ sentence, answer }) {
   );
 }
 
-// ── Câu hỏi: thay ___ bằng chỗ trống hiển thị ──
-function ItemSentence({ sentence }) {
+// ── Câu hỏi: thay ___ bằng ô input inline ──
+function InlineInputSentence({ sentence, typedValue, submitted, correct, onAnswerChange, onClear }) {
   if (!sentence) return null;
   const parts = sentence.split("___");
   return (
@@ -362,13 +247,40 @@ function ItemSentence({ sentence }) {
         <React.Fragment key={i}>
           {part}
           {i < parts.length - 1 && (
-            <span style={{
-              display: "inline-block",
-              width: 60,
-              borderBottom: "2px solid #374151",
-              marginInline: 4,
-              verticalAlign: "bottom",
-            }} />
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 3, marginInline: 4, verticalAlign: "middle" }}>
+              <input
+                type="text"
+                disabled={submitted}
+                value={typedValue}
+                onChange={(e) => onAnswerChange(e.target.value)}
+                onFocus={(e) => e.target.select()}
+                style={{
+                  width: 210,
+                  padding: "3px 8px",
+                  border: submitted
+                    ? correct ? "2px solid #22c55e" : "2px solid #ef4444"
+                    : "2px solid #9ca3af",
+                  borderRadius: 5,
+                  fontSize: "0.92em",
+                  fontWeight: 600,
+                  background: submitted ? (correct ? "#f0fdf4" : "#fef2f2") : "#fff",
+                  color: submitted ? (correct ? "#166534" : "#b91c1c") : "#1e293b",
+                  outline: "none",
+                  verticalAlign: "middle",
+                }}
+                onFocusCapture={(e) => { if (!submitted) e.target.style.border = "2px solid #3b82f6"; }}
+                onBlur={(e) => { if (!submitted) e.target.style.border = "2px solid #9ca3af"; }}
+              />
+              {!submitted && typedValue && (
+                <button
+                  type="button"
+                  onClick={onClear}
+                  style={{ padding: "1px 5px", fontSize: "0.65em", color: "#9ca3af", background: "none", border: "1px solid #e5e7eb", borderRadius: 3, cursor: "pointer", verticalAlign: "middle" }}
+                >
+                  ✕
+                </button>
+              )}
+            </span>
           )}
         </React.Fragment>
       ))}
