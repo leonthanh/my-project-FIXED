@@ -25,8 +25,13 @@ const parseFlexibleAnswer = (answer) => {
   alts.forEach((alt) => {
     const without = alt.replace(/\s*\([^)]+\)/g, "").replace(/\s+/g, " ").trim();
     const withOpt = alt.replace(/\(([^)]+)\)/g, "$1").replace(/\s+/g, " ").trim();
-    if (without) variants.add(without.toLowerCase());
-    if (withOpt) variants.add(withOpt.toLowerCase());
+    [without, withOpt].forEach((v) => {
+      if (!v) return;
+      const vLow = v.toLowerCase();
+      variants.add(vLow);
+      // Accept with OR without trailing period
+      variants.add(vLow.replace(/\.+$/, "").trim());
+    });
   });
   return [...variants].filter(Boolean);
 };
@@ -79,8 +84,8 @@ export default function StoryCompletionDisplay({
     if (!item) return null;
     const answer = item.answer || "";
     const accepted = parseFlexibleAnswer(answer);
-    const typed = getTypedValue(itemIdx).toLowerCase().trim();
-    if (accepted.length === 0) return typed === answer.toLowerCase().trim();
+    const typed = getTypedValue(itemIdx).toLowerCase().trim().replace(/\.+$/, "");
+    if (accepted.length === 0) return typed === answer.toLowerCase().trim().replace(/\.+$/, "");
     return accepted.includes(typed);
   };
 

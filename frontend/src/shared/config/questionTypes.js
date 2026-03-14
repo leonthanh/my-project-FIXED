@@ -588,6 +588,48 @@ export const QUESTION_TYPES = {
     supportedTests: ['movers'],
   },
 
+  'look-read-write': {
+    id: 'look-read-write',
+    label: 'Look, Read & Write',
+    labelVi: 'Nhìn tranh và viết',
+    icon: '🖼️',
+    description: 'Movers Part 6: Nhìn tranh + complete sentences + answer questions + write sentences',
+    editor: 'LookReadWriteEditor',
+    defaultData: {
+      examples: [
+        { sentence: '', answer: '' },
+        { sentence: '', answer: '' },
+      ],
+      groups: [
+        {
+          instruction: 'Complete the sentences.',
+          type: 'complete',
+          items: [
+            { sentence: '', answer: '' },
+            { sentence: '', answer: '' },
+          ],
+        },
+        {
+          instruction: 'Answer the questions.',
+          type: 'answer',
+          items: [
+            { sentence: '', answer: '' },
+            { sentence: '', answer: '' },
+          ],
+        },
+        {
+          instruction: 'Now write two sentences about the picture.',
+          type: 'write',
+          items: [
+            { sentence: '', answer: '' },
+            { sentence: '', answer: '' },
+          ],
+        },
+      ],
+    },
+    supportedTests: ['movers'],
+  },
+
   'multiple-choice-pictures': {
     id: 'multiple-choice-pictures',
     label: 'Multiple Choice with Pictures',
@@ -826,6 +868,7 @@ export const TEST_CONFIGS = {
       'image-cloze',
       'word-drag-cloze',
       'story-completion',
+      'look-read-write',
       'multiple-choice-pictures',
       'abc',
       'fill',

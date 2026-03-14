@@ -26,6 +26,7 @@ import {
   InlineChoiceEditor,
   WordDragClozeEditor,
   StoryCompletionEditor,
+  LookReadWriteEditor,
 } from "./editors";
 
 /**
@@ -153,6 +154,9 @@ const QuestionEditorFactory = ({
 
     case 'story-completion':
       return <StoryCompletionEditor {...commonProps} />;
+
+    case 'look-read-write':
+      return <LookReadWriteEditor {...commonProps} />;
 
     // Placeholder for future types
     case 'true-false-not-given':

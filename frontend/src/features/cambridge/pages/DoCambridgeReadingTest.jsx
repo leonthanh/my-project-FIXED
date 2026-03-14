@@ -10,6 +10,7 @@ import MatchingPicturesDisplay from "../../../shared/components/questions/displa
 import ImageClozeDisplay from "../../../shared/components/questions/displays/ImageClozeDisplay";
 import WordDragClozeDisplay from "../../../shared/components/questions/displays/WordDragClozeDisplay";
 import StoryCompletionDisplay from "../../../shared/components/questions/displays/StoryCompletionDisplay";
+import LookReadWriteDisplay from "../../../shared/components/questions/displays/LookReadWriteDisplay";
 /* eslint-disable-next-line no-unused-vars */
 import ClozeMCDisplay from "../../../shared/components/questions/displays/ClozeMCDisplay";
 import InlineChoiceDisplay from "../../../shared/components/questions/displays/InlineChoiceDisplay";
@@ -724,6 +725,26 @@ const DoCambridgeReadingTest = () => {
                 part: part,
               });
             });
+          } else if (section.questionType === 'look-read-write' && q.groups && Array.isArray(q.groups)) {
+            // look-read-write: one entry per group item (Movers Part 6)
+            q.groups.forEach((group, groupIdx) => {
+              (group.items || []).forEach((item, itemIdx) => {
+                questions.push({
+                  partIndex: pIdx,
+                  sectionIndex: sIdx,
+                  questionIndex: qIdx,
+                  groupIndex: groupIdx,
+                  itemIndex: itemIdx,
+                  questionNumber: qNum++,
+                  key: `${pIdx}-${sIdx}-g${groupIdx}-item${itemIdx}`,
+                  question: q,
+                  group: group,
+                  item: item,
+                  section: section,
+                  part: part,
+                });
+              });
+            });
           } else {
             // Regular questions
             questions.push({
@@ -771,6 +792,11 @@ const DoCambridgeReadingTest = () => {
       const val = answers[q.key];
       if (typeof val === "string") return val.trim().length > 0;
       if (Array.isArray(val)) return val.some(Boolean); // backward compat
+      return Boolean(val);
+    }
+    if (q.section?.questionType === 'look-read-write') {
+      const val = answers[q.key];
+      if (typeof val === "string") return val.trim().length > 0;
       return Boolean(val);
     }
     return Boolean(answers[q.key]);
@@ -2153,6 +2179,88 @@ const DoCambridgeReadingTest = () => {
                       section={{ ...currentQuestion.section, id: scPrefix, questions: [currentQuestion.question] }}
                       startingNumber={scQuestions[0]?.questionNumber ?? currentQuestion.questionNumber}
                       answerKeyPrefix={scPrefix}
+                      onAnswerChange={handleAnswerChange}
+                      answers={answers}
+                      submitted={submitted}
+                      partImage={currentQuestion.part?.imageUrl || ""}
+                    />
+                  );
+                })()}
+              </div>
+            </div>
+          </div>
+        </>
+      ) : currentQuestion && currentQuestion.section.questionType === 'look-read-write' ? (
+        /* Movers Part 6: Look, Read & Write – picture+examples left | questions right */
+        <>
+          {currentQuestion.part.instruction && (
+            <div
+              className="cambridge-part-instruction px-4 py-2 text-[13px] leading-relaxed sm:text-sm"
+              dangerouslySetInnerHTML={{ __html: sanitizeQuillHtml(currentQuestion.part.instruction) }}
+            />
+          )}
+          <div className="cambridge-main-content" ref={containerRef} style={{ position: 'relative' }}>
+            {/* Left Column – Picture + Examples */}
+            <div className="cambridge-passage-column" style={{ width: `${leftWidth}%` }}>
+              <div className="cambridge-passage-container" style={{ padding: '12px' }}>
+                {(() => {
+                  const lrwPrefix = `${currentQuestion.partIndex}-${currentQuestion.sectionIndex}`;
+                  const lrwQuestions = allQuestions.filter(
+                    q => q.partIndex === currentQuestion.partIndex &&
+                         q.sectionIndex === currentQuestion.sectionIndex &&
+                         q.section.questionType === 'look-read-write'
+                  );
+                  return (
+                    <LookReadWriteDisplay
+                      renderMode="picture"
+                      section={{ ...currentQuestion.section, id: lrwPrefix, questions: [currentQuestion.question] }}
+                      startingNumber={lrwQuestions[0]?.questionNumber ?? currentQuestion.questionNumber}
+                      answerKeyPrefix={lrwPrefix}
+                      onAnswerChange={handleAnswerChange}
+                      answers={answers}
+                      submitted={submitted}
+                      partImage={currentQuestion.part?.imageUrl || ""}
+                    />
+                  );
+                })()}
+              </div>
+            </div>
+
+            {/* Draggable Divider */}
+            <div
+              className="cambridge-divider"
+              onMouseDown={handleMouseDown}
+              style={{ left: `${leftWidth}%`, cursor: 'col-resize' }}
+            >
+              <div className="cambridge-resize-handle">
+                <i className="fa fa-arrows-h"></i>
+              </div>
+            </div>
+
+            {/* Right Column – Three Question Groups */}
+            <div className="cambridge-questions-column" style={{ width: `${100 - leftWidth}%` }}>
+              <div className="cambridge-content-wrapper" style={{ position: 'relative' }}>
+                <button
+                  className={`cambridge-flag-button ${flaggedQuestions.has(currentQuestion.key) ? 'flagged' : ''}`}
+                  onClick={() => toggleFlag(currentQuestion.key)}
+                  aria-label="Flag question"
+                  style={{ position: 'absolute', top: 8, right: 8, zIndex: 2 }}
+                >
+                  {flaggedQuestions.has(currentQuestion.key) ? '🚩' : '⚐'}
+                </button>
+                {(() => {
+                  const lrwPrefix = `${currentQuestion.partIndex}-${currentQuestion.sectionIndex}`;
+                  const lrwQuestions = allQuestions.filter(
+                    q => q.partIndex === currentQuestion.partIndex &&
+                         q.sectionIndex === currentQuestion.sectionIndex &&
+                         q.section.questionType === 'look-read-write'
+                  );
+                  return (
+                    <LookReadWriteDisplay
+                      renderMode="questions"
+                      section={{ ...currentQuestion.section, id: lrwPrefix, questions: [currentQuestion.question] }}
+                      startingNumber={lrwQuestions[0]?.questionNumber ?? currentQuestion.questionNumber}
+                      answerKeyPrefix={lrwPrefix}
                       onAnswerChange={handleAnswerChange}
                       answers={answers}
                       submitted={submitted}

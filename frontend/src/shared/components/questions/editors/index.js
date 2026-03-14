@@ -34,3 +34,4 @@ export { default as InlineChoiceEditor } from './InlineChoiceEditor';
 export { default as SummaryCompletionEditor } from './SummaryCompletionEditor';
 export { default as WordDragClozeEditor } from './WordDragClozeEditor';
 export { default as StoryCompletionEditor } from './StoryCompletionEditor';
+export { default as LookReadWriteEditor } from './LookReadWriteEditor';

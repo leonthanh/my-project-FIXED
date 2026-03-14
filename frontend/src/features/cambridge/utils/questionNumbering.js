@@ -64,6 +64,10 @@ const getQuestionCountForSection = (section) => {
     const q0 = section.questions?.[0] || {};
     return Array.isArray(q0.items) ? q0.items.length : 0;
   }
+  if (section.questionType === 'look-read-write') {
+    const q0 = section.questions?.[0] || {};
+    return (q0.groups || []).reduce((sum, g) => sum + (g.items?.length || 0), 0);
+  }
   return section.questions.length;
 };
 
@@ -122,6 +126,7 @@ const computeQuestionStarts = (passages) => {
     'image-cloze',
     'word-drag-cloze',
     'story-completion',
+    'look-read-write',
   ]);
   let count = 1;
 
