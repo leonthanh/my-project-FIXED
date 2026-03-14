@@ -36,7 +36,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
   const testConfig = getTestConfig(testType);
   const isListeningTest = testType.includes('listening');
   const youngLearnerSupportedTypeMap = {
-    movers: ['matching-pictures', 'image-cloze', 'word-drag-cloze', 'fill', 'abc', 'cloze-mc', 'word-form', 'short-message'],
+    movers: ['matching-pictures', 'image-cloze', 'word-drag-cloze', 'story-completion', 'fill', 'abc', 'cloze-mc', 'word-form', 'short-message'],
   };
   const supportedTypeIds = youngLearnerSupportedTypeMap[testType] || null;
   const availableTypes = useMemo(() => {

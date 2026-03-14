@@ -9,6 +9,7 @@ import PeopleMatchingDisplay from "../../../shared/components/questions/displays
 import MatchingPicturesDisplay from "../../../shared/components/questions/displays/MatchingPicturesDisplay";
 import ImageClozeDisplay from "../../../shared/components/questions/displays/ImageClozeDisplay";
 import WordDragClozeDisplay from "../../../shared/components/questions/displays/WordDragClozeDisplay";
+import StoryCompletionDisplay from "../../../shared/components/questions/displays/StoryCompletionDisplay";
 /* eslint-disable-next-line no-unused-vars */
 import ClozeMCDisplay from "../../../shared/components/questions/displays/ClozeMCDisplay";
 import InlineChoiceDisplay from "../../../shared/components/questions/displays/InlineChoiceDisplay";
@@ -707,6 +708,22 @@ const DoCambridgeReadingTest = () => {
                 part: part,
               });
             });
+          } else if (section.questionType === 'story-completion' && q.items && Array.isArray(q.items)) {
+            // story-completion: one entry per item (Movers Part 5)
+            q.items.forEach((item, itemIdx) => {
+              questions.push({
+                partIndex: pIdx,
+                sectionIndex: sIdx,
+                questionIndex: qIdx,
+                itemIndex: itemIdx,
+                questionNumber: qNum++,
+                key: `${pIdx}-${sIdx}-item-${itemIdx + 1}`,
+                question: q,
+                item: item,
+                section: section,
+                part: part,
+              });
+            });
           } else {
             // Regular questions
             questions.push({
@@ -749,6 +766,11 @@ const DoCambridgeReadingTest = () => {
     if (q.section?.questionType === 'matching-pictures' || Array.isArray(q.question?.prompts)) {
       const key = getMatchingPicturesAnswerKey(q);
       return Boolean(answers[key] ?? answers[q.key]);
+    }
+    if (q.section?.questionType === 'story-completion') {
+      // key = `${pIdx}-${sIdx}-item-${itemIdx+1}`, value = char[]
+      const arr = answers[q.key];
+      return Array.isArray(arr) ? arr.some(Boolean) : Boolean(arr);
     }
     return Boolean(answers[q.key]);
   }, [answers, getMatchingPicturesAnswerKey, getPeopleMatchingAnswerKey]);
@@ -2052,6 +2074,88 @@ const DoCambridgeReadingTest = () => {
                       partImage={currentQuestion.part?.imageUrl || ""}
                       sharedFocusedBlank={wdcFocusedBlank}
                       onSharedFocusChange={setWdcFocusedBlank}
+                    />
+                  );
+                })()}
+              </div>
+            </div>
+          </div>
+        </>
+      ) : currentQuestion && currentQuestion.section.questionType === 'story-completion' ? (
+        /* Movers Part 5: Story Completion – story left | letter-box questions right */
+        <>
+          {currentQuestion.part.instruction && (
+            <div
+              className="cambridge-part-instruction px-4 py-2 text-[13px] leading-relaxed sm:text-sm"
+              dangerouslySetInnerHTML={{ __html: sanitizeQuillHtml(currentQuestion.part.instruction) }}
+            />
+          )}
+          <div className="cambridge-main-content" ref={containerRef} style={{ position: 'relative' }}>
+            {/* Left Column – Story + Examples */}
+            <div className="cambridge-passage-column" style={{ width: `${leftWidth}%` }}>
+              <div className="cambridge-passage-container" style={{ padding: '12px' }}>
+                {(() => {
+                  const scPrefix = `${currentQuestion.partIndex}-${currentQuestion.sectionIndex}`;
+                  const scQuestions = allQuestions.filter(
+                    q => q.partIndex === currentQuestion.partIndex &&
+                         q.sectionIndex === currentQuestion.sectionIndex &&
+                         q.section.questionType === 'story-completion'
+                  );
+                  return (
+                    <StoryCompletionDisplay
+                      renderMode="story"
+                      section={{ ...currentQuestion.section, id: scPrefix, questions: [currentQuestion.question] }}
+                      startingNumber={scQuestions[0]?.questionNumber ?? currentQuestion.questionNumber}
+                      answerKeyPrefix={scPrefix}
+                      onAnswerChange={handleAnswerChange}
+                      answers={answers}
+                      submitted={submitted}
+                      partImage={currentQuestion.part?.imageUrl || ""}
+                    />
+                  );
+                })()}
+              </div>
+            </div>
+
+            {/* Draggable Divider */}
+            <div
+              className="cambridge-divider"
+              onMouseDown={handleMouseDown}
+              style={{ left: `${leftWidth}%`, cursor: 'col-resize' }}
+            >
+              <div className="cambridge-resize-handle">
+                <i className="fa fa-arrows-h"></i>
+              </div>
+            </div>
+
+            {/* Right Column – Letter-box Questions */}
+            <div className="cambridge-questions-column" style={{ width: `${100 - leftWidth}%` }}>
+              <div className="cambridge-content-wrapper" style={{ position: 'relative' }}>
+                <button
+                  className={`cambridge-flag-button ${flaggedQuestions.has(currentQuestion.key) ? 'flagged' : ''}`}
+                  onClick={() => toggleFlag(currentQuestion.key)}
+                  aria-label="Flag question"
+                  style={{ position: 'absolute', top: 8, right: 8, zIndex: 2 }}
+                >
+                  {flaggedQuestions.has(currentQuestion.key) ? '🚩' : '⚐'}
+                </button>
+                {(() => {
+                  const scPrefix = `${currentQuestion.partIndex}-${currentQuestion.sectionIndex}`;
+                  const scQuestions = allQuestions.filter(
+                    q => q.partIndex === currentQuestion.partIndex &&
+                         q.sectionIndex === currentQuestion.sectionIndex &&
+                         q.section.questionType === 'story-completion'
+                  );
+                  return (
+                    <StoryCompletionDisplay
+                      renderMode="questions"
+                      section={{ ...currentQuestion.section, id: scPrefix, questions: [currentQuestion.question] }}
+                      startingNumber={scQuestions[0]?.questionNumber ?? currentQuestion.questionNumber}
+                      answerKeyPrefix={scPrefix}
+                      onAnswerChange={handleAnswerChange}
+                      answers={answers}
+                      submitted={submitted}
+                      partImage={currentQuestion.part?.imageUrl || ""}
                     />
                   );
                 })()}

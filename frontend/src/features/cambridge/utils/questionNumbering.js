@@ -56,6 +56,10 @@ const getQuestionCountForSection = (section) => {
     const blanks = [...(q0.passageText || '').matchAll(/\(\s*\d+\s*\)/g)].length;
     return blanks + (q0.titleQuestion?.enabled ? 1 : 0);
   }
+  if (section.questionType === 'story-completion') {
+    const q0 = section.questions?.[0] || {};
+    return Array.isArray(q0.items) ? q0.items.length : 0;
+  }
   return section.questions.length;
 };
 
@@ -112,6 +116,8 @@ const computeQuestionStarts = (passages) => {
     'inline-choice',
     'matching-pictures',
     'image-cloze',
+    'word-drag-cloze',
+    'story-completion',
   ]);
   let count = 1;
 
