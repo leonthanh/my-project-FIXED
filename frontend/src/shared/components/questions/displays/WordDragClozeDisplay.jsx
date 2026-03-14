@@ -93,6 +93,7 @@ export default function WordDragClozeDisplay({
     passageImage = "",
     passageText = "",
     exampleAnswer = "",
+    exampleOptions = [],
     blanks = [],
   } = q;
 
@@ -455,9 +456,16 @@ export default function WordDragClozeDisplay({
       {/* Example row */}
       <div style={{ display: "grid", gridTemplateColumns: "44px 1fr 1fr 1fr", gap: 8, alignItems: "center", marginBottom: 8, paddingBottom: 8, borderBottom: "1px dashed #e5e7eb" }}>
         <span style={{ fontWeight: 800, color: "#0052cc", fontSize: "0.85em", textAlign: "center" }}>Ex</span>
-        <div></div>
-        <div>{exampleAnswer && renderWordChip(exampleAnswer, 0, true)}</div>
-        <div></div>
+        {[0, 1, 2].map((wi) => {
+          const word = exampleOptions[wi];
+          return (
+            <div key={wi}>
+              {word && word.trim() ? renderWordChip(word, 0, true) : (
+                <div style={{ height: 36 }} />
+              )}
+            </div>
+          );
+        })}
       </div>
 
       {/* Question rows */}

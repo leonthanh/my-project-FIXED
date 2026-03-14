@@ -83,6 +83,9 @@ export default function WordDragClozeEditor({
   const passageImage = question.passageImage || "";
   const passageText = question.passageText || "";
   const exampleAnswer = question.exampleAnswer || "";
+  const exampleOptions = Array.isArray(question.exampleOptions) && question.exampleOptions.length === 3
+    ? question.exampleOptions
+    : ["", "", ""];
   const blanks = Array.isArray(question.blanks) ? question.blanks : [];
 
   const detectedNumbers = useMemo(() => extractBlankNumbers(passageText), [passageText]);
@@ -96,6 +99,14 @@ export default function WordDragClozeEditor({
     });
     onChange("passageText", html);
     onChange("blanks", updatedBlanks);
+  };
+
+  const updateExampleOption = (optIdx, value) => {
+    const updated = [...exampleOptions];
+    updated[optIdx] = value;
+    onChange("exampleOptions", updated);
+    // If correct answer was this option, clear it
+    if (exampleAnswer === exampleOptions[optIdx]) onChange("exampleAnswer", "");
   };
 
   const updateBlank = (blankIndex, field, value) => {
@@ -275,17 +286,6 @@ export default function WordDragClozeEditor({
         )}
       </div>
 
-      {/* ── Đáp án Example (số 0) ── */}
-      <div style={{ marginBottom: 16 }}>
-        <label style={LABEL}>Đáp án Example — sẽ hiển thị sẵn cho học sinh</label>
-        <input
-          style={{ ...INPUT, maxWidth: 220 }}
-          value={exampleAnswer}
-          placeholder="VD: one"
-          onChange={(e) => onChange("exampleAnswer", e.target.value)}
-        />
-      </div>
-
       {/* ── Bảng từ lựa chọn ── */}
       <div>
         <div
@@ -348,18 +348,29 @@ export default function WordDragClozeEditor({
             background: "#fef9c3",
             borderRadius: 4,
             alignItems: "center",
+            border: "1px solid #fde68a",
           }}
         >
           <span style={{ fontWeight: 700, color: "#0052cc", fontSize: 13 }}>Ex</span>
-          <input
+          {[0, 1, 2].map((optIdx) => (
+            <input
+              key={optIdx}
+              style={{ ...INPUT, background: "#fef9c3" }}
+              value={exampleOptions[optIdx] || ""}
+              placeholder={`Từ ${optIdx + 1}`}
+              onChange={(e) => updateExampleOption(optIdx, e.target.value)}
+            />
+          ))}
+          <select
             style={{ ...INPUT, background: "#fef9c3" }}
             value={exampleAnswer}
-            readOnly
-            placeholder="(xem ô phía trên)"
-          />
-          <input style={{ ...INPUT, background: "#fef9c3" }} value="—" readOnly />
-          <input style={{ ...INPUT, background: "#fef9c3" }} value="—" readOnly />
-          <span style={{ fontSize: 11, color: "#9ca3af" }}>= đáp án example</span>
+            onChange={(e) => onChange("exampleAnswer", e.target.value)}
+          >
+            <option value="">— đáp án —</option>
+            {exampleOptions.filter((o) => o && o.trim() !== "").map((o) => (
+              <option key={o} value={o}>{o}</option>
+            ))}
+          </select>
           <span />
         </div>
 
