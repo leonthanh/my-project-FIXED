@@ -665,6 +665,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
         classCode,
         teacherName,
         testType,
+        duration: testConfig.duration || 60,
         mainAudioUrl,
         parts: cleanedParts,
         totalQuestions: cleanedParts.reduce(

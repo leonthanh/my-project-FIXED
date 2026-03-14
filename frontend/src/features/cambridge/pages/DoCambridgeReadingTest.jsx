@@ -92,10 +92,12 @@ const DoCambridgeReadingTest = () => {
   }, [testType, test?.testType]);
 
   const effectiveDuration = useMemo(() => {
-    const fromTest = Number(test?.duration);
-    if (Number.isFinite(fromTest) && fromTest > 0) return fromTest;
+    // Prefer the authoritative config duration for the test's type (avoids DB default of 60
+    // being used for tests that never had duration saved explicitly).
     const fromConfig = Number(testConfig.duration);
     if (Number.isFinite(fromConfig) && fromConfig > 0) return fromConfig;
+    const fromTest = Number(test?.duration);
+    if (Number.isFinite(fromTest) && fromTest > 0) return fromTest;
     return 60;
   }, [test?.duration, testConfig.duration]);
 
@@ -157,10 +159,12 @@ const DoCambridgeReadingTest = () => {
         // Check if there's saved data for this test
         const savedTime = localStorage.getItem(`test-time-${id}`);
         const savedAnswers = localStorage.getItem(`test-answers-${id}`);
+        // Prefer testType config duration over the DB value (DB defaults to 60 for all types)
+        const configDuration = Number(TEST_CONFIGS[data.testType]?.duration);
         const rawDuration = Number(data.duration);
-        const resolvedDuration = Number.isFinite(rawDuration) && rawDuration > 0
-          ? rawDuration
-          : (testConfig.duration || 60);
+        const resolvedDuration = Number.isFinite(configDuration) && configDuration > 0
+          ? configDuration
+          : (Number.isFinite(rawDuration) && rawDuration > 0 ? rawDuration : (testConfig.duration || 60));
         const durationSeconds = resolvedDuration * 60;
 
         if (savedTime || savedAnswers) {
@@ -745,6 +749,11 @@ const DoCambridgeReadingTest = () => {
                 });
               });
             });
+          } else if (
+            section.questionType === 'short-message' ||
+            section.questionType === 'story-writing'
+          ) {
+            // Writing tasks — not numbered questions, skip from allQuestions
           } else {
             // Regular questions
             questions.push({
@@ -2764,94 +2773,89 @@ const DoCambridgeReadingTest = () => {
       )}
 
       {/* Footer Navigation */}
-      <footer className="cambridge-footer sticky bottom-0 z-40 border-t border-slate-200 bg-white/95 px-2 py-2 shadow-[0_-6px_16px_rgba(15,23,42,0.08)] backdrop-blur sm:static sm:border-t-0 sm:bg-transparent sm:px-5 sm:py-2 sm:shadow-none">
-        {/* Navigation Arrows - Top Right */}
-        <div className="cambridge-footer-arrows flex items-center gap-2">
+      <footer className="cambridge-footer">
+        {/* Floating arrows – positioned absolute above footer */}
+        <div className="cambridge-footer-arrows">
           <button
-            className="cambridge-nav-arrow-btn h-9 w-9 text-sm sm:h-10 sm:w-10"
+            className="cambridge-nav-arrow-btn"
             onClick={() => goToQuestion(currentQuestionIndex - 1)}
             disabled={currentQuestionIndex === 0}
             aria-label="Previous"
-            title="Previous question"
+            title="Câu trước"
           >
-            <i className="fa fa-arrow-left"></i>
+            <i className="fa fa-chevron-left"></i>
           </button>
           <button
-            className="cambridge-nav-arrow-btn h-9 w-9 text-sm sm:h-10 sm:w-10"
+            className="cambridge-nav-arrow-btn"
             onClick={() => goToQuestion(currentQuestionIndex + 1)}
             disabled={currentQuestionIndex === allQuestions.length - 1}
             aria-label="Next"
-            title="Next question"
+            title="Câu tiếp theo"
           >
-            <i className="fa fa-arrow-right"></i>
+            <i className="fa fa-chevron-right"></i>
           </button>
         </div>
-        
-        {/* Parts Tabs with Question Numbers */}
-        <div className="cambridge-parts-container gap-2 overflow-x-auto px-2 sm:px-4">
+
+        {/* Parts strip – horizontally scrollable */}
+        <div className="cambridge-parts-container">
           {test?.parts?.map((part, idx) => {
             /* eslint-disable-next-line no-unused-vars */
             const range = getPartQuestionRange(idx);
             const isActive = currentPartIndex === idx;
             const partQuestions = allQuestions.filter(q => q.partIndex === idx);
             const answeredInPart = partQuestions.filter(q => isQuestionAnswered(q)).length;
+            const totalInPart = partQuestions.length;
 
             return (
-              <div key={idx} className="cambridge-part-wrapper flex-shrink-0">
-                {/* Part Tab */}
+              <div key={idx} className={`cambridge-part-wrapper ${isActive ? 'active' : ''}`}>
+                {/* Part chip */}
                 <button
-                  className={`cambridge-part-tab h-8 px-2 text-[11px] sm:h-9 sm:px-3 sm:text-xs ${isActive ? 'active' : ''}`}
+                  className={`cambridge-part-tab ${isActive ? 'active' : ''}`}
                   onClick={() => {
-                    // Jump to first question of this part
                     const firstQ = partQuestions[0];
                     if (firstQ) goToQuestion(firstQ.questionNumber - 1);
                   }}
+                  title={`Part ${idx + 1}`}
                 >
-                  <span className="cambridge-part-label">Part</span>
+                  <span className="cambridge-part-label">P</span>
                   <span className="cambridge-part-number">{idx + 1}</span>
+                  {!isActive && totalInPart > 0 && (
+                    <span className="cambridge-part-badge">{answeredInPart}/{totalInPart}</span>
+                  )}
                 </button>
 
-                {/* Show question numbers only for active part */}
+                {/* Question bubbles – only when this part is active */}
                 {isActive && (
                   <div className="cambridge-questions-inline">
-                    {partQuestions.length > 0 ? (
+                    {totalInPart > 0 ? (
                       partQuestions.map((q) => (
                         <button
                           key={q.key}
-                          className={`cambridge-question-num-btn h-8 w-8 text-[11px] sm:h-9 sm:w-9 sm:text-xs ${isQuestionAnswered(q) ? 'answered' : ''} ${currentQuestionIndex === q.questionNumber - 1 ? 'active' : ''} ${flaggedQuestions.has(q.key) ? 'flagged' : ''}`}
+                          className={`cambridge-question-num-btn ${isQuestionAnswered(q) ? 'answered' : ''} ${currentQuestionIndex === q.questionNumber - 1 ? 'active' : ''} ${flaggedQuestions.has(q.key) ? 'flagged' : ''}`}
                           onClick={() => goToQuestion(q.questionNumber - 1)}
+                          title={`Câu ${q.questionNumber}${isQuestionAnswered(q) ? ' ✓' : ''}`}
                         >
-                          {q.questionNumber}
+                          {isQuestionAnswered(q) && currentQuestionIndex !== q.questionNumber - 1
+                            ? <i className="fa fa-check" style={{ fontSize: 10 }}></i>
+                            : q.questionNumber}
                         </button>
                       ))
                     ) : (
-                      <span style={{ fontSize: '12px', color: '#999', padding: '0 8px' }}>
-                        Writing task
-                      </span>
+                      <span className="cambridge-writing-label">Writing</span>
                     )}
                   </div>
-                )}
-
-                {/* Show count for inactive parts */}
-                {!isActive && (
-                  <span className="cambridge-part-count">
-                    {answeredInPart} of {partQuestions.length}
-                  </span>
                 )}
               </div>
             );
           })}
         </div>
 
-        {/* Review Button
-        <button 
-          className="cambridge-review-button"
-          onClick={handleSubmit}
-          aria-label="Review your answers"
-        >
-          <i className="fa fa-check"></i>
-          Review
-        </button> */}
+        {/* Q counter */}
+        <div className="cambridge-footer-right">
+          <span className="cambridge-q-counter">
+            {currentQuestionIndex + 1}<span className="cambridge-q-counter-total">/{allQuestions.length}</span>
+          </span>
+        </div>
       </footer>
 
       {/* Results Modal */}

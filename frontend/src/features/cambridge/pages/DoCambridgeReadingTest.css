@@ -307,180 +307,272 @@
   cursor: not-allowed;
 }
 
-/* Footer Navigation */
+/* ================================================================
+   FOOTER NAVIGATION – redesigned
+   Layout: [← prev]  [scrollable parts strip]  [Q X/Y  → next]
+   ================================================================ */
 .cambridge-footer {
-  background: transparent;
-  border-top: none;
-  padding: 1px 20px;
+  position: sticky;
+  bottom: 0;
+  z-index: 40;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  box-shadow: none;
-  z-index: 100;
-  gap: 16px;
-  position: relative;
-  min-height: 10%
+  gap: 8px;
+  padding: 6px 12px;
+  background: rgba(255, 255, 255, 0.97);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-top: 1px solid #e2e8f0;
+  box-shadow: 0 -4px 20px rgba(15, 23, 42, 0.08);
+  min-height: 56px;
 }
 
-/* Navigation Arrows in Footer - Top Right */
-.cambridge-footer-arrows {
-  display: flex;
-      position: absolute;
-    right: 2rem;
-    bottom: 5.5rem;
-    z-index: 100;
-}
-
-.cambridge-footer-nav {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.cambridge-footer-arrow {
-  background: #f3f4f6;
-  border: 1px solid #d1d5db;
-  color: #374151;
-  font-size: 18px;
+/* ── Arrow buttons ── */
+.cambridge-nav-arrow-btn {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1.5px solid #c7d2fe;
+  background: #eef2ff;
+  color: #4338ca;
   cursor: pointer;
-  padding: 8px 12px;
-  border-radius: 6px;
-  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  transition: background 0.18s, transform 0.15s, box-shadow 0.18s;
+  box-shadow: 0 2px 8px rgba(67, 56, 202, 0.15);
 }
 
-.cambridge-footer-arrow:hover:not(:disabled) {
-  background: #e5e7eb;
-  border-color: #9ca3af;
-  color: #1f2937;
+.cambridge-nav-arrow-btn:hover:not(:disabled) {
+  background: #4338ca;
+  color: #fff;
+  border-color: #4338ca;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(67, 56, 202, 0.28);
 }
 
-.cambridge-footer-arrow:disabled {
-  opacity: 0.4;
+.cambridge-nav-arrow-btn:active:not(:disabled) {
+  transform: translateY(0) scale(0.95);
+}
+
+.cambridge-nav-arrow-btn:disabled {
+  background: #f1f5f9;
+  border-color: #e2e8f0;
+  color: #cbd5e1;
   cursor: not-allowed;
-  background: #f9fafb;
-  color: #9ca3af;
+  box-shadow: none;
 }
 
-/* Parts Tabs */
+/* ── Parts strip ── */
 .cambridge-parts-container {
   flex: 1;
   display: flex;
-  justify-content: center;
   align-items: center;
-  gap: 10px;
+  gap: 6px;
   overflow-x: auto;
-  padding: 0 20px;
-  /* scrollbar-width: thin; */
+  padding: 2px 4px;
+  scrollbar-width: none;
 }
+.cambridge-parts-container::-webkit-scrollbar { display: none; }
 
-.cambridge-parts-container::-webkit-scrollbar {
-  height: 4px;
-}
-
-.cambridge-parts-container::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.3);
-  border-radius: 2px;
-}
-
+/* ── Individual part group ── */
 .cambridge-part-wrapper {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 5px;
+  flex-shrink: 0;
 }
 
+/* Separator between part groups */
+.cambridge-part-wrapper + .cambridge-part-wrapper::before {
+  content: '';
+  display: block;
+  width: 1px;
+  height: 24px;
+  background: #e2e8f0;
+  margin-right: 2px;
+  flex-shrink: 0;
+}
+
+/* ── Part chip (P1, P2, …) ── */
 .cambridge-part-tab {
-  background: #f3f4f6;
-  border: 1px solid #d1d5db;
-  color: #374151;
-  padding: 6px 12px;
-  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 5px 11px;
+  border-radius: 20px;
+  border: 1.5px solid #e2e8f0;
+  background: #f8fafc;
+  color: #475569;
+  font-size: 13px;
+  font-weight: 600;
   cursor: pointer;
-  font-size: 12px;
-  font-weight: 500;
-  transition: all 0.2s;
+  transition: all 0.18s;
   white-space: nowrap;
-  display: flex;
-  align-items: baseline;
-  gap: 4px;
+  letter-spacing: 0.01em;
 }
 
-.cambridge-part-tab:hover {
-  background: #e5e7eb;
-  border-color: #9ca3af;
+.cambridge-part-tab:hover:not(.active) {
+  background: #f1f5f9;
+  border-color: #c7d2fe;
+  color: #4338ca;
 }
 
 .cambridge-part-tab.active {
- background: teal;
-    border-color: #3b82f6;
-    color: white;
-    font-weight: 600;
+  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+  border-color: transparent;
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(79, 70, 229, 0.35);
 }
 
 .cambridge-part-label {
-  font-size: 16px;
-  opacity: 0.9;
+  font-size: 11px;
+  opacity: 0.8;
+  font-weight: 500;
 }
 
 .cambridge-part-number {
-  font-size: 14px;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+/* Small answered/total badge on inactive part tab */
+.cambridge-part-badge {
+  font-size: 9px;
   font-weight: 600;
-}
-
-.cambridge-part-count {
-  font-size: 10px;
-  opacity: 0.7;
+  background: rgba(0,0,0,0.12);
+  color: inherit;
+  padding: 1px 5px;
+  border-radius: 10px;
   margin-left: 2px;
+  opacity: 0.85;
 }
 
-/* Question Numbers - Always Visible for Active Part */
+.cambridge-part-tab.active .cambridge-part-badge {
+  background: rgba(255,255,255,0.25);
+}
+
+/* ── Question number bubbles ── */
 .cambridge-questions-inline {
   display: flex;
-  gap: 10px;
   align-items: center;
+  gap: 5px;
 }
 
 .cambridge-question-num-btn {
-  width: 32px;
-  height: 32px;
-  background: #f3f4f6;
-  border: 1px solid #d1d5db;
-  color: #374151;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 1.5px solid #e2e8f0;
+  background: #f8fafc;
+  color: #475569;
   font-size: 12px;
-  font-weight: 500;
-  border-radius: 4px;
+  font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
   position: relative;
+  flex-shrink: 0;
 }
 
-.cambridge-question-num-btn:hover {
-  background: #e5e7eb;
-  border-color: #9ca3af;
+.cambridge-question-num-btn:hover:not(.active) {
+  background: #e0e7ff;
+  border-color: #818cf8;
+  color: #4338ca;
   transform: translateY(-1px);
 }
 
+/* Answered – green filled circle */
 .cambridge-question-num-btn.answered {
-  background: #4caf50;
-  border-color: #4caf50;
+  background: #22c55e;
+  border-color: #16a34a;
+  color: #fff;
 }
 
+.cambridge-question-num-btn.answered:hover:not(.active) {
+  background: #16a34a;
+  border-color: #15803d;
+  transform: translateY(-1px);
+}
+
+/* Active – indigo ring + scale */
 .cambridge-question-num-btn.active {
- background: teal;
-    border-color: teal;
-    box-shadow: 0 0 0 2px rgba(0, 82, 204, 0.4);
-    transform: scale(1.1);
-    color: white;
+  background: #4f46e5;
+  border-color: #4338ca;
+  color: #fff;
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.28);
+  transform: scale(1.18);
+  z-index: 1;
 }
 
+/* Answered + active */
+.cambridge-question-num-btn.answered.active {
+  background: #16a34a;
+  border-color: #15803d;
+  box-shadow: 0 0 0 3px rgba(22,163,74,0.28);
+}
+
+/* Flagged */
 .cambridge-question-num-btn.flagged::after {
   content: '🚩';
   position: absolute;
-  top: -6px;
-  right: -6px;
-  font-size: 10px;
+  top: -7px;
+  right: -7px;
+  font-size: 9px;
+  line-height: 1;
 }
 
-/* Review Button */
+/* Writing label for parts with no numbered questions */
+.cambridge-writing-label {
+  font-size: 11px;
+  color: #94a3b8;
+  padding: 0 6px;
+  font-style: italic;
+}
+
+/* ── Right side: counter + next ── */
+.cambridge-footer-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.cambridge-q-counter {
+  font-size: 13px;
+  font-weight: 700;
+  color: #4f46e5;
+  min-width: 36px;
+  text-align: right;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.cambridge-q-counter-total {
+  font-weight: 500;
+  color: #94a3b8;
+  font-size: 11px;
+}
+
+/* ── Legacy classes kept for safety ── */
+.cambridge-footer-arrows {
+  position: absolute;
+  right: 1.5rem;
+  bottom: calc(100% + 10px);
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.cambridge-footer-nav { display: none; }
+.cambridge-footer-arrow { display: none; }
+.cambridge-part-count { display: none; }
+
+/* ── Review Button (hidden, kept for future) ── */
 .cambridge-review-button {
   background: linear-gradient(135deg, #e03 0%, #c60 100%);
   color: white;
@@ -576,17 +668,18 @@
   }
 
   .cambridge-footer {
-    padding: 6px 12px;
+    padding: 5px 10px;
+    min-height: 52px;
   }
 
   .cambridge-footer-arrows {
-    right: 1.5rem;
-    bottom: 3.5rem;
+    right: 1rem;
+    bottom: calc(100% + 8px);
   }
 
   .cambridge-part-tab {
-    padding: 5px 10px;
-    font-size: 11px;
+    padding: 4px 9px;
+    font-size: 12px;
   }
 
   .cambridge-question-num-btn {
@@ -648,17 +741,18 @@
   }
 
   .cambridge-footer {
-    flex-direction: column;
-    gap: 10px;
+    flex-direction: row;
+    gap: 6px;
+    padding: 4px 8px;
   }
 
   .cambridge-footer-arrows {
-    position: static;
-    margin-left: auto;
+    right: 0.75rem;
+    bottom: calc(100% + 6px);
   }
 
   .cambridge-parts-container {
-    padding: 0 12px;
+    padding: 0 4px;
   }
 }
 
@@ -981,23 +1075,26 @@
 
   /* Footer - compact single-row */
   .cambridge-footer {
-    flex-direction: row;
-    align-items: center;
-    gap: 4px;
-    padding: 4px 6px;
-    min-height: 0;
+    padding: 3px 5px;
+    gap: 3px;
+    min-height: 46px;
   }
 
   .cambridge-footer-arrows {
-    position: static;
-    margin-left: 0;
-    flex-shrink: 0;
+    right: 0.5rem;
+    bottom: calc(100% + 6px);
+    gap: 6px;
   }
 
   .cambridge-nav-arrow-btn {
-    width: 28px;
-    height: 28px;
+    width: 32px;
+    height: 32px;
     font-size: 12px;
+  }
+
+  .cambridge-q-counter {
+    font-size: 11px;
+    min-width: 28px;
   }
 
   .cambridge-parts-container {
@@ -1260,38 +1357,59 @@ body.dark-mode .cambridge-question-subtext {
 }
 
 body.dark-mode .cambridge-footer {
-  background: #111827;
+  background: rgba(17, 24, 39, 0.97);
   border-top-color: #2a3350;
 }
 
 body.dark-mode .cambridge-nav-arrow-btn {
   background: #1f2b47;
-  border-color: #3d3d5c;
+  border-color: #3d4f7c;
+  color: #a5b4fc;
 }
 
-body.dark-mode .cambridge-part-tab,
-body.dark-mode .cambridge-question-num-btn,
-body.dark-mode .cambridge-part-label,
-body.dark-mode .cambridge-part-number,
-body.dark-mode .cambridge-part-count {
-  background: #111827;
+body.dark-mode .cambridge-nav-arrow-btn:hover:not(:disabled) {
+  background: #4f46e5;
+  color: #fff;
+  border-color: #4f46e5;
+}
+
+body.dark-mode .cambridge-part-tab {
+  background: #1e293b;
   border-color: #2a3350;
-  color: #e5e7eb;
+  color: #cbd5e1;
 }
 
-body.dark-mode .cambridge-part-tab:hover,
-body.dark-mode .cambridge-question-num-btn:hover {
-  background: #1f2b47;
-  border-color: #3d3d5c;
-  color: #e5e7eb;
+body.dark-mode .cambridge-part-tab.active {
+  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+  color: #fff;
+  border-color: transparent;
 }
 
-body.dark-mode .cambridge-part-tab.active,
+body.dark-mode .cambridge-question-num-btn {
+  background: #1e293b;
+  border-color: #2a3350;
+  color: #cbd5e1;
+}
+
+body.dark-mode .cambridge-question-num-btn.answered {
+  background: #16a34a;
+  border-color: #15803d;
+  color: #fff;
+}
+
 body.dark-mode .cambridge-question-num-btn.active {
-  background: #1f2b47;
-  border-color: #4f6db6;
-  color: #ffffff;
-  box-shadow: 0 0 0 2px rgba(79, 109, 182, 0.35);
+  background: #4f46e5;
+  border-color: #4338ca;
+  color: #fff;
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.35);
+}
+
+body.dark-mode .cambridge-q-counter {
+  color: #a5b4fc;
+}
+
+body.dark-mode .cambridge-q-counter-total {
+  color: #475569;
 }
 
 body.dark-mode .cambridge-sign-text {

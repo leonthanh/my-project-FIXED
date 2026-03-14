@@ -36,8 +36,8 @@ const getQuestionCountForSection = (section) => {
     if (blanksCount > 0) return blanksCount;
     return countClozeBlanksFromText(q0?.passageText || q0?.passage || q0?.clozeText || '');
   }
-  if (section.questionType === 'short-message') {
-    return 1;
+  if (section.questionType === 'short-message' || section.questionType === 'story-writing') {
+    return 0; // Writing tasks are not numbered questions
   }
   if (section.questionType === 'people-matching' && section.questions[0]?.people) {
     return section.questions[0].people.length;
