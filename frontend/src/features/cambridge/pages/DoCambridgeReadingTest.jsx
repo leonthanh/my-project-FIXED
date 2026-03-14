@@ -767,12 +767,28 @@ const DoCambridgeReadingTest = () => {
       setCurrentPartIndex(q.partIndex);
       setActiveQuestion(q.key);
       
+      // For word-drag-cloze: set focused blank so passage + wordbank both highlight
+      if (q.section?.questionType === 'word-drag-cloze' && q.blank?.number != null) {
+        setWdcFocusedBlank(q.blank.number);
+      }
+
       // Scroll to question element and focus/open
       setTimeout(() => {
         const questionElement = document.getElementById(`question-${q.questionNumber}`);
         
         if (questionElement) {
-          questionElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          // Ưu tiên scroll container scroll riêng (cambridge-passage-column / overflow-y: auto)
+          // thay vì window, để left panel tự cuộn đúng vị trí
+          const scrollContainer = questionElement.closest('.cambridge-passage-column') ||
+                                  questionElement.closest('.cambridge-questions-column');
+          if (scrollContainer) {
+            const elemRect = questionElement.getBoundingClientRect();
+            const containerRect = scrollContainer.getBoundingClientRect();
+            const offset = elemRect.top - containerRect.top - (scrollContainer.clientHeight / 2) + (questionElement.offsetHeight / 2);
+            scrollContainer.scrollBy({ top: offset, behavior: 'smooth' });
+          } else {
+            questionElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
           
           if (typeof questionElement.focus === 'function') {
             questionElement.focus();

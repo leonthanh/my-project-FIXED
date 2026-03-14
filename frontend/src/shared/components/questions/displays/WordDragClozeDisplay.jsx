@@ -247,6 +247,7 @@ export default function WordDragClozeDisplay({
 
     return (
       <span
+        id={`question-${startingNumber + n - 1}`}
         role="button"
         tabIndex={0}
         onClick={() => {
@@ -500,17 +501,8 @@ export default function WordDragClozeDisplay({
             ))}
           </div>
         );
-      })}
-
-      {/* Instructions */}
-      {!submitted && (
-        <div style={{ marginTop: 14, padding: "10px 12px", background: "linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%)", borderRadius: 10, border: "1px solid #bbf7d0", fontSize: "0.72em", color: "#166534", lineHeight: 1.7 }}>
-          <strong>📚 Cách làm:</strong><br />
-          1. Click vào ô trống trong đoạn văn (viền xanh)<br />
-          2. Rồi click hoặc kéo thả từ bên phải vào ô đó<br />
-          3. Click ô đã điền để xoá và chọn lại
-        </div>
-      )}
+      })}    
+      
     </div>
   );
 
