@@ -36,7 +36,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
   const testConfig = getTestConfig(testType);
   const isListeningTest = testType.includes('listening');
   const youngLearnerSupportedTypeMap = {
-    movers: ['matching-pictures', 'fill', 'abc', 'cloze-mc', 'word-form', 'short-message'],
+    movers: ['matching-pictures', 'image-cloze', 'word-drag-cloze', 'story-completion', 'look-read-write', 'fill', 'abc', 'cloze-mc', 'word-form', 'short-message'],
   };
   const supportedTypeIds = youngLearnerSupportedTypeMap[testType] || null;
   const availableTypes = useMemo(() => {
@@ -232,10 +232,6 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
   // Copy state
   const [copiedQuestion, setCopiedQuestion] = useState(null);
   
-  // Drag & Drop state
-  const [draggedQuestion, setDraggedQuestion] = useState(null);
-  const [dragSource, setDragSource] = useState(null);
-
   // Audio upload state (listening only)
   const [uploadingAudioPartIndex, setUploadingAudioPartIndex] = useState(null);
   const [audioUploadError, setAudioUploadError] = useState('');
@@ -543,56 +539,6 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
     }));
   };
 
-  // Drag start handler
-  const handleDragStart = (qIdx, e) => {
-    setDraggedQuestion(qIdx);
-    setDragSource({ partIdx: selectedPartIndex, sectionIdx: selectedSectionIndex, qIdx });
-    e.dataTransfer.effectAllowed = 'move';
-  };
-
-  // Drag over handler
-  const handleDragOver = (e) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-  };
-
-  // Drop handler
-  const handleDrop = (targetQIdx, e) => {
-    e.preventDefault();
-    if (!dragSource) return;
-
-    const sourcePartIdx = dragSource.partIdx;
-    const sourceSectionIdx = dragSource.sectionIdx;
-    const sourceQIdx = dragSource.qIdx;
-
-    // Only allow reordering within same section for now
-    if (sourcePartIdx !== selectedPartIndex || sourceSectionIdx !== selectedSectionIndex) {
-      alert('Chỉ có thể sắp xếp lại câu hỏi trong cùng một section!');
-      setDraggedQuestion(null);
-      setDragSource(null);
-      return;
-    }
-
-    if (sourceQIdx === targetQIdx) {
-      setDraggedQuestion(null);
-      setDragSource(null);
-      return;
-    }
-
-    setParts(prevParts => prevParts.map((part, pIdx) => {
-      if (pIdx !== selectedPartIndex) return part;
-      const nextSections = (part.sections || []).map((section, sIdx) => {
-        if (sIdx !== selectedSectionIndex) return section;
-        const questions = [...(section.questions || [])];
-        const [movedQuestion] = questions.splice(sourceQIdx, 1);
-        questions.splice(targetQIdx, 0, movedQuestion);
-        return { ...section, questions };
-      });
-      return { ...part, sections: nextSections };
-    }));
-    setDraggedQuestion(null);
-    setDragSource(null);
-  };
   const questionStarts = useMemo(() => computeQuestionStarts(parts), [parts]);
 
   // Autosave function
@@ -719,6 +665,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
         classCode,
         teacherName,
         testType,
+        duration: testConfig.duration || 60,
         mainAudioUrl,
         parts: cleanedParts,
         totalQuestions: cleanedParts.reduce(
@@ -1610,7 +1557,6 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
                 }}>
                   {currentSection.questions.map((question, qIdx) => {
                     const isCollapsed = collapsedQuestions[`${selectedPartIndex}-${selectedSectionIndex}-${qIdx}`];
-                    const isDragging = draggedQuestion === qIdx;
                     const startNum = questionStarts.questionStart[`${selectedPartIndex}-${selectedSectionIndex}-${qIdx}`] || 1;
                     
                     // For multi-question types (like long-text-mc), use section-based starting number
@@ -1627,20 +1573,10 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
                     return (
                       <div 
                         key={`${selectedPartIndex}-${selectedSectionIndex}-${qIdx}`}
-                        draggable
-                        onDragStart={(e) => handleDragStart(qIdx, e)}
-                        onDragOver={handleDragOver}
-                        onDrop={(e) => handleDrop(qIdx, e)}
                         style={{
                           marginBottom: '16px',
                           paddingBottom: '16px',
                           borderBottom: qIdx < currentSection.questions.length - 1 ? '2px dashed #e5e7eb' : 'none',
-                          opacity: isDragging ? 0.5 : 1,
-                          transition: 'all 0.2s',
-                          cursor: 'grab',
-                          border: isDragging ? '2px solid #3b82f6' : 'none',
-                          borderRadius: '6px',
-                          padding: isDragging ? '12px' : '0',
                         }}
                       >
                         {/* Question Header with Controls */}
@@ -1658,17 +1594,8 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
                             gap: '12px',
                             flex: 1,
                           }}>
-                            {/* Drag Handle Icon */}
-                            <span style={{
-                              cursor: 'grab',
-                              fontSize: '18px',
-                              color: '#9ca3af',
-                            }}>
-                              ⋮⋮
-                            </span>
-                            
                             {/* Chỉ hiện số câu hỏi cho question types đơn giản, không hiện cho multi-question types */}
-                            {!['long-text-mc', 'cloze-mc', 'cloze-test', 'short-message', 'people-matching', 'word-form', 'matching-pictures'].includes(currentSection.questionType) && (
+                            {!['long-text-mc', 'cloze-mc', 'cloze-test', 'short-message', 'people-matching', 'word-form', 'matching-pictures', 'image-cloze', 'word-drag-cloze'].includes(currentSection.questionType) && (
                               <span style={{ 
                                 fontWeight: 600, 
                                 color: '#6366f1',
@@ -1803,7 +1730,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
                                 }));
                               }}
                               questionIndex={qIdx}
-                              startingNumber={['long-text-mc', 'cloze-mc', 'cloze-test', 'short-message', 'people-matching', 'word-form', 'matching-pictures'].includes(currentSection.questionType) ? sectionStartNum : startNum}
+                              startingNumber={['long-text-mc', 'cloze-mc', 'cloze-test', 'short-message', 'people-matching', 'word-form', 'matching-pictures', 'image-cloze', 'word-drag-cloze', 'story-completion', 'look-read-write'].includes(currentSection.questionType) ? sectionStartNum : startNum}
                               partIndex={selectedPartIndex}
                             />
                           </div>
@@ -1834,36 +1761,6 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
           </div>
         )}
 
-        {/* Part Structure Reference */}
-        <div style={{
-          marginTop: '24px',
-          padding: '20px',
-          backgroundColor: '#f0f9ff',
-          borderRadius: '12px',
-          border: '1px solid #bae6fd',
-        }}>
-          <h3 style={{ margin: '0 0 16px', color: '#0369a1' }}>
-                    📖 Cấu trúc đề chuẩn {builderDisplayName}
-          </h3>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
-            <thead>
-              <tr style={{ backgroundColor: '#e0f2fe' }}>
-                <th style={{ padding: '10px', textAlign: 'left', borderBottom: '2px solid #7dd3fc' }}>Part</th>
-                <th style={{ padding: '10px', textAlign: 'left', borderBottom: '2px solid #7dd3fc' }}>Questions</th>
-                <th style={{ padding: '10px', textAlign: 'left', borderBottom: '2px solid #7dd3fc' }}>Description</th>
-              </tr>
-            </thead>
-            <tbody>
-              {testConfig.partStructure?.map((ps, idx) => (
-                <tr key={idx} style={{ backgroundColor: idx % 2 === 0 ? 'white' : '#f0f9ff' }}>
-                  <td style={{ padding: '10px', borderBottom: '1px solid #e5e7eb' }}>Part {ps.part}</td>
-                  <td style={{ padding: '10px', borderBottom: '1px solid #e5e7eb' }}>{ps.questions}</td>
-                  <td style={{ padding: '10px', borderBottom: '1px solid #e5e7eb' }}>{ps.description}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
       </div>
       {/* End grid */}
     </div>

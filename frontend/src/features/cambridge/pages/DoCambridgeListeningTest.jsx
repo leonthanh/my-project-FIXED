@@ -1888,28 +1888,84 @@ const DoCambridgeListeningTest = () => {
 
       {/* Cambridge-style Play gate overlay */}
       {isStartGateVisible && (
-        <div style={styles.playGateOverlay} role="dialog" aria-modal="true" tabIndex={-1}>
-          <div style={styles.playGateCard}>
-            <div style={{ fontSize: 42, marginBottom: 10 }}>🎧</div>
-            <p style={{ margin: '0 0 8px', lineHeight: 1.4 }}>
-              You will be listening to an audio clip during this test. You will not be permitted to pause or rewind the audio while answering the questions.
-            </p>
-            <p style={{ margin: '0 0 16px', lineHeight: 1.4 }}>
-              To continue, click Play.
-            </p>
-            <button type="button" onClick={handlePlayGate} style={styles.playGateButton}>
-              ▶ Play
-            </button>
+        <div
+          style={{ position: 'fixed', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(15,23,42,0.65)', backdropFilter: 'blur(4px)', zIndex: 1200, padding: '16px' }}
+          role="dialog" aria-modal="true" tabIndex={-1}
+        >
+          <div style={{ width: '100%', maxWidth: 480, borderRadius: 20, overflow: 'hidden', boxShadow: '0 24px 48px rgba(15,23,42,0.35)' }}>
 
-            {audioError && (
-              <div style={{ ...styles.audioErrorBox, marginTop: 12, marginBottom: 0, textAlign: 'left' }}>
-                <div style={{ fontWeight: 700, marginBottom: 6 }}>Audio issue</div>
-                <div style={{ marginBottom: 8 }}>{audioError}</div>
-                <a href={resolvedAudioSrc} target="_blank" rel="noreferrer" style={styles.audioOpenLink}>
-                  Open audio in a new tab
-                </a>
+            {/* ── Header ── */}
+            <div style={{ background: 'linear-gradient(135deg, #0c4a6e 0%, #0369a1 55%, #0ea5e9 100%)', padding: '26px 28px 22px', position: 'relative', overflow: 'hidden' }}>
+              <div style={{ position: 'absolute', top: -40, right: -40, width: 160, height: 160, borderRadius: '50%', background: 'rgba(255,255,255,0.07)', pointerEvents: 'none' }} />
+              <div style={{ position: 'absolute', bottom: -30, left: -20, width: 100, height: 100, borderRadius: '50%', background: 'rgba(255,255,255,0.05)', pointerEvents: 'none' }} />
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14, position: 'relative', zIndex: 1 }}>
+                <div style={{ width: 44, height: 44, borderRadius: 12, background: 'rgba(255,255,255,0.18)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0 }}>
+                  🎧
+                </div>
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 800, color: 'rgba(255,255,255,0.65)', textTransform: 'uppercase', letterSpacing: '0.12em' }}>
+                    Cambridge {examType}
+                  </div>
+                  <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.45)', letterSpacing: '0.06em' }}>Listening Test</div>
+                </div>
               </div>
-            )}
+              <h2 style={{ fontSize: 18, fontWeight: 800, color: '#fff', margin: 0, lineHeight: 1.3, position: 'relative', zIndex: 1, textShadow: '0 1px 3px rgba(0,0,0,0.2)' }}>
+                {test?.title || testConfig.name || 'Cambridge Listening'}
+              </h2>
+            </div>
+
+            {/* ── Body ── */}
+            <div style={{ background: isDarkMode ? '#1e293b' : '#fff', padding: '22px 24px' }}>
+
+              {/* Info cards */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 16 }}>
+                <div style={{ background: isDarkMode ? '#0c4a6e33' : '#e0f2fe', border: `1px solid ${isDarkMode ? '#0369a1' : '#bae6fd'}`, borderRadius: 12, padding: '14px 16px', textAlign: 'center' }}>
+                  <div style={{ fontSize: 28, fontWeight: 800, color: '#0369a1', lineHeight: 1 }}>{Math.round(timeRemaining / 60)}</div>
+                  <div style={{ fontSize: 11, color: '#0284c7', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', marginTop: 4 }}>Phút</div>
+                </div>
+                <div style={{ background: isDarkMode ? '#14532d33' : '#f0fdf4', border: `1px solid ${isDarkMode ? '#16a34a' : '#bbf7d0'}`, borderRadius: 12, padding: '14px 16px', textAlign: 'center' }}>
+                  <div style={{ fontSize: 28, fontWeight: 800, color: '#15803d', lineHeight: 1 }}>{totalQuestions}</div>
+                  <div style={{ fontSize: 11, color: '#16a34a', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', marginTop: 4 }}>Câu hỏi</div>
+                </div>
+              </div>
+
+              {/* Audio warning */}
+              <div style={{ background: isDarkMode ? '#1c1917' : '#fff7ed', border: `1px solid ${isDarkMode ? '#92400e' : '#fed7aa'}`, borderRadius: 10, padding: '12px 14px', marginBottom: 18 }}>
+                <div style={{ fontWeight: 700, color: '#c2410c', fontSize: 13, marginBottom: 4 }}>⚠️ Lưu ý quan trọng</div>
+                <div style={{ fontSize: 13, color: isDarkMode ? '#fdba74' : '#9a3412', lineHeight: 1.5 }}>
+                  Audio sẽ bắt đầu phát ngay khi bạn nhấn Play. Bạn <b>không thể tạm dừng hoặc tua lại</b> trong khi làm bài.
+                </div>
+              </div>
+
+              {audioError && (
+                <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 10, padding: '10px 14px', marginBottom: 14, fontSize: 13, color: '#991b1b' }}>
+                  <div style={{ fontWeight: 700, marginBottom: 4 }}>⚠ Lỗi âm thanh</div>
+                  <div style={{ marginBottom: 6 }}>{audioError}</div>
+                  <a href={resolvedAudioSrc} target="_blank" rel="noreferrer" style={{ color: '#1d4ed8', fontWeight: 600 }}>
+                    Mở audio trong tab mới →
+                  </a>
+                </div>
+              )}
+
+              {/* Buttons */}
+              <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', flexWrap: 'wrap', alignItems: 'center' }}>
+                <button
+                  type="button"
+                  onClick={() => navigate(-1)}
+                  style={{ padding: '9px 18px', borderRadius: 20, border: `1.5px solid ${isDarkMode ? '#334155' : '#e2e8f0'}`, background: isDarkMode ? '#1e293b' : '#fff', fontSize: 13, fontWeight: 600, color: isDarkMode ? '#94a3b8' : '#64748b', cursor: 'pointer' }}
+                >
+                  Thoát
+                </button>
+                <button
+                  type="button"
+                  onClick={handlePlayGate}
+                  style={{ padding: '11px 28px', borderRadius: 20, background: 'linear-gradient(135deg, #0369a1, #0ea5e9)', fontSize: 14, fontWeight: 700, color: '#fff', border: 'none', cursor: 'pointer', boxShadow: '0 4px 14px rgba(3,105,161,0.4)' }}
+                >
+                  {hasResumeAudio ? '▶ Tiếp tục' : '▶ Play & Bắt đầu'}
+                </button>
+              </div>
+
+            </div>
           </div>
         </div>
       )}

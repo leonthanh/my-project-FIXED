@@ -53,7 +53,8 @@ const SelectTest = () => {
   const getOrangeConfig = () => {
     // writing is always pet-writing in orange
     const key = activeOrangeTab === "writing" ? "pet-writing" : `${activeOrangeType}-${activeOrangeTab}`;
-    return TEST_CONFIGS[key] || {};
+    // Young Learners (movers, starters, flyers) have a single combined test key, not split by skill
+    return TEST_CONFIGS[key] || TEST_CONFIGS[activeOrangeType] || {};
   };
 
   useEffect(() => {

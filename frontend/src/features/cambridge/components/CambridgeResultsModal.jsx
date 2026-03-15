@@ -134,21 +134,22 @@ const CambridgeResultsModal = ({ results, onClose, testTitle, studentName }) => 
       style={{
         position: "fixed",
         inset: 0,
-        background: colors.overlay,
+        background: "rgba(15,23,42,0.65)",
+        backdropFilter: "blur(4px)",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        zIndex: 1000,
+        zIndex: 1200,
         padding: "20px",
       }}
       onClick={onClose}
     >
       <div
         style={{
-          background: colors.surface,
-          borderRadius: "16px",
-          boxShadow: "0 20px 60px rgba(0, 0, 0, 0.3)",
-          maxWidth: "600px",
+          background: isDarkMode ? "#111827" : "#fff",
+          borderRadius: 20,
+          boxShadow: "0 24px 48px rgba(15,23,42,0.35)",
+          maxWidth: "520px",
           width: "100%",
           maxHeight: "90vh",
           overflow: "auto",
@@ -161,57 +162,81 @@ const CambridgeResultsModal = ({ results, onClose, testTitle, studentName }) => 
         aria-label="Kết quả bài thi"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
+        {/* Gradient Header */}
         <div
           style={{
-            background: colors.headerBg,
-            padding: "32px 24px",
-            color: "#fff",
-            borderRadius: "16px 16px 0 0",
+            background: "linear-gradient(135deg, #1e3a8a 0%, #1d4ed8 55%, #0284c7 100%)",
+            padding: "26px 28px 22px",
             position: "relative",
+            overflow: "hidden",
           }}
         >
+          {/* Decorative circles */}
+          <div style={{ position: "absolute", top: -30, right: -30, width: 120, height: 120, borderRadius: "50%", background: "rgba(255,255,255,0.07)", pointerEvents: "none" }} />
+          <div style={{ position: "absolute", top: 20, right: 60, width: 60, height: 60, borderRadius: "50%", background: "rgba(255,255,255,0.05)", pointerEvents: "none" }} />
+
+          {/* Close button */}
           <button
             onClick={onClose}
             style={{
               position: "absolute",
-              top: "16px",
-              right: "16px",
-              background: "none",
+              top: 14,
+              right: 16,
+              background: "rgba(255,255,255,0.18)",
               border: "none",
-              fontSize: "24px",
+              borderRadius: "50%",
+              width: 32,
+              height: 32,
+              fontSize: 16,
               color: "#fff",
               cursor: "pointer",
-              width: "32px",
-              height: "32px",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
+              zIndex: 1,
             }}
           >
             ✕
           </button>
 
-          <h2 style={{ margin: "0 0 8px 0", fontSize: "24px", fontWeight: 700 }}>
+          {/* Icon badge */}
+          <div
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: 48,
+              height: 48,
+              borderRadius: 14,
+              background: "rgba(255,255,255,0.2)",
+              marginBottom: 12,
+              fontSize: 24,
+            }}
+          >
+            🏆
+          </div>
+          <h2 style={{ margin: "0 0 4px 0", fontSize: 22, fontWeight: 700, color: "#fff" }}>
             Kết quả bài thi
           </h2>
-          <p style={{ margin: "0", fontSize: "14px", opacity: 0.9 }}>
-            {testTitle || "KET Reading Test"}
-          </p>
+          {testTitle && (
+            <p style={{ margin: 0, fontSize: 13, color: "rgba(255,255,255,0.82)" }}>
+              {testTitle}
+            </p>
+          )}
         </div>
 
-        {/* Content */}
-        <div style={{ padding: "32px 24px" }}>
+        {/* Body */}
+        <div style={{ padding: "28px 28px 24px" }}>
           {/* Score Circle */}
           <div
             style={{
               display: "flex",
               flexDirection: "column",
               alignItems: "center",
-              marginBottom: "32px",
+              marginBottom: 28,
             }}
           >
-            <div style={{ position: "relative", marginBottom: "16px" }}>
+            <div style={{ position: "relative", marginBottom: 12 }}>
               <CircularProgress percentage={percentage} size={120} strokeWidth={10} />
               <div
                 style={{
@@ -223,25 +248,25 @@ const CambridgeResultsModal = ({ results, onClose, testTitle, studentName }) => 
                   flexDirection: "column",
                 }}
               >
-                <div style={{ fontSize: "32px", fontWeight: 700, color: colors.text }}>
+                <div style={{ fontSize: 28, fontWeight: 700, color: colors.text }}>
                   {percentage}%
                 </div>
-                <div style={{ fontSize: "12px", color: colors.muted }}>Score</div>
+                <div style={{ fontSize: 11, color: colors.muted }}>Score</div>
               </div>
             </div>
-            <h3 style={{ fontSize: "20px", fontWeight: 700, margin: "16px 0 8px 0", color: colors.text }}>
+            <h3 style={{ fontSize: 20, fontWeight: 700, margin: "10px 0 8px 0", color: colors.text }}>
               {score}/{total} điểm
             </h3>
             <span
               style={{
                 display: "inline-flex",
                 alignItems: "center",
-                gap: "6px",
-                padding: "8px 16px",
-                borderRadius: "20px",
+                gap: 6,
+                padding: "6px 16px",
+                borderRadius: 20,
                 background: status.bg,
                 color: status.color,
-                fontSize: "14px",
+                fontSize: 13,
                 fontWeight: 600,
               }}
             >
@@ -249,27 +274,28 @@ const CambridgeResultsModal = ({ results, onClose, testTitle, studentName }) => 
             </span>
           </div>
 
-          {/* Details Grid */}
+          {/* Stats Grid */}
           <div
             style={{
               display: "grid",
               gridTemplateColumns: "1fr 1fr",
-              gap: "12px",
-              marginBottom: "24px",
+              gap: 12,
+              marginBottom: 20,
             }}
           >
             <div
               style={{
                 background: colors.correctBg,
                 padding: "16px",
-                borderRadius: "12px",
+                borderRadius: 14,
                 border: `1px solid ${colors.correctBorder}`,
+                textAlign: "center",
               }}
             >
-              <div style={{ fontSize: "12px", color: colors.muted, marginBottom: "6px" }}>
-                CÂU ĐÚNG
+              <div style={{ fontSize: 11, color: colors.muted, marginBottom: 6, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                Câu đúng
               </div>
-              <div style={{ fontSize: "24px", fontWeight: 700, color: colors.correctText }}>
+              <div style={{ fontSize: 28, fontWeight: 700, color: colors.correctText }}>
                 {correct}
               </div>
             </div>
@@ -277,14 +303,15 @@ const CambridgeResultsModal = ({ results, onClose, testTitle, studentName }) => 
               style={{
                 background: colors.wrongBg,
                 padding: "16px",
-                borderRadius: "12px",
+                borderRadius: 14,
                 border: `1px solid ${colors.wrongBorder}`,
+                textAlign: "center",
               }}
             >
-              <div style={{ fontSize: "12px", color: colors.muted, marginBottom: "6px" }}>
-                CÂU SAI
+              <div style={{ fontSize: 11, color: colors.muted, marginBottom: 6, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                Câu sai
               </div>
-              <div style={{ fontSize: "24px", fontWeight: 700, color: colors.wrongText }}>
+              <div style={{ fontSize: 28, fontWeight: 700, color: colors.wrongText }}>
                 {incorrect}
               </div>
             </div>
@@ -294,87 +321,70 @@ const CambridgeResultsModal = ({ results, onClose, testTitle, studentName }) => 
           {writingQuestions && writingQuestions.length > 0 && (
             <div
               style={{
-                background: isDarkMode
-                  ? "linear-gradient(135deg, #2a1f0f 0%, #3a2a12 100%)"
-                  : "linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)",
-                borderRadius: "12px",
-                padding: "16px",
+                background: isDarkMode ? "#2a1f0f" : "#fef3c7",
+                borderRadius: 12,
+                padding: "14px 16px",
                 border: `1px solid ${isDarkMode ? '#92400e' : '#f59e0b'}`,
-                marginBottom: "24px",
+                marginBottom: 20,
               }}
             >
-              <div style={{ display: "flex", gap: "8px", marginBottom: "12px", alignItems: "center" }}>
-                <span style={{ fontSize: "18px" }}>📝</span>
-                <h4 style={{ margin: 0, fontSize: "14px", fontWeight: 600, color: isDarkMode ? '#fcd34d' : '#92400e' }}>
+              <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 6 }}>
+                <span style={{ fontSize: 16 }}>📝</span>
+                <h4 style={{ margin: 0, fontSize: 13, fontWeight: 600, color: isDarkMode ? '#fcd34d' : '#92400e' }}>
                   Writing Task (Câu {writingQuestions.map(q => q.questionNumber).join(", ")})
                 </h4>
               </div>
-              <p style={{ margin: "8px 0 0 0", fontSize: "13px", color: isDarkMode ? '#fcd34d' : '#b45309' }}>
+              <p style={{ margin: 0, fontSize: 12, color: isDarkMode ? '#fcd34d' : '#b45309' }}>
                 ⏳ Đang chờ giáo viên chấm. Bạn sẽ được cập nhật điểm trong thời gian sớm nhất.
               </p>
             </div>
           )}
 
-          {/* Info */}
-          <div
-            style={{
-              background: colors.surfaceAlt,
-              padding: "16px",
-              borderRadius: "12px",
-              border: `1px solid ${colors.border}`,
-              fontSize: "13px",
-              color: colors.muted,
-              lineHeight: "1.6",
-            }}
-          >
-            {studentName && (
-              <div style={{ marginBottom: "8px" }}>
-                <strong style={{ color: colors.text }}>Học sinh:</strong> {studentName}
-              </div>
-            )}
-            <div style={{ marginBottom: "8px" }}>
-              <strong style={{ color: colors.text }}>Tổng điểm:</strong> {score} / {total}
-            </div>
-            <div>
-              <strong style={{ color: colors.text }}>Tỷ lệ:</strong> {percentage}%
-            </div>
-          </div>
-
-          {/* Actions */}
-          <div style={{ display: "flex", gap: "12px", marginTop: "24px" }}>
-            <button
-              onClick={onClose}
+          {/* Student info */}
+          {studentName && (
+            <div
               style={{
-                flex: 1,
+                background: colors.surfaceAlt,
                 padding: "12px 16px",
-                borderRadius: "8px",
-                border: "none",
-                background: isDarkMode ? "#1f2b47" : "#0052cc",
-                color: "#fff",
-                fontSize: "14px",
-                fontWeight: 600,
-                cursor: "pointer",
-                transition: "background 0.2s",
+                borderRadius: 12,
+                border: `1px solid ${colors.border}`,
+                fontSize: 13,
+                color: colors.muted,
+                marginBottom: 20,
               }}
-              onMouseOver={(e) => (e.target.style.background = isDarkMode ? "#27354d" : "#003d99")}
-              onMouseOut={(e) => (e.target.style.background = isDarkMode ? "#1f2b47" : "#0052cc")}
             >
-              Đóng
-            </button>
-          </div>
+              <strong style={{ color: colors.text }}>Học sinh:</strong> {studentName}
+            </div>
+          )}
+
+          {/* Close Button */}
+          <button
+            onClick={onClose}
+            style={{
+              width: "100%",
+              padding: "13px 24px",
+              borderRadius: 20,
+              border: "none",
+              background: "linear-gradient(135deg, #1e3a8a 0%, #1d4ed8 55%, #0284c7 100%)",
+              color: "#fff",
+              fontSize: 15,
+              fontWeight: 600,
+              cursor: "pointer",
+              boxShadow: "0 4px 14px rgba(29,78,216,0.4)",
+              transition: "opacity 0.15s",
+            }}
+            onMouseOver={(e) => (e.currentTarget.style.opacity = "0.88")}
+            onMouseOut={(e) => (e.currentTarget.style.opacity = "1")}
+          >
+            Đóng
+          </button>
         </div>
       </div>
 
       <style>{`
         @keyframes slideUp {
-          from {
-            opacity: 0;
-            transform: translateY(20px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
+          from { opacity: 0; transform: translateY(20px); }
+          to { opacity: 1; transform: translateY(0); }
         }
       `}</style>
     </div>

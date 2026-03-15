@@ -36,8 +36,8 @@ const getQuestionCountForSection = (section) => {
     if (blanksCount > 0) return blanksCount;
     return countClozeBlanksFromText(q0?.passageText || q0?.passage || q0?.clozeText || '');
   }
-  if (section.questionType === 'short-message') {
-    return 1;
+  if (section.questionType === 'short-message' || section.questionType === 'story-writing') {
+    return 0; // Writing tasks are not numbered questions
   }
   if (section.questionType === 'people-matching' && section.questions[0]?.people) {
     return section.questions[0].people.length;
@@ -50,6 +50,23 @@ const getQuestionCountForSection = (section) => {
   }
   if (section.questionType === 'matching-pictures' && section.questions[0]?.prompts) {
     return section.questions[0].prompts.length;
+  }
+  if (section.questionType === 'image-cloze') {
+    const q0 = section.questions?.[0] || {};
+    const blanks = [...(q0.passageText || '').matchAll(/\(\s*\d+\s*\)/g)].length;
+    return blanks + (q0.titleQuestion?.enabled ? 1 : 0);
+  }
+  if (section.questionType === 'word-drag-cloze') {
+    const q0 = section.questions?.[0] || {};
+    return Array.isArray(q0.blanks) ? q0.blanks.length : 0;
+  }
+  if (section.questionType === 'story-completion') {
+    const q0 = section.questions?.[0] || {};
+    return Array.isArray(q0.items) ? q0.items.length : 0;
+  }
+  if (section.questionType === 'look-read-write') {
+    const q0 = section.questions?.[0] || {};
+    return (q0.groups || []).reduce((sum, g) => sum + (g.items?.length || 0), 0);
   }
   return section.questions.length;
 };
@@ -106,6 +123,10 @@ const computeQuestionStarts = (passages) => {
     'gap-match',
     'inline-choice',
     'matching-pictures',
+    'image-cloze',
+    'word-drag-cloze',
+    'story-completion',
+    'look-read-write',
   ]);
   let count = 1;
 

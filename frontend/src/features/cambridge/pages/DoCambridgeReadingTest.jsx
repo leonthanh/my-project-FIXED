@@ -7,6 +7,10 @@ import { TEST_CONFIGS } from "../../../shared/config/questionTypes";
 import QuestionDisplayFactory from "../../../shared/components/questions/displays/QuestionDisplayFactory";
 import PeopleMatchingDisplay from "../../../shared/components/questions/displays/PeopleMatchingDisplay";
 import MatchingPicturesDisplay from "../../../shared/components/questions/displays/MatchingPicturesDisplay";
+import ImageClozeDisplay from "../../../shared/components/questions/displays/ImageClozeDisplay";
+import WordDragClozeDisplay from "../../../shared/components/questions/displays/WordDragClozeDisplay";
+import StoryCompletionDisplay from "../../../shared/components/questions/displays/StoryCompletionDisplay";
+import LookReadWriteDisplay from "../../../shared/components/questions/displays/LookReadWriteDisplay";
 /* eslint-disable-next-line no-unused-vars */
 import ClozeMCDisplay from "../../../shared/components/questions/displays/ClozeMCDisplay";
 import InlineChoiceDisplay from "../../../shared/components/questions/displays/InlineChoiceDisplay";
@@ -53,6 +57,8 @@ const DoCambridgeReadingTest = () => {
   // Shared state for matching-pictures split view (questions left | picture bank right)
   const [mpSelectedChoiceId, setMpSelectedChoiceId] = useState('');
   const [mpActivePromptIndex, setMpActivePromptIndex] = useState(null);
+  const [icSelectedImgId, setIcSelectedImgId] = useState(null); // image-cloze split panel
+  const [wdcFocusedBlank, setWdcFocusedBlank] = useState(null); // word-drag-cloze split panel
 
   // Started flag for the test (show start modal and control timer)
   const [started, setStarted] = useState(() => {
@@ -71,25 +77,49 @@ const DoCambridgeReadingTest = () => {
   /* eslint-disable-next-line no-unused-vars */
   const questionRefs = useRef({});
 
+  const resolveTestConfig = useCallback((rawType) => {
+    const normalized = String(rawType || '').trim().toLowerCase();
+    if (!normalized) return null;
+
+    // Support alias routes like "movers-reading" while configs are keyed as "movers".
+    const candidates = [
+      normalized,
+      normalized.replace(/-reading$/i, ''),
+      normalized.replace(/-listening$/i, ''),
+    ];
+
+    for (const key of candidates) {
+      if (TEST_CONFIGS[key]) return TEST_CONFIGS[key];
+    }
+    return null;
+  }, []);
+
   // Get test config - will be updated once test data is loaded
   const testConfig = useMemo(() => {
-    // If testType from URL, use it
     if (testType) {
-      return TEST_CONFIGS[testType] || TEST_CONFIGS['ket-reading'];
+      const fromUrl = resolveTestConfig(testType);
+      if (fromUrl) return fromUrl;
     }
-    // If test data loaded, use testType from test
     if (test?.testType) {
-      return TEST_CONFIGS[test.testType] || TEST_CONFIGS['ket-reading'];
+      const fromData = resolveTestConfig(test.testType);
+      if (fromData) return fromData;
     }
-    // Fallback
     return TEST_CONFIGS['ket-reading'];
-  }, [testType, test?.testType]);
+  }, [resolveTestConfig, testType, test?.testType]);
+
+  // For young-learner tests the section name is more informative than the full program name
+  const headerTitle = useMemo(() => {
+    if (['MOVERS', 'FLYERS', 'STARTERS'].includes(examType)) return 'Reading & Writing';
+    return testConfig.name || 'Reading & Writing';
+  }, [examType, testConfig.name]);
 
   const effectiveDuration = useMemo(() => {
-    const fromTest = Number(test?.duration);
-    if (Number.isFinite(fromTest) && fromTest > 0) return fromTest;
+    // Prefer the authoritative config duration for the test's type (avoids DB default of 60
+    // being used for tests that never had duration saved explicitly).
     const fromConfig = Number(testConfig.duration);
     if (Number.isFinite(fromConfig) && fromConfig > 0) return fromConfig;
+    const fromTest = Number(test?.duration);
+    if (Number.isFinite(fromTest) && fromTest > 0) return fromTest;
     return 60;
   }, [test?.duration, testConfig.duration]);
 
@@ -151,10 +181,12 @@ const DoCambridgeReadingTest = () => {
         // Check if there's saved data for this test
         const savedTime = localStorage.getItem(`test-time-${id}`);
         const savedAnswers = localStorage.getItem(`test-answers-${id}`);
+        // Prefer testType config duration over the DB value (DB defaults to 60 for all types)
+        const configDuration = Number(TEST_CONFIGS[data.testType]?.duration);
         const rawDuration = Number(data.duration);
-        const resolvedDuration = Number.isFinite(rawDuration) && rawDuration > 0
-          ? rawDuration
-          : (testConfig.duration || 60);
+        const resolvedDuration = Number.isFinite(configDuration) && configDuration > 0
+          ? configDuration
+          : (Number.isFinite(rawDuration) && rawDuration > 0 ? rawDuration : (testConfig.duration || 60));
         const durationSeconds = resolvedDuration * 60;
 
         if (savedTime || savedAnswers) {
@@ -275,13 +307,27 @@ const DoCambridgeReadingTest = () => {
 
       if (!res.ok) throw new Error("Lỗi khi nộp bài");
 
+      // Use backend scoring as source of truth
+      const data = await res.json();
+      const dr = data.detailedResults || {};
+      const backendCorrect = Object.values(dr).filter(r => r.isCorrect === true).length;
+      const backendIncorrect = Object.values(dr).filter(r => r.isCorrect === false).length;
+
       // Clear saved data from localStorage
       localStorage.removeItem(`test-time-${id}`);
       localStorage.removeItem(`test-answers-${id}`);
       localStorage.removeItem(startedKey);
       
-      // Show results modal instead of redirecting
-      setResults(localResults);
+      // Show results modal using backend score (more accurate than local calculation)
+      setResults({
+        score: data.score,
+        total: data.total,
+        percentage: data.percentage,
+        correct: backendCorrect,
+        incorrect: backendIncorrect,
+        writingQuestions: localResults.writingQuestions || [],
+        writingCount: localResults.writingCount || 0,
+      });
       setSubmitted(true);
       setShowConfirm(false);
     } catch (err) {
@@ -378,6 +424,78 @@ const DoCambridgeReadingTest = () => {
         } else {
           incorrect++;
         }
+        return;
+      }
+
+      if (questionType === 'image-cloze') {
+        const userAnswer = answers[q.key];
+        if (q.isTitleQuestion) {
+          const correctAnswer = q.question?.titleQuestion?.correctAnswer;
+          if (correctAnswer === undefined || correctAnswer === null) {
+            debugInfo.push(`Q${q.questionNumber}: No titleQuestion correctAnswer`);
+            return;
+          }
+          scorableCount++;
+          if (!userAnswer) return;
+          if (normalize(userAnswer) === normalize(correctAnswer)) correct++;
+          else incorrect++;
+        } else {
+          const correctImgId = q.question?.answers?.[String(q.blankNum)];
+          if (correctImgId === undefined || correctImgId === null) {
+            debugInfo.push(`Q${q.questionNumber}: No correct answer for blank ${q.blankNum}`);
+            return;
+          }
+          scorableCount++;
+          if (!userAnswer) return;
+          if (userAnswer === correctImgId) correct++;
+          else incorrect++;
+        }
+        return;
+      }
+
+      // word-drag-cloze: answers stored as {partIdx}-{secIdx}-blank-{blank.number}
+      if (questionType === 'word-drag-cloze' && q.blank) {
+        const wdcKey = `${q.partIndex}-${q.sectionIndex}-blank-${q.blank.number}`;
+        const ua = answers[wdcKey];
+        const ca = q.blank.correctAnswer ?? q.blank.answer ?? q.blank.correct;
+        if (ca === undefined || ca === null) {
+          debugInfo.push(`Q${q.questionNumber}: word-drag-cloze no correctAnswer`);
+          return;
+        }
+        scorableCount++;
+        if (!ua) return;
+        const accepted = explode(ca);
+        if (accepted.some((a) => normalize(a) === normalize(ua))) correct++;
+        else incorrect++;
+        return;
+      }
+
+      // story-completion: q.key = "{p}-{s}-item-{n}", q.item.answer = correct answer
+      if (questionType === 'story-completion' && q.item) {
+        const ua = answers[q.key];
+        const ca = q.item.answer ?? q.item.correctAnswer;
+        if (ca === undefined || ca === null) {
+          debugInfo.push(`Q${q.questionNumber}: story-completion no answer on item`);
+          return;
+        }
+        scorableCount++;
+        if (!ua) return;
+        const accepted = explode(ca);
+        if (accepted.some((a) => normalize(a) === normalize(ua))) correct++;
+        else incorrect++;
+        return;
+      }
+
+      // look-read-write: q.key = "{p}-{s}-g{g}-item{i}", free-write items accept any non-empty
+      if (questionType === 'look-read-write' && q.item) {
+        const ua = answers[q.key];
+        const ca = (q.item.answer ?? q.item.correctAnswer ?? '').trim();
+        scorableCount++;
+        if (!ua || !ua.trim()) return;
+        if (!ca) { correct++; return; } // free-write: any answer accepted
+        const accepted = explode(ca);
+        if (accepted.some((a) => normalize(a) === normalize(ua))) correct++;
+        else incorrect++;
         return;
       }
 
@@ -629,6 +747,95 @@ const DoCambridgeReadingTest = () => {
                 part,
               });
             });
+          } else if (section.questionType === 'image-cloze') {
+            // Expand blanks from passageText + optional title question
+            const passageText = q.passageText || '';
+            const blankMatches = [...passageText.matchAll(/\(\s*(\d+)\s*\)/g)];
+            const blankNums = blankMatches.map(m => parseInt(m[1], 10));
+            blankNums.forEach((blankNum) => {
+              questions.push({
+                partIndex: pIdx,
+                sectionIndex: sIdx,
+                questionIndex: qIdx,
+                questionNumber: qNum++,
+                key: `${pIdx}-${sIdx}-blank-${blankNum}`,
+                question: q,
+                section,
+                part,
+                blankNum,
+                isTitleQuestion: false,
+              });
+            });
+            if (q.titleQuestion?.enabled) {
+              questions.push({
+                partIndex: pIdx,
+                sectionIndex: sIdx,
+                questionIndex: qIdx,
+                questionNumber: qNum++,
+                key: `${pIdx}-${sIdx}-title`,
+                question: q,
+                section,
+                part,
+                isTitleQuestion: true,
+              });
+            }
+          } else if (section.questionType === 'word-drag-cloze' && q.blanks && Array.isArray(q.blanks)) {
+            // word-drag-cloze: one entry per blank (like cloze-mc)
+            q.blanks.forEach((blank, blankIdx) => {
+              questions.push({
+                partIndex: pIdx,
+                sectionIndex: sIdx,
+                questionIndex: qIdx,
+                blankIndex: blankIdx,
+                questionNumber: qNum++,
+                key: `${pIdx}-${sIdx}-${qIdx}-${blankIdx}`,
+                question: q,
+                blank: blank,
+                section: section,
+                part: part,
+              });
+            });
+          } else if (section.questionType === 'story-completion' && q.items && Array.isArray(q.items)) {
+            // story-completion: one entry per item (Movers Part 5)
+            q.items.forEach((item, itemIdx) => {
+              questions.push({
+                partIndex: pIdx,
+                sectionIndex: sIdx,
+                questionIndex: qIdx,
+                itemIndex: itemIdx,
+                questionNumber: qNum++,
+                key: `${pIdx}-${sIdx}-item-${itemIdx + 1}`,
+                question: q,
+                item: item,
+                section: section,
+                part: part,
+              });
+            });
+          } else if (section.questionType === 'look-read-write' && q.groups && Array.isArray(q.groups)) {
+            // look-read-write: one entry per group item (Movers Part 6)
+            q.groups.forEach((group, groupIdx) => {
+              (group.items || []).forEach((item, itemIdx) => {
+                questions.push({
+                  partIndex: pIdx,
+                  sectionIndex: sIdx,
+                  questionIndex: qIdx,
+                  groupIndex: groupIdx,
+                  itemIndex: itemIdx,
+                  questionNumber: qNum++,
+                  key: `${pIdx}-${sIdx}-g${groupIdx}-item${itemIdx}`,
+                  question: q,
+                  group: group,
+                  item: item,
+                  section: section,
+                  part: part,
+                });
+              });
+            });
+          } else if (
+            section.questionType === 'short-message' ||
+            section.questionType === 'story-writing'
+          ) {
+            // Writing tasks — not numbered questions, skip from allQuestions
           } else {
             // Regular questions
             questions.push({
@@ -672,6 +879,23 @@ const DoCambridgeReadingTest = () => {
       const key = getMatchingPicturesAnswerKey(q);
       return Boolean(answers[key] ?? answers[q.key]);
     }
+    if (q.section?.questionType === 'story-completion') {
+      const val = answers[q.key];
+      if (typeof val === "string") return val.trim().length > 0;
+      if (Array.isArray(val)) return val.some(Boolean); // backward compat
+      return Boolean(val);
+    }
+    if (q.section?.questionType === 'look-read-write') {
+      const val = answers[q.key];
+      if (typeof val === "string") return val.trim().length > 0;
+      return Boolean(val);
+    }
+    if (q.section?.questionType === 'word-drag-cloze') {
+      // WDC stores answers as `${partIdx}-${sectionIdx}-blank-${blank.number}`
+      const wdcPrefix = `${q.partIndex}-${q.sectionIndex}`;
+      const blankAnswerKey = `${wdcPrefix}-blank-${q.blank?.number}`;
+      return Boolean((answers[blankAnswerKey] || '').trim());
+    }
     return Boolean(answers[q.key]);
   }, [answers, getMatchingPicturesAnswerKey, getPeopleMatchingAnswerKey]);
 
@@ -689,12 +913,28 @@ const DoCambridgeReadingTest = () => {
       setCurrentPartIndex(q.partIndex);
       setActiveQuestion(q.key);
       
+      // For word-drag-cloze: set focused blank so passage + wordbank both highlight
+      if (q.section?.questionType === 'word-drag-cloze' && q.blank?.number != null) {
+        setWdcFocusedBlank(q.blank.number);
+      }
+
       // Scroll to question element and focus/open
       setTimeout(() => {
         const questionElement = document.getElementById(`question-${q.questionNumber}`);
         
         if (questionElement) {
-          questionElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          // Ưu tiên scroll container scroll riêng (cambridge-passage-column / overflow-y: auto)
+          // thay vì window, để left panel tự cuộn đúng vị trí
+          const scrollContainer = questionElement.closest('.cambridge-passage-column') ||
+                                  questionElement.closest('.cambridge-questions-column');
+          if (scrollContainer) {
+            const elemRect = questionElement.getBoundingClientRect();
+            const containerRect = scrollContainer.getBoundingClientRect();
+            const offset = elemRect.top - containerRect.top - (scrollContainer.clientHeight / 2) + (questionElement.offsetHeight / 2);
+            scrollContainer.scrollBy({ top: offset, behavior: 'smooth' });
+          } else {
+            questionElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
           
           if (typeof questionElement.focus === 'function') {
             questionElement.focus();
@@ -727,6 +967,21 @@ const DoCambridgeReadingTest = () => {
             // For cloze-test text inputs
             questionElement.focus();
             questionElement.select(); // Select all text to show cursor and highlight
+          } else {
+            // For container elements (e.g. image-cloze title question), focus first radio inside
+            const firstRadio = questionElement.querySelector('input[type="radio"]');
+            if (firstRadio) {
+              firstRadio.focus();
+            }
+            // Visual pulse: briefly highlight the container so the user notices it
+            questionElement.style.transition = 'outline 0.15s ease, box-shadow 0.15s ease';
+            questionElement.style.outline = '3px solid #7c3aed';
+            questionElement.style.boxShadow = '0 0 0 6px rgba(124, 58, 237, 0.25)';
+            setTimeout(() => {
+              questionElement.style.outline = '';
+              questionElement.style.boxShadow = '';
+              questionElement.style.transition = '';
+            }, 1400);
           }
         }
       }, 200);
@@ -804,140 +1059,145 @@ const DoCambridgeReadingTest = () => {
   }
 
   return (
-    <div className="cambridge-test-container bg-slate-50">
+    <div className={`cambridge-test-container bg-slate-50${examType === 'MOVERS' ? ' cambridge-movers' : ''}`}>
       {/* Start Modal (only starts timer after click) */}
       {!started && !submitted && !loading && !error && (
         <div
-          className="fixed inset-0 z-[1200] flex items-center justify-center bg-slate-900/50 px-4 py-6 backdrop-blur-sm"
           style={{
-            position: 'fixed',
-            inset: 0,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            background: 'rgba(15,23,42,0.6)',
-            zIndex: 1200
+            position: 'fixed', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+            background: 'rgba(15,23,42,0.65)', backdropFilter: 'blur(4px)', zIndex: 1200, padding: '16px',
           }}
         >
-          <div
-            className="max-h-[85vh] w-full max-w-[520px] overflow-y-auto rounded-2xl bg-white p-5 shadow-[0_12px_32px_rgba(15,23,42,0.25)] sm:p-6"
-            style={{
-              background: 'linear-gradient(180deg, #f8fbff 0%, #ffffff 35%)',
-              border: '1px solid #dbeafe',
-              borderRadius: 14,
-              maxHeight: '85vh',
-              width: '100%',
-              maxWidth: 520,
-              overflowY: 'auto',
-              padding: 20,
-              boxShadow: '0 12px 32px rgba(15,23,42,0.25)'
-            }}
-          >
-            <h2 className="text-base font-semibold text-slate-900 sm:text-lg" style={{ color: '#0f2f5f' }}>
-              Bắt đầu làm bài Cambridge Reading
-            </h2>
-            <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-slate-400" style={{ color: '#2563eb' }}>
-              {examType} Reading
-            </p>
-            {hasSavedProgress ? (
-              <>
-                <p className="mt-3 text-sm leading-relaxed text-slate-700">
-                  Phát hiện bài làm đã được lưu.
-                </p>
-                <p className="mt-2 text-sm text-slate-500">
-                  Thời gian còn lại: <b>{timeRemaining !== null ? formatTime(timeRemaining) : "--:--"}</b>
-                </p>
-              </>
-            ) : (
-                <p className="mt-3 text-sm leading-relaxed text-slate-700">
-                  Bạn có <b>{Math.round(effectiveDuration)} phút</b> để hoàn tất bài làm. Bài làm sẽ được tự động lưu.
-                </p>
-            )}
+          <div style={{ width: '100%', maxWidth: 480, borderRadius: 20, overflow: 'hidden', boxShadow: '0 24px 48px rgba(15,23,42,0.35)' }}>
 
-            <div className="mt-3 text-sm text-slate-600">
-              <div className="flex flex-wrap gap-x-2">
-                <span className="font-semibold text-slate-700" style={{ color: '#1d4ed8' }}>Đề: </span>
-                <span>{test?.title || testConfig.name || "Cambridge Reading"}</span>
+            {/* ── Header ── */}
+            <div style={{ background: 'linear-gradient(135deg, #1e3a8a 0%, #1d4ed8 55%, #0284c7 100%)', padding: '26px 28px 22px', position: 'relative', overflow: 'hidden' }}>
+              {/* Decorative circles */}
+              <div style={{ position: 'absolute', top: -40, right: -40, width: 160, height: 160, borderRadius: '50%', background: 'rgba(255,255,255,0.07)', pointerEvents: 'none' }} />
+              <div style={{ position: 'absolute', bottom: -30, left: -20, width: 100, height: 100, borderRadius: '50%', background: 'rgba(255,255,255,0.05)', pointerEvents: 'none' }} />
+
+              {/* Badge row */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14, position: 'relative', zIndex: 1 }}>
+                <div style={{ width: 44, height: 44, borderRadius: 12, background: 'rgba(255,255,255,0.18)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0 }}>
+                  📖
+                </div>
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 800, color: 'rgba(255,255,255,0.65)', textTransform: 'uppercase', letterSpacing: '0.12em' }}>
+                    Cambridge {examType}
+                  </div>
+                  <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.45)', letterSpacing: '0.06em' }}>Reading Test</div>
+                </div>
               </div>
-              <div className="mt-1 flex flex-wrap gap-x-2">
-                <span className="font-semibold text-slate-700" style={{ color: '#1d4ed8' }}>Tổng số câu: </span>
-                <span>{allQuestions.length}</span>
-              </div>
+
+              {/* Test title */}
+              <h2 style={{ fontSize: 18, fontWeight: 800, color: '#fff', margin: 0, lineHeight: 1.3, position: 'relative', zIndex: 1, textShadow: '0 1px 3px rgba(0,0,0,0.2)' }}>
+                {test?.title || testConfig.name || 'Cambridge Reading'}
+              </h2>
             </div>
 
-            <div className="mt-5 flex flex-wrap justify-end gap-2">
-              <button
-                onClick={() => navigate(-1)}
-                className="rounded-full border border-slate-300 bg-white px-5 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50"
-                style={{ borderColor: '#c7d2fe' }}
-              >
-                Thoát
-              </button>
+            {/* ── Body ── */}
+            <div style={{ background: '#fff', padding: '22px 24px' }}>
 
-              {hasSavedProgress && (
+              {/* Info cards */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 16 }}>
+                <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 12, padding: '14px 16px', textAlign: 'center' }}>
+                  <div style={{ fontSize: 28, fontWeight: 800, color: '#1d4ed8', lineHeight: 1 }}>{Math.round(effectiveDuration)}</div>
+                  <div style={{ fontSize: 11, color: '#3b82f6', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', marginTop: 4 }}>Phút</div>
+                </div>
+                <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 12, padding: '14px 16px', textAlign: 'center' }}>
+                  <div style={{ fontSize: 28, fontWeight: 800, color: '#15803d', lineHeight: 1 }}>{allQuestions.length}</div>
+                  <div style={{ fontSize: 11, color: '#16a34a', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', marginTop: 4 }}>Câu hỏi</div>
+                </div>
+              </div>
+
+              {hasSavedProgress ? (
+                <div style={{ background: '#fefce8', border: '1px solid #fde68a', borderRadius: 10, padding: '12px 14px', marginBottom: 18 }}>
+                  <div style={{ fontWeight: 700, color: '#92400e', fontSize: 13, marginBottom: 3 }}>⚡ Tiếp tục bài làm trước</div>
+                  <div style={{ fontSize: 13, color: '#b45309' }}>
+                    Thời gian còn lại: <b>{timeRemaining !== null ? formatTime(timeRemaining) : '--:--'}</b>
+                  </div>
+                </div>
+              ) : (
+                <p style={{ fontSize: 13, color: '#475569', marginBottom: 18, lineHeight: 1.6 }}>
+                  Bài làm sẽ được <b>tự động lưu</b>. Bạn có thể thoát và quay lại tiếp tục bất cứ lúc nào.
+                </p>
+              )}
+
+              {/* Action buttons */}
+              <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', flexWrap: 'wrap', alignItems: 'center' }}>
+                <button
+                  onClick={() => navigate(-1)}
+                  style={{ padding: '9px 18px', borderRadius: 20, border: '1.5px solid #e2e8f0', background: '#fff', fontSize: 13, fontWeight: 600, color: '#64748b', cursor: 'pointer' }}
+                >
+                  Thoát
+                </button>
+
+                {hasSavedProgress && (
+                  <button
+                    onClick={() => {
+                      const ok = window.confirm(
+                        "Bạn chắc chắn muốn làm lại từ đầu? Tất cả tiến độ đã lưu sẽ bị xóa."
+                      );
+                      if (!ok) return;
+
+                      try {
+                        localStorage.removeItem(`test-time-${id}`);
+                        localStorage.removeItem(`test-answers-${id}`);
+                        localStorage.removeItem(startedKey);
+                      } catch {
+                        // ignore
+                      }
+
+                      setAnswers({});
+                      setFlaggedQuestions(new Set());
+                      setCurrentPartIndex(0);
+                      setCurrentQuestionIndex(0);
+                      setActiveQuestion(null);
+                      setTimeRemaining(effectiveDuration * 60);
+                      setHasSavedProgress(false);
+                      setStarted(false);
+                    }}
+                    style={{ padding: '9px 18px', borderRadius: 20, border: '1.5px solid #fecaca', background: '#fef2f2', fontSize: 13, fontWeight: 600, color: '#dc2626', cursor: 'pointer' }}
+                  >
+                    🔄 Làm lại từ đầu
+                  </button>
+                )}
+
                 <button
                   onClick={() => {
-                    const ok = window.confirm(
-                      "Bạn chắc chắn muốn làm lại từ đầu? Tất cả tiến độ đã lưu sẽ bị xóa."
-                    );
-                    if (!ok) return;
-
+                    setStarted(true);
+                    const initialSeconds = effectiveDuration * 60;
                     try {
-                      localStorage.removeItem(`test-time-${id}`);
-                      localStorage.removeItem(`test-answers-${id}`);
-                      localStorage.removeItem(startedKey);
+                      localStorage.setItem(startedKey, "true");
+                      localStorage.setItem(`test-time-${id}`, String(timeRemaining ?? initialSeconds));
+                      if (!localStorage.getItem(`test-answers-${id}`)) {
+                        localStorage.setItem(`test-answers-${id}`, JSON.stringify(answers || {}));
+                      }
                     } catch {
                       // ignore
                     }
-
-                    setAnswers({});
-                    setFlaggedQuestions(new Set());
-                    setCurrentPartIndex(0);
-                    setCurrentQuestionIndex(0);
-                    setActiveQuestion(null);
-                    setTimeRemaining(effectiveDuration * 60);
-                    setHasSavedProgress(false);
-                    setStarted(false);
+                    if (timeRemaining === null) {
+                      setTimeRemaining(initialSeconds);
+                    }
+                    // focus first question after small delay
+                    setTimeout(() => {
+                      const el = document.getElementById("question-1");
+                      if (el && typeof el.scrollIntoView === "function") {
+                        el.scrollIntoView({ behavior: "smooth", block: "center" });
+                      }
+                    }, 250);
                   }}
-                  className="rounded-full border border-red-200 bg-red-50 px-5 py-2 text-sm font-semibold text-red-700 hover:bg-red-100"
+                  style={{
+                    padding: '11px 24px', borderRadius: 20,
+                    background: 'linear-gradient(135deg, #1d4ed8, #0284c7)',
+                    fontSize: 14, fontWeight: 700, color: '#fff', border: 'none', cursor: 'pointer',
+                    boxShadow: '0 4px 14px rgba(29,78,216,0.4)',
+                  }}
                 >
-                  🔄 Làm lại từ đầu
+                  {hasSavedProgress ? '▶ Tiếp tục' : '▶ Bắt đầu làm bài'}
                 </button>
-              )}
+              </div>
 
-              <button
-                onClick={() => {
-                  setStarted(true);
-                  const initialSeconds = effectiveDuration * 60;
-                  try {
-                    localStorage.setItem(startedKey, "true");
-                    localStorage.setItem(`test-time-${id}`, String(timeRemaining ?? initialSeconds));
-                    if (!localStorage.getItem(`test-answers-${id}`)) {
-                      localStorage.setItem(`test-answers-${id}`, JSON.stringify(answers || {}));
-                    }
-                  } catch {
-                    // ignore
-                  }
-                  if (timeRemaining === null) {
-                    setTimeRemaining(initialSeconds);
-                  }
-                  // focus first question after small delay
-                  setTimeout(() => {
-                    const el = document.getElementById("question-1");
-                    if (el && typeof el.scrollIntoView === "function") {
-                      el.scrollIntoView({ behavior: "smooth", block: "center" });
-                    }
-                  }, 250);
-                }}
-                className="rounded-full bg-blue-600 px-6 py-2.5 text-[15px] font-semibold text-white hover:bg-blue-700"
-                style={{
-                  background: '#2563eb',
-                  color: '#fff',
-                  boxShadow: '0 8px 18px rgba(37,99,235,0.25)'
-                }}
-              >
-                {hasSavedProgress ? "Tiếp tục" : "Bắt đầu làm bài"}
-              </button>
             </div>
           </div>
         </div>
@@ -945,7 +1205,7 @@ const DoCambridgeReadingTest = () => {
 
       {/* Header */}
       <TestHeader
-        title={testConfig.name}
+        title={headerTitle}
         classCode={test?.classCode}
         teacherName={test?.teacherName}
         timeRemaining={timeRemaining}
@@ -1023,7 +1283,7 @@ const DoCambridgeReadingTest = () => {
                       {currentQuestion.questionNumber}
                     </span>
                     {currentQuestion.question.questionText && (
-                      <span className="ml-2 text-sm text-slate-700 sm:text-[15px]">
+                      <span style={{ fontSize: '15px', color: '#334155', marginLeft: '8px' }}>
                         {currentQuestion.question.questionText}
                       </span>
                     )}
@@ -1069,7 +1329,7 @@ const DoCambridgeReadingTest = () => {
                               }}>
                                 {optionLetter}
                               </span>
-                              <span className="text-sm leading-6 sm:text-[15px]">
+                              <span style={{ fontSize: '15px', lineHeight: '1.5' }}>
                                 {cleanOption}
                               </span>
                             </label>
@@ -1192,7 +1452,7 @@ const DoCambridgeReadingTest = () => {
                               borderRadius: '4px',
                               backgroundColor: userAnswer ? '#f0f9ff' : 'white',
                               color: '#0e7490',
-                              width: '150px',
+                              width: '160px',
                               textAlign: 'center',
                               scrollMarginTop: '100px'
                             }}
@@ -1859,6 +2119,351 @@ const DoCambridgeReadingTest = () => {
             </div>
           </div>
         </>
+      ) : currentQuestion && currentQuestion.section.questionType === 'word-drag-cloze' ? (
+        /* Movers Part 4: Word Drag & Drop Cloze – passage left | word bank right */
+        <>
+          {currentQuestion.part.instruction && (
+            <div
+              className="cambridge-part-instruction px-4 py-2 text-[13px] leading-relaxed sm:text-sm"
+              dangerouslySetInnerHTML={{ __html: sanitizeQuillHtml(currentQuestion.part.instruction) }}
+            />
+          )}
+          <div className="cambridge-main-content" ref={containerRef} style={{ position: 'relative' }}>
+            {/* Left Column – Passage with blank slots */}
+            <div className="cambridge-passage-column" style={{ width: `${leftWidth}%` }}>
+              <div className="cambridge-passage-container" style={{ padding: '12px' }}>
+                {(() => {
+                  const wdcPrefix = `${currentQuestion.partIndex}-${currentQuestion.sectionIndex}`;
+                  const wdcQuestions = allQuestions.filter(
+                    q => q.partIndex === currentQuestion.partIndex &&
+                         q.sectionIndex === currentQuestion.sectionIndex &&
+                         q.section.questionType === 'word-drag-cloze'
+                  );
+                  return (
+                    <WordDragClozeDisplay
+                      renderMode="passage"
+                      section={{ ...currentQuestion.section, id: wdcPrefix, questions: [currentQuestion.question] }}
+                      startingNumber={wdcQuestions[0]?.questionNumber ?? currentQuestion.questionNumber}
+                      answerKeyPrefix={wdcPrefix}
+                      onAnswerChange={handleAnswerChange}
+                      answers={answers}
+                      submitted={submitted}
+                      partImage={currentQuestion.part?.imageUrl || ""}
+                      sharedFocusedBlank={wdcFocusedBlank}
+                      onSharedFocusChange={setWdcFocusedBlank}
+                    />
+                  );
+                })()}
+              </div>
+            </div>
+
+            {/* Draggable Divider */}
+            <div
+              className="cambridge-divider"
+              onMouseDown={handleMouseDown}
+              style={{ left: `${leftWidth}%`, cursor: 'col-resize' }}
+            >
+              <div className="cambridge-resize-handle">
+                <i className="fa fa-arrows-h"></i>
+              </div>
+            </div>
+
+            {/* Right Column – Word Bank */}
+            <div className="cambridge-questions-column" style={{ width: `${100 - leftWidth}%` }}>
+              <div className="cambridge-content-wrapper" style={{ position: 'relative' }}>
+                <button
+                  className={`cambridge-flag-button ${flaggedQuestions.has(currentQuestion.key) ? 'flagged' : ''}`}
+                  onClick={() => toggleFlag(currentQuestion.key)}
+                  aria-label="Flag question"
+                  style={{ position: 'absolute', top: 8, right: 8, zIndex: 2 }}
+                >
+                  {flaggedQuestions.has(currentQuestion.key) ? '🚩' : '⚐'}
+                </button>
+                {(() => {
+                  const wdcPrefix = `${currentQuestion.partIndex}-${currentQuestion.sectionIndex}`;
+                  const wdcQuestions = allQuestions.filter(
+                    q => q.partIndex === currentQuestion.partIndex &&
+                         q.sectionIndex === currentQuestion.sectionIndex &&
+                         q.section.questionType === 'word-drag-cloze'
+                  );
+                  return (
+                    <WordDragClozeDisplay
+                      renderMode="wordbank"
+                      section={{ ...currentQuestion.section, id: wdcPrefix, questions: [currentQuestion.question] }}
+                      startingNumber={wdcQuestions[0]?.questionNumber ?? currentQuestion.questionNumber}
+                      answerKeyPrefix={wdcPrefix}
+                      onAnswerChange={handleAnswerChange}
+                      answers={answers}
+                      submitted={submitted}
+                      partImage={currentQuestion.part?.imageUrl || ""}
+                      sharedFocusedBlank={wdcFocusedBlank}
+                      onSharedFocusChange={setWdcFocusedBlank}
+                      activeBlankNumber={currentQuestion.blank?.number ?? null}
+                    />
+                  );
+                })()}
+              </div>
+            </div>
+          </div>
+        </>
+      ) : currentQuestion && currentQuestion.section.questionType === 'story-completion' ? (
+        /* Movers Part 5: Story Completion – story left | letter-box questions right */
+        <>
+          {currentQuestion.part.instruction && (
+            <div
+              className="cambridge-part-instruction px-4 py-2 text-[13px] leading-relaxed sm:text-sm"
+              dangerouslySetInnerHTML={{ __html: sanitizeQuillHtml(currentQuestion.part.instruction) }}
+            />
+          )}
+          <div className="cambridge-main-content" ref={containerRef} style={{ position: 'relative' }}>
+            {/* Left Column – Story + Examples */}
+            <div className="cambridge-passage-column" style={{ width: `${leftWidth}%` }}>
+              <div className="cambridge-passage-container" style={{ padding: '12px' }}>
+                {(() => {
+                  const scPrefix = `${currentQuestion.partIndex}-${currentQuestion.sectionIndex}`;
+                  const scQuestions = allQuestions.filter(
+                    q => q.partIndex === currentQuestion.partIndex &&
+                         q.sectionIndex === currentQuestion.sectionIndex &&
+                         q.section.questionType === 'story-completion'
+                  );
+                  return (
+                    <StoryCompletionDisplay
+                      renderMode="story"
+                      section={{ ...currentQuestion.section, id: scPrefix, questions: [currentQuestion.question] }}
+                      startingNumber={scQuestions[0]?.questionNumber ?? currentQuestion.questionNumber}
+                      answerKeyPrefix={scPrefix}
+                      onAnswerChange={handleAnswerChange}
+                      answers={answers}
+                      submitted={submitted}
+                      partImage={currentQuestion.part?.imageUrl || ""}
+                    />
+                  );
+                })()}
+              </div>
+            </div>
+
+            {/* Draggable Divider */}
+            <div
+              className="cambridge-divider"
+              onMouseDown={handleMouseDown}
+              style={{ left: `${leftWidth}%`, cursor: 'col-resize' }}
+            >
+              <div className="cambridge-resize-handle">
+                <i className="fa fa-arrows-h"></i>
+              </div>
+            </div>
+
+            {/* Right Column – Letter-box Questions */}
+            <div className="cambridge-questions-column" style={{ width: `${100 - leftWidth}%` }}>
+              <div className="cambridge-content-wrapper" style={{ position: 'relative' }}>
+                <button
+                  className={`cambridge-flag-button ${flaggedQuestions.has(currentQuestion.key) ? 'flagged' : ''}`}
+                  onClick={() => toggleFlag(currentQuestion.key)}
+                  aria-label="Flag question"
+                  style={{ position: 'absolute', top: 8, right: 8, zIndex: 2 }}
+                >
+                  {flaggedQuestions.has(currentQuestion.key) ? '🚩' : '⚐'}
+                </button>
+                {(() => {
+                  const scPrefix = `${currentQuestion.partIndex}-${currentQuestion.sectionIndex}`;
+                  // Show only the CURRENT item (1 câu / 1 item) so young learners aren't overwhelmed
+                  const singleItemQ = {
+                    ...currentQuestion.question,
+                    items: [currentQuestion.item],
+                  };
+                  return (
+                    <StoryCompletionDisplay
+                      renderMode="questions"
+                      section={{ ...currentQuestion.section, id: scPrefix, questions: [singleItemQ] }}
+                      startingNumber={currentQuestion.questionNumber}
+                      startItemIndex={currentQuestion.itemIndex}
+                      answerKeyPrefix={scPrefix}
+                      onAnswerChange={handleAnswerChange}
+                      answers={answers}
+                      submitted={submitted}
+                      partImage={currentQuestion.part?.imageUrl || ""}
+                    />
+                  );
+                })()}
+              </div>
+            </div>
+          </div>
+        </>
+      ) : currentQuestion && currentQuestion.section.questionType === 'look-read-write' ? (
+        /* Movers Part 6: Look, Read & Write – picture+examples left | questions right */
+        <>
+          {currentQuestion.part.instruction && (
+            <div
+              className="cambridge-part-instruction px-4 py-2 text-[13px] leading-relaxed sm:text-sm"
+              dangerouslySetInnerHTML={{ __html: sanitizeQuillHtml(currentQuestion.part.instruction) }}
+            />
+          )}
+          <div className="cambridge-main-content" ref={containerRef} style={{ position: 'relative' }}>
+            {/* Left Column – Picture + Examples */}
+            <div className="cambridge-passage-column" style={{ width: `${leftWidth}%` }}>
+              <div className="cambridge-passage-container" style={{ padding: '12px' }}>
+                {(() => {
+                  const lrwPrefix = `${currentQuestion.partIndex}-${currentQuestion.sectionIndex}`;
+                  const lrwQuestions = allQuestions.filter(
+                    q => q.partIndex === currentQuestion.partIndex &&
+                         q.sectionIndex === currentQuestion.sectionIndex &&
+                         q.section.questionType === 'look-read-write'
+                  );
+                  return (
+                    <LookReadWriteDisplay
+                      renderMode="picture"
+                      section={{ ...currentQuestion.section, id: lrwPrefix, questions: [currentQuestion.question] }}
+                      startingNumber={lrwQuestions[0]?.questionNumber ?? currentQuestion.questionNumber}
+                      answerKeyPrefix={lrwPrefix}
+                      onAnswerChange={handleAnswerChange}
+                      answers={answers}
+                      submitted={submitted}
+                      partImage={currentQuestion.part?.imageUrl || ""}
+                    />
+                  );
+                })()}
+              </div>
+            </div>
+
+            {/* Draggable Divider */}
+            <div
+              className="cambridge-divider"
+              onMouseDown={handleMouseDown}
+              style={{ left: `${leftWidth}%`, cursor: 'col-resize' }}
+            >
+              <div className="cambridge-resize-handle">
+                <i className="fa fa-arrows-h"></i>
+              </div>
+            </div>
+
+            {/* Right Column – Three Question Groups */}
+            <div className="cambridge-questions-column" style={{ width: `${100 - leftWidth}%` }}>
+              <div className="cambridge-content-wrapper" style={{ position: 'relative' }}>
+                <button
+                  className={`cambridge-flag-button ${flaggedQuestions.has(currentQuestion.key) ? 'flagged' : ''}`}
+                  onClick={() => toggleFlag(currentQuestion.key)}
+                  aria-label="Flag question"
+                  style={{ position: 'absolute', top: 8, right: 8, zIndex: 2 }}
+                >
+                  {flaggedQuestions.has(currentQuestion.key) ? '🚩' : '⚐'}
+                </button>
+                {(() => {
+                  const lrwPrefix = `${currentQuestion.partIndex}-${currentQuestion.sectionIndex}`;
+                  const lrwQuestions = allQuestions.filter(
+                    q => q.partIndex === currentQuestion.partIndex &&
+                         q.sectionIndex === currentQuestion.sectionIndex &&
+                         q.section.questionType === 'look-read-write'
+                  );
+                  // Show only the CURRENT GROUP so young learners aren't overwhelmed
+                  const activeGroupIdx = currentQuestion.groupIndex ?? 0;
+                  const activeGroup = currentQuestion.question.groups?.[activeGroupIdx];
+                  const singleGroupQ = {
+                    ...currentQuestion.question,
+                    groups: activeGroup ? [activeGroup] : currentQuestion.question.groups,
+                  };
+                  const groupFirstQ = lrwQuestions.find(q => q.groupIndex === activeGroupIdx);
+                  return (
+                    <LookReadWriteDisplay
+                      renderMode="questions"
+                      section={{ ...currentQuestion.section, id: lrwPrefix, questions: [singleGroupQ] }}
+                      startingNumber={groupFirstQ?.questionNumber ?? currentQuestion.questionNumber}
+                      startGroupIndex={activeGroupIdx}
+                      answerKeyPrefix={lrwPrefix}
+                      onAnswerChange={handleAnswerChange}
+                      answers={answers}
+                      submitted={submitted}
+                      partImage={currentQuestion.part?.imageUrl || ""}
+                    />
+                  );
+                })()}
+              </div>
+            </div>
+          </div>
+        </>
+      ) : currentQuestion && currentQuestion.section.questionType === 'image-cloze' ? (
+        /* Image Cloze (Movers Part 3): Passage left | Resizable Divider | Picture Bank right */
+        <>
+          {currentQuestion.part.instruction && (
+            <div
+              className="cambridge-part-instruction px-4 py-2 text-[13px] leading-relaxed sm:text-sm"
+              dangerouslySetInnerHTML={{ __html: sanitizeQuillHtml(currentQuestion.part.instruction) }}
+            />
+          )}
+          <div className="cambridge-main-content" ref={containerRef} style={{ position: 'relative' }}>
+            {/* Left Column – Passage with blank drop zones */}
+            <div className="cambridge-passage-column" style={{ width: `${leftWidth}%` }}>
+              <div className="cambridge-passage-container" style={{ padding: '12px' }}>
+                {(() => {
+                  const icQuestions = allQuestions.filter(q =>
+                    q.partIndex === currentQuestion.partIndex &&
+                    q.sectionIndex === currentQuestion.sectionIndex &&
+                    q.section.questionType === 'image-cloze'
+                  );
+                  const startNumber = icQuestions[0]?.questionNumber ?? currentQuestion.questionNumber;
+                  return (
+                    <ImageClozeDisplay
+                      renderMode="passage"
+                      section={{
+                        ...currentQuestion.section,
+                        id: `${currentQuestion.partIndex}-${currentQuestion.sectionIndex}`,
+                        questions: [currentQuestion.question],
+                      }}
+                      startingNumber={startNumber}
+                      answerKeyPrefix={`${currentQuestion.partIndex}-${currentQuestion.sectionIndex}`}
+                      onAnswerChange={handleAnswerChange}
+                      answers={answers}
+                      submitted={submitted}
+                      sharedSelectedImgId={icSelectedImgId}
+                      onSharedImgSelect={setIcSelectedImgId}
+                    />
+                  );
+                })()}
+              </div>
+            </div>
+
+            {/* Draggable Divider */}
+            <div
+              className="cambridge-divider"
+              onMouseDown={handleMouseDown}
+              style={{ left: `${leftWidth}%`, cursor: 'col-resize' }}
+            >
+              <div className="cambridge-resize-handle">
+                <i className="fa fa-arrows-h"></i>
+              </div>
+            </div>
+
+            {/* Right Column – Picture Bank */}
+            <div className="cambridge-questions-column" style={{ width: `${100 - leftWidth}%` }}>
+              <div className="cambridge-content-wrapper">
+                {(() => {
+                  const icQuestions = allQuestions.filter(q =>
+                    q.partIndex === currentQuestion.partIndex &&
+                    q.sectionIndex === currentQuestion.sectionIndex &&
+                    q.section.questionType === 'image-cloze'
+                  );
+                  const startNumber = icQuestions[0]?.questionNumber ?? currentQuestion.questionNumber;
+                  return (
+                    <ImageClozeDisplay
+                      renderMode="picturebank"
+                      section={{
+                        ...currentQuestion.section,
+                        id: `${currentQuestion.partIndex}-${currentQuestion.sectionIndex}`,
+                        questions: [currentQuestion.question],
+                      }}
+                      startingNumber={startNumber}
+                      answerKeyPrefix={`${currentQuestion.partIndex}-${currentQuestion.sectionIndex}`}
+                      onAnswerChange={handleAnswerChange}
+                      answers={answers}
+                      submitted={submitted}
+                      sharedSelectedImgId={icSelectedImgId}
+                      onSharedImgSelect={setIcSelectedImgId}
+                    />
+                  );
+                })()}
+              </div>
+            </div>
+          </div>
+        </>
       ) : (
         <>
           {/* Part Instruction - Above split view */}
@@ -1943,34 +2548,102 @@ const DoCambridgeReadingTest = () => {
                       {/* Example block for abc-type sections under part image */}
                       {currentQuestion.section.questionType === 'abc' && (currentQuestion.section.exampleText || currentQuestion.section.exampleAnswer) && currentQuestion.questionIndex === 0 && (
                         <div style={{
-                          marginTop: '14px',
-                          padding: '12px 14px',
-                          background: '#fffbeb',
-                          border: '1px solid #fcd34d',
-                          borderRadius: '8px',
-                          fontSize: '13px',
+                          marginTop: '16px',
+                          borderRadius: '16px',
+                          overflow: 'hidden',
+                          boxShadow: '0 4px 16px rgba(234,179,8,0.18)',
+                          border: '2px solid #fde68a',
                         }}>
-                          <div style={{ fontWeight: 700, color: '#92400e', marginBottom: '6px', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                            Example
+                          {/* Header */}
+                          <div style={{
+                            background: 'linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%)',
+                            padding: '8px 14px',
+                            display: 'flex', alignItems: 'center', gap: 8,
+                          }}>
+                            <span style={{ fontSize: 18 }}>⭐</span>
+                            <span style={{ fontWeight: 800, color: '#fff', fontSize: 13, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+                              Ví dụ mẫu
+                            </span>
                           </div>
-                          {currentQuestion.section.exampleText && (
-                            <div style={{ whiteSpace: 'pre-wrap', color: '#374151', marginBottom: currentQuestion.section.exampleAnswer ? '8px' : '0', lineHeight: '1.6' }}>
-                              {currentQuestion.section.exampleText}
-                            </div>
-                          )}
-                          {currentQuestion.section.exampleAnswer && (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                              <span style={{ fontSize: '12px', color: '#6b7280' }}>Đáp án mẫu:</span>
-                              <span style={{
-                                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                                width: '26px', height: '26px', borderRadius: '50%',
-                                background: '#0e276f', color: 'white',
-                                fontWeight: 700, fontSize: '13px',
-                              }}>
-                                {currentQuestion.section.exampleAnswer}
-                              </span>
-                            </div>
-                          )}
+
+                          {/* Body */}
+                          <div style={{ background: '#fffbeb', padding: '12px 14px' }}>
+                            {currentQuestion.section.exampleText && (() => {
+                              const exAnswer = String(currentQuestion.section.exampleAnswer || '').trim().toUpperCase();
+                              const lines = currentQuestion.section.exampleText.split('\n');
+                              const optionRegex = /^([A-C])\.\s*(.*)/;
+                              const contextLines = lines.filter(l => !optionRegex.test(l.trim()));
+                              const optionLines = lines.filter(l => optionRegex.test(l.trim()));
+                              const OPTION_THEMES = [
+                                { grad: ['#3b82f6','#1d4ed8'], light: '#dbeafe', lightBorder: '#93c5fd' },
+                                { grad: ['#f97316','#ea580c'], light: '#ffedd5', lightBorder: '#fdba74' },
+                                { grad: ['#a855f7','#8b5cf6'], light: '#f3e8ff', lightBorder: '#d8b4fe' },
+                              ];
+                              return (
+                                <div style={{ marginBottom: currentQuestion.section.exampleAnswer ? 12 : 0 }}>
+                                  {/* Context text (non-option lines) */}
+                                  {contextLines.length > 0 && (
+                                    <div style={{ color: '#374151', lineHeight: 1.75, fontSize: 14, marginBottom: optionLines.length ? 10 : 0, whiteSpace: 'pre-wrap' }}>
+                                      {contextLines.join('\n')}
+                                    </div>
+                                  )}
+                                  {/* Styled A/B/C option cards */}
+                                  {optionLines.length > 0 && (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+                                      {optionLines.map((line, idx) => {
+                                        const match = line.trim().match(optionRegex);
+                                        if (!match) return null;
+                                        const letter = match[1].toUpperCase();
+                                        const text = match[2].trim();
+                                        const isCorrect = letter === exAnswer;
+                                        const theme = OPTION_THEMES[idx] || OPTION_THEMES[0];
+                                        return (
+                                          <div key={letter} style={{
+                                            display: 'flex', alignItems: 'center', gap: 10,
+                                            padding: '9px 12px',
+                                            borderRadius: 12,
+                                            border: `2px solid ${isCorrect ? '#22c55e' : theme.lightBorder}`,
+                                            background: isCorrect ? '#f0fdf4' : theme.light,
+                                            boxShadow: isCorrect ? '0 4px 12px #22c55e30' : 'none',
+                                          }}>
+                                            <div style={{
+                                              width: 32, height: 32, borderRadius: '50%', flexShrink: 0,
+                                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                              background: isCorrect
+                                                ? 'linear-gradient(135deg,#22c55e,#16a34a)'
+                                                : `linear-gradient(135deg,${theme.grad[0]},${theme.grad[1]})`,
+                                              color: '#fff', fontWeight: 900, fontSize: 15,
+                                              boxShadow: isCorrect ? '0 3px 8px #22c55e50' : 'none',
+                                            }}>
+                                              {isCorrect ? '✓' : letter}
+                                            </div>
+                                            <span style={{ fontSize: 14, fontWeight: isCorrect ? 700 : 500, color: isCorrect ? '#15803d' : '#1f2937', flex: 1 }}>
+                                              {text}
+                                            </span>
+
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })()}
+                            {currentQuestion.section.exampleAnswer && (
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 4 }}>
+                                <span style={{ fontSize: 13, color: '#78350f', fontWeight: 600 }}>Đáp án đúng:</span>
+                                <span style={{
+                                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                                  width: 34, height: 34, borderRadius: '50%',
+                                  background: 'linear-gradient(135deg, #22c55e, #16a34a)',
+                                  color: 'white', fontWeight: 900, fontSize: 16,
+                                  boxShadow: '0 3px 10px #22c55e50',
+                                }}>
+                                  {currentQuestion.section.exampleAnswer}
+                                </span>
+                              </div>
+                            )}
+                          </div>
                         </div>
                       )}
                     </div>
@@ -2151,6 +2824,40 @@ const DoCambridgeReadingTest = () => {
                     })()}
                   </div>
                 </div>
+              ) : currentQuestion.section.questionType === 'image-cloze' ? (
+                <div className={`cambridge-question-wrapper ${isQuestionAnswered(currentQuestion) ? 'answered' : ''} !w-full p-3 sm:p-4`}>
+                  <button
+                    className={`cambridge-flag-button ${flaggedQuestions.has(currentQuestion.key) ? 'flagged' : ''}`}
+                    onClick={() => toggleFlag(currentQuestion.key)}
+                    aria-label="Flag question"
+                  >
+                    {flaggedQuestions.has(currentQuestion.key) ? '🚩' : '⚐'}
+                  </button>
+                  <div className="pr-4 sm:pr-12">
+                    {(() => {
+                      const icQuestions = allQuestions.filter(q =>
+                        q.partIndex === currentQuestion.partIndex &&
+                        q.sectionIndex === currentQuestion.sectionIndex &&
+                        q.section.questionType === 'image-cloze'
+                      );
+                      const startNumber = icQuestions[0]?.questionNumber ?? currentQuestion.questionNumber;
+                      return (
+                        <ImageClozeDisplay
+                          section={{
+                            ...currentQuestion.section,
+                            id: `${currentQuestion.partIndex}-${currentQuestion.sectionIndex}`,
+                            questions: [currentQuestion.question],
+                          }}
+                          startingNumber={startNumber}
+                          answerKeyPrefix={`${currentQuestion.partIndex}-${currentQuestion.sectionIndex}`}
+                          onAnswerChange={handleAnswerChange}
+                          answers={answers}
+                          submitted={submitted}
+                        />
+                      );
+                    })()}
+                  </div>
+                </div>
               ) : (currentQuestion.section.questionType === 'people-matching' || Array.isArray(currentQuestion.question?.people)) ? (
                 <div className={`cambridge-question-wrapper ${isQuestionAnswered(currentQuestion) ? 'answered' : ''} !w-full sm:!w-[80%] p-3 sm:p-4`}>
                   {/* Flag Button */}
@@ -2221,6 +2928,7 @@ const DoCambridgeReadingTest = () => {
                       submitted={submitted}
                       singleQuestionMode={true}
                       questionIndex={currentQuestion.questionIndex}
+                      examType={examType}
                     />
                   </div>
                 </div>
@@ -2233,94 +2941,92 @@ const DoCambridgeReadingTest = () => {
       )}
 
       {/* Footer Navigation */}
-      <footer className="cambridge-footer sticky bottom-0 z-40 border-t border-slate-200 bg-white/95 px-2 py-2 shadow-[0_-6px_16px_rgba(15,23,42,0.08)] backdrop-blur sm:static sm:border-t-0 sm:bg-transparent sm:px-5 sm:py-2 sm:shadow-none">
-        {/* Navigation Arrows - Top Right */}
-        <div className="cambridge-footer-arrows flex items-center gap-2">
+      <footer className="cambridge-footer">
+        {/* Floating arrows – positioned absolute above footer */}
+        <div className="cambridge-footer-arrows">
           <button
-            className="cambridge-nav-arrow-btn h-9 w-9 text-sm sm:h-10 sm:w-10"
+            className="cambridge-nav-arrow-btn"
             onClick={() => goToQuestion(currentQuestionIndex - 1)}
             disabled={currentQuestionIndex === 0}
             aria-label="Previous"
-            title="Previous question"
+            title="Câu trước"
           >
-            <i className="fa fa-arrow-left"></i>
+            <i className="fa fa-chevron-left"></i>
           </button>
           <button
-            className="cambridge-nav-arrow-btn h-9 w-9 text-sm sm:h-10 sm:w-10"
+            className="cambridge-nav-arrow-btn"
             onClick={() => goToQuestion(currentQuestionIndex + 1)}
             disabled={currentQuestionIndex === allQuestions.length - 1}
             aria-label="Next"
-            title="Next question"
+            title="Câu tiếp theo"
           >
-            <i className="fa fa-arrow-right"></i>
+            <i className="fa fa-chevron-right"></i>
           </button>
         </div>
-        
-        {/* Parts Tabs with Question Numbers */}
-        <div className="cambridge-parts-container gap-2 overflow-x-auto px-2 sm:px-4">
+
+        {/* Parts strip – horizontally scrollable */}
+        <div className="cambridge-parts-container">
           {test?.parts?.map((part, idx) => {
             /* eslint-disable-next-line no-unused-vars */
             const range = getPartQuestionRange(idx);
             const isActive = currentPartIndex === idx;
             const partQuestions = allQuestions.filter(q => q.partIndex === idx);
             const answeredInPart = partQuestions.filter(q => isQuestionAnswered(q)).length;
+            const totalInPart = partQuestions.length;
 
             return (
-              <div key={idx} className="cambridge-part-wrapper flex-shrink-0">
-                {/* Part Tab */}
+              <div key={idx} className={`cambridge-part-wrapper ${isActive ? 'active' : ''}`}>
+                {/* Part chip */}
                 <button
-                  className={`cambridge-part-tab h-8 px-2 text-[11px] sm:h-9 sm:px-3 sm:text-xs ${isActive ? 'active' : ''}`}
+                  className={`cambridge-part-tab ${isActive ? 'active' : ''}`}
                   onClick={() => {
-                    // Jump to first question of this part
                     const firstQ = partQuestions[0];
                     if (firstQ) goToQuestion(firstQ.questionNumber - 1);
                   }}
+                  title={`Part ${idx + 1}`}
                 >
-                  <span className="cambridge-part-label">Part</span>
+                  <span className="cambridge-part-label">P</span>
                   <span className="cambridge-part-number">{idx + 1}</span>
+                  {!isActive && totalInPart > 0 && (
+                    <span className="cambridge-part-badge">{answeredInPart}/{totalInPart}</span>
+                  )}
                 </button>
 
-                {/* Show question numbers only for active part */}
+                {/* Question bubbles – only when this part is active */}
                 {isActive && (
                   <div className="cambridge-questions-inline">
-                    {partQuestions.length > 0 ? (
+                    {totalInPart > 0 ? (
                       partQuestions.map((q) => (
                         <button
                           key={q.key}
-                          className={`cambridge-question-num-btn h-8 w-8 text-[11px] sm:h-9 sm:w-9 sm:text-xs ${isQuestionAnswered(q) ? 'answered' : ''} ${currentQuestionIndex === q.questionNumber - 1 ? 'active' : ''} ${flaggedQuestions.has(q.key) ? 'flagged' : ''}`}
+                          className={`cambridge-question-num-btn ${isQuestionAnswered(q) ? 'answered' : ''} ${currentQuestionIndex === q.questionNumber - 1 ? 'active' : ''} ${flaggedQuestions.has(q.key) ? 'flagged' : ''}`}
                           onClick={() => goToQuestion(q.questionNumber - 1)}
+                          title={`Câu ${q.questionNumber}${isQuestionAnswered(q) ? ' ✓' : ''}`}
                         >
-                          {q.questionNumber}
+                          {isQuestionAnswered(q) && currentQuestionIndex !== q.questionNumber - 1
+                            ? <i className="fa fa-check" style={{ fontSize: 10 }}></i>
+                            : q.questionNumber}
+                          {flaggedQuestions.has(q.key) && (
+                            <span className="nav-flag-icon" aria-hidden="true">🚩</span>
+                          )}
                         </button>
                       ))
                     ) : (
-                      <span style={{ fontSize: '12px', color: '#999', padding: '0 8px' }}>
-                        Writing task
-                      </span>
+                      <span className="cambridge-writing-label">Writing</span>
                     )}
                   </div>
-                )}
-
-                {/* Show count for inactive parts */}
-                {!isActive && (
-                  <span className="cambridge-part-count">
-                    {answeredInPart} of {partQuestions.length}
-                  </span>
                 )}
               </div>
             );
           })}
         </div>
 
-        {/* Review Button
-        <button 
-          className="cambridge-review-button"
-          onClick={handleSubmit}
-          aria-label="Review your answers"
-        >
-          <i className="fa fa-check"></i>
-          Review
-        </button> */}
+        {/* Q counter */}
+        <div className="cambridge-footer-right">
+          <span className="cambridge-q-counter">
+            {currentQuestionIndex + 1}<span className="cambridge-q-counter-total">/{allQuestions.length}</span>
+          </span>
+        </div>
       </footer>
 
       {/* Results Modal */}
@@ -2346,20 +3052,72 @@ const DoCambridgeReadingTest = () => {
 
       {/* Confirm Submit Modal */}
       {showConfirm && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-          <div style={{ background: 'white', padding: '24px', borderRadius: '12px', textAlign: 'center', maxWidth: '360px', width: '90%' }}>
-            <h3 style={{ margin: '0 0 16px' }}>⚠️ Confirm Submission</h3>
-            <p>Are you sure you want to submit?</p>
-            <p style={{ fontSize: '14px', color: '#666' }}>
-              Answered: {Object.keys(answers).length}/{allQuestions.length} questions
-            </p>
-            <div style={{ marginTop: '20px', display: 'flex', gap: '12px', justifyContent: 'center' }}>
-              <button onClick={confirmSubmit} style={{ padding: '12px 24px', background: '#0052cc', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '14px' }}>
-                ✓ Submit
-              </button>
-              <button onClick={() => setShowConfirm(false)} style={{ padding: '12px 24px', background: '#f1f5f9', color: '#374151', border: '1px solid #d1d5db', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '14px' }}>
-                ✕ Cancel
-              </button>
+        <div style={{
+          position: 'fixed', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+          background: 'rgba(15,23,42,0.65)', backdropFilter: 'blur(4px)', zIndex: 1200, padding: '16px',
+        }}>
+          <div style={{ width: '100%', maxWidth: 420, borderRadius: 20, overflow: 'hidden', boxShadow: '0 24px 48px rgba(15,23,42,0.35)' }}>
+
+            {/* Header */}
+            <div style={{ background: 'linear-gradient(135deg, #1e3a8a 0%, #1d4ed8 55%, #0284c7 100%)', padding: '22px 24px 18px', position: 'relative', overflow: 'hidden' }}>
+              <div style={{ position: 'absolute', top: -40, right: -40, width: 140, height: 140, borderRadius: '50%', background: 'rgba(255,255,255,0.07)', pointerEvents: 'none' }} />
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, position: 'relative', zIndex: 1 }}>
+                <div style={{ width: 42, height: 42, borderRadius: 12, background: 'rgba(255,255,255,0.18)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0 }}>
+                  📤
+                </div>
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 800, color: 'rgba(255,255,255,0.65)', textTransform: 'uppercase', letterSpacing: '0.12em' }}>
+                    Cambridge {examType}
+                  </div>
+                  <h3 style={{ margin: 0, fontSize: 17, fontWeight: 800, color: '#fff', textShadow: '0 1px 3px rgba(0,0,0,0.2)' }}>
+                    Xác nhận nộp bài
+                  </h3>
+                </div>
+              </div>
+            </div>
+
+            {/* Body */}
+            <div style={{ background: '#fff', padding: '20px 24px 22px' }}>
+              <p style={{ fontSize: 14, color: '#475569', margin: '0 0 14px', lineHeight: 1.6 }}>
+                Bạn có chắc muốn nộp bài không? Sau khi nộp sẽ <b>không thể chỉnh sửa</b>.
+              </p>
+
+              {/* Stats */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 18 }}>
+                <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 12, padding: '12px 14px', textAlign: 'center' }}>
+                  <div style={{ fontSize: 26, fontWeight: 800, color: '#1d4ed8', lineHeight: 1 }}>
+                    {allQuestions.filter((q) => isQuestionAnswered(q)).length}
+                  </div>
+                  <div style={{ fontSize: 11, color: '#3b82f6', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', marginTop: 4 }}>Đã trả lời</div>
+                </div>
+                <div style={{ background: allQuestions.filter((q) => !isQuestionAnswered(q)).length > 0 ? '#fef2f2' : '#f0fdf4', border: `1px solid ${allQuestions.filter((q) => !isQuestionAnswered(q)).length > 0 ? '#fecaca' : '#bbf7d0'}`, borderRadius: 12, padding: '12px 14px', textAlign: 'center' }}>
+                  <div style={{ fontSize: 26, fontWeight: 800, color: allQuestions.filter((q) => !isQuestionAnswered(q)).length > 0 ? '#dc2626' : '#15803d', lineHeight: 1 }}>
+                    {allQuestions.filter((q) => !isQuestionAnswered(q)).length}
+                  </div>
+                  <div style={{ fontSize: 11, color: allQuestions.filter((q) => !isQuestionAnswered(q)).length > 0 ? '#ef4444' : '#16a34a', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', marginTop: 4 }}>Chưa trả lời</div>
+                </div>
+              </div>
+
+              {/* Buttons */}
+              <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+                <button
+                  onClick={() => setShowConfirm(false)}
+                  style={{ padding: '9px 18px', borderRadius: 20, border: '1.5px solid #e2e8f0', background: '#fff', fontSize: 13, fontWeight: 600, color: '#64748b', cursor: 'pointer' }}
+                >
+                  ✕ Huỷ
+                </button>
+                <button
+                  onClick={confirmSubmit}
+                  style={{
+                    padding: '11px 24px', borderRadius: 20,
+                    background: 'linear-gradient(135deg, #1d4ed8, #0284c7)',
+                    fontSize: 14, fontWeight: 700, color: '#fff', border: 'none', cursor: 'pointer',
+                    boxShadow: '0 4px 14px rgba(29,78,216,0.4)',
+                  }}
+                >
+                  ✓ Nộp bài
+                </button>
+              </div>
             </div>
           </div>
         </div>

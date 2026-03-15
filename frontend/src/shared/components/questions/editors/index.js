@@ -28,6 +28,10 @@ export { default as ClozeMCEditor } from './ClozeMCEditor'; // Part 4
 export { default as WordFormEditor } from './WordFormEditor'; // Part 6
 export { default as MultipleChoicePicturesEditor } from './MultipleChoicePicturesEditor';
 export { default as MatchingPicturesEditor } from './MatchingPicturesEditor';
+export { default as ImageClozeEditor } from './ImageClozeEditor';
 export { default as GapMatchEditor } from './GapMatchEditor';
 export { default as InlineChoiceEditor } from './InlineChoiceEditor';
 export { default as SummaryCompletionEditor } from './SummaryCompletionEditor';
+export { default as WordDragClozeEditor } from './WordDragClozeEditor';
+export { default as StoryCompletionEditor } from './StoryCompletionEditor';
+export { default as LookReadWriteEditor } from './LookReadWriteEditor';
