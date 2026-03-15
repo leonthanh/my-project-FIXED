@@ -59,6 +59,14 @@ const extractBlankNumbers = (text = "") => {
 
 const genId = () => Math.random().toString(36).slice(2, 9);
 
+const resolveImgSrc = (url) => {
+  if (!url) return "";
+  const value = String(url);
+  if (/^https?:\/\//i.test(value)) return value;
+  if (value.startsWith("/")) return hostPath(value);
+  return value;
+};
+
 const QUILL_FORMATS = [
   "bold", "italic", "underline", "color", "background",
   "list", "bullet", "align", "link", "image",
@@ -308,7 +316,7 @@ export default function ImageClozeEditor({ question = {}, onChange, startingNumb
               {/* Image preview */}
               {img.url ? (
                 <img
-                  src={hostPath(img.url)}
+                  src={resolveImgSrc(img.url)}
                   alt={img.word || "image"}
                   style={{
                     width: "100%",
@@ -337,7 +345,22 @@ export default function ImageClozeEditor({ question = {}, onChange, startingNumb
                 </div>
               )}
 
-              {/* Upload */}
+              {/* URL input (link ảnh từ mạng / GIF) */}
+              <input
+                style={{
+                  ...INPUT_STYLE,
+                  padding: "4px 7px",
+                  fontSize: "11px",
+                  marginTop: "6px",
+                  color: img.url && /^https?:\/\//i.test(img.url) ? "#1d4ed8" : undefined,
+                }}
+                value={img.url}
+                onChange={(e) => updateImage(img.id, { url: e.target.value })}
+                placeholder="https://... (URL ảnh/GIF từ mạng)"
+              />
+
+              {/* Upload từ máy */}
+              <div style={{ fontSize: "11px", color: "#6b7280", marginTop: "5px", fontWeight: 600 }}>Hoặc upload từ máy:</div>
               <input
                 type="file"
                 accept="image/*"
@@ -347,7 +370,7 @@ export default function ImageClozeEditor({ question = {}, onChange, startingNumb
                   e.target.value = "";
                   if (f) uploadImage(img.id, f);
                 }}
-                style={{ width: "100%", marginTop: "6px", fontSize: "11px" }}
+                style={{ width: "100%", marginTop: "2px", fontSize: "11px" }}
               />
               {uploading === img.id && (
                 <div style={{ fontSize: "11px", color: "#6b7280" }}>Đang upload…</div>
@@ -454,7 +477,7 @@ export default function ImageClozeEditor({ question = {}, onChange, startingNumb
                   </select>
                   {chosenImg?.url && (
                     <img
-                      src={hostPath(chosenImg.url)}
+                      src={resolveImgSrc(chosenImg.url)}
                       alt={chosenImg.word}
                       style={{
                         width: "50px",
