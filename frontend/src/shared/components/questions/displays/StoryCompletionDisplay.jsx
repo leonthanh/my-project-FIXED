@@ -46,6 +46,7 @@ const getPrimaryAnswer = (answer) => {
 export default function StoryCompletionDisplay({
   section,
   startingNumber = 1,
+  startItemIndex = 0,
   answerKeyPrefix,
   onAnswerChange,
   answers = {},
@@ -63,7 +64,7 @@ export default function StoryCompletionDisplay({
   } = q;
 
   const prefix = answerKeyPrefix || section?.id || "sc";
-  const itemKey = (i) => `${prefix}-item-${i + 1}`;
+  const itemKey = (i) => `${prefix}-item-${startItemIndex + i + 1}`;
 
   // State lưu giá trị từng ô chữ cho mỗi item
   // answers[itemKey] = mảng ký tự đã nhập, e.g. ['r','i','v','e','r']
@@ -141,9 +142,15 @@ export default function StoryCompletionDisplay({
 
   // ── Render danh sách câu hỏi ──
   const questionsPanel = (
-    <div style={{ padding: "12px 16px" }}>
-      <div style={{ fontSize: "0.75em", color: "#6b7280", marginBottom: 12, lineHeight: 1.5, paddingBottom: 8, borderBottom: "1px solid #e5e7eb" }}>
-        {submitted ? "✅ Kết quả đã nộp" : "✏️ Gõ đáp án vào ô trống trong câu."}
+    <div style={{ padding: "60px 24px 24px" }}>
+      {/* Hint text */}
+      <div style={{
+        display: "flex", alignItems: "center", gap: 6,
+        fontSize: "0.88em", color: "#6b7280", marginBottom: 18,
+        paddingBottom: 12, borderBottom: "1.5px dashed #e5e7eb",
+      }}>
+        <span style={{ fontSize: "1.1em" }}>✏️</span>
+        <span>{submitted ? "✅ Kết quả đã nộp" : "Gõ đáp án vào ô trống trong câu."}</span>
       </div>
 
       {items.map((item, i) => {
@@ -157,38 +164,52 @@ export default function StoryCompletionDisplay({
             id={`question-${qNum}`}
             data-item={i}
             style={{
-              marginBottom: 16,
-              padding: "10px 12px",
-              borderRadius: 10,
+              marginBottom: 20,
+              padding: "20px 20px 18px",
+              borderRadius: 16,
               background: submitted
                 ? correct ? "#dcfce7" : "#fee2e2"
-                : "#fafafa",
+                : "#f0f6ff",
               border: submitted
-                ? correct ? "1.5px solid #22c55e" : "1.5px solid #ef4444"
-                : "1.5px solid #e5e7eb",
+                ? correct ? "2px solid #22c55e" : "2px solid #ef4444"
+                : "2px solid #bfdbfe",
+              boxShadow: submitted ? "none" : "0 2px 8px rgba(0,82,204,0.07)",
               transition: "background 0.15s",
             }}
           >
-            {/* Số câu + câu văn với ô input inline thay ___ */}
-            <div style={{ display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
-              <span style={{ fontWeight: 800, color: "#0052cc", fontSize: "0.95em", flexShrink: 0 }}>
+            {/* Số câu badge */}
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+              <span style={{
+                display: "inline-flex", alignItems: "center", justifyContent: "center",
+                width: 36, height: 36, borderRadius: "50%",
+                background: submitted ? (correct ? "#22c55e" : "#ef4444") : "#0052cc",
+                color: "#fff", fontWeight: 900, fontSize: "1.05em", flexShrink: 0,
+              }}>
                 {qNum}
               </span>
-              <span style={{ fontSize: "0.9em", lineHeight: 1.8, color: "#1e293b" }}>
-                <InlineInputSentence
-                  sentence={item.sentence}
-                  typedValue={typedValue}
-                  submitted={submitted}
-                  correct={correct}
-                  onAnswerChange={(val) => !submitted && onAnswerChange?.(itemKey(i), val)}
-                  onClear={() => clearItem(i)}
-                />
-              </span>
+              {submitted && (
+                <span style={{ fontWeight: 700, fontSize: "1em", color: correct ? "#166534" : "#b91c1c" }}>
+                  {correct ? "✓ Đúng!" : "✗ Sai"}
+                </span>
+              )}
             </div>
 
-            {/* Hiện đáp án đúng khi sai */}
+            {/* Câu văn với ô input inline */}
+            <div style={{ fontSize: "1.05em", lineHeight: 2, color: "#1e293b", fontWeight: 500 }}>
+              <InlineInputSentence
+                sentence={item.sentence}
+                typedValue={typedValue}
+                submitted={submitted}
+                correct={correct}
+                onAnswerChange={(val) => !submitted && onAnswerChange?.(itemKey(i), val)}
+                onClear={() => clearItem(i)}
+              />
+            </div>
+
+            {/* Đáp án đúng khi sai */}
             {submitted && !correct && (
-              <div style={{ marginTop: 4, fontSize: "0.78em", color: "#166534", fontWeight: 600 }}>
+              <div style={{ marginTop: 8, fontSize: "0.9em", color: "#166534", fontWeight: 700,
+                background: "#dcfce7", borderRadius: 8, padding: "4px 10px", display: "inline-block" }}>
                 ✓ {parseFlexibleAnswer(item.answer).join(" / ") || item.answer}
               </div>
             )}
@@ -252,7 +273,7 @@ function InlineInputSentence({ sentence, typedValue, submitted, correct, onAnswe
         <React.Fragment key={i}>
           {part}
           {i < parts.length - 1 && (
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 3, marginInline: 4, verticalAlign: "middle" }}>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 6, marginInline: 6, verticalAlign: "middle" }}>
               <input
                 type="text"
                 disabled={submitted}
@@ -260,27 +281,29 @@ function InlineInputSentence({ sentence, typedValue, submitted, correct, onAnswe
                 onChange={(e) => onAnswerChange(e.target.value)}
                 onFocus={(e) => e.target.select()}
                 style={{
-                  width: 210,
-                  padding: "3px 8px",
+                  width: 180,
+                  padding: "7px 14px",
                   border: submitted
-                    ? correct ? "2px solid #22c55e" : "2px solid #ef4444"
-                    : "2px solid #9ca3af",
-                  borderRadius: 5,
-                  fontSize: "0.92em",
-                  fontWeight: 600,
+                    ? correct ? "2.5px solid #22c55e" : "2.5px solid #ef4444"
+                    : "2.5px solid #93c5fd",
+                  borderRadius: 10,
+                  fontSize: "1.05em",
+                  fontWeight: 700,
                   background: submitted ? (correct ? "#f0fdf4" : "#fef2f2") : "#fff",
                   color: submitted ? (correct ? "#166534" : "#b91c1c") : "#1e293b",
                   outline: "none",
                   verticalAlign: "middle",
+                  boxShadow: submitted ? "none" : "0 2px 6px rgba(59,130,246,0.13)",
                 }}
-                onFocusCapture={(e) => { if (!submitted) e.target.style.border = "2px solid #3b82f6"; }}
-                onBlur={(e) => { if (!submitted) e.target.style.border = "2px solid #9ca3af"; }}
+                onFocusCapture={(e) => { e.target.select(); if (!submitted) e.target.style.border = "2.5px solid #3b82f6"; }}
+                onBlur={(e) => { if (!submitted) e.target.style.border = "2.5px solid #93c5fd"; }}
               />
               {!submitted && typedValue && (
                 <button
                   type="button"
                   onClick={onClear}
-                  style={{ padding: "1px 5px", fontSize: "0.65em", color: "#9ca3af", background: "none", border: "1px solid #e5e7eb", borderRadius: 3, cursor: "pointer", verticalAlign: "middle" }}
+                  style={{ padding: "4px 8px", fontSize: "0.75em", color: "#9ca3af", background: "none",
+                    border: "1.5px solid #e5e7eb", borderRadius: 6, cursor: "pointer", verticalAlign: "middle" }}
                 >
                   ✕
                 </button>

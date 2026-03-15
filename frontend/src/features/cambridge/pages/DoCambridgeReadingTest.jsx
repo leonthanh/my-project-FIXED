@@ -77,19 +77,41 @@ const DoCambridgeReadingTest = () => {
   /* eslint-disable-next-line no-unused-vars */
   const questionRefs = useRef({});
 
+  const resolveTestConfig = useCallback((rawType) => {
+    const normalized = String(rawType || '').trim().toLowerCase();
+    if (!normalized) return null;
+
+    // Support alias routes like "movers-reading" while configs are keyed as "movers".
+    const candidates = [
+      normalized,
+      normalized.replace(/-reading$/i, ''),
+      normalized.replace(/-listening$/i, ''),
+    ];
+
+    for (const key of candidates) {
+      if (TEST_CONFIGS[key]) return TEST_CONFIGS[key];
+    }
+    return null;
+  }, []);
+
   // Get test config - will be updated once test data is loaded
   const testConfig = useMemo(() => {
-    // If testType from URL, use it
     if (testType) {
-      return TEST_CONFIGS[testType] || TEST_CONFIGS['ket-reading'];
+      const fromUrl = resolveTestConfig(testType);
+      if (fromUrl) return fromUrl;
     }
-    // If test data loaded, use testType from test
     if (test?.testType) {
-      return TEST_CONFIGS[test.testType] || TEST_CONFIGS['ket-reading'];
+      const fromData = resolveTestConfig(test.testType);
+      if (fromData) return fromData;
     }
-    // Fallback
     return TEST_CONFIGS['ket-reading'];
-  }, [testType, test?.testType]);
+  }, [resolveTestConfig, testType, test?.testType]);
+
+  // For young-learner tests the section name is more informative than the full program name
+  const headerTitle = useMemo(() => {
+    if (['MOVERS', 'FLYERS', 'STARTERS'].includes(examType)) return 'Reading & Writing';
+    return testConfig.name || 'Reading & Writing';
+  }, [examType, testConfig.name]);
 
   const effectiveDuration = useMemo(() => {
     // Prefer the authoritative config duration for the test's type (avoids DB default of 60
@@ -1117,7 +1139,7 @@ const DoCambridgeReadingTest = () => {
 
       {/* Header */}
       <TestHeader
-        title={testConfig.name}
+        title={headerTitle}
         classCode={test?.classCode}
         teacherName={test?.teacherName}
         timeRemaining={timeRemaining}
@@ -2177,16 +2199,17 @@ const DoCambridgeReadingTest = () => {
                 </button>
                 {(() => {
                   const scPrefix = `${currentQuestion.partIndex}-${currentQuestion.sectionIndex}`;
-                  const scQuestions = allQuestions.filter(
-                    q => q.partIndex === currentQuestion.partIndex &&
-                         q.sectionIndex === currentQuestion.sectionIndex &&
-                         q.section.questionType === 'story-completion'
-                  );
+                  // Show only the CURRENT item (1 câu / 1 item) so young learners aren't overwhelmed
+                  const singleItemQ = {
+                    ...currentQuestion.question,
+                    items: [currentQuestion.item],
+                  };
                   return (
                     <StoryCompletionDisplay
                       renderMode="questions"
-                      section={{ ...currentQuestion.section, id: scPrefix, questions: [currentQuestion.question] }}
-                      startingNumber={scQuestions[0]?.questionNumber ?? currentQuestion.questionNumber}
+                      section={{ ...currentQuestion.section, id: scPrefix, questions: [singleItemQ] }}
+                      startingNumber={currentQuestion.questionNumber}
+                      startItemIndex={currentQuestion.itemIndex}
                       answerKeyPrefix={scPrefix}
                       onAnswerChange={handleAnswerChange}
                       answers={answers}
