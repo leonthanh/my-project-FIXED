@@ -2287,11 +2287,20 @@ const DoCambridgeReadingTest = () => {
                          q.sectionIndex === currentQuestion.sectionIndex &&
                          q.section.questionType === 'look-read-write'
                   );
+                  // Show only the CURRENT GROUP so young learners aren't overwhelmed
+                  const activeGroupIdx = currentQuestion.groupIndex ?? 0;
+                  const activeGroup = currentQuestion.question.groups?.[activeGroupIdx];
+                  const singleGroupQ = {
+                    ...currentQuestion.question,
+                    groups: activeGroup ? [activeGroup] : currentQuestion.question.groups,
+                  };
+                  const groupFirstQ = lrwQuestions.find(q => q.groupIndex === activeGroupIdx);
                   return (
                     <LookReadWriteDisplay
                       renderMode="questions"
-                      section={{ ...currentQuestion.section, id: lrwPrefix, questions: [currentQuestion.question] }}
-                      startingNumber={lrwQuestions[0]?.questionNumber ?? currentQuestion.questionNumber}
+                      section={{ ...currentQuestion.section, id: lrwPrefix, questions: [singleGroupQ] }}
+                      startingNumber={groupFirstQ?.questionNumber ?? currentQuestion.questionNumber}
+                      startGroupIndex={activeGroupIdx}
                       answerKeyPrefix={lrwPrefix}
                       onAnswerChange={handleAnswerChange}
                       answers={answers}
