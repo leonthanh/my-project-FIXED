@@ -1,6 +1,46 @@
 import React, { useMemo, useState } from 'react';
 import { hostPath } from '../../../utils/api';
 
+/** Animated picture-bank card for MatchingPictures */
+function PictureBankItem({ choice, selected, isUsed, isExample, submitted, startingNumber, usedAtIdx, onDragStart, onClick, children }) {
+  const [hovered, setHovered] = useState(false);
+  const active = !isExample && !submitted;
+  const scale = selected ? 1.08 : (hovered && active && !isUsed) ? 1.05 : 1;
+  const translateY = selected ? -3 : (hovered && active && !isUsed) ? -2 : 0;
+  const shadow = selected
+    ? '0 8px 22px rgba(37,99,235,0.38), 0 0 0 3px rgba(37,99,235,0.2)'
+    : hovered && active && !isUsed
+      ? '0 4px 14px rgba(0,0,0,0.14)'
+      : 'none';
+  const border = isExample ? '2.5px solid #93c5fd'
+    : selected ? '2.5px solid #2563eb'
+    : isUsed ? '2.5px solid #22c55e'
+    : hovered && active ? '2.5px solid #93c5fd'
+    : '2.5px solid #e5e7eb';
+  return (
+    <button
+      type="button"
+      draggable={!submitted && !isExample}
+      onDragStart={onDragStart}
+      onClick={onClick}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px',
+        padding: '10px 8px 12px', borderRadius: '12px', border,
+        background: isExample ? '#eff6ff' : selected ? '#eff6ff' : isUsed ? '#f0fdf4' : hovered && active ? '#f0f9ff' : '#fff',
+        cursor: isExample ? 'not-allowed' : submitted ? 'default' : 'grab',
+        position: 'relative', opacity: isExample ? 0.75 : 1,
+        transition: 'transform 0.2s cubic-bezier(.34,1.56,.64,1), box-shadow 0.2s ease, border-color 0.15s ease, background 0.15s ease',
+        transform: `scale(${scale}) translateY(${translateY}px)`,
+        boxShadow: shadow,
+      }}
+    >
+      {children}
+    </button>
+  );
+}
+
 const resolveImgSrc = (url) => {
   if (!url) return '';
   const value = String(url);
@@ -259,10 +299,15 @@ const MatchingPicturesDisplay = ({
           const isExample = String(choice.id) === String(exampleAnswer);
 
           return (
-            <button
+            <PictureBankItem
               key={choice.id}
-              type="button"
-              draggable={!submitted && !isExample}
+              choice={choice}
+              selected={selected}
+              isUsed={isUsed}
+              isExample={isExample}
+              submitted={submitted}
+              startingNumber={startingNumber}
+              usedAtIdx={usedAtIdx}
               onDragStart={(e) => {
                 if (submitted || isExample) return;
                 e.dataTransfer.setData('text/plain', choice.id);
@@ -271,28 +316,8 @@ const MatchingPicturesDisplay = ({
                 if (submitted || isExample) return;
                 setSelectedChoiceId((prev) => (prev === String(choice.id) ? '' : String(choice.id)));
               }}
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                gap: '8px',
-                padding: '10px 8px 12px',
-                borderRadius: '12px',
-                border: `2.5px solid ${
-                  isExample ? '#93c5fd'
-                  : selected ? '#2563eb'
-                  : isUsed ? '#22c55e'
-                  : '#e5e7eb'
-                }`,
-                background: isExample ? '#eff6ff' : selected ? '#eff6ff' : isUsed ? '#f0fdf4' : '#fff',
-                cursor: isExample ? 'not-allowed' : submitted ? 'default' : 'grab',
-                position: 'relative',
-                boxShadow: selected ? '0 0 0 3px rgba(37,99,235,0.2)' : 'none',
-                transition: 'border-color 0.15s, box-shadow 0.15s',
-                opacity: isExample ? 0.75 : 1,
-              }}
             >
-              {/* "Example" badge — locked, không cho kéo */}
+              {/* "Example" badge */}
               {isExample && (
                 <span style={{
                   position: 'absolute', top: '6px', right: '6px',
@@ -301,7 +326,7 @@ const MatchingPicturesDisplay = ({
                   padding: '1px 8px', lineHeight: '18px',
                 }}>Example</span>
               )}
-              {/* "Used" badge — shows which question number it's assigned to */}
+              {/* "Used" badge */}
               {!isExample && isUsed && (
                 <span style={{
                   position: 'absolute', top: '6px', right: '6px',
@@ -354,7 +379,7 @@ const MatchingPicturesDisplay = ({
                   </span>
                 )}
               </div>
-            </button>
+            </PictureBankItem>
           );
         })}
       </div>

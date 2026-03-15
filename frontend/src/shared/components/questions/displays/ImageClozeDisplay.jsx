@@ -1,6 +1,48 @@
 import React, { useState, useCallback } from "react";
 import { hostPath } from "../../../utils/api";
 
+/** Animated individual card in the picture bank */
+function ImageBankItem({ img, isPlaced, isSelected, isExample, submitted, onDragStart, onClick, children }) {
+  const [hovered, setHovered] = useState(false);
+  let border = "2px solid #e5e7eb";
+  let opacity = 1;
+  let cursor = submitted ? "default" : "grab";
+  if (isExample) { border = "2px solid #fde047"; opacity = 0.7; cursor = "not-allowed"; }
+  else if (isPlaced) { border = "2px solid #86efac"; opacity = 0.55; }
+  else if (isSelected) { border = "2px solid #3b82f6"; }
+  else if (hovered && !submitted) { border = "2px solid #93c5fd"; }
+  const scale = isSelected ? 1.08 : (hovered && !submitted && !isPlaced && !isExample) ? 1.05 : 1;
+  const translateY = isSelected ? -3 : (hovered && !submitted && !isPlaced && !isExample) ? -2 : 0;
+  const shadow = isSelected
+    ? "0 8px 20px rgba(59,130,246,0.4)"
+    : hovered && !submitted && !isPlaced && !isExample
+      ? "0 4px 12px rgba(0,0,0,0.15)"
+      : isPlaced ? "none" : "0 1px 4px rgba(0,0,0,0.08)";
+  return (
+    <div
+      draggable={!submitted && !isExample && !isPlaced}
+      onDragStart={onDragStart}
+      onClick={onClick}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        display: "flex", flexDirection: "column", alignItems: "center", gap: "5px",
+        padding: "8px 6px", borderRadius: "8px", border,
+        background: isSelected ? "#eff6ff" : hovered && !submitted && !isPlaced && !isExample ? "#f0f9ff" : "#fff",
+        opacity, cursor,
+        userSelect: "none",
+        transition: "transform 0.2s cubic-bezier(.34,1.56,.64,1), box-shadow 0.2s ease, border 0.15s ease, background 0.15s ease",
+        transform: `scale(${scale}) translateY(${translateY}px)`,
+        boxShadow: shadow,
+        position: "relative",
+      }}
+      title={isExample ? `${img.word} (Example – đã dùng)` : isPlaced ? `${img.word} (đã đặt)` : `Kéo hoặc click: ${img.word}`}
+    >
+      {children}
+    </div>
+  );
+}
+
 /**
  * ImageClozeDisplay – Student view for Cambridge Movers Part 3
  *
@@ -197,25 +239,16 @@ export default function ImageClozeDisplay({
     const isPlaced = placedIds.includes(img.id);
     const isSelected = effectiveSelectedImgId === img.id;
     const isExample = img.isExample;
-    let border = "2px solid #e5e7eb";
-    let opacity = 1;
-    let cursor = submitted ? "default" : "grab";
-    if (isExample) { border = "2px solid #fde047"; opacity = 0.7; cursor = "not-allowed"; }
-    else if (isPlaced) { border = "2px solid #86efac"; opacity = 0.55; }
-    else if (isSelected) { border = "2px solid #3b82f6"; }
     return (
-      <div
+      <ImageBankItem
         key={img.id}
-        draggable={!submitted && !isExample && !isPlaced}
+        img={img}
+        isPlaced={isPlaced}
+        isSelected={isSelected}
+        isExample={isExample}
+        submitted={submitted}
         onDragStart={(e) => handleImgDragStart(e, img.id)}
         onClick={() => handleImgClick(img)}
-        style={{
-          display: "flex", flexDirection: "column", alignItems: "center", gap: "5px",
-          padding: "8px 6px", borderRadius: "8px", border,
-          background: isSelected ? "#eff6ff" : "#fff", opacity, cursor,
-          userSelect: "none", transition: "all 0.15s", position: "relative",
-        }}
-        title={isExample ? `${img.word} (Example – đã dùng)` : isPlaced ? `${img.word} (đã đặt)` : `Kéo hoặc click: ${img.word}`}
       >
         {img.url ? (
           <img
@@ -247,7 +280,7 @@ export default function ImageClozeDisplay({
             Selected
           </span>
         )}
-      </div>
+      </ImageBankItem>
     );
   });
 
@@ -375,7 +408,7 @@ export default function ImageClozeDisplay({
                     alignItems: "center",
                     justifyContent: "center",
                     verticalAlign: "middle",
-                    width: placed ? "90px" : "80px",
+                    width: placed ? "110px" : "100px",
                     minHeight: "64px",
                     border: `2px ${placed || isOver ? "solid" : "dashed"} ${borderColor}`,
                     borderRadius: "8px",
@@ -396,7 +429,7 @@ export default function ImageClozeDisplay({
                       marginBottom: "2px",
                     }}
                   >
-                    ({n}) Q{qNum}
+                    ({n})
                   </span>
                   {placed ? (
                     <>

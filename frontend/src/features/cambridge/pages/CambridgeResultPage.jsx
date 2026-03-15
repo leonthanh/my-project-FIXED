@@ -862,7 +862,8 @@ const CambridgeResultPage = () => {
               <div style={styles.questionGrid}>
                 {submission.detailedResults && Object.entries(submission.detailedResults).map(([key, result]) => {
                   const questionNum = questionNumberMap[key];
-                  const label = questionNum ? formatQuestionLabel(questionNum) : '?';
+                  if (!questionNum) return null; // Skip non-numbered question (short-message, story-writing...)
+                  const label = formatQuestionLabel(questionNum);
                   const status = getResultStatus(result);
 
                   return (

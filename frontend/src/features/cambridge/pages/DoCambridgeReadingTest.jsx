@@ -307,13 +307,27 @@ const DoCambridgeReadingTest = () => {
 
       if (!res.ok) throw new Error("Lỗi khi nộp bài");
 
+      // Use backend scoring as source of truth
+      const data = await res.json();
+      const dr = data.detailedResults || {};
+      const backendCorrect = Object.values(dr).filter(r => r.isCorrect === true).length;
+      const backendIncorrect = Object.values(dr).filter(r => r.isCorrect === false).length;
+
       // Clear saved data from localStorage
       localStorage.removeItem(`test-time-${id}`);
       localStorage.removeItem(`test-answers-${id}`);
       localStorage.removeItem(startedKey);
       
-      // Show results modal instead of redirecting
-      setResults(localResults);
+      // Show results modal using backend score (more accurate than local calculation)
+      setResults({
+        score: data.score,
+        total: data.total,
+        percentage: data.percentage,
+        correct: backendCorrect,
+        incorrect: backendIncorrect,
+        writingQuestions: localResults.writingQuestions || [],
+        writingCount: localResults.writingCount || 0,
+      });
       setSubmitted(true);
       setShowConfirm(false);
     } catch (err) {
