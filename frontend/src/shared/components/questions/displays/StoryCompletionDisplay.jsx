@@ -69,11 +69,11 @@ export default function StoryCompletionDisplay({
   // State lưu giá trị từng ô chữ cho mỗi item
   // answers[itemKey] = mảng ký tự đã nhập, e.g. ['r','i','v','e','r']
   const getTypedValue = useCallback((itemIdx) => {
-    const stored = answers[itemKey(itemIdx)];
+    const stored = answers[`${prefix}-item-${startItemIndex + itemIdx + 1}`];
     if (typeof stored === "string") return stored;
     if (Array.isArray(stored)) return stored.join(""); // backward compat
     return "";
-  }, [answers, prefix]);
+  }, [answers, prefix, startItemIndex]);
 
   const clearItem = (itemIdx) => {
     onAnswerChange?.(itemKey(itemIdx), "");

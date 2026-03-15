@@ -830,6 +830,12 @@ const DoCambridgeReadingTest = () => {
       if (typeof val === "string") return val.trim().length > 0;
       return Boolean(val);
     }
+    if (q.section?.questionType === 'word-drag-cloze') {
+      // WDC stores answers as `${partIdx}-${sectionIdx}-blank-${blank.number}`
+      const wdcPrefix = `${q.partIndex}-${q.sectionIndex}`;
+      const blankAnswerKey = `${wdcPrefix}-blank-${q.blank?.number}`;
+      return Boolean((answers[blankAnswerKey] || '').trim());
+    }
     return Boolean(answers[q.key]);
   }, [answers, getMatchingPicturesAnswerKey, getPeopleMatchingAnswerKey]);
 
@@ -2132,6 +2138,7 @@ const DoCambridgeReadingTest = () => {
                       partImage={currentQuestion.part?.imageUrl || ""}
                       sharedFocusedBlank={wdcFocusedBlank}
                       onSharedFocusChange={setWdcFocusedBlank}
+                      activeBlankNumber={currentQuestion.blank?.number ?? null}
                     />
                   );
                 })()}
@@ -2870,6 +2877,9 @@ const DoCambridgeReadingTest = () => {
                           {isQuestionAnswered(q) && currentQuestionIndex !== q.questionNumber - 1
                             ? <i className="fa fa-check" style={{ fontSize: 10 }}></i>
                             : q.questionNumber}
+                          {flaggedQuestions.has(q.key) && (
+                            <span className="nav-flag-icon" aria-hidden="true">🚩</span>
+                          )}
                         </button>
                       ))
                     ) : (

@@ -86,6 +86,7 @@ export default function WordDragClozeDisplay({
   renderMode = "full", // "passage" | "wordbank" | "full"
   sharedFocusedBlank = null,
   onSharedFocusChange = null,
+  activeBlankNumber = null, // when set: show only this blank's card (single-blank game mode)
 }) {
   const q = section?.questions?.[0] || {};
   const {
@@ -439,7 +440,115 @@ export default function WordDragClozeDisplay({
   );
 
   /* ── Word bank panel content ── */
-  const wordbankContent = (
+  const CHIP_COLORS = [
+    { bg: '#dbeafe', border: '#93c5fd', activeBg: '#3b82f6', activeBorder: '#1d4ed8' },
+    { bg: '#fce7f3', border: '#f9a8d4', activeBg: '#ec4899', activeBorder: '#be185d' },
+    { bg: '#d1fae5', border: '#6ee7b7', activeBg: '#10b981', activeBorder: '#065f46' },
+  ];
+
+  const wordbankContent = activeBlankNumber !== null ? (() => {
+    /* ── Single-blank game mode (child-friendly, animated) ── */
+    const activeBlankObj = blanks.find(b => b.number === activeBlankNumber);
+    if (!activeBlankObj) return null;
+    const opts = (activeBlankObj.options || []).filter(o => o && o.trim() !== '');
+    const selectedAnswer = getAnswer(activeBlankNumber);
+    const status = blankStatus(activeBlankNumber);
+    const contextRow = mainRows.find(r => r.blankNum === activeBlankNumber);
+    const currentIdx = blanks.findIndex(b => b.number === activeBlankNumber);
+    const totalBlanks = blanks.length;
+    return (
+      <div
+        key={activeBlankNumber}
+        style={{ padding: '16px 18px', height: '100%', display: 'flex', flexDirection: 'column', animation: 'wdcSlideIn 0.28s ease-out' }}
+      >
+        <style>{`
+          @keyframes wdcSlideIn {
+            from { opacity: 0; transform: translateY(16px); }
+            to   { opacity: 1; transform: translateY(0); }
+          }
+          @keyframes wdcPopIn {
+            0%   { opacity: 0; transform: scale(0.72) translateY(8px); }
+            65%  { transform: scale(1.07) translateY(-2px); }
+            100% { opacity: 1; transform: scale(1) translateY(0); }
+          }
+          .wdc-chip {
+            transition: all 0.18s cubic-bezier(0.34, 1.56, 0.64, 1);
+            animation: wdcPopIn 0.35s ease-out both;
+          }
+          .wdc-chip:not(:disabled):hover {
+            transform: scale(1.04) translateY(-2px) !important;
+            box-shadow: 0 8px 22px rgba(0,0,0,0.16) !important;
+          }
+          .wdc-chip:not(:disabled):active {
+            transform: scale(0.97) !important;
+          }
+        `}</style>
+
+        {/* Big question number badge */}
+        <div style={{
+          width: 58, height: 58, borderRadius: '50%', margin: '0 auto 18px',
+          background: 'linear-gradient(135deg, #3b82f6 0%, #6366f1 100%)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: 24, fontWeight: 900, color: '#fff',
+          boxShadow: '0 5px 16px rgba(99,102,241,0.45)',
+          animation: 'wdcPopIn 0.38s ease-out',
+          flexShrink: 0,
+        }}>
+          {activeBlankNumber}
+        </div>
+
+        {/* Word choice cards */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, flex: 1 }}>
+          {opts.map((word, wi) => {
+            const c = CHIP_COLORS[wi % CHIP_COLORS.length];
+            const isSelected = selectedAnswer === word;
+            const wordStatus = submitted && isSelected ? status : 'normal';
+            let bg = isSelected ? c.activeBg : c.bg;
+            let border = isSelected ? c.activeBorder : c.border;
+            let textColor = isSelected ? '#fff' : '#1e3a5f';
+            let boxShadow = isSelected ? '0 4px 14px rgba(0,0,0,0.18)' : '0 2px 6px rgba(0,0,0,0.06)';
+            if (submitted && isSelected && wordStatus === 'correct') { bg = '#22c55e'; border = '#16a34a'; boxShadow = '0 4px 14px rgba(34,197,94,0.4)'; }
+            if (submitted && isSelected && wordStatus === 'wrong')   { bg = '#ef4444'; border = '#dc2626'; boxShadow = '0 4px 14px rgba(239,68,68,0.4)'; }
+            return (
+              <button
+                key={word}
+                className="wdc-chip"
+                onClick={() => !submitted && setAnswer(activeBlankNumber, word)}
+                draggable={!submitted}
+                onDragStart={(e) => handleDragStart(e, word)}
+                disabled={submitted}
+                style={{
+                  width: '100%', padding: '13px 20px', borderRadius: 14,
+                  border: `2.5px solid ${border}`, background: bg,
+                  color: textColor, fontWeight: 700, fontSize: 15,
+                  cursor: submitted ? 'default' : 'pointer', boxShadow,
+                  transform: isSelected ? 'scale(1.03)' : 'scale(1)',
+                  textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+                  animationDelay: `${wi * 0.07}s`,
+                }}
+              >
+                <span style={{ flex: 1 }}>{word}</span>
+                {submitted && isSelected && wordStatus === 'correct' && <span style={{ fontSize: 18 }}>✅</span>}
+                {submitted && isSelected && wordStatus === 'wrong'   && <span style={{ fontSize: 18 }}>❌</span>}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Show correct answer hint if wrong after submit */}
+        {submitted && status === 'wrong' && (
+          <div style={{
+            marginTop: 12, padding: '8px 14px', background: '#dcfce7',
+            border: '1px solid #86efac', borderRadius: 10,
+            fontSize: 13, color: '#15803d', fontWeight: 600, textAlign: 'center',
+          }}>
+            ✓ Đáp án đúng: <strong>{correctAnswerFor(activeBlankNumber)}</strong>
+          </div>
+        )}
+      </div>
+    );
+  })() : (
+    /* ── Full table mode (original) ── */
     <div style={{ padding: "12px 16px", boxSizing: "border-box" }}>
       {/* Header hint */}
       <div style={{ fontSize: "0.75em", color: "#6b7280", marginBottom: 14, lineHeight: 1.5, paddingBottom: 10, borderBottom: "1px solid #e5e7eb" }}>

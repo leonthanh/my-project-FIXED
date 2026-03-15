@@ -234,22 +234,39 @@
 /* Flag Button */
 .cambridge-flag-button {
   position: absolute;
-  top: 24px;
-  right: 24px;
+  top: 12px;
+  right: 12px;
   background: transparent;
-  border: none;
+  border: 2px solid transparent;
+  border-radius: 50%;
+  width: 38px;
+  height: 38px;
   cursor: pointer;
-  font-size: 24px;
-  color: #999;
-  transition: color 0.2s;
+  font-size: 20px;
+  color: #94a3b8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.18s, background 0.18s, border-color 0.18s, transform 0.15s;
 }
 
 .cambridge-flag-button:hover {
-  color: #ff9800;
+  color: #f97316;
+  background: rgba(249,115,22,0.10);
+  border-color: rgba(249,115,22,0.35);
+  transform: scale(1.15);
 }
 
 .cambridge-flag-button.flagged {
-  color: #ff9800;
+  color: #f97316;
+  background: rgba(249,115,22,0.12);
+  border-color: rgba(249,115,22,0.45);
+  animation: flagPulse 1.4s ease-in-out infinite;
+}
+
+@keyframes flagPulse {
+  0%, 100% { box-shadow: 0 0 0 0   rgba(249,115,22,0.40); }
+  50%       { box-shadow: 0 0 0 6px rgba(249,115,22,0.0);  }
 }
 
 /* Question Display */
@@ -372,7 +389,7 @@
   align-items: center;
   gap: 6px;
   overflow-x: auto;
-  padding: 2px 4px;
+  padding: 16px 4px 6px;
   scrollbar-width: none;
 }
 .cambridge-parts-container::-webkit-scrollbar { display: none; }
@@ -516,14 +533,32 @@
   box-shadow: 0 0 0 3px rgba(22,163,74,0.28);
 }
 
-/* Flagged */
-.cambridge-question-num-btn.flagged::after {
-  content: '🚩';
+/* Flagged bubble */
+.cambridge-question-num-btn.flagged {
+  border-color: #f97316;
+  box-shadow: 0 0 0 2.5px rgba(249,115,22,0.45);
+  z-index: 5;
+}
+
+/* Flag icon rendered as a real DOM element for reliable emoji + animation */
+.nav-flag-icon {
   position: absolute;
-  top: -7px;
-  right: -7px;
-  font-size: 9px;
+  top: -11px;
+  right: -11px;
+  font-size: 17px;
   line-height: 1;
+  pointer-events: none;
+  z-index: 20;
+  filter: drop-shadow(0 1px 3px rgba(0,0,0,0.35));
+  animation: flagWave 0.9s ease-in-out infinite alternate;
+  transform-origin: 30% 90%;
+  display: block;
+}
+
+@keyframes flagWave {
+  0%   { transform: rotate(-10deg) scale(1.0); }
+  50%  { transform: rotate(6deg)  scale(1.12); }
+  100% { transform: rotate(-5deg) scale(1.0); }
 }
 
 /* Writing label for parts with no numbered questions */
