@@ -34,15 +34,22 @@ const SelectCambridgeTest = () => {
     { id: "starters", name: "Starters (Pre-A1)", icon: "⭐" },
   ];
 
+  // Types where reading tests are stored with just the base name (no '-reading' suffix)
+  const BASE_TYPE_ONLY = ['movers', 'flyers', 'starters'];
+
   useEffect(() => {
     const fetchTests = async () => {
       try {
         setLoading(true);
         setError(null);
 
+        const readingTestType = BASE_TYPE_ONLY.includes(activeTestType)
+          ? activeTestType
+          : `${activeTestType}-reading`;
+
         const requests = [
           fetch(apiPath(`cambridge/listening-tests?testType=${activeTestType}-listening`)),
-          fetch(apiPath(`cambridge/reading-tests?testType=${activeTestType}-reading`)),
+          fetch(apiPath(`cambridge/reading-tests?testType=${readingTestType}`)),
         ];
 
         if (activeTestType === "pet") {
@@ -112,11 +119,12 @@ const SelectCambridgeTest = () => {
   };
 
   const getTestConfig = (type) => {
-    const key = `${activeTestType}-${type}`;
     if (type === "writing") {
       return TEST_CONFIGS["pet-writing"] || {};
     }
-    return TEST_CONFIGS[key] || {};
+    const key = `${activeTestType}-${type}`;
+    // movers/flyers/starters are keyed by base name only (e.g. 'movers', not 'movers-reading')
+    return TEST_CONFIGS[key] || TEST_CONFIGS[activeTestType] || {};
   };
 
   const renderTestList = (testList, testType) => {

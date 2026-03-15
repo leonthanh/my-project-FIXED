@@ -79,12 +79,12 @@ export default function LookReadWriteDisplay({
 
   const getTypedValue = useCallback(
     (groupIdx, itemIdx) => {
-      const stored = answers[itemKey(groupIdx, itemIdx)];
+      const stored = answers[`${prefix}-g${startGroupIndex + groupIdx}-item${itemIdx}`];
       if (typeof stored === "string") return stored;
       return "";
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [answers, prefix]
+    [answers, prefix, startGroupIndex]
   );
 
   const isCorrect = (groupIdx, itemIdx) => {

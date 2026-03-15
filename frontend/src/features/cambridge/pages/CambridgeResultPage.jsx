@@ -47,8 +47,8 @@ const CambridgeResultPage = () => {
   };
 
   const getResultStatus = (result) => {
-    const isUnanswered = !result || result.userAnswer === null || result.userAnswer === '';
-    if (result?.isCorrect === null) {
+    const isUnanswered = !result || result.userAnswer === null || result.userAnswer === undefined || result.userAnswer === '';
+    if (result?.isCorrect === null && !isUnanswered) {
       return isDarkMode
         ? { label: '⏳ Chờ chấm', color: '#38bdf8', bg: '#0b1d2e', text: '#7dd3fc' }
         : { label: '⏳ Chờ chấm', color: '#0ea5e9', bg: '#e0f2fe', text: '#075985' };
@@ -385,6 +385,65 @@ const CambridgeResultPage = () => {
             });
             return;
           }
+
+          if (sectionType === 'matching-pictures' && Array.isArray(question.prompts)) {
+            question.prompts.forEach((prompt) => {
+              const promptId = String(prompt.id || prompt.number || 0);
+              const key = `${partIdx}-${secIdx}-${promptId}`;
+              map[key] = questionNum + 1;
+              questionNum++;
+            });
+            return;
+          }
+
+          if (sectionType === 'image-cloze') {
+            const passageText = question.passageText || '';
+            const blankRe = /\(\s*(\d+)\s*\)/g;
+            let blankMatch;
+            while ((blankMatch = blankRe.exec(passageText)) !== null) {
+              const blankNum = parseInt(blankMatch[1], 10);
+              const key = `${partIdx}-${secIdx}-blank-${blankNum}`;
+              map[key] = questionNum + 1;
+              questionNum++;
+            }
+            if (question.titleQuestion && question.titleQuestion.enabled) {
+              map[`${partIdx}-${secIdx}-title`] = questionNum + 1;
+              questionNum++;
+            }
+            return;
+          }
+
+          if (sectionType === 'word-drag-cloze' && Array.isArray(question.blanks)) {
+            question.blanks.forEach((blank) => {
+              const key = `${partIdx}-${secIdx}-blank-${blank.number}`;
+              map[key] = questionNum + 1;
+              questionNum++;
+            });
+            return;
+          }
+
+          if (sectionType === 'story-completion' && Array.isArray(question.items)) {
+            question.items.forEach((item, itemIdx) => {
+              const key = `${partIdx}-${secIdx}-item-${itemIdx + 1}`;
+              map[key] = questionNum + 1;
+              questionNum++;
+            });
+            return;
+          }
+
+          if (sectionType === 'look-read-write' && Array.isArray(question.groups)) {
+            question.groups.forEach((group, groupIdx) => {
+              (group.items || []).forEach((item, itemIdx) => {
+                const key = `${partIdx}-${secIdx}-g${groupIdx}-item${itemIdx}`;
+                map[key] = questionNum + 1;
+                questionNum++;
+              });
+            });
+            return;
+          }
+
+          // short-message / story-writing: free writing, không đánh số
+          if (sectionType === 'short-message' || sectionType === 'story-writing') return;
 
           const key = `${partIdx}-${secIdx}-${qIdx}`;
           map[key] = questionNum + 1;
@@ -837,7 +896,7 @@ const CambridgeResultPage = () => {
                   onClick={() => togglePart(partIdx)}
                 >
                   <div style={styles.partTitle}>
-                    📖 Part {partIdx + 1}: {part.partTitle || `Part ${partIdx + 1}`}
+                    📖 {part.partTitle || `Part ${partIdx + 1}`}
                   </div>
                   <span style={styles.expandIcon}>
                     {expandedParts[partIdx] ? '▼' : '▶'}
@@ -1250,6 +1309,232 @@ const CambridgeResultPage = () => {
                                 })}
                               </React.Fragment>
                             );
+                          }
+                          // matching-pictures: key = {partIdx}-{secIdx}-{promptId}
+                          else if (sectionType === 'matching-pictures' && Array.isArray(question.prompts)) {
+                            return (
+                              <React.Fragment key={`mp-${qIdx}`}>
+                                {question.prompts.map((prompt) => {
+                                  const promptId = String(prompt.id || prompt.number || 0);
+                                  const key = `${partIdx}-${secIdx}-${promptId}`;
+                                  const result = getDetailedResult(key) || {};
+                                  const questionNum = questionNumberMap[key];
+                                  const label = questionNum ? formatQuestionLabel(questionNum) : promptId;
+                                  const status = getResultStatus(result);
+                                  const choiceWord = result.userAnswer && Array.isArray(question.choices)
+                                    ? (question.choices.find(c => c.id === result.userAnswer)?.label || result.userAnswer)
+                                    : (result.userAnswer || '');
+                                  const correctWord = result.correctAnswer && Array.isArray(question.choices)
+                                    ? (question.choices.find(c => c.id === result.correctAnswer)?.label || result.correctAnswer)
+                                    : result.correctAnswer;
+                                  return (
+                                    <div key={key} style={{ ...styles.questionReviewCard, borderLeftColor: status.color }}>
+                                      <div style={styles.questionReviewHeader}>
+                                        <span style={{ ...styles.questionNum, backgroundColor: status.color }}>{label}</span>
+                                        <span style={styles.questionStatus}>{status.label}</span>
+                                      </div>
+                                      <div style={styles.questionText}>{prompt.text || `Prompt ${prompt.number}`}</div>
+                                      <div style={styles.answersCompare}>
+                                        <div style={styles.answerRow}>
+                                          <span style={styles.answerLabel}>Câu trả lời của bạn:</span>
+                                          <span style={{ ...styles.answerValue, color: status.text, backgroundColor: status.bg }}>
+                                            {choiceWord || '(Không trả lời)'}
+                                          </span>
+                                        </div>
+                                        {canShowCorrectAnswer({ ...result, correctAnswer: correctWord || result.correctAnswer }) && (
+                                          <div style={styles.answerRow}>
+                                            <span style={styles.answerLabel}>Đáp án đúng:</span>
+                                            <span style={{ ...styles.answerValue, ...correctAnswerStyle }}>{correctWord || result.correctAnswer}</span>
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </React.Fragment>
+                            );
+                          }
+                          // image-cloze: keys = {partIdx}-{secIdx}-blank-{blankNum} + -title
+                          else if (sectionType === 'image-cloze') {
+                            const passageText = question.passageText || '';
+                            const imageBank = Array.isArray(question.imageBank) ? question.imageBank : [];
+                            const cards = [];
+                            const blankNums = [];
+                            { const blankRe = /\(\s*(\d+)\s*\)/g; let bm; while ((bm = blankRe.exec(passageText)) !== null) blankNums.push(parseInt(bm[1], 10)); }
+                            blankNums.forEach((qNum) => {
+                                const key = `${partIdx}-${secIdx}-blank-${qNum}`;
+                                const result = getDetailedResult(key) || {};
+                                const qN = questionNumberMap[key];
+                                const label = qN ? formatQuestionLabel(qN) : String(qNum);
+                                const status = getResultStatus(result);
+                                const resolveWord = (id) => id ? (imageBank.find(b => b.id === id)?.word || id) : id;
+                                const displayUser = resolveWord(result.userAnswer) || result.userAnswer || '';
+                                cards.push(
+                                  <div key={key} style={{ ...styles.questionReviewCard, borderLeftColor: status.color }}>
+                                    <div style={styles.questionReviewHeader}>
+                                      <span style={{ ...styles.questionNum, backgroundColor: status.color }}>{label}</span>
+                                      <span style={styles.questionStatus}>{status.label}</span>
+                                    </div>
+                                    <div style={styles.questionText}>{`Câu (${qNum})`}</div>
+                                    <div style={styles.answersCompare}>
+                                      <div style={styles.answerRow}>
+                                        <span style={styles.answerLabel}>Câu trả lời của bạn:</span>
+                                        <span style={{ ...styles.answerValue, color: status.text, backgroundColor: status.bg }}>{displayUser || '(Không trả lời)'}</span>
+                                      </div>
+                                      {canShowCorrectAnswer(result) && (
+                                        <div style={styles.answerRow}>
+                                          <span style={styles.answerLabel}>Đáp án đúng:</span>
+                                          <span style={{ ...styles.answerValue, ...correctAnswerStyle }}>{result.correctAnswer}</span>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                );
+                              });
+                            if (question.titleQuestion?.enabled) {
+                              const key = `${partIdx}-${secIdx}-title`;
+                              const result = getDetailedResult(key) || {};
+                              const qN = questionNumberMap[key];
+                              const label = qN ? formatQuestionLabel(qN) : '?';
+                              const status = getResultStatus(result);
+                              cards.push(
+                                <div key={key} style={{ ...styles.questionReviewCard, borderLeftColor: status.color }}>
+                                  <div style={styles.questionReviewHeader}>
+                                    <span style={{ ...styles.questionNum, backgroundColor: status.color }}>{label}</span>
+                                    <span style={styles.questionStatus}>{status.label}</span>
+                                  </div>
+                                  <div style={styles.questionText}>{question.titleQuestion.text || 'Best name for the story'}</div>
+                                  <div style={styles.answersCompare}>
+                                    <div style={styles.answerRow}>
+                                      <span style={styles.answerLabel}>Câu trả lời của bạn:</span>
+                                      <span style={{ ...styles.answerValue, color: status.text, backgroundColor: status.bg }}>{result.userAnswer || '(Không trả lời)'}</span>
+                                    </div>
+                                    {canShowCorrectAnswer(result) && (
+                                      <div style={styles.answerRow}>
+                                        <span style={styles.answerLabel}>Đáp án đúng:</span>
+                                        <span style={{ ...styles.answerValue, ...correctAnswerStyle }}>{result.correctAnswer}</span>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            }
+                            return <React.Fragment key={`ic-${qIdx}`}>{cards}</React.Fragment>;
+                          }
+                          // word-drag-cloze: key = {partIdx}-{secIdx}-blank-{blank.number}
+                          else if (sectionType === 'word-drag-cloze' && Array.isArray(question.blanks)) {
+                            return (
+                              <React.Fragment key={`wdc-${qIdx}`}>
+                                {question.blanks.map((blank) => {
+                                  const key = `${partIdx}-${secIdx}-blank-${blank.number}`;
+                                  const result = getDetailedResult(key) || {};
+                                  const questionNum = questionNumberMap[key];
+                                  const label = questionNum ? formatQuestionLabel(questionNum) : String(blank.number || '?');
+                                  const status = getResultStatus(result);
+                                  return (
+                                    <div key={key} style={{ ...styles.questionReviewCard, borderLeftColor: status.color }}>
+                                      <div style={styles.questionReviewHeader}>
+                                        <span style={{ ...styles.questionNum, backgroundColor: status.color }}>{label}</span>
+                                        <span style={styles.questionStatus}>{status.label}</span>
+                                      </div>
+                                      <div style={styles.questionText}>{blank.questionText || `Blank ${blank.number}`}</div>
+                                      <div style={styles.answersCompare}>
+                                        <div style={styles.answerRow}>
+                                          <span style={styles.answerLabel}>Câu trả lời của bạn:</span>
+                                          <span style={{ ...styles.answerValue, color: status.text, backgroundColor: status.bg }}>
+                                            {result.userAnswer || '(Không trả lời)'}
+                                          </span>
+                                        </div>
+                                        {canShowCorrectAnswer(result) && (
+                                          <div style={styles.answerRow}>
+                                            <span style={styles.answerLabel}>Đáp án đúng:</span>
+                                            <span style={{ ...styles.answerValue, ...correctAnswerStyle }}>{result.correctAnswer}</span>
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </React.Fragment>
+                            );
+                          }
+                          // story-completion: key = {partIdx}-{secIdx}-item-{itemIdx+1}
+                          else if (sectionType === 'story-completion' && Array.isArray(question.items)) {
+                            return (
+                              <React.Fragment key={`story-${qIdx}`}>
+                                {question.items.map((item, itemIdx) => {
+                                  const key = `${partIdx}-${secIdx}-item-${itemIdx + 1}`;
+                                  const result = getDetailedResult(key) || {};
+                                  const questionNum = questionNumberMap[key];
+                                  const label = questionNum ? formatQuestionLabel(questionNum) : String(itemIdx + 1);
+                                  const status = getResultStatus(result);
+                                  return (
+                                    <div key={key} style={{ ...styles.questionReviewCard, borderLeftColor: status.color }}>
+                                      <div style={styles.questionReviewHeader}>
+                                        <span style={{ ...styles.questionNum, backgroundColor: status.color }}>{label}</span>
+                                        <span style={styles.questionStatus}>{status.label}</span>
+                                      </div>
+                                      <div style={styles.questionText}>{item.sentence || item.questionText || `Item ${itemIdx + 1}`}</div>
+                                      <div style={styles.answersCompare}>
+                                        <div style={styles.answerRow}>
+                                          <span style={styles.answerLabel}>Câu trả lời của bạn:</span>
+                                          <span style={{ ...styles.answerValue, color: status.text, backgroundColor: status.bg }}>
+                                            {result.userAnswer || '(Không trả lời)'}
+                                          </span>
+                                        </div>
+                                        {canShowCorrectAnswer(result) && (
+                                          <div style={styles.answerRow}>
+                                            <span style={styles.answerLabel}>Đáp án đúng:</span>
+                                            <span style={{ ...styles.answerValue, ...correctAnswerStyle }}>{result.correctAnswer}</span>
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </React.Fragment>
+                            );
+                          }
+                          // look-read-write: key = {partIdx}-{secIdx}-g{groupIdx}-item{itemIdx}
+                          else if (sectionType === 'look-read-write' && Array.isArray(question.groups)) {
+                            const lrwCards = [];
+                            question.groups.forEach((group, groupIdx) => {
+                              (group.items || []).forEach((item, itemIdx) => {
+                                const key = `${partIdx}-${secIdx}-g${groupIdx}-item${itemIdx}`;
+                                const result = getDetailedResult(key) || {};
+                                const questionNum = questionNumberMap[key];
+                                const label = questionNum ? formatQuestionLabel(questionNum) : `${groupIdx + 1}.${itemIdx + 1}`;
+                                const status = getResultStatus(result);
+                                lrwCards.push(
+                                  <div key={key} style={{ ...styles.questionReviewCard, borderLeftColor: status.color }}>
+                                    <div style={styles.questionReviewHeader}>
+                                      <span style={{ ...styles.questionNum, backgroundColor: status.color }}>{label}</span>
+                                      <span style={styles.questionStatus}>{status.label}</span>
+                                    </div>
+                                    <div style={styles.questionText}>{item.sentence || item.questionText || `Group ${groupIdx + 1} item ${itemIdx + 1}`}</div>
+                                    <div style={styles.answersCompare}>
+                                      <div style={styles.answerRow}>
+                                        <span style={styles.answerLabel}>Câu trả lời của bạn:</span>
+                                        <span style={{ ...styles.answerValue, color: status.text, backgroundColor: status.bg }}>
+                                          {result.userAnswer || '(Không trả lời)'}
+                                        </span>
+                                      </div>
+                                      {canShowCorrectAnswer(result) && (
+                                        <div style={styles.answerRow}>
+                                          <span style={styles.answerLabel}>Đáp án đúng:</span>
+                                          <span style={{ ...styles.answerValue, ...correctAnswerStyle }}>{result.correctAnswer}</span>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                );
+                              });
+                            });
+                            return <React.Fragment key={`lrw-${qIdx}`}>{lrwCards}</React.Fragment>;
+                          }
+                          // short-message / story-writing: hiển thị nhãn "Free writing", không chấm điểm
+                          else if (sectionType === 'short-message' || sectionType === 'story-writing') {
+                            return null;
                           }
                           // Regular questions
                           else {

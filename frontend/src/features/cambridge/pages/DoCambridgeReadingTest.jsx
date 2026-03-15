@@ -439,6 +439,52 @@ const DoCambridgeReadingTest = () => {
         return;
       }
 
+      // word-drag-cloze: answers stored as {partIdx}-{secIdx}-blank-{blank.number}
+      if (questionType === 'word-drag-cloze' && q.blank) {
+        const wdcKey = `${q.partIndex}-${q.sectionIndex}-blank-${q.blank.number}`;
+        const ua = answers[wdcKey];
+        const ca = q.blank.correctAnswer ?? q.blank.answer ?? q.blank.correct;
+        if (ca === undefined || ca === null) {
+          debugInfo.push(`Q${q.questionNumber}: word-drag-cloze no correctAnswer`);
+          return;
+        }
+        scorableCount++;
+        if (!ua) return;
+        const accepted = explode(ca);
+        if (accepted.some((a) => normalize(a) === normalize(ua))) correct++;
+        else incorrect++;
+        return;
+      }
+
+      // story-completion: q.key = "{p}-{s}-item-{n}", q.item.answer = correct answer
+      if (questionType === 'story-completion' && q.item) {
+        const ua = answers[q.key];
+        const ca = q.item.answer ?? q.item.correctAnswer;
+        if (ca === undefined || ca === null) {
+          debugInfo.push(`Q${q.questionNumber}: story-completion no answer on item`);
+          return;
+        }
+        scorableCount++;
+        if (!ua) return;
+        const accepted = explode(ca);
+        if (accepted.some((a) => normalize(a) === normalize(ua))) correct++;
+        else incorrect++;
+        return;
+      }
+
+      // look-read-write: q.key = "{p}-{s}-g{g}-item{i}", free-write items accept any non-empty
+      if (questionType === 'look-read-write' && q.item) {
+        const ua = answers[q.key];
+        const ca = (q.item.answer ?? q.item.correctAnswer ?? '').trim();
+        scorableCount++;
+        if (!ua || !ua.trim()) return;
+        if (!ca) { correct++; return; } // free-write: any answer accepted
+        const accepted = explode(ca);
+        if (accepted.some((a) => normalize(a) === normalize(ua))) correct++;
+        else incorrect++;
+        return;
+      }
+
       // Word-form: score each sentence using its own key
       if (questionType === 'word-form' && Array.isArray(q.question?.sentences)) {
         q.question.sentences.forEach((sentence, sentIdx) => {
@@ -2992,20 +3038,72 @@ const DoCambridgeReadingTest = () => {
 
       {/* Confirm Submit Modal */}
       {showConfirm && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-          <div style={{ background: 'white', padding: '24px', borderRadius: '12px', textAlign: 'center', maxWidth: '360px', width: '90%' }}>
-            <h3 style={{ margin: '0 0 16px' }}>⚠️ Confirm Submission</h3>
-            <p>Are you sure you want to submit?</p>
-            <p style={{ fontSize: '14px', color: '#666' }}>
-              Answered: {Object.keys(answers).length}/{allQuestions.length} questions
-            </p>
-            <div style={{ marginTop: '20px', display: 'flex', gap: '12px', justifyContent: 'center' }}>
-              <button onClick={confirmSubmit} style={{ padding: '12px 24px', background: '#0052cc', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '14px' }}>
-                ✓ Submit
-              </button>
-              <button onClick={() => setShowConfirm(false)} style={{ padding: '12px 24px', background: '#f1f5f9', color: '#374151', border: '1px solid #d1d5db', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '14px' }}>
-                ✕ Cancel
-              </button>
+        <div style={{
+          position: 'fixed', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+          background: 'rgba(15,23,42,0.65)', backdropFilter: 'blur(4px)', zIndex: 1200, padding: '16px',
+        }}>
+          <div style={{ width: '100%', maxWidth: 420, borderRadius: 20, overflow: 'hidden', boxShadow: '0 24px 48px rgba(15,23,42,0.35)' }}>
+
+            {/* Header */}
+            <div style={{ background: 'linear-gradient(135deg, #1e3a8a 0%, #1d4ed8 55%, #0284c7 100%)', padding: '22px 24px 18px', position: 'relative', overflow: 'hidden' }}>
+              <div style={{ position: 'absolute', top: -40, right: -40, width: 140, height: 140, borderRadius: '50%', background: 'rgba(255,255,255,0.07)', pointerEvents: 'none' }} />
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, position: 'relative', zIndex: 1 }}>
+                <div style={{ width: 42, height: 42, borderRadius: 12, background: 'rgba(255,255,255,0.18)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0 }}>
+                  📤
+                </div>
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 800, color: 'rgba(255,255,255,0.65)', textTransform: 'uppercase', letterSpacing: '0.12em' }}>
+                    Cambridge {examType}
+                  </div>
+                  <h3 style={{ margin: 0, fontSize: 17, fontWeight: 800, color: '#fff', textShadow: '0 1px 3px rgba(0,0,0,0.2)' }}>
+                    Xác nhận nộp bài
+                  </h3>
+                </div>
+              </div>
+            </div>
+
+            {/* Body */}
+            <div style={{ background: '#fff', padding: '20px 24px 22px' }}>
+              <p style={{ fontSize: 14, color: '#475569', margin: '0 0 14px', lineHeight: 1.6 }}>
+                Bạn có chắc muốn nộp bài không? Sau khi nộp sẽ <b>không thể chỉnh sửa</b>.
+              </p>
+
+              {/* Stats */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 18 }}>
+                <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 12, padding: '12px 14px', textAlign: 'center' }}>
+                  <div style={{ fontSize: 26, fontWeight: 800, color: '#1d4ed8', lineHeight: 1 }}>
+                    {allQuestions.filter((q) => isQuestionAnswered(q)).length}
+                  </div>
+                  <div style={{ fontSize: 11, color: '#3b82f6', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', marginTop: 4 }}>Đã trả lời</div>
+                </div>
+                <div style={{ background: allQuestions.filter((q) => !isQuestionAnswered(q)).length > 0 ? '#fef2f2' : '#f0fdf4', border: `1px solid ${allQuestions.filter((q) => !isQuestionAnswered(q)).length > 0 ? '#fecaca' : '#bbf7d0'}`, borderRadius: 12, padding: '12px 14px', textAlign: 'center' }}>
+                  <div style={{ fontSize: 26, fontWeight: 800, color: allQuestions.filter((q) => !isQuestionAnswered(q)).length > 0 ? '#dc2626' : '#15803d', lineHeight: 1 }}>
+                    {allQuestions.filter((q) => !isQuestionAnswered(q)).length}
+                  </div>
+                  <div style={{ fontSize: 11, color: allQuestions.filter((q) => !isQuestionAnswered(q)).length > 0 ? '#ef4444' : '#16a34a', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', marginTop: 4 }}>Chưa trả lời</div>
+                </div>
+              </div>
+
+              {/* Buttons */}
+              <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+                <button
+                  onClick={() => setShowConfirm(false)}
+                  style={{ padding: '9px 18px', borderRadius: 20, border: '1.5px solid #e2e8f0', background: '#fff', fontSize: 13, fontWeight: 600, color: '#64748b', cursor: 'pointer' }}
+                >
+                  ✕ Huỷ
+                </button>
+                <button
+                  onClick={confirmSubmit}
+                  style={{
+                    padding: '11px 24px', borderRadius: 20,
+                    background: 'linear-gradient(135deg, #1d4ed8, #0284c7)',
+                    fontSize: 14, fontWeight: 700, color: '#fff', border: 'none', cursor: 'pointer',
+                    boxShadow: '0 4px 14px rgba(29,78,216,0.4)',
+                  }}
+                >
+                  ✓ Nộp bài
+                </button>
+              </div>
             </div>
           </div>
         </div>
