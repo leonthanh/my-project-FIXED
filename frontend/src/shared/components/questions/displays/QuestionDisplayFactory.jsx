@@ -25,6 +25,7 @@ const QuestionDisplayFactory = ({
   answers,
   submitted,
   testType,
+  examType,
   questionIndex = 0,
 }) => {
   const singleQuestion = section?.questions?.[0] || {};
@@ -86,6 +87,115 @@ const QuestionDisplayFactory = ({
       const options = Array.isArray(singleQuestion?.options) ? singleQuestion.options : [];
       const correct = String(singleQuestion?.correctAnswer || '').trim().toUpperCase();
 
+      // Kid-friendly game-style layout for young learners (MOVERS/STARTERS/FLYERS)
+      if (examType === 'MOVERS' || examType === 'STARTERS' || examType === 'FLYERS') {
+        const OPTION_THEMES = [
+          { grad: ['#3b82f6', '#1d4ed8'], light: '#dbeafe', lightBorder: '#93c5fd', ring: '#3b82f640' },
+          { grad: ['#f97316', '#ea580c'], light: '#ffedd5', lightBorder: '#fdba74', ring: '#f9731640' },
+          { grad: ['#a855f7', '#8b5cf6'], light: '#f3e8ff', lightBorder: '#d8b4fe', ring: '#a855f740' },
+        ];
+
+        return (
+          <div style={{ marginTop: 4 }}>
+            <style>{`
+              @keyframes abcPop { 0%{transform:scale(0.93)} 55%{transform:scale(1.05)} 100%{transform:scale(1)} }
+              @keyframes abcShake { 0%,100%{transform:translateX(0)} 22%{transform:translateX(-5px)} 66%{transform:translateX(5px)} }
+              @keyframes abcWiggle { 0%,100%{transform:rotate(0deg)} 25%{transform:rotate(-2deg)} 75%{transform:rotate(2deg)} }
+              .abc-kid-btn { transition: transform 0.18s cubic-bezier(.34,1.56,.64,1), box-shadow 0.18s ease; }
+              .abc-kid-btn:hover:not([disabled]) { transform: translateY(-3px) scale(1.02); }
+              .abc-kid-btn:active:not([disabled]) { transform: scale(0.96); }
+              .abc-kid-btn.abc-selected { animation: abcPop 0.32s cubic-bezier(.34,1.56,.64,1) forwards; }
+              .abc-kid-btn.abc-wrong { animation: abcShake 0.45s ease; }
+              .abc-kid-btn.abc-correct-reveal { animation: abcWiggle 0.5s ease; }
+            `}</style>
+
+            {singleQuestion?.questionText && (
+              <div style={{ marginBottom: 14, fontSize: 15, lineHeight: 1.8, color: '#1f2937', whiteSpace: 'pre-line', fontWeight: 500 }}>
+                {singleQuestion.questionText}
+              </div>
+            )}
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {options.map((optionText, idx) => {
+                const optionLetter = String.fromCharCode(65 + idx);
+                const theme = OPTION_THEMES[idx] || OPTION_THEMES[0];
+                const selected = userAnswer === optionLetter;
+                const isCorrectOption = submitted && optionLetter === correct;
+                const isWrongSelected = submitted && selected && optionLetter !== correct;
+                const cleanText = String(optionText || '').replace(/^[A-H]\.\s*/i, '').trim();
+
+                let cardBg = '#fff';
+                let cardBorder = '#e5e7eb';
+                let cardShadow = '0 2px 8px rgba(0,0,0,0.06)';
+                if (selected && !submitted) {
+                  cardBg = theme.light;
+                  cardBorder = theme.grad[0];
+                  cardShadow = `0 6px 20px ${theme.ring}`;
+                }
+                if (isCorrectOption) { cardBg = '#f0fdf4'; cardBorder = '#22c55e'; cardShadow = '0 6px 18px #22c55e30'; }
+                if (isWrongSelected) { cardBg = '#fef2f2'; cardBorder = '#f87171'; cardShadow = '0 4px 12px #ef444430'; }
+
+                let circleGrad = `linear-gradient(135deg, ${theme.light}, ${theme.light})`;
+                let circleColor = theme.grad[0];
+                let circleLabel = optionLetter;
+                if (selected && !submitted) { circleGrad = `linear-gradient(135deg, ${theme.grad[0]}, ${theme.grad[1]})`; circleColor = '#fff'; }
+                if (isCorrectOption) { circleGrad = 'linear-gradient(135deg, #22c55e, #16a34a)'; circleColor = '#fff'; circleLabel = '✓'; }
+                if (isWrongSelected) { circleGrad = 'linear-gradient(135deg, #ef4444, #dc2626)'; circleColor = '#fff'; circleLabel = '✗'; }
+
+                return (
+                  <button
+                    key={`${baseKey}-${optionLetter}`}
+                    className={`abc-kid-btn${selected && !submitted ? ' abc-selected' : ''}${isWrongSelected ? ' abc-wrong' : ''}${isCorrectOption ? ' abc-correct-reveal' : ''}`}
+                    disabled={submitted}
+                    onClick={() => onAnswerChange(baseKey, optionLetter)}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 14,
+                      padding: '13px 16px',
+                      borderRadius: 16,
+                      border: `2.5px solid ${cardBorder}`,
+                      backgroundColor: cardBg,
+                      boxShadow: cardShadow,
+                      cursor: submitted ? 'default' : 'pointer',
+                      textAlign: 'left', width: '100%',
+                    }}
+                  >
+                    {/* Letter bubble */}
+                    <div style={{
+                      width: 42, height: 42, borderRadius: '50%', flexShrink: 0,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      background: circleGrad,
+                      color: circleColor,
+                      fontWeight: 900, fontSize: 18,
+                      boxShadow: (selected && !submitted) ? `0 4px 10px ${theme.ring}` : 'none',
+                      transition: 'all 0.2s ease',
+                    }}>
+                      {circleLabel}
+                    </div>
+
+                    {/* Answer text */}
+                    <span style={{
+                      fontSize: 15, fontWeight: selected ? 700 : 500,
+                      color: isWrongSelected ? '#b91c1c' : isCorrectOption ? '#15803d' : '#1f2937',
+                      flex: 1, lineHeight: 1.5,
+                    }}>
+                      {cleanText}
+                    </span>
+
+                    {/* Correct hint for wrong selection */}
+                    {isWrongSelected && (
+                      <span style={{ fontSize: 12, color: '#15803d', fontWeight: 700, whiteSpace: 'nowrap', background: '#dcfce7', borderRadius: 8, padding: '2px 7px' }}>
+                        ✓ {correct}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        );
+      }
+
+      // Default style for KET/PET/IELTS
       return (
         <div style={{ marginTop: 8 }}>
           {singleQuestion?.questionText && (

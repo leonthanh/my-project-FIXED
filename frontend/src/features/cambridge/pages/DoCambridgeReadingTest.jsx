@@ -2488,34 +2488,102 @@ const DoCambridgeReadingTest = () => {
                       {/* Example block for abc-type sections under part image */}
                       {currentQuestion.section.questionType === 'abc' && (currentQuestion.section.exampleText || currentQuestion.section.exampleAnswer) && currentQuestion.questionIndex === 0 && (
                         <div style={{
-                          marginTop: '14px',
-                          padding: '12px 14px',
-                          background: '#fffbeb',
-                          border: '1px solid #fcd34d',
-                          borderRadius: '8px',
-                          fontSize: '13px',
+                          marginTop: '16px',
+                          borderRadius: '16px',
+                          overflow: 'hidden',
+                          boxShadow: '0 4px 16px rgba(234,179,8,0.18)',
+                          border: '2px solid #fde68a',
                         }}>
-                          <div style={{ fontWeight: 700, color: '#92400e', marginBottom: '6px', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                            Example
+                          {/* Header */}
+                          <div style={{
+                            background: 'linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%)',
+                            padding: '8px 14px',
+                            display: 'flex', alignItems: 'center', gap: 8,
+                          }}>
+                            <span style={{ fontSize: 18 }}>⭐</span>
+                            <span style={{ fontWeight: 800, color: '#fff', fontSize: 13, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+                              Ví dụ mẫu
+                            </span>
                           </div>
-                          {currentQuestion.section.exampleText && (
-                            <div style={{ whiteSpace: 'pre-wrap', color: '#374151', marginBottom: currentQuestion.section.exampleAnswer ? '8px' : '0', lineHeight: '1.6' }}>
-                              {currentQuestion.section.exampleText}
-                            </div>
-                          )}
-                          {currentQuestion.section.exampleAnswer && (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                              <span style={{ fontSize: '12px', color: '#6b7280' }}>Đáp án mẫu:</span>
-                              <span style={{
-                                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                                width: '26px', height: '26px', borderRadius: '50%',
-                                background: '#0e276f', color: 'white',
-                                fontWeight: 700, fontSize: '13px',
-                              }}>
-                                {currentQuestion.section.exampleAnswer}
-                              </span>
-                            </div>
-                          )}
+
+                          {/* Body */}
+                          <div style={{ background: '#fffbeb', padding: '12px 14px' }}>
+                            {currentQuestion.section.exampleText && (() => {
+                              const exAnswer = String(currentQuestion.section.exampleAnswer || '').trim().toUpperCase();
+                              const lines = currentQuestion.section.exampleText.split('\n');
+                              const optionRegex = /^([A-C])\.\s*(.*)/;
+                              const contextLines = lines.filter(l => !optionRegex.test(l.trim()));
+                              const optionLines = lines.filter(l => optionRegex.test(l.trim()));
+                              const OPTION_THEMES = [
+                                { grad: ['#3b82f6','#1d4ed8'], light: '#dbeafe', lightBorder: '#93c5fd' },
+                                { grad: ['#f97316','#ea580c'], light: '#ffedd5', lightBorder: '#fdba74' },
+                                { grad: ['#a855f7','#8b5cf6'], light: '#f3e8ff', lightBorder: '#d8b4fe' },
+                              ];
+                              return (
+                                <div style={{ marginBottom: currentQuestion.section.exampleAnswer ? 12 : 0 }}>
+                                  {/* Context text (non-option lines) */}
+                                  {contextLines.length > 0 && (
+                                    <div style={{ color: '#374151', lineHeight: 1.75, fontSize: 14, marginBottom: optionLines.length ? 10 : 0, whiteSpace: 'pre-wrap' }}>
+                                      {contextLines.join('\n')}
+                                    </div>
+                                  )}
+                                  {/* Styled A/B/C option cards */}
+                                  {optionLines.length > 0 && (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+                                      {optionLines.map((line, idx) => {
+                                        const match = line.trim().match(optionRegex);
+                                        if (!match) return null;
+                                        const letter = match[1].toUpperCase();
+                                        const text = match[2].trim();
+                                        const isCorrect = letter === exAnswer;
+                                        const theme = OPTION_THEMES[idx] || OPTION_THEMES[0];
+                                        return (
+                                          <div key={letter} style={{
+                                            display: 'flex', alignItems: 'center', gap: 10,
+                                            padding: '9px 12px',
+                                            borderRadius: 12,
+                                            border: `2px solid ${isCorrect ? '#22c55e' : theme.lightBorder}`,
+                                            background: isCorrect ? '#f0fdf4' : theme.light,
+                                            boxShadow: isCorrect ? '0 4px 12px #22c55e30' : 'none',
+                                          }}>
+                                            <div style={{
+                                              width: 32, height: 32, borderRadius: '50%', flexShrink: 0,
+                                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                              background: isCorrect
+                                                ? 'linear-gradient(135deg,#22c55e,#16a34a)'
+                                                : `linear-gradient(135deg,${theme.grad[0]},${theme.grad[1]})`,
+                                              color: '#fff', fontWeight: 900, fontSize: 15,
+                                              boxShadow: isCorrect ? '0 3px 8px #22c55e50' : 'none',
+                                            }}>
+                                              {isCorrect ? '✓' : letter}
+                                            </div>
+                                            <span style={{ fontSize: 14, fontWeight: isCorrect ? 700 : 500, color: isCorrect ? '#15803d' : '#1f2937', flex: 1 }}>
+                                              {text}
+                                            </span>
+
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })()}
+                            {currentQuestion.section.exampleAnswer && (
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 4 }}>
+                                <span style={{ fontSize: 13, color: '#78350f', fontWeight: 600 }}>Đáp án đúng:</span>
+                                <span style={{
+                                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                                  width: 34, height: 34, borderRadius: '50%',
+                                  background: 'linear-gradient(135deg, #22c55e, #16a34a)',
+                                  color: 'white', fontWeight: 900, fontSize: 16,
+                                  boxShadow: '0 3px 10px #22c55e50',
+                                }}>
+                                  {currentQuestion.section.exampleAnswer}
+                                </span>
+                              </div>
+                            )}
+                          </div>
                         </div>
                       )}
                     </div>
@@ -2800,6 +2868,7 @@ const DoCambridgeReadingTest = () => {
                       submitted={submitted}
                       singleQuestionMode={true}
                       questionIndex={currentQuestion.questionIndex}
+                      examType={examType}
                     />
                   </div>
                 </div>
