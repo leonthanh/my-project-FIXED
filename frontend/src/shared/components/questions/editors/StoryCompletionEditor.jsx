@@ -84,11 +84,19 @@ export default function StoryCompletionEditor({
   onChange,
   startingNumber = 1,
 }) {
-  const { quillRef, modules: quillModules } = useQuillImageUpload();
+  const { quillRef: quillRef0, modules: quillModules0 } = useQuillImageUpload();
+  const { quillRef: quillRef1, modules: quillModules1 } = useQuillImageUpload();
+  const { quillRef: quillRef2, modules: quillModules2 } = useQuillImageUpload();
 
   const storyTitle = question.storyTitle || "";
-  const storyImages = Array.isArray(question.storyImages) ? question.storyImages : ["", ""];
-  const storyText = question.storyText || "";
+  const storyImages = (() => {
+    const arr = Array.isArray(question.storyImages) ? [...question.storyImages] : [];
+    while (arr.length < 3) arr.push('');
+    return arr;
+  })();
+  const storyTexts = Array.isArray(question.storyTexts) && question.storyTexts.length >= 3
+    ? question.storyTexts
+    : [question.storyText || '', '', ''];
   const examples = Array.isArray(question.examples) && question.examples.length === 2
     ? question.examples
     : [{ sentence: "", answer: "" }, { sentence: "", answer: "" }];
@@ -108,6 +116,12 @@ export default function StoryCompletionEditor({
   const updateItem = (idx, field, value) => {
     const next = items.map((it, i) => i === idx ? { ...it, [field]: value } : it);
     onChange("items", next);
+  };
+
+  const updateText = (idx, val) => {
+    const next = [...storyTexts];
+    next[idx] = val;
+    onChange("storyTexts", next);
   };
 
   const addItem = () => {
@@ -157,45 +171,56 @@ export default function StoryCompletionEditor({
         />
       </div>
 
-      {/* ── 2 ảnh minh hoạ ── */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 14 }}>
-        {[0, 1].map((i) => (
-          <div key={i}>
-            <label style={LABEL}>Ảnh minh hoạ {i + 1} {i === 0 ? "(bắt buộc)" : "(không bắt buộc)"}</label>
+      {/* ── 3 đoạn: mỗi đoạn có ảnh + nội dung ── */}
+      {[0, 1, 2].map((i) => (
+        <div key={i} style={{
+          marginBottom: 14,
+          padding: "12px 14px",
+          border: "1px solid #d1d5db",
+          borderRadius: 8,
+          background: i % 2 === 0 ? "#f9fafb" : "#fff",
+        }}>
+          <div style={{ fontWeight: 700, color: "#0052cc", fontSize: 13, marginBottom: 10 }}>
+            📄 Đoạn {i + 1}{i > 0 ? " (không bắt buộc)" : ""}
+          </div>
+
+          {/* Ảnh đoạn */}
+          <div style={{ marginBottom: 10 }}>
+            <label style={LABEL}>Ảnh minh hoạ đoạn {i + 1}{i === 0 ? " (bắt buộc)" : " (không bắt buộc)"}</label>
             <input
               style={INPUT}
               value={storyImages[i] || ""}
-              placeholder="/uploads/…"
+              placeholder="https://... hoặc /uploads/…"
               onChange={(e) => updateImage(i, e.target.value)}
             />
             {storyImages[i] && (
               <img
-                src={storyImages[i].startsWith("/") ? hostPath(storyImages[i]) : storyImages[i]}
+                src={/^https?:\/\//i.test(storyImages[i]) ? storyImages[i] : (storyImages[i].startsWith("/") ? hostPath(storyImages[i]) : storyImages[i])}
                 alt={`preview ${i + 1}`}
                 style={{ marginTop: 6, maxHeight: 120, maxWidth: "100%", borderRadius: 6, border: "1px solid #e5e7eb" }}
                 onError={(e) => { e.target.style.display = "none"; }}
               />
             )}
           </div>
-        ))}
-      </div>
 
-      {/* ── Đoạn văn ── */}
-      <div style={{ marginBottom: 14 }}>
-        <label style={LABEL}>Đoạn văn câu chuyện</label>
-        <div style={{ border: "1px solid #d1d5db", borderRadius: 6, background: "#fff" }}>
-          <ReactQuill
-            ref={quillRef}
-            theme="snow"
-            value={storyText}
-            onChange={(val) => onChange("storyText", val)}
-            modules={quillModules}
-            formats={QUILL_FORMATS}
-            placeholder="Nhập đoạn văn câu chuyện ở đây..."
-            style={{ minHeight: 160 }}
-          />
+          {/* Nội dung đoạn */}
+          <div>
+            <label style={LABEL}>Nội dung đoạn {i + 1}</label>
+            <div style={{ border: "1px solid #d1d5db", borderRadius: 6, background: "#fff" }}>
+              <ReactQuill
+                ref={[quillRef0, quillRef1, quillRef2][i]}
+                theme="snow"
+                value={storyTexts[i] || ''}
+                onChange={(val) => updateText(i, val)}
+                modules={[quillModules0, quillModules1, quillModules2][i]}
+                formats={QUILL_FORMATS}
+                placeholder={`Nhập nội dung đoạn ${i + 1}...`}
+                style={{ minHeight: 120 }}
+              />
+            </div>
+          </div>
         </div>
-      </div>
+      ))}
 
       {/* ── 2 câu mẫu Examples ── */}
       <div style={{
@@ -353,7 +378,7 @@ export default function StoryCompletionEditor({
         color: "#166534",
         lineHeight: 1.6,
       }}>
-        <strong>💡 Giao diện học sinh:</strong> Panel trái: ảnh + đoạn văn + ví dụ mẫu. Panel phải: từng câu hỏi với ô text tự do. Gợi ý: chữ đầu tiên hiển thị (r...).<br/><br/>
+        <strong>💡 Giao diện học sinh:</strong> Panel trái: 3 đoạn (ảnh + nội dung) + ví dụ mẫu. Panel phải: từng câu hỏi với ô text tự do. Gợi ý: chữ đầu tiên hiển thị (r...).<br/><br/>
         <strong>📝 Ký hiệu đáp án linh hoạt:</strong> <code style={{background:"#dcfce7",padding:"1px 4px",borderRadius:3}}>(từ tùy chọn) đáp án</code> → chấp nhận có hoặc không có từ trong ngoặc.&nbsp;
         <code style={{background:"#dcfce7",padding:"1px 4px",borderRadius:3}}>đáp án A / đáp án B</code> → chấp nhận một trong hai.
       </div>
