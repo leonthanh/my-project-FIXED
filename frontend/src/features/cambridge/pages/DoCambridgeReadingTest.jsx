@@ -2539,7 +2539,7 @@ const DoCambridgeReadingTest = () => {
                     <div className="cambridge-passage-container" style={{ padding: '16px' }}>
                       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'flex-start' }}>
                         <img
-                          src={hostPath(currentQuestion.part.imageUrl)}
+                          src={/^https?:\/\//i.test(currentQuestion.part.imageUrl) ? currentQuestion.part.imageUrl : hostPath(currentQuestion.part.imageUrl)}
                           alt="Part illustration"
                           style={{ maxWidth: '100%', borderRadius: '8px', boxShadow: '0 2px 8px rgba(0,0,0,0.12)' }}
                         />

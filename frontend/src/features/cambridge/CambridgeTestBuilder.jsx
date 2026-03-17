@@ -1365,13 +1365,13 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
                   {currentPart.imageUrl ? (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                       <img
-                        src={hostPath(currentPart.imageUrl)}
+                        src={/^https?:\/\//i.test(currentPart.imageUrl) ? currentPart.imageUrl : hostPath(currentPart.imageUrl)}
                         alt="Part image"
                         style={{ maxWidth: '100%', maxHeight: '300px', objectFit: 'contain', borderRadius: '6px', border: '1px solid #e5e7eb' }}
                       />
                       <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
                         <a
-                          href={hostPath(currentPart.imageUrl)}
+                          href={/^https?:\/\//i.test(currentPart.imageUrl) ? currentPart.imageUrl : hostPath(currentPart.imageUrl)}
                           target="_blank"
                           rel="noreferrer"
                           style={{ color: '#2563eb', textDecoration: 'none', fontSize: '13px' }}
@@ -1406,7 +1406,42 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
                     </div>
                   )}
 
+                  {/* URL input – paste link ảnh/GIF từ internet */}
                   <div style={{ marginTop: '12px' }}>
+                    <div style={{ fontSize: '12px', fontWeight: 700, color: '#374151', marginBottom: '5px' }}>
+                      🔗 Nhập URL ảnh/GIF từ internet
+                    </div>
+                    <input
+                      type="text"
+                      value={currentPart.imageUrl && /^https?:\/\//i.test(currentPart.imageUrl) ? currentPart.imageUrl : ''}
+                      onChange={(e) => {
+                        const val = e.target.value.trim();
+                        setParts(prevParts => prevParts.map((part, pIdx) => {
+                          if (pIdx !== selectedPartIndex) return part;
+                          return { ...part, imageUrl: val };
+                        }));
+                      }}
+                      placeholder="https://example.com/image.gif"
+                      style={{
+                        width: '100%',
+                        padding: '7px 10px',
+                        border: '1px solid #d1d5db',
+                        borderRadius: '6px',
+                        fontSize: '13px',
+                        boxSizing: 'border-box',
+                        color: currentPart.imageUrl && /^https?:\/\//i.test(currentPart.imageUrl) ? '#1d4ed8' : '#374151',
+                      }}
+                    />
+                    <div style={{ marginTop: '4px', fontSize: '11px', color: '#6b7280' }}>
+                      Dán link GIF từ Giphy, Tenor, hoặc bất kỳ URL ảnh nào (jpg/png/gif/webp...)
+                    </div>
+                  </div>
+
+                  {/* Upload từ máy */}
+                  <div style={{ marginTop: '10px' }}>
+                    <div style={{ fontSize: '12px', fontWeight: 700, color: '#374151', marginBottom: '5px' }}>
+                      📁 Hoặc upload từ máy
+                    </div>
                     <input
                       type="file"
                       accept="image/*"
@@ -1429,7 +1464,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
                       </div>
                     )}
                     <div style={{ marginTop: '6px', fontSize: '11px', color: '#6b7280' }}>
-                      💡 Hỗ trợ file ảnh (jpg/png/webp...). Nên dùng ảnh rõ nét, tỉ lệ phù hợp với bài thi.
+                      💡 Hỗ trợ file ảnh (jpg/png/gif/webp...). Nên dùng ảnh rõ nét, tỉ lệ phù hợp với bài thi.
                     </div>
                   </div>
                 </div>
