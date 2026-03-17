@@ -107,7 +107,7 @@ export default function StoryCompletionDisplay({
         <img
           src={resolveImgSrc(partImage)}
           alt="story illustration"
-          style={{ width: "100%", maxHeight: 220, objectFit: "contain", borderRadius: 8, marginBottom: 10 }}
+          style={{ width: "100%", maxHeight: 500, objectFit: "contain", borderRadius: 8, marginBottom: 10 }}
         />
       )}
 
@@ -127,7 +127,7 @@ export default function StoryCompletionDisplay({
                 <img
                   src={resolveImgSrc(storyImages[i])}
                   alt={`story illustration ${i + 1}`}
-                  style={{ width: "100%", maxHeight: 220, objectFit: "contain", borderRadius: 8, marginBottom: 8 }}
+                  style={{ width: "100%", maxHeight: 500, objectFit: "contain", borderRadius: 8, marginBottom: 8 }}
                 />
               )}
               {storyTexts[i] && (
@@ -145,14 +145,14 @@ export default function StoryCompletionDisplay({
             <img
               src={resolveImgSrc(storyImages[0])}
               alt="story illustration 1"
-              style={{ width: "100%", maxHeight: 220, objectFit: "contain", borderRadius: 8, marginBottom: 10 }}
+              style={{ width: "100%", maxHeight: 500, objectFit: "contain", borderRadius: 8, marginBottom: 10 }}
             />
           )}
           {!partImage && storyImages[1] && (
             <img
               src={resolveImgSrc(storyImages[1])}
               alt="story illustration 2"
-              style={{ width: "100%", maxHeight: 220, objectFit: "contain", borderRadius: 8, marginBottom: 10 }}
+              style={{ width: "100%", maxHeight: 500, objectFit: "contain", borderRadius: 8, marginBottom: 10 }}
             />
           )}
           {storyText && (

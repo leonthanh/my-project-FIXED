@@ -255,10 +255,10 @@ export default function ImageClozeDisplay({
             src={resolveImg(img.url)}
             alt={img.word}
             draggable={false}
-            style={{ width: "100%", maxWidth: "140px", height: "auto", aspectRatio: "5/4", objectFit: "contain", borderRadius: "6px", pointerEvents: "none", display: "block" }}
+            style={{ width: "100%", maxWidth: "240px", maxHeight: "500px", height: "auto", aspectRatio: "5/4", objectFit: "contain", borderRadius: "6px", pointerEvents: "none", display: "block" }}
           />
         ) : (
-          <div style={{ width: "100%", maxWidth: "140px", aspectRatio: "5/4", background: "#f3f4f6", borderRadius: "6px", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "11px", color: "#9ca3af" }}>
+          <div style={{ width: "100%", maxWidth: "240px", aspectRatio: "5/4", background: "#f3f4f6", borderRadius: "6px", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "11px", color: "#9ca3af" }}>
             No img
           </div>
         )}

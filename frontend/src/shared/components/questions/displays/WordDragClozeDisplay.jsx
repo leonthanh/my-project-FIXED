@@ -397,7 +397,7 @@ export default function WordDragClozeDisplay({
     <>
       {displayImage && (
         <div style={{ textAlign: "center", marginBottom: 12 }}>
-          <img src={resolveImg(displayImage)} alt="passage" style={{ maxWidth: "100%", maxHeight: 220, borderRadius: 8, border: "1px solid #e5e7eb" }} />
+          <img src={resolveImg(displayImage)} alt="passage" style={{ maxWidth: "100%", maxHeight: 500, borderRadius: 8, border: "1px solid #e5e7eb" }} />
         </div>
       )}
       {passageTitle && (
