@@ -22,7 +22,11 @@ import {
   WordFormEditor,
   MultipleChoicePicturesEditor,
   MatchingPicturesEditor,
+  ImageClozeEditor,
   InlineChoiceEditor,
+  WordDragClozeEditor,
+  StoryCompletionEditor,
+  LookReadWriteEditor,
 } from "./editors";
 
 /**
@@ -139,8 +143,20 @@ const QuestionEditorFactory = ({
     case 'matching-pictures':
       return <MatchingPicturesEditor {...commonProps} />;
 
+    case 'image-cloze':
+      return <ImageClozeEditor {...commonProps} />;
+
     case 'inline-choice':
       return <InlineChoiceEditor {...commonProps} />;
+
+    case 'word-drag-cloze':
+      return <WordDragClozeEditor {...commonProps} />;
+
+    case 'story-completion':
+      return <StoryCompletionEditor {...commonProps} />;
+
+    case 'look-read-write':
+      return <LookReadWriteEditor {...commonProps} />;
 
     // Placeholder for future types
     case 'true-false-not-given':

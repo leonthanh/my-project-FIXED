@@ -519,6 +519,117 @@ export const QUESTION_TYPES = {
     supportedTests: ['flyers', 'movers', 'starters'],
   },
 
+  'image-cloze': {
+    id: 'image-cloze',
+    label: 'Image Cloze (Drag & Drop)',
+    labelVi: 'Điền ảnh vào đoạn văn',
+    icon: '🖼️',
+    description: 'Kéo ảnh vào ô trống trong đoạn văn (Movers Part 3)',
+    editor: 'ImageClozeEditor',
+    defaultData: {
+      passageTitle: '',
+      passageText: '',
+      imageBank: [],
+      answers: {},
+      titleQuestion: {
+        enabled: false,
+        text: 'Now choose the best name for the story. Tick one box.',
+        options: ['', '', ''],
+        correctAnswer: '',
+      },
+    },
+    supportedTests: ['movers'],
+  },
+
+  'word-drag-cloze': {
+    id: 'word-drag-cloze',
+    label: 'Word Drag & Drop Cloze',
+    labelVi: 'Kéo từ vào chỗ trống',
+    icon: '🔤',
+    description: 'Movers Part 4: Đọc đoạn văn, kéo thả từ đúng vào chỗ trống (3 lựa chọn/blank)',
+    editor: 'WordDragClozeEditor',
+    defaultData: {
+      passageTitle: '',
+      passageImage: '',
+      passageText: '',
+      exampleAnswer: 'one',
+      blanks: [
+        { number: 1, options: ['', '', ''], correctAnswer: '' },
+      ],
+    },
+    supportedTests: ['movers'],
+  },
+
+  'story-completion': {
+    id: 'story-completion',
+    label: 'Story Completion',
+    labelVi: 'Hoàn thành câu chuyện',
+    icon: '📖',
+    description: 'Movers Part 5: Đọc câu chuyện + điền từ vào chỗ trống (gõ từng chữ cái)',
+    editor: 'StoryCompletionEditor',
+    defaultData: {
+      storyTitle: '',
+      storyImages: ['', ''],
+      storyText: '',
+      examples: [
+        { sentence: '', answer: '' },
+        { sentence: '', answer: '' },
+      ],
+      items: [
+        { sentence: '', answer: '' },
+        { sentence: '', answer: '' },
+        { sentence: '', answer: '' },
+        { sentence: '', answer: '' },
+        { sentence: '', answer: '' },
+        { sentence: '', answer: '' },
+        { sentence: '', answer: '' },
+      ],
+    },
+    supportedTests: ['movers'],
+  },
+
+  'look-read-write': {
+    id: 'look-read-write',
+    label: 'Look, Read & Write',
+    labelVi: 'Nhìn tranh và viết',
+    icon: '🖼️',
+    description: 'Movers Part 6: Nhìn tranh + complete sentences + answer questions + write sentences',
+    editor: 'LookReadWriteEditor',
+    defaultData: {
+      examples: [
+        { sentence: '', answer: '' },
+        { sentence: '', answer: '' },
+      ],
+      groups: [
+        {
+          instruction: 'Complete the sentences.',
+          type: 'complete',
+          items: [
+            { sentence: '', answer: '' },
+            { sentence: '', answer: '' },
+          ],
+        },
+        {
+          instruction: 'Answer the questions.',
+          type: 'answer',
+          items: [
+            { sentence: '', answer: '' },
+            { sentence: '', answer: '' },
+          ],
+        },
+        {
+          instruction: 'Now write two sentences about the picture.',
+          type: 'write',
+          items: [
+            { sentence: '', answer: '' },
+            { sentence: '', answer: '' },
+          ],
+        },
+      ],
+    },
+    supportedTests: ['movers'],
+  },
+
   'multiple-choice-pictures': {
     id: 'multiple-choice-pictures',
     label: 'Multiple Choice with Pictures',
@@ -754,6 +865,10 @@ export const TEST_CONFIGS = {
     duration: 30, // minutes (reading & writing)
     questionTypes: [
       'matching-pictures',
+      'image-cloze',
+      'word-drag-cloze',
+      'story-completion',
+      'look-read-write',
       'multiple-choice-pictures',
       'abc',
       'fill',

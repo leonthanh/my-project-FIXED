@@ -743,6 +743,70 @@ const scoreTest = (test, answers) => {
           return;
         }
 
+        // matching-pictures: answers stored as {partIdx}-{secIdx}-{prompt.number}
+        if (sectionType === 'matching-pictures' && Array.isArray(question.prompts)) {
+          question.prompts.forEach((prompt) => {
+            const promptId = String(prompt.id || prompt.number || 0);
+            const key = `${partIdx}-${secIdx}-${promptId}`;
+            const userAnswer = answers?.[key];
+            const correctAnswer = prompt.correctAnswer ?? prompt.answer;
+            if (correctAnswer === undefined || correctAnswer === null) {
+              detailedResults[key] = { isCorrect: null, userAnswer: userAnswer || null, correctAnswer: null, questionType: 'matching-pictures', questionText: prompt.text || '' };
+              return;
+            }
+            total++;
+            const isCorrect = scoreQuestion(userAnswer, correctAnswer, 'abc');
+            if (isCorrect) score++;
+            detailedResults[key] = { isCorrect, userAnswer: userAnswer || null, correctAnswer, questionType: 'matching-pictures', questionText: prompt.text || '' };
+          });
+          return;
+        }
+
+        // image-cloze: blanks extracted from passageText hole numbers; title question
+        if (sectionType === 'image-cloze') {
+          const passageText = question.passageText || '';
+          const answersMap = question.answers && typeof question.answers === 'object' ? question.answers : {};
+          const imageBank = Array.isArray(question.imageBank) ? question.imageBank : [];
+          const resolveWord = function(id) {
+            if (!id) return id;
+            var entry = imageBank.find(function(b) { return b.id === id; });
+            return entry ? entry.word || id : id;
+          };
+          // Extract blank numbers from passage (e.g. (12), (13)...)
+          var blankNums = [];
+          var blankRe = /\(\s*(\d+)\s*\)/g;
+          var blankMatch;
+          while ((blankMatch = blankRe.exec(passageText)) !== null) {
+            blankNums.push(parseInt(blankMatch[1], 10));
+          }
+          blankNums.forEach(function(blankNum) {
+            const key = `${partIdx}-${secIdx}-blank-${blankNum}`;
+            const userAnswer = answers?.[key];
+            const correctId = answersMap[String(blankNum)];
+            if (!correctId) {
+              detailedResults[key] = { isCorrect: null, userAnswer: userAnswer || null, correctAnswer: null, questionType: 'image-cloze', questionText: '' };
+              return;
+            }
+            total++;
+            const isCorrect = userAnswer === correctId;
+            if (isCorrect) score++;
+            detailedResults[key] = { isCorrect, userAnswer: userAnswer || null, correctAnswer: resolveWord(correctId), questionType: 'image-cloze', questionText: '' };
+          });
+          // Title question
+          if (question.titleQuestion && question.titleQuestion.enabled) {
+            const key = `${partIdx}-${secIdx}-title`;
+            const userAnswer = answers?.[key];
+            const correctAnswer = question.titleQuestion.correctAnswer;
+            if (correctAnswer) {
+              total++;
+              const isCorrect = scoreQuestion(userAnswer, correctAnswer, 'abc');
+              if (isCorrect) score++;
+              detailedResults[key] = { isCorrect, userAnswer: userAnswer || null, correctAnswer, questionType: 'abc', questionText: question.titleQuestion.text || '' };
+            }
+          }
+          return;
+        }
+
         // KET Writing: short-message (not auto-scored)
         if (sectionType === 'short-message') {
           const key = `${partIdx}-${secIdx}-${qIdx}`;
@@ -930,6 +994,59 @@ const scoreTest = (test, answers) => {
             };
           });
         }
+        // word-drag-cloze: answers stored as {partIdx}-{secIdx}-blank-{blank.number}
+        else if (sectionType === 'word-drag-cloze' && question.blanks && Array.isArray(question.blanks)) {
+          question.blanks.forEach((blank) => {
+            const key = `${partIdx}-${secIdx}-blank-${blank.number}`;
+            const userAnswer = answers?.[key];
+            const correctAnswer = blank.correctAnswer ?? blank.answer ?? blank.correct;
+            if (correctAnswer === undefined || correctAnswer === null) {
+              detailedResults[key] = { isCorrect: null, userAnswer: userAnswer || null, correctAnswer: null, questionType: 'fill', questionText: '' };
+              return;
+            }
+            total++;
+            const isCorrect = scoreQuestion(userAnswer, correctAnswer, 'fill');
+            if (isCorrect) score++;
+            detailedResults[key] = { isCorrect, userAnswer: userAnswer || null, correctAnswer, questionType: 'fill', questionText: '' };
+          });
+        }
+        // story-completion: key = {partIdx}-{secIdx}-item-{n}
+        else if (sectionType === 'story-completion' && question.items && Array.isArray(question.items)) {
+          question.items.forEach((item, itemIdx) => {
+            const key = `${partIdx}-${secIdx}-item-${itemIdx + 1}`;
+            const userAnswer = answers?.[key];
+            const correctAnswer = item.answer ?? item.correctAnswer;
+            if (correctAnswer === undefined || correctAnswer === null) {
+              detailedResults[key] = { isCorrect: null, userAnswer: userAnswer || null, correctAnswer: null, questionType: 'fill', questionText: item.sentence || '' };
+              return;
+            }
+            total++;
+            const isCorrect = scoreQuestion(userAnswer, correctAnswer, 'fill');
+            if (isCorrect) score++;
+            detailedResults[key] = { isCorrect, userAnswer: userAnswer || null, correctAnswer, questionType: 'fill', questionText: item.sentence || '' };
+          });
+        }
+        // look-read-write: key = {partIdx}-{secIdx}-g{groupIdx}-item{itemIdx}
+        else if (sectionType === 'look-read-write' && question.groups && Array.isArray(question.groups)) {
+          question.groups.forEach((group, groupIdx) => {
+            (group.items || []).forEach((item, itemIdx) => {
+              const key = `${partIdx}-${secIdx}-g${groupIdx}-item${itemIdx}`;
+              const userAnswer = answers?.[key];
+              const correctAnswer = (item.answer ?? item.correctAnswer ?? '').trim();
+              total++;
+              // free-write (no answer key): any non-empty response = correct
+              if (!correctAnswer) {
+                const isCorrect = !!(userAnswer && userAnswer.trim());
+                if (isCorrect) score++;
+                detailedResults[key] = { isCorrect, userAnswer: userAnswer || null, correctAnswer: null, questionType: 'fill', questionText: item.sentence || '' };
+                return;
+              }
+              const isCorrect = scoreQuestion(userAnswer, correctAnswer, 'fill');
+              if (isCorrect) score++;
+              detailedResults[key] = { isCorrect, userAnswer: userAnswer || null, correctAnswer, questionType: 'fill', questionText: item.sentence || '' };
+            });
+          });
+        }
         // Regular question (not nested)
         else {
           const key = `${partIdx}-${secIdx}-${qIdx}`;
@@ -1004,10 +1121,26 @@ const scoreQuestion = (userAnswer, correctAnswer, questionType) => {
 
   const acceptedAnswers = toArray(correctAnswer);
 
-  // Fill-in-the-blank style: case-insensitive, allow multiple answers
+  // Fill-in-the-blank style: case-insensitive, expand (optional) notation
+  // Handles Cambridge marking scheme: "(She is giving him) a glass of water(.)" means
+  // optional parts in parens are accepted both with and without.
   if (questionType === 'fill' || questionType === 'cloze-test') {
     const userNorm = normalize(userAnswer);
-    return acceptedAnswers.some((ans) => normalize(ans) === userNorm);
+    const stripTrailingDot = (s) => s.replace(/\.+$/, '').trim();
+    const allVariants = new Set();
+    acceptedAnswers.forEach((raw) => {
+      const base = normalize(raw);
+      // without optional parts: remove " (text)" segments
+      const without = base.replace(/\s*\([^)]+\)/g, '').replace(/\s+/g, ' ').trim();
+      // with optional parts expanded: replace (text) → text
+      const withOpt = base.replace(/\(([^)]+)\)/g, '$1').replace(/\s+/g, ' ').trim();
+      [base, without, withOpt].forEach((v) => {
+        if (!v) return;
+        allVariants.add(v);
+        allVariants.add(stripTrailingDot(v));
+      });
+    });
+    return allVariants.has(userNorm) || allVariants.has(stripTrailingDot(userNorm));
   }
 
   // Multiple choice: normalize to uppercase letters
