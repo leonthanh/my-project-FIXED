@@ -9,6 +9,7 @@ export { default as CreateCambridgeTest } from './CreateCambridgeTest';
 export { default as EditCambridgeReadingTest } from './EditCambridgeReadingTest';
 export { default as EditCambridgeListeningTest } from './EditCambridgeListeningTest';
 export { default as CreateMoversReadingTest } from './CreateMoversReadingTest';
+export { default as CreateMoversListeningTest } from './CreateMoversListeningTest';
 
 // Student - Select and Do test pages
 export { default as SelectCambridgeTest } from './SelectCambridgeTest';

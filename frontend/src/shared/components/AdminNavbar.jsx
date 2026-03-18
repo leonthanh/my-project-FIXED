@@ -169,9 +169,15 @@ const AdminNavbar = () => {
               )}
 
               <div className="adminNavbar__menuHeader">🚗 Movers (A1)</div>
-              <span className="adminNavbar__menuItem adminNavbar__menuItem--disabled">
-                🎧 Listening (làm sau)
-              </span>
+              {canManageCategory(user, 'listening') && (
+                <Link
+                  to="/admin/create-movers-listening"
+                  className="adminNavbar__menuItem"
+                  onClick={() => setCambridgeDropdownVisible(false)}
+                >
+                  🎧 Movers Listening
+                </Link>
+              )}
               {canManageCategory(user, 'reading') && (
                 <Link
                   to="/admin/create/movers"

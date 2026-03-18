@@ -7,7 +7,7 @@ import { WritingTest, CreateWritingTest, PetWritingTest, CreatePetWritingTest, S
 import { Login } from './features/auth';
 import { CreateReadingTest, EditReadingTest, DoReadingTest, TakeReadingTest, ReadingResults } from './features/reading';
 import { CreateListeningTest, EditListeningTest, DoListeningTest, ListeningResults } from './features/listening';
-import { CreateKETListeningTest, CreateKETReadingTest, CreatePETListeningTest, CreatePETReadingTest, CreateCambridgeTest, CreateMoversReadingTest, EditCambridgeReadingTest, EditCambridgeListeningTest, SelectCambridgeTest, DoCambridgeTestEntry, DoCambridgeListeningTest, DoCambridgeReadingTest, CambridgeResultPage } from './features/cambridge';
+import { CreateKETListeningTest, CreateKETReadingTest, CreatePETListeningTest, CreatePETReadingTest, CreateCambridgeTest, CreateMoversReadingTest, CreateMoversListeningTest, EditCambridgeReadingTest, EditCambridgeListeningTest, SelectCambridgeTest, DoCambridgeTestEntry, DoCambridgeListeningTest, DoCambridgeReadingTest, CambridgeResultPage } from './features/cambridge';
 import { ProtectedRoute } from './shared/components';
 import { refreshAccessToken } from './shared/utils/api';
 
@@ -167,6 +167,11 @@ function App() {
         <Route path="/admin/create-movers" element={
           <ProtectedRoute role="teacher">
             <CreateMoversReadingTest />
+          </ProtectedRoute>
+        } />
+        <Route path="/admin/create-movers-listening" element={
+          <ProtectedRoute role="teacher">
+            <CreateMoversListeningTest />
           </ProtectedRoute>
         } />
         <Route path="/admin/create/movers" element={
