@@ -12,6 +12,7 @@
 import React, { useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { apiPath } from "../../../shared/utils/api";
+import { AdminNavbar } from "../../../shared/components";
 
 // ── Part configuration ─────────────────────────────────────────────────────
 const PART_CONFIGS = [
@@ -852,11 +853,14 @@ const MoversListeningTestBuilder = () => {
     <div
       style={{
         display: "flex",
+        flexDirection: "column",
         minHeight: "100vh",
         background: "#f8fafc",
         fontFamily: "system-ui, -apple-system, sans-serif",
       }}
     >
+      <AdminNavbar />
+      <div style={{ display: "flex", flex: 1 }}>
       {/* ── Left sidebar ── */}
       <div
         style={{
@@ -1301,6 +1305,7 @@ const MoversListeningTestBuilder = () => {
             </div>
           </div>
         </div>
+      </div>
       </div>
     </div>
   );
