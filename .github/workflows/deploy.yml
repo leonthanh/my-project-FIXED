@@ -6,6 +6,7 @@ on:
     branches: [main]
 
 env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
   OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
   EMAIL_USER: ${{ secrets.EMAIL_USER }}
