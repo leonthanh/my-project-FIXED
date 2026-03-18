@@ -43,6 +43,13 @@ const getPrimaryAnswer = (answer) => {
   return firstAlt.replace(/\s*\([^)]+\)/g, "").replace(/\s+/g, " ").trim();
 };
 
+/** Đường dẫn ảnh: URL ngoài (https://) dùng nguyên, đường dẫn tương đối dùng hostPath */
+const resolveImgSrc = (url) => {
+  if (!url) return "";
+  if (/^https?:\/\//i.test(url)) return url;
+  return hostPath(url);
+};
+
 export default function StoryCompletionDisplay({
   section,
   startingNumber = 1,
@@ -59,6 +66,7 @@ export default function StoryCompletionDisplay({
     storyTitle = "",
     storyImages = [],
     storyText = "",
+    storyTexts = [],
     examples = [],
     items = [],
   } = q;
@@ -91,21 +99,15 @@ export default function StoryCompletionDisplay({
   };
 
   // ── Render đoạn văn HTML (sanitized) ──
+  const hasSegments = storyTexts.some((t) => t);
   const storyPassage = (
     <div>
-      {/* Ảnh minh hoạ */}
-      {(partImage || storyImages[0]) && (
+      {/* Ảnh part-level (nếu có) */}
+      {partImage && (
         <img
-          src={hostPath(partImage || storyImages[0])}
-          alt="story illustration 1"
-          style={{ width: "100%", maxHeight: 220, objectFit: "contain", borderRadius: 8, marginBottom: 10 }}
-        />
-      )}
-      {!partImage && storyImages[1] && (
-        <img
-          src={hostPath(storyImages[1])}
-          alt="story illustration 2"
-          style={{ width: "100%", maxHeight: 220, objectFit: "contain", borderRadius: 8, marginBottom: 10 }}
+          src={resolveImgSrc(partImage)}
+          alt="story illustration"
+          style={{ width: "100%", maxHeight: 500, objectFit: "contain", borderRadius: 8, marginBottom: 10 }}
         />
       )}
 
@@ -116,12 +118,50 @@ export default function StoryCompletionDisplay({
         </div>
       )}
 
-      {/* Đoạn văn */}
-      {storyText && (
-        <div
-          style={{ fontSize: "0.9em", lineHeight: 1.7, color: "#1e293b", marginBottom: 14 }}
-          dangerouslySetInnerHTML={{ __html: storyText }}
-        />
+      {/* 3 đoạn (new format) hoặc fallback (old format) */}
+      {hasSegments ? (
+        [0, 1, 2].map((i) =>
+          (storyImages[i] || storyTexts[i]) ? (
+            <div key={i} style={{ marginBottom: 12 }}>
+              {storyImages[i] && (
+                <img
+                  src={resolveImgSrc(storyImages[i])}
+                  alt={`story illustration ${i + 1}`}
+                  style={{ width: "100%", maxHeight: 500, objectFit: "contain", borderRadius: 8, marginBottom: 8 }}
+                />
+              )}
+              {storyTexts[i] && (
+                <div
+                  style={{ fontSize: "0.9em", lineHeight: 1.7, color: "#1e293b" }}
+                  dangerouslySetInnerHTML={{ __html: storyTexts[i] }}
+                />
+              )}
+            </div>
+          ) : null
+        )
+      ) : (
+        <>
+          {!partImage && storyImages[0] && (
+            <img
+              src={resolveImgSrc(storyImages[0])}
+              alt="story illustration 1"
+              style={{ width: "100%", maxHeight: 500, objectFit: "contain", borderRadius: 8, marginBottom: 10 }}
+            />
+          )}
+          {!partImage && storyImages[1] && (
+            <img
+              src={resolveImgSrc(storyImages[1])}
+              alt="story illustration 2"
+              style={{ width: "100%", maxHeight: 500, objectFit: "contain", borderRadius: 8, marginBottom: 10 }}
+            />
+          )}
+          {storyText && (
+            <div
+              style={{ fontSize: "0.9em", lineHeight: 1.7, color: "#1e293b", marginBottom: 14 }}
+              dangerouslySetInnerHTML={{ __html: storyText }}
+            />
+          )}
+        </>
       )}
 
       {/* Examples – điền sẵn */}

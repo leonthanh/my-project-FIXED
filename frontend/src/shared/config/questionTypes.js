@@ -887,6 +887,28 @@ export const TEST_CONFIGS = {
     ],
   },
 
+  'movers-listening': {
+    id: 'movers-listening',
+    name: 'Cambridge Movers Listening',
+    nameVi: 'Cambridge Movers Listening (A1)',
+    totalQuestions: 25,
+    parts: 5,
+    duration: 25, // minutes
+    questionTypes: [
+      'fill',
+      'matching',
+      'multiple-choice-pictures',
+      'abc',
+    ],
+    partStructure: [
+      { part: 1, questions: '1-5',   description: 'Listen and draw lines (nối tên với vị trí/nhân vật trong tranh)' },
+      { part: 2, questions: '6-10',  description: 'Listen and write (điền từ/tên vào ô trống)' },
+      { part: 3, questions: '11-15', description: 'Listen and tick the box – 3 picture choices (A/B/C)' },
+      { part: 4, questions: '16-20', description: 'Listen and write (điền thông tin ngắn)' },
+      { part: 5, questions: '21-25', description: 'Listen and colour/write – choose or complete' },
+    ],
+  },
+
   'starters': {
     id: 'starters',
     name: 'Cambridge Starters',

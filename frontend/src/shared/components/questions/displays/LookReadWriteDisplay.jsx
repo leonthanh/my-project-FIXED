@@ -114,7 +114,7 @@ export default function LookReadWriteDisplay({
     <div style={{ padding: "0 4px" }}>
       {partImage && (
         <img
-          src={hostPath(partImage)}
+          src={/^https?:\/\//i.test(partImage) ? partImage : hostPath(partImage)}
           alt="Part illustration"
           style={{
             width: "100%",
