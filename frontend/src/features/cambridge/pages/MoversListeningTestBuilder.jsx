@@ -11,8 +11,14 @@
  */
 import React, { useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { apiPath, authFetch } from "../../../shared/utils/api";
+import { apiPath, authFetch, hostPath } from "../../../shared/utils/api";
 import { AdminNavbar } from "../../../shared/components";
+
+const resolveImg = (url) => {
+  if (!url) return "";
+  if (/^https?:\/\//i.test(url)) return url;
+  return hostPath(url);
+};
 
 // ── Part configuration ─────────────────────────────────────────────────────
 const PART_CONFIGS = [
@@ -713,24 +719,39 @@ const PictureQuestionsEditor = ({ questions, onChange }) => {
 };
 
 // ── Main builder component ────────────────────────────────────────────────
-const MoversListeningTestBuilder = () => {
+const MoversListeningTestBuilder = ({ editId = null, initialData = null }) => {
   const navigate = useNavigate();
+  const isEditMode = Boolean(editId);
 
-  const [title, setTitle] = useState("");
-  const [classCode, setClassCode] = useState("");
+  const [title, setTitle] = useState(initialData?.title || "");
+  const [classCode, setClassCode] = useState(initialData?.classCode || "");
   const [teacherName, setTeacherName] = useState(() => {
-    try {
-      return JSON.parse(localStorage.getItem("user"))?.name || "";
-    } catch {
-      return "";
-    }
+    if (initialData?.teacherName) return initialData.teacherName;
+    try { return JSON.parse(localStorage.getItem("user"))?.name || ""; } catch { return ""; }
   });
-  const [mainAudioUrl, setMainAudioUrl] = useState("");
-  const [parts, setParts] = useState(buildInitialParts);
+  const [mainAudioUrl, setMainAudioUrl] = useState(initialData?.mainAudioUrl || "");
+  const [parts, setParts] = useState(() => {
+    if (initialData?.parts && Array.isArray(initialData.parts) && initialData.parts.length === 5) {
+      return initialData.parts;
+    }
+    return buildInitialParts();
+  });
   const [activePartIdx, setActivePartIdx] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState({ type: "", text: "" });
   const [uploadingAudio, setUploadingAudio] = useState(false);
+
+  // Re-hydrate if initialData arrives late (edit page async fetch)
+  React.useEffect(() => {
+    if (!initialData) return;
+    setTitle(initialData.title || "");
+    setClassCode(initialData.classCode || "");
+    setTeacherName(initialData.teacherName || "");
+    setMainAudioUrl(initialData.mainAudioUrl || "");
+    if (Array.isArray(initialData.parts) && initialData.parts.length === 5) {
+      setParts(initialData.parts);
+    }
+  }, [initialData]);
 
   const cfg = PART_CONFIGS[activePartIdx];
   const activePart = parts[activePartIdx];
@@ -825,20 +846,27 @@ const MoversListeningTestBuilder = () => {
         status,
       };
 
-      const res = await authFetch(apiPath("cambridge/listening-tests"), {
-        method: "POST",
+      const url = isEditMode
+        ? apiPath(`cambridge/listening-tests/${editId}`)
+        : apiPath("cambridge/listening-tests");
+      const method = isEditMode ? "PUT" : "POST";
+
+      const res = await authFetch(url, {
+        method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
 
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error(err.message || "Lỗi khi tạo đề thi");
+        throw new Error(err.message || (isEditMode ? "Lỗi khi cập nhật đề thi" : "Lỗi khi tạo đề thi"));
       }
 
       setMessage({
         type: "success",
-        text: `✅ Đề thi "${title}" đã được tạo thành công!`,
+        text: isEditMode
+          ? `✅ Đề thi "${title}" đã được cập nhật!`
+          : `✅ Đề thi "${title}" đã được tạo thành công!`,
       });
       setTimeout(() => navigate("/select-test"), 1500);
     } catch (err) {
@@ -931,7 +959,7 @@ const MoversListeningTestBuilder = () => {
               marginBottom: "8px",
             }}
           >
-            {isSubmitting ? "Đang lưu…" : "🚀 Xuất bản"}
+            {isSubmitting ? "Đang lưu…" : isEditMode ? "💾 Cập nhật" : "🚀 Xuất bản"}
           </button>
           <button
             onClick={() => handleSubmit("draft")}
@@ -1128,33 +1156,93 @@ const MoversListeningTestBuilder = () => {
             {/* Part settings row */}
             <div
               style={{
-                display: "grid",
-                gridTemplateColumns: "1fr 1fr",
-                gap: "14px",
                 marginBottom: "20px",
               }}
             >
-              <div>
-                <label style={labelStyle}>📝 Lời dẫn (instruction cho học sinh)</label>
-                <input
-                  type="text"
-                  value={activePart.instruction || ""}
-                  onChange={(e) => updatePart("instruction", e.target.value)}
-                  style={inputStyle}
-                />
-              </div>
-              <div>
-                <label style={labelStyle}>
-                  🖼️ URL hình minh hoạ cho Part (nếu có)
-                </label>
+              <label style={labelStyle}>📝 Lời dẫn (instruction cho học sinh)</label>
+              <input
+                type="text"
+                value={activePart.instruction || ""}
+                onChange={(e) => updatePart("instruction", e.target.value)}
+                style={inputStyle}
+              />
+            </div>
+
+            {/* Part scene image — full width, with upload */}
+            <div style={{ marginBottom: "20px" }}>
+              <label style={{
+                ...labelStyle,
+                fontSize: "13px",
+                color: cfg.color,
+                fontWeight: 800,
+              }}>
+                🖼️ {cfg.part === 1 ? "Hình minh hoạ Part 1 (scene picture — bắt buộc)" : "URL hình minh hoạ cho Part (nếu có)"}
+              </label>
+              {cfg.part === 1 && (
+                <p style={{ fontSize: "11px", color: "#6b7280", margin: "0 0 8px", lineHeight: 1.5 }}>
+                  Đây là bức tranh toàn cảnh mà học sinh nhìn vào để nối tên (VD: khu vườn có nhiều nhân vật). Paste URL hoặc upload file ảnh.
+                </p>
+              )}
+              <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
                 <input
                   type="text"
                   placeholder="https://... hoặc /uploads/..."
                   value={activePart.imageUrl || ""}
                   onChange={(e) => updatePart("imageUrl", e.target.value)}
-                  style={inputStyle}
+                  style={{ ...inputStyle, marginBottom: 0, flex: 1 }}
                 />
+                <label style={{
+                  padding: "9px 16px",
+                  borderRadius: "7px",
+                  cursor: uploadingAudio ? "not-allowed" : "pointer",
+                  background: cfg.bg,
+                  border: `1px solid ${cfg.color}60`,
+                  fontSize: "13px",
+                  color: cfg.color,
+                  whiteSpace: "nowrap",
+                  fontWeight: 700,
+                  flexShrink: 0,
+                }}>
+                  🖼️ Upload ảnh
+                  <input
+                    type="file"
+                    accept="image/*"
+                    style={{ display: "none" }}
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      const fd = new FormData();
+                      fd.append("image", file);
+                      setUploadingAudio(true);
+                      try {
+                        const res = await authFetch(apiPath("upload/cambridge-image"), { method: "POST", body: fd });
+                        if (!res.ok) throw new Error("Upload thất bại");
+                        const { url } = await res.json();
+                        updatePart("imageUrl", url);
+                      } catch (err) {
+                        setMessage({ type: "error", text: err.message });
+                      } finally {
+                        setUploadingAudio(false);
+                      }
+                    }}
+                  />
+                </label>
               </div>
+              {activePart.imageUrl && (
+                <div style={{ marginTop: "10px", textAlign: "center" }}>
+                  <img
+                    src={resolveImg(activePart.imageUrl)}
+                    alt="Part scene"
+                    style={{
+                      maxWidth: "100%",
+                      maxHeight: "320px",
+                      objectFit: "contain",
+                      borderRadius: "10px",
+                      border: `2px solid ${cfg.color}40`,
+                    }}
+                  />
+                </div>
+              )}
             </div>
 
             {/* Per-part audio override */}

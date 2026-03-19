@@ -2047,6 +2047,23 @@ const DoCambridgeListeningTest = () => {
                       </a>
                     </div>
                   )}
+
+                  {/* Part scene image (e.g. MOVERS Part 1 Draw Lines) */}
+                  {currentPart?.imageUrl && (
+                    <div style={{ margin: '12px 0 18px', textAlign: 'center' }}>
+                      <img
+                        src={resolveImgSrc(currentPart.imageUrl)}
+                        alt="Part illustration"
+                        style={{
+                          maxWidth: '100%',
+                          maxHeight: '480px',
+                          objectFit: 'contain',
+                          borderRadius: '10px',
+                          border: isDarkMode ? '1px solid #334155' : '1px solid #e2e8f0',
+                        }}
+                      />
+                    </div>
+                  )}
                 </>
               )}
 
