@@ -11,7 +11,7 @@
  */
 import React, { useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { apiPath } from "../../../shared/utils/api";
+import { apiPath, authFetch } from "../../../shared/utils/api";
 import { AdminNavbar } from "../../../shared/components";
 
 // ── Part configuration ─────────────────────────────────────────────────────
@@ -786,7 +786,7 @@ const MoversListeningTestBuilder = () => {
     formData.append("audio", file);
     setUploadingAudio(true);
     try {
-      const res = await fetch(apiPath("upload/audio"), {
+      const res = await authFetch(apiPath("upload/audio"), {
         method: "POST",
         body: formData,
       });
@@ -825,10 +825,9 @@ const MoversListeningTestBuilder = () => {
         status,
       };
 
-      const res = await fetch(apiPath("cambridge/listening-tests"), {
+      const res = await authFetch(apiPath("cambridge/listening-tests"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        credentials: "include",
         body: JSON.stringify(payload),
       });
 
