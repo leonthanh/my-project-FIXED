@@ -8,6 +8,371 @@ import { computeQuestionStarts, countClozeBlanksFromText, getQuestionCountForSec
 import createStyles from "./DoCambridgeListeningTest.styles";
 import './DoCambridgeReadingTest.css';
 
+// ── Draw-lines interactive component for MOVERS Listening Part 1 ───────────
+const DRAW_COLORS = ['#f59e0b','#10b981','#3b82f6','#8b5cf6','#ef4444','#ec4899','#06b6d4','#84cc16'];
+// Anchor dots dùng bảng màu offset +4 so với DRAW_COLORS → không trùng màu với pill tên
+const ANCHOR_COLORS = [...DRAW_COLORS.slice(4), ...DRAW_COLORS.slice(0, 4)];
+
+const DrawLinesQuestion = ({
+  question, questionKey, questionNum,
+  leftItems, rightItems, anchors, partImageUrl,
+  answers, submitted, results, isDarkMode, wrapperClassName,
+  handleAnswerChange, hostPath: hp,
+}) => {
+  const [selectedNameIdx, setSelectedNameIdx] = useState(null);
+  const [lines, setLines] = useState([]);
+  const imgRef = useRef(null);
+  const containerRef = useRef(null);
+  const pillRefs = useRef({});
+
+  const resolveImg = (url) => {
+    if (!url) return '';
+    if (/^https?:\/\//i.test(url)) return url;
+    return `${hp}${url.startsWith('/') ? '' : '/'}${url}`;
+  };
+
+  const getStudentAnswer = useCallback(
+    (nameIdx) => answers[`${questionKey}-${nameIdx}`] || '',
+    [answers, questionKey]
+  );
+
+  // Recompute SVG lines from pill centres → anchor dots
+  const recomputeLines = useCallback(() => {
+    if (!imgRef.current || !containerRef.current) return;
+    const cRect = containerRef.current.getBoundingClientRect();
+    const iRect = imgRef.current.getBoundingClientRect();
+    // Build reverse map: chosenLetter → anchorIdx so lines go to the anchor the student clicked
+    const letterToAnchorIdx = {};
+    Object.entries(question.answers || {}).forEach(([aIdx, letter]) => {
+      letterToAnchorIdx[letter] = aIdx;
+    });
+    const newLines = [];
+    leftItems.forEach((name, i) => {
+      if (!name) return;
+      const pill = pillRefs.current[i];
+      if (!pill) return;
+
+      if (i === 0) {
+        // Example: always draw pre-set line to anchor[0] if it exists
+        const exampleAnchor = anchors['0'];
+        if (!exampleAnchor) return;
+        const pRect = pill.getBoundingClientRect();
+        newLines.push({
+          x1: pRect.left + pRect.width / 2 - cRect.left,
+          y1: pRect.top + pRect.height / 2 - cRect.top,
+          x2: iRect.left - cRect.left + (exampleAnchor.x / 100) * iRect.width,
+          y2: iRect.top - cRect.top + (exampleAnchor.y / 100) * iRect.height,
+          color: '#9ca3af', // grey – example line
+          nameIdx: 0,
+          isExample: true,
+        });
+        return;
+      }
+
+      const studentAns = answers[`${questionKey}-${i}`];
+      if (!studentAns) return;
+      // Find the anchor position that corresponds to the letter the student chose
+      const anchorIdxStr = letterToAnchorIdx[studentAns];
+      const anchor = anchorIdxStr !== undefined ? anchors[anchorIdxStr] : null;
+      if (!anchor) return;
+      const pRect = pill.getBoundingClientRect();
+      newLines.push({
+        x1: pRect.left + pRect.width / 2 - cRect.left,
+        y1: pRect.top + pRect.height / 2 - cRect.top,
+        x2: iRect.left - cRect.left + (anchor.x / 100) * iRect.width,
+        y2: iRect.top - cRect.top + (anchor.y / 100) * iRect.height,
+        color: DRAW_COLORS[i % DRAW_COLORS.length],
+        nameIdx: i,
+      });
+    });
+    setLines(newLines);
+  }, [answers, anchors, leftItems, questionKey]);
+
+  useEffect(() => {
+    const id = requestAnimationFrame(recomputeLines);
+    return () => cancelAnimationFrame(id);
+  }, [recomputeLines]);
+
+  useEffect(() => {
+    window.addEventListener('resize', recomputeLines);
+    return () => window.removeEventListener('resize', recomputeLines);
+  }, [recomputeLines]);
+
+  const handleImageClick = (e) => {
+    if (selectedNameIdx === null || !imgRef.current) return;
+    const rect = imgRef.current.getBoundingClientRect();
+    const xPct = (e.clientX - rect.left) / rect.width * 100;
+    const yPct = (e.clientY - rect.top) / rect.height * 100;
+    const validAnswers = question.answers || {};
+    let best = null;
+    let bestDist = Infinity;
+    Object.entries(anchors).forEach(([idxStr, pos]) => {
+      const i = parseInt(idxStr, 10);
+      if (i === 0) return; // skip Example anchor
+      if (!validAnswers[idxStr]) return; // skip anchors without a letter
+      const dx = xPct - pos.x;
+      const dy = yPct - pos.y;
+      const d = Math.sqrt(dx * dx + dy * dy);
+      if (d < bestDist) { bestDist = d; best = idxStr; }
+    });
+    if (!best) return; // no valid anchor found → keep selection
+    const chosenLetter = validAnswers[best];
+    if (!chosenLetter) return; // keep selection
+    handleAnswerChange(`${questionKey}-${selectedNameIdx}`, chosenLetter);
+    setSelectedNameIdx(null);
+  };
+
+  return (
+    <div
+      ref={containerRef}
+      className={wrapperClassName}
+      style={{ padding: '12px 16px', width: 'fit-content', maxWidth: '100%', position: 'relative', margin: '0 auto' }}
+    >
+      {/* SVG lines overlay – drawn from pill centres to anchor dots */}
+      <svg
+        style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 10, overflow: 'visible' }}
+        aria-hidden="true"
+      >
+        <defs>
+          {lines.map((ln) => (
+            <marker key={`m-${ln.nameIdx}`} id={`arrow-${questionKey}-${ln.nameIdx}`}
+              markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto">
+              <circle cx="4" cy="4" r="3" fill={ln.color} />
+            </marker>
+          ))}
+        </defs>
+        {lines.map((ln) => {
+          const lineIsCorrect = submitted && results?.answers?.[`${questionKey}-${ln.nameIdx}`]?.isCorrect;
+          // Example line stays grey always; student lines turn green/red on submit
+          const lineColor = ln.isExample ? '#9ca3af' : (submitted ? (lineIsCorrect ? '#22c55e' : '#ef4444') : ln.color);
+          return (
+            <line
+              key={ln.nameIdx}
+              x1={ln.x1} y1={ln.y1} x2={ln.x2} y2={ln.y2}
+              stroke={lineColor}
+              strokeWidth={ln.isExample ? 2 : 3}
+              strokeDasharray={ln.isExample ? '6 4' : '10 5'}
+              strokeLinecap="round"
+              opacity={ln.isExample ? 0.6 : 0.92}
+              markerEnd={`url(#arrow-${questionKey}-${ln.nameIdx})`}
+            />
+          );
+        })}
+      </svg>
+
+      {/* Question header */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', marginBottom: '12px' }}>
+        <span className="cambridge-question-number">{questionNum}</span>
+        <div className="cambridge-question-text">{question.questionText || 'Look at the picture. Listen and draw lines.'}</div>
+      </div>
+
+      {/* Two-column: pills left | image right */}
+      <div style={{ display: 'flex', gap: '20px', alignItems: 'flex-start' }}>
+
+        {/* Left column: hint + pills (vertical) */}
+        <div style={{ minWidth: '150px', maxWidth: '220px', flexShrink: 0 }}>
+          <p style={{
+            margin: '0 0 10px', fontSize: '13px', fontWeight: 700,
+            color: selectedNameIdx !== null ? DRAW_COLORS[selectedNameIdx % DRAW_COLORS.length] : (isDarkMode ? '#94a3b8' : '#374151'),
+          }}>
+            {selectedNameIdx !== null
+              ? `⚡ "${leftItems[selectedNameIdx]}" — click nhân vật`
+              : '👇 Click tên → click nhân vật'}
+          </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          {leftItems.map((name, i) => {
+            if (!name) return null;
+            const isExample = i === 0;
+            const studentAns = getStudentAnswer(i);
+            const isCorrect = submitted && results?.answers?.[`${questionKey}-${i}`]?.isCorrect;
+            const isWrong = submitted && studentAns && !isCorrect;
+            const isSelected = selectedNameIdx === i;
+            const color = DRAW_COLORS[i % DRAW_COLORS.length];
+
+            let bg, border, textColor;
+            if (submitted) {
+              bg = isCorrect ? '#dcfce7' : (studentAns ? '#fee2e2' : (isDarkMode ? '#374151' : '#f3f4f6'));
+              border = isCorrect ? '#22c55e' : (isWrong ? '#ef4444' : '#9ca3af');
+              textColor = isCorrect ? '#15803d' : (isWrong ? '#dc2626' : (isDarkMode ? '#d1d5db' : '#374151'));
+            } else if (isExample) {
+              bg = isDarkMode ? '#374151' : '#f1f5f9';
+              border = '#9ca3af';
+              textColor = isDarkMode ? '#9ca3af' : '#6b7280';
+            } else {
+              bg = isSelected ? color : (studentAns ? `${color}22` : (isDarkMode ? '#1e293b' : 'white'));
+              border = isSelected ? color : (studentAns ? color : '#d1d5db');
+              textColor = isSelected ? 'white' : (isDarkMode ? '#e2e8f0' : '#1e293b');
+            }
+
+            return (
+              <button
+                key={i}
+                ref={(el) => { if (el) pillRefs.current[i] = el; }}
+                disabled={submitted || isExample}
+                onClick={() => {
+                  if (isExample || submitted) return;
+                  setSelectedNameIdx(isSelected ? null : i);
+                }}
+                style={{
+                  padding: '8px 18px', borderRadius: '24px',
+                  border: `2.5px solid ${border}`,
+                  background: bg, color: textColor,
+                  fontWeight: 800, fontSize: '14px',
+                  cursor: isExample || submitted ? 'default' : 'pointer',
+                  display: 'flex', alignItems: 'center', gap: '6px',
+                  transition: 'all 0.15s',
+                  boxShadow: isSelected ? `0 0 0 4px ${color}40, 0 2px 8px ${color}50` : 'none',
+                  transform: isSelected ? 'scale(1.08)' : 'scale(1)',
+                }}
+              >
+                <span>{name}</span>
+                {isExample && (
+                  <span style={{ fontSize: '11px', opacity: 0.6 }}>(example)</span>
+                )}
+                {submitted && studentAns && (
+                  <span style={{ fontSize: '12px' }}>
+                    {isCorrect ? '✓' : '✗'}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>{/* end left column */}
+
+        {/* Right column: image + clear buttons */}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          {partImageUrl ? (
+            <div
+              style={{
+                position: 'relative', display: 'block', width: '100%', maxWidth: '540px',
+                cursor: selectedNameIdx !== null ? 'crosshair' : 'default',
+              }}
+              onClick={handleImageClick}
+            >
+          <img
+            ref={imgRef}
+            src={resolveImg(partImageUrl)}
+            alt="Scene"
+            draggable={false}
+            style={{
+              width: '100%', maxWidth: '540px', display: 'block', borderRadius: '12px', userSelect: 'none',
+              border: `3px solid ${selectedNameIdx !== null
+                ? DRAW_COLORS[selectedNameIdx % DRAW_COLORS.length]
+                : (isDarkMode ? '#334155' : '#e2e8f0')}`,
+              transition: 'border-color 0.2s',
+            }}
+          />
+
+          {/* Anchor dots */}
+          {Object.entries(anchors).map(([idxStr, pos]) => {
+            const i = parseInt(idxStr, 10);
+            const name = leftItems[i] || '';
+            const studentAns = getStudentAnswer(i);
+            // Dùng ANCHOR_COLORS (offset +4) để màu chấm KHÔNG trùng màu pill tên
+            const anchorColor = ANCHOR_COLORS[i % ANCHOR_COLORS.length];
+            const hasAnswer = Boolean(studentAns);
+            const isCorrect = submitted && results?.answers?.[`${questionKey}-${i}`]?.isCorrect;
+            const dotColor = submitted
+              ? (isCorrect ? '#22c55e' : (hasAnswer ? '#ef4444' : anchorColor))
+              : anchorColor;
+            const dotSize = hasAnswer ? 28 : 24;
+
+            return (
+              <div key={idxStr} style={{
+                position: 'absolute',
+                left: `${pos.x}%`, top: `${pos.y}%`,
+                transform: 'translate(-50%, -50%)',
+                pointerEvents: 'none', zIndex: 6,
+              }}>
+                {/* Ripple ring – only when unanswered and not submitted */}
+                {!hasAnswer && !submitted && (
+                  <div
+                    className="draw-dot-ripple"
+                    style={{
+                      width: `${dotSize}px`, height: `${dotSize}px`,
+                      background: anchorColor,
+                    }}
+                  />
+                )}
+                {/* Main dot */}
+                <div
+                  className={!hasAnswer && !submitted ? 'draw-dot-pulse' : ''}
+                  style={{
+                    width: `${dotSize}px`,
+                    height: `${dotSize}px`,
+                    borderRadius: '50%',
+                    background: dotColor,
+                    border: '3px solid white',
+                    boxShadow: `0 2px 10px rgba(0,0,0,0.45), 0 0 0 3px ${anchorColor}55`,
+                    transition: 'width 0.2s, height 0.2s, background 0.2s',
+                  }}
+                />
+                {/* Label when answered */}
+                {hasAnswer && (
+                  <div style={{
+                    position: 'absolute', top: `${dotSize + 4}px`, left: '50%',
+                    transform: 'translateX(-50%)',
+                    background: dotColor,
+                    color: 'white', borderRadius: '6px', padding: '2px 8px',
+                    fontSize: '11px', fontWeight: 800, whiteSpace: 'nowrap',
+                    boxShadow: '0 2px 6px rgba(0,0,0,0.3)',
+                  }}>
+                    {name}: {studentAns}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+
+          {/* Dashed border when a pill is selected */}
+              {selectedNameIdx !== null && (
+                <div style={{
+                  position: 'absolute', inset: 0, borderRadius: '12px',
+                  border: `4px dashed ${DRAW_COLORS[selectedNameIdx % DRAW_COLORS.length]}`,
+                  pointerEvents: 'none', zIndex: 4,
+                }} />
+              )}
+            </div>
+          ) : (
+            <div style={{
+              padding: '20px', background: isDarkMode ? '#1e293b' : '#f9fafb',
+              borderRadius: '10px', textAlign: 'center',
+              color: isDarkMode ? '#94a3b8' : '#6b7280', fontSize: '13px',
+            }}>
+              Ảnh đang tải...
+            </div>
+          )}
+
+          {/* Clear buttons */}
+          {!submitted && leftItems.slice(1).some((n, i) => n && getStudentAnswer(i + 1)) && (
+            <div style={{ marginTop: '12px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+          {leftItems.slice(1).map((name, i) => {
+            const nameIdx = i + 1;
+            const ans = getStudentAnswer(nameIdx);
+            if (!name || !ans) return null;
+            return (
+              <button
+                key={nameIdx}
+                onClick={() => handleAnswerChange(`${questionKey}-${nameIdx}`, '')}
+                style={{
+                  padding: '4px 12px', fontSize: '12px', borderRadius: '14px',
+                  border: '1px solid #fca5a5', background: '#fef2f2',
+                  color: '#dc2626', cursor: 'pointer', fontWeight: 600,
+                }}
+              >
+                ✕ {name}
+              </button>
+            );
+          })}
+            </div>
+          )}
+        </div>{/* end right column */}
+      </div>{/* end two-column row */}
+    </div>
+  );
+};
+
 /**
  * DoCambridgeListeningTest - Trang làm bài thi Listening Cambridge (KET, PET, etc.)
  * Support: KET, PET, FLYERS, MOVERS, STARTERS
@@ -279,6 +644,21 @@ const DoCambridgeListeningTest = () => {
               orderedKeys.push({ key, partIndex: pIdx, number: num });
             }
             continue;
+          }
+
+          // draw-lines (MOVERS Part 1): expand into per-name sub-keys (skip idx 0 = example)
+          if ((q.questionType === 'draw-lines' || (q.anchors && Object.keys(q.anchors || {}).length > 0)) && Array.isArray(q.leftItems) && q.leftItems.length > 1) {
+            let expanded = 0;
+            for (let nameIdx = 1; nameIdx < q.leftItems.length; nameIdx++) {
+              if (String(q.leftItems[nameIdx] || '').trim()) {
+                const subKey = `${pIdx}-${sIdx}-${qIdx}-${nameIdx}`;
+                const subNum = globalNumber++;
+                partKeys.push({ key: subKey, number: subNum, sectionIndex: sIdx });
+                orderedKeys.push({ key: subKey, partIndex: pIdx, number: subNum });
+                expanded++;
+              }
+            }
+            if (expanded > 0) continue;
           }
 
           const key = `${pIdx}-${sIdx}-${qIdx}`;
@@ -1193,7 +1573,14 @@ const DoCambridgeListeningTest = () => {
       if (val && typeof val === 'object') return Object.keys(val).length > 0;
       return String(val ?? '').trim() !== '';
     };
-    return list.reduce((acc, item) => (isAnswered(answers[item.key]) ? acc + 1 : acc), 0);
+    return list.reduce((acc, item) => {
+      if (isAnswered(answers[item.key])) return acc + 1;
+      // draw-lines sub-answers are stored as `key-nameIdx`; count the block as answered if any sub-answer exists
+      const hasSubAnswer = Object.keys(answers).some(
+        (k) => k.startsWith(`${item.key}-`) && isAnswered(answers[k])
+      );
+      return hasSubAnswer ? acc + 1 : acc;
+    }, 0);
   }, [questionIndex, answers]);
 
   const goToKeyIndex = useCallback(
@@ -1364,7 +1751,13 @@ const DoCambridgeListeningTest = () => {
 
   // Render question based on type
   const renderQuestion = (question, questionKey, questionNum) => {
-    const qType = question.questionType || 'fill';
+    const qType = (() => {
+      if (question.questionType) return question.questionType;
+      // Backward compat: question saved without questionType field
+      if (question.anchors && Object.keys(question.anchors).length > 0) return 'draw-lines';
+      if (Array.isArray(question.leftItems) && question.leftItems.length > 0) return 'matching';
+      return 'fill';
+    })();
     const userAnswer = answers[questionKey];
     const isCorrect = submitted && results?.answers?.[questionKey]?.isCorrect;
     const isActive = activeQuestion === questionKey;
@@ -1620,9 +2013,35 @@ const DoCambridgeListeningTest = () => {
           </div>
         );
 
-      case 'matching':
+      case 'draw-lines':
+      case 'matching': {
         const leftItems = question.leftItems || [];
         const rightItems = question.rightItems || [];
+
+        // ── Draw-lines variant (MOVERS Part 1) ─────────────────────────────
+        if (question.questionType === 'draw-lines' || (question.anchors && Object.keys(question.anchors).length > 0)) {
+          return (
+            <DrawLinesQuestion
+              key={questionKey}
+              question={question}
+              questionKey={questionKey}
+              questionNum={questionNum}
+              leftItems={leftItems}
+              rightItems={rightItems}
+              anchors={question.anchors || {}}
+              partImageUrl={currentPart?.imageUrl || ''}
+              answers={answers}
+              submitted={submitted}
+              results={results}
+              isDarkMode={isDarkMode}
+              wrapperClassName={wrapperClassName}
+              handleAnswerChange={handleAnswerChange}
+              hostPath={hostPath}
+            />
+          );
+        }
+
+        // ── Dropdown matching (fallback) ────────────────────────────────────
         return (
           <div className={wrapperClassName}>
             <div style={styles.questionHeader}>
@@ -1649,7 +2068,6 @@ const DoCambridgeListeningTest = () => {
                 </div>
               ))}
             </div>
-            {/* Right items reference */}
             <div style={styles.rightItemsRef}>
               <strong>Options:</strong>
               <div style={{ marginTop: '8px', display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
@@ -1662,6 +2080,7 @@ const DoCambridgeListeningTest = () => {
             </div>
           </div>
         );
+      }
 
       default:
         return (
@@ -2048,8 +2467,13 @@ const DoCambridgeListeningTest = () => {
                     </div>
                   )}
 
-                  {/* Part scene image (e.g. MOVERS Part 1 Draw Lines) */}
-                  {currentPart?.imageUrl && (
+                  {/* Part scene image – hidden for draw-lines parts (image is rendered inside DrawLinesQuestion itself) */}
+                  {currentPart?.imageUrl && (() => {
+                    const q = currentPart?.sections?.[0]?.questions?.[0];
+                    if (q?.questionType === 'draw-lines') return false;
+                    if (q?.anchors && Object.keys(q.anchors).length > 0) return false;
+                    return true;
+                  })() && (
                     <div style={{ margin: '12px 0 18px', textAlign: 'center' }}>
                       <img
                         src={resolveImgSrc(currentPart.imageUrl)}
@@ -2212,8 +2636,10 @@ const DoCambridgeListeningTest = () => {
                         section.questions?.map((q, qIdx) => {
                           const questionKey = `${currentPartIndex}-${secIdx}-${qIdx}`;
 
-                          // Part 1: render only the active question card.
-                          if (currentPartIndex === 0 && activeKeyForPart && questionKey !== activeKeyForPart) return null;
+                          // draw-lines renders all names as one block → always show, never filter by active sub-key
+                          const isDrawLinesQ = q.questionType === 'draw-lines' || (q.anchors && Object.keys(q.anchors || {}).length > 0);
+                          // Part 1: render only the active question card (except draw-lines which is a single interactive block).
+                          if (!isDrawLinesQ && currentPartIndex === 0 && activeKeyForPart && questionKey !== activeKeyForPart) return null;
 
                           return (
                             <div key={qIdx} ref={(el) => (questionRefs.current[questionKey] = el)}>

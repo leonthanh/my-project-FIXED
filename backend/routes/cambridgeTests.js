@@ -762,7 +762,47 @@ const scoreTest = (test, answers) => {
           return;
         }
 
-        // image-cloze: blanks extracted from passageText hole numbers; title question
+        // MOVERS Listening Part 1: draw-lines (score each name by nameIdx)
+        if (
+          (sectionType === 'draw-lines' || question.questionType === 'draw-lines') &&
+          Array.isArray(question.leftItems) &&
+          question.anchors && typeof question.anchors === 'object'
+        ) {
+          const leftItems = question.leftItems || [];
+          const correctMap = question.answers && typeof question.answers === 'object' ? question.answers : {};
+
+          // Skip index 0 (example)
+          leftItems.forEach((_name, nameIdx) => {
+            if (nameIdx === 0) return; // example — not scored
+            const key = `${partIdx}-${secIdx}-${qIdx}-${nameIdx}`;
+            const userAnswer = answers?.[key];
+            const correctAnswer = correctMap[String(nameIdx)];
+
+            if (correctAnswer === undefined || correctAnswer === null) {
+              detailedResults[key] = {
+                isCorrect: null,
+                userAnswer: userAnswer || null,
+                correctAnswer: null,
+                questionType: 'draw-lines',
+                questionText: leftItems[nameIdx] || ''
+              };
+              return;
+            }
+
+            total++;
+            const isCorrect = scoreQuestion(userAnswer, correctAnswer, 'matching');
+            if (isCorrect) score++;
+
+            detailedResults[key] = {
+              isCorrect,
+              userAnswer: userAnswer || null,
+              correctAnswer,
+              questionType: 'draw-lines',
+              questionText: leftItems[nameIdx] || ''
+            };
+          });
+          return;
+        }
         if (sectionType === 'image-cloze') {
           const passageText = question.passageText || '';
           const answersMap = question.answers && typeof question.answers === 'object' ? question.answers : {};

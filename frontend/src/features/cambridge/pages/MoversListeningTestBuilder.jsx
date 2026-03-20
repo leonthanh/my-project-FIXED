@@ -86,12 +86,14 @@ const PART_CONFIGS = [
 
 // ── Default question templates ────────────────────────────────────────────
 const defaultMatchingData = () => ({
+  questionType: "draw-lines",
   questionText: "Match the names with the correct positions in the picture.",
   leftTitle: "Names",
   rightTitle: "Positions",
   leftItems: ["(Example)", "", "", "", "", ""],
   rightItems: ["A. ", "B. ", "C. ", "D. ", "E. ", "F. "],
   answers: {},
+  anchors: {}, // { nameIndex: { x: %, y: %, label: name } }
 });
 
 const defaultFillQuestion = (num) => ({
@@ -314,26 +316,29 @@ const FillQuestionsEditor = ({ questions, onChange, color = "#10b981" }) => {
   );
 };
 
-// ── Matching editor (Part 1) ──────────────────────────────────────────────
-const MatchingPartEditor = ({ data, onChange }) => {
-  const leftItems = data.leftItems || ["", "", "", "", "", ""];
-  const rightItems = data.rightItems || [
-    "A. ",
-    "B. ",
-    "C. ",
-    "D. ",
-    "E. ",
-    "F. ",
-  ];
-  const answers = data.answers || {};
+// ── Matching / Draw-Lines editor (Part 1) ────────────────────────────────
+const MatchingPartEditor = ({ data, onChange, partImageUrl }) => {
+  const leftItems  = data.leftItems  || ["", "", "", "", "", ""];
+  const rightItems = data.rightItems || ["A. ", "B. ", "C. ", "D. ", "E. ", "F. "];
+  const answers    = data.answers    || {};
+  const anchors    = data.anchors    || {}; // { "1": {x,y}, "2": {x,y}, … "0" = example }
 
   const letterLabels = rightItems.map((_, i) => String.fromCharCode(65 + i));
 
-  const setLeft = (i, val) => {
-    const next = [...leftItems];
-    next[i] = val;
-    onChange({ ...data, leftItems: next });
+  // which name index is waiting for a click on the image
+  const [pendingIdx, setPendingIdx] = React.useState(null);
+  const imgRef = React.useRef(null);
+
+  // ─── Name helpers ───────────────────────────────────────────────────────
+  const setLeft = (i, val) => onChange({ ...data, leftItems: leftItems.map((v, idx) => idx === i ? val : v) });
+
+  const getAnswer = (nameIdx) => {
+    const byIdx = answers[String(nameIdx)];
+    if (byIdx) return byIdx;
+    const name = leftItems[nameIdx];
+    return name ? (answers[name] || "") : "";
   };
+  const setAnswer = (nameIdx, val) => onChange({ ...data, answers: { ...answers, [String(nameIdx)]: val } });
 
   const setRight = (i, val) => {
     const next = [...rightItems];
@@ -341,208 +346,253 @@ const MatchingPartEditor = ({ data, onChange }) => {
     onChange({ ...data, rightItems: next });
   };
 
-  const setAnswer = (name, val) => {
-    onChange({ ...data, answers: { ...answers, [name]: val } });
+  const addName = () => onChange({ ...data, leftItems: [...leftItems, ""] });
+  const removeName = (i) => {
+    if (i === 0) return;
+    const next = leftItems.filter((_, idx) => idx !== i);
+    const nextAnswers = {};
+    const nextAnchors = {};
+    Object.entries(answers).forEach(([k, v]) => {
+      const n = parseInt(k, 10);
+      if (isNaN(n)) { nextAnswers[k] = v; return; }
+      if (n < i) nextAnswers[k] = v;
+      else if (n > i) nextAnswers[String(n - 1)] = v;
+    });
+    Object.entries(anchors).forEach(([k, v]) => {
+      const n = parseInt(k, 10);
+      if (isNaN(n)) { nextAnchors[k] = v; return; }
+      if (n < i) nextAnchors[k] = v;
+      else if (n > i) nextAnchors[String(n - 1)] = v;
+    });
+    onChange({ ...data, leftItems: next, answers: nextAnswers, anchors: nextAnchors });
   };
+
+  const addPosition = () => {
+    const letter = String.fromCharCode(65 + rightItems.length);
+    onChange({ ...data, rightItems: [...rightItems, `${letter}. `] });
+  };
+  const removePosition = (i) => {
+    if (rightItems.length <= 2) return;
+    const removed = String.fromCharCode(65 + i);
+    const next = rightItems
+      .filter((_, idx) => idx !== i)
+      .map((item, idx) => `${String.fromCharCode(65 + idx)}. ${item.replace(/^[A-Z]\.\s*/, "")}`);
+    const nextAnswers = {};
+    Object.entries(answers).forEach(([k, v]) => { if (v !== removed) nextAnswers[k] = v; });
+    onChange({ ...data, rightItems: next, answers: nextAnswers });
+  };
+
+  // ── Image click: place anchor ────────────────────────────────────────────
+  const handleImageClick = (e) => {
+    if (pendingIdx === null || !imgRef.current) return;
+    const rect = imgRef.current.getBoundingClientRect();
+    const x = parseFloat(((e.clientX - rect.left) / rect.width  * 100).toFixed(2));
+    const y = parseFloat(((e.clientY - rect.top)  / rect.height * 100).toFixed(2));
+    // Auto-assign letter: name index 1→A, 2→B, 3→C … (no manual dropdown needed)
+    const nextAnswers = pendingIdx > 0
+      ? { ...data.answers, [String(pendingIdx)]: String.fromCharCode(64 + pendingIdx) }
+      : data.answers;
+    onChange({ ...data, anchors: { ...anchors, [String(pendingIdx)]: { x, y } }, answers: nextAnswers });
+    setPendingIdx(null);
+  };
+
+  const clearAnchor = (idx) => {
+    const next = { ...anchors };
+    delete next[String(idx)];
+    onChange({ ...data, anchors: next });
+  };
+
+  const questionCount = leftItems.length - 1;
+  const hasImage = Boolean(partImageUrl);
+
+  const ANCHOR_COLORS = ["#f59e0b","#10b981","#3b82f6","#8b5cf6","#ef4444","#ec4899","#06b6d4","#84cc16"];
 
   return (
     <div>
-      <div
-        style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px" }}
-      >
-        {/* Left column: Names */}
-        <div>
-          <p
-            style={{
-              margin: "0 0 6px",
-              fontSize: "13px",
-              fontWeight: 700,
-              color: "#374151",
-            }}
-          >
-            👤 Names (cột trái)
-          </p>
-          <p
-            style={{
-              margin: "0 0 12px",
-              fontSize: "11px",
-              color: "#6b7280",
-              lineHeight: 1.5,
-            }}
-          >
-            Dòng đầu tiên = Example (đã cho sẵn, học sinh không cần làm). Các
-            dòng còn lại = câu 1–5.
-            <br />
-            Chọn chữ cái đáp án tương ứng ở ô bên phải mỗi tên.
-          </p>
-          {leftItems.map((name, i) => (
-            <div
-              key={i}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "8px",
-                marginBottom: "8px",
-              }}
-            >
-              <span
-                style={{
-                  fontSize: "11px",
-                  color: i === 0 ? "#9ca3af" : "#6366f1",
-                  fontWeight: 700,
-                  width: "56px",
-                  flexShrink: 0,
-                }}
-              >
-                {i === 0 ? "Example" : `Câu ${i}`}
-              </span>
-              <input
-                type="text"
-                placeholder={i === 0 ? "Tên ví dụ" : `Tên người ${i}`}
-                value={name}
-                onChange={(e) => setLeft(i, e.target.value)}
-                style={{
-                  ...inputStyle,
-                  marginBottom: 0,
-                  flex: 1,
-                  fontSize: "13px",
-                  background: i === 0 ? "#f3f4f6" : "white",
-                }}
-              />
-              {i > 0 ? (
-                <select
-                  value={answers[name] || ""}
-                  onChange={(e) => setAnswer(name, e.target.value)}
-                  style={{
-                    ...selectStyle,
-                    width: "64px",
-                    flexShrink: 0,
-                    borderColor: answers[name] ? "#3b82f6" : "#d1d5db",
-                  }}
-                >
-                  <option value="">—</option>
-                  {letterLabels.map((l) => (
-                    <option key={l} value={l}>
-                      {l}
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <div style={{ width: "64px", flexShrink: 0 }} />
-              )}
-            </div>
-          ))}
-        </div>
-
-        {/* Right column: Positions A–F */}
-        <div>
-          <p
-            style={{
-              margin: "0 0 6px",
-              fontSize: "13px",
-              fontWeight: 700,
-              color: "#374151",
-            }}
-          >
-            📍 Positions A–F (cột phải)
-          </p>
-          <p
-            style={{
-              margin: "0 0 12px",
-              fontSize: "11px",
-              color: "#6b7280",
-              lineHeight: 1.5,
-            }}
-          >
-            Thêm 6 vị trí trong tranh (5 đáp án + 1 extra học sinh không dùng
-            tới).
-          </p>
-          {rightItems.map((pos, i) => (
-            <div
-              key={i}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "8px",
-                marginBottom: "8px",
-              }}
-            >
-              <span
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  width: "28px",
-                  height: "28px",
-                  borderRadius: "6px",
-                  background: "#e0e7ff",
-                  color: "#4f46e5",
-                  fontWeight: 800,
-                  fontSize: "12px",
-                  flexShrink: 0,
-                }}
-              >
-                {String.fromCharCode(65 + i)}
-              </span>
-              <input
-                type="text"
-                placeholder={`Vị trí ${String.fromCharCode(65 + i)}  (VD: by the window)`}
-                value={pos.replace(/^[A-F]\.\s*/, "")}
-                onChange={(e) => setRight(i, e.target.value)}
-                style={{
-                  ...inputStyle,
-                  marginBottom: 0,
-                  flex: 1,
-                  fontSize: "13px",
-                }}
-              />
-            </div>
-          ))}
-        </div>
+      {/* Info banner */}
+      <div style={{
+        padding: "10px 14px", background: "#eff6ff", border: "1px solid #93c5fd",
+        borderRadius: "10px", marginBottom: "16px", fontSize: "12px", color: "#1e40af", lineHeight: 1.6,
+      }}>
+        <strong>🖱️ Cách đặt anchor (điểm nối) trên ảnh:</strong><br/>
+        1. Nhập tên nhân vật (cột trái) ↓<br/>
+        2. Bấm nút <strong>"📍 Đặt điểm"</strong> bên cạnh tên → nút sáng lên<br/>
+        3. Click đúng vị trí nhân vật đó trong bức tranh — đáp án được tự động gán.<br/>
+        <strong>Học sinh</strong> sẽ thấy danh sách tên bên trái + ảnh bên phải → click tên rồi click nhân vật để vẽ đường nối.
       </div>
 
-      {/* Answer summary chip row */}
-      <div
-        style={{
-          marginTop: "16px",
-          padding: "12px 16px",
-          background: "#eff6ff",
-          borderRadius: "10px",
-          border: "1px solid #bfdbfe",
-        }}
-      >
-        <strong style={{ fontSize: "12px", color: "#1d4ed8" }}>
-          📝 Đáp án đã nhập:
-        </strong>
-        <div
-          style={{
-            display: "flex",
-            flexWrap: "wrap",
-            gap: "8px",
-            marginTop: "8px",
-          }}
-        >
-          {leftItems.slice(1).map((name, i) =>
-            name ? (
-              <span
-                key={i}
-                style={{
-                  padding: "4px 12px",
-                  borderRadius: "20px",
-                  background: answers[name] ? "#dbeafe" : "#fee2e2",
-                  color: answers[name] ? "#1d4ed8" : "#dc2626",
-                  fontSize: "12px",
-                  fontWeight: 700,
-                }}
-              >
-                {name} → {answers[name] || "?"}
+      {/* === Top: Names + Positions side by side === */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px", marginBottom: "20px" }}>
+
+        {/* Names */}
+        <div>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "6px" }}>
+            <p style={{ margin: 0, fontSize: "13px", fontWeight: 700, color: "#374151" }}>
+              👤 Names — {questionCount} câu hỏi
+            </p>
+            <button onClick={addName} style={{
+              padding: "4px 10px", border: "1px dashed #3b82f6", borderRadius: "6px",
+              background: "#eff6ff", color: "#2563eb", fontSize: "12px", cursor: "pointer", fontWeight: 600,
+            }}>+ Thêm tên</button>
+          </div>
+
+          {leftItems.map((name, i) => {
+            const anchor = anchors[String(i)];
+            const isPending = pendingIdx === i;
+            const color = ANCHOR_COLORS[i % ANCHOR_COLORS.length];
+            return (
+              <div key={i} style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "8px" }}>
+                <span style={{
+                  fontSize: "11px", color: i === 0 ? "#9ca3af" : color,
+                  fontWeight: 700, width: "52px", flexShrink: 0,
+                }}>
+                  {i === 0 ? "Example" : `Câu ${i}`}
+                </span>
+                <input
+                  type="text"
+                  placeholder={i === 0 ? "Tên ví dụ" : `Tên người ${i}`}
+                  value={name}
+                  onChange={(e) => setLeft(i, e.target.value)}
+                  style={{
+                    ...inputStyle, marginBottom: 0, flex: 1, fontSize: "13px",
+                    background: i === 0 ? "#f3f4f6" : "white",
+                  }}
+                />
+                {/* Anchor button */}
+                {hasImage && (
+                  <button
+                    title={anchor ? `Đã đặt — Click để đặt lại` : "Click rồi click ảnh để đặt điểm"}
+                    onClick={() => setPendingIdx(isPending ? null : i)}
+                    style={{
+                      width: "30px", height: "30px", borderRadius: "7px", border: "2px solid",
+                      borderColor: isPending ? color : (anchor ? color : "#d1d5db"),
+                      background: isPending ? color : (anchor ? `${color}20` : "#f9fafb"),
+                      color: isPending ? "white" : color,
+                      cursor: "pointer", fontSize: "14px", flexShrink: 0,
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                    }}
+                  >
+                    {anchor ? "●" : "📍"}
+                  </button>
+                )}
+                {/* Delete button (only for non-example) */}
+                {i > 0 ? (
+                  <button onClick={() => removeName(i)} title="Xóa" style={{
+                    width: "26px", height: "26px", borderRadius: "6px",
+                    border: "1px solid #fca5a5", background: "#fef2f2",
+                    color: "#dc2626", cursor: "pointer", fontSize: "14px",
+                    flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center",
+                  }}>×</button>
+                ) : (
+                  <div style={{ width: hasImage ? "36px" : "6px", flexShrink: 0 }} />
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Positions section removed – letters A–F are auto-derived from the number of names;
+             positions are set by clicking on the image, not through text descriptions */}
+      </div>
+
+      {/* === Image with anchor overlay === */}
+      {hasImage ? (
+        <div style={{ marginBottom: "20px" }}>
+          <p style={{ margin: "0 0 8px", fontSize: "13px", fontWeight: 700, color: "#374151" }}>
+            🖼️ Ảnh — {pendingIdx !== null
+              ? `⚡ Đang chờ click cho "${leftItems[pendingIdx] || `Câu ${pendingIdx}`}"... (nhấn nút 📍 lần nữa để huỷ)`
+              : "Click nút 📍 rồi click vào ảnh để đặt điểm anchor"}
+          </p>
+          <div
+            style={{ position: "relative", display: "inline-block", width: "100%", cursor: pendingIdx !== null ? "crosshair" : "default" }}
+            onClick={handleImageClick}
+          >
+            <img
+              ref={imgRef}
+              src={resolveImg(partImageUrl)}
+              alt="Part scene"
+              style={{ width: "100%", display: "block", borderRadius: "10px", border: "2px solid #e2e8f0", userSelect: "none" }}
+              draggable={false}
+            />
+            {/* Overlay: render placed anchors as colored dots + name labels */}
+            {Object.entries(anchors).map(([idxStr, pos]) => {
+              const i = parseInt(idxStr, 10);
+              const name = leftItems[i] || (i === 0 ? "(Example)" : "?");
+              const color = ANCHOR_COLORS[i % ANCHOR_COLORS.length];
+              return (
+                <div
+                  key={idxStr}
+                  style={{
+                    position: "absolute",
+                    left: `${pos.x}%`,
+                    top: `${pos.y}%`,
+                    transform: "translate(-50%, -50%)",
+                    pointerEvents: "auto",
+                    zIndex: 10,
+                  }}
+                >
+                  <div style={{
+                    width: "14px", height: "14px", borderRadius: "50%",
+                    background: color, border: "2px solid white",
+                    boxShadow: "0 1px 4px rgba(0,0,0,0.4)",
+                  }} />
+                  <div style={{
+                    position: "absolute", top: "16px", left: "50%", transform: "translateX(-50%)",
+                    background: color, color: "white", borderRadius: "4px",
+                    padding: "1px 6px", fontSize: "10px", fontWeight: 700,
+                    whiteSpace: "nowrap", boxShadow: "0 1px 3px rgba(0,0,0,0.3)",
+                  }}>
+                    {name}
+                    <span
+                      style={{ marginLeft: "4px", cursor: "pointer", opacity: 0.8 }}
+                      onClick={(e) => { e.stopPropagation(); clearAnchor(i); }}
+                      title="Xóa điểm này"
+                    >×</span>
+                  </div>
+                </div>
+              );
+            })}
+            {/* Dashed border when waiting for click */}
+            {pendingIdx !== null && (
+              <div style={{
+                position: "absolute", inset: 0, borderRadius: "10px",
+                border: `3px dashed ${ANCHOR_COLORS[pendingIdx % ANCHOR_COLORS.length]}`,
+                pointerEvents: "none",
+              }} />
+            )}
+          </div>
+        </div>
+      ) : (
+        <div style={{
+          padding: "16px", background: "#fef9c3", border: "1px solid #fde047",
+          borderRadius: "10px", marginBottom: "20px", fontSize: "12px", color: "#854d0e",
+        }}>
+          ⚠️ <strong>Chưa có ảnh</strong> — Upload ảnh bức tranh ở trên để có thể đặt điểm anchor.
+        </div>
+      )}
+
+      {/* Answer summary */}
+      <div style={{
+        padding: "12px 16px", background: "#eff6ff", borderRadius: "10px", border: "1px solid #bfdbfe",
+      }}>
+        <strong style={{ fontSize: "12px", color: "#1d4ed8" }}>📝 Đáp án + anchor:</strong>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", marginTop: "8px" }}>
+          {leftItems.slice(1).map((name, i) => {
+            const ans = getAnswer(i + 1);
+            const anchor = anchors[String(i + 1)];
+            return name ? (
+              <span key={i} style={{
+                padding: "4px 10px", borderRadius: "20px",
+                background: (ans && (!hasImage || anchor)) ? "#dbeafe" : "#fee2e2",
+                color: (ans && (!hasImage || anchor)) ? "#1d4ed8" : "#dc2626",
+                fontSize: "12px", fontWeight: 700,
+              }}>
+                {name} → {ans || "?"} {hasImage ? (anchor ? "📍" : "⚠️") : ""}
               </span>
-            ) : null
-          )}
+            ) : null;
+          })}
           {leftItems.slice(1).every((n) => !n) && (
-            <span style={{ fontSize: "12px", color: "#9ca3af" }}>
-              Chưa nhập tên nào
-            </span>
+            <span style={{ fontSize: "12px", color: "#9ca3af" }}>Chưa nhập tên nào</span>
           )}
         </div>
       </div>
@@ -1331,6 +1381,7 @@ const MoversListeningTestBuilder = ({ editId = null, initialData = null }) => {
                 <MatchingPartEditor
                   data={currentQuestions[0] || defaultMatchingData()}
                   onChange={(newData) => updateQuestions([newData])}
+                  partImageUrl={activePart.imageUrl || ""}
                 />
               )}
 
