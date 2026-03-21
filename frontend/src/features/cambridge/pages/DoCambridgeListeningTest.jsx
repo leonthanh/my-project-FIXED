@@ -5,22 +5,28 @@ import { TestHeader } from "../../../shared/components";
 import { useTheme } from "../../../shared/contexts/ThemeContext";
 import { TEST_CONFIGS } from "../../../shared/config/questionTypes";
 import { computeQuestionStarts, countClozeBlanksFromText, getQuestionCountForSection } from "../utils/questionNumbering";
+import { CambridgeQuestionDisplay, CompactCambridgeQuestionDisplay } from "../components/CambridgeQuestionCards";
+import { OpenClozeSectionDisplay, GapMatchSectionDisplay } from "../components/CambridgeSectionDisplays";
 import createStyles from "./DoCambridgeListeningTest.styles";
 import './DoCambridgeReadingTest.css';
 
 // ── Draw-lines interactive component for MOVERS Listening Part 1 ───────────
 const DRAW_COLORS = ['#f59e0b','#10b981','#3b82f6','#8b5cf6','#ef4444','#ec4899','#06b6d4','#84cc16'];
-// Anchor dots dùng bảng màu offset +4 so với DRAW_COLORS → không trùng màu với pill tên
-const ANCHOR_COLORS = [...DRAW_COLORS.slice(4), ...DRAW_COLORS.slice(0, 4)];
+// Màu trung tính cho anchor dot khi chưa được nối
+const ANCHOR_NEUTRAL = '#94a3b8';
+const DRAWLINE_SNAP_RADIUS_PX = 28;
+const DRAWLINE_ANCHOR_HIT_AREA_PX = 44;
 
 const DrawLinesQuestion = ({
   question, questionKey, questionNum,
   leftItems, rightItems, anchors, partImageUrl,
   answers, submitted, results, isDarkMode, wrapperClassName,
   handleAnswerChange, hostPath: hp,
+  questionRefs, activeQuestion,
 }) => {
   const [selectedNameIdx, setSelectedNameIdx] = useState(null);
   const [lines, setLines] = useState([]);
+  const [selectedAnchorByName, setSelectedAnchorByName] = useState({});
   const imgRef = useRef(null);
   const containerRef = useRef(null);
   const pillRefs = useRef({});
@@ -36,16 +42,112 @@ const DrawLinesQuestion = ({
     [answers, questionKey]
   );
 
+  const anchorLetterByIdx = useMemo(() => {
+    const rawAnswers = question.answers && typeof question.answers === 'object' ? question.answers : {};
+    const next = {};
+    Object.entries(rawAnswers).forEach(([idxStr, letter]) => {
+      if (!letter) return;
+      next[String(idxStr)] = String(letter).trim();
+    });
+    return next;
+  }, [question.answers]);
+
+  const anchorIndexesByLetter = useMemo(() => {
+    const next = {};
+    Object.entries(anchorLetterByIdx).forEach(([idxStr, letter]) => {
+      if (idxStr === '0') return;
+      if (!next[letter]) next[letter] = [];
+      next[letter].push(idxStr);
+    });
+    return next;
+  }, [anchorLetterByIdx]);
+
+  const derivedAnchorByName = useMemo(() => {
+    const next = {};
+    leftItems.forEach((_name, nameIdx) => {
+      if (nameIdx === 0) return;
+      const studentAnswer = answers[`${questionKey}-${nameIdx}`];
+      if (!studentAnswer) return;
+      const candidates = anchorIndexesByLetter[studentAnswer] || [];
+      if (candidates.length === 1) {
+        next[String(nameIdx)] = candidates[0];
+      } else if (candidates.includes(String(nameIdx))) {
+        next[String(nameIdx)] = String(nameIdx);
+      }
+    });
+    return next;
+  }, [anchorIndexesByLetter, answers, leftItems, questionKey]);
+
+  const effectiveAnchorByName = useMemo(
+    () => ({ ...derivedAnchorByName, ...selectedAnchorByName }),
+    [derivedAnchorByName, selectedAnchorByName]
+  );
+
+  const anchorUsedByName = useMemo(() => {
+    const next = {};
+    Object.entries(effectiveAnchorByName).forEach(([nameIdxStr, anchorIdxStr]) => {
+      if (!anchorIdxStr) return;
+      next[String(anchorIdxStr)] = parseInt(nameIdxStr, 10);
+    });
+    return next;
+  }, [effectiveAnchorByName]);
+
+  const setDrawLineAnswer = useCallback((nameIdx, anchorIdxStr) => {
+    const answerKey = `${questionKey}-${nameIdx}`;
+    if (!anchorIdxStr) {
+      handleAnswerChange(answerKey, '');
+      setSelectedAnchorByName((prev) => {
+        const nameKey = String(nameIdx);
+        if (!Object.prototype.hasOwnProperty.call(prev, nameKey)) return prev;
+        const next = { ...prev };
+        delete next[nameKey];
+        return next;
+      });
+      return;
+    }
+
+    const chosenLetter = anchorLetterByIdx[String(anchorIdxStr)];
+    if (!chosenLetter) return;
+    handleAnswerChange(answerKey, chosenLetter);
+    setSelectedAnchorByName((prev) => ({
+      ...prev,
+      [String(nameIdx)]: String(anchorIdxStr),
+    }));
+  }, [anchorLetterByIdx, handleAnswerChange, questionKey]);
+
+  useEffect(() => {
+    setSelectedAnchorByName((prev) => {
+      let changed = false;
+      const next = { ...prev };
+      Object.entries(prev).forEach(([nameIdxStr, anchorIdxStr]) => {
+        const studentAnswer = answers[`${questionKey}-${nameIdxStr}`];
+        const mappedLetter = anchorLetterByIdx[String(anchorIdxStr)];
+        if (!studentAnswer || studentAnswer !== mappedLetter) {
+          delete next[nameIdxStr];
+          changed = true;
+        }
+      });
+      return changed ? next : prev;
+    });
+  }, [answers, anchorLetterByIdx, questionKey]);
+
   // Recompute SVG lines from pill centres → anchor dots
+  // When activeQuestion changes to a sub-key of this block, highlight that pill
+  useEffect(() => {
+    if (!activeQuestion || submitted) return;
+    const prefix = `${questionKey}-`;
+    if (!activeQuestion.startsWith(prefix)) return;
+    const nameIdx = parseInt(activeQuestion.slice(prefix.length), 10);
+    if (!isNaN(nameIdx) && nameIdx > 0) {
+      setSelectedNameIdx(nameIdx);
+    }
+  }, [activeQuestion, questionKey, submitted]);
+
   const recomputeLines = useCallback(() => {
     if (!imgRef.current || !containerRef.current) return;
     const cRect = containerRef.current.getBoundingClientRect();
     const iRect = imgRef.current.getBoundingClientRect();
     // Build reverse map: chosenLetter → anchorIdx so lines go to the anchor the student clicked
-    const letterToAnchorIdx = {};
-    Object.entries(question.answers || {}).forEach(([aIdx, letter]) => {
-      letterToAnchorIdx[letter] = aIdx;
-    });
     const newLines = [];
     leftItems.forEach((name, i) => {
       if (!name) return;
@@ -72,7 +174,10 @@ const DrawLinesQuestion = ({
       const studentAns = answers[`${questionKey}-${i}`];
       if (!studentAns) return;
       // Find the anchor position that corresponds to the letter the student chose
-      const anchorIdxStr = letterToAnchorIdx[studentAns];
+      const mappedAnchorIdx = effectiveAnchorByName[String(i)];
+      const fallbackCandidates = anchorIndexesByLetter[studentAns] || [];
+      const fallbackAnchorIdx = fallbackCandidates.length === 1 ? fallbackCandidates[0] : undefined;
+      const anchorIdxStr = mappedAnchorIdx || fallbackAnchorIdx;
       const anchor = anchorIdxStr !== undefined ? anchors[anchorIdxStr] : null;
       if (!anchor) return;
       const pRect = pill.getBoundingClientRect();
@@ -86,7 +191,7 @@ const DrawLinesQuestion = ({
       });
     });
     setLines(newLines);
-  }, [answers, anchors, leftItems, questionKey]);
+  }, [anchorIndexesByLetter, answers, anchors, effectiveAnchorByName, leftItems, questionKey]);
 
   useEffect(() => {
     const id = requestAnimationFrame(recomputeLines);
@@ -101,24 +206,42 @@ const DrawLinesQuestion = ({
   const handleImageClick = (e) => {
     if (selectedNameIdx === null || !imgRef.current) return;
     const rect = imgRef.current.getBoundingClientRect();
-    const xPct = (e.clientX - rect.left) / rect.width * 100;
-    const yPct = (e.clientY - rect.top) / rect.height * 100;
     const validAnswers = question.answers || {};
+    const clampedClientX = Math.min(Math.max(e.clientX, rect.left), rect.right);
+    const clampedClientY = Math.min(Math.max(e.clientY, rect.top), rect.bottom);
+    const clickX = clampedClientX - rect.left;
+    const clickY = clampedClientY - rect.top;
     let best = null;
     let bestDist = Infinity;
     Object.entries(anchors).forEach(([idxStr, pos]) => {
       const i = parseInt(idxStr, 10);
-      if (i === 0) return; // skip Example anchor
-      if (!validAnswers[idxStr]) return; // skip anchors without a letter
-      const dx = xPct - pos.x;
-      const dy = yPct - pos.y;
+      if (i === 0) return;
+      if (!validAnswers[idxStr]) return;
+      // Khoảng cách pixel thực (không bị méo bởi tỉ lệ ảnh)
+      const anchorX = (pos.x / 100) * rect.width;
+      const anchorY = (pos.y / 100) * rect.height;
+      const dx = clickX - anchorX;
+      const dy = clickY - anchorY;
       const d = Math.sqrt(dx * dx + dy * dy);
       if (d < bestDist) { bestDist = d; best = idxStr; }
     });
-    if (!best) return; // no valid anchor found → keep selection
+    // Chỉ snap khi click trong vòng 28px — fallback cho miss hơi lệch
+    if (!best || bestDist > DRAWLINE_SNAP_RADIUS_PX) return;
     const chosenLetter = validAnswers[best];
-    if (!chosenLetter) return; // keep selection
-    handleAnswerChange(`${questionKey}-${selectedNameIdx}`, chosenLetter);
+    if (!chosenLetter) return;
+    setDrawLineAnswer(selectedNameIdx, best);
+    setSelectedNameIdx(null);
+  };
+
+  // Click trực tiếp vào chấm anchor — chính xác hơn nearest-anchor logic
+  const handleAnchorClick = (e, idxStr) => {
+    e.stopPropagation(); // không để handleImageClick cũng bắt event này
+    if (selectedNameIdx === null || submitted) return;
+    const i = parseInt(idxStr, 10);
+    if (i === 0) return; // bỏ qua anchor Example
+    const chosenLetter = anchorLetterByIdx[idxStr];
+    if (!chosenLetter) return;
+    setDrawLineAnswer(selectedNameIdx, idxStr);
     setSelectedNameIdx(null);
   };
 
@@ -161,8 +284,7 @@ const DrawLinesQuestion = ({
       </svg>
 
       {/* Question header */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', marginBottom: '12px' }}>
-        <span className="cambridge-question-number">{questionNum}</span>
+      <div style={{ marginBottom: '12px' }}>
         <div className="cambridge-question-text">{question.questionText || 'Look at the picture. Listen and draw lines.'}</div>
       </div>
 
@@ -205,6 +327,22 @@ const DrawLinesQuestion = ({
             }
 
             return (
+              <div
+                key={i}
+                ref={(el) => {
+                  if (el && questionRefs) questionRefs.current[`${questionKey}-${i}`] = el;
+                }}
+                style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+              >
+                {/* Question number or example label */}
+                {isExample ? (
+                  <span style={{ fontSize: '14px', color: isDarkMode ? '#6b7280' : '#9ca3af', width: '36px', textAlign: 'right', flexShrink: 0 }}>e.g.</span>
+                ) : (
+                  <span style={{
+                    fontSize: '15px', fontWeight: 800, color: isDarkMode ? '#94a3b8' : '#6b7280',
+                    width: '36px', textAlign: 'right', flexShrink: 0,
+                  }}>{questionNum + i - 1}</span>
+                )}
               <button
                 key={i}
                 ref={(el) => { if (el) pillRefs.current[i] = el; }}
@@ -217,7 +355,7 @@ const DrawLinesQuestion = ({
                   padding: '8px 18px', borderRadius: '24px',
                   border: `2.5px solid ${border}`,
                   background: bg, color: textColor,
-                  fontWeight: 800, fontSize: '14px',
+                  fontWeight: 800, fontSize: '20px',
                   cursor: isExample || submitted ? 'default' : 'pointer',
                   display: 'flex', alignItems: 'center', gap: '6px',
                   transition: 'all 0.15s',
@@ -227,14 +365,15 @@ const DrawLinesQuestion = ({
               >
                 <span>{name}</span>
                 {isExample && (
-                  <span style={{ fontSize: '11px', opacity: 0.6 }}>(example)</span>
+                  <span style={{ fontSize: '13px', opacity: 0.6 }}>(example)</span>
                 )}
                 {submitted && studentAns && (
-                  <span style={{ fontSize: '12px' }}>
+                  <span style={{ fontSize: '15px' }}>
                     {isCorrect ? '✓' : '✗'}
                   </span>
                 )}
               </button>
+              </div>
             );
           })}
         </div>
@@ -247,6 +386,7 @@ const DrawLinesQuestion = ({
               style={{
                 position: 'relative', display: 'block', width: '100%', maxWidth: '540px',
                 cursor: selectedNameIdx !== null ? 'crosshair' : 'default',
+                overflow: 'visible',
               }}
               onClick={handleImageClick}
             >
@@ -267,49 +407,91 @@ const DrawLinesQuestion = ({
           {/* Anchor dots */}
           {Object.entries(anchors).map(([idxStr, pos]) => {
             const i = parseInt(idxStr, 10);
-            const name = leftItems[i] || '';
-            const studentAns = getStudentAnswer(i);
-            // Dùng ANCHOR_COLORS (offset +4) để màu chấm KHÔNG trùng màu pill tên
-            const anchorColor = ANCHOR_COLORS[i % ANCHOR_COLORS.length];
-            const hasAnswer = Boolean(studentAns);
-            const isCorrect = submitted && results?.answers?.[`${questionKey}-${i}`]?.isCorrect;
+            // Find which person has actually chosen THIS anchor's letter, rather than
+            // assuming anchor index == person index (that assumption caused the bug where
+            // clicking any anchor would strip the animation from the "correct" dot).
+            const anchorLetter = anchorLetterByIdx[idxStr];
+            const usedByNameIdx = (i === 0)
+              ? 0
+              : (anchorUsedByName[idxStr] ?? -1);
+            const hasAnswer = usedByNameIdx >= 0 && (i === 0 || usedByNameIdx > 0);
+            const name = hasAnswer ? (leftItems[usedByNameIdx] || '') : '';
+            const studentAns = hasAnswer && usedByNameIdx > 0
+              ? answers[`${questionKey}-${usedByNameIdx}`]
+              : '';
+            // Màu chấm = màu của NGƯỜI đã nối vào anchor này (DRAW_COLORS),
+            // không dùng màu anchor riêng để tránh nhầm lẫn với pill tên
+            const personColor = usedByNameIdx >= 0 ? DRAW_COLORS[usedByNameIdx % DRAW_COLORS.length] : ANCHOR_NEUTRAL;
+            const anchorColor = hasAnswer ? personColor : ANCHOR_NEUTRAL;
+            const isCorrect = submitted && usedByNameIdx > 0
+              && results?.answers?.[`${questionKey}-${usedByNameIdx}`]?.isCorrect;
             const dotColor = submitted
-              ? (isCorrect ? '#22c55e' : (hasAnswer ? '#ef4444' : anchorColor))
+              ? (isCorrect ? '#22c55e' : (hasAnswer && usedByNameIdx > 0 ? '#ef4444' : ANCHOR_NEUTRAL))
               : anchorColor;
             const dotSize = hasAnswer ? 28 : 24;
 
+            const isClickableAnchor = !submitted && selectedNameIdx !== null && i !== 0 && Boolean(anchorLetter);
+            // Kích thước chấm hiển thị lớn hơn khi đang chọn tên → dễ bấm hơn
+            const activeDotSize = isClickableAnchor ? Math.max(dotSize, 32) : dotSize;
+            const hitAreaSize = Math.max(activeDotSize, DRAWLINE_ANCHOR_HIT_AREA_PX);
             return (
-              <div key={idxStr} style={{
-                position: 'absolute',
-                left: `${pos.x}%`, top: `${pos.y}%`,
-                transform: 'translate(-50%, -50%)',
-                pointerEvents: 'none', zIndex: 6,
-              }}>
+              <div
+                key={idxStr}
+                style={{
+                  position: 'absolute',
+                  left: `${pos.x}%`, top: `${pos.y}%`,
+                  transform: 'translate(-50%, -50%)',
+                  pointerEvents: 'none', // wrapper không bắt event, tránh che anchor khác
+                  zIndex: 6,
+                }}
+              >
                 {/* Ripple ring – only when unanswered and not submitted */}
                 {!hasAnswer && !submitted && (
                   <div
                     className="draw-dot-ripple"
                     style={{
-                      width: `${dotSize}px`, height: `${dotSize}px`,
+                      width: `${activeDotSize}px`, height: `${activeDotSize}px`,
                       background: anchorColor,
                     }}
                   />
                 )}
-                {/* Main dot */}
-                <div
-                  className={!hasAnswer && !submitted ? 'draw-dot-pulse' : ''}
+                {/* Main dot — đây là vùng click thực sự, chỉ bằng kích thước chấm */}
+                <button
+                  type="button"
+                  onClick={isClickableAnchor ? (e) => handleAnchorClick(e, idxStr) : undefined}
+                  onMouseDown={isClickableAnchor ? (e) => e.stopPropagation() : undefined}
+                  onPointerDown={isClickableAnchor ? (e) => e.stopPropagation() : undefined}
+                  aria-label={isClickableAnchor ? `Select anchor for ${leftItems[selectedNameIdx] || 'name'}` : undefined}
                   style={{
-                    width: `${dotSize}px`,
-                    height: `${dotSize}px`,
-                    borderRadius: '50%',
-                    background: dotColor,
-                    border: '3px solid white',
-                    boxShadow: `0 2px 10px rgba(0,0,0,0.45), 0 0 0 3px ${anchorColor}55`,
-                    transition: 'width 0.2s, height 0.2s, background 0.2s',
+                    width: `${hitAreaSize}px`,
+                    height: `${hitAreaSize}px`,
+                    padding: 0,
+                    border: 'none',
+                    background: 'transparent',
+                    pointerEvents: isClickableAnchor ? 'auto' : 'none',
+                    cursor: isClickableAnchor ? 'crosshair' : 'default',
+                    position: 'relative',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    zIndex: isClickableAnchor ? 20 : 'auto',
                   }}
-                />
-                {/* Label when answered */}
-                {hasAnswer && (
+                >
+                  <div
+                    className={!hasAnswer && !submitted ? 'draw-dot-pulse' : ''}
+                    style={{
+                      width: `${activeDotSize}px`,
+                      height: `${activeDotSize}px`,
+                      borderRadius: '50%',
+                      background: dotColor,
+                      border: '3px solid white',
+                      boxShadow: `0 2px 10px rgba(0,0,0,0.45), 0 0 0 3px ${anchorColor}55`,
+                      transition: 'width 0.2s, height 0.2s, background 0.2s',
+                    }}
+                  />
+                </button>
+                {/* Label only after submission */}
+                {submitted && hasAnswer && (
                   <div style={{
                     position: 'absolute', top: `${dotSize + 4}px`, left: '50%',
                     transform: 'translateX(-50%)',
@@ -354,7 +536,7 @@ const DrawLinesQuestion = ({
             return (
               <button
                 key={nameIdx}
-                onClick={() => handleAnswerChange(`${questionKey}-${nameIdx}`, '')}
+                onClick={() => setDrawLineAnswer(nameIdx, null)}
                 style={{
                   padding: '4px 12px', fontSize: '12px', borderRadius: '14px',
                   border: '1px solid #fca5a5', background: '#fef2f2',
@@ -381,8 +563,6 @@ const DoCambridgeListeningTest = () => {
   const { testType, id } = useParams(); // testType: ket-listening, pet-listening, etc.
   const navigate = useNavigate();
   const { isDarkMode } = useTheme();
-  const styles = useMemo(() => createStyles(isDarkMode), [isDarkMode]);
-
   const examType = useMemo(() => {
     const s = String(testType || "").trim().toLowerCase();
     if (s.includes("ket")) return "KET";
@@ -393,6 +573,8 @@ const DoCambridgeListeningTest = () => {
     // fallback to Cambridge style if unknown
     return "CAMBRIDGE";
   }, [testType]);
+
+  const styles = useMemo(() => createStyles(isDarkMode, examType), [isDarkMode, examType]);
 
   // States
   const [test, setTest] = useState(null);
@@ -1088,398 +1270,37 @@ const DoCambridgeListeningTest = () => {
     [sanitizeBasicHtml]
   );
 
-  const normalizeClozeHtml = useCallback((html) => {
-    const s = String(html || '');
-    return s
-      .replace(/<\s*br\s*\/?>/gi, '<br/>')
-      .replace(/<\s*\/\s*p\s*>/gi, '<br/>')
-      .replace(/<\s*p[^>]*>/gi, '')
-      .replace(/<\s*\/\s*div\s*>/gi, '<br/>')
-      .replace(/<\s*div[^>]*>/gi, '')
-      .replace(/(<br\s*\/?>\s*){3,}/gi, '<br/><br/>');
-  }, []);
-
-  const renderOpenClozeSection = (section, secIdx, sectionStartNum) => {
-    const qIdx = 0;
-    const container = section.questions[0] || {};
-    const passageText = container.passageText || container.passage || '';
-    const normalizedPassageText = normalizeClozeHtml(passageText);
-    const passageTitle = container.passageTitle || '';
-    let blanks = Array.isArray(container.blanks) ? container.blanks : [];
-
-    // Fallback: parse blanks from passage if backend didn't provide them.
-    if (!blanks.length && passageText) {
-      const tempDiv = document.createElement('div');
-      tempDiv.innerHTML = passageText;
-      const plainText = tempDiv.textContent || tempDiv.innerText || '';
-
-      const blankMatches = [];
-      const regex = /\((\d+)\)|\[(\d+)\]/g;
-      let match;
-
-      while ((match = regex.exec(plainText)) !== null) {
-        const num = parseInt(match[1] || match[2]);
-        blankMatches.push({
-          questionNum: num,
-          fullMatch: match[0],
-          index: match.index,
-        });
-      }
-
-      if (!blankMatches.length) {
-        const underscorePattern = /[_\u2026]{3,}/g;
-        let blankIndex = 0;
-        while ((match = underscorePattern.exec(plainText)) !== null) {
-          blankMatches.push({
-            questionNum: sectionStartNum + blankIndex,
-            fullMatch: match[0],
-            index: match.index,
-          });
-          blankIndex++;
-        }
-      }
-
-      blanks = blankMatches.sort((a, b) => a.questionNum - b.questionNum);
-    }
-
-    const renderInlineWithInputs = (html, lineKeyPrefix, firstNumberInPassage) => {
-      if (!html) return [];
-
-      const elements = [];
-      let lastIndex = 0;
-      const regex = /\((\d+)\)|\[(\d+)\]/g;
-      let match;
-      let matchedAnyNumber = false;
-
-      while ((match = regex.exec(html)) !== null) {
-        matchedAnyNumber = true;
-        const questionNumber = parseInt(match[1] || match[2]);
-        const blankIndex = questionNumber - firstNumberInPassage;
-
-        if (blankIndex >= 0 && blankIndex < blanks.length) {
-          if (match.index > lastIndex) {
-            elements.push(
-              <span
-                key={`${lineKeyPrefix}-text-${lastIndex}`}
-                dangerouslySetInnerHTML={{ __html: html.substring(lastIndex, match.index) }}
-              />
-            );
-          }
-
-          const questionKey = `${currentPartIndex}-${secIdx}-${qIdx}-${blankIndex}`;
-          const userAnswer = answers[questionKey] || '';
-
-          elements.push(
-            <input
-              key={`${lineKeyPrefix}-input-${questionNumber}`}
-              id={`question-${questionNumber}`}
-              type="text"
-              value={userAnswer}
-              onChange={(e) => handleAnswerChange(questionKey, e.target.value)}
-              disabled={submitted}
-              placeholder={`(${questionNumber})`}
-              style={{
-                display: 'inline-block',
-                margin: '0 4px',
-                padding: '6px 10px',
-                fontSize: '15px',
-                fontWeight: '600',
-                border: `2px solid ${isDarkMode ? '#4f6db6' : '#0284c7'}`,
-                borderRadius: '4px',
-                backgroundColor: isDarkMode ? (userAnswer ? '#1e3a5f' : '#1f2b47') : (userAnswer ? '#f0f9ff' : 'white'),
-                color: isDarkMode ? '#e5e7eb' : '#0e7490',
-                width: 'clamp(120px, 48vw, 150px)',
-                textAlign: 'center',
-                scrollMarginTop: '100px',
-              }}
-            />
-          );
-
-          lastIndex = match.index + match[0].length;
-        }
-      }
-
-      if (!matchedAnyNumber) {
-        const underscorePattern = /[_\u2026]{3,}/g;
-        let blankIndex = 0;
-        lastIndex = 0;
-        let um;
-
-        while ((um = underscorePattern.exec(html)) !== null) {
-          if (um.index > lastIndex) {
-            elements.push(
-              <span
-                key={`${lineKeyPrefix}-text-${lastIndex}`}
-                dangerouslySetInnerHTML={{ __html: html.substring(lastIndex, um.index) }}
-              />
-            );
-          }
-
-          if (blankIndex < blanks.length) {
-            const questionNumber = sectionStartNum + blankIndex;
-            const questionKey = `${currentPartIndex}-${secIdx}-${qIdx}-${blankIndex}`;
-            const userAnswer = answers[questionKey] || '';
-
-            elements.push(
-              <input
-                key={`${lineKeyPrefix}-input-${questionNumber}`}
-                id={`question-${questionNumber}`}
-                type="text"
-                value={userAnswer}
-                onChange={(e) => handleAnswerChange(questionKey, e.target.value)}
-                disabled={submitted}
-                placeholder={`(${questionNumber})`}
-                style={{
-                  display: 'inline-block',
-                  margin: '0 4px',
-                  padding: '6px 10px',
-                  fontSize: '15px',
-                  fontWeight: '600',
-                  border: `2px solid ${isDarkMode ? '#4f6db6' : '#0284c7'}`,
-                  borderRadius: '4px',
-                  backgroundColor: isDarkMode ? (userAnswer ? '#1e3a5f' : '#1f2b47') : (userAnswer ? '#f0f9ff' : 'white'),
-                  color: isDarkMode ? '#e5e7eb' : '#0e7490',
-                  width: 'clamp(120px, 48vw, 150px)',
-                  textAlign: 'center',
-                  scrollMarginTop: '100px',
-                }}
-              />
-            );
-            blankIndex++;
-          }
-
-          lastIndex = um.index + um[0].length;
-        }
-      }
-
-      if (lastIndex < html.length) {
-        elements.push(
-          <span
-            key={`${lineKeyPrefix}-text-${lastIndex}`}
-            dangerouslySetInnerHTML={{ __html: html.substring(lastIndex) }}
-          />
-        );
-      }
-
-      return elements;
-    };
-
-    const renderPassageWithInputs = () => {
-      if (!normalizedPassageText) return null;
-
-      const listContainer = document.createElement('div');
-      listContainer.innerHTML = passageText;
-      const listItems = Array.from(listContainer.querySelectorAll('li'));
-
-      const regex = /\((\d+)\)|\[(\d+)\]/g;
-      const firstNumberMatch = regex.exec(normalizedPassageText);
-      const firstNumberInPassage = firstNumberMatch
-        ? parseInt(firstNumberMatch[1] || firstNumberMatch[2])
-        : sectionStartNum;
-      regex.lastIndex = 0;
-
-      if (listItems.length > 0) {
-        return (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            {listItems.map((li, idx) => (
-              <div
-                key={`cloze-line-${idx}`}
-                style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '6px' }}
-              >
-                {renderInlineWithInputs(li.innerHTML, `line-${idx}`, firstNumberInPassage)}
-              </div>
-            ))}
-          </div>
-        );
-      }
-
-      return renderInlineWithInputs(normalizedPassageText, 'inline', firstNumberInPassage);
-    };
-
-    const sectionKey = `${currentPartIndex}-${secIdx}-${qIdx}`;
-
-    return (
-      <div className={`cambridge-question-wrapper ${flaggedQuestions.has(sectionKey) ? 'flagged-section' : ''}`} style={{ position: 'relative' }}>
-        <button
-          className={`cambridge-flag-button ${flaggedQuestions.has(sectionKey) ? 'flagged' : ''}`}
-          onClick={() => toggleFlag(sectionKey)}
-          aria-label="Flag question"
-          style={{ position: 'absolute', top: 0, right: 0 }}
-        >
-          {flaggedQuestions.has(sectionKey) ? '🚩' : '⚐'}
-        </button>
-
-        {passageTitle ? (
-          <h3
-            style={{
-              marginBottom: '16px',
-              fontSize: '18px',
-              fontWeight: 600,
-              color: isDarkMode ? '#e5e7eb' : '#0c4a6e',
-            }}
-            dangerouslySetInnerHTML={{ __html: passageTitle }}
-          />
-        ) : null}
-
-        <div
-          className="cambridge-passage-content"
-          style={{
-            padding: '20px',
-            backgroundColor: isDarkMode ? '#111827' : '#f0f9ff',
-            border: `2px solid ${isDarkMode ? '#2a3350' : '#0284c7'}`,
-            borderRadius: '12px',
-            fontSize: '15px',
-            lineHeight: 2,
-          }}
-        >
-          {renderPassageWithInputs()}
-        </div>
-      </div>
-    );
-  };
-
-  const renderGapMatchSection = (section, secIdx, sectionStartNum) => {
-    const qIdx = 0;
-    const container = section.questions[0] || {};
-    const leftTitle = container.leftTitle || 'People';
-    const rightTitle = container.rightTitle || 'Options';
-    const leftItems = Array.isArray(container.leftItems) ? container.leftItems : [];
-    const options = Array.isArray(container.options) ? container.options : [];
-    const correctAnswers = Array.isArray(container.correctAnswers) ? container.correctAnswers : [];
-
-    const usedMap = {};
-    leftItems.forEach((_, idx) => {
-      const key = `${currentPartIndex}-${secIdx}-${qIdx}-${idx}`;
-      const val = answers[key];
-      if (val) usedMap[val] = key;
-    });
-
-    const setGapAnswer = (key, value) => {
-      setAnswers((prev) => {
-        const next = { ...prev, [key]: value };
-        if (value && usedMap[value] && usedMap[value] !== key) {
-          next[usedMap[value]] = '';
-        }
-        return next;
-      });
-    };
-
-    return (
-      <div className="cambridge-question-wrapper" >
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-          <div style={{ border: `1px solid ${isDarkMode ? '#2a3350' : '#bae6fd'}`, background: isDarkMode ? '#0f172a' : '#f0f9ff', borderRadius: '10px', padding: '12px' }}>
-            <div style={{ fontWeight: 700, color: isDarkMode ? '#e5e7eb' : '#0e276f', marginBottom: '8px' }}>{leftTitle}</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              {leftItems.map((item, idx) => {
-                const key = `${currentPartIndex}-${secIdx}-${qIdx}-${idx}`;
-                const num = sectionStartNum + idx;
-                const userAnswer = answers[key] || '';
-                const correct = correctAnswers?.[idx];
-                const isCorrect = submitted && String(userAnswer || '').trim() === String(correct || '').trim();
-
-                return (
-                  <div
-                    key={key}
-                    ref={(el) => (questionRefs.current[key] = el)}
-                    className={`cambridge-question-wrapper ${userAnswer ? 'answered' : ''} ${activeQuestion === key ? 'active-question' : ''}`}
-                    style={{ padding: '10px', borderRadius: '8px', border: `1px solid ${isDarkMode ? '#2a3350' : '#dbeafe'}`, background: isDarkMode ? '#111827' : '#fff' }}
-                  >
-                    <button
-                      className={`cambridge-flag-button ${flaggedQuestions.has(key) ? 'flagged' : ''}`}
-                      onClick={() => toggleFlag(key)}
-                      aria-label="Flag question"
-                      type="button"
-                    >
-                      {flaggedQuestions.has(key) ? '🚩' : '⚐'}
-                    </button>
-
-                    <div style={{ display: 'grid', gridTemplateColumns: '56px 1fr', gap: '10px', alignItems: 'center' }}>
-                      <span className="cambridge-question-number">{num}</span>
-                      <div>
-                        <div style={{ fontWeight: 600, color: isDarkMode ? '#e5e7eb' : '#1f2937', marginBottom: 8 }}>{item || `Item ${idx + 1}`}</div>
-                        <div
-                          role="button"
-                          tabIndex={0}
-                          onDragOver={(e) => e.preventDefault()}
-                          onDrop={(e) => {
-                            if (submitted) return;
-                            const value = e.dataTransfer.getData('text/plain');
-                            if (value) setGapAnswer(key, value);
-                          }}
-                          onClick={() => {
-                            if (submitted) return;
-                            if (userAnswer) setGapAnswer(key, '');
-                          }}
-                          style={{
-                            minHeight: 36,
-                            border: '2px dashed #93c5fd',
-                            borderRadius: 8,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            padding: '6px 10px',
-                            fontWeight: 700,
-                            color: userAnswer ? (isDarkMode ? '#e5e7eb' : '#0f172a') : '#94a3b8',
-                            background: userAnswer ? (isDarkMode ? '#1e3a5f' : '#e0f2fe') : (isDarkMode ? '#1f2b47' : '#f8fafc'),
-                            cursor: submitted ? 'default' : 'pointer',
-                            ...(submitted
-                              ? {
-                                  borderColor: isCorrect ? '#22c55e' : '#ef4444',
-                                  background: isCorrect ? (isDarkMode ? '#0f2a1a' : '#dcfce7') : (isDarkMode ? '#2a1515' : '#fee2e2'),
-                                  color: isDarkMode ? '#e5e7eb' : '#0f172a',
-                                }
-                              : null),
-                          }}
-                        >
-                          {userAnswer || `Drop ${num}`}
-                        </div>
-                        {submitted && correct && !isCorrect && (
-                          <div style={styles.correctAnswer}>✓ Đáp án đúng: {correct}</div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          <div style={{ border: `1px solid ${isDarkMode ? '#2a3350' : '#e5e7eb'}`, background: isDarkMode ? '#0f172a' : '#fff', borderRadius: '10px', padding: '12px' }}>
-            <div style={{ fontWeight: 700, color: isDarkMode ? '#e5e7eb' : '#0e276f', marginBottom: '8px' }}>{rightTitle}</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              {options.map((opt) => {
-                const usedBy = usedMap[opt];
-                const isUsed = Boolean(usedBy);
-                return (
-                  <div
-                    key={opt}
-                    draggable={!submitted && !isUsed}
-                    onDragStart={(e) => {
-                      if (submitted || isUsed) return;
-                      e.dataTransfer.setData('text/plain', opt);
-                    }}
-                    style={{
-                      padding: '10px 12px',
-                      borderRadius: '8px',
-                      border: `1px solid ${isDarkMode ? '#2a3350' : '#e5e7eb'}`,
-                      background: isUsed ? (isDarkMode ? '#1f2b47' : '#f1f5f9') : (isDarkMode ? '#111827' : '#fafafa'),
-                      opacity: isUsed ? 0.45 : 1,
-                      cursor: submitted || isUsed ? 'default' : 'grab',
-                      fontWeight: 600,
-                      color: isDarkMode ? '#e5e7eb' : undefined,
-                    }}
-                  >
-                    {opt}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
+  const renderOpenClozeSection = (section, secIdx, sectionStartNum) => (
+    <OpenClozeSectionDisplay
+      section={section}
+      secIdx={secIdx}
+      sectionStartNum={sectionStartNum}
+      currentPartIndex={currentPartIndex}
+      answers={answers}
+      submitted={submitted}
+      isDarkMode={isDarkMode}
+      flaggedQuestions={flaggedQuestions}
+      toggleFlag={toggleFlag}
+      handleAnswerChange={handleAnswerChange}
+    />
+  );
+  const renderGapMatchSection = (section, secIdx, sectionStartNum) => (
+    <GapMatchSectionDisplay
+      section={section}
+      secIdx={secIdx}
+      sectionStartNum={sectionStartNum}
+      currentPartIndex={currentPartIndex}
+      answers={answers}
+      setAnswers={setAnswers}
+      submitted={submitted}
+      isDarkMode={isDarkMode}
+      flaggedQuestions={flaggedQuestions}
+      toggleFlag={toggleFlag}
+      questionRefs={questionRefs}
+      activeQuestion={activeQuestion}
+      styles={styles}
+    />
+  );
   // Handle checkbox change for multi-select
   /* eslint-disable-next-line no-unused-vars */
   const handleCheckboxChange = useCallback(
@@ -1750,455 +1571,41 @@ const DoCambridgeListeningTest = () => {
   }, [questionIndex, test?.parts]);
 
   // Render question based on type
-  const renderQuestion = (question, questionKey, questionNum) => {
-    const qType = (() => {
-      if (question.questionType) return question.questionType;
-      // Backward compat: question saved without questionType field
-      if (question.anchors && Object.keys(question.anchors).length > 0) return 'draw-lines';
-      if (Array.isArray(question.leftItems) && question.leftItems.length > 0) return 'matching';
-      return 'fill';
-    })();
-    const userAnswer = answers[questionKey];
-    const isCorrect = submitted && results?.answers?.[questionKey]?.isCorrect;
-    const isActive = activeQuestion === questionKey;
-    const isAnswered = (() => {
-      if (Array.isArray(userAnswer)) return userAnswer.length > 0;
-      if (userAnswer && typeof userAnswer === 'object') return Object.keys(userAnswer).length > 0;
-      return String(userAnswer ?? '').trim() !== '';
-    })();
-
-    const wrapperClassName = `cambridge-question-wrapper ${isAnswered ? 'answered' : ''} ${isActive ? 'active-question' : ''}`;
-
-    switch (qType) {
-      case 'fill':
-        return (
-          <div className={wrapperClassName}>
-            <div style={styles.questionHeader}>
-              <span className="cambridge-question-number">{questionNum}</span>
-              <div className="cambridge-question-text">{question.questionText}</div>
-            </div>
-            <input
-              type="text"
-              value={userAnswer || ''}
-              onChange={(e) => handleAnswerChange(questionKey, e.target.value)}
-              disabled={submitted}
-              placeholder="Nhập đáp án..."
-              style={{
-                ...styles.input,
-                ...(submitted && {
-                  backgroundColor: isCorrect ? '#dcfce7' : '#fee2e2',
-                  borderColor: isCorrect ? '#22c55e' : '#ef4444',
-                }),
-              }}
-            />
-            {submitted && question.correctAnswer && (
-              <div style={styles.correctAnswer}>
-                ✓ Đáp án đúng: {question.correctAnswer}
-              </div>
-            )}
-          </div>
-        );
-
-      case 'abc':
-      case 'abcd':
-        const options = question.options || [];
-        return (
-          <div className={wrapperClassName}>
-            <div style={styles.questionHeader}>
-              <span className="cambridge-question-number">{questionNum}</span>
-              <div className="cambridge-question-text">{question.questionText}</div>
-            </div>
-            <div style={styles.optionsContainer}>
-              {options.map((opt, idx) => {
-                const optionLabel = String.fromCharCode(65 + idx);
-                const isSelected = userAnswer === optionLabel;
-                const isCorrectOption = submitted && question.correctAnswer === optionLabel;
-
-                return (
-                  <label
-                    key={idx}
-                    style={{
-                      ...styles.optionLabel,
-                      ...(isSelected && styles.optionSelected),
-                      ...(submitted && isCorrectOption && styles.optionCorrect),
-                      ...(submitted && isSelected && !isCorrectOption && styles.optionWrong),
-                    }}
-                  >
-                    <input
-                      type="radio"
-                      name={questionKey}
-                      checked={isSelected}
-                      onChange={() => handleAnswerChange(questionKey, optionLabel)}
-                      disabled={submitted}
-                      style={{ marginRight: '10px' }}
-                    />
-                    <span style={styles.optionBadge}>{optionLabel}</span>
-                    <span style={styles.optionText}>{opt}</span>
-                  </label>
-                );
-              })}
-            </div>
-          </div>
-        );
-
-      case 'multiple-choice-pictures':
-        const rawImageOptions = (() => {
-          if (Array.isArray(question.imageOptions) && question.imageOptions.length) return question.imageOptions;
-          if (Array.isArray(question.options) && question.options.length) return question.options;
-          if (Array.isArray(question.images) && question.images.length) return question.images;
-          return [];
-        })();
-
-        const imageOptions = rawImageOptions
-          .map((opt) => {
-            if (!opt) return {};
-            if (typeof opt === 'string') return { imageUrl: opt };
-            if (typeof opt === 'object') {
-              return {
-                ...opt,
-                imageUrl: opt.imageUrl || opt.image || opt.url || opt.src || opt.path,
-                label: opt.label || opt.text || opt.caption || opt.title,
-              };
-            }
-            return {};
-          });
-
-        return (
-          <div className={wrapperClassName} style={styles.pictureQuestionCard}>
-            <div style={styles.pictureQuestionHeader}>
-              <div
-                style={{
-                  ...styles.questionHeader,
-                  padding: 0,
-                  background: 'transparent',
-                  border: 'none',
-                  borderRadius: 0,
-                }}
-              >
-                <span className="cambridge-question-number">{questionNum}</span>
-                <div className="cambridge-question-text">{question.questionText}</div>
-              </div>
-
-              <button
-                type="button"
-                aria-label={`Flag question ${questionNum}`}
-                onClick={() => toggleFlag(questionKey)}
-                style={{
-                  ...styles.flagButton,
-                  ...(flaggedQuestions.has(questionKey) ? styles.flagButtonActive : null),
-                }}
-              >
-                {flaggedQuestions.has(questionKey) ? '⚑' : '⚐'}
-              </button>
-            </div>
-
-            <div style={styles.pictureChoicesRow} role="radiogroup" aria-label={`Question ${questionNum}`}> 
-              {[0, 1, 2].map((idx) => {
-                const optionLabel = String.fromCharCode(65 + idx); // A/B/C
-                const opt = imageOptions[idx] || {};
-                const isSelected = userAnswer === optionLabel;
-                const isCorrectOption = submitted && question.correctAnswer === optionLabel;
-
-                const imgSrc = opt.imageUrl ? resolveImgSrc(opt.imageUrl) : '';
-
-                return (
-                  <div key={idx} style={styles.pictureChoiceItem}>
-                    <label
-                      style={{
-                        ...styles.pictureChoiceLabelWrap,
-                        ...(isSelected ? styles.pictureChoiceSelected : null),
-                        ...(submitted && isCorrectOption ? styles.pictureChoiceCorrect : null),
-                        ...(submitted && isSelected && !isCorrectOption ? styles.pictureChoiceWrong : null),
-                      }}
-                    >
-                      <div
-                        style={{
-                          position: 'relative',
-                          width: styles.pictureChoiceImagePlaceholder.width,
-                          height: styles.pictureChoiceImagePlaceholder.height,
-                          overflow: 'hidden',
-                          borderRadius: '10px',
-                          border: `1px solid ${isDarkMode ? '#2a3350' : '#e5e7eb'}`,
-                          background: isDarkMode ? '#1f2b47' : '#f8fafc',
-                        }}
-                      >
-                        <div style={{ ...styles.pictureChoiceImagePlaceholder, width: '100%', height: '100%' }}>
-                          {imgSrc ? 'Loading…' : `No image (${optionLabel})`}
-                        </div>
-
-                        {imgSrc ? (
-                          <img
-                            src={imgSrc}
-                            alt=""
-                            style={{
-                              ...styles.pictureChoiceImage,
-                              position: 'absolute',
-                              left: 0,
-                              top: 0,
-                              width: '100%',
-                              height: '100%',
-                              objectFit: 'contain',
-                              background: '#ffffff',
-                            }}
-                            onLoad={(e) => {
-                              // If it loads, hide the placeholder text behind.
-                              // (We keep it in DOM to avoid layout shift.)
-                              e.currentTarget.style.background = 'transparent';
-                            }}
-                            onError={(e) => {
-                              const el = e.currentTarget;
-                              // If backend serves from /upload/cambridge but data has /uploads/cambridge (or vice-versa),
-                              // try the alternate once before giving up.
-                              if (el?.dataset?.fallbackTried !== '1') {
-                                const current = String(el.currentSrc || el.src || '');
-                                const swapped = current.includes('/uploads/')
-                                  ? current.replace('/uploads/', '/upload/')
-                                  : current.includes('/upload/')
-                                    ? current.replace('/upload/', '/uploads/')
-                                    : '';
-
-                                if (swapped && swapped !== current) {
-                                  el.dataset.fallbackTried = '1';
-                                  el.src = swapped;
-                                  return;
-                                }
-                              }
-
-                              // Keep the placeholder visible if the image fails.
-                              el.style.display = 'none';
-                            }}
-                          />
-                        ) : null}
-
-                        <div
-                          style={{
-                            position: 'absolute',
-                            left: '10px',
-                            top: '10px',
-                            width: '34px',
-                            height: '34px',
-                            borderRadius: '10px',
-                            background: '#0e276f',
-                            color: '#ffffff',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            fontWeight: 900,
-                            boxShadow: '0 8px 18px rgba(0,0,0,0.18)',
-                          }}
-                        >
-                          {optionLabel}
-                        </div>
-                      </div>
-
-                      <input
-                        type="radio"
-                        name={questionKey}
-                        value={optionLabel}
-                        checked={isSelected}
-                        onChange={() => handleAnswerChange(questionKey, optionLabel)}
-                        disabled={submitted}
-                        style={styles.pictureChoiceRadio}
-                        aria-label={`Option ${optionLabel}`}
-                      />
-
-                      {opt.label ? (
-                        <div style={{ fontSize: '13px', color: isDarkMode ? '#94a3b8' : '#475569', textAlign: 'center' }}>{opt.label}</div>
-                      ) : null}
-                    </label>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        );
-
-      case 'draw-lines':
-      case 'matching': {
-        const leftItems = question.leftItems || [];
-        const rightItems = question.rightItems || [];
-
-        // ── Draw-lines variant (MOVERS Part 1) ─────────────────────────────
-        if (question.questionType === 'draw-lines' || (question.anchors && Object.keys(question.anchors).length > 0)) {
-          return (
-            <DrawLinesQuestion
-              key={questionKey}
-              question={question}
-              questionKey={questionKey}
-              questionNum={questionNum}
-              leftItems={leftItems}
-              rightItems={rightItems}
-              anchors={question.anchors || {}}
-              partImageUrl={currentPart?.imageUrl || ''}
-              answers={answers}
-              submitted={submitted}
-              results={results}
-              isDarkMode={isDarkMode}
-              wrapperClassName={wrapperClassName}
-              handleAnswerChange={handleAnswerChange}
-              hostPath={hostPath}
-            />
-          );
-        }
-
-        // ── Dropdown matching (fallback) ────────────────────────────────────
-        return (
-          <div className={wrapperClassName}>
-            <div style={styles.questionHeader}>
-              <span className="cambridge-question-number">{questionNum}</span>
-              <div className="cambridge-question-text">{question.questionText || 'Match the items'}</div>
-            </div>
-            <div style={styles.matchingContainer}>
-              {leftItems.map((item, idx) => (
-                <div key={idx} style={styles.matchingRow}>
-                  <span style={styles.matchingItem}>{idx + 1}. {item}</span>
-                  <select
-                    value={answers[`${questionKey}-${idx}`] || ''}
-                    onChange={(e) => handleAnswerChange(`${questionKey}-${idx}`, e.target.value)}
-                    disabled={submitted}
-                    style={styles.matchingSelect}
-                  >
-                    <option value="">-- Chọn --</option>
-                    {rightItems.map((right, rIdx) => (
-                      <option key={rIdx} value={String.fromCharCode(65 + rIdx)}>
-                        {String.fromCharCode(65 + rIdx)}. {right}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              ))}
-            </div>
-            <div style={styles.rightItemsRef}>
-              <strong>Options:</strong>
-              <div style={{ marginTop: '8px', display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                {rightItems.map((item, idx) => (
-                  <span key={idx} style={styles.rightItemBadge}>
-                    {String.fromCharCode(65 + idx)}. {item}
-                  </span>
-                ))}
-              </div>
-            </div>
-          </div>
-        );
-      }
-
-      default:
-        return (
-          <div className={wrapperClassName}>
-            <div style={styles.questionHeader}>
-              <span className="cambridge-question-number">{questionNum}</span>
-              <div className="cambridge-question-text">{question.questionText}</div>
-            </div>
-            <input
-              type="text"
-              value={userAnswer || ''}
-              onChange={(e) => handleAnswerChange(questionKey, e.target.value)}
-              disabled={submitted}
-              placeholder="Nhập đáp án..."
-              style={styles.input}
-            />
-          </div>
-        );
-    }
-  };
-
-  const renderCompactQuestion = (question, questionKey, questionNum) => {
-    const qType = question.questionType || 'fill';
-    const userAnswer = answers[questionKey];
-    const isCorrect = submitted && results?.answers?.[questionKey]?.isCorrect;
-    const isActive = activeQuestion === questionKey;
-    /* eslint-disable-next-line no-unused-vars */
-    const isAnswered = (() => {
-      if (Array.isArray(userAnswer)) return userAnswer.length > 0;
-      if (userAnswer && typeof userAnswer === 'object') return Object.keys(userAnswer).length > 0;
-      return String(userAnswer ?? '').trim() !== '';
-    })();
-
-    const options = Array.isArray(question.options) ? question.options : [];
-
-    return (
-      <div
-        key={questionKey}
-        ref={(el) => (questionRefs.current[questionKey] = el)}
-        style={{
-          padding: '12px 8px',
-          borderBottom: `1px solid ${isDarkMode ? '#2a3350' : '#e5e7eb'}`,
-          background: isActive ? (isDarkMode ? '#1f2b47' : '#f8fafc') : 'transparent',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
-          <span className="cambridge-question-number">{questionNum}</span>
-          <div style={{ flex: 1 }}>
-            <div className="cambridge-question-text" style={{ marginBottom: 8 }}>
-              {question.questionText}
-            </div>
-
-            {(qType === 'abc' || qType === 'abcd') && (
-              <div style={{ display: 'grid', gap: '8px' }}>
-                {options.map((opt, idx) => {
-                  const optionLabel = String.fromCharCode(65 + idx);
-                  const isSelected = userAnswer === optionLabel;
-                  const isCorrectOption = submitted && question.correctAnswer === optionLabel;
-
-                  return (
-                    <label
-                      key={idx}
-                      style={{
-                        ...styles.optionLabel,
-                        ...(isSelected && styles.optionSelected),
-                        ...(submitted && isCorrectOption && styles.optionCorrect),
-                        ...(submitted && isSelected && !isCorrectOption && styles.optionWrong),
-                        marginBottom: 0,
-                      }}
-                    >
-                      <input
-                        type="radio"
-                        name={questionKey}
-                        checked={isSelected}
-                        onChange={() => handleAnswerChange(questionKey, optionLabel)}
-                        disabled={submitted}
-                        style={{ marginRight: '10px' }}
-                      />
-                      <span style={styles.optionBadge}>{optionLabel}</span>
-                      <span style={styles.optionText}>{opt}</span>
-                    </label>
-                  );
-                })}
-              </div>
-            )}
-
-            {qType === 'fill' && (
-              <input
-                type="text"
-                value={userAnswer || ''}
-                onChange={(e) => handleAnswerChange(questionKey, e.target.value)}
-                disabled={submitted}
-                placeholder="Nhập đáp án..."
-                style={{
-                  ...styles.input,
-                  ...(submitted && {
-                    backgroundColor: isCorrect ? '#dcfce7' : '#fee2e2',
-                    borderColor: isCorrect ? '#22c55e' : '#ef4444',
-                  }),
-                }}
-              />
-            )}
-          </div>
-
-          <button
-            className={`cambridge-flag-button ${flaggedQuestions.has(questionKey) ? 'flagged' : ''}`}
-            onClick={() => toggleFlag(questionKey)}
-            aria-label="Flag question"
-            type="button"
-            style={{ marginTop: 2 }}
-          >
-            {flaggedQuestions.has(questionKey) ? '🚩' : '⚐'}
-          </button>
-        </div>
-      </div>
-    );
-  };
-
+  const renderQuestion = (question, questionKey, questionNum) => (
+    <CambridgeQuestionDisplay
+      question={question}
+      questionKey={questionKey}
+      questionNum={questionNum}
+      answers={answers}
+      submitted={submitted}
+      results={results}
+      activeQuestion={activeQuestion}
+      styles={styles}
+      handleAnswerChange={handleAnswerChange}
+      toggleFlag={toggleFlag}
+      flaggedQuestions={flaggedQuestions}
+      isDarkMode={isDarkMode}
+      currentPart={currentPart}
+      questionRefs={questionRefs}
+      resolveImgSrc={resolveImgSrc}
+      DrawLinesComponent={DrawLinesQuestion}
+    />
+  );
+  const renderCompactQuestion = (question, questionKey, questionNum) => (
+    <CompactCambridgeQuestionDisplay
+      question={question}
+      questionKey={questionKey}
+      questionNum={questionNum}
+      answers={answers}
+      submitted={submitted}
+      results={results}
+      activeQuestion={activeQuestion}
+      styles={styles}
+      handleAnswerChange={handleAnswerChange}
+      questionRefs={questionRefs}
+      isDarkMode={isDarkMode}
+    />
+  );
   // Loading state
   if (loading) {
     return (
@@ -3373,3 +2780,4 @@ const DoCambridgeListeningTest = () => {
 };
 
 export default DoCambridgeListeningTest;
+
