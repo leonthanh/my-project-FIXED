@@ -851,6 +851,8 @@ const MoversListeningTestBuilder = ({ editId = null, initialData = null }) => {
                   startNumber={currentStartNumber}
                   exampleItem={cfg.part === 2 ? currentExampleItem : null}
                   onExampleChange={cfg.part === 2 ? (exampleItem) => updateFirstSection({ exampleItem }) : null}
+                  imageTitle={cfg.part === 2 ? (currentSection?.imageTitle || '') : undefined}
+                  onImageTitleChange={cfg.part === 2 ? (imageTitle) => updateFirstSection({ imageTitle }) : null}
                 />
               )}
 

@@ -1318,7 +1318,6 @@ const DoCambridgeListeningTest = () => {
           marginBottom: '12px',
         }}
       >
-        {/* Header */}
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', marginBottom: '12px' }}>
           <span style={{
             display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
@@ -2146,6 +2145,34 @@ const DoCambridgeListeningTest = () => {
                         {/* Part illustration image (e.g. MOVERS Part 2 form picture) */}
                         {currentPart.imageUrl && (
                           <div style={{ marginTop: 12 }}>
+                            {/* Tiêu đề hiển thị trên ảnh (lưu tại section.imageTitle) */}
+                            {(() => {
+                              const sec0 = currentPart?.sections?.[0];
+                              const title = String(sec0?.imageTitle || '').trim();
+                              if (!title) return null;
+                              return (
+                                <div style={{
+                                  fontSize: '20px',
+                                  fontWeight: 800,
+                                  color: isDarkMode ? '#c7d2fe' : '#4338ca',
+                                  marginBottom: '10px',
+                                  lineHeight: 1.4,
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  gap: '8px',
+                                  textAlign: 'center',
+                                }}>
+                                  <span style={{
+                                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                                    width: '30px', height: '30px', borderRadius: '50%',
+                                    background: isDarkMode ? '#312e81' : '#e0e7ff',
+                                    fontSize: '15px', flexShrink: 0,
+                                  }}>📝</span>
+                                  {title}
+                                </div>
+                              );
+                            })()}
                             <img
                               src={resolveImgSrc(currentPart.imageUrl)}
                               alt="Part illustration"

@@ -107,6 +107,8 @@ export const FillQuestionsEditor = ({
   startNumber = 1,
   exampleItem = null,
   onExampleChange = null,
+  imageTitle = "",
+  onImageTitleChange = null,
 }) => {
   const updateQ = (idx, field, val) => {
     const next = [...questions];
@@ -116,6 +118,26 @@ export const FillQuestionsEditor = ({
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+      {/* Tiêu đề cho hình ảnh (hiển thị to đẹp bên UI học sinh) */}
+      {onImageTitleChange !== null && (
+        <div style={{
+          padding: "12px 14px",
+          border: "1.5px solid #c7d2fe",
+          borderRadius: "10px",
+          background: "#eef2ff",
+        }}>
+          <div style={{ fontSize: "12px", fontWeight: 700, color: "#4f46e5", marginBottom: "8px", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+            🏷️ Tiêu đề hình ảnh — hiển thị to bên UI học sinh
+          </div>
+          <input
+            type="text"
+            placeholder="Ví dụ: Listen and write."
+            value={imageTitle || ""}
+            onChange={(e) => onImageTitleChange(e.target.value)}
+            style={{ ...inputStyle, borderColor: imageTitle ? "#6366f1" : "#c7d2fe", background: "#fff" }}
+          />
+        </div>
+      )}
       {onExampleChange && (
         <div
           style={{
