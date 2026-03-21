@@ -100,74 +100,215 @@ export const TipBox = ({ cfg }) => (
   </div>
 );
 
-export const FillQuestionsEditor = ({ questions, onChange, color = "#10b981" }) => {
+export const FillQuestionsEditor = ({
+  questions,
+  onChange,
+  color = "#10b981",
+  startNumber = 1,
+  exampleItem = null,
+  onExampleChange = null,
+}) => {
   const updateQ = (idx, field, val) => {
     const next = [...questions];
-    next[idx] = { ...next[idx], [field]: val };
+    next[idx] = { ...next[idx], questionNumber: startNumber + idx, [field]: val };
     onChange(next);
   };
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-      {questions.map((q, idx) => (
+      {onExampleChange && (
         <div
-          key={idx}
           style={{
             padding: "14px",
-            border: "1px solid #e5e7eb",
+            border: "1px dashed #cbd5e1",
             borderRadius: "10px",
-            background: "#f9fafb",
+            background: "#f8fafc",
           }}
         >
           <div
             style={{
               display: "flex",
               alignItems: "center",
+              justifyContent: "space-between",
               gap: "8px",
               marginBottom: "10px",
             }}
           >
-            <span
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                justifyContent: "center",
-                width: "28px",
-                height: "28px",
-                borderRadius: "7px",
-                background: `${color}20`,
-                color,
-                fontWeight: 800,
-                fontSize: "13px",
-                flexShrink: 0,
-              }}
-            >
-              {idx + 1}
-            </span>
-            <span style={{ fontSize: "12px", fontWeight: 700, color: "#6b7280" }}>
-              Cau {idx + 1}
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <span
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  minWidth: "44px",
+                  height: "28px",
+                  borderRadius: "999px",
+                  background: "#e2e8f0",
+                  color: "#475569",
+                  fontWeight: 800,
+                  fontSize: "12px",
+                  padding: "0 10px",
+                }}
+              >
+                Vi du
+              </span>
+              <span style={{ fontSize: "12px", fontWeight: 700, color: "#64748b" }}>
+                Cau mau - khong tinh diem
+              </span>
+            </div>
+            <span style={{ fontSize: "11px", color: "#94a3b8", fontWeight: 600 }}>
+              Hien truoc cau {startNumber}
             </span>
           </div>
           <input
             type="text"
-            placeholder="Noi dung cau hoi / ngu canh"
-            value={q.questionText || ""}
-            onChange={(e) => updateQ(idx, "questionText", e.target.value)}
+            placeholder="Cau vi du / ngu canh"
+            value={exampleItem?.questionText || ""}
+            onChange={(e) =>
+              onExampleChange({
+                ...(exampleItem || {}),
+                questionText: e.target.value,
+              })
+            }
             style={inputStyle}
           />
           <input
             type="text"
-            placeholder="Dap an dung"
-            value={q.correctAnswer || ""}
-            onChange={(e) => updateQ(idx, "correctAnswer", e.target.value)}
+            placeholder="Dap an vi du hien san cho hoc sinh"
+            value={exampleItem?.correctAnswer || ""}
+            onChange={(e) =>
+              onExampleChange({
+                ...(exampleItem || {}),
+                correctAnswer: e.target.value,
+              })
+            }
             style={{
               ...inputStyle,
               marginBottom: 0,
-              borderColor: q.correctAnswer ? color : "#d1d5db",
+              borderColor: exampleItem?.correctAnswer ? color : "#d1d5db",
             }}
           />
         </div>
-      ))}
+      )}
+
+      {questions.map((q, idx) => {
+        // Parse correctAnswer string (slash‑separated) thành mảng để hiển thị từng row
+        const rawParts = String(q.correctAnswer || '').split('/').map((s) => s.trim());
+        const answerParts = rawParts.length && rawParts.some(Boolean) ? rawParts : [''];
+        const setAnswerParts = (parts) =>
+          updateQ(idx, 'correctAnswer', parts.map((s) => s.replace(/\//g, '')).join('/'));
+        return (
+          <div
+            key={idx}
+            style={{
+              padding: "14px",
+              border: "1px solid #e5e7eb",
+              borderRadius: "10px",
+              background: "#f9fafb",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+                marginBottom: "10px",
+              }}
+            >
+              <span
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  width: "28px",
+                  height: "28px",
+                  borderRadius: "7px",
+                  background: `${color}20`,
+                  color,
+                  fontWeight: 800,
+                  fontSize: "13px",
+                  flexShrink: 0,
+                }}
+              >
+                {startNumber + idx}
+              </span>
+              <span style={{ fontSize: "12px", fontWeight: 700, color: "#6b7280" }}>
+                Câu {startNumber + idx}
+              </span>
+            </div>
+
+            {/* Nội dung câu hỏi */}
+            <input
+              type="text"
+              placeholder="Nội dung câu hỏi / ngữ cảnh"
+              value={q.questionText || ""}
+              onChange={(e) => updateQ(idx, "questionText", e.target.value)}
+              style={inputStyle}
+            />
+
+            {/* Multi‑answer block */}
+            <div style={{ marginTop: "4px" }}>
+              <div style={{
+                fontSize: "11px", fontWeight: 700, color: "#6b7280",
+                marginBottom: "7px", textTransform: "uppercase", letterSpacing: "0.04em",
+              }}>
+                Đáp án — học sinh đúng khi khớp <em>bất kỳ</em> đáp án nào bên dưới
+              </div>
+
+              {answerParts.map((ans, aIdx) => (
+                <div key={aIdx} style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "6px" }}>
+                  <span style={{
+                    minWidth: "22px", fontSize: "11px", fontWeight: 700,
+                    color: aIdx === 0 ? color : "#94a3b8", textAlign: "center",
+                  }}>
+                    {aIdx === 0 ? "①" : `②③④⑤`[aIdx - 1] ?? `${aIdx + 1}.`}
+                  </span>
+                  <input
+                    type="text"
+                    placeholder={aIdx === 0 ? "Đáp án chính" : `Đáp án thay thế ${aIdx + 1}`}
+                    value={ans}
+                    onChange={(e) => {
+                      const next = [...answerParts];
+                      next[aIdx] = e.target.value.replace(/\//g, '');
+                      setAnswerParts(next);
+                    }}
+                    style={{
+                      ...inputStyle,
+                      marginBottom: 0,
+                      flex: 1,
+                      borderColor: ans ? color : "#d1d5db",
+                    }}
+                  />
+                  {aIdx > 0 && (
+                    <button
+                      onClick={() => setAnswerParts(answerParts.filter((_, i) => i !== aIdx))}
+                      style={{
+                        padding: "5px 9px", border: "1px solid #fca5a5",
+                        background: "#fef2f2", color: "#dc2626",
+                        borderRadius: "6px", cursor: "pointer", fontSize: "14px", lineHeight: 1,
+                        flexShrink: 0,
+                      }}
+                      title="Xóa đáp án này"
+                    >×</button>
+                  )}
+                </div>
+              ))}
+
+              {answerParts.length < 5 && (
+                <button
+                  onClick={() => setAnswerParts([...answerParts, ''])}
+                  style={{
+                    fontSize: "12px", color, background: `${color}12`,
+                    border: `1.5px dashed ${color}`, borderRadius: "7px",
+                    padding: "5px 12px", cursor: "pointer", fontWeight: 700,
+                    marginTop: "2px",
+                  }}
+                >+ Thêm đáp án chấp nhận</button>
+              )}
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 };
@@ -481,7 +622,7 @@ export const MatchingPartEditor = ({ data, onChange, partImageUrl }) => {
                   fontWeight: 700,
                 }}
               >
-                {name} -> {ans || "?"} {hasImage ? (anchor ? "📍" : "⚠️") : ""}
+                {name} {"->"} {ans || "?"}{hasImage ? (anchor ? " [anchor]" : " [missing anchor]") : ""}
               </span>
             ) : null;
           })}
@@ -491,10 +632,10 @@ export const MatchingPartEditor = ({ data, onChange, partImageUrl }) => {
   );
 };
 
-export const PictureQuestionsEditor = ({ questions, onChange }) => {
+export const PictureQuestionsEditor = ({ questions, onChange, startNumber = 1 }) => {
   const updateQ = (idx, field, val) => {
     const next = [...questions];
-    next[idx] = { ...next[idx], [field]: val };
+    next[idx] = { ...next[idx], questionNumber: startNumber + idx, [field]: val };
     onChange(next);
   };
 
@@ -533,10 +674,10 @@ export const PictureQuestionsEditor = ({ questions, onChange }) => {
                 fontSize: "13px",
               }}
             >
-              {idx + 1}
+              {startNumber + idx}
             </span>
             <span style={{ fontSize: "12px", fontWeight: 700, color: "#6b7280" }}>
-              Cau {idx + 1}
+              Cau {startNumber + idx}
             </span>
           </div>
 

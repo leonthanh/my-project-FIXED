@@ -111,6 +111,11 @@ const defaultFillQuestion = (num) => ({
   correctAnswer: "",
 });
 
+const defaultFillExample = () => ({
+  questionText: "",
+  correctAnswer: "",
+});
+
 const defaultPictureQuestion = (num) => ({
   questionNumber: num,
   questionText: "",
@@ -122,15 +127,18 @@ const defaultPictureQuestion = (num) => ({
   correctAnswer: "",
 });
 
-const getDefaultQuestions = (qt, count) => {
+const getPartStartNumber = (partIdx) =>
+  PART_CONFIGS.slice(0, partIdx).reduce((sum, cfg) => sum + Number(cfg.questionCount || 0), 1);
+
+const getDefaultQuestions = (qt, count, startNumber = 1) => {
   if (qt === "matching") return [defaultMatchingData()];
   if (qt === "multiple-choice-pictures")
-    return Array.from({ length: count }, (_, i) => defaultPictureQuestion(i + 1));
-  return Array.from({ length: count }, (_, i) => defaultFillQuestion(i + 1));
+    return Array.from({ length: count }, (_, i) => defaultPictureQuestion(startNumber + i));
+  return Array.from({ length: count }, (_, i) => defaultFillQuestion(startNumber + i));
 };
 
 const buildInitialParts = () =>
-  PART_CONFIGS.map((cfg) => ({
+  PART_CONFIGS.map((cfg, partIdx) => ({
     partNumber: cfg.part,
     title: cfg.title,
     instruction: cfg.instruction,
@@ -140,7 +148,8 @@ const buildInitialParts = () =>
       {
         sectionTitle: "",
         questionType: cfg.questionType,
-        questions: getDefaultQuestions(cfg.questionType, cfg.questionCount),
+        questions: getDefaultQuestions(cfg.questionType, cfg.questionCount, getPartStartNumber(partIdx)),
+        ...(cfg.part === 2 ? { exampleItem: defaultFillExample() } : {}),
       },
     ],
   }));
@@ -187,9 +196,27 @@ const normalizeMoversParts = (parts) => {
             ? section.questions.map((question, qIdx) => (
                 partIdx === 0 && secIdx === 0 && qIdx === 0
                   ? normalizeDrawLineQuestion(question)
-                  : question
+                  : {
+                      ...question,
+                      ...((PART_CONFIGS[partIdx]?.questionType === "fill" ||
+                        PART_CONFIGS[partIdx]?.questionType === "multiple-choice-pictures")
+                        ? { questionNumber: getPartStartNumber(partIdx) + qIdx }
+                        : {}),
+                    }
               ))
-            : section?.questions,
+            : getDefaultQuestions(
+                PART_CONFIGS[partIdx]?.questionType,
+                PART_CONFIGS[partIdx]?.questionCount || 0,
+                getPartStartNumber(partIdx)
+              ),
+          ...(partIdx === 1 && secIdx === 0
+            ? {
+                exampleItem: {
+                  ...defaultFillExample(),
+                  ...(section?.exampleItem || {}),
+                },
+              }
+            : {}),
         }))
       : part?.sections,
   }));
@@ -263,7 +290,25 @@ const MoversListeningTestBuilder = ({ editId = null, initialData = null }) => {
     [activePartIdx]
   );
 
-  const currentQuestions = activePart?.sections?.[0]?.questions || [];
+  const updateFirstSection = useCallback(
+    (patch) => {
+      setParts((prev) => {
+        const next = [...prev];
+        const part = { ...next[activePartIdx] };
+        part.sections = part.sections.map((sec, si) =>
+          si === 0 ? { ...sec, ...patch } : sec
+        );
+        next[activePartIdx] = part;
+        return next;
+      });
+    },
+    [activePartIdx]
+  );
+
+  const currentSection = activePart?.sections?.[0] || {};
+  const currentQuestions = currentSection?.questions || [];
+  const currentExampleItem = currentSection?.exampleItem || defaultFillExample();
+  const currentStartNumber = getPartStartNumber(activePartIdx);
 
   // Completion check for sidebar indicator
   const isPartComplete = (partIdx) => {
@@ -803,6 +848,9 @@ const MoversListeningTestBuilder = ({ editId = null, initialData = null }) => {
                   questions={currentQuestions}
                   onChange={updateQuestions}
                   color={cfg.color}
+                  startNumber={currentStartNumber}
+                  exampleItem={cfg.part === 2 ? currentExampleItem : null}
+                  onExampleChange={cfg.part === 2 ? (exampleItem) => updateFirstSection({ exampleItem }) : null}
                 />
               )}
 
@@ -818,6 +866,7 @@ const MoversListeningTestBuilder = ({ editId = null, initialData = null }) => {
                 <PictureQuestionsEditor
                   questions={currentQuestions}
                   onChange={updateQuestions}
+                  startNumber={currentStartNumber}
                 />
               )}
             </div>

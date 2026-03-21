@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect, useRef } from "react";
 
 export const getCambridgeQuestionType = (question) => {
   if (question?.questionType) return question.questionType;
@@ -38,38 +38,172 @@ export const CambridgeQuestionDisplay = ({
   const isAnswered = isAnswerFilled(userAnswer);
   const wrapperClassName = `cambridge-question-wrapper ${isAnswered ? 'answered' : ''} ${isActive ? 'active-question' : ''}`;
 
+  // Ref + focus state for fill inline input
+  const fillInputRef = useRef(null);
+  const [fillFocused, setFillFocused] = useState(false);
+  const [pulseKey, setPulseKey] = useState(0);
+
+  // Auto-focus & trigger pulse animation when this question becomes active via nav
+  useEffect(() => {
+    if (isActive && qType === 'fill' && fillInputRef.current && !submitted) {
+      const timer = setTimeout(() => {
+        fillInputRef.current?.focus({ preventScroll: true });
+        setPulseKey((k) => k + 1);
+      }, 60);
+      return () => clearTimeout(timer);
+    }
+  }, [isActive, qType, submitted]);
+
   if (qType === 'fill') {
+    // Palette xoay vòng theo số câu — tạo màu sắc tươi sáng cho trẻ 9-10 tuổi
+    const FILL_COLORS = [
+      { bg: '#eff6ff', border: '#3b82f6', badge: '#1d4ed8', text: '#1e40af' },
+      { bg: '#f0fdf4', border: '#22c55e', badge: '#15803d', text: '#166534' },
+      { bg: '#fdf4ff', border: '#a855f7', badge: '#7e22ce', text: '#6b21a8' },
+      { bg: '#fff7ed', border: '#f97316', badge: '#c2410c', text: '#9a3412' },
+      { bg: '#fef2f2', border: '#ef4444', badge: '#b91c1c', text: '#991b1b' },
+    ];
+    const palette = FILL_COLORS[(questionNum - 1) % FILL_COLORS.length];
+    const inputBorder = submitted
+      ? isCorrect ? '#22c55e' : '#ef4444'
+      : palette.border;
+    const inputBg = submitted
+      ? isCorrect ? '#dcfce7' : '#fee2e2'
+      : (isDarkMode ? '#1f2b47' : '#ffffff');
+    // Hiển thị đáp án đúng sau nộp bài (lấy phần đầu nếu có nhiều đáp án phân cách /)
+    const rawCorrect = String(question.correctAnswer || '');
+    const displayCorrect = rawCorrect.split('/').map(s => s.trim()).filter(Boolean).join(' hoặc ');
+
     return (
+      <>
+      <style>{`
+        @keyframes fillCardPulse {
+          0%   { box-shadow: 0 0 0 0px ${palette.border}60; }
+          40%  { box-shadow: 0 0 0 6px ${palette.border}35; }
+          100% { box-shadow: 0 0 0 3px ${palette.border}20; }
+        }
+        @keyframes fillInputGlow {
+          0%   { filter: brightness(1); }
+          50%  { filter: brightness(1.08); }
+          100% { filter: brightness(1); }
+        }
+      `}</style>
       <div
         className={wrapperClassName}
-        ref={(el) => {
-          questionRefs.current[questionKey] = el;
+        ref={(el) => { questionRefs.current[questionKey] = el; }}
+        style={{
+          background: isDarkMode ? '#111827' : palette.bg,
+          border: `2px solid ${fillFocused ? palette.border : inputBorder}`,
+          borderRadius: '16px',
+          padding: '16px 20px',
+          marginBottom: '12px',
+          transition: 'border-color 0.2s, box-shadow 0.3s',
+          boxShadow: fillFocused
+            ? `0 0 0 4px ${palette.border}45, 0 4px 14px ${palette.border}25`
+            : isActive
+              ? `0 0 0 3px ${palette.border}30`
+              : 'none',
+          animation: pulseKey > 0 ? `fillCardPulse 0.55s ease` : 'none',
+          animationPlayState: 'running',
         }}
       >
-        <div style={styles.questionHeader}>
-          <span className="cambridge-question-number">{questionNum}</span>
-          <div className="cambridge-question-text">{question.questionText}</div>
-        </div>
-        <input
-          type="text"
-          value={userAnswer || ''}
-          onChange={(e) => handleAnswerChange(questionKey, e.target.value)}
-          disabled={submitted}
-          placeholder="Nhap dap an..."
-          style={{
-            ...styles.input,
-            ...(submitted
-              ? {
-                  backgroundColor: isCorrect ? '#dcfce7' : '#fee2e2',
-                  borderColor: isCorrect ? '#22c55e' : '#ef4444',
-                }
-              : null),
-          }}
-        />
-        {submitted && question.correctAnswer && (
-          <div style={styles.correctAnswer}>✓ Dap an dung: {question.correctAnswer}</div>
+        {/* Header: số câu + nội dung với input inline tại vị trí ___ */}
+        {(() => {
+          const qText = question.questionText || '';
+          const parts = qText.split(/_{2,}/);
+          const hasBlank = parts.length > 1;
+          const inlineInput = (
+            <input
+              key={questionKey}
+              ref={fillInputRef}
+              id={`question-${questionNum}`}
+              type="text"
+              value={userAnswer || ''}
+              onChange={(e) => handleAnswerChange(questionKey, e.target.value)}
+              onFocus={() => setFillFocused(true)}
+              onBlur={() => setFillFocused(false)}
+              disabled={submitted}
+              placeholder="viết đáp án vào đây"
+              style={{
+                display: 'inline-block',
+                width: Math.max(220, (userAnswer || '').length * 14 + 80) + 'px',
+                padding: '4px 12px 5px',
+                border: 'none',
+                borderBottom: `3px solid ${fillFocused ? palette.border : inputBorder}`,
+                borderRadius: '8px 8px 0 0',
+                fontSize: '20px', fontWeight: 700,
+                background: isDarkMode
+                  ? (submitted ? inputBg : (fillFocused ? '#253459' : '#1f2b47'))
+                  : (fillFocused ? `${palette.bg}` : inputBg),
+                color: isDarkMode ? '#e2e8f0' : '#1e293b',
+                outline: 'none',
+                textAlign: 'center',
+                verticalAlign: 'middle',
+                minWidth: '100px',
+                cursor: submitted ? 'default' : 'text',
+                transition: 'border-color 0.2s, background 0.2s, width 0.15s, box-shadow 0.2s',
+                boxShadow: fillFocused ? `0 3px 0 0 ${palette.border}` : 'none',
+                animation: pulseKey > 0 ? `fillInputGlow 0.55s ease` : 'none',
+              }}
+            />
+          );
+          return (
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+              <span style={{
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                minWidth: '36px', height: '36px', borderRadius: '50%',
+                background: submitted ? (isCorrect ? '#22c55e' : '#ef4444') : palette.badge,
+                color: '#fff', fontWeight: 800, fontSize: '16px', flexShrink: 0,
+                boxShadow: `0 2px 6px ${palette.badge}55`,
+                marginTop: '4px',
+              }}>
+                {submitted ? (isCorrect ? '✓' : '✗') : questionNum}
+              </span>
+              <div style={{
+                fontSize: '20px', lineHeight: 1.8, fontWeight: 600,
+                color: isDarkMode ? '#e2e8f0' : '#1e293b', paddingTop: '2px', flex: 1,
+              }}>
+                {hasBlank ? (
+                  parts.map((part, i) => (
+                    <span key={i}>
+                      {part}
+                      {i < parts.length - 1 && inlineInput}
+                    </span>
+                  ))
+                ) : (
+                  <>
+                    {qText}
+                    {' '}
+                    {inlineInput}
+                  </>
+                )}
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* Feedback sau nộp bài */}
+        {submitted && (
+          <div style={{
+            marginTop: '10px', padding: '10px 14px', borderRadius: '10px',
+            background: isCorrect ? '#dcfce7' : '#fee2e2',
+            border: `1.5px solid ${isCorrect ? '#86efac' : '#fca5a5'}`,
+            display: 'flex', alignItems: 'center', gap: '8px',
+          }}>
+            <span style={{ fontSize: '20px' }}>{isCorrect ? '🎉' : '📚'}</span>
+            <div>
+              {isCorrect ? (
+                <span style={{ color: '#15803d', fontWeight: 700, fontSize: '16px' }}>Correct! Đúng rồi!</span>
+              ) : (
+                <span style={{ color: '#b91c1c', fontWeight: 700, fontSize: '16px' }}>
+                  Đáp án: <em>{displayCorrect || '—'}</em>
+                </span>
+              )}
+            </div>
+          </div>
         )}
       </div>
+      </>
     );
   }
 

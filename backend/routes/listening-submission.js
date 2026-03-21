@@ -455,7 +455,18 @@ router.get('/admin/list', async (req, res) => {
             const num = finalStart + idx;
             const expected = q?.correctAnswer;
             const student = normalizedAnswers[`q${num}`];
-            const ok = student != null && expected != null ? String(student).trim().toLowerCase() === String(expected).trim().toLowerCase() : false;
+            // Hỗ trợ nhiều đáp án chấp nhận (phân cách bằng /)
+            const accepted = (() => {
+              if (expected == null) return [];
+              if (Array.isArray(expected)) return expected;
+              const s = String(expected);
+              if (s.includes('/')) return s.split('/').map((x) => x.trim()).filter(Boolean);
+              return [s];
+            })();
+            const norm = (v) => (v == null ? '' : String(v)).trim().toLowerCase();
+            const ok = accepted.length
+              ? accepted.map(norm).includes(norm(student))
+              : norm(student) === norm(expected);
             details.push({ questionNumber: num, partIndex: pIdx, sectionIndex: sIdx, questionType: String(sectionType || q?.questionType || 'fill').toLowerCase(), studentAnswer: student ?? '', correctAnswer: expected ?? '', isCorrect: ok });
           });
 

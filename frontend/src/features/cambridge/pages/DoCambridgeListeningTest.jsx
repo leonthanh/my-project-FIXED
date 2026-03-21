@@ -1301,6 +1301,66 @@ const DoCambridgeListeningTest = () => {
       styles={styles}
     />
   );
+
+  const renderFillExample = (section, sectionStartNum) => {
+    const exampleItem = section?.exampleItem;
+    const exampleText = String(exampleItem?.questionText || "").trim();
+    const exampleAnswer = String(exampleItem?.correctAnswer || "").trim();
+    if (!exampleText && !exampleAnswer) return null;
+
+    return (
+      <div
+        style={{
+          background: isDarkMode ? '#0f172a' : '#f8fafc',
+          border: `2px dashed ${isDarkMode ? '#334155' : '#94a3b8'}`,
+          borderRadius: '16px',
+          padding: '14px 20px',
+          marginBottom: '12px',
+        }}
+      >
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', marginBottom: '12px' }}>
+          <span style={{
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            minWidth: '36px', height: '36px', borderRadius: '50%',
+            background: isDarkMode ? '#1e293b' : '#e2e8f0',
+            color: isDarkMode ? '#94a3b8' : '#475569',
+            fontWeight: 800, fontSize: '13px', flexShrink: 0,
+          }}>Ex</span>
+          <div style={{
+            fontSize: '20px', lineHeight: 1.5, fontWeight: 600,
+            color: isDarkMode ? '#94a3b8' : '#64748b', paddingTop: '4px',
+          }}>
+            {exampleText || `Example before question ${sectionStartNum}`}
+            <span style={{ marginLeft: '8px', fontSize: '13px', opacity: 0.6, fontWeight: 400 }}>(example)</span>
+          </div>
+        </div>
+        {/* Ô đáp án mẫu — đọc only, màu xanh */}
+        <div style={{ position: 'relative' }}>
+          <span style={{
+            position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)',
+            fontSize: '18px', pointerEvents: 'none', opacity: 0.45,
+          }}>✏️</span>
+          <input
+            type="text"
+            value={exampleAnswer}
+            readOnly
+            disabled
+            style={{
+              width: '100%', boxSizing: 'border-box',
+              padding: '12px 16px 12px 44px',
+              border: `2.5px solid ${isDarkMode ? '#4f6db6' : '#93c5fd'}`,
+              borderRadius: '12px',
+              fontSize: '20px', fontWeight: 700,
+              background: isDarkMode ? '#1e3a5f' : '#eff6ff',
+              color: isDarkMode ? '#e5e7eb' : '#1d4ed8',
+              outline: 'none',
+            }}
+          />
+        </div>
+      </div>
+    );
+  };
   // Handle checkbox change for multi-select
   /* eslint-disable-next-line no-unused-vars */
   const handleCheckboxChange = useCallback(
@@ -1930,6 +1990,7 @@ const DoCambridgeListeningTest = () => {
                   return (
                     <div key={secIdx} className="cambridge-section">
                       {section.sectionTitle && <h3 className="cambridge-section-title">{section.sectionTitle}</h3>}
+                      {sectionType === 'fill' && renderFillExample(section, sectionStartNum)}
 
                       {/* Section-based types (KET Reading style) */}
                       {sectionType === 'long-text-mc' && section.questions?.[0]?.questions ? (
@@ -2081,6 +2142,22 @@ const DoCambridgeListeningTest = () => {
                             {renderMaybeHtml(currentPart.instruction || 'For each question, choose the correct answer.')}
                           </div>
                         </div>
+
+                        {/* Part illustration image (e.g. MOVERS Part 2 form picture) */}
+                        {currentPart.imageUrl && (
+                          <div style={{ marginTop: 12 }}>
+                            <img
+                              src={resolveImgSrc(currentPart.imageUrl)}
+                              alt="Part illustration"
+                              draggable={false}
+                              style={{
+                                width: '100%', borderRadius: '10px',
+                                border: `2px solid ${isDarkMode ? '#334155' : '#e2e8f0'}`,
+                                display: 'block',
+                              }}
+                            />
+                          </div>
+                        )}
                       </>
                     );
                   })()}
@@ -2178,6 +2255,7 @@ const DoCambridgeListeningTest = () => {
                 return (
                   <div key={secIdx} className="cambridge-section">
                     {section.sectionTitle && <h3 className="cambridge-section-title">{section.sectionTitle}</h3>}
+                    {sectionType === 'fill' && renderFillExample(section, sectionStartNum)}
 
                     {/* Section-based types (KET Reading style) */}
                     {sectionType === 'long-text-mc' && section.questions?.[0]?.questions ? (
