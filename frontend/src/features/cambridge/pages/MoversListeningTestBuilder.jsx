@@ -21,6 +21,7 @@ import {
   FillQuestionsEditor,
   MatchingPartEditor,
   PictureQuestionsEditor,
+  LetterMatchingEditor,
 } from "../components/MoversListeningEditorComponents";
 
 const resolveImg = (url) => {
@@ -57,13 +58,13 @@ const PART_CONFIGS = [
   },
   {
     part: 3,
-    emoji: "🖼️",
-    title: "Part 3 – Tick a Box",
-    titleVi: "Nghe và chọn hình đúng (A / B / C)",
-    instruction: "Listen and tick (✓) the box. There is one example.",
-    questionType: "multiple-choice-pictures",
+    emoji: "🎯",
+    title: "Part 3 – Letter Matching",
+    titleVi: "Nghe và điền chữ cái vào ô",
+    instruction: "Listen and write a letter in each box. There is one example.",
+    questionType: "letter-matching",
     questionCount: 5,
-    tip: "Học sinh nghe câu hỏi ngắn và chọn 1 trong 3 hình A, B, C. Nhập URL hình cho từng lựa chọn và đánh dấu đáp án đúng.",
+    tip: "Học sinh nghe và điền chữ cái (A–H) ứng với hoạt động mỗi người sẽ làm. Nhập tên nhân vật, URL ảnh (tùy chọn), đáp án chữ cái đúng, và mô tả lựa chọn A–H.",
     color: "#8b5cf6",
     bg: "#f5f3ff",
   },
@@ -116,6 +117,18 @@ const defaultFillExample = () => ({
   correctAnswer: "",
 });
 
+const defaultLetterMatchingData = () => ({
+  questionType: "letter-matching",
+  questionText: "",
+  people: Array.from({ length: 6 }, (_, i) => ({
+    name: "",
+    photoUrl: "",
+    correctAnswer: "",
+    isExample: i === 0,
+  })),
+  options: "ABCDEFGH".split("").map((l) => ({ letter: l, description: "", imageUrl: "" })),
+});
+
 const defaultPictureQuestion = (num) => ({
   questionNumber: num,
   questionText: "",
@@ -131,6 +144,7 @@ const getPartStartNumber = (partIdx) =>
   PART_CONFIGS.slice(0, partIdx).reduce((sum, cfg) => sum + Number(cfg.questionCount || 0), 1);
 
 const getDefaultQuestions = (qt, count, startNumber = 1) => {
+  if (qt === "letter-matching") return [defaultLetterMatchingData()];
   if (qt === "matching") return [defaultMatchingData()];
   if (qt === "multiple-choice-pictures")
     return Array.from({ length: count }, (_, i) => defaultPictureQuestion(startNumber + i));
@@ -320,6 +334,11 @@ const MoversListeningTestBuilder = ({ editId = null, initialData = null }) => {
       return (
         (d?.leftItems?.filter((n, i) => i > 0 && n.trim()).length || 0) >= 3
       );
+    }
+    if (qt === "letter-matching") {
+      const q0 = qs[0] || {};
+      const people = Array.isArray(q0.people) ? q0.people : [];
+      return people.slice(1).filter((p) => p.name && p.correctAnswer).length >= 5;
     }
     return qs.filter((q) => q.correctAnswer).length >= 3;
   };
@@ -869,6 +888,21 @@ const MoversListeningTestBuilder = ({ editId = null, initialData = null }) => {
                   questions={currentQuestions}
                   onChange={updateQuestions}
                   startNumber={currentStartNumber}
+                />
+              )}
+
+              {cfg.questionType === "letter-matching" && (
+                <LetterMatchingEditor
+                  data={currentQuestions[0] || defaultLetterMatchingData()}
+                  onChange={(newData) => updateQuestions([newData])}
+                  onUploadImage={async (file) => {
+                    const fd = new FormData();
+                    fd.append("image", file);
+                    const res = await authFetch(apiPath("upload/cambridge-image"), { method: "POST", body: fd });
+                    if (!res.ok) throw new Error("Upload thất bại");
+                    const { url } = await res.json();
+                    return url;
+                  }}
                 />
               )}
             </div>

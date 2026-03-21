@@ -770,3 +770,256 @@ export const PictureQuestionsEditor = ({ questions, onChange, startNumber = 1 })
   );
 };
 
+export const LetterMatchingEditor = ({ data, onChange, onUploadImage }) => {
+  const [uploading, setUploading] = useState({});
+
+  const people =
+    Array.isArray(data?.people) && data.people.length
+      ? data.people
+      : Array.from({ length: 6 }, (_, i) => ({
+          name: "",
+          photoUrl: "",
+          correctAnswer: "",
+          isExample: i === 0,
+        }));
+  const options =
+    Array.isArray(data?.options) && data.options.length
+      ? data.options
+      : "ABCDEFGH".split("").map((l) => ({ letter: l, description: "", imageUrl: "" }));
+
+  const updatePerson = (idx, field, value) => {
+    const newPeople = people.map((p, i) => (i === idx ? { ...p, [field]: value } : p));
+    onChange({ ...data, people: newPeople });
+  };
+
+  const updateOption = (idx, field, value) => {
+    const newOptions = options.map((o, i) => (i === idx ? { ...o, [field]: value } : o));
+    onChange({ ...data, options: newOptions });
+  };
+
+  const handleUpload = async (file, slotKey, applyUrl) => {
+    if (!file || !onUploadImage) return;
+    setUploading((prev) => ({ ...prev, [slotKey]: true }));
+    try {
+      const url = await onUploadImage(file);
+      if (url) applyUrl(url);
+    } finally {
+      setUploading((prev) => ({ ...prev, [slotKey]: false }));
+    }
+  };
+
+  return (
+    <div>
+      <p style={{ color: "#6b7280", fontSize: "13px", marginBottom: "16px", lineHeight: 1.6 }}>
+        Nhập tên nhân vật, ảnh minh họa (tùy chọn), và chữ cái đáp án đúng (A–H). Hàng đầu tiên là{" "}
+        <strong>ví dụ (example)</strong>, không tính điểm.
+      </p>
+
+      {/* Context prompt text */}
+      <div style={{ marginBottom: "18px" }}>
+        <label style={labelStyle}>📝 Câu hỏi / nội dung giới thiệu (tùy chọn)</label>
+        <input
+          type="text"
+          value={data?.questionText || ""}
+          onChange={(e) => onChange({ ...data, questionText: e.target.value })}
+          placeholder="VD: What are they going to do at the weekend?"
+          style={inputStyle}
+        />
+      </div>
+
+      {/* People list */}
+      <div style={{ marginBottom: "24px" }}>
+        <label style={labelStyle}>👤 Danh sách nhân vật (hàng 1 = ví dụ)</label>
+        {people.map((person, idx) => (
+          <div
+            key={idx}
+            style={{
+              display: "flex",
+              gap: "10px",
+              alignItems: "center",
+              marginBottom: "8px",
+              padding: "10px 14px",
+              border: `2px solid ${idx === 0 ? "#94a3b8" : "#6d28d9"}`,
+              borderRadius: "12px",
+              background: idx === 0 ? "#f8fafc" : "#faf5ff",
+            }}
+          >
+            <span
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                minWidth: "34px",
+                height: "34px",
+                borderRadius: "50%",
+                background: idx === 0 ? "#e2e8f0" : "#7c3aed",
+                color: idx === 0 ? "#475569" : "#fff",
+                fontWeight: 800,
+                fontSize: "13px",
+                flexShrink: 0,
+              }}
+            >
+              {idx === 0 ? "Ex" : idx}
+            </span>
+            <input
+              type="text"
+              value={person.name || ""}
+              onChange={(e) => updatePerson(idx, "name", e.target.value)}
+              placeholder={idx === 0 ? "Tên ví dụ (VD: Ann)" : `Tên nhân vật ${idx}`}
+              style={{ ...inputStyle, marginBottom: 0, flex: 2, minWidth: 0 }}
+            />
+            {/* Person photo: url + upload + preview */}
+            <div style={{ display: "flex", alignItems: "center", gap: "6px", flex: 3, minWidth: 0 }}>
+              {person.photoUrl && (
+                <img
+                  src={resolveImg(person.photoUrl)}
+                  alt=""
+                  style={{ width: "36px", height: "36px", borderRadius: "7px", objectFit: "cover", flexShrink: 0, border: "1.5px solid #d1d5db" }}
+                  onError={(e) => { e.currentTarget.style.display = "none"; }}
+                />
+              )}
+              <input
+                type="text"
+                value={person.photoUrl || ""}
+                onChange={(e) => updatePerson(idx, "photoUrl", e.target.value)}
+                placeholder="URL ảnh / GIF..."
+                style={{ ...inputStyle, marginBottom: 0, flex: 1, minWidth: 0, fontSize: "11px" }}
+              />
+              <label
+                title="Upload từ máy"
+                style={{
+                  display: "inline-flex", alignItems: "center", gap: "3px", cursor: "pointer",
+                  padding: "5px 9px", borderRadius: "7px",
+                  background: uploading[`person-${idx}`] ? "#e5e7eb" : "#ede9fe",
+                  color: "#7c3aed", fontSize: "11px", fontWeight: 700, flexShrink: 0,
+                  border: "1.5px solid #c4b5fd", whiteSpace: "nowrap",
+                }}
+              >
+                {uploading[`person-${idx}`] ? "⏳" : "⬆️"}
+                <input
+                  type="file" accept="image/*,image/gif" style={{ display: "none" }}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    handleUpload(file, `person-${idx}`, (url) => updatePerson(idx, "photoUrl", url));
+                    e.target.value = "";
+                  }}
+                />
+              </label>
+            </div>
+            <input
+              type="text"
+              maxLength={1}
+              value={person.correctAnswer || ""}
+              onChange={(e) => updatePerson(idx, "correctAnswer", e.target.value.toUpperCase())}
+              placeholder="A–H"
+              style={{
+                ...inputStyle,
+                marginBottom: 0,
+                width: "48px",
+                flexShrink: 0,
+                minWidth: 0,
+                textAlign: "center",
+                fontWeight: 900,
+                fontSize: "14px",
+                background: idx === 0 ? "#eff6ff" : "#f5f3ff",
+                border: `2px solid ${idx === 0 ? "#93c5fd" : "#a78bfa"}`,
+              }}
+            />
+          </div>
+        ))}
+      </div>
+
+      {/* Options A–H: 2-column with image upload + preview */}
+      <div>
+        <label style={labelStyle}>🖼️ Hình lựa chọn (A – H) — học sinh kéo thả</label>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+          {options.map((opt, idx) => (
+            <div
+              key={idx}
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: "8px",
+                padding: "10px 12px",
+                border: opt.imageUrl ? "2px solid #7c3aed" : "1.5px solid #e5e7eb",
+                borderRadius: "12px",
+                background: opt.imageUrl ? "#faf5ff" : "#f9fafb",
+              }}
+            >
+              {/* Letter + image preview */}
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <span
+                  style={{
+                    display: "inline-flex", alignItems: "center", justifyContent: "center",
+                    width: "30px", height: "30px", borderRadius: "6px",
+                    background: "#1e3a8a", color: "#fff", fontWeight: 900, fontSize: "15px",
+                    flexShrink: 0,
+                  }}
+                >
+                  {opt.letter}
+                </span>
+                {opt.imageUrl ? (
+                  <img
+                    src={resolveImg(opt.imageUrl)}
+                    alt={opt.letter}
+                    style={{ flex: 1, height: "80px", objectFit: "contain", borderRadius: "8px", border: "1px solid #e5e7eb" }}
+                    onError={(e) => { e.currentTarget.style.display = "none"; }}
+                  />
+                ) : (
+                  <div style={{
+                    flex: 1, height: "80px", borderRadius: "8px",
+                    background: "#f1f5f9", border: "2px dashed #cbd5e1",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    color: "#94a3b8", fontSize: "12px", fontWeight: 600,
+                  }}>
+                    Chưa có hình
+                  </div>
+                )}
+              </div>
+              {/* URL input (GIF / external) + Upload button */}
+              <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+                <input
+                  type="text"
+                  value={opt.imageUrl || ""}
+                  onChange={(e) => updateOption(idx, "imageUrl", e.target.value)}
+                  placeholder="URL hình / GIF..."
+                  style={{ ...inputStyle, marginBottom: 0, flex: 1, minWidth: 0, fontSize: "12px" }}
+                />
+                <label
+                  title="Hoặc upload từ máy"
+                  style={{
+                    display: "inline-flex", alignItems: "center", justifyContent: "center", gap: "4px",
+                    cursor: "pointer", padding: "6px 10px", borderRadius: "8px",
+                    background: uploading[`opt-${idx}`] ? "#e5e7eb" : "#1e3a8a",
+                    color: uploading[`opt-${idx}`] ? "#6b7280" : "#fff",
+                    fontSize: "11px", fontWeight: 700, border: "none",
+                    transition: "background 0.15s", flexShrink: 0, whiteSpace: "nowrap",
+                  }}
+                >
+                  {uploading[`opt-${idx}`] ? "⏳" : "⬆️ Upload"}
+                  <input
+                    type="file" accept="image/*,image/gif" style={{ display: "none" }}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      handleUpload(file, `opt-${idx}`, (url) => updateOption(idx, "imageUrl", url));
+                      e.target.value = "";
+                    }}
+                  />
+                </label>
+              </div>
+              {/* Description (optional) */}
+              <input
+                type="text"
+                value={opt.description || ""}
+                onChange={(e) => updateOption(idx, "description", e.target.value)}
+                placeholder={`Mô tả ngắn (tùy chọn)`}
+                style={{ ...inputStyle, marginBottom: 0, fontSize: "12px" }}
+              />
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+

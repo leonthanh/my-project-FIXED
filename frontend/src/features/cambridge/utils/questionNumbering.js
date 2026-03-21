@@ -29,6 +29,11 @@ const getQuestionCountForSection = (section) => {
     const leftItems = Array.isArray(q0.leftItems) ? q0.leftItems : [];
     return leftItems.slice(1).filter((n) => String(n || '').trim()).length;
   }
+  // letter-matching (MOVERS Part 3): count people skipping index 0 (example)
+  if (q0.questionType === 'letter-matching') {
+    const people = Array.isArray(q0.people) ? q0.people : [];
+    return people.slice(1).filter((p) => String(p?.name || '').trim()).length;
+  }
   if (section.questionType === 'cloze-mc' && section.questions[0]?.blanks) {
     return section.questions[0].blanks.length;
   }
@@ -137,6 +142,7 @@ const computeQuestionStarts = (passages) => {
     'story-completion',
     'look-read-write',
     'draw-lines', // MOVERS Part 1: expand per leftItem name
+    'letter-matching', // MOVERS Part 3: expand per person name
   ]);
   let count = 1;
 
@@ -151,7 +157,9 @@ const computeQuestionStarts = (passages) => {
       const questionType =
         (q0data.questionType === 'draw-lines' || (q0data.anchors && Object.keys(q0data.anchors || {}).length > 0))
           ? 'draw-lines'
-          : (section?.questionType || '');
+          : q0data.questionType === 'letter-matching'
+            ? 'letter-matching'
+            : (section?.questionType || '');
       if (!multiQuestionTypes.has(questionType)) {
         const questions = Array.isArray(section?.questions) ? section.questions : [];
         questions.forEach((_, qIdx) => {

@@ -843,6 +843,21 @@ const DoCambridgeListeningTest = () => {
             if (expanded > 0) continue;
           }
 
+          // letter-matching (MOVERS Part 3): expand into per-person sub-keys (skip idx 0 = example)
+          if (q.questionType === 'letter-matching' && Array.isArray(q.people)) {
+            let expanded = 0;
+            for (let pi = 1; pi < q.people.length; pi++) {
+              if (String(q.people[pi]?.name || '').trim()) {
+                const subKey = `${pIdx}-${sIdx}-${qIdx}-${pi}`;
+                const subNum = globalNumber++;
+                partKeys.push({ key: subKey, number: subNum, sectionIndex: sIdx });
+                orderedKeys.push({ key: subKey, partIndex: pIdx, number: subNum });
+                expanded++;
+              }
+            }
+            if (expanded > 0) continue;
+          }
+
           const key = `${pIdx}-${sIdx}-${qIdx}`;
           const num = globalNumber++;
           partKeys.push({ key, number: num, sectionIndex: sIdx });
@@ -1360,6 +1375,296 @@ const DoCambridgeListeningTest = () => {
       </div>
     );
   };
+
+  // ── MOVERS Part 3: Letter Matching renderer ──────────────────────────────
+  const renderLetterMatchingSection = (section, secIdx, sectionStartNum) => {
+    const q = section.questions?.[0];
+    if (!q) return null;
+    const qIdx = 0;
+    const people = Array.isArray(q.people) ? q.people : [];
+    const options = Array.isArray(q.options) ? q.options : [];
+    const examplePerson = people[0];
+    const questionPeople = people.slice(1).filter((p) => String(p?.name || '').trim());
+
+    // Set of letters currently placed in any slot of this section
+    const placedLetters = new Set(
+      questionPeople
+        .map((_, i) => answers[`${currentPartIndex}-${secIdx}-${qIdx}-${i + 1}`])
+        .filter(Boolean)
+    );
+
+    const handleDragStart = (e, letter) => {
+      e.dataTransfer.setData('text/plain', letter);
+      e.dataTransfer.effectAllowed = 'move';
+    };
+
+    const handleDrop = (e, targetKey) => {
+      e.preventDefault();
+      e.currentTarget.style.borderColor = '';
+      e.currentTarget.style.background = '';
+      if (submitted) return;
+      const letter = e.dataTransfer.getData('text/plain');
+      if (!letter) return;
+      setAnswers((prev) => {
+        const next = { ...prev };
+        // Move semantics: clear previous slot holding this letter
+        questionPeople.forEach((_, pi) => {
+          const k = `${currentPartIndex}-${secIdx}-${qIdx}-${pi + 1}`;
+          if (next[k] === letter) next[k] = '';
+        });
+        next[targetKey] = letter;
+        return next;
+      });
+    };
+
+    return (
+      <div>
+        {/* Context text */}
+        {q.questionText && (
+          <div style={{
+            fontSize: '15px', color: isDarkMode ? '#94a3b8' : '#6b7280',
+            fontStyle: 'italic', marginBottom: '16px', lineHeight: 1.5,
+            padding: '10px 14px',
+            background: isDarkMode ? '#1e293b' : '#fafafa',
+            borderRadius: '10px',
+            border: `1px solid ${isDarkMode ? '#334155' : '#e5e7eb'}`,
+          }}>
+            {q.questionText}
+          </div>
+        )}
+
+        {/* Example row */}
+        {examplePerson && String(examplePerson.name || '').trim() && (() => {
+          const exOpt = options.find(o => o.letter === examplePerson.correctAnswer);
+          return (
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: '12px',
+              padding: '8px 14px', marginBottom: '6px',
+              background: isDarkMode ? '#0f172a' : '#f8fafc',
+              border: `2px dashed ${isDarkMode ? '#334155' : '#94a3b8'}`,
+              borderRadius: '14px',
+            }}>
+              <span style={{
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                minWidth: '34px', height: '34px', borderRadius: '50%',
+                background: isDarkMode ? '#1e293b' : '#e2e8f0',
+                color: isDarkMode ? '#94a3b8' : '#475569',
+                fontWeight: 800, fontSize: '13px', flexShrink: 0,
+              }}>Ex</span>
+              {examplePerson.photoUrl && (
+                <img src={resolveImgSrc(examplePerson.photoUrl)} alt=""
+                  style={{ width: '46px', height: '46px', borderRadius: '10px', objectFit: 'cover', flexShrink: 0 }} />
+              )}
+              <span style={{ flex: 1, fontWeight: 700, fontSize: '18px', color: isDarkMode ? '#94a3b8' : '#64748b' }}>
+                {examplePerson.name}
+              </span>
+              {/* Example answer tile (pre-filled, read-only) */}
+              <div style={{
+                width: '72px', height: '72px', borderRadius: '12px',
+                border: `3px solid ${isDarkMode ? '#4f6db6' : '#93c5fd'}`,
+                display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '2px',
+                background: isDarkMode ? '#1e3a5f' : '#eff6ff',
+                flexShrink: 0, overflow: 'hidden',
+              }}>
+                {exOpt?.imageUrl
+                  ? <img src={resolveImgSrc(exOpt.imageUrl)} alt="" style={{ width: '100%', height: '55px', objectFit: 'contain', pointerEvents: 'none' }} />
+                  : null}
+                <span style={{ fontWeight: 900, fontSize: '15px', color: isDarkMode ? '#93c5fd' : '#1d4ed8' }}>
+                  {examplePerson.correctAnswer}
+                </span>
+              </div>
+              <span style={{ fontSize: '12px', color: isDarkMode ? '#475569' : '#94a3b8', flexShrink: 0 }}>(example)</span>
+            </div>
+          );
+        })()}
+
+        {/* Question rows with drop zones */}
+        {questionPeople.map((person, i) => {
+          const personIdx = i + 1;
+          const key = `${currentPartIndex}-${secIdx}-${qIdx}-${personIdx}`;
+          const userAnswer = answers[key] || '';
+          const isCorrect = submitted && results?.answers?.[key]?.isCorrect;
+          const isActive = activeQuestion === key;
+          const placedOpt = userAnswer ? options.find(o => o.letter === userAnswer) : null;
+          const rowBorderColor = submitted
+            ? (isCorrect ? '#22c55e' : '#ef4444')
+            : isActive ? '#8b5cf6'
+            : userAnswer ? '#8b5cf6'
+            : isDarkMode ? '#334155' : '#e2e8f0';
+          const dropZoneBorderColor = submitted
+            ? (isCorrect ? '#22c55e' : '#ef4444')
+            : userAnswer ? '#8b5cf6' : (isDarkMode ? '#475569' : '#c4b5fd');
+
+          return (
+            <div
+              key={personIdx}
+              id={`question-${sectionStartNum + i}`}
+              ref={(el) => { questionRefs.current[key] = el; }}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '12px',
+                padding: '8px 14px', marginBottom: '6px',
+                background: isDarkMode ? (isActive ? '#1e293b' : '#111827') : (isActive ? '#faf5ff' : '#ffffff'),
+                border: `2px solid ${rowBorderColor}`,
+                borderRadius: '14px',
+                transition: 'border-color 0.2s, box-shadow 0.2s',
+                boxShadow: isActive ? `0 0 0 3px ${isDarkMode ? '#7c3aed30' : '#8b5cf630'}` : 'none',
+              }}
+            >
+              {/* Number badge */}
+              <span style={{
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                minWidth: '34px', height: '34px', borderRadius: '50%',
+                background: submitted ? (isCorrect ? '#22c55e' : '#ef4444') : '#8b5cf6',
+                color: '#fff', fontWeight: 800, fontSize: '15px', flexShrink: 0,
+              }}>
+                {submitted ? (isCorrect ? '✓' : '✗') : sectionStartNum + i}
+              </span>
+              {/* Person photo */}
+              {person.photoUrl && (
+                <img src={resolveImgSrc(person.photoUrl)} alt=""
+                  style={{ width: '50px', height: '50px', borderRadius: '10px', objectFit: 'cover', flexShrink: 0 }} />
+              )}
+              {/* Name */}
+              <span style={{ flex: 1, fontWeight: 700, fontSize: '18px', color: isDarkMode ? '#e2e8f0' : '#1e293b' }}>
+                {person.name}
+              </span>
+              {/* Drop zone */}
+              <div
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  if (!submitted) {
+                    e.currentTarget.style.borderColor = '#8b5cf6';
+                    e.currentTarget.style.background = isDarkMode ? '#2d1b69' : '#ede9fe';
+                  }
+                }}
+                onDragLeave={(e) => {
+                  e.currentTarget.style.borderColor = '';
+                  e.currentTarget.style.background = '';
+                }}
+                onDrop={(e) => handleDrop(e, key)}
+                style={{
+                  width: '72px', minWidth: '72px', height: '72px',
+                  border: `3px ${userAnswer ? 'solid' : 'dashed'} ${dropZoneBorderColor}`,
+                  borderRadius: '12px',
+                  display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '2px',
+                  background: userAnswer
+                    ? (submitted
+                      ? (isCorrect ? (isDarkMode ? '#14532d' : '#dcfce7') : (isDarkMode ? '#450a0a' : '#fee2e2'))
+                      : (isDarkMode ? '#2d1b69' : '#f5f3ff'))
+                    : (isDarkMode ? '#111827' : '#f8fafc'),
+                  cursor: submitted ? 'default' : 'copy',
+                  flexShrink: 0, overflow: 'hidden',
+                  transition: 'border-color 0.15s, background 0.15s',
+                }}
+              >
+                {userAnswer ? (
+                  <>
+                    {placedOpt?.imageUrl
+                      ? <img src={resolveImgSrc(placedOpt.imageUrl)} alt="" style={{ width: '100%', height: '52px', objectFit: 'contain', pointerEvents: 'none' }} />
+                      : null}
+                    <span style={{
+                      fontWeight: 900, fontSize: '15px',
+                      color: submitted ? (isCorrect ? '#16a34a' : '#dc2626') : '#7c3aed',
+                    }}>{userAnswer}</span>
+                  </>
+                ) : (
+                  <span style={{ fontSize: '26px', color: isDarkMode ? '#4b5563' : '#d1d5db', pointerEvents: 'none' }}>?</span>
+                )}
+              </div>
+              {/* Correct answer hint on wrong */}
+              {submitted && !isCorrect && (
+                <span style={{ fontSize: '14px', fontWeight: 900, flexShrink: 0, color: '#22c55e' }}>
+                  → {results?.answers?.[key]?.correctAnswer || ''}
+                </span>
+              )}
+            </div>
+          );
+        })}
+
+        {/* Divider */}
+        <div style={{
+          margin: '18px 0 12px',
+          borderTop: `2px dashed ${isDarkMode ? '#334155' : '#e5e7eb'}`,
+          position: 'relative',
+        }}>
+          <span style={{
+            position: 'absolute', top: '-11px', left: '50%', transform: 'translateX(-50%)',
+            background: isDarkMode ? '#111827' : '#fff',
+            padding: '0 12px',
+            fontSize: '12px', fontWeight: 700,
+            color: isDarkMode ? '#475569' : '#94a3b8',
+            textTransform: 'uppercase', letterSpacing: '0.06em',
+            whiteSpace: 'nowrap',
+          }}>
+            Kéo hình vào ô ↑
+          </span>
+        </div>
+
+        {/* Draggable option tiles 4×2 */}
+        {options.length > 0 && (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
+            {options.map((opt) => {
+              const isPlaced = placedLetters.has(opt.letter);
+              return (
+                <div
+                  key={opt.letter}
+                  draggable={!submitted}
+                  onDragStart={(e) => handleDragStart(e, opt.letter)}
+                  style={{
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px',
+                    padding: '8px 6px',
+                    border: `2px solid ${isPlaced ? (isDarkMode ? '#1e3a5f' : '#bfdbfe') : (isDarkMode ? '#374151' : '#e5e7eb')}`,
+                    borderRadius: '12px',
+                    background: isPlaced
+                      ? (isDarkMode ? '#0f172a' : '#eff6ff')
+                      : (isDarkMode ? '#1e293b' : '#f9fafb'),
+                    opacity: isPlaced ? 0.4 : 1,
+                    cursor: submitted ? 'default' : 'grab',
+                    transition: 'opacity 0.2s, border-color 0.2s',
+                    userSelect: 'none',
+                    WebkitUserSelect: 'none',
+                    textAlign: 'center',
+                  }}
+                >
+                  <div style={{
+                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                    width: '26px', height: '26px', borderRadius: '6px',
+                    background: '#1e3a8a', color: '#fff', fontWeight: 900, fontSize: '14px',
+                  }}>
+                    {opt.letter}
+                  </div>
+                  {opt.imageUrl ? (
+                    <img
+                      src={resolveImgSrc(opt.imageUrl)}
+                      alt={opt.letter}
+                      draggable={false}
+                      style={{ width: '100%', height: '72px', objectFit: 'contain', borderRadius: '8px', pointerEvents: 'none' }}
+                      onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                    />
+                  ) : (
+                    <div style={{
+                      height: '72px', width: '100%', borderRadius: '8px',
+                      background: isDarkMode ? '#1e3a5f' : '#e0e7ff',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      color: isDarkMode ? '#94a3b8' : '#6b7280', fontSize: '11px', fontWeight: 600,
+                    }}>
+                      {opt.description || opt.letter}
+                    </div>
+                  )}
+                  {opt.description && opt.imageUrl && (
+                    <span style={{ fontSize: '11px', color: isDarkMode ? '#94a3b8' : '#6b7280', lineHeight: 1.2, pointerEvents: 'none' }}>
+                      {opt.description}
+                    </span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   // Handle checkbox change for multi-select
   /* eslint-disable-next-line no-unused-vars */
   const handleCheckboxChange = useCallback(
@@ -2734,6 +3039,8 @@ const DoCambridgeListeningTest = () => {
                           </div>
                         );
                       })
+                    ) : sectionType === 'letter-matching' ? (
+                      renderLetterMatchingSection(section, secIdx, sectionStartNum)
                     ) : (
                       // Default per-question rendering
                       section.questions?.map((q, qIdx) => {
