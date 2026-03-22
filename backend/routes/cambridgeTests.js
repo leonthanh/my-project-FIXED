@@ -1087,6 +1087,40 @@ const scoreTest = (test, answers) => {
             });
           });
         }
+        // letter-matching (Movers Listening Part 3): one sub-key per person (skip index 0 = example)
+        else if ((sectionType === 'letter-matching' || question.questionType === 'letter-matching') &&
+            Array.isArray(question.people) && question.people.length > 1) {
+          question.people.forEach((person, pi) => {
+            if (pi === 0) return; // skip example
+            const name = String(person?.name || '').trim();
+            if (!name) return;
+            const key = `${partIdx}-${secIdx}-${qIdx}-${pi}`;
+            const userAnswer = answers?.[key];
+            const correctAnswer = person?.correctAnswer ?? question.answers?.[String(pi)] ?? null;
+            if (!correctAnswer) {
+              detailedResults[key] = { isCorrect: null, userAnswer: userAnswer || null, correctAnswer: null, questionType: 'letter-matching', questionText: name };
+              return;
+            }
+            total++;
+            const isCorrect = scoreQuestion(userAnswer, correctAnswer, 'abc');
+            if (isCorrect) score++;
+            detailedResults[key] = { isCorrect, userAnswer: userAnswer || null, correctAnswer, questionType: 'letter-matching', questionText: name };
+          });
+        }
+        // image-tick (Movers Listening Part 4): single key, A/B/C answer
+        else if (sectionType === 'image-tick' || question.questionType === 'image-tick') {
+          const key = `${partIdx}-${secIdx}-${qIdx}`;
+          const userAnswer = answers?.[key];
+          const correctAnswer = question.correctAnswer ?? question.answers ?? question.answer ?? question.correct ?? null;
+          if (!correctAnswer) {
+            detailedResults[key] = { isCorrect: null, userAnswer: userAnswer || null, correctAnswer: null, questionType: 'image-tick', questionText: question.questionText || '' };
+          } else {
+            total++;
+            const isCorrect = scoreQuestion(userAnswer, correctAnswer, 'abc');
+            if (isCorrect) score++;
+            detailedResults[key] = { isCorrect, userAnswer: userAnswer || null, correctAnswer, questionType: 'image-tick', questionText: question.questionText || '' };
+          }
+        }
         // Regular question (not nested)
         else {
           const key = `${partIdx}-${secIdx}-${qIdx}`;

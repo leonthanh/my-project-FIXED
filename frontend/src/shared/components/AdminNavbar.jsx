@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import ThemeToggle from "./ThemeToggle";
-import { apiPath, hostPath } from "../utils/api";
+import { apiPath, hostPath, clearAuth } from "../utils/api";
 import { canManageCategory } from "../utils/permissions";
 import "./AdminNavbar.css";
 
@@ -72,9 +72,12 @@ const AdminNavbar = () => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const handleLogout = () => {
-    localStorage.removeItem("user");
-    navigate("/login");
+  const handleLogout = async () => {
+    try {
+      await fetch(apiPath('auth/logout'), { method: 'POST', credentials: 'include' });
+    } catch (_) { /* ignore network errors on logout */ }
+    clearAuth();
+    navigate('/login');
   };
 
   return (
@@ -296,6 +299,13 @@ const AdminNavbar = () => {
           <span className="adminNavbar__icon">✍️</span>
           <span className="adminNavbar__label">Review</span>
         </Link>
+
+        {user?.role === 'admin' && (
+          <Link to="/admin/teacher-permissions" className="adminNavbar__link" title="Quyền giáo viên">
+            <span className="adminNavbar__icon">🔑</span>
+            <span className="adminNavbar__label">Quyền GV</span>
+          </Link>
+        )}
 
         <div
           className={

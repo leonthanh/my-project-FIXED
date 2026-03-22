@@ -9,14 +9,10 @@ export const getCurrentUser = () => {
 export const isAdmin = (user) => !!(user && user.role === 'admin');
 export const isTeacher = (user) => !!(user && user.role === 'teacher');
 
-const normalizePhone = (s) => (s ? String(s).replace(/\D/g, '').replace(/^0+/, '') : '');
-const PRIVILEGED_PHONE = import.meta.env.VITE_PRIVILEGED_TEACHER_PHONE || '0784611179';
-
+// A teacher is "privileged" if the DB field canManageTests is true
 export const isPrivilegedTeacher = (user) => {
   if (!isTeacher(user)) return false;
-  const up = normalizePhone(user.phone || '');
-  const allowed = normalizePhone(PRIVILEGED_PHONE);
-  return up && allowed && up === allowed;
+  return user.canManageTests === true;
 };
 
 // category: 'writing' | 'reading' | 'listening' | 'cambridge'
@@ -29,7 +25,6 @@ export const canManageCategory = (user, category) => {
     if (['reading', 'listening', 'cambridge'].includes(cat)) {
       return isPrivilegedTeacher(user);
     }
-    // default deny
     return false;
   }
   return false;

@@ -121,20 +121,15 @@ const CambridgeResultPage = () => {
     return false;
   };
 
-  // Fetch submission data only once per submissionId (avoid refetch loops)
+  // Always fetch fresh submission data from API (navSubmission is just initial placeholder)
   useEffect(() => {
-    const navSubmission = location.state?.submission;
-    if (navSubmission) {
-      setLoading(false);
-      return;
-    }
-
     let cancelled = false;
     const controller = new AbortController();
 
     (async () => {
       try {
-        setLoading(true);
+        // Don't show loading spinner if we already have nav state data (avoid flicker)
+        if (!location.state?.submission) setLoading(true);
         setError(null);
         const res = await fetch(apiPath(`cambridge/submissions/${submissionId}`), { signal: controller.signal });
         if (!res.ok) throw new Error("Không tìm thấy kết quả");
@@ -154,7 +149,7 @@ const CambridgeResultPage = () => {
       cancelled = true;
       controller.abort();
     };
-  }, [submissionId, location.state?.submission]);
+  }, [submissionId]);
 
   // Ensure we have test data for rendering Part 5 + mapping keys
   useEffect(() => {
@@ -444,6 +439,37 @@ const CambridgeResultPage = () => {
 
           // short-message / story-writing: free writing, không đánh số
           if (sectionType === 'short-message' || sectionType === 'story-writing') return;
+
+          // draw-lines (Movers Part 1): sub-keys per name, skip index 0 (example)
+          if ((sectionType === 'draw-lines' || question.questionType === 'draw-lines' ||
+               (question.anchors && Object.keys(question.anchors || {}).length > 0)) &&
+              Array.isArray(question.leftItems) && question.leftItems.length > 1) {
+            let expanded = 0;
+            for (let nameIdx = 1; nameIdx < question.leftItems.length; nameIdx++) {
+              if (String(question.leftItems[nameIdx] || '').trim()) {
+                const key = `${partIdx}-${secIdx}-${qIdx}-${nameIdx}`;
+                map[key] = questionNum + 1;
+                questionNum++;
+                expanded++;
+              }
+            }
+            if (expanded > 0) return;
+          }
+
+          // letter-matching (Movers Part 3): sub-keys per person, skip index 0 (example)
+          if ((sectionType === 'letter-matching' || question.questionType === 'letter-matching') &&
+              Array.isArray(question.people) && question.people.length > 1) {
+            let expanded = 0;
+            for (let pi = 1; pi < question.people.length; pi++) {
+              if (String(question.people[pi]?.name || '').trim()) {
+                const key = `${partIdx}-${secIdx}-${qIdx}-${pi}`;
+                map[key] = questionNum + 1;
+                questionNum++;
+                expanded++;
+              }
+            }
+            if (expanded > 0) return;
+          }
 
           const key = `${partIdx}-${secIdx}-${qIdx}`;
           map[key] = questionNum + 1;
@@ -1532,6 +1558,123 @@ const CambridgeResultPage = () => {
                               });
                             });
                             return <React.Fragment key={`lrw-${qIdx}`}>{lrwCards}</React.Fragment>;
+                          }
+                          // draw-lines (Movers Part 1): one card per name, skip example (idx 0)
+                          else if (
+                            (sectionType === 'draw-lines' || question.questionType === 'draw-lines' ||
+                             (question.anchors && Object.keys(question.anchors || {}).length > 0)) &&
+                            Array.isArray(question.leftItems) && question.leftItems.length > 1
+                          ) {
+                            const rows = [];
+                            for (let nameIdx = 1; nameIdx < question.leftItems.length; nameIdx++) {
+                              const name = String(question.leftItems[nameIdx] || '').trim();
+                              if (!name) continue;
+                              const key = `${partIdx}-${secIdx}-${qIdx}-${nameIdx}`;
+                              const result = getDetailedResult(key) || {};
+                              const questionNum = questionNumberMap[key];
+                              const label = questionNum ? formatQuestionLabel(questionNum) : String(nameIdx);
+                              const status = getResultStatus(result);
+                              rows.push(
+                                <div key={key} style={{ ...styles.questionReviewCard, borderLeftColor: status.color }}>
+                                  <div style={styles.questionReviewHeader}>
+                                    <span style={{ ...styles.questionNum, backgroundColor: status.color }}>{label}</span>
+                                    <span style={styles.questionStatus}>{status.label}</span>
+                                  </div>
+                                  <div style={styles.questionText}>{name}</div>
+                                  <div style={styles.answersCompare}>
+                                    <div style={styles.answerRow}>
+                                      <span style={styles.answerLabel}>Câu trả lời của bạn:</span>
+                                      <span style={{ ...styles.answerValue, color: status.text, backgroundColor: status.bg }}>
+                                        {result.userAnswer || '(Không trả lời)'}
+                                      </span>
+                                    </div>
+                                    {canShowCorrectAnswer(result) && (
+                                      <div style={styles.answerRow}>
+                                        <span style={styles.answerLabel}>Đáp án đúng:</span>
+                                        <span style={{ ...styles.answerValue, ...correctAnswerStyle }}>{result.correctAnswer}</span>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            }
+                            return <React.Fragment key={`dl-${qIdx}`}>{rows}</React.Fragment>;
+                          }
+                          // letter-matching (Movers Part 3): one card per person, skip example (idx 0)
+                          else if (
+                            (sectionType === 'letter-matching' || question.questionType === 'letter-matching') &&
+                            Array.isArray(question.people) && question.people.length > 1
+                          ) {
+                            const rows = [];
+                            const options = Array.isArray(question.options) ? question.options : [];
+                            for (let pi = 1; pi < question.people.length; pi++) {
+                              const person = question.people[pi];
+                              if (!String(person?.name || '').trim()) continue;
+                              const key = `${partIdx}-${secIdx}-${qIdx}-${pi}`;
+                              const result = getDetailedResult(key) || {};
+                              const questionNum = questionNumberMap[key];
+                              const label = questionNum ? formatQuestionLabel(questionNum) : String(pi);
+                              const status = getResultStatus(result);
+                              const resolveOpt = (letter) => {
+                                const opt = options.find(o => o.letter === letter);
+                                return opt ? `${letter} – ${opt.text || opt.label || ''}` : letter;
+                              };
+                              rows.push(
+                                <div key={key} style={{ ...styles.questionReviewCard, borderLeftColor: status.color }}>
+                                  <div style={styles.questionReviewHeader}>
+                                    <span style={{ ...styles.questionNum, backgroundColor: status.color }}>{label}</span>
+                                    <span style={styles.questionStatus}>{status.label}</span>
+                                  </div>
+                                  <div style={styles.questionText}>{person.name}</div>
+                                  <div style={styles.answersCompare}>
+                                    <div style={styles.answerRow}>
+                                      <span style={styles.answerLabel}>Câu trả lời của bạn:</span>
+                                      <span style={{ ...styles.answerValue, color: status.text, backgroundColor: status.bg }}>
+                                        {result.userAnswer ? resolveOpt(result.userAnswer) : '(Không trả lời)'}
+                                      </span>
+                                    </div>
+                                    {canShowCorrectAnswer(result) && (
+                                      <div style={styles.answerRow}>
+                                        <span style={styles.answerLabel}>Đáp án đúng:</span>
+                                        <span style={{ ...styles.answerValue, ...correctAnswerStyle }}>{resolveOpt(result.correctAnswer)}</span>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            }
+                            return <React.Fragment key={`lm-${qIdx}`}>{rows}</React.Fragment>;
+                          }
+                          // image-tick (Movers Part 4): show A/B/C answer
+                          else if (sectionType === 'image-tick' || question.questionType === 'image-tick') {
+                            const key = `${partIdx}-${secIdx}-${qIdx}`;
+                            const result = getDetailedResult(key) || {};
+                            const questionNum = questionNumberMap[key];
+                            const label = questionNum ? formatQuestionLabel(questionNum) : '?';
+                            const status = getResultStatus(result);
+                            return (
+                              <div key={qIdx} style={{ ...styles.questionReviewCard, borderLeftColor: status.color }}>
+                                <div style={styles.questionReviewHeader}>
+                                  <span style={{ ...styles.questionNum, backgroundColor: status.color }}>{label}</span>
+                                  <span style={styles.questionStatus}>{status.label}</span>
+                                </div>
+                                <div style={styles.questionText}>{question.questionText || ''}</div>
+                                <div style={styles.answersCompare}>
+                                  <div style={styles.answerRow}>
+                                    <span style={styles.answerLabel}>Câu trả lời của bạn:</span>
+                                    <span style={{ ...styles.answerValue, color: status.text, backgroundColor: status.bg }}>
+                                      {result.userAnswer || '(Không trả lời)'}
+                                    </span>
+                                  </div>
+                                  {canShowCorrectAnswer(result) && (
+                                    <div style={styles.answerRow}>
+                                      <span style={styles.answerLabel}>Đáp án đúng:</span>
+                                      <span style={{ ...styles.answerValue, ...correctAnswerStyle }}>{result.correctAnswer}</span>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            );
                           }
                           // short-message / story-writing: hiển thị nhãn "Free writing", không chấm điểm
                           else if (sectionType === 'short-message' || sectionType === 'story-writing') {

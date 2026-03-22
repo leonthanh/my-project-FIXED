@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import "../../../shared/styles/Login.css";
 import { API_BASE } from "../../../shared/utils/api";
 
@@ -18,14 +18,20 @@ const Login = () => {
   const [isLoginMode, setIsLoginMode] = useState(true); // ✅ Tab mode: true = Login, false = Register
 
   const navigate = useNavigate();
+  const location = useLocation();
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    const user = JSON.parse(localStorage.getItem("user"));
-    if (user) {
-      navigate(user.role === "teacher" ? "/admin" : "/");
+    // Show session-expired message if redirected due to token expiry
+    const params = new URLSearchParams(location.search);
+    if (params.get('reason') === 'expired') {
+      setMessage('⚠️ Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
     }
-  }, [navigate]);
+    const user = JSON.parse(localStorage.getItem("user"));
+    if (user && params.get('reason') !== 'expired') {
+      navigate(['teacher', 'admin'].includes(user.role) ? "/admin" : "/");
+    }
+  }, [navigate, location.search]);
 
   const handleLogin = async () => {
     // ✅ Logic đăng nhập: chỉ cần phone và password
@@ -69,7 +75,7 @@ const Login = () => {
           return;
         }
 
-        window.location.href = data.user.role === "teacher" ? "/admin" : "/";
+        window.location.href = ['teacher', 'admin'].includes(data.user.role) ? "/admin" : "/";
       } else {
         setMessage("❌ " + data.message);
       }
@@ -119,7 +125,7 @@ const Login = () => {
       if (res.ok) {
         localStorage.setItem("user", JSON.stringify(data.user));
         setMessage("✅ " + data.message);
-        window.location.href = data.user.role === "teacher" ? "/admin" : "/";
+        window.location.href = ['teacher', 'admin'].includes(data.user.role) ? "/admin" : "/";
       } else {
         // Hiển thị status code và message để dễ debug
         setMessage(

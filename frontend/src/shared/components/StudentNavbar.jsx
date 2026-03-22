@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { apiPath, hostPath } from "../utils/api";
+import { apiPath, hostPath, clearAuth } from "../utils/api";
 import ThemeToggle from "./ThemeToggle";
 import "./StudentNavbar.css";
 
@@ -209,9 +209,12 @@ const StudentNavbar = () => {
     }
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem("user");
-    navigate("/login");
+  const handleLogout = async () => {
+    try {
+      await fetch(apiPath('auth/logout'), { method: 'POST', credentials: 'include' });
+    } catch (_) { /* ignore network errors on logout */ }
+    clearAuth();
+    navigate('/login');
   };
 
   if (!user) return null;
