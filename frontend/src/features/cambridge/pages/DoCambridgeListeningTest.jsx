@@ -844,7 +844,7 @@ const DoCambridgeListeningTest = () => {
           }
 
           // letter-matching (MOVERS Part 3): expand into per-person sub-keys (skip idx 0 = example)
-          if (q.questionType === 'letter-matching' && Array.isArray(q.people)) {
+          if ((q.questionType === 'letter-matching' || secType === 'letter-matching') && Array.isArray(q.people)) {
             let expanded = 0;
             for (let pi = 1; pi < q.people.length; pi++) {
               if (String(q.people[pi]?.name || '').trim()) {
@@ -945,7 +945,17 @@ const DoCambridgeListeningTest = () => {
     const isPetListening = String(testType || '').toLowerCase().includes('pet');
     if (currentPartIndex === 0) return true;
     if (isPetListening && currentPartIndex === 1) return true;
-    if (currentPartIndex >= 2 && currentPartIndex <= 4) return true; // Parts 3-5
+    if (currentPartIndex >= 2 && currentPartIndex <= 4) {
+      // Part 3 letter-matching → 2-panel layout với divider
+      if (currentPartIndex === 2) {
+        const secs = currentPart?.sections || [];
+        const hasLetterMatching = secs.some(
+          (s) => s?.questionType === 'letter-matching' || s?.questions?.[0]?.questionType === 'letter-matching'
+        );
+        if (hasLetterMatching) return false;
+      }
+      return true;
+    }
     const sections = currentPart?.sections || [];
     return sections.some((section) => {
       const q0 = section?.questions?.[0] || {};
@@ -1377,16 +1387,36 @@ const DoCambridgeListeningTest = () => {
   };
 
   // ── MOVERS Part 3: Letter Matching renderer ──────────────────────────────
-  const renderLetterMatchingSection = (section, secIdx, sectionStartNum) => {
+  // ── Letter Matching drop handler (shared by left panel people rows) ──────
+  const handleLetterMatchingDrop = (e, targetKey, questionPeople, secIdx) => {
+    e.preventDefault();
+    e.currentTarget.style.borderColor = '';
+    e.currentTarget.style.background = '';
+    if (submitted) return;
+    const letter = e.dataTransfer.getData('text/plain');
+    if (!letter) return;
+    setAnswers((prev) => {
+      const next = { ...prev };
+      questionPeople.forEach((_, pi) => {
+        const k = `${currentPartIndex}-${secIdx}-0-${pi + 1}`;
+        if (next[k] === letter) next[k] = '';
+      });
+      next[targetKey] = letter;
+      return next;
+    });
+  };
+
+  // ── MOVERS Part 3: Full single-panel Letter Matching (people + tiles) ────
+  const renderLetterMatchingSectionFull = (section, secIdx, sectionStartNum) => {
     const q = section.questions?.[0];
     if (!q) return null;
     const qIdx = 0;
-    const people = Array.isArray(q.people) ? q.people : [];
     const options = Array.isArray(q.options) ? q.options : [];
+    const people = Array.isArray(q.people) ? q.people : [];
     const examplePerson = people[0];
     const questionPeople = people.slice(1).filter((p) => String(p?.name || '').trim());
+    const partStart = sectionStartNum;
 
-    // Set of letters currently placed in any slot of this section
     const placedLetters = new Set(
       questionPeople
         .map((_, i) => answers[`${currentPartIndex}-${secIdx}-${qIdx}-${i + 1}`])
@@ -1398,263 +1428,369 @@ const DoCambridgeListeningTest = () => {
       e.dataTransfer.effectAllowed = 'move';
     };
 
-    const handleDrop = (e, targetKey) => {
-      e.preventDefault();
-      e.currentTarget.style.borderColor = '';
-      e.currentTarget.style.background = '';
-      if (submitted) return;
-      const letter = e.dataTransfer.getData('text/plain');
-      if (!letter) return;
-      setAnswers((prev) => {
-        const next = { ...prev };
-        // Move semantics: clear previous slot holding this letter
-        questionPeople.forEach((_, pi) => {
-          const k = `${currentPartIndex}-${secIdx}-${qIdx}-${pi + 1}`;
-          if (next[k] === letter) next[k] = '';
-        });
-        next[targetKey] = letter;
-        return next;
-      });
-    };
-
     return (
       <div>
-        {/* Context text */}
+        {/* Context instruction */}
         {q.questionText && (
           <div style={{
-            fontSize: '15px', color: isDarkMode ? '#94a3b8' : '#6b7280',
-            fontStyle: 'italic', marginBottom: '16px', lineHeight: 1.5,
-            padding: '10px 14px',
+            fontSize: '13px', color: isDarkMode ? '#94a3b8' : '#6b7280',
+            fontStyle: 'italic', marginBottom: '12px', lineHeight: 1.5,
+            padding: '8px 12px',
             background: isDarkMode ? '#1e293b' : '#fafafa',
-            borderRadius: '10px',
+            borderRadius: '9px',
             border: `1px solid ${isDarkMode ? '#334155' : '#e5e7eb'}`,
           }}>
             {q.questionText}
           </div>
         )}
 
-        {/* Example row */}
-        {examplePerson && String(examplePerson.name || '').trim() && (() => {
-          const exOpt = options.find(o => o.letter === examplePerson.correctAnswer);
-          return (
+        {/* Two-column: people+dropzones left | draggable tiles right */}
+        <div style={{ display: 'flex', gap: '20px', alignItems: 'flex-start', flexWrap: 'wrap' }}>
+
+          {/* ── Left: people rows with drop zones ── */}
+          <div style={{ flex: '1 1 260px', minWidth: 0 }}>
+            {/* Example row */}
+            {examplePerson && String(examplePerson.name || '').trim() && (() => {
+              const exOpt = options.find((o) => o.letter === examplePerson.correctAnswer);
+              return (
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: '8px',
+                  padding: '6px 10px', marginBottom: '6px',
+                  background: isDarkMode ? '#0f172a' : '#f8fafc',
+                  border: `2px dashed ${isDarkMode ? '#334155' : '#94a3b8'}`,
+                  borderRadius: '11px',
+                }}>
+                  <span style={{
+                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                    minWidth: '28px', height: '28px', borderRadius: '50%',
+                    background: isDarkMode ? '#1e293b' : '#e2e8f0',
+                    color: isDarkMode ? '#94a3b8' : '#475569',
+                    fontWeight: 800, fontSize: '11px', flexShrink: 0,
+                  }}>Ex</span>
+                  {examplePerson.photoUrl && (
+                    <img src={resolveImgSrc(examplePerson.photoUrl)} alt="" draggable={false}
+                      style={{ width: '40px', height: '40px', borderRadius: '8px', objectFit: 'cover', flexShrink: 0 }} />
+                  )}
+                  <span style={{ flex: 1, fontWeight: 700, fontSize: '15px', color: isDarkMode ? '#94a3b8' : '#64748b', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {examplePerson.name}
+                  </span>
+                  <div style={{
+                    width: '56px', height: '56px', borderRadius: '9px',
+                    border: `3px solid ${isDarkMode ? '#4f6db6' : '#93c5fd'}`,
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                    background: isDarkMode ? '#1e3a5f' : '#eff6ff', overflow: 'hidden', flexShrink: 0,
+                  }}>
+                    {exOpt?.imageUrl && (
+                      <img src={resolveImgSrc(exOpt.imageUrl)} alt="" draggable={false}
+                        style={{ width: '100%', height: '40px', objectFit: 'contain' }} />
+                    )}
+                    <span style={{ fontWeight: 900, fontSize: '13px', color: isDarkMode ? '#93c5fd' : '#1d4ed8' }}>
+                      {examplePerson.correctAnswer}
+                    </span>
+                  </div>
+                  <span style={{ fontSize: '10px', color: isDarkMode ? '#475569' : '#94a3b8', flexShrink: 0 }}>(ex)</span>
+                </div>
+              );
+            })()}
+
+            {/* Question people rows */}
+            {questionPeople.map((person, i) => {
+              const personIdx = i + 1;
+              const key = `${currentPartIndex}-${secIdx}-${qIdx}-${personIdx}`;
+              const userAnswer = answers[key] || '';
+              const isCorrect = submitted && results?.answers?.[key]?.isCorrect;
+              const isActive = activeQuestion === key;
+              const placedOpt = userAnswer ? options.find((o) => o.letter === userAnswer) : null;
+              const rowBorder = submitted
+                ? (isCorrect ? '#22c55e' : '#ef4444')
+                : isActive ? '#8b5cf6' : userAnswer ? '#8b5cf6'
+                : isDarkMode ? '#334155' : '#e2e8f0';
+              const dzBorder = submitted
+                ? (isCorrect ? '#22c55e' : '#ef4444')
+                : userAnswer ? '#8b5cf6' : (isDarkMode ? '#475569' : '#c4b5fd');
+
+              return (
+                <div
+                  key={personIdx}
+                  id={`question-${partStart + i}`}
+                  ref={(el) => { questionRefs.current[key] = el; }}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: '8px',
+                    padding: '6px 10px', marginBottom: '5px',
+                    background: isDarkMode ? (isActive ? '#1e293b' : '#111827') : (isActive ? '#faf5ff' : '#fff'),
+                    border: `2px solid ${rowBorder}`,
+                    borderRadius: '11px',
+                    transition: 'border-color 0.2s, box-shadow 0.2s',
+                    boxShadow: isActive ? `0 0 0 3px ${isDarkMode ? '#7c3aed30' : '#8b5cf630'}` : 'none',
+                  }}
+                >
+                  <span style={{
+                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                    minWidth: '28px', height: '28px', borderRadius: '50%',
+                    background: submitted ? (isCorrect ? '#22c55e' : '#ef4444') : '#8b5cf6',
+                    color: '#fff', fontWeight: 800, fontSize: '13px', flexShrink: 0,
+                  }}>
+                    {submitted ? (isCorrect ? '✓' : '✗') : partStart + i}
+                  </span>
+                  {person.photoUrl && (
+                    <img src={resolveImgSrc(person.photoUrl)} alt="" draggable={false}
+                      style={{ width: '44px', height: '44px', borderRadius: '8px', objectFit: 'cover', flexShrink: 0 }} />
+                  )}
+                  <span style={{ flex: 1, fontWeight: 700, fontSize: '16px', color: isDarkMode ? '#e2e8f0' : '#1e293b', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {person.name}
+                  </span>
+                  {/* Drop zone with release button */}
+                  <div style={{ position: 'relative', flexShrink: 0 }}>
+                    {userAnswer && !submitted && (
+                      <button
+                        type="button"
+                        title="Bỏ chọn"
+                        onClick={() => setAnswers((prev) => ({ ...prev, [key]: '' }))}
+                        style={{
+                          position: 'absolute', top: '-9px', right: '-9px',
+                          width: '22px', height: '22px', borderRadius: '50%',
+                          background: '#ef4444', color: '#fff', border: '2px solid white',
+                          cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          fontSize: '11px', fontWeight: 900, lineHeight: 1,
+                          boxShadow: '0 1px 5px rgba(239,68,68,0.5)',
+                          zIndex: 20, padding: 0,
+                        }}
+                      >✕</button>
+                    )}
+                    <div
+                      onDragOver={(e) => { e.preventDefault(); if (!submitted) { e.currentTarget.style.borderColor = '#8b5cf6'; e.currentTarget.style.background = isDarkMode ? '#2d1b69' : '#ede9fe'; } }}
+                      onDragLeave={(e) => { e.currentTarget.style.borderColor = ''; e.currentTarget.style.background = ''; }}
+                      onDrop={(e) => handleLetterMatchingDrop(e, key, questionPeople, secIdx)}
+                      style={{
+                        width: '70px', minWidth: '70px', height: '70px',
+                        border: `3px ${userAnswer ? 'solid' : 'dashed'} ${dzBorder}`,
+                        borderRadius: '10px',
+                        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '2px',
+                        background: userAnswer
+                          ? (submitted ? (isCorrect ? (isDarkMode ? '#14532d' : '#dcfce7') : (isDarkMode ? '#450a0a' : '#fee2e2')) : (isDarkMode ? '#2d1b69' : '#f5f3ff'))
+                          : (isDarkMode ? '#111827' : '#f8fafc'),
+                        cursor: submitted ? 'default' : 'copy',
+                        overflow: 'hidden',
+                        transition: 'border-color 0.15s, background 0.15s',
+                      }}
+                    >
+                      {userAnswer ? (
+                        <>
+                          {placedOpt?.imageUrl && (
+                            <img src={resolveImgSrc(placedOpt.imageUrl)} alt="" draggable={false}
+                              style={{ width: '100%', height: '52px', objectFit: 'contain', pointerEvents: 'none' }} />
+                          )}
+                          <span style={{ fontWeight: 900, fontSize: '14px', color: submitted ? (isCorrect ? '#16a34a' : '#dc2626') : '#7c3aed' }}>
+                            {userAnswer}
+                          </span>
+                        </>
+                      ) : (
+                        <span style={{ fontSize: '22px', color: isDarkMode ? '#4b5563' : '#d1d5db', pointerEvents: 'none' }}>?</span>
+                      )}
+                    </div>
+                  </div>
+                  {submitted && !isCorrect && (
+                    <span style={{ fontSize: '12px', fontWeight: 900, flexShrink: 0, color: '#22c55e' }}>
+                      → {results?.answers?.[key]?.correctAnswer || ''}
+                    </span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* ── Right: draggable option tiles (2 columns, horizontal badge+image) ── */}
+          <div style={{ flexShrink: 0, width: '260px' }}>
             <div style={{
-              display: 'flex', alignItems: 'center', gap: '12px',
-              padding: '8px 14px', marginBottom: '6px',
-              background: isDarkMode ? '#0f172a' : '#f8fafc',
-              border: `2px dashed ${isDarkMode ? '#334155' : '#94a3b8'}`,
-              borderRadius: '14px',
+              textAlign: 'center', marginBottom: '10px',
+              fontSize: '14px', fontWeight: 800,
+              color: isDarkMode ? '#a5b4fc' : '#7c3aed',
             }}>
-              <span style={{
-                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                minWidth: '34px', height: '34px', borderRadius: '50%',
-                background: isDarkMode ? '#1e293b' : '#e2e8f0',
-                color: isDarkMode ? '#94a3b8' : '#475569',
-                fontWeight: 800, fontSize: '13px', flexShrink: 0,
-              }}>Ex</span>
-              {examplePerson.photoUrl && (
-                <img src={resolveImgSrc(examplePerson.photoUrl)} alt=""
-                  style={{ width: '46px', height: '46px', borderRadius: '10px', objectFit: 'cover', flexShrink: 0 }} />
-              )}
-              <span style={{ flex: 1, fontWeight: 700, fontSize: '18px', color: isDarkMode ? '#94a3b8' : '#64748b' }}>
-                {examplePerson.name}
-              </span>
-              {/* Example answer tile (pre-filled, read-only) */}
-              <div style={{
-                width: '72px', height: '72px', borderRadius: '12px',
-                border: `3px solid ${isDarkMode ? '#4f6db6' : '#93c5fd'}`,
-                display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '2px',
-                background: isDarkMode ? '#1e3a5f' : '#eff6ff',
-                flexShrink: 0, overflow: 'hidden',
-              }}>
-                {exOpt?.imageUrl
-                  ? <img src={resolveImgSrc(exOpt.imageUrl)} alt="" style={{ width: '100%', height: '55px', objectFit: 'contain', pointerEvents: 'none' }} />
-                  : null}
-                <span style={{ fontWeight: 900, fontSize: '15px', color: isDarkMode ? '#93c5fd' : '#1d4ed8' }}>
-                  {examplePerson.correctAnswer}
-                </span>
-              </div>
-              <span style={{ fontSize: '12px', color: isDarkMode ? '#475569' : '#94a3b8', flexShrink: 0 }}>(example)</span>
+              🖐️ Kéo hình → ô bên trái
             </div>
-          );
-        })()}
-
-        {/* Question rows with drop zones */}
-        {questionPeople.map((person, i) => {
-          const personIdx = i + 1;
-          const key = `${currentPartIndex}-${secIdx}-${qIdx}-${personIdx}`;
-          const userAnswer = answers[key] || '';
-          const isCorrect = submitted && results?.answers?.[key]?.isCorrect;
-          const isActive = activeQuestion === key;
-          const placedOpt = userAnswer ? options.find(o => o.letter === userAnswer) : null;
-          const rowBorderColor = submitted
-            ? (isCorrect ? '#22c55e' : '#ef4444')
-            : isActive ? '#8b5cf6'
-            : userAnswer ? '#8b5cf6'
-            : isDarkMode ? '#334155' : '#e2e8f0';
-          const dropZoneBorderColor = submitted
-            ? (isCorrect ? '#22c55e' : '#ef4444')
-            : userAnswer ? '#8b5cf6' : (isDarkMode ? '#475569' : '#c4b5fd');
-
-          return (
-            <div
-              key={personIdx}
-              id={`question-${sectionStartNum + i}`}
-              ref={(el) => { questionRefs.current[key] = el; }}
-              style={{
-                display: 'flex', alignItems: 'center', gap: '12px',
-                padding: '8px 14px', marginBottom: '6px',
-                background: isDarkMode ? (isActive ? '#1e293b' : '#111827') : (isActive ? '#faf5ff' : '#ffffff'),
-                border: `2px solid ${rowBorderColor}`,
-                borderRadius: '14px',
-                transition: 'border-color 0.2s, box-shadow 0.2s',
-                boxShadow: isActive ? `0 0 0 3px ${isDarkMode ? '#7c3aed30' : '#8b5cf630'}` : 'none',
-              }}
-            >
-              {/* Number badge */}
-              <span style={{
-                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                minWidth: '34px', height: '34px', borderRadius: '50%',
-                background: submitted ? (isCorrect ? '#22c55e' : '#ef4444') : '#8b5cf6',
-                color: '#fff', fontWeight: 800, fontSize: '15px', flexShrink: 0,
-              }}>
-                {submitted ? (isCorrect ? '✓' : '✗') : sectionStartNum + i}
-              </span>
-              {/* Person photo */}
-              {person.photoUrl && (
-                <img src={resolveImgSrc(person.photoUrl)} alt=""
-                  style={{ width: '50px', height: '50px', borderRadius: '10px', objectFit: 'cover', flexShrink: 0 }} />
-              )}
-              {/* Name */}
-              <span style={{ flex: 1, fontWeight: 700, fontSize: '18px', color: isDarkMode ? '#e2e8f0' : '#1e293b' }}>
-                {person.name}
-              </span>
-              {/* Drop zone */}
-              <div
-                onDragOver={(e) => {
-                  e.preventDefault();
-                  if (!submitted) {
-                    e.currentTarget.style.borderColor = '#8b5cf6';
-                    e.currentTarget.style.background = isDarkMode ? '#2d1b69' : '#ede9fe';
-                  }
-                }}
-                onDragLeave={(e) => {
-                  e.currentTarget.style.borderColor = '';
-                  e.currentTarget.style.background = '';
-                }}
-                onDrop={(e) => handleDrop(e, key)}
-                style={{
-                  width: '72px', minWidth: '72px', height: '72px',
-                  border: `3px ${userAnswer ? 'solid' : 'dashed'} ${dropZoneBorderColor}`,
-                  borderRadius: '12px',
-                  display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '2px',
-                  background: userAnswer
-                    ? (submitted
-                      ? (isCorrect ? (isDarkMode ? '#14532d' : '#dcfce7') : (isDarkMode ? '#450a0a' : '#fee2e2'))
-                      : (isDarkMode ? '#2d1b69' : '#f5f3ff'))
-                    : (isDarkMode ? '#111827' : '#f8fafc'),
-                  cursor: submitted ? 'default' : 'copy',
-                  flexShrink: 0, overflow: 'hidden',
-                  transition: 'border-color 0.15s, background 0.15s',
-                }}
-              >
-                {userAnswer ? (
-                  <>
-                    {placedOpt?.imageUrl
-                      ? <img src={resolveImgSrc(placedOpt.imageUrl)} alt="" style={{ width: '100%', height: '52px', objectFit: 'contain', pointerEvents: 'none' }} />
-                      : null}
-                    <span style={{
-                      fontWeight: 900, fontSize: '15px',
-                      color: submitted ? (isCorrect ? '#16a34a' : '#dc2626') : '#7c3aed',
-                    }}>{userAnswer}</span>
-                  </>
-                ) : (
-                  <span style={{ fontSize: '26px', color: isDarkMode ? '#4b5563' : '#d1d5db', pointerEvents: 'none' }}>?</span>
-                )}
-              </div>
-              {/* Correct answer hint on wrong */}
-              {submitted && !isCorrect && (
-                <span style={{ fontSize: '14px', fontWeight: 900, flexShrink: 0, color: '#22c55e' }}>
-                  → {results?.answers?.[key]?.correctAnswer || ''}
-                </span>
-              )}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px' }}>
+              {options.map((opt, tileIdx) => {
+                const isPlaced = placedLetters.has(opt.letter);
+                return (
+                  <div
+                    key={opt.letter}
+                    draggable={!submitted}
+                    onDragStart={(e) => handleDragStart(e, opt.letter)}
+                    className={`lm-tile${isPlaced ? '' : ' lm-tile-idle'}`}
+                    style={{
+                      '--tile-delay': `${tileIdx * 50}ms`,
+                      display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '8px',
+                      padding: '8px 10px',
+                      border: `3px solid ${isPlaced ? (isDarkMode ? '#312e81' : '#bfdbfe') : (isDarkMode ? '#4f46e5' : '#a5b4fc')}`,
+                      borderRadius: '14px',
+                      background: isPlaced ? (isDarkMode ? '#0f172a' : '#eff6ff') : (isDarkMode ? '#1e1b4b' : '#f5f3ff'),
+                      opacity: isPlaced ? 0.38 : 1,
+                      cursor: submitted ? 'default' : 'grab',
+                      transition: 'opacity 0.25s, border-color 0.2s, transform 0.15s, box-shadow 0.2s',
+                      userSelect: 'none', WebkitUserSelect: 'none',
+                      boxShadow: isPlaced ? 'none' : `0 3px 10px ${isDarkMode ? 'rgba(99,102,241,0.22)' : 'rgba(139,92,246,0.2)'}`,
+                    }}
+                  >
+                    {/* Letter badge left */}
+                    <div style={{
+                      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                      width: '34px', height: '34px', borderRadius: '8px', flexShrink: 0,
+                      background: isPlaced ? '#64748b' : '#4f46e5',
+                      color: '#fff', fontWeight: 900, fontSize: '18px',
+                      boxShadow: isPlaced ? 'none' : '0 2px 5px rgba(79,70,229,0.4)',
+                    }}>
+                      {opt.letter}
+                    </div>
+                    {/* Image right */}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      {opt.imageUrl ? (
+                        <img
+                          src={resolveImgSrc(opt.imageUrl)}
+                          alt={opt.letter}
+                          draggable={false}
+                          style={{ width: '100%', height: '100px', objectFit: 'cover', borderRadius: '8px', pointerEvents: 'none', display: 'block' }}
+                          onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                        />
+                      ) : (
+                        <div style={{
+                          height: '100px', width: '100%', borderRadius: '8px',
+                          background: isDarkMode ? '#1e1b4b' : '#ede9fe',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          color: isDarkMode ? '#a5b4fc' : '#7c3aed', fontSize: '13px', fontWeight: 700,
+                        }}>
+                          {opt.description || opt.letter}
+                        </div>
+                      )}
+                      {opt.description && opt.imageUrl && (
+                        <div style={{ fontSize: '11px', color: isDarkMode ? '#94a3b8' : '#6b7280', marginTop: '4px', fontWeight: 600, textAlign: 'center', pointerEvents: 'none' }}>
+                          {opt.description}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
-          );
-        })}
+          </div>
 
-        {/* Divider */}
+        </div>
+      </div>
+    );
+  };
+
+  const renderLetterMatchingSection = (section, secIdx) => {
+    const q = section.questions?.[0];
+    if (!q) return null;
+    const qIdx = 0;
+    const options = Array.isArray(q.options) ? q.options : [];
+    const people = Array.isArray(q.people) ? q.people : [];
+    const questionPeople = people.slice(1).filter((p) => String(p?.name || '').trim());
+    const exampleLetter = people[0]?.correctAnswer;
+
+    const placedLetters = new Set(
+      questionPeople
+        .map((_, i) => answers[`${currentPartIndex}-${secIdx}-${qIdx}-${i + 1}`])
+        .filter(Boolean)
+    );
+
+    const handleDragStart = (e, letter) => {
+      e.dataTransfer.setData('text/plain', letter);
+      e.dataTransfer.effectAllowed = 'move';
+    };
+
+    return (
+      <div>
+        {/* Instruction */}
         <div style={{
-          margin: '18px 0 12px',
-          borderTop: `2px dashed ${isDarkMode ? '#334155' : '#e5e7eb'}`,
-          position: 'relative',
+          textAlign: 'center', paddingBottom: '16px',
+          fontSize: '15px', fontWeight: 800,
+          color: isDarkMode ? '#a5b4fc' : '#7c3aed',
+          letterSpacing: '0.04em',
         }}>
-          <span style={{
-            position: 'absolute', top: '-11px', left: '50%', transform: 'translateX(-50%)',
-            background: isDarkMode ? '#111827' : '#fff',
-            padding: '0 12px',
-            fontSize: '12px', fontWeight: 700,
-            color: isDarkMode ? '#475569' : '#94a3b8',
-            textTransform: 'uppercase', letterSpacing: '0.06em',
-            whiteSpace: 'nowrap',
-          }}>
-            Kéo hình vào ô ↑
-          </span>
+          🖐️ Kéo hình → ô bên trái
         </div>
 
-        {/* Draggable option tiles 4×2 */}
+        {/* Draggable option tiles 2 columns – letter badge LEFT, image fills rest */}
         {options.length > 0 && (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
-            {options.map((opt) => {
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '14px' }}>
+            {options.map((opt, tileIdx) => {
               const isPlaced = placedLetters.has(opt.letter);
+              const isExample = opt.letter === exampleLetter;
               return (
                 <div
                   key={opt.letter}
-                  draggable={!submitted}
-                  onDragStart={(e) => handleDragStart(e, opt.letter)}
+                  draggable={!submitted && !isExample}
+                  onDragStart={(e) => !isExample && handleDragStart(e, opt.letter)}
+                  className={`lm-tile${(isPlaced || isExample) ? '' : ' lm-tile-idle'}`}
                   style={{
-                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px',
-                    padding: '8px 6px',
-                    border: `2px solid ${isPlaced ? (isDarkMode ? '#1e3a5f' : '#bfdbfe') : (isDarkMode ? '#374151' : '#e5e7eb')}`,
-                    borderRadius: '12px',
-                    background: isPlaced
-                      ? (isDarkMode ? '#0f172a' : '#eff6ff')
-                      : (isDarkMode ? '#1e293b' : '#f9fafb'),
-                    opacity: isPlaced ? 0.4 : 1,
-                    cursor: submitted ? 'default' : 'grab',
-                    transition: 'opacity 0.2s, border-color 0.2s',
-                    userSelect: 'none',
-                    WebkitUserSelect: 'none',
-                    textAlign: 'center',
+                    '--tile-delay': `${tileIdx * 60}ms`,
+                    display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '10px',
+                    padding: '10px 12px',
+                    border: `3px solid ${isExample
+                      ? (isDarkMode ? '#475569' : '#94a3b8')
+                      : isPlaced
+                        ? (isDarkMode ? '#312e81' : '#bfdbfe')
+                        : (isDarkMode ? '#4f46e5' : '#a5b4fc')}`,
+                    borderRadius: '16px',
+                    background: isExample
+                      ? (isDarkMode ? '#0f172a' : '#f8fafc')
+                      : isPlaced
+                        ? (isDarkMode ? '#0f172a' : '#eff6ff')
+                        : (isDarkMode ? '#1e1b4b' : '#f5f3ff'),
+                    opacity: (isPlaced || isExample) ? 0.45 : 1,
+                    cursor: (submitted || isExample) ? 'default' : 'grab',
+                    position: 'relative',
+                    transition: 'opacity 0.25s, border-color 0.2s, transform 0.15s, box-shadow 0.2s',
+                    userSelect: 'none', WebkitUserSelect: 'none',
+                    boxShadow: isPlaced ? 'none' : `0 3px 12px ${isDarkMode ? 'rgba(99,102,241,0.25)' : 'rgba(139,92,246,0.22)'}`,
                   }}
                 >
+                  {/* Letter badge – left side */}
                   <div style={{
                     display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                    width: '26px', height: '26px', borderRadius: '6px',
-                    background: '#1e3a8a', color: '#fff', fontWeight: 900, fontSize: '14px',
+                    width: '38px', height: '38px', borderRadius: '10px', flexShrink: 0,
+                    background: isExample ? '#94a3b8' : isPlaced ? '#64748b' : '#4f46e5',
+                    color: '#fff', fontWeight: 900, fontSize: '20px',
+                    boxShadow: (isPlaced || isExample) ? 'none' : '0 2px 6px rgba(79,70,229,0.45)',
                   }}>
                     {opt.letter}
                   </div>
-                  {opt.imageUrl ? (
-                    <img
-                      src={resolveImgSrc(opt.imageUrl)}
-                      alt={opt.letter}
-                      draggable={false}
-                      style={{ width: '100%', height: '72px', objectFit: 'contain', borderRadius: '8px', pointerEvents: 'none' }}
-                      onError={(e) => { e.currentTarget.style.display = 'none'; }}
-                    />
-                  ) : (
+                  {/* Activity image – right side, fills remaining space */}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    {opt.imageUrl ? (
+                      <img
+                        src={resolveImgSrc(opt.imageUrl)}
+                        alt={opt.letter}
+                        draggable={false}
+                        style={{ width: '100%', height: '150px', objectFit: 'cover', borderRadius: '10px', pointerEvents: 'none', display: 'block' }}
+                        onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                      />
+                    ) : (
+                      <div style={{
+                        height: '150px', width: '100%', borderRadius: '10px',
+                        background: isDarkMode ? '#1e1b4b' : '#ede9fe',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        color: isDarkMode ? '#a5b4fc' : '#7c3aed', fontSize: '14px', fontWeight: 700,
+                      }}>
+                        {opt.description || opt.letter}
+                      </div>
+                    )}
+                    {opt.description && opt.imageUrl && (
+                      <div style={{ fontSize: '12px', color: isDarkMode ? '#94a3b8' : '#6b7280', marginTop: '5px', pointerEvents: 'none', fontWeight: 600, textAlign: 'center' }}>
+                        {opt.description}
+                      </div>
+                    )}
+                  </div>
+                  {/* "Ex" badge overlay for example tile */}
+                  {isExample && (
                     <div style={{
-                      height: '72px', width: '100%', borderRadius: '8px',
-                      background: isDarkMode ? '#1e3a5f' : '#e0e7ff',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      color: isDarkMode ? '#94a3b8' : '#6b7280', fontSize: '11px', fontWeight: 600,
-                    }}>
-                      {opt.description || opt.letter}
-                    </div>
-                  )}
-                  {opt.description && opt.imageUrl && (
-                    <span style={{ fontSize: '11px', color: isDarkMode ? '#94a3b8' : '#6b7280', lineHeight: 1.2, pointerEvents: 'none' }}>
-                      {opt.description}
-                    </span>
+                      position: 'absolute', top: '-8px', right: '-8px',
+                      background: '#64748b', color: '#fff',
+                      fontSize: '11px', fontWeight: 900,
+                      padding: '2px 7px', borderRadius: '20px',
+                      border: '2px solid #fff',
+                      pointerEvents: 'none',
+                    }}>Ex</div>
                   )}
                 </div>
               );
@@ -1728,6 +1864,13 @@ const DoCambridgeListeningTest = () => {
   const handleMouseUp = useCallback(() => {
     setIsResizing(false);
   }, []);
+
+  // Part 3 letter-matching: 50/50 split mặc định
+  useEffect(() => {
+    if (!isSinglePanelPart && currentPartIndex === 2) {
+      setLeftWidth(50);
+    }
+  }, [currentPartIndex, isSinglePanelPart]);
 
   useEffect(() => {
     if (isResizing) {
@@ -2160,6 +2303,25 @@ const DoCambridgeListeningTest = () => {
         </div>
       )}
 
+      {/* Letter-matching instruction – sits above both panels */}
+      {!isSinglePanelPart && currentPart && (() => {
+        const isLetterMatchPart = currentPart?.sections?.some(
+          (s) => s?.questionType === 'letter-matching' || s?.questions?.[0]?.questionType === 'letter-matching'
+        );
+        if (!isLetterMatchPart) return null;
+        const range = getPartQuestionRange(currentPartIndex);
+        const instructionText = String(currentPart.instruction || '');
+        const hasQRange = /question(s)?\s*\d+/i.test(instructionText);
+        return (
+          <div className="cambridge-part-instruction" style={{ padding: '10px 20px', flexShrink: 0 }}>
+            {!hasQRange && <strong>Questions {range.start}–{range.end}</strong>}
+            <div style={{ marginTop: 6 }}>
+              {renderMaybeHtml(instructionText || 'For each question, choose the correct answer.')}
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Main Content */}
       <div className="cambridge-main-content" ref={containerRef} style={{ position: 'relative' }}>
         {isSinglePanelPart ? (
@@ -2393,6 +2555,8 @@ const DoCambridgeListeningTest = () => {
                         renderGapMatchSection(section, secIdx, sectionStartNum)
                       ) : sectionType === 'cloze-test' ? (
                         renderOpenClozeSection(section, secIdx, sectionStartNum)
+                      ) : sectionType === 'letter-matching' ? (
+                        renderLetterMatchingSectionFull(section, secIdx, sectionStartNum)
                       ) : isGroupedPart ? (
                         <div
                           className="cambridge-question-wrapper"
@@ -2433,19 +2597,24 @@ const DoCambridgeListeningTest = () => {
               {currentPart && (
                 <div className="cambridge-passage-container">
                   {(() => {
+                    const isLetterMatchPart = currentPart?.sections?.some(
+                      (s) => s?.questionType === 'letter-matching' || s?.questions?.[0]?.questionType === 'letter-matching'
+                    );
                     const range = getPartQuestionRange(currentPartIndex);
                     const instructionText = String(currentPart.instruction || '');
                     const hasQuestionRangeInInstruction = /question(s)?\s*\d+/i.test(instructionText);
                     return (
                       <>
-                        <div className="cambridge-part-instruction">
-                          {!hasQuestionRangeInInstruction && (
-                            <strong>Questions {range.start}–{range.end}</strong>
-                          )}
-                          <div style={{ marginTop: 6 }}>
-                            {renderMaybeHtml(currentPart.instruction || 'For each question, choose the correct answer.')}
+                        {!isLetterMatchPart && (
+                          <div className="cambridge-part-instruction">
+                            {!hasQuestionRangeInInstruction && (
+                              <strong>Questions {range.start}–{range.end}</strong>
+                            )}
+                            <div style={{ marginTop: 6 }}>
+                              {renderMaybeHtml(currentPart.instruction || 'For each question, choose the correct answer.')}
+                            </div>
                           </div>
-                        </div>
+                        )}
 
                         {/* Part illustration image (e.g. MOVERS Part 2 form picture) */}
                         {currentPart.imageUrl && (
@@ -2491,6 +2660,216 @@ const DoCambridgeListeningTest = () => {
                           </div>
                         )}
                       </>
+                    );
+                  })()}
+
+                  {/* LETTER MATCHING: people + drop zones live in left panel */}
+                  {(() => {
+                    const sec0 = currentPart?.sections?.find(
+                      (s) => s?.questionType === 'letter-matching' || s?.questions?.[0]?.questionType === 'letter-matching'
+                    );
+                    if (!sec0) return null;
+                    const q = sec0.questions?.[0];
+                    if (!q) return null;
+                    const secIdx = currentPart.sections.indexOf(sec0);
+                    const qIdx = 0;
+                    const people = Array.isArray(q.people) ? q.people : [];
+                    const options = Array.isArray(q.options) ? q.options : [];
+                    const examplePerson = people[0];
+                    const questionPeople = people.slice(1).filter((p) => String(p?.name || '').trim());
+                    const partStart = questionIndex.byPart?.[currentPartIndex]?.start ?? 1;
+
+                    return (
+                      <div style={{ marginTop: '14px' }}>
+                        {/* Context text */}
+                        {q.questionText && (
+                          <div style={{
+                            fontSize: '15px', color: isDarkMode ? '#a5b4fc' : '#4f46e5',
+                            fontStyle: 'italic', marginBottom: '12px', lineHeight: 1.5,
+                            padding: '10px 14px',
+                            background: isDarkMode ? '#1e1b4b' : '#f5f3ff',
+                            borderRadius: '12px',
+                            border: `2px solid ${isDarkMode ? '#4f46e5' : '#c4b5fd'}`,
+                            fontWeight: 600,
+                          }}>
+                            {q.questionText}
+                          </div>
+                        )}
+
+                        {/* Example row */}
+                        {examplePerson && String(examplePerson.name || '').trim() && (() => {
+                          const exOpt = options.find((o) => o.letter === examplePerson.correctAnswer);
+                          return (
+                            <div style={{
+                              display: 'flex', alignItems: 'center', gap: '10px',
+                              padding: '8px 12px', marginBottom: '8px',
+                              background: isDarkMode ? '#0f172a' : '#f8fafc',
+                              border: `2px dashed ${isDarkMode ? '#475569' : '#94a3b8'}`,
+                              borderRadius: '14px',
+                            }}>
+                              <span style={{
+                                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                                minWidth: '34px', height: '34px', borderRadius: '50%',
+                                background: isDarkMode ? '#1e293b' : '#e2e8f0',
+                                color: isDarkMode ? '#94a3b8' : '#475569',
+                                fontWeight: 800, fontSize: '13px', flexShrink: 0,
+                              }}>Ex</span>
+                              {examplePerson.photoUrl && (
+                                <img src={resolveImgSrc(examplePerson.photoUrl)} alt="" draggable={false}
+                                  style={{ width: '60px', height: '60px', borderRadius: '10px', objectFit: 'cover', flexShrink: 0 }} />
+                              )}
+                              <span style={{ flex: 1, fontWeight: 800, fontSize: '20px', color: isDarkMode ? '#94a3b8' : '#64748b', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {examplePerson.name}
+                              </span>
+                              <div style={{
+                                width: '76px', height: '76px', borderRadius: '12px',
+                                border: `3px solid ${isDarkMode ? '#4f6db6' : '#93c5fd'}`,
+                                display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                                background: isDarkMode ? '#1e3a5f' : '#eff6ff', overflow: 'hidden', flexShrink: 0,
+                              }}>
+                                {exOpt?.imageUrl
+                                  ? <img src={resolveImgSrc(exOpt.imageUrl)} alt="" draggable={false}
+                                      style={{ width: '100%', height: '56px', objectFit: 'contain' }} />
+                                  : null}
+                                <span style={{ fontWeight: 900, fontSize: '16px', color: isDarkMode ? '#93c5fd' : '#1d4ed8' }}>
+                                  {examplePerson.correctAnswer}
+                                </span>
+                              </div>
+                              <span style={{ fontSize: '12px', color: isDarkMode ? '#475569' : '#94a3b8', flexShrink: 0, fontWeight: 600 }}>(ex)</span>
+                            </div>
+                          );
+                        })()}
+
+                        {/* Question people rows */}
+                        {questionPeople.map((person, i) => {
+                          const personIdx = i + 1;
+                          const key = `${currentPartIndex}-${secIdx}-${qIdx}-${personIdx}`;
+                          const userAnswer = answers[key] || '';
+                          const isCorrect = submitted && results?.answers?.[key]?.isCorrect;
+                          const isActive = activeQuestion === key;
+                          const placedOpt = userAnswer ? options.find((o) => o.letter === userAnswer) : null;
+                          const rowBorder = submitted
+                            ? (isCorrect ? '#22c55e' : '#ef4444')
+                            : isActive ? '#7c3aed' : userAnswer ? '#8b5cf6'
+                            : isDarkMode ? '#4f46e5' : '#c4b5fd';
+                          const dzBorder = submitted
+                            ? (isCorrect ? '#22c55e' : '#ef4444')
+                            : userAnswer ? '#8b5cf6' : (isDarkMode ? '#6d28d9' : '#a78bfa');
+                          return (
+                            <div
+                              key={personIdx}
+                              id={`question-${partStart + i}`}
+                              ref={(el) => { questionRefs.current[key] = el; }}
+                              className={`lm-person-row${isCorrect ? ' lm-correct' : ''}`}
+                              style={{
+                                '--row-delay': `${i * 80}ms`,
+                                display: 'flex', alignItems: 'center', gap: '10px',
+                                padding: '8px 12px', marginBottom: '8px',
+                                background: isDarkMode
+                                  ? (isActive ? '#2d1b69' : submitted ? (isCorrect ? '#14532d22' : '#450a0a22') : '#111827')
+                                  : (isActive ? '#faf5ff' : submitted ? (isCorrect ? '#f0fdf4' : '#fff1f2') : '#fff'),
+                                border: `2.5px solid ${rowBorder}`,
+                                borderRadius: '14px',
+                                transition: 'border-color 0.2s, box-shadow 0.2s, background 0.2s',
+                                boxShadow: isActive
+                                  ? `0 0 0 4px ${isDarkMode ? '#7c3aed44' : '#8b5cf640'}, 0 4px 16px rgba(139,92,246,0.18)`
+                                  : userAnswer && !submitted ? `0 2px 10px rgba(139,92,246,0.15)` : 'none',
+                              }}
+                            >
+                              {/* Question number badge */}
+                              <span style={{
+                                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                                minWidth: '36px', height: '36px', borderRadius: '50%',
+                                background: submitted ? (isCorrect ? '#22c55e' : '#ef4444') : '#7c3aed',
+                                color: '#fff', fontWeight: 900, fontSize: '16px', flexShrink: 0,
+                                boxShadow: submitted ? 'none' : '0 2px 8px rgba(124,58,237,0.4)',
+                              }}>
+                                {submitted ? (isCorrect ? '✓' : '✗') : partStart + i}
+                              </span>
+                              {/* Person photo */}
+                              {person.photoUrl && (
+                                <img src={resolveImgSrc(person.photoUrl)} alt={person.name} draggable={false}
+                                  style={{ width: '60px', height: '60px', borderRadius: '10px', objectFit: 'cover', flexShrink: 0, boxShadow: '0 2px 8px rgba(0,0,0,0.15)' }} />
+                              )}
+                              {/* Person name */}
+                              <span style={{ flex: 1, fontWeight: 800, fontSize: '22px', color: isDarkMode ? '#e2e8f0' : '#1e293b', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {person.name}
+                              </span>
+                              {/* Drop zone wrapper – relative so ✕ button can float above */}
+                              <div style={{ position: 'relative', flexShrink: 0 }}>
+                                {/* Release / clear button */}
+                                {userAnswer && !submitted && (
+                                  <button
+                                    type="button"
+                                    title="Bỏ chọn"
+                                    onClick={() => setAnswers((prev) => ({ ...prev, [key]: '' }))}
+                                    style={{
+                                      position: 'absolute', top: '-10px', right: '-10px',
+                                      width: '26px', height: '26px', borderRadius: '50%',
+                                      background: '#ef4444', color: '#fff', border: '2.5px solid white',
+                                      cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                      fontSize: '13px', fontWeight: 900, lineHeight: 1,
+                                      boxShadow: '0 2px 8px rgba(239,68,68,0.55)',
+                                      zIndex: 20, padding: 0, transition: 'transform 0.15s',
+                                    }}
+                                    onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.2)'; }}
+                                    onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
+                                  >✕</button>
+                                )}
+                                {/* Drop zone – big and inviting */}
+                                <div
+                                  onDragOver={(e) => {
+                                    e.preventDefault();
+                                    if (!submitted) {
+                                      e.currentTarget.style.borderColor = '#7c3aed';
+                                      e.currentTarget.style.background = isDarkMode ? '#2d1b69' : '#ede9fe';
+                                      e.currentTarget.style.transform = 'scale(1.08)';
+                                    }
+                                  }}
+                                  onDragLeave={(e) => {
+                                    e.currentTarget.style.borderColor = '';
+                                    e.currentTarget.style.background = '';
+                                    e.currentTarget.style.transform = '';
+                                  }}
+                                  onDrop={(e) => { e.currentTarget.style.transform = ''; handleLetterMatchingDrop(e, key, questionPeople, secIdx); }}
+                                  className={!userAnswer && !submitted ? 'lm-dropzone-empty' : ''}
+                                  style={{
+                                    width: '90px', minWidth: '90px', height: '90px',
+                                    border: `3px ${userAnswer ? 'solid' : 'dashed'} ${dzBorder}`,
+                                    borderRadius: '14px',
+                                    display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '3px',
+                                    background: userAnswer
+                                      ? (submitted ? (isCorrect ? (isDarkMode ? '#14532d' : '#dcfce7') : (isDarkMode ? '#450a0a' : '#fee2e2')) : (isDarkMode ? '#2d1b69' : '#f5f3ff'))
+                                      : (isDarkMode ? '#1e1b4b' : '#faf5ff'),
+                                    cursor: submitted ? 'default' : 'copy',
+                                    overflow: 'hidden',
+                                    transition: 'border-color 0.15s, background 0.15s, transform 0.15s',
+                                  }}
+                                >
+                                  {userAnswer ? (
+                                    <>
+                                      {placedOpt?.imageUrl && (
+                                        <img src={resolveImgSrc(placedOpt.imageUrl)} alt="" draggable={false}
+                                          style={{ width: '100%', height: '64px', objectFit: 'contain', pointerEvents: 'none' }} />
+                                      )}
+                                      <span style={{ fontWeight: 900, fontSize: '17px', color: submitted ? (isCorrect ? '#16a34a' : '#dc2626') : '#7c3aed', lineHeight: 1 }}>
+                                        {userAnswer}
+                                      </span>
+                                    </>
+                                  ) : (
+                                    <span style={{ fontSize: '28px', color: isDarkMode ? '#6d28d9' : '#c4b5fd', pointerEvents: 'none', lineHeight: 1 }}>?</span>
+                                  )}
+                                </div>
+                              </div>
+                              {submitted && !isCorrect && (
+                                <span style={{ fontSize: '14px', fontWeight: 900, flexShrink: 0, color: '#22c55e' }}>
+                                  → {results?.answers?.[key]?.correctAnswer || ''}
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
                     );
                   })()}
 
@@ -2576,7 +2955,9 @@ const DoCambridgeListeningTest = () => {
                 // Robust section type detection (some legacy data stores type on question instead of section)
                 const q0 = section?.questions?.[0] || {};
                 const sectionType =
-                  section?.questionType ||
+                  (q0?.questionType === 'letter-matching' || (Array.isArray(q0?.people) && q0.people.length > 0) ? 'letter-matching' :
+                   q0?.questionType === 'draw-lines' || (q0?.anchors && Object.keys(q0?.anchors || {}).length > 0) ? 'draw-lines' :
+                   section?.questionType) ||
                   q0?.questionType ||
                   q0?.type ||
                   (Array.isArray(q0?.people) ? 'people-matching' : '') ||

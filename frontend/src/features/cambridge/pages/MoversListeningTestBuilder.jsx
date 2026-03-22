@@ -703,11 +703,11 @@ const MoversListeningTestBuilder = ({ editId = null, initialData = null }) => {
               }}
             >
               <label style={labelStyle}>📝 Lời dẫn (instruction cho học sinh)</label>
-              <input
-                type="text"
+              <textarea
                 value={activePart.instruction || ""}
                 onChange={(e) => updatePart("instruction", e.target.value)}
-                style={inputStyle}
+                rows={3}
+                style={{ ...inputStyle, resize: "vertical", lineHeight: 1.6 }}
               />
             </div>
 
@@ -894,7 +894,9 @@ const MoversListeningTestBuilder = ({ editId = null, initialData = null }) => {
               {cfg.questionType === "letter-matching" && (
                 <LetterMatchingEditor
                   data={currentQuestions[0] || defaultLetterMatchingData()}
-                  onChange={(newData) => updateQuestions([newData])}
+                  onChange={(newData) => {
+                    updateFirstSection({ questionType: "letter-matching", questions: [newData] });
+                  }}
                   onUploadImage={async (file) => {
                     const fd = new FormData();
                     fd.append("image", file);

@@ -30,7 +30,7 @@ const getQuestionCountForSection = (section) => {
     return leftItems.slice(1).filter((n) => String(n || '').trim()).length;
   }
   // letter-matching (MOVERS Part 3): count people skipping index 0 (example)
-  if (q0.questionType === 'letter-matching') {
+  if (section.questionType === 'letter-matching' || q0.questionType === 'letter-matching') {
     const people = Array.isArray(q0.people) ? q0.people : [];
     return people.slice(1).filter((p) => String(p?.name || '').trim()).length;
   }
