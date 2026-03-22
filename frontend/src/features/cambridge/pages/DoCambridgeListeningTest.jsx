@@ -555,6 +555,260 @@ const DrawLinesQuestion = ({
   );
 };
 
+// ─── Part 4 Image-Tick — one question per slide ───────────────────────────────
+const IT_ACCENT = ['#f59e0b', '#10b981', '#8b5cf6', '#ef4444', '#0ea5e9', '#ec4899'];
+
+function ImageTickSlideSection({
+  questions, exampleItem,
+  secIdx, sectionStartNum,
+  answers, submitted, results, isDarkMode,
+  handleAnswerChange, currentPartIndex, questionRefs,
+  resolveImgSrc, activeQuestion, onSlideChange,
+}) {
+  // Example shown as fixed header only on slide 0 (câu 16)
+  const hasExample = !!(exampleItem && exampleItem.questionText);
+  const [slide, setSlide] = useState(0); // 0..questions.length-1
+
+  // Jump when footer nav focuses a question sentinel
+  const jumpToSlide = (qi) => { setSlide(qi); };
+
+  // Keep in sync when activeQuestion changes from outside (footer nav)
+  useEffect(() => {
+    if (!activeQuestion) return;
+    const parts = String(activeQuestion).split('-');
+    const qi = parseInt(parts[2], 10);
+    if (!Number.isNaN(qi)) setSlide(qi);
+  }, [activeQuestion]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Navigate to adjacent slide and notify parent
+  const goTo = (qi) => {
+    setSlide(qi);
+    onSlideChange?.(qi);
+  };
+
+  const canPrev = slide > 0;
+  const canNext = slide < questions.length - 1;
+
+  const renderRow = (q, qKey, isExample, accent) => {
+    const userAns   = isExample ? (q.correctAnswer || '') : (answers[qKey] || '');
+    const imageOpts = Array.isArray(q.imageOptions) ? q.imageOptions : [{}, {}, {}];
+    return (
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '14px', marginTop: '16px' }}>
+        {['A', 'B', 'C'].map((letter, idx) => {
+          const opt          = imageOpts[idx] || {};
+          const isSelected   = userAns === letter;
+          const isCorrectOpt = submitted && q.correctAnswer === letter;
+          const imgSrc       = opt.imageUrl ? resolveImgSrc(opt.imageUrl) : '';
+
+          const boxBorder = isExample
+            ? (isDarkMode ? '#475569' : '#94a3b8')
+            : submitted
+              ? (isCorrectOpt ? '#22c55e' : isSelected ? '#ef4444' : isDarkMode ? '#334155' : '#d1d5db')
+              : isSelected ? accent : isDarkMode ? '#334155' : '#d1d5db';
+
+          const checkBg = submitted
+            ? (isCorrectOpt ? '#22c55e' : isSelected && !isCorrectOpt ? '#ef4444' : 'transparent')
+            : isSelected ? accent : 'transparent';
+          const checkBorder = submitted
+            ? (isCorrectOpt ? '#22c55e' : isSelected ? '#ef4444' : isDarkMode ? '#475569' : '#94a3b8')
+            : isSelected ? accent : isDarkMode ? '#475569' : '#94a3b8';
+
+          return (
+            <div key={letter}
+              onClick={() => { if (!isExample && !submitted) handleAnswerChange(qKey, isSelected ? '' : letter); }}
+              style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '7px', cursor: isExample || submitted ? 'default' : 'pointer' }}
+            >
+              <div
+                className={`it-img-box${isSelected && !isExample ? ' it-selected' : ''}`}
+                style={{
+                  width: '100%', aspectRatio: '1 / 1',
+                  border: `3px solid ${boxBorder}`, borderRadius: '14px', overflow: 'hidden',
+                  background: isDarkMode ? '#1e293b' : '#f9fafb',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  boxShadow: isSelected && !isExample ? `0 4px 16px ${accent}55` : submitted && isCorrectOpt ? '0 4px 16px #22c55e55' : '0 2px 6px rgba(0,0,0,0.08)',
+                  transform: isSelected && !isExample ? 'scale(1.04)' : 'scale(1)',
+                  transition: 'border-color 0.18s, box-shadow 0.18s, transform 0.18s cubic-bezier(0.34,1.56,0.64,1)',
+                  position: 'relative',
+                }}
+              >
+                {imgSrc
+                  ? <img src={imgSrc} alt={letter} draggable={false} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  : <span style={{ fontSize: '28px', color: isDarkMode ? '#475569' : '#cbd5e1' }}>🖼️</span>
+                }
+                {submitted && isCorrectOpt && (
+                  <div style={{ position: 'absolute', top: '-10px', right: '-8px', fontSize: '22px', animation: 'itStarBurst 0.6s ease forwards', pointerEvents: 'none' }}>⭐</div>
+                )}
+              </div>
+              <span style={{
+                fontWeight: 900, fontSize: '15px', width: '28px', height: '28px',
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%',
+                background: isSelected && !isExample ? accent : submitted && isCorrectOpt ? '#22c55e' : isDarkMode ? '#1e293b' : '#f1f5f9',
+                color: isSelected && !isExample || (submitted && isCorrectOpt) ? '#fff' : isDarkMode ? '#e2e8f0' : '#1e293b',
+                transition: 'background 0.18s, color 0.18s',
+              }}>{letter}</span>
+              <div style={{
+                width: '28px', height: '28px', borderRadius: '6px',
+                border: `2.5px solid ${checkBorder}`, background: checkBg,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                animation: (isSelected || (submitted && isCorrectOpt)) ? 'itCheckPop 0.35s cubic-bezier(0.34,1.56,0.64,1) both' : 'none',
+                boxShadow: isSelected && !isExample ? `0 0 0 3px ${accent}33` : 'none',
+                transition: 'background 0.15s, border-color 0.15s',
+              }}>
+                {(isSelected || (submitted && isCorrectOpt)) && <span style={{ color: '#fff', fontSize: '15px', fontWeight: 900, lineHeight: 1 }}>✓</span>}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
+  // Current question slide
+  const qIdx   = slide;
+  const q      = questions[qIdx];
+  const qKey   = `${currentPartIndex}-${secIdx}-${qIdx}`;
+  const accent = IT_ACCENT[qIdx % IT_ACCENT.length];
+  const isCorrect = submitted && results?.answers?.[qKey]?.isCorrect;
+  const isWrong   = submitted && (answers[qKey] || '') && !isCorrect;
+
+  return (
+    <>
+      {/* Keyframe animations */}
+      <style>{`
+        @keyframes itBounceIn { 0%{opacity:0;transform:translateY(22px) scale(0.93)} 55%{transform:translateY(-5px) scale(1.03)} 80%{transform:translateY(2px) scale(0.99)} 100%{opacity:1;transform:translateY(0) scale(1)} }
+        @keyframes itCheckPop { 0%{transform:scale(0) rotate(-20deg);opacity:0} 65%{transform:scale(1.35) rotate(6deg);opacity:1} 100%{transform:scale(1) rotate(0deg);opacity:1} }
+        @keyframes itStarBurst { 0%{transform:scale(0) rotate(-30deg);opacity:1} 60%{transform:scale(1.4) rotate(15deg);opacity:1} 100%{transform:scale(1) rotate(0deg);opacity:0.9} }
+        @keyframes itShake { 0%,100%{transform:translateX(0)} 20%{transform:translateX(-5px)} 40%{transform:translateX(5px)} 60%{transform:translateX(-4px)} 80%{transform:translateX(4px)} }
+        .it-img-box{position:relative;}
+        .it-img-box:hover:not(.it-selected){transform:scale(1.06) !important;box-shadow:0 6px 18px rgba(0,0,0,0.13) !important;}
+      `}</style>
+
+      {/* Sentinel divs for footer nav focus */}
+      {questions.map((_, qi) => {
+        const key = `${currentPartIndex}-${secIdx}-${qi}`;
+        return (
+          <div key={`sentinel-${qi}`}
+            id={`question-${sectionStartNum + qi}`}
+            ref={(el) => { questionRefs.current[key] = el; }}
+            tabIndex={-1}
+            onFocus={() => jumpToSlide(qi)}
+            style={{ position: 'absolute', opacity: 0, pointerEvents: 'none', height: 0, overflow: 'hidden' }}
+          />
+        );
+      })}
+
+      <div style={{ maxWidth: '680px', margin: '0 auto', width: '100%' }}>
+
+        {/* ── Example — fixed header, only on first question slide ── */}
+        {hasExample && slide === 0 && (
+          <div style={{
+            padding: '12px 16px',
+            borderRadius: '14px',
+            border: `2px dashed ${isDarkMode ? '#334155' : '#cbd5e1'}`,
+            background: isDarkMode ? '#0f172a' : '#f8fafc',
+            marginBottom: '14px',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+              <span style={{
+                padding: '2px 12px', borderRadius: '999px',
+                background: isDarkMode ? '#1e293b' : '#e2e8f0',
+                color: isDarkMode ? '#94a3b8' : '#475569',
+                fontWeight: 800, fontSize: '12px', flexShrink: 0,
+              }}>🌟 Example</span>
+              <span style={{ fontWeight: 600, fontSize: '14px', color: isDarkMode ? '#94a3b8' : '#64748b' }}>
+                {exampleItem.questionText || ''}
+              </span>
+            </div>
+            {renderRow(exampleItem, null, true, '#94a3b8')}
+          </div>
+        )}
+
+        {/* ── Active question slide ── */}
+        <div style={{
+          padding: '20px 20px 24px',
+          borderRadius: '18px',
+          border: `2.5px solid ${submitted ? (isCorrect ? '#22c55e' : isWrong ? '#ef4444' : isDarkMode ? '#334155' : '#e2e8f0') : accent}`,
+          background: isDarkMode ? '#111827' : `${accent}08`,
+          boxShadow: `0 0 0 3px ${submitted ? (isCorrect ? '#22c55e' : isWrong ? '#ef4444' : 'transparent') : accent}20, 0 4px 18px ${accent}15`,
+          animation: 'itBounceIn 0.35s ease both',
+          ...(isWrong ? { animationName: 'itBounceIn, itShake', animationDuration: '0.35s, 0.4s', animationDelay: '0s, 0.5s', animationFillMode: 'both' } : {}),
+          transition: 'border-color 0.2s, background 0.2s',
+        }}>
+          {/* Question header */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
+            <span style={{
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+              width: '34px', height: '34px', borderRadius: '50%', flexShrink: 0,
+              background: submitted ? (isCorrect ? '#22c55e' : '#ef4444') : accent,
+              color: '#fff', fontWeight: 900, fontSize: '14px',
+              boxShadow: `0 3px 8px ${submitted ? (isCorrect ? '#22c55e55' : '#ef444455') : accent + '55'}`,
+            }}>
+              {submitted ? (isCorrect ? '✓' : '✗') : sectionStartNum + qIdx}
+            </span>
+            <span style={{ fontWeight: 700, fontSize: '15px', color: isDarkMode ? '#e2e8f0' : '#0f172a', flex: 1 }}>
+              {q?.questionText || ''}
+            </span>
+            {submitted && !isCorrect && (
+              <span style={{ fontSize: '13px', fontWeight: 800, color: '#22c55e', background: isDarkMode ? '#052e16' : '#f0fdf4', padding: '2px 8px', borderRadius: '6px', flexShrink: 0 }}>
+                ✓ {results?.answers?.[qKey]?.correctAnswer || q?.correctAnswer || ''}
+              </span>
+            )}
+          </div>
+          {renderRow(q, qKey, false, accent)}
+        </div>
+
+        {/* ── Navigation ── */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px', marginTop: '16px' }}>
+          <button type="button" onClick={() => goTo(slide - 1)} disabled={!canPrev}
+            style={{
+              width: '40px', height: '40px', borderRadius: '50%', border: 'none', cursor: canPrev ? 'pointer' : 'not-allowed',
+              background: canPrev ? (isDarkMode ? '#334155' : '#e2e8f0') : (isDarkMode ? '#1e293b' : '#f8fafc'),
+              color: canPrev ? (isDarkMode ? '#e2e8f0' : '#374151') : (isDarkMode ? '#475569' : '#cbd5e1'),
+              fontSize: '18px', fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center',
+              boxShadow: canPrev ? '0 2px 6px rgba(0,0,0,0.10)' : 'none',
+              transition: 'all 0.15s',
+            }}>‹</button>
+
+          {/* Progress dots — one per question */}
+          <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+            {questions.map((_, i) => {
+              const isActive   = i === slide;
+              const dotKey     = `${currentPartIndex}-${secIdx}-${i}`;
+              const dotCorrect = submitted && results?.answers?.[dotKey]?.isCorrect;
+              const dotWrong   = submitted && (answers[dotKey] || '') && !dotCorrect;
+              const dotAnswered = !submitted && !!(answers[dotKey] || '');
+              const dotAccent  = IT_ACCENT[i % IT_ACCENT.length];
+              return (
+                <button key={i} type="button" onClick={() => goTo(i)}
+                  style={{
+                    width: isActive ? '28px' : '10px', height: '10px', borderRadius: '999px',
+                    border: 'none', cursor: 'pointer', padding: 0,
+                    background: submitted
+                      ? (dotCorrect ? '#22c55e' : dotWrong ? '#ef4444' : isDarkMode ? '#334155' : '#d1d5db')
+                      : isActive ? dotAccent : dotAnswered ? `${dotAccent}88` : (isDarkMode ? '#334155' : '#d1d5db'),
+                    transition: 'all 0.2s cubic-bezier(0.34,1.56,0.64,1)',
+                    boxShadow: isActive ? `0 0 0 2px ${dotAccent}44` : 'none',
+                  }}
+                />
+              );
+            })}
+          </div>
+
+          <button type="button" onClick={() => goTo(slide + 1)} disabled={!canNext}
+            style={{
+              width: '40px', height: '40px', borderRadius: '50%', border: 'none', cursor: canNext ? 'pointer' : 'not-allowed',
+              background: canNext ? (isDarkMode ? '#334155' : '#e2e8f0') : (isDarkMode ? '#1e293b' : '#f8fafc'),
+              color: canNext ? (isDarkMode ? '#e2e8f0' : '#374151') : (isDarkMode ? '#475569' : '#cbd5e1'),
+              fontSize: '18px', fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center',
+              boxShadow: canNext ? '0 2px 6px rgba(0,0,0,0.10)' : 'none',
+              transition: 'all 0.15s',
+            }}>›</button>
+        </div>
+      </div>
+    </>
+  );
+}
+
 // ─── Part 5 Colour & Write — palette (module-level so child component can use) ─
 const CW_PALETTE = [
   { label: 'yellow', hex: '#eab308' },
@@ -2114,260 +2368,24 @@ const DoCambridgeListeningTest = () => {
   };
 
   // ── Part 4: "Listen and tick (✓) the box" – image multiple choice ────────
-  const renderImageTickSection = (section, secIdx, sectionStartNum) => {
-    const questions = Array.isArray(section.questions) ? section.questions : [];
-    const exampleItem = section.exampleItem || null;
-
-    // Accent colours cycling per question (fun for kids)
-    const ACCENT_COLORS = ['#f59e0b', '#10b981', '#8b5cf6', '#ef4444', '#0ea5e9', '#ec4899'];
-
-    /** Three A/B/C image boxes for one question */
-    const renderRow = (q, qKey, isExample, accentColor) => {
-      const userAns     = isExample ? (q.correctAnswer || '') : (answers[qKey] || '');
-      const imageOpts   = Array.isArray(q.imageOptions) ? q.imageOptions : [{}, {}, {}];
-      return (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
-          {['A', 'B', 'C'].map((letter, idx) => {
-            const opt          = imageOpts[idx] || {};
-            const isSelected   = userAns === letter;
-            const isCorrectOpt = submitted && q.correctAnswer === letter;
-            const imgSrc       = opt.imageUrl ? resolveImgSrc(opt.imageUrl) : '';
-
-            const boxBorder = isExample
-              ? (isDarkMode ? '#475569' : '#94a3b8')
-              : submitted
-                ? (isCorrectOpt ? '#22c55e' : isSelected ? '#ef4444' : isDarkMode ? '#334155' : '#d1d5db')
-                : isSelected ? accentColor : isDarkMode ? '#334155' : '#d1d5db';
-
-            const checkBg = submitted
-              ? (isCorrectOpt ? '#22c55e' : isSelected && !isCorrectOpt ? '#ef4444' : 'transparent')
-              : isSelected ? accentColor : 'transparent';
-            const checkBorder = submitted
-              ? (isCorrectOpt ? '#22c55e' : isSelected ? '#ef4444' : isDarkMode ? '#475569' : '#94a3b8')
-              : isSelected ? accentColor : isDarkMode ? '#475569' : '#94a3b8';
-
-            const handleClick = () => {
-              if (isExample || submitted) return;
-              handleAnswerChange(qKey, isSelected ? '' : letter);
-            };
-
-            return (
-              <div key={letter}
-                onClick={handleClick}
-                style={{
-                  display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '7px',
-                  cursor: isExample || submitted ? 'default' : 'pointer',
-                }}
-              >
-                {/* Image box — fixed height, hover/select scale via key-trigger */}
-                <div
-                  key={`${letter}-${isSelected}`}
-                  className={`it-img-box${isSelected && !isExample ? ' it-selected' : ''}`}
-                  style={{
-                    width: '100%',
-                    height: '80%',
-                    border: `3px solid ${boxBorder}`,
-                    borderRadius: '14px',
-                    overflow: 'hidden',
-                    background: isDarkMode ? '#1e293b' : '#f9fafb',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    boxShadow: isSelected && !isExample
-                      ? `0 4px 16px ${accentColor}55`
-                      : submitted && isCorrectOpt
-                        ? '0 4px 16px #22c55e55'
-                        : '0 2px 6px rgba(0,0,0,0.08)',
-                    transform: isSelected && !isExample ? 'scale(1.04)' : 'scale(1)',
-                    transition: 'border-color 0.18s, box-shadow 0.18s, transform 0.18s cubic-bezier(0.34,1.56,0.64,1)',
-                  }}
-                >
-                  {imgSrc
-                    ? <img src={imgSrc} alt={letter} draggable={false}
-                        style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    : <span style={{ fontSize: '28px', color: isDarkMode ? '#475569' : '#cbd5e1' }}>🖼️</span>
-                  }
-                  {/* Correct star burst overlay */}
-                  {submitted && isCorrectOpt && (
-                    <div style={{
-                      position: 'absolute', top: '-10px', right: '-8px',
-                      fontSize: '22px',
-                      animation: 'itStarBurst 0.6s ease forwards',
-                      pointerEvents: 'none',
-                    }}>⭐</div>
-                  )}
-                </div>
-
-                {/* Letter badge */}
-                <span style={{
-                  fontWeight: 900, fontSize: '14px',
-                  width: '26px', height: '26px',
-                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                  borderRadius: '50%',
-                  background: isSelected && !isExample
-                    ? accentColor
-                    : submitted && isCorrectOpt ? '#22c55e'
-                    : isDarkMode ? '#1e293b' : '#f1f5f9',
-                  color: isSelected && !isExample
-                    ? '#fff'
-                    : submitted && isCorrectOpt ? '#fff'
-                    : isDarkMode ? '#e2e8f0' : '#1e293b',
-                  transition: 'background 0.18s, color 0.18s',
-                }}>
-                  {letter}
-                </span>
-
-                {/* Checkbox */}
-                <div
-                  key={`chk-${letter}-${isSelected || (submitted && isCorrectOpt)}`}
-                  style={{
-                    width: '26px', height: '26px', borderRadius: '6px',
-                    border: `2.5px solid ${checkBorder}`,
-                    background: checkBg,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    animation: (isSelected || (submitted && isCorrectOpt)) ? 'itCheckPop 0.35s cubic-bezier(0.34,1.56,0.64,1) both' : 'none',
-                    boxShadow: isSelected && !isExample ? `0 0 0 3px ${accentColor}33` : 'none',
-                    transition: 'background 0.15s, border-color 0.15s, box-shadow 0.15s',
-                  }}
-                >
-                  {(isSelected || (submitted && isCorrectOpt)) && (
-                    <span style={{ color: '#fff', fontSize: '14px', fontWeight: 900, lineHeight: 1 }}>✓</span>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      );
-    };
-
-    return (
-      <>
-        {/* Keyframe animations — injected once per render */}
-        <style>{`
-          @keyframes itBounceIn {
-            0%   { opacity: 0; transform: translateY(22px) scale(0.93); }
-            55%  { transform: translateY(-5px) scale(1.03); }
-            80%  { transform: translateY(2px) scale(0.99); }
-            100% { opacity: 1; transform: translateY(0) scale(1); }
-          }
-          @keyframes itCheckPop {
-            0%   { transform: scale(0) rotate(-20deg); opacity: 0; }
-            65%  { transform: scale(1.35) rotate(6deg); opacity: 1; }
-            100% { transform: scale(1) rotate(0deg); opacity: 1; }
-          }
-          @keyframes itStarBurst {
-            0%   { transform: scale(0) rotate(-30deg); opacity: 1; }
-            60%  { transform: scale(1.4) rotate(15deg); opacity: 1; }
-            100% { transform: scale(1) rotate(0deg); opacity: 0.9; }
-          }
-          @keyframes itShake {
-            0%, 100% { transform: translateX(0); }
-            20%  { transform: translateX(-5px); }
-            40%  { transform: translateX(5px); }
-            60%  { transform: translateX(-4px); }
-            80%  { transform: translateX(4px); }
-          }
-          .it-img-box { position: relative; }
-          .it-img-box:hover:not(.it-selected) {
-            transform: scale(1.06) !important;
-            box-shadow: 0 6px 18px rgba(0,0,0,0.13) !important;
-          }
-        `}</style>
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', maxWidth: '680px', margin: '0 auto', width: '100%' }}>
-          {/* Example */}
-          {exampleItem && (
-            <div style={{
-              padding: '12px 14px 14px',
-              borderRadius: '14px',
-              border: `2px dashed ${isDarkMode ? '#334155' : '#cbd5e1'}`,
-              background: isDarkMode ? '#0f172a' : '#f8fafc',
-              opacity: 0.9,
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-                <span style={{
-                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                  padding: '3px 12px', borderRadius: '999px',
-                  background: isDarkMode ? '#1e293b' : '#e2e8f0',
-                  color: isDarkMode ? '#94a3b8' : '#475569',
-                  fontWeight: 800, fontSize: '12px', flexShrink: 0,
-                }}>🌟 Example</span>
-                <span style={{ fontWeight: 600, fontSize: '15px', color: isDarkMode ? '#94a3b8' : '#64748b' }}>
-                  {exampleItem.questionText || ''}
-                </span>
-              </div>
-              {renderRow(exampleItem, null, true, '#94a3b8')}
-            </div>
-          )}
-
-          {/* Questions */}
-          {questions.map((q, qIdx) => {
-            const key        = `${currentPartIndex}-${secIdx}-${qIdx}`;
-            const userAnswer  = answers[key] || '';
-            const isCorrect   = submitted && results?.answers?.[key]?.isCorrect;
-            const isWrong     = submitted && userAnswer && !isCorrect;
-            const isActive    = activeQuestion === key;
-            const accent      = ACCENT_COLORS[qIdx % ACCENT_COLORS.length];
-            return (
-              <div key={qIdx}
-                id={`question-${sectionStartNum + qIdx}`}
-                ref={(el) => { questionRefs.current[key] = el; }}
-                style={{
-                  padding: '14px',
-                  borderRadius: '16px',
-                  border: `2.5px solid ${
-                    submitted
-                      ? (isCorrect ? '#22c55e' : '#ef4444')
-                      : isActive ? accent : userAnswer ? accent : isDarkMode ? '#334155' : '#e2e8f0'
-                  }`,
-                  background: isDarkMode
-                    ? (isActive ? '#0c1a2e' : '#111827')
-                    : (isActive ? `${accent}0d` : '#ffffff'),
-                  boxShadow: isActive
-                    ? `0 0 0 3px ${accent}30, 0 4px 14px ${accent}20`
-                    : submitted && isCorrect
-                      ? '0 0 0 3px #22c55e28'
-                      : '0 2px 8px rgba(0,0,0,0.06)',
-                  animation: `itBounceIn 0.45s ease both`,
-                  animationDelay: `${qIdx * 0.07}s`,
-                  ...(isWrong ? { animation: `itBounceIn 0.45s ease both, itShake 0.4s ease ${qIdx * 0.07 + 0.5}s both` } : {}),
-                  transition: 'border-color 0.2s, background 0.2s, box-shadow 0.2s',
-                }}
-              >
-                {/* Question header */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px' }}>
-                  <span style={{
-                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                    width: '34px', height: '34px', borderRadius: '50%', flexShrink: 0,
-                    background: submitted
-                      ? (isCorrect ? '#22c55e' : '#ef4444')
-                      : accent,
-                    color: '#fff',
-                    fontWeight: 900, fontSize: '14px',
-                    boxShadow: `0 3px 8px ${submitted ? (isCorrect ? '#22c55e55' : '#ef444455') : accent + '55'}`,
-                  }}>
-                    {submitted ? (isCorrect ? '✓' : '✗') : sectionStartNum + qIdx}
-                  </span>
-                  <span style={{ fontWeight: 700, fontSize: '15px', color: isDarkMode ? '#e2e8f0' : '#0f172a', flex: 1 }}>
-                    {q.questionText || ''}
-                  </span>
-                  {submitted && !isCorrect && (
-                    <span style={{
-                      fontSize: '13px', fontWeight: 800, color: '#22c55e', flexShrink: 0,
-                      background: isDarkMode ? '#052e16' : '#f0fdf4',
-                      padding: '2px 8px', borderRadius: '6px',
-                    }}>
-                      ✓ {results?.answers?.[key]?.correctAnswer || q.correctAnswer || ''}
-                    </span>
-                  )}
-                </div>
-                {renderRow(q, key, false, accent)}
-              </div>
-            );
-          })}
-        </div>
-      </>
-    );
-  };
+  const renderImageTickSection = (section, secIdx, sectionStartNum) => (
+    <ImageTickSlideSection
+      questions={Array.isArray(section.questions) ? section.questions : []}
+      exampleItem={section.exampleItem || null}
+      secIdx={secIdx}
+      sectionStartNum={sectionStartNum}
+      answers={answers}
+      submitted={submitted}
+      results={results}
+      isDarkMode={isDarkMode}
+      handleAnswerChange={handleAnswerChange}
+      currentPartIndex={currentPartIndex}
+      questionRefs={questionRefs}
+      resolveImgSrc={resolveImgSrc}
+      activeQuestion={activeQuestion}
+      onSlideChange={(qi) => setActiveQuestion(`${currentPartIndex}-${secIdx}-${qi}`)}
+    />
+  );
 
   // ── Part 5: Colour and Write (rendered by ColourWriteStudentSection above) ──
   const renderColourWriteSection = (section, secIdx, sectionStartNum) => (
