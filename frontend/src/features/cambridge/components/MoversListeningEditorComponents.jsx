@@ -1023,3 +1023,184 @@ export const LetterMatchingEditor = ({ data, onChange, onUploadImage }) => {
   );
 };
 
+// ─── ImageTickEditor ────────────────────────────────────────────────────────
+// Part 4: "Listen and tick (✓) the box" – 3-image multiple choice per question
+export const ImageTickEditor = ({
+  questions,
+  onChange,
+  startNumber = 1,
+  exampleItem = null,
+  onExampleChange = null,
+  onUploadImage,
+}) => {
+  const [uploading, setUploading] = useState({});
+
+  const doUpload = async (file, slotKey, applyUrl) => {
+    if (!file || !onUploadImage) return;
+    setUploading((p) => ({ ...p, [slotKey]: true }));
+    try {
+      const url = await onUploadImage(file);
+      if (url) applyUrl(url);
+    } catch (err) {
+      console.error("ImageTickEditor upload error:", err);
+    } finally {
+      setUploading((p) => ({ ...p, [slotKey]: false }));
+    }
+  };
+
+  const updateQ = (idx, field, val) => {
+    const next = [...questions];
+    next[idx] = { ...next[idx], questionNumber: startNumber + idx, [field]: val };
+    onChange(next);
+  };
+
+  const updateQOpt = (qIdx, optIdx, val) => {
+    const next = [...questions];
+    const opts = [...(next[qIdx].imageOptions || [{}, {}, {}])];
+    opts[optIdx] = { ...opts[optIdx], imageUrl: val };
+    next[qIdx] = { ...next[qIdx], imageOptions: opts };
+    onChange(next);
+  };
+
+  const updateExOpt = (optIdx, val) => {
+    if (!onExampleChange) return;
+    const opts = [...(exampleItem?.imageOptions || [{}, {}, {}])];
+    opts[optIdx] = { ...opts[optIdx], imageUrl: val };
+    onExampleChange({ ...(exampleItem || {}), imageOptions: opts });
+  };
+
+  /** Renders three A/B/C image slots for a question or example */
+  const renderSlots = (q, isExample, correctLabel, onCorrectChange, getOptUrl, setOptUrl, keyPrefix) => (
+    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "16px", marginTop: "12px" }}>
+      {["A", "B", "C"].map((letter, optIdx) => {
+        const isCorrect = correctLabel === letter;
+        const imgUrl = getOptUrl(optIdx) || "";
+        const slotKey = `${keyPrefix}-${letter}`;
+        return (
+          <div
+            key={letter}
+            style={{
+              border: `2.5px solid ${isExample ? (isCorrect ? "#0284c7" : "#d1d5db") : isCorrect ? "#f59e0b" : "#e5e7eb"}`,
+              borderRadius: "14px",
+              padding: "14px",
+              background: isExample ? (isCorrect ? "#f0f9ff" : "white") : isCorrect ? "#fffbeb" : "white",
+              display: "flex",
+              flexDirection: "column",
+              gap: "10px",
+              boxShadow: isCorrect ? (isExample ? "0 0 0 3px #bae6fd55" : "0 0 0 3px #fde68a55") : "none",
+            }}
+          >
+            {/* Letter + correct radio */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <span style={{ fontWeight: 900, fontSize: "20px", color: isCorrect ? (isExample ? "#0284c7" : "#b45309") : "#374151" }}>
+                {letter}
+              </span>
+              <label style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "13px", cursor: "pointer", fontWeight: 700, color: isCorrect ? (isExample ? "#0284c7" : "#b45309") : "#6b7280" }}>
+                <input
+                  type="radio"
+                  name={`correct_${keyPrefix}`}
+                  checked={isCorrect}
+                  onChange={() => onCorrectChange(letter)}
+                  style={{ width: "16px", height: "16px", accentColor: isExample ? "#0284c7" : "#f59e0b" }}
+                />
+                Đúng
+              </label>
+            </div>
+            {/* Preview */}
+            <div style={{ width: "100%", height: "150px", borderRadius: "8px", border: "1px solid #e5e7eb", overflow: "hidden", background: "#f8fafc", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              {imgUrl
+                ? <img src={resolveImg(imgUrl)} alt={letter} style={{ width: "100%", height: "100%", objectFit: "contain" }} />
+                : <span style={{ fontSize: "32px", color: "#d1d5db" }}>🖼️</span>
+              }
+            </div>
+            {/* URL input */}
+            <input
+              type="text"
+              placeholder="URL hình..."
+              value={imgUrl}
+              onChange={(e) => setOptUrl(optIdx, e.target.value)}
+              style={{ ...inputStyle, marginBottom: 0, fontSize: "13px" }}
+            />
+            {/* Upload */}
+            {onUploadImage && (
+              <label style={{ display: "block", cursor: "pointer", textAlign: "center", fontSize: "13px", fontWeight: 700, padding: "8px 6px", borderRadius: "8px", background: uploading[slotKey] ? "#e5e7eb" : "#eef2ff", color: uploading[slotKey] ? "#9ca3af" : "#6366f1" }}>
+                {uploading[slotKey] ? "⏳ Uploading…" : "📤 Upload hình"}
+                <input
+                  type="file"
+                  accept="image/*"
+                  style={{ display: "none" }}
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) doUpload(f, slotKey, (url) => setOptUrl(optIdx, url));
+                    e.target.value = "";
+                  }}
+                />
+              </label>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+      {/* ── Example card ── */}
+      {onExampleChange && (
+        <div style={{ padding: "18px", border: "2px dashed #cbd5e1", borderRadius: "14px", background: "#f8fafc" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "12px" }}>
+            <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", minWidth: "52px", height: "30px", borderRadius: "999px", background: "#e2e8f0", color: "#475569", fontWeight: 800, fontSize: "13px", padding: "0 12px" }}>
+              Ví dụ
+            </span>
+            <span style={{ fontSize: "14px", fontWeight: 700, color: "#64748b" }}>Câu mẫu — không tính điểm</span>
+          </div>
+          <input
+            type="text"
+            placeholder="Câu hỏi mẫu (vd: Which fruit does Alex want?)"
+            value={exampleItem?.questionText || ""}
+            onChange={(e) => onExampleChange({ ...(exampleItem || {}), questionText: e.target.value })}
+            style={inputStyle}
+          />
+          {renderSlots(
+            exampleItem || {},
+            true,
+            exampleItem?.correctAnswer || "",
+            (letter) => onExampleChange({ ...(exampleItem || {}), correctAnswer: letter }),
+            (optIdx) => (exampleItem?.imageOptions?.[optIdx]?.imageUrl || ""),
+            (optIdx, url) => updateExOpt(optIdx, url),
+            "ex"
+          )}
+        </div>
+      )}
+
+      {/* ── Real questions ── */}
+      {questions.map((q, idx) => (
+        <div key={idx} style={{ padding: "20px", border: "1.5px solid #e5e7eb", borderRadius: "14px", background: "#f9fafb" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "12px" }}>
+            <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: "36px", height: "36px", borderRadius: "10px", background: "#fffbeb", color: "#b45309", fontWeight: 900, fontSize: "16px", border: "1.5px solid #fde68a" }}>
+              {startNumber + idx}
+            </span>
+            <span style={{ fontSize: "14px", fontWeight: 700, color: "#6b7280" }}>Câu {startNumber + idx}</span>
+          </div>
+          <input
+            type="text"
+            placeholder="Câu hỏi (vd: How did Lucy's cousin go to town?)"
+            value={q.questionText || ""}
+            onChange={(e) => updateQ(idx, "questionText", e.target.value)}
+            style={inputStyle}
+          />
+          {renderSlots(
+            q,
+            false,
+            q.correctAnswer || "",
+            (letter) => updateQ(idx, "correctAnswer", letter),
+            (optIdx) => (q.imageOptions?.[optIdx]?.imageUrl || ""),
+            (optIdx, url) => updateQOpt(idx, optIdx, url),
+            `q${idx}`
+          )}
+        </div>
+      ))}
+    </div>
+  );
+};
+

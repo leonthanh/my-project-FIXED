@@ -1801,6 +1801,262 @@ const DoCambridgeListeningTest = () => {
     );
   };
 
+  // ── Part 4: "Listen and tick (✓) the box" – image multiple choice ────────
+  const renderImageTickSection = (section, secIdx, sectionStartNum) => {
+    const questions = Array.isArray(section.questions) ? section.questions : [];
+    const exampleItem = section.exampleItem || null;
+
+    // Accent colours cycling per question (fun for kids)
+    const ACCENT_COLORS = ['#f59e0b', '#10b981', '#8b5cf6', '#ef4444', '#0ea5e9', '#ec4899'];
+
+    /** Three A/B/C image boxes for one question */
+    const renderRow = (q, qKey, isExample, accentColor) => {
+      const userAns     = isExample ? (q.correctAnswer || '') : (answers[qKey] || '');
+      const imageOpts   = Array.isArray(q.imageOptions) ? q.imageOptions : [{}, {}, {}];
+      return (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
+          {['A', 'B', 'C'].map((letter, idx) => {
+            const opt          = imageOpts[idx] || {};
+            const isSelected   = userAns === letter;
+            const isCorrectOpt = submitted && q.correctAnswer === letter;
+            const imgSrc       = opt.imageUrl ? resolveImgSrc(opt.imageUrl) : '';
+
+            const boxBorder = isExample
+              ? (isDarkMode ? '#475569' : '#94a3b8')
+              : submitted
+                ? (isCorrectOpt ? '#22c55e' : isSelected ? '#ef4444' : isDarkMode ? '#334155' : '#d1d5db')
+                : isSelected ? accentColor : isDarkMode ? '#334155' : '#d1d5db';
+
+            const checkBg = submitted
+              ? (isCorrectOpt ? '#22c55e' : isSelected && !isCorrectOpt ? '#ef4444' : 'transparent')
+              : isSelected ? accentColor : 'transparent';
+            const checkBorder = submitted
+              ? (isCorrectOpt ? '#22c55e' : isSelected ? '#ef4444' : isDarkMode ? '#475569' : '#94a3b8')
+              : isSelected ? accentColor : isDarkMode ? '#475569' : '#94a3b8';
+
+            const handleClick = () => {
+              if (isExample || submitted) return;
+              handleAnswerChange(qKey, isSelected ? '' : letter);
+            };
+
+            return (
+              <div key={letter}
+                onClick={handleClick}
+                style={{
+                  display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '7px',
+                  cursor: isExample || submitted ? 'default' : 'pointer',
+                }}
+              >
+                {/* Image box — fixed height, hover/select scale via key-trigger */}
+                <div
+                  key={`${letter}-${isSelected}`}
+                  className={`it-img-box${isSelected && !isExample ? ' it-selected' : ''}`}
+                  style={{
+                    width: '100%',
+                    height: '80%',
+                    border: `3px solid ${boxBorder}`,
+                    borderRadius: '14px',
+                    overflow: 'hidden',
+                    background: isDarkMode ? '#1e293b' : '#f9fafb',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    boxShadow: isSelected && !isExample
+                      ? `0 4px 16px ${accentColor}55`
+                      : submitted && isCorrectOpt
+                        ? '0 4px 16px #22c55e55'
+                        : '0 2px 6px rgba(0,0,0,0.08)',
+                    transform: isSelected && !isExample ? 'scale(1.04)' : 'scale(1)',
+                    transition: 'border-color 0.18s, box-shadow 0.18s, transform 0.18s cubic-bezier(0.34,1.56,0.64,1)',
+                  }}
+                >
+                  {imgSrc
+                    ? <img src={imgSrc} alt={letter} draggable={false}
+                        style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    : <span style={{ fontSize: '28px', color: isDarkMode ? '#475569' : '#cbd5e1' }}>🖼️</span>
+                  }
+                  {/* Correct star burst overlay */}
+                  {submitted && isCorrectOpt && (
+                    <div style={{
+                      position: 'absolute', top: '-10px', right: '-8px',
+                      fontSize: '22px',
+                      animation: 'itStarBurst 0.6s ease forwards',
+                      pointerEvents: 'none',
+                    }}>⭐</div>
+                  )}
+                </div>
+
+                {/* Letter badge */}
+                <span style={{
+                  fontWeight: 900, fontSize: '14px',
+                  width: '26px', height: '26px',
+                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                  borderRadius: '50%',
+                  background: isSelected && !isExample
+                    ? accentColor
+                    : submitted && isCorrectOpt ? '#22c55e'
+                    : isDarkMode ? '#1e293b' : '#f1f5f9',
+                  color: isSelected && !isExample
+                    ? '#fff'
+                    : submitted && isCorrectOpt ? '#fff'
+                    : isDarkMode ? '#e2e8f0' : '#1e293b',
+                  transition: 'background 0.18s, color 0.18s',
+                }}>
+                  {letter}
+                </span>
+
+                {/* Checkbox */}
+                <div
+                  key={`chk-${letter}-${isSelected || (submitted && isCorrectOpt)}`}
+                  style={{
+                    width: '26px', height: '26px', borderRadius: '6px',
+                    border: `2.5px solid ${checkBorder}`,
+                    background: checkBg,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    animation: (isSelected || (submitted && isCorrectOpt)) ? 'itCheckPop 0.35s cubic-bezier(0.34,1.56,0.64,1) both' : 'none',
+                    boxShadow: isSelected && !isExample ? `0 0 0 3px ${accentColor}33` : 'none',
+                    transition: 'background 0.15s, border-color 0.15s, box-shadow 0.15s',
+                  }}
+                >
+                  {(isSelected || (submitted && isCorrectOpt)) && (
+                    <span style={{ color: '#fff', fontSize: '14px', fontWeight: 900, lineHeight: 1 }}>✓</span>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      );
+    };
+
+    return (
+      <>
+        {/* Keyframe animations — injected once per render */}
+        <style>{`
+          @keyframes itBounceIn {
+            0%   { opacity: 0; transform: translateY(22px) scale(0.93); }
+            55%  { transform: translateY(-5px) scale(1.03); }
+            80%  { transform: translateY(2px) scale(0.99); }
+            100% { opacity: 1; transform: translateY(0) scale(1); }
+          }
+          @keyframes itCheckPop {
+            0%   { transform: scale(0) rotate(-20deg); opacity: 0; }
+            65%  { transform: scale(1.35) rotate(6deg); opacity: 1; }
+            100% { transform: scale(1) rotate(0deg); opacity: 1; }
+          }
+          @keyframes itStarBurst {
+            0%   { transform: scale(0) rotate(-30deg); opacity: 1; }
+            60%  { transform: scale(1.4) rotate(15deg); opacity: 1; }
+            100% { transform: scale(1) rotate(0deg); opacity: 0.9; }
+          }
+          @keyframes itShake {
+            0%, 100% { transform: translateX(0); }
+            20%  { transform: translateX(-5px); }
+            40%  { transform: translateX(5px); }
+            60%  { transform: translateX(-4px); }
+            80%  { transform: translateX(4px); }
+          }
+          .it-img-box { position: relative; }
+          .it-img-box:hover:not(.it-selected) {
+            transform: scale(1.06) !important;
+            box-shadow: 0 6px 18px rgba(0,0,0,0.13) !important;
+          }
+        `}</style>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', maxWidth: '680px', margin: '0 auto', width: '100%' }}>
+          {/* Example */}
+          {exampleItem && (
+            <div style={{
+              padding: '12px 14px 14px',
+              borderRadius: '14px',
+              border: `2px dashed ${isDarkMode ? '#334155' : '#cbd5e1'}`,
+              background: isDarkMode ? '#0f172a' : '#f8fafc',
+              opacity: 0.9,
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                <span style={{
+                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                  padding: '3px 12px', borderRadius: '999px',
+                  background: isDarkMode ? '#1e293b' : '#e2e8f0',
+                  color: isDarkMode ? '#94a3b8' : '#475569',
+                  fontWeight: 800, fontSize: '12px', flexShrink: 0,
+                }}>🌟 Example</span>
+                <span style={{ fontWeight: 600, fontSize: '15px', color: isDarkMode ? '#94a3b8' : '#64748b' }}>
+                  {exampleItem.questionText || ''}
+                </span>
+              </div>
+              {renderRow(exampleItem, null, true, '#94a3b8')}
+            </div>
+          )}
+
+          {/* Questions */}
+          {questions.map((q, qIdx) => {
+            const key        = `${currentPartIndex}-${secIdx}-${qIdx}`;
+            const userAnswer  = answers[key] || '';
+            const isCorrect   = submitted && results?.answers?.[key]?.isCorrect;
+            const isWrong     = submitted && userAnswer && !isCorrect;
+            const isActive    = activeQuestion === key;
+            const accent      = ACCENT_COLORS[qIdx % ACCENT_COLORS.length];
+            return (
+              <div key={qIdx}
+                id={`question-${sectionStartNum + qIdx}`}
+                ref={(el) => { questionRefs.current[key] = el; }}
+                style={{
+                  padding: '14px',
+                  borderRadius: '16px',
+                  border: `2.5px solid ${
+                    submitted
+                      ? (isCorrect ? '#22c55e' : '#ef4444')
+                      : isActive ? accent : userAnswer ? accent : isDarkMode ? '#334155' : '#e2e8f0'
+                  }`,
+                  background: isDarkMode
+                    ? (isActive ? '#0c1a2e' : '#111827')
+                    : (isActive ? `${accent}0d` : '#ffffff'),
+                  boxShadow: isActive
+                    ? `0 0 0 3px ${accent}30, 0 4px 14px ${accent}20`
+                    : submitted && isCorrect
+                      ? '0 0 0 3px #22c55e28'
+                      : '0 2px 8px rgba(0,0,0,0.06)',
+                  animation: `itBounceIn 0.45s ease both`,
+                  animationDelay: `${qIdx * 0.07}s`,
+                  ...(isWrong ? { animation: `itBounceIn 0.45s ease both, itShake 0.4s ease ${qIdx * 0.07 + 0.5}s both` } : {}),
+                  transition: 'border-color 0.2s, background 0.2s, box-shadow 0.2s',
+                }}
+              >
+                {/* Question header */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px' }}>
+                  <span style={{
+                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                    width: '34px', height: '34px', borderRadius: '50%', flexShrink: 0,
+                    background: submitted
+                      ? (isCorrect ? '#22c55e' : '#ef4444')
+                      : accent,
+                    color: '#fff',
+                    fontWeight: 900, fontSize: '14px',
+                    boxShadow: `0 3px 8px ${submitted ? (isCorrect ? '#22c55e55' : '#ef444455') : accent + '55'}`,
+                  }}>
+                    {submitted ? (isCorrect ? '✓' : '✗') : sectionStartNum + qIdx}
+                  </span>
+                  <span style={{ fontWeight: 700, fontSize: '15px', color: isDarkMode ? '#e2e8f0' : '#0f172a', flex: 1 }}>
+                    {q.questionText || ''}
+                  </span>
+                  {submitted && !isCorrect && (
+                    <span style={{
+                      fontSize: '13px', fontWeight: 800, color: '#22c55e', flexShrink: 0,
+                      background: isDarkMode ? '#052e16' : '#f0fdf4',
+                      padding: '2px 8px', borderRadius: '6px',
+                    }}>
+                      ✓ {results?.answers?.[key]?.correctAnswer || q.correctAnswer || ''}
+                    </span>
+                  )}
+                </div>
+                {renderRow(q, key, false, accent)}
+              </div>
+            );
+          })}
+        </div>
+      </>
+    );
+  };
+
   // Handle checkbox change for multi-select
   /* eslint-disable-next-line no-unused-vars */
   const handleCheckboxChange = useCallback(
@@ -2444,7 +2700,7 @@ const DoCambridgeListeningTest = () => {
 
                   // Robust section type detection (some legacy data stores type on question instead of section)
                   const q0 = section?.questions?.[0] || {};
-                  const sectionType =
+                  const rawSectionType =
                     section?.questionType ||
                     q0?.questionType ||
                     q0?.type ||
@@ -2452,6 +2708,13 @@ const DoCambridgeListeningTest = () => {
                     (Array.isArray(q0?.leftItems) ? 'gap-match' : '') ||
                     (Array.isArray(q0?.sentences) ? 'word-form' : '') ||
                     '';
+                  // Auto-upgrade: MOVERS Listening Part 4 was previously 'fill' – treat as 'image-tick'
+                  const sectionType =
+                    rawSectionType === 'fill' &&
+                    String(testType || '').includes('movers') &&
+                    currentPartIndex === 3
+                      ? 'image-tick'
+                      : rawSectionType;
 
                   return (
                     <div key={secIdx} className="cambridge-section">
@@ -2557,6 +2820,8 @@ const DoCambridgeListeningTest = () => {
                         renderOpenClozeSection(section, secIdx, sectionStartNum)
                       ) : sectionType === 'letter-matching' ? (
                         renderLetterMatchingSectionFull(section, secIdx, sectionStartNum)
+                      ) : sectionType === 'image-tick' ? (
+                        renderImageTickSection(section, secIdx, sectionStartNum)
                       ) : isGroupedPart ? (
                         <div
                           className="cambridge-question-wrapper"
@@ -2652,7 +2917,7 @@ const DoCambridgeListeningTest = () => {
                               alt="Part illustration"
                               draggable={false}
                               style={{
-                                width: '100%', borderRadius: '10px',
+                                width: '80%', borderRadius: '10px',
                                 border: `2px solid ${isDarkMode ? '#334155' : '#e2e8f0'}`,
                                 display: 'block',
                               }}

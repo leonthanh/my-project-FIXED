@@ -22,6 +22,7 @@ import {
   MatchingPartEditor,
   PictureQuestionsEditor,
   LetterMatchingEditor,
+  ImageTickEditor,
 } from "../components/MoversListeningEditorComponents";
 
 const resolveImg = (url) => {
@@ -70,13 +71,13 @@ const PART_CONFIGS = [
   },
   {
     part: 4,
-    emoji: "📋",
-    title: "Part 4 – Write in a Form",
-    titleVi: "Nghe và điền thông tin vào form",
-    instruction: "Listen and write. There is one example.",
-    questionType: "fill",
+    emoji: "☑️",
+    title: "Part 4 – Tick a Box",
+    titleVi: "Nghe và tick vào ô đúng",
+    instruction: "Listen and tick (✓) the box. There is one example.",
+    questionType: "image-tick",
     questionCount: 5,
-    tip: "Học sinh nghe hội thoại và điền thông tin (tên, số, thứ, màu, …) vào các ô form/bảng.",
+    tip: "Học sinh nghe và tick vào ô ảnh đúng (A, B hoặc C) cho mỗi câu. Nhập câu hỏi và upload 3 hình lựa chọn cho mỗi câu. Chọn đáp án đúng bằng radio 'Đúng'.",
     color: "#f59e0b",
     bg: "#fffbeb",
   },
@@ -140,6 +141,27 @@ const defaultPictureQuestion = (num) => ({
   correctAnswer: "",
 });
 
+const defaultImageTickQuestion = (num) => ({
+  questionNumber: num,
+  questionText: "",
+  imageOptions: [
+    { imageUrl: "", text: "A" },
+    { imageUrl: "", text: "B" },
+    { imageUrl: "", text: "C" },
+  ],
+  correctAnswer: "",
+});
+
+const defaultImageTickExample = () => ({
+  questionText: "",
+  imageOptions: [
+    { imageUrl: "", text: "A" },
+    { imageUrl: "", text: "B" },
+    { imageUrl: "", text: "C" },
+  ],
+  correctAnswer: "",
+});
+
 const getPartStartNumber = (partIdx) =>
   PART_CONFIGS.slice(0, partIdx).reduce((sum, cfg) => sum + Number(cfg.questionCount || 0), 1);
 
@@ -148,6 +170,8 @@ const getDefaultQuestions = (qt, count, startNumber = 1) => {
   if (qt === "matching") return [defaultMatchingData()];
   if (qt === "multiple-choice-pictures")
     return Array.from({ length: count }, (_, i) => defaultPictureQuestion(startNumber + i));
+  if (qt === "image-tick")
+    return Array.from({ length: count }, (_, i) => defaultImageTickQuestion(startNumber + i));
   return Array.from({ length: count }, (_, i) => defaultFillQuestion(startNumber + i));
 };
 
@@ -164,6 +188,7 @@ const buildInitialParts = () =>
         questionType: cfg.questionType,
         questions: getDefaultQuestions(cfg.questionType, cfg.questionCount, getPartStartNumber(partIdx)),
         ...(cfg.part === 2 ? { exampleItem: defaultFillExample() } : {}),
+        ...(cfg.part === 4 ? { exampleItem: defaultImageTickExample() } : {}),
       },
     ],
   }));
@@ -206,6 +231,7 @@ const normalizeMoversParts = (parts) => {
     sections: Array.isArray(part?.sections)
       ? part.sections.map((section, secIdx) => ({
           ...section,
+          questionType: PART_CONFIGS[partIdx]?.questionType || section.questionType,
           questions: Array.isArray(section?.questions)
             ? section.questions.map((question, qIdx) => (
                 partIdx === 0 && secIdx === 0 && qIdx === 0
@@ -213,7 +239,8 @@ const normalizeMoversParts = (parts) => {
                   : {
                       ...question,
                       ...((PART_CONFIGS[partIdx]?.questionType === "fill" ||
-                        PART_CONFIGS[partIdx]?.questionType === "multiple-choice-pictures")
+                        PART_CONFIGS[partIdx]?.questionType === "multiple-choice-pictures" ||
+                        PART_CONFIGS[partIdx]?.questionType === "image-tick")
                         ? { questionNumber: getPartStartNumber(partIdx) + qIdx }
                         : {}),
                     }
@@ -227,6 +254,14 @@ const normalizeMoversParts = (parts) => {
             ? {
                 exampleItem: {
                   ...defaultFillExample(),
+                  ...(section?.exampleItem || {}),
+                },
+              }
+            : {}),
+          ...(partIdx === 3 && secIdx === 0
+            ? {
+                exampleItem: {
+                  ...defaultImageTickExample(),
                   ...(section?.exampleItem || {}),
                 },
               }
@@ -339,6 +374,9 @@ const MoversListeningTestBuilder = ({ editId = null, initialData = null }) => {
       const q0 = qs[0] || {};
       const people = Array.isArray(q0.people) ? q0.people : [];
       return people.slice(1).filter((p) => p.name && p.correctAnswer).length >= 5;
+    }
+    if (qt === "image-tick") {
+      return qs.filter((q) => q.correctAnswer && q.imageOptions?.some((o) => o.imageUrl)).length >= 3;
     }
     return qs.filter((q) => q.correctAnswer).length >= 3;
   };
@@ -897,6 +935,24 @@ const MoversListeningTestBuilder = ({ editId = null, initialData = null }) => {
                   onChange={(newData) => {
                     updateFirstSection({ questionType: "letter-matching", questions: [newData] });
                   }}
+                  onUploadImage={async (file) => {
+                    const fd = new FormData();
+                    fd.append("image", file);
+                    const res = await authFetch(apiPath("upload/cambridge-image"), { method: "POST", body: fd });
+                    if (!res.ok) throw new Error("Upload thất bại");
+                    const { url } = await res.json();
+                    return url;
+                  }}
+                />
+              )}
+
+              {cfg.questionType === "image-tick" && (
+                <ImageTickEditor
+                  questions={currentQuestions}
+                  onChange={updateQuestions}
+                  startNumber={currentStartNumber}
+                  exampleItem={currentSection?.exampleItem || null}
+                  onExampleChange={(exampleItem) => updateFirstSection({ exampleItem })}
                   onUploadImage={async (file) => {
                     const fd = new FormData();
                     fd.append("image", file);
