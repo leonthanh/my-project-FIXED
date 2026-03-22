@@ -460,7 +460,10 @@ router.get('/admin/list', async (req, res) => {
               if (expected == null) return [];
               if (Array.isArray(expected)) return expected;
               const s = String(expected);
-              if (s.includes('/')) return s.split('/').map((x) => x.trim()).filter(Boolean);
+              // Support both / and | as multiple-answer separators (e.g. 'SCHOOL|school' or 'cat/cats')
+              if (s.includes('|') || s.includes('/')) {
+                return s.split(/[|/]/).map((x) => x.trim()).filter(Boolean);
+              }
               return [s];
             })();
             const norm = (v) => (v == null ? '' : String(v)).trim().toLowerCase();

@@ -555,6 +555,318 @@ const DrawLinesQuestion = ({
   );
 };
 
+// ─── Part 5 Colour & Write — palette (module-level so child component can use) ─
+const CW_PALETTE = [
+  { label: 'yellow', hex: '#eab308' },
+  { label: 'blue',   hex: '#3b82f6' },
+  { label: 'red',    hex: '#ef4444' },
+  { label: 'orange', hex: '#f97316' },
+  { label: 'purple', hex: '#a855f7' },
+  { label: 'pink',   hex: '#ec4899' },
+  { label: 'green',  hex: '#22c55e' },
+  { label: 'brown',  hex: '#92400e' },
+  { label: 'black',  hex: '#171717' },
+  { label: 'grey',   hex: '#6b7280' },
+  { label: 'white',  hex: '#f9fafb', border: '#d1d5db' },
+];
+
+// ─── ColourWriteStudentSection (uses hooks — must be defined outside main component) ─
+function ColourWriteStudentSection({
+  questions, exampleItem, sceneImageUrl,
+  secIdx, sectionStartNum,
+  answers, submitted, results, isDarkMode,
+  handleAnswerChange, currentPartIndex, questionRefs,
+}) {
+  const [selColour, setSelColour] = useState(null);
+  const [activeQIdx, setActiveQIdx] = useState(0);
+  const containerRef  = useRef(null);
+  const canvasRef     = useRef(null);
+  const writeInputRefs = useRef({});   // qi → input DOM node
+
+  const jumpToQuestion = (qi) => {
+    setActiveQIdx(qi);
+    // Scroll scene image into view
+    containerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    // If write-type: focus the overlaid input after a short tick
+    const q = questions[qi];
+    if ((q?.taskType || 'colour') === 'write') {
+      setTimeout(() => writeInputRefs.current[qi]?.focus(), 120);
+    }
+  };
+  const isDrawing    = useRef(false);
+  const strokes      = useRef([]);
+  const curPts       = useRef([]);
+
+  // Resize canvas to match image dimensions
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => {
+      const cv = canvasRef.current;
+      if (!cv) return;
+      const { width, height } = el.getBoundingClientRect();
+      if (width > 0 && height > 0) { cv.width = Math.round(width); cv.height = Math.round(height); }
+      redraw();
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const redraw = () => {
+    const cv = canvasRef.current;
+    if (!cv) return;
+    const ctx = cv.getContext('2d');
+    ctx.clearRect(0, 0, cv.width, cv.height);
+    strokes.current.forEach((s) => {
+      if (!s.points?.length) return;
+      ctx.beginPath();
+      ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+      if (s.erase) {
+        ctx.globalCompositeOperation = 'destination-out';
+        ctx.lineWidth = 24; ctx.globalAlpha = 1;
+      } else {
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.strokeStyle = s.color; ctx.lineWidth = 11; ctx.globalAlpha = 0.70;
+      }
+      const pts = s.points;
+      ctx.moveTo(pts[0][0] * cv.width / 100, pts[0][1] * cv.height / 100);
+      pts.slice(1).forEach((p) => ctx.lineTo(p[0] * cv.width / 100, p[1] * cv.height / 100));
+      ctx.stroke();
+      ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
+    });
+  };
+
+  const getXY = (e) => {
+    const cv = canvasRef.current;
+    if (!cv) return [0, 0];
+    const r = cv.getBoundingClientRect();
+    const cx = e.touches ? e.touches[0].clientX : e.clientX;
+    const cy = e.touches ? e.touches[0].clientY : e.clientY;
+    return [((cx - r.left) / r.width) * 100, ((cy - r.top) / r.height) * 100];
+  };
+
+  const onDown = (e) => {
+    if (submitted || !selColour || selColour.label === '_write_') return;
+    isDrawing.current = true; curPts.current = [getXY(e)]; e.preventDefault();
+  };
+  const onMove = (e) => {
+    if (!isDrawing.current || submitted) return;
+    curPts.current.push(getXY(e));
+    const cv = canvasRef.current;
+    if (cv) {
+      redraw();
+      const ctx = cv.getContext('2d');
+      ctx.beginPath(); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+      if (selColour.erase) {
+        ctx.globalCompositeOperation = 'destination-out'; ctx.lineWidth = 24; ctx.globalAlpha = 1;
+      } else {
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.strokeStyle = selColour.hex; ctx.lineWidth = 11; ctx.globalAlpha = 0.70;
+      }
+      const pts = curPts.current;
+      ctx.moveTo(pts[0][0] * cv.width / 100, pts[0][1] * cv.height / 100);
+      pts.slice(1).forEach((p) => ctx.lineTo(p[0] * cv.width / 100, p[1] * cv.height / 100));
+      ctx.stroke(); ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
+    }
+    e.preventDefault();
+  };
+  const onUp = (e) => {
+    if (!isDrawing.current || submitted) return;
+    isDrawing.current = false;
+    if (curPts.current.length > 0) {
+      strokes.current.push({ color: selColour?.hex || '#3b82f6', erase: !!selColour?.erase, points: [...curPts.current] });
+      curPts.current = [];
+    }
+    e.preventDefault();
+  };
+
+  const handleColourClick = (c) => {
+    setSelColour(c);
+    const q = questions[activeQIdx];
+    if (!submitted && q && (q.taskType || 'colour') !== 'write' && !c.erase) {
+      const key = `${currentPartIndex}-${secIdx}-${activeQIdx}`;
+      handleAnswerChange(key, c.label);
+    }
+  };
+
+  return (
+    <div style={{ maxWidth: '720px', margin: '0 auto', width: '100%' }}>
+      {/* Hidden sentinel divs per question — footer nav focuses these to trigger setActiveQIdx */}
+      {questions.map((q, qi) => {
+        const key = `${currentPartIndex}-${secIdx}-${qi}`;
+        return (
+          <div
+            key={`sentinel-${qi}`}
+            id={`question-${sectionStartNum + qi}`}
+            ref={(el) => { questionRefs.current[key] = el; }}
+            tabIndex={-1}
+            onFocus={() => jumpToQuestion(qi)}
+            style={{ position: 'absolute', opacity: 0, pointerEvents: 'none', height: 0, overflow: 'hidden' }}
+          />
+        );
+      })}
+
+      {/* Scene image + interactive canvas + write overlays */}
+      {sceneImageUrl && (
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '12px' }}>
+        <div ref={containerRef} style={{ position: 'relative', borderRadius: '14px', overflow: 'hidden', userSelect: 'none', border: isDarkMode ? '1px solid #334155' : '1px solid #e2e8f0', boxShadow: '0 4px 16px rgba(0,0,0,0.10)', width: 'fit-content' }}>
+          <img src={sceneImageUrl} alt="Scene" draggable={false} style={{ width: '100%', display: 'block', userSelect: 'none' }} />
+          <canvas
+            ref={canvasRef}
+            style={{ position: 'absolute', inset: 0, touchAction: 'none', cursor: selColour && !selColour.erase ? 'crosshair' : selColour?.erase ? 'cell' : 'default' }}
+            onMouseDown={onDown} onMouseMove={onMove} onMouseUp={onUp} onMouseLeave={onUp}
+            onTouchStart={onDown} onTouchMove={onMove} onTouchEnd={onUp}
+          />
+          {/* Write-type overlays at teacher-set positions */}
+          {questions.map((q, qi) => {
+            if ((q.taskType || 'colour') !== 'write' || !q.textPosition) return null;
+            const key = `${currentPartIndex}-${secIdx}-${qi}`;
+            const userAnswer = answers[key] || '';
+            const isQCorrect = submitted && results?.answers?.[key]?.isCorrect;
+            const isQActive  = qi === activeQIdx;
+            return (
+              <div key={qi} style={{ position: 'absolute', left: `${q.textPosition.x}%`, top: `${q.textPosition.y}%`, transform: 'translate(-50%, -50%)', zIndex: 10 }}>
+                <input
+                  ref={(el) => { writeInputRefs.current[qi] = el; }}
+                  type="text"
+                  value={userAnswer}
+                  onChange={(e) => { if (!submitted) handleAnswerChange(key, e.target.value); }}
+                  disabled={submitted}
+                  onClick={(e) => { e.stopPropagation(); jumpToQuestion(qi); }}
+                  placeholder={`Q${sectionStartNum + qi}`}
+                  style={{
+                    width: '110px', padding: '5px 8px', textAlign: 'center', borderRadius: '7px', fontWeight: 800,
+                    fontSize: '14px', letterSpacing: '0.06em', outline: 'none',
+                    border: submitted
+                      ? (isQCorrect ? '2.5px solid #22c55e' : '2.5px solid #ef4444')
+                      : isQActive ? '2.5px solid #7c3aed' : '2px solid #1e293b',
+                    background: submitted
+                      ? (isQCorrect ? 'rgba(240,253,244,0.95)' : 'rgba(254,242,242,0.95)')
+                      : 'rgba(255,255,255,0.93)',
+                    color: '#1e293b',
+                    boxShadow: '0 2px 10px rgba(0,0,0,0.22)',
+                    backdropFilter: 'blur(3px)',
+                  }}
+                />
+              </div>
+            );
+          })}
+        </div>
+        </div>
+      )}
+
+      {/* Colour palette bar + question number pills */}
+      <div style={{
+        borderRadius: '16px',
+        background: isDarkMode ? '#1e293b' : '#ffffff',
+        border: `1px solid ${isDarkMode ? '#334155' : '#e2e8f0'}`,
+        boxShadow: '0 2px 12px rgba(0,0,0,0.07)',
+        overflow: 'hidden',
+      }}>
+        {/* Question number pills row */}
+        <div style={{ display: 'flex', gap: '6px', alignItems: 'center', justifyContent: 'center', padding: '10px 12px 0', flexWrap: 'wrap' }}>
+          {questions.map((q, qi) => {
+            const key = `${currentPartIndex}-${secIdx}-${qi}`;
+            const ans = answers[key] || '';
+            const isAct = qi === activeQIdx;
+            const isCorrect = submitted && results?.answers?.[key]?.isCorrect;
+            const col = (q.taskType || 'colour') !== 'write' ? CW_PALETTE.find((c) => c.label === ans) : null;
+            return (
+              <button
+                key={qi}
+                type="button"
+                onClick={() => jumpToQuestion(qi)}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: '5px',
+                  padding: '4px 12px', borderRadius: '999px', fontWeight: 800, fontSize: '13px', cursor: 'pointer',
+                  border: `2px solid ${submitted ? (isCorrect ? '#22c55e' : '#ef4444') : isAct ? '#7c3aed' : (isDarkMode ? '#334155' : '#e5e7eb')}`,
+                  background: submitted ? (isCorrect ? (isDarkMode ? '#052e16' : '#f0fdf4') : (isDarkMode ? '#2d0a0a' : '#fef2f2')) : isAct ? (isDarkMode ? '#2e1065' : '#ede9fe') : (isDarkMode ? '#0f172a' : '#f8fafc'),
+                  color: submitted ? (isCorrect ? '#22c55e' : '#ef4444') : isAct ? (isDarkMode ? '#c4b5fd' : '#5b21b6') : (isDarkMode ? '#94a3b8' : '#374151'),
+                  transition: 'all 0.15s', outline: 'none',
+                }}
+              >
+                {submitted ? (isCorrect ? '✓' : '✗') : sectionStartNum + qi}
+                {col && <div style={{ width: 11, height: 11, borderRadius: '50%', background: col.hex, border: col.border ? `1px solid ${col.border}` : 'none', flexShrink: 0 }} />}
+                {(q.taskType || 'colour') === 'write' && ans && <span style={{ fontSize: '10px', maxWidth: '48px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ans}</span>}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Palette dots row */}
+        {!submitted && (
+        <div style={{
+          display: 'flex', gap: '2px', alignItems: 'flex-end', justifyContent: 'center',
+          padding: '10px 12px 14px', overflowX: 'auto',
+        }}>
+          {CW_PALETTE.map((c) => {
+            const isSel = selColour?.label === c.label;
+            return (
+              <button key={c.label} type="button" title={c.label} onClick={() => handleColourClick(c)}
+                style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '5px', background: 'none', border: 'none', cursor: 'pointer', padding: '4px 7px', borderRadius: '10px', outline: isSel ? `2.5px solid ${isDarkMode ? '#a78bfa' : '#7c3aed'}` : 'none', outlineOffset: '1px' }}
+              >
+                <div style={{
+                  width: isSel ? '52px' : '44px', height: isSel ? '52px' : '44px', borderRadius: '50%',
+                  background: c.hex, flexShrink: 0,
+                  border: c.border ? `2px solid ${c.border}` : '2px solid rgba(0,0,0,0.08)',
+                  boxShadow: isSel ? `0 0 0 3px ${c.hex}55, 0 4px 12px ${c.hex}44` : '0 2px 6px rgba(0,0,0,0.12)',
+                  transform: isSel ? 'scale(1.12) translateY(-4px)' : 'scale(1)',
+                  transition: 'all 0.15s cubic-bezier(0.34,1.56,0.64,1)',
+                }} />
+                <span style={{ fontSize: '11px', color: isDarkMode ? '#94a3b8' : '#475569', fontWeight: isSel ? 800 : 500 }}>{c.label}</span>
+              </button>
+            );
+          })}
+          {/* Erase — same shape as colour dots */}
+          <button type="button" title="Erase" onClick={() => setSelColour({ label: '_erase_', erase: true })}
+            style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '5px', background: 'none', border: 'none', cursor: 'pointer', padding: '4px 7px', borderRadius: '10px', outline: selColour?.erase ? `2.5px solid ${isDarkMode ? '#a78bfa' : '#7c3aed'}` : 'none', outlineOffset: '1px' }}
+          >
+            <div style={{
+              width: selColour?.erase ? '52px' : '44px', height: selColour?.erase ? '52px' : '44px', borderRadius: '50%',
+              background: isDarkMode ? '#334155' : '#f1f5f9', flexShrink: 0,
+              border: selColour?.erase ? '2.5px solid #ef4444' : '2px solid rgba(0,0,0,0.10)',
+              boxShadow: selColour?.erase ? '0 0 0 3px #ef444433, 0 4px 12px #ef444422' : '0 2px 6px rgba(0,0,0,0.12)',
+              transform: selColour?.erase ? 'scale(1.12) translateY(-4px)' : 'scale(1)',
+              transition: 'all 0.15s cubic-bezier(0.34,1.56,0.64,1)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: '20px', lineHeight: 1,
+            }}>🧹</div>
+            <span style={{ fontSize: '11px', color: isDarkMode ? '#94a3b8' : '#475569', fontWeight: selColour?.erase ? 800 : 500 }}>Erase</span>
+          </button>
+        </div>
+        )}
+      </div>
+
+      {/* Post-submission result summary */}
+      {submitted && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '10px' }}>
+          {questions.map((q, qi) => {
+            const key = `${currentPartIndex}-${secIdx}-${qi}`;
+            const userAnswer = answers[key] || '';
+            const isCorrect = results?.answers?.[key]?.isCorrect;
+            const taskType = q.taskType || 'colour';
+            const col = taskType !== 'write' ? CW_PALETTE.find((x) => x.label === userAnswer) : null;
+            return (
+              <div key={qi} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 14px', borderRadius: '10px', background: isCorrect ? (isDarkMode ? '#052e16' : '#f0fdf4') : (isDarkMode ? '#2d0a0a' : '#fef2f2'), border: `1.5px solid ${isCorrect ? '#22c55e' : '#ef4444'}` }}>
+                <span style={{ fontWeight: 900, fontSize: '16px', color: isCorrect ? '#22c55e' : '#ef4444', width: '20px', flexShrink: 0 }}>{isCorrect ? '✓' : '✗'}</span>
+                <span style={{ fontWeight: 800, fontSize: '13px', color: isDarkMode ? '#94a3b8' : '#64748b', flexShrink: 0 }}>Q{sectionStartNum + qi}</span>
+                <span style={{ flex: 1, fontSize: '13px', color: isDarkMode ? '#cbd5e1' : '#374151' }}>{q.questionText}</span>
+                {col && <div style={{ width: 22, height: 22, borderRadius: '50%', background: col.hex, border: col.border ? `1.5px solid ${col.border}` : 'none', flexShrink: 0 }} />}
+                {taskType === 'write' && userAnswer && <span style={{ fontWeight: 700, color: isDarkMode ? '#e2e8f0' : '#0f172a' }}>{userAnswer}</span>}
+                {!isCorrect && (
+                  <span style={{ fontWeight: 700, fontSize: '12px', color: '#22c55e', background: '#f0fdf4', padding: '2px 8px', borderRadius: '6px', flexShrink: 0 }}>
+                    ✓ {results?.answers?.[key]?.correctAnswer || q.correctAnswer || ''}
+                  </span>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /**
  * DoCambridgeListeningTest - Trang làm bài thi Listening Cambridge (KET, PET, etc.)
  * Support: KET, PET, FLYERS, MOVERS, STARTERS
@@ -2057,6 +2369,24 @@ const DoCambridgeListeningTest = () => {
     );
   };
 
+  // ── Part 5: Colour and Write (rendered by ColourWriteStudentSection above) ──
+  const renderColourWriteSection = (section, secIdx, sectionStartNum) => (
+    <ColourWriteStudentSection
+      questions={Array.isArray(section.questions) ? section.questions : []}
+      exampleItem={section.exampleItem || null}
+      sceneImageUrl={section.sceneImageUrl ? resolveImgSrc(section.sceneImageUrl) : ''}
+      secIdx={secIdx}
+      sectionStartNum={sectionStartNum}
+      answers={answers}
+      submitted={submitted}
+      results={results}
+      isDarkMode={isDarkMode}
+      handleAnswerChange={handleAnswerChange}
+      currentPartIndex={currentPartIndex}
+      questionRefs={questionRefs}
+    />
+  );
+
   // Handle checkbox change for multi-select
   /* eslint-disable-next-line no-unused-vars */
   const handleCheckboxChange = useCallback(
@@ -2709,12 +3039,17 @@ const DoCambridgeListeningTest = () => {
                     (Array.isArray(q0?.sentences) ? 'word-form' : '') ||
                     '';
                   // Auto-upgrade: MOVERS Listening Part 4 was previously 'fill' – treat as 'image-tick'
+                  // Auto-upgrade: MOVERS Listening Part 5 was previously 'fill' – treat as 'colour-write'
                   const sectionType =
                     rawSectionType === 'fill' &&
                     String(testType || '').includes('movers') &&
                     currentPartIndex === 3
                       ? 'image-tick'
-                      : rawSectionType;
+                      : rawSectionType === 'fill' &&
+                        String(testType || '').includes('movers') &&
+                        currentPartIndex === 4
+                        ? 'colour-write'
+                        : rawSectionType;
 
                   return (
                     <div key={secIdx} className="cambridge-section">
@@ -2822,6 +3157,8 @@ const DoCambridgeListeningTest = () => {
                         renderLetterMatchingSectionFull(section, secIdx, sectionStartNum)
                       ) : sectionType === 'image-tick' ? (
                         renderImageTickSection(section, secIdx, sectionStartNum)
+                      ) : sectionType === 'colour-write' ? (
+                        renderColourWriteSection(section, secIdx, sectionStartNum)
                       ) : isGroupedPart ? (
                         <div
                           className="cambridge-question-wrapper"

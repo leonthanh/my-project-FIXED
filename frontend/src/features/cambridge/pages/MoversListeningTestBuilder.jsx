@@ -23,6 +23,7 @@ import {
   PictureQuestionsEditor,
   LetterMatchingEditor,
   ImageTickEditor,
+  ColourWriteEditor,
 } from "../components/MoversListeningEditorComponents";
 
 const resolveImg = (url) => {
@@ -87,7 +88,7 @@ const PART_CONFIGS = [
     title: "Part 5 – Colour and Write",
     titleVi: "Nghe và tô màu / viết từ vào tranh",
     instruction: "Listen and colour and write. There is one example.",
-    questionType: "fill",
+    questionType: "colour-write",
     questionCount: 5,
     tip: "Học sinh nghe hướng dẫn và tô màu vào vật trong tranh hoặc viết từ vào vị trí được chỉ định.",
     color: "#ef4444",
@@ -162,6 +163,19 @@ const defaultImageTickExample = () => ({
   correctAnswer: "",
 });
 
+const defaultColourWriteQuestion = (num) => ({
+  questionNumber: num,
+  questionText: "",
+  taskType: "colour",
+  correctAnswer: "",
+});
+
+const defaultColourWriteExample = () => ({
+  questionText: "",
+  taskType: "colour",
+  correctAnswer: "",
+});
+
 const getPartStartNumber = (partIdx) =>
   PART_CONFIGS.slice(0, partIdx).reduce((sum, cfg) => sum + Number(cfg.questionCount || 0), 1);
 
@@ -172,6 +186,8 @@ const getDefaultQuestions = (qt, count, startNumber = 1) => {
     return Array.from({ length: count }, (_, i) => defaultPictureQuestion(startNumber + i));
   if (qt === "image-tick")
     return Array.from({ length: count }, (_, i) => defaultImageTickQuestion(startNumber + i));
+  if (qt === "colour-write")
+    return Array.from({ length: count }, (_, i) => defaultColourWriteQuestion(startNumber + i));
   return Array.from({ length: count }, (_, i) => defaultFillQuestion(startNumber + i));
 };
 
@@ -189,6 +205,7 @@ const buildInitialParts = () =>
         questions: getDefaultQuestions(cfg.questionType, cfg.questionCount, getPartStartNumber(partIdx)),
         ...(cfg.part === 2 ? { exampleItem: defaultFillExample() } : {}),
         ...(cfg.part === 4 ? { exampleItem: defaultImageTickExample() } : {}),
+        ...(cfg.part === 5 ? { exampleItem: defaultColourWriteExample(), sceneImageUrl: "" } : {}),
       },
     ],
   }));
@@ -240,7 +257,8 @@ const normalizeMoversParts = (parts) => {
                       ...question,
                       ...((PART_CONFIGS[partIdx]?.questionType === "fill" ||
                         PART_CONFIGS[partIdx]?.questionType === "multiple-choice-pictures" ||
-                        PART_CONFIGS[partIdx]?.questionType === "image-tick")
+                        PART_CONFIGS[partIdx]?.questionType === "image-tick" ||
+                        PART_CONFIGS[partIdx]?.questionType === "colour-write")
                         ? { questionNumber: getPartStartNumber(partIdx) + qIdx }
                         : {}),
                     }
@@ -262,6 +280,15 @@ const normalizeMoversParts = (parts) => {
             ? {
                 exampleItem: {
                   ...defaultImageTickExample(),
+                  ...(section?.exampleItem || {}),
+                },
+              }
+            : {}),
+          ...(partIdx === 4 && secIdx === 0
+            ? {
+                sceneImageUrl: section?.sceneImageUrl || "",
+                exampleItem: {
+                  ...defaultColourWriteExample(),
                   ...(section?.exampleItem || {}),
                 },
               }
@@ -377,6 +404,9 @@ const MoversListeningTestBuilder = ({ editId = null, initialData = null }) => {
     }
     if (qt === "image-tick") {
       return qs.filter((q) => q.correctAnswer && q.imageOptions?.some((o) => o.imageUrl)).length >= 3;
+    }
+    if (qt === "colour-write") {
+      return qs.filter((q) => q.correctAnswer).length >= 3;
     }
     return qs.filter((q) => q.correctAnswer).length >= 3;
   };
@@ -953,6 +983,26 @@ const MoversListeningTestBuilder = ({ editId = null, initialData = null }) => {
                   startNumber={currentStartNumber}
                   exampleItem={currentSection?.exampleItem || null}
                   onExampleChange={(exampleItem) => updateFirstSection({ exampleItem })}
+                  onUploadImage={async (file) => {
+                    const fd = new FormData();
+                    fd.append("image", file);
+                    const res = await authFetch(apiPath("upload/cambridge-image"), { method: "POST", body: fd });
+                    if (!res.ok) throw new Error("Upload thất bại");
+                    const { url } = await res.json();
+                    return url;
+                  }}
+                />
+              )}
+
+              {cfg.questionType === "colour-write" && (
+                <ColourWriteEditor
+                  questions={currentQuestions}
+                  onChange={updateQuestions}
+                  startNumber={currentStartNumber}
+                  exampleItem={currentSection?.exampleItem || null}
+                  onExampleChange={(exampleItem) => updateFirstSection({ exampleItem })}
+                  sceneImageUrl={currentSection?.sceneImageUrl || ""}
+                  onSceneImageUrlChange={(sceneImageUrl) => updateFirstSection({ sceneImageUrl })}
                   onUploadImage={async (file) => {
                     const fd = new FormData();
                     fd.append("image", file);
