@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 
 /**
  * IELTS Matching Headings Question Component
@@ -36,6 +36,12 @@ const IELTSMatchingHeadingsQuestion = ({
     question.hasExtraHeadings ?? true
   );
 
+  // Keep refs to latest props to avoid stale closures without listing them as deps
+  const onChangeRef = useRef(onChange);
+  const questionRef = useRef(question);
+  onChangeRef.current = onChange;
+  questionRef.current = question;
+
   // Roman numerals helper
   const toRoman = (num) => {
     const romans = [
@@ -58,10 +64,12 @@ const IELTSMatchingHeadingsQuestion = ({
     return romans[num - 1] || num.toString();
   };
 
-  // Update parent component when data changes
+  // Update parent component when local state changes.
+  // Use refs for onChange/question so they are always fresh without being deps
+  // (inline arrow functions passed as onChange would cause infinite re-render if listed).
   useEffect(() => {
-    onChange({
-      ...question,
+    onChangeRef.current({
+      ...questionRef.current,
       questionType: "ielts-matching-headings",
       paragraphs,
       headings,
@@ -75,7 +83,8 @@ const IELTSMatchingHeadingsQuestion = ({
         correctAnswer: answers[p.id] || "",
       })),
     });
-  }, [paragraphs, headings, answers, hasExtraHeadings, onChange, question]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [paragraphs, headings, answers, hasExtraHeadings]);
 
   // ===== PARAGRAPH HANDLERS =====
   const addParagraph = () => {

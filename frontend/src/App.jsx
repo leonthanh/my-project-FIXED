@@ -2,7 +2,7 @@ import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 
 // Import from new feature-based structure
-import { EditTest, AdminWritingSubmissions, SelectTest, MyFeedback, ReviewSubmission, Review, AdminReadingSubmissions, AdminListeningSubmissions, CambridgeSubmissionsPage, TeacherPermissionsPage } from './features/admin';
+import { EditTest, AdminWritingSubmissions, SelectTest, MyFeedback, ReviewSubmission, Review, AdminReadingSubmissions, AdminListeningSubmissions, CambridgeSubmissionsPage, TeacherPermissionsPage, AdminUserManagement } from './features/admin';
 import { WritingTest, CreateWritingTest, PetWritingTest, CreatePetWritingTest, SelectPetWritingTest, EditPetWritingTest } from './features/writing';
 import { Login } from './features/auth';
 import { CreateReadingTest, EditReadingTest, DoReadingTest, TakeReadingTest, ReadingResults } from './features/reading';
@@ -231,6 +231,11 @@ function App() {
         <Route path="/admin/teacher-permissions" element={
           <ProtectedRoute role="admin">
             <TeacherPermissionsPage />
+          </ProtectedRoute>
+        } />
+        <Route path="/admin/users" element={
+          <ProtectedRoute role="admin">
+            <AdminUserManagement />
           </ProtectedRoute>
         } />
       </Routes>

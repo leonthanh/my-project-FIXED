@@ -9,3 +9,4 @@ export { default as AdminReadingSubmissions } from './pages/AdminReadingSubmissi
 export { default as CambridgeSubmissionsPage } from './pages/CambridgeSubmissionsPage';
 export { default as AdminListeningSubmissions } from './pages/AdminListeningSubmissions';
 export { default as TeacherPermissionsPage } from './pages/TeacherPermissionsPage';
+export { default as AdminUserManagement } from './pages/AdminUserManagement';

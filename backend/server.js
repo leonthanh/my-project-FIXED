@@ -56,6 +56,7 @@ const readingTestsRoute = require("./routes/readingTest");
 const readingSubmissionRoutes = require("./routes/reading-submission");
 const aiRoutes = require("./routes/ai");
 const cambridgeRoutes = require("./routes/cambridgeTests"); // ✅ Cambridge tests
+const adminRoutes = require("./routes/admin"); // ✅ Admin user/submission management
 
 // Middleware
 const shouldLogHttp = String(process.env.SHOW_HTTP_LOG || '').toLowerCase() === 'true';
@@ -141,6 +142,7 @@ app.use('/api/listening-submissions', listeningSubmissionRoutes);
 app.use('/api/reading-tests', readingTestsRoute);
 app.use('/api/reading-submissions', readingSubmissionRoutes);
 app.use('/api/cambridge', cambridgeRoutes); // ✅ Cambridge tests (KET, PET, etc.)
+app.use('/api/admin', adminRoutes);         // ✅ Admin: quản lý user & bài làm
 
 // Debug route: verify FRONTEND_URL (development only)
 if (process.env.NODE_ENV !== 'production') {

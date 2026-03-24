@@ -215,16 +215,17 @@ const ListeningTestEditor = ({
 }) => {
   // Column layout hook
   const {
-    collapsedColumns,
     isResizing,
-    toggleColumnCollapse,
     handleMouseDown,
-    getColumnWidth,
   } = useColumnLayout();
 
   // Header collapse state: auto-collapses on scroll or toggled manually
   const [collapsedHeader, setCollapsedHeader] = useState(false);
   const [manualHeaderOverride, setManualHeaderOverride] = useState(false);
+
+  // Panel collapse states (like Reading editor)
+  const [collapsedAudio, setCollapsedAudio] = useState(false);
+  const [collapsedQuestions, setCollapsedQuestions] = useState(false);
 
   // Runtime import guards (log if important components are missing)
   useEffect(() => {
@@ -404,34 +405,24 @@ const ListeningTestEditor = ({
           </div>
         )}
         rightControls={
-          <>
-            <span
-              style={{
-                padding: "6px 12px",
-                backgroundColor: colors.primaryPurple + "15",
-                color: colors.primaryPurple,
-                borderRadius: "20px",
-                fontSize: "12px",
-                fontWeight: 600,
-              }}
-            >
-              📊 {totalQuestions} câu hỏi
-            </span>
-
-            <button
-              type="button"
-              onClick={toggleHeader}
-              title={collapsedHeader ? "Mở rộng header" : "Thu nhỏ header"}
-              style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid #e5e7eb", background: collapsedHeader ? "#f3f4f6" : "transparent", marginLeft: 8 }}
-            >
-              {collapsedHeader ? "▼" : "▲"}
-            </button>
-          </>
+          <span
+            style={{
+              padding: "4px 10px",
+              backgroundColor: colors.primaryPurple + "15",
+              color: colors.primaryPurple,
+              borderRadius: "20px",
+              fontSize: "12px",
+              fontWeight: 600,
+              whiteSpace: "nowrap",
+            }}
+          >
+            📊 {totalQuestions} câu hỏi
+          </span>
         }
-        afterInputs={!collapsedHeader && (
-          <div style={{ marginTop: "12px", maxWidth: "1200px", margin: "12px auto 0" }}>
+        afterInputs={(
+          <div style={{ flexShrink: 0 }}>
             <div
-              style={globalAudioFile?.url ? audioUploadActiveStyle : audioUploadStyle}
+              style={globalAudioFile?.url ? { ...audioUploadActiveStyle, padding: "6px 12px", margin: 0, borderRadius: "6px" } : { ...audioUploadStyle, padding: "6px 12px", margin: 0, borderRadius: "6px" }}
               onClick={() => globalAudioRef.current?.click()}
             >
               <input
@@ -442,19 +433,16 @@ const ListeningTestEditor = ({
                 style={{ display: "none" }}
               />
               {globalAudioFile?.url ? (
-                <div>
-                  <p style={{ margin: "0 0 8px", color: colors.audioGreen, fontWeight: 600 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  <span style={{ color: colors.audioGreen, fontWeight: 600, fontSize: "12px", whiteSpace: "nowrap" }}>
                     🎵 Audio chung đã tải lên
-                  </p>
-                  <audio controls src={globalAudioFile.url} style={{ width: "100%", maxWidth: "400px" }} />
+                  </span>
+                  <audio controls src={globalAudioFile.url} style={{ height: "28px", maxWidth: "200px" }} />
                 </div>
               ) : (
-                <div>
-                  <p style={{ margin: 0, color: colors.gray }}>
-                    🎵 Click để tải audio chung cho toàn bài thi (optional)
-                  </p>
-                  <small style={{ color: "#9ca3af" }}>Hoặc upload audio riêng cho từng Part</small>
-                </div>
+                <span style={{ color: colors.gray, fontSize: "12px", whiteSpace: "nowrap" }}>
+                  🎵 Click để tải audio chung (optional)
+                </span>
               )}
             </div>
           </div>
@@ -463,7 +451,7 @@ const ListeningTestEditor = ({
           display: "flex",
           flexDirection: "column",
           height: "100vh",
-          fontSize: "14px",
+          fontSize: "13px",
           backgroundColor: "#f8fafc",
         }}
         containerStyle={{
@@ -472,367 +460,266 @@ const ListeningTestEditor = ({
           flex: 1,
           overflow: "hidden",
         }}
-        headerStyle={collapsedHeader ? {
-          padding: "6px 12px",
+        headerStyle={{
+          display: "flex",
+          flexDirection: "row",
+          alignItems: "center",
+          gap: "8px",
+          padding: "5px 12px",
           backgroundColor: "#fff",
           borderBottom: "1px solid #e5e7eb",
           boxShadow: "0 1px 2px rgba(0,0,0,0.04)",
-        } : {
-          padding: "8px 12px",
-          backgroundColor: "#fff",
-          borderBottom: "1px solid #e5e7eb",
-          boxShadow: "0 1px 2px rgba(0,0,0,0.04)",
-        }} 
-      
+          flexShrink: 0,
+        }}
         topBarStyle={{
           display: "flex",
-          justifyContent: "space-between",
           alignItems: "center",
-          marginBottom: collapsedHeader ? "4px" : "8px",
-        }} 
-      
-        titleStyle={{ margin: 0, fontSize: collapsedHeader ? "14px" : "16px", color: colors.primaryPurple }} 
-      
-        inputLayoutStyle={collapsedHeader ? {
-          display: "none",
-          gap: "12px",
-          flexWrap: "wrap",
-          maxWidth: "1200px",
-          margin: "0 auto",
-        } : {
-          display: "flex",
-          gap: "12px",
-          flexWrap: "wrap",
-          maxWidth: "1200px",
-          margin: "0 auto",
+          gap: "6px",
+          flexShrink: 0,
         }}
-      
-        titleInputStyle={{ ...compactInputStyle, flex: "1 1 40%", minWidth: "200px" }}
-        classCodeInputStyle={{ ...compactInputStyle, flex: "1 1 20%", minWidth: "120px" }}
-        teacherInputStyle={{ ...compactInputStyle, flex: "1 1 25%", minWidth: "150px" }}
+        titleStyle={{ display: "none" }}
+        inputLayoutStyle={{
+          display: "flex",
+          flex: 1,
+          gap: "6px",
+          alignItems: "center",
+        }}
+        titleInputStyle={{ ...compactInputStyle, flex: "1 1 0", marginBottom: 0 }}
+        classCodeInputStyle={{ ...compactInputStyle, flex: "1 1 0", marginBottom: 0 }}
+        teacherInputStyle={{ ...compactInputStyle, flex: "1 1 0", marginBottom: 0 }}
+        headerCollapsed={false}
       >
-        {/* 4-COLUMN LAYOUT */}
+        {/* SIDEBAR + VERTICAL LAYOUT (like Reading editor) */}
         <form
           onSubmit={onReview}
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            flex: 1,
-            overflow: "hidden",
-          }}
+          style={{ display: "flex", flex: 1, overflow: "hidden" }}
         >
+          {/* ===== LEFT SIDEBAR: Parts + Sections ===== */}
           <div
             style={{
+              width: "240px",
+              minWidth: "200px",
+              backgroundColor: "#1e293b",
+              color: "white",
               display: "flex",
-              flex: 1,
+              flexDirection: "column",
               overflow: "hidden",
-              position: "relative",
+              flexShrink: 0,
+              borderRight: "1px solid #0f172a",
             }}
           >
-            {/* COLUMN 1: PARTS */}
-            <div
-              style={{
-                width: getColumnWidth("col1"),
-                backgroundColor: "#f8fafc",
-                borderRight: "1px solid #e5e7eb",
-                display: "flex",
-                flexDirection: "column",
-                transition: isResizing ? "none" : "width 0.3s ease",
-              }}
-            >
-              <div
-                style={columnHeaderStyle(colors.partBlue)}
-                onClick={() => toggleColumnCollapse("col1")}
-              >
-                {!collapsedColumns.col1 && <span>🎧 PARTS</span>}
-                {collapsedColumns.col1 && <span style={{ fontSize: "16px" }}>🎧</span>}
-                <span style={{ fontSize: "11px" }}>{collapsedColumns.col1 ? "▶" : "◀"}</span>
-              </div>
+            {/* Parts header */}
+            <div style={{ padding: "10px 12px", borderBottom: "1px solid #334155", flexShrink: 0 }}>
+              <span style={{ fontSize: "11px", fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                🎧 Parts ({parts?.length || 0})
+              </span>
+            </div>
+            {/* Parts list – scrollable */}
+            <div style={{ overflow: "auto", padding: "8px 8px 0 8px", flexShrink: 0, maxHeight: "38%" }}>
+              {parts?.map((part, idx) => (
+                <div
+                  key={idx}
+                  onClick={() => { setSelectedPartIndex(idx); setSelectedSectionIndex(part.sections?.length > 0 ? 0 : null); }}
+                  style={{
+                    padding: "9px 10px", marginBottom: "4px", borderRadius: "6px", cursor: "pointer",
+                    backgroundColor: selectedPartIndex === idx ? colors.partBlue : "#334155",
+                    display: "flex", justifyContent: "space-between", alignItems: "flex-start",
+                    transition: "background 0.15s",
+                  }}
+                >
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: "13px", fontWeight: 600, color: "white" }}>{part.title}</div>
+                    <div style={{ fontSize: "10px", color: "#64748b", marginTop: "2px" }}>
+                      {part.sections?.length || 0} section · {part.sections?.reduce((t, s) => t + (s.questions?.length || 0), 0) || 0} câu
+                      {part.audioFile && <span style={{ marginLeft: 4, color: colors.audioGreen }}>🎵</span>}
+                    </div>
+                  </div>
+                  {parts.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); onDeletePart(idx); }}
+                      style={{ background: "rgba(239,68,68,0.2)", border: "none", color: "#fca5a5", width: "22px", height: "22px", borderRadius: "4px", cursor: "pointer", fontSize: "12px", flexShrink: 0, marginLeft: "6px", display: "flex", alignItems: "center", justifyContent: "center" }}
+                    >✕</button>
+                  )}
+                </div>
+              ))}
+            </div>
+            {/* Add Part – always pinned */}
+            <div style={{ padding: "6px 8px 8px 8px", flexShrink: 0 }}>
+              <button type="button" onClick={onAddPart} style={{ width: "100%", padding: "7px", backgroundColor: "#22c55e", color: "white", border: "none", borderRadius: "6px", cursor: "pointer", fontWeight: 600, fontSize: "12px" }}>
+                ➕ Thêm Part
+              </button>
+            </div>
 
-              {!collapsedColumns.col1 && (
-                <div style={{ flex: 1, overflow: "auto", padding: "10px" }}>
-                  {parts?.map((part, idx) => (
+            {/* Sections header */}
+            <div style={{ padding: "10px 12px", borderTop: "1px solid #334155", borderBottom: "1px solid #334155", flexShrink: 0 }}>
+              <span style={{ fontSize: "11px", fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                📌 Sections {currentPart ? `(P${selectedPartIndex + 1})` : ""}
+              </span>
+            </div>
+            {/* Sections list – scrollable */}
+            <div style={{ flex: 1, overflow: "auto", padding: "8px 8px 0 8px" }}>
+              {currentPart ? (
+                currentPart.sections?.map((section, idx) => {
+                  const startQ = calculateStartingQuestionNumber(parts, selectedPartIndex, idx);
+                  const sectionQCount = countSectionQuestions(section);
+                  const endQ = startQ + sectionQCount - 1;
+                  return (
                     <div
                       key={idx}
-                      style={itemStyle(selectedPartIndex === idx, colors.partBlue)}
+                      onClick={() => setSelectedSectionIndex(idx)}
+                      style={{
+                        padding: "9px 10px", marginBottom: "4px", borderRadius: "6px", cursor: "pointer",
+                        backgroundColor: selectedSectionIndex === idx ? "#6366f1" : "#334155",
+                        transition: "background 0.15s",
+                      }}
                     >
-                      <div
-                        onClick={() => {
-                          setSelectedPartIndex(idx);
-                          setSelectedSectionIndex(part.sections?.length > 0 ? 0 : null);
-                        }}
-                        style={{ flex: 1, cursor: "pointer" }}
-                      >
-                        <strong>{part.title}</strong>
-                        <br />
-                        <small style={{ opacity: 0.8 }}>
-                          {part.sections?.length || 0} sections • {
-                            part.sections?.reduce((t, s) => t + (s.questions?.length || 0), 0) || 0
-                          } questions
-                        </small>
-                        {part.audioFile && (
-                          <span style={{ ...partTypeBadgeStyle(colors.audioGreen), marginLeft: "6px" }}>
-                            🎵 Audio
-                          </span>
-                        )}
+                      <div style={{ fontSize: "13px", fontWeight: 600, color: "white" }}>
+                        {section.sectionTitle || `Q${startQ}–${endQ}`}
                       </div>
-                      {parts.length > 1 && (
-                        <button
-                          type="button"
-                          onClick={(e) => { e.stopPropagation(); onDeletePart(idx); }}
-                          style={deleteButtonSmallStyle}
-                        >
-                          ✕
-                        </button>
-                      )}
+                      <div style={{ fontSize: "10px", color: "#64748b", marginTop: "2px" }}>
+                        {sectionQCount} câu · {section.questionType || "fill"}
+                      </div>
                     </div>
-                  ))}
-                  <button
-                    type="button"
-                    onClick={onAddPart}
-                    style={addButtonStyle(colors.partBlue)}
-                  >
-                    ➕ Thêm Part
-                  </button>
-                </div>
+                  );
+                })
+              ) : (
+                <div style={{ color: "#64748b", fontSize: "12px", textAlign: "center", marginTop: "16px" }}>← Chọn một Part</div>
               )}
             </div>
+            {/* Add Section – always pinned */}
+            {currentPart && (
+              <div style={{ padding: "6px 8px 8px 8px", flexShrink: 0 }}>
+                <button type="button" onClick={() => onAddSection(selectedPartIndex)} style={{ width: "100%", padding: "7px", backgroundColor: "#8b5cf6", color: "white", border: "none", borderRadius: "6px", cursor: "pointer", fontWeight: 600, fontSize: "12px" }}>
+                  ➕ Thêm Section
+                </button>
+              </div>
+            )}
+          </div>
 
-            {/* RESIZE DIVIDER 1 */}
-            <div
-              onMouseDown={(e) => handleMouseDown(1, e)}
-              style={resizeDividerStyle(isResizing === 1)}
-            />
-
-            {/* COLUMN 2: PART CONTENT (Audio + Instructions) */}
+          {/* ===== MAIN AREA: Audio/Content (top) + Questions (bottom) ===== */}
+          <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+          <div style={{ display: "flex", flexDirection: "column", flex: 1, overflow: "hidden", position: "relative" }}>
+            {/* ===== TOP: Part Audio & Content (collapsible) ===== */}
             <div
               style={{
-                width: getColumnWidth("col2"),
-                backgroundColor: "#fff",
-                borderRight: "1px solid #e5e7eb",
-                display: "flex",
-                flexDirection: "column",
-                transition: isResizing ? "none" : "width 0.3s ease",
+                flex: collapsedAudio ? "0 0 auto" : collapsedQuestions ? "1" : "0 0 40%",
+                display: "flex", flexDirection: "column", overflow: "hidden",
+                transition: "flex 0.3s ease", borderBottom: "2px solid #e2e8f0",
               }}
             >
+              {/* Header – always visible */}
               <div
-                style={columnHeaderStyle(colors.audioGreen)}
-                onClick={() => toggleColumnCollapse("col2")}
+                onClick={() => setCollapsedAudio(v => !v)}
+                style={{
+                  padding: "7px 14px", backgroundColor: colors.audioGreen, color: "white",
+                  fontSize: "13px", fontWeight: 700, flexShrink: 0,
+                  display: "flex", justifyContent: "space-between", alignItems: "center",
+                  cursor: "pointer", userSelect: "none",
+                }}
               >
-                {!collapsedColumns.col2 && <span>🎵 AUDIO & CONTENT</span>}
-                {collapsedColumns.col2 && <span style={{ fontSize: "16px" }}>🎵</span>}
-                <span style={{ fontSize: "11px" }}>{collapsedColumns.col2 ? "▶" : "◀"}</span>
+                <span>🎵 AUDIO & NỘI DUNG{currentPart ? ` – ${currentPart.title}` : ""}</span>
+                <span style={{ fontSize: "12px", fontWeight: 500, opacity: 0.9 }}>
+                  {collapsedAudio ? "▼ Mở rộng" : "▲ Thu nhỏ"}
+                </span>
               </div>
 
-              {!collapsedColumns.col2 && currentPart ? (
-                <div style={{ flex: 1, overflow: "auto", padding: "16px" }}>
-                  {/* Part Title */}
-                  <label style={{ color: colors.audioGreen, fontWeight: 600 }}>📌 Tiêu đề Part</label>
-                  <input
-                    type="text"
-                    value={currentPart.title || ""}
-                    onChange={(e) => onPartChange(selectedPartIndex, "title", e.target.value)}
-                    style={{ ...compactInputStyle, marginBottom: "16px" }}
-                  />
+              {/* Body */}
+              {!collapsedAudio && (
+                <div style={{ flex: 1, overflow: "auto", padding: "12px" }}>
+                  {currentPart ? (
+                    <>
+                      {/* Part Title */}
+                      <label style={{ color: colors.audioGreen, fontWeight: 600, fontSize: "12px", display: "block", marginBottom: "4px" }}>📌 Tiêu đề Part</label>
+                      <input
+                        type="text"
+                        value={currentPart.title || ""}
+                        onChange={(e) => onPartChange(selectedPartIndex, "title", e.target.value)}
+                        style={{ ...compactInputStyle, marginBottom: "12px" }}
+                      />
 
-                  {/* Part Audio */}
-                  <label style={{ color: colors.audioGreen, fontWeight: 600 }}>🎵 Audio cho Part này</label>
-                  <div
-                    style={currentPart.audioUrl ? audioUploadActiveStyle : audioUploadStyle}
-                    onClick={() => partAudioRef.current?.click()}
-                  >
-                    <input
-                      type="file"
-                      ref={partAudioRef}
-                      accept="audio/*"
-                      onChange={(e) => handleAudioUpload(e.target.files[0], false, selectedPartIndex)}
-                      style={{ display: "none" }}
-                    />
-                    {currentPart.audioUrl ? (
-                      <div>
-                        <p style={{ margin: "0 0 8px", color: colors.audioGreen, fontWeight: 500 }}>
-                          ✅ Audio đã tải lên
-                        </p>
-                        <audio controls src={currentPart.audioUrl} style={{ width: "100%" }} />
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onPartChange(selectedPartIndex, 'audioFile', null);
-                            onPartChange(selectedPartIndex, 'audioUrl', '');
-                          }}
-                          style={{ ...dangerButtonStyle, marginTop: "8px", padding: "6px 12px" }}
-                        >
-                          🗑️ Xóa audio
-                        </button>
+                      {/* Part Audio */}
+                      <label style={{ color: colors.audioGreen, fontWeight: 600, fontSize: "12px", display: "block", marginBottom: "4px" }}>🎵 Audio cho Part này</label>
+                      <div
+                        style={currentPart.audioUrl ? audioUploadActiveStyle : audioUploadStyle}
+                        onClick={() => partAudioRef.current?.click()}
+                      >
+                        <input type="file" ref={partAudioRef} accept="audio/*" onChange={(e) => handleAudioUpload(e.target.files[0], false, selectedPartIndex)} style={{ display: "none" }} />
+                        {currentPart.audioUrl ? (
+                          <div>
+                            <p style={{ margin: "0 0 8px", color: colors.audioGreen, fontWeight: 500 }}>✅ Audio đã tải lên</p>
+                            <audio controls src={currentPart.audioUrl} style={{ width: "100%" }} />
+                            <button type="button" onClick={(e) => { e.stopPropagation(); onPartChange(selectedPartIndex, 'audioFile', null); onPartChange(selectedPartIndex, 'audioUrl', ''); }} style={{ ...dangerButtonStyle, marginTop: "8px", padding: "6px 12px" }}>🗑️ Xóa audio</button>
+                          </div>
+                        ) : (
+                          <p style={{ margin: 0, color: colors.gray }}>Click để tải audio cho Part {selectedPartIndex + 1}</p>
+                        )}
                       </div>
-                    ) : (
-                      <p style={{ margin: 0, color: colors.gray }}>
-                        Click để tải audio cho Part {selectedPartIndex + 1}
-                      </p>
-                    )}
-                  </div>
 
-                  {/* Instructions */}
-                  <div style={{ marginTop: "20px" }}>
-                    <label style={{ color: colors.audioGreen, fontWeight: 600 }}>📝 Hướng dẫn Part</label>
-                    <textarea
-                      value={currentPart.instruction || ""}
-                      onChange={(e) => onPartChange(selectedPartIndex, "instruction", e.target.value)}
-                      placeholder="VD: You will hear a conversation between a student and a tutor..."
-                      style={{
-                        ...compactInputStyle,
-                        minHeight: "100px",
-                        resize: "vertical",
-                      }}
-                    />
-                  </div>
+                      {/* Instructions */}
+                      <div style={{ marginTop: "12px" }}>
+                        <label style={{ color: colors.audioGreen, fontWeight: 600, fontSize: "12px", display: "block", marginBottom: "4px" }}>📝 Hướng dẫn Part</label>
+                        <textarea
+                          value={currentPart.instruction || ""}
+                          onChange={(e) => onPartChange(selectedPartIndex, "instruction", e.target.value)}
+                          placeholder="VD: You will hear a conversation between a student and a tutor..."
+                          style={{ ...compactInputStyle, minHeight: "80px", resize: "vertical" }}
+                        />
+                      </div>
 
-                  {/* Transcript (optional) */}
-                  <div style={{ marginTop: "16px" }}>
-                    <label style={{ color: colors.audioGreen, fontWeight: 600 }}>
-                      📜 Transcript (Optional)
-                    </label>
-                    <textarea
-                      value={currentPart.transcript || ""}
-                      onChange={(e) => onPartChange(selectedPartIndex, "transcript", e.target.value)}
-                      placeholder="Nhập transcript audio nếu có..."
-                      style={{
-                        ...compactInputStyle,
-                        minHeight: "150px",
-                        resize: "vertical",
-                        fontFamily: "monospace",
-                        fontSize: "12px",
-                      }}
-                    />
-                  </div>
+                      {/* Transcript */}
+                      <div style={{ marginTop: "12px" }}>
+                        <label style={{ color: colors.audioGreen, fontWeight: 600, fontSize: "12px", display: "block", marginBottom: "4px" }}>📜 Transcript (Optional)</label>
+                        <textarea
+                          value={currentPart.transcript || ""}
+                          onChange={(e) => onPartChange(selectedPartIndex, "transcript", e.target.value)}
+                          placeholder="Nhập transcript audio nếu có..."
+                          style={{ ...compactInputStyle, minHeight: "100px", resize: "vertical", fontFamily: "monospace", fontSize: "12px" }}
+                        />
+                      </div>
+                    </>
+                  ) : (
+                    <div style={{ color: "#999", fontSize: "13px", textAlign: "center", paddingTop: "20px" }}>← Chọn một Part để nhập nội dung</div>
+                  )}
                 </div>
-              ) : (
-                !collapsedColumns.col2 && (
-                  <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: "#9ca3af" }}>
-                    ← Chọn một Part
-                  </div>
-                )
               )}
             </div>
 
-            {/* RESIZE DIVIDER 2 */}
+            {/* Horizontal resize divider */}
             <div
               onMouseDown={(e) => handleMouseDown(2, e)}
-              style={resizeDividerStyle(isResizing === 2)}
+              style={{ height: "5px", backgroundColor: isResizing === 2 ? "#3b82f6" : "#e2e8f0", cursor: "row-resize", flexShrink: 0, transition: "background 0.15s" }}
             />
 
-            {/* COLUMN 3: SECTIONS */}
+            {/* ===== BOTTOM: Questions (collapsible) ===== */}
             <div
               style={{
-                width: getColumnWidth("col3"),
-                backgroundColor: "#f8fafc",
-                borderRight: "1px solid #e5e7eb",
-                display: "flex",
-                flexDirection: "column",
-                transition: isResizing ? "none" : "width 0.3s ease",
+                flex: collapsedQuestions ? "0 0 auto" : "1",
+                backgroundColor: "#fff", display: "flex", flexDirection: "column",
+                overflow: "hidden", minHeight: 0,
               }}
             >
+              {/* Header – always visible */}
               <div
-                style={columnHeaderStyle(colors.sectionOrange)}
-                onClick={() => toggleColumnCollapse("col3")}
+                onClick={() => setCollapsedQuestions(v => !v)}
+                style={{
+                  padding: "8px 14px", backgroundColor: colors.questionYellow, color: "#000",
+                  fontSize: "13px", fontWeight: 700, flexShrink: 0,
+                  display: "flex", justifyContent: "space-between", alignItems: "center",
+                  cursor: "pointer", userSelect: "none",
+                }}
               >
-                {!collapsedColumns.col3 && <span>📌 SECTIONS</span>}
-                {collapsedColumns.col3 && <span style={{ fontSize: "16px" }}>📌</span>}
-                <span style={{ fontSize: "11px" }}>{collapsedColumns.col3 ? "▶" : "◀"}</span>
-              </div>
-
-              {!collapsedColumns.col3 && currentPart ? (
-                <div style={{ flex: 1, overflow: "auto", padding: "10px" }}>
-                  {currentPart.sections?.map((section, idx) => {
-                    // Tính số câu bắt đầu cho section này
-                    const startQ = calculateStartingQuestionNumber(parts, selectedPartIndex, idx);
-                    const sectionQCount = countSectionQuestions(section);
-                    const endQ = startQ + sectionQCount - 1;
-                    const questionRange = sectionQCount > 0 
-                      ? `Q${startQ}-${endQ}` 
-                      : `Q${startQ}`;
-                    
-                    return (
-                      <div
-                        key={idx}
-                        onClick={() => setSelectedSectionIndex(idx)}
-                        style={itemStyle(selectedSectionIndex === idx, colors.sectionOrange)}
-                      >
-                        <div style={{ flex: 1 }}>
-                          <strong>{section.sectionTitle || `Questions ${startQ}-${endQ}`}</strong>
-                          <br />
-                          <small style={{ opacity: 0.8 }}>
-                            {sectionQCount} câu • {section.questionType || 'fill'}
-                          </small>
-                          <span style={{
-                            marginLeft: "6px",
-                            padding: "2px 6px",
-                            backgroundColor: "#fef3c7",
-                            color: "#92400e",
-                            borderRadius: "4px",
-                            fontSize: "10px",
-                            fontWeight: "bold",
-                          }}>
-                            {questionRange}
-                          </span>
-                        </div>
-                        {currentPart.sections.length > 1 && (
-                          <button
-                            type="button"
-                            onClick={(e) => { e.stopPropagation(); onDeleteSection(selectedPartIndex, idx); }}
-                            style={deleteButtonSmallStyle}
-                          >
-                            ✕
-                          </button>
-                        )}
-                      </div>
-                    );
-                  })}
-                  <button
-                    type="button"
-                    onClick={() => onAddSection(selectedPartIndex)}
-                    style={addButtonStyle(colors.sectionOrange)}
-                  >
-                    ➕ Thêm Section
-                  </button>
-
+                <span>❓ CÂU HỎI{currentSection ? ` — Section ${selectedSectionIndex + 1}` : ""}</span>
+                <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+                  {currentSection && <span style={{ fontSize: "11px", fontWeight: 400, color: "#555" }}>{countSectionQuestions(currentSection)} câu</span>}
+                  <span style={{ fontSize: "12px", fontWeight: 500, color: "#555" }}>{collapsedQuestions ? "▼ Mở rộng" : "▲ Thu nhỏ"}</span>
                 </div>
-              ) : (
-                !collapsedColumns.col3 && (
-                  <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: "#9ca3af" }}>
-                    ← Chọn một Part
-                  </div>
-                )
-              )}
-            </div>
-
-            {/* RESIZE DIVIDER 3 */}
-            <div
-              onMouseDown={(e) => handleMouseDown(3, e)}
-              style={resizeDividerStyle(isResizing === 3)}
-            />
-
-            {/* COLUMN 4: QUESTIONS */}
-            <div
-              style={{
-                width: getColumnWidth("col4"),
-                backgroundColor: "#fff",
-                display: "flex",
-                flexDirection: "column",
-                transition: isResizing ? "none" : "width 0.3s ease",
-              }}
-            >
-              <div
-                style={columnHeaderStyle(colors.questionYellow, "#1f2937")}
-                onClick={() => toggleColumnCollapse("col4")}
-              >
-                {!collapsedColumns.col4 && <span>❓ QUESTIONS</span>}
-                {collapsedColumns.col4 && <span style={{ fontSize: "16px" }}>❓</span>}
-                <span style={{ fontSize: "11px" }}>{collapsedColumns.col4 ? "▶" : "◀"}</span>
               </div>
 
-              {!collapsedColumns.col4 && currentSection ? (
+
+
+              {!collapsedQuestions && (
+                currentSection ? (
                 <div style={{ flex: 1, overflow: "auto", padding: "16px" }}>
                   {/* Section Header with auto Question Range */}
                   {(() => {
@@ -1075,11 +962,10 @@ const ListeningTestEditor = ({
                   </button>
                 </div>
               ) : (
-                !collapsedColumns.col4 && (
-                  <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: "#9ca3af" }}>
-                    ← Chọn một Section
-                  </div>
-                )
+                <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: "#9ca3af" }}>
+                  ← Chọn một Section
+                </div>
+              )
               )}
             </div>
           </div>
@@ -1102,6 +988,7 @@ const ListeningTestEditor = ({
               {isSubmitting ? "⏳ Đang xử lý..." : `✅ ${submitButtonText}`}
             </button>
           </div>
+          </div>{/* /main area */}
         </form>
 
       {/* REVIEW MODAL */}
