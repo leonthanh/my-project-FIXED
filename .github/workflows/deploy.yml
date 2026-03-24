@@ -160,6 +160,9 @@ jobs:
           echo "REACT_APP_API_URL=${{ env.REACT_APP_API_URL }}" >> backend-temp/.env
           echo "OPENAI_API_KEY=${{ env.OPENAI_API_KEY }}" >> backend-temp/.env
           echo "GEMINI_API_KEY=${{ env.GEMINI_API_KEY }}" >> backend-temp/.env
+          echo "JWT_ACCESS_SECRET=${{ secrets.JWT_ACCESS_SECRET }}" >> backend-temp/.env
+          echo "JWT_REFRESH_SECRET=${{ secrets.JWT_REFRESH_SECRET }}" >> backend-temp/.env
+          echo "FRONTEND_URL=${{ secrets.FRONTEND_URL }}" >> backend-temp/.env
           echo "✅ .env built from GitHub Secrets"
 
           # Copy utils/ (if present at repo root) into package so modules like readingScorer are deployed

@@ -113,6 +113,9 @@ app.use(
   })
 );
 
+// cPanel/Passenger chạy sau reverse proxy — cần trust proxy để rate-limit dùng IP thật
+app.set('trust proxy', 1);
+
 app.use(
   rateLimit({
     windowMs: 60 * 1000,
