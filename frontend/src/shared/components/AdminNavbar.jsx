@@ -307,6 +307,13 @@ const AdminNavbar = () => {
           </Link>
         )}
 
+        {user?.role === 'admin' && (
+          <Link to="/admin/users" className="adminNavbar__link" title="Quản lý người dùng">
+            <span className="adminNavbar__icon">⚙️</span>
+            <span className="adminNavbar__label">Quản lý</span>
+          </Link>
+        )}
+
         <div
           className={
             unreviewed.length > 0
