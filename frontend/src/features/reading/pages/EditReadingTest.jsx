@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ReadingTestEditor } from "../components";
 import { usePassageHandlers } from "../hooks";
@@ -36,6 +36,13 @@ const EditReadingTest = () => {
   const [isUpdating, setIsUpdating] = useState(false);
   // Track if re-login is required (used to show banner and save draft)
   const [requiresLogin, setRequiresLogin] = useState(false);
+
+  // Auto-save state
+  const [isSaving, setIsSaving] = useState(false);
+  const [lastSaved, setLastSaved] = useState(null);
+
+  // Preview
+  const [showPreview, setShowPreview] = useState(false);
 
   // Use passage handlers hook
   const {
@@ -83,7 +90,7 @@ const EditReadingTest = () => {
 
         setTitle(data.title || "");
         setClassCode(data.classCode || "");
-        setTeacherName(data.teacherName || "");
+        setTeacherName(data.teacherName || user?.name || "");
         setShowResultModal(data.showResultModal ?? true);
         setPassages(
           Array.isArray(data.passages)
@@ -127,12 +134,14 @@ const EditReadingTest = () => {
     // Validate title
     if (!title || !title.trim()) {
       setMessage("⚠️ Vui lòng nhập tiêu đề đề thi");
+      setTimeout(() => setMessage(""), 4000);
       return;
     }
 
     // Validate passages
     if (!passages || passages.length === 0) {
       setMessage("⚠️ Cần có ít nhất 1 passage");
+      setTimeout(() => setMessage(""), 4000);
       return;
     }
 
@@ -140,6 +149,7 @@ const EditReadingTest = () => {
     for (let i = 0; i < passages.length; i++) {
       if (!passages[i].sections || passages[i].sections.length === 0) {
         setMessage(`⚠️ Passage ${i + 1} phải có ít nhất 1 section`);
+        setTimeout(() => setMessage(""), 4000);
         return;
       }
 
@@ -151,6 +161,7 @@ const EditReadingTest = () => {
           setMessage(
             `⚠️ Passage ${i + 1}, Section ${j + 1} phải có ít nhất 1 câu hỏi`
           );
+          setTimeout(() => setMessage(""), 4000);
           return;
         }
       }
@@ -159,20 +170,31 @@ const EditReadingTest = () => {
     setIsReviewing(true);
   };
 
-  const saveToLocalStorage = () => {
+  const saveToLocalStorage = useCallback(() => {
     try {
-      const dataToSave = {
-        title,
-        passages,
-        classCode,
-        teacherName,
-        showResultModal,
-      };
-      localStorage.setItem("readingTestDraft", JSON.stringify(dataToSave));
+      setIsSaving(true);
+      const draftKey = `readingTestDraft-edit-${testId}`;
+      const dataToSave = { title, passages, classCode, teacherName, showResultModal };
+      localStorage.setItem(draftKey, JSON.stringify(dataToSave));
+      setLastSaved(new Date());
+      setIsSaving(false);
     } catch (e) {
       console.error('Error saving draft:', e);
+      setIsSaving(false);
     }
-  };
+  }, [title, passages, classCode, teacherName, showResultModal, testId]);
+
+  // Auto-save every 30 seconds + on page unload (only after data is loaded)
+  useEffect(() => {
+    if (!hasLoaded) return;
+    const interval = setInterval(saveToLocalStorage, 30000);
+    const handleBeforeUnload = () => saveToLocalStorage();
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [saveToLocalStorage, hasLoaded]);
 
   // Handle confirm update
   const handleConfirmUpdate = async () => {
@@ -285,7 +307,7 @@ const EditReadingTest = () => {
       }
 
       setMessage("✅ Đã cập nhật đề thành công!");
-      localStorage.removeItem("readingTestDraft");
+      localStorage.removeItem(`readingTestDraft-edit-${testId}`);
       setTimeout(() => {
         navigate("/select-test");
       }, 1500);
@@ -430,6 +452,13 @@ const EditReadingTest = () => {
         isSubmitting={isUpdating}
         submitButtonText="Cập nhật"
         testId={testId}
+        // Auto-save
+        lastSaved={lastSaved}
+        isSaving={isSaving}
+        onManualSave={saveToLocalStorage}
+        // Preview
+        showPreview={showPreview}
+        setShowPreview={setShowPreview}
         // Messages
         message={message}
       />

@@ -20,7 +20,7 @@ const CreateReadingTest = () => {
   // Load saved data from localStorage
   const loadSavedData = () => {
     try {
-      const savedData = localStorage.getItem("readingTestDraft");
+      const savedData = localStorage.getItem("readingTestDraft-new");
       if (savedData) {
         return JSON.parse(savedData);
       }
@@ -35,7 +35,7 @@ const CreateReadingTest = () => {
   // Form fields
   const [title, setTitle] = useState(savedData?.title || "");
   const [classCode, setClassCode] = useState(savedData?.classCode || "");
-  const [teacherName, setTeacherName] = useState(savedData?.teacherName || "");
+  const [teacherName, setTeacherName] = useState(savedData?.teacherName || user?.name || "");
   const [showResultModal, setShowResultModal] = useState(savedData?.showResultModal ?? true);
 
   // Review & Submit state
@@ -81,7 +81,7 @@ const CreateReadingTest = () => {
         teacherName,
         showResultModal,
       };
-      localStorage.setItem("readingTestDraft", JSON.stringify(dataToSave));
+      localStorage.setItem("readingTestDraft-new", JSON.stringify(dataToSave));
       setLastSaved(new Date());
       setIsSaving(false);
     } catch (error) {
@@ -242,7 +242,7 @@ const CreateReadingTest = () => {
       }
 
       setMessage("✅ Tạo đề thi thành công!");
-      localStorage.removeItem("readingTestDraft");
+      localStorage.removeItem("readingTestDraft-new");
 
       setTimeout(() => {
         navigate("/reading-tests");

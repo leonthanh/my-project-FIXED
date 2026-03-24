@@ -15,9 +15,11 @@ const AdminNavbar = () => {
     useState(false);
   const [cambridgeDropdownVisible, setCambridgeDropdownVisible] =
     useState(false);
+  const [adminDropdownVisible, setAdminDropdownVisible] = useState(false);
   const notificationDropdownRef = useRef(null);
   const submissionDropdownRef = useRef(null);
   const cambridgeDropdownRef = useRef(null);
+  const adminDropdownRef = useRef(null);
 
   let user = null;
   try {
@@ -66,6 +68,12 @@ const AdminNavbar = () => {
         !cambridgeDropdownRef.current.contains(event.target)
       ) {
         setCambridgeDropdownVisible(false);
+      }
+      if (
+        adminDropdownRef.current &&
+        !adminDropdownRef.current.contains(event.target)
+      ) {
+        setAdminDropdownVisible(false);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
@@ -301,17 +309,35 @@ const AdminNavbar = () => {
         </Link>
 
         {user?.role === 'admin' && (
-          <Link to="/admin/teacher-permissions" className="adminNavbar__link" title="Quyền giáo viên">
-            <span className="adminNavbar__icon">🔑</span>
-            <span className="adminNavbar__label">Quyền GV</span>
-          </Link>
-        )}
-
-        {user?.role === 'admin' && (
-          <Link to="/admin/users" className="adminNavbar__link" title="Quản lý người dùng">
-            <span className="adminNavbar__icon">⚙️</span>
-            <span className="adminNavbar__label">Quản lý</span>
-          </Link>
+          <div className="adminNavbar__dropdown" ref={adminDropdownRef}>
+            <span
+              className="adminNavbar__link adminNavbar__dropdownToggle"
+              onClick={() => setAdminDropdownVisible(!adminDropdownVisible)}
+              title="Quản trị"
+            >
+              <span className="adminNavbar__icon">⚙️</span>
+              <span className="adminNavbar__label">Admin</span>
+              <span className="adminNavbar__caret">▼</span>
+            </span>
+            {adminDropdownVisible && (
+              <div className="adminNavbar__menu">
+                <Link
+                  to="/admin/teacher-permissions"
+                  className="adminNavbar__menuItem"
+                  onClick={() => setAdminDropdownVisible(false)}
+                >
+                  🔑 Quyền Giáo Viên
+                </Link>
+                <Link
+                  to="/admin/users"
+                  className="adminNavbar__menuItem"
+                  onClick={() => setAdminDropdownVisible(false)}
+                >
+                  👥 Quản lý Người dùng
+                </Link>
+              </div>
+            )}
+          </div>
         )}
 
         <div

@@ -7,7 +7,7 @@ import { useState, useEffect, useCallback } from 'react';
  */
 export const useColumnLayout = (initialWidths = {
   col1: 12,
-  col2: 38,
+  col2: 40,  // Passage content panel default width (sidebar+2panel layout)
   col3: 12,
   col4: 38
 }) => {
