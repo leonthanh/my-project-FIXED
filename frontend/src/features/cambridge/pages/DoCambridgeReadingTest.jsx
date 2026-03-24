@@ -38,6 +38,18 @@ const DoCambridgeReadingTest = () => {
 
   const startedKey = useMemo(() => `cambridge_reading_test_${id}_started`, [id]);
 
+  // Stable user ID: isolates data per-student on shared devices
+  const storageUserId = useMemo(() => {
+    try {
+      const u = JSON.parse(localStorage.getItem('user') || 'null');
+      return u?.id || 'anon';
+    } catch (e) { return 'anon'; }
+  }, []);
+  const camReadTimeKey  = useMemo(() => `cambridge_reading_${id}_expiresAt:${storageUserId}`, [id, storageUserId]);
+  const camReadAnsKey   = useMemo(() => `cambridge_reading_${id}_answers:${storageUserId}`, [id, storageUserId]);
+  const camReadStartKey = useMemo(() => `cambridge_reading_${id}_started:${storageUserId}`, [id, storageUserId]);
+  const expiresAtRef = useRef(null);
+
   // States
   const [test, setTest] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -63,7 +75,9 @@ const DoCambridgeReadingTest = () => {
   // Started flag for the test (show start modal and control timer)
   const [started, setStarted] = useState(() => {
     try {
-      return localStorage.getItem(`cambridge_reading_test_${id}_started`) === "true";
+      const u = JSON.parse(localStorage.getItem('user') || 'null');
+      const uid = u?.id || 'anon';
+      return localStorage.getItem(`cambridge_reading_${id}_started:${uid}`) === "true";
     } catch (e) {
       return false;
     }
@@ -179,8 +193,8 @@ const DoCambridgeReadingTest = () => {
         setTest(parsedData);
         
         // Check if there's saved data for this test
-        const savedTime = localStorage.getItem(`test-time-${id}`);
-        const savedAnswers = localStorage.getItem(`test-answers-${id}`);
+        const savedExpiry = localStorage.getItem(camReadTimeKey);
+        const savedAnswers = localStorage.getItem(camReadAnsKey);
         // Prefer testType config duration over the DB value (DB defaults to 60 for all types)
         const configDuration = Number(TEST_CONFIGS[data.testType]?.duration);
         const rawDuration = Number(data.duration);
@@ -189,13 +203,14 @@ const DoCambridgeReadingTest = () => {
           : (Number.isFinite(rawDuration) && rawDuration > 0 ? rawDuration : (testConfig.duration || 60));
         const durationSeconds = resolvedDuration * 60;
 
-        if (savedTime || savedAnswers) {
+        if (savedExpiry || savedAnswers) {
           // Restore existing progress (even if answers are empty)
           setHasSavedProgress(true);
-          if (savedTime) {
-            const parsed = parseInt(savedTime, 10);
-            const nextTime = Number.isFinite(parsed) ? Math.min(parsed, durationSeconds) : durationSeconds;
-            setTimeRemaining(nextTime);
+          if (savedExpiry) {
+            const expiry = parseInt(savedExpiry, 10);
+            expiresAtRef.current = expiry;
+            const remaining = Math.max(0, Math.ceil((expiry - Date.now()) / 1000));
+            setTimeRemaining(Math.min(remaining, durationSeconds));
           } else {
             setTimeRemaining(durationSeconds);
           }
@@ -208,10 +223,10 @@ const DoCambridgeReadingTest = () => {
         } else {
           // New test - clean up any old saved data and start fresh
           setHasSavedProgress(false);
-          localStorage.removeItem(`test-time-${id}`);
-          localStorage.removeItem(`test-answers-${id}`);
+          localStorage.removeItem(camReadTimeKey);
+          localStorage.removeItem(camReadAnsKey);
           // If there's no saved progress, force start modal again
-          localStorage.removeItem(startedKey);
+          localStorage.removeItem(camReadStartKey);
           setStarted(false);
           setTimeRemaining(durationSeconds);
           setAnswers({});
@@ -237,8 +252,10 @@ const DoCambridgeReadingTest = () => {
           confirmSubmit();
           return 0;
         }
-        // Save to localStorage every second
-        localStorage.setItem(`test-time-${id}`, prev - 1);
+        // Save expiresAt (absolute timestamp) every second
+        const newExpiry = Date.now() + (prev - 1) * 1000;
+        expiresAtRef.current = newExpiry;
+        localStorage.setItem(camReadTimeKey, String(newExpiry));
         return prev - 1;
       });
     }, 1000);
@@ -264,7 +281,7 @@ const DoCambridgeReadingTest = () => {
           [questionKey]: value,
         };
         // Save to localStorage
-        localStorage.setItem(`test-answers-${id}`, JSON.stringify(newAnswers));
+        localStorage.setItem(camReadAnsKey, JSON.stringify(newAnswers));
         return newAnswers;
       });
     },
@@ -314,9 +331,10 @@ const DoCambridgeReadingTest = () => {
       const backendIncorrect = Object.values(dr).filter(r => r.isCorrect === false).length;
 
       // Clear saved data from localStorage
-      localStorage.removeItem(`test-time-${id}`);
-      localStorage.removeItem(`test-answers-${id}`);
-      localStorage.removeItem(startedKey);
+      localStorage.removeItem(camReadTimeKey);
+      localStorage.removeItem(camReadAnsKey);
+      localStorage.removeItem(camReadStartKey);
+      expiresAtRef.current = null;
       
       // Show results modal using backend score (more accurate than local calculation)
       setResults({
@@ -338,9 +356,10 @@ const DoCambridgeReadingTest = () => {
       setSubmitted(true);
       setShowConfirm(false);
       // Clear saved data on error too
-      localStorage.removeItem(`test-time-${id}`);
-      localStorage.removeItem(`test-answers-${id}`);
-      localStorage.removeItem(startedKey);
+      localStorage.removeItem(camReadTimeKey);
+      localStorage.removeItem(camReadAnsKey);
+      localStorage.removeItem(camReadStartKey);
+      expiresAtRef.current = null;
     }
   };
 
@@ -1141,9 +1160,9 @@ const DoCambridgeReadingTest = () => {
                       if (!ok) return;
 
                       try {
-                        localStorage.removeItem(`test-time-${id}`);
-                        localStorage.removeItem(`test-answers-${id}`);
-                        localStorage.removeItem(startedKey);
+                        localStorage.removeItem(camReadTimeKey);
+                        localStorage.removeItem(camReadAnsKey);
+                        localStorage.removeItem(camReadStartKey);
                       } catch {
                         // ignore
                       }
@@ -1156,6 +1175,7 @@ const DoCambridgeReadingTest = () => {
                       setTimeRemaining(effectiveDuration * 60);
                       setHasSavedProgress(false);
                       setStarted(false);
+                      expiresAtRef.current = null;
                     }}
                     style={{ padding: '9px 18px', borderRadius: 20, border: '1.5px solid #fecaca', background: '#fef2f2', fontSize: 13, fontWeight: 600, color: '#dc2626', cursor: 'pointer' }}
                   >
@@ -1168,10 +1188,12 @@ const DoCambridgeReadingTest = () => {
                     setStarted(true);
                     const initialSeconds = effectiveDuration * 60;
                     try {
-                      localStorage.setItem(startedKey, "true");
-                      localStorage.setItem(`test-time-${id}`, String(timeRemaining ?? initialSeconds));
-                      if (!localStorage.getItem(`test-answers-${id}`)) {
-                        localStorage.setItem(`test-answers-${id}`, JSON.stringify(answers || {}));
+                      localStorage.setItem(camReadStartKey, "true");
+                      const expiry = Date.now() + (timeRemaining ?? initialSeconds) * 1000;
+                      expiresAtRef.current = expiry;
+                      localStorage.setItem(camReadTimeKey, String(expiry));
+                      if (!localStorage.getItem(camReadAnsKey)) {
+                        localStorage.setItem(camReadAnsKey, JSON.stringify(answers || {}));
                       }
                     } catch {
                       // ignore

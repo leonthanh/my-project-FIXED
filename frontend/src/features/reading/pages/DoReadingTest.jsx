@@ -78,7 +78,9 @@ const DoReadingTest = () => {
   // Started flag for the test (show start modal and control timer)
   const [started, setStarted] = useState(() => {
     try {
-      return localStorage.getItem(`reading_test_${id}_started`) === "true";
+      const u = JSON.parse(localStorage.getItem('user') || 'null');
+      const uid = u?.id || 'anon';
+      return localStorage.getItem(`reading_test_${id}_started:${uid}`) === "true";
     } catch (e) {
       return false;
     }
@@ -93,6 +95,22 @@ const DoReadingTest = () => {
       return false;
     }
   }, []);
+
+  // Stable user ID for localStorage key isolation (different students on same device)
+  const storageUserId = useMemo(() => {
+    try {
+      const u = JSON.parse(localStorage.getItem('user') || 'null');
+      return u?.id || 'anon';
+    } catch (e) {
+      return 'anon';
+    }
+  }, []);
+  const readingAnswersKey = `reading_test_${id}_answers:${storageUserId}`;
+  const readingExpiresKey = `reading_test_${id}_expiresAt:${storageUserId}`;
+  const readingStartedKey = `reading_test_${id}_started:${storageUserId}`;
+
+  // Track absolute expiry so we can survive power-loss (ref avoids stale closure in effects)
+  const expiresAtRef = React.useRef(null);
 
   const isQuestionAnswered = useCallback(
     (n) => {
@@ -549,7 +567,7 @@ const DoReadingTest = () => {
 
   // Load saved answers from localStorage
   useEffect(() => {
-    const savedAnswers = localStorage.getItem(`reading_test_${id}_answers`);
+    const savedAnswers = localStorage.getItem(readingAnswersKey);
     if (savedAnswers) {
       try {
         setAnswers(JSON.parse(savedAnswers));
@@ -562,30 +580,24 @@ const DoReadingTest = () => {
   // Auto-save answers to localStorage
   useEffect(() => {
     if (Object.keys(answers).length > 0) {
-      localStorage.setItem(
-        `reading_test_${id}_answers`,
-        JSON.stringify(answers)
-      );
+      localStorage.setItem(readingAnswersKey, JSON.stringify(answers));
     }
-  }, [answers, id]);
+  }, [answers, id, readingAnswersKey]);
 
-  // Persist time remaining and started flag so a refresh retains state
+  // Persist expiresAt (absolute) and started flag so a refresh/power-loss restores correct remaining time
   useEffect(() => {
     try {
-      if (typeof timeRemaining === "number") {
-        localStorage.setItem(
-          `reading_test_${id}_timeRemaining`,
-          String(timeRemaining)
-        );
+      if (started && typeof timeRemaining === "number" && timeRemaining > 0) {
+        // Update expiresAt each tick so it stays accurate
+        const newExpiry = Date.now() + timeRemaining * 1000;
+        expiresAtRef.current = newExpiry;
+        localStorage.setItem(readingExpiresKey, String(newExpiry));
       }
-      localStorage.setItem(
-        `reading_test_${id}_started`,
-        started ? "true" : "false"
-      );
+      localStorage.setItem(readingStartedKey, started ? "true" : "false");
     } catch (e) {
       // ignore storage errors
     }
-  }, [timeRemaining, started, id]);
+  }, [timeRemaining, started, id, readingExpiresKey, readingStartedKey]);
 
   // Fetch test data
   useEffect(() => {
@@ -631,14 +643,13 @@ const DoReadingTest = () => {
 
         // If there's a saved timer and the test was started, restore it; otherwise use test default
         try {
-          const savedStarted =
-            localStorage.getItem(`reading_test_${id}_started`) === "true";
-          const savedTime = localStorage.getItem(
-            `reading_test_${id}_timeRemaining`
-          );
+          const savedStarted = localStorage.getItem(readingStartedKey) === "true";
+          const savedExpiry = localStorage.getItem(readingExpiresKey);
 
-          if (savedStarted && savedTime) {
-            setTimeRemaining(Number(savedTime));
+          if (savedStarted && savedExpiry) {
+            const remaining = Math.max(0, Math.ceil((parseInt(savedExpiry, 10) - Date.now()) / 1000));
+            expiresAtRef.current = parseInt(savedExpiry, 10);
+            setTimeRemaining(remaining);
             setStarted(true);
           } else {
             setTimeRemaining((normalized.durationMinutes || 60) * 60);
@@ -649,7 +660,7 @@ const DoReadingTest = () => {
 
         // Migrate saved answers if necessary: older saves may have keys like `q_<n>` (single) for paragraph-matching
         try {
-          const saved = localStorage.getItem(`reading_test_${id}_answers`);
+          const saved = localStorage.getItem(readingAnswersKey);
           if (saved) {
             const parsed = JSON.parse(saved);
             const migrated = { ...parsed };
@@ -722,10 +733,7 @@ const DoReadingTest = () => {
 
             // If migration changed anything, update saved answers and state
             if (JSON.stringify(migrated) !== JSON.stringify(parsed)) {
-              localStorage.setItem(
-                `reading_test_${id}_answers`,
-                JSON.stringify(migrated)
-              );
+              localStorage.setItem(readingAnswersKey, JSON.stringify(migrated));
               setAnswers(migrated);
             }
           }
@@ -1225,9 +1233,10 @@ const DoReadingTest = () => {
       setSubmitted(true);
 
       // Clear saved answers and timer so returning student gets a fresh attempt
-      localStorage.removeItem(`reading_test_${id}_answers`);
-      localStorage.removeItem(`reading_test_${id}_timeRemaining`);
-      localStorage.removeItem(`reading_test_${id}_started`);
+      localStorage.removeItem(readingAnswersKey);
+      localStorage.removeItem(readingExpiresKey);
+      localStorage.removeItem(readingStartedKey);
+      expiresAtRef.current = null;
       // Also clear in-memory answers so the auto-save effect doesn't re-persist them
       setAnswers({});
 
@@ -1415,10 +1424,15 @@ const DoReadingTest = () => {
               className="start-test-btn"
               onClick={() => {
                 setStarted(true);
-                localStorage.setItem(`reading_test_${id}_started`, "true");
+                localStorage.setItem(readingStartedKey, "true");
+                // Set expiry timestamp when test begins
+                const durationSecs = (test.durationMinutes || 60) * 60;
+                const expiry = Date.now() + (timeRemaining ?? durationSecs) * 1000;
+                expiresAtRef.current = expiry;
+                localStorage.setItem(readingExpiresKey, String(expiry));
                 // ensure timeRemaining is initialized if not yet
                 if (timeRemaining === null)
-                  setTimeRemaining((test.durationMinutes || 60) * 60);
+                  setTimeRemaining(durationSecs);
                 // focus first question after small delay
                 setTimeout(() => {
                   setActiveQuestion(1);
@@ -3082,9 +3096,10 @@ const DoReadingTest = () => {
           // When closing the result modal, reset started/timer so next visit is fresh
           // Also explicitly remove persisted localStorage keys synchronously to avoid races
           try {
-            localStorage.removeItem(`reading_test_${id}_answers`);
-            localStorage.removeItem(`reading_test_${id}_timeRemaining`);
-            localStorage.removeItem(`reading_test_${id}_started`);
+            localStorage.removeItem(readingAnswersKey);
+            localStorage.removeItem(readingExpiresKey);
+            localStorage.removeItem(readingStartedKey);
+            expiresAtRef.current = null;
           } catch (e) {
             // ignore
           }

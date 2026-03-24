@@ -107,24 +107,34 @@ const modalBtnHover = {
 };
 
 const WritingTest = () => {
+  // Resolve user ID early so all localStorage keys are per-user (prevents student A
+  // seeing student B's draft when logging in on the same device)
+  const user = JSON.parse(localStorage.getItem("user"));
+  const uid = user?.id || 'anon';
+  const writingTask1Key   = `writing_task1:${uid}`;
+  const writingTask2Key   = `writing_task2:${uid}`;
+  const writingTimeKey    = `writing_timeLeft:${uid}`;
+  const writingStartedKey = `writing_started:${uid}`;
+  const writingEndAtKey   = `writing_endAt:${uid}`;
+
   // Đặt useState cho btnHover lên đầu function component để không bị gọi conditionally
   const [btnHover, setBtnHover] = useState(false);
   const [task1, setTask1] = useState(
-    localStorage.getItem("writing_task1") || ""
+    localStorage.getItem(writingTask1Key) || ""
   );
   const [task2, setTask2] = useState(
-    localStorage.getItem("writing_task2") || ""
+    localStorage.getItem(writingTask2Key) || ""
   );
   const [timeLeft, setTimeLeft] = useState(() => {
-    const saved = localStorage.getItem("writing_timeLeft");
+    const saved = localStorage.getItem(writingTimeKey);
     return saved ? parseInt(saved, 10) : 60 * 60;
   });
   const [endAt, setEndAt] = useState(() => {
-    const saved = localStorage.getItem("writing_endAt");
+    const saved = localStorage.getItem(writingEndAtKey);
     return saved ? parseInt(saved, 10) : 0;
   });
   const [started, setStarted] = useState(
-    localStorage.getItem("writing_started") === "true"
+    localStorage.getItem(writingStartedKey) === "true"
   );
   const [submitted, setSubmitted] = useState(false);
   const [message, setMessage] = useState("");
@@ -133,24 +143,23 @@ const WritingTest = () => {
   const [feedback, setFeedback] = useState("");
   const [isMobile, setIsMobile] = useState(typeof window !== "undefined" ? window.innerWidth <= 768 : false);
 
-  const user = JSON.parse(localStorage.getItem("user"));
   const selectedTestId = localStorage.getItem("selectedTestId");
 
   useEffect(() => {
-    localStorage.setItem("writing_task1", task1);
-  }, [task1]);
+    localStorage.setItem(writingTask1Key, task1);
+  }, [task1, writingTask1Key]);
 
   useEffect(() => {
-    localStorage.setItem("writing_task2", task2);
-  }, [task2]);
+    localStorage.setItem(writingTask2Key, task2);
+  }, [task2, writingTask2Key]);
 
   useEffect(() => {
-    localStorage.setItem("writing_timeLeft", timeLeft.toString());
-  }, [timeLeft]);
+    localStorage.setItem(writingTimeKey, timeLeft.toString());
+  }, [timeLeft, writingTimeKey]);
 
   useEffect(() => {
-    localStorage.setItem("writing_started", started.toString());
-  }, [started]);
+    localStorage.setItem(writingStartedKey, started.toString());
+  }, [started, writingStartedKey]);
 
   useEffect(() => {
     const handleResize = () => {
@@ -210,11 +219,11 @@ const WritingTest = () => {
       const data = await res.json();
       setMessage(data.message || "✅ Đã nộp bài!");
 
-      localStorage.removeItem("writing_task1");
-      localStorage.removeItem("writing_task2");
-      localStorage.removeItem("writing_timeLeft");
-      localStorage.removeItem("writing_started");
-      localStorage.removeItem("writing_endAt");
+      localStorage.removeItem(writingTask1Key);
+      localStorage.removeItem(writingTask2Key);
+      localStorage.removeItem(writingTimeKey);
+      localStorage.removeItem(writingStartedKey);
+      localStorage.removeItem(writingEndAtKey);
       localStorage.removeItem("selectedTestId");
       localStorage.removeItem("user");
 
@@ -237,11 +246,11 @@ const WritingTest = () => {
   // persist endAt so we can resume after reload
   useEffect(() => {
     if (endAt) {
-      localStorage.setItem("writing_endAt", endAt.toString());
+      localStorage.setItem(writingEndAtKey, endAt.toString());
     } else {
-      localStorage.removeItem("writing_endAt");
+      localStorage.removeItem(writingEndAtKey);
     }
-  }, [endAt]);
+  }, [endAt, writingEndAtKey]);
 
   // when starting, if we don't already have an endAt, set it using current timeLeft
   useEffect(() => {
