@@ -99,6 +99,49 @@ router.patch('/users/:id/password', requireAuth, requireRole('admin'), async (re
   }
 });
 
+// DELETE /api/admin/users/bulk — xóa nhiều user cùng lúc
+router.delete('/users/bulk', requireAuth, requireRole('admin'), async (req, res) => {
+  try {
+    const { ids } = req.body;
+    if (!Array.isArray(ids) || ids.length === 0) return res.status(400).json({ message: 'Thiếu danh sách ids.' });
+    // Không cho xóa chính mình
+    const safeIds = ids.filter((id) => String(id) !== String(req.user.id)).map(Number);
+    if (safeIds.length === 0) return res.status(400).json({ message: 'Không thể xóa tài khoản của chính mình.' });
+
+    await RefreshToken.destroy({ where: { userId: safeIds } });
+    await Submission.update({ userId: null }, { where: { userId: safeIds } });
+    await ReadingSubmission.destroy({ where: { userId: safeIds } });
+    await ListeningSubmission.destroy({ where: { userId: safeIds } });
+    await CambridgeSubmission.destroy({ where: { userId: safeIds } });
+    const deleted = await User.destroy({ where: { id: safeIds } });
+
+    res.json({ message: `Đã xóa ${deleted} người dùng và toàn bộ dữ liệu liên quan.`, deleted });
+  } catch (err) {
+    logError('Lỗi xóa bulk user', err);
+    res.status(500).json({ message: 'Lỗi server.' });
+  }
+});
+
+// DELETE /api/admin/submissions/bulk — xóa nhiều bài làm cùng lúc
+// body: { items: [{type: 'reading', id: 5}, ...] }
+router.delete('/submissions/bulk', requireAuth, requireRole('admin'), async (req, res) => {
+  try {
+    const { items } = req.body;
+    if (!Array.isArray(items) || items.length === 0) return res.status(400).json({ message: 'Thiếu danh sách items.' });
+    const modelMap = { writing: Submission, reading: ReadingSubmission, listening: ListeningSubmission, cambridge: CambridgeSubmission };
+    let deleted = 0;
+    for (const { type, id } of items) {
+      const Model = modelMap[type];
+      if (!Model) continue;
+      deleted += await Model.destroy({ where: { id } });
+    }
+    res.json({ message: `Đã xóa ${deleted} bài làm.`, deleted });
+  } catch (err) {
+    logError('Lỗi xóa bulk submission', err);
+    res.status(500).json({ message: 'Lỗi server.' });
+  }
+});
+
 // DELETE /api/admin/users/:id — xóa user + toàn bộ dữ liệu liên quan
 router.delete('/users/:id', requireAuth, requireRole('admin'), async (req, res) => {
   try {

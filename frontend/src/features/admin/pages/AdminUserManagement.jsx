@@ -261,10 +261,14 @@ const SubmissionsTab = ({ initialUser }) => {
   const [activeType, setActiveType] = useState('writing');
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState('');
+  const [selectedSubs, setSelectedSubs] = useState(new Set()); // Set of "type:id"
+  const [bulkDeleting, setBulkDeleting] = useState(false);
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(''), 3500); };
 
-  // Search users
+  // Reset selection when switching type tab
+  useEffect(() => { setSelectedSubs(new Set()); }, [activeType]);
+
   const searchUsers = async () => {
     if (!search.trim()) return;
     setLoading(true);
@@ -277,6 +281,7 @@ const SubmissionsTab = ({ initialUser }) => {
 
   const loadSubs = useCallback(async (user) => {
     setSelectedUser(user);
+    setSelectedSubs(new Set());
     setLoading(true);
     try {
       const res = await authFetch(apiPath(`admin/submissions?userId=${user.id}`));
@@ -290,6 +295,26 @@ const SubmissionsTab = ({ initialUser }) => {
     if (initialUser) loadSubs(initialUser);
   }, [initialUser, loadSubs]);
 
+  const toggleSubSelect = (type, id) => {
+    const key = `${type}:${id}`;
+    setSelectedSubs((prev) => { const next = new Set(prev); next.has(key) ? next.delete(key) : next.add(key); return next; });
+  };
+
+  const currentList = subs?.[activeType] || [];
+  const currentKeys = currentList.map((s) => `${activeType}:${s.id}`);
+  const allSubsSelected = currentList.length > 0 && currentKeys.every((k) => selectedSubs.has(k));
+  const someSubsSelected = !allSubsSelected && currentKeys.some((k) => selectedSubs.has(k));
+  const toggleAllSubs = () => {
+    setSelectedSubs((prev) => {
+      const next = new Set(prev);
+      if (allSubsSelected) currentKeys.forEach((k) => next.delete(k));
+      else currentKeys.forEach((k) => next.add(k));
+      return next;
+    });
+  };
+
+  const selectedCurrentCount = currentKeys.filter((k) => selectedSubs.has(k)).length;
+
   const deleteSub = async (type, id) => {
     if (!window.confirm('Xóa bài làm này?')) return;
     try {
@@ -297,19 +322,45 @@ const SubmissionsTab = ({ initialUser }) => {
       const data = await res.json();
       if (!res.ok) throw new Error(data.message);
       setSubs((prev) => ({ ...prev, [type]: prev[type].filter((s) => s.id !== id) }));
+      setSelectedSubs((prev) => { const next = new Set(prev); next.delete(`${type}:${id}`); return next; });
       showToast('✅ ' + data.message);
     } catch (e) { showToast('❌ ' + e.message); }
   };
 
+  const bulkDeleteSubs = async () => {
+    if (!window.confirm(`Xóa ${selectedCurrentCount} bài làm đã chọn?`)) return;
+    setBulkDeleting(true);
+    try {
+      const items = currentKeys
+        .filter((k) => selectedSubs.has(k))
+        .map((k) => { const [type, id] = k.split(':'); return { type, id: parseInt(id) }; });
+      const res = await authFetch(apiPath('admin/submissions/bulk'), {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message);
+      const deletedIds = new Set(items.map((i) => i.id));
+      setSubs((prev) => ({ ...prev, [activeType]: prev[activeType].filter((s) => !deletedIds.has(s.id)) }));
+      setSelectedSubs((prev) => { const next = new Set(prev); currentKeys.filter((k) => selectedSubs.has(k)).forEach((k) => next.delete(k)); return next; });
+      showToast('✅ ' + data.message);
+    } catch (e) { showToast('❌ ' + e.message); }
+    finally { setBulkDeleting(false); }
+  };
+
   const renderSubRow = (type, sub) => {
     const name = type === 'cambridge' ? sub.studentName : sub.userName;
-    // CambridgeSubmission dùng score/totalQuestions, còn lại dùng correct/total
     const correctVal = sub.correct ?? sub.score;
     const totalVal = sub.total ?? sub.totalQuestions;
     const score = (correctVal !== undefined && totalVal) ? `${correctVal}/${totalVal}` : '—';
     const band = sub.band ? `Band ${sub.band}` : (sub.percentage != null ? `${sub.percentage}%` : '');
+    const key = `${type}:${sub.id}`;
     return (
-      <tr key={sub.id} style={s.tr}>
+      <tr key={sub.id} style={{ ...s.tr, background: selectedSubs.has(key) ? '#fef2f2' : undefined }}>
+        <td style={{ ...s.td, textAlign: 'center' }}>
+          <input type="checkbox" checked={selectedSubs.has(key)} onChange={() => toggleSubSelect(type, sub.id)} />
+        </td>
         <td style={{ ...s.td, fontSize: 12, color: '#9ca3af' }}>{sub.id}</td>
         <td style={s.td}>{name || '—'}</td>
         <td style={{ ...s.td, fontSize: 12 }}>Test #{sub.testId || '—'}{sub.testType ? ` (${sub.testType})` : ''}</td>
@@ -352,7 +403,7 @@ const SubmissionsTab = ({ initialUser }) => {
         <>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
             <span style={{ fontSize: 14 }}>📋 Bài làm của: <strong>{selectedUser.name}</strong> ({selectedUser.phone})</span>
-            <button style={s.btnSmGray} onClick={() => { setSelectedUser(null); setSubs(null); setUsers([]); setSearch(''); }}>✕ Đóng</button>
+            <button style={s.btnSmGray} onClick={() => { setSelectedUser(null); setSubs(null); setUsers([]); setSearch(''); setSelectedSubs(new Set()); }}>✕ Đóng</button>
           </div>
 
           {loading && <p style={{ color: '#888', textAlign: 'center' }}>Đang tải bài làm...</p>}
@@ -360,7 +411,7 @@ const SubmissionsTab = ({ initialUser }) => {
           {subs && !loading && (
             <>
               {/* Type tabs */}
-              <div style={{ display: 'flex', gap: 4, marginBottom: 0, borderBottom: '2px solid #e5e7eb' }}>
+              <div style={{ display: 'flex', gap: 4, borderBottom: '2px solid #e5e7eb' }}>
                 {SUB_TYPES.map((t) => (
                   <button
                     key={t} onClick={() => setActiveType(t)}
@@ -370,10 +421,29 @@ const SubmissionsTab = ({ initialUser }) => {
                   </button>
                 ))}
               </div>
+
+              {/* Bulk bar for submissions */}
+              {selectedCurrentCount > 0 && (
+                <div style={s.bulkBar}>
+                  <span style={{ fontSize: 14 }}>☑️ Đã chọn <strong>{selectedCurrentCount}</strong> bài làm</span>
+                  <button style={s.btnRed} onClick={bulkDeleteSubs} disabled={bulkDeleting}>
+                    {bulkDeleting ? 'Đang xóa...' : `🗑️ Xóa ${selectedCurrentCount} đã chọn`}
+                  </button>
+                  <button style={s.btnGray} onClick={() => setSelectedSubs(new Set())} disabled={bulkDeleting}>Bỏ chọn</button>
+                </div>
+              )}
+
               <div style={{ overflowX: 'auto', marginTop: 0 }}>
                 <table style={{ ...s.table, borderRadius: '0 0 8px 8px' }}>
                   <thead>
                     <tr>
+                      <th style={{ ...s.th, width: 36, textAlign: 'center' }}>
+                        <input
+                          type="checkbox" checked={allSubsSelected}
+                          ref={(el) => { if (el) el.indeterminate = someSubsSelected; }}
+                          onChange={toggleAllSubs}
+                        />
+                      </th>
                       <th style={s.th}>ID</th>
                       <th style={s.th}>Tên</th>
                       <th style={s.th}>Đề</th>
@@ -383,9 +453,9 @@ const SubmissionsTab = ({ initialUser }) => {
                     </tr>
                   </thead>
                   <tbody>
-                    {(subs[activeType] || []).map((sub) => renderSubRow(activeType, sub))}
-                    {(subs[activeType] || []).length === 0 && (
-                      <tr><td colSpan={6} style={{ ...s.td, textAlign: 'center', color: '#9ca3af' }}>Không có bài làm {SUB_LABELS[activeType]}.</td></tr>
+                    {currentList.map((sub) => renderSubRow(activeType, sub))}
+                    {currentList.length === 0 && (
+                      <tr><td colSpan={7} style={{ ...s.td, textAlign: 'center', color: '#9ca3af' }}>Không có bài làm {SUB_LABELS[activeType]}.</td></tr>
                     )}
                   </tbody>
                 </table>
@@ -560,6 +630,7 @@ const s = {
   errText: { color: '#dc2626', fontSize: 13, margin: '4px 0 0' },
   toast: { position: 'fixed', bottom: 24, right: 24, background: '#1f2937', color: '#fff', padding: '10px 20px', borderRadius: 8, fontSize: 14, zIndex: 9999, boxShadow: '0 4px 12px rgba(0,0,0,0.3)' },
   userChip: { background: '#f3f4f6', border: '1px solid #e5e7eb', borderRadius: 6, padding: '6px 14px', cursor: 'pointer', marginRight: 8, marginBottom: 8, fontSize: 14, display: 'inline-flex', alignItems: 'center', gap: 6 },
+  bulkBar: { display: 'flex', alignItems: 'center', gap: 10, background: '#fff7ed', border: '1px solid #fed7aa', borderRadius: 7, padding: '9px 14px', marginBottom: 12, flexWrap: 'wrap' },
 };
 
 export default AdminUserManagement;
