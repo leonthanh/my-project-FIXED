@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom";
 import { AdminNavbar } from "../../../shared/components";
 import { apiPath } from "../../../shared/utils/api";
 import CambridgeTestBuilder from "../CambridgeTestBuilder";
+import MoversListeningTestBuilder from "./MoversListeningTestBuilder";
 
 /**
  * EditCambridgeListeningTest - Trang sửa đề Cambridge Listening
@@ -67,6 +68,9 @@ const EditCambridgeListeningTest = () => {
   }
 
   const testType = fetchedData?.testType || "ket-listening";
+  if (testType === "movers-listening") {
+    return <MoversListeningTestBuilder editId={id} initialData={fetchedData} />;
+  }
   return <CambridgeTestBuilder testType={testType} editId={id} initialData={fetchedData} />;
 };
 

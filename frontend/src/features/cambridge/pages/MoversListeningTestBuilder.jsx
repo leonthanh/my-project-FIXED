@@ -11,8 +11,26 @@
  */
 import React, { useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { apiPath } from "../../../shared/utils/api";
+import { apiPath, authFetch, hostPath } from "../../../shared/utils/api";
 import { AdminNavbar } from "../../../shared/components";
+import {
+  inputStyle,
+  labelStyle,
+  PartTab,
+  TipBox,
+  FillQuestionsEditor,
+  MatchingPartEditor,
+  PictureQuestionsEditor,
+  LetterMatchingEditor,
+  ImageTickEditor,
+  ColourWriteEditor,
+} from "../components/MoversListeningEditorComponents";
+
+const resolveImg = (url) => {
+  if (!url) return "";
+  if (/^https?:\/\//i.test(url)) return url;
+  return hostPath(url);
+};
 
 // ── Part configuration ─────────────────────────────────────────────────────
 const PART_CONFIGS = [
@@ -42,25 +60,25 @@ const PART_CONFIGS = [
   },
   {
     part: 3,
-    emoji: "🖼️",
-    title: "Part 3 – Tick a Box",
-    titleVi: "Nghe và chọn hình đúng (A / B / C)",
-    instruction: "Listen and tick (✓) the box. There is one example.",
-    questionType: "multiple-choice-pictures",
+    emoji: "🎯",
+    title: "Part 3 – Letter Matching",
+    titleVi: "Nghe và điền chữ cái vào ô",
+    instruction: "Listen and write a letter in each box. There is one example.",
+    questionType: "letter-matching",
     questionCount: 5,
-    tip: "Học sinh nghe câu hỏi ngắn và chọn 1 trong 3 hình A, B, C. Nhập URL hình cho từng lựa chọn và đánh dấu đáp án đúng.",
+    tip: "Học sinh nghe và điền chữ cái (A–H) ứng với hoạt động mỗi người sẽ làm. Nhập tên nhân vật, URL ảnh (tùy chọn), đáp án chữ cái đúng, và mô tả lựa chọn A–H.",
     color: "#8b5cf6",
     bg: "#f5f3ff",
   },
   {
     part: 4,
-    emoji: "📋",
-    title: "Part 4 – Write in a Form",
-    titleVi: "Nghe và điền thông tin vào form",
-    instruction: "Listen and write. There is one example.",
-    questionType: "fill",
+    emoji: "☑️",
+    title: "Part 4 – Tick a Box",
+    titleVi: "Nghe và tick vào ô đúng",
+    instruction: "Listen and tick (✓) the box. There is one example.",
+    questionType: "image-tick",
     questionCount: 5,
-    tip: "Học sinh nghe hội thoại và điền thông tin (tên, số, thứ, màu, …) vào các ô form/bảng.",
+    tip: "Học sinh nghe và tick vào ô ảnh đúng (A, B hoặc C) cho mỗi câu. Nhập câu hỏi và upload 3 hình lựa chọn cho mỗi câu. Chọn đáp án đúng bằng radio 'Đúng'.",
     color: "#f59e0b",
     bg: "#fffbeb",
   },
@@ -70,7 +88,7 @@ const PART_CONFIGS = [
     title: "Part 5 – Colour and Write",
     titleVi: "Nghe và tô màu / viết từ vào tranh",
     instruction: "Listen and colour and write. There is one example.",
-    questionType: "fill",
+    questionType: "colour-write",
     questionCount: 5,
     tip: "Học sinh nghe hướng dẫn và tô màu vào vật trong tranh hoặc viết từ vào vị trí được chỉ định.",
     color: "#ef4444",
@@ -80,18 +98,37 @@ const PART_CONFIGS = [
 
 // ── Default question templates ────────────────────────────────────────────
 const defaultMatchingData = () => ({
+  questionType: "draw-lines",
   questionText: "Match the names with the correct positions in the picture.",
   leftTitle: "Names",
   rightTitle: "Positions",
   leftItems: ["(Example)", "", "", "", "", ""],
   rightItems: ["A. ", "B. ", "C. ", "D. ", "E. ", "F. "],
   answers: {},
+  anchors: {}, // { nameIndex: { x: %, y: %, label: name } }
 });
 
 const defaultFillQuestion = (num) => ({
   questionNumber: num,
   questionText: "",
   correctAnswer: "",
+});
+
+const defaultFillExample = () => ({
+  questionText: "",
+  correctAnswer: "",
+});
+
+const defaultLetterMatchingData = () => ({
+  questionType: "letter-matching",
+  questionText: "",
+  people: Array.from({ length: 6 }, (_, i) => ({
+    name: "",
+    photoUrl: "",
+    correctAnswer: "",
+    isExample: i === 0,
+  })),
+  options: "ABCDEFGH".split("").map((l) => ({ letter: l, description: "", imageUrl: "" })),
 });
 
 const defaultPictureQuestion = (num) => ({
@@ -105,15 +142,57 @@ const defaultPictureQuestion = (num) => ({
   correctAnswer: "",
 });
 
-const getDefaultQuestions = (qt, count) => {
+const defaultImageTickQuestion = (num) => ({
+  questionNumber: num,
+  questionText: "",
+  imageOptions: [
+    { imageUrl: "", text: "A" },
+    { imageUrl: "", text: "B" },
+    { imageUrl: "", text: "C" },
+  ],
+  correctAnswer: "",
+});
+
+const defaultImageTickExample = () => ({
+  questionText: "",
+  imageOptions: [
+    { imageUrl: "", text: "A" },
+    { imageUrl: "", text: "B" },
+    { imageUrl: "", text: "C" },
+  ],
+  correctAnswer: "",
+});
+
+const defaultColourWriteQuestion = (num) => ({
+  questionNumber: num,
+  questionText: "",
+  taskType: "colour",
+  correctAnswer: "",
+});
+
+const defaultColourWriteExample = () => ({
+  questionText: "",
+  taskType: "colour",
+  correctAnswer: "",
+});
+
+const getPartStartNumber = (partIdx) =>
+  PART_CONFIGS.slice(0, partIdx).reduce((sum, cfg) => sum + Number(cfg.questionCount || 0), 1);
+
+const getDefaultQuestions = (qt, count, startNumber = 1) => {
+  if (qt === "letter-matching") return [defaultLetterMatchingData()];
   if (qt === "matching") return [defaultMatchingData()];
   if (qt === "multiple-choice-pictures")
-    return Array.from({ length: count }, (_, i) => defaultPictureQuestion(i + 1));
-  return Array.from({ length: count }, (_, i) => defaultFillQuestion(i + 1));
+    return Array.from({ length: count }, (_, i) => defaultPictureQuestion(startNumber + i));
+  if (qt === "image-tick")
+    return Array.from({ length: count }, (_, i) => defaultImageTickQuestion(startNumber + i));
+  if (qt === "colour-write")
+    return Array.from({ length: count }, (_, i) => defaultColourWriteQuestion(startNumber + i));
+  return Array.from({ length: count }, (_, i) => defaultFillQuestion(startNumber + i));
 };
 
 const buildInitialParts = () =>
-  PART_CONFIGS.map((cfg) => ({
+  PART_CONFIGS.map((cfg, partIdx) => ({
     partNumber: cfg.part,
     title: cfg.title,
     instruction: cfg.instruction,
@@ -123,614 +202,138 @@ const buildInitialParts = () =>
       {
         sectionTitle: "",
         questionType: cfg.questionType,
-        questions: getDefaultQuestions(cfg.questionType, cfg.questionCount),
+        questions: getDefaultQuestions(cfg.questionType, cfg.questionCount, getPartStartNumber(partIdx)),
+        ...(cfg.part === 2 ? { exampleItem: defaultFillExample() } : {}),
+        ...(cfg.part === 4 ? { exampleItem: defaultImageTickExample() } : {}),
+        ...(cfg.part === 5 ? { exampleItem: defaultColourWriteExample(), sceneImageUrl: "" } : {}),
       },
     ],
   }));
 
-// ── Shared styles ─────────────────────────────────────────────────────────
-const inputStyle = {
-  width: "100%",
-  padding: "8px 12px",
-  border: "1px solid #d1d5db",
-  borderRadius: "7px",
-  fontSize: "14px",
-  marginBottom: "8px",
-  boxSizing: "border-box",
-  fontFamily: "inherit",
-};
+const normalizeDrawLineQuestion = (question) => {
+  if (!question || typeof question !== "object") return question;
+  const hasAnchors = question.anchors && typeof question.anchors === "object";
+  const isDrawLines = question.questionType === "draw-lines" || hasAnchors;
+  if (!isDrawLines) return question;
 
-const labelStyle = {
-  display: "block",
-  marginBottom: "6px",
-  fontWeight: 600,
-  fontSize: "12px",
-  color: "#6b7280",
-};
+  const leftItems = Array.isArray(question.leftItems) ? question.leftItems : ["(Example)", "", "", "", "", ""];
+  const answerCount = Math.max(0, leftItems.length - 1);
+  const normalizedAnswers = {};
+  for (let i = 1; i <= answerCount; i += 1) {
+    normalizedAnswers[String(i)] = String.fromCharCode(64 + i);
+  }
 
-const selectStyle = {
-  padding: "8px 10px",
-  border: "1px solid #d1d5db",
-  borderRadius: "7px",
-  fontSize: "13px",
-  background: "white",
-  cursor: "pointer",
-};
-
-// ── PartTab sidebar button ────────────────────────────────────────────────
-const PartTab = ({ cfg, isActive, isComplete, onClick }) => (
-  <button
-    onClick={onClick}
-    style={{
-      display: "flex",
-      alignItems: "center",
-      gap: "10px",
-      width: "100%",
-      padding: "12px 14px",
-      border: "none",
-      borderRadius: "10px",
-      cursor: "pointer",
-      background: isActive ? cfg.bg : "transparent",
-      borderLeft: isActive ? `4px solid ${cfg.color}` : "4px solid transparent",
-      marginBottom: "6px",
-      textAlign: "left",
-      transition: "all 0.15s",
-    }}
-  >
-    <span style={{ fontSize: "20px" }}>{cfg.emoji}</span>
-    <div style={{ flex: 1, minWidth: 0 }}>
-      <div
-        style={{
-          fontWeight: 700,
-          fontSize: "13px",
-          color: isActive ? cfg.color : "#374151",
-        }}
-      >
-        Part {cfg.part}
-      </div>
-      <div
-        style={{
-          fontSize: "11px",
-          color: "#6b7280",
-          overflow: "hidden",
-          textOverflow: "ellipsis",
-          whiteSpace: "nowrap",
-        }}
-      >
-        {cfg.titleVi}
-      </div>
-    </div>
-    {isComplete && (
-      <span style={{ fontSize: "14px", color: "#10b981" }}>✓</span>
-    )}
-  </button>
-);
-
-// ── Tip box ───────────────────────────────────────────────────────────────
-const TipBox = ({ cfg }) => (
-  <div
-    style={{
-      padding: "12px 16px",
-      background: cfg.bg,
-      border: `1px solid ${cfg.color}40`,
-      borderRadius: "10px",
-      marginBottom: "20px",
-    }}
-  >
-    <strong style={{ color: cfg.color, fontSize: "13px" }}>
-      💡 Hướng dẫn Part {cfg.part}
-    </strong>
-    <p
-      style={{
-        margin: "6px 0 0",
-        fontSize: "12px",
-        color: "#374151",
-        lineHeight: 1.6,
-      }}
-    >
-      {cfg.tip}
-    </p>
-  </div>
-);
-
-// ── Fill questions editor (Part 2, 4, 5) ─────────────────────────────────
-const FillQuestionsEditor = ({ questions, onChange, color = "#10b981" }) => {
-  const updateQ = (idx, field, val) => {
-    const next = [...questions];
-    next[idx] = { ...next[idx], [field]: val };
-    onChange(next);
-  };
-
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-      {questions.map((q, idx) => (
-        <div
-          key={idx}
-          style={{
-            padding: "14px",
-            border: "1px solid #e5e7eb",
-            borderRadius: "10px",
-            background: "#f9fafb",
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "8px",
-              marginBottom: "10px",
-            }}
-          >
-            <span
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                justifyContent: "center",
-                width: "28px",
-                height: "28px",
-                borderRadius: "7px",
-                background: `${color}20`,
-                color: color,
-                fontWeight: 800,
-                fontSize: "13px",
-                flexShrink: 0,
-              }}
-            >
-              {idx + 1}
-            </span>
-            <span
-              style={{ fontSize: "12px", fontWeight: 700, color: "#6b7280" }}
-            >
-              Câu {idx + 1}
-            </span>
-          </div>
-          <input
-            type="text"
-            placeholder="Nội dung câu hỏi / ngữ cảnh (VD: Her favourite colour is _____)"
-            value={q.questionText || ""}
-            onChange={(e) => updateQ(idx, "questionText", e.target.value)}
-            style={inputStyle}
-          />
-          <input
-            type="text"
-            placeholder="Đáp án đúng  (dùng | để có nhiều đáp án: pink | pink colour)"
-            value={q.correctAnswer || ""}
-            onChange={(e) => updateQ(idx, "correctAnswer", e.target.value)}
-            style={{
-              ...inputStyle,
-              marginBottom: 0,
-              borderColor: q.correctAnswer ? color : "#d1d5db",
-            }}
-          />
-        </div>
-      ))}
-    </div>
-  );
-};
-
-// ── Matching editor (Part 1) ──────────────────────────────────────────────
-const MatchingPartEditor = ({ data, onChange }) => {
-  const leftItems = data.leftItems || ["", "", "", "", "", ""];
-  const rightItems = data.rightItems || [
-    "A. ",
-    "B. ",
-    "C. ",
-    "D. ",
-    "E. ",
-    "F. ",
-  ];
-  const answers = data.answers || {};
-
-  const letterLabels = rightItems.map((_, i) => String.fromCharCode(65 + i));
-
-  const setLeft = (i, val) => {
-    const next = [...leftItems];
-    next[i] = val;
-    onChange({ ...data, leftItems: next });
-  };
-
-  const setRight = (i, val) => {
-    const next = [...rightItems];
-    next[i] = `${String.fromCharCode(65 + i)}. ${val}`;
-    onChange({ ...data, rightItems: next });
-  };
-
-  const setAnswer = (name, val) => {
-    onChange({ ...data, answers: { ...answers, [name]: val } });
-  };
-
-  return (
-    <div>
-      <div
-        style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px" }}
-      >
-        {/* Left column: Names */}
-        <div>
-          <p
-            style={{
-              margin: "0 0 6px",
-              fontSize: "13px",
-              fontWeight: 700,
-              color: "#374151",
-            }}
-          >
-            👤 Names (cột trái)
-          </p>
-          <p
-            style={{
-              margin: "0 0 12px",
-              fontSize: "11px",
-              color: "#6b7280",
-              lineHeight: 1.5,
-            }}
-          >
-            Dòng đầu tiên = Example (đã cho sẵn, học sinh không cần làm). Các
-            dòng còn lại = câu 1–5.
-            <br />
-            Chọn chữ cái đáp án tương ứng ở ô bên phải mỗi tên.
-          </p>
-          {leftItems.map((name, i) => (
-            <div
-              key={i}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "8px",
-                marginBottom: "8px",
-              }}
-            >
-              <span
-                style={{
-                  fontSize: "11px",
-                  color: i === 0 ? "#9ca3af" : "#6366f1",
-                  fontWeight: 700,
-                  width: "56px",
-                  flexShrink: 0,
-                }}
-              >
-                {i === 0 ? "Example" : `Câu ${i}`}
-              </span>
-              <input
-                type="text"
-                placeholder={i === 0 ? "Tên ví dụ" : `Tên người ${i}`}
-                value={name}
-                onChange={(e) => setLeft(i, e.target.value)}
-                style={{
-                  ...inputStyle,
-                  marginBottom: 0,
-                  flex: 1,
-                  fontSize: "13px",
-                  background: i === 0 ? "#f3f4f6" : "white",
-                }}
-              />
-              {i > 0 ? (
-                <select
-                  value={answers[name] || ""}
-                  onChange={(e) => setAnswer(name, e.target.value)}
-                  style={{
-                    ...selectStyle,
-                    width: "64px",
-                    flexShrink: 0,
-                    borderColor: answers[name] ? "#3b82f6" : "#d1d5db",
-                  }}
-                >
-                  <option value="">—</option>
-                  {letterLabels.map((l) => (
-                    <option key={l} value={l}>
-                      {l}
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <div style={{ width: "64px", flexShrink: 0 }} />
-              )}
-            </div>
-          ))}
-        </div>
-
-        {/* Right column: Positions A–F */}
-        <div>
-          <p
-            style={{
-              margin: "0 0 6px",
-              fontSize: "13px",
-              fontWeight: 700,
-              color: "#374151",
-            }}
-          >
-            📍 Positions A–F (cột phải)
-          </p>
-          <p
-            style={{
-              margin: "0 0 12px",
-              fontSize: "11px",
-              color: "#6b7280",
-              lineHeight: 1.5,
-            }}
-          >
-            Thêm 6 vị trí trong tranh (5 đáp án + 1 extra học sinh không dùng
-            tới).
-          </p>
-          {rightItems.map((pos, i) => (
-            <div
-              key={i}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "8px",
-                marginBottom: "8px",
-              }}
-            >
-              <span
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  width: "28px",
-                  height: "28px",
-                  borderRadius: "6px",
-                  background: "#e0e7ff",
-                  color: "#4f46e5",
-                  fontWeight: 800,
-                  fontSize: "12px",
-                  flexShrink: 0,
-                }}
-              >
-                {String.fromCharCode(65 + i)}
-              </span>
-              <input
-                type="text"
-                placeholder={`Vị trí ${String.fromCharCode(65 + i)}  (VD: by the window)`}
-                value={pos.replace(/^[A-F]\.\s*/, "")}
-                onChange={(e) => setRight(i, e.target.value)}
-                style={{
-                  ...inputStyle,
-                  marginBottom: 0,
-                  flex: 1,
-                  fontSize: "13px",
-                }}
-              />
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Answer summary chip row */}
-      <div
-        style={{
-          marginTop: "16px",
-          padding: "12px 16px",
-          background: "#eff6ff",
-          borderRadius: "10px",
-          border: "1px solid #bfdbfe",
-        }}
-      >
-        <strong style={{ fontSize: "12px", color: "#1d4ed8" }}>
-          📝 Đáp án đã nhập:
-        </strong>
-        <div
-          style={{
-            display: "flex",
-            flexWrap: "wrap",
-            gap: "8px",
-            marginTop: "8px",
-          }}
-        >
-          {leftItems.slice(1).map((name, i) =>
-            name ? (
-              <span
-                key={i}
-                style={{
-                  padding: "4px 12px",
-                  borderRadius: "20px",
-                  background: answers[name] ? "#dbeafe" : "#fee2e2",
-                  color: answers[name] ? "#1d4ed8" : "#dc2626",
-                  fontSize: "12px",
-                  fontWeight: 700,
-                }}
-              >
-                {name} → {answers[name] || "?"}
-              </span>
-            ) : null
-          )}
-          {leftItems.slice(1).every((n) => !n) && (
-            <span style={{ fontSize: "12px", color: "#9ca3af" }}>
-              Chưa nhập tên nào
-            </span>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// ── Multiple-choice pictures editor (Part 3) ──────────────────────────────
-const PictureQuestionsEditor = ({ questions, onChange }) => {
-  const updateQ = (idx, field, val) => {
-    const next = [...questions];
-    next[idx] = { ...next[idx], [field]: val };
-    onChange(next);
-  };
-
-  const updateOption = (qIdx, optIdx, field, val) => {
-    const next = [...questions];
-    const opts = [...(next[qIdx].imageOptions || [])];
-    opts[optIdx] = { ...opts[optIdx], [field]: val };
-    next[qIdx] = { ...next[qIdx], imageOptions: opts };
-    onChange(next);
-  };
-
-  const resolveImg = (url) => {
-    if (!url) return "";
-    if (/^https?:\/\//i.test(url)) return url;
-    return url;
-  };
-
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
-      {questions.map((q, idx) => (
-        <div
-          key={idx}
-          style={{
-            padding: "16px",
-            border: "1px solid #e5e7eb",
-            borderRadius: "12px",
-            background: "#f9fafb",
-          }}
-        >
-          {/* Question header */}
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "8px",
-              marginBottom: "12px",
-            }}
-          >
-            <span
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                justifyContent: "center",
-                width: "28px",
-                height: "28px",
-                borderRadius: "7px",
-                background: "#ede9fe",
-                color: "#7c3aed",
-                fontWeight: 800,
-                fontSize: "13px",
-              }}
-            >
-              {idx + 1}
-            </span>
-            <span
-              style={{ fontSize: "12px", fontWeight: 700, color: "#6b7280" }}
-            >
-              Câu {idx + 1}
-            </span>
-          </div>
-          <input
-            type="text"
-            placeholder="Câu hỏi  (VD: What does Kim want to eat?)"
-            value={q.questionText || ""}
-            onChange={(e) => updateQ(idx, "questionText", e.target.value)}
-            style={inputStyle}
-          />
-
-          {/* 3 picture options */}
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "1fr 1fr 1fr",
-              gap: "12px",
-              marginTop: "4px",
-            }}
-          >
-            {["A", "B", "C"].map((letter, optIdx) => {
-              const opt = q.imageOptions?.[optIdx] || {
-                imageUrl: "",
-                text: letter,
-              };
-              const isCorrect = q.correctAnswer === letter;
-              return (
-                <div
-                  key={optIdx}
-                  style={{
-                    border: `2px solid ${isCorrect ? "#7c3aed" : "#e5e7eb"}`,
-                    borderRadius: "10px",
-                    padding: "10px",
-                    background: isCorrect ? "#f5f3ff" : "white",
-                  }}
-                >
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      marginBottom: "8px",
-                    }}
-                  >
-                    <span
-                      style={{
-                        fontWeight: 800,
-                        fontSize: "15px",
-                        color: isCorrect ? "#7c3aed" : "#374151",
-                      }}
-                    >
-                      {letter}
-                    </span>
-                    <label
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "4px",
-                        fontSize: "11px",
-                        cursor: "pointer",
-                        fontWeight: 600,
-                        color: isCorrect ? "#7c3aed" : "#6b7280",
-                      }}
-                    >
-                      <input
-                        type="radio"
-                        name={`correct_${idx}`}
-                        checked={isCorrect}
-                        onChange={() => updateQ(idx, "correctAnswer", letter)}
-                      />
-                      Đúng
-                    </label>
-                  </div>
-                  {opt.imageUrl && (
-                    <img
-                      src={resolveImg(opt.imageUrl)}
-                      alt={letter}
-                      style={{
-                        width: "100%",
-                        height: "72px",
-                        objectFit: "contain",
-                        borderRadius: "6px",
-                        marginBottom: "8px",
-                        border: "1px solid #e5e7eb",
-                      }}
-                    />
-                  )}
-                  <input
-                    type="text"
-                    placeholder="URL hình (https://...)"
-                    value={opt.imageUrl || ""}
-                    onChange={(e) =>
-                      updateOption(idx, optIdx, "imageUrl", e.target.value)
-                    }
-                    style={{ ...inputStyle, marginBottom: 0, fontSize: "11px" }}
-                  />
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-};
-
-// ── Main builder component ────────────────────────────────────────────────
-const MoversListeningTestBuilder = () => {
-  const navigate = useNavigate();
-
-  const [title, setTitle] = useState("");
-  const [classCode, setClassCode] = useState("");
-  const [teacherName, setTeacherName] = useState(() => {
-    try {
-      return JSON.parse(localStorage.getItem("user"))?.name || "";
-    } catch {
-      return "";
-    }
+  const existingRightItems = Array.isArray(question.rightItems) ? question.rightItems : [];
+  const normalizedRightItems = Array.from({ length: answerCount }, (_, idx) => {
+    const fallback = `${String.fromCharCode(65 + idx)}. `;
+    const current = existingRightItems[idx];
+    if (!current) return fallback;
+    return String(current).match(/^[A-Z]\.\s*/)
+      ? String(current)
+      : `${String.fromCharCode(65 + idx)}. ${String(current).replace(/^[A-Z]\.\s*/, "")}`;
   });
-  const [mainAudioUrl, setMainAudioUrl] = useState("");
-  const [parts, setParts] = useState(buildInitialParts);
+
+  return {
+    ...question,
+    questionType: "draw-lines",
+    rightItems: normalizedRightItems,
+    answers: normalizedAnswers,
+  };
+};
+
+const normalizeMoversParts = (parts) => {
+  if (!Array.isArray(parts)) return buildInitialParts();
+  return parts.map((part, partIdx) => ({
+    ...part,
+    sections: Array.isArray(part?.sections)
+      ? part.sections.map((section, secIdx) => ({
+          ...section,
+          questionType: PART_CONFIGS[partIdx]?.questionType || section.questionType,
+          questions: Array.isArray(section?.questions)
+            ? section.questions.map((question, qIdx) => (
+                partIdx === 0 && secIdx === 0 && qIdx === 0
+                  ? normalizeDrawLineQuestion(question)
+                  : {
+                      ...question,
+                      ...((PART_CONFIGS[partIdx]?.questionType === "fill" ||
+                        PART_CONFIGS[partIdx]?.questionType === "multiple-choice-pictures" ||
+                        PART_CONFIGS[partIdx]?.questionType === "image-tick" ||
+                        PART_CONFIGS[partIdx]?.questionType === "colour-write")
+                        ? { questionNumber: getPartStartNumber(partIdx) + qIdx }
+                        : {}),
+                    }
+              ))
+            : getDefaultQuestions(
+                PART_CONFIGS[partIdx]?.questionType,
+                PART_CONFIGS[partIdx]?.questionCount || 0,
+                getPartStartNumber(partIdx)
+              ),
+          ...(partIdx === 1 && secIdx === 0
+            ? {
+                exampleItem: {
+                  ...defaultFillExample(),
+                  ...(section?.exampleItem || {}),
+                },
+              }
+            : {}),
+          ...(partIdx === 3 && secIdx === 0
+            ? {
+                exampleItem: {
+                  ...defaultImageTickExample(),
+                  ...(section?.exampleItem || {}),
+                },
+              }
+            : {}),
+          ...(partIdx === 4 && secIdx === 0
+            ? {
+                sceneImageUrl: section?.sceneImageUrl || "",
+                exampleItem: {
+                  ...defaultColourWriteExample(),
+                  ...(section?.exampleItem || {}),
+                },
+              }
+            : {}),
+        }))
+      : part?.sections,
+  }));
+};
+
+// ── Shared styles ─────────────────────────────────────────────────────────
+
+// Main builder component
+const MoversListeningTestBuilder = ({ editId = null, initialData = null }) => {
+  const navigate = useNavigate();
+  const isEditMode = Boolean(editId);
+
+  const [title, setTitle] = useState(initialData?.title || "");
+  const [classCode, setClassCode] = useState(initialData?.classCode || "");
+  const [teacherName, setTeacherName] = useState(() => {
+    if (initialData?.teacherName) return initialData.teacherName;
+    try { return JSON.parse(localStorage.getItem("user"))?.name || ""; } catch { return ""; }
+  });
+  const [mainAudioUrl, setMainAudioUrl] = useState(initialData?.mainAudioUrl || "");
+  const [parts, setParts] = useState(() => {
+    if (initialData?.parts && Array.isArray(initialData.parts) && initialData.parts.length === 5) {
+      return normalizeMoversParts(initialData.parts);
+    }
+    return buildInitialParts();
+  });
   const [activePartIdx, setActivePartIdx] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState({ type: "", text: "" });
   const [uploadingAudio, setUploadingAudio] = useState(false);
+
+  // Re-hydrate if initialData arrives late (edit page async fetch)
+  React.useEffect(() => {
+    if (!initialData) return;
+    setTitle(initialData.title || "");
+    setClassCode(initialData.classCode || "");
+    setTeacherName(initialData.teacherName || "");
+    setMainAudioUrl(initialData.mainAudioUrl || "");
+    if (Array.isArray(initialData.parts) && initialData.parts.length === 5) {
+      setParts(normalizeMoversParts(initialData.parts));
+    }
+  }, [initialData]);
 
   const cfg = PART_CONFIGS[activePartIdx];
   const activePart = parts[activePartIdx];
@@ -763,7 +366,25 @@ const MoversListeningTestBuilder = () => {
     [activePartIdx]
   );
 
-  const currentQuestions = activePart?.sections?.[0]?.questions || [];
+  const updateFirstSection = useCallback(
+    (patch) => {
+      setParts((prev) => {
+        const next = [...prev];
+        const part = { ...next[activePartIdx] };
+        part.sections = part.sections.map((sec, si) =>
+          si === 0 ? { ...sec, ...patch } : sec
+        );
+        next[activePartIdx] = part;
+        return next;
+      });
+    },
+    [activePartIdx]
+  );
+
+  const currentSection = activePart?.sections?.[0] || {};
+  const currentQuestions = currentSection?.questions || [];
+  const currentExampleItem = currentSection?.exampleItem || defaultFillExample();
+  const currentStartNumber = getPartStartNumber(activePartIdx);
 
   // Completion check for sidebar indicator
   const isPartComplete = (partIdx) => {
@@ -776,6 +397,17 @@ const MoversListeningTestBuilder = () => {
         (d?.leftItems?.filter((n, i) => i > 0 && n.trim()).length || 0) >= 3
       );
     }
+    if (qt === "letter-matching") {
+      const q0 = qs[0] || {};
+      const people = Array.isArray(q0.people) ? q0.people : [];
+      return people.slice(1).filter((p) => p.name && p.correctAnswer).length >= 5;
+    }
+    if (qt === "image-tick") {
+      return qs.filter((q) => q.correctAnswer && q.imageOptions?.some((o) => o.imageUrl)).length >= 3;
+    }
+    if (qt === "colour-write") {
+      return qs.filter((q) => q.correctAnswer).length >= 3;
+    }
     return qs.filter((q) => q.correctAnswer).length >= 3;
   };
 
@@ -786,7 +418,7 @@ const MoversListeningTestBuilder = () => {
     formData.append("audio", file);
     setUploadingAudio(true);
     try {
-      const res = await fetch(apiPath("upload/audio"), {
+      const res = await authFetch(apiPath("upload/audio"), {
         method: "POST",
         body: formData,
       });
@@ -820,26 +452,32 @@ const MoversListeningTestBuilder = () => {
         teacherName: teacherName.trim(),
         testType: "movers-listening",
         mainAudioUrl: mainAudioUrl || null,
-        parts,
+        parts: normalizeMoversParts(parts),
         totalQuestions: 25,
         status,
       };
 
-      const res = await fetch(apiPath("cambridge/listening-tests"), {
-        method: "POST",
+      const url = isEditMode
+        ? apiPath(`cambridge/listening-tests/${editId}`)
+        : apiPath("cambridge/listening-tests");
+      const method = isEditMode ? "PUT" : "POST";
+
+      const res = await authFetch(url, {
+        method,
         headers: { "Content-Type": "application/json" },
-        credentials: "include",
         body: JSON.stringify(payload),
       });
 
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error(err.message || "Lỗi khi tạo đề thi");
+        throw new Error(err.message || (isEditMode ? "Lỗi khi cập nhật đề thi" : "Lỗi khi tạo đề thi"));
       }
 
       setMessage({
         type: "success",
-        text: `✅ Đề thi "${title}" đã được tạo thành công!`,
+        text: isEditMode
+          ? `✅ Đề thi "${title}" đã được cập nhật!`
+          : `✅ Đề thi "${title}" đã được tạo thành công!`,
       });
       setTimeout(() => navigate("/select-test"), 1500);
     } catch (err) {
@@ -932,7 +570,7 @@ const MoversListeningTestBuilder = () => {
               marginBottom: "8px",
             }}
           >
-            {isSubmitting ? "Đang lưu…" : "🚀 Xuất bản"}
+            {isSubmitting ? "Đang lưu…" : isEditMode ? "💾 Cập nhật" : "🚀 Xuất bản"}
           </button>
           <button
             onClick={() => handleSubmit("draft")}
@@ -1129,33 +767,93 @@ const MoversListeningTestBuilder = () => {
             {/* Part settings row */}
             <div
               style={{
-                display: "grid",
-                gridTemplateColumns: "1fr 1fr",
-                gap: "14px",
                 marginBottom: "20px",
               }}
             >
-              <div>
-                <label style={labelStyle}>📝 Lời dẫn (instruction cho học sinh)</label>
-                <input
-                  type="text"
-                  value={activePart.instruction || ""}
-                  onChange={(e) => updatePart("instruction", e.target.value)}
-                  style={inputStyle}
-                />
-              </div>
-              <div>
-                <label style={labelStyle}>
-                  🖼️ URL hình minh hoạ cho Part (nếu có)
-                </label>
+              <label style={labelStyle}>📝 Lời dẫn (instruction cho học sinh)</label>
+              <textarea
+                value={activePart.instruction || ""}
+                onChange={(e) => updatePart("instruction", e.target.value)}
+                rows={3}
+                style={{ ...inputStyle, resize: "vertical", lineHeight: 1.6 }}
+              />
+            </div>
+
+            {/* Part scene image — full width, with upload */}
+            <div style={{ marginBottom: "20px" }}>
+              <label style={{
+                ...labelStyle,
+                fontSize: "13px",
+                color: cfg.color,
+                fontWeight: 800,
+              }}>
+                🖼️ {cfg.part === 1 ? "Hình minh hoạ Part 1 (scene picture — bắt buộc)" : "URL hình minh hoạ cho Part (nếu có)"}
+              </label>
+              {cfg.part === 1 && (
+                <p style={{ fontSize: "11px", color: "#6b7280", margin: "0 0 8px", lineHeight: 1.5 }}>
+                  Đây là bức tranh toàn cảnh mà học sinh nhìn vào để nối tên (VD: khu vườn có nhiều nhân vật). Paste URL hoặc upload file ảnh.
+                </p>
+              )}
+              <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
                 <input
                   type="text"
                   placeholder="https://... hoặc /uploads/..."
                   value={activePart.imageUrl || ""}
                   onChange={(e) => updatePart("imageUrl", e.target.value)}
-                  style={inputStyle}
+                  style={{ ...inputStyle, marginBottom: 0, flex: 1 }}
                 />
+                <label style={{
+                  padding: "9px 16px",
+                  borderRadius: "7px",
+                  cursor: uploadingAudio ? "not-allowed" : "pointer",
+                  background: cfg.bg,
+                  border: `1px solid ${cfg.color}60`,
+                  fontSize: "13px",
+                  color: cfg.color,
+                  whiteSpace: "nowrap",
+                  fontWeight: 700,
+                  flexShrink: 0,
+                }}>
+                  🖼️ Upload ảnh
+                  <input
+                    type="file"
+                    accept="image/*"
+                    style={{ display: "none" }}
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      const fd = new FormData();
+                      fd.append("image", file);
+                      setUploadingAudio(true);
+                      try {
+                        const res = await authFetch(apiPath("upload/cambridge-image"), { method: "POST", body: fd });
+                        if (!res.ok) throw new Error("Upload thất bại");
+                        const { url } = await res.json();
+                        updatePart("imageUrl", url);
+                      } catch (err) {
+                        setMessage({ type: "error", text: err.message });
+                      } finally {
+                        setUploadingAudio(false);
+                      }
+                    }}
+                  />
+                </label>
               </div>
+              {activePart.imageUrl && (
+                <div style={{ marginTop: "10px", textAlign: "center" }}>
+                  <img
+                    src={resolveImg(activePart.imageUrl)}
+                    alt="Part scene"
+                    style={{
+                      maxWidth: "100%",
+                      maxHeight: "320px",
+                      objectFit: "contain",
+                      borderRadius: "10px",
+                      border: `2px solid ${cfg.color}40`,
+                    }}
+                  />
+                </div>
+              )}
             </div>
 
             {/* Per-part audio override */}
@@ -1237,6 +935,11 @@ const MoversListeningTestBuilder = () => {
                   questions={currentQuestions}
                   onChange={updateQuestions}
                   color={cfg.color}
+                  startNumber={currentStartNumber}
+                  exampleItem={cfg.part === 2 ? currentExampleItem : null}
+                  onExampleChange={cfg.part === 2 ? (exampleItem) => updateFirstSection({ exampleItem }) : null}
+                  imageTitle={cfg.part === 2 ? (currentSection?.imageTitle || '') : undefined}
+                  onImageTitleChange={cfg.part === 2 ? (imageTitle) => updateFirstSection({ imageTitle }) : null}
                 />
               )}
 
@@ -1244,6 +947,7 @@ const MoversListeningTestBuilder = () => {
                 <MatchingPartEditor
                   data={currentQuestions[0] || defaultMatchingData()}
                   onChange={(newData) => updateQuestions([newData])}
+                  partImageUrl={activePart.imageUrl || ""}
                 />
               )}
 
@@ -1251,6 +955,62 @@ const MoversListeningTestBuilder = () => {
                 <PictureQuestionsEditor
                   questions={currentQuestions}
                   onChange={updateQuestions}
+                  startNumber={currentStartNumber}
+                />
+              )}
+
+              {cfg.questionType === "letter-matching" && (
+                <LetterMatchingEditor
+                  data={currentQuestions[0] || defaultLetterMatchingData()}
+                  onChange={(newData) => {
+                    updateFirstSection({ questionType: "letter-matching", questions: [newData] });
+                  }}
+                  onUploadImage={async (file) => {
+                    const fd = new FormData();
+                    fd.append("image", file);
+                    const res = await authFetch(apiPath("upload/cambridge-image"), { method: "POST", body: fd });
+                    if (!res.ok) throw new Error("Upload thất bại");
+                    const { url } = await res.json();
+                    return url;
+                  }}
+                />
+              )}
+
+              {cfg.questionType === "image-tick" && (
+                <ImageTickEditor
+                  questions={currentQuestions}
+                  onChange={updateQuestions}
+                  startNumber={currentStartNumber}
+                  exampleItem={currentSection?.exampleItem || null}
+                  onExampleChange={(exampleItem) => updateFirstSection({ exampleItem })}
+                  onUploadImage={async (file) => {
+                    const fd = new FormData();
+                    fd.append("image", file);
+                    const res = await authFetch(apiPath("upload/cambridge-image"), { method: "POST", body: fd });
+                    if (!res.ok) throw new Error("Upload thất bại");
+                    const { url } = await res.json();
+                    return url;
+                  }}
+                />
+              )}
+
+              {cfg.questionType === "colour-write" && (
+                <ColourWriteEditor
+                  questions={currentQuestions}
+                  onChange={updateQuestions}
+                  startNumber={currentStartNumber}
+                  exampleItem={currentSection?.exampleItem || null}
+                  onExampleChange={(exampleItem) => updateFirstSection({ exampleItem })}
+                  sceneImageUrl={currentSection?.sceneImageUrl || ""}
+                  onSceneImageUrlChange={(sceneImageUrl) => updateFirstSection({ sceneImageUrl })}
+                  onUploadImage={async (file) => {
+                    const fd = new FormData();
+                    fd.append("image", file);
+                    const res = await authFetch(apiPath("upload/cambridge-image"), { method: "POST", body: fd });
+                    if (!res.ok) throw new Error("Upload thất bại");
+                    const { url } = await res.json();
+                    return url;
+                  }}
                 />
               )}
             </div>

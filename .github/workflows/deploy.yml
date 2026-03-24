@@ -6,6 +6,7 @@ on:
     branches: [main]
 
 env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
   OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
   EMAIL_USER: ${{ secrets.EMAIL_USER }}
@@ -146,24 +147,20 @@ jobs:
         if: needs.prepare.outputs.backend-hash != ''
         run: |
           set -e
-          # Copy .env.production từ repo vào backend-temp
-          if [ -f "backend/.env.production" ]; then
-            cp backend/.env.production backend-temp/.env
-            echo "✅ Using .env.production for cPanel"
-          else
-            echo "⚠️ .env.production not found, creating .env from secrets"
-            echo "NODE_ENV=production" > backend-temp/.env
-            echo "PORT=5000" >> backend-temp/.env
-            echo "DB_HOST=${{ env.DB_HOST }}" >> backend-temp/.env
-            echo "DB_NAME=${{ env.DB_NAME }}" >> backend-temp/.env
-            echo "DB_USER=${{ env.DB_USER }}" >> backend-temp/.env
-            echo "DB_PASS=${{ env.DB_PASS }}" >> backend-temp/.env
-            echo "EMAIL_USER=${{ env.EMAIL_USER }}" >> backend-temp/.env
-            echo "EMAIL_PASS=${{ env.EMAIL_PASS }}" >> backend-temp/.env
-            echo "EMAIL_TO=${{ env.EMAIL_TO }}" >> backend-temp/.env
-            echo "REACT_APP_API_URL=${{ env.REACT_APP_API_URL }}" >> backend-temp/.env
-            echo "OPENAI_API_KEY=${{ env.OPENAI_API_KEY }}" >> backend-temp/.env
-          fi
+          # Build .env from GitHub Secrets (never use committed env files)
+          echo "NODE_ENV=production" > backend-temp/.env
+          echo "PORT=5000" >> backend-temp/.env
+          echo "DB_HOST=${{ env.DB_HOST }}" >> backend-temp/.env
+          echo "DB_NAME=${{ env.DB_NAME }}" >> backend-temp/.env
+          echo "DB_USER=${{ env.DB_USER }}" >> backend-temp/.env
+          echo "DB_PASS=${{ env.DB_PASS }}" >> backend-temp/.env
+          echo "EMAIL_USER=${{ env.EMAIL_USER }}" >> backend-temp/.env
+          echo "EMAIL_PASS=${{ env.EMAIL_PASS }}" >> backend-temp/.env
+          echo "EMAIL_TO=${{ env.EMAIL_TO }}" >> backend-temp/.env
+          echo "REACT_APP_API_URL=${{ env.REACT_APP_API_URL }}" >> backend-temp/.env
+          echo "OPENAI_API_KEY=${{ env.OPENAI_API_KEY }}" >> backend-temp/.env
+          echo "GEMINI_API_KEY=${{ env.GEMINI_API_KEY }}" >> backend-temp/.env
+          echo "✅ .env built from GitHub Secrets"
 
           # Copy utils/ (if present at repo root) into package so modules like readingScorer are deployed
           if [ -d "utils" ]; then

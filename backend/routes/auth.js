@@ -58,12 +58,12 @@ function shouldReturnRefreshTokenInBody() {
 
 function setRefreshCookie(res, refreshToken) {
   const isProd = process.env.NODE_ENV === 'production';
+  // No maxAge → session cookie: browser clears it automatically when all windows are closed
   res.cookie('rt', refreshToken, {
     httpOnly: true,
     secure: isProd,
     sameSite: 'lax',
     path: '/api/auth/refresh',
-    maxAge: 30 * 24 * 60 * 60 * 1000,
   });
 }
 
@@ -94,7 +94,7 @@ const registerSchema = z.object({
   phone: z.string().regex(vnPhoneRegex),
   email: z.string().email().optional().nullable(),
   password: z.string().min(6),
-  role: z.enum(['student', 'teacher', 'admin']).optional(),
+  // role field is accepted but silently ignored — public registration always creates students
 });
 
 const loginSchema = z.object({
@@ -133,12 +133,13 @@ router.post(
     }
 
     // ✅ Tạo người dùng mới với mật khẩu
+    // Role is always forced to 'student' — teacher/admin must be assigned by an admin after registration
     const newUser = await User.create({
       name,
       phone,
       email: email || null,
       password,
-      role: role || "student",
+      role: 'student',
     });
 
     // Loại bỏ mật khẩu khỏi đối tượng user trước khi gửi về client
@@ -378,5 +379,65 @@ router.post(
   }
   }
 );
+
+// ===== ADMIN: Quản lý danh sách giáo viên =====
+
+const { requireAuth, requireRole } = require('../middlewares/auth');
+
+// GET /api/auth/teachers — lấy danh sách tất cả giáo viên (chỉ admin)
+router.get('/teachers', requireAuth, requireRole('admin'), async (req, res) => {
+  try {
+    const teachers = await User.findAll({
+      where: { role: 'teacher' },
+      attributes: ['id', 'name', 'phone', 'email', 'canManageTests', 'createdAt'],
+      order: [['name', 'ASC']],
+    });
+    res.json(teachers);
+  } catch (err) {
+    logError('Lỗi khi lấy danh sách giáo viên', err);
+    res.status(500).json({ message: 'Lỗi server.' });
+  }
+});
+
+// PATCH /api/auth/teachers/:id/permissions — bật/tắt quyền quản lý đề (chỉ admin)
+router.patch('/teachers/:id/permissions', requireAuth, requireRole('admin'), async (req, res) => {
+  try {
+    const teacher = await User.findOne({ where: { id: req.params.id, role: 'teacher' } });
+    if (!teacher) return res.status(404).json({ message: 'Không tìm thấy giáo viên.' });
+
+    const { canManageTests } = req.body;
+    if (typeof canManageTests !== 'boolean') {
+      return res.status(400).json({ message: 'canManageTests phải là true hoặc false.' });
+    }
+
+    await teacher.update({ canManageTests });
+    res.json({ message: 'Cập nhật quyền thành công.', id: teacher.id, canManageTests: teacher.canManageTests });
+  } catch (err) {
+    logError('Lỗi khi cập nhật quyền giáo viên', err);
+    res.status(500).json({ message: 'Lỗi server.' });
+  }
+});
+
+// PATCH /api/auth/users/:id/role — đổi role của user (chỉ admin, không thể tự đổi role của chính mình)
+router.patch('/users/:id/role', requireAuth, requireRole('admin'), async (req, res) => {
+  try {
+    if (String(req.params.id) === String(req.user.id)) {
+      return res.status(400).json({ message: 'Không thể tự đổi role của chính mình.' });
+    }
+    const user = await User.findByPk(req.params.id);
+    if (!user) return res.status(404).json({ message: 'Không tìm thấy người dùng.' });
+
+    const { role } = req.body;
+    if (!['student', 'teacher'].includes(role)) {
+      return res.status(400).json({ message: 'Role hợp lệ: student, teacher.' });
+    }
+
+    await user.update({ role });
+    res.json({ message: 'Cập nhật role thành công.', id: user.id, role: user.role });
+  } catch (err) {
+    logError('Lỗi khi cập nhật role', err);
+    res.status(500).json({ message: 'Lỗi server.' });
+  }
+});
 
 module.exports = router;

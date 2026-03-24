@@ -1,7 +1,7 @@
 // Centralized inline styles for DoCambridgeListeningTest
 // Keeping this in a separate file reduces noise in the component file.
 
-const createStyles = (isDarkMode = false) => {
+const createStyles = (isDarkMode = false, examType = 'CAMBRIDGE') => {
   const colors = isDarkMode
     ? {
         pageBg: "#0f172a",
@@ -23,6 +23,8 @@ const createStyles = (isDarkMode = false) => {
         primary: "#0e276f",
         warning: "#f59e0b",
       };
+
+  const isBig = examType === 'MOVERS' || examType === 'STARTERS';
 
   return {
   container: {
@@ -394,12 +396,12 @@ const createStyles = (isDarkMode = false) => {
     color: '#fff',
     borderRadius: '50%',
     fontWeight: 600,
-    fontSize: '13px',
+    fontSize: isBig ? '16px' : '13px',
     flexShrink: 0,
   },
   questionText: {
     flex: 1,
-    fontSize: '15px',
+    fontSize: isBig ? '20px' : '15px',
     lineHeight: 1.5,
   },
   input: {
@@ -407,7 +409,7 @@ const createStyles = (isDarkMode = false) => {
     padding: '10px 14px',
     border: `1px solid ${isDarkMode ? '#3d3d5c' : '#d1d5db'}`,
     borderRadius: '6px',
-    fontSize: '15px',
+    fontSize: isBig ? '20px' : '15px',
     boxSizing: 'border-box',
     transition: 'border-color 0.2s',
     backgroundColor: isDarkMode ? '#1f2b47' : '#ffffff',
@@ -451,7 +453,7 @@ const createStyles = (isDarkMode = false) => {
   },
   optionText: {
     flex: 1,
-    fontSize: '14px',
+    fontSize: isBig ? '20px' : '14px',
   },
   optionBadge: {
     display: 'inline-flex',

@@ -31,6 +31,12 @@ const User = sequelize.define(
       type: DataTypes.ENUM("student", "teacher", "admin"),
       defaultValue: "student",
     },
+    canManageTests: {
+      // When true, this teacher can create/edit reading, listening, and cambridge tests.
+      // Admins always have this right regardless of this field.
+      type: DataTypes.BOOLEAN,
+      defaultValue: false,
+    },
   },
   {
     tableName: "users",

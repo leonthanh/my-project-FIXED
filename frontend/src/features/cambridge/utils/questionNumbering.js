@@ -20,6 +20,20 @@ const getQuestionCountForSection = (section) => {
   if (section.questionType === 'long-text-mc' && section.questions[0]?.questions) {
     return section.questions[0].questions.length;
   }
+  // draw-lines: đếm số tên không rỗng từ index 1 trở đi (index 0 = example, không tính điểm)
+  const q0 = section.questions?.[0] || {};
+  if (
+    section.questionType === 'draw-lines' ||
+    (q0.anchors && Object.keys(q0.anchors || {}).length > 0)
+  ) {
+    const leftItems = Array.isArray(q0.leftItems) ? q0.leftItems : [];
+    return leftItems.slice(1).filter((n) => String(n || '').trim()).length;
+  }
+  // letter-matching (MOVERS Part 3): count people skipping index 0 (example)
+  if (section.questionType === 'letter-matching' || q0.questionType === 'letter-matching') {
+    const people = Array.isArray(q0.people) ? q0.people : [];
+    return people.slice(1).filter((p) => String(p?.name || '').trim()).length;
+  }
   if (section.questionType === 'cloze-mc' && section.questions[0]?.blanks) {
     return section.questions[0].blanks.length;
   }
@@ -127,6 +141,8 @@ const computeQuestionStarts = (passages) => {
     'word-drag-cloze',
     'story-completion',
     'look-read-write',
+    'draw-lines', // MOVERS Part 1: expand per leftItem name
+    'letter-matching', // MOVERS Part 3: expand per person name
   ]);
   let count = 1;
 
@@ -135,7 +151,15 @@ const computeQuestionStarts = (passages) => {
       sectionStart[`${partIdx}-${sectionIdx}`] = count;
 
       const sectionCount = getQuestionCountForSection(section);
-      const questionType = section?.questionType || '';
+      // detect draw-lines: check question-level data FIRST because section.questionType
+      // may be 'matching' instead of 'draw-lines' (inconsistent DB data)
+      const q0data = section?.questions?.[0] || {};
+      const questionType =
+        (q0data.questionType === 'draw-lines' || (q0data.anchors && Object.keys(q0data.anchors || {}).length > 0))
+          ? 'draw-lines'
+          : q0data.questionType === 'letter-matching'
+            ? 'letter-matching'
+            : (section?.questionType || '');
       if (!multiQuestionTypes.has(questionType)) {
         const questions = Array.isArray(section?.questions) ? section.questions : [];
         questions.forEach((_, qIdx) => {

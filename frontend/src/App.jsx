@@ -2,7 +2,7 @@ import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 
 // Import from new feature-based structure
-import { EditTest, AdminWritingSubmissions, SelectTest, MyFeedback, ReviewSubmission, Review, AdminReadingSubmissions, AdminListeningSubmissions, CambridgeSubmissionsPage } from './features/admin';
+import { EditTest, AdminWritingSubmissions, SelectTest, MyFeedback, ReviewSubmission, Review, AdminReadingSubmissions, AdminListeningSubmissions, CambridgeSubmissionsPage, TeacherPermissionsPage } from './features/admin';
 import { WritingTest, CreateWritingTest, PetWritingTest, CreatePetWritingTest, SelectPetWritingTest, EditPetWritingTest } from './features/writing';
 import { Login } from './features/auth';
 import { CreateReadingTest, EditReadingTest, DoReadingTest, TakeReadingTest, ReadingResults } from './features/reading';
@@ -18,20 +18,33 @@ const isLoggedIn = () => {
 
 function App() {
   useEffect(() => {
-    const hasAccessToken = () => !!localStorage.getItem('accessToken');
-
-    const refresh = () => {
-      if (hasAccessToken()) {
-        refreshAccessToken();
-      }
+    // Always try to refresh on mount if user is stored (rehydrates from httpOnly session cookie)
+    const tryRefresh = () => {
+      if (localStorage.getItem('user')) refreshAccessToken();
     };
 
-    // Run once on mount if token exists
-    refresh();
+    tryRefresh();
 
-    // refresh every 10 minutes
-    const intervalId = setInterval(refresh, 10 * 60 * 1000);
-    return () => clearInterval(intervalId);
+    // Proactive refresh every 10 minutes to keep session alive
+    const intervalId = setInterval(tryRefresh, 10 * 60 * 1000);
+
+    // Refresh when tab becomes visible again (handles PC wake-up / long idle)
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') tryRefresh();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+
+    // When server rejects refresh token (session truly expired), redirect to login
+    const onForceLogout = () => {
+      window.location.href = '/login?reason=expired';
+    };
+    window.addEventListener('auth:force-logout', onForceLogout);
+
+    return () => {
+      clearInterval(intervalId);
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('auth:force-logout', onForceLogout);
+    };
   }, []);
 
   return (
@@ -213,6 +226,11 @@ function App() {
         <Route path="/admin" element={
           <ProtectedRoute role="teacher">
             <Navigate to="/admin/writing-submissions" replace />
+          </ProtectedRoute>
+        } />
+        <Route path="/admin/teacher-permissions" element={
+          <ProtectedRoute role="admin">
+            <TeacherPermissionsPage />
           </ProtectedRoute>
         } />
       </Routes>

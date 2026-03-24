@@ -5,8 +5,1121 @@ import { TestHeader } from "../../../shared/components";
 import { useTheme } from "../../../shared/contexts/ThemeContext";
 import { TEST_CONFIGS } from "../../../shared/config/questionTypes";
 import { computeQuestionStarts, countClozeBlanksFromText, getQuestionCountForSection } from "../utils/questionNumbering";
+import { CambridgeQuestionDisplay, CompactCambridgeQuestionDisplay } from "../components/CambridgeQuestionCards";
+import { OpenClozeSectionDisplay, GapMatchSectionDisplay } from "../components/CambridgeSectionDisplays";
 import createStyles from "./DoCambridgeListeningTest.styles";
 import './DoCambridgeReadingTest.css';
+
+// ── Draw-lines interactive component for MOVERS Listening Part 1 ───────────
+const DRAW_COLORS = ['#f59e0b','#10b981','#3b82f6','#8b5cf6','#ef4444','#ec4899','#06b6d4','#84cc16'];
+// Màu trung tính cho anchor dot khi chưa được nối
+const ANCHOR_NEUTRAL = '#94a3b8';
+const DRAWLINE_SNAP_RADIUS_PX = 28;
+const DRAWLINE_ANCHOR_HIT_AREA_PX = 44;
+
+const DrawLinesQuestion = ({
+  question, questionKey, questionNum,
+  leftItems, rightItems, anchors, partImageUrl,
+  answers, submitted, results, isDarkMode, wrapperClassName,
+  handleAnswerChange, hostPath: hp,
+  questionRefs, activeQuestion,
+}) => {
+  const [selectedNameIdx, setSelectedNameIdx] = useState(null);
+  const [lines, setLines] = useState([]);
+  const [selectedAnchorByName, setSelectedAnchorByName] = useState({});
+  const imgRef = useRef(null);
+  const containerRef = useRef(null);
+  const pillRefs = useRef({});
+
+  const resolveImg = (url) => {
+    if (!url) return '';
+    if (/^https?:\/\//i.test(url)) return url;
+    return `${hp}${url.startsWith('/') ? '' : '/'}${url}`;
+  };
+
+  const getStudentAnswer = useCallback(
+    (nameIdx) => answers[`${questionKey}-${nameIdx}`] || '',
+    [answers, questionKey]
+  );
+
+  const anchorLetterByIdx = useMemo(() => {
+    const rawAnswers = question.answers && typeof question.answers === 'object' ? question.answers : {};
+    const next = {};
+    Object.entries(rawAnswers).forEach(([idxStr, letter]) => {
+      if (!letter) return;
+      next[String(idxStr)] = String(letter).trim();
+    });
+    return next;
+  }, [question.answers]);
+
+  const anchorIndexesByLetter = useMemo(() => {
+    const next = {};
+    Object.entries(anchorLetterByIdx).forEach(([idxStr, letter]) => {
+      if (idxStr === '0') return;
+      if (!next[letter]) next[letter] = [];
+      next[letter].push(idxStr);
+    });
+    return next;
+  }, [anchorLetterByIdx]);
+
+  const derivedAnchorByName = useMemo(() => {
+    const next = {};
+    leftItems.forEach((_name, nameIdx) => {
+      if (nameIdx === 0) return;
+      const studentAnswer = answers[`${questionKey}-${nameIdx}`];
+      if (!studentAnswer) return;
+      const candidates = anchorIndexesByLetter[studentAnswer] || [];
+      if (candidates.length === 1) {
+        next[String(nameIdx)] = candidates[0];
+      } else if (candidates.includes(String(nameIdx))) {
+        next[String(nameIdx)] = String(nameIdx);
+      }
+    });
+    return next;
+  }, [anchorIndexesByLetter, answers, leftItems, questionKey]);
+
+  const effectiveAnchorByName = useMemo(
+    () => ({ ...derivedAnchorByName, ...selectedAnchorByName }),
+    [derivedAnchorByName, selectedAnchorByName]
+  );
+
+  const anchorUsedByName = useMemo(() => {
+    const next = {};
+    Object.entries(effectiveAnchorByName).forEach(([nameIdxStr, anchorIdxStr]) => {
+      if (!anchorIdxStr) return;
+      next[String(anchorIdxStr)] = parseInt(nameIdxStr, 10);
+    });
+    return next;
+  }, [effectiveAnchorByName]);
+
+  const setDrawLineAnswer = useCallback((nameIdx, anchorIdxStr) => {
+    const answerKey = `${questionKey}-${nameIdx}`;
+    if (!anchorIdxStr) {
+      handleAnswerChange(answerKey, '');
+      setSelectedAnchorByName((prev) => {
+        const nameKey = String(nameIdx);
+        if (!Object.prototype.hasOwnProperty.call(prev, nameKey)) return prev;
+        const next = { ...prev };
+        delete next[nameKey];
+        return next;
+      });
+      return;
+    }
+
+    const chosenLetter = anchorLetterByIdx[String(anchorIdxStr)];
+    if (!chosenLetter) return;
+    handleAnswerChange(answerKey, chosenLetter);
+    setSelectedAnchorByName((prev) => ({
+      ...prev,
+      [String(nameIdx)]: String(anchorIdxStr),
+    }));
+  }, [anchorLetterByIdx, handleAnswerChange, questionKey]);
+
+  useEffect(() => {
+    setSelectedAnchorByName((prev) => {
+      let changed = false;
+      const next = { ...prev };
+      Object.entries(prev).forEach(([nameIdxStr, anchorIdxStr]) => {
+        const studentAnswer = answers[`${questionKey}-${nameIdxStr}`];
+        const mappedLetter = anchorLetterByIdx[String(anchorIdxStr)];
+        if (!studentAnswer || studentAnswer !== mappedLetter) {
+          delete next[nameIdxStr];
+          changed = true;
+        }
+      });
+      return changed ? next : prev;
+    });
+  }, [answers, anchorLetterByIdx, questionKey]);
+
+  // Recompute SVG lines from pill centres → anchor dots
+  // When activeQuestion changes to a sub-key of this block, highlight that pill
+  useEffect(() => {
+    if (!activeQuestion || submitted) return;
+    const prefix = `${questionKey}-`;
+    if (!activeQuestion.startsWith(prefix)) return;
+    const nameIdx = parseInt(activeQuestion.slice(prefix.length), 10);
+    if (!isNaN(nameIdx) && nameIdx > 0) {
+      setSelectedNameIdx(nameIdx);
+    }
+  }, [activeQuestion, questionKey, submitted]);
+
+  const recomputeLines = useCallback(() => {
+    if (!imgRef.current || !containerRef.current) return;
+    const cRect = containerRef.current.getBoundingClientRect();
+    const iRect = imgRef.current.getBoundingClientRect();
+    // Build reverse map: chosenLetter → anchorIdx so lines go to the anchor the student clicked
+    const newLines = [];
+    leftItems.forEach((name, i) => {
+      if (!name) return;
+      const pill = pillRefs.current[i];
+      if (!pill) return;
+
+      if (i === 0) {
+        // Example: always draw pre-set line to anchor[0] if it exists
+        const exampleAnchor = anchors['0'];
+        if (!exampleAnchor) return;
+        const pRect = pill.getBoundingClientRect();
+        newLines.push({
+          x1: pRect.left + pRect.width / 2 - cRect.left,
+          y1: pRect.top + pRect.height / 2 - cRect.top,
+          x2: iRect.left - cRect.left + (exampleAnchor.x / 100) * iRect.width,
+          y2: iRect.top - cRect.top + (exampleAnchor.y / 100) * iRect.height,
+          color: '#9ca3af', // grey – example line
+          nameIdx: 0,
+          isExample: true,
+        });
+        return;
+      }
+
+      const studentAns = answers[`${questionKey}-${i}`];
+      if (!studentAns) return;
+      // Find the anchor position that corresponds to the letter the student chose
+      const mappedAnchorIdx = effectiveAnchorByName[String(i)];
+      const fallbackCandidates = anchorIndexesByLetter[studentAns] || [];
+      const fallbackAnchorIdx = fallbackCandidates.length === 1 ? fallbackCandidates[0] : undefined;
+      const anchorIdxStr = mappedAnchorIdx || fallbackAnchorIdx;
+      const anchor = anchorIdxStr !== undefined ? anchors[anchorIdxStr] : null;
+      if (!anchor) return;
+      const pRect = pill.getBoundingClientRect();
+      newLines.push({
+        x1: pRect.left + pRect.width / 2 - cRect.left,
+        y1: pRect.top + pRect.height / 2 - cRect.top,
+        x2: iRect.left - cRect.left + (anchor.x / 100) * iRect.width,
+        y2: iRect.top - cRect.top + (anchor.y / 100) * iRect.height,
+        color: DRAW_COLORS[i % DRAW_COLORS.length],
+        nameIdx: i,
+      });
+    });
+    setLines(newLines);
+  }, [anchorIndexesByLetter, answers, anchors, effectiveAnchorByName, leftItems, questionKey]);
+
+  useEffect(() => {
+    const id = requestAnimationFrame(recomputeLines);
+    return () => cancelAnimationFrame(id);
+  }, [recomputeLines]);
+
+  useEffect(() => {
+    window.addEventListener('resize', recomputeLines);
+    return () => window.removeEventListener('resize', recomputeLines);
+  }, [recomputeLines]);
+
+  const handleImageClick = (e) => {
+    if (selectedNameIdx === null || !imgRef.current) return;
+    const rect = imgRef.current.getBoundingClientRect();
+    const validAnswers = question.answers || {};
+    const clampedClientX = Math.min(Math.max(e.clientX, rect.left), rect.right);
+    const clampedClientY = Math.min(Math.max(e.clientY, rect.top), rect.bottom);
+    const clickX = clampedClientX - rect.left;
+    const clickY = clampedClientY - rect.top;
+    let best = null;
+    let bestDist = Infinity;
+    Object.entries(anchors).forEach(([idxStr, pos]) => {
+      const i = parseInt(idxStr, 10);
+      if (i === 0) return;
+      if (!validAnswers[idxStr]) return;
+      // Khoảng cách pixel thực (không bị méo bởi tỉ lệ ảnh)
+      const anchorX = (pos.x / 100) * rect.width;
+      const anchorY = (pos.y / 100) * rect.height;
+      const dx = clickX - anchorX;
+      const dy = clickY - anchorY;
+      const d = Math.sqrt(dx * dx + dy * dy);
+      if (d < bestDist) { bestDist = d; best = idxStr; }
+    });
+    // Chỉ snap khi click trong vòng 28px — fallback cho miss hơi lệch
+    if (!best || bestDist > DRAWLINE_SNAP_RADIUS_PX) return;
+    const chosenLetter = validAnswers[best];
+    if (!chosenLetter) return;
+    setDrawLineAnswer(selectedNameIdx, best);
+    setSelectedNameIdx(null);
+  };
+
+  // Click trực tiếp vào chấm anchor — chính xác hơn nearest-anchor logic
+  const handleAnchorClick = (e, idxStr) => {
+    e.stopPropagation(); // không để handleImageClick cũng bắt event này
+    if (selectedNameIdx === null || submitted) return;
+    const i = parseInt(idxStr, 10);
+    if (i === 0) return; // bỏ qua anchor Example
+    const chosenLetter = anchorLetterByIdx[idxStr];
+    if (!chosenLetter) return;
+    setDrawLineAnswer(selectedNameIdx, idxStr);
+    setSelectedNameIdx(null);
+  };
+
+  return (
+    <div
+      ref={containerRef}
+      className={wrapperClassName}
+      style={{ padding: '12px 16px', width: 'fit-content', maxWidth: '100%', position: 'relative', margin: '0 auto' }}
+    >
+      {/* SVG lines overlay – drawn from pill centres to anchor dots */}
+      <svg
+        style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 10, overflow: 'visible' }}
+        aria-hidden="true"
+      >
+        <defs>
+          {lines.map((ln) => (
+            <marker key={`m-${ln.nameIdx}`} id={`arrow-${questionKey}-${ln.nameIdx}`}
+              markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto">
+              <circle cx="4" cy="4" r="3" fill={ln.color} />
+            </marker>
+          ))}
+        </defs>
+        {lines.map((ln) => {
+          const lineIsCorrect = submitted && results?.answers?.[`${questionKey}-${ln.nameIdx}`]?.isCorrect;
+          // Example line stays grey always; student lines turn green/red on submit
+          const lineColor = ln.isExample ? '#9ca3af' : (submitted ? (lineIsCorrect ? '#22c55e' : '#ef4444') : ln.color);
+          return (
+            <line
+              key={ln.nameIdx}
+              x1={ln.x1} y1={ln.y1} x2={ln.x2} y2={ln.y2}
+              stroke={lineColor}
+              strokeWidth={ln.isExample ? 2 : 3}
+              strokeDasharray={ln.isExample ? '6 4' : '10 5'}
+              strokeLinecap="round"
+              opacity={ln.isExample ? 0.6 : 0.92}
+              markerEnd={`url(#arrow-${questionKey}-${ln.nameIdx})`}
+            />
+          );
+        })}
+      </svg>
+
+      {/* Question header */}
+      <div style={{ marginBottom: '12px' }}>
+        <div className="cambridge-question-text">{question.questionText || 'Look at the picture. Listen and draw lines.'}</div>
+      </div>
+
+      {/* Two-column: pills left | image right */}
+      <div style={{ display: 'flex', gap: '20px', alignItems: 'flex-start' }}>
+
+        {/* Left column: hint + pills (vertical) */}
+        <div style={{ minWidth: '150px', maxWidth: '220px', flexShrink: 0 }}>
+          <p style={{
+            margin: '0 0 10px', fontSize: '13px', fontWeight: 700,
+            color: selectedNameIdx !== null ? DRAW_COLORS[selectedNameIdx % DRAW_COLORS.length] : (isDarkMode ? '#94a3b8' : '#374151'),
+          }}>
+            {selectedNameIdx !== null
+              ? `⚡ "${leftItems[selectedNameIdx]}" — click nhân vật`
+              : '👇 Click tên → click nhân vật'}
+          </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          {leftItems.map((name, i) => {
+            if (!name) return null;
+            const isExample = i === 0;
+            const studentAns = getStudentAnswer(i);
+            const isCorrect = submitted && results?.answers?.[`${questionKey}-${i}`]?.isCorrect;
+            const isWrong = submitted && studentAns && !isCorrect;
+            const isSelected = selectedNameIdx === i;
+            const color = DRAW_COLORS[i % DRAW_COLORS.length];
+
+            let bg, border, textColor;
+            if (submitted) {
+              bg = isCorrect ? '#dcfce7' : (studentAns ? '#fee2e2' : (isDarkMode ? '#374151' : '#f3f4f6'));
+              border = isCorrect ? '#22c55e' : (isWrong ? '#ef4444' : '#9ca3af');
+              textColor = isCorrect ? '#15803d' : (isWrong ? '#dc2626' : (isDarkMode ? '#d1d5db' : '#374151'));
+            } else if (isExample) {
+              bg = isDarkMode ? '#374151' : '#f1f5f9';
+              border = '#9ca3af';
+              textColor = isDarkMode ? '#9ca3af' : '#6b7280';
+            } else {
+              bg = isSelected ? color : (studentAns ? `${color}22` : (isDarkMode ? '#1e293b' : 'white'));
+              border = isSelected ? color : (studentAns ? color : '#d1d5db');
+              textColor = isSelected ? 'white' : (isDarkMode ? '#e2e8f0' : '#1e293b');
+            }
+
+            return (
+              <div
+                key={i}
+                ref={(el) => {
+                  if (el && questionRefs) questionRefs.current[`${questionKey}-${i}`] = el;
+                }}
+                style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+              >
+                {/* Question number or example label */}
+                {isExample ? (
+                  <span style={{ fontSize: '14px', color: isDarkMode ? '#6b7280' : '#9ca3af', width: '36px', textAlign: 'right', flexShrink: 0 }}>e.g.</span>
+                ) : (
+                  <span style={{
+                    fontSize: '15px', fontWeight: 800, color: isDarkMode ? '#94a3b8' : '#6b7280',
+                    width: '36px', textAlign: 'right', flexShrink: 0,
+                  }}>{questionNum + i - 1}</span>
+                )}
+              <button
+                key={i}
+                ref={(el) => { if (el) pillRefs.current[i] = el; }}
+                disabled={submitted || isExample}
+                onClick={() => {
+                  if (isExample || submitted) return;
+                  setSelectedNameIdx(isSelected ? null : i);
+                }}
+                style={{
+                  padding: '8px 18px', borderRadius: '24px',
+                  border: `2.5px solid ${border}`,
+                  background: bg, color: textColor,
+                  fontWeight: 800, fontSize: '20px',
+                  cursor: isExample || submitted ? 'default' : 'pointer',
+                  display: 'flex', alignItems: 'center', gap: '6px',
+                  transition: 'all 0.15s',
+                  boxShadow: isSelected ? `0 0 0 4px ${color}40, 0 2px 8px ${color}50` : 'none',
+                  transform: isSelected ? 'scale(1.08)' : 'scale(1)',
+                }}
+              >
+                <span>{name}</span>
+                {isExample && (
+                  <span style={{ fontSize: '13px', opacity: 0.6 }}>(example)</span>
+                )}
+                {submitted && studentAns && (
+                  <span style={{ fontSize: '15px' }}>
+                    {isCorrect ? '✓' : '✗'}
+                  </span>
+                )}
+              </button>
+              </div>
+            );
+          })}
+        </div>
+      </div>{/* end left column */}
+
+        {/* Right column: image + clear buttons */}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          {partImageUrl ? (
+            <div
+              style={{
+                position: 'relative', display: 'block', width: '100%', maxWidth: '540px',
+                cursor: selectedNameIdx !== null ? 'crosshair' : 'default',
+                overflow: 'visible',
+              }}
+              onClick={handleImageClick}
+            >
+          <img
+            ref={imgRef}
+            src={resolveImg(partImageUrl)}
+            alt="Scene"
+            draggable={false}
+            style={{
+              width: '100%', maxWidth: '540px', display: 'block', borderRadius: '12px', userSelect: 'none',
+              border: `3px solid ${selectedNameIdx !== null
+                ? DRAW_COLORS[selectedNameIdx % DRAW_COLORS.length]
+                : (isDarkMode ? '#334155' : '#e2e8f0')}`,
+              transition: 'border-color 0.2s',
+            }}
+          />
+
+          {/* Anchor dots */}
+          {Object.entries(anchors).map(([idxStr, pos]) => {
+            const i = parseInt(idxStr, 10);
+            // Find which person has actually chosen THIS anchor's letter, rather than
+            // assuming anchor index == person index (that assumption caused the bug where
+            // clicking any anchor would strip the animation from the "correct" dot).
+            const anchorLetter = anchorLetterByIdx[idxStr];
+            const usedByNameIdx = (i === 0)
+              ? 0
+              : (anchorUsedByName[idxStr] ?? -1);
+            const hasAnswer = usedByNameIdx >= 0 && (i === 0 || usedByNameIdx > 0);
+            const name = hasAnswer ? (leftItems[usedByNameIdx] || '') : '';
+            const studentAns = hasAnswer && usedByNameIdx > 0
+              ? answers[`${questionKey}-${usedByNameIdx}`]
+              : '';
+            // Màu chấm = màu của NGƯỜI đã nối vào anchor này (DRAW_COLORS),
+            // không dùng màu anchor riêng để tránh nhầm lẫn với pill tên
+            const personColor = usedByNameIdx >= 0 ? DRAW_COLORS[usedByNameIdx % DRAW_COLORS.length] : ANCHOR_NEUTRAL;
+            const anchorColor = hasAnswer ? personColor : ANCHOR_NEUTRAL;
+            const isCorrect = submitted && usedByNameIdx > 0
+              && results?.answers?.[`${questionKey}-${usedByNameIdx}`]?.isCorrect;
+            const dotColor = submitted
+              ? (isCorrect ? '#22c55e' : (hasAnswer && usedByNameIdx > 0 ? '#ef4444' : ANCHOR_NEUTRAL))
+              : anchorColor;
+            const dotSize = hasAnswer ? 28 : 24;
+
+            const isClickableAnchor = !submitted && selectedNameIdx !== null && i !== 0 && Boolean(anchorLetter);
+            // Kích thước chấm hiển thị lớn hơn khi đang chọn tên → dễ bấm hơn
+            const activeDotSize = isClickableAnchor ? Math.max(dotSize, 32) : dotSize;
+            const hitAreaSize = Math.max(activeDotSize, DRAWLINE_ANCHOR_HIT_AREA_PX);
+            return (
+              <div
+                key={idxStr}
+                style={{
+                  position: 'absolute',
+                  left: `${pos.x}%`, top: `${pos.y}%`,
+                  transform: 'translate(-50%, -50%)',
+                  pointerEvents: 'none', // wrapper không bắt event, tránh che anchor khác
+                  zIndex: 6,
+                }}
+              >
+                {/* Ripple ring – only when unanswered and not submitted */}
+                {!hasAnswer && !submitted && (
+                  <div
+                    className="draw-dot-ripple"
+                    style={{
+                      width: `${activeDotSize}px`, height: `${activeDotSize}px`,
+                      background: anchorColor,
+                    }}
+                  />
+                )}
+                {/* Main dot — đây là vùng click thực sự, chỉ bằng kích thước chấm */}
+                <button
+                  type="button"
+                  onClick={isClickableAnchor ? (e) => handleAnchorClick(e, idxStr) : undefined}
+                  onMouseDown={isClickableAnchor ? (e) => e.stopPropagation() : undefined}
+                  onPointerDown={isClickableAnchor ? (e) => e.stopPropagation() : undefined}
+                  aria-label={isClickableAnchor ? `Select anchor for ${leftItems[selectedNameIdx] || 'name'}` : undefined}
+                  style={{
+                    width: `${hitAreaSize}px`,
+                    height: `${hitAreaSize}px`,
+                    padding: 0,
+                    border: 'none',
+                    background: 'transparent',
+                    pointerEvents: isClickableAnchor ? 'auto' : 'none',
+                    cursor: isClickableAnchor ? 'crosshair' : 'default',
+                    position: 'relative',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    zIndex: isClickableAnchor ? 20 : 'auto',
+                  }}
+                >
+                  <div
+                    className={!hasAnswer && !submitted ? 'draw-dot-pulse' : ''}
+                    style={{
+                      width: `${activeDotSize}px`,
+                      height: `${activeDotSize}px`,
+                      borderRadius: '50%',
+                      background: dotColor,
+                      border: '3px solid white',
+                      boxShadow: `0 2px 10px rgba(0,0,0,0.45), 0 0 0 3px ${anchorColor}55`,
+                      transition: 'width 0.2s, height 0.2s, background 0.2s',
+                    }}
+                  />
+                </button>
+                {/* Label only after submission */}
+                {submitted && hasAnswer && (
+                  <div style={{
+                    position: 'absolute', top: `${dotSize + 4}px`, left: '50%',
+                    transform: 'translateX(-50%)',
+                    background: dotColor,
+                    color: 'white', borderRadius: '6px', padding: '2px 8px',
+                    fontSize: '11px', fontWeight: 800, whiteSpace: 'nowrap',
+                    boxShadow: '0 2px 6px rgba(0,0,0,0.3)',
+                  }}>
+                    {name}: {studentAns}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+
+          {/* Dashed border when a pill is selected */}
+              {selectedNameIdx !== null && (
+                <div style={{
+                  position: 'absolute', inset: 0, borderRadius: '12px',
+                  border: `4px dashed ${DRAW_COLORS[selectedNameIdx % DRAW_COLORS.length]}`,
+                  pointerEvents: 'none', zIndex: 4,
+                }} />
+              )}
+            </div>
+          ) : (
+            <div style={{
+              padding: '20px', background: isDarkMode ? '#1e293b' : '#f9fafb',
+              borderRadius: '10px', textAlign: 'center',
+              color: isDarkMode ? '#94a3b8' : '#6b7280', fontSize: '13px',
+            }}>
+              Ảnh đang tải...
+            </div>
+          )}
+
+          {/* Clear buttons */}
+          {!submitted && leftItems.slice(1).some((n, i) => n && getStudentAnswer(i + 1)) && (
+            <div style={{ marginTop: '12px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+          {leftItems.slice(1).map((name, i) => {
+            const nameIdx = i + 1;
+            const ans = getStudentAnswer(nameIdx);
+            if (!name || !ans) return null;
+            return (
+              <button
+                key={nameIdx}
+                onClick={() => setDrawLineAnswer(nameIdx, null)}
+                style={{
+                  padding: '4px 12px', fontSize: '12px', borderRadius: '14px',
+                  border: '1px solid #fca5a5', background: '#fef2f2',
+                  color: '#dc2626', cursor: 'pointer', fontWeight: 600,
+                }}
+              >
+                ✕ {name}
+              </button>
+            );
+          })}
+            </div>
+          )}
+        </div>{/* end right column */}
+      </div>{/* end two-column row */}
+    </div>
+  );
+};
+
+// ─── Part 4 Image-Tick — one question per slide ───────────────────────────────
+const IT_ACCENT = ['#f59e0b', '#10b981', '#8b5cf6', '#ef4444', '#0ea5e9', '#ec4899'];
+
+function ImageTickSlideSection({
+  questions, exampleItem,
+  secIdx, sectionStartNum,
+  answers, submitted, results, isDarkMode,
+  handleAnswerChange, currentPartIndex, questionRefs,
+  resolveImgSrc, activeQuestion, onSlideChange,
+}) {
+  // Example shown as fixed header only on slide 0 (câu 16)
+  const hasExample = !!(exampleItem && exampleItem.questionText);
+  const [slide, setSlide] = useState(0); // 0..questions.length-1
+
+  // Jump when footer nav focuses a question sentinel
+  const jumpToSlide = (qi) => { setSlide(qi); };
+
+  // Keep in sync when activeQuestion changes from outside (footer nav)
+  useEffect(() => {
+    if (!activeQuestion) return;
+    const parts = String(activeQuestion).split('-');
+    const qi = parseInt(parts[2], 10);
+    if (!Number.isNaN(qi)) setSlide(qi);
+  }, [activeQuestion]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Navigate to adjacent slide and notify parent
+  const goTo = (qi) => {
+    setSlide(qi);
+    onSlideChange?.(qi);
+  };
+
+  const canPrev = slide > 0;
+  const canNext = slide < questions.length - 1;
+
+  const renderRow = (q, qKey, isExample, accent) => {
+    const userAns   = isExample ? (q.correctAnswer || '') : (answers[qKey] || '');
+    const imageOpts = Array.isArray(q.imageOptions) ? q.imageOptions : [{}, {}, {}];
+    return (
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '14px', marginTop: '16px' }}>
+        {['A', 'B', 'C'].map((letter, idx) => {
+          const opt          = imageOpts[idx] || {};
+          const isSelected   = userAns === letter;
+          const isCorrectOpt = submitted && q.correctAnswer === letter;
+          const imgSrc       = opt.imageUrl ? resolveImgSrc(opt.imageUrl) : '';
+
+          const boxBorder = isExample
+            ? (isDarkMode ? '#475569' : '#94a3b8')
+            : submitted
+              ? (isCorrectOpt ? '#22c55e' : isSelected ? '#ef4444' : isDarkMode ? '#334155' : '#d1d5db')
+              : isSelected ? accent : isDarkMode ? '#334155' : '#d1d5db';
+
+          const checkBg = submitted
+            ? (isCorrectOpt ? '#22c55e' : isSelected && !isCorrectOpt ? '#ef4444' : 'transparent')
+            : isSelected ? accent : 'transparent';
+          const checkBorder = submitted
+            ? (isCorrectOpt ? '#22c55e' : isSelected ? '#ef4444' : isDarkMode ? '#475569' : '#94a3b8')
+            : isSelected ? accent : isDarkMode ? '#475569' : '#94a3b8';
+
+          return (
+            <div key={letter}
+              onClick={() => { if (!isExample && !submitted) handleAnswerChange(qKey, isSelected ? '' : letter); }}
+              style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '7px', cursor: isExample || submitted ? 'default' : 'pointer' }}
+            >
+              <div
+                className={`it-img-box${isSelected && !isExample ? ' it-selected' : ''}`}
+                style={{
+                  width: '100%', aspectRatio: '1 / 1',
+                  border: `3px solid ${boxBorder}`, borderRadius: '14px', overflow: 'hidden',
+                  background: isDarkMode ? '#1e293b' : '#f9fafb',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  boxShadow: isSelected && !isExample ? `0 4px 16px ${accent}55` : submitted && isCorrectOpt ? '0 4px 16px #22c55e55' : '0 2px 6px rgba(0,0,0,0.08)',
+                  transform: isSelected && !isExample ? 'scale(1.04)' : 'scale(1)',
+                  transition: 'border-color 0.18s, box-shadow 0.18s, transform 0.18s cubic-bezier(0.34,1.56,0.64,1)',
+                  position: 'relative',
+                }}
+              >
+                {imgSrc
+                  ? <img src={imgSrc} alt={letter} draggable={false} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  : <span style={{ fontSize: '28px', color: isDarkMode ? '#475569' : '#cbd5e1' }}>🖼️</span>
+                }
+                {submitted && isCorrectOpt && (
+                  <div style={{ position: 'absolute', top: '-10px', right: '-8px', fontSize: '22px', animation: 'itStarBurst 0.6s ease forwards', pointerEvents: 'none' }}>⭐</div>
+                )}
+              </div>
+              <span style={{
+                fontWeight: 900, fontSize: '15px', width: '28px', height: '28px',
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%',
+                background: isSelected && !isExample ? accent : submitted && isCorrectOpt ? '#22c55e' : isDarkMode ? '#1e293b' : '#f1f5f9',
+                color: isSelected && !isExample || (submitted && isCorrectOpt) ? '#fff' : isDarkMode ? '#e2e8f0' : '#1e293b',
+                transition: 'background 0.18s, color 0.18s',
+              }}>{letter}</span>
+              <div style={{
+                width: '28px', height: '28px', borderRadius: '6px',
+                border: `2.5px solid ${checkBorder}`, background: checkBg,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                animation: (isSelected || (submitted && isCorrectOpt)) ? 'itCheckPop 0.35s cubic-bezier(0.34,1.56,0.64,1) both' : 'none',
+                boxShadow: isSelected && !isExample ? `0 0 0 3px ${accent}33` : 'none',
+                transition: 'background 0.15s, border-color 0.15s',
+              }}>
+                {(isSelected || (submitted && isCorrectOpt)) && <span style={{ color: '#fff', fontSize: '15px', fontWeight: 900, lineHeight: 1 }}>✓</span>}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
+  // Current question slide
+  const qIdx   = slide;
+  const q      = questions[qIdx];
+  const qKey   = `${currentPartIndex}-${secIdx}-${qIdx}`;
+  const accent = IT_ACCENT[qIdx % IT_ACCENT.length];
+  const isCorrect = submitted && results?.answers?.[qKey]?.isCorrect;
+  const isWrong   = submitted && (answers[qKey] || '') && !isCorrect;
+
+  return (
+    <>
+      {/* Keyframe animations */}
+      <style>{`
+        @keyframes itBounceIn { 0%{opacity:0;transform:translateY(22px) scale(0.93)} 55%{transform:translateY(-5px) scale(1.03)} 80%{transform:translateY(2px) scale(0.99)} 100%{opacity:1;transform:translateY(0) scale(1)} }
+        @keyframes itCheckPop { 0%{transform:scale(0) rotate(-20deg);opacity:0} 65%{transform:scale(1.35) rotate(6deg);opacity:1} 100%{transform:scale(1) rotate(0deg);opacity:1} }
+        @keyframes itStarBurst { 0%{transform:scale(0) rotate(-30deg);opacity:1} 60%{transform:scale(1.4) rotate(15deg);opacity:1} 100%{transform:scale(1) rotate(0deg);opacity:0.9} }
+        @keyframes itShake { 0%,100%{transform:translateX(0)} 20%{transform:translateX(-5px)} 40%{transform:translateX(5px)} 60%{transform:translateX(-4px)} 80%{transform:translateX(4px)} }
+        .it-img-box{position:relative;}
+        .it-img-box:hover:not(.it-selected){transform:scale(1.06) !important;box-shadow:0 6px 18px rgba(0,0,0,0.13) !important;}
+      `}</style>
+
+      {/* Sentinel divs for footer nav focus */}
+      {questions.map((_, qi) => {
+        const key = `${currentPartIndex}-${secIdx}-${qi}`;
+        return (
+          <div key={`sentinel-${qi}`}
+            id={`question-${sectionStartNum + qi}`}
+            ref={(el) => { questionRefs.current[key] = el; }}
+            tabIndex={-1}
+            onFocus={() => jumpToSlide(qi)}
+            style={{ position: 'absolute', opacity: 0, pointerEvents: 'none', height: 0, overflow: 'hidden' }}
+          />
+        );
+      })}
+
+      <div style={{ maxWidth: '680px', margin: '0 auto', width: '100%' }}>
+
+        {/* ── Example — fixed header, only on first question slide ── */}
+        {hasExample && slide === 0 && (
+          <div style={{
+            padding: '12px 16px',
+            borderRadius: '14px',
+            border: `2px dashed ${isDarkMode ? '#334155' : '#cbd5e1'}`,
+            background: isDarkMode ? '#0f172a' : '#f8fafc',
+            marginBottom: '14px',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+              <span style={{
+                padding: '2px 12px', borderRadius: '999px',
+                background: isDarkMode ? '#1e293b' : '#e2e8f0',
+                color: isDarkMode ? '#94a3b8' : '#475569',
+                fontWeight: 800, fontSize: '12px', flexShrink: 0,
+              }}>🌟 Example</span>
+              <span style={{ fontWeight: 600, fontSize: '14px', color: isDarkMode ? '#94a3b8' : '#64748b' }}>
+                {exampleItem.questionText || ''}
+              </span>
+            </div>
+            {renderRow(exampleItem, null, true, '#94a3b8')}
+          </div>
+        )}
+
+        {/* ── Active question slide ── */}
+        <div style={{
+          padding: '20px 20px 24px',
+          borderRadius: '18px',
+          border: `2.5px solid ${submitted ? (isCorrect ? '#22c55e' : isWrong ? '#ef4444' : isDarkMode ? '#334155' : '#e2e8f0') : accent}`,
+          background: isDarkMode ? '#111827' : `${accent}08`,
+          boxShadow: `0 0 0 3px ${submitted ? (isCorrect ? '#22c55e' : isWrong ? '#ef4444' : 'transparent') : accent}20, 0 4px 18px ${accent}15`,
+          animation: 'itBounceIn 0.35s ease both',
+          ...(isWrong ? { animationName: 'itBounceIn, itShake', animationDuration: '0.35s, 0.4s', animationDelay: '0s, 0.5s', animationFillMode: 'both' } : {}),
+          transition: 'border-color 0.2s, background 0.2s',
+        }}>
+          {/* Question header */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
+            <span style={{
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+              width: '34px', height: '34px', borderRadius: '50%', flexShrink: 0,
+              background: submitted ? (isCorrect ? '#22c55e' : '#ef4444') : accent,
+              color: '#fff', fontWeight: 900, fontSize: '14px',
+              boxShadow: `0 3px 8px ${submitted ? (isCorrect ? '#22c55e55' : '#ef444455') : accent + '55'}`,
+            }}>
+              {submitted ? (isCorrect ? '✓' : '✗') : sectionStartNum + qIdx}
+            </span>
+            <span style={{ fontWeight: 700, fontSize: '15px', color: isDarkMode ? '#e2e8f0' : '#0f172a', flex: 1 }}>
+              {q?.questionText || ''}
+            </span>
+            {submitted && !isCorrect && (
+              <span style={{ fontSize: '13px', fontWeight: 800, color: '#22c55e', background: isDarkMode ? '#052e16' : '#f0fdf4', padding: '2px 8px', borderRadius: '6px', flexShrink: 0 }}>
+                ✓ {results?.answers?.[qKey]?.correctAnswer || q?.correctAnswer || ''}
+              </span>
+            )}
+          </div>
+          {renderRow(q, qKey, false, accent)}
+        </div>
+
+        {/* ── Navigation ── */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px', marginTop: '16px' }}>
+          <button type="button" onClick={() => goTo(slide - 1)} disabled={!canPrev}
+            style={{
+              width: '40px', height: '40px', borderRadius: '50%', border: 'none', cursor: canPrev ? 'pointer' : 'not-allowed',
+              background: canPrev ? (isDarkMode ? '#334155' : '#e2e8f0') : (isDarkMode ? '#1e293b' : '#f8fafc'),
+              color: canPrev ? (isDarkMode ? '#e2e8f0' : '#374151') : (isDarkMode ? '#475569' : '#cbd5e1'),
+              fontSize: '18px', fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center',
+              boxShadow: canPrev ? '0 2px 6px rgba(0,0,0,0.10)' : 'none',
+              transition: 'all 0.15s',
+            }}>‹</button>
+
+          {/* Progress dots — one per question */}
+          <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+            {questions.map((_, i) => {
+              const isActive   = i === slide;
+              const dotKey     = `${currentPartIndex}-${secIdx}-${i}`;
+              const dotCorrect = submitted && results?.answers?.[dotKey]?.isCorrect;
+              const dotWrong   = submitted && (answers[dotKey] || '') && !dotCorrect;
+              const dotAnswered = !submitted && !!(answers[dotKey] || '');
+              const dotAccent  = IT_ACCENT[i % IT_ACCENT.length];
+              return (
+                <button key={i} type="button" onClick={() => goTo(i)}
+                  style={{
+                    width: isActive ? '28px' : '10px', height: '10px', borderRadius: '999px',
+                    border: 'none', cursor: 'pointer', padding: 0,
+                    background: submitted
+                      ? (dotCorrect ? '#22c55e' : dotWrong ? '#ef4444' : isDarkMode ? '#334155' : '#d1d5db')
+                      : isActive ? dotAccent : dotAnswered ? `${dotAccent}88` : (isDarkMode ? '#334155' : '#d1d5db'),
+                    transition: 'all 0.2s cubic-bezier(0.34,1.56,0.64,1)',
+                    boxShadow: isActive ? `0 0 0 2px ${dotAccent}44` : 'none',
+                  }}
+                />
+              );
+            })}
+          </div>
+
+          <button type="button" onClick={() => goTo(slide + 1)} disabled={!canNext}
+            style={{
+              width: '40px', height: '40px', borderRadius: '50%', border: 'none', cursor: canNext ? 'pointer' : 'not-allowed',
+              background: canNext ? (isDarkMode ? '#334155' : '#e2e8f0') : (isDarkMode ? '#1e293b' : '#f8fafc'),
+              color: canNext ? (isDarkMode ? '#e2e8f0' : '#374151') : (isDarkMode ? '#475569' : '#cbd5e1'),
+              fontSize: '18px', fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center',
+              boxShadow: canNext ? '0 2px 6px rgba(0,0,0,0.10)' : 'none',
+              transition: 'all 0.15s',
+            }}>›</button>
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ─── Part 5 Colour & Write — palette (module-level so child component can use) ─
+const CW_PALETTE = [
+  { label: 'yellow', hex: '#eab308' },
+  { label: 'blue',   hex: '#3b82f6' },
+  { label: 'red',    hex: '#ef4444' },
+  { label: 'orange', hex: '#f97316' },
+  { label: 'purple', hex: '#a855f7' },
+  { label: 'pink',   hex: '#ec4899' },
+  { label: 'green',  hex: '#22c55e' },
+  { label: 'brown',  hex: '#92400e' },
+  { label: 'black',  hex: '#171717' },
+  { label: 'grey',   hex: '#6b7280' },
+  { label: 'white',  hex: '#f9fafb', border: '#d1d5db' },
+];
+
+// ─── ColourWriteStudentSection (uses hooks — must be defined outside main component) ─
+function ColourWriteStudentSection({
+  questions, exampleItem, sceneImageUrl,
+  secIdx, sectionStartNum,
+  answers, submitted, results, isDarkMode,
+  handleAnswerChange, currentPartIndex, questionRefs,
+}) {
+  const [selColour, setSelColour] = useState(null);
+  const [activeQIdx, setActiveQIdx] = useState(0);
+  const containerRef  = useRef(null);
+  const canvasRef     = useRef(null);
+  const writeInputRefs = useRef({});   // qi → input DOM node
+
+  const jumpToQuestion = (qi) => {
+    setActiveQIdx(qi);
+    // Scroll scene image into view
+    containerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    // If write-type: focus the overlaid input after a short tick
+    const q = questions[qi];
+    if ((q?.taskType || 'colour') === 'write') {
+      setTimeout(() => writeInputRefs.current[qi]?.focus(), 120);
+    }
+  };
+  const isDrawing    = useRef(false);
+  const strokes      = useRef([]);
+  const curPts       = useRef([]);
+
+  // Resize canvas to match image dimensions
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => {
+      const cv = canvasRef.current;
+      if (!cv) return;
+      const { width, height } = el.getBoundingClientRect();
+      if (width > 0 && height > 0) { cv.width = Math.round(width); cv.height = Math.round(height); }
+      redraw();
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const redraw = () => {
+    const cv = canvasRef.current;
+    if (!cv) return;
+    const ctx = cv.getContext('2d');
+    ctx.clearRect(0, 0, cv.width, cv.height);
+    strokes.current.forEach((s) => {
+      if (!s.points?.length) return;
+      ctx.beginPath();
+      ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+      if (s.erase) {
+        ctx.globalCompositeOperation = 'destination-out';
+        ctx.lineWidth = 24; ctx.globalAlpha = 1;
+      } else {
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.strokeStyle = s.color; ctx.lineWidth = 11; ctx.globalAlpha = 0.70;
+      }
+      const pts = s.points;
+      ctx.moveTo(pts[0][0] * cv.width / 100, pts[0][1] * cv.height / 100);
+      pts.slice(1).forEach((p) => ctx.lineTo(p[0] * cv.width / 100, p[1] * cv.height / 100));
+      ctx.stroke();
+      ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
+    });
+  };
+
+  const getXY = (e) => {
+    const cv = canvasRef.current;
+    if (!cv) return [0, 0];
+    const r = cv.getBoundingClientRect();
+    const cx = e.touches ? e.touches[0].clientX : e.clientX;
+    const cy = e.touches ? e.touches[0].clientY : e.clientY;
+    return [((cx - r.left) / r.width) * 100, ((cy - r.top) / r.height) * 100];
+  };
+
+  const onDown = (e) => {
+    if (submitted || !selColour || selColour.label === '_write_') return;
+    isDrawing.current = true; curPts.current = [getXY(e)]; e.preventDefault();
+  };
+  const onMove = (e) => {
+    if (!isDrawing.current || submitted) return;
+    curPts.current.push(getXY(e));
+    const cv = canvasRef.current;
+    if (cv) {
+      redraw();
+      const ctx = cv.getContext('2d');
+      ctx.beginPath(); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+      if (selColour.erase) {
+        ctx.globalCompositeOperation = 'destination-out'; ctx.lineWidth = 24; ctx.globalAlpha = 1;
+      } else {
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.strokeStyle = selColour.hex; ctx.lineWidth = 11; ctx.globalAlpha = 0.70;
+      }
+      const pts = curPts.current;
+      ctx.moveTo(pts[0][0] * cv.width / 100, pts[0][1] * cv.height / 100);
+      pts.slice(1).forEach((p) => ctx.lineTo(p[0] * cv.width / 100, p[1] * cv.height / 100));
+      ctx.stroke(); ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
+    }
+    e.preventDefault();
+  };
+  const onUp = (e) => {
+    if (!isDrawing.current || submitted) return;
+    isDrawing.current = false;
+    if (curPts.current.length > 0) {
+      strokes.current.push({ color: selColour?.hex || '#3b82f6', erase: !!selColour?.erase, points: [...curPts.current] });
+      curPts.current = [];
+    }
+    e.preventDefault();
+  };
+
+  const handleColourClick = (c) => {
+    setSelColour(c);
+    const q = questions[activeQIdx];
+    if (!submitted && q && (q.taskType || 'colour') !== 'write' && !c.erase) {
+      const key = `${currentPartIndex}-${secIdx}-${activeQIdx}`;
+      handleAnswerChange(key, c.label);
+    }
+  };
+
+  return (
+    <div style={{ maxWidth: '720px', margin: '0 auto', width: '100%' }}>
+      {/* Hidden sentinel divs per question — footer nav focuses these to trigger setActiveQIdx */}
+      {questions.map((q, qi) => {
+        const key = `${currentPartIndex}-${secIdx}-${qi}`;
+        return (
+          <div
+            key={`sentinel-${qi}`}
+            id={`question-${sectionStartNum + qi}`}
+            ref={(el) => { questionRefs.current[key] = el; }}
+            tabIndex={-1}
+            onFocus={() => jumpToQuestion(qi)}
+            style={{ position: 'absolute', opacity: 0, pointerEvents: 'none', height: 0, overflow: 'hidden' }}
+          />
+        );
+      })}
+
+      {/* Scene image + interactive canvas + write overlays */}
+      {sceneImageUrl && (
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '12px' }}>
+        <div ref={containerRef} style={{ position: 'relative', borderRadius: '14px', overflow: 'hidden', userSelect: 'none', border: isDarkMode ? '1px solid #334155' : '1px solid #e2e8f0', boxShadow: '0 4px 16px rgba(0,0,0,0.10)', width: 'fit-content' }}>
+          <img src={sceneImageUrl} alt="Scene" draggable={false} style={{ width: '100%', display: 'block', userSelect: 'none' }} />
+          <canvas
+            ref={canvasRef}
+            style={{ position: 'absolute', inset: 0, touchAction: 'none', cursor: selColour && !selColour.erase ? 'crosshair' : selColour?.erase ? 'cell' : 'default' }}
+            onMouseDown={onDown} onMouseMove={onMove} onMouseUp={onUp} onMouseLeave={onUp}
+            onTouchStart={onDown} onTouchMove={onMove} onTouchEnd={onUp}
+          />
+          {/* Write-type overlays at teacher-set positions */}
+          {questions.map((q, qi) => {
+            if ((q.taskType || 'colour') !== 'write' || !q.textPosition) return null;
+            const key = `${currentPartIndex}-${secIdx}-${qi}`;
+            const userAnswer = answers[key] || '';
+            const isQCorrect = submitted && results?.answers?.[key]?.isCorrect;
+            const isQActive  = qi === activeQIdx;
+            return (
+              <div key={qi} style={{ position: 'absolute', left: `${q.textPosition.x}%`, top: `${q.textPosition.y}%`, transform: 'translate(-50%, -50%)', zIndex: 10 }}>
+                <input
+                  ref={(el) => { writeInputRefs.current[qi] = el; }}
+                  type="text"
+                  value={userAnswer}
+                  onChange={(e) => { if (!submitted) handleAnswerChange(key, e.target.value); }}
+                  disabled={submitted}
+                  onClick={(e) => { e.stopPropagation(); jumpToQuestion(qi); }}
+                  placeholder={`Q${sectionStartNum + qi}`}
+                  style={{
+                    width: '110px', padding: '5px 8px', textAlign: 'center', borderRadius: '7px', fontWeight: 800,
+                    fontSize: '14px', letterSpacing: '0.06em', outline: 'none',
+                    border: submitted
+                      ? (isQCorrect ? '2.5px solid #22c55e' : '2.5px solid #ef4444')
+                      : isQActive ? '2.5px solid #7c3aed' : '2px solid #1e293b',
+                    background: submitted
+                      ? (isQCorrect ? 'rgba(240,253,244,0.95)' : 'rgba(254,242,242,0.95)')
+                      : 'rgba(255,255,255,0.93)',
+                    color: '#1e293b',
+                    boxShadow: '0 2px 10px rgba(0,0,0,0.22)',
+                    backdropFilter: 'blur(3px)',
+                  }}
+                />
+              </div>
+            );
+          })}
+        </div>
+        </div>
+      )}
+
+      {/* Colour palette bar + question number pills */}
+      <div style={{
+        borderRadius: '16px',
+        background: isDarkMode ? '#1e293b' : '#ffffff',
+        border: `1px solid ${isDarkMode ? '#334155' : '#e2e8f0'}`,
+        boxShadow: '0 2px 12px rgba(0,0,0,0.07)',
+        overflow: 'hidden',
+      }}>
+        {/* Question number pills row */}
+        <div style={{ display: 'flex', gap: '6px', alignItems: 'center', justifyContent: 'center', padding: '10px 12px 0', flexWrap: 'wrap' }}>
+          {questions.map((q, qi) => {
+            const key = `${currentPartIndex}-${secIdx}-${qi}`;
+            const ans = answers[key] || '';
+            const isAct = qi === activeQIdx;
+            const isCorrect = submitted && results?.answers?.[key]?.isCorrect;
+            const col = (q.taskType || 'colour') !== 'write' ? CW_PALETTE.find((c) => c.label === ans) : null;
+            return (
+              <button
+                key={qi}
+                type="button"
+                onClick={() => jumpToQuestion(qi)}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: '5px',
+                  padding: '4px 12px', borderRadius: '999px', fontWeight: 800, fontSize: '13px', cursor: 'pointer',
+                  border: `2px solid ${submitted ? (isCorrect ? '#22c55e' : '#ef4444') : isAct ? '#7c3aed' : (isDarkMode ? '#334155' : '#e5e7eb')}`,
+                  background: submitted ? (isCorrect ? (isDarkMode ? '#052e16' : '#f0fdf4') : (isDarkMode ? '#2d0a0a' : '#fef2f2')) : isAct ? (isDarkMode ? '#2e1065' : '#ede9fe') : (isDarkMode ? '#0f172a' : '#f8fafc'),
+                  color: submitted ? (isCorrect ? '#22c55e' : '#ef4444') : isAct ? (isDarkMode ? '#c4b5fd' : '#5b21b6') : (isDarkMode ? '#94a3b8' : '#374151'),
+                  transition: 'all 0.15s', outline: 'none',
+                }}
+              >
+                {submitted ? (isCorrect ? '✓' : '✗') : sectionStartNum + qi}
+                {col && <div style={{ width: 11, height: 11, borderRadius: '50%', background: col.hex, border: col.border ? `1px solid ${col.border}` : 'none', flexShrink: 0 }} />}
+                {(q.taskType || 'colour') === 'write' && ans && <span style={{ fontSize: '10px', maxWidth: '48px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ans}</span>}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Palette dots row */}
+        {!submitted && (
+        <div style={{
+          display: 'flex', gap: '2px', alignItems: 'flex-end', justifyContent: 'center',
+          padding: '10px 12px 14px', overflowX: 'auto',
+        }}>
+          {CW_PALETTE.map((c) => {
+            const isSel = selColour?.label === c.label;
+            return (
+              <button key={c.label} type="button" title={c.label} onClick={() => handleColourClick(c)}
+                style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '5px', background: 'none', border: 'none', cursor: 'pointer', padding: '4px 7px', borderRadius: '10px', outline: isSel ? `2.5px solid ${isDarkMode ? '#a78bfa' : '#7c3aed'}` : 'none', outlineOffset: '1px' }}
+              >
+                <div style={{
+                  width: isSel ? '52px' : '44px', height: isSel ? '52px' : '44px', borderRadius: '50%',
+                  background: c.hex, flexShrink: 0,
+                  border: c.border ? `2px solid ${c.border}` : '2px solid rgba(0,0,0,0.08)',
+                  boxShadow: isSel ? `0 0 0 3px ${c.hex}55, 0 4px 12px ${c.hex}44` : '0 2px 6px rgba(0,0,0,0.12)',
+                  transform: isSel ? 'scale(1.12) translateY(-4px)' : 'scale(1)',
+                  transition: 'all 0.15s cubic-bezier(0.34,1.56,0.64,1)',
+                }} />
+                <span style={{ fontSize: '11px', color: isDarkMode ? '#94a3b8' : '#475569', fontWeight: isSel ? 800 : 500 }}>{c.label}</span>
+              </button>
+            );
+          })}
+          {/* Erase — same shape as colour dots */}
+          <button type="button" title="Erase" onClick={() => setSelColour({ label: '_erase_', erase: true })}
+            style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '5px', background: 'none', border: 'none', cursor: 'pointer', padding: '4px 7px', borderRadius: '10px', outline: selColour?.erase ? `2.5px solid ${isDarkMode ? '#a78bfa' : '#7c3aed'}` : 'none', outlineOffset: '1px' }}
+          >
+            <div style={{
+              width: selColour?.erase ? '52px' : '44px', height: selColour?.erase ? '52px' : '44px', borderRadius: '50%',
+              background: isDarkMode ? '#334155' : '#f1f5f9', flexShrink: 0,
+              border: selColour?.erase ? '2.5px solid #ef4444' : '2px solid rgba(0,0,0,0.10)',
+              boxShadow: selColour?.erase ? '0 0 0 3px #ef444433, 0 4px 12px #ef444422' : '0 2px 6px rgba(0,0,0,0.12)',
+              transform: selColour?.erase ? 'scale(1.12) translateY(-4px)' : 'scale(1)',
+              transition: 'all 0.15s cubic-bezier(0.34,1.56,0.64,1)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: '20px', lineHeight: 1,
+            }}>🧹</div>
+            <span style={{ fontSize: '11px', color: isDarkMode ? '#94a3b8' : '#475569', fontWeight: selColour?.erase ? 800 : 500 }}>Erase</span>
+          </button>
+        </div>
+        )}
+      </div>
+
+      {/* Post-submission result summary */}
+      {submitted && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '10px' }}>
+          {questions.map((q, qi) => {
+            const key = `${currentPartIndex}-${secIdx}-${qi}`;
+            const userAnswer = answers[key] || '';
+            const isCorrect = results?.answers?.[key]?.isCorrect;
+            const taskType = q.taskType || 'colour';
+            const col = taskType !== 'write' ? CW_PALETTE.find((x) => x.label === userAnswer) : null;
+            return (
+              <div key={qi} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 14px', borderRadius: '10px', background: isCorrect ? (isDarkMode ? '#052e16' : '#f0fdf4') : (isDarkMode ? '#2d0a0a' : '#fef2f2'), border: `1.5px solid ${isCorrect ? '#22c55e' : '#ef4444'}` }}>
+                <span style={{ fontWeight: 900, fontSize: '16px', color: isCorrect ? '#22c55e' : '#ef4444', width: '20px', flexShrink: 0 }}>{isCorrect ? '✓' : '✗'}</span>
+                <span style={{ fontWeight: 800, fontSize: '13px', color: isDarkMode ? '#94a3b8' : '#64748b', flexShrink: 0 }}>Q{sectionStartNum + qi}</span>
+                <span style={{ flex: 1, fontSize: '13px', color: isDarkMode ? '#cbd5e1' : '#374151' }}>{q.questionText}</span>
+                {col && <div style={{ width: 22, height: 22, borderRadius: '50%', background: col.hex, border: col.border ? `1.5px solid ${col.border}` : 'none', flexShrink: 0 }} />}
+                {taskType === 'write' && userAnswer && <span style={{ fontWeight: 700, color: isDarkMode ? '#e2e8f0' : '#0f172a' }}>{userAnswer}</span>}
+                {!isCorrect && (
+                  <span style={{ fontWeight: 700, fontSize: '12px', color: '#22c55e', background: '#f0fdf4', padding: '2px 8px', borderRadius: '6px', flexShrink: 0 }}>
+                    ✓ {results?.answers?.[key]?.correctAnswer || q.correctAnswer || ''}
+                  </span>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
 
 /**
  * DoCambridgeListeningTest - Trang làm bài thi Listening Cambridge (KET, PET, etc.)
@@ -16,8 +1129,6 @@ const DoCambridgeListeningTest = () => {
   const { testType, id } = useParams(); // testType: ket-listening, pet-listening, etc.
   const navigate = useNavigate();
   const { isDarkMode } = useTheme();
-  const styles = useMemo(() => createStyles(isDarkMode), [isDarkMode]);
-
   const examType = useMemo(() => {
     const s = String(testType || "").trim().toLowerCase();
     if (s.includes("ket")) return "KET";
@@ -28,6 +1139,8 @@ const DoCambridgeListeningTest = () => {
     // fallback to Cambridge style if unknown
     return "CAMBRIDGE";
   }, [testType]);
+
+  const styles = useMemo(() => createStyles(isDarkMode, examType), [isDarkMode, examType]);
 
   // States
   const [test, setTest] = useState(null);
@@ -281,6 +1394,36 @@ const DoCambridgeListeningTest = () => {
             continue;
           }
 
+          // draw-lines (MOVERS Part 1): expand into per-name sub-keys (skip idx 0 = example)
+          if ((q.questionType === 'draw-lines' || (q.anchors && Object.keys(q.anchors || {}).length > 0)) && Array.isArray(q.leftItems) && q.leftItems.length > 1) {
+            let expanded = 0;
+            for (let nameIdx = 1; nameIdx < q.leftItems.length; nameIdx++) {
+              if (String(q.leftItems[nameIdx] || '').trim()) {
+                const subKey = `${pIdx}-${sIdx}-${qIdx}-${nameIdx}`;
+                const subNum = globalNumber++;
+                partKeys.push({ key: subKey, number: subNum, sectionIndex: sIdx });
+                orderedKeys.push({ key: subKey, partIndex: pIdx, number: subNum });
+                expanded++;
+              }
+            }
+            if (expanded > 0) continue;
+          }
+
+          // letter-matching (MOVERS Part 3): expand into per-person sub-keys (skip idx 0 = example)
+          if ((q.questionType === 'letter-matching' || secType === 'letter-matching') && Array.isArray(q.people)) {
+            let expanded = 0;
+            for (let pi = 1; pi < q.people.length; pi++) {
+              if (String(q.people[pi]?.name || '').trim()) {
+                const subKey = `${pIdx}-${sIdx}-${qIdx}-${pi}`;
+                const subNum = globalNumber++;
+                partKeys.push({ key: subKey, number: subNum, sectionIndex: sIdx });
+                orderedKeys.push({ key: subKey, partIndex: pIdx, number: subNum });
+                expanded++;
+              }
+            }
+            if (expanded > 0) continue;
+          }
+
           const key = `${pIdx}-${sIdx}-${qIdx}`;
           const num = globalNumber++;
           partKeys.push({ key, number: num, sectionIndex: sIdx });
@@ -368,7 +1511,17 @@ const DoCambridgeListeningTest = () => {
     const isPetListening = String(testType || '').toLowerCase().includes('pet');
     if (currentPartIndex === 0) return true;
     if (isPetListening && currentPartIndex === 1) return true;
-    if (currentPartIndex >= 2 && currentPartIndex <= 4) return true; // Parts 3-5
+    if (currentPartIndex >= 2 && currentPartIndex <= 4) {
+      // Part 3 letter-matching → 2-panel layout với divider
+      if (currentPartIndex === 2) {
+        const secs = currentPart?.sections || [];
+        const hasLetterMatching = secs.some(
+          (s) => s?.questionType === 'letter-matching' || s?.questions?.[0]?.questionType === 'letter-matching'
+        );
+        if (hasLetterMatching) return false;
+      }
+      return true;
+    }
     const sections = currentPart?.sections || [];
     return sections.some((section) => {
       const q0 = section?.questions?.[0] || {};
@@ -708,355 +1861,377 @@ const DoCambridgeListeningTest = () => {
     [sanitizeBasicHtml]
   );
 
-  const normalizeClozeHtml = useCallback((html) => {
-    const s = String(html || '');
-    return s
-      .replace(/<\s*br\s*\/?>/gi, '<br/>')
-      .replace(/<\s*\/\s*p\s*>/gi, '<br/>')
-      .replace(/<\s*p[^>]*>/gi, '')
-      .replace(/<\s*\/\s*div\s*>/gi, '<br/>')
-      .replace(/<\s*div[^>]*>/gi, '')
-      .replace(/(<br\s*\/?>\s*){3,}/gi, '<br/><br/>');
-  }, []);
+  const renderOpenClozeSection = (section, secIdx, sectionStartNum) => (
+    <OpenClozeSectionDisplay
+      section={section}
+      secIdx={secIdx}
+      sectionStartNum={sectionStartNum}
+      currentPartIndex={currentPartIndex}
+      answers={answers}
+      submitted={submitted}
+      isDarkMode={isDarkMode}
+      flaggedQuestions={flaggedQuestions}
+      toggleFlag={toggleFlag}
+      handleAnswerChange={handleAnswerChange}
+    />
+  );
+  const renderGapMatchSection = (section, secIdx, sectionStartNum) => (
+    <GapMatchSectionDisplay
+      section={section}
+      secIdx={secIdx}
+      sectionStartNum={sectionStartNum}
+      currentPartIndex={currentPartIndex}
+      answers={answers}
+      setAnswers={setAnswers}
+      submitted={submitted}
+      isDarkMode={isDarkMode}
+      flaggedQuestions={flaggedQuestions}
+      toggleFlag={toggleFlag}
+      questionRefs={questionRefs}
+      activeQuestion={activeQuestion}
+      styles={styles}
+    />
+  );
 
-  const renderOpenClozeSection = (section, secIdx, sectionStartNum) => {
-    const qIdx = 0;
-    const container = section.questions[0] || {};
-    const passageText = container.passageText || container.passage || '';
-    const normalizedPassageText = normalizeClozeHtml(passageText);
-    const passageTitle = container.passageTitle || '';
-    let blanks = Array.isArray(container.blanks) ? container.blanks : [];
-
-    // Fallback: parse blanks from passage if backend didn't provide them.
-    if (!blanks.length && passageText) {
-      const tempDiv = document.createElement('div');
-      tempDiv.innerHTML = passageText;
-      const plainText = tempDiv.textContent || tempDiv.innerText || '';
-
-      const blankMatches = [];
-      const regex = /\((\d+)\)|\[(\d+)\]/g;
-      let match;
-
-      while ((match = regex.exec(plainText)) !== null) {
-        const num = parseInt(match[1] || match[2]);
-        blankMatches.push({
-          questionNum: num,
-          fullMatch: match[0],
-          index: match.index,
-        });
-      }
-
-      if (!blankMatches.length) {
-        const underscorePattern = /[_\u2026]{3,}/g;
-        let blankIndex = 0;
-        while ((match = underscorePattern.exec(plainText)) !== null) {
-          blankMatches.push({
-            questionNum: sectionStartNum + blankIndex,
-            fullMatch: match[0],
-            index: match.index,
-          });
-          blankIndex++;
-        }
-      }
-
-      blanks = blankMatches.sort((a, b) => a.questionNum - b.questionNum);
-    }
-
-    const renderInlineWithInputs = (html, lineKeyPrefix, firstNumberInPassage) => {
-      if (!html) return [];
-
-      const elements = [];
-      let lastIndex = 0;
-      const regex = /\((\d+)\)|\[(\d+)\]/g;
-      let match;
-      let matchedAnyNumber = false;
-
-      while ((match = regex.exec(html)) !== null) {
-        matchedAnyNumber = true;
-        const questionNumber = parseInt(match[1] || match[2]);
-        const blankIndex = questionNumber - firstNumberInPassage;
-
-        if (blankIndex >= 0 && blankIndex < blanks.length) {
-          if (match.index > lastIndex) {
-            elements.push(
-              <span
-                key={`${lineKeyPrefix}-text-${lastIndex}`}
-                dangerouslySetInnerHTML={{ __html: html.substring(lastIndex, match.index) }}
-              />
-            );
-          }
-
-          const questionKey = `${currentPartIndex}-${secIdx}-${qIdx}-${blankIndex}`;
-          const userAnswer = answers[questionKey] || '';
-
-          elements.push(
-            <input
-              key={`${lineKeyPrefix}-input-${questionNumber}`}
-              id={`question-${questionNumber}`}
-              type="text"
-              value={userAnswer}
-              onChange={(e) => handleAnswerChange(questionKey, e.target.value)}
-              disabled={submitted}
-              placeholder={`(${questionNumber})`}
-              style={{
-                display: 'inline-block',
-                margin: '0 4px',
-                padding: '6px 10px',
-                fontSize: '15px',
-                fontWeight: '600',
-                border: `2px solid ${isDarkMode ? '#4f6db6' : '#0284c7'}`,
-                borderRadius: '4px',
-                backgroundColor: isDarkMode ? (userAnswer ? '#1e3a5f' : '#1f2b47') : (userAnswer ? '#f0f9ff' : 'white'),
-                color: isDarkMode ? '#e5e7eb' : '#0e7490',
-                width: 'clamp(120px, 48vw, 150px)',
-                textAlign: 'center',
-                scrollMarginTop: '100px',
-              }}
-            />
-          );
-
-          lastIndex = match.index + match[0].length;
-        }
-      }
-
-      if (!matchedAnyNumber) {
-        const underscorePattern = /[_\u2026]{3,}/g;
-        let blankIndex = 0;
-        lastIndex = 0;
-        let um;
-
-        while ((um = underscorePattern.exec(html)) !== null) {
-          if (um.index > lastIndex) {
-            elements.push(
-              <span
-                key={`${lineKeyPrefix}-text-${lastIndex}`}
-                dangerouslySetInnerHTML={{ __html: html.substring(lastIndex, um.index) }}
-              />
-            );
-          }
-
-          if (blankIndex < blanks.length) {
-            const questionNumber = sectionStartNum + blankIndex;
-            const questionKey = `${currentPartIndex}-${secIdx}-${qIdx}-${blankIndex}`;
-            const userAnswer = answers[questionKey] || '';
-
-            elements.push(
-              <input
-                key={`${lineKeyPrefix}-input-${questionNumber}`}
-                id={`question-${questionNumber}`}
-                type="text"
-                value={userAnswer}
-                onChange={(e) => handleAnswerChange(questionKey, e.target.value)}
-                disabled={submitted}
-                placeholder={`(${questionNumber})`}
-                style={{
-                  display: 'inline-block',
-                  margin: '0 4px',
-                  padding: '6px 10px',
-                  fontSize: '15px',
-                  fontWeight: '600',
-                  border: `2px solid ${isDarkMode ? '#4f6db6' : '#0284c7'}`,
-                  borderRadius: '4px',
-                  backgroundColor: isDarkMode ? (userAnswer ? '#1e3a5f' : '#1f2b47') : (userAnswer ? '#f0f9ff' : 'white'),
-                  color: isDarkMode ? '#e5e7eb' : '#0e7490',
-                  width: 'clamp(120px, 48vw, 150px)',
-                  textAlign: 'center',
-                  scrollMarginTop: '100px',
-                }}
-              />
-            );
-            blankIndex++;
-          }
-
-          lastIndex = um.index + um[0].length;
-        }
-      }
-
-      if (lastIndex < html.length) {
-        elements.push(
-          <span
-            key={`${lineKeyPrefix}-text-${lastIndex}`}
-            dangerouslySetInnerHTML={{ __html: html.substring(lastIndex) }}
-          />
-        );
-      }
-
-      return elements;
-    };
-
-    const renderPassageWithInputs = () => {
-      if (!normalizedPassageText) return null;
-
-      const listContainer = document.createElement('div');
-      listContainer.innerHTML = passageText;
-      const listItems = Array.from(listContainer.querySelectorAll('li'));
-
-      const regex = /\((\d+)\)|\[(\d+)\]/g;
-      const firstNumberMatch = regex.exec(normalizedPassageText);
-      const firstNumberInPassage = firstNumberMatch
-        ? parseInt(firstNumberMatch[1] || firstNumberMatch[2])
-        : sectionStartNum;
-      regex.lastIndex = 0;
-
-      if (listItems.length > 0) {
-        return (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            {listItems.map((li, idx) => (
-              <div
-                key={`cloze-line-${idx}`}
-                style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '6px' }}
-              >
-                {renderInlineWithInputs(li.innerHTML, `line-${idx}`, firstNumberInPassage)}
-              </div>
-            ))}
-          </div>
-        );
-      }
-
-      return renderInlineWithInputs(normalizedPassageText, 'inline', firstNumberInPassage);
-    };
-
-    const sectionKey = `${currentPartIndex}-${secIdx}-${qIdx}`;
+  const renderFillExample = (section, sectionStartNum) => {
+    const exampleItem = section?.exampleItem;
+    const exampleText = String(exampleItem?.questionText || "").trim();
+    const exampleAnswer = String(exampleItem?.correctAnswer || "").trim();
+    if (!exampleText && !exampleAnswer) return null;
 
     return (
-      <div className={`cambridge-question-wrapper ${flaggedQuestions.has(sectionKey) ? 'flagged-section' : ''}`} style={{ position: 'relative' }}>
-        <button
-          className={`cambridge-flag-button ${flaggedQuestions.has(sectionKey) ? 'flagged' : ''}`}
-          onClick={() => toggleFlag(sectionKey)}
-          aria-label="Flag question"
-          style={{ position: 'absolute', top: 0, right: 0 }}
-        >
-          {flaggedQuestions.has(sectionKey) ? '🚩' : '⚐'}
-        </button>
-
-        {passageTitle ? (
-          <h3
+      <div
+        style={{
+          background: isDarkMode ? '#0f172a' : '#f8fafc',
+          border: `2px dashed ${isDarkMode ? '#334155' : '#94a3b8'}`,
+          borderRadius: '16px',
+          padding: '14px 20px',
+          marginBottom: '12px',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', marginBottom: '12px' }}>
+          <span style={{
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            minWidth: '36px', height: '36px', borderRadius: '50%',
+            background: isDarkMode ? '#1e293b' : '#e2e8f0',
+            color: isDarkMode ? '#94a3b8' : '#475569',
+            fontWeight: 800, fontSize: '13px', flexShrink: 0,
+          }}>Ex</span>
+          <div style={{
+            fontSize: '20px', lineHeight: 1.5, fontWeight: 600,
+            color: isDarkMode ? '#94a3b8' : '#64748b', paddingTop: '4px',
+          }}>
+            {exampleText || `Example before question ${sectionStartNum}`}
+            <span style={{ marginLeft: '8px', fontSize: '13px', opacity: 0.6, fontWeight: 400 }}>(example)</span>
+          </div>
+        </div>
+        {/* Ô đáp án mẫu — đọc only, màu xanh */}
+        <div style={{ position: 'relative' }}>
+          <span style={{
+            position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)',
+            fontSize: '18px', pointerEvents: 'none', opacity: 0.45,
+          }}>✏️</span>
+          <input
+            type="text"
+            value={exampleAnswer}
+            readOnly
+            disabled
             style={{
-              marginBottom: '16px',
-              fontSize: '18px',
-              fontWeight: 600,
-              color: isDarkMode ? '#e5e7eb' : '#0c4a6e',
+              width: '100%', boxSizing: 'border-box',
+              padding: '12px 16px 12px 44px',
+              border: `2.5px solid ${isDarkMode ? '#4f6db6' : '#93c5fd'}`,
+              borderRadius: '12px',
+              fontSize: '20px', fontWeight: 700,
+              background: isDarkMode ? '#1e3a5f' : '#eff6ff',
+              color: isDarkMode ? '#e5e7eb' : '#1d4ed8',
+              outline: 'none',
             }}
-            dangerouslySetInnerHTML={{ __html: passageTitle }}
           />
-        ) : null}
-
-        <div
-          className="cambridge-passage-content"
-          style={{
-            padding: '20px',
-            backgroundColor: isDarkMode ? '#111827' : '#f0f9ff',
-            border: `2px solid ${isDarkMode ? '#2a3350' : '#0284c7'}`,
-            borderRadius: '12px',
-            fontSize: '15px',
-            lineHeight: 2,
-          }}
-        >
-          {renderPassageWithInputs()}
         </div>
       </div>
     );
   };
 
-  const renderGapMatchSection = (section, secIdx, sectionStartNum) => {
-    const qIdx = 0;
-    const container = section.questions[0] || {};
-    const leftTitle = container.leftTitle || 'People';
-    const rightTitle = container.rightTitle || 'Options';
-    const leftItems = Array.isArray(container.leftItems) ? container.leftItems : [];
-    const options = Array.isArray(container.options) ? container.options : [];
-    const correctAnswers = Array.isArray(container.correctAnswers) ? container.correctAnswers : [];
-
-    const usedMap = {};
-    leftItems.forEach((_, idx) => {
-      const key = `${currentPartIndex}-${secIdx}-${qIdx}-${idx}`;
-      const val = answers[key];
-      if (val) usedMap[val] = key;
-    });
-
-    const setGapAnswer = (key, value) => {
-      setAnswers((prev) => {
-        const next = { ...prev, [key]: value };
-        if (value && usedMap[value] && usedMap[value] !== key) {
-          next[usedMap[value]] = '';
-        }
-        return next;
+  // ── MOVERS Part 3: Letter Matching renderer ──────────────────────────────
+  // ── Letter Matching drop handler (shared by left panel people rows) ──────
+  const handleLetterMatchingDrop = (e, targetKey, questionPeople, secIdx) => {
+    e.preventDefault();
+    e.currentTarget.style.borderColor = '';
+    e.currentTarget.style.background = '';
+    if (submitted) return;
+    const letter = e.dataTransfer.getData('text/plain');
+    if (!letter) return;
+    setAnswers((prev) => {
+      const next = { ...prev };
+      questionPeople.forEach((_, pi) => {
+        const k = `${currentPartIndex}-${secIdx}-0-${pi + 1}`;
+        if (next[k] === letter) next[k] = '';
       });
+      next[targetKey] = letter;
+      return next;
+    });
+  };
+
+  // ── MOVERS Part 3: Full single-panel Letter Matching (people + tiles) ────
+  const renderLetterMatchingSectionFull = (section, secIdx, sectionStartNum) => {
+    const q = section.questions?.[0];
+    if (!q) return null;
+    const qIdx = 0;
+    const options = Array.isArray(q.options) ? q.options : [];
+    const people = Array.isArray(q.people) ? q.people : [];
+    const examplePerson = people[0];
+    const questionPeople = people.slice(1).filter((p) => String(p?.name || '').trim());
+    const partStart = sectionStartNum;
+
+    const placedLetters = new Set(
+      questionPeople
+        .map((_, i) => answers[`${currentPartIndex}-${secIdx}-${qIdx}-${i + 1}`])
+        .filter(Boolean)
+    );
+
+    const handleDragStart = (e, letter) => {
+      e.dataTransfer.setData('text/plain', letter);
+      e.dataTransfer.effectAllowed = 'move';
     };
 
     return (
-      <div className="cambridge-question-wrapper" >
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-          <div style={{ border: `1px solid ${isDarkMode ? '#2a3350' : '#bae6fd'}`, background: isDarkMode ? '#0f172a' : '#f0f9ff', borderRadius: '10px', padding: '12px' }}>
-            <div style={{ fontWeight: 700, color: isDarkMode ? '#e5e7eb' : '#0e276f', marginBottom: '8px' }}>{leftTitle}</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              {leftItems.map((item, idx) => {
-                const key = `${currentPartIndex}-${secIdx}-${qIdx}-${idx}`;
-                const num = sectionStartNum + idx;
-                const userAnswer = answers[key] || '';
-                const correct = correctAnswers?.[idx];
-                const isCorrect = submitted && String(userAnswer || '').trim() === String(correct || '').trim();
+      <div>
+        {/* Context instruction */}
+        {q.questionText && (
+          <div style={{
+            fontSize: '13px', color: isDarkMode ? '#94a3b8' : '#6b7280',
+            fontStyle: 'italic', marginBottom: '12px', lineHeight: 1.5,
+            padding: '8px 12px',
+            background: isDarkMode ? '#1e293b' : '#fafafa',
+            borderRadius: '9px',
+            border: `1px solid ${isDarkMode ? '#334155' : '#e5e7eb'}`,
+          }}>
+            {q.questionText}
+          </div>
+        )}
 
+        {/* Two-column: people+dropzones left | draggable tiles right */}
+        <div style={{ display: 'flex', gap: '20px', alignItems: 'flex-start', flexWrap: 'wrap' }}>
+
+          {/* ── Left: people rows with drop zones ── */}
+          <div style={{ flex: '1 1 260px', minWidth: 0 }}>
+            {/* Example row */}
+            {examplePerson && String(examplePerson.name || '').trim() && (() => {
+              const exOpt = options.find((o) => o.letter === examplePerson.correctAnswer);
+              return (
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: '8px',
+                  padding: '6px 10px', marginBottom: '6px',
+                  background: isDarkMode ? '#0f172a' : '#f8fafc',
+                  border: `2px dashed ${isDarkMode ? '#334155' : '#94a3b8'}`,
+                  borderRadius: '11px',
+                }}>
+                  <span style={{
+                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                    minWidth: '28px', height: '28px', borderRadius: '50%',
+                    background: isDarkMode ? '#1e293b' : '#e2e8f0',
+                    color: isDarkMode ? '#94a3b8' : '#475569',
+                    fontWeight: 800, fontSize: '11px', flexShrink: 0,
+                  }}>Ex</span>
+                  {examplePerson.photoUrl && (
+                    <img src={resolveImgSrc(examplePerson.photoUrl)} alt="" draggable={false}
+                      style={{ width: '40px', height: '40px', borderRadius: '8px', objectFit: 'cover', flexShrink: 0 }} />
+                  )}
+                  <span style={{ flex: 1, fontWeight: 700, fontSize: '15px', color: isDarkMode ? '#94a3b8' : '#64748b', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {examplePerson.name}
+                  </span>
+                  <div style={{
+                    width: '56px', height: '56px', borderRadius: '9px',
+                    border: `3px solid ${isDarkMode ? '#4f6db6' : '#93c5fd'}`,
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                    background: isDarkMode ? '#1e3a5f' : '#eff6ff', overflow: 'hidden', flexShrink: 0,
+                  }}>
+                    {exOpt?.imageUrl && (
+                      <img src={resolveImgSrc(exOpt.imageUrl)} alt="" draggable={false}
+                        style={{ width: '100%', height: '40px', objectFit: 'contain' }} />
+                    )}
+                    <span style={{ fontWeight: 900, fontSize: '13px', color: isDarkMode ? '#93c5fd' : '#1d4ed8' }}>
+                      {examplePerson.correctAnswer}
+                    </span>
+                  </div>
+                  <span style={{ fontSize: '10px', color: isDarkMode ? '#475569' : '#94a3b8', flexShrink: 0 }}>(ex)</span>
+                </div>
+              );
+            })()}
+
+            {/* Question people rows */}
+            {questionPeople.map((person, i) => {
+              const personIdx = i + 1;
+              const key = `${currentPartIndex}-${secIdx}-${qIdx}-${personIdx}`;
+              const userAnswer = answers[key] || '';
+              const isCorrect = submitted && results?.answers?.[key]?.isCorrect;
+              const isActive = activeQuestion === key;
+              const placedOpt = userAnswer ? options.find((o) => o.letter === userAnswer) : null;
+              const rowBorder = submitted
+                ? (isCorrect ? '#22c55e' : '#ef4444')
+                : isActive ? '#8b5cf6' : userAnswer ? '#8b5cf6'
+                : isDarkMode ? '#334155' : '#e2e8f0';
+              const dzBorder = submitted
+                ? (isCorrect ? '#22c55e' : '#ef4444')
+                : userAnswer ? '#8b5cf6' : (isDarkMode ? '#475569' : '#c4b5fd');
+
+              return (
+                <div
+                  key={personIdx}
+                  id={`question-${partStart + i}`}
+                  ref={(el) => { questionRefs.current[key] = el; }}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: '8px',
+                    padding: '6px 10px', marginBottom: '5px',
+                    background: isDarkMode ? (isActive ? '#1e293b' : '#111827') : (isActive ? '#faf5ff' : '#fff'),
+                    border: `2px solid ${rowBorder}`,
+                    borderRadius: '11px',
+                    transition: 'border-color 0.2s, box-shadow 0.2s',
+                    boxShadow: isActive ? `0 0 0 3px ${isDarkMode ? '#7c3aed30' : '#8b5cf630'}` : 'none',
+                  }}
+                >
+                  <span style={{
+                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                    minWidth: '28px', height: '28px', borderRadius: '50%',
+                    background: submitted ? (isCorrect ? '#22c55e' : '#ef4444') : '#8b5cf6',
+                    color: '#fff', fontWeight: 800, fontSize: '13px', flexShrink: 0,
+                  }}>
+                    {submitted ? (isCorrect ? '✓' : '✗') : partStart + i}
+                  </span>
+                  {person.photoUrl && (
+                    <img src={resolveImgSrc(person.photoUrl)} alt="" draggable={false}
+                      style={{ width: '44px', height: '44px', borderRadius: '8px', objectFit: 'cover', flexShrink: 0 }} />
+                  )}
+                  <span style={{ flex: 1, fontWeight: 700, fontSize: '16px', color: isDarkMode ? '#e2e8f0' : '#1e293b', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {person.name}
+                  </span>
+                  {/* Drop zone with release button */}
+                  <div style={{ position: 'relative', flexShrink: 0 }}>
+                    {userAnswer && !submitted && (
+                      <button
+                        type="button"
+                        title="Bỏ chọn"
+                        onClick={() => setAnswers((prev) => ({ ...prev, [key]: '' }))}
+                        style={{
+                          position: 'absolute', top: '-9px', right: '-9px',
+                          width: '22px', height: '22px', borderRadius: '50%',
+                          background: '#ef4444', color: '#fff', border: '2px solid white',
+                          cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          fontSize: '11px', fontWeight: 900, lineHeight: 1,
+                          boxShadow: '0 1px 5px rgba(239,68,68,0.5)',
+                          zIndex: 20, padding: 0,
+                        }}
+                      >✕</button>
+                    )}
+                    <div
+                      onDragOver={(e) => { e.preventDefault(); if (!submitted) { e.currentTarget.style.borderColor = '#8b5cf6'; e.currentTarget.style.background = isDarkMode ? '#2d1b69' : '#ede9fe'; } }}
+                      onDragLeave={(e) => { e.currentTarget.style.borderColor = ''; e.currentTarget.style.background = ''; }}
+                      onDrop={(e) => handleLetterMatchingDrop(e, key, questionPeople, secIdx)}
+                      style={{
+                        width: '70px', minWidth: '70px', height: '70px',
+                        border: `3px ${userAnswer ? 'solid' : 'dashed'} ${dzBorder}`,
+                        borderRadius: '10px',
+                        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '2px',
+                        background: userAnswer
+                          ? (submitted ? (isCorrect ? (isDarkMode ? '#14532d' : '#dcfce7') : (isDarkMode ? '#450a0a' : '#fee2e2')) : (isDarkMode ? '#2d1b69' : '#f5f3ff'))
+                          : (isDarkMode ? '#111827' : '#f8fafc'),
+                        cursor: submitted ? 'default' : 'copy',
+                        overflow: 'hidden',
+                        transition: 'border-color 0.15s, background 0.15s',
+                      }}
+                    >
+                      {userAnswer ? (
+                        <>
+                          {placedOpt?.imageUrl && (
+                            <img src={resolveImgSrc(placedOpt.imageUrl)} alt="" draggable={false}
+                              style={{ width: '100%', height: '52px', objectFit: 'contain', pointerEvents: 'none' }} />
+                          )}
+                          <span style={{ fontWeight: 900, fontSize: '14px', color: submitted ? (isCorrect ? '#16a34a' : '#dc2626') : '#7c3aed' }}>
+                            {userAnswer}
+                          </span>
+                        </>
+                      ) : (
+                        <span style={{ fontSize: '22px', color: isDarkMode ? '#4b5563' : '#d1d5db', pointerEvents: 'none' }}>?</span>
+                      )}
+                    </div>
+                  </div>
+                  {submitted && !isCorrect && (
+                    <span style={{ fontSize: '12px', fontWeight: 900, flexShrink: 0, color: '#22c55e' }}>
+                      → {results?.answers?.[key]?.correctAnswer || ''}
+                    </span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* ── Right: draggable option tiles (2 columns, horizontal badge+image) ── */}
+          <div style={{ flexShrink: 0, width: '260px' }}>
+            <div style={{
+              textAlign: 'center', marginBottom: '10px',
+              fontSize: '14px', fontWeight: 800,
+              color: isDarkMode ? '#a5b4fc' : '#7c3aed',
+            }}>
+              🖐️ Kéo hình → ô bên trái
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px' }}>
+              {options.map((opt, tileIdx) => {
+                const isPlaced = placedLetters.has(opt.letter);
                 return (
                   <div
-                    key={key}
-                    ref={(el) => (questionRefs.current[key] = el)}
-                    className={`cambridge-question-wrapper ${userAnswer ? 'answered' : ''} ${activeQuestion === key ? 'active-question' : ''}`}
-                    style={{ padding: '10px', borderRadius: '8px', border: `1px solid ${isDarkMode ? '#2a3350' : '#dbeafe'}`, background: isDarkMode ? '#111827' : '#fff' }}
+                    key={opt.letter}
+                    draggable={!submitted}
+                    onDragStart={(e) => handleDragStart(e, opt.letter)}
+                    className={`lm-tile${isPlaced ? '' : ' lm-tile-idle'}`}
+                    style={{
+                      '--tile-delay': `${tileIdx * 50}ms`,
+                      display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '8px',
+                      padding: '8px 10px',
+                      border: `3px solid ${isPlaced ? (isDarkMode ? '#312e81' : '#bfdbfe') : (isDarkMode ? '#4f46e5' : '#a5b4fc')}`,
+                      borderRadius: '14px',
+                      background: isPlaced ? (isDarkMode ? '#0f172a' : '#eff6ff') : (isDarkMode ? '#1e1b4b' : '#f5f3ff'),
+                      opacity: isPlaced ? 0.38 : 1,
+                      cursor: submitted ? 'default' : 'grab',
+                      transition: 'opacity 0.25s, border-color 0.2s, transform 0.15s, box-shadow 0.2s',
+                      userSelect: 'none', WebkitUserSelect: 'none',
+                      boxShadow: isPlaced ? 'none' : `0 3px 10px ${isDarkMode ? 'rgba(99,102,241,0.22)' : 'rgba(139,92,246,0.2)'}`,
+                    }}
                   >
-                    <button
-                      className={`cambridge-flag-button ${flaggedQuestions.has(key) ? 'flagged' : ''}`}
-                      onClick={() => toggleFlag(key)}
-                      aria-label="Flag question"
-                      type="button"
-                    >
-                      {flaggedQuestions.has(key) ? '🚩' : '⚐'}
-                    </button>
-
-                    <div style={{ display: 'grid', gridTemplateColumns: '56px 1fr', gap: '10px', alignItems: 'center' }}>
-                      <span className="cambridge-question-number">{num}</span>
-                      <div>
-                        <div style={{ fontWeight: 600, color: isDarkMode ? '#e5e7eb' : '#1f2937', marginBottom: 8 }}>{item || `Item ${idx + 1}`}</div>
-                        <div
-                          role="button"
-                          tabIndex={0}
-                          onDragOver={(e) => e.preventDefault()}
-                          onDrop={(e) => {
-                            if (submitted) return;
-                            const value = e.dataTransfer.getData('text/plain');
-                            if (value) setGapAnswer(key, value);
-                          }}
-                          onClick={() => {
-                            if (submitted) return;
-                            if (userAnswer) setGapAnswer(key, '');
-                          }}
-                          style={{
-                            minHeight: 36,
-                            border: '2px dashed #93c5fd',
-                            borderRadius: 8,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            padding: '6px 10px',
-                            fontWeight: 700,
-                            color: userAnswer ? (isDarkMode ? '#e5e7eb' : '#0f172a') : '#94a3b8',
-                            background: userAnswer ? (isDarkMode ? '#1e3a5f' : '#e0f2fe') : (isDarkMode ? '#1f2b47' : '#f8fafc'),
-                            cursor: submitted ? 'default' : 'pointer',
-                            ...(submitted
-                              ? {
-                                  borderColor: isCorrect ? '#22c55e' : '#ef4444',
-                                  background: isCorrect ? (isDarkMode ? '#0f2a1a' : '#dcfce7') : (isDarkMode ? '#2a1515' : '#fee2e2'),
-                                  color: isDarkMode ? '#e5e7eb' : '#0f172a',
-                                }
-                              : null),
-                          }}
-                        >
-                          {userAnswer || `Drop ${num}`}
+                    {/* Letter badge left */}
+                    <div style={{
+                      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                      width: '34px', height: '34px', borderRadius: '8px', flexShrink: 0,
+                      background: isPlaced ? '#64748b' : '#4f46e5',
+                      color: '#fff', fontWeight: 900, fontSize: '18px',
+                      boxShadow: isPlaced ? 'none' : '0 2px 5px rgba(79,70,229,0.4)',
+                    }}>
+                      {opt.letter}
+                    </div>
+                    {/* Image right */}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      {opt.imageUrl ? (
+                        <img
+                          src={resolveImgSrc(opt.imageUrl)}
+                          alt={opt.letter}
+                          draggable={false}
+                          style={{ width: '100%', height: '100px', objectFit: 'cover', borderRadius: '8px', pointerEvents: 'none', display: 'block' }}
+                          onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                        />
+                      ) : (
+                        <div style={{
+                          height: '100px', width: '100%', borderRadius: '8px',
+                          background: isDarkMode ? '#1e1b4b' : '#ede9fe',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          color: isDarkMode ? '#a5b4fc' : '#7c3aed', fontSize: '13px', fontWeight: 700,
+                        }}>
+                          {opt.description || opt.letter}
                         </div>
-                        {submitted && correct && !isCorrect && (
-                          <div style={styles.correctAnswer}>✓ Đáp án đúng: {correct}</div>
-                        )}
-                      </div>
+                      )}
+                      {opt.description && opt.imageUrl && (
+                        <div style={{ fontSize: '11px', color: isDarkMode ? '#94a3b8' : '#6b7280', marginTop: '4px', fontWeight: 600, textAlign: 'center', pointerEvents: 'none' }}>
+                          {opt.description}
+                        </div>
+                      )}
                     </div>
                   </div>
                 );
@@ -1064,41 +2239,171 @@ const DoCambridgeListeningTest = () => {
             </div>
           </div>
 
-          <div style={{ border: `1px solid ${isDarkMode ? '#2a3350' : '#e5e7eb'}`, background: isDarkMode ? '#0f172a' : '#fff', borderRadius: '10px', padding: '12px' }}>
-            <div style={{ fontWeight: 700, color: isDarkMode ? '#e5e7eb' : '#0e276f', marginBottom: '8px' }}>{rightTitle}</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              {options.map((opt) => {
-                const usedBy = usedMap[opt];
-                const isUsed = Boolean(usedBy);
-                return (
-                  <div
-                    key={opt}
-                    draggable={!submitted && !isUsed}
-                    onDragStart={(e) => {
-                      if (submitted || isUsed) return;
-                      e.dataTransfer.setData('text/plain', opt);
-                    }}
-                    style={{
-                      padding: '10px 12px',
-                      borderRadius: '8px',
-                      border: `1px solid ${isDarkMode ? '#2a3350' : '#e5e7eb'}`,
-                      background: isUsed ? (isDarkMode ? '#1f2b47' : '#f1f5f9') : (isDarkMode ? '#111827' : '#fafafa'),
-                      opacity: isUsed ? 0.45 : 1,
-                      cursor: submitted || isUsed ? 'default' : 'grab',
-                      fontWeight: 600,
-                      color: isDarkMode ? '#e5e7eb' : undefined,
-                    }}
-                  >
-                    {opt}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
         </div>
       </div>
     );
   };
+
+  const renderLetterMatchingSection = (section, secIdx) => {
+    const q = section.questions?.[0];
+    if (!q) return null;
+    const qIdx = 0;
+    const options = Array.isArray(q.options) ? q.options : [];
+    const people = Array.isArray(q.people) ? q.people : [];
+    const questionPeople = people.slice(1).filter((p) => String(p?.name || '').trim());
+    const exampleLetter = people[0]?.correctAnswer;
+
+    const placedLetters = new Set(
+      questionPeople
+        .map((_, i) => answers[`${currentPartIndex}-${secIdx}-${qIdx}-${i + 1}`])
+        .filter(Boolean)
+    );
+
+    const handleDragStart = (e, letter) => {
+      e.dataTransfer.setData('text/plain', letter);
+      e.dataTransfer.effectAllowed = 'move';
+    };
+
+    return (
+      <div>
+        {/* Instruction */}
+        <div style={{
+          textAlign: 'center', paddingBottom: '16px',
+          fontSize: '15px', fontWeight: 800,
+          color: isDarkMode ? '#a5b4fc' : '#7c3aed',
+          letterSpacing: '0.04em',
+        }}>
+          🖐️ Kéo hình → ô bên trái
+        </div>
+
+        {/* Draggable option tiles 2 columns – letter badge LEFT, image fills rest */}
+        {options.length > 0 && (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '14px' }}>
+            {options.map((opt, tileIdx) => {
+              const isPlaced = placedLetters.has(opt.letter);
+              const isExample = opt.letter === exampleLetter;
+              return (
+                <div
+                  key={opt.letter}
+                  draggable={!submitted && !isExample}
+                  onDragStart={(e) => !isExample && handleDragStart(e, opt.letter)}
+                  className={`lm-tile${(isPlaced || isExample) ? '' : ' lm-tile-idle'}`}
+                  style={{
+                    '--tile-delay': `${tileIdx * 60}ms`,
+                    display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '10px',
+                    padding: '10px 12px',
+                    border: `3px solid ${isExample
+                      ? (isDarkMode ? '#475569' : '#94a3b8')
+                      : isPlaced
+                        ? (isDarkMode ? '#312e81' : '#bfdbfe')
+                        : (isDarkMode ? '#4f46e5' : '#a5b4fc')}`,
+                    borderRadius: '16px',
+                    background: isExample
+                      ? (isDarkMode ? '#0f172a' : '#f8fafc')
+                      : isPlaced
+                        ? (isDarkMode ? '#0f172a' : '#eff6ff')
+                        : (isDarkMode ? '#1e1b4b' : '#f5f3ff'),
+                    opacity: (isPlaced || isExample) ? 0.45 : 1,
+                    cursor: (submitted || isExample) ? 'default' : 'grab',
+                    position: 'relative',
+                    transition: 'opacity 0.25s, border-color 0.2s, transform 0.15s, box-shadow 0.2s',
+                    userSelect: 'none', WebkitUserSelect: 'none',
+                    boxShadow: isPlaced ? 'none' : `0 3px 12px ${isDarkMode ? 'rgba(99,102,241,0.25)' : 'rgba(139,92,246,0.22)'}`,
+                  }}
+                >
+                  {/* Letter badge – left side */}
+                  <div style={{
+                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                    width: '38px', height: '38px', borderRadius: '10px', flexShrink: 0,
+                    background: isExample ? '#94a3b8' : isPlaced ? '#64748b' : '#4f46e5',
+                    color: '#fff', fontWeight: 900, fontSize: '20px',
+                    boxShadow: (isPlaced || isExample) ? 'none' : '0 2px 6px rgba(79,70,229,0.45)',
+                  }}>
+                    {opt.letter}
+                  </div>
+                  {/* Activity image – right side, fills remaining space */}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    {opt.imageUrl ? (
+                      <img
+                        src={resolveImgSrc(opt.imageUrl)}
+                        alt={opt.letter}
+                        draggable={false}
+                        style={{ width: '100%', height: '150px', objectFit: 'cover', borderRadius: '10px', pointerEvents: 'none', display: 'block' }}
+                        onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                      />
+                    ) : (
+                      <div style={{
+                        height: '150px', width: '100%', borderRadius: '10px',
+                        background: isDarkMode ? '#1e1b4b' : '#ede9fe',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        color: isDarkMode ? '#a5b4fc' : '#7c3aed', fontSize: '14px', fontWeight: 700,
+                      }}>
+                        {opt.description || opt.letter}
+                      </div>
+                    )}
+                    {opt.description && opt.imageUrl && (
+                      <div style={{ fontSize: '12px', color: isDarkMode ? '#94a3b8' : '#6b7280', marginTop: '5px', pointerEvents: 'none', fontWeight: 600, textAlign: 'center' }}>
+                        {opt.description}
+                      </div>
+                    )}
+                  </div>
+                  {/* "Ex" badge overlay for example tile */}
+                  {isExample && (
+                    <div style={{
+                      position: 'absolute', top: '-8px', right: '-8px',
+                      background: '#64748b', color: '#fff',
+                      fontSize: '11px', fontWeight: 900,
+                      padding: '2px 7px', borderRadius: '20px',
+                      border: '2px solid #fff',
+                      pointerEvents: 'none',
+                    }}>Ex</div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  // ── Part 4: "Listen and tick (✓) the box" – image multiple choice ────────
+  const renderImageTickSection = (section, secIdx, sectionStartNum) => (
+    <ImageTickSlideSection
+      questions={Array.isArray(section.questions) ? section.questions : []}
+      exampleItem={section.exampleItem || null}
+      secIdx={secIdx}
+      sectionStartNum={sectionStartNum}
+      answers={answers}
+      submitted={submitted}
+      results={results}
+      isDarkMode={isDarkMode}
+      handleAnswerChange={handleAnswerChange}
+      currentPartIndex={currentPartIndex}
+      questionRefs={questionRefs}
+      resolveImgSrc={resolveImgSrc}
+      activeQuestion={activeQuestion}
+      onSlideChange={(qi) => setActiveQuestion(`${currentPartIndex}-${secIdx}-${qi}`)}
+    />
+  );
+
+  // ── Part 5: Colour and Write (rendered by ColourWriteStudentSection above) ──
+  const renderColourWriteSection = (section, secIdx, sectionStartNum) => (
+    <ColourWriteStudentSection
+      questions={Array.isArray(section.questions) ? section.questions : []}
+      exampleItem={section.exampleItem || null}
+      sceneImageUrl={section.sceneImageUrl ? resolveImgSrc(section.sceneImageUrl) : ''}
+      secIdx={secIdx}
+      sectionStartNum={sectionStartNum}
+      answers={answers}
+      submitted={submitted}
+      results={results}
+      isDarkMode={isDarkMode}
+      handleAnswerChange={handleAnswerChange}
+      currentPartIndex={currentPartIndex}
+      questionRefs={questionRefs}
+    />
+  );
 
   // Handle checkbox change for multi-select
   /* eslint-disable-next-line no-unused-vars */
@@ -1164,6 +2469,13 @@ const DoCambridgeListeningTest = () => {
     setIsResizing(false);
   }, []);
 
+  // Part 3 letter-matching: 50/50 split mặc định
+  useEffect(() => {
+    if (!isSinglePanelPart && currentPartIndex === 2) {
+      setLeftWidth(50);
+    }
+  }, [currentPartIndex, isSinglePanelPart]);
+
   useEffect(() => {
     if (isResizing) {
       document.addEventListener('mousemove', handleMouseMove);
@@ -1193,7 +2505,14 @@ const DoCambridgeListeningTest = () => {
       if (val && typeof val === 'object') return Object.keys(val).length > 0;
       return String(val ?? '').trim() !== '';
     };
-    return list.reduce((acc, item) => (isAnswered(answers[item.key]) ? acc + 1 : acc), 0);
+    return list.reduce((acc, item) => {
+      if (isAnswered(answers[item.key])) return acc + 1;
+      // draw-lines sub-answers are stored as `key-nameIdx`; count the block as answered if any sub-answer exists
+      const hasSubAnswer = Object.keys(answers).some(
+        (k) => k.startsWith(`${item.key}-`) && isAnswered(answers[k])
+      );
+      return hasSubAnswer ? acc + 1 : acc;
+    }, 0);
   }, [questionIndex, answers]);
 
   const goToKeyIndex = useCallback(
@@ -1363,423 +2682,41 @@ const DoCambridgeListeningTest = () => {
   }, [questionIndex, test?.parts]);
 
   // Render question based on type
-  const renderQuestion = (question, questionKey, questionNum) => {
-    const qType = question.questionType || 'fill';
-    const userAnswer = answers[questionKey];
-    const isCorrect = submitted && results?.answers?.[questionKey]?.isCorrect;
-    const isActive = activeQuestion === questionKey;
-    const isAnswered = (() => {
-      if (Array.isArray(userAnswer)) return userAnswer.length > 0;
-      if (userAnswer && typeof userAnswer === 'object') return Object.keys(userAnswer).length > 0;
-      return String(userAnswer ?? '').trim() !== '';
-    })();
-
-    const wrapperClassName = `cambridge-question-wrapper ${isAnswered ? 'answered' : ''} ${isActive ? 'active-question' : ''}`;
-
-    switch (qType) {
-      case 'fill':
-        return (
-          <div className={wrapperClassName}>
-            <div style={styles.questionHeader}>
-              <span className="cambridge-question-number">{questionNum}</span>
-              <div className="cambridge-question-text">{question.questionText}</div>
-            </div>
-            <input
-              type="text"
-              value={userAnswer || ''}
-              onChange={(e) => handleAnswerChange(questionKey, e.target.value)}
-              disabled={submitted}
-              placeholder="Nhập đáp án..."
-              style={{
-                ...styles.input,
-                ...(submitted && {
-                  backgroundColor: isCorrect ? '#dcfce7' : '#fee2e2',
-                  borderColor: isCorrect ? '#22c55e' : '#ef4444',
-                }),
-              }}
-            />
-            {submitted && question.correctAnswer && (
-              <div style={styles.correctAnswer}>
-                ✓ Đáp án đúng: {question.correctAnswer}
-              </div>
-            )}
-          </div>
-        );
-
-      case 'abc':
-      case 'abcd':
-        const options = question.options || [];
-        return (
-          <div className={wrapperClassName}>
-            <div style={styles.questionHeader}>
-              <span className="cambridge-question-number">{questionNum}</span>
-              <div className="cambridge-question-text">{question.questionText}</div>
-            </div>
-            <div style={styles.optionsContainer}>
-              {options.map((opt, idx) => {
-                const optionLabel = String.fromCharCode(65 + idx);
-                const isSelected = userAnswer === optionLabel;
-                const isCorrectOption = submitted && question.correctAnswer === optionLabel;
-
-                return (
-                  <label
-                    key={idx}
-                    style={{
-                      ...styles.optionLabel,
-                      ...(isSelected && styles.optionSelected),
-                      ...(submitted && isCorrectOption && styles.optionCorrect),
-                      ...(submitted && isSelected && !isCorrectOption && styles.optionWrong),
-                    }}
-                  >
-                    <input
-                      type="radio"
-                      name={questionKey}
-                      checked={isSelected}
-                      onChange={() => handleAnswerChange(questionKey, optionLabel)}
-                      disabled={submitted}
-                      style={{ marginRight: '10px' }}
-                    />
-                    <span style={styles.optionBadge}>{optionLabel}</span>
-                    <span style={styles.optionText}>{opt}</span>
-                  </label>
-                );
-              })}
-            </div>
-          </div>
-        );
-
-      case 'multiple-choice-pictures':
-        const rawImageOptions = (() => {
-          if (Array.isArray(question.imageOptions) && question.imageOptions.length) return question.imageOptions;
-          if (Array.isArray(question.options) && question.options.length) return question.options;
-          if (Array.isArray(question.images) && question.images.length) return question.images;
-          return [];
-        })();
-
-        const imageOptions = rawImageOptions
-          .map((opt) => {
-            if (!opt) return {};
-            if (typeof opt === 'string') return { imageUrl: opt };
-            if (typeof opt === 'object') {
-              return {
-                ...opt,
-                imageUrl: opt.imageUrl || opt.image || opt.url || opt.src || opt.path,
-                label: opt.label || opt.text || opt.caption || opt.title,
-              };
-            }
-            return {};
-          });
-
-        return (
-          <div className={wrapperClassName} style={styles.pictureQuestionCard}>
-            <div style={styles.pictureQuestionHeader}>
-              <div
-                style={{
-                  ...styles.questionHeader,
-                  padding: 0,
-                  background: 'transparent',
-                  border: 'none',
-                  borderRadius: 0,
-                }}
-              >
-                <span className="cambridge-question-number">{questionNum}</span>
-                <div className="cambridge-question-text">{question.questionText}</div>
-              </div>
-
-              <button
-                type="button"
-                aria-label={`Flag question ${questionNum}`}
-                onClick={() => toggleFlag(questionKey)}
-                style={{
-                  ...styles.flagButton,
-                  ...(flaggedQuestions.has(questionKey) ? styles.flagButtonActive : null),
-                }}
-              >
-                {flaggedQuestions.has(questionKey) ? '⚑' : '⚐'}
-              </button>
-            </div>
-
-            <div style={styles.pictureChoicesRow} role="radiogroup" aria-label={`Question ${questionNum}`}> 
-              {[0, 1, 2].map((idx) => {
-                const optionLabel = String.fromCharCode(65 + idx); // A/B/C
-                const opt = imageOptions[idx] || {};
-                const isSelected = userAnswer === optionLabel;
-                const isCorrectOption = submitted && question.correctAnswer === optionLabel;
-
-                const imgSrc = opt.imageUrl ? resolveImgSrc(opt.imageUrl) : '';
-
-                return (
-                  <div key={idx} style={styles.pictureChoiceItem}>
-                    <label
-                      style={{
-                        ...styles.pictureChoiceLabelWrap,
-                        ...(isSelected ? styles.pictureChoiceSelected : null),
-                        ...(submitted && isCorrectOption ? styles.pictureChoiceCorrect : null),
-                        ...(submitted && isSelected && !isCorrectOption ? styles.pictureChoiceWrong : null),
-                      }}
-                    >
-                      <div
-                        style={{
-                          position: 'relative',
-                          width: styles.pictureChoiceImagePlaceholder.width,
-                          height: styles.pictureChoiceImagePlaceholder.height,
-                          overflow: 'hidden',
-                          borderRadius: '10px',
-                          border: `1px solid ${isDarkMode ? '#2a3350' : '#e5e7eb'}`,
-                          background: isDarkMode ? '#1f2b47' : '#f8fafc',
-                        }}
-                      >
-                        <div style={{ ...styles.pictureChoiceImagePlaceholder, width: '100%', height: '100%' }}>
-                          {imgSrc ? 'Loading…' : `No image (${optionLabel})`}
-                        </div>
-
-                        {imgSrc ? (
-                          <img
-                            src={imgSrc}
-                            alt=""
-                            style={{
-                              ...styles.pictureChoiceImage,
-                              position: 'absolute',
-                              left: 0,
-                              top: 0,
-                              width: '100%',
-                              height: '100%',
-                              objectFit: 'contain',
-                              background: '#ffffff',
-                            }}
-                            onLoad={(e) => {
-                              // If it loads, hide the placeholder text behind.
-                              // (We keep it in DOM to avoid layout shift.)
-                              e.currentTarget.style.background = 'transparent';
-                            }}
-                            onError={(e) => {
-                              const el = e.currentTarget;
-                              // If backend serves from /upload/cambridge but data has /uploads/cambridge (or vice-versa),
-                              // try the alternate once before giving up.
-                              if (el?.dataset?.fallbackTried !== '1') {
-                                const current = String(el.currentSrc || el.src || '');
-                                const swapped = current.includes('/uploads/')
-                                  ? current.replace('/uploads/', '/upload/')
-                                  : current.includes('/upload/')
-                                    ? current.replace('/upload/', '/uploads/')
-                                    : '';
-
-                                if (swapped && swapped !== current) {
-                                  el.dataset.fallbackTried = '1';
-                                  el.src = swapped;
-                                  return;
-                                }
-                              }
-
-                              // Keep the placeholder visible if the image fails.
-                              el.style.display = 'none';
-                            }}
-                          />
-                        ) : null}
-
-                        <div
-                          style={{
-                            position: 'absolute',
-                            left: '10px',
-                            top: '10px',
-                            width: '34px',
-                            height: '34px',
-                            borderRadius: '10px',
-                            background: '#0e276f',
-                            color: '#ffffff',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            fontWeight: 900,
-                            boxShadow: '0 8px 18px rgba(0,0,0,0.18)',
-                          }}
-                        >
-                          {optionLabel}
-                        </div>
-                      </div>
-
-                      <input
-                        type="radio"
-                        name={questionKey}
-                        value={optionLabel}
-                        checked={isSelected}
-                        onChange={() => handleAnswerChange(questionKey, optionLabel)}
-                        disabled={submitted}
-                        style={styles.pictureChoiceRadio}
-                        aria-label={`Option ${optionLabel}`}
-                      />
-
-                      {opt.label ? (
-                        <div style={{ fontSize: '13px', color: isDarkMode ? '#94a3b8' : '#475569', textAlign: 'center' }}>{opt.label}</div>
-                      ) : null}
-                    </label>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        );
-
-      case 'matching':
-        const leftItems = question.leftItems || [];
-        const rightItems = question.rightItems || [];
-        return (
-          <div className={wrapperClassName}>
-            <div style={styles.questionHeader}>
-              <span className="cambridge-question-number">{questionNum}</span>
-              <div className="cambridge-question-text">{question.questionText || 'Match the items'}</div>
-            </div>
-            <div style={styles.matchingContainer}>
-              {leftItems.map((item, idx) => (
-                <div key={idx} style={styles.matchingRow}>
-                  <span style={styles.matchingItem}>{idx + 1}. {item}</span>
-                  <select
-                    value={answers[`${questionKey}-${idx}`] || ''}
-                    onChange={(e) => handleAnswerChange(`${questionKey}-${idx}`, e.target.value)}
-                    disabled={submitted}
-                    style={styles.matchingSelect}
-                  >
-                    <option value="">-- Chọn --</option>
-                    {rightItems.map((right, rIdx) => (
-                      <option key={rIdx} value={String.fromCharCode(65 + rIdx)}>
-                        {String.fromCharCode(65 + rIdx)}. {right}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              ))}
-            </div>
-            {/* Right items reference */}
-            <div style={styles.rightItemsRef}>
-              <strong>Options:</strong>
-              <div style={{ marginTop: '8px', display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                {rightItems.map((item, idx) => (
-                  <span key={idx} style={styles.rightItemBadge}>
-                    {String.fromCharCode(65 + idx)}. {item}
-                  </span>
-                ))}
-              </div>
-            </div>
-          </div>
-        );
-
-      default:
-        return (
-          <div className={wrapperClassName}>
-            <div style={styles.questionHeader}>
-              <span className="cambridge-question-number">{questionNum}</span>
-              <div className="cambridge-question-text">{question.questionText}</div>
-            </div>
-            <input
-              type="text"
-              value={userAnswer || ''}
-              onChange={(e) => handleAnswerChange(questionKey, e.target.value)}
-              disabled={submitted}
-              placeholder="Nhập đáp án..."
-              style={styles.input}
-            />
-          </div>
-        );
-    }
-  };
-
-  const renderCompactQuestion = (question, questionKey, questionNum) => {
-    const qType = question.questionType || 'fill';
-    const userAnswer = answers[questionKey];
-    const isCorrect = submitted && results?.answers?.[questionKey]?.isCorrect;
-    const isActive = activeQuestion === questionKey;
-    /* eslint-disable-next-line no-unused-vars */
-    const isAnswered = (() => {
-      if (Array.isArray(userAnswer)) return userAnswer.length > 0;
-      if (userAnswer && typeof userAnswer === 'object') return Object.keys(userAnswer).length > 0;
-      return String(userAnswer ?? '').trim() !== '';
-    })();
-
-    const options = Array.isArray(question.options) ? question.options : [];
-
-    return (
-      <div
-        key={questionKey}
-        ref={(el) => (questionRefs.current[questionKey] = el)}
-        style={{
-          padding: '12px 8px',
-          borderBottom: `1px solid ${isDarkMode ? '#2a3350' : '#e5e7eb'}`,
-          background: isActive ? (isDarkMode ? '#1f2b47' : '#f8fafc') : 'transparent',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
-          <span className="cambridge-question-number">{questionNum}</span>
-          <div style={{ flex: 1 }}>
-            <div className="cambridge-question-text" style={{ marginBottom: 8 }}>
-              {question.questionText}
-            </div>
-
-            {(qType === 'abc' || qType === 'abcd') && (
-              <div style={{ display: 'grid', gap: '8px' }}>
-                {options.map((opt, idx) => {
-                  const optionLabel = String.fromCharCode(65 + idx);
-                  const isSelected = userAnswer === optionLabel;
-                  const isCorrectOption = submitted && question.correctAnswer === optionLabel;
-
-                  return (
-                    <label
-                      key={idx}
-                      style={{
-                        ...styles.optionLabel,
-                        ...(isSelected && styles.optionSelected),
-                        ...(submitted && isCorrectOption && styles.optionCorrect),
-                        ...(submitted && isSelected && !isCorrectOption && styles.optionWrong),
-                        marginBottom: 0,
-                      }}
-                    >
-                      <input
-                        type="radio"
-                        name={questionKey}
-                        checked={isSelected}
-                        onChange={() => handleAnswerChange(questionKey, optionLabel)}
-                        disabled={submitted}
-                        style={{ marginRight: '10px' }}
-                      />
-                      <span style={styles.optionBadge}>{optionLabel}</span>
-                      <span style={styles.optionText}>{opt}</span>
-                    </label>
-                  );
-                })}
-              </div>
-            )}
-
-            {qType === 'fill' && (
-              <input
-                type="text"
-                value={userAnswer || ''}
-                onChange={(e) => handleAnswerChange(questionKey, e.target.value)}
-                disabled={submitted}
-                placeholder="Nhập đáp án..."
-                style={{
-                  ...styles.input,
-                  ...(submitted && {
-                    backgroundColor: isCorrect ? '#dcfce7' : '#fee2e2',
-                    borderColor: isCorrect ? '#22c55e' : '#ef4444',
-                  }),
-                }}
-              />
-            )}
-          </div>
-
-          <button
-            className={`cambridge-flag-button ${flaggedQuestions.has(questionKey) ? 'flagged' : ''}`}
-            onClick={() => toggleFlag(questionKey)}
-            aria-label="Flag question"
-            type="button"
-            style={{ marginTop: 2 }}
-          >
-            {flaggedQuestions.has(questionKey) ? '🚩' : '⚐'}
-          </button>
-        </div>
-      </div>
-    );
-  };
-
+  const renderQuestion = (question, questionKey, questionNum) => (
+    <CambridgeQuestionDisplay
+      question={question}
+      questionKey={questionKey}
+      questionNum={questionNum}
+      answers={answers}
+      submitted={submitted}
+      results={results}
+      activeQuestion={activeQuestion}
+      styles={styles}
+      handleAnswerChange={handleAnswerChange}
+      toggleFlag={toggleFlag}
+      flaggedQuestions={flaggedQuestions}
+      isDarkMode={isDarkMode}
+      currentPart={currentPart}
+      questionRefs={questionRefs}
+      resolveImgSrc={resolveImgSrc}
+      DrawLinesComponent={DrawLinesQuestion}
+    />
+  );
+  const renderCompactQuestion = (question, questionKey, questionNum) => (
+    <CompactCambridgeQuestionDisplay
+      question={question}
+      questionKey={questionKey}
+      questionNum={questionNum}
+      answers={answers}
+      submitted={submitted}
+      results={results}
+      activeQuestion={activeQuestion}
+      styles={styles}
+      handleAnswerChange={handleAnswerChange}
+      questionRefs={questionRefs}
+      isDarkMode={isDarkMode}
+    />
+  );
   // Loading state
   if (loading) {
     return (
@@ -1970,6 +2907,25 @@ const DoCambridgeListeningTest = () => {
         </div>
       )}
 
+      {/* Letter-matching instruction – sits above both panels */}
+      {!isSinglePanelPart && currentPart && (() => {
+        const isLetterMatchPart = currentPart?.sections?.some(
+          (s) => s?.questionType === 'letter-matching' || s?.questions?.[0]?.questionType === 'letter-matching'
+        );
+        if (!isLetterMatchPart) return null;
+        const range = getPartQuestionRange(currentPartIndex);
+        const instructionText = String(currentPart.instruction || '');
+        const hasQRange = /question(s)?\s*\d+/i.test(instructionText);
+        return (
+          <div className="cambridge-part-instruction" style={{ padding: '10px 20px', flexShrink: 0 }}>
+            {!hasQRange && <strong>Questions {range.start}–{range.end}</strong>}
+            <div style={{ marginTop: 6 }}>
+              {renderMaybeHtml(instructionText || 'For each question, choose the correct answer.')}
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Main Content */}
       <div className="cambridge-main-content" ref={containerRef} style={{ position: 'relative' }}>
         {isSinglePanelPart ? (
@@ -2047,6 +3003,28 @@ const DoCambridgeListeningTest = () => {
                       </a>
                     </div>
                   )}
+
+                  {/* Part scene image – hidden for draw-lines parts (image is rendered inside DrawLinesQuestion itself) */}
+                  {currentPart?.imageUrl && (() => {
+                    const q = currentPart?.sections?.[0]?.questions?.[0];
+                    if (q?.questionType === 'draw-lines') return false;
+                    if (q?.anchors && Object.keys(q.anchors).length > 0) return false;
+                    return true;
+                  })() && (
+                    <div style={{ margin: '12px 0 18px', textAlign: 'center' }}>
+                      <img
+                        src={resolveImgSrc(currentPart.imageUrl)}
+                        alt="Part illustration"
+                        style={{
+                          maxWidth: '100%',
+                          maxHeight: '480px',
+                          objectFit: 'contain',
+                          borderRadius: '10px',
+                          border: isDarkMode ? '1px solid #334155' : '1px solid #e2e8f0',
+                        }}
+                      />
+                    </div>
+                  )}
                 </>
               )}
 
@@ -2070,7 +3048,7 @@ const DoCambridgeListeningTest = () => {
 
                   // Robust section type detection (some legacy data stores type on question instead of section)
                   const q0 = section?.questions?.[0] || {};
-                  const sectionType =
+                  const rawSectionType =
                     section?.questionType ||
                     q0?.questionType ||
                     q0?.type ||
@@ -2078,10 +3056,23 @@ const DoCambridgeListeningTest = () => {
                     (Array.isArray(q0?.leftItems) ? 'gap-match' : '') ||
                     (Array.isArray(q0?.sentences) ? 'word-form' : '') ||
                     '';
+                  // Auto-upgrade: MOVERS Listening Part 4 was previously 'fill' – treat as 'image-tick'
+                  // Auto-upgrade: MOVERS Listening Part 5 was previously 'fill' – treat as 'colour-write'
+                  const sectionType =
+                    rawSectionType === 'fill' &&
+                    String(testType || '').includes('movers') &&
+                    currentPartIndex === 3
+                      ? 'image-tick'
+                      : rawSectionType === 'fill' &&
+                        String(testType || '').includes('movers') &&
+                        currentPartIndex === 4
+                        ? 'colour-write'
+                        : rawSectionType;
 
                   return (
                     <div key={secIdx} className="cambridge-section">
                       {section.sectionTitle && <h3 className="cambridge-section-title">{section.sectionTitle}</h3>}
+                      {sectionType === 'fill' && renderFillExample(section, sectionStartNum)}
 
                       {/* Section-based types (KET Reading style) */}
                       {sectionType === 'long-text-mc' && section.questions?.[0]?.questions ? (
@@ -2180,6 +3171,12 @@ const DoCambridgeListeningTest = () => {
                         renderGapMatchSection(section, secIdx, sectionStartNum)
                       ) : sectionType === 'cloze-test' ? (
                         renderOpenClozeSection(section, secIdx, sectionStartNum)
+                      ) : sectionType === 'letter-matching' ? (
+                        renderLetterMatchingSectionFull(section, secIdx, sectionStartNum)
+                      ) : sectionType === 'image-tick' ? (
+                        renderImageTickSection(section, secIdx, sectionStartNum)
+                      ) : sectionType === 'colour-write' ? (
+                        renderColourWriteSection(section, secIdx, sectionStartNum)
                       ) : isGroupedPart ? (
                         <div
                           className="cambridge-question-wrapper"
@@ -2195,8 +3192,10 @@ const DoCambridgeListeningTest = () => {
                         section.questions?.map((q, qIdx) => {
                           const questionKey = `${currentPartIndex}-${secIdx}-${qIdx}`;
 
-                          // Part 1: render only the active question card.
-                          if (currentPartIndex === 0 && activeKeyForPart && questionKey !== activeKeyForPart) return null;
+                          // draw-lines renders all names as one block → always show, never filter by active sub-key
+                          const isDrawLinesQ = q.questionType === 'draw-lines' || (q.anchors && Object.keys(q.anchors || {}).length > 0);
+                          // Part 1: render only the active question card (except draw-lines which is a single interactive block).
+                          if (!isDrawLinesQ && currentPartIndex === 0 && activeKeyForPart && questionKey !== activeKeyForPart) return null;
 
                           return (
                             <div key={qIdx} ref={(el) => (questionRefs.current[questionKey] = el)}>
@@ -2218,20 +3217,279 @@ const DoCambridgeListeningTest = () => {
               {currentPart && (
                 <div className="cambridge-passage-container">
                   {(() => {
+                    const isLetterMatchPart = currentPart?.sections?.some(
+                      (s) => s?.questionType === 'letter-matching' || s?.questions?.[0]?.questionType === 'letter-matching'
+                    );
                     const range = getPartQuestionRange(currentPartIndex);
                     const instructionText = String(currentPart.instruction || '');
                     const hasQuestionRangeInInstruction = /question(s)?\s*\d+/i.test(instructionText);
                     return (
                       <>
-                        <div className="cambridge-part-instruction">
-                          {!hasQuestionRangeInInstruction && (
-                            <strong>Questions {range.start}–{range.end}</strong>
-                          )}
-                          <div style={{ marginTop: 6 }}>
-                            {renderMaybeHtml(currentPart.instruction || 'For each question, choose the correct answer.')}
+                        {!isLetterMatchPart && (
+                          <div className="cambridge-part-instruction">
+                            {!hasQuestionRangeInInstruction && (
+                              <strong>Questions {range.start}–{range.end}</strong>
+                            )}
+                            <div style={{ marginTop: 6 }}>
+                              {renderMaybeHtml(currentPart.instruction || 'For each question, choose the correct answer.')}
+                            </div>
                           </div>
-                        </div>
+                        )}
+
+                        {/* Part illustration image (e.g. MOVERS Part 2 form picture) */}
+                        {currentPart.imageUrl && (
+                          <div style={{ marginTop: 12 }}>
+                            {/* Tiêu đề hiển thị trên ảnh (lưu tại section.imageTitle) */}
+                            {(() => {
+                              const sec0 = currentPart?.sections?.[0];
+                              const title = String(sec0?.imageTitle || '').trim();
+                              if (!title) return null;
+                              return (
+                                <div style={{
+                                  fontSize: '20px',
+                                  fontWeight: 800,
+                                  color: isDarkMode ? '#c7d2fe' : '#4338ca',
+                                  marginBottom: '10px',
+                                  lineHeight: 1.4,
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  gap: '8px',
+                                  textAlign: 'center',
+                                }}>
+                                  <span style={{
+                                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                                    width: '30px', height: '30px', borderRadius: '50%',
+                                    background: isDarkMode ? '#312e81' : '#e0e7ff',
+                                    fontSize: '15px', flexShrink: 0,
+                                  }}>📝</span>
+                                  {title}
+                                </div>
+                              );
+                            })()}
+                            <img
+                              src={resolveImgSrc(currentPart.imageUrl)}
+                              alt="Part illustration"
+                              draggable={false}
+                              style={{
+                                width: '80%', borderRadius: '10px',
+                                border: `2px solid ${isDarkMode ? '#334155' : '#e2e8f0'}`,
+                                display: 'block',
+                              }}
+                            />
+                          </div>
+                        )}
                       </>
+                    );
+                  })()}
+
+                  {/* LETTER MATCHING: people + drop zones live in left panel */}
+                  {(() => {
+                    const sec0 = currentPart?.sections?.find(
+                      (s) => s?.questionType === 'letter-matching' || s?.questions?.[0]?.questionType === 'letter-matching'
+                    );
+                    if (!sec0) return null;
+                    const q = sec0.questions?.[0];
+                    if (!q) return null;
+                    const secIdx = currentPart.sections.indexOf(sec0);
+                    const qIdx = 0;
+                    const people = Array.isArray(q.people) ? q.people : [];
+                    const options = Array.isArray(q.options) ? q.options : [];
+                    const examplePerson = people[0];
+                    const questionPeople = people.slice(1).filter((p) => String(p?.name || '').trim());
+                    const partStart = questionIndex.byPart?.[currentPartIndex]?.start ?? 1;
+
+                    return (
+                      <div style={{ marginTop: '14px' }}>
+                        {/* Context text */}
+                        {q.questionText && (
+                          <div style={{
+                            fontSize: '15px', color: isDarkMode ? '#a5b4fc' : '#4f46e5',
+                            fontStyle: 'italic', marginBottom: '12px', lineHeight: 1.5,
+                            padding: '10px 14px',
+                            background: isDarkMode ? '#1e1b4b' : '#f5f3ff',
+                            borderRadius: '12px',
+                            border: `2px solid ${isDarkMode ? '#4f46e5' : '#c4b5fd'}`,
+                            fontWeight: 600,
+                          }}>
+                            {q.questionText}
+                          </div>
+                        )}
+
+                        {/* Example row */}
+                        {examplePerson && String(examplePerson.name || '').trim() && (() => {
+                          const exOpt = options.find((o) => o.letter === examplePerson.correctAnswer);
+                          return (
+                            <div style={{
+                              display: 'flex', alignItems: 'center', gap: '10px',
+                              padding: '8px 12px', marginBottom: '8px',
+                              background: isDarkMode ? '#0f172a' : '#f8fafc',
+                              border: `2px dashed ${isDarkMode ? '#475569' : '#94a3b8'}`,
+                              borderRadius: '14px',
+                            }}>
+                              <span style={{
+                                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                                minWidth: '34px', height: '34px', borderRadius: '50%',
+                                background: isDarkMode ? '#1e293b' : '#e2e8f0',
+                                color: isDarkMode ? '#94a3b8' : '#475569',
+                                fontWeight: 800, fontSize: '13px', flexShrink: 0,
+                              }}>Ex</span>
+                              {examplePerson.photoUrl && (
+                                <img src={resolveImgSrc(examplePerson.photoUrl)} alt="" draggable={false}
+                                  style={{ width: '60px', height: '60px', borderRadius: '10px', objectFit: 'cover', flexShrink: 0 }} />
+                              )}
+                              <span style={{ flex: 1, fontWeight: 800, fontSize: '20px', color: isDarkMode ? '#94a3b8' : '#64748b', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {examplePerson.name}
+                              </span>
+                              <div style={{
+                                width: '76px', height: '76px', borderRadius: '12px',
+                                border: `3px solid ${isDarkMode ? '#4f6db6' : '#93c5fd'}`,
+                                display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                                background: isDarkMode ? '#1e3a5f' : '#eff6ff', overflow: 'hidden', flexShrink: 0,
+                              }}>
+                                {exOpt?.imageUrl
+                                  ? <img src={resolveImgSrc(exOpt.imageUrl)} alt="" draggable={false}
+                                      style={{ width: '100%', height: '56px', objectFit: 'contain' }} />
+                                  : null}
+                                <span style={{ fontWeight: 900, fontSize: '16px', color: isDarkMode ? '#93c5fd' : '#1d4ed8' }}>
+                                  {examplePerson.correctAnswer}
+                                </span>
+                              </div>
+                              <span style={{ fontSize: '12px', color: isDarkMode ? '#475569' : '#94a3b8', flexShrink: 0, fontWeight: 600 }}>(ex)</span>
+                            </div>
+                          );
+                        })()}
+
+                        {/* Question people rows */}
+                        {questionPeople.map((person, i) => {
+                          const personIdx = i + 1;
+                          const key = `${currentPartIndex}-${secIdx}-${qIdx}-${personIdx}`;
+                          const userAnswer = answers[key] || '';
+                          const isCorrect = submitted && results?.answers?.[key]?.isCorrect;
+                          const isActive = activeQuestion === key;
+                          const placedOpt = userAnswer ? options.find((o) => o.letter === userAnswer) : null;
+                          const rowBorder = submitted
+                            ? (isCorrect ? '#22c55e' : '#ef4444')
+                            : isActive ? '#7c3aed' : userAnswer ? '#8b5cf6'
+                            : isDarkMode ? '#4f46e5' : '#c4b5fd';
+                          const dzBorder = submitted
+                            ? (isCorrect ? '#22c55e' : '#ef4444')
+                            : userAnswer ? '#8b5cf6' : (isDarkMode ? '#6d28d9' : '#a78bfa');
+                          return (
+                            <div
+                              key={personIdx}
+                              id={`question-${partStart + i}`}
+                              ref={(el) => { questionRefs.current[key] = el; }}
+                              className={`lm-person-row${isCorrect ? ' lm-correct' : ''}`}
+                              style={{
+                                '--row-delay': `${i * 80}ms`,
+                                display: 'flex', alignItems: 'center', gap: '10px',
+                                padding: '8px 12px', marginBottom: '8px',
+                                background: isDarkMode
+                                  ? (isActive ? '#2d1b69' : submitted ? (isCorrect ? '#14532d22' : '#450a0a22') : '#111827')
+                                  : (isActive ? '#faf5ff' : submitted ? (isCorrect ? '#f0fdf4' : '#fff1f2') : '#fff'),
+                                border: `2.5px solid ${rowBorder}`,
+                                borderRadius: '14px',
+                                transition: 'border-color 0.2s, box-shadow 0.2s, background 0.2s',
+                                boxShadow: isActive
+                                  ? `0 0 0 4px ${isDarkMode ? '#7c3aed44' : '#8b5cf640'}, 0 4px 16px rgba(139,92,246,0.18)`
+                                  : userAnswer && !submitted ? `0 2px 10px rgba(139,92,246,0.15)` : 'none',
+                              }}
+                            >
+                              {/* Question number badge */}
+                              <span style={{
+                                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                                minWidth: '36px', height: '36px', borderRadius: '50%',
+                                background: submitted ? (isCorrect ? '#22c55e' : '#ef4444') : '#7c3aed',
+                                color: '#fff', fontWeight: 900, fontSize: '16px', flexShrink: 0,
+                                boxShadow: submitted ? 'none' : '0 2px 8px rgba(124,58,237,0.4)',
+                              }}>
+                                {submitted ? (isCorrect ? '✓' : '✗') : partStart + i}
+                              </span>
+                              {/* Person photo */}
+                              {person.photoUrl && (
+                                <img src={resolveImgSrc(person.photoUrl)} alt={person.name} draggable={false}
+                                  style={{ width: '60px', height: '60px', borderRadius: '10px', objectFit: 'cover', flexShrink: 0, boxShadow: '0 2px 8px rgba(0,0,0,0.15)' }} />
+                              )}
+                              {/* Person name */}
+                              <span style={{ flex: 1, fontWeight: 800, fontSize: '22px', color: isDarkMode ? '#e2e8f0' : '#1e293b', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {person.name}
+                              </span>
+                              {/* Drop zone wrapper – relative so ✕ button can float above */}
+                              <div style={{ position: 'relative', flexShrink: 0 }}>
+                                {/* Release / clear button */}
+                                {userAnswer && !submitted && (
+                                  <button
+                                    type="button"
+                                    title="Bỏ chọn"
+                                    onClick={() => setAnswers((prev) => ({ ...prev, [key]: '' }))}
+                                    style={{
+                                      position: 'absolute', top: '-10px', right: '-10px',
+                                      width: '26px', height: '26px', borderRadius: '50%',
+                                      background: '#ef4444', color: '#fff', border: '2.5px solid white',
+                                      cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                      fontSize: '13px', fontWeight: 900, lineHeight: 1,
+                                      boxShadow: '0 2px 8px rgba(239,68,68,0.55)',
+                                      zIndex: 20, padding: 0, transition: 'transform 0.15s',
+                                    }}
+                                    onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.2)'; }}
+                                    onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
+                                  >✕</button>
+                                )}
+                                {/* Drop zone – big and inviting */}
+                                <div
+                                  onDragOver={(e) => {
+                                    e.preventDefault();
+                                    if (!submitted) {
+                                      e.currentTarget.style.borderColor = '#7c3aed';
+                                      e.currentTarget.style.background = isDarkMode ? '#2d1b69' : '#ede9fe';
+                                      e.currentTarget.style.transform = 'scale(1.08)';
+                                    }
+                                  }}
+                                  onDragLeave={(e) => {
+                                    e.currentTarget.style.borderColor = '';
+                                    e.currentTarget.style.background = '';
+                                    e.currentTarget.style.transform = '';
+                                  }}
+                                  onDrop={(e) => { e.currentTarget.style.transform = ''; handleLetterMatchingDrop(e, key, questionPeople, secIdx); }}
+                                  className={!userAnswer && !submitted ? 'lm-dropzone-empty' : ''}
+                                  style={{
+                                    width: '90px', minWidth: '90px', height: '90px',
+                                    border: `3px ${userAnswer ? 'solid' : 'dashed'} ${dzBorder}`,
+                                    borderRadius: '14px',
+                                    display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '3px',
+                                    background: userAnswer
+                                      ? (submitted ? (isCorrect ? (isDarkMode ? '#14532d' : '#dcfce7') : (isDarkMode ? '#450a0a' : '#fee2e2')) : (isDarkMode ? '#2d1b69' : '#f5f3ff'))
+                                      : (isDarkMode ? '#1e1b4b' : '#faf5ff'),
+                                    cursor: submitted ? 'default' : 'copy',
+                                    overflow: 'hidden',
+                                    transition: 'border-color 0.15s, background 0.15s, transform 0.15s',
+                                  }}
+                                >
+                                  {userAnswer ? (
+                                    <>
+                                      {placedOpt?.imageUrl && (
+                                        <img src={resolveImgSrc(placedOpt.imageUrl)} alt="" draggable={false}
+                                          style={{ width: '100%', height: '64px', objectFit: 'contain', pointerEvents: 'none' }} />
+                                      )}
+                                      <span style={{ fontWeight: 900, fontSize: '17px', color: submitted ? (isCorrect ? '#16a34a' : '#dc2626') : '#7c3aed', lineHeight: 1 }}>
+                                        {userAnswer}
+                                      </span>
+                                    </>
+                                  ) : (
+                                    <span style={{ fontSize: '28px', color: isDarkMode ? '#6d28d9' : '#c4b5fd', pointerEvents: 'none', lineHeight: 1 }}>?</span>
+                                  )}
+                                </div>
+                              </div>
+                              {submitted && !isCorrect && (
+                                <span style={{ fontSize: '14px', fontWeight: 900, flexShrink: 0, color: '#22c55e' }}>
+                                  → {results?.answers?.[key]?.correctAnswer || ''}
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
                     );
                   })()}
 
@@ -2317,7 +3575,9 @@ const DoCambridgeListeningTest = () => {
                 // Robust section type detection (some legacy data stores type on question instead of section)
                 const q0 = section?.questions?.[0] || {};
                 const sectionType =
-                  section?.questionType ||
+                  (q0?.questionType === 'letter-matching' || (Array.isArray(q0?.people) && q0.people.length > 0) ? 'letter-matching' :
+                   q0?.questionType === 'draw-lines' || (q0?.anchors && Object.keys(q0?.anchors || {}).length > 0) ? 'draw-lines' :
+                   section?.questionType) ||
                   q0?.questionType ||
                   q0?.type ||
                   (Array.isArray(q0?.people) ? 'people-matching' : '') ||
@@ -2328,6 +3588,7 @@ const DoCambridgeListeningTest = () => {
                 return (
                   <div key={secIdx} className="cambridge-section">
                     {section.sectionTitle && <h3 className="cambridge-section-title">{section.sectionTitle}</h3>}
+                    {sectionType === 'fill' && renderFillExample(section, sectionStartNum)}
 
                     {/* Section-based types (KET Reading style) */}
                     {sectionType === 'long-text-mc' && section.questions?.[0]?.questions ? (
@@ -2779,6 +4040,8 @@ const DoCambridgeListeningTest = () => {
                           </div>
                         );
                       })
+                    ) : sectionType === 'letter-matching' ? (
+                      renderLetterMatchingSection(section, secIdx, sectionStartNum)
                     ) : (
                       // Default per-question rendering
                       section.questions?.map((q, qIdx) => {
@@ -2930,3 +4193,4 @@ const DoCambridgeListeningTest = () => {
 };
 
 export default DoCambridgeListeningTest;
+

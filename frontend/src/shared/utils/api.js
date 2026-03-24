@@ -18,6 +18,25 @@ function getAuthHeaders() {
   return { Authorization: `Bearer ${token}` };
 }
 
+/**
+ * Remove all auth data from storage and notify the app to redirect to login.
+ * Call this on explicit logout OR when token refresh fails (session expired).
+ */
+function clearAuth() {
+  localStorage.removeItem('accessToken');
+  localStorage.removeItem('refreshToken');
+  localStorage.removeItem('user');
+}
+
+/**
+ * Force logout: clear auth data then dispatch a global event so App.jsx can
+ * redirect to /login and show a "session expired" message.
+ */
+function forceLogout() {
+  clearAuth();
+  window.dispatchEvent(new CustomEvent('auth:force-logout'));
+}
+
 let refreshPromise = null;
 
 async function refreshAccessToken() {
@@ -38,9 +57,7 @@ async function refreshAccessToken() {
 
       if (!res.ok) {
         console.debug('auth: refresh failed', res.status);
-        // clear possibly invalid tokens
-        localStorage.removeItem('accessToken');
-        localStorage.removeItem('refreshToken');
+        forceLogout();
         return false;
       }
 
@@ -51,8 +68,8 @@ async function refreshAccessToken() {
       return true;
     } catch (err) {
       console.debug('auth: refresh exception', err?.message || err);
+      // Network error — don't force logout (server might be temporarily unavailable)
       localStorage.removeItem('accessToken');
-      localStorage.removeItem('refreshToken');
       return false;
     } finally {
       refreshPromise = null;
@@ -81,5 +98,5 @@ async function authFetch(url, opts = {}) {
   return fetch(url, mergedOpts);
 }
 
-export { API_HOST, API_BASE, apiPath, hostPath, getAuthHeaders, authFetch, refreshAccessToken };
+export { API_HOST, API_BASE, apiPath, hostPath, getAuthHeaders, authFetch, refreshAccessToken, clearAuth, forceLogout };
 export default API_BASE;
