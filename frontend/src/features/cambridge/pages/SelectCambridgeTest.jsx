@@ -12,7 +12,7 @@ import "./SelectCambridgeTest.css";
  */
 const SelectCambridgeTest = () => {
   const user = JSON.parse(localStorage.getItem("user"));
-  const isTeacher = user && user.role === "teacher";
+  const isTeacher = user && (user.role === "teacher" || user.role === "admin");
   const navigate = useNavigate();
 
   const [tests, setTests] = useState({
