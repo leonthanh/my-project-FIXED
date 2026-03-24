@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { AdminNavbar } from '../../../shared/components';
 import { apiPath, authFetch } from '../../../shared/utils/api';
 
 const TeacherPermissionsPage = () => {
@@ -45,7 +46,9 @@ const TeacherPermissionsPage = () => {
   if (error) return <div style={{ ...s.center, color: 'red' }}>{error}</div>;
 
   return (
-    <div style={s.page}>
+    <>
+      <AdminNavbar />
+      <div style={s.page}>
       <h2 style={s.title}>👩‍🏫 Quyền Giáo Viên</h2>
       <p style={s.subtitle}>
         Bật <strong>Quản lý đề</strong> để giáo viên có thể thêm / sửa đề Reading, Listening, Cambridge.
@@ -86,7 +89,8 @@ const TeacherPermissionsPage = () => {
           )}
         </tbody>
       </table>
-    </div>
+      </div>
+    </>
   );
 };
 
