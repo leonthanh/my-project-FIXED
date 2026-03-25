@@ -15,15 +15,28 @@ router.post('/submit', async (req, res) => {
       return res.status(400).json({ message: '❌ Không có mã đề để nộp.' });
     }
 
+    // Look up user from DB by ID rather than trusting the client-supplied object.
+    // This prevents N/A when the client's localStorage is stale, missing, or spoofed.
+    const userId = user?.id || null;
+    let userName = 'N/A';
+    let userPhone = 'N/A';
+    if (userId) {
+      const dbUser = await User.findByPk(userId, { attributes: ['name', 'phone'] });
+      if (dbUser) {
+        userName = dbUser.name;
+        userPhone = dbUser.phone;
+      }
+    }
+
     // Lưu submission
     const newSubmission = await Submission.create({
       task1,
       task2,
       timeLeft,
-      userName: user?.name || 'N/A',
-      userPhone: user?.phone || 'N/A',
+      userName,
+      userPhone,
       testId,
-      userId: user?.id || null,
+      userId,
       feedbackSeen: false,
       submittedAt: new Date()
     });

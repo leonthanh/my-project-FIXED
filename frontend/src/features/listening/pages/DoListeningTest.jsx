@@ -102,9 +102,6 @@ const DoListeningTest = () => {
   // to render before scrolling to the target question.
   const pendingScrollToRef = useRef(null);
 
-  // Key for persisting timer across page reloads (resets only when the test is submitted)
-  const expiresKey = `listening:${id}:expiresAt`;
-
   // Key for persisting full state (answers + expiresAt). Includes user id to allow per-user isolation.
   // Compute a stable storage user id once (so we can use it safely in dependency arrays).
   const storageUserId = useMemo(() => {
@@ -116,6 +113,8 @@ const DoListeningTest = () => {
     }
   }, []);
 
+  // Keys include userId so each student's timer and answers are isolated on shared devices.
+  const expiresKey = `listening:${id}:expiresAt:${storageUserId}`;
   const stateKey = `listening:${id}:state:${storageUserId}`;
 
   const expiresAtRef = useRef(null);

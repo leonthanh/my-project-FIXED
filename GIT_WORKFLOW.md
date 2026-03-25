@@ -167,8 +167,8 @@ PR sẽ tự update với commits mới của bạn. Không cần tạo PR mới
 git checkout main
 git pull origin main
 
-# 2. Quay lại feature/ket
-git checkout feature/ket
+# 2. Quay lại feature/thanh
+git checkout feature/thanh
 
 # 3. Merge main vào feature/ket để sync
 git merge main

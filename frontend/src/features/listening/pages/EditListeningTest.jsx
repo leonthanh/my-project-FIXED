@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ListeningTestEditor } from "../components";
 import { useListeningHandlers, createNewPart } from "../hooks";
@@ -34,9 +34,9 @@ const EditListeningTest = () => {
   const [isReviewing, setIsReviewing] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
 
-  // Auto-save state (reserved for future use)
-  const [lastSaved] = useState(null);
-  const [isSaving] = useState(false);
+  // Auto-save state
+  const [lastSaved, setLastSaved] = useState(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   // Show login banner when refresh fails
   const [requiresLogin, setRequiresLogin] = useState(false);
@@ -234,6 +234,33 @@ const EditListeningTest = () => {
 
     setIsReviewing(true);
   };
+
+  // Auto-save to localStorage
+  const saveToLocalStorage = useCallback(() => {
+    try {
+      setIsSaving(true);
+      const draftKey = `listeningTestDraftEdit-${id}`;
+      const dataToSave = { title, classCode, teacherName, parts, showResultModal, savedAt: new Date().toISOString() };
+      localStorage.setItem(draftKey, JSON.stringify(dataToSave));
+      setLastSaved(new Date());
+    } catch (e) {
+      console.error('Error saving draft:', e);
+    } finally {
+      setIsSaving(false);
+    }
+  }, [id, title, classCode, teacherName, parts, showResultModal]);
+
+  // Auto-save every 30 seconds + on page unload (only after data is loaded)
+  useEffect(() => {
+    if (loading) return;
+    const interval = setInterval(saveToLocalStorage, 30000);
+    const handleBeforeUnload = () => saveToLocalStorage();
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [saveToLocalStorage, loading]);
 
   // Handle confirm update
   const handleConfirmUpdate = async () => {
@@ -544,7 +571,7 @@ const EditListeningTest = () => {
       // Auto-save
       lastSaved={lastSaved}
       isSaving={isSaving}
-      onManualSave={() => {}}
+      onManualSave={saveToLocalStorage}
       // Messages & Preview
       message={message}
       // Global audio

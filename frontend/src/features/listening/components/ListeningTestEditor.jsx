@@ -467,8 +467,8 @@ const ListeningTestEditor = ({
           gap: "8px",
           padding: "5px 12px",
           backgroundColor: "#fff",
-          borderBottom: "1px solid #e5e7eb",
-          boxShadow: "0 1px 2px rgba(0,0,0,0.04)",
+          borderBottom: "1px solid #e2e8f0",
+          boxShadow: "0 1px 4px rgba(0,0,0,0.07)",
           flexShrink: 0,
         }}
         topBarStyle={{
@@ -497,8 +497,8 @@ const ListeningTestEditor = ({
           {/* ===== LEFT SIDEBAR: Parts + Sections ===== */}
           <div
             style={{
-              width: "240px",
-              minWidth: "200px",
+              width: "280px",
+              minWidth: "220px",
               backgroundColor: "#1e293b",
               color: "white",
               display: "flex",
@@ -521,15 +521,15 @@ const ListeningTestEditor = ({
                   key={idx}
                   onClick={() => { setSelectedPartIndex(idx); setSelectedSectionIndex(part.sections?.length > 0 ? 0 : null); }}
                   style={{
-                    padding: "9px 10px", marginBottom: "4px", borderRadius: "6px", cursor: "pointer",
-                    backgroundColor: selectedPartIndex === idx ? colors.partBlue : "#334155",
+                    padding: "10px 12px", marginBottom: "4px", borderRadius: "6px", cursor: "pointer",
+                    backgroundColor: selectedPartIndex === idx ? colors.partBlue : "#475569",
                     display: "flex", justifyContent: "space-between", alignItems: "flex-start",
                     transition: "background 0.15s",
                   }}
                 >
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: "13px", fontWeight: 600, color: "white" }}>{part.title}</div>
-                    <div style={{ fontSize: "10px", color: "#64748b", marginTop: "2px" }}>
+                    <div style={{ fontSize: "10px", color: "#94a3b8", marginTop: "2px" }}>
                       {part.sections?.length || 0} section · {part.sections?.reduce((t, s) => t + (s.questions?.length || 0), 0) || 0} câu
                       {part.audioFile && <span style={{ marginLeft: 4, color: colors.audioGreen }}>🎵</span>}
                     </div>
@@ -569,15 +569,15 @@ const ListeningTestEditor = ({
                       key={idx}
                       onClick={() => setSelectedSectionIndex(idx)}
                       style={{
-                        padding: "9px 10px", marginBottom: "4px", borderRadius: "6px", cursor: "pointer",
-                        backgroundColor: selectedSectionIndex === idx ? "#6366f1" : "#334155",
+                        padding: "10px 12px", marginBottom: "4px", borderRadius: "6px", cursor: "pointer",
+                        backgroundColor: selectedSectionIndex === idx ? "#6366f1" : "#475569",
                         transition: "background 0.15s",
                       }}
                     >
                       <div style={{ fontSize: "13px", fontWeight: 600, color: "white" }}>
                         {section.sectionTitle || `Q${startQ}–${endQ}`}
                       </div>
-                      <div style={{ fontSize: "10px", color: "#64748b", marginTop: "2px" }}>
+                      <div style={{ fontSize: "10px", color: "#94a3b8", marginTop: "2px" }}>
                         {sectionQCount} câu · {section.questionType || "fill"}
                       </div>
                     </div>
@@ -612,7 +612,7 @@ const ListeningTestEditor = ({
               <div
                 onClick={() => setCollapsedAudio(v => !v)}
                 style={{
-                  padding: "7px 14px", backgroundColor: colors.audioGreen, color: "white",
+                  padding: "10px 16px", backgroundColor: colors.audioGreen, color: "white",
                   fontSize: "13px", fontWeight: 700, flexShrink: 0,
                   display: "flex", justifyContent: "space-between", alignItems: "center",
                   cursor: "pointer", userSelect: "none",
@@ -703,7 +703,7 @@ const ListeningTestEditor = ({
               <div
                 onClick={() => setCollapsedQuestions(v => !v)}
                 style={{
-                  padding: "8px 14px", backgroundColor: colors.questionYellow, color: "#000",
+                  padding: "10px 16px", backgroundColor: "#d97706", color: "white",
                   fontSize: "13px", fontWeight: 700, flexShrink: 0,
                   display: "flex", justifyContent: "space-between", alignItems: "center",
                   cursor: "pointer", userSelect: "none",
@@ -711,8 +711,8 @@ const ListeningTestEditor = ({
               >
                 <span>❓ CÂU HỎI{currentSection ? ` — Section ${selectedSectionIndex + 1}` : ""}</span>
                 <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
-                  {currentSection && <span style={{ fontSize: "11px", fontWeight: 400, color: "#555" }}>{countSectionQuestions(currentSection)} câu</span>}
-                  <span style={{ fontSize: "12px", fontWeight: 500, color: "#555" }}>{collapsedQuestions ? "▼ Mở rộng" : "▲ Thu nhỏ"}</span>
+                  {currentSection && <span style={{ fontSize: "11px", fontWeight: 400, color: "rgba(255,255,255,0.8)" }}>{countSectionQuestions(currentSection)} câu</span>}
+                  <span style={{ fontSize: "12px", fontWeight: 500, color: "rgba(255,255,255,0.8)" }}>{collapsedQuestions ? "▼ Mở rộng" : "▲ Thu nhỏ"}</span>
                 </div>
               </div>
 
@@ -975,7 +975,8 @@ const ListeningTestEditor = ({
             style={{
               padding: "12px 20px",
               backgroundColor: "#fff",
-              borderTop: "1px solid #e5e7eb",
+              borderTop: "1px solid #e2e8f0",
+              boxShadow: "0 -2px 6px rgba(0,0,0,0.06)",
               display: "flex",
               justifyContent: "flex-end",
               gap: "12px",
@@ -984,7 +985,7 @@ const ListeningTestEditor = ({
             <button type="button" onClick={onManualSave} style={secondaryButtonStyle}>
               💾 Lưu nháp
             </button>
-            <button type="submit" style={primaryButtonStyle} disabled={isSubmitting}>
+            <button type="submit" style={{ ...primaryButtonStyle, backgroundColor: "#3b82f6", boxShadow: "0 4px 6px -1px rgba(59,130,246,0.3)" }} disabled={isSubmitting}>
               {isSubmitting ? "⏳ Đang xử lý..." : `✅ ${submitButtonText}`}
             </button>
           </div>

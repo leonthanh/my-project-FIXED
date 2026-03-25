@@ -5,7 +5,7 @@ const rateLimit = require('express-rate-limit');
 const { z } = require('zod');
 const User = require("../models/User"); // Sequelize model
 const RefreshToken = require('../models/RefreshToken');
-const { logError } = require("../logger"); // ✅ Import logger
+const { logError, logWarn } = require("../logger"); // ✅ Import logger
 const { validate } = require('../middlewares/validate');
 const { AppError } = require('../utils/AppError');
 const { signAccessToken, generateRefreshToken, hashRefreshToken } = require('../utils/tokens');
@@ -229,7 +229,12 @@ router.post(
       res.json({ accessToken: tokens.accessToken, refreshToken: tokens.refreshToken });
     } catch (err) {
       const appErr = err instanceof AppError ? err : AppError.unauthorized('Cannot refresh token');
-      logError('Refresh token error', err);
+      // Operational errors (invalid/expired tokens) are expected — log as warn, not error
+      if (err instanceof AppError && err.isOperational) {
+        logWarn('Refresh token rejected', err);
+      } else {
+        logError('Refresh token error', err);
+      }
       res.status(appErr.statusCode).json({ message: appErr.message });
     }
   }

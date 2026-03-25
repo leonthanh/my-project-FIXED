@@ -36,4 +36,9 @@ function logError(message, error) {
   logger.error({ err }, message);
 }
 
-module.exports = { logger, logError };
+function logWarn(message, error) {
+  const err = error instanceof Error ? error : new Error(String(error));
+  logger.warn({ err }, message);
+}
+
+module.exports = { logger, logError, logWarn };

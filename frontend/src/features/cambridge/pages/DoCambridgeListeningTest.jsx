@@ -1187,7 +1187,13 @@ const DoCambridgeListeningTest = () => {
   }, [testType]);
 
   const storageKey = useMemo(() => {
-    return `cambridgeListeningProgress-${testType || 'listening'}-${id || 'unknown'}`;
+    try {
+      const u = JSON.parse(localStorage.getItem('user') || 'null');
+      const uid = u?.id || 'anon';
+      return `cambridgeListeningProgress-${testType || 'listening'}-${id || 'unknown'}-${uid}`;
+    } catch {
+      return `cambridgeListeningProgress-${testType || 'listening'}-${id || 'unknown'}-anon`;
+    }
   }, [testType, id]);
 
   // Fetch test data

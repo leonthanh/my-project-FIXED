@@ -64,8 +64,7 @@ const CreateListeningTestNew = () => {
         const data = JSON.parse(savedDraft);
         if (data.title) setTitle(data.title);
         if (data.classCode) setClassCode(data.classCode);
-        if (data.teacherName) setTeacherName(data.teacherName);
-        if (data.parts && data.parts.length > 0) setParts(data.parts);
+        if (data.teacherName) setTeacherName(data.teacherName);      if (data.showResultModal !== undefined) setShowResultModal(data.showResultModal);        if (data.parts && data.parts.length > 0) setParts(data.parts);
         console.log("Loaded draft from localStorage");
       }
     } catch (err) {
@@ -81,6 +80,7 @@ const CreateListeningTestNew = () => {
         title,
         classCode,
         teacherName,
+        showResultModal,
         parts,
         savedAt: new Date().toISOString(),
       };
@@ -92,15 +92,20 @@ const CreateListeningTestNew = () => {
     } finally {
       setIsSaving(false);
     }
-  }, [title, classCode, teacherName, parts]);
+  }, [title, classCode, teacherName, showResultModal, parts]);
 
   // Local state to show login banner when refresh fails
   const [requiresLogin, setRequiresLogin] = useState(false);
 
-  // Auto-save every 30 seconds
+  // Auto-save every 30 seconds + on page unload
   useEffect(() => {
     const interval = setInterval(saveDraft, 30000);
-    return () => clearInterval(interval);
+    const handleBeforeUnload = () => saveDraft();
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
   }, [saveDraft]);
 
   if (!allowedToManage) {

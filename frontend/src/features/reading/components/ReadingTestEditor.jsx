@@ -1,15 +1,10 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import {
   IeltsTestEditorShell,
   QuillEditor,
   QuestionSection,
-  KeyboardShortcutsHelp,
 } from "../../../shared/components";
 import { useColumnLayout } from "../hooks";
-import useKeyboardShortcuts from "../../../shared/hooks/useKeyboardShortcuts";
-import { useTheme } from "../../../shared/contexts/ThemeContext";
-import TemplateLibrary from "./TemplateLibrary";
-import ImportModal from "./ImportModal";
 import { calculateTotalQuestions, createDefaultQuestionByType } from "../utils";
 import { getQuestionCount } from "../utils/questionHelpers";
 import {
@@ -144,9 +139,6 @@ const ReadingTestEditor = ({
   // Children for custom content
   children,
 }) => {
-  // State for keyboard shortcuts help
-  const [showShortcutsHelp, setShowShortcutsHelp] = useState(false);
-
   // Header collapse (top title/classCode/teacher inputs bar)
   const [collapsedHeader, setCollapsedHeader] = useState(false);
   // Passage panel collapse (separate from top header)
@@ -154,68 +146,11 @@ const ReadingTestEditor = ({
   // Questions panel collapse
   const [collapsedQuestions, setCollapsedQuestions] = useState(false);
 
-  // State for new modals
-  const [showTemplateLibrary, setShowTemplateLibrary] = useState(false);
-  const [showImportModal, setShowImportModal] = useState(false);
-
-  // Theme context
-  const { isDarkMode } = useTheme();
-
   // Use column layout hook
   const {
-    collapsedColumns,
     isResizing,
-    toggleColumnCollapse,
     handleMouseDown,
-    getColumnWidth,
   } = useColumnLayout();
-
-  // Keyboard shortcuts
-  useKeyboardShortcuts({
-    onSave: () => {
-      if (onManualSave) {
-        onManualSave();
-      }
-      if (onReview) {
-        onReview();
-      }
-    },
-    onAddQuestion: () => {
-      if (
-        selectedPassageIndex !== null &&
-        selectedSectionIndex !== null &&
-        onAddQuestion
-      ) {
-        onAddQuestion(selectedPassageIndex, selectedSectionIndex);
-      }
-    },
-    onCloseModal: () => {
-      if (isReviewing) {
-        setIsReviewing(false);
-      }
-      if (showShortcutsHelp) {
-        setShowShortcutsHelp(false);
-      }
-    },
-  });
-
-  // Listen for '?' key to show shortcuts help
-  useEffect(() => {
-    const handleKeyPress = (e) => {
-      if (e.key === "?" && !e.ctrlKey && !e.altKey) {
-        const target = e.target;
-        const isInput =
-          target.tagName === "INPUT" ||
-          target.tagName === "TEXTAREA" ||
-          target.isContentEditable;
-        if (!isInput) {
-          setShowShortcutsHelp((prev) => !prev);
-        }
-      }
-    };
-    window.addEventListener("keypress", handleKeyPress);
-    return () => window.removeEventListener("keypress", handleKeyPress);
-  }, []);
 
   // Current passage and section
   const currentPassage = passages?.[selectedPassageIndex];
@@ -258,12 +193,6 @@ const ReadingTestEditor = ({
     <>
       <style>{compactCSS(className)}</style>
 
-      {/* Keyboard Shortcuts Help Modal */}
-      <KeyboardShortcutsHelp
-        isOpen={showShortcutsHelp}
-        onClose={() => setShowShortcutsHelp(false)}
-      />
-
       <IeltsTestEditorShell
         className={className}
         pageTitle={pageTitle}
@@ -300,74 +229,12 @@ const ReadingTestEditor = ({
             {currentMessage}
           </div>
         )}
-        leftControls={
-          <button
-            type="button"
-            onClick={() => setShowShortcutsHelp(true)}
-            title="Keyboard Shortcuts (?)"
-            style={{
-              padding: "6px 10px",
-              backgroundColor: "#f0f0f0",
-              border: "1px solid #ddd",
-              borderRadius: "6px",
-              cursor: "pointer",
-              fontSize: "12px",
-            }}
-          >
-            ⌨️ ?
-          </button>
-        }
-        rightControls={
-          <>
-            <button
-              type="button"
-              onClick={() => setShowTemplateLibrary(true)}
-              title="Thư viện mẫu câu hỏi"
-              style={{
-                padding: "6px 12px",
-                backgroundColor: isDarkMode ? "#3d3d5c" : "#e6ffe6",
-                border: `1px solid ${isDarkMode ? "#27ae60" : "#27ae60"}`,
-                borderRadius: "6px",
-                cursor: "pointer",
-                fontSize: "12px",
-                color: "#27ae60",
-                fontWeight: "500",
-                display: "flex",
-                alignItems: "center",
-                gap: "5px",
-                transition: "all 0.2s",
-              }}
-            >
-              📚 Templates
-            </button>
-            <button
-              type="button"
-              onClick={() => setShowImportModal(true)}
-              title="Import từ Word/Excel"
-              style={{
-                padding: "6px 12px",
-                backgroundColor: isDarkMode ? "#3d3d5c" : "#fff3e6",
-                border: `1px solid ${isDarkMode ? "#e67e22" : "#e67e22"}`,
-                borderRadius: "6px",
-                cursor: "pointer",
-                fontSize: "12px",
-                color: "#e67e22",
-                fontWeight: "500",
-                display: "flex",
-                alignItems: "center",
-                gap: "5px",
-                transition: "all 0.2s",
-              }}
-            >
-              📥 Import
-            </button>
-          </>
-        }
         shellStyle={{
           display: "flex",
           flexDirection: "column",
           height: "100vh",
           fontSize: "13px",
+          backgroundColor: "#f8fafc",
         }}
         containerStyle={{
           display: "flex",
@@ -382,7 +249,8 @@ const ReadingTestEditor = ({
           gap: "8px",
           padding: "5px 12px",
           backgroundColor: "#fff",
-          borderBottom: "1px solid #ddd",
+          borderBottom: "1px solid #e2e8f0",
+          boxShadow: "0 1px 4px rgba(0,0,0,0.07)",
           flexShrink: 0,
         }}
         topBarStyle={{
@@ -420,8 +288,8 @@ const ReadingTestEditor = ({
           {/* === LEFT SIDEBAR === */}
           <div
             style={{
-              width: "240px",
-              minWidth: "200px",
+              width: "280px",
+              minWidth: "220px",
               backgroundColor: "#1e293b",
               color: "white",
               display: "flex",
@@ -448,7 +316,7 @@ const ReadingTestEditor = ({
                     marginBottom: "4px",
                     borderRadius: "6px",
                     cursor: "pointer",
-                    backgroundColor: selectedPassageIndex === idx ? "#3b82f6" : "#334155",
+                    backgroundColor: selectedPassageIndex === idx ? "#3b82f6" : "#475569",
                     display: "flex",
                     justifyContent: "space-between",
                     alignItems: "flex-start",
@@ -460,7 +328,7 @@ const ReadingTestEditor = ({
                     <div style={{ fontSize: "11px", color: "#cbd5e1", marginTop: "2px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                       {passage.passageTitle || "(Chưa có tiêu đề)"}
                     </div>
-                    <div style={{ fontSize: "10px", color: "#64748b", marginTop: "2px" }}>
+                    <div style={{ fontSize: "10px", color: "#94a3b8", marginTop: "2px" }}>
                       {passage.sections?.length || 0} section · {passage.sections?.reduce((s, sec) => s + (sec.questions?.length || 0), 0) || 0} câu
                     </div>
                   </div>
@@ -510,7 +378,7 @@ const ReadingTestEditor = ({
                       marginBottom: "4px",
                       borderRadius: "6px",
                       cursor: "pointer",
-                      backgroundColor: selectedSectionIndex === idx ? "#6366f1" : "#334155",
+                      backgroundColor: selectedSectionIndex === idx ? "#6366f1" : "#475569",
                       transition: "background 0.15s",
                     }}
                   >
@@ -518,7 +386,7 @@ const ReadingTestEditor = ({
                     <div style={{ fontSize: "11px", color: "#cbd5e1", marginTop: "2px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                       {section.sectionTitle || "(Untitled)"}
                     </div>
-                    <div style={{ fontSize: "10px", color: "#64748b", marginTop: "2px" }}>
+                    <div style={{ fontSize: "10px", color: "#94a3b8", marginTop: "2px" }}>
                       {section.questions?.length || 0} câu hỏi
                     </div>
                   </div>
@@ -557,14 +425,15 @@ const ReadingTestEditor = ({
                 overflow: "hidden",
                 transition: "flex 0.3s ease",
                 borderBottom: "2px solid #e2e8f0",
+                backgroundColor: "#f8fafc",
               }}
             >
               {/* Passage panel header – always visible, click to collapse */}
               <div
                 onClick={() => setCollapsedPassage((v) => !v)}
                 style={{
-                  padding: "7px 14px",
-                  backgroundColor: "#28a745",
+                  padding: "10px 16px",
+                  backgroundColor: "#16a34a",
                   color: "white",
                   fontSize: "13px",
                   fontWeight: 700,
@@ -649,7 +518,7 @@ const ReadingTestEditor = ({
               <div
                 onClick={() => setCollapsedQuestions((v) => !v)}
                 style={{
-                  padding: "8px 14px", backgroundColor: "#ffc107", color: "#000",
+                  padding: "10px 16px", backgroundColor: "#d97706", color: "white",
                   fontSize: "13px", fontWeight: 700, flexShrink: 0,
                   display: "flex", justifyContent: "space-between", alignItems: "center",
                   cursor: "pointer", userSelect: "none",
@@ -660,11 +529,11 @@ const ReadingTestEditor = ({
                 </span>
                 <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
                   {currentSection && (
-                    <span style={{ fontSize: "11px", fontWeight: 400, color: "#555" }}>
+                    <span style={{ fontSize: "11px", fontWeight: 400, color: "rgba(255,255,255,0.8)" }}>
                       {currentSection.questions?.length || 0} câu
                     </span>
                   )}
-                  <span style={{ fontSize: "12px", fontWeight: 500, color: "#555" }}>
+                  <span style={{ fontSize: "12px", fontWeight: 500, color: "rgba(255,255,255,0.8)" }}>
                     {collapsedQuestions ? "▼ Mở rộng" : "▲ Thu nhỏ"}
                   </span>
                 </div>
@@ -700,10 +569,11 @@ const ReadingTestEditor = ({
         <div
           style={{
             display: "flex",
-            gap: "15px",
+            gap: "12px",
             padding: "12px 20px",
             backgroundColor: "#fff",
-            borderTop: "1px solid #ddd",
+            borderTop: "1px solid #e2e8f0",
+            boxShadow: "0 -2px 6px rgba(0,0,0,0.06)",
             justifyContent: "space-between",
             alignItems: "center",
             zIndex: 999,
@@ -730,39 +600,20 @@ const ReadingTestEditor = ({
           </div>
 
           <div style={{ display: "flex", gap: "10px" }}>
-            {setShowPreview && (
-              <button
-                type="button"
-                onClick={() => setShowPreview(true)}
-                style={{
-                  padding: "10px 20px",
-                  fontSize: "14px",
-                  backgroundColor: colors.gray,
-                  color: "white",
-                  border: "none",
-                  borderRadius: "6px",
-                  cursor: "pointer",
-                  fontWeight: "bold",
-                  transition: "all 0.2s ease",
-                }}
-              >
-                👁 Preview
-              </button>
-            )}
-
             <button
               type="button"
               onClick={onReview}
               style={{
                 padding: "10px 20px",
                 fontSize: "14px",
-                backgroundColor: colors.dangerRed,
+                backgroundColor: "#3b82f6",
                 color: "white",
                 border: "none",
                 borderRadius: "6px",
                 cursor: "pointer",
                 fontWeight: "bold",
                 transition: "all 0.2s ease",
+                boxShadow: "0 4px 6px -1px rgba(59,130,246,0.3)",
               }}
             >
               ✅ Review & {submitButtonText}
@@ -2029,98 +1880,6 @@ const ReadingTestEditor = ({
             </div>
           </div>
         )}
-
-        {/* Template Library Modal */}
-        <TemplateLibrary
-          isOpen={showTemplateLibrary}
-          onClose={() => setShowTemplateLibrary(false)}
-          onSelectTemplate={(template) => {
-            // Add template as new question to current section
-            if (
-              selectedPassageIndex !== null &&
-              selectedSectionIndex !== null &&
-              onAddQuestion
-            ) {
-              // Add question then update it with template data
-              onAddQuestion(
-                selectedPassageIndex,
-                selectedSectionIndex,
-                template.type
-              );
-
-              // Get the newly added question index
-              const currentQuestions =
-                passages?.[selectedPassageIndex]?.sections?.[
-                  selectedSectionIndex
-                ]?.questions || [];
-              const newQuestionIndex = currentQuestions.length; // After adding, it will be at this index
-
-              // Update the question with template data (slight delay to ensure state update)
-              setTimeout(() => {
-                if (onQuestionChange) {
-                  onQuestionChange(
-                    selectedPassageIndex,
-                    selectedSectionIndex,
-                    newQuestionIndex,
-                    template
-                  );
-                }
-              }, 100);
-            } else {
-              alert(
-                "Vui lòng chọn một Section trước khi thêm câu hỏi từ template!"
-              );
-            }
-          }}
-        />
-
-        {/* Import Modal */}
-        <ImportModal
-          isOpen={showImportModal}
-          onClose={() => setShowImportModal(false)}
-          onImport={(importedQuestions) => {
-            // Add imported questions to current section
-            if (
-              selectedPassageIndex !== null &&
-              selectedSectionIndex !== null &&
-              onAddQuestion
-            ) {
-              importedQuestions.forEach((q, index) => {
-                // Add question with template
-                setTimeout(() => {
-                  onAddQuestion(
-                    selectedPassageIndex,
-                    selectedSectionIndex,
-                    q.type
-                  );
-
-                  // Get the newly added question index
-                  const currentQuestions =
-                    passages?.[selectedPassageIndex]?.sections?.[
-                      selectedSectionIndex
-                    ]?.questions || [];
-                  const newQuestionIndex = currentQuestions.length + index;
-
-                  // Update with imported data
-                  setTimeout(() => {
-                    if (onQuestionChange) {
-                      onQuestionChange(
-                        selectedPassageIndex,
-                        selectedSectionIndex,
-                        newQuestionIndex,
-                        q
-                      );
-                    }
-                  }, 50);
-                }, index * 100);
-              });
-
-              alert(`✅ Đã import ${importedQuestions.length} câu hỏi!`);
-            } else {
-              alert("Vui lòng chọn một Section trước khi import câu hỏi!");
-            }
-          }}
-        />
 
         {/* Custom children (loading state, etc.) */}
         {children}
