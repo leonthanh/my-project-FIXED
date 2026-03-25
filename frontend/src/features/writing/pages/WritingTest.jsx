@@ -169,6 +169,14 @@ const WritingTest = () => {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
+  // Guard: redirect to login if not authenticated
+  useEffect(() => {
+    if (!user) {
+      window.location.href = "/login";
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   useEffect(() => {
     if (!selectedTestId) {
       setMessage("❌ Không tìm thấy đề thi đã chọn.");
