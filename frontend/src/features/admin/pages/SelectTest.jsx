@@ -324,14 +324,6 @@ const SelectTest = () => {
       {isTeacher ? <AdminNavbar /> : <StudentNavbar />}
       <div className="select-test-page">
         <div className="select-test-shell">
-          <div className="select-test-header">
-            <img
-              src={hostPath("uploads/staredu.jpg")}
-              alt="StarEdu"
-              className="select-test-logo"
-            />
-          </div>
-
           {/* Tab Navigation */}
           <div className="select-test-tabs">
             {[
@@ -357,6 +349,7 @@ const SelectTest = () => {
                   className={`select-test-tab select-test-subtab ${activeIxTab === tab ? "active" : ""}`}
                 >
                   {tab === "writing" ? "📝 Writing" : tab === "reading" ? "📖 Reading" : "🎧 Listening"}
+                  <span className="select-test-subtab-count">{tests[tab]?.length ?? 0}</span>
                 </button>
               ))}
             </div>
@@ -519,12 +512,8 @@ const SelectTest = () => {
 
                     return (
                       <div
-                        key={
-                          currentContext.isOrange
-                            ? `cambridge-${test.category || "unknown"}-${test.id}`
-                            : `${activeIxTab}-${test.id}`
-                        }
-                        className="select-test-card"
+                        key={`${activeIxTab}-${test.id}`}
+                        className={`select-test-card select-test-card--${activeIxTab}`}
                       >
                         <button
                           type="button"
@@ -538,13 +527,14 @@ const SelectTest = () => {
                           <div className="select-test-cardTitle">
                             <span className="select-test-cardIcon">{icon}</span>
                             <span className="select-test-cardText">{title}</span>
+                            <span className="select-test-cardNum">#{index + 1}</span>
                           </div>
 
                           <div className="select-test-cardMeta">
                             <div>
                               <span className="select-test-chip">{classCode}</span>
                             </div>
-                            <div className="select-test-cardTeacher">{teacherName}</div>
+                            <div className="select-test-cardTeacher">👨‍🏫 {teacherName}</div>
                           </div>
                         </button>
 

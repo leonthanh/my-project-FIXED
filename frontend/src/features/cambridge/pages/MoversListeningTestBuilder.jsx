@@ -13,6 +13,7 @@ import React, { useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { apiPath, authFetch, hostPath } from "../../../shared/utils/api";
 import { AdminNavbar } from "../../../shared/components";
+import "./MoversListeningTestBuilder.css";
 import {
   inputStyle,
   labelStyle,
@@ -489,11 +490,11 @@ const MoversListeningTestBuilder = ({ editId = null, initialData = null }) => {
 
   return (
     <div
+      className="mltb-page"
       style={{
         display: "flex",
         flexDirection: "column",
         minHeight: "100vh",
-        background: "#f8fafc",
         fontFamily: "system-ui, -apple-system, sans-serif",
       }}
     >
@@ -501,11 +502,10 @@ const MoversListeningTestBuilder = ({ editId = null, initialData = null }) => {
       <div style={{ display: "flex", flex: 1 }}>
       {/* ── Left sidebar ── */}
       <div
+        className="mltb-sidebar"
         style={{
           width: "244px",
           flexShrink: 0,
-          background: "white",
-          borderRight: "1px solid #e5e7eb",
           padding: "20px 14px",
           display: "flex",
           flexDirection: "column",
@@ -516,19 +516,19 @@ const MoversListeningTestBuilder = ({ editId = null, initialData = null }) => {
         }}
       >
         <h2
+          className="mltb-sidebar-title"
           style={{
             fontSize: "15px",
             fontWeight: 800,
-            color: "#1e293b",
             margin: "0 0 2px",
           }}
         >
           🚗 MOVERS Listening
         </h2>
         <p
+          className="mltb-sidebar-sub"
           style={{
             fontSize: "11px",
-            color: "#6b7280",
             margin: "0 0 18px",
           }}
         >
@@ -548,8 +548,8 @@ const MoversListeningTestBuilder = ({ editId = null, initialData = null }) => {
         <div style={{ flex: 1 }} />
 
         <div
+          className="mltb-sidebar-footer"
           style={{
-            borderTop: "1px solid #f1f5f9",
             paddingTop: "16px",
             marginTop: "16px",
           }}
@@ -575,13 +575,11 @@ const MoversListeningTestBuilder = ({ editId = null, initialData = null }) => {
           <button
             onClick={() => handleSubmit("draft")}
             disabled={isSubmitting}
+            className="mltb-btn-draft"
             style={{
               width: "100%",
               padding: "10px",
               borderRadius: "9px",
-              border: "2px solid #e5e7eb",
-              background: "white",
-              color: "#374151",
               fontWeight: 600,
               fontSize: "13px",
               cursor: isSubmitting ? "not-allowed" : "pointer",
@@ -614,8 +612,8 @@ const MoversListeningTestBuilder = ({ editId = null, initialData = null }) => {
       <div style={{ flex: 1, overflow: "auto", padding: "24px 28px" }}>
         {/* Test metadata card */}
         <div
+          className="mltb-card"
           style={{
-            background: "white",
             borderRadius: "12px",
             padding: "20px 24px",
             border: "1px solid #e5e7eb",
@@ -623,11 +621,11 @@ const MoversListeningTestBuilder = ({ editId = null, initialData = null }) => {
           }}
         >
           <h3
+            className="mltb-card-title"
             style={{
               margin: "0 0 16px",
               fontSize: "15px",
               fontWeight: 800,
-              color: "#1e293b",
             }}
           >
             📄 Thông tin đề thi
@@ -723,8 +721,8 @@ const MoversListeningTestBuilder = ({ editId = null, initialData = null }) => {
 
         {/* Active part editor card */}
         <div
+          className="mltb-card"
           style={{
-            background: "white",
             borderRadius: "14px",
             border: `2px solid ${cfg.color}30`,
             overflow: "hidden",
@@ -754,7 +752,8 @@ const MoversListeningTestBuilder = ({ editId = null, initialData = null }) => {
                 {cfg.title}
               </h2>
               <p
-                style={{ margin: "4px 0 0", fontSize: "13px", color: "#6b7280" }}
+                className="mltb-part-sub"
+                style={{ margin: "4px 0 0", fontSize: "13px" }}
               >
                 {cfg.titleVi} · {cfg.questionCount} câu hỏi
               </p>

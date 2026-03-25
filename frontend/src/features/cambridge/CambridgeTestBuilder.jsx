@@ -16,6 +16,7 @@ import {
 import { apiPath, hostPath, authFetch } from "../../shared/utils/api";
 import useQuillImageUpload from "../../shared/hooks/useQuillImageUpload";
 import { canManageCategory } from '../../shared/utils/permissions';
+import "./CambridgeTestBuilder.css";
 import { computeQuestionStarts, getQuestionCountForSection } from "./utils/questionNumbering";
 import { buildMoversPracticeTest1Template } from "./utils/moversPracticeTest1Template";
 
@@ -766,7 +767,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
   }
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#f8fafc' }}>
+    <div className="ctb-page" style={{ minHeight: '100vh' }}>
       {/* AdminNavbar */}
       {requiresLogin && (
         <div style={{ padding: 12, background: '#fff0f0', border: '1px solid #ffcccc', borderRadius: 6, margin: '12px auto', maxWidth: 1000 }}>
@@ -921,24 +922,23 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
       </div>
 
       {/* Main Content */}
-      <div style={{ 
+      <div className="ctb-main" style={{ 
         padding: '24px',
         overflowY: 'auto',
         height: '100vh',
       }}>
         {/* Header with Title and Save - Compact */}
-        <div style={{
+        <div className="ctb-card" style={{
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
           marginBottom: '12px',
           padding: '12px 16px',
-          backgroundColor: 'white',
           borderRadius: '8px',
           boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <h1 style={{ margin: 0, fontSize: '18px', color: '#1e293b', fontWeight: 600 }}>
+            <h1 className="ctb-title" style={{ margin: 0, fontSize: '18px', fontWeight: 600 }}>
               🎓 {builderDisplayName}
             </h1>
             {/* Auto-save indicator */}
@@ -1005,8 +1005,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
         )}
 
         {/* Test Info Form - Compact */}
-        <div style={{
-          backgroundColor: 'white',
+        <div className="ctb-card" style={{
           borderRadius: '8px',
           padding: '12px 16px',
           marginBottom: '12px',
@@ -1093,8 +1092,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
 
         {/* Global Audio (Listening only) */}
         {isListeningTest && (
-          <div style={{
-            backgroundColor: 'white',
+          <div className="ctb-card" style={{
             borderRadius: '8px',
             padding: '12px 16px',
             marginBottom: '12px',
@@ -1178,8 +1176,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
 
         {/* Current Part Editor */}
         {currentPart && (
-          <div style={{
-            backgroundColor: 'white',
+          <div className="ctb-card" style={{
             borderRadius: '12px',
             padding: '24px',
             boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
