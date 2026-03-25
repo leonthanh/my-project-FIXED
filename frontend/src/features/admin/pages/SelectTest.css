@@ -71,6 +71,14 @@
   justify-content: center;
 }
 
+.select-test-tabs .select-test-tab:nth-child(1) {
+  --tab-glow: rgba(37, 99, 235, 0.34);
+}
+
+.select-test-tabs .select-test-tab:nth-child(2) {
+  --tab-glow: rgba(234, 88, 12, 0.34);
+}
+
 @media (max-width: 520px) {
   .select-test-tabs {
     gap: 8px;
@@ -88,7 +96,63 @@
   border-radius: 8px;
   cursor: pointer;
   font-size: 16px;
-  transition: background 0.2s ease, border-color 0.2s ease;
+  transition: background-color 0.24s ease, border-color 0.24s ease, color 0.24s ease;
+}
+
+/* Premium tab interactions: smooth lift, glow, and a subtle light sweep */
+.select-test-tab,
+.select-test-shell .cambridge-type-btn,
+.select-test-shell .cambridge-tab {
+  --tab-glow: rgba(14, 39, 111, 0.22);
+  position: relative;
+  overflow: hidden;
+  transform: translateY(0);
+  will-change: transform, box-shadow;
+  transition:
+    transform 0.2s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.24s ease,
+    background-color 0.24s ease,
+    border-color 0.24s ease,
+    color 0.24s ease;
+}
+
+.select-test-tab::before,
+.select-test-shell .cambridge-type-btn::before,
+.select-test-shell .cambridge-tab::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(110deg, transparent 30%, rgba(255, 255, 255, 0.36) 50%, transparent 70%);
+  transform: translateX(-130%);
+  transition: transform 0.5s ease;
+  pointer-events: none;
+}
+
+.select-test-tab:hover,
+.select-test-shell .cambridge-type-btn:hover,
+.select-test-shell .cambridge-tab:hover {
+  transform: translateY(-1px);
+  box-shadow:
+    0 12px 24px -16px var(--tab-glow),
+    0 4px 10px rgba(15, 23, 42, 0.12);
+}
+
+.select-test-tab:hover::before,
+.select-test-shell .cambridge-type-btn:hover::before,
+.select-test-shell .cambridge-tab:hover::before,
+.select-test-tab:focus-visible::before,
+.select-test-shell .cambridge-type-btn:focus-visible::before,
+.select-test-shell .cambridge-tab:focus-visible::before {
+  transform: translateX(130%);
+}
+
+.select-test-tab:focus-visible,
+.select-test-shell .cambridge-type-btn:focus-visible,
+.select-test-shell .cambridge-tab:focus-visible {
+  outline: none;
+  box-shadow:
+    0 0 0 3px rgba(56, 189, 248, 0.28),
+    0 10px 24px -14px var(--tab-glow);
 }
 
 @media (max-width: 520px) {
@@ -118,6 +182,10 @@
   color: #fff;
   border-color: #0e276f;
   font-weight: 700;
+  transform: translateY(-1px);
+  box-shadow:
+    0 14px 24px -16px var(--tab-glow),
+    0 6px 12px rgba(15, 23, 42, 0.14);
 }
 .select-test-subtabs {
   display: grid;
@@ -138,6 +206,37 @@
   padding: 10px 18px;
   border-radius: 10px;
 }
+
+.select-test-subtab::after,
+.select-test-shell .cambridge-type-btn::after {
+  content: "";
+  position: absolute;
+  left: 14%;
+  right: 14%;
+  bottom: 4px;
+  height: 2px;
+  border-radius: 999px;
+  background: currentColor;
+  opacity: 0;
+  transform: scaleX(0.4);
+  transform-origin: center;
+  transition: opacity 0.24s ease, transform 0.24s ease;
+}
+
+.select-test-subtab:hover::after,
+.select-test-subtab:focus-visible::after,
+.select-test-shell .cambridge-type-btn:hover::after,
+.select-test-shell .cambridge-type-btn:focus-visible::after {
+  opacity: 0.3;
+  transform: scaleX(0.8);
+}
+
+.select-test-subtab.active::after,
+.select-test-shell .cambridge-type-btn.cambridge-type-btn--active::after {
+  opacity: 0.88;
+  transform: scaleX(1);
+}
+
 .select-test-subtab-count {
   display: inline-flex;
   align-items: center;
@@ -150,25 +249,33 @@
   background: rgba(14, 39, 111, 0.15);
   font-size: 12px;
   font-weight: 700;
+  transition:
+    transform 0.22s cubic-bezier(0.22, 1, 0.36, 1),
+    background-color 0.24s ease,
+    color 0.24s ease;
 }
 .select-test-subtab.active .select-test-subtab-count {
   background: rgba(255, 255, 255, 0.25);
+  transform: scale(1.06);
 }
 
 /* IX subtabs: equal-width grid + color by skill */
 .select-test-subtab.select-test-subtab--writing {
+  --tab-glow: rgba(124, 58, 237, 0.34);
   background: #f5f3ff;
   border-color: #c4b5fd;
   color: #6d28d9;
 }
 
 .select-test-subtab.select-test-subtab--reading {
+  --tab-glow: rgba(37, 99, 235, 0.34);
   background: #eff6ff;
   border-color: #93c5fd;
   color: #1d4ed8;
 }
 
 .select-test-subtab.select-test-subtab--listening {
+  --tab-glow: rgba(22, 163, 74, 0.34);
   background: #ecfdf5;
   border-color: #86efac;
   color: #166534;
@@ -230,35 +337,59 @@
 .select-test-shell .cambridge-type-btn {
   width: 100%;
   min-height: 46px;
+  display: inline-flex;
+  align-items: center;
   justify-content: center;
   text-align: center;
 }
 
+.select-test-subtab.active,
+.select-test-shell .cambridge-type-btn.cambridge-type-btn--active {
+  animation: tab-pop 0.26s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes tab-pop {
+  0% {
+    transform: translateY(0) scale(0.985);
+  }
+  65% {
+    transform: translateY(-1px) scale(1.01);
+  }
+  100% {
+    transform: translateY(-1px) scale(1);
+  }
+}
+
 .select-test-shell .cambridge-type-btn.cambridge-type-btn--ket {
+  --tab-glow: rgba(37, 99, 235, 0.34);
   background: #eff6ff;
   border-color: #93c5fd;
   color: #1d4ed8;
 }
 
 .select-test-shell .cambridge-type-btn.cambridge-type-btn--pet {
+  --tab-glow: rgba(22, 163, 74, 0.34);
   background: #ecfdf5;
   border-color: #86efac;
   color: #166534;
 }
 
 .select-test-shell .cambridge-type-btn.cambridge-type-btn--flyers {
+  --tab-glow: rgba(234, 88, 12, 0.34);
   background: #fff7ed;
   border-color: #fdba74;
   color: #c2410c;
 }
 
 .select-test-shell .cambridge-type-btn.cambridge-type-btn--movers {
+  --tab-glow: rgba(220, 38, 38, 0.34);
   background: #fef2f2;
   border-color: #fca5a5;
   color: #b91c1c;
 }
 
 .select-test-shell .cambridge-type-btn.cambridge-type-btn--starters {
+  --tab-glow: rgba(202, 138, 4, 0.34);
   background: #fefce8;
   border-color: #fde047;
   color: #a16207;
@@ -292,6 +423,128 @@
   background: #ca8a04;
   border-color: #ca8a04;
   color: #fff;
+}
+
+.select-test-shell .cambridge-type-btn.cambridge-type-btn--active,
+.select-test-shell .cambridge-tab.cambridge-tab--active {
+  transform: translateY(-1px);
+  box-shadow:
+    0 14px 24px -16px var(--tab-glow),
+    0 6px 12px rgba(15, 23, 42, 0.14);
+}
+
+.select-test-shell .cambridge-tabs {
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 10px;
+  border-bottom: none;
+  margin-bottom: 20px;
+}
+
+.select-test-shell .cambridge-tab {
+  width: 100%;
+  margin-bottom: 0;
+  border: 2px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 12px 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #f8fafc;
+  color: #475569;
+  --tab-glow: rgba(14, 39, 111, 0.28);
+}
+
+.select-test-shell .cambridge-tab:nth-child(1) {
+  --tab-glow: rgba(22, 163, 74, 0.34);
+  background: #ecfdf5;
+  border-color: #86efac;
+  color: #166534;
+}
+
+.select-test-shell .cambridge-tab:nth-child(2) {
+  --tab-glow: rgba(37, 99, 235, 0.34);
+  background: #eff6ff;
+  border-color: #93c5fd;
+  color: #1d4ed8;
+}
+
+.select-test-shell .cambridge-tab:nth-child(3) {
+  --tab-glow: rgba(124, 58, 237, 0.34);
+  background: #f5f3ff;
+  border-color: #c4b5fd;
+  color: #6d28d9;
+}
+
+.select-test-shell .cambridge-tab:nth-child(1) .cambridge-tab__badge {
+  background: rgba(22, 163, 74, 0.2);
+  color: #166534;
+}
+
+.select-test-shell .cambridge-tab:nth-child(2) .cambridge-tab__badge {
+  background: rgba(37, 99, 235, 0.2);
+  color: #1d4ed8;
+}
+
+.select-test-shell .cambridge-tab:nth-child(3) .cambridge-tab__badge {
+  background: rgba(124, 58, 237, 0.2);
+  color: #6d28d9;
+}
+
+.select-test-shell .cambridge-tab:nth-child(1).cambridge-tab--active {
+  background: #16a34a;
+  border-color: #16a34a;
+  color: #fff;
+}
+
+.select-test-shell .cambridge-tab:nth-child(2).cambridge-tab--active {
+  background: #2563eb;
+  border-color: #2563eb;
+  color: #fff;
+}
+
+.select-test-shell .cambridge-tab:nth-child(3).cambridge-tab--active {
+  background: #7c3aed;
+  border-color: #7c3aed;
+  color: #fff;
+}
+
+.select-test-shell .cambridge-tab .cambridge-tab__badge {
+  transition:
+    transform 0.22s cubic-bezier(0.22, 1, 0.36, 1),
+    background-color 0.24s ease,
+    color 0.24s ease;
+}
+
+.select-test-shell .cambridge-tab:nth-child(1).cambridge-tab--active .cambridge-tab__badge {
+  background-color: #16a34a;
+  color: #fff;
+  transform: scale(1.06);
+}
+
+.select-test-shell .cambridge-tab:nth-child(2).cambridge-tab--active .cambridge-tab__badge {
+  background-color: #2563eb;
+  color: #fff;
+  transform: scale(1.06);
+}
+
+.select-test-shell .cambridge-tab:nth-child(3).cambridge-tab--active .cambridge-tab__badge {
+  background-color: #7c3aed;
+  color: #fff;
+  transform: scale(1.06);
+}
+
+@media (max-width: 760px) {
+  .select-test-shell .cambridge-tabs {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 460px) {
+  .select-test-shell .cambridge-tabs {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 1120px) {
@@ -631,6 +884,24 @@
   filter: brightness(0.95);
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .select-test-tab,
+  .select-test-shell .cambridge-type-btn,
+  .select-test-shell .cambridge-tab {
+    transition: none;
+    transform: none !important;
+    animation: none;
+  }
+
+  .select-test-tab::before,
+  .select-test-subtab::after,
+  .select-test-shell .cambridge-type-btn::before,
+  .select-test-shell .cambridge-type-btn::after,
+  .select-test-shell .cambridge-tab::before {
+    display: none;
+  }
+}
+
 /* Dark mode overrides */
 body.dark-mode .select-test-page {
   background: #0f172a;
@@ -652,6 +923,43 @@ body.dark-mode .select-test-tab {
 
 body.dark-mode .select-test-tab.active {
   background: #0f3460;
+}
+
+body.dark-mode .select-test-shell .cambridge-tabs {
+  border-bottom: none;
+}
+
+body.dark-mode .select-test-shell .cambridge-tab:nth-child(1) {
+  background: #0f2f22;
+  border-color: #166534;
+  color: #86efac;
+}
+
+body.dark-mode .select-test-shell .cambridge-tab:nth-child(2) {
+  background: #122a4d;
+  border-color: #1d4ed8;
+  color: #93c5fd;
+}
+
+body.dark-mode .select-test-shell .cambridge-tab:nth-child(3) {
+  background: #2f1d4f;
+  border-color: #6d28d9;
+  color: #c4b5fd;
+}
+
+body.dark-mode .select-test-shell .cambridge-tab:nth-child(1) .cambridge-tab__badge {
+  background: rgba(22, 163, 74, 0.32);
+  color: #bbf7d0;
+}
+
+body.dark-mode .select-test-shell .cambridge-tab:nth-child(2) .cambridge-tab__badge {
+  background: rgba(37, 99, 235, 0.32);
+  color: #bfdbfe;
+}
+
+body.dark-mode .select-test-shell .cambridge-tab:nth-child(3) .cambridge-tab__badge {
+  background: rgba(124, 58, 237, 0.32);
+  color: #ddd6fe;
 }
 
 body.dark-mode .select-test-search,
