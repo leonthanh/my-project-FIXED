@@ -110,6 +110,10 @@ export const FillQuestionsEditor = ({
   imageTitle = "",
   onImageTitleChange = null,
 }) => {
+  // Draft buffer: key = `${qIdx}-${aIdx}` → raw string while the field is focused.
+  // This prevents re-render from trimming/stripping characters mid-typing.
+  const [answerDrafts, setAnswerDrafts] = useState({});
+
   const updateQ = (idx, field, val) => {
     const next = [...questions];
     next[idx] = { ...next[idx], questionNumber: startNumber + idx, [field]: val };
@@ -214,9 +218,10 @@ export const FillQuestionsEditor = ({
       )}
 
       {questions.map((q, idx) => {
-        // Parse correctAnswer string (slash‑separated) thành mảng để hiển thị từng row
-        const rawParts = String(q.correctAnswer || '').split('/').map((s) => s.trim());
+        // Parse correctAnswer string (slash‑separated) — NO trim() here so stored spaces are preserved.
+        const rawParts = String(q.correctAnswer || '').split('/');
         const answerParts = rawParts.length && rawParts.some(Boolean) ? rawParts : [''];
+        // Strip '/' from each part (it's our storage separator), then join with '/'
         const setAnswerParts = (parts) =>
           updateQ(idx, 'correctAnswer', parts.map((s) => s.replace(/\//g, '')).join('/'));
         return (
@@ -277,7 +282,11 @@ export const FillQuestionsEditor = ({
                 Đáp án — học sinh đúng khi khớp <em>bất kỳ</em> đáp án nào bên dưới
               </div>
 
-              {answerParts.map((ans, aIdx) => (
+              {answerParts.map((ans, aIdx) => {
+                const draftKey = `${idx}-${aIdx}`;
+                const isDrafting = answerDrafts[draftKey] !== undefined;
+                const displayVal = isDrafting ? answerDrafts[draftKey] : ans;
+                return (
                 <div key={aIdx} style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "6px" }}>
                   <span style={{
                     minWidth: "22px", fontSize: "11px", fontWeight: 700,
@@ -287,18 +296,34 @@ export const FillQuestionsEditor = ({
                   </span>
                   <input
                     type="text"
-                    placeholder={aIdx === 0 ? "Đáp án chính" : `Đáp án thay thế ${aIdx + 1}`}
-                    value={ans}
+                    placeholder={aIdx === 0 ? "Đáp án chính (gõ '/' hoặc '|' để tách đáp án)" : `Đáp án thay thế ${aIdx + 1}`}
+                    value={displayVal}
                     onChange={(e) => {
-                      const next = [...answerParts];
-                      next[aIdx] = e.target.value.replace(/\//g, '');
-                      setAnswerParts(next);
+                      // Buffer raw value locally — no stripping during typing
+                      setAnswerDrafts((prev) => ({ ...prev, [draftKey]: e.target.value }));
+                    }}
+                    onBlur={(e) => {
+                      const raw = e.target.value;
+                      // Clear draft
+                      setAnswerDrafts((prev) => { const n = { ...prev }; delete n[draftKey]; return n; });
+                      // Split on ' / ', ' | ', '/', or '|'
+                      const splitParts = raw.split(/\s*[|/]\s*/).map((s) => s.trim()).filter(Boolean);
+                      if (splitParts.length > 1) {
+                        // Distribute into multiple answer slots
+                        const newParts = [...answerParts];
+                        newParts.splice(aIdx, 1, ...splitParts);
+                        setAnswerParts(newParts.slice(0, 5));
+                      } else {
+                        const next = [...answerParts];
+                        next[aIdx] = raw; // Keep value as-is (spaces preserved)
+                        setAnswerParts(next);
+                      }
                     }}
                     style={{
                       ...inputStyle,
                       marginBottom: 0,
                       flex: 1,
-                      borderColor: ans ? color : "#d1d5db",
+                      borderColor: displayVal ? color : "#d1d5db",
                     }}
                   />
                   {aIdx > 0 && (
@@ -314,7 +339,8 @@ export const FillQuestionsEditor = ({
                     >×</button>
                   )}
                 </div>
-              ))}
+              );
+            })}
 
               {answerParts.length < 5 && (
                 <button

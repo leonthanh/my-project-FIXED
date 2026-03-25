@@ -8,8 +8,6 @@ import { TEST_CONFIGS } from "../../../shared/config/questionTypes";
 import "./SelectTest.css";
 // import Cambridge styles so we can reuse them for Orange platform
 import "../../cambridge/pages/SelectCambridgeTest.css";
-// bring in Cambridge styles so we can reuse classes when the teacher views Orange platform
-import "../../cambridge/pages/SelectCambridgeTest.css";
 
 const SelectTest = () => {
   const user = JSON.parse(localStorage.getItem("user"));
@@ -346,7 +344,7 @@ const SelectTest = () => {
                 <button
                   key={tab}
                   onClick={() => setActiveIxTab(tab)}
-                  className={`select-test-tab select-test-subtab ${activeIxTab === tab ? "active" : ""}`}
+                  className={`select-test-tab select-test-subtab select-test-subtab--${tab} ${activeIxTab === tab ? "active" : ""}`}
                 >
                   {tab === "writing" ? "📝 Writing" : tab === "reading" ? "📖 Reading" : "🎧 Listening"}
                   <span className="select-test-subtab-count">{tests[tab]?.length ?? 0}</span>
@@ -361,7 +359,7 @@ const SelectTest = () => {
                   <button
                     key={type}
                     onClick={() => setActiveOrangeType(type)}
-                    className={`cambridge-type-btn${activeOrangeType === type ? " cambridge-type-btn--active" : ""}`}
+                    className={`cambridge-type-btn cambridge-type-btn--${type}${activeOrangeType === type ? " cambridge-type-btn--active" : ""}`}
                   >
                     {orangeTypeIcons[type] || ""} {orangeTypeNames[type] || type.toUpperCase()}
                   </button>

@@ -221,16 +221,6 @@ const SelectCambridgeTest = () => {
       {isTeacher ? <AdminNavbar /> : <StudentNavbar />}
       <div className="cambridge-page">
         <div className="cambridge-card">
-          <div className="cambridge-header">
-            <img
-              src={hostPath("uploads/staredu.jpg")}
-              alt="StarEdu"
-              className="cambridge-header__logo"
-            />
-            <h1 className="cambridge-header__title">🎓 Bài Thi Cambridge English</h1>
-            <p className="cambridge-header__subtitle">Chọn loại bài thi và đề bạn muốn làm</p>
-          </div>
-
           <div className="cambridge-type-list">
             {testTypes.map((type) => (
               <button
