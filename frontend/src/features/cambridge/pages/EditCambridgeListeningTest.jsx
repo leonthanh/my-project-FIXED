@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { AdminNavbar } from "../../../shared/components";
+import AdminNavbar from "../../../shared/components/AdminNavbar";
 import { apiPath } from "../../../shared/utils/api";
 import CambridgeTestBuilder from "../CambridgeTestBuilder";
 import MoversListeningTestBuilder from "./MoversListeningTestBuilder";
@@ -75,3 +75,4 @@ const EditCambridgeListeningTest = () => {
 };
 
 export default EditCambridgeListeningTest;
+

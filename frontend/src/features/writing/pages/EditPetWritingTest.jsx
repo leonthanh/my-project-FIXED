@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import ReactQuill from "react-quill";
 import { useNavigate, useParams } from "react-router-dom";
-import { AdminNavbar } from "../../../shared/components";
+import AdminNavbar from "../../../shared/components/AdminNavbar";
 import { apiPath, authFetch, hostPath } from "../../../shared/utils/api";
 import useQuillImageUpload from "../../../shared/hooks/useQuillImageUpload";
 import "./CreateWritingTest.css";
@@ -419,3 +419,4 @@ const EditPetWritingTest = () => {
 };
 
 export default EditPetWritingTest;
+

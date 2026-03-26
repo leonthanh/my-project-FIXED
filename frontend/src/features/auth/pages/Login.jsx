@@ -21,14 +21,43 @@ const Login = () => {
   const location = useLocation();
   const [loading, setLoading] = useState(false);
 
+  const redirectAfterAuth = (targetPath) => {
+    window.dispatchEvent(new CustomEvent("auth:changed"));
+
+    if (typeof targetPath === "string" && targetPath.startsWith("/")) {
+      navigate(targetPath, { replace: true });
+      return;
+    }
+
+    if (typeof targetPath === "string" && /^https?:\/\//i.test(targetPath)) {
+      window.location.href = targetPath;
+      return;
+    }
+
+    navigate("/", { replace: true });
+  };
+
   useEffect(() => {
     // Show session-expired message if redirected due to token expiry
     const params = new URLSearchParams(location.search);
     if (params.get('reason') === 'expired') {
       setMessage('⚠️ Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
     }
-    const user = JSON.parse(localStorage.getItem("user"));
-    if (user && params.get('reason') !== 'expired') {
+    let user = null;
+    try {
+      user = JSON.parse(localStorage.getItem("user") || "null");
+    } catch (err) {
+      localStorage.removeItem("user");
+      user = null;
+    }
+    const hasToken = Boolean(
+      localStorage.getItem("accessToken") || localStorage.getItem("refreshToken")
+    );
+    if (user && !hasToken) {
+      localStorage.removeItem("user");
+      user = null;
+    }
+    if (user && hasToken && params.get('reason') !== 'expired') {
       navigate(['teacher', 'admin'].includes(user.role) ? "/admin" : "/");
     }
   }, [navigate, location.search]);
@@ -71,11 +100,11 @@ const Login = () => {
         const redirectTo = localStorage.getItem('postLoginRedirect');
         if (redirectTo) {
           localStorage.removeItem('postLoginRedirect');
-          window.location.href = redirectTo;
+          redirectAfterAuth(redirectTo);
           return;
         }
 
-        window.location.href = ['teacher', 'admin'].includes(data.user.role) ? "/admin" : "/";
+        redirectAfterAuth(['teacher', 'admin'].includes(data.user.role) ? "/admin" : "/");
       } else {
         setMessage("❌ " + data.message);
       }
@@ -124,8 +153,10 @@ const Login = () => {
       const data = await res.json().catch(() => ({}));
       if (res.ok) {
         localStorage.setItem("user", JSON.stringify(data.user));
+        if (data.accessToken) localStorage.setItem("accessToken", data.accessToken);
+        if (data.refreshToken) localStorage.setItem("refreshToken", data.refreshToken);
         setMessage("✅ " + data.message);
-        window.location.href = ['teacher', 'admin'].includes(data.user.role) ? "/admin" : "/";
+        redirectAfterAuth(['teacher', 'admin'].includes(data.user.role) ? "/admin" : "/");
       } else {
         // Hiển thị status code và message để dễ debug
         setMessage(
@@ -529,3 +560,4 @@ const registerBtn = {
 };
 
 export default Login;
+

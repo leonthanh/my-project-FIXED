@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { AdminNavbar } from "../../../shared/components";
+import AdminNavbar from "../../../shared/components/AdminNavbar";
 import { apiPath } from "../../../shared/utils/api";
 
 const AdminWritingSubmissions = () => {
@@ -19,7 +19,13 @@ const AdminWritingSubmissions = () => {
   const [expandedItems, setExpandedItems] = useState(new Set());
   const [filterStatus, setFilterStatus] = useState(''); // '' | 'pending' | 'done'
 
-  const teacher = JSON.parse(localStorage.getItem("user")); // 👈 lấy tên giáo viên
+  let teacher = null;
+  try {
+    teacher = JSON.parse(localStorage.getItem("user") || "null");
+  } catch (err) {
+    localStorage.removeItem("user");
+    teacher = null;
+  } // 👈 lấy tên giáo viên
 
   useEffect(() => {
     fetch(apiPath("writing/list"))
@@ -388,3 +394,5 @@ const AdminWritingSubmissions = () => {
 };
 
 export default AdminWritingSubmissions;
+
+

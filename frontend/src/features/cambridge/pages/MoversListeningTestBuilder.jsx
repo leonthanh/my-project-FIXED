@@ -12,7 +12,7 @@
 import React, { useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { apiPath, authFetch, hostPath } from "../../../shared/utils/api";
-import { AdminNavbar } from "../../../shared/components";
+import AdminNavbar from "../../../shared/components/AdminNavbar";
 import "./MoversListeningTestBuilder.css";
 import {
   inputStyle,
@@ -1071,3 +1071,4 @@ const MoversListeningTestBuilder = ({ editId = null, initialData = null }) => {
 };
 
 export default MoversListeningTestBuilder;
+

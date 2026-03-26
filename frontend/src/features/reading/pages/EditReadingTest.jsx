@@ -4,7 +4,7 @@ import { ReadingTestEditor } from "../components";
 import { usePassageHandlers } from "../hooks";
 import { stripHtml, cleanupPassageHTML } from "../utils";
 import { normalizeQuestionType } from "../utils/questionHelpers";
-import { AdminNavbar } from "../../../shared/components";
+import AdminNavbar from "../../../shared/components/AdminNavbar";
 
 /**
  * EditReadingTest - Trang sửa đề Reading IELTS
@@ -467,3 +467,4 @@ const EditReadingTest = () => {
 };
 
 export default EditReadingTest;
+

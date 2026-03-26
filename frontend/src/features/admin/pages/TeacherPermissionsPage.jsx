@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { AdminNavbar } from '../../../shared/components';
+import AdminNavbar from '../../../shared/components/AdminNavbar';
 import { apiPath, authFetch } from '../../../shared/utils/api';
 
 const TeacherPermissionsPage = () => {
@@ -95,7 +95,7 @@ const TeacherPermissionsPage = () => {
 };
 
 const s = {
-  page: { maxWidth: 760, margin: '40px auto', padding: '0 16px' },
+  page: { maxWidth: 760, margin: '50px auto', padding: '0 16px' },
   center: { textAlign: 'center', marginTop: 60, fontSize: 16 },
   title: { fontSize: 22, fontWeight: 700, marginBottom: 6 },
   subtitle: { color: '#555', marginBottom: 24, fontSize: 14 },
@@ -107,3 +107,4 @@ const s = {
 };
 
 export default TeacherPermissionsPage;
+

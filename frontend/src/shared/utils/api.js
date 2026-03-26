@@ -13,19 +13,18 @@ function hostPath(p) {
 }
 
 function getAuthHeaders() {
-  const token = localStorage.getItem('accessToken');
+  const token = localStorage.getItem("accessToken");
   if (!token) return {};
   return { Authorization: `Bearer ${token}` };
 }
 
 /**
- * Remove all auth data from storage and notify the app to redirect to login.
- * Call this on explicit logout OR when token refresh fails (session expired).
+ * Remove all auth data from storage.
  */
 function clearAuth() {
-  localStorage.removeItem('accessToken');
-  localStorage.removeItem('refreshToken');
-  localStorage.removeItem('user');
+  localStorage.removeItem("accessToken");
+  localStorage.removeItem("refreshToken");
+  localStorage.removeItem("user");
 }
 
 /**
@@ -34,7 +33,7 @@ function clearAuth() {
  */
 function forceLogout() {
   clearAuth();
-  window.dispatchEvent(new CustomEvent('auth:force-logout'));
+  window.dispatchEvent(new CustomEvent("auth:force-logout"));
 }
 
 let refreshPromise = null;
@@ -43,35 +42,44 @@ async function refreshAccessToken() {
   if (refreshPromise) return refreshPromise;
 
   refreshPromise = (async () => {
-    const refreshToken = localStorage.getItem('refreshToken');
+    const refreshToken = localStorage.getItem("refreshToken");
     const hasRefreshToken = Boolean(refreshToken);
+    const hadStoredUser = Boolean(localStorage.getItem("user"));
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 2800);
 
     try {
-      console.debug('auth: attempting refresh');
+      console.debug("auth: attempting refresh");
       const res = await fetch(`${API_BASE}/auth/refresh`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(hasRefreshToken ? { refreshToken } : {}),
+        signal: controller.signal,
       });
 
       if (!res.ok) {
-        console.debug('auth: refresh failed', res.status);
-        forceLogout();
+        console.debug("auth: refresh failed", res.status);
+        if (hadStoredUser) {
+          forceLogout();
+        } else {
+          clearAuth();
+        }
         return false;
       }
 
       const data = await res.json().catch(() => ({}));
-      if (data.accessToken) localStorage.setItem('accessToken', data.accessToken);
-      if (data.refreshToken) localStorage.setItem('refreshToken', data.refreshToken);
-      console.debug('auth: refresh succeeded');
+      if (data.accessToken) localStorage.setItem("accessToken", data.accessToken);
+      if (data.refreshToken) localStorage.setItem("refreshToken", data.refreshToken);
+      console.debug("auth: refresh succeeded");
       return true;
     } catch (err) {
-      console.debug('auth: refresh exception', err?.message || err);
-      // Network error — don't force logout (server might be temporarily unavailable)
-      localStorage.removeItem('accessToken');
+      console.debug("auth: refresh exception", err?.message || err);
+      // Network error: do not force logout because server may be temporarily unavailable.
+      localStorage.removeItem("accessToken");
       return false;
     } finally {
+      clearTimeout(timeoutId);
       refreshPromise = null;
     }
   })();
@@ -91,12 +99,22 @@ async function authFetch(url, opts = {}) {
 
   // Try refresh once
   const refreshed = await refreshAccessToken();
-  if (!refreshed) return res; // still 401
+  if (!refreshed) return res;
 
   // Retry with new token
   mergedOpts.headers = { ...(mergedOpts.headers || {}), ...getAuthHeaders() };
   return fetch(url, mergedOpts);
 }
 
-export { API_HOST, API_BASE, apiPath, hostPath, getAuthHeaders, authFetch, refreshAccessToken, clearAuth, forceLogout };
+export {
+  API_HOST,
+  API_BASE,
+  apiPath,
+  hostPath,
+  getAuthHeaders,
+  authFetch,
+  refreshAccessToken,
+  clearAuth,
+  forceLogout,
+};
 export default API_BASE;

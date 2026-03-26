@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { AdminNavbar } from "../../../shared/components";
+import AdminNavbar from "../../../shared/components/AdminNavbar";
 import { useTheme } from "../../../shared/contexts/ThemeContext";
 import { apiPath } from "../../../shared/utils/api";
 
@@ -46,8 +46,14 @@ const AdminReadingSubmissions = () => {
     fetchSubs();
 
     // Load teacher name from localStorage
-    const user = JSON.parse(localStorage.getItem("user") || "{}");
-    if (user.name) setFeedbackBy(user.name);
+    let user = null;
+    try {
+      user = JSON.parse(localStorage.getItem("user") || "null");
+    } catch (err) {
+      localStorage.removeItem("user");
+      user = null;
+    }
+    if (user?.name) setFeedbackBy(user.name);
   }, []);
 
   // Filter submissions
@@ -423,3 +429,4 @@ const closeBtn = (isDarkMode) => ({
 });
 
 export default AdminReadingSubmissions;
+

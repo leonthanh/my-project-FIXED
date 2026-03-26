@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { AdminNavbar } from "../../../shared/components";
+import AdminNavbar from "../../../shared/components/AdminNavbar";
 import { apiPath } from "../../../shared/utils/api";
 
 /**
@@ -10,7 +10,13 @@ import { apiPath } from "../../../shared/utils/api";
 const CambridgeSubmissionsPage = () => {
   const navigate = useNavigate();
   /* eslint-disable-next-line no-unused-vars */
-  const teacher = JSON.parse(localStorage.getItem("user"));
+  let teacher = null;
+  try {
+    teacher = JSON.parse(localStorage.getItem("user") || "null");
+  } catch (err) {
+    localStorage.removeItem("user");
+    teacher = null;
+  }
 
   // States
   const [submissions, setSubmissions] = useState([]);
@@ -607,3 +613,5 @@ const styles = {
 };
 
 export default CambridgeSubmissionsPage;
+
+

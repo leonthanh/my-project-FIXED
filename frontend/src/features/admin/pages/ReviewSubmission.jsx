@@ -1,7 +1,7 @@
 // frontend/src/features/admin/pages/ReviewSubmission.jsx
 import React, { useEffect, useState, useCallback } from "react";
 import { useParams } from "react-router-dom";
-import { AdminNavbar } from "../../../shared/components";
+import AdminNavbar from "../../../shared/components/AdminNavbar";
 import { apiPath } from "../../../shared/utils/api";
 
 const ReviewSubmission = () => {
@@ -281,3 +281,4 @@ const ReviewSubmission = () => {
 };
 
 export default ReviewSubmission;
+

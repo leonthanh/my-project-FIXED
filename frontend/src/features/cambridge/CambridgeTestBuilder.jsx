@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from "react"
 import { useNavigate } from "react-router-dom";
 import ReactQuill from "react-quill";
 import "react-quill/dist/quill.snow.css";
-import { AdminNavbar } from "../../shared/components";
+import AdminNavbar from "../../shared/components/AdminNavbar";
 import { 
   QuestionTypeSelector, 
   QuestionEditorFactory,
@@ -1854,3 +1854,4 @@ if (typeof document !== 'undefined') {
 }
 
 export default CambridgeTestBuilder;
+

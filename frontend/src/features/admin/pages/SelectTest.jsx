@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { StudentNavbar, AdminNavbar } from "../../../shared/components";
+import StudentNavbar from "../../../shared/components/StudentNavbar";
+import AdminNavbar from "../../../shared/components/AdminNavbar";
 import { apiPath, hostPath } from "../../../shared/utils/api";
 import { canManageCategory } from "../../../shared/utils/permissions";
 import { TEST_CONFIGS } from "../../../shared/config/questionTypes";
@@ -10,7 +11,13 @@ import "./SelectTest.css";
 import "../../cambridge/pages/SelectCambridgeTest.css";
 
 const SelectTest = () => {
-  const user = JSON.parse(localStorage.getItem("user"));
+  let user = null;
+  try {
+    user = JSON.parse(localStorage.getItem("user") || "null");
+  } catch (err) {
+    localStorage.removeItem("user");
+    user = null;
+  }
   const isTeacher = user && (user.role === "teacher" || user.role === "admin");
 
   const [tests, setTests] = useState({
@@ -578,3 +585,4 @@ const SelectTest = () => {
 };
 
 export default SelectTest;
+

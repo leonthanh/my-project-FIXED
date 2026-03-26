@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { StudentNavbar, AdminNavbar } from "../../../shared/components";
+import StudentNavbar from "../../../shared/components/StudentNavbar";
+import AdminNavbar from "../../../shared/components/AdminNavbar";
 import { apiPath, hostPath } from "../../../shared/utils/api";
 import { TEST_CONFIGS } from "../../../shared/config/questionTypes";
 import { canManageCategory } from "../../../shared/utils/permissions";
@@ -290,3 +291,4 @@ const SelectCambridgeTest = () => {
 };
 
 export default SelectCambridgeTest;
+
