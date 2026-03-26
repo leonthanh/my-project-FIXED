@@ -176,7 +176,7 @@ body.dark-mode .studentNavbar__menuItem:hover {
 
 @media (max-width: 520px) {
   .studentNavbar {
-    padding: 8px 12px;
+    padding: 8px 10px;
   }
 
   .studentNavbar__label {
@@ -202,25 +202,64 @@ body.dark-mode .studentNavbar__menuItem:hover {
   .studentNavbar {
     padding: 6px 8px;
     gap: 6px;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     position: fixed;
     top: 0;
     left: 0;
     right: 0;
+    overflow: hidden;
   }
 
   .studentNavbar__left,
   .studentNavbar__right {
     gap: 6px;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
+  }
+
+  .studentNavbar__left {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .studentNavbar__left::-webkit-scrollbar {
+    display: none;
+  }
+
+  .studentNavbar__right {
+    flex: 0 0 auto;
+    gap: 4px;
   }
 
   .studentNavbar__logo {
     height: 28px;
   }
 
+  .studentNavbar__moreToggle {
+    font-size: 13px;
+  }
+
   .studentNavbar__user {
     display: none;
+  }
+
+  .studentNavbar__right > button:first-child {
+    padding: 6px 10px !important;
+    border-radius: 16px !important;
+    font-size: 12px !important;
+    gap: 0 !important;
+  }
+
+  .studentNavbar__right > button:first-child span:last-child {
+    display: none;
+  }
+
+  .studentNavbar__logout {
+    padding: 6px 10px;
+    border-radius: 8px;
   }
 
   .studentNavbar__logoutLabel {

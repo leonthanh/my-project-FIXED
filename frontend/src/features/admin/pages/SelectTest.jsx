@@ -8,8 +8,6 @@ import { TEST_CONFIGS } from "../../../shared/config/questionTypes";
 import "./SelectTest.css";
 // import Cambridge styles so we can reuse them for Orange platform
 import "../../cambridge/pages/SelectCambridgeTest.css";
-// bring in Cambridge styles so we can reuse classes when the teacher views Orange platform
-import "../../cambridge/pages/SelectCambridgeTest.css";
 
 const SelectTest = () => {
   const user = JSON.parse(localStorage.getItem("user"));
@@ -324,14 +322,6 @@ const SelectTest = () => {
       {isTeacher ? <AdminNavbar /> : <StudentNavbar />}
       <div className="select-test-page">
         <div className="select-test-shell">
-          <div className="select-test-header">
-            <img
-              src={hostPath("uploads/staredu.jpg")}
-              alt="StarEdu"
-              className="select-test-logo"
-            />
-          </div>
-
           {/* Tab Navigation */}
           <div className="select-test-tabs">
             {[
@@ -354,9 +344,10 @@ const SelectTest = () => {
                 <button
                   key={tab}
                   onClick={() => setActiveIxTab(tab)}
-                  className={`select-test-tab select-test-subtab ${activeIxTab === tab ? "active" : ""}`}
+                  className={`select-test-tab select-test-subtab select-test-subtab--${tab} ${activeIxTab === tab ? "active" : ""}`}
                 >
                   {tab === "writing" ? "📝 Writing" : tab === "reading" ? "📖 Reading" : "🎧 Listening"}
+                  <span className="select-test-subtab-count">{tests[tab]?.length ?? 0}</span>
                 </button>
               ))}
             </div>
@@ -368,14 +359,14 @@ const SelectTest = () => {
                   <button
                     key={type}
                     onClick={() => setActiveOrangeType(type)}
-                    className={`cambridge-type-btn${activeOrangeType === type ? " cambridge-type-btn--active" : ""}`}
+                    className={`cambridge-type-btn cambridge-type-btn--${type}${activeOrangeType === type ? " cambridge-type-btn--active" : ""}`}
                   >
                     {orangeTypeIcons[type] || ""} {orangeTypeNames[type] || type.toUpperCase()}
                   </button>
                 ))}
               </div>
 
-              <div className="cambridge-tabs">
+              <div className={`cambridge-tabs${activeOrangeType === "pet" ? " cambridge-tabs--three" : ""}`}>
                 {[
                   { key: "listening", label: "🎧 Listening", count: orangeCounts.listening },
                   { key: "reading", label: "📖 Reading", count: orangeCounts.reading },
@@ -519,12 +510,8 @@ const SelectTest = () => {
 
                     return (
                       <div
-                        key={
-                          currentContext.isOrange
-                            ? `cambridge-${test.category || "unknown"}-${test.id}`
-                            : `${activeIxTab}-${test.id}`
-                        }
-                        className="select-test-card"
+                        key={`${activeIxTab}-${test.id}`}
+                        className={`select-test-card select-test-card--${activeIxTab}`}
                       >
                         <button
                           type="button"
@@ -538,13 +525,14 @@ const SelectTest = () => {
                           <div className="select-test-cardTitle">
                             <span className="select-test-cardIcon">{icon}</span>
                             <span className="select-test-cardText">{title}</span>
+                            <span className="select-test-cardNum">#{index + 1}</span>
                           </div>
 
                           <div className="select-test-cardMeta">
                             <div>
                               <span className="select-test-chip">{classCode}</span>
                             </div>
-                            <div className="select-test-cardTeacher">{teacherName}</div>
+                            <div className="select-test-cardTeacher">👨‍🏫 {teacherName}</div>
                           </div>
                         </button>
 

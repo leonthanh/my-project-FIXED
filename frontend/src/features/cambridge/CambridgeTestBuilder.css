@@ -1,0 +1,46 @@
+/* ══════════════════════════════════════════
+   CambridgeTestBuilder — dark-mode support
+   ══════════════════════════════════════════ */
+
+/* Light defaults */
+.ctb-page  { background: #f8fafc; }
+.ctb-card  { background: #fff; }
+.ctb-title { color: #1e293b; }
+
+/* ── Dark mode overrides ── */
+body.dark-mode .ctb-page { background: #0f172a; }
+
+body.dark-mode .ctb-card {
+  background: #111827;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.3);
+}
+
+body.dark-mode .ctb-title { color: #e2e8f0; }
+
+/* Capture white-bg divs via DOM attribute selector.
+   React serializes  backgroundColor:'white'  →  background-color: white
+   in the HTML style attribute, so [style*=] matches them. */
+body.dark-mode .ctb-main div[style*="background-color: white"],
+body.dark-mode .ctb-main div[style*="background: white"] {
+  background: #111827 !important;
+}
+
+/* Inputs, selects, textareas (scoped to ctb-main) */
+body.dark-mode .ctb-main input[type="text"],
+body.dark-mode .ctb-main input[type="number"],
+body.dark-mode .ctb-main input[type="url"],
+body.dark-mode .ctb-main textarea,
+body.dark-mode .ctb-main select {
+  background: #1e293b !important;
+  color: #e2e8f0    !important;
+  border-color: #374151 !important;
+}
+
+body.dark-mode .ctb-main input::placeholder,
+body.dark-mode .ctb-main textarea::placeholder {
+  color: #6b7280 !important;
+}
+
+body.dark-mode .ctb-main label {
+  color: #9ca3af !important;
+}

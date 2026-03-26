@@ -16,6 +16,8 @@ const AdminWritingSubmissions = () => {
   const [searchStudentName, setSearchStudentName] = useState("");
   const [searchFeedbackBy, setSearchFeedbackBy] = useState("");
   const [filteredData, setFilteredData] = useState([]);
+  const [expandedItems, setExpandedItems] = useState(new Set());
+  const [filterStatus, setFilterStatus] = useState(''); // '' | 'pending' | 'done'
 
   const teacher = JSON.parse(localStorage.getItem("user")); // 👈 lấy tên giáo viên
 
@@ -69,14 +71,31 @@ const AdminWritingSubmissions = () => {
       );
     }
 
+    if (filterStatus === 'pending') {
+      filtered = filtered.filter((item) => !item.feedback || !item.feedbackBy);
+    }
+    if (filterStatus === 'done') {
+      filtered = filtered.filter((item) => !!(item.feedback && item.feedbackBy));
+    }
+
     setFilteredData(filtered);
-  }, [
-    searchClassCode,
-    searchTeacher,
-    searchStudentName,
-    searchFeedbackBy,
-    data,
-  ]);
+  }, [searchClassCode, searchTeacher, searchStudentName, searchFeedbackBy, filterStatus, data]);
+
+  const toggleExpand = (id) => {
+    setExpandedItems((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  const resetFilters = () => {
+    setSearchClassCode('');
+    setSearchTeacher('');
+    setSearchStudentName('');
+    setSearchFeedbackBy('');
+    setFilterStatus('');
+  };
 
   // ✅ Hàm gửi nhận xét
   const handleSendFeedback = async (submissionId) => {
@@ -174,349 +193,195 @@ const AdminWritingSubmissions = () => {
   return (
     <>
       <AdminNavbar />
-      <div style={{ padding: "30px" }} className="admin-page">
-        <h2>📋 Writing Submissions</h2>
-        <div style={{ marginTop: 12, marginBottom: 18 }}>
+      <div style={{ maxWidth: 980, margin: '0 auto', padding: '30px 16px' }} className="admin-page">
+
+        {/* Tiêu đề + nút navigation */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
+          <h2 style={{ margin: 0, fontSize: 22, fontWeight: 700 }}>📋 Writing Submissions</h2>
           <button
-            onClick={() =>
-              (window.location.href = "/admin/reading-submissions")
-            }
-            style={{
-              padding: "8px 12px",
-              background: "#0e276f",
-              color: "white",
-              border: "none",
-              borderRadius: 6,
-              cursor: "pointer",
-            }}
+            onClick={() => (window.location.href = '/admin/reading-submissions')}
+            style={{ padding: '8px 14px', background: '#0e276f', color: 'white', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 14, fontWeight: 600 }}
           >
             🔎 Reading Submissions
           </button>
         </div>
 
-        {/* 🔍 Form tìm kiếm */}
-        <div
-          className="admin-filter-grid"
-          style={{
-            background: "#f0f0f0",
-            padding: "20px",
-            borderRadius: "8px",
-            marginBottom: "20px",
-            display: "grid",
-            gridTemplateColumns: "1fr 1fr 1fr 1fr auto",
-            gap: "15px",
-            alignItems: "end",
-          }}
-        >
-          <div>
-            <label
-              style={{
-                display: "block",
-                marginBottom: "5px",
-                fontWeight: "bold",
-              }}
-            >
-              👤 Tên học sinh:
-            </label>
-            <input
-              type="text"
-              placeholder="Nhập tên học sinh"
-              value={searchStudentName}
-              onChange={(e) => setSearchStudentName(e.target.value)}
-              style={{
-                width: "100%",
-                padding: "10px",
-                border: "1px solid #ccc",
-                borderRadius: "6px",
-                fontSize: "14px",
-                boxSizing: "border-box",
-              }}
-            />
-          </div>
-
-          <div>
-            <label
-              style={{
-                display: "block",
-                marginBottom: "5px",
-                fontWeight: "bold",
-              }}
-            >
-              🧾 Mã lớp:
-            </label>
-            <input
-              type="text"
-              placeholder="Nhập mã lớp (vd: 148-IX-3A-S1)"
-              value={searchClassCode}
-              onChange={(e) => setSearchClassCode(e.target.value)}
-              style={{
-                width: "100%",
-                padding: "10px",
-                border: "1px solid #ccc",
-                borderRadius: "6px",
-                fontSize: "14px",
-                boxSizing: "border-box",
-              }}
-            />
-          </div>
-
-          <div>
-            <label
-              style={{
-                display: "block",
-                marginBottom: "5px",
-                fontWeight: "bold",
-              }}
-            >
-              👨‍🏫 Giáo viên đề:
-            </label>
-            <input
-              type="text"
-              placeholder="Nhập tên giáo viên"
-              value={searchTeacher}
-              onChange={(e) => setSearchTeacher(e.target.value)}
-              style={{
-                width: "100%",
-                padding: "10px",
-                border: "1px solid #ccc",
-                borderRadius: "6px",
-                fontSize: "14px",
-                boxSizing: "border-box",
-              }}
-            />
-          </div>
-
-          <div>
-            <label
-              style={{
-                display: "block",
-                marginBottom: "5px",
-                fontWeight: "bold",
-              }}
-            >
-              ✍️ Giáo viên chấm:
-            </label>
-            <input
-              type="text"
-              placeholder="Nhập tên giáo viên chấm"
-              value={searchFeedbackBy}
-              onChange={(e) => setSearchFeedbackBy(e.target.value)}
-              style={{
-                width: "100%",
-                padding: "10px",
-                border: "1px solid #ccc",
-                borderRadius: "6px",
-                fontSize: "14px",
-                boxSizing: "border-box",
-              }}
-            />
-          </div>
-
-          <button
-            onClick={() => {
-              setSearchClassCode("");
-              setSearchTeacher("");
-              setSearchStudentName("");
-              setSearchFeedbackBy("");
-            }}
-            style={{
-              padding: "10px 20px",
-              backgroundColor: "#666",
-              color: "#fff",
-              border: "none",
-              borderRadius: "6px",
-              cursor: "pointer",
-              fontSize: "14px",
-              fontWeight: "bold",
-              whiteSpace: "nowrap",
-            }}
-          >
-            🔄 Reset
-          </button>
+        {/* Stats bar */}
+        <div style={{ display: 'flex', gap: 10, marginBottom: 18, flexWrap: 'wrap' }}>
+          {[
+            { label: 'Tổng cộng', count: data.length,                                                       bg: '#eff6ff', color: '#1d4ed8', border: '#bfdbfe' },
+            { label: 'Chưa chấm', count: data.filter((i) => !i.feedback || !i.feedbackBy).length,           bg: '#fffbeb', color: '#92400e', border: '#fde68a' },
+            { label: 'Đã chấm',   count: data.filter((i) => !!(i.feedback && i.feedbackBy)).length,         bg: '#f0fdf4', color: '#166534', border: '#bbf7d0' },
+          ].map((s) => (
+            <div key={s.label} style={{ background: s.bg, border: `1px solid ${s.border}`, borderRadius: 8, padding: '8px 18px', minWidth: 110, textAlign: 'center', cursor: 'default' }}>
+              <div style={{ fontSize: 24, fontWeight: 700, color: s.color }}>{s.count}</div>
+              <div style={{ fontSize: 12, color: s.color, opacity: 0.85 }}>{s.label}</div>
+            </div>
+          ))}
         </div>
 
-        {/* Hiển thị kết quả tìm kiếm */}
-        <p style={{ color: "#666", marginBottom: "15px" }}>
-          📊 Tổng cộng: <strong>{filteredData.length}</strong> bài viết
-          {(searchClassCode ||
-            searchTeacher ||
-            searchStudentName ||
-            searchFeedbackBy) &&
-            ` (lọc từ ${data.length})`}
+        {/* Bộ lọc */}
+        <div style={{ background: '#f8fafc', border: '1px solid #e5e7eb', borderRadius: 10, padding: '14px 16px', marginBottom: 18 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10, alignItems: 'end' }}>
+            {[
+              { label: '👤 Tên học sinh',   ph: 'Tên học sinh',        val: searchStudentName, set: setSearchStudentName },
+              { label: '🧾 Mã lớp',         ph: 'vd: 148-IX-3A-S1',   val: searchClassCode,   set: setSearchClassCode },
+              { label: '👨‍🏫 Giáo viên đề',  ph: 'Tên giáo viên',      val: searchTeacher,     set: setSearchTeacher },
+              { label: '✍️ GV chấm',        ph: 'Tên giáo viên chấm', val: searchFeedbackBy,  set: setSearchFeedbackBy },
+            ].map((f) => (
+              <div key={f.label}>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 4, color: '#374151' }}>{f.label}</label>
+                <input
+                  type="text" placeholder={f.ph} value={f.val}
+                  onChange={(e) => f.set(e.target.value)}
+                  style={{ width: '100%', padding: '7px 10px', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 13, boxSizing: 'border-box' }}
+                />
+              </div>
+            ))}
+            <div>
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 4, color: '#374151' }}>📌 Trạng thái</label>
+              <select
+                value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}
+                style={{ width: '100%', padding: '7px 10px', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 13, boxSizing: 'border-box', background: '#fff' }}
+              >
+                <option value="">Tất cả</option>
+                <option value="pending">⏳ Chưa chấm</option>
+                <option value="done">✅ Đã chấm</option>
+              </select>
+            </div>
+            <div style={{ alignSelf: 'end' }}>
+              <button onClick={resetFilters} style={{ width: '100%', padding: '7px 10px', background: '#6b7280', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
+                🔄 Reset
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <p style={{ fontSize: 13, color: '#6b7280', marginBottom: 12 }}>
+          Hiển thị <strong>{filteredData.length}</strong>{data.length !== filteredData.length ? ` / ${data.length}` : ''} bài viết
+          &nbsp;—&nbsp;<span style={{ color: '#9ca3af' }}>Click vào hàng để xem bài & nhận xét</span>
         </p>
 
         {filteredData.length === 0 && (
-          <p style={{ color: "#d32f2f", fontWeight: "bold" }}>
+          <div style={{ textAlign: 'center', padding: '40px 0', color: '#9ca3af', fontSize: 15 }}>
             ❌ Không tìm thấy bài viết phù hợp.
-          </p>
+          </div>
         )}
 
-        {filteredData.map((item) => (
-          <div
-            key={item.id}
-            className="admin-card"
-            style={{
-              border: "1px solid #ccc",
-              padding: "20px",
-              marginTop: "20px",
-              borderRadius: 8,
-              background: "#f9f9f9",
-            }}
-          >
-            <p>
-              <strong>👤 Học sinh:</strong> {item.userName || "N/A"}
-            </p>
-            <p>
-              <strong>📞 Số điện thoại:</strong> {item.userPhone || "N/A"}
-            </p>
-            <p>
-              <strong>🧾 Mã đề:</strong>{" "}
-              {item.WritingTest?.testType === "pet-writing"
-                ? "PET Writing"
-                : "Writing"}{" "}
-              {item.WritingTest?.index || "N/A"}
-              {item.WritingTest?.classCode
-                ? ` – ${item.WritingTest.classCode}`
-                : ""}
-              {item.WritingTest?.teacherName
-                ? ` – ${item.WritingTest.teacherName}`
-                : ""}
-            </p>
-            <p>
-              <strong>🕒 Nộp lúc:</strong> {formatDateTime(item.createdAt)}
-            </p>
-            <p>
-              <strong>⏳ Thời gian còn lại:</strong>{" "}
-              {item.timeLeft ? Math.floor(item.timeLeft / 60) : 0} phút
-            </p>
+        {/* Danh sách dạng accordion */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {filteredData.map((item, idx) => {
+            const isDone = !!(item.feedback && item.feedbackBy) || !!hasSaved[item.id];
+            const isExpanded = expandedItems.has(item.id);
+            const testLabel = [
+              item.WritingTest?.testType === 'pet-writing' ? 'PET Writing' : 'Writing',
+              item.WritingTest?.index,
+              item.WritingTest?.classCode,
+              item.WritingTest?.teacherName,
+            ].filter(Boolean).join(' – ');
 
-            <h4>✍️ Task 1:</h4>
-            <p style={{ whiteSpace: "pre-line" }}>{item.task1}</p>
-
-            <h4>✍️ Task 2:</h4>
-            <p style={{ whiteSpace: "pre-line" }}>{item.task2}</p>
-
-            <div style={{ marginTop: 20 }}>
-              {item.feedback && item.feedbackAt && item.feedbackBy && (
-                <div
-                  style={{
-                    background: "#e7f4e4",
-                    padding: 10,
-                    borderRadius: 6,
-                    marginBottom: 10,
-                  }}
-                >
-                  <p>
-                    🟢 <strong>Đã nhận xét</strong> lúc{" "}
-                    {formatDateTime(item.feedbackAt)} bởi{" "}
-                    <strong>{item.feedbackBy}</strong>
-                  </p>
-                  <p style={{ whiteSpace: "pre-line", marginTop: 6 }}>
-                    <strong>📋 Nhận xét:</strong>
-                    <br />
-                    {item.feedback}
-                  </p>
-                </div>
-              )}
-
-              <textarea
-                placeholder="Nhận xét của giáo viên..."
-                rows={5}
+            return (
+              <div
+                key={item.id}
                 style={{
-                  width: "100%",
-                  padding: "12px",
-                  boxSizing: "border-box",
-                  fontSize: "16px",
-                  fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
-                  marginBottom: "12px",
-                  border: "1px solid #ccc",
-                  borderRadius: "8px",
-                  outline: "none",
-                  transition: "border-color 0.2s ease",
+                  border: `1px solid ${isDone ? '#bbf7d0' : '#fed7aa'}`,
+                  borderLeft: `4px solid ${isDone ? '#16a34a' : '#f59e0b'}`,
+                  borderRadius: 8,
+                  background: '#fff',
+                  overflow: 'hidden',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
                 }}
-                value={feedbacks[item.id] || ""}
-                onChange={(e) =>
-                  setFeedbacks((prev) => ({
-                    ...prev,
-                    [item.id]: e.target.value,
-                  }))
-                }
-              />
+              >
+                {/* Header row – luôn hiển thị, click để mở/đóng */}
+                <div
+                  style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', cursor: 'pointer', userSelect: 'none', flexWrap: 'wrap' }}
+                  onClick={() => toggleExpand(item.id)}
+                >
+                  <span style={{ fontSize: 12, color: '#9ca3af', minWidth: 28 }}>#{idx + 1}</span>
+                  <span style={{
+                    fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 10, whiteSpace: 'nowrap',
+                    background: isDone ? '#dcfce7' : '#fef3c7',
+                    color: isDone ? '#166534' : '#92400e',
+                  }}>
+                    {isDone ? '✅ Đã chấm' : '⏳ Chưa chấm'}
+                  </span>
+                  <span style={{ fontWeight: 600, fontSize: 14, minWidth: 120 }}>{item.userName || 'N/A'}</span>
+                  <span style={{ fontSize: 13, color: '#6b7280', minWidth: 100 }}>{item.userPhone || 'N/A'}</span>
+                  <span style={{ fontSize: 13, color: '#374151', flex: 1, minWidth: 180 }}>{testLabel || 'N/A'}</span>
+                  <span style={{ fontSize: 12, color: '#9ca3af', whiteSpace: 'nowrap' }}>{formatDateTime(item.createdAt)}</span>
+                  <span style={{ fontSize: 16, color: '#9ca3af', marginLeft: 4 }}>{isExpanded ? '▲' : '▼'}</span>
+                </div>
 
-              <div style={{ display: "flex", gap: 10, marginTop: 10 }} className="admin-button-row">
-                <button
-                  onClick={() => handleSendFeedback(item.id)}
-                  disabled={
-                    sendLoading[item.id] ||
-                    hasSaved[item.id] ||
-                    aiLoading[item.id]
-                  } // ✅ Disable khi đang gửi, đã gửi, hoặc đang gọi AI
-                  style={{
-                    flex: 1,
-                    padding: "10px 20px",
-                    backgroundColor:
-                      sendLoading[item.id] ||
-                      hasSaved[item.id] ||
-                      aiLoading[item.id]
-                        ? "#ccc"
-                        : "#0e276f",
-                    color: "#fff",
-                    border: "none",
-                    borderRadius: 6,
-                    cursor:
-                      sendLoading[item.id] ||
-                      hasSaved[item.id] ||
-                      aiLoading[item.id]
-                        ? "not-allowed"
-                        : "pointer",
-                    fontSize: 16,
-                    opacity:
-                      sendLoading[item.id] ||
-                      hasSaved[item.id] ||
-                      aiLoading[item.id]
-                        ? 0.6
-                        : 1,
-                  }}
-                >
-                  {sendLoading[item.id]
-                    ? "⏳ Đang gửi..."
-                    : hasSaved[item.id]
-                    ? "✅ Đã gửi"
-                    : "📤 Gửi nhận xét"}
-                </button>
-                <button
-                  onClick={() => handleAIComment(item)}
-                  disabled={
-                    aiLoading[item.id] ||
-                    sendLoading[item.id] ||
-                    hasSaved[item.id]
-                  } // ✅ Disable khi đang xử lý, đang gửi, hoặc đã gửi
-                  style={{
-                    flex: 1,
-                    padding: "10px 20px",
-                    backgroundColor: aiLoading[item.id] ? "#ccc" : "#e03",
-                    color: "#fff",
-                    border: "none",
-                    borderRadius: 6,
-                    cursor: aiLoading[item.id] ? "not-allowed" : "pointer",
-                    fontSize: 16,
-                    opacity: aiLoading[item.id] ? 0.6 : 1,
-                  }}
-                >
-                  {aiLoading[item.id]
-                    ? "⏳ Đang nhận xét..."
-                    : "🤖 StarEdu AI gợi ý nhận xét"}
-                </button>
+                {/* Nội dung mở rộng */}
+                {isExpanded && (
+                  <div style={{ padding: '0 14px 16px 14px', borderTop: '1px solid #f3f4f6' }}>
+                    {/* Task 1 & Task 2 */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 14 }} className="admin-task-grid">
+                      <div style={{ background: '#f8fafc', borderRadius: 7, padding: 12 }}>
+                        <div style={{ fontWeight: 700, fontSize: 13, color: '#374151', marginBottom: 6 }}>✍️ Task 1</div>
+                        <p style={{ margin: 0, whiteSpace: 'pre-line', fontSize: 14, lineHeight: 1.65, color: '#1f2937' }}>{item.task1 || '(trống)'}</p>
+                      </div>
+                      <div style={{ background: '#f8fafc', borderRadius: 7, padding: 12 }}>
+                        <div style={{ fontWeight: 700, fontSize: 13, color: '#374151', marginBottom: 6 }}>✍️ Task 2</div>
+                        <p style={{ margin: 0, whiteSpace: 'pre-line', fontSize: 14, lineHeight: 1.65, color: '#1f2937' }}>{item.task2 || '(trống)'}</p>
+                      </div>
+                    </div>
+
+                    {/* Feedback đã có */}
+                    {item.feedback && item.feedbackAt && item.feedbackBy && (
+                      <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 7, padding: 12, marginTop: 12 }}>
+                        <p style={{ margin: '0 0 6px', fontSize: 13, color: '#166534' }}>
+                          🟢 <strong>Đã nhận xét</strong> lúc {formatDateTime(item.feedbackAt)} bởi <strong>{item.feedbackBy}</strong>
+                        </p>
+                        <p style={{ margin: 0, whiteSpace: 'pre-line', fontSize: 14 }}>{item.feedback}</p>
+                      </div>
+                    )}
+
+                    {/* Form nhận xét */}
+                    <div style={{ marginTop: 12 }}>
+                      <textarea
+                        placeholder="Nhận xét của giáo viên..."
+                        rows={4}
+                        style={{ width: '100%', padding: 10, boxSizing: 'border-box', fontSize: 14, border: '1px solid #d1d5db', borderRadius: 7, resize: 'vertical', fontFamily: 'inherit', outline: 'none' }}
+                        value={feedbacks[item.id] || ''}
+                        onChange={(e) => setFeedbacks((prev) => ({ ...prev, [item.id]: e.target.value }))}
+                      />
+                      <div style={{ display: 'flex', gap: 8, marginTop: 8 }} className="admin-button-row">
+                        <button
+                          onClick={() => handleSendFeedback(item.id)}
+                          disabled={sendLoading[item.id] || hasSaved[item.id] || aiLoading[item.id]}
+                          style={{
+                            flex: 1, padding: '9px 16px', border: 'none', borderRadius: 6, fontWeight: 600, fontSize: 14,
+                            cursor: (hasSaved[item.id] || sendLoading[item.id]) ? 'default' : 'pointer',
+                            background: (sendLoading[item.id] || hasSaved[item.id] || aiLoading[item.id]) ? '#9ca3af' : '#0e276f',
+                            color: '#fff',
+                          }}
+                        >
+                          {sendLoading[item.id] ? '⏳ Đang gửi...' : hasSaved[item.id] ? '✅ Đã gửi' : '📤 Gửi nhận xét'}
+                        </button>
+                        <button
+                          onClick={() => handleAIComment(item)}
+                          disabled={aiLoading[item.id] || sendLoading[item.id] || hasSaved[item.id]}
+                          style={{
+                            flex: 1, padding: '9px 16px', border: 'none', borderRadius: 6, fontWeight: 600, fontSize: 14,
+                            cursor: aiLoading[item.id] ? 'not-allowed' : 'pointer',
+                            background: (aiLoading[item.id] || sendLoading[item.id] || hasSaved[item.id]) ? '#9ca3af' : '#ee0033',
+                            color: '#fff',
+                          }}
+                        >
+                          {aiLoading[item.id] ? '⏳ Đang nhận xét...' : '🤖 StarEdu AI gợi ý nhận xét'}
+                        </button>
+                      </div>
+                      {messages[item.id] && (
+                        <p style={{ marginTop: 6, color: '#16a34a', fontSize: 13 }}>{messages[item.id]}</p>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
-
-              {messages[item.id] && (
-                <p style={{ marginTop: 5, color: "#28a745" }}>
-                  {messages[item.id]}
-                </p>
-              )}
-            </div>
-          </div>
-        ))}
+            );
+          })}
+        </div>
       </div>
     </>
   );

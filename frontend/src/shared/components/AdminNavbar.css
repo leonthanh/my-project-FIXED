@@ -381,11 +381,13 @@ body.dark-mode .adminNavbar__menuHeader {
   .adminNavbar {
     padding: 6px 8px;
     gap: 6px;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     position: fixed;
     top: 0;
     left: 0;
     right: 0;
+    align-items: center;
+    overflow: hidden;
   }
 
   /* Ensure page content isn't hidden behind the fixed mobile navbar */
@@ -396,7 +398,25 @@ body.dark-mode .adminNavbar__menuHeader {
   .adminNavbar__left,
   .adminNavbar__right {
     gap: 6px;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
+  }
+
+  .adminNavbar__left {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .adminNavbar__left::-webkit-scrollbar {
+    display: none;
+  }
+
+  .adminNavbar__right {
+    flex: 0 0 auto;
+    gap: 4px;
   }
 
   .adminNavbar__logo {
@@ -406,6 +426,33 @@ body.dark-mode .adminNavbar__menuHeader {
 
   .adminNavbar__link {
     margin-right: 6px;
+    flex: 0 0 auto;
+  }
+
+  .adminNavbar__dropdown {
+    margin-right: 6px;
+    flex: 0 0 auto;
+  }
+
+  .adminNavbar__bell {
+    margin-right: 8px;
+    flex: 0 0 auto;
+  }
+
+  .adminNavbar__right > button:first-child {
+    padding: 6px 10px !important;
+    border-radius: 16px !important;
+    font-size: 12px !important;
+    gap: 0 !important;
+  }
+
+  .adminNavbar__right > button:first-child span:last-child {
+    display: none;
+  }
+
+  .adminNavbar__logout {
+    padding: 6px 10px;
+    border-radius: 8px;
   }
 }
 

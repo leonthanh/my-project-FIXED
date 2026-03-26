@@ -371,27 +371,6 @@ const AdminListeningSubmissions = () => {
           📊 Hiển thị: <strong>{filteredSubs.length}</strong> / {subs.length} bài nộp
         </p>
 
-        <div style={{ marginBottom: 12, display: 'flex', gap: 8 }}>
-          <button
-            style={{ ...actionBtn, background: '#0ea5a3' }}
-            onClick={async () => {
-              if (!window.confirm('Chạy rescore cho các bài thiếu/không khớp (an toàn). Bạn có muốn tiếp tục?')) return;
-              try {
-                const res = await fetch(apiPath('listening-submissions/rescore'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ dryRun: false }) });
-                const payload = await res.json();
-                if (!res.ok) throw new Error(payload?.message || 'Rescore failed');
-                alert(`✅ Rescore completed. Updated ${payload.updated} submissions.`);
-                // Refresh list
-                window.location.reload();
-              } catch (err) {
-                alert('❌ Rescore error: ' + err.message);
-              }
-            }}
-          >
-            🔁 Rescore missing / inconsistent
-          </button>
-        </div>
-
         {loading && <p>⏳ Loading...</p>}
         {!loading && filteredSubs.length === 0 && <p>Không có bài nộp phù hợp</p>}
 

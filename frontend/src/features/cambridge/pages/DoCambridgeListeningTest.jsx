@@ -14,8 +14,8 @@ import './DoCambridgeReadingTest.css';
 const DRAW_COLORS = ['#f59e0b','#10b981','#3b82f6','#8b5cf6','#ef4444','#ec4899','#06b6d4','#84cc16'];
 // Màu trung tính cho anchor dot khi chưa được nối
 const ANCHOR_NEUTRAL = '#94a3b8';
-const DRAWLINE_SNAP_RADIUS_PX = 28;
-const DRAWLINE_ANCHOR_HIT_AREA_PX = 44;
+const DRAWLINE_SNAP_RADIUS_PX = 22;
+const DRAWLINE_ANCHOR_HIT_AREA_PX = 34;
 
 const DrawLinesQuestion = ({
   question, questionKey, questionNum,
@@ -428,11 +428,11 @@ const DrawLinesQuestion = ({
             const dotColor = submitted
               ? (isCorrect ? '#22c55e' : (hasAnswer && usedByNameIdx > 0 ? '#ef4444' : ANCHOR_NEUTRAL))
               : anchorColor;
-            const dotSize = hasAnswer ? 28 : 24;
+            const dotSize = hasAnswer ? 20 : 16;
 
             const isClickableAnchor = !submitted && selectedNameIdx !== null && i !== 0 && Boolean(anchorLetter);
             // Kích thước chấm hiển thị lớn hơn khi đang chọn tên → dễ bấm hơn
-            const activeDotSize = isClickableAnchor ? Math.max(dotSize, 32) : dotSize;
+            const activeDotSize = isClickableAnchor ? Math.max(dotSize, 24) : dotSize;
             const hitAreaSize = Math.max(activeDotSize, DRAWLINE_ANCHOR_HIT_AREA_PX);
             return (
               <div

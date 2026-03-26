@@ -269,11 +269,11 @@ const SubmissionsTab = ({ initialUser }) => {
   // Reset selection when switching type tab
   useEffect(() => { setSelectedSubs(new Set()); }, [activeType]);
 
-  const searchUsers = async () => {
-    if (!search.trim()) return;
+  const searchUsers = async (q) => {
+    const query = q !== undefined ? q : search;
     setLoading(true);
     try {
-      const res = await authFetch(apiPath(`admin/users?search=${encodeURIComponent(search.trim())}`));
+      const res = await authFetch(apiPath(`admin/users?search=${encodeURIComponent(query.trim())}`));
       setUsers(await res.json());
     } catch { showToast('❌ Lỗi tìm kiếm'); }
     finally { setLoading(false); }
@@ -293,6 +293,8 @@ const SubmissionsTab = ({ initialUser }) => {
 
   useEffect(() => {
     if (initialUser) loadSubs(initialUser);
+    else searchUsers('');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialUser, loadSubs]);
 
   const toggleSubSelect = (type, id) => {
