@@ -366,7 +366,7 @@ const SelectTest = () => {
                 ))}
               </div>
 
-              <div className="cambridge-tabs">
+              <div className={`cambridge-tabs${activeOrangeType === "pet" ? " cambridge-tabs--three" : ""}`}>
                 {[
                   { key: "listening", label: "🎧 Listening", count: orangeCounts.listening },
                   { key: "reading", label: "📖 Reading", count: orangeCounts.reading },
