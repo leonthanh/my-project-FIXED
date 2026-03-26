@@ -850,27 +850,72 @@ function ColourWriteStudentSection({
   const isDrawing    = useRef(false);
   const strokes      = useRef([]);
   const curPts       = useRef([]);
+  // Always keep a ref to the latest redraw fn to avoid stale closures in ResizeObserver
+  const redrawRef    = useRef(null);
+
+  // Helper: size canvas to container then redraw (called from image onLoad and ResizeObserver)
+  const syncCanvas = () => {
+    const cv = canvasRef.current;
+    const el = containerRef.current;
+    if (!cv || !el) return;
+    const { width, height } = el.getBoundingClientRect();
+    if (width > 0 && height > 0) {
+      cv.width  = Math.round(width);
+      cv.height = Math.round(height);
+    }
+    redrawRef.current?.();
+  };
 
   // Resize canvas to match image dimensions
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
-    const ro = new ResizeObserver(() => {
-      const cv = canvasRef.current;
-      if (!cv) return;
-      const { width, height } = el.getBoundingClientRect();
-      if (width > 0 && height > 0) { cv.width = Math.round(width); cv.height = Math.round(height); }
-      redraw();
-    });
+    const ro = new ResizeObserver(syncCanvas);
     ro.observe(el);
     return () => ro.disconnect();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Redraw whenever exampleItem annotation arrives (async data load)
+  useEffect(() => {
+    if (!Array.isArray(exampleItem?.annotation) || !exampleItem.annotation.length) return;
+    // Size canvas first in case ResizeObserver hasn't fired yet (race with image load)
+    const cv = canvasRef.current;
+    const el = containerRef.current;
+    if (cv && el) {
+      const { width, height } = el.getBoundingClientRect();
+      if (width > 0 && height > 0 && (cv.width !== Math.round(width) || cv.height !== Math.round(height))) {
+        cv.width  = Math.round(width);
+        cv.height = Math.round(height);
+      }
+    }
+    redrawRef.current?.();
+  }, [exampleItem]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const redraw = () => {
+    redrawRef.current = redraw; // keep ref current every render
     const cv = canvasRef.current;
     if (!cv) return;
     const ctx = cv.getContext('2d');
     ctx.clearRect(0, 0, cv.width, cv.height);
+
+    // Draw example annotation first (dimmed, read-only) so students can see the example
+    const exampleStrokes = Array.isArray(exampleItem?.annotation) ? exampleItem.annotation : [];
+    exampleStrokes.forEach((s) => {
+      if (!s.points?.length) return;
+      ctx.save();
+      ctx.beginPath();
+      ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.strokeStyle = s.color || '#94a3b8';
+      ctx.lineWidth = s.size || 20;
+      ctx.globalAlpha = 0.60;
+      const pts = s.points;
+      ctx.moveTo(pts[0][0] * cv.width / 100, pts[0][1] * cv.height / 100);
+      pts.slice(1).forEach((p) => ctx.lineTo(p[0] * cv.width / 100, p[1] * cv.height / 100));
+      ctx.stroke();
+      ctx.restore();
+    });
+
     strokes.current.forEach((s) => {
       if (!s.points?.length) return;
       ctx.beginPath();
@@ -964,7 +1009,7 @@ function ColourWriteStudentSection({
       {sceneImageUrl && (
         <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '12px' }}>
         <div ref={containerRef} style={{ position: 'relative', borderRadius: '14px', overflow: 'hidden', userSelect: 'none', border: isDarkMode ? '1px solid #334155' : '1px solid #e2e8f0', boxShadow: '0 4px 16px rgba(0,0,0,0.10)', width: 'fit-content' }}>
-          <img src={sceneImageUrl} alt="Scene" draggable={false} style={{ width: '100%', display: 'block', userSelect: 'none' }} />
+          <img src={sceneImageUrl} alt="Scene" draggable={false} onLoad={syncCanvas} style={{ width: '100%', display: 'block', userSelect: 'none' }} />
           <canvas
             ref={canvasRef}
             style={{ position: 'absolute', inset: 0, touchAction: 'none', cursor: selColour && !selColour.erase ? 'crosshair' : selColour?.erase ? 'cell' : 'default' }}
@@ -1019,6 +1064,29 @@ function ColourWriteStudentSection({
       }}>
         {/* Question number pills row */}
         <div style={{ display: 'flex', gap: '6px', alignItems: 'center', justifyContent: 'center', padding: '10px 12px 0', flexWrap: 'wrap' }}>
+          {/* Example pill */}
+          {exampleItem && (
+            <div style={{
+              display: 'inline-flex', alignItems: 'center', gap: '5px',
+              padding: '4px 12px', borderRadius: '999px', fontWeight: 800, fontSize: '12px',
+              border: `2px solid ${isDarkMode ? '#475569' : '#cbd5e1'}`,
+              background: isDarkMode ? '#1e293b' : '#f1f5f9',
+              color: isDarkMode ? '#94a3b8' : '#64748b',
+            }}>
+              Ví dụ
+              {(() => {
+                const exType = exampleItem.taskType || 'colour';
+                if (exType === 'colour') {
+                  const exCol = CW_PALETTE.find((c) => c.label === exampleItem.correctAnswer);
+                  if (exCol) return <div style={{ width: 11, height: 11, borderRadius: '50%', background: exCol.hex, border: exCol.border ? `1px solid ${exCol.border}` : 'none', flexShrink: 0 }} />;
+                }
+                if (exType === 'write' && exampleItem.correctAnswer) {
+                  return <span style={{ fontSize: '10px' }}>{exampleItem.correctAnswer}</span>;
+                }
+                return null;
+              })()}
+            </div>
+          )}
           {questions.map((q, qi) => {
             const key = `${currentPartIndex}-${secIdx}-${qi}`;
             const ans = answers[key] || '';
@@ -1088,6 +1156,39 @@ function ColourWriteStudentSection({
             <span style={{ fontSize: '11px', color: isDarkMode ? '#94a3b8' : '#475569', fontWeight: selColour?.erase ? 800 : 500 }}>Erase</span>
           </button>
         </div>
+        )}
+
+        {/* Example info row — always visible so student knows what Example answer was */}
+        {exampleItem && (
+          <div style={{
+            margin: '0 12px 12px',
+            padding: '8px 14px',
+            borderRadius: '10px',
+            background: isDarkMode ? '#0f172a' : '#f8fafc',
+            border: `1.5px dashed ${isDarkMode ? '#334155' : '#cbd5e1'}`,
+            display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap',
+          }}>
+            <span style={{ padding: '2px 10px', borderRadius: '999px', background: isDarkMode ? '#1e293b' : '#e2e8f0', color: isDarkMode ? '#94a3b8' : '#475569', fontWeight: 800, fontSize: '12px', flexShrink: 0 }}>Ví dụ</span>
+            {exampleItem.questionText && (
+              <span style={{ fontSize: '13px', color: isDarkMode ? '#cbd5e1' : '#374151', flex: 1 }}>{exampleItem.questionText}</span>
+            )}
+            {(() => {
+              const exType = exampleItem.taskType || 'colour';
+              if (exType === 'colour') {
+                const exCol = CW_PALETTE.find((c) => c.label === exampleItem.correctAnswer);
+                if (exCol) return (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+                    <div style={{ width: 20, height: 20, borderRadius: '50%', background: exCol.hex, border: exCol.border ? `2px solid ${exCol.border}` : '2px solid rgba(0,0,0,0.1)', flexShrink: 0 }} />
+                    <span style={{ fontSize: '13px', fontWeight: 700, color: isDarkMode ? '#e2e8f0' : '#1e293b' }}>{exCol.label}</span>
+                  </div>
+                );
+              }
+              if (exType === 'write' && exampleItem.correctAnswer) {
+                return <span style={{ fontWeight: 800, fontSize: '13px', color: isDarkMode ? '#e2e8f0' : '#1e293b', background: isDarkMode ? '#1e293b' : '#fff', padding: '2px 10px', borderRadius: '6px', border: `1px solid ${isDarkMode ? '#334155' : '#e5e7eb'}` }}>{exampleItem.correctAnswer}</span>;
+              }
+              return null;
+            })()}
+          </div>
         )}
       </div>
 
