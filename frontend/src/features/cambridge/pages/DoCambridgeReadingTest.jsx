@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import { useParams, useNavigate } from "react-router-dom";
 /* eslint-disable-next-line no-unused-vars */
 import { apiPath, hostPath } from "../../../shared/utils/api";
-import { TestHeader } from "../../../shared/components";
+import TestHeader from "../../../shared/components/TestHeader";
 import { TEST_CONFIGS } from "../../../shared/config/questionTypes";
 import QuestionDisplayFactory from "../../../shared/components/questions/displays/QuestionDisplayFactory";
 import PeopleMatchingDisplay from "../../../shared/components/questions/displays/PeopleMatchingDisplay";
@@ -3163,3 +3163,4 @@ const DoCambridgeReadingTest = () => {
 };
 
 export default DoCambridgeReadingTest;
+

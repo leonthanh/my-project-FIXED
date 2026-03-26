@@ -1,6 +1,6 @@
 import React, { useMemo } from "react";
 import { useParams, Link } from "react-router-dom";
-import { AdminNavbar } from "../../../shared/components";
+import AdminNavbar from "../../../shared/components/AdminNavbar";
 import { TEST_CONFIGS } from "../../../shared/config/questionTypes";
 import CambridgeTestBuilder from "../CambridgeTestBuilder";
 
@@ -36,3 +36,4 @@ const CreateCambridgeTest = () => {
 };
 
 export default CreateCambridgeTest;
+

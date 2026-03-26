@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { AdminNavbar } from '../../../shared/components';
+import AdminNavbar from '../../../shared/components/AdminNavbar';
 import { apiPath, authFetch } from '../../../shared/utils/api';
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
@@ -608,7 +608,7 @@ const AdminUserManagement = () => {
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 const s = {
-  page: { maxWidth: 960, margin: '40px auto', padding: '0 16px' },
+  page: { maxWidth: 960, margin: '50px auto', padding: '0 16px' },
   title: { fontSize: 22, fontWeight: 700, marginBottom: 18 },
   tabBar: { display: 'flex', gap: 2, borderBottom: '2px solid #e5e7eb', marginBottom: 20 },
   tabBtn: { background: 'none', border: 'none', borderBottom: '2px solid transparent', marginBottom: -2, padding: '8px 16px', cursor: 'pointer', fontSize: 14, fontWeight: 500, color: '#6b7280' },
@@ -636,3 +636,4 @@ const s = {
 };
 
 export default AdminUserManagement;
+

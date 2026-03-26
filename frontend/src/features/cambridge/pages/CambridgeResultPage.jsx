@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { apiPath } from "../../../shared/utils/api";
-import { StudentNavbar } from "../../../shared/components";
+import StudentNavbar from "../../../shared/components/StudentNavbar";
 import { useTheme } from "../../../shared/contexts/ThemeContext";
 
 /**
@@ -2330,3 +2330,4 @@ const createStyles = (isDarkMode = false) => {
 };
 
 export default CambridgeResultPage;
+

@@ -8,8 +8,14 @@ const ProtectedRoute = ({ children, role }) => {
   } catch (e) {
     user = null;
   }
+  const hasToken = Boolean(
+    localStorage.getItem('accessToken') || localStorage.getItem('refreshToken')
+  );
 
-  if (!user) {
+  if (!user || !hasToken) {
+    if (!hasToken) {
+      localStorage.removeItem('user');
+    }
     return <Navigate to="/login" replace />;
   }
 

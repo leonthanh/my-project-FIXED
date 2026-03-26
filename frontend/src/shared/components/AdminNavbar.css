@@ -387,7 +387,7 @@ body.dark-mode .adminNavbar__menuHeader {
     left: 0;
     right: 0;
     align-items: center;
-    overflow: hidden;
+    overflow: visible;
   }
 
   /* Ensure page content isn't hidden behind the fixed mobile navbar */
@@ -405,7 +405,7 @@ body.dark-mode .adminNavbar__menuHeader {
     flex: 1 1 auto;
     min-width: 0;
     overflow-x: auto;
-    overflow-y: hidden;
+    overflow-y: visible;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
   }
@@ -453,6 +453,30 @@ body.dark-mode .adminNavbar__menuHeader {
   .adminNavbar__logout {
     padding: 6px 10px;
     border-radius: 8px;
+  }
+
+  /* Mobile dropdowns must escape scroll container; use fixed popup panel */
+  .adminNavbar__menu {
+    position: fixed;
+    top: 54px;
+    left: 8px;
+    right: 8px;
+    min-width: 0;
+    max-height: calc(100vh - 70px);
+    overflow-y: auto;
+    border-radius: 10px;
+    z-index: 2000;
+  }
+
+  .adminNavbar__notifyMenu {
+    position: fixed;
+    top: 54px;
+    left: 8px;
+    right: 8px;
+    width: auto;
+    max-height: calc(100vh - 70px);
+    overflow-y: auto;
+    z-index: 2000;
   }
 }
 

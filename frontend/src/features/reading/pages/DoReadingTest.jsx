@@ -6,7 +6,7 @@ import React, {
   useMemo,
 } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ConfirmModal } from "../../../shared/components";
+import ConfirmModal from "../../../shared/components/ConfirmModal";
 import ResultModal from "../../../shared/components/ResultModal";
 import "../styles/do-reading-test.css";
 import { normalizeQuestionType } from "../utils/questionHelpers";
@@ -3135,3 +3135,4 @@ const DoReadingTest = () => {
 /* eslint-enable no-loop-func */
 
 export default DoReadingTest;
+

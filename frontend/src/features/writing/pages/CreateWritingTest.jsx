@@ -1,7 +1,7 @@
 // src/features/writing/pages/CreateWritingTest.jsx
 import React, { useState } from "react";
 import ReactQuill from "react-quill";
-import { AdminNavbar } from "../../../shared/components";
+import AdminNavbar from "../../../shared/components/AdminNavbar";
 import { apiPath, authFetch } from "../../../shared/utils/api";
 
 import "./CreateWritingTest.css";
@@ -304,3 +304,4 @@ const CreateWritingTest = () => {
 };
 
 export default CreateWritingTest;
+

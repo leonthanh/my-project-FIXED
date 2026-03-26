@@ -120,7 +120,13 @@ const StudentNavbar = () => {
   // 🔹 Kiểm tra định kỳ sự thay đổi trong localStorage
   useEffect(() => {
     const interval = setInterval(() => {
-      const updatedUser = JSON.parse(localStorage.getItem("user"));
+      let updatedUser = null;
+      try {
+        updatedUser = JSON.parse(localStorage.getItem("user") || "null");
+      } catch (err) {
+        localStorage.removeItem("user");
+        updatedUser = null;
+      }
       if (updatedUser?.lastFeedbackCheck !== user?.lastFeedbackCheck) {
         setUser(updatedUser);
         fetchNotifications();

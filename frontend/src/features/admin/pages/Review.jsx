@@ -1,7 +1,7 @@
 // frontend/src/features/admin/pages/Review.jsx
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { AdminNavbar } from "../../../shared/components";
+import AdminNavbar from "../../../shared/components/AdminNavbar";
 import { useTheme } from "../../../shared/contexts/ThemeContext";
 import { apiPath } from "../../../shared/utils/api";
 
@@ -538,3 +538,4 @@ const answerBoxStyle = (isDarkMode) => ({
 });
 
 export default Review;
+

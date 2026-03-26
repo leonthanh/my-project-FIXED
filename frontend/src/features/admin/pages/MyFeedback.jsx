@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useMemo, useRef } from "react";
-import { StudentNavbar } from "../../../shared/components";
+import StudentNavbar from "../../../shared/components/StudentNavbar";
 import { apiPath, hostPath } from "../../../shared/utils/api";
 import { useTheme } from "../../../shared/contexts/ThemeContext";
 
@@ -933,3 +933,4 @@ const MyFeedback = () => {
 };
 
 export default MyFeedback;
+

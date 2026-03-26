@@ -1,26 +1,112 @@
-import React, { useEffect } from 'react';
+import React, { Suspense, lazy, useCallback, useEffect, useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 
-// Import from new feature-based structure
-import { EditTest, AdminWritingSubmissions, SelectTest, MyFeedback, ReviewSubmission, Review, AdminReadingSubmissions, AdminListeningSubmissions, CambridgeSubmissionsPage, TeacherPermissionsPage, AdminUserManagement } from './features/admin';
-import { WritingTest, CreateWritingTest, PetWritingTest, CreatePetWritingTest, SelectPetWritingTest, EditPetWritingTest } from './features/writing';
-import { Login } from './features/auth';
-import { CreateReadingTest, EditReadingTest, DoReadingTest, TakeReadingTest, ReadingResults } from './features/reading';
-import { CreateListeningTest, EditListeningTest, DoListeningTest, ListeningResults } from './features/listening';
-import { CreateKETListeningTest, CreateKETReadingTest, CreatePETListeningTest, CreatePETReadingTest, CreateCambridgeTest, CreateMoversReadingTest, CreateMoversListeningTest, EditCambridgeReadingTest, EditCambridgeListeningTest, SelectCambridgeTest, DoCambridgeTestEntry, DoCambridgeListeningTest, DoCambridgeReadingTest, CambridgeResultPage } from './features/cambridge';
-import { ProtectedRoute } from './shared/components';
+import Login from './features/auth/pages/Login';
+import ProtectedRoute from './shared/components/ProtectedRoute';
 import { refreshAccessToken } from './shared/utils/api';
 
-const isLoggedIn = () => {
-  const user = localStorage.getItem('user');
-  return !!user;
+const EditTest = lazy(() => import('./features/admin/pages/EditTest'));
+const AdminWritingSubmissions = lazy(() => import('./features/admin/pages/AdminWritingSubmissions'));
+const SelectTest = lazy(() => import('./features/admin/pages/SelectTest'));
+const MyFeedback = lazy(() => import('./features/admin/pages/MyFeedback'));
+const ReviewSubmission = lazy(() => import('./features/admin/pages/ReviewSubmission'));
+const Review = lazy(() => import('./features/admin/pages/Review'));
+const AdminReadingSubmissions = lazy(() => import('./features/admin/pages/AdminReadingSubmissions'));
+const AdminListeningSubmissions = lazy(() => import('./features/admin/pages/AdminListeningSubmissions'));
+const CambridgeSubmissionsPage = lazy(() => import('./features/admin/pages/CambridgeSubmissionsPage'));
+const TeacherPermissionsPage = lazy(() => import('./features/admin/pages/TeacherPermissionsPage'));
+const AdminUserManagement = lazy(() => import('./features/admin/pages/AdminUserManagement'));
+
+const WritingTest = lazy(() => import('./features/writing/pages/WritingTest'));
+const CreateWritingTest = lazy(() => import('./features/writing/pages/CreateWritingTest'));
+const PetWritingTest = lazy(() => import('./features/writing/pages/PetWritingTest'));
+const CreatePetWritingTest = lazy(() => import('./features/writing/pages/CreatePetWritingTest'));
+const SelectPetWritingTest = lazy(() => import('./features/writing/pages/SelectPetWritingTest'));
+const EditPetWritingTest = lazy(() => import('./features/writing/pages/EditPetWritingTest'));
+
+const CreateReadingTest = lazy(() => import('./features/reading/pages/CreateReadingTest'));
+const EditReadingTest = lazy(() => import('./features/reading/pages/EditReadingTest'));
+const DoReadingTest = lazy(() => import('./features/reading/pages/DoReadingTest'));
+const TakeReadingTest = lazy(() => import('./features/reading/pages/TakeReadingTest'));
+const ReadingResults = lazy(() => import('./features/reading/pages/ReadingResults'));
+
+const CreateListeningTest = lazy(() => import('./features/listening/pages/CreateListeningTestNew'));
+const EditListeningTest = lazy(() => import('./features/listening/pages/EditListeningTest'));
+const DoListeningTest = lazy(() => import('./features/listening/pages/DoListeningTest'));
+const ListeningResults = lazy(() => import('./features/listening/pages/ListeningResults'));
+
+const CreateKETListeningTest = lazy(() => import('./features/cambridge/pages/CreateKETListeningTest'));
+const CreateKETReadingTest = lazy(() => import('./features/cambridge/pages/CreateKETReadingTest'));
+const CreatePETListeningTest = lazy(() => import('./features/cambridge/pages/CreatePETListeningTest'));
+const CreatePETReadingTest = lazy(() => import('./features/cambridge/pages/CreatePETReadingTest'));
+const CreateCambridgeTest = lazy(() => import('./features/cambridge/pages/CreateCambridgeTest'));
+const CreateMoversReadingTest = lazy(() => import('./features/cambridge/pages/CreateMoversReadingTest'));
+const CreateMoversListeningTest = lazy(() => import('./features/cambridge/pages/CreateMoversListeningTest'));
+const EditCambridgeReadingTest = lazy(() => import('./features/cambridge/pages/EditCambridgeReadingTest'));
+const EditCambridgeListeningTest = lazy(() => import('./features/cambridge/pages/EditCambridgeListeningTest'));
+const SelectCambridgeTest = lazy(() => import('./features/cambridge/pages/SelectCambridgeTest'));
+const DoCambridgeTestEntry = lazy(() => import('./features/cambridge/pages/DoCambridgeTestEntry'));
+const DoCambridgeListeningTest = lazy(() => import('./features/cambridge/pages/DoCambridgeListeningTest'));
+const DoCambridgeReadingTest = lazy(() => import('./features/cambridge/pages/DoCambridgeReadingTest'));
+const CambridgeResultPage = lazy(() => import('./features/cambridge/pages/CambridgeResultPage'));
+
+const hasStoredUser = () => {
+  try {
+    return Boolean(JSON.parse(localStorage.getItem('user') || 'null'));
+  } catch (err) {
+    localStorage.removeItem('user');
+    return false;
+  }
 };
 
+const hasAuthTokens = () =>
+  Boolean(localStorage.getItem('accessToken') || localStorage.getItem('refreshToken'));
+
+const hasStoredSession = () => hasStoredUser() && hasAuthTokens();
+
 function App() {
+  const [isAuthenticated, setIsAuthenticated] = useState(hasStoredSession);
+
+  const syncAuthState = useCallback(() => {
+    setIsAuthenticated(hasStoredSession());
+  }, []);
+
   useEffect(() => {
-    // Always try to refresh on mount if user is stored (rehydrates from httpOnly session cookie)
-    const tryRefresh = () => {
-      if (localStorage.getItem('user')) refreshAccessToken();
+    const onForceLogout = () => {
+      syncAuthState();
+      if (!window.location.pathname.startsWith('/login')) {
+        window.location.replace('/login?reason=expired');
+      }
+    };
+
+    const onStorage = () => syncAuthState();
+    const onAuthChanged = () => syncAuthState();
+
+    window.addEventListener('auth:force-logout', onForceLogout);
+    window.addEventListener('storage', onStorage);
+    window.addEventListener('auth:changed', onAuthChanged);
+
+    const withTimeout = (promise, ms = 2500) =>
+      Promise.race([
+        promise,
+        new Promise((resolve) => setTimeout(() => resolve('timeout'), ms)),
+      ]);
+
+    // Always try to refresh on mount if user is stored (rehydrates from session cookie)
+    const tryRefresh = async () => {
+      if (!hasStoredSession()) {
+        return;
+      }
+
+      const refreshResult = await withTimeout(refreshAccessToken(), 2500);
+      const refreshed = refreshResult === true;
+      syncAuthState();
+
+      // Redirect only when refresh truly expired the session (clearAuth removed user)
+      if (!refreshed && !hasStoredUser()) {
+        window.location.replace('/login?reason=expired');
+        return;
+      }
     };
 
     tryRefresh();
@@ -28,38 +114,39 @@ function App() {
     // Proactive refresh every 10 minutes to keep session alive
     const intervalId = setInterval(tryRefresh, 10 * 60 * 1000);
 
-    // Refresh when tab becomes visible again (handles PC wake-up / long idle)
+    // Refresh when tab becomes visible again (handles long idle / reopen)
     const onVisible = () => {
       if (document.visibilityState === 'visible') tryRefresh();
     };
     document.addEventListener('visibilitychange', onVisible);
 
-    // When server rejects refresh token (session truly expired), redirect to login
-    const onForceLogout = () => {
-      window.location.href = '/login?reason=expired';
-    };
-    window.addEventListener('auth:force-logout', onForceLogout);
-
     return () => {
       clearInterval(intervalId);
       document.removeEventListener('visibilitychange', onVisible);
       window.removeEventListener('auth:force-logout', onForceLogout);
+      window.removeEventListener('storage', onStorage);
+      window.removeEventListener('auth:changed', onAuthChanged);
     };
-  }, []);
+  }, [syncAuthState]);
 
   return (
     <Router>
-      <Routes>
-        <Route path="/login" element={<Login />} />
+      <Suspense fallback={
+        <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', color: '#334155' }}>
+          Loading...
+        </div>
+      }>
+        <Routes>
+          <Route path="/login" element={<Login />} />
 
         {/* ✅ Trang cho học sinh chọn đề */}
-        <Route path="/" element={isLoggedIn() ? <SelectTest /> : <Navigate to="/login" replace />} />
-        <Route path="/select-test" element={isLoggedIn() ? <SelectTest /> : <Navigate to="/login" replace />} />
+        <Route path="/" element={isAuthenticated ? <SelectTest /> : <Navigate to="/login" replace />} />
+        <Route path="/select-test" element={isAuthenticated ? <SelectTest /> : <Navigate to="/login" replace />} />
         {/* ✅ Trang làm bài viết */}
-        <Route path="/writing" element={isLoggedIn() ? <WritingTest /> : <Navigate to="/login" replace />} />
+        <Route path="/writing" element={isAuthenticated ? <WritingTest /> : <Navigate to="/login" replace />} />
         <Route path="/writing-test" element={<WritingTest />} />
-        <Route path="/pet-writing" element={isLoggedIn() ? <PetWritingTest /> : <Navigate to="/login" replace />} />
-        <Route path="/pet-writing-select" element={isLoggedIn() ? <SelectPetWritingTest /> : <Navigate to="/login" replace />} />
+        <Route path="/pet-writing" element={isAuthenticated ? <PetWritingTest /> : <Navigate to="/login" replace />} />
+        <Route path="/pet-writing-select" element={isAuthenticated ? <SelectPetWritingTest /> : <Navigate to="/login" replace />} />
         <Route path="/my-feedback" element={<MyFeedback />} />
         {/* ✅ Trang giáo viên tạo đề */}
         <Route path="/admin/create-writing" element={
@@ -99,19 +186,19 @@ function App() {
             <EditReadingTest />
           </ProtectedRoute>
         } />
-        <Route path="/reading-tests/:testId" element={isLoggedIn() ? <TakeReadingTest /> : <Navigate to="/login" replace />} />
-        <Route path="/reading-tests" element={isLoggedIn() ? <SelectTest /> : <Navigate to="/login" replace />} />
-        <Route path="/reading/:id" element={isLoggedIn() ? <DoReadingTest /> : <Navigate to="/login" replace />} />
-        <Route path="/reading-results/:id" element={isLoggedIn() ? <ReadingResults /> : <Navigate to="/login" replace />} />
+        <Route path="/reading-tests/:testId" element={isAuthenticated ? <TakeReadingTest /> : <Navigate to="/login" replace />} />
+        <Route path="/reading-tests" element={isAuthenticated ? <SelectTest /> : <Navigate to="/login" replace />} />
+        <Route path="/reading/:id" element={isAuthenticated ? <DoReadingTest /> : <Navigate to="/login" replace />} />
+        <Route path="/reading-results/:id" element={isAuthenticated ? <ReadingResults /> : <Navigate to="/login" replace />} />
         
         {/* Listening Test Routes */}
-        <Route path="/listening/:id" element={isLoggedIn() ? <DoListeningTest /> : <Navigate to="/login" replace />} />
+        <Route path="/listening/:id" element={isAuthenticated ? <DoListeningTest /> : <Navigate to="/login" replace />} />
         <Route path="/listening/:id/edit" element={
           <ProtectedRoute role="teacher">
             <EditListeningTest />
           </ProtectedRoute>
         } />
-        <Route path="/listening-results/:id" element={isLoggedIn() ? <ListeningResults /> : <Navigate to="/login" replace />} />
+        <Route path="/listening-results/:id" element={isAuthenticated ? <ListeningResults /> : <Navigate to="/login" replace />} />
         
         <Route path="/review/:id" element={
           <ProtectedRoute role="teacher">
@@ -214,13 +301,13 @@ function App() {
         } />
         
         {/* Cambridge Student Routes */}
-        <Route path="/cambridge" element={isLoggedIn() ? <SelectCambridgeTest /> : <Navigate to="/login" replace />} />
+        <Route path="/cambridge" element={isAuthenticated ? <SelectCambridgeTest /> : <Navigate to="/login" replace />} />
         {/* Direct routes */}
-        <Route path="/cambridge/reading/:id" element={isLoggedIn() ? <DoCambridgeReadingTest /> : <Navigate to="/login" replace />} />
-        <Route path="/cambridge/listening/:id" element={isLoggedIn() ? <DoCambridgeListeningTest /> : <Navigate to="/login" replace />} />
+        <Route path="/cambridge/reading/:id" element={isAuthenticated ? <DoCambridgeReadingTest /> : <Navigate to="/login" replace />} />
+        <Route path="/cambridge/listening/:id" element={isAuthenticated ? <DoCambridgeListeningTest /> : <Navigate to="/login" replace />} />
         {/* Generic testType route: /cambridge/ket-listening/:id, /cambridge/pet-reading/:id, ... */}
-        <Route path="/cambridge/:testType/:id" element={isLoggedIn() ? <DoCambridgeTestEntry /> : <Navigate to="/login" replace />} />
-        <Route path="/cambridge/result/:submissionId" element={isLoggedIn() ? <CambridgeResultPage /> : <Navigate to="/login" replace />} />
+        <Route path="/cambridge/:testType/:id" element={isAuthenticated ? <DoCambridgeTestEntry /> : <Navigate to="/login" replace />} />
+        <Route path="/cambridge/result/:submissionId" element={isAuthenticated ? <CambridgeResultPage /> : <Navigate to="/login" replace />} />
         
         {/* Redirect legacy /admin to canonical writing submissions path */}
         <Route path="/admin" element={
@@ -238,9 +325,11 @@ function App() {
             <AdminUserManagement />
           </ProtectedRoute>
         } />
-      </Routes>
+        </Routes>
+      </Suspense>
     </Router>
   );
 }
 
 export default App;
+
