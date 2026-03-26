@@ -202,7 +202,7 @@ const AdminWritingSubmissions = () => {
       <div style={{ maxWidth: 980, margin: '0 auto', padding: '30px 16px' }} className="admin-page">
 
         {/* Tiêu đề + nút navigation */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 20, gap: 8 }}>
           <h2 style={{ margin: 0, fontSize: 22, fontWeight: 700 }}>📋 Writing Submissions</h2>
           <button
             onClick={() => (window.location.href = '/admin/reading-submissions')}
