@@ -86,7 +86,7 @@ function App() {
     window.addEventListener('storage', onStorage);
     window.addEventListener('auth:changed', onAuthChanged);
 
-    const withTimeout = (promise, ms = 2500) =>
+    const withTimeout = (promise, ms = 6500) =>
       Promise.race([
         promise,
         new Promise((resolve) => setTimeout(() => resolve('timeout'), ms)),
