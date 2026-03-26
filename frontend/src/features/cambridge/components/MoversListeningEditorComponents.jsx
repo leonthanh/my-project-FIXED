@@ -1581,7 +1581,7 @@ export const ColourWriteEditor = ({
                     setField("textPosition", { x, y });
                   }}
                 >
-                  <img src={sceneImageUrl} alt="scene" draggable={false} style={{ width: "100%", display: "block", objectFit: "contain", background: "#f8fafc" }} />
+                  <img src={resolveImg(sceneImageUrl)} alt="scene" draggable={false} style={{ width: "100%", display: "block", objectFit: "contain", background: "#f8fafc" }} />
                   {(isExample ? exampleItem?.textPosition : q?.textPosition) && (() => {
                     const pos = (isExample ? exampleItem?.textPosition : q?.textPosition);
                     return (
