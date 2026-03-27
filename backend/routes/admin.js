@@ -85,8 +85,7 @@ router.patch('/users/:id/password', requireAuth, requireRole('admin'), async (re
     const user = await User.findByPk(req.params.id);
     if (!user) return res.status(404).json({ message: 'Không tìm thấy người dùng.' });
 
-    const salt = await bcrypt.genSalt(10);
-    user.password = await bcrypt.hash(newPassword, salt);
+    user.password = newPassword; // beforeUpdate hook in User.js will hash it
     await user.save();
 
     // Huỷ tất cả refresh token cũ → bắt buộc đăng nhập lại
