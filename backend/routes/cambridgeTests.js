@@ -374,7 +374,7 @@ router.put("/listening-tests/:id", requireAuth, requireTestPermission('cambridge
       classCode: classCode || test.classCode,
       teacherName: teacherName || test.teacherName,
       testType: testType || test.testType,
-      mainAudioUrl: mainAudioUrl ?? test.mainAudioUrl,
+      mainAudioUrl: mainAudioUrl !== undefined ? (mainAudioUrl || null) : test.mainAudioUrl,
       parts: parts || test.parts, // JSON type - Sequelize handles serialization
       totalQuestions: totalQuestions ?? test.totalQuestions,
       status: status || test.status,

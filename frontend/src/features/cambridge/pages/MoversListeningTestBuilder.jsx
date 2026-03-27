@@ -169,12 +169,14 @@ const defaultColourWriteQuestion = (num) => ({
   questionText: "",
   taskType: "colour",
   correctAnswer: "",
+  colorPosition: null,
 });
 
 const defaultColourWriteExample = () => ({
   questionText: "",
   taskType: "colour",
   correctAnswer: "",
+  colorPosition: null,
 });
 
 const getPartStartNumber = (partIdx) =>
@@ -683,6 +685,27 @@ const MoversListeningTestBuilder = ({ editId = null, initialData = null }) => {
                 onChange={(e) => setMainAudioUrl(e.target.value)}
                 style={{ ...inputStyle, marginBottom: 0, flex: 1 }}
               />
+              {mainAudioUrl && (
+                <button
+                  type="button"
+                  title="Xóa audio"
+                  onClick={() => setMainAudioUrl("")}
+                  style={{
+                    padding: "9px 12px",
+                    borderRadius: "7px",
+                    border: "1px solid #fca5a5",
+                    background: "#fef2f2",
+                    color: "#ef4444",
+                    fontSize: "15px",
+                    fontWeight: 700,
+                    cursor: "pointer",
+                    flexShrink: 0,
+                    lineHeight: 1,
+                  }}
+                >
+                  ✕
+                </button>
+              )}
               <label
                 style={{
                   padding: "9px 16px",
@@ -869,6 +892,27 @@ const MoversListeningTestBuilder = ({ editId = null, initialData = null }) => {
                   onChange={(e) => updatePart("audioUrl", e.target.value)}
                   style={{ ...inputStyle, marginBottom: 0, flex: 1 }}
                 />
+                {activePart.audioUrl && (
+                  <button
+                    type="button"
+                    title="Xóa audio part"
+                    onClick={() => updatePart("audioUrl", "")}
+                    style={{
+                      padding: "9px 12px",
+                      borderRadius: "7px",
+                      border: "1px solid #fca5a5",
+                      background: "#fef2f2",
+                      color: "#ef4444",
+                      fontSize: "15px",
+                      fontWeight: 700,
+                      cursor: "pointer",
+                      flexShrink: 0,
+                      lineHeight: 1,
+                    }}
+                  >
+                    ✕
+                  </button>
+                )}
                 <label
                   style={{
                     padding: "9px 16px",
@@ -1002,6 +1046,8 @@ const MoversListeningTestBuilder = ({ editId = null, initialData = null }) => {
                   onExampleChange={(exampleItem) => updateFirstSection({ exampleItem })}
                   sceneImageUrl={currentSection?.sceneImageUrl || ""}
                   onSceneImageUrlChange={(sceneImageUrl) => updateFirstSection({ sceneImageUrl })}
+                  decoyPositions={currentSection?.decoyPositions || []}
+                  onDecoyPositionsChange={(decoyPositions) => updateFirstSection({ decoyPositions })}
                   onUploadImage={async (file) => {
                     const fd = new FormData();
                     fd.append("image", file);
