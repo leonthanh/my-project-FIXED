@@ -13,7 +13,7 @@ import {
   getTestConfig,
   TEST_CONFIGS,
 } from "../../shared/config/questionTypes";
-import { apiPath, hostPath, authFetch } from "../../shared/utils/api";
+import { apiPath, hostPath, authFetch, redirectToLogin } from "../../shared/utils/api";
 import useQuillImageUpload from "../../shared/hooks/useQuillImageUpload";
 import { canManageCategory } from '../../shared/utils/permissions';
 import "./CambridgeTestBuilder.css";
@@ -773,7 +773,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
         <div style={{ padding: 12, background: '#fff0f0', border: '1px solid #ffcccc', borderRadius: 6, margin: '12px auto', maxWidth: 1000 }}>
           <strong>⚠️ Bạn cần đăng nhập lại để hoàn tất thao tác.</strong>
           <div style={{ marginTop: 8 }}>
-            Bản nháp đã được lưu. <button style={{ marginLeft: 8, padding: '6px 10px' }} onClick={() => { localStorage.setItem('postLoginRedirect', window.location.pathname); window.location.href = '/login'; }}>Đăng nhập lại</button>
+            Bản nháp đã được lưu. <button style={{ marginLeft: 8, padding: '6px 10px' }} onClick={() => { redirectToLogin({ rememberPath: true, replace: true }); }}>Đăng nhập lại</button>
           </div>
         </div>
       )}

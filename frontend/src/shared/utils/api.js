@@ -12,6 +12,37 @@ function hostPath(p) {
   return `${API_HOST}/${String(p).replace(/^\/+/, "")}`;
 }
 
+function redirectInApp(path, opts = {}) {
+  if (typeof window === "undefined") return;
+  const { replace = true } = opts;
+  const target = typeof path === "string" && path.startsWith("/") ? path : "/";
+
+  try {
+    if (replace) {
+      window.history.replaceState({}, "", target);
+    } else {
+      window.history.pushState({}, "", target);
+    }
+    window.dispatchEvent(new PopStateEvent("popstate"));
+  } catch (_err) {
+    if (replace) window.location.replace(target);
+    else window.location.assign(target);
+  }
+}
+
+function redirectToLogin(opts = {}) {
+  const { reason, rememberPath = false, replace = true } = opts;
+  if (typeof window === "undefined") return;
+
+  if (rememberPath) {
+    const current = `${window.location.pathname}${window.location.search || ""}`;
+    localStorage.setItem("postLoginRedirect", current);
+  }
+
+  const reasonQuery = reason ? `?reason=${encodeURIComponent(reason)}` : "";
+  redirectInApp(`/login${reasonQuery}`, { replace });
+}
+
 function getAuthHeaders() {
   const token = localStorage.getItem("accessToken");
   if (!token) return {};
@@ -152,6 +183,8 @@ export {
   API_BASE,
   apiPath,
   hostPath,
+  redirectInApp,
+  redirectToLogin,
   getAuthHeaders,
   authFetch,
   refreshAccessToken,

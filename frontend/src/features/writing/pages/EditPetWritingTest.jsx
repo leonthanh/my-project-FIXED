@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import ReactQuill from "react-quill";
 import { useNavigate, useParams } from "react-router-dom";
 import AdminNavbar from "../../../shared/components/AdminNavbar";
-import { apiPath, authFetch, hostPath } from "../../../shared/utils/api";
+import { apiPath, authFetch, hostPath, redirectToLogin } from "../../../shared/utils/api";
 import useQuillImageUpload from "../../../shared/hooks/useQuillImageUpload";
 import "./CreateWritingTest.css";
 
@@ -185,8 +185,7 @@ const EditPetWritingTest = () => {
               <button
                 style={{ marginLeft: 8, padding: "6px 10px" }}
                 onClick={() => {
-                  localStorage.setItem("postLoginRedirect", window.location.pathname);
-                  window.location.href = "/login";
+                  redirectToLogin({ rememberPath: true, replace: true });
                 }}
               >
                 Đăng nhập lại

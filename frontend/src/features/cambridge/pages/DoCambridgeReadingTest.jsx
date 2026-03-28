@@ -850,13 +850,8 @@ const DoCambridgeReadingTest = () => {
                 });
               });
             });
-          } else if (
-            section.questionType === 'short-message' ||
-            section.questionType === 'story-writing'
-          ) {
-            // Writing tasks — not numbered questions, skip from allQuestions
           } else {
-            // Regular questions
+            // Regular questions (including short-message, story-writing, etc.)
             questions.push({
               partIndex: pIdx,
               sectionIndex: sIdx,

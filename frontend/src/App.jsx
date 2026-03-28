@@ -3,7 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 
 import Login from './features/auth/pages/Login';
 import ProtectedRoute from './shared/components/ProtectedRoute';
-import { refreshAccessToken } from './shared/utils/api';
+import { refreshAccessToken, redirectToLogin } from './shared/utils/api';
 
 const EditTest = lazy(() => import('./features/admin/pages/EditTest'));
 const AdminWritingSubmissions = lazy(() => import('./features/admin/pages/AdminWritingSubmissions'));
@@ -75,7 +75,7 @@ function App() {
     const onForceLogout = () => {
       syncAuthState();
       if (!window.location.pathname.startsWith('/login')) {
-        window.location.replace('/login?reason=expired');
+        redirectToLogin({ reason: 'expired', replace: true });
       }
     };
 
@@ -104,7 +104,7 @@ function App() {
 
       // Redirect only when refresh truly expired the session (clearAuth removed user)
       if (!refreshed && !hasStoredUser()) {
-        window.location.replace('/login?reason=expired');
+        redirectToLogin({ reason: 'expired', replace: true });
         return;
       }
     };

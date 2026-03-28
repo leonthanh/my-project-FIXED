@@ -31,14 +31,30 @@ function createTransporter() {
 // Lưu OTP tạm thời (trong thực tế nên dùng Redis)
 const otpStore = new Map();
 
-const authLimiter = rateLimit({
+const buildAuthLimiter = (overrides = {}) => rateLimit({
   windowMs: 10 * 60 * 1000,
   limit: 50,
   standardHeaders: 'draft-7',
   legacyHeaders: false,
+  skipSuccessfulRequests: false,
   handler: (_req, res) => {
     res.status(429).json({ message: 'Quá nhiều yêu cầu. Vui lòng thử lại sau.' });
   },
+  ...overrides,
+});
+
+const authLimiter = buildAuthLimiter();
+const loginLimiter = buildAuthLimiter({
+  limit: 20,
+  skipSuccessfulRequests: true,
+});
+const refreshLimiter = buildAuthLimiter({
+  limit: 240,
+  skipSuccessfulRequests: true,
+});
+const registerLimiter = buildAuthLimiter({
+  limit: 20,
+  skipSuccessfulRequests: true,
 });
 
 const otpLimiter = rateLimit({
@@ -118,7 +134,7 @@ const refreshSchema = z.object({
 // Đăng ký
 router.post(
   "/register",
-  authLimiter,
+  registerLimiter,
   validate({ body: registerSchema }),
   async (req, res) => {
     const { name, phone, email, password, role } = req.body; // ✅ Thêm email
@@ -160,7 +176,7 @@ router.post(
 // Đăng nhập
 router.post(
   "/login",
-  authLimiter,
+  loginLimiter,
   validate({ body: loginSchema }),
   async (req, res) => {
     const { phone, password } = req.body; // ✅ Chỉ cần phone và password để đăng nhập
@@ -205,7 +221,7 @@ router.post(
 // Refresh access token (rotating refresh token)
 router.post(
   '/refresh',
-  authLimiter,
+  refreshLimiter,
   validate({ body: refreshSchema }),
   async (req, res) => {
     try {

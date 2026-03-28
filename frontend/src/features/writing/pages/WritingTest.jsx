@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import Split from "react-split";
-import { apiPath, hostPath } from "../../../shared/utils/api";
+import { apiPath, hostPath, redirectToLogin } from "../../../shared/utils/api";
 
 // ====== STYLE FOR HEADER & MODAL ======
 const writingHeaderStyle = {
@@ -109,7 +109,14 @@ const modalBtnHover = {
 const WritingTest = () => {
   // Resolve user ID early so all localStorage keys are per-user (prevents student A
   // seeing student B's draft when logging in on the same device)
-  const user = JSON.parse(localStorage.getItem("user"));
+  const user = (() => {
+    try {
+      return JSON.parse(localStorage.getItem("user") || "null");
+    } catch (_err) {
+      localStorage.removeItem("user");
+      return null;
+    }
+  })();
   const uid = user?.id || 'anon';
   const writingTask1Key   = `writing_task1:${uid}`;
   const writingTask2Key   = `writing_task2:${uid}`;
@@ -142,8 +149,8 @@ const WritingTest = () => {
   const [testData, setTestData] = useState(null);
   const [feedback, setFeedback] = useState("");
   const [isMobile, setIsMobile] = useState(typeof window !== "undefined" ? window.innerWidth <= 768 : false);
-
-  const selectedTestId = localStorage.getItem("selectedTestId");
+  const [selectedTestId, setSelectedTestId] = useState(() => localStorage.getItem("selectedTestId") || "");
+  const [isHydratingDraft, setIsHydratingDraft] = useState(true);
 
   useEffect(() => {
     localStorage.setItem(writingTask1Key, task1);
@@ -172,12 +179,82 @@ const WritingTest = () => {
   // Guard: redirect to login if not authenticated
   useEffect(() => {
     if (!user) {
-      window.location.href = "/login";
+      redirectToLogin({ replace: true });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
+    if (!selectedTestId) return;
+    localStorage.setItem("selectedTestId", String(selectedTestId));
+  }, [selectedTestId]);
+
+  // Restore latest draft from server so students can continue on another device.
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadServerDraft = async () => {
+      if (!user?.id) {
+        setIsHydratingDraft(false);
+        return;
+      }
+
+      try {
+        const storedTestId = localStorage.getItem("selectedTestId") || "";
+        const numericTestId = Number(storedTestId);
+        const scopedQuery =
+          Number.isFinite(numericTestId) && numericTestId > 0
+            ? `&testId=${numericTestId}`
+            : "";
+
+        const res = await fetch(apiPath(`writing/draft/active?userId=${user.id}${scopedQuery}`));
+        if (!res.ok) return;
+        const data = await res.json().catch(() => ({}));
+        if (cancelled) return;
+
+        const draft = data?.submission;
+        if (!draft) return;
+
+        const draftTestId = Number(draft.testId);
+        if (!storedTestId && Number.isFinite(draftTestId) && draftTestId > 0) {
+          const nextTestId = String(draftTestId);
+          localStorage.setItem("selectedTestId", nextTestId);
+          setSelectedTestId(nextTestId);
+        }
+
+        setTask1(typeof draft.task1 === "string" ? draft.task1 : "");
+        setTask2(typeof draft.task2 === "string" ? draft.task2 : "");
+
+        if (Number.isFinite(Number(draft.timeLeft))) {
+          setTimeLeft(Number(draft.timeLeft));
+        }
+
+        if (draft.draftEndAt) {
+          const endMs = new Date(draft.draftEndAt).getTime();
+          if (Number.isFinite(endMs) && endMs > 0) {
+            setEndAt(endMs);
+          }
+        }
+
+        if (typeof draft.draftStarted === "boolean") {
+          setStarted(Boolean(draft.draftStarted));
+        }
+      } catch (err) {
+        console.error("Error loading writing draft:", err);
+      } finally {
+        if (!cancelled) setIsHydratingDraft(false);
+      }
+    };
+
+    loadServerDraft();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (isHydratingDraft) return;
     if (!selectedTestId) {
       setMessage("❌ Không tìm thấy đề thi đã chọn.");
       return;
@@ -200,7 +277,58 @@ const WritingTest = () => {
     };
 
     fetchTestData();
-  }, [selectedTestId]);
+  }, [selectedTestId, isHydratingDraft]);
+
+  const saveDraftToServer = useCallback(async () => {
+    if (isHydratingDraft || submitted) return;
+    if (!user?.id) return;
+
+    const numericTestId = parseInt(selectedTestId, 10);
+    if (!numericTestId || isNaN(numericTestId)) return;
+
+    try {
+      await fetch(apiPath("writing/draft/autosave"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          testId: numericTestId,
+          user: {
+            id: user.id,
+            name: user.name,
+            phone: user.phone,
+          },
+          task1,
+          task2,
+          timeLeft,
+          endAt,
+          started,
+        }),
+      });
+    } catch (err) {
+      console.error("Error autosaving writing draft:", err);
+    }
+  }, [isHydratingDraft, submitted, user?.id, user?.name, user?.phone, selectedTestId, task1, task2, timeLeft, endAt, started]);
+
+  useEffect(() => {
+    if (isHydratingDraft || submitted) return;
+    if (!user?.id || !selectedTestId) return;
+
+    const intervalId = setInterval(() => {
+      saveDraftToServer();
+    }, 15000);
+
+    const onVisibility = () => {
+      if (document.visibilityState === "hidden") {
+        saveDraftToServer();
+      }
+    };
+
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      clearInterval(intervalId);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [isHydratingDraft, submitted, user?.id, selectedTestId, saveDraftToServer]);
 
   const handleSubmit = useCallback(async () => {
     const numericTestId = parseInt(selectedTestId, 10);
@@ -227,6 +355,17 @@ const WritingTest = () => {
       const data = await res.json();
       setMessage(data.message || "✅ Đã nộp bài!");
 
+      if (user?.id) {
+        fetch(apiPath("writing/draft/clear"), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            testId: numericTestId,
+            user: { id: user.id },
+          }),
+        }).catch(() => {});
+      }
+
       localStorage.removeItem(writingTask1Key);
       localStorage.removeItem(writingTask2Key);
       localStorage.removeItem(writingTimeKey);
@@ -236,13 +375,13 @@ const WritingTest = () => {
       localStorage.removeItem("user");
 
       setTimeout(() => {
-        window.location.href = "/login";
+        redirectToLogin({ replace: true });
       }, 3000);
     } catch (err) {
       console.error("Lỗi nộp bài:", err);
       setMessage("❌ Lỗi khi gửi bài.");
     }
-  }, [task1, task2, timeLeft, user, selectedTestId]);
+  }, [task1, task2, timeLeft, user, selectedTestId, writingTask1Key, writingTask2Key, writingTimeKey, writingStartedKey, writingEndAtKey]);
 
   // keep a stable ref to the submit function so the timer effect doesn't re-run when
   // handleSubmit changes on typing (avoids interval reset)
@@ -450,8 +589,9 @@ const WritingTest = () => {
           </div>
           <button
             onClick={() => {
+              saveDraftToServer();
               localStorage.removeItem("user");
-              window.location.href = "/login";
+              redirectToLogin({ replace: true });
             }}
             style={writingLogoutBtn}
           >
