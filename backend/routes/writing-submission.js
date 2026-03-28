@@ -228,6 +228,7 @@ router.post('/submit', async (req, res) => {
     const testType = writingTest?.testType || 'writing';
     const label = testType === 'pet-writing' ? 'PET Writing' : 'Writing';
 
+    let emailWarning = null;
     try {
       const transporter = buildMailTransporter();
       const mailOptions = {
@@ -251,15 +252,14 @@ router.post('/submit', async (req, res) => {
       await transporter.sendMail(mailOptions);
     } catch (emailErr) {
       console.error('Email send error:', emailErr && (emailErr.stack || emailErr));
-      if (process.env.NODE_ENV !== 'production') {
-        return res.status(500).json({
-          message: 'Submission saved but email failed.',
-          emailError: emailErr && (emailErr.message || emailErr),
-        });
-      }
+      emailWarning = emailErr && (emailErr.message || String(emailErr));
     }
 
-    return res.json({ message: 'Submission saved successfully.', submissionId: submission.id });
+    return res.json({
+      message: 'Submission saved successfully.',
+      submissionId: submission.id,
+      warning: emailWarning,
+    });
   } catch (err) {
     console.error('Submit writing error:', err);
     return res.status(500).json({ message: 'Server error while saving submission.' });
@@ -269,9 +269,10 @@ router.post('/submit', async (req, res) => {
 // Get writing submissions (student feedback page)
 router.get('/list', async (req, res) => {
   try {
-    const where = {
-      [Op.or]: [{ isDraft: false }, { isDraft: null }],
-    };
+    const includeDrafts = ['1', 'true', 'yes'].includes(String(req.query.includeDrafts || '').toLowerCase());
+    const where = includeDrafts
+      ? {}
+      : { [Op.or]: [{ isDraft: false }, { isDraft: null }] };
     if (req.query.phone) {
       where.userPhone = req.query.phone;
     }

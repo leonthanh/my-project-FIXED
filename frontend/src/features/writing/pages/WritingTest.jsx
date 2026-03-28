@@ -144,6 +144,7 @@ const WritingTest = () => {
     localStorage.getItem(writingStartedKey) === "true"
   );
   const [submitted, setSubmitted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState("");
   const [activeTask, setActiveTask] = useState("task1");
   const [testData, setTestData] = useState(null);
@@ -331,13 +332,22 @@ const WritingTest = () => {
   }, [isHydratingDraft, submitted, user?.id, selectedTestId, saveDraftToServer]);
 
   const handleSubmit = useCallback(async () => {
+    if (isSubmitting) return;
+
     const numericTestId = parseInt(selectedTestId, 10);
     if (!numericTestId || isNaN(numericTestId)) {
-      setMessage("❌ Không tìm thấy mã đề để nộp.");
+      setMessage("Khong tim thay ma de de nop.");
       return;
     }
 
-    setSubmitted(true);
+    // Save latest draft once before final submit to minimize data loss on flaky networks.
+    try {
+      await saveDraftToServer();
+    } catch (_err) {
+      // Ignore: submit can still proceed; autosave retry exists.
+    }
+
+    setIsSubmitting(true);
 
     try {
       const res = await fetch(apiPath("writing/submit"), {
@@ -352,8 +362,13 @@ const WritingTest = () => {
         }),
       });
 
-      const data = await res.json();
-      setMessage(data.message || "✅ Đã nộp bài!");
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data?.message || "Server chua xac nhan bai nop.");
+      }
+
+      setSubmitted(true);
+      setMessage(data.message || "Da nop bai thanh cong.");
 
       if (user?.id) {
         fetch(apiPath("writing/draft/clear"), {
@@ -378,10 +393,14 @@ const WritingTest = () => {
         redirectToLogin({ replace: true });
       }, 3000);
     } catch (err) {
-      console.error("Lỗi nộp bài:", err);
-      setMessage("❌ Lỗi khi gửi bài.");
+      console.error("Submit writing failed:", err);
+      setSubmitted(false);
+      setMessage(`Chua nop duoc: ${err?.message || "Loi gui bai."}`);
+      await saveDraftToServer();
+    } finally {
+      setIsSubmitting(false);
     }
-  }, [task1, task2, timeLeft, user, selectedTestId, writingTask1Key, writingTask2Key, writingTimeKey, writingStartedKey, writingEndAtKey]);
+  }, [isSubmitting, selectedTestId, task1, task2, timeLeft, user, writingTask1Key, writingTask2Key, writingTimeKey, writingStartedKey, writingEndAtKey, saveDraftToServer]);
 
   // keep a stable ref to the submit function so the timer effect doesn't re-run when
   // handleSubmit changes on typing (avoids interval reset)
@@ -409,7 +428,7 @@ const WritingTest = () => {
 
   // TIMER: dựa trên endAt, không phụ thuộc timeLeft (tránh reset interval khi re-render do typing)
   useEffect(() => {
-    if (!started || submitted || !endAt) return;
+    if (!started || submitted || isSubmitting || !endAt) return;
 
     const tick = () => {
       const remain = Math.max(0, Math.floor((endAt - Date.now()) / 1000));
@@ -425,7 +444,7 @@ const WritingTest = () => {
     const timer = setInterval(tick, 1000);
     return () => clearInterval(timer);
     // CHÚ Ý: không thêm timeLeft/handleSubmit vào dependency!
-  }, [started, submitted, endAt]);
+  }, [started, submitted, isSubmitting, endAt]);
 
   useEffect(() => {
     if (!user || !user.phone) return;
@@ -588,10 +607,13 @@ const WritingTest = () => {
             </div>
           </div>
           <button
-            onClick={() => {
-              saveDraftToServer();
-              localStorage.removeItem("user");
-              redirectToLogin({ replace: true });
+            onClick={async () => {
+              try {
+                await saveDraftToServer();
+              } finally {
+                localStorage.removeItem("user");
+                redirectToLogin({ replace: true });
+              }
             }}
             style={writingLogoutBtn}
           >
@@ -717,14 +739,29 @@ const WritingTest = () => {
             border: "none",
             borderRadius: "8px",
             fontSize: "16px",
-            backgroundColor: "#e03",
+            backgroundColor: isSubmitting ? "#999" : "#e03",
             color: "white",
-            cursor: "pointer",
+            cursor: isSubmitting ? "not-allowed" : "pointer",
+            opacity: isSubmitting ? 0.85 : 1,
           }}
+          disabled={isSubmitting}
         >
-          📩 Submit
+          {isSubmitting ? "Dang nop..." : "Submit"}
         </button>
       </div>
+      {message && !submitted && (
+        <div
+          style={{
+            textAlign: "center",
+            padding: "8px 12px 14px",
+            color: message.startsWith("Da") ? "#166534" : "#b91c1c",
+            fontWeight: 600,
+            background: "#fff",
+          }}
+        >
+          {message}
+        </div>
+      )}
     </div>
   );
 };
