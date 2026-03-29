@@ -43,8 +43,65 @@ function redirectToLogin(opts = {}) {
   redirectInApp(`/login${reasonQuery}`, { replace });
 }
 
+function getStoredUser() {
+  const raw =
+    localStorage.getItem("user") ?? sessionStorage.getItem("user") ?? null;
+
+  if (!raw) return null;
+
+  try {
+    return JSON.parse(raw);
+  } catch (_err) {
+    localStorage.removeItem("user");
+    sessionStorage.removeItem("user");
+    return null;
+  }
+}
+
+function useSessionAuthStorage(user = getStoredUser()) {
+  return user?.role === "student";
+}
+
+function getAuthValue(key) {
+  return sessionStorage.getItem(key) ?? localStorage.getItem(key);
+}
+
+function setAuthValue(key, value, user = getStoredUser()) {
+  const useSession = useSessionAuthStorage(user);
+  const primary = useSession ? sessionStorage : localStorage;
+  const secondary = useSession ? localStorage : sessionStorage;
+
+  secondary.removeItem(key);
+  if (value === undefined || value === null || value === "") {
+    primary.removeItem(key);
+    return;
+  }
+
+  primary.setItem(key, value);
+}
+
+function storeAuthSession({ user, accessToken, refreshToken }) {
+  if (user) {
+    const serialized = JSON.stringify(user);
+    localStorage.setItem("user", serialized);
+    sessionStorage.setItem("user", serialized);
+  }
+
+  if (accessToken !== undefined) {
+    setAuthValue("accessToken", accessToken, user);
+  }
+
+  if (refreshToken !== undefined) {
+    setAuthValue("refreshToken", refreshToken, user);
+  }
+}
+
+function hasStoredSession() {
+  return Boolean(getStoredUser()) && Boolean(getAuthValue("accessToken") || getAuthValue("refreshToken"));
+}
+
 function getAuthHeaders() {
-  const token = localStorage.getItem("accessToken");
+  const token = getAuthValue("accessToken");
   if (!token) return {};
   return { Authorization: `Bearer ${token}` };
 }
@@ -69,7 +126,7 @@ function decodeJwtPayload(token) {
 }
 
 function isAccessTokenUsable(bufferMs = 0) {
-  const token = localStorage.getItem("accessToken");
+  const token = getAuthValue("accessToken");
   if (!token) return false;
 
   const payload = decodeJwtPayload(token);
@@ -91,6 +148,10 @@ function clearAuth() {
   localStorage.removeItem("refreshToken");
   localStorage.removeItem("user");
   localStorage.removeItem("auth:lastRefreshAt");
+  sessionStorage.removeItem("accessToken");
+  sessionStorage.removeItem("refreshToken");
+  sessionStorage.removeItem("user");
+  sessionStorage.removeItem("auth:lastRefreshAt");
 }
 
 /**
@@ -120,17 +181,19 @@ async function refreshAccessToken(options = {}) {
     // with rotating refresh tokens: both tabs open simultaneously → both send the same
     // cookie → second request hits an already-rotated (revoked) token → 401 → logout.
     const lastRefresh = parseInt(localStorage.getItem(REFRESH_AT_KEY) || "0", 10);
+    const lastRefreshAny = parseInt(getAuthValue(REFRESH_AT_KEY) || String(lastRefresh || 0), 10);
     if (
-      Date.now() - lastRefresh < REFRESH_RECENT_MS &&
-      localStorage.getItem("accessToken")
+      Date.now() - lastRefreshAny < REFRESH_RECENT_MS &&
+      getAuthValue("accessToken")
     ) {
       console.debug("auth: skipping refresh, token recently refreshed by this or another tab");
       return true;
     }
 
-    const refreshToken = localStorage.getItem("refreshToken");
+    const refreshToken = getAuthValue("refreshToken");
     const hasRefreshToken = Boolean(refreshToken);
-    const hadStoredUser = Boolean(localStorage.getItem("user"));
+    const storedUser = getStoredUser();
+    const hadStoredUser = Boolean(storedUser);
     const controller = new AbortController();
     // Increased from 2800ms → 5000ms to accommodate slow cPanel servers
     const timeoutId = setTimeout(() => controller.abort(), 5000);
@@ -154,9 +217,10 @@ async function refreshAccessToken(options = {}) {
         if (res.status === 401) {
           await new Promise((r) => setTimeout(r, 600));
           const recentRefresh = parseInt(localStorage.getItem(REFRESH_AT_KEY) || "0", 10);
+          const recentRefreshAny = parseInt(getAuthValue(REFRESH_AT_KEY) || String(recentRefresh || 0), 10);
           if (
-            Date.now() - recentRefresh < REFRESH_RECENT_MS &&
-            localStorage.getItem("accessToken")
+            Date.now() - recentRefreshAny < REFRESH_RECENT_MS &&
+            getAuthValue("accessToken")
           ) {
             console.debug("auth: 401 resolved — concurrent tab already refreshed successfully");
             return true;
@@ -174,10 +238,10 @@ async function refreshAccessToken(options = {}) {
       }
 
       const data = await res.json().catch(() => ({}));
-      if (data.accessToken) localStorage.setItem("accessToken", data.accessToken);
-      if (data.refreshToken) localStorage.setItem("refreshToken", data.refreshToken);
+      if (data.accessToken) setAuthValue("accessToken", data.accessToken, storedUser);
+      if (data.refreshToken) setAuthValue("refreshToken", data.refreshToken, storedUser);
       // Record successful refresh time so concurrent tabs can detect it
-      localStorage.setItem(REFRESH_AT_KEY, String(Date.now()));
+      setAuthValue(REFRESH_AT_KEY, String(Date.now()), storedUser);
       console.debug("auth: refresh succeeded");
       return true;
     } catch (err) {
@@ -228,5 +292,8 @@ export {
   isAccessTokenUsable,
   clearAuth,
   forceLogout,
+  getStoredUser,
+  storeAuthSession,
+  hasStoredSession,
 };
 export default API_BASE;

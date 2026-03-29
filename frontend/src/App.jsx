@@ -3,7 +3,13 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 
 import Login from './features/auth/pages/Login';
 import ProtectedRoute from './shared/components/ProtectedRoute';
-import { refreshAccessToken, redirectToLogin, isAccessTokenUsable } from './shared/utils/api';
+import {
+  refreshAccessToken,
+  redirectToLogin,
+  isAccessTokenUsable,
+  getStoredUser,
+  hasStoredSession,
+} from './shared/utils/api';
 
 const EditTest = lazy(() => import('./features/admin/pages/EditTest'));
 const AdminWritingSubmissions = lazy(() => import('./features/admin/pages/AdminWritingSubmissions'));
@@ -50,19 +56,7 @@ const DoCambridgeListeningTest = lazy(() => import('./features/cambridge/pages/D
 const DoCambridgeReadingTest = lazy(() => import('./features/cambridge/pages/DoCambridgeReadingTest'));
 const CambridgeResultPage = lazy(() => import('./features/cambridge/pages/CambridgeResultPage'));
 
-const hasStoredUser = () => {
-  try {
-    return Boolean(JSON.parse(localStorage.getItem('user') || 'null'));
-  } catch (err) {
-    localStorage.removeItem('user');
-    return false;
-  }
-};
-
-const hasAuthTokens = () =>
-  Boolean(localStorage.getItem('accessToken') || localStorage.getItem('refreshToken'));
-
-const hasStoredSession = () => hasStoredUser() && hasAuthTokens();
+const hasStoredUser = () => Boolean(getStoredUser());
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(hasStoredSession);
@@ -154,10 +148,10 @@ function App() {
         <Route path="/select-test" element={isAuthenticated ? <SelectTest /> : <Navigate to="/login" replace />} />
         {/* ✅ Trang làm bài viết */}
         <Route path="/writing" element={isAuthenticated ? <WritingTest /> : <Navigate to="/login" replace />} />
-        <Route path="/writing-test" element={<WritingTest />} />
+        <Route path="/writing-test" element={isAuthenticated ? <WritingTest /> : <Navigate to="/login" replace />} />
         <Route path="/pet-writing" element={isAuthenticated ? <PetWritingTest /> : <Navigate to="/login" replace />} />
         <Route path="/pet-writing-select" element={isAuthenticated ? <SelectPetWritingTest /> : <Navigate to="/login" replace />} />
-        <Route path="/my-feedback" element={<MyFeedback />} />
+        <Route path="/my-feedback" element={isAuthenticated ? <MyFeedback /> : <Navigate to="/login" replace />} />
         {/* ✅ Trang giáo viên tạo đề */}
         <Route path="/admin/create-writing" element={
           <ProtectedRoute role="teacher">

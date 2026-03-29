@@ -1,20 +1,14 @@
 import React from 'react';
 import { Navigate } from 'react-router-dom';
+import { clearAuth, getStoredUser, hasStoredSession } from '../utils/api';
 
 const ProtectedRoute = ({ children, role }) => {
-  let user = null;
-  try {
-    user = JSON.parse(localStorage.getItem('user') || 'null');
-  } catch (e) {
-    user = null;
-  }
-  const hasToken = Boolean(
-    localStorage.getItem('accessToken') || localStorage.getItem('refreshToken')
-  );
+  const user = getStoredUser();
+  const hasToken = hasStoredSession();
 
   if (!user || !hasToken) {
     if (!hasToken) {
-      localStorage.removeItem('user');
+      clearAuth();
     }
     return <Navigate to="/login" replace />;
   }

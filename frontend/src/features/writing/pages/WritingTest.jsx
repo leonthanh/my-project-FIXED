@@ -1,6 +1,14 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import Split from "react-split";
-import { apiPath, hostPath, redirectInApp, redirectToLogin, clearAuth } from "../../../shared/utils/api";
+import {
+  apiPath,
+  hostPath,
+  redirectInApp,
+  redirectToLogin,
+  clearAuth,
+  getStoredUser,
+  hasStoredSession,
+} from "../../../shared/utils/api";
 
 // ====== STYLE FOR HEADER & MODAL ======
 const writingHeaderStyle = {
@@ -109,14 +117,7 @@ const modalBtnHover = {
 const WritingTest = () => {
   // Resolve user ID early so all localStorage keys are per-user (prevents student A
   // seeing student B's draft when logging in on the same device)
-  const user = (() => {
-    try {
-      return JSON.parse(localStorage.getItem("user") || "null");
-    } catch (_err) {
-      localStorage.removeItem("user");
-      return null;
-    }
-  })();
+  const user = getStoredUser();
   const uid = user?.id || 'anon';
   const writingTask1Key   = `writing_task1:${uid}`;
   const writingTask2Key   = `writing_task2:${uid}`;
@@ -179,7 +180,7 @@ const WritingTest = () => {
 
   // Guard: redirect to login if not authenticated
   useEffect(() => {
-    if (!user) {
+    if (!user || !hasStoredSession()) {
       redirectToLogin({ replace: true });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
