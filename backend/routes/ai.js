@@ -63,6 +63,29 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function parseUpstreamError(detailText = "") {
+  try {
+    return JSON.parse(detailText);
+  } catch {
+    return null;
+  }
+}
+
+function shouldRetryOpenAI(status, detailText = "") {
+  if (status >= 500) return true;
+  if (status !== 429) return false;
+
+  const parsed = parseUpstreamError(detailText);
+  const code = parsed?.error?.code;
+  const type = parsed?.error?.type;
+
+  if (code === "insufficient_quota" || type === "insufficient_quota") {
+    return false;
+  }
+
+  return true;
+}
+
 function estimateBand(words, minWords, paragraphs) {
   let score = 5.0;
 
@@ -223,7 +246,7 @@ async function callOpenAIWithRetry(prompt) {
       }
 
       const detailText = await response.text();
-      const retryable = response.status === 429 || response.status >= 500;
+      const retryable = shouldRetryOpenAI(response.status, detailText);
       lastFailure = {
         status: response.status,
         detail: detailText,
@@ -296,6 +319,152 @@ async function generateFeedback(task1, task2) {
   };
 }
 
+function normalizeCambridgeResponses(responses = []) {
+  if (!Array.isArray(responses)) return [];
+
+  return responses
+    .map((item, index) => ({
+      label:
+        typeof item?.label === "string" && item.label.trim()
+          ? item.label.trim()
+          : `Response ${index + 1}`,
+      prompt:
+        typeof item?.prompt === "string" && item.prompt.trim()
+          ? item.prompt.trim()
+          : "",
+      answer:
+        typeof item?.answer === "string" && item.answer.trim()
+          ? item.answer.trim()
+          : "",
+      questionType:
+        typeof item?.questionType === "string" && item.questionType.trim()
+          ? item.questionType.trim()
+          : "",
+    }))
+    .filter((item) => item.answer);
+}
+
+function buildCambridgePrompt({
+  studentName = "",
+  testType = "",
+  classCode = "",
+  responses = [],
+}) {
+  const responseText = responses
+    .map(
+      (item) =>
+        `${item.label}
+Question type: ${item.questionType || "manual review"}
+Prompt: ${item.prompt || "No prompt provided"}
+Student answer:
+${item.answer}`
+    )
+    .join("\n\n");
+
+  return `You are an experienced Cambridge English teacher helping another teacher review short written responses.
+
+Submission details:
+- Student: ${studentName || "Unknown"}
+- Test type: ${testType || "Cambridge"}
+- Class code: ${classCode || "N/A"}
+
+Responses to review:
+${responseText}
+
+Write the feedback in English.
+- Start with a short overall impression.
+- Then give 3 to 5 concrete improvement points.
+- Mention grammar, vocabulary, and task completion where relevant.
+- End with a short teacher-ready comment that can be sent to the student.
+- Keep the tone supportive and practical.`;
+}
+
+function buildCambridgeFallback(responses = [], reason = "") {
+  const responseCount = responses.length;
+  const warningLine = reason
+    ? `Note: OpenAI is temporarily unavailable (${reason}), so the system generated fallback feedback.`
+    : "Note: The system generated fallback feedback to avoid interrupting marking.";
+
+  return `${warningLine}
+
+Overall impression:
+The student has attempted ${responseCount} open-ended response${responseCount === 1 ? "" : "s"} and shows a basic understanding of the task, but the answers still need clearer development and cleaner language control.
+
+Priority checks:
+1. Answer the question more directly and make sure each response fully addresses the prompt.
+2. Add one or two supporting details or examples instead of keeping the answer too general.
+3. Check sentence structure, verb forms, and punctuation before submitting.
+4. Replace repeated simple words with more precise vocabulary where possible.
+
+Teacher-ready comment:
+"Your response shows the right general idea, but it needs clearer development and more accurate grammar. Try to answer the prompt more directly, add supporting detail, and check sentence accuracy before submitting again."`;
+}
+
+async function generateCambridgeFeedback({
+  studentName = "",
+  testType = "",
+  classCode = "",
+  responses = [],
+}) {
+  const normalizedResponses = normalizeCambridgeResponses(responses);
+
+  if (!normalizedResponses.length) {
+    return {
+      suggestion: buildCambridgeFallback([], "missing open-ended responses"),
+      source: "fallback",
+      warning:
+        "No Cambridge open-ended responses were provided, so the system generated fallback feedback.",
+      fallback: true,
+    };
+  }
+
+  if (!process.env.OPENAI_API_KEY) {
+    return {
+      suggestion: buildCambridgeFallback(
+        normalizedResponses,
+        "missing OPENAI_API_KEY"
+      ),
+      source: "fallback",
+      warning:
+        "OpenAI is not configured on the server, so the system generated fallback feedback.",
+      fallback: true,
+    };
+  }
+
+  const prompt = buildCambridgePrompt({
+    studentName,
+    testType,
+    classCode,
+    responses: normalizedResponses,
+  });
+
+  const openAiResult = await callOpenAIWithRetry(prompt);
+  if (openAiResult.ok) {
+    return {
+      suggestion: openAiResult.suggestion,
+      source: "openai",
+      fallback: false,
+    };
+  }
+
+  const reason =
+    openAiResult?.status === 429
+      ? "OpenAI returned 429"
+      : openAiResult?.status
+      ? `OpenAI error ${openAiResult.status}`
+      : "AI connection error";
+
+  return {
+    suggestion: buildCambridgeFallback(normalizedResponses, reason),
+    source: "fallback",
+    warning:
+      "OpenAI is temporarily busy or quota-limited. The system generated fallback feedback so marking can continue.",
+    fallback: true,
+    upstreamStatus: openAiResult?.status || null,
+    upstreamDetail: openAiResult?.detail || null,
+  };
+}
+
 router.post("/generate-feedback", async (req, res) => {
   const { task1, task2 } = req.body || {};
 
@@ -355,6 +524,86 @@ router.post("/generate-feedback", async (req, res) => {
     console.error("[AI feedback] Route error:", error);
     return res.status(500).json({
       error: "Không thể tạo nhận xét AI lúc này.",
+      detail: error?.message || String(error),
+    });
+  } finally {
+    inFlightRequests.delete(cacheKey);
+  }
+});
+
+router.post("/generate-cambridge-feedback", async (req, res) => {
+  const {
+    studentName = "",
+    testType = "",
+    classCode = "",
+    responses = [],
+  } = req.body || {};
+
+  const normalizedResponses = normalizeCambridgeResponses(responses);
+  if (!normalizedResponses.length) {
+    return res.status(400).json({
+      error: "Missing Cambridge open-ended responses.",
+    });
+  }
+
+  const cacheKey = buildCacheKey(
+    JSON.stringify({ studentName, testType, classCode }),
+    JSON.stringify(normalizedResponses)
+  );
+  const cached = getCachedFeedback(cacheKey);
+  if (cached) {
+    return res.json({
+      suggestion: cached.suggestion,
+      source: cached.source,
+      warning: cached.warning || null,
+      fallback: Boolean(cached.fallback),
+      cached: true,
+    });
+  }
+
+  if (inFlightRequests.has(cacheKey)) {
+    try {
+      const sharedResult = await inFlightRequests.get(cacheKey);
+      return res.json({
+        suggestion: sharedResult.suggestion,
+        source: sharedResult.source,
+        warning: sharedResult.warning || null,
+        fallback: Boolean(sharedResult.fallback),
+        cached: false,
+        shared: true,
+      });
+    } catch (error) {
+      console.error("[AI feedback] Shared Cambridge request failed:", error);
+    }
+  }
+
+  const requestPromise = generateCambridgeFeedback({
+    studentName,
+    testType,
+    classCode,
+    responses: normalizedResponses,
+  });
+  inFlightRequests.set(cacheKey, requestPromise);
+
+  try {
+    const result = await requestPromise;
+    setCachedFeedback(
+      cacheKey,
+      result,
+      result.fallback ? FALLBACK_CACHE_TTL_MS : SUCCESS_CACHE_TTL_MS
+    );
+
+    return res.json({
+      suggestion: result.suggestion,
+      source: result.source,
+      warning: result.warning || null,
+      fallback: Boolean(result.fallback),
+      cached: false,
+    });
+  } catch (error) {
+    console.error("[AI feedback] Cambridge route error:", error);
+    return res.status(500).json({
+      error: "Could not generate Cambridge AI feedback right now.",
       detail: error?.message || String(error),
     });
   } finally {
