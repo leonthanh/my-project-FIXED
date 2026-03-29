@@ -63,6 +63,29 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function parseUpstreamError(detailText = "") {
+  try {
+    return JSON.parse(detailText);
+  } catch {
+    return null;
+  }
+}
+
+function shouldRetryOpenAI(status, detailText = "") {
+  if (status >= 500) return true;
+  if (status !== 429) return false;
+
+  const parsed = parseUpstreamError(detailText);
+  const code = parsed?.error?.code;
+  const type = parsed?.error?.type;
+
+  if (code === "insufficient_quota" || type === "insufficient_quota") {
+    return false;
+  }
+
+  return true;
+}
+
 function estimateBand(words, minWords, paragraphs) {
   let score = 5.0;
 
@@ -223,7 +246,7 @@ async function callOpenAIWithRetry(prompt) {
       }
 
       const detailText = await response.text();
-      const retryable = response.status === 429 || response.status >= 500;
+      const retryable = shouldRetryOpenAI(response.status, detailText);
       lastFailure = {
         status: response.status,
         detail: detailText,
