@@ -174,6 +174,14 @@ const AdminWritingSubmissions = () => {
           ...prev,
           [submission.id]: aiData.suggestion,
         }));
+        setMessages((prev) => ({
+          ...prev,
+          [submission.id]:
+            aiData.warning ||
+            (aiData.cached
+              ? "Da nap lai nhan xet AI tu bo nho dem."
+              : "Da tao goi y nhan xet AI."),
+        }));
       } else {
         alert(aiData.error || "❌ AI không tạo được nhận xét.");
       }
