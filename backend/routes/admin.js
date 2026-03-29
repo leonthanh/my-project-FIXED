@@ -203,7 +203,10 @@ router.get('/submissions', requireAuth, requireRole('admin'), async (req, res) =
 
     const [writing, reading, listening, cambridge] = await Promise.all([
       Submission.findAll({
-        where: { userId: uid },
+        where: {
+          userId: uid,
+          [Op.or]: [{ isDraft: false }, { isDraft: null }],
+        },
         order: [['createdAt', 'DESC']],
         limit: 100,
         attributes: ['id', 'userName', 'userPhone', 'testId', 'feedback', 'createdAt'],

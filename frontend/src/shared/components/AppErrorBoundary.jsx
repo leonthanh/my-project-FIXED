@@ -1,4 +1,5 @@
 import React from "react";
+import { redirectToLogin } from "../utils/api";
 
 class AppErrorBoundary extends React.Component {
   constructor(props) {
@@ -19,7 +20,7 @@ class AppErrorBoundary extends React.Component {
     localStorage.removeItem("accessToken");
     localStorage.removeItem("refreshToken");
     localStorage.removeItem("user");
-    window.location.replace("/login");
+    redirectToLogin({ replace: true });
   };
 
   render() {

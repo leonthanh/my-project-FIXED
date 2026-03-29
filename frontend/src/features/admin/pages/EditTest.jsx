@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { AdminNavbar, FormQuestion } from "../../../shared/components";
 import ReactQuill from "react-quill";
-import { apiPath, authFetch } from "../../../shared/utils/api";
+import { apiPath, authFetch, redirectToLogin } from "../../../shared/utils/api";
 import "react-quill/dist/quill.snow.css";
 // import ReactQuill from 'react-quill'; // Thay thế CKEditor bằng ReactQuill
 import "react-quill/dist/quill.snow.css"; // Import CSS cho ReactQuill
@@ -119,8 +119,7 @@ const EditTest = () => {
         if (response.status === 401) {
           try { saveDraft(); } catch (e) {}
           alert('❌ Token đã hết hạn hoặc không hợp lệ. Bản nháp đã được lưu. Vui lòng đăng nhập lại.');
-          localStorage.setItem('postLoginRedirect', window.location.pathname);
-          window.location.href = '/login';
+          redirectToLogin({ rememberPath: true, replace: true });
           return;
         }
         throw new Error(data.message || "Lỗi khi cập nhật đề thi");

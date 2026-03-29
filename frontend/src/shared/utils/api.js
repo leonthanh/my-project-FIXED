@@ -12,10 +12,75 @@ function hostPath(p) {
   return `${API_HOST}/${String(p).replace(/^\/+/, "")}`;
 }
 
+function redirectInApp(path, opts = {}) {
+  if (typeof window === "undefined") return;
+  const { replace = true } = opts;
+  const target = typeof path === "string" && path.startsWith("/") ? path : "/";
+
+  try {
+    if (replace) {
+      window.history.replaceState({}, "", target);
+    } else {
+      window.history.pushState({}, "", target);
+    }
+    window.dispatchEvent(new PopStateEvent("popstate"));
+  } catch (_err) {
+    if (replace) window.location.replace(target);
+    else window.location.assign(target);
+  }
+}
+
+function redirectToLogin(opts = {}) {
+  const { reason, rememberPath = false, replace = true } = opts;
+  if (typeof window === "undefined") return;
+
+  if (rememberPath) {
+    const current = `${window.location.pathname}${window.location.search || ""}`;
+    localStorage.setItem("postLoginRedirect", current);
+  }
+
+  const reasonQuery = reason ? `?reason=${encodeURIComponent(reason)}` : "";
+  redirectInApp(`/login${reasonQuery}`, { replace });
+}
+
 function getAuthHeaders() {
   const token = localStorage.getItem("accessToken");
   if (!token) return {};
   return { Authorization: `Bearer ${token}` };
+}
+
+function decodeJwtPayload(token) {
+  if (!token) return null;
+
+  try {
+    const [, payloadPart] = token.split(".");
+    if (!payloadPart) return null;
+
+    const normalized = payloadPart.replace(/-/g, "+").replace(/_/g, "/");
+    const padded = normalized.padEnd(
+      normalized.length + ((4 - (normalized.length % 4)) % 4),
+      "="
+    );
+
+    return JSON.parse(atob(padded));
+  } catch (_err) {
+    return null;
+  }
+}
+
+function isAccessTokenUsable(bufferMs = 0) {
+  const token = localStorage.getItem("accessToken");
+  if (!token) return false;
+
+  const payload = decodeJwtPayload(token);
+  const expMs = Number(payload?.exp) * 1000;
+  if (!Number.isFinite(expMs)) {
+    // If we cannot decode the token, keep the current session instead of forcing
+    // a background logout. Reactive 401 handling still protects real failures.
+    return true;
+  }
+
+  return expMs > Date.now() + Math.max(0, Number(bufferMs) || 0);
 }
 
 /**
@@ -45,7 +110,8 @@ const REFRESH_AT_KEY = "auth:lastRefreshAt";
 
 let refreshPromise = null;
 
-async function refreshAccessToken() {
+async function refreshAccessToken(options = {}) {
+  const { logoutOnFailure = true } = options;
   if (refreshPromise) return refreshPromise;
 
   refreshPromise = (async () => {
@@ -98,7 +164,9 @@ async function refreshAccessToken() {
         }
 
         if (hadStoredUser) {
-          forceLogout();
+          if (logoutOnFailure) {
+            forceLogout();
+          }
         } else {
           clearAuth();
         }
@@ -152,9 +220,12 @@ export {
   API_BASE,
   apiPath,
   hostPath,
+  redirectInApp,
+  redirectToLogin,
   getAuthHeaders,
   authFetch,
   refreshAccessToken,
+  isAccessTokenUsable,
   clearAuth,
   forceLogout,
 };

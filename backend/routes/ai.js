@@ -1,26 +1,144 @@
-// routes/ai.js
+const crypto = require("crypto");
 const express = require("express");
 require("dotenv").config();
 
 const router = express.Router();
 
-// POST /api/ai/generate-feedback
-router.post("/generate-feedback", async (req, res) => {
-  const { task1, task2 } = req.body;
+const feedbackCache = new Map();
+const inFlightRequests = new Map();
+const SUCCESS_CACHE_TTL_MS = 12 * 60 * 60 * 1000;
+const FALLBACK_CACHE_TTL_MS = 30 * 60 * 1000;
+const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
 
-  if (!task1 || !task2) {
-    return res
-      .status(400)
-      .json({ error: "❌ Thiếu nội dung Task 1 hoặc Task 2" });
+function stripHtml(value = "") {
+  return String(value)
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function countWords(value = "") {
+  const normalized = stripHtml(value);
+  if (!normalized) return 0;
+  return normalized.split(/\s+/).filter(Boolean).length;
+}
+
+function countParagraphs(value = "") {
+  const raw = String(value || "");
+  const htmlParagraphs = raw.match(/<p\b[^>]*>/gi);
+  if (htmlParagraphs?.length) return htmlParagraphs.length;
+  return raw
+    .split(/\n{2,}/)
+    .map((part) => part.trim())
+    .filter(Boolean).length;
+}
+
+function buildCacheKey(task1, task2) {
+  return crypto
+    .createHash("sha256")
+    .update(`${stripHtml(task1)}\n---\n${stripHtml(task2)}`)
+    .digest("hex");
+}
+
+function getCachedFeedback(cacheKey) {
+  const cached = feedbackCache.get(cacheKey);
+  if (!cached) return null;
+
+  if (cached.expiresAt <= Date.now()) {
+    feedbackCache.delete(cacheKey);
+    return null;
   }
 
-  if (!process.env.OPENAI_API_KEY) {
-    return res
-      .status(500)
-      .json({ error: "❌ Chưa cấu hình OPENAI_API_KEY trong .env" });
-  }
+  return cached;
+}
 
-  const prompt = `Bạn là giáo viên IELTS Writing chuyên nghiệp. Hãy đánh giá bài làm của học sinh theo tiêu chí chấm điểm chính thức của IDP IELTS.
+function setCachedFeedback(cacheKey, payload, ttlMs) {
+  feedbackCache.set(cacheKey, {
+    ...payload,
+    expiresAt: Date.now() + ttlMs,
+  });
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function estimateBand(words, minWords, paragraphs) {
+  let score = 5.0;
+
+  if (words >= minWords) score += 0.5;
+  if (words >= minWords + 40) score += 0.5;
+  if (words < Math.max(40, minWords - 40)) score -= 1.0;
+  if (paragraphs >= 2) score += 0.5;
+  if (paragraphs <= 1) score -= 0.5;
+
+  return Math.max(4.0, Math.min(7.0, Math.round(score * 2) / 2));
+}
+
+function buildFallbackSuggestion(task1, task2, reason = "") {
+  const task1Words = countWords(task1);
+  const task2Words = countWords(task2);
+  const task1Paragraphs = countParagraphs(task1);
+  const task2Paragraphs = countParagraphs(task2);
+  const task1Band = estimateBand(task1Words, 150, task1Paragraphs);
+  const task2Band = estimateBand(task2Words, 250, task2Paragraphs);
+  const overall = Math.round(((task1Band + task2Band) / 2) * 2) / 2;
+
+  const task1LengthComment =
+    task1Words < 150
+      ? `Task 1 hiện mới khoảng ${task1Words} từ, dưới mức tối thiểu 150 từ nên dễ mất điểm Task Achievement.`
+      : `Task 1 có khoảng ${task1Words} từ, nhìn chung đã đạt yêu cầu độ dài tối thiểu.`;
+
+  const task2LengthComment =
+    task2Words < 250
+      ? `Task 2 hiện mới khoảng ${task2Words} từ, dưới mức tối thiểu 250 từ nên cần phát triển ý sâu hơn.`
+      : `Task 2 có khoảng ${task2Words} từ, cơ bản đáp ứng yêu cầu độ dài.`;
+
+  const task1ParagraphComment =
+    task1Paragraphs <= 1
+      ? "Task 1 nên chia ý rõ hơn thành 2-3 đoạn để người đọc theo dõi dễ hơn."
+      : `Task 1 đang có khoảng ${task1Paragraphs} đoạn, bố cục tương đối rõ.`;
+
+  const task2ParagraphComment =
+    task2Paragraphs <= 2
+      ? "Task 2 nên có mở bài, 2 đoạn thân bài và kết luận rõ ràng để tăng Coherence & Cohesion."
+      : `Task 2 đang có khoảng ${task2Paragraphs} đoạn, bố cục tương đối ổn.`;
+
+  const warningLine = reason
+    ? `Lưu ý: OpenAI đang bận hoặc bị giới hạn tạm thời (${reason}), nên hệ thống trả về nhận xét dự phòng để giáo viên tiếp tục làm việc.`
+    : "Lưu ý: hệ thống đang dùng nhận xét dự phòng để tránh gián đoạn thao tác chấm bài.";
+
+  return `${warningLine}
+
+TASK 1:
+- Task Achievement: khoảng band ${task1Band}. ${task1LengthComment}
+- Coherence & Cohesion: ${task1ParagraphComment}
+- Lexical Resource: nên kiểm tra lại cách dùng từ học thuật, tránh lặp lại một nhóm từ quá nhiều lần.
+- Grammatical Range & Accuracy: nên rà soát câu dài, chia mệnh đề rõ hơn để giảm lỗi ngữ pháp và dấu câu.
+
+TASK 2:
+- Task Response: khoảng band ${task2Band}. ${task2LengthComment}
+- Coherence & Cohesion: ${task2ParagraphComment}
+- Lexical Resource: nên bổ sung từ nối học thuật như "moreover", "however", "in contrast", "as a result" ở đúng ngữ cảnh.
+- Grammatical Range & Accuracy: ưu tiên dùng xen kẽ câu đơn, câu phức và kiểm tra lỗi chia động từ/chủ ngữ số ít số nhiều.
+
+LỖI CẦN ƯU TIÊN SOÁT:
+1. Kiểm tra đủ số từ cho từng task, nhất là Task 2.
+2. Làm rõ topic sentence ở đầu mỗi đoạn thân bài.
+3. Hạn chế lặp từ; thay bằng từ đồng nghĩa/cụm diễn đạt tương đương.
+4. Rà soát lỗi ngữ pháp cơ bản trước khi gửi nhận xét cho học sinh.
+
+GỢI Ý NHẬN XÉT NHANH CHO GIÁO VIÊN:
+"Bài viết có ý chính tương đối rõ nhưng cần cải thiện thêm về độ phát triển ý, cách chia đoạn và độ chính xác ngữ pháp. Em nên mở rộng lập luận ở Task 2, dùng từ nối đa dạng hơn và rà soát lỗi ngữ pháp/collocation trước khi nộp lại."
+
+ƯỚC LƯỢNG TỔNG QUAN:
+- Task 1: khoảng band ${task1Band}
+- Task 2: khoảng band ${task2Band}
+- Overall tham khảo: khoảng band ${overall}`;
+}
+
+function buildPrompt(task1, task2) {
+  return `Bạn là giáo viên IELTS Writing chuyên nghiệp. Hãy đánh giá bài làm của học sinh theo tiêu chí chấm điểm chính thức của IDP IELTS.
 
 Task 1:
 ${task1}
@@ -28,129 +146,219 @@ ${task1}
 Task 2:
 ${task2}
 
-TIÊU CHÍ CHẤM ĐIỂM IELTS WRITING (IDP):
+TIÊU CHÍ CHẤM ĐIỂM IELTS WRITING:
+1. Task Achievement / Task Response
+2. Coherence & Cohesion
+3. Lexical Resource
+4. Grammatical Range & Accuracy
 
-1. TASK ACHIEVEMENT / TASK RESPONSE (25% - cho mỗi task):
-   - Hoàn thành được yêu cầu của task
-   - Đáp ứng đủ thông tin/yêu cầu
-   - Có ý kiến rõ ràng (Task 2)
-   - Phát triển ý tưởng đầy đủ
+Yêu cầu trả lời bằng tiếng Việt, súc tích nhưng cụ thể.
+- Chấm điểm từng tiêu chí theo band 0-9
+- Nhận xét riêng cho Task 1 và Task 2
+- Chỉ ra 3-5 lỗi quan trọng nhất
+- Đưa ra gợi ý cải thiện rõ ràng
+- Kết thúc bằng Overall band ước lượng
 
-2. COHERENCE & COHESION (25%):
-   - Sắp xếp ý tưởng logic, rõ ràng
-   - Phân chia đoạn văn phù hợp
-   - Sử dụng từ nối (linking words) chính xác
-   - Mối liên kết giữa các câu mượt mà
+Định dạng mong muốn:
+TASK 1
+TASK 2
+LỖI CHÍNH
+GỢI Ý CẢI THIỆN
+OVERALL`;
+}
 
-3. LEXICAL RANGE & ACCURACY (25%):
-   - Phạm vi từ vựng rộng, phù hợp
-   - Sử dụng cụm từ (phrases) chính xác
-   - Ít lỗi từ vựng
-   - Từ vựng phù hợp với ngữ cảnh học thuật
+async function callOpenAIWithRetry(prompt) {
+  const retries = [
+    { attempt: 1, delayMs: 0 },
+    { attempt: 2, delayMs: 1200 },
+    { attempt: 3, delayMs: 2500 },
+  ];
 
-4. GRAMMATICAL RANGE & ACCURACY (25%):
-   - Sử dụng cấu trúc câu đa dạng (simple, complex, compound)
-   - Ít lỗi ngữ pháp
-   - Câu phức sử dụng chính xác
-   - Dấu câu chính xác
+  let lastFailure = null;
 
-HƯỚNG DẪN ĐÁNH GIÁ:
-- Chấm điểm từ 0-9 cho mỗi tiêu chí
-- Giải thích chi tiết lỗi (ngữ pháp, từ vựng, tổ chức ý tưởng)
-- Cho ví dụ cụ thể cho từng lỗi
-- Gợi ý cải thiện cho từng tiêu chí
-- Tính điểm trung bình cuối cùng (làm tròn đến 0.5)
-
-VUI LÒNG CẤP ĐỘ CHI TIẾT:
-
-📝 TASK 1 ANALYSIS:
-- Task Achievement: [0-9] và giải thích
-- Coherence & Cohesion: [0-9] và giải thích
-- Lexical Range: [0-9] và giải thích
-- Grammatical Range: [0-9] và giải thích
-- Điểm Task 1 trung bình: [0-9]
-
-📝 TASK 2 ANALYSIS:
-- Task Achievement: [0-9] và giải thích
-- Coherence & Cohesion: [0-9] và giải thích
-- Lexical Range: [0-9] và giải thích
-- Grammatical Range: [0-9] và giải thích
-- Điểm Task 2 trung bình: [0-9]
-
-🎯 OVERALL SCORE: [0-9] (trung bình Task 1 + Task 2)
-
-⚠️ LỖI CHÍNH:
-- Liệt kê 3-5 lỗi nghiêm trọng nhất
-- Giải thích tại sao nó lỗi
-- Cách sửa chính xác
-
-💡 GỢI Ý NÂNG CAO:
-- Cách cải thiện từ vựng học thuật
-- Cách sử dụng cấu trúc câu phức hơn
-- Cách tổ chức ý tưởng hiệu quả
-- Tài liệu/phương pháp ôn tập`;
-
-  try {
-    console.log("📨 Gửi request tới OpenAI API...");
-    console.log(
-      "🔑 API Key:",
-      process.env.OPENAI_API_KEY ? "✅ Có" : "❌ Không có"
-    );
-
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-      },
-      body: JSON.stringify({
-        model: "gpt-4o-mini",
-        messages: [
-          {
-            role: "system",
-            content: "Bạn là giáo viên IELTS Writing chuyên nghiệp.",
-          },
-          {
-            role: "user",
-            content: prompt,
-          },
-        ],
-        temperature: 0.7,
-        max_tokens: 2000,
-      }),
-    });
-
-    console.log("📊 Response Status:", response.status);
-
-    if (!response.ok) {
-      const text = await response.text();
-      console.error("❌ OpenAI API Error Status:", response.status);
-      console.error("❌ OpenAI API Response:", text);
-      return res.status(response.status).json({
-        error: "❌ Lỗi từ OpenAI API",
-        detail: text,
-        status: response.status,
-      });
+  for (const { attempt, delayMs } of retries) {
+    if (delayMs > 0) {
+      await sleep(delayMs);
     }
 
-    const data = await response.json();
-    console.log("✅ OpenAI Response received");
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000);
 
-    const suggestion =
-      data?.choices?.[0]?.message?.content?.trim() ||
-      "❌ AI không thể tạo nhận xét.";
+    try {
+      const response = await fetch(OPENAI_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+        },
+        body: JSON.stringify({
+          model: process.env.OPENAI_FEEDBACK_MODEL || "gpt-4o-mini",
+          messages: [
+            {
+              role: "system",
+              content: "Bạn là giáo viên IELTS Writing chuyên nghiệp.",
+            },
+            {
+              role: "user",
+              content: prompt,
+            },
+          ],
+          temperature: 0.4,
+          max_tokens: 1200,
+        }),
+        signal: controller.signal,
+      });
 
-    console.log(
-      "📤 Gửi suggestion về frontend (length:",
-      suggestion.length,
-      ")"
+      clearTimeout(timeoutId);
+
+      if (response.ok) {
+        const data = await response.json();
+        const suggestion = data?.choices?.[0]?.message?.content?.trim();
+
+        if (!suggestion) {
+          throw new Error("OpenAI returned an empty suggestion");
+        }
+
+        return { ok: true, suggestion };
+      }
+
+      const detailText = await response.text();
+      const retryable = response.status === 429 || response.status >= 500;
+      lastFailure = {
+        status: response.status,
+        detail: detailText,
+        retryable,
+      };
+
+      console.error(
+        `[AI feedback] OpenAI attempt ${attempt} failed with ${response.status}: ${detailText}`
+      );
+
+      if (!retryable) {
+        break;
+      }
+    } catch (error) {
+      clearTimeout(timeoutId);
+
+      lastFailure = {
+        status: 500,
+        detail: error?.message || String(error),
+        retryable: true,
+      };
+
+      console.error(
+        `[AI feedback] OpenAI attempt ${attempt} threw:`,
+        error?.message || error
+      );
+    }
+  }
+
+  return { ok: false, ...lastFailure };
+}
+
+async function generateFeedback(task1, task2) {
+  const prompt = buildPrompt(task1, task2);
+
+  if (!process.env.OPENAI_API_KEY) {
+    return {
+      suggestion: buildFallbackSuggestion(task1, task2, "thiếu OPENAI_API_KEY"),
+      source: "fallback",
+      warning:
+        "OpenAI chưa được cấu hình trên server, hệ thống đã tạo nhận xét dự phòng.",
+      fallback: true,
+    };
+  }
+
+  const openAiResult = await callOpenAIWithRetry(prompt);
+  if (openAiResult.ok) {
+    return {
+      suggestion: openAiResult.suggestion,
+      source: "openai",
+      fallback: false,
+    };
+  }
+
+  const reason =
+    openAiResult?.status === 429
+      ? "OpenAI trả về 429"
+      : openAiResult?.status
+      ? `OpenAI lỗi ${openAiResult.status}`
+      : "lỗi kết nối AI";
+
+  return {
+    suggestion: buildFallbackSuggestion(task1, task2, reason),
+    source: "fallback",
+    warning:
+      "OpenAI đang bận hoặc bị giới hạn tạm thời. Hệ thống đã tạo nhận xét dự phòng để không gián đoạn việc chấm bài.",
+    fallback: true,
+    upstreamStatus: openAiResult?.status || null,
+    upstreamDetail: openAiResult?.detail || null,
+  };
+}
+
+router.post("/generate-feedback", async (req, res) => {
+  const { task1, task2 } = req.body || {};
+
+  if (!task1 || !task2) {
+    return res.status(400).json({
+      error: "Thiếu nội dung Task 1 hoặc Task 2.",
+    });
+  }
+
+  const cacheKey = buildCacheKey(task1, task2);
+  const cached = getCachedFeedback(cacheKey);
+  if (cached) {
+    return res.json({
+      suggestion: cached.suggestion,
+      source: cached.source,
+      warning: cached.warning || null,
+      fallback: Boolean(cached.fallback),
+      cached: true,
+    });
+  }
+
+  if (inFlightRequests.has(cacheKey)) {
+    try {
+      const sharedResult = await inFlightRequests.get(cacheKey);
+      return res.json({
+        suggestion: sharedResult.suggestion,
+        source: sharedResult.source,
+        warning: sharedResult.warning || null,
+        fallback: Boolean(sharedResult.fallback),
+        cached: false,
+        shared: true,
+      });
+    } catch (error) {
+      console.error("[AI feedback] Shared request failed:", error);
+    }
+  }
+
+  const requestPromise = generateFeedback(task1, task2);
+  inFlightRequests.set(cacheKey, requestPromise);
+
+  try {
+    const result = await requestPromise;
+    setCachedFeedback(
+      cacheKey,
+      result,
+      result.fallback ? FALLBACK_CACHE_TTL_MS : SUCCESS_CACHE_TTL_MS
     );
-    res.json({ suggestion });
+
+    return res.json({
+      suggestion: result.suggestion,
+      source: result.source,
+      warning: result.warning || null,
+      fallback: Boolean(result.fallback),
+      cached: false,
+    });
   } catch (error) {
-    console.error("❌ OpenAI API error:", error);
-    res
-      .status(500)
-      .json({ error: "❌ Không thể kết nối AI.", detail: error.message });
+    console.error("[AI feedback] Route error:", error);
+    return res.status(500).json({
+      error: "Không thể tạo nhận xét AI lúc này.",
+      detail: error?.message || String(error),
+    });
+  } finally {
+    inFlightRequests.delete(cacheKey);
   }
 });
 

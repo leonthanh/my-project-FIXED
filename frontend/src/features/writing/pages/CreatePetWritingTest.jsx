@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import ReactQuill from "react-quill";
 import AdminNavbar from "../../../shared/components/AdminNavbar";
-import { apiPath, authFetch } from "../../../shared/utils/api";
+import { apiPath, authFetch, redirectToLogin } from "../../../shared/utils/api";
 import useQuillImageUpload from "../../../shared/hooks/useQuillImageUpload";
 
 import "./CreateWritingTest.css";
@@ -157,11 +157,7 @@ const CreatePetWritingTest = () => {
               <button
                 style={{ marginLeft: 8, padding: "6px 10px" }}
                 onClick={() => {
-                  localStorage.setItem(
-                    "postLoginRedirect",
-                    window.location.pathname
-                  );
-                  window.location.href = "/login";
+                  redirectToLogin({ rememberPath: true, replace: true });
                 }}
               >
                 Đăng nhập lại

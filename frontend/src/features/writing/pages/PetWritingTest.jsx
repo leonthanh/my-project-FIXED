@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { apiPath, hostPath } from "../../../shared/utils/api";
+import { apiPath, hostPath, redirectToLogin } from "../../../shared/utils/api";
 import TestHeader from "../../../shared/components/TestHeader";
 import "./PetWritingTest.css";
 
@@ -235,7 +235,7 @@ const PetWritingTest = () => {
       localStorage.removeItem("user");
 
       setTimeout(() => {
-        window.location.href = "/login";
+        redirectToLogin({ replace: true });
       }, 3000);
     } catch (err) {
       console.error("Submit error:", err);

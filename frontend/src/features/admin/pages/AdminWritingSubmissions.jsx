@@ -28,7 +28,7 @@ const AdminWritingSubmissions = () => {
   } // 👈 lấy tên giáo viên
 
   useEffect(() => {
-    fetch(apiPath("writing/list"))
+    fetch(apiPath("writing/list?includeDrafts=1"))
       .then((res) => res.json())
       .then((data) => {
         setData(data);
@@ -174,6 +174,14 @@ const AdminWritingSubmissions = () => {
           ...prev,
           [submission.id]: aiData.suggestion,
         }));
+        setMessages((prev) => ({
+          ...prev,
+          [submission.id]:
+            aiData.warning ||
+            (aiData.cached
+              ? "Da nap lai nhan xet AI tu bo nho dem."
+              : "Da tao goi y nhan xet AI."),
+        }));
       } else {
         alert(aiData.error || "❌ AI không tạo được nhận xét.");
       }
@@ -278,6 +286,7 @@ const AdminWritingSubmissions = () => {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           {filteredData.map((item, idx) => {
             const isDone = !!(item.feedback && item.feedbackBy) || !!hasSaved[item.id];
+            const isDraft = !!item.isDraft;
             const isExpanded = expandedItems.has(item.id);
             const testLabel = [
               item.WritingTest?.testType === 'pet-writing' ? 'PET Writing' : 'Writing',
@@ -290,8 +299,8 @@ const AdminWritingSubmissions = () => {
               <div
                 key={item.id}
                 style={{
-                  border: `1px solid ${isDone ? '#bbf7d0' : '#fed7aa'}`,
-                  borderLeft: `4px solid ${isDone ? '#16a34a' : '#f59e0b'}`,
+                  border: `1px solid ${isDraft ? '#bfdbfe' : (isDone ? '#bbf7d0' : '#fed7aa')}`,
+                  borderLeft: `4px solid ${isDraft ? '#2563eb' : (isDone ? '#16a34a' : '#f59e0b')}`,
                   borderRadius: 8,
                   background: '#fff',
                   overflow: 'hidden',
@@ -306,10 +315,10 @@ const AdminWritingSubmissions = () => {
                   <span style={{ fontSize: 12, color: '#9ca3af', minWidth: 28 }}>#{idx + 1}</span>
                   <span style={{
                     fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 10, whiteSpace: 'nowrap',
-                    background: isDone ? '#dcfce7' : '#fef3c7',
-                    color: isDone ? '#166534' : '#92400e',
+                    background: isDraft ? '#dbeafe' : (isDone ? '#dcfce7' : '#fef3c7'),
+                    color: isDraft ? '#1e3a8a' : (isDone ? '#166534' : '#92400e'),
                   }}>
-                    {isDone ? '✅ Đã chấm' : '⏳ Chưa chấm'}
+                    {isDraft ? 'Draft chua nop' : (isDone ? 'Da cham' : 'Chua cham')}
                   </span>
                   <span style={{ fontWeight: 600, fontSize: 14, minWidth: 120 }}>{item.userName || 'N/A'}</span>
                   <span style={{ fontSize: 13, color: '#6b7280', minWidth: 100 }}>{item.userPhone || 'N/A'}</span>
@@ -321,6 +330,11 @@ const AdminWritingSubmissions = () => {
                 {/* Nội dung mở rộng */}
                 {isExpanded && (
                   <div style={{ padding: '0 14px 16px 14px', borderTop: '1px solid #f3f4f6' }}>
+                    {isDraft && (
+                      <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 7, padding: 12, marginTop: 12, color: '#1e3a8a', fontSize: 13 }}>
+                        Day la ban autosave chua submit. Hoc sinh can dang nhap lai va bam Submit de chot bai.
+                      </div>
+                    )}
                     {/* Task 1 & Task 2 */}
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 14 }} className="admin-task-grid">
                       <div style={{ background: '#f8fafc', borderRadius: 7, padding: 12 }}>
@@ -346,36 +360,37 @@ const AdminWritingSubmissions = () => {
                     {/* Form nhận xét */}
                     <div style={{ marginTop: 12 }}>
                       <textarea
-                        placeholder="Nhận xét của giáo viên..."
+                        placeholder={isDraft ? "Ban nhap chua submit - tam thoi khong gui nhan xet." : "Nhan xet cua giao vien..."}
                         rows={4}
                         style={{ width: '100%', padding: 10, boxSizing: 'border-box', fontSize: 14, border: '1px solid #d1d5db', borderRadius: 7, resize: 'vertical', fontFamily: 'inherit', outline: 'none' }}
                         value={feedbacks[item.id] || ''}
+                        disabled={isDraft}
                         onChange={(e) => setFeedbacks((prev) => ({ ...prev, [item.id]: e.target.value }))}
                       />
                       <div style={{ display: 'flex', gap: 8, marginTop: 8 }} className="admin-button-row">
                         <button
                           onClick={() => handleSendFeedback(item.id)}
-                          disabled={sendLoading[item.id] || hasSaved[item.id] || aiLoading[item.id]}
+                          disabled={isDraft || sendLoading[item.id] || hasSaved[item.id] || aiLoading[item.id]}
                           style={{
                             flex: 1, padding: '9px 16px', border: 'none', borderRadius: 6, fontWeight: 600, fontSize: 14,
-                            cursor: (hasSaved[item.id] || sendLoading[item.id]) ? 'default' : 'pointer',
-                            background: (sendLoading[item.id] || hasSaved[item.id] || aiLoading[item.id]) ? '#9ca3af' : '#0e276f',
+                            cursor: (isDraft || hasSaved[item.id] || sendLoading[item.id]) ? 'default' : 'pointer',
+                            background: (isDraft || sendLoading[item.id] || hasSaved[item.id] || aiLoading[item.id]) ? '#9ca3af' : '#0e276f',
                             color: '#fff',
                           }}
                         >
-                          {sendLoading[item.id] ? '⏳ Đang gửi...' : hasSaved[item.id] ? '✅ Đã gửi' : '📤 Gửi nhận xét'}
+                          {isDraft ? 'Cho hoc sinh submit' : (sendLoading[item.id] ? 'Dang gui...' : hasSaved[item.id] ? 'Da gui' : 'Gui nhan xet')}
                         </button>
                         <button
                           onClick={() => handleAIComment(item)}
-                          disabled={aiLoading[item.id] || sendLoading[item.id] || hasSaved[item.id]}
+                          disabled={isDraft || aiLoading[item.id] || sendLoading[item.id] || hasSaved[item.id]}
                           style={{
                             flex: 1, padding: '9px 16px', border: 'none', borderRadius: 6, fontWeight: 600, fontSize: 14,
-                            cursor: aiLoading[item.id] ? 'not-allowed' : 'pointer',
-                            background: (aiLoading[item.id] || sendLoading[item.id] || hasSaved[item.id]) ? '#9ca3af' : '#ee0033',
+                            cursor: (isDraft || aiLoading[item.id]) ? 'not-allowed' : 'pointer',
+                            background: (isDraft || aiLoading[item.id] || sendLoading[item.id] || hasSaved[item.id]) ? '#9ca3af' : '#ee0033',
                             color: '#fff',
                           }}
                         >
-                          {aiLoading[item.id] ? '⏳ Đang nhận xét...' : '🤖 StarEdu AI gợi ý nhận xét'}
+                          {isDraft ? 'Cho hoc sinh submit' : (aiLoading[item.id] ? 'Dang nhan xet...' : 'StarEdu AI goi y nhan xet')}
                         </button>
                       </div>
                       {messages[item.id] && (
@@ -394,5 +409,4 @@ const AdminWritingSubmissions = () => {
 };
 
 export default AdminWritingSubmissions;
-
 

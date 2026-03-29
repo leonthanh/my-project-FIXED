@@ -1,131 +1,278 @@
 const express = require('express');
 const router = express.Router();
-const { Submission, WritingTest, User } = require('../models'); // ✅ Lấy từ index.js
+const { Submission, WritingTest, User } = require('../models');
 const { Op } = require('sequelize');
 const nodemailer = require('nodemailer');
 
-/**
- * ✅ Học sinh gửi bài viết
- */
-router.post('/submit', async (req, res) => {
-  try {
-    const { task1, task2, timeLeft, user, testId } = req.body;
+async function resolveSubmissionUser(userPayload) {
+  const rawUserId = userPayload?.id;
+  const userId = Number.isFinite(Number(rawUserId)) ? Number(rawUserId) : null;
 
-    if (!testId) {
-      return res.status(400).json({ message: '❌ Không có mã đề để nộp.' });
+  let userName = userPayload?.name || userPayload?.username || userPayload?.email || 'N/A';
+  let userPhone = userPayload?.phone || 'N/A';
+
+  if (userId) {
+    const dbUser = await User.findByPk(userId, { attributes: ['name', 'phone'] });
+    if (dbUser) {
+      userName = dbUser.name || userName;
+      userPhone = dbUser.phone || userPhone;
+    }
+  }
+
+  return { userId, userName, userPhone };
+}
+
+function buildMailTransporter() {
+  if (process.env.SMTP_HOST) {
+    const smtpOpts = {
+      host: process.env.SMTP_HOST,
+      port: Number(process.env.SMTP_PORT) || 465,
+      secure: (process.env.SMTP_SECURE === 'true') || (process.env.SMTP_PORT == 465),
+    };
+    if (process.env.SMTP_USER && process.env.SMTP_PASS) {
+      smtpOpts.auth = { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS };
+    }
+    if (process.env.SMTP_TLS_REJECT === 'false') {
+      smtpOpts.tls = { rejectUnauthorized: false };
+    }
+    return nodemailer.createTransport(smtpOpts);
+  }
+
+  if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
+    return nodemailer.createTransport({
+      service: 'gmail',
+      auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS },
+    });
+  }
+
+  return nodemailer.createTransport({ sendmail: true });
+}
+
+// Save/update writing draft (cross-device resume)
+router.post('/draft/autosave', async (req, res) => {
+  try {
+    const { task1 = '', task2 = '', timeLeft = null, endAt = null, started = false, user, testId } = req.body || {};
+    const numericTestId = Number(testId);
+    if (!Number.isFinite(numericTestId) || numericTestId <= 0) {
+      return res.status(400).json({ message: 'Invalid testId.' });
     }
 
-    // Look up user from DB by ID rather than trusting the client-supplied object.
-    // This prevents N/A when the client's localStorage is stale, missing, or spoofed.
-    const userId = user?.id || null;
-    let userName = 'N/A';
-    let userPhone = 'N/A';
+    const { userId, userName, userPhone } = await resolveSubmissionUser(user);
+    if (!userId) {
+      return res.status(400).json({ message: 'Missing user id.' });
+    }
+
+    const now = new Date();
+    const parsedEndAt = Number.isFinite(Number(endAt)) ? new Date(Number(endAt)) : null;
+
+    const existingDraft = await Submission.findOne({
+      where: { testId: numericTestId, userId, isDraft: true },
+      order: [['updatedAt', 'DESC']],
+    });
+
+    if (existingDraft) {
+      existingDraft.task1 = task1;
+      existingDraft.task2 = task2;
+      existingDraft.timeLeft = Number.isFinite(Number(timeLeft)) ? Number(timeLeft) : existingDraft.timeLeft;
+      existingDraft.userName = userName;
+      existingDraft.userPhone = userPhone;
+      existingDraft.draftSavedAt = now;
+      existingDraft.draftEndAt = parsedEndAt;
+      existingDraft.draftStarted = Boolean(started);
+      await existingDraft.save();
+      return res.json({
+        message: 'Draft saved.',
+        draftId: existingDraft.id,
+        savedAt: existingDraft.draftSavedAt,
+      });
+    }
+
+    const created = await Submission.create({
+      testId: numericTestId,
+      userId,
+      userName,
+      userPhone,
+      task1,
+      task2,
+      timeLeft: Number.isFinite(Number(timeLeft)) ? Number(timeLeft) : null,
+      feedbackSeen: false,
+      isDraft: true,
+      draftSavedAt: now,
+      draftEndAt: parsedEndAt,
+      draftStarted: Boolean(started),
+      submittedAt: null,
+    });
+
+    return res.status(201).json({
+      message: 'Draft created.',
+      draftId: created.id,
+      savedAt: created.draftSavedAt,
+    });
+  } catch (err) {
+    console.error('Draft autosave error:', err);
+    return res.status(500).json({ message: 'Failed to autosave draft.' });
+  }
+});
+
+// Get latest active draft by user (optionally scoped to testId)
+router.get('/draft/active', async (req, res) => {
+  try {
+    const numericUserId = Number(req.query.userId);
+    const numericTestId = Number(req.query.testId);
+
+    if (!Number.isFinite(numericUserId) || numericUserId <= 0) {
+      return res.status(400).json({ message: 'Invalid userId.' });
+    }
+
+    const where = { userId: numericUserId, isDraft: true };
+    if (Number.isFinite(numericTestId) && numericTestId > 0) {
+      where.testId = numericTestId;
+    }
+
+    const submission = await Submission.findOne({
+      where,
+      order: [['draftSavedAt', 'DESC'], ['updatedAt', 'DESC']],
+    });
+
+    return res.json({ submission: submission ? submission.toJSON() : null });
+  } catch (err) {
+    console.error('Get draft error:', err);
+    return res.status(500).json({ message: 'Failed to get draft.' });
+  }
+});
+
+// Clear draft(s) after submit or manual reset
+router.post('/draft/clear', async (req, res) => {
+  try {
+    const { user, testId } = req.body || {};
+    const numericUserId = Number(user?.id);
+    const numericTestId = Number(testId);
+
+    if (!Number.isFinite(numericUserId) || numericUserId <= 0) {
+      return res.status(400).json({ message: 'Invalid user id.' });
+    }
+
+    const where = { userId: numericUserId, isDraft: true };
+    if (Number.isFinite(numericTestId) && numericTestId > 0) {
+      where.testId = numericTestId;
+    }
+
+    const removed = await Submission.destroy({ where });
+    return res.json({ message: 'Draft cleared.', removed });
+  } catch (err) {
+    console.error('Clear draft error:', err);
+    return res.status(500).json({ message: 'Failed to clear draft.' });
+  }
+});
+
+// Student submit writing answer
+router.post('/submit', async (req, res) => {
+  try {
+    const { task1, task2, timeLeft, user, testId } = req.body || {};
+    const numericTestId = Number(testId);
+
+    if (!Number.isFinite(numericTestId) || numericTestId <= 0) {
+      return res.status(400).json({ message: 'Missing or invalid test id.' });
+    }
+
+    const { userId, userName, userPhone } = await resolveSubmissionUser(user);
+    const submittedAt = new Date();
+
+    let submission = null;
+
     if (userId) {
-      const dbUser = await User.findByPk(userId, { attributes: ['name', 'phone'] });
-      if (dbUser) {
-        userName = dbUser.name;
-        userPhone = dbUser.phone;
+      const existingDraft = await Submission.findOne({
+        where: { testId: numericTestId, userId, isDraft: true },
+        order: [['updatedAt', 'DESC']],
+      });
+
+      if (existingDraft) {
+        existingDraft.task1 = task1;
+        existingDraft.task2 = task2;
+        existingDraft.timeLeft = Number.isFinite(Number(timeLeft)) ? Number(timeLeft) : null;
+        existingDraft.userName = userName;
+        existingDraft.userPhone = userPhone;
+        existingDraft.feedbackSeen = false;
+        existingDraft.isDraft = false;
+        existingDraft.draftSavedAt = null;
+        existingDraft.draftEndAt = null;
+        existingDraft.draftStarted = false;
+        existingDraft.submittedAt = submittedAt;
+        await existingDraft.save();
+        submission = existingDraft;
       }
     }
 
-    // Lưu submission
-    const newSubmission = await Submission.create({
-      task1,
-      task2,
-      timeLeft,
-      userName,
-      userPhone,
-      testId,
-      userId,
-      feedbackSeen: false,
-      submittedAt: new Date()
-    });
+    if (!submission) {
+      submission = await Submission.create({
+        task1,
+        task2,
+        timeLeft: Number.isFinite(Number(timeLeft)) ? Number(timeLeft) : null,
+        userName,
+        userPhone,
+        testId: numericTestId,
+        userId,
+        feedbackSeen: false,
+        isDraft: false,
+        draftSavedAt: null,
+        draftEndAt: null,
+        draftStarted: false,
+        submittedAt,
+      });
+    }
 
-    // Lấy thông tin đề
-    const writingTest = await WritingTest.findByPk(testId);
-    const index = writingTest?.index || 'Chưa rõ';
+    const writingTest = await WritingTest.findByPk(numericTestId);
+    const index = writingTest?.index || 'N/A';
     const classCode = writingTest?.classCode || 'N/A';
     const teacherName = writingTest?.teacherName || 'N/A';
     const testType = writingTest?.testType || 'writing';
     const label = testType === 'pet-writing' ? 'PET Writing' : 'Writing';
 
-    // Gửi email — chọn transporter theo biến môi trường. Nếu deploy trên cPanel
-    // thường nên dùng SMTP do host cung cấp hoặc dùng sendmail nếu có.
+    let emailWarning = null;
     try {
-      let transporter;
-
-      // Prefer explicit SMTP settings (recommended for cPanel)
-      if (process.env.SMTP_HOST) {
-        const smtpOpts = {
-          host: process.env.SMTP_HOST,
-          port: Number(process.env.SMTP_PORT) || 465,
-          secure: (process.env.SMTP_SECURE === 'true') || (process.env.SMTP_PORT == 465),
-        };
-        // only set auth when both user and pass are provided (avoid empty creds causing PLAIN error)
-        if (process.env.SMTP_USER && process.env.SMTP_PASS) {
-          smtpOpts.auth = { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS };
-        }
-        // allow self-signed certs in some shared hosting setups (optional)
-        if (process.env.SMTP_TLS_REJECT === 'false') smtpOpts.tls = { rejectUnauthorized: false };
-
-        transporter = nodemailer.createTransport(smtpOpts);
-        console.log('ℹ️ Using SMTP transport:', { host: smtpOpts.host, port: smtpOpts.port, secure: smtpOpts.secure });
-      } else if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
-        // Fallback to Gmail service (works locally with app password)
-        transporter = nodemailer.createTransport({
-          service: 'gmail',
-          auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS }
-        });
-        console.log('ℹ️ Using Gmail transport (service).');
-      } else {
-        // Last resort: try sendmail on host (cPanel often supports sendmail)
-        transporter = nodemailer.createTransport({ sendmail: true });
-        console.log('ℹ️ Using sendmail transport as fallback.');
-      }
-
+      const transporter = buildMailTransporter();
       const mailOptions = {
         from: process.env.EMAIL_FROM || process.env.EMAIL_USER || `no-reply@${req.hostname}`,
         to: process.env.EMAIL_TO,
-        subject: `📨 Bài viết mới từ ${user?.name || 'N/A'} – ${label} ${index} – ${classCode} – ${teacherName}`,
+        subject: `New writing from ${userName || 'N/A'} - ${label} ${index} - ${classCode} - ${teacherName}`,
         html: `
-          <p><strong>👤 Học sinh:</strong> ${user?.name || 'N/A'}</p>
-          <p><strong>📞 Số điện thoại:</strong> ${user?.phone || 'N/A'}</p>
-          <p><strong>📝 Mã đề:</strong> ${label} ${index}</p>
-          <p><strong>🏫 Mã lớp:</strong> ${classCode}</p>
-          <p><strong>👨‍🏫 Giáo viên ra đề:</strong> ${teacherName}</p>
+          <p><strong>Student:</strong> ${userName || 'N/A'}</p>
+          <p><strong>Phone:</strong> ${userPhone || 'N/A'}</p>
+          <p><strong>Test:</strong> ${label} ${index}</p>
+          <p><strong>Class:</strong> ${classCode}</p>
+          <p><strong>Teacher:</strong> ${teacherName}</p>
           <h2>Task 1</h2>
           <p>${(task1 || '').replace(/\n/g, '<br>')}</p>
           <h2>Task 2</h2>
           <p>${(task2 || '').replace(/\n/g, '<br>')}</p>
-          <p><b>⏳ Thời gian còn lại:</b> ${Math.floor(timeLeft / 60)} phút ${timeLeft % 60} giây</p>
+          <p><b>Time left:</b> ${Math.floor((Number(timeLeft) || 0) / 60)}m ${(Number(timeLeft) || 0) % 60}s</p>
         `,
       };
 
-      const info = await transporter.sendMail(mailOptions);
-      console.log('✅ Email đã gửi thành công!', info && info.messageId ? info.messageId : 'no-message-id');
+      await transporter.sendMail(mailOptions);
     } catch (emailErr) {
-      // Log full error for server-side debugging (check logs on cPanel)
-      console.error('❌ Lỗi gửi email:', emailErr && (emailErr.stack || emailErr));
-      // optionally return error information in response when in non-production
-      if (process.env.NODE_ENV !== 'production') {
-        // attach email error to response message for easier debugging
-        return res.status(500).json({ message: '❌ Lỗi khi gửi email (xem logs)', emailError: (emailErr && (emailErr.message || emailErr)) });
-      }
+      console.error('Email send error:', emailErr && (emailErr.stack || emailErr));
+      emailWarning = emailErr && (emailErr.message || String(emailErr));
     }
 
-    res.json({ message: '✅ Bài viết đã được lưu và gửi email!' });
+    return res.json({
+      message: 'Submission saved successfully.',
+      submissionId: submission.id,
+      warning: emailWarning,
+    });
   } catch (err) {
-    console.error('❌ Lỗi khi submit bài:', err);
-    res.status(500).json({ message: '❌ Server error khi lưu bài viết' });
+    console.error('Submit writing error:', err);
+    return res.status(500).json({ message: 'Server error while saving submission.' });
   }
 });
 
-/**
- * ✅ Lấy danh sách bài viết
- */
+// Get writing submissions (student feedback page)
 router.get('/list', async (req, res) => {
   try {
-    const where = {};
+    const includeDrafts = ['1', 'true', 'yes'].includes(String(req.query.includeDrafts || '').toLowerCase());
+    const where = includeDrafts
+      ? {}
+      : { [Op.or]: [{ isDraft: false }, { isDraft: null }] };
     if (req.query.phone) {
       where.userPhone = req.query.phone;
     }
@@ -136,43 +283,41 @@ router.get('/list', async (req, res) => {
         where,
         include: [
           { model: WritingTest, attributes: ['index', 'classCode', 'teacherName', 'task1Image', 'task1', 'task2', 'testType'] },
-          { model: User, attributes: ['name', 'phone'] }
+          { model: User, attributes: ['name', 'phone'] },
         ],
         order: [['createdAt', 'DESC']],
       });
     } catch (includeErr) {
-      console.error('⚠️ GET /writing/list include failed; falling back to plain submissions query:', includeErr);
+      console.error('GET /writing/list include failed; fallback query:', includeErr);
       submissions = await Submission.findAll({
         where,
         order: [['createdAt', 'DESC']],
       });
     }
 
-    // Đảm bảo trả về mảng, tránh null → fix lỗi e.find is not a function
-    const result = Array.isArray(submissions) ? submissions.map(s => ({
-      ...s.toJSON(),
-      user: s.User || null,
-      WritingTest: s.WritingTest || null,
-      User: s.User || null,
-    })) : [];
+    const result = Array.isArray(submissions)
+      ? submissions.map((s) => ({
+          ...s.toJSON(),
+          user: s.User || null,
+          WritingTest: s.WritingTest || null,
+          User: s.User || null,
+        }))
+      : [];
 
-    res.json(result);
+    return res.json(result);
   } catch (err) {
-    console.error('❌ Lỗi lấy danh sách:', err);
-    res.status(500).json({ message: '❌ Server error khi lấy submissions' });
+    console.error('Get writing list error:', err);
+    return res.status(500).json({ message: 'Server error while fetching submissions.' });
   }
 });
 
-/**
- * ✅ Giáo viên gửi nhận xét
- */
+// Teacher saves feedback
 router.post('/comment', async (req, res) => {
   try {
     const { submissionId, feedback, teacherName } = req.body;
-
     const submission = await Submission.findByPk(submissionId);
     if (!submission) {
-      return res.status(404).json({ message: 'Không tìm thấy bài viết' });
+      return res.status(404).json({ message: 'Submission not found.' });
     }
 
     submission.feedback = feedback;
@@ -181,72 +326,52 @@ router.post('/comment', async (req, res) => {
     submission.feedbackSeen = false;
     await submission.save();
 
-    res.json({ message: '✅ Nhận xét đã được lưu thành công' });
+    return res.json({ message: 'Feedback saved.' });
   } catch (err) {
-    console.error('❌ Lỗi khi lưu nhận xét:', err);
-    res.status(500).json({ message: '❌ Server error khi lưu nhận xét' });
+    console.error('Save feedback error:', err);
+    return res.status(500).json({ message: 'Server error while saving feedback.' });
   }
 });
 
-/**
- * ✅ Học sinh đánh dấu đã xem nhận xét
- */
+// Student marks feedback as seen
 router.post('/mark-feedback-seen', async (req, res) => {
   try {
     const { phone, ids } = req.body;
 
-    let where = {};
+    const where = {
+      [Op.or]: [{ isDraft: false }, { isDraft: null }],
+    };
     if (phone) where.userPhone = phone;
     if (ids?.length > 0) where.id = { [Op.in]: ids };
 
     const updated = await Submission.update(
       { feedbackSeen: true },
-      { where }
+      { where },
     );
 
-    res.json({ message: '✅ Đã đánh dấu là đã xem', updated });
+    return res.json({ message: 'Marked as seen.', updated });
   } catch (err) {
-    console.error('❌ Lỗi khi đánh dấu đã xem:', err);
-    res.status(500).json({ message: '❌ Server error khi đánh dấu đã xem' });
+    console.error('Mark feedback seen error:', err);
+    return res.status(500).json({ message: 'Server error while updating feedback.' });
+  }
+});
+
+// Debug route: verify SMTP/sendmail configuration
+router.get('/email-test', async (req, res) => {
+  try {
+    const transporter = buildMailTransporter();
+    const info = await transporter.sendMail({
+      from: process.env.EMAIL_FROM || process.env.EMAIL_USER || `no-reply@${req.hostname}`,
+      to: process.env.EMAIL_TO,
+      subject: 'Email test from writing API',
+      text: 'This is a mail transport test.',
+    });
+
+    return res.json({ ok: true, info });
+  } catch (err) {
+    console.error('Email test error:', err && (err.stack || err));
+    return res.status(500).json({ ok: false, error: err && (err.message || err) });
   }
 });
 
 module.exports = router;
-
-// Debug route: quick SMTP test (GET /api/writing-submission/email-test)
-// Use this to verify SMTP/sendmail configuration on the server.
-router.get('/email-test', async (req, res) => {
-  try {
-    // reuse transporter selection logic
-    let transporter;
-    if (process.env.SMTP_HOST) {
-      const smtpOpts = {
-        host: process.env.SMTP_HOST,
-        port: Number(process.env.SMTP_PORT) || 465,
-        secure: (process.env.SMTP_SECURE === 'true') || (process.env.SMTP_PORT == 465),
-      };
-      // only set auth when both user and pass are provided to avoid Missing credentials for "PLAIN"
-      if (process.env.SMTP_USER && process.env.SMTP_PASS) {
-        smtpOpts.auth = { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS };
-      }
-      if (process.env.SMTP_TLS_REJECT === 'false') smtpOpts.tls = { rejectUnauthorized: false };
-      transporter = nodemailer.createTransport(smtpOpts);
-    } else if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
-      transporter = nodemailer.createTransport({ service: 'gmail', auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS } });
-    } else {
-      transporter = nodemailer.createTransport({ sendmail: true });
-    }
-
-    const info = await transporter.sendMail({
-      from: process.env.EMAIL_FROM || process.env.EMAIL_USER || `no-reply@${req.hostname}`,
-      to: process.env.EMAIL_TO,
-      subject: 'Test email từ hệ thống',
-      text: 'Đây là email kiểm tra cấu hình SMTP/sendmail.'
-    });
-
-    res.json({ ok: true, info });
-  } catch (err) {
-    console.error('Email test error:', err && (err.stack || err));
-    res.status(500).json({ ok: false, error: err && (err.message || err) });
-  }
-});
