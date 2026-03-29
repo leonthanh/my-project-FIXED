@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import Split from "react-split";
-import { apiPath, hostPath, redirectToLogin } from "../../../shared/utils/api";
+import { apiPath, hostPath, redirectInApp, redirectToLogin, clearAuth } from "../../../shared/utils/api";
 
 // ====== STYLE FOR HEADER & MODAL ======
 const writingHeaderStyle = {
@@ -387,10 +387,9 @@ const WritingTest = () => {
       localStorage.removeItem(writingStartedKey);
       localStorage.removeItem(writingEndAtKey);
       localStorage.removeItem("selectedTestId");
-      localStorage.removeItem("user");
 
       setTimeout(() => {
-        redirectToLogin({ replace: true });
+        redirectInApp("/select-test", { replace: true });
       }, 3000);
     } catch (err) {
       console.error("Submit writing failed:", err);
@@ -610,8 +609,12 @@ const WritingTest = () => {
             onClick={async () => {
               try {
                 await saveDraftToServer();
+                await fetch(apiPath("auth/logout"), {
+                  method: "POST",
+                  credentials: "include",
+                });
               } finally {
-                localStorage.removeItem("user");
+                clearAuth();
                 redirectToLogin({ replace: true });
               }
             }}

@@ -3,7 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 
 import Login from './features/auth/pages/Login';
 import ProtectedRoute from './shared/components/ProtectedRoute';
-import { refreshAccessToken, redirectToLogin } from './shared/utils/api';
+import { refreshAccessToken, redirectToLogin, isAccessTokenUsable } from './shared/utils/api';
 
 const EditTest = lazy(() => import('./features/admin/pages/EditTest'));
 const AdminWritingSubmissions = lazy(() => import('./features/admin/pages/AdminWritingSubmissions'));
@@ -98,12 +98,22 @@ function App() {
         return;
       }
 
-      const refreshResult = await withTimeout(refreshAccessToken(), 2500);
+      // Skip background refresh while the current access token is still healthy.
+      // This avoids logging students out during production cookie hiccups.
+      if (isAccessTokenUsable(60 * 1000)) {
+        syncAuthState();
+        return;
+      }
+
+      const refreshResult = await withTimeout(
+        refreshAccessToken({ logoutOnFailure: false }),
+        2500,
+      );
       const refreshed = refreshResult === true;
       syncAuthState();
 
       // Redirect only when refresh truly expired the session (clearAuth removed user)
-      if (!refreshed && !hasStoredUser()) {
+      if (!refreshed && !hasStoredUser() && !isAccessTokenUsable()) {
         redirectToLogin({ reason: 'expired', replace: true });
         return;
       }

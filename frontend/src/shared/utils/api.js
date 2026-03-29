@@ -49,6 +49,40 @@ function getAuthHeaders() {
   return { Authorization: `Bearer ${token}` };
 }
 
+function decodeJwtPayload(token) {
+  if (!token) return null;
+
+  try {
+    const [, payloadPart] = token.split(".");
+    if (!payloadPart) return null;
+
+    const normalized = payloadPart.replace(/-/g, "+").replace(/_/g, "/");
+    const padded = normalized.padEnd(
+      normalized.length + ((4 - (normalized.length % 4)) % 4),
+      "="
+    );
+
+    return JSON.parse(atob(padded));
+  } catch (_err) {
+    return null;
+  }
+}
+
+function isAccessTokenUsable(bufferMs = 0) {
+  const token = localStorage.getItem("accessToken");
+  if (!token) return false;
+
+  const payload = decodeJwtPayload(token);
+  const expMs = Number(payload?.exp) * 1000;
+  if (!Number.isFinite(expMs)) {
+    // If we cannot decode the token, keep the current session instead of forcing
+    // a background logout. Reactive 401 handling still protects real failures.
+    return true;
+  }
+
+  return expMs > Date.now() + Math.max(0, Number(bufferMs) || 0);
+}
+
 /**
  * Remove all auth data from storage.
  */
@@ -76,7 +110,8 @@ const REFRESH_AT_KEY = "auth:lastRefreshAt";
 
 let refreshPromise = null;
 
-async function refreshAccessToken() {
+async function refreshAccessToken(options = {}) {
+  const { logoutOnFailure = true } = options;
   if (refreshPromise) return refreshPromise;
 
   refreshPromise = (async () => {
@@ -129,7 +164,9 @@ async function refreshAccessToken() {
         }
 
         if (hadStoredUser) {
-          forceLogout();
+          if (logoutOnFailure) {
+            forceLogout();
+          }
         } else {
           clearAuth();
         }
@@ -188,6 +225,7 @@ export {
   getAuthHeaders,
   authFetch,
   refreshAccessToken,
+  isAccessTokenUsable,
   clearAuth,
   forceLogout,
 };
