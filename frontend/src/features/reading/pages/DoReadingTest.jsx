@@ -10,7 +10,7 @@ import ConfirmModal from "../../../shared/components/ConfirmModal";
 import ResultModal from "../../../shared/components/ResultModal";
 import "../styles/do-reading-test.css";
 import { normalizeQuestionType } from "../utils/questionHelpers";
-import { apiPath, hostPath } from "../../../shared/utils/api";
+import { apiPath, getStoredUser, hostPath } from "../../../shared/utils/api";
 /* eslint-disable no-loop-func */
 // Utility: Remove unwanted <span ...> tags from HTML
 function stripUnwantedHtml(html) {
@@ -108,9 +108,13 @@ const DoReadingTest = () => {
   const readingAnswersKey = `reading_test_${id}_answers:${storageUserId}`;
   const readingExpiresKey = `reading_test_${id}_expiresAt:${storageUserId}`;
   const readingStartedKey = `reading_test_${id}_started:${storageUserId}`;
+  const readingSubmissionKey = `reading_test_${id}_submissionId:${storageUserId}`;
 
   // Track absolute expiry so we can survive power-loss (ref avoids stale closure in effects)
   const expiresAtRef = React.useRef(null);
+  const submissionIdRef = useRef(null);
+  const confirmSubmitRef = useRef(null);
+  const autoSubmittingRef = useRef(false);
 
   const isQuestionAnswered = useCallback(
     (n) => {
@@ -599,10 +603,87 @@ const DoReadingTest = () => {
     }
   }, [timeRemaining, started, id, readingExpiresKey, readingStartedKey]);
 
+  // Autosave reading progress to the server so students can resume after re-login.
+  useEffect(() => {
+    if (!started || submitted || timeRemaining === null) return;
+
+    const user = getStoredUser();
+    if (!user?.id && !submissionIdRef.current) return;
+
+    const payload = {
+      submissionId: submissionIdRef.current,
+      answers,
+      expiresAt: expiresAtRef.current,
+      user,
+      progressMeta: {
+        started,
+        activeQuestion,
+        currentPartIndex,
+      },
+    };
+
+    const persistDraft = async () => {
+      try {
+        const res = await fetch(apiPath(`reading-submissions/${id}/autosave`), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        if (!res.ok) return;
+        const json = await res.json().catch(() => null);
+        if (json?.submissionId) {
+          submissionIdRef.current = json.submissionId;
+          localStorage.setItem(
+            readingSubmissionKey,
+            String(json.submissionId)
+          );
+        }
+      } catch (_err) {
+        // Keep localStorage as a fallback if the network is unstable.
+      }
+    };
+
+    const debounceId = setTimeout(persistDraft, 600);
+    const intervalId = setInterval(persistDraft, 15000);
+    const onBeforeUnload = () => {
+      persistDraft();
+    };
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "hidden") {
+        persistDraft();
+      }
+    };
+
+    window.addEventListener("beforeunload", onBeforeUnload);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+
+    return () => {
+      clearTimeout(debounceId);
+      clearInterval(intervalId);
+      window.removeEventListener("beforeunload", onBeforeUnload);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
+  }, [
+    activeQuestion,
+    answers,
+    currentPartIndex,
+    id,
+    readingSubmissionKey,
+    started,
+    submitted,
+    timeRemaining,
+  ]);
+
   // Fetch test data
   useEffect(() => {
     const fetchTest = async () => {
       try {
+        const localUser = getStoredUser();
+        const savedSubmissionId = localStorage.getItem(readingSubmissionKey);
+        if (savedSubmissionId) {
+          submissionIdRef.current = savedSubmissionId;
+        }
+
         const res = await fetch(apiPath(`reading-tests/${id}`));
         if (!res.ok) throw new Error("Failed to fetch test");
         const data = await res.json();
@@ -641,21 +722,108 @@ const DoReadingTest = () => {
         const normalized = normalizeTest(data);
         setTest(normalized);
 
-        // If there's a saved timer and the test was started, restore it; otherwise use test default
-        try {
-          const savedStarted = localStorage.getItem(readingStartedKey) === "true";
-          const savedExpiry = localStorage.getItem(readingExpiresKey);
+        let restoredFromServer = false;
+        const query = submissionIdRef.current
+          ? `?submissionId=${submissionIdRef.current}`
+          : localUser?.id
+            ? `?userId=${localUser.id}`
+            : "";
 
-          if (savedStarted && savedExpiry) {
-            const remaining = Math.max(0, Math.ceil((parseInt(savedExpiry, 10) - Date.now()) / 1000));
-            expiresAtRef.current = parseInt(savedExpiry, 10);
-            setTimeRemaining(remaining);
-            setStarted(true);
-          } else {
+        if (query) {
+          try {
+            const activeRes = await fetch(
+              apiPath(`reading-submissions/${id}/active${query}`)
+            );
+            if (activeRes.ok) {
+              const payload = await activeRes.json().catch(() => null);
+              const draft = payload?.submission || null;
+
+              if (draft && draft.finished !== true) {
+                restoredFromServer = true;
+                if (draft.id) {
+                  submissionIdRef.current = draft.id;
+                  localStorage.setItem(readingSubmissionKey, String(draft.id));
+                }
+
+                const serverAnswers =
+                  draft.answers &&
+                  typeof draft.answers === "object" &&
+                  !Array.isArray(draft.answers)
+                    ? draft.answers
+                    : {};
+                setAnswers(serverAnswers);
+                localStorage.setItem(
+                  readingAnswersKey,
+                  JSON.stringify(serverAnswers)
+                );
+
+                const expiresAtMs = draft.expiresAt
+                  ? new Date(draft.expiresAt).getTime()
+                  : null;
+                if (Number.isFinite(expiresAtMs)) {
+                  expiresAtRef.current = expiresAtMs;
+                  localStorage.setItem(readingExpiresKey, String(expiresAtMs));
+                  setTimeRemaining(
+                    Math.max(
+                      0,
+                      Math.ceil((expiresAtMs - Date.now()) / 1000)
+                    )
+                  );
+                } else {
+                  setTimeRemaining((normalized.durationMinutes || 60) * 60);
+                }
+
+                const progressMeta =
+                  draft.progressMeta &&
+                  typeof draft.progressMeta === "object" &&
+                  !Array.isArray(draft.progressMeta)
+                    ? draft.progressMeta
+                    : {};
+                const resumedStarted =
+                  progressMeta.started === true ||
+                  Boolean(expiresAtMs) ||
+                  Object.keys(serverAnswers).length > 0;
+                setStarted(resumedStarted);
+                localStorage.setItem(
+                  readingStartedKey,
+                  resumedStarted ? "true" : "false"
+                );
+
+                if (Number.isFinite(Number(progressMeta.activeQuestion))) {
+                  setActiveQuestion(Number(progressMeta.activeQuestion));
+                }
+                if (Number.isFinite(Number(progressMeta.currentPartIndex))) {
+                  setCurrentPartIndex(Number(progressMeta.currentPartIndex));
+                  setExpandedPart(Number(progressMeta.currentPartIndex));
+                }
+              }
+            }
+          } catch (resumeErr) {
+            console.error("Error restoring reading draft from server:", resumeErr);
+          }
+        }
+
+        if (!restoredFromServer) {
+          // If there's a saved timer and the test was started, restore it; otherwise use test default
+          try {
+            const savedStarted =
+              localStorage.getItem(readingStartedKey) === "true";
+            const savedExpiry = localStorage.getItem(readingExpiresKey);
+
+            if (savedStarted && savedExpiry) {
+              const remaining = Math.max(
+                0,
+                Math.ceil((parseInt(savedExpiry, 10) - Date.now()) / 1000)
+              );
+              expiresAtRef.current = parseInt(savedExpiry, 10);
+              setTimeRemaining(remaining);
+              setStarted(true);
+            } else {
+              setTimeRemaining((normalized.durationMinutes || 60) * 60);
+            }
+          } catch (e) {
             setTimeRemaining((normalized.durationMinutes || 60) * 60);
           }
-        } catch (e) {
-          setTimeRemaining((normalized.durationMinutes || 60) * 60);
         }
 
         // Migrate saved answers if necessary: older saves may have keys like `q_<n>` (single) for paragraph-matching
@@ -745,7 +913,13 @@ const DoReadingTest = () => {
       }
     };
     fetchTest();
-  }, [id]);
+  }, [
+    id,
+    readingAnswersKey,
+    readingExpiresKey,
+    readingStartedKey,
+    readingSubmissionKey,
+  ]);
 
   // Timer countdown (runs only when started)
   useEffect(() => {
@@ -776,6 +950,20 @@ const DoReadingTest = () => {
 
     return () => clearInterval(timer);
   }, [timeRemaining, submitted, timerWarning, timerCritical, started]);
+
+  useEffect(() => {
+    if (!started || submitted || timeRemaining === null || timeRemaining > 0) {
+      return;
+    }
+    if (autoSubmittingRef.current || !confirmSubmitRef.current) {
+      return;
+    }
+
+    autoSubmittingRef.current = true;
+    setTimeUp(true);
+    setShowConfirm(false);
+    confirmSubmitRef.current();
+  }, [started, submitted, timeRemaining]);
 
   // Format time
   const formatTime = (seconds) => {
@@ -1223,6 +1411,7 @@ const DoReadingTest = () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           answers,
+          submissionId: submissionIdRef.current,
           user,
           studentName: user?.name || undefined,
           studentId: user?.id || undefined,
@@ -1236,7 +1425,9 @@ const DoReadingTest = () => {
       localStorage.removeItem(readingAnswersKey);
       localStorage.removeItem(readingExpiresKey);
       localStorage.removeItem(readingStartedKey);
+      localStorage.removeItem(readingSubmissionKey);
       expiresAtRef.current = null;
+      submissionIdRef.current = null;
       // Also clear in-memory answers so the auto-save effect doesn't re-persist them
       setAnswers({});
 
@@ -1252,11 +1443,16 @@ const DoReadingTest = () => {
       }
     } catch (err) {
       console.error("Error submitting reading test:", err);
+      autoSubmittingRef.current = false;
       alert("Có lỗi khi nộp bài. Vui lòng thử lại.");
     } finally {
       setShowConfirm(false);
     }
   };
+
+  useEffect(() => {
+    confirmSubmitRef.current = confirmSubmit;
+  }, [confirmSubmit]);
 
   // Build passage paragraph options if structured data not provided
   useEffect(() => {

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 /* eslint-disable-next-line no-unused-vars */
-import { apiPath, hostPath } from "../../../shared/utils/api";
+import { apiPath, getStoredUser, hostPath } from "../../../shared/utils/api";
 import TestHeader from "../../../shared/components/TestHeader";
 import { TEST_CONFIGS } from "../../../shared/config/questionTypes";
 import QuestionDisplayFactory from "../../../shared/components/questions/displays/QuestionDisplayFactory";
@@ -48,7 +48,9 @@ const DoCambridgeReadingTest = () => {
   const camReadTimeKey  = useMemo(() => `cambridge_reading_${id}_expiresAt:${storageUserId}`, [id, storageUserId]);
   const camReadAnsKey   = useMemo(() => `cambridge_reading_${id}_answers:${storageUserId}`, [id, storageUserId]);
   const camReadStartKey = useMemo(() => `cambridge_reading_${id}_started:${storageUserId}`, [id, storageUserId]);
+  const camReadSubmissionKey = useMemo(() => `cambridge_reading_${id}_submissionId:${storageUserId}`, [id, storageUserId]);
   const expiresAtRef = useRef(null);
+  const submissionIdRef = useRef(null);
 
   // States
   const [test, setTest] = useState(null);
@@ -176,6 +178,11 @@ const DoCambridgeReadingTest = () => {
     const fetchTest = async () => {
       try {
         setLoading(true);
+        const localUser = getStoredUser();
+        const savedSubmissionId = localStorage.getItem(camReadSubmissionKey);
+        if (savedSubmissionId) {
+          submissionIdRef.current = savedSubmissionId;
+        }
         const res = await fetch(apiPath(`cambridge/reading-tests/${id}`));
         if (!res.ok) throw new Error("Không tìm thấy đề thi");
         const data = await res.json();
@@ -191,7 +198,14 @@ const DoCambridgeReadingTest = () => {
         };
 
         setTest(parsedData);
-        
+
+        let restoredFromServer = false;
+        const query = submissionIdRef.current
+          ? `?submissionId=${submissionIdRef.current}`
+          : localUser?.id
+            ? `?userId=${localUser.id}`
+            : "";
+
         // Check if there's saved data for this test
         const savedExpiry = localStorage.getItem(camReadTimeKey);
         const savedAnswers = localStorage.getItem(camReadAnsKey);
@@ -203,7 +217,72 @@ const DoCambridgeReadingTest = () => {
           : (Number.isFinite(rawDuration) && rawDuration > 0 ? rawDuration : (testConfig.duration || 60));
         const durationSeconds = resolvedDuration * 60;
 
-        if (savedExpiry || savedAnswers) {
+        if (query) {
+          try {
+            const activeRes = await fetch(
+              apiPath(
+                `cambridge/submissions/active${query}&testId=${id}&testType=${encodeURIComponent(data.testType)}`
+              )
+            );
+            if (activeRes.ok) {
+              const payload = await activeRes.json().catch(() => null);
+              const draft = payload?.submission || null;
+              if (draft && draft.finished !== true) {
+                restoredFromServer = true;
+                if (draft.id) {
+                  submissionIdRef.current = draft.id;
+                  localStorage.setItem(camReadSubmissionKey, String(draft.id));
+                }
+
+                const serverAnswers =
+                  draft.answers &&
+                  typeof draft.answers === "object" &&
+                  !Array.isArray(draft.answers)
+                    ? draft.answers
+                    : {};
+                setAnswers(serverAnswers);
+                localStorage.setItem(camReadAnsKey, JSON.stringify(serverAnswers));
+
+                const expiresAtMs = draft.expiresAt
+                  ? new Date(draft.expiresAt).getTime()
+                  : null;
+                if (Number.isFinite(expiresAtMs)) {
+                  expiresAtRef.current = expiresAtMs;
+                  localStorage.setItem(camReadTimeKey, String(expiresAtMs));
+                  const remaining = Math.max(0, Math.ceil((expiresAtMs - Date.now()) / 1000));
+                  setTimeRemaining(Math.min(remaining, durationSeconds));
+                } else {
+                  setTimeRemaining(durationSeconds);
+                }
+
+                const progressMeta =
+                  draft.progressMeta &&
+                  typeof draft.progressMeta === "object" &&
+                  !Array.isArray(draft.progressMeta)
+                    ? draft.progressMeta
+                    : {};
+                const resumedStarted =
+                  progressMeta.started === true ||
+                  Boolean(expiresAtMs) ||
+                  Object.keys(serverAnswers).length > 0;
+                setStarted(resumedStarted);
+                localStorage.setItem(camReadStartKey, resumedStarted ? "true" : "false");
+                setHasSavedProgress(true);
+
+                if (Number.isFinite(Number(progressMeta.currentPartIndex))) {
+                  setCurrentPartIndex(Number(progressMeta.currentPartIndex));
+                }
+                if (Number.isFinite(Number(progressMeta.currentQuestionIndex))) {
+                  setCurrentQuestionIndex(Number(progressMeta.currentQuestionIndex));
+                }
+              }
+            }
+          } catch (resumeErr) {
+            console.error("Error restoring Cambridge reading draft:", resumeErr);
+          }
+        }
+
+        if (!restoredFromServer && (savedExpiry || savedAnswers)) {
           // Restore existing progress (even if answers are empty)
           setHasSavedProgress(true);
           if (savedExpiry) {
@@ -220,11 +299,12 @@ const DoCambridgeReadingTest = () => {
             console.error("Error parsing saved answers:", e);
             setAnswers({});
           }
-        } else {
+        } else if (!restoredFromServer) {
           // New test - clean up any old saved data and start fresh
           setHasSavedProgress(false);
           localStorage.removeItem(camReadTimeKey);
           localStorage.removeItem(camReadAnsKey);
+          localStorage.removeItem(camReadSubmissionKey);
           // If there's no saved progress, force start modal again
           localStorage.removeItem(camReadStartKey);
           setStarted(false);
@@ -239,7 +319,15 @@ const DoCambridgeReadingTest = () => {
       }
     };
     fetchTest();
-  }, [id, testConfig.duration, startedKey]);
+  }, [
+    camReadAnsKey,
+    camReadStartKey,
+    camReadSubmissionKey,
+    camReadTimeKey,
+    id,
+    testConfig.duration,
+    startedKey,
+  ]);
 
   // Timer countdown
   useEffect(() => {
@@ -288,6 +376,75 @@ const DoCambridgeReadingTest = () => {
     [submitted, id]
   );
 
+  useEffect(() => {
+    if (!started || submitted || timeRemaining === null) return;
+
+    const user = getStoredUser();
+    if (!user?.id && !submissionIdRef.current) return;
+
+    const payload = {
+      submissionId: submissionIdRef.current,
+      testId: id,
+      testType: test?.testType || testType || "ket-reading",
+      answers,
+      expiresAt: expiresAtRef.current,
+      user,
+      progressMeta: {
+        started,
+        currentPartIndex,
+        currentQuestionIndex,
+      },
+    };
+
+    const persistDraft = async () => {
+      try {
+        const res = await fetch(apiPath("cambridge/submissions/autosave"), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        if (!res.ok) return;
+        const json = await res.json().catch(() => null);
+        if (json?.submissionId) {
+          submissionIdRef.current = json.submissionId;
+          localStorage.setItem(camReadSubmissionKey, String(json.submissionId));
+        }
+      } catch (_err) {
+        // Keep local progress if the network is unavailable.
+      }
+    };
+
+    const debounceId = setTimeout(persistDraft, 600);
+    const intervalId = setInterval(persistDraft, 15000);
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "hidden") persistDraft();
+    };
+    const onBeforeUnload = () => {
+      persistDraft();
+    };
+
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    window.addEventListener("beforeunload", onBeforeUnload);
+
+    return () => {
+      clearTimeout(debounceId);
+      clearInterval(intervalId);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      window.removeEventListener("beforeunload", onBeforeUnload);
+    };
+  }, [
+    answers,
+    camReadSubmissionKey,
+    currentPartIndex,
+    currentQuestionIndex,
+    id,
+    started,
+    submitted,
+    test?.testType,
+    testType,
+    timeRemaining,
+  ]);
+
   // Handle submit
   const handleSubmit = () => setShowConfirm(true);
 
@@ -307,6 +464,7 @@ const DoCambridgeReadingTest = () => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
+          submissionId: submissionIdRef.current,
           answers,
           studentName: user.name || user.username || 'Unknown',
           studentPhone: user.phone || null,
@@ -334,7 +492,9 @@ const DoCambridgeReadingTest = () => {
       localStorage.removeItem(camReadTimeKey);
       localStorage.removeItem(camReadAnsKey);
       localStorage.removeItem(camReadStartKey);
+      localStorage.removeItem(camReadSubmissionKey);
       expiresAtRef.current = null;
+      submissionIdRef.current = null;
       
       // Show results modal using backend score (more accurate than local calculation)
       setResults({
@@ -359,7 +519,9 @@ const DoCambridgeReadingTest = () => {
       localStorage.removeItem(camReadTimeKey);
       localStorage.removeItem(camReadAnsKey);
       localStorage.removeItem(camReadStartKey);
+      localStorage.removeItem(camReadSubmissionKey);
       expiresAtRef.current = null;
+      submissionIdRef.current = null;
     }
   };
 
@@ -1158,6 +1320,7 @@ const DoCambridgeReadingTest = () => {
                         localStorage.removeItem(camReadTimeKey);
                         localStorage.removeItem(camReadAnsKey);
                         localStorage.removeItem(camReadStartKey);
+                        localStorage.removeItem(camReadSubmissionKey);
                       } catch {
                         // ignore
                       }
@@ -1171,6 +1334,7 @@ const DoCambridgeReadingTest = () => {
                       setHasSavedProgress(false);
                       setStarted(false);
                       expiresAtRef.current = null;
+                      submissionIdRef.current = null;
                     }}
                     style={{ padding: '9px 18px', borderRadius: 20, border: '1.5px solid #fecaca', background: '#fef2f2', fontSize: 13, fontWeight: 600, color: '#dc2626', cursor: 'pointer' }}
                   >

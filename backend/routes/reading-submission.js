@@ -1,6 +1,29 @@
 const express = require("express");
 const router = express.Router();
 const ReadingSubmission = require("../models/ReadingSubmission");
+const { Op } = require("sequelize");
+
+const FINALIZED_READING_WHERE = {
+  [Op.or]: [{ finished: true }, { finished: null }],
+};
+
+function normalizeReadingProgressMeta(meta = {}) {
+  if (!meta || typeof meta !== "object" || Array.isArray(meta)) {
+    return { started: false };
+  }
+
+  return {
+    started: Boolean(meta.started),
+    activeQuestion:
+      meta.activeQuestion === null || meta.activeQuestion === undefined
+        ? null
+        : Number(meta.activeQuestion),
+    currentPartIndex:
+      meta.currentPartIndex === null || meta.currentPartIndex === undefined
+        ? null
+        : Number(meta.currentPartIndex),
+  };
+}
 
 // Helper to render compare HTML (exported via attaching to router)
 const buildCompareHtml = (submission, results) => {
@@ -162,6 +185,7 @@ router.post("/", async (req, res) => {
       band: 0,
       scorePercentage: 0,
       userName: req.body.studentName || "Unknown",
+      finished: true,
     });
 
     res
@@ -172,6 +196,186 @@ router.post("/", async (req, res) => {
     res
       .status(500)
       .json({ message: "❌ Lỗi khi nộp bài", error: error.message });
+  }
+});
+
+// POST: Autosave partial answers for a reading test
+router.post("/:testId/autosave", async (req, res) => {
+  try {
+    const { testId } = req.params;
+    const {
+      submissionId,
+      answers,
+      expiresAt,
+      user,
+      progressMeta,
+    } = req.body || {};
+
+    const normalizedTestId = String(testId);
+    const resolvedUserId = Number(user?.id) || null;
+    const resolvedUserName =
+      user?.name || user?.username || user?.email || "Unknown";
+    const normalizedAnswers =
+      answers && typeof answers === "object" && !Array.isArray(answers)
+        ? answers
+        : {};
+    const parsedExpiresAt = Number.isFinite(Number(expiresAt))
+      ? new Date(Number(expiresAt))
+      : null;
+    const normalizedProgressMeta = normalizeReadingProgressMeta(progressMeta);
+    const now = new Date();
+
+    if (submissionId) {
+      const sub = await ReadingSubmission.findByPk(submissionId);
+      if (!sub) {
+        return res.status(404).json({ message: "Submission not found." });
+      }
+      if (sub.finished) {
+        return res
+          .status(400)
+          .json({ message: "Submission is already finished." });
+      }
+
+      await sub.update({
+        answers: normalizedAnswers,
+        expiresAt: parsedExpiresAt || sub.expiresAt,
+        lastSavedAt: now,
+        progressMeta: normalizedProgressMeta,
+        userName: resolvedUserName || sub.userName,
+      });
+
+      return res.json({
+        message: "Draft saved.",
+        submissionId: sub.id,
+        savedAt: sub.lastSavedAt,
+      });
+    }
+
+    if (resolvedUserId) {
+      const existing = await ReadingSubmission.findOne({
+        where: {
+          testId: normalizedTestId,
+          userId: resolvedUserId,
+          finished: false,
+        },
+        order: [["updatedAt", "DESC"]],
+      });
+
+      if (existing) {
+        await existing.update({
+          answers: normalizedAnswers,
+          expiresAt: parsedExpiresAt || existing.expiresAt,
+          lastSavedAt: now,
+          progressMeta: normalizedProgressMeta,
+          userName: resolvedUserName || existing.userName,
+        });
+
+        return res.json({
+          message: "Draft saved.",
+          submissionId: existing.id,
+          savedAt: existing.lastSavedAt,
+        });
+      }
+    }
+
+    const created = await ReadingSubmission.create({
+      testId: normalizedTestId,
+      userId: resolvedUserId,
+      userName: resolvedUserName,
+      answers: normalizedAnswers,
+      correct: 0,
+      total: 0,
+      band: 0,
+      scorePercentage: 0,
+      expiresAt: parsedExpiresAt,
+      finished: false,
+      lastSavedAt: now,
+      progressMeta: normalizedProgressMeta,
+    });
+
+    return res.status(201).json({
+      message: "Draft created.",
+      submissionId: created.id,
+      savedAt: created.lastSavedAt,
+    });
+  } catch (error) {
+    console.error("Error autosaving reading draft:", error);
+    return res.status(500).json({
+      message: "Failed to autosave reading draft.",
+      error: error.message,
+    });
+  }
+});
+
+// GET: Retrieve the active unfinished reading attempt
+router.get("/:testId/active", async (req, res) => {
+  try {
+    const { testId } = req.params;
+    const { submissionId, userId } = req.query;
+
+    if (submissionId) {
+      const sub = await ReadingSubmission.findByPk(submissionId);
+      if (!sub || sub.finished) {
+        return res.json({ submission: null });
+      }
+      return res.json({ submission: sub.toJSON() });
+    }
+
+    const numericUserId = Number(userId);
+    if (!numericUserId) {
+      return res.json({ submission: null });
+    }
+
+    const sub = await ReadingSubmission.findOne({
+      where: {
+        testId: String(testId),
+        userId: numericUserId,
+        finished: false,
+      },
+      order: [["updatedAt", "DESC"]],
+    });
+
+    return res.json({ submission: sub ? sub.toJSON() : null });
+  } catch (error) {
+    console.error("Error fetching active reading submission:", error);
+    return res.status(500).json({
+      message: "Failed to fetch active reading submission.",
+      error: error.message,
+    });
+  }
+});
+
+// POST: Cleanup unfinished attempts after a final submit
+router.post("/:testId/cleanup", async (req, res) => {
+  try {
+    const { testId } = req.params;
+    const numericUserId = Number(req.body?.user?.id);
+
+    if (!numericUserId) {
+      return res.status(400).json({ message: "Missing user id." });
+    }
+
+    const [updated] = await ReadingSubmission.update(
+      {
+        finished: true,
+        lastSavedAt: new Date(),
+      },
+      {
+        where: {
+          testId: String(testId),
+          userId: numericUserId,
+          finished: false,
+        },
+      }
+    );
+
+    return res.json({ message: "Cleanup complete.", updated });
+  } catch (error) {
+    console.error("Error cleaning up reading drafts:", error);
+    return res.status(500).json({
+      message: "Failed to cleanup reading drafts.",
+      error: error.message,
+    });
   }
 });
 
@@ -198,7 +402,7 @@ router.get("/test/:testId", async (req, res) => {
   try {
     const { testId } = req.params;
     const testSubmissions = await ReadingSubmission.findAll({
-      where: { testId },
+      where: { testId, ...FINALIZED_READING_WHERE },
       order: [["createdAt", "DESC"]],
     });
 
@@ -216,6 +420,7 @@ router.get("/test/:testId", async (req, res) => {
 router.get("/", async (req, res) => {
   try {
     const subs = await ReadingSubmission.findAll({
+      where: FINALIZED_READING_WHERE,
       order: [["createdAt", "DESC"]],
     });
 

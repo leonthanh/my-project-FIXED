@@ -120,6 +120,31 @@ const CambridgeSubmission = sequelize.define('CambridgeSubmission', {
     type: DataTypes.ENUM('submitted', 'reviewed', 'archived'),
     defaultValue: 'submitted'
   },
+
+  finished: {
+    type: DataTypes.BOOLEAN,
+    allowNull: true,
+    defaultValue: true,
+    comment: 'False while the student is still working on the test'
+  },
+
+  expiresAt: {
+    type: DataTypes.DATE,
+    allowNull: true,
+    comment: 'Absolute expiration time for an unfinished attempt'
+  },
+
+  lastSavedAt: {
+    type: DataTypes.DATE,
+    allowNull: true,
+    comment: 'Last autosave timestamp for unfinished attempts'
+  },
+
+  progressMeta: {
+    type: DataTypes.JSON,
+    allowNull: true,
+    comment: 'Client resume metadata for Cambridge test flows'
+  },
   
   submittedAt: {
     type: DataTypes.DATE,
