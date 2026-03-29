@@ -1,61 +1,68 @@
-// frontend/src/features/admin/pages/ReviewSubmission.jsx
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import AdminNavbar from "../../../shared/components/AdminNavbar";
 import { apiPath } from "../../../shared/utils/api";
 
 const ReviewSubmission = () => {
   const { id } = useParams();
+  const teacher = useMemo(() => {
+    try {
+      return JSON.parse(localStorage.getItem("user") || "null");
+    } catch {
+      return null;
+    }
+  }, []);
+
   const [submission, setSubmission] = useState(null);
   const [loading, setLoading] = useState(true);
   const [feedback, setFeedback] = useState("");
   const [teacherName, setTeacherName] = useState("");
-  const [aiLoading, setAiLoading] = useState(false); // ✅ Thêm AI loading state
-  const [saveLoading, setSaveLoading] = useState(false); // ✅ Thêm Save loading state
-  const [hasSavedFeedback, setHasSavedFeedback] = useState(false); // ✅ Track nếu đã save feedback
+  const [aiLoading, setAiLoading] = useState(false);
+  const [saveLoading, setSaveLoading] = useState(false);
+  const [hasSavedFeedback, setHasSavedFeedback] = useState(false);
 
-  // 🔹 Lấy thông tin bài viết
   const fetchSubmission = useCallback(async () => {
     try {
       const res = await fetch(apiPath("writing/list"));
       const allSubs = await res.json();
-      const found = allSubs.find((s) => String(s.id) === String(id));
+      const found = Array.isArray(allSubs)
+        ? allSubs.find((item) => String(item.id) === String(id))
+        : null;
+
       setSubmission(found || null);
 
-      // ✅ Nếu có nhận xét của học sinh này, hiển thị
       if (found?.feedback) {
         setFeedback(found.feedback);
-        setTeacherName(found.feedbackBy || "");
-        setHasSavedFeedback(true); // ✅ Đã có feedback rồi
+        setTeacherName(found.feedbackBy || teacher?.name || "");
+        setHasSavedFeedback(true);
       } else {
-        // ✅ Nếu không có nhận xét (hs mới), clear form
         setFeedback("");
-        setTeacherName("");
-        setHasSavedFeedback(false); // ✅ Chưa có feedback
+        setTeacherName(teacher?.name || "");
+        setHasSavedFeedback(false);
       }
     } catch (err) {
-      console.error("❌ Lỗi khi tải bài:", err);
+      console.error("Failed to load writing submission:", err);
     } finally {
       setLoading(false);
     }
-  }, [id]);
+  }, [id, teacher]);
 
   useEffect(() => {
     fetchSubmission();
   }, [fetchSubmission]);
 
-  // 🔹 Lưu nhận xét
   const handleSaveFeedback = async () => {
     if (!feedback.trim()) {
-      alert("❌ Vui lòng nhập nhận xét trước khi lưu.");
-      return;
-    }
-    if (!teacherName.trim()) {
-      alert("❌ Vui lòng nhập tên giáo viên.");
+      alert("Please enter feedback before saving.");
       return;
     }
 
-    setSaveLoading(true); // ✅ Bắt đầu save loading
+    if (!teacherName.trim()) {
+      alert("Please enter the teacher name.");
+      return;
+    }
+
+    setSaveLoading(true);
 
     try {
       const res = await fetch(apiPath("writing/comment"), {
@@ -69,28 +76,25 @@ const ReviewSubmission = () => {
       });
 
       const data = await res.json();
-      alert(data.message || "✅ Đã lưu nhận xét!");
+      if (!res.ok) {
+        throw new Error(data?.message || "Failed to save feedback.");
+      }
 
-      // ✅ Reset input & set flag
-      setTeacherName("");
-      setFeedback("");
-      setHasSavedFeedback(true); // ✅ Đánh dấu đã save
-
-      // Load lại bài để hiển thị nhận xét mới
+      alert(data.message || "Feedback saved.");
+      setHasSavedFeedback(true);
       fetchSubmission();
     } catch (err) {
-      console.error("❌ Lỗi khi lưu nhận xét:", err);
-      alert("❌ Lỗi khi lưu nhận xét.");
+      console.error("Failed to save feedback:", err);
+      alert(err.message || "Failed to save feedback.");
     } finally {
-      setSaveLoading(false); // ✅ Kết thúc save loading
+      setSaveLoading(false);
     }
   };
 
-  // 🔹 Gọi AI Gemini để gợi ý nhận xét
   const handleAIComment = async () => {
     if (!submission) return;
 
-    setAiLoading(true); // ✅ Bắt đầu loading
+    setAiLoading(true);
 
     try {
       const aiRes = await fetch(apiPath("ai/generate-feedback"), {
@@ -103,126 +107,85 @@ const ReviewSubmission = () => {
       });
       const aiData = await aiRes.json();
 
-      // AI response received (debug log removed)
+      if (!aiRes.ok) {
+        throw new Error(aiData?.error || "AI could not generate feedback.");
+      }
 
       if (aiData.suggestion) {
         setFeedback(aiData.suggestion);
       } else {
-        const errorMsg = aiData.detail
-          ? `${aiData.error}\n\n${aiData.detail}`
-          : aiData.error || "❌ AI không tạo được nhận xét.";
-        alert(errorMsg);
+        throw new Error(aiData?.error || "AI could not generate feedback.");
       }
     } catch (err) {
-      console.error("❌ Lỗi AI:", err);
-      alert("❌ Không thể kết nối AI: " + err.message);
+      console.error("AI feedback error:", err);
+      alert(err.message || "Could not connect to the AI service.");
     } finally {
-      setAiLoading(false); // ✅ Kết thúc loading
+      setAiLoading(false);
     }
   };
 
-  if (loading) return <p style={{ padding: 40 }}>⏳ Đang tải...</p>;
-  if (!submission)
-    return <p style={{ padding: 40 }}>❌ Không tìm thấy bài viết.</p>;
+  if (loading) {
+    return <p style={{ padding: 40 }}>Loading...</p>;
+  }
+
+  if (!submission) {
+    return <p style={{ padding: 40 }}>Writing submission not found.</p>;
+  }
 
   return (
     <>
       <AdminNavbar />
-      <div style={{ padding: "30px", maxWidth: 800, margin: "auto" }} className="admin-page">
-        <h2>📄 Chi tiết bài viết</h2>
+      <div
+        style={{ padding: "30px", maxWidth: 800, margin: "auto" }}
+        className="admin-page"
+      >
+        <h2>Writing Submission Details</h2>
+
         <p>
-          <strong>👤 Học sinh:</strong>{" "}
-          {submission.user?.name || submission.userName || "N/A"}
+          <strong>Student:</strong> {submission.user?.name || submission.userName || "N/A"}
         </p>
         <p>
-          <strong>📞 Số điện thoại:</strong>{" "}
-          {submission.user?.phone || submission.userPhone || "N/A"}
+          <strong>Phone:</strong> {submission.user?.phone || submission.userPhone || "N/A"}
         </p>
         <p>
-          <strong>🧾 Mã đề:</strong> Writing{" "}
-          {submission.WritingTest?.index || "N/A"}
+          <strong>Test:</strong> Writing {submission.WritingTest?.index || "N/A"}
           {submission.WritingTest?.classCode
-            ? ` – ${submission.WritingTest.classCode}`
+            ? ` - ${submission.WritingTest.classCode}`
             : ""}
           {submission.WritingTest?.teacherName
-            ? ` – ${submission.WritingTest.teacherName}`
+            ? ` - ${submission.WritingTest.teacherName}`
             : ""}
         </p>
         <p>
-          <strong>🕒 Nộp lúc:</strong>{" "}
-          {new Date(
-            submission.submittedAt || submission.createdAt
-          ).toLocaleString()}
+          <strong>Submitted:</strong>{" "}
+          {new Date(submission.submittedAt || submission.createdAt).toLocaleString()}
         </p>
 
-        <h4>✍️ Task 1:</h4>
-        <p
-          style={{
-            whiteSpace: "pre-line",
-            border: "1px solid #ccc",
-            padding: 10,
-          }}
-        >
-          {submission.task1}
-        </p>
+        <h4>Task 1</h4>
+        <p style={taskBoxStyle}>{submission.task1 || "(empty)"}</p>
 
-        <h4>✍️ Task 2:</h4>
-        <p
-          style={{
-            whiteSpace: "pre-line",
-            border: "1px solid #ccc",
-            padding: 10,
-          }}
-        >
-          {submission.task2}
-        </p>
+        <h4>Task 2</h4>
+        <p style={taskBoxStyle}>{submission.task2 || "(empty)"}</p>
 
-        <h3 style={{ marginTop: 30 }}>📝 Nhận xét của giáo viên</h3>
+        <h3 style={{ marginTop: 30 }}>Teacher Feedback</h3>
         {submission.feedback && (
-          <p
-            style={{
-              whiteSpace: "pre-line",
-              background: "#e7f4e4",
-              padding: 10,
-              borderRadius: 6,
-            }}
-          >
-            <b>{submission.feedbackBy || "Giáo viên"}:</b> {submission.feedback}
+          <p style={savedFeedbackStyle}>
+            <b>{submission.feedbackBy || "Teacher"}:</b> {submission.feedback}
           </p>
         )}
 
         <input
           type="text"
-          placeholder="Tên giáo viên"
+          placeholder="Teacher name"
           value={teacherName}
           onChange={(e) => setTeacherName(e.target.value)}
-          style={{
-            width: "100%",
-            padding: "12px",
-            marginBottom: "12px",
-            border: "1px solid #ccc",
-            borderRadius: "8px",
-            fontSize: "16px",
-            fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
-            outline: "none",
-            transition: "border-color 0.2s ease",
-          }}
+          style={inputStyle}
         />
+
         <textarea
           rows={10}
-          style={{
-            width: "100%",
-            padding: "12px",
-            boxSizing: "border-box",
-            fontSize: "16px",
-            fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
-            marginBottom: "12px",
-            border: "1px solid #ccc",
-            borderRadius: "8px",
-            outline: "none",
-            transition: "border-color 0.2s ease",
-          }}
-          placeholder="Nhập nhận xét..."
+          style={textareaStyle}
+          placeholder="Enter feedback..."
           value={feedback}
           onChange={(e) => setFeedback(e.target.value)}
         />
@@ -230,49 +193,40 @@ const ReviewSubmission = () => {
         <div style={{ display: "flex", gap: 10 }}>
           <button
             onClick={handleSaveFeedback}
-            disabled={saveLoading || hasSavedFeedback || aiLoading} // ✅ Disable nếu đang save, đã save, hoặc đang gọi AI
+            disabled={saveLoading || hasSavedFeedback || aiLoading}
             style={{
-              flex: 1,
-              padding: "10px 20px",
-              border: "none",
-              borderRadius: 6,
+              ...actionButtonStyle,
               backgroundColor:
-                saveLoading || hasSavedFeedback || aiLoading
-                  ? "#ccc"
-                  : "#0e276f", // ✅ Đổi màu
-              color: "white",
+                saveLoading || hasSavedFeedback || aiLoading ? "#ccc" : "#0e276f",
               cursor:
                 saveLoading || hasSavedFeedback || aiLoading
                   ? "not-allowed"
-                  : "pointer", // ✅ Đổi cursor
-              fontSize: 16,
-              opacity: saveLoading || hasSavedFeedback || aiLoading ? 0.6 : 1, // ✅ Giảm opacity
+                  : "pointer",
+              opacity: saveLoading || hasSavedFeedback || aiLoading ? 0.6 : 1,
             }}
           >
             {saveLoading
-              ? "⏳ Đang lưu..."
+              ? "Saving..."
               : hasSavedFeedback
-              ? "✅ Đã lưu"
-              : "💾 Lưu nhận xét"}{" "}
-            {/* ✅ Thay đổi text */}
+              ? "Saved"
+              : "Save Feedback"}
           </button>
+
           <button
             onClick={handleAIComment}
-            disabled={aiLoading || saveLoading || hasSavedFeedback} // ✅ Disable khi đang xử lý, đang lưu, hoặc đã save
+            disabled={aiLoading || saveLoading || hasSavedFeedback}
             style={{
-              flex: 1,
-              padding: "10px 20px",
-              border: "none",
-              borderRadius: 6,
-              backgroundColor: aiLoading ? "#ccc" : "#e03", // ✅ Đổi màu khi disable
-              color: "white",
-              cursor: aiLoading ? "not-allowed" : "pointer", // ✅ Đổi cursor
-              fontSize: 16,
-              opacity: aiLoading ? 0.6 : 1, // ✅ Giảm opacity
+              ...actionButtonStyle,
+              backgroundColor:
+                aiLoading || saveLoading || hasSavedFeedback ? "#ccc" : "#e03",
+              cursor:
+                aiLoading || saveLoading || hasSavedFeedback
+                  ? "not-allowed"
+                  : "pointer",
+              opacity: aiLoading || saveLoading || hasSavedFeedback ? 0.6 : 1,
             }}
           >
-            {aiLoading ? "⏳ Đang nhận xét..." : "🤖 StarEdu AI gợi ý nhận xét"}{" "}
-            {/* ✅ Thay đổi text */}
+            {aiLoading ? "Generating..." : "AI Feedback"}
           </button>
         </div>
       </div>
@@ -280,5 +234,51 @@ const ReviewSubmission = () => {
   );
 };
 
-export default ReviewSubmission;
+const taskBoxStyle = {
+  whiteSpace: "pre-line",
+  border: "1px solid #ccc",
+  padding: 10,
+};
 
+const savedFeedbackStyle = {
+  whiteSpace: "pre-line",
+  background: "#e7f4e4",
+  padding: 10,
+  borderRadius: 6,
+};
+
+const inputStyle = {
+  width: "100%",
+  padding: "12px",
+  marginBottom: "12px",
+  border: "1px solid #ccc",
+  borderRadius: "8px",
+  fontSize: "16px",
+  fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
+  outline: "none",
+  transition: "border-color 0.2s ease",
+};
+
+const textareaStyle = {
+  width: "100%",
+  padding: "12px",
+  boxSizing: "border-box",
+  fontSize: "16px",
+  fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
+  marginBottom: "12px",
+  border: "1px solid #ccc",
+  borderRadius: "8px",
+  outline: "none",
+  transition: "border-color 0.2s ease",
+};
+
+const actionButtonStyle = {
+  flex: 1,
+  padding: "10px 20px",
+  border: "none",
+  borderRadius: 6,
+  color: "white",
+  fontSize: 16,
+};
+
+export default ReviewSubmission;
