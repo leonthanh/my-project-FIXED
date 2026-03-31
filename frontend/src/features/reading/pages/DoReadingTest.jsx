@@ -150,21 +150,33 @@ const DoReadingTest = () => {
               }
 
               if (qType === "cloze-test" || qType === "summary-completion") {
-                const clozeText =
-                  q.paragraphText ||
-                  q.passageText ||
-                  q.text ||
-                  q.paragraph ||
-                  (q.questionText && q.questionText.includes("[BLANK]")
-                    ? q.questionText
-                    : null);
-                if (clozeText) {
-                  const blanks = (clozeText.match(/\[BLANK\]/gi) || []).length;
+                let blanks = 0;
+                if (q.clozeTable && Array.isArray(q.clozeTable.rows)) {
+                  blanks = q.clozeTable.rows.reduce((sum, row) => {
+                    const rowCount = (Array.isArray(row.cells) ? row.cells : []).reduce(
+                      (rsum, cell) => rsum + ((String(cell || "").match(/\[BLANK\]/gi) || []).length),
+                      0
+                    );
+                    return sum + rowCount;
+                  }, 0);
+                } else {
+                  const clozeText =
+                    q.paragraphText ||
+                    q.passageText ||
+                    q.text ||
+                    q.paragraph ||
+                    (q.questionText && q.questionText.includes("[BLANK]")
+                      ? q.questionText
+                      : null);
+                  blanks = clozeText ? (clozeText.match(/\[BLANK\]/gi) || []).length : 0;
+                }
+
+                if (blanks > 0) {
                   if (n >= qCounter && n < qCounter + blanks) {
                     isPartOfClozeTest = true;
                     break outerLoop;
                   }
-                  qCounter += blanks || 1;
+                  qCounter += blanks;
                   continue;
                 }
               }
@@ -507,9 +519,20 @@ const DoReadingTest = () => {
           }
           currentNum += blankCount;
         } else if (qType === "cloze-test" || qType === "summary-completion") {
-          const clozeText = q.paragraphText || q.passageText || q.text || q.paragraph || 
-            (q.questionText && q.questionText.includes("[BLANK]") ? q.questionText : null);
-          const blankCount = clozeText ? (clozeText.match(/\[BLANK\]/gi) || []).length : 1;
+          let blankCount = 0;
+          if (q.clozeTable && Array.isArray(q.clozeTable.rows)) {
+            blankCount = q.clozeTable.rows.reduce((sum, row) => {
+              const rowCount = (Array.isArray(row.cells) ? row.cells : []).reduce((rsum, cell) => {
+                return rsum + ((String(cell || "").match(/\[BLANK\]/gi) || []).length);
+              }, 0);
+              return sum + rowCount;
+            }, 0);
+          } else {
+            const clozeText = q.paragraphText || q.passageText || q.text || q.paragraph || 
+              (q.questionText && q.questionText.includes("[BLANK]") ? q.questionText : null);
+            blankCount = clozeText ? (clozeText.match(/\[BLANK\]/gi) || []).length : 1;
+          }
+          blankCount = blankCount || 1;
           for (let i = 0; i < blankCount; i++) {
             groups.push({ type: "single", start: startNum + i, count: 1 });
           }
@@ -1101,17 +1124,34 @@ const DoReadingTest = () => {
           }
           // For cloze test, count each blank as a question
           else if (qType === "cloze-test" || qType === "summary-completion") {
-            const clozeText =
-              q.paragraphText ||
-              q.passageText ||
-              q.text ||
-              q.paragraph ||
-              (q.questionText && q.questionText.includes("[BLANK]")
-                ? q.questionText
-                : null);
+            let blankMatches = [];
+            if (q.clozeTable && Array.isArray(q.clozeTable.rows)) {
+              const totalBlanks = q.clozeTable.rows.reduce((cnt, row) => {
+                return (
+                  cnt +
+                  (Array.isArray(row.cells)
+                    ? row.cells.reduce(
+                        (rc, cell) =>
+                          rc + ((String(cell || "").match(/\[BLANK\]/gi) || []).length),
+                        0
+                      )
+                    : 0)
+                );
+              }, 0);
+              blankMatches = Array.from({ length: totalBlanks });
+            } else {
+              const clozeText =
+                q.paragraphText ||
+                q.passageText ||
+                q.text ||
+                q.paragraph ||
+                (q.questionText && q.questionText.includes("[BLANK]")
+                  ? q.questionText
+                  : null);
+              blankMatches = clozeText ? clozeText.match(/\[BLANK\]/gi) || [] : [];
+            }
 
-            if (clozeText) {
-              const blankMatches = clozeText.match(/\[BLANK\]/gi) || [];
+            if (blankMatches.length > 0) {
               const baseKey = `q_${total + 1}`;
 
               blankMatches.forEach((_, bi) => {
@@ -2673,13 +2713,96 @@ const DoReadingTest = () => {
 
               {/* If passage text exists with [BLANK], render inline */}
               {(() => {
+                if (question.clozeTable && Array.isArray(question.clozeTable.rows)) {
+                  const table = question.clozeTable;
+                  let blankIndex = 0;
+                  const baseQuestionNum = question.startQuestion || questionNumber;
+
+                  return (
+                    <div className="cloze-table-wrapper" style={{ overflowX: 'auto' }}>
+                      <table className="cloze-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
+                        <thead>
+                          <tr>
+                            {(table.columns || []).map((col, ci) => (
+                              <th key={ci} style={{ border: '1px solid #cbd5e1', padding: '8px', background: '#e0f2fe' }}>
+                                {col}
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(table.rows || []).map((row, ri) => (
+                            <tr key={ri}>
+                              {(row.cells || []).map((cell, ci) => (
+                                <td key={ci} style={{ border: '1px solid #cbd5e1', padding: '8px', verticalAlign: 'top' }}>
+                                  {String(cell || '').split(/\[BLANK\]/gi).reduce((parts, part, idx, arr) => {
+                                    if (idx === arr.length - 1) {
+                                      return [...parts, <span key={`${ri}-${ci}-${idx}`}>{part}</span>];
+                                    }
+                                    const currentBlankIdx = blankIndex++;
+                                    const blankNum = baseQuestionNum + currentBlankIdx;
+                                    const blankKey = `${key}_${currentBlankIdx}`;
+
+                                    const blankInput = question.options && question.options.length > 0 ? (
+                                      <select
+                                        className={'cloze-inline-select ' + (answers[blankKey] ? 'answered' : '')}
+                                        value={answers[blankKey] || ''}
+                                        onChange={(e) => handleAnswerChange(blankKey, e.target.value)}
+                                        onFocus={() => setActiveQuestion(blankNum)}
+                                      >
+                                        <option value="">--</option>
+                                        {question.options.map((opt, oi) => (
+                                          <option key={oi} value={String.fromCharCode(65 + oi)}>
+                                            {`${String.fromCharCode(65 + oi)}. ${stripUnwantedHtml(
+                                              typeof opt === 'object' ? opt.text || opt.label || '' : opt
+                                            )}`}
+                                          </option>
+                                        ))}
+                                      </select>
+                                    ) : (
+                                      <input
+                                        type="text"
+                                        className={'cloze-inline-input ' + (answers[blankKey] ? 'answered' : '')}
+                                        value={answers[blankKey] || ''}
+                                        onChange={(e) => handleAnswerChange(blankKey, e.target.value)}
+                                        onFocus={() => setActiveQuestion(blankNum)}
+                                      />
+                                    );
+
+                                    return [
+                                      ...parts,
+                                      <span key={`${ri}-${ci}-${idx}`}>{part}</span>,
+                                      <span
+                                        key={`${ri}-${ci}-blank-${idx}`}
+                                        className="cloze-inline-wrapper"
+                                        ref={(el) => (questionRefs.current[`q_${blankNum}`] = el)}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setActiveQuestion(blankNum);
+                                        }}
+                                        style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                                      >
+                                        <span className="cloze-inline-number">{blankNum}</span>
+                                        {blankInput}
+                                      </span>,
+                                    ];
+                                  }, [])}
+                                </td>
+                              ))}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  );
+                }
+
                 if (clozeText && clozeText.includes("[BLANK]")) {
                   return (
                     <div className="cloze-passage">
                       {(() => {
                         let blankIndex = 0;
-                        const baseQuestionNum =
-                          question.startQuestion || questionNumber;
+                        const baseQuestionNum = question.startQuestion || questionNumber;
                         return clozeText
                           .split(/\[BLANK\]/gi)
                           .map((part, idx, arr) => {
@@ -2695,6 +2818,7 @@ const DoReadingTest = () => {
                             }
                             const currentBlankIdx = blankIndex++;
                             const blankNum = baseQuestionNum + currentBlankIdx;
+                            const answerKey = `${key}_${currentBlankIdx}`;
                             return (
                               <span key={idx}>
                                 <span
@@ -2704,38 +2828,25 @@ const DoReadingTest = () => {
                                 />
                                 <span
                                   className="cloze-inline-wrapper"
-                                  ref={(el) =>
-                                    (questionRefs.current[`q_${blankNum}`] = el)
-                                  }
+                                  ref={(el) => (questionRefs.current[`q_${blankNum}`] = el)}
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     setActiveQuestion(blankNum);
                                   }}
                                 >
-                                  <span className="cloze-inline-number">
-                                    {blankNum}
-                                  </span>
+                                  <span className="cloze-inline-number">{blankNum}</span>
                                   {question.options && question.options.length > 0 ? (
                                     <select
-                                      className={'cloze-inline-select ' + (answers[key + '_' + currentBlankIdx] ? 'answered' : '')}
-                                      value={
-                                        answers[key + '_' + currentBlankIdx] || ""
-                                      }
-                                      onChange={(e) =>
-                                        handleAnswerChange(
-                                          key + '_' + currentBlankIdx,
-                                          e.target.value
-                                        )
-                                      }
+                                      className={'cloze-inline-select ' + (answers[answerKey] ? 'answered' : '')}
+                                      value={answers[answerKey] || ''}
+                                      onChange={(e) => handleAnswerChange(answerKey, e.target.value)}
                                       onFocus={() => setActiveQuestion(blankNum)}
                                     >
                                       <option value="">--</option>
                                       {question.options.map((opt, oi) => (
                                         <option key={oi} value={String.fromCharCode(65 + oi)}>
                                           {`${String.fromCharCode(65 + oi)}. ${stripUnwantedHtml(
-                                            typeof opt === "object"
-                                              ? opt.text || opt.label || ""
-                                              : opt
+                                            typeof opt === 'object' ? opt.text || opt.label || '' : opt
                                           )}`}
                                         </option>
                                       ))}
@@ -2743,20 +2854,13 @@ const DoReadingTest = () => {
                                   ) : (
                                     <input
                                       type="text"
-                                      className={'cloze-inline-input ' + (answers[key + '_' + currentBlankIdx] ? 'answered' : '')}
-                                      value={
-                                        answers[key + '_' + currentBlankIdx] || ""
-                                      }
-                                      onChange={(e) =>
-                                        handleAnswerChange(
-                                          key + '_' + currentBlankIdx,
-                                          e.target.value
-                                        )
-                                      }
+                                      className={'cloze-inline-input ' + (answers[answerKey] ? 'answered' : '')}
+                                      value={answers[answerKey] || ''}
+                                      onChange={(e) => handleAnswerChange(answerKey, e.target.value)}
                                       onFocus={() => setActiveQuestion(blankNum)}
                                       placeholder=""
                                     />
-                                  )} 
+                                  )}
                                 </span>
                               </span>
                             );
@@ -2764,59 +2868,58 @@ const DoReadingTest = () => {
                       })()}
                     </div>
                   );
-                } else {
-                  // Fallback to blank rows if no passage text
-                  return (question.blanks || []).map((blank, bi) => {
-                    const blankQuestionNum = questionNumber + bi;
-                    return (
-                      <div
-                        key={bi}
-                        ref={(el) =>
-                          (questionRefs.current[`q_${blankQuestionNum}`] = el)
-                        }
-                        className="cloze-blank-row"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setActiveQuestion(blankQuestionNum);
-                        }}
-                      >
-                        <span className="cloze-blank-number">
-                          {blank.id || blankQuestionNum}.
-                        </span>
-                        {question.options && question.options.length > 0 ? (
-                          <select
-                            className={'cloze-select ' + (answers[key + '_' + bi] ? 'answered' : '')}
-                            value={answers[key + '_' + bi] || ""}
-                            onChange={(e) =>
-                              handleAnswerChange(key + '_' + bi, e.target.value)
-                            }
-                            onFocus={() => setActiveQuestion(blankQuestionNum)}
-                          >
-                            <option value="">-- Select --</option>
-                            {question.options.map((opt, oi) => (
-                              <option key={oi} value={String.fromCharCode(65 + oi)}>
-                                {`${String.fromCharCode(65 + oi)}. ${stripUnwantedHtml(
-                                  typeof opt === "object" ? opt.text || opt.label || "" : opt
-                                )}`}
-                              </option>
-                            ))}
-                          </select>
-                        ) : (
-                          <input
-                            type="text"
-                            className={'cloze-input ' + (answers[key + '_' + bi] ? 'answered' : '')}
-                            value={answers[key + '_' + bi] || ""}
-                            onChange={(e) =>
-                              handleAnswerChange(key + '_' + bi, e.target.value)
-                            }
-                            onFocus={() => setActiveQuestion(blankQuestionNum)}
-                            placeholder="Type answer..."
-                          />
-                        )}
-                      </div>
-                    );
-                  });
                 }
+
+                return (question.blanks || []).map((blank, bi) => {
+                  const blankQuestionNum = questionNumber + bi;
+                  return (
+                    <div
+                      key={bi}
+                      ref={(el) =>
+                        (questionRefs.current[`q_${blankQuestionNum}`] = el)
+                      }
+                      className="cloze-blank-row"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setActiveQuestion(blankQuestionNum);
+                      }}
+                    >
+                      <span className="cloze-blank-number">
+                        {blank.id || blankQuestionNum}.
+                      </span>
+                      {question.options && question.options.length > 0 ? (
+                        <select
+                          className={'cloze-select ' + (answers[key + '_' + bi] ? 'answered' : '')}
+                          value={answers[key + '_' + bi] || ""}
+                          onChange={(e) =>
+                            handleAnswerChange(key + '_' + bi, e.target.value)
+                          }
+                          onFocus={() => setActiveQuestion(blankQuestionNum)}
+                        >
+                          <option value="">-- Select --</option>
+                          {question.options.map((opt, oi) => (
+                            <option key={oi} value={String.fromCharCode(65 + oi)}>
+                              {`${String.fromCharCode(65 + oi)}. ${stripUnwantedHtml(
+                                typeof opt === "object" ? opt.text || opt.label || "" : opt
+                              )}`}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <input
+                          type="text"
+                          className={'cloze-input ' + (answers[key + '_' + bi] ? 'answered' : '')}
+                          value={answers[key + '_' + bi] || ""}
+                          onChange={(e) =>
+                            handleAnswerChange(key + '_' + bi, e.target.value)
+                          }
+                          onFocus={() => setActiveQuestion(blankQuestionNum)}
+                          placeholder="Type answer..."
+                        />
+                      )}
+                    </div>
+                  );
+                });
               })()}
             </div>
           )}

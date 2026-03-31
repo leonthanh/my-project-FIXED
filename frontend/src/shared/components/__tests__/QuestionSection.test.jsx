@@ -26,11 +26,23 @@ const defaultProps = {
   createDefaultQuestionByType: (t) => ({ questionType: t }),
 };
 
-test('QuestionSection includes Table Completion option for IELTS Listening', () => {
+test('QuestionSection does not include Listening-only question types in reading editor', () => {
   render(<QuestionSection {...defaultProps} />);
 
-  // Ensure the option with value table-completion exists in the type dropdown
   const allOptions = screen.getAllByRole('option');
-  const tableOption = allOptions.find(opt => opt.getAttribute('value') === 'table-completion');
-  expect(tableOption).toBeTruthy();
+  const forbiddenListeningTypes = [
+    'fill',
+    'abc',
+    'abcd',
+    'form-completion',
+    'table-completion',
+    'notes-completion',
+    'map-labeling',
+    'flowchart',
+  ];
+
+  forbiddenListeningTypes.forEach((type) => {
+    const option = allOptions.find((opt) => opt.getAttribute('value') === type);
+    expect(option).toBeUndefined();
+  });
 });
