@@ -63,6 +63,27 @@ const ReadingSubmission = sequelize.define('ReadingSubmission', {
     type: DataTypes.BOOLEAN,
     defaultValue: false,
     comment: 'Whether student has seen the feedback'
+  },
+  expiresAt: {
+    type: DataTypes.DATE,
+    allowNull: true,
+    comment: 'Absolute expiration time for an unfinished attempt'
+  },
+  finished: {
+    type: DataTypes.BOOLEAN,
+    allowNull: true,
+    defaultValue: true,
+    comment: 'False while the student is still working on the test'
+  },
+  lastSavedAt: {
+    type: DataTypes.DATE,
+    allowNull: true,
+    comment: 'Last autosave timestamp for unfinished attempts'
+  },
+  progressMeta: {
+    type: DataTypes.JSON,
+    allowNull: true,
+    comment: 'Client resume metadata such as started flag or UI cursor'
   }
 }, {
   tableName: 'reading_submissions',

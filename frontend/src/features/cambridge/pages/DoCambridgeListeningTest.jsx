@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { apiPath, hostPath } from "../../../shared/utils/api";
+import { apiPath, getStoredUser, hostPath } from "../../../shared/utils/api";
 import TestHeader from "../../../shared/components/TestHeader";
 import { useTheme } from "../../../shared/contexts/ThemeContext";
 import { TEST_CONFIGS } from "../../../shared/config/questionTypes";
@@ -1258,6 +1258,7 @@ const DoCambridgeListeningTest = () => {
   const endTimeRef = useRef(null);
   const lastAudioTimeRef = useRef(0);
   const lastAudioSaveRef = useRef(0);
+  const submissionIdRef = useRef(null);
 
   // Cambridge Reading-like splitter
   const [leftWidth, setLeftWidth] = useState(42);
@@ -1284,6 +1285,7 @@ const DoCambridgeListeningTest = () => {
     const fetchTest = async () => {
       try {
         setLoading(true);
+        const localUser = getStoredUser();
         const res = await fetch(apiPath(`cambridge/listening-tests/${id}`));
         if (!res.ok) throw new Error("Không tìm thấy đề thi");
         const data = await res.json();
@@ -1302,10 +1304,15 @@ const DoCambridgeListeningTest = () => {
         const initialSeconds = (testConfig.duration || 30) * 60;
         setTimeRemaining(initialSeconds);
 
+        let restoredFromServer = false;
+
         try {
           const raw = localStorage.getItem(storageKey);
           if (raw) {
             const saved = JSON.parse(raw);
+            if (saved?.submissionId) {
+              submissionIdRef.current = saved.submissionId;
+            }
             if (saved?.answers) setAnswers(saved.answers);
             if (Number.isInteger(saved?.currentPartIndex)) {
               setCurrentPartIndex(saved.currentPartIndex);
@@ -1333,6 +1340,118 @@ const DoCambridgeListeningTest = () => {
           }
         } catch {
           // ignore restore errors
+        }
+
+        const query = submissionIdRef.current
+          ? `?submissionId=${submissionIdRef.current}`
+          : localUser?.id
+            ? `?userId=${localUser.id}`
+            : "";
+
+        if (query) {
+          try {
+            const activeRes = await fetch(
+              apiPath(
+                `cambridge/submissions/active${query}&testId=${id}&testType=${encodeURIComponent(parsedData.testType)}`
+              )
+            );
+            if (activeRes.ok) {
+              const payload = await activeRes.json().catch(() => null);
+              const draft = payload?.submission || null;
+              if (draft && draft.finished !== true) {
+                restoredFromServer = true;
+                if (draft.id) {
+                  submissionIdRef.current = draft.id;
+                }
+
+                const serverAnswers =
+                  draft.answers &&
+                  typeof draft.answers === "object" &&
+                  !Array.isArray(draft.answers)
+                    ? draft.answers
+                    : {};
+                setAnswers(serverAnswers);
+
+                const progressMeta =
+                  draft.progressMeta &&
+                  typeof draft.progressMeta === "object" &&
+                  !Array.isArray(draft.progressMeta)
+                    ? draft.progressMeta
+                    : {};
+
+                if (Number.isInteger(progressMeta.currentPartIndex)) {
+                  setCurrentPartIndex(progressMeta.currentPartIndex);
+                  setExpandedPart(progressMeta.currentPartIndex);
+                }
+                if (progressMeta.activeQuestion) {
+                  setActiveQuestion(progressMeta.activeQuestion);
+                }
+                if (progressMeta.startedAudioByPart) {
+                  setStartedAudioByPart(progressMeta.startedAudioByPart);
+                }
+                if (progressMeta.testStarted) {
+                  setTestStarted(true);
+                }
+                if (typeof progressMeta.audioCurrentTime === "number") {
+                  lastAudioTimeRef.current = progressMeta.audioCurrentTime;
+                  if (progressMeta.audioCurrentTime > 0) {
+                    setHasResumeAudio(true);
+                  }
+                }
+
+                const endTime = progressMeta.endTime || (draft.expiresAt ? new Date(draft.expiresAt).getTime() : null);
+                if (Number.isFinite(Number(endTime))) {
+                  endTimeRef.current = Number(endTime);
+                  const remaining = Math.max(0, Math.floor((Number(endTime) - Date.now()) / 1000));
+                  setTimeRemaining(remaining);
+                }
+
+                try {
+                  localStorage.setItem(
+                    storageKey,
+                    JSON.stringify({
+                      answers: serverAnswers,
+                      currentPartIndex:
+                        Number.isInteger(progressMeta.currentPartIndex)
+                          ? progressMeta.currentPartIndex
+                          : 0,
+                      activeQuestion: progressMeta.activeQuestion || null,
+                      startedAudioByPart: progressMeta.startedAudioByPart || {},
+                      testStarted: Boolean(progressMeta.testStarted),
+                      endTime: Number.isFinite(Number(endTime))
+                        ? Number(endTime)
+                        : null,
+                      audioCurrentTime:
+                        typeof progressMeta.audioCurrentTime === "number"
+                          ? progressMeta.audioCurrentTime
+                          : 0,
+                      submissionId: draft.id,
+                      updatedAt: Date.now(),
+                    })
+                  );
+                } catch {
+                  // ignore local mirror errors
+                }
+              }
+            }
+          } catch (resumeErr) {
+            console.error("Error restoring Cambridge listening draft:", resumeErr);
+          }
+        }
+
+        if (!restoredFromServer && submissionIdRef.current) {
+          try {
+            const raw = JSON.parse(localStorage.getItem(storageKey) || "{}");
+            localStorage.setItem(
+              storageKey,
+              JSON.stringify({
+                ...(raw || {}),
+                submissionId: submissionIdRef.current,
+              })
+            );
+          } catch {
+            // ignore local mirror errors
+          }
         }
       } catch (err) {
         console.error("Error fetching test:", err);
@@ -1584,6 +1703,7 @@ const DoCambridgeListeningTest = () => {
       testStarted,
       endTime: endTimeRef.current,
       audioCurrentTime: lastAudioTimeRef.current,
+      submissionId: submissionIdRef.current,
       updatedAt: Date.now(),
     };
     try {
@@ -1592,6 +1712,95 @@ const DoCambridgeListeningTest = () => {
       // ignore storage errors
     }
   }, [answers, currentPartIndex, activeQuestion, startedAudioByPart, testStarted, storageKey, test]);
+
+  useEffect(() => {
+    if (!test || submitted) return;
+    if (!testStarted && !endTimeRef.current && Object.keys(answers || {}).length === 0) {
+      return;
+    }
+
+    const user = getStoredUser();
+    if (!user?.id && !submissionIdRef.current) return;
+
+    const payload = {
+      submissionId: submissionIdRef.current,
+      testId: id,
+      testType: test?.testType || testType || "ket-listening",
+      answers,
+      expiresAt: endTimeRef.current,
+      user,
+      progressMeta: {
+        currentPartIndex,
+        activeQuestion,
+        startedAudioByPart,
+        testStarted,
+        endTime: endTimeRef.current,
+        audioCurrentTime: lastAudioTimeRef.current,
+        hasResumeAudio,
+      },
+    };
+
+    const persistDraft = async () => {
+      try {
+        const res = await fetch(apiPath("cambridge/submissions/autosave"), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        if (!res.ok) return;
+        const json = await res.json().catch(() => null);
+        if (json?.submissionId) {
+          submissionIdRef.current = json.submissionId;
+          try {
+            const raw = JSON.parse(localStorage.getItem(storageKey) || "{}");
+            localStorage.setItem(
+              storageKey,
+              JSON.stringify({
+                ...(raw || {}),
+                submissionId: json.submissionId,
+              })
+            );
+          } catch {
+            // ignore local mirror errors
+          }
+        }
+      } catch (_err) {
+        // Keep local progress if the network is unavailable.
+      }
+    };
+
+    const debounceId = setTimeout(persistDraft, 700);
+    const intervalId = setInterval(persistDraft, 15000);
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "hidden") persistDraft();
+    };
+    const onBeforeUnload = () => {
+      persistDraft();
+    };
+
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    window.addEventListener("beforeunload", onBeforeUnload);
+
+    return () => {
+      clearTimeout(debounceId);
+      clearInterval(intervalId);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      window.removeEventListener("beforeunload", onBeforeUnload);
+    };
+  }, [
+    activeQuestion,
+    answers,
+    currentPartIndex,
+    hasResumeAudio,
+    id,
+    startedAudioByPart,
+    storageKey,
+    submitted,
+    test,
+    testStarted,
+    test?.testType,
+    testType,
+  ]);
 
   const currentPart = useMemo(() => {
     return test?.parts?.[currentPartIndex] || null;
@@ -2641,6 +2850,7 @@ const DoCambridgeListeningTest = () => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
+          submissionId: submissionIdRef.current,
           answers,
           studentName: user.name || user.username || 'Unknown',
           studentPhone: user.phone || null,
@@ -2657,6 +2867,7 @@ const DoCambridgeListeningTest = () => {
       const data = await res.json();
 
       endTimeRef.current = null;
+      submissionIdRef.current = null;
       try {
         localStorage.removeItem(storageKey);
       } catch {
@@ -2685,6 +2896,7 @@ const DoCambridgeListeningTest = () => {
       setSubmitted(true);
       setShowConfirm(false);
       endTimeRef.current = null;
+      submissionIdRef.current = null;
       try {
         localStorage.removeItem(storageKey);
       } catch {

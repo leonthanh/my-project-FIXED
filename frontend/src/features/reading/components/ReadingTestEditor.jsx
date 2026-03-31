@@ -1071,7 +1071,89 @@ const ReadingTestEditor = ({
                                   {/* Question Content */}
                                   <div style={{ flex: 1 }}>
                                     {/* Cloze-test: Show paragraphText OR questionText */}
-                                    {isClozeType && (
+                                    {isClozeType && q.clozeTable && Array.isArray(q.clozeTable.rows) ? (
+                                      <>
+                                        {(() => {
+                                          const tableStartNum = q.startQuestion
+                                            ? parseInt(String(q.startQuestion).trim().split(/[,\-]/)[0], 10)
+                                            : startNumber || 1;
+                                          let tableBlankCounter = 0;
+                                          return (
+                                            <div
+                                        style={{
+                                          marginBottom: "10px",
+                                          padding: "12px",
+                                          backgroundColor: "#e8f4fc",
+                                          borderRadius: "6px",
+                                          border: "1px solid #bee5eb",
+                                          lineHeight: "1.8",
+                                        }}
+                                      >
+                                        <div
+                                          style={{
+                                            fontSize: "11px",
+                                            color: "#17a2b8",
+                                            marginBottom: "6px",
+                                            fontWeight: "bold",
+                                          }}
+                                        >
+                                          📝 Cloze table:
+                                        </div>
+                                        <div style={{ overflowX: "auto" }}>
+                                          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
+                                            <thead>
+                                              <tr>
+                                                {q.clozeTable.columns.map((col, ci) => (
+                                                  <th
+                                                    key={ci}
+                                                    style={{
+                                                      border: "1px solid #cbd5e1",
+                                                      backgroundColor: "#e0f2fe",
+                                                      padding: "8px",
+                                                      textAlign: "left",
+                                                    }}
+                                                  >
+                                                    {col}
+                                                  </th>
+                                                ))}
+                                              </tr>
+                                            </thead>
+                                            <tbody>
+                                              {q.clozeTable.rows.map((row, ri) => (
+                                                <tr key={ri} style={{ backgroundColor: ri % 2 === 0 ? "white" : "#f8fafc" }}>
+                                                  {row.cells.map((cell, ci) => (
+                                                    <td
+                                                      key={ci}
+                                                      style={{
+                                                        border: "1px solid #cbd5e1",
+                                                        padding: "8px",
+                                                        verticalAlign: "top",
+                                                      }}
+                                                    >
+                                                      {String(cell || "").split(/\[BLANK\]/gi).reduce((parts, part, idx, arr) => {
+                                                        if (idx === arr.length - 1) return [...parts, <span key={`${ri}-${ci}-${idx}`}>{part}</span>];
+                                                        const blankNum = tableStartNum + tableBlankCounter;
+                                                        tableBlankCounter += 1;
+                                                        return [
+                                                          ...parts,
+                                                          <span key={`${ri}-${ci}-${idx}`}>{part}</span>,
+                                                          <strong key={`${ri}-${ci}-blank-${idx}`} style={{ backgroundColor: "#fff3cd", padding: "2px 6px", borderRadius: "4px", margin: "0 3px", fontSize: "12px" }}>
+                                                            {blankNum}
+                                                          </strong>,
+                                                        ];
+                                                      }, [])}
+                                                    </td>
+                                                  ))}
+                                                </tr>
+                                              ))}
+                                            </tbody>
+                                          </table>
+                                        </div>
+                                      </div>
+                                    );
+                                  })()}
+                                    </>
+                                    ) : isClozeType ? (
                                       <div
                                         style={{
                                           marginBottom: "10px",
@@ -1127,8 +1209,7 @@ const ReadingTestEditor = ({
                                               fontStyle: "italic",
                                             }}
                                           >
-                                            ⚠️{" "}
-                                            <strong>
+                                            ⚠️ <strong>
                                               Chưa nhập đoạn văn câu hỏi!
                                             </strong>
                                             <br />
@@ -1140,8 +1221,7 @@ const ReadingTestEditor = ({
                                           </div>
                                         )}
                                       </div>
-                                    )}
-
+                                    ) : null}
                                     {/* Matching: Show leftItems/rightItems OR questionText */}
                                     {isMatchingType && (
                                       <>
@@ -1791,33 +1871,45 @@ const ReadingTestEditor = ({
                                         </strong>
                                         {isClozeType && q.blanks ? (
                                           <div style={{ marginTop: "6px" }}>
-                                            {q.blanks.map((b, i) => (
-                                              <div
-                                                key={i}
-                                                style={{
-                                                  display: "inline-block",
-                                                  margin: "3px 6px 3px 0",
-                                                  padding: "4px 10px",
-                                                  backgroundColor: "#28a745",
-                                                  color: "white",
-                                                  borderRadius: "4px",
-                                                  fontSize: "11px",
-                                                }}
-                                              >
-                                                <span
+                                            {q.blanks.map((b, i) => {
+                                              const baseQNum =
+                                                q.questionNumber
+                                                  ? parseInt(
+                                                      String(q.questionNumber)
+                                                        .trim()
+                                                        .split(/[,\-]/)[0],
+                                                      10
+                                                    )
+                                                  : startNumber || 1;
+                                              const displayNum = (Number.isNaN(baseQNum) ? 1 : baseQNum) + i;
+                                              return (
+                                                <div
+                                                  key={i}
                                                   style={{
-                                                    backgroundColor:
-                                                      "rgba(255,255,255,0.3)",
-                                                    padding: "1px 5px",
-                                                    borderRadius: "3px",
-                                                    marginRight: "6px",
+                                                    display: "inline-block",
+                                                    margin: "3px 6px 3px 0",
+                                                    padding: "4px 10px",
+                                                    backgroundColor: "#28a745",
+                                                    color: "white",
+                                                    borderRadius: "4px",
+                                                    fontSize: "11px",
                                                   }}
                                                 >
-                                                  {i + 1}
-                                                </span>
-                                                {b.correctAnswer || "(trống)"}
-                                              </div>
-                                            ))}
+                                                  <span
+                                                    style={{
+                                                      backgroundColor:
+                                                        "rgba(255,255,255,0.3)",
+                                                      padding: "1px 5px",
+                                                      borderRadius: "3px",
+                                                      marginRight: "6px",
+                                                    }}
+                                                  >
+                                                    {displayNum}
+                                                  </span>
+                                                  {b.correctAnswer || "(trống)"}
+                                                </div>
+                                              );
+                                            })}
                                           </div>
                                         ) : (
                                           <span

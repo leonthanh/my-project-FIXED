@@ -1,7 +1,13 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import "../../../shared/styles/Login.css";
-import { API_BASE } from "../../../shared/utils/api";
+import {
+  API_BASE,
+  clearAuth,
+  getStoredUser,
+  hasStoredSession,
+  storeAuthSession,
+} from "../../../shared/utils/api";
 
 const Login = () => {
   const [name, setName] = useState("");
@@ -43,18 +49,10 @@ const Login = () => {
     if (params.get('reason') === 'expired') {
       setMessage('⚠️ Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
     }
-    let user = null;
-    try {
-      user = JSON.parse(localStorage.getItem("user") || "null");
-    } catch (err) {
-      localStorage.removeItem("user");
-      user = null;
-    }
-    const hasToken = Boolean(
-      localStorage.getItem("accessToken") || localStorage.getItem("refreshToken")
-    );
+    let user = getStoredUser();
+    const hasToken = hasStoredSession();
     if (user && !hasToken) {
-      localStorage.removeItem("user");
+      clearAuth();
       user = null;
     }
     if (user && hasToken && params.get('reason') !== 'expired') {
@@ -90,10 +88,11 @@ const Login = () => {
 
       const data = await res.json();
       if (res.ok) {
-        localStorage.setItem("user", JSON.stringify(data.user));
-        // Store access token so we can send Authorization headers for protected endpoints
-        if (data.accessToken) localStorage.setItem('accessToken', data.accessToken);
-        if (data.refreshToken) localStorage.setItem('refreshToken', data.refreshToken);
+        storeAuthSession({
+          user: data.user,
+          accessToken: data.accessToken,
+          refreshToken: data.refreshToken,
+        });
 
         setMessage("✅ " + data.message);
         // If a redirect was requested before login, go back there
@@ -152,9 +151,11 @@ const Login = () => {
 
       const data = await res.json().catch(() => ({}));
       if (res.ok) {
-        localStorage.setItem("user", JSON.stringify(data.user));
-        if (data.accessToken) localStorage.setItem("accessToken", data.accessToken);
-        if (data.refreshToken) localStorage.setItem("refreshToken", data.refreshToken);
+        storeAuthSession({
+          user: data.user,
+          accessToken: data.accessToken,
+          refreshToken: data.refreshToken,
+        });
         setMessage("✅ " + data.message);
         redirectAfterAuth(['teacher', 'admin'].includes(data.user.role) ? "/admin" : "/");
       } else {

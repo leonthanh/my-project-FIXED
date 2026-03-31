@@ -10,7 +10,7 @@ import ConfirmModal from "../../../shared/components/ConfirmModal";
 import ResultModal from "../../../shared/components/ResultModal";
 import "../styles/do-reading-test.css";
 import { normalizeQuestionType } from "../utils/questionHelpers";
-import { apiPath, hostPath } from "../../../shared/utils/api";
+import { apiPath, getStoredUser, hostPath } from "../../../shared/utils/api";
 /* eslint-disable no-loop-func */
 // Utility: Remove unwanted <span ...> tags from HTML
 function stripUnwantedHtml(html) {
@@ -108,9 +108,13 @@ const DoReadingTest = () => {
   const readingAnswersKey = `reading_test_${id}_answers:${storageUserId}`;
   const readingExpiresKey = `reading_test_${id}_expiresAt:${storageUserId}`;
   const readingStartedKey = `reading_test_${id}_started:${storageUserId}`;
+  const readingSubmissionKey = `reading_test_${id}_submissionId:${storageUserId}`;
 
   // Track absolute expiry so we can survive power-loss (ref avoids stale closure in effects)
   const expiresAtRef = React.useRef(null);
+  const submissionIdRef = useRef(null);
+  const confirmSubmitRef = useRef(null);
+  const autoSubmittingRef = useRef(false);
 
   const isQuestionAnswered = useCallback(
     (n) => {
@@ -146,21 +150,33 @@ const DoReadingTest = () => {
               }
 
               if (qType === "cloze-test" || qType === "summary-completion") {
-                const clozeText =
-                  q.paragraphText ||
-                  q.passageText ||
-                  q.text ||
-                  q.paragraph ||
-                  (q.questionText && q.questionText.includes("[BLANK]")
-                    ? q.questionText
-                    : null);
-                if (clozeText) {
-                  const blanks = (clozeText.match(/\[BLANK\]/gi) || []).length;
+                let blanks = 0;
+                if (q.clozeTable && Array.isArray(q.clozeTable.rows)) {
+                  blanks = q.clozeTable.rows.reduce((sum, row) => {
+                    const rowCount = (Array.isArray(row.cells) ? row.cells : []).reduce(
+                      (rsum, cell) => rsum + ((String(cell || "").match(/\[BLANK\]/gi) || []).length),
+                      0
+                    );
+                    return sum + rowCount;
+                  }, 0);
+                } else {
+                  const clozeText =
+                    q.paragraphText ||
+                    q.passageText ||
+                    q.text ||
+                    q.paragraph ||
+                    (q.questionText && q.questionText.includes("[BLANK]")
+                      ? q.questionText
+                      : null);
+                  blanks = clozeText ? (clozeText.match(/\[BLANK\]/gi) || []).length : 0;
+                }
+
+                if (blanks > 0) {
                   if (n >= qCounter && n < qCounter + blanks) {
                     isPartOfClozeTest = true;
                     break outerLoop;
                   }
-                  qCounter += blanks || 1;
+                  qCounter += blanks;
                   continue;
                 }
               }
@@ -503,9 +519,20 @@ const DoReadingTest = () => {
           }
           currentNum += blankCount;
         } else if (qType === "cloze-test" || qType === "summary-completion") {
-          const clozeText = q.paragraphText || q.passageText || q.text || q.paragraph || 
-            (q.questionText && q.questionText.includes("[BLANK]") ? q.questionText : null);
-          const blankCount = clozeText ? (clozeText.match(/\[BLANK\]/gi) || []).length : 1;
+          let blankCount = 0;
+          if (q.clozeTable && Array.isArray(q.clozeTable.rows)) {
+            blankCount = q.clozeTable.rows.reduce((sum, row) => {
+              const rowCount = (Array.isArray(row.cells) ? row.cells : []).reduce((rsum, cell) => {
+                return rsum + ((String(cell || "").match(/\[BLANK\]/gi) || []).length);
+              }, 0);
+              return sum + rowCount;
+            }, 0);
+          } else {
+            const clozeText = q.paragraphText || q.passageText || q.text || q.paragraph || 
+              (q.questionText && q.questionText.includes("[BLANK]") ? q.questionText : null);
+            blankCount = clozeText ? (clozeText.match(/\[BLANK\]/gi) || []).length : 1;
+          }
+          blankCount = blankCount || 1;
           for (let i = 0; i < blankCount; i++) {
             groups.push({ type: "single", start: startNum + i, count: 1 });
           }
@@ -599,10 +626,87 @@ const DoReadingTest = () => {
     }
   }, [timeRemaining, started, id, readingExpiresKey, readingStartedKey]);
 
+  // Autosave reading progress to the server so students can resume after re-login.
+  useEffect(() => {
+    if (!started || submitted || timeRemaining === null) return;
+
+    const user = getStoredUser();
+    if (!user?.id && !submissionIdRef.current) return;
+
+    const payload = {
+      submissionId: submissionIdRef.current,
+      answers,
+      expiresAt: expiresAtRef.current,
+      user,
+      progressMeta: {
+        started,
+        activeQuestion,
+        currentPartIndex,
+      },
+    };
+
+    const persistDraft = async () => {
+      try {
+        const res = await fetch(apiPath(`reading-submissions/${id}/autosave`), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        if (!res.ok) return;
+        const json = await res.json().catch(() => null);
+        if (json?.submissionId) {
+          submissionIdRef.current = json.submissionId;
+          localStorage.setItem(
+            readingSubmissionKey,
+            String(json.submissionId)
+          );
+        }
+      } catch (_err) {
+        // Keep localStorage as a fallback if the network is unstable.
+      }
+    };
+
+    const debounceId = setTimeout(persistDraft, 600);
+    const intervalId = setInterval(persistDraft, 15000);
+    const onBeforeUnload = () => {
+      persistDraft();
+    };
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "hidden") {
+        persistDraft();
+      }
+    };
+
+    window.addEventListener("beforeunload", onBeforeUnload);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+
+    return () => {
+      clearTimeout(debounceId);
+      clearInterval(intervalId);
+      window.removeEventListener("beforeunload", onBeforeUnload);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
+  }, [
+    activeQuestion,
+    answers,
+    currentPartIndex,
+    id,
+    readingSubmissionKey,
+    started,
+    submitted,
+    timeRemaining,
+  ]);
+
   // Fetch test data
   useEffect(() => {
     const fetchTest = async () => {
       try {
+        const localUser = getStoredUser();
+        const savedSubmissionId = localStorage.getItem(readingSubmissionKey);
+        if (savedSubmissionId) {
+          submissionIdRef.current = savedSubmissionId;
+        }
+
         const res = await fetch(apiPath(`reading-tests/${id}`));
         if (!res.ok) throw new Error("Failed to fetch test");
         const data = await res.json();
@@ -641,21 +745,108 @@ const DoReadingTest = () => {
         const normalized = normalizeTest(data);
         setTest(normalized);
 
-        // If there's a saved timer and the test was started, restore it; otherwise use test default
-        try {
-          const savedStarted = localStorage.getItem(readingStartedKey) === "true";
-          const savedExpiry = localStorage.getItem(readingExpiresKey);
+        let restoredFromServer = false;
+        const query = submissionIdRef.current
+          ? `?submissionId=${submissionIdRef.current}`
+          : localUser?.id
+            ? `?userId=${localUser.id}`
+            : "";
 
-          if (savedStarted && savedExpiry) {
-            const remaining = Math.max(0, Math.ceil((parseInt(savedExpiry, 10) - Date.now()) / 1000));
-            expiresAtRef.current = parseInt(savedExpiry, 10);
-            setTimeRemaining(remaining);
-            setStarted(true);
-          } else {
+        if (query) {
+          try {
+            const activeRes = await fetch(
+              apiPath(`reading-submissions/${id}/active${query}`)
+            );
+            if (activeRes.ok) {
+              const payload = await activeRes.json().catch(() => null);
+              const draft = payload?.submission || null;
+
+              if (draft && draft.finished !== true) {
+                restoredFromServer = true;
+                if (draft.id) {
+                  submissionIdRef.current = draft.id;
+                  localStorage.setItem(readingSubmissionKey, String(draft.id));
+                }
+
+                const serverAnswers =
+                  draft.answers &&
+                  typeof draft.answers === "object" &&
+                  !Array.isArray(draft.answers)
+                    ? draft.answers
+                    : {};
+                setAnswers(serverAnswers);
+                localStorage.setItem(
+                  readingAnswersKey,
+                  JSON.stringify(serverAnswers)
+                );
+
+                const expiresAtMs = draft.expiresAt
+                  ? new Date(draft.expiresAt).getTime()
+                  : null;
+                if (Number.isFinite(expiresAtMs)) {
+                  expiresAtRef.current = expiresAtMs;
+                  localStorage.setItem(readingExpiresKey, String(expiresAtMs));
+                  setTimeRemaining(
+                    Math.max(
+                      0,
+                      Math.ceil((expiresAtMs - Date.now()) / 1000)
+                    )
+                  );
+                } else {
+                  setTimeRemaining((normalized.durationMinutes || 60) * 60);
+                }
+
+                const progressMeta =
+                  draft.progressMeta &&
+                  typeof draft.progressMeta === "object" &&
+                  !Array.isArray(draft.progressMeta)
+                    ? draft.progressMeta
+                    : {};
+                const resumedStarted =
+                  progressMeta.started === true ||
+                  Boolean(expiresAtMs) ||
+                  Object.keys(serverAnswers).length > 0;
+                setStarted(resumedStarted);
+                localStorage.setItem(
+                  readingStartedKey,
+                  resumedStarted ? "true" : "false"
+                );
+
+                if (Number.isFinite(Number(progressMeta.activeQuestion))) {
+                  setActiveQuestion(Number(progressMeta.activeQuestion));
+                }
+                if (Number.isFinite(Number(progressMeta.currentPartIndex))) {
+                  setCurrentPartIndex(Number(progressMeta.currentPartIndex));
+                  setExpandedPart(Number(progressMeta.currentPartIndex));
+                }
+              }
+            }
+          } catch (resumeErr) {
+            console.error("Error restoring reading draft from server:", resumeErr);
+          }
+        }
+
+        if (!restoredFromServer) {
+          // If there's a saved timer and the test was started, restore it; otherwise use test default
+          try {
+            const savedStarted =
+              localStorage.getItem(readingStartedKey) === "true";
+            const savedExpiry = localStorage.getItem(readingExpiresKey);
+
+            if (savedStarted && savedExpiry) {
+              const remaining = Math.max(
+                0,
+                Math.ceil((parseInt(savedExpiry, 10) - Date.now()) / 1000)
+              );
+              expiresAtRef.current = parseInt(savedExpiry, 10);
+              setTimeRemaining(remaining);
+              setStarted(true);
+            } else {
+              setTimeRemaining((normalized.durationMinutes || 60) * 60);
+            }
+          } catch (e) {
             setTimeRemaining((normalized.durationMinutes || 60) * 60);
           }
-        } catch (e) {
-          setTimeRemaining((normalized.durationMinutes || 60) * 60);
         }
 
         // Migrate saved answers if necessary: older saves may have keys like `q_<n>` (single) for paragraph-matching
@@ -745,7 +936,13 @@ const DoReadingTest = () => {
       }
     };
     fetchTest();
-  }, [id]);
+  }, [
+    id,
+    readingAnswersKey,
+    readingExpiresKey,
+    readingStartedKey,
+    readingSubmissionKey,
+  ]);
 
   // Timer countdown (runs only when started)
   useEffect(() => {
@@ -776,6 +973,20 @@ const DoReadingTest = () => {
 
     return () => clearInterval(timer);
   }, [timeRemaining, submitted, timerWarning, timerCritical, started]);
+
+  useEffect(() => {
+    if (!started || submitted || timeRemaining === null || timeRemaining > 0) {
+      return;
+    }
+    if (autoSubmittingRef.current || !confirmSubmitRef.current) {
+      return;
+    }
+
+    autoSubmittingRef.current = true;
+    setTimeUp(true);
+    setShowConfirm(false);
+    confirmSubmitRef.current();
+  }, [started, submitted, timeRemaining]);
 
   // Format time
   const formatTime = (seconds) => {
@@ -913,17 +1124,34 @@ const DoReadingTest = () => {
           }
           // For cloze test, count each blank as a question
           else if (qType === "cloze-test" || qType === "summary-completion") {
-            const clozeText =
-              q.paragraphText ||
-              q.passageText ||
-              q.text ||
-              q.paragraph ||
-              (q.questionText && q.questionText.includes("[BLANK]")
-                ? q.questionText
-                : null);
+            let blankMatches = [];
+            if (q.clozeTable && Array.isArray(q.clozeTable.rows)) {
+              const totalBlanks = q.clozeTable.rows.reduce((cnt, row) => {
+                return (
+                  cnt +
+                  (Array.isArray(row.cells)
+                    ? row.cells.reduce(
+                        (rc, cell) =>
+                          rc + ((String(cell || "").match(/\[BLANK\]/gi) || []).length),
+                        0
+                      )
+                    : 0)
+                );
+              }, 0);
+              blankMatches = Array.from({ length: totalBlanks });
+            } else {
+              const clozeText =
+                q.paragraphText ||
+                q.passageText ||
+                q.text ||
+                q.paragraph ||
+                (q.questionText && q.questionText.includes("[BLANK]")
+                  ? q.questionText
+                  : null);
+              blankMatches = clozeText ? clozeText.match(/\[BLANK\]/gi) || [] : [];
+            }
 
-            if (clozeText) {
-              const blankMatches = clozeText.match(/\[BLANK\]/gi) || [];
+            if (blankMatches.length > 0) {
               const baseKey = `q_${total + 1}`;
 
               blankMatches.forEach((_, bi) => {
@@ -1223,6 +1451,7 @@ const DoReadingTest = () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           answers,
+          submissionId: submissionIdRef.current,
           user,
           studentName: user?.name || undefined,
           studentId: user?.id || undefined,
@@ -1236,7 +1465,9 @@ const DoReadingTest = () => {
       localStorage.removeItem(readingAnswersKey);
       localStorage.removeItem(readingExpiresKey);
       localStorage.removeItem(readingStartedKey);
+      localStorage.removeItem(readingSubmissionKey);
       expiresAtRef.current = null;
+      submissionIdRef.current = null;
       // Also clear in-memory answers so the auto-save effect doesn't re-persist them
       setAnswers({});
 
@@ -1252,11 +1483,16 @@ const DoReadingTest = () => {
       }
     } catch (err) {
       console.error("Error submitting reading test:", err);
+      autoSubmittingRef.current = false;
       alert("Có lỗi khi nộp bài. Vui lòng thử lại.");
     } finally {
       setShowConfirm(false);
     }
   };
+
+  useEffect(() => {
+    confirmSubmitRef.current = confirmSubmit;
+  }, [confirmSubmit]);
 
   // Build passage paragraph options if structured data not provided
   useEffect(() => {
@@ -2477,13 +2713,96 @@ const DoReadingTest = () => {
 
               {/* If passage text exists with [BLANK], render inline */}
               {(() => {
+                if (question.clozeTable && Array.isArray(question.clozeTable.rows)) {
+                  const table = question.clozeTable;
+                  let blankIndex = 0;
+                  const baseQuestionNum = question.startQuestion || questionNumber;
+
+                  return (
+                    <div className="cloze-table-wrapper" style={{ overflowX: 'auto' }}>
+                      <table className="cloze-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
+                        <thead>
+                          <tr>
+                            {(table.columns || []).map((col, ci) => (
+                              <th key={ci} style={{ border: '1px solid #cbd5e1', padding: '8px', background: '#e0f2fe' }}>
+                                {col}
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(table.rows || []).map((row, ri) => (
+                            <tr key={ri}>
+                              {(row.cells || []).map((cell, ci) => (
+                                <td key={ci} style={{ border: '1px solid #cbd5e1', padding: '8px', verticalAlign: 'top' }}>
+                                  {String(cell || '').split(/\[BLANK\]/gi).reduce((parts, part, idx, arr) => {
+                                    if (idx === arr.length - 1) {
+                                      return [...parts, <span key={`${ri}-${ci}-${idx}`}>{part}</span>];
+                                    }
+                                    const currentBlankIdx = blankIndex++;
+                                    const blankNum = baseQuestionNum + currentBlankIdx;
+                                    const blankKey = `${key}_${currentBlankIdx}`;
+
+                                    const blankInput = question.options && question.options.length > 0 ? (
+                                      <select
+                                        className={'cloze-inline-select ' + (answers[blankKey] ? 'answered' : '')}
+                                        value={answers[blankKey] || ''}
+                                        onChange={(e) => handleAnswerChange(blankKey, e.target.value)}
+                                        onFocus={() => setActiveQuestion(blankNum)}
+                                      >
+                                        <option value="">--</option>
+                                        {question.options.map((opt, oi) => (
+                                          <option key={oi} value={String.fromCharCode(65 + oi)}>
+                                            {`${String.fromCharCode(65 + oi)}. ${stripUnwantedHtml(
+                                              typeof opt === 'object' ? opt.text || opt.label || '' : opt
+                                            )}`}
+                                          </option>
+                                        ))}
+                                      </select>
+                                    ) : (
+                                      <input
+                                        type="text"
+                                        className={'cloze-inline-input ' + (answers[blankKey] ? 'answered' : '')}
+                                        value={answers[blankKey] || ''}
+                                        onChange={(e) => handleAnswerChange(blankKey, e.target.value)}
+                                        onFocus={() => setActiveQuestion(blankNum)}
+                                      />
+                                    );
+
+                                    return [
+                                      ...parts,
+                                      <span key={`${ri}-${ci}-${idx}`}>{part}</span>,
+                                      <span
+                                        key={`${ri}-${ci}-blank-${idx}`}
+                                        className="cloze-inline-wrapper"
+                                        ref={(el) => (questionRefs.current[`q_${blankNum}`] = el)}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setActiveQuestion(blankNum);
+                                        }}
+                                        style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                                      >
+                                        <span className="cloze-inline-number">{blankNum}</span>
+                                        {blankInput}
+                                      </span>,
+                                    ];
+                                  }, [])}
+                                </td>
+                              ))}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  );
+                }
+
                 if (clozeText && clozeText.includes("[BLANK]")) {
                   return (
                     <div className="cloze-passage">
                       {(() => {
                         let blankIndex = 0;
-                        const baseQuestionNum =
-                          question.startQuestion || questionNumber;
+                        const baseQuestionNum = question.startQuestion || questionNumber;
                         return clozeText
                           .split(/\[BLANK\]/gi)
                           .map((part, idx, arr) => {
@@ -2499,6 +2818,7 @@ const DoReadingTest = () => {
                             }
                             const currentBlankIdx = blankIndex++;
                             const blankNum = baseQuestionNum + currentBlankIdx;
+                            const answerKey = `${key}_${currentBlankIdx}`;
                             return (
                               <span key={idx}>
                                 <span
@@ -2508,38 +2828,25 @@ const DoReadingTest = () => {
                                 />
                                 <span
                                   className="cloze-inline-wrapper"
-                                  ref={(el) =>
-                                    (questionRefs.current[`q_${blankNum}`] = el)
-                                  }
+                                  ref={(el) => (questionRefs.current[`q_${blankNum}`] = el)}
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     setActiveQuestion(blankNum);
                                   }}
                                 >
-                                  <span className="cloze-inline-number">
-                                    {blankNum}
-                                  </span>
+                                  <span className="cloze-inline-number">{blankNum}</span>
                                   {question.options && question.options.length > 0 ? (
                                     <select
-                                      className={'cloze-inline-select ' + (answers[key + '_' + currentBlankIdx] ? 'answered' : '')}
-                                      value={
-                                        answers[key + '_' + currentBlankIdx] || ""
-                                      }
-                                      onChange={(e) =>
-                                        handleAnswerChange(
-                                          key + '_' + currentBlankIdx,
-                                          e.target.value
-                                        )
-                                      }
+                                      className={'cloze-inline-select ' + (answers[answerKey] ? 'answered' : '')}
+                                      value={answers[answerKey] || ''}
+                                      onChange={(e) => handleAnswerChange(answerKey, e.target.value)}
                                       onFocus={() => setActiveQuestion(blankNum)}
                                     >
                                       <option value="">--</option>
                                       {question.options.map((opt, oi) => (
                                         <option key={oi} value={String.fromCharCode(65 + oi)}>
                                           {`${String.fromCharCode(65 + oi)}. ${stripUnwantedHtml(
-                                            typeof opt === "object"
-                                              ? opt.text || opt.label || ""
-                                              : opt
+                                            typeof opt === 'object' ? opt.text || opt.label || '' : opt
                                           )}`}
                                         </option>
                                       ))}
@@ -2547,20 +2854,13 @@ const DoReadingTest = () => {
                                   ) : (
                                     <input
                                       type="text"
-                                      className={'cloze-inline-input ' + (answers[key + '_' + currentBlankIdx] ? 'answered' : '')}
-                                      value={
-                                        answers[key + '_' + currentBlankIdx] || ""
-                                      }
-                                      onChange={(e) =>
-                                        handleAnswerChange(
-                                          key + '_' + currentBlankIdx,
-                                          e.target.value
-                                        )
-                                      }
+                                      className={'cloze-inline-input ' + (answers[answerKey] ? 'answered' : '')}
+                                      value={answers[answerKey] || ''}
+                                      onChange={(e) => handleAnswerChange(answerKey, e.target.value)}
                                       onFocus={() => setActiveQuestion(blankNum)}
                                       placeholder=""
                                     />
-                                  )} 
+                                  )}
                                 </span>
                               </span>
                             );
@@ -2568,59 +2868,58 @@ const DoReadingTest = () => {
                       })()}
                     </div>
                   );
-                } else {
-                  // Fallback to blank rows if no passage text
-                  return (question.blanks || []).map((blank, bi) => {
-                    const blankQuestionNum = questionNumber + bi;
-                    return (
-                      <div
-                        key={bi}
-                        ref={(el) =>
-                          (questionRefs.current[`q_${blankQuestionNum}`] = el)
-                        }
-                        className="cloze-blank-row"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setActiveQuestion(blankQuestionNum);
-                        }}
-                      >
-                        <span className="cloze-blank-number">
-                          {blank.id || blankQuestionNum}.
-                        </span>
-                        {question.options && question.options.length > 0 ? (
-                          <select
-                            className={'cloze-select ' + (answers[key + '_' + bi] ? 'answered' : '')}
-                            value={answers[key + '_' + bi] || ""}
-                            onChange={(e) =>
-                              handleAnswerChange(key + '_' + bi, e.target.value)
-                            }
-                            onFocus={() => setActiveQuestion(blankQuestionNum)}
-                          >
-                            <option value="">-- Select --</option>
-                            {question.options.map((opt, oi) => (
-                              <option key={oi} value={String.fromCharCode(65 + oi)}>
-                                {`${String.fromCharCode(65 + oi)}. ${stripUnwantedHtml(
-                                  typeof opt === "object" ? opt.text || opt.label || "" : opt
-                                )}`}
-                              </option>
-                            ))}
-                          </select>
-                        ) : (
-                          <input
-                            type="text"
-                            className={'cloze-input ' + (answers[key + '_' + bi] ? 'answered' : '')}
-                            value={answers[key + '_' + bi] || ""}
-                            onChange={(e) =>
-                              handleAnswerChange(key + '_' + bi, e.target.value)
-                            }
-                            onFocus={() => setActiveQuestion(blankQuestionNum)}
-                            placeholder="Type answer..."
-                          />
-                        )}
-                      </div>
-                    );
-                  });
                 }
+
+                return (question.blanks || []).map((blank, bi) => {
+                  const blankQuestionNum = questionNumber + bi;
+                  return (
+                    <div
+                      key={bi}
+                      ref={(el) =>
+                        (questionRefs.current[`q_${blankQuestionNum}`] = el)
+                      }
+                      className="cloze-blank-row"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setActiveQuestion(blankQuestionNum);
+                      }}
+                    >
+                      <span className="cloze-blank-number">
+                        {blank.id || blankQuestionNum}.
+                      </span>
+                      {question.options && question.options.length > 0 ? (
+                        <select
+                          className={'cloze-select ' + (answers[key + '_' + bi] ? 'answered' : '')}
+                          value={answers[key + '_' + bi] || ""}
+                          onChange={(e) =>
+                            handleAnswerChange(key + '_' + bi, e.target.value)
+                          }
+                          onFocus={() => setActiveQuestion(blankQuestionNum)}
+                        >
+                          <option value="">-- Select --</option>
+                          {question.options.map((opt, oi) => (
+                            <option key={oi} value={String.fromCharCode(65 + oi)}>
+                              {`${String.fromCharCode(65 + oi)}. ${stripUnwantedHtml(
+                                typeof opt === "object" ? opt.text || opt.label || "" : opt
+                              )}`}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <input
+                          type="text"
+                          className={'cloze-input ' + (answers[key + '_' + bi] ? 'answered' : '')}
+                          value={answers[key + '_' + bi] || ""}
+                          onChange={(e) =>
+                            handleAnswerChange(key + '_' + bi, e.target.value)
+                          }
+                          onFocus={() => setActiveQuestion(blankQuestionNum)}
+                          placeholder="Type answer..."
+                        />
+                      )}
+                    </div>
+                  );
+                });
               })()}
             </div>
           )}

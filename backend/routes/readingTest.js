@@ -373,19 +373,62 @@ router.post("/:id/submit", async (req, res) => {
     // Store submission to DB
     try {
       const ReadingSubmission = require("../models/ReadingSubmission");
-      const sub = await ReadingSubmission.create({
-        testId: id,
-        userName:
-          req.body.studentName ||
-          (req.body.user && req.body.user.name) ||
-          "Unknown",
-        userId: req.body.user && req.body.user.id ? req.body.user.id : null,
-        answers: answers || {},
-        correct: result.correct,
-        total: result.total,
-        band: result.band,
-        scorePercentage: result.scorePercentage,
-      });
+      const resolvedUserName =
+        req.body.studentName ||
+        (req.body.user && req.body.user.name) ||
+        (req.body.user && req.body.user.username) ||
+        "Unknown";
+      const resolvedUserId =
+        req.body.user && req.body.user.id ? Number(req.body.user.id) : null;
+      const explicitSubmissionId = Number(req.body.submissionId) || null;
+
+      let sub = null;
+      if (explicitSubmissionId) {
+        sub = await ReadingSubmission.findByPk(explicitSubmissionId);
+        if (sub && sub.finished) {
+          sub = null;
+        }
+      }
+
+      if (!sub && resolvedUserId) {
+        sub = await ReadingSubmission.findOne({
+          where: {
+            testId: String(id),
+            userId: resolvedUserId,
+            finished: false,
+          },
+          order: [["updatedAt", "DESC"]],
+        });
+      }
+
+      if (sub) {
+        await sub.update({
+          testId: String(id),
+          userName: resolvedUserName,
+          userId: resolvedUserId,
+          answers: answers || {},
+          correct: result.correct,
+          total: result.total,
+          band: result.band,
+          scorePercentage: result.scorePercentage,
+          expiresAt: null,
+          finished: true,
+          lastSavedAt: null,
+          progressMeta: null,
+        });
+      } else {
+        sub = await ReadingSubmission.create({
+          testId: id,
+          userName: resolvedUserName,
+          userId: resolvedUserId,
+          answers: answers || {},
+          correct: result.correct,
+          total: result.total,
+          band: result.band,
+          scorePercentage: result.scorePercentage,
+          finished: true,
+        });
+      }
 
       console.log(
         `✅ Saved reading submission id=${sub.id} (test=${id}, user=${sub.userName})`

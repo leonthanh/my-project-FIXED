@@ -12,6 +12,24 @@ import QuillEditor from './QuillEditor';
 
 const ClozeTestQuestion = ({ question, onChange }) => {
   const [paragraphText, setParagraphText] = useState(question?.paragraphText || '');
+  const [tableMode, setTableMode] = useState(question?.tableMode || false);
+  const [tableColumns, setTableColumns] = useState(question?.tableColumns || ['Test', 'Findings']);
+  const [tableRows, setTableRows] = useState(
+    question?.tableRows || [
+      {
+        cells: [
+          'Observing the [BLANK] of Russian-English bilingual people when asked to select certain objects',
+          'Bilingual people engage both languages simultaneously: a mechanism known as [BLANK].',
+        ],
+      },
+      {
+        cells: [
+          'A test called the [BLANK], focusing on naming colours',
+          'Bilingual people are more able to handle tasks involving a skill called [BLANK].',
+        ],
+      },
+    ]
+  );
   const [maxWords, setMaxWords] = useState(question?.maxWords || 3);
   const [blanks, setBlanks] = useState(question?.blanks || []);
   const quillRef = useRef(null);
@@ -27,10 +45,16 @@ const ClozeTestQuestion = ({ question, onChange }) => {
     return temp.textContent || temp.innerText || '';
   };
 
-  // Phát hiện [BLANK] và tạo blanks array
+  // Phát hiện [BLANK] và tạo blanks array (hỗ trợ paragraph + table)
   useEffect(() => {
-    const plainText = stripHtml(paragraphText);
-    const blankMatches = plainText.match(/\[BLANK\]/g) || [];
+    const rawText = tableMode
+      ? tableRows
+          .map((row) => row.cells.join(' '))
+          .join(' ')
+      : paragraphText;
+
+    const plainText = tableMode ? rawText : stripHtml(rawText);
+    const blankMatches = (plainText.match(/\[BLANK\]/gi) || []);
     const newBlanks = blankMatches.map((_, idx) => ({
       id: `blank_${idx}`,
       blankNumber: idx + 1,
@@ -38,7 +62,7 @@ const ClozeTestQuestion = ({ question, onChange }) => {
     }));
     setBlanks(newBlanks);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [paragraphText]);
+  }, [paragraphText, tableMode, tableColumns, tableRows]);
 
   // Cập nhật question object
   useEffect(() => {
@@ -47,11 +71,18 @@ const ClozeTestQuestion = ({ question, onChange }) => {
         ...question,
         paragraphText,
         maxWords,
-        blanks
+        blanks,
+        tableMode,
+        clozeTable: tableMode
+          ? {
+              columns: tableColumns,
+              rows: tableRows,
+            }
+          : question.clozeTable || null,
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [paragraphText, maxWords, blanks]);
+  }, [paragraphText, maxWords, blanks, tableMode, tableColumns, tableRows]);
 
   const handleBlankChange = (idx, value) => {
     const newBlanks = [...blanks];
@@ -71,8 +102,48 @@ const ClozeTestQuestion = ({ question, onChange }) => {
     setParagraphText((prev) => `${prev || ''} [BLANK]`);
   };
 
+  // Hiển thị preview bảng khi ở table mode
+  const renderTablePreview = () => {
+    if (!tableRows || tableRows.length === 0) return null;
+
+    return (
+      <div style={{ overflowX: 'auto', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '8px' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <thead>
+            <tr>
+              {tableColumns.map((col, ci) => (
+                <th key={ci} style={{ border: '1px solid #cbd5e1', padding: '8px', background: '#e0f2fe' }}>{col}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {tableRows.map((row, ri) => (
+              <tr key={ri}>
+                {row.cells.map((cell, ci) => (
+                  <td key={ci} style={{ border: '1px solid #cbd5e1', padding: '8px' }}>
+                    {cell.split(/\[BLANK\]/gi).reduce((parts, part, idx, arr) => {
+                      if (idx === arr.length - 1) {
+                        return [...parts, <span key={`${ri}-${ci}-${idx}`}>{part}</span>];
+                      }
+                      return [
+                        ...parts,
+                        <span key={`${ri}-${ci}-${idx}`}>{part}</span>,
+                        <strong key={`${ri}-${ci}-blank-${idx}`} style={{ backgroundColor: '#dbeafe', padding: '2px 4px', borderRadius: '4px' }}>[BLANK]</strong>,
+                      ];
+                    }, [])}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
+  };
+
   // Hiển thị preview đoạn văn với input fields
   const renderPreview = () => {
+    if (tableMode) return renderTablePreview();
     if (!paragraphText) return null;
 
     let questionNum = parseInt(question?.questionNumber) || 1;
@@ -264,7 +335,43 @@ const ClozeTestQuestion = ({ question, onChange }) => {
         <span style={styles.headerBadge}>IELTS Reading/Listening</span>
       </div>
 
+      {/* Input Mode */}
+      <div style={{ ...styles.section, backgroundColor: '#f8fafc', padding: '12px 16px', borderRadius: '8px', border: '1px solid #dbeafe', marginBottom: '16px' }}>
+        <strong>Chọn kiểu câu hỏi Cloze:</strong>
+        <div style={{ marginTop: '8px', display: 'flex', gap: '8px' }}>
+          <button
+            type="button"
+            onClick={() => setTableMode(false)}
+            style={{
+              padding: '8px 14px',
+              borderRadius: '6px',
+              border: '1px solid #0ea5e9',
+              backgroundColor: tableMode ? 'white' : '#0ea5e9',
+              color: tableMode ? '#0ea5e9' : 'white',
+              cursor: 'pointer',
+            }}
+          >
+            Văn bản (paragraph)
+          </button>
+          <button
+            type="button"
+            onClick={() => setTableMode(true)}
+            style={{
+              padding: '8px 14px',
+              borderRadius: '6px',
+              border: '1px solid #0ea5e9',
+              backgroundColor: tableMode ? '#0ea5e9' : 'white',
+              color: tableMode ? 'white' : '#0ea5e9',
+              cursor: 'pointer',
+            }}
+          >
+            Bảng (table)
+          </button>
+        </div>
+      </div>
+
       {/* Paragraph Input */}
+      {!tableMode && (
       <div style={styles.section}>
         <h5 style={styles.sectionTitle}>
           <span>📖</span> Nhập đoạn văn (Đánh dấu chỗ trống bằng [BLANK]):
@@ -295,6 +402,117 @@ const ClozeTestQuestion = ({ question, onChange }) => {
           <span><strong>Tip:</strong> Sử dụng <code style={{ backgroundColor: '#fef3c7', padding: '2px 6px', borderRadius: '4px' }}>[BLANK]</code> để đánh dấu mỗi chỗ trống trong đoạn văn</span>
         </div>
       </div>
+      )}
+
+      {tableMode && (
+      <div style={styles.section}>
+        <h5 style={styles.sectionTitle}>
+          <span>📊</span> Nhập bảng Cloze (Chèn [BLANK] trong mỗi ô):
+        </h5>
+
+        <div style={{ marginBottom: '16px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+            {tableColumns.map((col, ci) => (
+              <div key={ci} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <input
+                  type="text"
+                  value={col}
+                  onChange={(e) => {
+                    const next = [...tableColumns];
+                    next[ci] = e.target.value;
+                    setTableColumns(next);
+                  }}
+                  style={{ ...styles.answerInput, minWidth: '160px' }}
+                />
+                {tableColumns.length > 1 && (
+                  <button type="button" onClick={() => setTableColumns(tableColumns.filter((_, i) => i !== ci))} style={{ padding: '6px 8px' }}>✕</button>
+                )}
+              </div>
+            ))}
+            <button type="button" onClick={() => setTableColumns([...tableColumns, `Cột ${tableColumns.length + 1}`])} style={{ padding: '8px 12px', fontWeight: 700 }}>➕ Thêm cột</button>
+          </div>
+        </div>
+
+        <div style={{ marginBottom: '16px' }}>
+          {tableRows.map((row, ri) => (
+            <div key={ri} style={{ marginBottom: '10px', border: '1px solid #dbeafe', borderRadius: '8px', padding: '10px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                <strong>Hàng {ri + 1}</strong>
+                <button type="button" onClick={() => setTableRows(tableRows.filter((_, i) => i !== ri))} style={{ padding: '6px 8px' }}>🗑 Xóa hàng</button>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {tableColumns.map((col, ci) => (
+                  <div key={ci} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ minWidth: '70px', fontSize: '13px', color: '#0e276f' }}>{col}:</span>
+                    <input
+                      type="text"
+                      value={row.cells?.[ci] || ''}
+                      onChange={(e) => {
+                        const next = [...tableRows];
+                        const targetRow = { ...next[ri] };
+                        const cells = [...(targetRow.cells || [])];
+                        cells[ci] = e.target.value;
+                        targetRow.cells = cells;
+                        next[ri] = targetRow;
+                        setTableRows(next);
+                      }}
+                      style={{ ...styles.answerInput, flex: 1 }}
+                      placeholder="Nhập nội dung, dùng [BLANK] cho chỗ trống"
+                    />
+                    <button type="button" onClick={() => {
+                      const next = [...tableRows];
+                      const targetRow = { ...next[ri] };
+                      const cells = [...(targetRow.cells || [])];
+                      cells[ci] = `${cells[ci] || ''} [BLANK]`;
+                      targetRow.cells = cells;
+                      next[ri] = targetRow;
+                      setTableRows(next);
+                    }} style={{ padding: '6px 10px' }}>➕ [BLANK]</button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+          <button type="button" onClick={() => setTableRows([...tableRows, { cells: tableColumns.map(() => '') }])} style={{ padding: '8px 12px', fontWeight: 700 }}>➕ Thêm hàng</button>
+        </div>
+
+        <div style={styles.helpSection}>
+          💡 Bảng preview:
+        </div>
+
+        <div style={{ overflowX: 'auto', marginTop: '10px', border: '1px solid #cbd5e1', borderRadius: '8px' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr>
+                {tableColumns.map((col, ci) => (
+                  <th key={ci} style={{ border: '1px solid #cbd5e1', padding: '8px', background: '#e0f2fe' }}>{col}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {tableRows.map((row, ri) => (
+                <tr key={ri}>
+                  {row.cells.map((cell, ci) => (
+                    <td key={ci} style={{ border: '1px solid #cbd5e1', padding: '8px', verticalAlign: 'top' }}>
+                      {cell.split(/\[BLANK\]/gi).reduce((parts, part, idx, arr) => {
+                        if (idx === arr.length - 1) {
+                          return [...parts, <span key={`${ri}-${ci}-${idx}`}>{part}</span>];
+                        }
+                        return [
+                          ...parts,
+                          <span key={`${ri}-${ci}-${idx}`}>{part}</span>,
+                          <strong key={`${ri}-${ci}-blank-${idx}`} style={{ backgroundColor: '#dbeafe', padding: '2px 4px', borderRadius: '4px' }}>[BLANK]</strong>,
+                        ];
+                      }, [])}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      )}
 
       {/* Max Words */}
       <div style={styles.section}>

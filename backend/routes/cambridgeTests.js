@@ -1,8 +1,13 @@
 const express = require("express");
 const router = express.Router();
 const { CambridgeListening, CambridgeReading, CambridgeSubmission } = require("../models");
+const { Op } = require("sequelize");
 const { logError } = require("../logger");
 const { processTestParts } = require("../utils/clozParser");
+
+const FINALIZED_CAMBRIDGE_WHERE = {
+  [Op.or]: [{ finished: true }, { finished: null }],
+};
 
 // Compute total questions from parts so frontend displays stay in sync with teacher view
 const safeParseParts = (rawParts) => {
@@ -96,6 +101,51 @@ const countTotalQuestionsFromParts = (rawParts = []) => {
   });
 
   return total;
+};
+
+const normalizeCambridgeProgressMeta = (meta = {}) => {
+  if (!meta || typeof meta !== "object" || Array.isArray(meta)) {
+    return {};
+  }
+  return meta;
+};
+
+const getCambridgeModelByType = (testType = "") => {
+  const normalized = String(testType || "").trim().toLowerCase();
+  return normalized.includes("listening") ? CambridgeListening : CambridgeReading;
+};
+
+const getCambridgeTestRecord = async (testId, testType) => {
+  const Model = getCambridgeModelByType(testType);
+  return Model.findByPk(testId);
+};
+
+const findActiveCambridgeDraft = async ({
+  submissionId,
+  testId,
+  testType,
+  userId,
+}) => {
+  if (submissionId) {
+    const sub = await CambridgeSubmission.findByPk(submissionId);
+    if (sub && sub.finished === false) {
+      return sub;
+    }
+  }
+
+  if (!userId) {
+    return null;
+  }
+
+  return CambridgeSubmission.findOne({
+    where: {
+      testId: Number(testId),
+      testType: String(testType || ""),
+      userId: Number(userId),
+      finished: false,
+    },
+    order: [["updatedAt", "DESC"]],
+  });
 };
 
 // Backward-compatible alias used below
@@ -1228,6 +1278,150 @@ const scoreQuestion = (userAnswer, correctAnswer, questionType) => {
   return acceptedAnswers.some((ans) => normalize(ans) === userNorm);
 };
 
+// POST autosave Cambridge progress for reading/listening
+router.post("/submissions/autosave", async (req, res) => {
+  try {
+    const {
+      testId,
+      testType,
+      submissionId,
+      answers,
+      expiresAt,
+      user,
+      progressMeta,
+      studentName,
+      studentPhone,
+      studentEmail,
+      classCode,
+    } = req.body || {};
+
+    const numericTestId = Number(testId);
+    const normalizedTestType = String(testType || "").trim();
+    if (!numericTestId || !normalizedTestType) {
+      return res.status(400).json({ message: "Missing testId or testType." });
+    }
+
+    const resolvedUserId = Number(user?.id) || null;
+    const test = await getCambridgeTestRecord(numericTestId, normalizedTestType);
+    const parsedExpiresAt = Number.isFinite(Number(expiresAt))
+      ? new Date(Number(expiresAt))
+      : null;
+    const normalizedAnswers =
+      answers && typeof answers === "object" && !Array.isArray(answers)
+        ? answers
+        : {};
+    const normalizedProgressMeta =
+      normalizeCambridgeProgressMeta(progressMeta);
+    const now = new Date();
+
+    let submission = await findActiveCambridgeDraft({
+      submissionId: Number(submissionId) || null,
+      testId: numericTestId,
+      testType: normalizedTestType,
+      userId: resolvedUserId,
+    });
+
+    if (submission) {
+      await submission.update({
+        answers: normalizedAnswers,
+        expiresAt: parsedExpiresAt || submission.expiresAt,
+        lastSavedAt: now,
+        progressMeta: normalizedProgressMeta,
+        studentName:
+          studentName ||
+          user?.name ||
+          user?.username ||
+          submission.studentName ||
+          "Unknown",
+        studentPhone:
+          studentPhone || user?.phone || submission.studentPhone || null,
+        studentEmail:
+          studentEmail || user?.email || submission.studentEmail || null,
+        classCode:
+          classCode || test?.classCode || submission.classCode || null,
+        teacherName: test?.teacherName || submission.teacherName || null,
+        testTitle: test?.title || submission.testTitle || null,
+      });
+    } else {
+      submission = await CambridgeSubmission.create({
+        testId: numericTestId,
+        testType: normalizedTestType,
+        testTitle: test?.title || null,
+        studentName:
+          studentName || user?.name || user?.username || "Unknown",
+        studentPhone: studentPhone || user?.phone || null,
+        studentEmail: studentEmail || user?.email || null,
+        classCode: classCode || test?.classCode || null,
+        userId: resolvedUserId,
+        answers: normalizedAnswers,
+        score: 0,
+        totalQuestions: 0,
+        percentage: 0,
+        detailedResults: null,
+        timeSpent: null,
+        timeRemaining: null,
+        teacherName: test?.teacherName || null,
+        feedback: null,
+        feedbackBy: null,
+        feedbackAt: null,
+        feedbackSeen: false,
+        status: "submitted",
+        finished: false,
+        expiresAt: parsedExpiresAt,
+        lastSavedAt: now,
+        progressMeta: normalizedProgressMeta,
+        submittedAt: null,
+      });
+    }
+
+    return res.json({
+      message: "Draft saved.",
+      submissionId: submission.id,
+      savedAt: submission.lastSavedAt,
+    });
+  } catch (err) {
+    console.error("❌ Error autosaving Cambridge submission:", err);
+    return res.status(500).json({
+      message: "Failed to autosave Cambridge submission.",
+      error: err.message,
+    });
+  }
+});
+
+// GET latest active Cambridge draft by submissionId or userId
+router.get("/submissions/active", async (req, res) => {
+  try {
+    const {
+      testId,
+      testType,
+      submissionId,
+      userId,
+    } = req.query;
+
+    const numericTestId = Number(testId);
+    const normalizedTestType = String(testType || "").trim();
+
+    if (!numericTestId || !normalizedTestType) {
+      return res.status(400).json({ message: "Missing testId or testType." });
+    }
+
+    const submission = await findActiveCambridgeDraft({
+      submissionId: Number(submissionId) || null,
+      testId: numericTestId,
+      testType: normalizedTestType,
+      userId: Number(userId) || null,
+    });
+
+    return res.json({ submission: submission ? submission.toJSON() : null });
+  } catch (err) {
+    console.error("❌ Error fetching active Cambridge draft:", err);
+    return res.status(500).json({
+      message: "Failed to fetch Cambridge draft.",
+      error: err.message,
+    });
+  }
+});
+
 // POST submit listening test
 router.post("/listening-tests/:id/submit", async (req, res) => {
   try {
@@ -1239,6 +1433,7 @@ router.post("/listening-tests/:id/submit", async (req, res) => {
       studentEmail,
       classCode,
       userId,
+      submissionId,
       timeRemaining,
       timeSpent 
     } = req.body;
@@ -1270,9 +1465,15 @@ router.post("/listening-tests/:id/submit", async (req, res) => {
       }
     }
 
-    // Create submission
-    const submission = await CambridgeSubmission.create({
-      testId: parseInt(id),
+    let submission = await findActiveCambridgeDraft({
+      submissionId: Number(submissionId) || null,
+      testId: parseInt(id, 10),
+      testType: test.testType,
+      userId: userId || null,
+    });
+
+    const finalizedPayload = {
+      testId: parseInt(id, 10),
       testType: test.testType,
       testTitle: test.title,
       studentName: finalStudentName || 'Unknown',
@@ -1280,7 +1481,7 @@ router.post("/listening-tests/:id/submit", async (req, res) => {
       studentEmail: studentEmail || null,
       classCode: finalClassCode,
       userId: userId || null,
-      answers: answers,
+      answers,
       score,
       totalQuestions: total,
       percentage,
@@ -1289,8 +1490,18 @@ router.post("/listening-tests/:id/submit", async (req, res) => {
       timeRemaining: timeRemaining || null,
       teacherName: test.teacherName || null,
       status: 'submitted',
-      submittedAt: new Date()
-    });
+      finished: true,
+      expiresAt: null,
+      lastSavedAt: null,
+      progressMeta: null,
+      submittedAt: new Date(),
+    };
+
+    if (submission) {
+      await submission.update(finalizedPayload);
+    } else {
+      submission = await CambridgeSubmission.create(finalizedPayload);
+    }
 
     console.log(`✅ Nộp bài Cambridge Listening thành công: submission #${submission.id}, score: ${score}/${total}`);
 
@@ -1322,6 +1533,7 @@ router.post("/reading-tests/:id/submit", async (req, res) => {
       studentEmail,
       classCode,
       userId,
+      submissionId,
       timeRemaining,
       timeSpent 
     } = req.body;
@@ -1353,9 +1565,15 @@ router.post("/reading-tests/:id/submit", async (req, res) => {
       }
     }
 
-    // Create submission
-    const submission = await CambridgeSubmission.create({
-      testId: parseInt(id),
+    let submission = await findActiveCambridgeDraft({
+      submissionId: Number(submissionId) || null,
+      testId: parseInt(id, 10),
+      testType: test.testType,
+      userId: userId || null,
+    });
+
+    const finalizedPayload = {
+      testId: parseInt(id, 10),
       testType: test.testType,
       testTitle: test.title,
       studentName: finalStudentName || 'Unknown',
@@ -1363,7 +1581,7 @@ router.post("/reading-tests/:id/submit", async (req, res) => {
       studentEmail: studentEmail || null,
       classCode: finalClassCode,
       userId: userId || null,
-      answers: answers,
+      answers,
       score,
       totalQuestions: total,
       percentage,
@@ -1372,8 +1590,18 @@ router.post("/reading-tests/:id/submit", async (req, res) => {
       timeRemaining: timeRemaining || null,
       teacherName: test.teacherName || null,
       status: 'submitted',
-      submittedAt: new Date()
-    });
+      finished: true,
+      expiresAt: null,
+      lastSavedAt: null,
+      progressMeta: null,
+      submittedAt: new Date(),
+    };
+
+    if (submission) {
+      await submission.update(finalizedPayload);
+    } else {
+      submission = await CambridgeSubmission.create(finalizedPayload);
+    }
 
     console.log(`✅ Nộp bài Cambridge Reading thành công: submission #${submission.id}, score: ${score}/${total}`);
 
@@ -1402,7 +1630,8 @@ router.get("/listening-tests/:id/submissions", async (req, res) => {
     const submissions = await CambridgeSubmission.findAll({
       where: { 
         testId: parseInt(id),
-        testType: { [require('sequelize').Op.like]: '%-listening' }
+        testType: { [Op.like]: '%-listening' },
+        ...FINALIZED_CAMBRIDGE_WHERE,
       },
       order: [["submittedAt", "DESC"]],
       attributes: [
@@ -1428,7 +1657,8 @@ router.get("/reading-tests/:id/submissions", async (req, res) => {
     const submissions = await CambridgeSubmission.findAll({
       where: { 
         testId: parseInt(id),
-        testType: { [require('sequelize').Op.like]: '%-reading' }
+        testType: { [Op.like]: '%-reading' },
+        ...FINALIZED_CAMBRIDGE_WHERE,
       },
       order: [["submittedAt", "DESC"]],
       attributes: [
@@ -1450,9 +1680,7 @@ router.get("/reading-tests/:id/submissions", async (req, res) => {
 router.get("/submissions", async (req, res) => {
   try {
     const { testType, classCode, page = 1, limit = 50 } = req.query;
-    const { Op } = require("sequelize");
-    
-    const where = {};
+    const where = { ...FINALIZED_CAMBRIDGE_WHERE };
     if (testType) {
       const normalized = String(testType).trim().toLowerCase();
 
@@ -1503,7 +1731,7 @@ router.get("/submissions/user/:phone", async (req, res) => {
     if (!phone) return res.status(400).json({ message: "Thiếu số điện thoại" });
 
     const submissions = await CambridgeSubmission.findAll({
-      where: { studentPhone: phone },
+      where: { studentPhone: phone, ...FINALIZED_CAMBRIDGE_WHERE },
       order: [["submittedAt", "DESC"]],
       attributes: [
         "id",
@@ -1540,12 +1768,12 @@ router.get("/submissions/unseen-count/:phone", async (req, res) => {
     const { phone } = req.params;
     if (!phone) return res.json({ count: 0 });
 
-    const { Op } = require("sequelize");
     const count = await CambridgeSubmission.count({
       where: {
         studentPhone: phone,
         feedback: { [Op.ne]: null },
         feedbackSeen: false,
+        ...FINALIZED_CAMBRIDGE_WHERE,
       },
     });
 

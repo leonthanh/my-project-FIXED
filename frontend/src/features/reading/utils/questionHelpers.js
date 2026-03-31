@@ -113,6 +113,24 @@ export const createDefaultQuestionByType = (type) => {
           { id: "blank_0", blankNumber: 1, correctAnswer: "" },
           { id: "blank_1", blankNumber: 2, correctAnswer: "" },
         ],
+        tableMode: false,
+        clozeTable: {
+          columns: ["Test", "Findings"],
+          rows: [
+            {
+              cells: [
+                "Observing the [BLANK] of Russian-English bilingual people when asked to select certain objects",
+                "Bilingual people engage both languages simultaneously: a mechanism known as [BLANK].",
+              ],
+            },
+            {
+              cells: [
+                "A test called the [BLANK], focusing on naming colours",
+                "Bilingual people are more able to handle tasks involving a skill called [BLANK].",
+              ],
+            },
+          ],
+        },
       };
 
     case "summary-completion":
