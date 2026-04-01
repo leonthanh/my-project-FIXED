@@ -19,6 +19,8 @@ const AdminNavbar = () => {
   const [isCompactMenu, setIsCompactMenu] = useState(
     typeof window !== "undefined" ? window.innerWidth <= 768 : false
   );
+  const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
+  const [mobileDrawerTab, setMobileDrawerTab] = useState("main");
   const [mobileCambridgeSection, setMobileCambridgeSection] = useState("ket");
   const [mobileCambridgeGroup, setMobileCambridgeGroup] = useState("flyers");
   const [mobileSubmissionSection, setMobileSubmissionSection] =
@@ -91,7 +93,11 @@ const AdminNavbar = () => {
     if (typeof window === "undefined") return undefined;
 
     const handleResize = () => {
-      setIsCompactMenu(window.innerWidth <= 768);
+      const compact = window.innerWidth <= 768;
+      setIsCompactMenu(compact);
+      if (!compact) {
+        setMobileDrawerOpen(false);
+      }
     };
 
     handleResize();
@@ -99,12 +105,47 @@ const AdminNavbar = () => {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
+  useEffect(() => {
+    if (typeof document === "undefined") return undefined;
+
+    const originalOverflow = document.body.style.overflow;
+    if (isCompactMenu && mobileDrawerOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = originalOverflow || "";
+    }
+
+    return () => {
+      document.body.style.overflow = originalOverflow;
+    };
+  }, [isCompactMenu, mobileDrawerOpen]);
+
   const handleLogout = async () => {
     try {
       await fetch(apiPath('auth/logout'), { method: 'POST', credentials: 'include' });
     } catch (_) { /* ignore network errors on logout */ }
     clearAuth();
     navigate('/login');
+  };
+
+  const closeDesktopMenus = () => {
+    setNotificationDropdownVisible(false);
+    setSubmissionDropdownVisible(false);
+    setCambridgeDropdownVisible(false);
+    setAdminDropdownVisible(false);
+  };
+
+  const closeMobileDrawer = () => setMobileDrawerOpen(false);
+  const openMobileDrawer = () => {
+    closeDesktopMenus();
+    setMobileDrawerOpen(true);
+  };
+  const toggleMobileDrawer = () => {
+    if (mobileDrawerOpen) {
+      closeMobileDrawer();
+    } else {
+      openMobileDrawer();
+    }
   };
 
   const closeCambridgeMenu = () => setCambridgeDropdownVisible(false);
@@ -307,6 +348,14 @@ const AdminNavbar = () => {
     ieltsSections[0] ||
     null;
 
+  const mobileDrawerTabs = [
+    { key: "main", label: "Overview" },
+    { key: "orange", label: "Orange" },
+    { key: "ix", label: "IX" },
+    { key: "alerts", label: `Alerts${unreviewed.length > 0 ? ` (${unreviewed.length})` : ""}` },
+    ...(user?.role === "admin" ? [{ key: "admin", label: "Admin" }] : []),
+  ];
+
   const renderMenuItems = (items, onClose, mobile = false) =>
     items.map((item) => {
       const itemClassName = mobile
@@ -335,6 +384,21 @@ const AdminNavbar = () => {
         </Link>
       );
     });
+
+  const renderMobileQuickLink = (to, title, meta, icon) => (
+    <Link
+      key={to}
+      to={to}
+      className="adminNavbar__mobileQuickLink"
+      onClick={closeMobileDrawer}
+    >
+      <span className="adminNavbar__mobileQuickIcon">{icon}</span>
+      <span className="adminNavbar__mobileQuickText">
+        <span className="adminNavbar__mobileQuickTitle">{title}</span>
+        <span className="adminNavbar__mobileQuickMeta">{meta}</span>
+      </span>
+    </Link>
+  );
 
   const renderDesktopSections = (sections, onClose) =>
     sections.map((section, sectionIndex) => (
@@ -379,7 +443,7 @@ const AdminNavbar = () => {
     if (!activeCambridgeSection) return null;
 
     return (
-      <div className="adminNavbar__menu adminNavbar__menu--mobileNested">
+      <>
         <div className="adminNavbar__mobileMenuTop">
           <div className="adminNavbar__mobileMenuTitle">🍊 Orange</div>
           <div className="adminNavbar__mobileMenuHint">
@@ -420,17 +484,17 @@ const AdminNavbar = () => {
                   </div>
                   {renderMenuItems(
                     activeCambridgeGroup.items,
-                    closeCambridgeMenu,
+                    closeMobileDrawer,
                     true
                   )}
                 </>
               ) : null}
             </>
           ) : (
-            renderMenuItems(activeCambridgeSection.items || [], closeCambridgeMenu, true)
+            renderMenuItems(activeCambridgeSection.items || [], closeMobileDrawer, true)
           )}
         </div>
-      </div>
+      </>
     );
   };
 
@@ -438,7 +502,7 @@ const AdminNavbar = () => {
     if (!activeSubmissionSection) return null;
 
     return (
-      <div className="adminNavbar__menu adminNavbar__menu--mobileNested">
+      <>
         <div className="adminNavbar__mobileMenuTop">
           <div className="adminNavbar__mobileMenuTitle">📚 IX</div>
           <div className="adminNavbar__mobileMenuHint">
@@ -454,14 +518,14 @@ const AdminNavbar = () => {
           <div className="adminNavbar__mobileSectionTitle">
             {activeSubmissionSection.title}
           </div>
-          {renderMenuItems(activeSubmissionSection.items, closeSubmissionMenu, true)}
+          {renderMenuItems(activeSubmissionSection.items, closeMobileDrawer, true)}
         </div>
-      </div>
+      </>
     );
   };
 
   const renderMobileAdminMenu = () => (
-    <div className="adminNavbar__menu adminNavbar__menu--mobileNested">
+    <>
       <div className="adminNavbar__mobileMenuTop">
         <div className="adminNavbar__mobileMenuTitle">⚙️ Admin</div>
         <div className="adminNavbar__mobileMenuHint">
@@ -469,10 +533,179 @@ const AdminNavbar = () => {
         </div>
       </div>
       <div className="adminNavbar__mobileMenuBody adminNavbar__mobileMenuBody--compact">
-        {renderMenuItems(adminItems, closeAdminMenu, true)}
+        {renderMenuItems(adminItems, closeMobileDrawer, true)}
       </div>
-    </div>
+    </>
   );
+
+  const renderMobileOverview = () => (
+    <>
+      <div className="adminNavbar__mobileMenuTop">
+        <div className="adminNavbar__mobileMenuTitle">👨‍🏫 {user?.name || "Teacher"}</div>
+        <div className="adminNavbar__mobileMenuHint">
+          Open the sections below to manage tests, review submissions, and switch appearance.
+        </div>
+      </div>
+      <div className="adminNavbar__mobileMenuBody adminNavbar__mobileMenuBody--compact">
+        <div className="adminNavbar__mobileSectionTitle">Quick access</div>
+        <div className="adminNavbar__mobileQuickGrid">
+          {renderMobileQuickLink("/select-test", "Test list", "Browse and edit available tests", "🧾")}
+          {renderMobileQuickLink("/review", "Review", "Open review queue and submission flow", "✍️")}
+        </div>
+
+        <div className="adminNavbar__mobileSectionTitle">Appearance</div>
+        <div className="adminNavbar__mobileThemeWrap">
+          <ThemeToggle style={{ width: "100%", justifyContent: "center" }} />
+        </div>
+
+        <div className="adminNavbar__mobileSectionTitle">Account</div>
+        <button
+          type="button"
+          className="adminNavbar__mobileLogout"
+          onClick={handleLogout}
+        >
+          <span className="adminNavbar__mobileQuickIcon">🔓</span>
+          <span className="adminNavbar__mobileQuickText">
+            <span className="adminNavbar__mobileQuickTitle">Logout</span>
+            <span className="adminNavbar__mobileQuickMeta">Sign out of the teacher account</span>
+          </span>
+        </button>
+      </div>
+    </>
+  );
+
+  const renderMobileAlerts = () => (
+    <>
+      <div className="adminNavbar__mobileMenuTop">
+        <div className="adminNavbar__mobileMenuTitle">🔔 Alerts</div>
+        <div className="adminNavbar__mobileMenuHint">
+          Monitor unreviewed writing submissions without keeping a separate bell icon on the top bar.
+        </div>
+      </div>
+      <div className="adminNavbar__mobileMenuBody adminNavbar__mobileMenuBody--compact">
+        <div className="adminNavbar__mobileSectionTitle">Review queue</div>
+        {renderMobileQuickLink("/review", "Open review queue", "Jump straight to the teacher review page", "📬")}
+        {unreviewed.length === 0 ? (
+          <div className="adminNavbar__mobileEmptyState">✅ No unreviewed submissions.</div>
+        ) : (
+          <div className="adminNavbar__mobileAlertsList">
+            {unreviewed.slice(0, 10).map((sub) => (
+              <button
+                key={sub.id}
+                type="button"
+                className="adminNavbar__mobileAlertItem"
+                onClick={() => {
+                  closeMobileDrawer();
+                  navigate(`/review/${sub.id}`);
+                }}
+              >
+                <span className="adminNavbar__mobileAlertName">
+                  👤 {sub.User?.name || sub.userName || "N/A"}
+                </span>
+                <span className="adminNavbar__mobileAlertMeta">
+                  📞 {sub.User?.phone || sub.userPhone || "N/A"}
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </>
+  );
+
+  const renderMobileDrawerContent = () => {
+    if (mobileDrawerTab === "orange") {
+      return renderMobileCambridgeMenu();
+    }
+
+    if (mobileDrawerTab === "ix") {
+      return renderMobileSubmissionMenu();
+    }
+
+    if (mobileDrawerTab === "alerts") {
+      return renderMobileAlerts();
+    }
+
+    if (mobileDrawerTab === "admin") {
+      return renderMobileAdminMenu();
+    }
+
+    return renderMobileOverview();
+  };
+
+  if (isCompactMenu) {
+    return (
+      <nav className="adminNavbar adminNavbar--compact">
+        <div className="adminNavbar__mobileBar">
+          <Link to="/select-test" className="adminNavbar__logoLink" title="Test list">
+            <img
+              src={hostPath("uploads/staredu.jpg")}
+              alt="Logo"
+              className="adminNavbar__logo"
+            />
+          </Link>
+
+          <button
+            type="button"
+            className="adminNavbar__mobileMenuButton"
+            onClick={toggleMobileDrawer}
+            aria-label={mobileDrawerOpen ? "Close menu" : "Open menu"}
+            aria-expanded={mobileDrawerOpen}
+          >
+            <span className="adminNavbar__mobileMenuIcon">
+              {mobileDrawerOpen ? "✕" : "☰"}
+            </span>
+            <span className="adminNavbar__mobileMenuLabel">Menu</span>
+            {unreviewed.length > 0 && (
+              <span className="adminNavbar__mobileMenuBadge">{unreviewed.length}</span>
+            )}
+          </button>
+        </div>
+
+        {mobileDrawerOpen && (
+          <>
+            <button
+              type="button"
+              className="adminNavbar__drawerBackdrop"
+              aria-label="Close navigation menu"
+              onClick={closeMobileDrawer}
+            />
+            <aside className="adminNavbar__drawerPanel" role="dialog" aria-modal="true">
+              <div className="adminNavbar__drawerHeader">
+                <div className="adminNavbar__drawerBrand">
+                  <img
+                    src={hostPath("uploads/staredu.jpg")}
+                    alt="Logo"
+                    className="adminNavbar__drawerLogo"
+                  />
+                  <div className="adminNavbar__drawerBrandText">
+                    <div className="adminNavbar__drawerBrandTitle">Teacher Menu</div>
+                    <div className="adminNavbar__drawerBrandMeta">
+                      Slide-out navigation for mobile devices
+                    </div>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="adminNavbar__drawerClose"
+                  onClick={closeMobileDrawer}
+                  aria-label="Close navigation menu"
+                >
+                  ✕
+                </button>
+              </div>
+
+              {renderMobileTabs(mobileDrawerTabs, mobileDrawerTab, setMobileDrawerTab)}
+
+              <div className="adminNavbar__drawerContent">
+                {renderMobileDrawerContent()}
+              </div>
+            </aside>
+          </>
+        )}
+      </nav>
+    );
+  }
 
   return (
     <nav className="adminNavbar">
