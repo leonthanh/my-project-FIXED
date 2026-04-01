@@ -30,6 +30,7 @@ if (process.env.SHOW_ENV_LOG !== 'false') {
 
 // ✅ MySQL (Sequelize) – chỉ require 1 lần
 const sequelize = require("./db");
+const ensureDbColumns = require("./scripts/ensure-db-columns");
 // ✅ Import models để Sequelize biết các bảng
 require("./models/User");
 require("./models/WritingTests");
@@ -172,6 +173,10 @@ sequelize
       console.log('✅ Kết nối database thành công');
     }
 
+    // Tự động thêm các cột còn thiếu (an toàn, không xoá dữ liệu)
+    return ensureDbColumns(sequelize);
+  })
+  .then(() => {
     // If legacy/seed data contains orphaned `submissions.testId` values, MySQL will
     // reject adding the FK during `sync({ alter: true })`. Clean them up first.
     return sequelize
