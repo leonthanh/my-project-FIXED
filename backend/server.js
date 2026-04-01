@@ -30,7 +30,78 @@ if (process.env.SHOW_ENV_LOG !== 'false') {
 
 // ✅ MySQL (Sequelize) – chỉ require 1 lần
 const sequelize = require("./db");
-const ensureDbColumns = require("./scripts/ensure-db-columns");
+let ensureDbColumns;
+try {
+  ensureDbColumns = require("./scripts/ensure-db-columns");
+} catch (err) {
+  console.warn(
+    "⚠️ Missing ./scripts/ensure-db-columns, using inline fallback:",
+    err?.message || err,
+  );
+
+  async function columnExists(sequelizeInstance, table, column) {
+    const [rows] = await sequelizeInstance.query(
+      `SELECT COUNT(*) AS cnt
+       FROM INFORMATION_SCHEMA.COLUMNS
+       WHERE TABLE_SCHEMA = DATABASE()
+         AND TABLE_NAME = :table
+         AND COLUMN_NAME = :column`,
+      { replacements: { table, column } },
+    );
+    return Number(rows?.[0]?.cnt || 0) > 0;
+  }
+
+  async function addColumnIfMissing(sequelizeInstance, table, column, definition) {
+    const exists = await columnExists(sequelizeInstance, table, column);
+    if (!exists) {
+      await sequelizeInstance.query(
+        `ALTER TABLE \`${table}\` ADD COLUMN \`${column}\` ${definition}`,
+      );
+      console.log(`✅ Migration fallback: added ${table}.${column}`);
+    }
+  }
+
+  ensureDbColumns = async (sequelizeInstance) => {
+    try {
+      await addColumnIfMissing(
+        sequelizeInstance,
+        "cambridge_submissions",
+        "finished",
+        "BOOLEAN DEFAULT TRUE",
+      );
+      await addColumnIfMissing(
+        sequelizeInstance,
+        "cambridge_submissions",
+        "expiresAt",
+        "DATETIME NULL",
+      );
+      await addColumnIfMissing(
+        sequelizeInstance,
+        "cambridge_submissions",
+        "lastSavedAt",
+        "DATETIME NULL",
+      );
+      await addColumnIfMissing(
+        sequelizeInstance,
+        "cambridge_submissions",
+        "progressMeta",
+        "JSON NULL",
+      );
+      await addColumnIfMissing(
+        sequelizeInstance,
+        "cambridge_submissions",
+        "feedbackSeen",
+        "BOOLEAN DEFAULT FALSE",
+      );
+      await addColumnIfMissing(sequelizeInstance, "submissions", "bandTask1", "FLOAT NULL");
+      await addColumnIfMissing(sequelizeInstance, "submissions", "bandTask2", "FLOAT NULL");
+      await addColumnIfMissing(sequelizeInstance, "submissions", "bandOverall", "FLOAT NULL");
+      console.log("✅ Inline DB column fallback complete.");
+    } catch (migrationErr) {
+      console.warn("⚠️ Inline ensureDbColumns warning:", migrationErr?.message || migrationErr);
+    }
+  };
+}
 // ✅ Import models để Sequelize biết các bảng
 require("./models/User");
 require("./models/WritingTests");
