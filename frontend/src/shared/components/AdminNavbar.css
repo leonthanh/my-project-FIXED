@@ -91,6 +91,133 @@
   min-width: 200px;
 }
 
+.adminNavbar__menu--mobileNested {
+  position: fixed;
+  top: 60px;
+  left: 12px;
+  right: 12px;
+  min-width: 0;
+  max-height: calc(100vh - 76px);
+  border-radius: 16px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  z-index: 2000;
+}
+
+.adminNavbar__mobileMenuTop {
+  padding: 14px 14px 10px;
+  border-bottom: 1px solid #e8ecf3;
+  background: linear-gradient(180deg, #f5f8ff 0%, #ffffff 100%);
+}
+
+.adminNavbar__mobileMenuTitle {
+  font-size: 15px;
+  font-weight: 800;
+  color: #0e276f;
+}
+
+.adminNavbar__mobileMenuHint {
+  margin-top: 4px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: #64748b;
+}
+
+.adminNavbar__mobileTabs,
+.adminNavbar__mobileSubTabs {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 12px 14px;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.adminNavbar__mobileTabs::-webkit-scrollbar,
+.adminNavbar__mobileSubTabs::-webkit-scrollbar {
+  display: none;
+}
+
+.adminNavbar__mobileTabs {
+  border-bottom: 1px solid #eef2f7;
+}
+
+.adminNavbar__mobileTab,
+.adminNavbar__mobileSubTab {
+  flex: 0 0 auto;
+  border: none;
+  border-radius: 999px;
+  padding: 8px 12px;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease, transform 0.2s ease;
+}
+
+.adminNavbar__mobileTab {
+  background: #e8efff;
+  color: #294172;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.adminNavbar__mobileSubTab {
+  background: #f8fafc;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 700;
+  border: 1px solid #e2e8f0;
+}
+
+.adminNavbar__mobileTab:hover,
+.adminNavbar__mobileSubTab:hover {
+  transform: translateY(-1px);
+}
+
+.adminNavbar__mobileTab--active,
+.adminNavbar__mobileSubTab--active {
+  background: #0e276f;
+  color: #fff;
+  border-color: transparent;
+}
+
+.adminNavbar__mobileMenuBody {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 0 14px 14px;
+}
+
+.adminNavbar__mobileMenuBody--compact {
+  padding-top: 14px;
+}
+
+.adminNavbar__mobileSectionTitle {
+  padding-top: 12px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.adminNavbar__mobileSubTitle {
+  font-size: 13px;
+  font-weight: 800;
+  color: #334155;
+}
+
+.adminNavbar__mobileMenuItem {
+  margin: 0;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 12px 14px;
+  background: #fff;
+}
+
+.adminNavbar__mobileMenuItem + .adminNavbar__mobileMenuItem {
+  margin-top: 8px;
+}
+
 .adminNavbar__menuItem {
   display: block;
   padding: 10px 15px;
@@ -134,10 +261,51 @@ body.dark-mode .adminNavbar__notifyMenu {
   border-color: #3d3d5c;
 }
 
+body.dark-mode .adminNavbar__mobileMenuTop {
+  background: linear-gradient(180deg, #182748 0%, #16213e 100%);
+  border-bottom-color: #2a3350;
+}
+
+body.dark-mode .adminNavbar__mobileMenuTitle {
+  color: #f8fafc;
+}
+
+body.dark-mode .adminNavbar__mobileMenuHint,
+body.dark-mode .adminNavbar__mobileSectionTitle,
+body.dark-mode .adminNavbar__mobileSubTitle {
+  color: #cbd5e1;
+}
+
+body.dark-mode .adminNavbar__mobileTabs {
+  border-bottom-color: #2a3350;
+}
+
+body.dark-mode .adminNavbar__mobileTab {
+  background: #213154;
+  color: #dbeafe;
+}
+
+body.dark-mode .adminNavbar__mobileSubTab {
+  background: #111b33;
+  color: #cbd5e1;
+  border-color: #334155;
+}
+
+body.dark-mode .adminNavbar__mobileTab--active,
+body.dark-mode .adminNavbar__mobileSubTab--active {
+  background: #3b82f6;
+  color: #fff;
+}
+
 body.dark-mode .adminNavbar__menuItem,
 body.dark-mode .adminNavbar__notifyItem {
   color: #e8e8e8;
   border-bottom: 1px solid #2a3350;
+}
+
+body.dark-mode .adminNavbar__mobileMenuItem {
+  background: #111827;
+  border-color: #2a3350;
 }
 
 body.dark-mode .adminNavbar__menuItem:hover,
@@ -322,6 +490,13 @@ body.dark-mode .adminNavbar__menuHeader {
     max-width: calc(100vw - 24px);
   }
 
+  .adminNavbar__menu--mobileNested {
+    top: 62px;
+    left: 12px;
+    right: 12px;
+    max-width: none;
+  }
+
   .adminNavbar__notifyMenu {
     right: 12px;
     top: 58px;
@@ -466,6 +641,13 @@ body.dark-mode .adminNavbar__menuHeader {
     overflow-y: auto;
     border-radius: 10px;
     z-index: 2000;
+  }
+
+  .adminNavbar__menu--mobileNested {
+    top: 54px;
+    left: 8px;
+    right: 8px;
+    border-radius: 14px;
   }
 
   .adminNavbar__notifyMenu {

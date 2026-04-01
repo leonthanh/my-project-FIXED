@@ -16,6 +16,13 @@ const AdminNavbar = () => {
   const [cambridgeDropdownVisible, setCambridgeDropdownVisible] =
     useState(false);
   const [adminDropdownVisible, setAdminDropdownVisible] = useState(false);
+  const [isCompactMenu, setIsCompactMenu] = useState(
+    typeof window !== "undefined" ? window.innerWidth <= 768 : false
+  );
+  const [mobileCambridgeSection, setMobileCambridgeSection] = useState("ket");
+  const [mobileCambridgeGroup, setMobileCambridgeGroup] = useState("flyers");
+  const [mobileSubmissionSection, setMobileSubmissionSection] =
+    useState("create");
   const notificationDropdownRef = useRef(null);
   const submissionDropdownRef = useRef(null);
   const cambridgeDropdownRef = useRef(null);
@@ -80,6 +87,18 @@ const AdminNavbar = () => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+
+    const handleResize = () => {
+      setIsCompactMenu(window.innerWidth <= 768);
+    };
+
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
   const handleLogout = async () => {
     try {
       await fetch(apiPath('auth/logout'), { method: 'POST', credentials: 'include' });
@@ -88,10 +107,377 @@ const AdminNavbar = () => {
     navigate('/login');
   };
 
+  const closeCambridgeMenu = () => setCambridgeDropdownVisible(false);
+  const closeSubmissionMenu = () => setSubmissionDropdownVisible(false);
+  const closeAdminMenu = () => setAdminDropdownVisible(false);
+
+  const buildLinkItem = (key, to, label, visible = true) =>
+    visible ? { key, to, label } : null;
+
+  const buildDisabledItem = (key, label, visible = true) =>
+    visible ? { key, label, disabled: true } : null;
+
+  const cambridgeSections = [
+    {
+      key: "ket",
+      label: "KET",
+      title: "📚 KET (A2 Key)",
+      items: [
+        buildLinkItem(
+          "ket-listening",
+          "/admin/create-ket-listening",
+          "🎧 KET Listening",
+          canManageCategory(user, "listening")
+        ),
+        buildLinkItem(
+          "ket-reading",
+          "/admin/create-ket-reading",
+          "📖 KET Reading",
+          canManageCategory(user, "reading")
+        ),
+      ].filter(Boolean),
+    },
+    {
+      key: "pet",
+      label: "PET",
+      title: "📚 PET (B1 Preliminary)",
+      items: [
+        buildLinkItem(
+          "pet-listening",
+          "/admin/create-pet-listening",
+          "🎧 PET Listening",
+          canManageCategory(user, "listening")
+        ),
+        buildLinkItem(
+          "pet-reading",
+          "/admin/create-pet-reading",
+          "📖 PET Reading",
+          canManageCategory(user, "reading")
+        ),
+        buildLinkItem(
+          "pet-writing",
+          "/admin/create-pet-writing",
+          "✍️ PET Writing"
+        ),
+      ].filter(Boolean),
+    },
+    {
+      key: "yle",
+      label: "YLE",
+      title: "🧒 Young Learners",
+      groups: [
+        {
+          key: "flyers",
+          label: "Flyers",
+          title: "✈️ Flyers (A2)",
+          items: [
+            buildDisabledItem("flyers-listening", "🎧 Listening (coming soon)"),
+            buildLinkItem(
+              "flyers-reading",
+              "/admin/create/flyers",
+              "📖 Reading & Writing",
+              canManageCategory(user, "reading")
+            ),
+          ].filter(Boolean),
+        },
+        {
+          key: "movers",
+          label: "Movers",
+          title: "🚗 Movers (A1)",
+          items: [
+            buildLinkItem(
+              "movers-listening",
+              "/admin/create-movers-listening",
+              "🎧 Movers Listening",
+              canManageCategory(user, "listening")
+            ),
+            buildLinkItem(
+              "movers-reading",
+              "/admin/create/movers",
+              "📖 Reading & Writing",
+              canManageCategory(user, "reading")
+            ),
+          ].filter(Boolean),
+        },
+        {
+          key: "starters",
+          label: "Starters",
+          title: "⭐ Starters (Pre-A1)",
+          items: [
+            buildDisabledItem("starters-listening", "🎧 Listening (coming soon)"),
+            buildLinkItem(
+              "starters-reading",
+              "/admin/create/starters",
+              "📖 Reading & Writing",
+              canManageCategory(user, "reading")
+            ),
+          ].filter(Boolean),
+        },
+      ].filter((group) => group.items.some((item) => !item.disabled)),
+    },
+    {
+      key: "management",
+      label: "Management",
+      title: "📊 Management",
+      items: [
+        buildLinkItem(
+          "cambridge-submissions",
+          "/admin/cambridge-submissions",
+          "📋 View submissions"
+        ),
+      ].filter(Boolean),
+    },
+  ].filter(
+    (section) =>
+      (section.items && section.items.length > 0) ||
+      (section.groups && section.groups.length > 0)
+  );
+
+  const ieltsSections = [
+    {
+      key: "create",
+      label: "Create",
+      title: "✏️ Create",
+      items: [
+        buildLinkItem(
+          "create-writing",
+          "/admin/create-writing",
+          "✍️ Writing",
+          canManageCategory(user, "writing")
+        ),
+        buildLinkItem(
+          "create-reading",
+          "/admin/create-reading",
+          "📖 Reading",
+          canManageCategory(user, "reading")
+        ),
+        buildLinkItem(
+          "create-listening",
+          "/admin/create-listening",
+          "🎧 Listening",
+          canManageCategory(user, "listening")
+        ),
+      ].filter(Boolean),
+    },
+    {
+      key: "submissions",
+      label: "Submissions",
+      title: "📥 Submissions",
+      items: [
+        buildLinkItem(
+          "writing-submissions",
+          "/admin/writing-submissions",
+          "✍️ Writing"
+        ),
+        buildLinkItem(
+          "reading-submissions",
+          "/admin/reading-submissions",
+          "📖 Reading"
+        ),
+        buildLinkItem(
+          "listening-submissions",
+          "/admin/listening-submissions",
+          "🎧 Listening"
+        ),
+      ].filter(Boolean),
+    },
+  ].filter((section) => section.items.length > 0);
+
+  const adminItems = [
+    buildLinkItem(
+      "teacher-permissions",
+      "/admin/teacher-permissions",
+      "🔑 Teacher Permissions"
+    ),
+    buildLinkItem("users", "/admin/users", "👥 User Management"),
+  ].filter(Boolean);
+
+  const activeCambridgeSection =
+    cambridgeSections.find((section) => section.key === mobileCambridgeSection) ||
+    cambridgeSections[0] ||
+    null;
+
+  const activeCambridgeGroup =
+    activeCambridgeSection?.groups?.find(
+      (group) => group.key === mobileCambridgeGroup
+    ) || activeCambridgeSection?.groups?.[0] || null;
+
+  const activeSubmissionSection =
+    ieltsSections.find((section) => section.key === mobileSubmissionSection) ||
+    ieltsSections[0] ||
+    null;
+
+  const renderMenuItems = (items, onClose, mobile = false) =>
+    items.map((item) => {
+      const itemClassName = mobile
+        ? "adminNavbar__menuItem adminNavbar__mobileMenuItem"
+        : "adminNavbar__menuItem";
+
+      if (item.disabled) {
+        return (
+          <span
+            key={item.key}
+            className={`${itemClassName} adminNavbar__menuItem--disabled`}
+          >
+            {item.label}
+          </span>
+        );
+      }
+
+      return (
+        <Link
+          key={item.key}
+          to={item.to}
+          className={itemClassName}
+          onClick={onClose}
+        >
+          {item.label}
+        </Link>
+      );
+    });
+
+  const renderDesktopSections = (sections, onClose) =>
+    sections.map((section, sectionIndex) => (
+      <React.Fragment key={section.key}>
+        <div
+          className={`adminNavbar__menuHeader${
+            sectionIndex > 0 ? " adminNavbar__menuHeader--spaced" : ""
+          }`}
+        >
+          {section.title}
+        </div>
+        {section.items ? renderMenuItems(section.items, onClose) : null}
+        {section.groups
+          ? section.groups.map((group) => (
+              <React.Fragment key={group.key}>
+                <div className="adminNavbar__menuHeader">{group.title}</div>
+                {renderMenuItems(group.items, onClose)}
+              </React.Fragment>
+            ))
+          : null}
+      </React.Fragment>
+    ));
+
+  const renderMobileTabs = (sections, activeKey, onChange) => (
+    <div className="adminNavbar__mobileTabs">
+      {sections.map((section) => (
+        <button
+          key={section.key}
+          type="button"
+          className={`adminNavbar__mobileTab${
+            activeKey === section.key ? " adminNavbar__mobileTab--active" : ""
+          }`}
+          onClick={() => onChange(section.key)}
+        >
+          {section.label}
+        </button>
+      ))}
+    </div>
+  );
+
+  const renderMobileCambridgeMenu = () => {
+    if (!activeCambridgeSection) return null;
+
+    return (
+      <div className="adminNavbar__menu adminNavbar__menu--mobileNested">
+        <div className="adminNavbar__mobileMenuTop">
+          <div className="adminNavbar__mobileMenuTitle">🍊 Orange</div>
+          <div className="adminNavbar__mobileMenuHint">
+            Multi-level menu with horizontal groups for easier teacher navigation.
+          </div>
+        </div>
+        {renderMobileTabs(
+          cambridgeSections,
+          activeCambridgeSection.key,
+          setMobileCambridgeSection
+        )}
+        <div className="adminNavbar__mobileMenuBody">
+          <div className="adminNavbar__mobileSectionTitle">
+            {activeCambridgeSection.title}
+          </div>
+          {activeCambridgeSection.groups?.length ? (
+            <>
+              <div className="adminNavbar__mobileSubTabs">
+                {activeCambridgeSection.groups.map((group) => (
+                  <button
+                    key={group.key}
+                    type="button"
+                    className={`adminNavbar__mobileSubTab${
+                      activeCambridgeGroup?.key === group.key
+                        ? " adminNavbar__mobileSubTab--active"
+                        : ""
+                    }`}
+                    onClick={() => setMobileCambridgeGroup(group.key)}
+                  >
+                    {group.label}
+                  </button>
+                ))}
+              </div>
+              {activeCambridgeGroup ? (
+                <>
+                  <div className="adminNavbar__mobileSubTitle">
+                    {activeCambridgeGroup.title}
+                  </div>
+                  {renderMenuItems(
+                    activeCambridgeGroup.items,
+                    closeCambridgeMenu,
+                    true
+                  )}
+                </>
+              ) : null}
+            </>
+          ) : (
+            renderMenuItems(activeCambridgeSection.items || [], closeCambridgeMenu, true)
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  const renderMobileSubmissionMenu = () => {
+    if (!activeSubmissionSection) return null;
+
+    return (
+      <div className="adminNavbar__menu adminNavbar__menu--mobileNested">
+        <div className="adminNavbar__mobileMenuTop">
+          <div className="adminNavbar__mobileMenuTitle">📚 IX</div>
+          <div className="adminNavbar__mobileMenuHint">
+            Create and submissions are separated to keep the mobile menu cleaner.
+          </div>
+        </div>
+        {renderMobileTabs(
+          ieltsSections,
+          activeSubmissionSection.key,
+          setMobileSubmissionSection
+        )}
+        <div className="adminNavbar__mobileMenuBody">
+          <div className="adminNavbar__mobileSectionTitle">
+            {activeSubmissionSection.title}
+          </div>
+          {renderMenuItems(activeSubmissionSection.items, closeSubmissionMenu, true)}
+        </div>
+      </div>
+    );
+  };
+
+  const renderMobileAdminMenu = () => (
+    <div className="adminNavbar__menu adminNavbar__menu--mobileNested">
+      <div className="adminNavbar__mobileMenuTop">
+        <div className="adminNavbar__mobileMenuTitle">⚙️ Admin</div>
+        <div className="adminNavbar__mobileMenuHint">
+          System administration tools are grouped in a dedicated mobile panel.
+        </div>
+      </div>
+      <div className="adminNavbar__mobileMenuBody adminNavbar__mobileMenuBody--compact">
+        {renderMenuItems(adminItems, closeAdminMenu, true)}
+      </div>
+    </div>
+  );
+
   return (
     <nav className="adminNavbar">
       <div className="adminNavbar__left">
-        <Link to="/select-test" className="adminNavbar__logoLink" title="Danh sách đề">
+        <Link to="/select-test" className="adminNavbar__logoLink" title="Test list">
           <img
             src={hostPath("uploads/staredu.jpg")}
             alt="Logo"
@@ -111,119 +497,11 @@ const AdminNavbar = () => {
             <span className="adminNavbar__caret">▼</span>
           </span>
           {cambridgeDropdownVisible && (
-            <div className="adminNavbar__menu">
-              <div className="adminNavbar__menuHeader">📚 KET (A2 Key)</div>
-
-              {canManageCategory(user, 'listening') && (
-                <Link
-                  to="/admin/create-ket-listening"
-                  className="adminNavbar__menuItem"
-                  onClick={() => setCambridgeDropdownVisible(false)}
-                >
-                  🎧 KET Listening
-                </Link>
-              )}
-              {canManageCategory(user, 'reading') && (
-                <Link
-                  to="/admin/create-ket-reading"
-                  className="adminNavbar__menuItem"
-                  onClick={() => setCambridgeDropdownVisible(false)}
-                >
-                  📖 KET Reading
-                </Link>
-              )}
-
-              <div className="adminNavbar__menuHeader adminNavbar__menuHeader--spaced">
-                📚 PET (B1 Preliminary)
+            isCompactMenu ? renderMobileCambridgeMenu() : (
+              <div className="adminNavbar__menu">
+                {renderDesktopSections(cambridgeSections, closeCambridgeMenu)}
               </div>
-              {canManageCategory(user, 'listening') && (
-                <Link
-                  to="/admin/create-pet-listening"
-                  className="adminNavbar__menuItem"
-                  onClick={() => setCambridgeDropdownVisible(false)}
-                >
-                  🎧 PET Listening
-                </Link>
-              )}
-              {canManageCategory(user, 'reading') && (
-                <Link
-                  to="/admin/create-pet-reading"
-                  className="adminNavbar__menuItem"
-                  onClick={() => setCambridgeDropdownVisible(false)}
-                >
-                  📖 PET Reading
-                </Link>
-              )}
-              <Link
-                to="/admin/create-pet-writing"
-                className="adminNavbar__menuItem"
-                onClick={() => setCambridgeDropdownVisible(false)}
-              >
-                ✍️ PET Writing
-              </Link>
-
-              <div className="adminNavbar__menuHeader adminNavbar__menuHeader--spaced">
-                🧒 Young Learners (Flyers / Movers / Starters)
-              </div>
-              <div className="adminNavbar__menuHeader">✈️ Flyers (A2)</div>
-              <span className="adminNavbar__menuItem adminNavbar__menuItem--disabled">
-                🎧 Listening (làm sau)
-              </span>
-              {canManageCategory(user, 'reading') && (
-                <Link
-                  to="/admin/create/flyers"
-                  className="adminNavbar__menuItem"
-                  onClick={() => setCambridgeDropdownVisible(false)}
-                >
-                  📖 Reading & Writing
-                </Link>
-              )}
-
-              <div className="adminNavbar__menuHeader">🚗 Movers (A1)</div>
-              {canManageCategory(user, 'listening') && (
-                <Link
-                  to="/admin/create-movers-listening"
-                  className="adminNavbar__menuItem"
-                  onClick={() => setCambridgeDropdownVisible(false)}
-                >
-                  🎧 Movers Listening
-                </Link>
-              )}
-              {canManageCategory(user, 'reading') && (
-                <Link
-                  to="/admin/create/movers"
-                  className="adminNavbar__menuItem"
-                  onClick={() => setCambridgeDropdownVisible(false)}
-                >
-                  📖 Reading & Writing
-                </Link>
-              )}
-
-              <div className="adminNavbar__menuHeader">⭐ Starters (Pre-A1)</div>
-              <span className="adminNavbar__menuItem adminNavbar__menuItem--disabled">
-                🎧 Listening (làm sau)
-              </span>
-              {canManageCategory(user, 'reading') && (
-                <Link
-                  to="/admin/create/starters"
-                  className="adminNavbar__menuItem"
-                  onClick={() => setCambridgeDropdownVisible(false)}
-                >
-                  📖 Reading & Writing
-                </Link>
-              )}
-
-              <div className="adminNavbar__menuHeader adminNavbar__menuHeader--spaced">
-                📊 Management
-              </div>
-              <Link
-                to="/admin/cambridge-submissions"
-                className="adminNavbar__menuItem"
-                onClick={() => setCambridgeDropdownVisible(false)}
-              >
-                📋 View submissions
-              </Link>
-            </div>
+            )
           )}
         </div>
 
@@ -241,61 +519,11 @@ const AdminNavbar = () => {
             <span className="adminNavbar__caret">▼</span>
           </span>
           {submissionDropdownVisible && (
-            <div className="adminNavbar__menu adminNavbar__menu--wide">
-              <div className="adminNavbar__menuHeader adminNavbar__menuHeader--spaced">
-                ✏️ Create
+            isCompactMenu ? renderMobileSubmissionMenu() : (
+              <div className="adminNavbar__menu adminNavbar__menu--wide">
+                {renderDesktopSections(ieltsSections, closeSubmissionMenu)}
               </div>
-                            <Link
-                to="/admin/create-writing"
-                className="adminNavbar__menuItem"
-                onClick={() => setSubmissionDropdownVisible(false)}
-              >
-                ✍️ Writing
-              </Link>
-              {canManageCategory(user, 'reading') && (
-                <Link
-                  to="/admin/create-reading"
-                  className="adminNavbar__menuItem"
-                  onClick={() => setSubmissionDropdownVisible(false)}
-                >
-                  📖 Reading
-                </Link>
-              )}
-              {canManageCategory(user, 'listening') && (
-                <Link
-                  to="/admin/create-listening"
-                  className="adminNavbar__menuItem"
-                  onClick={() => setSubmissionDropdownVisible(false)}
-                >
-                  🎧 Listening
-                </Link>
-              )}
-              
-              <div className="adminNavbar__menuHeader">📥 Submissions</div>
-              <Link
-                to="/admin/writing-submissions"
-                className="adminNavbar__menuItem"
-                onClick={() => setSubmissionDropdownVisible(false)}
-              >
-                ✍️ Writing 
-              </Link>
-              <Link
-                to="/admin/reading-submissions"
-                className="adminNavbar__menuItem"
-                onClick={() => setSubmissionDropdownVisible(false)}
-              >
-                📖 Reading
-              </Link>
-              <Link
-                to="/admin/listening-submissions"
-                className="adminNavbar__menuItem"
-                onClick={() => setSubmissionDropdownVisible(false)}
-              >
-                🎧 Listening
-              </Link>
-              
-
-            </div>
+            )
           )}
         </div>
         <Link to="/select-test" className="adminNavbar__link" title="Test list">
@@ -313,29 +541,18 @@ const AdminNavbar = () => {
             <span
               className="adminNavbar__link adminNavbar__dropdownToggle"
               onClick={() => setAdminDropdownVisible(!adminDropdownVisible)}
-              title="Quản trị"
+              title="Admin"
             >
               <span className="adminNavbar__icon">⚙️</span>
               <span className="adminNavbar__label">Admin</span>
               <span className="adminNavbar__caret">▼</span>
             </span>
             {adminDropdownVisible && (
-              <div className="adminNavbar__menu">
-                <Link
-                  to="/admin/teacher-permissions"
-                  className="adminNavbar__menuItem"
-                  onClick={() => setAdminDropdownVisible(false)}
-                >
-                  🔑 Quyền Giáo Viên
-                </Link>
-                <Link
-                  to="/admin/users"
-                  className="adminNavbar__menuItem"
-                  onClick={() => setAdminDropdownVisible(false)}
-                >
-                  👥 Quản lý Người dùng
-                </Link>
-              </div>
+              isCompactMenu ? renderMobileAdminMenu() : (
+                <div className="adminNavbar__menu">
+                  {renderMenuItems(adminItems, closeAdminMenu)}
+                </div>
+              )
             )}
           </div>
         )}

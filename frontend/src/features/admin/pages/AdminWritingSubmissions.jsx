@@ -5,6 +5,7 @@ import { apiPath } from "../../../shared/utils/api";
 const AdminWritingSubmissions = () => {
   const [data, setData] = useState([]);
   const [feedbacks, setFeedbacks] = useState({});
+  const [bands, setBands] = useState({});
   const [messages, setMessages] = useState({});
   const [aiLoading, setAiLoading] = useState({});
   const [sendLoading, setSendLoading] = useState({});
@@ -109,12 +110,26 @@ const AdminWritingSubmissions = () => {
     setFilterStatus("");
   };
 
+  const computeOverall = (t1, t2) => {
+    const n1 = parseFloat(t1);
+    const n2 = parseFloat(t2);
+    if (!isNaN(n1) && !isNaN(n2)) {
+      return Math.round(((n2 * 2 + n1) / 3) * 2) / 2;
+    }
+    return "";
+  };
+
   const handleSendFeedback = async (submissionId) => {
     const feedback = feedbacks[submissionId];
     if (!feedback || !feedback.trim()) {
       alert("Please enter feedback.");
       return;
     }
+
+    const bandEntry = bands[submissionId] || {};
+    const bandTask1 = bandEntry.task1 !== undefined && bandEntry.task1 !== "" ? Number(bandEntry.task1) : null;
+    const bandTask2 = bandEntry.task2 !== undefined && bandEntry.task2 !== "" ? Number(bandEntry.task2) : null;
+    const bandOverall = bandTask1 !== null && bandTask2 !== null ? computeOverall(bandTask1, bandTask2) : null;
 
     setSendLoading((prev) => ({ ...prev, [submissionId]: true }));
 
@@ -126,6 +141,9 @@ const AdminWritingSubmissions = () => {
           submissionId,
           feedback,
           teacherName: teacher?.name || "Anonymous Teacher",
+          bandTask1,
+          bandTask2,
+          bandOverall: bandOverall !== "" ? bandOverall : null,
         }),
       });
 
@@ -139,6 +157,10 @@ const AdminWritingSubmissions = () => {
         [submissionId]: "Feedback sent successfully.",
       }));
 
+      const bandEntry = bands[submissionId] || {};
+      const bT1 = bandEntry.task1 !== undefined && bandEntry.task1 !== "" ? Number(bandEntry.task1) : null;
+      const bT2 = bandEntry.task2 !== undefined && bandEntry.task2 !== "" ? Number(bandEntry.task2) : null;
+      const bOv = bT1 !== null && bT2 !== null ? computeOverall(bT1, bT2) : null;
       const updated = data.map((item) =>
         item.id === submissionId
           ? {
@@ -146,6 +168,9 @@ const AdminWritingSubmissions = () => {
               feedback,
               feedbackBy: teacher?.name,
               feedbackAt: new Date().toISOString(),
+              bandTask1: bT1,
+              bandTask2: bT2,
+              bandOverall: bOv !== "" ? bOv : null,
             }
           : item
       );
@@ -624,6 +649,25 @@ const AdminWritingSubmissions = () => {
                           <strong>Reviewed</strong> at {formatDateTime(item.feedbackAt)} by{" "}
                           <strong>{item.feedbackBy}</strong>
                         </p>
+                        {(item.bandTask1 != null || item.bandTask2 != null || item.bandOverall != null) && (
+                          <div style={{ display: "flex", gap: 8, marginBottom: 8, flexWrap: "wrap" }}>
+                            {item.bandTask1 != null && (
+                              <span style={{ background: "#0e276f", color: "#fff", padding: "3px 10px", borderRadius: 6, fontWeight: 700, fontSize: 13 }}>
+                                Task 1: {item.bandTask1}
+                              </span>
+                            )}
+                            {item.bandTask2 != null && (
+                              <span style={{ background: "#0e276f", color: "#fff", padding: "3px 10px", borderRadius: 6, fontWeight: 700, fontSize: 13 }}>
+                                Task 2: {item.bandTask2}
+                              </span>
+                            )}
+                            {item.bandOverall != null && (
+                              <span style={{ background: "#16a34a", color: "#fff", padding: "3px 10px", borderRadius: 6, fontWeight: 700, fontSize: 13 }}>
+                                Overall: {item.bandOverall}
+                              </span>
+                            )}
+                          </div>
+                        )}
                         <p style={{ margin: 0, whiteSpace: "pre-line", fontSize: 14 }}>
                           {item.feedback}
                         </p>
@@ -631,6 +675,51 @@ const AdminWritingSubmissions = () => {
                     )}
 
                     <div style={{ marginTop: 12 }}>
+                      {/* Band score inputs */}
+                      {!isDraft && (
+                        <div style={{ display: "flex", gap: 10, marginBottom: 10 }}>
+                          <div style={{ flex: 1 }}>
+                            <label style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 3, color: "#374151" }}>Band Task 1</label>
+                            <input
+                              type="number"
+                              step="0.5"
+                              min="0"
+                              max="9"
+                              placeholder="e.g. 6.5"
+                              value={(bands[item.id]?.task1) ?? (item.bandTask1 != null ? String(item.bandTask1) : "")}
+                              onChange={(e) => setBands((prev) => ({ ...prev, [item.id]: { ...prev[item.id], task1: e.target.value } }))}
+                              style={{ width: "100%", padding: "7px 10px", border: "1px solid #d1d5db", borderRadius: 6, fontSize: 13, boxSizing: "border-box" }}
+                            />
+                          </div>
+                          <div style={{ flex: 1 }}>
+                            <label style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 3, color: "#374151" }}>Band Task 2</label>
+                            <input
+                              type="number"
+                              step="0.5"
+                              min="0"
+                              max="9"
+                              placeholder="e.g. 6.5"
+                              value={(bands[item.id]?.task2) ?? (item.bandTask2 != null ? String(item.bandTask2) : "")}
+                              onChange={(e) => setBands((prev) => ({ ...prev, [item.id]: { ...prev[item.id], task2: e.target.value } }))}
+                              style={{ width: "100%", padding: "7px 10px", border: "1px solid #d1d5db", borderRadius: 6, fontSize: 13, boxSizing: "border-box" }}
+                            />
+                          </div>
+                          <div style={{ flex: 1 }}>
+                            <label style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 3, color: "#374151" }}>
+                              Band Overall <span style={{ fontWeight: 400, color: "#9ca3af" }}>(tự tính)</span>
+                            </label>
+                            <input
+                              type="number"
+                              readOnly
+                              value={computeOverall(
+                                (bands[item.id]?.task1) ?? (item.bandTask1 != null ? item.bandTask1 : ""),
+                                (bands[item.id]?.task2) ?? (item.bandTask2 != null ? item.bandTask2 : "")
+                              )}
+                              style={{ width: "100%", padding: "7px 10px", border: "1px solid #d1d5db", borderRadius: 6, fontSize: 13, boxSizing: "border-box", background: "#f3f4f6", color: "#6b7280", cursor: "not-allowed" }}
+                            />
+                          </div>
+                        </div>
+                      )}
                       <textarea
                         placeholder={
                           isDraft
