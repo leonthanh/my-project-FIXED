@@ -552,6 +552,25 @@ const MyFeedback = () => {
                   border: `1px solid ${colors.border}`,
                 }}
               >
+                {(sub.bandTask1 != null || sub.bandTask2 != null || sub.bandOverall != null) && (
+                  <div style={{ display: "flex", gap: 12, marginBottom: 10, flexWrap: "wrap" }}>
+                    {sub.bandTask1 != null && (
+                      <span style={{ background: colors.primary, color: "#fff", padding: "4px 10px", borderRadius: 6, fontWeight: "bold", fontSize: 14 }}>
+                        Task 1: {sub.bandTask1}
+                      </span>
+                    )}
+                    {sub.bandTask2 != null && (
+                      <span style={{ background: colors.primary, color: "#fff", padding: "4px 10px", borderRadius: 6, fontWeight: "bold", fontSize: 14 }}>
+                        Task 2: {sub.bandTask2}
+                      </span>
+                    )}
+                    {sub.bandOverall != null && (
+                      <span style={{ background: "#16a34a", color: "#fff", padding: "4px 10px", borderRadius: 6, fontWeight: "bold", fontSize: 14 }}>
+                        Overall: {sub.bandOverall}
+                      </span>
+                    )}
+                  </div>
+                )}
                 <p style={{ marginBottom: 8, whiteSpace: "pre-line" }}>{sub.feedback}</p>
                 <p style={{ fontSize: 14, color: colors.muted }}>
                   🕐 <strong>Thời gian nhận xét:</strong>{" "}

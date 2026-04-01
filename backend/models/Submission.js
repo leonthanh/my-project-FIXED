@@ -41,6 +41,9 @@ const Submission = sequelize.define('Submission', {
   teacherName: DataTypes.STRING,
   feedbackBy: DataTypes.STRING,
   feedbackAt: DataTypes.DATE,
+  bandTask1: DataTypes.FLOAT,
+  bandTask2: DataTypes.FLOAT,
+  bandOverall: DataTypes.FLOAT,
   feedbackSeen: {
     type: DataTypes.BOOLEAN,
     defaultValue: false,

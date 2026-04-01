@@ -314,7 +314,7 @@ router.get('/list', async (req, res) => {
 // Teacher saves feedback
 router.post('/comment', async (req, res) => {
   try {
-    const { submissionId, feedback, teacherName } = req.body;
+    const { submissionId, feedback, teacherName, bandTask1, bandTask2, bandOverall } = req.body;
     const submission = await Submission.findByPk(submissionId);
     if (!submission) {
       return res.status(404).json({ message: 'Submission not found.' });
@@ -324,6 +324,9 @@ router.post('/comment', async (req, res) => {
     submission.feedbackBy = teacherName;
     submission.feedbackAt = new Date();
     submission.feedbackSeen = false;
+    if (bandTask1 !== undefined) submission.bandTask1 = bandTask1 !== '' ? Number(bandTask1) : null;
+    if (bandTask2 !== undefined) submission.bandTask2 = bandTask2 !== '' ? Number(bandTask2) : null;
+    if (bandOverall !== undefined) submission.bandOverall = bandOverall !== '' ? Number(bandOverall) : null;
     await submission.save();
 
     return res.json({ message: 'Feedback saved.' });
