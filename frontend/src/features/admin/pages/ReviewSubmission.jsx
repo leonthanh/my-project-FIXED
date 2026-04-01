@@ -17,6 +17,17 @@ const ReviewSubmission = () => {
   const [loading, setLoading] = useState(true);
   const [feedback, setFeedback] = useState("");
   const [teacherName, setTeacherName] = useState("");
+  const [bandTask1, setBandTask1] = useState("");
+  const [bandTask2, setBandTask2] = useState("");
+
+  const bandOverall = (() => {
+    const t1 = parseFloat(bandTask1);
+    const t2 = parseFloat(bandTask2);
+    if (!isNaN(t1) && !isNaN(t2)) {
+      return Math.round(((t2 * 2 + t1) / 3) * 2) / 2; // round to nearest 0.5
+    }
+    return "";
+  })();
   const [aiLoading, setAiLoading] = useState(false);
   const [saveLoading, setSaveLoading] = useState(false);
   const [hasSavedFeedback, setHasSavedFeedback] = useState(false);
@@ -34,10 +45,14 @@ const ReviewSubmission = () => {
       if (found?.feedback) {
         setFeedback(found.feedback);
         setTeacherName(found.feedbackBy || teacher?.name || "");
+        setBandTask1(found.bandTask1 != null ? String(found.bandTask1) : "");
+        setBandTask2(found.bandTask2 != null ? String(found.bandTask2) : "");
         setHasSavedFeedback(true);
       } else {
         setFeedback("");
         setTeacherName(teacher?.name || "");
+        setBandTask1("");
+        setBandTask2("");
         setHasSavedFeedback(false);
       }
     } catch (err) {
@@ -72,6 +87,9 @@ const ReviewSubmission = () => {
           submissionId: submission.id,
           feedback,
           teacherName,
+          bandTask1: bandTask1 !== "" ? Number(bandTask1) : null,
+          bandTask2: bandTask2 !== "" ? Number(bandTask2) : null,
+          bandOverall: bandOverall !== "" ? Number(bandOverall) : null,
         }),
       });
 
@@ -169,10 +187,55 @@ const ReviewSubmission = () => {
 
         <h3 style={{ marginTop: 30 }}>Teacher Feedback</h3>
         {submission.feedback && (
-          <p style={savedFeedbackStyle}>
-            <b>{submission.feedbackBy || "Teacher"}:</b> {submission.feedback}
-          </p>
+          <div style={savedFeedbackStyle}>
+            <p style={{ marginBottom: 6 }}>
+              <b>{submission.feedbackBy || "Teacher"}:</b> {submission.feedback}
+            </p>
+            {(submission.bandTask1 != null || submission.bandTask2 != null || submission.bandOverall != null) && (
+              <p style={{ marginTop: 6, fontSize: 14 }}>
+                <b>Band:</b> Task 1: {submission.bandTask1 ?? "—"} | Task 2: {submission.bandTask2 ?? "—"} | Overall: {submission.bandOverall ?? "—"}
+              </p>
+            )}
+          </div>
         )}
+
+        <div style={{ display: "flex", gap: 10, marginBottom: 12 }}>
+          <div style={{ flex: 1 }}>
+            <label style={{ display: "block", marginBottom: 4, fontWeight: "bold", fontSize: 14 }}>Band Task 1</label>
+            <input
+              type="number"
+              step="0.5"
+              min="0"
+              max="9"
+              placeholder="e.g. 6.5"
+              value={bandTask1}
+              onChange={(e) => setBandTask1(e.target.value)}
+              style={inputStyle}
+            />
+          </div>
+          <div style={{ flex: 1 }}>
+            <label style={{ display: "block", marginBottom: 4, fontWeight: "bold", fontSize: 14 }}>Band Task 2</label>
+            <input
+              type="number"
+              step="0.5"
+              min="0"
+              max="9"
+              placeholder="e.g. 6.5"
+              value={bandTask2}
+              onChange={(e) => setBandTask2(e.target.value)}
+              style={inputStyle}
+            />
+          </div>
+          <div style={{ flex: 1 }}>
+            <label style={{ display: "block", marginBottom: 4, fontWeight: "bold", fontSize: 14 }}>Band Overall <span style={{ fontWeight: "normal", fontSize: 12, color: "#888" }}>(tự tính: (T2×2+T1)÷3)</span></label>
+            <input
+              type="number"
+              readOnly
+              value={bandOverall}
+              style={{ ...inputStyle, background: "#f0f0f0", color: "#555", cursor: "not-allowed" }}
+            />
+          </div>
+        </div>
 
         <input
           type="text"
