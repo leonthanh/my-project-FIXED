@@ -16,7 +16,10 @@ const CambridgeResultPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { isDarkMode } = useTheme();
-  const styles = useMemo(() => createStyles(isDarkMode), [isDarkMode]);
+  const [isCompactLayout, setIsCompactLayout] = useState(
+    typeof window !== 'undefined' ? window.innerWidth <= 520 : false
+  );
+  const styles = useMemo(() => createStyles(isDarkMode, isCompactLayout), [isDarkMode, isCompactLayout]);
   const legendColors = useMemo(() => (
     isDarkMode
       ? {
@@ -106,6 +109,18 @@ const CambridgeResultPage = () => {
   const [activeTab, setActiveTab] = useState('overview'); // overview, review
   const [expandedParts, setExpandedParts] = useState({});
   const lastFetchedTestKeyRef = useRef(null);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
+
+    const handleResize = () => {
+      setIsCompactLayout(window.innerWidth <= 520);
+    };
+
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const testNeedsRefresh = (t) => {
     if (!t || !Array.isArray(t.parts)) return true;
@@ -1808,7 +1823,7 @@ const CambridgeResultPage = () => {
 // ============================================
 // STYLES
 // ============================================
-const createStyles = (isDarkMode = false) => {
+const createStyles = (isDarkMode = false, isCompactLayout = false) => {
   const colors = isDarkMode
     ? {
         pageBg: '#0f172a',
@@ -1839,6 +1854,8 @@ const createStyles = (isDarkMode = false) => {
     container: {
       minHeight: '100vh',
       backgroundColor: colors.pageBg,
+      paddingTop: isCompactLayout ? '52px' : 0,
+      boxSizing: 'border-box',
     },
     loadingContainer: {
       display: 'flex',
@@ -1868,53 +1885,60 @@ const createStyles = (isDarkMode = false) => {
     header: {
       backgroundColor: colors.header,
       color: 'white',
-      padding: '20px 24px',
+      padding: isCompactLayout ? '14px 14px 16px' : '20px 24px',
     },
     headerContent: {
       maxWidth: '1200px',
       margin: '0 auto',
       display: 'flex',
-      alignItems: 'center',
-      gap: '20px',
+      alignItems: isCompactLayout ? 'flex-start' : 'center',
+      flexDirection: isCompactLayout ? 'column' : 'row',
+      gap: isCompactLayout ? '12px' : '20px',
     },
     backButton: {
-      padding: '8px 16px',
+      padding: isCompactLayout ? '7px 12px' : '8px 16px',
       backgroundColor: 'rgba(255,255,255,0.1)',
       color: 'white',
       border: '1px solid rgba(255,255,255,0.2)',
       borderRadius: '6px',
       cursor: 'pointer',
-      fontSize: '14px',
+      fontSize: isCompactLayout ? '13px' : '14px',
+      alignSelf: isCompactLayout ? 'flex-start' : 'auto',
     },
     title: {
       margin: 0,
-      fontSize: '24px',
+      fontSize: isCompactLayout ? '20px' : '24px',
       fontWeight: 700,
     },
     subtitle: {
       margin: '4px 0 0',
       opacity: 0.8,
-      fontSize: '14px',
+      fontSize: isCompactLayout ? '13px' : '14px',
+      wordBreak: 'break-word',
     },
     tabContainer: {
       backgroundColor: colors.pageBg,
       borderBottom: `1px solid ${colors.border}`,
-      padding: '0 24px',
+      padding: isCompactLayout ? '0 12px' : '0 24px',
       display: 'flex',
       gap: '4px',
       maxWidth: '1200px',
       margin: '0 auto',
+      overflowX: 'auto',
+      scrollbarWidth: 'none',
     },
     tab: {
-      padding: '16px 24px',
+      padding: isCompactLayout ? '14px 12px' : '16px 24px',
       border: 'none',
       backgroundColor: 'transparent',
       cursor: 'pointer',
-      fontSize: '15px',
+      fontSize: isCompactLayout ? '14px' : '15px',
       fontWeight: 500,
       color: colors.muted,
       borderBottom: '3px solid transparent',
       transition: 'all 0.2s',
+      whiteSpace: 'nowrap',
+      flex: isCompactLayout ? '1 0 auto' : '0 0 auto',
     },
     tabActive: {
       color: colors.accent,
@@ -1923,7 +1947,7 @@ const createStyles = (isDarkMode = false) => {
     mainContent: {
       maxWidth: '1200px',
       margin: '0 auto',
-      padding: '24px',
+      padding: isCompactLayout ? '16px 12px 24px' : '24px',
     },
 
     // Cloze-test (Part 5) passage styles
@@ -2013,12 +2037,12 @@ const createStyles = (isDarkMode = false) => {
     overviewGrid: {
       display: 'flex',
       flexDirection: 'column',
-      gap: '24px',
+      gap: isCompactLayout ? '16px' : '24px',
     },
     scoreCard: {
       backgroundColor: colors.surface,
       borderRadius: '16px',
-      padding: '32px',
+      padding: isCompactLayout ? '20px 16px' : '32px',
       textAlign: 'center',
       boxShadow: colors.shadow,
     },
@@ -2030,12 +2054,12 @@ const createStyles = (isDarkMode = false) => {
       marginBottom: '20px',
     },
     scoreValue: {
-      fontSize: '64px',
+      fontSize: isCompactLayout ? '48px' : '64px',
       fontWeight: 700,
       color: colors.accent,
     },
     scoreTotal: {
-      fontSize: '28px',
+      fontSize: isCompactLayout ? '22px' : '28px',
       color: colors.muted,
     },
     percentageBar: {
@@ -2051,41 +2075,50 @@ const createStyles = (isDarkMode = false) => {
       transition: 'width 0.5s ease-out',
     },
     gradeLabel: {
-      fontSize: '20px',
+      fontSize: isCompactLayout ? '16px' : '20px',
       fontWeight: 600,
       color: colors.text,
     },
     statsRow: {
       display: 'grid',
       gridTemplateColumns: 'repeat(3, 1fr)',
-      gap: '16px',
+      gap: isCompactLayout ? '8px' : '16px',
+      alignItems: 'stretch',
     },
     statCard: {
       backgroundColor: colors.surface,
       borderRadius: '12px',
-      padding: '20px',
+      padding: isCompactLayout ? '12px 8px' : '20px',
       textAlign: 'center',
       boxShadow: colors.shadow,
-      borderLeft: '4px solid',
+      borderLeftStyle: 'solid',
+      borderLeftWidth: isCompactLayout ? '3px' : '4px',
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'center',
+      minHeight: isCompactLayout ? '112px' : '136px',
     },
     statIcon: {
-      fontSize: '24px',
-      marginBottom: '8px',
+      fontSize: isCompactLayout ? '18px' : '24px',
+      marginBottom: isCompactLayout ? '6px' : '8px',
     },
     statNumber: {
-      fontSize: '32px',
+      fontSize: isCompactLayout ? '22px' : '32px',
       fontWeight: 700,
       color: colors.text,
+      lineHeight: 1.1,
     },
     statLabel: {
-      fontSize: '14px',
+      fontSize: isCompactLayout ? '12px' : '14px',
       color: colors.muted,
       marginTop: '4px',
+      lineHeight: 1.3,
     },
     infoCard: {
       backgroundColor: colors.surface,
       borderRadius: '12px',
-      padding: '24px',
+      padding: isCompactLayout ? '18px 14px' : '24px',
       boxShadow: colors.shadow,
     },
     infoTitle: {
@@ -2095,8 +2128,8 @@ const createStyles = (isDarkMode = false) => {
     },
     infoGrid: {
       display: 'grid',
-      gridTemplateColumns: 'repeat(2, 1fr)',
-      gap: '16px',
+      gridTemplateColumns: isCompactLayout ? '1fr' : 'repeat(2, 1fr)',
+      gap: isCompactLayout ? '12px' : '16px',
     },
     infoItem: {
       display: 'flex',
@@ -2115,7 +2148,8 @@ const createStyles = (isDarkMode = false) => {
     },
     actionsCard: {
       display: 'flex',
-      gap: '16px',
+      gap: isCompactLayout ? '10px' : '16px',
+      flexDirection: isCompactLayout ? 'column' : 'row',
       justifyContent: 'center',
     },
 

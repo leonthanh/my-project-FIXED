@@ -1,11 +1,12 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { apiPath, hostPath, clearAuth } from "../utils/api";
 import ThemeToggle from "./ThemeToggle";
 import "./StudentNavbar.css";
 
 const StudentNavbar = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [user, setUser] = useState(null);
 
   const [writingFeedbackCount, setWritingFeedbackCount] = useState(0);
@@ -13,6 +14,11 @@ const StudentNavbar = () => {
   const [cambridgeFeedbackCount, setCambridgeFeedbackCount] = useState(0);
   const [newTestCount, setNewTestCount] = useState(0);
   const [moreDropdownVisible, setMoreDropdownVisible] = useState(false);
+  const [isCompactMenu, setIsCompactMenu] = useState(
+    typeof window !== "undefined" ? window.innerWidth <= 520 : false
+  );
+  const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
+  const [mobileDrawerTab, setMobileDrawerTab] = useState("overview");
   const moreDropdownRef = useRef(null);
 
   // Lấy thông tin user từ localStorage
@@ -116,6 +122,41 @@ const StudentNavbar = () => {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+
+    const handleResize = () => {
+      const compact = window.innerWidth <= 520;
+      setIsCompactMenu(compact);
+      if (!compact) {
+        setMobileDrawerOpen(false);
+      }
+    };
+
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  useEffect(() => {
+    if (typeof document === "undefined") return undefined;
+
+    const originalOverflow = document.body.style.overflow;
+    if (isCompactMenu && mobileDrawerOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = originalOverflow || "";
+    }
+
+    return () => {
+      document.body.style.overflow = originalOverflow;
+    };
+  }, [isCompactMenu, mobileDrawerOpen]);
+
+  useEffect(() => {
+    setMobileDrawerOpen(false);
+  }, [location.pathname]);
 
   // 🔹 Kiểm tra định kỳ sự thay đổi trong localStorage
   useEffect(() => {
@@ -223,10 +264,305 @@ const StudentNavbar = () => {
     navigate('/login');
   };
 
+  const getPreferredMobileTab = () => {
+    const pathname = String(location.pathname || "").toLowerCase();
+    if (pathname.startsWith("/my-feedback")) return "feedback";
+    if (pathname.startsWith("/cambridge")) return "orange";
+    if (pathname.startsWith("/select-test")) return "ielts";
+    return "overview";
+  };
+
+  const openMobileDrawer = () => {
+    setMoreDropdownVisible(false);
+    setMobileDrawerTab(getPreferredMobileTab());
+    setMobileDrawerOpen(true);
+  };
+
+  const closeMobileDrawer = () => setMobileDrawerOpen(false);
+
+  const toggleMobileDrawer = () => {
+    if (mobileDrawerOpen) {
+      closeMobileDrawer();
+    } else {
+      openMobileDrawer();
+    }
+  };
+
   if (!user) return null;
 
   const feedbackCount = writingFeedbackCount + readingFeedbackCount + cambridgeFeedbackCount;
   const totalNotifications = feedbackCount + newTestCount;
+
+  const mobileDrawerTabs = [
+    { key: "overview", label: "Overview" },
+    { key: "ielts", label: "IELTS" },
+    { key: "orange", label: "Orange" },
+    {
+      key: "feedback",
+      label: `Feedback${totalNotifications > 0 ? ` (${totalNotifications})` : ""}`,
+    },
+  ];
+
+  const renderMobileQuickLink = (to, title, meta, icon) => (
+    <Link
+      key={to}
+      to={to}
+      className="studentNavbar__mobileQuickLink"
+      onClick={closeMobileDrawer}
+    >
+      <span className="studentNavbar__mobileQuickIcon">{icon}</span>
+      <span className="studentNavbar__mobileQuickText">
+        <span className="studentNavbar__mobileQuickTitle">{title}</span>
+        <span className="studentNavbar__mobileQuickMeta">{meta}</span>
+      </span>
+    </Link>
+  );
+
+  const renderMobileTabs = (tabs, activeKey, onChange) => (
+    <div className="studentNavbar__mobileTabs">
+      {tabs.map((tab) => (
+        <button
+          key={tab.key}
+          type="button"
+          className={`studentNavbar__mobileTab${
+            activeKey === tab.key ? " studentNavbar__mobileTab--active" : ""
+          }`}
+          onClick={() => onChange(tab.key)}
+        >
+          {tab.label}
+        </button>
+      ))}
+    </div>
+  );
+
+  const renderMobileOverview = () => (
+    <>
+      <div className="studentNavbar__mobileMenuTop">
+        <div className="studentNavbar__mobileMenuTitle">👤 {user.name}</div>
+        <div className="studentNavbar__mobileMenuHint">
+          Compact mobile menu for tests, feedback, appearance, and account actions.
+        </div>
+      </div>
+      <div className="studentNavbar__mobileMenuBody studentNavbar__mobileMenuBody--compact">
+        <div className="studentNavbar__mobileSectionTitle">Quick access</div>
+        <div className="studentNavbar__mobileQuickGrid">
+          {renderMobileQuickLink("/select-test", "IELTS", "Open the IELTS test list", "📚")}
+          {renderMobileQuickLink("/cambridge", "Orange", "Open Cambridge-style practice tests", "🍊")}
+          {renderMobileQuickLink(
+            "/my-feedback",
+            "My feedback",
+            "See teacher comments and marked submissions",
+            "📄"
+          )}
+        </div>
+
+        <div className="studentNavbar__mobileSectionTitle">Appearance</div>
+        <div className="studentNavbar__mobileThemeWrap">
+          <ThemeToggle style={{ width: "100%", justifyContent: "center" }} />
+        </div>
+
+        <div className="studentNavbar__mobileSectionTitle">Account</div>
+        <button
+          type="button"
+          className="studentNavbar__mobileLogout"
+          onClick={handleLogout}
+        >
+          <span className="studentNavbar__mobileQuickIcon">🔓</span>
+          <span className="studentNavbar__mobileQuickText">
+            <span className="studentNavbar__mobileQuickTitle">Logout</span>
+            <span className="studentNavbar__mobileQuickMeta">Sign out of your account</span>
+          </span>
+        </button>
+      </div>
+    </>
+  );
+
+  const renderMobileIelts = () => (
+    <>
+      <div className="studentNavbar__mobileMenuTop">
+        <div className="studentNavbar__mobileMenuTitle">📚 IELTS</div>
+        <div className="studentNavbar__mobileMenuHint">
+          Browse IELTS tests and return to the main test selection screen.
+        </div>
+      </div>
+      <div className="studentNavbar__mobileMenuBody studentNavbar__mobileMenuBody--compact">
+        {renderMobileQuickLink(
+          "/select-test",
+          "Open IELTS tests",
+          "Go back to the IELTS test listing page",
+          "🧾"
+        )}
+      </div>
+    </>
+  );
+
+  const renderMobileOrange = () => (
+    <>
+      <div className="studentNavbar__mobileMenuTop">
+        <div className="studentNavbar__mobileMenuTitle">🍊 Orange</div>
+        <div className="studentNavbar__mobileMenuHint">
+          Jump to Cambridge-style reading, listening, and result pages.
+        </div>
+      </div>
+      <div className="studentNavbar__mobileMenuBody studentNavbar__mobileMenuBody--compact">
+        {renderMobileQuickLink(
+          "/cambridge",
+          "Open Orange tests",
+          "Go to the Cambridge / Orange practice test hub",
+          "🎓"
+        )}
+      </div>
+    </>
+  );
+
+  const renderMobileFeedback = () => (
+    <>
+      <div className="studentNavbar__mobileMenuTop">
+        <div className="studentNavbar__mobileMenuTitle">🔔 Feedback & updates</div>
+        <div className="studentNavbar__mobileMenuHint">
+          Track unseen feedback and new tests from one place on mobile.
+        </div>
+      </div>
+      <div className="studentNavbar__mobileMenuBody studentNavbar__mobileMenuBody--compact">
+        <div className="studentNavbar__mobileSummaryCard">
+          <div className="studentNavbar__mobileSummaryRow">
+            <span className="studentNavbar__mobileSummaryLabel">New feedback</span>
+            <span className="studentNavbar__mobileSummaryValue">{feedbackCount}</span>
+          </div>
+          <div className="studentNavbar__mobileSummaryRow">
+            <span className="studentNavbar__mobileSummaryLabel">New tests</span>
+            <span className="studentNavbar__mobileSummaryValue">{newTestCount}</span>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          className="studentNavbar__mobileQuickAction"
+          onClick={async () => {
+            closeMobileDrawer();
+            await handleNotificationClick();
+          }}
+        >
+          <span className="studentNavbar__mobileQuickIcon">📬</span>
+          <span className="studentNavbar__mobileQuickText">
+            <span className="studentNavbar__mobileQuickTitle">Open feedback center</span>
+            <span className="studentNavbar__mobileQuickMeta">
+              Mark notifications as seen and open My Feedback
+            </span>
+          </span>
+        </button>
+
+        {renderMobileQuickLink(
+          "/my-feedback",
+          "Open My Feedback",
+          "Review all writing, reading, and Cambridge comments",
+          "📝"
+        )}
+      </div>
+    </>
+  );
+
+  const renderMobileDrawerContent = () => {
+    if (mobileDrawerTab === "ielts") return renderMobileIelts();
+    if (mobileDrawerTab === "orange") return renderMobileOrange();
+    if (mobileDrawerTab === "feedback") return renderMobileFeedback();
+    return renderMobileOverview();
+  };
+
+  if (isCompactMenu) {
+    return (
+      <nav className="studentNavbar studentNavbar--compact">
+        <div className="studentNavbar__mobileBar">
+          <Link to="/select-test" className="studentNavbar__logoLink" title="Test list">
+            <img
+              src={hostPath("uploads/staredu.jpg")}
+              alt="Logo"
+              className="studentNavbar__logo"
+            />
+          </Link>
+
+          <button
+            type="button"
+            className="studentNavbar__mobileMenuButton"
+            onClick={toggleMobileDrawer}
+            aria-label={mobileDrawerOpen ? "Close menu" : "Open menu"}
+            aria-expanded={mobileDrawerOpen}
+          >
+            <span
+              className={`studentNavbar__hamburger${
+                mobileDrawerOpen ? " studentNavbar__hamburger--open" : ""
+              }`}
+              aria-hidden="true"
+            >
+              <span className="studentNavbar__hamburgerLine" />
+              <span className="studentNavbar__hamburgerLine" />
+              <span className="studentNavbar__hamburgerLine" />
+            </span>
+            <span className="studentNavbar__srOnly">
+              {mobileDrawerOpen ? "Close menu" : "Open menu"}
+            </span>
+            {totalNotifications > 0 && (
+              <span className="studentNavbar__mobileMenuBadge">{totalNotifications}</span>
+            )}
+          </button>
+        </div>
+
+        {mobileDrawerOpen && (
+          <>
+            <button
+              type="button"
+              className="studentNavbar__drawerBackdrop"
+              aria-label="Close navigation menu"
+              onClick={closeMobileDrawer}
+            />
+            <aside className="studentNavbar__drawerPanel" role="dialog" aria-modal="true">
+              <div className="studentNavbar__drawerHeader">
+                <div className="studentNavbar__drawerBrand">
+                  <img
+                    src={hostPath("uploads/staredu.jpg")}
+                    alt="Logo"
+                    className="studentNavbar__drawerLogo"
+                  />
+                  <div className="studentNavbar__drawerBrandText">
+                    <div className="studentNavbar__drawerBrandTitle">Student Menu</div>
+                    <div className="studentNavbar__drawerBrandMeta">
+                      Compact slide-out navigation for mobile devices
+                    </div>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="studentNavbar__drawerClose"
+                  onClick={closeMobileDrawer}
+                  aria-label="Close navigation menu"
+                >
+                  ✕
+                </button>
+              </div>
+
+              {renderMobileTabs(mobileDrawerTabs, mobileDrawerTab, setMobileDrawerTab)}
+
+              <div key={mobileDrawerTab} className="studentNavbar__drawerContent studentNavbar__drawerStage">
+                {renderMobileDrawerContent()}
+              </div>
+            </aside>
+          </>
+        )}
+
+        <style>
+          {`
+            @keyframes shake {
+              0% { transform: rotate(0deg); }
+              25% { transform: rotate(10deg); }
+              50% { transform: rotate(-10deg); }
+              75% { transform: rotate(10deg); }
+              100% { transform: rotate(0deg); }
+            }
+          `}
+        </style>
+      </nav>
+    );
+  }
 
   return (
     <nav className="studentNavbar">

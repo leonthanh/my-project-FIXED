@@ -81,6 +81,350 @@
   z-index: 1;
 }
 
+.studentNavbar--compact {
+  gap: 0;
+  align-items: center;
+}
+
+.studentNavbar__mobileBar {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.studentNavbar__mobileMenuButton {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border: none;
+  border-radius: 50%;
+  background: linear-gradient(180deg, rgba(255,255,255,0.18) 0%, rgba(255,255,255,0.1) 100%);
+  color: #fff;
+  cursor: pointer;
+  box-shadow: 0 10px 22px rgba(4, 18, 60, 0.22);
+  flex: 0 0 auto;
+}
+
+.studentNavbar__hamburger {
+  position: relative;
+  width: 18px;
+  height: 14px;
+  display: inline-flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.studentNavbar__hamburgerLine {
+  display: block;
+  width: 100%;
+  height: 2px;
+  border-radius: 999px;
+  background: currentColor;
+  transform-origin: center;
+  transition: transform 0.24s ease, opacity 0.2s ease;
+}
+
+.studentNavbar__hamburger--open .studentNavbar__hamburgerLine:nth-child(1) {
+  transform: translateY(6px) rotate(45deg);
+}
+
+.studentNavbar__hamburger--open .studentNavbar__hamburgerLine:nth-child(2) {
+  opacity: 0;
+}
+
+.studentNavbar__hamburger--open .studentNavbar__hamburgerLine:nth-child(3) {
+  transform: translateY(-6px) rotate(-45deg);
+}
+
+.studentNavbar__srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.studentNavbar__mobileMenuBadge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: #ff2442;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.studentNavbar__drawerBackdrop {
+  position: fixed;
+  inset: 0;
+  border: none;
+  background: rgba(2, 6, 23, 0.42);
+  backdrop-filter: blur(2px);
+  z-index: 2090;
+}
+
+.studentNavbar__drawerPanel {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: min(360px, 88vw);
+  background: #ffffff;
+  color: #111827;
+  z-index: 2100;
+  box-shadow: 18px 0 48px rgba(15, 23, 42, 0.28);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  animation: studentNavbarDrawerIn 0.28s ease;
+}
+
+.studentNavbar__drawerHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 14px 12px;
+  border-bottom: 1px solid #e2e8f0;
+  background: linear-gradient(180deg, #f8fbff 0%, #ffffff 100%);
+}
+
+.studentNavbar__drawerBrand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.studentNavbar__drawerLogo {
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
+  object-fit: cover;
+  box-shadow: 0 8px 16px rgba(14, 39, 111, 0.15);
+}
+
+.studentNavbar__drawerBrandText {
+  min-width: 0;
+}
+
+.studentNavbar__drawerBrandTitle {
+  font-size: 16px;
+  font-weight: 800;
+  color: #0e276f;
+}
+
+.studentNavbar__drawerBrandMeta {
+  margin-top: 2px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: #64748b;
+}
+
+.studentNavbar__drawerClose {
+  flex: 0 0 auto;
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 10px;
+  background: #e8efff;
+  color: #0e276f;
+  font-size: 18px;
+  cursor: pointer;
+}
+
+.studentNavbar__mobileTabs {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 10px 12px;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  border-bottom: 1px solid #eef2f7;
+}
+
+.studentNavbar__mobileTabs::-webkit-scrollbar {
+  display: none;
+}
+
+.studentNavbar__mobileTab {
+  flex: 0 0 auto;
+  border: none;
+  border-radius: 999px;
+  padding: 8px 11px;
+  white-space: nowrap;
+  cursor: pointer;
+  background: #e8efff;
+  color: #294172;
+  font-size: 12px;
+  font-weight: 700;
+  transition: background 0.2s ease, color 0.2s ease, transform 0.2s ease;
+}
+
+.studentNavbar__mobileTab:hover {
+  transform: translateY(-1px);
+}
+
+.studentNavbar__mobileTab--active {
+  background: #0e276f;
+  color: #fff;
+}
+
+.studentNavbar__drawerContent {
+  padding-bottom: 18px;
+}
+
+.studentNavbar__drawerStage {
+  animation: studentNavbarContentSwap 0.28s ease;
+}
+
+.studentNavbar__mobileMenuTop {
+  padding: 14px 14px 10px;
+  border-bottom: 1px solid #e8ecf3;
+  background: linear-gradient(180deg, #f5f8ff 0%, #ffffff 100%);
+}
+
+.studentNavbar__mobileMenuTitle {
+  font-size: 15px;
+  font-weight: 800;
+  color: #0e276f;
+}
+
+.studentNavbar__mobileMenuHint {
+  margin-top: 4px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: #64748b;
+}
+
+.studentNavbar__mobileMenuBody {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 0 14px 14px;
+}
+
+.studentNavbar__mobileMenuBody--compact {
+  padding-top: 14px;
+}
+
+.studentNavbar__mobileSectionTitle {
+  padding-top: 12px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.studentNavbar__mobileQuickGrid {
+  display: grid;
+  gap: 10px;
+}
+
+.studentNavbar__mobileQuickLink,
+.studentNavbar__mobileQuickAction,
+.studentNavbar__mobileLogout {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  color: #0f172a;
+  text-decoration: none;
+  text-align: left;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.studentNavbar__mobileQuickLink:hover,
+.studentNavbar__mobileQuickAction:hover,
+.studentNavbar__mobileLogout:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+  border-color: #c7d2fe;
+}
+
+.studentNavbar__mobileQuickIcon {
+  flex: 0 0 auto;
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #eef2ff;
+  font-size: 18px;
+}
+
+.studentNavbar__mobileQuickText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.studentNavbar__mobileQuickTitle {
+  font-size: 14px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.studentNavbar__mobileQuickMeta {
+  font-size: 12px;
+  line-height: 1.45;
+  color: #64748b;
+}
+
+.studentNavbar__mobileThemeWrap {
+  display: flex;
+}
+
+.studentNavbar__mobileSummaryCard {
+  display: grid;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+}
+
+.studentNavbar__mobileSummaryRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.studentNavbar__mobileSummaryLabel {
+  font-size: 13px;
+  color: #64748b;
+}
+
+.studentNavbar__mobileSummaryValue {
+  font-size: 16px;
+  font-weight: 800;
+  color: #0e276f;
+}
+
 .studentNavbar__user {
   font-weight: 700;
 }
@@ -154,6 +498,86 @@ body.dark-mode .studentNavbar__menu {
   border-color: #3d3d5c;
 }
 
+body.dark-mode .studentNavbar__mobileMenuButton {
+  background: linear-gradient(180deg, rgba(255,255,255,0.14) 0%, rgba(255,255,255,0.08) 100%);
+  color: #f8fafc;
+}
+
+body.dark-mode .studentNavbar__drawerBackdrop {
+  background: rgba(0, 0, 0, 0.55);
+}
+
+body.dark-mode .studentNavbar__drawerPanel {
+  background: #0f172a;
+  color: #e2e8f0;
+}
+
+body.dark-mode .studentNavbar__drawerHeader {
+  background: linear-gradient(180deg, #172554 0%, #0f172a 100%);
+  border-bottom-color: #23314f;
+}
+
+body.dark-mode .studentNavbar__drawerBrandTitle {
+  color: #eff6ff;
+}
+
+body.dark-mode .studentNavbar__drawerBrandMeta {
+  color: #cbd5e1;
+}
+
+body.dark-mode .studentNavbar__drawerClose {
+  background: #1e3a8a;
+  color: #eff6ff;
+}
+
+body.dark-mode .studentNavbar__mobileMenuTop {
+  background: linear-gradient(180deg, #182748 0%, #16213e 100%);
+  border-bottom-color: #2a3350;
+}
+
+body.dark-mode .studentNavbar__mobileMenuTitle,
+body.dark-mode .studentNavbar__mobileSummaryValue {
+  color: #f8fafc;
+}
+
+body.dark-mode .studentNavbar__mobileMenuHint,
+body.dark-mode .studentNavbar__mobileSectionTitle,
+body.dark-mode .studentNavbar__mobileQuickMeta,
+body.dark-mode .studentNavbar__mobileSummaryLabel {
+  color: #cbd5e1;
+}
+
+body.dark-mode .studentNavbar__mobileTabs {
+  border-bottom-color: #2a3350;
+}
+
+body.dark-mode .studentNavbar__mobileTab {
+  background: #213154;
+  color: #dbeafe;
+}
+
+body.dark-mode .studentNavbar__mobileTab--active {
+  background: #3b82f6;
+  color: #fff;
+}
+
+body.dark-mode .studentNavbar__mobileQuickLink,
+body.dark-mode .studentNavbar__mobileQuickAction,
+body.dark-mode .studentNavbar__mobileLogout,
+body.dark-mode .studentNavbar__mobileSummaryCard {
+  background: #111827;
+  border-color: #23314f;
+  color: #e5e7eb;
+}
+
+body.dark-mode .studentNavbar__mobileQuickTitle {
+  color: #f8fafc;
+}
+
+body.dark-mode .studentNavbar__mobileQuickIcon {
+  background: #1e293b;
+}
+
 body.dark-mode .studentNavbar__menuItem {
   color: #e8e8e8;
   border-bottom: 1px solid #2a3350;
@@ -175,6 +599,26 @@ body.dark-mode .studentNavbar__menuItem:hover {
 }
 
 @media (max-width: 520px) {
+  .studentNavbar--compact {
+    padding: 8px 10px;
+    gap: 0;
+    flex-wrap: nowrap;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    overflow: visible;
+    align-items: center;
+  }
+
+  .studentNavbar--compact .studentNavbar__logo {
+    height: 28px;
+  }
+
+  .studentNavbar__mobileBar {
+    gap: 8px;
+  }
+
   .studentNavbar {
     padding: 8px 10px;
   }
@@ -264,5 +708,25 @@ body.dark-mode .studentNavbar__menuItem:hover {
 
   .studentNavbar__logoutLabel {
     display: none;
+  }
+}
+
+@keyframes studentNavbarContentSwap {
+  0% {
+    opacity: 0;
+    transform: translateX(10px) translateY(2px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0) translateY(0);
+  }
+}
+
+@keyframes studentNavbarDrawerIn {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(0);
   }
 }

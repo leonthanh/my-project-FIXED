@@ -35,11 +35,24 @@ const AdminWritingSubmissions = () => {
         setFilteredData(items);
 
         const savedMap = {};
+        const feedbackMap = {};
+        const bandMap = {};
         items.forEach((item) => {
           if (item.feedback && item.feedbackBy) {
             savedMap[item.id] = true;
           }
+          if (item.feedback != null) {
+            feedbackMap[item.id] = item.feedback;
+          }
+          if (item.bandTask1 != null || item.bandTask2 != null) {
+            bandMap[item.id] = {
+              task1: item.bandTask1 != null ? String(item.bandTask1) : "",
+              task2: item.bandTask2 != null ? String(item.bandTask2) : "",
+            };
+          }
         });
+        setFeedbacks(feedbackMap);
+        setBands(bandMap);
         setHasSaved(savedMap);
       })
       .catch((err) => console.error("Failed to load writing submissions:", err));
@@ -120,7 +133,8 @@ const AdminWritingSubmissions = () => {
   };
 
   const handleSendFeedback = async (submissionId) => {
-    const feedback = feedbacks[submissionId];
+    const currentItem = data.find((item) => item.id === submissionId);
+    const feedback = feedbacks[submissionId] ?? currentItem?.feedback ?? "";
     if (!feedback || !feedback.trim()) {
       alert("Please enter feedback.");
       return;
@@ -154,7 +168,7 @@ const AdminWritingSubmissions = () => {
 
       setMessages((prev) => ({
         ...prev,
-        [submissionId]: "Feedback sent successfully.",
+        [submissionId]: currentItem?.feedback ? "Feedback updated successfully." : "Feedback sent successfully.",
       }));
 
       const bandEntry = bands[submissionId] || {};
@@ -175,7 +189,14 @@ const AdminWritingSubmissions = () => {
           : item
       );
       setData(updated);
-      setFeedbacks((prev) => ({ ...prev, [submissionId]: "" }));
+      setFeedbacks((prev) => ({ ...prev, [submissionId]: feedback }));
+      setBands((prev) => ({
+        ...prev,
+        [submissionId]: {
+          task1: bT1 != null ? String(bT1) : "",
+          task2: bT2 != null ? String(bT2) : "",
+        },
+      }));
       setHasSaved((prev) => ({ ...prev, [submissionId]: true }));
     } catch (err) {
       console.error(err);
@@ -738,7 +759,7 @@ const AdminWritingSubmissions = () => {
                           fontFamily: "inherit",
                           outline: "none",
                         }}
-                        value={feedbacks[item.id] || ""}
+                        value={feedbacks[item.id] ?? item.feedback ?? ""}
                         disabled={isDraft}
                         onChange={(e) =>
                           setFeedbacks((prev) => ({ ...prev, [item.id]: e.target.value }))
@@ -753,7 +774,6 @@ const AdminWritingSubmissions = () => {
                           disabled={
                             isDraft ||
                             sendLoading[item.id] ||
-                            hasSaved[item.id] ||
                             aiLoading[item.id]
                           }
                           style={{
@@ -764,13 +784,12 @@ const AdminWritingSubmissions = () => {
                             fontWeight: 600,
                             fontSize: 14,
                             cursor:
-                              isDraft || hasSaved[item.id] || sendLoading[item.id]
+                              isDraft || sendLoading[item.id] || aiLoading[item.id]
                                 ? "default"
                                 : "pointer",
                             background:
                               isDraft ||
                               sendLoading[item.id] ||
-                              hasSaved[item.id] ||
                               aiLoading[item.id]
                                 ? "#9ca3af"
                                 : "#0e276f",
@@ -782,7 +801,7 @@ const AdminWritingSubmissions = () => {
                             : sendLoading[item.id]
                             ? "Sending..."
                             : hasSaved[item.id]
-                            ? "Sent"
+                            ? "Update Feedback"
                             : "Send Feedback"}
                         </button>
                         <button

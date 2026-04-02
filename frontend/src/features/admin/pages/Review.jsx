@@ -35,6 +35,21 @@ const Review = () => {
   const [cambridgeAiLoadingById, setCambridgeAiLoadingById] = useState({});
   const [cambridgeSavingById, setCambridgeSavingById] = useState({});
   const [cambridgeStatusById, setCambridgeStatusById] = useState({});
+  const [isCompactLayout, setIsCompactLayout] = useState(
+    typeof window !== "undefined" ? window.innerWidth <= 768 : false
+  );
+
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+
+    const handleResize = () => {
+      setIsCompactLayout(window.innerWidth <= 768);
+    };
+
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   useEffect(() => {
     const fetchUnreviewedWriting = async () => {
@@ -302,6 +317,152 @@ const Review = () => {
     }
   };
 
+  const formatDateTime = (value) => {
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? "N/A" : date.toLocaleString();
+  };
+
+  const renderMobileField = (label, value) => (
+    <div key={label} style={mobileFieldRowStyle}>
+      <div style={mobileFieldLabelStyle(isDarkMode)}>{label}</div>
+      <div style={mobileFieldValueStyle(isDarkMode)}>{value}</div>
+    </div>
+  );
+
+  const renderCambridgeExpandedContent = (
+    sub,
+    detail,
+    pendingAnswers,
+    isLoadingDetail
+  ) => (
+    <div style={{ display: "grid", gap: isCompactLayout ? 8 : 10 }}>
+      {isLoadingDetail && <div>Loading submission details...</div>}
+
+      {!isLoadingDetail && detail && (
+        <div style={{ display: "grid", gap: isCompactLayout ? 8 : 10 }}>
+          <div style={{ display: "grid", gap: isCompactLayout ? 6 : 8 }}>
+            <div style={{ fontWeight: 700 }}>Open-ended responses to review</div>
+
+            {pendingAnswers.length === 0 ? (
+              <div
+                style={{
+                  color: isDarkMode ? "#9ca3af" : "#6b7280",
+                }}
+              >
+                No pending open-ended responses were found in this submission. You can still
+                open the full result to inspect it manually.
+              </div>
+            ) : (
+              <div style={{ display: "grid", gap: isCompactLayout ? 8 : 10 }}>
+                {pendingAnswers.map((item, answerIndex) => (
+                  <div key={item.key} style={answerBoxStyle(isDarkMode, isCompactLayout)}>
+                    <div style={{ fontWeight: 700 }}>
+                      {item.label || `Response ${answerIndex + 1}`}
+                    </div>
+                    {item.prompt && (
+                      <div
+                        style={{
+                          marginTop: 6,
+                          marginBottom: 8,
+                          color: isDarkMode ? "#cbd5e1" : "#4b5563",
+                          fontSize: 13,
+                        }}
+                      >
+                        Prompt: {item.prompt}
+                      </div>
+                    )}
+                    <div style={{ whiteSpace: "pre-wrap" }}>{item.userAnswer}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div style={{ display: "grid", gap: isCompactLayout ? 6 : 8, marginTop: isCompactLayout ? 2 : 6 }}>
+            <div style={{ fontWeight: 700 }}>Teacher Feedback</div>
+            <textarea
+              rows={4}
+              value={cambridgeFeedbackDraftById[sub.id] || ""}
+              onChange={(e) =>
+                setCambridgeFeedbackDraftById((prev) => ({
+                  ...prev,
+                  [sub.id]: e.target.value,
+                }))
+              }
+              placeholder="Enter feedback..."
+              style={{
+                width: "100%",
+                padding: isCompactLayout ? 9 : 10,
+                border: `1px solid ${isDarkMode ? "#2a3350" : "#d1d5db"}`,
+                borderRadius: 8,
+                fontSize: 14,
+                background: isDarkMode ? "#0f172a" : "#fff",
+                color: isDarkMode ? "#e5e7eb" : "#111827",
+                boxSizing: "border-box",
+              }}
+            />
+
+            <div
+              style={feedbackActionRowStyle(isCompactLayout)}
+            >
+              <button
+                onClick={() => handleGenerateCambridgeFeedback(sub)}
+                style={
+                  isCompactLayout
+                    ? { ...mobileSecondaryButtonStyle, padding: "10px 12px" }
+                    : secondaryButtonStyle
+                }
+                disabled={
+                  !pendingAnswers.length ||
+                  cambridgeAiLoadingById[sub.id] ||
+                  cambridgeSavingById[sub.id]
+                }
+              >
+                {cambridgeAiLoadingById[sub.id] ? "Generating..." : "AI Feedback"}
+              </button>
+              <button
+                onClick={() => handleSaveCambridgeFeedback(sub.id)}
+                style={
+                  isCompactLayout
+                    ? { ...primaryButtonStyle, width: "100%", padding: "10px 12px" }
+                    : primaryButtonStyle
+                }
+                disabled={
+                  !(cambridgeFeedbackDraftById[sub.id] || "").trim() ||
+                  cambridgeSavingById[sub.id] ||
+                  cambridgeAiLoadingById[sub.id]
+                }
+              >
+                {cambridgeSavingById[sub.id] ? "Saving..." : "Save Feedback"}
+              </button>
+              <span
+                style={{
+                  gridColumn: isCompactLayout ? "1 / -1" : undefined,
+                  color: isDarkMode ? "#9ca3af" : "#6b7280",
+                  fontSize: isCompactLayout ? 12 : 13,
+                  lineHeight: 1.45,
+                }}
+              >
+                Saving will move this submission to the reviewed state.
+              </span>
+            </div>
+
+            {cambridgeStatusById[sub.id] && (
+              <div
+                style={{
+                  color: isDarkMode ? "#93c5fd" : "#1d4ed8",
+                  fontSize: 13,
+                }}
+              >
+                {cambridgeStatusById[sub.id]}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <>
       <AdminNavbar />
@@ -318,7 +479,10 @@ const Review = () => {
           <h3 style={{ margin: 0 }}>Review Queue</h3>
         </div>
 
-        <div style={{ display: "flex", gap: 10, marginTop: 14 }} className="admin-tabs">
+        <div
+          style={{ display: "flex", gap: 10, marginTop: 14, flexWrap: "wrap" }}
+          className="admin-tabs"
+        >
           <button
             onClick={() => setActiveTab("writing")}
             style={{
@@ -346,7 +510,7 @@ const Review = () => {
               <p>No writing submissions need review.</p>
             )}
 
-            {!loadingWriting && unreviewedWriting.length > 0 && (
+            {!loadingWriting && unreviewedWriting.length > 0 && !isCompactLayout && (
               <table style={tableStyle}>
                 <thead>
                   <tr style={{ backgroundColor: "#f2f2f2" }}>
@@ -388,6 +552,49 @@ const Review = () => {
                 </tbody>
               </table>
             )}
+
+            {!loadingWriting && unreviewedWriting.length > 0 && isCompactLayout && (
+              <div style={mobileListStyle}>
+                {unreviewedWriting.map((sub, idx) => {
+                  const writingTest = sub.writing_test || sub.WritingTest || {};
+                  return (
+                    <div key={sub.id} style={mobileCardStyle(isDarkMode)}>
+                      <div style={mobileCardHeaderStyle}>
+                        <div style={mobileCardIndexStyle(isDarkMode)}>#{idx + 1}</div>
+                        <div style={mobileCardTitleStyle(isDarkMode)}>
+                          Writing {writingTest.index || "N/A"}
+                        </div>
+                      </div>
+
+                      <div style={mobileFieldsGridStyle}>
+                        {renderMobileField("Student", sub.userName || sub.user?.name || "N/A")}
+                        {renderMobileField("Phone", sub.userPhone || sub.user?.phone || "N/A")}
+                        {renderMobileField(
+                          "Test",
+                          [
+                            writingTest.classCode || null,
+                            writingTest.teacherName || null,
+                          ]
+                            .filter(Boolean)
+                            .join(" - ") || "N/A"
+                        )}
+                        {renderMobileField(
+                          "Submitted",
+                          formatDateTime(sub.submittedAt || sub.createdAt)
+                        )}
+                      </div>
+
+                      <button
+                        onClick={() => navigate(`/review/${sub.id}`)}
+                        style={{ ...primaryButtonStyle, width: "100%", marginTop: 12 }}
+                      >
+                        Review Submission
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </>
         )}
 
@@ -405,7 +612,7 @@ const Review = () => {
                 <p>No Cambridge submissions need review.</p>
               )}
 
-            {!loadingCambridge && !cambridgeError && mergedCambridgeRows.length > 0 && (
+            {!loadingCambridge && !cambridgeError && mergedCambridgeRows.length > 0 && !isCompactLayout && (
               <table style={tableStyle}>
                 <thead>
                   <tr style={{ backgroundColor: "#f2f2f2" }}>
@@ -502,137 +709,11 @@ const Review = () => {
                               }}
                               colSpan={9}
                             >
-                              {isLoadingDetail && <div>Loading submission details...</div>}
-
-                              {!isLoadingDetail && detail && (
-                                <div style={{ display: "grid", gap: 10 }}>
-                                  <div style={{ display: "grid", gap: 8 }}>
-                                    <div style={{ fontWeight: 700 }}>
-                                      Open-ended responses to review
-                                    </div>
-
-                                    {pendingAnswers.length === 0 ? (
-                                      <div
-                                        style={{
-                                          color: isDarkMode ? "#9ca3af" : "#6b7280",
-                                        }}
-                                      >
-                                        No pending open-ended responses were found in this
-                                        submission. You can still open the full result to
-                                        inspect it manually.
-                                      </div>
-                                    ) : (
-                                      <div style={{ display: "grid", gap: 10 }}>
-                                        {pendingAnswers.map((item, answerIndex) => (
-                                          <div
-                                            key={item.key}
-                                            style={answerBoxStyle(isDarkMode)}
-                                          >
-                                            <div style={{ fontWeight: 700 }}>
-                                              {item.label || `Response ${answerIndex + 1}`}
-                                            </div>
-                                            {item.prompt && (
-                                              <div
-                                                style={{
-                                                  marginTop: 6,
-                                                  marginBottom: 8,
-                                                  color: isDarkMode ? "#cbd5e1" : "#4b5563",
-                                                  fontSize: 13,
-                                                }}
-                                              >
-                                                Prompt: {item.prompt}
-                                              </div>
-                                            )}
-                                            <div style={{ whiteSpace: "pre-wrap" }}>
-                                              {item.userAnswer}
-                                            </div>
-                                          </div>
-                                        ))}
-                                      </div>
-                                    )}
-                                  </div>
-
-                                  <div style={{ display: "grid", gap: 8, marginTop: 6 }}>
-                                    <div style={{ fontWeight: 700 }}>Teacher Feedback</div>
-                                    <textarea
-                                      rows={4}
-                                      value={cambridgeFeedbackDraftById[sub.id] || ""}
-                                      onChange={(e) =>
-                                        setCambridgeFeedbackDraftById((prev) => ({
-                                          ...prev,
-                                          [sub.id]: e.target.value,
-                                        }))
-                                      }
-                                      placeholder="Enter feedback..."
-                                      style={{
-                                        width: "100%",
-                                        padding: 10,
-                                        border: `1px solid ${
-                                          isDarkMode ? "#2a3350" : "#d1d5db"
-                                        }`,
-                                        borderRadius: 8,
-                                        fontSize: 14,
-                                        background: isDarkMode ? "#0f172a" : "#fff",
-                                        color: isDarkMode ? "#e5e7eb" : "#111827",
-                                      }}
-                                    />
-
-                                    <div
-                                      style={{
-                                        display: "flex",
-                                        gap: 10,
-                                        alignItems: "center",
-                                        flexWrap: "wrap",
-                                      }}
-                                    >
-                                      <button
-                                        onClick={() => handleGenerateCambridgeFeedback(sub)}
-                                        style={secondaryButtonStyle}
-                                        disabled={
-                                          !pendingAnswers.length ||
-                                          cambridgeAiLoadingById[sub.id] ||
-                                          cambridgeSavingById[sub.id]
-                                        }
-                                      >
-                                        {cambridgeAiLoadingById[sub.id]
-                                          ? "Generating..."
-                                          : "AI Feedback"}
-                                      </button>
-                                      <button
-                                        onClick={() => handleSaveCambridgeFeedback(sub.id)}
-                                        style={primaryButtonStyle}
-                                        disabled={
-                                          !(cambridgeFeedbackDraftById[sub.id] || "").trim() ||
-                                          cambridgeSavingById[sub.id] ||
-                                          cambridgeAiLoadingById[sub.id]
-                                        }
-                                      >
-                                        {cambridgeSavingById[sub.id]
-                                          ? "Saving..."
-                                          : "Save Feedback"}
-                                      </button>
-                                      <span
-                                        style={{
-                                          color: isDarkMode ? "#9ca3af" : "#6b7280",
-                                          fontSize: 13,
-                                        }}
-                                      >
-                                        Saving will move this submission to the reviewed state.
-                                      </span>
-                                    </div>
-
-                                    {cambridgeStatusById[sub.id] && (
-                                      <div
-                                        style={{
-                                          color: isDarkMode ? "#93c5fd" : "#1d4ed8",
-                                          fontSize: 13,
-                                        }}
-                                      >
-                                        {cambridgeStatusById[sub.id]}
-                                      </div>
-                                    )}
-                                  </div>
-                                </div>
+                              {renderCambridgeExpandedContent(
+                                sub,
+                                detail,
+                                pendingAnswers,
+                                isLoadingDetail
                               )}
                             </td>
                           </tr>
@@ -642,6 +723,96 @@ const Review = () => {
                   })}
                 </tbody>
               </table>
+            )}
+
+            {!loadingCambridge && !cambridgeError && mergedCambridgeRows.length > 0 && isCompactLayout && (
+              <div style={mobileListStyle}>
+                {mergedCambridgeRows.map((row, idx) => {
+                  if (row.source === "pet-writing") {
+                    const sub = row.sub;
+                    const writingTest = sub.writing_test || sub.WritingTest || {};
+
+                    return (
+                      <div key={`pet-${sub.id}`} style={mobileCardStyle(isDarkMode)}>
+                        <div style={mobileCardHeaderStyle}>
+                          <div style={mobileCardIndexStyle(isDarkMode)}>#{idx + 1}</div>
+                          <div style={mobileCardTitleStyle(isDarkMode)}>PET Writing</div>
+                        </div>
+
+                        <div style={mobileFieldsGridStyle}>
+                          {renderMobileField("Student", sub.userName || sub.user?.name || "N/A")}
+                          {renderMobileField("Phone", sub.userPhone || sub.user?.phone || "N/A")}
+                          {renderMobileField("Class", writingTest.classCode || "N/A")}
+                          {renderMobileField("Submitted", formatDateTime(sub.submittedAt || sub.createdAt))}
+                        </div>
+
+                        <button
+                          onClick={() => navigate(`/review/${sub.id}`)}
+                          style={{ ...primaryButtonStyle, width: "100%", marginTop: 12 }}
+                        >
+                          Review Submission
+                        </button>
+                      </div>
+                    );
+                  }
+
+                  const sub = row.sub;
+                  const isExpanded = expandedCambridge.has(sub.id);
+                  const detail = cambridgeDetailsById[sub.id];
+                  const isLoadingDetail = !!cambridgeLoadingDetailById[sub.id];
+                  const pendingAnswers = detail ? getPendingManualAnswers(detail) : [];
+
+                  return (
+                    <div key={`cam-${sub.id}`} style={mobileCardStyle(isDarkMode)}>
+                      <div style={mobileCardHeaderStyle}>
+                        <div style={mobileCardIndexStyle(isDarkMode)}>#{idx + 1}</div>
+                        <div style={mobileCardTitleStyle(isDarkMode)}>
+                          {String(sub.testType || "Cambridge")}
+                        </div>
+                      </div>
+
+                      <div style={mobileFieldsGridStyle}>
+                        {renderMobileField("Student", sub.studentName || "N/A")}
+                        {renderMobileField("Phone", sub.studentPhone || "N/A")}
+                        {renderMobileField("Class", sub.classCode || "N/A")}
+                        {renderMobileField(
+                          "Score",
+                          typeof sub.score === "number" && typeof sub.totalQuestions === "number"
+                            ? `${sub.score}/${sub.totalQuestions}`
+                            : "--"
+                        )}
+                        {renderMobileField("Submitted", formatDateTime(sub.submittedAt))}
+                      </div>
+
+                      <div style={mobileButtonRowStyle}>
+                        <button
+                          onClick={() => handleToggleCambridgeDetail(sub.id)}
+                          style={mobileSecondaryButtonStyle}
+                        >
+                          {isExpanded ? "Hide Details" : "Review Essay"}
+                        </button>
+                        <button
+                          onClick={() => navigate(`/cambridge/result/${sub.id}`)}
+                          style={mobileSecondaryButtonStyle}
+                        >
+                          View Result
+                        </button>
+                      </div>
+
+                      {isExpanded && (
+                        <div style={mobileExpandedPanelStyle(isDarkMode)}>
+                          {renderCambridgeExpandedContent(
+                            sub,
+                            detail,
+                            pendingAnswers,
+                            isLoadingDetail
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
             )}
           </>
         )}
@@ -696,12 +867,110 @@ const secondaryButtonStyle = {
   cursor: "pointer",
 };
 
-const answerBoxStyle = (isDarkMode) => ({
+const answerBoxStyle = (isDarkMode, isCompactLayout = false) => ({
   border: `1px solid ${isDarkMode ? "#2a3350" : "#e5e7eb"}`,
   borderRadius: 10,
   background: isDarkMode ? "#111827" : "#fff",
   color: isDarkMode ? "#e5e7eb" : "inherit",
+  padding: isCompactLayout ? 10 : 12,
+});
+
+const feedbackActionRowStyle = (isCompactLayout) => ({
+  display: "grid",
+  gridTemplateColumns: isCompactLayout ? "1fr" : "repeat(2, max-content)",
+  gap: isCompactLayout ? 8 : 10,
+  alignItems: "center",
+});
+
+const mobileListStyle = {
+  display: "grid",
+  gap: 14,
+  marginTop: 20,
+};
+
+const mobileCardStyle = (isDarkMode) => ({
+  border: `1px solid ${isDarkMode ? "#2a3350" : "#e5e7eb"}`,
+  borderRadius: 16,
+  background: isDarkMode ? "#0f172a" : "#fff",
+  color: isDarkMode ? "#e5e7eb" : "#111827",
   padding: 12,
+  boxShadow: isDarkMode
+    ? "0 8px 24px rgba(2, 6, 23, 0.35)"
+    : "0 8px 24px rgba(15, 23, 42, 0.06)",
+});
+
+const mobileCardHeaderStyle = {
+  display: "flex",
+  alignItems: "center",
+  gap: 10,
+  marginBottom: 10,
+};
+
+const mobileCardIndexStyle = (isDarkMode) => ({
+  minWidth: 34,
+  height: 34,
+  borderRadius: 999,
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  background: isDarkMode ? "#1e293b" : "#eef2ff",
+  color: isDarkMode ? "#bfdbfe" : "#1d4ed8",
+  fontSize: 13,
+  fontWeight: 700,
+});
+
+const mobileCardTitleStyle = (isDarkMode) => ({
+  fontSize: 15,
+  fontWeight: 800,
+  color: isDarkMode ? "#f8fafc" : "#111827",
+  wordBreak: "break-word",
+});
+
+const mobileFieldsGridStyle = {
+  display: "grid",
+  gap: 10,
+};
+
+const mobileFieldRowStyle = {
+  display: "grid",
+  gap: 4,
+};
+
+const mobileFieldLabelStyle = (isDarkMode) => ({
+  fontSize: 11,
+  fontWeight: 800,
+  letterSpacing: "0.04em",
+  textTransform: "uppercase",
+  color: isDarkMode ? "#93c5fd" : "#64748b",
+});
+
+const mobileFieldValueStyle = (isDarkMode) => ({
+  fontSize: 14,
+  lineHeight: 1.5,
+  color: isDarkMode ? "#e5e7eb" : "#111827",
+  wordBreak: "break-word",
+});
+
+const mobileButtonRowStyle = {
+  display: "grid",
+  gridTemplateColumns: "1fr",
+  gap: 8,
+  marginTop: 10,
+};
+
+const mobileSecondaryButtonStyle = {
+  ...secondaryButtonStyle,
+  width: "100%",
+  padding: "9px 12px",
+  fontWeight: 700,
+};
+
+const mobileExpandedPanelStyle = (isDarkMode) => ({
+  marginTop: 10,
+  padding: 10,
+  borderRadius: 12,
+  background: isDarkMode ? "#111827" : "#f8fafc",
+  border: `1px solid ${isDarkMode ? "#1f2b47" : "#e5e7eb"}`,
 });
 
 export default Review;
