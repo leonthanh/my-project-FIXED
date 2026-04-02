@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import ThemeToggle from "./ThemeToggle";
 import { apiPath, hostPath, clearAuth } from "../utils/api";
 import { canManageCategory } from "../utils/permissions";
@@ -7,6 +7,7 @@ import "./AdminNavbar.css";
 
 const AdminNavbar = () => {
   const navigate = useNavigate();
+  const location = useLocation();
 
   const [unreviewed, setUnreviewed] = useState([]);
   const [notificationDropdownVisible, setNotificationDropdownVisible] =
@@ -20,7 +21,7 @@ const AdminNavbar = () => {
     typeof window !== "undefined" ? window.innerWidth <= 768 : false
   );
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
-  const [mobileDrawerTab, setMobileDrawerTab] = useState("main");
+  const [mobileDrawerTab, setMobileDrawerTab] = useState("overview");
   const [mobileCambridgeSection, setMobileCambridgeSection] = useState("ket");
   const [mobileCambridgeGroup, setMobileCambridgeGroup] = useState("flyers");
   const [mobileSubmissionSection, setMobileSubmissionSection] =
@@ -135,9 +136,25 @@ const AdminNavbar = () => {
     setAdminDropdownVisible(false);
   };
 
+  const getPreferredMobileDrawerTab = () => {
+    const pathname = String(location?.pathname || "").toLowerCase();
+
+    if (pathname.startsWith("/review")) return "review";
+    if (pathname.includes("cambridge")) return "orange";
+    if (
+      pathname === "/select-test" ||
+      pathname.startsWith("/admin/create") ||
+      pathname.includes("submissions")
+    ) {
+      return "ix";
+    }
+    return "overview";
+  };
+
   const closeMobileDrawer = () => setMobileDrawerOpen(false);
   const openMobileDrawer = () => {
     closeDesktopMenus();
+    setMobileDrawerTab(getPreferredMobileDrawerTab());
     setMobileDrawerOpen(true);
   };
   const toggleMobileDrawer = () => {
@@ -349,10 +366,10 @@ const AdminNavbar = () => {
     null;
 
   const mobileDrawerTabs = [
-    { key: "main", label: "Overview" },
-    { key: "orange", label: "Orange" },
+    { key: "review", label: `Review${unreviewed.length > 0 ? ` (${unreviewed.length})` : ""}` },
     { key: "ix", label: "IX" },
-    { key: "alerts", label: `Alerts${unreviewed.length > 0 ? ` (${unreviewed.length})` : ""}` },
+    { key: "orange", label: "Orange" },
+    { key: "overview", label: "Overview" },
     ...(user?.role === "admin" ? [{ key: "admin", label: "Admin" }] : []),
   ];
 
@@ -455,7 +472,11 @@ const AdminNavbar = () => {
           activeCambridgeSection.key,
           setMobileCambridgeSection
         )}
-        <div className="adminNavbar__mobileMenuBody">
+        <div
+          key={`${activeCambridgeSection.key}-${activeCambridgeGroup?.key || "root"}`}
+          className="adminNavbar__mobileAnimatedStage"
+        >
+          <div className="adminNavbar__mobileMenuBody">
           <div className="adminNavbar__mobileSectionTitle">
             {activeCambridgeSection.title}
           </div>
@@ -494,6 +515,7 @@ const AdminNavbar = () => {
             renderMenuItems(activeCambridgeSection.items || [], closeMobileDrawer, true)
           )}
         </div>
+        </div>
       </>
     );
   };
@@ -514,11 +536,16 @@ const AdminNavbar = () => {
           activeSubmissionSection.key,
           setMobileSubmissionSection
         )}
-        <div className="adminNavbar__mobileMenuBody">
+        <div
+          key={activeSubmissionSection.key}
+          className="adminNavbar__mobileAnimatedStage"
+        >
+          <div className="adminNavbar__mobileMenuBody">
           <div className="adminNavbar__mobileSectionTitle">
             {activeSubmissionSection.title}
           </div>
           {renderMenuItems(activeSubmissionSection.items, closeMobileDrawer, true)}
+        </div>
         </div>
       </>
     );
@@ -549,8 +576,8 @@ const AdminNavbar = () => {
       <div className="adminNavbar__mobileMenuBody adminNavbar__mobileMenuBody--compact">
         <div className="adminNavbar__mobileSectionTitle">Quick access</div>
         <div className="adminNavbar__mobileQuickGrid">
-          {renderMobileQuickLink("/select-test", "Test list", "Browse and edit available tests", "🧾")}
           {renderMobileQuickLink("/review", "Review", "Open review queue and submission flow", "✍️")}
+          {renderMobileQuickLink("/select-test", "Test list", "Browse and edit available tests", "🧾")}
         </div>
 
         <div className="adminNavbar__mobileSectionTitle">Appearance</div>
@@ -577,9 +604,9 @@ const AdminNavbar = () => {
   const renderMobileAlerts = () => (
     <>
       <div className="adminNavbar__mobileMenuTop">
-        <div className="adminNavbar__mobileMenuTitle">🔔 Alerts</div>
+        <div className="adminNavbar__mobileMenuTitle">🔔 Review & Alerts</div>
         <div className="adminNavbar__mobileMenuHint">
-          Monitor unreviewed writing submissions without keeping a separate bell icon on the top bar.
+          Review queue first, then unreviewed writing submissions for quick teacher follow-up.
         </div>
       </div>
       <div className="adminNavbar__mobileMenuBody adminNavbar__mobileMenuBody--compact">
@@ -614,16 +641,16 @@ const AdminNavbar = () => {
   );
 
   const renderMobileDrawerContent = () => {
+    if (mobileDrawerTab === "review") {
+      return renderMobileAlerts();
+    }
+
     if (mobileDrawerTab === "orange") {
       return renderMobileCambridgeMenu();
     }
 
     if (mobileDrawerTab === "ix") {
       return renderMobileSubmissionMenu();
-    }
-
-    if (mobileDrawerTab === "alerts") {
-      return renderMobileAlerts();
     }
 
     if (mobileDrawerTab === "admin") {
@@ -652,10 +679,19 @@ const AdminNavbar = () => {
             aria-label={mobileDrawerOpen ? "Close menu" : "Open menu"}
             aria-expanded={mobileDrawerOpen}
           >
-            <span className="adminNavbar__mobileMenuIcon">
-              {mobileDrawerOpen ? "✕" : "☰"}
+            <span
+              className={`adminNavbar__hamburger${
+                mobileDrawerOpen ? " adminNavbar__hamburger--open" : ""
+              }`}
+              aria-hidden="true"
+            >
+              <span className="adminNavbar__hamburgerLine" />
+              <span className="adminNavbar__hamburgerLine" />
+              <span className="adminNavbar__hamburgerLine" />
             </span>
-            <span className="adminNavbar__mobileMenuLabel">Menu</span>
+            <span className="adminNavbar__srOnly">
+              {mobileDrawerOpen ? "Close menu" : "Open menu"}
+            </span>
             {unreviewed.length > 0 && (
               <span className="adminNavbar__mobileMenuBadge">{unreviewed.length}</span>
             )}
@@ -697,7 +733,10 @@ const AdminNavbar = () => {
 
               {renderMobileTabs(mobileDrawerTabs, mobileDrawerTab, setMobileDrawerTab)}
 
-              <div className="adminNavbar__drawerContent">
+              <div
+                key={mobileDrawerTab}
+                className="adminNavbar__drawerContent adminNavbar__drawerStage"
+              >
                 {renderMobileDrawerContent()}
               </div>
             </aside>
