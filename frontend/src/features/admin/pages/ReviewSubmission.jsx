@@ -256,37 +256,37 @@ const ReviewSubmission = () => {
         <div style={{ display: "flex", gap: 10 }}>
           <button
             onClick={handleSaveFeedback}
-            disabled={saveLoading || hasSavedFeedback || aiLoading}
+            disabled={saveLoading || aiLoading}
             style={{
               ...actionButtonStyle,
               backgroundColor:
-                saveLoading || hasSavedFeedback || aiLoading ? "#ccc" : "#0e276f",
+                saveLoading || aiLoading ? "#ccc" : "#0e276f",
               cursor:
-                saveLoading || hasSavedFeedback || aiLoading
+                saveLoading || aiLoading
                   ? "not-allowed"
                   : "pointer",
-              opacity: saveLoading || hasSavedFeedback || aiLoading ? 0.6 : 1,
+              opacity: saveLoading || aiLoading ? 0.6 : 1,
             }}
           >
             {saveLoading
               ? "Saving..."
               : hasSavedFeedback
-              ? "Saved"
+              ? "Update Feedback"
               : "Save Feedback"}
           </button>
 
           <button
             onClick={handleAIComment}
-            disabled={aiLoading || saveLoading || hasSavedFeedback}
+            disabled={aiLoading || saveLoading}
             style={{
               ...actionButtonStyle,
               backgroundColor:
-                aiLoading || saveLoading || hasSavedFeedback ? "#ccc" : "#e03",
+                aiLoading || saveLoading ? "#ccc" : "#e03",
               cursor:
-                aiLoading || saveLoading || hasSavedFeedback
+                aiLoading || saveLoading
                   ? "not-allowed"
                   : "pointer",
-              opacity: aiLoading || saveLoading || hasSavedFeedback ? 0.6 : 1,
+              opacity: aiLoading || saveLoading ? 0.6 : 1,
             }}
           >
             {aiLoading ? "Generating..." : "AI Feedback"}

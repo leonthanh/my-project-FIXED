@@ -11,7 +11,7 @@ const ThemeToggle = ({ style = {} }) => {
   return (
     <button
       onClick={toggleTheme}
-      title={isDarkMode ? 'Chuyển sang Light Mode' : 'Chuyển sang Dark Mode'}
+      title={isDarkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
       style={{
         display: 'flex',
         alignItems: 'center',
