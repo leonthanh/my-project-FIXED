@@ -60,6 +60,9 @@ const CambridgeResultsModal = ({ results, onClose, testTitle, studentName }) => 
   }, [results]);
 
   const { score, correct, incorrect, total, percentage, writingQuestions } = safe;
+  const writingQuestionNumbers = writingQuestions
+    .map((q) => q?.questionNumber)
+    .filter((questionNumber) => Number.isFinite(questionNumber));
 
   useEffect(() => {
     if (!results) return;
@@ -331,7 +334,9 @@ const CambridgeResultsModal = ({ results, onClose, testTitle, studentName }) => 
               <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 6 }}>
                 <span style={{ fontSize: 16 }}>📝</span>
                 <h4 style={{ margin: 0, fontSize: 13, fontWeight: 600, color: isDarkMode ? '#fcd34d' : '#92400e' }}>
-                  Writing Task (Câu {writingQuestions.map(q => q.questionNumber).join(", ")})
+                  {writingQuestionNumbers.length > 0
+                    ? `Writing Task (Câu ${writingQuestionNumbers.join(", ")})`
+                    : 'Writing Task'}
                 </h4>
               </div>
               <p style={{ margin: 0, fontSize: 12, color: isDarkMode ? '#fcd34d' : '#b45309' }}>

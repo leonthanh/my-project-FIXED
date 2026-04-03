@@ -814,7 +814,25 @@ const DoCambridgeReadingTest = () => {
     let qNum = 1;
     
     test.parts.forEach((part, pIdx) => {
+      const hasIntegratedLookReadWriteWriting = (part.sections || []).some((section) => {
+        if (section.questionType !== 'look-read-write') return false;
+        return (section.questions || []).some((question) =>
+          Array.isArray(question.groups) &&
+          question.groups.some((group) => group.type === 'write' && Array.isArray(group.items) && group.items.length > 0)
+        );
+      });
+
       part.sections?.forEach((section, sIdx) => {
+        const isStandaloneWritingSection = section.questionType === 'short-message' || section.questionType === 'story-writing';
+        const shouldSkipStandaloneWritingSection =
+          examType === 'MOVERS' &&
+          isStandaloneWritingSection &&
+          hasIntegratedLookReadWriteWriting;
+
+        if (shouldSkipStandaloneWritingSection) {
+          return;
+        }
+
         section.questions?.forEach((q, qIdx) => {
           // Check if this is long-text-mc with nested questions
           if (section.questionType === 'long-text-mc' && q.questions && Array.isArray(q.questions)) {
@@ -1012,8 +1030,21 @@ const DoCambridgeReadingTest = () => {
                 });
               });
             });
+          } else if (section.questionType === 'short-message' || section.questionType === 'story-writing') {
+            // Keep free-writing tasks in the flow, but do not consume a numbered question slot.
+            questions.push({
+              partIndex: pIdx,
+              sectionIndex: sIdx,
+              questionIndex: qIdx,
+              questionNumber: null,
+              key: `${pIdx}-${sIdx}-${qIdx}`,
+              question: q,
+              section: section,
+              part: part,
+              isNonNumbered: true,
+            });
           } else {
-            // Regular questions (including short-message, story-writing, etc.)
+            // Regular numbered questions
             questions.push({
               partIndex: pIdx,
               sectionIndex: sIdx,
@@ -1030,7 +1061,21 @@ const DoCambridgeReadingTest = () => {
     });
     
     return questions;
-  }, [test?.parts]);
+  }, [examType, test?.parts]);
+
+  const isNumberedQuestion = useCallback((q) => Number.isFinite(q?.questionNumber), []);
+
+  const numberedQuestions = useMemo(() => {
+    return allQuestions.filter(isNumberedQuestion);
+  }, [allQuestions, isNumberedQuestion]);
+
+  const questionIndexByKey = useMemo(() => {
+    const indexMap = new Map();
+    allQuestions.forEach((q, index) => {
+      indexMap.set(q.key, index);
+    });
+    return indexMap;
+  }, [allQuestions]);
 
   const getPeopleMatchingAnswerKey = useCallback((q) => {
     const person = q.question?.people?.[q.personIndex] || {};
@@ -1075,10 +1120,32 @@ const DoCambridgeReadingTest = () => {
     return Boolean(answers[q.key]);
   }, [answers, getMatchingPicturesAnswerKey, getPeopleMatchingAnswerKey]);
 
+  const answeredCount = useMemo(() => {
+    return numberedQuestions.filter((q) => isQuestionAnswered(q)).length;
+  }, [isQuestionAnswered, numberedQuestions]);
+
+  const totalQuestions = numberedQuestions.length;
+  const unansweredCount = Math.max(totalQuestions - answeredCount, 0);
+
   // Get current question data
   const currentQuestion = useMemo(() => {
     return allQuestions[currentQuestionIndex] || null;
   }, [allQuestions, currentQuestionIndex]);
+
+  useEffect(() => {
+    if (!allQuestions.length) return;
+    if (currentQuestionIndex >= 0 && currentQuestionIndex < allQuestions.length) return;
+
+    const fallbackIndex = Math.min(Math.max(currentQuestionIndex, 0), allQuestions.length - 1);
+    const fallbackQuestion = allQuestions[fallbackIndex];
+    setCurrentQuestionIndex(fallbackIndex);
+    if (fallbackQuestion) {
+      setCurrentPartIndex(fallbackQuestion.partIndex);
+      setActiveQuestion(fallbackQuestion.key);
+    }
+  }, [allQuestions, currentQuestionIndex]);
+
+  const currentCounterLabel = currentQuestion?.questionNumber ?? (currentQuestion ? 'W' : 0);
 
   // Navigate to question
   const goToQuestion = (index) => {
@@ -1096,6 +1163,7 @@ const DoCambridgeReadingTest = () => {
 
       // Scroll to question element and focus/open
       setTimeout(() => {
+        if (!Number.isFinite(q.questionNumber)) return;
         const questionElement = document.getElementById(`question-${q.questionNumber}`);
         
         if (questionElement) {
@@ -1281,7 +1349,7 @@ const DoCambridgeReadingTest = () => {
                   <div style={{ fontSize: 11, color: '#3b82f6', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', marginTop: 4 }}>Phút</div>
                 </div>
                 <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 12, padding: '14px 16px', textAlign: 'center' }}>
-                  <div style={{ fontSize: 28, fontWeight: 800, color: '#15803d', lineHeight: 1 }}>{allQuestions.length}</div>
+                  <div style={{ fontSize: 28, fontWeight: 800, color: '#15803d', lineHeight: 1 }}>{totalQuestions}</div>
                   <div style={{ fontSize: 11, color: '#16a34a', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', marginTop: 4 }}>Câu hỏi</div>
                 </div>
               </div>
@@ -1390,8 +1458,8 @@ const DoCambridgeReadingTest = () => {
         classCode={test?.classCode}
         teacherName={test?.teacherName}
         timeRemaining={timeRemaining}
-        answeredCount={allQuestions.filter((q) => isQuestionAnswered(q)).length}
-        totalQuestions={allQuestions.length}
+        answeredCount={answeredCount}
+        totalQuestions={totalQuestions}
         onSubmit={handleSubmit}
         submitted={submitted}
         examType={examType}
@@ -3151,8 +3219,10 @@ const DoCambridgeReadingTest = () => {
             /* eslint-disable-next-line no-unused-vars */
             const range = getPartQuestionRange(idx);
             const isActive = currentPartIndex === idx;
-            const partQuestions = allQuestions.filter(q => q.partIndex === idx);
-            const answeredInPart = partQuestions.filter(q => isQuestionAnswered(q)).length;
+            const partEntries = allQuestions.filter((q) => q.partIndex === idx);
+            const partQuestions = partEntries.filter(isNumberedQuestion);
+            const partWritingTasks = partEntries.filter((q) => !isNumberedQuestion(q));
+            const answeredInPart = partQuestions.filter((q) => isQuestionAnswered(q)).length;
             const totalInPart = partQuestions.length;
 
             return (
@@ -3161,8 +3231,9 @@ const DoCambridgeReadingTest = () => {
                 <button
                   className={`cambridge-part-tab ${isActive ? 'active' : ''}`}
                   onClick={() => {
-                    const firstQ = partQuestions[0];
-                    if (firstQ) goToQuestion(firstQ.questionNumber - 1);
+                    const firstEntry = partEntries[0];
+                    const firstIndex = firstEntry ? (questionIndexByKey.get(firstEntry.key) ?? -1) : -1;
+                    if (firstIndex >= 0) goToQuestion(firstIndex);
                   }}
                   title={`Part ${idx + 1}`}
                 >
@@ -3176,22 +3247,48 @@ const DoCambridgeReadingTest = () => {
                 {/* Question bubbles – only when this part is active */}
                 {isActive && (
                   <div className="cambridge-questions-inline">
-                    {totalInPart > 0 ? (
-                      partQuestions.map((q) => (
-                        <button
-                          key={q.key}
-                          className={`cambridge-question-num-btn ${isQuestionAnswered(q) ? 'answered' : ''} ${currentQuestionIndex === q.questionNumber - 1 ? 'active' : ''} ${flaggedQuestions.has(q.key) ? 'flagged' : ''}`}
-                          onClick={() => goToQuestion(q.questionNumber - 1)}
-                          title={`Câu ${q.questionNumber}${isQuestionAnswered(q) ? ' ✓' : ''}`}
-                        >
-                          {isQuestionAnswered(q) && currentQuestionIndex !== q.questionNumber - 1
-                            ? <i className="fa fa-check" style={{ fontSize: 10 }}></i>
-                            : q.questionNumber}
-                          {flaggedQuestions.has(q.key) && (
-                            <span className="nav-flag-icon" aria-hidden="true">🚩</span>
-                          )}
-                        </button>
-                      ))
+                    {(totalInPart > 0 || partWritingTasks.length > 0) ? (
+                      <>
+                        {partQuestions.map((q) => {
+                          const questionIndex = questionIndexByKey.get(q.key) ?? -1;
+                          const isActiveQuestion = currentQuestionIndex === questionIndex;
+
+                          return (
+                            <button
+                              key={q.key}
+                              className={`cambridge-question-num-btn ${isQuestionAnswered(q) ? 'answered' : ''} ${isActiveQuestion ? 'active' : ''} ${flaggedQuestions.has(q.key) ? 'flagged' : ''}`}
+                              onClick={() => goToQuestion(questionIndex)}
+                              title={`Câu ${q.questionNumber}${isQuestionAnswered(q) ? ' ✓' : ''}`}
+                            >
+                              {isQuestionAnswered(q) && !isActiveQuestion
+                                ? <i className="fa fa-check" style={{ fontSize: 10 }}></i>
+                                : q.questionNumber}
+                              {flaggedQuestions.has(q.key) && (
+                                <span className="nav-flag-icon" aria-hidden="true">🚩</span>
+                              )}
+                            </button>
+                          );
+                        })}
+                        {partWritingTasks.map((q, writingIdx) => {
+                          const questionIndex = questionIndexByKey.get(q.key) ?? -1;
+                          const isActiveQuestion = currentQuestionIndex === questionIndex;
+                          const label = partWritingTasks.length > 1 ? `W${writingIdx + 1}` : 'W';
+
+                          return (
+                            <button
+                              key={q.key}
+                              className={`cambridge-question-num-btn ${isQuestionAnswered(q) ? 'answered' : ''} ${isActiveQuestion ? 'active' : ''} ${flaggedQuestions.has(q.key) ? 'flagged' : ''}`}
+                              onClick={() => goToQuestion(questionIndex)}
+                              title={`Writing${isQuestionAnswered(q) ? ' ✓' : ''}`}
+                            >
+                              {label}
+                              {flaggedQuestions.has(q.key) && (
+                                <span className="nav-flag-icon" aria-hidden="true">🚩</span>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </>
                     ) : (
                       <span className="cambridge-writing-label">Writing</span>
                     )}
@@ -3205,7 +3302,7 @@ const DoCambridgeReadingTest = () => {
         {/* Q counter */}
         <div className="cambridge-footer-right">
           <span className="cambridge-q-counter">
-            {currentQuestionIndex + 1}<span className="cambridge-q-counter-total">/{allQuestions.length}</span>
+            {currentCounterLabel}<span className="cambridge-q-counter-total">/{totalQuestions}</span>
           </span>
         </div>
       </footer>
@@ -3267,15 +3364,15 @@ const DoCambridgeReadingTest = () => {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 18 }}>
                 <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 12, padding: '12px 14px', textAlign: 'center' }}>
                   <div style={{ fontSize: 26, fontWeight: 800, color: '#1d4ed8', lineHeight: 1 }}>
-                    {allQuestions.filter((q) => isQuestionAnswered(q)).length}
+                    {answeredCount}
                   </div>
                   <div style={{ fontSize: 11, color: '#3b82f6', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', marginTop: 4 }}>Đã trả lời</div>
                 </div>
-                <div style={{ background: allQuestions.filter((q) => !isQuestionAnswered(q)).length > 0 ? '#fef2f2' : '#f0fdf4', border: `1px solid ${allQuestions.filter((q) => !isQuestionAnswered(q)).length > 0 ? '#fecaca' : '#bbf7d0'}`, borderRadius: 12, padding: '12px 14px', textAlign: 'center' }}>
-                  <div style={{ fontSize: 26, fontWeight: 800, color: allQuestions.filter((q) => !isQuestionAnswered(q)).length > 0 ? '#dc2626' : '#15803d', lineHeight: 1 }}>
-                    {allQuestions.filter((q) => !isQuestionAnswered(q)).length}
+                <div style={{ background: unansweredCount > 0 ? '#fef2f2' : '#f0fdf4', border: `1px solid ${unansweredCount > 0 ? '#fecaca' : '#bbf7d0'}`, borderRadius: 12, padding: '12px 14px', textAlign: 'center' }}>
+                  <div style={{ fontSize: 26, fontWeight: 800, color: unansweredCount > 0 ? '#dc2626' : '#15803d', lineHeight: 1 }}>
+                    {unansweredCount}
                   </div>
-                  <div style={{ fontSize: 11, color: allQuestions.filter((q) => !isQuestionAnswered(q)).length > 0 ? '#ef4444' : '#16a34a', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', marginTop: 4 }}>Chưa trả lời</div>
+                  <div style={{ fontSize: 11, color: unansweredCount > 0 ? '#ef4444' : '#16a34a', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', marginTop: 4 }}>Chưa trả lời</div>
                 </div>
               </div>
 
