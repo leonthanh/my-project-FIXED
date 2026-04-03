@@ -1,7 +1,8 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { hostPath } from '../../../shared/utils/api';
 import { computeQuestionStarts, getQuestionCountForSection, parseClozeBlanksFromText } from '../utils/questionNumbering';
 import QuestionDisplayFactory from '../../../shared/components/questions/displays/QuestionDisplayFactory';
+import createListeningStyles from '../pages/DoCambridgeListeningTest.styles';
 import SignMessageDisplay from '../../../shared/components/questions/displays/SignMessageDisplay';
 import LongTextMCDisplay from '../../../shared/components/questions/displays/LongTextMCDisplay';
 import ClozeMCDisplay from '../../../shared/components/questions/displays/ClozeMCDisplay';
@@ -14,8 +15,12 @@ import WordDragClozeDisplay from '../../../shared/components/questions/displays/
 import ShortMessageDisplay from '../../../shared/components/questions/displays/ShortMessageDisplay';
 import StoryCompletionDisplay from '../../../shared/components/questions/displays/StoryCompletionDisplay';
 import LookReadWriteDisplay from '../../../shared/components/questions/displays/LookReadWriteDisplay';
+import { CambridgeQuestionDisplay } from './CambridgeQuestionCards';
+import { ColourWriteStudentSection, ImageTickSlideSection } from './CambridgeListeningRuntimeSections';
+import '../pages/DoCambridgeReadingTest.css';
 
 const noop = () => {};
+const EMPTY_FLAGGED_QUESTIONS = new Set();
 
 const styles = {
   wrapper: {
@@ -689,6 +694,44 @@ function FillOrChoiceQuestion({ section, question, partIdx, secIdx, qIdx, questi
   );
 }
 
+function ListeningRuntimeQuestionReview({
+  question,
+  answerKey,
+  questionNumber,
+  answers,
+  detailedResults,
+  listeningStyles,
+  questionRefs,
+}) {
+  const reviewQuestion = question?.correctAnswer || !detailedResults?.[answerKey]?.correctAnswer
+    ? question
+    : {
+        ...question,
+        correctAnswer: detailedResults[answerKey].correctAnswer,
+      };
+
+  return (
+    <CambridgeQuestionDisplay
+      question={reviewQuestion}
+      questionKey={answerKey}
+      questionNum={questionNumber}
+      answers={answers}
+      submitted
+      results={{ answers: detailedResults }}
+      activeQuestion={null}
+      styles={listeningStyles}
+      handleAnswerChange={noop}
+      toggleFlag={noop}
+      flaggedQuestions={EMPTY_FLAGGED_QUESTIONS}
+      isDarkMode={false}
+      currentPart={null}
+      questionRefs={questionRefs}
+      resolveImgSrc={resolveAsset}
+      allowFlagging={false}
+    />
+  );
+}
+
 function PeopleMatchingReview({ question, partIdx, secIdx, sectionStart, answers, detailedResults }) {
   const people = Array.isArray(question?.people) ? question.people : [];
   const texts = Array.isArray(question?.texts) ? question.texts : [];
@@ -1154,13 +1197,17 @@ function StoryWritingReview({ question, userAnswer }) {
 export default function CambridgeStudentStyleReview({ test, submission }) {
   const testType = submission?.testType || '';
   const examType = getExamType(testType);
+  const isListeningTest = /listening/i.test(testType);
   const answers = submission?.answers && typeof submission.answers === 'object' ? submission.answers : {};
   const detailedResults = submission?.detailedResults && typeof submission.detailedResults === 'object'
     ? submission.detailedResults
     : {};
   const [expandedParts, setExpandedParts] = useState({});
+  const questionRefs = useRef({});
 
   const questionStarts = useMemo(() => computeQuestionStarts(test?.parts || []), [test?.parts]);
+  const listeningStyles = useMemo(() => createListeningStyles(false, examType), [examType]);
+  const runtimeResults = useMemo(() => ({ answers: detailedResults }), [detailedResults]);
 
   const setAllPartsExpanded = (expanded) => {
     const next = {};
@@ -1494,19 +1541,64 @@ export default function CambridgeStudentStyleReview({ test, submission }) {
                 if (sectionType === 'image-tick') {
                   if (qIdx > 0) return null;
                   return (
-                    <ImageTickReview
+                    <ImageTickSlideSection
                       key={`${partIdx}-${secIdx}`}
-                      section={section}
+                      questions={Array.isArray(section?.questions) ? section.questions : []}
+                      exampleItem={section?.exampleItem || null}
+                      secIdx={secIdx}
+                      sectionStartNum={sectionStart}
+                      answers={answers}
+                      submitted
+                      results={runtimeResults}
+                      isDarkMode={false}
+                      handleAnswerChange={noop}
+                      currentPartIndex={partIdx}
+                      questionRefs={questionRefs}
+                      resolveImgSrc={resolveAsset}
+                      activeQuestion={null}
+                      onSlideChange={noop}
+                    />
+                  );
+                }
+
+                if (sectionType === 'colour-write') {
+                  if (qIdx > 0) return null;
+                  return (
+                    <ColourWriteStudentSection
+                      key={`${partIdx}-${secIdx}`}
+                      questions={Array.isArray(section?.questions) ? section.questions : []}
+                      exampleItem={section?.exampleItem || null}
+                      sceneImageUrl={section?.sceneImageUrl ? resolveAsset(section.sceneImageUrl) : ''}
+                      decoyPositions={Array.isArray(section?.decoyPositions) ? section.decoyPositions : []}
                       partIdx={partIdx}
                       secIdx={secIdx}
-                      sectionStart={sectionStart}
+                      sectionStartNum={sectionStart}
                       answers={answers}
-                      detailedResults={detailedResults}
+                      submitted
+                      results={runtimeResults}
+                      isDarkMode={false}
+                      handleAnswerChange={noop}
+                      currentPartIndex={partIdx}
+                      questionRefs={questionRefs}
                     />
                   );
                 }
 
                 if (sectionType === 'multiple-choice-pictures') {
+                  if (isListeningTest) {
+                    return (
+                      <ListeningRuntimeQuestionReview
+                        key={`${partIdx}-${secIdx}-${qIdx}`}
+                        question={question}
+                        answerKey={`${partIdx}-${secIdx}-${qIdx}`}
+                        questionNumber={questionStart}
+                        answers={answers}
+                        detailedResults={detailedResults}
+                        listeningStyles={listeningStyles}
+                        questionRefs={questionRefs}
+                      />
+                    );
+                  }
                   if (qIdx > 0) return null;
                   return (
                     <MultipleChoicePicturesReview
@@ -1548,6 +1640,21 @@ export default function CambridgeStudentStyleReview({ test, submission }) {
                       key={`${partIdx}-${secIdx}-${qIdx}`}
                       question={question}
                       userAnswer={getWritingAnswer(answers, partIdx, secIdx, qIdx)}
+                    />
+                  );
+                }
+
+                if (isListeningTest && (sectionType === 'fill' || sectionType === 'abc')) {
+                  return (
+                    <ListeningRuntimeQuestionReview
+                      key={`${partIdx}-${secIdx}-${qIdx}`}
+                      question={question}
+                      answerKey={`${partIdx}-${secIdx}-${qIdx}`}
+                      questionNumber={questionStart}
+                      answers={answers}
+                      detailedResults={detailedResults}
+                      listeningStyles={listeningStyles}
+                      questionRefs={questionRefs}
                     />
                   );
                 }
