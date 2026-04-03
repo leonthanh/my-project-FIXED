@@ -8,6 +8,7 @@ import { hostPath } from '../../../utils/api';
 const ShortMessageDisplay = ({ 
   section, 
   questionNumber, 
+  questionTitle,
   onAnswerChange, 
   userAnswer = '', 
   submitted 
@@ -25,7 +26,7 @@ const ShortMessageDisplay = ({
     <div style={styles.container}>
       {/* Question Header */}
       <div style={styles.header}>
-        <h3 style={styles.questionTitle}>Question {questionNumber}</h3>
+        <h3 style={styles.questionTitle}>{questionTitle || (questionNumber ? `Question ${questionNumber}` : 'Writing Task')}</h3>
         <div style={styles.instruction}>
           Look at the three pictures. Write the story shown in the pictures. 
           Write <strong>35 words or more</strong>.

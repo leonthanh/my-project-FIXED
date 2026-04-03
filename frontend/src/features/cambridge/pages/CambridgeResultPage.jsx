@@ -3,6 +3,7 @@ import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { apiPath } from "../../../shared/utils/api";
 import StudentNavbar from "../../../shared/components/StudentNavbar";
 import { useTheme } from "../../../shared/contexts/ThemeContext";
+import CambridgeStudentStyleReview from "../components/CambridgeStudentStyleReview";
 
 /**
  * CambridgeResultPage - Trang xem kết quả chi tiết sau khi nộp bài Cambridge test
@@ -108,6 +109,7 @@ const CambridgeResultPage = () => {
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('overview'); // overview, review
   const [expandedParts, setExpandedParts] = useState({});
+  const [showLegacyDetails, setShowLegacyDetails] = useState(false);
   const lastFetchedTestKeyRef = useRef(null);
 
   useEffect(() => {
@@ -930,8 +932,28 @@ const CambridgeResultPage = () => {
               </div>
             </div>
 
+            <CambridgeStudentStyleReview
+              test={test}
+              submission={submission}
+            />
+
+            <div style={styles.reviewToggleCard}>
+              <div>
+                <div style={styles.reviewToggleTitle}>Bảng đối chiếu từng câu</div>
+                <div style={styles.reviewToggleText}>
+                  Mở dạng card cũ nếu giáo viên cần xem nhanh từng câu với trạng thái và đáp án đúng theo danh sách.
+                </div>
+              </div>
+              <button
+                onClick={() => setShowLegacyDetails((prev) => !prev)}
+                style={showLegacyDetails ? styles.secondaryButton : styles.primaryButton}
+              >
+                {showLegacyDetails ? 'Ẩn bảng đối chiếu' : 'Mở bảng đối chiếu'}
+              </button>
+            </div>
+
             {/* Detailed Review by Part */}
-            {test?.parts?.map((part, partIdx) => (
+            {showLegacyDetails && test?.parts?.map((part, partIdx) => (
               <div key={partIdx} style={styles.partCard}>
                 <div 
                   style={styles.partHeader}
@@ -2204,6 +2226,29 @@ const createStyles = (isDarkMode = false, isCompactLayout = false) => {
       height: '16px',
       borderRadius: '4px',
       border: `1px solid ${colors.border}`,
+    },
+    reviewToggleCard: {
+      display: 'flex',
+      alignItems: isCompactLayout ? 'stretch' : 'center',
+      justifyContent: 'space-between',
+      gap: isCompactLayout ? '12px' : '16px',
+      flexDirection: isCompactLayout ? 'column' : 'row',
+      backgroundColor: colors.surface,
+      borderRadius: '12px',
+      padding: isCompactLayout ? '16px 14px' : '18px 20px',
+      boxShadow: colors.shadow,
+    },
+    reviewToggleTitle: {
+      fontSize: '16px',
+      fontWeight: 700,
+      color: colors.text,
+      marginBottom: '4px',
+    },
+    reviewToggleText: {
+      fontSize: '14px',
+      lineHeight: 1.6,
+      color: colors.muted,
+      maxWidth: isCompactLayout ? '100%' : '680px',
     },
     partCard: {
       backgroundColor: colors.surface,
