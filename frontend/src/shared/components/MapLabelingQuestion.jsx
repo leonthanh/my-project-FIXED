@@ -505,7 +505,7 @@ const MapLabelingQuestion = ({
         <div style={{ maxWidth: '500px', margin: '0 auto' }}>
           {(question.items || []).map((item, index) => {
             const qNum = questionNumber + index;
-            const studentAns = studentAnswer?.[`q_${qNum}`] || '';
+            const studentAns = studentAnswer?.[`q_${qNum}`] || studentAnswer?.[`q${qNum}`] || '';
             const correctAns = item.correctAnswer;
             const isCorrect = studentAns.toUpperCase() === correctAns?.toUpperCase();
 
