@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
-import { apiPath } from "../../../shared/utils/api";
+import { apiPath, getStoredUser } from "../../../shared/utils/api";
 import StudentNavbar from "../../../shared/components/StudentNavbar";
 import { useTheme } from "../../../shared/contexts/ThemeContext";
+import { isAdmin, isTeacher } from "../../../shared/utils/permissions";
+import CambridgeStudentStyleReview from "../components/CambridgeStudentStyleReview";
 
 /**
  * CambridgeResultPage - Trang xem kết quả chi tiết sau khi nộp bài Cambridge test
@@ -20,6 +22,11 @@ const CambridgeResultPage = () => {
     typeof window !== 'undefined' ? window.innerWidth <= 520 : false
   );
   const styles = useMemo(() => createStyles(isDarkMode, isCompactLayout), [isDarkMode, isCompactLayout]);
+  const currentUser = useMemo(() => getStoredUser(), []);
+  const canViewDetailedReview = useMemo(
+    () => isAdmin(currentUser) || isTeacher(currentUser),
+    [currentUser]
+  );
   const legendColors = useMemo(() => (
     isDarkMode
       ? {
@@ -78,6 +85,24 @@ const CambridgeResultPage = () => {
     return ca !== undefined && ca !== null && String(ca).trim() !== '';
   };
 
+  const hasOwnKeys = (value) => (
+    !!value && typeof value === 'object' && !Array.isArray(value) && Object.keys(value).length > 0
+  );
+
+  const rebuildAnswersFromDetailedResults = (detailedResults) => {
+    if (!detailedResults || typeof detailedResults !== 'object' || Array.isArray(detailedResults)) {
+      return {};
+    }
+
+    return Object.entries(detailedResults).reduce((acc, [key, result]) => {
+      const userAnswer = result?.userAnswer;
+      if (userAnswer === undefined || userAnswer === null) return acc;
+      if (typeof userAnswer === 'string' && userAnswer.trim() === '') return acc;
+      acc[key] = userAnswer;
+      return acc;
+    }, {});
+  };
+
   const normalizeSubmission = (raw) => {
     if (!raw) return null;
     const normalized = { ...raw };
@@ -98,6 +123,10 @@ const CambridgeResultPage = () => {
       }
     }
 
+    if (!hasOwnKeys(normalized.answers) && hasOwnKeys(normalized.detailedResults)) {
+      normalized.answers = rebuildAnswersFromDetailedResults(normalized.detailedResults);
+    }
+
     return normalized;
   };
 
@@ -108,6 +137,7 @@ const CambridgeResultPage = () => {
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('overview'); // overview, review
   const [expandedParts, setExpandedParts] = useState({});
+  const [showLegacyDetails, setShowLegacyDetails] = useState(false);
   const lastFetchedTestKeyRef = useRef(null);
 
   useEffect(() => {
@@ -121,6 +151,12 @@ const CambridgeResultPage = () => {
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  useEffect(() => {
+    if (!canViewDetailedReview && activeTab === 'review') {
+      setActiveTab('overview');
+    }
+  }, [activeTab, canViewDetailedReview]);
 
   const testNeedsRefresh = (t) => {
     if (!t || !Array.isArray(t.parts)) return true;
@@ -783,26 +819,28 @@ const CambridgeResultPage = () => {
       </div>
 
       {/* Tab Navigation */}
-      <div style={styles.tabContainer}>
-        <button
-          onClick={() => setActiveTab('overview')}
-          style={{
-            ...styles.tab,
-            ...(activeTab === 'overview' && styles.tabActive)
-          }}
-        >
-          📈 Tổng quan
-        </button>
-        <button
-          onClick={() => setActiveTab('review')}
-          style={{
-            ...styles.tab,
-            ...(activeTab === 'review' && styles.tabActive)
-          }}
-        >
-          📝 Chi tiết từng câu
-        </button>
-      </div>
+      {canViewDetailedReview && (
+        <div style={styles.tabContainer}>
+          <button
+            onClick={() => setActiveTab('overview')}
+            style={{
+              ...styles.tab,
+              ...(activeTab === 'overview' && styles.tabActive)
+            }}
+          >
+            📈 Tổng quan
+          </button>
+          <button
+            onClick={() => setActiveTab('review')}
+            style={{
+              ...styles.tab,
+              ...(activeTab === 'review' && styles.tabActive)
+            }}
+          >
+            📝 Chi tiết từng câu
+          </button>
+        </div>
+      )}
 
       {/* Main Content */}
       <div style={styles.mainContent}>
@@ -877,15 +915,17 @@ const CambridgeResultPage = () => {
 
             {/* Actions */}
             <div style={styles.actionsCard}>
-              <button 
-                onClick={() => setActiveTab('review')} 
-                style={styles.primaryButton}
-              >
-                📝 Xem chi tiết từng câu
-              </button>
+              {canViewDetailedReview && (
+                <button 
+                  onClick={() => setActiveTab('review')} 
+                  style={styles.primaryButton}
+                >
+                  📝 Xem chi tiết từng câu
+                </button>
+              )}
               <button 
                 onClick={() => navigate('/cambridge')} 
-                style={styles.secondaryButton}
+                style={canViewDetailedReview ? styles.secondaryButton : styles.primaryButton}
               >
                 📋 Chọn đề khác
               </button>
@@ -894,7 +934,7 @@ const CambridgeResultPage = () => {
         )}
 
         {/* Review Tab */}
-        {activeTab === 'review' && (
+        {canViewDetailedReview && activeTab === 'review' && (
           <div style={styles.reviewContainer}>
             
             {/* Question Summary */}
@@ -930,8 +970,28 @@ const CambridgeResultPage = () => {
               </div>
             </div>
 
+            <CambridgeStudentStyleReview
+              test={test}
+              submission={submission}
+            />
+
+            <div style={styles.reviewToggleCard}>
+              <div>
+                <div style={styles.reviewToggleTitle}>Bảng đối chiếu từng câu</div>
+                <div style={styles.reviewToggleText}>
+                  Mở dạng card cũ nếu giáo viên cần xem nhanh từng câu với trạng thái và đáp án đúng theo danh sách.
+                </div>
+              </div>
+              <button
+                onClick={() => setShowLegacyDetails((prev) => !prev)}
+                style={showLegacyDetails ? styles.secondaryButton : styles.primaryButton}
+              >
+                {showLegacyDetails ? 'Ẩn bảng đối chiếu' : 'Mở bảng đối chiếu'}
+              </button>
+            </div>
+
             {/* Detailed Review by Part */}
-            {test?.parts?.map((part, partIdx) => (
+            {showLegacyDetails && test?.parts?.map((part, partIdx) => (
               <div key={partIdx} style={styles.partCard}>
                 <div 
                   style={styles.partHeader}
@@ -2204,6 +2264,29 @@ const createStyles = (isDarkMode = false, isCompactLayout = false) => {
       height: '16px',
       borderRadius: '4px',
       border: `1px solid ${colors.border}`,
+    },
+    reviewToggleCard: {
+      display: 'flex',
+      alignItems: isCompactLayout ? 'stretch' : 'center',
+      justifyContent: 'space-between',
+      gap: isCompactLayout ? '12px' : '16px',
+      flexDirection: isCompactLayout ? 'column' : 'row',
+      backgroundColor: colors.surface,
+      borderRadius: '12px',
+      padding: isCompactLayout ? '16px 14px' : '18px 20px',
+      boxShadow: colors.shadow,
+    },
+    reviewToggleTitle: {
+      fontSize: '16px',
+      fontWeight: 700,
+      color: colors.text,
+      marginBottom: '4px',
+    },
+    reviewToggleText: {
+      fontSize: '14px',
+      lineHeight: 1.6,
+      color: colors.muted,
+      maxWidth: isCompactLayout ? '100%' : '680px',
     },
     partCard: {
       backgroundColor: colors.surface,

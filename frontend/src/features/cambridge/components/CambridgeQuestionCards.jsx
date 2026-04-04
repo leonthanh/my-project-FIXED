@@ -30,6 +30,7 @@ export const CambridgeQuestionDisplay = ({
   questionRefs,
   resolveImgSrc,
   DrawLinesComponent,
+  allowFlagging = true,
 }) => {
   const qType = getCambridgeQuestionType(question);
   const userAnswer = answers[questionKey];
@@ -297,17 +298,19 @@ export const CambridgeQuestionDisplay = ({
             <div className="cambridge-question-text">{question.questionText}</div>
           </div>
 
-          <button
-            type="button"
-            aria-label={`Flag question ${questionNum}`}
-            onClick={() => toggleFlag(questionKey)}
-            style={{
-              ...styles.flagButton,
-              ...(flaggedQuestions.has(questionKey) ? styles.flagButtonActive : null),
-            }}
-          >
-            {flaggedQuestions.has(questionKey) ? '⚑' : '⚐'}
-          </button>
+          {allowFlagging ? (
+            <button
+              type="button"
+              aria-label={`Flag question ${questionNum}`}
+              onClick={() => toggleFlag(questionKey)}
+              style={{
+                ...styles.flagButton,
+                ...(flaggedQuestions.has(questionKey) ? styles.flagButtonActive : null),
+              }}
+            >
+              {flaggedQuestions.has(questionKey) ? '⚑' : '⚐'}
+            </button>
+          ) : null}
         </div>
 
         <div style={styles.pictureChoicesRow} role="radiogroup" aria-label={`Question ${questionNum}`}>
