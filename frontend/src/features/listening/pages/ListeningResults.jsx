@@ -1,6 +1,8 @@
 import React, { useEffect, useState, useMemo } from "react";
 import { useLocation, useParams, useNavigate, Link } from "react-router-dom";
-import { apiPath } from "../../../shared/utils/api";
+import { apiPath, getStoredUser } from "../../../shared/utils/api";
+import { isAdmin, isTeacher } from "../../../shared/utils/permissions";
+import ListeningStudentStyleReview from "../components/ListeningStudentStyleReview";
 
 // ===== STYLES =====
 const styles = {
@@ -220,6 +222,100 @@ const styles = {
   metaValue: {
     fontWeight: 600,
     color: "#1e293b",
+  },
+  tabContainer: {
+    display: "flex",
+    gap: "12px",
+    marginBottom: "24px",
+    flexWrap: "wrap",
+  },
+  tab: {
+    padding: "10px 18px",
+    borderRadius: "999px",
+    border: "1px solid #cbd5e1",
+    background: "#fff",
+    color: "#334155",
+    cursor: "pointer",
+    fontSize: "0.95rem",
+    fontWeight: 600,
+  },
+  tabActive: {
+    background: "#1d4ed8",
+    borderColor: "#1d4ed8",
+    color: "#fff",
+  },
+  reviewPromptCard: {
+    background: "#fff",
+    borderRadius: "12px",
+    padding: "20px",
+    boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+    marginBottom: "24px",
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: "16px",
+    flexWrap: "wrap",
+  },
+  reviewPromptTitle: {
+    fontSize: "1rem",
+    fontWeight: 600,
+    color: "#1e293b",
+    marginBottom: "4px",
+  },
+  reviewPromptText: {
+    margin: 0,
+    color: "#64748b",
+    lineHeight: 1.6,
+  },
+  questionSummary: {
+    background: "#fff",
+    borderRadius: "12px",
+    padding: "20px",
+    boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+    marginBottom: "24px",
+  },
+  questionGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fill, minmax(42px, 1fr))",
+    gap: "8px",
+    marginBottom: "14px",
+  },
+  questionBadge: {
+    minHeight: "38px",
+    borderRadius: "10px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontWeight: 700,
+    fontSize: "0.9rem",
+    border: "1px solid rgba(148, 163, 184, 0.25)",
+  },
+  legendRow: {
+    display: "flex",
+    gap: "14px",
+    flexWrap: "wrap",
+    alignItems: "center",
+  },
+  legendItem: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "8px",
+    color: "#475569",
+    fontSize: "0.9rem",
+  },
+  legendDot: {
+    width: "12px",
+    height: "12px",
+    borderRadius: "999px",
+    display: "inline-block",
+  },
+  subSectionHeader: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: "12px",
+    flexWrap: "wrap",
+    marginBottom: "16px",
   },
 };
 
@@ -482,6 +578,12 @@ const formatChoiceList = (indices) => {
         .sort((a, b) => a - b)
     : [];
   return arr.map(idxToLetter).filter(Boolean).join(", ");
+};
+
+const hasDetailAnswer = (detail) => {
+  const raw = detail?.studentAnswer ?? detail?.studentLabel ?? detail?.student;
+  if (Array.isArray(raw)) return raw.length > 0;
+  return String(raw ?? "").trim() !== "";
 };
 
 const parseQuestionsDeep = (questions) => {
@@ -819,6 +921,11 @@ const ListeningResults = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const navResult = location.state;
+  const currentUser = useMemo(() => getStoredUser(), []);
+  const canViewDetailedReview = useMemo(
+    () => isAdmin(currentUser) || isTeacher(currentUser),
+    [currentUser]
+  );
 
   const [loading, setLoading] = useState(true);
   const [submission, setSubmission] = useState(null);
@@ -826,6 +933,8 @@ const ListeningResults = () => {
   const [details, setDetails] = useState([]);
   const [filter, setFilter] = useState("all");
   const [collapsedParts, setCollapsedParts] = useState({});
+  const [activeTab, setActiveTab] = useState("overview");
+  const [showLegacyTable, setShowLegacyTable] = useState(false);
 
   // Fetch data
   useEffect(() => {
@@ -1031,6 +1140,18 @@ const ListeningResults = () => {
     setCollapsedParts((prev) => ({ ...prev, [part]: !prev[part] }));
   };
 
+  useEffect(() => {
+    if (!canViewDetailedReview && activeTab === "review") {
+      setActiveTab("overview");
+    }
+  }, [activeTab, canViewDetailedReview]);
+
+  useEffect(() => {
+    if (activeTab !== "review") {
+      setShowLegacyTable(false);
+    }
+  }, [activeTab]);
+
   // Loading state
   if (loading) {
     return (
@@ -1065,6 +1186,21 @@ const ListeningResults = () => {
     : (submission?.band != null && Number.isFinite(Number(submission.band)) ? Number(submission.band) : bandFromCorrect(correct));
 
   const wrongCount = details.filter((d) => !d.isCorrect).length;
+  const legendColors = {
+    correct: "#dcfce7",
+    wrong: "#fee2e2",
+    blank: "#f1f5f9",
+  };
+
+  const getDetailStatus = (detail) => {
+    if (detail?.isCorrect) {
+      return { label: "Đúng", bg: legendColors.correct, text: "#166534" };
+    }
+    if (!hasDetailAnswer(detail)) {
+      return { label: "Bỏ trống", bg: legendColors.blank, text: "#64748b" };
+    }
+    return { label: "Sai", bg: legendColors.wrong, text: "#991b1b" };
+  };
 
   const retryTestId = test?.id || submission?.testId || id;
   const submittedAt = submission?.submittedAt || submission?.createdAt;
@@ -1079,8 +1215,33 @@ const ListeningResults = () => {
         </button>
       </div>
 
+      {canViewDetailedReview && (
+        <div style={styles.tabContainer}>
+          <button
+            type="button"
+            onClick={() => setActiveTab("overview")}
+            style={{
+              ...styles.tab,
+              ...(activeTab === "overview" ? styles.tabActive : {}),
+            }}
+          >
+            📈 Tổng quan
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("review")}
+            style={{
+              ...styles.tab,
+              ...(activeTab === "review" ? styles.tabActive : {}),
+            }}
+          >
+            📝 Chi tiết từng câu
+          </button>
+        </div>
+      )}
+
       {/* Meta Info */}
-      {test && (
+      {activeTab === "overview" && test && (
         <div style={styles.metaGrid}>
           <div style={styles.metaItem}>
             <span style={styles.metaLabel}>📚 Bài test:</span>
@@ -1111,7 +1272,7 @@ const ListeningResults = () => {
         </div>
       )}
 
-      {submission?.feedback && (
+      {activeTab === "overview" && submission?.feedback && (
         <div style={styles.feedbackBox}>
           <div style={styles.feedbackHeader}>
             <strong>📝 Nhận xét giáo viên</strong>
@@ -1124,6 +1285,8 @@ const ListeningResults = () => {
       )}
 
       {/* Summary Cards */}
+      {activeTab === "overview" && (
+        <>
       <div style={styles.summaryGrid}>
         {/* Score Circle */}
         <div style={styles.summaryCard}>
@@ -1209,12 +1372,85 @@ const ListeningResults = () => {
         </div>
       )}
 
+      {canViewDetailedReview && details.length > 0 && (
+        <div style={styles.reviewPromptCard}>
+          <div>
+            <div style={styles.reviewPromptTitle}>Giáo viên có thể mở chi tiết từng câu</div>
+            <p style={styles.reviewPromptText}>
+              Mở chế độ review để xem lại từng câu trả lời của học sinh theo đúng thứ tự bài làm, tiện giảng lại và đối chiếu ngay trên lớp.
+            </p>
+          </div>
+          <button
+            type="button"
+            style={{ ...styles.actionBtn, ...styles.primaryBtn }}
+            onClick={() => setActiveTab("review")}
+          >
+            📝 Xem chi tiết từng câu
+          </button>
+        </div>
+      )}
+        </>
+      )}
+
       {/* Answer Comparison Table */}
-      {details.length > 0 && (
+      {canViewDetailedReview && activeTab === "review" && details.length > 0 && (
+        <>
+        <div style={styles.questionSummary}>
+          <h3 style={styles.sectionTitle}>Tóm tắt kết quả từng câu</h3>
+          <div style={styles.questionGrid}>
+            {details.map((detail, idx) => {
+              const status = getDetailStatus(detail);
+              return (
+                <div
+                  key={`${detail.questionNumber}-${idx}`}
+                  style={{
+                    ...styles.questionBadge,
+                    backgroundColor: status.bg,
+                    color: status.text,
+                  }}
+                  title={`Câu ${detail.questionNumber}: ${status.label}`}
+                >
+                  {detail.questionNumber}
+                </div>
+              );
+            })}
+          </div>
+          <div style={styles.legendRow}>
+            <span style={styles.legendItem}><span style={{ ...styles.legendDot, backgroundColor: legendColors.correct }}></span> Đúng</span>
+            <span style={styles.legendItem}><span style={{ ...styles.legendDot, backgroundColor: legendColors.wrong }}></span> Sai</span>
+            <span style={styles.legendItem}><span style={{ ...styles.legendDot, backgroundColor: legendColors.blank }}></span> Bỏ trống</span>
+          </div>
+        </div>
+
+        {test && submission ? (
+          <ListeningStudentStyleReview
+            test={test}
+            submission={submission}
+            details={details}
+          />
+        ) : (
+          <div style={styles.reviewPromptCard}>
+            <div>
+              <div style={styles.reviewPromptTitle}>Chưa dựng lại được giao diện làm bài gốc</div>
+              <p style={styles.reviewPromptText}>
+                Dữ liệu test hoặc submission gốc chưa sẵn sàng, nên trang hiện tạm bảng đối chiếu chi tiết bên dưới.
+              </p>
+            </div>
+          </div>
+        )}
+
         <div style={styles.tableContainer}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
+          <div style={styles.subSectionHeader}>
             <h3 style={{ ...styles.sectionTitle, margin: 0 }}>📝 Chi tiết đáp án</h3>
-            <div style={styles.filterBar}>
+            <div style={{ display: "flex", gap: "12px", alignItems: "center", flexWrap: "wrap" }}>
+              <button
+                type="button"
+                style={{ ...styles.actionBtn, ...styles.secondaryBtn, padding: "8px 14px" }}
+                onClick={() => setShowLegacyTable((prev) => !prev)}
+              >
+                {showLegacyTable ? "Ẩn bảng đối chiếu" : "Hiện bảng đối chiếu"}
+              </button>
+              <div style={styles.filterBar}>
               <button
                 style={{
                   ...styles.filterBtn,
@@ -1243,7 +1479,11 @@ const ListeningResults = () => {
                 ✕ Sai ({wrongCount})
               </button>
             </div>
+            </div>
           </div>
+
+          {showLegacyTable && (
+            <>
 
           {/* Grouped by Part */}
           {Object.keys(groupedDetails).length > 1 ? (
@@ -1341,11 +1581,22 @@ const ListeningResults = () => {
               </tbody>
             </table>
           )}
+            </>
+          )}
         </div>
+        </>
       )}
 
       {/* Action Buttons */}
       <div style={styles.actionsBar}>
+        {canViewDetailedReview && activeTab === "review" && (
+          <button
+            style={{ ...styles.actionBtn, ...styles.secondaryBtn }}
+            onClick={() => setActiveTab("overview")}
+          >
+            ← Quay lại tổng quan
+          </button>
+        )}
         <button
           style={{ ...styles.actionBtn, ...styles.primaryBtn }}
           onClick={() => navigate(`/listening/${retryTestId}`)}

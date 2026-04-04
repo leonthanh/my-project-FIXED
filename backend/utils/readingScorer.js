@@ -366,6 +366,16 @@ function getDetailedScoring(testData, answers = {}) {
     return String(v);
   };
 
+  const getNumericQuestionStart = (value, fallback) => {
+    if (typeof value === 'number' && Number.isFinite(value)) return value;
+    if (typeof value === 'string') {
+      const match = value.match(/(\d+)/);
+      if (match) return Number(match[1]);
+    }
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : fallback;
+  };
+
   // parse root if needed
   if (typeof answers === 'string') {
     try { answers = JSON.parse(answers); } catch (e) { answers = {}; }
@@ -387,10 +397,11 @@ function getDetailedScoring(testData, answers = {}) {
       for (const q of (s.questions || [])) {
         const qIndex = questionIndexInPassage++;
         const qType = (q.questionType || q.type || '').toLowerCase();
+        const numericQuestionStart = getNumericQuestionStart(q.questionNumber, qCounter);
         // Default row (include question text, headings and a short passage snippet for context)
         const passageSnippet = (p.title || p.heading || p.passageText || p.text || '');
         const row = {
-          questionNumber: q.questionNumber || qCounter,
+          questionNumber: numericQuestionStart,
           questionType: qType,
           questionText: q.questionText || q.question || q.text || '',
           headings: q.headings || [],
@@ -409,7 +420,9 @@ function getDetailedScoring(testData, answers = {}) {
 
           // also accept student answers stored under the question's own questionNumber (editor may use q_<questionNumber>)
           const altBaseKey = `q_${q.questionNumber || qCounter}`;
+          const numericAltBaseKey = `q_${numericQuestionStart}`;
           if (!studentRaw && answers[altBaseKey]) studentRaw = answers[altBaseKey];
+          if (!studentRaw && answers[numericAltBaseKey]) studentRaw = answers[numericAltBaseKey];
 
           // if still not found, scan answers keys for an object mapping that contains paragraph ids
           let studentObj = {};
@@ -476,31 +489,20 @@ function getDetailedScoring(testData, answers = {}) {
             const paragraphId = typeof para === 'object' ? (para.id || para.paragraphId || '') : String(para);
             const expectedLabel = toLabel(correctMap[paragraphId] || '', headingsArray);
 
-            // Determine numeric base question number (handles cases like '11,12,130')
-            const baseQuestionNumber = (() => {
-              const qn = q.questionNumber || qCounter;
-              if (typeof qn === 'number') return qn;
-              if (typeof qn === 'string') {
-                const m = qn.match(/(\d+)/);
-                if (m) return Number(m[1]);
-              }
-              return Number(qn) || qCounter;
-            })();
-
             // find student raw value robustly using question number as hint
-            const questionNum = baseQuestionNumber + i;
+            const questionNum = numericQuestionStart + i;
             let studentRaw = studentObj[paragraphId] || '';
             if (!studentRaw) {
               // scan answers object for keys referencing this base question number and blank index
               for (const k of Object.keys((answers || {}))) {
                 const keyStr = String(k);
                 // exact form: q_<base>_<i>
-                if (new RegExp(`(^|_)q_${baseQuestionNumber}_${i}($|_)`).test(keyStr)) {
+                if (new RegExp(`(^|_)q_${numericQuestionStart}_${i}($|_)`).test(keyStr)) {
                   studentRaw = (answers && answers[k]) || '';
                   break;
                 }
                 // contains both the base question number and the blank index (e.g., '0_11_0')
-                if (keyStr.includes(`_${i}`) && new RegExp(`(^|_)${baseQuestionNumber}(_|_)`).test(keyStr)) {
+                if (keyStr.includes(`_${i}`) && new RegExp(`(^|_)${numericQuestionStart}(_|_)`).test(keyStr)) {
                   studentRaw = (answers && answers[k]) || '';
                   break;
                 }
@@ -516,7 +518,7 @@ function getDetailedScoring(testData, answers = {}) {
             // ensure student is a readable string
             const studentValStr = (studentRaw && typeof studentRaw === 'object') ? JSON.stringify(studentRaw) : String(studentRaw || '');
             details.push({
-              questionNumber: q.questionNumber || (qCounter + i),
+              questionNumber: numericQuestionStart + i,
               paragraphId,
               questionText: q.questionText || q.question || q.text || '',
               headings: headingsArray || [],
@@ -544,17 +546,6 @@ function getDetailedScoring(testData, answers = {}) {
               if (typeof v === 'object') return JSON.stringify(v);
               return String(v);
             };
-
-            // derive a numeric base for question number (handles '11,12,130' style)
-            const baseQuestionNumber = (() => {
-              const qn = q.questionNumber || qCounter;
-              if (typeof qn === 'number') return qn;
-              if (typeof qn === 'string') {
-                const m = qn.match(/(\d+)/);
-                if (m) return Number(m[1]);
-              }
-              return Number(qn) || qCounter;
-            })();
 
             const findStudentBlank = (baseNumber, bi) => {
               // 1) direct q_<base>_<bi>
@@ -596,8 +587,8 @@ function getDetailedScoring(testData, answers = {}) {
             };
 
             for (let bi = 0; bi < blanks.length; bi++) {
-              const displayedQuestionNumber = q.questionNumber || (qCounter + bi);
-              const studentRaw = findStudentBlank(baseQuestionNumber, bi) || '';
+              const displayedQuestionNumber = numericQuestionStart + bi;
+              const studentRaw = findStudentBlank(numericQuestionStart, bi) || '';
               const expectedRaw = (q.blanks && q.blanks[bi] && q.blanks[bi].correctAnswer) ? q.blanks[bi].correctAnswer : '';
               const expectedVariants = String(expectedRaw).split(/\s*[|\/;,]\s*/).map(s => normalize(s)).filter(Boolean);
               const studentNorm = normalize(studentRaw);
@@ -626,7 +617,7 @@ function getDetailedScoring(testData, answers = {}) {
           const text = (q.questionText || '').replace(/<p[^>]*>/gi, '').replace(/<\/p>/gi, ' ').replace(/<br\s*\/?/gi, ' ').trim();
           const parts = text ? text.split(/(\.{3,}|…+)/) : [];
           const blanks = parts.filter((p2) => p2 && p2.match(/\.{3,}|…+/));
-          const baseKey = `q_${qCounter}`;
+          const baseKey = `q_${numericQuestionStart}`;
 
           if (blanks.length > 0) {
             for (let bi = 0; bi < blanks.length; bi++) {
@@ -639,7 +630,7 @@ function getDetailedScoring(testData, answers = {}) {
               const expectedLabel = normalize(expectedRaw || '');
               const studentLabel = normalize(studentRaw || '');
               details.push({
-                questionNumber: q.questionNumber || (qCounter + bi),
+                questionNumber: numericQuestionStart + bi,
                 paragraphId: null,
                 questionText: q.questionText || q.question || q.text || '',
                 headings: q.headings || [],
@@ -657,7 +648,7 @@ function getDetailedScoring(testData, answers = {}) {
             const expectedLabel = normalize(expectedRaw || '');
             const studentLabel = normalize(studentRaw || '');
             details.push({
-              questionNumber: q.questionNumber || qCounter,
+              questionNumber: numericQuestionStart,
               paragraphId: null,
               questionText: q.questionText || q.question || q.text || '',
               headings: q.headings || [],
@@ -698,15 +689,16 @@ function getDetailedScoring(testData, answers = {}) {
         if (qType === 'multi-select') {
           const key = `q_${qCounter}`;
           const altKey = q.questionNumber ? `q_${q.questionNumber}` : null;
+          const numericAltKey = `q_${numericQuestionStart}`;
           const rawStudentVal = answers[key];
-          const rawStudentAlt = altKey ? answers[altKey] : undefined;
+          const rawStudentAlt = altKey && answers[altKey] !== undefined ? answers[altKey] : answers[numericAltKey];
           const expectedTokens = normalizeMultiTokens(q.correctAnswer || q.answers || '', q.options || []);
           const studentTokens = normalizeMultiTokens((rawStudentVal !== undefined ? rawStudentVal : rawStudentAlt), q.options || []);
           const required = q.requiredAnswers || q.maxSelection || expectedTokens.length || studentTokens.length || 2;
           const count = Math.max(required, expectedTokens.length || 0);
 
           for (let mi = 0; mi < count; mi++) {
-            const questionNum = (q.questionNumber || qCounter) + mi;
+            const questionNum = numericQuestionStart + mi;
             const expectedToken = expectedTokens[mi] || expectedTokens[0] || '';
             const studentHasExpected = expectedToken ? studentTokens.includes(expectedToken) : false;
             const studentToken = studentHasExpected ? expectedToken : (studentTokens[mi] || '');
@@ -733,7 +725,12 @@ function getDetailedScoring(testData, answers = {}) {
         if (qType === 'multiple-choice' || qType === 'sentence-completion') {
           const key = `q_${qCounter}`;
           const altKey = q.questionNumber ? `q_${q.questionNumber}` : null;
-          const rawStudentVal = (answers[key] !== undefined) ? answers[key] : (altKey ? answers[altKey] : undefined);
+          const numericAltKey = `q_${numericQuestionStart}`;
+          const rawStudentVal = (answers[key] !== undefined)
+            ? answers[key]
+            : (altKey && answers[altKey] !== undefined)
+              ? answers[altKey]
+              : answers[numericAltKey];
           const studentVal = rawStudentVal === undefined || rawStudentVal === null ? '' : rawStudentVal;
 
           let expectedRaw = q.correctAnswer || '';
@@ -756,7 +753,12 @@ function getDetailedScoring(testData, answers = {}) {
         // default simple types
         const key = `q_${qCounter}`;
         const altKey = q.questionNumber ? `q_${q.questionNumber}` : null;
-        const rawStudentVal = (answers[key] !== undefined) ? answers[key] : (altKey ? answers[altKey] : undefined);
+        const numericAltKey = `q_${numericQuestionStart}`;
+        const rawStudentVal = (answers[key] !== undefined)
+          ? answers[key]
+          : (altKey && answers[altKey] !== undefined)
+            ? answers[altKey]
+            : answers[numericAltKey];
         // ignore object-mappings (these are likely matching-heading maps), accept primitives/arrays only
         const studentVal = (typeof rawStudentVal === 'object' && !Array.isArray(rawStudentVal)) ? '' : rawStudentVal;
         row.student = safeString(studentVal);

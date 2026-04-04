@@ -21,6 +21,12 @@ const Review = () => {
   const [unreviewedPetWriting, setUnreviewedPetWriting] = useState([]);
   const [loadingWriting, setLoadingWriting] = useState(true);
 
+  const [unreviewedReading, setUnreviewedReading] = useState([]);
+  const [loadingReading, setLoadingReading] = useState(true);
+
+  const [unreviewedListening, setUnreviewedListening] = useState([]);
+  const [loadingListening, setLoadingListening] = useState(true);
+
   const [cambridgeSubmissions, setCambridgeSubmissions] = useState([]);
   const [loadingCambridge, setLoadingCambridge] = useState(true);
   const [cambridgeError, setCambridgeError] = useState(null);
@@ -52,6 +58,11 @@ const Review = () => {
   }, []);
 
   useEffect(() => {
+    const hasFeedback = (submission) =>
+      String(submission?.feedback || "")
+        .trim()
+        .length > 0;
+
     const fetchUnreviewedWriting = async () => {
       setLoadingWriting(true);
       try {
@@ -81,6 +92,44 @@ const Review = () => {
         setUnreviewedPetWriting([]);
       } finally {
         setLoadingWriting(false);
+      }
+    };
+
+    const fetchUnreviewedReading = async () => {
+      setLoadingReading(true);
+      try {
+        const res = await fetch(apiPath("reading-submissions/admin/list"));
+        if (!res.ok) {
+          throw new Error("Could not load Reading submissions.");
+        }
+
+        const data = await res.json();
+        const submissions = Array.isArray(data) ? data : [];
+        setUnreviewedReading(submissions.filter((sub) => !hasFeedback(sub)));
+      } catch (err) {
+        console.error("Failed to load reading submissions:", err);
+        setUnreviewedReading([]);
+      } finally {
+        setLoadingReading(false);
+      }
+    };
+
+    const fetchUnreviewedListening = async () => {
+      setLoadingListening(true);
+      try {
+        const res = await fetch(apiPath("listening-submissions/admin/list"));
+        if (!res.ok) {
+          throw new Error("Could not load Listening submissions.");
+        }
+
+        const data = await res.json();
+        const submissions = Array.isArray(data) ? data : [];
+        setUnreviewedListening(submissions.filter((sub) => !hasFeedback(sub)));
+      } catch (err) {
+        console.error("Failed to load listening submissions:", err);
+        setUnreviewedListening([]);
+      } finally {
+        setLoadingListening(false);
       }
     };
 
@@ -114,6 +163,8 @@ const Review = () => {
     };
 
     fetchUnreviewedWriting();
+    fetchUnreviewedReading();
+    fetchUnreviewedListening();
     fetchCambridgeSubmissions();
   }, []);
 
@@ -322,6 +373,92 @@ const Review = () => {
     return Number.isNaN(date.getTime()) ? "N/A" : date.toLocaleString();
   };
 
+  const getSubmissionStudentName = (submission) =>
+    submission?.studentName ||
+    submission?.userName ||
+    submission?.user?.name ||
+    submission?.User?.name ||
+    "N/A";
+
+  const getSubmissionPhone = (submission) =>
+    submission?.studentPhone ||
+    submission?.userPhone ||
+    submission?.user?.phone ||
+    submission?.User?.phone ||
+    "N/A";
+
+  const getReadingTestLabel = (submission) => {
+    const test = submission?.ReadingTest || {};
+    return [test.title || `Reading #${submission?.testId || "N/A"}`, test.classCode || "", test.teacherName || ""]
+      .filter(Boolean)
+      .join(" - ");
+  };
+
+  const getListeningTestLabel = (submission) => {
+    const test = submission?.ListeningTest || {};
+    return [test.title || `Listening #${submission?.testId || "N/A"}`, test.classCode || "", test.teacherName || ""]
+      .filter(Boolean)
+      .join(" - ");
+  };
+
+  const renderObjectiveQueueDesktop = (items, buildTestLabel, onReview) => (
+    <table style={tableStyle}>
+      <thead>
+        <tr style={{ backgroundColor: "#f2f2f2" }}>
+          <th style={cellStyle}>#</th>
+          <th style={cellStyle}>Student</th>
+          <th style={cellStyle}>Phone</th>
+          <th style={cellStyle}>Test</th>
+          <th style={cellStyle}>Submitted</th>
+          <th style={cellStyle}>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {items.map((sub, idx) => (
+          <tr key={sub.id} style={{ borderBottom: "1px solid #ccc" }}>
+            <td style={cellStyle}>{idx + 1}</td>
+            <td style={cellStyle}>{getSubmissionStudentName(sub)}</td>
+            <td style={cellStyle}>{getSubmissionPhone(sub)}</td>
+            <td style={cellStyle}>{buildTestLabel(sub)}</td>
+            <td style={cellStyle}>{formatDateTime(sub.submittedAt || sub.createdAt)}</td>
+            <td style={cellStyle}>
+              <button onClick={() => onReview(sub)} style={primaryButtonStyle}>
+                Review
+              </button>
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+
+  const renderObjectiveQueueMobile = (items, buildTitle, buildMeta, onReview) => (
+    <div style={mobileListStyle}>
+      {items.map((sub, idx) => (
+        <div key={sub.id} style={mobileCardStyle(isDarkMode)}>
+          <div style={mobileCardHeaderStyle}>
+            <div style={mobileCardIndexStyle(isDarkMode)}>#{idx + 1}</div>
+            <div style={mobileCardTitleStyle(isDarkMode)}>{buildTitle(sub)}</div>
+          </div>
+
+          <div style={mobileFieldsGridStyle}>
+            {renderMobileField("Student", getSubmissionStudentName(sub))}
+            {renderMobileField("Phone", getSubmissionPhone(sub))}
+            {renderMobileField("Test", buildMeta(sub))}
+            {renderMobileField("Submitted", formatDateTime(sub.submittedAt || sub.createdAt))}
+          </div>
+
+          <button
+            onClick={() => onReview(sub)}
+            style={{ ...primaryButtonStyle, width: "100%", marginTop: 12 }}
+          >
+            Review Submission
+          </button>
+        </div>
+      ))}
+    </div>
+  );
+
   const renderMobileField = (label, value) => (
     <div key={label} style={mobileFieldRowStyle}>
       <div style={mobileFieldLabelStyle(isDarkMode)}>{label}</div>
@@ -490,7 +627,25 @@ const Review = () => {
               ...(activeTab === "writing" ? tabActiveStyle : {}),
             }}
           >
-            Writing IELTS{unreviewedWriting.length > 0 ? ` (${unreviewedWriting.length})` : ""}
+            Writing{unreviewedWriting.length > 0 ? ` (${unreviewedWriting.length})` : ""}
+          </button>
+          <button
+            onClick={() => setActiveTab("reading")}
+            style={{
+              ...tabStyle,
+              ...(activeTab === "reading" ? tabActiveStyle : {}),
+            }}
+          >
+            Reading{unreviewedReading.length > 0 ? ` (${unreviewedReading.length})` : ""}
+          </button>
+          <button
+            onClick={() => setActiveTab("listening")}
+            style={{
+              ...tabStyle,
+              ...(activeTab === "listening" ? tabActiveStyle : {}),
+            }}
+          >
+            Listening{unreviewedListening.length > 0 ? ` (${unreviewedListening.length})` : ""}
           </button>
           <button
             onClick={() => setActiveTab("cambridge")}
@@ -595,6 +750,54 @@ const Review = () => {
                 })}
               </div>
             )}
+          </>
+        )}
+
+        {activeTab === "reading" && (
+          <>
+            {loadingReading && <p>Loading reading submissions...</p>}
+            {!loadingReading && unreviewedReading.length === 0 && (
+              <p>No reading submissions need review.</p>
+            )}
+
+            {!loadingReading && unreviewedReading.length > 0 && !isCompactLayout &&
+              renderObjectiveQueueDesktop(
+                unreviewedReading,
+                getReadingTestLabel,
+                (sub) => navigate(`/reading-results/${sub.id}`)
+              )}
+
+            {!loadingReading && unreviewedReading.length > 0 && isCompactLayout &&
+              renderObjectiveQueueMobile(
+                unreviewedReading,
+                () => "Reading",
+                getReadingTestLabel,
+                (sub) => navigate(`/reading-results/${sub.id}`)
+              )}
+          </>
+        )}
+
+        {activeTab === "listening" && (
+          <>
+            {loadingListening && <p>Loading listening submissions...</p>}
+            {!loadingListening && unreviewedListening.length === 0 && (
+              <p>No listening submissions need review.</p>
+            )}
+
+            {!loadingListening && unreviewedListening.length > 0 && !isCompactLayout &&
+              renderObjectiveQueueDesktop(
+                unreviewedListening,
+                getListeningTestLabel,
+                (sub) => navigate(`/listening-results/${sub.id}`)
+              )}
+
+            {!loadingListening && unreviewedListening.length > 0 && isCompactLayout &&
+              renderObjectiveQueueMobile(
+                unreviewedListening,
+                () => "Listening",
+                getListeningTestLabel,
+                (sub) => navigate(`/listening-results/${sub.id}`)
+              )}
           </>
         )}
 

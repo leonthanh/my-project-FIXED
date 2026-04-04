@@ -34,6 +34,8 @@ export default function TableCompletion({
   registerQuestionRef,
   onFocusQuestion,
   showHeader = true,
+  readOnly = false,
+  detailMap,
 }) {
   const [localAnswers, setLocalAnswers] = useState({});
   const [errors, setErrors] = useState({});
@@ -88,6 +90,7 @@ export default function TableCompletion({
   }, [data, startingQuestionNumber]);
 
   function handleInput(qNum, value) {
+    if (readOnly) return;
     const v = value;
     const { ok, reason } = validateAnswer(v, maxWords);
     const nextAns = { ...answers, [qNum]: v };
@@ -97,12 +100,38 @@ export default function TableCompletion({
     onChange?.(nextAns, nextErr);
   }
 
+  function getDetail(qNum) {
+    if (!detailMap) return null;
+    if (detailMap instanceof Map) return detailMap.get(qNum) || null;
+    return detailMap[qNum] || null;
+  }
+
+  function getStatusStyle(detail) {
+    if (!detail) return null;
+    if (detail.isCorrect) {
+      return {
+        borderColor: '#22c55e',
+        backgroundColor: '#f0fdf4',
+      };
+    }
+    if (String(detail.studentAnswer || '').trim()) {
+      return {
+        borderColor: '#ef4444',
+        backgroundColor: '#fef2f2',
+      };
+    }
+    return {
+      borderColor: '#cbd5e1',
+      backgroundColor: '#f8fafc',
+    };
+  }
+
   function renderParts(parts) {
     return parts.map((p, idx) =>
       p.type === "text" ? (
         <span key={idx}>{p.value}</span>
       ) : (
-        <span key={idx} className="blank">
+        <span key={idx} className="blank" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
           <input
             aria-label={`Question ${p.q}`}
             value={answers[p.q] ?? ""}
@@ -112,7 +141,27 @@ export default function TableCompletion({
             maxLength={60}
             className={`blank-input ${errors[p.q] ? "has-error" : ""}`}
             placeholder={`${p.q}`}
+            readOnly={readOnly}
+            disabled={readOnly}
+            style={readOnly ? getStatusStyle(getDetail(p.q)) : undefined}
           />
+          {readOnly && (() => {
+            const detail = getDetail(p.q);
+            if (!detail || detail.isCorrect || !String(detail.correctAnswer || '').trim()) return null;
+            return (
+              <small
+                style={{
+                  color: '#166534',
+                  fontWeight: 600,
+                  background: '#dcfce7',
+                  borderRadius: '999px',
+                  padding: '4px 8px',
+                }}
+              >
+                Dap an: {detail.correctAnswer}
+              </small>
+            );
+          })()}
           {errors[p.q] && <small className="error" role="alert">{errors[p.q]}</small>}
         </span>
       )
@@ -188,4 +237,9 @@ TableCompletion.propTypes = {
   registerQuestionRef: PropTypes.func,
   onFocusQuestion: PropTypes.func,
   showHeader: PropTypes.bool,
+  readOnly: PropTypes.bool,
+  detailMap: PropTypes.oneOfType([
+    PropTypes.object,
+    PropTypes.instanceOf(Map),
+  ]),
 };

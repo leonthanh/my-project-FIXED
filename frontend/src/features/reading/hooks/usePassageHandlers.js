@@ -1,5 +1,11 @@
 import { useState, useCallback } from 'react';
-import { createNewPassage, createNewSection, createNewQuestion, createDefaultQuestionByType } from '../utils';
+import {
+  createNewPassage,
+  createNewSection,
+  createNewQuestion,
+  createDefaultQuestionByType,
+  getNextQuestionNumber,
+} from '../utils';
 
 /**
  * Custom hook để quản lý CRUD cho passages, sections, questions
@@ -142,8 +148,8 @@ export const usePassageHandlers = (initialPassages = [createNewPassage()]) => {
       section.questions = [];
     }
     
-    const questionNumber = section.questions.length + 1;
-    section.questions.push(createNewQuestion(questionNumber));
+    const questionNumber = getNextQuestionNumber(newPassages, passageIndex, sectionIndex);
+    section.questions.push(createNewQuestion(String(questionNumber)));
     setPassages(newPassages);
   }, [passages]);
 
