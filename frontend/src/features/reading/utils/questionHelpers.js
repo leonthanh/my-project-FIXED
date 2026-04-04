@@ -40,6 +40,93 @@ export const getQuestionCount = (questionNumber) => {
 };
 
 /**
+ * Lấy số câu bắt đầu từ questionNumber.
+ * Hỗ trợ các format: "38-40", "38,39,40", "38"
+ * @param {string|number} questionNumber
+ * @returns {number|null}
+ */
+export const getQuestionStart = (questionNumber) => {
+  if (questionNumber === undefined || questionNumber === null) return null;
+
+  const raw = String(questionNumber).trim();
+  if (!raw) return null;
+
+  const match = raw.match(/\d+/);
+  if (!match) return null;
+
+  const parsed = parseInt(match[0], 10);
+  return Number.isNaN(parsed) ? null : parsed;
+};
+
+const stripHtml = (value) => String(value || '').replace(/<[^>]+>/g, ' ');
+
+/**
+ * Tính số lượng câu ngầm định của một question khi chưa có questionNumber rõ ràng.
+ * @param {Object} question
+ * @returns {number}
+ */
+export const getImpliedQuestionCount = (question) => {
+  if (!question || typeof question !== 'object') return 1;
+
+  if (question.questionNumber) {
+    return getQuestionCount(question.questionNumber);
+  }
+
+  if (Array.isArray(question.blanks) && question.blanks.length > 0) {
+    return question.blanks.length;
+  }
+
+  const plainText = stripHtml(question.questionText || question.paragraphText || '');
+  const blankCount = (plainText.match(/\[BLANK\]/g) || []).length;
+
+  return blankCount || 1;
+};
+
+/**
+ * Tính questionNumber tiếp theo cho section đang thêm câu hỏi.
+ * Duyệt theo thứ tự passage/section/question để giữ numbering liên tục toàn bài.
+ * @param {Array} passages
+ * @param {number} targetPassageIndex
+ * @param {number} targetSectionIndex
+ * @returns {number}
+ */
+export const getNextQuestionNumber = (passages, targetPassageIndex, targetSectionIndex) => {
+  if (!Array.isArray(passages)) return 1;
+
+  let nextNumber = 1;
+
+  for (let passageIndex = 0; passageIndex < passages.length; passageIndex++) {
+    const sections = Array.isArray(passages[passageIndex]?.sections)
+      ? passages[passageIndex].sections
+      : [];
+
+    for (let sectionIndex = 0; sectionIndex < sections.length; sectionIndex++) {
+      const questions = Array.isArray(sections[sectionIndex]?.questions)
+        ? sections[sectionIndex].questions
+        : [];
+
+      questions.forEach((question) => {
+        const start = getQuestionStart(question?.questionNumber);
+        const count = Math.max(1, getImpliedQuestionCount(question));
+
+        if (start !== null) {
+          nextNumber = Math.max(nextNumber, start + count);
+          return;
+        }
+
+        nextNumber += count;
+      });
+
+      if (passageIndex === targetPassageIndex && sectionIndex === targetSectionIndex) {
+        return nextNumber;
+      }
+    }
+  }
+
+  return nextNumber;
+};
+
+/**
  * Tính tổng số câu hỏi trong tất cả passages
  * @param {Array} passages - Mảng passages
  * @returns {number} Tổng số câu hỏi
