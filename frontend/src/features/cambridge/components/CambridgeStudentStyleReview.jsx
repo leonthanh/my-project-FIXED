@@ -493,13 +493,29 @@ function getExamType(testType) {
   return String(testType || '').split('-')[0].trim().toUpperCase();
 }
 
+function hasAnchors(question) {
+  return Boolean(question?.anchors && Object.keys(question.anchors || {}).length > 0);
+}
+
 function getSectionType(section) {
   const q0 = section?.questions?.[0] || {};
+  const rawType = section?.questionType || q0?.questionType || q0?.type || '';
+
+  if (rawType === 'letter-matching' || (Array.isArray(q0?.people) && q0.people.length > 0 && q0?.questionType === 'letter-matching')) {
+    return 'letter-matching';
+  }
+
+  if (rawType === 'draw-lines' || ((rawType === 'matching' || !rawType) && hasAnchors(q0))) {
+    return 'draw-lines';
+  }
+
+  if (rawType === 'matching' && Array.isArray(q0?.leftItems)) {
+    return 'gap-match';
+  }
+
   return (
-    section?.questionType ||
-    q0?.questionType ||
-    q0?.type ||
-    (q0?.anchors && Object.keys(q0.anchors || {}).length > 0 ? 'draw-lines' : '') ||
+    rawType ||
+    (hasAnchors(q0) ? 'draw-lines' : '') ||
     (Array.isArray(q0?.imageOptions) ? 'multiple-choice-pictures' : '') ||
     (Array.isArray(q0?.people) ? (q0?.questionType === 'letter-matching' ? 'letter-matching' : 'people-matching') : '') ||
     (Array.isArray(q0?.leftItems) ? 'gap-match' : '') ||
@@ -539,6 +555,7 @@ function getSectionDisplayName(sectionType) {
 
 function questionCountForQuestion(sectionType, question) {
   if (!question || typeof question !== 'object') return 0;
+  const isLegacyDrawLines = sectionType === 'matching' && hasAnchors(question);
 
   if (sectionType === 'long-text-mc') return Array.isArray(question.questions) ? question.questions.length : 0;
   if (sectionType === 'cloze-mc' || sectionType === 'inline-choice') return Array.isArray(question.blanks) ? question.blanks.length : 0;
@@ -549,7 +566,9 @@ function questionCountForQuestion(sectionType, question) {
     return parseClozeBlanksFromText(question.passageText || question.passage || question.clozeText || '', 1).length;
   }
   if (sectionType === 'people-matching') return Array.isArray(question.people) ? question.people.length : 0;
-  if (sectionType === 'gap-match') return Array.isArray(question.leftItems) ? question.leftItems.length : 0;
+  if (sectionType === 'gap-match' || (sectionType === 'matching' && !isLegacyDrawLines)) {
+    return Array.isArray(question.leftItems) ? question.leftItems.length : 0;
+  }
   if (sectionType === 'word-form') return Array.isArray(question.sentences) ? question.sentences.length : 0;
   if (sectionType === 'matching-pictures') return Array.isArray(question.prompts) ? question.prompts.length : 0;
   if (sectionType === 'image-cloze') {
@@ -561,7 +580,7 @@ function questionCountForQuestion(sectionType, question) {
   if (sectionType === 'look-read-write') {
     return (question.groups || []).reduce((sum, group) => sum + (Array.isArray(group?.items) ? group.items.length : 0), 0);
   }
-  if (sectionType === 'draw-lines') {
+  if (sectionType === 'draw-lines' || isLegacyDrawLines) {
     return Array.isArray(question.leftItems)
       ? question.leftItems.slice(1).filter((item) => String(item || '').trim()).length
       : 0;
