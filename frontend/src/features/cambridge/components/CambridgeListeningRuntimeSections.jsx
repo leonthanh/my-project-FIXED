@@ -1,6 +1,531 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 const IT_ACCENT = ['#f59e0b', '#10b981', '#8b5cf6', '#ef4444', '#0ea5e9', '#ec4899'];
+const DRAW_COLORS = ['#f59e0b', '#10b981', '#3b82f6', '#8b5cf6', '#ef4444', '#ec4899', '#06b6d4', '#84cc16'];
+const ANCHOR_NEUTRAL = '#94a3b8';
+const DRAWLINE_SNAP_RADIUS_PX = 22;
+const DRAWLINE_ANCHOR_HIT_AREA_PX = 34;
+
+export function DrawLinesQuestion({
+  question,
+  questionKey,
+  questionNum,
+  leftItems,
+  anchors,
+  partImageUrl,
+  answers,
+  submitted,
+  results,
+  isDarkMode,
+  wrapperClassName,
+  handleAnswerChange,
+  questionRefs,
+  activeQuestion,
+  resolveImgSrc,
+}) {
+  const [selectedNameIdx, setSelectedNameIdx] = useState(null);
+  const [lines, setLines] = useState([]);
+  const [selectedAnchorByName, setSelectedAnchorByName] = useState({});
+  const imgRef = useRef(null);
+  const containerRef = useRef(null);
+  const pillRefs = useRef({});
+
+  const resolveImg = (url) => {
+    if (!url) return '';
+    if (resolveImgSrc) return resolveImgSrc(url);
+    return url;
+  };
+
+  const getStudentAnswer = useCallback(
+    (nameIdx) => answers[`${questionKey}-${nameIdx}`] || '',
+    [answers, questionKey]
+  );
+
+  const anchorLetterByIdx = useMemo(() => {
+    const rawAnswers = question.answers && typeof question.answers === 'object' ? question.answers : {};
+    const next = {};
+    Object.entries(rawAnswers).forEach(([idxStr, letter]) => {
+      if (!letter) return;
+      next[String(idxStr)] = String(letter).trim();
+    });
+    return next;
+  }, [question.answers]);
+
+  const anchorIndexesByLetter = useMemo(() => {
+    const next = {};
+    Object.entries(anchorLetterByIdx).forEach(([idxStr, letter]) => {
+      if (idxStr === '0') return;
+      if (!next[letter]) next[letter] = [];
+      next[letter].push(idxStr);
+    });
+    return next;
+  }, [anchorLetterByIdx]);
+
+  const derivedAnchorByName = useMemo(() => {
+    const next = {};
+    leftItems.forEach((_name, nameIdx) => {
+      if (nameIdx === 0) return;
+      const studentAnswer = answers[`${questionKey}-${nameIdx}`];
+      if (!studentAnswer) return;
+      const candidates = anchorIndexesByLetter[studentAnswer] || [];
+      if (candidates.length === 1) {
+        next[String(nameIdx)] = candidates[0];
+      } else if (candidates.includes(String(nameIdx))) {
+        next[String(nameIdx)] = String(nameIdx);
+      }
+    });
+    return next;
+  }, [anchorIndexesByLetter, answers, leftItems, questionKey]);
+
+  const effectiveAnchorByName = useMemo(
+    () => ({ ...derivedAnchorByName, ...selectedAnchorByName }),
+    [derivedAnchorByName, selectedAnchorByName]
+  );
+
+  const anchorUsedByName = useMemo(() => {
+    const next = {};
+    Object.entries(effectiveAnchorByName).forEach(([nameIdxStr, anchorIdxStr]) => {
+      if (!anchorIdxStr) return;
+      next[String(anchorIdxStr)] = parseInt(nameIdxStr, 10);
+    });
+    return next;
+  }, [effectiveAnchorByName]);
+
+  const setDrawLineAnswer = useCallback(
+    (nameIdx, anchorIdxStr) => {
+      const answerKey = `${questionKey}-${nameIdx}`;
+      if (!anchorIdxStr) {
+        handleAnswerChange(answerKey, '');
+        setSelectedAnchorByName((prev) => {
+          const nameKey = String(nameIdx);
+          if (!Object.prototype.hasOwnProperty.call(prev, nameKey)) return prev;
+          const next = { ...prev };
+          delete next[nameKey];
+          return next;
+        });
+        return;
+      }
+
+      const chosenLetter = anchorLetterByIdx[String(anchorIdxStr)];
+      if (!chosenLetter) return;
+      handleAnswerChange(answerKey, chosenLetter);
+      setSelectedAnchorByName((prev) => ({
+        ...prev,
+        [String(nameIdx)]: String(anchorIdxStr),
+      }));
+    },
+    [anchorLetterByIdx, handleAnswerChange, questionKey]
+  );
+
+  useEffect(() => {
+    setSelectedAnchorByName((prev) => {
+      let changed = false;
+      const next = { ...prev };
+      Object.entries(prev).forEach(([nameIdxStr, anchorIdxStr]) => {
+        const studentAnswer = answers[`${questionKey}-${nameIdxStr}`];
+        const mappedLetter = anchorLetterByIdx[String(anchorIdxStr)];
+        if (!studentAnswer || studentAnswer !== mappedLetter) {
+          delete next[nameIdxStr];
+          changed = true;
+        }
+      });
+      return changed ? next : prev;
+    });
+  }, [answers, anchorLetterByIdx, questionKey]);
+
+  useEffect(() => {
+    if (!activeQuestion || submitted) return;
+    const prefix = `${questionKey}-`;
+    if (!activeQuestion.startsWith(prefix)) return;
+    const nameIdx = parseInt(activeQuestion.slice(prefix.length), 10);
+    if (!Number.isNaN(nameIdx) && nameIdx > 0) {
+      setSelectedNameIdx(nameIdx);
+    }
+  }, [activeQuestion, questionKey, submitted]);
+
+  const recomputeLines = useCallback(() => {
+    if (!imgRef.current || !containerRef.current) return;
+    const containerRect = containerRef.current.getBoundingClientRect();
+    const imageRect = imgRef.current.getBoundingClientRect();
+    const newLines = [];
+
+    leftItems.forEach((name, idx) => {
+      if (!name) return;
+      const pill = pillRefs.current[idx];
+      if (!pill) return;
+
+      if (idx === 0) {
+        const exampleAnchor = anchors['0'];
+        if (!exampleAnchor) return;
+        const pillRect = pill.getBoundingClientRect();
+        newLines.push({
+          x1: pillRect.left + pillRect.width / 2 - containerRect.left,
+          y1: pillRect.top + pillRect.height / 2 - containerRect.top,
+          x2: imageRect.left - containerRect.left + (exampleAnchor.x / 100) * imageRect.width,
+          y2: imageRect.top - containerRect.top + (exampleAnchor.y / 100) * imageRect.height,
+          color: '#9ca3af',
+          nameIdx: 0,
+          isExample: true,
+        });
+        return;
+      }
+
+      const studentAnswer = answers[`${questionKey}-${idx}`];
+      if (!studentAnswer) return;
+      const mappedAnchorIdx = effectiveAnchorByName[String(idx)];
+      const fallbackCandidates = anchorIndexesByLetter[studentAnswer] || [];
+      const fallbackAnchorIdx = fallbackCandidates.length === 1 ? fallbackCandidates[0] : undefined;
+      const anchorIdxStr = mappedAnchorIdx || fallbackAnchorIdx;
+      const anchor = anchorIdxStr !== undefined ? anchors[anchorIdxStr] : null;
+      if (!anchor) return;
+      const pillRect = pill.getBoundingClientRect();
+      newLines.push({
+        x1: pillRect.left + pillRect.width / 2 - containerRect.left,
+        y1: pillRect.top + pillRect.height / 2 - containerRect.top,
+        x2: imageRect.left - containerRect.left + (anchor.x / 100) * imageRect.width,
+        y2: imageRect.top - containerRect.top + (anchor.y / 100) * imageRect.height,
+        color: DRAW_COLORS[idx % DRAW_COLORS.length],
+        nameIdx: idx,
+      });
+    });
+
+    setLines(newLines);
+  }, [anchorIndexesByLetter, answers, anchors, effectiveAnchorByName, leftItems, questionKey]);
+
+  useEffect(() => {
+    const id = requestAnimationFrame(recomputeLines);
+    return () => cancelAnimationFrame(id);
+  }, [recomputeLines]);
+
+  useEffect(() => {
+    window.addEventListener('resize', recomputeLines);
+    return () => window.removeEventListener('resize', recomputeLines);
+  }, [recomputeLines]);
+
+  const handleImageClick = (event) => {
+    if (selectedNameIdx === null || !imgRef.current) return;
+    const rect = imgRef.current.getBoundingClientRect();
+    const validAnswers = question.answers || {};
+    const clampedClientX = Math.min(Math.max(event.clientX, rect.left), rect.right);
+    const clampedClientY = Math.min(Math.max(event.clientY, rect.top), rect.bottom);
+    const clickX = clampedClientX - rect.left;
+    const clickY = clampedClientY - rect.top;
+    let best = null;
+    let bestDist = Infinity;
+
+    Object.entries(anchors).forEach(([idxStr, pos]) => {
+      const idx = parseInt(idxStr, 10);
+      if (idx === 0) return;
+      if (!validAnswers[idxStr]) return;
+      const anchorX = (pos.x / 100) * rect.width;
+      const anchorY = (pos.y / 100) * rect.height;
+      const dx = clickX - anchorX;
+      const dy = clickY - anchorY;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+      if (distance < bestDist) {
+        bestDist = distance;
+        best = idxStr;
+      }
+    });
+
+    if (!best || bestDist > DRAWLINE_SNAP_RADIUS_PX) return;
+    const chosenLetter = validAnswers[best];
+    if (!chosenLetter) return;
+    setDrawLineAnswer(selectedNameIdx, best);
+    setSelectedNameIdx(null);
+  };
+
+  const handleAnchorClick = (event, idxStr) => {
+    event.stopPropagation();
+    if (selectedNameIdx === null || submitted) return;
+    const idx = parseInt(idxStr, 10);
+    if (idx === 0) return;
+    const chosenLetter = anchorLetterByIdx[idxStr];
+    if (!chosenLetter) return;
+    setDrawLineAnswer(selectedNameIdx, idxStr);
+    setSelectedNameIdx(null);
+  };
+
+  return (
+    <div
+      ref={containerRef}
+      className={wrapperClassName}
+      style={{ padding: '12px 16px', width: 'fit-content', maxWidth: '100%', position: 'relative', margin: '0 auto' }}
+    >
+      <svg
+        style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 10, overflow: 'visible' }}
+        aria-hidden="true"
+      >
+        <defs>
+          {lines.map((line) => (
+            <marker key={`m-${line.nameIdx}`} id={`arrow-${questionKey}-${line.nameIdx}`} markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto">
+              <circle cx="4" cy="4" r="3" fill={line.color} />
+            </marker>
+          ))}
+        </defs>
+        {lines.map((line) => {
+          const lineIsCorrect = submitted && results?.answers?.[`${questionKey}-${line.nameIdx}`]?.isCorrect;
+          const lineColor = line.isExample ? '#9ca3af' : submitted ? (lineIsCorrect ? '#22c55e' : '#ef4444') : line.color;
+          return (
+            <line
+              key={line.nameIdx}
+              x1={line.x1}
+              y1={line.y1}
+              x2={line.x2}
+              y2={line.y2}
+              stroke={lineColor}
+              strokeWidth={line.isExample ? 2 : 3}
+              strokeDasharray={line.isExample ? '6 4' : '10 5'}
+              strokeLinecap="round"
+              opacity={line.isExample ? 0.6 : 0.92}
+              markerEnd={`url(#arrow-${questionKey}-${line.nameIdx})`}
+            />
+          );
+        })}
+      </svg>
+
+      <div style={{ marginBottom: '12px' }}>
+        <div className="cambridge-question-text">{question.questionText || 'Look at the picture. Listen and draw lines.'}</div>
+      </div>
+
+      <div style={{ display: 'flex', gap: '20px', alignItems: 'flex-start' }}>
+        <div style={{ minWidth: '150px', maxWidth: '220px', flexShrink: 0 }}>
+          <p
+            style={{
+              margin: '0 0 10px',
+              fontSize: '13px',
+              fontWeight: 700,
+              color: selectedNameIdx !== null ? DRAW_COLORS[selectedNameIdx % DRAW_COLORS.length] : isDarkMode ? '#94a3b8' : '#374151',
+            }}
+          >
+            {selectedNameIdx !== null ? `⚡ "${leftItems[selectedNameIdx]}" — click nhan vat` : 'Click ten -> click nhan vat'}
+          </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {leftItems.map((name, idx) => {
+              if (!name) return null;
+              const isExample = idx === 0;
+              const studentAns = getStudentAnswer(idx);
+              const isCorrect = submitted && results?.answers?.[`${questionKey}-${idx}`]?.isCorrect;
+              const isWrong = submitted && studentAns && !isCorrect;
+              const isSelected = selectedNameIdx === idx;
+              const color = DRAW_COLORS[idx % DRAW_COLORS.length];
+
+              let bg;
+              let border;
+              let textColor;
+              if (submitted) {
+                bg = isCorrect ? '#dcfce7' : studentAns ? '#fee2e2' : isDarkMode ? '#374151' : '#f3f4f6';
+                border = isCorrect ? '#22c55e' : isWrong ? '#ef4444' : '#9ca3af';
+                textColor = isCorrect ? '#15803d' : isWrong ? '#dc2626' : isDarkMode ? '#d1d5db' : '#374151';
+              } else if (isExample) {
+                bg = isDarkMode ? '#374151' : '#f1f5f9';
+                border = '#9ca3af';
+                textColor = isDarkMode ? '#9ca3af' : '#6b7280';
+              } else {
+                bg = isSelected ? color : studentAns ? `${color}22` : isDarkMode ? '#1e293b' : 'white';
+                border = isSelected ? color : studentAns ? color : '#d1d5db';
+                textColor = isSelected ? 'white' : isDarkMode ? '#e2e8f0' : '#1e293b';
+              }
+
+              return (
+                <div
+                  key={idx}
+                  ref={(element) => {
+                    if (element && questionRefs) questionRefs.current[`${questionKey}-${idx}`] = element;
+                  }}
+                  style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                >
+                  {isExample ? (
+                    <span style={{ fontSize: '14px', color: isDarkMode ? '#6b7280' : '#9ca3af', width: '36px', textAlign: 'right', flexShrink: 0 }}>e.g.</span>
+                  ) : (
+                    <span style={{ fontSize: '15px', fontWeight: 800, color: isDarkMode ? '#94a3b8' : '#6b7280', width: '36px', textAlign: 'right', flexShrink: 0 }}>
+                      {questionNum + idx - 1}
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    ref={(element) => {
+                      if (element) pillRefs.current[idx] = element;
+                    }}
+                    disabled={submitted || isExample}
+                    onClick={() => {
+                      if (isExample || submitted) return;
+                      setSelectedNameIdx(isSelected ? null : idx);
+                    }}
+                    style={{
+                      padding: '8px 18px',
+                      borderRadius: '24px',
+                      border: `2.5px solid ${border}`,
+                      background: bg,
+                      color: textColor,
+                      fontWeight: 800,
+                      fontSize: '20px',
+                      cursor: isExample || submitted ? 'default' : 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      transition: 'all 0.15s',
+                      boxShadow: isSelected ? `0 0 0 4px ${color}40, 0 2px 8px ${color}50` : 'none',
+                      transform: isSelected ? 'scale(1.08)' : 'scale(1)',
+                    }}
+                  >
+                    <span>{name}</span>
+                    {isExample ? <span style={{ fontSize: '13px', opacity: 0.6 }}>(example)</span> : null}
+                    {submitted && studentAns ? <span style={{ fontSize: '15px' }}>{isCorrect ? '✓' : '✗'}</span> : null}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        <div style={{ flex: 1, minWidth: 0 }}>
+          {partImageUrl ? (
+            <div
+              style={{ position: 'relative', display: 'block', width: '100%', maxWidth: '540px', cursor: selectedNameIdx !== null ? 'crosshair' : 'default', overflow: 'visible' }}
+              onClick={handleImageClick}
+            >
+              <img
+                ref={imgRef}
+                src={resolveImg(partImageUrl)}
+                alt="Scene"
+                draggable={false}
+                style={{
+                  width: '100%',
+                  maxWidth: '540px',
+                  display: 'block',
+                  borderRadius: '12px',
+                  userSelect: 'none',
+                  border: `3px solid ${selectedNameIdx !== null ? DRAW_COLORS[selectedNameIdx % DRAW_COLORS.length] : isDarkMode ? '#334155' : '#e2e8f0'}`,
+                  transition: 'border-color 0.2s',
+                }}
+              />
+
+              {Object.entries(anchors).map(([idxStr, pos]) => {
+                const idx = parseInt(idxStr, 10);
+                const anchorLetter = anchorLetterByIdx[idxStr];
+                const usedByNameIdx = idx === 0 ? 0 : anchorUsedByName[idxStr] ?? -1;
+                const hasAnswer = usedByNameIdx >= 0 && (idx === 0 || usedByNameIdx > 0);
+                const name = hasAnswer ? leftItems[usedByNameIdx] || '' : '';
+                const studentAns = hasAnswer && usedByNameIdx > 0 ? answers[`${questionKey}-${usedByNameIdx}`] : '';
+                const personColor = usedByNameIdx >= 0 ? DRAW_COLORS[usedByNameIdx % DRAW_COLORS.length] : ANCHOR_NEUTRAL;
+                const anchorColor = hasAnswer ? personColor : ANCHOR_NEUTRAL;
+                const isCorrect = submitted && usedByNameIdx > 0 && results?.answers?.[`${questionKey}-${usedByNameIdx}`]?.isCorrect;
+                const dotColor = submitted ? (isCorrect ? '#22c55e' : hasAnswer && usedByNameIdx > 0 ? '#ef4444' : ANCHOR_NEUTRAL) : anchorColor;
+                const dotSize = hasAnswer ? 20 : 16;
+                const isClickableAnchor = !submitted && selectedNameIdx !== null && idx !== 0 && Boolean(anchorLetter);
+                const activeDotSize = isClickableAnchor ? Math.max(dotSize, 24) : dotSize;
+                const hitAreaSize = Math.max(activeDotSize, DRAWLINE_ANCHOR_HIT_AREA_PX);
+
+                return (
+                  <div
+                    key={idxStr}
+                    style={{ position: 'absolute', left: `${pos.x}%`, top: `${pos.y}%`, transform: 'translate(-50%, -50%)', pointerEvents: 'none', zIndex: 6 }}
+                  >
+                    {!hasAnswer && !submitted ? (
+                      <div className="draw-dot-ripple" style={{ width: `${activeDotSize}px`, height: `${activeDotSize}px`, background: anchorColor }} />
+                    ) : null}
+                    <button
+                      type="button"
+                      onClick={isClickableAnchor ? (event) => handleAnchorClick(event, idxStr) : undefined}
+                      onMouseDown={isClickableAnchor ? (event) => event.stopPropagation() : undefined}
+                      onPointerDown={isClickableAnchor ? (event) => event.stopPropagation() : undefined}
+                      aria-label={isClickableAnchor ? `Select anchor for ${leftItems[selectedNameIdx] || 'name'}` : undefined}
+                      style={{
+                        width: `${hitAreaSize}px`,
+                        height: `${hitAreaSize}px`,
+                        padding: 0,
+                        border: 'none',
+                        background: 'transparent',
+                        pointerEvents: isClickableAnchor ? 'auto' : 'none',
+                        cursor: isClickableAnchor ? 'crosshair' : 'default',
+                        position: 'relative',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        zIndex: isClickableAnchor ? 20 : 'auto',
+                      }}
+                    >
+                      <div
+                        className={!hasAnswer && !submitted ? 'draw-dot-pulse' : ''}
+                        style={{
+                          width: `${activeDotSize}px`,
+                          height: `${activeDotSize}px`,
+                          borderRadius: '50%',
+                          background: dotColor,
+                          border: '3px solid white',
+                          boxShadow: `0 2px 10px rgba(0,0,0,0.45), 0 0 0 3px ${anchorColor}55`,
+                          transition: 'width 0.2s, height 0.2s, background 0.2s',
+                        }}
+                      />
+                    </button>
+                    {submitted && hasAnswer ? (
+                      <div
+                        style={{
+                          position: 'absolute',
+                          top: `${dotSize + 4}px`,
+                          left: '50%',
+                          transform: 'translateX(-50%)',
+                          background: dotColor,
+                          color: 'white',
+                          borderRadius: '6px',
+                          padding: '2px 8px',
+                          fontSize: '11px',
+                          fontWeight: 800,
+                          whiteSpace: 'nowrap',
+                          boxShadow: '0 2px 6px rgba(0,0,0,0.3)',
+                        }}
+                      >
+                        {name}: {studentAns}
+                      </div>
+                    ) : null}
+                  </div>
+                );
+              })}
+
+              {selectedNameIdx !== null ? (
+                <div
+                  style={{
+                    position: 'absolute',
+                    inset: 0,
+                    borderRadius: '12px',
+                    border: `4px dashed ${DRAW_COLORS[selectedNameIdx % DRAW_COLORS.length]}`,
+                    pointerEvents: 'none',
+                    zIndex: 4,
+                  }}
+                />
+              ) : null}
+            </div>
+          ) : (
+            <div style={{ padding: '20px', background: isDarkMode ? '#1e293b' : '#f9fafb', borderRadius: '10px', textAlign: 'center', color: isDarkMode ? '#94a3b8' : '#6b7280', fontSize: '13px' }}>
+              Anh dang tai...
+            </div>
+          )}
+
+          {!submitted && leftItems.slice(1).some((name, idx) => name && getStudentAnswer(idx + 1)) ? (
+            <div style={{ marginTop: '12px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+              {leftItems.slice(1).map((name, idx) => {
+                const nameIdx = idx + 1;
+                const answer = getStudentAnswer(nameIdx);
+                if (!name || !answer) return null;
+                return (
+                  <button
+                    key={nameIdx}
+                    type="button"
+                    onClick={() => setDrawLineAnswer(nameIdx, null)}
+                    style={{ padding: '4px 12px', fontSize: '12px', borderRadius: '14px', border: '1px solid #fca5a5', background: '#fef2f2', color: '#dc2626', cursor: 'pointer', fontWeight: 600 }}
+                  >
+                    ✕ {name}
+                  </button>
+                );
+              })}
+            </div>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export function ImageTickSlideSection({
   questions,
@@ -334,6 +859,391 @@ export function ImageTickSlideSection({
         </div>
       </div>
     </>
+  );
+}
+
+export function LetterMatchingStudentSection({
+  section,
+  secIdx,
+  sectionStartNum,
+  answers,
+  submitted,
+  results,
+  isDarkMode,
+  handleAnswerChange,
+  currentPartIndex,
+  questionRefs,
+  resolveImgSrc,
+  activeQuestion,
+}) {
+  const question = section?.questions?.[0];
+  if (!question) return null;
+
+  const questionIdx = 0;
+  const options = Array.isArray(question.options) ? question.options : [];
+  const people = Array.isArray(question.people) ? question.people : [];
+  const examplePerson = people[0];
+  const questionPeople = people.slice(1).filter((person) => String(person?.name || '').trim());
+  const partStart = sectionStartNum;
+
+  const placedLetters = new Set(
+    questionPeople
+      .map((_, idx) => answers[`${currentPartIndex}-${secIdx}-${questionIdx}-${idx + 1}`])
+      .filter(Boolean)
+  );
+
+  const handleDragStart = (event, letter) => {
+    event.dataTransfer.setData('text/plain', letter);
+    event.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDrop = (event, targetKey) => {
+    event.preventDefault();
+    event.currentTarget.style.borderColor = '';
+    event.currentTarget.style.background = '';
+    event.currentTarget.style.transform = '';
+    if (submitted) return;
+    const letter = event.dataTransfer.getData('text/plain');
+    if (!letter) return;
+
+    questionPeople.forEach((_, personIdx) => {
+      const key = `${currentPartIndex}-${secIdx}-${questionIdx}-${personIdx + 1}`;
+      if (answers[key] === letter) handleAnswerChange(key, '');
+    });
+    handleAnswerChange(targetKey, letter);
+  };
+
+  return (
+    <div>
+      {question.questionText ? (
+        <div
+          style={{
+            fontSize: '13px',
+            color: isDarkMode ? '#94a3b8' : '#6b7280',
+            fontStyle: 'italic',
+            marginBottom: '12px',
+            lineHeight: 1.5,
+            padding: '8px 12px',
+            background: isDarkMode ? '#1e293b' : '#fafafa',
+            borderRadius: '9px',
+            border: `1px solid ${isDarkMode ? '#334155' : '#e5e7eb'}`,
+          }}
+        >
+          {question.questionText}
+        </div>
+      ) : null}
+
+      <div style={{ display: 'flex', gap: '20px', alignItems: 'flex-start', flexWrap: 'wrap' }}>
+        <div style={{ flex: '1 1 260px', minWidth: 0 }}>
+          {examplePerson && String(examplePerson.name || '').trim() ? (() => {
+            const exampleOption = options.find((option) => option.letter === examplePerson.correctAnswer);
+            return (
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  padding: '6px 10px',
+                  marginBottom: '6px',
+                  background: isDarkMode ? '#0f172a' : '#f8fafc',
+                  border: `2px dashed ${isDarkMode ? '#334155' : '#94a3b8'}`,
+                  borderRadius: '11px',
+                }}
+              >
+                <span
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    minWidth: '28px',
+                    height: '28px',
+                    borderRadius: '50%',
+                    background: isDarkMode ? '#1e293b' : '#e2e8f0',
+                    color: isDarkMode ? '#94a3b8' : '#475569',
+                    fontWeight: 800,
+                    fontSize: '11px',
+                    flexShrink: 0,
+                  }}
+                >
+                  Ex
+                </span>
+                {examplePerson.photoUrl ? (
+                  <img src={resolveImgSrc(examplePerson.photoUrl)} alt="" draggable={false} style={{ width: '40px', height: '40px', borderRadius: '8px', objectFit: 'cover', flexShrink: 0 }} />
+                ) : null}
+                <span style={{ flex: 1, fontWeight: 700, fontSize: '15px', color: isDarkMode ? '#94a3b8' : '#64748b', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {examplePerson.name}
+                </span>
+                <div
+                  style={{
+                    width: '56px',
+                    height: '56px',
+                    borderRadius: '9px',
+                    border: `3px solid ${isDarkMode ? '#4f6db6' : '#93c5fd'}`,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    background: isDarkMode ? '#1e3a5f' : '#eff6ff',
+                    overflow: 'hidden',
+                    flexShrink: 0,
+                  }}
+                >
+                  {exampleOption?.imageUrl ? (
+                    <img src={resolveImgSrc(exampleOption.imageUrl)} alt="" draggable={false} style={{ width: '100%', height: '40px', objectFit: 'contain' }} />
+                  ) : null}
+                  <span style={{ fontWeight: 900, fontSize: '13px', color: isDarkMode ? '#93c5fd' : '#1d4ed8' }}>{examplePerson.correctAnswer}</span>
+                </div>
+                <span style={{ fontSize: '10px', color: isDarkMode ? '#475569' : '#94a3b8', flexShrink: 0 }}>(ex)</span>
+              </div>
+            );
+          })() : null}
+
+          {questionPeople.map((person, idx) => {
+            const personIdx = idx + 1;
+            const key = `${currentPartIndex}-${secIdx}-${questionIdx}-${personIdx}`;
+            const userAnswer = answers[key] || '';
+            const isCorrect = submitted && results?.answers?.[key]?.isCorrect;
+            const isActive = activeQuestion === key;
+            const placedOption = userAnswer ? options.find((option) => option.letter === userAnswer) : null;
+            const rowBorder = submitted
+              ? (isCorrect ? '#22c55e' : '#ef4444')
+              : isActive ? '#7c3aed' : userAnswer ? '#8b5cf6' : isDarkMode ? '#4f46e5' : '#c4b5fd';
+            const dropzoneBorder = submitted
+              ? (isCorrect ? '#22c55e' : '#ef4444')
+              : userAnswer ? '#8b5cf6' : isDarkMode ? '#6d28d9' : '#a78bfa';
+
+            return (
+              <div
+                key={personIdx}
+                id={`question-${partStart + idx}`}
+                ref={(element) => {
+                  questionRefs.current[key] = element;
+                }}
+                className={`lm-person-row${isCorrect ? ' lm-correct' : ''}`}
+                style={{
+                  '--row-delay': `${idx * 80}ms`,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px',
+                  padding: '8px 12px',
+                  marginBottom: '8px',
+                  background: isDarkMode
+                    ? (isActive ? '#2d1b69' : submitted ? (isCorrect ? '#14532d22' : '#450a0a22') : '#111827')
+                    : (isActive ? '#faf5ff' : submitted ? (isCorrect ? '#f0fdf4' : '#fff1f2') : '#fff'),
+                  border: `2.5px solid ${rowBorder}`,
+                  borderRadius: '14px',
+                  transition: 'border-color 0.2s, box-shadow 0.2s, background 0.2s',
+                  boxShadow: isActive ? `0 0 0 4px ${isDarkMode ? '#7c3aed44' : '#8b5cf640'}, 0 4px 16px rgba(139,92,246,0.18)` : userAnswer && !submitted ? '0 2px 10px rgba(139,92,246,0.15)' : 'none',
+                }}
+              >
+                <span
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    minWidth: '36px',
+                    height: '36px',
+                    borderRadius: '50%',
+                    background: submitted ? (isCorrect ? '#22c55e' : '#ef4444') : '#7c3aed',
+                    color: '#fff',
+                    fontWeight: 900,
+                    fontSize: '16px',
+                    flexShrink: 0,
+                    boxShadow: submitted ? 'none' : '0 2px 8px rgba(124,58,237,0.4)',
+                  }}
+                >
+                  {submitted ? (isCorrect ? '✓' : '✗') : partStart + idx}
+                </span>
+                {person.photoUrl ? (
+                  <img src={resolveImgSrc(person.photoUrl)} alt={person.name} draggable={false} style={{ width: '60px', height: '60px', borderRadius: '10px', objectFit: 'cover', flexShrink: 0, boxShadow: '0 2px 8px rgba(0,0,0,0.15)' }} />
+                ) : null}
+                <span style={{ flex: 1, fontWeight: 800, fontSize: '22px', color: isDarkMode ? '#e2e8f0' : '#1e293b', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {person.name}
+                </span>
+                <div style={{ position: 'relative', flexShrink: 0 }}>
+                  {userAnswer && !submitted ? (
+                    <button
+                      type="button"
+                      title="Bo chon"
+                      onClick={() => handleAnswerChange(key, '')}
+                      style={{
+                        position: 'absolute',
+                        top: '-10px',
+                        right: '-10px',
+                        width: '26px',
+                        height: '26px',
+                        borderRadius: '50%',
+                        background: '#ef4444',
+                        color: '#fff',
+                        border: '2.5px solid white',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: '13px',
+                        fontWeight: 900,
+                        lineHeight: 1,
+                        boxShadow: '0 2px 8px rgba(239,68,68,0.55)',
+                        zIndex: 20,
+                        padding: 0,
+                        transition: 'transform 0.15s',
+                      }}
+                      onMouseEnter={(event) => {
+                        event.currentTarget.style.transform = 'scale(1.2)';
+                      }}
+                      onMouseLeave={(event) => {
+                        event.currentTarget.style.transform = 'scale(1)';
+                      }}
+                    >
+                      ✕
+                    </button>
+                  ) : null}
+                  <div
+                    onDragOver={(event) => {
+                      event.preventDefault();
+                      if (!submitted) {
+                        event.currentTarget.style.borderColor = '#7c3aed';
+                        event.currentTarget.style.background = isDarkMode ? '#2d1b69' : '#ede9fe';
+                        event.currentTarget.style.transform = 'scale(1.08)';
+                      }
+                    }}
+                    onDragLeave={(event) => {
+                      event.currentTarget.style.borderColor = '';
+                      event.currentTarget.style.background = '';
+                      event.currentTarget.style.transform = '';
+                    }}
+                    onDrop={(event) => handleDrop(event, key)}
+                    className={!userAnswer && !submitted ? 'lm-dropzone-empty' : ''}
+                    style={{
+                      width: '90px',
+                      minWidth: '90px',
+                      height: '90px',
+                      border: `3px ${userAnswer ? 'solid' : 'dashed'} ${dropzoneBorder}`,
+                      borderRadius: '14px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '3px',
+                      background: userAnswer
+                        ? (submitted ? (isCorrect ? (isDarkMode ? '#14532d' : '#dcfce7') : (isDarkMode ? '#450a0a' : '#fee2e2')) : (isDarkMode ? '#2d1b69' : '#f5f3ff'))
+                        : (isDarkMode ? '#1e1b4b' : '#faf5ff'),
+                      cursor: submitted ? 'default' : 'copy',
+                      overflow: 'hidden',
+                      transition: 'border-color 0.15s, background 0.15s, transform 0.15s',
+                    }}
+                  >
+                    {userAnswer ? (
+                      <>
+                        {placedOption?.imageUrl ? (
+                          <img src={resolveImgSrc(placedOption.imageUrl)} alt="" draggable={false} style={{ width: '100%', height: '64px', objectFit: 'contain', pointerEvents: 'none' }} />
+                        ) : null}
+                        <span style={{ fontWeight: 900, fontSize: '17px', color: submitted ? (isCorrect ? '#16a34a' : '#dc2626') : '#7c3aed', lineHeight: 1 }}>
+                          {userAnswer}
+                        </span>
+                      </>
+                    ) : (
+                      <span style={{ fontSize: '28px', color: isDarkMode ? '#6d28d9' : '#c4b5fd', pointerEvents: 'none', lineHeight: 1 }}>?</span>
+                    )}
+                  </div>
+                </div>
+                {submitted && !isCorrect ? <span style={{ fontSize: '14px', fontWeight: 900, flexShrink: 0, color: '#22c55e' }}>→ {results?.answers?.[key]?.correctAnswer || ''}</span> : null}
+              </div>
+            );
+          })}
+        </div>
+
+        <div style={{ flexShrink: 0, width: '260px' }}>
+          <div style={{ textAlign: 'center', marginBottom: '10px', fontSize: '14px', fontWeight: 800, color: isDarkMode ? '#a5b4fc' : '#7c3aed' }}>
+            Keo hinh vao o ben trai
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px' }}>
+            {options.map((option, tileIdx) => {
+              const isPlaced = placedLetters.has(option.letter);
+              return (
+                <div
+                  key={option.letter}
+                  draggable={!submitted}
+                  onDragStart={(event) => handleDragStart(event, option.letter)}
+                  className={`lm-tile${isPlaced ? '' : ' lm-tile-idle'}`}
+                  style={{
+                    '--tile-delay': `${tileIdx * 50}ms`,
+                    display: 'flex',
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: '8px',
+                    padding: '8px 10px',
+                    border: `3px solid ${isPlaced ? (isDarkMode ? '#312e81' : '#bfdbfe') : isDarkMode ? '#4f46e5' : '#a5b4fc'}`,
+                    borderRadius: '14px',
+                    background: isPlaced ? (isDarkMode ? '#0f172a' : '#eff6ff') : (isDarkMode ? '#1e1b4b' : '#f5f3ff'),
+                    opacity: isPlaced ? 0.38 : 1,
+                    cursor: submitted ? 'default' : 'grab',
+                    transition: 'opacity 0.25s, border-color 0.2s, transform 0.15s, box-shadow 0.2s',
+                    userSelect: 'none',
+                    WebkitUserSelect: 'none',
+                    boxShadow: isPlaced ? 'none' : `0 3px 10px ${isDarkMode ? 'rgba(99,102,241,0.22)' : 'rgba(139,92,246,0.2)'}`,
+                  }}
+                >
+                  <div
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      width: '34px',
+                      height: '34px',
+                      borderRadius: '8px',
+                      flexShrink: 0,
+                      background: isPlaced ? '#64748b' : '#4f46e5',
+                      color: '#fff',
+                      fontWeight: 900,
+                      fontSize: '18px',
+                      boxShadow: isPlaced ? 'none' : '0 2px 5px rgba(79,70,229,0.4)',
+                    }}
+                  >
+                    {option.letter}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    {option.imageUrl ? (
+                      <img
+                        src={resolveImgSrc(option.imageUrl)}
+                        alt={option.letter}
+                        draggable={false}
+                        style={{ width: '100%', height: '100px', objectFit: 'cover', borderRadius: '8px', pointerEvents: 'none', display: 'block' }}
+                        onError={(event) => {
+                          event.currentTarget.style.display = 'none';
+                        }}
+                      />
+                    ) : (
+                      <div
+                        style={{
+                          height: '100px',
+                          width: '100%',
+                          borderRadius: '8px',
+                          background: isDarkMode ? '#1e1b4b' : '#ede9fe',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          color: isDarkMode ? '#a5b4fc' : '#7c3aed',
+                          fontSize: '13px',
+                          fontWeight: 700,
+                        }}
+                      >
+                        {option.description || option.letter}
+                      </div>
+                    )}
+                    {option.description && option.imageUrl ? (
+                      <div style={{ fontSize: '11px', color: isDarkMode ? '#94a3b8' : '#6b7280', marginTop: '4px', fontWeight: 600, textAlign: 'center', pointerEvents: 'none' }}>
+                        {option.description}
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 

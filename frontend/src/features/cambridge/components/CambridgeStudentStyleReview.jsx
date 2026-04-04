@@ -16,7 +16,7 @@ import ShortMessageDisplay from '../../../shared/components/questions/displays/S
 import StoryCompletionDisplay from '../../../shared/components/questions/displays/StoryCompletionDisplay';
 import LookReadWriteDisplay from '../../../shared/components/questions/displays/LookReadWriteDisplay';
 import { CambridgeQuestionDisplay } from './CambridgeQuestionCards';
-import { ColourWriteStudentSection, ImageTickSlideSection } from './CambridgeListeningRuntimeSections';
+import { ColourWriteStudentSection, DrawLinesQuestion, ImageTickSlideSection, LetterMatchingStudentSection } from './CambridgeListeningRuntimeSections';
 import '../pages/DoCambridgeReadingTest.css';
 
 const noop = () => {};
@@ -702,6 +702,8 @@ function ListeningRuntimeQuestionReview({
   detailedResults,
   listeningStyles,
   questionRefs,
+  currentPart,
+  drawLinesComponent,
 }) {
   const reviewQuestion = question?.correctAnswer || !detailedResults?.[answerKey]?.correctAnswer
     ? question
@@ -724,9 +726,10 @@ function ListeningRuntimeQuestionReview({
       toggleFlag={noop}
       flaggedQuestions={EMPTY_FLAGGED_QUESTIONS}
       isDarkMode={false}
-      currentPart={null}
+      currentPart={currentPart || null}
       questionRefs={questionRefs}
       resolveImgSrc={resolveAsset}
+      DrawLinesComponent={drawLinesComponent}
       allowFlagging={false}
     />
   );
@@ -1510,7 +1513,20 @@ export default function CambridgeStudentStyleReview({ test, submission }) {
                 }
 
                 if (sectionType === 'draw-lines') {
-                  return (
+                  return isListeningTest ? (
+                    <ListeningRuntimeQuestionReview
+                      key={`${partIdx}-${secIdx}-${qIdx}`}
+                      question={question}
+                      answerKey={`${partIdx}-${secIdx}-${qIdx}`}
+                      questionNumber={questionStart}
+                      answers={answers}
+                      detailedResults={detailedResults}
+                      listeningStyles={listeningStyles}
+                      questionRefs={questionRefs}
+                      currentPart={part}
+                      drawLinesComponent={DrawLinesQuestion}
+                    />
+                  ) : (
                     <DrawLinesReview
                       key={`${partIdx}-${secIdx}-${qIdx}`}
                       part={part}
@@ -1525,7 +1541,23 @@ export default function CambridgeStudentStyleReview({ test, submission }) {
                 }
 
                 if (sectionType === 'letter-matching') {
-                  return (
+                  return isListeningTest ? (
+                    <LetterMatchingStudentSection
+                      key={`${partIdx}-${secIdx}`}
+                      section={section}
+                      secIdx={secIdx}
+                      sectionStartNum={sectionStart}
+                      answers={answers}
+                      submitted
+                      results={runtimeResults}
+                      isDarkMode={false}
+                      handleAnswerChange={noop}
+                      currentPartIndex={partIdx}
+                      questionRefs={questionRefs}
+                      resolveImgSrc={resolveAsset}
+                      activeQuestion={null}
+                    />
+                  ) : (
                     <LetterMatchingReview
                       key={`${partIdx}-${secIdx}-${qIdx}`}
                       question={question}
