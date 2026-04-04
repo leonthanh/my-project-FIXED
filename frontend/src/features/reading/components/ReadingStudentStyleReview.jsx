@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import { hostPath } from "../../../shared/utils/api";
 import { normalizeQuestionType } from "../utils/questionHelpers";
 import "../styles/do-reading-test.css";
@@ -61,6 +61,13 @@ const feedbackStyles = {
     borderBottom: "1px solid #e2e8f0",
     background: "linear-gradient(180deg, #eff6ff 0%, #ffffff 100%)",
   },
+  passageHeaderRow: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    gap: "16px",
+    flexWrap: "wrap",
+  },
   passageTitle: {
     margin: "4px 0 0",
     color: "#0f172a",
@@ -73,6 +80,39 @@ const feedbackStyles = {
     fontSize: "12px",
     fontWeight: 700,
     margin: 0,
+  },
+  passageMeta: {
+    margin: "8px 0 0",
+    color: "#475569",
+    fontSize: "0.95rem",
+  },
+  toggleButton: {
+    padding: "8px 14px",
+    borderRadius: "999px",
+    border: "1px solid #bfdbfe",
+    background: "#ffffff",
+    color: "#1d4ed8",
+    fontSize: "0.9rem",
+    fontWeight: 700,
+    cursor: "pointer",
+    whiteSpace: "nowrap",
+  },
+  bulkActionRow: {
+    display: "flex",
+    gap: "10px",
+    flexWrap: "wrap",
+    alignItems: "center",
+    marginBottom: "16px",
+  },
+  bulkActionButton: {
+    padding: "9px 16px",
+    borderRadius: "999px",
+    border: "1px solid #cbd5e1",
+    background: "#ffffff",
+    color: "#334155",
+    fontSize: "0.92rem",
+    fontWeight: 700,
+    cursor: "pointer",
   },
 };
 
@@ -109,8 +149,35 @@ const formatCompareValue = (raw, label) => {
   return labelText || rawText || "";
 };
 
-const getQuestionStatus = (detail) => {
+const getNumericQuestionNumber = (value, fallback = null) => {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string") {
+    const match = value.match(/(\d+)/);
+    if (match) return Number(match[1]);
+  }
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+};
+
+const getDetailStudentValue = (detail) =>
+  detail?.student ?? detail?.studentLabel ?? detail?.studentAnswer ?? "";
+
+const getDetailExpectedRaw = (detail) =>
+  detail?.expected ?? detail?.correctAnswer ?? detail?.expectedLabel ?? "";
+
+const getDetailExpectedLabel = (detail) =>
+  detail?.expectedLabel ?? detail?.correctAnswer ?? detail?.expected ?? "";
+
+const getQuestionStatus = (detail, fallbackAnswer = "") => {
   if (!detail) {
+    if (hasAnswerValue(fallbackAnswer)) {
+      return {
+        label: "Da tra loi",
+        style: { ...feedbackStyles.status, background: "#dbeafe", color: "#1d4ed8" },
+        isBlank: false,
+        isCorrect: false,
+      };
+    }
     return {
       label: "Bỏ trống",
       style: { ...feedbackStyles.status, background: "#f1f5f9", color: "#64748b" },
@@ -119,7 +186,7 @@ const getQuestionStatus = (detail) => {
     };
   }
 
-  const hasStudentAnswer = hasAnswerValue(detail.student) || hasAnswerValue(detail.studentLabel);
+  const hasStudentAnswer = hasAnswerValue(getDetailStudentValue(detail)) || hasAnswerValue(fallbackAnswer);
   if (detail.isCorrect) {
     return {
       label: "Dung",
@@ -267,9 +334,9 @@ const getMultiSelectIndices = (answers, key) => {
     .filter((item) => item !== null);
 };
 
-function Feedback({ detail }) {
-  const status = getQuestionStatus(detail);
-  const correctDisplay = formatCompareValue(detail?.expected, detail?.expectedLabel);
+function Feedback({ detail, answerValue = "" }) {
+  const status = getQuestionStatus(detail, answerValue);
+  const correctDisplay = formatCompareValue(getDetailExpectedRaw(detail), getDetailExpectedLabel(detail));
 
   return (
     <div style={feedbackStyles.container}>
@@ -282,6 +349,8 @@ function Feedback({ detail }) {
 }
 
 export default function ReadingStudentStyleReview({ test, submission, details }) {
+  const [collapsedPassages, setCollapsedPassages] = useState({});
+
   const passages = useMemo(() => {
     const raw = safeParseJson(test?.passages);
     return Array.isArray(raw) ? raw : [];
@@ -295,14 +364,47 @@ export default function ReadingStudentStyleReview({ test, submission, details })
 
   const detailMap = useMemo(() => {
     const map = new Map();
+    let nextDerivedNumber = null;
+
     (details || []).forEach((detail) => {
-      const key = Number(detail?.questionNumber);
-      if (Number.isFinite(key)) map.set(key, detail);
+      const baseNumber = getNumericQuestionNumber(detail?.questionNumber);
+      if (!Number.isFinite(baseNumber)) return;
+
+      let key = baseNumber;
+      if (map.has(key)) {
+        key = nextDerivedNumber && nextDerivedNumber > key ? nextDerivedNumber : key;
+        while (map.has(key)) key += 1;
+      }
+
+      map.set(key, detail);
+      nextDerivedNumber = key + 1;
     });
+
     return map;
   }, [details]);
 
-  const renderQuestionFeedback = (number) => <Feedback detail={detailMap.get(number)} />;
+  const renderQuestionFeedback = (number, answerValue = "") => (
+    <Feedback detail={detailMap.get(number)} answerValue={answerValue} />
+  );
+
+  const togglePassage = (passageIndex) => {
+    setCollapsedPassages((prev) => ({
+      ...prev,
+      [passageIndex]: !prev[passageIndex],
+    }));
+  };
+
+  const collapseAllPassages = () => {
+    const next = {};
+    passages.forEach((_, index) => {
+      next[index] = true;
+    });
+    setCollapsedPassages(next);
+  };
+
+  const expandAllPassages = () => {
+    setCollapsedPassages({});
+  };
 
   const renderMultipleChoiceMany = (question, startNumber, count = 2) => {
     const questionKey = `q_${startNumber}`;
@@ -333,7 +435,7 @@ export default function ReadingStudentStyleReview({ test, submission, details })
             );
           })}
         </div>
-        <Feedback detail={detail} />
+        <Feedback detail={detail} answerValue={selectedAnswers} />
       </div>
     );
   };
@@ -439,7 +541,7 @@ export default function ReadingStudentStyleReview({ test, submission, details })
                   {extractInlineAnswer(answers, key, detail)}
                 </span>
               </div>
-              {renderQuestionFeedback(questionNumber)}
+              {renderQuestionFeedback(questionNumber, extractInlineAnswer(answers, key, detail))}
             </div>
           )}
 
@@ -481,7 +583,7 @@ export default function ReadingStudentStyleReview({ test, submission, details })
                   : ""}
               </span>
               <span className="question-text-inline" dangerouslySetInnerHTML={{ __html: question.questionText || "" }} />
-              {renderQuestionFeedback(questionNumber)}
+              {renderQuestionFeedback(questionNumber, extractInlineAnswer(answers, key, detail))}
             </div>
           )}
 
@@ -523,7 +625,7 @@ export default function ReadingStudentStyleReview({ test, submission, details })
                                     ))}
                                   </select>
                                   <div className="paragraph-text" dangerouslySetInnerHTML={{ __html: sentence }} />
-                                  <Feedback detail={detailMap.get(qNum)} />
+                                  <Feedback detail={detailMap.get(qNum)} answerValue={value} />
                                 </div>
                               </div>
                             );
@@ -550,7 +652,7 @@ export default function ReadingStudentStyleReview({ test, submission, details })
                         </option>
                       ))}
                     </select>
-                    {renderQuestionFeedback(questionNumber)}
+                    {renderQuestionFeedback(questionNumber, value)}
                   </div>
                 );
               })()}
@@ -581,12 +683,12 @@ export default function ReadingStudentStyleReview({ test, submission, details })
                       }
                       return part.trim() ? <span key={idx}>{part}</span> : null;
                     })}
-                  {renderQuestionFeedback(questionNumber)}
+                  {renderQuestionFeedback(questionNumber, extractInlineAnswer(answers, key, detail))}
                 </div>
               ) : (
                 <>
                   <input type="text" className={`fill-input ${hasAnswerValue(extractInlineAnswer(answers, key, detail)) ? "answered" : ""}`} value={extractInlineAnswer(answers, key, detail)} readOnly />
-                  {renderQuestionFeedback(questionNumber)}
+                  {renderQuestionFeedback(questionNumber, extractInlineAnswer(answers, key, detail))}
                 </>
               )}
             </div>
@@ -612,7 +714,7 @@ export default function ReadingStudentStyleReview({ test, submission, details })
                           </option>
                         ))}
                       </select>
-                      <Feedback detail={detailMap.get(rowNum)} />
+                      <Feedback detail={detailMap.get(rowNum)} answerValue={currentValues[idx]} />
                     </div>
                   );
                 })}
@@ -673,7 +775,7 @@ export default function ReadingStudentStyleReview({ test, submission, details })
                           );
                         })}
                       </select>
-                      <Feedback detail={detailMap.get(actualQuestionNum)} />
+                      <Feedback detail={detailMap.get(actualQuestionNum)} answerValue={selectedHeading} />
                     </div>
                   );
                 })}
@@ -735,7 +837,7 @@ export default function ReadingStudentStyleReview({ test, submission, details })
                                       <span className="blank">
                                         <input className="blank-input" value={extractInlineAnswer(answers, blankKey, detailMap.get(blankNum))} readOnly />
                                       </span>
-                                      <Feedback detail={detailMap.get(blankNum)} />
+                                      <Feedback detail={detailMap.get(blankNum)} answerValue={extractInlineAnswer(answers, blankKey, detailMap.get(blankNum))} />
                                     </React.Fragment>
                                   );
                                 })}
@@ -757,7 +859,7 @@ export default function ReadingStudentStyleReview({ test, submission, details })
                       return (
                         <span key={idx} className="blank">
                           <input className="blank-input" value={extractInlineAnswer(answers, blankKey, detailMap.get(qNum))} readOnly />
-                          <Feedback detail={detailMap.get(qNum)} />
+                          <Feedback detail={detailMap.get(qNum)} answerValue={extractInlineAnswer(answers, blankKey, detailMap.get(qNum))} />
                         </span>
                       );
                     }
@@ -797,12 +899,35 @@ export default function ReadingStudentStyleReview({ test, submission, details })
   }
 
   let runningStart = 1;
+  const allCollapsed = passages.length > 0 && passages.every((_, index) => Boolean(collapsedPassages[index]));
+  const allExpanded = passages.length > 0 && passages.every((_, index) => !collapsedPassages[index]);
 
   return (
     <div>
       <div style={feedbackStyles.reviewIntro}>
         Phan nay dung lai bo cuc Reading ma hoc sinh da nhin thay luc lam bai. Giao vien co the doi chieu truc tiep cau tra loi cua hoc sinh voi dap an dung tren tung cau hoi.
       </div>
+
+      {passages.length > 1 && (
+        <div style={feedbackStyles.bulkActionRow}>
+          <button
+            type="button"
+            style={feedbackStyles.bulkActionButton}
+            onClick={collapseAllPassages}
+            disabled={allCollapsed}
+          >
+            Thu gon tat ca
+          </button>
+          <button
+            type="button"
+            style={feedbackStyles.bulkActionButton}
+            onClick={expandAllPassages}
+            disabled={allExpanded}
+          >
+            Mo rong tat ca
+          </button>
+        </div>
+      )}
 
       {passages.map((passage, passageIdx) => {
         const currentSections = passage.sections || [{ questions: passage.questions || [] }];
@@ -813,15 +938,31 @@ export default function ReadingStudentStyleReview({ test, submission, details })
         );
         runningStart += totalQuestionsInPassage;
         let currentQuestionNumber = startQuestionNumber;
+        const isCollapsed = Boolean(collapsedPassages[passageIdx]);
 
         return (
           <div key={`passage-${passageIdx}`} style={feedbackStyles.questionBlock}>
             <div style={feedbackStyles.passageHeader}>
-              <p style={feedbackStyles.passageEyebrow}>Passage {passageIdx + 1}</p>
-              <h2 style={feedbackStyles.passageTitle}>{passage.passageTitle || `Passage ${passageIdx + 1}`}</h2>
+              <div style={feedbackStyles.passageHeaderRow}>
+                <div>
+                  <p style={feedbackStyles.passageEyebrow}>Passage {passageIdx + 1}</p>
+                  <h2 style={feedbackStyles.passageTitle}>{passage.passageTitle || `Passage ${passageIdx + 1}`}</h2>
+                  <p style={feedbackStyles.passageMeta}>
+                    Questions {startQuestionNumber}-{startQuestionNumber + totalQuestionsInPassage - 1}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  style={feedbackStyles.toggleButton}
+                  onClick={() => togglePassage(passageIdx)}
+                  aria-expanded={!isCollapsed}
+                >
+                  {isCollapsed ? "Mo rong" : "Thu gon"}
+                </button>
+              </div>
             </div>
 
-            <div style={feedbackStyles.passageSplit}>
+            {!isCollapsed && <div style={feedbackStyles.passageSplit}>
               <div className="reading-passage-column" style={{ width: "100%" }}>
                 <div className="passage-header">
                   <div className="passage-part">PASSAGE {passageIdx + 1}</div>
@@ -924,7 +1065,7 @@ export default function ReadingStudentStyleReview({ test, submission, details })
                   })}
                 </div>
               </div>
-            </div>
+            </div>}
           </div>
         );
       })}

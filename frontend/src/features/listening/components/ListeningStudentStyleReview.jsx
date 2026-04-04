@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import { hostPath } from "../../../shared/utils/api";
 import MapLabelingQuestion from "../../../shared/components/MapLabelingQuestion";
 import TableCompletion from "../../../shared/components/questions/editors/TableCompletion.jsx";
@@ -28,6 +28,13 @@ const reviewStyles = {
     padding: "18px 22px",
     borderBottom: "1px solid #e2e8f0",
     background: "linear-gradient(180deg, #eef2ff 0%, #ffffff 100%)",
+  },
+  partHeaderRow: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    gap: "16px",
+    flexWrap: "wrap",
   },
   partEyebrow: {
     color: "#4338ca",
@@ -83,6 +90,34 @@ const reviewStyles = {
     color: "#166534",
     fontSize: "12px",
     fontWeight: 600,
+  },
+  toggleButton: {
+    padding: "8px 14px",
+    borderRadius: "999px",
+    border: "1px solid #c7d2fe",
+    background: "#ffffff",
+    color: "#4338ca",
+    fontSize: "0.9rem",
+    fontWeight: 700,
+    cursor: "pointer",
+    whiteSpace: "nowrap",
+  },
+  bulkActionRow: {
+    display: "flex",
+    gap: "10px",
+    flexWrap: "wrap",
+    alignItems: "center",
+    marginBottom: "16px",
+  },
+  bulkActionButton: {
+    padding: "9px 16px",
+    borderRadius: "999px",
+    border: "1px solid #cbd5e1",
+    background: "#ffffff",
+    color: "#334155",
+    fontSize: "0.92rem",
+    fontWeight: 700,
+    cursor: "pointer",
   },
 };
 
@@ -266,6 +301,7 @@ function Feedback({ detail }) {
 }
 
 export default function ListeningStudentStyleReview({ test, submission, details }) {
+  const [collapsedParts, setCollapsedParts] = useState({});
   const styles = useMemo(() => createStyles(false), []);
   const answers = useMemo(() => normalizeAnswerObject(submission?.answers), [submission?.answers]);
   const questions = useMemo(() => (Array.isArray(test?.questions) ? test.questions : []), [test?.questions]);
@@ -847,36 +883,96 @@ export default function ListeningStudentStyleReview({ test, submission, details 
     return <div style={reviewStyles.intro}>Chua co du lieu de dung lai giao dien Listening goc.</div>;
   }
 
+  const togglePart = (partIndex) => {
+    setCollapsedParts((prev) => ({
+      ...prev,
+      [partIndex]: !prev[partIndex],
+    }));
+  };
+
+  const collapseAllParts = () => {
+    const next = {};
+    partInstructions.forEach((_, index) => {
+      next[index] = true;
+    });
+    setCollapsedParts(next);
+  };
+
+  const expandAllParts = () => {
+    setCollapsedParts({});
+  };
+
+  const allCollapsed =
+    partInstructions.length > 0 &&
+    partInstructions.every((_, index) => Boolean(collapsedParts[index]));
+  const allExpanded =
+    partInstructions.length > 0 &&
+    partInstructions.every((_, index) => !collapsedParts[index]);
+
   return (
     <div>
       <div style={reviewStyles.intro}>
         Phan nay dung lai bo cuc Listening ma hoc sinh da mo luc lam bai. Giao vien co the bat lai file audio, xem dap an hoc sinh da chon, va doi chieu dap an dung ngay tai tung section.
       </div>
 
+      {partInstructions.length > 1 && (
+        <div style={reviewStyles.bulkActionRow}>
+          <button
+            type="button"
+            style={reviewStyles.bulkActionButton}
+            onClick={collapseAllParts}
+            disabled={allCollapsed}
+          >
+            Thu gon tat ca
+          </button>
+          <button
+            type="button"
+            style={reviewStyles.bulkActionButton}
+            onClick={expandAllParts}
+            disabled={allExpanded}
+          >
+            Mo rong tat ca
+          </button>
+        </div>
+      )}
+
       {partInstructions.map((part, partIndex) => {
         const partRange = getPartQuestionRange(partIndex);
         const audioUrl = Array.isArray(test?.partAudioUrls) ? test.partAudioUrls[partIndex] : null;
+        const isCollapsed = Boolean(collapsedParts[partIndex]);
         return (
           <div key={`part-${partIndex}`} style={reviewStyles.partShell}>
             <div style={reviewStyles.partHeader}>
-              <p style={reviewStyles.partEyebrow}>Listening Review</p>
-              <h2 style={reviewStyles.partTitle}>PART {partIndex + 1}</h2>
-              <p style={reviewStyles.partMeta}>
-                Questions {partRange.start}-{partRange.end}
-                {part?.description ? ` • ${part.description}` : ""}
-              </p>
+              <div style={reviewStyles.partHeaderRow}>
+                <div>
+                  <p style={reviewStyles.partEyebrow}>Listening Review</p>
+                  <h2 style={reviewStyles.partTitle}>PART {partIndex + 1}</h2>
+                  <p style={reviewStyles.partMeta}>
+                    Questions {partRange.start}-{partRange.end}
+                    {part?.description ? ` • ${part.description}` : ""}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  style={reviewStyles.toggleButton}
+                  onClick={() => togglePart(partIndex)}
+                  aria-expanded={!isCollapsed}
+                >
+                  {isCollapsed ? "Mo rong" : "Thu gon"}
+                </button>
+              </div>
             </div>
 
-            {audioUrl && (
+            {!isCollapsed && audioUrl && (
               <div style={reviewStyles.audioWrap}>
                 <div style={reviewStyles.audioTitle}>Audio goc</div>
                 <audio controls style={styles.audioPlayer} src={String(audioUrl).startsWith("http") ? audioUrl : hostPath(audioUrl)} />
               </div>
             )}
 
-            <div style={{ paddingBottom: "18px" }}>
+            {!isCollapsed && <div style={{ paddingBottom: "18px" }}>
               {(part.sections || []).map((section, sectionIndex) => renderSection(section, sectionIndex, partIndex, partRange))}
-            </div>
+            </div>}
           </div>
         );
       })}
