@@ -1,10 +1,148 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
-import { apiPath, getStoredUser } from "../../../shared/utils/api";
+import { apiPath, getStoredUser, hostPath } from "../../../shared/utils/api";
 import StudentNavbar from "../../../shared/components/StudentNavbar";
 import { useTheme } from "../../../shared/contexts/ThemeContext";
 import { isAdmin, isTeacher } from "../../../shared/utils/permissions";
 import CambridgeStudentStyleReview from "../components/CambridgeStudentStyleReview";
+
+function resolveAsset(url) {
+  if (!url) return '';
+  if (/^https?:\/\//i.test(String(url))) return String(url);
+  return hostPath(String(url));
+}
+
+function escapeHtml(value = '') {
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/\"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function sanitizePromptHtml(rawHtml = '') {
+  const source = String(rawHtml || '').trim();
+  if (!source) return '';
+
+  if (typeof window === 'undefined' || typeof DOMParser === 'undefined') {
+    return escapeHtml(source).replace(/\n/g, '<br />');
+  }
+
+  try {
+    const doc = new DOMParser().parseFromString(source, 'text/html');
+
+    doc
+      .querySelectorAll('script, style, iframe, object, embed, form, link, meta')
+      .forEach((node) => node.remove());
+
+    doc.querySelectorAll('*').forEach((element) => {
+      Array.from(element.attributes).forEach((attribute) => {
+        if (attribute.name.toLowerCase().startsWith('on')) {
+          element.removeAttribute(attribute.name);
+        }
+      });
+
+      if (element.tagName === 'IMG') {
+        const rawSrc = String(element.getAttribute('src') || '').trim();
+        if (!rawSrc) {
+          element.remove();
+          return;
+        }
+
+        element.setAttribute('src', resolveAsset(rawSrc));
+        element.setAttribute('alt', element.getAttribute('alt') || 'Writing prompt image');
+        element.setAttribute('loading', 'lazy');
+        element.setAttribute(
+          'style',
+          'display:block;max-width:100%;height:auto;border-radius:12px;margin:10px 0;border:1px solid #dbe3f0;background:#fff;'
+        );
+      }
+    });
+
+    doc.querySelectorAll('p').forEach((paragraph) => {
+      const text = String(paragraph.textContent || '').replace(/\u00a0/g, ' ').trim();
+      const hasMedia = paragraph.querySelector('img, video, audio');
+      if (!text && !hasMedia) {
+        paragraph.remove();
+        return;
+      }
+      paragraph.setAttribute('style', 'margin:0 0 8px;line-height:1.7;');
+    });
+
+    const html = String(doc.body.innerHTML || '').trim();
+    return html || escapeHtml(source).replace(/\n/g, '<br />');
+  } catch {
+    return escapeHtml(source).replace(/\n/g, '<br />');
+  }
+}
+
+function buildWritingPromptHtml(sectionType, question, detailedResult) {
+  const detailedPrompt =
+    typeof detailedResult?.questionText === 'string' ? detailedResult.questionText.trim() : '';
+
+  if (detailedPrompt) {
+    return sanitizePromptHtml(detailedPrompt);
+  }
+
+  if (sectionType === 'short-message') {
+    const fallback =
+      question?.situation ||
+      question?.questionText ||
+      question?.prompt ||
+      '';
+    return fallback ? sanitizePromptHtml(fallback) : '';
+  }
+
+  if (sectionType === 'story-writing') {
+    const promptParts = [];
+
+    if (typeof question?.prompt === 'string' && question.prompt.trim()) {
+      promptParts.push(`<p>${escapeHtml(question.prompt.trim())}</p>`);
+    }
+
+    const images = Array.isArray(question?.images)
+      ? question.images.filter(Boolean)
+      : Array.isArray(question?.imageUrls)
+        ? question.imageUrls.filter(Boolean)
+        : [];
+
+    if (images.length) {
+      promptParts.push(
+        `<div>${images
+          .map((imageUrl) => `<img src="${escapeHtml(resolveAsset(imageUrl))}" alt="Story prompt" />`)
+          .join('')}</div>`
+      );
+    }
+
+    const bulletPoints = Array.isArray(question?.bulletPoints)
+      ? question.bulletPoints.map((point) => String(point || '').trim()).filter(Boolean)
+      : [];
+
+    if (bulletPoints.length) {
+      promptParts.push(
+        `<div><strong>Write about:</strong><ul>${bulletPoints
+          .map((point) => `<li>${escapeHtml(point)}</li>`)
+          .join('')}</ul></div>`
+      );
+    }
+
+    if (!promptParts.length && question?.questionText) {
+      promptParts.push(`<p>${escapeHtml(question.questionText)}</p>`);
+    }
+
+    return sanitizePromptHtml(promptParts.join(''));
+  }
+
+  const fallback =
+    question?.questionText ||
+    question?.prompt ||
+    question?.situation ||
+    question?.openingSentence ||
+    '';
+
+  return fallback ? sanitizePromptHtml(`<p>${escapeHtml(fallback)}</p>`) : '';
+}
 
 /**
  * CambridgeResultPage - Trang xem kết quả chi tiết sau khi nộp bài Cambridge test
@@ -488,8 +626,15 @@ const CambridgeResultPage = () => {
             return;
           }
 
-          // short-message / story-writing: free writing, không đánh số
-          if (sectionType === 'short-message' || sectionType === 'story-writing') return;
+          // short-message / story-writing: one numbered manual-review question
+          if (sectionType === 'short-message' || sectionType === 'story-writing') {
+            const key = `${partIdx}-${secIdx}-${qIdx}`;
+            const legacyKey = `${partIdx}-${secIdx}-0`;
+            map[key] = questionNum + 1;
+            map[legacyKey] = questionNum + 1;
+            questionNum++;
+            return;
+          }
 
           // draw-lines (Movers Part 1): sub-keys per name, skip index 0 (example)
           if ((sectionType === 'draw-lines' || question.questionType === 'draw-lines' ||
@@ -751,6 +896,96 @@ const CambridgeResultPage = () => {
             })}
           </div>
         )}
+      </div>
+    );
+  };
+
+  const renderLegacyWritingReviewCard = ({ partIdx, secIdx, qIdx, question, sectionType }) => {
+    const key = `${partIdx}-${secIdx}-${qIdx}`;
+    const legacyKey = `${partIdx}-${secIdx}-0`;
+    const result = getDetailedResult(key, legacyKey) || {};
+    const questionNum = questionNumberMap[key] || questionNumberMap[legacyKey];
+    const label = questionNum ? formatQuestionLabel(questionNum) : '?';
+    const status = getResultStatus(result);
+    const promptHtml = buildWritingPromptHtml(sectionType, question, result);
+    const userAnswer =
+      result?.userAnswer ??
+      submission?.answers?.[key] ??
+      submission?.answers?.[legacyKey] ??
+      '';
+
+    return (
+      <div
+        key={key}
+        style={{
+          ...styles.questionReviewCard,
+          borderLeftColor: status.color,
+        }}
+      >
+        <div style={styles.questionReviewHeader}>
+          <span style={{ ...styles.questionNum, backgroundColor: status.color }}>
+            {label}
+          </span>
+          <span style={styles.questionStatus}>{status.label}</span>
+        </div>
+
+        <div style={styles.questionText}>
+          {promptHtml ? (
+            <div
+              style={{ lineHeight: 1.7 }}
+              dangerouslySetInnerHTML={{ __html: promptHtml }}
+            />
+          ) : (
+            question?.questionText || 'Writing task'
+          )}
+        </div>
+
+        <div style={styles.answersCompare}>
+          <div style={styles.answerRow}>
+            <span style={styles.answerLabel}>Bài làm của học sinh:</span>
+            <div
+              style={{
+                ...styles.answerValue,
+                color: status.text,
+                backgroundColor: status.bg,
+                whiteSpace: 'pre-wrap',
+                lineHeight: 1.7,
+                width: '100%',
+              }}
+            >
+              {userAnswer || '(Không trả lời)'}
+            </div>
+          </div>
+
+          <div style={styles.answerRow}>
+            <span style={styles.answerLabel}>Loại chấm:</span>
+            <span
+              style={{
+                ...styles.answerValue,
+                color: isDarkMode ? '#7dd3fc' : '#075985',
+                backgroundColor: isDarkMode ? '#0b1d2e' : '#e0f2fe',
+              }}
+            >
+              Câu tự luận, chấm thủ công
+            </span>
+          </div>
+
+          {question?.sampleAnswer ? (
+            <div style={styles.answerRow}>
+              <span style={styles.answerLabel}>Sample answer:</span>
+              <div
+                style={{
+                  ...styles.answerValue,
+                  whiteSpace: 'pre-wrap',
+                  lineHeight: 1.7,
+                  width: '100%',
+                }}
+              >
+                {question.sampleAnswer}
+              </div>
+            </div>
+          ) : null}
+        </div>
       </div>
     );
   };
@@ -1751,9 +1986,14 @@ const CambridgeResultPage = () => {
                               </div>
                             );
                           }
-                          // short-message / story-writing: hiển thị nhãn "Free writing", không chấm điểm
                           else if (sectionType === 'short-message' || sectionType === 'story-writing') {
-                            return null;
+                            return renderLegacyWritingReviewCard({
+                              partIdx,
+                              secIdx,
+                              qIdx,
+                              question,
+                              sectionType,
+                            });
                           }
                           // Regular questions
                           else {

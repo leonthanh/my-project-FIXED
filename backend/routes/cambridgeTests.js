@@ -110,6 +110,43 @@ const countTotalQuestionsFromParts = (rawParts = []) => {
   return total;
 };
 
+const parseDetailedResults = (value) => {
+  if (!value) return null;
+  if (typeof value === "string") {
+    try {
+      return JSON.parse(value);
+    } catch {
+      return null;
+    }
+  }
+  if (typeof value === "object" && !Array.isArray(value)) {
+    return value;
+  }
+  return null;
+};
+
+const countPendingManualAnswers = (submission) => {
+  if (!submission || submission.finished === false) return 0;
+
+  const hasReview =
+    String(submission.status || "").toLowerCase() === "reviewed" ||
+    Boolean(String(submission.feedbackBy || "").trim()) ||
+    Boolean(String(submission.feedback || "").trim());
+
+  if (hasReview) return 0;
+
+  const detailedResults = parseDetailedResults(submission.detailedResults);
+  if (!detailedResults) return 0;
+
+  return Object.values(detailedResults).filter(
+    (result) =>
+      result &&
+      typeof result === "object" &&
+      result.isCorrect === null &&
+      Boolean(String(result.userAnswer || "").trim())
+  ).length;
+};
+
 const normalizeCambridgeProgressMeta = (meta = {}) => {
   if (!meta || typeof meta !== "object" || Array.isArray(meta)) {
     return {};
@@ -1819,12 +1856,24 @@ router.get("/submissions", async (req, res) => {
         "studentName", "studentPhone", "classCode", "teacherName",
         "score", "totalQuestions", "percentage",
         "timeSpent", "status", "submittedAt", "feedbackSeen",
-        "finished", "expiresAt", "lastSavedAt", "feedback", "feedbackBy", "feedbackAt", "createdAt"
+        "finished", "expiresAt", "lastSavedAt", "feedback", "feedbackBy", "feedbackAt", "createdAt",
+        "detailedResults"
       ]
     });
 
+    const normalizedSubmissions = submissions.map((submission) => {
+      const json = submission.toJSON();
+      const pendingManualCount = countPendingManualAnswers(json);
+      delete json.detailedResults;
+
+      return {
+        ...json,
+        pendingManualCount,
+      };
+    });
+
     res.json({
-      submissions,
+      submissions: normalizedSubmissions,
       pagination: {
         total: count,
         page: parseInt(page),

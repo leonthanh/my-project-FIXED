@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import AdminNavbar from "../../../shared/components/AdminNavbar";
-import { apiPath, authFetch } from "../../../shared/utils/api";
+import { apiPath, authFetch, hostPath } from "../../../shared/utils/api";
 import AttemptExtensionControls from "../components/AttemptExtensionControls";
 import SubmissionFilterPanel from "../components/SubmissionFilterPanel";
 import {
@@ -15,6 +15,93 @@ const parseJsonIfString = (value) => {
     return JSON.parse(value);
   } catch {
     return value;
+  }
+};
+
+const escapeHtml = (value = "") =>
+  String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+
+const sanitizePromptHtml = (rawPrompt = "") => {
+  const prompt = String(rawPrompt || "").trim();
+  if (!prompt) return "";
+
+  if (typeof window === "undefined" || typeof DOMParser === "undefined") {
+    return escapeHtml(prompt).replace(/\n/g, "<br />");
+  }
+
+  try {
+    const doc = new DOMParser().parseFromString(prompt, "text/html");
+
+    doc
+      .querySelectorAll("script, style, iframe, object, embed, form, link, meta")
+      .forEach((node) => node.remove());
+
+    doc.querySelectorAll("*").forEach((element) => {
+      Array.from(element.attributes).forEach((attribute) => {
+        if (attribute.name.toLowerCase().startsWith("on")) {
+          element.removeAttribute(attribute.name);
+        }
+      });
+
+      if (element.tagName === "IMG") {
+        const rawSrc = String(element.getAttribute("src") || "").trim();
+        if (!rawSrc) {
+          element.remove();
+          return;
+        }
+
+        const normalizedSrc =
+          /^https?:\/\//i.test(rawSrc) || /^data:/i.test(rawSrc) || /^blob:/i.test(rawSrc)
+            ? rawSrc
+            : hostPath(rawSrc);
+
+        element.setAttribute("src", normalizedSrc);
+        element.setAttribute("alt", element.getAttribute("alt") || "Prompt illustration");
+        element.setAttribute("loading", "lazy");
+        element.setAttribute(
+          "style",
+          "display:block;max-width:100%;height:auto;border-radius:10px;margin:10px 0;border:1px solid #e5e7eb;"
+        );
+      }
+
+      if (element.tagName === "A") {
+        const href = String(element.getAttribute("href") || "").trim();
+        if (!href) {
+          element.removeAttribute("href");
+          return;
+        }
+
+        const safeHref = /^(https?:|mailto:|tel:|\/)/i.test(href) ? href : null;
+        if (!safeHref) {
+          element.removeAttribute("href");
+          return;
+        }
+
+        element.setAttribute("href", safeHref.startsWith("/") ? hostPath(safeHref) : safeHref);
+        element.setAttribute("target", "_blank");
+        element.setAttribute("rel", "noreferrer noopener");
+      }
+    });
+
+    doc.querySelectorAll("p").forEach((paragraph) => {
+      const text = String(paragraph.textContent || "").replace(/\u00a0/g, " ").trim();
+      const hasMedia = paragraph.querySelector("img, video, audio, iframe");
+      if (!text && !hasMedia) {
+        paragraph.remove();
+        return;
+      }
+      paragraph.setAttribute("style", "margin:0 0 8px;line-height:1.6;");
+    });
+
+    const html = String(doc.body.innerHTML || "").trim();
+    return html || escapeHtml(prompt).replace(/\n/g, "<br />");
+  } catch {
+    return escapeHtml(prompt).replace(/\n/g, "<br />");
   }
 };
 
@@ -56,13 +143,14 @@ const CambridgeSubmissionsPage = () => {
   const [activeTab, setActiveTab] = useState('all'); // all, listening, reading
   const [reviewStatus, setReviewStatus] = useState('all');
   const [sortOrder, setSortOrder] = useState('newest');
-  const [expandedSubmissionIds, setExpandedSubmissionIds] = useState(() => new Set());
+  const [activeReviewSubmissionId, setActiveReviewSubmissionId] = useState(null);
   const [detailById, setDetailById] = useState({});
   const [detailLoadingById, setDetailLoadingById] = useState({});
   const [feedbackDraftById, setFeedbackDraftById] = useState({});
   const [aiLoadingById, setAiLoadingById] = useState({});
   const [savingById, setSavingById] = useState({});
   const [statusMessageById, setStatusMessageById] = useState({});
+  const feedbackInputRef = useRef(null);
 
   // Fetch submissions
   useEffect(() => {
@@ -229,17 +317,21 @@ const CambridgeSubmissionsPage = () => {
       .filter((item) => item.userAnswer.length > 0);
   };
 
-  const toggleEssayReview = async (submissionId) => {
-    setExpandedSubmissionIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(submissionId)) {
-        next.delete(submissionId);
-      } else {
-        next.add(submissionId);
-      }
-      return next;
-    });
+  const getPendingManualCount = (submission) => {
+    const count = Number(submission?.pendingManualCount);
+    if (Number.isFinite(count) && count >= 0) {
+      return count;
+    }
 
+    if (hasReview(submission)) {
+      return 0;
+    }
+
+    const detail = submission?.id ? detailById[submission.id] : null;
+    return detail ? getPendingManualAnswers(detail).length : 0;
+  };
+
+  const loadSubmissionDetail = async (submissionId) => {
     if (detailById[submissionId] || detailLoadingById[submissionId]) {
       return;
     }
@@ -268,6 +360,57 @@ const CambridgeSubmissionsPage = () => {
       setDetailLoadingById((prev) => ({ ...prev, [submissionId]: false }));
     }
   };
+
+  const openEssayReview = async (submission) => {
+    setActiveReviewSubmissionId(submission.id);
+    await loadSubmissionDetail(submission.id);
+  };
+
+  const closeEssayReview = () => {
+    setActiveReviewSubmissionId(null);
+  };
+
+  useEffect(() => {
+    if (!activeReviewSubmissionId) {
+      return undefined;
+    }
+
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        setActiveReviewSubmissionId(null);
+      }
+    };
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [activeReviewSubmissionId]);
+
+  useEffect(() => {
+    if (!activeReviewSubmissionId) {
+      return undefined;
+    }
+
+    if (detailLoadingById[activeReviewSubmissionId]) {
+      return undefined;
+    }
+
+    const detail = detailById[activeReviewSubmissionId];
+    if (!detail || !getPendingManualAnswers(detail).length) {
+      return undefined;
+    }
+
+    const frameId = window.requestAnimationFrame(() => {
+      feedbackInputRef.current?.focus();
+    });
+
+    return () => window.cancelAnimationFrame(frameId);
+  }, [activeReviewSubmissionId, detailById, detailLoadingById]);
 
   const handleGenerateEssayFeedback = async (submission) => {
     const detail = detailById[submission.id];
@@ -363,15 +506,12 @@ const CambridgeSubmissionsPage = () => {
                 feedbackBy: reviewerName,
                 status: 'reviewed',
                 feedbackAt: new Date().toISOString(),
+                pendingManualCount: 0,
               }
             : item
         )
       );
-      setExpandedSubmissionIds((prev) => {
-        const next = new Set(prev);
-        next.delete(submissionId);
-        return next;
-      });
+      setActiveReviewSubmissionId(null);
       setStatusMessageById((prev) => ({
         ...prev,
         [submissionId]: 'Feedback saved.',
@@ -473,22 +613,26 @@ const CambridgeSubmissionsPage = () => {
     setPagination(prev => ({ ...prev, page: newPage }));
   };
 
+  const activeReviewSubmission = activeReviewSubmissionId
+    ? submissions.find((item) => item.id === activeReviewSubmissionId) || null
+    : null;
+
   const renderEssayReviewContent = (submission) => {
     const detail = detailById[submission.id];
     const isLoadingDetail = !!detailLoadingById[submission.id];
     const pendingAnswers = detail ? getPendingManualAnswers(detail) : [];
 
     return (
-      <div style={styles.expandedPanel}>
+      <div style={styles.drawerContent}>
         {isLoadingDetail && <div>Loading submission details...</div>}
 
         {!isLoadingDetail && detail && (
-          <div style={styles.expandedGrid}>
-            <div style={styles.expandedSection}>
-              <div style={styles.expandedTitle}>Open-ended responses to review</div>
+          <div style={styles.drawerGrid}>
+            <div style={styles.drawerSection}>
+              <div style={styles.drawerSectionTitle}>Open-ended responses to review</div>
 
               {pendingAnswers.length === 0 ? (
-                <div style={styles.expandedHint}>
+                <div style={styles.drawerHint}>
                   No pending open-ended responses were found in this submission. You can still
                   open the full result to inspect it manually.
                 </div>
@@ -500,7 +644,15 @@ const CambridgeSubmissionsPage = () => {
                         {item.label || `Response ${index + 1}`}
                       </div>
                       {item.prompt && (
-                        <div style={styles.answerPrompt}>Prompt: {item.prompt}</div>
+                        <div style={styles.answerPromptWrap}>
+                          <div style={styles.answerPromptLabel}>Prompt</div>
+                          <div
+                            style={styles.answerPromptHtml}
+                            dangerouslySetInnerHTML={{
+                              __html: sanitizePromptHtml(item.prompt),
+                            }}
+                          />
+                        </div>
                       )}
                       <div style={styles.answerBody}>{item.userAnswer}</div>
                     </div>
@@ -509,9 +661,10 @@ const CambridgeSubmissionsPage = () => {
               )}
             </div>
 
-            <div style={styles.expandedSection}>
-              <div style={styles.expandedTitle}>Teacher Feedback</div>
+            <div style={styles.drawerSection}>
+              <div style={styles.drawerSectionTitle}>Teacher Feedback</div>
               <textarea
+                ref={submission.id === activeReviewSubmissionId ? feedbackInputRef : null}
                 rows={4}
                 value={feedbackDraftById[submission.id] || ''}
                 onChange={(e) =>
@@ -547,9 +700,15 @@ const CambridgeSubmissionsPage = () => {
                 >
                   {savingById[submission.id] ? 'Saving...' : 'Save Feedback'}
                 </button>
+                <button
+                  onClick={() => handleViewDetail(submission.id)}
+                  style={styles.ghostActionButton}
+                >
+                  Open Full Result
+                </button>
               </div>
 
-              <div style={styles.expandedHint}>
+              <div style={styles.drawerHint}>
                 Saving will move this submission to the reviewed state.
               </div>
 
@@ -711,10 +870,12 @@ const CambridgeSubmissionsPage = () => {
                     filteredSubmissions.map((sub, index) => {
                       const typeBadge = getTestTypeBadge(sub.testType);
                       const timingMeta = sub.finished === false ? getAttemptTimingMeta(sub.expiresAt) : null;
+                      const pendingManualCount = getPendingManualCount(sub);
                       const canReviewEssay =
                         String(sub.testType || '').toLowerCase().includes('reading') &&
-                        sub.finished !== false;
-                      const isExpanded = expandedSubmissionIds.has(sub.id);
+                        sub.finished !== false &&
+                        pendingManualCount > 0;
+                      const isReviewing = activeReviewSubmissionId === sub.id;
                       return (
                         <React.Fragment key={sub.id}>
                           <tr style={styles.tr}>
@@ -826,10 +987,14 @@ const CambridgeSubmissionsPage = () => {
                               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                                 {canReviewEssay && (
                                   <button
-                                    onClick={() => toggleEssayReview(sub.id)}
-                                    style={styles.reviewEssayButton}
+                                    onClick={() => openEssayReview(sub)}
+                                    style={{
+                                      ...styles.reviewEssayButton,
+                                      ...(isReviewing ? styles.reviewEssayButtonActive : null),
+                                    }}
                                   >
-                                    {isExpanded ? 'Hide Essay' : 'Review Essay'}
+                                    <span>{detailLoadingById[sub.id] && isReviewing ? 'Loading...' : 'Review Essay'}</span>
+                                    <span style={styles.reviewEssayBadge}>{pendingManualCount}</span>
                                   </button>
                                 )}
                                 <button
@@ -857,14 +1022,6 @@ const CambridgeSubmissionsPage = () => {
                               </div>
                             </td>
                           </tr>
-
-                          {canReviewEssay && isExpanded && (
-                            <tr>
-                              <td colSpan="10" style={styles.expandedCell}>
-                                {renderEssayReviewContent(sub)}
-                              </td>
-                            </tr>
-                          )}
                         </React.Fragment>
                       );
                     })
@@ -902,6 +1059,36 @@ const CambridgeSubmissionsPage = () => {
               </div>
             )}
           </>
+        )}
+
+        {activeReviewSubmission && (
+          <div style={styles.drawerOverlay} onClick={closeEssayReview}>
+            <aside style={styles.drawerPanel} onClick={(event) => event.stopPropagation()}>
+              <div style={styles.drawerHeader}>
+                <div>
+                  <div style={styles.drawerEyebrow}>Cambridge Essay Review</div>
+                  <h2 style={styles.drawerTitle}>{activeReviewSubmission.testTitle || 'Reading Submission'}</h2>
+                  <div style={styles.drawerMetaRow}>
+                    <span style={styles.drawerMetaChip}>{activeReviewSubmission.studentName || '--'}</span>
+                    {activeReviewSubmission.classCode && (
+                      <span style={styles.drawerMetaChip}>{activeReviewSubmission.classCode}</span>
+                    )}
+                    <span style={styles.drawerMetaChipAccent}>
+                      {getPendingManualCount(activeReviewSubmission)} pending
+                    </span>
+                  </div>
+                </div>
+
+                <button onClick={closeEssayReview} style={styles.drawerCloseButton} aria-label="Close review drawer">
+                  ×
+                </button>
+              </div>
+
+              <div style={styles.drawerBody}>
+                {renderEssayReviewContent(activeReviewSubmission)}
+              </div>
+            </aside>
+          </div>
         )}
       </div>
     </div>
@@ -1056,11 +1243,6 @@ const styles = {
     color: '#1e293b',
     verticalAlign: 'middle',
   },
-  expandedCell: {
-    padding: 0,
-    backgroundColor: '#fafafa',
-    borderBottom: '1px solid #e5e7eb',
-  },
   emptyCell: {
     padding: '40px',
     textAlign: 'center',
@@ -1175,31 +1357,133 @@ const styles = {
     gap: '6px',
   },
   reviewEssayButton: {
-    padding: '8px 14px',
+    padding: '8px 12px',
     backgroundColor: '#fff7ed',
     color: '#c2410c',
     border: '1px solid #fdba74',
-    borderRadius: '6px',
+    borderRadius: '999px',
     cursor: 'pointer',
     fontSize: '13px',
     fontWeight: 600,
-  },
-  expandedPanel: {
-    padding: '16px 18px',
-  },
-  expandedGrid: {
     display: 'grid',
+    alignItems: 'center',
+    gap: '8px',
+  },
+  reviewEssayButtonActive: {
+    backgroundColor: '#ffedd5',
+    borderColor: '#fb923c',
+    color: '#9a3412',
+  },
+  reviewEssayBadge: {
+    minWidth: '22px',
+    height: '22px',
+    padding: '0 6px',
+    borderRadius: '999px',
+    backgroundColor: '#ea580c',
+    color: '#fff',
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: '12px',
+    fontWeight: 800,
+  },
+  drawerOverlay: {
+    position: 'fixed',
+    inset: 0,
+    backgroundColor: 'rgba(15, 23, 42, 0.42)',
+    backdropFilter: 'blur(3px)',
+    zIndex: 1200,
+    display: 'flex',
+    justifyContent: 'flex-end',
+  },
+  drawerPanel: {
+    width: 'min(680px, 100vw)',
+    height: '100vh',
+    backgroundColor: '#ffffff',
+    boxShadow: '-24px 0 48px rgba(15, 23, 42, 0.18)',
+    display: 'flex',
+    flexDirection: 'column',
+  },
+  drawerHeader: {
+    padding: '24px 24px 18px',
+    borderBottom: '1px solid #e2e8f0',
+    display: 'grid',
+    gridTemplateColumns: '1fr auto',
     gap: '16px',
+    alignItems: 'start',
   },
-  expandedSection: {
+  drawerEyebrow: {
+    fontSize: '11px',
+    fontWeight: 800,
+    letterSpacing: '0.12em',
+    textTransform: 'uppercase',
+    color: '#9a3412',
+  },
+  drawerTitle: {
+    margin: '6px 0 0',
+    fontSize: '22px',
+    lineHeight: 1.3,
+    color: '#0f172a',
+  },
+  drawerMetaRow: {
+    display: 'flex',
+    gap: '8px',
+    flexWrap: 'wrap',
+    marginTop: '14px',
+  },
+  drawerMetaChip: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    padding: '6px 10px',
+    borderRadius: '999px',
+    fontSize: '12px',
+    fontWeight: 700,
+    backgroundColor: '#f1f5f9',
+    color: '#334155',
+  },
+  drawerMetaChipAccent: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    padding: '6px 10px',
+    borderRadius: '999px',
+    fontSize: '12px',
+    fontWeight: 700,
+    backgroundColor: '#fff7ed',
+    color: '#c2410c',
+  },
+  drawerCloseButton: {
+    width: '40px',
+    height: '40px',
+    borderRadius: '999px',
+    border: '1px solid #cbd5e1',
+    backgroundColor: '#fff',
+    color: '#334155',
+    fontSize: '24px',
+    lineHeight: 1,
+    cursor: 'pointer',
+  },
+  drawerBody: {
+    flex: 1,
+    overflowY: 'auto',
+    padding: '22px 24px 28px',
+  },
+  drawerContent: {
     display: 'grid',
-    gap: '10px',
+    gap: '18px',
   },
-  expandedTitle: {
+  drawerGrid: {
+    display: 'grid',
+    gap: '18px',
+  },
+  drawerSection: {
+    display: 'grid',
+    gap: '12px',
+  },
+  drawerSectionTitle: {
     fontWeight: 700,
     color: '#111827',
   },
-  expandedHint: {
+  drawerHint: {
     color: '#6b7280',
     fontSize: '13px',
     lineHeight: 1.5,
@@ -1218,11 +1502,22 @@ const styles = {
     fontWeight: 700,
     color: '#111827',
   },
-  answerPrompt: {
+  answerPromptWrap: {
     marginTop: '6px',
     marginBottom: '8px',
+  },
+  answerPromptLabel: {
+    marginBottom: '6px',
+    color: '#6b7280',
+    fontSize: '12px',
+    fontWeight: 700,
+    textTransform: 'uppercase',
+    letterSpacing: '0.06em',
+  },
+  answerPromptHtml: {
     color: '#4b5563',
     fontSize: '13px',
+    lineHeight: 1.6,
   },
   answerBody: {
     whiteSpace: 'pre-wrap',
@@ -1258,6 +1553,16 @@ const styles = {
     backgroundColor: '#e11d48',
     color: '#fff',
     border: 'none',
+    borderRadius: '6px',
+    cursor: 'pointer',
+    fontSize: '13px',
+    fontWeight: 700,
+  },
+  ghostActionButton: {
+    padding: '8px 14px',
+    backgroundColor: '#eff6ff',
+    color: '#1d4ed8',
+    border: '1px solid #bfdbfe',
     borderRadius: '6px',
     cursor: 'pointer',
     fontSize: '13px',

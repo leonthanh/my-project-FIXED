@@ -1170,17 +1170,16 @@ const DoCambridgeReadingTest = () => {
               });
             });
           } else if (section.questionType === 'short-message' || section.questionType === 'story-writing') {
-            // Keep free-writing tasks in the flow, but do not consume a numbered question slot.
+            // Free-writing tasks still need their real paper numbers for footer navigation.
             questions.push({
               partIndex: pIdx,
               sectionIndex: sIdx,
               questionIndex: qIdx,
-              questionNumber: null,
+              questionNumber: qNum++,
               key: `${pIdx}-${sIdx}-${qIdx}`,
               question: q,
               section: section,
               part: part,
-              isNonNumbered: true,
             });
           } else {
             // Regular numbered questions
@@ -1248,6 +1247,11 @@ const DoCambridgeReadingTest = () => {
     if (q.section?.questionType === 'look-read-write') {
       const val = answers[q.key];
       if (typeof val === "string") return val.trim().length > 0;
+      return Boolean(val);
+    }
+    if (q.section?.questionType === 'short-message' || q.section?.questionType === 'story-writing') {
+      const val = answers[q.key];
+      if (typeof val === 'string') return val.trim().length > 0;
       return Boolean(val);
     }
     if (q.section?.questionType === 'word-drag-cloze') {
