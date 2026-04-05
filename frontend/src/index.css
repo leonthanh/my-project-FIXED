@@ -236,6 +236,36 @@ body.dark-mode .reading-test-editor .section-title a {
   flex-wrap: wrap;
 }
 
+.admin-submission-switcher-block {
+  margin-bottom: 18px;
+}
+
+.admin-submission-switcher__title {
+  margin-bottom: 10px;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #475569;
+}
+
+.admin-submission-switcher {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+}
+
+.admin-page.admin-submission-page {
+  max-width: 100% !important;
+  width: 100%;
+}
+
+.admin-submission-switcher__button {
+  width: min(200px, 100%);
+}
+
 /* ========================================
    DARK MODE: ADMIN / TEACHER PAGES
    ======================================== */
@@ -253,6 +283,10 @@ body.dark-mode .admin-page label,
 body.dark-mode .admin-page span,
 body.dark-mode .admin-page strong {
   color: #e5e7eb !important;
+}
+
+body.dark-mode .admin-submission-switcher__title {
+  color: #94a3b8 !important;
 }
 
 body.dark-mode .admin-filter-grid,
@@ -341,11 +375,30 @@ body.dark-mode .admin-view-button {
   .admin-table {
     min-width: 720px;
   }
+
+  .admin-submission-switcher__button {
+    width: min(180px, 100%);
+  }
 }
 
 @media (max-width: 480px) {
   .admin-page {
     padding: 12px;
+  }
+
+  .admin-submission-switcher {
+    flex-wrap: nowrap;
+    gap: 8px;
+  }
+
+  .admin-submission-switcher > button {
+    flex: 1 1 0 !important;
+    width: auto !important;
+    min-width: 0;
+    padding: 10px 6px !important;
+    font-size: 12px !important;
+    border-radius: 10px !important;
+    letter-spacing: -0.01em;
   }
 
   .admin-action-buttons,
@@ -382,9 +435,27 @@ body.dark-mode .admin-view-button {
     padding-top: 50px !important; /* matches taller wrapped navbar */
   }
 
+  .admin-page.admin-submission-page {
+    padding-top: 72px !important;
+  }
+
+  .admin-submission-switcher-block {
+    margin-top: 6px;
+  }
+
+  .admin-submission-switcher__title {
+    font-size: 12px;
+    margin-bottom: 8px;
+    line-height: 1.2;
+  }
+
   @media (max-width: 360px) {
     .admin-page.cambridge-page {
       padding-top: 120px !important; /* extra space for very narrow phones */
+    }
+
+    .admin-page.admin-submission-page {
+      padding-top: 96px !important;
     }
   }
 }

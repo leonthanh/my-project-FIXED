@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import AdminNavbar from "../../../shared/components/AdminNavbar";
 import { apiPath, authFetch } from "../../../shared/utils/api";
 import AttemptExtensionControls from "../components/AttemptExtensionControls";
+import SubmissionTypeTabs from "../components/SubmissionTypeTabs";
 import {
   getAttemptTimingMeta,
 } from "../utils/attemptTiming";
@@ -308,37 +309,10 @@ const AdminWritingSubmissions = () => {
     <>
       <AdminNavbar />
       <div
-        style={{ maxWidth: 980, margin: "0 auto", padding: "30px 16px" }}
-        className="admin-page"
+        style={{ maxWidth: "100%", width: "100%", margin: "0 auto", padding: "30px 16px" }}
+        className="admin-page admin-submission-page"
       >
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            paddingTop: 20,
-            gap: 8,
-          }}
-        >
-          <h2 style={{ margin: 0, fontSize: 22, fontWeight: 700 }}>
-            Writing Submissions
-          </h2>
-          <button
-            onClick={() => (window.location.href = "/admin/reading-submissions")}
-            style={{
-              padding: "8px 14px",
-              background: "#0e276f",
-              color: "white",
-              border: "none",
-              borderRadius: 6,
-              cursor: "pointer",
-              fontSize: 14,
-              fontWeight: 600,
-            }}
-          >
-            Reading Submissions
-          </button>
-        </div>
+        <SubmissionTypeTabs activeKey="writing" />
 
         <div
           style={{ display: "flex", gap: 10, marginBottom: 18, flexWrap: "wrap" }}
