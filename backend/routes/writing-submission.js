@@ -3,6 +3,15 @@ const router = express.Router();
 const { Submission, WritingTest, User } = require('../models');
 const { Op } = require('sequelize');
 const nodemailer = require('nodemailer');
+const { requireAuth, requireRole } = require('../middlewares/auth');
+const {
+  DEFAULT_EXTENSION_MINUTES,
+  buildTimingPayload,
+  extendDeadline,
+  getRemainingSeconds,
+  normalizeExtensionMinutes,
+  resolveAuthoritativeExpiry,
+} = require('../utils/testTiming');
 
 async function resolveSubmissionUser(userPayload) {
   const rawUserId = userPayload?.id;
@@ -71,19 +80,25 @@ router.post('/draft/autosave', async (req, res) => {
     });
 
     if (existingDraft) {
+      const authoritativeEndAt = resolveAuthoritativeExpiry(existingDraft.draftEndAt, parsedEndAt);
       existingDraft.task1 = task1;
       existingDraft.task2 = task2;
-      existingDraft.timeLeft = Number.isFinite(Number(timeLeft)) ? Number(timeLeft) : existingDraft.timeLeft;
+      existingDraft.timeLeft = Number.isFinite(getRemainingSeconds(authoritativeEndAt))
+        ? getRemainingSeconds(authoritativeEndAt)
+        : (Number.isFinite(Number(timeLeft)) ? Number(timeLeft) : existingDraft.timeLeft);
       existingDraft.userName = userName;
       existingDraft.userPhone = userPhone;
       existingDraft.draftSavedAt = now;
-      existingDraft.draftEndAt = parsedEndAt;
+      existingDraft.draftEndAt = authoritativeEndAt;
       existingDraft.draftStarted = Boolean(started);
       await existingDraft.save();
       return res.json({
         message: 'Draft saved.',
         draftId: existingDraft.id,
         savedAt: existingDraft.draftSavedAt,
+        draftEndAt: existingDraft.draftEndAt,
+        timeLeft: existingDraft.timeLeft,
+        timing: buildTimingPayload(existingDraft.draftEndAt),
       });
     }
 
@@ -107,6 +122,9 @@ router.post('/draft/autosave', async (req, res) => {
       message: 'Draft created.',
       draftId: created.id,
       savedAt: created.draftSavedAt,
+      draftEndAt: created.draftEndAt,
+      timeLeft: created.timeLeft,
+      timing: buildTimingPayload(created.draftEndAt),
     });
   } catch (err) {
     console.error('Draft autosave error:', err);
@@ -134,10 +152,44 @@ router.get('/draft/active', async (req, res) => {
       order: [['draftSavedAt', 'DESC'], ['updatedAt', 'DESC']],
     });
 
-    return res.json({ submission: submission ? submission.toJSON() : null });
+    return res.json({
+      submission: submission ? submission.toJSON() : null,
+      timing: submission ? buildTimingPayload(submission.draftEndAt) : buildTimingPayload(null),
+    });
   } catch (err) {
     console.error('Get draft error:', err);
     return res.status(500).json({ message: 'Failed to get draft.' });
+  }
+});
+
+router.post('/draft/:draftId/extend-time', requireAuth, requireRole('teacher', 'admin'), async (req, res) => {
+  try {
+    const { draftId } = req.params;
+    const draft = await Submission.findByPk(draftId);
+    if (!draft || !draft.isDraft) {
+      return res.status(404).json({ message: 'Draft not found.' });
+    }
+
+    const extensionMinutes = normalizeExtensionMinutes(req.body?.extraMinutes, DEFAULT_EXTENSION_MINUTES);
+    const { expiresAtMs } = extendDeadline(draft.draftEndAt, extensionMinutes);
+    const remainingSeconds = Math.max(0, Math.ceil((expiresAtMs - Date.now()) / 1000));
+
+    draft.draftEndAt = new Date(expiresAtMs);
+    draft.timeLeft = remainingSeconds;
+    draft.draftSavedAt = new Date();
+    await draft.save();
+
+    return res.json({
+      message: `Draft extended by ${extensionMinutes} minute(s).`,
+      draftId: draft.id,
+      extensionMinutes,
+      draftEndAt: draft.draftEndAt,
+      timeLeft: draft.timeLeft,
+      timing: buildTimingPayload(draft.draftEndAt),
+    });
+  } catch (err) {
+    console.error('Draft extend error:', err);
+    return res.status(500).json({ message: 'Failed to extend draft.' });
   }
 });
 

@@ -9,6 +9,14 @@ import {
   getStoredUser,
   hasStoredSession,
 } from "../../../shared/utils/api";
+import {
+  formatClock,
+  getExtensionToastMessage,
+  getGraceRemainingSeconds,
+  getRemainingSeconds,
+  toTimestamp,
+} from "../../../shared/utils/testTiming";
+import ExtensionToast from "../../../shared/components/ExtensionToast";
 
 // ====== STYLE FOR HEADER & MODAL ======
 const writingHeaderStyle = {
@@ -153,6 +161,55 @@ const WritingTest = () => {
   const [isMobile, setIsMobile] = useState(typeof window !== "undefined" ? window.innerWidth <= 768 : false);
   const [selectedTestId, setSelectedTestId] = useState(() => localStorage.getItem("selectedTestId") || "");
   const [isHydratingDraft, setIsHydratingDraft] = useState(true);
+  const [graceRemaining, setGraceRemaining] = useState(0);
+  const [extensionToast, setExtensionToast] = useState("");
+  const autoSubmittingRef = useRef(false);
+  const lastAnnouncedExpiryRef = useRef(null);
+
+  const syncTimingState = useCallback(
+    (expiresAtValue, fallbackSeconds = null) => {
+      const expiresAtMs = toTimestamp(expiresAtValue);
+      if (Number.isFinite(expiresAtMs)) {
+        setEndAt(expiresAtMs);
+        try {
+          localStorage.setItem(writingEndAtKey, String(expiresAtMs));
+        } catch (_err) {
+          // ignore storage errors
+        }
+        setTimeLeft(getRemainingSeconds(expiresAtMs));
+        setGraceRemaining(getGraceRemainingSeconds(expiresAtMs));
+        return true;
+      }
+
+      setEndAt(0);
+      setGraceRemaining(0);
+      if (fallbackSeconds !== null) {
+        setTimeLeft(fallbackSeconds);
+      }
+      return false;
+    },
+    [writingEndAtKey]
+  );
+
+  const announceExtension = useCallback((nextExpiresAtValue, previousExpiresAtValue) => {
+    const nextExpiresAtMs = toTimestamp(nextExpiresAtValue);
+    const message = getExtensionToastMessage(previousExpiresAtValue, nextExpiresAtMs);
+    const lastAnnouncedMs = toTimestamp(lastAnnouncedExpiryRef.current);
+
+    if (!message || !Number.isFinite(nextExpiresAtMs)) return;
+    if (Number.isFinite(lastAnnouncedMs) && Math.abs(lastAnnouncedMs - nextExpiresAtMs) <= 1000) {
+      return;
+    }
+
+    lastAnnouncedExpiryRef.current = nextExpiresAtMs;
+    setExtensionToast(message);
+  }, []);
+
+  useEffect(() => {
+    if (!extensionToast) return;
+    const timeoutId = setTimeout(() => setExtensionToast(""), 4000);
+    return () => clearTimeout(timeoutId);
+  }, [extensionToast]);
 
   useEffect(() => {
     localStorage.setItem(writingTask1Key, task1);
@@ -232,10 +289,7 @@ const WritingTest = () => {
         }
 
         if (draft.draftEndAt) {
-          const endMs = new Date(draft.draftEndAt).getTime();
-          if (Number.isFinite(endMs) && endMs > 0) {
-            setEndAt(endMs);
-          }
+          syncTimingState(draft.draftEndAt);
         }
 
         if (typeof draft.draftStarted === "boolean") {
@@ -253,7 +307,7 @@ const WritingTest = () => {
     return () => {
       cancelled = true;
     };
-  }, [user?.id]);
+  }, [syncTimingState, user?.id]);
 
   useEffect(() => {
     if (isHydratingDraft) return;
@@ -289,7 +343,7 @@ const WritingTest = () => {
     if (!numericTestId || isNaN(numericTestId)) return;
 
     try {
-      await fetch(apiPath("writing/draft/autosave"), {
+      const res = await fetch(apiPath("writing/draft/autosave"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -306,10 +360,43 @@ const WritingTest = () => {
           started,
         }),
       });
+      const data = await res.json().catch(() => ({}));
+      const nextEndAt = data?.timing?.expiresAt || data?.draftEndAt;
+      if (nextEndAt) {
+        announceExtension(nextEndAt, endAt);
+        syncTimingState(nextEndAt);
+      }
     } catch (err) {
       console.error("Error autosaving writing draft:", err);
     }
-  }, [isHydratingDraft, submitted, user?.id, user?.name, user?.phone, selectedTestId, task1, task2, timeLeft, endAt, started]);
+  }, [announceExtension, isHydratingDraft, submitted, user?.id, user?.name, user?.phone, selectedTestId, task1, task2, timeLeft, endAt, started, syncTimingState]);
+
+  const reconcileServerTiming = useCallback(async () => {
+    if (isHydratingDraft || submitted || !started || !user?.id) return;
+    if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
+
+    const numericTestId = Number(selectedTestId);
+    if (!Number.isFinite(numericTestId) || numericTestId <= 0) return;
+
+    try {
+      const res = await fetch(apiPath(`writing/draft/active?userId=${user.id}&testId=${numericTestId}`));
+      if (!res.ok) return;
+      const data = await res.json().catch(() => ({}));
+      const nextEndAt = data?.submission?.draftEndAt || data?.timing?.expiresAt;
+      const nextEndAtMs = toTimestamp(nextEndAt);
+      const currentEndAtMs = toTimestamp(endAt);
+
+      if (
+        Number.isFinite(nextEndAtMs) &&
+        (!Number.isFinite(currentEndAtMs) || Math.abs(nextEndAtMs - currentEndAtMs) > 1000)
+      ) {
+        announceExtension(nextEndAtMs, currentEndAtMs);
+        syncTimingState(nextEndAtMs);
+      }
+    } catch (_err) {
+      // ignore polling errors; autosave and refresh can still recover timing
+    }
+  }, [announceExtension, endAt, isHydratingDraft, selectedTestId, started, submitted, syncTimingState, user?.id]);
 
   useEffect(() => {
     if (isHydratingDraft || submitted) return;
@@ -331,6 +418,28 @@ const WritingTest = () => {
       document.removeEventListener("visibilitychange", onVisibility);
     };
   }, [isHydratingDraft, submitted, user?.id, selectedTestId, saveDraftToServer]);
+
+  useEffect(() => {
+    if (isHydratingDraft || submitted || !started) return;
+    if (!user?.id || !selectedTestId) return;
+
+    reconcileServerTiming();
+    const intervalId = setInterval(reconcileServerTiming, 5000);
+    const onCheck = () => {
+      if (document.visibilityState !== "hidden") {
+        reconcileServerTiming();
+      }
+    };
+
+    window.addEventListener("focus", onCheck);
+    document.addEventListener("visibilitychange", onCheck);
+
+    return () => {
+      clearInterval(intervalId);
+      window.removeEventListener("focus", onCheck);
+      document.removeEventListener("visibilitychange", onCheck);
+    };
+  }, [isHydratingDraft, reconcileServerTiming, selectedTestId, started, submitted, user?.id]);
 
   const handleSubmit = useCallback(async () => {
     if (isSubmitting) return;
@@ -396,6 +505,7 @@ const WritingTest = () => {
       console.error("Submit writing failed:", err);
       setSubmitted(false);
       setMessage(`Chua nop duoc: ${err?.message || "Loi gui bai."}`);
+      autoSubmittingRef.current = false;
       await saveDraftToServer();
     } finally {
       setIsSubmitting(false);
@@ -421,20 +531,25 @@ const WritingTest = () => {
   // when starting, if we don't already have an endAt, set it using current timeLeft
   useEffect(() => {
     if (started && !endAt) {
-      const e = Date.now() + timeLeft * 1000;
-      setEndAt(e);
+      syncTimingState(Date.now() + timeLeft * 1000, timeLeft);
     }
-  }, [started, endAt, timeLeft]);
+  }, [started, endAt, syncTimingState, timeLeft]);
 
   // TIMER: dựa trên endAt, không phụ thuộc timeLeft (tránh reset interval khi re-render do typing)
   useEffect(() => {
     if (!started || submitted || isSubmitting || !endAt) return;
 
     const tick = () => {
-      const remain = Math.max(0, Math.floor((endAt - Date.now()) / 1000));
+      const remain = getRemainingSeconds(endAt);
+      const nextGraceRemaining = getGraceRemainingSeconds(endAt);
       setTimeLeft(remain);
-      if (remain <= 0) {
-        // hết giờ -> nộp bài (dùng ref để không phụ thuộc vào identity của handleSubmit)
+      setGraceRemaining(nextGraceRemaining);
+      if (
+        remain <= 0 &&
+        nextGraceRemaining <= 0 &&
+        !autoSubmittingRef.current
+      ) {
+        autoSubmittingRef.current = true;
         if (submitRef.current) submitRef.current();
       }
     };
@@ -445,6 +560,8 @@ const WritingTest = () => {
     return () => clearInterval(timer);
     // CHÚ Ý: không thêm timeLeft/handleSubmit vào dependency!
   }, [started, submitted, isSubmitting, endAt]);
+
+  const formatTime = (seconds) => formatClock(seconds);
 
   useEffect(() => {
     if (!user || !user.phone) return;
@@ -457,14 +574,6 @@ const WritingTest = () => {
       })
       .catch((err) => console.error("❌ Lỗi lấy feedback:", err));
   }, [submitted, user]);
-
-  const formatTime = (s) => {
-    const m = Math.floor(s / 60)
-      .toString()
-      .padStart(2, "0");
-    const sec = (s % 60).toString().padStart(2, "0");
-    return `${m}:${sec}`;
-  };
 
   const countWords = (text) => text.trim().split(/\s+/).filter(Boolean).length;
 
@@ -535,8 +644,8 @@ const WritingTest = () => {
             onMouseEnter={() => setBtnHover(true)}
             onMouseLeave={() => setBtnHover(false)}
             onClick={() => {
-              const e = Date.now() + timeLeft * 1000;
-              setEndAt(e);
+              autoSubmittingRef.current = false;
+              syncTimingState(Date.now() + timeLeft * 1000, timeLeft);
               setStarted(true);
             }}
           >
@@ -554,6 +663,7 @@ const WritingTest = () => {
   // Header đồng bộ với Reading
   return (
     <div style={{ height: "100vh", display: "flex", flexDirection: "column" }}>
+      <ExtensionToast message={extensionToast} />
       <header style={writingHeaderStyle}>
         <div style={writingHeaderLeft}>
           <div style={writingBadge}>IELTS</div>
@@ -625,6 +735,24 @@ const WritingTest = () => {
           </button>
         </div>
       </header>
+
+      {started && !submitted && timeLeft === 0 && graceRemaining > 0 && (
+        <div
+          style={{
+            margin: "16px 24px 0",
+            borderRadius: 12,
+            padding: "12px 16px",
+            background: "#fff7ed",
+            border: "1px solid #fdba74",
+            color: "#9a3412",
+            fontSize: 14,
+            lineHeight: 1.5,
+            boxShadow: "0 10px 25px rgba(249, 115, 22, 0.08)",
+          }}
+        >
+          <strong>Đã hết giờ chính thức.</strong> Hệ thống giữ bài thêm {formatTime(graceRemaining)} để phòng sự cố mất điện hoặc tải lại trang. Giáo viên có thể gia hạn thêm thời gian nếu cần.
+        </div>
+      )}
 
       <Split
         sizes={[50, 50]}

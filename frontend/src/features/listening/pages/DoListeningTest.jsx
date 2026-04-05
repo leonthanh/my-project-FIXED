@@ -2,7 +2,15 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import { useParams, useNavigate } from "react-router-dom";
 import { apiPath, hostPath, authFetch } from "../../../shared/utils/api";
 import TestHeader from "../../../shared/components/TestHeader";
+import ExtensionToast from "../../../shared/components/ExtensionToast";
 import { useTheme } from "../../../shared/contexts/ThemeContext";
+import {
+  formatClock,
+  getExtensionToastMessage,
+  getGraceRemainingSeconds,
+  getRemainingSeconds,
+  toTimestamp,
+} from "../../../shared/utils/testTiming";
 import MapLabelingQuestion from "../../../shared/components/MapLabelingQuestion";
 import TableCompletion from "../../../shared/components/questions/editors/TableCompletion.jsx";
 import ResultModal from "../../../shared/components/ResultModal";
@@ -85,6 +93,8 @@ const DoListeningTest = () => {
   /* eslint-disable-next-line no-unused-vars */
   const [expandedPart, setExpandedPart] = useState(0);
   const [timeRemaining, setTimeRemaining] = useState(30 * 60);
+  const [graceRemaining, setGraceRemaining] = useState(0);
+  const [extensionToast, setExtensionToast] = useState("");
   const [audioPlayed, setAudioPlayed] = useState({});
   const [activeQuestion, setActiveQuestion] = useState(null);
   // Modal & start state: control whether student has started the test (controls audio visibility)
@@ -121,6 +131,53 @@ const DoListeningTest = () => {
   const saveTimeoutRef = useRef(null);
   // Track server-side partial submission id (for anonymous resume we will store id locally)
   const submissionIdRef = useRef(null);
+  const autoSubmittingRef = useRef(false);
+  const lastAnnouncedExpiryRef = useRef(null);
+
+  const syncTimingState = useCallback(
+    (expiresAtValue, fallbackSeconds = null) => {
+      const expiresAtMs = toTimestamp(expiresAtValue);
+      if (Number.isFinite(expiresAtMs)) {
+        expiresAtRef.current = expiresAtMs;
+        try {
+          localStorage.setItem(expiresKey, String(expiresAtMs));
+        } catch (_err) {
+          // ignore storage errors
+        }
+        setTimeRemaining(getRemainingSeconds(expiresAtMs));
+        setGraceRemaining(getGraceRemainingSeconds(expiresAtMs));
+        return true;
+      }
+
+      expiresAtRef.current = null;
+      setGraceRemaining(0);
+      if (fallbackSeconds !== null) {
+        setTimeRemaining(fallbackSeconds);
+      }
+      return false;
+    },
+    [expiresKey]
+  );
+
+  const announceExtension = useCallback((nextExpiresAtValue, previousExpiresAtValue) => {
+    const nextExpiresAtMs = toTimestamp(nextExpiresAtValue);
+    const message = getExtensionToastMessage(previousExpiresAtValue, nextExpiresAtMs);
+    const lastAnnouncedMs = toTimestamp(lastAnnouncedExpiryRef.current);
+
+    if (!message || !Number.isFinite(nextExpiresAtMs)) return;
+    if (Number.isFinite(lastAnnouncedMs) && Math.abs(lastAnnouncedMs - nextExpiresAtMs) <= 1000) {
+      return;
+    }
+
+    lastAnnouncedExpiryRef.current = nextExpiresAtMs;
+    setExtensionToast(message);
+  }, []);
+
+  useEffect(() => {
+    if (!extensionToast) return;
+    const timeoutId = setTimeout(() => setExtensionToast(""), 4000);
+    return () => clearTimeout(timeoutId);
+  }, [extensionToast]);
 
   // Fetch test data
   useEffect(() => {
@@ -170,13 +227,12 @@ const DoListeningTest = () => {
         const durationSeconds = parsedData.duration ? parsedData.duration * 60 : 30 * 60;
         const stored = localStorage.getItem(expiresKey);
         if (stored) {
-          const expiresAt = parseInt(stored, 10);
-          const remaining = Math.max(0, Math.ceil((expiresAt - Date.now()) / 1000));
-          setTimeRemaining(remaining);
+          syncTimingState(parseInt(stored, 10), durationSeconds);
         } else {
           // Do not start the timer automatically. Only display the full duration and
           // start counting when the student confirms start via modal.
           setTimeRemaining(durationSeconds);
+          setGraceRemaining(0);
         }
 
         // Restore saved answers+expires if present (resume after F5/power loss).
@@ -188,10 +244,7 @@ const DoListeningTest = () => {
               setAnswers(parsedState.answers);
             }
             if (parsedState?.expiresAt) {
-              localStorage.setItem(expiresKey, String(parsedState.expiresAt));
-              expiresAtRef.current = parsedState.expiresAt;
-              const remaining = Math.max(0, Math.ceil((parsedState.expiresAt - Date.now()) / 1000));
-              setTimeRemaining(remaining);
+              syncTimingState(parsedState.expiresAt, durationSeconds);
             }
             if (parsedState?.submissionId) {
               submissionIdRef.current = parsedState.submissionId;
@@ -228,10 +281,7 @@ const DoListeningTest = () => {
                   if (serverAnswers) setAnswers(serverAnswers);
                   if (sub.expiresAt) {
                     const eAt = typeof sub.expiresAt === 'string' ? new Date(sub.expiresAt).getTime() : sub.expiresAt;
-                    localStorage.setItem(expiresKey, String(eAt));
-                    expiresAtRef.current = eAt;
-                    const remaining = Math.max(0, Math.ceil((eAt - Date.now()) / 1000));
-                    setTimeRemaining(remaining);
+                    syncTimingState(eAt, durationSeconds);
                   }
                   if (sub.id) submissionIdRef.current = sub.id;
                   // persist submissionId and server answers locally
@@ -262,7 +312,7 @@ const DoListeningTest = () => {
       }
     };
     fetchTest();
-  }, [id, stateKey, storageUserId, expiresKey]);
+  }, [id, stateKey, storageUserId, expiresKey, syncTimingState]);
 
   // Keep a ref to confirmSubmit to avoid referencing it before initialization in effects
   const confirmSubmitRef = useRef(null);
@@ -273,29 +323,34 @@ const DoListeningTest = () => {
     // Don't start the timer until the student starts the test
     if (submitted || !test || !started) return;
 
-    const stored = localStorage.getItem(expiresKey);
-    const expiresAt = stored
-      ? parseInt(stored, 10)
-      : Date.now() + (test?.duration ? test.duration * 60 * 1000 : 30 * 60 * 1000);
-
-    // Persist expiresAt if we just started and there's no stored value
-    if (!stored) {
-      try {
-        localStorage.setItem(expiresKey, String(expiresAt));
-      } catch (e) {}
+    if (!Number.isFinite(expiresAtRef.current)) {
+      const stored = localStorage.getItem(expiresKey);
+      if (stored) {
+        syncTimingState(parseInt(stored, 10));
+      } else {
+        const expiresAt =
+          Date.now() +
+          (test?.duration ? test.duration * 60 * 1000 : 30 * 60 * 1000);
+        syncTimingState(expiresAt);
+      }
     }
 
-    expiresAtRef.current = expiresAt;
-
-    let done = false;
     const tick = () => {
-      if (done) return;
-      const remaining = Math.max(0, Math.ceil((expiresAt - Date.now()) / 1000));
+      const expiresAt = expiresAtRef.current;
+      if (!Number.isFinite(expiresAt)) return;
+
+      const remaining = getRemainingSeconds(expiresAt);
+      const nextGraceRemaining = getGraceRemainingSeconds(expiresAt);
       setTimeRemaining(remaining);
-      if (remaining <= 0) {
+      setGraceRemaining(nextGraceRemaining);
+      if (
+        remaining <= 0 &&
+        nextGraceRemaining <= 0 &&
+        !autoSubmittingRef.current
+      ) {
         if (confirmSubmitRef.current) {
+          autoSubmittingRef.current = true;
           confirmSubmitRef.current();
-          done = true;
         } else {
           setTimeRemaining(0);
         }
@@ -306,8 +361,6 @@ const DoListeningTest = () => {
     tick();
 
     const intervalId = setInterval(tick, 1000);
-    const msUntilExpire = Math.max(0, expiresAt - Date.now());
-    const timeoutId = setTimeout(tick, msUntilExpire + 50);
 
     const onCheck = () => tick();
     window.addEventListener("focus", onCheck);
@@ -315,17 +368,15 @@ const DoListeningTest = () => {
 
     return () => {
       clearInterval(intervalId);
-      clearTimeout(timeoutId);
       window.removeEventListener("focus", onCheck);
       document.removeEventListener("visibilitychange", onCheck);
     };
-  }, [test, submitted, expiresKey, started]);
+  }, [test, submitted, expiresKey, started, syncTimingState]);
 
   // Format time display
   /* eslint-disable-next-line no-unused-vars */
   const formatTime = (seconds) => {
-    const mins = Math.floor(seconds / 60);
-    return `${mins} minutes remaining`;
+    return formatClock(seconds);
   };
 
   // Handle answer change
@@ -605,6 +656,11 @@ const DoListeningTest = () => {
               localStorage.setItem(stateKey, JSON.stringify(cur));
             } catch (e) {}
           }
+          const nextExpiresAt = json?.timing?.expiresAt || json?.expiresAt;
+          if (nextExpiresAt) {
+            announceExtension(nextExpiresAt, expiresAtRef.current);
+            syncTimingState(nextExpiresAt);
+          }
         }
       } catch (err) {
         // ignore server autosave failures (we still have localStorage fallback)
@@ -646,10 +702,7 @@ const DoListeningTest = () => {
           const parsed = JSON.parse(e.newValue || "{}");
           if (parsed.answers) setAnswers(parsed.answers);
           if (parsed.expiresAt) {
-            localStorage.setItem(expiresKey, String(parsed.expiresAt));
-            expiresAtRef.current = parsed.expiresAt;
-            const remaining = Math.max(0, Math.ceil((parsed.expiresAt - Date.now()) / 1000));
-            setTimeRemaining(remaining);
+            syncTimingState(parsed.expiresAt);
           }
           if (parsed.submissionId) submissionIdRef.current = parsed.submissionId;
         } catch (err) {
@@ -666,7 +719,66 @@ const DoListeningTest = () => {
       window.removeEventListener("beforeunload", onBeforeUnload);
       window.removeEventListener("storage", onStorage);
     };
-  }, [answers, submitted, stateKey, expiresKey, id, audioPlayed, started]);
+  }, [answers, submitted, stateKey, expiresKey, id, audioPlayed, started, syncTimingState, announceExtension]);
+
+  const reconcileServerTiming = useCallback(async () => {
+    if (!started || submitted) return;
+    if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
+
+    const user = (() => {
+      try {
+        return JSON.parse(localStorage.getItem("user") || "null");
+      } catch (_err) {
+        return null;
+      }
+    })();
+    const query = submissionIdRef.current
+      ? `?submissionId=${submissionIdRef.current}`
+      : user?.id
+        ? `?userId=${user.id}`
+        : "";
+    if (!query) return;
+
+    try {
+      const res = await fetch(apiPath(`listening-submissions/${id}/active${query}`));
+      if (!res.ok) return;
+      const data = await res.json().catch(() => ({}));
+      const nextExpiresAt = data?.submission?.expiresAt || data?.timing?.expiresAt;
+      const nextExpiresAtMs = toTimestamp(nextExpiresAt);
+      const currentExpiresAtMs = toTimestamp(expiresAtRef.current);
+
+      if (
+        Number.isFinite(nextExpiresAtMs) &&
+        (!Number.isFinite(currentExpiresAtMs) || Math.abs(nextExpiresAtMs - currentExpiresAtMs) > 1000)
+      ) {
+        announceExtension(nextExpiresAtMs, currentExpiresAtMs);
+        syncTimingState(nextExpiresAtMs);
+      }
+    } catch (_err) {
+      // ignore polling errors; autosave and refresh can still recover timing
+    }
+  }, [announceExtension, id, started, submitted, syncTimingState]);
+
+  useEffect(() => {
+    if (!started || submitted) return;
+
+    reconcileServerTiming();
+    const intervalId = setInterval(reconcileServerTiming, 5000);
+    const onCheck = () => {
+      if (document.visibilityState !== "hidden") {
+        reconcileServerTiming();
+      }
+    };
+
+    window.addEventListener("focus", onCheck);
+    document.addEventListener("visibilitychange", onCheck);
+
+    return () => {
+      clearInterval(intervalId);
+      window.removeEventListener("focus", onCheck);
+      document.removeEventListener("visibilitychange", onCheck);
+    };
+  }, [reconcileServerTiming, started, submitted]);
 
   // Get parts data
   const parts = useMemo(() => {
@@ -1277,8 +1389,8 @@ const DoListeningTest = () => {
   }, [test?.partInstructions, getPartDisplayRange]);
 
   // Timer warning states
-  const timerWarning = timeRemaining <= 300 && timeRemaining > 60; // < 5 min
-  const timerCritical = timeRemaining <= 60; // < 1 min
+  const timerWarning = timeRemaining > 60 && timeRemaining <= 300; // < 5 min
+  const timerCritical = timeRemaining > 0 && timeRemaining <= 60; // < 1 min
 
   // Scroll to question
   const scrollToQuestion = useCallback((qNum) => {
@@ -1486,6 +1598,7 @@ const DoListeningTest = () => {
     setShowStartModal(false);
     setStarted(true);
     setRequestAutoPlay(true);
+    autoSubmittingRef.current = false;
 
     // If timer wasn't already initialized, set expiresAt now so countdown begins
     try {
@@ -1493,9 +1606,7 @@ const DoListeningTest = () => {
       if (!stored && test) {
         const durationSeconds = test?.duration ? test.duration * 60 : 30 * 60;
         const expiresAt = Date.now() + durationSeconds * 1000;
-        localStorage.setItem(expiresKey, String(expiresAt));
-        expiresAtRef.current = expiresAt;
-        setTimeRemaining(durationSeconds);
+        syncTimingState(expiresAt, durationSeconds);
       }
     } catch (e) {}
 
@@ -1517,7 +1628,7 @@ const DoListeningTest = () => {
     }, 0);
     // Clear the request flag after a short delay so it doesn't stick around
     setTimeout(() => setRequestAutoPlay(false), 1200);
-  }, [test]);
+  }, [test, expiresKey, syncTimingState]);
 
   // ===================== RENDER FUNCTIONS =====================
 
@@ -2174,6 +2285,7 @@ const DoListeningTest = () => {
 
   return (
     <div style={styles.pageWrapper}>
+      <ExtensionToast message={extensionToast} />
       {showStartModal && (
         <div style={styles.playGateOverlay}>
           <div style={styles.playGateCard}>
@@ -2216,6 +2328,24 @@ const DoListeningTest = () => {
         timerCritical={timerCritical}
         showAutoSave={true}
       />
+
+      {started && !submitted && timeRemaining === 0 && graceRemaining > 0 && (
+        <div
+          style={{
+            margin: "16px 24px 0",
+            borderRadius: 12,
+            padding: "12px 16px",
+            background: "#fff7ed",
+            border: "1px solid #fdba74",
+            color: "#9a3412",
+            fontSize: 14,
+            lineHeight: 1.5,
+            boxShadow: "0 10px 25px rgba(249, 115, 22, 0.08)",
+          }}
+        >
+          <strong>Đã hết giờ chính thức.</strong> Hệ thống giữ bài thêm {formatClock(graceRemaining)} để phòng sự cố mất điện hoặc tải lại trang. Giáo viên có thể gia hạn thêm thời gian nếu cần.
+        </div>
+      )}
 
       {/* Part Info Box */}
       <div style={styles.partInfoBox}>

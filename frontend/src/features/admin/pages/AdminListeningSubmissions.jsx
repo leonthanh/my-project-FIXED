@@ -2,8 +2,13 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import AdminNavbar from "../../../shared/components/AdminNavbar";
 import { useTheme } from "../../../shared/contexts/ThemeContext";
-import { apiPath } from "../../../shared/utils/api";
+import { apiPath, authFetch } from "../../../shared/utils/api";
 import { generateDetailsFromSections } from "../../listening/pages/ListeningResults";
+import {
+  formatAttemptTimestamp,
+  getAttemptTimingMeta,
+  QUICK_EXTENSION_OPTIONS,
+} from "../utils/attemptTiming";
 
 // Small helpers (copied from ListeningResults) to safely parse test data
 const safeParseJson = (value) => {
@@ -62,6 +67,7 @@ const AdminListeningSubmissions = () => {
   const [searchTeacher, setSearchTeacher] = useState("");
   const [searchStudent, setSearchStudent] = useState("");
   const [filterFeedback, setFilterFeedback] = useState("all"); // all, with, without
+  const [extendingId, setExtendingId] = useState(null);
 
   useEffect(() => {
     const fetchSubs = async () => {
@@ -300,6 +306,39 @@ const AdminListeningSubmissions = () => {
     }
   };
 
+  const handleExtendTime = async (sub, extraMinutes) => {
+    setExtendingId(sub.id);
+    try {
+      const res = await authFetch(apiPath(`listening-submissions/${sub.id}/extend-time`), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ extraMinutes }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data?.message || "Gia hạn thất bại");
+      }
+
+      setSubs((prev) =>
+        prev.map((item) =>
+          item.id === sub.id
+            ? {
+                ...item,
+                finished: false,
+                expiresAt: data?.expiresAt || item.expiresAt,
+                lastSavedAt: new Date().toISOString(),
+              }
+            : item
+        )
+      );
+      alert(data?.message || "Đã gia hạn thời gian.");
+    } catch (err) {
+      alert(`❌ ${err.message}`);
+    } finally {
+      setExtendingId(null);
+    }
+  };
+
   const modalOverlayStyle = {
     position: "fixed",
     top: 0,
@@ -405,6 +444,10 @@ const AdminListeningSubmissions = () => {
                     background: idx % 2 === 0 ? "#fff" : "#f9f9f9",
                   }}
                 >
+                  {(() => {
+                    const timingMeta = s.finished === false ? getAttemptTimingMeta(s.expiresAt) : null;
+                    return (
+                      <>
                   <td style={cellStyle}>{idx + 1}</td>
                   <td style={cellStyle}>
                     {s.ListeningTest?.classCode || s.classCode || "N/A"}
@@ -468,7 +511,19 @@ const AdminListeningSubmissions = () => {
                     )}
                   </td>
                   <td style={cellStyle}>
-                    {s.createdAt ? new Date(s.createdAt).toLocaleString("vi-VN") : "N/A"}
+                    {s.finished === false ? (
+                      <div>
+                        <div style={{ fontWeight: 700, color: "#1d4ed8" }}>Đang làm</div>
+                        <div style={{ fontSize: 12, color: timingMeta?.color || "#64748b" }}>
+                          {timingMeta?.label || "Chưa có deadline"}
+                        </div>
+                        <div style={{ fontSize: 11, color: "#64748b" }}>
+                          Lưu: {formatAttemptTimestamp(s.lastSavedAt || s.updatedAt || s.createdAt)}
+                        </div>
+                      </div>
+                    ) : (
+                      formatAttemptTimestamp(s.createdAt)
+                    )}
                   </td>
                   <td style={cellStyle}>
                     <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }} className="admin-action-buttons">
@@ -486,8 +541,40 @@ const AdminListeningSubmissions = () => {
                       >
                         ✍️ Nhận xét
                       </button>
+                      {s.finished === false && (
+                        extendingId === s.id ? (
+                          <span
+                            style={{
+                              ...actionBtn,
+                              display: "inline-flex",
+                              alignItems: "center",
+                              background: "#0284c7",
+                              cursor: "wait",
+                            }}
+                          >
+                            ⏳ Đang gia hạn
+                          </span>
+                        ) : (
+                          QUICK_EXTENSION_OPTIONS.map((minutes) => (
+                            <button
+                              key={minutes}
+                              onClick={() => handleExtendTime(s, minutes)}
+                              style={{
+                                ...actionBtn,
+                                background: "#0284c7",
+                              }}
+                              title={`Gia hạn thêm ${minutes} phút`}
+                            >
+                              +{minutes}p
+                            </button>
+                          ))
+                        )
+                      )}
                     </div>
                   </td>
+                      </>
+                    );
+                  })()}
                 </tr>
               ))}
             </tbody>
