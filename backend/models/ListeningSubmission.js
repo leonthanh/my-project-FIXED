@@ -1,5 +1,6 @@
 const { DataTypes } = require("sequelize");
 const sequelize = require("../db");
+const User = require("./User");
 
 // IELTS Listening submission (scored like ReadingSubmission but simpler)
 const ListeningSubmission = sequelize.define(
@@ -12,6 +13,10 @@ const ListeningSubmission = sequelize.define(
     userId: {
       type: DataTypes.INTEGER,
       allowNull: true,
+      references: {
+        model: User,
+        key: "id",
+      },
     },
     userName: {
       type: DataTypes.STRING,
@@ -85,5 +90,8 @@ const ListeningSubmission = sequelize.define(
     timestamps: true,
   }
 );
+
+User.hasMany(ListeningSubmission, { foreignKey: "userId" });
+ListeningSubmission.belongsTo(User, { foreignKey: "userId" });
 
 module.exports = ListeningSubmission;

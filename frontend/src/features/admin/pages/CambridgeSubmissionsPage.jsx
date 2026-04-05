@@ -1,12 +1,109 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import AdminNavbar from "../../../shared/components/AdminNavbar";
-import { apiPath, authFetch } from "../../../shared/utils/api";
+import { apiPath, authFetch, hostPath } from "../../../shared/utils/api";
+import AttemptExtensionControls from "../components/AttemptExtensionControls";
+import SubmissionFilterPanel from "../components/SubmissionFilterPanel";
 import {
   formatAttemptTimestamp,
   getAttemptTimingMeta,
-  QUICK_EXTENSION_OPTIONS,
 } from "../utils/attemptTiming";
+
+const parseJsonIfString = (value) => {
+  if (typeof value !== "string") return value;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return value;
+  }
+};
+
+const escapeHtml = (value = "") =>
+  String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+
+const sanitizePromptHtml = (rawPrompt = "") => {
+  const prompt = String(rawPrompt || "").trim();
+  if (!prompt) return "";
+
+  if (typeof window === "undefined" || typeof DOMParser === "undefined") {
+    return escapeHtml(prompt).replace(/\n/g, "<br />");
+  }
+
+  try {
+    const doc = new DOMParser().parseFromString(prompt, "text/html");
+
+    doc
+      .querySelectorAll("script, style, iframe, object, embed, form, link, meta")
+      .forEach((node) => node.remove());
+
+    doc.querySelectorAll("*").forEach((element) => {
+      Array.from(element.attributes).forEach((attribute) => {
+        if (attribute.name.toLowerCase().startsWith("on")) {
+          element.removeAttribute(attribute.name);
+        }
+      });
+
+      if (element.tagName === "IMG") {
+        const rawSrc = String(element.getAttribute("src") || "").trim();
+        if (!rawSrc) {
+          element.remove();
+          return;
+        }
+
+        const normalizedSrc =
+          /^https?:\/\//i.test(rawSrc) || /^data:/i.test(rawSrc) || /^blob:/i.test(rawSrc)
+            ? rawSrc
+            : hostPath(rawSrc);
+
+        element.setAttribute("src", normalizedSrc);
+        element.setAttribute("alt", element.getAttribute("alt") || "Prompt illustration");
+        element.setAttribute("loading", "lazy");
+        element.setAttribute(
+          "style",
+          "display:block;max-width:100%;height:auto;border-radius:10px;margin:10px 0;border:1px solid #e5e7eb;"
+        );
+      }
+
+      if (element.tagName === "A") {
+        const href = String(element.getAttribute("href") || "").trim();
+        if (!href) {
+          element.removeAttribute("href");
+          return;
+        }
+
+        const safeHref = /^(https?:|mailto:|tel:|\/)/i.test(href) ? href : null;
+        if (!safeHref) {
+          element.removeAttribute("href");
+          return;
+        }
+
+        element.setAttribute("href", safeHref.startsWith("/") ? hostPath(safeHref) : safeHref);
+        element.setAttribute("target", "_blank");
+        element.setAttribute("rel", "noreferrer noopener");
+      }
+    });
+
+    doc.querySelectorAll("p").forEach((paragraph) => {
+      const text = String(paragraph.textContent || "").replace(/\u00a0/g, " ").trim();
+      const hasMedia = paragraph.querySelector("img, video, audio, iframe");
+      if (!text && !hasMedia) {
+        paragraph.remove();
+        return;
+      }
+      paragraph.setAttribute("style", "margin:0 0 8px;line-height:1.6;");
+    });
+
+    const html = String(doc.body.innerHTML || "").trim();
+    return html || escapeHtml(prompt).replace(/\n/g, "<br />");
+  } catch {
+    return escapeHtml(prompt).replace(/\n/g, "<br />");
+  }
+};
 
 /**
  * CambridgeSubmissionsPage - Trang giáo viên xem danh sách bài làm Cambridge
@@ -37,11 +134,23 @@ const CambridgeSubmissionsPage = () => {
 
   // Filters
   const [filters, setFilters] = useState({
-    testType: '',
     classCode: '',
     studentName: '',
+    studentPhone: '',
+    teacherName: '',
+    reviewedBy: '',
   });
   const [activeTab, setActiveTab] = useState('all'); // all, listening, reading
+  const [reviewStatus, setReviewStatus] = useState('all');
+  const [sortOrder, setSortOrder] = useState('newest');
+  const [activeReviewSubmissionId, setActiveReviewSubmissionId] = useState(null);
+  const [detailById, setDetailById] = useState({});
+  const [detailLoadingById, setDetailLoadingById] = useState({});
+  const [feedbackDraftById, setFeedbackDraftById] = useState({});
+  const [aiLoadingById, setAiLoadingById] = useState({});
+  const [savingById, setSavingById] = useState({});
+  const [statusMessageById, setStatusMessageById] = useState({});
+  const feedbackInputRef = useRef(null);
 
   // Fetch submissions
   useEffect(() => {
@@ -61,6 +170,24 @@ const CambridgeSubmissionsPage = () => {
         
         if (filters.classCode) {
           url += `&classCode=${encodeURIComponent(filters.classCode)}`;
+        }
+        if (filters.studentName) {
+          url += `&studentName=${encodeURIComponent(filters.studentName)}`;
+        }
+        if (filters.studentPhone) {
+          url += `&studentPhone=${encodeURIComponent(filters.studentPhone)}`;
+        }
+        if (filters.teacherName) {
+          url += `&teacherName=${encodeURIComponent(filters.teacherName)}`;
+        }
+        if (filters.reviewedBy) {
+          url += `&feedbackBy=${encodeURIComponent(filters.reviewedBy)}`;
+        }
+        if (reviewStatus !== 'all') {
+          url += `&reviewStatus=${encodeURIComponent(reviewStatus)}`;
+        }
+        if (sortOrder) {
+          url += `&sortOrder=${encodeURIComponent(sortOrder)}`;
         }
 
         const res = await fetch(apiPath(url));
@@ -82,15 +209,324 @@ const CambridgeSubmissionsPage = () => {
     };
 
     fetchSubmissions();
-  }, [pagination.page, pagination.limit, activeTab, filters.classCode]);
+  }, [
+    activeTab,
+    filters.classCode,
+    filters.reviewedBy,
+    filters.studentName,
+    filters.studentPhone,
+    filters.teacherName,
+    pagination.limit,
+    pagination.page,
+    reviewStatus,
+    sortOrder,
+  ]);
 
-  // Filter submissions locally by student name
-  const filteredSubmissions = submissions.filter(sub => {
-    if (filters.studentName) {
-      return sub.studentName?.toLowerCase().includes(filters.studentName.toLowerCase());
+  useEffect(() => {
+    setPagination((prev) =>
+      prev.page === 1 ? prev : { ...prev, page: 1 }
+    );
+  }, [
+    activeTab,
+    filters.classCode,
+    filters.reviewedBy,
+    filters.studentName,
+    filters.studentPhone,
+    filters.teacherName,
+    reviewStatus,
+    sortOrder,
+  ]);
+
+  const resetFilters = () => {
+    setFilters({
+      classCode: '',
+      studentName: '',
+      studentPhone: '',
+      teacherName: '',
+      reviewedBy: '',
+    });
+    setReviewStatus('all');
+    setSortOrder('newest');
+  };
+
+  const hasReview = (submission) =>
+    Boolean(
+      String(submission?.feedback || '').trim() ||
+        String(submission?.feedbackBy || '').trim() ||
+        String(submission?.status || '').toLowerCase() === 'reviewed'
+    );
+
+  const filteredSubmissions = submissions.filter((submission) => {
+    const normalizedStudentName = String(submission?.studentName || '').toLowerCase();
+    const normalizedPhone = String(submission?.studentPhone || '').toLowerCase();
+    const normalizedClassCode = String(submission?.classCode || '').toLowerCase();
+    const normalizedTeacher = String(submission?.teacherName || '').toLowerCase();
+    const normalizedReviewedBy = String(submission?.feedbackBy || '').toLowerCase();
+
+    if (filters.studentName && !normalizedStudentName.includes(filters.studentName.toLowerCase())) {
+      return false;
     }
+
+    if (filters.studentPhone && !normalizedPhone.includes(filters.studentPhone.toLowerCase())) {
+      return false;
+    }
+
+    if (filters.classCode && !normalizedClassCode.includes(filters.classCode.toLowerCase())) {
+      return false;
+    }
+
+    if (filters.teacherName && !normalizedTeacher.includes(filters.teacherName.toLowerCase())) {
+      return false;
+    }
+
+    if (filters.reviewedBy && !normalizedReviewedBy.includes(filters.reviewedBy.toLowerCase())) {
+      return false;
+    }
+
+    if (reviewStatus === 'pending' && hasReview(submission)) {
+      return false;
+    }
+
+    if (reviewStatus === 'reviewed' && !hasReview(submission)) {
+      return false;
+    }
+
     return true;
   });
+
+  const getPendingManualAnswers = (submissionDetail) => {
+    const detailedResults = parseJsonIfString(submissionDetail?.detailedResults);
+    if (!detailedResults || typeof detailedResults !== 'object' || Array.isArray(detailedResults)) {
+      return [];
+    }
+
+    return Object.entries(detailedResults)
+      .filter(([, result]) => result && typeof result === 'object' && result.isCorrect === null)
+      .map(([key, result], index) => ({
+        key,
+        label: `Response ${index + 1}`,
+        prompt:
+          typeof result.questionText === 'string' ? result.questionText.trim() : '',
+        userAnswer:
+          typeof result.userAnswer === 'string'
+            ? result.userAnswer.trim()
+            : String(result.userAnswer || '').trim(),
+        questionType:
+          typeof result.questionType === 'string' ? result.questionType.trim() : '',
+      }))
+      .filter((item) => item.userAnswer.length > 0);
+  };
+
+  const getPendingManualCount = (submission) => {
+    const count = Number(submission?.pendingManualCount);
+    if (Number.isFinite(count) && count >= 0) {
+      return count;
+    }
+
+    if (hasReview(submission)) {
+      return 0;
+    }
+
+    const detail = submission?.id ? detailById[submission.id] : null;
+    return detail ? getPendingManualAnswers(detail).length : 0;
+  };
+
+  const loadSubmissionDetail = async (submissionId) => {
+    if (detailById[submissionId] || detailLoadingById[submissionId]) {
+      return;
+    }
+
+    try {
+      setDetailLoadingById((prev) => ({ ...prev, [submissionId]: true }));
+      const res = await fetch(apiPath(`cambridge/submissions/${submissionId}`));
+      if (!res.ok) {
+        throw new Error('Could not load submission details.');
+      }
+
+      const detail = await res.json();
+      setDetailById((prev) => ({ ...prev, [submissionId]: detail }));
+      setFeedbackDraftById((prev) => ({
+        ...prev,
+        [submissionId]:
+          typeof detail?.feedback === 'string' ? detail.feedback : prev[submissionId] || '',
+      }));
+    } catch (err) {
+      console.error('Failed to load Cambridge submission detail:', err);
+      setStatusMessageById((prev) => ({
+        ...prev,
+        [submissionId]: err.message || 'Could not load submission details.',
+      }));
+    } finally {
+      setDetailLoadingById((prev) => ({ ...prev, [submissionId]: false }));
+    }
+  };
+
+  const openEssayReview = async (submission) => {
+    setActiveReviewSubmissionId(submission.id);
+    await loadSubmissionDetail(submission.id);
+  };
+
+  const closeEssayReview = () => {
+    setActiveReviewSubmissionId(null);
+  };
+
+  useEffect(() => {
+    if (!activeReviewSubmissionId) {
+      return undefined;
+    }
+
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        setActiveReviewSubmissionId(null);
+      }
+    };
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [activeReviewSubmissionId]);
+
+  useEffect(() => {
+    if (!activeReviewSubmissionId) {
+      return undefined;
+    }
+
+    if (detailLoadingById[activeReviewSubmissionId]) {
+      return undefined;
+    }
+
+    const detail = detailById[activeReviewSubmissionId];
+    if (!detail || !getPendingManualAnswers(detail).length) {
+      return undefined;
+    }
+
+    const frameId = window.requestAnimationFrame(() => {
+      feedbackInputRef.current?.focus();
+    });
+
+    return () => window.cancelAnimationFrame(frameId);
+  }, [activeReviewSubmissionId, detailById, detailLoadingById]);
+
+  const handleGenerateEssayFeedback = async (submission) => {
+    const detail = detailById[submission.id];
+    const pendingAnswers = getPendingManualAnswers(detail);
+    if (!pendingAnswers.length) {
+      alert('No open-ended responses were found for AI feedback.');
+      return;
+    }
+
+    try {
+      setAiLoadingById((prev) => ({ ...prev, [submission.id]: true }));
+      setStatusMessageById((prev) => ({ ...prev, [submission.id]: '' }));
+
+      const res = await fetch(apiPath('ai/generate-cambridge-feedback'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          studentName: submission.studentName || 'N/A',
+          testType: submission.testType || 'Cambridge',
+          classCode: submission.classCode || '',
+          responses: pendingAnswers.map((item) => ({
+            label: item.label,
+            prompt: item.prompt,
+            answer: item.userAnswer,
+            questionType: item.questionType,
+          })),
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data?.error || 'AI could not generate Cambridge feedback.');
+      }
+
+      if (!data?.suggestion) {
+        throw new Error('AI returned an empty Cambridge feedback result.');
+      }
+
+      setFeedbackDraftById((prev) => ({
+        ...prev,
+        [submission.id]: data.suggestion,
+      }));
+      setStatusMessageById((prev) => ({
+        ...prev,
+        [submission.id]: data.warning
+          ? data.warning
+          : data.cached
+          ? 'Loaded cached AI feedback.'
+          : 'AI feedback generated.',
+      }));
+    } catch (err) {
+      console.error('Failed to generate Cambridge AI feedback:', err);
+      setStatusMessageById((prev) => ({
+        ...prev,
+        [submission.id]: err.message || 'AI feedback failed.',
+      }));
+      alert(err.message || 'AI feedback failed.');
+    } finally {
+      setAiLoadingById((prev) => ({ ...prev, [submission.id]: false }));
+    }
+  };
+
+  const handleSaveEssayFeedback = async (submissionId) => {
+    const feedback = String(feedbackDraftById[submissionId] || '').trim();
+    if (!feedback) return;
+
+    const reviewerName =
+      teacher?.name || teacher?.username || teacher?.fullName || 'Teacher';
+
+    try {
+      setSavingById((prev) => ({ ...prev, [submissionId]: true }));
+      const res = await fetch(apiPath(`cambridge/submissions/${submissionId}`), {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          feedback,
+          feedbackBy: reviewerName,
+          status: 'reviewed',
+        }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err?.message || 'Could not save feedback.');
+      }
+
+      setSubmissions((prev) =>
+        prev.map((item) =>
+          item.id === submissionId
+            ? {
+                ...item,
+                feedback,
+                feedbackBy: reviewerName,
+                status: 'reviewed',
+                feedbackAt: new Date().toISOString(),
+                pendingManualCount: 0,
+              }
+            : item
+        )
+      );
+      setActiveReviewSubmissionId(null);
+      setStatusMessageById((prev) => ({
+        ...prev,
+        [submissionId]: 'Feedback saved.',
+      }));
+    } catch (err) {
+      console.error('Failed to save Cambridge feedback:', err);
+      setStatusMessageById((prev) => ({
+        ...prev,
+        [submissionId]: err.message || 'Could not save feedback.',
+      }));
+      alert(err.message || 'Could not save feedback.');
+    } finally {
+      setSavingById((prev) => ({ ...prev, [submissionId]: false }));
+    }
+  };
 
   // Format time
   const formatTime = (seconds) => {
@@ -163,8 +599,10 @@ const CambridgeSubmissionsPage = () => {
         )
       );
       alert(data?.message || "Đã gia hạn thời gian.");
+      return true;
     } catch (err) {
       alert(`❌ ${err.message}`);
+      return false;
     } finally {
       setExtendingId(null);
     }
@@ -173,6 +611,115 @@ const CambridgeSubmissionsPage = () => {
   // Handle page change
   const handlePageChange = (newPage) => {
     setPagination(prev => ({ ...prev, page: newPage }));
+  };
+
+  const activeReviewSubmission = activeReviewSubmissionId
+    ? submissions.find((item) => item.id === activeReviewSubmissionId) || null
+    : null;
+
+  const renderEssayReviewContent = (submission) => {
+    const detail = detailById[submission.id];
+    const isLoadingDetail = !!detailLoadingById[submission.id];
+    const pendingAnswers = detail ? getPendingManualAnswers(detail) : [];
+
+    return (
+      <div style={styles.drawerContent}>
+        {isLoadingDetail && <div>Loading submission details...</div>}
+
+        {!isLoadingDetail && detail && (
+          <div style={styles.drawerGrid}>
+            <div style={styles.drawerSection}>
+              <div style={styles.drawerSectionTitle}>Open-ended responses to review</div>
+
+              {pendingAnswers.length === 0 ? (
+                <div style={styles.drawerHint}>
+                  No pending open-ended responses were found in this submission. You can still
+                  open the full result to inspect it manually.
+                </div>
+              ) : (
+                <div style={styles.answerList}>
+                  {pendingAnswers.map((item, index) => (
+                    <div key={item.key} style={styles.answerCard}>
+                      <div style={styles.answerCardTitle}>
+                        {item.label || `Response ${index + 1}`}
+                      </div>
+                      {item.prompt && (
+                        <div style={styles.answerPromptWrap}>
+                          <div style={styles.answerPromptLabel}>Prompt</div>
+                          <div
+                            style={styles.answerPromptHtml}
+                            dangerouslySetInnerHTML={{
+                              __html: sanitizePromptHtml(item.prompt),
+                            }}
+                          />
+                        </div>
+                      )}
+                      <div style={styles.answerBody}>{item.userAnswer}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div style={styles.drawerSection}>
+              <div style={styles.drawerSectionTitle}>Teacher Feedback</div>
+              <textarea
+                ref={submission.id === activeReviewSubmissionId ? feedbackInputRef : null}
+                rows={4}
+                value={feedbackDraftById[submission.id] || ''}
+                onChange={(e) =>
+                  setFeedbackDraftById((prev) => ({
+                    ...prev,
+                    [submission.id]: e.target.value,
+                  }))
+                }
+                placeholder="Enter feedback..."
+                style={styles.feedbackTextarea}
+              />
+
+              <div style={styles.feedbackActions}>
+                <button
+                  onClick={() => handleGenerateEssayFeedback(submission)}
+                  style={styles.secondaryActionButton}
+                  disabled={
+                    !pendingAnswers.length ||
+                    aiLoadingById[submission.id] ||
+                    savingById[submission.id]
+                  }
+                >
+                  {aiLoadingById[submission.id] ? 'Generating...' : 'AI Feedback'}
+                </button>
+                <button
+                  onClick={() => handleSaveEssayFeedback(submission.id)}
+                  style={styles.saveActionButton}
+                  disabled={
+                    !(feedbackDraftById[submission.id] || '').trim() ||
+                    savingById[submission.id] ||
+                    aiLoadingById[submission.id]
+                  }
+                >
+                  {savingById[submission.id] ? 'Saving...' : 'Save Feedback'}
+                </button>
+                <button
+                  onClick={() => handleViewDetail(submission.id)}
+                  style={styles.ghostActionButton}
+                >
+                  Open Full Result
+                </button>
+              </div>
+
+              <div style={styles.drawerHint}>
+                Saving will move this submission to the reviewed state.
+              </div>
+
+              {statusMessageById[submission.id] && (
+                <div style={styles.statusMessage}>{statusMessageById[submission.id]}</div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    );
   };
 
   return (
@@ -219,32 +766,58 @@ const CambridgeSubmissionsPage = () => {
           </button>
         </div>
 
-        {/* Filters */}
-        <div style={styles.filtersContainer} className="admin-filters-row">
-          <div style={styles.filterGroup} className="admin-filter-group">
-            <label style={styles.filterLabel}>Mã lớp:</label>
-            <input
-              type="text"
-              value={filters.classCode}
-              onChange={(e) => setFilters(prev => ({ ...prev, classCode: e.target.value }))}
-              placeholder="Tìm theo mã lớp..."
-              style={styles.filterInput}
-            />
-          </div>
-          <div style={styles.filterGroup} className="admin-filter-group">
-            <label style={styles.filterLabel}>Tên học sinh:</label>
-            <input
-              type="text"
-              value={filters.studentName}
-              onChange={(e) => setFilters(prev => ({ ...prev, studentName: e.target.value }))}
-              placeholder="Tìm theo tên..."
-              style={styles.filterInput}
-            />
-          </div>
-          <div style={styles.filterStats} className="admin-filter-stats">
-            <span>Tổng: <strong>{pagination.total}</strong> bài</span>
-          </div>
-        </div>
+        <SubmissionFilterPanel
+          fields={[
+            {
+              key: 'studentName',
+              label: 'Student Name',
+              placeholder: 'Student name',
+              value: filters.studentName,
+              onChange: (value) =>
+                setFilters((prev) => ({ ...prev, studentName: value })),
+            },
+            {
+              key: 'studentPhone',
+              label: 'Phone',
+              placeholder: 'Phone number',
+              value: filters.studentPhone,
+              onChange: (value) =>
+                setFilters((prev) => ({ ...prev, studentPhone: value })),
+            },
+            {
+              key: 'classCode',
+              label: 'Class Code',
+              placeholder: 'e.g. 148-IX-3A-S1',
+              value: filters.classCode,
+              onChange: (value) =>
+                setFilters((prev) => ({ ...prev, classCode: value })),
+            },
+            {
+              key: 'teacherName',
+              label: 'Test Teacher',
+              placeholder: 'Teacher name',
+              value: filters.teacherName,
+              onChange: (value) =>
+                setFilters((prev) => ({ ...prev, teacherName: value })),
+            },
+            {
+              key: 'reviewedBy',
+              label: 'Reviewed By',
+              placeholder: 'Reviewer name',
+              value: filters.reviewedBy,
+              onChange: (value) =>
+                setFilters((prev) => ({ ...prev, reviewedBy: value })),
+            },
+          ]}
+          sortValue={sortOrder}
+          onSortChange={setSortOrder}
+          statusValue={reviewStatus}
+          onStatusChange={setReviewStatus}
+          onReset={resetFilters}
+          filteredCount={filteredSubmissions.length}
+          totalCount={pagination.total}
+          summaryLabel="submissions"
+        />
 
         {/* Loading */}
         {loading && (
@@ -280,6 +853,7 @@ const CambridgeSubmissionsPage = () => {
                     <th style={styles.th}>Học sinh</th>
                     <th style={styles.th}>Lớp</th>
                     <th style={styles.th}>Điểm</th>
+                    <th style={styles.th}>Status</th>
                     <th style={styles.th}>Thời gian</th>
                     <th style={styles.th}>Ngày nộp</th>
                     <th style={styles.th}>Thao tác</th>
@@ -288,7 +862,7 @@ const CambridgeSubmissionsPage = () => {
                 <tbody>
                   {filteredSubmissions.length === 0 ? (
                     <tr>
-                      <td colSpan="9" style={styles.emptyCell}>
+                      <td colSpan="10" style={styles.emptyCell}>
                         Không có bài nộp nào
                       </td>
                     </tr>
@@ -296,134 +870,159 @@ const CambridgeSubmissionsPage = () => {
                     filteredSubmissions.map((sub, index) => {
                       const typeBadge = getTestTypeBadge(sub.testType);
                       const timingMeta = sub.finished === false ? getAttemptTimingMeta(sub.expiresAt) : null;
+                      const pendingManualCount = getPendingManualCount(sub);
+                      const canReviewEssay =
+                        String(sub.testType || '').toLowerCase().includes('reading') &&
+                        sub.finished !== false &&
+                        pendingManualCount > 0;
+                      const isReviewing = activeReviewSubmissionId === sub.id;
                       return (
-                        <tr key={sub.id} style={styles.tr}>
-                          <td style={styles.td}>
-                            {(pagination.page - 1) * pagination.limit + index + 1}
-                          </td>
-                          <td style={styles.td}>
-                            <span style={{
-                              ...styles.badge,
-                              backgroundColor: typeBadge.bgColor,
-                              color: typeBadge.color
-                            }}>
-                              {typeBadge.label}
-                            </span>
-                          </td>
-                          <td style={styles.td}>
-                            <span style={styles.testTitle}>{sub.testTitle || '--'}</span>
-                          </td>
-                          <td style={styles.td}>
-                            <div style={styles.studentInfo}>
-                              <span style={styles.studentName}>{sub.studentName}</span>
-                              {sub.studentPhone && (
-                                <span style={styles.studentPhone}>{sub.studentPhone}</span>
-                              )}
-                            </div>
-                          </td>
-                          <td style={styles.td}>
-                            <span style={styles.classCode}>{sub.classCode || '--'}</span>
-                          </td>
-                          <td style={styles.td}>
-                            <div style={styles.scoreContainer}>
-                              {sub.finished === false ? (
-                                <>
-                                  <span style={{ ...styles.score, color: "#1d4ed8" }}>
-                                    Đang làm
-                                  </span>
-                                  <span style={{
-                                    ...styles.percentage,
-                                    backgroundColor: "#dbeafe",
-                                    color: timingMeta?.color || "#1d4ed8"
-                                  }}>
-                                    {timingMeta?.label || "Chưa nộp"}
-                                  </span>
-                                </>
-                              ) : (
-                                <>
-                                  <span style={{
-                                    ...styles.score,
-                                    color: getScoreColor(sub.percentage)
-                                  }}>
-                                    {sub.score}/{sub.totalQuestions}
-                                  </span>
-                                  <span style={{
-                                    ...styles.percentage,
-                                    backgroundColor: getScoreColor(sub.percentage) + '20',
-                                    color: getScoreColor(sub.percentage)
-                                  }}>
-                                    {sub.percentage}%
-                                  </span>
-                                </>
-                              )}
-                            </div>
-                          </td>
-                          <td style={styles.td}>
-                            <span style={styles.timeSpent}>
-                              {sub.finished === false ? "--:--" : formatTime(sub.timeSpent)}
-                            </span>
-                          </td>
-                          <td style={styles.td}>
-                            {sub.finished === false ? (
-                              <div>
-                                <div style={{ ...styles.date, fontWeight: 700, color: "#1d4ed8" }}>Đang làm</div>
-                                <div style={{ ...styles.date, color: timingMeta?.color || "#64748b", fontSize: 12 }}>
-                                  {timingMeta?.label || "Chưa có deadline"}
-                                </div>
-                                <div style={{ ...styles.date, fontSize: 11 }}>
-                                  Lưu: {formatAttemptTimestamp(sub.lastSavedAt || sub.createdAt)}
-                                </div>
-                              </div>
-                            ) : (
-                              <span style={styles.date}>
-                                {formatDate(sub.submittedAt)}
+                        <React.Fragment key={sub.id}>
+                          <tr style={styles.tr}>
+                            <td style={styles.td}>
+                              {(pagination.page - 1) * pagination.limit + index + 1}
+                            </td>
+                            <td style={styles.td}>
+                              <span style={{
+                                ...styles.badge,
+                                backgroundColor: typeBadge.bgColor,
+                                color: typeBadge.color
+                              }}>
+                                {typeBadge.label}
                               </span>
-                            )}
-                          </td>
-                          <td style={styles.td}>
-                            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                              <button
-                                onClick={() => handleViewDetail(sub.id)}
-                                style={styles.viewButton}
-                                className="admin-view-button"
-                              >
-                                <span className="admin-view-button__icon">👁️</span>
-                                <span className="admin-view-button__label">Xem</span>
-                              </button>
-                              {sub.finished === false && (
-                                extendingId === sub.id ? (
-                                  <span
+                            </td>
+                            <td style={styles.td}>
+                              <div style={styles.testTitleWrap}>
+                                <span style={styles.testTitle}>{sub.testTitle || '--'}</span>
+                                <span style={styles.testMeta}>{sub.teacherName || '--'}</span>
+                              </div>
+                            </td>
+                            <td style={styles.td}>
+                              <div style={styles.studentInfo}>
+                                <span style={styles.studentName}>{sub.studentName}</span>
+                                {sub.studentPhone && (
+                                  <span style={styles.studentPhone}>{sub.studentPhone}</span>
+                                )}
+                              </div>
+                            </td>
+                            <td style={styles.td}>
+                              <span style={styles.classCode}>{sub.classCode || '--'}</span>
+                            </td>
+                            <td style={styles.td}>
+                              <div style={styles.scoreContainer}>
+                                {sub.finished === false ? (
+                                  <>
+                                    <span style={{ ...styles.score, color: "#1d4ed8" }}>
+                                      Đang làm
+                                    </span>
+                                    <span style={{
+                                      ...styles.percentage,
+                                      backgroundColor: "#dbeafe",
+                                      color: timingMeta?.color || "#1d4ed8"
+                                    }}>
+                                      {timingMeta?.label || "Chưa nộp"}
+                                    </span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <span style={{
+                                      ...styles.score,
+                                      color: getScoreColor(sub.percentage)
+                                    }}>
+                                      {sub.score}/{sub.totalQuestions}
+                                    </span>
+                                    <span style={{
+                                      ...styles.percentage,
+                                      backgroundColor: getScoreColor(sub.percentage) + '20',
+                                      color: getScoreColor(sub.percentage)
+                                    }}>
+                                      {sub.percentage}%
+                                    </span>
+                                  </>
+                                )}
+                              </div>
+                            </td>
+                            <td style={styles.td}>
+                              <div style={styles.statusCell}>
+                                <span
+                                  style={{
+                                    ...styles.statusBadge,
+                                    ...(sub.status === 'reviewed' || sub.feedbackBy
+                                      ? styles.statusBadgeReviewed
+                                      : styles.statusBadgePending),
+                                  }}
+                                >
+                                  {sub.finished === false
+                                    ? 'Active'
+                                    : sub.status === 'reviewed' || sub.feedbackBy
+                                    ? 'Reviewed'
+                                    : 'Pending'}
+                                </span>
+                                <span style={styles.statusMeta}>{sub.feedbackBy || '--'}</span>
+                              </div>
+                            </td>
+                            <td style={styles.td}>
+                              <span style={styles.timeSpent}>
+                                {sub.finished === false ? "--:--" : formatTime(sub.timeSpent)}
+                              </span>
+                            </td>
+                            <td style={styles.td}>
+                              {sub.finished === false ? (
+                                <div>
+                                  <div style={{ ...styles.date, fontWeight: 700, color: "#1d4ed8" }}>Đang làm</div>
+                                  <div style={{ ...styles.date, color: timingMeta?.color || "#64748b", fontSize: 12 }}>
+                                    {timingMeta?.label || "Chưa có deadline"}
+                                  </div>
+                                  <div style={{ ...styles.date, fontSize: 11 }}>
+                                    Lưu: {formatAttemptTimestamp(sub.lastSavedAt || sub.createdAt)}
+                                  </div>
+                                </div>
+                              ) : (
+                                <span style={styles.date}>
+                                  {formatDate(sub.submittedAt)}
+                                </span>
+                              )}
+                            </td>
+                            <td style={styles.td}>
+                              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                                {canReviewEssay && (
+                                  <button
+                                    onClick={() => openEssayReview(sub)}
                                     style={{
-                                      ...styles.viewButton,
-                                      display: "inline-flex",
-                                      alignItems: "center",
-                                      justifyContent: "center",
-                                      background: "#0284c7",
-                                      cursor: "wait",
+                                      ...styles.reviewEssayButton,
+                                      ...(isReviewing ? styles.reviewEssayButtonActive : null),
                                     }}
                                   >
-                                    ⏳ Đang gia hạn
-                                  </span>
-                                ) : (
-                                  QUICK_EXTENSION_OPTIONS.map((minutes) => (
-                                    <button
-                                      key={minutes}
-                                      onClick={() => handleExtendTime(sub, minutes)}
-                                      style={{
-                                        ...styles.viewButton,
-                                        background: "#0284c7",
-                                      }}
-                                      title={`Gia hạn thêm ${minutes} phút`}
-                                    >
-                                      <span className="admin-view-button__icon">⏱️</span>
-                                      <span className="admin-view-button__label">+{minutes}p</span>
-                                    </button>
-                                  ))
-                                )
-                              )}
-                            </div>
-                          </td>
-                        </tr>
+                                    <span>{detailLoadingById[sub.id] && isReviewing ? 'Loading...' : 'Review Essay'}</span>
+                                    <span style={styles.reviewEssayBadge}>{pendingManualCount}</span>
+                                  </button>
+                                )}
+                                <button
+                                  onClick={() => handleViewDetail(sub.id)}
+                                  style={styles.viewButton}
+                                  className="admin-view-button"
+                                >
+                                  <span className="admin-view-button__icon">👁️</span>
+                                  <span className="admin-view-button__label">Xem</span>
+                                </button>
+                                {sub.finished === false && (
+                                  <AttemptExtensionControls
+                                    isLoading={extendingId === sub.id}
+                                    onExtend={(minutes) => handleExtendTime(sub, minutes)}
+                                    buttonStyle={{
+                                      ...styles.viewButton,
+                                      background: "#0284c7",
+                                    }}
+                                    submitButtonStyle={{
+                                      ...styles.viewButton,
+                                      background: "#0369a1",
+                                    }}
+                                  />
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        </React.Fragment>
                       );
                     })
                   )}
@@ -461,6 +1060,36 @@ const CambridgeSubmissionsPage = () => {
             )}
           </>
         )}
+
+        {activeReviewSubmission && (
+          <div style={styles.drawerOverlay} onClick={closeEssayReview}>
+            <aside style={styles.drawerPanel} onClick={(event) => event.stopPropagation()}>
+              <div style={styles.drawerHeader}>
+                <div>
+                  <div style={styles.drawerEyebrow}>Cambridge Essay Review</div>
+                  <h2 style={styles.drawerTitle}>{activeReviewSubmission.testTitle || 'Reading Submission'}</h2>
+                  <div style={styles.drawerMetaRow}>
+                    <span style={styles.drawerMetaChip}>{activeReviewSubmission.studentName || '--'}</span>
+                    {activeReviewSubmission.classCode && (
+                      <span style={styles.drawerMetaChip}>{activeReviewSubmission.classCode}</span>
+                    )}
+                    <span style={styles.drawerMetaChipAccent}>
+                      {getPendingManualCount(activeReviewSubmission)} pending
+                    </span>
+                  </div>
+                </div>
+
+                <button onClick={closeEssayReview} style={styles.drawerCloseButton} aria-label="Close review drawer">
+                  ×
+                </button>
+              </div>
+
+              <div style={styles.drawerBody}>
+                {renderEssayReviewContent(activeReviewSubmission)}
+              </div>
+            </aside>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -475,12 +1104,15 @@ const styles = {
     backgroundColor: '#f8fafc',
   },
   content: {
+    width: '100%',
     maxWidth: '1400px',
     margin: '0 auto',
     padding: '24px',
+    boxSizing: 'border-box',
   },
   header: {
     marginBottom: '24px',
+    width: '100%',
   },
   title: {
     margin: 0,
@@ -499,6 +1131,7 @@ const styles = {
     marginBottom: '20px',
     borderBottom: '1px solid #e5e7eb',
     paddingBottom: '12px',
+    width: '100%',
   },
   tab: {
     padding: '10px 20px',
@@ -578,6 +1211,7 @@ const styles = {
     cursor: 'pointer',
   },
   tableContainer: {
+    width: '100%',
     backgroundColor: 'white',
     borderRadius: '12px',
     boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
@@ -629,6 +1263,15 @@ const styles = {
     whiteSpace: 'nowrap',
     display: 'block',
   },
+  testTitleWrap: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '4px',
+  },
+  testMeta: {
+    fontSize: '12px',
+    color: '#64748b',
+  },
   studentInfo: {
     display: 'flex',
     flexDirection: 'column',
@@ -664,6 +1307,33 @@ const styles = {
     fontSize: '12px',
     fontWeight: 600,
   },
+  statusCell: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '4px',
+  },
+  statusBadge: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 'fit-content',
+    padding: '4px 8px',
+    borderRadius: '999px',
+    fontSize: '12px',
+    fontWeight: 700,
+  },
+  statusBadgePending: {
+    backgroundColor: '#fef3c7',
+    color: '#b45309',
+  },
+  statusBadgeReviewed: {
+    backgroundColor: '#dcfce7',
+    color: '#166534',
+  },
+  statusMeta: {
+    fontSize: '12px',
+    color: '#64748b',
+  },
   timeSpent: {
     color: '#64748b',
     fontSize: '13px',
@@ -685,6 +1355,222 @@ const styles = {
     display: 'inline-flex',
     alignItems: 'center',
     gap: '6px',
+  },
+  reviewEssayButton: {
+    padding: '8px 12px',
+    backgroundColor: '#fff7ed',
+    color: '#c2410c',
+    border: '1px solid #fdba74',
+    borderRadius: '999px',
+    cursor: 'pointer',
+    fontSize: '13px',
+    fontWeight: 600,
+    display: 'grid',
+    alignItems: 'center',
+    gap: '8px',
+  },
+  reviewEssayButtonActive: {
+    backgroundColor: '#ffedd5',
+    borderColor: '#fb923c',
+    color: '#9a3412',
+  },
+  reviewEssayBadge: {
+    minWidth: '22px',
+    height: '22px',
+    padding: '0 6px',
+    borderRadius: '999px',
+    backgroundColor: '#ea580c',
+    color: '#fff',
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: '12px',
+    fontWeight: 800,
+  },
+  drawerOverlay: {
+    position: 'fixed',
+    inset: 0,
+    backgroundColor: 'rgba(15, 23, 42, 0.42)',
+    backdropFilter: 'blur(3px)',
+    zIndex: 1200,
+    display: 'flex',
+    justifyContent: 'flex-end',
+  },
+  drawerPanel: {
+    width: 'min(680px, 100vw)',
+    height: '100vh',
+    backgroundColor: '#ffffff',
+    boxShadow: '-24px 0 48px rgba(15, 23, 42, 0.18)',
+    display: 'flex',
+    flexDirection: 'column',
+  },
+  drawerHeader: {
+    padding: '24px 24px 18px',
+    borderBottom: '1px solid #e2e8f0',
+    display: 'grid',
+    gridTemplateColumns: '1fr auto',
+    gap: '16px',
+    alignItems: 'start',
+  },
+  drawerEyebrow: {
+    fontSize: '11px',
+    fontWeight: 800,
+    letterSpacing: '0.12em',
+    textTransform: 'uppercase',
+    color: '#9a3412',
+  },
+  drawerTitle: {
+    margin: '6px 0 0',
+    fontSize: '22px',
+    lineHeight: 1.3,
+    color: '#0f172a',
+  },
+  drawerMetaRow: {
+    display: 'flex',
+    gap: '8px',
+    flexWrap: 'wrap',
+    marginTop: '14px',
+  },
+  drawerMetaChip: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    padding: '6px 10px',
+    borderRadius: '999px',
+    fontSize: '12px',
+    fontWeight: 700,
+    backgroundColor: '#f1f5f9',
+    color: '#334155',
+  },
+  drawerMetaChipAccent: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    padding: '6px 10px',
+    borderRadius: '999px',
+    fontSize: '12px',
+    fontWeight: 700,
+    backgroundColor: '#fff7ed',
+    color: '#c2410c',
+  },
+  drawerCloseButton: {
+    width: '40px',
+    height: '40px',
+    borderRadius: '999px',
+    border: '1px solid #cbd5e1',
+    backgroundColor: '#fff',
+    color: '#334155',
+    fontSize: '24px',
+    lineHeight: 1,
+    cursor: 'pointer',
+  },
+  drawerBody: {
+    flex: 1,
+    overflowY: 'auto',
+    padding: '22px 24px 28px',
+  },
+  drawerContent: {
+    display: 'grid',
+    gap: '18px',
+  },
+  drawerGrid: {
+    display: 'grid',
+    gap: '18px',
+  },
+  drawerSection: {
+    display: 'grid',
+    gap: '12px',
+  },
+  drawerSectionTitle: {
+    fontWeight: 700,
+    color: '#111827',
+  },
+  drawerHint: {
+    color: '#6b7280',
+    fontSize: '13px',
+    lineHeight: 1.5,
+  },
+  answerList: {
+    display: 'grid',
+    gap: '10px',
+  },
+  answerCard: {
+    border: '1px solid #e5e7eb',
+    borderRadius: '10px',
+    background: '#fff',
+    padding: '12px 14px',
+  },
+  answerCardTitle: {
+    fontWeight: 700,
+    color: '#111827',
+  },
+  answerPromptWrap: {
+    marginTop: '6px',
+    marginBottom: '8px',
+  },
+  answerPromptLabel: {
+    marginBottom: '6px',
+    color: '#6b7280',
+    fontSize: '12px',
+    fontWeight: 700,
+    textTransform: 'uppercase',
+    letterSpacing: '0.06em',
+  },
+  answerPromptHtml: {
+    color: '#4b5563',
+    fontSize: '13px',
+    lineHeight: 1.6,
+  },
+  answerBody: {
+    whiteSpace: 'pre-wrap',
+    color: '#111827',
+  },
+  feedbackTextarea: {
+    width: '100%',
+    padding: '10px 12px',
+    border: '1px solid #d1d5db',
+    borderRadius: '8px',
+    fontSize: '14px',
+    boxSizing: 'border-box',
+    resize: 'vertical',
+    minHeight: '120px',
+  },
+  feedbackActions: {
+    display: 'flex',
+    gap: '10px',
+    flexWrap: 'wrap',
+  },
+  secondaryActionButton: {
+    padding: '8px 14px',
+    backgroundColor: '#fff',
+    color: '#111827',
+    border: '1px solid #d1d5db',
+    borderRadius: '6px',
+    cursor: 'pointer',
+    fontSize: '13px',
+    fontWeight: 600,
+  },
+  saveActionButton: {
+    padding: '8px 14px',
+    backgroundColor: '#e11d48',
+    color: '#fff',
+    border: 'none',
+    borderRadius: '6px',
+    cursor: 'pointer',
+    fontSize: '13px',
+    fontWeight: 700,
+  },
+  ghostActionButton: {
+    padding: '8px 14px',
+    backgroundColor: '#eff6ff',
+    color: '#1d4ed8',
+    border: '1px solid #bfdbfe',
+    borderRadius: '6px',
+    cursor: 'pointer',
+    fontSize: '13px',
+    fontWeight: 700,
+  },
+  statusMessage: {
+    color: '#1d4ed8',
+    fontSize: '13px',
   },
   pagination: {
     display: 'flex',

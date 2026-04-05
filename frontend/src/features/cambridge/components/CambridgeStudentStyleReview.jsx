@@ -12,7 +12,6 @@ import InlineChoiceDisplay from '../../../shared/components/questions/displays/I
 import MatchingPicturesDisplay from '../../../shared/components/questions/displays/MatchingPicturesDisplay';
 import ImageClozeDisplay from '../../../shared/components/questions/displays/ImageClozeDisplay';
 import WordDragClozeDisplay from '../../../shared/components/questions/displays/WordDragClozeDisplay';
-import ShortMessageDisplay from '../../../shared/components/questions/displays/ShortMessageDisplay';
 import StoryCompletionDisplay from '../../../shared/components/questions/displays/StoryCompletionDisplay';
 import LookReadWriteDisplay from '../../../shared/components/questions/displays/LookReadWriteDisplay';
 import { CambridgeQuestionDisplay } from './CambridgeQuestionCards';
@@ -463,6 +462,11 @@ const styles = {
     fontFamily: 'inherit',
     boxSizing: 'border-box',
   },
+  richPromptHtml: {
+    fontSize: '14px',
+    lineHeight: 1.7,
+    color: '#334155',
+  },
   sampleAnswer: {
     padding: '14px 16px',
     borderRadius: '12px',
@@ -487,6 +491,71 @@ function resolveAsset(url) {
   if (!url) return '';
   if (/^https?:\/\//i.test(String(url))) return String(url);
   return hostPath(String(url));
+}
+
+function escapeHtml(value = '') {
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/\"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function sanitizePromptHtml(rawHtml = '') {
+  const source = String(rawHtml || '').trim();
+  if (!source) return '';
+
+  if (typeof window === 'undefined' || typeof DOMParser === 'undefined') {
+    return escapeHtml(source).replace(/\n/g, '<br />');
+  }
+
+  try {
+    const doc = new DOMParser().parseFromString(source, 'text/html');
+
+    doc
+      .querySelectorAll('script, style, iframe, object, embed, form, link, meta')
+      .forEach((node) => node.remove());
+
+    doc.querySelectorAll('*').forEach((element) => {
+      Array.from(element.attributes).forEach((attribute) => {
+        if (attribute.name.toLowerCase().startsWith('on')) {
+          element.removeAttribute(attribute.name);
+        }
+      });
+
+      if (element.tagName === 'IMG') {
+        const rawSrc = String(element.getAttribute('src') || '').trim();
+        if (!rawSrc) {
+          element.remove();
+          return;
+        }
+
+        element.setAttribute('src', resolveAsset(rawSrc));
+        element.setAttribute('alt', element.getAttribute('alt') || 'Writing prompt image');
+        element.setAttribute('loading', 'lazy');
+        element.setAttribute(
+          'style',
+          'display:block;max-width:100%;height:auto;border-radius:12px;margin:10px 0;border:1px solid #dbe3f0;background:#fff;'
+        );
+      }
+    });
+
+    doc.querySelectorAll('p').forEach((paragraph) => {
+      const text = String(paragraph.textContent || '').replace(/\u00a0/g, ' ').trim();
+      const hasMedia = paragraph.querySelector('img, video, audio');
+      if (!text && !hasMedia) {
+        paragraph.remove();
+        return;
+      }
+      paragraph.setAttribute('style', 'margin:0 0 8px;line-height:1.7;');
+    });
+
+    const html = String(doc.body.innerHTML || '').trim();
+    return html || escapeHtml(source).replace(/\n/g, '<br />');
+  } catch {
+    return escapeHtml(source).replace(/\n/g, '<br />');
+  }
 }
 
 function getExamType(testType) {
@@ -601,6 +670,81 @@ function getWritingAnswer(answers, partIdx, secIdx, qIdx) {
     answers?.[`${partIdx}-${secIdx}-0`] ||
     ''
   );
+}
+
+function getWritingDetailedResult(detailedResults, partIdx, secIdx, qIdx) {
+  return (
+    detailedResults?.[`${partIdx}-${secIdx}-${qIdx}`] ||
+    detailedResults?.[`${partIdx}-${secIdx}-0`] ||
+    null
+  );
+}
+
+function buildWritingPromptHtml(sectionType, question, detailedResult) {
+  const detailedPrompt =
+    typeof detailedResult?.questionText === 'string' ? detailedResult.questionText.trim() : '';
+
+  if (detailedPrompt) {
+    return sanitizePromptHtml(detailedPrompt);
+  }
+
+  if (sectionType === 'short-message') {
+    const fallback =
+      question?.situation ||
+      question?.questionText ||
+      question?.prompt ||
+      '';
+    return fallback ? sanitizePromptHtml(fallback) : '';
+  }
+
+  if (sectionType === 'story-writing') {
+    const promptParts = [];
+
+    if (typeof question?.prompt === 'string' && question.prompt.trim()) {
+      promptParts.push(`<p>${escapeHtml(question.prompt.trim())}</p>`);
+    }
+
+    const images = Array.isArray(question?.images)
+      ? question.images.filter(Boolean)
+      : Array.isArray(question?.imageUrls)
+        ? question.imageUrls.filter(Boolean)
+        : [];
+
+    if (images.length) {
+      promptParts.push(
+        `<div>${images
+          .map((imageUrl) => `<img src="${escapeHtml(resolveAsset(imageUrl))}" alt="Story prompt" />`)
+          .join('')}</div>`
+      );
+    }
+
+    const bulletPoints = Array.isArray(question?.bulletPoints)
+      ? question.bulletPoints.map((point) => String(point || '').trim()).filter(Boolean)
+      : [];
+
+    if (bulletPoints.length) {
+      promptParts.push(
+        `<div><strong>Write about:</strong><ul>${bulletPoints
+          .map((point) => `<li>${escapeHtml(point)}</li>`)
+          .join('')}</ul></div>`
+      );
+    }
+
+    if (!promptParts.length && question?.questionText) {
+      promptParts.push(`<p>${escapeHtml(question.questionText)}</p>`);
+    }
+
+    return sanitizePromptHtml(promptParts.join(''));
+  }
+
+  const fallback =
+    question?.questionText ||
+    question?.prompt ||
+    question?.situation ||
+    question?.openingSentence ||
+    '';
+
+  return fallback ? sanitizePromptHtml(`<p>${escapeHtml(fallback)}</p>`) : '';
 }
 
 function getPictureOptions(question) {
@@ -1181,21 +1325,25 @@ function MultipleChoicePicturesReview({ section, partIdx, secIdx, sectionStart, 
   );
 }
 
-function StoryWritingReview({ question, userAnswer }) {
+function WritingTaskReview({ sectionType, question, userAnswer, detailedResult, questionNumber }) {
   const wordLimit = question?.wordLimit || {};
+  const status = getResultStatus({ ...detailedResult, userAnswer: userAnswer || '' });
+  const promptHtml = buildWritingPromptHtml(sectionType, question, detailedResult);
+  const title = sectionType === 'short-message' ? 'Writing Task' : 'Story Writing';
+
   return (
     <div style={styles.textareaWrap}>
       <div style={styles.asideCard}>
+        <div style={styles.reviewRowHeader}>
+          <span style={styles.reviewNumber}>{questionNumber || 'W'}</span>
+          <h5 style={styles.reviewTitle}>{title}</h5>
+          <span style={{ ...styles.statusChip, background: status.background, color: status.color }}>
+            {status.label}
+          </span>
+        </div>
         <h5 style={styles.asideTitle}>Writing Prompt</h5>
-        {question?.openingSentence ? (
-          <div style={{ marginBottom: '10px', fontSize: '15px', lineHeight: 1.7, color: '#0f172a' }}>
-            <strong>Opening sentence:</strong> {question.openingSentence}
-          </div>
-        ) : null}
-        {question?.prompt ? (
-          <div style={{ fontSize: '14px', lineHeight: 1.7, color: '#334155' }}>
-            {question.prompt}
-          </div>
+        {promptHtml ? (
+          <div style={styles.richPromptHtml} dangerouslySetInnerHTML={{ __html: promptHtml }} />
         ) : null}
         {(wordLimit.min || wordLimit.max) ? (
           <div style={{ marginTop: '10px', fontSize: '13px', color: '#64748b' }}>
@@ -1289,6 +1437,17 @@ export default function CambridgeStudentStyleReview({ test, submission }) {
             : `Câu ${firstNumber}-${firstNumber + partQuestionCount - 1}`
           : 'Writing';
         const integratedWriting = examType === 'MOVERS' && hasIntegratedLookReadWriteWriting(part);
+        const visibleSections = (part.sections || []).filter((section) => {
+          const sectionType = getSectionType(section);
+          const isStandaloneWriting = sectionType === 'short-message' || sectionType === 'story-writing';
+          return !(integratedWriting && isStandaloneWriting);
+        });
+        const standaloneWritingOnly =
+          visibleSections.length > 0 &&
+          visibleSections.every((section) => {
+            const sectionType = getSectionType(section);
+            return sectionType === 'short-message' || sectionType === 'story-writing';
+          });
         const isExpanded = expandedParts[partIdx] ?? true;
 
         return (
@@ -1306,7 +1465,7 @@ export default function CambridgeStudentStyleReview({ test, submission }) {
               </div>
             </div>
 
-            {isExpanded && part.instruction ? (
+            {isExpanded && part.instruction && !standaloneWritingOnly ? (
               <div style={styles.partInstruction} dangerouslySetInnerHTML={{ __html: part.instruction }} />
             ) : null}
 
@@ -1665,15 +1824,15 @@ export default function CambridgeStudentStyleReview({ test, submission }) {
                 }
 
                 if (sectionType === 'short-message') {
+                  const detailedResult = getWritingDetailedResult(detailedResults, partIdx, secIdx, qIdx);
                   return (
                     <div key={`${partIdx}-${secIdx}-${qIdx}`} style={styles.textareaWrap}>
-                      <ShortMessageDisplay
-                        section={question}
-                        questionTitle="Writing Task"
+                      <WritingTaskReview
+                        sectionType={sectionType}
+                        question={question}
                         questionNumber={questionStart || ''}
-                        onAnswerChange={noop}
                         userAnswer={getWritingAnswer(answers, partIdx, secIdx, qIdx)}
-                        submitted
+                        detailedResult={detailedResult}
                       />
                       {question?.sampleAnswer ? (
                         <div style={styles.sampleAnswer}>
@@ -1686,11 +1845,15 @@ export default function CambridgeStudentStyleReview({ test, submission }) {
                 }
 
                 if (sectionType === 'story-writing') {
+                  const detailedResult = getWritingDetailedResult(detailedResults, partIdx, secIdx, qIdx);
                   return (
-                    <StoryWritingReview
+                    <WritingTaskReview
                       key={`${partIdx}-${secIdx}-${qIdx}`}
+                      sectionType={sectionType}
                       question={question}
+                      questionNumber={questionStart || ''}
                       userAnswer={getWritingAnswer(answers, partIdx, secIdx, qIdx)}
+                      detailedResult={detailedResult}
                     />
                   );
                 }

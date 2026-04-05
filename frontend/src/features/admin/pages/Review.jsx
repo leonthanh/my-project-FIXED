@@ -4,6 +4,23 @@ import AdminNavbar from "../../../shared/components/AdminNavbar";
 import { useTheme } from "../../../shared/contexts/ThemeContext";
 import { apiPath } from "../../../shared/utils/api";
 
+const DEFAULT_REVIEW_FILTERS = {
+  studentName: "",
+  classCode: "",
+  teacherName: "",
+  reviewedBy: "",
+  status: "pending",
+};
+
+const cloneReviewFilters = () => ({ ...DEFAULT_REVIEW_FILTERS });
+
+const normalizeFilterValue = (value) => String(value ?? "").trim().toLowerCase();
+
+const matchesFilterValue = (value, search) => {
+  const query = normalizeFilterValue(search);
+  return !query || normalizeFilterValue(value).includes(query);
+};
+
 const Review = () => {
   const { isDarkMode } = useTheme();
   const navigate = useNavigate();
@@ -16,6 +33,12 @@ const Review = () => {
   }, []);
 
   const [activeTab, setActiveTab] = useState("writing");
+  const [filtersByTab, setFiltersByTab] = useState(() => ({
+    writing: cloneReviewFilters(),
+    reading: cloneReviewFilters(),
+    listening: cloneReviewFilters(),
+    cambridge: cloneReviewFilters(),
+  }));
 
   const [unreviewedWriting, setUnreviewedWriting] = useState([]);
   const [unreviewedPetWriting, setUnreviewedPetWriting] = useState([]);
@@ -45,6 +68,11 @@ const Review = () => {
     typeof window !== "undefined" ? window.innerWidth <= 768 : false
   );
 
+  const hasFeedback = (submission) =>
+    String(submission?.feedback || "")
+      .trim()
+      .length > 0;
+
   useEffect(() => {
     if (typeof window === "undefined") return undefined;
 
@@ -58,19 +86,12 @@ const Review = () => {
   }, []);
 
   useEffect(() => {
-    const hasFeedback = (submission) =>
-      String(submission?.feedback || "")
-        .trim()
-        .length > 0;
-
     const fetchUnreviewedWriting = async () => {
       setLoadingWriting(true);
       try {
         const res = await fetch(apiPath("writing/list"));
         const all = await res.json();
-        const filtered = Array.isArray(all)
-          ? all.filter((sub) => !sub.feedback)
-          : [];
+        const filtered = Array.isArray(all) ? all : [];
 
         const petWriting = filtered.filter((sub) =>
           String(
@@ -105,7 +126,7 @@ const Review = () => {
 
         const data = await res.json();
         const submissions = Array.isArray(data) ? data : [];
-        setUnreviewedReading(submissions.filter((sub) => !hasFeedback(sub)));
+        setUnreviewedReading(submissions);
       } catch (err) {
         console.error("Failed to load reading submissions:", err);
         setUnreviewedReading([]);
@@ -124,7 +145,7 @@ const Review = () => {
 
         const data = await res.json();
         const submissions = Array.isArray(data) ? data : [];
-        setUnreviewedListening(submissions.filter((sub) => !hasFeedback(sub)));
+        setUnreviewedListening(submissions);
       } catch (err) {
         console.error("Failed to load listening submissions:", err);
         setUnreviewedListening([]);
@@ -148,11 +169,7 @@ const Review = () => {
           : Array.isArray(data)
           ? data
           : [];
-
-        const needReview = submissions.filter(
-          (item) => String(item.status || "").toLowerCase() !== "reviewed"
-        );
-        setCambridgeSubmissions(needReview);
+        setCambridgeSubmissions(submissions);
       } catch (err) {
         console.error("Failed to load Cambridge submissions:", err);
         setCambridgeError(err.message);
@@ -167,9 +184,6 @@ const Review = () => {
     fetchUnreviewedListening();
     fetchCambridgeSubmissions();
   }, []);
-
-  const cambridgeNeedsReviewCount =
-    cambridgeSubmissions.length + unreviewedPetWriting.length;
 
   const parseJsonIfString = (value) => {
     if (typeof value !== "string") return value;
@@ -354,7 +368,19 @@ const Review = () => {
         throw new Error(err?.message || "Could not save feedback.");
       }
 
-      setCambridgeSubmissions((prev) => prev.filter((item) => item.id !== submissionId));
+      setCambridgeSubmissions((prev) =>
+        prev.map((item) =>
+          item.id === submissionId
+            ? {
+                ...item,
+                feedback,
+                feedbackBy:
+                  teacher?.name || teacher?.username || teacher?.fullName || "Teacher",
+                status: "reviewed",
+              }
+            : item
+        )
+      );
       setExpandedCambridge((prev) => {
         const next = new Set(prev);
         next.delete(submissionId);
@@ -371,6 +397,19 @@ const Review = () => {
   const formatDateTime = (value) => {
     const date = new Date(value);
     return Number.isNaN(date.getTime()) ? "N/A" : date.toLocaleString();
+  };
+
+  const getReviewStatus = (submission) => {
+    const explicitStatus = normalizeFilterValue(submission?.status);
+    if (explicitStatus === "reviewed" || explicitStatus === "done") {
+      return "done";
+    }
+
+    if (hasFeedback(submission) || normalizeFilterValue(submission?.feedbackBy)) {
+      return "done";
+    }
+
+    return "pending";
   };
 
   const getSubmissionStudentName = (submission) =>
@@ -399,6 +438,156 @@ const Review = () => {
     return [test.title || `Listening #${submission?.testId || "N/A"}`, test.classCode || "", test.teacherName || ""]
       .filter(Boolean)
       .join(" - ");
+  };
+
+  const getWritingFilterMeta = (submission) => {
+    const test = submission?.writing_test || submission?.WritingTest || {};
+    return {
+      studentName: submission?.userName || submission?.user?.name || submission?.User?.name || "",
+      classCode: test?.classCode || "",
+      teacherName: test?.teacherName || "",
+      reviewedBy: submission?.feedbackBy || "",
+      status: getReviewStatus(submission),
+    };
+  };
+
+  const getReadingFilterMeta = (submission) => {
+    const test = submission?.ReadingTest || {};
+    return {
+      studentName: getSubmissionStudentName(submission),
+      classCode: test?.classCode || "",
+      teacherName: test?.teacherName || "",
+      reviewedBy: submission?.feedbackBy || "",
+      status: getReviewStatus(submission),
+    };
+  };
+
+  const getListeningFilterMeta = (submission) => {
+    const test = submission?.ListeningTest || {};
+    return {
+      studentName: getSubmissionStudentName(submission),
+      classCode: test?.classCode || "",
+      teacherName: test?.teacherName || "",
+      reviewedBy: submission?.feedbackBy || "",
+      status: getReviewStatus(submission),
+    };
+  };
+
+  const getCambridgeFilterMeta = (row) => {
+    if (row?.source === "pet-writing") {
+      const sub = row?.sub || {};
+      const test = sub?.writing_test || sub?.WritingTest || {};
+
+      return {
+        studentName: sub?.userName || sub?.user?.name || sub?.User?.name || "",
+        classCode: test?.classCode || "",
+        teacherName: test?.teacherName || "",
+        reviewedBy: sub?.feedbackBy || "",
+        status: getReviewStatus(sub),
+      };
+    }
+
+    const sub = row?.sub || {};
+    return {
+      studentName: sub?.studentName || sub?.userName || "",
+      classCode: sub?.classCode || "",
+      teacherName: sub?.teacherName || "",
+      reviewedBy: sub?.feedbackBy || "",
+      status: getReviewStatus(sub),
+    };
+  };
+
+  const applyQueueFilters = (items, filters, getMeta) =>
+    items.filter((item) => {
+      const meta = getMeta(item);
+
+      if (!matchesFilterValue(meta.studentName, filters.studentName)) return false;
+      if (!matchesFilterValue(meta.classCode, filters.classCode)) return false;
+      if (!matchesFilterValue(meta.teacherName, filters.teacherName)) return false;
+      if (!matchesFilterValue(meta.reviewedBy, filters.reviewedBy)) return false;
+      if (filters.status === "pending" && meta.status !== "pending") return false;
+      if (filters.status === "done" && meta.status !== "done") return false;
+
+      return true;
+    });
+
+  const countPendingItems = (items, getMeta) =>
+    items.reduce(
+      (count, item) => count + (getMeta(item).status === "pending" ? 1 : 0),
+      0
+    );
+
+  const filteredWriting = applyQueueFilters(
+    unreviewedWriting,
+    filtersByTab.writing,
+    getWritingFilterMeta
+  );
+  const filteredReading = applyQueueFilters(
+    unreviewedReading,
+    filtersByTab.reading,
+    getReadingFilterMeta
+  );
+  const filteredListening = applyQueueFilters(
+    unreviewedListening,
+    filtersByTab.listening,
+    getListeningFilterMeta
+  );
+  const filteredCambridgeRows = applyQueueFilters(
+    mergedCambridgeRows,
+    filtersByTab.cambridge,
+    getCambridgeFilterMeta
+  );
+
+  const writingNeedsReviewCount = countPendingItems(
+    unreviewedWriting,
+    getWritingFilterMeta
+  );
+  const readingNeedsReviewCount = countPendingItems(
+    unreviewedReading,
+    getReadingFilterMeta
+  );
+  const listeningNeedsReviewCount = countPendingItems(
+    unreviewedListening,
+    getListeningFilterMeta
+  );
+  const cambridgeNeedsReviewCount = countPendingItems(
+    mergedCambridgeRows,
+    getCambridgeFilterMeta
+  );
+
+  const activeFilters = filtersByTab[activeTab] || cloneReviewFilters();
+  const activeTotalCount =
+    activeTab === "writing"
+      ? unreviewedWriting.length
+      : activeTab === "reading"
+      ? unreviewedReading.length
+      : activeTab === "listening"
+      ? unreviewedListening.length
+      : mergedCambridgeRows.length;
+  const activeFilteredCount =
+    activeTab === "writing"
+      ? filteredWriting.length
+      : activeTab === "reading"
+      ? filteredReading.length
+      : activeTab === "listening"
+      ? filteredListening.length
+      : filteredCambridgeRows.length;
+
+  const updateTabFilter = (tabKey, field, value) => {
+    setFiltersByTab((prev) => ({
+      ...prev,
+      [tabKey]: {
+        ...(prev[tabKey] || cloneReviewFilters()),
+        [field]: value,
+      },
+    }));
+  };
+
+  const resetTabFilters = (tabKey) => {
+    setFiltersByTab((prev) => ({
+      ...prev,
+      [tabKey]: cloneReviewFilters(),
+    }));
   };
 
   const renderObjectiveQueueDesktop = (items, buildTestLabel, onReview) => (
@@ -600,6 +789,73 @@ const Review = () => {
     </div>
   );
 
+  const renderFilterToolbar = (tabKey) => (
+    <div style={filterPanelStyle(isDarkMode)}>
+      <div style={filterGridStyle}>
+        {[
+          {
+            key: "studentName",
+            label: "Student Name",
+            placeholder: "Student name",
+          },
+          {
+            key: "classCode",
+            label: "Class Code",
+            placeholder: "e.g. 148-IX-3A-S1",
+          },
+          {
+            key: "teacherName",
+            label: "Test Teacher",
+            placeholder: "Teacher name",
+          },
+          {
+            key: "reviewedBy",
+            label: "Reviewed By",
+            placeholder: "Reviewer name",
+          },
+        ].map((field) => (
+          <div key={field.key}>
+            <label style={filterFieldLabelStyle(isDarkMode)}>{field.label}</label>
+            <input
+              type="text"
+              placeholder={field.placeholder}
+              value={activeFilters[field.key] || ""}
+              onChange={(e) => updateTabFilter(tabKey, field.key, e.target.value)}
+              style={filterInputStyle(isDarkMode)}
+            />
+          </div>
+        ))}
+
+        <div>
+          <label style={filterFieldLabelStyle(isDarkMode)}>Status</label>
+          <select
+            value={activeFilters.status || ""}
+            onChange={(e) => updateTabFilter(tabKey, "status", e.target.value)}
+            style={filterInputStyle(isDarkMode)}
+          >
+            <option value="">All</option>
+            <option value="pending">Pending</option>
+            <option value="done">Reviewed</option>
+          </select>
+        </div>
+
+        <div style={{ alignSelf: "end" }}>
+          <button
+            onClick={() => resetTabFilters(tabKey)}
+            style={filterResetButtonStyle}
+          >
+            Reset
+          </button>
+        </div>
+      </div>
+
+      <div style={filterSummaryStyle(isDarkMode)}>
+        Showing <strong>{activeFilteredCount}</strong>
+        {activeTotalCount !== activeFilteredCount ? ` / ${activeTotalCount}` : ""} submissions
+      </div>
+    </div>
+  );
+
   return (
     <>
       <AdminNavbar />
@@ -627,7 +883,7 @@ const Review = () => {
               ...(activeTab === "writing" ? tabActiveStyle : {}),
             }}
           >
-            Writing{unreviewedWriting.length > 0 ? ` (${unreviewedWriting.length})` : ""}
+            Writing{writingNeedsReviewCount > 0 ? ` (${writingNeedsReviewCount})` : ""}
           </button>
           <button
             onClick={() => setActiveTab("reading")}
@@ -636,7 +892,7 @@ const Review = () => {
               ...(activeTab === "reading" ? tabActiveStyle : {}),
             }}
           >
-            Reading{unreviewedReading.length > 0 ? ` (${unreviewedReading.length})` : ""}
+            Reading{readingNeedsReviewCount > 0 ? ` (${readingNeedsReviewCount})` : ""}
           </button>
           <button
             onClick={() => setActiveTab("listening")}
@@ -645,7 +901,7 @@ const Review = () => {
               ...(activeTab === "listening" ? tabActiveStyle : {}),
             }}
           >
-            Listening{unreviewedListening.length > 0 ? ` (${unreviewedListening.length})` : ""}
+            Listening{listeningNeedsReviewCount > 0 ? ` (${listeningNeedsReviewCount})` : ""}
           </button>
           <button
             onClick={() => setActiveTab("cambridge")}
@@ -658,14 +914,20 @@ const Review = () => {
           </button>
         </div>
 
+        {renderFilterToolbar(activeTab)}
+
         {activeTab === "writing" && (
           <>
             {loadingWriting && <p>Loading writing submissions...</p>}
-            {!loadingWriting && unreviewedWriting.length === 0 && (
-              <p>No writing submissions need review.</p>
+            {!loadingWriting && filteredWriting.length === 0 && (
+              <p>
+                {unreviewedWriting.length === 0
+                  ? "No writing submissions found."
+                  : "No writing submissions match the current filters."}
+              </p>
             )}
 
-            {!loadingWriting && unreviewedWriting.length > 0 && !isCompactLayout && (
+            {!loadingWriting && filteredWriting.length > 0 && !isCompactLayout && (
               <table style={tableStyle}>
                 <thead>
                   <tr style={{ backgroundColor: "#f2f2f2" }}>
@@ -678,7 +940,7 @@ const Review = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {unreviewedWriting.map((sub, idx) => {
+                  {filteredWriting.map((sub, idx) => {
                     const writingTest = sub.writing_test || sub.WritingTest || {};
                     return (
                       <tr key={sub.id} style={{ borderBottom: "1px solid #ccc" }}>
@@ -708,9 +970,9 @@ const Review = () => {
               </table>
             )}
 
-            {!loadingWriting && unreviewedWriting.length > 0 && isCompactLayout && (
+            {!loadingWriting && filteredWriting.length > 0 && isCompactLayout && (
               <div style={mobileListStyle}>
-                {unreviewedWriting.map((sub, idx) => {
+                {filteredWriting.map((sub, idx) => {
                   const writingTest = sub.writing_test || sub.WritingTest || {};
                   return (
                     <div key={sub.id} style={mobileCardStyle(isDarkMode)}>
@@ -756,20 +1018,24 @@ const Review = () => {
         {activeTab === "reading" && (
           <>
             {loadingReading && <p>Loading reading submissions...</p>}
-            {!loadingReading && unreviewedReading.length === 0 && (
-              <p>No reading submissions need review.</p>
+            {!loadingReading && filteredReading.length === 0 && (
+              <p>
+                {unreviewedReading.length === 0
+                  ? "No reading submissions found."
+                  : "No reading submissions match the current filters."}
+              </p>
             )}
 
-            {!loadingReading && unreviewedReading.length > 0 && !isCompactLayout &&
+            {!loadingReading && filteredReading.length > 0 && !isCompactLayout &&
               renderObjectiveQueueDesktop(
-                unreviewedReading,
+                filteredReading,
                 getReadingTestLabel,
                 (sub) => navigate(`/reading-results/${sub.id}`)
               )}
 
-            {!loadingReading && unreviewedReading.length > 0 && isCompactLayout &&
+            {!loadingReading && filteredReading.length > 0 && isCompactLayout &&
               renderObjectiveQueueMobile(
-                unreviewedReading,
+                filteredReading,
                 () => "Reading",
                 getReadingTestLabel,
                 (sub) => navigate(`/reading-results/${sub.id}`)
@@ -780,20 +1046,24 @@ const Review = () => {
         {activeTab === "listening" && (
           <>
             {loadingListening && <p>Loading listening submissions...</p>}
-            {!loadingListening && unreviewedListening.length === 0 && (
-              <p>No listening submissions need review.</p>
+            {!loadingListening && filteredListening.length === 0 && (
+              <p>
+                {unreviewedListening.length === 0
+                  ? "No listening submissions found."
+                  : "No listening submissions match the current filters."}
+              </p>
             )}
 
-            {!loadingListening && unreviewedListening.length > 0 && !isCompactLayout &&
+            {!loadingListening && filteredListening.length > 0 && !isCompactLayout &&
               renderObjectiveQueueDesktop(
-                unreviewedListening,
+                filteredListening,
                 getListeningTestLabel,
                 (sub) => navigate(`/listening-results/${sub.id}`)
               )}
 
-            {!loadingListening && unreviewedListening.length > 0 && isCompactLayout &&
+            {!loadingListening && filteredListening.length > 0 && isCompactLayout &&
               renderObjectiveQueueMobile(
-                unreviewedListening,
+                filteredListening,
                 () => "Listening",
                 getListeningTestLabel,
                 (sub) => navigate(`/listening-results/${sub.id}`)
@@ -811,11 +1081,15 @@ const Review = () => {
             {!loadingWriting &&
               !loadingCambridge &&
               !cambridgeError &&
-              mergedCambridgeRows.length === 0 && (
-                <p>No Cambridge submissions need review.</p>
+              filteredCambridgeRows.length === 0 && (
+                <p>
+                  {mergedCambridgeRows.length === 0
+                    ? "No Cambridge submissions found."
+                    : "No Cambridge submissions match the current filters."}
+                </p>
               )}
 
-            {!loadingCambridge && !cambridgeError && mergedCambridgeRows.length > 0 && !isCompactLayout && (
+            {!loadingCambridge && !cambridgeError && filteredCambridgeRows.length > 0 && !isCompactLayout && (
               <table style={tableStyle}>
                 <thead>
                   <tr style={{ backgroundColor: "#f2f2f2" }}>
@@ -831,7 +1105,7 @@ const Review = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {mergedCambridgeRows.map((row, idx) => {
+                  {filteredCambridgeRows.map((row, idx) => {
                     if (row.source === "pet-writing") {
                       const sub = row.sub;
                       const writingTest = sub.writing_test || sub.WritingTest || {};
@@ -928,9 +1202,9 @@ const Review = () => {
               </table>
             )}
 
-            {!loadingCambridge && !cambridgeError && mergedCambridgeRows.length > 0 && isCompactLayout && (
+            {!loadingCambridge && !cambridgeError && filteredCambridgeRows.length > 0 && isCompactLayout && (
               <div style={mobileListStyle}>
-                {mergedCambridgeRows.map((row, idx) => {
+                {filteredCambridgeRows.map((row, idx) => {
                   if (row.source === "pet-writing") {
                     const sub = row.sub;
                     const writingTest = sub.writing_test || sub.WritingTest || {};
@@ -1051,6 +1325,62 @@ const tabActiveStyle = {
   background: "#111827",
   color: "#fff",
 };
+
+const filterPanelStyle = (isDarkMode) => ({
+  marginTop: 18,
+  marginBottom: 18,
+  border: `1px solid ${isDarkMode ? "#243047" : "#e5e7eb"}`,
+  borderRadius: 14,
+  padding: "14px 16px",
+  background: isDarkMode ? "#0f172a" : "#fff",
+  boxShadow: isDarkMode
+    ? "0 10px 30px rgba(2, 6, 23, 0.32)"
+    : "0 8px 20px rgba(15, 23, 42, 0.04)",
+});
+
+const filterGridStyle = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
+  gap: 10,
+  alignItems: "end",
+};
+
+const filterFieldLabelStyle = (isDarkMode) => ({
+  display: "block",
+  fontSize: 12,
+  fontWeight: 600,
+  marginBottom: 4,
+  color: isDarkMode ? "#cbd5e1" : "#374151",
+});
+
+const filterInputStyle = (isDarkMode) => ({
+  width: "100%",
+  padding: "7px 10px",
+  border: `1px solid ${isDarkMode ? "#334155" : "#d1d5db"}`,
+  borderRadius: 6,
+  fontSize: 13,
+  boxSizing: "border-box",
+  background: isDarkMode ? "#111827" : "#fff",
+  color: isDarkMode ? "#e5e7eb" : "#111827",
+});
+
+const filterResetButtonStyle = {
+  width: "100%",
+  padding: "7px 10px",
+  background: "#6b7280",
+  color: "#fff",
+  border: "none",
+  borderRadius: 6,
+  cursor: "pointer",
+  fontSize: 13,
+  fontWeight: 600,
+};
+
+const filterSummaryStyle = (isDarkMode) => ({
+  marginTop: 10,
+  fontSize: 13,
+  color: isDarkMode ? "#9ca3af" : "#6b7280",
+});
 
 const primaryButtonStyle = {
   background: "#e03",

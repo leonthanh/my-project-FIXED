@@ -1,12 +1,13 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import AdminNavbar from "../../../shared/components/AdminNavbar";
 import { useTheme } from "../../../shared/contexts/ThemeContext";
 import { apiPath, authFetch } from "../../../shared/utils/api";
+import AttemptExtensionControls from "../components/AttemptExtensionControls";
+import SubmissionFilterPanel from "../components/SubmissionFilterPanel";
 import {
   formatAttemptTimestamp,
   getAttemptTimingMeta,
-  QUICK_EXTENSION_OPTIONS,
 } from "../utils/attemptTiming";
 
 const AdminReadingSubmissions = () => {
@@ -32,7 +33,10 @@ const AdminReadingSubmissions = () => {
   const [searchClassCode, setSearchClassCode] = useState("");
   const [searchTeacher, setSearchTeacher] = useState("");
   const [searchStudent, setSearchStudent] = useState("");
-  const [filterFeedback, setFilterFeedback] = useState("all"); // all, with, without
+  const [searchPhone, setSearchPhone] = useState("");
+  const [searchReviewedBy, setSearchReviewedBy] = useState("");
+  const [statusTab, setStatusTab] = useState("all");
+  const [sortOrder, setSortOrder] = useState("newest");
 
   useEffect(() => {
     const fetchSubs = async () => {
@@ -62,15 +66,96 @@ const AdminReadingSubmissions = () => {
     if (user?.name) setFeedbackBy(user.name);
   }, []);
 
-  // Filter submissions
-  const filteredSubs = subs.filter((s) => {
-    if (searchClassCode && !s.ReadingTest?.classCode?.toLowerCase().includes(searchClassCode.toLowerCase())) return false;
-    if (searchTeacher && !s.ReadingTest?.teacherName?.toLowerCase().includes(searchTeacher.toLowerCase())) return false;
-    if (searchStudent && !s.userName?.toLowerCase().includes(searchStudent.toLowerCase())) return false;
-    if (filterFeedback === "with" && !s.feedback) return false;
-    if (filterFeedback === "without" && s.feedback) return false;
-    return true;
-  });
+  const hasReview = (submission) =>
+    Boolean(
+      String(submission?.feedback || "").trim() ||
+        String(submission?.feedbackBy || "").trim()
+    );
+
+  const getSubmissionTime = (submission) =>
+    new Date(
+      submission?.submittedAt ||
+        submission?.createdAt ||
+        submission?.updatedAt ||
+        0
+    ).getTime();
+
+  const filteredSubs = useMemo(() => {
+    const next = subs.filter((submission) => {
+      const classCode = String(
+        submission?.ReadingTest?.classCode || submission?.classCode || ""
+      ).toLowerCase();
+      const teacherName = String(
+        submission?.ReadingTest?.teacherName || submission?.teacherName || ""
+      ).toLowerCase();
+      const studentName = String(
+        submission?.userName || submission?.User?.name || ""
+      ).toLowerCase();
+      const phone = String(
+        submission?.User?.phone || submission?.userPhone || ""
+      ).toLowerCase();
+      const reviewedBy = String(submission?.feedbackBy || "").toLowerCase();
+
+      if (searchClassCode && !classCode.includes(searchClassCode.toLowerCase())) {
+        return false;
+      }
+
+      if (searchTeacher && !teacherName.includes(searchTeacher.toLowerCase())) {
+        return false;
+      }
+
+      if (searchStudent && !studentName.includes(searchStudent.toLowerCase())) {
+        return false;
+      }
+
+      if (searchPhone && !phone.includes(searchPhone.toLowerCase())) {
+        return false;
+      }
+
+      if (
+        searchReviewedBy &&
+        !reviewedBy.includes(searchReviewedBy.toLowerCase())
+      ) {
+        return false;
+      }
+
+      if (statusTab === "pending" && hasReview(submission)) {
+        return false;
+      }
+
+      if (statusTab === "reviewed" && !hasReview(submission)) {
+        return false;
+      }
+
+      return true;
+    });
+
+    next.sort((left, right) => {
+      const delta = getSubmissionTime(right) - getSubmissionTime(left);
+      return sortOrder === "oldest" ? -delta : delta;
+    });
+
+    return next;
+  }, [
+    searchClassCode,
+    searchPhone,
+    searchReviewedBy,
+    searchStudent,
+    searchTeacher,
+    sortOrder,
+    statusTab,
+    subs,
+  ]);
+
+  const resetFilters = () => {
+    setSearchClassCode("");
+    setSearchTeacher("");
+    setSearchStudent("");
+    setSearchPhone("");
+    setSearchReviewedBy("");
+    setStatusTab("all");
+    setSortOrder("newest");
+  };
 
   // Open feedback modal
   const openFeedbackModal = (sub) => {
@@ -150,8 +235,10 @@ const AdminReadingSubmissions = () => {
         )
       );
       alert(data?.message || "Đã gia hạn thời gian.");
+      return true;
     } catch (err) {
       alert(`❌ ${err.message}`);
+      return false;
     } finally {
       setExtendingId(null);
     }
@@ -163,51 +250,53 @@ const AdminReadingSubmissions = () => {
       <div style={{ padding: 24, maxWidth: 1400, margin: "0 auto" }} className="admin-page">
         <h2>📥 Reading Submissions</h2>
 
-        {/* Search/Filter */}
-        <div className="admin-filter-grid" style={{
-          display: "grid",
-          gridTemplateColumns: "1fr 1fr 1fr 150px",
-          gap: 15,
-          marginBottom: 20,
-          padding: 15,
-          background: "#f3f4f6",
-          borderRadius: 8
-        }}>
-          <input
-            type="text"
-            placeholder="🔍 Mã lớp..."
-            value={searchClassCode}
-            onChange={(e) => setSearchClassCode(e.target.value)}
-            style={inputStyle}
-          />
-          <input
-            type="text"
-            placeholder="🔍 Giáo viên đề..."
-            value={searchTeacher}
-            onChange={(e) => setSearchTeacher(e.target.value)}
-            style={inputStyle}
-          />
-          <input
-            type="text"
-            placeholder="🔍 Học sinh..."
-            value={searchStudent}
-            onChange={(e) => setSearchStudent(e.target.value)}
-            style={inputStyle}
-          />
-          <select
-            value={filterFeedback}
-            onChange={(e) => setFilterFeedback(e.target.value)}
-            style={inputStyle}
-          >
-            <option value="all">Tất cả</option>
-            <option value="with">Đã nhận xét</option>
-            <option value="without">Chưa nhận xét</option>
-          </select>
-        </div>
-
-        <p style={{ color: "#666", marginBottom: 10 }}>
-          📊 Hiển thị: <strong>{filteredSubs.length}</strong> / {subs.length} bài nộp
-        </p>
+        <SubmissionFilterPanel
+          fields={[
+            {
+              key: "student",
+              label: "Student Name",
+              placeholder: "Student name",
+              value: searchStudent,
+              onChange: setSearchStudent,
+            },
+            {
+              key: "phone",
+              label: "Phone",
+              placeholder: "Phone number",
+              value: searchPhone,
+              onChange: setSearchPhone,
+            },
+            {
+              key: "classCode",
+              label: "Class Code",
+              placeholder: "e.g. 148-IX-3A-S1",
+              value: searchClassCode,
+              onChange: setSearchClassCode,
+            },
+            {
+              key: "teacher",
+              label: "Test Teacher",
+              placeholder: "Teacher name",
+              value: searchTeacher,
+              onChange: setSearchTeacher,
+            },
+            {
+              key: "reviewedBy",
+              label: "Reviewed By",
+              placeholder: "Reviewer name",
+              value: searchReviewedBy,
+              onChange: setSearchReviewedBy,
+            },
+          ]}
+          sortValue={sortOrder}
+          onSortChange={setSortOrder}
+          statusValue={statusTab}
+          onStatusChange={setStatusTab}
+          onReset={resetFilters}
+          filteredCount={filteredSubs.length}
+          totalCount={subs.length}
+          summaryLabel="submissions"
+        />
 
         {loading && <p>⏳ Loading...</p>}
         {!loading && filteredSubs.length === 0 && <p>Không có bài nộp phù hợp</p>}
@@ -301,33 +390,18 @@ const AdminReadingSubmissions = () => {
                         ✍️ Nhận xét
                       </button>
                       {s.finished === false && (
-                        extendingId === s.id ? (
-                          <span
-                            style={{
-                              ...actionBtn,
-                              display: "inline-flex",
-                              alignItems: "center",
-                              background: "#0284c7",
-                              cursor: "wait",
-                            }}
-                          >
-                            ⏳ Đang gia hạn
-                          </span>
-                        ) : (
-                          QUICK_EXTENSION_OPTIONS.map((minutes) => (
-                            <button
-                              key={minutes}
-                              onClick={() => handleExtendTime(s, minutes)}
-                              style={{
-                                ...actionBtn,
-                                background: "#0284c7",
-                              }}
-                              title={`Gia hạn thêm ${minutes} phút`}
-                            >
-                              +{minutes}p
-                            </button>
-                          ))
-                        )
+                        <AttemptExtensionControls
+                          isLoading={extendingId === s.id}
+                          onExtend={(minutes) => handleExtendTime(s, minutes)}
+                          buttonStyle={{
+                            ...actionBtn,
+                            background: "#0284c7",
+                          }}
+                          submitButtonStyle={{
+                            ...actionBtn,
+                            background: "#0369a1",
+                          }}
+                        />
                       )}
                     </div>
                   </td>

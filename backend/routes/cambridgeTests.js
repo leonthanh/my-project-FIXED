@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const { CambridgeListening, CambridgeReading, CambridgeSubmission } = require("../models");
-const { Op } = require("sequelize");
+const { Op, col, fn, where: sequelizeWhere } = require("sequelize");
 const { logError } = require("../logger");
 const { processTestParts } = require("../utils/clozParser");
 const {
@@ -108,6 +108,43 @@ const countTotalQuestionsFromParts = (rawParts = []) => {
   });
 
   return total;
+};
+
+const parseDetailedResults = (value) => {
+  if (!value) return null;
+  if (typeof value === "string") {
+    try {
+      return JSON.parse(value);
+    } catch {
+      return null;
+    }
+  }
+  if (typeof value === "object" && !Array.isArray(value)) {
+    return value;
+  }
+  return null;
+};
+
+const countPendingManualAnswers = (submission) => {
+  if (!submission || submission.finished === false) return 0;
+
+  const hasReview =
+    String(submission.status || "").toLowerCase() === "reviewed" ||
+    Boolean(String(submission.feedbackBy || "").trim()) ||
+    Boolean(String(submission.feedback || "").trim());
+
+  if (hasReview) return 0;
+
+  const detailedResults = parseDetailedResults(submission.detailedResults);
+  if (!detailedResults) return 0;
+
+  return Object.values(detailedResults).filter(
+    (result) =>
+      result &&
+      typeof result === "object" &&
+      result.isCorrect === null &&
+      Boolean(String(result.userAnswer || "").trim())
+  ).length;
 };
 
 const normalizeCambridgeProgressMeta = (meta = {}) => {
@@ -1732,11 +1769,35 @@ router.get("/reading-tests/:id/submissions", async (req, res) => {
 // GET all submissions (for admin/teacher dashboard)
 router.get("/submissions", async (req, res) => {
   try {
-    const { testType, classCode, page = 1, limit = 50 } = req.query;
+    const {
+      testType,
+      classCode,
+      studentName,
+      studentPhone,
+      teacherName,
+      feedbackBy,
+      reviewStatus = "all",
+      sortOrder = "newest",
+      page = 1,
+      limit = 50,
+    } = req.query;
     const includeActive = ["1", "true", "yes"].includes(
       String(req.query.includeActive || "").toLowerCase()
     );
     const where = includeActive ? {} : { ...FINALIZED_CAMBRIDGE_WHERE };
+    const andConditions = [];
+
+    const pushContainsFilter = (fieldName, value) => {
+      const normalized = String(value || "").trim().toLowerCase();
+      if (!normalized) return;
+
+      andConditions.push(
+        sequelizeWhere(fn("LOWER", col(fieldName)), {
+          [Op.like]: `%${normalized}%`,
+        })
+      );
+    };
+
     if (testType) {
       const normalized = String(testType).trim().toLowerCase();
 
@@ -1747,26 +1808,72 @@ router.get("/submissions", async (req, res) => {
         where.testType = { [Op.like]: "%-listening" };
       else where.testType = testType;
     }
-    if (classCode) where.classCode = classCode;
+    pushContainsFilter("classCode", classCode);
+    pushContainsFilter("studentName", studentName);
+    pushContainsFilter("studentPhone", studentPhone);
+    pushContainsFilter("teacherName", teacherName);
+    pushContainsFilter("feedbackBy", feedbackBy);
+
+    if (reviewStatus === "reviewed") {
+      andConditions.push({
+        [Op.or]: [
+          { status: "reviewed" },
+          { feedbackBy: { [Op.not]: null, [Op.ne]: "" } },
+          { feedback: { [Op.not]: null, [Op.ne]: "" } },
+        ],
+      });
+    } else if (reviewStatus === "pending") {
+      andConditions.push({
+        [Op.and]: [
+          {
+            [Op.or]: [{ status: { [Op.ne]: "reviewed" } }, { status: null }],
+          },
+          {
+            [Op.or]: [{ feedbackBy: null }, { feedbackBy: "" }],
+          },
+          {
+            [Op.or]: [{ feedback: null }, { feedback: "" }],
+          },
+        ],
+      });
+    }
+
+    if (andConditions.length) {
+      where[Op.and] = andConditions;
+    }
 
     const offset = (parseInt(page) - 1) * parseInt(limit);
+    const direction = String(sortOrder).toLowerCase() === "oldest" ? "ASC" : "DESC";
+    const submittedOrderExpr = fn("COALESCE", col("submittedAt"), col("createdAt"));
 
     const { count, rows: submissions } = await CambridgeSubmission.findAndCountAll({
       where,
-      order: [["submittedAt", "DESC"]],
+      order: [[submittedOrderExpr, direction]],
       limit: parseInt(limit),
       offset,
       attributes: [
         "id", "testId", "testType", "testTitle",
-        "studentName", "studentPhone", "classCode",
+        "studentName", "studentPhone", "classCode", "teacherName",
         "score", "totalQuestions", "percentage",
         "timeSpent", "status", "submittedAt", "feedbackSeen",
-        "finished", "expiresAt", "lastSavedAt", "feedback", "feedbackBy", "feedbackAt"
+        "finished", "expiresAt", "lastSavedAt", "feedback", "feedbackBy", "feedbackAt", "createdAt",
+        "detailedResults"
       ]
     });
 
+    const normalizedSubmissions = submissions.map((submission) => {
+      const json = submission.toJSON();
+      const pendingManualCount = countPendingManualAnswers(json);
+      delete json.detailedResults;
+
+      return {
+        ...json,
+        pendingManualCount,
+      };
+    });
+
     res.json({
-      submissions,
+      submissions: normalizedSubmissions,
       pagination: {
         total: count,
         page: parseInt(page),
