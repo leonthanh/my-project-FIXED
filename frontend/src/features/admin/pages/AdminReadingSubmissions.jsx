@@ -5,6 +5,7 @@ import { useTheme } from "../../../shared/contexts/ThemeContext";
 import { apiPath, authFetch } from "../../../shared/utils/api";
 import AttemptExtensionControls from "../components/AttemptExtensionControls";
 import SubmissionFilterPanel from "../components/SubmissionFilterPanel";
+import SubmissionTypeTabs from "../components/SubmissionTypeTabs";
 import {
   formatAttemptTimestamp,
   getAttemptTimingMeta,
@@ -247,8 +248,8 @@ const AdminReadingSubmissions = () => {
   return (
     <>
       <AdminNavbar />
-      <div style={{ padding: 24, maxWidth: 1400, margin: "0 auto" }} className="admin-page">
-        <h2>📥 Reading Submissions</h2>
+      <div style={{ padding: 24, maxWidth: "100%", width: "100%", margin: "0 auto" }} className="admin-page admin-submission-page">
+        <SubmissionTypeTabs activeKey="reading" />
 
         <SubmissionFilterPanel
           fields={[
