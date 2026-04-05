@@ -2,9 +2,11 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import { useParams, useNavigate } from "react-router-dom";
 import { apiPath, getStoredUser, hostPath } from "../../../shared/utils/api";
 import TestHeader from "../../../shared/components/TestHeader";
+import ExtensionToast from "../../../shared/components/ExtensionToast";
 import { useTheme } from "../../../shared/contexts/ThemeContext";
 import {
   formatClock,
+  getExtensionToastMessage,
   getGraceRemainingSeconds,
   getRemainingSeconds,
   toTimestamp,
@@ -51,6 +53,7 @@ const DoCambridgeListeningTest = () => {
   const [expandedPart, setExpandedPart] = useState(0);
   const [timeRemaining, setTimeRemaining] = useState(30 * 60);
   const [graceRemaining, setGraceRemaining] = useState(0);
+  const [extensionToast, setExtensionToast] = useState("");
   const [activeQuestion, setActiveQuestion] = useState(null);
 
   // Cambridge-style start gate (must click Play)
@@ -75,6 +78,7 @@ const DoCambridgeListeningTest = () => {
   const submissionIdRef = useRef(null);
   const confirmSubmitRef = useRef(null);
   const autoSubmittingRef = useRef(false);
+  const lastAnnouncedExpiryRef = useRef(null);
 
   // Cambridge Reading-like splitter
   const [leftWidth, setLeftWidth] = useState(42);
@@ -115,6 +119,26 @@ const DoCambridgeListeningTest = () => {
     },
     []
   );
+
+  const announceExtension = useCallback((nextExpiresAtValue, previousExpiresAtValue) => {
+    const nextExpiresAtMs = toTimestamp(nextExpiresAtValue);
+    const message = getExtensionToastMessage(previousExpiresAtValue, nextExpiresAtMs);
+    const lastAnnouncedMs = toTimestamp(lastAnnouncedExpiryRef.current);
+
+    if (!message || !Number.isFinite(nextExpiresAtMs)) return;
+    if (Number.isFinite(lastAnnouncedMs) && Math.abs(lastAnnouncedMs - nextExpiresAtMs) <= 1000) {
+      return;
+    }
+
+    lastAnnouncedExpiryRef.current = nextExpiresAtMs;
+    setExtensionToast(message);
+  }, []);
+
+  useEffect(() => {
+    if (!extensionToast) return;
+    const timeoutId = setTimeout(() => setExtensionToast(""), 4000);
+    return () => clearTimeout(timeoutId);
+  }, [extensionToast]);
 
   // Fetch test data
   useEffect(() => {
@@ -618,6 +642,7 @@ const DoCambridgeListeningTest = () => {
         }
         const nextExpiresAt = json?.timing?.expiresAt || json?.expiresAt;
         if (nextExpiresAt) {
+          announceExtension(nextExpiresAt, endTimeRef.current);
           syncTimingState(nextExpiresAt);
         }
       } catch (_err) {
@@ -656,8 +681,64 @@ const DoCambridgeListeningTest = () => {
     testStarted,
     test?.testType,
     testType,
+    announceExtension,
     syncTimingState,
   ]);
+
+  const reconcileServerTiming = useCallback(async () => {
+    if (!testStarted || submitted) return;
+    if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
+
+    const localUser = getStoredUser();
+    const query = submissionIdRef.current
+      ? `?submissionId=${submissionIdRef.current}`
+      : localUser?.id
+        ? `?userId=${localUser.id}`
+        : "";
+    if (!query || !test?.testType) return;
+
+    try {
+      const res = await fetch(
+        apiPath(`cambridge/submissions/active${query}&testId=${id}&testType=${encodeURIComponent(test.testType)}`)
+      );
+      if (!res.ok) return;
+      const data = await res.json().catch(() => ({}));
+      const nextExpiresAt = data?.submission?.expiresAt || data?.timing?.expiresAt;
+      const nextExpiresAtMs = toTimestamp(nextExpiresAt);
+      const currentExpiresAtMs = toTimestamp(endTimeRef.current);
+
+      if (
+        Number.isFinite(nextExpiresAtMs) &&
+        (!Number.isFinite(currentExpiresAtMs) || Math.abs(nextExpiresAtMs - currentExpiresAtMs) > 1000)
+      ) {
+        announceExtension(nextExpiresAtMs, currentExpiresAtMs);
+        syncTimingState(nextExpiresAtMs);
+      }
+    } catch (_err) {
+      // ignore polling errors; autosave and refresh can still recover timing
+    }
+  }, [announceExtension, id, submitted, syncTimingState, test?.testType, testStarted]);
+
+  useEffect(() => {
+    if (!testStarted || submitted || !test?.testType) return;
+
+    reconcileServerTiming();
+    const intervalId = setInterval(reconcileServerTiming, 5000);
+    const onCheck = () => {
+      if (document.visibilityState !== "hidden") {
+        reconcileServerTiming();
+      }
+    };
+
+    window.addEventListener("focus", onCheck);
+    document.addEventListener("visibilitychange", onCheck);
+
+    return () => {
+      clearInterval(intervalId);
+      window.removeEventListener("focus", onCheck);
+      document.removeEventListener("visibilitychange", onCheck);
+    };
+  }, [reconcileServerTiming, submitted, test?.testType, testStarted]);
 
   const currentPart = useMemo(() => {
     return test?.parts?.[currentPartIndex] || null;
@@ -1653,6 +1734,7 @@ const DoCambridgeListeningTest = () => {
 
   return (
     <div className="cambridge-test-container">
+      <ExtensionToast message={extensionToast} />
       {/* Header */}
       <TestHeader
         title={testConfig.name}

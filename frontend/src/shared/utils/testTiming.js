@@ -54,3 +54,19 @@ export function formatClock(seconds) {
   const secs = safeSeconds % 60;
   return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
 }
+
+export function getExtensionMinutesDelta(prevExpiresAtValue, nextExpiresAtValue) {
+  const previousMs = toTimestamp(prevExpiresAtValue);
+  const nextMs = toTimestamp(nextExpiresAtValue);
+  if (!Number.isFinite(previousMs) || !Number.isFinite(nextMs)) return null;
+  if (nextMs <= previousMs + 1000) return null;
+
+  const deltaSeconds = Math.round((nextMs - previousMs) / 1000);
+  return Math.max(1, Math.round(deltaSeconds / 60));
+}
+
+export function getExtensionToastMessage(prevExpiresAtValue, nextExpiresAtValue) {
+  const minutes = getExtensionMinutesDelta(prevExpiresAtValue, nextExpiresAtValue);
+  if (!Number.isFinite(minutes) || minutes <= 0) return "";
+  return `Thời gian làm bài vừa được gia hạn thêm ${minutes} phút.`;
+}

@@ -9,6 +9,7 @@ const {
   buildTimingPayload,
   extendDeadline,
   normalizeExtensionMinutes,
+  resolveAuthoritativeExpiry,
 } = require("../utils/testTiming");
 
 const FINALIZED_CAMBRIDGE_WHERE = {
@@ -1330,7 +1331,7 @@ router.post("/submissions/autosave", async (req, res) => {
     if (submission) {
       await submission.update({
         answers: normalizedAnswers,
-        expiresAt: parsedExpiresAt || submission.expiresAt,
+        expiresAt: resolveAuthoritativeExpiry(submission.expiresAt, parsedExpiresAt),
         lastSavedAt: now,
         progressMeta: normalizedProgressMeta,
         studentName:

@@ -8,7 +8,9 @@ const {
   DEFAULT_EXTENSION_MINUTES,
   buildTimingPayload,
   extendDeadline,
+  getRemainingSeconds,
   normalizeExtensionMinutes,
+  resolveAuthoritativeExpiry,
 } = require('../utils/testTiming');
 
 async function resolveSubmissionUser(userPayload) {
@@ -78,13 +80,16 @@ router.post('/draft/autosave', async (req, res) => {
     });
 
     if (existingDraft) {
+      const authoritativeEndAt = resolveAuthoritativeExpiry(existingDraft.draftEndAt, parsedEndAt);
       existingDraft.task1 = task1;
       existingDraft.task2 = task2;
-      existingDraft.timeLeft = Number.isFinite(Number(timeLeft)) ? Number(timeLeft) : existingDraft.timeLeft;
+      existingDraft.timeLeft = Number.isFinite(getRemainingSeconds(authoritativeEndAt))
+        ? getRemainingSeconds(authoritativeEndAt)
+        : (Number.isFinite(Number(timeLeft)) ? Number(timeLeft) : existingDraft.timeLeft);
       existingDraft.userName = userName;
       existingDraft.userPhone = userPhone;
       existingDraft.draftSavedAt = now;
-      existingDraft.draftEndAt = parsedEndAt;
+      existingDraft.draftEndAt = authoritativeEndAt;
       existingDraft.draftStarted = Boolean(started);
       await existingDraft.save();
       return res.json({

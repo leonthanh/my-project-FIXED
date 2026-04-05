@@ -2,9 +2,11 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import { useParams, useNavigate } from "react-router-dom";
 import { apiPath, hostPath, authFetch } from "../../../shared/utils/api";
 import TestHeader from "../../../shared/components/TestHeader";
+import ExtensionToast from "../../../shared/components/ExtensionToast";
 import { useTheme } from "../../../shared/contexts/ThemeContext";
 import {
   formatClock,
+  getExtensionToastMessage,
   getGraceRemainingSeconds,
   getRemainingSeconds,
   toTimestamp,
@@ -92,6 +94,7 @@ const DoListeningTest = () => {
   const [expandedPart, setExpandedPart] = useState(0);
   const [timeRemaining, setTimeRemaining] = useState(30 * 60);
   const [graceRemaining, setGraceRemaining] = useState(0);
+  const [extensionToast, setExtensionToast] = useState("");
   const [audioPlayed, setAudioPlayed] = useState({});
   const [activeQuestion, setActiveQuestion] = useState(null);
   // Modal & start state: control whether student has started the test (controls audio visibility)
@@ -129,6 +132,7 @@ const DoListeningTest = () => {
   // Track server-side partial submission id (for anonymous resume we will store id locally)
   const submissionIdRef = useRef(null);
   const autoSubmittingRef = useRef(false);
+  const lastAnnouncedExpiryRef = useRef(null);
 
   const syncTimingState = useCallback(
     (expiresAtValue, fallbackSeconds = null) => {
@@ -154,6 +158,26 @@ const DoListeningTest = () => {
     },
     [expiresKey]
   );
+
+  const announceExtension = useCallback((nextExpiresAtValue, previousExpiresAtValue) => {
+    const nextExpiresAtMs = toTimestamp(nextExpiresAtValue);
+    const message = getExtensionToastMessage(previousExpiresAtValue, nextExpiresAtMs);
+    const lastAnnouncedMs = toTimestamp(lastAnnouncedExpiryRef.current);
+
+    if (!message || !Number.isFinite(nextExpiresAtMs)) return;
+    if (Number.isFinite(lastAnnouncedMs) && Math.abs(lastAnnouncedMs - nextExpiresAtMs) <= 1000) {
+      return;
+    }
+
+    lastAnnouncedExpiryRef.current = nextExpiresAtMs;
+    setExtensionToast(message);
+  }, []);
+
+  useEffect(() => {
+    if (!extensionToast) return;
+    const timeoutId = setTimeout(() => setExtensionToast(""), 4000);
+    return () => clearTimeout(timeoutId);
+  }, [extensionToast]);
 
   // Fetch test data
   useEffect(() => {
@@ -634,6 +658,7 @@ const DoListeningTest = () => {
           }
           const nextExpiresAt = json?.timing?.expiresAt || json?.expiresAt;
           if (nextExpiresAt) {
+            announceExtension(nextExpiresAt, expiresAtRef.current);
             syncTimingState(nextExpiresAt);
           }
         }
@@ -694,7 +719,66 @@ const DoListeningTest = () => {
       window.removeEventListener("beforeunload", onBeforeUnload);
       window.removeEventListener("storage", onStorage);
     };
-  }, [answers, submitted, stateKey, expiresKey, id, audioPlayed, started, syncTimingState]);
+  }, [answers, submitted, stateKey, expiresKey, id, audioPlayed, started, syncTimingState, announceExtension]);
+
+  const reconcileServerTiming = useCallback(async () => {
+    if (!started || submitted) return;
+    if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
+
+    const user = (() => {
+      try {
+        return JSON.parse(localStorage.getItem("user") || "null");
+      } catch (_err) {
+        return null;
+      }
+    })();
+    const query = submissionIdRef.current
+      ? `?submissionId=${submissionIdRef.current}`
+      : user?.id
+        ? `?userId=${user.id}`
+        : "";
+    if (!query) return;
+
+    try {
+      const res = await fetch(apiPath(`listening-submissions/${id}/active${query}`));
+      if (!res.ok) return;
+      const data = await res.json().catch(() => ({}));
+      const nextExpiresAt = data?.submission?.expiresAt || data?.timing?.expiresAt;
+      const nextExpiresAtMs = toTimestamp(nextExpiresAt);
+      const currentExpiresAtMs = toTimestamp(expiresAtRef.current);
+
+      if (
+        Number.isFinite(nextExpiresAtMs) &&
+        (!Number.isFinite(currentExpiresAtMs) || Math.abs(nextExpiresAtMs - currentExpiresAtMs) > 1000)
+      ) {
+        announceExtension(nextExpiresAtMs, currentExpiresAtMs);
+        syncTimingState(nextExpiresAtMs);
+      }
+    } catch (_err) {
+      // ignore polling errors; autosave and refresh can still recover timing
+    }
+  }, [announceExtension, id, started, submitted, syncTimingState]);
+
+  useEffect(() => {
+    if (!started || submitted) return;
+
+    reconcileServerTiming();
+    const intervalId = setInterval(reconcileServerTiming, 5000);
+    const onCheck = () => {
+      if (document.visibilityState !== "hidden") {
+        reconcileServerTiming();
+      }
+    };
+
+    window.addEventListener("focus", onCheck);
+    document.addEventListener("visibilitychange", onCheck);
+
+    return () => {
+      clearInterval(intervalId);
+      window.removeEventListener("focus", onCheck);
+      document.removeEventListener("visibilitychange", onCheck);
+    };
+  }, [reconcileServerTiming, started, submitted]);
 
   // Get parts data
   const parts = useMemo(() => {
@@ -2201,6 +2285,7 @@ const DoListeningTest = () => {
 
   return (
     <div style={styles.pageWrapper}>
+      <ExtensionToast message={extensionToast} />
       {showStartModal && (
         <div style={styles.playGateOverlay}>
           <div style={styles.playGateCard}>

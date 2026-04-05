@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import AdminNavbar from "../../../shared/components/AdminNavbar";
 import { useTheme } from "../../../shared/contexts/ThemeContext";
-import { apiPath } from "../../../shared/utils/api";
+import { apiPath, authFetch } from "../../../shared/utils/api";
 import { generateDetailsFromSections } from "../../listening/pages/ListeningResults";
 import {
   formatAttemptTimestamp,
@@ -309,7 +309,7 @@ const AdminListeningSubmissions = () => {
   const handleExtendTime = async (sub, extraMinutes) => {
     setExtendingId(sub.id);
     try {
-      const res = await fetch(apiPath(`listening-submissions/${sub.id}/extend-time`), {
+      const res = await authFetch(apiPath(`listening-submissions/${sub.id}/extend-time`), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ extraMinutes }),

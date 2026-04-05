@@ -9,6 +9,7 @@ const {
   buildTimingPayload,
   extendDeadline,
   normalizeExtensionMinutes,
+  resolveAuthoritativeExpiry,
 } = require('../utils/testTiming');
 
 const { requireAuth } = require('../middlewares/auth');
@@ -579,7 +580,7 @@ router.post('/:testId/autosave', async (req, res) => {
       if (sub.finished) return res.status(400).json({ message: '❌ Attempt đã hoàn thành' });
 
       sub.answers = answers || sub.answers;
-      sub.expiresAt = expiresAt ? new Date(expiresAt) : sub.expiresAt;
+      sub.expiresAt = resolveAuthoritativeExpiry(sub.expiresAt, expiresAt);
       sub.lastSavedAt = new Date();
       await sub.save();
 
@@ -600,7 +601,7 @@ router.post('/:testId/autosave', async (req, res) => {
       });
       if (existing) {
         existing.answers = answers || existing.answers;
-        existing.expiresAt = expiresAt ? new Date(expiresAt) : existing.expiresAt;
+        existing.expiresAt = resolveAuthoritativeExpiry(existing.expiresAt, expiresAt);
         existing.lastSavedAt = new Date();
         await existing.save();
         return res.json({

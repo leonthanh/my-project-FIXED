@@ -93,6 +93,22 @@ function extendDeadline(expiresAtValue, extraMinutes, nowMs = Date.now()) {
   };
 }
 
+function resolveAuthoritativeExpiry(currentValue, incomingValue) {
+  const currentMs = toTimestamp(currentValue);
+  const incomingMs = toTimestamp(incomingValue);
+
+  if (Number.isFinite(currentMs) && Number.isFinite(incomingMs)) {
+    return new Date(Math.max(currentMs, incomingMs));
+  }
+  if (Number.isFinite(currentMs)) {
+    return new Date(currentMs);
+  }
+  if (Number.isFinite(incomingMs)) {
+    return new Date(incomingMs);
+  }
+  return null;
+}
+
 module.exports = {
   TIMER_GRACE_SECONDS,
   DEFAULT_EXTENSION_MINUTES,
@@ -102,5 +118,6 @@ module.exports = {
   getGraceRemainingSeconds,
   buildTimingPayload,
   extendDeadline,
+  resolveAuthoritativeExpiry,
   toTimestamp,
 };

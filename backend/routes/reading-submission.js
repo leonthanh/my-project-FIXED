@@ -9,6 +9,7 @@ const {
   buildTimingPayload,
   extendDeadline,
   normalizeExtensionMinutes,
+  resolveAuthoritativeExpiry,
 } = require("../utils/testTiming");
 
 const FINALIZED_READING_WHERE = {
@@ -246,7 +247,7 @@ router.post("/:testId/autosave", async (req, res) => {
 
       await sub.update({
         answers: normalizedAnswers,
-        expiresAt: parsedExpiresAt || sub.expiresAt,
+        expiresAt: resolveAuthoritativeExpiry(sub.expiresAt, parsedExpiresAt),
         lastSavedAt: now,
         progressMeta: normalizedProgressMeta,
         userName: resolvedUserName || sub.userName,
@@ -274,7 +275,7 @@ router.post("/:testId/autosave", async (req, res) => {
       if (existing) {
         await existing.update({
           answers: normalizedAnswers,
-          expiresAt: parsedExpiresAt || existing.expiresAt,
+          expiresAt: resolveAuthoritativeExpiry(existing.expiresAt, parsedExpiresAt),
           lastSavedAt: now,
           progressMeta: normalizedProgressMeta,
           userName: resolvedUserName || existing.userName,

@@ -11,10 +11,12 @@ import {
 } from "../../../shared/utils/api";
 import {
   formatClock,
+  getExtensionToastMessage,
   getGraceRemainingSeconds,
   getRemainingSeconds,
   toTimestamp,
 } from "../../../shared/utils/testTiming";
+import ExtensionToast from "../../../shared/components/ExtensionToast";
 
 // ====== STYLE FOR HEADER & MODAL ======
 const writingHeaderStyle = {
@@ -160,7 +162,9 @@ const WritingTest = () => {
   const [selectedTestId, setSelectedTestId] = useState(() => localStorage.getItem("selectedTestId") || "");
   const [isHydratingDraft, setIsHydratingDraft] = useState(true);
   const [graceRemaining, setGraceRemaining] = useState(0);
+  const [extensionToast, setExtensionToast] = useState("");
   const autoSubmittingRef = useRef(false);
+  const lastAnnouncedExpiryRef = useRef(null);
 
   const syncTimingState = useCallback(
     (expiresAtValue, fallbackSeconds = null) => {
@@ -186,6 +190,26 @@ const WritingTest = () => {
     },
     [writingEndAtKey]
   );
+
+  const announceExtension = useCallback((nextExpiresAtValue, previousExpiresAtValue) => {
+    const nextExpiresAtMs = toTimestamp(nextExpiresAtValue);
+    const message = getExtensionToastMessage(previousExpiresAtValue, nextExpiresAtMs);
+    const lastAnnouncedMs = toTimestamp(lastAnnouncedExpiryRef.current);
+
+    if (!message || !Number.isFinite(nextExpiresAtMs)) return;
+    if (Number.isFinite(lastAnnouncedMs) && Math.abs(lastAnnouncedMs - nextExpiresAtMs) <= 1000) {
+      return;
+    }
+
+    lastAnnouncedExpiryRef.current = nextExpiresAtMs;
+    setExtensionToast(message);
+  }, []);
+
+  useEffect(() => {
+    if (!extensionToast) return;
+    const timeoutId = setTimeout(() => setExtensionToast(""), 4000);
+    return () => clearTimeout(timeoutId);
+  }, [extensionToast]);
 
   useEffect(() => {
     localStorage.setItem(writingTask1Key, task1);
@@ -339,12 +363,40 @@ const WritingTest = () => {
       const data = await res.json().catch(() => ({}));
       const nextEndAt = data?.timing?.expiresAt || data?.draftEndAt;
       if (nextEndAt) {
+        announceExtension(nextEndAt, endAt);
         syncTimingState(nextEndAt);
       }
     } catch (err) {
       console.error("Error autosaving writing draft:", err);
     }
-  }, [isHydratingDraft, submitted, user?.id, user?.name, user?.phone, selectedTestId, task1, task2, timeLeft, endAt, started, syncTimingState]);
+  }, [announceExtension, isHydratingDraft, submitted, user?.id, user?.name, user?.phone, selectedTestId, task1, task2, timeLeft, endAt, started, syncTimingState]);
+
+  const reconcileServerTiming = useCallback(async () => {
+    if (isHydratingDraft || submitted || !started || !user?.id) return;
+    if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
+
+    const numericTestId = Number(selectedTestId);
+    if (!Number.isFinite(numericTestId) || numericTestId <= 0) return;
+
+    try {
+      const res = await fetch(apiPath(`writing/draft/active?userId=${user.id}&testId=${numericTestId}`));
+      if (!res.ok) return;
+      const data = await res.json().catch(() => ({}));
+      const nextEndAt = data?.submission?.draftEndAt || data?.timing?.expiresAt;
+      const nextEndAtMs = toTimestamp(nextEndAt);
+      const currentEndAtMs = toTimestamp(endAt);
+
+      if (
+        Number.isFinite(nextEndAtMs) &&
+        (!Number.isFinite(currentEndAtMs) || Math.abs(nextEndAtMs - currentEndAtMs) > 1000)
+      ) {
+        announceExtension(nextEndAtMs, currentEndAtMs);
+        syncTimingState(nextEndAtMs);
+      }
+    } catch (_err) {
+      // ignore polling errors; autosave and refresh can still recover timing
+    }
+  }, [announceExtension, endAt, isHydratingDraft, selectedTestId, started, submitted, syncTimingState, user?.id]);
 
   useEffect(() => {
     if (isHydratingDraft || submitted) return;
@@ -366,6 +418,28 @@ const WritingTest = () => {
       document.removeEventListener("visibilitychange", onVisibility);
     };
   }, [isHydratingDraft, submitted, user?.id, selectedTestId, saveDraftToServer]);
+
+  useEffect(() => {
+    if (isHydratingDraft || submitted || !started) return;
+    if (!user?.id || !selectedTestId) return;
+
+    reconcileServerTiming();
+    const intervalId = setInterval(reconcileServerTiming, 5000);
+    const onCheck = () => {
+      if (document.visibilityState !== "hidden") {
+        reconcileServerTiming();
+      }
+    };
+
+    window.addEventListener("focus", onCheck);
+    document.addEventListener("visibilitychange", onCheck);
+
+    return () => {
+      clearInterval(intervalId);
+      window.removeEventListener("focus", onCheck);
+      document.removeEventListener("visibilitychange", onCheck);
+    };
+  }, [isHydratingDraft, reconcileServerTiming, selectedTestId, started, submitted, user?.id]);
 
   const handleSubmit = useCallback(async () => {
     if (isSubmitting) return;
@@ -589,6 +663,7 @@ const WritingTest = () => {
   // Header đồng bộ với Reading
   return (
     <div style={{ height: "100vh", display: "flex", flexDirection: "column" }}>
+      <ExtensionToast message={extensionToast} />
       <header style={writingHeaderStyle}>
         <div style={writingHeaderLeft}>
           <div style={writingBadge}>IELTS</div>

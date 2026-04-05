@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import AdminNavbar from "../../../shared/components/AdminNavbar";
-import { apiPath } from "../../../shared/utils/api";
+import { apiPath, authFetch } from "../../../shared/utils/api";
 import {
   getAttemptTimingMeta,
   QUICK_EXTENSION_OPTIONS,
@@ -262,7 +262,7 @@ const AdminWritingSubmissions = () => {
   const handleExtendDraft = async (submissionId, extraMinutes) => {
     setExtendingId(submissionId);
     try {
-      const res = await fetch(apiPath(`writing/draft/${submissionId}/extend-time`), {
+      const res = await authFetch(apiPath(`writing/draft/${submissionId}/extend-time`), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ extraMinutes }),
