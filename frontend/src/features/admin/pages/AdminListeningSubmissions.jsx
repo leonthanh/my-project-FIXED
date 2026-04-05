@@ -3,12 +3,12 @@ import { useNavigate } from "react-router-dom";
 import AdminNavbar from "../../../shared/components/AdminNavbar";
 import { useTheme } from "../../../shared/contexts/ThemeContext";
 import { apiPath, authFetch } from "../../../shared/utils/api";
+import AttemptExtensionControls from "../components/AttemptExtensionControls";
 import SubmissionFilterPanel from "../components/SubmissionFilterPanel";
 import { generateDetailsFromSections } from "../../listening/pages/ListeningResults";
 import {
   formatAttemptTimestamp,
   getAttemptTimingMeta,
-  QUICK_EXTENSION_OPTIONS,
 } from "../utils/attemptTiming";
 
 // Small helpers (copied from ListeningResults) to safely parse test data
@@ -405,8 +405,10 @@ const AdminListeningSubmissions = () => {
         )
       );
       alert(data?.message || "Đã gia hạn thời gian.");
+      return true;
     } catch (err) {
       alert(`❌ ${err.message}`);
+      return false;
     } finally {
       setExtendingId(null);
     }
@@ -617,33 +619,18 @@ const AdminListeningSubmissions = () => {
                         ✍️ Nhận xét
                       </button>
                       {s.finished === false && (
-                        extendingId === s.id ? (
-                          <span
-                            style={{
-                              ...actionBtn,
-                              display: "inline-flex",
-                              alignItems: "center",
-                              background: "#0284c7",
-                              cursor: "wait",
-                            }}
-                          >
-                            ⏳ Đang gia hạn
-                          </span>
-                        ) : (
-                          QUICK_EXTENSION_OPTIONS.map((minutes) => (
-                            <button
-                              key={minutes}
-                              onClick={() => handleExtendTime(s, minutes)}
-                              style={{
-                                ...actionBtn,
-                                background: "#0284c7",
-                              }}
-                              title={`Gia hạn thêm ${minutes} phút`}
-                            >
-                              +{minutes}p
-                            </button>
-                          ))
-                        )
+                        <AttemptExtensionControls
+                          isLoading={extendingId === s.id}
+                          onExtend={(minutes) => handleExtendTime(s, minutes)}
+                          buttonStyle={{
+                            ...actionBtn,
+                            background: "#0284c7",
+                          }}
+                          submitButtonStyle={{
+                            ...actionBtn,
+                            background: "#0369a1",
+                          }}
+                        />
                       )}
                     </div>
                   </td>

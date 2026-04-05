@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from "react";
 import AdminNavbar from "../../../shared/components/AdminNavbar";
 import { apiPath, authFetch } from "../../../shared/utils/api";
+import AttemptExtensionControls from "../components/AttemptExtensionControls";
 import {
   getAttemptTimingMeta,
-  QUICK_EXTENSION_OPTIONS,
 } from "../utils/attemptTiming";
 
 const AdminWritingSubmissions = () => {
@@ -286,8 +286,10 @@ const AdminWritingSubmissions = () => {
         )
       );
       alert(data?.message || "Đã gia hạn thời gian.");
+      return true;
     } catch (err) {
       alert(`❌ ${err.message}`);
+      return false;
     } finally {
       setExtendingId(null);
     }
@@ -647,40 +649,32 @@ const AdminWritingSubmissions = () => {
                           <span style={{ color: "#475569" }}>
                             Lưu: {formatDateTime(item.draftSavedAt || item.updatedAt || item.createdAt)}
                           </span>
-                          {extendingId === item.id ? (
-                            <span
-                              style={{
-                                padding: "7px 12px",
-                                borderRadius: 6,
-                                border: "none",
-                                background: "#0284c7",
-                                color: "#fff",
-                                fontWeight: 600,
-                                cursor: "wait",
-                              }}
-                            >
-                              Đang gia hạn...
-                            </span>
-                          ) : (
-                            QUICK_EXTENSION_OPTIONS.map((minutes) => (
-                              <button
-                                key={minutes}
-                                onClick={() => handleExtendDraft(item.id, minutes)}
-                                style={{
-                                  padding: "7px 12px",
-                                  borderRadius: 6,
-                                  border: "none",
-                                  background: "#0284c7",
-                                  color: "#fff",
-                                  fontWeight: 600,
-                                  cursor: "pointer",
-                                }}
-                                title={`Gia hạn thêm ${minutes} phút`}
-                              >
-                                +{minutes}p
-                              </button>
-                            ))
-                          )}
+                          <AttemptExtensionControls
+                            isLoading={extendingId === item.id}
+                            onExtend={(minutes) => handleExtendDraft(item.id, minutes)}
+                            buttonStyle={{
+                              padding: "7px 12px",
+                              borderRadius: 6,
+                              border: "none",
+                              background: "#0284c7",
+                              color: "#fff",
+                              fontWeight: 600,
+                              cursor: "pointer",
+                            }}
+                            inputStyle={{
+                              borderColor: "#93c5fd",
+                            }}
+                            submitButtonStyle={{
+                              padding: "7px 12px",
+                              borderRadius: 6,
+                              border: "none",
+                              background: "#0369a1",
+                              color: "#fff",
+                              fontWeight: 600,
+                              cursor: "pointer",
+                            }}
+                            errorStyle={{ color: "#b91c1c" }}
+                          />
                         </div>
                       </div>
                     )}

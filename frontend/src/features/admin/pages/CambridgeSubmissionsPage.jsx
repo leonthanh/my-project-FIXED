@@ -2,11 +2,11 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import AdminNavbar from "../../../shared/components/AdminNavbar";
 import { apiPath, authFetch } from "../../../shared/utils/api";
+import AttemptExtensionControls from "../components/AttemptExtensionControls";
 import SubmissionFilterPanel from "../components/SubmissionFilterPanel";
 import {
   formatAttemptTimestamp,
   getAttemptTimingMeta,
-  QUICK_EXTENSION_OPTIONS,
 } from "../utils/attemptTiming";
 
 const parseJsonIfString = (value) => {
@@ -459,8 +459,10 @@ const CambridgeSubmissionsPage = () => {
         )
       );
       alert(data?.message || "Đã gia hạn thời gian.");
+      return true;
     } catch (err) {
       alert(`❌ ${err.message}`);
+      return false;
     } finally {
       setExtendingId(null);
     }
@@ -839,35 +841,18 @@ const CambridgeSubmissionsPage = () => {
                                   <span className="admin-view-button__label">Xem</span>
                                 </button>
                                 {sub.finished === false && (
-                                  extendingId === sub.id ? (
-                                    <span
-                                      style={{
-                                        ...styles.viewButton,
-                                        display: "inline-flex",
-                                        alignItems: "center",
-                                        justifyContent: "center",
-                                        background: "#0284c7",
-                                        cursor: "wait",
-                                      }}
-                                    >
-                                      ⏳ Đang gia hạn
-                                    </span>
-                                  ) : (
-                                    QUICK_EXTENSION_OPTIONS.map((minutes) => (
-                                      <button
-                                        key={minutes}
-                                        onClick={() => handleExtendTime(sub, minutes)}
-                                        style={{
-                                          ...styles.viewButton,
-                                          background: "#0284c7",
-                                        }}
-                                        title={`Gia hạn thêm ${minutes} phút`}
-                                      >
-                                        <span className="admin-view-button__icon">⏱️</span>
-                                        <span className="admin-view-button__label">+{minutes}p</span>
-                                      </button>
-                                    ))
-                                  )
+                                  <AttemptExtensionControls
+                                    isLoading={extendingId === sub.id}
+                                    onExtend={(minutes) => handleExtendTime(sub, minutes)}
+                                    buttonStyle={{
+                                      ...styles.viewButton,
+                                      background: "#0284c7",
+                                    }}
+                                    submitButtonStyle={{
+                                      ...styles.viewButton,
+                                      background: "#0369a1",
+                                    }}
+                                  />
                                 )}
                               </div>
                             </td>
