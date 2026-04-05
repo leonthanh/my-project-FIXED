@@ -3,6 +3,7 @@ const router = express.Router();
 
 const ListeningSubmission = require('../models/ListeningSubmission');
 const ListeningTest = require('../models/ListeningTest');
+const User = require('../models/User');
 const { scoreListening } = require('../utils/listeningScorer');
 const {
   DEFAULT_EXTENSION_MINUTES,
@@ -112,6 +113,7 @@ router.get('/admin/list', async (req, res) => {
   try {
     const subs = await ListeningSubmission.findAll({
       order: [['createdAt', 'DESC']],
+      include: [{ model: User, attributes: ['id', 'name', 'phone'] }],
     });
 
     const testIds = [...new Set(subs.map((s) => s.testId).filter(Boolean))];
@@ -528,6 +530,9 @@ router.get('/admin/list', async (req, res) => {
             teacherName: t.teacherName || '',
           }
         : null;
+      obj.user = obj.user || obj.User || null;
+      obj.userName = obj.userName || obj.User?.name || null;
+      obj.userPhone = obj.userPhone || obj.User?.phone || null;
       obj.computedTotal = computedTotal;
       obj.computedPercentage = computedPercentage;
       obj.computedCorrect = Number.isFinite(Number(correct)) ? Number(correct) : 0;
@@ -761,7 +766,9 @@ router.post('/:submissionId/feedback', async (req, res) => {
 router.get('/:submissionId', async (req, res) => {
   try {
     const { submissionId } = req.params;
-    const submission = await ListeningSubmission.findByPk(submissionId);
+    const submission = await ListeningSubmission.findByPk(submissionId, {
+      include: [{ model: User, attributes: ['id', 'name', 'phone'] }],
+    });
     if (!submission) return res.status(404).json({ message: '❌ Không tìm thấy bài nộp' });
 
     const test = submission.testId ? await ListeningTest.findByPk(submission.testId) : null;
@@ -776,6 +783,9 @@ router.get('/:submissionId', async (req, res) => {
     };
 
     const subJson = submission.toJSON();
+  subJson.user = subJson.user || subJson.User || null;
+  subJson.userName = subJson.userName || subJson.User?.name || null;
+  subJson.userPhone = subJson.userPhone || subJson.User?.phone || null;
     subJson.answers = safeParseJson(subJson.answers);
     subJson.details = safeParseJson(subJson.details);
 
