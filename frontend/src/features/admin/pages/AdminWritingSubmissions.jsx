@@ -1,6 +1,10 @@
 import React, { useEffect, useState } from "react";
 import AdminNavbar from "../../../shared/components/AdminNavbar";
 import { apiPath } from "../../../shared/utils/api";
+import {
+  getAttemptTimingMeta,
+  QUICK_EXTENSION_OPTIONS,
+} from "../utils/attemptTiming";
 
 const AdminWritingSubmissions = () => {
   const [data, setData] = useState([]);
@@ -18,6 +22,7 @@ const AdminWritingSubmissions = () => {
   const [filteredData, setFilteredData] = useState([]);
   const [expandedItems, setExpandedItems] = useState(new Set());
   const [filterStatus, setFilterStatus] = useState("");
+  const [extendingId, setExtendingId] = useState(null);
 
   let teacher = null;
   try {
@@ -251,6 +256,40 @@ const AdminWritingSubmissions = () => {
       alert("Could not connect to the AI service.");
     } finally {
       setAiLoading((prev) => ({ ...prev, [submission.id]: false }));
+    }
+  };
+
+  const handleExtendDraft = async (submissionId, extraMinutes) => {
+    setExtendingId(submissionId);
+    try {
+      const res = await fetch(apiPath(`writing/draft/${submissionId}/extend-time`), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ extraMinutes }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data?.message || "Gia hạn thất bại");
+      }
+
+      setData((prev) =>
+        prev.map((item) =>
+          item.id === submissionId
+            ? {
+                ...item,
+                isDraft: true,
+                draftEndAt: data?.draftEndAt || item.draftEndAt,
+                draftSavedAt: new Date().toISOString(),
+                timeLeft: data?.timeLeft ?? item.timeLeft,
+              }
+            : item
+        )
+      );
+      alert(data?.message || "Đã gia hạn thời gian.");
+    } catch (err) {
+      alert(`❌ ${err.message}`);
+    } finally {
+      setExtendingId(null);
     }
   };
 
@@ -498,6 +537,7 @@ const AdminWritingSubmissions = () => {
             const isDone = !!(item.feedback && item.feedbackBy) || !!hasSaved[item.id];
             const isDraft = !!item.isDraft;
             const isExpanded = expandedItems.has(item.id);
+            const timingMeta = isDraft ? getAttemptTimingMeta(item.draftEndAt) : null;
             const testLabel = [
               item.WritingTest?.testType === "pet-writing" ? "PET Writing" : "Writing",
               item.WritingTest?.index,
@@ -573,7 +613,9 @@ const AdminWritingSubmissions = () => {
                   <span
                     style={{ fontSize: 12, color: "#9ca3af", whiteSpace: "nowrap" }}
                   >
-                    {formatDateTime(item.createdAt)}
+                    {isDraft && timingMeta
+                      ? `${timingMeta.label} • ${formatDateTime(item.draftSavedAt || item.updatedAt || item.createdAt)}`
+                      : formatDateTime(item.createdAt)}
                   </span>
                   <span style={{ fontSize: 16, color: "#9ca3af", marginLeft: 4 }}>
                     {isExpanded ? "▲" : "▼"}
@@ -596,6 +638,50 @@ const AdminWritingSubmissions = () => {
                       >
                         This is an autosaved draft that has not been submitted. The student
                         must sign in again and click Submit to finalize it.
+                        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginTop: 10 }}>
+                          {timingMeta && (
+                            <span style={{ fontWeight: 700, color: timingMeta.color }}>
+                              {timingMeta.label}
+                            </span>
+                          )}
+                          <span style={{ color: "#475569" }}>
+                            Lưu: {formatDateTime(item.draftSavedAt || item.updatedAt || item.createdAt)}
+                          </span>
+                          {extendingId === item.id ? (
+                            <span
+                              style={{
+                                padding: "7px 12px",
+                                borderRadius: 6,
+                                border: "none",
+                                background: "#0284c7",
+                                color: "#fff",
+                                fontWeight: 600,
+                                cursor: "wait",
+                              }}
+                            >
+                              Đang gia hạn...
+                            </span>
+                          ) : (
+                            QUICK_EXTENSION_OPTIONS.map((minutes) => (
+                              <button
+                                key={minutes}
+                                onClick={() => handleExtendDraft(item.id, minutes)}
+                                style={{
+                                  padding: "7px 12px",
+                                  borderRadius: 6,
+                                  border: "none",
+                                  background: "#0284c7",
+                                  color: "#fff",
+                                  fontWeight: 600,
+                                  cursor: "pointer",
+                                }}
+                                title={`Gia hạn thêm ${minutes} phút`}
+                              >
+                                +{minutes}p
+                              </button>
+                            ))
+                          )}
+                        </div>
                       </div>
                     )}
 

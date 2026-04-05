@@ -4,6 +4,12 @@ const router = express.Router();
 const ListeningSubmission = require('../models/ListeningSubmission');
 const ListeningTest = require('../models/ListeningTest');
 const { scoreListening } = require('../utils/listeningScorer');
+const {
+  DEFAULT_EXTENSION_MINUTES,
+  buildTimingPayload,
+  extendDeadline,
+  normalizeExtensionMinutes,
+} = require('../utils/testTiming');
 
 const { requireAuth } = require('../middlewares/auth');
 const { requireTestPermission } = require('../middlewares/testPermissions');
@@ -577,7 +583,13 @@ router.post('/:testId/autosave', async (req, res) => {
       sub.lastSavedAt = new Date();
       await sub.save();
 
-      return res.json({ message: '✅ Đã lưu tạm', submissionId: sub.id, savedAt: sub.lastSavedAt });
+      return res.json({
+        message: '✅ Đã lưu tạm',
+        submissionId: sub.id,
+        savedAt: sub.lastSavedAt,
+        expiresAt: sub.expiresAt,
+        timing: buildTimingPayload(sub.expiresAt),
+      });
     }
 
     // Try to find an existing unfinished attempt for this user + test
@@ -591,7 +603,13 @@ router.post('/:testId/autosave', async (req, res) => {
         existing.expiresAt = expiresAt ? new Date(expiresAt) : existing.expiresAt;
         existing.lastSavedAt = new Date();
         await existing.save();
-        return res.json({ message: '✅ Đã lưu tạm', submissionId: existing.id, savedAt: existing.lastSavedAt });
+        return res.json({
+          message: '✅ Đã lưu tạm',
+          submissionId: existing.id,
+          savedAt: existing.lastSavedAt,
+          expiresAt: existing.expiresAt,
+          timing: buildTimingPayload(existing.expiresAt),
+        });
       }
     }
 
@@ -609,7 +627,13 @@ router.post('/:testId/autosave', async (req, res) => {
       lastSavedAt: new Date(),
     });
 
-    res.status(201).json({ message: '✅ Tạo attempt tạm', submissionId: created.id, savedAt: created.lastSavedAt });
+    res.status(201).json({
+      message: '✅ Tạo attempt tạm',
+      submissionId: created.id,
+      savedAt: created.lastSavedAt,
+      expiresAt: created.expiresAt,
+      timing: buildTimingPayload(created.expiresAt),
+    });
   } catch (error) {
     console.error('Error autosaving attempt:', error);
     res.status(500).json({ message: '❌ Lỗi khi autosave', error: error.message });
@@ -630,7 +654,10 @@ router.get('/:testId/active', async (req, res) => {
         return res.status(404).json({ message: '❌ Không tìm thấy attempt' });
       }
       debug(`GET /api/listening-submissions/${testId}/active - returning submissionId=${sub.id}`);
-      return res.json({ submission: sub.toJSON() });
+      return res.json({
+        submission: sub.toJSON(),
+        timing: buildTimingPayload(sub.expiresAt),
+      });
     }
 
     if (userId) {
@@ -640,14 +667,47 @@ router.get('/:testId/active', async (req, res) => {
         return res.json({ submission: null });
       }
       debug(`GET /api/listening-submissions/${testId}/active - returning submissionId=${sub.id} for userId=${userId}`);
-      return res.json({ submission: sub.toJSON() });
+      return res.json({
+        submission: sub.toJSON(),
+        timing: buildTimingPayload(sub.expiresAt),
+      });
     }
 
     // No identifying info, return null
-    return res.json({ submission: null });
+    return res.json({ submission: null, timing: buildTimingPayload(null) });
   } catch (error) {
     console.error('Error fetching active attempt:', error);
     res.status(500).json({ message: '❌ Lỗi khi lấy attempt', error: error.message });
+  }
+});
+
+router.post('/:submissionId/extend-time', requireAuth, requireTestPermission('listening'), async (req, res) => {
+  try {
+    const { submissionId } = req.params;
+    const submission = await ListeningSubmission.findByPk(submissionId);
+    if (!submission) {
+      return res.status(404).json({ message: '❌ Không tìm thấy attempt' });
+    }
+    if (submission.finished) {
+      return res.status(400).json({ message: '❌ Attempt đã hoàn thành' });
+    }
+
+    const extensionMinutes = normalizeExtensionMinutes(req.body?.extraMinutes, DEFAULT_EXTENSION_MINUTES);
+    const { expiresAtMs } = extendDeadline(submission.expiresAt, extensionMinutes);
+    submission.expiresAt = new Date(expiresAtMs);
+    submission.lastSavedAt = new Date();
+    await submission.save();
+
+    return res.json({
+      message: `✅ Đã gia hạn ${extensionMinutes} phút`,
+      submissionId: submission.id,
+      extensionMinutes,
+      expiresAt: submission.expiresAt,
+      timing: buildTimingPayload(submission.expiresAt),
+    });
+  } catch (error) {
+    console.error('Error extending listening submission:', error);
+    return res.status(500).json({ message: '❌ Lỗi khi gia hạn thời gian', error: error.message });
   }
 });
 

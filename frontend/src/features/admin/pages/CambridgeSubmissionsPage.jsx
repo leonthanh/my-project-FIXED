@@ -2,6 +2,11 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import AdminNavbar from "../../../shared/components/AdminNavbar";
 import { apiPath } from "../../../shared/utils/api";
+import {
+  formatAttemptTimestamp,
+  getAttemptTimingMeta,
+  QUICK_EXTENSION_OPTIONS,
+} from "../utils/attemptTiming";
 
 /**
  * CambridgeSubmissionsPage - Trang giáo viên xem danh sách bài làm Cambridge
@@ -22,6 +27,7 @@ const CambridgeSubmissionsPage = () => {
   const [submissions, setSubmissions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [extendingId, setExtendingId] = useState(null);
   const [pagination, setPagination] = useState({
     page: 1,
     limit: 20,
@@ -44,7 +50,7 @@ const CambridgeSubmissionsPage = () => {
         setLoading(true);
         setError(null);
 
-        let url = `cambridge/submissions?page=${pagination.page}&limit=${pagination.limit}`;
+        let url = `cambridge/submissions?page=${pagination.page}&limit=${pagination.limit}&includeActive=1`;
         
         // Apply test type filter based on tab
         if (activeTab === 'listening') {
@@ -129,6 +135,39 @@ const CambridgeSubmissionsPage = () => {
   // View submission detail
   const handleViewDetail = (submissionId) => {
     navigate(`/cambridge/result/${submissionId}`);
+  };
+
+  const handleExtendTime = async (sub, extraMinutes) => {
+    setExtendingId(sub.id);
+    try {
+      const res = await fetch(apiPath(`cambridge/submissions/${sub.id}/extend-time`), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ extraMinutes }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data?.message || "Gia hạn thất bại");
+      }
+
+      setSubmissions((prev) =>
+        prev.map((item) =>
+          item.id === sub.id
+            ? {
+                ...item,
+                finished: false,
+                expiresAt: data?.expiresAt || item.expiresAt,
+                lastSavedAt: new Date().toISOString(),
+              }
+            : item
+        )
+      );
+      alert(data?.message || "Đã gia hạn thời gian.");
+    } catch (err) {
+      alert(`❌ ${err.message}`);
+    } finally {
+      setExtendingId(null);
+    }
   };
 
   // Handle page change
@@ -256,6 +295,7 @@ const CambridgeSubmissionsPage = () => {
                   ) : (
                     filteredSubmissions.map((sub, index) => {
                       const typeBadge = getTestTypeBadge(sub.testType);
+                      const timingMeta = sub.finished === false ? getAttemptTimingMeta(sub.expiresAt) : null;
                       return (
                         <tr key={sub.id} style={styles.tr}>
                           <td style={styles.td}>
@@ -286,40 +326,102 @@ const CambridgeSubmissionsPage = () => {
                           </td>
                           <td style={styles.td}>
                             <div style={styles.scoreContainer}>
-                              <span style={{
-                                ...styles.score,
-                                color: getScoreColor(sub.percentage)
-                              }}>
-                                {sub.score}/{sub.totalQuestions}
-                              </span>
-                              <span style={{
-                                ...styles.percentage,
-                                backgroundColor: getScoreColor(sub.percentage) + '20',
-                                color: getScoreColor(sub.percentage)
-                              }}>
-                                {sub.percentage}%
-                              </span>
+                              {sub.finished === false ? (
+                                <>
+                                  <span style={{ ...styles.score, color: "#1d4ed8" }}>
+                                    Đang làm
+                                  </span>
+                                  <span style={{
+                                    ...styles.percentage,
+                                    backgroundColor: "#dbeafe",
+                                    color: timingMeta?.color || "#1d4ed8"
+                                  }}>
+                                    {timingMeta?.label || "Chưa nộp"}
+                                  </span>
+                                </>
+                              ) : (
+                                <>
+                                  <span style={{
+                                    ...styles.score,
+                                    color: getScoreColor(sub.percentage)
+                                  }}>
+                                    {sub.score}/{sub.totalQuestions}
+                                  </span>
+                                  <span style={{
+                                    ...styles.percentage,
+                                    backgroundColor: getScoreColor(sub.percentage) + '20',
+                                    color: getScoreColor(sub.percentage)
+                                  }}>
+                                    {sub.percentage}%
+                                  </span>
+                                </>
+                              )}
                             </div>
                           </td>
                           <td style={styles.td}>
                             <span style={styles.timeSpent}>
-                              {formatTime(sub.timeSpent)}
+                              {sub.finished === false ? "--:--" : formatTime(sub.timeSpent)}
                             </span>
                           </td>
                           <td style={styles.td}>
-                            <span style={styles.date}>
-                              {formatDate(sub.submittedAt)}
-                            </span>
+                            {sub.finished === false ? (
+                              <div>
+                                <div style={{ ...styles.date, fontWeight: 700, color: "#1d4ed8" }}>Đang làm</div>
+                                <div style={{ ...styles.date, color: timingMeta?.color || "#64748b", fontSize: 12 }}>
+                                  {timingMeta?.label || "Chưa có deadline"}
+                                </div>
+                                <div style={{ ...styles.date, fontSize: 11 }}>
+                                  Lưu: {formatAttemptTimestamp(sub.lastSavedAt || sub.createdAt)}
+                                </div>
+                              </div>
+                            ) : (
+                              <span style={styles.date}>
+                                {formatDate(sub.submittedAt)}
+                              </span>
+                            )}
                           </td>
                           <td style={styles.td}>
-                            <button
-                              onClick={() => handleViewDetail(sub.id)}
-                              style={styles.viewButton}
-                              className="admin-view-button"
-                            >
-                              <span className="admin-view-button__icon">👁️</span>
-                              <span className="admin-view-button__label">Xem</span>
-                            </button>
+                            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                              <button
+                                onClick={() => handleViewDetail(sub.id)}
+                                style={styles.viewButton}
+                                className="admin-view-button"
+                              >
+                                <span className="admin-view-button__icon">👁️</span>
+                                <span className="admin-view-button__label">Xem</span>
+                              </button>
+                              {sub.finished === false && (
+                                extendingId === sub.id ? (
+                                  <span
+                                    style={{
+                                      ...styles.viewButton,
+                                      display: "inline-flex",
+                                      alignItems: "center",
+                                      justifyContent: "center",
+                                      background: "#0284c7",
+                                      cursor: "wait",
+                                    }}
+                                  >
+                                    ⏳ Đang gia hạn
+                                  </span>
+                                ) : (
+                                  QUICK_EXTENSION_OPTIONS.map((minutes) => (
+                                    <button
+                                      key={minutes}
+                                      onClick={() => handleExtendTime(sub, minutes)}
+                                      style={{
+                                        ...styles.viewButton,
+                                        background: "#0284c7",
+                                      }}
+                                      title={`Gia hạn thêm ${minutes} phút`}
+                                    >
+                                      <span className="admin-view-button__icon">⏱️</span>
+                                      <span className="admin-view-button__label">+{minutes}p</span>
+                                    </button>
+                                  ))
+                                )
+                              )}
+                            </div>
                           </td>
                         </tr>
                       );

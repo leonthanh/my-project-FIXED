@@ -3,6 +3,12 @@ import { useParams, useNavigate } from "react-router-dom";
 import { apiPath, getStoredUser, hostPath } from "../../../shared/utils/api";
 import TestHeader from "../../../shared/components/TestHeader";
 import { useTheme } from "../../../shared/contexts/ThemeContext";
+import {
+  formatClock,
+  getGraceRemainingSeconds,
+  getRemainingSeconds,
+  toTimestamp,
+} from "../../../shared/utils/testTiming";
 import { TEST_CONFIGS } from "../../../shared/config/questionTypes";
 import { computeQuestionStarts, countClozeBlanksFromText, getQuestionCountForSection } from "../utils/questionNumbering";
 import { CambridgeQuestionDisplay, CompactCambridgeQuestionDisplay } from "../components/CambridgeQuestionCards";
@@ -44,6 +50,7 @@ const DoCambridgeListeningTest = () => {
   /* eslint-disable-next-line no-unused-vars */
   const [expandedPart, setExpandedPart] = useState(0);
   const [timeRemaining, setTimeRemaining] = useState(30 * 60);
+  const [graceRemaining, setGraceRemaining] = useState(0);
   const [activeQuestion, setActiveQuestion] = useState(null);
 
   // Cambridge-style start gate (must click Play)
@@ -66,6 +73,8 @@ const DoCambridgeListeningTest = () => {
   const lastAudioTimeRef = useRef(0);
   const lastAudioSaveRef = useRef(0);
   const submissionIdRef = useRef(null);
+  const confirmSubmitRef = useRef(null);
+  const autoSubmittingRef = useRef(false);
 
   // Cambridge Reading-like splitter
   const [leftWidth, setLeftWidth] = useState(42);
@@ -86,6 +95,26 @@ const DoCambridgeListeningTest = () => {
       return `cambridgeListeningProgress-${testType || 'listening'}-${id || 'unknown'}-anon`;
     }
   }, [testType, id]);
+
+  const syncTimingState = useCallback(
+    (expiresAtValue, fallbackSeconds = null) => {
+      const expiresAtMs = toTimestamp(expiresAtValue);
+      if (Number.isFinite(expiresAtMs)) {
+        endTimeRef.current = expiresAtMs;
+        setTimeRemaining(getRemainingSeconds(expiresAtMs));
+        setGraceRemaining(getGraceRemainingSeconds(expiresAtMs));
+        return true;
+      }
+
+      endTimeRef.current = null;
+      setGraceRemaining(0);
+      if (fallbackSeconds !== null) {
+        setTimeRemaining(fallbackSeconds);
+      }
+      return false;
+    },
+    []
+  );
 
   // Fetch test data
   useEffect(() => {
@@ -110,6 +139,7 @@ const DoCambridgeListeningTest = () => {
         setTest(parsedData);
         const initialSeconds = (testConfig.duration || 30) * 60;
         setTimeRemaining(initialSeconds);
+  setGraceRemaining(0);
 
         let restoredFromServer = false;
 
@@ -133,9 +163,7 @@ const DoCambridgeListeningTest = () => {
             }
 
             if (saved?.endTime) {
-              endTimeRef.current = saved.endTime;
-              const remaining = Math.max(0, Math.floor((saved.endTime - Date.now()) / 1000));
-              setTimeRemaining(remaining);
+              syncTimingState(saved.endTime, initialSeconds);
             }
 
             if (typeof saved?.audioCurrentTime === 'number') {
@@ -208,9 +236,7 @@ const DoCambridgeListeningTest = () => {
 
                 const endTime = progressMeta.endTime || (draft.expiresAt ? new Date(draft.expiresAt).getTime() : null);
                 if (Number.isFinite(Number(endTime))) {
-                  endTimeRef.current = Number(endTime);
-                  const remaining = Math.max(0, Math.floor((Number(endTime) - Date.now()) / 1000));
-                  setTimeRemaining(remaining);
+                  syncTimingState(Number(endTime), initialSeconds);
                 }
 
                 try {
@@ -268,7 +294,7 @@ const DoCambridgeListeningTest = () => {
       }
     };
     fetchTest();
-  }, [id, testConfig.duration, storageKey]);
+  }, [id, testConfig.duration, storageKey, syncTimingState]);
 
   const hasAnyAudio = useMemo(() => {
     return Boolean(test?.mainAudioUrl || test?.parts?.some((p) => p?.audioUrl));
@@ -479,26 +505,46 @@ const DoCambridgeListeningTest = () => {
   // Timer countdown
   useEffect(() => {
     if (submitted || !test) return;
-    if (hasAnyAudio && !testStarted && !endTimeRef.current) return;
+    if (hasAnyAudio && !testStarted && !Number.isFinite(endTimeRef.current)) return;
 
-    if (!endTimeRef.current) {
-      endTimeRef.current = Date.now() + timeRemaining * 1000;
+    if (!Number.isFinite(endTimeRef.current)) {
+      syncTimingState(Date.now() + timeRemaining * 1000, timeRemaining);
     }
 
-    const timer = setInterval(() => {
-      const remaining = Math.max(0, Math.floor((endTimeRef.current - Date.now()) / 1000));
-      if (remaining <= 0) {
-        clearInterval(timer);
-        setTimeRemaining(0);
-        confirmSubmit();
-        return;
-      }
-      setTimeRemaining(remaining);
-    }, 1000);
+    const tick = () => {
+      const expiresAtMs = endTimeRef.current;
+      if (!Number.isFinite(expiresAtMs)) return;
 
-    return () => clearInterval(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [test, submitted, testStarted, hasAnyAudio, timeRemaining]);
+      const remaining = getRemainingSeconds(expiresAtMs);
+      const nextGraceRemaining = getGraceRemainingSeconds(expiresAtMs);
+      setTimeRemaining(remaining);
+      setGraceRemaining(nextGraceRemaining);
+      if (
+        remaining <= 0 &&
+        nextGraceRemaining <= 0 &&
+        !autoSubmittingRef.current
+      ) {
+        if (confirmSubmitRef.current) {
+          autoSubmittingRef.current = true;
+          confirmSubmitRef.current();
+        } else {
+          setTimeRemaining(0);
+        }
+      }
+    };
+
+    tick();
+    const timer = setInterval(tick, 1000);
+    const onCheck = () => tick();
+    window.addEventListener("focus", onCheck);
+    document.addEventListener("visibilitychange", onCheck);
+
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener("focus", onCheck);
+      document.removeEventListener("visibilitychange", onCheck);
+    };
+  }, [test, submitted, testStarted, hasAnyAudio, timeRemaining, syncTimingState]);
 
   useEffect(() => {
     if (!test) return;
@@ -529,26 +575,25 @@ const DoCambridgeListeningTest = () => {
     const user = getStoredUser();
     if (!user?.id && !submissionIdRef.current) return;
 
-    const payload = {
-      submissionId: submissionIdRef.current,
-      testId: id,
-      testType: test?.testType || testType || "ket-listening",
-      answers,
-      expiresAt: endTimeRef.current,
-      user,
-      progressMeta: {
-        currentPartIndex,
-        activeQuestion,
-        startedAudioByPart,
-        testStarted,
-        endTime: endTimeRef.current,
-        audioCurrentTime: lastAudioTimeRef.current,
-        hasResumeAudio,
-      },
-    };
-
     const persistDraft = async () => {
       try {
+        const payload = {
+          submissionId: submissionIdRef.current,
+          testId: id,
+          testType: test?.testType || testType || "ket-listening",
+          answers,
+          expiresAt: endTimeRef.current,
+          user,
+          progressMeta: {
+            currentPartIndex,
+            activeQuestion,
+            startedAudioByPart,
+            testStarted,
+            endTime: endTimeRef.current,
+            audioCurrentTime: lastAudioTimeRef.current,
+            hasResumeAudio,
+          },
+        };
         const res = await fetch(apiPath("cambridge/submissions/autosave"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -570,6 +615,10 @@ const DoCambridgeListeningTest = () => {
           } catch {
             // ignore local mirror errors
           }
+        }
+        const nextExpiresAt = json?.timing?.expiresAt || json?.expiresAt;
+        if (nextExpiresAt) {
+          syncTimingState(nextExpiresAt);
         }
       } catch (_err) {
         // Keep local progress if the network is unavailable.
@@ -607,6 +656,7 @@ const DoCambridgeListeningTest = () => {
     testStarted,
     test?.testType,
     testType,
+    syncTimingState,
   ]);
 
   const currentPart = useMemo(() => {
@@ -732,10 +782,11 @@ const DoCambridgeListeningTest = () => {
     setTestStarted(true);
     setAudioEnded(false);
     setHasResumeAudio(false);
-    if (!endTimeRef.current) {
-      endTimeRef.current = Date.now() + timeRemaining * 1000;
+    autoSubmittingRef.current = false;
+    if (!Number.isFinite(endTimeRef.current)) {
+      syncTimingState(Date.now() + timeRemaining * 1000, timeRemaining);
     }
-  }, [timeRemaining]);
+  }, [syncTimingState, timeRemaining]);
 
   const handlePlayGate = useCallback(async () => {
     const audio =
@@ -874,9 +925,7 @@ const DoCambridgeListeningTest = () => {
 
   // Format time display
   const formatTime = (seconds) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, "0")}`;
+    return formatClock(seconds);
   };
 
   // Handle answer change
@@ -1460,6 +1509,10 @@ const DoCambridgeListeningTest = () => {
     }
   };
 
+  useEffect(() => {
+    confirmSubmitRef.current = confirmSubmit;
+  }, [confirmSubmit]);
+
   // Calculate results locally (fallback)
   const calculateLocalResults = () => {
     let correct = 0;
@@ -1612,7 +1665,27 @@ const DoCambridgeListeningTest = () => {
         audioStatusText={hasAnyAudio && isAudioPlaying ? 'Audio is playing' : ''}
         onSubmit={handleSubmit}
         submitted={submitted}
+        timerWarning={timeRemaining > 0 && timeRemaining <= 300}
+        timerCritical={timeRemaining > 0 && timeRemaining <= 60}
       />
+
+      {testStarted && !submitted && timeRemaining === 0 && graceRemaining > 0 && (
+        <div
+          style={{
+            margin: "16px 24px 0",
+            borderRadius: 12,
+            padding: "12px 16px",
+            background: "#fff7ed",
+            border: "1px solid #fdba74",
+            color: "#9a3412",
+            fontSize: 14,
+            lineHeight: 1.5,
+            boxShadow: "0 10px 25px rgba(249, 115, 22, 0.08)",
+          }}
+        >
+          <strong>Đã hết giờ chính thức.</strong> Hệ thống giữ bài thêm {formatClock(graceRemaining)} để phòng sự cố mất điện hoặc tải lại trang. Giáo viên có thể gia hạn thêm thời gian nếu cần.
+        </div>
+      )}
 
       {/* Hidden global audio element (used when a single audio file is provided for the whole test) */}
       {audioMeta.usesMain && resolvedAudioSrc && (

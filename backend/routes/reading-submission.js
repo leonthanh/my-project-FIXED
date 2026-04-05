@@ -2,6 +2,14 @@ const express = require("express");
 const router = express.Router();
 const ReadingSubmission = require("../models/ReadingSubmission");
 const { Op } = require("sequelize");
+const { requireAuth } = require("../middlewares/auth");
+const { requireTestPermission } = require("../middlewares/testPermissions");
+const {
+  DEFAULT_EXTENSION_MINUTES,
+  buildTimingPayload,
+  extendDeadline,
+  normalizeExtensionMinutes,
+} = require("../utils/testTiming");
 
 const FINALIZED_READING_WHERE = {
   [Op.or]: [{ finished: true }, { finished: null }],
@@ -248,6 +256,8 @@ router.post("/:testId/autosave", async (req, res) => {
         message: "Draft saved.",
         submissionId: sub.id,
         savedAt: sub.lastSavedAt,
+        expiresAt: sub.expiresAt,
+        timing: buildTimingPayload(sub.expiresAt),
       });
     }
 
@@ -274,6 +284,8 @@ router.post("/:testId/autosave", async (req, res) => {
           message: "Draft saved.",
           submissionId: existing.id,
           savedAt: existing.lastSavedAt,
+          expiresAt: existing.expiresAt,
+          timing: buildTimingPayload(existing.expiresAt),
         });
       }
     }
@@ -297,6 +309,8 @@ router.post("/:testId/autosave", async (req, res) => {
       message: "Draft created.",
       submissionId: created.id,
       savedAt: created.lastSavedAt,
+      expiresAt: created.expiresAt,
+      timing: buildTimingPayload(created.expiresAt),
     });
   } catch (error) {
     console.error("Error autosaving reading draft:", error);
@@ -318,7 +332,10 @@ router.get("/:testId/active", async (req, res) => {
       if (!sub || sub.finished) {
         return res.json({ submission: null });
       }
-      return res.json({ submission: sub.toJSON() });
+      return res.json({
+        submission: sub.toJSON(),
+        timing: buildTimingPayload(sub.expiresAt),
+      });
     }
 
     const numericUserId = Number(userId);
@@ -334,8 +351,10 @@ router.get("/:testId/active", async (req, res) => {
       },
       order: [["updatedAt", "DESC"]],
     });
-
-    return res.json({ submission: sub ? sub.toJSON() : null });
+    return res.json({
+      submission: sub ? sub.toJSON() : null,
+      timing: sub ? buildTimingPayload(sub.expiresAt) : buildTimingPayload(null),
+    });
   } catch (error) {
     console.error("Error fetching active reading submission:", error);
     return res.status(500).json({
@@ -344,6 +363,47 @@ router.get("/:testId/active", async (req, res) => {
     });
   }
 });
+
+router.post(
+  "/:submissionId/extend-time",
+  requireAuth,
+  requireTestPermission("reading"),
+  async (req, res) => {
+    try {
+      const { submissionId } = req.params;
+      const submission = await ReadingSubmission.findByPk(submissionId);
+      if (!submission) {
+        return res.status(404).json({ message: "Submission not found." });
+      }
+      if (submission.finished) {
+        return res.status(400).json({ message: "Submission is already finished." });
+      }
+
+      const extensionMinutes = normalizeExtensionMinutes(
+        req.body?.extraMinutes,
+        DEFAULT_EXTENSION_MINUTES
+      );
+      const { expiresAtMs } = extendDeadline(submission.expiresAt, extensionMinutes);
+      submission.expiresAt = new Date(expiresAtMs);
+      submission.lastSavedAt = new Date();
+      await submission.save();
+
+      return res.json({
+        message: `Extended by ${extensionMinutes} minute(s).`,
+        submissionId: submission.id,
+        extensionMinutes,
+        expiresAt: submission.expiresAt,
+        timing: buildTimingPayload(submission.expiresAt),
+      });
+    } catch (error) {
+      console.error("Error extending reading submission:", error);
+      return res.status(500).json({
+        message: "Failed to extend reading submission.",
+        error: error.message,
+      });
+    }
+  }
+);
 
 // POST: Cleanup unfinished attempts after a final submit
 router.post("/:testId/cleanup", async (req, res) => {

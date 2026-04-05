@@ -16,6 +16,12 @@ import ClozeMCDisplay from "../../../shared/components/questions/displays/ClozeM
 import InlineChoiceDisplay from "../../../shared/components/questions/displays/InlineChoiceDisplay";
 import CambridgeResultsModal from "../components/CambridgeResultsModal";
 import { computeQuestionStarts, getQuestionCountForSection, parseClozeBlanksFromText } from "../utils/questionNumbering";
+import {
+  formatClock,
+  getGraceRemainingSeconds,
+  getRemainingSeconds,
+  toTimestamp,
+} from "../../../shared/utils/testTiming";
 import "./DoCambridgeReadingTest.css";
 
 /**
@@ -51,6 +57,8 @@ const DoCambridgeReadingTest = () => {
   const camReadSubmissionKey = useMemo(() => `cambridge_reading_${id}_submissionId:${storageUserId}`, [id, storageUserId]);
   const expiresAtRef = useRef(null);
   const submissionIdRef = useRef(null);
+  const confirmSubmitRef = useRef(null);
+  const autoSubmittingRef = useRef(false);
 
   // States
   const [test, setTest] = useState(null);
@@ -62,6 +70,7 @@ const DoCambridgeReadingTest = () => {
   const [results, setResults] = useState(null);
   const [currentPartIndex, setCurrentPartIndex] = useState(0);
   const [timeRemaining, setTimeRemaining] = useState(null); // Will be set from localStorage or config
+  const [graceRemaining, setGraceRemaining] = useState(0);
   /* eslint-disable-next-line no-unused-vars */
   const [activeQuestion, setActiveQuestion] = useState(null);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0); // Current question number
@@ -138,6 +147,31 @@ const DoCambridgeReadingTest = () => {
     if (Number.isFinite(fromTest) && fromTest > 0) return fromTest;
     return 60;
   }, [test?.duration, testConfig.duration]);
+
+  const syncTimingState = useCallback(
+    (expiresAtValue, fallbackSeconds = null) => {
+      const expiresAtMs = toTimestamp(expiresAtValue);
+      if (Number.isFinite(expiresAtMs)) {
+        expiresAtRef.current = expiresAtMs;
+        try {
+          localStorage.setItem(camReadTimeKey, String(expiresAtMs));
+        } catch (_err) {
+          // ignore storage errors
+        }
+        setTimeRemaining(getRemainingSeconds(expiresAtMs));
+        setGraceRemaining(getGraceRemainingSeconds(expiresAtMs));
+        return true;
+      }
+
+      expiresAtRef.current = null;
+      setGraceRemaining(0);
+      if (fallbackSeconds !== null) {
+        setTimeRemaining(fallbackSeconds);
+      }
+      return false;
+    },
+    [camReadTimeKey]
+  );
 
   const sanitizeQuillHtml = useCallback((html) => {
     if (typeof html !== 'string' || !html.trim()) return '';
@@ -247,12 +281,10 @@ const DoCambridgeReadingTest = () => {
                   ? new Date(draft.expiresAt).getTime()
                   : null;
                 if (Number.isFinite(expiresAtMs)) {
-                  expiresAtRef.current = expiresAtMs;
-                  localStorage.setItem(camReadTimeKey, String(expiresAtMs));
-                  const remaining = Math.max(0, Math.ceil((expiresAtMs - Date.now()) / 1000));
-                  setTimeRemaining(Math.min(remaining, durationSeconds));
+                  syncTimingState(expiresAtMs, durationSeconds);
                 } else {
                   setTimeRemaining(durationSeconds);
+                  setGraceRemaining(0);
                 }
 
                 const progressMeta =
@@ -286,12 +318,10 @@ const DoCambridgeReadingTest = () => {
           // Restore existing progress (even if answers are empty)
           setHasSavedProgress(true);
           if (savedExpiry) {
-            const expiry = parseInt(savedExpiry, 10);
-            expiresAtRef.current = expiry;
-            const remaining = Math.max(0, Math.ceil((expiry - Date.now()) / 1000));
-            setTimeRemaining(Math.min(remaining, durationSeconds));
+            syncTimingState(parseInt(savedExpiry, 10), durationSeconds);
           } else {
             setTimeRemaining(durationSeconds);
+            setGraceRemaining(0);
           }
           try {
             setAnswers(savedAnswers ? JSON.parse(savedAnswers) : {});
@@ -309,6 +339,7 @@ const DoCambridgeReadingTest = () => {
           localStorage.removeItem(camReadStartKey);
           setStarted(false);
           setTimeRemaining(durationSeconds);
+          setGraceRemaining(0);
           setAnswers({});
         }
       } catch (err) {
@@ -325,38 +356,57 @@ const DoCambridgeReadingTest = () => {
     camReadSubmissionKey,
     camReadTimeKey,
     id,
+    syncTimingState,
     testConfig.duration,
     startedKey,
   ]);
 
   // Timer countdown
   useEffect(() => {
-    if (!started || submitted || !test || timeRemaining === null) return;
+    if (submitted || !started || !Number.isFinite(expiresAtRef.current)) return;
 
-    const timer = setInterval(() => {
-      setTimeRemaining((prev) => {
-        if (prev <= 1) {
-          clearInterval(timer);
-          confirmSubmit();
-          return 0;
-        }
-        // Save expiresAt (absolute timestamp) every second
-        const newExpiry = Date.now() + (prev - 1) * 1000;
-        expiresAtRef.current = newExpiry;
-        localStorage.setItem(camReadTimeKey, String(newExpiry));
-        return prev - 1;
-      });
-    }, 1000);
+    const tick = () => {
+      const expiresAtMs = expiresAtRef.current;
+      if (!Number.isFinite(expiresAtMs)) return;
 
-    return () => clearInterval(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [test, submitted, timeRemaining, started]);
+      setTimeRemaining(getRemainingSeconds(expiresAtMs));
+      setGraceRemaining(getGraceRemainingSeconds(expiresAtMs));
+    };
+
+    tick();
+    const timer = setInterval(tick, 1000);
+    const onCheck = () => tick();
+    window.addEventListener("focus", onCheck);
+    document.addEventListener("visibilitychange", onCheck);
+
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener("focus", onCheck);
+      document.removeEventListener("visibilitychange", onCheck);
+    };
+  }, [submitted, started]);
+
+  useEffect(() => {
+    if (
+      !started ||
+      submitted ||
+      timeRemaining === null ||
+      timeRemaining > 0 ||
+      graceRemaining > 0
+    ) {
+      return;
+    }
+    if (autoSubmittingRef.current || !confirmSubmitRef.current) {
+      return;
+    }
+
+    autoSubmittingRef.current = true;
+    confirmSubmitRef.current();
+  }, [started, submitted, timeRemaining, graceRemaining]);
 
   // Format time display
   const formatTime = (seconds) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, "0")}`;
+    return formatClock(seconds);
   };
 
   // Handle answer change
@@ -382,22 +432,21 @@ const DoCambridgeReadingTest = () => {
     const user = getStoredUser();
     if (!user?.id && !submissionIdRef.current) return;
 
-    const payload = {
-      submissionId: submissionIdRef.current,
-      testId: id,
-      testType: test?.testType || testType || "ket-reading",
-      answers,
-      expiresAt: expiresAtRef.current,
-      user,
-      progressMeta: {
-        started,
-        currentPartIndex,
-        currentQuestionIndex,
-      },
-    };
-
     const persistDraft = async () => {
       try {
+        const payload = {
+          submissionId: submissionIdRef.current,
+          testId: id,
+          testType: test?.testType || testType || "ket-reading",
+          answers,
+          expiresAt: expiresAtRef.current,
+          user,
+          progressMeta: {
+            started,
+            currentPartIndex,
+            currentQuestionIndex,
+          },
+        };
         const res = await fetch(apiPath("cambridge/submissions/autosave"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -408,6 +457,10 @@ const DoCambridgeReadingTest = () => {
         if (json?.submissionId) {
           submissionIdRef.current = json.submissionId;
           localStorage.setItem(camReadSubmissionKey, String(json.submissionId));
+        }
+        const nextExpiresAt = json?.timing?.expiresAt || json?.expiresAt;
+        if (nextExpiresAt) {
+          syncTimingState(nextExpiresAt);
         }
       } catch (_err) {
         // Keep local progress if the network is unavailable.
@@ -443,6 +496,7 @@ const DoCambridgeReadingTest = () => {
     test?.testType,
     testType,
     timeRemaining,
+    syncTimingState,
   ]);
 
   // Handle submit
@@ -524,6 +578,10 @@ const DoCambridgeReadingTest = () => {
       submissionIdRef.current = null;
     }
   };
+
+  useEffect(() => {
+    confirmSubmitRef.current = confirmSubmit;
+  }, [confirmSubmit]);
 
   // Calculate results locally (fallback)
   const calculateLocalResults = () => {
@@ -1399,8 +1457,10 @@ const DoCambridgeReadingTest = () => {
                       setCurrentQuestionIndex(0);
                       setActiveQuestion(null);
                       setTimeRemaining(effectiveDuration * 60);
+                      setGraceRemaining(0);
                       setHasSavedProgress(false);
                       setStarted(false);
+                      autoSubmittingRef.current = false;
                       expiresAtRef.current = null;
                       submissionIdRef.current = null;
                     }}
@@ -1413,12 +1473,12 @@ const DoCambridgeReadingTest = () => {
                 <button
                   onClick={() => {
                     setStarted(true);
+                    autoSubmittingRef.current = false;
                     const initialSeconds = effectiveDuration * 60;
                     try {
                       localStorage.setItem(camReadStartKey, "true");
                       const expiry = Date.now() + (timeRemaining ?? initialSeconds) * 1000;
-                      expiresAtRef.current = expiry;
-                      localStorage.setItem(camReadTimeKey, String(expiry));
+                      syncTimingState(expiry, initialSeconds);
                       if (!localStorage.getItem(camReadAnsKey)) {
                         localStorage.setItem(camReadAnsKey, JSON.stringify(answers || {}));
                       }
@@ -1466,6 +1526,24 @@ const DoCambridgeReadingTest = () => {
         timerWarning={timeRemaining > 0 && timeRemaining <= 300}
         timerCritical={timeRemaining > 0 && timeRemaining <= 60}
       />
+
+      {started && !submitted && timeRemaining === 0 && graceRemaining > 0 && (
+        <div
+          style={{
+            margin: "16px 24px 0",
+            borderRadius: 12,
+            padding: "12px 16px",
+            background: "#fff7ed",
+            border: "1px solid #fdba74",
+            color: "#9a3412",
+            fontSize: 14,
+            lineHeight: 1.5,
+            boxShadow: "0 10px 25px rgba(249, 115, 22, 0.08)",
+          }}
+        >
+          <strong>Đã hết giờ chính thức.</strong> Hệ thống giữ bài thêm {formatTime(graceRemaining)} để phòng sự cố mất điện hoặc tải lại trang. Giáo viên có thể gia hạn thêm thời gian nếu cần.
+        </div>
+      )}
 
       {/* Main Content - Split View or Single Column based on question type */}
       {currentQuestion && currentQuestion.section.questionType === 'sign-message' ? (

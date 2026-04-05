@@ -11,6 +11,12 @@ import ResultModal from "../../../shared/components/ResultModal";
 import "../styles/do-reading-test.css";
 import { normalizeQuestionType } from "../utils/questionHelpers";
 import { apiPath, getStoredUser, hostPath } from "../../../shared/utils/api";
+import {
+  formatClock,
+  getGraceRemainingSeconds,
+  getRemainingSeconds,
+  toTimestamp,
+} from "../../../shared/utils/testTiming";
 /* eslint-disable no-loop-func */
 // Utility: Remove unwanted <span ...> tags from HTML
 function stripUnwantedHtml(html) {
@@ -115,6 +121,31 @@ const DoReadingTest = () => {
   const submissionIdRef = useRef(null);
   const confirmSubmitRef = useRef(null);
   const autoSubmittingRef = useRef(false);
+
+  const syncTimingState = useCallback(
+    (expiresAtValue, fallbackSeconds = null) => {
+      const expiresAtMs = toTimestamp(expiresAtValue);
+      if (Number.isFinite(expiresAtMs)) {
+        expiresAtRef.current = expiresAtMs;
+        try {
+          localStorage.setItem(readingExpiresKey, String(expiresAtMs));
+        } catch (_err) {
+          // ignore storage errors
+        }
+        setTimeRemaining(getRemainingSeconds(expiresAtMs));
+        setGraceRemaining(getGraceRemainingSeconds(expiresAtMs));
+        return true;
+      }
+
+      expiresAtRef.current = null;
+      setGraceRemaining(0);
+      if (fallbackSeconds !== null) {
+        setTimeRemaining(fallbackSeconds);
+      }
+      return false;
+    },
+    [readingExpiresKey]
+  );
 
   const isQuestionAnswered = useCallback(
     (n) => {
@@ -589,6 +620,7 @@ const DoReadingTest = () => {
 
   // Timer state
   const [timeRemaining, setTimeRemaining] = useState(null);
+  const [graceRemaining, setGraceRemaining] = useState(0);
   const [timerWarning, setTimerWarning] = useState(false);
   const [timerCritical, setTimerCritical] = useState(false);
 
@@ -614,11 +646,8 @@ const DoReadingTest = () => {
   // Persist expiresAt (absolute) and started flag so a refresh/power-loss restores correct remaining time
   useEffect(() => {
     try {
-      if (started && typeof timeRemaining === "number" && timeRemaining > 0) {
-        // Update expiresAt each tick so it stays accurate
-        const newExpiry = Date.now() + timeRemaining * 1000;
-        expiresAtRef.current = newExpiry;
-        localStorage.setItem(readingExpiresKey, String(newExpiry));
+      if (started && Number.isFinite(expiresAtRef.current)) {
+        localStorage.setItem(readingExpiresKey, String(expiresAtRef.current));
       }
       localStorage.setItem(readingStartedKey, started ? "true" : "false");
     } catch (e) {
@@ -633,20 +662,19 @@ const DoReadingTest = () => {
     const user = getStoredUser();
     if (!user?.id && !submissionIdRef.current) return;
 
-    const payload = {
-      submissionId: submissionIdRef.current,
-      answers,
-      expiresAt: expiresAtRef.current,
-      user,
-      progressMeta: {
-        started,
-        activeQuestion,
-        currentPartIndex,
-      },
-    };
-
     const persistDraft = async () => {
       try {
+        const payload = {
+          submissionId: submissionIdRef.current,
+          answers,
+          expiresAt: expiresAtRef.current,
+          user,
+          progressMeta: {
+            started,
+            activeQuestion,
+            currentPartIndex,
+          },
+        };
         const res = await fetch(apiPath(`reading-submissions/${id}/autosave`), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -660,6 +688,10 @@ const DoReadingTest = () => {
             readingSubmissionKey,
             String(json.submissionId)
           );
+        }
+        const nextExpiresAt = json?.timing?.expiresAt || json?.expiresAt;
+        if (nextExpiresAt) {
+          syncTimingState(nextExpiresAt);
         }
       } catch (_err) {
         // Keep localStorage as a fallback if the network is unstable.
@@ -692,6 +724,7 @@ const DoReadingTest = () => {
     currentPartIndex,
     id,
     readingSubmissionKey,
+    syncTimingState,
     started,
     submitted,
     timeRemaining,
@@ -784,16 +817,10 @@ const DoReadingTest = () => {
                   ? new Date(draft.expiresAt).getTime()
                   : null;
                 if (Number.isFinite(expiresAtMs)) {
-                  expiresAtRef.current = expiresAtMs;
-                  localStorage.setItem(readingExpiresKey, String(expiresAtMs));
-                  setTimeRemaining(
-                    Math.max(
-                      0,
-                      Math.ceil((expiresAtMs - Date.now()) / 1000)
-                    )
-                  );
+                  syncTimingState(expiresAtMs);
                 } else {
                   setTimeRemaining((normalized.durationMinutes || 60) * 60);
+                  setGraceRemaining(0);
                 }
 
                 const progressMeta =
@@ -834,18 +861,15 @@ const DoReadingTest = () => {
             const savedExpiry = localStorage.getItem(readingExpiresKey);
 
             if (savedStarted && savedExpiry) {
-              const remaining = Math.max(
-                0,
-                Math.ceil((parseInt(savedExpiry, 10) - Date.now()) / 1000)
-              );
-              expiresAtRef.current = parseInt(savedExpiry, 10);
-              setTimeRemaining(remaining);
+              syncTimingState(parseInt(savedExpiry, 10));
               setStarted(true);
             } else {
               setTimeRemaining((normalized.durationMinutes || 60) * 60);
+              setGraceRemaining(0);
             }
           } catch (e) {
             setTimeRemaining((normalized.durationMinutes || 60) * 60);
+            setGraceRemaining(0);
           }
         }
 
@@ -942,40 +966,47 @@ const DoReadingTest = () => {
     readingExpiresKey,
     readingStartedKey,
     readingSubmissionKey,
+    syncTimingState,
   ]);
 
   // Timer countdown (runs only when started)
   useEffect(() => {
-    if (timeRemaining === null || submitted || !started) return;
+    if (submitted || !started || !Number.isFinite(expiresAtRef.current)) return;
 
-    const timer = setInterval(() => {
-      setTimeRemaining((prev) => {
-        if (prev <= 1) {
-          clearInterval(timer);
-          setTimeUp(true);
-          setShowConfirm(true);
-          return 0;
-        }
+    const tick = () => {
+      const expiresAtMs = expiresAtRef.current;
+      if (!Number.isFinite(expiresAtMs)) return;
 
-        // Warning at 5 minutes
-        if (prev <= 300 && !timerWarning) {
-          setTimerWarning(true);
-        }
+      const remaining = getRemainingSeconds(expiresAtMs);
+      const nextGraceRemaining = getGraceRemainingSeconds(expiresAtMs);
 
-        // Critical at 1 minute
-        if (prev <= 60 && !timerCritical) {
-          setTimerCritical(true);
-        }
+      setTimeRemaining(remaining);
+      setGraceRemaining(nextGraceRemaining);
+      setTimerWarning(remaining > 0 && remaining <= 300);
+      setTimerCritical(remaining > 0 && remaining <= 60);
+    };
 
-        return prev - 1;
-      });
-    }, 1000);
+    tick();
+    const timer = setInterval(tick, 1000);
+    const onCheck = () => tick();
+    window.addEventListener("focus", onCheck);
+    document.addEventListener("visibilitychange", onCheck);
 
-    return () => clearInterval(timer);
-  }, [timeRemaining, submitted, timerWarning, timerCritical, started]);
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener("focus", onCheck);
+      document.removeEventListener("visibilitychange", onCheck);
+    };
+  }, [submitted, started]);
 
   useEffect(() => {
-    if (!started || submitted || timeRemaining === null || timeRemaining > 0) {
+    if (
+      !started ||
+      submitted ||
+      timeRemaining === null ||
+      timeRemaining > 0 ||
+      graceRemaining > 0
+    ) {
       return;
     }
     if (autoSubmittingRef.current || !confirmSubmitRef.current) {
@@ -986,16 +1017,11 @@ const DoReadingTest = () => {
     setTimeUp(true);
     setShowConfirm(false);
     confirmSubmitRef.current();
-  }, [started, submitted, timeRemaining]);
+  }, [started, submitted, timeRemaining, graceRemaining]);
 
   // Format time
   const formatTime = (seconds) => {
-    if (!seconds && seconds !== 0) return "--:--";
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins.toString().padStart(2, "0")}:${secs
-      .toString()
-      .padStart(2, "0")}`;
+    return formatClock(seconds);
   };
 
   // Handle answer change
@@ -1664,8 +1690,7 @@ const DoReadingTest = () => {
                 // Set expiry timestamp when test begins
                 const durationSecs = (test.durationMinutes || 60) * 60;
                 const expiry = Date.now() + (timeRemaining ?? durationSecs) * 1000;
-                expiresAtRef.current = expiry;
-                localStorage.setItem(readingExpiresKey, String(expiry));
+                syncTimingState(expiry, durationSecs);
                 // ensure timeRemaining is initialized if not yet
                 if (timeRemaining === null)
                   setTimeRemaining(durationSecs);
@@ -3007,6 +3032,24 @@ const DoReadingTest = () => {
           </button>
         </div>
       </header>
+
+      {started && !submitted && timeRemaining === 0 && graceRemaining > 0 && (
+        <div
+          style={{
+            margin: "16px 24px 0",
+            borderRadius: 12,
+            padding: "12px 16px",
+            background: "#fff7ed",
+            border: "1px solid #fdba74",
+            color: "#9a3412",
+            fontSize: 14,
+            lineHeight: 1.5,
+            boxShadow: "0 10px 25px rgba(249, 115, 22, 0.08)",
+          }}
+        >
+          <strong>Đã hết giờ chính thức.</strong> Hệ thống giữ bài thêm {formatTime(graceRemaining)} để phòng sự cố mất điện hoặc tải lại trang. Giáo viên có thể gia hạn thêm thời gian nếu cần.
+        </div>
+      )}
 
       {/* Main Content */}
       <main className="reading-test-main" ref={containerRef}>

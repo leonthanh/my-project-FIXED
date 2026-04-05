@@ -4,6 +4,12 @@ const { CambridgeListening, CambridgeReading, CambridgeSubmission } = require(".
 const { Op } = require("sequelize");
 const { logError } = require("../logger");
 const { processTestParts } = require("../utils/clozParser");
+const {
+  DEFAULT_EXTENSION_MINUTES,
+  buildTimingPayload,
+  extendDeadline,
+  normalizeExtensionMinutes,
+} = require("../utils/testTiming");
 
 const FINALIZED_CAMBRIDGE_WHERE = {
   [Op.or]: [{ finished: true }, { finished: null }],
@@ -1378,6 +1384,8 @@ router.post("/submissions/autosave", async (req, res) => {
       message: "Draft saved.",
       submissionId: submission.id,
       savedAt: submission.lastSavedAt,
+      expiresAt: submission.expiresAt,
+      timing: buildTimingPayload(submission.expiresAt),
     });
   } catch (err) {
     console.error("❌ Error autosaving Cambridge submission:", err);
@@ -1412,7 +1420,10 @@ router.get("/submissions/active", async (req, res) => {
       userId: Number(userId) || null,
     });
 
-    return res.json({ submission: submission ? submission.toJSON() : null });
+    return res.json({
+      submission: submission ? submission.toJSON() : null,
+      timing: submission ? buildTimingPayload(submission.expiresAt) : buildTimingPayload(null),
+    });
   } catch (err) {
     console.error("❌ Error fetching active Cambridge draft:", err);
     return res.status(500).json({
@@ -1421,6 +1432,47 @@ router.get("/submissions/active", async (req, res) => {
     });
   }
 });
+
+router.post(
+  "/submissions/:submissionId/extend-time",
+  requireAuth,
+  requireTestPermission("cambridge"),
+  async (req, res) => {
+    try {
+      const { submissionId } = req.params;
+      const submission = await CambridgeSubmission.findByPk(submissionId);
+      if (!submission) {
+        return res.status(404).json({ message: "Không tìm thấy attempt" });
+      }
+      if (submission.finished) {
+        return res.status(400).json({ message: "Attempt đã hoàn thành" });
+      }
+
+      const extensionMinutes = normalizeExtensionMinutes(
+        req.body?.extraMinutes,
+        DEFAULT_EXTENSION_MINUTES
+      );
+      const { expiresAtMs } = extendDeadline(submission.expiresAt, extensionMinutes);
+      submission.expiresAt = new Date(expiresAtMs);
+      submission.lastSavedAt = new Date();
+      await submission.save();
+
+      return res.json({
+        message: `Đã gia hạn ${extensionMinutes} phút.`,
+        submissionId: submission.id,
+        extensionMinutes,
+        expiresAt: submission.expiresAt,
+        timing: buildTimingPayload(submission.expiresAt),
+      });
+    } catch (err) {
+      console.error("❌ Error extending Cambridge submission:", err);
+      return res.status(500).json({
+        message: "Lỗi server khi gia hạn thời gian.",
+        error: err.message,
+      });
+    }
+  }
+);
 
 // POST submit listening test
 router.post("/listening-tests/:id/submit", async (req, res) => {
@@ -1680,7 +1732,10 @@ router.get("/reading-tests/:id/submissions", async (req, res) => {
 router.get("/submissions", async (req, res) => {
   try {
     const { testType, classCode, page = 1, limit = 50 } = req.query;
-    const where = { ...FINALIZED_CAMBRIDGE_WHERE };
+    const includeActive = ["1", "true", "yes"].includes(
+      String(req.query.includeActive || "").toLowerCase()
+    );
+    const where = includeActive ? {} : { ...FINALIZED_CAMBRIDGE_WHERE };
     if (testType) {
       const normalized = String(testType).trim().toLowerCase();
 
@@ -1704,7 +1759,8 @@ router.get("/submissions", async (req, res) => {
         "id", "testId", "testType", "testTitle",
         "studentName", "studentPhone", "classCode",
         "score", "totalQuestions", "percentage",
-        "timeSpent", "status", "submittedAt", "feedbackSeen"
+        "timeSpent", "status", "submittedAt", "feedbackSeen",
+        "finished", "expiresAt", "lastSavedAt", "feedback", "feedbackBy", "feedbackAt"
       ]
     });
 
