@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import AdminNavbar from "../../../shared/components/AdminNavbar";
 import { useTheme } from "../../../shared/contexts/ThemeContext";
 import { apiPath, authFetch } from "../../../shared/utils/api";
+import SubmissionFilterPanel from "../components/SubmissionFilterPanel";
 import { generateDetailsFromSections } from "../../listening/pages/ListeningResults";
 import {
   formatAttemptTimestamp,
@@ -66,7 +67,10 @@ const AdminListeningSubmissions = () => {
   const [searchClassCode, setSearchClassCode] = useState("");
   const [searchTeacher, setSearchTeacher] = useState("");
   const [searchStudent, setSearchStudent] = useState("");
-  const [filterFeedback, setFilterFeedback] = useState("all"); // all, with, without
+  const [searchPhone, setSearchPhone] = useState("");
+  const [searchReviewedBy, setSearchReviewedBy] = useState("");
+  const [statusTab, setStatusTab] = useState("all");
+  const [sortOrder, setSortOrder] = useState("newest");
   const [extendingId, setExtendingId] = useState(null);
 
   useEffect(() => {
@@ -242,27 +246,96 @@ const AdminListeningSubmissions = () => {
     if (user?.name) setFeedbackBy(user.name);
   }, []);
 
-  const filteredSubs = subs.filter((s) => {
-    const classCode = s.ListeningTest?.classCode || s.classCode || "";
-    const teacherName = s.ListeningTest?.teacherName || s.teacherName || "";
+  const hasReview = (submission) =>
+    Boolean(
+      String(submission?.feedback || "").trim() ||
+        String(submission?.feedbackBy || "").trim()
+    );
 
-    if (
-      searchClassCode &&
-      !classCode.toLowerCase().includes(searchClassCode.toLowerCase())
-    )
-      return false;
-    if (
-      searchTeacher &&
-      !teacherName.toLowerCase().includes(searchTeacher.toLowerCase())
-    )
-      return false;
-    if (searchStudent && !String(s.userName || "").toLowerCase().includes(searchStudent.toLowerCase()))
-      return false;
-    if (filterFeedback === "with" && !s.feedback) return false;
-    if (filterFeedback === "without" && s.feedback) return false;
+  const getSubmissionTime = (submission) =>
+    new Date(
+      submission?.submittedAt ||
+        submission?.createdAt ||
+        submission?.updatedAt ||
+        0
+    ).getTime();
 
-    return true;
-  });
+  const filteredSubs = useMemo(() => {
+    const next = subs.filter((submission) => {
+      const classCode = String(
+        submission?.ListeningTest?.classCode || submission?.classCode || ""
+      ).toLowerCase();
+      const teacherName = String(
+        submission?.ListeningTest?.teacherName || submission?.teacherName || ""
+      ).toLowerCase();
+      const studentName = String(
+        submission?.userName || submission?.User?.name || ""
+      ).toLowerCase();
+      const phone = String(
+        submission?.User?.phone || submission?.userPhone || ""
+      ).toLowerCase();
+      const reviewedBy = String(submission?.feedbackBy || "").toLowerCase();
+
+      if (searchClassCode && !classCode.includes(searchClassCode.toLowerCase())) {
+        return false;
+      }
+
+      if (searchTeacher && !teacherName.includes(searchTeacher.toLowerCase())) {
+        return false;
+      }
+
+      if (searchStudent && !studentName.includes(searchStudent.toLowerCase())) {
+        return false;
+      }
+
+      if (searchPhone && !phone.includes(searchPhone.toLowerCase())) {
+        return false;
+      }
+
+      if (
+        searchReviewedBy &&
+        !reviewedBy.includes(searchReviewedBy.toLowerCase())
+      ) {
+        return false;
+      }
+
+      if (statusTab === "pending" && hasReview(submission)) {
+        return false;
+      }
+
+      if (statusTab === "reviewed" && !hasReview(submission)) {
+        return false;
+      }
+
+      return true;
+    });
+
+    next.sort((left, right) => {
+      const delta = getSubmissionTime(right) - getSubmissionTime(left);
+      return sortOrder === "oldest" ? -delta : delta;
+    });
+
+    return next;
+  }, [
+    searchClassCode,
+    searchPhone,
+    searchReviewedBy,
+    searchStudent,
+    searchTeacher,
+    sortOrder,
+    statusTab,
+    subs,
+  ]);
+
+  const resetFilters = () => {
+    setSearchClassCode("");
+    setSearchTeacher("");
+    setSearchStudent("");
+    setSearchPhone("");
+    setSearchReviewedBy("");
+    setStatusTab("all");
+    setSortOrder("newest");
+  };
 
   const openFeedbackModal = (sub) => {
     setSelectedSubmission(sub);
@@ -368,53 +441,53 @@ const AdminListeningSubmissions = () => {
       <div style={{ padding: 24, maxWidth: 1400, margin: "0 auto" }} className="admin-page">
         <h2>📥 Listening Submissions</h2>
 
-        <div
-          className="admin-filter-grid"
-          style={{
-            display: "grid",
-            gridTemplateColumns: "1fr 1fr 1fr 150px",
-            gap: 15,
-            marginBottom: 20,
-            padding: 15,
-            background: "#f3f4f6",
-            borderRadius: 8,
-          }}
-        >
-          <input
-            type="text"
-            placeholder="🔍 Mã lớp..."
-            value={searchClassCode}
-            onChange={(e) => setSearchClassCode(e.target.value)}
-            style={inputStyle}
-          />
-          <input
-            type="text"
-            placeholder="🔍 Giáo viên đề..."
-            value={searchTeacher}
-            onChange={(e) => setSearchTeacher(e.target.value)}
-            style={inputStyle}
-          />
-          <input
-            type="text"
-            placeholder="🔍 Học sinh..."
-            value={searchStudent}
-            onChange={(e) => setSearchStudent(e.target.value)}
-            style={inputStyle}
-          />
-          <select
-            value={filterFeedback}
-            onChange={(e) => setFilterFeedback(e.target.value)}
-            style={inputStyle}
-          >
-            <option value="all">Tất cả</option>
-            <option value="with">Đã nhận xét</option>
-            <option value="without">Chưa nhận xét</option>
-          </select>
-        </div>
-
-        <p style={{ color: "#666", marginBottom: 10 }}>
-          📊 Hiển thị: <strong>{filteredSubs.length}</strong> / {subs.length} bài nộp
-        </p>
+        <SubmissionFilterPanel
+          fields={[
+            {
+              key: "student",
+              label: "Student Name",
+              placeholder: "Student name",
+              value: searchStudent,
+              onChange: setSearchStudent,
+            },
+            {
+              key: "phone",
+              label: "Phone",
+              placeholder: "Phone number",
+              value: searchPhone,
+              onChange: setSearchPhone,
+            },
+            {
+              key: "classCode",
+              label: "Class Code",
+              placeholder: "e.g. 148-IX-3A-S1",
+              value: searchClassCode,
+              onChange: setSearchClassCode,
+            },
+            {
+              key: "teacher",
+              label: "Test Teacher",
+              placeholder: "Teacher name",
+              value: searchTeacher,
+              onChange: setSearchTeacher,
+            },
+            {
+              key: "reviewedBy",
+              label: "Reviewed By",
+              placeholder: "Reviewer name",
+              value: searchReviewedBy,
+              onChange: setSearchReviewedBy,
+            },
+          ]}
+          sortValue={sortOrder}
+          onSortChange={setSortOrder}
+          statusValue={statusTab}
+          onStatusChange={setStatusTab}
+          onReset={resetFilters}
+          filteredCount={filteredSubs.length}
+          totalCount={subs.length}
+          summaryLabel="submissions"
+        />
 
         {loading && <p>⏳ Loading...</p>}
         {!loading && filteredSubs.length === 0 && <p>Không có bài nộp phù hợp</p>}
@@ -428,6 +501,7 @@ const AdminListeningSubmissions = () => {
                 <th style={cellStyle}>Mã lớp</th>
                 <th style={cellStyle}>Giáo viên</th>
                 <th style={cellStyle}>Học sinh</th>
+                <th style={cellStyle}>SĐT</th>
                 <th style={cellStyle}>Điểm</th>
                 <th style={cellStyle}>Band</th>
                 <th style={cellStyle}>Nhận xét</th>
@@ -456,6 +530,7 @@ const AdminListeningSubmissions = () => {
                     {s.ListeningTest?.teacherName || s.teacherName || "N/A"}
                   </td>
                   <td style={cellStyle}>{s.userName || "N/A"}</td>
+                  <td style={cellStyle}>{s.User?.phone || s.userPhone || "N/A"}</td>
                   <td style={cellStyle}>
                     {(() => {
                       const displayCorrect = Number.isFinite(Number(s.computedCorrect)) ? s.computedCorrect : (Number(s.correct) || 0);
