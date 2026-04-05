@@ -1,5 +1,43 @@
 import React from 'react';
 
+function sanitizePassageHtml(html) {
+  if (typeof html !== 'string' || !html.trim()) return '';
+
+  if (typeof DOMParser === 'undefined') {
+    return html;
+  }
+
+  try {
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+
+    doc.querySelectorAll('img').forEach((img) => {
+      const src = String(img.getAttribute('src') || '').trim();
+      if (!src) {
+        img.remove();
+      }
+    });
+
+    doc.querySelectorAll('p').forEach((paragraph) => {
+      const text = String(paragraph.textContent || '').replace(/\u00a0/g, ' ').trim();
+      const hasMedia = paragraph.querySelector('img, video, audio');
+      const brCount = paragraph.querySelectorAll('br').length;
+
+      if (!text && !hasMedia && brCount > 0) {
+        paragraph.remove();
+        return;
+      }
+
+      if (!text && !hasMedia) {
+        paragraph.remove();
+      }
+    });
+
+    return doc.body.innerHTML;
+  } catch {
+    return html;
+  }
+}
+
 /**
  * LongTextMCDisplay - Display component for long-text-mc questions (KET Part 3)
  * Shows passage with 5-7 multiple choice questions
@@ -12,15 +50,17 @@ const LongTextMCDisplay = ({
   submitted 
 }) => {
   const { passage, questions = [] } = section;
+  const sanitizedPassage = sanitizePassageHtml(passage);
 
   return (
     <div style={styles.container}>
       {/* Passage */}
-      {passage && (
+      {sanitizedPassage && (
         <div style={styles.passageContainer}>
           <div 
+            className="long-text-mc-passage"
             style={styles.passageContent}
-            dangerouslySetInnerHTML={{ __html: passage }}
+            dangerouslySetInnerHTML={{ __html: sanitizedPassage }}
           />
         </div>
       )}
