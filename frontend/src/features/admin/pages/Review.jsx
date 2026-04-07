@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import AdminNavbar from "../../../shared/components/AdminNavbar";
 import { useTheme } from "../../../shared/contexts/ThemeContext";
 import { apiPath } from "../../../shared/utils/api";
+import SubmissionTypeTabs from "../components/SubmissionTypeTabs";
 
 const DEFAULT_REVIEW_FILTERS = {
   studentName: "",
@@ -554,6 +555,32 @@ const Review = () => {
     mergedCambridgeRows,
     getCambridgeFilterMeta
   );
+  const reviewTabs = [
+    {
+      key: "writing",
+      shortLabel: "Writing",
+      label: "Writing Review Queue",
+      badge: writingNeedsReviewCount,
+    },
+    {
+      key: "reading",
+      shortLabel: "Reading",
+      label: "Reading Review Queue",
+      badge: readingNeedsReviewCount,
+    },
+    {
+      key: "listening",
+      shortLabel: "Listening",
+      label: "Listening Review Queue",
+      badge: listeningNeedsReviewCount,
+    },
+    {
+      key: "cambridge",
+      shortLabel: "Cambridge",
+      label: "Cambridge Review Queue",
+      badge: cambridgeNeedsReviewCount,
+    },
+  ];
 
   const activeFilters = filtersByTab[activeTab] || cloneReviewFilters();
   const activeTotalCount =
@@ -872,46 +899,15 @@ const Review = () => {
           <h3 style={{ margin: 0 }}>Review Queue</h3>
         </div>
 
-        <div
-          style={{ display: "flex", gap: 10, marginTop: 14, flexWrap: "wrap" }}
-          className="admin-tabs"
-        >
-          <button
-            onClick={() => setActiveTab("writing")}
-            style={{
-              ...tabStyle,
-              ...(activeTab === "writing" ? tabActiveStyle : {}),
-            }}
-          >
-            Writing{writingNeedsReviewCount > 0 ? ` (${writingNeedsReviewCount})` : ""}
-          </button>
-          <button
-            onClick={() => setActiveTab("reading")}
-            style={{
-              ...tabStyle,
-              ...(activeTab === "reading" ? tabActiveStyle : {}),
-            }}
-          >
-            Reading{readingNeedsReviewCount > 0 ? ` (${readingNeedsReviewCount})` : ""}
-          </button>
-          <button
-            onClick={() => setActiveTab("listening")}
-            style={{
-              ...tabStyle,
-              ...(activeTab === "listening" ? tabActiveStyle : {}),
-            }}
-          >
-            Listening{listeningNeedsReviewCount > 0 ? ` (${listeningNeedsReviewCount})` : ""}
-          </button>
-          <button
-            onClick={() => setActiveTab("cambridge")}
-            style={{
-              ...tabStyle,
-              ...(activeTab === "cambridge" ? tabActiveStyle : {}),
-            }}
-          >
-            Cambridge{cambridgeNeedsReviewCount > 0 ? ` (${cambridgeNeedsReviewCount})` : ""}
-          </button>
+        <div style={{ marginTop: 14 }}>
+          <SubmissionTypeTabs
+            title={null}
+            items={reviewTabs}
+            activeKey={activeTab}
+            onSelect={setActiveTab}
+            allowMobileWrap
+            buttonFlex="0 1 170px"
+          />
         </div>
 
         {renderFilterToolbar(activeTab)}
@@ -1309,21 +1305,6 @@ const cellStyle = {
   border: "1px solid #ccc",
   padding: "8px",
   textAlign: "left",
-};
-
-const tabStyle = {
-  padding: "10px 12px",
-  borderRadius: 10,
-  border: "1px solid #e5e7eb",
-  background: "#fff",
-  cursor: "pointer",
-  fontWeight: 700,
-};
-
-const tabActiveStyle = {
-  borderColor: "#111827",
-  background: "#111827",
-  color: "#fff",
 };
 
 const filterPanelStyle = (isDarkMode) => ({
