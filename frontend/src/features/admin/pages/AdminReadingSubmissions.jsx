@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import AdminNavbar from "../../../shared/components/AdminNavbar";
 import { useTheme } from "../../../shared/contexts/ThemeContext";
 import { apiPath, authFetch } from "../../../shared/utils/api";
@@ -16,6 +16,8 @@ const AdminReadingSubmissions = () => {
   const [subs, setSubs] = useState([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const deepLinkHandledRef = useRef("");
 
   // Feedback modal state
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
@@ -158,12 +160,61 @@ const AdminReadingSubmissions = () => {
     setSortOrder("newest");
   };
 
+  const clearDeepLinkParams = () => {
+    if (!searchParams.get("submissionId") && !searchParams.get("action")) {
+      return;
+    }
+
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.delete("submissionId");
+    nextParams.delete("action");
+    setSearchParams(nextParams, { replace: true });
+  };
+
   // Open feedback modal
   const openFeedbackModal = (sub) => {
     setSelectedSubmission(sub);
     setFeedbackText(sub.feedback || "");
     setShowFeedbackModal(true);
   };
+
+  const closeFeedbackModal = () => {
+    setShowFeedbackModal(false);
+    setSelectedSubmission(null);
+    clearDeepLinkParams();
+  };
+
+  useEffect(() => {
+    if (!searchParams.get("submissionId")) {
+      deepLinkHandledRef.current = "";
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
+    const submissionId = searchParams.get("submissionId");
+    const action = searchParams.get("action");
+
+    if (!submissionId || (action && action !== "feedback") || loading) {
+      return;
+    }
+
+    const deepLinkKey = `${action || "feedback"}:${submissionId}`;
+    if (deepLinkHandledRef.current === deepLinkKey) {
+      return;
+    }
+
+    const matchedSubmission = subs.find(
+      (submission) => String(submission.id) === String(submissionId)
+    );
+
+    if (!matchedSubmission) {
+      clearDeepLinkParams();
+      return;
+    }
+
+    deepLinkHandledRef.current = deepLinkKey;
+    openFeedbackModal(matchedSubmission);
+  }, [loading, searchParams, subs]);
 
   // Save feedback
   const saveFeedback = async () => {
@@ -185,7 +236,7 @@ const AdminReadingSubmissions = () => {
             : s
         )
       );
-      setShowFeedbackModal(false);
+      closeFeedbackModal();
       alert("✅ Đã lưu nhận xét!");
     } catch (err) {
       alert("❌ Lỗi: " + err.message);
@@ -419,11 +470,11 @@ const AdminReadingSubmissions = () => {
 
       {/* Feedback Modal */}
       {showFeedbackModal && selectedSubmission && (
-        <div style={modalOverlay(isDarkMode)} onClick={() => setShowFeedbackModal(false)}>
+        <div style={modalOverlay(isDarkMode)} onClick={closeFeedbackModal}>
           <div style={modalContent(isDarkMode)} onClick={(e) => e.stopPropagation()}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
               <h3 style={{ margin: 0 }}>✍️ Nhận xét bài làm</h3>
-              <button onClick={() => setShowFeedbackModal(false)} style={closeBtn(isDarkMode)}>✕</button>
+              <button onClick={closeFeedbackModal} style={closeBtn(isDarkMode)}>✕</button>
             </div>
 
             <div style={{ marginBottom: 15, padding: 15, background: isDarkMode ? "#0f172a" : "#f3f4f6", borderRadius: 8, border: isDarkMode ? "1px solid #2a3350" : "none" }}>
@@ -460,7 +511,7 @@ const AdminReadingSubmissions = () => {
 
             <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
               <button
-                onClick={() => setShowFeedbackModal(false)}
+                onClick={closeFeedbackModal}
                 style={{ ...actionBtn, background: "#6b7280" }}
               >
                 Hủy

@@ -162,7 +162,7 @@ const AdminNavbar = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const [unreviewed, setUnreviewed] = useState([]);
+  const [pendingNotifications, setPendingNotifications] = useState([]);
   const [notificationDropdownVisible, setNotificationDropdownVisible] =
     useState(false);
   const [submissionDropdownVisible, setSubmissionDropdownVisible] =
@@ -191,23 +191,164 @@ const AdminNavbar = () => {
     user = null;
   }
 
-  useEffect(() => {
-    const fetchUnreviewed = async () => {
-      try {
-        const res = await fetch(apiPath("writing/list"));
-        const all = await res.json();
+  const hasFeedback = (submission) =>
+    String(submission?.feedback || "")
+      .trim()
+      .length > 0;
 
-        const notReviewed = all.filter(
-          (sub) => !sub.feedback || sub.feedback.trim() === ""
-        );
-        setUnreviewed(notReviewed);
-      } catch (err) {
-        console.error("Failed to load teacher notifications:", err);
+  const getSubmissionStatus = (submission) => {
+    const explicitStatus = String(submission?.status || "").trim().toLowerCase();
+
+    if (explicitStatus === "reviewed" || explicitStatus === "done") {
+      return "done";
+    }
+
+    if (hasFeedback(submission) || String(submission?.feedbackBy || "").trim()) {
+      return "done";
+    }
+
+    return "pending";
+  };
+
+  const isPendingSubmission = (submission) =>
+    getSubmissionStatus(submission) === "pending";
+
+  const getStudentName = (submission) =>
+    submission?.studentName ||
+    submission?.userName ||
+    submission?.user?.name ||
+    submission?.User?.name ||
+    "N/A";
+
+  const getStudentPhone = (submission) =>
+    submission?.studentPhone ||
+    submission?.userPhone ||
+    submission?.user?.phone ||
+    submission?.User?.phone ||
+    "N/A";
+
+  const getWritingCategoryLabel = (submission) => {
+    const testType = String(
+      submission?.writing_test?.testType ||
+        submission?.WritingTest?.testType ||
+        submission?.testType ||
+        ""
+    )
+      .trim()
+      .toLowerCase();
+
+    return testType.includes("pet-writing") ? "PET Writing" : "Writing";
+  };
+
+  const buildPendingNotification = (submission, category, route) => ({
+    key: `${category}-${submission.id}`,
+    id: submission.id,
+    category,
+    route,
+    studentName: getStudentName(submission),
+    phone: getStudentPhone(submission),
+    submittedAt: submission?.submittedAt || submission?.createdAt || null,
+  });
+
+  useEffect(() => {
+    const readJsonOrThrow = async (path) => {
+      const res = await fetch(apiPath(path));
+      if (!res.ok) {
+        throw new Error(`Request failed for ${path}`);
       }
+      return res.json();
     };
 
-    fetchUnreviewed();
-    const interval = setInterval(fetchUnreviewed, 30000);
+    const fetchPendingNotifications = async () => {
+      const [writingResult, readingResult, listeningResult, cambridgeResult] =
+        await Promise.allSettled([
+          readJsonOrThrow("writing/list"),
+          readJsonOrThrow("reading-submissions/admin/list"),
+          readJsonOrThrow("listening-submissions/admin/list"),
+          readJsonOrThrow("cambridge/submissions?page=1&limit=100"),
+        ]);
+
+      if (writingResult.status === "rejected") {
+        console.error("Failed to load writing notifications:", writingResult.reason);
+      }
+      if (readingResult.status === "rejected") {
+        console.error("Failed to load reading notifications:", readingResult.reason);
+      }
+      if (listeningResult.status === "rejected") {
+        console.error("Failed to load listening notifications:", listeningResult.reason);
+      }
+      if (cambridgeResult.status === "rejected") {
+        console.error("Failed to load Orange notifications:", cambridgeResult.reason);
+      }
+
+      const writingSubmissions =
+        writingResult.status === "fulfilled" && Array.isArray(writingResult.value)
+          ? writingResult.value
+          : [];
+      const readingSubmissions =
+        readingResult.status === "fulfilled" && Array.isArray(readingResult.value)
+          ? readingResult.value
+          : [];
+      const listeningSubmissions =
+        listeningResult.status === "fulfilled" && Array.isArray(listeningResult.value)
+          ? listeningResult.value
+          : [];
+      const cambridgePayload =
+        cambridgeResult.status === "fulfilled" ? cambridgeResult.value : null;
+      const cambridgeSubmissions = Array.isArray(cambridgePayload?.submissions)
+        ? cambridgePayload.submissions
+        : Array.isArray(cambridgePayload)
+        ? cambridgePayload
+        : [];
+
+      const nextNotifications = [
+        ...writingSubmissions
+          .filter(isPendingSubmission)
+          .map((submission) =>
+            buildPendingNotification(
+              submission,
+              getWritingCategoryLabel(submission),
+              `/review/${submission.id}`
+            )
+          ),
+        ...readingSubmissions
+          .filter(isPendingSubmission)
+          .map((submission) =>
+            buildPendingNotification(
+              submission,
+              "Reading",
+              `/admin/reading-submissions?submissionId=${submission.id}&action=feedback`
+            )
+          ),
+        ...listeningSubmissions
+          .filter(isPendingSubmission)
+          .map((submission) =>
+            buildPendingNotification(
+              submission,
+              "Listening",
+              `/admin/listening-submissions?submissionId=${submission.id}&action=feedback`
+            )
+          ),
+        ...cambridgeSubmissions
+          .filter(isPendingSubmission)
+          .map((submission) =>
+            buildPendingNotification(
+              submission,
+              "Orange",
+              `/admin/cambridge-submissions?submissionId=${submission.id}&action=review`
+            )
+          ),
+      ].sort((left, right) => {
+        const leftTime = new Date(left.submittedAt || 0).getTime();
+        const rightTime = new Date(right.submittedAt || 0).getTime();
+        return rightTime - leftTime;
+      });
+
+      setPendingNotifications(nextNotifications);
+    };
+
+    fetchPendingNotifications();
+    const interval = setInterval(fetchPendingNotifications, 30000);
     return () => clearInterval(interval);
   }, []);
 
@@ -320,6 +461,11 @@ const AdminNavbar = () => {
   const closeCambridgeMenu = () => setCambridgeDropdownVisible(false);
   const closeSubmissionMenu = () => setSubmissionDropdownVisible(false);
   const closeAdminMenu = () => setAdminDropdownVisible(false);
+  const handlePendingNotificationClick = (item) => {
+    setNotificationDropdownVisible(false);
+    setMobileDrawerOpen(false);
+    navigate(item.route);
+  };
 
   const buildLinkItem = (key, to, label, visible = true, iconName = null) =>
     visible ? { key, to, label, iconName } : null;
@@ -546,8 +692,13 @@ const AdminNavbar = () => {
     ieltsSections[0] ||
     null;
 
+  const pendingNotificationCount = pendingNotifications.length;
+
   const mobileDrawerTabs = [
-    { key: "review", label: `Review${unreviewed.length > 0 ? ` (${unreviewed.length})` : ""}` },
+    {
+      key: "review",
+      label: `Review${pendingNotificationCount > 0 ? ` (${pendingNotificationCount})` : ""}`,
+    },
     { key: "ix", label: "IX" },
     { key: "orange", label: "Orange" },
     { key: "overview", label: "Overview" },
@@ -812,33 +963,32 @@ const AdminNavbar = () => {
       <div className="adminNavbar__mobileMenuTop">
         <div className="adminNavbar__mobileMenuTitle">Review & Alerts</div>
         <div className="adminNavbar__mobileMenuHint">
-          Review queue first, then unreviewed writing submissions for quick teacher follow-up.
+          Review queue first, then pending submissions across writing, reading, listening, and Orange.
         </div>
       </div>
       <div className="adminNavbar__mobileMenuBody adminNavbar__mobileMenuBody--compact">
         <div className="adminNavbar__mobileSectionTitle">Review queue</div>
         {renderMobileQuickLink("/review", "Open review queue", "Jump straight to the teacher review page", "inbox")}
-        {unreviewed.length === 0 ? (
-          <div className="adminNavbar__mobileEmptyState">No unreviewed submissions.</div>
+        {pendingNotificationCount === 0 ? (
+          <div className="adminNavbar__mobileEmptyState">No pending submissions.</div>
         ) : (
           <div className="adminNavbar__mobileAlertsList">
-            {unreviewed.slice(0, 10).map((sub) => (
+            {pendingNotifications.slice(0, 10).map((item) => (
               <button
-                key={sub.id}
+                key={item.key}
                 type="button"
                 className="adminNavbar__mobileAlertItem"
                 onClick={() => {
-                  closeMobileDrawer();
-                  navigate(`/review/${sub.id}`);
+                  handlePendingNotificationClick(item);
                 }}
               >
                 <span className="adminNavbar__mobileAlertLine">
                   <span className="adminNavbar__mobileAlertIcon" aria-hidden="true"><NavIcon name="user" /></span>
-                  <span className="adminNavbar__mobileAlertName">{sub.User?.name || sub.userName || "N/A"}</span>
+                  <span className="adminNavbar__mobileAlertName">{item.category}: {item.studentName}</span>
                 </span>
                 <span className="adminNavbar__mobileAlertLine">
                   <span className="adminNavbar__mobileAlertIcon" aria-hidden="true"><NavIcon name="phone" /></span>
-                  <span className="adminNavbar__mobileAlertMeta">{sub.User?.phone || sub.userPhone || "N/A"}</span>
+                  <span className="adminNavbar__mobileAlertMeta">{item.phone}</span>
                 </span>
               </button>
             ))}
@@ -900,8 +1050,8 @@ const AdminNavbar = () => {
             <span className="adminNavbar__srOnly">
               {mobileDrawerOpen ? "Close menu" : "Open menu"}
             </span>
-            {unreviewed.length > 0 && (
-              <span className="adminNavbar__mobileMenuBadge">{unreviewed.length}</span>
+            {pendingNotificationCount > 0 && (
+              <span className="adminNavbar__mobileMenuBadge">{pendingNotificationCount}</span>
             )}
           </button>
         </div>
@@ -1039,44 +1189,43 @@ const AdminNavbar = () => {
 
         <div
           className={
-            unreviewed.length > 0
+            pendingNotificationCount > 0
               ? "adminNavbar__bell adminNavbar__bell--shake"
               : "adminNavbar__bell"
           }
           onClick={() =>
             setNotificationDropdownVisible(!notificationDropdownVisible)
           }
-          title="Unreviewed"
+          title="Pending submissions"
         >
           <NavIcon name="notifications" />
-          {unreviewed.length > 0 && (
+          {pendingNotificationCount > 0 && (
             <span className="adminNavbar__badge">
-              {unreviewed.length}
+              {pendingNotificationCount}
             </span>
           )}
         </div>
 
         {notificationDropdownVisible && (
           <div ref={notificationDropdownRef} className="adminNavbar__notifyMenu">
-            {unreviewed.length === 0 ? (
-              <div>No unreviewed submissions</div>
+            {pendingNotificationCount === 0 ? (
+              <div>No pending submissions</div>
             ) : (
-              unreviewed.map((sub, i) => (
+              pendingNotifications.map((item) => (
                 <div
-                  key={i}
+                  key={item.key}
                   className="adminNavbar__notifyItem"
                   onClick={() => {
-                    setNotificationDropdownVisible(false);
-                    navigate(`/review/${sub.id}`);
+                    handlePendingNotificationClick(item);
                   }}
                 >
                   <div className="adminNavbar__notifyItemRow">
                     <span className="adminNavbar__notifyItemIcon" aria-hidden="true"><NavIcon name="user" /></span>
-                    <span>{sub.User?.name || sub.userName || "N/A"}</span>
+                    <span>{item.category}: {item.studentName}</span>
                   </div>
                   <div className="adminNavbar__notifyItemMeta">
                     <span className="adminNavbar__notifyItemIcon" aria-hidden="true"><NavIcon name="phone" /></span>
-                    <span>{sub.User?.phone || sub.userPhone || "N/A"}</span>
+                    <span>{item.phone}</span>
                   </div>
                 </div>
               ))

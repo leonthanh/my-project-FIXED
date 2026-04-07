@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import AdminNavbar from "../../../shared/components/AdminNavbar";
 import LineIcon from "../../../shared/components/LineIcon";
 import { apiPath, authFetch, hostPath } from "../../../shared/utils/api";
@@ -149,6 +149,7 @@ const InlineIcon = ({ name, size = 18, style }) => (
  */
 const CambridgeSubmissionsPage = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   /* eslint-disable-next-line no-unused-vars */
   let teacher = null;
   try {
@@ -182,6 +183,7 @@ const CambridgeSubmissionsPage = () => {
   const [reviewStatus, setReviewStatus] = useState('all');
   const [sortOrder, setSortOrder] = useState('newest');
   const [activeReviewSubmissionId, setActiveReviewSubmissionId] = useState(null);
+  const [deepLinkedSubmission, setDeepLinkedSubmission] = useState(null);
   const [detailById, setDetailById] = useState({});
   const [detailLoadingById, setDetailLoadingById] = useState({});
   const [feedbackDraftById, setFeedbackDraftById] = useState({});
@@ -189,6 +191,7 @@ const CambridgeSubmissionsPage = () => {
   const [savingById, setSavingById] = useState({});
   const [statusMessageById, setStatusMessageById] = useState({});
   const feedbackInputRef = useRef(null);
+  const deepLinkHandledRef = useRef('');
 
   // Fetch submissions
   useEffect(() => {
@@ -287,6 +290,17 @@ const CambridgeSubmissionsPage = () => {
     setSortOrder('newest');
   };
 
+  const clearDeepLinkParams = () => {
+    if (!searchParams.get('submissionId') && !searchParams.get('action')) {
+      return;
+    }
+
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.delete('submissionId');
+    nextParams.delete('action');
+    setSearchParams(nextParams, { replace: true });
+  };
+
   const hasReview = (submission) =>
     Boolean(
       String(submission?.feedback || '').trim() ||
@@ -370,8 +384,12 @@ const CambridgeSubmissionsPage = () => {
   };
 
   const loadSubmissionDetail = async (submissionId) => {
-    if (detailById[submissionId] || detailLoadingById[submissionId]) {
-      return;
+    if (detailById[submissionId]) {
+      return detailById[submissionId];
+    }
+
+    if (detailLoadingById[submissionId]) {
+      return null;
     }
 
     try {
@@ -388,25 +406,76 @@ const CambridgeSubmissionsPage = () => {
         [submissionId]:
           typeof detail?.feedback === 'string' ? detail.feedback : prev[submissionId] || '',
       }));
+      return detail;
     } catch (err) {
       console.error('Failed to load Cambridge submission detail:', err);
       setStatusMessageById((prev) => ({
         ...prev,
         [submissionId]: err.message || 'Could not load submission details.',
       }));
+      return null;
     } finally {
       setDetailLoadingById((prev) => ({ ...prev, [submissionId]: false }));
     }
   };
 
   const openEssayReview = async (submission) => {
+    setDeepLinkedSubmission(null);
     setActiveReviewSubmissionId(submission.id);
     await loadSubmissionDetail(submission.id);
   };
 
   const closeEssayReview = () => {
     setActiveReviewSubmissionId(null);
+    setDeepLinkedSubmission(null);
+    clearDeepLinkParams();
   };
+
+  useEffect(() => {
+    if (!searchParams.get('submissionId')) {
+      deepLinkHandledRef.current = '';
+      setDeepLinkedSubmission(null);
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
+    const submissionId = searchParams.get('submissionId');
+    const action = searchParams.get('action');
+
+    if (!submissionId || (action && action !== 'review')) {
+      return;
+    }
+
+    const deepLinkKey = `${action || 'review'}:${submissionId}`;
+    if (deepLinkHandledRef.current === deepLinkKey) {
+      return;
+    }
+
+    deepLinkHandledRef.current = deepLinkKey;
+
+    const openDeepLinkedSubmission = async () => {
+      const matchedSubmission = submissions.find(
+        (submission) => String(submission.id) === String(submissionId)
+      );
+
+      if (matchedSubmission) {
+        setDeepLinkedSubmission(null);
+        await openEssayReview(matchedSubmission);
+        return;
+      }
+
+      const detail = await loadSubmissionDetail(submissionId);
+      if (!detail) {
+        clearDeepLinkParams();
+        return;
+      }
+
+      setDeepLinkedSubmission(detail);
+      setActiveReviewSubmissionId(detail.id);
+    };
+
+    openDeepLinkedSubmission();
+  }, [searchParams, submissions]);
 
   useEffect(() => {
     if (!activeReviewSubmissionId) {
@@ -415,7 +484,7 @@ const CambridgeSubmissionsPage = () => {
 
     const handleKeyDown = (event) => {
       if (event.key === 'Escape') {
-        setActiveReviewSubmissionId(null);
+        closeEssayReview();
       }
     };
 
@@ -549,7 +618,7 @@ const CambridgeSubmissionsPage = () => {
             : item
         )
       );
-      setActiveReviewSubmissionId(null);
+      closeEssayReview();
       setStatusMessageById((prev) => ({
         ...prev,
         [submissionId]: 'Feedback saved.',
@@ -653,7 +722,8 @@ const CambridgeSubmissionsPage = () => {
   };
 
   const activeReviewSubmission = activeReviewSubmissionId
-    ? submissions.find((item) => item.id === activeReviewSubmissionId) || null
+    ? submissions.find((item) => item.id === activeReviewSubmissionId) ||
+      (deepLinkedSubmission?.id === activeReviewSubmissionId ? deepLinkedSubmission : null)
     : null;
 
   const renderEssayReviewContent = (submission) => {

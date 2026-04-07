@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import AdminNavbar from "../../../shared/components/AdminNavbar";
 import { useTheme } from "../../../shared/contexts/ThemeContext";
 import { apiPath, authFetch } from "../../../shared/utils/api";
@@ -56,6 +56,8 @@ const AdminListeningSubmissions = () => {
   const [subs, setSubs] = useState([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const deepLinkHandledRef = useRef("");
 
   // Feedback modal state
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
@@ -338,11 +340,60 @@ const AdminListeningSubmissions = () => {
     setSortOrder("newest");
   };
 
+  const clearDeepLinkParams = () => {
+    if (!searchParams.get("submissionId") && !searchParams.get("action")) {
+      return;
+    }
+
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.delete("submissionId");
+    nextParams.delete("action");
+    setSearchParams(nextParams, { replace: true });
+  };
+
   const openFeedbackModal = (sub) => {
     setSelectedSubmission(sub);
     setFeedbackText(sub.feedback || "");
     setShowFeedbackModal(true);
   };
+
+  const closeFeedbackModal = () => {
+    setShowFeedbackModal(false);
+    setSelectedSubmission(null);
+    clearDeepLinkParams();
+  };
+
+  useEffect(() => {
+    if (!searchParams.get("submissionId")) {
+      deepLinkHandledRef.current = "";
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
+    const submissionId = searchParams.get("submissionId");
+    const action = searchParams.get("action");
+
+    if (!submissionId || (action && action !== "feedback") || loading) {
+      return;
+    }
+
+    const deepLinkKey = `${action || "feedback"}:${submissionId}`;
+    if (deepLinkHandledRef.current === deepLinkKey) {
+      return;
+    }
+
+    const matchedSubmission = subs.find(
+      (submission) => String(submission.id) === String(submissionId)
+    );
+
+    if (!matchedSubmission) {
+      clearDeepLinkParams();
+      return;
+    }
+
+    deepLinkHandledRef.current = deepLinkKey;
+    openFeedbackModal(matchedSubmission);
+  }, [loading, searchParams, subs]);
 
   const saveFeedback = async () => {
     if (!selectedSubmission) return;
@@ -371,7 +422,7 @@ const AdminListeningSubmissions = () => {
         )
       );
 
-      setShowFeedbackModal(false);
+      closeFeedbackModal();
       alert("✅ Đã lưu nhận xét!");
     } catch (err) {
       alert("❌ Lỗi: " + err.message);
@@ -688,7 +739,7 @@ const AdminListeningSubmissions = () => {
 
               <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 16 }}>
                 <button
-                  onClick={() => setShowFeedbackModal(false)}
+                  onClick={closeFeedbackModal}
                   style={{ ...actionBtn, background: "#6b7280" }}
                 >
                   Hủy
