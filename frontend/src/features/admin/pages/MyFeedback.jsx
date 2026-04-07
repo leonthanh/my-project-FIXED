@@ -432,8 +432,7 @@ const MyFeedback = () => {
             color: colors.text,
           }}
         >
-          <h2>My Work & Feedback</h2>
-
+          <h3>Feedback</h3>
           <SubmissionTypeTabs
             title={null}
             items={feedbackTabs}

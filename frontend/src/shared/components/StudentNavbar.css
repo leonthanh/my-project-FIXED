@@ -1,12 +1,12 @@
 .studentNavbar {
-  padding: 12px 24px;
+  padding: 10px 18px;
   background: #0e276f;
   color: white;
   display: flex;
   justify-content: space-between;
   align-items: center;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
-  gap: 12px;
+  gap: 10px;
   position: sticky;
   top: 0;
   z-index: 1200;
@@ -20,11 +20,11 @@
 .studentNavbar__right {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
 }
 
 .studentNavbar__logo {
-  height: 40px;
+  height: 38px;
 }
 
 .studentNavbar__logoLink {
@@ -37,10 +37,10 @@
   color: white;
   text-decoration: none;
   font-weight: 700;
-  font-size: 16px;
+  font-size: 15px;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
   cursor: pointer;
 }
 
@@ -49,19 +49,105 @@
 }
 
 .studentNavbar__icon {
-  font-size: 16px;
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
   line-height: 1;
+}
+
+.studentNavbar__icon svg,
+.studentNavbar__menuItemIcon svg,
+.studentNavbar__mobileQuickIcon svg,
+.studentNavbar__bell svg,
+.studentNavbar__drawerClose svg {
+  width: 100%;
+  height: 100%;
+  display: block;
 }
 
 .studentNavbar__label {
   white-space: nowrap;
 }
 
+.studentNavbar__notificationPill {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border: none;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  cursor: pointer;
+  transition: transform 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+}
+
+.studentNavbar__notificationPill:hover {
+  background: rgba(255, 255, 255, 0.18);
+  transform: translateY(-1px);
+}
+
+.studentNavbar__notificationPill--active {
+  box-shadow: 0 10px 24px rgba(4, 18, 60, 0.2);
+}
+
+.studentNavbar__notificationMain {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.studentNavbar__notificationBell {
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.95;
+}
+
+.studentNavbar__notificationBell svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.studentNavbar__notificationCount {
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: #ff2442;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
 .studentNavbar__bell {
   position: relative;
   margin-right: 8px;
   cursor: pointer;
-  font-size: 20px;
+  width: 40px;
+  height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  transition: transform 0.2s ease, background 0.2s ease;
+}
+
+.studentNavbar__bell:hover {
+  background: rgba(255, 255, 255, 0.18);
+  transform: translateY(-1px);
 }
 
 .studentNavbar__bell--shake {
@@ -244,7 +330,9 @@
   border-radius: 10px;
   background: #e8efff;
   color: #0e276f;
-  font-size: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
 }
 
@@ -372,7 +460,7 @@
   align-items: center;
   justify-content: center;
   background: #eef2ff;
-  font-size: 18px;
+  color: #1d4ed8;
 }
 
 .studentNavbar__mobileQuickText {
@@ -427,12 +515,15 @@
 
 .studentNavbar__user {
   font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .studentNavbar__logout {
   background: #e03;
   border: none;
-  padding: 8px 16px;
+  padding: 8px 14px;
   border-radius: 6px;
   color: white;
   font-weight: 700;
@@ -466,12 +557,24 @@
 }
 
 .studentNavbar__menuItem {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 10px;
   padding: 10px 14px;
   color: #333;
   text-decoration: none;
   border-bottom: 1px solid #eee;
   transition: background 0.2s;
+}
+
+.studentNavbar__menuItemIcon {
+  width: 16px;
+  height: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #0e276f;
+  flex: 0 0 auto;
 }
 
 .studentNavbar__menuItem:hover {
@@ -576,11 +679,16 @@ body.dark-mode .studentNavbar__mobileQuickTitle {
 
 body.dark-mode .studentNavbar__mobileQuickIcon {
   background: #1e293b;
+  color: #dbeafe;
 }
 
 body.dark-mode .studentNavbar__menuItem {
   color: #e8e8e8;
   border-bottom: 1px solid #2a3350;
+}
+
+body.dark-mode .studentNavbar__menuItemIcon {
+  color: #dbeafe;
 }
 
 body.dark-mode .studentNavbar__menuItem:hover {
@@ -595,6 +703,11 @@ body.dark-mode .studentNavbar__menuItem:hover {
   .studentNavbar__link,
   .studentNavbar__moreToggle {
     font-size: 14px;
+  }
+
+  .studentNavbar__notificationPill {
+    padding: 7px 10px;
+    gap: 8px;
   }
 }
 
