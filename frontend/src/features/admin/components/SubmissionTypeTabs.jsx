@@ -23,16 +23,28 @@ const SUBMISSION_PAGES = [
   },
 ];
 
-const SubmissionTypeTabs = ({ activeKey }) => {
+const SubmissionTypeTabs = ({
+  activeKey,
+  items = SUBMISSION_PAGES,
+  title = "Submissions",
+  onSelect,
+  allowMobileWrap = false,
+  buttonFlex = "0 1 200px",
+  showZeroBadge = false,
+}) => {
   const navigate = useNavigate();
   const { isDarkMode } = useTheme();
 
   return (
     <div className="admin-submission-switcher-block">
-      <div className="admin-submission-switcher__title">Submissions</div>
-      <div className="admin-submission-switcher">
-        {SUBMISSION_PAGES.map((item) => {
+      {title ? <div className="admin-submission-switcher__title">{title}</div> : null}
+      <div
+        className={`admin-submission-switcher${allowMobileWrap ? " admin-submission-switcher--wrap-mobile" : ""}`}
+      >
+        {items.map((item) => {
           const isActive = item.key === activeKey;
+          const badgeValue = Number(item.badge);
+          const hasBadge = Number.isFinite(badgeValue) && (showZeroBadge ? badgeValue >= 0 : badgeValue > 0);
 
           return (
             <button
@@ -43,9 +55,18 @@ const SubmissionTypeTabs = ({ activeKey }) => {
               aria-label={item.label}
               title={item.label}
               disabled={isActive}
-              onClick={() => navigate(item.path)}
+              onClick={() => {
+                if (typeof onSelect === "function") {
+                  onSelect(item.key);
+                  return;
+                }
+
+                if (item.path) {
+                  navigate(item.path);
+                }
+              }}
               style={{
-                flex: "0 1 200px",
+                flex: buttonFlex,
                 minWidth: 0,
                 padding: "11px 14px",
                 borderRadius: 12,
@@ -69,7 +90,43 @@ const SubmissionTypeTabs = ({ activeKey }) => {
                 whiteSpace: "nowrap",
               }}
             >
-              {item.shortLabel}
+              <span
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 8,
+                  maxWidth: "100%",
+                }}
+              >
+                <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>
+                  {item.shortLabel || item.label}
+                </span>
+                {hasBadge ? (
+                  <span
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      minWidth: 22,
+                      height: 22,
+                      padding: "0 7px",
+                      borderRadius: 999,
+                      fontSize: 11,
+                      fontWeight: 800,
+                      background: isActive
+                        ? "rgba(255,255,255,0.18)"
+                        : isDarkMode
+                          ? "#1e293b"
+                          : "#eff6ff",
+                      color: isActive ? "#ffffff" : "#1d4ed8",
+                      boxSizing: "border-box",
+                    }}
+                  >
+                    {badgeValue}
+                  </span>
+                ) : null}
+              </span>
             </button>
           );
         })}

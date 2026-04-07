@@ -386,12 +386,12 @@ body.dark-mode .admin-view-button {
     padding: 12px;
   }
 
-  .admin-submission-switcher {
+  .admin-submission-switcher:not(.admin-submission-switcher--wrap-mobile) {
     flex-wrap: nowrap;
     gap: 8px;
   }
 
-  .admin-submission-switcher > button {
+  .admin-submission-switcher:not(.admin-submission-switcher--wrap-mobile) > button {
     flex: 1 1 0 !important;
     width: auto !important;
     min-width: 0;
@@ -399,6 +399,20 @@ body.dark-mode .admin-view-button {
     font-size: 12px !important;
     border-radius: 10px !important;
     letter-spacing: -0.01em;
+  }
+
+  .admin-submission-switcher--wrap-mobile {
+    justify-content: stretch;
+    gap: 8px;
+  }
+
+  .admin-submission-switcher--wrap-mobile > button {
+    flex: 1 1 calc(50% - 4px) !important;
+    width: calc(50% - 4px) !important;
+    min-width: 0;
+    padding: 10px 8px !important;
+    font-size: 12px !important;
+    border-radius: 10px !important;
   }
 
   .admin-action-buttons,

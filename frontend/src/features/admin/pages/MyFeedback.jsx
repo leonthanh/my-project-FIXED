@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback, useMemo, useRef } from "react"
 import StudentNavbar from "../../../shared/components/StudentNavbar";
 import { apiPath, hostPath } from "../../../shared/utils/api";
 import { useTheme } from "../../../shared/contexts/ThemeContext";
+import SubmissionTypeTabs from "../components/SubmissionTypeTabs";
 
 const MyFeedback = () => {
   const { isDarkMode } = useTheme();
@@ -44,6 +45,10 @@ const MyFeedback = () => {
   // Reading state
   const [readingSubmissions, setReadingSubmissions] = useState([]);
   const [filteredReading, setFilteredReading] = useState([]);
+
+  // Listening state
+  const [listeningSubmissions, setListeningSubmissions] = useState([]);
+  const [filteredListening, setFilteredListening] = useState([]);
 
   // Cambridge state
   const [cambridgeSubmissions, setCambridgeSubmissions] = useState([]);
@@ -99,7 +104,7 @@ const MyFeedback = () => {
       );
       setWritingSubmissions(updatedSubs);
     } catch (err) {
-      console.error("❌ Lỗi khi tải bài viết:", err);
+      console.error("Failed to load writing submissions:", err);
     }
   }, []);
 
@@ -128,7 +133,38 @@ const MyFeedback = () => {
       );
       setReadingSubmissions(updatedSubs);
     } catch (err) {
-      console.error("❌ Lỗi khi tải bài Reading:", err);
+      console.error("Failed to load reading submissions:", err);
+    }
+  }, []);
+
+  // Fetch Listening submissions
+  const fetchListeningData = useCallback(async (userPhone) => {
+    if (!userPhone) return;
+    try {
+      const res = await fetch(apiPath(`listening-submissions/user/${userPhone}`));
+      const subs = await res.json();
+      const userSubs = Array.isArray(subs) ? subs : [];
+
+      const unseenIds = userSubs
+        .filter((sub) => sub.feedback && !sub.feedbackSeen)
+        .map((sub) => sub.id);
+
+      if (unseenIds.length > 0) {
+        await fetch(apiPath("listening-submissions/mark-feedback-seen"), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ids: unseenIds }),
+        });
+        window.dispatchEvent(new Event("feedbackSeen"));
+      }
+
+      const updatedSubs = userSubs.map((sub) =>
+        unseenIds.includes(sub.id) ? { ...sub, feedbackSeen: true } : sub
+      );
+      setListeningSubmissions(updatedSubs);
+    } catch (err) {
+      console.error("Failed to load listening submissions:", err);
+      setListeningSubmissions([]);
     }
   }, []);
 
@@ -158,7 +194,7 @@ const MyFeedback = () => {
       );
       setCambridgeSubmissions(updatedSubs);
     } catch (err) {
-      console.error("❌ Lỗi khi tải Cambridge submissions:", err);
+      console.error("Failed to load Cambridge submissions:", err);
       setCambridgeSubmissions([]);
     }
   }, []);
@@ -172,13 +208,14 @@ const MyFeedback = () => {
       await Promise.all([
         fetchWritingData(user.phone),
         fetchReadingData(user.phone),
+        fetchListeningData(user.phone),
         fetchCambridgeData(user.phone),
       ]);
       setLoading(false);
     };
     
     fetchAll();
-  }, [fetchWritingData, fetchReadingData, fetchCambridgeData, user]);
+  }, [fetchWritingData, fetchReadingData, fetchListeningData, fetchCambridgeData, user]);
 
   // Filter Writing submissions
   useEffect(() => {
@@ -225,6 +262,29 @@ const MyFeedback = () => {
 
     setFilteredReading(filtered);
   }, [searchClassCode, searchTeacher, searchFeedbackBy, readingSubmissions]);
+
+  // Filter Listening submissions
+  useEffect(() => {
+    let filtered = listeningSubmissions;
+
+    if (searchClassCode.trim()) {
+      filtered = filtered.filter((item) =>
+        item.ListeningTest?.classCode?.toLowerCase().includes(searchClassCode.toLowerCase())
+      );
+    }
+    if (searchTeacher.trim()) {
+      filtered = filtered.filter((item) =>
+        item.ListeningTest?.teacherName?.toLowerCase().includes(searchTeacher.toLowerCase())
+      );
+    }
+    if (searchFeedbackBy.trim()) {
+      filtered = filtered.filter((item) =>
+        item.feedbackBy?.toLowerCase().includes(searchFeedbackBy.toLowerCase())
+      );
+    }
+
+    setFilteredListening(filtered);
+  }, [searchClassCode, searchTeacher, searchFeedbackBy, listeningSubmissions]);
 
   // Filter Cambridge submissions
   useEffect(() => {
@@ -285,7 +345,7 @@ const MyFeedback = () => {
         setShowAnalysis(true); // Still show modal with "no data" message
       }
     } catch (err) {
-      console.error("❌ Lỗi khi tải phân tích:", err);
+      console.error("Failed to load analysis:", err);
       setAnalysisData(null);
       setShowAnalysis(true);
     } finally {
@@ -293,14 +353,72 @@ const MyFeedback = () => {
     }
   };
 
-  if (!user) return <p style={{ padding: 40 }}>❌ Bạn chưa đăng nhập.</p>;
+  if (!user) return <p style={{ padding: 40 }}>❌ You are not signed in.</p>;
 
   const currentSubmissions =
     activeTab === "writing"
       ? filteredWriting
       : activeTab === "reading"
         ? filteredReading
-        : filteredCambridge;
+        : activeTab === "listening"
+          ? filteredListening
+          : filteredCambridge;
+  const totalSubmissionsForActiveTab =
+    activeTab === "writing"
+      ? writingSubmissions.length
+      : activeTab === "reading"
+        ? readingSubmissions.length
+        : activeTab === "listening"
+          ? listeningSubmissions.length
+          : cambridgeSubmissions.length;
+  const activeTabLabel =
+    activeTab === "writing"
+      ? "writing submissions"
+      : activeTab === "reading"
+        ? "reading submissions"
+        : activeTab === "listening"
+          ? "listening submissions"
+          : "Cambridge submissions";
+  const activeTabEmptyLabel =
+    activeTab === "writing"
+      ? "writing tests"
+      : activeTab === "reading"
+        ? "reading tests"
+        : activeTab === "listening"
+          ? "listening tests"
+          : "Cambridge tests";
+  const feedbackTabs = [
+    {
+      key: "writing",
+      shortLabel: "Writing",
+      label: "Writing feedback",
+      badge: writingSubmissions.length,
+    },
+    {
+      key: "reading",
+      shortLabel: "Reading",
+      label: "Reading feedback",
+      badge: readingSubmissions.length,
+    },
+    {
+      key: "listening",
+      shortLabel: "Listening",
+      label: "Listening feedback",
+      badge: listeningSubmissions.length,
+    },
+    {
+      key: "cambridge",
+      shortLabel: "Cambridge",
+      label: "Cambridge feedback",
+      badge: cambridgeSubmissions.length,
+    },
+  ];
+  const formatDateTime = (value) => {
+    if (!value) return "Unknown";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "Unknown";
+    return date.toLocaleString("en-GB");
+  };
 
   return (
     <>
@@ -314,187 +432,135 @@ const MyFeedback = () => {
             color: colors.text,
           }}
         >
-          <h2>📚 Bài làm & Nhận xét của tôi</h2>
+          <h2>My Work & Feedback</h2>
 
-        {/* Tab Navigation */}
-        <div style={{ display: "flex", gap: 10, marginBottom: 20 }}>
-          <button
-            onClick={() => setActiveTab("writing")}
+          <SubmissionTypeTabs
+            title={null}
+            items={feedbackTabs}
+            activeKey={activeTab}
+            onSelect={setActiveTab}
+            allowMobileWrap
+            buttonFlex="0 1 180px"
+            showZeroBadge
+          />
+
+          {/* Search Form */}
+          <div
             style={{
-              padding: "12px 24px",
-              backgroundColor:
-                activeTab === "writing" ? colors.primary : colors.surfaceAlt,
-              color: activeTab === "writing" ? "#fff" : colors.text,
-              border: `1px solid ${colors.border}`,
+              background: colors.surfaceAlt,
+              padding: 20,
               borderRadius: 8,
-              cursor: "pointer",
-              fontSize: 16,
-              fontWeight: activeTab === "writing" ? "bold" : "normal",
+              marginBottom: 20,
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr 1fr auto",
+              gap: 15,
+              alignItems: "end",
+              border: `1px solid ${colors.border}`,
             }}
           >
-            📝 Writing ({writingSubmissions.length})
-          </button>
-          <button
-            onClick={() => setActiveTab("reading")}
-            style={{
-              padding: "12px 24px",
-              backgroundColor:
-                activeTab === "reading" ? colors.primary : colors.surfaceAlt,
-              color: activeTab === "reading" ? "#fff" : colors.text,
-              border: `1px solid ${colors.border}`,
-              borderRadius: 8,
-              cursor: "pointer",
-              fontSize: 16,
-              fontWeight: activeTab === "reading" ? "bold" : "normal",
-            }}
-          >
-            📖 Reading ({readingSubmissions.length})
-          </button>
+            <div>
+              <label style={{ display: "block", marginBottom: 5, fontWeight: "bold" }}>
+                Class Code:
+              </label>
+              <input
+                type="text"
+                placeholder="Enter class code"
+                value={searchClassCode}
+                onChange={(e) => setSearchClassCode(e.target.value)}
+                style={{
+                  width: "100%",
+                  padding: 10,
+                  border: `1px solid ${colors.border}`,
+                  borderRadius: 6,
+                  fontSize: 14,
+                  boxSizing: "border-box",
+                  background: colors.surface,
+                  color: colors.text,
+                }}
+              />
+            </div>
 
-          <button
-            onClick={() => setActiveTab("cambridge")}
-            style={{
-              padding: "12px 24px",
-              backgroundColor:
-                activeTab === "cambridge" ? colors.primary : colors.surfaceAlt,
-              color: activeTab === "cambridge" ? "#fff" : colors.text,
-              border: `1px solid ${colors.border}`,
-              borderRadius: 8,
-              cursor: "pointer",
-              fontSize: 16,
-              fontWeight: activeTab === "cambridge" ? "bold" : "normal",
-            }}
-          >
-            🎓 Cambridge ({cambridgeSubmissions.length})
-          </button>
-        </div>
+            <div>
+              <label style={{ display: "block", marginBottom: 5, fontWeight: "bold" }}>
+                Test Teacher:
+              </label>
+              <input
+                type="text"
+                placeholder="Enter teacher name"
+                value={searchTeacher}
+                onChange={(e) => setSearchTeacher(e.target.value)}
+                style={{
+                  width: "100%",
+                  padding: 10,
+                  border: `1px solid ${colors.border}`,
+                  borderRadius: 6,
+                  fontSize: 14,
+                  boxSizing: "border-box",
+                  background: colors.surface,
+                  color: colors.text,
+                }}
+              />
+            </div>
 
-        {/* Search Form */}
-        <div
-          style={{
-            background: colors.surfaceAlt,
-            padding: 20,
-            borderRadius: 8,
-            marginBottom: 20,
-            display: "grid",
-            gridTemplateColumns: "1fr 1fr 1fr auto",
-            gap: 15,
-            alignItems: "end",
-            border: `1px solid ${colors.border}`,
-          }}
-        >
-          <div>
-            <label style={{ display: "block", marginBottom: 5, fontWeight: "bold" }}>
-              🧾 Mã lớp:
-            </label>
-            <input
-              type="text"
-              placeholder="Nhập mã lớp"
-              value={searchClassCode}
-              onChange={(e) => setSearchClassCode(e.target.value)}
-              style={{
-                width: "100%",
-                padding: 10,
-                border: `1px solid ${colors.border}`,
-                borderRadius: 6,
-                fontSize: 14,
-                boxSizing: "border-box",
-                background: colors.surface,
-                color: colors.text,
+            <div>
+              <label style={{ display: "block", marginBottom: 5, fontWeight: "bold" }}>
+                Reviewed By:
+              </label>
+              <input
+                type="text"
+                placeholder="Enter reviewer name"
+                value={searchFeedbackBy}
+                onChange={(e) => setSearchFeedbackBy(e.target.value)}
+                style={{
+                  width: "100%",
+                  padding: 10,
+                  border: `1px solid ${colors.border}`,
+                  borderRadius: 6,
+                  fontSize: 14,
+                  boxSizing: "border-box",
+                  background: colors.surface,
+                  color: colors.text,
+                }}
+              />
+            </div>
+
+            <button
+              onClick={() => {
+                setSearchClassCode("");
+                setSearchTeacher("");
+                setSearchFeedbackBy("");
               }}
-            />
+              style={{
+                padding: "10px 20px",
+                backgroundColor: isDarkMode ? colors.primary : "#666",
+                color: "#fff",
+                border: "none",
+                borderRadius: 6,
+                cursor: "pointer",
+                fontSize: 14,
+                fontWeight: "bold",
+              }}
+            >
+              Reset
+            </button>
           </div>
 
-          <div>
-            <label style={{ display: "block", marginBottom: 5, fontWeight: "bold" }}>
-              👨‍🏫 Giáo viên đề:
-            </label>
-            <input
-              type="text"
-              placeholder="Nhập tên giáo viên"
-              value={searchTeacher}
-              onChange={(e) => setSearchTeacher(e.target.value)}
-              style={{
-                width: "100%",
-                padding: 10,
-                border: `1px solid ${colors.border}`,
-                borderRadius: 6,
-                fontSize: 14,
-                boxSizing: "border-box",
-                background: colors.surface,
-                color: colors.text,
-              }}
-            />
-          </div>
-
-          <div>
-            <label style={{ display: "block", marginBottom: 5, fontWeight: "bold" }}>
-              ✍️ Giáo viên chấm:
-            </label>
-            <input
-              type="text"
-              placeholder="Nhập tên giáo viên chấm"
-              value={searchFeedbackBy}
-              onChange={(e) => setSearchFeedbackBy(e.target.value)}
-              style={{
-                width: "100%",
-                padding: 10,
-                border: `1px solid ${colors.border}`,
-                borderRadius: 6,
-                fontSize: 14,
-                boxSizing: "border-box",
-                background: colors.surface,
-                color: colors.text,
-              }}
-            />
-          </div>
-
-          <button
-            onClick={() => {
-              setSearchClassCode("");
-              setSearchTeacher("");
-              setSearchFeedbackBy("");
-            }}
-            style={{
-              padding: "10px 20px",
-              backgroundColor: isDarkMode ? colors.primary : "#666",
-              color: "#fff",
-              border: "none",
-              borderRadius: 6,
-              cursor: "pointer",
-              fontSize: 14,
-              fontWeight: "bold",
-            }}
-          >
-            🔄 Reset
-          </button>
-        </div>
-
-        {/* Results count */}
-        <p style={{ color: colors.muted, marginBottom: 15 }}>
-          📊 Tổng cộng: <strong>{currentSubmissions.length}</strong> bài{" "}
-          {activeTab === "writing" ? "viết" : activeTab === "reading" ? "đọc" : "Cambridge"}
-          {(searchClassCode || searchTeacher || searchFeedbackBy) &&
-            ` (lọc từ ${
-              activeTab === "writing"
-                ? writingSubmissions.length
-                : activeTab === "reading"
-                  ? readingSubmissions.length
-                  : cambridgeSubmissions.length
-            })`}
-        </p>
-
-        {loading && <p>⏳ Đang tải dữ liệu...</p>}
-
-        {!loading && currentSubmissions.length === 0 && (
-          <p style={{ color: colors.danger, fontWeight: "bold" }}>
-            🙁 {searchClassCode || searchTeacher || searchFeedbackBy
-              ? "Không tìm thấy bài phù hợp."
-              : `Bạn chưa nộp bài ${
-                  activeTab === "writing" ? "viết" : activeTab === "reading" ? "đọc" : "Cambridge"
-                } nào.`}
+          {/* Results count */}
+          <p style={{ color: colors.muted, marginBottom: 15 }}>
+            Total: <strong>{currentSubmissions.length}</strong> {activeTabLabel}
+            {(searchClassCode || searchTeacher || searchFeedbackBy) &&
+              ` (filtered from ${totalSubmissionsForActiveTab})`}
           </p>
-        )}
+
+          {loading && <p>Loading feedback...</p>}
+
+          {!loading && currentSubmissions.length === 0 && (
+            <p style={{ color: colors.danger, fontWeight: "bold" }}>
+              {searchClassCode || searchTeacher || searchFeedbackBy
+                ? "No matching submissions found."
+                : `You have not submitted any ${activeTabEmptyLabel} yet.`}
+            </p>
+          )}
 
         {/* Writing submissions list */}
         {activeTab === "writing" && filteredWriting.map((sub, idx) => (
@@ -509,16 +575,17 @@ const MyFeedback = () => {
             }}
           >
             <p>
-              <strong>📋 Mã đề:</strong> Writing {sub.WritingTest?.index || "?"} –{" "}
-              {sub.WritingTest?.classCode || "(Không xác định)"} –{" "}
-              {sub.WritingTest?.teacherName || "(Không xác định)"}
+              <strong>Test:</strong> Writing {sub.WritingTest?.index || "?"} –{" "}
+              {sub.WritingTest?.classCode || "(Not specified)"} –{" "}
+              {sub.WritingTest?.teacherName || "(Not specified)"}
             </p>
             <p>
-              <strong>⏰ Nộp lúc:</strong>{" "}
-              {new Date(sub.submittedAt || sub.createdAt).toLocaleString("vi-VN")}
+              <strong>Submitted at:</strong>{" "}
+              {formatDateTime(sub.submittedAt || sub.createdAt)}
             </p>
             <p>
-              <strong>⏳ Thời gian còn lại:</strong> {Math.floor(sub.timeLeft / 60)} phút
+              <strong>Time remaining:</strong>{" "}
+              {Number.isFinite(Number(sub.timeLeft)) ? `${Math.floor(Number(sub.timeLeft) / 60)} minutes` : "--"}
             </p>
 
             {sub.WritingTest?.task1Image && (
@@ -531,16 +598,16 @@ const MyFeedback = () => {
               </div>
             )}
 
-            <h4>✍️ Bài làm Task 1:</h4>
+            <h4>Task 1 Response:</h4>
             <p style={{ whiteSpace: "pre-line" }}>{sub.task1}</p>
 
-            <h4>✍️ Bài làm Task 2:</h4>
+            <h4>Task 2 Response:</h4>
             <p style={{ whiteSpace: "pre-line" }}>{sub.task2}</p>
 
             <h4 style={{ marginTop: 20 }}>
-              📩 Nhận xét từ giáo viên:{" "}
+              Teacher Feedback:{" "}
               <span style={{ color: colors.primary, fontWeight: "bold" }}>
-                {sub.feedbackBy || "Không xác định"}
+                {sub.feedbackBy || "Unknown"}
               </span>
             </h4>
             {sub.feedback ? (
@@ -573,12 +640,12 @@ const MyFeedback = () => {
                 )}
                 <p style={{ marginBottom: 8, whiteSpace: "pre-line" }}>{sub.feedback}</p>
                 <p style={{ fontSize: 14, color: colors.muted }}>
-                  🕐 <strong>Thời gian nhận xét:</strong>{" "}
-                  {sub.feedbackAt ? new Date(sub.feedbackAt).toLocaleString("vi-VN") : "Không rõ"}
+                  <strong>Reviewed at:</strong>{" "}
+                  {formatDateTime(sub.feedbackAt)}
                 </p>
               </div>
             ) : (
-              <p style={{ fontStyle: "italic", color: colors.muted }}>Chưa có nhận xét nào.</p>
+              <p style={{ fontStyle: "italic", color: colors.muted }}>No feedback yet.</p>
             )}
           </div>
         ))}
@@ -598,16 +665,16 @@ const MyFeedback = () => {
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
               <div>
                 <p>
-                  <strong>📋 Mã đề:</strong> Reading #{sub.testId} –{" "}
-                  {sub.ReadingTest?.classCode || "(Không xác định)"} –{" "}
-                  {sub.ReadingTest?.teacherName || "(Không xác định)"}
+                  <strong>Test:</strong> Reading #{sub.testId} –{" "}
+                  {sub.ReadingTest?.classCode || "(Not specified)"} –{" "}
+                  {sub.ReadingTest?.teacherName || "(Not specified)"}
                 </p>
                 <p>
-                  <strong>📝 Tên đề:</strong> {sub.ReadingTest?.title || "N/A"}
+                  <strong>Title:</strong> {sub.ReadingTest?.title || "N/A"}
                 </p>
                 <p>
-                  <strong>⏰ Nộp lúc:</strong>{" "}
-                  {new Date(sub.createdAt).toLocaleString("vi-VN")}
+                  <strong>Submitted at:</strong>{" "}
+                  {formatDateTime(sub.createdAt)}
                 </p>
               </div>
               
@@ -642,13 +709,13 @@ const MyFeedback = () => {
                 <div style={{ fontSize: 24, fontWeight: "bold", color: colors.primary }}>
                   {sub.correct || 0}
                 </div>
-                <div style={{ fontSize: 12, color: colors.muted }}>Câu đúng</div>
+                <div style={{ fontSize: 12, color: colors.muted }}>Correct</div>
               </div>
               <div style={{ textAlign: "center" }}>
                 <div style={{ fontSize: 24, fontWeight: "bold", color: colors.primary }}>
                   {sub.total || 0}
                 </div>
-                <div style={{ fontSize: 12, color: colors.muted }}>Tổng câu</div>
+                <div style={{ fontSize: 12, color: colors.muted }}>Total Questions</div>
               </div>
               <div style={{ textAlign: "center" }}>
                 <div style={{
@@ -662,7 +729,7 @@ const MyFeedback = () => {
                 }}>
                   {sub.scorePercentage || 0}%
                 </div>
-                <div style={{ fontSize: 12, color: colors.muted }}>Tỷ lệ đúng</div>
+                <div style={{ fontSize: 12, color: colors.muted }}>Accuracy</div>
               </div>
             </div>
 
@@ -681,14 +748,14 @@ const MyFeedback = () => {
                 marginBottom: 15
               }}
             >
-              📊 Xem phân tích chi tiết
+              View Detailed Analysis
             </button>
 
             {/* Teacher feedback */}
             <h4 style={{ marginTop: 10 }}>
-              📩 Nhận xét từ giáo viên:{" "}
+              Teacher Feedback:{" "}
               <span style={{ color: colors.primary, fontWeight: "bold" }}>
-                {sub.feedbackBy || "Chưa có"}
+                {sub.feedbackBy || "Not available"}
               </span>
             </h4>
             {sub.feedback ? (
@@ -702,12 +769,12 @@ const MyFeedback = () => {
               >
                 <p style={{ marginBottom: 8, whiteSpace: "pre-line" }}>{sub.feedback}</p>
                 <p style={{ fontSize: 14, color: colors.muted }}>
-                  🕐 <strong>Thời gian nhận xét:</strong>{" "}
-                  {sub.feedbackAt ? new Date(sub.feedbackAt).toLocaleString("vi-VN") : "Không rõ"}
+                  <strong>Reviewed at:</strong>{" "}
+                  {formatDateTime(sub.feedbackAt)}
                 </p>
               </div>
             ) : (
-              <p style={{ fontStyle: "italic", color: colors.muted }}>Chưa có nhận xét từ giáo viên.</p>
+              <p style={{ fontStyle: "italic", color: colors.muted }}>No teacher feedback yet.</p>
             )}
 
             {/* View details link */}
@@ -720,11 +787,144 @@ const MyFeedback = () => {
                   fontSize: 14
                 }}
               >
-                📋 Xem chi tiết đáp án →
+                View Answer Details
               </a>
             </div>
           </div>
         ))}
+
+        {/* Listening submissions list */}
+        {activeTab === "listening" && filteredListening.map((sub, idx) => {
+          const correctCount = Number.isFinite(Number(sub.computedCorrect))
+            ? Number(sub.computedCorrect)
+            : Number(sub.correct) || 0;
+          const totalCount = Number.isFinite(Number(sub.computedTotal))
+            ? Number(sub.computedTotal)
+            : Number(sub.total) || 0;
+          const accuracy = Number.isFinite(Number(sub.computedPercentage))
+            ? Number(sub.computedPercentage)
+            : Number(sub.scorePercentage) || 0;
+
+          return (
+            <div
+              key={sub.id || idx}
+              style={{
+                border: `1px solid ${colors.border}`,
+                borderRadius: 8,
+                padding: 20,
+                marginBottom: 20,
+                backgroundColor: colors.surface,
+              }}
+            >
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                <div>
+                  <p>
+                    <strong>Test:</strong> Listening #{sub.testId} –{" "}
+                    {sub.ListeningTest?.classCode || "(Not specified)"} –{" "}
+                    {sub.ListeningTest?.teacherName || "(Not specified)"}
+                  </p>
+                  <p>
+                    <strong>Title:</strong> {sub.ListeningTest?.title || "N/A"}
+                  </p>
+                  <p>
+                    <strong>Submitted at:</strong>{" "}
+                    {formatDateTime(sub.createdAt)}
+                  </p>
+                </div>
+
+                <div style={{
+                  padding: "12px 16px",
+                  background: colors.surfaceAlt,
+                  color: colors.text,
+                  border: `1px solid ${colors.border}`,
+                  borderRadius: 8,
+                  textAlign: "center"
+                }}>
+                  <div style={{ fontSize: 24, fontWeight: "bold" }}>
+                    {sub.band != null && Number.isFinite(Number(sub.band)) ? Number(sub.band).toFixed(1) : "N/A"}
+                  </div>
+                  <div style={{ fontSize: 12 }}>Band Score</div>
+                </div>
+              </div>
+
+              <div style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(3, 1fr)",
+                gap: 15,
+                margin: "15px 0",
+                padding: 15,
+                background: colors.surfaceAlt,
+                color: colors.text,
+                borderRadius: 8
+              }}>
+                <div style={{ textAlign: "center" }}>
+                  <div style={{ fontSize: 24, fontWeight: "bold", color: colors.primary }}>
+                    {correctCount}
+                  </div>
+                  <div style={{ fontSize: 12, color: colors.muted }}>Correct</div>
+                </div>
+                <div style={{ textAlign: "center" }}>
+                  <div style={{ fontSize: 24, fontWeight: "bold", color: colors.primary }}>
+                    {totalCount}
+                  </div>
+                  <div style={{ fontSize: 12, color: colors.muted }}>Total Questions</div>
+                </div>
+                <div style={{ textAlign: "center" }}>
+                  <div style={{
+                    fontSize: 24,
+                    fontWeight: "bold",
+                    color: accuracy >= 70
+                      ? colors.success
+                      : accuracy >= 50
+                        ? colors.warning
+                        : colors.danger
+                  }}>
+                    {accuracy}%
+                  </div>
+                  <div style={{ fontSize: 12, color: colors.muted }}>Accuracy</div>
+                </div>
+              </div>
+
+              <h4 style={{ marginTop: 10 }}>
+                Teacher Feedback:{" "}
+                <span style={{ color: colors.primary, fontWeight: "bold" }}>
+                  {sub.feedbackBy || "Not available"}
+                </span>
+              </h4>
+              {sub.feedback ? (
+                <div
+                  style={{
+                    background: isDarkMode ? "#0f2a1a" : "#e7f4e4",
+                    padding: 10,
+                    borderRadius: 6,
+                    border: `1px solid ${colors.border}`,
+                  }}
+                >
+                  <p style={{ marginBottom: 8, whiteSpace: "pre-line" }}>{sub.feedback}</p>
+                  <p style={{ fontSize: 14, color: colors.muted }}>
+                    <strong>Reviewed at:</strong>{" "}
+                    {formatDateTime(sub.feedbackAt)}
+                  </p>
+                </div>
+              ) : (
+                <p style={{ fontStyle: "italic", color: colors.muted }}>No teacher feedback yet.</p>
+              )}
+
+              <div style={{ marginTop: 15 }}>
+                <a
+                  href={`/listening-results/${sub.id}`}
+                  style={{
+                    color: colors.primary,
+                    textDecoration: "underline",
+                    fontSize: 14
+                  }}
+                >
+                  View Result Details
+                </a>
+              </div>
+            </div>
+          );
+        })}
 
         {/* Cambridge submissions list */}
         {activeTab === "cambridge" && filteredCambridge.map((sub, idx) => (
@@ -741,20 +941,20 @@ const MyFeedback = () => {
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
               <div>
                 <p>
-                  <strong>📋 Loại bài:</strong> {sub.testType || "Cambridge"}
+                  <strong>Test Type:</strong> {sub.testType || "Cambridge"}
                 </p>
                 <p>
-                  <strong>📝 Tên đề:</strong> {sub.testTitle || "N/A"}
+                  <strong>Title:</strong> {sub.testTitle || "N/A"}
                 </p>
                 <p>
-                  <strong>🧾 Lớp:</strong> {sub.classCode || "(Không xác định)"}
+                  <strong>Class:</strong> {sub.classCode || "(Not specified)"}
                 </p>
                 <p>
-                  <strong>👨‍🏫 Giáo viên đề:</strong> {sub.teacherName || "(Không xác định)"}
+                  <strong>Test Teacher:</strong> {sub.teacherName || "(Not specified)"}
                 </p>
                 <p>
-                  <strong>⏰ Nộp lúc:</strong>{" "}
-                  {new Date(sub.submittedAt || sub.createdAt).toLocaleString("vi-VN")}
+                  <strong>Submitted at:</strong>{" "}
+                  {formatDateTime(sub.submittedAt || sub.createdAt)}
                 </p>
               </div>
 
@@ -777,9 +977,9 @@ const MyFeedback = () => {
 
             {/* Teacher feedback */}
             <h4 style={{ marginTop: 10 }}>
-              📩 Nhận xét từ giáo viên:{" "}
+              Teacher Feedback:{" "}
               <span style={{ color: colors.primary, fontWeight: "bold" }}>
-                {sub.feedbackBy || "Chưa có"}
+                {sub.feedbackBy || "Not available"}
               </span>
             </h4>
             {sub.feedback ? (
@@ -793,12 +993,12 @@ const MyFeedback = () => {
               >
                 <p style={{ marginBottom: 8, whiteSpace: "pre-line" }}>{sub.feedback}</p>
                 <p style={{ fontSize: 14, color: colors.muted }}>
-                  🕐 <strong>Thời gian nhận xét:</strong>{" "}
-                  {sub.feedbackAt ? new Date(sub.feedbackAt).toLocaleString("vi-VN") : "Không rõ"}
+                  <strong>Reviewed at:</strong>{" "}
+                  {formatDateTime(sub.feedbackAt)}
                 </p>
               </div>
             ) : (
-              <p style={{ fontStyle: "italic", color: colors.muted }}>Chưa có nhận xét từ giáo viên.</p>
+              <p style={{ fontStyle: "italic", color: colors.muted }}>No teacher feedback yet.</p>
             )}
 
             {/* View details link */}
@@ -811,7 +1011,7 @@ const MyFeedback = () => {
                   fontSize: 14
                 }}
               >
-                📋 Xem chi tiết bài làm →
+                View Full Result
               </a>
             </div>
           </div>
@@ -820,7 +1020,7 @@ const MyFeedback = () => {
       </div>
 
       {/* Analysis Modal */}
-      {showAnalysis && analysisData && (
+      {showAnalysis && (
         <div
           style={{
             position: "fixed",
@@ -850,22 +1050,22 @@ const MyFeedback = () => {
             onClick={(e) => e.stopPropagation()}
           >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-              <h3 style={{ margin: 0 }}>📊 Phân tích chi tiết</h3>
+              <h3 style={{ margin: 0 }}>Detailed Analysis</h3>
               <button
                 onClick={() => setShowAnalysis(false)}
                 style={{
                   background: "none",
                   border: "none",
-                  fontSize: 24,
+                  fontSize: 14,
                   cursor: "pointer",
                   color: colors.text
                 }}
               >
-                ✕
+                Close
               </button>
             </div>
 
-            {analysisData.analysisText ? (
+            {analysisData?.analysisText ? (
               <pre style={{
                 whiteSpace: "pre-wrap",
                 fontFamily: "inherit",
@@ -879,13 +1079,13 @@ const MyFeedback = () => {
                 {analysisData.analysisText}
               </pre>
             ) : (
-              <p>Không có dữ liệu phân tích.</p>
+              <p>No analysis data available.</p>
             )}
 
             {/* Breakdown by type */}
-            {analysisData.breakdown?.byType && (
+            {analysisData?.breakdown?.byType && (
               <div style={{ marginTop: 20 }}>
-                <h4>📈 Chi tiết theo dạng câu hỏi:</h4>
+                <h4>Breakdown by Question Type:</h4>
                 {analysisData.breakdown.byType.map((t, i) => (
                   <div
                     key={i}
@@ -899,7 +1099,7 @@ const MyFeedback = () => {
                     <div style={{ flex: 1 }}>
                       <strong>{t.label}</strong>
                       <div style={{ fontSize: 12, color: colors.muted }}>
-                        {t.correct}/{t.total} câu đúng
+                        {t.correct}/{t.total} correct
                       </div>
                     </div>
                     <div style={{
@@ -942,7 +1142,7 @@ const MyFeedback = () => {
                 width: "100%"
               }}
             >
-              Đóng
+              Close
             </button>
           </div>
         </div>

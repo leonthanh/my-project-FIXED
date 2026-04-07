@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const { Op } = require('sequelize');
 
 const ListeningSubmission = require('../models/ListeningSubmission');
 const ListeningTest = require('../models/ListeningTest');
@@ -19,6 +20,9 @@ const { requireTestPermission } = require('../middlewares/testPermissions');
 // Simple runtime debug helper - enable by setting DEBUG_LISTENING=1 or DEBUG=1
 const DEBUG_LISTENING = process.env.DEBUG_LISTENING === '1' || process.env.DEBUG === '1';
 const debug = (...args) => { if (DEBUG_LISTENING) console.log('[DEBUG]', ...args); };
+const FINALIZED_LISTENING_WHERE = {
+  [Op.or]: [{ finished: true }, { finished: null }],
+};
 
 // POST: Submit listening test answers
 router.post('/', async (req, res) => {
@@ -546,6 +550,114 @@ router.get('/admin/list', async (req, res) => {
   } catch (error) {
     console.error('Error fetching admin list:', error);
     res.status(500).json({ message: '❌ Lỗi khi lấy danh sách', error: error.message });
+  }
+});
+
+// GET: Get all finalized submissions for a specific user (by phone) - for MyFeedback page
+router.get('/user/:phone', async (req, res) => {
+  try {
+    const { phone } = req.params;
+    const user = await User.findOne({ where: { phone } });
+
+    if (!user) {
+      return res.json([]);
+    }
+
+    const submissions = await ListeningSubmission.findAll({
+      where: {
+        userId: user.id,
+        ...FINALIZED_LISTENING_WHERE,
+      },
+      order: [['createdAt', 'DESC']],
+    });
+
+    const testIds = [...new Set(submissions.map((submission) => submission.testId).filter(Boolean))];
+    const tests = testIds.length
+      ? await ListeningTest.findAll({ where: { id: testIds } })
+      : [];
+
+    const testMap = {};
+    tests.forEach((test) => {
+      testMap[String(test.id)] = test;
+    });
+
+    const result = submissions.map((submission) => {
+      const obj = submission.toJSON();
+      const test = testMap[String(submission.testId)];
+      const correct = Number(obj.correct) || 0;
+      const total = Number(obj.total) || 0;
+
+      obj.ListeningTest = test
+        ? {
+            id: test.id,
+            title: test.title,
+            classCode: test.classCode || '',
+            teacherName: test.teacherName || '',
+          }
+        : null;
+      obj.User = { id: user.id, phone: user.phone, name: user.name };
+      obj.userName = obj.userName || user.name || null;
+      obj.userPhone = obj.userPhone || user.phone || null;
+      obj.correct = correct;
+      obj.total = total;
+      obj.scorePercentage = Number.isFinite(Number(obj.scorePercentage))
+        ? Number(obj.scorePercentage)
+        : (total > 0 ? Math.round((correct / total) * 100) : 0);
+
+      return obj;
+    });
+
+    res.json(result);
+  } catch (error) {
+    console.error('Error fetching user listening submissions:', error);
+    res.status(500).json({ message: '❌ Lỗi khi lấy bài nộp Listening', error: error.message });
+  }
+});
+
+// GET: Count unseen feedback for a user (for StudentNavbar bell)
+router.get('/unseen-count/:phone', async (req, res) => {
+  try {
+    const { phone } = req.params;
+    const user = await User.findOne({ where: { phone } });
+
+    if (!user) {
+      return res.json({ count: 0 });
+    }
+
+    const count = await ListeningSubmission.count({
+      where: {
+        userId: user.id,
+        feedback: { [Op.ne]: null },
+        feedbackSeen: false,
+        ...FINALIZED_LISTENING_WHERE,
+      },
+    });
+
+    res.json({ count });
+  } catch (error) {
+    console.error('Error counting unseen listening feedback:', error);
+    res.status(500).json({ message: '❌ Lỗi khi đếm feedback Listening', error: error.message });
+  }
+});
+
+// POST: Mark listening feedback as seen (student action)
+router.post('/mark-feedback-seen', async (req, res) => {
+  try {
+    const { ids } = req.body;
+
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ message: '❌ Thiếu danh sách IDs' });
+    }
+
+    const [updatedCount] = await ListeningSubmission.update(
+      { feedbackSeen: true },
+      { where: { id: { [Op.in]: ids } } }
+    );
+
+    res.json({ message: '✅ Đã đánh dấu đã xem', updatedCount });
+  } catch (error) {
+    console.error('Error marking listening feedback seen:', error);
+    res.status(500).json({ message: '❌ Lỗi khi cập nhật feedback Listening', error: error.message });
   }
 });
 

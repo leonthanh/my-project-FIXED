@@ -4,10 +4,29 @@ import AdminNavbar from "../../../shared/components/AdminNavbar";
 import { apiPath, authFetch, hostPath } from "../../../shared/utils/api";
 import AttemptExtensionControls from "../components/AttemptExtensionControls";
 import SubmissionFilterPanel from "../components/SubmissionFilterPanel";
+import SubmissionTypeTabs from "../components/SubmissionTypeTabs";
 import {
   formatAttemptTimestamp,
   getAttemptTimingMeta,
 } from "../utils/attemptTiming";
+
+const CAMBRIDGE_SUBMISSION_TABS = [
+  {
+    key: 'all',
+    shortLabel: 'All',
+    label: 'All Submissions',
+  },
+  {
+    key: 'listening',
+    shortLabel: 'Listening',
+    label: 'Listening Submissions',
+  },
+  {
+    key: 'reading',
+    shortLabel: 'Reading',
+    label: 'Reading Submissions',
+  },
+];
 
 const parseJsonIfString = (value) => {
   if (typeof value !== "string") return value;
@@ -727,44 +746,12 @@ const CambridgeSubmissionsPage = () => {
       <AdminNavbar />
 
       <div style={styles.content} className="admin-page cambridge-page">
-        {/* Header */}
-        <div style={styles.header}>
-          <h1 style={styles.title}>📊 Quản lý bài làm Cambridge</h1>
-          <p style={styles.subtitle}>
-            Xem và đánh giá bài làm của học sinh
-          </p>
-        </div>
-
-        {/* Tabs */}
-        <div style={styles.tabsContainer} className="admin-tabs">
-          <button
-            onClick={() => setActiveTab('all')}
-            style={{
-              ...styles.tab,
-              ...(activeTab === 'all' && styles.tabActive)
-            }}
-          >
-            📋 Tất cả
-          </button>
-          <button
-            onClick={() => setActiveTab('listening')}
-            style={{
-              ...styles.tab,
-              ...(activeTab === 'listening' && styles.tabActive)
-            }}
-          >
-            🎧 Listening
-          </button>
-          <button
-            onClick={() => setActiveTab('reading')}
-            style={{
-              ...styles.tab,
-              ...(activeTab === 'reading' && styles.tabActive)
-            }}
-          >
-            📖 Reading
-          </button>
-        </div>
+        <SubmissionTypeTabs
+          title="Submissions Orange"
+          items={CAMBRIDGE_SUBMISSION_TABS}
+          activeKey={activeTab}
+          onSelect={setActiveTab}
+        />
 
         <SubmissionFilterPanel
           fields={[

@@ -11,6 +11,7 @@ const StudentNavbar = () => {
 
   const [writingFeedbackCount, setWritingFeedbackCount] = useState(0);
   const [readingFeedbackCount, setReadingFeedbackCount] = useState(0);
+  const [listeningFeedbackCount, setListeningFeedbackCount] = useState(0);
   const [cambridgeFeedbackCount, setCambridgeFeedbackCount] = useState(0);
   const [newTestCount, setNewTestCount] = useState(0);
   const [moreDropdownVisible, setMoreDropdownVisible] = useState(false);
@@ -75,6 +76,18 @@ const StudentNavbar = () => {
       } catch (err) {
         console.error("❌ Lỗi khi tải Reading notifications:", err);
         setReadingFeedbackCount(0);
+      }
+
+      // Fetch Listening notifications
+      try {
+        const listeningRes = await fetch(apiPath(`listening-submissions/unseen-count/${user.phone}`));
+        if (listeningRes.ok) {
+          const { count } = await listeningRes.json();
+          setListeningFeedbackCount(count || 0);
+        }
+      } catch (err) {
+        console.error("❌ Lỗi khi tải Listening notifications:", err);
+        setListeningFeedbackCount(0);
       }
 
       // Fetch Cambridge notifications
@@ -217,6 +230,27 @@ const StudentNavbar = () => {
         console.error("❌ Lỗi khi đánh dấu Reading đã xem:", err);
       }
 
+      // Mark Listening feedback as seen
+      try {
+        const listeningRes = await fetch(apiPath(`listening-submissions/user/${user.phone}`));
+        if (listeningRes.ok) {
+          const listeningSubs = await listeningRes.json();
+          const listeningUnseenIds = listeningSubs
+            .filter((sub) => sub.feedback && !sub.feedbackSeen)
+            .map((sub) => sub.id);
+
+          if (listeningUnseenIds.length > 0) {
+            await fetch(apiPath("listening-submissions/mark-feedback-seen"), {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ ids: listeningUnseenIds }),
+            });
+          }
+        }
+      } catch (err) {
+        console.error("❌ Lỗi khi đánh dấu Listening đã xem:", err);
+      }
+
       // Mark Cambridge feedback as seen
       try {
         const camRes = await fetch(apiPath(`cambridge/submissions/user/${user.phone}`));
@@ -240,6 +274,7 @@ const StudentNavbar = () => {
 
       setWritingFeedbackCount(0);
       setReadingFeedbackCount(0);
+      setListeningFeedbackCount(0);
       setCambridgeFeedbackCount(0);
     } catch (err) {
       console.error("❌ Lỗi khi đánh dấu đã xem nhận xét:", err);
@@ -290,7 +325,7 @@ const StudentNavbar = () => {
 
   if (!user) return null;
 
-  const feedbackCount = writingFeedbackCount + readingFeedbackCount + cambridgeFeedbackCount;
+  const feedbackCount = writingFeedbackCount + readingFeedbackCount + listeningFeedbackCount + cambridgeFeedbackCount;
   const totalNotifications = feedbackCount + newTestCount;
 
   const mobileDrawerTabs = [
