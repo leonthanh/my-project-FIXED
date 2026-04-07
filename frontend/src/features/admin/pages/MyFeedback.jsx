@@ -378,7 +378,7 @@ const MyFeedback = () => {
         ? "reading submissions"
         : activeTab === "listening"
           ? "listening submissions"
-          : "Cambridge submissions";
+          : "Orange submissions";
   const activeTabEmptyLabel =
     activeTab === "writing"
       ? "writing tests"
@@ -386,7 +386,7 @@ const MyFeedback = () => {
         ? "reading tests"
         : activeTab === "listening"
           ? "listening tests"
-          : "Cambridge tests";
+          : "Orange tests";
   const feedbackTabs = [
     {
       key: "writing",
@@ -408,8 +408,8 @@ const MyFeedback = () => {
     },
     {
       key: "cambridge",
-      shortLabel: "Cambridge",
-      label: "Cambridge feedback",
+      shortLabel: "Orange",
+      label: "Orange feedback",
       badge: cambridgeSubmissions.length,
     },
   ];
@@ -432,8 +432,7 @@ const MyFeedback = () => {
             color: colors.text,
           }}
         >
-          <h2>My Work & Feedback</h2>
-
+          <h3>Feedback</h3>
           <SubmissionTypeTabs
             title={null}
             items={feedbackTabs}
@@ -941,7 +940,7 @@ const MyFeedback = () => {
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
               <div>
                 <p>
-                  <strong>Test Type:</strong> {sub.testType || "Cambridge"}
+                  <strong>Test Type:</strong> {sub.testType || "Orange"}
                 </p>
                 <p>
                   <strong>Title:</strong> {sub.testTitle || "N/A"}

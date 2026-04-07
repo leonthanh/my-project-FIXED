@@ -5,6 +5,159 @@ import { apiPath, hostPath, clearAuth } from "../utils/api";
 import { canManageCategory } from "../utils/permissions";
 import "./AdminNavbar.css";
 
+const NavIcon = ({ name }) => {
+  const sharedProps = {
+    viewBox: "0 0 24 24",
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: 1.9,
+    strokeLinecap: "round",
+    strokeLinejoin: "round",
+    "aria-hidden": "true",
+    focusable: "false",
+  };
+
+  switch (name) {
+    case "tests":
+      return (
+        <svg {...sharedProps}>
+          <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+          <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z" />
+          <path d="M8 7h8" />
+          <path d="M8 11h8" />
+        </svg>
+      );
+    case "cambridge":
+      return (
+        <svg {...sharedProps}>
+          <path d="m2 10 10-5 10 5-10 5-10-5Z" />
+          <path d="M6 12v4c0 1.5 2.7 3 6 3s6-1.5 6-3v-4" />
+          <path d="M22 10v6" />
+        </svg>
+      );
+    case "review":
+      return (
+        <svg {...sharedProps}>
+          <path d="M12 20h9" />
+          <path d="M16.5 3.5a2.1 2.1 0 1 1 3 3L7 19l-4 1 1-4Z" />
+        </svg>
+      );
+    case "admin":
+      return (
+        <svg {...sharedProps}>
+          <circle cx="12" cy="12" r="3" />
+          <path d="M19.4 15a1.7 1.7 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6 1.7 1.7 0 0 0-.4 1.05V21a2 2 0 1 1-4 0v-.09a1.7 1.7 0 0 0-.4-1.05 1.7 1.7 0 0 0-1-.6 1.7 1.7 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-.6-1 1.7 1.7 0 0 0-1.05-.4H3a2 2 0 1 1 0-4h.09a1.7 1.7 0 0 0 1.05-.4 1.7 1.7 0 0 0 .6-1 1.7 1.7 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-.6 1.7 1.7 0 0 0 .4-1.05V3a2 2 0 1 1 4 0v.09a1.7 1.7 0 0 0 .4 1.05 1.7 1.7 0 0 0 1 .6 1.7 1.7 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.4 9" />
+        </svg>
+      );
+    case "notifications":
+      return (
+        <svg {...sharedProps}>
+          <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
+          <path d="M10.3 21a2 2 0 0 0 3.4 0" />
+        </svg>
+      );
+    case "close":
+      return (
+        <svg {...sharedProps}>
+          <path d="M18 6 6 18" />
+          <path d="m6 6 12 12" />
+        </svg>
+      );
+    case "logout":
+      return (
+        <svg {...sharedProps}>
+          <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" />
+          <path d="m10 17 5-5-5-5" />
+          <path d="M15 12H3" />
+        </svg>
+      );
+    case "user":
+      return (
+        <svg {...sharedProps}>
+          <path d="M20 21a8 8 0 0 0-16 0" />
+          <circle cx="12" cy="8" r="4" />
+        </svg>
+      );
+    case "permissions":
+      return (
+        <svg {...sharedProps}>
+          <path d="M12 3 4 7v5c0 5 3.4 8.5 8 9 4.6-.5 8-4 8-9V7l-8-4Z" />
+          <path d="m9.5 12 1.8 1.8 3.7-3.7" />
+        </svg>
+      );
+    case "users":
+      return (
+        <svg {...sharedProps}>
+          <path d="M16 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2" />
+          <circle cx="9.5" cy="7" r="4" />
+          <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+          <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+        </svg>
+      );
+    case "writing":
+      return (
+        <svg {...sharedProps}>
+          <path d="M12 20h9" />
+          <path d="M16.5 3.5a2.1 2.1 0 1 1 3 3L7 19l-4 1 1-4Z" />
+        </svg>
+      );
+    case "reading":
+      return (
+        <svg {...sharedProps}>
+          <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+          <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z" />
+          <path d="M8 7h8" />
+          <path d="M8 11h8" />
+        </svg>
+      );
+    case "listening":
+      return (
+        <svg {...sharedProps}>
+          <path d="M14 9a5 5 0 0 1 0 6" />
+          <path d="M17.5 6.5a9 9 0 0 1 0 11" />
+          <path d="M3 10h4l5-4v12l-5-4H3z" />
+        </svg>
+      );
+    case "create":
+      return (
+        <svg {...sharedProps}>
+          <path d="M12 5v14" />
+          <path d="M5 12h14" />
+        </svg>
+      );
+    case "submissions":
+      return (
+        <svg {...sharedProps}>
+          <path d="M14 2H6a2 2 0 0 0-2 2v16l4-3h10a2 2 0 0 0 2-2V8z" />
+          <path d="M14 2v6h6" />
+          <path d="m9 12 2 2 4-4" />
+        </svg>
+      );
+    case "management":
+      return (
+        <svg {...sharedProps}>
+          <path d="M3 3v18h18" />
+          <path d="m7 14 3-3 3 2 4-5" />
+        </svg>
+      );
+    case "inbox":
+      return (
+        <svg {...sharedProps}>
+          <path d="M4 5h16v12H4z" />
+          <path d="M4 13h4l2 3h4l2-3h4" />
+        </svg>
+      );
+    case "phone":
+      return (
+        <svg {...sharedProps}>
+          <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.8 19.8 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.12 4.18 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.12.9.33 1.78.61 2.63a2 2 0 0 1-.45 2.11L8 9.73a16 16 0 0 0 6.27 6.27l1.27-1.27a2 2 0 0 1 2.11-.45c.85.28 1.73.49 2.63.61A2 2 0 0 1 22 16.92Z" />
+        </svg>
+      );
+    default:
+      return null;
+  }
+};
+
 const AdminNavbar = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -44,13 +197,12 @@ const AdminNavbar = () => {
         const res = await fetch(apiPath("writing/list"));
         const all = await res.json();
 
-        // ✅ Lọc bài chưa chấm (feedback null hoặc rỗng)
         const notReviewed = all.filter(
           (sub) => !sub.feedback || sub.feedback.trim() === ""
         );
         setUnreviewed(notReviewed);
       } catch (err) {
-        console.error("❌ Lỗi khi tải thông báo GV:", err);
+        console.error("Failed to load teacher notifications:", err);
       }
     };
 
@@ -169,105 +321,118 @@ const AdminNavbar = () => {
   const closeSubmissionMenu = () => setSubmissionDropdownVisible(false);
   const closeAdminMenu = () => setAdminDropdownVisible(false);
 
-  const buildLinkItem = (key, to, label, visible = true) =>
-    visible ? { key, to, label } : null;
+  const buildLinkItem = (key, to, label, visible = true, iconName = null) =>
+    visible ? { key, to, label, iconName } : null;
 
-  const buildDisabledItem = (key, label, visible = true) =>
-    visible ? { key, label, disabled: true } : null;
+  const buildDisabledItem = (key, label, visible = true, iconName = null) =>
+    visible ? { key, label, disabled: true, iconName } : null;
 
   const cambridgeSections = [
     {
       key: "ket",
       label: "KET",
-      title: "📚 KET (A2 Key)",
+      title: "KET (A2 Key)",
+      iconName: "tests",
       items: [
         buildLinkItem(
           "ket-listening",
           "/admin/create-ket-listening",
-          "🎧 KET Listening",
-          canManageCategory(user, "listening")
+          "KET Listening",
+          canManageCategory(user, "listening"),
+          "listening"
         ),
         buildLinkItem(
           "ket-reading",
           "/admin/create-ket-reading",
-          "📖 KET Reading",
-          canManageCategory(user, "reading")
+          "KET Reading",
+          canManageCategory(user, "reading"),
+          "reading"
         ),
       ].filter(Boolean),
     },
     {
       key: "pet",
       label: "PET",
-      title: "📚 PET (B1 Preliminary)",
+      title: "PET (B1 Preliminary)",
+      iconName: "tests",
       items: [
         buildLinkItem(
           "pet-listening",
           "/admin/create-pet-listening",
-          "🎧 PET Listening",
-          canManageCategory(user, "listening")
+          "PET Listening",
+          canManageCategory(user, "listening"),
+          "listening"
         ),
         buildLinkItem(
           "pet-reading",
           "/admin/create-pet-reading",
-          "📖 PET Reading",
-          canManageCategory(user, "reading")
+          "PET Reading",
+          canManageCategory(user, "reading"),
+          "reading"
         ),
         buildLinkItem(
           "pet-writing",
           "/admin/create-pet-writing",
-          "✍️ PET Writing"
+          "PET Writing",
+          true,
+          "writing"
         ),
       ].filter(Boolean),
     },
     {
       key: "yle",
       label: "YLE",
-      title: "🧒 Young Learners",
+      title: "Young Learners",
+      iconName: "tests",
       groups: [
         {
           key: "flyers",
           label: "Flyers",
-          title: "✈️ Flyers (A2)",
+          title: "Flyers (A2)",
           items: [
-            buildDisabledItem("flyers-listening", "🎧 Listening (coming soon)"),
+            buildDisabledItem("flyers-listening", "Listening (coming soon)", true, "listening"),
             buildLinkItem(
               "flyers-reading",
               "/admin/create/flyers",
-              "📖 Reading & Writing",
-              canManageCategory(user, "reading")
+              "Reading & Writing",
+              canManageCategory(user, "reading"),
+              "reading"
             ),
           ].filter(Boolean),
         },
         {
           key: "movers",
           label: "Movers",
-          title: "🚗 Movers (A1)",
+          title: "Movers (A1)",
           items: [
             buildLinkItem(
               "movers-listening",
               "/admin/create-movers-listening",
-              "🎧 Movers Listening",
-              canManageCategory(user, "listening")
+              "Movers Listening",
+              canManageCategory(user, "listening"),
+              "listening"
             ),
             buildLinkItem(
               "movers-reading",
               "/admin/create/movers",
-              "📖 Reading & Writing",
-              canManageCategory(user, "reading")
+              "Reading & Writing",
+              canManageCategory(user, "reading"),
+              "reading"
             ),
           ].filter(Boolean),
         },
         {
           key: "starters",
           label: "Starters",
-          title: "⭐ Starters (Pre-A1)",
+          title: "Starters (Pre-A1)",
           items: [
-            buildDisabledItem("starters-listening", "🎧 Listening (coming soon)"),
+            buildDisabledItem("starters-listening", "Listening (coming soon)", true, "listening"),
             buildLinkItem(
               "starters-reading",
               "/admin/create/starters",
-              "📖 Reading & Writing",
-              canManageCategory(user, "reading")
+              "Reading & Writing",
+              canManageCategory(user, "reading"),
+              "reading"
             ),
           ].filter(Boolean),
         },
@@ -276,12 +441,15 @@ const AdminNavbar = () => {
     {
       key: "management",
       label: "Management",
-      title: "📊 Management",
+      title: "Management",
+      iconName: "management",
       items: [
         buildLinkItem(
           "cambridge-submissions",
           "/admin/cambridge-submissions",
-          "📋 View submissions"
+          "View submissions",
+          true,
+          "submissions"
         ),
       ].filter(Boolean),
     },
@@ -295,47 +463,58 @@ const AdminNavbar = () => {
     {
       key: "create",
       label: "Create",
-      title: "✏️ Create",
+      title: "Create",
+      iconName: "create",
       items: [
         buildLinkItem(
           "create-writing",
           "/admin/create-writing",
-          "✍️ Writing",
-          canManageCategory(user, "writing")
+          "Writing",
+          canManageCategory(user, "writing"),
+          "writing"
         ),
         buildLinkItem(
           "create-reading",
           "/admin/create-reading",
-          "📖 Reading",
-          canManageCategory(user, "reading")
+          "Reading",
+          canManageCategory(user, "reading"),
+          "reading"
         ),
         buildLinkItem(
           "create-listening",
           "/admin/create-listening",
-          "🎧 Listening",
-          canManageCategory(user, "listening")
+          "Listening",
+          canManageCategory(user, "listening"),
+          "listening"
         ),
       ].filter(Boolean),
     },
     {
       key: "submissions",
       label: "Submissions",
-      title: "📥 Submissions",
+      title: "Submissions",
+      iconName: "submissions",
       items: [
         buildLinkItem(
           "writing-submissions",
           "/admin/writing-submissions",
-          "✍️ Writing"
+          "Writing",
+          true,
+          "writing"
         ),
         buildLinkItem(
           "reading-submissions",
           "/admin/reading-submissions",
-          "📖 Reading"
+          "Reading",
+          true,
+          "reading"
         ),
         buildLinkItem(
           "listening-submissions",
           "/admin/listening-submissions",
-          "🎧 Listening"
+          "Listening",
+          true,
+          "listening"
         ),
       ].filter(Boolean),
     },
@@ -345,9 +524,11 @@ const AdminNavbar = () => {
     buildLinkItem(
       "teacher-permissions",
       "/admin/teacher-permissions",
-      "🔑 Teacher Permissions"
+      "Teacher Permissions",
+      true,
+      "permissions"
     ),
-    buildLinkItem("users", "/admin/users", "👥 User Management"),
+    buildLinkItem("users", "/admin/users", "User Management", true, "users"),
   ].filter(Boolean);
 
   const activeCambridgeSection =
@@ -385,7 +566,12 @@ const AdminNavbar = () => {
             key={item.key}
             className={`${itemClassName} adminNavbar__menuItem--disabled`}
           >
-            {item.label}
+            {item.iconName ? (
+              <span className="adminNavbar__menuItemIcon" aria-hidden="true">
+                <NavIcon name={item.iconName} />
+              </span>
+            ) : null}
+            <span>{item.label}</span>
           </span>
         );
       }
@@ -397,19 +583,26 @@ const AdminNavbar = () => {
           className={itemClassName}
           onClick={onClose}
         >
-          {item.label}
+          {item.iconName ? (
+            <span className="adminNavbar__menuItemIcon" aria-hidden="true">
+              <NavIcon name={item.iconName} />
+            </span>
+          ) : null}
+          <span>{item.label}</span>
         </Link>
       );
     });
 
-  const renderMobileQuickLink = (to, title, meta, icon) => (
+  const renderMobileQuickLink = (to, title, meta, iconName) => (
     <Link
       key={to}
       to={to}
       className="adminNavbar__mobileQuickLink"
       onClick={closeMobileDrawer}
     >
-      <span className="adminNavbar__mobileQuickIcon">{icon}</span>
+      <span className="adminNavbar__mobileQuickIcon" aria-hidden="true">
+        <NavIcon name={iconName} />
+      </span>
       <span className="adminNavbar__mobileQuickText">
         <span className="adminNavbar__mobileQuickTitle">{title}</span>
         <span className="adminNavbar__mobileQuickMeta">{meta}</span>
@@ -425,13 +618,24 @@ const AdminNavbar = () => {
             sectionIndex > 0 ? " adminNavbar__menuHeader--spaced" : ""
           }`}
         >
-          {section.title}
+          <span className="adminNavbar__menuHeaderContent">
+            {section.iconName ? (
+              <span className="adminNavbar__menuHeaderIcon" aria-hidden="true">
+                <NavIcon name={section.iconName} />
+              </span>
+            ) : null}
+            <span>{section.title}</span>
+          </span>
         </div>
         {section.items ? renderMenuItems(section.items, onClose) : null}
         {section.groups
           ? section.groups.map((group) => (
               <React.Fragment key={group.key}>
-                <div className="adminNavbar__menuHeader">{group.title}</div>
+                <div className="adminNavbar__menuHeader">
+                  <span className="adminNavbar__menuHeaderContent">
+                    <span>{group.title}</span>
+                  </span>
+                </div>
                 {renderMenuItems(group.items, onClose)}
               </React.Fragment>
             ))
@@ -462,7 +666,7 @@ const AdminNavbar = () => {
     return (
       <>
         <div className="adminNavbar__mobileMenuTop">
-          <div className="adminNavbar__mobileMenuTitle">🍊 Orange</div>
+          <div className="adminNavbar__mobileMenuTitle">Orange</div>
           <div className="adminNavbar__mobileMenuHint">
             Multi-level menu with horizontal groups for easier teacher navigation.
           </div>
@@ -526,7 +730,7 @@ const AdminNavbar = () => {
     return (
       <>
         <div className="adminNavbar__mobileMenuTop">
-          <div className="adminNavbar__mobileMenuTitle">📚 IX</div>
+          <div className="adminNavbar__mobileMenuTitle">IX</div>
           <div className="adminNavbar__mobileMenuHint">
             Create and submissions are separated to keep the mobile menu cleaner.
           </div>
@@ -554,7 +758,7 @@ const AdminNavbar = () => {
   const renderMobileAdminMenu = () => (
     <>
       <div className="adminNavbar__mobileMenuTop">
-        <div className="adminNavbar__mobileMenuTitle">⚙️ Admin</div>
+        <div className="adminNavbar__mobileMenuTitle">Admin</div>
         <div className="adminNavbar__mobileMenuHint">
           System administration tools are grouped in a dedicated mobile panel.
         </div>
@@ -568,7 +772,7 @@ const AdminNavbar = () => {
   const renderMobileOverview = () => (
     <>
       <div className="adminNavbar__mobileMenuTop">
-        <div className="adminNavbar__mobileMenuTitle">👨‍🏫 {user?.name || "Teacher"}</div>
+        <div className="adminNavbar__mobileMenuTitle">{user?.name || "Teacher"}</div>
         <div className="adminNavbar__mobileMenuHint">
           Open the sections below to manage tests, review submissions, and switch appearance.
         </div>
@@ -576,8 +780,8 @@ const AdminNavbar = () => {
       <div className="adminNavbar__mobileMenuBody adminNavbar__mobileMenuBody--compact">
         <div className="adminNavbar__mobileSectionTitle">Quick access</div>
         <div className="adminNavbar__mobileQuickGrid">
-          {renderMobileQuickLink("/review", "Review", "Open review queue and submission flow", "✍️")}
-          {renderMobileQuickLink("/select-test", "Test list", "Browse and edit available tests", "🧾")}
+          {renderMobileQuickLink("/review", "Review", "Open review queue and submission flow", "review")}
+          {renderMobileQuickLink("/select-test", "Test List", "Browse and edit available tests", "tests")}
         </div>
 
         <div className="adminNavbar__mobileSectionTitle">Appearance</div>
@@ -591,9 +795,11 @@ const AdminNavbar = () => {
           className="adminNavbar__mobileLogout"
           onClick={handleLogout}
         >
-          <span className="adminNavbar__mobileQuickIcon">🔓</span>
+          <span className="adminNavbar__mobileQuickIcon" aria-hidden="true">
+            <NavIcon name="logout" />
+          </span>
           <span className="adminNavbar__mobileQuickText">
-            <span className="adminNavbar__mobileQuickTitle">Logout</span>
+            <span className="adminNavbar__mobileQuickTitle">Log Out</span>
             <span className="adminNavbar__mobileQuickMeta">Sign out of the teacher account</span>
           </span>
         </button>
@@ -604,16 +810,16 @@ const AdminNavbar = () => {
   const renderMobileAlerts = () => (
     <>
       <div className="adminNavbar__mobileMenuTop">
-        <div className="adminNavbar__mobileMenuTitle">🔔 Review & Alerts</div>
+        <div className="adminNavbar__mobileMenuTitle">Review & Alerts</div>
         <div className="adminNavbar__mobileMenuHint">
           Review queue first, then unreviewed writing submissions for quick teacher follow-up.
         </div>
       </div>
       <div className="adminNavbar__mobileMenuBody adminNavbar__mobileMenuBody--compact">
         <div className="adminNavbar__mobileSectionTitle">Review queue</div>
-        {renderMobileQuickLink("/review", "Open review queue", "Jump straight to the teacher review page", "📬")}
+        {renderMobileQuickLink("/review", "Open review queue", "Jump straight to the teacher review page", "inbox")}
         {unreviewed.length === 0 ? (
-          <div className="adminNavbar__mobileEmptyState">✅ No unreviewed submissions.</div>
+          <div className="adminNavbar__mobileEmptyState">No unreviewed submissions.</div>
         ) : (
           <div className="adminNavbar__mobileAlertsList">
             {unreviewed.slice(0, 10).map((sub) => (
@@ -626,11 +832,13 @@ const AdminNavbar = () => {
                   navigate(`/review/${sub.id}`);
                 }}
               >
-                <span className="adminNavbar__mobileAlertName">
-                  👤 {sub.User?.name || sub.userName || "N/A"}
+                <span className="adminNavbar__mobileAlertLine">
+                  <span className="adminNavbar__mobileAlertIcon" aria-hidden="true"><NavIcon name="user" /></span>
+                  <span className="adminNavbar__mobileAlertName">{sub.User?.name || sub.userName || "N/A"}</span>
                 </span>
-                <span className="adminNavbar__mobileAlertMeta">
-                  📞 {sub.User?.phone || sub.userPhone || "N/A"}
+                <span className="adminNavbar__mobileAlertLine">
+                  <span className="adminNavbar__mobileAlertIcon" aria-hidden="true"><NavIcon name="phone" /></span>
+                  <span className="adminNavbar__mobileAlertMeta">{sub.User?.phone || sub.userPhone || "N/A"}</span>
                 </span>
               </button>
             ))}
@@ -717,7 +925,7 @@ const AdminNavbar = () => {
                   <div className="adminNavbar__drawerBrandText">
                     <div className="adminNavbar__drawerBrandTitle">Teacher Menu</div>
                     <div className="adminNavbar__drawerBrandMeta">
-                      Slide-out navigation for mobile devices
+                      Clean mobile navigation for review, tests, and account actions
                     </div>
                   </div>
                 </div>
@@ -727,7 +935,7 @@ const AdminNavbar = () => {
                   onClick={closeMobileDrawer}
                   aria-label="Close navigation menu"
                 >
-                  ✕
+                  <NavIcon name="close" />
                 </button>
               </div>
 
@@ -764,7 +972,7 @@ const AdminNavbar = () => {
             onClick={() => setCambridgeDropdownVisible((prev) => !prev)}
             title="Orange"
           >
-            <span className="adminNavbar__icon">🍊</span>
+            <span className="adminNavbar__icon" aria-hidden="true"><NavIcon name="cambridge" /></span>
             <span className="adminNavbar__label">Orange</span>
             <span className="adminNavbar__caret">▼</span>
           </span>
@@ -784,9 +992,9 @@ const AdminNavbar = () => {
           <span
             className="adminNavbar__link adminNavbar__dropdownToggle"
             onClick={() => setSubmissionDropdownVisible((prev) => !prev)}
-            title="IELTS"
+            title="IX"
           >
-            <span className="adminNavbar__icon">📚</span>
+            <span className="adminNavbar__icon" aria-hidden="true"><NavIcon name="tests" /></span>
             <span className="adminNavbar__label">IX</span>
             <span className="adminNavbar__caret">▼</span>
           </span>
@@ -799,12 +1007,12 @@ const AdminNavbar = () => {
           )}
         </div>
         <Link to="/select-test" className="adminNavbar__link" title="Test list">
-          <span className="adminNavbar__icon">🧾</span>
-          <span className="adminNavbar__label">Test list</span>
+          <span className="adminNavbar__icon" aria-hidden="true"><NavIcon name="tests" /></span>
+          <span className="adminNavbar__label">Test List</span>
         </Link>
 
         <Link to="/review" className="adminNavbar__link" title="Review">
-          <span className="adminNavbar__icon">✍️</span>
+          <span className="adminNavbar__icon" aria-hidden="true"><NavIcon name="review" /></span>
           <span className="adminNavbar__label">Review</span>
         </Link>
 
@@ -815,7 +1023,7 @@ const AdminNavbar = () => {
               onClick={() => setAdminDropdownVisible(!adminDropdownVisible)}
               title="Admin"
             >
-              <span className="adminNavbar__icon">⚙️</span>
+              <span className="adminNavbar__icon" aria-hidden="true"><NavIcon name="admin" /></span>
               <span className="adminNavbar__label">Admin</span>
               <span className="adminNavbar__caret">▼</span>
             </span>
@@ -840,7 +1048,7 @@ const AdminNavbar = () => {
           }
           title="Unreviewed"
         >
-          🔔
+          <NavIcon name="notifications" />
           {unreviewed.length > 0 && (
             <span className="adminNavbar__badge">
               {unreviewed.length}
@@ -851,7 +1059,7 @@ const AdminNavbar = () => {
         {notificationDropdownVisible && (
           <div ref={notificationDropdownRef} className="adminNavbar__notifyMenu">
             {unreviewed.length === 0 ? (
-              <div>✅ No unreviewed submissions</div>
+              <div>No unreviewed submissions</div>
             ) : (
               unreviewed.map((sub, i) => (
                 <div
@@ -862,8 +1070,14 @@ const AdminNavbar = () => {
                     navigate(`/review/${sub.id}`);
                   }}
                 >
-                  👤 {sub.User?.name || sub.userName || "N/A"} - 📞{" "}
-                  {sub.User?.phone || sub.userPhone || "N/A"}
+                  <div className="adminNavbar__notifyItemRow">
+                    <span className="adminNavbar__notifyItemIcon" aria-hidden="true"><NavIcon name="user" /></span>
+                    <span>{sub.User?.name || sub.userName || "N/A"}</span>
+                  </div>
+                  <div className="adminNavbar__notifyItemMeta">
+                    <span className="adminNavbar__notifyItemIcon" aria-hidden="true"><NavIcon name="phone" /></span>
+                    <span>{sub.User?.phone || sub.userPhone || "N/A"}</span>
+                  </div>
                 </div>
               ))
             )}
@@ -874,14 +1088,17 @@ const AdminNavbar = () => {
       {/* 👨‍🏫 Hiển thị tên giáo viên và nút logout */}
       <div className="adminNavbar__right">
         <ThemeToggle />
-        <span className="adminNavbar__teacherName">👨‍🏫 {user?.name || "Teacher"}</span>
+        <span className="adminNavbar__teacherName">
+          <span className="adminNavbar__icon adminNavbar__icon--user" aria-hidden="true"><NavIcon name="user" /></span>
+          <span>{user?.name || "Teacher"}</span>
+        </span>
         <button
           onClick={handleLogout}
           className="adminNavbar__logout"
           title="Logout"
         >
-          <span className="adminNavbar__icon">🔓</span>
-          <span className="adminNavbar__logoutLabel">Logout</span>
+          <span className="adminNavbar__icon" aria-hidden="true"><NavIcon name="logout" /></span>
+          <span className="adminNavbar__logoutLabel">Log Out</span>
         </button>
       </div>
 

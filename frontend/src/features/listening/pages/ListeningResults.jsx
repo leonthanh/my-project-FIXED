@@ -3,6 +3,7 @@ import { useLocation, useParams, useNavigate, Link } from "react-router-dom";
 import { apiPath, getStoredUser } from "../../../shared/utils/api";
 import { isAdmin, isTeacher } from "../../../shared/utils/permissions";
 import ListeningStudentStyleReview from "../components/ListeningStudentStyleReview";
+import LineIcon from "../../../shared/components/LineIcon";
 
 // ===== STYLES =====
 const styles = {
@@ -34,6 +35,9 @@ const styles = {
     borderRadius: "6px",
     cursor: "pointer",
     fontSize: "0.9rem",
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "8px",
   },
   // Summary Cards
   summaryGrid: {
@@ -122,6 +126,9 @@ const styles = {
     cursor: "pointer",
     fontSize: "0.85rem",
     transition: "all 0.2s",
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "6px",
   },
   filterBtnActive: {
     background: "#3b82f6",
@@ -218,6 +225,9 @@ const styles = {
   metaLabel: {
     color: "#64748b",
     fontSize: "0.85rem",
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "6px",
   },
   metaValue: {
     fontWeight: 600,
@@ -238,6 +248,9 @@ const styles = {
     cursor: "pointer",
     fontSize: "0.95rem",
     fontWeight: 600,
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "8px",
   },
   tabActive: {
     background: "#1d4ed8",
@@ -319,6 +332,23 @@ const styles = {
   },
 };
 
+const iconWrapStyle = (size, style = {}) => ({
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  width: size,
+  height: size,
+  lineHeight: 0,
+  flex: "0 0 auto",
+  ...style,
+});
+
+const InlineIcon = ({ name, size = 18, style }) => (
+  <span style={iconWrapStyle(size, style)} aria-hidden="true">
+    <LineIcon name={name} size={size} />
+  </span>
+);
+
 // ===== HELPER COMPONENTS =====
 const CircularProgress = ({ percentage, size = 80, strokeWidth = 8 }) => {
   const radius = (size - strokeWidth) / 2;
@@ -354,14 +384,15 @@ const CircularProgress = ({ percentage, size = 80, strokeWidth = 8 }) => {
 
 const StatusBadge = ({ status }) => {
   const config = {
-    good: { bg: "#dcfce7", color: "#166534", icon: "✅", text: "Tốt" },
-    average: { bg: "#fef3c7", color: "#92400e", icon: "⚠️", text: "Trung bình" },
-    weak: { bg: "#fee2e2", color: "#991b1b", icon: "❌", text: "Cần cải thiện" },
+    good: { bg: "#dcfce7", color: "#166534", icon: "good", text: "Tốt" },
+    average: { bg: "#fef3c7", color: "#92400e", icon: "average", text: "Trung bình" },
+    weak: { bg: "#fee2e2", color: "#991b1b", icon: "weak", text: "Cần cải thiện" },
   };
   const c = config[status] || config.average;
   return (
     <span style={{ ...styles.badge, background: c.bg, color: c.color }}>
-      {c.icon} {c.text}
+      <InlineIcon name={c.icon} size={14} />
+      <span>{c.text}</span>
     </span>
   );
 };
@@ -1157,7 +1188,9 @@ const ListeningResults = () => {
     return (
       <div style={{ ...styles.container, display: "flex", justifyContent: "center", alignItems: "center" }}>
         <div style={{ textAlign: "center" }}>
-          <div style={{ fontSize: "3rem", marginBottom: "16px" }}>⏳</div>
+          <div style={{ marginBottom: "16px", display: "inline-flex", color: "#3b82f6" }}>
+            <InlineIcon name="loading" size={48} />
+          </div>
           <p style={{ color: "#64748b" }}>Đang tải kết quả...</p>
         </div>
       </div>
@@ -1209,9 +1242,13 @@ const ListeningResults = () => {
     <div style={styles.container}>
       {/* Header */}
       <div style={styles.header}>
-        <h1 style={styles.title}>🎧 Kết quả Listening Test</h1>
+        <h1 style={{ ...styles.title, display: "flex", alignItems: "center", gap: "10px" }}>
+          <InlineIcon name="listening" size={22} />
+          <span>Kết quả Listening Test</span>
+        </h1>
         <button style={styles.backBtn} onClick={() => navigate(-1)}>
-          ← Quay lại
+          <InlineIcon name="arrow-left" size={16} />
+          <span>Quay lại</span>
         </button>
       </div>
 
@@ -1225,7 +1262,8 @@ const ListeningResults = () => {
               ...(activeTab === "overview" ? styles.tabActive : {}),
             }}
           >
-            📈 Tổng quan
+            <InlineIcon name="overview" size={16} />
+            <span>Tổng quan</span>
           </button>
           <button
             type="button"
@@ -1235,7 +1273,8 @@ const ListeningResults = () => {
               ...(activeTab === "review" ? styles.tabActive : {}),
             }}
           >
-            📝 Chi tiết từng câu
+            <InlineIcon name="review" size={16} />
+            <span>Chi tiết từng câu</span>
           </button>
         </div>
       )}
@@ -1244,26 +1283,26 @@ const ListeningResults = () => {
       {activeTab === "overview" && test && (
         <div style={styles.metaGrid}>
           <div style={styles.metaItem}>
-            <span style={styles.metaLabel}>📚 Bài test:</span>
+            <span style={styles.metaLabel}><InlineIcon name="tests" size={15} />Bài test:</span>
             <span style={styles.metaValue}>{test.title || `Listening Test #${test.id || submission?.testId || ""}`}</span>
           </div>
           <div style={styles.metaItem}>
-            <span style={styles.metaLabel}>🏫 Mã lớp:</span>
+            <span style={styles.metaLabel}><InlineIcon name="class" size={15} />Mã lớp:</span>
             <span style={styles.metaValue}>{test.classCode || "N/A"}</span>
           </div>
           <div style={styles.metaItem}>
-            <span style={styles.metaLabel}>👨‍🏫 Giáo viên:</span>
+            <span style={styles.metaLabel}><InlineIcon name="teacher" size={15} />Giáo viên:</span>
             <span style={styles.metaValue}>{test.teacherName || "N/A"}</span>
           </div>
           {submission?.userName && (
             <div style={styles.metaItem}>
-              <span style={styles.metaLabel}>👤 Học sinh:</span>
+              <span style={styles.metaLabel}><InlineIcon name="student" size={15} />Học sinh:</span>
               <span style={styles.metaValue}>{submission.userName}</span>
             </div>
           )}
           {submittedAt && (
             <div style={styles.metaItem}>
-              <span style={styles.metaLabel}>📅 Ngày nộp:</span>
+              <span style={styles.metaLabel}><InlineIcon name="calendar" size={15} />Ngày nộp:</span>
               <span style={styles.metaValue}>
                 {new Date(submittedAt).toLocaleString("vi-VN")}
               </span>
@@ -1275,7 +1314,10 @@ const ListeningResults = () => {
       {activeTab === "overview" && submission?.feedback && (
         <div style={styles.feedbackBox}>
           <div style={styles.feedbackHeader}>
-            <strong>📝 Nhận xét giáo viên</strong>
+            <strong style={{ display: "inline-flex", alignItems: "center", gap: "8px" }}>
+              <InlineIcon name="feedback" size={16} />
+              <span>Nhận xét giáo viên</span>
+            </strong>
             {submission.feedbackBy && (
               <span style={{ color: "#92400e" }}>({submission.feedbackBy})</span>
             )}
@@ -1323,7 +1365,7 @@ const ListeningResults = () => {
           >
             {band}
           </div>
-          <div style={styles.cardLabel}>Band IELTS</div>
+          <div style={styles.cardLabel}>Band IX</div>
         </div>
 
         {/* Correct Count */}
@@ -1346,7 +1388,8 @@ const ListeningResults = () => {
       {partAnalysis.length > 0 && (
         <div style={styles.analysisSection}>
           <h3 style={styles.sectionTitle}>
-            📊 Phân tích theo Part
+            <InlineIcon name="overview" size={18} />
+            <span>Phân tích theo Part</span>
           </h3>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "12px" }}>
             {partAnalysis.map((p) => (
@@ -1385,7 +1428,8 @@ const ListeningResults = () => {
             style={{ ...styles.actionBtn, ...styles.primaryBtn }}
             onClick={() => setActiveTab("review")}
           >
-            📝 Xem chi tiết từng câu
+            <InlineIcon name="review" size={16} />
+            <span>Xem chi tiết từng câu</span>
           </button>
         </div>
       )}
@@ -1441,7 +1485,10 @@ const ListeningResults = () => {
 
         <div style={styles.tableContainer}>
           <div style={styles.subSectionHeader}>
-            <h3 style={{ ...styles.sectionTitle, margin: 0 }}>📝 Chi tiết đáp án</h3>
+            <h3 style={{ ...styles.sectionTitle, margin: 0 }}>
+              <InlineIcon name="review" size={18} />
+              <span>Chi tiết đáp án</span>
+            </h3>
             <div style={{ display: "flex", gap: "12px", alignItems: "center", flexWrap: "wrap" }}>
               <button
                 type="button"
@@ -1467,7 +1514,8 @@ const ListeningResults = () => {
                 }}
                 onClick={() => setFilter("correct")}
               >
-                ✓ Đúng ({details.filter((d) => d.isCorrect).length})
+                <InlineIcon name="correct" size={15} />
+                <span>Đúng ({details.filter((d) => d.isCorrect).length})</span>
               </button>
               <button
                 style={{
@@ -1476,7 +1524,8 @@ const ListeningResults = () => {
                 }}
                 onClick={() => setFilter("wrong")}
               >
-                ✕ Sai ({wrongCount})
+                <InlineIcon name="wrong" size={15} />
+                <span>Sai ({wrongCount})</span>
               </button>
             </div>
             </div>
@@ -1497,10 +1546,11 @@ const ListeningResults = () => {
               return (
                 <div key={part} style={{ marginBottom: "12px" }}>
                   <div style={styles.partHeader} onClick={() => togglePart(part)}>
-                    <span>
-                      🎧 {part} ({partCorrect}/{items.length} đúng)
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: "8px" }}>
+                      <InlineIcon name="listening" size={16} />
+                      <span>{part} ({partCorrect}/{items.length} đúng)</span>
                     </span>
-                    <span>{collapsedParts[part] ? "▶" : "▼"}</span>
+                    <InlineIcon name={collapsedParts[part] ? "chevron-right" : "chevron-down"} size={16} />
                   </div>
                   {!collapsedParts[part] && (
                     <table style={styles.table}>
@@ -1528,9 +1578,9 @@ const ListeningResults = () => {
                             </td>
                             <td style={styles.td}>
                               {r.isCorrect ? (
-                                <span style={{ color: "#22c55e", fontSize: "1.2rem" }}>✓</span>
+                                <InlineIcon name="correct" size={18} style={{ color: "#22c55e" }} />
                               ) : (
-                                <span style={{ color: "#ef4444", fontSize: "1.2rem" }}>✕</span>
+                                <InlineIcon name="wrong" size={18} style={{ color: "#ef4444" }} />
                               )}
                             </td>
                           </tr>
@@ -1571,9 +1621,9 @@ const ListeningResults = () => {
                     </td>
                     <td style={styles.td}>
                       {r.isCorrect ? (
-                        <span style={{ color: "#22c55e", fontSize: "1.2rem" }}>✓</span>
+                        <InlineIcon name="correct" size={18} style={{ color: "#22c55e" }} />
                       ) : (
-                        <span style={{ color: "#ef4444", fontSize: "1.2rem" }}>✕</span>
+                        <InlineIcon name="wrong" size={18} style={{ color: "#ef4444" }} />
                       )}
                     </td>
                   </tr>
@@ -1594,24 +1644,28 @@ const ListeningResults = () => {
             style={{ ...styles.actionBtn, ...styles.secondaryBtn }}
             onClick={() => setActiveTab("overview")}
           >
-            ← Quay lại tổng quan
+            <InlineIcon name="arrow-left" size={16} />
+            <span>Quay lại tổng quan</span>
           </button>
         )}
         <button
           style={{ ...styles.actionBtn, ...styles.primaryBtn }}
           onClick={() => navigate(`/listening/${retryTestId}`)}
         >
-          🔄 Làm lại bài này
+          <InlineIcon name="retry" size={16} />
+          <span>Làm lại bài này</span>
         </button>
         <button
           style={{ ...styles.actionBtn, ...styles.secondaryBtn }}
           onClick={() => navigate("/select-test")}
         >
-          📚 Chọn bài khác
+          <InlineIcon name="tests" size={16} />
+          <span>Chọn bài khác</span>
         </button>
         <Link to="/" style={{ textDecoration: "none" }}>
           <button style={{ ...styles.actionBtn, ...styles.secondaryBtn }}>
-            🏠 Về trang chủ
+            <InlineIcon name="home" size={16} />
+            <span>Về trang chủ</span>
           </button>
         </Link>
       </div>

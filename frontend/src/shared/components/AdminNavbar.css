@@ -1,5 +1,5 @@
 .adminNavbar {
-  padding: 12px 24px;
+  padding: 10px 18px;
   background: #0e276f;
   color: #fff;
   display: flex;
@@ -8,7 +8,7 @@
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
   position: relative;
   flex-wrap: nowrap;
-  gap: 12px;
+  gap: 10px;
   position: sticky;
   top: 0;
   z-index: 1200;
@@ -22,7 +22,7 @@
   display: flex;
   align-items: center;
   flex-wrap: nowrap;
-  gap: 12px;
+  gap: 10px;
 }
 
 .adminNavbar__logoLink {
@@ -31,18 +31,18 @@
 }
 
 .adminNavbar__logo {
-  height: 40px;
-  margin-right: 20px;
+  height: 38px;
+  margin-right: 12px;
 }
 
 .adminNavbar__link {
   color: #fff;
-  margin-right: 20px;
+  margin-right: 14px;
   text-decoration: none;
   font-weight: 700;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
 }
 
 .adminNavbar__link--desktop {
@@ -52,7 +52,7 @@
 .adminNavbar__dropdown {
   display: inline-block;
   position: relative;
-  margin-right: 20px;
+  margin-right: 14px;
 }
 
 .adminNavbar__dropdownToggle {
@@ -61,8 +61,26 @@
 }
 
 .adminNavbar__icon {
-  font-size: 16px;
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
   line-height: 1;
+}
+
+.adminNavbar__icon svg,
+.adminNavbar__mobileQuickIcon svg,
+.adminNavbar__menuItemIcon svg,
+.adminNavbar__menuHeaderIcon svg,
+.adminNavbar__notifyItemIcon svg,
+.adminNavbar__mobileAlertIcon svg,
+.adminNavbar__bell svg,
+.adminNavbar__drawerClose svg {
+  width: 100%;
+  height: 100%;
+  display: block;
 }
 
 .adminNavbar__label {
@@ -256,7 +274,9 @@
   border-radius: 10px;
   background: #e8efff;
   color: #0e276f;
-  font-size: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
 }
 
@@ -415,7 +435,7 @@
   align-items: center;
   justify-content: center;
   background: #eef2ff;
-  font-size: 18px;
+  color: #1d4ed8;
 }
 
 .adminNavbar__mobileQuickText {
@@ -430,6 +450,19 @@
   font-size: 14px;
   font-weight: 800;
   color: #0f172a;
+}
+
+.adminNavbar__mobileAlertLine {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.adminNavbar__mobileAlertIcon {
+  width: 15px;
+  height: 15px;
+  color: #1d4ed8;
+  flex: 0 0 auto;
 }
 
 .adminNavbar__mobileQuickMeta,
@@ -481,12 +514,24 @@
 }
 
 .adminNavbar__menuItem {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 10px;
   padding: 10px 15px;
   color: #333;
   text-decoration: none;
   border-bottom: 1px solid #eee;
   transition: background 0.2s;
+}
+
+.adminNavbar__menuItemIcon {
+  width: 16px;
+  height: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #0e276f;
+  flex: 0 0 auto;
 }
 
 .adminNavbar__menuItem:hover {
@@ -504,6 +549,21 @@
   font-weight: 700;
   border-bottom: 1px solid #eee;
   background: #f8f8f8;
+}
+
+.adminNavbar__menuHeaderContent {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.adminNavbar__menuHeaderIcon {
+  width: 14px;
+  height: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #475569;
 }
 
 body.dark-mode .adminNavbar {
@@ -623,6 +683,17 @@ body.dark-mode .adminNavbar__mobileEmptyState {
 
 body.dark-mode .adminNavbar__mobileQuickIcon {
   background: #1e293b;
+  color: #dbeafe;
+}
+
+body.dark-mode .adminNavbar__mobileAlertIcon,
+body.dark-mode .adminNavbar__notifyItemIcon,
+body.dark-mode .adminNavbar__menuItemIcon {
+  color: #dbeafe;
+}
+
+body.dark-mode .adminNavbar__menuHeaderIcon {
+  color: #cbd5e1;
 }
 
 body.dark-mode .adminNavbar__mobileEmptyState {
@@ -656,9 +727,21 @@ body.dark-mode .adminNavbar__menuHeader {
 
 .adminNavbar__bell {
   position: relative;
-  margin-right: 20px;
+  margin-right: 14px;
   cursor: pointer;
-  font-size: 20px;
+  width: 40px;
+  height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  transition: transform 0.2s ease, background 0.2s ease;
+}
+
+.adminNavbar__bell:hover {
+  background: rgba(255, 255, 255, 0.18);
+  transform: translateY(-1px);
 }
 
 .adminNavbar__bell--shake {
@@ -698,6 +781,29 @@ body.dark-mode .adminNavbar__menuHeader {
   transition: background 0.2s;
 }
 
+.adminNavbar__notifyItemRow,
+.adminNavbar__notifyItemMeta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.adminNavbar__notifyItemMeta {
+  margin-top: 4px;
+  color: #64748b;
+  font-size: 12px;
+}
+
+.adminNavbar__notifyItemIcon {
+  width: 14px;
+  height: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #1d4ed8;
+  flex: 0 0 auto;
+}
+
 .adminNavbar__notifyItem:hover {
   background: #f0f0f0;
 }
@@ -709,20 +815,23 @@ body.dark-mode .adminNavbar__menuHeader {
 .adminNavbar__right {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   flex-wrap: nowrap;
 }
 
 
 .adminNavbar__teacherName {
   font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .adminNavbar__logout {
   background: #e03;
   border: none;
-  padding: 8px 16px;
-  border-radius: 6px;
+  padding: 8px 14px;
+  border-radius: 10px;
   color: #fff;
   font-weight: 700;
   cursor: pointer;

@@ -2,13 +2,20 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import StudentNavbar from "../../../shared/components/StudentNavbar";
 import AdminNavbar from "../../../shared/components/AdminNavbar";
+import LineIcon from "../../../shared/components/LineIcon";
 import { apiPath, hostPath } from "../../../shared/utils/api";
 import { TEST_CONFIGS } from "../../../shared/config/questionTypes";
 import { canManageCategory } from "../../../shared/utils/permissions";
 import "./SelectCambridgeTest.css";
 
+const SelectOrangeIcon = ({ name, size = 18, className }) => (
+  <span className={["cambridge-inlineIcon", className].filter(Boolean).join(" ")} aria-hidden="true">
+    <LineIcon name={name} size={size} />
+  </span>
+);
+
 /**
- * SelectCambridgeTest - Trang chọn đề Cambridge cho học sinh
+ * SelectCambridgeTest - Trang chọn đề Orange cho học sinh
  * Hiển thị danh sách đề KET, PET, FLYERS, MOVERS, STARTERS
  */
 const SelectCambridgeTest = () => {
@@ -28,11 +35,11 @@ const SelectCambridgeTest = () => {
 
   // Test type options
   const testTypes = [
-    { id: "ket", name: "KET (A2 Key)", icon: "🔑" },
-    { id: "pet", name: "PET (B1 Preliminary)", icon: "📘" },
-    { id: "flyers", name: "Flyers (A2)", icon: "✈️" },
-    { id: "movers", name: "Movers (A1)", icon: "🚗" },
-    { id: "starters", name: "Starters (Pre-A1)", icon: "⭐" },
+    { id: "ket", name: "KET (A2 Key)", iconName: "key" },
+    { id: "pet", name: "PET (B1 Preliminary)", iconName: "pet" },
+    { id: "flyers", name: "Flyers (A2)", iconName: "flyers" },
+    { id: "movers", name: "Movers (A1)", iconName: "movers" },
+    { id: "starters", name: "Starters (Pre-A1)", iconName: "starters" },
   ];
 
   // Types where reading tests are stored with just the base name (no '-reading' suffix)
@@ -76,7 +83,7 @@ const SelectCambridgeTest = () => {
           writing: Array.isArray(writingData) ? writingData : [],
         });
       } catch (err) {
-        console.error("❌ Lỗi khi tải đề Cambridge:", err);
+        console.error("Lỗi khi tải đề Orange:", err);
         setError(err.message);
         setTests({ listening: [], reading: [], writing: [] });
       } finally {
@@ -132,7 +139,7 @@ const SelectCambridgeTest = () => {
     if (loading) {
       return (
         <div className="cambridge-state cambridge-loading">
-          <div className="cambridge-state__icon">⏳</div>
+          <SelectOrangeIcon name="loading" size={32} className="cambridge-state__icon" />
           Đang tải danh sách đề...
         </div>
       );
@@ -141,7 +148,7 @@ const SelectCambridgeTest = () => {
     if (error) {
       return (
         <div className="cambridge-state cambridge-error">
-          <div className="cambridge-state__icon">❌</div>
+          <SelectOrangeIcon name="error" size={32} className="cambridge-state__icon" />
           {error}
         </div>
       );
@@ -150,7 +157,7 @@ const SelectCambridgeTest = () => {
     if (testList.length === 0) {
       return (
         <div className="cambridge-state cambridge-empty">
-          <div className="cambridge-state__icon cambridge-state__icon--large">📭</div>
+          <SelectOrangeIcon name="empty" size={44} className="cambridge-state__icon cambridge-state__icon--large" />
           <p>
             Chưa có đề {testType === "listening" ? "Listening" : testType === "reading" ? "Reading" : "Writing"} cho {activeTestType.toUpperCase()}
           </p>
@@ -163,7 +170,8 @@ const SelectCambridgeTest = () => {
               }
               className="cambridge-btn cambridge-btn--success"
             >
-              ➕ Tạo đề mới
+              <SelectOrangeIcon name="create" />
+              <span>Tạo đề mới</span>
             </button>
           )}
         </div>
@@ -189,15 +197,32 @@ const SelectCambridgeTest = () => {
                 className="cambridge-test-main"
               >
                 <div className="cambridge-test-main__content">
-                  <span className="cambridge-test-main__icon">
-                    {testType === "listening" ? "🎧" : testType === "reading" ? "📖" : "✍️"}
-                  </span>
+                  <SelectOrangeIcon
+                    name={testType === "listening" ? "listening" : testType === "reading" ? "reading" : "writing"}
+                    size={22}
+                    className="cambridge-test-main__icon"
+                  />
                   <div>
                     <h3 className="cambridge-test-main__title">
                       {test.title || `${activeTestType.toUpperCase()} ${testType.charAt(0).toUpperCase() + testType.slice(1)} ${index + 1}`}
                     </h3>
                     <div className="cambridge-test-main__meta">
-                      📚 {test.classCode || "N/A"} • 👨‍🏫 {test.teacherName || "N/A"} • 📊 {config.totalQuestions || test.totalQuestions || "?"} câu • ⏱️ {config.duration || 30} phút
+                      <span className="cambridge-test-main__metaItem">
+                        <SelectOrangeIcon name="class" size={16} />
+                        <span>{test.classCode || "N/A"}</span>
+                      </span>
+                      <span className="cambridge-test-main__metaItem">
+                        <SelectOrangeIcon name="teacher" size={16} />
+                        <span>{test.teacherName || "N/A"}</span>
+                      </span>
+                      <span className="cambridge-test-main__metaItem">
+                        <SelectOrangeIcon name="questions" size={16} />
+                        <span>{config.totalQuestions || test.totalQuestions || "?"} câu</span>
+                      </span>
+                      <span className="cambridge-test-main__metaItem">
+                        <SelectOrangeIcon name="clock" size={16} />
+                        <span>{config.duration || 30} phút</span>
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -207,7 +232,8 @@ const SelectCambridgeTest = () => {
                   onClick={() => handleEdit(test.id, testType)}
                   className="cambridge-btn cambridge-btn--warning"
                 >
-                  ✏️ Sửa
+                  <SelectOrangeIcon name="edit" />
+                  <span>Sửa</span>
                 </button>
               )}
             </div>
@@ -229,7 +255,10 @@ const SelectCambridgeTest = () => {
                 onClick={() => setActiveTestType(type.id)}
                 className={`cambridge-type-btn${activeTestType === type.id ? " cambridge-type-btn--active" : ""}`}
               >
-                {type.icon} {type.name}
+                <span className="cambridge-tabLabel">
+                  <SelectOrangeIcon name={type.iconName} />
+                  <span>{type.name}</span>
+                </span>
               </button>
             ))}
           </div>
@@ -244,20 +273,29 @@ const SelectCambridgeTest = () => {
                 onClick={() => setActiveTab(tab)}
                 className={`cambridge-tab${activeTab === tab ? " cambridge-tab--active" : ""}`}
               >
-                {tab === "listening"
-                  ? "🎧 Listening"
-                  : tab === "reading"
-                  ? "📖 Reading"
-                  : "✍️ Writing"}
+                <span className="cambridge-tabLabel">
+                  <SelectOrangeIcon
+                    name={tab === "listening" ? "listening" : tab === "reading" ? "reading" : "writing"}
+                  />
+                  <span>
+                    {tab === "listening"
+                      ? "Listening"
+                      : tab === "reading"
+                      ? "Reading"
+                      : "Writing"}
+                  </span>
+                </span>
                 <span className="cambridge-tab__badge">{tests[tab].length}</span>
               </button>
             ))}
           </div>
 
           <div className="cambridge-info">
-            <div className="cambridge-info__icon">
-              {testTypes.find((t) => t.id === activeTestType)?.icon}
-            </div>
+            <SelectOrangeIcon
+              name={testTypes.find((t) => t.id === activeTestType)?.iconName}
+              size={28}
+              className="cambridge-info__icon"
+            />
             <div>
               <h3 className="cambridge-info__title">
                 {testTypes.find((t) => t.id === activeTestType)?.name} - {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}
@@ -280,7 +318,8 @@ const SelectCambridgeTest = () => {
                 }
                 className="cambridge-btn cambridge-btn--success"
               >
-                ➕ Tạo đề {activeTestType.toUpperCase()} {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} mới
+                <SelectOrangeIcon name="create" />
+                <span>Tạo đề {activeTestType.toUpperCase()} {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} mới</span>
               </button>
             </div>
           )}
