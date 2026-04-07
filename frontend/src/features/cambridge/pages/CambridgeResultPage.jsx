@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { apiPath, getStoredUser, hostPath } from "../../../shared/utils/api";
+import AdminNavbar from "../../../shared/components/AdminNavbar";
 import StudentNavbar from "../../../shared/components/StudentNavbar";
+import LineIcon from "../../../shared/components/LineIcon";
 import { useTheme } from "../../../shared/contexts/ThemeContext";
 import { isAdmin, isTeacher } from "../../../shared/utils/permissions";
 import CambridgeStudentStyleReview from "../components/CambridgeStudentStyleReview";
@@ -144,6 +146,23 @@ function buildWritingPromptHtml(sectionType, question, detailedResult) {
   return fallback ? sanitizePromptHtml(`<p>${escapeHtml(fallback)}</p>`) : '';
 }
 
+const iconWrapStyle = (size, style = {}) => ({
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  width: size,
+  height: size,
+  lineHeight: 0,
+  flex: '0 0 auto',
+  ...style,
+});
+
+const InlineIcon = ({ name, size = 18, style }) => (
+  <span style={iconWrapStyle(size, style)} aria-hidden="true">
+    <LineIcon name={name} size={size} />
+  </span>
+);
+
 /**
  * CambridgeResultPage - Trang xem kết quả chi tiết sau khi nộp bài Cambridge test
  * Hiển thị:
@@ -165,6 +184,7 @@ const CambridgeResultPage = () => {
     () => isAdmin(currentUser) || isTeacher(currentUser),
     [currentUser]
   );
+  const ResultNavbar = canViewDetailedReview ? AdminNavbar : StudentNavbar;
   const legendColors = useMemo(() => (
     isDarkMode
       ? {
@@ -198,22 +218,22 @@ const CambridgeResultPage = () => {
     const isUnanswered = !result || result.userAnswer === null || result.userAnswer === undefined || result.userAnswer === '';
     if (result?.isCorrect === null && !isUnanswered) {
       return isDarkMode
-        ? { label: '⏳ Chờ chấm', color: '#38bdf8', bg: '#0b1d2e', text: '#7dd3fc' }
-        : { label: '⏳ Chờ chấm', color: '#0ea5e9', bg: '#e0f2fe', text: '#075985' };
+        ? { label: 'Pending Review', color: '#38bdf8', bg: '#0b1d2e', text: '#7dd3fc', iconName: 'loading' }
+        : { label: 'Pending Review', color: '#0ea5e9', bg: '#e0f2fe', text: '#075985', iconName: 'loading' };
     }
     if (result?.isCorrect === true) {
       return isDarkMode
-        ? { label: '✓ Đúng', color: '#22c55e', bg: '#0f2a1a', text: '#a7f3d0' }
-        : { label: '✓ Đúng', color: '#22c55e', bg: '#dcfce7', text: '#166534' };
+        ? { label: 'Correct', color: '#22c55e', bg: '#0f2a1a', text: '#a7f3d0', iconName: 'correct' }
+        : { label: 'Correct', color: '#22c55e', bg: '#dcfce7', text: '#166534', iconName: 'correct' };
     }
     if (isUnanswered) {
       return isDarkMode
-        ? { label: '○ Bỏ trống', color: '#94a3b8', bg: '#1f2b47', text: '#94a3b8' }
-        : { label: '○ Bỏ trống', color: '#94a3b8', bg: '#f1f5f9', text: '#64748b' };
+        ? { label: 'Blank', color: '#94a3b8', bg: '#1f2b47', text: '#94a3b8', iconName: 'blank' }
+        : { label: 'Blank', color: '#94a3b8', bg: '#f1f5f9', text: '#64748b', iconName: 'blank' };
     }
     return isDarkMode
-      ? { label: '✕ Sai', color: '#ef4444', bg: '#2a1515', text: '#fecaca' }
-      : { label: '✕ Sai', color: '#ef4444', bg: '#fee2e2', text: '#991b1b' };
+      ? { label: 'Wrong', color: '#ef4444', bg: '#2a1515', text: '#fecaca', iconName: 'wrong' }
+      : { label: 'Wrong', color: '#ef4444', bg: '#fee2e2', text: '#991b1b', iconName: 'wrong' };
   };
 
   const canShowCorrectAnswer = (result) => {
@@ -321,14 +341,14 @@ const CambridgeResultPage = () => {
         if (!location.state?.submission) setLoading(true);
         setError(null);
         const res = await fetch(apiPath(`cambridge/submissions/${submissionId}`), { signal: controller.signal });
-        if (!res.ok) throw new Error("Không tìm thấy kết quả");
+        if (!res.ok) throw new Error("Result not found");
         const data = await res.json();
         if (!cancelled) setSubmission(normalizeSubmission(data));
       } catch (err) {
         if (cancelled) return;
         if (err?.name === 'AbortError') return;
         console.error("Error fetching submission:", err);
-        setError(err.message || 'Lỗi khi tải kết quả');
+        setError(err.message || 'Failed to load results');
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -679,12 +699,12 @@ const CambridgeResultPage = () => {
 
   // Get grade based on percentage
   function getGrade(percentage) {
-    if (percentage >= 90) return { label: 'Xuất sắc', color: '#22c55e', icon: '🏆' };
-    if (percentage >= 80) return { label: 'Giỏi', color: '#3b82f6', icon: '⭐' };
-    if (percentage >= 70) return { label: 'Khá', color: '#8b5cf6', icon: '👍' };
-    if (percentage >= 60) return { label: 'Trung bình', color: '#f59e0b', icon: '📝' };
-    if (percentage >= 50) return { label: 'Đạt', color: '#f97316', icon: '✓' };
-    return { label: 'Cần cố gắng', color: '#ef4444', icon: '💪' };
+    if (percentage >= 90) return { label: 'Excellent', color: '#22c55e', iconName: 'good' };
+    if (percentage >= 80) return { label: 'Strong', color: '#3b82f6', iconName: 'good' };
+    if (percentage >= 70) return { label: 'Good', color: '#8b5cf6', iconName: 'good' };
+    if (percentage >= 60) return { label: 'Average', color: '#f59e0b', iconName: 'average' };
+    if (percentage >= 50) return { label: 'Pass', color: '#f97316', iconName: 'average' };
+    return { label: 'Needs Work', color: '#ef4444', iconName: 'weak' };
   }
 
   // Format time
@@ -728,7 +748,7 @@ const CambridgeResultPage = () => {
       const label = Number.isFinite(blankNum) ? `(${blankNum})` : '(?)';
       const userAnswer = (result?.userAnswer ?? '').toString();
       const correctAnswer = (result?.correctAnswer ?? '').toString();
-      const title = `${label} ${status.label}\nBạn: ${userAnswer || '(Không trả lời)'}${canShowCorrectAnswer(result) ? `\nĐúng: ${correctAnswer}` : ''}`;
+      const title = `${label} ${status.label}\nYou: ${userAnswer || '(No answer)'}${canShowCorrectAnswer(result) ? `\nCorrect: ${correctAnswer}` : ''}`;
 
       return (
         <span
@@ -994,10 +1014,10 @@ const CambridgeResultPage = () => {
   if (loading) {
     return (
       <div style={styles.container}>
-        <StudentNavbar />
+        <ResultNavbar />
         <div style={styles.loadingContainer}>
           <div style={styles.spinner}></div>
-          <p>Đang tải kết quả...</p>
+          <p>Loading results...</p>
         </div>
       </div>
     );
@@ -1007,11 +1027,17 @@ const CambridgeResultPage = () => {
   if (error) {
     return (
       <div style={styles.container}>
-        <StudentNavbar />
+        <ResultNavbar />
         <div style={styles.errorContainer}>
-          <h2>❌ {error}</h2>
+          <h2 style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+            <InlineIcon name="error" size={20} />
+            <span>{error}</span>
+          </h2>
           <button onClick={() => navigate('/cambridge')} style={styles.primaryButton}>
-            ← Quay lại
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+              <InlineIcon name="arrow-left" size={16} />
+              <span>Back</span>
+            </span>
           </button>
         </div>
       </div>
@@ -1022,11 +1048,17 @@ const CambridgeResultPage = () => {
   if (!submission) {
     return (
       <div style={styles.container}>
-        <StudentNavbar />
+        <ResultNavbar />
         <div style={styles.errorContainer}>
-          <h2>Không tìm thấy kết quả</h2>
+          <h2 style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+            <InlineIcon name="empty" size={20} />
+            <span>No result found</span>
+          </h2>
           <button onClick={() => navigate('/cambridge')} style={styles.primaryButton}>
-            ← Quay lại
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+              <InlineIcon name="arrow-left" size={16} />
+              <span>Back</span>
+            </span>
           </button>
         </div>
       </div>
@@ -1035,7 +1067,7 @@ const CambridgeResultPage = () => {
 
   return (
     <div style={styles.container}>
-      <StudentNavbar />
+      <ResultNavbar />
       
       {/* Header */}
       <div style={styles.header}>
@@ -1044,10 +1076,16 @@ const CambridgeResultPage = () => {
             onClick={() => navigate('/cambridge')} 
             style={styles.backButton}
           >
-            ← Quay lại
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+              <InlineIcon name="arrow-left" size={16} />
+              <span>Back</span>
+            </span>
           </button>
           <div>
-            <h1 style={styles.title}> Test Results</h1>
+            <h1 style={{ ...styles.title, display: 'inline-flex', alignItems: 'center', gap: '10px' }}>
+              <InlineIcon name="overview" size={24} />
+              <span>Orange Test Results</span>
+            </h1>
             <p style={styles.subtitle}>{submission.testTitle || 'Orange Test'}</p>
           </div>
         </div>
@@ -1063,7 +1101,10 @@ const CambridgeResultPage = () => {
               ...(activeTab === 'overview' && styles.tabActive)
             }}
           >
-            📈 Tổng quan
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+              <InlineIcon name="overview" size={16} />
+              <span>Overview</span>
+            </span>
           </button>
           <button
             onClick={() => setActiveTab('review')}
@@ -1072,7 +1113,10 @@ const CambridgeResultPage = () => {
               ...(activeTab === 'review' && styles.tabActive)
             }}
           >
-            📝 Chi tiết từng câu
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+              <InlineIcon name="review" size={16} />
+              <span>Question Review</span>
+            </span>
           </button>
         </div>
       )}
@@ -1100,49 +1144,55 @@ const CambridgeResultPage = () => {
                 />
               </div>
               <div style={{ ...styles.gradeLabel, color: stats.grade.color }}>
-                {stats.grade.icon} {stats.grade.label} - {stats.percentage}%
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                  <InlineIcon name={stats.grade.iconName} size={16} />
+                  <span>{stats.grade.label} - {stats.percentage}%</span>
+                </span>
               </div>
             </div>
 
             {/* Stats Cards */}
             <div style={styles.statsRow}>
               <div style={{ ...styles.statCard, borderLeftColor: '#22c55e' }}>
-                <div style={styles.statIcon}>✓</div>
+                <div style={styles.statIcon}><InlineIcon name="correct" size={18} /></div>
                 <div style={styles.statNumber}>{stats.correct}</div>
-                <div style={styles.statLabel}>Đúng</div>
+                <div style={styles.statLabel}>Correct</div>
               </div>
               <div style={{ ...styles.statCard, borderLeftColor: '#ef4444' }}>
-                <div style={styles.statIcon}>✕</div>
+                <div style={styles.statIcon}><InlineIcon name="wrong" size={18} /></div>
                 <div style={styles.statNumber}>{stats.wrong}</div>
-                <div style={styles.statLabel}>Sai</div>
+                <div style={styles.statLabel}>Wrong</div>
               </div>
               <div style={{ ...styles.statCard, borderLeftColor: '#94a3b8' }}>
-                <div style={styles.statIcon}>○</div>
+                <div style={styles.statIcon}><InlineIcon name="blank" size={18} /></div>
                 <div style={styles.statNumber}>{stats.unanswered}</div>
-                <div style={styles.statLabel}>Bỏ trống</div>
+                <div style={styles.statLabel}>Blank</div>
               </div>
             </div>
 
             {/* Info Card */}
             <div style={styles.infoCard}>
-              <h3 style={styles.infoTitle}>📋 Thông tin bài thi</h3>
+              <h3 style={{ ...styles.infoTitle, display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                <InlineIcon name="tests" size={18} />
+                <span>Test Information</span>
+              </h3>
               <div style={styles.infoGrid}>
                 <div style={styles.infoItem}>
-                  <span style={styles.infoLabel}>Loại bài:</span>
+                  <span style={styles.infoLabel}>Type:</span>
                   <span style={styles.infoValue}>{submission.testType?.toUpperCase()}</span>
                 </div>
                 <div style={styles.infoItem}>
-                  <span style={styles.infoLabel}>Thời gian làm:</span>
+                  <span style={styles.infoLabel}>Time Spent:</span>
                   <span style={styles.infoValue}>{formatTime(submission.timeSpent)}</span>
                 </div>
                 <div style={styles.infoItem}>
-                  <span style={styles.infoLabel}>Lớp:</span>
+                  <span style={styles.infoLabel}>Class:</span>
                   <span style={styles.infoValue}>{submission.classCode || '--'}</span>
                 </div>
                 <div style={styles.infoItem}>
-                  <span style={styles.infoLabel}>Ngày nộp:</span>
+                  <span style={styles.infoLabel}>Submitted:</span>
                   <span style={styles.infoValue}>
-                    {new Date(submission.submittedAt).toLocaleDateString('vi-VN')}
+                    {new Date(submission.submittedAt).toLocaleDateString('en-GB')}
                   </span>
                 </div>
               </div>
@@ -1155,14 +1205,20 @@ const CambridgeResultPage = () => {
                   onClick={() => setActiveTab('review')} 
                   style={styles.primaryButton}
                 >
-                  📝 Xem chi tiết từng câu
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                    <InlineIcon name="review" size={16} />
+                    <span>Open Question Review</span>
+                  </span>
                 </button>
               )}
               <button 
                 onClick={() => navigate('/cambridge')} 
                 style={canViewDetailedReview ? styles.secondaryButton : styles.primaryButton}
               >
-                📋 Chọn đề khác
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                  <InlineIcon name="tests" size={16} />
+                  <span>Choose Another Test</span>
+                </span>
               </button>
             </div>
           </div>
@@ -1174,7 +1230,7 @@ const CambridgeResultPage = () => {
             
             {/* Question Summary */}
             <div style={styles.questionSummary}>
-              <h3 style={styles.summaryTitle}>Tóm tắt kết quả</h3>
+              <h3 style={styles.summaryTitle}>Question Summary</h3>
               <div style={styles.questionGrid}>
                 {submission.detailedResults && Object.entries(submission.detailedResults).map(([key, result]) => {
                   const questionNum = questionNumberMap[key];
@@ -1198,10 +1254,10 @@ const CambridgeResultPage = () => {
                 })}
               </div>
               <div style={styles.legendRow}>
-                <span style={styles.legendItem}><span style={{...styles.legendDot, backgroundColor: legendColors.correct}}></span> Đúng</span>
-                <span style={styles.legendItem}><span style={{...styles.legendDot, backgroundColor: legendColors.wrong}}></span> Sai</span>
-                <span style={styles.legendItem}><span style={{...styles.legendDot, backgroundColor: legendColors.blank}}></span> Bỏ trống</span>
-                <span style={styles.legendItem}><span style={{...styles.legendDot, backgroundColor: legendColors.pending}}></span> Chờ chấm</span>
+                <span style={styles.legendItem}><span style={{...styles.legendDot, backgroundColor: legendColors.correct}}></span> Correct</span>
+                <span style={styles.legendItem}><span style={{...styles.legendDot, backgroundColor: legendColors.wrong}}></span> Wrong</span>
+                <span style={styles.legendItem}><span style={{...styles.legendDot, backgroundColor: legendColors.blank}}></span> Blank</span>
+                <span style={styles.legendItem}><span style={{...styles.legendDot, backgroundColor: legendColors.pending}}></span> Pending Review</span>
               </div>
             </div>
 
@@ -1212,16 +1268,16 @@ const CambridgeResultPage = () => {
 
             <div style={styles.reviewToggleCard}>
               <div>
-                <div style={styles.reviewToggleTitle}>Bảng đối chiếu từng câu</div>
+                <div style={styles.reviewToggleTitle}>Legacy Comparison Cards</div>
                 <div style={styles.reviewToggleText}>
-                  Mở dạng card cũ nếu giáo viên cần xem nhanh từng câu với trạng thái và đáp án đúng theo danh sách.
+                  Open the older card layout when teachers need a quick status-by-status comparison list.
                 </div>
               </div>
               <button
                 onClick={() => setShowLegacyDetails((prev) => !prev)}
                 style={showLegacyDetails ? styles.secondaryButton : styles.primaryButton}
               >
-                {showLegacyDetails ? 'Ẩn bảng đối chiếu' : 'Mở bảng đối chiếu'}
+                {showLegacyDetails ? 'Hide Comparison Cards' : 'Open Comparison Cards'}
               </button>
             </div>
 
@@ -1233,10 +1289,13 @@ const CambridgeResultPage = () => {
                   onClick={() => togglePart(partIdx)}
                 >
                   <div style={styles.partTitle}>
-                    📖 {part.partTitle || `Part ${partIdx + 1}`}
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                      <InlineIcon name="reading" size={16} />
+                      <span>{part.partTitle || `Part ${partIdx + 1}`}</span>
+                    </span>
                   </div>
                   <span style={styles.expandIcon}>
-                    {expandedParts[partIdx] ? '▼' : '▶'}
+                    <InlineIcon name={expandedParts[partIdx] ? 'chevron-down' : 'chevron-right'} size={16} />
                   </span>
                 </div>
 
@@ -2079,8 +2138,8 @@ const CambridgeResultPage = () => {
                                         >
                                           <span style={styles.optionLabel}>{optLabel}.</span>
                                           <span>{opt}</span>
-                                          {isCorrectOpt && <span style={styles.correctMark}>✓</span>}
-                                          {isSelected && !isCorrectOpt && <span style={styles.wrongMark}>✕</span>}
+                                          {isCorrectOpt && <span style={styles.correctMark}><InlineIcon name="correct" size={14} /></span>}
+                                          {isSelected && !isCorrectOpt && <span style={styles.wrongMark}><InlineIcon name="wrong" size={14} /></span>}
                                         </div>
                                       );
                                     })}
@@ -2104,13 +2163,19 @@ const CambridgeResultPage = () => {
                 onClick={() => setActiveTab('overview')} 
                 style={styles.secondaryButton}
               >
-                ← Quay lại tổng quan
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                  <InlineIcon name="arrow-left" size={16} />
+                  <span>Back to Overview</span>
+                </span>
               </button>
               <button 
                 onClick={() => navigate('/cambridge')} 
                 style={styles.primaryButton}
               >
-                📋 Chọn đề khác
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                  <InlineIcon name="tests" size={16} />
+                  <span>Choose Another Test</span>
+                </span>
               </button>
             </div>
           </div>

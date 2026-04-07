@@ -47,8 +47,8 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
   }, [supportedTypeIds, testType]);
   const defaultQuestionType = availableTypes[0]?.id || 'fill';
   const builderDisplayName = useMemo(() => {
-    if (testType === 'movers') return 'Cambridge Movers Reading & Writing';
-    return testConfig?.name || 'Cambridge Test';
+    if (testType === 'movers') return 'Orange Movers Reading & Writing';
+    return testConfig?.name || 'Orange Test';
   }, [testConfig?.name, testType]);
 
   // Hooks (must run unconditionally)

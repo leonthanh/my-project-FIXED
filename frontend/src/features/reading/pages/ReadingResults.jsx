@@ -2,7 +2,9 @@ import React, { useEffect, useState, useMemo } from "react";
 import { useLocation, useParams, useNavigate, Link } from "react-router-dom";
 import { apiPath, getStoredUser } from "../../../shared/utils/api";
 import { isAdmin, isTeacher } from "../../../shared/utils/permissions";
+import AdminNavbar from "../../../shared/components/AdminNavbar";
 import ReadingStudentStyleReview from "../components/ReadingStudentStyleReview";
+import LineIcon from "../../../shared/components/LineIcon";
 
 // ===== STYLES =====
 const styles = {
@@ -34,6 +36,9 @@ const styles = {
     borderRadius: "6px",
     cursor: "pointer",
     fontSize: "0.9rem",
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "8px",
   },
   // Summary Cards
   summaryGrid: {
@@ -136,6 +141,9 @@ const styles = {
     cursor: "pointer",
     fontSize: "0.85rem",
     transition: "all 0.2s",
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "6px",
   },
   filterBtnActive: {
     background: "#3b82f6",
@@ -232,6 +240,9 @@ const styles = {
   metaLabel: {
     color: "#64748b",
     fontSize: "0.85rem",
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "6px",
   },
   metaValue: {
     fontWeight: 600,
@@ -252,6 +263,9 @@ const styles = {
     cursor: "pointer",
     fontSize: "0.95rem",
     fontWeight: 600,
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "8px",
   },
   tabActive: {
     background: "#1d4ed8",
@@ -333,6 +347,23 @@ const styles = {
   },
 };
 
+const iconWrapStyle = (size, style = {}) => ({
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  width: size,
+  height: size,
+  lineHeight: 0,
+  flex: "0 0 auto",
+  ...style,
+});
+
+const InlineIcon = ({ name, size = 18, style }) => (
+  <span style={iconWrapStyle(size, style)} aria-hidden="true">
+    <LineIcon name={name} size={size} />
+  </span>
+);
+
 // ===== HELPER COMPONENTS =====
 const CircularProgress = ({ percentage, size = 80, strokeWidth = 8 }) => {
   const radius = (size - strokeWidth) / 2;
@@ -368,31 +399,20 @@ const CircularProgress = ({ percentage, size = 80, strokeWidth = 8 }) => {
 
 const StatusBadge = ({ status }) => {
   const config = {
-    good: { bg: "#dcfce7", color: "#166534", icon: "✅", text: "Tốt" },
-    average: { bg: "#fef3c7", color: "#92400e", icon: "⚠️", text: "Trung bình" },
-    weak: { bg: "#fee2e2", color: "#991b1b", icon: "❌", text: "Cần cải thiện" },
+    good: { bg: "#dcfce7", color: "#166534", iconName: "good", text: "Good" },
+    average: { bg: "#fef3c7", color: "#92400e", iconName: "average", text: "Average" },
+    weak: { bg: "#fee2e2", color: "#991b1b", iconName: "weak", text: "Needs Work" },
   };
   const c = config[status] || config.average;
   return (
     <span style={{ ...styles.badge, background: c.bg, color: c.color }}>
-      {c.icon} {c.text}
+      <InlineIcon name={c.iconName} size={14} /> {c.text}
     </span>
   );
 };
 
 const QuestionTypeBadge = ({ type }) => {
-  const icons = {
-    "True/False/Not Given": "📋",
-    "Yes/No/Not Given": "📋",
-    "Matching Headings": "🔗",
-    "Matching Information": "🔗",
-    "Multiple Choice": "🔘",
-    "Cloze Test": "✏️",
-    "Short Answer": "📝",
-    "Sentence Completion": "📝",
-    "Summary Completion": "📄",
-  };
-  return <span title={type}>{icons[type] || "❓"} {type}</span>;
+  return <span title={type}><InlineIcon name="questions" size={14} /> {type}</span>;
 };
 
 const hasDetailAnswer = (detail) => {
@@ -620,26 +640,37 @@ const ReadingResults = () => {
   // Loading state
   if (loading) {
     return (
-      <div style={{ ...styles.container, display: "flex", justifyContent: "center", alignItems: "center" }}>
-        <div style={{ textAlign: "center" }}>
-          <div style={{ fontSize: "3rem", marginBottom: "16px" }}>⏳</div>
-          <p style={{ color: "#64748b" }}>Đang tải kết quả...</p>
+      <>
+        {canViewDetailedReview && <AdminNavbar />}
+        <div style={{ ...styles.container, display: "flex", justifyContent: "center", alignItems: "center" }}>
+          <div style={{ textAlign: "center" }}>
+            <div style={{ marginBottom: "16px", display: "inline-flex", color: "#3b82f6" }}>
+              <InlineIcon name="loading" size={48} />
+            </div>
+            <p style={{ color: "#64748b" }}>Loading results...</p>
+          </div>
         </div>
-      </div>
+      </>
     );
   }
 
   // No data
   if (!meta && !details.length) {
     return (
-      <div style={styles.container}>
-        <div style={{ textAlign: "center", padding: "48px" }}>
-          <div style={{ fontSize: "4rem", marginBottom: "16px" }}>📭</div>
-          <h3 style={{ color: "#64748b" }}>Không tìm thấy kết quả</h3>
-          <p style={{ color: "#94a3b8" }}>Submission ID: {id}</p>
-          <Link to="/" style={{ color: "#3b82f6" }}>← Quay lại trang chủ</Link>
+      <>
+        {canViewDetailedReview && <AdminNavbar />}
+        <div style={styles.container}>
+          <div style={{ textAlign: "center", padding: "48px" }}>
+            <div style={{ marginBottom: "16px", display: "inline-flex", color: "#64748b" }}><InlineIcon name="empty" size={56} /></div>
+            <h3 style={{ color: "#64748b" }}>No result found</h3>
+            <p style={{ color: "#94a3b8" }}>Submission ID: {id}</p>
+            <Link to="/" style={{ color: "#3b82f6", display: "inline-flex", alignItems: "center", gap: "8px" }}>
+              <InlineIcon name="arrow-left" size={16} />
+              <span>Back to Home</span>
+            </Link>
+          </div>
         </div>
-      </div>
+      </>
     );
   }
 
@@ -654,21 +685,24 @@ const ReadingResults = () => {
 
   const getDetailStatus = (detail) => {
     if (detail?.isCorrect) {
-      return { label: "Đúng", bg: legendColors.correct, text: "#166534" };
+      return { label: "Correct", bg: legendColors.correct, text: "#166534" };
     }
     if (!hasDetailAnswer(detail)) {
-      return { label: "Bỏ trống", bg: legendColors.blank, text: "#64748b" };
+      return { label: "Blank", bg: legendColors.blank, text: "#64748b" };
     }
-    return { label: "Sai", bg: legendColors.wrong, text: "#991b1b" };
+    return { label: "Wrong", bg: legendColors.wrong, text: "#991b1b" };
   };
 
   return (
-    <div style={styles.container}>
+    <>
+      {canViewDetailedReview && <AdminNavbar />}
+      <div style={styles.container}>
       {/* Header */}
       <div style={styles.header}>
-        <h1 style={styles.title}>📖 Kết quả Reading Test</h1>
+        <h1 style={{ ...styles.title, display: "flex", alignItems: "center", gap: "10px" }}><InlineIcon name="reading" size={22} />Reading Test Results</h1>
         <button style={styles.backBtn} onClick={() => navigate(-1)}>
-          ← Quay lại
+          <InlineIcon name="arrow-left" size={16} />
+          <span>Back</span>
         </button>
       </div>
 
@@ -682,7 +716,8 @@ const ReadingResults = () => {
               ...(activeTab === "overview" ? styles.tabActive : {}),
             }}
           >
-            📈 Tổng quan
+            <InlineIcon name="overview" size={16} />
+            <span>Overview</span>
           </button>
           <button
             type="button"
@@ -692,7 +727,8 @@ const ReadingResults = () => {
               ...(activeTab === "review" ? styles.tabActive : {}),
             }}
           >
-            📝 Chi tiết từng câu
+            <InlineIcon name="review" size={16} />
+            <span>Question Review</span>
           </button>
         </div>
       )}
@@ -700,28 +736,28 @@ const ReadingResults = () => {
       {activeTab === "overview" && meta && (
         <div style={styles.metaGrid}>
           <div style={styles.metaItem}>
-            <span style={styles.metaLabel}>📚 Bài test:</span>
+            <span style={styles.metaLabel}><InlineIcon name="tests" size={15} />Test:</span>
             <span style={styles.metaValue}>{meta.testTitle || `#${meta.testId}`}</span>
           </div>
           <div style={styles.metaItem}>
-            <span style={styles.metaLabel}>🏫 Mã lớp:</span>
+            <span style={styles.metaLabel}><InlineIcon name="class" size={15} />Class Code:</span>
             <span style={styles.metaValue}>{meta.classCode || "N/A"}</span>
           </div>
           <div style={styles.metaItem}>
-            <span style={styles.metaLabel}>👨‍🏫 Giáo viên:</span>
+            <span style={styles.metaLabel}><InlineIcon name="teacher" size={15} />Teacher:</span>
             <span style={styles.metaValue}>{meta.teacherName || "N/A"}</span>
           </div>
           <div style={styles.metaItem}>
-            <span style={styles.metaLabel}>👤 Học sinh:</span>
+            <span style={styles.metaLabel}><InlineIcon name="student" size={15} />Student:</span>
             <span style={styles.metaValue}>
               {meta.userName || "N/A"} {meta.userPhone && `• ${meta.userPhone}`}
             </span>
           </div>
           {meta.submittedAt && (
             <div style={styles.metaItem}>
-              <span style={styles.metaLabel}>📅 Ngày nộp:</span>
+              <span style={styles.metaLabel}><InlineIcon name="calendar" size={15} />Submitted:</span>
               <span style={styles.metaValue}>
-                {new Date(meta.submittedAt).toLocaleString("vi-VN")}
+                {new Date(meta.submittedAt).toLocaleString("en-GB")}
               </span>
             </div>
           )}
@@ -750,7 +786,7 @@ const ReadingResults = () => {
               {scorePercentage}%
             </div>
           </div>
-          <div style={styles.cardLabel}>Tỷ lệ đúng</div>
+          <div style={styles.cardLabel}>Accuracy</div>
         </div>
 
         {/* Band Score */}
@@ -767,7 +803,7 @@ const ReadingResults = () => {
           >
             {band || "N/A"}
           </div>
-          <div style={styles.cardLabel}>Band IELTS</div>
+          <div style={styles.cardLabel}>Band IX</div>
         </div>
 
         {/* Correct Count */}
@@ -776,13 +812,13 @@ const ReadingResults = () => {
             {meta?.correct || 0}
             <span style={{ fontSize: "1rem", color: "#64748b" }}>/{meta?.total || 0}</span>
           </div>
-          <div style={styles.cardLabel}>Câu đúng</div>
+          <div style={styles.cardLabel}>Correct Answers</div>
         </div>
 
         {/* Wrong Count */}
         <div style={styles.summaryCard}>
           <div style={{ ...styles.cardValue, color: "#ef4444" }}>{wrongCount}</div>
-          <div style={styles.cardLabel}>Câu sai</div>
+          <div style={styles.cardLabel}>Wrong Answers</div>
         </div>
       </div>
 
@@ -790,10 +826,10 @@ const ReadingResults = () => {
       {feedback && (
         <div style={styles.feedbackBox}>
           <div style={styles.feedbackHeader}>
-            <span style={{ fontSize: "1.5rem" }}>💬</span>
-            <strong style={{ color: "#92400e" }}>Nhận xét từ giáo viên</strong>
+            <InlineIcon name="feedback" size={18} />
+            <strong style={{ color: "#92400e" }}>Teacher Feedback</strong>
             {feedback.by && (
-              <span style={{ color: "#b45309", fontSize: "0.85rem" }}>— {feedback.by}</span>
+              <span style={{ color: "#b45309", fontSize: "0.85rem" }}>- {feedback.by}</span>
             )}
           </div>
           <p style={{ margin: 0, color: "#78350f", lineHeight: 1.6, whiteSpace: "pre-wrap" }}>
@@ -801,7 +837,10 @@ const ReadingResults = () => {
           </p>
           {feedback.at && (
             <p style={{ margin: "12px 0 0", fontSize: "0.8rem", color: "#b45309" }}>
-              🕐 {new Date(feedback.at).toLocaleString("vi-VN")}
+              <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+                <InlineIcon name="calendar" size={14} />
+                <span>{new Date(feedback.at).toLocaleString("en-GB")}</span>
+              </span>
             </p>
           )}
         </div>
@@ -811,7 +850,8 @@ const ReadingResults = () => {
       {analysis?.breakdown && Object.keys(analysis.breakdown).length > 0 && (
         <div style={styles.analysisSection}>
           <h3 style={styles.sectionTitle}>
-            📊 Phân tích theo dạng câu hỏi
+            <InlineIcon name="overview" size={18} />
+            <span>Analysis by Question Type</span>
           </h3>
 
           <div style={styles.analysisGrid}>
@@ -822,7 +862,7 @@ const ReadingResults = () => {
                   <div>
                     <QuestionTypeBadge type={label} />
                     <div style={{ fontSize: '0.85rem', color: '#64748b', marginTop: '4px' }}>
-                      {d.correct}/{d.total} câu đúng ({d.percentage}%)
+                      {d.correct}/{d.total} correct ({d.percentage}%)
                     </div>
                     {d.suggestion && (
                       <div style={{ fontSize: '0.8rem', color: '#8b5cf6', marginTop: '6px' }}>
@@ -838,15 +878,15 @@ const ReadingResults = () => {
           {/* Weak Areas */}
           {analysis.weakAreas && analysis.weakAreas.length > 0 && (
             <div style={{ marginTop: '16px' }}>
-              <h4 style={{ margin: '8px 0' }}>💥 Điểm yếu cần cải thiện</h4>
+              <h4 style={{ margin: '8px 0', display: 'inline-flex', alignItems: 'center', gap: '8px' }}><InlineIcon name="weak" size={16} />Weak Areas to Improve</h4>
               <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
                 {analysis.weakAreas.map((w, i) => (
                   <div key={i} style={{ background: '#fff5f5', padding: '12px', borderRadius: '8px', border: '1px solid #fee2e2', minWidth: '220px' }}>
                     <strong>{w.label}</strong>
-                    <div style={{ fontSize: '0.85rem', color: '#64748b' }}>{w.percentage}% đúng</div>
+                    <div style={{ fontSize: '0.85rem', color: '#64748b' }}>{w.percentage}% correct</div>
                     {w.wrongQuestions && w.wrongQuestions.length > 0 && (
                       <div style={{ fontSize: '0.85rem', color: '#991b1b', marginTop: '6px' }}>
-                        Sai ở các câu: {w.wrongQuestions.join(', ')}
+                        Questions missed: {w.wrongQuestions.join(', ')}
                       </div>
                     )}
                     {w.suggestion && <div style={{ marginTop: '8px', color: '#92400e' }}>{w.suggestion}</div>}
@@ -859,7 +899,7 @@ const ReadingResults = () => {
           {/* General suggestions */}
           {analysis.suggestions && analysis.suggestions.length > 0 && (
             <div style={{ marginTop: '16px', padding: '12px', background: '#fef3c7', borderRadius: '8px' }}>
-              <strong style={{ color: '#92400e' }}>💡 Gợi ý tổng quan:</strong>
+              <strong style={{ color: '#92400e', display: 'inline-flex', alignItems: 'center', gap: '8px' }}><InlineIcon name="average" size={16} />General Suggestions:</strong>
               <ul style={{ margin: '8px 0 0 20px', color: '#78350f' }}>
                 {analysis.suggestions.map((s, i) => (
                   <li key={i}>{s}</li>
@@ -873,9 +913,9 @@ const ReadingResults = () => {
       {canViewDetailedReview && details.length > 0 && (
         <div style={styles.reviewPromptCard}>
           <div>
-            <div style={styles.reviewPromptTitle}>Giáo viên có thể mở chi tiết từng câu</div>
+            <div style={styles.reviewPromptTitle}>Open the question-by-question review</div>
             <p style={styles.reviewPromptText}>
-              Mở bảng đối chiếu để xem học sinh đã chọn gì ở từng câu, câu nào bỏ trống, và dùng kết quả đó để giảng lại ngay trên lớp.
+              Open the detailed review to see each student answer, spot blank responses, and explain mistakes in class.
             </p>
           </div>
           <button
@@ -883,7 +923,8 @@ const ReadingResults = () => {
             style={{ ...styles.actionBtn, ...styles.primaryBtn }}
             onClick={() => setActiveTab("review")}
           >
-            📝 Xem chi tiết từng câu
+            <InlineIcon name="review" size={16} />
+            <span>Open Question Review</span>
           </button>
         </div>
       )}
@@ -894,7 +935,7 @@ const ReadingResults = () => {
       {canViewDetailedReview && activeTab === "review" && details.length > 0 && (
         <>
         <div style={styles.questionSummary}>
-          <h3 style={styles.sectionTitle}>Tóm tắt kết quả từng câu</h3>
+          <h3 style={styles.sectionTitle}>Question-by-question Summary</h3>
           <div style={styles.questionGrid}>
             {details.map((detail, idx) => {
               const status = getDetailStatus(detail);
@@ -914,9 +955,9 @@ const ReadingResults = () => {
             })}
           </div>
           <div style={styles.legendRow}>
-            <span style={styles.legendItem}><span style={{ ...styles.legendDot, backgroundColor: legendColors.correct }}></span> Đúng</span>
-            <span style={styles.legendItem}><span style={{ ...styles.legendDot, backgroundColor: legendColors.wrong }}></span> Sai</span>
-            <span style={styles.legendItem}><span style={{ ...styles.legendDot, backgroundColor: legendColors.blank }}></span> Bỏ trống</span>
+            <span style={styles.legendItem}><span style={{ ...styles.legendDot, backgroundColor: legendColors.correct }}></span> Correct</span>
+            <span style={styles.legendItem}><span style={{ ...styles.legendDot, backgroundColor: legendColors.wrong }}></span> Wrong</span>
+            <span style={styles.legendItem}><span style={{ ...styles.legendDot, backgroundColor: legendColors.blank }}></span> Blank</span>
           </div>
         </div>
 
@@ -929,9 +970,9 @@ const ReadingResults = () => {
         ) : (
           <div style={styles.reviewPromptCard}>
             <div>
-              <div style={styles.reviewPromptTitle}>Chưa dựng lại được giao diện làm bài gốc</div>
+              <div style={styles.reviewPromptTitle}>The original test view is not ready</div>
               <p style={styles.reviewPromptText}>
-                Dữ liệu test hoặc submission gốc chưa sẵn sàng, nên trang hiện tạm bảng đối chiếu chi tiết bên dưới.
+                The source test or submission payload is incomplete, so the page is showing the fallback comparison table below.
               </p>
             </div>
           </div>
@@ -939,14 +980,14 @@ const ReadingResults = () => {
 
         <div style={styles.tableContainer}>
           <div style={styles.subSectionHeader}>
-            <h3 style={{ ...styles.sectionTitle, margin: 0 }}>📝 Chi tiết đáp án</h3>
+            <h3 style={{ ...styles.sectionTitle, margin: 0 }}><InlineIcon name="review" size={18} />Answer Details</h3>
             <div style={{ display: "flex", gap: "12px", alignItems: "center", flexWrap: "wrap" }}>
               <button
                 type="button"
                 style={{ ...styles.actionBtn, ...styles.secondaryBtn, padding: "8px 14px" }}
                 onClick={() => setShowLegacyTable((prev) => !prev)}
               >
-                {showLegacyTable ? "Ẩn bảng đối chiếu" : "Hiện bảng đối chiếu"}
+                {showLegacyTable ? "Hide Comparison Table" : "Show Comparison Table"}
               </button>
               <div style={styles.filterBar}>
               <button
@@ -956,7 +997,7 @@ const ReadingResults = () => {
                 }}
                 onClick={() => setFilter("all")}
               >
-                Tất cả ({details.length})
+                All ({details.length})
               </button>
               <button
                 style={{
@@ -965,7 +1006,8 @@ const ReadingResults = () => {
                 }}
                 onClick={() => setFilter("correct")}
               >
-                ✓ Đúng ({details.filter((d) => d.isCorrect).length})
+                <InlineIcon name="correct" size={15} />
+                <span>Correct ({details.filter((d) => d.isCorrect).length})</span>
               </button>
               <button
                 style={{
@@ -974,7 +1016,8 @@ const ReadingResults = () => {
                 }}
                 onClick={() => setFilter("wrong")}
               >
-                ✕ Sai ({wrongCount})
+                <InlineIcon name="wrong" size={15} />
+                <span>Wrong ({wrongCount})</span>
               </button>
             </div>
             </div>
@@ -995,19 +1038,20 @@ const ReadingResults = () => {
               return (
                 <div key={part} style={{ marginBottom: "12px" }}>
                   <div style={styles.partHeader} onClick={() => togglePart(part)}>
-                    <span>
-                      📄 {part} ({partCorrect}/{items.length} đúng)
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: "8px" }}>
+                      <InlineIcon name="reading" size={16} />
+                      <span>{part} ({partCorrect}/{items.length} correct)</span>
                     </span>
-                    <span>{collapsedParts[part] ? "▶" : "▼"}</span>
+                    <InlineIcon name={collapsedParts[part] ? "chevron-right" : "chevron-down"} size={16} />
                   </div>
                   {!collapsedParts[part] && (
                     <table style={styles.table}>
                       <thead>
                         <tr>
-                          <th style={styles.th}>Q</th>
-                          <th style={styles.th}>Đáp án đúng</th>
-                          <th style={styles.th}>Bạn chọn</th>
-                          <th style={styles.th}>Kết quả</th>
+                          <th style={styles.th}>Question</th>
+                          <th style={styles.th}>Correct Answer</th>
+                          <th style={styles.th}>Your Answer</th>
+                          <th style={styles.th}>Result</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -1021,14 +1065,14 @@ const ReadingResults = () => {
                             </td>
                             <td style={styles.td}>
                               <span style={{ color: r.isCorrect ? "#166534" : "#991b1b", fontWeight: 500 }}>
-                                {r.studentLabel || r.student || <em style={{ color: "#94a3b8" }}>Bỏ trống</em>}
+                                {r.studentLabel || r.student || <em style={{ color: "#94a3b8" }}>No answer</em>}
                               </span>
                             </td>
                             <td style={styles.td}>
                               {r.isCorrect ? (
-                                <span style={{ color: "#22c55e", fontSize: "1.2rem" }}>✓</span>
+                                <InlineIcon name="correct" size={18} style={{ color: "#22c55e" }} />
                               ) : (
-                                <span style={{ color: "#ef4444", fontSize: "1.2rem" }}>✕</span>
+                                <InlineIcon name="wrong" size={18} style={{ color: "#ef4444" }} />
                               )}
                             </td>
                           </tr>
@@ -1043,11 +1087,11 @@ const ReadingResults = () => {
             <table style={styles.table}>
               <thead>
                 <tr>
-                  <th style={styles.th}>Câu</th>
+                  <th style={styles.th}>Question</th>
                   <th style={styles.th}>Paragraph</th>
-                  <th style={styles.th}>Đáp án đúng</th>
-                  <th style={styles.th}>Bạn chọn</th>
-                  <th style={styles.th}>Kết quả</th>
+                  <th style={styles.th}>Correct Answer</th>
+                  <th style={styles.th}>Your Answer</th>
+                  <th style={styles.th}>Result</th>
                 </tr>
               </thead>
               <tbody>
@@ -1062,14 +1106,14 @@ const ReadingResults = () => {
                     </td>
                     <td style={styles.td}>
                       <span style={{ color: r.isCorrect ? "#166534" : "#991b1b", fontWeight: 500 }}>
-                        {r.studentLabel || r.student || <em style={{ color: "#94a3b8" }}>Bỏ trống</em>}
+                        {r.studentLabel || r.student || <em style={{ color: "#94a3b8" }}>No answer</em>}
                       </span>
                     </td>
                     <td style={styles.td}>
                       {r.isCorrect ? (
-                        <span style={{ color: "#22c55e", fontSize: "1.2rem" }}>✓</span>
+                        <InlineIcon name="correct" size={18} style={{ color: "#22c55e" }} />
                       ) : (
-                        <span style={{ color: "#ef4444", fontSize: "1.2rem" }}>✕</span>
+                        <InlineIcon name="wrong" size={18} style={{ color: "#ef4444" }} />
                       )}
                     </td>
                   </tr>
@@ -1090,28 +1134,33 @@ const ReadingResults = () => {
             style={{ ...styles.actionBtn, ...styles.secondaryBtn }}
             onClick={() => setActiveTab("overview")}
           >
-            ← Quay lại tổng quan
+            <InlineIcon name="arrow-left" size={16} />
+            <span>Back to Overview</span>
           </button>
         )}
         <button
           style={{ ...styles.actionBtn, ...styles.primaryBtn }}
           onClick={() => navigate(`/reading/${meta?.testId || id}`)}
         >
-          🔄 Làm lại bài này
+          <InlineIcon name="retry" size={16} />
+          <span>Retake This Test</span>
         </button>
         <button
           style={{ ...styles.actionBtn, ...styles.secondaryBtn }}
           onClick={() => navigate("/select-test")}
         >
-          📚 Chọn bài khác
+          <InlineIcon name="tests" size={16} />
+          <span>Choose Another Test</span>
         </button>
         <Link to="/" style={{ textDecoration: "none" }}>
           <button style={{ ...styles.actionBtn, ...styles.secondaryBtn }}>
-            🏠 Về trang chủ
+            <InlineIcon name="home" size={16} />
+            <span>Home</span>
           </button>
         </Link>
       </div>
-    </div>
+      </div>
+    </>
   );
 };
 

@@ -46,10 +46,10 @@ const TestHeader = ({
     (title || testTitle).toLowerCase().includes('flyers') ? 'FLYERS' :
     (title || testTitle).toLowerCase().includes('movers') ? 'MOVERS' :
     (title || testTitle).toLowerCase().includes('starters') ? 'STARTERS' :
-    'IELTS'
+    'IX'
   );
 
-  const isCambridge = detectedExamType !== 'IELTS';
+  const isCambridge = detectedExamType !== 'IX';
   const displayTitle = title || testTitle;
 
   // Format time as mm:ss if it's a number
@@ -74,7 +74,7 @@ const TestHeader = ({
         </div>
         <div className="test-info">
           <h1>
-            {isCambridge ? displayTitle : `IELTS - ${testType} TEST`}
+            {isCambridge ? displayTitle : `IX - ${testType} TEST`}
           </h1>
           <p className="test-meta">
             {isCambridge && classCode && `Class: ${classCode}`}
