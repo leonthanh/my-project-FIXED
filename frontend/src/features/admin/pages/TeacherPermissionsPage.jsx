@@ -76,7 +76,7 @@ const TeacherPermissionsPage = () => {
                       <th style={s.th}>Name</th>
                       <th style={s.th}>Phone</th>
                       <th style={s.th}>Email</th>
-                      <th style={{ ...s.th, textAlign: 'center' }}>Test Management</th>
+                      <th style={s.th}>Test Management</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -87,7 +87,7 @@ const TeacherPermissionsPage = () => {
                         </td>
                         <td style={s.td}>{t.phone || '—'}</td>
                         <td style={s.td}>{t.email || '—'}</td>
-                        <td style={{ ...s.td, textAlign: 'center' }}>
+                        <td style={s.td}>
                           <button
                             onClick={() => toggle(t)}
                             disabled={saving === t.id}
@@ -182,7 +182,8 @@ const s = {
   },
   tableWrap: { overflowX: 'auto' },
   table: {
-    width: '100%',
+    width: 'max-content',
+    minWidth: 0,
     borderCollapse: 'collapse',
     background: '#fff',
     borderRadius: 14,
@@ -200,7 +201,7 @@ const s = {
     borderBottom: '1px solid #e5e7eb',
   },
   tr: { borderBottom: '1px solid #f1f5f9' },
-  td: { padding: '14px', fontSize: 14, color: '#0f172a', verticalAlign: 'middle' },
+  td: { padding: '14px', fontSize: 14, color: '#0f172a', verticalAlign: 'middle', textAlign: 'left' },
   nameCell: { fontWeight: 700, color: '#0f172a' },
   toggle: {
     border: 'none',
@@ -208,7 +209,7 @@ const s = {
     color: '#fff',
     fontWeight: 700,
     padding: '8px 16px',
-    minWidth: 108,
+    whiteSpace: 'nowrap',
     fontSize: 13,
     transition: 'background 0.2s ease',
   },

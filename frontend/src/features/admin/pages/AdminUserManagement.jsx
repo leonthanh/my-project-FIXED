@@ -176,7 +176,7 @@ const UsersTab = ({ onViewSubmissions }) => {
       {!loading && (
         <>
           <p style={{ fontSize: 13, color: '#6b7280', marginBottom: 8 }}>Total: {users.length} users</p>
-          <div style={{ overflowX: 'auto' }}>
+          <div style={s.tableWrap}>
             <table style={s.table}>
               <thead>
                 <tr>
@@ -186,7 +186,7 @@ const UsersTab = ({ onViewSubmissions }) => {
                   <th style={s.th}>Email</th>
                   <th style={s.th}>Role</th>
                   <th style={s.th}>Created</th>
-                  <th style={{ ...s.th, textAlign: 'center' }}>Actions</th>
+                  <th style={s.th}>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -198,8 +198,8 @@ const UsersTab = ({ onViewSubmissions }) => {
                     <td style={{ ...s.td, color: '#6b7280' }}>{u.email || '—'}</td>
                     <td style={s.td}>{roleBadge(u.role)}</td>
                     <td style={{ ...s.td, fontSize: 12, color: '#9ca3af' }}>{fmtDate(u.createdAt)}</td>
-                    <td style={{ ...s.td, textAlign: 'center' }}>
-                      <div style={{ display: 'flex', gap: 4, justifyContent: 'center', flexWrap: 'wrap' }}>
+                    <td style={s.td}>
+                      <div style={s.actionGroup}>
                         <button style={s.btnSmGray} onClick={() => setEditModal(u)} title="Edit user">Edit</button>
                         <button style={s.btnSmGray} onClick={() => setPwModal(u)} title="Reset password">Password</button>
                         <button style={s.btnSmBlue} onClick={() => onViewSubmissions(u)} title="View submissions">Submissions</button>
@@ -364,7 +364,7 @@ const SubmissionsTab = ({ initialUser }) => {
     const key = `${type}:${sub.id}`;
     return (
       <tr key={sub.id} style={{ ...s.tr, background: selectedSubs.has(key) ? '#fef2f2' : undefined }}>
-        <td style={{ ...s.td, textAlign: 'center' }}>
+        <td style={s.tdCheckbox}>
           <input type="checkbox" checked={selectedSubs.has(key)} onChange={() => toggleSubSelect(type, sub.id)} />
         </td>
         <td style={{ ...s.td, fontSize: 12, color: '#9ca3af' }}>{sub.id}</td>
@@ -372,7 +372,7 @@ const SubmissionsTab = ({ initialUser }) => {
         <td style={{ ...s.td, fontSize: 12 }}>Test #{sub.testId || '—'}{sub.testType ? ` (${sub.testType})` : ''}</td>
         <td style={s.td}>{score} {band && <span style={{ color: '#2563eb', fontSize: 12 }}>{band}</span>}</td>
         <td style={{ ...s.td, fontSize: 12, color: '#9ca3af' }}>{fmtDate(sub.createdAt)}</td>
-        <td style={{ ...s.td, textAlign: 'center' }}>
+        <td style={s.td}>
           <button style={s.btnSmRed} onClick={() => deleteSub(type, sub.id)} title="Delete submission">Delete</button>
         </td>
       </tr>
@@ -439,11 +439,11 @@ const SubmissionsTab = ({ initialUser }) => {
                 </div>
               )}
 
-              <div style={{ overflowX: 'auto', marginTop: 0 }}>
+              <div style={{ ...s.tableWrap, marginTop: 0 }}>
                 <table style={{ ...s.table, borderRadius: '0 0 8px 8px' }}>
                   <thead>
                     <tr>
-                      <th style={{ ...s.th, width: 36, textAlign: 'center' }}>
+                      <th style={{ ...s.th, width: 36 }}>
                         <input
                           type="checkbox" checked={allSubsSelected}
                           ref={(el) => { if (el) el.indeterminate = someSubsSelected; }}
@@ -455,7 +455,7 @@ const SubmissionsTab = ({ initialUser }) => {
                       <th style={s.th}>Test</th>
                       <th style={s.th}>Score</th>
                       <th style={s.th}>Date</th>
-                      <th style={{ ...s.th, textAlign: 'center' }}>Delete</th>
+                      <th style={s.th}>Delete</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -529,34 +529,36 @@ const DuplicatesTab = () => {
           <div style={{ background: '#fef9c3', padding: '8px 14px', fontSize: 13, fontWeight: 600, color: '#92400e' }}>
             Duplicate name: "{group[0].name}" — {group.length} accounts
           </div>
-          <table style={{ ...s.table, borderRadius: 0, boxShadow: 'none' }}>
-            <thead>
-              <tr>
-                <th style={s.th}>ID</th>
-                <th style={s.th}>Name</th>
-                <th style={s.th}>Phone</th>
-                <th style={s.th}>Email</th>
-                <th style={s.th}>Role</th>
-                <th style={s.th}>Created</th>
-                <th style={{ ...s.th, textAlign: 'center' }}>Delete</th>
-              </tr>
-            </thead>
-            <tbody>
-              {group.map((u) => (
-                <tr key={u.id} style={s.tr}>
-                  <td style={{ ...s.td, fontSize: 12, color: '#9ca3af' }}>{u.id}</td>
-                  <td style={s.td}><strong>{u.name}</strong></td>
-                  <td style={s.td}>{u.phone}</td>
-                  <td style={{ ...s.td, color: '#6b7280' }}>{u.email || '—'}</td>
-                  <td style={s.td}>{roleBadge(u.role)}</td>
-                  <td style={{ ...s.td, fontSize: 12, color: '#9ca3af' }}>{fmtDate(u.createdAt)}</td>
-                  <td style={{ ...s.td, textAlign: 'center' }}>
-                    <button style={s.btnSmRed} onClick={() => deleteUser(u, gi)} title="Delete user">Delete</button>
-                  </td>
+          <div style={s.tableWrap}>
+            <table style={{ ...s.table, borderRadius: 0, boxShadow: 'none' }}>
+              <thead>
+                <tr>
+                  <th style={s.th}>ID</th>
+                  <th style={s.th}>Name</th>
+                  <th style={s.th}>Phone</th>
+                  <th style={s.th}>Email</th>
+                  <th style={s.th}>Role</th>
+                  <th style={s.th}>Created</th>
+                  <th style={s.th}>Delete</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {group.map((u) => (
+                  <tr key={u.id} style={s.tr}>
+                    <td style={{ ...s.td, fontSize: 12, color: '#9ca3af' }}>{u.id}</td>
+                    <td style={s.td}><strong>{u.name}</strong></td>
+                    <td style={s.td}>{u.phone}</td>
+                    <td style={{ ...s.td, color: '#6b7280' }}>{u.email || '—'}</td>
+                    <td style={s.td}>{roleBadge(u.role)}</td>
+                    <td style={{ ...s.td, fontSize: 12, color: '#9ca3af' }}>{fmtDate(u.createdAt)}</td>
+                    <td style={s.td}>
+                      <button style={s.btnSmRed} onClick={() => deleteUser(u, gi)} title="Delete user">Delete</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       ))}
     </div>
@@ -632,18 +634,21 @@ const s = {
   tabBtn: { background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 12, padding: '10px 16px', cursor: 'pointer', fontSize: 14, fontWeight: 700, color: '#475569', transition: 'all 0.2s ease' },
   tabBtnActive: { background: '#0e276f', borderColor: '#0e276f', color: '#ffffff', boxShadow: '0 10px 22px rgba(14, 39, 111, 0.18)' },
   tabContent: { background: '#fff', borderRadius: 20, padding: 20, border: '1px solid #e5e7eb', boxShadow: '0 16px 40px rgba(15, 23, 42, 0.06)' },
-  table: { width: '100%', borderCollapse: 'collapse', background: '#fff', borderRadius: 14, overflow: 'hidden' },
+  tableWrap: { overflowX: 'auto' },
+  table: { width: 'max-content', minWidth: 0, borderCollapse: 'collapse', background: '#fff', borderRadius: 14, overflow: 'hidden' },
   th: { background: '#f8fafc', padding: '12px 12px', textAlign: 'left', fontSize: 12, fontWeight: 800, letterSpacing: '0.04em', textTransform: 'uppercase', color: '#475569', borderBottom: '1px solid #e5e7eb' },
   tr: { borderBottom: '1px solid #f0f0f0' },
-  td: { padding: '9px 12px', fontSize: 14, verticalAlign: 'middle' },
+  td: { padding: '9px 12px', fontSize: 14, verticalAlign: 'middle', textAlign: 'left' },
+  tdCheckbox: { padding: '9px 12px', fontSize: 14, verticalAlign: 'middle', textAlign: 'left', width: 36 },
   input: { border: '1px solid #d1d5db', borderRadius: 10, padding: '9px 12px', fontSize: 14, width: '100%', boxSizing: 'border-box', margin: '4px 0 10px' },
   label: { fontSize: 13, fontWeight: 500, color: '#374151', display: 'block', marginTop: 4 },
   btnBlue: { background: '#2563eb', color: '#fff', border: 'none', borderRadius: 10, padding: '9px 16px', cursor: 'pointer', fontWeight: 700, fontSize: 14 },
   btnRed: { background: '#dc2626', color: '#fff', border: 'none', borderRadius: 10, padding: '9px 16px', cursor: 'pointer', fontWeight: 700, fontSize: 14 },
   btnGray: { background: '#e5e7eb', color: '#374151', border: 'none', borderRadius: 10, padding: '9px 16px', cursor: 'pointer', fontWeight: 700, fontSize: 14 },
-  btnSmRed: { background: '#fee2e2', color: '#b91c1c', border: '1px solid #fecaca', borderRadius: 8, padding: '6px 10px', cursor: 'pointer', fontSize: 12, fontWeight: 700 },
-  btnSmBlue: { background: '#dbeafe', color: '#1d4ed8', border: '1px solid #bfdbfe', borderRadius: 8, padding: '6px 10px', cursor: 'pointer', fontSize: 12, fontWeight: 700 },
-  btnSmGray: { background: '#f3f4f6', color: '#374151', border: '1px solid #e5e7eb', borderRadius: 8, padding: '6px 10px', cursor: 'pointer', fontSize: 12, fontWeight: 700 },
+  btnSmRed: { background: '#fee2e2', color: '#b91c1c', border: '1px solid #fecaca', borderRadius: 8, padding: '6px 10px', cursor: 'pointer', fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap' },
+  btnSmBlue: { background: '#dbeafe', color: '#1d4ed8', border: '1px solid #bfdbfe', borderRadius: 8, padding: '6px 10px', cursor: 'pointer', fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap' },
+  btnSmGray: { background: '#f3f4f6', color: '#374151', border: '1px solid #e5e7eb', borderRadius: 8, padding: '6px 10px', cursor: 'pointer', fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap' },
+  actionGroup: { display: 'flex', gap: 6, justifyContent: 'flex-start', alignItems: 'center', flexWrap: 'wrap' },
   overlay: { position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.48)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 },
   modal: { background: '#fff', borderRadius: 18, padding: 24, width: '90%', maxWidth: 420, boxShadow: '0 24px 60px rgba(15,23,42,0.25)', border: '1px solid #e5e7eb' },
   modalBtns: { display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 16 },
