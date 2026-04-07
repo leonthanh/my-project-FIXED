@@ -5,10 +5,14 @@ import { apiPath, authFetch } from '../../../shared/utils/api';
 // ─── helpers ──────────────────────────────────────────────────────────────────
 const fmtDate = (d) => {
   if (!d) return '—';
-  return new Date(d).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  return new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
 };
 const roleBadge = (role) => {
-  const map = { admin: { bg: '#fef3c7', color: '#92400e', label: 'Admin' }, teacher: { bg: '#dbeafe', color: '#1e40af', label: 'GV' }, student: { bg: '#f3f4f6', color: '#374151', label: 'HS' } };
+  const map = {
+    admin: { bg: '#fef3c7', color: '#92400e', label: 'Admin' },
+    teacher: { bg: '#dbeafe', color: '#1e40af', label: 'Teacher' },
+    student: { bg: '#f3f4f6', color: '#374151', label: 'Student' },
+  };
   const m = map[role] || map.student;
   return <span style={{ background: m.bg, color: m.color, borderRadius: 4, padding: '2px 8px', fontSize: 12, fontWeight: 600 }}>{m.label}</span>;
 };
@@ -20,7 +24,7 @@ const PasswordModal = ({ user, onClose, onSaved }) => {
   const [err, setErr] = useState('');
 
   const save = async () => {
-    if (pw.length < 6) { setErr('Tối thiểu 6 ký tự'); return; }
+    if (pw.length < 6) { setErr('Minimum 6 characters.'); return; }
     setSaving(true); setErr('');
     try {
       const res = await authFetch(apiPath(`admin/users/${user.id}/password`), {
@@ -28,28 +32,28 @@ const PasswordModal = ({ user, onClose, onSaved }) => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ newPassword: pw }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message);
-      onSaved(data.message);
-    } catch (e) { setErr(e.message); }
+      await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error('Could not update password.');
+      onSaved('Password updated.');
+    } catch (e) { setErr('Could not update password.'); }
     finally { setSaving(false); }
   };
 
   return (
     <div style={s.overlay}>
       <div style={s.modal}>
-        <h3 style={{ marginTop: 0 }}>🔒 Đặt lại mật khẩu</h3>
-        <p style={{ color: '#555', fontSize: 14 }}>Người dùng: <strong>{user.name}</strong> ({user.phone})</p>
+        <h3 style={{ marginTop: 0 }}>Reset Password</h3>
+        <p style={{ color: '#555', fontSize: 14 }}>User: <strong>{user.name}</strong> ({user.phone})</p>
         <input
-          type="password" placeholder="Mật khẩu mới (≥6 ký tự)"
+          type="password" placeholder="New password (min. 6 characters)"
           value={pw} onChange={(e) => setPw(e.target.value)}
           style={s.input} autoFocus
           onKeyDown={(e) => e.key === 'Enter' && save()}
         />
         {err && <p style={s.errText}>{err}</p>}
         <div style={s.modalBtns}>
-          <button style={s.btnGray} onClick={onClose} disabled={saving}>Huỷ</button>
-          <button style={s.btnRed} onClick={save} disabled={saving}>{saving ? 'Đang lưu...' : 'Lưu'}</button>
+          <button style={s.btnGray} onClick={onClose} disabled={saving}>Cancel</button>
+          <button style={s.btnRed} onClick={save} disabled={saving}>{saving ? 'Saving...' : 'Save'}</button>
         </div>
       </div>
     </div>
@@ -69,46 +73,46 @@ const EditUserModal = ({ user, onClose, onSaved }) => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(form),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message);
-      onSaved(data.user);
-    } catch (e) { setErr(e.message); }
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error('Could not save user changes.');
+      onSaved(data.user || { ...user, ...form });
+    } catch (e) { setErr('Could not save user changes.'); }
     finally { setSaving(false); }
   };
 
   return (
     <div style={s.overlay}>
       <div style={{ ...s.modal, maxWidth: 400 }}>
-        <h3 style={{ marginTop: 0 }}>✏️ Chỉnh sửa người dùng</h3>
-        <label style={s.label}>Tên</label>
+        <h3 style={{ marginTop: 0 }}>Edit User</h3>
+        <label style={s.label}>Name</label>
         <input style={s.input} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-        <label style={s.label}>Số điện thoại</label>
+        <label style={s.label}>Phone</label>
         <input style={s.input} value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
         <label style={s.label}>Email</label>
         <input style={s.input} value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
         <label style={s.label}>Role</label>
         <select style={s.input} value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })}>
-          <option value="student">Học sinh (student)</option>
-          <option value="teacher">Giáo viên (teacher)</option>
+          <option value="student">Student</option>
+          <option value="teacher">Teacher</option>
           <option value="admin">Admin</option>
         </select>
         {form.role === 'teacher' && (
           <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, margin: '8px 0' }}>
             <input type="checkbox" checked={!!form.canManageTests} onChange={(e) => setForm({ ...form, canManageTests: e.target.checked })} />
-            Quản lý đề (Reading/Listening/Cambridge)
+            Can manage tests (Reading/Listening/Orange)
           </label>
         )}
         {err && <p style={s.errText}>{err}</p>}
         <div style={s.modalBtns}>
-          <button style={s.btnGray} onClick={onClose} disabled={saving}>Huỷ</button>
-          <button style={{ ...s.btnRed, background: '#2563eb' }} onClick={save} disabled={saving}>{saving ? 'Đang lưu...' : 'Lưu'}</button>
+          <button style={s.btnGray} onClick={onClose} disabled={saving}>Cancel</button>
+          <button style={{ ...s.btnRed, background: '#2563eb' }} onClick={save} disabled={saving}>{saving ? 'Saving...' : 'Save'}</button>
         </div>
       </div>
     </div>
   );
 };
 
-// ─── Tab: Người dùng ──────────────────────────────────────────────────────────
+// ─── Tab: Users ───────────────────────────────────────────────────────────────
 const UsersTab = ({ onViewSubmissions }) => {
   const [users, setUsers] = useState([]);
   const [search, setSearch] = useState('');
@@ -128,9 +132,9 @@ const UsersTab = ({ onViewSubmissions }) => {
       if (search.trim()) params.set('search', search.trim());
       if (roleFilter) params.set('role', roleFilter);
       const res = await authFetch(apiPath(`admin/users?${params}`));
-      if (!res.ok) throw new Error('Lỗi tải dữ liệu');
+      if (!res.ok) throw new Error('Could not load users.');
       setUsers(await res.json());
-    } catch (e) { showToast('❌ ' + e.message); }
+    } catch (e) { showToast('Could not load users.'); }
     finally { setLoading(false); }
   }, [search, roleFilter]);
 
@@ -139,11 +143,11 @@ const UsersTab = ({ onViewSubmissions }) => {
   const deleteUser = async (user) => {
     try {
       const res = await authFetch(apiPath(`admin/users/${user.id}`), { method: 'DELETE' });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message);
+      await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error('Could not delete user.');
       setUsers((prev) => prev.filter((u) => u.id !== user.id));
-      showToast('✅ ' + data.message);
-    } catch (e) { showToast('❌ ' + e.message); }
+      showToast('User deleted.');
+    } catch (e) { showToast('Could not delete user.'); }
     finally { setDelConfirm(null); }
   };
 
@@ -154,35 +158,35 @@ const UsersTab = ({ onViewSubmissions }) => {
       <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
         <input
           style={{ ...s.input, flex: 1, minWidth: 200, margin: 0 }}
-          placeholder="🔍 Tìm theo tên / SĐT / email..."
+          placeholder="Search by name, phone, or email..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
         <select style={{ ...s.input, margin: 0, width: 160 }} value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)}>
-          <option value="">Tất cả role</option>
-          <option value="student">Học sinh</option>
-          <option value="teacher">Giáo viên</option>
+          <option value="">All roles</option>
+          <option value="student">Student</option>
+          <option value="teacher">Teacher</option>
           <option value="admin">Admin</option>
         </select>
-        <button style={s.btnBlue} onClick={load} disabled={loading}>🔄 Tải lại</button>
+        <button style={s.btnBlue} onClick={load} disabled={loading}>Reload</button>
       </div>
 
-      {loading && <p style={{ textAlign: 'center', color: '#888' }}>Đang tải...</p>}
+      {loading && <p style={{ textAlign: 'center', color: '#888' }}>Loading users...</p>}
 
       {!loading && (
         <>
-          <p style={{ fontSize: 13, color: '#6b7280', marginBottom: 8 }}>Tổng: {users.length} người dùng</p>
+          <p style={{ fontSize: 13, color: '#6b7280', marginBottom: 8 }}>Total: {users.length} users</p>
           <div style={{ overflowX: 'auto' }}>
             <table style={s.table}>
               <thead>
                 <tr>
                   <th style={s.th}>ID</th>
-                  <th style={s.th}>Tên</th>
-                  <th style={s.th}>SĐT</th>
+                  <th style={s.th}>Name</th>
+                  <th style={s.th}>Phone</th>
                   <th style={s.th}>Email</th>
                   <th style={s.th}>Role</th>
-                  <th style={s.th}>Ngày tạo</th>
-                  <th style={{ ...s.th, textAlign: 'center' }}>Thao tác</th>
+                  <th style={s.th}>Created</th>
+                  <th style={{ ...s.th, textAlign: 'center' }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -196,16 +200,16 @@ const UsersTab = ({ onViewSubmissions }) => {
                     <td style={{ ...s.td, fontSize: 12, color: '#9ca3af' }}>{fmtDate(u.createdAt)}</td>
                     <td style={{ ...s.td, textAlign: 'center' }}>
                       <div style={{ display: 'flex', gap: 4, justifyContent: 'center', flexWrap: 'wrap' }}>
-                        <button style={s.btnSmGray} onClick={() => setEditModal(u)} title="Sửa thông tin">✏️</button>
-                        <button style={s.btnSmGray} onClick={() => setPwModal(u)} title="Đổi mật khẩu">🔒</button>
-                        <button style={s.btnSmBlue} onClick={() => onViewSubmissions(u)} title="Xem bài làm">📋</button>
-                        <button style={s.btnSmRed} onClick={() => setDelConfirm(u)} title="Xóa user">🗑️</button>
+                        <button style={s.btnSmGray} onClick={() => setEditModal(u)} title="Edit user">Edit</button>
+                        <button style={s.btnSmGray} onClick={() => setPwModal(u)} title="Reset password">Password</button>
+                        <button style={s.btnSmBlue} onClick={() => onViewSubmissions(u)} title="View submissions">Submissions</button>
+                        <button style={s.btnSmRed} onClick={() => setDelConfirm(u)} title="Delete user">Delete</button>
                       </div>
                     </td>
                   </tr>
                 ))}
                 {users.length === 0 && (
-                  <tr><td colSpan={7} style={{ ...s.td, textAlign: 'center', color: '#9ca3af' }}>Không tìm thấy người dùng nào.</td></tr>
+                  <tr><td colSpan={7} style={{ ...s.td, textAlign: 'center', color: '#9ca3af' }}>No users found.</td></tr>
                 )}
               </tbody>
             </table>
@@ -218,7 +222,7 @@ const UsersTab = ({ onViewSubmissions }) => {
         <PasswordModal
           user={pwModal}
           onClose={() => setPwModal(null)}
-          onSaved={(msg) => { setPwModal(null); showToast('✅ ' + msg); }}
+          onSaved={(msg) => { setPwModal(null); showToast(msg); }}
         />
       )}
       {editModal && (
@@ -228,19 +232,19 @@ const UsersTab = ({ onViewSubmissions }) => {
           onSaved={(updated) => {
             setUsers((prev) => prev.map((u) => (u.id === updated.id ? updated : u)));
             setEditModal(null);
-            showToast('✅ Đã cập nhật thông tin.');
+            showToast('User details updated.');
           }}
         />
       )}
       {delConfirm && (
         <div style={s.overlay}>
           <div style={s.modal}>
-            <h3 style={{ marginTop: 0, color: '#dc2626' }}>⚠️ Xác nhận xóa</h3>
-            <p>Bạn sắp xóa người dùng <strong>"{delConfirm.name}"</strong> ({delConfirm.phone}).</p>
-            <p style={{ fontSize: 13, color: '#6b7280' }}>Hành động này sẽ xóa vĩnh viễn user và toàn bộ bài làm Reading / Listening / Cambridge của họ. Bài Writing sẽ được giữ lại (ẩn danh).</p>
+            <h3 style={{ marginTop: 0, color: '#dc2626' }}>Confirm Deletion</h3>
+            <p>You are about to delete <strong>"{delConfirm.name}"</strong> ({delConfirm.phone}).</p>
+            <p style={{ fontSize: 13, color: '#6b7280' }}>This permanently deletes the user and all Reading, Listening, and Orange submissions. Writing submissions are preserved anonymously.</p>
             <div style={s.modalBtns}>
-              <button style={s.btnGray} onClick={() => setDelConfirm(null)}>Huỷ</button>
-              <button style={s.btnRed} onClick={() => deleteUser(delConfirm)}>Xóa vĩnh viễn</button>
+              <button style={s.btnGray} onClick={() => setDelConfirm(null)}>Cancel</button>
+              <button style={s.btnRed} onClick={() => deleteUser(delConfirm)}>Delete Permanently</button>
             </div>
           </div>
         </div>
@@ -249,9 +253,9 @@ const UsersTab = ({ onViewSubmissions }) => {
   );
 };
 
-// ─── Tab: Bài làm ─────────────────────────────────────────────────────────────
+// ─── Tab: Submissions ─────────────────────────────────────────────────────────
 const SUB_TYPES = ['writing', 'reading', 'listening', 'cambridge'];
-const SUB_LABELS = { writing: '✍️ Writing', reading: '📖 Reading', listening: '🎧 Listening', cambridge: '🎓 Cambridge' };
+const SUB_LABELS = { writing: 'Writing', reading: 'Reading', listening: 'Listening', cambridge: 'Orange' };
 
 const SubmissionsTab = ({ initialUser }) => {
   const [search, setSearch] = useState('');
@@ -275,7 +279,7 @@ const SubmissionsTab = ({ initialUser }) => {
     try {
       const res = await authFetch(apiPath(`admin/users?search=${encodeURIComponent(query.trim())}`));
       setUsers(await res.json());
-    } catch { showToast('❌ Lỗi tìm kiếm'); }
+    } catch { showToast('Search failed.'); }
     finally { setLoading(false); }
   };
 
@@ -285,9 +289,9 @@ const SubmissionsTab = ({ initialUser }) => {
     setLoading(true);
     try {
       const res = await authFetch(apiPath(`admin/submissions?userId=${user.id}`));
-      if (!res.ok) throw new Error('Lỗi tải bài làm');
+      if (!res.ok) throw new Error('Could not load submissions.');
       setSubs(await res.json());
-    } catch (e) { showToast('❌ ' + e.message); }
+    } catch (e) { showToast('Could not load submissions.'); }
     finally { setLoading(false); }
   }, []);
 
@@ -318,19 +322,19 @@ const SubmissionsTab = ({ initialUser }) => {
   const selectedCurrentCount = currentKeys.filter((k) => selectedSubs.has(k)).length;
 
   const deleteSub = async (type, id) => {
-    if (!window.confirm('Xóa bài làm này?')) return;
+    if (!window.confirm('Delete this submission?')) return;
     try {
       const res = await authFetch(apiPath(`admin/submissions/${type}/${id}`), { method: 'DELETE' });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message);
+      await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error('Could not delete submission.');
       setSubs((prev) => ({ ...prev, [type]: prev[type].filter((s) => s.id !== id) }));
       setSelectedSubs((prev) => { const next = new Set(prev); next.delete(`${type}:${id}`); return next; });
-      showToast('✅ ' + data.message);
-    } catch (e) { showToast('❌ ' + e.message); }
+      showToast('Submission deleted.');
+    } catch (e) { showToast('Could not delete submission.'); }
   };
 
   const bulkDeleteSubs = async () => {
-    if (!window.confirm(`Xóa ${selectedCurrentCount} bài làm đã chọn?`)) return;
+    if (!window.confirm(`Delete ${selectedCurrentCount} selected submissions?`)) return;
     setBulkDeleting(true);
     try {
       const items = currentKeys
@@ -341,13 +345,13 @@ const SubmissionsTab = ({ initialUser }) => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ items }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message);
+      await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error('Could not delete selected submissions.');
       const deletedIds = new Set(items.map((i) => i.id));
       setSubs((prev) => ({ ...prev, [activeType]: prev[activeType].filter((s) => !deletedIds.has(s.id)) }));
       setSelectedSubs((prev) => { const next = new Set(prev); currentKeys.filter((k) => selectedSubs.has(k)).forEach((k) => next.delete(k)); return next; });
-      showToast('✅ ' + data.message);
-    } catch (e) { showToast('❌ ' + e.message); }
+      showToast('Selected submissions deleted.');
+    } catch (e) { showToast('Could not delete selected submissions.'); }
     finally { setBulkDeleting(false); }
   };
 
@@ -369,7 +373,7 @@ const SubmissionsTab = ({ initialUser }) => {
         <td style={s.td}>{score} {band && <span style={{ color: '#2563eb', fontSize: 12 }}>{band}</span>}</td>
         <td style={{ ...s.td, fontSize: 12, color: '#9ca3af' }}>{fmtDate(sub.createdAt)}</td>
         <td style={{ ...s.td, textAlign: 'center' }}>
-          <button style={s.btnSmRed} onClick={() => deleteSub(type, sub.id)} title="Xóa bài làm">🗑️</button>
+          <button style={s.btnSmRed} onClick={() => deleteSub(type, sub.id)} title="Delete submission">Delete</button>
         </td>
       </tr>
     );
@@ -382,17 +386,17 @@ const SubmissionsTab = ({ initialUser }) => {
       <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
         <input
           style={{ ...s.input, flex: 1, minWidth: 200, margin: 0 }}
-          placeholder="🔍 Tìm tên / SĐT người dùng..."
+          placeholder="Search by user name or phone..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && searchUsers()}
         />
-        <button style={s.btnBlue} onClick={searchUsers} disabled={loading}>Tìm</button>
+        <button style={s.btnBlue} onClick={searchUsers} disabled={loading}>Search</button>
       </div>
 
       {users.length > 0 && !selectedUser && (
         <div style={{ marginBottom: 16 }}>
-          <p style={{ fontSize: 13, color: '#6b7280', marginBottom: 6 }}>Chọn người dùng để xem bài làm:</p>
+          <p style={{ fontSize: 13, color: '#6b7280', marginBottom: 6 }}>Choose a user to view submissions:</p>
           {users.map((u) => (
             <button key={u.id} style={s.userChip} onClick={() => loadSubs(u)}>
               {u.name} · {u.phone} · {roleBadge(u.role)}
@@ -404,11 +408,11 @@ const SubmissionsTab = ({ initialUser }) => {
       {selectedUser && (
         <>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
-            <span style={{ fontSize: 14 }}>📋 Bài làm của: <strong>{selectedUser.name}</strong> ({selectedUser.phone})</span>
-            <button style={s.btnSmGray} onClick={() => { setSelectedUser(null); setSubs(null); setUsers([]); setSearch(''); setSelectedSubs(new Set()); }}>✕ Đóng</button>
+            <span style={{ fontSize: 14 }}>Submissions for: <strong>{selectedUser.name}</strong> ({selectedUser.phone})</span>
+            <button style={s.btnSmGray} onClick={() => { setSelectedUser(null); setSubs(null); setUsers([]); setSearch(''); setSelectedSubs(new Set()); }}>Close</button>
           </div>
 
-          {loading && <p style={{ color: '#888', textAlign: 'center' }}>Đang tải bài làm...</p>}
+          {loading && <p style={{ color: '#888', textAlign: 'center' }}>Loading submissions...</p>}
 
           {subs && !loading && (
             <>
@@ -427,11 +431,11 @@ const SubmissionsTab = ({ initialUser }) => {
               {/* Bulk bar for submissions */}
               {selectedCurrentCount > 0 && (
                 <div style={s.bulkBar}>
-                  <span style={{ fontSize: 14 }}>☑️ Đã chọn <strong>{selectedCurrentCount}</strong> bài làm</span>
+                  <span style={{ fontSize: 14 }}>Selected <strong>{selectedCurrentCount}</strong> submissions</span>
                   <button style={s.btnRed} onClick={bulkDeleteSubs} disabled={bulkDeleting}>
-                    {bulkDeleting ? 'Đang xóa...' : `🗑️ Xóa ${selectedCurrentCount} đã chọn`}
+                    {bulkDeleting ? 'Deleting...' : `Delete Selected (${selectedCurrentCount})`}
                   </button>
-                  <button style={s.btnGray} onClick={() => setSelectedSubs(new Set())} disabled={bulkDeleting}>Bỏ chọn</button>
+                  <button style={s.btnGray} onClick={() => setSelectedSubs(new Set())} disabled={bulkDeleting}>Clear Selection</button>
                 </div>
               )}
 
@@ -447,17 +451,17 @@ const SubmissionsTab = ({ initialUser }) => {
                         />
                       </th>
                       <th style={s.th}>ID</th>
-                      <th style={s.th}>Tên</th>
-                      <th style={s.th}>Đề</th>
-                      <th style={s.th}>Điểm</th>
-                      <th style={s.th}>Ngày</th>
-                      <th style={{ ...s.th, textAlign: 'center' }}>Xóa</th>
+                      <th style={s.th}>Name</th>
+                      <th style={s.th}>Test</th>
+                      <th style={s.th}>Score</th>
+                      <th style={s.th}>Date</th>
+                      <th style={{ ...s.th, textAlign: 'center' }}>Delete</th>
                     </tr>
                   </thead>
                   <tbody>
                     {currentList.map((sub) => renderSubRow(activeType, sub))}
                     {currentList.length === 0 && (
-                      <tr><td colSpan={7} style={{ ...s.td, textAlign: 'center', color: '#9ca3af' }}>Không có bài làm {SUB_LABELS[activeType]}.</td></tr>
+                      <tr><td colSpan={7} style={{ ...s.td, textAlign: 'center', color: '#9ca3af' }}>No {SUB_LABELS[activeType]} submissions.</td></tr>
                     )}
                   </tbody>
                 </table>
@@ -470,7 +474,7 @@ const SubmissionsTab = ({ initialUser }) => {
   );
 };
 
-// ─── Tab: Tìm trùng ───────────────────────────────────────────────────────────
+// ─── Tab: Duplicates ──────────────────────────────────────────────────────────
 const DuplicatesTab = () => {
   const [groups, setGroups] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -482,26 +486,26 @@ const DuplicatesTab = () => {
     setLoading(true);
     try {
       const res = await authFetch(apiPath('admin/users/duplicates'));
-      if (!res.ok) throw new Error('Lỗi tải dữ liệu');
+      if (!res.ok) throw new Error('Could not load duplicate users.');
       setGroups(await res.json());
-    } catch (e) { showToast('❌ ' + e.message); }
+    } catch (e) { showToast('Could not load duplicate users.'); }
     finally { setLoading(false); }
   };
 
   useEffect(() => { load(); }, []);
 
   const deleteUser = async (user, groupIdx) => {
-    if (!window.confirm(`Xóa người dùng "${user.name}" (${user.phone})?`)) return;
+    if (!window.confirm(`Delete user "${user.name}" (${user.phone})?`)) return;
     try {
       const res = await authFetch(apiPath(`admin/users/${user.id}`), { method: 'DELETE' });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message);
+      await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error('Could not delete user.');
       setGroups((prev) => {
         const updated = prev.map((g, i) => i === groupIdx ? g.filter((u) => u.id !== user.id) : g);
         return updated.filter((g) => g.length > 1);
       });
-      showToast('✅ ' + data.message);
-    } catch (e) { showToast('❌ ' + e.message); }
+      showToast('User deleted.');
+    } catch (e) { showToast('Could not delete user.'); }
   };
 
   return (
@@ -509,32 +513,32 @@ const DuplicatesTab = () => {
       {toast && <div style={s.toast}>{toast}</div>}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, flexWrap: 'wrap', gap: 8 }}>
         <p style={{ fontSize: 14, color: '#6b7280', margin: 0 }}>
-          Phát hiện người dùng đăng ký <strong>trùng tên</strong> (so sánh không phân biệt chữ hoa/thường).
+          Find users registered with <strong>duplicate names</strong> using case-insensitive matching.
         </p>
-        <button style={s.btnBlue} onClick={load} disabled={loading}>🔄 Tải lại</button>
+        <button style={s.btnBlue} onClick={load} disabled={loading}>Reload</button>
       </div>
 
-      {loading && <p style={{ textAlign: 'center', color: '#888' }}>Đang tìm...</p>}
+      {loading && <p style={{ textAlign: 'center', color: '#888' }}>Searching...</p>}
 
       {!loading && groups.length === 0 && (
-        <p style={{ textAlign: 'center', color: '#22c55e', fontWeight: 600, marginTop: 40 }}>🎉 Không có tên trùng nhau!</p>
+        <p style={{ textAlign: 'center', color: '#22c55e', fontWeight: 600, marginTop: 40 }}>No duplicate names found.</p>
       )}
 
       {groups.map((group, gi) => (
         <div key={gi} style={{ marginBottom: 20, border: '1px solid #fcd34d', borderRadius: 8, overflow: 'hidden' }}>
           <div style={{ background: '#fef9c3', padding: '8px 14px', fontSize: 13, fontWeight: 600, color: '#92400e' }}>
-            ⚠️ Trùng tên: "{group[0].name}" — {group.length} tài khoản
+            Duplicate name: "{group[0].name}" — {group.length} accounts
           </div>
           <table style={{ ...s.table, borderRadius: 0, boxShadow: 'none' }}>
             <thead>
               <tr>
                 <th style={s.th}>ID</th>
-                <th style={s.th}>Tên</th>
-                <th style={s.th}>SĐT</th>
+                <th style={s.th}>Name</th>
+                <th style={s.th}>Phone</th>
                 <th style={s.th}>Email</th>
                 <th style={s.th}>Role</th>
-                <th style={s.th}>Ngày tạo</th>
-                <th style={{ ...s.th, textAlign: 'center' }}>Xóa</th>
+                <th style={s.th}>Created</th>
+                <th style={{ ...s.th, textAlign: 'center' }}>Delete</th>
               </tr>
             </thead>
             <tbody>
@@ -547,7 +551,7 @@ const DuplicatesTab = () => {
                   <td style={s.td}>{roleBadge(u.role)}</td>
                   <td style={{ ...s.td, fontSize: 12, color: '#9ca3af' }}>{fmtDate(u.createdAt)}</td>
                   <td style={{ ...s.td, textAlign: 'center' }}>
-                    <button style={s.btnSmRed} onClick={() => deleteUser(u, gi)} title="Xóa user này">🗑️</button>
+                    <button style={s.btnSmRed} onClick={() => deleteUser(u, gi)} title="Delete user">Delete</button>
                   </td>
                 </tr>
               ))}
@@ -561,9 +565,9 @@ const DuplicatesTab = () => {
 
 // ─── Main Page ─────────────────────────────────────────────────────────────────
 const TABS = [
-  { id: 'users', label: '👥 Người dùng' },
-  { id: 'submissions', label: '📋 Bài làm' },
-  { id: 'duplicates', label: '🔍 Tìm trùng' },
+  { id: 'users', label: 'Users' },
+  { id: 'submissions', label: 'Submissions' },
+  { id: 'duplicates', label: 'Duplicates' },
 ];
 
 const AdminUserManagement = () => {
@@ -581,8 +585,12 @@ const AdminUserManagement = () => {
   return (
     <>
       <AdminNavbar />
-      <div style={s.page}>
-        <h2 style={s.title}>⚙️ Quản lý người dùng & Bài làm</h2>
+      <div className="admin-page admin-submission-page" style={s.page}>
+        <div style={s.headerCard}>
+          <div style={s.kicker}>Admin</div>
+          <h2 style={s.title}>User and Submission Management</h2>
+          <p style={s.subtitle}>Manage user accounts, stored submissions, and duplicate registrations from one place.</p>
+        </div>
 
         {/* Tab bar */}
         <div style={s.tabBar}>
@@ -608,30 +616,40 @@ const AdminUserManagement = () => {
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 const s = {
-  page: { maxWidth: 960, margin: '50px auto', padding: '0 16px' },
-  title: { fontSize: 22, fontWeight: 700, marginBottom: 18 },
-  tabBar: { display: 'flex', gap: 2, borderBottom: '2px solid #e5e7eb', marginBottom: 20 },
-  tabBtn: { background: 'none', border: 'none', borderBottom: '2px solid transparent', marginBottom: -2, padding: '8px 16px', cursor: 'pointer', fontSize: 14, fontWeight: 500, color: '#6b7280' },
-  tabBtnActive: { borderBottom: '2px solid #2563eb', color: '#2563eb', fontWeight: 700 },
-  tabContent: { background: '#fff', borderRadius: 8, padding: 20, boxShadow: '0 1px 4px rgba(0,0,0,0.08)' },
-  table: { width: '100%', borderCollapse: 'collapse', background: '#fff', borderRadius: 8, overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.08)' },
-  th: { background: '#f3f4f6', padding: '10px 12px', textAlign: 'left', fontSize: 13, fontWeight: 600, borderBottom: '1px solid #e5e7eb' },
+  page: { maxWidth: '100%', width: '100%', margin: '0 auto', padding: '30px 16px', boxSizing: 'border-box' },
+  headerCard: {
+    background: 'linear-gradient(135deg, #ffffff 0%, #edf4ff 100%)',
+    border: '1px solid #dbe7ff',
+    borderRadius: 20,
+    padding: '22px 24px',
+    boxShadow: '0 16px 40px rgba(15, 23, 42, 0.06)',
+    marginBottom: 18,
+  },
+  kicker: { fontSize: 12, fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#0e276f', marginBottom: 8 },
+  title: { fontSize: 28, fontWeight: 800, margin: '0 0 8px', color: '#0f172a' },
+  subtitle: { margin: 0, fontSize: 15, lineHeight: 1.6, color: '#475569' },
+  tabBar: { display: 'flex', gap: 8, flexWrap: 'wrap', background: '#fff', border: '1px solid #e5e7eb', borderRadius: 18, padding: 8, marginBottom: 18, boxShadow: '0 12px 30px rgba(15, 23, 42, 0.05)' },
+  tabBtn: { background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 12, padding: '10px 16px', cursor: 'pointer', fontSize: 14, fontWeight: 700, color: '#475569', transition: 'all 0.2s ease' },
+  tabBtnActive: { background: '#0e276f', borderColor: '#0e276f', color: '#ffffff', boxShadow: '0 10px 22px rgba(14, 39, 111, 0.18)' },
+  tabContent: { background: '#fff', borderRadius: 20, padding: 20, border: '1px solid #e5e7eb', boxShadow: '0 16px 40px rgba(15, 23, 42, 0.06)' },
+  table: { width: '100%', borderCollapse: 'collapse', background: '#fff', borderRadius: 14, overflow: 'hidden' },
+  th: { background: '#f8fafc', padding: '12px 12px', textAlign: 'left', fontSize: 12, fontWeight: 800, letterSpacing: '0.04em', textTransform: 'uppercase', color: '#475569', borderBottom: '1px solid #e5e7eb' },
   tr: { borderBottom: '1px solid #f0f0f0' },
   td: { padding: '9px 12px', fontSize: 14, verticalAlign: 'middle' },
-  input: { border: '1px solid #d1d5db', borderRadius: 6, padding: '7px 12px', fontSize: 14, width: '100%', boxSizing: 'border-box', margin: '4px 0 10px' },
+  input: { border: '1px solid #d1d5db', borderRadius: 10, padding: '9px 12px', fontSize: 14, width: '100%', boxSizing: 'border-box', margin: '4px 0 10px' },
   label: { fontSize: 13, fontWeight: 500, color: '#374151', display: 'block', marginTop: 4 },
-  btnBlue: { background: '#2563eb', color: '#fff', border: 'none', borderRadius: 6, padding: '7px 16px', cursor: 'pointer', fontWeight: 600, fontSize: 14 },
-  btnRed: { background: '#dc2626', color: '#fff', border: 'none', borderRadius: 6, padding: '7px 16px', cursor: 'pointer', fontWeight: 600, fontSize: 14 },
-  btnGray: { background: '#e5e7eb', color: '#374151', border: 'none', borderRadius: 6, padding: '7px 16px', cursor: 'pointer', fontWeight: 600, fontSize: 14 },
-  btnSmRed: { background: '#fee2e2', color: '#dc2626', border: 'none', borderRadius: 4, padding: '3px 8px', cursor: 'pointer', fontSize: 14 },
-  btnSmBlue: { background: '#dbeafe', color: '#1d4ed8', border: 'none', borderRadius: 4, padding: '3px 8px', cursor: 'pointer', fontSize: 14 },
-  btnSmGray: { background: '#f3f4f6', color: '#374151', border: 'none', borderRadius: 4, padding: '3px 8px', cursor: 'pointer', fontSize: 14 },
-  overlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 },
-  modal: { background: '#fff', borderRadius: 10, padding: 24, width: '90%', maxWidth: 360, boxShadow: '0 10px 25px rgba(0,0,0,0.2)' },
+  btnBlue: { background: '#2563eb', color: '#fff', border: 'none', borderRadius: 10, padding: '9px 16px', cursor: 'pointer', fontWeight: 700, fontSize: 14 },
+  btnRed: { background: '#dc2626', color: '#fff', border: 'none', borderRadius: 10, padding: '9px 16px', cursor: 'pointer', fontWeight: 700, fontSize: 14 },
+  btnGray: { background: '#e5e7eb', color: '#374151', border: 'none', borderRadius: 10, padding: '9px 16px', cursor: 'pointer', fontWeight: 700, fontSize: 14 },
+  btnSmRed: { background: '#fee2e2', color: '#b91c1c', border: '1px solid #fecaca', borderRadius: 8, padding: '6px 10px', cursor: 'pointer', fontSize: 12, fontWeight: 700 },
+  btnSmBlue: { background: '#dbeafe', color: '#1d4ed8', border: '1px solid #bfdbfe', borderRadius: 8, padding: '6px 10px', cursor: 'pointer', fontSize: 12, fontWeight: 700 },
+  btnSmGray: { background: '#f3f4f6', color: '#374151', border: '1px solid #e5e7eb', borderRadius: 8, padding: '6px 10px', cursor: 'pointer', fontSize: 12, fontWeight: 700 },
+  overlay: { position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.48)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 },
+  modal: { background: '#fff', borderRadius: 18, padding: 24, width: '90%', maxWidth: 420, boxShadow: '0 24px 60px rgba(15,23,42,0.25)', border: '1px solid #e5e7eb' },
   modalBtns: { display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 16 },
   errText: { color: '#dc2626', fontSize: 13, margin: '4px 0 0' },
-  toast: { position: 'fixed', bottom: 24, right: 24, background: '#1f2937', color: '#fff', padding: '10px 20px', borderRadius: 8, fontSize: 14, zIndex: 9999, boxShadow: '0 4px 12px rgba(0,0,0,0.3)' },
-  userChip: { background: '#f3f4f6', border: '1px solid #e5e7eb', borderRadius: 6, padding: '6px 14px', cursor: 'pointer', marginRight: 8, marginBottom: 8, fontSize: 14, display: 'inline-flex', alignItems: 'center', gap: 6 },
+  toast: { position: 'fixed', bottom: 24, right: 24, background: '#0f172a', color: '#fff', padding: '12px 18px', borderRadius: 12, fontSize: 14, zIndex: 9999, boxShadow: '0 16px 36px rgba(15,23,42,0.28)' },
+  userChip: { background: '#f8fafc', border: '1px solid #e5e7eb', borderRadius: 10, padding: '8px 14px', cursor: 'pointer', marginRight: 8, marginBottom: 8, fontSize: 14, display: 'inline-flex', alignItems: 'center', gap: 6 },
   bulkBar: { display: 'flex', alignItems: 'center', gap: 10, background: '#fff7ed', border: '1px solid #fed7aa', borderRadius: 7, padding: '9px 14px', marginBottom: 12, flexWrap: 'wrap' },
 };
 

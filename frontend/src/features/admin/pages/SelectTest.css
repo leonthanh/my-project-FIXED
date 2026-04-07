@@ -1,9 +1,8 @@
 .select-test-page {
   min-height: 100vh;
   background: #f4f8ff;
-  padding: 0px 16px;
-  display: flex;
-  justify-content: center;
+  padding: 30px 16px;
+  display: block;
   font-family: sans-serif;
 }
 
@@ -15,11 +14,13 @@
 }
 
 .select-test-shell {
-  width: min(1400px, 100%);
+  width: 100%;
+  max-width: 100%;
   background: #fff;
   border-radius: 14px;
   box-shadow: 0 6px 24px rgba(0, 0, 0, 0.08);
   padding: 24px;
+  box-sizing: border-box;
 }
 
 @media (max-width: 520px) {
@@ -54,11 +55,12 @@
 .select-test-tabs {
   display: flex;
   gap: 10px;
-  margin-bottom: 14px;
+  margin: 0 auto 14px;
   border-bottom: 2px solid #eee;
   padding-bottom: 14px;
   flex-wrap: wrap;
   justify-content: center;
+  width: min(620px, 100%);
 }
 
 .select-test-tabs .select-test-tab {
@@ -88,8 +90,13 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: 0;
   min-width: 0;
+}
+
+.select-test-subtabs {
+  width: min(760px, 100%);
+  margin: 0 auto 10px;
 }
 
 .select-test-tabs .select-test-tab:nth-child(1) {

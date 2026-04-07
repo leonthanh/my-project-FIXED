@@ -229,7 +229,7 @@ const CambridgeSubmissionsPage = () => {
         }
 
         const res = await fetch(apiPath(url));
-        if (!res.ok) throw new Error("Không thể tải danh sách bài nộp");
+        if (!res.ok) throw new Error("Could not load submissions.");
 
         const data = await res.json();
         setSubmissions(data.submissions || []);
@@ -577,7 +577,7 @@ const CambridgeSubmissionsPage = () => {
   // Format date
   const formatDate = (dateStr) => {
     if (!dateStr) return '--';
-    return new Date(dateStr).toLocaleString('vi-VN', {
+    return new Date(dateStr).toLocaleString('en-GB', {
       day: '2-digit',
       month: '2-digit',
       year: 'numeric',
@@ -622,7 +622,7 @@ const CambridgeSubmissionsPage = () => {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        throw new Error(data?.message || "Gia hạn thất bại");
+        throw new Error(data?.message || "Could not extend time.");
       }
 
       setSubmissions((prev) =>
@@ -637,7 +637,7 @@ const CambridgeSubmissionsPage = () => {
             : item
         )
       );
-      alert(data?.message || "Đã gia hạn thời gian.");
+      alert(data?.message || "Time extended successfully.");
       return true;
     } catch (err) {
       alert(err.message);
@@ -765,13 +765,16 @@ const CambridgeSubmissionsPage = () => {
     <div style={styles.container}>
       <AdminNavbar />
 
-      <div style={styles.content} className="admin-page cambridge-page">
-        <SubmissionTypeTabs
-          title="Submissions Orange"
-          items={CAMBRIDGE_SUBMISSION_TABS}
-          activeKey={activeTab}
-          onSelect={setActiveTab}
-        />
+      <div style={styles.content} className="admin-page admin-submission-page">
+        <div style={styles.switcherWrap}>
+          <SubmissionTypeTabs
+            title="Orange Submissions"
+            items={CAMBRIDGE_SUBMISSION_TABS}
+            activeKey={activeTab}
+            onSelect={setActiveTab}
+            buttonFlex="1 1 0"
+          />
+        </div>
 
         <SubmissionFilterPanel
           fields={[
@@ -830,7 +833,7 @@ const CambridgeSubmissionsPage = () => {
         {loading && (
           <div style={styles.loadingContainer}>
             <div style={styles.spinner}></div>
-            <p>Đang tải dữ liệu...</p>
+            <p>Loading submissions...</p>
           </div>
         )}
 
@@ -845,7 +848,7 @@ const CambridgeSubmissionsPage = () => {
               onClick={() => window.location.reload()} 
               style={styles.retryButton}
             >
-              Thử lại
+              Retry
             </button>
           </div>
         )}
@@ -858,22 +861,22 @@ const CambridgeSubmissionsPage = () => {
                 <thead>
                   <tr>
                     <th style={styles.th}>#</th>
-                    <th style={styles.th}>Loại bài</th>
-                    <th style={styles.th}>Tên đề</th>
-                    <th style={styles.th}>Học sinh</th>
-                    <th style={styles.th}>Lớp</th>
-                    <th style={styles.th}>Điểm</th>
+                    <th style={styles.th}>Type</th>
+                    <th style={styles.th}>Test Title</th>
+                    <th style={styles.th}>Student</th>
+                    <th style={styles.th}>Class</th>
+                    <th style={styles.th}>Score</th>
                     <th style={styles.th}>Status</th>
-                    <th style={styles.th}>Thời gian</th>
-                    <th style={styles.th}>Ngày nộp</th>
-                    <th style={styles.th}>Thao tác</th>
+                    <th style={styles.th}>Time</th>
+                    <th style={styles.th}>Submitted</th>
+                    <th style={styles.th}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filteredSubmissions.length === 0 ? (
                     <tr>
                       <td colSpan="10" style={styles.emptyCell}>
-                        Không có bài nộp nào
+                        No submissions found.
                       </td>
                     </tr>
                   ) : (
@@ -924,14 +927,14 @@ const CambridgeSubmissionsPage = () => {
                                 {sub.finished === false ? (
                                   <>
                                     <span style={{ ...styles.score, color: "#1d4ed8" }}>
-                                      Đang làm
+                                      In Progress
                                     </span>
                                     <span style={{
                                       ...styles.percentage,
                                       backgroundColor: "#dbeafe",
                                       color: timingMeta?.color || "#1d4ed8"
                                     }}>
-                                      {timingMeta?.label || "Chưa nộp"}
+                                      {timingMeta?.label || "Not submitted"}
                                     </span>
                                   </>
                                 ) : (
@@ -980,12 +983,12 @@ const CambridgeSubmissionsPage = () => {
                             <td style={styles.td}>
                               {sub.finished === false ? (
                                 <div>
-                                  <div style={{ ...styles.date, fontWeight: 700, color: "#1d4ed8" }}>Đang làm</div>
+                                  <div style={{ ...styles.date, fontWeight: 700, color: "#1d4ed8" }}>In Progress</div>
                                   <div style={{ ...styles.date, color: timingMeta?.color || "#64748b", fontSize: 12 }}>
-                                    {timingMeta?.label || "Chưa có deadline"}
+                                    {timingMeta?.label || "No deadline yet"}
                                   </div>
                                   <div style={{ ...styles.date, fontSize: 11 }}>
-                                    Lưu: {formatAttemptTimestamp(sub.lastSavedAt || sub.createdAt)}
+                                    Saved: {formatAttemptTimestamp(sub.lastSavedAt || sub.createdAt)}
                                   </div>
                                 </div>
                               ) : (
@@ -1014,7 +1017,7 @@ const CambridgeSubmissionsPage = () => {
                                   className="admin-view-button"
                                 >
                                   <span className="admin-view-button__icon"><InlineIcon name="eye" size={15} /></span>
-                                  <span className="admin-view-button__label">Xem</span>
+                                  <span className="admin-view-button__label">View</span>
                                 </button>
                                 {sub.finished === false && (
                                   <AttemptExtensionControls
@@ -1053,10 +1056,10 @@ const CambridgeSubmissionsPage = () => {
                   }}
                 >
                   <InlineIcon name="chevron-left" size={16} />
-                  <span>Trước</span>
+                  <span>Previous</span>
                 </button>
                 <span style={styles.pageInfo}>
-                  Trang {pagination.page} / {pagination.totalPages}
+                  Page {pagination.page} of {pagination.totalPages}
                 </span>
                 <button
                   onClick={() => handlePageChange(pagination.page + 1)}
@@ -1066,7 +1069,7 @@ const CambridgeSubmissionsPage = () => {
                     ...(pagination.page === pagination.totalPages && styles.pageButtonDisabled)
                   }}
                 >
-                  <span>Sau</span>
+                  <span>Next</span>
                   <InlineIcon name="chevron-right" size={16} />
                 </button>
               </div>
@@ -1118,10 +1121,15 @@ const styles = {
   },
   content: {
     width: '100%',
-    maxWidth: '1400px',
+    maxWidth: '100%',
     margin: '0 auto',
-    padding: '24px',
+    padding: '30px 16px',
     boxSizing: 'border-box',
+  },
+  switcherWrap: {
+    width: '100%',
+    maxWidth: '620px',
+    margin: '0 auto 18px',
   },
   header: {
     marginBottom: '24px',

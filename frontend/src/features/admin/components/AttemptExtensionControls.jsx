@@ -56,9 +56,9 @@ function AttemptExtensionControls({
   inputGroupStyle,
   loadingStyle,
   errorStyle,
-  loadingLabel = "Đang gia hạn...",
-  submitLabel = "Gia hạn",
-  placeholder = "Nhập phút",
+  loadingLabel = "Extending...",
+  submitLabel = "Extend",
+  placeholder = "Enter minutes",
 }) {
   const [customMinutes, setCustomMinutes] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
@@ -67,7 +67,7 @@ function AttemptExtensionControls({
     const normalized = normalizeCustomExtensionMinutes(customMinutes);
     if (!Number.isFinite(normalized)) {
       setErrorMessage(
-        `Nhập số phút từ ${MIN_EXTENSION_MINUTES} đến ${MAX_EXTENSION_MINUTES}.`
+        `Enter a value from ${MIN_EXTENSION_MINUTES} to ${MAX_EXTENSION_MINUTES} minutes.`
       );
       return;
     }
@@ -104,7 +104,7 @@ function AttemptExtensionControls({
           key={minutes}
           onClick={() => onExtend(minutes)}
           style={buttonStyle}
-          title={`Gia hạn thêm ${minutes} phút`}
+          title={`Add ${minutes} minutes`}
         >
           +{minutes}p
         </button>
@@ -122,12 +122,12 @@ function AttemptExtensionControls({
           onKeyDown={handleInputKeyDown}
           placeholder={placeholder}
           style={{ ...inputBaseStyle, ...inputStyle }}
-          title={`Nhập từ ${MIN_EXTENSION_MINUTES} đến ${MAX_EXTENSION_MINUTES} phút`}
+          title={`Enter ${MIN_EXTENSION_MINUTES} to ${MAX_EXTENSION_MINUTES} minutes`}
         />
         <button
           onClick={handleCustomExtend}
           style={submitButtonStyle || buttonStyle}
-          title="Gia hạn theo số phút nhập vào"
+          title="Extend by the entered number of minutes"
         >
           {submitLabel}
         </button>

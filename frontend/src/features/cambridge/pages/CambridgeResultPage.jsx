@@ -3,7 +3,6 @@ import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { apiPath, getStoredUser, hostPath } from "../../../shared/utils/api";
 import AdminNavbar from "../../../shared/components/AdminNavbar";
 import StudentNavbar from "../../../shared/components/StudentNavbar";
-import LineIcon from "../../../shared/components/LineIcon";
 import { useTheme } from "../../../shared/contexts/ThemeContext";
 import { isAdmin, isTeacher } from "../../../shared/utils/permissions";
 import CambridgeStudentStyleReview from "../components/CambridgeStudentStyleReview";
@@ -145,23 +144,6 @@ function buildWritingPromptHtml(sectionType, question, detailedResult) {
 
   return fallback ? sanitizePromptHtml(`<p>${escapeHtml(fallback)}</p>`) : '';
 }
-
-const iconWrapStyle = (size, style = {}) => ({
-  display: 'inline-flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  width: size,
-  height: size,
-  lineHeight: 0,
-  flex: '0 0 auto',
-  ...style,
-});
-
-const InlineIcon = ({ name, size = 18, style }) => (
-  <span style={iconWrapStyle(size, style)} aria-hidden="true">
-    <LineIcon name={name} size={size} />
-  </span>
-);
 
 /**
  * CambridgeResultPage - Trang xem kết quả chi tiết sau khi nộp bài Cambridge test
@@ -1029,15 +1011,9 @@ const CambridgeResultPage = () => {
       <div style={styles.container}>
         <ResultNavbar />
         <div style={styles.errorContainer}>
-          <h2 style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
-            <InlineIcon name="error" size={20} />
-            <span>{error}</span>
-          </h2>
+          <h2 style={{ margin: 0 }}>{error}</h2>
           <button onClick={() => navigate('/cambridge')} style={styles.primaryButton}>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
-              <InlineIcon name="arrow-left" size={16} />
-              <span>Back</span>
-            </span>
+            Back
           </button>
         </div>
       </div>
@@ -1050,15 +1026,9 @@ const CambridgeResultPage = () => {
       <div style={styles.container}>
         <ResultNavbar />
         <div style={styles.errorContainer}>
-          <h2 style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
-            <InlineIcon name="empty" size={20} />
-            <span>No result found</span>
-          </h2>
+          <h2 style={{ margin: 0 }}>No result found</h2>
           <button onClick={() => navigate('/cambridge')} style={styles.primaryButton}>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
-              <InlineIcon name="arrow-left" size={16} />
-              <span>Back</span>
-            </span>
+            Back
           </button>
         </div>
       </div>
@@ -1076,16 +1046,10 @@ const CambridgeResultPage = () => {
             onClick={() => navigate('/cambridge')} 
             style={styles.backButton}
           >
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
-              <InlineIcon name="arrow-left" size={16} />
-              <span>Back</span>
-            </span>
+            Back
           </button>
           <div>
-            <h1 style={{ ...styles.title, display: 'inline-flex', alignItems: 'center', gap: '10px' }}>
-              <InlineIcon name="overview" size={24} />
-              <span>Orange Test Results</span>
-            </h1>
+            <h1 style={styles.title}>Orange Test Results</h1>
             <p style={styles.subtitle}>{submission.testTitle || 'Orange Test'}</p>
           </div>
         </div>
@@ -1101,10 +1065,7 @@ const CambridgeResultPage = () => {
               ...(activeTab === 'overview' && styles.tabActive)
             }}
           >
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
-              <InlineIcon name="overview" size={16} />
-              <span>Overview</span>
-            </span>
+            Overview
           </button>
           <button
             onClick={() => setActiveTab('review')}
@@ -1113,10 +1074,7 @@ const CambridgeResultPage = () => {
               ...(activeTab === 'review' && styles.tabActive)
             }}
           >
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
-              <InlineIcon name="review" size={16} />
-              <span>Question Review</span>
-            </span>
+            Question Review
           </button>
         </div>
       )}
@@ -1144,27 +1102,21 @@ const CambridgeResultPage = () => {
                 />
               </div>
               <div style={{ ...styles.gradeLabel, color: stats.grade.color }}>
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
-                  <InlineIcon name={stats.grade.iconName} size={16} />
-                  <span>{stats.grade.label} - {stats.percentage}%</span>
-                </span>
+                {stats.grade.label} - {stats.percentage}%
               </div>
             </div>
 
             {/* Stats Cards */}
             <div style={styles.statsRow}>
               <div style={{ ...styles.statCard, borderLeftColor: '#22c55e' }}>
-                <div style={styles.statIcon}><InlineIcon name="correct" size={18} /></div>
                 <div style={styles.statNumber}>{stats.correct}</div>
                 <div style={styles.statLabel}>Correct</div>
               </div>
               <div style={{ ...styles.statCard, borderLeftColor: '#ef4444' }}>
-                <div style={styles.statIcon}><InlineIcon name="wrong" size={18} /></div>
                 <div style={styles.statNumber}>{stats.wrong}</div>
                 <div style={styles.statLabel}>Wrong</div>
               </div>
               <div style={{ ...styles.statCard, borderLeftColor: '#94a3b8' }}>
-                <div style={styles.statIcon}><InlineIcon name="blank" size={18} /></div>
                 <div style={styles.statNumber}>{stats.unanswered}</div>
                 <div style={styles.statLabel}>Blank</div>
               </div>
@@ -1172,10 +1124,7 @@ const CambridgeResultPage = () => {
 
             {/* Info Card */}
             <div style={styles.infoCard}>
-              <h3 style={{ ...styles.infoTitle, display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
-                <InlineIcon name="tests" size={18} />
-                <span>Test Information</span>
-              </h3>
+              <h3 style={styles.infoTitle}>Test Information</h3>
               <div style={styles.infoGrid}>
                 <div style={styles.infoItem}>
                   <span style={styles.infoLabel}>Type:</span>
@@ -1205,20 +1154,14 @@ const CambridgeResultPage = () => {
                   onClick={() => setActiveTab('review')} 
                   style={styles.primaryButton}
                 >
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
-                    <InlineIcon name="review" size={16} />
-                    <span>Open Question Review</span>
-                  </span>
+                  Open Question Review
                 </button>
               )}
               <button 
                 onClick={() => navigate('/cambridge')} 
                 style={canViewDetailedReview ? styles.secondaryButton : styles.primaryButton}
               >
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
-                  <InlineIcon name="tests" size={16} />
-                  <span>Choose Another Test</span>
-                </span>
+                Choose Another Test
               </button>
             </div>
           </div>
@@ -1266,916 +1209,19 @@ const CambridgeResultPage = () => {
               submission={submission}
             />
 
-            <div style={styles.reviewToggleCard}>
-              <div>
-                <div style={styles.reviewToggleTitle}>Legacy Comparison Cards</div>
-                <div style={styles.reviewToggleText}>
-                  Open the older card layout when teachers need a quick status-by-status comparison list.
-                </div>
-              </div>
-              <button
-                onClick={() => setShowLegacyDetails((prev) => !prev)}
-                style={showLegacyDetails ? styles.secondaryButton : styles.primaryButton}
-              >
-                {showLegacyDetails ? 'Hide Comparison Cards' : 'Open Comparison Cards'}
-              </button>
-            </div>
-
-            {/* Detailed Review by Part */}
-            {showLegacyDetails && test?.parts?.map((part, partIdx) => (
-              <div key={partIdx} style={styles.partCard}>
-                <div 
-                  style={styles.partHeader}
-                  onClick={() => togglePart(partIdx)}
-                >
-                  <div style={styles.partTitle}>
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
-                      <InlineIcon name="reading" size={16} />
-                      <span>{part.partTitle || `Part ${partIdx + 1}`}</span>
-                    </span>
-                  </div>
-                  <span style={styles.expandIcon}>
-                    <InlineIcon name={expandedParts[partIdx] ? 'chevron-down' : 'chevron-right'} size={16} />
-                  </span>
-                </div>
-
-                {expandedParts[partIdx] && (
-                  <div style={styles.partContent}>
-                    {part.sections?.map((section, secIdx) => {
-                      const sectionType = getSectionType(section);
-                      return (
-                      <div key={secIdx} style={styles.sectionBlock}>
-                        {section.sectionTitle && (
-                          <div style={styles.sectionTitle}>{section.sectionTitle}</div>
-                        )}
-                        
-                        {section.questions?.map((question, qIdx) => {
-                          // Handle long-text-mc with nested questions
-                          if (sectionType === 'long-text-mc' && question.questions && Array.isArray(question.questions)) {
-                            return (
-                              <React.Fragment key={`section-${qIdx}`}>
-                                {question.questions.map((nestedQ, nestedIdx) => {
-                                  const key = `${partIdx}-${secIdx}-${qIdx}-${nestedIdx}`;
-                                  const result = getDetailedResult(key, `${partIdx}-${secIdx}-${nestedIdx}`) || {};
-                                  const questionNum = questionNumberMap[key];
-                                  const label = questionNum ? formatQuestionLabel(questionNum) : '?';
-                                  const status = getResultStatus(result);
-
-                                  return (
-                                    <div 
-                                      key={`${qIdx}-${nestedIdx}`}
-                                      style={{
-                                        ...styles.questionReviewCard,
-                                        borderLeftColor: status.color
-                                      }}
-                                    >
-                                      <div style={styles.questionReviewHeader}>
-                                        <span style={{
-                                          ...styles.questionNum,
-                                          backgroundColor: status.color
-                                        }}>
-                                          {label}
-                                        </span>
-                                        <span style={styles.questionStatus}>
-                                          {status.label}
-                                        </span>
-                                      </div>
-                                      
-                                      <div style={styles.questionText}>
-                                        {nestedQ.questionText || 'Question'}
-                                      </div>
-
-                                      <div style={styles.answersCompare}>
-                                        <div style={styles.answerRow}>
-                                          <span style={styles.answerLabel}>Câu trả lời của bạn:</span>
-                                          <span style={{
-                                            ...styles.answerValue,
-                                            color: status.text,
-                                            backgroundColor: status.bg
-                                          }}>
-                                            {result.userAnswer || '(Không trả lời)'}
-                                          </span>
-                                        </div>
-                                        {canShowCorrectAnswer(result) && (
-                                          <div style={styles.answerRow}>
-                                            <span style={styles.answerLabel}>Đáp án đúng:</span>
-                                            <span style={{ ...styles.answerValue, ...correctAnswerStyle }}>
-                                              {result.correctAnswer}
-                                            </span>
-                                          </div>
-                                        )}
-                                      </div>
-                                    </div>
-                                  );
-                                })}
-                              </React.Fragment>
-                            );
-                          }
-                          // Handle people-matching
-                          else if (sectionType === 'people-matching' && Array.isArray(question.people)) {
-                            const people = question.people || [];
-                            const correctMap = question.answers && typeof question.answers === 'object' ? question.answers : {};
-                            return (
-                              <React.Fragment key={`section-${qIdx}`}>
-                                {people.map((person, personIdx) => {
-                                  const pid = person?.id || String.fromCharCode(65 + personIdx);
-                                  const key = `${partIdx}-${secIdx}-${qIdx}-${pid}`;
-                                  const result = getDetailedResult(key, `${partIdx}-${secIdx}-${pid}`) || {};
-                                  const questionNum = questionNumberMap[key];
-                                  const label = questionNum ? formatQuestionLabel(questionNum) : '?';
-                                  const status = getResultStatus(result);
-                                  const correctAnswer = correctMap?.[pid] ?? result.correctAnswer;
-
-                                  return (
-                                    <div
-                                      key={key}
-                                      style={{
-                                        ...styles.questionReviewCard,
-                                        borderLeftColor: status.color,
-                                      }}
-                                    >
-                                      <div style={styles.questionReviewHeader}>
-                                        <span style={{
-                                          ...styles.questionNum,
-                                          backgroundColor: status.color
-                                        }}>
-                                          {label}
-                                        </span>
-                                        <span style={styles.questionStatus}>{status.label}</span>
-                                      </div>
-
-                                      <div style={styles.questionText}>
-                                        {person?.name ? `${pid}. ${person.name}` : `Person ${pid}`}
-                                      </div>
-
-                                      <div style={styles.answersCompare}>
-                                        <div style={styles.answerRow}>
-                                          <span style={styles.answerLabel}>Câu trả lời của bạn:</span>
-                                          <span style={{
-                                            ...styles.answerValue,
-                                            color: status.text,
-                                            backgroundColor: status.bg
-                                          }}>
-                                            {result.userAnswer || '(Không trả lời)'}
-                                          </span>
-                                        </div>
-                                        {canShowCorrectAnswer({ ...result, correctAnswer }) && (
-                                          <div style={styles.answerRow}>
-                                            <span style={styles.answerLabel}>Đáp án đúng:</span>
-                                            <span style={{ ...styles.answerValue, ...correctAnswerStyle }}>
-                                              {correctAnswer}
-                                            </span>
-                                          </div>
-                                        )}
-                                      </div>
-                                    </div>
-                                  );
-                                })}
-                              </React.Fragment>
-                            );
-                          }
-                          // Handle gap-match (drag & drop matching)
-                          else if (sectionType === 'gap-match' && Array.isArray(question.leftItems)) {
-                            const leftItems = question.leftItems || [];
-                            const correctList = Array.isArray(question.correctAnswers) ? question.correctAnswers : [];
-                            return (
-                              <React.Fragment key={`section-${qIdx}`}>
-                                {leftItems.map((item, itemIdx) => {
-                                  const key = `${partIdx}-${secIdx}-${qIdx}-${itemIdx}`;
-                                  const result = getDetailedResult(key, `${partIdx}-${secIdx}-${itemIdx}`) || {};
-                                  const questionNum = questionNumberMap[key];
-                                  const label = questionNum ? formatQuestionLabel(questionNum) : '?';
-                                  const status = getResultStatus(result);
-                                  const correctAnswer = correctList[itemIdx] ?? result.correctAnswer;
-
-                                  return (
-                                    <div
-                                      key={key}
-                                      style={{
-                                        ...styles.questionReviewCard,
-                                        borderLeftColor: status.color
-                                      }}
-                                    >
-                                      <div style={styles.questionReviewHeader}>
-                                        <span style={{
-                                          ...styles.questionNum,
-                                          backgroundColor: status.color
-                                        }}>
-                                          {label}
-                                        </span>
-                                        <span style={styles.questionStatus}>{status.label}</span>
-                                      </div>
-
-                                      <div style={styles.questionText}>
-                                        {item || 'Question'}
-                                      </div>
-
-                                      <div style={styles.answersCompare}>
-                                        <div style={styles.answerRow}>
-                                          <span style={styles.answerLabel}>Câu trả lời của bạn:</span>
-                                          <span style={{
-                                            ...styles.answerValue,
-                                            color: status.text,
-                                            backgroundColor: status.bg
-                                          }}>
-                                            {result.userAnswer || '(Không trả lời)'}
-                                          </span>
-                                        </div>
-                                        {canShowCorrectAnswer({ ...result, correctAnswer }) && (
-                                          <div style={styles.answerRow}>
-                                            <span style={styles.answerLabel}>Đáp án đúng:</span>
-                                            <span style={{ ...styles.answerValue, ...correctAnswerStyle }}>
-                                              {correctAnswer}
-                                            </span>
-                                          </div>
-                                        )}
-                                      </div>
-                                    </div>
-                                  );
-                                })}
-                              </React.Fragment>
-                            );
-                          }
-                          // Handle cloze-test: show full passage with inline blanks
-                          else if (sectionType === 'cloze-test') {
-                            const passageText = question.passageText || question.passage || '';
-                            const firstKey = `${partIdx}-${secIdx}-${qIdx}-0`;
-                            const startNum = Number(questionNumberMap[firstKey]) || 1;
-                            const derivedBlanks = Array.isArray(question?.blanks) && question.blanks.length > 0
-                              ? question.blanks
-                              : parseClozeBlanks(passageText, startNum);
-                            const rendered = renderClozeTestPassageWithResults({
-                              passageText,
-                              blanks: derivedBlanks,
-                              partIdx,
-                              secIdx,
-                              qIdx,
-                            });
-
-                            // Fallback to old per-blank cards if passage can't be rendered
-                            if (!rendered && derivedBlanks && Array.isArray(derivedBlanks)) {
-                              return (
-                                <React.Fragment key={`section-${qIdx}`}>
-                                  {derivedBlanks.map((blank, blankIdx) => {
-                                    const key = `${partIdx}-${secIdx}-${qIdx}-${blankIdx}`;
-                                    const result = getDetailedResult(key, `${partIdx}-${secIdx}-${blankIdx}`) || {};
-                                    const questionNum = questionNumberMap[key];
-                                    const label = questionNum ? formatQuestionLabel(questionNum) : '?';
-                                    const status = getResultStatus(result);
-
-                                    return (
-                                      <div
-                                        key={`${qIdx}-${blankIdx}`}
-                                        style={{
-                                          ...styles.questionReviewCard,
-                                          borderLeftColor: status.color
-                                        }}
-                                      >
-                                        <div style={styles.questionReviewHeader}>
-                                          <span style={{
-                                            ...styles.questionNum,
-                                            backgroundColor: status.color
-                                          }}>
-                                            {label}
-                                          </span>
-                                          <span style={styles.questionStatus}>
-                                            {status.label}
-                                          </span>
-                                        </div>
-
-                                        <div style={styles.questionText}>
-                                          {blank.questionText || 'Question'}
-                                        </div>
-
-                                        <div style={styles.answersCompare}>
-                                          <div style={styles.answerRow}>
-                                            <span style={styles.answerLabel}>Câu trả lời của bạn:</span>
-                                            <span style={{
-                                              ...styles.answerValue,
-                                              color: status.text,
-                                              backgroundColor: status.bg
-                                            }}>
-                                              {result.userAnswer || '(Không trả lời)'}
-                                            </span>
-                                          </div>
-                                          {canShowCorrectAnswer(result) && (
-                                            <div style={styles.answerRow}>
-                                              <span style={styles.answerLabel}>Đáp án đúng:</span>
-                                              <span style={{ ...styles.answerValue, ...correctAnswerStyle }}>
-                                                {result.correctAnswer}
-                                              </span>
-                                            </div>
-                                          )}
-                                        </div>
-                                      </div>
-                                    );
-                                  })}
-                                </React.Fragment>
-                              );
-                            }
-
-                            return (
-                              <div key={qIdx}>
-                                {question.passageTitle && (
-                                  <div style={styles.clozePassageTitle}>{question.passageTitle}</div>
-                                )}
-                                {rendered}
-                              </div>
-                            );
-                          }
-                          // Handle inline-choice (PET Part 5)
-                          else if (sectionType === 'inline-choice' &&
-                                   question.blanks && Array.isArray(question.blanks)) {
-                            return (
-                              <React.Fragment key={`section-${qIdx}`}>
-                                {question.blanks.map((blank, blankIdx) => {
-                                  const key = `${partIdx}-${secIdx}-${qIdx}-${blankIdx}`;
-                                  const result = getDetailedResult(key, `${partIdx}-${secIdx}-${blankIdx}`) || {};
-                                  const questionNum = questionNumberMap[key];
-                                  const label = questionNum ? formatQuestionLabel(questionNum) : '?';
-                                  const status = getResultStatus(result);
-                                  const correctAnswer = blank.correctAnswer || result.correctAnswer;
-
-                                  return (
-                                    <div
-                                      key={`${qIdx}-${blankIdx}`}
-                                      style={{
-                                        ...styles.questionReviewCard,
-                                        borderLeftColor: status.color
-                                      }}
-                                    >
-                                      <div style={styles.questionReviewHeader}>
-                                        <span style={{
-                                          ...styles.questionNum,
-                                          backgroundColor: status.color
-                                        }}>
-                                          {label}
-                                        </span>
-                                        <span style={styles.questionStatus}>{status.label}</span>
-                                      </div>
-
-                                      <div style={styles.questionText}>
-                                        Inline choice
-                                      </div>
-
-                                      <div style={styles.answersCompare}>
-                                        <div style={styles.answerRow}>
-                                          <span style={styles.answerLabel}>Cau tra loi cua ban:</span>
-                                          <span style={{
-                                            ...styles.answerValue,
-                                            color: status.text,
-                                            backgroundColor: status.bg
-                                          }}>
-                                            {result.userAnswer || '(Khong tra loi)'}
-                                          </span>
-                                        </div>
-                                        {canShowCorrectAnswer({ ...result, correctAnswer }) && (
-                                          <div style={styles.answerRow}>
-                                            <span style={styles.answerLabel}>Dap an dung:</span>
-                                            <span style={{ ...styles.answerValue, ...correctAnswerStyle }}>
-                                              {correctAnswer}
-                                            </span>
-                                          </div>
-                                        )}
-                                      </div>
-                                    </div>
-                                  );
-                                })}
-                              </React.Fragment>
-                            );
-                          }
-                          // Handle cloze-mc and cloze-test with blanks
-                          else if (sectionType === 'cloze-mc' && 
-                                   question.blanks && Array.isArray(question.blanks)) {
-                            return (
-                              <React.Fragment key={`section-${qIdx}`}>
-                                {question.blanks.map((blank, blankIdx) => {
-                                  const key = `${partIdx}-${secIdx}-${qIdx}-${blankIdx}`;
-                                  const result = getDetailedResult(key, `${partIdx}-${secIdx}-${blankIdx}`) || {};
-                                  const questionNum = questionNumberMap[key];
-                                  const label = questionNum ? formatQuestionLabel(questionNum) : '?';
-                                  const status = getResultStatus(result);
-
-                                  return (
-                                    <div 
-                                      key={`${qIdx}-${blankIdx}`}
-                                      style={{
-                                        ...styles.questionReviewCard,
-                                        borderLeftColor: status.color
-                                      }}
-                                    >
-                                      <div style={styles.questionReviewHeader}>
-                                        <span style={{
-                                          ...styles.questionNum,
-                                          backgroundColor: status.color
-                                        }}>
-                                          {label}
-                                        </span>
-                                        <span style={styles.questionStatus}>
-                                          {status.label}
-                                        </span>
-                                      </div>
-                                      
-                                      <div style={styles.questionText}>
-                                        {blank.questionText || 'Question'}
-                                      </div>
-
-                                      <div style={styles.answersCompare}>
-                                        <div style={styles.answerRow}>
-                                          <span style={styles.answerLabel}>Câu trả lời của bạn:</span>
-                                          <span style={{
-                                            ...styles.answerValue,
-                                            color: status.text,
-                                            backgroundColor: status.bg
-                                          }}>
-                                            {result.userAnswer || '(Không trả lời)'}
-                                          </span>
-                                        </div>
-                                        {canShowCorrectAnswer(result) && (
-                                          <div style={styles.answerRow}>
-                                            <span style={styles.answerLabel}>Đáp án đúng:</span>
-                                            <span style={{ ...styles.answerValue, ...correctAnswerStyle }}>
-                                              {result.correctAnswer}
-                                            </span>
-                                          </div>
-                                        )}
-                                      </div>
-                                    </div>
-                                  );
-                                })}
-                              </React.Fragment>
-                            );
-                          }
-                          // matching-pictures: key = {partIdx}-{secIdx}-{promptId}
-                          else if (sectionType === 'matching-pictures' && Array.isArray(question.prompts)) {
-                            return (
-                              <React.Fragment key={`mp-${qIdx}`}>
-                                {question.prompts.map((prompt) => {
-                                  const promptId = String(prompt.id || prompt.number || 0);
-                                  const key = `${partIdx}-${secIdx}-${promptId}`;
-                                  const result = getDetailedResult(key) || {};
-                                  const questionNum = questionNumberMap[key];
-                                  const label = questionNum ? formatQuestionLabel(questionNum) : promptId;
-                                  const status = getResultStatus(result);
-                                  const choiceWord = result.userAnswer && Array.isArray(question.choices)
-                                    ? (question.choices.find(c => c.id === result.userAnswer)?.label || result.userAnswer)
-                                    : (result.userAnswer || '');
-                                  const correctWord = result.correctAnswer && Array.isArray(question.choices)
-                                    ? (question.choices.find(c => c.id === result.correctAnswer)?.label || result.correctAnswer)
-                                    : result.correctAnswer;
-                                  return (
-                                    <div key={key} style={{ ...styles.questionReviewCard, borderLeftColor: status.color }}>
-                                      <div style={styles.questionReviewHeader}>
-                                        <span style={{ ...styles.questionNum, backgroundColor: status.color }}>{label}</span>
-                                        <span style={styles.questionStatus}>{status.label}</span>
-                                      </div>
-                                      <div style={styles.questionText}>{prompt.text || `Prompt ${prompt.number}`}</div>
-                                      <div style={styles.answersCompare}>
-                                        <div style={styles.answerRow}>
-                                          <span style={styles.answerLabel}>Câu trả lời của bạn:</span>
-                                          <span style={{ ...styles.answerValue, color: status.text, backgroundColor: status.bg }}>
-                                            {choiceWord || '(Không trả lời)'}
-                                          </span>
-                                        </div>
-                                        {canShowCorrectAnswer({ ...result, correctAnswer: correctWord || result.correctAnswer }) && (
-                                          <div style={styles.answerRow}>
-                                            <span style={styles.answerLabel}>Đáp án đúng:</span>
-                                            <span style={{ ...styles.answerValue, ...correctAnswerStyle }}>{correctWord || result.correctAnswer}</span>
-                                          </div>
-                                        )}
-                                      </div>
-                                    </div>
-                                  );
-                                })}
-                              </React.Fragment>
-                            );
-                          }
-                          // image-cloze: keys = {partIdx}-{secIdx}-blank-{blankNum} + -title
-                          else if (sectionType === 'image-cloze') {
-                            const passageText = question.passageText || '';
-                            const imageBank = Array.isArray(question.imageBank) ? question.imageBank : [];
-                            const cards = [];
-                            const blankNums = [];
-                            { const blankRe = /\(\s*(\d+)\s*\)/g; let bm; while ((bm = blankRe.exec(passageText)) !== null) blankNums.push(parseInt(bm[1], 10)); }
-                            blankNums.forEach((qNum) => {
-                                const key = `${partIdx}-${secIdx}-blank-${qNum}`;
-                                const result = getDetailedResult(key) || {};
-                                const qN = questionNumberMap[key];
-                                const label = qN ? formatQuestionLabel(qN) : String(qNum);
-                                const status = getResultStatus(result);
-                                const resolveWord = (id) => id ? (imageBank.find(b => b.id === id)?.word || id) : id;
-                                const displayUser = resolveWord(result.userAnswer) || result.userAnswer || '';
-                                cards.push(
-                                  <div key={key} style={{ ...styles.questionReviewCard, borderLeftColor: status.color }}>
-                                    <div style={styles.questionReviewHeader}>
-                                      <span style={{ ...styles.questionNum, backgroundColor: status.color }}>{label}</span>
-                                      <span style={styles.questionStatus}>{status.label}</span>
-                                    </div>
-                                    <div style={styles.questionText}>{`Câu (${qNum})`}</div>
-                                    <div style={styles.answersCompare}>
-                                      <div style={styles.answerRow}>
-                                        <span style={styles.answerLabel}>Câu trả lời của bạn:</span>
-                                        <span style={{ ...styles.answerValue, color: status.text, backgroundColor: status.bg }}>{displayUser || '(Không trả lời)'}</span>
-                                      </div>
-                                      {canShowCorrectAnswer(result) && (
-                                        <div style={styles.answerRow}>
-                                          <span style={styles.answerLabel}>Đáp án đúng:</span>
-                                          <span style={{ ...styles.answerValue, ...correctAnswerStyle }}>{result.correctAnswer}</span>
-                                        </div>
-                                      )}
-                                    </div>
-                                  </div>
-                                );
-                              });
-                            if (question.titleQuestion?.enabled) {
-                              const key = `${partIdx}-${secIdx}-title`;
-                              const result = getDetailedResult(key) || {};
-                              const qN = questionNumberMap[key];
-                              const label = qN ? formatQuestionLabel(qN) : '?';
-                              const status = getResultStatus(result);
-                              cards.push(
-                                <div key={key} style={{ ...styles.questionReviewCard, borderLeftColor: status.color }}>
-                                  <div style={styles.questionReviewHeader}>
-                                    <span style={{ ...styles.questionNum, backgroundColor: status.color }}>{label}</span>
-                                    <span style={styles.questionStatus}>{status.label}</span>
-                                  </div>
-                                  <div style={styles.questionText}>{question.titleQuestion.text || 'Best name for the story'}</div>
-                                  <div style={styles.answersCompare}>
-                                    <div style={styles.answerRow}>
-                                      <span style={styles.answerLabel}>Câu trả lời của bạn:</span>
-                                      <span style={{ ...styles.answerValue, color: status.text, backgroundColor: status.bg }}>{result.userAnswer || '(Không trả lời)'}</span>
-                                    </div>
-                                    {canShowCorrectAnswer(result) && (
-                                      <div style={styles.answerRow}>
-                                        <span style={styles.answerLabel}>Đáp án đúng:</span>
-                                        <span style={{ ...styles.answerValue, ...correctAnswerStyle }}>{result.correctAnswer}</span>
-                                      </div>
-                                    )}
-                                  </div>
-                                </div>
-                              );
-                            }
-                            return <React.Fragment key={`ic-${qIdx}`}>{cards}</React.Fragment>;
-                          }
-                          // word-drag-cloze: key = {partIdx}-{secIdx}-blank-{blank.number}
-                          else if (sectionType === 'word-drag-cloze' && Array.isArray(question.blanks)) {
-                            return (
-                              <React.Fragment key={`wdc-${qIdx}`}>
-                                {question.blanks.map((blank) => {
-                                  const key = `${partIdx}-${secIdx}-blank-${blank.number}`;
-                                  const result = getDetailedResult(key) || {};
-                                  const questionNum = questionNumberMap[key];
-                                  const label = questionNum ? formatQuestionLabel(questionNum) : String(blank.number || '?');
-                                  const status = getResultStatus(result);
-                                  return (
-                                    <div key={key} style={{ ...styles.questionReviewCard, borderLeftColor: status.color }}>
-                                      <div style={styles.questionReviewHeader}>
-                                        <span style={{ ...styles.questionNum, backgroundColor: status.color }}>{label}</span>
-                                        <span style={styles.questionStatus}>{status.label}</span>
-                                      </div>
-                                      <div style={styles.questionText}>{blank.questionText || `Blank ${blank.number}`}</div>
-                                      <div style={styles.answersCompare}>
-                                        <div style={styles.answerRow}>
-                                          <span style={styles.answerLabel}>Câu trả lời của bạn:</span>
-                                          <span style={{ ...styles.answerValue, color: status.text, backgroundColor: status.bg }}>
-                                            {result.userAnswer || '(Không trả lời)'}
-                                          </span>
-                                        </div>
-                                        {canShowCorrectAnswer(result) && (
-                                          <div style={styles.answerRow}>
-                                            <span style={styles.answerLabel}>Đáp án đúng:</span>
-                                            <span style={{ ...styles.answerValue, ...correctAnswerStyle }}>{result.correctAnswer}</span>
-                                          </div>
-                                        )}
-                                      </div>
-                                    </div>
-                                  );
-                                })}
-                              </React.Fragment>
-                            );
-                          }
-                          // story-completion: key = {partIdx}-{secIdx}-item-{itemIdx+1}
-                          else if (sectionType === 'story-completion' && Array.isArray(question.items)) {
-                            return (
-                              <React.Fragment key={`story-${qIdx}`}>
-                                {question.items.map((item, itemIdx) => {
-                                  const key = `${partIdx}-${secIdx}-item-${itemIdx + 1}`;
-                                  const result = getDetailedResult(key) || {};
-                                  const questionNum = questionNumberMap[key];
-                                  const label = questionNum ? formatQuestionLabel(questionNum) : String(itemIdx + 1);
-                                  const status = getResultStatus(result);
-                                  return (
-                                    <div key={key} style={{ ...styles.questionReviewCard, borderLeftColor: status.color }}>
-                                      <div style={styles.questionReviewHeader}>
-                                        <span style={{ ...styles.questionNum, backgroundColor: status.color }}>{label}</span>
-                                        <span style={styles.questionStatus}>{status.label}</span>
-                                      </div>
-                                      <div style={styles.questionText}>{item.sentence || item.questionText || `Item ${itemIdx + 1}`}</div>
-                                      <div style={styles.answersCompare}>
-                                        <div style={styles.answerRow}>
-                                          <span style={styles.answerLabel}>Câu trả lời của bạn:</span>
-                                          <span style={{ ...styles.answerValue, color: status.text, backgroundColor: status.bg }}>
-                                            {result.userAnswer || '(Không trả lời)'}
-                                          </span>
-                                        </div>
-                                        {canShowCorrectAnswer(result) && (
-                                          <div style={styles.answerRow}>
-                                            <span style={styles.answerLabel}>Đáp án đúng:</span>
-                                            <span style={{ ...styles.answerValue, ...correctAnswerStyle }}>{result.correctAnswer}</span>
-                                          </div>
-                                        )}
-                                      </div>
-                                    </div>
-                                  );
-                                })}
-                              </React.Fragment>
-                            );
-                          }
-                          // look-read-write: key = {partIdx}-{secIdx}-g{groupIdx}-item{itemIdx}
-                          else if (sectionType === 'look-read-write' && Array.isArray(question.groups)) {
-                            const lrwCards = [];
-                            question.groups.forEach((group, groupIdx) => {
-                              (group.items || []).forEach((item, itemIdx) => {
-                                const key = `${partIdx}-${secIdx}-g${groupIdx}-item${itemIdx}`;
-                                const result = getDetailedResult(key) || {};
-                                const questionNum = questionNumberMap[key];
-                                const label = questionNum ? formatQuestionLabel(questionNum) : `${groupIdx + 1}.${itemIdx + 1}`;
-                                const status = getResultStatus(result);
-                                lrwCards.push(
-                                  <div key={key} style={{ ...styles.questionReviewCard, borderLeftColor: status.color }}>
-                                    <div style={styles.questionReviewHeader}>
-                                      <span style={{ ...styles.questionNum, backgroundColor: status.color }}>{label}</span>
-                                      <span style={styles.questionStatus}>{status.label}</span>
-                                    </div>
-                                    <div style={styles.questionText}>{item.sentence || item.questionText || `Group ${groupIdx + 1} item ${itemIdx + 1}`}</div>
-                                    <div style={styles.answersCompare}>
-                                      <div style={styles.answerRow}>
-                                        <span style={styles.answerLabel}>Câu trả lời của bạn:</span>
-                                        <span style={{ ...styles.answerValue, color: status.text, backgroundColor: status.bg }}>
-                                          {result.userAnswer || '(Không trả lời)'}
-                                        </span>
-                                      </div>
-                                      {canShowCorrectAnswer(result) && (
-                                        <div style={styles.answerRow}>
-                                          <span style={styles.answerLabel}>Đáp án đúng:</span>
-                                          <span style={{ ...styles.answerValue, ...correctAnswerStyle }}>{result.correctAnswer}</span>
-                                        </div>
-                                      )}
-                                    </div>
-                                  </div>
-                                );
-                              });
-                            });
-                            return <React.Fragment key={`lrw-${qIdx}`}>{lrwCards}</React.Fragment>;
-                          }
-                          // draw-lines (Movers Part 1): one card per name, skip example (idx 0)
-                          else if (
-                            (sectionType === 'draw-lines' || question.questionType === 'draw-lines' ||
-                             (question.anchors && Object.keys(question.anchors || {}).length > 0)) &&
-                            Array.isArray(question.leftItems) && question.leftItems.length > 1
-                          ) {
-                            const rows = [];
-                            for (let nameIdx = 1; nameIdx < question.leftItems.length; nameIdx++) {
-                              const name = String(question.leftItems[nameIdx] || '').trim();
-                              if (!name) continue;
-                              const key = `${partIdx}-${secIdx}-${qIdx}-${nameIdx}`;
-                              const result = getDetailedResult(key) || {};
-                              const questionNum = questionNumberMap[key];
-                              const label = questionNum ? formatQuestionLabel(questionNum) : String(nameIdx);
-                              const status = getResultStatus(result);
-                              rows.push(
-                                <div key={key} style={{ ...styles.questionReviewCard, borderLeftColor: status.color }}>
-                                  <div style={styles.questionReviewHeader}>
-                                    <span style={{ ...styles.questionNum, backgroundColor: status.color }}>{label}</span>
-                                    <span style={styles.questionStatus}>{status.label}</span>
-                                  </div>
-                                  <div style={styles.questionText}>{name}</div>
-                                  <div style={styles.answersCompare}>
-                                    <div style={styles.answerRow}>
-                                      <span style={styles.answerLabel}>Câu trả lời của bạn:</span>
-                                      <span style={{ ...styles.answerValue, color: status.text, backgroundColor: status.bg }}>
-                                        {result.userAnswer || '(Không trả lời)'}
-                                      </span>
-                                    </div>
-                                    {canShowCorrectAnswer(result) && (
-                                      <div style={styles.answerRow}>
-                                        <span style={styles.answerLabel}>Đáp án đúng:</span>
-                                        <span style={{ ...styles.answerValue, ...correctAnswerStyle }}>{result.correctAnswer}</span>
-                                      </div>
-                                    )}
-                                  </div>
-                                </div>
-                              );
-                            }
-                            return <React.Fragment key={`dl-${qIdx}`}>{rows}</React.Fragment>;
-                          }
-                          // letter-matching (Movers Part 3): one card per person, skip example (idx 0)
-                          else if (
-                            (sectionType === 'letter-matching' || question.questionType === 'letter-matching') &&
-                            Array.isArray(question.people) && question.people.length > 1
-                          ) {
-                            const rows = [];
-                            const options = Array.isArray(question.options) ? question.options : [];
-                            for (let pi = 1; pi < question.people.length; pi++) {
-                              const person = question.people[pi];
-                              if (!String(person?.name || '').trim()) continue;
-                              const key = `${partIdx}-${secIdx}-${qIdx}-${pi}`;
-                              const result = getDetailedResult(key) || {};
-                              const questionNum = questionNumberMap[key];
-                              const label = questionNum ? formatQuestionLabel(questionNum) : String(pi);
-                              const status = getResultStatus(result);
-                              const resolveOpt = (letter) => {
-                                const opt = options.find(o => o.letter === letter);
-                                return opt ? `${letter} – ${opt.text || opt.label || ''}` : letter;
-                              };
-                              rows.push(
-                                <div key={key} style={{ ...styles.questionReviewCard, borderLeftColor: status.color }}>
-                                  <div style={styles.questionReviewHeader}>
-                                    <span style={{ ...styles.questionNum, backgroundColor: status.color }}>{label}</span>
-                                    <span style={styles.questionStatus}>{status.label}</span>
-                                  </div>
-                                  <div style={styles.questionText}>{person.name}</div>
-                                  <div style={styles.answersCompare}>
-                                    <div style={styles.answerRow}>
-                                      <span style={styles.answerLabel}>Câu trả lời của bạn:</span>
-                                      <span style={{ ...styles.answerValue, color: status.text, backgroundColor: status.bg }}>
-                                        {result.userAnswer ? resolveOpt(result.userAnswer) : '(Không trả lời)'}
-                                      </span>
-                                    </div>
-                                    {canShowCorrectAnswer(result) && (
-                                      <div style={styles.answerRow}>
-                                        <span style={styles.answerLabel}>Đáp án đúng:</span>
-                                        <span style={{ ...styles.answerValue, ...correctAnswerStyle }}>{resolveOpt(result.correctAnswer)}</span>
-                                      </div>
-                                    )}
-                                  </div>
-                                </div>
-                              );
-                            }
-                            return <React.Fragment key={`lm-${qIdx}`}>{rows}</React.Fragment>;
-                          }
-                          // image-tick (Movers Part 4): show A/B/C answer
-                          else if (sectionType === 'image-tick' || question.questionType === 'image-tick') {
-                            const key = `${partIdx}-${secIdx}-${qIdx}`;
-                            const result = getDetailedResult(key) || {};
-                            const questionNum = questionNumberMap[key];
-                            const label = questionNum ? formatQuestionLabel(questionNum) : '?';
-                            const status = getResultStatus(result);
-                            return (
-                              <div key={qIdx} style={{ ...styles.questionReviewCard, borderLeftColor: status.color }}>
-                                <div style={styles.questionReviewHeader}>
-                                  <span style={{ ...styles.questionNum, backgroundColor: status.color }}>{label}</span>
-                                  <span style={styles.questionStatus}>{status.label}</span>
-                                </div>
-                                <div style={styles.questionText}>{question.questionText || ''}</div>
-                                <div style={styles.answersCompare}>
-                                  <div style={styles.answerRow}>
-                                    <span style={styles.answerLabel}>Câu trả lời của bạn:</span>
-                                    <span style={{ ...styles.answerValue, color: status.text, backgroundColor: status.bg }}>
-                                      {result.userAnswer || '(Không trả lời)'}
-                                    </span>
-                                  </div>
-                                  {canShowCorrectAnswer(result) && (
-                                    <div style={styles.answerRow}>
-                                      <span style={styles.answerLabel}>Đáp án đúng:</span>
-                                      <span style={{ ...styles.answerValue, ...correctAnswerStyle }}>{result.correctAnswer}</span>
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                            );
-                          }
-                          else if (sectionType === 'short-message' || sectionType === 'story-writing') {
-                            return renderLegacyWritingReviewCard({
-                              partIdx,
-                              secIdx,
-                              qIdx,
-                              question,
-                              sectionType,
-                            });
-                          }
-                          // Regular questions
-                          else {
-                            const key = `${partIdx}-${secIdx}-${qIdx}`;
-                            const result = getDetailedResult(key) || {};
-                            const questionNum = questionNumberMap[key];
-                            const label = questionNum ? formatQuestionLabel(questionNum) : '?';
-                            const status = getResultStatus(result);
-
-                            return (
-                              <div 
-                                key={qIdx} 
-                                style={{
-                                  ...styles.questionReviewCard,
-                                  borderLeftColor: status.color
-                                }}
-                              >
-                                <div style={styles.questionReviewHeader}>
-                                  <span style={{
-                                    ...styles.questionNum,
-                                    backgroundColor: status.color
-                                  }}>
-                                    {label}
-                                  </span>
-                                  <span style={styles.questionStatus}>
-                                    {status.label}
-                                  </span>
-                                </div>
-                                
-                                <div style={styles.questionText}>
-                                  {question.questionText || 'Question'}
-                                </div>
-
-                                <div style={styles.answersCompare}>
-                                  <div style={styles.answerRow}>
-                                    <span style={styles.answerLabel}>Câu trả lời của bạn:</span>
-                                    <span style={{
-                                      ...styles.answerValue,
-                                      color: status.text,
-                                      backgroundColor: status.bg
-                                    }}>
-                                      {result.userAnswer || '(Không trả lời)'}
-                                    </span>
-                                  </div>
-                                  {canShowCorrectAnswer(result) && (
-                                    <div style={styles.answerRow}>
-                                      <span style={styles.answerLabel}>Đáp án đúng:</span>
-                                      <span style={{
-                                        ...styles.answerValue,
-                                        color: '#166534',
-                                        backgroundColor: '#dcfce7'
-                                      }}>
-                                        {result.correctAnswer}
-                                      </span>
-                                    </div>
-                                  )}
-                                </div>
-
-                                {/* Show options for multiple choice */}
-                                {(question.questionType === 'abc' || question.questionType === 'abcd') && question.options && (
-                                  <div style={styles.optionsList}>
-                                    {question.options.map((opt, optIdx) => {
-                                      const optLabel = String.fromCharCode(65 + optIdx);
-                                      const isSelected = result.userAnswer === optLabel;
-                                      const isCorrectOpt = result.correctAnswer === optLabel;
-                                      
-                                      return (
-                                        <div 
-                                          key={optIdx}
-                                          style={{
-                                            ...styles.optionItem,
-                                              backgroundColor: isCorrectOpt
-                                                ? (isDarkMode ? '#0f2a1a' : '#dcfce7')
-                                                : (isSelected && !isCorrectOpt)
-                                                  ? (isDarkMode ? '#2a1515' : '#fee2e2')
-                                                  : (isDarkMode ? '#111827' : '#f8fafc'),
-                                              borderColor: isCorrectOpt
-                                                ? '#22c55e'
-                                                : (isSelected && !isCorrectOpt)
-                                                  ? '#ef4444'
-                                                  : (isDarkMode ? '#2a3350' : '#e5e7eb')
-                                          }}
-                                        >
-                                          <span style={styles.optionLabel}>{optLabel}.</span>
-                                          <span>{opt}</span>
-                                          {isCorrectOpt && <span style={styles.correctMark}><InlineIcon name="correct" size={14} /></span>}
-                                          {isSelected && !isCorrectOpt && <span style={styles.wrongMark}><InlineIcon name="wrong" size={14} /></span>}
-                                        </div>
-                                      );
-                                    })}
-                                  </div>
-                                )}
-                              </div>
-                            );
-                          }
-                        })}
-                      </div>
-                    );
-                    })}
-                  </div>
-                )}
-              </div>
-            ))}
-
             {/* Back to Overview */}
             <div style={styles.reviewActions}>
               <button 
                 onClick={() => setActiveTab('overview')} 
                 style={styles.secondaryButton}
               >
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
-                  <InlineIcon name="arrow-left" size={16} />
-                  <span>Back to Overview</span>
-                </span>
+                Back to Overview
               </button>
               <button 
                 onClick={() => navigate('/cambridge')} 
                 style={styles.primaryButton}
               >
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
-                  <InlineIcon name="tests" size={16} />
-                  <span>Choose Another Test</span>
-                </span>
+                Choose Another Test
               </button>
             </div>
           </div>
@@ -2253,7 +1299,7 @@ const createStyles = (isDarkMode = false, isCompactLayout = false) => {
       padding: isCompactLayout ? '14px 14px 16px' : '20px 24px',
     },
     headerContent: {
-      maxWidth: '1200px',
+      maxWidth: '100%',
       margin: '0 auto',
       display: 'flex',
       alignItems: isCompactLayout ? 'flex-start' : 'center',
@@ -2284,10 +1330,10 @@ const createStyles = (isDarkMode = false, isCompactLayout = false) => {
     tabContainer: {
       backgroundColor: colors.pageBg,
       borderBottom: `1px solid ${colors.border}`,
-      padding: isCompactLayout ? '0 12px' : '0 24px',
+      padding: '0 16px',
       display: 'flex',
       gap: '4px',
-      maxWidth: '1200px',
+      maxWidth: '100%',
       margin: '0 auto',
       overflowX: 'auto',
       scrollbarWidth: 'none',
@@ -2310,9 +1356,9 @@ const createStyles = (isDarkMode = false, isCompactLayout = false) => {
       borderBottomColor: colors.accent,
     },
     mainContent: {
-      maxWidth: '1200px',
+      maxWidth: '100%',
       margin: '0 auto',
-      padding: isCompactLayout ? '16px 12px 24px' : '24px',
+      padding: isCompactLayout ? '16px 12px 24px' : '30px 16px',
     },
 
     // Cloze-test (Part 5) passage styles

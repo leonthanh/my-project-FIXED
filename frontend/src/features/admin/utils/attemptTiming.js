@@ -35,7 +35,7 @@ export function getAttemptTimingMeta(expiresAtValue) {
 
   if (remaining > 0) {
     return {
-      label: `Còn ${formatClock(remaining)}`,
+      label: `${formatClock(remaining)} left`,
       color: "#1d4ed8",
     };
   }
@@ -48,7 +48,7 @@ export function getAttemptTimingMeta(expiresAtValue) {
   }
 
   return {
-    label: "Đã hết giờ",
+    label: "Time expired",
     color: "#b91c1c",
   };
 }
@@ -57,5 +57,5 @@ export function formatAttemptTimestamp(value) {
   if (!value) return "--";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "--";
-  return date.toLocaleString("vi-VN");
+  return date.toLocaleString("en-GB");
 }
