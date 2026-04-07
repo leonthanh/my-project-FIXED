@@ -414,8 +414,8 @@ const StudentNavbar = () => {
 
   const mobileDrawerTabs = [
     { key: "overview", label: "Overview" },
-    { key: "ielts", label: "IELTS" },
-    { key: "orange", label: "Cambridge" },
+    { key: "ielts", label: "IX" },
+    { key: "orange", label: "Orange" },
     {
       key: "feedback",
       label: `Feedback${totalNotifications > 0 ? ` (${totalNotifications})` : ""}`,
@@ -467,8 +467,8 @@ const StudentNavbar = () => {
       <div className="studentNavbar__mobileMenuBody studentNavbar__mobileMenuBody--compact">
         <div className="studentNavbar__mobileSectionTitle">Quick access</div>
         <div className="studentNavbar__mobileQuickGrid">
-          {renderMobileQuickLink("/select-test", "IELTS", "Open the IELTS test list", "tests")}
-          {renderMobileQuickLink("/cambridge", "Cambridge", "Open Cambridge-style practice tests", "cambridge")}
+          {renderMobileQuickLink("/select-test", "IX", "Open the IX test list", "tests")}
+          {renderMobileQuickLink("/cambridge", "Orange", "Open Orange practice tests", "cambridge")}
           {renderMobileQuickLink(
             "/my-feedback",
             "My Feedback",
@@ -503,16 +503,16 @@ const StudentNavbar = () => {
   const renderMobileIelts = () => (
     <>
       <div className="studentNavbar__mobileMenuTop">
-        <div className="studentNavbar__mobileMenuTitle">IELTS</div>
+        <div className="studentNavbar__mobileMenuTitle">IX</div>
         <div className="studentNavbar__mobileMenuHint">
-          Browse IELTS tests and return to the main test selection screen.
+          Browse IX tests and return to the main test selection screen.
         </div>
       </div>
       <div className="studentNavbar__mobileMenuBody studentNavbar__mobileMenuBody--compact">
         {renderMobileQuickLink(
           "/select-test",
-          "Open IELTS tests",
-          "Go back to the IELTS test listing page",
+          "Open IX tests",
+          "Go back to the IX test listing page",
           "tests"
         )}
       </div>
@@ -522,16 +522,16 @@ const StudentNavbar = () => {
   const renderMobileOrange = () => (
     <>
       <div className="studentNavbar__mobileMenuTop">
-        <div className="studentNavbar__mobileMenuTitle">Cambridge</div>
+        <div className="studentNavbar__mobileMenuTitle">Orange</div>
         <div className="studentNavbar__mobileMenuHint">
-          Jump to Cambridge-style reading, listening, and result pages.
+          Jump to Orange reading, listening, and result pages.
         </div>
       </div>
       <div className="studentNavbar__mobileMenuBody studentNavbar__mobileMenuBody--compact">
         {renderMobileQuickLink(
           "/cambridge",
-          "Open Cambridge tests",
-          "Go to the Cambridge practice test hub",
+          "Open Orange tests",
+          "Go to the Orange practice test hub",
           "cambridge"
         )}
       </div>
@@ -580,7 +580,7 @@ const StudentNavbar = () => {
         {renderMobileQuickLink(
           "/my-feedback",
           "Open My Feedback",
-          "Review all writing, reading, and Cambridge comments",
+          "Review all writing, reading, and Orange comments",
           "feedback"
         )}
       </div>
@@ -699,13 +699,13 @@ const StudentNavbar = () => {
             className="studentNavbar__logo"
           />
         </Link>
-        <Link to="/select-test" className="studentNavbar__link" title="IELTS">
+        <Link to="/select-test" className="studentNavbar__link" title="IX">
           <span className="studentNavbar__icon" aria-hidden="true"><NavIcon name="tests" /></span>
-          <span className="studentNavbar__label">IELTS</span>
+          <span className="studentNavbar__label">IX</span>
         </Link>
-        <Link to="/cambridge" className="studentNavbar__link" title="Cambridge">
+        <Link to="/cambridge" className="studentNavbar__link" title="Orange">
           <span className="studentNavbar__icon" aria-hidden="true"><NavIcon name="cambridge" /></span>
-          <span className="studentNavbar__label">Cambridge</span>
+          <span className="studentNavbar__label">Orange</span>
         </Link>
 
         <button
@@ -746,7 +746,7 @@ const StudentNavbar = () => {
                 onClick={() => setMoreDropdownVisible(false)}
               >
                 <span className="studentNavbar__menuItemIcon" aria-hidden="true"><NavIcon name="tests" /></span>
-                <span>IELTS</span>
+                <span>IX</span>
               </Link>
               <Link
                 to="/cambridge"
@@ -754,7 +754,7 @@ const StudentNavbar = () => {
                 onClick={() => setMoreDropdownVisible(false)}
               >
                 <span className="studentNavbar__menuItemIcon" aria-hidden="true"><NavIcon name="cambridge" /></span>
-                <span>Cambridge</span>
+                <span>Orange</span>
               </Link>
               <Link
                 to="/my-feedback"

@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import AdminNavbar from "../../../shared/components/AdminNavbar";
+import LineIcon from "../../../shared/components/LineIcon";
 import { apiPath, authFetch, hostPath } from "../../../shared/utils/api";
 import AttemptExtensionControls from "../components/AttemptExtensionControls";
 import SubmissionFilterPanel from "../components/SubmissionFilterPanel";
@@ -123,6 +124,24 @@ const sanitizePromptHtml = (rawPrompt = "") => {
     return escapeHtml(prompt).replace(/\n/g, "<br />");
   }
 };
+
+const InlineIcon = ({ name, size = 18, style }) => (
+  <span
+    style={{
+      display: "inline-flex",
+      alignItems: "center",
+      justifyContent: "center",
+      width: size,
+      height: size,
+      lineHeight: 0,
+      flex: "0 0 auto",
+      ...style,
+    }}
+    aria-hidden="true"
+  >
+    <LineIcon name={name} size={size} />
+  </span>
+);
 
 /**
  * CambridgeSubmissionsPage - Trang giáo viên xem danh sách bài làm Cambridge
@@ -448,7 +467,7 @@ const CambridgeSubmissionsPage = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           studentName: submission.studentName || 'N/A',
-          testType: submission.testType || 'Cambridge',
+          testType: submission.testType || 'Orange',
           classCode: submission.classCode || '',
           responses: pendingAnswers.map((item) => ({
             label: item.label,
@@ -461,11 +480,11 @@ const CambridgeSubmissionsPage = () => {
 
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data?.error || 'AI could not generate Cambridge feedback.');
+        throw new Error(data?.error || 'AI could not generate Orange feedback.');
       }
 
       if (!data?.suggestion) {
-        throw new Error('AI returned an empty Cambridge feedback result.');
+        throw new Error('AI returned an empty Orange feedback result.');
       }
 
       setFeedbackDraftById((prev) => ({
@@ -581,7 +600,8 @@ const CambridgeSubmissionsPage = () => {
     const level = testType?.split('-')[0]?.toUpperCase() || 'KET';
     
     return {
-      label: `${level} ${isListening ? '🎧' : '📖'}`,
+      iconName: isListening ? 'listening' : 'reading',
+      label: `${level} ${isListening ? 'Listening' : 'Reading'}`,
       color: isListening ? '#3b82f6' : '#8b5cf6',
       bgColor: isListening ? '#dbeafe' : '#ede9fe'
     };
@@ -620,7 +640,7 @@ const CambridgeSubmissionsPage = () => {
       alert(data?.message || "Đã gia hạn thời gian.");
       return true;
     } catch (err) {
-      alert(`❌ ${err.message}`);
+      alert(err.message);
       return false;
     } finally {
       setExtendingId(null);
@@ -817,7 +837,10 @@ const CambridgeSubmissionsPage = () => {
         {/* Error */}
         {error && (
           <div style={styles.errorContainer}>
-            <p>❌ {error}</p>
+            <p style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+              <InlineIcon name="error" size={16} />
+              <span>{error}</span>
+            </p>
             <button 
               onClick={() => window.location.reload()} 
               style={styles.retryButton}
@@ -875,6 +898,7 @@ const CambridgeSubmissionsPage = () => {
                                 backgroundColor: typeBadge.bgColor,
                                 color: typeBadge.color
                               }}>
+                                <InlineIcon name={typeBadge.iconName} size={15} />
                                 {typeBadge.label}
                               </span>
                             </td>
@@ -989,7 +1013,7 @@ const CambridgeSubmissionsPage = () => {
                                   style={styles.viewButton}
                                   className="admin-view-button"
                                 >
-                                  <span className="admin-view-button__icon">👁️</span>
+                                  <span className="admin-view-button__icon"><InlineIcon name="eye" size={15} /></span>
                                   <span className="admin-view-button__label">Xem</span>
                                 </button>
                                 {sub.finished === false && (
@@ -1028,7 +1052,8 @@ const CambridgeSubmissionsPage = () => {
                     ...(pagination.page === 1 && styles.pageButtonDisabled)
                   }}
                 >
-                  ← Trước
+                  <InlineIcon name="chevron-left" size={16} />
+                  <span>Trước</span>
                 </button>
                 <span style={styles.pageInfo}>
                   Trang {pagination.page} / {pagination.totalPages}
@@ -1041,7 +1066,8 @@ const CambridgeSubmissionsPage = () => {
                     ...(pagination.page === pagination.totalPages && styles.pageButtonDisabled)
                   }}
                 >
-                  Sau →
+                  <span>Sau</span>
+                  <InlineIcon name="chevron-right" size={16} />
                 </button>
               </div>
             )}
@@ -1053,7 +1079,7 @@ const CambridgeSubmissionsPage = () => {
             <aside style={styles.drawerPanel} onClick={(event) => event.stopPropagation()}>
               <div style={styles.drawerHeader}>
                 <div>
-                  <div style={styles.drawerEyebrow}>Cambridge Essay Review</div>
+                  <div style={styles.drawerEyebrow}>Orange Essay Review</div>
                   <h2 style={styles.drawerTitle}>{activeReviewSubmission.testTitle || 'Reading Submission'}</h2>
                   <div style={styles.drawerMetaRow}>
                     <span style={styles.drawerMetaChip}>{activeReviewSubmission.studentName || '--'}</span>
@@ -1067,7 +1093,7 @@ const CambridgeSubmissionsPage = () => {
                 </div>
 
                 <button onClick={closeEssayReview} style={styles.drawerCloseButton} aria-label="Close review drawer">
-                  ×
+                  <InlineIcon name="close" size={18} />
                 </button>
               </div>
 
@@ -1236,7 +1262,9 @@ const styles = {
     color: '#94a3b8',
   },
   badge: {
-    display: 'inline-block',
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '6px',
     padding: '4px 10px',
     borderRadius: '6px',
     fontSize: '12px',
@@ -1448,6 +1476,9 @@ const styles = {
     fontSize: '24px',
     lineHeight: 1,
     cursor: 'pointer',
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   drawerBody: {
     flex: 1,
@@ -1576,6 +1607,9 @@ const styles = {
     cursor: 'pointer',
     fontSize: '14px',
     fontWeight: 500,
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '8px',
   },
   pageButtonDisabled: {
     backgroundColor: '#94a3b8',

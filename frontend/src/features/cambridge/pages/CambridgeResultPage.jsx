@@ -1047,8 +1047,8 @@ const CambridgeResultPage = () => {
             ← Quay lại
           </button>
           <div>
-            <h1 style={styles.title}>📊 Kết quả bài thi</h1>
-            <p style={styles.subtitle}>{submission.testTitle || 'Cambridge Test'}</p>
+            <h1 style={styles.title}> Test Results</h1>
+            <p style={styles.subtitle}>{submission.testTitle || 'Orange Test'}</p>
           </div>
         </div>
       </div>

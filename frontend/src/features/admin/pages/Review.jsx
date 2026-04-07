@@ -161,7 +161,7 @@ const Review = () => {
         setCambridgeError(null);
         const res = await fetch(apiPath("cambridge/submissions?page=1&limit=100"));
         if (!res.ok) {
-          throw new Error("Could not load Cambridge submissions.");
+          throw new Error("Could not load Orange submissions.");
         }
 
         const data = await res.json();
@@ -302,7 +302,7 @@ const Review = () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           studentName: submission.studentName || "N/A",
-          testType: submission.testType || "Cambridge",
+          testType: submission.testType || "Orange",
           classCode: submission.classCode || "",
           responses: responses.map((item) => ({
             label: item.label,
@@ -315,11 +315,11 @@ const Review = () => {
 
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data?.error || "AI could not generate Cambridge feedback.");
+        throw new Error(data?.error || "AI could not generate Orange feedback.");
       }
 
       if (!data?.suggestion) {
-        throw new Error("AI returned an empty Cambridge feedback result.");
+        throw new Error("AI returned an empty Orange feedback result.");
       }
 
       setCambridgeFeedbackDraftById((prev) => ({
@@ -576,8 +576,8 @@ const Review = () => {
     },
     {
       key: "cambridge",
-      shortLabel: "Cambridge",
-      label: "Cambridge Review Queue",
+      shortLabel: "Orange",
+      label: "Orange Review Queue",
       badge: cambridgeNeedsReviewCount,
     },
   ];
@@ -1070,7 +1070,7 @@ const Review = () => {
         {activeTab === "cambridge" && (
           <>
             {loadingWriting && <p>Loading PET writing submissions...</p>}
-            {loadingCambridge && <p>Loading Cambridge submissions...</p>}
+            {loadingCambridge && <p>Loading Orange submissions...</p>}
             {!loadingCambridge && cambridgeError && (
               <p style={{ color: "#dc2626" }}>{cambridgeError}</p>
             )}
@@ -1080,8 +1080,8 @@ const Review = () => {
               filteredCambridgeRows.length === 0 && (
                 <p>
                   {mergedCambridgeRows.length === 0
-                    ? "No Cambridge submissions found."
-                    : "No Cambridge submissions match the current filters."}
+                    ? "No Orange submissions found."
+                    : "No Orange submissions match the current filters."}
                 </p>
               )}
 
@@ -1140,7 +1140,7 @@ const Review = () => {
                       <React.Fragment key={`cam-${sub.id}`}>
                         <tr style={{ borderBottom: "1px solid #ccc" }}>
                           <td style={cellStyle}>{idx + 1}</td>
-                          <td style={cellStyle}>{String(sub.testType || "Cambridge")}</td>
+                          <td style={cellStyle}>{String(sub.testType || "Orange")}</td>
                           <td style={cellStyle}>{sub.studentName || "N/A"}</td>
                           <td style={cellStyle}>{sub.studentPhone || "N/A"}</td>
                           <td style={cellStyle}>{sub.classCode || "N/A"}</td>
@@ -1240,7 +1240,7 @@ const Review = () => {
                       <div style={mobileCardHeaderStyle}>
                         <div style={mobileCardIndexStyle(isDarkMode)}>#{idx + 1}</div>
                         <div style={mobileCardTitleStyle(isDarkMode)}>
-                          {String(sub.testType || "Cambridge")}
+                          {String(sub.testType || "Orange")}
                         </div>
                       </div>
 

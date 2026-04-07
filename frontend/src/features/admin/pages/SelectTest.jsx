@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import StudentNavbar from "../../../shared/components/StudentNavbar";
 import AdminNavbar from "../../../shared/components/AdminNavbar";
+import LineIcon from "../../../shared/components/LineIcon";
 import { apiPath, hostPath } from "../../../shared/utils/api";
 import { canManageCategory } from "../../../shared/utils/permissions";
 import { TEST_CONFIGS } from "../../../shared/config/questionTypes";
@@ -9,6 +10,12 @@ import { TEST_CONFIGS } from "../../../shared/config/questionTypes";
 import "./SelectTest.css";
 // import Cambridge styles so we can reuse them for Orange platform
 import "../../cambridge/pages/SelectCambridgeTest.css";
+
+const SelectTestIcon = ({ name, size = 18, className }) => (
+  <span className={["select-test-inlineIcon", className].filter(Boolean).join(" ")} aria-hidden="true">
+    <LineIcon name={name} size={size} />
+  </span>
+);
 
 const SelectTest = () => {
   let user = null;
@@ -38,13 +45,13 @@ const SelectTest = () => {
   const location = useLocation();
 
   const orangeTypes = ["ket", "pet", "flyers", "movers", "starters"];
-  // map each orange type to the emoji used in student Cambridge page
+  // map each orange type to a shared SVG icon so this page matches the navbar language
   const orangeTypeIcons = {
-    ket: "🔑",
-    pet: "📘",
-    flyers: "✈️",
-    movers: "🚗",
-    starters: "⭐",
+    ket: "key",
+    pet: "pet",
+    flyers: "flyers",
+    movers: "movers",
+    starters: "starters",
   };
   const orangeTypeNames = {
     ket: "KET (A2 Key)",
@@ -93,7 +100,7 @@ const SelectTest = () => {
           cambridge: cambridgeWithWriting,
         });
       } catch (err) {
-        console.error("❌ Lỗi khi tải đề:", err);
+        console.error("Lỗi khi tải đề:", err);
         setTests({
           writing: [],
           reading: [],
@@ -140,7 +147,7 @@ const SelectTest = () => {
   const handleSelectWriting = (test) => {
     const numericId = parseInt(test.id, 10);
     if (!numericId || isNaN(numericId)) {
-      console.error("❌ Test ID không hợp lệ:", test?.id);
+      console.error("Test ID không hợp lệ:", test?.id);
       return;
     }
     if (test?.testType === "pet-writing") {
@@ -237,10 +244,10 @@ const SelectTest = () => {
   };
 
   const getTestIcon = (testType) => {
-    if (testType === "writing") return "📝";
-    if (testType === "reading") return "📖";
-    if (testType === "listening") return "🎧";
-    return "🏆";
+    if (testType === "writing") return "writing";
+    if (testType === "reading") return "reading";
+    if (testType === "listening") return "listening";
+    return "orange";
   };
 
   const filterAndSort = (list, testType) => {
@@ -332,15 +339,18 @@ const SelectTest = () => {
           {/* Tab Navigation */}
           <div className="select-test-tabs">
             {[
-              { key: "ix", label: "📚 IX" },
-              { key: "orange", label: "🍊 Orange" },
+              { key: "ix", label: "IX", iconName: "tests" },
+              { key: "orange", label: "Orange", iconName: "orange" },
             ].map((tab) => (
               <button
                 key={tab.key}
                 onClick={() => setActivePlatform(tab.key)}
                 className={`select-test-tab ${activePlatform === tab.key ? "active" : ""}`}
               >
-                {tab.label}
+                <span className="select-test-tabLabel">
+                  <SelectTestIcon name={tab.iconName} />
+                  <span>{tab.label}</span>
+                </span>
               </button>
             ))}
           </div>
@@ -353,7 +363,12 @@ const SelectTest = () => {
                   onClick={() => setActiveIxTab(tab)}
                   className={`select-test-tab select-test-subtab select-test-subtab--${tab} ${activeIxTab === tab ? "active" : ""}`}
                 >
-                  {tab === "writing" ? "📝 Writing" : tab === "reading" ? "📖 Reading" : "🎧 Listening"}
+                  <span className="select-test-tabLabel">
+                    <SelectTestIcon
+                      name={tab === "writing" ? "writing" : tab === "reading" ? "reading" : "listening"}
+                    />
+                    <span>{tab === "writing" ? "Writing" : tab === "reading" ? "Reading" : "Listening"}</span>
+                  </span>
                   <span className="select-test-subtab-count">{tests[tab]?.length ?? 0}</span>
                 </button>
               ))}
@@ -368,17 +383,20 @@ const SelectTest = () => {
                     onClick={() => setActiveOrangeType(type)}
                     className={`cambridge-type-btn cambridge-type-btn--${type}${activeOrangeType === type ? " cambridge-type-btn--active" : ""}`}
                   >
-                    {orangeTypeIcons[type] || ""} {orangeTypeNames[type] || type.toUpperCase()}
+                    <span className="select-test-tabLabel">
+                      <SelectTestIcon name={orangeTypeIcons[type]} />
+                      <span>{orangeTypeNames[type] || type.toUpperCase()}</span>
+                    </span>
                   </button>
                 ))}
               </div>
 
               <div className={`cambridge-tabs${activeOrangeType === "pet" ? " cambridge-tabs--three" : ""}`}>
                 {[
-                  { key: "listening", label: "🎧 Listening", count: orangeCounts.listening },
-                  { key: "reading", label: "📖 Reading", count: orangeCounts.reading },
+                  { key: "listening", label: "Listening", count: orangeCounts.listening, iconName: "listening" },
+                  { key: "reading", label: "Reading", count: orangeCounts.reading, iconName: "reading" },
                   ...(activeOrangeType === "pet"
-                    ? [{ key: "writing", label: "📝 Writing", count: orangeCounts.writing }]
+                    ? [{ key: "writing", label: "Writing", count: orangeCounts.writing, iconName: "writing" }]
                     : []),
                 ].map((skill) => (
                   <button
@@ -386,16 +404,18 @@ const SelectTest = () => {
                     onClick={() => setActiveOrangeTab(skill.key)}
                     className={`cambridge-tab${activeOrangeTab === skill.key ? " cambridge-tab--active" : ""}`}
                   >
-                    {skill.label} <span className="cambridge-tab__badge">{skill.count}</span>
+                    <span className="select-test-tabLabel">
+                      <SelectTestIcon name={skill.iconName} />
+                      <span>{skill.label}</span>
+                    </span>
+                    <span className="cambridge-tab__badge">{skill.count}</span>
                   </button>
                 ))}
               </div>
 
               {/* info box like student page */}
               <div className="cambridge-info">
-                <div className="cambridge-info__icon">
-                  {orangeTypeIcons[activeOrangeType] || ""}
-                </div>
+                <SelectTestIcon name={orangeTypeIcons[activeOrangeType]} size={28} className="cambridge-info__icon" />
                 <div>
                   <h3 className="cambridge-info__title">
                     {`${activeOrangeType.toUpperCase()} - ${
@@ -432,7 +452,10 @@ const SelectTest = () => {
 
           {/* Test List */}
           {loading ? (
-            <p className="select-test-loading">⏳ Đang tải đề...</p>
+            <p className="select-test-loading">
+              <SelectTestIcon name="loading" />
+              <span>Đang tải đề...</span>
+            </p>
           ) : activeList.length === 0 ? (
             <p className="select-test-empty">Chưa có đề thi loại này</p>
           ) : (
@@ -456,16 +479,16 @@ const SelectTest = () => {
                       const teacherName = test.teacherName || "N/A";
 
                       // decide icon and title depending on orange skill
-                      let iconForSkill = "🏆";
+                      let iconForSkill = "orange";
                       let displayTitle = "";
                       if (activeOrangeTab === "writing") {
-                        iconForSkill = "✍️";
+                        iconForSkill = "writing";
                         displayTitle = "Writing";
                       } else if (activeOrangeTab === "reading") {
-                        iconForSkill = "📖";
+                        iconForSkill = "reading";
                         displayTitle = "Reading";
                       } else if (activeOrangeTab === "listening") {
-                        iconForSkill = "🎧";
+                        iconForSkill = "listening";
                         displayTitle = "Listening";
                       }
 
@@ -481,15 +504,28 @@ const SelectTest = () => {
                               onClick={() => handleSelectCambridge(test)}
                             >
                               <div className="cambridge-test-main__content">
-                                <span className="cambridge-test-main__icon">
-                                  {iconForSkill}
-                                </span>
+                                <SelectTestIcon name={iconForSkill} size={22} className="cambridge-test-main__icon" />
                                 <div>
                                   <h3 className="cambridge-test-main__title">
                                     {displayTitle}
                                   </h3>
                                   <div className="cambridge-test-main__meta">
-                                    📚 {classCode} • 👨‍🏫 {teacherName} • 📊 {getOrangeConfig().totalQuestions || "?"} câu • ⏱️ {getOrangeConfig().duration || "?"} phút
+                                    <span className="cambridge-test-main__metaItem">
+                                      <SelectTestIcon name="class" size={16} />
+                                      <span>{classCode}</span>
+                                    </span>
+                                    <span className="cambridge-test-main__metaItem">
+                                      <SelectTestIcon name="teacher" size={16} />
+                                      <span>{teacherName}</span>
+                                    </span>
+                                    <span className="cambridge-test-main__metaItem">
+                                      <SelectTestIcon name="questions" size={16} />
+                                      <span>{getOrangeConfig().totalQuestions || "?"} câu</span>
+                                    </span>
+                                    <span className="cambridge-test-main__metaItem">
+                                      <SelectTestIcon name="clock" size={16} />
+                                      <span>{getOrangeConfig().duration || "?"} phút</span>
+                                    </span>
                                   </div>
                                 </div>
                               </div>
@@ -500,7 +536,8 @@ const SelectTest = () => {
                                 className="cambridge-btn cambridge-btn--warning"
                                 onClick={() => handleEdit(test.id, "cambridge", test)}
                               >
-                                ✏️ Sửa đề
+                                <SelectTestIcon name="edit" />
+                                <span>Sửa đề</span>
                               </button>
                             )}
                           </div>
@@ -530,7 +567,7 @@ const SelectTest = () => {
                           }}
                         >
                           <div className="select-test-cardTitle">
-                            <span className="select-test-cardIcon">{icon}</span>
+                            <SelectTestIcon name={icon} size={20} className="select-test-cardIcon" />
                             <span className="select-test-cardText">{title}</span>
                             <span className="select-test-cardNum">#{index + 1}</span>
                           </div>
@@ -539,7 +576,10 @@ const SelectTest = () => {
                             <div>
                               <span className="select-test-chip">{classCode}</span>
                             </div>
-                            <div className="select-test-cardTeacher">👨‍🏫 {teacherName}</div>
+                            <div className="select-test-cardTeacher">
+                              <SelectTestIcon name="teacher" size={16} />
+                              <span>{teacherName}</span>
+                            </div>
                           </div>
                         </button>
 
@@ -551,7 +591,8 @@ const SelectTest = () => {
                               handleEdit(test.id, activeIxTab, test);
                             }}
                           >
-                            ✏️ Sửa đề
+                            <SelectTestIcon name="edit" />
+                            <span>Sửa đề</span>
                           </button>
                         ) : null}
                       </div>
@@ -576,7 +617,8 @@ const SelectTest = () => {
             onClick={() => (window.location.href = "/my-feedback")}
             className="select-test-feedback"
           >
-            📄 Xem nhận xét
+            <SelectTestIcon name="feedback" />
+            <span>Xem nhận xét</span>
           </button>
         </div>
       </div>

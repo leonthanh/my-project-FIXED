@@ -548,8 +548,8 @@ const AdminNavbar = () => {
 
   const mobileDrawerTabs = [
     { key: "review", label: `Review${unreviewed.length > 0 ? ` (${unreviewed.length})` : ""}` },
-    { key: "ix", label: "IELTS" },
-    { key: "orange", label: "Cambridge" },
+    { key: "ix", label: "IX" },
+    { key: "orange", label: "Orange" },
     { key: "overview", label: "Overview" },
     ...(user?.role === "admin" ? [{ key: "admin", label: "Admin" }] : []),
   ];
@@ -666,7 +666,7 @@ const AdminNavbar = () => {
     return (
       <>
         <div className="adminNavbar__mobileMenuTop">
-          <div className="adminNavbar__mobileMenuTitle">Cambridge</div>
+          <div className="adminNavbar__mobileMenuTitle">Orange</div>
           <div className="adminNavbar__mobileMenuHint">
             Multi-level menu with horizontal groups for easier teacher navigation.
           </div>
@@ -730,7 +730,7 @@ const AdminNavbar = () => {
     return (
       <>
         <div className="adminNavbar__mobileMenuTop">
-          <div className="adminNavbar__mobileMenuTitle">IELTS</div>
+          <div className="adminNavbar__mobileMenuTitle">IX</div>
           <div className="adminNavbar__mobileMenuHint">
             Create and submissions are separated to keep the mobile menu cleaner.
           </div>
@@ -970,10 +970,10 @@ const AdminNavbar = () => {
           <span
             className="adminNavbar__link adminNavbar__dropdownToggle"
             onClick={() => setCambridgeDropdownVisible((prev) => !prev)}
-            title="Cambridge"
+            title="Orange"
           >
             <span className="adminNavbar__icon" aria-hidden="true"><NavIcon name="cambridge" /></span>
-            <span className="adminNavbar__label">Cambridge</span>
+            <span className="adminNavbar__label">Orange</span>
             <span className="adminNavbar__caret">▼</span>
           </span>
           {cambridgeDropdownVisible && (
@@ -992,10 +992,10 @@ const AdminNavbar = () => {
           <span
             className="adminNavbar__link adminNavbar__dropdownToggle"
             onClick={() => setSubmissionDropdownVisible((prev) => !prev)}
-            title="IELTS"
+            title="IX"
           >
             <span className="adminNavbar__icon" aria-hidden="true"><NavIcon name="tests" /></span>
-            <span className="adminNavbar__label">IELTS</span>
+            <span className="adminNavbar__label">IX</span>
             <span className="adminNavbar__caret">▼</span>
           </span>
           {submissionDropdownVisible && (

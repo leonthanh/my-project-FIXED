@@ -71,6 +71,27 @@
   justify-content: center;
 }
 
+.select-test-inlineIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  line-height: 0;
+}
+
+.select-test-inlineIcon svg {
+  width: 18px;
+  height: 18px;
+}
+
+.select-test-tabLabel {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-width: 0;
+}
+
 .select-test-tabs .select-test-tab:nth-child(1) {
   --tab-glow: rgba(37, 99, 235, 0.34);
 }
@@ -669,6 +690,13 @@
   padding: 18px 0;
 }
 
+.select-test-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
 .select-test-meta {
   display: flex;
   justify-content: space-between;
@@ -788,7 +816,13 @@
 }
 
 .select-test-cardIcon {
-  font-size: 20px;
+  width: 20px;
+  height: 20px;
+}
+
+.select-test-cardIcon svg {
+  width: 20px;
+  height: 20px;
 }
 
 .select-test-cardText {
@@ -836,6 +870,9 @@
 }
 
 .select-test-cardTeacher {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   color: #333;
   font-size: 14px;
 }
@@ -854,6 +891,10 @@
   cursor: pointer;
   font-size: 14px;
   font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
 }
 
 @media (max-width: 520px) {
@@ -894,6 +935,10 @@
   cursor: pointer;
   font-size: 16px;
   font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
 }
 
 @media (max-width: 520px) {
@@ -1024,6 +1069,52 @@ body.dark-mode .select-test-chip {
 
 body.dark-mode .select-test-cardTeacher {
   color: #c7c7c7;
+}
+
+.select-test-shell .cambridge-type-btn,
+.select-test-shell .cambridge-tab,
+.cambridge-test-main__icon,
+.cambridge-info__icon,
+.cambridge-btn--warning {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cambridge-test-main__icon {
+  width: 22px;
+  height: 22px;
+}
+
+.cambridge-test-main__icon svg {
+  width: 22px;
+  height: 22px;
+}
+
+.cambridge-info__icon {
+  width: 28px;
+  height: 28px;
+}
+
+.cambridge-info__icon svg {
+  width: 28px;
+  height: 28px;
+}
+
+.cambridge-test-main__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+}
+
+.cambridge-test-main__metaItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.cambridge-btn--warning {
+  gap: 8px;
 }
 
 body.dark-mode .select-test-loadMore {
