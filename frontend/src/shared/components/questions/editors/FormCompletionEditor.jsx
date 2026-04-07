@@ -180,9 +180,9 @@ const FormCompletionEditor = ({
         marginBottom: "16px",
         border: "1px solid #3b82f6",
       }}>
-        <strong style={{ color: "#1d4ed8" }}>📋 Form Builder - Format IELTS</strong>
+        <strong style={{ color: "#1d4ed8" }}>📋 Form Builder - IX Format</strong>
         <p style={{ margin: "8px 0 0", fontSize: "13px", color: "#1e40af" }}>
-          Tạo form theo format đề IELTS với: <b>Label</b> + <b>Prefix</b> + <b>[Blank/Value]</b> + <b>Suffix</b>
+          Tạo form theo format đề IX với: <b>Label</b> + <b>Prefix</b> + <b>[Blank/Value]</b> + <b>Suffix</b>
         </p>
       </div>
 

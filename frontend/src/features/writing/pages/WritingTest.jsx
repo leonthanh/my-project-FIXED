@@ -632,7 +632,7 @@ const WritingTest = () => {
         <div style={modalBox}>
           <div style={{ fontSize: 48, marginBottom: 12 }}>✍️</div>
           <h2 style={{ fontWeight: 700, marginBottom: 10 }}>
-            Bắt đầu bài viết IELTS
+            Bắt đầu bài viết IX
           </h2>
           <p style={{ fontSize: 16, marginBottom: 18 }}>
             Bạn có <b>60 phút</b> để làm cả Task 1 và Task 2.
@@ -666,9 +666,9 @@ const WritingTest = () => {
       <ExtensionToast message={extensionToast} />
       <header style={writingHeaderStyle}>
         <div style={writingHeaderLeft}>
-          <div style={writingBadge}>IELTS</div>
+          <div style={writingBadge}>IX</div>
           <span style={{ fontWeight: 600, fontSize: 18 }}>
-            IELTS - WRITING TEST
+            IX - WRITING TEST
           </span>
         </div>
         <div style={writingHeaderRight}>

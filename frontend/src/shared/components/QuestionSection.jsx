@@ -313,7 +313,7 @@ const QuestionSection = ({
                     <option value="cloze-test" title="Học sinh điền từ vào các chỗ trống nhúng trong đoạn văn (Cloze Test)">Cloze Test - Điền chỗ trống trong đoạn</option>
                     <option value="summary-completion" title="Hoàn thành đoạn tóm tắt bằng cách ghi chữ cái A-L tương ứng (Summary Completion)">Summary Completion - Complete the summary (A-L)</option>
                     <option value="paragraph-matching" title="Học sinh tìm thông tin ở đoạn A-G để trả lời câu hỏi">Tìm thông tin ở đoạn nào (A-G)</option>
-                    <option value="ielts-matching-headings" title="IELTS: Ghép mỗi đoạn văn (A-G) với 1 heading phù hợp (i-x)">🔗 IELTS Matching Headings</option>
+                    <option value="ielts-matching-headings" title="IX: Ghép mỗi đoạn văn (A-G) với 1 heading phù hợp (i-x)">🔗 IX Matching Headings</option>
                     <option value="sentence-completion" title="Học sinh hoàn thành câu bằng cách chọn từ từ danh sách gợi ý">Hoàn thành câu (chọn từ danh sách)</option>
                     <option value="short-answer" title="Học sinh viết câu trả lời ngắn (tối đa 3 từ)">Câu trả lời ngắn</option>
                   </select>
@@ -328,7 +328,7 @@ const QuestionSection = ({
                     {question.questionType === 'yes-no-not-given' && '✓ Học sinh chọn: Yes (có), No (không), hoặc Not Given (chưa đề cập)'}
                     {question.questionType === 'cloze-test' && '✓ Học sinh điền từ vào các chỗ trống nhúng trong đoạn văn (sử dụng [BLANK] để đánh dấu)'}
                     {question.questionType === 'paragraph-matching' && '✓ Học sinh tìm thông tin ở đoạn A-G để trả lời câu hỏi'}
-                    {question.questionType === 'ielts-matching-headings' && '✓ IELTS: Ghép mỗi đoạn văn (A-G) với 1 heading phù hợp (i-x). Có thể có headings dư.'}
+                    {question.questionType === 'ielts-matching-headings' && '✓ IX: Ghép mỗi đoạn văn (A-G) với 1 heading phù hợp (i-x). Có thể có headings dư.'}
                     {question.questionType === 'sentence-completion' && '✓ Học sinh hoàn thành câu bằng cách chọn từ từ danh sách gợi ý'}
                     {question.questionType === 'short-answer' && '✓ Học sinh viết câu trả lời ngắn (tối đa 3 từ)'}
                   </div>

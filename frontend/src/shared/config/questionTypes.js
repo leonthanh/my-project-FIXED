@@ -693,8 +693,8 @@ export const TEST_CONFIGS = {
   // IELTS Tests
   'ielts-listening': {
     id: 'ielts-listening',
-    name: 'IELTS Listening',
-    nameVi: 'IELTS Listening',
+    name: 'IX Listening',
+    nameVi: 'IX Listening',
     totalQuestions: 40,
     parts: 4,
     duration: 30, // minutes (+ 10 min transfer time)
@@ -720,8 +720,8 @@ export const TEST_CONFIGS = {
 
   'ielts-reading': {
     id: 'ielts-reading',
-    name: 'IELTS Reading',
-    nameVi: 'IELTS Reading',
+    name: 'IX Reading',
+    nameVi: 'IX Reading',
     totalQuestions: 40,
     parts: 3,
     duration: 60, // minutes
@@ -836,8 +836,8 @@ export const TEST_CONFIGS = {
   // Young Learners
   'flyers': {
     id: 'flyers',
-    name: 'Cambridge Flyers',
-    nameVi: 'Cambridge Flyers (A2)',
+    name: 'Orange Flyers',
+    nameVi: 'Orange Flyers (A2)',
     totalQuestions: 50,
     parts: 5,
     duration: 40, // minutes (reading & writing)
@@ -858,8 +858,8 @@ export const TEST_CONFIGS = {
 
   'movers': {
     id: 'movers',
-    name: 'Cambridge Movers',
-    nameVi: 'Cambridge Movers (A1)',
+    name: 'Orange Movers',
+    nameVi: 'Orange Movers (A1)',
     totalQuestions: 35,
     parts: 6,
     duration: 30, // minutes (reading & writing)
@@ -889,8 +889,8 @@ export const TEST_CONFIGS = {
 
   'movers-listening': {
     id: 'movers-listening',
-    name: 'Cambridge Movers Listening',
-    nameVi: 'Cambridge Movers Listening (A1)',
+    name: 'Orange Movers Listening',
+    nameVi: 'Orange Movers Listening (A1)',
     totalQuestions: 25,
     parts: 5,
     duration: 25, // minutes
@@ -911,8 +911,8 @@ export const TEST_CONFIGS = {
 
   'starters': {
     id: 'starters',
-    name: 'Cambridge Starters',
-    nameVi: 'Cambridge Starters (Pre-A1)',
+    name: 'Orange Starters',
+    nameVi: 'Orange Starters (Pre-A1)',
     totalQuestions: 25,
     parts: 5,
     duration: 20, // minutes (reading & writing)
@@ -1003,15 +1003,15 @@ export const getQuestionTypesByCategory = () => {
       types: ['fill', 'abc', 'abcd', 'matching', 'multi-select'],
     },
     ieltsListening: {
-      label: 'IELTS Listening',
+      label: 'IX Listening',
       types: ['form-completion', 'notes-completion', 'map-labeling', 'flowchart'],
     },
     ieltsReading: {
-      label: 'IELTS Reading',
+      label: 'IX Reading',
       types: ['true-false-not-given', 'yes-no-not-given', 'matching-headings', 'paragraph-matching', 'cloze-test', 'sentence-completion'],
     },
     cambridge: {
-      label: 'Cambridge (KET/PET)',
+      label: 'Orange (KET/PET)',
       types: ['sentence-transformation'],
     },
     youngLearners: {

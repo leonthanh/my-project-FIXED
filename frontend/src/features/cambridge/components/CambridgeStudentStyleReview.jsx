@@ -20,6 +20,9 @@ import '../pages/DoCambridgeReadingTest.css';
 
 const noop = () => {};
 const EMPTY_FLAGGED_QUESTIONS = new Set();
+const NO_ANSWER_TEXT = '(No answer)';
+const STUDENT_ANSWER_LABEL = 'Student answer';
+const CORRECT_ANSWER_LABEL = 'Correct answer';
 
 const styles = {
   wrapper: {
@@ -774,7 +777,7 @@ function getResultStatus(result) {
 
   if (result?.isCorrect === null && !isBlank) {
     return {
-      label: 'Chờ chấm',
+      label: 'Pending review',
       background: '#e0f2fe',
       color: '#075985',
       border: '#7dd3fc',
@@ -783,7 +786,7 @@ function getResultStatus(result) {
 
   if (result?.isCorrect === true) {
     return {
-      label: 'Đúng',
+      label: 'Correct',
       background: '#dcfce7',
       color: '#166534',
       border: '#22c55e',
@@ -792,7 +795,7 @@ function getResultStatus(result) {
 
   if (isBlank) {
     return {
-      label: 'Bỏ trống',
+      label: 'Blank',
       background: '#f1f5f9',
       color: '#475569',
       border: '#cbd5e1',
@@ -800,7 +803,7 @@ function getResultStatus(result) {
   }
 
   return {
-    label: 'Sai',
+    label: 'Wrong',
     background: '#fee2e2',
     color: '#991b1b',
     border: '#ef4444',
@@ -942,14 +945,14 @@ function PeopleMatchingReview({ question, partIdx, secIdx, sectionStart, answers
 
                 <div style={styles.reviewMeta}>
                   <div style={styles.answerLine}>
-                    <span style={styles.answerLabel}>Học sinh chọn</span>
+                    <span style={styles.answerLabel}>{STUDENT_ANSWER_LABEL}</span>
                     <span style={{ ...styles.answerValue, background: status.background, color: status.color, borderColor: status.border }}>
-                      {studentAnswer || '(Không trả lời)'}
+                      {studentAnswer || NO_ANSWER_TEXT}
                     </span>
                   </div>
                   {correctAnswer ? (
                     <div style={styles.answerLine}>
-                      <span style={styles.answerLabel}>Đáp án đúng</span>
+                      <span style={styles.answerLabel}>{CORRECT_ANSWER_LABEL}</span>
                       <span style={{ ...styles.answerValue, background: '#dcfce7', color: '#166534', borderColor: '#22c55e' }}>
                         {correctAnswer}
                       </span>
@@ -1014,14 +1017,14 @@ function GapMatchReview({ question, partIdx, secIdx, sectionStart, answers, deta
 
                 <div style={styles.reviewMeta}>
                   <div style={styles.answerLine}>
-                    <span style={styles.answerLabel}>Học sinh chọn</span>
+                    <span style={styles.answerLabel}>{STUDENT_ANSWER_LABEL}</span>
                     <span style={{ ...styles.answerValue, background: status.background, color: status.color, borderColor: status.border }}>
-                      {studentAnswer || '(Không trả lời)'}
+                      {studentAnswer || NO_ANSWER_TEXT}
                     </span>
                   </div>
                   {correctAnswer ? (
                     <div style={styles.answerLine}>
-                      <span style={styles.answerLabel}>Đáp án đúng</span>
+                      <span style={styles.answerLabel}>{CORRECT_ANSWER_LABEL}</span>
                       <span style={{ ...styles.answerValue, background: '#dcfce7', color: '#166534', borderColor: '#22c55e' }}>
                         {correctAnswer}
                       </span>
@@ -1077,14 +1080,14 @@ function DrawLinesReview({ part, question, partIdx, secIdx, sectionStart, answer
 
                 <div style={styles.reviewMeta}>
                   <div style={styles.answerLine}>
-                    <span style={styles.answerLabel}>Học sinh nối</span>
+                    <span style={styles.answerLabel}>Student match</span>
                     <span style={{ ...styles.answerValue, background: status.background, color: status.color, borderColor: status.border }}>
-                      {studentAnswer || '(Không trả lời)'}
+                      {studentAnswer || NO_ANSWER_TEXT}
                     </span>
                   </div>
                   {correctAnswer ? (
                     <div style={styles.answerLine}>
-                      <span style={styles.answerLabel}>Đúng</span>
+                      <span style={styles.answerLabel}>{CORRECT_ANSWER_LABEL}</span>
                       <span style={{ ...styles.answerValue, background: '#dcfce7', color: '#166534', borderColor: '#22c55e' }}>
                         {correctAnswer}
                       </span>
@@ -1116,7 +1119,7 @@ function DrawLinesReview({ part, question, partIdx, secIdx, sectionStart, answer
             ))}
           </div>
         ) : (
-          <div style={styles.unsupported}>Không có ảnh để hiển thị cho phần này.</div>
+          <div style={styles.unsupported}>No image is available for this part.</div>
         )}
       </div>
     </div>
@@ -1158,14 +1161,14 @@ function LetterMatchingReview({ question, partIdx, secIdx, sectionStart, answers
 
                 <div style={styles.reviewMeta}>
                   <div style={styles.answerLine}>
-                    <span style={styles.answerLabel}>Học sinh chọn</span>
+                    <span style={styles.answerLabel}>{STUDENT_ANSWER_LABEL}</span>
                     <span style={{ ...styles.answerValue, background: status.background, color: status.color, borderColor: status.border }}>
-                      {studentAnswer ? resolveOption(studentAnswer) : '(Không trả lời)'}
+                      {studentAnswer ? resolveOption(studentAnswer) : NO_ANSWER_TEXT}
                     </span>
                   </div>
                   {correctAnswer ? (
                     <div style={styles.answerLine}>
-                      <span style={styles.answerLabel}>Đáp án đúng</span>
+                      <span style={styles.answerLabel}>{CORRECT_ANSWER_LABEL}</span>
                       <span style={{ ...styles.answerValue, background: '#dcfce7', color: '#166534', borderColor: '#22c55e' }}>
                         {resolveOption(correctAnswer)}
                       </span>
@@ -1241,8 +1244,8 @@ function ImageTickReview({ section, partIdx, secIdx, sectionStart, answers, deta
                       ) : null}
                     </div>
                     <span style={styles.mcChoiceLetter}>{letter}</span>
-                    {isCorrect ? <span style={{ ...styles.statusChip, background: '#dcfce7', color: '#166534' }}>Đúng</span> : null}
-                    {isSelected && !isCorrect ? <span style={{ ...styles.statusChip, background: '#fee2e2', color: '#991b1b' }}>Học sinh chọn</span> : null}
+                    {isCorrect ? <span style={{ ...styles.statusChip, background: '#dcfce7', color: '#166534' }}>Correct</span> : null}
+                    {isSelected && !isCorrect ? <span style={{ ...styles.statusChip, background: '#fee2e2', color: '#991b1b' }}>Selected by student</span> : null}
                   </div>
                 );
               })}
@@ -1251,7 +1254,7 @@ function ImageTickReview({ section, partIdx, secIdx, sectionStart, answers, deta
             {correctAnswer && studentAnswer !== correctAnswer ? (
               <div style={{ marginTop: '12px' }}>
                 <div style={styles.answerLine}>
-                  <span style={styles.answerLabel}>Đáp án đúng</span>
+                  <span style={styles.answerLabel}>{CORRECT_ANSWER_LABEL}</span>
                   <span style={{ ...styles.answerValue, background: '#dcfce7', color: '#166534', borderColor: '#22c55e' }}>
                     {correctAnswer}
                   </span>
@@ -1312,8 +1315,8 @@ function MultipleChoicePicturesReview({ section, partIdx, secIdx, sectionStart, 
                     </div>
                     <span style={styles.mcChoiceLetter}>{letter}</span>
                     <div style={styles.pictureChoiceCaption}>{option?.label || ''}</div>
-                    {isCorrect ? <span style={{ ...styles.statusChip, background: '#dcfce7', color: '#166534' }}>Đáp án đúng</span> : null}
-                    {isSelected && !isCorrect ? <span style={{ ...styles.statusChip, background: '#fee2e2', color: '#991b1b' }}>Học sinh chọn</span> : null}
+                    {isCorrect ? <span style={{ ...styles.statusChip, background: '#dcfce7', color: '#166534' }}>Correct answer</span> : null}
+                    {isSelected && !isCorrect ? <span style={{ ...styles.statusChip, background: '#fee2e2', color: '#991b1b' }}>Selected by student</span> : null}
                   </div>
                 );
               })}
@@ -1397,8 +1400,8 @@ export default function CambridgeStudentStyleReview({ test, submission }) {
   if (!test?.parts || !Array.isArray(test.parts) || test.parts.length === 0) {
     return (
       <div style={styles.introCard}>
-        <h3 style={styles.introTitle}>Bản xem theo giao diện học sinh</h3>
-        <p style={styles.introText}>Chưa có dữ liệu đề gốc để dựng lại bài làm.</p>
+        <h3 style={styles.introTitle}>Student-style review</h3>
+        <p style={styles.introText}>The original test data is not available for this submission.</p>
       </div>
     );
   }
@@ -1406,22 +1409,22 @@ export default function CambridgeStudentStyleReview({ test, submission }) {
   return (
     <div style={styles.wrapper}>
       <div style={styles.introCard}>
-        <h3 style={styles.introTitle}>Giao diện bài làm gốc</h3>
+        <h3 style={styles.introTitle}>Original student layout</h3>
         <p style={styles.introText}>
-          Phần này dựng lại đề theo bố cục học sinh nhìn thấy lúc làm bài. Các ô chọn hoặc điền đã giữ nguyên câu trả lời của học sinh, và nhiều dạng câu sẽ hiện luôn đáp án đúng khi làm sai.
+          This view rebuilds the test in the same structure students saw during the attempt. Saved answers remain in place, and many question types also show the correct answer when the response was wrong.
         </p>
       </div>
 
       <div style={styles.reviewToolbar}>
         <div style={styles.reviewToolbarGroup}>
-          <span style={styles.introText}>Có thể thu gọn từng part để giáo viên ôn bài gọn hơn.</span>
+          <span style={styles.introText}>You can collapse each part to keep the teacher review more compact.</span>
         </div>
         <div style={styles.reviewToolbarGroup}>
           <button type="button" style={styles.toolbarButton} onClick={() => setAllPartsExpanded(true)}>
-            Mở tất cả part
+            Expand all parts
           </button>
           <button type="button" style={styles.toolbarButton} onClick={() => setAllPartsExpanded(false)}>
-            Thu gọn tất cả
+            Collapse all parts
           </button>
         </div>
       </div>
@@ -1433,8 +1436,8 @@ export default function CambridgeStudentStyleReview({ test, submission }) {
         const partQuestionCount = partRangeSections.reduce((sum, section) => sum + getQuestionCountForSection(section), 0);
         const partRangeLabel = Number.isFinite(firstNumber) && partQuestionCount > 0
           ? partQuestionCount === 1
-            ? `Câu ${firstNumber}`
-            : `Câu ${firstNumber}-${firstNumber + partQuestionCount - 1}`
+            ? `Question ${firstNumber}`
+            : `Questions ${firstNumber}-${firstNumber + partQuestionCount - 1}`
           : 'Writing';
         const integratedWriting = examType === 'MOVERS' && hasIntegratedLookReadWriteWriting(part);
         const visibleSections = (part.sections || []).filter((section) => {
@@ -1460,7 +1463,7 @@ export default function CambridgeStudentStyleReview({ test, submission }) {
               <div style={styles.partActions}>
                 <span style={styles.partRange}>{partRangeLabel}</span>
                 <button type="button" style={styles.partToggleButton} onClick={() => togglePart(partIdx)}>
-                  {isExpanded ? 'Thu gọn' : 'Mở rộng'}
+                  {isExpanded ? 'Collapse' : 'Expand'}
                 </button>
               </div>
             </div>
@@ -1475,7 +1478,7 @@ export default function CambridgeStudentStyleReview({ test, submission }) {
 
             {!isExpanded ? (
               <div style={styles.collapsedNote}>
-                Part này đang được thu gọn. Bấm “Mở rộng” để xem lại giao diện bài làm và đáp án đúng.
+                This part is collapsed. Select Expand to reopen the student layout and answer review.
               </div>
             ) : (part.sections || []).map((section, secIdx) => {
               const sectionType = getSectionType(section);
@@ -1486,8 +1489,8 @@ export default function CambridgeStudentStyleReview({ test, submission }) {
               const questionCount = getQuestionCountForSection(section);
               const rangeLabel = questionCount > 0
                 ? questionCount === 1
-                  ? `Câu ${sectionStart}`
-                  : `Câu ${sectionStart}-${sectionStart + questionCount - 1}`
+                  ? `Question ${sectionStart}`
+                  : `Questions ${sectionStart}-${sectionStart + questionCount - 1}`
                 : 'Writing task';
 
               let questionCursor = sectionStart;
@@ -1892,7 +1895,7 @@ export default function CambridgeStudentStyleReview({ test, submission }) {
 
                 return (
                   <div key={`${partIdx}-${secIdx}-${qIdx}`} style={styles.unsupported}>
-                    Chưa có renderer giao diện học sinh cho dạng câu <strong>{sectionType || 'unknown'}</strong>. Giáo viên vẫn có thể mở bảng đối chiếu chi tiết bên dưới để xem từng câu trả lời.
+                    A student-style renderer is not available yet for <strong>{sectionType || 'unknown'}</strong>. Teachers can still use the standard review information shown for this section.
                   </div>
                 );
               });

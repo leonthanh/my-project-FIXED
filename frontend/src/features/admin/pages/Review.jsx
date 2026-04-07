@@ -397,7 +397,7 @@ const Review = () => {
 
   const formatDateTime = (value) => {
     const date = new Date(value);
-    return Number.isNaN(date.getTime()) ? "N/A" : date.toLocaleString();
+    return Number.isNaN(date.getTime()) ? "N/A" : date.toLocaleString("en-GB");
   };
 
   const getReviewStatus = (submission) => {
@@ -886,27 +886,30 @@ const Review = () => {
   return (
     <>
       <AdminNavbar />
-      <div className="admin-page">
+      <div
+        className="admin-page admin-submission-page"
+        style={{ maxWidth: "100%", width: "100%", margin: "0 auto", padding: "30px 16px" }}
+      >
         <div
           style={{
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
-            marginTop: 20,
+            marginTop: 0,
           }}
           className="admin-header-row"
         >
           <h3 style={{ margin: 0 }}>Review Queue</h3>
         </div>
 
-        <div style={{ marginTop: 14 }}>
+        <div style={{ width: "100%", maxWidth: 760, margin: "14px auto 0" }}>
           <SubmissionTypeTabs
             title={null}
             items={reviewTabs}
             activeKey={activeTab}
             onSelect={setActiveTab}
             allowMobileWrap
-            buttonFlex="0 1 170px"
+            buttonFlex="1 1 0"
           />
         </div>
 
@@ -949,7 +952,7 @@ const Review = () => {
                           {writingTest.teacherName ? ` - ${writingTest.teacherName}` : ""}
                         </td>
                         <td style={cellStyle}>
-                          {new Date(sub.submittedAt || sub.createdAt).toLocaleString()}
+                          {formatDateTime(sub.submittedAt || sub.createdAt)}
                         </td>
                         <td style={cellStyle}>
                           <button
@@ -1115,7 +1118,7 @@ const Review = () => {
                           <td style={cellStyle}>{writingTest.classCode || "N/A"}</td>
                           <td style={cellStyle}>--</td>
                           <td style={cellStyle}>
-                            {new Date(sub.submittedAt || sub.createdAt).toLocaleString()}
+                            {formatDateTime(sub.submittedAt || sub.createdAt)}
                           </td>
                           <td style={cellStyle}>--</td>
                           <td style={cellStyle}>
@@ -1151,7 +1154,7 @@ const Review = () => {
                               : "--"}
                           </td>
                           <td style={cellStyle}>
-                            {new Date(sub.submittedAt).toLocaleString()}
+                            {formatDateTime(sub.submittedAt)}
                           </td>
                           <td style={cellStyle}>
                             <button

@@ -19,13 +19,13 @@ const CreateCambridgeTest = () => {
       <>
         <AdminNavbar />
         <div style={{ padding: 40, maxWidth: 900, margin: "0 auto" }}>
-          <h2>❌ Không tìm thấy loại đề Cambridge</h2>
+          <h2>Orange test type not found</h2>
           <p>
-            Đường dẫn hiện tại: <strong>/admin/create-{normalizedTestType || ""}</strong>
+            Current path: <strong>/admin/create-{normalizedTestType || ""}</strong>
           </p>
-          <p>Loại đề hợp lệ phải nằm trong cấu hình TEST_CONFIGS (vd: ket-reading, pet-listening...).</p>
+          <p>Valid test types must exist in TEST_CONFIGS (for example: ket-reading, pet-listening).</p>
           <p>
-            Quay lại <Link to="/cambridge">/cambridge</Link>
+            Back to <Link to="/cambridge">/cambridge</Link>
           </p>
         </div>
       </>

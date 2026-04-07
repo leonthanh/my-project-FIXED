@@ -2,6 +2,7 @@ import React, { useEffect, useState, useMemo } from "react";
 import { useLocation, useParams, useNavigate, Link } from "react-router-dom";
 import { apiPath, getStoredUser } from "../../../shared/utils/api";
 import { isAdmin, isTeacher } from "../../../shared/utils/permissions";
+import AdminNavbar from "../../../shared/components/AdminNavbar";
 import ListeningStudentStyleReview from "../components/ListeningStudentStyleReview";
 import LineIcon from "../../../shared/components/LineIcon";
 
@@ -1186,14 +1187,17 @@ const ListeningResults = () => {
   // Loading state
   if (loading) {
     return (
-      <div style={{ ...styles.container, display: "flex", justifyContent: "center", alignItems: "center" }}>
-        <div style={{ textAlign: "center" }}>
-          <div style={{ marginBottom: "16px", display: "inline-flex", color: "#3b82f6" }}>
-            <InlineIcon name="loading" size={48} />
+      <>
+        {canViewDetailedReview && <AdminNavbar />}
+        <div style={{ ...styles.container, display: "flex", justifyContent: "center", alignItems: "center" }}>
+          <div style={{ textAlign: "center" }}>
+            <div style={{ marginBottom: "16px", display: "inline-flex", color: "#3b82f6" }}>
+              <InlineIcon name="loading" size={48} />
+            </div>
+            <p style={{ color: "#64748b" }}>Loading results...</p>
           </div>
-          <p style={{ color: "#64748b" }}>Đang tải kết quả...</p>
         </div>
-      </div>
+      </>
     );
   }
 
@@ -1227,28 +1231,30 @@ const ListeningResults = () => {
 
   const getDetailStatus = (detail) => {
     if (detail?.isCorrect) {
-      return { label: "Đúng", bg: legendColors.correct, text: "#166534" };
+      return { label: "Correct", bg: legendColors.correct, text: "#166534" };
     }
     if (!hasDetailAnswer(detail)) {
-      return { label: "Bỏ trống", bg: legendColors.blank, text: "#64748b" };
+      return { label: "Blank", bg: legendColors.blank, text: "#64748b" };
     }
-    return { label: "Sai", bg: legendColors.wrong, text: "#991b1b" };
+    return { label: "Wrong", bg: legendColors.wrong, text: "#991b1b" };
   };
 
   const retryTestId = test?.id || submission?.testId || id;
   const submittedAt = submission?.submittedAt || submission?.createdAt;
 
   return (
-    <div style={styles.container}>
+    <>
+      {canViewDetailedReview && <AdminNavbar />}
+      <div style={styles.container}>
       {/* Header */}
       <div style={styles.header}>
         <h1 style={{ ...styles.title, display: "flex", alignItems: "center", gap: "10px" }}>
           <InlineIcon name="listening" size={22} />
-          <span>Kết quả Listening Test</span>
+          <span>Listening Test Results</span>
         </h1>
         <button style={styles.backBtn} onClick={() => navigate(-1)}>
           <InlineIcon name="arrow-left" size={16} />
-          <span>Quay lại</span>
+          <span>Back</span>
         </button>
       </div>
 
@@ -1263,7 +1269,7 @@ const ListeningResults = () => {
             }}
           >
             <InlineIcon name="overview" size={16} />
-            <span>Tổng quan</span>
+            <span>Overview</span>
           </button>
           <button
             type="button"
@@ -1274,7 +1280,7 @@ const ListeningResults = () => {
             }}
           >
             <InlineIcon name="review" size={16} />
-            <span>Chi tiết từng câu</span>
+            <span>Question Review</span>
           </button>
         </div>
       )}
@@ -1283,28 +1289,28 @@ const ListeningResults = () => {
       {activeTab === "overview" && test && (
         <div style={styles.metaGrid}>
           <div style={styles.metaItem}>
-            <span style={styles.metaLabel}><InlineIcon name="tests" size={15} />Bài test:</span>
+            <span style={styles.metaLabel}><InlineIcon name="tests" size={15} />Test:</span>
             <span style={styles.metaValue}>{test.title || `Listening Test #${test.id || submission?.testId || ""}`}</span>
           </div>
           <div style={styles.metaItem}>
-            <span style={styles.metaLabel}><InlineIcon name="class" size={15} />Mã lớp:</span>
+            <span style={styles.metaLabel}><InlineIcon name="class" size={15} />Class Code:</span>
             <span style={styles.metaValue}>{test.classCode || "N/A"}</span>
           </div>
           <div style={styles.metaItem}>
-            <span style={styles.metaLabel}><InlineIcon name="teacher" size={15} />Giáo viên:</span>
+            <span style={styles.metaLabel}><InlineIcon name="teacher" size={15} />Teacher:</span>
             <span style={styles.metaValue}>{test.teacherName || "N/A"}</span>
           </div>
           {submission?.userName && (
             <div style={styles.metaItem}>
-              <span style={styles.metaLabel}><InlineIcon name="student" size={15} />Học sinh:</span>
+              <span style={styles.metaLabel}><InlineIcon name="student" size={15} />Student:</span>
               <span style={styles.metaValue}>{submission.userName}</span>
             </div>
           )}
           {submittedAt && (
             <div style={styles.metaItem}>
-              <span style={styles.metaLabel}><InlineIcon name="calendar" size={15} />Ngày nộp:</span>
+              <span style={styles.metaLabel}><InlineIcon name="calendar" size={15} />Submitted:</span>
               <span style={styles.metaValue}>
-                {new Date(submittedAt).toLocaleString("vi-VN")}
+                {new Date(submittedAt).toLocaleString("en-GB")}
               </span>
             </div>
           )}
@@ -1316,7 +1322,7 @@ const ListeningResults = () => {
           <div style={styles.feedbackHeader}>
             <strong style={{ display: "inline-flex", alignItems: "center", gap: "8px" }}>
               <InlineIcon name="feedback" size={16} />
-              <span>Nhận xét giáo viên</span>
+              <span>Teacher Feedback</span>
             </strong>
             {submission.feedbackBy && (
               <span style={{ color: "#92400e" }}>({submission.feedbackBy})</span>
@@ -1348,7 +1354,7 @@ const ListeningResults = () => {
               {scorePercentage}%
             </div>
           </div>
-          <div style={styles.cardLabel}>Tỷ lệ đúng</div>
+          <div style={styles.cardLabel}>Accuracy</div>
         </div>
 
         {/* Band Score */}
@@ -1374,13 +1380,13 @@ const ListeningResults = () => {
             {correct}
             <span style={{ fontSize: "1rem", color: "#64748b" }}>/{total}</span>
           </div>
-          <div style={styles.cardLabel}>Câu đúng</div>
+          <div style={styles.cardLabel}>Correct Answers</div>
         </div>
 
         {/* Wrong Count */}
         <div style={styles.summaryCard}>
           <div style={{ ...styles.cardValue, color: "#ef4444" }}>{wrongCount}</div>
-          <div style={styles.cardLabel}>Câu sai</div>
+          <div style={styles.cardLabel}>Wrong Answers</div>
         </div>
       </div>
 
@@ -1389,7 +1395,7 @@ const ListeningResults = () => {
         <div style={styles.analysisSection}>
           <h3 style={styles.sectionTitle}>
             <InlineIcon name="overview" size={18} />
-            <span>Phân tích theo Part</span>
+            <span>Part Analysis</span>
           </h3>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "12px" }}>
             {partAnalysis.map((p) => (
@@ -1418,9 +1424,9 @@ const ListeningResults = () => {
       {canViewDetailedReview && details.length > 0 && (
         <div style={styles.reviewPromptCard}>
           <div>
-            <div style={styles.reviewPromptTitle}>Giáo viên có thể mở chi tiết từng câu</div>
+            <div style={styles.reviewPromptTitle}>Open the question-by-question review</div>
             <p style={styles.reviewPromptText}>
-              Mở chế độ review để xem lại từng câu trả lời của học sinh theo đúng thứ tự bài làm, tiện giảng lại và đối chiếu ngay trên lớp.
+              Review each answer in the original order so teachers can explain mistakes and compare responses during class.
             </p>
           </div>
           <button
@@ -1429,7 +1435,7 @@ const ListeningResults = () => {
             onClick={() => setActiveTab("review")}
           >
             <InlineIcon name="review" size={16} />
-            <span>Xem chi tiết từng câu</span>
+            <span>Open Question Review</span>
           </button>
         </div>
       )}
@@ -1440,7 +1446,7 @@ const ListeningResults = () => {
       {canViewDetailedReview && activeTab === "review" && details.length > 0 && (
         <>
         <div style={styles.questionSummary}>
-          <h3 style={styles.sectionTitle}>Tóm tắt kết quả từng câu</h3>
+          <h3 style={styles.sectionTitle}>Question-by-question Summary</h3>
           <div style={styles.questionGrid}>
             {details.map((detail, idx) => {
               const status = getDetailStatus(detail);
@@ -1460,9 +1466,9 @@ const ListeningResults = () => {
             })}
           </div>
           <div style={styles.legendRow}>
-            <span style={styles.legendItem}><span style={{ ...styles.legendDot, backgroundColor: legendColors.correct }}></span> Đúng</span>
-            <span style={styles.legendItem}><span style={{ ...styles.legendDot, backgroundColor: legendColors.wrong }}></span> Sai</span>
-            <span style={styles.legendItem}><span style={{ ...styles.legendDot, backgroundColor: legendColors.blank }}></span> Bỏ trống</span>
+            <span style={styles.legendItem}><span style={{ ...styles.legendDot, backgroundColor: legendColors.correct }}></span> Correct</span>
+            <span style={styles.legendItem}><span style={{ ...styles.legendDot, backgroundColor: legendColors.wrong }}></span> Wrong</span>
+            <span style={styles.legendItem}><span style={{ ...styles.legendDot, backgroundColor: legendColors.blank }}></span> Blank</span>
           </div>
         </div>
 
@@ -1475,9 +1481,9 @@ const ListeningResults = () => {
         ) : (
           <div style={styles.reviewPromptCard}>
             <div>
-              <div style={styles.reviewPromptTitle}>Chưa dựng lại được giao diện làm bài gốc</div>
+              <div style={styles.reviewPromptTitle}>The original test view is not ready</div>
               <p style={styles.reviewPromptText}>
-                Dữ liệu test hoặc submission gốc chưa sẵn sàng, nên trang hiện tạm bảng đối chiếu chi tiết bên dưới.
+                The source test or submission payload is incomplete, so the page is showing the fallback comparison table below.
               </p>
             </div>
           </div>
@@ -1487,7 +1493,7 @@ const ListeningResults = () => {
           <div style={styles.subSectionHeader}>
             <h3 style={{ ...styles.sectionTitle, margin: 0 }}>
               <InlineIcon name="review" size={18} />
-              <span>Chi tiết đáp án</span>
+              <span>Answer Details</span>
             </h3>
             <div style={{ display: "flex", gap: "12px", alignItems: "center", flexWrap: "wrap" }}>
               <button
@@ -1495,7 +1501,7 @@ const ListeningResults = () => {
                 style={{ ...styles.actionBtn, ...styles.secondaryBtn, padding: "8px 14px" }}
                 onClick={() => setShowLegacyTable((prev) => !prev)}
               >
-                {showLegacyTable ? "Ẩn bảng đối chiếu" : "Hiện bảng đối chiếu"}
+                {showLegacyTable ? "Hide Comparison Table" : "Show Comparison Table"}
               </button>
               <div style={styles.filterBar}>
               <button
@@ -1505,7 +1511,7 @@ const ListeningResults = () => {
                 }}
                 onClick={() => setFilter("all")}
               >
-                Tất cả ({details.length})
+                All ({details.length})
               </button>
               <button
                 style={{
@@ -1515,7 +1521,7 @@ const ListeningResults = () => {
                 onClick={() => setFilter("correct")}
               >
                 <InlineIcon name="correct" size={15} />
-                <span>Đúng ({details.filter((d) => d.isCorrect).length})</span>
+                <span>Correct ({details.filter((d) => d.isCorrect).length})</span>
               </button>
               <button
                 style={{
@@ -1525,7 +1531,7 @@ const ListeningResults = () => {
                 onClick={() => setFilter("wrong")}
               >
                 <InlineIcon name="wrong" size={15} />
-                <span>Sai ({wrongCount})</span>
+                <span>Wrong ({wrongCount})</span>
               </button>
             </div>
             </div>
@@ -1548,7 +1554,7 @@ const ListeningResults = () => {
                   <div style={styles.partHeader} onClick={() => togglePart(part)}>
                     <span style={{ display: "inline-flex", alignItems: "center", gap: "8px" }}>
                       <InlineIcon name="listening" size={16} />
-                      <span>{part} ({partCorrect}/{items.length} đúng)</span>
+                      <span>{part} ({partCorrect}/{items.length} correct)</span>
                     </span>
                     <InlineIcon name={collapsedParts[part] ? "chevron-right" : "chevron-down"} size={16} />
                   </div>
@@ -1556,10 +1562,10 @@ const ListeningResults = () => {
                     <table style={styles.table}>
                       <thead>
                         <tr>
-                          <th style={styles.th}>Câu</th>
-                          <th style={styles.th}>Đáp án đúng</th>
-                          <th style={styles.th}>Bạn trả lời</th>
-                          <th style={styles.th}>Kết quả</th>
+                          <th style={styles.th}>Question</th>
+                          <th style={styles.th}>Correct Answer</th>
+                          <th style={styles.th}>Your Answer</th>
+                          <th style={styles.th}>Result</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -1573,7 +1579,7 @@ const ListeningResults = () => {
                             </td>
                             <td style={styles.td}>
                               <span style={{ color: r.isCorrect ? "#166534" : "#991b1b", fontWeight: 500 }}>
-                                {r.studentAnswer || <em style={{ color: "#94a3b8" }}>Bỏ trống</em>}
+                                {r.studentAnswer || <em style={{ color: "#94a3b8" }}>No answer</em>}
                               </span>
                             </td>
                             <td style={styles.td}>
@@ -1595,11 +1601,11 @@ const ListeningResults = () => {
             <table style={styles.table}>
               <thead>
                 <tr>
-                  <th style={styles.th}>Câu</th>
+                  <th style={styles.th}>Question</th>
                   <th style={styles.th}>Part</th>
-                  <th style={styles.th}>Đáp án đúng</th>
-                  <th style={styles.th}>Bạn trả lời</th>
-                  <th style={styles.th}>Kết quả</th>
+                  <th style={styles.th}>Correct Answer</th>
+                  <th style={styles.th}>Your Answer</th>
+                  <th style={styles.th}>Result</th>
                 </tr>
               </thead>
               <tbody>
@@ -1616,7 +1622,7 @@ const ListeningResults = () => {
                     </td>
                     <td style={styles.td}>
                       <span style={{ color: r.isCorrect ? "#166534" : "#991b1b", fontWeight: 500 }}>
-                        {r.studentAnswer || <em style={{ color: "#94a3b8" }}>Bỏ trống</em>}
+                        {r.studentAnswer || <em style={{ color: "#94a3b8" }}>No answer</em>}
                       </span>
                     </td>
                     <td style={styles.td}>
@@ -1645,7 +1651,7 @@ const ListeningResults = () => {
             onClick={() => setActiveTab("overview")}
           >
             <InlineIcon name="arrow-left" size={16} />
-            <span>Quay lại tổng quan</span>
+            <span>Back to Overview</span>
           </button>
         )}
         <button
@@ -1653,23 +1659,24 @@ const ListeningResults = () => {
           onClick={() => navigate(`/listening/${retryTestId}`)}
         >
           <InlineIcon name="retry" size={16} />
-          <span>Làm lại bài này</span>
+          <span>Retake This Test</span>
         </button>
         <button
           style={{ ...styles.actionBtn, ...styles.secondaryBtn }}
           onClick={() => navigate("/select-test")}
         >
           <InlineIcon name="tests" size={16} />
-          <span>Chọn bài khác</span>
+          <span>Choose Another Test</span>
         </button>
         <Link to="/" style={{ textDecoration: "none" }}>
           <button style={{ ...styles.actionBtn, ...styles.secondaryBtn }}>
             <InlineIcon name="home" size={16} />
-            <span>Về trang chủ</span>
+            <span>Home</span>
           </button>
         </Link>
       </div>
-    </div>
+      </div>
+    </>
   );
 };
 

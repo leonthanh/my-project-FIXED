@@ -332,7 +332,7 @@ const ClozeTestQuestion = ({ question, onChange }) => {
       <div style={styles.header}>
         <span style={styles.headerIcon}>📄</span>
         <h4 style={styles.headerTitle}>Cloze Test (Điền chỗ trống trong đoạn văn)</h4>
-        <span style={styles.headerBadge}>IELTS Reading/Listening</span>
+        <span style={styles.headerBadge}>IX Reading/Listening</span>
       </div>
 
       {/* Input Mode */}

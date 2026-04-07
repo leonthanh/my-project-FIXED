@@ -36,10 +36,11 @@ const SubmissionTypeTabs = ({
   const { isDarkMode } = useTheme();
 
   return (
-    <div className="admin-submission-switcher-block">
+    <div className="admin-submission-switcher-block" style={{ width: "100%" }}>
       {title ? <div className="admin-submission-switcher__title">{title}</div> : null}
       <div
         className={`admin-submission-switcher${allowMobileWrap ? " admin-submission-switcher--wrap-mobile" : ""}`}
+        style={{ width: "100%" }}
       >
         {items.map((item) => {
           const isActive = item.key === activeKey;
@@ -67,6 +68,8 @@ const SubmissionTypeTabs = ({
               }}
               style={{
                 flex: buttonFlex,
+                width: "auto",
+                maxWidth: "100%",
                 minWidth: 0,
                 padding: "11px 14px",
                 borderRadius: 12,

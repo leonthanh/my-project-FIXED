@@ -393,7 +393,7 @@ const IELTSMatchingHeadingsQuestion = ({
       {/* Header */}
       <div style={styles.header}>
         <span style={styles.headerIcon}>🔗</span>
-        <h4 style={styles.headerTitle}>IELTS Matching Headings</h4>
+        <h4 style={styles.headerTitle}>IX Matching Headings</h4>
         <span style={styles.headerBadge}>
           {paragraphs.length} paragraphs • {headings.length} headings
         </span>
