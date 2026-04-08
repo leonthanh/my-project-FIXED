@@ -499,6 +499,24 @@ const CambridgeSubmissionsPage = () => {
   }, [activeReviewSubmissionId]);
 
   useEffect(() => {
+    if (
+      !activeReviewSubmissionId ||
+      typeof document === 'undefined' ||
+      typeof window === 'undefined'
+    ) {
+      return undefined;
+    }
+
+    const frameId = window.requestAnimationFrame(() => {
+      document
+        .getElementById(`cambridge-submission-row-${activeReviewSubmissionId}`)
+        ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+
+    return () => window.cancelAnimationFrame(frameId);
+  }, [activeReviewSubmissionId]);
+
+  useEffect(() => {
     if (!activeReviewSubmissionId) {
       return undefined;
     }
@@ -961,7 +979,14 @@ const CambridgeSubmissionsPage = () => {
                       const isReviewing = activeReviewSubmissionId === sub.id;
                       return (
                         <React.Fragment key={sub.id}>
-                          <tr style={styles.tr}>
+                          <tr
+                            id={`cambridge-submission-row-${sub.id}`}
+                            style={{
+                              ...styles.tr,
+                              ...(isReviewing ? styles.trFocused : null),
+                              scrollMarginTop: '120px',
+                            }}
+                          >
                             <td style={styles.td}>
                               {(pagination.page - 1) * pagination.limit + index + 1}
                             </td>
@@ -1327,6 +1352,10 @@ const styles = {
   tr: {
     borderBottom: '1px solid #e5e7eb',
     transition: 'background-color 0.2s',
+  },
+  trFocused: {
+    backgroundColor: '#fff7cc',
+    boxShadow: 'inset 4px 0 0 #f59e0b',
   },
   td: {
     padding: '14px 16px',

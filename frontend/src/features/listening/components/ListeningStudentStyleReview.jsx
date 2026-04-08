@@ -9,25 +9,25 @@ const BLANK_REGEX = /(\d+)\s*[_…]+|[_…]{2,}/g;
 const reviewStyles = {
   intro: {
     background: "#fff",
-    borderRadius: "16px",
-    padding: "18px 20px",
-    marginBottom: "20px",
-    boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
+    borderRadius: "12px",
+    padding: "24px",
+    marginBottom: "24px",
+    boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
     color: "#334155",
     lineHeight: 1.7,
   },
   partShell: {
     background: "#fff",
-    borderRadius: "18px",
-    boxShadow: "0 12px 30px rgba(15, 23, 42, 0.08)",
+    borderRadius: "16px",
+    boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
     overflow: "hidden",
     marginBottom: "24px",
     border: "1px solid rgba(148, 163, 184, 0.18)",
   },
   partHeader: {
-    padding: "18px 22px",
+    padding: "20px 24px",
     borderBottom: "1px solid #e2e8f0",
-    background: "linear-gradient(180deg, #eef2ff 0%, #ffffff 100%)",
+    background: "linear-gradient(180deg, #f8fafc 0%, #ffffff 100%)",
   },
   partHeaderRow: {
     display: "flex",
@@ -55,7 +55,7 @@ const reviewStyles = {
     lineHeight: 1.6,
   },
   audioWrap: {
-    padding: "18px 22px 0",
+    padding: "20px 24px 0",
   },
   audioTitle: {
     fontSize: "0.9rem",
@@ -107,7 +107,7 @@ const reviewStyles = {
     gap: "10px",
     flexWrap: "wrap",
     alignItems: "center",
-    marginBottom: "16px",
+    marginBottom: "24px",
   },
   bulkActionButton: {
     padding: "9px 16px",
@@ -254,10 +254,17 @@ const getSectionQuestionCount = (section, sectionQuestions) => {
   return sectionQuestions.length;
 };
 
-const getStatusConfig = (detail) => {
+const getStatusConfig = (detail, answerValue = "") => {
   if (!detail) {
+    if (hasAnswerValue(answerValue)) {
+      return {
+        label: "Answered",
+        style: { ...reviewStyles.statusChip, background: "#dbeafe", color: "#1d4ed8" },
+        isCorrect: false,
+      };
+    }
     return {
-      label: "Bo trong",
+      label: "Blank",
       style: { ...reviewStyles.statusChip, background: "#f1f5f9", color: "#64748b" },
       isCorrect: false,
     };
@@ -265,7 +272,7 @@ const getStatusConfig = (detail) => {
 
   if (detail.isCorrect) {
     return {
-      label: "Dung",
+      label: "Correct",
       style: { ...reviewStyles.statusChip, background: "#dcfce7", color: "#166534" },
       isCorrect: true,
     };
@@ -273,28 +280,28 @@ const getStatusConfig = (detail) => {
 
   if (!hasAnswerValue(detail.studentAnswer ?? detail.student ?? detail.studentLabel)) {
     return {
-      label: "Bo trong",
+      label: "Blank",
       style: { ...reviewStyles.statusChip, background: "#f1f5f9", color: "#64748b" },
       isCorrect: false,
     };
   }
 
   return {
-    label: "Sai",
+    label: "Wrong",
     style: { ...reviewStyles.statusChip, background: "#fee2e2", color: "#991b1b" },
     isCorrect: false,
   };
 };
 
-function Feedback({ detail }) {
-  const status = getStatusConfig(detail);
+function Feedback({ detail, answerValue = "" }) {
+  const status = getStatusConfig(detail, answerValue);
   const correctAnswer = String(detail?.correctAnswer || "").trim();
 
   return (
     <div style={reviewStyles.feedbackRow}>
       <span style={status.style}>{status.label}</span>
       {!status.isCorrect && correctAnswer ? (
-        <span style={reviewStyles.answerChip}>Dap an dung: {correctAnswer}</span>
+        <span style={reviewStyles.answerChip}>Correct answer: {correctAnswer}</span>
       ) : null}
     </div>
   );
@@ -468,7 +475,7 @@ export default function ListeningStudentStyleReview({ test, submission, details 
             );
           })}
         </ul>
-        <Feedback detail={detail} />
+        <Feedback detail={detail} answerValue={selectedAnswer} />
       </div>
     );
   };
@@ -514,7 +521,7 @@ export default function ListeningStudentStyleReview({ test, submission, details 
             );
           })}
         </div>
-        <Feedback detail={detail} />
+        <Feedback detail={detail} answerValue={selectedAnswers} />
       </div>
     );
   };
@@ -539,7 +546,7 @@ export default function ListeningStudentStyleReview({ test, submission, details 
             }}
             placeholder="Type your answer..."
           />
-          <Feedback detail={detail} />
+          <Feedback detail={detail} answerValue={answers[`q${globalNumber}`] || ""} />
         </div>
       </div>
     );
@@ -581,7 +588,7 @@ export default function ListeningStudentStyleReview({ test, submission, details 
                       })}
                     </select>
                   </div>
-                  <Feedback detail={detailMap.get(questionNumber)} />
+                  <Feedback detail={detailMap.get(questionNumber)} answerValue={selectedValue} />
                 </div>
               );
             })}
@@ -633,7 +640,7 @@ export default function ListeningStudentStyleReview({ test, submission, details 
               backgroundColor: detail?.isCorrect ? "#f0fdf4" : hasAnswerValue(answerValue) ? "#fef2f2" : styles.formGapInput.backgroundColor,
             }}
           />
-          <Feedback detail={detail} />
+          <Feedback detail={detail} answerValue={answerValue} />
         </span>
       );
     };
@@ -761,7 +768,7 @@ export default function ListeningStudentStyleReview({ test, submission, details 
                 }}
               />
               {!answerValue && <span style={styles.gapPlaceholder}>{questionNumber}</span>}
-              <Feedback detail={detail} />
+              <Feedback detail={detail} answerValue={answerValue} />
             </span>
           );
         }
@@ -880,7 +887,7 @@ export default function ListeningStudentStyleReview({ test, submission, details 
   };
 
   if (!partInstructions.length) {
-    return <div style={reviewStyles.intro}>Chua co du lieu de dung lai giao dien Listening goc.</div>;
+    return <div style={reviewStyles.intro}>The original test payload is not available, so the Listening student layout cannot be reconstructed.</div>;
   }
 
   const togglePart = (partIndex) => {
@@ -912,7 +919,7 @@ export default function ListeningStudentStyleReview({ test, submission, details 
   return (
     <div>
       <div style={reviewStyles.intro}>
-        Phan nay dung lai bo cuc Listening ma hoc sinh da mo luc lam bai. Giao vien co the bat lai file audio, xem dap an hoc sinh da chon, va doi chieu dap an dung ngay tai tung section.
+        This view recreates the Listening layout students saw during the test so teachers can replay the audio, inspect each response, and compare answers section by section.
       </div>
 
       {partInstructions.length > 1 && (
@@ -923,7 +930,7 @@ export default function ListeningStudentStyleReview({ test, submission, details 
             onClick={collapseAllParts}
             disabled={allCollapsed}
           >
-            Thu gon tat ca
+            Collapse All
           </button>
           <button
             type="button"
@@ -931,7 +938,7 @@ export default function ListeningStudentStyleReview({ test, submission, details 
             onClick={expandAllParts}
             disabled={allExpanded}
           >
-            Mo rong tat ca
+            Expand All
           </button>
         </div>
       )}
@@ -958,14 +965,14 @@ export default function ListeningStudentStyleReview({ test, submission, details 
                   onClick={() => togglePart(partIndex)}
                   aria-expanded={!isCollapsed}
                 >
-                  {isCollapsed ? "Mo rong" : "Thu gon"}
+                  {isCollapsed ? "Expand" : "Collapse"}
                 </button>
               </div>
             </div>
 
             {!isCollapsed && audioUrl && (
               <div style={reviewStyles.audioWrap}>
-                <div style={reviewStyles.audioTitle}>Audio goc</div>
+                <div style={reviewStyles.audioTitle}>Original Audio</div>
                 <audio controls style={styles.audioPlayer} src={String(audioUrl).startsWith("http") ? audioUrl : hostPath(audioUrl)} />
               </div>
             )}
