@@ -1,6 +1,7 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import AdminNavbar from "../../../shared/components/AdminNavbar";
+import LineIcon from "../../../shared/components/LineIcon";
 import { useTheme } from "../../../shared/contexts/ThemeContext";
 import { apiPath, authFetch } from "../../../shared/utils/api";
 import AttemptExtensionControls from "../components/AttemptExtensionControls";
@@ -11,6 +12,24 @@ import {
   formatAttemptTimestamp,
   getAttemptTimingMeta,
 } from "../utils/attemptTiming";
+
+const InlineIcon = ({ name, size = 16, style }) => (
+  <span
+    style={{
+      display: "inline-flex",
+      alignItems: "center",
+      justifyContent: "center",
+      width: size,
+      height: size,
+      lineHeight: 0,
+      flex: "0 0 auto",
+      ...style,
+    }}
+    aria-hidden="true"
+  >
+    <LineIcon name={name} size={size} />
+  </span>
+);
 
 // Small helpers (copied from ListeningResults) to safely parse test data
 const safeParseJson = (value) => {
@@ -56,6 +75,8 @@ const AdminListeningSubmissions = () => {
   const [subs, setSubs] = useState([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const deepLinkHandledRef = useRef("");
 
   // Feedback modal state
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
@@ -338,11 +359,60 @@ const AdminListeningSubmissions = () => {
     setSortOrder("newest");
   };
 
+  const clearDeepLinkParams = () => {
+    if (!searchParams.get("submissionId") && !searchParams.get("action")) {
+      return;
+    }
+
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.delete("submissionId");
+    nextParams.delete("action");
+    setSearchParams(nextParams, { replace: true });
+  };
+
   const openFeedbackModal = (sub) => {
     setSelectedSubmission(sub);
     setFeedbackText(sub.feedback || "");
     setShowFeedbackModal(true);
   };
+
+  const closeFeedbackModal = () => {
+    setShowFeedbackModal(false);
+    setSelectedSubmission(null);
+    clearDeepLinkParams();
+  };
+
+  useEffect(() => {
+    if (!searchParams.get("submissionId")) {
+      deepLinkHandledRef.current = "";
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
+    const submissionId = searchParams.get("submissionId");
+    const action = searchParams.get("action");
+
+    if (!submissionId || (action && action !== "feedback") || loading) {
+      return;
+    }
+
+    const deepLinkKey = `${action || "feedback"}:${submissionId}`;
+    if (deepLinkHandledRef.current === deepLinkKey) {
+      return;
+    }
+
+    const matchedSubmission = subs.find(
+      (submission) => String(submission.id) === String(submissionId)
+    );
+
+    if (!matchedSubmission) {
+      clearDeepLinkParams();
+      return;
+    }
+
+    deepLinkHandledRef.current = deepLinkKey;
+    openFeedbackModal(matchedSubmission);
+  }, [loading, searchParams, subs]);
 
   const saveFeedback = async () => {
     if (!selectedSubmission) return;
@@ -371,10 +441,10 @@ const AdminListeningSubmissions = () => {
         )
       );
 
-      setShowFeedbackModal(false);
-      alert("✅ Đã lưu nhận xét!");
+      closeFeedbackModal();
+      alert("Feedback saved.");
     } catch (err) {
-      alert("❌ Lỗi: " + err.message);
+      alert("Error: " + err.message);
     } finally {
       setSavingFeedback(false);
     }
@@ -390,7 +460,7 @@ const AdminListeningSubmissions = () => {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        throw new Error(data?.message || "Gia hạn thất bại");
+        throw new Error(data?.message || "Time extension failed.");
       }
 
       setSubs((prev) =>
@@ -405,10 +475,10 @@ const AdminListeningSubmissions = () => {
             : item
         )
       );
-      alert(data?.message || "Đã gia hạn thời gian.");
+      alert(data?.message || "Time extended.");
       return true;
     } catch (err) {
-      alert(`❌ ${err.message}`);
+      alert(err.message);
       return false;
     } finally {
       setExtendingId(null);
@@ -492,8 +562,18 @@ const AdminListeningSubmissions = () => {
           summaryLabel="submissions"
         />
 
-        {loading && <p>⏳ Loading...</p>}
-        {!loading && filteredSubs.length === 0 && <p>Không có bài nộp phù hợp</p>}
+        {loading && (
+          <p style={statusMessageStyle}>
+            <InlineIcon name="loading" size={16} />
+            Loading...
+          </p>
+        )}
+        {!loading && filteredSubs.length === 0 && (
+          <p style={statusMessageStyle}>
+            <InlineIcon name="empty" size={16} />
+            No matching submissions found.
+          </p>
+        )}
 
         {!loading && filteredSubs.length > 0 && (
           <div className="admin-table-wrap">
@@ -501,14 +581,14 @@ const AdminListeningSubmissions = () => {
             <thead>
               <tr style={{ background: "#0e276f", color: "white" }}>
                 <th style={cellStyle}>#</th>
-                <th style={cellStyle}>Mã lớp</th>
-                <th style={cellStyle}>Giáo viên</th>
-                <th style={cellStyle}>Học sinh</th>
-                <th style={cellStyle}>SĐT</th>
-                <th style={cellStyle}>Điểm</th>
+                <th style={cellStyle}>Class Code</th>
+                <th style={cellStyle}>Teacher</th>
+                <th style={cellStyle}>Student</th>
+                <th style={cellStyle}>Phone</th>
+                <th style={cellStyle}>Score</th>
                 <th style={cellStyle}>Band</th>
-                <th style={cellStyle}>Nhận xét</th>
-                <th style={cellStyle}>Nộp lúc</th>
+                <th style={cellStyle}>Feedback</th>
+                <th style={cellStyle}>Submitted At</th>
                 <th style={cellStyle}>Actions</th>
               </tr>
             </thead>
@@ -581,22 +661,29 @@ const AdminListeningSubmissions = () => {
                   </td>
                   <td style={cellStyle}>
                     {s.feedback ? (
-                      <span style={{ color: "#16a34a" }}>
-                        ✅ {s.feedbackBy || "Đã có"}
+                      <span style={feedbackStateStyle("#16a34a")}>
+                        <InlineIcon name="correct" size={14} />
+                        {s.feedbackBy || "Reviewed"}
                       </span>
                     ) : (
-                      <span style={{ color: "#dc2626" }}>❌ Chưa có</span>
+                      <span style={feedbackStateStyle("#dc2626")}>
+                        <InlineIcon name="error" size={14} />
+                        Pending
+                      </span>
                     )}
                   </td>
                   <td style={cellStyle}>
                     {s.finished === false ? (
                       <div>
-                        <div style={{ fontWeight: 700, color: "#1d4ed8" }}>Đang làm</div>
+                        <div style={inProgressStyle}>
+                          <InlineIcon name="clock" size={14} />
+                          In progress
+                        </div>
                         <div style={{ fontSize: 12, color: timingMeta?.color || "#64748b" }}>
-                          {timingMeta?.label || "Chưa có deadline"}
+                          {timingMeta?.label || "No deadline yet"}
                         </div>
                         <div style={{ fontSize: 11, color: "#64748b" }}>
-                          Lưu: {formatAttemptTimestamp(s.lastSavedAt || s.updatedAt || s.createdAt)}
+                          Saved: {formatAttemptTimestamp(s.lastSavedAt || s.updatedAt || s.createdAt)}
                         </div>
                       </div>
                     ) : (
@@ -608,16 +695,18 @@ const AdminListeningSubmissions = () => {
                       <button
                         onClick={() => navigate(`/listening-results/${s.id}`)}
                         style={actionBtn}
-                        title="Xem chi tiết"
+                        title="View details"
                       >
-                        📋 Chi tiết
+                        <InlineIcon name="eye" size={14} />
+                        Details
                       </button>
                       <button
                         onClick={() => openFeedbackModal(s)}
                         style={{ ...actionBtn, background: "#f59e0b" }}
-                        title="Nhận xét"
+                        title="Open feedback"
                       >
-                        ✍️ Nhận xét
+                        <InlineIcon name="feedback" size={14} />
+                        Feedback
                       </button>
                       {s.finished === false && (
                         <AttemptExtensionControls
@@ -648,12 +737,20 @@ const AdminListeningSubmissions = () => {
         {showFeedbackModal && selectedSubmission && (
           <div style={modalOverlayStyle}>
             <div style={modalContentStyle}>
-              <h3>✍️ Nhận xét Listening Submission #{selectedSubmission.id}</h3>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, marginBottom: 12 }}>
+                <h3 style={modalTitleStyle}>
+                  <InlineIcon name="feedback" size={18} />
+                  Listening Submission Feedback #{selectedSubmission.id}
+                </h3>
+                <button onClick={closeFeedbackModal} style={closeBtn(isDarkMode)}>
+                  <InlineIcon name="close" size={18} />
+                </button>
+              </div>
 
               <div style={{ display: "grid", gap: 10, marginTop: 12 }}>
                 <label>
                   <div style={{ fontWeight: 600, marginBottom: 4 }}>
-                    Người nhận xét
+                    Reviewer
                   </div>
                   <input
                     value={feedbackBy}
@@ -664,12 +761,12 @@ const AdminListeningSubmissions = () => {
                       color: isDarkMode ? "#e5e7eb" : undefined,
                       borderColor: isDarkMode ? "#2a3350" : undefined,
                     }}
-                    placeholder="Tên giáo viên"
+                    placeholder="Teacher name"
                   />
                 </label>
 
                 <label>
-                  <div style={{ fontWeight: 600, marginBottom: 4 }}>Nội dung</div>
+                  <div style={{ fontWeight: 600, marginBottom: 4 }}>Feedback</div>
                   <textarea
                     value={feedbackText}
                     onChange={(e) => setFeedbackText(e.target.value)}
@@ -681,24 +778,24 @@ const AdminListeningSubmissions = () => {
                       color: isDarkMode ? "#e5e7eb" : undefined,
                       borderColor: isDarkMode ? "#2a3350" : undefined,
                     }}
-                    placeholder="Nhận xét cho học sinh..."
+                    placeholder="Write feedback for the student..."
                   />
                 </label>
               </div>
 
               <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 16 }}>
                 <button
-                  onClick={() => setShowFeedbackModal(false)}
+                  onClick={closeFeedbackModal}
                   style={{ ...actionBtn, background: "#6b7280" }}
                 >
-                  Hủy
+                  Cancel
                 </button>
                 <button
                   onClick={saveFeedback}
                   style={{ ...actionBtn, background: "#16a34a" }}
                   disabled={savingFeedback}
                 >
-                  {savingFeedback ? "⏳ Đang lưu..." : "✅ Lưu"}
+                  {savingFeedback ? "Saving..." : (<><InlineIcon name="review" size={14} />Save</>)}
                 </button>
               </div>
             </div>
@@ -733,7 +830,53 @@ const actionBtn = {
   fontSize: 13,
   color: "#fff",
   background: "#0e276f",
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: 6,
+  whiteSpace: "nowrap",
 };
+
+const statusMessageStyle = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 8,
+};
+
+const feedbackStateStyle = (color) => ({
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 6,
+  color,
+});
+
+const inProgressStyle = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 6,
+  fontWeight: 700,
+  color: "#1d4ed8",
+};
+
+const modalTitleStyle = {
+  margin: 0,
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 10,
+};
+
+const closeBtn = (isDarkMode) => ({
+  background: "none",
+  border: "none",
+  cursor: "pointer",
+  color: isDarkMode ? "#e5e7eb" : "#111827",
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  width: 36,
+  height: 36,
+  borderRadius: 999,
+});
 
 export default AdminListeningSubmissions;
 

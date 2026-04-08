@@ -1,6 +1,7 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import AdminNavbar from "../../../shared/components/AdminNavbar";
+import LineIcon from "../../../shared/components/LineIcon";
 import { useTheme } from "../../../shared/contexts/ThemeContext";
 import { apiPath, authFetch } from "../../../shared/utils/api";
 import AttemptExtensionControls from "../components/AttemptExtensionControls";
@@ -11,11 +12,31 @@ import {
   getAttemptTimingMeta,
 } from "../utils/attemptTiming";
 
+const InlineIcon = ({ name, size = 16, style }) => (
+  <span
+    style={{
+      display: "inline-flex",
+      alignItems: "center",
+      justifyContent: "center",
+      width: size,
+      height: size,
+      lineHeight: 0,
+      flex: "0 0 auto",
+      ...style,
+    }}
+    aria-hidden="true"
+  >
+    <LineIcon name={name} size={size} />
+  </span>
+);
+
 const AdminReadingSubmissions = () => {
   const { isDarkMode } = useTheme();
   const [subs, setSubs] = useState([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const deepLinkHandledRef = useRef("");
 
   // Feedback modal state
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
@@ -158,12 +179,61 @@ const AdminReadingSubmissions = () => {
     setSortOrder("newest");
   };
 
+  const clearDeepLinkParams = () => {
+    if (!searchParams.get("submissionId") && !searchParams.get("action")) {
+      return;
+    }
+
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.delete("submissionId");
+    nextParams.delete("action");
+    setSearchParams(nextParams, { replace: true });
+  };
+
   // Open feedback modal
   const openFeedbackModal = (sub) => {
     setSelectedSubmission(sub);
     setFeedbackText(sub.feedback || "");
     setShowFeedbackModal(true);
   };
+
+  const closeFeedbackModal = () => {
+    setShowFeedbackModal(false);
+    setSelectedSubmission(null);
+    clearDeepLinkParams();
+  };
+
+  useEffect(() => {
+    if (!searchParams.get("submissionId")) {
+      deepLinkHandledRef.current = "";
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
+    const submissionId = searchParams.get("submissionId");
+    const action = searchParams.get("action");
+
+    if (!submissionId || (action && action !== "feedback") || loading) {
+      return;
+    }
+
+    const deepLinkKey = `${action || "feedback"}:${submissionId}`;
+    if (deepLinkHandledRef.current === deepLinkKey) {
+      return;
+    }
+
+    const matchedSubmission = subs.find(
+      (submission) => String(submission.id) === String(submissionId)
+    );
+
+    if (!matchedSubmission) {
+      clearDeepLinkParams();
+      return;
+    }
+
+    deepLinkHandledRef.current = deepLinkKey;
+    openFeedbackModal(matchedSubmission);
+  }, [loading, searchParams, subs]);
 
   // Save feedback
   const saveFeedback = async () => {
@@ -185,10 +255,10 @@ const AdminReadingSubmissions = () => {
             : s
         )
       );
-      setShowFeedbackModal(false);
-      alert("✅ Đã lưu nhận xét!");
+      closeFeedbackModal();
+      alert("Feedback saved.");
     } catch (err) {
-      alert("❌ Lỗi: " + err.message);
+      alert("Error: " + err.message);
     } finally {
       setSavingFeedback(false);
     }
@@ -204,7 +274,7 @@ const AdminReadingSubmissions = () => {
       setAnalysisData(data);
       setShowAnalysisModal(true);
     } catch (err) {
-      alert("❌ Lỗi khi tải phân tích: " + err.message);
+      alert("Could not load analysis: " + err.message);
     } finally {
       setLoadingAnalysis(false);
     }
@@ -220,7 +290,7 @@ const AdminReadingSubmissions = () => {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        throw new Error(data?.message || "Gia hạn thất bại");
+        throw new Error(data?.message || "Time extension failed.");
       }
 
       setSubs((prev) =>
@@ -235,10 +305,10 @@ const AdminReadingSubmissions = () => {
             : item
         )
       );
-      alert(data?.message || "Đã gia hạn thời gian.");
+      alert(data?.message || "Time extended.");
       return true;
     } catch (err) {
-      alert(`❌ ${err.message}`);
+      alert(err.message);
       return false;
     } finally {
       setExtendingId(null);
@@ -299,22 +369,32 @@ const AdminReadingSubmissions = () => {
           summaryLabel="submissions"
         />
 
-        {loading && <p>⏳ Loading...</p>}
-        {!loading && filteredSubs.length === 0 && <p>Không có bài nộp phù hợp</p>}
+        {loading && (
+          <p style={statusMessageStyle}>
+            <InlineIcon name="loading" size={16} />
+            Loading...
+          </p>
+        )}
+        {!loading && filteredSubs.length === 0 && (
+          <p style={statusMessageStyle}>
+            <InlineIcon name="empty" size={16} />
+            No matching submissions found.
+          </p>
+        )}
         {!loading && filteredSubs.length > 0 && (
           <div className="admin-table-wrap">
             <table className="admin-table" style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr style={{ background: "#0e276f", color: "white" }}>
                 <th style={cellStyle}>#</th>
-                <th style={cellStyle}>Mã lớp</th>
-                <th style={cellStyle}>Giáo viên</th>
-                <th style={cellStyle}>Học sinh</th>
-                <th style={cellStyle}>SĐT</th>
-                <th style={cellStyle}>Điểm</th>
+                <th style={cellStyle}>Class Code</th>
+                <th style={cellStyle}>Teacher</th>
+                <th style={cellStyle}>Student</th>
+                <th style={cellStyle}>Phone</th>
+                <th style={cellStyle}>Score</th>
                 <th style={cellStyle}>Band</th>
-                <th style={cellStyle}>Nhận xét</th>
-                <th style={cellStyle}>Nộp lúc</th>
+                <th style={cellStyle}>Feedback</th>
+                <th style={cellStyle}>Submitted At</th>
                 <th style={cellStyle}>Actions</th>
               </tr>
             </thead>
@@ -347,20 +427,29 @@ const AdminReadingSubmissions = () => {
                   </td>
                   <td style={cellStyle}>
                     {s.feedback ? (
-                      <span style={{ color: "#16a34a" }}>✅ {s.feedbackBy || "Đã có"}</span>
+                      <span style={feedbackStateStyle("#16a34a")}> 
+                        <InlineIcon name="correct" size={14} />
+                        {s.feedbackBy || "Reviewed"}
+                      </span>
                     ) : (
-                      <span style={{ color: "#dc2626" }}>❌ Chưa có</span>
+                      <span style={feedbackStateStyle("#dc2626")}>
+                        <InlineIcon name="error" size={14} />
+                        Pending
+                      </span>
                     )}
                   </td>
                   <td style={cellStyle}>
                     {s.finished === false ? (
                       <div>
-                        <div style={{ fontWeight: 700, color: "#1d4ed8" }}>Đang làm</div>
+                        <div style={inProgressStyle}>
+                          <InlineIcon name="clock" size={14} />
+                          In progress
+                        </div>
                         <div style={{ fontSize: 12, color: timingMeta?.color || "#64748b" }}>
-                          {timingMeta?.label || "Chưa có deadline"}
+                          {timingMeta?.label || "No deadline yet"}
                         </div>
                         <div style={{ fontSize: 11, color: "#64748b" }}>
-                          Lưu: {formatAttemptTimestamp(s.lastSavedAt || s.updatedAt || s.createdAt)}
+                          Saved: {formatAttemptTimestamp(s.lastSavedAt || s.updatedAt || s.createdAt)}
                         </div>
                       </div>
                     ) : (
@@ -372,23 +461,26 @@ const AdminReadingSubmissions = () => {
                       <button
                         onClick={() => navigate(`/reading-results/${s.id}`)}
                         style={actionBtn}
-                        title="Xem chi tiết đáp án"
+                        title="View answer details"
                       >
-                        📋 Chi tiết
+                        <InlineIcon name="eye" size={14} />
+                        Details
                       </button>
                       <button
                         onClick={() => loadAnalysis(s)}
                         style={{ ...actionBtn, background: "#4f46e5" }}
-                        title="Xem phân tích"
+                        title="View analysis"
                       >
-                        📊 Phân tích
+                        <InlineIcon name="overview" size={14} />
+                        Analysis
                       </button>
                       <button
                         onClick={() => openFeedbackModal(s)}
                         style={{ ...actionBtn, background: s.feedback ? "#16a34a" : "#ca8a04" }}
-                        title="Thêm/sửa nhận xét"
+                        title="Add or edit feedback"
                       >
-                        ✍️ Nhận xét
+                        <InlineIcon name="feedback" size={14} />
+                        Feedback
                       </button>
                       {s.finished === false && (
                         <AttemptExtensionControls
@@ -419,40 +511,45 @@ const AdminReadingSubmissions = () => {
 
       {/* Feedback Modal */}
       {showFeedbackModal && selectedSubmission && (
-        <div style={modalOverlay(isDarkMode)} onClick={() => setShowFeedbackModal(false)}>
+        <div style={modalOverlay(isDarkMode)} onClick={closeFeedbackModal}>
           <div style={modalContent(isDarkMode)} onClick={(e) => e.stopPropagation()}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-              <h3 style={{ margin: 0 }}>✍️ Nhận xét bài làm</h3>
-              <button onClick={() => setShowFeedbackModal(false)} style={closeBtn(isDarkMode)}>✕</button>
+              <h3 style={modalTitleStyle}>
+                <InlineIcon name="feedback" size={18} />
+                Submission Feedback
+              </h3>
+              <button onClick={closeFeedbackModal} style={closeBtn(isDarkMode)}>
+                <InlineIcon name="close" size={18} />
+              </button>
             </div>
 
             <div style={{ marginBottom: 15, padding: 15, background: isDarkMode ? "#0f172a" : "#f3f4f6", borderRadius: 8, border: isDarkMode ? "1px solid #2a3350" : "none" }}>
-              <p><strong>Học sinh:</strong> {selectedSubmission.userName || "N/A"}</p>
-              <p><strong>Mã lớp:</strong> {selectedSubmission.ReadingTest?.classCode || "N/A"}</p>
-              <p><strong>Điểm:</strong> {selectedSubmission.correct}/{selectedSubmission.total} ({selectedSubmission.scorePercentage}%) - Band {selectedSubmission.band}</p>
+              <p><strong>Student:</strong> {selectedSubmission.userName || "N/A"}</p>
+              <p><strong>Class Code:</strong> {selectedSubmission.ReadingTest?.classCode || "N/A"}</p>
+              <p><strong>Score:</strong> {selectedSubmission.correct}/{selectedSubmission.total} ({selectedSubmission.scorePercentage}%) - Band {selectedSubmission.band}</p>
             </div>
 
             <div style={{ marginBottom: 15 }}>
               <label style={{ display: "block", marginBottom: 5, fontWeight: "bold" }}>
-                Giáo viên chấm:
+                Reviewer:
               </label>
               <input
                 type="text"
                 value={feedbackBy}
                 onChange={(e) => setFeedbackBy(e.target.value)}
-                placeholder="Tên giáo viên..."
+                placeholder="Teacher name..."
                 style={{ ...inputStyle, width: "100%", background: isDarkMode ? "#0f172a" : "#fff", color: isDarkMode ? "#e5e7eb" : "#111827", borderColor: isDarkMode ? "#2a3350" : "#ccc" }}
               />
             </div>
 
             <div style={{ marginBottom: 15 }}>
               <label style={{ display: "block", marginBottom: 5, fontWeight: "bold" }}>
-                Nhận xét:
+                Feedback:
               </label>
               <textarea
                 value={feedbackText}
                 onChange={(e) => setFeedbackText(e.target.value)}
-                placeholder="Nhập nhận xét cho học sinh..."
+                placeholder="Write feedback for the student..."
                 rows={8}
                 style={{ ...inputStyle, width: "100%", resize: "vertical", background: isDarkMode ? "#0f172a" : "#fff", color: isDarkMode ? "#e5e7eb" : "#111827", borderColor: isDarkMode ? "#2a3350" : "#ccc" }}
               />
@@ -460,17 +557,17 @@ const AdminReadingSubmissions = () => {
 
             <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
               <button
-                onClick={() => setShowFeedbackModal(false)}
+                onClick={closeFeedbackModal}
                 style={{ ...actionBtn, background: "#6b7280" }}
               >
-                Hủy
+                Cancel
               </button>
               <button
                 onClick={saveFeedback}
                 disabled={savingFeedback}
                 style={{ ...actionBtn, background: "#16a34a" }}
               >
-                {savingFeedback ? "Đang lưu..." : "💾 Lưu nhận xét"}
+                {savingFeedback ? "Saving..." : (<><InlineIcon name="review" size={14} />Save Feedback</>)}
               </button>
             </div>
           </div>
@@ -482,12 +579,20 @@ const AdminReadingSubmissions = () => {
         <div style={modalOverlay(isDarkMode)} onClick={() => setShowAnalysisModal(false)}>
           <div style={{ ...modalContent(isDarkMode), maxWidth: 700 }} onClick={(e) => e.stopPropagation()}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-              <h3 style={{ margin: 0 }}>📊 Phân tích chi tiết</h3>
-              <button onClick={() => setShowAnalysisModal(false)} style={closeBtn(isDarkMode)}>✕</button>
+              <h3 style={modalTitleStyle}>
+                <InlineIcon name="overview" size={18} />
+                Detailed Analysis
+              </h3>
+              <button onClick={() => setShowAnalysisModal(false)} style={closeBtn(isDarkMode)}>
+                <InlineIcon name="close" size={18} />
+              </button>
             </div>
 
             {loadingAnalysis ? (
-              <p>⏳ Đang tải...</p>
+              <p style={statusMessageStyle}>
+                <InlineIcon name="loading" size={16} />
+                Loading...
+              </p>
             ) : (
               <>
                 {analysisData.analysisText && (
@@ -510,12 +615,15 @@ const AdminReadingSubmissions = () => {
 
                 {analysisData.breakdown?.byType && (
                   <div style={{ marginTop: 20 }}>
-                    <h4>📈 Theo dạng câu hỏi:</h4>
+                    <h4 style={sectionTitleStyle}>
+                      <InlineIcon name="overview" size={16} />
+                      By Question Type
+                    </h4>
                     {analysisData.breakdown.byType.map((t, i) => (
                       <div key={i} style={{ display: "flex", alignItems: "center", padding: "10px 0", borderBottom: isDarkMode ? "1px solid #2a3350" : "1px solid #eee" }}>
                         <div style={{ flex: 1 }}>
                           <strong>{t.label}</strong>
-                          <div style={{ fontSize: 12, color: isDarkMode ? "#9ca3af" : "#666" }}>{t.correct}/{t.total} câu đúng</div>
+                          <div style={{ fontSize: 12, color: isDarkMode ? "#9ca3af" : "#666" }}>{t.correct}/{t.total} correct</div>
                         </div>
                         <div style={{ width: 100, height: 8, background: isDarkMode ? "#1f2b47" : "#e5e7eb", borderRadius: 4, overflow: "hidden", marginRight: 10 }}>
                           <div style={{ width: `${t.percentage}%`, height: "100%", background: t.status === "good" ? "#22c55e" : t.status === "average" ? "#eab308" : "#ef4444" }} />
@@ -530,7 +638,10 @@ const AdminReadingSubmissions = () => {
 
                 {analysisData.breakdown?.weakAreas?.length > 0 && (
                   <div style={{ marginTop: 20, padding: 15, background: isDarkMode ? "#2a1b1b" : "#fef2f2", borderRadius: 8, border: isDarkMode ? "1px solid #4c1d1d" : "none" }}>
-                    <h4 style={{ margin: "0 0 10px 0", color: isDarkMode ? "#fca5a5" : "#dc2626" }}>💡 Cần cải thiện:</h4>
+                    <h4 style={{ ...sectionTitleStyle, margin: "0 0 10px 0", color: isDarkMode ? "#fca5a5" : "#dc2626" }}>
+                      <InlineIcon name="error" size={16} />
+                      Needs Improvement
+                    </h4>
                     {analysisData.breakdown.weakAreas.map((area, i) => (
                       <div key={i} style={{ marginBottom: 10 }}>
                         <strong>{area.label}</strong> ({area.percentage}%)
@@ -546,7 +657,8 @@ const AdminReadingSubmissions = () => {
               onClick={() => setShowAnalysisModal(false)}
               style={{ ...actionBtn, width: "100%", marginTop: 20 }}
             >
-              Đóng
+              <InlineIcon name="close" size={14} />
+              Close
             </button>
           </div>
         </div>
@@ -557,7 +669,12 @@ const AdminReadingSubmissions = () => {
 
 const cellStyle = { padding: 8, border: "1px solid #ddd", textAlign: "left" };
 const inputStyle = { padding: 10, border: "1px solid #ccc", borderRadius: 6, fontSize: 14, boxSizing: "border-box" };
-const actionBtn = { padding: "6px 12px", background: "#0e276f", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer", fontSize: 13 };
+const actionBtn = { padding: "6px 12px", background: "#0e276f", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer", fontSize: 13, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6, whiteSpace: "nowrap" };
+const statusMessageStyle = { display: "inline-flex", alignItems: "center", gap: 8 };
+const feedbackStateStyle = (color) => ({ display: "inline-flex", alignItems: "center", gap: 6, color });
+const inProgressStyle = { display: "inline-flex", alignItems: "center", gap: 6, fontWeight: 700, color: "#1d4ed8" };
+const modalTitleStyle = { margin: 0, display: "inline-flex", alignItems: "center", gap: 10 };
+const sectionTitleStyle = { margin: "0 0 10px 0", display: "inline-flex", alignItems: "center", gap: 8 };
 const modalOverlay = (isDarkMode) => ({
   position: "fixed",
   top: 0,
@@ -585,9 +702,14 @@ const modalContent = (isDarkMode) => ({
 const closeBtn = (isDarkMode) => ({
   background: "none",
   border: "none",
-  fontSize: 24,
   cursor: "pointer",
   color: isDarkMode ? "#e5e7eb" : "#111827",
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  width: 36,
+  height: 36,
+  borderRadius: 999,
 });
 
 export default AdminReadingSubmissions;

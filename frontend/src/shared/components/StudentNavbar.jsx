@@ -100,7 +100,6 @@ const StudentNavbar = () => {
   const [readingFeedbackCount, setReadingFeedbackCount] = useState(0);
   const [listeningFeedbackCount, setListeningFeedbackCount] = useState(0);
   const [cambridgeFeedbackCount, setCambridgeFeedbackCount] = useState(0);
-  const [newTestCount, setNewTestCount] = useState(0);
   const [moreDropdownVisible, setMoreDropdownVisible] = useState(false);
   const [isCompactMenu, setIsCompactMenu] = useState(
     typeof window !== "undefined" ? window.innerWidth <= 520 : false
@@ -129,10 +128,9 @@ const StudentNavbar = () => {
 
     try {
       // Fetch Writing notifications
-      const [testsRes, submissionsRes] = await Promise.all([
-        fetch(apiPath("writing-tests")).then((res) => res.json()),
-        fetch(apiPath("writing/list")).then((res) => res.json()),
-      ]);
+      const submissionsRes = await fetch(apiPath("writing/list")).then((res) =>
+        res.json()
+      );
 
       const mySubs = submissionsRes.filter(
         (sub) => sub.userPhone === user.phone
@@ -142,15 +140,7 @@ const StudentNavbar = () => {
         (sub) => sub.feedback && !sub.feedbackSeen
       );
 
-      const submittedTestIds = mySubs
-        .map((sub) => String(sub.testId))
-        .filter(Boolean);
-      const unsubmittedTests = testsRes.filter(
-        (test) => !submittedTestIds.includes(String(test.id))
-      );
-
       setWritingFeedbackCount(unseenWritingFeedbacks.length);
-      setNewTestCount(unsubmittedTests.length);
 
       // Fetch Reading notifications
       try {
@@ -410,7 +400,7 @@ const StudentNavbar = () => {
   if (!user) return null;
 
   const feedbackCount = writingFeedbackCount + readingFeedbackCount + listeningFeedbackCount + cambridgeFeedbackCount;
-  const totalNotifications = feedbackCount + newTestCount;
+  const totalNotifications = feedbackCount;
 
   const mobileDrawerTabs = [
     { key: "overview", label: "Overview" },
@@ -543,7 +533,7 @@ const StudentNavbar = () => {
       <div className="studentNavbar__mobileMenuTop">
         <div className="studentNavbar__mobileMenuTitle">Feedback & Updates</div>
         <div className="studentNavbar__mobileMenuHint">
-          Track unseen feedback and new tests from one place on mobile.
+          Track unseen feedback from one place on mobile.
         </div>
       </div>
       <div className="studentNavbar__mobileMenuBody studentNavbar__mobileMenuBody--compact">
@@ -551,10 +541,6 @@ const StudentNavbar = () => {
           <div className="studentNavbar__mobileSummaryRow">
             <span className="studentNavbar__mobileSummaryLabel">New feedback</span>
             <span className="studentNavbar__mobileSummaryValue">{feedbackCount}</span>
-          </div>
-          <div className="studentNavbar__mobileSummaryRow">
-            <span className="studentNavbar__mobileSummaryLabel">New tests</span>
-            <span className="studentNavbar__mobileSummaryValue">{newTestCount}</span>
           </div>
         </div>
 

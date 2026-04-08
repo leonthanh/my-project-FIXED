@@ -26,7 +26,7 @@ const SUBMISSION_PAGES = [
 const SubmissionTypeTabs = ({
   activeKey,
   items = SUBMISSION_PAGES,
-  title = "Submissions",
+  title = "IX Submissions",
   onSelect,
   allowMobileWrap = false,
   buttonFlex = "0 1 200px",
