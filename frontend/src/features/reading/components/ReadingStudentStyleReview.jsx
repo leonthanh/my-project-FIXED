@@ -30,15 +30,15 @@ const feedbackStyles = {
   },
   questionBlock: {
     background: "#ffffff",
-    borderRadius: "18px",
-    boxShadow: "0 12px 30px rgba(15, 23, 42, 0.08)",
+    borderRadius: "16px",
+    boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
     overflow: "hidden",
-    marginBottom: "28px",
+    marginBottom: "24px",
     border: "1px solid rgba(148, 163, 184, 0.18)",
   },
   passageSplit: {
     display: "grid",
-    gridTemplateColumns: "minmax(320px, 1fr) minmax(340px, 1fr)",
+    gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
     gap: "0",
   },
   sectionImage: {
@@ -49,17 +49,17 @@ const feedbackStyles = {
   },
   reviewIntro: {
     background: "#fff",
-    borderRadius: "16px",
-    padding: "18px 20px",
-    marginBottom: "20px",
-    boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
+    borderRadius: "12px",
+    padding: "24px",
+    marginBottom: "24px",
+    boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
     color: "#334155",
     lineHeight: 1.7,
   },
   passageHeader: {
-    padding: "18px 22px",
+    padding: "20px 24px",
     borderBottom: "1px solid #e2e8f0",
-    background: "linear-gradient(180deg, #eff6ff 0%, #ffffff 100%)",
+    background: "linear-gradient(180deg, #f8fafc 0%, #ffffff 100%)",
   },
   passageHeaderRow: {
     display: "flex",
@@ -102,7 +102,7 @@ const feedbackStyles = {
     gap: "10px",
     flexWrap: "wrap",
     alignItems: "center",
-    marginBottom: "16px",
+    marginBottom: "24px",
   },
   bulkActionButton: {
     padding: "9px 16px",
@@ -172,14 +172,14 @@ const getQuestionStatus = (detail, fallbackAnswer = "") => {
   if (!detail) {
     if (hasAnswerValue(fallbackAnswer)) {
       return {
-        label: "Da tra loi",
+        label: "Answered",
         style: { ...feedbackStyles.status, background: "#dbeafe", color: "#1d4ed8" },
         isBlank: false,
         isCorrect: false,
       };
     }
     return {
-      label: "Bỏ trống",
+      label: "Blank",
       style: { ...feedbackStyles.status, background: "#f1f5f9", color: "#64748b" },
       isBlank: true,
       isCorrect: false,
@@ -189,7 +189,7 @@ const getQuestionStatus = (detail, fallbackAnswer = "") => {
   const hasStudentAnswer = hasAnswerValue(getDetailStudentValue(detail)) || hasAnswerValue(fallbackAnswer);
   if (detail.isCorrect) {
     return {
-      label: "Dung",
+      label: "Correct",
       style: { ...feedbackStyles.status, background: "#dcfce7", color: "#166534" },
       isBlank: false,
       isCorrect: true,
@@ -198,7 +198,7 @@ const getQuestionStatus = (detail, fallbackAnswer = "") => {
 
   if (!hasStudentAnswer) {
     return {
-      label: "Bo trong",
+      label: "Blank",
       style: { ...feedbackStyles.status, background: "#f1f5f9", color: "#64748b" },
       isBlank: true,
       isCorrect: false,
@@ -206,7 +206,7 @@ const getQuestionStatus = (detail, fallbackAnswer = "") => {
   }
 
   return {
-    label: "Sai",
+    label: "Wrong",
     style: { ...feedbackStyles.status, background: "#fee2e2", color: "#991b1b" },
     isBlank: false,
     isCorrect: false,
@@ -342,7 +342,7 @@ function Feedback({ detail, answerValue = "" }) {
     <div style={feedbackStyles.container}>
       <span style={status.style}>{status.label}</span>
       {!status.isCorrect && correctDisplay ? (
-        <span style={feedbackStyles.correctAnswer}>Dap an dung: {correctDisplay}</span>
+        <span style={feedbackStyles.correctAnswer}>Correct answer: {correctDisplay}</span>
       ) : null}
     </div>
   );
@@ -893,7 +893,7 @@ export default function ReadingStudentStyleReview({ test, submission, details })
   if (!passages.length) {
     return (
       <div style={feedbackStyles.reviewIntro}>
-        Chua co du lieu de goc de dung lai giao dien lam bai cho IX Reading.
+        The original test payload is not available, so the IX Reading student layout cannot be reconstructed.
       </div>
     );
   }
@@ -905,7 +905,7 @@ export default function ReadingStudentStyleReview({ test, submission, details })
   return (
     <div>
       <div style={feedbackStyles.reviewIntro}>
-        Phan nay dung lai bo cuc Reading ma hoc sinh da nhin thay luc lam bai. Giao vien co the doi chieu truc tiep cau tra loi cua hoc sinh voi dap an dung tren tung cau hoi.
+        This view recreates the Reading layout students saw during the test so teachers can compare each response against the correct answer in context.
       </div>
 
       {passages.length > 1 && (
@@ -916,7 +916,7 @@ export default function ReadingStudentStyleReview({ test, submission, details })
             onClick={collapseAllPassages}
             disabled={allCollapsed}
           >
-            Thu gon tat ca
+            Collapse All
           </button>
           <button
             type="button"
@@ -924,7 +924,7 @@ export default function ReadingStudentStyleReview({ test, submission, details })
             onClick={expandAllPassages}
             disabled={allExpanded}
           >
-            Mo rong tat ca
+            Expand All
           </button>
         </div>
       )}
@@ -957,7 +957,7 @@ export default function ReadingStudentStyleReview({ test, submission, details })
                   onClick={() => togglePassage(passageIdx)}
                   aria-expanded={!isCollapsed}
                 >
-                  {isCollapsed ? "Mo rong" : "Thu gon"}
+                  {isCollapsed ? "Expand" : "Collapse"}
                 </button>
               </div>
             </div>

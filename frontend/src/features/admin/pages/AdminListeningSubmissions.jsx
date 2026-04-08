@@ -414,6 +414,24 @@ const AdminListeningSubmissions = () => {
     openFeedbackModal(matchedSubmission);
   }, [loading, searchParams, subs]);
 
+  useEffect(() => {
+    if (
+      !selectedSubmission?.id ||
+      typeof document === "undefined" ||
+      typeof window === "undefined"
+    ) {
+      return undefined;
+    }
+
+    const frameId = window.requestAnimationFrame(() => {
+      document
+        .getElementById(`listening-submission-row-${selectedSubmission.id}`)
+        ?.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+
+    return () => window.cancelAnimationFrame(frameId);
+  }, [selectedSubmission?.id]);
+
   const saveFeedback = async () => {
     if (!selectedSubmission) return;
     setSavingFeedback(true);
@@ -593,13 +611,14 @@ const AdminListeningSubmissions = () => {
               </tr>
             </thead>
             <tbody>
-              {filteredSubs.map((s, idx) => (
+              {filteredSubs.map((s, idx) => {
+                const isHighlighted = String(selectedSubmission?.id || "") === String(s.id);
+
+                return (
                 <tr
                   key={s.id}
-                  style={{
-                    borderBottom: "1px solid #eee",
-                    background: idx % 2 === 0 ? "#fff" : "#f9f9f9",
-                  }}
+                  id={`listening-submission-row-${s.id}`}
+                  style={getSubmissionRowStyle(idx, isHighlighted, isDarkMode)}
                 >
                   {(() => {
                     const timingMeta = s.finished === false ? getAttemptTimingMeta(s.expiresAt) : null;
@@ -728,7 +747,7 @@ const AdminListeningSubmissions = () => {
                     );
                   })()}
                 </tr>
-              ))}
+              )})}
             </tbody>
             </table>
           </div>
@@ -805,6 +824,24 @@ const AdminListeningSubmissions = () => {
     </>
   );
 };
+
+const getSubmissionRowStyle = (index, isHighlighted, isDarkMode) => ({
+  borderBottom: `1px solid ${isDarkMode ? "#334155" : "#eee"}`,
+  background: isHighlighted
+    ? isDarkMode
+      ? "rgba(245, 158, 11, 0.18)"
+      : "#fff7cc"
+    : index % 2 === 0
+    ? isDarkMode
+      ? "#0f172a"
+      : "#fff"
+    : isDarkMode
+    ? "#111827"
+    : "#f9f9f9",
+  boxShadow: isHighlighted ? "inset 4px 0 0 #f59e0b" : "none",
+  scrollMarginTop: "120px",
+  transition: "background-color 180ms ease, box-shadow 180ms ease",
+});
 
 const cellStyle = {
   padding: "10px",

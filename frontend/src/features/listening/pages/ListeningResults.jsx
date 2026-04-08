@@ -16,6 +16,16 @@ const styles = {
     background: "#f8fafc",
     minHeight: "100vh",
   },
+  adminShell: {
+    padding: "30px 16px",
+    fontFamily: "'Segoe UI', Arial, sans-serif",
+    maxWidth: "100%",
+    width: "100%",
+    margin: "0 auto",
+    background: "#f8fafc",
+    minHeight: "100vh",
+    boxSizing: "border-box",
+  },
   header: {
     display: "flex",
     justifyContent: "space-between",
@@ -43,15 +53,15 @@ const styles = {
   // Summary Cards
   summaryGrid: {
     display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-    gap: "16px",
+    gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+    gap: "24px",
     marginBottom: "24px",
   },
   summaryCard: {
     background: "#fff",
-    borderRadius: "12px",
-    padding: "20px",
-    boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+    borderRadius: "16px",
+    padding: "24px",
+    boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
     textAlign: "center",
   },
   cardLabel: {
@@ -77,9 +87,9 @@ const styles = {
   analysisSection: {
     background: "#fff",
     borderRadius: "12px",
-    padding: "20px",
+    padding: "24px",
     marginBottom: "24px",
-    boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+    boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
   },
   sectionTitle: {
     fontSize: "1.1rem",
@@ -108,8 +118,8 @@ const styles = {
   tableContainer: {
     background: "#fff",
     borderRadius: "12px",
-    padding: "20px",
-    boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+    padding: "24px",
+    boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
     marginBottom: "24px",
   },
   filterBar: {
@@ -210,13 +220,13 @@ const styles = {
   // Meta info
   metaGrid: {
     display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-    gap: "12px",
+    gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+    gap: "16px",
     marginBottom: "24px",
     background: "#fff",
-    padding: "16px",
+    padding: "24px",
     borderRadius: "12px",
-    boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+    boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
   },
   metaItem: {
     display: "flex",
@@ -236,7 +246,7 @@ const styles = {
   },
   tabContainer: {
     display: "flex",
-    gap: "12px",
+    gap: "8px",
     marginBottom: "24px",
     flexWrap: "wrap",
   },
@@ -261,8 +271,8 @@ const styles = {
   reviewPromptCard: {
     background: "#fff",
     borderRadius: "12px",
-    padding: "20px",
-    boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+    padding: "18px 20px",
+    boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
     marginBottom: "24px",
     display: "flex",
     justifyContent: "space-between",
@@ -280,35 +290,40 @@ const styles = {
     margin: 0,
     color: "#64748b",
     lineHeight: 1.6,
+    maxWidth: "680px",
   },
   questionSummary: {
     background: "#fff",
     borderRadius: "12px",
-    padding: "20px",
-    boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+    padding: "24px",
+    boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
     marginBottom: "24px",
   },
   questionGrid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fill, minmax(42px, 1fr))",
+    display: "flex",
+    flexWrap: "wrap",
     gap: "8px",
-    marginBottom: "14px",
+    marginBottom: "16px",
   },
   questionBadge: {
-    minHeight: "38px",
-    borderRadius: "10px",
+    width: "36px",
+    height: "36px",
+    borderRadius: "8px",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    fontWeight: 700,
-    fontSize: "0.9rem",
+    fontWeight: 600,
+    fontSize: "14px",
     border: "1px solid rgba(148, 163, 184, 0.25)",
   },
   legendRow: {
     display: "flex",
-    gap: "14px",
+    gap: "24px",
     flexWrap: "wrap",
     alignItems: "center",
+    marginTop: "16px",
+    paddingTop: "16px",
+    borderTop: "1px solid #e5e7eb",
   },
   legendItem: {
     display: "inline-flex",
@@ -318,10 +333,11 @@ const styles = {
     fontSize: "0.9rem",
   },
   legendDot: {
-    width: "12px",
-    height: "12px",
-    borderRadius: "999px",
+    width: "16px",
+    height: "16px",
+    borderRadius: "4px",
     display: "inline-block",
+    border: "1px solid rgba(148, 163, 184, 0.25)",
   },
   subSectionHeader: {
     display: "flex",
@@ -385,9 +401,9 @@ const CircularProgress = ({ percentage, size = 80, strokeWidth = 8 }) => {
 
 const StatusBadge = ({ status }) => {
   const config = {
-    good: { bg: "#dcfce7", color: "#166534", icon: "good", text: "Tốt" },
-    average: { bg: "#fef3c7", color: "#92400e", icon: "average", text: "Trung bình" },
-    weak: { bg: "#fee2e2", color: "#991b1b", icon: "weak", text: "Cần cải thiện" },
+    good: { bg: "#dcfce7", color: "#166534", icon: "good", text: "Good" },
+    average: { bg: "#fef3c7", color: "#92400e", icon: "average", text: "Average" },
+    weak: { bg: "#fee2e2", color: "#991b1b", icon: "weak", text: "Needs Work" },
   };
   const c = config[status] || config.average;
   return (
@@ -1184,12 +1200,27 @@ const ListeningResults = () => {
     }
   }, [activeTab]);
 
+  const pageShellStyle = canViewDetailedReview
+    ? styles.adminShell
+    : styles.container;
+  const pageShellClassName = canViewDetailedReview
+    ? "admin-page admin-submission-page"
+    : undefined;
+
   // Loading state
   if (loading) {
     return (
       <>
         {canViewDetailedReview && <AdminNavbar />}
-        <div style={{ ...styles.container, display: "flex", justifyContent: "center", alignItems: "center" }}>
+        <div
+          className={pageShellClassName}
+          style={{
+            ...pageShellStyle,
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+          }}
+        >
           <div style={{ textAlign: "center" }}>
             <div style={{ marginBottom: "16px", display: "inline-flex", color: "#3b82f6" }}>
               <InlineIcon name="loading" size={48} />
@@ -1245,7 +1276,7 @@ const ListeningResults = () => {
   return (
     <>
       {canViewDetailedReview && <AdminNavbar />}
-      <div style={styles.container}>
+      <div className={pageShellClassName} style={pageShellStyle}>
       {/* Header */}
       <div style={styles.header}>
         <h1 style={{ ...styles.title, display: "flex", alignItems: "center", gap: "10px" }}>
@@ -1458,7 +1489,7 @@ const ListeningResults = () => {
                     backgroundColor: status.bg,
                     color: status.text,
                   }}
-                  title={`Câu ${detail.questionNumber}: ${status.label}`}
+                  title={`Question ${detail.questionNumber}: ${status.label}`}
                 >
                   {detail.questionNumber}
                 </div>
