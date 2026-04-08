@@ -60,16 +60,93 @@ export const getQuestionStart = (questionNumber) => {
 
 const stripHtml = (value) => String(value || '').replace(/<[^>]+>/g, ' ');
 
-/**
- * Tính số lượng câu ngầm định của một question khi chưa có questionNumber rõ ràng.
- * @param {Object} question
- * @returns {number}
- */
-export const getImpliedQuestionCount = (question) => {
+export const getClozeText = (question) => {
+  if (!question || typeof question !== 'object') return null;
+
+  return (
+    question.paragraphText ||
+    question.passageText ||
+    question.text ||
+    question.paragraph ||
+    (question.questionText && question.questionText.includes('[BLANK]')
+      ? question.questionText
+      : null)
+  );
+};
+
+export const getActiveClozeTable = (question) => {
+  if (!question || typeof question !== 'object' || !question.tableMode) {
+    return null;
+  }
+
+  const table = question.clozeTable;
+  if (!table || !Array.isArray(table.rows)) {
+    return null;
+  }
+
+  return {
+    columns: Array.isArray(table.columns) ? table.columns : [],
+    rows: table.rows,
+  };
+};
+
+export const countClozeBlanks = (question) => {
+  const table = getActiveClozeTable(question);
+  if (table) {
+    return table.rows.reduce((total, row) => {
+      const rowCount = (Array.isArray(row?.cells) ? row.cells : []).reduce(
+        (cellTotal, cell) => cellTotal + ((String(cell || '').match(/\[BLANK\]/gi) || []).length),
+        0
+      );
+      return total + rowCount;
+    }, 0);
+  }
+
+  const clozeText = getClozeText(question);
+  if (clozeText) {
+    return (clozeText.match(/\[BLANK\]/gi) || []).length;
+  }
+
+  return Array.isArray(question?.blanks) ? question.blanks.length : 0;
+};
+
+const getStructuralQuestionCount = (question) => {
   if (!question || typeof question !== 'object') return 1;
 
-  if (question.questionNumber) {
-    return getQuestionCount(question.questionNumber);
+  const normalizedType = String(question.questionType || question.type || '')
+    .trim()
+    .replace(/[\s_]+/g, '-')
+    .replace(/-{2,}/g, '-')
+    .toLowerCase();
+
+  if (normalizedType === 'cloze-test' || normalizedType === 'summary-completion') {
+    const clozeBlankCount = countClozeBlanks(question);
+    if (clozeBlankCount > 0) {
+      return clozeBlankCount;
+    }
+  }
+
+  if (
+    (normalizedType === 'cloze-test' || normalizedType === 'summary-completion') &&
+    Array.isArray(question.blanks) &&
+    question.blanks.length > 0
+  ) {
+    return question.blanks.length;
+  }
+
+  if (normalizedType === 'multi-select') {
+    const requiredAnswers = Number(question.requiredAnswers || question.maxSelection || 0);
+    if (Number.isFinite(requiredAnswers) && requiredAnswers > 0) {
+      return requiredAnswers;
+    }
+  }
+
+  if (
+    (normalizedType === 'paragraph-matching' || normalizedType === 'ielts-matching-headings') &&
+    Array.isArray(question.paragraphs) &&
+    question.paragraphs.length > 0
+  ) {
+    return question.paragraphs.length;
   }
 
   if (Array.isArray(question.blanks) && question.blanks.length > 0) {
@@ -80,6 +157,93 @@ export const getImpliedQuestionCount = (question) => {
   const blankCount = (plainText.match(/\[BLANK\]/g) || []).length;
 
   return blankCount || 1;
+};
+
+/**
+ * Tính số lượng câu ngầm định của một question khi chưa có questionNumber rõ ràng.
+ * @param {Object} question
+ * @returns {number}
+ */
+export const getImpliedQuestionCount = (question) => {
+  if (!question || typeof question !== 'object') return 1;
+
+  const structuralCount = getStructuralQuestionCount(question);
+
+  if (question.questionNumber) {
+    return Math.max(getQuestionCount(question.questionNumber), structuralCount);
+  }
+
+  return structuralCount;
+};
+
+export const formatQuestionNumber = (startNumber, questionCount = 1, template = '') => {
+  const start = parseInt(startNumber, 10);
+  const count = Math.max(1, Number(questionCount) || 1);
+
+  if (!Number.isFinite(start)) {
+    return '1';
+  }
+
+  if (count === 1) {
+    return String(start);
+  }
+
+  if (String(template || '').includes(',')) {
+    return Array.from({ length: count }, (_, index) => start + index).join(', ');
+  }
+
+  return `${start}-${start + count - 1}`;
+};
+
+export const renumberQuestionsFrom = (
+  passages,
+  startPassageIndex,
+  startSectionIndex,
+  startQuestionIndex,
+  startingNumber
+) => {
+  if (!Array.isArray(passages)) return passages;
+
+  let nextNumber = parseInt(startingNumber, 10);
+  if (!Number.isFinite(nextNumber)) return passages;
+
+  for (let passageIndex = startPassageIndex; passageIndex < passages.length; passageIndex++) {
+    const sections = Array.isArray(passages[passageIndex]?.sections)
+      ? passages[passageIndex].sections
+      : [];
+
+    for (
+      let sectionIndex = passageIndex === startPassageIndex ? startSectionIndex : 0;
+      sectionIndex < sections.length;
+      sectionIndex++
+    ) {
+      const questions = Array.isArray(sections[sectionIndex]?.questions)
+        ? sections[sectionIndex].questions
+        : [];
+
+      for (
+        let questionIndex =
+          passageIndex === startPassageIndex && sectionIndex === startSectionIndex
+            ? startQuestionIndex
+            : 0;
+        questionIndex < questions.length;
+        questionIndex++
+      ) {
+        const question = questions[questionIndex];
+        if (!question || typeof question !== 'object') continue;
+
+        const questionCount = Math.max(1, getImpliedQuestionCount(question));
+        question.questionNumber = formatQuestionNumber(
+          nextNumber,
+          questionCount,
+          question.questionNumber
+        );
+        nextNumber += questionCount;
+      }
+    }
+  }
+
+  return passages;
 };
 
 /**
@@ -139,7 +303,7 @@ export const calculateTotalQuestions = (passages) => {
   passages.forEach((p) => {
     p.sections?.forEach((sec) => {
       sec.questions?.forEach((q) => {
-        total += getQuestionCount(q.questionNumber);
+        total += getImpliedQuestionCount(q);
       });
     });
   });
@@ -201,23 +365,9 @@ export const createDefaultQuestionByType = (type) => {
           { id: "blank_1", blankNumber: 2, correctAnswer: "" },
         ],
         tableMode: false,
-        clozeTable: {
-          columns: ["Test", "Findings"],
-          rows: [
-            {
-              cells: [
-                "Observing the [BLANK] of Russian-English bilingual people when asked to select certain objects",
-                "Bilingual people engage both languages simultaneously: a mechanism known as [BLANK].",
-              ],
-            },
-            {
-              cells: [
-                "A test called the [BLANK], focusing on naming colours",
-                "Bilingual people are more able to handle tasks involving a skill called [BLANK].",
-              ],
-            },
-          ],
-        },
+        tableColumns: ["Test", "Findings"],
+        tableRows: [{ cells: ["", ""] }],
+        clozeTable: null,
       };
 
     case "summary-completion":

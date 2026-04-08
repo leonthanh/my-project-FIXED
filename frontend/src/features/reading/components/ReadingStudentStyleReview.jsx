@@ -1,6 +1,12 @@
 import React, { useMemo, useState } from "react";
 import { hostPath } from "../../../shared/utils/api";
-import { normalizeQuestionType } from "../utils/questionHelpers";
+import { renderHtmlWithBlankPlaceholders } from "../utils/htmlHelpers";
+import {
+  countClozeBlanks,
+  getActiveClozeTable,
+  getClozeText,
+  normalizeQuestionType,
+} from "../utils/questionHelpers";
 import "../styles/do-reading-test.css";
 
 const feedbackStyles = {
@@ -246,16 +252,8 @@ const countQuestionsInSection = (questions) =>
     }
 
     if (qType === "cloze-test" || qType === "summary-completion") {
-      const clozeText =
-        q.paragraphText ||
-        q.passageText ||
-        q.text ||
-        q.paragraph ||
-        (q.questionText && q.questionText.includes("[BLANK]") ? q.questionText : null);
-      if (clozeText) {
-        const blankMatches = clozeText.match(/\[BLANK\]/gi);
-        return total + (blankMatches ? blankMatches.length : 1);
-      }
+      const blankCount = countClozeBlanks(q);
+      return total + (blankCount || 1);
     }
 
     if (qType === "paragraph-matching") {
@@ -452,13 +450,9 @@ export default function ReadingStudentStyleReview({ test, submission, details })
         ? (question.questionText.match(/(\.{3,}|…+)/g) || []).length
         : 0;
     const isClozeTest = qType === "cloze-test" || qType === "summary-completion";
-    const clozeText =
-      question.paragraphText ||
-      question.passageText ||
-      question.text ||
-      question.paragraph ||
-      (question.questionText && question.questionText.includes("[BLANK]") ? question.questionText : null);
-    const blankCount = isClozeTest && clozeText ? (clozeText.match(/\[BLANK\]/gi) || []).length : 0;
+    const clozeTable = isClozeTest ? getActiveClozeTable(question) : null;
+    const clozeText = isClozeTest ? getClozeText(question) : null;
+    const blankCount = isClozeTest ? countClozeBlanks(question) : 0;
     const isShortAnswerInline =
       (qType === "fill-in-blank" || qType === "short-answer" || qType === "fill-in-the-blanks") &&
       question.questionText &&
@@ -807,12 +801,12 @@ export default function ReadingStudentStyleReview({ test, submission, details })
                 </div>
               )}
 
-              {question.clozeTable && Array.isArray(question.clozeTable.rows) ? (
+              {clozeTable ? (
                 <div className="cloze-table-wrapper" style={{ overflowX: "auto" }}>
                   <table className="cloze-table" style={{ width: "100%", borderCollapse: "collapse" }}>
                     <thead>
                       <tr>
-                        {(question.clozeTable.columns || []).map((col, ci) => (
+                        {(clozeTable.columns || []).map((col, ci) => (
                           <th key={ci} style={{ border: "1px solid #cbd5e1", padding: "8px", background: "#e0f2fe" }}>
                             {col}
                           </th>
@@ -820,7 +814,7 @@ export default function ReadingStudentStyleReview({ test, submission, details })
                       </tr>
                     </thead>
                     <tbody>
-                      {(question.clozeTable.rows || []).map((row, ri) => (
+                      {(clozeTable.rows || []).map((row, ri) => (
                         <tr key={ri}>
                           {(row.cells || []).map((cell, ci) => {
                             let blankIndex = 0;
@@ -851,20 +845,22 @@ export default function ReadingStudentStyleReview({ test, submission, details })
                 </div>
               ) : clozeText ? (
                 <div className="cloze-passage">
-                  {clozeText.split(/(\[BLANK\])/gi).map((part, idx) => {
-                    if (part.toUpperCase() === "[BLANK]") {
-                      const blankIndex = Math.floor(idx / 2);
+                  {renderHtmlWithBlankPlaceholders(
+                    clozeText,
+                    (blankIndex, blankElementKey) => {
                       const qNum = (question.startQuestion || questionNumber) + blankIndex;
                       const blankKey = `${key}_${blankIndex}`;
+                      const answerValue = extractInlineAnswer(answers, blankKey, detailMap.get(qNum));
+
                       return (
-                        <span key={idx} className="blank">
-                          <input className="blank-input" value={extractInlineAnswer(answers, blankKey, detailMap.get(qNum))} readOnly />
-                          <Feedback detail={detailMap.get(qNum)} answerValue={extractInlineAnswer(answers, blankKey, detailMap.get(qNum))} />
+                        <span key={blankElementKey} className="blank">
+                          <input className="blank-input" value={answerValue} readOnly />
+                          <Feedback detail={detailMap.get(qNum)} answerValue={answerValue} />
                         </span>
                       );
-                    }
-                    return <span key={idx} dangerouslySetInnerHTML={{ __html: part }} />;
-                  })}
+                    },
+                    `${key}-review-cloze`
+                  )}
                 </div>
               ) : null}
             </div>
@@ -1020,18 +1016,8 @@ export default function ReadingStudentStyleReview({ test, submission, details })
                       } else if (qType === "multi-select") {
                         sectionQuestionNumber += question.requiredAnswers || 2;
                       } else if (qType === "cloze-test" || qType === "summary-completion") {
-                        const currentClozeText =
-                          question.paragraphText ||
-                          question.passageText ||
-                          question.text ||
-                          question.paragraph ||
-                          (question.questionText && question.questionText.includes("[BLANK]") ? question.questionText : null);
-                        if (currentClozeText) {
-                          const blankMatches = currentClozeText.match(/\[BLANK\]/gi);
-                          sectionQuestionNumber += blankMatches ? blankMatches.length : 1;
-                        } else {
-                          sectionQuestionNumber += 1;
-                        }
+                        const blankCount = countClozeBlanks(question);
+                        sectionQuestionNumber += blankCount || 1;
                       } else {
                         sectionQuestionNumber += 1;
                       }

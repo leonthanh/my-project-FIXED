@@ -1,6 +1,32 @@
 import React, { useState, useEffect, useRef } from 'react';
 import QuillEditor from './QuillEditor';
 
+const DEFAULT_TABLE_COLUMNS = ['Test', 'Findings'];
+
+const getTableColumnsFromQuestion = (question) => {
+  if (Array.isArray(question?.tableColumns)) {
+    return question.tableColumns;
+  }
+
+  if (question?.tableMode && Array.isArray(question?.clozeTable?.columns)) {
+    return question.clozeTable.columns;
+  }
+
+  return DEFAULT_TABLE_COLUMNS;
+};
+
+const getTableRowsFromQuestion = (question, tableColumns) => {
+  if (Array.isArray(question?.tableRows)) {
+    return question.tableRows;
+  }
+
+  if (question?.tableMode && Array.isArray(question?.clozeTable?.rows)) {
+    return question.clozeTable.rows;
+  }
+
+  return [{ cells: tableColumns.map(() => '') }];
+};
+
 /**
  * IELTS Cloze Test Question Component
  * 
@@ -11,25 +37,11 @@ import QuillEditor from './QuillEditor';
  */
 
 const ClozeTestQuestion = ({ question, onChange }) => {
+  const initialTableColumns = getTableColumnsFromQuestion(question);
   const [paragraphText, setParagraphText] = useState(question?.paragraphText || '');
   const [tableMode, setTableMode] = useState(question?.tableMode || false);
-  const [tableColumns, setTableColumns] = useState(question?.tableColumns || ['Test', 'Findings']);
-  const [tableRows, setTableRows] = useState(
-    question?.tableRows || [
-      {
-        cells: [
-          'Observing the [BLANK] of Russian-English bilingual people when asked to select certain objects',
-          'Bilingual people engage both languages simultaneously: a mechanism known as [BLANK].',
-        ],
-      },
-      {
-        cells: [
-          'A test called the [BLANK], focusing on naming colours',
-          'Bilingual people are more able to handle tasks involving a skill called [BLANK].',
-        ],
-      },
-    ]
-  );
+  const [tableColumns, setTableColumns] = useState(initialTableColumns);
+  const [tableRows, setTableRows] = useState(getTableRowsFromQuestion(question, initialTableColumns));
   const [maxWords, setMaxWords] = useState(question?.maxWords || 3);
   const [blanks, setBlanks] = useState(question?.blanks || []);
   const quillRef = useRef(null);
@@ -73,12 +85,14 @@ const ClozeTestQuestion = ({ question, onChange }) => {
         maxWords,
         blanks,
         tableMode,
+        tableColumns,
+        tableRows,
         clozeTable: tableMode
           ? {
               columns: tableColumns,
               rows: tableRows,
             }
-          : question.clozeTable || null,
+          : null,
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -542,7 +556,7 @@ const ClozeTestQuestion = ({ question, onChange }) => {
       </div>
 
       {/* Preview */}
-      {paragraphText && (
+      {(tableMode || paragraphText) && (
         <div style={styles.preview}>
           <h5 style={styles.previewTitle}>
             <span>👁</span> Preview - Học sinh sẽ thấy:

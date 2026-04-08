@@ -10,7 +10,13 @@ import ConfirmModal from "../../../shared/components/ConfirmModal";
 import ResultModal from "../../../shared/components/ResultModal";
 import ExtensionToast from "../../../shared/components/ExtensionToast";
 import "../styles/do-reading-test.css";
-import { normalizeQuestionType } from "../utils/questionHelpers";
+import { renderHtmlWithBlankPlaceholders } from "../utils/htmlHelpers";
+import {
+  countClozeBlanks,
+  getActiveClozeTable,
+  getClozeText,
+  normalizeQuestionType,
+} from "../utils/questionHelpers";
 import { apiPath, getStoredUser, hostPath } from "../../../shared/utils/api";
 import {
   formatClock,
@@ -24,17 +30,6 @@ import {
 function stripUnwantedHtml(html) {
   if (!html) return "";
   return html.replace(/<span[^>]*>|<\/span>/gi, "");
-}
-
-// Utility: Clean inline cloze text (remove paragraph/block breaks)
-function sanitizeInlineHtml(html) {
-  if (!html) return "";
-  return stripUnwantedHtml(html)
-    .replace(/<p[^>]*>/gi, "")
-    .replace(/<\/p>/gi, " ")
-    .replace(/<br\s*\/?\s*>/gi, " ")
-    .replace(/\s{2,}/g, " ")
-    .trim();
 }
 
 /**
@@ -184,26 +179,7 @@ const DoReadingTest = () => {
               }
 
               if (qType === "cloze-test" || qType === "summary-completion") {
-                let blanks = 0;
-                if (q.clozeTable && Array.isArray(q.clozeTable.rows)) {
-                  blanks = q.clozeTable.rows.reduce((sum, row) => {
-                    const rowCount = (Array.isArray(row.cells) ? row.cells : []).reduce(
-                      (rsum, cell) => rsum + ((String(cell || "").match(/\[BLANK\]/gi) || []).length),
-                      0
-                    );
-                    return sum + rowCount;
-                  }, 0);
-                } else {
-                  const clozeText =
-                    q.paragraphText ||
-                    q.passageText ||
-                    q.text ||
-                    q.paragraph ||
-                    (q.questionText && q.questionText.includes("[BLANK]")
-                      ? q.questionText
-                      : null);
-                  blanks = clozeText ? (clozeText.match(/\[BLANK\]/gi) || []).length : 0;
-                }
+                const blanks = countClozeBlanks(q);
 
                 if (blanks > 0) {
                   if (n >= qCounter && n < qCounter + blanks) {
@@ -553,19 +529,7 @@ const DoReadingTest = () => {
           }
           currentNum += blankCount;
         } else if (qType === "cloze-test" || qType === "summary-completion") {
-          let blankCount = 0;
-          if (q.clozeTable && Array.isArray(q.clozeTable.rows)) {
-            blankCount = q.clozeTable.rows.reduce((sum, row) => {
-              const rowCount = (Array.isArray(row.cells) ? row.cells : []).reduce((rsum, cell) => {
-                return rsum + ((String(cell || "").match(/\[BLANK\]/gi) || []).length);
-              }, 0);
-              return sum + rowCount;
-            }, 0);
-          } else {
-            const clozeText = q.paragraphText || q.passageText || q.text || q.paragraph || 
-              (q.questionText && q.questionText.includes("[BLANK]") ? q.questionText : null);
-            blankCount = clozeText ? (clozeText.match(/\[BLANK\]/gi) || []).length : 1;
-          }
+          let blankCount = countClozeBlanks(q);
           blankCount = blankCount || 1;
           for (let i = 0; i < blankCount; i++) {
             groups.push({ type: "single", start: startNum + i, count: 1 });
@@ -1229,32 +1193,8 @@ const DoReadingTest = () => {
           }
           // For cloze test, count each blank as a question
           else if (qType === "cloze-test" || qType === "summary-completion") {
-            let blankMatches = [];
-            if (q.clozeTable && Array.isArray(q.clozeTable.rows)) {
-              const totalBlanks = q.clozeTable.rows.reduce((cnt, row) => {
-                return (
-                  cnt +
-                  (Array.isArray(row.cells)
-                    ? row.cells.reduce(
-                        (rc, cell) =>
-                          rc + ((String(cell || "").match(/\[BLANK\]/gi) || []).length),
-                        0
-                      )
-                    : 0)
-                );
-              }, 0);
-              blankMatches = Array.from({ length: totalBlanks });
-            } else {
-              const clozeText =
-                q.paragraphText ||
-                q.passageText ||
-                q.text ||
-                q.paragraph ||
-                (q.questionText && q.questionText.includes("[BLANK]")
-                  ? q.questionText
-                  : null);
-              blankMatches = clozeText ? clozeText.match(/\[BLANK\]/gi) || [] : [];
-            }
+            const totalBlanks = countClozeBlanks(q);
+            const blankMatches = Array.from({ length: totalBlanks });
 
             if (blankMatches.length > 0) {
               const baseKey = `q_${total + 1}`;
@@ -1912,18 +1852,9 @@ const DoReadingTest = () => {
     // For cloze test, count blanks
     const isClozeTest =
       qType === "cloze-test" || qType === "summary-completion";
-    const clozeText =
-      question.paragraphText ||
-      question.passageText ||
-      question.text ||
-      question.paragraph ||
-      (question.questionText && question.questionText.includes("[BLANK]")
-        ? question.questionText
-        : null);
-    const blankCount =
-      isClozeTest && clozeText
-        ? (clozeText.match(/\[BLANK\]/gi) || []).length
-        : 0;
+    const clozeTable = isClozeTest ? getActiveClozeTable(question) : null;
+    const clozeText = isClozeTest ? getClozeText(question) : null;
+    const blankCount = isClozeTest ? countClozeBlanks(question) : 0;
 
     // Check if short answer has inline dots
     const isShortAnswerInline =
@@ -2277,23 +2208,8 @@ const DoReadingTest = () => {
                                     qType2 === "cloze-test" ||
                                     qType2 === "summary-completion"
                                   ) {
-                                    const clozeText =
-                                      q2.paragraphText ||
-                                      q2.passageText ||
-                                      q2.text ||
-                                      q2.paragraph ||
-                                      (q2.questionText &&
-                                      q2.questionText.includes("[BLANK]")
-                                        ? q2.questionText
-                                        : null);
-                                    if (clozeText) {
-                                      const blanks = (
-                                        clozeText.match(/\[BLANK\]/gi) || []
-                                      ).length;
-                                      qNum += blanks || 1;
-                                    } else {
-                                      qNum++;
-                                    }
+                                    const blanks = countClozeBlanks(q2);
+                                    qNum += blanks || 1;
                                   } else {
                                     qNum++;
                                   }
@@ -2438,23 +2354,8 @@ const DoReadingTest = () => {
                               qType2 === "cloze-test" ||
                               qType2 === "summary-completion"
                             ) {
-                              const clozeText =
-                                q2.paragraphText ||
-                                q2.passageText ||
-                                q2.text ||
-                                q2.paragraph ||
-                                (q2.questionText &&
-                                q2.questionText.includes("[BLANK]")
-                                  ? q2.questionText
-                                  : null);
-                              if (clozeText) {
-                                const blanks = (
-                                  clozeText.match(/\[BLANK\]/gi) || []
-                                ).length;
-                                qNum += blanks || 1;
-                              } else {
-                                qNum++;
-                              }
+                              const blanks = countClozeBlanks(q2);
+                              qNum += blanks || 1;
                             } else {
                               qNum++;
                             }
@@ -2817,8 +2718,8 @@ const DoReadingTest = () => {
 
               {/* If passage text exists with [BLANK], render inline */}
               {(() => {
-                if (question.clozeTable && Array.isArray(question.clozeTable.rows)) {
-                  const table = question.clozeTable;
+                if (clozeTable) {
+                  const table = clozeTable;
                   let blankIndex = 0;
                   const baseQuestionNum = question.startQuestion || questionNumber;
 
@@ -2904,72 +2805,54 @@ const DoReadingTest = () => {
                 if (clozeText && clozeText.includes("[BLANK]")) {
                   return (
                     <div className="cloze-passage">
-                      {(() => {
-                        let blankIndex = 0;
-                        const baseQuestionNum = question.startQuestion || questionNumber;
-                        return clozeText
-                          .split(/\[BLANK\]/gi)
-                          .map((part, idx, arr) => {
-                            if (idx === arr.length - 1) {
-                              return (
-                                <span
-                                  key={idx}
-                                  dangerouslySetInnerHTML={{
-                                    __html: sanitizeInlineHtml(part),
-                                  }}
-                                />
-                              );
-                            }
-                            const currentBlankIdx = blankIndex++;
-                            const blankNum = baseQuestionNum + currentBlankIdx;
-                            const answerKey = `${key}_${currentBlankIdx}`;
-                            return (
-                              <span key={idx}>
-                                <span
-                                  dangerouslySetInnerHTML={{
-                                    __html: sanitizeInlineHtml(part),
-                                  }}
-                                />
-                                <span
-                                  className="cloze-inline-wrapper"
-                                  ref={(el) => (questionRefs.current[`q_${blankNum}`] = el)}
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setActiveQuestion(blankNum);
-                                  }}
+                      {renderHtmlWithBlankPlaceholders(
+                        clozeText,
+                        (blankIndex, blankElementKey) => {
+                          const blankNum = (question.startQuestion || questionNumber) + blankIndex;
+                          const answerKey = `${key}_${blankIndex}`;
+
+                          return (
+                            <span
+                              key={blankElementKey}
+                              className="cloze-inline-wrapper"
+                              ref={(el) => (questionRefs.current[`q_${blankNum}`] = el)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setActiveQuestion(blankNum);
+                              }}
+                            >
+                              <span className="cloze-inline-number">{blankNum}</span>
+                              {question.options && question.options.length > 0 ? (
+                                <select
+                                  className={'cloze-inline-select ' + (answers[answerKey] ? 'answered' : '')}
+                                  value={answers[answerKey] || ''}
+                                  onChange={(e) => handleAnswerChange(answerKey, e.target.value)}
+                                  onFocus={() => setActiveQuestion(blankNum)}
                                 >
-                                  <span className="cloze-inline-number">{blankNum}</span>
-                                  {question.options && question.options.length > 0 ? (
-                                    <select
-                                      className={'cloze-inline-select ' + (answers[answerKey] ? 'answered' : '')}
-                                      value={answers[answerKey] || ''}
-                                      onChange={(e) => handleAnswerChange(answerKey, e.target.value)}
-                                      onFocus={() => setActiveQuestion(blankNum)}
-                                    >
-                                      <option value="">--</option>
-                                      {question.options.map((opt, oi) => (
-                                        <option key={oi} value={String.fromCharCode(65 + oi)}>
-                                          {`${String.fromCharCode(65 + oi)}. ${stripUnwantedHtml(
-                                            typeof opt === 'object' ? opt.text || opt.label || '' : opt
-                                          )}`}
-                                        </option>
-                                      ))}
-                                    </select>
-                                  ) : (
-                                    <input
-                                      type="text"
-                                      className={'cloze-inline-input ' + (answers[answerKey] ? 'answered' : '')}
-                                      value={answers[answerKey] || ''}
-                                      onChange={(e) => handleAnswerChange(answerKey, e.target.value)}
-                                      onFocus={() => setActiveQuestion(blankNum)}
-                                      placeholder=""
-                                    />
-                                  )}
-                                </span>
-                              </span>
-                            );
-                          });
-                      })()}
+                                  <option value="">--</option>
+                                  {question.options.map((opt, oi) => (
+                                    <option key={oi} value={String.fromCharCode(65 + oi)}>
+                                      {`${String.fromCharCode(65 + oi)}. ${stripUnwantedHtml(
+                                        typeof opt === 'object' ? opt.text || opt.label || '' : opt
+                                      )}`}
+                                    </option>
+                                  ))}
+                                </select>
+                              ) : (
+                                <input
+                                  type="text"
+                                  className={'cloze-inline-input ' + (answers[answerKey] ? 'answered' : '')}
+                                  value={answers[answerKey] || ''}
+                                  onChange={(e) => handleAnswerChange(answerKey, e.target.value)}
+                                  onFocus={() => setActiveQuestion(blankNum)}
+                                  placeholder=""
+                                />
+                              )}
+                            </span>
+                          );
+                        },
+                        `${key}-cloze`
+                      )}
                     </div>
                   );
                 }
@@ -3374,22 +3257,8 @@ const DoReadingTest = () => {
                       qType === "cloze-test" ||
                       qType === "summary-completion"
                     ) {
-                      const clozeText =
-                        q.paragraphText ||
-                        q.passageText ||
-                        q.text ||
-                        q.paragraph ||
-                        (q.questionText && q.questionText.includes("[BLANK]")
-                          ? q.questionText
-                          : null);
-                      if (clozeText) {
-                        const blankMatches = clozeText.match(/\[BLANK\]/gi);
-                        sectionQuestionNumber += blankMatches
-                          ? blankMatches.length
-                          : 1;
-                      } else {
-                        sectionQuestionNumber++;
-                      }
+                      const blankCount = countClozeBlanks(q);
+                      sectionQuestionNumber += blankCount || 1;
                     } else {
                       sectionQuestionNumber++;
                     }

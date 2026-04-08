@@ -9,6 +9,7 @@ const inFlightRequests = new Map();
 const SUCCESS_CACHE_TTL_MS = 12 * 60 * 60 * 1000;
 const FALLBACK_CACHE_TTL_MS = 30 * 60 * 1000;
 const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
+const GEMINI_URL_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
 
 function stripHtml(value = "") {
   return String(value)
@@ -84,6 +85,174 @@ function shouldRetryOpenAI(status, detailText = "") {
   }
 
   return true;
+}
+
+function shouldRetryGemini(status) {
+  return status === 429 || status >= 500;
+}
+
+function extractGeminiSuggestion(payload = {}) {
+  const candidates = Array.isArray(payload?.candidates) ? payload.candidates : [];
+
+  return candidates
+    .flatMap((candidate) => candidate?.content?.parts || [])
+    .map((part) => (typeof part?.text === "string" ? part.text.trim() : ""))
+    .filter(Boolean)
+    .join("\n\n")
+    .trim();
+}
+
+async function callGeminiWithRetry(prompt) {
+  const retries = [
+    { attempt: 1, delayMs: 0 },
+    { attempt: 2, delayMs: 1000 },
+  ];
+
+  const apiKey = process.env.GEMINI_API_KEY;
+  const model = process.env.GEMINI_FEEDBACK_MODEL || "gemini-2.0-flash";
+  const url = `${GEMINI_URL_BASE}/${encodeURIComponent(
+    model
+  )}:generateContent?key=${encodeURIComponent(apiKey)}`;
+
+  let lastFailure = null;
+
+  for (const { attempt, delayMs } of retries) {
+    if (delayMs > 0) {
+      await sleep(delayMs);
+    }
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000);
+
+    try {
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          system_instruction: {
+            parts: [
+              {
+                text: "You are an experienced IELTS Writing teacher.",
+              },
+            ],
+          },
+          contents: [
+            {
+              role: "user",
+              parts: [{ text: prompt }],
+            },
+          ],
+          generationConfig: {
+            temperature: 0.4,
+            maxOutputTokens: 1200,
+          },
+        }),
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+
+      if (response.ok) {
+        const data = await response.json();
+        const suggestion = extractGeminiSuggestion(data);
+
+        if (!suggestion) {
+          throw new Error("Gemini returned an empty suggestion");
+        }
+
+        return { ok: true, suggestion };
+      }
+
+      const detailText = await response.text();
+      const retryable = shouldRetryGemini(response.status);
+      lastFailure = {
+        status: response.status,
+        detail: detailText,
+        retryable,
+      };
+
+      console.error(
+        `[AI feedback] Gemini attempt ${attempt} failed with ${response.status}: ${detailText}`
+      );
+
+      if (!retryable) {
+        break;
+      }
+    } catch (error) {
+      clearTimeout(timeoutId);
+
+      lastFailure = {
+        status: 500,
+        detail: error?.message || String(error),
+        retryable: true,
+      };
+
+      console.error(
+        `[AI feedback] Gemini attempt ${attempt} threw:`,
+        error?.message || error
+      );
+    }
+  }
+
+  return { ok: false, ...lastFailure };
+}
+
+function buildProviderReason(providerName, result, language = "vi") {
+  if (!result) {
+    return language === "en"
+      ? `${providerName} connection error`
+      : `lỗi kết nối ${providerName}`;
+  }
+
+  if (result.status === 429) {
+    return language === "en"
+      ? `${providerName} returned 429`
+      : `${providerName} trả về 429`;
+  }
+
+  if (result.status) {
+    return language === "en"
+      ? `${providerName} error ${result.status}`
+      : `${providerName} lỗi ${result.status}`;
+  }
+
+  return language === "en"
+    ? `${providerName} connection error`
+    : `lỗi kết nối ${providerName}`;
+}
+
+function buildGeminiWarningForWriting(openAiResult) {
+  if (!process.env.OPENAI_API_KEY) {
+    return "OpenAI chưa được cấu hình trên server. Hệ thống đã dùng Gemini để tạo draft thay thế.";
+  }
+
+  if (openAiResult?.status === 429) {
+    return "OpenAI đang bị giới hạn tạm thời. Hệ thống đã dùng Gemini để tạo draft thay thế.";
+  }
+
+  if (openAiResult?.status) {
+    return `OpenAI tạm thời lỗi ${openAiResult.status}. Hệ thống đã dùng Gemini để tạo draft thay thế.`;
+  }
+
+  return "OpenAI tạm thời không phản hồi. Hệ thống đã dùng Gemini để tạo draft thay thế.";
+}
+
+function buildGeminiWarningForCambridge(openAiResult) {
+  if (!process.env.OPENAI_API_KEY) {
+    return "OpenAI is not configured on the server. Gemini generated the feedback instead.";
+  }
+
+  if (openAiResult?.status === 429) {
+    return "OpenAI returned 429 Too Many Requests. Gemini generated the feedback instead.";
+  }
+
+  if (openAiResult?.status) {
+    return `OpenAI returned ${openAiResult.status}. Gemini generated the feedback instead.`;
+  }
+
+  return "OpenAI was temporarily unavailable. Gemini generated the feedback instead.";
 }
 
 function estimateBand(words, minWords, paragraphs) {
@@ -282,18 +451,16 @@ async function callOpenAIWithRetry(prompt) {
 async function generateFeedback(task1, task2) {
   const prompt = buildPrompt(task1, task2);
 
-  if (!process.env.OPENAI_API_KEY) {
-    return {
-      suggestion: buildFallbackSuggestion(task1, task2, "thiếu OPENAI_API_KEY"),
-      source: "fallback",
-      warning:
-        "OpenAI chưa được cấu hình trên server, hệ thống đã tạo nhận xét dự phòng.",
-      fallback: true,
-    };
+  const hasOpenAi = Boolean(process.env.OPENAI_API_KEY);
+  const hasGemini = Boolean(process.env.GEMINI_API_KEY);
+  let openAiResult = null;
+  let geminiResult = null;
+
+  if (hasOpenAi) {
+    openAiResult = await callOpenAIWithRetry(prompt);
   }
 
-  const openAiResult = await callOpenAIWithRetry(prompt);
-  if (openAiResult.ok) {
+  if (openAiResult?.ok) {
     return {
       suggestion: openAiResult.suggestion,
       source: "openai",
@@ -301,21 +468,47 @@ async function generateFeedback(task1, task2) {
     };
   }
 
-  const reason =
-    openAiResult?.status === 429
-      ? "OpenAI trả về 429"
-      : openAiResult?.status
-      ? `OpenAI lỗi ${openAiResult.status}`
-      : "lỗi kết nối AI";
+  if (hasGemini && (!hasOpenAi || openAiResult)) {
+    geminiResult = await callGeminiWithRetry(prompt);
+    if (geminiResult.ok) {
+      return {
+        suggestion: geminiResult.suggestion,
+        source: "gemini",
+        warning: buildGeminiWarningForWriting(openAiResult),
+        fallback: false,
+        upstreamStatus: openAiResult?.status || null,
+        upstreamProvider: hasOpenAi ? "openai" : null,
+      };
+    }
+  }
+
+  const reasons = [];
+  if (!hasOpenAi) {
+    reasons.push("thiếu OPENAI_API_KEY");
+  } else if (openAiResult) {
+    reasons.push(buildProviderReason("OpenAI", openAiResult, "vi"));
+  }
+
+  if (!hasGemini) {
+    reasons.push("thiếu GEMINI_API_KEY");
+  } else if (geminiResult) {
+    reasons.push(buildProviderReason("Gemini", geminiResult, "vi"));
+  }
+
+  const reason = reasons.join("; ") || "lỗi kết nối AI";
+  const warning =
+    !hasOpenAi && !hasGemini
+      ? "OpenAI và Gemini chưa được cấu hình trên server. Hệ thống đã tạo nhận xét dự phòng."
+      : "OpenAI và Gemini đều không sẵn sàng lúc này. Hệ thống đã tạo nhận xét dự phòng để không gián đoạn việc chấm bài.";
 
   return {
     suggestion: buildFallbackSuggestion(task1, task2, reason),
     source: "fallback",
-    warning:
-      "OpenAI đang bận hoặc bị giới hạn tạm thời. Hệ thống đã tạo nhận xét dự phòng để không gián đoạn việc chấm bài.",
+    warning,
     fallback: true,
-    upstreamStatus: openAiResult?.status || null,
-    upstreamDetail: openAiResult?.detail || null,
+    upstreamStatus: geminiResult?.status || openAiResult?.status || null,
+    upstreamDetail: geminiResult?.detail || openAiResult?.detail || null,
+    upstreamProvider: geminiResult ? "gemini" : hasOpenAi ? "openai" : null,
   };
 }
 
@@ -418,19 +611,6 @@ async function generateCambridgeFeedback({
     };
   }
 
-  if (!process.env.OPENAI_API_KEY) {
-    return {
-      suggestion: buildCambridgeFallback(
-        normalizedResponses,
-        "missing OPENAI_API_KEY"
-      ),
-      source: "fallback",
-      warning:
-        "OpenAI is not configured on the server, so the system generated fallback feedback.",
-      fallback: true,
-    };
-  }
-
   const prompt = buildCambridgePrompt({
     studentName,
     testType,
@@ -438,8 +618,16 @@ async function generateCambridgeFeedback({
     responses: normalizedResponses,
   });
 
-  const openAiResult = await callOpenAIWithRetry(prompt);
-  if (openAiResult.ok) {
+  const hasOpenAi = Boolean(process.env.OPENAI_API_KEY);
+  const hasGemini = Boolean(process.env.GEMINI_API_KEY);
+  let openAiResult = null;
+  let geminiResult = null;
+
+  if (hasOpenAi) {
+    openAiResult = await callOpenAIWithRetry(prompt);
+  }
+
+  if (openAiResult?.ok) {
     return {
       suggestion: openAiResult.suggestion,
       source: "openai",
@@ -447,21 +635,47 @@ async function generateCambridgeFeedback({
     };
   }
 
-  const reason =
-    openAiResult?.status === 429
-      ? "OpenAI returned 429"
-      : openAiResult?.status
-      ? `OpenAI error ${openAiResult.status}`
-      : "AI connection error";
+  if (hasGemini && (!hasOpenAi || openAiResult)) {
+    geminiResult = await callGeminiWithRetry(prompt);
+    if (geminiResult.ok) {
+      return {
+        suggestion: geminiResult.suggestion,
+        source: "gemini",
+        warning: buildGeminiWarningForCambridge(openAiResult),
+        fallback: false,
+        upstreamStatus: openAiResult?.status || null,
+        upstreamProvider: hasOpenAi ? "openai" : null,
+      };
+    }
+  }
+
+  const reasons = [];
+  if (!hasOpenAi) {
+    reasons.push("missing OPENAI_API_KEY");
+  } else if (openAiResult) {
+    reasons.push(buildProviderReason("OpenAI", openAiResult, "en"));
+  }
+
+  if (!hasGemini) {
+    reasons.push("missing GEMINI_API_KEY");
+  } else if (geminiResult) {
+    reasons.push(buildProviderReason("Gemini", geminiResult, "en"));
+  }
+
+  const reason = reasons.join("; ") || "AI connection error";
+  const warning =
+    !hasOpenAi && !hasGemini
+      ? "Neither OpenAI nor Gemini is configured on the server, so the system generated fallback feedback."
+      : "OpenAI and Gemini are both temporarily unavailable, so the system generated fallback feedback so marking can continue.";
 
   return {
     suggestion: buildCambridgeFallback(normalizedResponses, reason),
     source: "fallback",
-    warning:
-      "OpenAI is temporarily busy or quota-limited. The system generated fallback feedback so marking can continue.",
+    warning,
     fallback: true,
-    upstreamStatus: openAiResult?.status || null,
-    upstreamDetail: openAiResult?.detail || null,
+    upstreamStatus: geminiResult?.status || openAiResult?.status || null,
+    upstreamDetail: geminiResult?.detail || openAiResult?.detail || null,
+    upstreamProvider: geminiResult ? "gemini" : hasOpenAi ? "openai" : null,
   };
 }
 
@@ -482,6 +696,8 @@ router.post("/generate-feedback", async (req, res) => {
       source: cached.source,
       warning: cached.warning || null,
       fallback: Boolean(cached.fallback),
+      upstreamStatus: cached.upstreamStatus || null,
+      upstreamProvider: cached.upstreamProvider || null,
       cached: true,
     });
   }
@@ -494,6 +710,8 @@ router.post("/generate-feedback", async (req, res) => {
         source: sharedResult.source,
         warning: sharedResult.warning || null,
         fallback: Boolean(sharedResult.fallback),
+        upstreamStatus: sharedResult.upstreamStatus || null,
+        upstreamProvider: sharedResult.upstreamProvider || null,
         cached: false,
         shared: true,
       });
@@ -518,6 +736,8 @@ router.post("/generate-feedback", async (req, res) => {
       source: result.source,
       warning: result.warning || null,
       fallback: Boolean(result.fallback),
+      upstreamStatus: result.upstreamStatus || null,
+      upstreamProvider: result.upstreamProvider || null,
       cached: false,
     });
   } catch (error) {
@@ -557,6 +777,8 @@ router.post("/generate-cambridge-feedback", async (req, res) => {
       source: cached.source,
       warning: cached.warning || null,
       fallback: Boolean(cached.fallback),
+      upstreamStatus: cached.upstreamStatus || null,
+      upstreamProvider: cached.upstreamProvider || null,
       cached: true,
     });
   }
@@ -569,6 +791,8 @@ router.post("/generate-cambridge-feedback", async (req, res) => {
         source: sharedResult.source,
         warning: sharedResult.warning || null,
         fallback: Boolean(sharedResult.fallback),
+        upstreamStatus: sharedResult.upstreamStatus || null,
+        upstreamProvider: sharedResult.upstreamProvider || null,
         cached: false,
         shared: true,
       });
@@ -598,6 +822,8 @@ router.post("/generate-cambridge-feedback", async (req, res) => {
       source: result.source,
       warning: result.warning || null,
       fallback: Boolean(result.fallback),
+      upstreamStatus: result.upstreamStatus || null,
+      upstreamProvider: result.upstreamProvider || null,
       cached: false,
     });
   } catch (error) {

@@ -46,7 +46,7 @@ EMAIL_USER=stareduelt@gmail.com
 EMAIL_PASS=
 EMAIL_TO=
 REACT_APP_API_URL=http://localhost:5000
-GEMINI_API_KEY=AIzaSyCNdfCuSNp6pG5281BxfP30ElK8oHDzob0
+GEMINI_API_KEY=your_gemini_api_key_here
 OPENAI_API_KEY=your_openai_api_key_here
 ```
 
@@ -94,7 +94,7 @@ Frontend sẽ chạy ở: `http://localhost:3000`
 
 ```bash
 # backend/.env
-OPENAI_API_KEY=sk-proj-xxxxxxxxxxxx
+OPENAI_API_KEY=your_openai_api_key_here
 ```
 
 ### 3. Test AI Feature
@@ -117,8 +117,8 @@ OPENAI_API_KEY=sk-proj-xxxxxxxxxxxx
 
 | Name             | Value                                     |
 | ---------------- | ----------------------------------------- |
-| `OPENAI_API_KEY` | `sk-proj-xxxxxxxxxxxx`                    |
-| `GEMINI_API_KEY` | `AIzaSyCNdfCuSNp6pG5281BxfP30ElK8oHDzob0` |
+| `OPENAI_API_KEY` | `your_openai_api_key_here`                |
+| `GEMINI_API_KEY` | `your_gemini_api_key_here`                |
 | `EMAIL_USER`     | `stareduelt@gmail.com`                    |
 | `EMAIL_PASS`     | `xxxx xxxx xxxx xxxx`                     |
 | `FTP_USERNAME`   | `wsxcblqh`                                |
@@ -153,7 +153,7 @@ OPENAI_API_KEY=sk-proj-xxxxxxxxxxxx
 3. Nhập:
    - **Username:** `wsxcblqh_thanh`
    - **Host:** `localhost`
-   - **Password:** `@Thanh562184`
+   - **Password:** `xxxxx`
 4. Click **Go**
 
 ### 4. Cấp quyền

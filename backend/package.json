@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "main": "server.js",
   "scripts": {
-    "dev": "cross-env NODE_ENV=development nodemon server.js",
+    "dev": "cross-env NODE_ENV=development nodemon --watch . --watch .env --ext js,mjs,cjs,json,env server.js",
     "start": "cross-env NODE_ENV=production node server.js",
     "test": "jest --runInBand",
     "migrate:add-listening-autosave-fields": "node scripts/add-listening-autosave-fields.js",

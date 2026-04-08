@@ -240,9 +240,18 @@ const AdminWritingSubmissions = () => {
         }));
 
         const statusMessage = aiData.cached
-          ? "Loaded cached AI feedback."
+          ? aiData.source === "gemini"
+            ? "Loaded cached Gemini AI feedback."
+            : "Loaded cached AI feedback."
+          : aiData.source === "gemini"
+          ? aiData.upstreamProvider === "openai" && aiData.upstreamStatus === 429
+            ? "OpenAI returned 429. Gemini generated the AI feedback instead."
+            : aiData.upstreamProvider === "openai"
+            ? "OpenAI was unavailable. Gemini generated the AI feedback instead."
+            : "Gemini generated AI feedback."
           : aiData.fallback
-          ? "OpenAI quota is currently unavailable. The system generated fallback feedback so marking can continue."
+          ? aiData.warning ||
+            "OpenAI and Gemini are currently unavailable. The system generated fallback feedback so marking can continue."
           : "AI feedback generated.";
 
         setMessages((prev) => ({

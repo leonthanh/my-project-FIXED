@@ -1,6 +1,9 @@
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import ResultModal from '../ResultModal';
+import { ThemeProvider } from '../../contexts/ThemeContext';
+
+const renderWithTheme = (ui) => render(<ThemeProvider>{ui}</ThemeProvider>);
 
 describe('ResultModal', () => {
   const defaultProps = {
@@ -16,7 +19,7 @@ describe('ResultModal', () => {
 
   test('does NOT render Xem chi tiết for students', () => {
     const result = { submissionId: 123, score: 85 };
-    render(<ResultModal {...defaultProps} result={result} />);
+    renderWithTheme(<ResultModal {...defaultProps} result={result} />);
     const btn = screen.queryByRole('button', { name: /Xem chi tiết/i });
     expect(btn).toBeNull();
   });
@@ -26,7 +29,7 @@ describe('ResultModal', () => {
     localStorage.setItem('user', JSON.stringify(teacher));
     const result = { submissionId: 123, score: 85 };
 
-    render(<ResultModal {...defaultProps} result={result} />);
+    renderWithTheme(<ResultModal {...defaultProps} result={result} />);
 
     const button = screen.queryByRole('button', { name: /Xem chi tiết/i });
     expect(button).toBeNull();

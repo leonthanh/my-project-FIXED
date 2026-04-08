@@ -16,11 +16,67 @@ jest.mock('@ckeditor/ckeditor5-build-decoupled-document', () => ({}));
 
 // Mock ReactQuill to avoid findDOMNode deprecation during tests
 jest.mock('react-quill', () => {
-  return ({ value = '', onChange }) => {
-    const React = require('react');
-    return React.createElement('textarea', { 'data-testid': 'react-quill-mock', value, onChange: (e) => onChange && onChange(e.target.value) });
-  };
+  const React = require('react');
+
+  const ReactQuillMock = React.forwardRef(({ value = '', onChange }, ref) => {
+    const editorApi = React.useMemo(
+      () => ({
+        root: { innerHTML: value || '' },
+        getSelection: () => ({ index: 0 }),
+        getLength: () => String(value || '').length,
+        insertText: jest.fn(),
+        setSelection: jest.fn(),
+        insertEmbed: jest.fn(),
+      }),
+      [value]
+    );
+
+    React.useImperativeHandle(
+      ref,
+      () => ({
+        getEditor: () => editorApi,
+      }),
+      [editorApi]
+    );
+
+    return React.createElement('textarea', {
+      'data-testid': 'react-quill-mock',
+      value,
+      onChange: (e) => onChange && onChange(e.target.value),
+    });
+  });
+
+  ReactQuillMock.displayName = 'ReactQuillMock';
+  return ReactQuillMock;
 });
+
+jest.mock('quill', () => {
+  const MockQuill = function MockQuill() {};
+  MockQuill.import = jest.fn(() => ({}));
+  MockQuill.register = jest.fn();
+  return MockQuill;
+});
+
+if (!window.matchMedia) {
+  window.matchMedia = () => ({
+    matches: false,
+    media: '',
+    onchange: null,
+    addListener: () => {},
+    removeListener: () => {},
+    addEventListener: () => {},
+    removeEventListener: () => {},
+    dispatchEvent: () => false,
+  });
+}
+
+if (!global.fetch) {
+  global.fetch = jest.fn(() => Promise.reject(new Error('fetch mock not configured')));
+}
+
+if (!window.fetch) {
+  window.fetch = global.fetch;
+}
 
 // Suppress React Router future-flag warnings and findDOMNode deprecation in tests (they are informational and clutter CI output)
 const _origWarn = console.warn;
