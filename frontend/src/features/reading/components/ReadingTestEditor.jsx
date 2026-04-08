@@ -6,7 +6,11 @@ import {
 } from "../../../shared/components";
 import { useColumnLayout } from "../hooks";
 import { calculateTotalQuestions, createDefaultQuestionByType } from "../utils";
-import { getQuestionCount } from "../utils/questionHelpers";
+import {
+  getActiveClozeTable,
+  getImpliedQuestionCount,
+  getQuestionCount,
+} from "../utils/questionHelpers";
 import {
   colors,
   compactInputStyle,
@@ -167,9 +171,7 @@ const ReadingTestEditor = ({
         sec.questions?.forEach((q, qIdx) => {
           const key = `${sec.id}-${qIdx}`;
           const countFromNumber = q.questionNumber ? getQuestionCount(q.questionNumber) : null;
-          const plain = (q.questionText || q.paragraphText || '').replace(/<[^>]+>/g, '');
-          const blankCount = (plain.match(/\[BLANK\]/g) || []).length || 0;
-          const impliedCount = blankCount || 1;
+          const impliedCount = Math.max(1, getImpliedQuestionCount(q));
 
           if (q.questionNumber) {
             const firstPart = String(q.questionNumber).trim().split(/[,\-]/)[0];
@@ -839,6 +841,7 @@ const ReadingTestEditor = ({
                                 q.questionText &&
                                 q.questionText.trim() &&
                                 q.questionText !== "<p><br></p>";
+                              const clozeTable = isClozeType ? getActiveClozeTable(q) : null;
                               const hasParagraphText =
                                 q.paragraphText && q.paragraphText.trim(); // For cloze-test
                               const hasMatchingItems =
@@ -1071,7 +1074,7 @@ const ReadingTestEditor = ({
                                   {/* Question Content */}
                                   <div style={{ flex: 1 }}>
                                     {/* Cloze-test: Show paragraphText OR questionText */}
-                                    {isClozeType && q.clozeTable && Array.isArray(q.clozeTable.rows) ? (
+                                    {isClozeType && clozeTable ? (
                                       <>
                                         {(() => {
                                           const tableStartNum = q.startQuestion
@@ -1103,7 +1106,7 @@ const ReadingTestEditor = ({
                                           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
                                             <thead>
                                               <tr>
-                                                {q.clozeTable.columns.map((col, ci) => (
+                                                {clozeTable.columns.map((col, ci) => (
                                                   <th
                                                     key={ci}
                                                     style={{
@@ -1119,7 +1122,7 @@ const ReadingTestEditor = ({
                                               </tr>
                                             </thead>
                                             <tbody>
-                                              {q.clozeTable.rows.map((row, ri) => (
+                                              {clozeTable.rows.map((row, ri) => (
                                                 <tr key={ri} style={{ backgroundColor: ri % 2 === 0 ? "white" : "#f8fafc" }}>
                                                   {row.cells.map((cell, ci) => (
                                                     <td

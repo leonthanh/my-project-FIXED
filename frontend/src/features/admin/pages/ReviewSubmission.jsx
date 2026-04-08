@@ -17,6 +17,125 @@ const formatBand = (value) => {
   return Number.isInteger(parsed) ? String(parsed) : parsed.toFixed(1);
 };
 
+const buildAiStatus = (payload = {}) => {
+  if (payload.cached && payload.fallback && payload.warning) {
+    return {
+      tone: "warning",
+      text: `Loaded a cached fallback draft. ${payload.warning}`,
+    };
+  }
+
+  if (payload.cached && payload.fallback && payload.upstreamStatus === 429) {
+    return {
+      tone: "warning",
+      text: "Loaded a cached fallback draft. OpenAI previously returned 429 Too Many Requests for this submission.",
+    };
+  }
+
+  if (payload.cached && payload.source === "gemini") {
+    return {
+      tone: "info",
+      text:
+        payload.upstreamProvider === "openai"
+          ? "Loaded a cached Gemini draft. OpenAI was unavailable when this draft was generated."
+          : "Loaded a cached Gemini draft for this submission.",
+    };
+  }
+
+  if (payload.cached) {
+    return {
+      tone: "info",
+      text: "Loaded cached AI draft for this submission.",
+    };
+  }
+
+  if (payload.fallback && payload.upstreamStatus === 429) {
+    if (payload.warning) {
+      return {
+        tone: "warning",
+        text: payload.warning,
+      };
+    }
+
+    return {
+      tone: "warning",
+      text: "OpenAI returned 429 Too Many Requests. The system inserted a fallback draft so marking can continue.",
+    };
+  }
+
+  if (payload.source === "gemini" && payload.shared) {
+    return {
+      tone: "info",
+      text:
+        payload.upstreamProvider === "openai" && payload.upstreamStatus === 429
+          ? "OpenAI returned 429 Too Many Requests. Gemini generated the draft from a shared request instead."
+          : payload.upstreamProvider === "openai"
+          ? "OpenAI was unavailable for this request. Gemini generated the draft from a shared request instead."
+          : "Gemini generated the draft from a shared request.",
+    };
+  }
+
+  if (payload.source === "gemini") {
+    return {
+      tone: "info",
+      text:
+        payload.upstreamProvider === "openai" && payload.upstreamStatus === 429
+          ? "OpenAI returned 429 Too Many Requests. Gemini generated the draft instead."
+          : payload.upstreamProvider === "openai"
+          ? "OpenAI was unavailable for this request. Gemini generated the draft instead."
+          : "Gemini generated the AI draft successfully.",
+    };
+  }
+
+  if (payload.fallback) {
+    return {
+      tone: "warning",
+      text:
+        payload.warning ||
+        "The AI provider is temporarily unavailable, so the system inserted a fallback draft.",
+    };
+  }
+
+  if (payload.shared) {
+    return {
+      tone: "success",
+      text: "AI draft generated from a shared request.",
+    };
+  }
+
+  return {
+    tone: "success",
+    text: "AI draft generated successfully.",
+  };
+};
+
+const getAiStatusStyle = (tone = "info") => {
+  const tones = {
+    success: {
+      background: "#ecfdf5",
+      border: "1px solid #bbf7d0",
+      color: "#166534",
+    },
+    warning: {
+      background: "#fffbeb",
+      border: "1px solid #fde68a",
+      color: "#92400e",
+    },
+    error: {
+      background: "#fef2f2",
+      border: "1px solid #fecaca",
+      color: "#991b1b",
+    },
+    info: {
+      background: "#eff6ff",
+      border: "1px solid #bfdbfe",
+      color: "#1d4ed8",
+    },
+  };
+
+  return tones[tone] || tones.info;
+};
+
 const styles = {
   page: {
     maxWidth: "100%",
@@ -307,6 +426,19 @@ const styles = {
     gap: "12px",
     flexWrap: "wrap",
   },
+  buttonHelpText: {
+    margin: "0 0 16px",
+    color: "#64748b",
+    lineHeight: 1.6,
+    fontSize: "0.95rem",
+  },
+  aiStatusBox: {
+    padding: "14px 16px",
+    borderRadius: "12px",
+    marginBottom: "16px",
+    lineHeight: 1.6,
+    fontSize: "0.95rem",
+  },
   actionButton: {
     flex: "1 1 220px",
     padding: "12px 18px",
@@ -338,6 +470,7 @@ const ReviewSubmission = () => {
   const [aiLoading, setAiLoading] = useState(false);
   const [saveLoading, setSaveLoading] = useState(false);
   const [hasSavedFeedback, setHasSavedFeedback] = useState(false);
+  const [aiStatus, setAiStatus] = useState(null);
 
   const bandOverall = (() => {
     const t1 = parseFloat(bandTask1);
@@ -371,6 +504,8 @@ const ReviewSubmission = () => {
         setBandTask2("");
         setHasSavedFeedback(false);
       }
+
+      setAiStatus(null);
     } catch (err) {
       console.error("Failed to load writing submission:", err);
     } finally {
@@ -429,6 +564,7 @@ const ReviewSubmission = () => {
     if (!submission) return;
 
     setAiLoading(true);
+    setAiStatus({ tone: "info", text: "Generating AI draft..." });
 
     try {
       const aiRes = await fetch(apiPath("ai/generate-feedback"), {
@@ -439,20 +575,31 @@ const ReviewSubmission = () => {
           task2: submission.task2,
         }),
       });
-      const aiData = await aiRes.json();
+      const aiData = await aiRes.json().catch(() => ({}));
 
       if (!aiRes.ok) {
+        if (aiRes.status === 429) {
+          throw new Error(
+            "The AI provider returned 429 Too Many Requests. This usually means the current OpenAI quota or rate limit has been reached on the server."
+          );
+        }
         throw new Error(aiData?.error || "AI could not generate feedback.");
       }
 
       if (aiData.suggestion) {
         setFeedback(aiData.suggestion);
+        setAiStatus(buildAiStatus(aiData));
       } else {
         throw new Error(aiData?.error || "AI could not generate feedback.");
       }
     } catch (err) {
       console.error("AI feedback error:", err);
-      alert(err.message || "Could not connect to the AI service.");
+      setAiStatus({
+        tone: "error",
+        text:
+          err.message ||
+          "Could not connect to the AI service.",
+      });
     } finally {
       setAiLoading(false);
     }
@@ -670,6 +817,21 @@ const ReviewSubmission = () => {
                   />
                 </div>
 
+                {aiStatus && (
+                  <div
+                    style={{
+                      ...styles.aiStatusBox,
+                      ...getAiStatusStyle(aiStatus.tone),
+                    }}
+                  >
+                    {aiStatus.text}
+                  </div>
+                )}
+
+                <p style={styles.buttonHelpText}>
+                  Generate AI Draft only fills the feedback box. Use Save Feedback to send the final comment after you review or edit the draft.
+                </p>
+
                 <div style={styles.buttonRow}>
                   <button
                     type="button"
@@ -695,12 +857,12 @@ const ReviewSubmission = () => {
                     disabled={aiLoading || saveLoading}
                     style={{
                       ...styles.actionButton,
-                      backgroundColor: aiLoading || saveLoading ? "#94a3b8" : "#e11d48",
+                      backgroundColor: aiLoading || saveLoading ? "#94a3b8" : "#0f766e",
                       cursor: aiLoading || saveLoading ? "not-allowed" : "pointer",
                       opacity: aiLoading || saveLoading ? 0.65 : 1,
                     }}
                   >
-                    {aiLoading ? "Generating..." : "AI Feedback"}
+                    {aiLoading ? "Generating Draft..." : "Generate AI Draft"}
                   </button>
                 </div>
               </section>

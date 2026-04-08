@@ -133,7 +133,7 @@ jobs:
         echo "DB_HOST=localhost" >> backend-temp/.env
         echo "DB_NAME=wsxcblqh_ix" >> backend-temp/.env
         echo "DB_USER=wsxcblqh_thanh" >> backend-temp/.env
-        echo "DB_PASS=@Thanh562184" >> backend-temp/.env
+        echo "DB_PASS=${{ secrets.PROD_DB_PASS }}" >> backend-temp/.env
         
         # Install minimal dependencies
         cd backend-temp

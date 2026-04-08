@@ -1553,6 +1553,66 @@
   border: 1px solid #e0e0e0;
 }
 
+.cloze-passage p,
+.cloze-passage ul,
+.cloze-passage ol,
+.cloze-passage h1,
+.cloze-passage h2,
+.cloze-passage h3,
+.cloze-passage h4,
+.cloze-passage h5,
+.cloze-passage h6,
+.cloze-passage blockquote {
+  margin: 0 0 0.75em;
+}
+
+.cloze-passage ul,
+.cloze-passage ol {
+  padding-left: 1.5rem;
+}
+
+.cloze-passage li {
+  margin-bottom: 0.45em;
+}
+
+.cloze-passage .ql-size-small {
+  font-size: 0.75em;
+}
+
+.cloze-passage .ql-size-large {
+  font-size: 1.5em;
+}
+
+.cloze-passage .ql-size-huge {
+  font-size: 2.5em;
+}
+
+.cloze-passage .ql-font-serif {
+  font-family: Georgia, "Times New Roman", serif;
+}
+
+.cloze-passage .ql-font-monospace {
+  font-family: "Courier New", monospace;
+}
+
+.cloze-passage [style*="text-align:center"],
+.cloze-passage [style*="text-align: center"],
+.cloze-passage .ql-align-center {
+  text-align: center !important;
+}
+
+.cloze-passage [style*="text-align:right"],
+.cloze-passage [style*="text-align: right"],
+.cloze-passage .ql-align-right {
+  text-align: right !important;
+}
+
+.cloze-passage [style*="text-align:justify"],
+.cloze-passage [style*="text-align: justify"],
+.cloze-passage .ql-align-justify {
+  text-align: justify !important;
+}
+
 .cloze-inline-wrapper {
   display: inline-flex;
   align-items: center;

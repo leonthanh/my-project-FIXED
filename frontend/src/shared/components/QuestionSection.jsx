@@ -10,6 +10,7 @@ import ParagraphMatchingQuestion from './ParagraphMatchingQuestion';
 import SentenceCompletionQuestion from './SentenceCompletionQuestion';
 import ShortAnswerQuestion from './ShortAnswerQuestion';
 import ClozeTestQuestion from './ClozeTestQuestion';
+import SummaryCompletionQuestion from './SummaryCompletionQuestion';
 import IELTSMatchingHeadingsQuestion from './IELTSMatchingHeadingsQuestion';
 import { getDefaultQuestionData } from '../config/questionTypes';
 
@@ -327,6 +328,7 @@ const QuestionSection = ({
                     {question.questionType === 'true-false-not-given' && '✓ Học sinh chọn: True (đúng), False (sai), hoặc Not Given (chưa đề cập)'}
                     {question.questionType === 'yes-no-not-given' && '✓ Học sinh chọn: Yes (có), No (không), hoặc Not Given (chưa đề cập)'}
                     {question.questionType === 'cloze-test' && '✓ Học sinh điền từ vào các chỗ trống nhúng trong đoạn văn (sử dụng [BLANK] để đánh dấu)'}
+                    {question.questionType === 'summary-completion' && '✓ Hoàn thành đoạn tóm tắt bằng cách dùng các lựa chọn A-L và gán đáp án cho từng [BLANK]'}
                     {question.questionType === 'paragraph-matching' && '✓ Học sinh tìm thông tin ở đoạn A-G để trả lời câu hỏi'}
                     {question.questionType === 'ielts-matching-headings' && '✓ IX: Ghép mỗi đoạn văn (A-G) với 1 heading phù hợp (i-x). Có thể có headings dư.'}
                     {question.questionType === 'sentence-completion' && '✓ Học sinh hoàn thành câu bằng cách chọn từ từ danh sách gợi ý'}
@@ -402,6 +404,13 @@ const QuestionSection = ({
 
                 {(question.questionType || 'multiple-choice') === 'cloze-test' && (
                   <ClozeTestQuestion
+                    question={question}
+                    onChange={(q) => onQuestionChange(passageIndex, sectionIndex, questionIndex, 'full', q)}
+                  />
+                )}
+
+                {(question.questionType || 'multiple-choice') === 'summary-completion' && (
+                  <SummaryCompletionQuestion
                     question={question}
                     onChange={(q) => onQuestionChange(passageIndex, sectionIndex, questionIndex, 'full', q)}
                   />

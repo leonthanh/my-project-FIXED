@@ -5,6 +5,9 @@ import {
   createNewQuestion,
   createDefaultQuestionByType,
   getNextQuestionNumber,
+  getQuestionStart,
+  getImpliedQuestionCount,
+  renumberQuestionsFrom,
 } from '../utils';
 
 /**
@@ -24,10 +27,26 @@ export const usePassageHandlers = (initialPassages = [createNewPassage()]) => {
    * Thêm passage mới
    */
   const handleAddPassage = useCallback(() => {
-    const newPassages = [...passages, createNewPassage()];
+    const nextQuestionNumber = getNextQuestionNumber(passages, passages.length, 0);
+    const newPassage = createNewPassage();
+
+    if (!Array.isArray(newPassage.sections) || newPassage.sections.length === 0) {
+      newPassage.sections = [createNewSection(1)];
+    }
+
+    if (!Array.isArray(newPassage.sections[0].questions) || newPassage.sections[0].questions.length === 0) {
+      newPassage.sections[0].questions = [createNewQuestion(String(nextQuestionNumber))];
+    } else {
+      newPassage.sections[0].questions[0] = {
+        ...newPassage.sections[0].questions[0],
+        questionNumber: String(nextQuestionNumber),
+      };
+    }
+
+    const newPassages = [...passages, newPassage];
     setPassages(newPassages);
     setSelectedPassageIndex(newPassages.length - 1);
-    setSelectedSectionIndex(null);
+    setSelectedSectionIndex(0);
   }, [passages]);
 
   /**
@@ -181,8 +200,23 @@ export const usePassageHandlers = (initialPassages = [createNewPassage()]) => {
       return;
     }
     
-    const copiedQuestion = JSON.parse(JSON.stringify(section.questions[questionIndex]));
+    const originalQuestion = section.questions[questionIndex];
+    const copiedQuestion = JSON.parse(JSON.stringify(originalQuestion));
     section.questions.splice(questionIndex + 1, 0, copiedQuestion);
+
+    const originalStart = getQuestionStart(originalQuestion.questionNumber);
+    const nextNumber = originalStart !== null
+      ? originalStart + Math.max(1, getImpliedQuestionCount(originalQuestion))
+      : getNextQuestionNumber(passages, passageIndex, sectionIndex);
+
+    renumberQuestionsFrom(
+      newPassages,
+      passageIndex,
+      sectionIndex,
+      questionIndex + 1,
+      nextNumber
+    );
+
     setPassages(newPassages);
   }, [passages]);
 
