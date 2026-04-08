@@ -3274,7 +3274,7 @@ const DoReadingTest = () => {
       {/* Question Navigation Grid */}
       <div className="question-nav-panel">
         <div className="nav-panel-header">
-          <span className="nav-panel-title">📊 Question Navigator</span>
+          <span className="nav-panel-title">Question Navigator</span>
           <span className="nav-panel-stats">
             <span className="stat-answered">✓ {stats.answered}</span>
             <span className="stat-divider">|</span>
