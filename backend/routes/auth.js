@@ -137,7 +137,7 @@ router.post(
   registerLimiter,
   validate({ body: registerSchema }),
   async (req, res) => {
-    const { name, phone, email, password, role } = req.body; // ✅ Thêm email
+    const { name, phone, email, password } = req.body; // ✅ Thêm email
 
   try {
     const existing = await User.findOne({ where: { phone } });
