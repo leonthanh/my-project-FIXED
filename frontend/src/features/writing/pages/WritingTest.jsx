@@ -80,48 +80,6 @@ const progressTextStyle = {
   color: "white",
 };
 
-// Modal style
-const modalOverlay = {
-  position: "fixed",
-  top: 0,
-  left: 0,
-  width: "100vw",
-  height: "100vh",
-  background: "rgba(0,0,0,0.35)",
-  zIndex: 9999,
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-};
-const modalBox = {
-  background: "linear-gradient(135deg, #6f42c1 0%, #a084e8 100%)",
-  color: "white",
-  borderRadius: 18,
-  boxShadow: "0 8px 32px rgba(111,66,193,0.25)",
-  padding: "40px 32px 32px 32px",
-  minWidth: 320,
-  maxWidth: 400,
-  textAlign: "center",
-  animation: "fadeIn 0.5s",
-};
-const modalBtn = {
-  background: "#fff",
-  color: "#6f42c1",
-  border: "none",
-  padding: "12px 32px",
-  borderRadius: 8,
-  fontWeight: 700,
-  fontSize: 18,
-  marginTop: 24,
-  cursor: "pointer",
-  boxShadow: "0 2px 8px rgba(111,66,193,0.15)",
-  transition: "background 0.2s, color 0.2s",
-};
-const modalBtnHover = {
-  background: "#e0d7fa",
-  color: "#4b2e83",
-};
-
 const WritingTest = () => {
   // Resolve user ID early so all localStorage keys are per-user (prevents student A
   // seeing student B's draft when logging in on the same device)
@@ -132,9 +90,6 @@ const WritingTest = () => {
   const writingTimeKey    = `writing_timeLeft:${uid}`;
   const writingStartedKey = `writing_started:${uid}`;
   const writingEndAtKey   = `writing_endAt:${uid}`;
-
-  // Đặt useState cho btnHover lên đầu function component để không bị gọi conditionally
-  const [btnHover, setBtnHover] = useState(false);
   const [task1, setTask1] = useState(
     localStorage.getItem(writingTask1Key) || ""
   );
@@ -627,30 +582,281 @@ const WritingTest = () => {
 
   // Modal bắt đầu làm bài
   if (!started) {
+    const writingStartMinutes =
+      Number.isFinite(timeLeft) && timeLeft > 0 ? Math.ceil(timeLeft / 60) : 60;
+
     return (
-      <div style={modalOverlay}>
-        <div style={modalBox}>
-          <div style={{ fontSize: 48, marginBottom: 12 }}>✍️</div>
-          <h2 style={{ fontWeight: 700, marginBottom: 10 }}>
-            Bắt đầu bài viết IX
-          </h2>
-          <p style={{ fontSize: 16, marginBottom: 18 }}>
-            Bạn có <b>60 phút</b> để làm cả Task 1 và Task 2.
-            <br />
-            Hãy chuẩn bị sẵn sàng trước khi bắt đầu!
-          </p>
-          <button
-            style={btnHover ? { ...modalBtn, ...modalBtnHover } : modalBtn}
-            onMouseEnter={() => setBtnHover(true)}
-            onMouseLeave={() => setBtnHover(false)}
-            onClick={() => {
-              autoSubmittingRef.current = false;
-              syncTimingState(Date.now() + timeLeft * 1000, timeLeft);
-              setStarted(true);
+      <div
+        style={{
+          position: "fixed",
+          inset: 0,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          background: "rgba(15, 23, 42, 0.68)",
+          backdropFilter: "blur(4px)",
+          zIndex: 9999,
+          padding: "16px",
+        }}
+        role="dialog"
+        aria-modal="true"
+      >
+        <div
+          style={{
+            width: "100%",
+            maxWidth: 520,
+            borderRadius: 20,
+            overflow: "hidden",
+            boxShadow: "0 24px 48px rgba(15, 23, 42, 0.35)",
+            background: "#fff",
+          }}
+        >
+          <div
+            style={{
+              background:
+                "linear-gradient(135deg, #0c4a6e 0%, #0369a1 55%, #0ea5e9 100%)",
+              padding: "26px 28px 22px",
+              position: "relative",
+              overflow: "hidden",
             }}
           >
-            Bắt đầu làm bài
-          </button>
+            <div
+              style={{
+                position: "absolute",
+                top: -40,
+                right: -40,
+                width: 160,
+                height: 160,
+                borderRadius: "50%",
+                background: "rgba(255,255,255,0.07)",
+                pointerEvents: "none",
+              }}
+            />
+            <div
+              style={{
+                position: "absolute",
+                bottom: -30,
+                left: -20,
+                width: 100,
+                height: 100,
+                borderRadius: "50%",
+                background: "rgba(255,255,255,0.05)",
+                pointerEvents: "none",
+              }}
+            />
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 12,
+                marginBottom: 14,
+                position: "relative",
+                zIndex: 1,
+              }}
+            >
+              <div
+                style={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: 12,
+                  background: "rgba(255,255,255,0.18)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: 22,
+                  flexShrink: 0,
+                }}
+              >
+                ✍️
+              </div>
+              <div>
+                <div
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 800,
+                    color: "rgba(255,255,255,0.65)",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.12em",
+                  }}
+                >
+                  IX Writing
+                </div>
+                <div
+                  style={{
+                    fontSize: 10,
+                    color: "rgba(255,255,255,0.45)",
+                    letterSpacing: "0.06em",
+                  }}
+                >
+                  Writing Test
+                </div>
+              </div>
+            </div>
+            <h2
+              style={{
+                fontSize: 18,
+                fontWeight: 800,
+                color: "#fff",
+                margin: 0,
+                lineHeight: 1.3,
+                position: "relative",
+                zIndex: 1,
+                textShadow: "0 1px 3px rgba(0,0,0,0.2)",
+              }}
+            >
+              {testData?.title || "IX Writing"}
+            </h2>
+          </div>
+
+          <div style={{ padding: "22px 24px" }}>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
+                gap: 10,
+                marginBottom: 16,
+              }}
+            >
+              <div
+                style={{
+                  background: "#e0f2fe",
+                  border: "1px solid #bae6fd",
+                  borderRadius: 12,
+                  padding: "14px 16px",
+                  textAlign: "center",
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: 28,
+                    fontWeight: 800,
+                    color: "#0369a1",
+                    lineHeight: 1,
+                  }}
+                >
+                  {writingStartMinutes}
+                </div>
+                <div
+                  style={{
+                    fontSize: 11,
+                    color: "#0284c7",
+                    fontWeight: 700,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.07em",
+                    marginTop: 4,
+                  }}
+                >
+                  Phút
+                </div>
+              </div>
+              <div
+                style={{
+                  background: "#f0fdf4",
+                  border: "1px solid #bbf7d0",
+                  borderRadius: 12,
+                  padding: "14px 16px",
+                  textAlign: "center",
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: 28,
+                    fontWeight: 800,
+                    color: "#15803d",
+                    lineHeight: 1,
+                  }}
+                >
+                  2
+                </div>
+                <div
+                  style={{
+                    fontSize: 11,
+                    color: "#16a34a",
+                    fontWeight: 700,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.07em",
+                    marginTop: 4,
+                  }}
+                >
+                  Tasks
+                </div>
+              </div>
+            </div>
+
+            <div
+              style={{
+                background: "#fff7ed",
+                border: "1px solid #fed7aa",
+                borderRadius: 10,
+                padding: "12px 14px",
+                marginBottom: 18,
+              }}
+            >
+              <div
+                style={{
+                  fontWeight: 700,
+                  color: "#c2410c",
+                  fontSize: 13,
+                  marginBottom: 4,
+                }}
+              >
+                Lưu ý quan trọng
+              </div>
+              <div style={{ fontSize: 13, color: "#9a3412", lineHeight: 1.5 }}>
+                Đồng hồ sẽ bắt đầu chạy ngay khi bạn nhấn bắt đầu. Hệ thống tự
+                lưu nội dung cho cả Task 1 và Task 2 trong quá trình làm bài,
+                nhưng bạn vẫn nên kiểm tra lại trước khi nộp.
+              </div>
+            </div>
+
+            <div
+              style={{
+                display: "flex",
+                gap: 8,
+                justifyContent: "flex-end",
+                flexWrap: "wrap",
+                alignItems: "center",
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => redirectInApp("/select-test", { replace: true })}
+                style={{
+                  padding: "9px 18px",
+                  borderRadius: 20,
+                  border: "1.5px solid #e2e8f0",
+                  background: "#fff",
+                  fontSize: 13,
+                  fontWeight: 600,
+                  color: "#64748b",
+                  cursor: "pointer",
+                }}
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  autoSubmittingRef.current = false;
+                  syncTimingState(Date.now() + timeLeft * 1000, timeLeft);
+                  setStarted(true);
+                }}
+                style={{
+                  padding: "11px 28px",
+                  borderRadius: 20,
+                  background: "linear-gradient(135deg, #0369a1, #0ea5e9)",
+                  fontSize: 14,
+                  fontWeight: 700,
+                  color: "#fff",
+                  border: "none",
+                  cursor: "pointer",
+                  boxShadow: "0 4px 14px rgba(3,105,161,0.4)",
+                }}
+              >
+                Bắt đầu làm bài
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     );
