@@ -2659,22 +2659,11 @@ const DoListeningTest = () => {
   /* eslint-disable-next-line no-unused-vars */
   const currentRange = getPartQuestionRange(currentPartIndex);
   const displayRange = getPartDisplayRange(currentPartIndex);
+  const startDurationMinutes = Math.max(1, Math.round(timeRemaining / 60));
 
   return (
     <div style={styles.pageWrapper}>
       <ExtensionToast message={extensionToast} />
-      {showStartModal && (
-        <div style={styles.playGateOverlay}>
-          <div style={styles.playGateCard}>
-            <div style={styles.modalTitle}>Bắt đầu bài thi</div>
-            <div style={styles.modalText}>Khi bạn nhấn <strong>Bắt đầu</strong>, audio sẽ phát tự động và chỉ được nghe một lần. Hãy đảm bảo bạn đã sẵn sàng.</div>
-            <div style={{display: 'flex', gap: 12, justifyContent: 'center', marginTop: 8}}>
-              <button onClick={() => { setShowStartModal(false); setStarted(true); }} style={styles.cancelButton}>Bắt đầu không phát</button>
-              <button onClick={handleStartClick} style={styles.playGateButton}>Bắt đầu & Phát audio ▶</button>
-            </div>
-          </div>
-        </div>
-      )}
       {/* Global Styles */}
       <style>{`
         * { box-sizing: border-box; }
@@ -2736,18 +2725,6 @@ const DoListeningTest = () => {
 
       {/* Main Content Area */}
       <main style={styles.mainContent}>
-{/* Audio Player / Start Gate */}
-      {audioUrl && !started && !showStartModal && (
-        <div style={styles.audioContainer}>
-          <div style={styles.audioErrorBox}>
-            Audio sẽ được kích hoạt khi bạn <strong>bắt đầu</strong> bài thi. Khi audio kết thúc nó sẽ không thể phát lại.
-          </div>
-          <div style={{ marginTop: 12 }}>
-            <button onClick={handleStartClick} style={styles.playGateButton}>Bắt đầu & Phát audio ▶</button>
-          </div>
-        </div>
-      )}
-
       {audioUrl && started && (
         <div style={styles.audioContainer}>
           {/* Hidden audio element (no native controls). We surface status messages instead. */}
@@ -2835,35 +2812,86 @@ const DoListeningTest = () => {
 
       {/* Start Modal (Play Gate) */}
       {showStartModal && (
-        <div style={styles.playGateOverlay} role="dialog" aria-modal="true">
-          <div style={styles.playGateCard}>
-            <div style={styles.modalTitle}>Bắt đầu làm bài</div>
-            <div style={styles.modalText}>
-              Khi bạn bấm "Play" âm thanh sẽ bắt đầu và bạn chỉ được nghe audio này một lần. Hãy chắc chắn bạn đã sẵn sàng.
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: "rgba(15, 23, 42, 0.68)",
+            backdropFilter: "blur(4px)",
+            zIndex: 1200,
+            padding: "16px",
+          }}
+          role="dialog"
+          aria-modal="true"
+        >
+          <div style={{ width: "100%", maxWidth: 500, borderRadius: 20, overflow: "hidden", boxShadow: "0 24px 48px rgba(15, 23, 42, 0.35)" }}>
+            <div style={{ background: "linear-gradient(135deg, #0c4a6e 0%, #0369a1 55%, #0ea5e9 100%)", padding: "26px 28px 22px", position: "relative", overflow: "hidden" }}>
+              <div style={{ position: "absolute", top: -40, right: -40, width: 160, height: 160, borderRadius: "50%", background: "rgba(255,255,255,0.07)", pointerEvents: "none" }} />
+              <div style={{ position: "absolute", bottom: -30, left: -20, width: 100, height: 100, borderRadius: "50%", background: "rgba(255,255,255,0.05)", pointerEvents: "none" }} />
+              <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14, position: "relative", zIndex: 1 }}>
+                <div style={{ width: 44, height: 44, borderRadius: 12, background: "rgba(255,255,255,0.18)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>
+                  🎧
+                </div>
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 800, color: "rgba(255,255,255,0.65)", textTransform: "uppercase", letterSpacing: "0.12em" }}>
+                    IX Listening
+                  </div>
+                  <div style={{ fontSize: 10, color: "rgba(255,255,255,0.45)", letterSpacing: "0.06em" }}>Listening Test</div>
+                </div>
+              </div>
+              <h2 style={{ fontSize: 18, fontWeight: 800, color: "#fff", margin: 0, lineHeight: 1.3, position: "relative", zIndex: 1, textShadow: "0 1px 3px rgba(0,0,0,0.2)" }}>
+                {test?.title || "IX Listening"}
+              </h2>
             </div>
 
-            <div style={styles.modalButtons}>
-              <button style={styles.cancelButton} onClick={() => { setShowStartModal(false); navigate('/select-test'); }}>
-                Hủy
-              </button>
-              <button
-                style={styles.playGateButton}
-                onClick={() => {
-                  handleStartClick();
-                  // persist that we started immediately for resume behavior
-                  try {
-                    const cur = JSON.parse(localStorage.getItem(stateKey) || '{}') || {};
-                    cur.started = true;
-                    localStorage.setItem(stateKey, JSON.stringify(cur));
-                  } catch (e) {}
-                }}
-              >
-                ▶️ Play & Bắt đầu
-              </button>
-            </div>
+            <div style={{ background: isDarkMode ? "#1e293b" : "#fff", padding: "22px 24px" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 16 }}>
+                <div style={{ background: isDarkMode ? "#0c4a6e33" : "#e0f2fe", border: `1px solid ${isDarkMode ? "#0369a1" : "#bae6fd"}`, borderRadius: 12, padding: "14px 16px", textAlign: "center" }}>
+                  <div style={{ fontSize: 28, fontWeight: 800, color: "#0369a1", lineHeight: 1 }}>{startDurationMinutes}</div>
+                  <div style={{ fontSize: 11, color: "#0284c7", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.07em", marginTop: 4 }}>Phút</div>
+                </div>
+                <div style={{ background: isDarkMode ? "#14532d33" : "#f0fdf4", border: `1px solid ${isDarkMode ? "#16a34a" : "#bbf7d0"}`, borderRadius: 12, padding: "14px 16px", textAlign: "center" }}>
+                  <div style={{ fontSize: 28, fontWeight: 800, color: "#15803d", lineHeight: 1 }}>{totalQuestions}</div>
+                  <div style={{ fontSize: 11, color: "#16a34a", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.07em", marginTop: 4 }}>Câu hỏi</div>
+                </div>
+              </div>
 
-            <div style={styles.audioErrorBox}>
-              Nếu trình duyệt chặn tự động phát, bạn có thể mở audio trong tab mới: <a href={hostPath(audioUrl)} target="_blank" rel="noreferrer" style={styles.audioOpenLink}>Mở audio</a>
+              <div style={{ background: isDarkMode ? "#1c1917" : "#fff7ed", border: `1px solid ${isDarkMode ? "#92400e" : "#fed7aa"}`, borderRadius: 10, padding: "12px 14px", marginBottom: 18 }}>
+                <div style={{ fontWeight: 700, color: "#c2410c", fontSize: 13, marginBottom: 4 }}>Lưu ý quan trọng</div>
+                <div style={{ fontSize: 13, color: isDarkMode ? "#fdba74" : "#9a3412", lineHeight: 1.5 }}>
+                  Audio sẽ bắt đầu phát ngay khi bạn nhấn Play và chỉ được nghe <b>một lần</b>. Trong lúc làm bài, học sinh không thể mở file nghe ở tab khác để tránh nghe lại ngoài luồng.
+                </div>
+              </div>
+
+              <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", flexWrap: "wrap", alignItems: "center" }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowStartModal(false);
+                    navigate('/select-test');
+                  }}
+                  style={{ padding: "9px 18px", borderRadius: 20, border: `1.5px solid ${isDarkMode ? "#334155" : "#e2e8f0"}`, background: isDarkMode ? "#1e293b" : "#fff", fontSize: 13, fontWeight: 600, color: isDarkMode ? "#94a3b8" : "#64748b", cursor: "pointer" }}
+                >
+                  Hủy
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleStartClick();
+                    try {
+                      const cur = JSON.parse(localStorage.getItem(stateKey) || '{}') || {};
+                      cur.started = true;
+                      localStorage.setItem(stateKey, JSON.stringify(cur));
+                    } catch (e) {}
+                  }}
+                  style={{ padding: "11px 28px", borderRadius: 20, background: "linear-gradient(135deg, #0369a1, #0ea5e9)", fontSize: 14, fontWeight: 700, color: "#fff", border: "none", cursor: "pointer", boxShadow: "0 4px 14px rgba(3,105,161,0.4)" }}
+                >
+                  ▶ Play & Bắt đầu
+                </button>
+              </div>
             </div>
           </div>
         </div>
