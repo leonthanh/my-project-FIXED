@@ -1,7 +1,15 @@
 import React, { useMemo, useState } from "react";
 import { hostPath } from "../../../shared/utils/api";
+import LineIcon from "../../../shared/components/LineIcon.jsx";
 import MapLabelingQuestion from "../../../shared/components/MapLabelingQuestion";
 import TableCompletion from "../../../shared/components/questions/editors/TableCompletion.jsx";
+import {
+  countFlowchartQuestionSlots,
+  getConfiguredFlowchartOptionEntries,
+  getFlowchartBlankEntries,
+  getFlowchartOptionTableRows,
+  splitFlowchartStepText,
+} from "../utils/flowchart";
 import createStyles from "../pages/DoListeningTest.styles";
 
 const BLANK_REGEX = /(\d+)\s*[_…]+|[_…]{2,}/g;
@@ -192,6 +200,10 @@ const getQuestionCount = (question) => {
     return Math.max(1, (stripHtml(question.notesText).match(BLANK_REGEX) || []).length);
   }
 
+  if (Array.isArray(question.steps) && question.steps.length > 0) {
+    return Math.max(1, countFlowchartQuestionSlots(question));
+  }
+
   if (question.leftItems && question.leftItems.length > 0) {
     return Math.max(1, question.leftItems.length);
   }
@@ -245,6 +257,10 @@ const getSectionQuestionCount = (section, sectionQuestions) => {
 
   if (sectionType === "table-completion") {
     return countTableCompletionBlanks(firstQuestion) || 0;
+  }
+
+  if (sectionType === "flowchart") {
+    return countFlowchartQuestionSlots(firstQuestion);
   }
 
   if (sectionType === "map-labeling") {
@@ -434,6 +450,8 @@ export default function ListeningStudentStyleReview({ test, submission, details 
         type = "matching";
       } else if ((firstQuestion?.columns?.length || 0) > 0 || (firstQuestion?.rows?.length || 0) > 0) {
         type = "table-completion";
+      } else if (firstQuestion?.steps?.length) {
+        type = "flowchart";
       } else if (firstQuestion?.options?.length) {
         type = firstQuestion.options.length === 3 ? "abc" : "abcd";
       }
@@ -576,7 +594,17 @@ export default function ListeningStudentStyleReview({ test, submission, details 
                   <span style={styles.matchingQuestionNum}>{questionNumber}</span>
                   <span style={styles.matchingItemText}>{itemText}</span>
                   <div style={styles.matchingDropdownWrapper}>
-                    <select value={selectedValue || ""} disabled style={styles.matchingSelect}>
+                    <select
+                      value={selectedValue || ""}
+                      disabled
+                      style={{
+                        ...styles.matchingSelect,
+                        appearance: "none",
+                        WebkitAppearance: "none",
+                        MozAppearance: "none",
+                        paddingRight: "30px",
+                      }}
+                    >
                       <option value="">--</option>
                       {rightItems.map((_, optionIndex) => {
                         const optionLetter = String.fromCharCode(65 + optionIndex);
@@ -587,6 +615,9 @@ export default function ListeningStudentStyleReview({ test, submission, details 
                         );
                       })}
                     </select>
+                    <span style={{ position: "absolute", right: "8px", top: "50%", transform: "translateY(-50%)", pointerEvents: "none", color: "#64748b" }}>
+                      <LineIcon name="chevron-down" size={14} />
+                    </span>
                   </div>
                   <Feedback detail={detailMap.get(questionNumber)} answerValue={selectedValue} />
                 </div>
@@ -714,6 +745,154 @@ export default function ListeningStudentStyleReview({ test, submission, details 
         studentAnswer={answers}
         showCorrect
       />
+    );
+  };
+
+  const renderFlowchart = (question, startNumber) => {
+    const entries = getFlowchartBlankEntries(question, startNumber);
+    const entryByStepIndex = new Map(entries.map((entry) => [entry.stepIndex, entry]));
+    const optionEntries = getConfiguredFlowchartOptionEntries(question?.options || []);
+    const optionRows = getFlowchartOptionTableRows(optionEntries);
+    const steps = Array.isArray(question?.steps) ? question.steps : [];
+
+    return (
+      <div style={{ width: "100%" }}>
+        {optionRows.length > 0 && (
+          <div style={{
+            maxWidth: "760px",
+            margin: "0 auto 18px",
+            border: "1px solid #94a3b8",
+            borderRadius: "10px",
+            overflow: "hidden",
+            backgroundColor: "#fff",
+          }}>
+            {optionRows.map((row, rowIndex) => (
+              <div
+                key={`flowchart-review-option-row-${rowIndex}`}
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "52px minmax(0, 1fr) 52px minmax(0, 1fr)",
+                  borderTop: rowIndex === 0 ? "none" : "1px solid #cbd5e1",
+                }}
+              >
+                {row.map((option, columnIndex) => {
+                  if (!option) {
+                    return (
+                      <React.Fragment key={`flowchart-review-empty-${rowIndex}-${columnIndex}`}>
+                        <div style={{ borderLeft: columnIndex === 1 ? "1px solid #cbd5e1" : "none", backgroundColor: "#f8fafc" }}></div>
+                        <div style={{ borderLeft: "1px solid #cbd5e1", backgroundColor: "#f8fafc" }}></div>
+                      </React.Fragment>
+                    );
+                  }
+
+                  return (
+                    <React.Fragment key={`flowchart-review-option-${option.value}`}>
+                      <div style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontWeight: 700,
+                        backgroundColor: "#fff7ed",
+                        color: "#9a3412",
+                        borderLeft: columnIndex === 1 ? "1px solid #cbd5e1" : "none",
+                        borderRight: "1px solid #cbd5e1",
+                        minHeight: "44px",
+                      }}>
+                        {option.value}
+                      </div>
+                      <div style={{ padding: "10px 12px", display: "flex", alignItems: "center", fontSize: "13px" }}>
+                        {option.label || option.raw}
+                      </div>
+                    </React.Fragment>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div style={{
+          maxWidth: "760px",
+          margin: "0 auto",
+          fontFamily: styles.pageWrapper.fontFamily,
+        }}>
+          {question?.questionText && <div style={{ marginBottom: "14px", fontWeight: 700, textAlign: "center", fontSize: "1.05rem" }}>{question.questionText}</div>}
+
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+            {steps.map((step, stepIndex) => {
+              const blankEntry = entryByStepIndex.get(stepIndex);
+              const textParts = splitFlowchartStepText(step?.text || "");
+              const previewBefore = blankEntry
+                ? (textParts.hasPlaceholder ? textParts.before : String(step?.text || ""))
+                : String(step?.text || "");
+              const previewAfter = blankEntry && textParts.hasPlaceholder ? textParts.after : "";
+              const questionNumber = blankEntry?.num || null;
+              const answerValue = questionNumber != null ? answers[`q${questionNumber}`] || "" : "";
+              const detail = questionNumber != null ? detailMap.get(questionNumber) : null;
+              const flowchartBadgeStyle = questionNumber != null
+                ? {
+                    ...styles.questionNumber,
+                    minWidth: "28px",
+                    width: "28px",
+                    height: "28px",
+                    margin: "0 6px",
+                    fontSize: "13px",
+                    lineHeight: 1,
+                    verticalAlign: "middle",
+                  }
+                : null;
+
+              return (
+                <React.Fragment key={`flowchart-review-step-${stepIndex}`}>
+                  <div style={{ width: "100%", padding: "6px 0", lineHeight: 1.85, fontSize: styles.multiSelectQuestionText.fontSize, color: styles.multiSelectQuestionText.color }}>
+                    <div style={{ lineHeight: 1.85, textAlign: "center", whiteSpace: "normal" }}>
+                      <span>{previewBefore}</span>
+                      {questionNumber != null && <span style={flowchartBadgeStyle}>{questionNumber}</span>}
+                      {questionNumber != null && (
+                        <span style={{ display: "inline-flex", alignItems: "center", margin: "0 6px", verticalAlign: "middle", flexWrap: "wrap" }}>
+                          <span style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            minWidth: "96px",
+                            padding: "6px 12px",
+                            borderRadius: "8px",
+                            border: `1px solid ${detail?.isCorrect ? "#22c55e" : hasAnswerValue(answerValue) ? "#ef4444" : "#f59e0b"}`,
+                            backgroundColor: detail?.isCorrect ? "#f0fdf4" : hasAnswerValue(answerValue) ? "#fef2f2" : "#fef3c7",
+                            fontWeight: 700,
+                            color: detail?.isCorrect ? "#166534" : hasAnswerValue(answerValue) ? "#991b1b" : "#92400e",
+                          }}>
+                            {answerValue || "Blank"}
+                          </span>
+                          {!detail?.isCorrect && detail?.correctAnswer && (
+                            <span style={{ display: "inline-flex", alignItems: "center", gap: "4px", marginLeft: "8px", fontSize: "12px", color: "#166534", fontWeight: 700 }}>
+                              <LineIcon name="correct" size={14} />
+                              {detail.correctAnswer}
+                            </span>
+                          )}
+                          {!hasAnswerValue(answerValue) && (
+                            <span style={{ marginLeft: "8px", fontSize: "12px", color: "#64748b" }}>
+                              unanswered
+                            </span>
+                          )}
+                        </span>
+                      )}
+                      {questionNumber != null && <span>{previewAfter}</span>}
+                    </div>
+                    {questionNumber != null && <Feedback detail={detail} answerValue={answerValue} />}
+                  </div>
+                  {stepIndex < steps.length - 1 && (
+                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "4px 0 2px" }}>
+                      <div style={{ width: "2px", height: "26px", backgroundColor: "#1d4ed8" }}></div>
+                      <LineIcon name="chevron-down" size={18} />
+                    </div>
+                  )}
+                </React.Fragment>
+              );
+            })}
+          </div>
+        </div>
+      </div>
     );
   };
 
@@ -878,8 +1057,9 @@ export default function ListeningStudentStyleReview({ test, submission, details 
           {questionType === "notes-completion" && renderNotesCompletion(firstQuestion, startNumber)}
           {questionType === "map-labeling" && renderMapLabeling(firstQuestion, startNumber)}
           {questionType === "table-completion" && renderTableCompletion(firstQuestion, startNumber, displayEndNumber, partIndex + 1)}
+          {questionType === "flowchart" && renderFlowchart(firstQuestion, startNumber)}
 
-          {!["multiple-choice", "abc", "abcd", "multi-select", "matching", "form-completion", "notes-completion", "map-labeling", "table-completion"].includes(questionType) &&
+          {!["multiple-choice", "abc", "abcd", "multi-select", "matching", "form-completion", "notes-completion", "map-labeling", "table-completion", "flowchart"].includes(questionType) &&
             sectionQuestions.map((question, questionIndex) => renderFillQuestion(question, startNumber + questionIndex))}
         </div>
       </div>

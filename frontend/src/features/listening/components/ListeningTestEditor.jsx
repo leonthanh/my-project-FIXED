@@ -1,8 +1,16 @@
 import React, { useState, useRef, useEffect } from "react";
 import { IeltsTestEditorShell } from "../../../shared/components";
+import LineIcon from "../../../shared/components/LineIcon.jsx";
 import { useColumnLayout } from "../hooks";
 import ListeningQuestionEditor from "./ListeningQuestionEditor";
 import TableCompletion from "../../../shared/components/questions/editors/TableCompletion.jsx";
+import {
+  countFlowchartQuestionSlots,
+  getConfiguredFlowchartOptionEntries,
+  getFlowchartBlankEntries,
+  getFlowchartOptionTableRows,
+  splitFlowchartStepText,
+} from "../utils/flowchart";
 
 import {
   colors,
@@ -101,6 +109,10 @@ const countSectionQuestions = (section) => {
     const items = section.questions[0]?.items || [];
     return items.length;
   }
+
+  if (questionType === 'flowchart') {
+    return countFlowchartQuestionSlots(section.questions[0] || {});
+  }
   
   // Multi-select: Mỗi câu tính theo số đáp án cần chọn (requiredAnswers)
   // VD: "Choose TWO" = 2 câu hỏi, "Choose THREE" = 3 câu hỏi
@@ -119,6 +131,66 @@ const formatNotesHtml = (notesText = '') => {
   const hasHtml = /<\/?[a-z][\s\S]*>/i.test(notesText);
   if (hasHtml) return notesText;
   return String(notesText).replace(/\n/g, '<br/>');
+};
+
+const questionTypeFieldShellStyle = {
+  position: "relative",
+  display: "inline-flex",
+  alignItems: "center",
+  minWidth: "240px",
+};
+
+const questionTypeFieldSelectStyle = {
+  ...compactInputStyle,
+  width: "100%",
+  marginBottom: 0,
+  paddingLeft: "42px",
+  paddingRight: "42px",
+  appearance: "none",
+  WebkitAppearance: "none",
+  MozAppearance: "none",
+  backgroundColor: "#fff",
+  cursor: "pointer",
+};
+
+const questionTypeFieldLeadingStyle = {
+  position: "absolute",
+  left: "12px",
+  top: "50%",
+  transform: "translateY(-50%)",
+  color: colors.questionYellow,
+  pointerEvents: "none",
+};
+
+const questionTypeFieldTrailingStyle = {
+  position: "absolute",
+  right: "12px",
+  top: "50%",
+  transform: "translateY(-50%)",
+  color: colors.gray,
+  pointerEvents: "none",
+};
+
+const QuestionTypeSelectField = ({ value, onChange, options, style }) => {
+  const selected = options.find((option) => option.value === value) || options[0];
+
+  return (
+    <div style={{ ...questionTypeFieldShellStyle, ...style }}>
+      <span style={questionTypeFieldLeadingStyle}>
+        <LineIcon name={selected?.icon || "questions"} size={16} />
+      </span>
+      <select value={value} onChange={(event) => onChange(event.target.value)} style={questionTypeFieldSelectStyle}>
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+      <span style={questionTypeFieldTrailingStyle}>
+        <LineIcon name="chevron-down" size={16} />
+      </span>
+    </div>
+  );
 };
 
 /**
@@ -303,16 +375,16 @@ const ListeningTestEditor = ({
 
   // Question types for Listening
   const questionTypes = [
-    { value: 'fill', label: '📝 Fill in the blank', desc: 'Điền từ vào chỗ trống (từng câu)' },
-    { value: 'form-completion', label: '📋 Form/Table Completion', desc: 'Form có bảng với nhiều blank' },
-    { value: 'table-completion', label: '🧾 Table Completion (Vehicles / Cost / Comments)', desc: '3-column table / notes completion (Part 1)' },
-    { value: 'notes-completion', label: '📝 Notes Completion', desc: 'Paste notes có ___ tự tách câu hỏi' },
-    { value: 'abc', label: '🔘 Multiple Choice (A/B/C)', desc: '3 lựa chọn' },
-    { value: 'abcd', label: '🔘 Multiple Choice (A/B/C/D)', desc: '4 lựa chọn' },
-    { value: 'matching', label: '🔗 Matching', desc: 'Nối cột A-B' },
-    { value: 'multi-select', label: '✅ Multi Select', desc: 'Chọn 2+ đáp án' },
-    { value: 'map-labeling', label: '🗺️ Map/Plan Labeling', desc: 'Gắn nhãn bản đồ' },
-    { value: 'flowchart', label: '📊 Flowchart Completion', desc: 'Hoàn thành sơ đồ' },
+    { value: 'fill', label: 'Fill in the Blank', icon: 'fill', desc: 'Điền từ vào chỗ trống theo từng câu.' },
+    { value: 'form-completion', label: 'Form Completion', icon: 'form', desc: 'Form có nhiều blank được đánh số tự động.' },
+    { value: 'table-completion', label: 'Table Completion', icon: 'table', desc: 'Bảng nhiều cột với blank trong từng ô.' },
+    { value: 'notes-completion', label: 'Notes Completion', icon: 'questions', desc: 'Dán notes có blank để tách câu hỏi.' },
+    { value: 'abc', label: 'Multiple Choice (A/B/C)', icon: 'choice', desc: '3 lựa chọn.' },
+    { value: 'abcd', label: 'Multiple Choice (A/B/C/D)', icon: 'choice', desc: '4 lựa chọn.' },
+    { value: 'matching', label: 'Matching', icon: 'matching', desc: 'Nối mục bên trái với đáp án chữ cái.' },
+    { value: 'multi-select', label: 'Multi Select', icon: 'multi-select', desc: 'Một câu chiếm nhiều slot theo số đáp án cần chọn.' },
+    { value: 'map-labeling', label: 'Map / Plan Labeling', icon: 'map', desc: 'Gắn nhãn vào sơ đồ hoặc bản đồ.' },
+    { value: 'flowchart', label: 'Flowchart Completion', icon: 'flowchart', desc: 'Flowchart có blank chọn đáp án A-G.' },
   ];
 
 
@@ -832,15 +904,12 @@ const ListeningTestEditor = ({
                             placeholder={suggestedTitle}
                             style={{ ...compactInputStyle, flex: 1, minWidth: "150px" }}
                           />
-                          <select
+                          <QuestionTypeSelectField
                             value={currentSection.questionType || "fill"}
-                            onChange={(e) => onSectionChange(selectedPartIndex, selectedSectionIndex, "questionType", e.target.value)}
-                            style={{ ...compactInputStyle, width: "auto" }}
-                          >
-                            {questionTypes.map(qt => (
-                              <option key={qt.value} value={qt.value}>{qt.label}</option>
-                            ))}
-                          </select>
+                            onChange={(nextType) => onSectionChange(selectedPartIndex, selectedSectionIndex, "questionType", nextType)}
+                            options={questionTypes}
+                            style={{ minWidth: "260px" }}
+                          />
                         </div>
                       </>
                     );
@@ -871,6 +940,7 @@ const ListeningTestEditor = ({
                       const isMatchingType = sectionType === "matching";
                       // For form-completion type, show similar to matching (range of questions)
                       const isFormCompletionType = sectionType === "form-completion";
+                      const isFlowchartType = sectionType === "flowchart";
                       
                       // Calculate total questions for this section
                       let totalSubQuestions = 0;
@@ -879,19 +949,21 @@ const ListeningTestEditor = ({
                       } else if (isFormCompletionType) {
                         // Count blanks in form-completion
                         totalSubQuestions = currentSection.questions?.[0]?.formRows?.filter(r => r.isBlank)?.length || 0;
+                      } else if (isFlowchartType) {
+                        totalSubQuestions = countFlowchartQuestionSlots(currentSection.questions?.[0] || {});
                       } else {
                         totalSubQuestions = currentSection.questions?.length || 0;
                       }
                       
                       // Show range for multi-question types (matching, form-completion)
-                      const showRange = isMatchingType || isFormCompletionType;
+                      const showRange = isMatchingType || isFormCompletionType || isFlowchartType;
                       
                       return (
                         <>
                           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
                             <h4 style={{ margin: 0, color: colors.questionYellow }}>
                               {showRange 
-                                ? `${isMatchingType ? 'Matching' : 'Form Completion'} Block (${totalSubQuestions} câu: ${sectionStartQ}-${sectionStartQ + totalSubQuestions - 1})`
+                                ? `${isMatchingType ? 'Matching' : isFormCompletionType ? 'Form Completion' : 'Flowchart'} Block (${totalSubQuestions} câu: ${sectionStartQ}-${sectionStartQ + totalSubQuestions - 1})`
                                 : `Câu hỏi (${currentSection.questions?.length || 0})`
                               }
                             </h4>
@@ -1522,6 +1594,127 @@ const ListeningTestEditor = ({
                               );
                             })()}
 
+                            {section.questionType === 'flowchart' && section.questions[0] && (() => {
+                              const q = section.questions[0];
+                              const flowchartEntries = getFlowchartBlankEntries(q, sectionStartQ);
+                              const entryByStepIndex = new Map(flowchartEntries.map((entry) => [entry.stepIndex, entry]));
+                              const optionEntries = getConfiguredFlowchartOptionEntries(q.options || []);
+                              const optionRows = getFlowchartOptionTableRows(optionEntries);
+                              const steps = Array.isArray(q.steps) ? q.steps : [];
+
+                              return (
+                                <div>
+                                  {optionRows.length > 0 && (
+                                    <div style={{
+                                      maxWidth: '760px',
+                                      margin: '0 auto 18px',
+                                      border: '1px solid #94a3b8',
+                                      borderRadius: '10px',
+                                      overflow: 'hidden',
+                                      backgroundColor: 'white',
+                                    }}>
+                                      {optionRows.map((row, rowIndex) => (
+                                        <div
+                                          key={`flowchart-preview-option-row-${rowIndex}`}
+                                          style={{
+                                            display: 'grid',
+                                            gridTemplateColumns: '52px minmax(0, 1fr) 52px minmax(0, 1fr)',
+                                            borderTop: rowIndex === 0 ? 'none' : '1px solid #cbd5e1',
+                                          }}
+                                        >
+                                          {row.map((option, columnIndex) => {
+                                            if (!option) {
+                                              return (
+                                                <React.Fragment key={`flowchart-preview-empty-${rowIndex}-${columnIndex}`}>
+                                                  <div style={{ borderLeft: columnIndex === 1 ? '1px solid #cbd5e1' : 'none', backgroundColor: '#f8fafc' }}></div>
+                                                  <div style={{ borderLeft: '1px solid #cbd5e1', backgroundColor: '#f8fafc' }}></div>
+                                                </React.Fragment>
+                                              );
+                                            }
+
+                                            return (
+                                              <React.Fragment key={`flowchart-preview-option-${option.value}`}>
+                                                <div style={{
+                                                  display: 'flex',
+                                                  alignItems: 'center',
+                                                  justifyContent: 'center',
+                                                  fontWeight: 700,
+                                                  backgroundColor: '#fff7ed',
+                                                  color: '#9a3412',
+                                                  borderLeft: columnIndex === 1 ? '1px solid #cbd5e1' : 'none',
+                                                  borderRight: '1px solid #cbd5e1',
+                                                  minHeight: '44px',
+                                                }}>
+                                                  {option.value}
+                                                </div>
+                                                <div style={{ padding: '10px 12px', display: 'flex', alignItems: 'center', fontSize: '13px' }}>
+                                                  {option.label || option.raw}
+                                                </div>
+                                              </React.Fragment>
+                                            );
+                                          })}
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+
+                                  <div style={{ maxWidth: '760px', margin: '0 auto', fontFamily: "'Georgia', 'Times New Roman', serif" }}>
+                                    <div style={{ textAlign: 'center', fontWeight: 700, fontSize: '1.05rem', marginBottom: '14px' }}>
+                                      {q.questionText || 'Flowchart Preview'}
+                                    </div>
+
+                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                                      {steps.map((step, stepIndex) => {
+                                        const blankEntry = entryByStepIndex.get(stepIndex);
+                                        const textParts = splitFlowchartStepText(step?.text || '');
+                                        const previewBefore = blankEntry
+                                          ? (textParts.hasPlaceholder ? textParts.before : String(step?.text || ''))
+                                          : String(step?.text || '');
+                                        const previewAfter = blankEntry && textParts.hasPlaceholder ? textParts.after : '';
+
+                                        return (
+                                          <React.Fragment key={`flow-step-${stepIndex}`}>
+                                            <div style={{ width: '100%', padding: '6px 0', lineHeight: 1.8, fontSize: '1rem' }}>
+                                              <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
+                                                <span>{previewBefore}</span>
+                                                {blankEntry && (
+                                                  <>
+                                                    <span style={{ fontWeight: 700 }}>{blankEntry.num}</span>
+                                                    <span style={{
+                                                      display: 'inline-flex',
+                                                      alignItems: 'center',
+                                                      justifyContent: 'center',
+                                                      minWidth: '86px',
+                                                      padding: '5px 12px',
+                                                      margin: '0 4px',
+                                                      borderRadius: '8px',
+                                                      backgroundColor: '#fef3c7',
+                                                      border: '1px solid #fcd34d',
+                                                      fontWeight: 700,
+                                                      color: '#92400e',
+                                                    }}>
+                                                      {blankEntry.expected || '...'}
+                                                    </span>
+                                                    <span>{previewAfter}</span>
+                                                  </>
+                                                )}
+                                              </div>
+                                            </div>
+                                            {stepIndex < steps.length - 1 && (
+                                              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '4px 0 2px' }}>
+                                                <div style={{ width: '2px', height: '26px', backgroundColor: '#1d4ed8' }}></div>
+                                                <LineIcon name="chevron-down" size={18} />
+                                              </div>
+                                            )}
+                                          </React.Fragment>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })()}
+
 
 
                             {/* MULTI-SELECT */}
@@ -1737,15 +1930,12 @@ const ListeningTestEditor = ({
               <label style={{ display: "block", marginBottom: "8px", marginTop: "16px", fontWeight: 600 }}>
                 Loại câu hỏi
               </label>
-              <select
+              <QuestionTypeSelectField
                 value={bulkAddType}
-                onChange={(e) => setBulkAddType(e.target.value)}
-                style={compactInputStyle}
-              >
-                {questionTypes.map(qt => (
-                  <option key={qt.value} value={qt.value}>{qt.label}</option>
-                ))}
-              </select>
+                onChange={setBulkAddType}
+                options={questionTypes}
+                style={{ width: '100%' }}
+              />
             </div>
 
             <div style={{ display: "flex", gap: "12px", justifyContent: "flex-end" }}>

@@ -2,6 +2,7 @@ import React, { useState, useCallback, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { ListeningTestEditor } from "../components";
 import { useListeningHandlers, createNewPart } from "../hooks";
+import { countFlowchartQuestionSlots } from "../utils/flowchart";
 import { apiPath, authFetch, redirectToLogin } from "../../../shared/utils/api";
 
 /**
@@ -303,6 +304,9 @@ const CreateListeningTestNew = () => {
         }
         if (qType === 'map-labeling') {
           return sTotal + (section.questions[0]?.items?.length || 0);
+        }
+        if (qType === 'flowchart') {
+          return sTotal + countFlowchartQuestionSlots(section.questions[0] || {});
         }
         if (qType === 'multi-select') {
           return sTotal + section.questions.reduce((sum, q) => sum + (q.requiredAnswers || 2), 0);

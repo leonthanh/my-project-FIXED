@@ -1,6 +1,8 @@
 // Lightweight listening scorer extracted from maintenance script.
 // Exports: scoreListening({ test, answers }) => { correctCount, totalCount, scorePercentage, band, details }
 
+const { getFlowchartBlankEntries } = require('./flowchartHelpers');
+
 const parseIfJsonString = (val) => {
   let v = val;
   let attempts = 0;
@@ -148,6 +150,8 @@ const scoreListening = ({ test, answers }) => {
         if (sectionType === 'fill') {
           if ((firstQ?.columns && firstQ.columns.length > 0) || (firstQ?.rows && firstQ.rows.length > 0)) {
             sectionType = 'table-completion';
+          } else if (Array.isArray(firstQ?.steps) && firstQ.steps.length > 0) {
+            sectionType = 'flowchart';
           } else if (Array.isArray(firstQ?.items) && firstQ.items.length > 0) {
             sectionType = 'map-labeling';
           }
@@ -210,6 +214,20 @@ const scoreListening = ({ test, answers }) => {
 
         if (sectionType === 'table-completion') {
           const entries = getTableBlankEntries(firstQ, sectionStart);
+          entries.forEach(({ num, expected }) => {
+            totalCount++;
+            const student = normalizedAnswers[`q${num}`];
+            const accepted = explodeAccepted(expected).map(normalize);
+            const ok = expected ? (accepted.length ? accepted.includes(normalize(student)) : normalize(student) === normalize(expected)) : false;
+            if (ok) correctCount++;
+            details.push({ questionNumber: num, partIndex: pIdx, sectionIndex: sIdx, questionType: sectionType, studentAnswer: student ?? '', correctAnswer: expected ?? '', isCorrect: ok });
+          });
+          advanceRunning(entries.length, sectionStart);
+          continue;
+        }
+
+        if (sectionType === 'flowchart') {
+          const entries = getFlowchartBlankEntries(firstQ, sectionStart);
           entries.forEach(({ num, expected }) => {
             totalCount++;
             const student = normalizedAnswers[`q${num}`];
@@ -326,6 +344,7 @@ const scoreListening = ({ test, answers }) => {
       if (qType === 'fill' || qType === 'single') {
         if (Array.isArray(q?.formRows) && q.formRows.length > 0) qType = 'form-completion';
         else if (q?.notesText) qType = 'notes-completion';
+        else if (Array.isArray(q?.steps) && q.steps.length > 0) qType = 'flowchart';
         else if ((Array.isArray(q?.leftItems) && q.leftItems.length > 0) || (Array.isArray(q?.items) && q.items.length > 0)) qType = 'matching';
           else if ((Array.isArray(q?.columns) && q.columns.length > 0) || (Array.isArray(q?.rows) && q.rows.length > 0)) qType = 'table-completion';
           else if (Array.isArray(q?.items) && q.items.length > 0) qType = 'map-labeling';
@@ -380,6 +399,19 @@ const scoreListening = ({ test, answers }) => {
 
       if (qType === 'table-completion') {
         const entries = getTableBlankEntries(q, Number(q?.globalNumber) || 1);
+        entries.forEach(({ num, expected }) => {
+          totalCount++;
+          const student = normalizedAnswers[`q${num}`];
+          const accepted = explodeAccepted(expected).map(normalize);
+          const ok = expected ? (accepted.length ? accepted.includes(normalize(student)) : normalize(student) === normalize(expected)) : false;
+          if (ok) correctCount++;
+          details.push({ questionNumber: num, partIndex, sectionIndex, questionType: qType, studentAnswer: student ?? '', correctAnswer: expected ?? '', isCorrect: ok });
+        });
+        continue;
+      }
+
+      if (qType === 'flowchart') {
+        const entries = getFlowchartBlankEntries(q, Number(q?.globalNumber) || 1);
         entries.forEach(({ num, expected }) => {
           totalCount++;
           const student = normalizedAnswers[`q${num}`];

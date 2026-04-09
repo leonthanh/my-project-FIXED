@@ -6,6 +6,7 @@ const ListeningSubmission = require('../models/ListeningSubmission');
 const ListeningTest = require('../models/ListeningTest');
 const User = require('../models/User');
 const { scoreListening } = require('../utils/listeningScorer');
+const { countFlowchartQuestionSlots, getFlowchartBlankEntries } = require('../utils/flowchartHelpers');
 const {
   DEFAULT_EXTENSION_MINUTES,
   buildTimingPayload,
@@ -197,6 +198,8 @@ router.get('/admin/list', async (req, res) => {
           if (sectionType === 'fill') {
             if ((firstQ?.columns && firstQ.columns.length > 0) || (firstQ?.rows && firstQ.rows.length > 0)) {
               sectionType = 'table-completion';
+            } else if (Array.isArray(firstQ?.steps) && firstQ.steps.length > 0) {
+              sectionType = 'flowchart';
             } else if (Array.isArray(firstQ?.items) && firstQ.items.length > 0) {
               sectionType = 'map-labeling';
             }
@@ -222,6 +225,11 @@ router.get('/admin/list', async (req, res) => {
 
           if (sectionType === 'table-completion') {
             total += countTableBlanks(firstQ) || 0;
+            continue;
+          }
+
+          if (sectionType === 'flowchart') {
+            total += countFlowchartQuestionSlots(firstQ) || 0;
             continue;
           }
 
@@ -340,6 +348,8 @@ router.get('/admin/list', async (req, res) => {
           if (sectionType === 'fill') {
             if ((firstQ?.columns && firstQ.columns.length > 0) || (firstQ?.rows && firstQ.rows.length > 0)) {
               sectionType = 'table-completion';
+            } else if (Array.isArray(firstQ?.steps) && firstQ.steps.length > 0) {
+              sectionType = 'flowchart';
             } else if (Array.isArray(firstQ?.items) && firstQ.items.length > 0) {
               sectionType = 'map-labeling';
             }
@@ -384,6 +394,19 @@ router.get('/admin/list', async (req, res) => {
 
           if (sectionType === 'table-completion') {
             const entries = getTableBlankEntries(firstQ, sectionStart);
+            entries.forEach(({ num, expected }) => {
+              const student = normalizedAnswers[`q${num}`];
+              const studentVal = student ?? '';
+              const expectedVal = expected ?? '';
+              const isCorrect = expectedVal ? String(studentVal).trim().toLowerCase() === String(expectedVal).trim().toLowerCase() : false;
+              details.push({ questionNumber: num, partIndex: pIdx, sectionIndex: sIdx, questionType: sectionType, studentAnswer: studentVal, correctAnswer: expectedVal, isCorrect });
+            });
+            runningStart = Math.max(runningStart, sectionStart + entries.length);
+            continue;
+          }
+
+          if (sectionType === 'flowchart') {
+            const entries = getFlowchartBlankEntries(firstQ, sectionStart);
             entries.forEach(({ num, expected }) => {
               const student = normalizedAnswers[`q${num}`];
               const studentVal = student ?? '';

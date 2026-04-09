@@ -341,7 +341,7 @@ const createStyles = (isDarkMode = false) => {
     flexShrink: 0,
   },
   matchingItemText: { flex: 1 },
-  matchingDropdownWrapper: { minWidth: "80px" },
+  matchingDropdownWrapper: { minWidth: "80px", position: "relative" },
   matchingSelect: {
     width: "100%",
     padding: "6px 8px",

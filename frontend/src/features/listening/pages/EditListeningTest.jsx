@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ListeningTestEditor } from "../components";
 import { useListeningHandlers, createNewPart } from "../hooks";
+import { countFlowchartQuestionSlots } from "../utils/flowchart";
 import { apiPath, authFetch, redirectToLogin } from "../../../shared/utils/api";
 
 /**
@@ -145,6 +146,15 @@ const EditListeningTest = () => {
     if (!partInstructions || !Array.isArray(partInstructions)) {
       return [createNewPart(1)];
     }
+
+    const safeParseJson = (value) => {
+      if (typeof value !== 'string') return value;
+      try {
+        return JSON.parse(value);
+      } catch (_err) {
+        return value;
+      }
+    };
     
     return partInstructions.map((partInfo, partIndex) => {
       // Get sections for this part
@@ -161,21 +171,22 @@ const EditListeningTest = () => {
           correctAnswer: q.correctAnswer || "",
           leftTitle: q.leftTitle || q.itemsTitle || q.itemsLabel || '',
           rightTitle: q.rightTitle || q.optionsTitle || q.optionsLabel || '',
-          leftItems: q.leftItems || q.items || [],
-          rightItems: q.rightItems || q.options || [],
-          options: q.options || [],
+          leftItems: safeParseJson(q.leftItems) || safeParseJson(q.items) || [],
+          rightItems: safeParseJson(q.rightItems) || safeParseJson(q.options) || [],
+          options: safeParseJson(q.options) || [],
           formTitle: q.formTitle || "",
-          formRows: q.formRows || [],
+          formRows: safeParseJson(q.formRows) || [],
           questionRange: q.questionRange || "",
-          answers: q.answers || {},
+          answers: safeParseJson(q.answers) || {},
           notesText: q.notesText || "",
           notesTitle: q.notesTitle || "",
           wordLimit: q.wordLimit || "ONE WORD ONLY",
+          steps: safeParseJson(q.steps) || [],
           // Table completion fields
-          columns: q.columns || [],
-          rows: q.rows || [],
+          columns: safeParseJson(q.columns) || [],
+          rows: safeParseJson(q.rows) || [],
           // Map labeling fields (keep positions and image URL so editor can show markers in both editors)
-          items: q.items || [],
+          items: safeParseJson(q.items) || [],
           mapImageUrl: q.mapImageUrl || q.imageUrl || '',
           imageUrl: q.imageUrl || q.mapImageUrl || '',
         }));
@@ -372,6 +383,8 @@ const EditListeningTest = () => {
               });
             } else if (q.questionType === 'matching') {
               globalQ += (q.leftItems?.length || 1);
+            } else if (q.questionType === 'flowchart') {
+              globalQ += countFlowchartQuestionSlots(q) || 1;
             } else if (q.questionType === 'notes-completion') {
               const notesText = q.notesText || '';
               const blanks = notesText.match(/\d+\s*[_…]+|[_…]{2,}/g) || [];

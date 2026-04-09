@@ -5,6 +5,7 @@ import { isAdmin, isTeacher } from "../../../shared/utils/permissions";
 import AdminNavbar from "../../../shared/components/AdminNavbar";
 import ListeningStudentStyleReview from "../components/ListeningStudentStyleReview";
 import LineIcon from "../../../shared/components/LineIcon";
+import { getFlowchartBlankEntries } from "../utils/flowchart";
 
 // ===== STYLES =====
 const styles = {
@@ -644,6 +645,7 @@ const parseQuestionsDeep = (questions) => {
     rightItems: safeParseJson(q?.rightItems),
     options: safeParseJson(q?.options),
     answers: safeParseJson(q?.answers),
+    steps: safeParseJson(q?.steps),
   }));
 };
 
@@ -717,6 +719,8 @@ const generateDetailsFromSections = (test, answers) => {
       if (sectionType === "fill") {
         if ((firstQ?.columns && firstQ.columns.length > 0) || (firstQ?.rows && firstQ.rows.length > 0)) {
           sectionType = "table-completion";
+        } else if (Array.isArray(firstQ?.steps) && firstQ.steps.length > 0) {
+          sectionType = "flowchart";
         } else if (Array.isArray(firstQ?.items) && firstQ.items.length > 0) {
           sectionType = "map-labeling";
         }
@@ -892,6 +896,25 @@ const generateDetailsFromSections = (test, answers) => {
 
       if (sectionType === "table-completion") {
         const entries = getTableBlankEntries(firstQ, sectionStart);
+        entries.forEach(({ num, expected }) => {
+          const student = normalizedAnswers[`q${num}`];
+          const ok = expected ? isAnswerMatch(student, expected) : false;
+          details.push({
+            questionNumber: num,
+            partIndex: pIdx,
+            sectionIndex: sIdx,
+            questionType: sectionType,
+            studentAnswer: student ?? "",
+            correctAnswer: expected ?? "",
+            isCorrect: ok,
+          });
+        });
+        runningStart = Math.max(runningStart, sectionStart + entries.length);
+        continue;
+      }
+
+      if (sectionType === "flowchart") {
+        const entries = getFlowchartBlankEntries(firstQ, sectionStart);
         entries.forEach(({ num, expected }) => {
           const student = normalizedAnswers[`q${num}`];
           const ok = expected ? isAnswerMatch(student, expected) : false;

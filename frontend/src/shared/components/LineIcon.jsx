@@ -54,6 +54,85 @@ const LineIcon = ({ name, size = 18, strokeWidth = 1.9, className }) => {
           <path d="M3 10h4l5-4v12l-5-4H3z" />
         </svg>
       );
+    case "fill":
+      return (
+        <svg {...props}>
+          <path d="M4 6h16" />
+          <path d="M4 11h9" />
+          <path d="M4 16h6" />
+          <path d="M14 14h6" />
+          <path d="M14 18h6" />
+        </svg>
+      );
+    case "form":
+      return (
+        <svg {...props}>
+          <rect x="5" y="3" width="14" height="18" rx="2" />
+          <path d="M8 7h8" />
+          <path d="M8 11h5" />
+          <path d="M8 15h8" />
+        </svg>
+      );
+    case "table":
+      return (
+        <svg {...props}>
+          <rect x="3" y="5" width="18" height="14" rx="2" />
+          <path d="M3 10h18" />
+          <path d="M9 5v14" />
+          <path d="M15 5v14" />
+        </svg>
+      );
+    case "choice":
+      return (
+        <svg {...props}>
+          <circle cx="6" cy="7" r="1.5" />
+          <circle cx="6" cy="12" r="1.5" />
+          <circle cx="6" cy="17" r="1.5" />
+          <path d="M10 7h10" />
+          <path d="M10 12h10" />
+          <path d="M10 17h10" />
+        </svg>
+      );
+    case "matching":
+      return (
+        <svg {...props}>
+          <path d="M4 8h8" />
+          <path d="m9 5 3 3-3 3" />
+          <path d="M20 16h-8" />
+          <path d="m15 13-3 3 3 3" />
+        </svg>
+      );
+    case "multi-select":
+      return (
+        <svg {...props}>
+          <rect x="4" y="5" width="4" height="4" rx="1" />
+          <rect x="4" y="15" width="4" height="4" rx="1" />
+          <path d="m5 7 1 1 2-2" />
+          <path d="m5 17 1 1 2-2" />
+          <path d="M11 7h9" />
+          <path d="M11 17h9" />
+        </svg>
+      );
+    case "map":
+      return (
+        <svg {...props}>
+          <path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2Z" />
+          <path d="M9 4v14" />
+          <path d="M15 6v14" />
+        </svg>
+      );
+    case "flowchart":
+      return (
+        <svg {...props}>
+          <rect x="4" y="4" width="6" height="4" rx="1" />
+          <rect x="14" y="10" width="6" height="4" rx="1" />
+          <rect x="4" y="16" width="6" height="4" rx="1" />
+          <path d="M10 6h4" />
+          <path d="M17 8v2" />
+          <path d="M14 12h-4" />
+          <path d="M7 8v8" />
+        </svg>
+      );
     case "key":
       return (
         <svg {...props}>
@@ -173,6 +252,14 @@ const LineIcon = ({ name, size = 18, strokeWidth = 1.9, className }) => {
           <path d="M8 4H6a2 2 0 0 0-2 2v14h16V6a2 2 0 0 0-2-2h-2" />
           <path d="m9 12 2 2 4-4" />
           <path d="M8 17h8" />
+        </svg>
+      );
+    case "selector":
+      return (
+        <svg {...props}>
+          <rect x="4" y="6" width="16" height="12" rx="2" />
+          <path d="M8 10h8" />
+          <path d="m10 13 2 2 2-2" />
         </svg>
       );
     case "arrow-left":
