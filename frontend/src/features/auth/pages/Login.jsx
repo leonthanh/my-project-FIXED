@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import "../../../shared/styles/Login.css";
+import LineIcon from "../../../shared/components/LineIcon";
 import {
   API_BASE,
   clearAuth,
@@ -9,12 +10,61 @@ import {
   storeAuthSession,
 } from "../../../shared/utils/api";
 
+const InlineIcon = ({ name, size = 16, style }) => (
+  <span
+    style={{
+      display: "inline-flex",
+      alignItems: "center",
+      justifyContent: "center",
+      width: size,
+      height: size,
+      lineHeight: 0,
+      flex: "0 0 auto",
+      ...style,
+    }}
+    aria-hidden="true"
+  >
+    <LineIcon name={name} size={size} />
+  </span>
+);
+
+const AUTH_MESSAGE_TRANSLATIONS = {
+  "Đăng nhập thành công": "Login successful.",
+  "Đăng ký thành công!": "Registration successful.",
+  "Số điện thoại đã tồn tại. Vui lòng đăng nhập hoặc sử dụng số điện thoại khác.":
+    "This phone number is already registered. Please sign in or use a different number.",
+  "Số điện thoại không tồn tại. Vui lòng đăng ký.":
+    "This phone number was not found. Please create an account.",
+  "Số điện thoại không tồn tại.": "This phone number was not found.",
+  "Mật khẩu không đúng.": "Incorrect password.",
+  "Lỗi server khi đăng ký.": "Server error during registration.",
+  "Lỗi server khi đăng nhập.": "Server error during login.",
+  "Mã xác thực không đúng hoặc đã hết hạn.":
+    "The verification code is invalid or has expired.",
+  "Mã xác thực đã hết hạn. Vui lòng yêu cầu mã mới.":
+    "The verification code has expired. Please request a new one.",
+  "Mật khẩu đã được reset thành công! Vui lòng đăng nhập lại.":
+    "Your password has been reset successfully. Please sign in again.",
+  "Mã xác thực đã được gửi. Vui lòng kiểm tra email của bạn.":
+    "The verification code has been sent. Please check your email.",
+  "Lỗi server khi gửi OTP.": "Server error while sending the verification code.",
+  "Quá nhiều yêu cầu. Vui lòng thử lại sau.":
+    "Too many requests. Please try again later.",
+  "Bạn đã yêu cầu OTP quá nhiều lần. Vui lòng thử lại sau.":
+    "Too many verification code requests. Please try again later.",
+};
+
+const translateAuthMessage = (message) => {
+  if (!message) return "";
+  const normalizedMessage = String(message).trim();
+  return AUTH_MESSAGE_TRANSLATIONS[normalizedMessage] || normalizedMessage;
+};
+
 const Login = () => {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState(""); // ✅ Thêm state cho email
   const [password, setPassword] = useState(""); // ✅ Thêm state cho mật khẩu
-  const [role, setRole] = useState("student");
   const [message, setMessage] = useState("");
   const [showResetModal, setShowResetModal] = useState(false);
   const [resetPhone, setResetPhone] = useState("");
@@ -47,7 +97,7 @@ const Login = () => {
     // Show session-expired message if redirected due to token expiry
     const params = new URLSearchParams(location.search);
     if (params.get('reason') === 'expired') {
-      setMessage('⚠️ Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
+      setMessage('⚠️ Your session has expired. Please sign in again.');
     }
     let user = getStoredUser();
     const hasToken = hasStoredSession();
@@ -63,7 +113,7 @@ const Login = () => {
   const handleLogin = async () => {
     // ✅ Logic đăng nhập: chỉ cần phone và password
     if (!phone.trim() || !password.trim()) {
-      setMessage("❌ Vui lòng nhập đầy đủ số điện thoại và mật khẩu.");
+      setMessage("❌ Please enter both phone number and password.");
       return;
     }
 
@@ -71,7 +121,7 @@ const Login = () => {
     const vnPhoneRegex = /^(0)(3[2-9]|5[2689]|7[06-9]|8[1-9]|9[0-9])[0-9]{7}$/;
     if (!vnPhoneRegex.test(phone.trim())) {
       setMessage(
-        "❌ Số điện thoại không hợp lệ. Vui lòng nhập số Việt Nam hợp lệ (VD: 0912345678)."
+        "❌ Invalid phone number. Please enter a valid Vietnamese phone number (e.g. 0912345678)."
       );
       return;
     }
@@ -94,7 +144,7 @@ const Login = () => {
           refreshToken: data.refreshToken,
         });
 
-        setMessage("✅ " + data.message);
+        setMessage("✅ " + translateAuthMessage(data.message));
         // If a redirect was requested before login, go back there
         const redirectTo = localStorage.getItem('postLoginRedirect');
         if (redirectTo) {
@@ -105,10 +155,10 @@ const Login = () => {
 
         redirectAfterAuth(['teacher', 'admin'].includes(data.user.role) ? "/admin" : "/");
       } else {
-        setMessage("❌ " + data.message);
+        setMessage("❌ " + translateAuthMessage(data.message));
       }
     } catch (err) {
-      setMessage("Lỗi kết nối server.");
+      setMessage("❌ Unable to connect to the server.");
       console.error("❌ Lỗi:", err);
     } finally {
       setLoading(false);
@@ -119,7 +169,7 @@ const Login = () => {
     // ✅ Logic đăng ký: cần name, phone, email và password
     if (!name.trim() || !phone.trim() || !email.trim() || !password.trim()) {
       setMessage(
-        "❌ Vui lòng nhập đầy đủ họ tên, số điện thoại, email và mật khẩu."
+        "❌ Please enter your full name, phone number, email, and password."
       );
       return;
     }
@@ -127,7 +177,7 @@ const Login = () => {
     // ✅ Kiểm tra email hợp lệ
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email.trim())) {
-      setMessage("❌ Email không hợp lệ. Vui lòng nhập email đúng định dạng.");
+      setMessage("❌ Invalid email address. Please enter a valid email.");
       return;
     }
 
@@ -135,7 +185,7 @@ const Login = () => {
     const vnPhoneRegex = /^(0)(3[2-9]|5[2689]|7[06-9]|8[1-9]|9[0-9])[0-9]{7}$/;
     if (!vnPhoneRegex.test(phone.trim())) {
       setMessage(
-        "❌ Số điện thoại không hợp lệ. Vui lòng nhập số Việt Nam hợp lệ (VD: 0912345678)."
+        "❌ Invalid phone number. Please enter a valid Vietnamese phone number (e.g. 0912345678)."
       );
       return;
     }
@@ -146,7 +196,7 @@ const Login = () => {
       const res = await fetch(`${API_BASE}/auth/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, phone, email, password, role }),
+        body: JSON.stringify({ name, phone, email, password }),
       });
 
       const data = await res.json().catch(() => ({}));
@@ -156,13 +206,13 @@ const Login = () => {
           accessToken: data.accessToken,
           refreshToken: data.refreshToken,
         });
-        setMessage("✅ " + data.message);
+        setMessage("✅ " + translateAuthMessage(data.message));
         redirectAfterAuth(['teacher', 'admin'].includes(data.user.role) ? "/admin" : "/");
       } else {
         // Hiển thị status code và message để dễ debug
         setMessage(
           `❌ [${res.status}] ${
-            data.message || "Lỗi đăng ký. Vui lòng thử lại sau."
+            translateAuthMessage(data.message) || "Registration failed. Please try again later."
           }`
         );
         if (data.error) {
@@ -170,7 +220,7 @@ const Login = () => {
         }
       }
     } catch (err) {
-      setMessage("Lỗi kết nối server hoặc database.");
+      setMessage("❌ Unable to connect to the server or database.");
       console.error("❌ Lỗi kết nối server/database:", err);
     }
   };
@@ -182,18 +232,18 @@ const Login = () => {
       !resetPassword.trim() ||
       !resetConfirmPassword.trim()
     ) {
-      alert("❌ Vui lòng nhập đầy đủ thông tin.");
+      alert("❌ Please complete all fields.");
       return;
     }
 
     const vnPhoneRegex = /^(0)(3[2-9]|5[2689]|7[06-9]|8[1-9]|9[0-9])[0-9]{7}$/;
     if (!vnPhoneRegex.test(resetPhone.trim())) {
-      alert("❌ Số điện thoại không hợp lệ. Vui lòng nhập số Việt Nam hợp lệ.");
+      alert("❌ Invalid phone number. Please enter a valid Vietnamese phone number.");
       return;
     }
 
     if (resetPassword !== resetConfirmPassword) {
-      alert("❌ Mật khẩu không khớp.");
+      alert("❌ Passwords do not match.");
       return;
     }
 
@@ -210,17 +260,17 @@ const Login = () => {
 
       const data = await res.json();
       if (res.ok) {
-        alert("✅ " + data.message);
+        alert("✅ " + translateAuthMessage(data.message));
         setShowResetModal(false);
         setResetPhone("");
         setResetVerificationCode("");
         setResetPassword("");
         setResetConfirmPassword("");
       } else {
-        alert("❌ " + data.message);
+        alert("❌ " + translateAuthMessage(data.message));
       }
     } catch (err) {
-      alert("Lỗi kết nối server.");
+      alert("❌ Unable to connect to the server.");
       console.error("❌ Lỗi:", err);
     }
   };
@@ -228,7 +278,7 @@ const Login = () => {
   const handleSendOtp = async () => {
     const vnPhoneRegex = /^(0)(3[2-9]|5[2689]|7[06-9]|8[1-9]|9[0-9])[0-9]{7}$/;
     if (!vnPhoneRegex.test(resetPhone.trim())) {
-      alert("❌ Vui lòng nhập số điện thoại Việt Nam hợp lệ (VD: 0912345678).");
+      alert("❌ Please enter a valid Vietnamese phone number (e.g. 0912345678).");
       return;
     }
 
@@ -241,16 +291,16 @@ const Login = () => {
 
       const data = await res.json();
       if (res.ok) {
-        alert("✅ " + data.message);
+        alert("✅ " + translateAuthMessage(data.message));
         // ✅ Dev mode: OTP available in response (not logged)
         if (data.testOtp) {
           /* OTP test available in dev response */
         }
       } else {
-        alert("❌ " + data.message);
+        alert("❌ " + translateAuthMessage(data.message));
       }
     } catch (err) {
-      alert("Lỗi kết nối server.");
+      alert("❌ Unable to connect to the server.");
       console.error("❌ Lỗi:", err);
     }
   };
@@ -305,7 +355,7 @@ const Login = () => {
                 transition: "all 0.3s",
               }}
             >
-              Đăng nhập
+              Login
             </button>
             <button
               onClick={() => setIsLoginMode(false)}
@@ -321,7 +371,7 @@ const Login = () => {
                 transition: "all 0.3s",
               }}
             >
-              Đăng ký
+              Register
             </button>
           </div>
 
@@ -330,21 +380,21 @@ const Login = () => {
             <>
               <input
                 type="text"
-                placeholder=" Phone Number"
+                placeholder="Phone Number"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
                 style={inputStyle}
               />
               <input
                 type="password"
-                placeholder=" Password"
+                placeholder="Password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 style={inputStyle}
               />
 
               <button onClick={handleLogin} style={loginBtn} disabled={loading}>
-                {loading ? "Đang đăng nhập..." : "Login"}
+                {loading ? "Signing in..." : "Login"}
               </button>
 
               <p style={{ color: "#d00", margin: "10px 0" }}>{message}</p>
@@ -363,7 +413,7 @@ const Login = () => {
                   padding: 0,
                 }}
               >
-                Quên mật khẩu?
+                Forgot password?
               </button>
             </>
           ) : (
@@ -371,41 +421,62 @@ const Login = () => {
               {/* Register Form */}
               <input
                 type="text"
-                placeholder=" Name"
+                placeholder="Full Name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 style={inputStyle}
               />
               <input
                 type="text"
-                placeholder=" Phone Number"
+                placeholder="Phone Number"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
                 style={inputStyle}
               />
               <input
                 type="email"
-                placeholder=" Email"
+                placeholder="Email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 style={inputStyle}
               />
               <input
                 type="password"
-                placeholder=" Password"
+                placeholder="Password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 style={inputStyle}
               />
 
-              <select
-                value={role}
-                onChange={(e) => setRole(e.target.value)}
-                style={inputStyle}
+              <div
+                aria-label="Account role"
+                aria-readonly="true"
+                style={lockedRoleFieldStyle}
               >
-                <option value="student">🎓 Học sinh</option>
-                <option value="teacher">📚 Giáo viên</option>
-              </select>
+                <InlineIcon
+                  name="student"
+                  size={18}
+                  style={{ color: "#0e276f" }}
+                />
+                <span style={lockedRoleLabelStyle}>Student (default)</span>
+                <InlineIcon
+                  name="chevron-down"
+                  size={16}
+                  style={{ color: "#94a3b8", marginLeft: "auto" }}
+                />
+              </div>
+
+              <div style={roleNoticeStyle}>
+                <InlineIcon
+                  name="teacher"
+                  size={18}
+                  style={roleNoticeIconStyle}
+                />
+                <span>
+                  Need a teacher account? Contact admin to request a role
+                  upgrade.
+                </span>
+              </div>
 
               <button onClick={handleRegister} style={registerBtn}>
                 Register
@@ -425,7 +496,7 @@ const Login = () => {
           <div className="wave" id="wave4"></div>
         </div>
 
-        <p className="copyright"> Made with ❤️ in Vũng Tàu.</p>
+        <p className="copyright"> Made with care in Vung Tau.</p>
       </footer>
 
       {/* Modal Reset Password */}
@@ -457,12 +528,12 @@ const Login = () => {
             onClick={(e) => e.stopPropagation()}
           >
             <h3 style={{ marginBottom: "20px", textAlign: "center" }}>
-              Reset mật khẩu
+              Reset Password
             </h3>
 
             <input
               type="text"
-              placeholder="Số điện thoại"
+              placeholder="Phone Number"
               value={resetPhone}
               onChange={(e) => setResetPhone(e.target.value)}
               style={inputStyle}
@@ -471,7 +542,7 @@ const Login = () => {
             <div style={{ display: "flex", gap: "10px", marginBottom: "8px" }}>
               <input
                 type="text"
-                placeholder="Mã xác thực của bạn"
+                placeholder="Verification Code"
                 value={resetVerificationCode}
                 onChange={(e) => setResetVerificationCode(e.target.value)}
                 style={{ ...inputStyle, flex: 1 }}
@@ -489,13 +560,13 @@ const Login = () => {
                   fontWeight: "bold",
                 }}
               >
-                Gửi mã
+                Send Code
               </button>
             </div>
 
             <input
               type="password"
-              placeholder="Nhập mật khẩu của bạn"
+              placeholder="New Password"
               value={resetPassword}
               onChange={(e) => setResetPassword(e.target.value)}
               style={inputStyle}
@@ -503,14 +574,14 @@ const Login = () => {
 
             <input
               type="password"
-              placeholder="Vui lòng nhập lại mật khẩu"
+              placeholder="Confirm New Password"
               value={resetConfirmPassword}
               onChange={(e) => setResetConfirmPassword(e.target.value)}
               style={inputStyle}
             />
 
             <button onClick={handleResetPassword} style={loginBtn}>
-              Submit
+              Reset Password
             </button>
 
             <p
@@ -539,6 +610,50 @@ const inputStyle = {
   borderRadius: "6px",
   border: "1px solid #ccc",
   fontSize: "16px",
+};
+
+const lockedRoleFieldStyle = {
+  width: "100%",
+  display: "flex",
+  alignItems: "center",
+  gap: "10px",
+  padding: "12px 14px",
+  margin: "8px 0",
+  borderRadius: "6px",
+  border: "1px solid #cbd5e1",
+  backgroundColor: "#f8fafc",
+  color: "#334155",
+  cursor: "not-allowed",
+  boxSizing: "border-box",
+};
+
+const lockedRoleLabelStyle = {
+  fontSize: "16px",
+  lineHeight: 1.2,
+};
+
+const roleNoticeStyle = {
+  display: "flex",
+  alignItems: "flex-start",
+  gap: "8px",
+  margin: "6px 0 10px",
+  padding: "10px 12px",
+  borderRadius: "8px",
+  backgroundColor: "#eff6ff",
+  color: "#1e3a8a",
+  fontSize: "13px",
+  lineHeight: 1.5,
+  textAlign: "left",
+};
+
+const roleNoticeIconStyle = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  width: "20px",
+  height: "20px",
+  color: "#0e276f",
+  marginTop: "1px",
 };
 
 const loginBtn = {

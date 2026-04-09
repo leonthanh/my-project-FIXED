@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { apiPath, hostPath, authFetch } from "../../../shared/utils/api";
 import TestHeader from "../../../shared/components/TestHeader";
 import ExtensionToast from "../../../shared/components/ExtensionToast";
+import LineIcon from "../../../shared/components/LineIcon.jsx";
 import { useTheme } from "../../../shared/contexts/ThemeContext";
 import {
   formatClock,
@@ -15,6 +16,13 @@ import MapLabelingQuestion from "../../../shared/components/MapLabelingQuestion"
 import TableCompletion from "../../../shared/components/questions/editors/TableCompletion.jsx";
 import ResultModal from "../../../shared/components/ResultModal";
 import { generateDetailsFromSections } from "./ListeningResults";
+import {
+  countFlowchartQuestionSlots,
+  getConfiguredFlowchartOptionEntries,
+  getFlowchartBlankEntries,
+  getFlowchartOptionTableRows,
+  splitFlowchartStepText,
+} from "../utils/flowchart";
 import createStyles from "./DoListeningTest.styles";
 
 // Local helper to compute band (mirror of listening results logic)
@@ -38,6 +46,30 @@ const stripHtml = (html) => {
   const temp = document.createElement("div");
   temp.innerHTML = html;
   return temp.textContent || temp.innerText || "";
+};
+
+const safeParseJson = (value) => {
+  if (typeof value !== "string") return value;
+  try {
+    return JSON.parse(value);
+  } catch (_error) {
+    return value;
+  }
+};
+
+const parseQuestionsDeep = (questions) => {
+  const parsed = safeParseJson(questions);
+  if (!Array.isArray(parsed)) return parsed;
+
+  return parsed.map((q) => ({
+    ...q,
+    formRows: safeParseJson(q?.formRows),
+    leftItems: safeParseJson(q?.leftItems),
+    rightItems: safeParseJson(q?.rightItems),
+    options: safeParseJson(q?.options),
+    answers: safeParseJson(q?.answers),
+    steps: safeParseJson(q?.steps),
+  }));
 };
 
 const countTableCompletionBlanks = (question) => {
@@ -97,6 +129,7 @@ const DoListeningTest = () => {
   const [extensionToast, setExtensionToast] = useState("");
   const [audioPlayed, setAudioPlayed] = useState({});
   const [activeQuestion, setActiveQuestion] = useState(null);
+  const [openFlowchartQuestion, setOpenFlowchartQuestion] = useState(null);
   // Modal & start state: control whether student has started the test (controls audio visibility)
   const [showStartModal, setShowStartModal] = useState(true);
   const [started, setStarted] = useState(false);
@@ -107,6 +140,7 @@ const DoListeningTest = () => {
   const audioRef = useRef(null);
   const questionRefs = useRef({});
   const listQuestionRef = useRef(null);
+  const flowchartDropdownRefs = useRef({});
 
   // When switching parts via navigator/arrows, we may need to wait for the new part
   // to render before scrolling to the target question.
@@ -179,6 +213,35 @@ const DoListeningTest = () => {
     return () => clearTimeout(timeoutId);
   }, [extensionToast]);
 
+  useEffect(() => {
+    if (openFlowchartQuestion == null) return undefined;
+
+    const handlePointerDown = (event) => {
+      const current = flowchartDropdownRefs.current[openFlowchartQuestion];
+      if (current && !current.contains(event.target)) {
+        setOpenFlowchartQuestion(null);
+      }
+    };
+
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") {
+        setOpenFlowchartQuestion(null);
+      }
+    };
+
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [openFlowchartQuestion]);
+
+  useEffect(() => {
+    setOpenFlowchartQuestion(null);
+  }, [currentPartIndex, submitted]);
+
   // Fetch test data
   useEffect(() => {
     const fetchTest = async () => {
@@ -202,6 +265,7 @@ const DoListeningTest = () => {
             rightItems: typeof q.rightItems === "string" ? JSON.parse(q.rightItems) : q.rightItems,
             options: typeof q.options === "string" ? JSON.parse(q.options) : q.options,
             answers: typeof q.answers === "string" ? JSON.parse(q.answers) : q.answers,
+            steps: typeof q.steps === "string" ? JSON.parse(q.steps) : q.steps,
           }));
         }
 
@@ -504,66 +568,63 @@ const DoListeningTest = () => {
         // ignore - fall back to server result
       }
 
-      setResultData(result);
-
       // Try to fetch authoritative submission details from server and prefer that if more complete.
       if (result.submissionId) {
-        (async () => {
-          try {
-            const subRes = await fetch(apiPath(`listening-submissions/${result.submissionId}`));
-            if (!subRes.ok) return;
-            const payload = await subRes.json().catch(() => null);
-            const sub = payload?.submission || null;
-            const serverTest = payload?.test || null;
-            if (sub) {
-              // Try to use stored details if present
-              const parsedDetails = Array.isArray(sub.details) ? sub.details : (typeof sub.details === 'string' ? JSON.parse(sub.details || '[]') : []);
-              if (Array.isArray(parsedDetails) && parsedDetails.length) {
-                const parsedCorrect = parsedDetails.filter((d) => d.isCorrect).length;
-                const parsedTotal = parsedDetails.length;
-                setResultData((prev) => ({
-                  ...prev,
-                  total: parsedTotal,
-                  correct: parsedCorrect,
-                  scorePercentage: parsedTotal ? Math.round((parsedCorrect / parsedTotal) * 100) : prev.scorePercentage,
-                  band: bandFromCorrect(parsedCorrect),
-                  details: parsedDetails,
-                }));
-                return;
-              }
+        try {
+          const subRes = await fetch(apiPath(`listening-submissions/${result.submissionId}`));
+          if (subRes.ok) {
+            const detailPayload = await subRes.json().catch(() => null);
+            const sub = detailPayload?.submission || null;
+            const serverTest = detailPayload?.test || null;
 
-              // Fallback: if server returned test structure, try to generate details locally and prefer that
-              if (serverTest && sub.answers) {
-                try {
-                  const testObj = {
+            if (sub) {
+              const parsedSub = {
+                ...sub,
+                answers: safeParseJson(sub.answers),
+                details: safeParseJson(sub.details),
+              };
+
+              const parsedTest = serverTest
+                ? {
                     ...serverTest,
-                    partInstructions: typeof serverTest.partInstructions === 'string' ? JSON.parse(serverTest.partInstructions) : serverTest.partInstructions,
-                    questions: typeof serverTest.questions === 'string' ? JSON.parse(serverTest.questions) : serverTest.questions,
-                  };
-                  const generated = generateDetailsFromSections(testObj, sub.answers || {});
-                  if (Array.isArray(generated) && generated.length) {
-                    const gCorrect = generated.filter((d) => d.isCorrect).length;
-                    const gTotal = generated.length;
-                    setResultData((prev) => ({
-                      ...prev,
-                      total: gTotal,
-                      correct: gCorrect,
-                      scorePercentage: gTotal ? Math.round((gCorrect / gTotal) * 100) : prev.scorePercentage,
-                      band: bandFromCorrect(gCorrect),
-                      details: generated,
-                    }));
-                    return;
+                    partInstructions: safeParseJson(serverTest.partInstructions),
+                    partTypes: safeParseJson(serverTest.partTypes),
+                    partAudioUrls: safeParseJson(serverTest.partAudioUrls),
+                    questions: parseQuestionsDeep(serverTest.questions),
                   }
-                } catch (e) {
-                  // ignore generation errors
+                : null;
+
+              const parsedDetails = Array.isArray(parsedSub.details) ? parsedSub.details : [];
+              const totalTarget = Number(parsedSub.total) || result.total || 40;
+              let authoritativeDetails = parsedDetails;
+
+              if (parsedTest && parsedSub.answers && typeof parsedSub.answers === "object") {
+                const generated = generateDetailsFromSections(parsedTest, parsedSub.answers);
+                if (generated.length && (parsedDetails.length !== totalTarget || parsedDetails.length < generated.length)) {
+                  authoritativeDetails = generated;
                 }
               }
+
+              if (Array.isArray(authoritativeDetails) && authoritativeDetails.length) {
+                const detailCorrect = authoritativeDetails.filter((d) => d.isCorrect).length;
+                const detailTotal = authoritativeDetails.length;
+                result = {
+                  ...result,
+                  total: detailTotal,
+                  correct: detailCorrect,
+                  scorePercentage: detailTotal ? Math.round((detailCorrect / detailTotal) * 100) : result.scorePercentage,
+                  band: bandFromCorrect(detailCorrect),
+                  details: authoritativeDetails,
+                };
+              }
             }
-          } catch (e) {
-            // ignore network errors
           }
-        })();
+        } catch (_error) {
+          // ignore network errors and keep the best local result
+        }
       }
+
+      setResultData(result);
 
       if (test?.showResultModal !== false) {
         setResultModalOpen(true);
@@ -601,7 +662,7 @@ const DoListeningTest = () => {
       console.error("Error submitting:", err);
       alert(`❌ Có lỗi xảy ra khi nộp bài!${err?.message ? `\n${err.message}` : ""}`);
     }
-  }, [answers, expiresKey, id, navigate, submitted, stateKey, test?.showResultModal]);
+  }, [answers, expiresKey, id, navigate, submitted, stateKey, test, test?.showResultModal]);
 
   // Keep ref up-to-date with the latest confirmSubmit implementation
   useEffect(() => {
@@ -812,6 +873,10 @@ const DoListeningTest = () => {
       return Math.max(1, blanks.length);
     }
 
+    if (Array.isArray(q.steps) && q.steps.length > 0) {
+      return Math.max(1, countFlowchartQuestionSlots(q));
+    }
+
     if (q.leftItems && q.leftItems.length > 0) {
       return Math.max(1, q.leftItems.length);
     }
@@ -872,6 +937,11 @@ const DoListeningTest = () => {
     if (sectionType === "table-completion") {
       const firstQ = sectionQuestions[0] || {};
       return countTableCompletionBlanks(firstQ) || 0;
+    }
+
+    if (sectionType === "flowchart") {
+      const firstQ = sectionQuestions[0] || {};
+      return countFlowchartQuestionSlots(firstQ);
     }
 
     if (sectionType === "map-labeling") {
@@ -955,6 +1025,8 @@ const DoListeningTest = () => {
         if (sectionQType === "fill") {
           if ((firstQ?.columns && firstQ.columns.length > 0) || (firstQ?.rows && firstQ.rows.length > 0)) {
             sectionQType = "table-completion";
+          } else if (firstQ?.steps && firstQ.steps.length > 0) {
+            sectionQType = "flowchart";
           } else if (firstQ?.items && firstQ.items.length > 0) {
             sectionQType = "map-labeling";
           }
@@ -1004,6 +1076,9 @@ const DoListeningTest = () => {
             maxNum = Math.max(maxNum, start + count - 1);
           } else if (sectionQType === "table-completion") {
             const count = countTableCompletionBlanks(firstQ) || 0;
+            maxNum = Math.max(maxNum, start + Math.max(0, count) - 1);
+          } else if (sectionQType === "flowchart") {
+            const count = countFlowchartQuestionSlots(firstQ) || 0;
             maxNum = Math.max(maxNum, start + Math.max(0, count) - 1);
           } else if (sectionQType === "map-labeling") {
             const count = (firstQ?.items || []).length || 0;
@@ -1060,6 +1135,8 @@ const DoListeningTest = () => {
         if (sectionType === "fill") {
           if ((firstQ?.columns && firstQ.columns.length > 0) || (firstQ?.rows && firstQ.rows.length > 0)) {
             sectionType = "table-completion";
+          } else if (firstQ?.steps && firstQ.steps.length > 0) {
+            sectionType = "flowchart";
           } else if (firstQ?.items && firstQ.items.length > 0) {
             sectionType = "map-labeling";
           }
@@ -1163,6 +1240,17 @@ const DoListeningTest = () => {
           }
           if (!(typeof section.startingQuestionNumber === "number" && section.startingQuestionNumber > 0)) {
             currentStart += count;
+          }
+          return;
+        }
+
+        if (sectionType === "flowchart") {
+          const entries = getFlowchartBlankEntries(firstQ, sectionStartNum);
+          entries.forEach((entry) => {
+            slots.push({ type: "single", key: `q${entry.num}` });
+          });
+          if (!(typeof section.startingQuestionNumber === "number" && section.startingQuestionNumber > 0)) {
+            currentStart += entries.length;
           }
           return;
         }
@@ -1822,7 +1910,13 @@ const DoListeningTest = () => {
                       onChange={(e) => handleAnswerChange(`q${qNum}`, e.target.value)}
                       onFocus={() => setActiveQuestion(qNum)}
                       disabled={submitted}
-                      style={styles.matchingSelect}
+                      style={{
+                        ...styles.matchingSelect,
+                        appearance: "none",
+                        WebkitAppearance: "none",
+                        MozAppearance: "none",
+                        paddingRight: "30px",
+                      }}
                     >
                       <option value="">--</option>
                       {rightItems.map((_, optIdx) => (
@@ -1831,6 +1925,9 @@ const DoListeningTest = () => {
                         </option>
                       ))}
                     </select>
+                    <span style={{ position: "absolute", right: "8px", top: "50%", transform: "translateY(-50%)", pointerEvents: "none", color: "#64748b" }}>
+                      <LineIcon name="chevron-down" size={14} />
+                    </span>
                   </div>
                 </div>
               );
@@ -1855,6 +1952,282 @@ const DoListeningTest = () => {
                 </div>
               );
             })}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderFlowchart = (question, startNumber) => {
+    const entries = getFlowchartBlankEntries(question, startNumber);
+    const entryByStepIndex = new Map(entries.map((entry) => [entry.stepIndex, entry]));
+    const optionEntries = getConfiguredFlowchartOptionEntries(question?.options || []);
+    const optionRows = getFlowchartOptionTableRows(optionEntries);
+    const steps = Array.isArray(question?.steps) ? question.steps : [];
+
+    return (
+      <div style={{ width: "100%" }}>
+        {optionRows.length > 0 && (
+          <div style={{
+            maxWidth: "760px",
+            margin: "0 auto 18px",
+            border: "1px solid #94a3b8",
+            borderRadius: "10px",
+            overflow: "hidden",
+            backgroundColor: "#fff",
+          }}>
+            {optionRows.map((row, rowIndex) => (
+              <div
+                key={`flowchart-option-row-${rowIndex}`}
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "52px minmax(0, 1fr) 52px minmax(0, 1fr)",
+                  borderTop: rowIndex === 0 ? "none" : "1px solid #cbd5e1",
+                }}
+              >
+                {row.map((option, columnIndex) => {
+                  if (!option) {
+                    return (
+                      <React.Fragment key={`flowchart-option-empty-${rowIndex}-${columnIndex}`}>
+                        <div style={{ borderLeft: columnIndex === 1 ? "1px solid #cbd5e1" : "none", backgroundColor: "#f8fafc" }}></div>
+                        <div style={{ borderLeft: "1px solid #cbd5e1", backgroundColor: "#f8fafc" }}></div>
+                      </React.Fragment>
+                    );
+                  }
+
+                  return (
+                    <React.Fragment key={`flowchart-option-${option.value}`}>
+                      <div style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontWeight: 700,
+                        backgroundColor: "#fff7ed",
+                        color: "#9a3412",
+                        borderLeft: columnIndex === 1 ? "1px solid #cbd5e1" : "none",
+                        borderRight: "1px solid #cbd5e1",
+                        minHeight: "44px",
+                      }}>
+                        {option.value}
+                      </div>
+                      <div style={{ padding: "10px 12px", display: "flex", alignItems: "center", fontSize: "13px" }}>
+                        {option.label || option.raw}
+                      </div>
+                    </React.Fragment>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div style={{
+          maxWidth: "760px",
+          margin: "0 auto",
+          fontFamily: styles.pageWrapper.fontFamily,
+        }}>
+          {question?.questionText && (
+            <div style={{ textAlign: "center", fontWeight: 700, fontSize: "1.1rem", marginBottom: "14px", color: styles.sectionTitle.color }}>
+              {question.questionText}
+            </div>
+          )}
+
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+          {steps.map((step, stepIndex) => {
+            const blankEntry = entryByStepIndex.get(stepIndex);
+            const textParts = splitFlowchartStepText(step?.text || "");
+            const previewBefore = blankEntry
+              ? (textParts.hasPlaceholder ? textParts.before : String(step?.text || ""))
+              : String(step?.text || "");
+            const previewAfter = blankEntry && textParts.hasPlaceholder ? textParts.after : "";
+            const questionNumber = blankEntry?.num || null;
+            const answerKey = questionNumber ? `q${questionNumber}` : null;
+            const selectedValue = answerKey ? answers[answerKey] || "" : "";
+            const isActive = questionNumber != null && activeQuestion === questionNumber;
+            const flowchartSelectLabels = optionEntries.map((option) => {
+              const labelText = option.label || option.raw || "";
+              return labelText ? `${option.value} ${labelText}` : option.value;
+            });
+            const flowchartMenuWidth = Math.min(
+              280,
+              Math.max(
+                180,
+                flowchartSelectLabels.reduce((maxWidth, text) => Math.max(maxWidth, text.length * 7 + 36), 0)
+              )
+            );
+            const isDropdownOpen = questionNumber != null && openFlowchartQuestion === questionNumber;
+            const triggerLabel = selectedValue || "Select";
+            const flowchartBadgeStyle = questionNumber != null
+              ? {
+                  ...styles.questionNumber,
+                  minWidth: "28px",
+                  width: "28px",
+                  height: "28px",
+                  margin: "0 6px",
+                  fontSize: "13px",
+                  lineHeight: 1,
+                  verticalAlign: "middle",
+                  boxShadow: isActive ? "0 0 0 2px rgba(220, 38, 38, 0.15)" : "none",
+                }
+              : null;
+
+            return (
+              <React.Fragment key={`flowchart-step-${stepIndex}`}>
+                <div
+                  id={questionNumber != null ? `question-${questionNumber}` : undefined}
+                  ref={(el) => {
+                    if (questionNumber != null) {
+                      questionRefs.current[questionNumber] = el;
+                    }
+                  }}
+                  style={{
+                    width: "100%",
+                    padding: "6px 0",
+                    lineHeight: 1.85,
+                    fontSize: styles.multiSelectQuestionText.fontSize,
+                    color: styles.multiSelectQuestionText.color,
+                  }}
+                >
+                  <div style={{ lineHeight: 1.85, textAlign: "center", whiteSpace: "normal" }}>
+                    <span>{previewBefore}</span>
+                    {questionNumber != null && (
+                      <span style={flowchartBadgeStyle}>{questionNumber}</span>
+                    )}
+                    {questionNumber != null && (
+                      <span
+                        ref={(el) => {
+                          if (questionNumber != null) {
+                            flowchartDropdownRefs.current[questionNumber] = el;
+                          }
+                        }}
+                        style={{ position: "relative", display: "inline-flex", alignItems: "center", margin: "0 6px", verticalAlign: "middle" }}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setActiveQuestion(questionNumber);
+                            if (!submitted) {
+                              setOpenFlowchartQuestion((prev) => (prev === questionNumber ? null : questionNumber));
+                            }
+                          }}
+                          onFocus={() => setActiveQuestion(questionNumber)}
+                          disabled={submitted}
+                          aria-haspopup="listbox"
+                          aria-expanded={isDropdownOpen}
+                          style={{
+                            minWidth: selectedValue ? "64px" : "96px",
+                            maxWidth: "110px",
+                            padding: "6px 28px 6px 12px",
+                            borderRadius: "8px",
+                            border: `1px solid ${isActive ? "#ef4444" : "#f59e0b"}`,
+                            backgroundColor: submitted ? "#fefce8" : "#fef3c7",
+                            fontWeight: 600,
+                            fontSize: "14px",
+                            color: styles.multiSelectQuestionText.color,
+                            display: "inline-flex",
+                            alignItems: "center",
+                            justifyContent: "flex-start",
+                            cursor: submitted ? "default" : "pointer",
+                            position: "relative",
+                            boxShadow: isDropdownOpen ? "0 0 0 2px rgba(245, 158, 11, 0.15)" : "none",
+                          }}
+                        >
+                          <span>{triggerLabel}</span>
+                          <span style={{ position: "absolute", right: "10px", top: "50%", transform: `translateY(-50%) rotate(${isDropdownOpen ? 180 : 0}deg)`, color: "#b45309", transition: "transform 0.18s ease" }}>
+                            <LineIcon name="chevron-down" size={14} />
+                          </span>
+                        </button>
+                        {isDropdownOpen && !submitted && (
+                          <div
+                            role="listbox"
+                            style={{
+                              position: "absolute",
+                              top: "calc(100% + 6px)",
+                              left: 0,
+                              width: `${flowchartMenuWidth}px`,
+                              maxHeight: "240px",
+                              overflowY: "auto",
+                              backgroundColor: styles.pageWrapper.backgroundColor,
+                              border: `1px solid ${styles.multiSelectBadge.backgroundColor}`,
+                              borderRadius: "10px",
+                              boxShadow: "0 16px 30px rgba(15, 23, 42, 0.16)",
+                              zIndex: 20,
+                              padding: "6px",
+                            }}
+                          >
+                            <button
+                              type="button"
+                              onClick={() => {
+                                handleAnswerChange(answerKey, "");
+                                setActiveQuestion(questionNumber);
+                                setOpenFlowchartQuestion(null);
+                              }}
+                              style={{
+                                width: "100%",
+                                padding: "8px 10px",
+                                border: "none",
+                                backgroundColor: selectedValue ? "transparent" : styles.multiSelectBadge.backgroundColor,
+                                color: selectedValue ? styles.multiSelectQuestionText.color : "#fff",
+                                borderRadius: "8px",
+                                textAlign: "left",
+                                cursor: "pointer",
+                                fontSize: "14px",
+                                fontWeight: selectedValue ? 500 : 700,
+                                marginBottom: "4px",
+                              }}
+                            >
+                              Select
+                            </button>
+                            {optionEntries.map((option) => {
+                              const optionText = option.label || option.raw ? `${option.value} ${option.label || option.raw}` : option.value;
+                              const isSelected = selectedValue === option.value;
+
+                              return (
+                                <button
+                                  key={option.value}
+                                  type="button"
+                                  onClick={() => {
+                                    handleAnswerChange(answerKey, option.value);
+                                    setActiveQuestion(questionNumber);
+                                    setOpenFlowchartQuestion(null);
+                                  }}
+                                  style={{
+                                    width: "100%",
+                                    padding: "8px 10px",
+                                    border: "none",
+                                    backgroundColor: isSelected ? "#fff7ed" : "transparent",
+                                    color: styles.multiSelectQuestionText.color,
+                                    borderRadius: "8px",
+                                    textAlign: "left",
+                                    cursor: "pointer",
+                                    fontSize: "14px",
+                                    fontWeight: isSelected ? 700 : 500,
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: "8px",
+                                  }}
+                                >
+                                  <span style={{ minWidth: "18px", fontWeight: 700, color: "#b45309" }}>{option.value}</span>
+                                  <span>{option.label || option.raw || option.value}</span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </span>
+                    )}
+                    {questionNumber != null && <span>{previewAfter}</span>}
+                  </div>
+                </div>
+                {stepIndex < steps.length - 1 && (
+                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "4px 0 2px", color: "#94a3b8" }}>
+                    <div style={{ width: "2px", height: "26px", backgroundColor: "#1d4ed8" }}></div>
+                    <LineIcon name="chevron-down" size={18} />
+                  </div>
+                )}
+              </React.Fragment>
+            );
+          })}
           </div>
         </div>
       </div>
@@ -2051,6 +2424,8 @@ const DoListeningTest = () => {
         qType = "matching";
       } else if ((firstQ?.columns && firstQ.columns.length > 0) || (firstQ?.rows && firstQ.rows.length > 0)) {
         qType = "table-completion";
+      } else if (firstQ?.steps && firstQ.steps.length > 0) {
+        qType = "flowchart";
       } else if (firstQ?.options && firstQ.options.length > 0) {
         // Detect abc/abcd from options count
         qType = firstQ.options.length === 3 ? "abc" : "abcd";
@@ -2133,6 +2508,8 @@ const DoListeningTest = () => {
             ? renderMapLabeling(firstQ, startNum)
             : qType === "table-completion"
             ? renderTableCompletion(firstQ, startNum, displayEndNum)
+            : qType === "flowchart"
+            ? renderFlowchart(firstQ, startNum)
             : sectionQuestions.map((q, qIdx) => {
                 const qNum = startNum + qIdx;
                 return (
@@ -2282,22 +2659,11 @@ const DoListeningTest = () => {
   /* eslint-disable-next-line no-unused-vars */
   const currentRange = getPartQuestionRange(currentPartIndex);
   const displayRange = getPartDisplayRange(currentPartIndex);
+  const startDurationMinutes = Math.max(1, Math.round(timeRemaining / 60));
 
   return (
     <div style={styles.pageWrapper}>
       <ExtensionToast message={extensionToast} />
-      {showStartModal && (
-        <div style={styles.playGateOverlay}>
-          <div style={styles.playGateCard}>
-            <div style={styles.modalTitle}>Bắt đầu bài thi</div>
-            <div style={styles.modalText}>Khi bạn nhấn <strong>Bắt đầu</strong>, audio sẽ phát tự động và chỉ được nghe một lần. Hãy đảm bảo bạn đã sẵn sàng.</div>
-            <div style={{display: 'flex', gap: 12, justifyContent: 'center', marginTop: 8}}>
-              <button onClick={() => { setShowStartModal(false); setStarted(true); }} style={styles.cancelButton}>Bắt đầu không phát</button>
-              <button onClick={handleStartClick} style={styles.playGateButton}>Bắt đầu & Phát audio ▶</button>
-            </div>
-          </div>
-        </div>
-      )}
       {/* Global Styles */}
       <style>{`
         * { box-sizing: border-box; }
@@ -2359,18 +2725,6 @@ const DoListeningTest = () => {
 
       {/* Main Content Area */}
       <main style={styles.mainContent}>
-{/* Audio Player / Start Gate */}
-      {audioUrl && !started && !showStartModal && (
-        <div style={styles.audioContainer}>
-          <div style={styles.audioErrorBox}>
-            Audio sẽ được kích hoạt khi bạn <strong>bắt đầu</strong> bài thi. Khi audio kết thúc nó sẽ không thể phát lại.
-          </div>
-          <div style={{ marginTop: 12 }}>
-            <button onClick={handleStartClick} style={styles.playGateButton}>Bắt đầu & Phát audio ▶</button>
-          </div>
-        </div>
-      )}
-
       {audioUrl && started && (
         <div style={styles.audioContainer}>
           {/* Hidden audio element (no native controls). We surface status messages instead. */}
@@ -2456,6 +2810,93 @@ const DoListeningTest = () => {
         </div>
       </main>
 
+      {/* Start Modal (Play Gate) */}
+      {showStartModal && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: "rgba(15, 23, 42, 0.68)",
+            backdropFilter: "blur(4px)",
+            zIndex: 1200,
+            padding: "16px",
+          }}
+          role="dialog"
+          aria-modal="true"
+        >
+          <div style={{ width: "100%", maxWidth: 500, borderRadius: 20, overflow: "hidden", boxShadow: "0 24px 48px rgba(15, 23, 42, 0.35)" }}>
+            <div style={{ background: "linear-gradient(135deg, #0c4a6e 0%, #0369a1 55%, #0ea5e9 100%)", padding: "26px 28px 22px", position: "relative", overflow: "hidden" }}>
+              <div style={{ position: "absolute", top: -40, right: -40, width: 160, height: 160, borderRadius: "50%", background: "rgba(255,255,255,0.07)", pointerEvents: "none" }} />
+              <div style={{ position: "absolute", bottom: -30, left: -20, width: 100, height: 100, borderRadius: "50%", background: "rgba(255,255,255,0.05)", pointerEvents: "none" }} />
+              <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14, position: "relative", zIndex: 1 }}>
+                <div style={{ width: 44, height: 44, borderRadius: 12, background: "rgba(255,255,255,0.18)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>
+                  🎧
+                </div>
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 800, color: "rgba(255,255,255,0.65)", textTransform: "uppercase", letterSpacing: "0.12em" }}>
+                    IX Listening
+                  </div>
+                  <div style={{ fontSize: 10, color: "rgba(255,255,255,0.45)", letterSpacing: "0.06em" }}>Listening Test</div>
+                </div>
+              </div>
+              <h2 style={{ fontSize: 18, fontWeight: 800, color: "#fff", margin: 0, lineHeight: 1.3, position: "relative", zIndex: 1, textShadow: "0 1px 3px rgba(0,0,0,0.2)" }}>
+                {test?.title || "IX Listening"}
+              </h2>
+            </div>
+
+            <div style={{ background: isDarkMode ? "#1e293b" : "#fff", padding: "22px 24px" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 16 }}>
+                <div style={{ background: isDarkMode ? "#0c4a6e33" : "#e0f2fe", border: `1px solid ${isDarkMode ? "#0369a1" : "#bae6fd"}`, borderRadius: 12, padding: "14px 16px", textAlign: "center" }}>
+                  <div style={{ fontSize: 28, fontWeight: 800, color: "#0369a1", lineHeight: 1 }}>{startDurationMinutes}</div>
+                  <div style={{ fontSize: 11, color: "#0284c7", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.07em", marginTop: 4 }}>Phút</div>
+                </div>
+                <div style={{ background: isDarkMode ? "#14532d33" : "#f0fdf4", border: `1px solid ${isDarkMode ? "#16a34a" : "#bbf7d0"}`, borderRadius: 12, padding: "14px 16px", textAlign: "center" }}>
+                  <div style={{ fontSize: 28, fontWeight: 800, color: "#15803d", lineHeight: 1 }}>{totalQuestions}</div>
+                  <div style={{ fontSize: 11, color: "#16a34a", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.07em", marginTop: 4 }}>Câu hỏi</div>
+                </div>
+              </div>
+
+              <div style={{ background: isDarkMode ? "#1c1917" : "#fff7ed", border: `1px solid ${isDarkMode ? "#92400e" : "#fed7aa"}`, borderRadius: 10, padding: "12px 14px", marginBottom: 18 }}>
+                <div style={{ fontWeight: 700, color: "#c2410c", fontSize: 13, marginBottom: 4 }}>Lưu ý quan trọng</div>
+                <div style={{ fontSize: 13, color: isDarkMode ? "#fdba74" : "#9a3412", lineHeight: 1.5 }}>
+                  Audio sẽ bắt đầu phát ngay khi bạn nhấn Play và chỉ được nghe <b>một lần</b>. Trong lúc làm bài, học sinh không thể mở file nghe ở tab khác để tránh nghe lại ngoài luồng.
+                </div>
+              </div>
+
+              <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", flexWrap: "wrap", alignItems: "center" }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowStartModal(false);
+                    navigate('/select-test');
+                  }}
+                  style={{ padding: "9px 18px", borderRadius: 20, border: `1.5px solid ${isDarkMode ? "#334155" : "#e2e8f0"}`, background: isDarkMode ? "#1e293b" : "#fff", fontSize: 13, fontWeight: 600, color: isDarkMode ? "#94a3b8" : "#64748b", cursor: "pointer" }}
+                >
+                  Hủy
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleStartClick();
+                    try {
+                      const cur = JSON.parse(localStorage.getItem(stateKey) || '{}') || {};
+                      cur.started = true;
+                      localStorage.setItem(stateKey, JSON.stringify(cur));
+                    } catch (e) {}
+                  }}
+                  style={{ padding: "11px 28px", borderRadius: 20, background: "linear-gradient(135deg, #0369a1, #0ea5e9)", fontSize: 14, fontWeight: 700, color: "#fff", border: "none", cursor: "pointer", boxShadow: "0 4px 14px rgba(3,105,161,0.4)" }}
+                >
+                  ▶ Play & Bắt đầu
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Floating Navigation Arrows */}
       <div style={styles.floatingNav}>
         <button
@@ -2467,42 +2908,6 @@ const DoListeningTest = () => {
             cursor: canGoPrev ? "pointer" : "not-allowed",
           }}
         >
-      
-      {/* Start Modal (Play Gate) */}
-      {showStartModal && (
-        <div style={styles.playGateOverlay} role="dialog" aria-modal="true">
-          <div style={styles.playGateCard}>
-            <div style={styles.modalTitle}>Bắt đầu làm bài</div>
-            <div style={styles.modalText}>
-              Khi bạn bấm "Play" âm thanh sẽ bắt đầu và bạn chỉ được nghe audio này một lần. Hãy chắc chắn bạn đã sẵn sàng.
-            </div>
-
-            <div style={styles.modalButtons}>
-              <button style={styles.cancelButton} onClick={() => { setShowStartModal(false); navigate('/select-test'); }}>
-                Hủy
-              </button>
-              <button
-                style={styles.playGateButton}
-                onClick={() => {
-                  handleStartClick();
-                  // persist that we started immediately for resume behavior
-                  try {
-                    const cur = JSON.parse(localStorage.getItem(stateKey) || '{}') || {};
-                    cur.started = true;
-                    localStorage.setItem(stateKey, JSON.stringify(cur));
-                  } catch (e) {}
-                }}
-              >
-                ▶️ Play & Bắt đầu
-              </button>
-            </div>
-
-            <div style={styles.audioErrorBox}>
-              Nếu trình duyệt chặn tự động phát, bạn có thể mở audio trong tab mới: <a href={hostPath(audioUrl)} target="_blank" rel="noreferrer" style={styles.audioOpenLink}>Mở audio</a>
-            </div>
-          </div>
-        </div>
-      )}
           <svg
             width="24"
             height="24"

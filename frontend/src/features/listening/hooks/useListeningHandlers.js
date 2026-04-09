@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import { countFlowchartQuestionSlots } from '../utils/flowchart';
 
 /**
  * Custom hook để quản lý Parts, Sections và Questions cho Listening Test
@@ -430,6 +431,10 @@ const countSectionQuestions = (section) => {
   if (questionType === 'map-labeling') {
     const items = section.questions[0]?.items || [];
     return items.length;
+  }
+
+  if (questionType === 'flowchart') {
+    return countFlowchartQuestionSlots(section.questions[0] || {});
   }
   
   // Multi-select: Mỗi câu tính theo số đáp án cần chọn (requiredAnswers)

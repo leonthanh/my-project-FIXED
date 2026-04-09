@@ -5,6 +5,7 @@ const path = require('path');
 const fs = require('fs');
 const ListeningTest = require('../models/ListeningTest');
 const ListeningSubmission = require('../models/ListeningSubmission');
+const { countFlowchartQuestionSlots, getFlowchartBlankEntries } = require('../utils/flowchartHelpers');
 
 const normalizeUploadsInText = (text, req) => {
   if (!text || typeof text !== 'string') return text;
@@ -192,6 +193,7 @@ router.post('/', requireAuth, requireTestPermission('listening'), upload.any(), 
             questionText: q.questionText || '',
             correctAnswer: q.correctAnswer || '',
             options: q.options || null,
+            steps: q.steps || null,
             // Form completion specific
             formTitle: q.formTitle || null,
             formRows: q.formRows || null,
@@ -238,6 +240,8 @@ router.post('/', requireAuth, requireTestPermission('listening'), upload.any(), 
                 }
               });
               globalQuestionNum += blanksCount > 0 ? blanksCount : (q.rows?.length || 1);
+            } else if (qType === 'flowchart') {
+              globalQuestionNum += countFlowchartQuestionSlots(q) || 1;
             } else if (qType === 'notes-completion') {
               // Count blanks in notesText
               const notesText = q.notesText || '';
@@ -626,6 +630,8 @@ router.post('/:id/submit', async (req, res) => {
           if (sectionType === 'fill') {
             if ((firstQ?.columns && firstQ.columns.length > 0) || (firstQ?.rows && firstQ.rows.length > 0)) {
               sectionType = 'table-completion';
+            } else if (Array.isArray(firstQ?.steps) && firstQ.steps.length > 0) {
+              sectionType = 'flowchart';
             } else if (Array.isArray(firstItems) && firstItems.length > 0) {
               sectionType = 'map-labeling';
             }
@@ -762,6 +768,30 @@ router.post('/:id/submit', async (req, res) => {
                 ? section.startingQuestionNumber
                 : 1;
             const entries = getTableBlankEntries(firstQ, start);
+            entries.forEach(({ num, expected }) => {
+              totalCount++;
+              const student = normalizedAnswers[`q${num}`];
+              const ok = expected ? isAnswerMatch(student, expected) : false;
+              if (ok) correctCount++;
+              details.push({
+                questionNumber: num,
+                partIndex: pIdx,
+                sectionIndex: sIdx,
+                questionType: sectionType,
+                studentAnswer: student ?? '',
+                correctAnswer: expected ?? '',
+                isCorrect: ok,
+              });
+            });
+            continue;
+          }
+
+          if (sectionType === 'flowchart') {
+            const start =
+              typeof section?.startingQuestionNumber === 'number' && section.startingQuestionNumber > 0
+                ? section.startingQuestionNumber
+                : 1;
+            const entries = getFlowchartBlankEntries(firstQ, start);
             entries.forEach(({ num, expected }) => {
               totalCount++;
               const student = normalizedAnswers[`q${num}`];
@@ -967,6 +997,7 @@ router.post('/:id/submit', async (req, res) => {
         if (qType === 'fill' || qType === 'single') {
           if (Array.isArray(q?.formRows) && q.formRows.length > 0) qType = 'form-completion';
           else if (q?.notesText) qType = 'notes-completion';
+          else if (Array.isArray(q?.steps) && q.steps.length > 0) qType = 'flowchart';
           else if ((Array.isArray(q?.leftItems) && q.leftItems.length > 0) || (Array.isArray(q?.items) && q.items.length > 0)) qType = 'matching';
         }
         const baseNum = Number(q?.globalNumber);
@@ -1157,6 +1188,26 @@ router.post('/:id/submit', async (req, res) => {
 
             continue;
           }
+        }
+
+        if (qType === 'flowchart') {
+          const entries = getFlowchartBlankEntries(q, Number(q?.globalNumber) || 1);
+          entries.forEach(({ num, expected }) => {
+            totalCount++;
+            const student = normalizedAnswers[`q${num}`];
+            const ok = expected ? isAnswerMatch(student, expected) : false;
+            if (ok) correctCount++;
+            details.push({
+              questionNumber: num,
+              partIndex,
+              sectionIndex,
+              questionType: qType,
+              studentAnswer: student ?? '',
+              correctAnswer: expected ?? '',
+              isCorrect: ok,
+            });
+          });
+          continue;
         }
         if (qType === 'notes-completion') {
           const notesText = String(q?.notesText || '');
@@ -1493,6 +1544,7 @@ router.put('/:id', requireAuth, requireTestPermission('listening'), upload.any()
               questionText: q.questionText || '',
               correctAnswer: q.correctAnswer || '',
               options: q.options || null,
+              steps: q.steps || null,
               formTitle: q.formTitle || null,
               formRows: q.formRows || null,
               questionRange: q.questionRange || null,
@@ -1525,6 +1577,8 @@ router.put('/:id', requireAuth, requireTestPermission('listening'), upload.any()
               globalQuestionNum += blankCount;
             } else if (qType === 'table-completion') {
               globalQuestionNum += (q.rows?.length || 1);
+            } else if (qType === 'flowchart') {
+              globalQuestionNum += countFlowchartQuestionSlots(q) || 1;
             } else if (qType === 'notes-completion') {
               // Count blanks in notesText
               const notesText = q.notesText || '';
