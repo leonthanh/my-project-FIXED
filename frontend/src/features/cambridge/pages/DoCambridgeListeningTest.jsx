@@ -3,6 +3,9 @@ import { useParams, useNavigate } from "react-router-dom";
 import { apiPath, getStoredUser, hostPath } from "../../../shared/utils/api";
 import TestHeader from "../../../shared/components/TestHeader";
 import ExtensionToast from "../../../shared/components/ExtensionToast";
+import TestStartModal from "../../../shared/components/TestStartModal";
+import ConfirmModal from "../../../shared/components/ConfirmModal";
+import CambridgeResultsModal from "../components/CambridgeResultsModal";
 import { useTheme } from "../../../shared/contexts/ThemeContext";
 import {
   formatClock,
@@ -1547,7 +1550,7 @@ const DoCambridgeListeningTest = () => {
         }),
       });
 
-      if (!res.ok) throw new Error("Lỗi khi nộp bài");
+      if (!res.ok) throw new Error("Failed to submit the test");
 
       const data = await res.json();
 
@@ -1765,7 +1768,7 @@ const DoCambridgeListeningTest = () => {
             boxShadow: "0 10px 25px rgba(249, 115, 22, 0.08)",
           }}
         >
-          <strong>Đã hết giờ chính thức.</strong> Hệ thống giữ bài thêm {formatClock(graceRemaining)} để phòng sự cố mất điện hoặc tải lại trang. Giáo viên có thể gia hạn thêm thời gian nếu cần.
+          <strong>Official time is over.</strong> The system keeps your answers for another {formatClock(graceRemaining)} in case of power loss or page reload. Your teacher can extend the time if needed.
         </div>
       )}
 
@@ -1838,86 +1841,37 @@ const DoCambridgeListeningTest = () => {
 
       {/* Cambridge-style Play gate overlay */}
       {isStartGateVisible && (
-        <div
-          style={{ position: 'fixed', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(15,23,42,0.65)', backdropFilter: 'blur(4px)', zIndex: 1200, padding: '16px' }}
-          role="dialog" aria-modal="true" tabIndex={-1}
-        >
-          <div style={{ width: '100%', maxWidth: 480, borderRadius: 20, overflow: 'hidden', boxShadow: '0 24px 48px rgba(15,23,42,0.35)' }}>
-
-            {/* ── Header ── */}
-            <div style={{ background: 'linear-gradient(135deg, #0c4a6e 0%, #0369a1 55%, #0ea5e9 100%)', padding: '26px 28px 22px', position: 'relative', overflow: 'hidden' }}>
-              <div style={{ position: 'absolute', top: -40, right: -40, width: 160, height: 160, borderRadius: '50%', background: 'rgba(255,255,255,0.07)', pointerEvents: 'none' }} />
-              <div style={{ position: 'absolute', bottom: -30, left: -20, width: 100, height: 100, borderRadius: '50%', background: 'rgba(255,255,255,0.05)', pointerEvents: 'none' }} />
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14, position: 'relative', zIndex: 1 }}>
-                <div style={{ width: 44, height: 44, borderRadius: 12, background: 'rgba(255,255,255,0.18)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0 }}>
-                  🎧
-                </div>
-                <div>
-                  <div style={{ fontSize: 11, fontWeight: 800, color: 'rgba(255,255,255,0.65)', textTransform: 'uppercase', letterSpacing: '0.12em' }}>
-                    Cambridge {examType}
-                  </div>
-                  <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.45)', letterSpacing: '0.06em' }}>Listening Test</div>
-                </div>
-              </div>
-              <h2 style={{ fontSize: 18, fontWeight: 800, color: '#fff', margin: 0, lineHeight: 1.3, position: 'relative', zIndex: 1, textShadow: '0 1px 3px rgba(0,0,0,0.2)' }}>
-                {test?.title || testConfig.name || 'Cambridge Listening'}
-              </h2>
+        <TestStartModal
+          iconName="listening"
+          eyebrow={`Cambridge ${examType}`}
+          subtitle="Listening Test"
+          title={test?.title || testConfig.name || 'Cambridge Listening'}
+          stats={[
+            { value: Math.round(timeRemaining / 60), label: 'Minutes', tone: 'sky' },
+            { value: totalQuestions, label: 'Questions', tone: 'green' },
+          ]}
+          noticeTitle="Important note"
+          noticeContent={
+            <>
+              Audio starts as soon as you press Play. You <b>cannot pause or rewind</b> during the test.
+            </>
+          }
+          extraContent={audioError ? (
+            <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 10, padding: '10px 14px', marginBottom: 14, fontSize: 13, color: '#991b1b' }}>
+              <div style={{ fontWeight: 700, marginBottom: 4 }}>Audio error</div>
+              <div style={{ marginBottom: 6 }}>{audioError}</div>
+              <a href={resolvedAudioSrc} target="_blank" rel="noreferrer" style={{ color: '#1d4ed8', fontWeight: 600 }}>
+                Open audio in a new tab
+              </a>
             </div>
-
-            {/* ── Body ── */}
-            <div style={{ background: isDarkMode ? '#1e293b' : '#fff', padding: '22px 24px' }}>
-
-              {/* Info cards */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 16 }}>
-                <div style={{ background: isDarkMode ? '#0c4a6e33' : '#e0f2fe', border: `1px solid ${isDarkMode ? '#0369a1' : '#bae6fd'}`, borderRadius: 12, padding: '14px 16px', textAlign: 'center' }}>
-                  <div style={{ fontSize: 28, fontWeight: 800, color: '#0369a1', lineHeight: 1 }}>{Math.round(timeRemaining / 60)}</div>
-                  <div style={{ fontSize: 11, color: '#0284c7', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', marginTop: 4 }}>Phút</div>
-                </div>
-                <div style={{ background: isDarkMode ? '#14532d33' : '#f0fdf4', border: `1px solid ${isDarkMode ? '#16a34a' : '#bbf7d0'}`, borderRadius: 12, padding: '14px 16px', textAlign: 'center' }}>
-                  <div style={{ fontSize: 28, fontWeight: 800, color: '#15803d', lineHeight: 1 }}>{totalQuestions}</div>
-                  <div style={{ fontSize: 11, color: '#16a34a', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', marginTop: 4 }}>Câu hỏi</div>
-                </div>
-              </div>
-
-              {/* Audio warning */}
-              <div style={{ background: isDarkMode ? '#1c1917' : '#fff7ed', border: `1px solid ${isDarkMode ? '#92400e' : '#fed7aa'}`, borderRadius: 10, padding: '12px 14px', marginBottom: 18 }}>
-                <div style={{ fontWeight: 700, color: '#c2410c', fontSize: 13, marginBottom: 4 }}>⚠️ Lưu ý quan trọng</div>
-                <div style={{ fontSize: 13, color: isDarkMode ? '#fdba74' : '#9a3412', lineHeight: 1.5 }}>
-                  Audio sẽ bắt đầu phát ngay khi bạn nhấn Play. Bạn <b>không thể tạm dừng hoặc tua lại</b> trong khi làm bài.
-                </div>
-              </div>
-
-              {audioError && (
-                <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 10, padding: '10px 14px', marginBottom: 14, fontSize: 13, color: '#991b1b' }}>
-                  <div style={{ fontWeight: 700, marginBottom: 4 }}>⚠ Lỗi âm thanh</div>
-                  <div style={{ marginBottom: 6 }}>{audioError}</div>
-                  <a href={resolvedAudioSrc} target="_blank" rel="noreferrer" style={{ color: '#1d4ed8', fontWeight: 600 }}>
-                    Mở audio trong tab mới →
-                  </a>
-                </div>
-              )}
-
-              {/* Buttons */}
-              <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', flexWrap: 'wrap', alignItems: 'center' }}>
-                <button
-                  type="button"
-                  onClick={() => navigate(-1)}
-                  style={{ padding: '9px 18px', borderRadius: 20, border: `1.5px solid ${isDarkMode ? '#334155' : '#e2e8f0'}`, background: isDarkMode ? '#1e293b' : '#fff', fontSize: 13, fontWeight: 600, color: isDarkMode ? '#94a3b8' : '#64748b', cursor: 'pointer' }}
-                >
-                  Thoát
-                </button>
-                <button
-                  type="button"
-                  onClick={handlePlayGate}
-                  style={{ padding: '11px 28px', borderRadius: 20, background: 'linear-gradient(135deg, #0369a1, #0ea5e9)', fontSize: 14, fontWeight: 700, color: '#fff', border: 'none', cursor: 'pointer', boxShadow: '0 4px 14px rgba(3,105,161,0.4)' }}
-                >
-                  {hasResumeAudio ? '▶ Tiếp tục' : '▶ Play & Bắt đầu'}
-                </button>
-              </div>
-
-            </div>
-          </div>
-        </div>
+          ) : null}
+          secondaryLabel="Exit"
+          onSecondary={() => navigate(-1)}
+          primaryLabel={hasResumeAudio ? 'Resume' : 'Play & Start'}
+          onPrimary={handlePlayGate}
+          darkContent={isDarkMode}
+          maxWidth={480}
+        />
       )}
 
       {/* Letter-matching instruction – sits above both panels */}
@@ -3160,47 +3114,47 @@ const DoCambridgeListeningTest = () => {
         </div>
       </footer>
 
-      {/* Results Modal */}
-      {submitted && results && (
-        <div style={styles.resultsOverlay}>
-          <div style={styles.resultsModal}>
-            <h2 style={{ margin: '0 0 20px', color: '#0e276f' }}>📊 Kết quả bài thi</h2>
-            <div style={styles.scoreDisplay}>
-              <div style={styles.scoreNumber}>{results.score}/{results.total}</div>
-              <div style={styles.scorePercent}>{results.percentage}%</div>
-            </div>
-            <div style={{ marginTop: '20px', display: 'flex', gap: '12px', justifyContent: 'center' }}>
-              <button onClick={() => navigate('/cambridge')} style={styles.primaryButton}>
-                📋 Chọn đề khác
-              </button>
-              <button onClick={() => window.location.reload()} style={styles.secondaryButton}>
-                🔄 Làm lại
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <CambridgeResultsModal
+        results={submitted ? results : null}
+        testTitle={test?.title || testConfig.name || 'Cambridge Listening'}
+        studentName={getStoredUser()?.name || getStoredUser()?.username}
+        onClose={() => navigate('/cambridge')}
+        actions={[
+          {
+            label: 'Choose another test',
+            onClick: () => navigate('/cambridge'),
+            variant: 'primary',
+            iconName: 'tests',
+          },
+          {
+            label: 'Try again',
+            onClick: () => window.location.reload(),
+            iconName: 'retry',
+          },
+        ]}
+      />
 
-      {/* Confirm Submit Modal */}
-      {showConfirm && (
-        <div style={styles.resultsOverlay}>
-          <div style={styles.confirmModal}>
-            <h3 style={{ margin: '0 0 16px' }}>⚠️ Xác nhận nộp bài</h3>
-            <p>Bạn có chắc chắn muốn nộp bài?</p>
-            <p style={{ fontSize: '14px', color: '#666' }}>
-              Đã trả lời: {Object.keys(answers).length} câu
-            </p>
-            <div style={{ marginTop: '20px', display: 'flex', gap: '12px', justifyContent: 'center' }}>
-              <button onClick={confirmSubmit} style={styles.primaryButton}>
-                ✓ Nộp bài
-              </button>
-              <button onClick={() => setShowConfirm(false)} style={styles.secondaryButton}>
-                ✕ Hủy
-              </button>
+      <ConfirmModal
+        isOpen={showConfirm}
+        onClose={() => setShowConfirm(false)}
+        onConfirm={confirmSubmit}
+        title="Submit Cambridge Listening?"
+        message="Are you sure you want to submit your answers? After submission, you will not be able to edit them."
+        type="info"
+        iconName="listening"
+        confirmText="Submit now"
+        cancelText="Keep working"
+        extraContent={
+          <div>
+            <div style={{ fontWeight: 700, marginBottom: 6 }}>
+              Progress summary
+            </div>
+            <div>
+              Answered {answeredCount} of {totalQuestions} questions.
             </div>
           </div>
-        </div>
-      )}
+        }
+      />
     </div>
   );
 };

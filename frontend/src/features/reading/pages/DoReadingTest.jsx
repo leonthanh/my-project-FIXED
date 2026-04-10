@@ -8,7 +8,9 @@ import React, {
 import { useParams, useNavigate } from "react-router-dom";
 import ConfirmModal from "../../../shared/components/ConfirmModal";
 import ResultModal from "../../../shared/components/ResultModal";
+import LineIcon from "../../../shared/components/LineIcon.jsx";
 import ExtensionToast from "../../../shared/components/ExtensionToast";
+import TestStartModal from "../../../shared/components/TestStartModal";
 import "../styles/do-reading-test.css";
 import { renderHtmlWithBlankPlaceholders } from "../utils/htmlHelpers";
 import {
@@ -1467,17 +1469,6 @@ const DoReadingTest = () => {
 
   // Validate and submit
   const handleSubmit = () => {
-    const stats = getStatistics();
-    if (stats.unanswered.length > 0 && !timeUp) {
-      const confirmSubmit = window.confirm(
-        `Bạn chưa trả lời ${stats.unanswered.length} câu: ${stats.unanswered
-          .slice(0, 10)
-          .join(", ")}${
-          stats.unanswered.length > 10 ? "..." : ""
-        }\n\nBạn có muốn nộp bài không?`
-      );
-      if (!confirmSubmit) return;
-    }
     setShowConfirm(true);
   };
 
@@ -1523,13 +1514,13 @@ const DoReadingTest = () => {
         setResultModalOpen(true);
       } else {
         // If teacher disabled result modal, show success message and navigate back
-        alert("✅ Đã nộp bài thành công! Giáo viên sẽ xem kết quả của bạn.");
+        alert("Submission successful. Your teacher can review your results.");
         navigate("/select-test");
       }
     } catch (err) {
       console.error("Error submitting reading test:", err);
       autoSubmittingRef.current = false;
-      alert("Có lỗi khi nộp bài. Vui lòng thử lại.");
+      alert("Something went wrong while submitting. Please try again.");
     } finally {
       setShowConfirm(false);
     }
@@ -1685,46 +1676,47 @@ const DoReadingTest = () => {
 
   // Calculate statistics early so start modal can display total questions
   const stats = getStatistics();
+  const startDurationMinutes = Math.round(test.durationMinutes || 60);
 
   // If the test hasn't been started yet, show a start modal (60 minutes or test.duration)
   if (!started) {
     return (
-      <div className="reading-test-loading" style={{ padding: 30 }}>
-        <div className="start-modal">
-          <h2>Bắt đầu làm bài Reading</h2>
-          <p>
-            Bạn có <b>{Math.round(test.durationMinutes || 60)} phút</b> để hoàn
-            tất bài làm. Bài làm sẽ được tự động lưu.
-          </p>
-          <p style={{ marginTop: 12 }}>
-            Số Passage: <b>{test.passages.length}</b> • Tổng số câu:{" "}
-            <b>{stats.total}</b>
-          </p>
-          <div style={{ marginTop: 18 }}>
-            <button
-              className="start-test-btn"
-              onClick={() => {
-                setStarted(true);
-                localStorage.setItem(readingStartedKey, "true");
-                // Set expiry timestamp when test begins
-                const durationSecs = (test.durationMinutes || 60) * 60;
-                const expiry = Date.now() + (timeRemaining ?? durationSecs) * 1000;
-                syncTimingState(expiry, durationSecs);
-                // ensure timeRemaining is initialized if not yet
-                if (timeRemaining === null)
-                  setTimeRemaining(durationSecs);
-                // focus first question after small delay
-                setTimeout(() => {
-                  setActiveQuestion(1);
-                  scrollToQuestion(1);
-                }, 260);
-              }}
-            >
-              Bắt đầu làm bài
-            </button>
-          </div>
-        </div>
-      </div>
+      <TestStartModal
+        iconName="reading"
+        eyebrow="IX Reading"
+        subtitle="Reading Test"
+        title={test?.title || "IX Reading"}
+        stats={[
+          { value: startDurationMinutes, label: "Minutes", tone: "sky" },
+          { value: stats.total, label: "Questions", tone: "green" },
+          { value: test?.passages?.length || 0, label: "Passage", tone: "amber" },
+        ]}
+        noticeTitle="Important note"
+        noticeContent={
+          <>
+            The timer starts as soon as you press Start. Your answers are auto-saved throughout the test and you can move between passages before submitting.
+          </>
+        }
+        secondaryLabel="Cancel"
+        onSecondary={() => navigate("/select-test")}
+        primaryLabel="Start test"
+        onPrimary={() => {
+          setStarted(true);
+          localStorage.setItem(readingStartedKey, "true");
+          // Set expiry timestamp when test begins
+          const durationSecs = (test.durationMinutes || 60) * 60;
+          const expiry = Date.now() + (timeRemaining ?? durationSecs) * 1000;
+          syncTimingState(expiry, durationSecs);
+          // ensure timeRemaining is initialized if not yet
+          if (timeRemaining === null) setTimeRemaining(durationSecs);
+          // focus first question after small delay
+          setTimeout(() => {
+            setActiveQuestion(1);
+            scrollToQuestion(1);
+          }, 260);
+        }}
+        maxWidth={540}
+      />
     );
   }
 
@@ -2985,11 +2977,15 @@ const DoReadingTest = () => {
             className="submit-button"
           >
             {submitted ? (
-              <>✓ Đã nộp bài</>
+              <>
+                <LineIcon name="correct" size={16} strokeWidth={2.2} /> Submitted
+              </>
             ) : (
               <>
-                <span className="submit-icon">📤</span>
-                <span className="submit-text">Nộp bài</span>
+                <span className="submit-icon">
+                  <LineIcon name="review" size={18} strokeWidth={2.1} />
+                </span>
+                <span className="submit-text">Submit</span>
               </>
             )}
           </button>
@@ -3010,7 +3006,7 @@ const DoReadingTest = () => {
             boxShadow: "0 10px 25px rgba(249, 115, 22, 0.08)",
           }}
         >
-          <strong>Đã hết giờ chính thức.</strong> Hệ thống giữ bài thêm {formatTime(graceRemaining)} để phòng sự cố mất điện hoặc tải lại trang. Giáo viên có thể gia hạn thêm thời gian nếu cần.
+          <strong>Official time is over.</strong> The system keeps your answers for another {formatTime(graceRemaining)} in case of power loss or page reload. Your teacher can extend the time if needed.
         </div>
       )}
 
@@ -3370,14 +3366,30 @@ const DoReadingTest = () => {
         isOpen={showConfirm}
         onClose={() => !timeUp && setShowConfirm(false)}
         onConfirm={confirmSubmit}
-        title={timeUp ? "⏰ Hết giờ!" : "📝 Xác nhận nộp bài?"}
+        title={timeUp ? "Time is up" : "Submit reading test?"}
         message={
           timeUp
-            ? "Thời gian đã hết. Bài làm sẽ được nộp tự động."
-            : `Bạn đã trả lời ${stats.answered}/${stats.total} câu. Bạn có chắc muốn nộp bài?`
+            ? "The time limit has ended. Your answers are being submitted automatically."
+            : `You have answered ${stats.answered}/${stats.total} questions. Are you sure you want to submit?`
         }
         type={timeUp ? "warning" : "info"}
-        confirmText={timeUp ? "Nộp ngay" : "Xác nhận nộp"}
+        iconName={timeUp ? "clock" : "reading"}
+        confirmText={timeUp ? "Submit now" : "Submit answers"}
+        cancelText="Keep working"
+        hideCancel={timeUp}
+        extraContent={
+          !timeUp && stats.unanswered.length > 0 ? (
+            <div>
+              <div style={{ fontWeight: 700, marginBottom: 6 }}>
+                Unanswered questions: {stats.unanswered.length}
+              </div>
+              <div>
+                {stats.unanswered.slice(0, 10).join(", ")}
+                {stats.unanswered.length > 10 ? "..." : ""}
+              </div>
+            </div>
+          ) : null
+        }
       />
 
       {/* Result Modal shown after submit */}
@@ -3408,6 +3420,8 @@ const DoReadingTest = () => {
           }
         }}
         result={resultData}
+        title="Reading Results"
+        iconName="reading"
         onViewDetails={() => {
           setResultModalOpen(false);
           if (resultData && resultData.submissionId) {

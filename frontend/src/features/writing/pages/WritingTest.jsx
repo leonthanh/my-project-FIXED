@@ -17,6 +17,7 @@ import {
   toTimestamp,
 } from "../../../shared/utils/testTiming";
 import ExtensionToast from "../../../shared/components/ExtensionToast";
+import TestStartModal from "../../../shared/components/TestStartModal";
 
 // ====== STYLE FOR HEADER & MODAL ======
 const writingHeaderStyle = {
@@ -80,48 +81,6 @@ const progressTextStyle = {
   color: "white",
 };
 
-// Modal style
-const modalOverlay = {
-  position: "fixed",
-  top: 0,
-  left: 0,
-  width: "100vw",
-  height: "100vh",
-  background: "rgba(0,0,0,0.35)",
-  zIndex: 9999,
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-};
-const modalBox = {
-  background: "linear-gradient(135deg, #6f42c1 0%, #a084e8 100%)",
-  color: "white",
-  borderRadius: 18,
-  boxShadow: "0 8px 32px rgba(111,66,193,0.25)",
-  padding: "40px 32px 32px 32px",
-  minWidth: 320,
-  maxWidth: 400,
-  textAlign: "center",
-  animation: "fadeIn 0.5s",
-};
-const modalBtn = {
-  background: "#fff",
-  color: "#6f42c1",
-  border: "none",
-  padding: "12px 32px",
-  borderRadius: 8,
-  fontWeight: 700,
-  fontSize: 18,
-  marginTop: 24,
-  cursor: "pointer",
-  boxShadow: "0 2px 8px rgba(111,66,193,0.15)",
-  transition: "background 0.2s, color 0.2s",
-};
-const modalBtnHover = {
-  background: "#e0d7fa",
-  color: "#4b2e83",
-};
-
 const WritingTest = () => {
   // Resolve user ID early so all localStorage keys are per-user (prevents student A
   // seeing student B's draft when logging in on the same device)
@@ -132,9 +91,6 @@ const WritingTest = () => {
   const writingTimeKey    = `writing_timeLeft:${uid}`;
   const writingStartedKey = `writing_started:${uid}`;
   const writingEndAtKey   = `writing_endAt:${uid}`;
-
-  // Đặt useState cho btnHover lên đầu function component để không bị gọi conditionally
-  const [btnHover, setBtnHover] = useState(false);
   const [task1, setTask1] = useState(
     localStorage.getItem(writingTask1Key) || ""
   );
@@ -627,32 +583,36 @@ const WritingTest = () => {
 
   // Modal bắt đầu làm bài
   if (!started) {
+    const writingStartMinutes =
+      Number.isFinite(timeLeft) && timeLeft > 0 ? Math.ceil(timeLeft / 60) : 60;
+
     return (
-      <div style={modalOverlay}>
-        <div style={modalBox}>
-          <div style={{ fontSize: 48, marginBottom: 12 }}>✍️</div>
-          <h2 style={{ fontWeight: 700, marginBottom: 10 }}>
-            Bắt đầu bài viết IX
-          </h2>
-          <p style={{ fontSize: 16, marginBottom: 18 }}>
-            Bạn có <b>60 phút</b> để làm cả Task 1 và Task 2.
-            <br />
-            Hãy chuẩn bị sẵn sàng trước khi bắt đầu!
-          </p>
-          <button
-            style={btnHover ? { ...modalBtn, ...modalBtnHover } : modalBtn}
-            onMouseEnter={() => setBtnHover(true)}
-            onMouseLeave={() => setBtnHover(false)}
-            onClick={() => {
-              autoSubmittingRef.current = false;
-              syncTimingState(Date.now() + timeLeft * 1000, timeLeft);
-              setStarted(true);
-            }}
-          >
-            Bắt đầu làm bài
-          </button>
-        </div>
-      </div>
+      <TestStartModal
+        iconName="writing"
+        eyebrow="IX Writing"
+        subtitle="Writing Test"
+        title={testData?.title || "IX Writing"}
+        stats={[
+          { value: writingStartMinutes, label: "Minutes", tone: "sky" },
+          { value: 2, label: "Tasks", tone: "green" },
+        ]}
+        statsMinWidth={140}
+        noticeTitle="Important note"
+        noticeContent={
+          <>
+            The timer starts as soon as you press Start. The system auto-saves both Task 1 and Task 2 while you work, but you should still review your answers before submitting.
+          </>
+        }
+        secondaryLabel="Cancel"
+        onSecondary={() => redirectInApp("/select-test", { replace: true })}
+        primaryLabel="Start test"
+        onPrimary={() => {
+          autoSubmittingRef.current = false;
+          syncTimingState(Date.now() + timeLeft * 1000, timeLeft);
+          setStarted(true);
+        }}
+        zIndex={9999}
+      />
     );
   }
 
@@ -750,7 +710,7 @@ const WritingTest = () => {
             boxShadow: "0 10px 25px rgba(249, 115, 22, 0.08)",
           }}
         >
-          <strong>Đã hết giờ chính thức.</strong> Hệ thống giữ bài thêm {formatTime(graceRemaining)} để phòng sự cố mất điện hoặc tải lại trang. Giáo viên có thể gia hạn thêm thời gian nếu cần.
+          <strong>Official time is over.</strong> The system keeps your answers for another {formatTime(graceRemaining)} in case of power loss or page reload. Your teacher can extend the time if needed.
         </div>
       )}
 
