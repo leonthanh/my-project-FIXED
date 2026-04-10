@@ -5,6 +5,11 @@ import LineIcon from "../../../shared/components/LineIcon";
 import { useTheme } from "../../../shared/contexts/ThemeContext";
 import { apiPath, authFetch } from "../../../shared/utils/api";
 import AttemptExtensionControls from "../components/AttemptExtensionControls";
+import {
+  ExpandableSubmissionList,
+  SubmissionStatCards,
+  getSubmissionTone,
+} from "../components/SubmissionCardList";
 import SubmissionFilterPanel from "../components/SubmissionFilterPanel";
 import SubmissionTypeTabs from "../components/SubmissionTypeTabs";
 import {
@@ -352,8 +357,8 @@ const AdminReadingSubmissions = () => {
       <div style={{ padding: 24, maxWidth: "100%", width: "100%", margin: "0 auto" }} className="admin-page admin-submission-page">
         <SubmissionTypeTabs activeKey="reading" />
 
-        <div style={{ display: "flex", gap: 10, marginBottom: 18, flexWrap: "wrap" }}>
-          {[
+        <SubmissionStatCards
+          stats={[
             {
               label: "Total",
               count: subs.length,
@@ -375,27 +380,8 @@ const AdminReadingSubmissions = () => {
               color: "#166534",
               border: "#bbf7d0",
             },
-          ].map((stat) => (
-            <div
-              key={stat.label}
-              style={{
-                background: stat.bg,
-                border: `1px solid ${stat.border}`,
-                borderRadius: 8,
-                padding: "8px 18px",
-                minWidth: 110,
-                textAlign: "center",
-              }}
-            >
-              <div style={{ fontSize: 24, fontWeight: 700, color: stat.color }}>
-                {stat.count}
-              </div>
-              <div style={{ fontSize: 12, color: stat.color, opacity: 0.85 }}>
-                {stat.label}
-              </div>
-            </div>
-          ))}
-        </div>
+          ]}
+        />
 
         <SubmissionFilterPanel
           fields={[
@@ -462,286 +448,281 @@ const AdminReadingSubmissions = () => {
           </p>
         )}
         {!loading && filteredSubs.length > 0 && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            {filteredSubs.map((s, idx) => {
-              const isHighlighted = String(selectedSubmission?.id || "") === String(s.id);
-              const isExpanded = expandedItems.has(s.id);
-              const isDone = hasReview(s);
-              const isInProgress = s.finished === false;
-              const timingMeta = isInProgress ? getAttemptTimingMeta(s.expiresAt) : null;
-              const classCode = s.ReadingTest?.classCode || s.classCode || "N/A";
-              const teacherName = s.ReadingTest?.teacherName || s.teacherName || "N/A";
-              const studentName = s.userName || "N/A";
-              const phone = s.User?.phone || s.userPhone || "N/A";
-              const title = s.ReadingTest?.title || `Reading #${s.testId || s.id}`;
-              const correctCount = Number(s.correct) || 0;
-              const totalCount = Number(s.total) || 0;
-              const scorePercentage = Number(s.scorePercentage) || 0;
-              const bandValue = s.band != null && Number.isFinite(Number(s.band)) ? Number(s.band).toFixed(1) : "N/A";
-              const tone = isInProgress
-                ? {
-                    border: "#bfdbfe",
-                    accent: "#2563eb",
-                    chipBg: "#dbeafe",
-                    chipColor: "#1e3a8a",
-                    calloutBg: isDarkMode ? "rgba(37, 99, 235, 0.12)" : "#eff6ff",
-                    calloutBorder: "#bfdbfe",
-                  }
-                : isDone
-                ? {
-                    border: "#bbf7d0",
-                    accent: "#16a34a",
-                    chipBg: "#dcfce7",
-                    chipColor: "#166534",
-                    calloutBg: isDarkMode ? "rgba(22, 163, 74, 0.12)" : "#f0fdf4",
-                    calloutBorder: "#bbf7d0",
-                  }
-                : {
-                    border: "#fed7aa",
-                    accent: "#f59e0b",
-                    chipBg: "#fef3c7",
-                    chipColor: "#92400e",
-                    calloutBg: isDarkMode ? "rgba(245, 158, 11, 0.12)" : "#fff7ed",
-                    calloutBorder: "#fed7aa",
-                  };
+          <ExpandableSubmissionList
+            items={filteredSubs}
+            expandedItems={expandedItems}
+            onToggle={toggleExpand}
+            selectedId={selectedSubmission?.id}
+            getItemDomId={(item) => `reading-submission-row-${item.id}`}
+            getTone={(submission) =>
+              getSubmissionTone(
+                submission.finished === false
+                  ? "active"
+                  : hasReview(submission)
+                  ? "reviewed"
+                  : "pending",
+                isDarkMode
+              )
+            }
+            renderHeader={({ item: submission, index, tone }) => {
+              const isDone = hasReview(submission);
+              const isInProgress = submission.finished === false;
+              const timingMeta = isInProgress
+                ? getAttemptTimingMeta(submission.expiresAt)
+                : null;
+              const classCode =
+                submission.ReadingTest?.classCode || submission.classCode || "N/A";
+              const teacherName =
+                submission.ReadingTest?.teacherName || submission.teacherName || "N/A";
+              const studentName = submission.userName || "N/A";
+              const phone = submission.User?.phone || submission.userPhone || "N/A";
+              const title =
+                submission.ReadingTest?.title || `Reading #${submission.testId || submission.id}`;
+              const correctCount = Number(submission.correct) || 0;
+              const totalCount = Number(submission.total) || 0;
+              const scorePercentage = Number(submission.scorePercentage) || 0;
 
               return (
-                <div
-                  key={s.id}
-                  id={`reading-submission-row-${s.id}`}
-                  style={{
-                    border: `1px solid ${isHighlighted ? "#f59e0b" : tone.border}`,
-                    borderLeft: `4px solid ${isHighlighted ? "#f59e0b" : tone.accent}`,
-                    borderRadius: 8,
-                    background: isDarkMode ? "#111827" : "#fff",
-                    overflow: "hidden",
-                    boxShadow: isHighlighted ? "0 0 0 2px rgba(245, 158, 11, 0.18)" : "0 1px 3px rgba(0,0,0,0.05)",
-                    scrollMarginTop: "120px",
-                  }}
-                >
-                  <div
+                <>
+                  <span style={{ fontSize: 12, color: tone.subtleText, minWidth: 28 }}>
+                    #{index + 1}
+                  </span>
+                  <span
                     style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 10,
-                      padding: "10px 14px",
-                      cursor: "pointer",
-                      userSelect: "none",
-                      flexWrap: "wrap",
+                      fontSize: 11,
+                      fontWeight: 700,
+                      padding: "2px 8px",
+                      borderRadius: 10,
+                      whiteSpace: "nowrap",
+                      background: tone.chipBg,
+                      color: tone.chipColor,
                     }}
-                    onClick={() => toggleExpand(s.id)}
                   >
-                    <span style={{ fontSize: 12, color: isDarkMode ? "#94a3b8" : "#9ca3af", minWidth: 28 }}>
-                      #{idx + 1}
-                    </span>
-                    <span
+                    {isInProgress ? "In progress" : isDone ? "Reviewed" : "Pending"}
+                  </span>
+                  <span style={{ fontWeight: 600, fontSize: 14, minWidth: 120, color: tone.primaryText }}>
+                    {studentName}
+                  </span>
+                  <span style={{ fontSize: 13, color: tone.mutedText, minWidth: 110 }}>
+                    {phone}
+                  </span>
+                  <span style={{ fontSize: 13, color: tone.secondaryText, flex: 1, minWidth: 220 }}>
+                    {[title, classCode !== "N/A" ? classCode : null, teacherName !== "N/A" ? teacherName : null].filter(Boolean).join(" - ")}
+                  </span>
+                  <span
+                    style={{
+                      padding: "3px 8px",
+                      borderRadius: 999,
+                      background: tone.panelBg,
+                      color: tone.primaryText,
+                      fontWeight: 700,
+                      fontSize: 12,
+                    }}
+                  >
+                    {correctCount}/{totalCount} ({scorePercentage}%)
+                  </span>
+                  <span style={{ fontSize: 12, color: tone.subtleText, whiteSpace: "nowrap" }}>
+                    {isInProgress && timingMeta
+                      ? `${timingMeta.label} • ${formatAttemptTimestamp(submission.lastSavedAt || submission.updatedAt || submission.createdAt)}`
+                      : formatAttemptTimestamp(submission.createdAt)}
+                  </span>
+                </>
+              );
+            }}
+            renderExpanded={({ item: submission, tone }) => {
+              const isDone = hasReview(submission);
+              const isInProgress = submission.finished === false;
+              const timingMeta = isInProgress
+                ? getAttemptTimingMeta(submission.expiresAt)
+                : null;
+              const classCode =
+                submission.ReadingTest?.classCode || submission.classCode || "N/A";
+              const teacherName =
+                submission.ReadingTest?.teacherName || submission.teacherName || "N/A";
+              const studentName = submission.userName || "N/A";
+              const phone = submission.User?.phone || submission.userPhone || "N/A";
+              const correctCount = Number(submission.correct) || 0;
+              const totalCount = Number(submission.total) || 0;
+              const scorePercentage = Number(submission.scorePercentage) || 0;
+              const bandValue =
+                submission.band != null && Number.isFinite(Number(submission.band))
+                  ? Number(submission.band).toFixed(1)
+                  : "N/A";
+
+              return (
+                <>
+                  {isInProgress && (
+                    <div
                       style={{
-                        fontSize: 11,
-                        fontWeight: 700,
-                        padding: "2px 8px",
-                        borderRadius: 10,
-                        whiteSpace: "nowrap",
-                        background: tone.chipBg,
-                        color: tone.chipColor,
+                        background: tone.calloutBg,
+                        border: `1px solid ${tone.calloutBorder}`,
+                        borderRadius: 7,
+                        padding: 12,
+                        marginTop: 12,
+                        color: tone.calloutText,
+                        fontSize: 13,
                       }}
                     >
-                      {isInProgress ? "In progress" : isDone ? "Reviewed" : "Pending"}
-                    </span>
-                    <span style={{ fontWeight: 600, fontSize: 14, minWidth: 120, color: isDarkMode ? "#f8fafc" : "#111827" }}>
-                      {studentName}
-                    </span>
-                    <span style={{ fontSize: 13, color: isDarkMode ? "#cbd5e1" : "#6b7280", minWidth: 110 }}>
-                      {phone}
-                    </span>
-                    <span style={{ fontSize: 13, color: isDarkMode ? "#e5e7eb" : "#374151", flex: 1, minWidth: 220 }}>
-                      {[title, classCode !== "N/A" ? classCode : null, teacherName !== "N/A" ? teacherName : null].filter(Boolean).join(" - ")}
-                    </span>
-                    <span
-                      style={{
-                        padding: "3px 8px",
-                        borderRadius: 999,
-                        background: isDarkMode ? "#0f172a" : "#f3f4f6",
-                        color: isDarkMode ? "#f8fafc" : "#111827",
-                        fontWeight: 700,
-                        fontSize: 12,
-                      }}
-                    >
-                      {correctCount}/{totalCount} ({scorePercentage}%)
-                    </span>
-                    <span style={{ fontSize: 12, color: isDarkMode ? "#94a3b8" : "#9ca3af", whiteSpace: "nowrap" }}>
-                      {isInProgress && timingMeta
-                        ? `${timingMeta.label} • ${formatAttemptTimestamp(s.lastSavedAt || s.updatedAt || s.createdAt)}`
-                        : formatAttemptTimestamp(s.createdAt)}
-                    </span>
-                    <span style={{ fontSize: 16, color: isDarkMode ? "#94a3b8" : "#9ca3af", marginLeft: 4 }}>
-                      {isExpanded ? "▲" : "▼"}
-                    </span>
-                  </div>
-
-                  {isExpanded && (
-                    <div style={{ padding: "0 14px 16px", borderTop: `1px solid ${isDarkMode ? "#1f2937" : "#f3f4f6"}` }}>
-                      {isInProgress && (
-                        <div
-                          style={{
-                            background: tone.calloutBg,
-                            border: `1px solid ${tone.calloutBorder}`,
-                            borderRadius: 7,
-                            padding: 12,
-                            marginTop: 12,
-                            color: isDarkMode ? "#dbeafe" : "#1e3a8a",
-                            fontSize: 13,
+                      This attempt is still open. The student has not submitted it yet.
+                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginTop: 10 }}>
+                        {timingMeta ? (
+                          <span style={{ fontWeight: 700, color: timingMeta.color }}>
+                            {timingMeta.label}
+                          </span>
+                        ) : null}
+                        <span style={{ color: tone.secondaryText }}>
+                          Saved: {formatAttemptTimestamp(submission.lastSavedAt || submission.updatedAt || submission.createdAt)}
+                        </span>
+                        <AttemptExtensionControls
+                          isLoading={extendingId === submission.id}
+                          onExtend={(minutes) => handleExtendTime(submission, minutes)}
+                          buttonStyle={{
+                            ...actionBtn,
+                            background: "#0284c7",
                           }}
-                        >
-                          This attempt is still open. The student has not submitted it yet.
-                          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginTop: 10 }}>
-                            {timingMeta ? (
-                              <span style={{ fontWeight: 700, color: timingMeta.color }}>
-                                {timingMeta.label}
-                              </span>
-                            ) : null}
-                            <span style={{ color: isDarkMode ? "#bfdbfe" : "#475569" }}>
-                              Saved: {formatAttemptTimestamp(s.lastSavedAt || s.updatedAt || s.createdAt)}
-                            </span>
-                            <AttemptExtensionControls
-                              isLoading={extendingId === s.id}
-                              onExtend={(minutes) => handleExtendTime(s, minutes)}
-                              buttonStyle={{
-                                ...actionBtn,
-                                background: "#0284c7",
-                              }}
-                              submitButtonStyle={{
-                                ...actionBtn,
-                                background: "#0369a1",
-                              }}
-                            />
-                          </div>
-                        </div>
-                      )}
-
-                      <div
-                        style={{
-                          display: "grid",
-                          gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))",
-                          gap: 12,
-                          marginTop: 14,
-                        }}
-                      >
-                        {[
-                          { label: "Correct", value: correctCount, color: "#1d4ed8" },
-                          { label: "Questions", value: totalCount, color: "#1d4ed8" },
-                          { label: "Accuracy", value: `${scorePercentage}%`, color: scorePercentage >= 70 ? "#16a34a" : scorePercentage >= 50 ? "#ca8a04" : "#dc2626" },
-                          { label: "Band", value: bandValue, color: "#111827" },
-                        ].map((stat) => (
-                          <div
-                            key={stat.label}
-                            style={{
-                              background: isDarkMode ? "#0f172a" : "#f8fafc",
-                              borderRadius: 7,
-                              padding: 12,
-                              border: `1px solid ${isDarkMode ? "#1f2937" : "#e5e7eb"}`,
-                              textAlign: "center",
-                            }}
-                          >
-                            <div style={{ fontSize: 24, fontWeight: 700, color: stat.color }}>
-                              {stat.value}
-                            </div>
-                            <div style={{ fontSize: 12, color: isDarkMode ? "#94a3b8" : "#6b7280" }}>
-                              {stat.label}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-
-                      <div
-                        style={{
-                          display: "grid",
-                          gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
-                          gap: 12,
-                          marginTop: 12,
-                        }}
-                      >
-                        {[
-                          { label: "Class Code", value: classCode },
-                          { label: "Teacher", value: teacherName },
-                          { label: "Student", value: studentName },
-                          { label: "Phone", value: phone },
-                          { label: "Submitted", value: formatAttemptTimestamp(s.createdAt) },
-                          { label: "Feedback", value: s.feedbackBy || (isDone ? "Reviewed" : "Pending") },
-                        ].map((item) => (
-                          <div
-                            key={item.label}
-                            style={{
-                              background: isDarkMode ? "#0f172a" : "#f8fafc",
-                              borderRadius: 7,
-                              padding: 12,
-                              border: `1px solid ${isDarkMode ? "#1f2937" : "#e5e7eb"}`,
-                            }}
-                          >
-                            <div style={{ fontSize: 12, fontWeight: 700, color: isDarkMode ? "#94a3b8" : "#6b7280", marginBottom: 4 }}>
-                              {item.label}
-                            </div>
-                            <div style={{ fontSize: 14, color: isDarkMode ? "#f8fafc" : "#111827" }}>
-                              {item.value}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-
-                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 12 }} className="admin-action-buttons">
-                        <button
-                          onClick={() => navigate(`/reading-results/${s.id}`)}
-                          style={actionBtn}
-                          title="View answer details"
-                        >
-                          <InlineIcon name="eye" size={14} />
-                          Details
-                        </button>
-                        <button
-                          onClick={() => loadAnalysis(s)}
-                          style={{ ...actionBtn, background: "#4f46e5" }}
-                          title="View analysis"
-                        >
-                          <InlineIcon name="overview" size={14} />
-                          Analysis
-                        </button>
-                        <button
-                          onClick={() => openFeedbackModal(s)}
-                          style={{ ...actionBtn, background: s.feedback ? "#16a34a" : "#ca8a04" }}
-                          title="Add or edit feedback"
-                        >
-                          <InlineIcon name="feedback" size={14} />
-                          Feedback
-                        </button>
-                      </div>
-
-                      {s.feedback ? (
-                        <div
-                          style={{
-                            background: isDarkMode ? "rgba(22, 163, 74, 0.12)" : "#f0fdf4",
-                            border: `1px solid ${isDarkMode ? "rgba(34, 197, 94, 0.28)" : "#bbf7d0"}`,
-                            borderRadius: 7,
-                            padding: 12,
-                            marginTop: 12,
+                          submitButtonStyle={{
+                            ...actionBtn,
+                            background: "#0369a1",
                           }}
-                        >
-                          <p style={{ margin: "0 0 6px", fontSize: 13, color: isDarkMode ? "#bbf7d0" : "#166534" }}>
-                            <strong>Reviewed</strong> at {formatDateTime(s.feedbackAt)} by <strong>{s.feedbackBy || "Reviewed"}</strong>
-                          </p>
-                          <p style={{ margin: 0, whiteSpace: "pre-line", fontSize: 14, color: isDarkMode ? "#e5e7eb" : "#111827" }}>
-                            {s.feedback}
-                          </p>
-                        </div>
-                      ) : (
-                        <p style={{ margin: "12px 0 0", color: isDarkMode ? "#94a3b8" : "#6b7280", fontSize: 13 }}>
-                          No teacher feedback yet.
-                        </p>
-                      )}
+                        />
+                      </div>
                     </div>
                   )}
-                </div>
+
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))",
+                      gap: 12,
+                      marginTop: 14,
+                    }}
+                  >
+                    {[
+                      { label: "Correct", value: correctCount, color: "#1d4ed8" },
+                      { label: "Questions", value: totalCount, color: "#1d4ed8" },
+                      {
+                        label: "Accuracy",
+                        value: `${scorePercentage}%`,
+                        color:
+                          scorePercentage >= 70
+                            ? "#16a34a"
+                            : scorePercentage >= 50
+                            ? "#ca8a04"
+                            : "#dc2626",
+                      },
+                      { label: "Band", value: bandValue, color: tone.primaryText },
+                    ].map((stat) => (
+                      <div
+                        key={stat.label}
+                        style={{
+                          background: tone.panelBg,
+                          borderRadius: 7,
+                          padding: 12,
+                          border: `1px solid ${tone.panelBorder}`,
+                          textAlign: "center",
+                        }}
+                      >
+                        <div style={{ fontSize: 24, fontWeight: 700, color: stat.color }}>
+                          {stat.value}
+                        </div>
+                        <div style={{ fontSize: 12, color: tone.mutedText }}>
+                          {stat.label}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+                      gap: 12,
+                      marginTop: 12,
+                    }}
+                  >
+                    {[
+                      { label: "Class Code", value: classCode },
+                      { label: "Teacher", value: teacherName },
+                      { label: "Student", value: studentName },
+                      { label: "Phone", value: phone },
+                      { label: "Submitted", value: formatAttemptTimestamp(submission.createdAt) },
+                      {
+                        label: "Feedback",
+                        value: submission.feedbackBy || (isDone ? "Reviewed" : "Pending"),
+                      },
+                    ].map((entry) => (
+                      <div
+                        key={entry.label}
+                        style={{
+                          background: tone.panelBg,
+                          borderRadius: 7,
+                          padding: 12,
+                          border: `1px solid ${tone.panelBorder}`,
+                        }}
+                      >
+                        <div style={{ fontSize: 12, fontWeight: 700, color: tone.mutedText, marginBottom: 4 }}>
+                          {entry.label}
+                        </div>
+                        <div style={{ fontSize: 14, color: tone.primaryText }}>
+                          {entry.value}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 12 }} className="admin-action-buttons">
+                    <button
+                      onClick={() => navigate(`/reading-results/${submission.id}`)}
+                      style={actionBtn}
+                      title="View answer details"
+                    >
+                      <InlineIcon name="eye" size={14} />
+                      Details
+                    </button>
+                    <button
+                      onClick={() => loadAnalysis(submission)}
+                      style={{ ...actionBtn, background: "#4f46e5" }}
+                      title="View analysis"
+                    >
+                      <InlineIcon name="overview" size={14} />
+                      Analysis
+                    </button>
+                    <button
+                      onClick={() => openFeedbackModal(submission)}
+                      style={{ ...actionBtn, background: submission.feedback ? "#16a34a" : "#ca8a04" }}
+                      title="Add or edit feedback"
+                    >
+                      <InlineIcon name="feedback" size={14} />
+                      Feedback
+                    </button>
+                  </div>
+
+                  {submission.feedback ? (
+                    <div
+                      style={{
+                        background: isDarkMode ? "rgba(22, 163, 74, 0.12)" : "#f0fdf4",
+                        border: `1px solid ${isDarkMode ? "rgba(34, 197, 94, 0.28)" : "#bbf7d0"}`,
+                        borderRadius: 7,
+                        padding: 12,
+                        marginTop: 12,
+                      }}
+                    >
+                      <p style={{ margin: "0 0 6px", fontSize: 13, color: isDarkMode ? "#bbf7d0" : "#166534" }}>
+                        <strong>Reviewed</strong> at {formatDateTime(submission.feedbackAt)} by <strong>{submission.feedbackBy || "Reviewed"}</strong>
+                      </p>
+                      <p style={{ margin: 0, whiteSpace: "pre-line", fontSize: 14, color: tone.primaryText }}>
+                        {submission.feedback}
+                      </p>
+                    </div>
+                  ) : (
+                    <p style={{ margin: "12px 0 0", color: tone.mutedText, fontSize: 13 }}>
+                      No teacher feedback yet.
+                    </p>
+                  )}
+                </>
               );
-            })}
-          </div>
+            }}
+          />
         )}
       </div>
 

@@ -4,6 +4,11 @@ import AdminNavbar from "../../../shared/components/AdminNavbar";
 import LineIcon from "../../../shared/components/LineIcon";
 import { apiPath, authFetch, hostPath } from "../../../shared/utils/api";
 import AttemptExtensionControls from "../components/AttemptExtensionControls";
+import {
+  ExpandableSubmissionList,
+  SubmissionStatCards,
+  getSubmissionTone,
+} from "../components/SubmissionCardList";
 import SubmissionFilterPanel from "../components/SubmissionFilterPanel";
 import SubmissionTypeTabs from "../components/SubmissionTypeTabs";
 import {
@@ -184,6 +189,7 @@ const CambridgeSubmissionsPage = () => {
   const [sortOrder, setSortOrder] = useState('newest');
   const [activeReviewSubmissionId, setActiveReviewSubmissionId] = useState(null);
   const [deepLinkedSubmission, setDeepLinkedSubmission] = useState(null);
+  const [expandedItems, setExpandedItems] = useState(new Set());
   const [detailById, setDetailById] = useState({});
   const [detailLoadingById, setDetailLoadingById] = useState({});
   const [feedbackDraftById, setFeedbackDraftById] = useState({});
@@ -345,6 +351,22 @@ const CambridgeSubmissionsPage = () => {
 
     return true;
   });
+
+  const visiblePendingCount = filteredSubmissions.filter(
+    (submission) => !hasReview(submission)
+  ).length;
+  const visibleReviewedCount = filteredSubmissions.filter((submission) =>
+    hasReview(submission)
+  ).length;
+
+  const toggleExpand = (submissionId) => {
+    setExpandedItems((prev) => {
+      const next = new Set(prev);
+      if (next.has(submissionId)) next.delete(submissionId);
+      else next.add(submissionId);
+      return next;
+    });
+  };
 
   const getPendingManualAnswers = (submissionDetail) => {
     const detailedResults = parseJsonIfString(submissionDetail?.detailedResults);
@@ -514,6 +536,21 @@ const CambridgeSubmissionsPage = () => {
     });
 
     return () => window.cancelAnimationFrame(frameId);
+  }, [activeReviewSubmissionId]);
+
+  useEffect(() => {
+    if (!activeReviewSubmissionId) {
+      return;
+    }
+
+    setExpandedItems((prev) => {
+      if (prev.has(activeReviewSubmissionId)) {
+        return prev;
+      }
+      const next = new Set(prev);
+      next.add(activeReviewSubmissionId);
+      return next;
+    });
   }, [activeReviewSubmissionId]);
 
   useEffect(() => {
@@ -941,203 +978,412 @@ const CambridgeSubmissionsPage = () => {
           </div>
         )}
 
-        {/* Submissions Table */}
+        {/* Submissions List */}
         {!loading && !error && (
           <>
-            <div style={styles.tableContainer} className="admin-table-wrap">
-              <table style={styles.table} className="admin-table">
-                <thead>
-                  <tr>
-                    <th style={styles.th}>#</th>
-                    <th style={styles.th}>Type</th>
-                    <th style={styles.th}>Test Title</th>
-                    <th style={styles.th}>Student</th>
-                    <th style={styles.th}>Class</th>
-                    <th style={styles.th}>Score</th>
-                    <th style={styles.th}>Status</th>
-                    <th style={styles.th}>Time</th>
-                    <th style={styles.th}>Submitted</th>
-                    <th style={styles.th}>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredSubmissions.length === 0 ? (
-                    <tr>
-                      <td colSpan="10" style={styles.emptyCell}>
-                        No submissions found.
-                      </td>
-                    </tr>
-                  ) : (
-                    filteredSubmissions.map((sub, index) => {
-                      const typeBadge = getTestTypeBadge(sub.testType);
-                      const timingMeta = sub.finished === false ? getAttemptTimingMeta(sub.expiresAt) : null;
-                      const pendingManualCount = getPendingManualCount(sub);
-                      const canReviewEssay =
-                        String(sub.testType || '').toLowerCase().includes('reading') &&
-                        sub.finished !== false &&
-                        pendingManualCount > 0;
-                      const isReviewing = activeReviewSubmissionId === sub.id;
-                      return (
-                        <React.Fragment key={sub.id}>
-                          <tr
-                            id={`cambridge-submission-row-${sub.id}`}
-                            style={{
-                              ...styles.tr,
-                              ...(isReviewing ? styles.trFocused : null),
-                              scrollMarginTop: '120px',
-                            }}
-                          >
-                            <td style={styles.td}>
-                              {(pagination.page - 1) * pagination.limit + index + 1}
-                            </td>
-                            <td style={styles.td}>
-                              <span style={{
-                                ...styles.badge,
-                                backgroundColor: typeBadge.bgColor,
-                                color: typeBadge.color
-                              }}>
+            <SubmissionStatCards
+              stats={[
+                {
+                  label: 'Visible',
+                  count: filteredSubmissions.length,
+                  bg: '#eff6ff',
+                  color: '#1d4ed8',
+                  border: '#bfdbfe',
+                },
+                {
+                  label: 'Pending',
+                  count: visiblePendingCount,
+                  bg: '#fffbeb',
+                  color: '#92400e',
+                  border: '#fde68a',
+                },
+                {
+                  label: 'Reviewed',
+                  count: visibleReviewedCount,
+                  bg: '#f0fdf4',
+                  color: '#166534',
+                  border: '#bbf7d0',
+                },
+              ]}
+            />
+
+            <p style={{ fontSize: '13px', color: '#6b7280', marginBottom: 12 }}>
+              Showing <strong>{filteredSubmissions.length}</strong>
+              {pagination.total !== filteredSubmissions.length ? ` / ${pagination.total}` : ''} submissions
+              {'  '}
+              <span style={{ color: '#9ca3af' }}>
+                Click a row to view the score summary, feedback, and actions.
+              </span>
+            </p>
+
+            {filteredSubmissions.length === 0 ? (
+              <div style={styles.emptyCell}>No submissions found.</div>
+            ) : (
+              <ExpandableSubmissionList
+                items={filteredSubmissions}
+                expandedItems={expandedItems}
+                onToggle={toggleExpand}
+                selectedId={activeReviewSubmissionId}
+                getItemDomId={(submission) => `cambridge-submission-row-${submission.id}`}
+                getTone={(submission) =>
+                  getSubmissionTone(
+                    submission.finished === false
+                      ? 'active'
+                      : hasReview(submission)
+                      ? 'reviewed'
+                      : 'pending'
+                  )
+                }
+                renderHeader={({ item: submission, index, tone }) => {
+                  const typeBadge = getTestTypeBadge(submission.testType);
+                  const timingMeta = submission.finished === false ? getAttemptTimingMeta(submission.expiresAt) : null;
+                  const pendingManualCount = getPendingManualCount(submission);
+                  const canReviewEssay =
+                    String(submission.testType || '').toLowerCase().includes('reading') &&
+                    submission.finished !== false &&
+                    pendingManualCount > 0;
+
+                  return (
+                    <>
+                      <span style={{ fontSize: '12px', color: tone.subtleText, minWidth: 28 }}>
+                        #{(pagination.page - 1) * pagination.limit + index + 1}
+                      </span>
+                      <span
+                        style={{
+                          fontSize: '11px',
+                          fontWeight: 700,
+                          padding: '2px 8px',
+                          borderRadius: 10,
+                          whiteSpace: 'nowrap',
+                          background: tone.chipBg,
+                          color: tone.chipColor,
+                        }}
+                      >
+                        {submission.finished === false
+                          ? 'Active'
+                          : hasReview(submission)
+                          ? 'Reviewed'
+                          : 'Pending'}
+                      </span>
+                      <span
+                        style={{
+                          ...styles.badge,
+                          backgroundColor: typeBadge.bgColor,
+                          color: typeBadge.color,
+                        }}
+                      >
+                        <InlineIcon name={typeBadge.iconName} size={15} />
+                        {typeBadge.label}
+                      </span>
+                      <span style={{ fontWeight: 600, fontSize: 14, minWidth: 120, color: tone.primaryText }}>
+                        {submission.studentName || '--'}
+                      </span>
+                      <span style={{ fontSize: 13, color: tone.mutedText, minWidth: 110 }}>
+                        {submission.studentPhone || '--'}
+                      </span>
+                      <span style={{ fontSize: 13, color: tone.secondaryText, flex: 1, minWidth: 220 }}>
+                        {[submission.testTitle || '--', submission.classCode || null, submission.teacherName || null]
+                          .filter(Boolean)
+                          .join(' - ')}
+                      </span>
+                      <span
+                        style={{
+                          padding: '3px 8px',
+                          borderRadius: 999,
+                          background: tone.panelBg,
+                          color: submission.finished === false ? '#1d4ed8' : getScoreColor(submission.percentage),
+                          fontWeight: 700,
+                          fontSize: 12,
+                        }}
+                      >
+                        {submission.finished === false
+                          ? 'In Progress'
+                          : `${submission.score}/${submission.totalQuestions} (${submission.percentage}%)`}
+                      </span>
+                      {canReviewEssay && (
+                        <span
+                          style={{
+                            padding: '3px 8px',
+                            borderRadius: 999,
+                            background: '#fff7ed',
+                            color: '#c2410c',
+                            fontWeight: 700,
+                            fontSize: 12,
+                          }}
+                        >
+                          {pendingManualCount} pending essay
+                        </span>
+                      )}
+                      <span style={{ fontSize: 12, color: tone.subtleText, whiteSpace: 'nowrap' }}>
+                        {submission.finished === false && timingMeta
+                          ? `${timingMeta.label} • ${formatAttemptTimestamp(submission.lastSavedAt || submission.createdAt)}`
+                          : formatDate(submission.submittedAt)}
+                      </span>
+                    </>
+                  );
+                }}
+                renderExpanded={({ item: submission, tone }) => {
+                  const typeBadge = getTestTypeBadge(submission.testType);
+                  const timingMeta = submission.finished === false ? getAttemptTimingMeta(submission.expiresAt) : null;
+                  const pendingManualCount = getPendingManualCount(submission);
+                  const canReviewEssay =
+                    String(submission.testType || '').toLowerCase().includes('reading') &&
+                    submission.finished !== false &&
+                    pendingManualCount > 0;
+                  const isReviewing = activeReviewSubmissionId === submission.id;
+
+                  return (
+                    <>
+                      {submission.finished === false && (
+                        <div
+                          style={{
+                            background: tone.calloutBg,
+                            border: `1px solid ${tone.calloutBorder}`,
+                            borderRadius: 7,
+                            padding: 12,
+                            marginTop: 12,
+                            color: tone.calloutText,
+                            fontSize: 13,
+                          }}
+                        >
+                          This attempt is still open. The student has not submitted it yet.
+                          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginTop: 10 }}>
+                            {timingMeta && (
+                              <span style={{ fontWeight: 700, color: timingMeta.color }}>
+                                {timingMeta.label}
+                              </span>
+                            )}
+                            <span style={{ color: tone.secondaryText }}>
+                              Saved: {formatAttemptTimestamp(submission.lastSavedAt || submission.createdAt)}
+                            </span>
+                            <AttemptExtensionControls
+                              isLoading={extendingId === submission.id}
+                              onExtend={(minutes) => handleExtendTime(submission, minutes)}
+                              buttonStyle={{
+                                ...styles.viewButton,
+                                background: '#0284c7',
+                              }}
+                              submitButtonStyle={{
+                                ...styles.viewButton,
+                                background: '#0369a1',
+                              }}
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      <div
+                        style={{
+                          display: 'grid',
+                          gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
+                          gap: 12,
+                          marginTop: 14,
+                        }}
+                      >
+                        {[
+                          {
+                            label: 'Type',
+                            value: typeBadge.label,
+                            color: typeBadge.color,
+                            custom: (
+                              <span
+                                style={{
+                                  ...styles.badge,
+                                  backgroundColor: typeBadge.bgColor,
+                                  color: typeBadge.color,
+                                  justifyContent: 'center',
+                                }}
+                              >
                                 <InlineIcon name={typeBadge.iconName} size={15} />
                                 {typeBadge.label}
                               </span>
-                            </td>
-                            <td style={styles.td}>
-                              <div style={styles.testTitleWrap}>
-                                <span style={styles.testTitle}>{sub.testTitle || '--'}</span>
-                                <span style={styles.testMeta}>{sub.teacherName || '--'}</span>
+                            ),
+                          },
+                          {
+                            label: 'Score',
+                            value:
+                              submission.finished === false
+                                ? 'In Progress'
+                                : `${submission.score}/${submission.totalQuestions}`,
+                            color:
+                              submission.finished === false
+                                ? '#1d4ed8'
+                                : getScoreColor(submission.percentage),
+                          },
+                          {
+                            label: 'Accuracy',
+                            value:
+                              submission.finished === false ? '--' : `${submission.percentage}%`,
+                            color:
+                              submission.finished === false
+                                ? '#1d4ed8'
+                                : getScoreColor(submission.percentage),
+                          },
+                          {
+                            label: 'Time Spent',
+                            value:
+                              submission.finished === false
+                                ? '--:--'
+                                : formatTime(submission.timeSpent),
+                            color: tone.primaryText,
+                          },
+                        ].map((stat) => (
+                          <div
+                            key={stat.label}
+                            style={{
+                              background: tone.panelBg,
+                              borderRadius: 7,
+                              padding: 12,
+                              border: `1px solid ${tone.panelBorder}`,
+                              textAlign: 'center',
+                            }}
+                          >
+                            {stat.custom ? (
+                              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 10 }}>
+                                {stat.custom}
                               </div>
-                            </td>
-                            <td style={styles.td}>
-                              <div style={styles.studentInfo}>
-                                <span style={styles.studentName}>{sub.studentName}</span>
-                                {sub.studentPhone && (
-                                  <span style={styles.studentPhone}>{sub.studentPhone}</span>
-                                )}
+                            ) : (
+                              <div style={{ fontSize: 24, fontWeight: 700, color: stat.color }}>
+                                {stat.value}
                               </div>
-                            </td>
-                            <td style={styles.td}>
-                              <span style={styles.classCode}>{sub.classCode || '--'}</span>
-                            </td>
-                            <td style={styles.td}>
-                              <div style={styles.scoreContainer}>
-                                {sub.finished === false ? (
-                                  <>
-                                    <span style={{ ...styles.score, color: "#1d4ed8" }}>
-                                      In Progress
-                                    </span>
-                                    <span style={{
-                                      ...styles.percentage,
-                                      backgroundColor: "#dbeafe",
-                                      color: timingMeta?.color || "#1d4ed8"
-                                    }}>
-                                      {timingMeta?.label || "Not submitted"}
-                                    </span>
-                                  </>
-                                ) : (
-                                  <>
-                                    <span style={{
-                                      ...styles.score,
-                                      color: getScoreColor(sub.percentage)
-                                    }}>
-                                      {sub.score}/{sub.totalQuestions}
-                                    </span>
-                                    <span style={{
-                                      ...styles.percentage,
-                                      backgroundColor: getScoreColor(sub.percentage) + '20',
-                                      color: getScoreColor(sub.percentage)
-                                    }}>
-                                      {sub.percentage}%
-                                    </span>
-                                  </>
-                                )}
-                              </div>
-                            </td>
-                            <td style={styles.td}>
-                              <div style={styles.statusCell}>
-                                <span
-                                  style={{
-                                    ...styles.statusBadge,
-                                    ...(sub.status === 'reviewed' || sub.feedbackBy
-                                      ? styles.statusBadgeReviewed
-                                      : styles.statusBadgePending),
-                                  }}
-                                >
-                                  {sub.finished === false
-                                    ? 'Active'
-                                    : sub.status === 'reviewed' || sub.feedbackBy
-                                    ? 'Reviewed'
-                                    : 'Pending'}
-                                </span>
-                                <span style={styles.statusMeta}>{sub.feedbackBy || '--'}</span>
-                              </div>
-                            </td>
-                            <td style={styles.td}>
-                              <span style={styles.timeSpent}>
-                                {sub.finished === false ? "--:--" : formatTime(sub.timeSpent)}
-                              </span>
-                            </td>
-                            <td style={styles.td}>
-                              {sub.finished === false ? (
-                                <div>
-                                  <div style={{ ...styles.date, fontWeight: 700, color: "#1d4ed8" }}>In Progress</div>
-                                  <div style={{ ...styles.date, color: timingMeta?.color || "#64748b", fontSize: 12 }}>
-                                    {timingMeta?.label || "No deadline yet"}
-                                  </div>
-                                  <div style={{ ...styles.date, fontSize: 11 }}>
-                                    Saved: {formatAttemptTimestamp(sub.lastSavedAt || sub.createdAt)}
-                                  </div>
-                                </div>
-                              ) : (
-                                <span style={styles.date}>
-                                  {formatDate(sub.submittedAt)}
-                                </span>
-                              )}
-                            </td>
-                            <td style={styles.td}>
-                              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                                {canReviewEssay && (
-                                  <button
-                                    onClick={() => openEssayReview(sub)}
-                                    style={{
-                                      ...styles.reviewEssayButton,
-                                      ...(isReviewing ? styles.reviewEssayButtonActive : null),
-                                    }}
-                                  >
-                                    <span>{detailLoadingById[sub.id] && isReviewing ? 'Loading...' : 'Review Essay'}</span>
-                                    <span style={styles.reviewEssayBadge}>{pendingManualCount}</span>
-                                  </button>
-                                )}
-                                <button
-                                  onClick={() => handleViewDetail(sub.id)}
-                                  style={styles.viewButton}
-                                  className="admin-view-button"
-                                >
-                                  <span className="admin-view-button__icon"><InlineIcon name="eye" size={15} /></span>
-                                  <span className="admin-view-button__label">View</span>
-                                </button>
-                                {sub.finished === false && (
-                                  <AttemptExtensionControls
-                                    isLoading={extendingId === sub.id}
-                                    onExtend={(minutes) => handleExtendTime(sub, minutes)}
-                                    buttonStyle={{
-                                      ...styles.viewButton,
-                                      background: "#0284c7",
-                                    }}
-                                    submitButtonStyle={{
-                                      ...styles.viewButton,
-                                      background: "#0369a1",
-                                    }}
-                                  />
-                                )}
-                              </div>
-                            </td>
-                          </tr>
-                        </React.Fragment>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
-            </div>
+                            )}
+                            <div style={{ fontSize: 12, color: tone.mutedText }}>
+                              {stat.label}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div
+                        style={{
+                          display: 'grid',
+                          gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
+                          gap: 12,
+                          marginTop: 12,
+                        }}
+                      >
+                        {[
+                          { label: 'Test Title', value: submission.testTitle || '--' },
+                          { label: 'Teacher', value: submission.teacherName || '--' },
+                          { label: 'Student', value: submission.studentName || '--' },
+                          { label: 'Phone', value: submission.studentPhone || '--' },
+                          { label: 'Class Code', value: submission.classCode || '--' },
+                          {
+                            label: 'Submitted',
+                            value:
+                              submission.finished === false
+                                ? formatAttemptTimestamp(submission.lastSavedAt || submission.createdAt)
+                                : formatDate(submission.submittedAt),
+                          },
+                        ].map((entry) => (
+                          <div
+                            key={entry.label}
+                            style={{
+                              background: tone.panelBg,
+                              borderRadius: 7,
+                              padding: 12,
+                              border: `1px solid ${tone.panelBorder}`,
+                            }}
+                          >
+                            <div style={{ fontSize: 12, fontWeight: 700, color: tone.mutedText, marginBottom: 4 }}>
+                              {entry.label}
+                            </div>
+                            <div style={{ fontSize: 14, color: tone.primaryText }}>
+                              {entry.value}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      {canReviewEssay && (
+                        <div
+                          style={{
+                            background: '#fff7ed',
+                            border: '1px solid #fed7aa',
+                            borderRadius: 7,
+                            padding: 12,
+                            marginTop: 12,
+                          }}
+                        >
+                          <p style={{ margin: '0 0 6px', fontSize: 13, color: '#9a3412' }}>
+                            <strong>{pendingManualCount}</strong> open-ended responses are waiting for review.
+                          </p>
+                          <p style={{ margin: 0, fontSize: 13, color: '#7c2d12' }}>
+                            Use Review Essay to open the marking drawer and save teacher feedback.
+                          </p>
+                        </div>
+                      )}
+
+                      {hasReview(submission) && submission.feedback ? (
+                        <div
+                          style={{
+                            background: '#f0fdf4',
+                            border: '1px solid #bbf7d0',
+                            borderRadius: 7,
+                            padding: 12,
+                            marginTop: 12,
+                          }}
+                        >
+                          <p style={{ margin: '0 0 6px', fontSize: 13, color: '#166534' }}>
+                            <strong>Reviewed</strong> by <strong>{submission.feedbackBy || '--'}</strong>
+                          </p>
+                          <p style={{ margin: 0, whiteSpace: 'pre-line', fontSize: 14, color: tone.primaryText }}>
+                            {submission.feedback}
+                          </p>
+                        </div>
+                      ) : !canReviewEssay ? (
+                        <p style={{ margin: '12px 0 0', color: tone.mutedText, fontSize: 13 }}>
+                          No teacher feedback yet.
+                        </p>
+                      ) : null}
+
+                      {isReviewing && (
+                        <div style={{ marginTop: 12, fontSize: 13, color: '#1d4ed8', fontWeight: 600 }}>
+                          The essay review drawer is currently open for this submission.
+                        </div>
+                      )}
+
+                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
+                        {canReviewEssay && (
+                          <button
+                            onClick={() => openEssayReview(submission)}
+                            style={{
+                              ...styles.reviewEssayButton,
+                              ...(isReviewing ? styles.reviewEssayButtonActive : null),
+                            }}
+                          >
+                            <span>{detailLoadingById[submission.id] && isReviewing ? 'Loading...' : 'Review Essay'}</span>
+                            <span style={styles.reviewEssayBadge}>{pendingManualCount}</span>
+                          </button>
+                        )}
+                        <button
+                          onClick={() => handleViewDetail(submission.id)}
+                          style={styles.viewButton}
+                          className="admin-view-button"
+                        >
+                          <span className="admin-view-button__icon"><InlineIcon name="eye" size={15} /></span>
+                          <span className="admin-view-button__label">View</span>
+                        </button>
+                        {submission.finished === false && (
+                          <AttemptExtensionControls
+                            isLoading={extendingId === submission.id}
+                            onExtend={(minutes) => handleExtendTime(submission, minutes)}
+                            buttonStyle={{
+                              ...styles.viewButton,
+                              background: '#0284c7',
+                            }}
+                            submitButtonStyle={{
+                              ...styles.viewButton,
+                              background: '#0369a1',
+                            }}
+                          />
+                        )}
+                      </div>
+                    </>
+                  );
+                }}
+              />
+            )}
 
             {/* Pagination */}
             {pagination.totalPages > 1 && (
