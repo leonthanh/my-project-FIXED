@@ -42,8 +42,14 @@
   font-size: 15px;
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.03);
   cursor: pointer;
+  transition: transform 0.2s ease, background 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
 }
 
 .studentNavbar__link--desktop {
@@ -80,21 +86,44 @@
   align-items: center;
   gap: 10px;
   padding: 8px 12px;
-  border: none;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.1);
   color: #fff;
   cursor: pointer;
-  transition: transform 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.03);
+  transition: transform 0.2s ease, background 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
 }
 
+.studentNavbar__link:hover,
+.studentNavbar__moreToggle:hover,
 .studentNavbar__notificationPill:hover {
-  background: rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.16);
   transform: translateY(-1px);
+  box-shadow: 0 12px 24px rgba(4, 18, 60, 0.18);
 }
 
 .studentNavbar__notificationPill--active {
   box-shadow: 0 10px 24px rgba(4, 18, 60, 0.2);
+}
+
+.studentNavbar__link--active,
+.studentNavbar__notificationPill--current {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.22) 0%, rgba(255, 255, 255, 0.1) 100%);
+  border-color: rgba(255, 255, 255, 0.24);
+  box-shadow: 0 14px 26px rgba(4, 18, 60, 0.24);
+}
+
+.studentNavbar__link .studentNavbar__icon,
+.studentNavbar__moreToggle .studentNavbar__icon,
+.studentNavbar__notificationPill .studentNavbar__icon,
+.studentNavbar__user .studentNavbar__icon,
+.studentNavbar__logout .studentNavbar__icon {
+  width: 22px;
+  height: 22px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.14);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
 }
 
 .studentNavbar__notificationMain {
@@ -520,24 +549,31 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  padding: 8px 12px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.03);
 }
 
 .studentNavbar__logout {
-  background: #e03;
-  border: none;
+  background: linear-gradient(135deg, #fb7185 0%, #e11d48 100%);
+  border: 1px solid rgba(255, 255, 255, 0.16);
   padding: 8px 14px;
-  border-radius: 6px;
+  border-radius: 16px;
   color: white;
   font-weight: 700;
   cursor: pointer;
-  transition: background 0.3s;
+  box-shadow: 0 14px 28px rgba(190, 24, 93, 0.22);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
 }
 
 .studentNavbar__logout:hover {
-  background: #c0392b;
+  transform: translateY(-1px);
+  box-shadow: 0 16px 30px rgba(190, 24, 93, 0.26);
 }
 
 .studentNavbar__more {
@@ -547,26 +583,29 @@
 
 .studentNavbar__menu {
   position: absolute;
-  top: 100%;
+  top: calc(100% + 10px);
   left: 0;
-  background: #fff;
-  border: 1px solid #ccc;
-  border-radius: 6px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+  background: rgba(255, 255, 255, 0.98);
+  border: 1px solid #dbe4f2;
+  border-radius: 18px;
+  box-shadow: 0 18px 36px rgba(15, 23, 42, 0.14);
   z-index: 1000;
-  min-width: 180px;
+  min-width: 220px;
   overflow: hidden;
+  padding: 8px;
 }
 
 .studentNavbar__menuItem {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 10px 14px;
+  padding: 11px 12px;
   color: #333;
   text-decoration: none;
-  border-bottom: 1px solid #eee;
-  transition: background 0.2s;
+  border-bottom: none;
+  border-radius: 14px;
+  font-weight: 700;
+  transition: background 0.2s ease, transform 0.2s ease;
 }
 
 .studentNavbar__menuItemIcon {
@@ -580,7 +619,8 @@
 }
 
 .studentNavbar__menuItem:hover {
-  background: #f0f0f0;
+  background: #f4f7fb;
+  transform: translateY(-1px);
 }
 
 .studentNavbar__menuItem:last-child {
@@ -601,8 +641,32 @@ body.dark-mode .studentNavbar__user {
 }
 
 body.dark-mode .studentNavbar__menu {
-  background: #16213e;
-  border-color: #3d3d5c;
+  background: rgba(15, 23, 42, 0.96);
+  border-color: #23314f;
+  box-shadow: 0 20px 38px rgba(0, 0, 0, 0.3);
+}
+
+body.dark-mode .studentNavbar__link,
+body.dark-mode .studentNavbar__moreToggle,
+body.dark-mode .studentNavbar__notificationPill,
+body.dark-mode .studentNavbar__user {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(147, 197, 253, 0.16);
+}
+
+body.dark-mode .studentNavbar__link--active,
+body.dark-mode .studentNavbar__notificationPill--current {
+  background: linear-gradient(135deg, rgba(147, 197, 253, 0.22) 0%, rgba(59, 130, 246, 0.12) 100%);
+  border-color: rgba(191, 219, 254, 0.3);
+}
+
+body.dark-mode .studentNavbar__link .studentNavbar__icon,
+body.dark-mode .studentNavbar__moreToggle .studentNavbar__icon,
+body.dark-mode .studentNavbar__notificationPill .studentNavbar__icon,
+body.dark-mode .studentNavbar__user .studentNavbar__icon,
+body.dark-mode .studentNavbar__logout .studentNavbar__icon {
+  background: rgba(255, 255, 255, 0.1);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
 }
 
 body.dark-mode .studentNavbar__mobileMenuButton {
@@ -697,6 +761,11 @@ body.dark-mode .studentNavbar__menuItemIcon {
 
 body.dark-mode .studentNavbar__menuItem:hover {
   background: #1f2b47;
+}
+
+body.dark-mode .studentNavbar__logout {
+  background: linear-gradient(135deg, #e11d48 0%, #9f1239 100%);
+  box-shadow: 0 16px 30px rgba(159, 18, 57, 0.28);
 }
 
 @media (max-width: 1024px) {

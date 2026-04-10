@@ -407,6 +407,20 @@ const StudentNavbar = () => {
 
   const feedbackCount = writingFeedbackCount + readingFeedbackCount + listeningFeedbackCount + cambridgeFeedbackCount;
   const totalNotifications = feedbackCount;
+  const pathname = String(location.pathname || "").toLowerCase();
+  const platformParam = pathname.startsWith("/select-test")
+    ? new URLSearchParams(location.search || "").get("platform")
+    : null;
+  const isIxCurrent =
+    (pathname.startsWith("/select-test") && platformParam !== "orange") ||
+    pathname.startsWith("/reading/") ||
+    pathname.startsWith("/listening/") ||
+    pathname.startsWith("/writing-test");
+  const isOrangeCurrent =
+    (pathname.startsWith("/select-test") && platformParam === "orange") ||
+    pathname.startsWith("/cambridge/") ||
+    pathname.startsWith("/pet-writing");
+  const isFeedbackCurrent = pathname.startsWith("/my-feedback");
 
   const mobileDrawerTabs = [
     { key: "overview", label: "Overview" },
@@ -691,18 +705,18 @@ const StudentNavbar = () => {
             className="studentNavbar__logo"
           />
         </Link>
-        <Link to={ixHubPath} className="studentNavbar__link" title="IX">
+        <Link to={ixHubPath} className={`studentNavbar__link${isIxCurrent ? " studentNavbar__link--active" : ""}`} title="IX">
           <span className="studentNavbar__icon" aria-hidden="true"><NavIcon name="tests" /></span>
           <span className="studentNavbar__label">IX</span>
         </Link>
-        <Link to={orangeHubPath} className="studentNavbar__link" title="Orange">
+        <Link to={orangeHubPath} className={`studentNavbar__link${isOrangeCurrent ? " studentNavbar__link--active" : ""}`} title="Orange">
           <span className="studentNavbar__icon" aria-hidden="true"><NavIcon name="cambridge" /></span>
           <span className="studentNavbar__label">Orange</span>
         </Link>
 
         <button
           type="button"
-          className={`studentNavbar__notificationPill${totalNotifications > 0 ? " studentNavbar__notificationPill--active" : ""}`}
+          className={`studentNavbar__notificationPill${totalNotifications > 0 ? " studentNavbar__notificationPill--active" : ""}${isFeedbackCurrent ? " studentNavbar__notificationPill--current" : ""}`}
           onClick={handleNotificationClick}
           title="My Feedback and notifications"
         >

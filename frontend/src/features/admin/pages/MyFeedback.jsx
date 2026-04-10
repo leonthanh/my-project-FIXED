@@ -3,6 +3,9 @@ import StudentNavbar from "../../../shared/components/StudentNavbar";
 import { apiPath, hostPath } from "../../../shared/utils/api";
 import { useTheme } from "../../../shared/contexts/ThemeContext";
 import SubmissionTypeTabs from "../components/SubmissionTypeTabs";
+import LineIcon from "../../../shared/components/LineIcon.jsx";
+
+import "./MyFeedback.css";
 
 const MyFeedback = () => {
   const { isDarkMode } = useTheme();
@@ -34,6 +37,30 @@ const MyFeedback = () => {
             danger: "#d32f2f",
           },
     [isDarkMode]
+  );
+  const themeVars = useMemo(
+    () => ({
+      "--mf-page-bg": isDarkMode
+        ? "radial-gradient(circle at top left, rgba(37, 99, 235, 0.14), transparent 32%), linear-gradient(180deg, #081120 0%, #0f172a 100%)"
+        : "radial-gradient(circle at top left, rgba(191, 219, 254, 0.68), transparent 32%), linear-gradient(180deg, #f7faff 0%, #eef4ff 100%)",
+      "--mf-shell-bg": isDarkMode ? "rgba(10, 18, 32, 0.9)" : "rgba(255, 255, 255, 0.94)",
+      "--mf-panel-bg": isDarkMode ? "rgba(15, 23, 42, 0.92)" : "rgba(255, 255, 255, 0.98)",
+      "--mf-soft-bg": isDarkMode ? "#111b33" : "#f4f7fb",
+      "--mf-soft-strong": isDarkMode ? "#16213e" : "#eef4ff",
+      "--mf-input-bg": isDarkMode ? "#0f172a" : "#ffffff",
+      "--mf-border": colors.border,
+      "--mf-text": colors.text,
+      "--mf-muted": colors.muted,
+      "--mf-primary": colors.primary,
+      "--mf-success": colors.success,
+      "--mf-warning": colors.warning,
+      "--mf-danger": colors.danger,
+      "--mf-shadow": isDarkMode ? "0 24px 56px rgba(0, 0, 0, 0.34)" : "0 24px 56px rgba(15, 23, 42, 0.08)",
+      "--mf-card-shadow": isDarkMode ? "0 18px 36px rgba(0, 0, 0, 0.24)" : "0 14px 28px rgba(15, 23, 42, 0.06)",
+      "--mf-feedback-bg": isDarkMode ? "rgba(15, 42, 26, 0.78)" : "#eef9ee",
+      "--mf-feedback-border": isDarkMode ? "rgba(34, 197, 94, 0.24)" : "#c9ebcf",
+    }),
+    [colors, isDarkMode]
   );
   // Tab state
   const [activeTab, setActiveTab] = useState("writing");
@@ -420,19 +447,79 @@ const MyFeedback = () => {
     return date.toLocaleString("en-GB");
   };
 
+  const getAccuracyColor = (value) => {
+    if (value >= 70) return colors.success;
+    if (value >= 50) return colors.warning;
+    return colors.danger;
+  };
+
+  const renderMetaGrid = (items) => (
+    <div className="myFeedbackMetaGrid">
+      {items
+        .filter((item) => item && item.value != null && String(item.value).trim() !== "")
+        .map((item) => (
+          <div key={`${item.label}-${item.value}`} className="myFeedbackMetaItem">
+            <span className="myFeedbackMetaLabel">{item.label}</span>
+            <span className="myFeedbackMetaValue">{item.value}</span>
+          </div>
+        ))}
+    </div>
+  );
+
+  const renderStats = (stats) => (
+    <div className="myFeedbackStats">
+      {stats.map((stat) => (
+        <div key={stat.label} className="myFeedbackStat">
+          <div className="myFeedbackStatValue" style={{ color: stat.color || colors.primary }}>
+            {stat.value}
+          </div>
+          <div className="myFeedbackStatLabel">{stat.label}</div>
+        </div>
+      ))}
+    </div>
+  );
+
+  const renderFeedbackBlock = (submission, emptyText) => (
+    <section className="myFeedbackFeedbackSection">
+      <div className="myFeedbackFeedbackHeader">
+        <span className="myFeedbackSectionEyebrow">Teacher feedback</span>
+        <span className="myFeedbackReviewerChip">{submission.feedbackBy || "Not available"}</span>
+      </div>
+
+      {submission.feedback ? (
+        <div className="myFeedbackFeedbackBox">
+          <p className="myFeedbackFeedbackText">{submission.feedback}</p>
+          <p className="myFeedbackFeedbackMeta">
+            <strong>Reviewed at:</strong> {formatDateTime(submission.feedbackAt)}
+          </p>
+        </div>
+      ) : (
+        <p className="myFeedbackMuted myFeedbackMuted--italic">{emptyText}</p>
+      )}
+    </section>
+  );
+
+  const renderEssayPanel = (label, text) => {
+    const cleanText = String(text || "").trim();
+    const wordCount = cleanText ? cleanText.split(/\s+/).length : 0;
+
+    return (
+      <details className="myFeedbackDetails" open={wordCount > 0 && wordCount <= 35}>
+        <summary className="myFeedbackDetailsSummary">
+          <span>{label}</span>
+          <span className="myFeedbackDetailsHint">{wordCount > 0 ? `${wordCount} words` : "No response"}</span>
+        </summary>
+        <div className="myFeedbackEssayText">{cleanText || "No response submitted."}</div>
+      </details>
+    );
+  };
+
   return (
     <>
       <StudentNavbar />
-      <div style={{ background: colors.pageBg, minHeight: "100vh" }}>
-        <div
-          style={{
-            padding: "30px",
-            maxWidth: 1200,
-            margin: "0 auto",
-            color: colors.text,
-          }}
-        >
-          <h3>Feedback</h3>
+      <div className="myFeedbackPage" style={themeVars}>
+        <div className="myFeedbackShell">
+          <h3 className="myFeedbackTitle">Feedback</h3>
           <SubmissionTypeTabs
             title={null}
             items={feedbackTabs}
@@ -443,22 +530,9 @@ const MyFeedback = () => {
             showZeroBadge
           />
 
-          {/* Search Form */}
-          <div
-            style={{
-              background: colors.surfaceAlt,
-              padding: 20,
-              borderRadius: 8,
-              marginBottom: 20,
-              display: "grid",
-              gridTemplateColumns: "1fr 1fr 1fr auto",
-              gap: 15,
-              alignItems: "end",
-              border: `1px solid ${colors.border}`,
-            }}
-          >
-            <div>
-              <label style={{ display: "block", marginBottom: 5, fontWeight: "bold" }}>
+          <div className="myFeedbackFilters">
+            <div className="myFeedbackField">
+              <label className="myFeedbackFieldLabel">
                 Class Code:
               </label>
               <input
@@ -466,21 +540,12 @@ const MyFeedback = () => {
                 placeholder="Enter class code"
                 value={searchClassCode}
                 onChange={(e) => setSearchClassCode(e.target.value)}
-                style={{
-                  width: "100%",
-                  padding: 10,
-                  border: `1px solid ${colors.border}`,
-                  borderRadius: 6,
-                  fontSize: 14,
-                  boxSizing: "border-box",
-                  background: colors.surface,
-                  color: colors.text,
-                }}
+                className="myFeedbackInput"
               />
             </div>
 
-            <div>
-              <label style={{ display: "block", marginBottom: 5, fontWeight: "bold" }}>
+            <div className="myFeedbackField">
+              <label className="myFeedbackFieldLabel">
                 Test Teacher:
               </label>
               <input
@@ -488,21 +553,12 @@ const MyFeedback = () => {
                 placeholder="Enter teacher name"
                 value={searchTeacher}
                 onChange={(e) => setSearchTeacher(e.target.value)}
-                style={{
-                  width: "100%",
-                  padding: 10,
-                  border: `1px solid ${colors.border}`,
-                  borderRadius: 6,
-                  fontSize: 14,
-                  boxSizing: "border-box",
-                  background: colors.surface,
-                  color: colors.text,
-                }}
+                className="myFeedbackInput"
               />
             </div>
 
-            <div>
-              <label style={{ display: "block", marginBottom: 5, fontWeight: "bold" }}>
+            <div className="myFeedbackField">
+              <label className="myFeedbackFieldLabel">
                 Reviewed By:
               </label>
               <input
@@ -510,290 +566,138 @@ const MyFeedback = () => {
                 placeholder="Enter reviewer name"
                 value={searchFeedbackBy}
                 onChange={(e) => setSearchFeedbackBy(e.target.value)}
-                style={{
-                  width: "100%",
-                  padding: 10,
-                  border: `1px solid ${colors.border}`,
-                  borderRadius: 6,
-                  fontSize: 14,
-                  boxSizing: "border-box",
-                  background: colors.surface,
-                  color: colors.text,
-                }}
+                className="myFeedbackInput"
               />
             </div>
 
             <button
+              type="button"
               onClick={() => {
                 setSearchClassCode("");
                 setSearchTeacher("");
                 setSearchFeedbackBy("");
               }}
-              style={{
-                padding: "10px 20px",
-                backgroundColor: isDarkMode ? colors.primary : "#666",
-                color: "#fff",
-                border: "none",
-                borderRadius: 6,
-                cursor: "pointer",
-                fontSize: 14,
-                fontWeight: "bold",
-              }}
+              className="myFeedbackReset"
             >
               Reset
             </button>
           </div>
 
-          {/* Results count */}
-          <p style={{ color: colors.muted, marginBottom: 15 }}>
+          <p className="myFeedbackCount">
             Total: <strong>{currentSubmissions.length}</strong> {activeTabLabel}
             {(searchClassCode || searchTeacher || searchFeedbackBy) &&
               ` (filtered from ${totalSubmissionsForActiveTab})`}
           </p>
 
-          {loading && <p>Loading feedback...</p>}
+          {loading && <p className="myFeedbackState">Loading feedback...</p>}
 
           {!loading && currentSubmissions.length === 0 && (
-            <p style={{ color: colors.danger, fontWeight: "bold" }}>
+            <p className="myFeedbackState myFeedbackState--empty">
               {searchClassCode || searchTeacher || searchFeedbackBy
                 ? "No matching submissions found."
                 : `You have not submitted any ${activeTabEmptyLabel} yet.`}
             </p>
           )}
 
-        {/* Writing submissions list */}
-        {activeTab === "writing" && filteredWriting.map((sub, idx) => (
-          <div
-            key={sub.id || idx}
-            style={{
-              border: `1px solid ${colors.border}`,
-              borderRadius: 8,
-              padding: 20,
-              marginBottom: 20,
-              backgroundColor: colors.surface,
-            }}
-          >
-            <p>
-              <strong>Test:</strong> Writing {sub.WritingTest?.index || "?"} –{" "}
-              {sub.WritingTest?.classCode || "(Not specified)"} –{" "}
-              {sub.WritingTest?.teacherName || "(Not specified)"}
-            </p>
-            <p>
-              <strong>Submitted at:</strong>{" "}
-              {formatDateTime(sub.submittedAt || sub.createdAt)}
-            </p>
-            <p>
-              <strong>Time remaining:</strong>{" "}
-              {Number.isFinite(Number(sub.timeLeft)) ? `${Math.floor(Number(sub.timeLeft) / 60)} minutes` : "--"}
-            </p>
-
-            {sub.WritingTest?.task1Image && (
-              <div style={{ marginBottom: 10 }}>
-                <img
-                  src={hostPath(sub.WritingTest.task1Image)}
-                  alt="Task 1"
-                  style={{ maxWidth: "80%", borderRadius: 6 }}
-                />
-              </div>
-            )}
-
-            <h4>Task 1 Response:</h4>
-            <p style={{ whiteSpace: "pre-line" }}>{sub.task1}</p>
-
-            <h4>Task 2 Response:</h4>
-            <p style={{ whiteSpace: "pre-line" }}>{sub.task2}</p>
-
-            <h4 style={{ marginTop: 20 }}>
-              Teacher Feedback:{" "}
-              <span style={{ color: colors.primary, fontWeight: "bold" }}>
-                {sub.feedbackBy || "Unknown"}
-              </span>
-            </h4>
-            {sub.feedback ? (
-              <div
-                style={{
-                  background: isDarkMode ? "#0f2a1a" : "#e7f4e4",
-                  padding: 10,
-                  borderRadius: 6,
-                  border: `1px solid ${colors.border}`,
-                }}
-              >
-                {(sub.bandTask1 != null || sub.bandTask2 != null || sub.bandOverall != null) && (
-                  <div style={{ display: "flex", gap: 12, marginBottom: 10, flexWrap: "wrap" }}>
-                    {sub.bandTask1 != null && (
-                      <span style={{ background: colors.primary, color: "#fff", padding: "4px 10px", borderRadius: 6, fontWeight: "bold", fontSize: 14 }}>
-                        Task 1: {sub.bandTask1}
-                      </span>
-                    )}
-                    {sub.bandTask2 != null && (
-                      <span style={{ background: colors.primary, color: "#fff", padding: "4px 10px", borderRadius: 6, fontWeight: "bold", fontSize: 14 }}>
-                        Task 2: {sub.bandTask2}
-                      </span>
-                    )}
-                    {sub.bandOverall != null && (
-                      <span style={{ background: "#16a34a", color: "#fff", padding: "4px 10px", borderRadius: 6, fontWeight: "bold", fontSize: 14 }}>
-                        Overall: {sub.bandOverall}
-                      </span>
-                    )}
-                  </div>
-                )}
-                <p style={{ marginBottom: 8, whiteSpace: "pre-line" }}>{sub.feedback}</p>
-                <p style={{ fontSize: 14, color: colors.muted }}>
-                  <strong>Reviewed at:</strong>{" "}
-                  {formatDateTime(sub.feedbackAt)}
-                </p>
-              </div>
-            ) : (
-              <p style={{ fontStyle: "italic", color: colors.muted }}>No feedback yet.</p>
-            )}
-          </div>
-        ))}
-
-        {/* Reading submissions list */}
-        {activeTab === "reading" && filteredReading.map((sub, idx) => (
-          <div
-            key={sub.id || idx}
-            style={{
-              border: `1px solid ${colors.border}`,
-              borderRadius: 8,
-              padding: 20,
-              marginBottom: 20,
-              backgroundColor: colors.surface,
-            }}
-          >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-              <div>
-                <p>
-                  <strong>Test:</strong> Reading #{sub.testId} –{" "}
-                  {sub.ReadingTest?.classCode || "(Not specified)"} –{" "}
-                  {sub.ReadingTest?.teacherName || "(Not specified)"}
-                </p>
-                <p>
-                  <strong>Title:</strong> {sub.ReadingTest?.title || "N/A"}
-                </p>
-                <p>
-                  <strong>Submitted at:</strong>{" "}
-                  {formatDateTime(sub.createdAt)}
-                </p>
-              </div>
-              
-              {/* Score badge */}
-              <div style={{
-                padding: "12px 16px",
-                background: colors.surfaceAlt,
-                color: colors.text,
-                border: `1px solid ${colors.border}`,
-                borderRadius: 8,
-                textAlign: "center"
-              }}>
-                <div style={{ fontSize: 24, fontWeight: "bold" }}>
-                  {sub.band ? Number(sub.band).toFixed(1) : "N/A"}
+          {activeTab === "writing" && filteredWriting.map((sub, idx) => (
+            <article key={sub.id || idx} className="myFeedbackCard myFeedbackCard--writing">
+              <div className="myFeedbackCardHeader">
+                <div className="myFeedbackCardHeading">
+                  <span className="myFeedbackCardEyebrow">Writing submission</span>
+                  <h4 className="myFeedbackCardTitle">
+                    Writing {sub.WritingTest?.index || "?"} - {sub.WritingTest?.classCode || "(Not specified)"} - {sub.WritingTest?.teacherName || "(Not specified)"}
+                  </h4>
                 </div>
-                <div style={{ fontSize: 12 }}>Band Score</div>
-              </div>
-            </div>
-
-            {/* Score summary */}
-            <div style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(3, 1fr)",
-              gap: 15,
-              margin: "15px 0",
-              padding: 15,
-              background: colors.surfaceAlt,
-              color: colors.text,
-              borderRadius: 8
-            }}>
-              <div style={{ textAlign: "center" }}>
-                <div style={{ fontSize: 24, fontWeight: "bold", color: colors.primary }}>
-                  {sub.correct || 0}
+                <div className="myFeedbackScoreBadge">
+                  <strong>
+                    {sub.bandOverall != null
+                      ? Number(sub.bandOverall).toFixed(1)
+                      : Number.isFinite(Number(sub.timeLeft))
+                      ? Math.floor(Number(sub.timeLeft) / 60)
+                      : "--"}
+                  </strong>
+                  <span>{sub.bandOverall != null ? "overall" : "min left"}</span>
                 </div>
-                <div style={{ fontSize: 12, color: colors.muted }}>Correct</div>
               </div>
-              <div style={{ textAlign: "center" }}>
-                <div style={{ fontSize: 24, fontWeight: "bold", color: colors.primary }}>
-                  {sub.total || 0}
+
+              {renderMetaGrid([
+                { label: "Submitted", value: formatDateTime(sub.submittedAt || sub.createdAt) },
+                { label: "Teacher", value: sub.WritingTest?.teacherName || "(Not specified)" },
+                { label: "Class", value: sub.WritingTest?.classCode || "(Not specified)" },
+              ])}
+
+              {(sub.bandTask1 != null || sub.bandTask2 != null || sub.bandOverall != null) && (
+                <div className="myFeedbackBadgeRow">
+                  {sub.bandTask1 != null && <span className="myFeedbackMetricPill">Task 1: {sub.bandTask1}</span>}
+                  {sub.bandTask2 != null && <span className="myFeedbackMetricPill">Task 2: {sub.bandTask2}</span>}
+                  {sub.bandOverall != null && <span className="myFeedbackMetricPill myFeedbackMetricPill--success">Overall: {sub.bandOverall}</span>}
                 </div>
-                <div style={{ fontSize: 12, color: colors.muted }}>Total Questions</div>
-              </div>
-              <div style={{ textAlign: "center" }}>
-                <div style={{
-                  fontSize: 24,
-                  fontWeight: "bold",
-                  color: sub.scorePercentage >= 70
-                    ? colors.success
-                    : sub.scorePercentage >= 50
-                      ? colors.warning
-                      : colors.danger
-                }}>
-                  {sub.scorePercentage || 0}%
+              )}
+
+              {sub.WritingTest?.task1Image ? (
+                <div className="myFeedbackImageWrap">
+                  <img src={hostPath(sub.WritingTest.task1Image)} alt="Task 1" className="myFeedbackImage" />
                 </div>
-                <div style={{ fontSize: 12, color: colors.muted }}>Accuracy</div>
+              ) : null}
+
+              <div className="myFeedbackDetailsGrid">
+                {renderEssayPanel("Task 1 response", sub.task1)}
+                {renderEssayPanel("Task 2 response", sub.task2)}
               </div>
-            </div>
 
-            {/* Analysis button */}
-            <button
-              onClick={() => loadAnalysis(sub.id)}
-              disabled={loadingAnalysis}
-              style={{
-                padding: "10px 20px",
-                backgroundColor: isDarkMode ? colors.primary : "#4f46e5",
-                color: "white",
-                border: "none",
-                borderRadius: 6,
-                cursor: "pointer",
-                fontSize: 14,
-                marginBottom: 15
-              }}
-            >
-              View Detailed Analysis
-            </button>
+              {renderFeedbackBlock(sub, "No feedback yet.")}
+            </article>
+          ))}
 
-            {/* Teacher feedback */}
-            <h4 style={{ marginTop: 10 }}>
-              Teacher Feedback:{" "}
-              <span style={{ color: colors.primary, fontWeight: "bold" }}>
-                {sub.feedbackBy || "Not available"}
-              </span>
-            </h4>
-            {sub.feedback ? (
-              <div
-                style={{
-                  background: isDarkMode ? "#0f2a1a" : "#e7f4e4",
-                  padding: 10,
-                  borderRadius: 6,
-                  border: `1px solid ${colors.border}`,
-                }}
-              >
-                <p style={{ marginBottom: 8, whiteSpace: "pre-line" }}>{sub.feedback}</p>
-                <p style={{ fontSize: 14, color: colors.muted }}>
-                  <strong>Reviewed at:</strong>{" "}
-                  {formatDateTime(sub.feedbackAt)}
-                </p>
+          {activeTab === "reading" && filteredReading.map((sub, idx) => (
+            <article key={sub.id || idx} className="myFeedbackCard myFeedbackCard--reading">
+              <div className="myFeedbackCardHeader">
+                <div className="myFeedbackCardHeading">
+                  <span className="myFeedbackCardEyebrow">Reading submission</span>
+                  <h4 className="myFeedbackCardTitle">
+                    Reading #{sub.testId} - {sub.ReadingTest?.classCode || "(Not specified)"} - {sub.ReadingTest?.teacherName || "(Not specified)"}
+                  </h4>
+                </div>
+                <div className="myFeedbackScoreBadge">
+                  <strong>{sub.band ? Number(sub.band).toFixed(1) : "N/A"}</strong>
+                  <span>band score</span>
+                </div>
               </div>
-            ) : (
-              <p style={{ fontStyle: "italic", color: colors.muted }}>No teacher feedback yet.</p>
-            )}
 
-            {/* View details link */}
-            <div style={{ marginTop: 15 }}>
-              <a
-                href={`/reading-results/${sub.id}`}
-                style={{
-                  color: colors.primary,
-                  textDecoration: "underline",
-                  fontSize: 14
-                }}
-              >
-                View Answer Details
-              </a>
-            </div>
-          </div>
-        ))}
+              {renderMetaGrid([
+                { label: "Title", value: sub.ReadingTest?.title || "N/A" },
+                { label: "Submitted", value: formatDateTime(sub.createdAt) },
+                { label: "Teacher", value: sub.ReadingTest?.teacherName || "(Not specified)" },
+              ])}
 
-        {/* Listening submissions list */}
-        {activeTab === "listening" && filteredListening.map((sub, idx) => {
+              {renderStats([
+                { label: "Correct", value: sub.correct || 0, color: colors.primary },
+                { label: "Questions", value: sub.total || 0, color: colors.primary },
+                { label: "Accuracy", value: `${sub.scorePercentage || 0}%`, color: getAccuracyColor(Number(sub.scorePercentage) || 0) },
+              ])}
+
+              <div className="myFeedbackActionRow">
+                <button
+                  type="button"
+                  onClick={() => loadAnalysis(sub.id)}
+                  disabled={loadingAnalysis}
+                  className="myFeedbackActionButton"
+                >
+                  <LineIcon name="review" size={16} />
+                  <span>{loadingAnalysis ? "Loading analysis..." : "View Detailed Analysis"}</span>
+                </button>
+
+                <a href={`/reading-results/${sub.id}`} className="myFeedbackActionLink">
+                  <LineIcon name="eye" size={16} />
+                  <span>View Answer Details</span>
+                </a>
+              </div>
+
+              {renderFeedbackBlock(sub, "No teacher feedback yet.")}
+            </article>
+          ))}
+
+          {activeTab === "listening" && filteredListening.map((sub, idx) => {
           const correctCount = Number.isFinite(Number(sub.computedCorrect))
             ? Number(sub.computedCorrect)
             : Number(sub.correct) || 0;
@@ -805,215 +709,79 @@ const MyFeedback = () => {
             : Number(sub.scorePercentage) || 0;
 
           return (
-            <div
-              key={sub.id || idx}
-              style={{
-                border: `1px solid ${colors.border}`,
-                borderRadius: 8,
-                padding: 20,
-                marginBottom: 20,
-                backgroundColor: colors.surface,
-              }}
-            >
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                <div>
-                  <p>
-                    <strong>Test:</strong> Listening #{sub.testId} –{" "}
-                    {sub.ListeningTest?.classCode || "(Not specified)"} –{" "}
-                    {sub.ListeningTest?.teacherName || "(Not specified)"}
-                  </p>
-                  <p>
-                    <strong>Title:</strong> {sub.ListeningTest?.title || "N/A"}
-                  </p>
-                  <p>
-                    <strong>Submitted at:</strong>{" "}
-                    {formatDateTime(sub.createdAt)}
-                  </p>
+            <article key={sub.id || idx} className="myFeedbackCard myFeedbackCard--listening">
+              <div className="myFeedbackCardHeader">
+                <div className="myFeedbackCardHeading">
+                  <span className="myFeedbackCardEyebrow">Listening submission</span>
+                  <h4 className="myFeedbackCardTitle">
+                    Listening #{sub.testId} - {sub.ListeningTest?.classCode || "(Not specified)"} - {sub.ListeningTest?.teacherName || "(Not specified)"}
+                  </h4>
                 </div>
-
-                <div style={{
-                  padding: "12px 16px",
-                  background: colors.surfaceAlt,
-                  color: colors.text,
-                  border: `1px solid ${colors.border}`,
-                  borderRadius: 8,
-                  textAlign: "center"
-                }}>
-                  <div style={{ fontSize: 24, fontWeight: "bold" }}>
+                <div className="myFeedbackScoreBadge">
+                  <strong>
                     {sub.band != null && Number.isFinite(Number(sub.band)) ? Number(sub.band).toFixed(1) : "N/A"}
-                  </div>
-                  <div style={{ fontSize: 12 }}>Band Score</div>
+                  </strong>
+                  <span>band score</span>
                 </div>
               </div>
 
-              <div style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(3, 1fr)",
-                gap: 15,
-                margin: "15px 0",
-                padding: 15,
-                background: colors.surfaceAlt,
-                color: colors.text,
-                borderRadius: 8
-              }}>
-                <div style={{ textAlign: "center" }}>
-                  <div style={{ fontSize: 24, fontWeight: "bold", color: colors.primary }}>
-                    {correctCount}
-                  </div>
-                  <div style={{ fontSize: 12, color: colors.muted }}>Correct</div>
-                </div>
-                <div style={{ textAlign: "center" }}>
-                  <div style={{ fontSize: 24, fontWeight: "bold", color: colors.primary }}>
-                    {totalCount}
-                  </div>
-                  <div style={{ fontSize: 12, color: colors.muted }}>Total Questions</div>
-                </div>
-                <div style={{ textAlign: "center" }}>
-                  <div style={{
-                    fontSize: 24,
-                    fontWeight: "bold",
-                    color: accuracy >= 70
-                      ? colors.success
-                      : accuracy >= 50
-                        ? colors.warning
-                        : colors.danger
-                  }}>
-                    {accuracy}%
-                  </div>
-                  <div style={{ fontSize: 12, color: colors.muted }}>Accuracy</div>
-                </div>
-              </div>
+              {renderMetaGrid([
+                { label: "Title", value: sub.ListeningTest?.title || "N/A" },
+                { label: "Submitted", value: formatDateTime(sub.createdAt) },
+                { label: "Teacher", value: sub.ListeningTest?.teacherName || "(Not specified)" },
+              ])}
 
-              <h4 style={{ marginTop: 10 }}>
-                Teacher Feedback:{" "}
-                <span style={{ color: colors.primary, fontWeight: "bold" }}>
-                  {sub.feedbackBy || "Not available"}
-                </span>
-              </h4>
-              {sub.feedback ? (
-                <div
-                  style={{
-                    background: isDarkMode ? "#0f2a1a" : "#e7f4e4",
-                    padding: 10,
-                    borderRadius: 6,
-                    border: `1px solid ${colors.border}`,
-                  }}
-                >
-                  <p style={{ marginBottom: 8, whiteSpace: "pre-line" }}>{sub.feedback}</p>
-                  <p style={{ fontSize: 14, color: colors.muted }}>
-                    <strong>Reviewed at:</strong>{" "}
-                    {formatDateTime(sub.feedbackAt)}
-                  </p>
-                </div>
-              ) : (
-                <p style={{ fontStyle: "italic", color: colors.muted }}>No teacher feedback yet.</p>
-              )}
+              {renderStats([
+                { label: "Correct", value: correctCount, color: colors.primary },
+                { label: "Questions", value: totalCount, color: colors.primary },
+                { label: "Accuracy", value: `${accuracy}%`, color: getAccuracyColor(accuracy) },
+              ])}
 
-              <div style={{ marginTop: 15 }}>
-                <a
-                  href={`/listening-results/${sub.id}`}
-                  style={{
-                    color: colors.primary,
-                    textDecoration: "underline",
-                    fontSize: 14
-                  }}
-                >
-                  View Result Details
+              <div className="myFeedbackActionRow">
+                <a href={`/listening-results/${sub.id}`} className="myFeedbackActionLink">
+                  <LineIcon name="eye" size={16} />
+                  <span>View Result Details</span>
                 </a>
               </div>
-            </div>
+
+              {renderFeedbackBlock(sub, "No teacher feedback yet.")}
+            </article>
           );
         })}
 
-        {/* Cambridge submissions list */}
         {activeTab === "cambridge" && filteredCambridge.map((sub, idx) => (
-          <div
-            key={sub.id || idx}
-            style={{
-              border: `1px solid ${colors.border}`,
-              borderRadius: 8,
-              padding: 20,
-              marginBottom: 20,
-              backgroundColor: colors.surface,
-            }}
-          >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-              <div>
-                <p>
-                  <strong>Test Type:</strong> {sub.testType || "Orange"}
-                </p>
-                <p>
-                  <strong>Title:</strong> {sub.testTitle || "N/A"}
-                </p>
-                <p>
-                  <strong>Class:</strong> {sub.classCode || "(Not specified)"}
-                </p>
-                <p>
-                  <strong>Test Teacher:</strong> {sub.teacherName || "(Not specified)"}
-                </p>
-                <p>
-                  <strong>Submitted at:</strong>{" "}
-                  {formatDateTime(sub.submittedAt || sub.createdAt)}
-                </p>
+          <article key={sub.id || idx} className="myFeedbackCard myFeedbackCard--cambridge">
+            <div className="myFeedbackCardHeader">
+              <div className="myFeedbackCardHeading">
+                <span className="myFeedbackCardEyebrow">Orange submission</span>
+                <h4 className="myFeedbackCardTitle">{sub.testTitle || sub.title || "Orange result"}</h4>
               </div>
-
-              <div style={{
-                padding: "12px 16px",
-                background: colors.surfaceAlt,
-                color: colors.text,
-                border: `1px solid ${colors.border}`,
-                borderRadius: 8,
-                textAlign: "center"
-              }}>
-                <div style={{ fontSize: 20, fontWeight: "bold" }}>
+              <div className="myFeedbackScoreBadge">
+                <strong>
                   {typeof sub.score === "number" && typeof sub.totalQuestions === "number"
                     ? `${sub.score}/${sub.totalQuestions}`
                     : "--"}
-                </div>
-                <div style={{ fontSize: 12 }}>Score</div>
+                </strong>
+                <span>score</span>
               </div>
             </div>
 
-            {/* Teacher feedback */}
-            <h4 style={{ marginTop: 10 }}>
-              Teacher Feedback:{" "}
-              <span style={{ color: colors.primary, fontWeight: "bold" }}>
-                {sub.feedbackBy || "Not available"}
-              </span>
-            </h4>
-            {sub.feedback ? (
-              <div
-                style={{
-                  background: isDarkMode ? "#0f2a1a" : "#e7f4e4",
-                  padding: 10,
-                  borderRadius: 6,
-                  border: `1px solid ${colors.border}`,
-                }}
-              >
-                <p style={{ marginBottom: 8, whiteSpace: "pre-line" }}>{sub.feedback}</p>
-                <p style={{ fontSize: 14, color: colors.muted }}>
-                  <strong>Reviewed at:</strong>{" "}
-                  {formatDateTime(sub.feedbackAt)}
-                </p>
-              </div>
-            ) : (
-              <p style={{ fontStyle: "italic", color: colors.muted }}>No teacher feedback yet.</p>
-            )}
+            {renderMetaGrid([
+              { label: "Test type", value: sub.testType || "Orange" },
+              { label: "Class", value: sub.classCode || "(Not specified)" },
+              { label: "Teacher", value: sub.teacherName || "(Not specified)" },
+              { label: "Submitted", value: formatDateTime(sub.submittedAt || sub.createdAt) },
+            ])}
 
-            {/* View details link */}
-            <div style={{ marginTop: 15 }}>
-              <a
-                href={`/cambridge/result/${sub.id}`}
-                style={{
-                  color: colors.primary,
-                  textDecoration: "underline",
-                  fontSize: 14
-                }}
-              >
-                View Full Result
+            <div className="myFeedbackActionRow">
+              <a href={`/cambridge/result/${sub.id}`} className="myFeedbackActionLink">
+                <LineIcon name="eye" size={16} />
+                <span>View Full Result</span>
               </a>
             </div>
-          </div>
+
+            {renderFeedbackBlock(sub, "No teacher feedback yet.")}
+          </article>
         ))}
         </div>
       </div>
