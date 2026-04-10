@@ -5,6 +5,11 @@ import LineIcon from "../../../shared/components/LineIcon";
 import { useTheme } from "../../../shared/contexts/ThemeContext";
 import { apiPath, authFetch } from "../../../shared/utils/api";
 import AttemptExtensionControls from "../components/AttemptExtensionControls";
+import {
+  ExpandableSubmissionList,
+  SubmissionStatCards,
+  getSubmissionTone,
+} from "../components/SubmissionCardList";
 import SubmissionFilterPanel from "../components/SubmissionFilterPanel";
 import SubmissionTypeTabs from "../components/SubmissionTypeTabs";
 import { generateDetailsFromSections } from "../../listening/pages/ListeningResults";
@@ -94,6 +99,7 @@ const AdminListeningSubmissions = () => {
   const [statusTab, setStatusTab] = useState("all");
   const [sortOrder, setSortOrder] = useState("newest");
   const [extendingId, setExtendingId] = useState(null);
+  const [expandedItems, setExpandedItems] = useState(new Set());
 
   useEffect(() => {
     const fetchSubs = async () => {
@@ -359,6 +365,18 @@ const AdminListeningSubmissions = () => {
     setSortOrder("newest");
   };
 
+  const toggleExpand = (submissionId) => {
+    setExpandedItems((prev) => {
+      const next = new Set(prev);
+      if (next.has(submissionId)) next.delete(submissionId);
+      else next.add(submissionId);
+      return next;
+    });
+  };
+
+  const pendingCount = subs.filter((submission) => !hasReview(submission)).length;
+  const reviewedCount = subs.filter((submission) => hasReview(submission)).length;
+
   const clearDeepLinkParams = () => {
     if (!searchParams.get("submissionId") && !searchParams.get("action")) {
       return;
@@ -532,6 +550,32 @@ const AdminListeningSubmissions = () => {
       <div style={{ padding: 24, maxWidth: "100%", width: "100%", margin: "0 auto" }} className="admin-page admin-submission-page">
         <SubmissionTypeTabs activeKey="listening" />
 
+        <SubmissionStatCards
+          stats={[
+            {
+              label: "Total",
+              count: subs.length,
+              bg: "#eff6ff",
+              color: "#1d4ed8",
+              border: "#bfdbfe",
+            },
+            {
+              label: "Pending",
+              count: pendingCount,
+              bg: "#fffbeb",
+              color: "#92400e",
+              border: "#fde68a",
+            },
+            {
+              label: "Reviewed",
+              count: reviewedCount,
+              bg: "#f0fdf4",
+              color: "#166534",
+              border: "#bbf7d0",
+            },
+          ]}
+        />
+
         <SubmissionFilterPanel
           fields={[
             {
@@ -580,6 +624,10 @@ const AdminListeningSubmissions = () => {
           summaryLabel="submissions"
         />
 
+        <p style={{ fontSize: 13, color: isDarkMode ? "#94a3b8" : "#6b7280", marginBottom: 12 }}>
+          Click a row to view the score summary, feedback, and actions.
+        </p>
+
         {loading && (
           <p style={statusMessageStyle}>
             <InlineIcon name="loading" size={16} />
@@ -594,143 +642,153 @@ const AdminListeningSubmissions = () => {
         )}
 
         {!loading && filteredSubs.length > 0 && (
-          <div className="admin-table-wrap">
-            <table className="admin-table" style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead>
-              <tr style={{ background: "#0e276f", color: "white" }}>
-                <th style={cellStyle}>#</th>
-                <th style={cellStyle}>Class Code</th>
-                <th style={cellStyle}>Teacher</th>
-                <th style={cellStyle}>Student</th>
-                <th style={cellStyle}>Phone</th>
-                <th style={cellStyle}>Score</th>
-                <th style={cellStyle}>Band</th>
-                <th style={cellStyle}>Feedback</th>
-                <th style={cellStyle}>Submitted At</th>
-                <th style={cellStyle}>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredSubs.map((s, idx) => {
-                const isHighlighted = String(selectedSubmission?.id || "") === String(s.id);
+          <ExpandableSubmissionList
+            items={filteredSubs}
+            expandedItems={expandedItems}
+            onToggle={toggleExpand}
+            selectedId={selectedSubmission?.id}
+            getItemDomId={(item) => `listening-submission-row-${item.id}`}
+            getTone={(submission) =>
+              getSubmissionTone(
+                submission.finished === false
+                  ? "active"
+                  : hasReview(submission)
+                  ? "reviewed"
+                  : "pending",
+                isDarkMode
+              )
+            }
+            renderHeader={({ item: submission, index, tone }) => {
+              const isDone = hasReview(submission);
+              const isInProgress = submission.finished === false;
+              const timingMeta = isInProgress
+                ? getAttemptTimingMeta(submission.expiresAt)
+                : null;
+              const classCode =
+                submission.ListeningTest?.classCode || submission.classCode || "N/A";
+              const teacherName =
+                submission.ListeningTest?.teacherName || submission.teacherName || "N/A";
+              const studentName = submission.userName || submission.User?.name || "N/A";
+              const phone = submission.User?.phone || submission.userPhone || "N/A";
+              const title =
+                submission.ListeningTest?.title || `Listening #${submission.testId || submission.id}`;
+              const displayCorrect = Number.isFinite(Number(submission.computedCorrect))
+                ? Number(submission.computedCorrect)
+                : Number(submission.correct) || 0;
+              const displayTotal = submission.computedTotal || submission.total || 40;
+              const displayPct =
+                submission.computedPercentage != null
+                  ? Number(submission.computedPercentage)
+                  : displayTotal
+                  ? Math.round((displayCorrect / displayTotal) * 100)
+                  : 0;
 
-                return (
-                <tr
-                  key={s.id}
-                  id={`listening-submission-row-${s.id}`}
-                  style={getSubmissionRowStyle(idx, isHighlighted, isDarkMode)}
-                >
-                  {(() => {
-                    const timingMeta = s.finished === false ? getAttemptTimingMeta(s.expiresAt) : null;
-                    return (
-                      <>
-                  <td style={cellStyle}>{idx + 1}</td>
-                  <td style={cellStyle}>
-                    {s.ListeningTest?.classCode || s.classCode || "N/A"}
-                  </td>
-                  <td style={cellStyle}>
-                    {s.ListeningTest?.teacherName || s.teacherName || "N/A"}
-                  </td>
-                  <td style={cellStyle}>{s.userName || "N/A"}</td>
-                  <td style={cellStyle}>{s.User?.phone || s.userPhone || "N/A"}</td>
-                  <td style={cellStyle}>
-                    {(() => {
-                      const displayCorrect = Number.isFinite(Number(s.computedCorrect)) ? s.computedCorrect : (Number(s.correct) || 0);
-                      const displayTotal = s.computedTotal || s.total || 40;
-                      const displayPct = s.computedPercentage != null ? Number(s.computedPercentage) : (displayTotal ? Math.round((displayCorrect / displayTotal) * 100) : 0);
-                      return (
-                        <>
-                          <span style={{ fontWeight: "bold" }}>
-                            {displayCorrect}/{displayTotal}
-                          </span>
-                          <span style={{ color: "#666", fontSize: 12 }}>
-                            {" "}({displayPct}%)
-                          </span>
-                        </>
-                      );
-                    })()}
-                  </td>
-                  <td style={cellStyle}>
-                    {(() => {
-                      // Prefer band computed from authoritative computedCorrect when available
-                      const displayCorrect = Number.isFinite(Number(s.computedCorrect)) ? Number(s.computedCorrect) : (Number(s.correct) || null);
-                      let bandVal = null;
-                      if (Number.isFinite(displayCorrect)) {
-                        // Use computed correct (reflects any rescore) to derive band
-                        bandVal = bandFromCorrect(displayCorrect);
-                      } else if (s.band != null && Number.isFinite(Number(s.band))) {
-                        // Fallback to stored band if computed correct not available
-                        bandVal = Number(s.band);
-                      }
+              return (
+                <>
+                  <span style={{ fontSize: 12, color: tone.subtleText, minWidth: 28 }}>
+                    #{index + 1}
+                  </span>
+                  <span
+                    style={{
+                      fontSize: 11,
+                      fontWeight: 700,
+                      padding: "2px 8px",
+                      borderRadius: 10,
+                      whiteSpace: "nowrap",
+                      background: tone.chipBg,
+                      color: tone.chipColor,
+                    }}
+                  >
+                    {isInProgress ? "In progress" : isDone ? "Reviewed" : "Pending"}
+                  </span>
+                  <span style={{ fontWeight: 600, fontSize: 14, minWidth: 120, color: tone.primaryText }}>
+                    {studentName}
+                  </span>
+                  <span style={{ fontSize: 13, color: tone.mutedText, minWidth: 110 }}>
+                    {phone}
+                  </span>
+                  <span style={{ fontSize: 13, color: tone.secondaryText, flex: 1, minWidth: 220 }}>
+                    {[title, classCode !== "N/A" ? classCode : null, teacherName !== "N/A" ? teacherName : null].filter(Boolean).join(" - ")}
+                  </span>
+                  <span
+                    style={{
+                      padding: "3px 8px",
+                      borderRadius: 999,
+                      background: tone.panelBg,
+                      color: tone.primaryText,
+                      fontWeight: 700,
+                      fontSize: 12,
+                    }}
+                  >
+                    {displayCorrect}/{displayTotal} ({displayPct}%)
+                  </span>
+                  <span style={{ fontSize: 12, color: tone.subtleText, whiteSpace: "nowrap" }}>
+                    {isInProgress && timingMeta
+                      ? `${timingMeta.label} • ${formatAttemptTimestamp(submission.lastSavedAt || submission.updatedAt || submission.createdAt)}`
+                      : formatAttemptTimestamp(submission.createdAt)}
+                  </span>
+                </>
+              );
+            }}
+            renderExpanded={({ item: submission, tone }) => {
+              const isDone = hasReview(submission);
+              const isInProgress = submission.finished === false;
+              const timingMeta = isInProgress
+                ? getAttemptTimingMeta(submission.expiresAt)
+                : null;
+              const classCode =
+                submission.ListeningTest?.classCode || submission.classCode || "N/A";
+              const teacherName =
+                submission.ListeningTest?.teacherName || submission.teacherName || "N/A";
+              const studentName = submission.userName || submission.User?.name || "N/A";
+              const phone = submission.User?.phone || submission.userPhone || "N/A";
+              const displayCorrect = Number.isFinite(Number(submission.computedCorrect))
+                ? Number(submission.computedCorrect)
+                : Number(submission.correct) || 0;
+              const displayTotal = submission.computedTotal || submission.total || 40;
+              const displayPct =
+                submission.computedPercentage != null
+                  ? Number(submission.computedPercentage)
+                  : displayTotal
+                  ? Math.round((displayCorrect / displayTotal) * 100)
+                  : 0;
+              let bandVal = null;
+              if (Number.isFinite(displayCorrect)) {
+                bandVal = bandFromCorrect(displayCorrect);
+              } else if (
+                submission.band != null &&
+                Number.isFinite(Number(submission.band))
+              ) {
+                bandVal = Number(submission.band);
+              }
 
-                      return (
-                        <span
-                          style={{
-                            padding: "4px 8px",
-                            background: "#111827",
-                            color: "#fff",
-                            borderRadius: 4,
-                            fontWeight: "bold",
-                          }}
-                        >
-                          {bandVal != null ? Number(bandVal).toFixed(1) : "N/A"}
+              return (
+                <>
+                  {isInProgress && (
+                    <div
+                      style={{
+                        background: tone.calloutBg,
+                        border: `1px solid ${tone.calloutBorder}`,
+                        borderRadius: 7,
+                        padding: 12,
+                        marginTop: 12,
+                        color: tone.calloutText,
+                        fontSize: 13,
+                      }}
+                    >
+                      This attempt is still open. The student has not submitted it yet.
+                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginTop: 10 }}>
+                        {timingMeta ? (
+                          <span style={{ fontWeight: 700, color: timingMeta.color }}>
+                            {timingMeta.label}
+                          </span>
+                        ) : null}
+                        <span style={{ color: tone.secondaryText }}>
+                          Saved: {formatAttemptTimestamp(submission.lastSavedAt || submission.updatedAt || submission.createdAt)}
                         </span>
-                      );
-                    })()}
-                  </td>
-                  <td style={cellStyle}>
-                    {s.feedback ? (
-                      <span style={feedbackStateStyle("#16a34a")}>
-                        <InlineIcon name="correct" size={14} />
-                        {s.feedbackBy || "Reviewed"}
-                      </span>
-                    ) : (
-                      <span style={feedbackStateStyle("#dc2626")}>
-                        <InlineIcon name="error" size={14} />
-                        Pending
-                      </span>
-                    )}
-                  </td>
-                  <td style={cellStyle}>
-                    {s.finished === false ? (
-                      <div>
-                        <div style={inProgressStyle}>
-                          <InlineIcon name="clock" size={14} />
-                          In progress
-                        </div>
-                        <div style={{ fontSize: 12, color: timingMeta?.color || "#64748b" }}>
-                          {timingMeta?.label || "No deadline yet"}
-                        </div>
-                        <div style={{ fontSize: 11, color: "#64748b" }}>
-                          Saved: {formatAttemptTimestamp(s.lastSavedAt || s.updatedAt || s.createdAt)}
-                        </div>
-                      </div>
-                    ) : (
-                      formatAttemptTimestamp(s.createdAt)
-                    )}
-                  </td>
-                  <td style={cellStyle}>
-                    <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }} className="admin-action-buttons">
-                      <button
-                        onClick={() => navigate(`/listening-results/${s.id}`)}
-                        style={actionBtn}
-                        title="View details"
-                      >
-                        <InlineIcon name="eye" size={14} />
-                        Details
-                      </button>
-                      <button
-                        onClick={() => openFeedbackModal(s)}
-                        style={{ ...actionBtn, background: "#f59e0b" }}
-                        title="Open feedback"
-                      >
-                        <InlineIcon name="feedback" size={14} />
-                        Feedback
-                      </button>
-                      {s.finished === false && (
                         <AttemptExtensionControls
-                          isLoading={extendingId === s.id}
-                          onExtend={(minutes) => handleExtendTime(s, minutes)}
+                          isLoading={extendingId === submission.id}
+                          onExtend={(minutes) => handleExtendTime(submission, minutes)}
                           buttonStyle={{
                             ...actionBtn,
                             background: "#0284c7",
@@ -740,17 +798,140 @@ const AdminListeningSubmissions = () => {
                             background: "#0369a1",
                           }}
                         />
-                      )}
+                      </div>
                     </div>
-                  </td>
-                      </>
-                    );
-                  })()}
-                </tr>
-              )})}
-            </tbody>
-            </table>
-          </div>
+                  )}
+
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))",
+                      gap: 12,
+                      marginTop: 14,
+                    }}
+                  >
+                    {[
+                      { label: "Correct", value: displayCorrect, color: "#1d4ed8" },
+                      { label: "Questions", value: displayTotal, color: "#1d4ed8" },
+                      {
+                        label: "Accuracy",
+                        value: `${displayPct}%`,
+                        color:
+                          displayPct >= 70
+                            ? "#16a34a"
+                            : displayPct >= 50
+                            ? "#ca8a04"
+                            : "#dc2626",
+                      },
+                      {
+                        label: "Band",
+                        value: bandVal != null ? Number(bandVal).toFixed(1) : "N/A",
+                        color: tone.primaryText,
+                      },
+                    ].map((stat) => (
+                      <div
+                        key={stat.label}
+                        style={{
+                          background: tone.panelBg,
+                          borderRadius: 7,
+                          padding: 12,
+                          border: `1px solid ${tone.panelBorder}`,
+                          textAlign: "center",
+                        }}
+                      >
+                        <div style={{ fontSize: 24, fontWeight: 700, color: stat.color }}>
+                          {stat.value}
+                        </div>
+                        <div style={{ fontSize: 12, color: tone.mutedText }}>
+                          {stat.label}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+                      gap: 12,
+                      marginTop: 12,
+                    }}
+                  >
+                    {[
+                      { label: "Class Code", value: classCode },
+                      { label: "Teacher", value: teacherName },
+                      { label: "Student", value: studentName },
+                      { label: "Phone", value: phone },
+                      { label: "Submitted", value: formatAttemptTimestamp(submission.createdAt) },
+                      {
+                        label: "Feedback",
+                        value: submission.feedbackBy || (isDone ? "Reviewed" : "Pending"),
+                      },
+                    ].map((entry) => (
+                      <div
+                        key={entry.label}
+                        style={{
+                          background: tone.panelBg,
+                          borderRadius: 7,
+                          padding: 12,
+                          border: `1px solid ${tone.panelBorder}`,
+                        }}
+                      >
+                        <div style={{ fontSize: 12, fontWeight: 700, color: tone.mutedText, marginBottom: 4 }}>
+                          {entry.label}
+                        </div>
+                        <div style={{ fontSize: 14, color: tone.primaryText }}>
+                          {entry.value}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 12 }} className="admin-action-buttons">
+                    <button
+                      onClick={() => navigate(`/listening-results/${submission.id}`)}
+                      style={actionBtn}
+                      title="View details"
+                    >
+                      <InlineIcon name="eye" size={14} />
+                      Details
+                    </button>
+                    <button
+                      onClick={() => openFeedbackModal(submission)}
+                      style={{ ...actionBtn, background: submission.feedback ? "#16a34a" : "#ca8a04" }}
+                      title="Open feedback"
+                    >
+                      <InlineIcon name="feedback" size={14} />
+                      Feedback
+                    </button>
+                  </div>
+
+                  {submission.feedback ? (
+                    <div
+                      style={{
+                        background: isDarkMode ? "rgba(22, 163, 74, 0.12)" : "#f0fdf4",
+                        border: `1px solid ${isDarkMode ? "rgba(34, 197, 94, 0.28)" : "#bbf7d0"}`,
+                        borderRadius: 7,
+                        padding: 12,
+                        marginTop: 12,
+                      }}
+                    >
+                      <p style={{ margin: "0 0 6px", fontSize: 13, color: isDarkMode ? "#bbf7d0" : "#166534" }}>
+                        <strong>Reviewed</strong> at {formatAttemptTimestamp(submission.feedbackAt || submission.updatedAt)} by <strong>{submission.feedbackBy || "Reviewed"}</strong>
+                      </p>
+                      <p style={{ margin: 0, whiteSpace: "pre-line", fontSize: 14, color: tone.primaryText }}>
+                        {submission.feedback}
+                      </p>
+                    </div>
+                  ) : (
+                    <p style={{ margin: "12px 0 0", color: tone.mutedText, fontSize: 13 }}>
+                      No teacher feedback yet.
+                    </p>
+                  )}
+                </>
+              );
+            }}
+          />
         )}
 
         {showFeedbackModal && selectedSubmission && (

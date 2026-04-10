@@ -516,7 +516,7 @@
 }
 
 .select-test-subtab.select-test-subtab--writing.active {
-  background: #7c3aed;
+  background: #6219e0;
   border-color: #7c3aed;
   color: #fff;
 }
@@ -1987,67 +1987,67 @@ body.dark-mode .select-test-edit--orange {
 }
 
 .select-test-subtab.select-test-subtab--writing.active {
-  background: linear-gradient(135deg, #a78bfa 0%, #7c3aed 100%);
+  background: linear-gradient(135deg, #8d69f8 0%, #5706e2 100%);
   border-color: #8b5cf6;
   color: #ffffff;
 }
 
 .select-test-subtab.select-test-subtab--reading.active {
-  background: linear-gradient(135deg, #60a5fa 0%, #2563eb 100%);
+  background: linear-gradient(135deg, #4e99f5 0%, #064de6 100%);
   border-color: #3b82f6;
   color: #ffffff;
 }
 
 .select-test-subtab.select-test-subtab--listening.active {
-  background: linear-gradient(135deg, #4ade80 0%, #16a34a 100%);
+  background: linear-gradient(135deg, #49e783 0%, #03c54a 100%);
   border-color: #22c55e;
   color: #ffffff;
 }
 
 .select-test-shell .cambridge-type-btn.cambridge-type-btn--ket.cambridge-type-btn--active {
-  background: linear-gradient(135deg, #60a5fa 0%, #2563eb 100%);
+  background: linear-gradient(135deg, #4290f0 0%, #044be6 100%);
   border-color: #3b82f6;
   color: #ffffff;
 }
 
 .select-test-shell .cambridge-type-btn.cambridge-type-btn--pet.cambridge-type-btn--active {
-  background: linear-gradient(135deg, #4ade80 0%, #16a34a 100%);
+  background: linear-gradient(135deg, #48ec84 0%, #04dd54 100%);
   border-color: #22c55e;
   color: #ffffff;
 }
 
 .select-test-shell .cambridge-type-btn.cambridge-type-btn--flyers.cambridge-type-btn--active {
-  background: linear-gradient(135deg, #fdba74 0%, #ea580c 100%);
+  background: linear-gradient(135deg, #f7a854 0%, #ec5402 100%);
   border-color: #f97316;
   color: #ffffff;
 }
 
 .select-test-shell .cambridge-type-btn.cambridge-type-btn--movers.cambridge-type-btn--active {
-  background: linear-gradient(135deg, #fca5a5 0%, #dc2626 100%);
+  background: linear-gradient(135deg, #ee6464 0%, #db0707 100%);
   border-color: #ef4444;
   color: #ffffff;
 }
 
 .select-test-shell .cambridge-type-btn.cambridge-type-btn--starters.cambridge-type-btn--active {
-  background: linear-gradient(135deg, #fde68a 0%, #ca8a04 100%);
+  background: linear-gradient(135deg, #fadd6a 0%, #db9602 100%);
   border-color: #eab308;
   color: #ffffff;
 }
 
 .select-test-shell .cambridge-tab:nth-child(1).cambridge-tab--active {
-  background: linear-gradient(135deg, #4ade80 0%, #16a34a 100%);
+  background: linear-gradient(135deg, #4ce986 0%, #02d14e 100%);
   border-color: #22c55e;
   color: #ffffff;
 }
 
 .select-test-shell .cambridge-tab:nth-child(2).cambridge-tab--active {
-  background: linear-gradient(135deg, #60a5fa 0%, #2563eb 100%);
+  background: linear-gradient(135deg, #60a5fa 0%, #0448db 100%);
   border-color: #3b82f6;
   color: #ffffff;
 }
 
 .select-test-shell .cambridge-tab:nth-child(3).cambridge-tab--active {
-  background: linear-gradient(135deg, #a78bfa 0%, #7c3aed 100%);
+  background: linear-gradient(135deg, #9678f3 0%, #590be0 100%);
   border-color: #8b5cf6;
   color: #ffffff;
 }
@@ -2093,21 +2093,21 @@ body.dark-mode .select-test-edit--orange {
 
 body.dark-mode .select-test-subtab.select-test-subtab--writing.active,
 body.dark-mode .select-test-shell .cambridge-tab:nth-child(3).cambridge-tab--active {
-  background: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%);
-  border-color: #8b5cf6;
+  background: linear-gradient(135deg, #7946f1 0%, #5a09dd 100%);
+  border-color: #824ffa;
 }
 
 body.dark-mode .select-test-subtab.select-test-subtab--reading.active,
 body.dark-mode .select-test-shell .cambridge-type-btn.cambridge-type-btn--ket.cambridge-type-btn--active,
 body.dark-mode .select-test-shell .cambridge-tab:nth-child(2).cambridge-tab--active {
-  background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+  background: linear-gradient(135deg, #3b82f6 0%, #073fd8 100%);
   border-color: #60a5fa;
 }
 
 body.dark-mode .select-test-subtab.select-test-subtab--listening.active,
 body.dark-mode .select-test-shell .cambridge-type-btn.cambridge-type-btn--pet.cambridge-type-btn--active,
 body.dark-mode .select-test-shell .cambridge-tab:nth-child(1).cambridge-tab--active {
-  background: linear-gradient(135deg, #22c55e 0%, #15803d 100%);
+  background: linear-gradient(135deg, #26d365 0%, #03cf4e 100%);
   border-color: #4ade80;
 }
 
@@ -2253,16 +2253,16 @@ body.dark-mode .select-test-shell .cambridge-tab:nth-child(1).cambridge-tab--act
 }
 
 body.dark-mode .select-test-shell .cambridge-type-btn.cambridge-type-btn--flyers.cambridge-type-btn--active {
-  background: linear-gradient(135deg, #fb923c 0%, #c2410c 100%);
+  background: linear-gradient(135deg, #fb923c 0%, #ca3c04 100%);
   border-color: #fdba74;
 }
 
 body.dark-mode .select-test-shell .cambridge-type-btn.cambridge-type-btn--movers.cambridge-type-btn--active {
-  background: linear-gradient(135deg, #f87171 0%, #b91c1c 100%);
+  background: linear-gradient(135deg, #f04e4e 0%, #d30505 100%);
   border-color: #fca5a5;
 }
 
 body.dark-mode .select-test-shell .cambridge-type-btn.cambridge-type-btn--starters.cambridge-type-btn--active {
-  background: linear-gradient(135deg, #facc15 0%, #a16207 100%);
+  background: linear-gradient(135deg, #f8d136 0%, #eb8b06 100%);
   border-color: #fde68a;
 }

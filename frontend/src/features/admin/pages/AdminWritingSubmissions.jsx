@@ -2,6 +2,11 @@ import React, { useEffect, useState } from "react";
 import AdminNavbar from "../../../shared/components/AdminNavbar";
 import { apiPath, authFetch } from "../../../shared/utils/api";
 import AttemptExtensionControls from "../components/AttemptExtensionControls";
+import {
+  ExpandableSubmissionList,
+  SubmissionStatCards,
+  getSubmissionTone,
+} from "../components/SubmissionCardList";
 import SubmissionTypeTabs from "../components/SubmissionTypeTabs";
 import {
   getAttemptTimingMeta,
@@ -323,10 +328,8 @@ const AdminWritingSubmissions = () => {
       >
         <SubmissionTypeTabs activeKey="writing" />
 
-        <div
-          style={{ display: "flex", gap: 10, marginBottom: 18, flexWrap: "wrap" }}
-        >
-          {[
+        <SubmissionStatCards
+          stats={[
             {
               label: "Total",
               count: data.length,
@@ -348,28 +351,8 @@ const AdminWritingSubmissions = () => {
               color: "#166534",
               border: "#bbf7d0",
             },
-          ].map((stat) => (
-            <div
-              key={stat.label}
-              style={{
-                background: stat.bg,
-                border: `1px solid ${stat.border}`,
-                borderRadius: 8,
-                padding: "8px 18px",
-                minWidth: 110,
-                textAlign: "center",
-                cursor: "default",
-              }}
-            >
-              <div style={{ fontSize: 24, fontWeight: 700, color: stat.color }}>
-                {stat.count}
-              </div>
-              <div style={{ fontSize: 12, color: stat.color, opacity: 0.85 }}>
-                {stat.label}
-              </div>
-            </div>
-          ))}
-        </div>
+          ]}
+        />
 
         <div
           style={{
@@ -517,11 +500,22 @@ const AdminWritingSubmissions = () => {
           </div>
         )}
 
-        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          {filteredData.map((item, idx) => {
+        <ExpandableSubmissionList
+          items={filteredData}
+          expandedItems={expandedItems}
+          onToggle={toggleExpand}
+          getTone={(item) =>
+            getSubmissionTone(
+              item.isDraft
+                ? "draft"
+                : !!(item.feedback && item.feedbackBy) || !!hasSaved[item.id]
+                ? "reviewed"
+                : "pending"
+            )
+          }
+          renderHeader={({ item, index, tone }) => {
             const isDone = !!(item.feedback && item.feedbackBy) || !!hasSaved[item.id];
             const isDraft = !!item.isDraft;
-            const isExpanded = expandedItems.has(item.id);
             const timingMeta = isDraft ? getAttemptTimingMeta(item.draftEndAt) : null;
             const testLabel = [
               item.WritingTest?.testType === "pet-writing" ? "PET Writing" : "Writing",
@@ -533,385 +527,345 @@ const AdminWritingSubmissions = () => {
               .join(" - ");
 
             return (
-              <div
-                key={item.id}
-                style={{
-                  border: `1px solid ${
-                    isDraft ? "#bfdbfe" : isDone ? "#bbf7d0" : "#fed7aa"
-                  }`,
-                  borderLeft: `4px solid ${
-                    isDraft ? "#2563eb" : isDone ? "#16a34a" : "#f59e0b"
-                  }`,
-                  borderRadius: 8,
-                  background: "#fff",
-                  overflow: "hidden",
-                  boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
-                }}
-              >
-                <div
+              <>
+                <span style={{ fontSize: 12, color: tone.subtleText, minWidth: 28 }}>
+                  #{index + 1}
+                </span>
+                <span
                   style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 10,
-                    padding: "10px 14px",
-                    cursor: "pointer",
-                    userSelect: "none",
-                    flexWrap: "wrap",
+                    fontSize: 11,
+                    fontWeight: 700,
+                    padding: "2px 8px",
+                    borderRadius: 10,
+                    whiteSpace: "nowrap",
+                    background: tone.chipBg,
+                    color: tone.chipColor,
                   }}
-                  onClick={() => toggleExpand(item.id)}
                 >
-                  <span style={{ fontSize: 12, color: "#9ca3af", minWidth: 28 }}>
-                    #{idx + 1}
-                  </span>
-                  <span
+                  {isDraft ? "Draft not submitted" : isDone ? "Reviewed" : "Pending"}
+                </span>
+                <span style={{ fontWeight: 600, fontSize: 14, minWidth: 120, color: tone.primaryText }}>
+                  {item.userName || "N/A"}
+                </span>
+                <span style={{ fontSize: 13, color: tone.mutedText, minWidth: 100 }}>
+                  {item.userPhone || "N/A"}
+                </span>
+                <span style={{ fontSize: 13, color: tone.secondaryText, flex: 1, minWidth: 180 }}>
+                  {testLabel || "N/A"}
+                </span>
+                <span style={{ fontSize: 12, color: tone.subtleText, whiteSpace: "nowrap" }}>
+                  {isDraft && timingMeta
+                    ? `${timingMeta.label} • ${formatDateTime(item.draftSavedAt || item.updatedAt || item.createdAt)}`
+                    : formatDateTime(item.createdAt)}
+                </span>
+              </>
+            );
+          }}
+          renderExpanded={({ item, tone }) => {
+            const isDone = !!(item.feedback && item.feedbackBy) || !!hasSaved[item.id];
+            const isDraft = !!item.isDraft;
+            const timingMeta = isDraft ? getAttemptTimingMeta(item.draftEndAt) : null;
+
+            return (
+              <>
+                {isDraft && (
+                  <div
                     style={{
-                      fontSize: 11,
-                      fontWeight: 700,
-                      padding: "2px 8px",
-                      borderRadius: 10,
-                      whiteSpace: "nowrap",
-                      background: isDraft
-                        ? "#dbeafe"
-                        : isDone
-                        ? "#dcfce7"
-                        : "#fef3c7",
-                      color: isDraft
-                        ? "#1e3a8a"
-                        : isDone
-                        ? "#166534"
-                        : "#92400e",
+                      background: tone.calloutBg,
+                      border: `1px solid ${tone.calloutBorder}`,
+                      borderRadius: 7,
+                      padding: 12,
+                      marginTop: 12,
+                      color: tone.calloutText,
+                      fontSize: 13,
                     }}
                   >
-                    {isDraft ? "Draft not submitted" : isDone ? "Reviewed" : "Pending"}
-                  </span>
-                  <span style={{ fontWeight: 600, fontSize: 14, minWidth: 120 }}>
-                    {item.userName || "N/A"}
-                  </span>
-                  <span style={{ fontSize: 13, color: "#6b7280", minWidth: 100 }}>
-                    {item.userPhone || "N/A"}
-                  </span>
-                  <span
-                    style={{ fontSize: 13, color: "#374151", flex: 1, minWidth: 180 }}
-                  >
-                    {testLabel || "N/A"}
-                  </span>
-                  <span
-                    style={{ fontSize: 12, color: "#9ca3af", whiteSpace: "nowrap" }}
-                  >
-                    {isDraft && timingMeta
-                      ? `${timingMeta.label} • ${formatDateTime(item.draftSavedAt || item.updatedAt || item.createdAt)}`
-                      : formatDateTime(item.createdAt)}
-                  </span>
-                  <span style={{ fontSize: 16, color: "#9ca3af", marginLeft: 4 }}>
-                    {isExpanded ? "▲" : "▼"}
-                  </span>
-                </div>
-
-                {isExpanded && (
-                  <div style={{ padding: "0 14px 16px 14px", borderTop: "1px solid #f3f4f6" }}>
-                    {isDraft && (
-                      <div
-                        style={{
-                          background: "#eff6ff",
-                          border: "1px solid #bfdbfe",
-                          borderRadius: 7,
-                          padding: 12,
-                          marginTop: 12,
-                          color: "#1e3a8a",
-                          fontSize: 13,
-                        }}
-                      >
-                        This is an autosaved draft that has not been submitted. The student
-                        must sign in again and click Submit to finalize it.
-                        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginTop: 10 }}>
-                          {timingMeta && (
-                            <span style={{ fontWeight: 700, color: timingMeta.color }}>
-                              {timingMeta.label}
-                            </span>
-                          )}
-                          <span style={{ color: "#475569" }}>
-                            Lưu: {formatDateTime(item.draftSavedAt || item.updatedAt || item.createdAt)}
-                          </span>
-                          <AttemptExtensionControls
-                            isLoading={extendingId === item.id}
-                            onExtend={(minutes) => handleExtendDraft(item.id, minutes)}
-                            buttonStyle={{
-                              padding: "7px 12px",
-                              borderRadius: 6,
-                              border: "none",
-                              background: "#0284c7",
-                              color: "#fff",
-                              fontWeight: 600,
-                              cursor: "pointer",
-                            }}
-                            inputStyle={{
-                              borderColor: "#93c5fd",
-                            }}
-                            submitButtonStyle={{
-                              padding: "7px 12px",
-                              borderRadius: 6,
-                              border: "none",
-                              background: "#0369a1",
-                              color: "#fff",
-                              fontWeight: 600,
-                              cursor: "pointer",
-                            }}
-                            errorStyle={{ color: "#b91c1c" }}
-                          />
-                        </div>
-                      </div>
-                    )}
-
-                    <div
-                      style={{
-                        display: "grid",
-                        gridTemplateColumns: "1fr 1fr",
-                        gap: 12,
-                        marginTop: 14,
-                      }}
-                      className="admin-task-grid"
-                    >
-                      <div style={{ background: "#f8fafc", borderRadius: 7, padding: 12 }}>
-                        <div
-                          style={{
-                            fontWeight: 700,
-                            fontSize: 13,
-                            color: "#374151",
-                            marginBottom: 6,
-                          }}
-                        >
-                          Task 1
-                        </div>
-                        <p
-                          style={{
-                            margin: 0,
-                            whiteSpace: "pre-line",
-                            fontSize: 14,
-                            lineHeight: 1.65,
-                            color: "#1f2937",
-                          }}
-                        >
-                          {item.task1 || "(empty)"}
-                        </p>
-                      </div>
-                      <div style={{ background: "#f8fafc", borderRadius: 7, padding: 12 }}>
-                        <div
-                          style={{
-                            fontWeight: 700,
-                            fontSize: 13,
-                            color: "#374151",
-                            marginBottom: 6,
-                          }}
-                        >
-                          Task 2
-                        </div>
-                        <p
-                          style={{
-                            margin: 0,
-                            whiteSpace: "pre-line",
-                            fontSize: 14,
-                            lineHeight: 1.65,
-                            color: "#1f2937",
-                          }}
-                        >
-                          {item.task2 || "(empty)"}
-                        </p>
-                      </div>
-                    </div>
-
-                    {item.feedback && item.feedbackAt && item.feedbackBy && (
-                      <div
-                        style={{
-                          background: "#f0fdf4",
-                          border: "1px solid #bbf7d0",
-                          borderRadius: 7,
-                          padding: 12,
-                          marginTop: 12,
-                        }}
-                      >
-                        <p style={{ margin: "0 0 6px", fontSize: 13, color: "#166534" }}>
-                          <strong>Reviewed</strong> at {formatDateTime(item.feedbackAt)} by{" "}
-                          <strong>{item.feedbackBy}</strong>
-                        </p>
-                        {(item.bandTask1 != null || item.bandTask2 != null || item.bandOverall != null) && (
-                          <div style={{ display: "flex", gap: 8, marginBottom: 8, flexWrap: "wrap" }}>
-                            {item.bandTask1 != null && (
-                              <span style={{ background: "#0e276f", color: "#fff", padding: "3px 10px", borderRadius: 6, fontWeight: 700, fontSize: 13 }}>
-                                Task 1: {item.bandTask1}
-                              </span>
-                            )}
-                            {item.bandTask2 != null && (
-                              <span style={{ background: "#0e276f", color: "#fff", padding: "3px 10px", borderRadius: 6, fontWeight: 700, fontSize: 13 }}>
-                                Task 2: {item.bandTask2}
-                              </span>
-                            )}
-                            {item.bandOverall != null && (
-                              <span style={{ background: "#16a34a", color: "#fff", padding: "3px 10px", borderRadius: 6, fontWeight: 700, fontSize: 13 }}>
-                                Overall: {item.bandOverall}
-                              </span>
-                            )}
-                          </div>
-                        )}
-                        <p style={{ margin: 0, whiteSpace: "pre-line", fontSize: 14 }}>
-                          {item.feedback}
-                        </p>
-                      </div>
-                    )}
-
-                    <div style={{ marginTop: 12 }}>
-                      {/* Band score inputs */}
-                      {!isDraft && (
-                        <div style={{ display: "flex", gap: 10, marginBottom: 10 }}>
-                          <div style={{ flex: 1 }}>
-                            <label style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 3, color: "#374151" }}>Band Task 1</label>
-                            <input
-                              type="number"
-                              step="0.5"
-                              min="0"
-                              max="9"
-                              placeholder="e.g. 6.5"
-                              value={(bands[item.id]?.task1) ?? (item.bandTask1 != null ? String(item.bandTask1) : "")}
-                              onChange={(e) => setBands((prev) => ({ ...prev, [item.id]: { ...prev[item.id], task1: e.target.value } }))}
-                              style={{ width: "100%", padding: "7px 10px", border: "1px solid #d1d5db", borderRadius: 6, fontSize: 13, boxSizing: "border-box" }}
-                            />
-                          </div>
-                          <div style={{ flex: 1 }}>
-                            <label style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 3, color: "#374151" }}>Band Task 2</label>
-                            <input
-                              type="number"
-                              step="0.5"
-                              min="0"
-                              max="9"
-                              placeholder="e.g. 6.5"
-                              value={(bands[item.id]?.task2) ?? (item.bandTask2 != null ? String(item.bandTask2) : "")}
-                              onChange={(e) => setBands((prev) => ({ ...prev, [item.id]: { ...prev[item.id], task2: e.target.value } }))}
-                              style={{ width: "100%", padding: "7px 10px", border: "1px solid #d1d5db", borderRadius: 6, fontSize: 13, boxSizing: "border-box" }}
-                            />
-                          </div>
-                          <div style={{ flex: 1 }}>
-                            <label style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 3, color: "#374151" }}>
-                              Band Overall <span style={{ fontWeight: 400, color: "#9ca3af" }}>(tự tính)</span>
-                            </label>
-                            <input
-                              type="number"
-                              readOnly
-                              value={computeOverall(
-                                (bands[item.id]?.task1) ?? (item.bandTask1 != null ? item.bandTask1 : ""),
-                                (bands[item.id]?.task2) ?? (item.bandTask2 != null ? item.bandTask2 : "")
-                              )}
-                              style={{ width: "100%", padding: "7px 10px", border: "1px solid #d1d5db", borderRadius: 6, fontSize: 13, boxSizing: "border-box", background: "#f3f4f6", color: "#6b7280", cursor: "not-allowed" }}
-                            />
-                          </div>
-                        </div>
+                    This is an autosaved draft that has not been submitted. The student must sign in again and click Submit to finalize it.
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginTop: 10 }}>
+                      {timingMeta && (
+                        <span style={{ fontWeight: 700, color: timingMeta.color }}>
+                          {timingMeta.label}
+                        </span>
                       )}
-                      <textarea
-                        placeholder={
-                          isDraft
-                            ? "This draft has not been submitted yet, so feedback cannot be sent."
-                            : "Teacher feedback..."
-                        }
-                        rows={4}
-                        style={{
-                          width: "100%",
-                          padding: 10,
-                          boxSizing: "border-box",
-                          fontSize: 14,
-                          border: "1px solid #d1d5db",
-                          borderRadius: 7,
-                          resize: "vertical",
-                          fontFamily: "inherit",
-                          outline: "none",
+                      <span style={{ color: tone.secondaryText }}>
+                        Saved: {formatDateTime(item.draftSavedAt || item.updatedAt || item.createdAt)}
+                      </span>
+                      <AttemptExtensionControls
+                        isLoading={extendingId === item.id}
+                        onExtend={(minutes) => handleExtendDraft(item.id, minutes)}
+                        buttonStyle={{
+                          padding: "7px 12px",
+                          borderRadius: 6,
+                          border: "none",
+                          background: "#0284c7",
+                          color: "#fff",
+                          fontWeight: 600,
+                          cursor: "pointer",
                         }}
-                        value={feedbacks[item.id] ?? item.feedback ?? ""}
-                        disabled={isDraft}
-                        onChange={(e) =>
-                          setFeedbacks((prev) => ({ ...prev, [item.id]: e.target.value }))
-                        }
+                        inputStyle={{
+                          borderColor: "#93c5fd",
+                        }}
+                        submitButtonStyle={{
+                          padding: "7px 12px",
+                          borderRadius: 6,
+                          border: "none",
+                          background: "#0369a1",
+                          color: "#fff",
+                          fontWeight: 600,
+                          cursor: "pointer",
+                        }}
+                        errorStyle={{ color: "#b91c1c" }}
                       />
-                      <div
-                        style={{ display: "flex", gap: 8, marginTop: 8 }}
-                        className="admin-button-row"
-                      >
-                        <button
-                          onClick={() => handleSendFeedback(item.id)}
-                          disabled={
-                            isDraft ||
-                            sendLoading[item.id] ||
-                            aiLoading[item.id]
-                          }
-                          style={{
-                            flex: 1,
-                            padding: "9px 16px",
-                            border: "none",
-                            borderRadius: 6,
-                            fontWeight: 600,
-                            fontSize: 14,
-                            cursor:
-                              isDraft || sendLoading[item.id] || aiLoading[item.id]
-                                ? "default"
-                                : "pointer",
-                            background:
-                              isDraft ||
-                              sendLoading[item.id] ||
-                              aiLoading[item.id]
-                                ? "#9ca3af"
-                                : "#0e276f",
-                            color: "#fff",
-                          }}
-                        >
-                          {isDraft
-                            ? "Wait for student submission"
-                            : sendLoading[item.id]
-                            ? "Sending..."
-                            : hasSaved[item.id]
-                            ? "Update Feedback"
-                            : "Send Feedback"}
-                        </button>
-                        <button
-                          onClick={() => handleAIComment(item)}
-                          disabled={
-                            isDraft ||
-                            aiLoading[item.id] ||
-                            sendLoading[item.id] ||
-                            hasSaved[item.id]
-                          }
-                          style={{
-                            flex: 1,
-                            padding: "9px 16px",
-                            border: "none",
-                            borderRadius: 6,
-                            fontWeight: 600,
-                            fontSize: 14,
-                            cursor: isDraft || aiLoading[item.id] ? "not-allowed" : "pointer",
-                            background:
-                              isDraft ||
-                              aiLoading[item.id] ||
-                              sendLoading[item.id] ||
-                              hasSaved[item.id]
-                                ? "#9ca3af"
-                                : "#ee0033",
-                            color: "#fff",
-                          }}
-                        >
-                          {isDraft
-                            ? "Wait for student submission"
-                            : aiLoading[item.id]
-                            ? "Generating..."
-                            : "AI Feedback"}
-                        </button>
-                      </div>
-                      {messages[item.id] && (
-                        <p style={{ marginTop: 6, color: "#16a34a", fontSize: 13 }}>
-                          {messages[item.id]}
-                        </p>
-                      )}
                     </div>
                   </div>
                 )}
-              </div>
+
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr 1fr",
+                    gap: 12,
+                    marginTop: 14,
+                  }}
+                  className="admin-task-grid"
+                >
+                  <div style={{ background: tone.panelBg, borderRadius: 7, padding: 12, border: `1px solid ${tone.panelBorder}` }}>
+                    <div
+                      style={{
+                        fontWeight: 700,
+                        fontSize: 13,
+                        color: tone.secondaryText,
+                        marginBottom: 6,
+                      }}
+                    >
+                      Task 1
+                    </div>
+                    <p
+                      style={{
+                        margin: 0,
+                        whiteSpace: "pre-line",
+                        fontSize: 14,
+                        lineHeight: 1.65,
+                        color: tone.primaryText,
+                      }}
+                    >
+                      {item.task1 || "(empty)"}
+                    </p>
+                  </div>
+                  <div style={{ background: tone.panelBg, borderRadius: 7, padding: 12, border: `1px solid ${tone.panelBorder}` }}>
+                    <div
+                      style={{
+                        fontWeight: 700,
+                        fontSize: 13,
+                        color: tone.secondaryText,
+                        marginBottom: 6,
+                      }}
+                    >
+                      Task 2
+                    </div>
+                    <p
+                      style={{
+                        margin: 0,
+                        whiteSpace: "pre-line",
+                        fontSize: 14,
+                        lineHeight: 1.65,
+                        color: tone.primaryText,
+                      }}
+                    >
+                      {item.task2 || "(empty)"}
+                    </p>
+                  </div>
+                </div>
+
+                {item.feedback && item.feedbackAt && item.feedbackBy && (
+                  <div
+                    style={{
+                      background: "#f0fdf4",
+                      border: "1px solid #bbf7d0",
+                      borderRadius: 7,
+                      padding: 12,
+                      marginTop: 12,
+                    }}
+                  >
+                    <p style={{ margin: "0 0 6px", fontSize: 13, color: "#166534" }}>
+                      <strong>Reviewed</strong> at {formatDateTime(item.feedbackAt)} by <strong>{item.feedbackBy}</strong>
+                    </p>
+                    {(item.bandTask1 != null || item.bandTask2 != null || item.bandOverall != null) && (
+                      <div style={{ display: "flex", gap: 8, marginBottom: 8, flexWrap: "wrap" }}>
+                        {item.bandTask1 != null && (
+                          <span style={{ background: "#0e276f", color: "#fff", padding: "3px 10px", borderRadius: 6, fontWeight: 700, fontSize: 13 }}>
+                            Task 1: {item.bandTask1}
+                          </span>
+                        )}
+                        {item.bandTask2 != null && (
+                          <span style={{ background: "#0e276f", color: "#fff", padding: "3px 10px", borderRadius: 6, fontWeight: 700, fontSize: 13 }}>
+                            Task 2: {item.bandTask2}
+                          </span>
+                        )}
+                        {item.bandOverall != null && (
+                          <span style={{ background: "#16a34a", color: "#fff", padding: "3px 10px", borderRadius: 6, fontWeight: 700, fontSize: 13 }}>
+                            Overall: {item.bandOverall}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                    <p style={{ margin: 0, whiteSpace: "pre-line", fontSize: 14, color: tone.primaryText }}>
+                      {item.feedback}
+                    </p>
+                  </div>
+                )}
+
+                <div style={{ marginTop: 12 }}>
+                  {!isDraft && (
+                    <div style={{ display: "flex", gap: 10, marginBottom: 10 }}>
+                      <div style={{ flex: 1 }}>
+                        <label style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 3, color: tone.secondaryText }}>Band Task 1</label>
+                        <input
+                          type="number"
+                          step="0.5"
+                          min="0"
+                          max="9"
+                          placeholder="e.g. 6.5"
+                          value={(bands[item.id]?.task1) ?? (item.bandTask1 != null ? String(item.bandTask1) : "")}
+                          onChange={(e) => setBands((prev) => ({ ...prev, [item.id]: { ...prev[item.id], task1: e.target.value } }))}
+                          style={{ width: "100%", padding: "7px 10px", border: "1px solid #d1d5db", borderRadius: 6, fontSize: 13, boxSizing: "border-box" }}
+                        />
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <label style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 3, color: tone.secondaryText }}>Band Task 2</label>
+                        <input
+                          type="number"
+                          step="0.5"
+                          min="0"
+                          max="9"
+                          placeholder="e.g. 6.5"
+                          value={(bands[item.id]?.task2) ?? (item.bandTask2 != null ? String(item.bandTask2) : "")}
+                          onChange={(e) => setBands((prev) => ({ ...prev, [item.id]: { ...prev[item.id], task2: e.target.value } }))}
+                          style={{ width: "100%", padding: "7px 10px", border: "1px solid #d1d5db", borderRadius: 6, fontSize: 13, boxSizing: "border-box" }}
+                        />
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <label style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 3, color: tone.secondaryText }}>
+                          Band Overall <span style={{ fontWeight: 400, color: tone.subtleText }}>(tự tính)</span>
+                        </label>
+                        <input
+                          type="number"
+                          readOnly
+                          value={computeOverall(
+                            (bands[item.id]?.task1) ?? (item.bandTask1 != null ? item.bandTask1 : ""),
+                            (bands[item.id]?.task2) ?? (item.bandTask2 != null ? item.bandTask2 : "")
+                          )}
+                          style={{ width: "100%", padding: "7px 10px", border: "1px solid #d1d5db", borderRadius: 6, fontSize: 13, boxSizing: "border-box", background: "#f3f4f6", color: "#6b7280", cursor: "not-allowed" }}
+                        />
+                      </div>
+                    </div>
+                  )}
+                  <textarea
+                    placeholder={
+                      isDraft
+                        ? "This draft has not been submitted yet, so feedback cannot be sent."
+                        : "Teacher feedback..."
+                    }
+                    rows={4}
+                    style={{
+                      width: "100%",
+                      padding: 10,
+                      boxSizing: "border-box",
+                      fontSize: 14,
+                      border: "1px solid #d1d5db",
+                      borderRadius: 7,
+                      resize: "vertical",
+                      fontFamily: "inherit",
+                      outline: "none",
+                    }}
+                    value={feedbacks[item.id] ?? item.feedback ?? ""}
+                    disabled={isDraft}
+                    onChange={(e) =>
+                      setFeedbacks((prev) => ({ ...prev, [item.id]: e.target.value }))
+                    }
+                  />
+                  <div
+                    style={{ display: "flex", gap: 8, marginTop: 8 }}
+                    className="admin-button-row"
+                  >
+                    <button
+                      onClick={() => handleSendFeedback(item.id)}
+                      disabled={
+                        isDraft ||
+                        sendLoading[item.id] ||
+                        aiLoading[item.id]
+                      }
+                      style={{
+                        flex: 1,
+                        padding: "9px 16px",
+                        border: "none",
+                        borderRadius: 6,
+                        fontWeight: 600,
+                        fontSize: 14,
+                        cursor:
+                          isDraft || sendLoading[item.id] || aiLoading[item.id]
+                            ? "default"
+                            : "pointer",
+                        background:
+                          isDraft ||
+                          sendLoading[item.id] ||
+                          aiLoading[item.id]
+                            ? "#9ca3af"
+                            : "#0e276f",
+                        color: "#fff",
+                      }}
+                    >
+                      {isDraft
+                        ? "Wait for student submission"
+                        : sendLoading[item.id]
+                        ? "Sending..."
+                        : hasSaved[item.id]
+                        ? "Update Feedback"
+                        : "Send Feedback"}
+                    </button>
+                    <button
+                      onClick={() => handleAIComment(item)}
+                      disabled={
+                        isDraft ||
+                        aiLoading[item.id] ||
+                        sendLoading[item.id] ||
+                        hasSaved[item.id]
+                      }
+                      style={{
+                        flex: 1,
+                        padding: "9px 16px",
+                        border: "none",
+                        borderRadius: 6,
+                        fontWeight: 600,
+                        fontSize: 14,
+                        cursor: isDraft || aiLoading[item.id] ? "not-allowed" : "pointer",
+                        background:
+                          isDraft ||
+                          aiLoading[item.id] ||
+                          sendLoading[item.id] ||
+                          hasSaved[item.id]
+                            ? "#9ca3af"
+                            : "#ee0033",
+                        color: "#fff",
+                      }}
+                    >
+                      {isDraft
+                        ? "Wait for student submission"
+                        : aiLoading[item.id]
+                        ? "Generating..."
+                        : "AI Feedback"}
+                    </button>
+                  </div>
+                  {messages[item.id] && (
+                    <p style={{ marginTop: 6, color: "#16a34a", fontSize: 13 }}>
+                      {messages[item.id]}
+                    </p>
+                  )}
+                </div>
+              </>
             );
-          })}
-        </div>
+          }}
+        />
       </div>
     </>
   );
