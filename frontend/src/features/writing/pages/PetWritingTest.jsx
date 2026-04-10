@@ -296,7 +296,11 @@ const PetWritingTest = () => {
           </>
         }
         secondaryLabel="Cancel"
-        onSecondary={() => redirectInApp("/pet-writing-select", { replace: true })}
+        onSecondary={() =>
+          redirectInApp("/select-test?platform=orange&type=pet&tab=writing", {
+            replace: true,
+          })
+        }
         primaryLabel="Start test"
         onPrimary={() => setStarted(true)}
       />
