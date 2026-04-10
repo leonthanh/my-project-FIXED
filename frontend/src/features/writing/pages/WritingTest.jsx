@@ -268,7 +268,7 @@ const WritingTest = () => {
   useEffect(() => {
     if (isHydratingDraft) return;
     if (!selectedTestId) {
-      setMessage("❌ Không tìm thấy đề thi đã chọn.");
+      setMessage("Cannot find the selected writing test.");
       return;
     }
 
@@ -278,13 +278,13 @@ const WritingTest = () => {
           apiPath(`writing-tests/detail/${selectedTestId}`)
         );
         if (!res.ok) {
-          throw new Error(`Lỗi ${res.status}: Đề không tồn tại.`);
+          throw new Error(`Error ${res.status}: The test could not be found.`);
         }
         const data = await res.json();
         setTestData(data);
       } catch (err) {
-        console.error("❌ Lỗi khi tải đề:", err);
-        setMessage("❌ Không thể tải đề. Vui lòng quay lại trang chọn đề.");
+        console.error("Failed to load writing test:", err);
+        setMessage("Cannot load the writing test. Please go back and choose it again.");
       }
     };
 
@@ -402,7 +402,7 @@ const WritingTest = () => {
 
     const numericTestId = parseInt(selectedTestId, 10);
     if (!numericTestId || isNaN(numericTestId)) {
-      setMessage("Khong tim thay ma de de nop.");
+      setMessage("Cannot find a valid test ID to submit.");
       return;
     }
 
@@ -430,11 +430,11 @@ const WritingTest = () => {
 
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        throw new Error(data?.message || "Server chua xac nhan bai nop.");
+        throw new Error(data?.message || "The server did not confirm the submission.");
       }
 
       setSubmitted(true);
-      setMessage(data.message || "Da nop bai thanh cong.");
+      setMessage(data.message || "Submission completed successfully.");
 
       if (user?.id) {
         fetch(apiPath("writing/draft/clear"), {
@@ -460,7 +460,7 @@ const WritingTest = () => {
     } catch (err) {
       console.error("Submit writing failed:", err);
       setSubmitted(false);
-      setMessage(`Chua nop duoc: ${err?.message || "Loi gui bai."}`);
+      setMessage(`Could not submit: ${err?.message || "Submission failed."}`);
       autoSubmittingRef.current = false;
       await saveDraftToServer();
     } finally {
@@ -528,7 +528,7 @@ const WritingTest = () => {
         const last = list.find((item) => item.user?.phone === user.phone);
         if (last) setFeedback(last.feedback || "");
       })
-      .catch((err) => console.error("❌ Lỗi lấy feedback:", err));
+      .catch((err) => console.error("Failed to load teacher feedback:", err));
   }, [submitted, user]);
 
   const countWords = (text) => text.trim().split(/\s+/).filter(Boolean).length;
@@ -537,12 +537,12 @@ const WritingTest = () => {
     return <div style={{ padding: 50 }}>{message}</div>;
   }
 
-  if (!testData) return <div style={{ padding: 50 }}>⏳ Đang tải đề...</div>;
+  if (!testData) return <div style={{ padding: 50 }}>Loading writing test...</div>;
 
   if (submitted) {
     return (
       <div style={{ padding: 50 }}>
-        <h2>✅ Bài làm đã nộp</h2>
+        <h2>Submission completed</h2>
         <p>{message}</p>
 
         <div style={{ marginTop: 30 }}>
@@ -573,7 +573,7 @@ const WritingTest = () => {
 
         {feedback && (
           <div style={{ marginTop: 30 }}>
-            <h3>🗒️ Nhận xét từ giáo viên:</h3>
+            <h3>Teacher feedback</h3>
             <p style={{ whiteSpace: "pre-line" }}>{feedback}</p>
           </div>
         )}
@@ -691,7 +691,7 @@ const WritingTest = () => {
             }}
             style={writingLogoutBtn}
           >
-            🔓 Đăng xuất
+            Log out
           </button>
         </div>
       </header>
@@ -776,7 +776,7 @@ const WritingTest = () => {
         <div style={{ padding: 20 }}>
           <h3>
             Your Answer – {activeTask.toUpperCase()} (
-            {countWords(activeTask === "task1" ? task1 : task2)} từ)
+            {countWords(activeTask === "task1" ? task1 : task2)} words)
           </h3>
           <textarea
             rows={25}
@@ -838,7 +838,7 @@ const WritingTest = () => {
           }}
           disabled={isSubmitting}
         >
-          {isSubmitting ? "Dang nop..." : "Submit"}
+          {isSubmitting ? "Submitting..." : "Submit"}
         </button>
       </div>
       {message && !submitted && (
@@ -846,7 +846,7 @@ const WritingTest = () => {
           style={{
             textAlign: "center",
             padding: "8px 12px 14px",
-            color: message.startsWith("Da") ? "#166534" : "#b91c1c",
+            color: message.toLowerCase().includes("success") ? "#166534" : "#b91c1c",
             fontWeight: 600,
             background: "#fff",
           }}

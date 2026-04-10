@@ -68,7 +68,10 @@
 }
 
 .test-header .audio-status-icon {
-  font-size: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
 }
 
 /* Timer */
@@ -99,7 +102,10 @@
 }
 
 .test-header .timer-icon {
-  font-size: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
 }
 
 .test-header .timer-display {
@@ -202,7 +208,10 @@
 }
 
 .test-header .save-icon {
-  font-size: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
 }
 
 /* Submit Button */
@@ -234,7 +243,10 @@
 }
 
 .test-header .submit-icon {
-  font-size: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
 }
 
 /* Responsive */
