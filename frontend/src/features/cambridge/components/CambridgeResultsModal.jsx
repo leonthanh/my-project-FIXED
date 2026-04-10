@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useRef } from "react";
 import { useTheme } from "../../../shared/contexts/ThemeContext";
+import LineIcon from "../../../shared/components/LineIcon.jsx";
 
-const CambridgeResultsModal = ({ results, onClose, testTitle, studentName }) => {
+const CambridgeResultsModal = ({ results, onClose, testTitle, studentName, actions = [] }) => {
   const modalRef = useRef(null);
   const { isDarkMode } = useTheme();
   const colors = useMemo(() => (
@@ -63,6 +64,7 @@ const CambridgeResultsModal = ({ results, onClose, testTitle, studentName }) => 
   const writingQuestionNumbers = writingQuestions
     .map((q) => q?.questionNumber)
     .filter((questionNumber) => Number.isFinite(questionNumber));
+  const safeActions = Array.isArray(actions) ? actions.filter(Boolean) : [];
 
   useEffect(() => {
     if (!results) return;
@@ -117,17 +119,17 @@ const CambridgeResultsModal = ({ results, onClose, testTitle, studentName }) => 
   const getStatus = () => {
     if (percentage >= 70) {
       return isDarkMode
-        ? { text: "Tốt", bg: "#0f2a1a", color: "#a7f3d0", icon: "✅" }
-        : { text: "Tốt", bg: "#dcfce7", color: "#166534", icon: "✅" };
+        ? { text: "Strong", bg: "#0f2a1a", color: "#a7f3d0", iconName: "correct" }
+        : { text: "Strong", bg: "#dcfce7", color: "#166534", iconName: "correct" };
     }
     if (percentage >= 50) {
       return isDarkMode
-        ? { text: "Trung bình", bg: "#2a1f0f", color: "#fcd34d", icon: "⚠️" }
-        : { text: "Trung bình", bg: "#fef3c7", color: "#92400e", icon: "⚠️" };
+        ? { text: "Fair", bg: "#2a1f0f", color: "#fcd34d", iconName: "average" }
+        : { text: "Fair", bg: "#fef3c7", color: "#92400e", iconName: "average" };
     }
     return isDarkMode
-      ? { text: "Cần cải thiện", bg: "#2a1515", color: "#fecaca", icon: "❌" }
-      : { text: "Cần cải thiện", bg: "#fee2e2", color: "#991b1b", icon: "❌" };
+      ? { text: "Needs work", bg: "#2a1515", color: "#fecaca", iconName: "wrong" }
+      : { text: "Needs work", bg: "#fee2e2", color: "#991b1b", iconName: "wrong" };
   };
 
   const status = getStatus();
@@ -162,7 +164,7 @@ const CambridgeResultsModal = ({ results, onClose, testTitle, studentName }) => 
         tabIndex={-1}
         role="dialog"
         aria-modal="true"
-        aria-label="Kết quả bài thi"
+        aria-label="Test results"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Gradient Header */}
@@ -199,7 +201,7 @@ const CambridgeResultsModal = ({ results, onClose, testTitle, studentName }) => 
               zIndex: 1,
             }}
           >
-            ✕
+            <LineIcon name="close" size={16} strokeWidth={2.2} />
           </button>
 
           {/* Icon badge */}
@@ -213,13 +215,13 @@ const CambridgeResultsModal = ({ results, onClose, testTitle, studentName }) => 
               borderRadius: 14,
               background: "rgba(255,255,255,0.2)",
               marginBottom: 12,
-              fontSize: 24,
+              color: "#fff",
             }}
           >
-            🏆
+            <LineIcon name="overview" size={24} strokeWidth={2.1} />
           </div>
           <h2 style={{ margin: "0 0 4px 0", fontSize: 22, fontWeight: 700, color: "#fff" }}>
-            Kết quả bài thi
+            Test Results
           </h2>
           {testTitle && (
             <p style={{ margin: 0, fontSize: 13, color: "rgba(255,255,255,0.82)" }}>
@@ -258,7 +260,7 @@ const CambridgeResultsModal = ({ results, onClose, testTitle, studentName }) => 
               </div>
             </div>
             <h3 style={{ fontSize: 20, fontWeight: 700, margin: "10px 0 8px 0", color: colors.text }}>
-              {score}/{total} điểm
+              {score}/{total} points
             </h3>
             <span
               style={{
@@ -273,7 +275,7 @@ const CambridgeResultsModal = ({ results, onClose, testTitle, studentName }) => 
                 fontWeight: 600,
               }}
             >
-              {status.icon} {status.text}
+              <LineIcon name={status.iconName} size={15} strokeWidth={2.2} /> {status.text}
             </span>
           </div>
 
@@ -296,7 +298,7 @@ const CambridgeResultsModal = ({ results, onClose, testTitle, studentName }) => 
               }}
             >
               <div style={{ fontSize: 11, color: colors.muted, marginBottom: 6, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>
-                Câu đúng
+                Correct
               </div>
               <div style={{ fontSize: 28, fontWeight: 700, color: colors.correctText }}>
                 {correct}
@@ -312,7 +314,7 @@ const CambridgeResultsModal = ({ results, onClose, testTitle, studentName }) => 
               }}
             >
               <div style={{ fontSize: 11, color: colors.muted, marginBottom: 6, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>
-                Câu sai
+                Incorrect
               </div>
               <div style={{ fontSize: 28, fontWeight: 700, color: colors.wrongText }}>
                 {incorrect}
@@ -332,15 +334,17 @@ const CambridgeResultsModal = ({ results, onClose, testTitle, studentName }) => 
               }}
             >
               <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 6 }}>
-                <span style={{ fontSize: 16 }}>📝</span>
+                <span style={{ color: isDarkMode ? '#fcd34d' : '#92400e', display: 'inline-flex', alignItems: 'center' }}>
+                  <LineIcon name="writing" size={16} strokeWidth={2.1} />
+                </span>
                 <h4 style={{ margin: 0, fontSize: 13, fontWeight: 600, color: isDarkMode ? '#fcd34d' : '#92400e' }}>
                   {writingQuestionNumbers.length > 0
-                    ? `Writing Task (Câu ${writingQuestionNumbers.join(", ")})`
+                    ? `Writing Task (Question ${writingQuestionNumbers.join(", ")})`
                     : 'Writing Task'}
                 </h4>
               </div>
               <p style={{ margin: 0, fontSize: 12, color: isDarkMode ? '#fcd34d' : '#b45309' }}>
-                ⏳ Đang chờ giáo viên chấm. Bạn sẽ được cập nhật điểm trong thời gian sớm nhất.
+                Waiting for teacher grading. Your score will be updated as soon as it is available.
               </p>
             </div>
           )}
@@ -358,9 +362,42 @@ const CambridgeResultsModal = ({ results, onClose, testTitle, studentName }) => 
                 marginBottom: 20,
               }}
             >
-              <strong style={{ color: colors.text }}>Học sinh:</strong> {studentName}
+                <strong style={{ color: colors.text }}>Student:</strong> {studentName}
             </div>
           )}
+
+            {safeActions.length > 0 && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginBottom: 14 }}>
+                {safeActions.map((action, index) => {
+                  const isPrimary = action.variant === 'primary';
+                  return (
+                    <button
+                      key={`${action.label}-${index}`}
+                      onClick={action.onClick}
+                      style={{
+                        flex: '1 1 180px',
+                        minHeight: 44,
+                        padding: '11px 18px',
+                        borderRadius: 16,
+                        border: isPrimary ? 'none' : `1px solid ${colors.border}`,
+                        background: isPrimary ? 'linear-gradient(135deg, #1e3a8a 0%, #1d4ed8 55%, #0284c7 100%)' : colors.surfaceAlt,
+                        color: isPrimary ? '#fff' : colors.text,
+                        fontSize: 14,
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: 8,
+                      }}
+                    >
+                      {action.iconName ? <LineIcon name={action.iconName} size={16} strokeWidth={2.1} /> : null}
+                      {action.label}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
 
           {/* Close Button */}
           <button
@@ -381,7 +418,7 @@ const CambridgeResultsModal = ({ results, onClose, testTitle, studentName }) => 
             onMouseOver={(e) => (e.currentTarget.style.opacity = "0.88")}
             onMouseOut={(e) => (e.currentTarget.style.opacity = "1")}
           >
-            Đóng
+            Close
           </button>
         </div>
       </div>

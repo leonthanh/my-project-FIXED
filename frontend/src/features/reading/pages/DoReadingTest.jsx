@@ -8,7 +8,9 @@ import React, {
 import { useParams, useNavigate } from "react-router-dom";
 import ConfirmModal from "../../../shared/components/ConfirmModal";
 import ResultModal from "../../../shared/components/ResultModal";
+import LineIcon from "../../../shared/components/LineIcon.jsx";
 import ExtensionToast from "../../../shared/components/ExtensionToast";
+import TestStartModal from "../../../shared/components/TestStartModal";
 import "../styles/do-reading-test.css";
 import { renderHtmlWithBlankPlaceholders } from "../utils/htmlHelpers";
 import {
@@ -1467,17 +1469,6 @@ const DoReadingTest = () => {
 
   // Validate and submit
   const handleSubmit = () => {
-    const stats = getStatistics();
-    if (stats.unanswered.length > 0 && !timeUp) {
-      const confirmSubmit = window.confirm(
-        `Bạn chưa trả lời ${stats.unanswered.length} câu: ${stats.unanswered
-          .slice(0, 10)
-          .join(", ")}${
-          stats.unanswered.length > 10 ? "..." : ""
-        }\n\nBạn có muốn nộp bài không?`
-      );
-      if (!confirmSubmit) return;
-    }
     setShowConfirm(true);
   };
 
@@ -1523,13 +1514,13 @@ const DoReadingTest = () => {
         setResultModalOpen(true);
       } else {
         // If teacher disabled result modal, show success message and navigate back
-        alert("✅ Đã nộp bài thành công! Giáo viên sẽ xem kết quả của bạn.");
+        alert("Submission successful. Your teacher can review your results.");
         navigate("/select-test");
       }
     } catch (err) {
       console.error("Error submitting reading test:", err);
       autoSubmittingRef.current = false;
-      alert("Có lỗi khi nộp bài. Vui lòng thử lại.");
+      alert("Something went wrong while submitting. Please try again.");
     } finally {
       setShowConfirm(false);
     }
@@ -1690,320 +1681,42 @@ const DoReadingTest = () => {
   // If the test hasn't been started yet, show a start modal (60 minutes or test.duration)
   if (!started) {
     return (
-      <div
-        style={{
-          minHeight: "100vh",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          background: "rgba(15, 23, 42, 0.68)",
-          backdropFilter: "blur(4px)",
-          padding: "16px",
+      <TestStartModal
+        iconName="reading"
+        eyebrow="IX Reading"
+        subtitle="Reading Test"
+        title={test?.title || "IX Reading"}
+        stats={[
+          { value: startDurationMinutes, label: "Minutes", tone: "sky" },
+          { value: stats.total, label: "Questions", tone: "green" },
+          { value: test?.passages?.length || 0, label: "Passage", tone: "amber" },
+        ]}
+        noticeTitle="Important note"
+        noticeContent={
+          <>
+            The timer starts as soon as you press Start. Your answers are auto-saved throughout the test and you can move between passages before submitting.
+          </>
+        }
+        secondaryLabel="Cancel"
+        onSecondary={() => navigate("/select-test")}
+        primaryLabel="Start test"
+        onPrimary={() => {
+          setStarted(true);
+          localStorage.setItem(readingStartedKey, "true");
+          // Set expiry timestamp when test begins
+          const durationSecs = (test.durationMinutes || 60) * 60;
+          const expiry = Date.now() + (timeRemaining ?? durationSecs) * 1000;
+          syncTimingState(expiry, durationSecs);
+          // ensure timeRemaining is initialized if not yet
+          if (timeRemaining === null) setTimeRemaining(durationSecs);
+          // focus first question after small delay
+          setTimeout(() => {
+            setActiveQuestion(1);
+            scrollToQuestion(1);
+          }, 260);
         }}
-      >
-        <div
-          style={{
-            width: "100%",
-            maxWidth: 540,
-            borderRadius: 20,
-            overflow: "hidden",
-            boxShadow: "0 24px 48px rgba(15, 23, 42, 0.35)",
-            background: "#fff",
-          }}
-          role="dialog"
-          aria-modal="true"
-        >
-          <div
-            style={{
-              background:
-                "linear-gradient(135deg, #0c4a6e 0%, #0369a1 55%, #0ea5e9 100%)",
-              padding: "26px 28px 22px",
-              position: "relative",
-              overflow: "hidden",
-            }}
-          >
-            <div
-              style={{
-                position: "absolute",
-                top: -40,
-                right: -40,
-                width: 160,
-                height: 160,
-                borderRadius: "50%",
-                background: "rgba(255,255,255,0.07)",
-                pointerEvents: "none",
-              }}
-            />
-            <div
-              style={{
-                position: "absolute",
-                bottom: -30,
-                left: -20,
-                width: 100,
-                height: 100,
-                borderRadius: "50%",
-                background: "rgba(255,255,255,0.05)",
-                pointerEvents: "none",
-              }}
-            />
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 12,
-                marginBottom: 14,
-                position: "relative",
-                zIndex: 1,
-              }}
-            >
-              <div
-                style={{
-                  width: 44,
-                  height: 44,
-                  borderRadius: 12,
-                  background: "rgba(255,255,255,0.18)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontSize: 22,
-                  flexShrink: 0,
-                }}
-              >
-                📖
-              </div>
-              <div>
-                <div
-                  style={{
-                    fontSize: 11,
-                    fontWeight: 800,
-                    color: "rgba(255,255,255,0.65)",
-                    textTransform: "uppercase",
-                    letterSpacing: "0.12em",
-                  }}
-                >
-                  IX Reading
-                </div>
-                <div
-                  style={{
-                    fontSize: 10,
-                    color: "rgba(255,255,255,0.45)",
-                    letterSpacing: "0.06em",
-                  }}
-                >
-                  Reading Test
-                </div>
-              </div>
-            </div>
-            <h2
-              style={{
-                fontSize: 18,
-                fontWeight: 800,
-                color: "#fff",
-                margin: 0,
-                lineHeight: 1.3,
-                position: "relative",
-                zIndex: 1,
-                textShadow: "0 1px 3px rgba(0,0,0,0.2)",
-              }}
-            >
-              {test?.title || "IX Reading"}
-            </h2>
-          </div>
-
-          <div style={{ padding: "22px 24px" }}>
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))",
-                gap: 10,
-                marginBottom: 16,
-              }}
-            >
-              <div
-                style={{
-                  background: "#e0f2fe",
-                  border: "1px solid #bae6fd",
-                  borderRadius: 12,
-                  padding: "14px 16px",
-                  textAlign: "center",
-                }}
-              >
-                <div
-                  style={{
-                    fontSize: 28,
-                    fontWeight: 800,
-                    color: "#0369a1",
-                    lineHeight: 1,
-                  }}
-                >
-                  {startDurationMinutes}
-                </div>
-                <div
-                  style={{
-                    fontSize: 11,
-                    color: "#0284c7",
-                    fontWeight: 700,
-                    textTransform: "uppercase",
-                    letterSpacing: "0.07em",
-                    marginTop: 4,
-                  }}
-                >
-                  Phút
-                </div>
-              </div>
-              <div
-                style={{
-                  background: "#f0fdf4",
-                  border: "1px solid #bbf7d0",
-                  borderRadius: 12,
-                  padding: "14px 16px",
-                  textAlign: "center",
-                }}
-              >
-                <div
-                  style={{
-                    fontSize: 28,
-                    fontWeight: 800,
-                    color: "#15803d",
-                    lineHeight: 1,
-                  }}
-                >
-                  {stats.total}
-                </div>
-                <div
-                  style={{
-                    fontSize: 11,
-                    color: "#16a34a",
-                    fontWeight: 700,
-                    textTransform: "uppercase",
-                    letterSpacing: "0.07em",
-                    marginTop: 4,
-                  }}
-                >
-                  Câu hỏi
-                </div>
-              </div>
-              <div
-                style={{
-                  background: "#fff7ed",
-                  border: "1px solid #fed7aa",
-                  borderRadius: 12,
-                  padding: "14px 16px",
-                  textAlign: "center",
-                }}
-              >
-                <div
-                  style={{
-                    fontSize: 28,
-                    fontWeight: 800,
-                    color: "#c2410c",
-                    lineHeight: 1,
-                  }}
-                >
-                  {test?.passages?.length || 0}
-                </div>
-                <div
-                  style={{
-                    fontSize: 11,
-                    color: "#ea580c",
-                    fontWeight: 700,
-                    textTransform: "uppercase",
-                    letterSpacing: "0.07em",
-                    marginTop: 4,
-                  }}
-                >
-                  Passage
-                </div>
-              </div>
-            </div>
-
-            <div
-              style={{
-                background: "#fff7ed",
-                border: "1px solid #fed7aa",
-                borderRadius: 10,
-                padding: "12px 14px",
-                marginBottom: 18,
-              }}
-            >
-              <div
-                style={{
-                  fontWeight: 700,
-                  color: "#c2410c",
-                  fontSize: 13,
-                  marginBottom: 4,
-                }}
-              >
-                Lưu ý quan trọng
-              </div>
-              <div style={{ fontSize: 13, color: "#9a3412", lineHeight: 1.5 }}>
-                Đồng hồ sẽ bắt đầu chạy ngay khi bạn nhấn bắt đầu. Bài làm được
-                tự động lưu trong suốt quá trình làm bài và bạn có thể di chuyển
-                giữa các passage trước khi nộp.
-              </div>
-            </div>
-
-            <div
-              style={{
-                display: "flex",
-                gap: 8,
-                justifyContent: "flex-end",
-                flexWrap: "wrap",
-                alignItems: "center",
-              }}
-            >
-              <button
-                type="button"
-                onClick={() => navigate("/select-test")}
-                style={{
-                  padding: "9px 18px",
-                  borderRadius: 20,
-                  border: "1.5px solid #e2e8f0",
-                  background: "#fff",
-                  fontSize: 13,
-                  fontWeight: 600,
-                  color: "#64748b",
-                  cursor: "pointer",
-                }}
-              >
-                Hủy
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setStarted(true);
-                  localStorage.setItem(readingStartedKey, "true");
-                  // Set expiry timestamp when test begins
-                  const durationSecs = (test.durationMinutes || 60) * 60;
-                  const expiry =
-                    Date.now() + (timeRemaining ?? durationSecs) * 1000;
-                  syncTimingState(expiry, durationSecs);
-                  // ensure timeRemaining is initialized if not yet
-                  if (timeRemaining === null) setTimeRemaining(durationSecs);
-                  // focus first question after small delay
-                  setTimeout(() => {
-                    setActiveQuestion(1);
-                    scrollToQuestion(1);
-                  }, 260);
-                }}
-                style={{
-                  padding: "11px 28px",
-                  borderRadius: 20,
-                  background: "linear-gradient(135deg, #0369a1, #0ea5e9)",
-                  fontSize: 14,
-                  fontWeight: 700,
-                  color: "#fff",
-                  border: "none",
-                  cursor: "pointer",
-                  boxShadow: "0 4px 14px rgba(3,105,161,0.4)",
-                }}
-              >
-                Bắt đầu làm bài
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
+        maxWidth={540}
+      />
     );
   }
 
@@ -3264,11 +2977,15 @@ const DoReadingTest = () => {
             className="submit-button"
           >
             {submitted ? (
-              <>✓ Đã nộp bài</>
+              <>
+                <LineIcon name="correct" size={16} strokeWidth={2.2} /> Submitted
+              </>
             ) : (
               <>
-                <span className="submit-icon">📤</span>
-                <span className="submit-text">Nộp bài</span>
+                <span className="submit-icon">
+                  <LineIcon name="review" size={18} strokeWidth={2.1} />
+                </span>
+                <span className="submit-text">Submit</span>
               </>
             )}
           </button>
@@ -3289,7 +3006,7 @@ const DoReadingTest = () => {
             boxShadow: "0 10px 25px rgba(249, 115, 22, 0.08)",
           }}
         >
-          <strong>Đã hết giờ chính thức.</strong> Hệ thống giữ bài thêm {formatTime(graceRemaining)} để phòng sự cố mất điện hoặc tải lại trang. Giáo viên có thể gia hạn thêm thời gian nếu cần.
+          <strong>Official time is over.</strong> The system keeps your answers for another {formatTime(graceRemaining)} in case of power loss or page reload. Your teacher can extend the time if needed.
         </div>
       )}
 
@@ -3649,14 +3366,30 @@ const DoReadingTest = () => {
         isOpen={showConfirm}
         onClose={() => !timeUp && setShowConfirm(false)}
         onConfirm={confirmSubmit}
-        title={timeUp ? "⏰ Hết giờ!" : "📝 Xác nhận nộp bài?"}
+        title={timeUp ? "Time is up" : "Submit reading test?"}
         message={
           timeUp
-            ? "Thời gian đã hết. Bài làm sẽ được nộp tự động."
-            : `Bạn đã trả lời ${stats.answered}/${stats.total} câu. Bạn có chắc muốn nộp bài?`
+            ? "The time limit has ended. Your answers are being submitted automatically."
+            : `You have answered ${stats.answered}/${stats.total} questions. Are you sure you want to submit?`
         }
         type={timeUp ? "warning" : "info"}
-        confirmText={timeUp ? "Nộp ngay" : "Xác nhận nộp"}
+        iconName={timeUp ? "clock" : "reading"}
+        confirmText={timeUp ? "Submit now" : "Submit answers"}
+        cancelText="Keep working"
+        hideCancel={timeUp}
+        extraContent={
+          !timeUp && stats.unanswered.length > 0 ? (
+            <div>
+              <div style={{ fontWeight: 700, marginBottom: 6 }}>
+                Unanswered questions: {stats.unanswered.length}
+              </div>
+              <div>
+                {stats.unanswered.slice(0, 10).join(", ")}
+                {stats.unanswered.length > 10 ? "..." : ""}
+              </div>
+            </div>
+          ) : null
+        }
       />
 
       {/* Result Modal shown after submit */}
@@ -3687,6 +3420,8 @@ const DoReadingTest = () => {
           }
         }}
         result={resultData}
+        title="Reading Results"
+        iconName="reading"
         onViewDetails={() => {
           setResultModalOpen(false);
           if (resultData && resultData.submissionId) {

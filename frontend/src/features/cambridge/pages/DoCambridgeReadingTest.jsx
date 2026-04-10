@@ -4,6 +4,8 @@ import { useParams, useNavigate } from "react-router-dom";
 import { apiPath, getStoredUser, hostPath } from "../../../shared/utils/api";
 import TestHeader from "../../../shared/components/TestHeader";
 import ExtensionToast from "../../../shared/components/ExtensionToast";
+import TestStartModal from "../../../shared/components/TestStartModal";
+import ConfirmModal from "../../../shared/components/ConfirmModal";
 import { TEST_CONFIGS } from "../../../shared/config/questionTypes";
 import QuestionDisplayFactory from "../../../shared/components/questions/displays/QuestionDisplayFactory";
 import PeopleMatchingDisplay from "../../../shared/components/questions/displays/PeopleMatchingDisplay";
@@ -615,7 +617,7 @@ const DoCambridgeReadingTest = () => {
         }),
       });
 
-      if (!res.ok) throw new Error("Lỗi khi nộp bài");
+      if (!res.ok) throw new Error("Failed to submit the test");
 
       // Use backend scoring as source of truth
       const data = await res.json();
@@ -1450,152 +1452,91 @@ const DoCambridgeReadingTest = () => {
       <ExtensionToast message={extensionToast} />
       {/* Start Modal (only starts timer after click) */}
       {!started && !submitted && !loading && !error && (
-        <div
-          style={{
-            position: 'fixed', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
-            background: 'rgba(15,23,42,0.65)', backdropFilter: 'blur(4px)', zIndex: 1200, padding: '16px',
+        <TestStartModal
+          iconName="reading"
+          eyebrow={`Cambridge ${examType}`}
+          subtitle="Reading Test"
+          title={test?.title || testConfig.name || 'Cambridge Reading'}
+          stats={[
+            { value: Math.round(effectiveDuration), label: 'Minutes', tone: 'sky' },
+            { value: totalQuestions, label: 'Questions', tone: 'green' },
+          ]}
+          extraContent={hasSavedProgress ? (
+            <div style={{ background: '#fefce8', border: '1px solid #fde68a', borderRadius: 10, padding: '12px 14px', marginBottom: 18 }}>
+              <div style={{ fontWeight: 700, color: '#92400e', fontSize: 13, marginBottom: 3 }}>Resume previous attempt</div>
+              <div style={{ fontSize: 13, color: '#b45309' }}>
+                Time remaining: <b>{timeRemaining !== null ? formatTime(timeRemaining) : '--:--'}</b>
+              </div>
+            </div>
+          ) : (
+            <p style={{ fontSize: 13, color: '#475569', marginBottom: 18, lineHeight: 1.6 }}>
+              Your answers are <b>auto-saved</b>. You can leave and come back later to continue.
+            </p>
+          )}
+          secondaryLabel="Exit"
+          onSecondary={() => navigate(-1)}
+          extraActions={hasSavedProgress ? [
+            {
+              label: 'Start over',
+              variant: 'danger',
+              onClick: () => {
+                const ok = window.confirm(
+                  "Are you sure you want to start over? All saved progress will be removed."
+                );
+                if (!ok) return;
+
+                try {
+                  localStorage.removeItem(camReadTimeKey);
+                  localStorage.removeItem(camReadAnsKey);
+                  localStorage.removeItem(camReadStartKey);
+                  localStorage.removeItem(camReadSubmissionKey);
+                } catch {
+                  // ignore
+                }
+
+                setAnswers({});
+                setFlaggedQuestions(new Set());
+                setCurrentPartIndex(0);
+                setCurrentQuestionIndex(0);
+                setActiveQuestion(null);
+                setTimeRemaining(effectiveDuration * 60);
+                setGraceRemaining(0);
+                setHasSavedProgress(false);
+                setStarted(false);
+                autoSubmittingRef.current = false;
+                expiresAtRef.current = null;
+                submissionIdRef.current = null;
+              },
+            },
+          ] : []}
+          primaryLabel={hasSavedProgress ? 'Resume' : 'Start test'}
+          onPrimary={() => {
+            setStarted(true);
+            autoSubmittingRef.current = false;
+            const initialSeconds = effectiveDuration * 60;
+            try {
+              localStorage.setItem(camReadStartKey, "true");
+              const expiry = Date.now() + (timeRemaining ?? initialSeconds) * 1000;
+              syncTimingState(expiry, initialSeconds);
+              if (!localStorage.getItem(camReadAnsKey)) {
+                localStorage.setItem(camReadAnsKey, JSON.stringify(answers || {}));
+              }
+            } catch {
+              // ignore
+            }
+            if (timeRemaining === null) {
+              setTimeRemaining(initialSeconds);
+            }
+            // focus first question after small delay
+            setTimeout(() => {
+              const el = document.getElementById("question-1");
+              if (el && typeof el.scrollIntoView === "function") {
+                el.scrollIntoView({ behavior: "smooth", block: "center" });
+              }
+            }, 250);
           }}
-        >
-          <div style={{ width: '100%', maxWidth: 480, borderRadius: 20, overflow: 'hidden', boxShadow: '0 24px 48px rgba(15,23,42,0.35)' }}>
-
-            {/* ── Header ── */}
-            <div style={{ background: 'linear-gradient(135deg, #1e3a8a 0%, #1d4ed8 55%, #0284c7 100%)', padding: '26px 28px 22px', position: 'relative', overflow: 'hidden' }}>
-              {/* Decorative circles */}
-              <div style={{ position: 'absolute', top: -40, right: -40, width: 160, height: 160, borderRadius: '50%', background: 'rgba(255,255,255,0.07)', pointerEvents: 'none' }} />
-              <div style={{ position: 'absolute', bottom: -30, left: -20, width: 100, height: 100, borderRadius: '50%', background: 'rgba(255,255,255,0.05)', pointerEvents: 'none' }} />
-
-              {/* Badge row */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14, position: 'relative', zIndex: 1 }}>
-                <div style={{ width: 44, height: 44, borderRadius: 12, background: 'rgba(255,255,255,0.18)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0 }}>
-                  📖
-                </div>
-                <div>
-                  <div style={{ fontSize: 11, fontWeight: 800, color: 'rgba(255,255,255,0.65)', textTransform: 'uppercase', letterSpacing: '0.12em' }}>
-                    Cambridge {examType}
-                  </div>
-                  <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.45)', letterSpacing: '0.06em' }}>Reading Test</div>
-                </div>
-              </div>
-
-              {/* Test title */}
-              <h2 style={{ fontSize: 18, fontWeight: 800, color: '#fff', margin: 0, lineHeight: 1.3, position: 'relative', zIndex: 1, textShadow: '0 1px 3px rgba(0,0,0,0.2)' }}>
-                {test?.title || testConfig.name || 'Cambridge Reading'}
-              </h2>
-            </div>
-
-            {/* ── Body ── */}
-            <div style={{ background: '#fff', padding: '22px 24px' }}>
-
-              {/* Info cards */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 16 }}>
-                <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 12, padding: '14px 16px', textAlign: 'center' }}>
-                  <div style={{ fontSize: 28, fontWeight: 800, color: '#1d4ed8', lineHeight: 1 }}>{Math.round(effectiveDuration)}</div>
-                  <div style={{ fontSize: 11, color: '#3b82f6', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', marginTop: 4 }}>Phút</div>
-                </div>
-                <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 12, padding: '14px 16px', textAlign: 'center' }}>
-                  <div style={{ fontSize: 28, fontWeight: 800, color: '#15803d', lineHeight: 1 }}>{totalQuestions}</div>
-                  <div style={{ fontSize: 11, color: '#16a34a', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', marginTop: 4 }}>Câu hỏi</div>
-                </div>
-              </div>
-
-              {hasSavedProgress ? (
-                <div style={{ background: '#fefce8', border: '1px solid #fde68a', borderRadius: 10, padding: '12px 14px', marginBottom: 18 }}>
-                  <div style={{ fontWeight: 700, color: '#92400e', fontSize: 13, marginBottom: 3 }}>⚡ Tiếp tục bài làm trước</div>
-                  <div style={{ fontSize: 13, color: '#b45309' }}>
-                    Thời gian còn lại: <b>{timeRemaining !== null ? formatTime(timeRemaining) : '--:--'}</b>
-                  </div>
-                </div>
-              ) : (
-                <p style={{ fontSize: 13, color: '#475569', marginBottom: 18, lineHeight: 1.6 }}>
-                  Bài làm sẽ được <b>tự động lưu</b>. Bạn có thể thoát và quay lại tiếp tục bất cứ lúc nào.
-                </p>
-              )}
-
-              {/* Action buttons */}
-              <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', flexWrap: 'wrap', alignItems: 'center' }}>
-                <button
-                  onClick={() => navigate(-1)}
-                  style={{ padding: '9px 18px', borderRadius: 20, border: '1.5px solid #e2e8f0', background: '#fff', fontSize: 13, fontWeight: 600, color: '#64748b', cursor: 'pointer' }}
-                >
-                  Thoát
-                </button>
-
-                {hasSavedProgress && (
-                  <button
-                    onClick={() => {
-                      const ok = window.confirm(
-                        "Bạn chắc chắn muốn làm lại từ đầu? Tất cả tiến độ đã lưu sẽ bị xóa."
-                      );
-                      if (!ok) return;
-
-                      try {
-                        localStorage.removeItem(camReadTimeKey);
-                        localStorage.removeItem(camReadAnsKey);
-                        localStorage.removeItem(camReadStartKey);
-                        localStorage.removeItem(camReadSubmissionKey);
-                      } catch {
-                        // ignore
-                      }
-
-                      setAnswers({});
-                      setFlaggedQuestions(new Set());
-                      setCurrentPartIndex(0);
-                      setCurrentQuestionIndex(0);
-                      setActiveQuestion(null);
-                      setTimeRemaining(effectiveDuration * 60);
-                      setGraceRemaining(0);
-                      setHasSavedProgress(false);
-                      setStarted(false);
-                      autoSubmittingRef.current = false;
-                      expiresAtRef.current = null;
-                      submissionIdRef.current = null;
-                    }}
-                    style={{ padding: '9px 18px', borderRadius: 20, border: '1.5px solid #fecaca', background: '#fef2f2', fontSize: 13, fontWeight: 600, color: '#dc2626', cursor: 'pointer' }}
-                  >
-                    🔄 Làm lại từ đầu
-                  </button>
-                )}
-
-                <button
-                  onClick={() => {
-                    setStarted(true);
-                    autoSubmittingRef.current = false;
-                    const initialSeconds = effectiveDuration * 60;
-                    try {
-                      localStorage.setItem(camReadStartKey, "true");
-                      const expiry = Date.now() + (timeRemaining ?? initialSeconds) * 1000;
-                      syncTimingState(expiry, initialSeconds);
-                      if (!localStorage.getItem(camReadAnsKey)) {
-                        localStorage.setItem(camReadAnsKey, JSON.stringify(answers || {}));
-                      }
-                    } catch {
-                      // ignore
-                    }
-                    if (timeRemaining === null) {
-                      setTimeRemaining(initialSeconds);
-                    }
-                    // focus first question after small delay
-                    setTimeout(() => {
-                      const el = document.getElementById("question-1");
-                      if (el && typeof el.scrollIntoView === "function") {
-                        el.scrollIntoView({ behavior: "smooth", block: "center" });
-                      }
-                    }, 250);
-                  }}
-                  style={{
-                    padding: '11px 24px', borderRadius: 20,
-                    background: 'linear-gradient(135deg, #1d4ed8, #0284c7)',
-                    fontSize: 14, fontWeight: 700, color: '#fff', border: 'none', cursor: 'pointer',
-                    boxShadow: '0 4px 14px rgba(29,78,216,0.4)',
-                  }}
-                >
-                  {hasSavedProgress ? '▶ Tiếp tục' : '▶ Bắt đầu làm bài'}
-                </button>
-              </div>
-
-            </div>
-          </div>
-        </div>
+          maxWidth={480}
+        />
       )}
 
       {/* Header */}
@@ -1627,7 +1568,7 @@ const DoCambridgeReadingTest = () => {
             boxShadow: "0 10px 25px rgba(249, 115, 22, 0.08)",
           }}
         >
-          <strong>Đã hết giờ chính thức.</strong> Hệ thống giữ bài thêm {formatTime(graceRemaining)} để phòng sự cố mất điện hoặc tải lại trang. Giáo viên có thể gia hạn thêm thời gian nếu cần.
+          <strong>Official time is over.</strong> The system keeps your answers for another {formatTime(graceRemaining)} in case of power loss or page reload. Your teacher can extend the time if needed.
         </div>
       )}
 
@@ -3362,7 +3303,7 @@ const DoCambridgeReadingTest = () => {
             onClick={() => goToQuestion(currentQuestionIndex - 1)}
             disabled={currentQuestionIndex === 0}
             aria-label="Previous"
-            title="Câu trước"
+            title="Previous question"
           >
             <i className="fa fa-chevron-left"></i>
           </button>
@@ -3371,7 +3312,7 @@ const DoCambridgeReadingTest = () => {
             onClick={() => goToQuestion(currentQuestionIndex + 1)}
             disabled={currentQuestionIndex === allQuestions.length - 1}
             aria-label="Next"
-            title="Câu tiếp theo"
+            title="Next question"
           >
             <i className="fa fa-chevron-right"></i>
           </button>
@@ -3422,7 +3363,7 @@ const DoCambridgeReadingTest = () => {
                               key={q.key}
                               className={`cambridge-question-num-btn ${isQuestionAnswered(q) ? 'answered' : ''} ${isActiveQuestion ? 'active' : ''} ${flaggedQuestions.has(q.key) ? 'flagged' : ''}`}
                               onClick={() => goToQuestion(questionIndex)}
-                              title={`Câu ${q.questionNumber}${isQuestionAnswered(q) ? ' ✓' : ''}`}
+                              title={`Question ${q.questionNumber}${isQuestionAnswered(q) ? ' ✓' : ''}`}
                             >
                               {isQuestionAnswered(q) && !isActiveQuestion
                                 ? <i className="fa fa-check" style={{ fontSize: 10 }}></i>
@@ -3492,78 +3433,33 @@ const DoCambridgeReadingTest = () => {
         </div>
       )}
 
-      {/* Confirm Submit Modal */}
-      {showConfirm && (
-        <div style={{
-          position: 'fixed', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
-          background: 'rgba(15,23,42,0.65)', backdropFilter: 'blur(4px)', zIndex: 1200, padding: '16px',
-        }}>
-          <div style={{ width: '100%', maxWidth: 420, borderRadius: 20, overflow: 'hidden', boxShadow: '0 24px 48px rgba(15,23,42,0.35)' }}>
-
-            {/* Header */}
-            <div style={{ background: 'linear-gradient(135deg, #1e3a8a 0%, #1d4ed8 55%, #0284c7 100%)', padding: '22px 24px 18px', position: 'relative', overflow: 'hidden' }}>
-              <div style={{ position: 'absolute', top: -40, right: -40, width: 140, height: 140, borderRadius: '50%', background: 'rgba(255,255,255,0.07)', pointerEvents: 'none' }} />
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, position: 'relative', zIndex: 1 }}>
-                <div style={{ width: 42, height: 42, borderRadius: 12, background: 'rgba(255,255,255,0.18)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0 }}>
-                  📤
-                </div>
-                <div>
-                  <div style={{ fontSize: 11, fontWeight: 800, color: 'rgba(255,255,255,0.65)', textTransform: 'uppercase', letterSpacing: '0.12em' }}>
-                    Cambridge {examType}
-                  </div>
-                  <h3 style={{ margin: 0, fontSize: 17, fontWeight: 800, color: '#fff', textShadow: '0 1px 3px rgba(0,0,0,0.2)' }}>
-                    Xác nhận nộp bài
-                  </h3>
-                </div>
+      <ConfirmModal
+        isOpen={showConfirm}
+        onClose={() => setShowConfirm(false)}
+        onConfirm={confirmSubmit}
+        title="Submit Cambridge Reading?"
+        message="Are you sure you want to submit your answers? After submission, you will not be able to edit them."
+        type="info"
+        iconName="reading"
+        confirmText="Submit now"
+        cancelText="Keep working"
+        extraContent={
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 12, padding: '12px 14px', textAlign: 'center' }}>
+              <div style={{ fontSize: 26, fontWeight: 800, color: '#1d4ed8', lineHeight: 1 }}>
+                {answeredCount}
               </div>
+              <div style={{ fontSize: 11, color: '#3b82f6', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', marginTop: 4 }}>Answered</div>
             </div>
-
-            {/* Body */}
-            <div style={{ background: '#fff', padding: '20px 24px 22px' }}>
-              <p style={{ fontSize: 14, color: '#475569', margin: '0 0 14px', lineHeight: 1.6 }}>
-                Bạn có chắc muốn nộp bài không? Sau khi nộp sẽ <b>không thể chỉnh sửa</b>.
-              </p>
-
-              {/* Stats */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 18 }}>
-                <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 12, padding: '12px 14px', textAlign: 'center' }}>
-                  <div style={{ fontSize: 26, fontWeight: 800, color: '#1d4ed8', lineHeight: 1 }}>
-                    {answeredCount}
-                  </div>
-                  <div style={{ fontSize: 11, color: '#3b82f6', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', marginTop: 4 }}>Đã trả lời</div>
-                </div>
-                <div style={{ background: unansweredCount > 0 ? '#fef2f2' : '#f0fdf4', border: `1px solid ${unansweredCount > 0 ? '#fecaca' : '#bbf7d0'}`, borderRadius: 12, padding: '12px 14px', textAlign: 'center' }}>
-                  <div style={{ fontSize: 26, fontWeight: 800, color: unansweredCount > 0 ? '#dc2626' : '#15803d', lineHeight: 1 }}>
-                    {unansweredCount}
-                  </div>
-                  <div style={{ fontSize: 11, color: unansweredCount > 0 ? '#ef4444' : '#16a34a', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', marginTop: 4 }}>Chưa trả lời</div>
-                </div>
+            <div style={{ background: unansweredCount > 0 ? '#fef2f2' : '#f0fdf4', border: `1px solid ${unansweredCount > 0 ? '#fecaca' : '#bbf7d0'}`, borderRadius: 12, padding: '12px 14px', textAlign: 'center' }}>
+              <div style={{ fontSize: 26, fontWeight: 800, color: unansweredCount > 0 ? '#dc2626' : '#15803d', lineHeight: 1 }}>
+                {unansweredCount}
               </div>
-
-              {/* Buttons */}
-              <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
-                <button
-                  onClick={() => setShowConfirm(false)}
-                  style={{ padding: '9px 18px', borderRadius: 20, border: '1.5px solid #e2e8f0', background: '#fff', fontSize: 13, fontWeight: 600, color: '#64748b', cursor: 'pointer' }}
-                >
-                  ✕ Huỷ
-                </button>
-                <button
-                  onClick={confirmSubmit}
-                  style={{
-                    padding: '11px 24px', borderRadius: 20,
-                    background: 'linear-gradient(135deg, #1d4ed8, #0284c7)',
-                    fontSize: 14, fontWeight: 700, color: '#fff', border: 'none', cursor: 'pointer',
-                    boxShadow: '0 4px 14px rgba(29,78,216,0.4)',
-                  }}
-                >
-                  ✓ Nộp bài
-                </button>
-              </div>
+              <div style={{ fontSize: 11, color: unansweredCount > 0 ? '#ef4444' : '#16a34a', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', marginTop: 4 }}>Unanswered</div>
             </div>
           </div>
-        </div>
-      )}
+        }
+      />
 
       {/* Results Modal */}
       {results && submitted && (

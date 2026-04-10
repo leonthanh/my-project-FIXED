@@ -1,5 +1,6 @@
 import React from 'react';
 import { useTheme } from '../contexts/ThemeContext';
+import LineIcon from './LineIcon.jsx';
 
 const getBandColor = (band) => {
   if (band >= 8) return '#16a34a'; // green
@@ -9,7 +10,7 @@ const getBandColor = (band) => {
   return '#6b7280'; // gray
 };
 
-const ResultModal = ({ isOpen, onClose, result, onViewDetails, title = 'Reading — Kết quả' }) => {
+const ResultModal = ({ isOpen, onClose, result, onViewDetails, title = 'Reading Results', iconName = 'overview' }) => {
   const { isDarkMode } = useTheme();
 
   if (!isOpen || !result) return null;
@@ -35,8 +36,15 @@ const ResultModal = ({ isOpen, onClose, result, onViewDetails, title = 'Reading 
     <div role="dialog" aria-modal="true" className="result-modal-overlay" onClick={onClose}>
       <div className="result-modal" style={{ color: textColor }} onClick={(e) => e.stopPropagation()}>
         <header className="result-modal-header">
-          <h2>{title}</h2>
-          <button type="button" aria-label="close" className="close-btn" onClick={onClose}>✕</button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <span style={{ width: 42, height: 42, borderRadius: 12, background: isDarkMode ? '#1f2b47' : '#e0f2fe', color: isDarkMode ? '#7dd3fc' : '#0369a1', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <LineIcon name={iconName} size={22} strokeWidth={2.1} />
+            </span>
+            <h2>{title}</h2>
+          </div>
+          <button type="button" aria-label="Close" className="close-btn" onClick={onClose}>
+            <LineIcon name="close" size={18} strokeWidth={2.2} />
+          </button>
         </header>
 
         <div className="result-modal-body">
@@ -57,11 +65,11 @@ const ResultModal = ({ isOpen, onClose, result, onViewDetails, title = 'Reading 
           </div>
 
           <div style={{ marginTop: 18 }}>
-            <p style={{ color: isDarkMode ? '#7dd3fc' : '#06c' }}><strong>Chi tiết:</strong></p>
+            <p style={{ color: isDarkMode ? '#7dd3fc' : '#06c' }}><strong>Details:</strong></p>
             <ul>
               <li>Total questions: {total}</li>
-              <li>Correct: {correct}</li>
-              <li>Score percentage: {pct}%</li>
+              <li>Correct answers: {correct}</li>
+              <li>Accuracy: {pct}%</li>
               {result && result.submissionId && <li>Submission ID: <strong>{result.submissionId}</strong></li>}
             </ul>
           </div>
@@ -69,7 +77,7 @@ const ResultModal = ({ isOpen, onClose, result, onViewDetails, title = 'Reading 
 
         <footer className="result-modal-footer">
           {/* The "View details" button removed from student modal; teachers can use the admin View page */}
-          <button type="button" onClick={onClose} className="btn btn-primary">Đóng</button>
+          <button type="button" onClick={onClose} className="btn btn-primary">Close</button>
         </footer>
 
         <style>{`

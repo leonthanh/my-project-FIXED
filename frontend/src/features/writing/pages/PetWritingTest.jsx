@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { apiPath, hostPath, redirectToLogin } from "../../../shared/utils/api";
+import { apiPath, hostPath, redirectInApp, redirectToLogin } from "../../../shared/utils/api";
 import TestHeader from "../../../shared/components/TestHeader";
+import TestStartModal from "../../../shared/components/TestStartModal";
 import "./PetWritingTest.css";
 
 const DURATION_SECONDS = 45 * 60;
@@ -124,12 +125,6 @@ const PetWritingTest = () => {
 
     fetchTestData();
   }, [selectedTestId]);
-
-  useEffect(() => {
-    if (testData && !started) {
-      setStarted(true);
-    }
-  }, [testData, started]);
 
   // persist endAt for resume
   useEffect(() => {
@@ -278,6 +273,35 @@ const PetWritingTest = () => {
   const part1Answered = task1Answer.trim().length > 0;
   const totalWords = countWords(task1Answer) + countWords(getSelectedAnswer().answer);
   const totalWordTarget = 200;
+
+  if (testData && !started && !submitted) {
+    const petWritingMinutes =
+      Number.isFinite(timeLeft) && timeLeft > 0 ? Math.ceil(timeLeft / 60) : 45;
+
+    return (
+      <TestStartModal
+        iconName="writing"
+        eyebrow="PET Writing"
+        subtitle="Writing Test"
+        title={testData?.title || "PET Writing"}
+        stats={[
+          { value: petWritingMinutes, label: "Minutes", tone: "sky" },
+          { value: 2, label: "Parts", tone: "green" },
+        ]}
+        statsMinWidth={140}
+        noticeTitle="Important note"
+        noticeContent={
+          <>
+            The timer starts as soon as you press Start. The system auto-saves your Part 1 answer and your selected Part 2 response while you work.
+          </>
+        }
+        secondaryLabel="Cancel"
+        onSecondary={() => redirectInApp("/pet-writing-select", { replace: true })}
+        primaryLabel="Start test"
+        onPrimary={() => setStarted(true)}
+      />
+    );
+  }
 
   const goToStep = (index) => {
     const next = steps[index];

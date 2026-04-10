@@ -4,6 +4,8 @@ import { apiPath, hostPath, authFetch } from "../../../shared/utils/api";
 import TestHeader from "../../../shared/components/TestHeader";
 import ExtensionToast from "../../../shared/components/ExtensionToast";
 import LineIcon from "../../../shared/components/LineIcon.jsx";
+import TestStartModal from "../../../shared/components/TestStartModal";
+import ConfirmModal from "../../../shared/components/ConfirmModal";
 import { useTheme } from "../../../shared/contexts/ThemeContext";
 import {
   formatClock,
@@ -507,7 +509,7 @@ const DoListeningTest = () => {
           localStorage.removeItem(expiresKey);
           localStorage.removeItem(stateKey);
         } catch (e) {}
-        alert('⏱️ Hết giờ nhưng bạn chưa trả lời câu nào. Không tạo bài nộp trống.');
+        alert("Time is up, but you did not answer any questions. No empty submission was created.");
         navigate('/select-test');
         return;
       }
@@ -520,7 +522,7 @@ const DoListeningTest = () => {
 
       const payload = await res.json().catch(() => null);
       if (!res.ok) {
-        const msg = payload?.message || "Lỗi khi nộp bài";
+        const msg = payload?.message || "Failed to submit the test";
         const detail = payload?.error ? ` (${payload.error})` : "";
         throw new Error(`${msg}${detail}`);
       }
@@ -629,7 +631,7 @@ const DoListeningTest = () => {
       if (test?.showResultModal !== false) {
         setResultModalOpen(true);
       } else {
-        alert("✅ Nộp bài thành công! Giáo viên sẽ xem kết quả của bạn.");
+        alert("Submission successful. Your teacher can review your results.");
         navigate("/select-test");
       }
       setSubmitted(true);
@@ -660,7 +662,7 @@ const DoListeningTest = () => {
       submissionIdRef.current = null;
     } catch (err) {
       console.error("Error submitting:", err);
-      alert(`❌ Có lỗi xảy ra khi nộp bài!${err?.message ? `\n${err.message}` : ""}`);
+      alert(`Something went wrong while submitting.${err?.message ? `\n${err.message}` : ""}`);
     }
   }, [answers, expiresKey, id, navigate, submitted, stateKey, test, test?.showResultModal]);
 
@@ -2313,7 +2315,7 @@ const DoListeningTest = () => {
     if (questions.length === 0) {
       return (
         <div style={{ color: "#6b7280", fontStyle: "italic", padding: "16px" }}>
-          Không có câu hỏi cho section này. Vui lòng kiểm tra lại đề thi.
+          No questions were found for this section. Please review the test configuration.
         </div>
       );
     }
@@ -2709,7 +2711,7 @@ const DoListeningTest = () => {
             boxShadow: "0 10px 25px rgba(249, 115, 22, 0.08)",
           }}
         >
-          <strong>Đã hết giờ chính thức.</strong> Hệ thống giữ bài thêm {formatClock(graceRemaining)} để phòng sự cố mất điện hoặc tải lại trang. Giáo viên có thể gia hạn thêm thời gian nếu cần.
+          <strong>Official time is over.</strong> The system keeps your answers for another {formatClock(graceRemaining)} in case of power loss or page reload. Your teacher can extend the time if needed.
         </div>
       )}
 
@@ -2753,7 +2755,7 @@ const DoListeningTest = () => {
           {/* Status messages (no visible controls) */}
           {!audioPlayed[currentPartIndex] && !isAudioPlaying && (
             <div>
-              <div style={{ color: '#0e276f', marginTop: 8 }}>Audio đã được bật, đang chờ phát (không hiển thị điều khiển).</div>
+              <div style={{ color: '#0e276f', marginTop: 8 }}>Audio is ready and waiting to play. The controls are hidden during the test.</div>
               {/* Show a one-time Resume button if the student reloads or opened the test without autoplay */}
               <div style={{ marginTop: 8 }}>
                 <button
@@ -2774,18 +2776,18 @@ const DoListeningTest = () => {
                   }}
                   style={styles.playGateButton}
                 >
-                  Phát lại audio ▶
+                  Play audio again ▶
                 </button>
               </div>
             </div>
           )}
 
           {isAudioPlaying && (
-            <div style={{ color: '#0e276f', marginTop: 8 }}>Audio đang phát... Vui lòng nghe cẩn thận.</div>
+            <div style={{ color: '#0e276f', marginTop: 8 }}>Audio is playing. Please listen carefully.</div>
           )}
 
           {audioPlayed[currentPartIndex] && (
-            <p style={styles.audioWarning}>⚠️ Audio chỉ được nghe 1 lần</p>
+            <p style={styles.audioWarning}>Audio can only be played once.</p>
           )}
         </div>
       )}
@@ -2812,89 +2814,38 @@ const DoListeningTest = () => {
 
       {/* Start Modal (Play Gate) */}
       {showStartModal && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            background: "rgba(15, 23, 42, 0.68)",
-            backdropFilter: "blur(4px)",
-            zIndex: 1200,
-            padding: "16px",
+        <TestStartModal
+          iconName="listening"
+          eyebrow="IX Listening"
+          subtitle="Listening Test"
+          title={test?.title || "IX Listening"}
+          stats={[
+            { value: startDurationMinutes, label: "Minutes", tone: "sky" },
+            { value: totalQuestions, label: "Questions", tone: "green" },
+          ]}
+          noticeTitle="Important note"
+          noticeContent={
+            <>
+              Audio starts as soon as you press Play and can only be heard <b>once</b>. Students cannot open the file in another tab during the test.
+            </>
+          }
+          secondaryLabel="Cancel"
+          onSecondary={() => {
+            setShowStartModal(false);
+            navigate('/select-test');
           }}
-          role="dialog"
-          aria-modal="true"
-        >
-          <div style={{ width: "100%", maxWidth: 500, borderRadius: 20, overflow: "hidden", boxShadow: "0 24px 48px rgba(15, 23, 42, 0.35)" }}>
-            <div style={{ background: "linear-gradient(135deg, #0c4a6e 0%, #0369a1 55%, #0ea5e9 100%)", padding: "26px 28px 22px", position: "relative", overflow: "hidden" }}>
-              <div style={{ position: "absolute", top: -40, right: -40, width: 160, height: 160, borderRadius: "50%", background: "rgba(255,255,255,0.07)", pointerEvents: "none" }} />
-              <div style={{ position: "absolute", bottom: -30, left: -20, width: 100, height: 100, borderRadius: "50%", background: "rgba(255,255,255,0.05)", pointerEvents: "none" }} />
-              <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14, position: "relative", zIndex: 1 }}>
-                <div style={{ width: 44, height: 44, borderRadius: 12, background: "rgba(255,255,255,0.18)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>
-                  🎧
-                </div>
-                <div>
-                  <div style={{ fontSize: 11, fontWeight: 800, color: "rgba(255,255,255,0.65)", textTransform: "uppercase", letterSpacing: "0.12em" }}>
-                    IX Listening
-                  </div>
-                  <div style={{ fontSize: 10, color: "rgba(255,255,255,0.45)", letterSpacing: "0.06em" }}>Listening Test</div>
-                </div>
-              </div>
-              <h2 style={{ fontSize: 18, fontWeight: 800, color: "#fff", margin: 0, lineHeight: 1.3, position: "relative", zIndex: 1, textShadow: "0 1px 3px rgba(0,0,0,0.2)" }}>
-                {test?.title || "IX Listening"}
-              </h2>
-            </div>
-
-            <div style={{ background: isDarkMode ? "#1e293b" : "#fff", padding: "22px 24px" }}>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 16 }}>
-                <div style={{ background: isDarkMode ? "#0c4a6e33" : "#e0f2fe", border: `1px solid ${isDarkMode ? "#0369a1" : "#bae6fd"}`, borderRadius: 12, padding: "14px 16px", textAlign: "center" }}>
-                  <div style={{ fontSize: 28, fontWeight: 800, color: "#0369a1", lineHeight: 1 }}>{startDurationMinutes}</div>
-                  <div style={{ fontSize: 11, color: "#0284c7", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.07em", marginTop: 4 }}>Phút</div>
-                </div>
-                <div style={{ background: isDarkMode ? "#14532d33" : "#f0fdf4", border: `1px solid ${isDarkMode ? "#16a34a" : "#bbf7d0"}`, borderRadius: 12, padding: "14px 16px", textAlign: "center" }}>
-                  <div style={{ fontSize: 28, fontWeight: 800, color: "#15803d", lineHeight: 1 }}>{totalQuestions}</div>
-                  <div style={{ fontSize: 11, color: "#16a34a", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.07em", marginTop: 4 }}>Câu hỏi</div>
-                </div>
-              </div>
-
-              <div style={{ background: isDarkMode ? "#1c1917" : "#fff7ed", border: `1px solid ${isDarkMode ? "#92400e" : "#fed7aa"}`, borderRadius: 10, padding: "12px 14px", marginBottom: 18 }}>
-                <div style={{ fontWeight: 700, color: "#c2410c", fontSize: 13, marginBottom: 4 }}>Lưu ý quan trọng</div>
-                <div style={{ fontSize: 13, color: isDarkMode ? "#fdba74" : "#9a3412", lineHeight: 1.5 }}>
-                  Audio sẽ bắt đầu phát ngay khi bạn nhấn Play và chỉ được nghe <b>một lần</b>. Trong lúc làm bài, học sinh không thể mở file nghe ở tab khác để tránh nghe lại ngoài luồng.
-                </div>
-              </div>
-
-              <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", flexWrap: "wrap", alignItems: "center" }}>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowStartModal(false);
-                    navigate('/select-test');
-                  }}
-                  style={{ padding: "9px 18px", borderRadius: 20, border: `1.5px solid ${isDarkMode ? "#334155" : "#e2e8f0"}`, background: isDarkMode ? "#1e293b" : "#fff", fontSize: 13, fontWeight: 600, color: isDarkMode ? "#94a3b8" : "#64748b", cursor: "pointer" }}
-                >
-                  Hủy
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    handleStartClick();
-                    try {
-                      const cur = JSON.parse(localStorage.getItem(stateKey) || '{}') || {};
-                      cur.started = true;
-                      localStorage.setItem(stateKey, JSON.stringify(cur));
-                    } catch (e) {}
-                  }}
-                  style={{ padding: "11px 28px", borderRadius: 20, background: "linear-gradient(135deg, #0369a1, #0ea5e9)", fontSize: 14, fontWeight: 700, color: "#fff", border: "none", cursor: "pointer", boxShadow: "0 4px 14px rgba(3,105,161,0.4)" }}
-                >
-                  ▶ Play & Bắt đầu
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+          primaryLabel="Play & Start"
+          onPrimary={() => {
+            handleStartClick();
+            try {
+              const cur = JSON.parse(localStorage.getItem(stateKey) || '{}') || {};
+              cur.started = true;
+              localStorage.setItem(stateKey, JSON.stringify(cur));
+            } catch (e) {}
+          }}
+          darkContent={isDarkMode}
+          maxWidth={500}
+        />
       )}
 
       {/* Floating Navigation Arrows */}
@@ -3029,15 +2980,20 @@ const DoListeningTest = () => {
         </div>
       </nav>
 
-      {/* Confirm Modal */}
-      {showConfirm && (
-        <div style={styles.modalOverlay}>
-          <div style={styles.modalContent}>
-            <h3 style={styles.modalTitle}>📋 Xác nhận nộp bài</h3>
-            <p style={styles.modalText}>Bạn có chắc chắn muốn nộp bài?</p>
-
+      <ConfirmModal
+        isOpen={showConfirm}
+        onClose={() => setShowConfirm(false)}
+        onConfirm={confirmSubmit}
+        title="Submit listening test?"
+        message="Are you sure you want to submit your answers? After submission, you will not be able to edit them."
+        type="info"
+        iconName="listening"
+        confirmText="Submit now"
+        cancelText="Keep working"
+        extraContent={
+          <div>
+            <p style={{ ...styles.summaryLabel, margin: "0 0 10px" }}>Attempt summary</p>
             <div style={styles.summaryBox}>
-              <p style={styles.summaryLabel}>Tổng quan bài làm:</p>
               {parts.map((part, idx) => {
                 const answered = getAnsweredCount(idx);
                 const total = getPartTotalQuestions(idx);
@@ -3050,31 +3006,15 @@ const DoListeningTest = () => {
                         fontWeight: 500,
                       }}
                     >
-                      {answered}/{total} câu
+                      {answered}/{total} answered
                     </span>
                   </div>
                 );
               })}
             </div>
-
-            <p style={styles.warningText}>
-              ⚠️ Sau khi nộp, bạn sẽ không thể chỉnh sửa câu trả lời.
-            </p>
-
-            <div style={styles.modalButtons}>
-              <button
-                onClick={() => setShowConfirm(false)}
-                style={styles.cancelButton}
-              >
-                Hủy
-              </button>
-              <button onClick={confirmSubmit} style={styles.confirmButton}>
-                ✅ Xác nhận nộp
-              </button>
-            </div>
           </div>
-        </div>
-      )}
+        }
+      />
 
       <ResultModal
         isOpen={resultModalOpen}
@@ -3092,7 +3032,8 @@ const DoListeningTest = () => {
           navigate("/select-test");
         }}
         result={resultData}
-        title="Listening — Kết quả"
+        title="Listening Results"
+        iconName="listening"
       />
     </div>
   );
