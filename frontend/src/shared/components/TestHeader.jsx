@@ -1,4 +1,5 @@
 import React from "react";
+import LineIcon from "./LineIcon.jsx";
 import "./TestHeader.css";
 
 /**
@@ -87,7 +88,9 @@ const TestHeader = ({
       <div className="header-right">
         {audioStatusText && (
           <div className="audio-status" aria-live="polite">
-            <span className="audio-status-icon">🔊</span>
+            <span className="audio-status-icon">
+              <LineIcon name="listening" size={14} strokeWidth={2.1} />
+            </span>
             <span className="audio-status-text">{audioStatusText}</span>
           </div>
         )}
@@ -97,7 +100,9 @@ const TestHeader = ({
             timerCritical ? "critical" : ""
           }`}
         >
-          <div className="timer-icon">⏱️</div>
+          <div className="timer-icon">
+            <LineIcon name="clock" size={18} strokeWidth={2.1} />
+          </div>
           <div className="timer-display">
             <span className="timer-value">{formatTime(timeRemaining)}</span>
             <span className="timer-label">{isCambridge ? 'TIME LEFT' : 'REMAINING'}</span>
@@ -130,23 +135,31 @@ const TestHeader = ({
 
         {/* Auto-save indicator */}
         {showAutoSave && (
-          <div className="auto-save-indicator">
-            <span className="save-icon">💾</span>
+          <div className="auto-save-indicator" title="Auto-save enabled" aria-label="Auto-save enabled">
+            <span className="save-icon">
+              <LineIcon name="overview" size={16} strokeWidth={2.1} />
+            </span>
           </div>
         )}
 
         {/* Submit button */}
         <button
+          data-testid="submit-button"
           onClick={onSubmit}
           disabled={submitted}
           className="submit-btn"
         >
           {submitted ? (
-            <>✓ Đã nộp</>
+            <>
+              <LineIcon name="correct" size={16} strokeWidth={2.2} />
+              Submitted
+            </>
           ) : (
             <>
-              <span className="submit-icon">📤</span>
-              <span className="submit-text">Nộp bài</span>
+              <span className="submit-icon">
+                <LineIcon name="review" size={16} strokeWidth={2.1} />
+              </span>
+              <span className="submit-text">Submit</span>
             </>
           )}
         </button>

@@ -68,5 +68,5 @@ export function getExtensionMinutesDelta(prevExpiresAtValue, nextExpiresAtValue)
 export function getExtensionToastMessage(prevExpiresAtValue, nextExpiresAtValue) {
   const minutes = getExtensionMinutesDelta(prevExpiresAtValue, nextExpiresAtValue);
   if (!Number.isFinite(minutes) || minutes <= 0) return "";
-  return `Thời gian làm bài vừa được gia hạn thêm ${minutes} phút.`;
+  return `Your test time has been extended by ${minutes} minute${minutes === 1 ? "" : "s"}.`;
 }

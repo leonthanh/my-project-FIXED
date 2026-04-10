@@ -244,7 +244,7 @@ const StudentNavbar = () => {
 
   useEffect(() => {
     setMobileDrawerOpen(false);
-  }, [location.pathname]);
+  }, [location.pathname, location.search]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -373,11 +373,17 @@ const StudentNavbar = () => {
     navigate('/login');
   };
 
+  const ixHubPath = "/select-test?platform=ix&tab=writing";
+  const orangeHubPath = "/select-test?platform=orange&type=ket&tab=listening";
+
   const getPreferredMobileTab = () => {
     const pathname = String(location.pathname || "").toLowerCase();
     if (pathname.startsWith("/my-feedback")) return "feedback";
     if (pathname.startsWith("/cambridge")) return "orange";
-    if (pathname.startsWith("/select-test")) return "ielts";
+    if (pathname.startsWith("/select-test")) {
+      const params = new URLSearchParams(location.search || "");
+      return params.get("platform") === "orange" ? "orange" : "ielts";
+    }
     return "overview";
   };
 
@@ -401,6 +407,20 @@ const StudentNavbar = () => {
 
   const feedbackCount = writingFeedbackCount + readingFeedbackCount + listeningFeedbackCount + cambridgeFeedbackCount;
   const totalNotifications = feedbackCount;
+  const pathname = String(location.pathname || "").toLowerCase();
+  const platformParam = pathname.startsWith("/select-test")
+    ? new URLSearchParams(location.search || "").get("platform")
+    : null;
+  const isIxCurrent =
+    (pathname.startsWith("/select-test") && platformParam !== "orange") ||
+    pathname.startsWith("/reading/") ||
+    pathname.startsWith("/listening/") ||
+    pathname.startsWith("/writing-test");
+  const isOrangeCurrent =
+    (pathname.startsWith("/select-test") && platformParam === "orange") ||
+    pathname.startsWith("/cambridge/") ||
+    pathname.startsWith("/pet-writing");
+  const isFeedbackCurrent = pathname.startsWith("/my-feedback");
 
   const mobileDrawerTabs = [
     { key: "overview", label: "Overview" },
@@ -457,8 +477,8 @@ const StudentNavbar = () => {
       <div className="studentNavbar__mobileMenuBody studentNavbar__mobileMenuBody--compact">
         <div className="studentNavbar__mobileSectionTitle">Quick access</div>
         <div className="studentNavbar__mobileQuickGrid">
-          {renderMobileQuickLink("/select-test", "IX", "Open the IX test list", "tests")}
-          {renderMobileQuickLink("/cambridge", "Orange", "Open Orange practice tests", "cambridge")}
+          {renderMobileQuickLink(ixHubPath, "IX", "Open the IX test list", "tests")}
+          {renderMobileQuickLink(orangeHubPath, "Orange", "Open Orange practice tests", "cambridge")}
           {renderMobileQuickLink(
             "/my-feedback",
             "My Feedback",
@@ -500,7 +520,7 @@ const StudentNavbar = () => {
       </div>
       <div className="studentNavbar__mobileMenuBody studentNavbar__mobileMenuBody--compact">
         {renderMobileQuickLink(
-          "/select-test",
+          ixHubPath,
           "Open IX tests",
           "Go back to the IX test listing page",
           "tests"
@@ -519,7 +539,7 @@ const StudentNavbar = () => {
       </div>
       <div className="studentNavbar__mobileMenuBody studentNavbar__mobileMenuBody--compact">
         {renderMobileQuickLink(
-          "/cambridge",
+          orangeHubPath,
           "Open Orange tests",
           "Go to the Orange practice test hub",
           "cambridge"
@@ -584,7 +604,7 @@ const StudentNavbar = () => {
     return (
       <nav className="studentNavbar studentNavbar--compact">
         <div className="studentNavbar__mobileBar">
-          <Link to="/select-test" className="studentNavbar__logoLink" title="Test list">
+          <Link to={ixHubPath} className="studentNavbar__logoLink" title="Test list">
             <img
               src={hostPath("uploads/staredu.jpg")}
               alt="Logo"
@@ -678,25 +698,25 @@ const StudentNavbar = () => {
   return (
     <nav className="studentNavbar">
       <div className="studentNavbar__left">
-        <Link to="/select-test" className="studentNavbar__logoLink" title="Test List">
+        <Link to={ixHubPath} className="studentNavbar__logoLink" title="Test List">
           <img
             src={hostPath("uploads/staredu.jpg")}
             alt="Logo"
             className="studentNavbar__logo"
           />
         </Link>
-        <Link to="/select-test" className="studentNavbar__link" title="IX">
+        <Link to={ixHubPath} className={`studentNavbar__link${isIxCurrent ? " studentNavbar__link--active" : ""}`} title="IX">
           <span className="studentNavbar__icon" aria-hidden="true"><NavIcon name="tests" /></span>
           <span className="studentNavbar__label">IX</span>
         </Link>
-        <Link to="/cambridge" className="studentNavbar__link" title="Orange">
+        <Link to={orangeHubPath} className={`studentNavbar__link${isOrangeCurrent ? " studentNavbar__link--active" : ""}`} title="Orange">
           <span className="studentNavbar__icon" aria-hidden="true"><NavIcon name="cambridge" /></span>
           <span className="studentNavbar__label">Orange</span>
         </Link>
 
         <button
           type="button"
-          className={`studentNavbar__notificationPill${totalNotifications > 0 ? " studentNavbar__notificationPill--active" : ""}`}
+          className={`studentNavbar__notificationPill${totalNotifications > 0 ? " studentNavbar__notificationPill--active" : ""}${isFeedbackCurrent ? " studentNavbar__notificationPill--current" : ""}`}
           onClick={handleNotificationClick}
           title="My Feedback and notifications"
         >
@@ -727,7 +747,7 @@ const StudentNavbar = () => {
           {moreDropdownVisible && (
             <div className="studentNavbar__menu">
               <Link
-                to="/select-test"
+                to={ixHubPath}
                 className="studentNavbar__menuItem"
                 onClick={() => setMoreDropdownVisible(false)}
               >
@@ -735,7 +755,7 @@ const StudentNavbar = () => {
                 <span>IX</span>
               </Link>
               <Link
-                to="/cambridge"
+                to={orangeHubPath}
                 className="studentNavbar__menuItem"
                 onClick={() => setMoreDropdownVisible(false)}
               >

@@ -208,6 +208,13 @@ const LineIcon = ({ name, size = 18, strokeWidth = 1.9, className }) => {
           <path d="M12 7v5l3 2" />
         </svg>
       );
+    case "search":
+      return (
+        <svg {...props}>
+          <circle cx="11" cy="11" r="6.5" />
+          <path d="m16 16 4.5 4.5" />
+        </svg>
+      );
     case "feedback":
       return (
         <svg {...props}>

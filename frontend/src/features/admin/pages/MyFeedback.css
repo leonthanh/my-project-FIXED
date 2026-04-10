@@ -1,0 +1,577 @@
+.myFeedbackPage {
+  min-height: 100vh;
+  background: var(--mf-page-bg);
+}
+
+.myFeedbackShell {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 30px 18px 40px;
+  color: var(--mf-text);
+}
+
+.myFeedbackTitle {
+  margin: 0 0 14px;
+  font-size: 33px;
+  line-height: 1.1;
+  font-weight: 800;
+  color: var(--mf-text);
+}
+
+.myFeedbackPage .admin-submission-switcher-block {
+  margin-bottom: 18px;
+}
+
+.myFeedbackFilters {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
+  gap: 12px;
+  align-items: end;
+  padding: 16px;
+  margin-bottom: 14px;
+  border-radius: 22px;
+  border: 1px solid var(--mf-border);
+  background: var(--mf-panel-bg);
+  box-shadow: var(--mf-card-shadow);
+}
+
+.myFeedbackField {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.myFeedbackFieldLabel {
+  font-size: 11px;
+  line-height: 1.2;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--mf-muted);
+}
+
+.myFeedbackInput {
+  width: 100%;
+  min-width: 0;
+  height: 44px;
+  padding: 0 14px;
+  border-radius: 14px;
+  border: 1px solid var(--mf-border);
+  background: var(--mf-input-bg);
+  color: var(--mf-text);
+  font-size: 14px;
+  font-weight: 600;
+  box-sizing: border-box;
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.myFeedbackInput:focus {
+  border-color: var(--mf-primary);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.14);
+}
+
+.myFeedbackInput::placeholder {
+  color: var(--mf-muted);
+  font-weight: 500;
+}
+
+.myFeedbackReset {
+  height: 44px;
+  padding: 0 18px;
+  border: none;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #64748b 0%, #475569 100%);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 12px 24px rgba(71, 85, 105, 0.22);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease;
+}
+
+.myFeedbackReset:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 14px 28px rgba(71, 85, 105, 0.26);
+}
+
+.myFeedbackReset:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(148, 163, 184, 0.24), 0 14px 28px rgba(71, 85, 105, 0.26);
+}
+
+.myFeedbackCount {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 16px;
+  padding: 10px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--mf-border);
+  background: var(--mf-panel-bg);
+  color: var(--mf-muted);
+  font-size: 14px;
+  font-weight: 700;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.05);
+}
+
+.myFeedbackCount strong {
+  color: var(--mf-primary);
+}
+
+.myFeedbackState {
+  margin: 0 0 14px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  border: 1px solid var(--mf-border);
+  background: var(--mf-panel-bg);
+  color: var(--mf-muted);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.myFeedbackState--empty {
+  color: var(--mf-danger);
+}
+
+.myFeedbackCard {
+  --mf-accent: var(--mf-primary);
+  margin-bottom: 14px;
+  padding: 16px;
+  border-radius: 22px;
+  border: 1px solid var(--mf-border);
+  border-top: 4px solid var(--mf-accent);
+  background: linear-gradient(180deg, var(--mf-panel-bg) 0%, var(--mf-shell-bg) 100%);
+  box-shadow: var(--mf-card-shadow);
+}
+
+.myFeedbackCard--writing {
+  --mf-accent: #7c3aed;
+}
+
+.myFeedbackCard--reading {
+  --mf-accent: #2563eb;
+}
+
+.myFeedbackCard--listening {
+  --mf-accent: #16a34a;
+}
+
+.myFeedbackCard--cambridge {
+  --mf-accent: #ea580c;
+}
+
+.myFeedbackCardHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.myFeedbackCardHeading {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.myFeedbackCardEyebrow,
+.myFeedbackSectionEyebrow {
+  display: inline-flex;
+  align-items: center;
+  font-size: 11px;
+  line-height: 1.2;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--mf-muted);
+}
+
+.myFeedbackCardTitle {
+  margin: 6px 0 0;
+  font-size: 18px;
+  line-height: 1.3;
+  font-weight: 800;
+  color: var(--mf-text);
+}
+
+.myFeedbackScoreBadge {
+  min-width: 96px;
+  padding: 10px 12px;
+  border-radius: 18px;
+  border: 1px solid var(--mf-border);
+  background: var(--mf-soft-bg);
+  text-align: center;
+  flex: 0 0 auto;
+}
+
+.myFeedbackScoreBadge strong {
+  display: block;
+  font-size: 28px;
+  line-height: 1;
+  font-weight: 800;
+  color: var(--mf-text);
+}
+
+.myFeedbackScoreBadge span {
+  display: block;
+  margin-top: 4px;
+  font-size: 11px;
+  line-height: 1.2;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--mf-muted);
+}
+
+.myFeedbackMetaGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.myFeedbackMetaItem {
+  min-width: 0;
+  padding: 10px 12px;
+  border-radius: 16px;
+  border: 1px solid var(--mf-border);
+  background: var(--mf-soft-bg);
+}
+
+.myFeedbackMetaLabel {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 11px;
+  line-height: 1.2;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--mf-muted);
+}
+
+.myFeedbackMetaValue {
+  display: block;
+  font-size: 14px;
+  line-height: 1.45;
+  font-weight: 700;
+  color: var(--mf-text);
+  word-break: break-word;
+}
+
+.myFeedbackBadgeRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.myFeedbackMetricPill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 32px;
+  padding: 0 11px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #60a5fa 0%, #2563eb 100%);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.myFeedbackMetricPill--success {
+  background: linear-gradient(135deg, #4ade80 0%, #16a34a 100%);
+}
+
+.myFeedbackImageWrap {
+  margin-bottom: 12px;
+  border-radius: 18px;
+  overflow: hidden;
+  border: 1px solid var(--mf-border);
+  background: var(--mf-soft-bg);
+}
+
+.myFeedbackImage {
+  display: block;
+  width: 100%;
+  max-height: 240px;
+  object-fit: contain;
+  background: var(--mf-input-bg);
+}
+
+.myFeedbackDetailsGrid {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.myFeedbackDetails {
+  border: 1px solid var(--mf-border);
+  border-radius: 16px;
+  background: var(--mf-soft-bg);
+  overflow: hidden;
+}
+
+.myFeedbackDetailsSummary {
+  list-style: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 14px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--mf-text);
+}
+
+.myFeedbackDetailsSummary::-webkit-details-marker {
+  display: none;
+}
+
+.myFeedbackDetailsHint {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--mf-muted);
+}
+
+.myFeedbackEssayText {
+  padding: 0 14px 14px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--mf-text);
+  white-space: pre-line;
+}
+
+.myFeedbackStats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.myFeedbackStat {
+  padding: 12px 10px;
+  border-radius: 16px;
+  border: 1px solid var(--mf-border);
+  background: var(--mf-soft-bg);
+  text-align: center;
+}
+
+.myFeedbackStatValue {
+  font-size: 24px;
+  line-height: 1;
+  font-weight: 800;
+}
+
+.myFeedbackStatLabel {
+  margin-top: 5px;
+  font-size: 11px;
+  line-height: 1.3;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--mf-muted);
+}
+
+.myFeedbackActionRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.myFeedbackActionButton,
+.myFeedbackActionLink {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 42px;
+  padding: 0 14px;
+  border-radius: 14px;
+  font-size: 13px;
+  font-weight: 800;
+  text-decoration: none;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease;
+}
+
+.myFeedbackActionButton {
+  border: none;
+  background: linear-gradient(135deg, #4f46e5 0%, var(--mf-primary) 100%);
+  color: #fff;
+  cursor: pointer;
+  box-shadow: 0 12px 24px rgba(79, 70, 229, 0.2);
+}
+
+.myFeedbackActionButton:disabled {
+  cursor: default;
+  opacity: 0.72;
+  transform: none;
+  box-shadow: none;
+}
+
+.myFeedbackActionLink {
+  border: 1px solid rgba(37, 99, 235, 0.2);
+  background: var(--mf-soft-strong);
+  color: var(--mf-primary);
+}
+
+.myFeedbackActionButton:hover:not(:disabled),
+.myFeedbackActionLink:hover {
+  transform: translateY(-1px);
+}
+
+.myFeedbackFeedbackSection {
+  margin-top: 2px;
+}
+
+.myFeedbackFeedbackHeader {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.myFeedbackReviewerChip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 30px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: rgba(37, 99, 235, 0.12);
+  color: var(--mf-primary);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.myFeedbackFeedbackBox {
+  padding: 12px 14px;
+  border-radius: 16px;
+  border: 1px solid var(--mf-feedback-border);
+  background: var(--mf-feedback-bg);
+}
+
+.myFeedbackFeedbackText {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--mf-text);
+  white-space: pre-line;
+}
+
+.myFeedbackFeedbackMeta {
+  margin: 10px 0 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--mf-muted);
+}
+
+.myFeedbackMuted {
+  margin: 0;
+  font-size: 14px;
+  color: var(--mf-muted);
+}
+
+.myFeedbackMuted--italic {
+  font-style: italic;
+}
+
+@media (max-width: 900px) {
+  .myFeedbackFilters {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .myFeedbackReset {
+    width: 100%;
+  }
+}
+
+@media (max-width: 640px) {
+  .myFeedbackShell {
+    padding: 78px 12px 28px;
+  }
+
+  .myFeedbackTitle {
+    font-size: 28px;
+    margin-bottom: 12px;
+  }
+
+  .myFeedbackFilters {
+    grid-template-columns: 1fr;
+    padding: 14px;
+    gap: 10px;
+    border-radius: 18px;
+  }
+
+  .myFeedbackCount {
+    width: 100%;
+    justify-content: space-between;
+    box-sizing: border-box;
+  }
+
+  .myFeedbackCard {
+    padding: 14px;
+    border-radius: 18px;
+  }
+
+  .myFeedbackCardHeader {
+    flex-direction: column;
+  }
+
+  .myFeedbackScoreBadge {
+    min-width: 84px;
+    align-self: flex-start;
+  }
+
+  .myFeedbackScoreBadge strong {
+    font-size: 24px;
+  }
+
+  .myFeedbackCardTitle {
+    font-size: 16px;
+  }
+
+  .myFeedbackMetaGrid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .myFeedbackStats {
+    gap: 8px;
+  }
+
+  .myFeedbackStat {
+    padding: 10px 8px;
+  }
+
+  .myFeedbackStatValue {
+    font-size: 20px;
+  }
+
+  .myFeedbackActionRow {
+    flex-direction: column;
+  }
+
+  .myFeedbackActionButton,
+  .myFeedbackActionLink {
+    width: 100%;
+  }
+}
+
+@media (max-width: 420px) {
+  .myFeedbackShell {
+    padding-top: 74px;
+  }
+
+  .myFeedbackMetaGrid,
+  .myFeedbackStats {
+    grid-template-columns: 1fr;
+  }
+
+  .myFeedbackCount {
+    padding: 9px 12px;
+    font-size: 13px;
+  }
+}

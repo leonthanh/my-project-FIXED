@@ -693,6 +693,18 @@ const AdminNavbar = () => {
     null;
 
   const pendingNotificationCount = pendingNotifications.length;
+  const pathname = String(location.pathname || "").toLowerCase();
+  const isOrangeCurrent = pathname.includes("cambridge") || pathname.includes("pet-writing");
+  const isIxCurrent =
+    pathname.startsWith("/admin/create") ||
+    pathname.includes("writing-submissions") ||
+    pathname.includes("reading-submissions") ||
+    pathname.includes("listening-submissions");
+  const isTestListCurrent = pathname === "/select-test";
+  const isReviewCurrent = pathname.startsWith("/review");
+  const isAdminCurrent =
+    pathname.startsWith("/admin/users") ||
+    pathname.startsWith("/admin/teacher-permissions");
 
   const mobileDrawerTabs = [
     {
@@ -1118,7 +1130,7 @@ const AdminNavbar = () => {
         {/* Cambridge Tests Dropdown */}
         <div className="adminNavbar__dropdown" ref={cambridgeDropdownRef}>
           <span
-            className="adminNavbar__link adminNavbar__dropdownToggle"
+            className={`adminNavbar__link adminNavbar__dropdownToggle${isOrangeCurrent || cambridgeDropdownVisible ? " adminNavbar__link--active" : ""}`}
             onClick={() => setCambridgeDropdownVisible((prev) => !prev)}
             title="Orange"
           >
@@ -1140,7 +1152,7 @@ const AdminNavbar = () => {
           ref={submissionDropdownRef}
         >
           <span
-            className="adminNavbar__link adminNavbar__dropdownToggle"
+            className={`adminNavbar__link adminNavbar__dropdownToggle${isIxCurrent || submissionDropdownVisible ? " adminNavbar__link--active" : ""}`}
             onClick={() => setSubmissionDropdownVisible((prev) => !prev)}
             title="IX"
           >
@@ -1156,12 +1168,12 @@ const AdminNavbar = () => {
             )
           )}
         </div>
-        <Link to="/select-test" className="adminNavbar__link" title="Test list">
+        <Link to="/select-test" className={`adminNavbar__link${isTestListCurrent ? " adminNavbar__link--active" : ""}`} title="Test list">
           <span className="adminNavbar__icon" aria-hidden="true"><NavIcon name="tests" /></span>
           <span className="adminNavbar__label">Test List</span>
         </Link>
 
-        <Link to="/review" className="adminNavbar__link" title="Review">
+        <Link to="/review" className={`adminNavbar__link${isReviewCurrent ? " adminNavbar__link--active" : ""}`} title="Review">
           <span className="adminNavbar__icon" aria-hidden="true"><NavIcon name="review" /></span>
           <span className="adminNavbar__label">Review</span>
         </Link>
@@ -1169,7 +1181,7 @@ const AdminNavbar = () => {
         {user?.role === 'admin' && (
           <div className="adminNavbar__dropdown" ref={adminDropdownRef}>
             <span
-              className="adminNavbar__link adminNavbar__dropdownToggle"
+              className={`adminNavbar__link adminNavbar__dropdownToggle${isAdminCurrent || adminDropdownVisible ? " adminNavbar__link--active" : ""}`}
               onClick={() => setAdminDropdownVisible(!adminDropdownVisible)}
               title="Admin"
             >
@@ -1189,9 +1201,7 @@ const AdminNavbar = () => {
 
         <div
           className={
-            pendingNotificationCount > 0
-              ? "adminNavbar__bell adminNavbar__bell--shake"
-              : "adminNavbar__bell"
+            `adminNavbar__bell${pendingNotificationCount > 0 ? " adminNavbar__bell--shake" : ""}${notificationDropdownVisible ? " adminNavbar__bell--active" : ""}`
           }
           onClick={() =>
             setNotificationDropdownVisible(!notificationDropdownVisible)
