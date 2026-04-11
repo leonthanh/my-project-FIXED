@@ -113,7 +113,7 @@ const NotesCompletionEditor = ({
         alignItems: "center",
       }}>
         <span style={{ fontWeight: 600, color: "#0369a1" }}>
-          📝 Notes Completion: {blanks.length > 0 ? `Questions ${startQ} - ${startQ + blanks.length - 1}` : 'Chưa có câu hỏi'}
+          Notes Completion: {blanks.length > 0 ? `Questions ${startQ} - ${startQ + blanks.length - 1}` : 'Chưa có câu hỏi'}
         </span>
         <span style={{
           padding: "4px 10px",
@@ -136,7 +136,7 @@ const NotesCompletionEditor = ({
         border: "1px solid #86efac",
         fontSize: "13px",
       }}>
-        <strong>💡 Hướng dẫn:</strong> Paste notes vào ô bên dưới. Dùng <code>___</code> hoặc <code>31 ___</code> để đánh dấu chỗ trống.
+        <strong>Hướng dẫn:</strong> Paste notes vào ô bên dưới. Dùng <code>___</code> hoặc <code>31 ___</code> để đánh dấu chỗ trống.
         <br/>
         VD: <code>People moved to cities to work in the 31 ___</code>
       </div>
@@ -194,7 +194,7 @@ VD:
           border: "1px solid #fecaca",
           fontSize: "13px",
         }}>
-          ⚠️ Không tìm thấy chỗ trống. Hãy thêm <code>___</code> hoặc <code>31 ___</code> vào text.
+          Không tìm thấy chỗ trống. Hãy thêm <code>___</code> hoặc <code>31 ___</code> vào text.
         </div>
       )}
 
@@ -248,7 +248,7 @@ VD:
             ))}
           </div>
           <p style={{ fontSize: "11px", color: "#6b7280", marginTop: "8px" }}>
-            💡 Tip: Dùng <code>|</code> để có nhiều đáp án đúng. VD: <code>factories|factory</code>
+              Tip: Dùng <code>|</code> để có nhiều đáp án đúng. VD: <code>factories|factory</code>
           </p>
         </div>
       )}
@@ -256,7 +256,7 @@ VD:
       {/* Preview */}
       {plainText && blanks.length > 0 && (
         <div style={{ marginTop: "16px" }}>
-          <label style={defaultStyles.label}>👁️ Preview (như học sinh nhìn thấy)</label>
+            <label style={defaultStyles.label}>Preview (như học sinh nhìn thấy)</label>
           <div style={{
             padding: "16px",
             backgroundColor: "#fffbeb",

@@ -1,8 +1,7 @@
 import React, { useState, useCallback, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { ListeningTestEditor } from "../components";
-import { useListeningHandlers, createNewPart } from "../hooks";
-import { countFlowchartQuestionSlots } from "../utils/flowchart";
+import { useListeningHandlers, createNewPart, calculateTotalQuestions } from "../hooks";
 import { apiPath, authFetch, redirectToLogin } from "../../../shared/utils/api";
 
 /**
@@ -112,7 +111,7 @@ const CreateListeningTestNew = () => {
   if (!allowedToManage) {
     return (
       <div style={{ padding: 40, textAlign: 'center' }}>
-        <h2>⚠️ Bạn không có quyền tạo đề Listening</h2>
+        <h2>Bạn không có quyền tạo đề Listening</h2>
         <p>Nếu bạn cho rằng đây là lỗi, vui lòng liên hệ quản trị hệ thống.</p>
         <button onClick={() => navigate('/select-test')} style={{ marginTop: 16, padding: '8px 14px' }}>Quay lại</button>
       </div>
@@ -245,85 +244,13 @@ const CreateListeningTestNew = () => {
     }
   };
 
-  // Calculate total questions
-  const calculateTotalQuestions = () => {
-    const stripHtml = (html) => {
-      if (!html) return '';
-      const temp = document.createElement('div');
-      temp.innerHTML = html;
-      return temp.textContent || temp.innerText || '';
-    };
-
-    const countTableCompletionBlanks = (question) => {
-      const rowsArr = question?.rows || [];
-      const cols = question?.columns || [];
-      const BLANK_REGEX = /\[BLANK\]|_{2,}|[\u2026]+/g;
-      let blanksCount = 0;
-
-      rowsArr.forEach((row) => {
-        const r = Array.isArray(row?.cells)
-          ? row
-          : {
-              cells: [
-                row?.vehicle || '',
-                row?.cost || '',
-                Array.isArray(row?.comments) ? row.comments.join('\n') : row?.comments || '',
-              ],
-            };
-
-        const cells = Array.isArray(r.cells) ? r.cells : [];
-        const maxCols = cols.length ? cols.length : cells.length;
-        for (let c = 0; c < maxCols; c++) {
-          const text = String(cells[c] || '');
-          const matches = text.match(BLANK_REGEX) || [];
-          blanksCount += matches.length;
-        }
-      });
-
-      if (blanksCount === 0) return rowsArr.length || 0;
-      return blanksCount;
-    };
-
-    return parts.reduce((total, part) => {
-      return total + (part.sections || []).reduce((sTotal, section) => {
-        const qType = section.questionType || 'fill';
-
-        if (qType === 'matching') {
-          return sTotal + (section.questions[0]?.leftItems?.length || 0);
-        }
-        if (qType === 'form-completion') {
-          return sTotal + (section.questions[0]?.formRows?.filter(r => r.isBlank)?.length || 0);
-        }
-        if (qType === 'notes-completion') {
-          const notesText = stripHtml(section.questions[0]?.notesText || '');
-          const blanks = notesText.match(/\d+\s*[_…]+|[_…]{2,}/g) || [];
-          return sTotal + blanks.length;
-        }
-        if (qType === 'table-completion') {
-          return sTotal + countTableCompletionBlanks(section.questions[0] || {});
-        }
-        if (qType === 'map-labeling') {
-          return sTotal + (section.questions[0]?.items?.length || 0);
-        }
-        if (qType === 'flowchart') {
-          return sTotal + countFlowchartQuestionSlots(section.questions[0] || {});
-        }
-        if (qType === 'multi-select') {
-          return sTotal + section.questions.reduce((sum, q) => sum + (q.requiredAnswers || 2), 0);
-        }
-
-        return sTotal + (section.questions?.length || 0);
-      }, 0);
-    }, 0);
-  };
-
-  const totalQuestions = calculateTotalQuestions();
+  const totalQuestions = calculateTotalQuestions(parts);
 
   return (
     <div>
       {requiresLogin && (
         <div style={{ padding: 12, background: '#fff0f0', border: '1px solid #ffcccc', borderRadius: 6, marginBottom: 12 }}>
-          <strong>⚠️ Bạn cần đăng nhập lại để hoàn tất thao tác.</strong>
+          <strong>Bạn cần đăng nhập lại để hoàn tất thao tác.</strong>
           <div style={{ marginTop: 8 }}>
             Bản nháp đã được lưu. <button style={{ marginLeft: 8, padding: '6px 10px' }} onClick={() => { redirectToLogin({ rememberPath: true, replace: true }); }}>Đăng nhập lại</button>
           </div>
@@ -332,7 +259,7 @@ const CreateListeningTestNew = () => {
 
       <ListeningTestEditor
         // Page info
-        pageTitle="🎧 Tạo Đề Listening IELTS"
+        pageTitle="Tạo đề Listening IELTS"
         className="create-listening-test"
         // Form fields
         title={title}

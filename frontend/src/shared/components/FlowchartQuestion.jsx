@@ -82,13 +82,13 @@ const FlowchartQuestion = ({
     return (
       <div style={{ padding: '15px', border: '1px solid #e2e8f0', borderRadius: '8px', background: '#f8fafc' }}>
         <h4 style={{ margin: '0 0 15px', color: '#0e276f', display: 'flex', alignItems: 'center', gap: '8px' }}>
-          📊 Flowchart Completion
+          Flowchart Completion
         </h4>
 
         {/* Options list */}
         <div style={{ marginBottom: '20px' }}>
           <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600' }}>
-            📋 Danh sách lựa chọn (mỗi dòng một lựa chọn):
+            Danh sách lựa chọn (mỗi dòng một lựa chọn):
           </label>
           <textarea
             placeholder="A website&#10;B locations&#10;C designs&#10;D TV advertising&#10;E quality&#10;F values&#10;G software"
@@ -105,14 +105,14 @@ const FlowchartQuestion = ({
             }}
           />
           <p style={{ fontSize: '0.85rem', color: '#64748b', marginTop: '5px' }}>
-            💡 Định dạng: "A website" hoặc "website" - sẽ tự động gán ký tự A, B, C...
+            Định dạng: "A website" hoặc "website" - sẽ tự động gán ký tự A, B, C...
           </p>
         </div>
 
         {/* Flowchart steps */}
         <div style={{ marginBottom: '15px' }}>
           <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600' }}>
-            🔄 Các bước trong flowchart:
+            Các bước trong flowchart:
           </label>
           
           {(question.steps || []).map((step, index) => (
@@ -130,7 +130,7 @@ const FlowchartQuestion = ({
                   fontSize: '1.5rem',
                   color: '#3b82f6'
                 }}>
-                  ⬇️
+                  v
                 </div>
               )}
               
@@ -166,7 +166,7 @@ const FlowchartQuestion = ({
                       fontSize: '0.8rem'
                     }}
                   >
-                    🗑️ Xóa
+                    Xóa
                   </button>
                 </div>
 
@@ -219,7 +219,7 @@ const FlowchartQuestion = ({
               marginTop: '10px'
             }}
           >
-            ➕ Thêm bước
+            Thêm bước
           </button>
         </div>
 
@@ -232,7 +232,7 @@ const FlowchartQuestion = ({
             borderRadius: '8px',
             border: '1px dashed #3b82f6'
           }}>
-            <h5 style={{ margin: '0 0 15px', color: '#3b82f6' }}>👁️ Xem trước:</h5>
+            <h5 style={{ margin: '0 0 15px', color: '#3b82f6' }}>Xem trước:</h5>
             <div style={{ 
               display: 'flex',
               flexDirection: 'column',
@@ -252,7 +252,7 @@ const FlowchartQuestion = ({
                     {renderStepWithBlank(step, questionNumber + index, true)}
                   </div>
                   {index < (question.steps || []).length - 1 && (
-                    <div style={{ fontSize: '1.2rem', color: '#3b82f6' }}>↓</div>
+                    <div style={{ fontSize: '1.2rem', color: '#3b82f6' }}>v</div>
                   )}
                 </React.Fragment>
               ))}
@@ -334,7 +334,7 @@ const FlowchartQuestion = ({
                   </div>
                 </div>
                 {index < (question.steps || []).length - 1 && (
-                  <div style={{ fontSize: '1.5rem', color: '#3b82f6' }}>⬇️</div>
+                  <div style={{ fontSize: '1.5rem', color: '#3b82f6' }}>v</div>
                 )}
               </React.Fragment>
             );
@@ -406,7 +406,7 @@ const FlowchartQuestion = ({
                       margin: '0 5px',
                       color: isCorrect ? '#166534' : '#991b1b'
                     }}>
-                      {studentAns || '—'} {isCorrect ? '✅' : '❌'}
+                      {studentAns || '-'} {isCorrect ? '(Dung)' : '(Sai)'}
                     </span>
                     {step.text?.split(/\[[\s_]+\]|\{[\s_]+\}|_{3,}/)[1] || ''}
                   </div>
@@ -418,12 +418,12 @@ const FlowchartQuestion = ({
                       color: '#166534',
                       marginTop: '8px'
                     }}>
-                      ✓ Đáp án đúng: <strong>{correctAns}</strong>
+                      Dap an dung: <strong>{correctAns}</strong>
                     </div>
                   )}
                 </div>
                 {index < (question.steps || []).length - 1 && (
-                  <div style={{ fontSize: '1.5rem', color: '#3b82f6' }}>⬇️</div>
+                  <div style={{ fontSize: '1.5rem', color: '#3b82f6' }}>v</div>
                 )}
               </React.Fragment>
             );

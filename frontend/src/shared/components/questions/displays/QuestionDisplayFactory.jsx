@@ -139,8 +139,8 @@ const QuestionDisplayFactory = ({
                 let circleColor = theme.grad[0];
                 let circleLabel = optionLetter;
                 if (selected && !submitted) { circleGrad = `linear-gradient(135deg, ${theme.grad[0]}, ${theme.grad[1]})`; circleColor = '#fff'; }
-                if (isCorrectOption) { circleGrad = 'linear-gradient(135deg, #22c55e, #16a34a)'; circleColor = '#fff'; circleLabel = '✓'; }
-                if (isWrongSelected) { circleGrad = 'linear-gradient(135deg, #ef4444, #dc2626)'; circleColor = '#fff'; circleLabel = '✗'; }
+                if (isCorrectOption) { circleGrad = 'linear-gradient(135deg, #22c55e, #16a34a)'; circleColor = '#fff'; circleLabel = 'OK'; }
+                if (isWrongSelected) { circleGrad = 'linear-gradient(135deg, #ef4444, #dc2626)'; circleColor = '#fff'; circleLabel = 'X'; }
 
                 return (
                   <button
@@ -184,7 +184,7 @@ const QuestionDisplayFactory = ({
                     {/* Correct hint for wrong selection */}
                     {isWrongSelected && (
                       <span style={{ fontSize: 12, color: '#15803d', fontWeight: 700, whiteSpace: 'nowrap', background: '#dcfce7', borderRadius: 8, padding: '2px 7px' }}>
-                        ✓ {correct}
+                        Correct: {correct}
                       </span>
                     )}
                   </button>
@@ -432,7 +432,7 @@ const QuestionDisplayFactory = ({
     default:
       return (
         <div style={{ padding: '20px', color: '#ef4444', backgroundColor: '#fee2e2', borderRadius: '8px' }}>
-          ⚠️ Unknown question type: <strong>{questionType}</strong>
+          Unknown question type: <strong>{questionType}</strong>
         </div>
       );
   }

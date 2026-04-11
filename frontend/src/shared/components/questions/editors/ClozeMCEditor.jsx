@@ -186,14 +186,14 @@ const ClozeMCEditor = ({
         border: "1px solid #fecaca",
       }}>
         <p style={{ margin: 0, fontSize: "13px", color: "#991b1b" }}>
-          💡 <strong>Hướng dẫn:</strong> Paste đoạn văn có các số trong ngoặc như (16), (17)... 
+          <strong>Hướng dẫn:</strong> Paste đoạn văn có các số trong ngoặc như (16), (17)... 
           đánh dấu chỗ trống. Sau đó nhập {isPet ? 'options A-H' : '3 options A/B/C'} cho mỗi chỗ trống.
         </p>
       </div>
 
       {/* Passage Title */}
       <div style={{ marginBottom: "12px" }}>
-        <label style={styles.label}>📌 Tiêu đề (tùy chọn)</label>
+        <label style={styles.label}>Tiêu đề (tùy chọn)</label>
         <input
           type="text"
           value={passageTitle}
@@ -205,7 +205,7 @@ const ClozeMCEditor = ({
 
       {/* Passage Text */}
       <div style={{ marginBottom: "20px" }} className="cloze-mc-editor">
-        <label style={styles.label}>📝 Đoạn văn với chỗ trống *</label>
+        <label style={styles.label}>Đoạn văn với chỗ trống *</label>
         <div style={{
           border: "1px solid #d1d5db",
           borderRadius: "6px",
@@ -226,7 +226,7 @@ const ClozeMCEditor = ({
           />
         </div>
         <p style={{ fontSize: "11px", color: "#6b7280", marginTop: "4px" }}>
-          💡 Dùng (16), (17)... để đánh dấu chỗ trống. Có thể thêm hình, định dạng text...
+          Dùng (16), (17)... để đánh dấu chỗ trống. Có thể thêm hình, định dạng text...
         </p>
       </div>
 
@@ -240,7 +240,7 @@ const ClozeMCEditor = ({
           border: "1px solid #e2e8f0",
         }}>
           <h4 style={{ margin: "0 0 12px 0", fontSize: "13px", color: "#64748b" }}>
-            👁️ Preview đoạn văn:
+            Xem trước đoạn văn:
           </h4>
           <div 
             style={{ fontSize: "14px", lineHeight: "1.8" }}
@@ -258,7 +258,7 @@ const ClozeMCEditor = ({
       }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "16px" }}>
           <h3 style={{ margin: 0, fontSize: "14px", color: "#991b1b" }}>
-            📋 Options cho từng chỗ trống
+            Options cho từng chỗ trống
           </h3>
           <button
             type="button"
@@ -286,7 +286,7 @@ const ClozeMCEditor = ({
             marginBottom: "12px",
           }}>
             <div style={{ fontSize: "13px", fontWeight: 600, color: "#991b1b", marginBottom: "10px" }}>
-              🧩 Danh sách lựa chọn A–H (dùng chung cho tất cả chỗ trống)
+              Danh sách lựa chọn A–H (dùng chung cho tất cả chỗ trống)
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "10px" }}>
               {optionLabels.map((opt, optIdx) => (
@@ -346,7 +346,7 @@ const ClozeMCEditor = ({
                     fontSize: "10px",
                   }}
                 >
-                  ✕
+                  ×
                 </button>
               )}
 
@@ -410,7 +410,7 @@ const ClozeMCEditor = ({
                       onChange={() => handleBlankChange(blankIdx, 'correctAnswer', opt)}
                       style={{ accentColor: "#22c55e", marginRight: "2px" }}
                     />
-                    ✓
+                    Đúng
                   </label>
                 </div>
               ))}
@@ -450,7 +450,7 @@ const ClozeMCEditor = ({
         border: "1px solid #bbf7d0",
       }}>
         <span style={{ fontWeight: 600, color: "#166534", marginRight: "12px" }}>
-          ✅ Đáp án:
+          Đáp án:
         </span>
         {blanks.map((blank) => (
           <span key={blank.number} style={{

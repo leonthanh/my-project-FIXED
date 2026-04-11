@@ -66,7 +66,7 @@ const FlowchartEditor = ({
         border: "1px solid #3b82f6",
         fontSize: "12px",
       }}>
-        <strong style={{ color: "#1d4ed8" }}>📊 Flowchart Completion</strong>
+        <strong style={{ color: "#1d4ed8" }}>Flowchart Completion</strong>
         <p style={{ margin: "4px 0 0", color: "#1e40af" }}>
           Tạo sơ đồ với các bước, đánh dấu bước nào có chỗ trống.
         </p>
@@ -136,7 +136,7 @@ const FlowchartEditor = ({
               }}
               style={{ ...defaultStyles.deleteButton, padding: "2px 6px" }}
             >
-              ✕
+              X
             </button>
           )}
         </div>

@@ -105,12 +105,12 @@ const InlineChoiceEditor = ({
 
       <div style={styles.helpBox}>
         <p style={{ margin: 0, fontSize: '13px', color: '#1e3a8a' }}>
-          💡 Paste đoạn văn có số trong ngoặc như (21), (22)... để đánh dấu chỗ trống. Mỗi blank có 4 lựa chọn.
+          Paste đoạn văn có số trong ngoặc như (21), (22)... để đánh dấu chỗ trống. Mỗi blank có 4 lựa chọn.
         </p>
       </div>
 
       <div style={{ marginBottom: '12px' }}>
-        <label style={styles.label}>📌 Tiêu đề (tuy chon)</label>
+        <label style={styles.label}>Tiêu đề (tuy chon)</label>
         <input
           type="text"
           value={passageTitle}
@@ -121,7 +121,7 @@ const InlineChoiceEditor = ({
       </div>
 
       <div style={{ marginBottom: '20px' }} className="inline-choice-editor">
-        <label style={styles.label}>📝 Doan van voi cho trong *</label>
+        <label style={styles.label}>Doan van voi cho trong *</label>
         <div style={styles.quillWrapper}>
           <ReactQuill
             ref={quillRef}
@@ -134,7 +134,7 @@ const InlineChoiceEditor = ({
             style={{ minHeight: '180px', backgroundColor: 'white' }}
           />
         </div>
-        <p style={styles.tip}>💡 Dung (21), (22)... de danh dau cho trong.</p>
+        <p style={styles.tip}>Dung (21), (22)... de danh dau cho trong.</p>
       </div>
 
       <div style={styles.blankBox}>
@@ -147,7 +147,7 @@ const InlineChoiceEditor = ({
           {blanks.map((blank, blankIdx) => (
             <div key={`blank-${blankIdx}`} style={styles.blankCard}>
               {blanks.length > 2 && (
-                <button type="button" onClick={() => removeBlank(blankIdx)} style={styles.removeBtn}>✕</button>
+                <button type="button" onClick={() => removeBlank(blankIdx)} style={styles.removeBtn}>×</button>
               )}
 
               <div style={styles.blankNumberRow}>

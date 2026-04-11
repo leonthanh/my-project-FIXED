@@ -300,7 +300,7 @@ export default function WordDragClozeDisplay({
               marginTop: 2,
             }}
           >
-            ✓ {correctAnswerFor(n)}
+            Correct: {correctAnswerFor(n)}
           </span>
         )}
       </span>
@@ -407,7 +407,7 @@ export default function WordDragClozeDisplay({
       )}
       {!submitted && focusedBlank !== null && (
         <div style={{ marginBottom: 10, padding: "5px 10px", background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: 6, fontSize: "0.78em", color: "#1d4ed8" }}>
-          ✏️ Đang chọn ô <strong>{focusedBlank}</strong> — click hoặc kéo thả từ bên phải vào
+          Đang chọn ô <strong>{focusedBlank}</strong> — click hoặc kéo thả từ bên phải vào
         </div>
       )}
       <div style={{ lineHeight: 2.1, fontSize: "inherit", color: "#1f2937" }}>
@@ -528,8 +528,8 @@ export default function WordDragClozeDisplay({
                 }}
               >
                 <span style={{ flex: 1 }}>{word}</span>
-                {submitted && isSelected && wordStatus === 'correct' && <span style={{ fontSize: 18 }}>✅</span>}
-                {submitted && isSelected && wordStatus === 'wrong'   && <span style={{ fontSize: 18 }}>❌</span>}
+                {submitted && isSelected && wordStatus === 'correct' && <span style={{ fontSize: 12 }}>OK</span>}
+                {submitted && isSelected && wordStatus === 'wrong'   && <span style={{ fontSize: 12 }}>Sai</span>}
               </button>
             );
           })}
@@ -542,7 +542,7 @@ export default function WordDragClozeDisplay({
             border: '1px solid #86efac', borderRadius: 10,
             fontSize: 13, color: '#15803d', fontWeight: 600, textAlign: 'center',
           }}>
-            ✓ Đáp án đúng: <strong>{correctAnswerFor(activeBlankNumber)}</strong>
+            Đáp án đúng: <strong>{correctAnswerFor(activeBlankNumber)}</strong>
           </div>
         )}
       </div>
@@ -552,7 +552,7 @@ export default function WordDragClozeDisplay({
     <div style={{ padding: "12px 16px", boxSizing: "border-box" }}>
       {/* Header hint */}
       <div style={{ fontSize: "0.75em", color: "#6b7280", marginBottom: 14, lineHeight: 1.5, paddingBottom: 10, borderBottom: "1px solid #e5e7eb" }}>
-        {submitted ? "✅ Kết quả đã nộp" : "👉 Click ô trống trong đoạn văn, rồi click hoặc kéo thả từ vào ô"}
+        {submitted ? "Kết quả đã nộp" : "Click ô trống trong đoạn văn, rồi click hoặc kéo thả từ vào ô"}
       </div>
 
       {/* Column headers A / B / C */}

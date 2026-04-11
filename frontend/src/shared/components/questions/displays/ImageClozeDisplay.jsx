@@ -272,7 +272,7 @@ export default function ImageClozeDisplay({
         )}
         {isPlaced && !isExample && (
           <span style={{ position: "absolute", top: "2px", right: "2px", fontSize: "9px", background: "#bbf7d0", color: "#15803d", borderRadius: "3px", padding: "1px 4px", fontWeight: 700 }}>
-            ✓
+            Used
           </span>
         )}
         {isSelected && (
@@ -289,14 +289,14 @@ export default function ImageClozeDisplay({
     return (
       <div style={{ background: "#f0f9ff", border: "1px solid #bae6fd", borderRadius: "12px", padding: "14px", height: "100%", boxSizing: "border-box" }}>
         <div style={{ fontWeight: 700, fontSize: "12px", color: "#0369a1", marginBottom: "12px", textAlign: "center", textTransform: "uppercase", letterSpacing: "0.05em" }}>
-          🖼️ Picture Bank
+          Picture Bank
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
           {imageBankGrid}
         </div>
         {effectiveSelectedImgId && !submitted && (
           <div style={{ marginTop: "10px", fontSize: "11px", color: "#1d4ed8", fontWeight: 600, textAlign: "center", background: "#dbeafe", borderRadius: "6px", padding: "4px 6px" }}>
-            👆 Click vào ô trống trong đoạn văn để đặt ảnh
+            Click vào ô trống trong đoạn văn để đặt ảnh
           </div>
         )}
       </div>
@@ -466,19 +466,19 @@ export default function ImageClozeDisplay({
                           }}
                           title="Bỏ ảnh này"
                         >
-                          ✕
+                          ×
                         </span>
                       )}
                     </>
                   ) : (
                     <span style={{ fontSize: "11px", color: "#f59e0b", fontWeight: 600 }}>
-                      ⬇ thả vào đây
+                      Thả vào đây
                     </span>
                   )}
                   {/* After submit: show correct answer if wrong */}
                   {submitted && correct === false && correctAnswers[String(n)] && (
                     <div style={{ marginTop: "3px", fontSize: "10px", color: "#15803d", fontWeight: 600 }}>
-                      ✓ {imageBank.find((img) => img.id === correctAnswers[String(n)])?.word}
+                      Đáp án đúng: {imageBank.find((img) => img.id === correctAnswers[String(n)])?.word}
                     </div>
                   )}
                 </span>
@@ -501,14 +501,14 @@ export default function ImageClozeDisplay({
             }}
           >
             <div style={{ fontWeight: 700, fontSize: "12px", color: "#0369a1", marginBottom: "10px", textAlign: "center", textTransform: "uppercase", letterSpacing: "0.05em" }}>
-              🖼️ Picture Bank
+              Picture Bank
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
               {imageBankGrid}
             </div>
             {effectiveSelectedImgId && !submitted && (
               <div style={{ marginTop: "10px", fontSize: "11px", color: "#1d4ed8", fontWeight: 600, textAlign: "center", background: "#dbeafe", borderRadius: "6px", padding: "4px 6px" }}>
-                👆 Click vào ô trống trong đoạn văn để đặt ảnh
+                Click vào ô trống trong đoạn văn để đặt ảnh
               </div>
             )}
           </div>
@@ -599,8 +599,8 @@ export default function ImageClozeDisplay({
                     {letter}
                   </span>
                   <span>{opt}</span>
-                  {showCorrect && <span style={{ marginLeft: "auto", color: "#22c55e", fontWeight: 700 }}>✓ Đúng</span>}
-                  {showWrong && <span style={{ marginLeft: "auto", color: "#ef4444", fontWeight: 700 }}>✗</span>}
+                  {showCorrect && <span style={{ marginLeft: "auto", color: "#22c55e", fontWeight: 700 }}>Đúng</span>}
+                  {showWrong && <span style={{ marginLeft: "auto", color: "#ef4444", fontWeight: 700 }}>Sai</span>}
                 </label>
               );
             })}

@@ -241,12 +241,11 @@ const MatchingPicturesDisplay = ({
                             onClick={(e) => { e.stopPropagation(); onAnswerChange(getAnswerKey(prompt, idx), ''); }}
                             style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', fontSize: '16px', padding: '2px 4px', lineHeight: 1 }}
                             title="Xóa đáp án"
-                          >✕</button>
+                          >×</button>
                         )}
                       </>
                     ) : (
                       <>
-                        <span style={{ fontSize: '18px' }}>⚐</span>
                         <span style={{ color: '#b45309', fontStyle: 'italic', fontSize: '14px' }}>Chưa trả lời — kéo ảnh vào đây</span>
                       </>
                     )}
@@ -254,7 +253,7 @@ const MatchingPicturesDisplay = ({
 
                   {submitted && isWrong && correctChoice && (
                     <div style={{ marginTop: '8px', fontSize: '13px', color: '#166534', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <span>✅ Đáp án đúng:</span>
+                      <span>Đáp án đúng:</span>
                       {correctChoice.imageUrl && <img src={resolveImgSrc(correctChoice.imageUrl)} alt={correctChoice.label} style={{ width: '28px', height: '22px', objectFit: 'cover', borderRadius: '4px' }} />}
                       <strong>{correctChoice.label || correctChoice.id}</strong>
                     </div>
@@ -333,7 +332,7 @@ const MatchingPicturesDisplay = ({
                   background: '#22c55e', color: '#fff',
                   borderRadius: '999px', fontSize: '11px', fontWeight: 700,
                   padding: '1px 7px', lineHeight: '18px',
-                }}>✓ Q{startingNumber + usedAtIdx}</span>
+                }}>Q{startingNumber + usedAtIdx}</span>
               )}
 
               {/* Image */}

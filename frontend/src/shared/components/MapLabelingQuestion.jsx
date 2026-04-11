@@ -150,13 +150,13 @@ const MapLabelingQuestion = ({
     return (
       <div style={{ padding: '15px', border: '1px solid #e2e8f0', borderRadius: '8px', background: '#f8fafc' }}>
         <h4 style={{ margin: '0 0 15px', color: '#0e276f', display: 'flex', alignItems: 'center', gap: '8px' }}>
-          🗺️ Map/Plan Labeling
+          Map/Plan Labeling
         </h4>
 
         {/* Map Image Upload */}
         <div style={{ marginBottom: '20px' }}>
           <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600' }}>
-            📷 Hình ảnh bản đồ/sơ đồ:
+            Hình ảnh bản đồ/sơ đồ:
           </label>
           
           <div style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
@@ -179,7 +179,7 @@ const MapLabelingQuestion = ({
                 cursor: 'pointer'
               }}
             >
-              📁 Tải lên hình
+              Tải lên hình
             </button>
             <span style={{ color: '#64748b' }}>hoặc</span>
             <input
@@ -276,7 +276,7 @@ const MapLabelingQuestion = ({
 
               {/* Helper for placing marker */}
               <div style={{ padding: 8, fontSize: 12, color: '#334155' }}>
-                💡 Chọn một mục bên trái, sau đó click vào bản đồ để đặt nhãn (hoặc kéo thả marker).
+                Chọn một mục bên trái, sau đó click vào bản đồ để đặt nhãn (hoặc kéo thả marker).
               </div>
             </div>
           )}
@@ -285,7 +285,7 @@ const MapLabelingQuestion = ({
         {/* Items to label */}
         <div style={{ marginBottom: '15px' }}>
           <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600' }}>
-            📍 Các địa điểm cần gắn nhãn:
+            Các địa điểm cần gắn nhãn:
           </label>
           
           {(question.items || []).map((item, index) => {
@@ -369,7 +369,7 @@ const MapLabelingQuestion = ({
                     cursor: 'pointer'
                   }}
                 >
-                  🗑️
+                  Xoa
                 </button>
               </div>
             );
@@ -388,7 +388,7 @@ const MapLabelingQuestion = ({
               marginTop: '10px'
             }}
           >
-            ➕ Thêm địa điểm
+            Thêm địa điểm
           </button>
         </div>
 
@@ -400,7 +400,7 @@ const MapLabelingQuestion = ({
           fontSize: '0.9rem',
           color: '#92400e'
         }}>
-          💡 <strong>Hướng dẫn:</strong> Hình ảnh bản đồ cần có các vị trí đánh dấu A-H (hoặc số). 
+          <strong>Hướng dẫn:</strong> Hình ảnh bản đồ cần có các vị trí đánh dấu A-H (hoặc số). 
           Học sinh sẽ chọn đúng vị trí cho mỗi địa điểm.
         </div>
       </div>
@@ -543,12 +543,12 @@ const MapLabelingQuestion = ({
                     color: '#22c55e',
                     marginLeft: '10px'
                   }}>
-                    ✓ {correctAns}
+                    Dap an dung: {correctAns}
                   </span>
                 )}
 
-                <span style={{ fontSize: '1.2rem' }}>
-                  {isCorrect ? '✅' : '❌'}
+                <span style={{ fontSize: '0.85rem', fontWeight: '600' }}>
+                  {isCorrect ? 'Dung' : 'Sai'}
                 </span>
               </div>
             );

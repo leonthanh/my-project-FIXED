@@ -80,7 +80,7 @@ const FormQuestion = ({ question, onChange }) => {
 
   return (
     <div style={styles.container}>
-      <label style={styles.label}>📝 Form Template:</label>
+      <label style={styles.label}>Form Template:</label>
       <ReactQuill
         ref={formQuillRef}
         value={question.formTemplate || ''}
@@ -98,7 +98,7 @@ const FormQuestion = ({ question, onChange }) => {
         style={{ marginBottom: '20px' }}
       />
 
-      <label style={styles.label}>✍️ Câu hỏi:</label>
+      <label style={styles.label}>Câu hỏi:</label>
       <ReactQuill
         ref={questionQuillRef}
         value={question.question}
@@ -108,7 +108,7 @@ const FormQuestion = ({ question, onChange }) => {
         theme="snow"
       />
 
-      <label style={styles.label}>✅ Đáp án đúng:</label>
+      <label style={styles.label}>Đáp án đúng:</label>
       <input
         type="text"
         value={question.correctAnswer}
@@ -125,19 +125,19 @@ const FormQuestion = ({ question, onChange }) => {
       />
 
       <div style={{ marginTop: '15px' }}>
-        <p style={{ color: '#666', fontSize: '14px' }}>
-          💡 Hướng dẫn:
+        <div style={{ color: '#666', fontSize: '14px' }}>
+          <strong>Hướng dẫn:</strong>
           <ul>
             <li>Sử dụng ___ để đánh dấu chỗ trống trong form</li>
             <li>Mỗi chỗ trống có thể điền một từ hoặc một chuỗi số (vd: số điện thoại)</li>
             <li>Form sẽ được hiển thị dưới dạng bảng trong đề thi</li>
           </ul>
-        </p>
+        </div>
       </div>
 
       {/* Preview */}
       <div style={{ marginTop: '15px' }}>
-        <label style={styles.label}>👁 Preview:</label>
+        <label style={styles.label}>Xem trước:</label>
         <div 
           style={{ 
             padding: '15px',

@@ -102,7 +102,7 @@ const MultiSelectEditor = ({
         alignItems: "center",
       }}>
         <span style={{ fontWeight: 600, color: "#0369a1" }}>
-          ✅ Questions {startQ} and {endQ}
+          Questions {startQ} and {endQ}
         </span>
         <span style={{
           padding: "4px 10px",
@@ -149,7 +149,7 @@ const MultiSelectEditor = ({
         </div>
       </div>
 
-      <label style={defaultStyles.label}>Các lựa chọn A-E (Click ✓ để đánh dấu đáp án đúng)</label>
+      <label style={defaultStyles.label}>Các lựa chọn A-E (click vào nút để đánh dấu đáp án đúng)</label>
       {options.map((opt, idx) => {
         const letter = String.fromCharCode(65 + idx);
         const isCorrect = correctAnswers.includes(letter);
@@ -177,7 +177,7 @@ const MultiSelectEditor = ({
               }}
               title={isCorrect ? "Bỏ chọn đáp án" : "Chọn là đáp án đúng"}
             >
-              {isCorrect ? "✓" : letter}
+              {letter}
             </button>
             <input
               type="text"
@@ -203,7 +203,7 @@ const MultiSelectEditor = ({
                 }}
                 style={defaultStyles.deleteButton}
               >
-                ✕
+                  ×
               </button>
             )}
           </div>
@@ -231,7 +231,7 @@ const MultiSelectEditor = ({
         borderRadius: "8px",
         border: "1px solid #86efac",
       }}>
-        <strong style={{ color: "#15803d" }}>✅ Đáp án đúng: </strong>
+        <strong style={{ color: "#15803d" }}>Đáp án đúng: </strong>
         {correctAnswers.length > 0 ? (
           <span style={{ color: "#15803d", fontWeight: 600 }}>
             {correctAnswers.join(', ')}
@@ -241,7 +241,7 @@ const MultiSelectEditor = ({
         )}
         {correctAnswers.length !== requiredAnswers && correctAnswers.length > 0 && (
           <span style={{ color: "#dc2626", marginLeft: "10px", fontSize: "12px" }}>
-            ⚠️ Cần chọn đúng {requiredAnswers} đáp án
+            Cần chọn đúng {requiredAnswers} đáp án
           </span>
         )}
       </div>

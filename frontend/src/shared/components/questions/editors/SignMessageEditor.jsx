@@ -84,7 +84,7 @@ const SignMessageEditor = ({
         border: "2px dashed #cbd5e1",
       }}>
         <label style={styles.label}>
-          🖼️ Hình ảnh biển báo/thông báo
+          Hình ảnh biển báo/thông báo
         </label>
         
         {/* Image URL input */}
@@ -124,7 +124,7 @@ const SignMessageEditor = ({
         {/* Sign text (optional - for reference) */}
         <div style={{ marginTop: "12px" }}>
           <label style={{ ...styles.label, color: "#64748b" }}>
-            📝 Text trên biển (tùy chọn - để tham khảo)
+            Text trên biển (tùy chọn - để tham khảo)
           </label>
           <div className="sign-text-editor">
             <ReactQuill
@@ -143,10 +143,10 @@ const SignMessageEditor = ({
       {/* Options Section */}
       <div style={{ marginBottom: "16px" }}>
         <label style={styles.label}>
-          📋 3 lựa chọn (giải thích ý nghĩa của biển báo)
+          3 lựa chọn (giải thích ý nghĩa của biển báo)
         </label>
         <p style={{ fontSize: "12px", color: "#6b7280", marginBottom: "12px" }}>
-          💡 Học sinh cần chọn câu diễn giải ĐÚNG ý nghĩa của biển báo/thông báo
+          Học sinh cần chọn câu diễn giải ĐÚNG ý nghĩa của biển báo/thông báo
         </p>
 
         {['A', 'B', 'C'].map((opt, idx) => (
@@ -205,7 +205,7 @@ const SignMessageEditor = ({
                 onChange={(e) => onChange("correctAnswer", e.target.value)}
                 style={{ accentColor: "#22c55e" }}
               />
-              ✓ Đúng
+              Đúng
             </label>
           </div>
         ))}
@@ -220,7 +220,7 @@ const SignMessageEditor = ({
           border: "1px solid #bbf7d0",
         }}>
           <h4 style={{ margin: "0 0 12px 0", fontSize: "14px", color: "#166534" }}>
-            👁️ Preview (Student View):
+            Preview (Student View):
           </h4>
           
           <div style={{

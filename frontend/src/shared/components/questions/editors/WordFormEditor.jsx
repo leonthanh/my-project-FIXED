@@ -88,7 +88,7 @@ const WordFormEditor = ({
         border: "1px solid #fed7aa",
       }}>
         <p style={{ margin: 0, fontSize: "13px", color: "#9a3412" }}>
-          💡 <strong>Hướng dẫn:</strong> Nhập câu có chỗ trống (dùng ___) và từ gốc. 
+          <strong>Hướng dẫn:</strong> Nhập câu có chỗ trống (dùng ___) và từ gốc. 
           Học sinh sẽ biến đổi từ gốc để điền vào chỗ trống.
         </p>
         <p style={{ margin: "8px 0 0", fontSize: "12px", color: "#c2410c" }}>
@@ -124,7 +124,7 @@ const WordFormEditor = ({
                   fontSize: "11px",
                 }}
               >
-                ✕
+                ×
               </button>
             )}
 
@@ -156,7 +156,7 @@ const WordFormEditor = ({
 
             {/* Sentence with blank */}
             <div style={{ marginBottom: "12px" }}>
-              <label style={styles.label}>📝 Câu có chỗ trống (dùng ___ cho blank)</label>
+              <label style={styles.label}>Câu có chỗ trống (dùng ___ cho blank)</label>
               <input
                 type="text"
                 value={item.sentence}
@@ -170,7 +170,7 @@ const WordFormEditor = ({
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
               <div>
                 <label style={styles.label}>
-                  🔤 Từ gốc (ROOT WORD)
+                  Từ gốc (ROOT WORD)
                 </label>
                 <input
                   type="text"
@@ -190,7 +190,7 @@ const WordFormEditor = ({
               </div>
               <div>
                 <label style={styles.label}>
-                  ✅ Đáp án đúng
+                  Đáp án đúng
                 </label>
                 <input
                   type="text"
@@ -216,7 +216,7 @@ const WordFormEditor = ({
                 border: "1px solid #e2e8f0",
               }}>
                 <span style={{ fontSize: "11px", color: "#64748b", marginBottom: "6px", display: "block" }}>
-                  👁️ Preview:
+                  Preview:
                 </span>
                 <p style={{ margin: 0, fontSize: "14px" }}>
                   {item.sentence.includes('___') 
@@ -276,7 +276,7 @@ const WordFormEditor = ({
         border: "1px solid #bbf7d0",
       }}>
         <h4 style={{ margin: "0 0 12px 0", fontSize: "14px", color: "#166534" }}>
-          ✅ Tổng hợp đáp án:
+          Tổng hợp đáp án:
         </h4>
         <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
           {sentences.map((item, idx) => (

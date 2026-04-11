@@ -162,14 +162,14 @@ const PeopleMatchingEditor = ({
         border: "1px solid #e9d5ff",
       }}>
         <p style={{ margin: 0, fontSize: "13px", color: "#6b21a8" }}>
-          💡 <strong>Hướng dẫn:</strong> Tạo 5 người (A-E) và 8 lựa chọn (A-H). 
+          <strong>Hướng dẫn:</strong> Tạo 5 người (A-E) và 8 lựa chọn (A-H). 
           Mỗi người chọn đúng 1 lựa chọn.
         </p>
       </div>
 
       {/* Description */}
       <div style={{ marginBottom: "20px" }}>
-        <label style={styles.label}>📝 Mô tả chung (Rubric)</label>
+        <label style={styles.label}>Mô tả chung (Rubric)</label>
         <textarea
           value={description}
           onChange={(e) => onChange("description", e.target.value)}
@@ -191,7 +191,7 @@ const PeopleMatchingEditor = ({
             alignItems: "center",
             gap: "8px",
           }}>
-            👥 Người (5 people)
+            Người (5 people)
           </h3>
           
           {people.map((person, idx) => (
@@ -234,7 +234,7 @@ const PeopleMatchingEditor = ({
                   </div>
                 )}
                 <div style={{ flex: 1 }}>
-                  <label style={{ ...styles.label, marginBottom: "6px" }}>📷 Ảnh người</label>
+                  <label style={{ ...styles.label, marginBottom: "6px" }}>Ảnh người</label>
                   <input
                     type="file"
                     accept="image/*"
@@ -311,7 +311,7 @@ const PeopleMatchingEditor = ({
               alignItems: "center",
               gap: "8px",
             }}>
-              📄 Texts ({texts.length} options)
+              Texts ({texts.length} options)
             </h3>
             <button
               type="button"
@@ -331,7 +331,7 @@ const PeopleMatchingEditor = ({
           </div>
 
           <div style={{ marginBottom: "12px" }}>
-            <label style={styles.label}>🧾 Tiêu đề cột phải</label>
+            <label style={styles.label}>Tiêu đề cột phải</label>
             <input
               type="text"
               value={textsTitle}
@@ -369,7 +369,7 @@ const PeopleMatchingEditor = ({
                       fontSize: "10px",
                     }}
                   >
-                    ✕
+                      ×
                   </button>
                 )}
                 
@@ -417,7 +417,7 @@ const PeopleMatchingEditor = ({
         border: "1px solid #bbf7d0",
       }}>
         <h4 style={{ margin: "0 0 12px 0", fontSize: "14px", color: "#166534" }}>
-          ✅ Đáp án đã chọn:
+          Đáp án đã chọn:
         </h4>
         <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
           {people.map((person, idx) => {

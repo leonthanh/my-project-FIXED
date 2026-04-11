@@ -189,8 +189,7 @@ export default function StoryCompletionDisplay({
         fontSize: "0.88em", color: "#6b7280", marginBottom: 18,
         paddingBottom: 12, borderBottom: "1.5px dashed #e5e7eb",
       }}>
-        <span style={{ fontSize: "1.1em" }}>✏️</span>
-        <span>{submitted ? "✅ Kết quả đã nộp" : "Gõ đáp án vào ô trống trong câu."}</span>
+        <span>{submitted ? "Kết quả đã nộp" : "Gõ đáp án vào ô trống trong câu."}</span>
       </div>
 
       {items.map((item, i) => {
@@ -229,7 +228,7 @@ export default function StoryCompletionDisplay({
               </span>
               {submitted && (
                 <span style={{ fontWeight: 700, fontSize: "1em", color: correct ? "#166534" : "#b91c1c" }}>
-                  {correct ? "✓ Đúng!" : "✗ Sai"}
+                  {correct ? "Đúng" : "Sai"}
                 </span>
               )}
             </div>
@@ -250,7 +249,7 @@ export default function StoryCompletionDisplay({
             {submitted && !correct && (
               <div style={{ marginTop: 8, fontSize: "0.9em", color: "#166534", fontWeight: 700,
                 background: "#dcfce7", borderRadius: 8, padding: "4px 10px", display: "inline-block" }}>
-                ✓ {parseFlexibleAnswer(item.answer).join(" / ") || item.answer}
+                Đáp án: {parseFlexibleAnswer(item.answer).join(" / ") || item.answer}
               </div>
             )}
           </div>
@@ -345,7 +344,7 @@ function InlineInputSentence({ sentence, typedValue, submitted, correct, onAnswe
                   style={{ padding: "4px 8px", fontSize: "0.75em", color: "#9ca3af", background: "none",
                     border: "1.5px solid #e5e7eb", borderRadius: 6, cursor: "pointer", verticalAlign: "middle" }}
                 >
-                  ✕
+                  X
                 </button>
               )}
             </span>

@@ -153,7 +153,7 @@ export default function StoryCompletionEditor({
           fontSize: 11,
           fontWeight: 700,
         }}>
-          ✏️ Story Completion
+          Story Completion
         </span>
         <span style={{ fontSize: 13, opacity: 0.9 }}>
           Câu {startingNumber} – {startingNumber + items.length - 1}
@@ -181,7 +181,7 @@ export default function StoryCompletionEditor({
           background: i % 2 === 0 ? "#f9fafb" : "#fff",
         }}>
           <div style={{ fontWeight: 700, color: "#0052cc", fontSize: 13, marginBottom: 10 }}>
-            📄 Đoạn {i + 1}{i > 0 ? " (không bắt buộc)" : ""}
+            Đoạn {i + 1}{i > 0 ? " (không bắt buộc)" : ""}
           </div>
 
           {/* Ảnh đoạn */}
@@ -231,7 +231,7 @@ export default function StoryCompletionEditor({
         borderRadius: 8,
       }}>
         <div style={{ fontWeight: 700, color: "#92400e", marginBottom: 10, fontSize: 13 }}>
-          ⭐ Câu mẫu (Examples) – sẽ điền sẵn đáp án cho học sinh xem
+          Câu mẫu (Examples) – sẽ điền sẵn đáp án cho học sinh xem
         </div>
         {examples.map((ex, i) => (
           <div key={i} style={{ marginBottom: i === 0 ? 10 : 0 }}>
@@ -352,7 +352,7 @@ export default function StoryCompletionEditor({
               />
               {item.answer && (item.answer.includes("(") || item.answer.includes("/")) && (
                 <div style={{ marginTop: 4, fontSize: 10, color: "#059669", background: "#f0fdf4", padding: "3px 6px", borderRadius: 4, lineHeight: 1.6 }}>
-                  ✓ Chấp nhận: {parseFlexibleAnswer(item.answer).join(" | ")}
+                  Chấp nhận: {parseFlexibleAnswer(item.answer).join(" | ")}
                 </div>
               )}
             </div>
@@ -378,8 +378,8 @@ export default function StoryCompletionEditor({
         color: "#166534",
         lineHeight: 1.6,
       }}>
-        <strong>💡 Giao diện học sinh:</strong> Panel trái: 3 đoạn (ảnh + nội dung) + ví dụ mẫu. Panel phải: từng câu hỏi với ô text tự do. Gợi ý: chữ đầu tiên hiển thị (r...).<br/><br/>
-        <strong>📝 Ký hiệu đáp án linh hoạt:</strong> <code style={{background:"#dcfce7",padding:"1px 4px",borderRadius:3}}>(từ tùy chọn) đáp án</code> → chấp nhận có hoặc không có từ trong ngoặc.&nbsp;
+        <strong>Giao diện học sinh:</strong> Panel trái: 3 đoạn (ảnh + nội dung) + ví dụ mẫu. Panel phải: từng câu hỏi với ô text tự do. Gợi ý: chữ đầu tiên hiển thị (r...).<br/><br/>
+        <strong>Ký hiệu đáp án linh hoạt:</strong> <code style={{background:"#dcfce7",padding:"1px 4px",borderRadius:3}}>(từ tùy chọn) đáp án</code> → chấp nhận có hoặc không có từ trong ngoặc.&nbsp;
         <code style={{background:"#dcfce7",padding:"1px 4px",borderRadius:3}}>đáp án A / đáp án B</code> → chấp nhận một trong hai.
       </div>
     </div>

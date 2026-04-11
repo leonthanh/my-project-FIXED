@@ -42,7 +42,7 @@ const SentenceTransformationEditor = ({
         alignItems: "center",
       }}>
         <span style={{ fontWeight: 600, color: "#92400e" }}>
-          ✏️ Sentence Transformation - Question {startingNumber}
+          Sentence Transformation - Question {startingNumber}
         </span>
         <span style={{
           padding: "4px 10px",
@@ -85,7 +85,7 @@ const SentenceTransformationEditor = ({
           }}
         />
         <p style={{ fontSize: "11px", color: "#6b7280", marginTop: "4px" }}>
-          💡 Từ khóa phải được dùng trong câu trả lời, không được thay đổi
+          Từ khóa phải được dùng trong câu trả lời, không được thay đổi
         </p>
       </div>
 
@@ -102,7 +102,7 @@ const SentenceTransformationEditor = ({
           style={styles.input}
         />
         <p style={{ fontSize: "11px", color: "#6b7280", marginTop: "4px" }}>
-          💡 Dùng ___ hoặc nhiều gạch dưới để đánh dấu chỗ cần điền
+          Dùng ___ hoặc nhiều gạch dưới để đánh dấu chỗ cần điền
         </p>
       </div>
 
@@ -139,7 +139,7 @@ const SentenceTransformationEditor = ({
           }}
         />
         <p style={{ fontSize: "11px", color: "#6b7280", marginTop: "4px" }}>
-          💡 Dùng <code>/</code> cho nhiều đáp án đúng. VD: <code>been learning/been studying</code>
+          Dùng <code>/</code> cho nhiều đáp án đúng. VD: <code>been learning/been studying</code>
         </p>
       </div>
 
@@ -165,7 +165,7 @@ const SentenceTransformationEditor = ({
           marginTop: "16px",
         }}>
           <h4 style={{ margin: "0 0 12px 0", fontSize: "14px", color: "#166534" }}>
-            👁️ Preview (Student View):
+            Preview (Student View):
           </h4>
           
           <div style={{

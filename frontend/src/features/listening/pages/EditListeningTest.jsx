@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ListeningTestEditor } from "../components";
-import { useListeningHandlers, createNewPart } from "../hooks";
+import { useListeningHandlers, createNewPart, calculateTotalQuestions } from "../hooks";
 import { countFlowchartQuestionSlots } from "../utils/flowchart";
 import { apiPath, authFetch, redirectToLogin } from "../../../shared/utils/api";
 
@@ -134,7 +134,7 @@ const EditListeningTest = () => {
   if (!allowedToManage) {
     return (
       <div style={{ padding: 40, textAlign: 'center' }}>
-        <h2>⚠️ Bạn không có quyền sửa đề Listening</h2>
+        <h2>Bạn không có quyền sửa đề Listening</h2>
         <p>Nếu bạn cho rằng đây là lỗi, vui lòng liên hệ quản trị hệ thống.</p>
         <button onClick={() => navigate('/select-test')} style={{ marginTop: 16, padding: '8px 14px' }}>Quay lại</button>
       </div>
@@ -169,6 +169,7 @@ const EditListeningTest = () => {
           questionType: q.questionType || sectionInfo.questionType || "fill",
           questionText: q.questionText || "",
           correctAnswer: q.correctAnswer || "",
+          requiredAnswers: q.requiredAnswers || undefined,
           leftTitle: q.leftTitle || q.itemsTitle || q.itemsLabel || '',
           rightTitle: q.rightTitle || q.optionsTitle || q.optionsLabel || '',
           leftItems: safeParseJson(q.leftItems) || safeParseJson(q.items) || [],
@@ -208,7 +209,8 @@ const EditListeningTest = () => {
         title: partInfo.title || `Part ${partIndex + 1}`,
         instruction: partInfo.instruction || "",
         transcript: partInfo.transcript || "",
-        audioFile: partAudioUrls?.[partIndex] || null,
+        audioFile: null,
+        audioUrl: partAudioUrls?.[partIndex] || '',
         sections: sections.length > 0 ? sections : [{
           sectionTitle: "",
           sectionInstruction: "",
@@ -239,6 +241,12 @@ const EditListeningTest = () => {
 
     if (!teacherName || !teacherName.trim()) {
       setMessage("⚠️ Vui lòng nhập tên giáo viên");
+      setTimeout(() => setMessage(""), 3000);
+      return;
+    }
+
+    if (calculateTotalQuestions(parts) === 0) {
+      setMessage("⚠️ Vui lòng thêm ít nhất 1 câu hỏi");
       setTimeout(() => setMessage(""), 3000);
       return;
     }
@@ -471,17 +479,7 @@ const EditListeningTest = () => {
     }
   };
 
-  // Calculate total questions
-  const totalQuestions = parts.reduce((total, part) => {
-    return total + part.sections.reduce((sTotal, section) => {
-      if (section.questionType === "matching") {
-        return sTotal + (section.questions[0]?.leftItems?.length || 0);
-      } else if (section.questionType === "form-completion") {
-        return sTotal + (section.questions[0]?.formRows?.filter(r => r.isBlank)?.length || 0);
-      }
-      return sTotal + (section.questions?.length || 0);
-    }, 0);
-  }, 0);
+  const totalQuestions = calculateTotalQuestions(parts);
 
   // Loading state
   if (loading) {
@@ -493,7 +491,7 @@ const EditListeningTest = () => {
         height: "100vh",
         fontSize: "1.2rem",
       }}>
-        ⏳ Đang tải dữ liệu đề thi...
+        Đang tải dữ liệu đề thi...
       </div>
     );
   }
@@ -509,7 +507,7 @@ const EditListeningTest = () => {
         height: "100vh",
         textAlign: "center",
       }}>
-        <h2>❌ Lỗi</h2>
+        <h2>Lỗi</h2>
         <p>{loadError}</p>
         <button
           onClick={() => navigate("/select-test")}
@@ -523,7 +521,7 @@ const EditListeningTest = () => {
             marginTop: "16px",
           }}
         >
-          ← Quay lại
+          Quay lại
         </button>
       </div>
     );
@@ -533,7 +531,7 @@ const EditListeningTest = () => {
     <div>
       {requiresLogin && (
         <div style={{ padding: 12, background: '#fff0f0', border: '1px solid #ffcccc', borderRadius: 6, marginBottom: 12 }}>
-          <strong>⚠️ Bạn cần đăng nhập lại để hoàn tất thao tác.</strong>
+          <strong>Bạn cần đăng nhập lại để hoàn tất thao tác.</strong>
           <div style={{ marginTop: 8 }}>
             Bản nháp đã được lưu. <button style={{ marginLeft: 8, padding: '6px 10px' }} onClick={() => { redirectToLogin({ rememberPath: true, replace: true }); }}>Đăng nhập lại</button>
           </div>
@@ -542,7 +540,7 @@ const EditListeningTest = () => {
 
       <ListeningTestEditor
         // Page info
-        pageTitle={`✏️ Sửa Đề Listening - ID: ${id}`}
+        pageTitle={`Sửa đề Listening - ID: ${id}`}
         className="edit-listening-test"
       // Form fields
       title={title}

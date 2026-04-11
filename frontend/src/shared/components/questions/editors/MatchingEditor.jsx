@@ -85,7 +85,7 @@ const MatchingEditor = ({
         border: "1px solid #3b82f6",
         fontSize: "12px",
       }}>
-        <strong style={{ color: "#1d4ed8" }}>📋 Matching Question</strong>
+        <strong style={{ color: "#1d4ed8" }}>Matching Question</strong>
         <p style={{ margin: "4px 0 0", color: "#1e40af" }}>
           Mỗi item bên trái = 1 câu hỏi. Số câu sẽ tự động đánh từ <strong>{startNum}</strong> đến <strong>{startNum + leftItems.length - 1}</strong>.
         </p>
@@ -161,7 +161,7 @@ const MatchingEditor = ({
                     }}
                     style={defaultStyles.deleteButton}
                   >
-                    ✕
+                      ×
                   </button>
                 )}
               </div>
@@ -202,7 +202,7 @@ const MatchingEditor = ({
                   }}
                   style={defaultStyles.deleteButton}
                 >
-                  ✕
+                  ×
                 </button>
               )}
             </div>
@@ -222,7 +222,7 @@ const MatchingEditor = ({
 
       {/* Answers section */}
       <div style={{ marginTop: "16px" }}>
-        <label style={defaultStyles.label}>✅ Đáp án</label>
+        <label style={defaultStyles.label}>Đáp án</label>
         <div style={{
           display: "grid",
           gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))",
