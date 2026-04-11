@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef } from "react";
+import { createPortal } from "react-dom";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import ThemeToggle from "./ThemeToggle";
 import { apiPath, hostPath, clearAuth } from "../utils/api";
@@ -1030,45 +1031,9 @@ const AdminNavbar = () => {
     return renderMobileOverview();
   };
 
-  if (isCompactMenu) {
-    return (
-      <nav className="adminNavbar adminNavbar--compact">
-        <div className="adminNavbar__mobileBar">
-          <Link to="/select-test" className="adminNavbar__logoLink" title="Test list">
-            <img
-              src={hostPath("uploads/staredu.jpg")}
-              alt="Logo"
-              className="adminNavbar__logo"
-            />
-          </Link>
-
-          <button
-            type="button"
-            className="adminNavbar__mobileMenuButton"
-            onClick={toggleMobileDrawer}
-            aria-label={mobileDrawerOpen ? "Close menu" : "Open menu"}
-            aria-expanded={mobileDrawerOpen}
-          >
-            <span
-              className={`adminNavbar__hamburger${
-                mobileDrawerOpen ? " adminNavbar__hamburger--open" : ""
-              }`}
-              aria-hidden="true"
-            >
-              <span className="adminNavbar__hamburgerLine" />
-              <span className="adminNavbar__hamburgerLine" />
-              <span className="adminNavbar__hamburgerLine" />
-            </span>
-            <span className="adminNavbar__srOnly">
-              {mobileDrawerOpen ? "Close menu" : "Open menu"}
-            </span>
-            {pendingNotificationCount > 0 && (
-              <span className="adminNavbar__mobileMenuBadge">{pendingNotificationCount}</span>
-            )}
-          </button>
-        </div>
-
-        {mobileDrawerOpen && (
+  const mobileDrawer =
+    mobileDrawerOpen && typeof document !== "undefined"
+      ? createPortal(
           <>
             <button
               type="button"
@@ -1110,8 +1075,50 @@ const AdminNavbar = () => {
                 {renderMobileDrawerContent()}
               </div>
             </aside>
-          </>
-        )}
+          </>,
+          document.body
+        )
+      : null;
+
+  if (isCompactMenu) {
+    return (
+      <nav className="adminNavbar adminNavbar--compact">
+        <div className="adminNavbar__mobileBar">
+          <Link to="/select-test" className="adminNavbar__logoLink" title="Test list">
+            <img
+              src={hostPath("uploads/staredu.jpg")}
+              alt="Logo"
+              className="adminNavbar__logo"
+            />
+          </Link>
+
+          <button
+            type="button"
+            className="adminNavbar__mobileMenuButton"
+            onClick={toggleMobileDrawer}
+            aria-label={mobileDrawerOpen ? "Close menu" : "Open menu"}
+            aria-expanded={mobileDrawerOpen}
+          >
+            <span
+              className={`adminNavbar__hamburger${
+                mobileDrawerOpen ? " adminNavbar__hamburger--open" : ""
+              }`}
+              aria-hidden="true"
+            >
+              <span className="adminNavbar__hamburgerLine" />
+              <span className="adminNavbar__hamburgerLine" />
+              <span className="adminNavbar__hamburgerLine" />
+            </span>
+            <span className="adminNavbar__srOnly">
+              {mobileDrawerOpen ? "Close menu" : "Open menu"}
+            </span>
+            {pendingNotificationCount > 0 && (
+              <span className="adminNavbar__mobileMenuBadge">{pendingNotificationCount}</span>
+            )}
+          </button>
+        </div>
+
+        {mobileDrawer}
       </nav>
     );
   }
