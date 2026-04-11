@@ -2,7 +2,7 @@ import React from 'react';
 
 const MultiSelectQuestion = ({ question, onChange }) => {
   if (!question) {
-    return <div style={{ color: 'red', padding: '10px' }}>❌ Error: Question object missing</div>;
+    return <div style={{ color: 'red', padding: '10px' }}>Error: Question object missing</div>;
   }
 
   const options = question.options || [''];
@@ -72,7 +72,7 @@ const MultiSelectQuestion = ({ question, onChange }) => {
 
   return (
     <div style={styles.container}>
-      <label style={styles.label}>❓ Câu hỏi:</label>
+      <label style={styles.label}>Câu hỏi:</label>
       <textarea
         value={question.questionText}
         onChange={e => handleChange('questionText', e.target.value)}
@@ -81,7 +81,7 @@ const MultiSelectQuestion = ({ question, onChange }) => {
         placeholder="Nhập nội dung câu hỏi"
       />
 
-      <label style={styles.label}>🔤 Các lựa chọn (A-E):</label>
+      <label style={styles.label}>Các lựa chọn (A-E):</label>
       {options.map((option, index) => (
         <div key={index} style={styles.option}>
           <span style={styles.optionLabel}>{String.fromCharCode(65 + index)}</span>
@@ -95,7 +95,7 @@ const MultiSelectQuestion = ({ question, onChange }) => {
         </div>
       ))}
 
-      <label style={styles.label}>✅ Đáp án đúng (chọn 2-3 đáp án):</label>
+      <label style={styles.label}>Đáp án đúng (chọn 2-3 đáp án):</label>
       <div style={styles.checkboxGroup}>
         {options.map((_, index) => (
           <label key={index} style={styles.checkbox}>
@@ -120,7 +120,7 @@ const MultiSelectQuestion = ({ question, onChange }) => {
 
       {/* Preview */}
       <div style={{ marginTop: '15px' }}>
-        <label style={styles.label}>👁 Preview:</label>
+        <label style={styles.label}>Xem trước:</label>
         <div style={{ backgroundColor: 'white', padding: '15px', borderRadius: '4px' }}>
           <p>{question.questionText}</p>
           <p style={{ color: '#666' }}>Choose TWO letters, A-E.</p>

@@ -49,7 +49,7 @@ const SummaryCompletionQuestion = ({ question = {}, onChange }) => {
       <h4 style={{ color: '#065f46' }}>Summary Completion</h4>
 
       <div style={{ marginBottom: 12 }}>
-        <label style={{ fontWeight: 600 }}>Summary text (use <code>[BLANK]</code> for blanks or click the <strong>➕ Thêm chỗ trống</strong> button in the editor)</label>
+        <label style={{ fontWeight: 600 }}>Summary text (use <code>[BLANK]</code> for blanks or click the <strong>Thêm chỗ trống</strong> button in the editor)</label>
         <QuillEditor
           editorRef={quillRef}
           value={summary}

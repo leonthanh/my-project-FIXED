@@ -12,7 +12,7 @@ import QuillEditor from './QuillEditor';
 
 const MultipleChoiceQuestion = ({ question, onChange }) => {
   if (!question) {
-    return <div style={{ color: 'red', padding: '10px' }}>❌ Error: Question object missing</div>;
+    return <div style={{ color: 'red', padding: '10px' }}>Error: Question object missing</div>;
   }
 
   const handleChange = (field, value) => {
@@ -213,16 +213,13 @@ const MultipleChoiceQuestion = ({ question, onChange }) => {
     <div style={styles.container}>
       {/* Header */}
       <div style={styles.header}>
-        <span style={styles.headerIcon}>📋</span>
         <h4 style={styles.headerTitle}>Multiple Choice</h4>
         <span style={styles.headerBadge}>IELTS Reading</span>
       </div>
 
       {/* Mode Switch */}
       <div style={styles.section}>
-        <h5 style={styles.sectionTitle}>
-          <span>🔄</span> Chế độ chọn đáp án:
-        </h5>
+        <h5 style={styles.sectionTitle}>Chế độ chọn đáp án:</h5>
         <div style={styles.modeSwitch}>
           <button
             type="button"
@@ -236,7 +233,7 @@ const MultipleChoiceQuestion = ({ question, onChange }) => {
               handleChange('multiSelect', false);
             }}
           >
-            ◉ Single Choice (1 đáp án)
+            Single Choice (1 đáp án)
           </button>
           <button
             type="button"
@@ -250,16 +247,14 @@ const MultipleChoiceQuestion = ({ question, onChange }) => {
               handleChange('multiSelect', true);
             }}
           >
-            ☑️ Multiple Choice (nhiều đáp án)
+            Multiple Choice (nhiều đáp án)
           </button>
         </div>
       </div>
 
       {/* Question */}
       <div style={styles.section}>
-        <h5 style={styles.sectionTitle}>
-          <span>❓</span> Câu hỏi:
-        </h5>
+        <h5 style={styles.sectionTitle}>Câu hỏi:</h5>
         <QuillEditor
           value={question.questionText || ''}
           onChange={(value) => handleChange('questionText', value)}
@@ -269,9 +264,7 @@ const MultipleChoiceQuestion = ({ question, onChange }) => {
 
       {/* Options */}
       <div style={styles.section}>
-        <h5 style={styles.sectionTitle}>
-          <span>📝</span> Các lựa chọn (click để đánh dấu đáp án đúng):
-        </h5>
+        <h5 style={styles.sectionTitle}>Các lựa chọn (click để đánh dấu đáp án đúng):</h5>
         
         {options.map((option, index) => {
           const isCorrectOption = isCorrect(index);
@@ -343,7 +336,7 @@ const MultipleChoiceQuestion = ({ question, onChange }) => {
       {/* Preview */}
       {question.questionText && options.some(o => o) && (
         <div style={styles.preview}>
-          <h5 style={styles.previewTitle}>👁 Preview - Học sinh sẽ thấy:</h5>
+          <h5 style={styles.previewTitle}>Xem trước - Học sinh sẽ thấy:</h5>
           <div style={styles.previewContent}>
             {/* Question */}
             <div 
@@ -375,7 +368,7 @@ const MultipleChoiceQuestion = ({ question, onChange }) => {
 
             {/* Correct Answer Summary */}
             <div style={{ paddingTop: '15px', borderTop: '1px solid #ddd' }}>
-              <strong>✅ Đáp án đúng:</strong>{' '}
+              <strong>Đáp án đúng:</strong>{' '}
               {question.correctAnswer ? (
                 <span style={{
                   padding: '4px 12px',
@@ -396,7 +389,7 @@ const MultipleChoiceQuestion = ({ question, onChange }) => {
 
       {/* Tips */}
       <div style={styles.tip}>
-        <strong>💡 Hướng dẫn:</strong>
+        <strong>Hướng dẫn:</strong>
         <ul style={{ margin: '8px 0 0 0', paddingLeft: '20px' }}>
           <li>Click vào chữ cái (A, B, C...) để đánh dấu đáp án đúng</li>
           <li>Ở chế độ Multiple Choice, có thể chọn nhiều đáp án đúng</li>

@@ -13,7 +13,7 @@ import QuillEditor from './QuillEditor';
 
 const YesNoNotGivenQuestion = ({ question, onChange }) => {
   if (!question) {
-    return <div style={{ color: 'red', padding: '10px' }}>❌ Error: Question object missing</div>;
+    return <div style={{ color: 'red', padding: '10px' }}>Error: Question object missing</div>;
   }
 
   const handleChange = (field, value) => {
@@ -131,25 +131,22 @@ const YesNoNotGivenQuestion = ({ question, onChange }) => {
   });
 
   const answerTypes = [
-    { value: 'YES', icon: '👍', label: 'YES', desc: 'Tác giả đồng ý' },
-    { value: 'NO', icon: '👎', label: 'NO', desc: 'Tác giả không đồng ý' },
-    { value: 'NOT GIVEN', icon: '🤷', label: 'NOT GIVEN', desc: 'Không rõ quan điểm' }
+    { value: 'YES', label: 'YES', desc: 'Tác giả đồng ý' },
+    { value: 'NO', label: 'NO', desc: 'Tác giả không đồng ý' },
+    { value: 'NOT GIVEN', label: 'NOT GIVEN', desc: 'Không rõ quan điểm' }
   ];
 
   return (
     <div style={styles.container}>
       {/* Header */}
       <div style={styles.header}>
-        <span style={styles.headerIcon}>👍👎🤷</span>
         <h4 style={styles.headerTitle}>Yes / No / Not Given</h4>
         <span style={styles.headerBadge}>IELTS Reading</span>
       </div>
 
       {/* Question/Statement */}
       <div style={styles.section}>
-        <h5 style={styles.sectionTitle}>
-          <span>📝</span> Phát biểu về quan điểm tác giả:
-        </h5>
+        <h5 style={styles.sectionTitle}>Phát biểu về quan điểm tác giả:</h5>
         <QuillEditor
           value={question.questionText || ''}
           onChange={(value) => handleChange('questionText', value)}
@@ -159,9 +156,7 @@ const YesNoNotGivenQuestion = ({ question, onChange }) => {
 
       {/* Answer Selection */}
       <div style={styles.section}>
-        <h5 style={styles.sectionTitle}>
-          <span>✅</span> Chọn đáp án đúng:
-        </h5>
+        <h5 style={styles.sectionTitle}>Chọn đáp án đúng:</h5>
         <div style={styles.answerOptions}>
           {answerTypes.map((type) => (
             <div
@@ -169,7 +164,6 @@ const YesNoNotGivenQuestion = ({ question, onChange }) => {
               style={getAnswerOptionStyle(question.correctAnswer === type.value, type.value)}
               onClick={() => handleChange('correctAnswer', type.value)}
             >
-              <span style={{ fontSize: '24px' }}>{type.icon}</span>
               <span style={{ fontWeight: 'bold', fontSize: '14px' }}>{type.label}</span>
               <span style={{ fontSize: '11px', color: '#666' }}>{type.desc}</span>
             </div>
@@ -180,7 +174,7 @@ const YesNoNotGivenQuestion = ({ question, onChange }) => {
       {/* Preview */}
       {(question.questionText || question.correctAnswer) && (
         <div style={styles.preview}>
-          <h5 style={styles.previewTitle}>👁 Preview</h5>
+          <h5 style={styles.previewTitle}>Xem trước</h5>
           <div style={styles.previewContent}>
             <div style={{ marginBottom: '10px' }}>
               <strong>Statement:</strong>
@@ -220,14 +214,14 @@ const YesNoNotGivenQuestion = ({ question, onChange }) => {
 
       {/* Tips */}
       <div style={styles.tip}>
-        <strong>💡 Hướng dẫn IELTS:</strong>
+        <strong>Hướng dẫn IELTS:</strong>
         <ul style={{ margin: '8px 0 0 0', paddingLeft: '20px' }}>
           <li><strong>YES</strong>: Tác giả/người viết đồng ý với phát biểu (writer's views)</li>
           <li><strong>NO</strong>: Tác giả/người viết không đồng ý với phát biểu</li>
           <li><strong>NOT GIVEN</strong>: Không rõ quan điểm của tác giả về vấn đề này</li>
         </ul>
         <p style={{ margin: '8px 0 0 0', fontStyle: 'italic' }}>
-          ⚠️ Khác với True/False/Not Given: Đây là về <strong>quan điểm</strong> của tác giả, không phải sự thật.
+          Khác với True/False/Not Given: Đây là về <strong>quan điểm</strong> của tác giả, không phải sự thật.
         </p>
       </div>
     </div>

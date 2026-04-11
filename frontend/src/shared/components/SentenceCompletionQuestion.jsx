@@ -12,7 +12,7 @@ import QuillEditor from './QuillEditor';
 
 const SentenceCompletionQuestion = ({ question, onChange }) => {
   if (!question) {
-    return <div style={{ color: 'red', padding: '10px' }}>❌ Error: Question object missing</div>;
+    return <div style={{ color: 'red', padding: '10px' }}>Error: Question object missing</div>;
   }
 
   const handleChange = (field, value) => {
@@ -226,16 +226,13 @@ const SentenceCompletionQuestion = ({ question, onChange }) => {
     <div style={styles.container}>
       {/* Header */}
       <div style={styles.header}>
-        <span style={styles.headerIcon}>🔗</span>
         <h4 style={styles.headerTitle}>Sentence Completion</h4>
         <span style={styles.headerBadge}>IELTS Reading</span>
       </div>
 
       {/* Incomplete Sentence */}
       <div style={styles.section}>
-        <h5 style={styles.sectionTitle}>
-          <span>📝</span> Câu chưa hoàn chỉnh (dùng _____ cho chỗ trống):
-        </h5>
+        <h5 style={styles.sectionTitle}>Câu chưa hoàn chỉnh (dùng _____ cho chỗ trống):</h5>
         <QuillEditor
           value={question.questionText || ''}
           onChange={(value) => handleChange('questionText', value)}
@@ -248,9 +245,7 @@ const SentenceCompletionQuestion = ({ question, onChange }) => {
       <div style={styles.section}>
         <div style={styles.inputRow}>
           <div style={styles.inputGroup}>
-            <h5 style={styles.sectionTitle}>
-              <span>🔢</span> Giới hạn từ:
-            </h5>
+            <h5 style={styles.sectionTitle}>Giới hạn từ:</h5>
             <div style={styles.wordLimitBox}>
               <span>No more than</span>
               <input
@@ -277,9 +272,7 @@ const SentenceCompletionQuestion = ({ question, onChange }) => {
 
       {/* Options / Word Bank */}
       <div style={styles.section}>
-        <h5 style={styles.sectionTitle}>
-          <span>📚</span> Danh sách từ/cụm từ (click radio để chọn đáp án đúng):
-        </h5>
+        <h5 style={styles.sectionTitle}>Danh sách từ/cụm từ (click radio để chọn đáp án đúng):</h5>
         
         <div style={styles.optionGrid}>
           {options.map((option, index) => {
@@ -334,7 +327,7 @@ const SentenceCompletionQuestion = ({ question, onChange }) => {
       {/* Preview */}
       {(question.questionText || options.some(o => o)) && (
         <div style={styles.preview}>
-          <h5 style={styles.previewTitle}>👁 Preview - Học sinh sẽ thấy:</h5>
+          <h5 style={styles.previewTitle}>Xem trước - Học sinh sẽ thấy:</h5>
           <div style={styles.previewContent}>
             {/* The sentence with blank */}
             <div style={styles.sentenceBox}>
@@ -355,7 +348,7 @@ const SentenceCompletionQuestion = ({ question, onChange }) => {
                 margin: '10px 0',
                 fontSize: '13px'
               }}>
-                📏 Choose <strong>NO MORE THAN {question.maxWords} WORDS</strong> from the passage.
+                Choose <strong>NO MORE THAN {question.maxWords} WORDS</strong> from the passage.
               </p>
             )}
 
@@ -387,7 +380,7 @@ const SentenceCompletionQuestion = ({ question, onChange }) => {
 
             {/* Correct Answer Summary */}
             <div style={{ marginTop: '15px', paddingTop: '15px', borderTop: '1px solid #ddd' }}>
-              <strong>✅ Đáp án đúng:</strong>{' '}
+              <strong>Đáp án đúng:</strong>{' '}
               {question.correctAnswer ? (
                 <span style={{
                   padding: '4px 12px',
@@ -408,7 +401,7 @@ const SentenceCompletionQuestion = ({ question, onChange }) => {
 
       {/* Tips */}
       <div style={styles.tip}>
-        <strong>💡 Hướng dẫn:</strong>
+        <strong>Hướng dẫn:</strong>
         <ul style={{ margin: '8px 0 0 0', paddingLeft: '20px' }}>
           <li>Viết câu chưa hoàn chỉnh với chỗ trống <strong>_____</strong></li>
           <li>Thêm các từ/cụm từ có thể điền vào chỗ trống</li>
