@@ -16,6 +16,7 @@ import StoryCompletionDisplay from '../../../shared/components/questions/display
 import LookReadWriteDisplay from '../../../shared/components/questions/displays/LookReadWriteDisplay';
 import { CambridgeQuestionDisplay } from './CambridgeQuestionCards';
 import { ColourWriteStudentSection, DrawLinesQuestion, ImageTickSlideSection, LetterMatchingStudentSection } from './CambridgeListeningRuntimeSections';
+import AnchoredImageStage from './AnchoredImageStage';
 import '../pages/DoCambridgeReadingTest.css';
 
 const noop = () => {};
@@ -1103,9 +1104,14 @@ function DrawLinesReview({ part, question, partIdx, secIdx, sectionStart, answer
       <div style={styles.asideCard}>
         <h5 style={styles.asideTitle}>Picture</h5>
         {imageUrl ? (
-          <div style={styles.drawImageWrap}>
-            <img src={resolveAsset(imageUrl)} alt={part?.partTitle || 'Part illustration'} style={styles.imagePreview} />
-            {Object.entries(anchors).map(([anchorId, position]) => (
+          <AnchoredImageStage
+            src={resolveAsset(imageUrl)}
+            alt={part?.partTitle || 'Part illustration'}
+            containerStyle={styles.drawImageWrap}
+            imageStyle={styles.imagePreview}
+            borderWidth="0"
+          >
+            {({ imageReady }) => imageReady ? Object.entries(anchors).map(([anchorId, position]) => (
               <span
                 key={anchorId}
                 style={{
@@ -1116,8 +1122,8 @@ function DrawLinesReview({ part, question, partIdx, secIdx, sectionStart, answer
               >
                 {anchorId === '0' ? 'Ex' : (anchorLabels?.[anchorId] || anchorId)}
               </span>
-            ))}
-          </div>
+            )) : null}
+          </AnchoredImageStage>
         ) : (
           <div style={styles.unsupported}>No image is available for this part.</div>
         )}

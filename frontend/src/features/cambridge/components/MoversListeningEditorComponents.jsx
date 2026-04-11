@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import { hostPath } from "../../../shared/utils/api";
+import AnchoredImageStage from "./AnchoredImageStage";
 
 const resolveImg = (url) => {
   if (!url) return "";
@@ -366,6 +367,7 @@ export const MatchingPartEditor = ({ data, onChange, partImageUrl }) => {
   const answers = data.answers || {};
   const anchors = data.anchors || {};
   const [pendingIdx, setPendingIdx] = useState(null);
+  const [imageReady, setImageReady] = useState(false);
   const imgRef = useRef(null);
 
   const setLeft = (i, val) => onChange({ ...data, leftItems: leftItems.map((v, idx) => idx === i ? val : v) });
@@ -409,7 +411,7 @@ export const MatchingPartEditor = ({ data, onChange, partImageUrl }) => {
   };
 
   const handleImageClick = (e) => {
-    if (pendingIdx === null || !imgRef.current) return;
+    if (pendingIdx === null || !imgRef.current || !imageReady) return;
     const rect = imgRef.current.getBoundingClientRect();
     const x = parseFloat((((e.clientX - rect.left) / rect.width) * 100).toFixed(2));
     const y = parseFloat((((e.clientY - rect.top) / rect.height) * 100).toFixed(2));
@@ -556,84 +558,86 @@ export const MatchingPartEditor = ({ data, onChange, partImageUrl }) => {
             Anh - {pendingIdx !== null ? `Dang cho click cho "${leftItems[pendingIdx] || `Cau ${pendingIdx}`}"` : "Click nut dat diem roi click vao anh"}
           </p>
           <div
-            style={{ position: "relative", display: "inline-block", width: "100%", cursor: pendingIdx !== null ? "crosshair" : "default" }}
-            onClick={handleImageClick}
+            style={{ marginBottom: "20px" }}
           >
-            <img
-              ref={imgRef}
+            <AnchoredImageStage
               src={resolveImg(partImageUrl)}
               alt="Part scene"
-              style={{ width: "100%", display: "block", borderRadius: "10px", border: "2px solid #e2e8f0", userSelect: "none" }}
-              draggable={false}
-            />
-            {Object.entries(anchors).map(([idxStr, pos]) => {
-              const i = parseInt(idxStr, 10);
-              const name = leftItems[i] || (i === 0 ? "(Example)" : "?");
-              const color = anchorColors[i % anchorColors.length];
-              return (
-                <div
-                  key={idxStr}
-                  style={{
-                    position: "absolute",
-                    left: `${pos.x}%`,
-                    top: `${pos.y}%`,
-                    transform: "translate(-50%, -50%)",
-                    pointerEvents: "auto",
-                    zIndex: 10,
-                  }}
-                >
+              imageRef={imgRef}
+              maxWidth="640px"
+              cursor={pendingIdx !== null && imageReady ? "crosshair" : "default"}
+              onClick={handleImageClick}
+              onReadyChange={setImageReady}
+            >
+              {imageReady ? Object.entries(anchors).map(([idxStr, pos]) => {
+                const i = parseInt(idxStr, 10);
+                const name = leftItems[i] || (i === 0 ? "(Example)" : "?");
+                const color = anchorColors[i % anchorColors.length];
+                return (
                   <div
-                    style={{
-                      width: "14px",
-                      height: "14px",
-                      borderRadius: "50%",
-                      background: color,
-                      border: "2px solid white",
-                      boxShadow: "0 1px 4px rgba(0,0,0,0.4)",
-                    }}
-                  />
-                  <div
+                    key={idxStr}
                     style={{
                       position: "absolute",
-                      top: "16px",
-                      left: "50%",
-                      transform: "translateX(-50%)",
-                      background: color,
-                      color: "white",
-                      borderRadius: "4px",
-                      padding: "1px 6px",
-                      fontSize: "10px",
-                      fontWeight: 700,
-                      whiteSpace: "nowrap",
-                      boxShadow: "0 1px 3px rgba(0,0,0,0.3)",
+                      left: `${pos.x}%`,
+                      top: `${pos.y}%`,
+                      transform: "translate(-50%, -50%)",
+                      pointerEvents: "auto",
+                      zIndex: 10,
                     }}
                   >
-                    {name}
-                    <span
-                      style={{ marginLeft: "4px", cursor: "pointer", opacity: 0.8 }}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        clearAnchor(i);
+                    <div
+                      style={{
+                        width: "14px",
+                        height: "14px",
+                        borderRadius: "50%",
+                        background: color,
+                        border: "2px solid white",
+                        boxShadow: "0 1px 4px rgba(0,0,0,0.4)",
                       }}
-                      title="Xoa diem nay"
+                    />
+                    <div
+                      style={{
+                        position: "absolute",
+                        top: "16px",
+                        left: "50%",
+                        transform: "translateX(-50%)",
+                        background: color,
+                        color: "white",
+                        borderRadius: "4px",
+                        padding: "1px 6px",
+                        fontSize: "10px",
+                        fontWeight: 700,
+                        whiteSpace: "nowrap",
+                        boxShadow: "0 1px 3px rgba(0,0,0,0.3)",
+                      }}
                     >
-                      ×
-                    </span>
+                      {name}
+                      <span
+                        style={{ marginLeft: "4px", cursor: "pointer", opacity: 0.8 }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          clearAnchor(i);
+                        }}
+                        title="Xoa diem nay"
+                      >
+                        ×
+                      </span>
+                    </div>
                   </div>
-                </div>
-              );
-            })}
-            {pendingIdx !== null && (
-              <div
-                style={{
-                  position: "absolute",
-                  inset: 0,
-                  borderRadius: "10px",
-                  border: `3px dashed ${anchorColors[pendingIdx % anchorColors.length]}`,
-                  pointerEvents: "none",
-                }}
-              />
-            )}
+                );
+              }) : null}
+              {pendingIdx !== null && imageReady && (
+                <div
+                  style={{
+                    position: "absolute",
+                    inset: 0,
+                    borderRadius: "10px",
+                    border: `3px dashed ${anchorColors[pendingIdx % anchorColors.length]}`,
+                    pointerEvents: "none",
+                  }}
+                />
+              )}
+            </AnchoredImageStage>
           </div>
         </div>
       ) : (
