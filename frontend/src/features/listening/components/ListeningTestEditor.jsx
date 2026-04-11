@@ -134,31 +134,45 @@ const formatNotesHtml = (notesText = '') => {
 };
 
 const questionTypeFieldShellStyle = {
-  position: "relative",
-  display: "inline-flex",
+  display: "flex",
   alignItems: "center",
+  gap: "8px",
   minWidth: "240px",
+};
+
+const questionTypeFieldSelectWrapStyle = {
+  position: "relative",
+  flex: "1 1 auto",
+  minWidth: 0,
 };
 
 const questionTypeFieldSelectStyle = {
   ...compactInputStyle,
   width: "100%",
   marginBottom: 0,
-  paddingLeft: "42px",
+  paddingLeft: "12px",
   paddingRight: "42px",
   appearance: "none",
   WebkitAppearance: "none",
   MozAppearance: "none",
   backgroundColor: "#fff",
   cursor: "pointer",
+  color: "#111827",
+  fontWeight: 600,
 };
 
 const questionTypeFieldLeadingStyle = {
-  position: "absolute",
-  left: "12px",
-  top: "50%",
-  transform: "translateY(-50%)",
-  color: colors.questionYellow,
+  flexShrink: 0,
+  width: "28px",
+  height: "28px",
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  color: "#b45309",
+  backgroundColor: "#fff7ed",
+  border: "1px solid #fdba74",
+  borderRadius: "8px",
+  boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
   pointerEvents: "none",
 };
 
@@ -167,6 +181,9 @@ const questionTypeFieldTrailingStyle = {
   right: "12px",
   top: "50%",
   transform: "translateY(-50%)",
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
   color: colors.gray,
   pointerEvents: "none",
 };
@@ -177,18 +194,20 @@ const QuestionTypeSelectField = ({ value, onChange, options, style }) => {
   return (
     <div style={{ ...questionTypeFieldShellStyle, ...style }}>
       <span style={questionTypeFieldLeadingStyle}>
-        <LineIcon name={selected?.icon || "questions"} size={16} />
+        <LineIcon name={selected?.icon || "questions"} size={18} strokeWidth={2.2} />
       </span>
-      <select value={value} onChange={(event) => onChange(event.target.value)} style={questionTypeFieldSelectStyle}>
-        {options.map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
-        ))}
-      </select>
-      <span style={questionTypeFieldTrailingStyle}>
-        <LineIcon name="chevron-down" size={16} />
-      </span>
+      <div style={questionTypeFieldSelectWrapStyle}>
+        <select value={value} onChange={(event) => onChange(event.target.value)} style={questionTypeFieldSelectStyle}>
+          {options.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+        <span style={questionTypeFieldTrailingStyle}>
+          <LineIcon name="chevron-down" size={18} strokeWidth={2.2} />
+        </span>
+      </div>
     </div>
   );
 };

@@ -485,13 +485,14 @@ const ReadingTestEditor = ({
 
               {/* Passage body */}
               {!collapsedPassage && (
-                <div style={{ flex: 1, overflow: "auto", padding: "12px", minHeight: 0 }}>
+                <div className="reading-passage-panel-body" style={{ flex: 1, overflow: "auto", padding: "12px", minHeight: 0 }}>
                   {currentPassage ? (
-                    <div style={{ maxWidth: "980px", margin: "0 auto" }}>
+                    <div className="reading-passage-editor-card">
                       <label style={{ fontWeight: 700, color: "#28a745", fontSize: "12px", display: "block", marginBottom: "4px" }}>
                         Tiêu đề
                       </label>
                       <input
+                        className="reading-passage-title-input"
                         type="text"
                         value={currentPassage.passageTitle || ""}
                         onChange={(e) => onPassageChange(selectedPassageIndex, "passageTitle", e.target.value)}
@@ -507,6 +508,9 @@ const ReadingTestEditor = ({
                       </label>
                       <QuillEditor
                         key={selectedPassageIndex + "-" + currentPassage.passageTitle}
+                        className="reading-passage-quill"
+                        stickyToolbar
+                        editorMinHeight="340px"
                         value={currentPassage.passageText || ""}
                         onChange={(value) => onPassageChange(selectedPassageIndex, "passageText", value)}
                         placeholder="Nhập nội dung passage..."

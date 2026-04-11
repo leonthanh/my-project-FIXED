@@ -266,6 +266,45 @@
   padding: 4px 6px !important;
 }
 
+.reading-passage-panel-body {
+  padding: 16px 18px 20px !important;
+}
+
+.reading-passage-editor-card {
+  width: 100%;
+  min-width: 0;
+  background: #f8fbff;
+  border: 2px solid #1d4ed8;
+  border-radius: 10px;
+  padding: 16px;
+  box-sizing: border-box;
+  box-shadow: 0 10px 24px rgba(29, 78, 216, 0.08);
+}
+
+.reading-passage-title-input {
+  margin-bottom: 0 !important;
+}
+
+.reading-passage-quill {
+  width: 100%;
+}
+
+.reading-passage-quill .ql-toolbar {
+  border-top-left-radius: 8px;
+  border-top-right-radius: 8px;
+}
+
+.reading-passage-quill .ql-container {
+  border-bottom-left-radius: 8px;
+  border-bottom-right-radius: 8px;
+  background: #ffffff;
+}
+
+.reading-passage-quill .ql-editor {
+  min-height: 340px;
+  padding-bottom: 80px;
+}
+
 /* ========================================
    6. MODAL - Review Modal
    ======================================== */
