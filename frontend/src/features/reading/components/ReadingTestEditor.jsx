@@ -29,11 +29,44 @@ import {
 import "react-quill/dist/quill.snow.css";
 import "../styles/reading-test-editor.css";
 
+const getMessageTone = (message) => {
+  const normalized = String(message || "").trim().toLowerCase();
+
+  if (!normalized) return "info";
+  if (
+    normalized.startsWith("lỗi") ||
+    normalized.includes("không có quyền") ||
+    normalized.includes("không hợp lệ") ||
+    normalized.includes("đăng nhập lại") ||
+    normalized.includes("không tìm thấy")
+  ) {
+    return "error";
+  }
+  if (normalized.startsWith("đã") || normalized.includes("thành công")) {
+    return "success";
+  }
+
+  return "warning";
+};
+
+const getMessageColors = (message) => {
+  const tone = getMessageTone(message);
+
+  if (tone === "error") {
+    return { backgroundColor: "#ffe6e6", color: "#b91c1c" };
+  }
+  if (tone === "success") {
+    return { backgroundColor: "#e6ffe6", color: "#166534" };
+  }
+
+  return { backgroundColor: "#fff3cd", color: "#856404" };
+};
+
 /**
  * ReadingTestEditor - Base component cho Create và Edit Reading Test
  *
  * @param {Object} props
- * @param {string} props.pageTitle - Tiêu đề trang (VD: "📚 Tạo Đề Reading IELTS")
+ * @param {string} props.pageTitle - Tiêu đề trang (VD: "Tạo đề Reading IELTS")
  * @param {string} props.pageIcon - Icon (mặc định từ pageTitle)
  * @param {string} props.className - CSS class name
  *
@@ -83,7 +116,7 @@ import "../styles/reading-test-editor.css";
  */
 const ReadingTestEditor = ({
   // Page info
-  pageTitle = "📚 Reading Test Editor",
+  pageTitle = "Reading Test Editor",
   className = "reading-test-editor",
 
   // Form fields
@@ -209,28 +242,23 @@ const ReadingTestEditor = ({
         lastSaved={lastSaved}
         isSaving={isSaving}
         message={message}
-        renderMessage={(currentMessage) => (
-          <div
-            style={{
-              textAlign: "center",
-              padding: "8px",
-              marginTop: "8px",
-              backgroundColor: currentMessage.includes("❌")
-                ? "#ffe6e6"
-                : currentMessage.includes("✅")
-                ? "#e6ffe6"
-                : "#fff3cd",
-              borderRadius: "4px",
-              color: currentMessage.includes("❌")
-                ? "red"
-                : currentMessage.includes("✅")
-                ? "green"
-                : "#856404",
-            }}
-          >
-            {currentMessage}
-          </div>
-        )}
+        renderMessage={(currentMessage) => {
+          const colors = getMessageColors(currentMessage);
+
+          return (
+            <div
+              style={{
+                textAlign: "center",
+                padding: "8px",
+                marginTop: "8px",
+                borderRadius: "4px",
+                ...colors,
+              }}
+            >
+              {currentMessage}
+            </div>
+          );
+        }}
         shellStyle={{
           display: "flex",
           flexDirection: "column",
@@ -304,7 +332,7 @@ const ReadingTestEditor = ({
             {/* Passages header */}
             <div style={{ padding: "10px 12px", borderBottom: "1px solid #334155", flexShrink: 0 }}>
               <span style={{ fontSize: "11px", fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-                📚 Passages ({passages?.length || 0})
+                Passages ({passages?.length || 0})
               </span>
             </div>
             {/* Passages list - scrollable, button stays outside */}
@@ -359,13 +387,13 @@ const ReadingTestEditor = ({
                   border: "none", borderRadius: "6px", cursor: "pointer", fontWeight: 600,
                   fontSize: "12px",
                 }}
-              >➕ Thêm Passage</button>
+              >Thêm Passage</button>
             </div>
 
             {/* Sections header */}
             <div style={{ padding: "10px 12px", borderTop: "1px solid #334155", borderBottom: "1px solid #334155", flexShrink: 0 }}>
               <span style={{ fontSize: "11px", fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-                📌 Sections {currentPassage ? `(P${selectedPassageIndex + 1})` : ""}
+                Sections {currentPassage ? `(P${selectedPassageIndex + 1})` : ""}
               </span>
             </div>
             {/* Sections list - scrollable, button stays outside */}
@@ -395,7 +423,7 @@ const ReadingTestEditor = ({
                 ))
               ) : (
                 <div style={{ color: "#64748b", fontSize: "12px", textAlign: "center", marginTop: "16px" }}>
-                  ← Chọn một Passage
+                  Chọn một Passage
                 </div>
               )}
             </div>
@@ -410,7 +438,7 @@ const ReadingTestEditor = ({
                     border: "none", borderRadius: "6px", cursor: "pointer", fontWeight: 600,
                     fontSize: "12px",
                   }}
-                >➕ Thêm Section</button>
+                >Thêm Section</button>
               </div>
             )}
           </div>
@@ -420,8 +448,8 @@ const ReadingTestEditor = ({
             {/* TOP: Passage Content (collapsible) */}
             <div
               style={{
-                // When passage collapsed → just header height; when questions collapsed → fill space; otherwise fixed 40%
-                flex: collapsedPassage ? "0 0 auto" : collapsedQuestions ? "1" : "0 0 40%",
+                // When passage collapsed → just header height; when questions collapsed → fill space; otherwise use a more compact default height.
+                flex: collapsedPassage ? "0 0 auto" : collapsedQuestions ? "1" : "0 0 34%",
                 display: "flex",
                 flexDirection: "column",
                 overflow: "hidden",
@@ -448,7 +476,7 @@ const ReadingTestEditor = ({
                 }}
               >
                 <span>
-                  📄 NỘI DUNG{currentPassage ? " – Passage " + (selectedPassageIndex + 1) : ""}
+                  Nội dung{currentPassage ? " - Passage " + (selectedPassageIndex + 1) : ""}
                 </span>
                 <span style={{ fontSize: "12px", fontWeight: 500, opacity: 0.9 }}>
                   {collapsedPassage ? "▼ Mở rộng" : "▲ Thu nhỏ"}
@@ -459,9 +487,9 @@ const ReadingTestEditor = ({
               {!collapsedPassage && (
                 <div style={{ flex: 1, overflow: "auto", padding: "12px", minHeight: 0 }}>
                   {currentPassage ? (
-                    <>
+                    <div style={{ maxWidth: "980px", margin: "0 auto" }}>
                       <label style={{ fontWeight: 700, color: "#28a745", fontSize: "12px", display: "block", marginBottom: "4px" }}>
-                        📝 Tiêu đề
+                        Tiêu đề
                       </label>
                       <input
                         type="text"
@@ -475,7 +503,7 @@ const ReadingTestEditor = ({
                         }}
                       />
                       <label style={{ fontWeight: 700, color: "#28a745", fontSize: "12px", display: "block", marginBottom: "6px" }}>
-                        📖 Nội dung bài đọc
+                        Nội dung bài đọc
                       </label>
                       <QuillEditor
                         key={selectedPassageIndex + "-" + currentPassage.passageTitle}
@@ -483,10 +511,10 @@ const ReadingTestEditor = ({
                         onChange={(value) => onPassageChange(selectedPassageIndex, "passageText", value)}
                         placeholder="Nhập nội dung passage..."
                       />
-                    </>
+                    </div>
                   ) : (
                     <div style={{ color: "#999", fontSize: "13px", textAlign: "center", paddingTop: "20px" }}>
-                      ← Chọn một Passage để nhập nội dung
+                      Chọn một Passage để nhập nội dung
                     </div>
                   )}
                 </div>
@@ -527,7 +555,7 @@ const ReadingTestEditor = ({
                 }}
               >
                 <span>
-                  ❓ CÂU HỎI{currentSection ? " — Section " + (selectedSectionIndex + 1) : ""}
+                  Câu hỏi{currentSection ? " - Section " + (selectedSectionIndex + 1) : ""}
                 </span>
                 <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
                   {currentSection && (
@@ -559,7 +587,7 @@ const ReadingTestEditor = ({
                   </div>
                 ) : (
                   <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: "#999", fontSize: "13px" }}>
-                    ← Chọn một Section trong sidebar để xem câu hỏi
+                    Chọn một Section trong sidebar để xem câu hỏi
                   </div>
                 )
               )}
@@ -590,15 +618,15 @@ const ReadingTestEditor = ({
               color: "#666",
             }}
           >
-            <span>📚 Passages: {passages?.length || 0}</span>
+            <span>Passages: {passages?.length || 0}</span>
             <span>
-              📌 Sections:{" "}
+              Sections:{" "}
               {passages?.reduce(
                 (sum, p) => sum + (p.sections?.length || 0),
                 0
               ) || 0}
             </span>
-            <span>❓ Questions: {calculateTotalQuestions(passages)}</span>
+            <span>Questions: {calculateTotalQuestions(passages)}</span>
           </div>
 
           <div style={{ display: "flex", gap: "10px" }}>
@@ -618,7 +646,7 @@ const ReadingTestEditor = ({
                 boxShadow: "0 4px 6px -1px rgba(59,130,246,0.3)",
               }}
             >
-              ✅ Review & {submitButtonText}
+                Review & {submitButtonText}
             </button>
           </div>
         </div>
@@ -645,7 +673,7 @@ const ReadingTestEditor = ({
                   alignItems: "center",
                 }}
               >
-                <h3 style={{ margin: 0 }}>📋 Xác nhận {submitButtonText}</h3>
+                <h3 style={{ margin: 0, fontSize: "18px" }}>Xác nhận {submitButtonText}</h3>
                 <button
                   type="button"
                   onClick={() => setIsReviewing(false)}
@@ -677,26 +705,26 @@ const ReadingTestEditor = ({
                 }}
               >
                 <div>
-                  <strong>📝 Tiêu đề:</strong> {title}
+                  <strong>Tiêu đề:</strong> {title}
                 </div>
                 <div>
-                  <strong>🏫 Mã lớp:</strong> {classCode || "(Không có)"}
+                  <strong>Mã lớp:</strong> {classCode || "(Không có)"}
                 </div>
                 <div>
-                  <strong>👨‍🏫 Giáo viên:</strong> {teacherName || "(Không có)"}
+                  <strong>Giáo viên:</strong> {teacherName || "(Không có)"}
                 </div>
                 <div>
-                  <strong>📚 Passages:</strong> {passages?.length || 0}
+                  <strong>Passages:</strong> {passages?.length || 0}
                 </div>
                 <div>
-                  <strong>📌 Sections:</strong>{" "}
+                  <strong>Sections:</strong>{" "}
                   {passages?.reduce(
                     (sum, p) => sum + (p.sections?.length || 0),
                     0
                   ) || 0}
                 </div>
                 <div>
-                  <strong>❓ Tổng câu hỏi:</strong>{" "}
+                  <strong>Tổng câu hỏi:</strong>{" "}
                   {calculateTotalQuestions(passages)}
                 </div>
               </div>
@@ -731,7 +759,7 @@ const ReadingTestEditor = ({
                         fontSize: "14px",
                       }}
                     >
-                      📚 Passage {pIdx + 1}:{" "}
+                      Passage {pIdx + 1}:{" "}
                       {passage.passageTitle || "(Untitled)"}
                     </div>
 
@@ -782,7 +810,7 @@ const ReadingTestEditor = ({
                               fontSize: "13px",
                             }}
                           >
-                            📌 Section {sIdx + 1}:{" "}
+                            Section {sIdx + 1}:{" "}
                             {section.sectionTitle || "(Untitled)"}
                             <span
                               style={{
@@ -1066,7 +1094,7 @@ const ReadingTestEditor = ({
                                           fontSize: "10px",
                                         }}
                                       >
-                                        ⚠️ Chưa có nội dung
+                                        Chưa có nội dung
                                       </span>
                                     )}
                                   </div>
@@ -1100,7 +1128,7 @@ const ReadingTestEditor = ({
                                             fontWeight: "bold",
                                           }}
                                         >
-                                          📝 Cloze table:
+                                          Cloze table:
                                         </div>
                                         <div style={{ overflowX: "auto" }}>
                                           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
@@ -1185,7 +1213,7 @@ const ReadingTestEditor = ({
                                             fontWeight: "bold",
                                           }}
                                         >
-                                          📝 Đoạn văn câu hỏi:
+                                          Đoạn văn câu hỏi:
                                         </div>
                                         {hasParagraphText ? (
                                           <div
@@ -1212,7 +1240,7 @@ const ReadingTestEditor = ({
                                               fontStyle: "italic",
                                             }}
                                           >
-                                            ⚠️ <strong>
+                                            <strong>
                                               Chưa nhập đoạn văn câu hỏi!
                                             </strong>
                                             <br />
@@ -1247,7 +1275,7 @@ const ReadingTestEditor = ({
                                                 fontWeight: "bold",
                                               }}
                                             >
-                                              🔗 Danh sách Matching:
+                                              Danh sách Matching:
                                             </div>
 
                                             {/* Right Items (Headings to match) */}
@@ -1265,7 +1293,7 @@ const ReadingTestEditor = ({
                                                       marginBottom: "4px",
                                                     }}
                                                   >
-                                                    📋 Danh sách
+                                                    Danh sách
                                                     headings/options:
                                                   </div>
                                                   {q.rightItems.map(
@@ -1318,7 +1346,7 @@ const ReadingTestEditor = ({
                                                       marginBottom: "4px",
                                                     }}
                                                   >
-                                                    📌 Các đoạn văn
+                                                    Các đoạn văn
                                                     (Paragraphs):
                                                   </div>
                                                   {q.leftItems.map(
@@ -1369,7 +1397,7 @@ const ReadingTestEditor = ({
                                                 fontWeight: "bold",
                                               }}
                                             >
-                                              🔗 Nội dung câu hỏi:
+                                              Nội dung câu hỏi:
                                             </div>
                                             <div
                                               dangerouslySetInnerHTML={{
@@ -1398,7 +1426,6 @@ const ReadingTestEditor = ({
                                                   fontStyle: "italic",
                                                 }}
                                               >
-                                                ⚠️{" "}
                                                 <strong>
                                                   Chưa nhập nội dung matching!
                                                 </strong>
@@ -1435,7 +1462,7 @@ const ReadingTestEditor = ({
                                             fontWeight: "bold",
                                           }}
                                         >
-                                          🔗 IELTS Matching Headings
+                                          IELTS Matching Headings
                                         </div>
 
                                         {/* Headings List */}
@@ -1452,7 +1479,7 @@ const ReadingTestEditor = ({
                                                   fontWeight: "bold",
                                                 }}
                                               >
-                                                📋 List of Headings:
+                                                List of Headings:
                                               </div>
                                               {q.headings.map((h, i) => (
                                                 <div
@@ -1500,7 +1527,7 @@ const ReadingTestEditor = ({
                                                   fontWeight: "bold",
                                                 }}
                                               >
-                                                ✅ Đáp án:
+                                                Đáp án:
                                               </div>
                                               <table
                                                 style={{
@@ -1743,8 +1770,7 @@ const ReadingTestEditor = ({
                                               fontSize: "11px",
                                             }}
                                           >
-                                            ⚠️ Chưa nhập dữ liệu Matching
-                                            Headings
+                                            Chưa nhập dữ liệu Matching Headings
                                           </div>
                                         )}
                                       </div>
@@ -1790,7 +1816,6 @@ const ReadingTestEditor = ({
                                                 fontSize: "11px",
                                               }}
                                             >
-                                              ⚠️{" "}
                                               <strong>
                                                 Chưa nhập nội dung câu hỏi!
                                               </strong>
@@ -1820,7 +1845,7 @@ const ReadingTestEditor = ({
                                               fontSize: "11px",
                                             }}
                                           >
-                                            📋 Các lựa chọn:
+                                            Các lựa chọn:
                                           </strong>
                                           <div style={{ marginTop: "6px" }}>
                                             {q.options
@@ -1870,7 +1895,7 @@ const ReadingTestEditor = ({
                                         }}
                                       >
                                         <strong style={{ color: "#155724" }}>
-                                          ✅ Đáp án:
+                                          Đáp án:
                                         </strong>
                                         {isClozeType && q.blanks ? (
                                           <div style={{ marginTop: "6px" }}>
@@ -1955,7 +1980,7 @@ const ReadingTestEditor = ({
                   style={backButtonStyle}
                   disabled={isSubmitting}
                 >
-                  ← Quay lại chỉnh sửa
+                  Quay lại chỉnh sửa
                 </button>
                 <button
                   type="button"
@@ -1968,8 +1993,8 @@ const ReadingTestEditor = ({
                   disabled={isSubmitting}
                 >
                   {isSubmitting
-                    ? "⏳ Đang xử lý..."
-                    : `✅ Xác nhận ${submitButtonText}`}
+                    ? "Đang xử lý..."
+                    : `Xác nhận ${submitButtonText}`}
                 </button>
               </div>
             </div>

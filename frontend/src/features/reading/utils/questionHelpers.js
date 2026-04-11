@@ -60,6 +60,28 @@ export const getQuestionStart = (questionNumber) => {
 
 const stripHtml = (value) => String(value || '').replace(/<[^>]+>/g, ' ');
 
+const normalizeTableRows = (rows, columns) => {
+  if (!Array.isArray(rows)) return [];
+
+  const columnCount = Array.isArray(columns) ? columns.length : 0;
+
+  return rows.map((row) => {
+    const rawCells = Array.isArray(row?.cells) ? row.cells : [];
+    const cells =
+      columnCount > 0
+        ? [
+            ...rawCells.slice(0, columnCount),
+            ...Array.from({ length: Math.max(0, columnCount - rawCells.length) }, () => ''),
+          ]
+        : rawCells;
+
+    return {
+      ...(row && typeof row === 'object' ? row : {}),
+      cells,
+    };
+  });
+};
+
 export const getClozeText = (question) => {
   if (!question || typeof question !== 'object') return null;
 
@@ -84,9 +106,11 @@ export const getActiveClozeTable = (question) => {
     return null;
   }
 
+  const columns = Array.isArray(table.columns) ? table.columns : [];
+
   return {
-    columns: Array.isArray(table.columns) ? table.columns : [],
-    rows: table.rows,
+    columns,
+    rows: normalizeTableRows(table.rows, columns),
   };
 };
 

@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const ReadingTest = require("../models/ReadingTest");
+const { countClozeBlanks } = require("../utils/readingQuestionUtils");
 
 const normalizeUploadsInHtml = (html, req) => {
   if (!html || typeof html !== 'string') return html;
@@ -110,17 +111,9 @@ function countQuestions(passages = []) {
           continue;
         }
         if (qType === "cloze-test" || qType === "summary-completion") {
-          const clozeText =
-            q.paragraphText ||
-            q.passageText ||
-            q.text ||
-            q.paragraph ||
-            (q.questionText && q.questionText.includes("[BLANK]")
-              ? q.questionText
-              : null);
-          if (clozeText) {
-            const blanks = clozeText.match(/\[BLANK\]/gi) || [];
-            qCounter += blanks.length || 1;
+          const blankCount = countClozeBlanks(q);
+          if (blankCount > 0) {
+            qCounter += blankCount;
             continue;
           }
         }

@@ -27,6 +27,43 @@ const getTableRowsFromQuestion = (question, tableColumns) => {
   return [{ cells: tableColumns.map(() => '') }];
 };
 
+const normalizeTableRows = (rows, tableColumns) => {
+  const columnCount = Array.isArray(tableColumns) ? tableColumns.length : 0;
+  const sourceRows = Array.isArray(rows) && rows.length > 0 ? rows : [{ cells: [] }];
+
+  return sourceRows.map((row) => {
+    const rawCells = Array.isArray(row?.cells) ? row.cells : [];
+    const cells =
+      columnCount > 0
+        ? [
+            ...rawCells.slice(0, columnCount),
+            ...Array.from({ length: Math.max(0, columnCount - rawCells.length) }, () => ''),
+          ]
+        : rawCells;
+
+    return {
+      ...(row && typeof row === 'object' ? row : {}),
+      cells,
+    };
+  });
+};
+
+const areTableRowsEqual = (leftRows, rightRows) => {
+  if (leftRows === rightRows) return true;
+  if (!Array.isArray(leftRows) || !Array.isArray(rightRows)) return false;
+  if (leftRows.length !== rightRows.length) return false;
+
+  return leftRows.every((leftRow, rowIndex) => {
+    const rightRow = rightRows[rowIndex];
+    const leftCells = Array.isArray(leftRow?.cells) ? leftRow.cells : [];
+    const rightCells = Array.isArray(rightRow?.cells) ? rightRow.cells : [];
+
+    if (leftCells.length !== rightCells.length) return false;
+
+    return leftCells.every((cell, cellIndex) => cell === rightCells[cellIndex]);
+  });
+};
+
 /**
  * IELTS Cloze Test Question Component
  * 
@@ -38,10 +75,14 @@ const getTableRowsFromQuestion = (question, tableColumns) => {
 
 const ClozeTestQuestion = ({ question, onChange }) => {
   const initialTableColumns = getTableColumnsFromQuestion(question);
+  const initialTableRows = normalizeTableRows(
+    getTableRowsFromQuestion(question, initialTableColumns),
+    initialTableColumns
+  );
   const [paragraphText, setParagraphText] = useState(question?.paragraphText || '');
   const [tableMode, setTableMode] = useState(question?.tableMode || false);
   const [tableColumns, setTableColumns] = useState(initialTableColumns);
-  const [tableRows, setTableRows] = useState(getTableRowsFromQuestion(question, initialTableColumns));
+  const [tableRows, setTableRows] = useState(initialTableRows);
   const [maxWords, setMaxWords] = useState(question?.maxWords || 3);
   const [blanks, setBlanks] = useState(question?.blanks || []);
   const quillRef = useRef(null);
@@ -56,6 +97,13 @@ const ClozeTestQuestion = ({ question, onChange }) => {
     temp.innerHTML = html;
     return temp.textContent || temp.innerText || '';
   };
+
+  useEffect(() => {
+    setTableRows((prevRows) => {
+      const normalizedRows = normalizeTableRows(prevRows, tableColumns);
+      return areTableRowsEqual(prevRows, normalizedRows) ? prevRows : normalizedRows;
+    });
+  }, [tableColumns]);
 
   // Phát hiện [BLANK] và tạo blanks array (hỗ trợ paragraph + table)
   useEffect(() => {
@@ -195,28 +243,25 @@ const ClozeTestQuestion = ({ question, onChange }) => {
       display: 'flex',
       alignItems: 'center',
       gap: '10px',
-      marginBottom: '20px',
-      paddingBottom: '15px',
+      marginBottom: '16px',
+      paddingBottom: '12px',
       borderBottom: `2px solid ${accentCyan}`
-    },
-    headerIcon: {
-      fontSize: '28px'
     },
     headerTitle: {
       margin: 0,
       color: accentCyan,
-      fontSize: '18px'
+      fontSize: '16px'
     },
     headerBadge: {
       backgroundColor: accentCyan,
       color: 'white',
       padding: '4px 12px',
       borderRadius: '20px',
-      fontSize: '12px',
+      fontSize: '11px',
       marginLeft: 'auto'
     },
     section: {
-      marginBottom: '20px'
+      marginBottom: '16px'
     },
     sectionTitle: {
       display: 'flex',
@@ -224,7 +269,7 @@ const ClozeTestQuestion = ({ question, onChange }) => {
       gap: '8px',
       margin: '0 0 10px 0',
       color: primaryBlue,
-      fontSize: '14px',
+      fontSize: '13px',
       fontWeight: 'bold'
     },
     textarea: {
@@ -285,7 +330,7 @@ const ClozeTestQuestion = ({ question, onChange }) => {
     previewTitle: {
       margin: '0 0 15px 0',
       color: '#0e7490',
-      fontSize: '14px',
+      fontSize: '13px',
       fontWeight: 'bold',
       display: 'flex',
       alignItems: 'center',
@@ -344,7 +389,6 @@ const ClozeTestQuestion = ({ question, onChange }) => {
     <div style={styles.container}>
       {/* Header */}
       <div style={styles.header}>
-        <span style={styles.headerIcon}>📄</span>
         <h4 style={styles.headerTitle}>Cloze Test (Điền chỗ trống trong đoạn văn)</h4>
         <span style={styles.headerBadge}>IX Reading/Listening</span>
       </div>
@@ -388,7 +432,7 @@ const ClozeTestQuestion = ({ question, onChange }) => {
       {!tableMode && (
       <div style={styles.section}>
         <h5 style={styles.sectionTitle}>
-          <span>📖</span> Nhập đoạn văn (Đánh dấu chỗ trống bằng [BLANK]):
+          Nhập đoạn văn (đánh dấu chỗ trống bằng [BLANK]):
         </h5>
         <QuillEditor
           editorRef={quillRef}
@@ -407,13 +451,12 @@ const ClozeTestQuestion = ({ question, onChange }) => {
           }}
           style={styles.insertButton}
         >
-          ➕ Chèn [BLANK]
+          Chèn [BLANK]
         </button>
 
         {/* Tip */}
         <div style={styles.tip}>
-          <span>💡</span>
-          <span><strong>Tip:</strong> Sử dụng <code style={{ backgroundColor: '#fef3c7', padding: '2px 6px', borderRadius: '4px' }}>[BLANK]</code> để đánh dấu mỗi chỗ trống trong đoạn văn</span>
+          <span><strong>Gợi ý:</strong> Sử dụng <code style={{ backgroundColor: '#fef3c7', padding: '2px 6px', borderRadius: '4px' }}>[BLANK]</code> để đánh dấu mỗi chỗ trống trong đoạn văn</span>
         </div>
       </div>
       )}
@@ -421,7 +464,7 @@ const ClozeTestQuestion = ({ question, onChange }) => {
       {tableMode && (
       <div style={styles.section}>
         <h5 style={styles.sectionTitle}>
-          <span>📊</span> Nhập bảng Cloze (Chèn [BLANK] trong mỗi ô):
+          Nhập bảng Cloze (chèn [BLANK] trong mỗi ô):
         </h5>
 
         <div style={{ marginBottom: '16px' }}>
@@ -443,7 +486,7 @@ const ClozeTestQuestion = ({ question, onChange }) => {
                 )}
               </div>
             ))}
-            <button type="button" onClick={() => setTableColumns([...tableColumns, `Cột ${tableColumns.length + 1}`])} style={{ padding: '8px 12px', fontWeight: 700 }}>➕ Thêm cột</button>
+            <button type="button" onClick={() => setTableColumns([...tableColumns, `Cột ${tableColumns.length + 1}`])} style={{ padding: '8px 12px', fontWeight: 700 }}>Thêm cột</button>
           </div>
         </div>
 
@@ -452,7 +495,7 @@ const ClozeTestQuestion = ({ question, onChange }) => {
             <div key={ri} style={{ marginBottom: '10px', border: '1px solid #dbeafe', borderRadius: '8px', padding: '10px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                 <strong>Hàng {ri + 1}</strong>
-                <button type="button" onClick={() => setTableRows(tableRows.filter((_, i) => i !== ri))} style={{ padding: '6px 8px' }}>🗑 Xóa hàng</button>
+                <button type="button" onClick={() => setTableRows(tableRows.filter((_, i) => i !== ri))} style={{ padding: '6px 8px' }}>Xóa hàng</button>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 {tableColumns.map((col, ci) => (
@@ -481,17 +524,17 @@ const ClozeTestQuestion = ({ question, onChange }) => {
                       targetRow.cells = cells;
                       next[ri] = targetRow;
                       setTableRows(next);
-                    }} style={{ padding: '6px 10px' }}>➕ [BLANK]</button>
+                    }} style={{ padding: '6px 10px' }}>[BLANK]</button>
                   </div>
                 ))}
               </div>
             </div>
           ))}
-          <button type="button" onClick={() => setTableRows([...tableRows, { cells: tableColumns.map(() => '') }])} style={{ padding: '8px 12px', fontWeight: 700 }}>➕ Thêm hàng</button>
+          <button type="button" onClick={() => setTableRows([...tableRows, { cells: tableColumns.map(() => '') }])} style={{ padding: '8px 12px', fontWeight: 700 }}>Thêm hàng</button>
         </div>
 
         <div style={styles.helpSection}>
-          💡 Bảng preview:
+          Xem trước bảng:
         </div>
 
         <div style={{ overflowX: 'auto', marginTop: '10px', border: '1px solid #cbd5e1', borderRadius: '8px' }}>
@@ -531,7 +574,7 @@ const ClozeTestQuestion = ({ question, onChange }) => {
       {/* Max Words */}
       <div style={styles.section}>
         <h5 style={styles.sectionTitle}>
-          <span>🔢</span> Số từ tối đa cho mỗi chỗ trống:
+          Số từ tối đa cho mỗi chỗ trống:
         </h5>
         <div style={styles.wordLimitBox}>
           <span>Write <strong>NO MORE THAN</strong></span>
@@ -548,7 +591,7 @@ const ClozeTestQuestion = ({ question, onChange }) => {
               borderRadius: '6px',
               textAlign: 'center',
               fontWeight: 'bold',
-              fontSize: '16px'
+              fontSize: '15px'
             }}
           />
           <span><strong>WORDS</strong> for each answer</span>
@@ -559,7 +602,7 @@ const ClozeTestQuestion = ({ question, onChange }) => {
       {(tableMode || paragraphText) && (
         <div style={styles.preview}>
           <h5 style={styles.previewTitle}>
-            <span>👁</span> Preview - Học sinh sẽ thấy:
+            Xem trước - Học sinh sẽ thấy:
           </h5>
           {renderPreview()}
         </div>
@@ -569,7 +612,7 @@ const ClozeTestQuestion = ({ question, onChange }) => {
       {blanks.length > 0 && (
         <div style={styles.answersSection}>
           <h5 style={styles.sectionTitle}>
-            <span>✍️</span> Đáp án cho mỗi chỗ trống:
+            Đáp án cho mỗi chỗ trống:
           </h5>
           
           {blanks.map((blank, idx) => {
@@ -599,7 +642,7 @@ const ClozeTestQuestion = ({ question, onChange }) => {
                   )}
                 </div>
                 {blank.correctAnswer && (
-                  <span style={{ color: '#10b981', fontSize: '18px' }}>✓</span>
+                  <span style={{ color: '#0f766e', fontSize: '12px', fontWeight: 700 }}>Đã nhập</span>
                 )}
               </div>
             );
@@ -609,7 +652,7 @@ const ClozeTestQuestion = ({ question, onChange }) => {
 
       {/* Help Section */}
       <div style={styles.helpSection}>
-        <strong>💡 Hướng dẫn sử dụng:</strong>
+        <strong>Hướng dẫn sử dụng:</strong>
         <ul style={{ margin: '8px 0 0 0', paddingLeft: '20px' }}>
           <li>Nhập/paste đoạn văn gốc vào ô text</li>
           <li>Đặt con trỏ vào vị trí cần tạo chỗ trống, nhấn nút <strong>"Chèn [BLANK]"</strong></li>

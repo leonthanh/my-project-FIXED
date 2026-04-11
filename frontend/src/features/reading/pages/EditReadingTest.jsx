@@ -120,7 +120,7 @@ const EditReadingTest = () => {
   if (!allowedToManage) {
     return (
       <div style={{ padding: 40, textAlign: 'center' }}>
-        <h2>⚠️ Bạn không có quyền sửa đề Reading</h2>
+        <h2>Bạn không có quyền sửa đề Reading</h2>
         <p>Nếu bạn cho rằng đây là lỗi, vui lòng liên hệ quản trị hệ thống.</p>
         <button onClick={() => navigate('/select-test')} style={{ marginTop: 16, padding: '8px 14px' }}>Quay lại</button>
       </div>
@@ -133,14 +133,14 @@ const EditReadingTest = () => {
 
     // Validate title
     if (!title || !title.trim()) {
-      setMessage("⚠️ Vui lòng nhập tiêu đề đề thi");
+      setMessage("Vui lòng nhập tiêu đề đề thi");
       setTimeout(() => setMessage(""), 4000);
       return;
     }
 
     // Validate passages
     if (!passages || passages.length === 0) {
-      setMessage("⚠️ Cần có ít nhất 1 passage");
+      setMessage("Cần có ít nhất 1 passage");
       setTimeout(() => setMessage(""), 4000);
       return;
     }
@@ -148,7 +148,7 @@ const EditReadingTest = () => {
     // Validate each passage has sections and questions
     for (let i = 0; i < passages.length; i++) {
       if (!passages[i].sections || passages[i].sections.length === 0) {
-        setMessage(`⚠️ Passage ${i + 1} phải có ít nhất 1 section`);
+        setMessage(`Passage ${i + 1} phải có ít nhất 1 section`);
         setTimeout(() => setMessage(""), 4000);
         return;
       }
@@ -159,7 +159,7 @@ const EditReadingTest = () => {
           passages[i].sections[j].questions.length === 0
         ) {
           setMessage(
-            `⚠️ Passage ${i + 1}, Section ${j + 1} phải có ít nhất 1 câu hỏi`
+            `Passage ${i + 1}, Section ${j + 1} phải có ít nhất 1 câu hỏi`
           );
           setTimeout(() => setMessage(""), 4000);
           return;
@@ -293,27 +293,27 @@ const EditReadingTest = () => {
         if (response.status === 401) {
           // Save draft before prompting user to log in again
           try { saveToLocalStorage(); } catch (e) { /* ignore */ }
-          setMessage('❌ Token đã hết hạn hoặc không hợp lệ. Vui lòng đăng nhập lại để tiếp tục. Bản nháp đã được lưu.');
+          setMessage('Token đã hết hạn hoặc không hợp lệ. Vui lòng đăng nhập lại để tiếp tục. Bản nháp đã được lưu.');
           setRequiresLogin(true);
           return;
         }
 
         if (response.status === 403) {
-          setMessage('❌ Bạn không có quyền cập nhật đề thi.');
+          setMessage('Bạn không có quyền cập nhật đề thi.');
           return;
         }
 
         throw new Error(data.message || "Lỗi khi cập nhật");
       }
 
-      setMessage("✅ Đã cập nhật đề thành công!");
+      setMessage("Đã cập nhật đề thành công.");
       localStorage.removeItem(`readingTestDraft-edit-${testId}`);
       setTimeout(() => {
         navigate("/select-test");
       }, 1500);
     } catch (err) {
       console.error("❌ Error in handleConfirmUpdate:", err);
-      setMessage(`❌ ${err.message}`);
+      setMessage(`Lỗi: ${err.message}`);
     } finally {
       setIsUpdating(false);
       setIsReviewing(false);
@@ -328,7 +328,7 @@ const EditReadingTest = () => {
         <div
           style={{ maxWidth: "1000px", margin: "20px auto", padding: "0 20px" }}
         >
-          <p>⏳ Đang tải dữ liệu...</p>
+          <p>Đang tải dữ liệu...</p>
         </div>
       </>
     );
@@ -351,7 +351,7 @@ const EditReadingTest = () => {
               marginBottom: "20px",
             }}
           >
-            ❌ {error}
+            {error}
           </div>
           <button
             onClick={() => navigate("/reading-tests")}
@@ -380,7 +380,7 @@ const EditReadingTest = () => {
           style={{ maxWidth: "1000px", margin: "20px auto", padding: "0 20px" }}
         >
           <p style={{ color: "red" }}>
-            ❌ Không có dữ liệu để sửa. Vui lòng quay lại.
+            Không có dữ liệu để sửa. Vui lòng quay lại.
           </p>
           <button
             onClick={() => navigate("/reading-tests")}
@@ -404,7 +404,7 @@ const EditReadingTest = () => {
     <div>
       {requiresLogin && (
         <div style={{ padding: 12, background: '#fff0f0', border: '1px solid #ffcccc', borderRadius: 6, marginBottom: 12 }}>
-          <strong>⚠️ Bạn cần đăng nhập lại để hoàn tất thao tác.</strong>
+          <strong>Bạn cần đăng nhập lại để hoàn tất thao tác.</strong>
           <div style={{ marginTop: 8 }}>
             Bản nháp đã được lưu. <button style={{ marginLeft: 8, padding: '6px 10px' }} onClick={() => { redirectToLogin({ rememberPath: true, replace: true }); }}>Đăng nhập lại</button>
           </div>
@@ -413,7 +413,7 @@ const EditReadingTest = () => {
 
       <ReadingTestEditor
         // Page info
-        pageTitle="✏️ Sửa Đề Reading IELTS"
+        pageTitle="Sửa đề Reading IELTS"
         className="edit-reading-test"
         // Form fields
         title={title}

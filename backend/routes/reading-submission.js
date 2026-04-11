@@ -4,6 +4,7 @@ const ReadingSubmission = require("../models/ReadingSubmission");
 const { Op } = require("sequelize");
 const { requireAuth } = require("../middlewares/auth");
 const { requireTestPermission } = require("../middlewares/testPermissions");
+const { countClozeBlanks } = require("../utils/readingQuestionUtils");
 const {
   DEFAULT_EXTENSION_MINUTES,
   buildTimingPayload,
@@ -109,17 +110,9 @@ function countQuestions(passages = []) {
           continue;
         }
         if (qType === "cloze-test" || qType === "summary-completion") {
-          const clozeText =
-            q.paragraphText ||
-            q.passageText ||
-            q.text ||
-            q.paragraph ||
-            (q.questionText && q.questionText.includes("[BLANK]")
-              ? q.questionText
-              : null);
-          if (clozeText) {
-            const blanks = clozeText.match(/\[BLANK\]/gi) || [];
-            qCounter += blanks.length || 1;
+          const blankCount = countClozeBlanks(q);
+          if (blankCount > 0) {
+            qCounter += blankCount;
             continue;
           }
         }

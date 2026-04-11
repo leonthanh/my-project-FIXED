@@ -111,7 +111,7 @@ const CreateReadingTest = () => {
   if (!allowedToManage) {
     return (
       <div style={{ padding: 40, textAlign: 'center' }}>
-        <h2>⚠️ Bạn không có quyền tạo đề Reading</h2>
+        <h2>Bạn không có quyền tạo đề Reading</h2>
         <p>Nếu bạn cho rằng đây là lỗi, vui lòng liên hệ quản trị hệ thống.</p>
         <button onClick={() => navigate('/select-test')} style={{ marginTop: 16, padding: '8px 14px' }}>Quay lại</button>
       </div>
@@ -124,14 +124,14 @@ const CreateReadingTest = () => {
 
     // Validate title
     if (!title || !title.trim()) {
-      setMessage("⚠️ Vui lòng nhập tiêu đề đề thi");
+      setMessage("Vui lòng nhập tiêu đề đề thi");
       setTimeout(() => setMessage(""), 3000);
       return;
     }
 
     // Validate passages
     if (!passages || passages.length === 0) {
-      setMessage("⚠️ Cần có ít nhất 1 passage");
+      setMessage("Cần có ít nhất 1 passage");
       setTimeout(() => setMessage(""), 3000);
       return;
     }
@@ -141,7 +141,7 @@ const CreateReadingTest = () => {
       (p) => !p.sections || p.sections.length === 0
     );
     if (hasEmptySections) {
-      setMessage("⚠️ Mỗi passage cần có ít nhất 1 section");
+      setMessage("Mỗi passage cần có ít nhất 1 section");
       setTimeout(() => setMessage(""), 3000);
       return;
     }
@@ -151,7 +151,7 @@ const CreateReadingTest = () => {
       p.sections.some((s) => !s.questions || s.questions.length === 0)
     );
     if (hasEmptyQuestions) {
-      setMessage("⚠️ Mỗi section cần có ít nhất 1 câu hỏi");
+      setMessage("Mỗi section cần có ít nhất 1 câu hỏi");
       setTimeout(() => setMessage(""), 3000);
       return;
     }
@@ -228,20 +228,20 @@ const CreateReadingTest = () => {
         if (response.status === 401) {
           // Save draft before prompting user to log in again
           try { saveToLocalStorage(); } catch (e) { /* ignore */ }
-          setMessage('❌ Token đã hết hạn hoặc không hợp lệ. Vui lòng đăng nhập lại để tiếp tục. Bản nháp đã được lưu.');
+          setMessage('Token đã hết hạn hoặc không hợp lệ. Vui lòng đăng nhập lại để tiếp tục. Bản nháp đã được lưu.');
           setRequiresLogin(true);
           return;
         }
 
         if (response.status === 403) {
-          setMessage('❌ Bạn không có quyền tạo đề thi (Insufficient permissions).');
+          setMessage('Bạn không có quyền tạo đề thi (Insufficient permissions).');
           return;
         }
 
         throw new Error(data.message || "Lỗi khi tạo đề thi");
       }
 
-      setMessage("✅ Tạo đề thi thành công!");
+      setMessage("Đã tạo đề thi thành công.");
       localStorage.removeItem("readingTestDraft-new");
 
       setTimeout(() => {
@@ -249,7 +249,7 @@ const CreateReadingTest = () => {
       }, 1500);
     } catch (error) {
       console.error("Error:", error);
-      setMessage(`❌ ${error.message}`);
+      setMessage(`Lỗi: ${error.message}`);
     } finally {
       setIsCreating(false);
       setIsReviewing(false);
@@ -260,7 +260,7 @@ const CreateReadingTest = () => {
     <div>
       {requiresLogin && (
         <div style={{ padding: 12, background: '#fff0f0', border: '1px solid #ffcccc', borderRadius: 6, marginBottom: 12 }}>
-          <strong>⚠️ Bạn cần đăng nhập lại để hoàn tất thao tác.</strong>
+          <strong>Bạn cần đăng nhập lại để hoàn tất thao tác.</strong>
           <div style={{ marginTop: 8 }}>
             Bản nháp đã được lưu. <button style={{ marginLeft: 8, padding: '6px 10px' }} onClick={() => { redirectToLogin({ rememberPath: true, replace: true }); }}>Đăng nhập lại</button>
           </div>
@@ -269,7 +269,7 @@ const CreateReadingTest = () => {
 
       <ReadingTestEditor
         // Page info
-        pageTitle="📚 Tạo Đề Reading IELTS"
+        pageTitle="Tạo đề Reading IELTS"
         className="create-reading-test"
         // Form fields
         title={title}

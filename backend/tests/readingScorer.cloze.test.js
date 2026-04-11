@@ -97,3 +97,69 @@ test('Cloze: accepts single-blank answers keyed as q_<number> (no _0 suffix)', (
   expect(details.length).toBe(1);
   expect(details[0].isCorrect).toBe(true);
 });
+
+test('Cloze table mode: counts and scores blanks from active table cells', () => {
+  const sample = {
+    passages: [{
+      questions: [{
+        questionType: 'cloze-test',
+        questionNumber: 21,
+        tableMode: true,
+        clozeTable: {
+          columns: ['Test', 'Findings'],
+          rows: [
+            { cells: ['A [BLANK]', 'B [BLANK] [BLANK]'] },
+          ],
+        },
+        blanks: [
+          { correctAnswer: 'alpha' },
+          { correctAnswer: 'beta' },
+          { correctAnswer: 'gamma' },
+        ],
+      }]
+    }]
+  };
+
+  const answers = {
+    q_21_0: 'alpha',
+    q_21_1: 'beta',
+    q_21_2: 'gamma',
+  };
+
+  const result = scoreReadingTest(sample, answers);
+  expect(result.total).toBe(3);
+  expect(result.correct).toBe(3);
+
+  const details = getDetailedScoring(sample, answers);
+  expect(details).toHaveLength(3);
+  expect(details.every((detail) => detail.isCorrect)).toBe(true);
+});
+
+test('Cloze table mode: ignores stale cells outside the active columns', () => {
+  const sample = {
+    passages: [{
+      questions: [{
+        questionType: 'cloze-test',
+        questionNumber: 31,
+        tableMode: true,
+        clozeTable: {
+          columns: ['Test', 'Findings'],
+          rows: [
+            { cells: ['Only [BLANK]', 'Visible', 'Hidden [BLANK]'] },
+          ],
+        },
+        blanks: [{ correctAnswer: 'delta' }],
+      }]
+    }]
+  };
+
+  const answers = { q_31_0: 'delta' };
+
+  const result = scoreReadingTest(sample, answers);
+  expect(result.total).toBe(1);
+  expect(result.correct).toBe(1);
+
+  const details = getDetailedScoring(sample, answers);
+  expect(details).toHaveLength(1);
+  expect(details[0].isCorrect).toBe(true);
+});

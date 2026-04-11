@@ -54,7 +54,7 @@ export const usePassageHandlers = (initialPassages = [createNewPassage()]) => {
    */
   const handleDeletePassage = useCallback((passageIndex) => {
     if (passages.length <= 1) {
-      setMessage('⚠️ Phải có ít nhất 1 passage');
+      setMessage('Phải có ít nhất 1 passage');
       return;
     }
     const newPassages = passages.filter((_, idx) => idx !== passageIndex);
@@ -103,7 +103,7 @@ export const usePassageHandlers = (initialPassages = [createNewPassage()]) => {
     if (!newPassages[passageIndex]?.sections) return;
     
     if (newPassages[passageIndex].sections.length <= 1) {
-      setMessage('⚠️ Phải có ít nhất 1 section');
+      setMessage('Phải có ít nhất 1 section');
       return;
     }
     
@@ -139,7 +139,7 @@ export const usePassageHandlers = (initialPassages = [createNewPassage()]) => {
     const originalSection = passage?.sections?.[sectionIndex];
     
     if (!passage || !originalSection) {
-      setMessage('❌ Lỗi: Không tìm thấy section để sao chép');
+      setMessage('Lỗi: Không tìm thấy section để sao chép');
       return;
     }
     
@@ -159,7 +159,7 @@ export const usePassageHandlers = (initialPassages = [createNewPassage()]) => {
     const section = newPassages[passageIndex]?.sections?.[sectionIndex];
     
     if (!section) {
-      setMessage('❌ Lỗi: Không tìm thấy section');
+      setMessage('Lỗi: Không tìm thấy section');
       return;
     }
     
@@ -180,7 +180,7 @@ export const usePassageHandlers = (initialPassages = [createNewPassage()]) => {
     const section = newPassages[passageIndex]?.sections?.[sectionIndex];
     
     if (!section?.questions) {
-      setMessage('❌ Lỗi: Không tìm thấy section hoặc questions');
+      setMessage('Lỗi: Không tìm thấy section hoặc questions');
       return;
     }
     
@@ -196,7 +196,7 @@ export const usePassageHandlers = (initialPassages = [createNewPassage()]) => {
     const section = newPassages[passageIndex]?.sections?.[sectionIndex];
     
     if (!section?.questions?.[questionIndex]) {
-      setMessage('❌ Lỗi: Không tìm thấy câu hỏi');
+      setMessage('Lỗi: Không tìm thấy câu hỏi');
       return;
     }
     

@@ -345,7 +345,7 @@ const QuillEditor = ({
           position: relative;
         }
         .quill-uploading::after {
-          content: '⏳ Đang upload...';
+          content: 'Đang upload...';
           position: absolute;
           top: 50%;
           left: 50%;
@@ -384,7 +384,7 @@ const QuillEditor = ({
               fontWeight: "bold",
             }}
           >
-            ⏳ Đang upload hình ảnh...
+            Đang upload hình ảnh...
           </span>
         </div>
       )}
@@ -413,7 +413,7 @@ const QuillEditor = ({
               zIndex: 11,
             }}
           >
-            ➕ Thêm chỗ trống
+            Thêm chỗ trống
           </button>
         )}
       </div>

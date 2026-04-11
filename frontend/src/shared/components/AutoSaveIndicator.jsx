@@ -80,25 +80,24 @@ const AutoSaveIndicator = ({ lastSaved, isSaving = false, error = null }) => {
             <span style={{ 
               display: 'inline-block', 
               animation: 'spin 1s linear infinite',
-              fontSize: '14px'
-            }}>
-              ⏳
-            </span>
+              width: '12px',
+              height: '12px',
+              borderRadius: '50%',
+              border: '2px solid currentColor',
+              borderTopColor: 'transparent',
+            }} />
             <span>Đang lưu...</span>
           </>
         ) : error ? (
           <>
-            <span>❌</span>
             <span>Lỗi lưu</span>
           </>
         ) : lastSaved ? (
           <>
-            <span>✅</span>
             <span>Đã lưu {timeAgo}</span>
           </>
         ) : (
           <>
-            <span>💾</span>
             <span>Chưa lưu</span>
           </>
         )}
@@ -107,8 +106,7 @@ const AutoSaveIndicator = ({ lastSaved, isSaving = false, error = null }) => {
       {/* Popup notification */}
       {showNotification && (
         <div style={notificationStyle}>
-          <span style={{ fontSize: '18px' }}>✅</span>
-          <span>Đã lưu tự động!</span>
+          <span>Đã lưu tự động</span>
         </div>
       )}
 
