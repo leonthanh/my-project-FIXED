@@ -100,6 +100,29 @@ describe("questionHelpers", () => {
       expect(question.clozeTable).toBeNull();
       expect(question.tableRows).toEqual([{ cells: ["", ""] }]);
     });
+
+    it("normalizes table rows to the active column count", () => {
+      const question = {
+        questionType: "cloze-test",
+        tableMode: true,
+        clozeTable: {
+          columns: ["Test", "Findings"],
+          rows: [
+            { cells: ["A [BLANK]", "B", "Hidden [BLANK]"] },
+            { cells: ["Only first column"] },
+          ],
+        },
+      };
+
+      expect(getActiveClozeTable(question)).toEqual({
+        columns: ["Test", "Findings"],
+        rows: [
+          { cells: ["A [BLANK]", "B"] },
+          { cells: ["Only first column", ""] },
+        ],
+      });
+      expect(countClozeBlanks(question)).toBe(1);
+    });
   });
 
   describe("normalizeQuestionType", () => {

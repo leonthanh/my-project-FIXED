@@ -74,7 +74,7 @@ const QuestionSection = ({
     }}>
       {/* Section Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px', gap: '10px', flexWrap: 'wrap' }}>
-        <h5 style={{ margin: 0, color: primaryBlue, fontSize: '15px' }}>📌 Section {sectionIndex + 1}</h5>
+        <h5 style={{ margin: 0, color: primaryBlue, fontSize: '14px' }}>Section {sectionIndex + 1}</h5>
         <div style={{ display: 'flex', gap: '8px' }}>
           {onCopySection && (
             <button
@@ -94,7 +94,7 @@ const QuestionSection = ({
               onMouseEnter={(e) => e.target.style.backgroundColor = '#1a3a8a'}
               onMouseLeave={(e) => e.target.style.backgroundColor = '#0e276f'}
             >
-              📋 Sao chép
+              Sao chép
             </button>
           )}
           <button
@@ -113,7 +113,7 @@ const QuestionSection = ({
             onMouseEnter={(e) => e.target.style.backgroundColor = '#c60'}
             onMouseLeave={(e) => e.target.style.backgroundColor = dangerRed}
           >
-            🗑 Xóa Section
+            Xóa Section
           </button>
         </div>
       </div>
@@ -121,7 +121,7 @@ const QuestionSection = ({
       {/* Section Title */}
       <div style={{ marginBottom: '12px', position: 'relative', zIndex: 5 }}>
         <label style={{ fontWeight: '600', marginBottom: '6px', display: 'block', fontSize: '14px' }}>
-          📝 Tiêu đề Section:
+          Tiêu đề Section:
         </label>
         <input
           type="text"
@@ -147,14 +147,14 @@ const QuestionSection = ({
       {/* Section Instructions */}
       <div style={{ marginBottom: '12px' }}>
         <label style={{ fontWeight: '600', marginBottom: '6px', display: 'block', fontSize: '14px' }}>
-          📋 Hướng dẫn (Instructions):
+          Hướng dẫn (Instructions):
         </label>
         <QuillEditor
           value={section.sectionInstruction || ''}
           onChange={(value) => onSectionChange(passageIndex, sectionIndex, 'sectionInstruction', value)}
         />
         <p style={{ margin: '4px 0 0 0', fontSize: '11px', color: '#666', fontStyle: 'italic' }}>
-          💡 Tip: Sử dụng nút 🖼️ trên toolbar để upload hình ảnh/diagram vào nội dung
+          Gợi ý: dùng nút chèn ảnh trên toolbar để thêm hình ảnh hoặc diagram vào nội dung.
         </p>
       </div>
 
@@ -166,7 +166,7 @@ const QuestionSection = ({
         marginBottom: '12px'
       }}>
         <h6 style={{ marginTop: 0, marginBottom: '12px', color: primaryBlue, fontSize: '14px', fontWeight: '600' }}>
-          ❓ Câu hỏi trong Section ({section.questions?.length || 0})
+          Câu hỏi trong Section ({section.questions?.length || 0})
         </h6>
 
         {section.questions?.map((question, questionIndex) => (
@@ -223,7 +223,7 @@ const QuestionSection = ({
                     }}
                     title="Copy câu hỏi này"
                   >
-                    📋 Copy
+                    Sao chép
                   </button>
                   <button
                     type="button"
@@ -238,7 +238,7 @@ const QuestionSection = ({
                       cursor: 'pointer'
                     }}
                   >
-                    🗑 Xóa
+                    Xóa
                   </button>
                 </div>
               )}
@@ -253,7 +253,7 @@ const QuestionSection = ({
                     Số câu hỏi (Question Number): <span style={{ color: '#0e276f', fontSize: '12px', fontWeight: 'normal' }}>- {question.questionType === 'multiple-choice' ? 'Trắc nghiệm 1 đáp án' : question.questionType}</span>
                   </label>
                   <p style={{ fontSize: '12px', color: '#666', margin: '0 0 6px 0' }}>
-                    💡 Ví dụ: 38-40 hoặc 38, 39, 40 hoặc chỉ 38
+                    Ví dụ: 38-40 hoặc 38, 39, 40 hoặc chỉ 38
                   </p>
                   <input
                     type="text"
@@ -314,25 +314,25 @@ const QuestionSection = ({
                     <option value="cloze-test" title="Học sinh điền từ vào các chỗ trống nhúng trong đoạn văn (Cloze Test)">Cloze Test - Điền chỗ trống trong đoạn</option>
                     <option value="summary-completion" title="Hoàn thành đoạn tóm tắt bằng cách ghi chữ cái A-L tương ứng (Summary Completion)">Summary Completion - Complete the summary (A-L)</option>
                     <option value="paragraph-matching" title="Học sinh tìm thông tin ở đoạn A-G để trả lời câu hỏi">Tìm thông tin ở đoạn nào (A-G)</option>
-                    <option value="ielts-matching-headings" title="IX: Ghép mỗi đoạn văn (A-G) với 1 heading phù hợp (i-x)">🔗 IX Matching Headings</option>
+                    <option value="ielts-matching-headings" title="IX: Ghép mỗi đoạn văn (A-G) với 1 heading phù hợp (i-x)">IX Matching Headings</option>
                     <option value="sentence-completion" title="Học sinh hoàn thành câu bằng cách chọn từ từ danh sách gợi ý">Hoàn thành câu (chọn từ danh sách)</option>
                     <option value="short-answer" title="Học sinh viết câu trả lời ngắn (tối đa 3 từ)">Câu trả lời ngắn</option>
                   </select>
                   
                   {/* Help text for question types */}
                   <div style={{ fontSize: '12px', color: '#666', marginTop: '6px', padding: '8px', backgroundColor: '#f0f8ff', borderRadius: '4px', borderLeft: '3px solid #0e276f' }}>
-                    {question.questionType === 'multiple-choice' && '✓ Học sinh chọn 1 đáp án đúng từ 4-5 lựa chọn'}
-                    {question.questionType === 'multi-select' && '✓ Học sinh chọn nhiều đáp án đúng (tối thiểu 2 đáp án)'}
-                    {question.questionType === 'fill-in-the-blanks' && '✓ Học sinh điền từ/cụm từ để hoàn thành câu (tối đa 3 từ)'}
-                    {question.questionType === 'matching' && '✓ Học sinh ghép các mục từ cột trái với cột phải (ghép cặp)'}
-                    {question.questionType === 'true-false-not-given' && '✓ Học sinh chọn: True (đúng), False (sai), hoặc Not Given (chưa đề cập)'}
-                    {question.questionType === 'yes-no-not-given' && '✓ Học sinh chọn: Yes (có), No (không), hoặc Not Given (chưa đề cập)'}
-                    {question.questionType === 'cloze-test' && '✓ Học sinh điền từ vào các chỗ trống nhúng trong đoạn văn (sử dụng [BLANK] để đánh dấu)'}
-                    {question.questionType === 'summary-completion' && '✓ Hoàn thành đoạn tóm tắt bằng cách dùng các lựa chọn A-L và gán đáp án cho từng [BLANK]'}
-                    {question.questionType === 'paragraph-matching' && '✓ Học sinh tìm thông tin ở đoạn A-G để trả lời câu hỏi'}
-                    {question.questionType === 'ielts-matching-headings' && '✓ IX: Ghép mỗi đoạn văn (A-G) với 1 heading phù hợp (i-x). Có thể có headings dư.'}
-                    {question.questionType === 'sentence-completion' && '✓ Học sinh hoàn thành câu bằng cách chọn từ từ danh sách gợi ý'}
-                    {question.questionType === 'short-answer' && '✓ Học sinh viết câu trả lời ngắn (tối đa 3 từ)'}
+                    {question.questionType === 'multiple-choice' && 'Học sinh chọn 1 đáp án đúng từ 4-5 lựa chọn.'}
+                    {question.questionType === 'multi-select' && 'Học sinh chọn nhiều đáp án đúng (tối thiểu 2 đáp án).'}
+                    {question.questionType === 'fill-in-the-blanks' && 'Học sinh điền từ hoặc cụm từ để hoàn thành câu (tối đa 3 từ).'}
+                    {question.questionType === 'matching' && 'Học sinh ghép các mục từ cột trái với cột phải.'}
+                    {question.questionType === 'true-false-not-given' && 'Học sinh chọn True, False hoặc Not Given.'}
+                    {question.questionType === 'yes-no-not-given' && 'Học sinh chọn Yes, No hoặc Not Given.'}
+                    {question.questionType === 'cloze-test' && 'Học sinh điền từ vào các chỗ trống nhúng trong đoạn văn bằng [BLANK].'}
+                    {question.questionType === 'summary-completion' && 'Hoàn thành đoạn tóm tắt bằng các lựa chọn A-L và gán đáp án cho từng [BLANK].'}
+                    {question.questionType === 'paragraph-matching' && 'Học sinh tìm thông tin ở đoạn A-G để trả lời câu hỏi.'}
+                    {question.questionType === 'ielts-matching-headings' && 'Ghép mỗi đoạn văn (A-G) với 1 heading phù hợp; có thể có headings dư.'}
+                    {question.questionType === 'sentence-completion' && 'Học sinh hoàn thành câu bằng cách chọn từ từ danh sách gợi ý.'}
+                    {question.questionType === 'short-answer' && 'Học sinh viết câu trả lời ngắn (tối đa 3 từ).'}
                   </div>
                 </div>
 
@@ -427,7 +427,7 @@ const QuestionSection = ({
 
                 {![...legacyQuestionTypes].includes(question.questionType || 'multiple-choice') && (
                   <div style={{ color: 'red', padding: '8px', backgroundColor: '#ffe0e0', borderRadius: '4px' }}>
-                    ⚠️ Unknown question type: {question.questionType}
+                    Unknown question type: {question.questionType}
                   </div>
                 )}
               </>
@@ -454,7 +454,7 @@ const QuestionSection = ({
             fontSize: '14px'
           }}
         >
-          ➕ Thêm câu hỏi
+          Thêm câu hỏi
         </button>
       </div>
     </div>

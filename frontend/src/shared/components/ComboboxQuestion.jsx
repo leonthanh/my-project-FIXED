@@ -2,7 +2,7 @@ import React from 'react';
 
 const ComboboxQuestion = ({ question, onChange }) => {
   if (!question) {
-    return <div style={{ color: 'red', padding: '10px' }}>❌ Error: Question object missing</div>;
+    return <div style={{ color: 'red', padding: '10px' }}>Error: Question object missing</div>;
   }
 
   const handleChange = (field, value) => {
@@ -153,7 +153,7 @@ const ComboboxQuestion = ({ question, onChange }) => {
 
   return (
     <div style={styles.container}>
-      <label style={styles.label}>❓ Câu hỏi:</label>
+      <label style={styles.label}>Câu hỏi:</label>
       <textarea
         value={question.questionText || ''}
         onChange={e => handleChange('questionText', e.target.value)}
@@ -236,7 +236,7 @@ const ComboboxQuestion = ({ question, onChange }) => {
 
       {/* Matching Answers */}
       <div style={{ marginTop: '20px' }}>
-        <label style={styles.label}>✅ Match Left Items to Right Items:</label>
+        <label style={styles.label}>Ghép Left Items với Right Items:</label>
         {leftItems.map((leftItem, index) => (
           <label key={index} style={styles.matchingLabel}>
             <span style={{ fontWeight: 'bold' }}>{String.fromCharCode(65 + index)}.</span> {leftItem}
@@ -258,7 +258,7 @@ const ComboboxQuestion = ({ question, onChange }) => {
 
       {/* Preview */}
       <div style={styles.previewContainer}>
-        <div style={styles.previewTitle}>👁 Preview:</div>
+        <div style={styles.previewTitle}>Xem trước:</div>
         <p style={{ marginBottom: '12px', color: '#333', fontSize: '13px' }}>
           {question.questionText || 'Matching question preview'}
         </p>

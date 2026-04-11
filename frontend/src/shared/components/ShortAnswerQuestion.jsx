@@ -12,7 +12,7 @@ import QuillEditor from './QuillEditor';
 
 const ShortAnswerQuestion = ({ question, onChange }) => {
   if (!question) {
-    return <div style={{ color: 'red', padding: '10px' }}>❌ Error: Question object missing</div>;
+    return <div style={{ color: 'red', padding: '10px' }}>Error: Question object missing</div>;
   }
 
   const handleChange = (field, value) => {
@@ -166,16 +166,13 @@ const ShortAnswerQuestion = ({ question, onChange }) => {
     <div style={styles.container}>
       {/* Header */}
       <div style={styles.header}>
-        <span style={styles.headerIcon}>✍️</span>
         <h4 style={styles.headerTitle}>Short Answer Question</h4>
         <span style={styles.headerBadge}>IELTS Reading/Listening</span>
       </div>
 
       {/* Question */}
       <div style={styles.section}>
-        <h5 style={styles.sectionTitle}>
-          <span>📝</span> Câu hỏi:
-        </h5>
+        <h5 style={styles.sectionTitle}>Câu hỏi:</h5>
         <QuillEditor
           value={question.questionText || ''}
           onChange={(value) => handleChange('questionText', value)}
@@ -188,9 +185,7 @@ const ShortAnswerQuestion = ({ question, onChange }) => {
         <div style={styles.inputGroup}>
           {/* Word Limit */}
           <div style={styles.inputWrapper}>
-            <h5 style={styles.sectionTitle}>
-              <span>🔢</span> Giới hạn từ:
-            </h5>
+            <h5 style={styles.sectionTitle}>Giới hạn từ:</h5>
             <div style={styles.wordLimitBadge}>
               <span>No more than</span>
               <input
@@ -215,9 +210,7 @@ const ShortAnswerQuestion = ({ question, onChange }) => {
 
           {/* Answer */}
           <div style={{ ...styles.inputWrapper, flex: 2 }}>
-            <h5 style={styles.sectionTitle}>
-              <span>✅</span> Đáp án đúng:
-            </h5>
+            <h5 style={styles.sectionTitle}>Đáp án đúng:</h5>
             <textarea
               value={question.correctAnswer || ''}
               onChange={(e) => handleChange('correctAnswer', e.target.value)}
@@ -231,7 +224,7 @@ const ShortAnswerQuestion = ({ question, onChange }) => {
       {/* Preview */}
       {(question.questionText || question.correctAnswer) && (
         <div style={styles.preview}>
-          <h5 style={styles.previewTitle}>👁 Preview</h5>
+          <h5 style={styles.previewTitle}>Xem trước</h5>
           <div style={styles.previewContent}>
             <div style={{ marginBottom: '15px' }}>
               <strong>Question:</strong>
@@ -244,11 +237,11 @@ const ShortAnswerQuestion = ({ question, onChange }) => {
               borderRadius: '6px',
               marginBottom: '15px'
             }}>
-              <strong>📏 Word Limit:</strong> No more than <strong>{question.maxWords || 3}</strong> words
+              <strong>Word Limit:</strong> No more than <strong>{question.maxWords || 3}</strong> words
             </div>
 
             <div>
-              <strong>✅ Accepted Answers:</strong>
+              <strong>Accepted Answers:</strong>
               <div style={styles.answerVariants}>
                 {answerVariants.length > 0 ? (
                   answerVariants.map((variant, idx) => (
@@ -267,7 +260,7 @@ const ShortAnswerQuestion = ({ question, onChange }) => {
 
       {/* Tips */}
       <div style={styles.tip}>
-        <strong>💡 Hướng dẫn:</strong>
+        <strong>Hướng dẫn:</strong>
         <ul style={{ margin: '8px 0 0 0', paddingLeft: '20px' }}>
           <li>Nếu có nhiều đáp án đúng (biến thể), dùng dấu <strong>|</strong> để tách</li>
           <li>Ví dụ: <code>willow tree|willow bark</code> (cả 2 đều đúng)</li>

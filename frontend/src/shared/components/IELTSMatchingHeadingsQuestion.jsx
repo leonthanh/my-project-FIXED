@@ -392,7 +392,6 @@ const IELTSMatchingHeadingsQuestion = ({
     <div style={styles.container}>
       {/* Header */}
       <div style={styles.header}>
-        <span style={styles.headerIcon}>🔗</span>
         <h4 style={styles.headerTitle}>IX Matching Headings</h4>
         <span style={styles.headerBadge}>
           {paragraphs.length} paragraphs • {headings.length} headings
@@ -416,7 +415,7 @@ const IELTSMatchingHeadingsQuestion = ({
             style={{ width: "18px", height: "18px" }}
           />
           <span style={{ fontSize: "13px" }}>
-            📌 Có headings dư (NB: There are more headings than paragraphs)
+            Có headings dư (NB: There are more headings than paragraphs)
           </span>
         </label>
       </div>
@@ -428,7 +427,7 @@ const IELTSMatchingHeadingsQuestion = ({
         {/* LEFT: Paragraphs */}
         <div style={styles.section}>
           <div style={styles.sectionHeader}>
-            <h5 style={styles.sectionTitle}>📄 Paragraphs (Các đoạn văn)</h5>
+            <h5 style={styles.sectionTitle}>Paragraphs (Các đoạn văn)</h5>
             <div style={styles.quickButtons}>
               <button
                 type="button"
@@ -470,14 +469,14 @@ const IELTSMatchingHeadingsQuestion = ({
           ))}
 
           <button type="button" style={styles.addBtn} onClick={addParagraph}>
-            ➕ Thêm Paragraph
+            Thêm Paragraph
           </button>
         </div>
 
         {/* RIGHT: Headings */}
         <div style={styles.section}>
           <div style={styles.sectionHeader}>
-            <h5 style={styles.sectionTitle}>📋 Headings (Các tiêu đề)</h5>
+            <h5 style={styles.sectionTitle}>Headings (Các tiêu đề)</h5>
             <div style={styles.quickButtons}>
               <button
                 type="button"
@@ -519,7 +518,7 @@ const IELTSMatchingHeadingsQuestion = ({
           ))}
 
           <button type="button" style={styles.addBtn} onClick={addHeading}>
-            ➕ Thêm Heading
+            Thêm Heading
           </button>
         </div>
       </div>
@@ -529,7 +528,7 @@ const IELTSMatchingHeadingsQuestion = ({
         <h5
           style={{ margin: "0 0 15px 0", color: "#2e7d32", fontSize: "14px" }}
         >
-          ✅ Đáp án - Ghép mỗi Paragraph với Heading
+          Đáp án - Ghép mỗi Paragraph với Heading
         </h5>
 
         {/* Compact 2-column or 4-column grid based on screen */}
@@ -618,7 +617,7 @@ const IELTSMatchingHeadingsQuestion = ({
 
       {/* PREVIEW Section */}
       <div style={styles.previewSection}>
-        <h5 style={styles.previewTitle}>👁 Preview - Xem trước đáp án</h5>
+        <h5 style={styles.previewTitle}>Xem trước đáp án</h5>
 
         <table style={styles.previewTable}>
           <thead>
@@ -685,7 +684,7 @@ const IELTSMatchingHeadingsQuestion = ({
 
       {/* Tips */}
       <div style={styles.tip}>
-        <strong>💡 Hướng dẫn sử dụng:</strong>
+        <strong>Hướng dẫn sử dụng:</strong>
         <ol style={{ margin: "8px 0 0 0", paddingLeft: "20px" }}>
           <li>
             Thêm các <strong>Paragraph</strong> (A, B, C...) tương ứng với bài

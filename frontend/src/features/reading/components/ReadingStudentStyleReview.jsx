@@ -803,6 +803,10 @@ export default function ReadingStudentStyleReview({ test, submission, details })
 
               {clozeTable ? (
                 <div className="cloze-table-wrapper" style={{ overflowX: "auto" }}>
+                  {(() => {
+                    let blankIndex = 0;
+
+                    return (
                   <table className="cloze-table" style={{ width: "100%", borderCollapse: "collapse" }}>
                     <thead>
                       <tr>
@@ -817,7 +821,6 @@ export default function ReadingStudentStyleReview({ test, submission, details })
                       {(clozeTable.rows || []).map((row, ri) => (
                         <tr key={ri}>
                           {(row.cells || []).map((cell, ci) => {
-                            let blankIndex = 0;
                             return (
                               <td key={ci} style={{ border: "1px solid #cbd5e1", padding: "8px", verticalAlign: "top" }}>
                                 {String(cell || "").split(/\[BLANK\]/gi).map((part, idx, arr) => {
@@ -842,6 +845,8 @@ export default function ReadingStudentStyleReview({ test, submission, details })
                       ))}
                     </tbody>
                   </table>
+                    );
+                  })()}
                 </div>
               ) : clozeText ? (
                 <div className="cloze-passage">

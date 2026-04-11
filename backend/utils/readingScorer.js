@@ -70,6 +70,8 @@ function normalizeMultiTokens(raw, options = []) {
   return Array.from(new Set(tokens));
 }
 
+const { countClozeBlanks } = require('./readingQuestionUtils');
+
 function bandFromCorrect(c) {
   if (c >= 39) return 9;
   if (c >= 37) return 8.5;
@@ -189,9 +191,8 @@ function scoreReadingTest(testData, answers = {}) {
         }
 
         if (qType === 'cloze-test' || qType === 'summary-completion') {
-          const clozeText = q.paragraphText || q.passageText || q.text || q.paragraph || (q.questionText && q.questionText.includes('[BLANK]') ? q.questionText : null);
-          if (clozeText) {
-            const blanks = clozeText.match(/\[BLANK\]/gi) || [];
+          const blankCount = countClozeBlanks(q);
+          if (blankCount > 0) {
             const baseKey = `q_${q.questionNumber || qCounter}`;
 
             // helper to find student answer robustly across different key naming conventions
@@ -238,7 +239,7 @@ function scoreReadingTest(testData, answers = {}) {
               return String(raw).split(/\s*[|\/;,]\s*/).map(s => normalize(s)).filter(Boolean);
             };
 
-            for (let bi = 0; bi < blanks.length; bi++) {
+            for (let bi = 0; bi < blankCount; bi++) {
               const questionNumber = (q.questionNumber || qCounter) + bi;
               let student = findStudentBlank(questionNumber, bi);
 
@@ -266,7 +267,7 @@ function scoreReadingTest(testData, answers = {}) {
               total++;
               if (expectedVariants.length && student && expectedVariants.includes(student)) correct++;
             }
-            qCounter += blanks.length || 1;
+            qCounter += blankCount || 1;
             continue;
           }
         }
@@ -537,9 +538,8 @@ function getDetailedScoring(testData, answers = {}) {
 
         // Cloze / summary-completion: break into blanks and find student answers
         if (qType === 'cloze-test' || qType === 'summary-completion') {
-          const clozeText = q.paragraphText || q.passageText || q.text || q.paragraph || (q.questionText && q.questionText.includes('[BLANK]') ? q.questionText : null);
-          if (clozeText) {
-            const blanks = clozeText.match(/\[BLANK\]/gi) || [];
+          const blankCount = countClozeBlanks(q);
+          if (blankCount > 0) {
 
             const safeString = (v) => {
               if (v === undefined || v === null) return '';
@@ -586,7 +586,7 @@ function getDetailedScoring(testData, answers = {}) {
               return '';
             };
 
-            for (let bi = 0; bi < blanks.length; bi++) {
+            for (let bi = 0; bi < blankCount; bi++) {
               const displayedQuestionNumber = numericQuestionStart + bi;
               const studentRaw = findStudentBlank(numericQuestionStart, bi) || '';
               const expectedRaw = (q.blanks && q.blanks[bi] && q.blanks[bi].correctAnswer) ? q.blanks[bi].correctAnswer : '';
@@ -607,7 +607,7 @@ function getDetailedScoring(testData, answers = {}) {
               });
             }
 
-            qCounter += blanks.length || 1;
+            qCounter += blankCount || 1;
             continue;
           }
         }

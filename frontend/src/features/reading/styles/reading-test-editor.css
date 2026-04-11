@@ -11,7 +11,7 @@
 .create-reading-test,
 .edit-reading-test {
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  font-size: 14px;
+  font-size: 13px;
   line-height: 1.5;
   color: #333;
 }
@@ -20,7 +20,7 @@
 .reading-test-editor h1,
 .create-reading-test h1,
 .edit-reading-test h1 {
-  font-size: 24px !important;
+  font-size: 22px !important;
   font-weight: 700;
   margin-bottom: 16px;
 }
@@ -28,7 +28,7 @@
 .reading-test-editor h2,
 .create-reading-test h2,
 .edit-reading-test h2 {
-  font-size: 20px !important;
+  font-size: 18px !important;
   font-weight: 600;
   margin-bottom: 12px;
 }
@@ -36,7 +36,7 @@
 .reading-test-editor h3,
 .create-reading-test h3,
 .edit-reading-test h3 {
-  font-size: 16px !important;
+  font-size: 15px !important;
   font-weight: 600;
   margin-bottom: 10px;
 }
@@ -44,7 +44,7 @@
 .reading-test-editor h4,
 .create-reading-test h4,
 .edit-reading-test h4 {
-  font-size: 15px !important;
+  font-size: 14px !important;
   font-weight: 600;
   margin-bottom: 8px;
 }
@@ -69,7 +69,7 @@
 .reading-test-editor label,
 .create-reading-test label,
 .edit-reading-test label {
-  font-size: 13px !important;
+  font-size: 12px !important;
   font-weight: 600;
   color: #333;
   display: block;
@@ -86,7 +86,7 @@
 .edit-reading-test input,
 .edit-reading-test select,
 .edit-reading-test textarea {
-  font-size: 14px !important;
+  font-size: 13px !important;
   font-family: inherit;
   padding: 10px 12px !important;
   border-radius: 6px;
@@ -149,7 +149,7 @@
 .reading-test-editor p,
 .create-reading-test p,
 .edit-reading-test p {
-  font-size: 14px;
+  font-size: 13px;
   line-height: 1.6;
   margin-bottom: 10px;
 }
@@ -227,7 +227,7 @@
 
 .quill .ql-editor {
   /* Default editor font-size (do not use !important so Quill inline styles can override) */
-  font-size: 14px;
+  font-size: 13px;
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   line-height: 1.6;
   min-height: 120px;
@@ -235,7 +235,7 @@
 
 .quill .ql-editor p {
   /* Do not force font-size here; allow inline styles and span-based sizes to take effect */
-  font-size: 14px;
+  font-size: 13px;
   margin-bottom: 8px;
 }
 
@@ -285,7 +285,7 @@
 .review-modal p,
 .review-modal li {
   /* Allow inline font-size styles from Quill to take effect (no !important) */
-  font-size: 14px;
+  font-size: 13px;
 }
 
 /* ========================================

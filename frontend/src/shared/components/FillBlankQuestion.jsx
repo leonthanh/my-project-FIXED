@@ -12,7 +12,7 @@ import QuillEditor from './QuillEditor';
 
 const FillBlankQuestion = ({ question, onChange }) => {
   if (!question) {
-    return <div style={{ color: 'red', padding: '10px' }}>❌ Error: Question object missing</div>;
+    return <div style={{ color: 'red', padding: '10px' }}>Error: Question object missing</div>;
   }
 
   const handleChange = (field, value) => {
@@ -153,16 +153,13 @@ const FillBlankQuestion = ({ question, onChange }) => {
     <div style={styles.container}>
       {/* Header */}
       <div style={styles.header}>
-        <span style={styles.headerIcon}>📝</span>
         <h4 style={styles.headerTitle}>Fill in the Blank</h4>
         <span style={styles.headerBadge}>IELTS Reading/Listening</span>
       </div>
 
       {/* Question with blank */}
       <div style={styles.section}>
-        <h5 style={styles.sectionTitle}>
-          <span>✏️</span> Câu hỏi (dùng _____ để đánh dấu chỗ trống):
-        </h5>
+        <h5 style={styles.sectionTitle}>Câu hỏi (dùng _____ để đánh dấu chỗ trống):</h5>
         <QuillEditor
           value={question.questionText || ''}
           onChange={(value) => handleChange('questionText', value)}
@@ -176,9 +173,7 @@ const FillBlankQuestion = ({ question, onChange }) => {
         <div style={styles.inputRow}>
           {/* Word Limit */}
           <div style={styles.inputGroup}>
-            <h5 style={styles.sectionTitle}>
-              <span>🔢</span> Giới hạn từ:
-            </h5>
+            <h5 style={styles.sectionTitle}>Giới hạn từ:</h5>
             <div style={styles.wordLimitBox}>
               <span>No more than</span>
               <input
@@ -203,9 +198,7 @@ const FillBlankQuestion = ({ question, onChange }) => {
 
           {/* Correct Answer */}
           <div style={{ ...styles.inputGroup, flex: 2 }}>
-            <h5 style={styles.sectionTitle}>
-              <span>✅</span> Đáp án đúng:
-            </h5>
+            <h5 style={styles.sectionTitle}>Đáp án đúng:</h5>
             <input
               type="text"
               value={question.correctAnswer || ''}
@@ -220,7 +213,7 @@ const FillBlankQuestion = ({ question, onChange }) => {
       {/* Preview */}
       {(question.questionText || question.correctAnswer) && (
         <div style={styles.preview}>
-          <h5 style={styles.previewTitle}>👁 Preview - Học sinh sẽ thấy:</h5>
+          <h5 style={styles.previewTitle}>Xem trước - Học sinh sẽ thấy:</h5>
           <div style={styles.previewContent}>
             {/* Question with highlighted blank */}
             <div style={{ marginBottom: '15px' }}>
@@ -237,13 +230,13 @@ const FillBlankQuestion = ({ question, onChange }) => {
                 margin: '10px 0',
                 fontSize: '13px'
               }}>
-                📏 Write <strong>NO MORE THAN {question.maxWords} WORDS</strong> for your answer.
+                Write <strong>NO MORE THAN {question.maxWords} WORDS</strong> for your answer.
               </p>
             )}
 
             {/* Answer */}
             <div style={{ marginTop: '15px', paddingTop: '15px', borderTop: '1px solid #ddd' }}>
-              <strong>✅ Đáp án:</strong>{' '}
+              <strong>Đáp án:</strong>{' '}
               {question.correctAnswer ? (
                 <span style={styles.answerBadge}>{question.correctAnswer}</span>
               ) : (
@@ -256,7 +249,7 @@ const FillBlankQuestion = ({ question, onChange }) => {
 
       {/* Tips */}
       <div style={styles.tip}>
-        <strong>💡 Hướng dẫn:</strong>
+        <strong>Hướng dẫn:</strong>
         <ul style={{ margin: '8px 0 0 0', paddingLeft: '20px' }}>
           <li>Dùng dấu gạch dưới liên tục <strong>_____</strong> để tạo chỗ trống trong câu hỏi</li>
           <li>Nếu có nhiều đáp án đúng, dùng dấu <strong>|</strong> để tách (VD: willow|willow tree)</li>

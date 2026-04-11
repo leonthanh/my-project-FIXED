@@ -12,7 +12,7 @@ import QuillEditor from './QuillEditor';
 
 const ParagraphMatchingQuestion = ({ question, onChange }) => {
   if (!question) {
-    return <div style={{ color: 'red', padding: '10px' }}>❌ Error: Question object missing</div>;
+    return <div style={{ color: 'red', padding: '10px' }}>Error: Question object missing</div>;
   }
 
   const handleChange = (field, value) => {
@@ -162,22 +162,18 @@ const ParagraphMatchingQuestion = ({ question, onChange }) => {
     <div style={styles.container}>
       {/* Header */}
       <div style={styles.header}>
-        <span style={styles.headerIcon}>🔍</span>
         <h4 style={styles.headerTitle}>Tìm thông tin ở đoạn nào (A-G)</h4>
         <span style={styles.headerBadge}>IELTS Reading</span>
       </div>
 
       {/* Info Box */}
       <div style={styles.infoBox}>
-        <span>✓</span>
         <span>Học sinh tìm thông tin ở đoạn A-G để trả lời câu hỏi</span>
       </div>
 
       {/* Question/Statement */}
       <div style={styles.section}>
-        <h5 style={styles.sectionTitle}>
-          <span>❓</span> Câu hỏi/Thông tin cần tìm:
-        </h5>
+        <h5 style={styles.sectionTitle}>Câu hỏi/Thông tin cần tìm:</h5>
         <QuillEditor
           value={question.questionText || ''}
           onChange={(value) => handleChange('questionText', value)}
@@ -187,9 +183,7 @@ const ParagraphMatchingQuestion = ({ question, onChange }) => {
 
       {/* Paragraph Selection */}
       <div style={styles.section}>
-        <h5 style={styles.sectionTitle}>
-          <span>📑</span> Chọn đoạn chứa thông tin (A, B, C, D, E, F, G...):
-        </h5>
+        <h5 style={styles.sectionTitle}>Chọn đoạn chứa thông tin (A, B, C, D, E, F, G...):</h5>
         
         <div style={styles.paragraphGrid}>
           {paragraphOptions.map((letter) => {
@@ -237,7 +231,7 @@ const ParagraphMatchingQuestion = ({ question, onChange }) => {
             alignItems: 'center',
             gap: '10px'
           }}>
-            <span style={{ color: '#166534', fontWeight: 'bold' }}>✅ Đáp án đã chọn:</span>
+            <span style={{ color: '#166534', fontWeight: 'bold' }}>Đáp án đã chọn:</span>
             <span style={styles.answerBadge}>{question.correctAnswer}</span>
           </div>
         )}
@@ -246,7 +240,7 @@ const ParagraphMatchingQuestion = ({ question, onChange }) => {
       {/* Preview */}
       {question.questionText && (
         <div style={styles.preview}>
-          <h5 style={styles.previewTitle}>👁 Preview - Học sinh sẽ thấy:</h5>
+          <h5 style={styles.previewTitle}>Xem trước - Học sinh sẽ thấy:</h5>
           <div style={styles.previewContent}>
             {/* Question */}
             <div style={styles.previewQuestion}>
@@ -280,7 +274,7 @@ const ParagraphMatchingQuestion = ({ question, onChange }) => {
 
       {/* Help Section */}
       <div style={styles.helpSection}>
-        <strong>💡 Hướng dẫn sử dụng:</strong>
+        <strong>Hướng dẫn sử dụng:</strong>
         <ul style={{ margin: '8px 0 0 0', paddingLeft: '20px' }}>
           <li>Nhập câu hỏi hoặc thông tin cần tìm vào ô text</li>
           <li>Click vào chữ cái (A-G) để chọn đoạn chứa thông tin</li>
