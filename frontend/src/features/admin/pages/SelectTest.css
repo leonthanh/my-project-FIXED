@@ -1367,6 +1367,48 @@
   background: #f6f8ff;
 }
 
+.select-test-emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+
+.select-test-adminActions {
+  margin-top: 18px;
+  display: flex;
+  justify-content: center;
+}
+
+.select-test-create {
+  border: none;
+  border-radius: 14px;
+  padding: 14px 20px;
+  background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+  color: #fff;
+  cursor: pointer;
+  font-size: 15px;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  box-shadow: 0 18px 30px rgba(22, 163, 74, 0.22);
+  transition: transform 0.2s ease, box-shadow 0.22s ease, filter 0.22s ease;
+}
+
+.select-test-create:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 22px 34px rgba(22, 163, 74, 0.28);
+}
+
+.select-test-create:focus-visible {
+  outline: none;
+  box-shadow:
+    0 0 0 3px rgba(34, 197, 94, 0.18),
+    0 22px 34px rgba(22, 163, 74, 0.3);
+}
+
 .select-test-feedback {
   width: 100%;
   min-width: 0;
@@ -1627,6 +1669,15 @@ body.dark-mode .select-test-meta b {
 
 body.dark-mode .select-test-feedbackMeta {
   color: rgba(255, 255, 255, 0.78);
+}
+
+body.dark-mode .select-test-create {
+  background: linear-gradient(135deg, #22c55e 0%, #15803d 100%);
+  box-shadow: 0 20px 34px rgba(21, 128, 61, 0.28);
+}
+
+body.dark-mode .select-test-create:hover {
+  box-shadow: 0 22px 38px rgba(21, 128, 61, 0.32);
 }
 
 body.dark-mode .select-test-card {
@@ -2030,6 +2081,12 @@ body.dark-mode .select-test-edit--orange {
   .select-test-subtab,
   .select-test-shell .cambridge-type-btn,
   .select-test-shell .cambridge-tab {
+
+  .select-test-create {
+    width: 100%;
+    padding: 13px 16px;
+    border-radius: 16px;
+  }
     min-height: 72px;
   }
 
