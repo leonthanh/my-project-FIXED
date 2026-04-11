@@ -398,6 +398,14 @@ const SelectTest = () => {
   const activeList = filterAndSort(currentContext.list, currentContext.displayType);
   const visibleList = activeList.slice(0, visibleCount);
   const remainingCount = Math.max(0, activeList.length - visibleList.length);
+  const canManageCurrentSelection = canManageCategory(user, currentContext.categoryForPermission);
+  const orangeCreatePath =
+    activeOrangeTab === "writing"
+      ? "/admin/create-pet-writing"
+      : `/admin/create-${activeOrangeType}-${activeOrangeTab}`;
+  const orangeCreateLabel = `Create ${activeOrangeType.toUpperCase()} ${
+    skillMeta[activeOrangeTab]?.label || activeOrangeTab
+  } Test`;
 
   return (
     <>
@@ -589,7 +597,21 @@ const SelectTest = () => {
           {loading ? (
             <p className="select-test-loading">Loading tests...</p>
           ) : activeList.length === 0 ? (
-            <p className="select-test-empty">No tests available for this selection.</p>
+            <div className="select-test-emptyState">
+              <p className="select-test-empty">No tests available for this selection.</p>
+              {currentContext.isOrange && canManageCurrentSelection ? (
+                <div className="select-test-adminActions">
+                  <button
+                    type="button"
+                    className="select-test-create"
+                    onClick={() => navigate(orangeCreatePath)}
+                  >
+                    <LineIcon name="create" size={16} />
+                    <span>{orangeCreateLabel}</span>
+                  </button>
+                </div>
+              ) : null}
+            </div>
           ) : (
             <>
               <div className="select-test-meta">
@@ -732,6 +754,19 @@ const SelectTest = () => {
                 >
                     Load More ({remainingCount})
                 </button>
+              ) : null}
+
+              {currentContext.isOrange && canManageCurrentSelection ? (
+                <div className="select-test-adminActions">
+                  <button
+                    type="button"
+                    className="select-test-create"
+                    onClick={() => navigate(orangeCreatePath)}
+                  >
+                    <LineIcon name="create" size={16} />
+                    <span>{orangeCreateLabel}</span>
+                  </button>
+                </div>
               ) : null}
             </>
           )}

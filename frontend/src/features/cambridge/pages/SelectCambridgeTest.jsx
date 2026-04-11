@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useEffect, useMemo, useState } from "react";
+import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import StudentNavbar from "../../../shared/components/StudentNavbar";
 import AdminNavbar from "../../../shared/components/AdminNavbar";
 import LineIcon from "../../../shared/components/LineIcon";
@@ -19,7 +19,14 @@ const SelectOrangeIcon = ({ name, size = 18, className }) => (
  * Hiển thị danh sách đề KET, PET, FLYERS, MOVERS, STARTERS
  */
 const SelectCambridgeTest = () => {
-  const user = JSON.parse(localStorage.getItem("user"));
+  const location = useLocation();
+  let user = null;
+  try {
+    user = JSON.parse(localStorage.getItem("user") || "null");
+  } catch {
+    localStorage.removeItem("user");
+    user = null;
+  }
   const isTeacher = user && (user.role === "teacher" || user.role === "admin");
   const navigate = useNavigate();
 
@@ -42,10 +49,24 @@ const SelectCambridgeTest = () => {
     { id: "starters", name: "Starters (Pre-A1)", iconName: "starters" },
   ];
 
+  const orangeHubRedirectPath = useMemo(() => {
+    const params = new URLSearchParams(location.search);
+    const requestedType = params.get("type");
+    const requestedTab = params.get("tab");
+    const nextType = testTypes.some((type) => type.id === requestedType) ? requestedType : "ket";
+    const allowedTabs = nextType === "pet" ? ["listening", "reading", "writing"] : ["listening", "reading"];
+    const nextTab = allowedTabs.includes(requestedTab) ? requestedTab : "listening";
+
+    return `/select-test?platform=orange&type=${nextType}&tab=${nextTab}`;
+  }, [location.search, testTypes]);
+  const shouldRedirectToUnifiedOrangeHub = location.pathname === "/cambridge";
+
   // Types where reading tests are stored with just the base name (no '-reading' suffix)
   const BASE_TYPE_ONLY = ['movers', 'flyers', 'starters'];
 
   useEffect(() => {
+    if (shouldRedirectToUnifiedOrangeHub) return undefined;
+
     const fetchTests = async () => {
       try {
         setLoading(true);
@@ -92,7 +113,7 @@ const SelectCambridgeTest = () => {
     };
 
     fetchTests();
-  }, [activeTestType]);
+  }, [activeTestType, shouldRedirectToUnifiedOrangeHub]);
 
   useEffect(() => {
     if (activeTestType !== "pet" && activeTab === "writing") {
@@ -242,6 +263,10 @@ const SelectCambridgeTest = () => {
       </div>
     );
   };
+
+  if (shouldRedirectToUnifiedOrangeHub) {
+    return <Navigate to={orangeHubRedirectPath} replace />;
+  }
 
   return (
     <>

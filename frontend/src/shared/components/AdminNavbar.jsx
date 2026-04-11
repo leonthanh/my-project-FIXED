@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef } from "react";
+import { createPortal, flushSync } from "react-dom";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import ThemeToggle from "./ThemeToggle";
 import { apiPath, hostPath, clearAuth } from "../utils/api";
@@ -157,6 +158,47 @@ const NavIcon = ({ name }) => {
       return null;
   }
 };
+
+const adminRoutePreloaders = {
+  "/select-test": () => import("../../features/admin/pages/SelectTest"),
+  "/review": () => import("../../features/admin/pages/Review"),
+  "/admin/create-writing": () => import("../../features/writing/pages/CreateWritingTest"),
+  "/admin/create-reading": () => import("../../features/reading/pages/CreateReadingTest"),
+  "/admin/create-listening": () => import("../../features/listening/pages/CreateListeningTestNew"),
+  "/admin/writing-submissions": () => import("../../features/admin/pages/AdminWritingSubmissions"),
+  "/admin/reading-submissions": () => import("../../features/admin/pages/AdminReadingSubmissions"),
+  "/admin/listening-submissions": () => import("../../features/admin/pages/AdminListeningSubmissions"),
+  "/admin/create-ket-listening": () => import("../../features/cambridge/pages/CreateKETListeningTest"),
+  "/admin/create-ket-reading": () => import("../../features/cambridge/pages/CreateKETReadingTest"),
+  "/admin/create-pet-listening": () => import("../../features/cambridge/pages/CreatePETListeningTest"),
+  "/admin/create-pet-reading": () => import("../../features/cambridge/pages/CreatePETReadingTest"),
+  "/admin/create-pet-writing": () => import("../../features/writing/pages/CreatePetWritingTest"),
+  "/admin/create/flyers": () => import("../../features/cambridge/pages/CreateCambridgeTest"),
+  "/admin/create/movers": () => import("../../features/cambridge/pages/CreateMoversReadingTest"),
+  "/admin/create/starters": () => import("../../features/cambridge/pages/CreateCambridgeTest"),
+  "/admin/create-movers-listening": () => import("../../features/cambridge/pages/CreateMoversListeningTest"),
+  "/admin/cambridge-submissions": () => import("../../features/admin/pages/CambridgeSubmissionsPage"),
+  "/admin/teacher-permissions": () => import("../../features/admin/pages/TeacherPermissionsPage"),
+  "/admin/users": () => import("../../features/admin/pages/AdminUserManagement"),
+};
+
+const preloadAdminRoute = (path) => {
+  const preloader = adminRoutePreloaders[path];
+  if (!preloader) return;
+  void preloader().catch(() => {});
+};
+
+const preloadAdminItems = (items = []) => {
+  items.forEach((item) => {
+    if (item?.to) preloadAdminRoute(item.to);
+  });
+};
+
+const flattenAdminSections = (sections = []) =>
+  sections.flatMap((section) => [
+    ...(section.items || []),
+    ...((section.groups || []).flatMap((group) => group.items || [])),
+  ]);
 
 const AdminNavbar = () => {
   const navigate = useNavigate();
@@ -413,6 +455,62 @@ const AdminNavbar = () => {
       document.body.style.overflow = originalOverflow;
     };
   }, [isCompactMenu, mobileDrawerOpen]);
+
+  useEffect(() => {
+    if (!mobileDrawerOpen || typeof window === "undefined") return undefined;
+
+    const warmupTimerId = window.setTimeout(() => {
+      preloadAdminRoute("/admin/create-writing");
+      preloadAdminRoute("/admin/create-reading");
+      preloadAdminRoute("/admin/create-listening");
+      preloadAdminRoute("/admin/create-pet-listening");
+      preloadAdminRoute("/admin/create-pet-reading");
+      preloadAdminRoute("/admin/create-pet-writing");
+    }, 120);
+
+    const timerId = window.setTimeout(() => {
+      if (mobileDrawerTab === "ix") {
+        preloadAdminItems(flattenAdminSections(ieltsSections));
+        return;
+      }
+
+      if (mobileDrawerTab === "orange") {
+        preloadAdminItems(flattenAdminSections(cambridgeSections));
+        preloadAdminRoute("/admin/cambridge-submissions");
+        return;
+      }
+
+      if (mobileDrawerTab === "admin") {
+        preloadAdminItems(adminItems);
+        return;
+      }
+
+      if (mobileDrawerTab === "review") {
+        preloadAdminRoute("/review");
+        preloadAdminRoute("/admin/writing-submissions");
+        preloadAdminRoute("/admin/reading-submissions");
+        preloadAdminRoute("/admin/listening-submissions");
+        preloadAdminRoute("/admin/cambridge-submissions");
+        return;
+      }
+
+      preloadAdminRoute("/select-test");
+      preloadAdminRoute("/review");
+    }, 0);
+
+    return () => {
+      window.clearTimeout(timerId);
+      window.clearTimeout(warmupTimerId);
+    };
+  }, [
+    mobileDrawerOpen,
+    mobileDrawerTab,
+    mobileSubmissionSection,
+    mobileCambridgeSection,
+    mobileCambridgeGroup,
+    user?.role,
+    user?.canManageTests,
+  ]);
 
   const handleLogout = async () => {
     try {
@@ -744,7 +842,23 @@ const AdminNavbar = () => {
           key={item.key}
           to={item.to}
           className={itemClassName}
-          onClick={onClose}
+          onMouseEnter={() => preloadAdminRoute(item.to)}
+          onFocus={() => preloadAdminRoute(item.to)}
+          onPointerDown={() => preloadAdminRoute(item.to)}
+          onClick={(event) => {
+            preloadAdminRoute(item.to);
+
+            if (mobile) {
+              event.preventDefault();
+              flushSync(() => {
+                onClose?.();
+              });
+              navigate(item.to);
+              return;
+            }
+
+            onClose?.();
+          }}
         >
           {item.iconName ? (
             <span className="adminNavbar__menuItemIcon" aria-hidden="true">
@@ -761,7 +875,17 @@ const AdminNavbar = () => {
       key={to}
       to={to}
       className="adminNavbar__mobileQuickLink"
-      onClick={closeMobileDrawer}
+      onMouseEnter={() => preloadAdminRoute(to)}
+      onFocus={() => preloadAdminRoute(to)}
+      onPointerDown={() => preloadAdminRoute(to)}
+      onClick={(event) => {
+        event.preventDefault();
+        preloadAdminRoute(to);
+        flushSync(() => {
+          closeMobileDrawer();
+        });
+        navigate(to);
+      }}
     >
       <span className="adminNavbar__mobileQuickIcon" aria-hidden="true">
         <NavIcon name={iconName} />
@@ -1030,45 +1154,9 @@ const AdminNavbar = () => {
     return renderMobileOverview();
   };
 
-  if (isCompactMenu) {
-    return (
-      <nav className="adminNavbar adminNavbar--compact">
-        <div className="adminNavbar__mobileBar">
-          <Link to="/select-test" className="adminNavbar__logoLink" title="Test list">
-            <img
-              src={hostPath("uploads/staredu.jpg")}
-              alt="Logo"
-              className="adminNavbar__logo"
-            />
-          </Link>
-
-          <button
-            type="button"
-            className="adminNavbar__mobileMenuButton"
-            onClick={toggleMobileDrawer}
-            aria-label={mobileDrawerOpen ? "Close menu" : "Open menu"}
-            aria-expanded={mobileDrawerOpen}
-          >
-            <span
-              className={`adminNavbar__hamburger${
-                mobileDrawerOpen ? " adminNavbar__hamburger--open" : ""
-              }`}
-              aria-hidden="true"
-            >
-              <span className="adminNavbar__hamburgerLine" />
-              <span className="adminNavbar__hamburgerLine" />
-              <span className="adminNavbar__hamburgerLine" />
-            </span>
-            <span className="adminNavbar__srOnly">
-              {mobileDrawerOpen ? "Close menu" : "Open menu"}
-            </span>
-            {pendingNotificationCount > 0 && (
-              <span className="adminNavbar__mobileMenuBadge">{pendingNotificationCount}</span>
-            )}
-          </button>
-        </div>
-
-        {mobileDrawerOpen && (
+  const mobileDrawer =
+    mobileDrawerOpen && typeof document !== "undefined"
+      ? createPortal(
           <>
             <button
               type="button"
@@ -1110,8 +1198,50 @@ const AdminNavbar = () => {
                 {renderMobileDrawerContent()}
               </div>
             </aside>
-          </>
-        )}
+          </>,
+          document.body
+        )
+      : null;
+
+  if (isCompactMenu) {
+    return (
+      <nav className="adminNavbar adminNavbar--compact">
+        <div className="adminNavbar__mobileBar">
+          <Link to="/select-test" className="adminNavbar__logoLink" title="Test list">
+            <img
+              src={hostPath("uploads/staredu.jpg")}
+              alt="Logo"
+              className="adminNavbar__logo"
+            />
+          </Link>
+
+          <button
+            type="button"
+            className="adminNavbar__mobileMenuButton"
+            onClick={toggleMobileDrawer}
+            aria-label={mobileDrawerOpen ? "Close menu" : "Open menu"}
+            aria-expanded={mobileDrawerOpen}
+          >
+            <span
+              className={`adminNavbar__hamburger${
+                mobileDrawerOpen ? " adminNavbar__hamburger--open" : ""
+              }`}
+              aria-hidden="true"
+            >
+              <span className="adminNavbar__hamburgerLine" />
+              <span className="adminNavbar__hamburgerLine" />
+              <span className="adminNavbar__hamburgerLine" />
+            </span>
+            <span className="adminNavbar__srOnly">
+              {mobileDrawerOpen ? "Close menu" : "Open menu"}
+            </span>
+            {pendingNotificationCount > 0 && (
+              <span className="adminNavbar__mobileMenuBadge">{pendingNotificationCount}</span>
+            )}
+          </button>
+        </div>
+
+        {mobileDrawer}
       </nav>
     );
   }

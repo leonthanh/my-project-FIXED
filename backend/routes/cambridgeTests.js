@@ -110,6 +110,25 @@ const countTotalQuestionsFromParts = (rawParts = []) => {
   return total;
 };
 
+const normalizeListeningAudioPayload = ({ mainAudioUrl, parts, fallbackParts = [] }) => {
+  const normalizedParts = safeParseParts(parts !== undefined ? parts : fallbackParts);
+  const normalizedMainAudioUrl = typeof mainAudioUrl === 'string' ? mainAudioUrl.trim() : '';
+  const normalizedPartAudioUrls = normalizedParts
+    .map((part) => (typeof part?.audioUrl === 'string' ? part.audioUrl.trim() : ''))
+    .filter(Boolean);
+  const uniquePartAudioUrls = Array.from(
+    new Set(normalizedPartAudioUrls)
+  );
+  const sharedPartAudioUrl = normalizedPartAudioUrls.length > 1 && uniquePartAudioUrls.length === 1
+    ? uniquePartAudioUrls[0]
+    : null;
+
+  return {
+    mainAudioUrl: normalizedMainAudioUrl || sharedPartAudioUrl,
+    parts: normalizedParts,
+  };
+};
+
 const parseDetailedResults = (value) => {
   if (!value) return null;
   if (typeof value === "string") {
@@ -419,13 +438,18 @@ router.post("/listening-tests", requireAuth, requireTestPermission('cambridge'),
       });
     }
 
+    const normalizedListeningPayload = normalizeListeningAudioPayload({
+      mainAudioUrl,
+      parts,
+    });
+
     const newTest = await CambridgeListening.create({
       title,
       classCode,
       teacherName: teacherName || '',
       testType,
-      mainAudioUrl: mainAudioUrl || null,
-      parts: JSON.stringify(parts),
+      mainAudioUrl: normalizedListeningPayload.mainAudioUrl,
+      parts: normalizedListeningPayload.parts,
       totalQuestions: totalQuestions || 0,
       status: 'draft',
     });
@@ -463,13 +487,19 @@ router.put("/listening-tests/:id", requireAuth, requireTestPermission('cambridge
       status,
     } = req.body;
 
+    const normalizedListeningPayload = normalizeListeningAudioPayload({
+      mainAudioUrl: mainAudioUrl !== undefined ? mainAudioUrl : test.mainAudioUrl,
+      parts,
+      fallbackParts: test.parts,
+    });
+
     await test.update({
       title: title || test.title,
       classCode: classCode || test.classCode,
       teacherName: teacherName || test.teacherName,
       testType: testType || test.testType,
-      mainAudioUrl: mainAudioUrl !== undefined ? (mainAudioUrl || null) : test.mainAudioUrl,
-      parts: parts || test.parts, // JSON type - Sequelize handles serialization
+      mainAudioUrl: normalizedListeningPayload.mainAudioUrl,
+      parts: normalizedListeningPayload.parts,
       totalQuestions: totalQuestions ?? test.totalQuestions,
       status: status || test.status,
     });

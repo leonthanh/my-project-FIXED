@@ -72,6 +72,7 @@ const DoCambridgeListeningTest = () => {
   const audioRef = useRef(null);
   const questionRefs = useRef({});
   const maxPlayedTimeByPartRef = useRef({});
+  const sharedAudioMaxPlayedTimeRef = useRef(0);
   const ignoreSeekRef = useRef(false);
   const switchingAudioSrcRef = useRef(false);
   const lastAudioSrcRef = useRef('');
@@ -793,6 +794,10 @@ const DoCambridgeListeningTest = () => {
     return resolveAudioSrc(currentAudioUrl);
   }, [currentAudioUrl, resolveAudioSrc]);
 
+  const usesSharedAudio = useMemo(() => {
+    return Boolean(audioMeta.isSingleFile && resolvedAudioSrc);
+  }, [audioMeta.isSingleFile, resolvedAudioSrc]);
+
   useEffect(() => {
     setAudioError(null);
 
@@ -802,6 +807,19 @@ const DoCambridgeListeningTest = () => {
     const prevSrc = lastAudioSrcRef.current;
     const nextSrc = resolvedAudioSrc;
     if (audioMeta.isSingleFile && prevSrc && prevSrc === nextSrc) {
+      const seededTime = Math.max(
+        Number(audio.currentTime || 0),
+        Number(lastAudioTimeRef.current || 0),
+        Number(sharedAudioMaxPlayedTimeRef.current || 0)
+      );
+      sharedAudioMaxPlayedTimeRef.current = seededTime;
+      maxPlayedTimeByPartRef.current = {
+        ...(maxPlayedTimeByPartRef.current || {}),
+        [currentPartIndex]: Math.max(
+          Number(maxPlayedTimeByPartRef.current?.[currentPartIndex] || 0),
+          seededTime
+        ),
+      };
       return;
     }
     lastAudioSrcRef.current = nextSrc;
@@ -819,6 +837,9 @@ const DoCambridgeListeningTest = () => {
       ...(maxPlayedTimeByPartRef.current || {}),
       [currentPartIndex]: 0,
     };
+    if (audioMeta.isSingleFile) {
+      sharedAudioMaxPlayedTimeRef.current = 0;
+    }
 
     const t = setTimeout(() => {
       switchingAudioSrcRef.current = false;
@@ -831,7 +852,12 @@ const DoCambridgeListeningTest = () => {
     if (!audioMeta.isSingleFile) return;
     const audio = audioRef.current;
     if (!audio) return;
-    const currentTime = Number(audio.currentTime || 0);
+    const currentTime = Math.max(
+      Number(audio.currentTime || 0),
+      Number(lastAudioTimeRef.current || 0),
+      Number(sharedAudioMaxPlayedTimeRef.current || 0)
+    );
+    sharedAudioMaxPlayedTimeRef.current = currentTime;
     maxPlayedTimeByPartRef.current = {
       ...(maxPlayedTimeByPartRef.current || {}),
       [currentPartIndex]: Math.max(
@@ -841,6 +867,56 @@ const DoCambridgeListeningTest = () => {
     };
   }, [currentPartIndex, audioMeta.isSingleFile]);
 
+
+  useEffect(() => {
+    if (!usesSharedAudio || !testStarted) return;
+
+    setStartedAudioByPart((prev) => {
+      if (prev?.[currentPartIndex]) return prev;
+      return { ...(prev || {}), [currentPartIndex]: true };
+    });
+
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    const syncedTime = Math.max(
+      Number(audio.currentTime || 0),
+      Number(lastAudioTimeRef.current || 0),
+      Number(sharedAudioMaxPlayedTimeRef.current || 0)
+    );
+
+    sharedAudioMaxPlayedTimeRef.current = syncedTime;
+    maxPlayedTimeByPartRef.current = {
+      ...(maxPlayedTimeByPartRef.current || {}),
+      [currentPartIndex]: Math.max(
+        Number(maxPlayedTimeByPartRef.current?.[currentPartIndex] || 0),
+        syncedTime
+      ),
+    };
+
+    if (audio.ended || !audio.paused) return;
+
+    const resumePlayback = () => {
+      audio.play().catch(() => {
+        // ignore autoplay/resume failures; start gate remains the fallback path
+      });
+    };
+
+    if (audio.readyState >= 2) {
+      resumePlayback();
+      return;
+    }
+
+    const handleCanPlay = () => {
+      audio.removeEventListener('canplay', handleCanPlay);
+      resumePlayback();
+    };
+
+    audio.addEventListener('canplay', handleCanPlay);
+    return () => {
+      audio.removeEventListener('canplay', handleCanPlay);
+    };
+  }, [currentPartIndex, testStarted, usesSharedAudio]);
   const isStartGateVisible = useMemo(() => {
     if (submitted) return false;
     if (!resolvedAudioSrc) return false;
@@ -855,8 +931,8 @@ const DoCambridgeListeningTest = () => {
 
   /* eslint-disable-next-line react-hooks/exhaustive-deps */
   const showGlobalAudioBar = useMemo(() => {
-    return Boolean(audioMeta.usesMain && resolvedAudioSrc);
-  }, [audioMeta.usesMain, resolvedAudioSrc]);
+    return usesSharedAudio;
+  }, [usesSharedAudio]);
 
   const markPartAudioStarted = useCallback((partIndex) => {
     setStartedAudioByPart((prev) => {
@@ -960,6 +1036,12 @@ const DoCambridgeListeningTest = () => {
     if (!isStarted) return;
     const t = Number(audio.currentTime || 0);
     lastAudioTimeRef.current = t;
+    if (audioMeta.isSingleFile) {
+      sharedAudioMaxPlayedTimeRef.current = Math.max(
+        Number(sharedAudioMaxPlayedTimeRef.current || 0),
+        t
+      );
+    }
     const now = Date.now();
     if (now - lastAudioSaveRef.current > 1000) {
       lastAudioSaveRef.current = now;
@@ -978,11 +1060,14 @@ const DoCambridgeListeningTest = () => {
         // ignore
       }
     }
+    const allowedProgress = audioMeta.isSingleFile
+      ? Math.max(Number(sharedAudioMaxPlayedTimeRef.current || 0), t)
+      : t;
     const prevMax = Number(maxPlayedTimeByPartRef.current?.[currentPartIndex] || 0);
-    if (t > prevMax) {
+    if (allowedProgress > prevMax) {
       maxPlayedTimeByPartRef.current = {
         ...(maxPlayedTimeByPartRef.current || {}),
-        [currentPartIndex]: t,
+        [currentPartIndex]: allowedProgress,
       };
     }
   }, [currentPartIndex, startedAudioByPart, audioMeta.isSingleFile, testStarted, storageKey]);
@@ -994,7 +1079,13 @@ const DoCambridgeListeningTest = () => {
     const isStarted = audioMeta.isSingleFile ? testStarted : startedAudioByPart?.[currentPartIndex];
     if (!isStarted) return;
 
-    const max = Number(maxPlayedTimeByPartRef.current?.[currentPartIndex] || 0);
+    const max = audioMeta.isSingleFile
+      ? Math.max(
+          Number(sharedAudioMaxPlayedTimeRef.current || 0),
+          Number(lastAudioTimeRef.current || 0),
+          Number(maxPlayedTimeByPartRef.current?.[currentPartIndex] || 0)
+        )
+      : Number(maxPlayedTimeByPartRef.current?.[currentPartIndex] || 0);
     const t = Number(audio.currentTime || 0);
     // Block any seeking (rewind or fast-forward). Cambridge flow: no pause/rewind;
     // we also prevent skipping ahead via keyboard/media controls.
@@ -1772,8 +1863,8 @@ const DoCambridgeListeningTest = () => {
         </div>
       )}
 
-      {/* Hidden global audio element (used when a single audio file is provided for the whole test) */}
-      {audioMeta.usesMain && resolvedAudioSrc && (
+      {/* Hidden shared audio element for any test that uses a single file across all parts. */}
+      {usesSharedAudio && (
         <audio
           ref={audioRef}
           data-listening-audio="true"
@@ -1794,7 +1885,15 @@ const DoCambridgeListeningTest = () => {
             );
           }}
           onContextMenu={(e) => e.preventDefault()}
-          style={{ display: 'none' }}
+          style={{
+            position: 'fixed',
+            width: 1,
+            height: 1,
+            opacity: 0,
+            pointerEvents: 'none',
+            left: -9999,
+            top: 0,
+          }}
         >
           Your browser does not support audio.
         </audio>
@@ -1917,7 +2016,7 @@ const DoCambridgeListeningTest = () => {
                     );
                   })()}
 
-                  {resolvedAudioSrc && !audioMeta.usesMain && (
+                  {resolvedAudioSrc && !usesSharedAudio && (
                     <div style={{ ...styles.audioContainer, marginBottom: 12 }}>
                       <span style={{ marginRight: '12px' }}>🎧</span>
                       <audio
@@ -1961,7 +2060,7 @@ const DoCambridgeListeningTest = () => {
                     </div>
                   )}
 
-                  {resolvedAudioSrc && audioError && !audioMeta.usesMain && (
+                  {resolvedAudioSrc && audioError && !usesSharedAudio && (
                     <div style={styles.audioErrorBox} role="alert">
                       <div style={{ fontWeight: 600, marginBottom: 6 }}>Audio issue</div>
                       <div style={{ marginBottom: 8 }}>{audioError}</div>
@@ -2461,7 +2560,7 @@ const DoCambridgeListeningTest = () => {
                   })()}
 
                   {/* Audio Player */}
-                  {resolvedAudioSrc && !audioMeta.usesMain && (
+                  {resolvedAudioSrc && !usesSharedAudio && (
                     <div style={{ ...styles.audioContainer, marginBottom: 12 }}>
                       <span style={{ marginRight: '12px' }}>🎧</span>
                       <audio
@@ -2505,7 +2604,7 @@ const DoCambridgeListeningTest = () => {
                     </div>
                   )}
 
-                  {resolvedAudioSrc && audioError && !audioMeta.usesMain && (
+                  {resolvedAudioSrc && audioError && !usesSharedAudio && (
                     <div style={styles.audioErrorBox} role="alert">
                       <div style={{ fontWeight: 600, marginBottom: 6 }}>Audio issue</div>
                       <div style={{ marginBottom: 8 }}>{audioError}</div>

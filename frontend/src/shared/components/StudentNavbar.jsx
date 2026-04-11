@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
+import { createPortal } from "react-dom";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { apiPath, hostPath, clearAuth } from "../utils/api";
 import ThemeToggle from "./ThemeToggle";
@@ -600,45 +601,9 @@ const StudentNavbar = () => {
     return renderMobileOverview();
   };
 
-  if (isCompactMenu) {
-    return (
-      <nav className="studentNavbar studentNavbar--compact">
-        <div className="studentNavbar__mobileBar">
-          <Link to={ixHubPath} className="studentNavbar__logoLink" title="Test list">
-            <img
-              src={hostPath("uploads/staredu.jpg")}
-              alt="Logo"
-              className="studentNavbar__logo"
-            />
-          </Link>
-
-          <button
-            type="button"
-            className="studentNavbar__mobileMenuButton"
-            onClick={toggleMobileDrawer}
-            aria-label={mobileDrawerOpen ? "Close menu" : "Open menu"}
-            aria-expanded={mobileDrawerOpen}
-          >
-            <span
-              className={`studentNavbar__hamburger${
-                mobileDrawerOpen ? " studentNavbar__hamburger--open" : ""
-              }`}
-              aria-hidden="true"
-            >
-              <span className="studentNavbar__hamburgerLine" />
-              <span className="studentNavbar__hamburgerLine" />
-              <span className="studentNavbar__hamburgerLine" />
-            </span>
-            <span className="studentNavbar__srOnly">
-              {mobileDrawerOpen ? "Close menu" : "Open menu"}
-            </span>
-            {totalNotifications > 0 && (
-              <span className="studentNavbar__mobileMenuBadge">{totalNotifications}</span>
-            )}
-          </button>
-        </div>
-
-        {mobileDrawerOpen && (
+  const mobileDrawer =
+    mobileDrawerOpen && typeof document !== "undefined"
+      ? createPortal(
           <>
             <button
               type="button"
@@ -677,8 +642,50 @@ const StudentNavbar = () => {
                 {renderMobileDrawerContent()}
               </div>
             </aside>
-          </>
-        )}
+          </>,
+          document.body
+        )
+      : null;
+
+  if (isCompactMenu) {
+    return (
+      <nav className="studentNavbar studentNavbar--compact">
+        <div className="studentNavbar__mobileBar">
+          <Link to={ixHubPath} className="studentNavbar__logoLink" title="Test list">
+            <img
+              src={hostPath("uploads/staredu.jpg")}
+              alt="Logo"
+              className="studentNavbar__logo"
+            />
+          </Link>
+
+          <button
+            type="button"
+            className="studentNavbar__mobileMenuButton"
+            onClick={toggleMobileDrawer}
+            aria-label={mobileDrawerOpen ? "Close menu" : "Open menu"}
+            aria-expanded={mobileDrawerOpen}
+          >
+            <span
+              className={`studentNavbar__hamburger${
+                mobileDrawerOpen ? " studentNavbar__hamburger--open" : ""
+              }`}
+              aria-hidden="true"
+            >
+              <span className="studentNavbar__hamburgerLine" />
+              <span className="studentNavbar__hamburgerLine" />
+              <span className="studentNavbar__hamburgerLine" />
+            </span>
+            <span className="studentNavbar__srOnly">
+              {mobileDrawerOpen ? "Close menu" : "Open menu"}
+            </span>
+            {totalNotifications > 0 && (
+              <span className="studentNavbar__mobileMenuBadge">{totalNotifications}</span>
+            )}
+          </button>
+        </div>
+
+        {mobileDrawer}
 
         <style>
           {`
