@@ -183,7 +183,7 @@ export default function ImageClozeEditor({ question = {}, onChange, startingNumb
         }}
       >
         <div style={{ fontWeight: 700, fontSize: "14px", color: "#1e40af", marginBottom: "12px" }}>
-          📖 Đoạn văn
+          Đoạn văn
         </div>
 
         <label style={LABEL_STYLE}>Tiêu đề đoạn văn (tuỳ chọn)</label>
@@ -220,7 +220,7 @@ export default function ImageClozeEditor({ question = {}, onChange, startingNumb
               fontWeight: 600,
             }}
           >
-            ✅ {blankNumbers.length} blank{blankNumbers.length !== 1 ? "s" : ""} detected: {blankNumbers.map((n) => `(${n})`).join("  ")}
+            {blankNumbers.length} blank{blankNumbers.length !== 1 ? "s" : ""} detected: {blankNumbers.map((n) => `(${n})`).join("  ")}
           </div>
         )}
       </div>
@@ -243,7 +243,7 @@ export default function ImageClozeEditor({ question = {}, onChange, startingNumb
           }}
         >
           <div style={{ fontWeight: 700, fontSize: "14px", color: "#1e40af" }}>
-            🖼️ Image Bank ({imageBank.length} ảnh)
+            Image Bank ({imageBank.length} ảnh)
           </div>
           <button
             type="button"
@@ -265,7 +265,7 @@ export default function ImageClozeEditor({ question = {}, onChange, startingNumb
 
         {uploadErr && (
           <div style={{ marginBottom: "8px", fontSize: "12px", color: "#ef4444" }}>
-            ❌ {uploadErr}
+            Error: {uploadErr}
           </div>
         )}
 
@@ -443,7 +443,7 @@ export default function ImageClozeEditor({ question = {}, onChange, startingNumb
           }}
         >
           <div style={{ fontWeight: 700, fontSize: "14px", color: "#15803d", marginBottom: "12px" }}>
-            ✅ Đáp án đúng cho từng ô trống
+            Đáp án đúng cho từng ô trống
           </div>
           <div
             style={{
@@ -521,7 +521,7 @@ export default function ImageClozeEditor({ question = {}, onChange, startingNumb
             checked={!!titleQ.enabled}
             onChange={(e) => updateTitleQ({ enabled: e.target.checked })}
           />
-          📝 Câu hỏi tiêu đề (Now choose the best name...)
+          Câu hỏi tiêu đề (Now choose the best name...)
         </label>
 
         {titleQ.enabled && (

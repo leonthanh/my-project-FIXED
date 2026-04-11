@@ -289,7 +289,7 @@ const MatchingPicturesEditor = ({ question = {}, onChange, startingNumber = 1, p
             </div>
           ))}
         </div>
-        {uploadError && <div style={{ marginTop: "8px", color: "#dc2626", fontSize: "12px" }}>❌ {uploadError}</div>}
+        {uploadError && <div style={{ marginTop: "8px", color: "#dc2626", fontSize: "12px" }}>Error: {uploadError}</div>}
       </div>
 
       <div style={styles.card}>

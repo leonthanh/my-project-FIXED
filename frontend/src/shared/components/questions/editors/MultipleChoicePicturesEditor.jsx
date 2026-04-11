@@ -222,7 +222,7 @@ const MultipleChoicePicturesEditor = ({ question, onChange }) => {
 
           {uploadError && (
             <div style={{ marginTop: "8px", color: "#dc2626", fontSize: "12px" }}>
-              ❌ {uploadError}
+              Error: {uploadError}
             </div>
           )}
         </div>

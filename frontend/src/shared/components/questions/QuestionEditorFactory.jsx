@@ -175,7 +175,7 @@ const QuestionEditorFactory = ({
           textAlign: "center",
         }}>
           <p style={{ margin: 0, color: "#92400e" }}>
-            🚧 Editor cho "{questionType}" đang được phát triển...
+            Editor cho "{questionType}" đang được phát triển...
           </p>
         </div>
       );

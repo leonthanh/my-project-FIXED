@@ -134,31 +134,45 @@ const formatNotesHtml = (notesText = '') => {
 };
 
 const questionTypeFieldShellStyle = {
-  position: "relative",
-  display: "inline-flex",
+  display: "flex",
   alignItems: "center",
+  gap: "8px",
   minWidth: "240px",
+};
+
+const questionTypeFieldSelectWrapStyle = {
+  position: "relative",
+  flex: "1 1 auto",
+  minWidth: 0,
 };
 
 const questionTypeFieldSelectStyle = {
   ...compactInputStyle,
   width: "100%",
   marginBottom: 0,
-  paddingLeft: "42px",
+  paddingLeft: "12px",
   paddingRight: "42px",
   appearance: "none",
   WebkitAppearance: "none",
   MozAppearance: "none",
   backgroundColor: "#fff",
   cursor: "pointer",
+  color: "#111827",
+  fontWeight: 600,
 };
 
 const questionTypeFieldLeadingStyle = {
-  position: "absolute",
-  left: "12px",
-  top: "50%",
-  transform: "translateY(-50%)",
-  color: colors.questionYellow,
+  flexShrink: 0,
+  width: "28px",
+  height: "28px",
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  color: "#b45309",
+  backgroundColor: "#fff7ed",
+  border: "1px solid #fdba74",
+  borderRadius: "8px",
+  boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
   pointerEvents: "none",
 };
 
@@ -167,6 +181,9 @@ const questionTypeFieldTrailingStyle = {
   right: "12px",
   top: "50%",
   transform: "translateY(-50%)",
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
   color: colors.gray,
   pointerEvents: "none",
 };
@@ -177,18 +194,20 @@ const QuestionTypeSelectField = ({ value, onChange, options, style }) => {
   return (
     <div style={{ ...questionTypeFieldShellStyle, ...style }}>
       <span style={questionTypeFieldLeadingStyle}>
-        <LineIcon name={selected?.icon || "questions"} size={16} />
+        <LineIcon name={selected?.icon || "questions"} size={18} strokeWidth={2.2} />
       </span>
-      <select value={value} onChange={(event) => onChange(event.target.value)} style={questionTypeFieldSelectStyle}>
-        {options.map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
-        ))}
-      </select>
-      <span style={questionTypeFieldTrailingStyle}>
-        <LineIcon name="chevron-down" size={16} />
-      </span>
+      <div style={questionTypeFieldSelectWrapStyle}>
+        <select value={value} onChange={(event) => onChange(event.target.value)} style={questionTypeFieldSelectStyle}>
+          {options.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+        <span style={questionTypeFieldTrailingStyle}>
+          <LineIcon name="chevron-down" size={18} strokeWidth={2.2} />
+        </span>
+      </div>
     </div>
   );
 };
@@ -227,7 +246,7 @@ const calculateStartingQuestionNumber = (parts, partIndex, sectionIndex) => {
  */
 const ListeningTestEditor = ({
   // Page info
-  pageTitle = "🎧 Listening Test Editor",
+  pageTitle = "Listening Test Editor",
   className = "listening-test-editor",
 
   // Form fields
@@ -284,6 +303,7 @@ const ListeningTestEditor = ({
   // Global audio
   globalAudioFile,
   setGlobalAudioFile,
+  existingAudioUrl = null,
 }) => {
   // Column layout hook
   const {
@@ -358,6 +378,15 @@ const ListeningTestEditor = ({
 
   // Total questions count
   const totalQuestions = calculateTotalQuestions(parts || []);
+  const activeGlobalAudioUrl = globalAudioFile?.url || existingAudioUrl || "";
+
+  const getMessageTone = (currentMessage = "") => {
+    if (currentMessage.includes("❌")) return "error";
+    if (currentMessage.includes("✅")) return "success";
+    return "warning";
+  };
+
+  const getDisplayMessage = (currentMessage = "") => currentMessage.replace(/^(✅|❌|⚠️|⏳)\s*/u, "");
 
   // Handle audio file upload
   const handleAudioUpload = (file, isGlobal = false, partIndex = null) => {
@@ -453,29 +482,32 @@ const ListeningTestEditor = ({
         lastSaved={lastSaved}
         isSaving={isSaving}
         message={message}
-        renderMessage={(currentMessage) => (
-          <div
-            style={{
-              textAlign: "center",
-              padding: "10px",
-              marginTop: "10px",
-              backgroundColor: currentMessage.includes("❌")
-                ? "#fee2e2"
-                : currentMessage.includes("✅")
-                ? "#dcfce7"
-                : "#fef3c7",
-              borderRadius: "8px",
-              color: currentMessage.includes("❌")
-                ? colors.dangerRed
-                : currentMessage.includes("✅")
-                ? colors.successGreen
-                : "#92400e",
-              fontWeight: 500,
-            }}
-          >
-            {currentMessage}
-          </div>
-        )}
+        renderMessage={(currentMessage) => {
+          const tone = getMessageTone(currentMessage);
+          return (
+            <div
+              style={{
+                textAlign: "center",
+                padding: "10px",
+                marginTop: "10px",
+                backgroundColor: tone === "error"
+                  ? "#fee2e2"
+                  : tone === "success"
+                  ? "#dcfce7"
+                  : "#fef3c7",
+                borderRadius: "8px",
+                color: tone === "error"
+                  ? colors.dangerRed
+                  : tone === "success"
+                  ? colors.successGreen
+                  : "#92400e",
+                fontWeight: 500,
+              }}
+            >
+              {getDisplayMessage(currentMessage)}
+            </div>
+          );
+        }}
         rightControls={
           <span
             style={{
@@ -488,13 +520,13 @@ const ListeningTestEditor = ({
               whiteSpace: "nowrap",
             }}
           >
-            📊 {totalQuestions} câu hỏi
+            Tổng: {totalQuestions} câu hỏi
           </span>
         }
         afterInputs={(
           <div style={{ flexShrink: 0 }}>
             <div
-              style={globalAudioFile?.url ? { ...audioUploadActiveStyle, padding: "6px 12px", margin: 0, borderRadius: "6px" } : { ...audioUploadStyle, padding: "6px 12px", margin: 0, borderRadius: "6px" }}
+              style={activeGlobalAudioUrl ? { ...audioUploadActiveStyle, padding: "6px 12px", margin: 0, borderRadius: "6px" } : { ...audioUploadStyle, padding: "6px 12px", margin: 0, borderRadius: "6px" }}
               onClick={() => globalAudioRef.current?.click()}
             >
               <input
@@ -504,16 +536,16 @@ const ListeningTestEditor = ({
                 onChange={(e) => handleAudioUpload(e.target.files[0], true)}
                 style={{ display: "none" }}
               />
-              {globalAudioFile?.url ? (
+              {activeGlobalAudioUrl ? (
                 <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                   <span style={{ color: colors.audioGreen, fontWeight: 600, fontSize: "12px", whiteSpace: "nowrap" }}>
-                    🎵 Audio chung đã tải lên
+                    {globalAudioFile?.url ? "Audio chung mới đã chọn" : "Audio chung hiện tại"}
                   </span>
-                  <audio controls src={globalAudioFile.url} style={{ height: "28px", maxWidth: "200px" }} />
+                  <audio controls src={activeGlobalAudioUrl} style={{ height: "28px", maxWidth: "200px" }} />
                 </div>
               ) : (
                 <span style={{ color: colors.gray, fontSize: "12px", whiteSpace: "nowrap" }}>
-                  🎵 Click để tải audio chung (optional)
+                  Tải audio chung (tùy chọn)
                 </span>
               )}
             </div>
@@ -583,7 +615,7 @@ const ListeningTestEditor = ({
             {/* Parts header */}
             <div style={{ padding: "10px 12px", borderBottom: "1px solid #334155", flexShrink: 0 }}>
               <span style={{ fontSize: "11px", fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-                🎧 Parts ({parts?.length || 0})
+                Parts ({parts?.length || 0})
               </span>
             </div>
             {/* Parts list – scrollable */}
@@ -602,8 +634,8 @@ const ListeningTestEditor = ({
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: "13px", fontWeight: 600, color: "white" }}>{part.title}</div>
                     <div style={{ fontSize: "10px", color: "#94a3b8", marginTop: "2px" }}>
-                      {part.sections?.length || 0} section · {part.sections?.reduce((t, s) => t + (s.questions?.length || 0), 0) || 0} câu
-                      {part.audioFile && <span style={{ marginLeft: 4, color: colors.audioGreen }}>🎵</span>}
+                      {part.sections?.length || 0} section · {part.sections?.reduce((total, section) => total + countSectionQuestions(section), 0) || 0} câu
+                      {Boolean(part.audioUrl || part.audioFile) && <span style={{ marginLeft: 4, color: colors.audioGreen }}>Audio</span>}
                     </div>
                   </div>
                   {parts.length > 1 && (
@@ -611,7 +643,7 @@ const ListeningTestEditor = ({
                       type="button"
                       onClick={(e) => { e.stopPropagation(); onDeletePart(idx); }}
                       style={{ background: "rgba(239,68,68,0.2)", border: "none", color: "#fca5a5", width: "22px", height: "22px", borderRadius: "4px", cursor: "pointer", fontSize: "12px", flexShrink: 0, marginLeft: "6px", display: "flex", alignItems: "center", justifyContent: "center" }}
-                    >✕</button>
+                    >X</button>
                   )}
                 </div>
               ))}
@@ -619,14 +651,14 @@ const ListeningTestEditor = ({
             {/* Add Part – always pinned */}
             <div style={{ padding: "6px 8px 8px 8px", flexShrink: 0 }}>
               <button type="button" onClick={onAddPart} style={{ width: "100%", padding: "7px", backgroundColor: "#22c55e", color: "white", border: "none", borderRadius: "6px", cursor: "pointer", fontWeight: 600, fontSize: "12px" }}>
-                ➕ Thêm Part
+                Thêm part
               </button>
             </div>
 
             {/* Sections header */}
             <div style={{ padding: "10px 12px", borderTop: "1px solid #334155", borderBottom: "1px solid #334155", flexShrink: 0 }}>
               <span style={{ fontSize: "11px", fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-                📌 Sections {currentPart ? `(P${selectedPartIndex + 1})` : ""}
+                Sections {currentPart ? `(P${selectedPartIndex + 1})` : ""}
               </span>
             </div>
             {/* Sections list – scrollable */}
@@ -656,14 +688,14 @@ const ListeningTestEditor = ({
                   );
                 })
               ) : (
-                <div style={{ color: "#64748b", fontSize: "12px", textAlign: "center", marginTop: "16px" }}>← Chọn một Part</div>
+                <div style={{ color: "#64748b", fontSize: "12px", textAlign: "center", marginTop: "16px" }}>Chọn một part</div>
               )}
             </div>
             {/* Add Section – always pinned */}
             {currentPart && (
               <div style={{ padding: "6px 8px 8px 8px", flexShrink: 0 }}>
                 <button type="button" onClick={() => onAddSection(selectedPartIndex)} style={{ width: "100%", padding: "7px", backgroundColor: "#8b5cf6", color: "white", border: "none", borderRadius: "6px", cursor: "pointer", fontWeight: 600, fontSize: "12px" }}>
-                  ➕ Thêm Section
+                  Thêm section
                 </button>
               </div>
             )}
@@ -690,7 +722,7 @@ const ListeningTestEditor = ({
                   cursor: "pointer", userSelect: "none",
                 }}
               >
-                <span>🎵 AUDIO & NỘI DUNG{currentPart ? ` – ${currentPart.title}` : ""}</span>
+                <span>Audio và nội dung{currentPart ? ` – ${currentPart.title}` : ""}</span>
                 <span style={{ fontSize: "12px", fontWeight: 500, opacity: 0.9 }}>
                   {collapsedAudio ? "▼ Mở rộng" : "▲ Thu nhỏ"}
                 </span>
@@ -702,7 +734,7 @@ const ListeningTestEditor = ({
                   {currentPart ? (
                     <>
                       {/* Part Title */}
-                      <label style={{ color: colors.audioGreen, fontWeight: 600, fontSize: "12px", display: "block", marginBottom: "4px" }}>📌 Tiêu đề Part</label>
+                      <label style={{ color: colors.audioGreen, fontWeight: 600, fontSize: "12px", display: "block", marginBottom: "4px" }}>Tiêu đề part</label>
                       <input
                         type="text"
                         value={currentPart.title || ""}
@@ -711,7 +743,7 @@ const ListeningTestEditor = ({
                       />
 
                       {/* Part Audio */}
-                      <label style={{ color: colors.audioGreen, fontWeight: 600, fontSize: "12px", display: "block", marginBottom: "4px" }}>🎵 Audio cho Part này</label>
+                      <label style={{ color: colors.audioGreen, fontWeight: 600, fontSize: "12px", display: "block", marginBottom: "4px" }}>Audio cho part này</label>
                       <div
                         style={currentPart.audioUrl ? audioUploadActiveStyle : audioUploadStyle}
                         onClick={() => partAudioRef.current?.click()}
@@ -719,18 +751,22 @@ const ListeningTestEditor = ({
                         <input type="file" ref={partAudioRef} accept="audio/*" onChange={(e) => handleAudioUpload(e.target.files[0], false, selectedPartIndex)} style={{ display: "none" }} />
                         {currentPart.audioUrl ? (
                           <div>
-                            <p style={{ margin: "0 0 8px", color: colors.audioGreen, fontWeight: 500 }}>✅ Audio đã tải lên</p>
+                            <p style={{ margin: "0 0 8px", color: colors.audioGreen, fontWeight: 500 }}>
+                              {currentPart.audioFile instanceof File ? "Audio mới đã chọn" : "Audio hiện tại"}
+                            </p>
                             <audio controls src={currentPart.audioUrl} style={{ width: "100%" }} />
-                            <button type="button" onClick={(e) => { e.stopPropagation(); onPartChange(selectedPartIndex, 'audioFile', null); onPartChange(selectedPartIndex, 'audioUrl', ''); }} style={{ ...dangerButtonStyle, marginTop: "8px", padding: "6px 12px" }}>🗑️ Xóa audio</button>
+                            {currentPart.audioFile instanceof File && (
+                              <button type="button" onClick={(e) => { e.stopPropagation(); onPartChange(selectedPartIndex, 'audioFile', null); onPartChange(selectedPartIndex, 'audioUrl', ''); }} style={{ ...dangerButtonStyle, marginTop: "8px", padding: "6px 12px" }}>Xóa audio vừa chọn</button>
+                            )}
                           </div>
                         ) : (
-                          <p style={{ margin: 0, color: colors.gray }}>Click để tải audio cho Part {selectedPartIndex + 1}</p>
+                          <p style={{ margin: 0, color: colors.gray }}>Tải audio cho part {selectedPartIndex + 1}</p>
                         )}
                       </div>
 
                       {/* Instructions */}
                       <div style={{ marginTop: "12px" }}>
-                        <label style={{ color: colors.audioGreen, fontWeight: 600, fontSize: "12px", display: "block", marginBottom: "4px" }}>📝 Hướng dẫn Part</label>
+                        <label style={{ color: colors.audioGreen, fontWeight: 600, fontSize: "12px", display: "block", marginBottom: "4px" }}>Hướng dẫn part</label>
                         <textarea
                           value={currentPart.instruction || ""}
                           onChange={(e) => onPartChange(selectedPartIndex, "instruction", e.target.value)}
@@ -741,7 +777,7 @@ const ListeningTestEditor = ({
 
                       {/* Transcript */}
                       <div style={{ marginTop: "12px" }}>
-                        <label style={{ color: colors.audioGreen, fontWeight: 600, fontSize: "12px", display: "block", marginBottom: "4px" }}>📜 Transcript (Optional)</label>
+                        <label style={{ color: colors.audioGreen, fontWeight: 600, fontSize: "12px", display: "block", marginBottom: "4px" }}>Transcript (tùy chọn)</label>
                         <textarea
                           value={currentPart.transcript || ""}
                           onChange={(e) => onPartChange(selectedPartIndex, "transcript", e.target.value)}
@@ -751,7 +787,7 @@ const ListeningTestEditor = ({
                       </div>
                     </>
                   ) : (
-                    <div style={{ color: "#999", fontSize: "13px", textAlign: "center", paddingTop: "20px" }}>← Chọn một Part để nhập nội dung</div>
+                    <div style={{ color: "#999", fontSize: "13px", textAlign: "center", paddingTop: "20px" }}>Chọn một part để nhập nội dung</div>
                   )}
                 </div>
               )}
@@ -781,7 +817,7 @@ const ListeningTestEditor = ({
                   cursor: "pointer", userSelect: "none",
                 }}
               >
-                <span>❓ CÂU HỎI{currentSection ? ` — Section ${selectedSectionIndex + 1}` : ""}</span>
+                <span>Câu hỏi{currentSection ? ` — Section ${selectedSectionIndex + 1}` : ""}</span>
                 <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
                   {currentSection && <span style={{ fontSize: "11px", fontWeight: 400, color: "rgba(255,255,255,0.8)" }}>{countSectionQuestions(currentSection)} câu</span>}
                   <span style={{ fontSize: "12px", fontWeight: 500, color: "rgba(255,255,255,0.8)" }}>{collapsedQuestions ? "▼ Mở rộng" : "▲ Thu nhỏ"}</span>
@@ -815,7 +851,7 @@ const ListeningTestEditor = ({
                           justifyContent: "space-between",
                         }}>
                           <span style={{ fontSize: "13px", color: "#1e40af" }}>
-                            📊 <strong>Phạm vi câu hỏi:</strong> {startQ} - {endQ} 
+                            <strong>Phạm vi câu hỏi:</strong> {startQ} - {endQ}
                             <span style={{ opacity: 0.7, marginLeft: "8px" }}>
                               (tự động tính)
                             </span>
@@ -849,7 +885,7 @@ const ListeningTestEditor = ({
                           border: "1px solid #fcd34d",
                         }}>
                           <label style={{ fontSize: "12px", color: "#92400e", fontWeight: 600, whiteSpace: "nowrap" }}>
-                            🔢 Số câu bắt đầu:
+                            Số câu bắt đầu:
                           </label>
                           <input
                             type="number"
@@ -974,7 +1010,7 @@ const ListeningTestEditor = ({
                                 onClick={() => setShowBulkAddModal(true)}
                                 style={{ ...secondaryButtonStyle, padding: "6px 10px", fontSize: "11px" }}
                               >
-                                ➕ Thêm nhiều
+                                Thêm nhiều
                               </button>
                             </div>
                           </div>
@@ -1021,7 +1057,7 @@ const ListeningTestEditor = ({
                     onClick={() => onAddQuestion(selectedPartIndex, selectedSectionIndex, currentSection.questionType)}
                     style={addButtonStyle(colors.questionYellow)}
                   >
-                    ➕ Thêm câu hỏi
+                    Thêm câu hỏi
                   </button>
 
                   {/* Copy Section Button */}
@@ -1030,12 +1066,12 @@ const ListeningTestEditor = ({
                     onClick={() => onCopySection(selectedPartIndex, selectedSectionIndex)}
                     style={{ ...addButtonStyle(colors.gray), marginTop: "8px" }}
                   >
-                    📋 Copy Section này
+                    Sao chép section này
                   </button>
                 </div>
               ) : (
                 <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: "#9ca3af" }}>
-                  ← Chọn một Section
+                  Chọn một section
                 </div>
               )
               )}
@@ -1055,10 +1091,10 @@ const ListeningTestEditor = ({
             }}
           >
             <button type="button" onClick={onManualSave} style={secondaryButtonStyle}>
-              💾 Lưu nháp
+              Lưu nháp
             </button>
             <button type="submit" style={{ ...primaryButtonStyle, backgroundColor: "#3b82f6", boxShadow: "0 4px 6px -1px rgba(59,130,246,0.3)" }} disabled={isSubmitting}>
-              {isSubmitting ? "⏳ Đang xử lý..." : `✅ ${submitButtonText}`}
+              {isSubmitting ? "Đang xử lý..." : submitButtonText}
             </button>
           </div>
           </div>{/* /main area */}
@@ -1081,7 +1117,7 @@ const ListeningTestEditor = ({
               justifyContent: "space-between",
               alignItems: "center",
             }}>
-              <h3 style={{ margin: 0 }}>📋 Xác nhận {submitButtonText === "Cập nhật" ? "cập nhật" : "tạo"} đề thi</h3>
+              <h3 style={{ margin: 0 }}>Xác nhận {submitButtonText === "Cập nhật" ? "cập nhật" : "tạo"} đề thi</h3>
               <button
                 type="button"
                 onClick={() => setIsReviewing(false)}
@@ -1096,7 +1132,7 @@ const ListeningTestEditor = ({
                 }}
                 title="Đóng"
               >
-                ✕
+                X
               </button>
             </div>
 
@@ -1110,11 +1146,11 @@ const ListeningTestEditor = ({
               flexWrap: "wrap",
               gap: "20px",
             }}>
-              <div><strong>📝 Tiêu đề:</strong> {title || "(Chưa đặt)"}</div>
-              <div><strong>🏫 Mã lớp:</strong> {classCode || "(Không có)"}</div>
-              <div><strong>👨‍🏫 Giáo viên:</strong> {teacherName || "(Không có)"}</div>
-              <div><strong>🎧 Parts:</strong> {parts?.length || 0}</div>
-              <div><strong>❓ Tổng câu hỏi:</strong> {totalQuestions}</div>
+              <div><strong>Tiêu đề:</strong> {title || "(Chưa đặt)"}</div>
+              <div><strong>Mã lớp:</strong> {classCode || "(Không có)"}</div>
+              <div><strong>Giáo viên:</strong> {teacherName || "(Không có)"}</div>
+              <div><strong>Parts:</strong> {parts?.length || 0}</div>
+              <div><strong>Tổng câu hỏi:</strong> {totalQuestions}</div>
             </div>
 
             {/* Full Preview Content - Scrollable */}
@@ -1143,14 +1179,14 @@ const ListeningTestEditor = ({
                         justifyContent: "space-between",
                         alignItems: "center",
                       }}>
-                        <span>🎧 {part.title || `Part ${partIdx + 1}`}</span>
+                        <span>{part.title || `Part ${partIdx + 1}`}</span>
                         <span style={{
                           padding: "3px 10px",
-                          backgroundColor: part.audioFile ? "#22c55e" : "#ef4444",
+                          backgroundColor: (part.audioUrl || part.audioFile) ? "#22c55e" : "#ef4444",
                           borderRadius: "20px",
                           fontSize: "11px",
                         }}>
-                          {part.audioFile ? "🎵 CÓ AUDIO" : "⚠️ CHƯA CÓ AUDIO"}
+                          {(part.audioUrl || part.audioFile) ? "Có audio" : "Chưa có audio"}
                         </span>
                       </div>
 
@@ -1163,7 +1199,7 @@ const ListeningTestEditor = ({
                           fontSize: "13px",
                           fontStyle: "italic",
                         }}>
-                          📝 {part.instruction}
+                          {part.instruction}
                         </div>
                       )}
 
@@ -1189,7 +1225,7 @@ const ListeningTestEditor = ({
                               display: "flex",
                               justifyContent: "space-between",
                             }}>
-                              <span>📌 {section.sectionTitle || `Questions ${sectionStartQ}-${sectionStartQ + sectionQCount - 1}`}</span>
+                              <span>{section.sectionTitle || `Questions ${sectionStartQ}-${sectionStartQ + sectionQCount - 1}`}</span>
                               <span style={{ fontWeight: "normal" }}>
                                 {sectionQCount} câu | {section.questionType}
                               </span>
@@ -1239,7 +1275,7 @@ const ListeningTestEditor = ({
                                   borderRadius: "6px",
                                   border: "1px solid #86efac",
                                 }}>
-                                  <strong style={{ fontSize: "12px", color: "#166534" }}>✅ Đáp án:</strong>
+                                  <strong style={{ fontSize: "12px", color: "#166534" }}>Đáp án:</strong>
                                   <div style={{
                                     display: "grid",
                                     gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))",
@@ -1307,7 +1343,7 @@ const ListeningTestEditor = ({
                                   borderRadius: "6px",
                                   border: "1px solid #86efac",
                                 }}>
-                                  <strong style={{ fontSize: "12px", color: "#166534" }}>✅ Đáp án:</strong>
+                                  <strong style={{ fontSize: "12px", color: "#166534" }}>Đáp án:</strong>
                                   <div style={{
                                     display: "grid",
                                     gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))",
@@ -1552,7 +1588,7 @@ const ListeningTestEditor = ({
                                   borderRadius: "6px",
                                   border: "1px solid #86efac",
                                 }}>
-                                  <strong style={{ fontSize: "12px", color: "#166534" }}>✅ Đáp án:</strong>
+                                  <strong style={{ fontSize: "12px", color: "#166534" }}>Đáp án:</strong>
                                   <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", marginTop: "8px" }}>
                                     {Object.entries(section.questions[0].answers || {}).map(([num, ans]) => (
                                       <span key={num} style={{
@@ -1578,7 +1614,7 @@ const ListeningTestEditor = ({
 
                                   {/* List items */}
                                   <div style={{ padding: '8px 0', fontSize: 13 }}>
-                                    <strong>📍 Các địa điểm:</strong>
+                                    <strong>Các địa điểm:</strong>
                                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '8px' }}>
                                       {(q.items || []).map((item, i) => {
                                         const baseNumber = section.startingQuestionNumber || sectionStartQ;
@@ -1744,7 +1780,7 @@ const ListeningTestEditor = ({
                                             color: q.correctAnswer?.includes(String.fromCharCode(65 + oIdx)) ? "#16a34a" : "#4b5563",
                                             fontWeight: q.correctAnswer?.includes(String.fromCharCode(65 + oIdx)) ? "bold" : "normal",
                                           }}>
-                                            {q.correctAnswer?.includes(String.fromCharCode(65 + oIdx)) ? "✓ " : "☐ "}{opt}
+                                            {q.correctAnswer?.includes(String.fromCharCode(65 + oIdx)) ? "Đúng: " : ""}{opt}
                                           </div>
                                         ))}
                                       </div>
@@ -1755,7 +1791,7 @@ const ListeningTestEditor = ({
                                         borderRadius: "4px",
                                         fontSize: "12px",
                                       }}>
-                                        <strong>✅ Đáp án:</strong> {q.correctAnswer || "(Chưa có)"}
+                                        <strong>Đáp án:</strong> {q.correctAnswer || "(Chưa có)"}
                                       </div>
                                     </div>
                                   );
@@ -1795,7 +1831,7 @@ const ListeningTestEditor = ({
                                             color: q.correctAnswer === String.fromCharCode(65 + oIdx) ? "#16a34a" : "#4b5563",
                                             fontWeight: q.correctAnswer === String.fromCharCode(65 + oIdx) ? "bold" : "normal",
                                           }}>
-                                            {q.correctAnswer === String.fromCharCode(65 + oIdx) ? "✓ " : ""}{opt}
+                                            {q.correctAnswer === String.fromCharCode(65 + oIdx) ? "Đúng: " : ""}{opt}
                                           </div>
                                         ))}
                                       </div>
@@ -1807,7 +1843,7 @@ const ListeningTestEditor = ({
                                         fontSize: "11px",
                                         display: "inline-block",
                                       }}>
-                                        ✅ Đáp án: <strong>{q.correctAnswer || "(Chưa có)"}</strong>
+                                        Đáp án: <strong>{q.correctAnswer || "(Chưa có)"}</strong>
                                       </div>
                                     </div>
                                   );
@@ -1880,7 +1916,7 @@ const ListeningTestEditor = ({
                 onClick={() => setIsReviewing(false)}
                 style={secondaryButtonStyle}
               >
-                ← Quay lại chỉnh sửa
+                Quay lại chỉnh sửa
               </button>
               <button
                 type="button"
@@ -1896,7 +1932,7 @@ const ListeningTestEditor = ({
                 style={primaryButtonStyle}
                 disabled={isSubmitting}
               >
-                {isSubmitting ? "⏳ Đang xử lý..." : `✅ Xác nhận ${submitButtonText || "tạo đề"}`}
+                {isSubmitting ? "Đang xử lý..." : `Xác nhận ${submitButtonText || "tạo đề"}`}
               </button>
             </div>
           </div>
@@ -1910,7 +1946,6 @@ const ListeningTestEditor = ({
         <div style={modalStyles}>
           <div style={{ ...modalContentStyles, maxWidth: "400px" }}>
             <div style={modalHeaderStyles}>
-              <span style={{ fontSize: "20px" }}>➕</span>
               <h3 style={{ margin: 0 }}>Thêm nhiều câu hỏi</h3>
             </div>
 
@@ -1954,7 +1989,7 @@ const ListeningTestEditor = ({
                 }}
                 style={primaryButtonStyle}
               >
-                ➕ Thêm {bulkAddCount} câu
+                Thêm {bulkAddCount} câu
               </button>
             </div>
           </div>

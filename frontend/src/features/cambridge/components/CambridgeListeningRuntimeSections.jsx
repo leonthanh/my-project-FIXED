@@ -1,10 +1,14 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import AnchoredImageStage from './AnchoredImageStage';
 
 const IT_ACCENT = ['#f59e0b', '#10b981', '#8b5cf6', '#ef4444', '#0ea5e9', '#ec4899'];
 const DRAW_COLORS = ['#f59e0b', '#10b981', '#3b82f6', '#8b5cf6', '#ef4444', '#ec4899', '#06b6d4', '#84cc16'];
 const ANCHOR_NEUTRAL = '#94a3b8';
 const DRAWLINE_SNAP_RADIUS_PX = 22;
 const DRAWLINE_ANCHOR_HIT_AREA_PX = 34;
+const DRAWLINE_NEUTRAL_DOT_PX = 12;
+const DRAWLINE_ACTIVE_NEUTRAL_DOT_PX = 16;
+const DRAWLINE_FILLED_DOT_PX = 18;
 
 export function DrawLinesQuestion({
   question,
@@ -26,6 +30,7 @@ export function DrawLinesQuestion({
   const [selectedNameIdx, setSelectedNameIdx] = useState(null);
   const [lines, setLines] = useState([]);
   const [selectedAnchorByName, setSelectedAnchorByName] = useState({});
+  const [imageReady, setImageReady] = useState(false);
   const imgRef = useRef(null);
   const containerRef = useRef(null);
   const pillRefs = useRef({});
@@ -144,9 +149,16 @@ export function DrawLinesQuestion({
   }, [activeQuestion, questionKey, submitted]);
 
   const recomputeLines = useCallback(() => {
-    if (!imgRef.current || !containerRef.current) return;
+    if (!imageReady || !imgRef.current || !containerRef.current) {
+      setLines([]);
+      return;
+    }
     const containerRect = containerRef.current.getBoundingClientRect();
     const imageRect = imgRef.current.getBoundingClientRect();
+    if (imageRect.width < 1 || imageRect.height < 1) {
+      setLines([]);
+      return;
+    }
     const newLines = [];
 
     leftItems.forEach((name, idx) => {
@@ -190,20 +202,39 @@ export function DrawLinesQuestion({
     });
 
     setLines(newLines);
-  }, [anchorIndexesByLetter, answers, anchors, effectiveAnchorByName, leftItems, questionKey]);
+  }, [anchorIndexesByLetter, answers, anchors, effectiveAnchorByName, imageReady, leftItems, questionKey]);
 
   useEffect(() => {
+    if (!imageReady) {
+      setLines([]);
+      return undefined;
+    }
     const id = requestAnimationFrame(recomputeLines);
     return () => cancelAnimationFrame(id);
-  }, [recomputeLines]);
+  }, [imageReady, recomputeLines]);
 
   useEffect(() => {
+    if (!imageReady) return undefined;
     window.addEventListener('resize', recomputeLines);
     return () => window.removeEventListener('resize', recomputeLines);
-  }, [recomputeLines]);
+  }, [imageReady, recomputeLines]);
+
+  useEffect(() => {
+    if (!imageReady || typeof ResizeObserver === 'undefined') return undefined;
+    const image = imgRef.current;
+    const container = containerRef.current;
+    if (!image || !container) return undefined;
+
+    const observer = new ResizeObserver(() => {
+      requestAnimationFrame(recomputeLines);
+    });
+    observer.observe(image);
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, [imageReady, recomputeLines]);
 
   const handleImageClick = (event) => {
-    if (selectedNameIdx === null || !imgRef.current) return;
+    if (selectedNameIdx === null || !imgRef.current || !imageReady) return;
     const rect = imgRef.current.getBoundingClientRect();
     const validAnswers = question.answers || {};
     const clampedClientX = Math.min(Math.max(event.clientX, rect.left), rect.right);
@@ -250,45 +281,13 @@ export function DrawLinesQuestion({
     <div
       ref={containerRef}
       className={wrapperClassName}
-      style={{ padding: '12px 16px', width: 'fit-content', maxWidth: '100%', position: 'relative', margin: '0 auto' }}
+      style={{ padding: '12px 16px', width: 'fit-content', maxWidth: '100%', position: 'relative', margin: '0 auto', isolation: 'isolate' }}
     >
-      <svg
-        style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 10, overflow: 'visible' }}
-        aria-hidden="true"
-      >
-        <defs>
-          {lines.map((line) => (
-            <marker key={`m-${line.nameIdx}`} id={`arrow-${questionKey}-${line.nameIdx}`} markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto">
-              <circle cx="4" cy="4" r="3" fill={line.color} />
-            </marker>
-          ))}
-        </defs>
-        {lines.map((line) => {
-          const lineIsCorrect = submitted && results?.answers?.[`${questionKey}-${line.nameIdx}`]?.isCorrect;
-          const lineColor = line.isExample ? '#9ca3af' : submitted ? (lineIsCorrect ? '#22c55e' : '#ef4444') : line.color;
-          return (
-            <line
-              key={line.nameIdx}
-              x1={line.x1}
-              y1={line.y1}
-              x2={line.x2}
-              y2={line.y2}
-              stroke={lineColor}
-              strokeWidth={line.isExample ? 2 : 3}
-              strokeDasharray={line.isExample ? '6 4' : '10 5'}
-              strokeLinecap="round"
-              opacity={line.isExample ? 0.6 : 0.92}
-              markerEnd={`url(#arrow-${questionKey}-${line.nameIdx})`}
-            />
-          );
-        })}
-      </svg>
-
       <div style={{ marginBottom: '12px' }}>
         <div className="cambridge-question-text">{question.questionText || 'Look at the picture. Listen and draw lines.'}</div>
       </div>
 
-      <div style={{ display: 'flex', gap: '20px', alignItems: 'flex-start' }}>
+      <div style={{ display: 'flex', gap: '20px', alignItems: 'flex-start', position: 'relative', zIndex: 1 }}>
         <div style={{ minWidth: '150px', maxWidth: '220px', flexShrink: 0 }}>
           <p
             style={{
@@ -381,27 +380,23 @@ export function DrawLinesQuestion({
 
         <div style={{ flex: 1, minWidth: 0 }}>
           {partImageUrl ? (
-            <div
-              style={{ position: 'relative', display: 'block', width: '100%', maxWidth: '540px', cursor: selectedNameIdx !== null ? 'crosshair' : 'default', overflow: 'visible' }}
+            <AnchoredImageStage
+              src={resolveImg(partImageUrl)}
+              alt="Scene"
+              imageRef={imgRef}
+              maxWidth="540px"
+              cursor={selectedNameIdx !== null && imageReady ? 'crosshair' : 'default'}
               onClick={handleImageClick}
+              onReadyChange={(ready) => {
+                setImageReady(ready);
+                if (!ready) setLines([]);
+              }}
+              borderColor={selectedNameIdx !== null ? DRAW_COLORS[selectedNameIdx % DRAW_COLORS.length] : isDarkMode ? '#334155' : '#e2e8f0'}
+              borderWidth="3px"
+              borderRadius="12px"
+              containerStyle={{ overflow: 'visible' }}
             >
-              <img
-                ref={imgRef}
-                src={resolveImg(partImageUrl)}
-                alt="Scene"
-                draggable={false}
-                style={{
-                  width: '100%',
-                  maxWidth: '540px',
-                  display: 'block',
-                  borderRadius: '12px',
-                  userSelect: 'none',
-                  border: `3px solid ${selectedNameIdx !== null ? DRAW_COLORS[selectedNameIdx % DRAW_COLORS.length] : isDarkMode ? '#334155' : '#e2e8f0'}`,
-                  transition: 'border-color 0.2s',
-                }}
-              />
-
-              {Object.entries(anchors).map(([idxStr, pos]) => {
+              {imageReady ? Object.entries(anchors).map(([idxStr, pos]) => {
                 const idx = parseInt(idxStr, 10);
                 const anchorLetter = anchorLetterByIdx[idxStr];
                 const usedByNameIdx = idx === 0 ? 0 : anchorUsedByName[idxStr] ?? -1;
@@ -412,15 +407,15 @@ export function DrawLinesQuestion({
                 const anchorColor = hasAnswer ? personColor : ANCHOR_NEUTRAL;
                 const isCorrect = submitted && usedByNameIdx > 0 && results?.answers?.[`${questionKey}-${usedByNameIdx}`]?.isCorrect;
                 const dotColor = submitted ? (isCorrect ? '#22c55e' : hasAnswer && usedByNameIdx > 0 ? '#ef4444' : ANCHOR_NEUTRAL) : anchorColor;
-                const dotSize = hasAnswer ? 20 : 16;
+                const dotSize = hasAnswer ? DRAWLINE_FILLED_DOT_PX : DRAWLINE_NEUTRAL_DOT_PX;
                 const isClickableAnchor = !submitted && selectedNameIdx !== null && idx !== 0 && Boolean(anchorLetter);
-                const activeDotSize = isClickableAnchor ? Math.max(dotSize, 24) : dotSize;
+                const activeDotSize = isClickableAnchor ? Math.max(dotSize, DRAWLINE_ACTIVE_NEUTRAL_DOT_PX) : dotSize;
                 const hitAreaSize = Math.max(activeDotSize, DRAWLINE_ANCHOR_HIT_AREA_PX);
 
                 return (
                   <div
                     key={idxStr}
-                    style={{ position: 'absolute', left: `${pos.x}%`, top: `${pos.y}%`, transform: 'translate(-50%, -50%)', pointerEvents: 'none', zIndex: 6 }}
+                    style={{ position: 'absolute', left: `${pos.x}%`, top: `${pos.y}%`, transform: 'translate(-50%, -50%)', pointerEvents: 'none', zIndex: 18 }}
                   >
                     {!hasAnswer && !submitted ? (
                       <div className="draw-dot-ripple" style={{ width: `${activeDotSize}px`, height: `${activeDotSize}px`, background: anchorColor }} />
@@ -453,8 +448,10 @@ export function DrawLinesQuestion({
                           height: `${activeDotSize}px`,
                           borderRadius: '50%',
                           background: dotColor,
-                          border: '3px solid white',
-                          boxShadow: `0 2px 10px rgba(0,0,0,0.45), 0 0 0 3px ${anchorColor}55`,
+                          border: `${hasAnswer ? 3 : 2}px solid white`,
+                          boxShadow: hasAnswer
+                            ? `0 2px 10px rgba(0,0,0,0.45), 0 0 0 3px ${anchorColor}55`
+                            : `0 1px 6px rgba(0,0,0,0.32), 0 0 0 2px ${anchorColor}44`,
                           transition: 'width 0.2s, height 0.2s, background 0.2s',
                         }}
                       />
@@ -481,9 +478,9 @@ export function DrawLinesQuestion({
                     ) : null}
                   </div>
                 );
-              })}
+              }) : null}
 
-              {selectedNameIdx !== null ? (
+              {selectedNameIdx !== null && imageReady ? (
                 <div
                   style={{
                     position: 'absolute',
@@ -495,7 +492,7 @@ export function DrawLinesQuestion({
                   }}
                 />
               ) : null}
-            </div>
+            </AnchoredImageStage>
           ) : (
             <div style={{ padding: '20px', background: isDarkMode ? '#1e293b' : '#f9fafb', borderRadius: '10px', textAlign: 'center', color: isDarkMode ? '#94a3b8' : '#6b7280', fontSize: '13px' }}>
               Anh dang tai...
@@ -522,6 +519,47 @@ export function DrawLinesQuestion({
             </div>
           ) : null}
         </div>
+      </div>
+
+      <div
+        style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 12, overflow: 'visible' }}
+        aria-hidden="true"
+      >
+        {lines.map((line) => {
+          const lineIsCorrect = submitted && results?.answers?.[`${questionKey}-${line.nameIdx}`]?.isCorrect;
+          const lineColor = line.isExample ? '#9ca3af' : submitted ? (lineIsCorrect ? '#22c55e' : '#ef4444') : line.color;
+          const dx = line.x2 - line.x1;
+          const dy = line.y2 - line.y1;
+          const lineLength = Math.hypot(dx, dy);
+          const lineAngle = Math.atan2(dy, dx) * (180 / Math.PI);
+          const lineThickness = line.isExample ? 2 : 2.4;
+          return (
+            <div
+              key={line.nameIdx}
+              style={{
+                position: 'absolute',
+                left: `${line.x1}px`,
+                top: `${line.y1}px`,
+                width: 0,
+                height: 0,
+                transform: 'translateY(-50%)',
+              }}
+            >
+              <div
+                style={{
+                  width: `${lineLength}px`,
+                  height: `${lineThickness}px`,
+                  background: lineColor,
+                  borderRadius: '999px',
+                  opacity: line.isExample ? 0.72 : 0.96,
+                  transformOrigin: '0 50%',
+                  transform: `rotate(${lineAngle}deg)`,
+                  boxShadow: line.isExample ? 'none' : `0 0 0 0.5px ${lineColor}22`,
+                }}
+              />
+            </div>
+          );
+        })}
       </div>
     </div>
   );

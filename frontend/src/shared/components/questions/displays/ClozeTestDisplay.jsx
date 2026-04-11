@@ -52,7 +52,7 @@ const ClozeTestDisplay = ({
               />
               {submitted && !isCorrect && (
                 <div style={styles.correctAnswerInline}>
-                  ✓ {correctAnswer}
+                  Correct: {correctAnswer}
                 </div>
               )}
             </div>

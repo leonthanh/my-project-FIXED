@@ -97,7 +97,7 @@ const InlineChoiceDisplay = ({
           )}
         </span>
         {submitted && isWrong && correctAnswer && (
-          <span style={styles.inlineCorrect}>✓ {stripOptionLabel(correctAnswer)}</span>
+          <span style={styles.inlineCorrect}>Correct: {stripOptionLabel(correctAnswer)}</span>
         )}
       </span>
     );

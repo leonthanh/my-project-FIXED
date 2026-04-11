@@ -130,9 +130,9 @@ const WritingTaskDisplay = ({
             {/* Status icon */}
             {wordCount > 0 && (
               <span style={{ fontSize: '18px' }}>
-                {wordStatus.status === 'perfect' ? '✅' : 
-                 wordStatus.status === 'below' ? '⚠️' : 
-                 wordStatus.status === 'above' ? '🚫' : ''}
+                {wordStatus.status === 'perfect' ? 'OK' : 
+                 wordStatus.status === 'below' ? 'LOW' : 
+                 wordStatus.status === 'above' ? 'HIGH' : ''}
               </span>
             )}
           </div>
@@ -159,11 +159,11 @@ const WritingTaskDisplay = ({
             color: wordStatus.color,
           }}>
             {wordStatus.status === 'below' && 
-              `⚠️ You need at least ${wordLimit.min - wordCount} more word${wordLimit.min - wordCount > 1 ? 's' : ''}`}
+              `You need at least ${wordLimit.min - wordCount} more word${wordLimit.min - wordCount > 1 ? 's' : ''}`}
             {wordStatus.status === 'above' && 
-              `🚫 You have ${wordCount - wordLimit.max} word${wordCount - wordLimit.max > 1 ? 's' : ''} too many`}
+              `You have ${wordCount - wordLimit.max} word${wordCount - wordLimit.max > 1 ? 's' : ''} too many`}
             {wordStatus.status === 'perfect' && 
-              `✅ Great! Your answer is within the word limit.`}
+              `Great! Your answer is within the word limit.`}
           </p>
         )}
       </div>

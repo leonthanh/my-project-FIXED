@@ -5,7 +5,7 @@ const ParagraphFillBlanksQuestion = ({ question, onChange }) => {
   if (!question) {
     return (
       <div style={{ color: "red", padding: "10px" }}>
-        ❌ Error: Question object missing
+        Error: Question object missing
       </div>
     );
   }
@@ -76,9 +76,9 @@ const ParagraphFillBlanksQuestion = ({ question, onChange }) => {
     <div style={styles.container}>
       {/* Paragraph Text */}
       <div style={styles.section}>
-        <label style={styles.label}>📝 Đoạn văn (Paragraph):</label>
+        <label style={styles.label}>Đoạn văn (Paragraph):</label>
         <p style={{ fontSize: "12px", color: "#666", marginBottom: "10px" }}>
-          💡 Hướng dẫn: Dùng [blank1], [blank2], [blank3]... để đánh dấu chỗ
+          Hướng dẫn: Dùng [blank1], [blank2], [blank3]... để đánh dấu chỗ
           trống
         </p>
         <QuillEditor
@@ -90,7 +90,7 @@ const ParagraphFillBlanksQuestion = ({ question, onChange }) => {
 
       {/* Blanks Configuration */}
       <div style={styles.section}>
-        <label style={styles.label}>🔲 Các chỗ trống:</label>
+        <label style={styles.label}>Các chỗ trống:</label>
         {question.blanks &&
           question.blanks.map((blank, index) => (
             <div
@@ -130,7 +130,7 @@ const ParagraphFillBlanksQuestion = ({ question, onChange }) => {
                   cursor: "pointer",
                 }}
               >
-                🗑
+                Xoa
               </button>
             </div>
           ))}
@@ -149,13 +149,13 @@ const ParagraphFillBlanksQuestion = ({ question, onChange }) => {
             fontWeight: "bold",
           }}
         >
-          ➕ Thêm chỗ trống
+          Thêm chỗ trống
         </button>
       </div>
 
       {/* Options */}
       <div style={styles.section}>
-        <label style={styles.label}>📋 Danh sách lựa chọn (Options):</label>
+        <label style={styles.label}>Danh sách lựa chọn (Options):</label>
         {question.options &&
           question.options.map((option, index) => (
             <div
@@ -184,7 +184,7 @@ const ParagraphFillBlanksQuestion = ({ question, onChange }) => {
                   cursor: "pointer",
                 }}
               >
-                🗑
+                Xoa
               </button>
             </div>
           ))}
@@ -202,13 +202,13 @@ const ParagraphFillBlanksQuestion = ({ question, onChange }) => {
             fontWeight: "bold",
           }}
         >
-          ➕ Thêm lựa chọn
+          Thêm lựa chọn
         </button>
       </div>
 
       {/* Preview */}
       <div style={{ marginTop: "15px" }}>
-        <label style={styles.label}>👁 Preview:</label>
+        <label style={styles.label}>Xem trước:</label>
         <div
           style={{
             backgroundColor: "white",

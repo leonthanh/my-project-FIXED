@@ -97,7 +97,7 @@ const LongTextMCEditor = ({
   // Xóa câu hỏi
   const handleDeleteQuestion = (qIndex) => {
     if (questions.length <= 1) {
-      alert('⚠️ Phải có ít nhất 1 câu hỏi!');
+      alert('Phải có ít nhất 1 câu hỏi!');
       return;
     }
     const newQuestions = questions.filter((_, idx) => idx !== qIndex);
@@ -150,13 +150,13 @@ const LongTextMCEditor = ({
 
       {/* Passage Type Selector */}
       <div style={{ marginBottom: "16px" }}>
-        <label style={styles.label}>📚 Loại văn bản</label>
+        <label style={styles.label}>Loại văn bản</label>
         <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
           {[
-            { value: 'conversation', label: '💬 Hội thoại', color: '#8b5cf6' },
-            { value: 'article', label: '📰 Bài báo', color: '#3b82f6' },
-            { value: 'email', label: '📧 Email', color: '#06b6d4' },
-            { value: 'story', label: '📖 Truyện', color: '#f59e0b' },
+            { value: 'conversation', label: 'Hội thoại', color: '#8b5cf6' },
+            { value: 'article', label: 'Bài báo', color: '#3b82f6' },
+            { value: 'email', label: 'Email', color: '#06b6d4' },
+            { value: 'story', label: 'Truyện', color: '#f59e0b' },
           ].map(type => (
             <button
               key={type.value}
@@ -181,7 +181,7 @@ const LongTextMCEditor = ({
 
       {/* Passage Title */}
       <div style={{ marginBottom: "12px" }}>
-        <label style={styles.label}>📌 Tiêu đề đoạn văn (tùy chọn)</label>
+        <label style={styles.label}>Tiêu đề đoạn văn (tùy chọn)</label>
         <input
           type="text"
           value={passageTitle}
@@ -194,7 +194,7 @@ const LongTextMCEditor = ({
 
       {/* Passage Text */}
       <div style={{ marginBottom: "20px" }} className="long-text-mc-editor">
-        <label style={styles.label}>📝 Nội dung đoạn văn *</label>
+        <label style={styles.label}>Nội dung đoạn văn *</label>
         <div style={{
           border: "1px solid #d1d5db",
           borderRadius: "6px",
@@ -220,7 +220,7 @@ const LongTextMCEditor = ({
           />
         </div>
         <p style={{ fontSize: "11px", color: "#6b7280", marginTop: "4px" }}>
-          💡 Với hội thoại: Dùng format "Tên: Lời nói". Có thể định dạng text, thêm link, list...
+          Với hội thoại: Dùng format "Tên: Lời nói". Có thể định dạng text, thêm link, list...
         </p>
       </div>
 
@@ -238,7 +238,7 @@ const LongTextMCEditor = ({
           marginBottom: "16px" 
         }}>
           <h3 style={{ margin: 0, fontSize: "14px", color: "#374151" }}>
-            ❓ {questions.length} Câu hỏi Multiple Choice
+            {questions.length} Câu hỏi Multiple Choice
           </h3>
           <button
             type="button"
@@ -257,7 +257,7 @@ const LongTextMCEditor = ({
               gap: "4px",
             }}
           >
-            ➕ Thêm câu hỏi
+            Thêm câu hỏi
           </button>
         </div>
 
@@ -290,7 +290,7 @@ const LongTextMCEditor = ({
                 }}
                 title="Xóa câu hỏi này"
               >
-                ✕
+                ×
               </button>
             )}
             
@@ -374,7 +374,7 @@ const LongTextMCEditor = ({
                       onChange={() => handleQuestionChange(qIdx, 'correctAnswer', opt)}
                       style={{ accentColor: "#22c55e" }}
                     />
-                    ✓
+                    Đúng
                   </label>
                 </div>
               ))}
@@ -392,7 +392,7 @@ const LongTextMCEditor = ({
         border: "1px solid #bbf7d0",
       }}>
         <span style={{ fontWeight: 600, color: "#166534", marginRight: "12px" }}>
-          ✅ Đáp án:
+          Đáp án:
         </span>
         {questions.map((q, idx) => (
           <span key={idx} style={{

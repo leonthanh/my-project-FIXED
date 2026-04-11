@@ -72,7 +72,7 @@ const SignMessageDisplay = ({
       {/* Correct Answer Display (after submission) */}
       {submitted && correctAnswer && userAnswer !== correctAnswer && (
         <div style={styles.correctAnswerBox}>
-          ✓ Correct answer: <strong>{correctAnswer}</strong>
+          Correct answer: <strong>{correctAnswer}</strong>
         </div>
       )}
     </div>

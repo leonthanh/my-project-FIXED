@@ -104,7 +104,7 @@ const GapMatchEditor = ({ question = {}, onChange, startingNumber = 21, partInde
                 style={styles.input}
                 placeholder={`Item ${idx + 1}`}
               />
-              <button type="button" onClick={() => removeLeftItem(idx)} style={styles.removeBtn}>✕</button>
+                <button type="button" onClick={() => removeLeftItem(idx)} style={styles.removeBtn}>X</button>
             </div>
           ))}
           <button type="button" onClick={addLeftItem} style={styles.addBtn}>+ Thêm item</button>
@@ -120,7 +120,7 @@ const GapMatchEditor = ({ question = {}, onChange, startingNumber = 21, partInde
                 style={styles.input}
                 placeholder={`Option ${idx + 1}`}
               />
-              <button type="button" onClick={() => removeOption(idx)} style={styles.removeBtn}>✕</button>
+              <button type="button" onClick={() => removeOption(idx)} style={styles.removeBtn}>X</button>
             </div>
           ))}
           <button type="button" onClick={addOption} style={styles.addBtn}>+ Thêm lựa chọn</button>

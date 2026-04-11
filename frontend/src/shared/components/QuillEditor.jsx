@@ -21,6 +21,9 @@ const QuillEditor = ({
   showBlankButton = false,
   editorRef,
   insertBlankText = "…………",
+  className = "",
+  stickyToolbar = false,
+  editorMinHeight = "200px",
 }) => {
   const localRef = useRef(null);
   const quillRef = editorRef || localRef;
@@ -193,8 +196,12 @@ const QuillEditor = ({
     "image",
   ];
 
+  const rootClassName = [className, stickyToolbar ? "quill-editor-sticky-toolbar" : ""]
+    .filter(Boolean)
+    .join(" ");
+
   return (
-    <div style={{ position: "relative", zIndex: 10 }}>
+    <div className={rootClassName} style={{ position: "relative", zIndex: 10 }}>
       <style>{`
         /* Fix Quill Heading spacing - remove excessive top padding */
         .ql-editor h1, .ql-editor h2, .ql-editor h3 {
@@ -339,6 +346,18 @@ const QuillEditor = ({
           margin-left: 0 !important;
           margin-right: 0 !important;
         }
+
+        .quill-editor-sticky-toolbar .ql-toolbar {
+          position: sticky;
+          top: 0;
+          z-index: 30;
+          background: #ffffff;
+          box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
+        }
+
+        .quill-editor-sticky-toolbar .ql-container {
+          background: #ffffff;
+        }
         
         /* Upload indicator */
         .quill-uploading {
@@ -443,7 +462,7 @@ const QuillEditor = ({
           formats={formats}
           placeholder={placeholder}
           style={{
-            minHeight: "200px",
+            minHeight: editorMinHeight,
             marginBottom: "20px",
           }}
         />

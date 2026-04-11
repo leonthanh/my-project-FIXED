@@ -38,21 +38,18 @@ const parseFlexibleAnswer = (answer) => {
 
 const GROUP_THEMES = {
   complete: {
-    icon: '🖊️',
     headerBg: 'linear-gradient(135deg, #4f46e5, #6366f1)',
     cardBg: '#eef2ff',
     cardBorder: '#a5b4fc',
     numBg: '#4f46e5',
   },
   answer: {
-    icon: '💬',
     headerBg: 'linear-gradient(135deg, #9333ea, #a855f7)',
     cardBg: '#faf5ff',
     cardBorder: '#d8b4fe',
     numBg: '#9333ea',
   },
   write: {
-    icon: '✍️',
     headerBg: 'linear-gradient(135deg, #059669, #10b981)',
     cardBg: '#f0fdf4',
     cardBorder: '#86efac',
@@ -191,8 +188,7 @@ export default function LookReadWriteDisplay({
         fontSize: '0.88em', color: '#6b7280', marginBottom: 20,
         paddingBottom: 12, borderBottom: '1.5px dashed #e5e7eb',
       }}>
-        <span style={{ fontSize: '1.1em' }}>🖼️</span>
-        <span>{submitted ? '✅ Kết quả đã nộp' : 'Nhìn tranh và viết câu trả lời.'}</span>
+        <span>{submitted ? 'Kết quả đã nộp' : 'Nhìn tranh và viết câu trả lời.'}</span>
       </div>
 
       {groupsWithNums.map((group, gIdx) => {
@@ -213,11 +209,8 @@ export default function LookReadWriteDisplay({
                 padding: '11px 18px',
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',
               }}>
-                <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span style={{ fontSize: '1.35em' }}>{theme.icon}</span>
-                  <span style={{ fontWeight: 800, color: '#fff', fontSize: '1.0em', letterSpacing: '0.01em' }}>
-                    {group.instruction}
-                  </span>
+                <span style={{ fontWeight: 800, color: '#fff', fontSize: '1.0em', letterSpacing: '0.01em' }}>
+                  {group.instruction}
                 </span>
                 <span style={{
                   background: 'rgba(255,255,255,0.25)', borderRadius: 20,
@@ -306,7 +299,7 @@ export default function LookReadWriteDisplay({
                         background: '#dcfce7', borderRadius: 7, padding: '3px 10px',
                         display: 'inline-block',
                       }}>
-                        ✓ {parseFlexibleAnswer(item.answer).join(' / ') || item.answer}
+                        Answer: {parseFlexibleAnswer(item.answer).join(' / ') || item.answer}
                       </div>
                     )}
                   </div>
@@ -414,7 +407,7 @@ function InlineInput({ sentence, typedValue, submitted, correct, onChange, onCle
                   padding: '4px 8px', fontSize: '0.75em', color: '#9ca3af',
                   background: 'none', border: '1.5px solid #e5e7eb',
                   borderRadius: 6, cursor: 'pointer',
-                }}>✕</button>
+                }}>X</button>
               )}
             </span>
           )}
@@ -454,7 +447,7 @@ function AnswerInput({ typedValue, submitted, correct, onChange, onClear, placeh
           padding: '4px 8px', fontSize: '0.75em', color: '#9ca3af',
           background: 'none', border: '1.5px solid #e5e7eb',
           borderRadius: 6, cursor: 'pointer', flexShrink: 0,
-        }}>✕</button>
+        }}>X</button>
       )}
     </div>
   );

@@ -158,7 +158,7 @@ export default function WordDragClozeEditor({
             fontWeight: 700,
           }}
         >
-          🔤 Word Drag & Drop Cloze
+          Word Drag & Drop Cloze
         </span>
         <span style={{ fontSize: 13, opacity: 0.9 }}>
           Câu {startingNumber} – {startingNumber + blanks.length - 1}
@@ -482,7 +482,7 @@ export default function WordDragClozeEditor({
           lineHeight: 1.6,
         }}
       >
-        <strong>💡 Giao diện học sinh:</strong> Học sinh kéo thả (hoặc click ô → click từ) từ bảng
+        <strong>Giao diện học sinh:</strong> Học sinh kéo thả (hoặc click ô → click từ) từ bảng
         bên phải vào ô trong đoạn văn. Không cần bàn phím.
       </div>
     </div>

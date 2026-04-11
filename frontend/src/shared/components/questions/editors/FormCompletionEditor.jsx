@@ -180,14 +180,14 @@ const FormCompletionEditor = ({
         marginBottom: "16px",
         border: "1px solid #3b82f6",
       }}>
-        <strong style={{ color: "#1d4ed8" }}>📋 Form Builder - IX Format</strong>
+        <strong style={{ color: "#1d4ed8" }}>Form Builder - IX Format</strong>
         <p style={{ margin: "8px 0 0", fontSize: "13px", color: "#1e40af" }}>
           Tạo form theo format đề IX với: <b>Label</b> + <b>Prefix</b> + <b>[Blank/Value]</b> + <b>Suffix</b>
         </p>
       </div>
 
       {/* Form Title */}
-      <label style={defaultStyles.label}>📌 Tiêu đề Form</label>
+      <label style={defaultStyles.label}>Tiêu đề Form</label>
       <input
         type="text"
         value={question.formTitle || ""}
@@ -197,7 +197,7 @@ const FormCompletionEditor = ({
       />
 
       {/* Question Range */}
-      <label style={defaultStyles.label}>📊 Phạm vi câu hỏi</label>
+      <label style={defaultStyles.label}>Phạm vi câu hỏi</label>
       <input
         type="text"
         value={question.questionRange || ""}
@@ -207,7 +207,7 @@ const FormCompletionEditor = ({
       />
 
       {/* Visual Form Builder - 4 columns */}
-      <label style={defaultStyles.label}>📝 Các dòng trong Form</label>
+      <label style={defaultStyles.label}>Các dòng trong Form</label>
       <div style={{
         border: "2px solid #e5e7eb",
         borderRadius: "12px",
@@ -360,7 +360,7 @@ const FormCompletionEditor = ({
                   fontSize: "12px",
                 }}
               >
-                ✕
+                ×
               </button>
             </div>
           </div>
@@ -383,7 +383,7 @@ const FormCompletionEditor = ({
               fontWeight: 600,
             }}
           >
-            ➕ Thêm dòng
+            Thêm dòng
           </button>
           <button
             type="button"
@@ -413,7 +413,7 @@ const FormCompletionEditor = ({
         border: "1px solid #e2e8f0",
         fontSize: "12px",
       }}>
-        <strong>📖 Ví dụ cách nhập:</strong>
+        <strong>Ví dụ cách nhập:</strong>
         <table style={{ width: "100%", marginTop: "8px", fontSize: "11px", borderCollapse: "collapse" }}>
           <thead>
             <tr style={{ backgroundColor: "#f1f5f9" }}>
@@ -429,14 +429,14 @@ const FormCompletionEditor = ({
               <td style={{ padding: "4px 6px", border: "1px solid #e2e8f0" }}>– Preferred location: near the <b>[3]___</b></td>
               <td style={{ padding: "4px 6px", border: "1px solid #e2e8f0" }}>– Preferred location:</td>
               <td style={{ padding: "4px 6px", border: "1px solid #e2e8f0" }}>near the</td>
-              <td style={{ padding: "4px 6px", border: "1px solid #e2e8f0" }}>☑️</td>
+              <td style={{ padding: "4px 6px", border: "1px solid #e2e8f0" }}>Yes</td>
               <td style={{ padding: "4px 6px", border: "1px solid #e2e8f0" }}>(trống)</td>
             </tr>
             <tr>
               <td style={{ padding: "4px 6px", border: "1px solid #e2e8f0" }}>– Preferred size: <b>[4]___</b> ft²</td>
               <td style={{ padding: "4px 6px", border: "1px solid #e2e8f0" }}>– Preferred size:</td>
               <td style={{ padding: "4px 6px", border: "1px solid #e2e8f0" }}>(trống)</td>
-              <td style={{ padding: "4px 6px", border: "1px solid #e2e8f0" }}>☑️</td>
+              <td style={{ padding: "4px 6px", border: "1px solid #e2e8f0" }}>Yes</td>
               <td style={{ padding: "4px 6px", border: "1px solid #e2e8f0" }}>ft²</td>
             </tr>
           </tbody>
@@ -447,7 +447,7 @@ const FormCompletionEditor = ({
       {blankNumbers.length > 0 && (
         <div style={{ marginTop: "16px" }}>
           <label style={defaultStyles.label}>
-            ✅ Đáp án cho từng câu 
+            Đáp án cho từng câu 
             <span style={{ fontWeight: "normal", color: "#6b7280", fontSize: "12px" }}>
               (dùng | để phân cách nhiều đáp án đúng)
             </span>
@@ -534,7 +534,7 @@ const FormCompletionEditor = ({
             fontSize: "11px",
             color: "#92400e",
           }}>
-            💡 <strong>Mẹo:</strong> Dùng dấu <code style={{ background: "#fde68a", padding: "1px 4px", borderRadius: "3px" }}>|</code> để nhập nhiều đáp án đúng. 
+            <strong>Mẹo:</strong> Dùng dấu <code style={{ background: "#fde68a", padding: "1px 4px", borderRadius: "3px" }}>|</code> để nhập nhiều đáp án đúng. 
             VD: <code style={{ background: "#fde68a", padding: "1px 4px", borderRadius: "3px" }}>10,000 | 10 thousand | ten thousand</code>
           </div>
         </div>
@@ -543,7 +543,7 @@ const FormCompletionEditor = ({
       {/* Preview */}
       {rows.length > 0 && (
         <div style={{ marginTop: "20px" }}>
-          <label style={defaultStyles.label}>👁 Preview - Học sinh sẽ thấy:</label>
+          <label style={defaultStyles.label}>Xem trước - Học sinh sẽ thấy:</label>
           <div style={{
             padding: "20px",
             backgroundColor: "#fff",

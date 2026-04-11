@@ -91,7 +91,7 @@ const MapLabelingEditor = ({
         border: "1px solid #3b82f6",
         fontSize: "12px",
       }}>
-        <strong style={{ color: "#1d4ed8" }}>🗺️ Map/Plan Labeling</strong>
+        <strong style={{ color: "#1d4ed8" }}>Map/Plan Labeling</strong>
         <p style={{ margin: "4px 0 0", color: "#1e40af" }}>
           Học sinh nhìn bản đồ và chọn vị trí đúng (A-H) cho mỗi địa điểm.
         </p>
@@ -127,7 +127,7 @@ const MapLabelingEditor = ({
             cursor: 'pointer'
           }}
         >
-          📁 Tải lên hình
+          Tải lên hình
         </button>
         <span style={{ color: '#64748b', alignSelf: 'center' }}>hoặc</span>
         <input
@@ -190,7 +190,7 @@ const MapLabelingEditor = ({
               }}
               style={defaultStyles.deleteButton}
             >
-              ✕
+              ×
             </button>
           )}
         </div>

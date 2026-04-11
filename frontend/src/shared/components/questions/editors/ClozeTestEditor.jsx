@@ -172,7 +172,7 @@ const ClozeTestEditor = ({
         border: "1px solid #bfdbfe",
       }}>
         <p style={{ margin: 0, fontSize: "13px", color: "#1e40af" }}>
-          💡 <strong>Hướng dẫn:</strong> Paste đoạn văn có chỗ trống đánh số (1), (2)... hoặc dùng ___. 
+          <strong>Hướng dẫn:</strong> Paste đoạn văn có chỗ trống đánh số (1), (2)... hoặc dùng ___. 
           Có thể nhập nhiều đáp án cách nhau bằng <code style={{
             backgroundColor: "#dbeafe",
             padding: "2px 6px",
@@ -223,7 +223,7 @@ Last summer, I ___ to the beach with my family. We ___ there for two weeks.`}
           />
         </div>
         <p style={{ fontSize: "11px", color: "#6b7280", marginTop: "4px" }}>
-          💡 Tip: Copy đoạn văn từ đề, dùng (1), (2), (3)... hoặc ___ để đánh dấu chỗ trống. Có thể thêm hình, định dạng text...
+          Tip: Copy đoạn văn từ đề, dùng (1), (2), (3)... hoặc ___ để đánh dấu chỗ trống. Có thể thêm hình, định dạng text...
         </p>
       </div>
 
@@ -243,7 +243,7 @@ Last summer, I ___ to the beach with my family. We ___ there for two weeks.`}
             marginBottom: "12px" 
           }}>
             <h4 style={{ margin: 0, fontSize: "14px", color: "#475569" }}>
-              📝 Nhập đáp án cho từng chỗ trống:
+              Nhập đáp án cho từng chỗ trống:
             </h4>
             <span style={{
               padding: "4px 10px",
@@ -295,7 +295,7 @@ Last summer, I ___ to the beach with my family. We ___ there for two weeks.`}
                         fontSize: "10px",
                         border: "2px solid white",
                       }} title="Có nhiều đáp án đúng">
-                        ✓
+                        2+
                       </span>
                     )}
                   </span>
@@ -328,7 +328,7 @@ Last summer, I ___ to the beach with my family. We ___ there for two weeks.`}
           border: "1px solid #bbf7d0",
         }}>
           <h4 style={{ margin: "0 0 12px 0", fontSize: "14px", color: "#166534" }}>
-            👁️ Preview:
+            Xem trước:
           </h4>
           {passageTitle && (
             <h3 style={{ 

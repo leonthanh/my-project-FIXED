@@ -137,7 +137,7 @@ const ShortMessageEditor = ({
           />
         </div>
         <p style={{ fontSize: "11px", color: "#6b7280", marginTop: "4px" }}>
-          💡 Mô tả tình huống học sinh cần viết. Có thể thêm hình, định dạng text...
+          Mô tả tình huống học sinh cần viết. Có thể thêm hình, định dạng text...
         </p>
       </div>
 
@@ -163,7 +163,7 @@ const ShortMessageEditor = ({
         />
         {sampleAnswer && (
           <p style={{ fontSize: "11px", color: "#6b7280", marginTop: "4px" }}>
-            📊 Sample: {sampleAnswer.trim().split(/\s+/).length} words
+            Sample: {sampleAnswer.trim().split(/\s+/).length} words
           </p>
         )}
       </div>
@@ -178,7 +178,7 @@ const ShortMessageEditor = ({
           marginTop: "16px",
         }}>
           <h4 style={{ margin: "0 0 12px 0", fontSize: "14px", color: "#0369a1" }}>
-            👁️ Preview (Student View):
+            Preview (Student View):
           </h4>
           
           <div style={{

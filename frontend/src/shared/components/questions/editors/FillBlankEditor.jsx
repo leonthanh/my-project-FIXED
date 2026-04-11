@@ -54,7 +54,7 @@ const FillBlankEditor = ({
         style={defaultStyles.input}
       />
       <p style={{ fontSize: "11px", color: "#6b7280", marginTop: "4px" }}>
-        💡 Tip: Dùng <code>|</code> để có nhiều đáp án đúng. VD: <code>8:30 | eight thirty</code>
+        Tip: Dùng <code>|</code> để có nhiều đáp án đúng. VD: <code>8:30 | eight thirty</code>
       </p>
     </div>
   );

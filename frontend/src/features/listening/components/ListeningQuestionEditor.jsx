@@ -232,14 +232,14 @@ const ListeningQuestionEditor = ({
           marginBottom: "16px",
           border: "1px solid #3b82f6",
         }}>
-          <strong style={{ color: "#1d4ed8" }}>📋 Form Builder - Format IELTS</strong>
+          <strong style={{ color: "#1d4ed8" }}>Form Builder - Format IELTS</strong>
           <p style={{ margin: "8px 0 0", fontSize: "13px", color: "#1e40af" }}>
             Tạo form theo format đề IELTS với: <b>Label</b> + <b>Prefix</b> + <b>[Blank/Value]</b> + <b>Suffix</b>
           </p>
         </div>
 
         {/* Form Title */}
-        <label style={labelStyle}>📌 Tiêu đề Form</label>
+        <label style={labelStyle}>Tiêu đề form</label>
         <input
           type="text"
           value={question.formTitle || ""}
@@ -249,7 +249,7 @@ const ListeningQuestionEditor = ({
         />
 
         {/* Question Range */}
-        <label style={labelStyle}>📊 Phạm vi câu hỏi</label>
+        <label style={labelStyle}>Phạm vi câu hỏi</label>
         <input
           type="text"
           value={question.questionRange || ""}
@@ -259,7 +259,7 @@ const ListeningQuestionEditor = ({
         />
 
         {/* Visual Form Builder - 4 columns */}
-        <label style={labelStyle}>📝 Các dòng trong Form</label>
+        <label style={labelStyle}>Các dòng trong form</label>
         <div style={{
           border: "2px solid #e5e7eb",
           borderRadius: "12px",
@@ -412,7 +412,7 @@ const ListeningQuestionEditor = ({
                     fontSize: "12px",
                   }}
                 >
-                  ✕
+                    X
                 </button>
               </div>
             </div>
@@ -435,7 +435,7 @@ const ListeningQuestionEditor = ({
                 fontWeight: 600,
               }}
             >
-              ➕ Thêm dòng
+              Thêm dòng
             </button>
             <button
               type="button"
@@ -451,7 +451,7 @@ const ListeningQuestionEditor = ({
                 fontWeight: 600,
               }}
             >
-              ↳ Thêm dòng con (blank)
+              Thêm dòng con (blank)
             </button>
           </div>
         </div>
@@ -465,7 +465,7 @@ const ListeningQuestionEditor = ({
           border: "1px solid #e2e8f0",
           fontSize: "12px",
         }}>
-          <strong>📖 Ví dụ cách nhập:</strong>
+          <strong>Ví dụ cách nhập:</strong>
           <table style={{ width: "100%", marginTop: "8px", fontSize: "11px", borderCollapse: "collapse" }}>
             <thead>
               <tr style={{ backgroundColor: "#f1f5f9" }}>
@@ -481,28 +481,28 @@ const ListeningQuestionEditor = ({
                 <td style={{ padding: "4px 6px", border: "1px solid #e2e8f0" }}>– Preferred location: near the <b>[3]___</b></td>
                 <td style={{ padding: "4px 6px", border: "1px solid #e2e8f0" }}>– Preferred location:</td>
                 <td style={{ padding: "4px 6px", border: "1px solid #e2e8f0" }}>near the</td>
-                <td style={{ padding: "4px 6px", border: "1px solid #e2e8f0" }}>☑️</td>
+                <td style={{ padding: "4px 6px", border: "1px solid #e2e8f0" }}>Có</td>
                 <td style={{ padding: "4px 6px", border: "1px solid #e2e8f0" }}>(trống)</td>
               </tr>
               <tr>
                 <td style={{ padding: "4px 6px", border: "1px solid #e2e8f0" }}>– Preferred size: <b>[4]___</b> ft²</td>
                 <td style={{ padding: "4px 6px", border: "1px solid #e2e8f0" }}>– Preferred size:</td>
                 <td style={{ padding: "4px 6px", border: "1px solid #e2e8f0" }}>(trống)</td>
-                <td style={{ padding: "4px 6px", border: "1px solid #e2e8f0" }}>☑️</td>
+                <td style={{ padding: "4px 6px", border: "1px solid #e2e8f0" }}>Có</td>
                 <td style={{ padding: "4px 6px", border: "1px solid #e2e8f0" }}>ft²</td>
               </tr>
               <tr>
                 <td style={{ padding: "4px 6px", border: "1px solid #e2e8f0" }}>&nbsp;&nbsp;&nbsp;&nbsp;a <b>[7]___</b> for employees</td>
                 <td style={{ padding: "4px 6px", border: "1px solid #e2e8f0" }}>(dòng con - trống)</td>
                 <td style={{ padding: "4px 6px", border: "1px solid #e2e8f0" }}>a</td>
-                <td style={{ padding: "4px 6px", border: "1px solid #e2e8f0" }}>☑️</td>
+                <td style={{ padding: "4px 6px", border: "1px solid #e2e8f0" }}>Có</td>
                 <td style={{ padding: "4px 6px", border: "1px solid #e2e8f0" }}>for employees</td>
               </tr>
               <tr>
                 <td style={{ padding: "4px 6px", border: "1px solid #e2e8f0" }}>– Full name: Jonathan Smith</td>
                 <td style={{ padding: "4px 6px", border: "1px solid #e2e8f0" }}>– Full name:</td>
                 <td style={{ padding: "4px 6px", border: "1px solid #e2e8f0" }}>(trống)</td>
-                <td style={{ padding: "4px 6px", border: "1px solid #e2e8f0" }}>❌</td>
+                <td style={{ padding: "4px 6px", border: "1px solid #e2e8f0" }}>Không</td>
                 <td style={{ padding: "4px 6px", border: "1px solid #e2e8f0" }}>Jonathan Smith</td>
               </tr>
             </tbody>
@@ -512,7 +512,7 @@ const ListeningQuestionEditor = ({
         {/* Answers for each blank */}
         {blankNumbers.length > 0 && (
           <div style={{ marginTop: "16px" }}>
-            <label style={labelStyle}>✅ Đáp án cho từng câu <span style={{ fontWeight: "normal", color: "#6b7280", fontSize: "12px" }}>(dùng | để phân cách nhiều đáp án đúng)</span></label>
+            <label style={labelStyle}>Đáp án cho từng câu <span style={{ fontWeight: "normal", color: "#6b7280", fontSize: "12px" }}>(dùng | để phân cách nhiều đáp án đúng)</span></label>
             <div style={{
               display: "grid",
               gridTemplateColumns: "repeat(auto-fill, minmax(250px, 1fr))",
@@ -598,7 +598,7 @@ const ListeningQuestionEditor = ({
               fontSize: "11px",
               color: "#92400e",
             }}>
-              💡 <strong>Mẹo:</strong> Dùng dấu <code style={{ background: "#fde68a", padding: "1px 4px", borderRadius: "3px" }}>|</code> để nhập nhiều đáp án đúng. 
+              <strong>Mẹo:</strong> Dùng dấu <code style={{ background: "#fde68a", padding: "1px 4px", borderRadius: "3px" }}>|</code> để nhập nhiều đáp án đúng.
               VD: <code style={{ background: "#fde68a", padding: "1px 4px", borderRadius: "3px" }}>10,000 | 10 thousand | ten thousand</code>
             </div>
           </div>
@@ -607,7 +607,7 @@ const ListeningQuestionEditor = ({
         {/* Preview */}
         {rows.length > 0 && (
           <div style={{ marginTop: "20px" }}>
-            <label style={labelStyle}>👁 Preview - Học sinh sẽ thấy:</label>
+            <label style={labelStyle}>Xem trước - Học sinh sẽ thấy:</label>
             <div style={{
               padding: "20px",
               backgroundColor: "#fff",
@@ -728,7 +728,7 @@ const ListeningQuestionEditor = ({
           alignItems: "center",
         }}>
           <span style={{ fontWeight: 600, color: "#0369a1" }}>
-            📝 Notes Completion: {blanks.length > 0 ? `Questions ${startQ} - ${startQ + blanks.length - 1}` : 'Chưa có câu hỏi'}
+            Notes Completion: {blanks.length > 0 ? `Questions ${startQ} - ${startQ + blanks.length - 1}` : 'Chưa có câu hỏi'}
           </span>
           <span style={{
             padding: "4px 10px",
@@ -751,7 +751,7 @@ const ListeningQuestionEditor = ({
           border: "1px solid #86efac",
           fontSize: "13px",
         }}>
-          <strong>💡 Hướng dẫn:</strong> Paste notes vào ô bên dưới. Dùng <code>___</code> hoặc <code>31 ___</code> để đánh dấu chỗ trống.
+          <strong>Hướng dẫn:</strong> Paste notes vào ô bên dưới. Dùng <code>___</code> hoặc <code>31 ___</code> để đánh dấu chỗ trống.
           <br/>
           VD: <code>People moved to cities to work in the 31 ___</code>
         </div>
@@ -809,7 +809,7 @@ VD:
             border: "1px solid #fecaca",
             fontSize: "13px",
           }}>
-            ⚠️ Không tìm thấy chỗ trống. Hãy thêm <code>___</code> hoặc <code>31 ___</code> vào text.
+            Không tìm thấy chỗ trống. Hãy thêm <code>___</code> hoặc <code>31 ___</code> vào text.
           </div>
         )}
 
@@ -863,7 +863,7 @@ VD:
               ))}
             </div>
             <p style={{ fontSize: "11px", color: "#6b7280", marginTop: "8px" }}>
-              💡 Tip: Dùng <code>|</code> để có nhiều đáp án đúng. VD: <code>factories|factory</code>
+              Tip: Dùng <code>|</code> để có nhiều đáp án đúng. VD: <code>factories|factory</code>
             </p>
           </div>
         )}
@@ -871,7 +871,7 @@ VD:
         {/* Preview */}
         {plainText && blanks.length > 0 && (
           <div style={{ marginTop: "16px" }}>
-            <label style={labelStyle}>👁️ Preview (như học sinh nhìn thấy)</label>
+            <label style={labelStyle}>Xem trước (như học sinh nhìn thấy)</label>
             <div style={{
               padding: "16px",
               backgroundColor: "#fffbeb",
@@ -962,7 +962,7 @@ VD:
           border: "1px solid #3b82f6",
           fontSize: "12px",
         }}>
-          <strong style={{ color: "#1d4ed8" }}>📋 Matching Question</strong>
+          <strong style={{ color: "#1d4ed8" }}>Matching Question</strong>
           <p style={{ margin: "4px 0 0", color: "#1e40af" }}>
             Mỗi item bên trái = 1 câu hỏi. Số câu sẽ tự động đánh từ <strong>{startNum}</strong> đến <strong>{startNum + leftItems.length - 1}</strong>.
           </p>
@@ -1038,7 +1038,7 @@ VD:
                       }}
                       style={deleteButtonSmallStyle}
                     >
-                      ✕
+                        X
                     </button>
                   )}
                 </div>
@@ -1079,7 +1079,7 @@ VD:
                     }}
                     style={deleteButtonSmallStyle}
                   >
-                    ✕
+                    X
                   </button>
                 )}
               </div>
@@ -1099,7 +1099,7 @@ VD:
 
         {/* Answers section */}
         <div style={{ marginTop: "16px" }}>
-          <label style={labelStyle}>✅ Đáp án</label>
+          <label style={labelStyle}>Đáp án</label>
           <div style={{
             display: "grid",
             gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))",
@@ -1213,7 +1213,7 @@ VD:
           alignItems: "center",
         }}>
           <span style={{ fontWeight: 600, color: "#0369a1" }}>
-            ✅ Questions {startQ} and {endQ}
+            Questions {startQ} and {endQ}
           </span>
           <span style={{
             padding: "4px 10px",
@@ -1260,7 +1260,7 @@ VD:
           </div>
         </div>
 
-        <label style={labelStyle}>Các lựa chọn A-E (Click ✓ để đánh dấu đáp án đúng)</label>
+        <label style={labelStyle}>Các lựa chọn A-E (click vào nút để đánh dấu đáp án đúng)</label>
         {options.map((opt, idx) => {
           const letter = String.fromCharCode(65 + idx);
           const isCorrect = correctAnswers.includes(letter);
@@ -1288,7 +1288,7 @@ VD:
                 }}
                 title={isCorrect ? "Bỏ chọn đáp án" : "Chọn là đáp án đúng"}
               >
-                {isCorrect ? "✓" : letter}
+                {letter}
               </button>
               <input
                 type="text"
@@ -1314,7 +1314,7 @@ VD:
                   }}
                   style={deleteButtonSmallStyle}
                 >
-                  ✕
+                  X
                 </button>
               )}
             </div>
@@ -1342,7 +1342,7 @@ VD:
           borderRadius: "8px",
           border: "1px solid #86efac",
         }}>
-          <strong style={{ color: "#15803d" }}>✅ Đáp án đúng: </strong>
+          <strong style={{ color: "#15803d" }}>Đáp án đúng: </strong>
           {correctAnswers.length > 0 ? (
             <span style={{ color: "#15803d", fontWeight: 600 }}>
               {correctAnswers.join(', ')}
@@ -1352,7 +1352,7 @@ VD:
           )}
           {correctAnswers.length !== requiredAnswers && correctAnswers.length > 0 && (
             <span style={{ color: "#dc2626", marginLeft: "10px", fontSize: "12px" }}>
-              ⚠️ Cần chọn đúng {requiredAnswers} đáp án
+              Cần chọn đúng {requiredAnswers} đáp án
             </span>
           )}
         </div>
@@ -2136,7 +2136,7 @@ VD:
             style={iconButtonStyle}
             title="Copy câu hỏi"
           >
-            📋
+            Copy
           </button>
           {canDelete && (
             <button
@@ -2145,7 +2145,7 @@ VD:
               style={{ ...iconButtonStyle, color: colors.dangerRed }}
               title="Xóa câu hỏi"
             >
-              🗑️
+              Xóa
             </button>
           )}
         </div>

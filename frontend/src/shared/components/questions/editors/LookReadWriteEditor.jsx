@@ -66,21 +66,21 @@ const INPUT = {
 const GROUP_META = {
   complete: {
     bg: "#f0f9ff", border: "#bae6fd", label: "#0369a1", badge: "#e0f2fe",
-    icon: "✏️", name: "COMPLETE",
+    icon: "", name: "COMPLETE",
     hint: "Câu điền chỗ trống – dùng ___ trong nội dung câu.",
     sentencePlaceholder: "VD: The doctor is wearing blue ___.",
     answerPlaceholder: "VD: trousers",
   },
   answer: {
     bg: "#fdf4ff", border: "#e9d5ff", label: "#7c3aed", badge: "#f3e8ff",
-    icon: "❓", name: "ANSWER",
+    icon: "", name: "ANSWER",
     hint: "Câu hỏi – học sinh viết câu trả lời đầy đủ.",
     sentencePlaceholder: "VD: What is the nurse giving the child?",
     answerPlaceholder: "VD: (She is giving him) a glass of water",
   },
   write: {
     bg: "#f0fdf4", border: "#bbf7d0", label: "#047857", badge: "#dcfce7",
-    icon: "📝", name: "FREE WRITE",
+    icon: "", name: "FREE WRITE",
     hint: "Học sinh tự viết câu tự do về bức tranh.",
     sentencePlaceholder: "",
     answerPlaceholder: "Đáp án mẫu – VD: There are three grown-ups in the picture.",
@@ -144,7 +144,7 @@ export default function LookReadWriteEditor({ question = {}, onChange, startingN
         gap: 10,
       }}>
         <span style={{ background: "#fff", color: "#7c3aed", padding: "3px 10px", borderRadius: 12, fontSize: 11, fontWeight: 700 }}>
-          🖼️ Look, Read & Write
+          Look, Read & Write
         </span>
         <span style={{ fontSize: 13, opacity: 0.9 }}>
           Câu {startingNumber} – {startingNumber + 5} &nbsp;·&nbsp; Ảnh upload ở cấp Part
@@ -154,7 +154,7 @@ export default function LookReadWriteEditor({ question = {}, onChange, startingN
       {/* Examples */}
       <div style={{ marginBottom: 16, padding: "14px 16px", background: "#fef9c3", border: "1px solid #fde68a", borderRadius: 8 }}>
         <div style={{ fontWeight: 700, color: "#92400e", marginBottom: 10, fontSize: 13 }}>
-          ⭐ Câu mẫu (Examples) – điền sẵn đáp án, học sinh chỉ xem
+          Câu mẫu (Examples) – điền sẵn đáp án, học sinh chỉ xem
         </div>
         {examples.map((ex, i) => (
           <div key={i} style={{ marginBottom: i === 0 ? 10 : 0 }}>
@@ -193,7 +193,7 @@ export default function LookReadWriteEditor({ question = {}, onChange, startingN
             {/* Group header badge */}
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
               <span style={{ background: meta.badge, color: meta.label, padding: "3px 10px", borderRadius: 10, fontSize: 11, fontWeight: 700 }}>
-                {meta.icon} {meta.name}
+                {meta.icon ? `${meta.icon} ${meta.name}` : meta.name}
               </span>
               <span style={{ fontSize: 11, color: "#6b7280" }}>{meta.hint}</span>
             </div>
@@ -252,7 +252,7 @@ export default function LookReadWriteEditor({ question = {}, onChange, startingN
                     />
                     {item.answer && item.answer.includes("/") && (
                       <div style={{ marginTop: 3, fontSize: 10, color: "#059669", background: "#f0fdf4", padding: "2px 6px", borderRadius: 4, lineHeight: 1.6 }}>
-                        ✓ Chấp nhận: {parseFlexibleAnswer(item.answer).join(" | ")}
+                        Chấp nhận: {parseFlexibleAnswer(item.answer).join(" | ")}
                       </div>
                     )}
                   </div>
@@ -275,7 +275,7 @@ export default function LookReadWriteEditor({ question = {}, onChange, startingN
                       />
                       {item.answer && (item.answer.includes("(") || item.answer.includes("/")) && (
                         <div style={{ marginTop: 3, fontSize: 10, color: "#059669", background: "#f0fdf4", padding: "2px 6px", borderRadius: 4, lineHeight: 1.6 }}>
-                          ✓ Chấp nhận: {parseFlexibleAnswer(item.answer).join(" | ")}
+                          Chấp nhận: {parseFlexibleAnswer(item.answer).join(" | ")}
                         </div>
                       )}
                     </div>
@@ -289,8 +289,8 @@ export default function LookReadWriteEditor({ question = {}, onChange, startingN
 
       {/* Tip box */}
       <div style={{ marginTop: 12, padding: "8px 12px", background: "#f0fdf4", borderRadius: 6, border: "1px solid #bbf7d0", fontSize: 11, color: "#166534", lineHeight: 1.7 }}>
-        <strong>💡 Cấu trúc Part 6:</strong> Ảnh lớn (upload ở cấp Part) + 2 ví dụ mẫu + 3 nhóm × 2 câu = 6 câu hỏi.<br />
-        <strong>📝 Đáp án linh hoạt:</strong>{" "}
+        <strong>Cấu trúc Part 6:</strong> Ảnh lớn (upload ở cấp Part) + 2 ví dụ mẫu + 3 nhóm × 2 câu = 6 câu hỏi.<br />
+        <strong>Đáp án linh hoạt:</strong>{" "}
         <code style={{ background: "#dcfce7", padding: "1px 4px", borderRadius: 3 }}>(từ tùy chọn)</code> → chấp nhận có hoặc không.{" "}
         <code style={{ background: "#dcfce7", padding: "1px 4px", borderRadius: 3 }}>A / B</code> → chấp nhận một trong hai.<br />
         <strong>Q5–Q6 (Free write):</strong> Bất kỳ câu hợp lý nào đều được chấp nhận trong thi thật. Điền đáp án mẫu để hệ thống chấm tương đối.

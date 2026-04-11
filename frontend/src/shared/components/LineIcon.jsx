@@ -124,13 +124,13 @@ const LineIcon = ({ name, size = 18, strokeWidth = 1.9, className }) => {
     case "flowchart":
       return (
         <svg {...props}>
-          <rect x="4" y="4" width="6" height="4" rx="1" />
-          <rect x="14" y="10" width="6" height="4" rx="1" />
-          <rect x="4" y="16" width="6" height="4" rx="1" />
-          <path d="M10 6h4" />
-          <path d="M17 8v2" />
-          <path d="M14 12h-4" />
-          <path d="M7 8v8" />
+          <rect x="4.5" y="4" width="7" height="4" rx="1.2" />
+          <rect x="12.5" y="10" width="7" height="4" rx="1.2" />
+          <rect x="4.5" y="16" width="7" height="4" rx="1.2" />
+          <path d="M11.5 6h4" />
+          <path d="M16 8v2" />
+          <path d="M12.5 12h-4" />
+          <path d="M8.5 8v8" />
         </svg>
       );
     case "key":
