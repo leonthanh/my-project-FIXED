@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import StudentNavbar from "../../../shared/components/StudentNavbar";
+import InlineIcon from "../../../shared/components/InlineIcon.jsx";
 import "../../../shared/styles/take-test.css";
 import { apiPath, hostPath } from "../../../shared/utils/api";
 
@@ -15,9 +16,15 @@ const TakeListeningTest = () => {
   const [results, setResults] = useState(null);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
+  const [messageTone, setMessageTone] = useState("success");
   const [currentPartIndex, setCurrentPartIndex] = useState(0);
   const [audioUrl, setAudioUrl] = useState(null);
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
+
+  const updateMessage = (tone, text) => {
+    setMessageTone(tone);
+    setMessage(text);
+  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -44,7 +51,7 @@ const TakeListeningTest = () => {
         }
       } catch (error) {
         console.error("Error fetching test:", error);
-        setMessage(`❌ ${error.message}`);
+        updateMessage("error", error.message);
       } finally {
         setLoading(false);
       }
@@ -133,10 +140,10 @@ const TakeListeningTest = () => {
         details: submissionData.passages,
       });
       setSubmitted(true);
-      setMessage("✅ Nộp bài thành công!");
+      updateMessage("success", "Nộp bài thành công!");
     } catch (error) {
       console.error("Error submitting test:", error);
-      setMessage(`❌ ${error.message}`);
+      updateMessage("error", error.message);
     } finally {
       setLoading(false);
     }
@@ -177,7 +184,7 @@ const TakeListeningTest = () => {
         <div
           style={{ maxWidth: "1000px", margin: "20px auto", padding: "0 20px" }}
         >
-          <p>⏳ Đang tải đề thi...</p>
+          <p style={{ display: "inline-flex", alignItems: "center", gap: 8 }}><InlineIcon name="loading" size={16} />Đang tải đề thi...</p>
         </div>
       </>
     );
@@ -190,8 +197,9 @@ const TakeListeningTest = () => {
         <div
           style={{ maxWidth: "1000px", margin: "20px auto", padding: "0 20px" }}
         >
-          <p style={{ color: "red" }}>
-            {message || "❌ Không tìm thấy đề thi"}
+          <p style={{ color: "red", display: "inline-flex", alignItems: "center", gap: 8 }}>
+            <InlineIcon name="error" size={16} style={{ color: "red" }} />
+            {message || "Không tìm thấy đề thi"}
           </p>
         </div>
       </>
@@ -215,7 +223,7 @@ const TakeListeningTest = () => {
               marginBottom: "20px",
             }}
           >
-            <h2>📊 Kết Quả Bài Làm</h2>
+            <h2 style={{ display: "inline-flex", alignItems: "center", gap: 8 }}><InlineIcon name="overview" size={20} />Kết Quả Bài Làm</h2>
             <div
               style={{
                 fontSize: "48px",
@@ -313,7 +321,7 @@ const TakeListeningTest = () => {
                           fontWeight: "bold",
                         }}
                       >
-                        {q.isCorrect ? "✅" : "❌"}
+                        <InlineIcon name={q.isCorrect ? "correct" : "error"} size={16} style={{ color: q.isCorrect ? "#15803d" : "#b91c1c" }} />
                       </td>
                     </tr>
                   ))}
@@ -362,7 +370,7 @@ const TakeListeningTest = () => {
           }}
         >
           <h3 style={{ marginTop: 0, color: "#0e276f" }}>
-            🎧 {currentPart.title}
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}><InlineIcon name="listening" size={18} />{currentPart.title}</span>
           </h3>
           {audioUrl && (
             <>
@@ -385,11 +393,11 @@ const TakeListeningTest = () => {
                     marginRight: "10px",
                   }}
                 >
-                  ▶ Phát lại
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><InlineIcon name="play" size={14} />Phát lại</span>
                 </button>
                 {isPlayingAudio && (
-                  <span style={{ color: "#0e276f", fontWeight: "bold" }}>
-                    🔊 Đang phát...
+                  <span style={{ color: "#0e276f", fontWeight: "bold", display: "inline-flex", alignItems: "center", gap: 6 }}>
+                    <InlineIcon name="listening" size={14} />Đang phát...
                   </span>
                 )}
               </div>
@@ -606,7 +614,7 @@ const TakeListeningTest = () => {
               fontWeight: "bold",
             }}
           >
-            {loading ? "⏳ Đang xử lý..." : "✅ Nộp bài"}
+            {loading ? <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><InlineIcon name="loading" size={14} style={{ color: "white" }} />Đang xử lý...</span> : <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><InlineIcon name="correct" size={14} style={{ color: "white" }} />Nộp bài</span>}
           </button>
         </div>
 
@@ -616,11 +624,15 @@ const TakeListeningTest = () => {
               padding: "15px",
               marginBottom: "20px",
               borderRadius: "6px",
-              backgroundColor: message.includes("❌") ? "#ffe6e6" : "#e6ffe6",
-              color: message.includes("❌") ? "red" : "green",
+              backgroundColor: messageTone === "error" ? "#ffe6e6" : "#e6ffe6",
+              color: messageTone === "error" ? "red" : "green",
               fontWeight: "bold",
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
             }}
           >
+            <InlineIcon name={messageTone === "error" ? "error" : "correct"} size={16} style={{ color: messageTone === "error" ? "red" : "green" }} />
             {message}
           </div>
         )}

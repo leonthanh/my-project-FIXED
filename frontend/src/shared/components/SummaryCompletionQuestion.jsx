@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import QuillEditor from './QuillEditor';
+import InlineIcon from './InlineIcon.jsx';
 
 // SummaryCompletionQuestion
 // Teacher editor for "Complete the summary using the list of words A-L".
@@ -67,7 +68,7 @@ const SummaryCompletionQuestion = ({ question = {}, onChange }) => {
             <div key={idx} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
               <div style={{ width: 28, height: 28, borderRadius: 14, background: '#fef3c7', color: '#92400e', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>{String.fromCharCode(65+idx)}</div>
               <input value={opt} onChange={(e) => handleOptionChange(idx, e.target.value)} placeholder={`Option ${String.fromCharCode(65+idx)}`} style={{ flex: 1, padding: '8px 12px' }} />
-              {options.length > 2 && <button type="button" onClick={() => removeOption(idx)} style={{ background: '#ef4444', color: 'white', border: 'none', padding: '6px 8px', borderRadius: 6 }}>×</button>}
+              {options.length > 2 && <button type="button" onClick={() => removeOption(idx)} style={{ background: '#ef4444', color: 'white', border: 'none', padding: '6px 8px', borderRadius: 6, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}><InlineIcon name="close" size={12} style={{ color: 'white' }} /></button>}
             </div>
           ))}
           {options.length < 26 && (

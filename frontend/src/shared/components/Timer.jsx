@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import InlineIcon from './InlineIcon.jsx';
 
 const Timer = ({ 
   duration = 40 * 60, // Default 40 minutes in seconds
@@ -76,11 +77,12 @@ const Timer = ({
 
   return (
     <div style={getTimerStyle()}>
-      <span style={{ fontSize: '1.4rem' }}>⏱️</span>
+      <InlineIcon name="clock" size={18} style={{ color: 'currentColor' }} />
       <span>{formatTime(timeLeft)}</span>
       {timeLeft <= warningTime && (
-        <span style={{ marginLeft: 'auto', fontSize: '0.9rem' }}>
-          {timeLeft <= 60 ? '⚠️ Sắp hết giờ!' : '⚠️ Còn 5 phút!'}
+        <span style={{ marginLeft: 'auto', fontSize: '0.9rem', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+          <InlineIcon name="average" size={14} style={{ color: 'currentColor' }} />
+          {timeLeft <= 60 ? 'Sắp hết giờ!' : 'Còn 5 phút!'}
         </span>
       )}
     </div>

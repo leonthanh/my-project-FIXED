@@ -1,6 +1,22 @@
 import React, { useState, useRef, useEffect } from "react";
 import { hostPath } from "../../../shared/utils/api";
+import LineIcon from "../../../shared/components/LineIcon.jsx";
 import AnchoredImageStage from "./AnchoredImageStage";
+
+const InlineIcon = ({ name, size = 16, strokeWidth = 2, style }) => (
+  <span
+    aria-hidden="true"
+    style={{
+      display: "inline-flex",
+      alignItems: "center",
+      justifyContent: "center",
+      lineHeight: 0,
+      ...style,
+    }}
+  >
+    <LineIcon name={name} size={size} strokeWidth={strokeWidth} />
+  </span>
+);
 
 const resolveImg = (url) => {
   if (!url) return "";
@@ -46,7 +62,7 @@ export const PartTab = ({ cfg, isActive, isComplete, onClick }) => (
       transition: "all 0.15s",
     }}
   >
-    <span style={{ fontSize: "20px" }}>{cfg.emoji}</span>
+    <InlineIcon name={cfg.iconName || "questions"} size={20} style={{ color: isActive ? cfg.color : "#475569" }} />
     <div style={{ flex: 1, minWidth: 0 }}>
       <div
         style={{
@@ -70,7 +86,7 @@ export const PartTab = ({ cfg, isActive, isComplete, onClick }) => (
       </div>
     </div>
     {isComplete && (
-      <span style={{ fontSize: "14px", color: "#10b981" }}>✓</span>
+      <InlineIcon name="correct" size={14} style={{ color: "#10b981" }} />
     )}
   </button>
 );
@@ -131,8 +147,9 @@ export const FillQuestionsEditor = ({
           borderRadius: "10px",
           background: "#eef2ff",
         }}>
-          <div style={{ fontSize: "12px", fontWeight: 700, color: "#4f46e5", marginBottom: "8px", textTransform: "uppercase", letterSpacing: "0.04em" }}>
-            🏷️ Tiêu đề hình ảnh — hiển thị to bên UI học sinh
+          <div style={{ fontSize: "12px", fontWeight: 700, color: "#4f46e5", marginBottom: "8px", textTransform: "uppercase", letterSpacing: "0.04em", display: "flex", alignItems: "center", gap: "6px" }}>
+            <InlineIcon name="tag" size={14} />
+            Tiêu đề hình ảnh — hiển thị to bên UI học sinh
           </div>
           <input
             type="text"
@@ -337,7 +354,7 @@ export const FillQuestionsEditor = ({
                         flexShrink: 0,
                       }}
                       title="Xóa đáp án này"
-                    >×</button>
+                    ><InlineIcon name="close" size={14} style={{ color: "currentColor" }} /></button>
                   )}
                 </div>
               );
@@ -518,7 +535,7 @@ export const MatchingPartEditor = ({ data, onChange, partImageUrl }) => {
                       justifyContent: "center",
                     }}
                   >
-                    {anchor ? "●" : "📍"}
+                    <InlineIcon name={anchor ? "target" : "pin"} size={14} style={{ color: isPending ? "white" : color }} />
                   </button>
                 )}
                 {i > 0 ? (
@@ -541,7 +558,7 @@ export const MatchingPartEditor = ({ data, onChange, partImageUrl }) => {
                       justifyContent: "center",
                     }}
                   >
-                    ×
+                    <InlineIcon name="close" size={14} style={{ color: "currentColor" }} />
                   </button>
                 ) : (
                   <div style={{ width: hasImage ? "36px" : "6px", flexShrink: 0 }} />
@@ -620,7 +637,7 @@ export const MatchingPartEditor = ({ data, onChange, partImageUrl }) => {
                         }}
                         title="Xoa diem nay"
                       >
-                        ×
+                        <InlineIcon name="close" size={12} style={{ color: "currentColor" }} />
                       </span>
                     </div>
                   </div>
@@ -847,7 +864,7 @@ export const LetterMatchingEditor = ({ data, onChange, onUploadImage }) => {
 
       {/* Context prompt text */}
       <div style={{ marginBottom: "18px" }}>
-        <label style={labelStyle}>📝 Câu hỏi / nội dung giới thiệu (tùy chọn)</label>
+        <label style={{ ...labelStyle, display: "flex", alignItems: "center", gap: "6px" }}><InlineIcon name="writing" size={14} />Câu hỏi / nội dung giới thiệu (tùy chọn)</label>
         <input
           type="text"
           value={data?.questionText || ""}
@@ -859,7 +876,7 @@ export const LetterMatchingEditor = ({ data, onChange, onUploadImage }) => {
 
       {/* People list */}
       <div style={{ marginBottom: "24px" }}>
-        <label style={labelStyle}>👤 Danh sách nhân vật (hàng 1 = ví dụ)</label>
+        <label style={{ ...labelStyle, display: "flex", alignItems: "center", gap: "6px" }}><InlineIcon name="user" size={14} />Danh sách nhân vật (hàng 1 = ví dụ)</label>
         {people.map((person, idx) => (
           <div
             key={idx}
@@ -925,7 +942,7 @@ export const LetterMatchingEditor = ({ data, onChange, onUploadImage }) => {
                   border: "1.5px solid #c4b5fd", whiteSpace: "nowrap",
                 }}
               >
-                {uploading[`person-${idx}`] ? "⏳" : "⬆️"}
+                {uploading[`person-${idx}`] ? <InlineIcon name="loading" size={12} /> : <InlineIcon name="upload" size={12} />}
                 <input
                   type="file" accept="image/*,image/gif" style={{ display: "none" }}
                   onChange={(e) => {
@@ -961,7 +978,7 @@ export const LetterMatchingEditor = ({ data, onChange, onUploadImage }) => {
 
       {/* Options A–H: 2-column with image upload + preview */}
       <div>
-        <label style={labelStyle}>🖼️ Hình lựa chọn (A – H) — học sinh kéo thả</label>
+        <label style={{ ...labelStyle, display: "flex", alignItems: "center", gap: "6px" }}><InlineIcon name="image" size={14} />Hình lựa chọn (A – H) — học sinh kéo thả</label>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
           {options.map((opt, idx) => (
             <div
@@ -1026,7 +1043,7 @@ export const LetterMatchingEditor = ({ data, onChange, onUploadImage }) => {
                     transition: "background 0.15s", flexShrink: 0, whiteSpace: "nowrap",
                   }}
                 >
-                  {uploading[`opt-${idx}`] ? "⏳" : "⬆️ Upload"}
+                  {uploading[`opt-${idx}`] ? <span style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}><InlineIcon name="loading" size={12} />Uploading...</span> : <span style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}><InlineIcon name="upload" size={12} />Upload</span>}
                   <input
                     type="file" accept="image/*,image/gif" style={{ display: "none" }}
                     onChange={(e) => {
@@ -1054,7 +1071,7 @@ export const LetterMatchingEditor = ({ data, onChange, onUploadImage }) => {
 };
 
 // ─── ImageTickEditor ────────────────────────────────────────────────────────
-// Part 4: "Listen and tick (✓) the box" – 3-image multiple choice per question
+// Part 4: "Listen and tick the box" – 3-image multiple choice per question
 export const ImageTickEditor = ({
   questions,
   onChange,
@@ -1140,7 +1157,7 @@ export const ImageTickEditor = ({
             <div style={{ width: "100%", height: "150px", borderRadius: "8px", border: "1px solid #e5e7eb", overflow: "hidden", background: "#f8fafc", display: "flex", alignItems: "center", justifyContent: "center" }}>
               {imgUrl
                 ? <img src={resolveImg(imgUrl)} alt={letter} style={{ width: "100%", height: "100%", objectFit: "contain" }} />
-                : <span style={{ fontSize: "32px", color: "#d1d5db" }}>🖼️</span>
+                : <InlineIcon name="image" size={28} style={{ color: "#d1d5db" }} />
               }
             </div>
             {/* URL input */}
@@ -1154,7 +1171,7 @@ export const ImageTickEditor = ({
             {/* Upload */}
             {onUploadImage && (
               <label style={{ display: "block", cursor: "pointer", textAlign: "center", fontSize: "13px", fontWeight: 700, padding: "8px 6px", borderRadius: "8px", background: uploading[slotKey] ? "#e5e7eb" : "#eef2ff", color: uploading[slotKey] ? "#9ca3af" : "#6366f1" }}>
-                {uploading[slotKey] ? "⏳ Uploading…" : "📤 Upload hình"}
+                {uploading[slotKey] ? <span style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}><InlineIcon name="loading" size={12} />Uploading...</span> : <span style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}><InlineIcon name="upload" size={12} />Upload hình</span>}
                 <input
                   type="file"
                   accept="image/*"
@@ -1291,13 +1308,14 @@ export const ColourWriteEditor = ({
   const renderPositionPicker = ({ pos, onSet, onClear, color, label, isColour }) => {
     if (!sceneImageUrl) return (
       <p style={{ fontSize: "12px", color: "#94a3b8", marginTop: "8px" }}>
-        📸 Upload hình đề thi ở trên trước để đánh dấu vị trí.
+        <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}><InlineIcon name="image" size={12} />Upload hình đề thi ở trên trước để đánh dấu vị trí.</span>
       </p>
     );
     return (
       <div style={{ marginTop: "12px" }}>
-        <div style={{ fontSize: "12px", color: "#6b7280", fontWeight: 700, marginBottom: "6px" }}>
-          📍 Click vào hình để đánh dấu vị trí {isColour ? "đối tượng cần tô" : "chỗ cần viết"}:
+        <div style={{ fontSize: "12px", color: "#6b7280", fontWeight: 700, marginBottom: "6px", display: "flex", alignItems: "center", gap: "6px" }}>
+          <InlineIcon name="pin" size={12} />
+          Click vào hình để đánh dấu vị trí {isColour ? "đối tượng cần tô" : "chỗ cần viết"}:
         </div>
         <div
           style={{ position: "relative", borderRadius: "10px", overflow: "hidden", cursor: "crosshair", border: "1.5px solid #e5e7eb", userSelect: "none" }}
@@ -1332,7 +1350,8 @@ export const ColourWriteEditor = ({
                 fontWeight: 800, fontSize: "13px", color: "#1e293b",
                 pointerEvents: "none", whiteSpace: "nowrap",
                 boxShadow: "0 2px 10px rgba(0,0,0,0.22)",
-              }}>✏️ {label}</div>
+                display: "inline-flex", alignItems: "center", gap: "6px",
+              }}><InlineIcon name="writing" size={12} />{label}</div>
             )
           ) : (
             <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.20)", pointerEvents: "none" }}>
@@ -1345,7 +1364,7 @@ export const ColourWriteEditor = ({
         {pos && (
           <button type="button" onClick={onClear}
             style={{ marginTop: "5px", fontSize: "11px", color: "#ef4444", background: "none", border: "none", cursor: "pointer", padding: "2px 0" }}>
-            ✕ Xóa vị trí
+            <span style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}><InlineIcon name="close" size={12} />Xóa vị trí</span>
           </button>
         )}
       </div>
@@ -1427,7 +1446,7 @@ export const ColourWriteEditor = ({
                 }}
                 style={{ accentColor: type === "colour" ? "#ef4444" : "#3b82f6" }}
               />
-              {type === "colour" ? "🎨 Tô màu" : "✏️ Viết từ"}
+              <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}><InlineIcon name={type === "colour" ? "palette" : "writing"} size={14} />{type === "colour" ? "Tô màu" : "Viết từ"}</span>
             </label>
           ))}
         </div>
@@ -1435,7 +1454,7 @@ export const ColourWriteEditor = ({
         {/* Answer + position picker */}
         {taskType === "colour" ? (
           <>
-            <div style={{ fontSize: "12px", fontWeight: 700, color: "#6b7280", marginBottom: "7px" }}>🎯 Màu đúng:</div>
+            <div style={{ fontSize: "12px", fontWeight: 700, color: "#6b7280", marginBottom: "7px", display: "flex", alignItems: "center", gap: "6px" }}><InlineIcon name="target" size={12} />Màu đúng:</div>
             <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", alignItems: "center", marginBottom: "4px" }}>
               {COLOUR_PALETTE_EDITOR.map((c) => (
                 <button key={c.label} type="button" title={c.label}
@@ -1462,7 +1481,7 @@ export const ColourWriteEditor = ({
           </>
         ) : (
           <>
-            <div style={{ fontSize: "12px", fontWeight: 700, color: "#6b7280", marginBottom: "7px" }}>🎯 Từ đúng:</div>
+            <div style={{ fontSize: "12px", fontWeight: 700, color: "#6b7280", marginBottom: "7px", display: "flex", alignItems: "center", gap: "6px" }}><InlineIcon name="target" size={12} />Từ đúng:</div>
             <input
               type="text"
               placeholder="Từ cần viết (vd: SCHOOL)"
@@ -1483,8 +1502,9 @@ export const ColourWriteEditor = ({
 
       {/* Scene image overview with all markers */}
       <div style={{ padding: "18px", border: "1.5px solid #e5e7eb", borderRadius: "14px", background: "#f9fafb" }}>
-        <div style={{ fontSize: "14px", fontWeight: 700, color: "#374151", marginBottom: "12px" }}>
-          🖼️ Hình đề thi
+        <div style={{ fontSize: "14px", fontWeight: 700, color: "#374151", marginBottom: "12px", display: "flex", alignItems: "center", gap: "6px" }}>
+          <InlineIcon name="image" size={16} />
+          Hình đề thi
         </div>
         <div style={{ position: "relative", borderRadius: "12px", overflow: "hidden", marginBottom: "12px" }}>
           {sceneImageUrl ? (
@@ -1510,7 +1530,7 @@ export const ColourWriteEditor = ({
                 );
               })()}
               {exampleItem?.textPosition && (
-                <div style={{ position: "absolute", left: `${exampleItem.textPosition.x}%`, top: `${exampleItem.textPosition.y}%`, transform: "translate(-50%, -50%)", background: "rgba(255,255,200,0.95)", border: "2px solid #1e293b", borderRadius: "7px", padding: "3px 8px", fontWeight: 800, fontSize: "12px", color: "#1e293b", pointerEvents: "none", whiteSpace: "nowrap" }}>✏️ VD</div>
+                <div style={{ position: "absolute", left: `${exampleItem.textPosition.x}%`, top: `${exampleItem.textPosition.y}%`, transform: "translate(-50%, -50%)", background: "rgba(255,255,200,0.95)", border: "2px solid #1e293b", borderRadius: "7px", padding: "3px 8px", fontWeight: 800, fontSize: "12px", color: "#1e293b", pointerEvents: "none", whiteSpace: "nowrap", display: "inline-flex", alignItems: "center", gap: "4px" }}><InlineIcon name="writing" size={12} />VD</div>
               )}
               {/* Question markers */}
               {questions.map((q, idx) => {
@@ -1550,7 +1570,8 @@ export const ColourWriteEditor = ({
                       borderRadius: "7px", padding: "3px 8px", cursor: "pointer",
                       fontWeight: 800, fontSize: "11px", color: "#92400e",
                       boxShadow: "0 2px 6px rgba(0,0,0,0.20)", whiteSpace: "nowrap",
-                    }}>✏️ mồi ×</div>
+                      display: "inline-flex", alignItems: "center", gap: "4px",
+                    }}><InlineIcon name="writing" size={11} />mồi x</div>
                 ) : (
                   <div key={`decoy-${di}`} title={`Decoy màu ${di + 1} — click để xóa`}
                     onClick={(e) => { e.stopPropagation(); onDecoyPositionsChange?.(decoyPositions.filter((_, i) => i !== di)); }}
@@ -1563,21 +1584,21 @@ export const ColourWriteEditor = ({
                       display: "flex", alignItems: "center", justifyContent: "center",
                       fontWeight: 900, fontSize: "14px", color: "#fff",
                       cursor: "pointer", zIndex: 10,
-                    }}>×</div>
+                    }}><InlineIcon name="close" size={14} style={{ color: "#fff" }} /></div>
                 );
               })}
               {/* Overlay hint when in decoy-adding mode */}
               {addingDecoy && (
                 <div style={{ position: "absolute", inset: 0, background: "rgba(124,58,237,0.15)", display: "flex", alignItems: "flex-end", justifyContent: "center", paddingBottom: "14px", pointerEvents: "none" }}>
                   <span style={{ background: "rgba(124,58,237,0.85)", color: "#fff", fontWeight: 800, fontSize: "13px", padding: "6px 18px", borderRadius: "20px" }}>
-                    🎯 Click vào hình để đặt {decoyType === 'write' ? 'ô chữ mồi' : 'vòng tròn mồi'}
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}><InlineIcon name="target" size={12} style={{ color: "#fff" }} />Click vào hình để đặt {decoyType === 'write' ? 'ô chữ mồi' : 'vòng tròn mồi'}</span>
                   </span>
                 </div>
               )}
             </>
           ) : (
             <div style={{ minHeight: "160px", display: "flex", alignItems: "center", justifyContent: "center", background: "#f1f5f9", borderRadius: "12px" }}>
-              <span style={{ color: "#94a3b8", fontSize: "14px", fontWeight: 600 }}>📸 Chưa có hình — Upload hình bên dưới</span>
+              <span style={{ color: "#94a3b8", fontSize: "14px", fontWeight: 600, display: "inline-flex", alignItems: "center", gap: "6px" }}><InlineIcon name="image" size={14} />Chưa có hình — Upload hình bên dưới</span>
             </div>
           )}
         </div>
@@ -1592,7 +1613,7 @@ export const ColourWriteEditor = ({
         />
         {onUploadImage && (
           <label style={{ display: "inline-block", cursor: "pointer", fontSize: "13px", fontWeight: 700, padding: "8px 18px", borderRadius: "8px", background: uploading["scene"] ? "#e5e7eb" : "#eef2ff", color: uploading["scene"] ? "#9ca3af" : "#6366f1" }}>
-            {uploading["scene"] ? "⏳ Uploading…" : "📤 Upload hình đề"}
+            {uploading["scene"] ? <span style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}><InlineIcon name="loading" size={12} />Uploading...</span> : <span style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}><InlineIcon name="upload" size={12} />Upload hình đề</span>}
             <input type="file" accept="image/*" style={{ display: "none" }}
               onChange={(e) => { const f = e.target.files?.[0]; if (f) doUpload(f, "scene", (url) => onSceneImageUrlChange?.(url)); e.target.value = ""; }}
             />
@@ -1602,22 +1623,23 @@ export const ColourWriteEditor = ({
         {/* Decoy circle controls */}
         {sceneImageUrl && onDecoyPositionsChange && (
           <div style={{ marginTop: "12px", padding: "12px 14px", borderRadius: "10px", background: "#faf5ff", border: "1.5px dashed #a78bfa" }}>
-            <div style={{ fontSize: "12px", fontWeight: 700, color: "#7c3aed", marginBottom: "8px" }}>
-              🎭 Vòng tròn mồi (Decoy) — học sinh sẽ thấy nhưng không phải câu hỏi thật
+            <div style={{ fontSize: "12px", fontWeight: 700, color: "#7c3aed", marginBottom: "8px", display: "flex", alignItems: "center", gap: "6px" }}>
+              <InlineIcon name="target" size={12} />
+              Vòng tròn mồi (Decoy) — học sinh sẽ thấy nhưng không phải câu hỏi thật
             </div>
             <div style={{ display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" }}>
               {/* Decoy type toggle */}
-              {[{ val: 'colour', label: '🎨 Vòng tròn' }, { val: 'write', label: '✏️ Ô chữ' }].map(opt => (
+              {[{ val: 'colour', label: 'Vòng tròn', iconName: 'palette' }, { val: 'write', label: 'Ô chữ', iconName: 'writing' }].map(opt => (
                 <button key={opt.val} type="button" onClick={() => setDecoyType(opt.val)}
                   style={{ padding: "5px 12px", borderRadius: "7px", fontWeight: 700, fontSize: "11px", cursor: "pointer",
                     border: `1.5px solid ${decoyType === opt.val ? '#7c3aed' : '#d1d5db'}`,
                     background: decoyType === opt.val ? '#ede9fe' : '#fff',
-                    color: decoyType === opt.val ? '#7c3aed' : '#6b7280' }}>{opt.label}</button>
+                    color: decoyType === opt.val ? '#7c3aed' : '#6b7280', display: 'inline-flex', alignItems: 'center', gap: '6px' }}><InlineIcon name={opt.iconName} size={12} />{opt.label}</button>
               ))}
               <button type="button"
                 onClick={() => setAddingDecoy((v) => !v)}
                 style={{ padding: "6px 14px", borderRadius: "8px", fontWeight: 700, fontSize: "12px", cursor: "pointer", border: addingDecoy ? "2px solid #7c3aed" : "1.5px solid #a78bfa", background: addingDecoy ? "#ede9fe" : "#fff", color: "#7c3aed" }}>
-                {addingDecoy ? "✕ Hủy" : `+ Thêm ${decoyType === 'write' ? 'ô chữ mồi' : 'vòng tròn mồi'}`}
+                {addingDecoy ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><InlineIcon name="close" size={12} />Hủy</span> : <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><InlineIcon name="create" size={12} />Thêm {decoyType === 'write' ? 'ô chữ mồi' : 'vòng tròn mồi'}</span>}
               </button>
               {decoyPositions.length > 0 && (
                 <>

@@ -1,4 +1,5 @@
 import React from 'react';
+import InlineIcon from './InlineIcon.jsx';
 import AudioPlayer from '../../features/listening/components/AudioPlayer';
 import { isAnswerCorrect } from '../utils/answerUtils';
 
@@ -158,8 +159,10 @@ const PreviewSection = ({
                   { showCorrectness && studentRaw !== "" && (
                     <div style={{ marginTop: 8 }}>
                       {/* compute correctness using isAnswerCorrect helper */}
-                      <small style={{ color: isAnswerCorrect(correctRaw, studentRaw) ? '#155724' : '#721c24', fontWeight: 700 }}>
-                        Trạng thái: { isAnswerCorrect(correctRaw, studentRaw) ? '✓ Đúng' : '✕ Sai' }
+                      <small style={{ color: isAnswerCorrect(correctRaw, studentRaw) ? '#155724' : '#721c24', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                        <span>Trạng thái:</span>
+                        <InlineIcon name={isAnswerCorrect(correctRaw, studentRaw) ? 'correct' : 'wrong'} size={12} />
+                        {isAnswerCorrect(correctRaw, studentRaw) ? 'Đúng' : 'Sai'}
                       </small>
                     </div>
                   )}

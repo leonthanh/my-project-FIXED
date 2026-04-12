@@ -1,4 +1,5 @@
 import React from "react";
+import InlineIcon from "../../../shared/components/InlineIcon.jsx";
 
 const defaultHighlightColor = "#f59e0b";
 
@@ -182,9 +183,11 @@ export const ExpandableSubmissionList = ({
                   fontSize: 16,
                   color: tone.subtleText,
                   marginLeft: 4,
+                  display: "inline-flex",
+                  alignItems: "center",
                 }}
               >
-                {isExpanded ? "▲" : "▼"}
+                <InlineIcon name={isExpanded ? "chevron-up" : "chevron-down"} size={14} style={{ color: "currentColor" }} />
               </span>
             </div>
 

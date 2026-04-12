@@ -2,6 +2,7 @@ import React from "react";
 import ReactQuill from "react-quill";
 import "react-quill/dist/quill.snow.css";
 import useQuillImageUpload from "../../../hooks/useQuillImageUpload";
+import InlineIcon from "../../InlineIcon.jsx";
 
 /**
  * ShortMessageEditor - Editor cho KET/PET Part 7 Writing Task
@@ -58,7 +59,7 @@ const ShortMessageEditor = ({
         color: "white",
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-          <span style={{ fontSize: "24px" }}>✉️</span>
+          <InlineIcon name="mail" size={22} style={{ color: "white" }} />
           <div style={{ flex: 1 }}>
             <h3 style={{ margin: 0, fontSize: "16px", fontWeight: 600 }}>
               Part {partIndex + 1} - Writing Task

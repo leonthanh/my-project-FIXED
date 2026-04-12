@@ -234,19 +234,19 @@ const EditListeningTest = () => {
     if (e) e.preventDefault();
 
     if (!classCode || !classCode.trim()) {
-      setMessage("⚠️ Vui lòng nhập mã lớp");
+      setMessage("Warning: Vui lòng nhập mã lớp");
       setTimeout(() => setMessage(""), 3000);
       return;
     }
 
     if (!teacherName || !teacherName.trim()) {
-      setMessage("⚠️ Vui lòng nhập tên giáo viên");
+      setMessage("Warning: Vui lòng nhập tên giáo viên");
       setTimeout(() => setMessage(""), 3000);
       return;
     }
 
     if (calculateTotalQuestions(parts) === 0) {
-      setMessage("⚠️ Vui lòng thêm ít nhất 1 câu hỏi");
+      setMessage("Warning: Vui lòng thêm ít nhất 1 câu hỏi");
       setTimeout(() => setMessage(""), 3000);
       return;
     }
@@ -451,14 +451,14 @@ const EditListeningTest = () => {
       if (!response.ok) {
         if (response.status === 401) {
           try { localStorage.setItem(`listeningTestDraftEdit-${id}`, JSON.stringify({ title, classCode, teacherName, parts, showResultModal })); } catch (e) {}
-          setMessage('❌ Token đã hết hạn hoặc không hợp lệ. Vui lòng đăng nhập lại để tiếp tục. Bản nháp đã được lưu.');
+          setMessage('Error: Token đã hết hạn hoặc không hợp lệ. Vui lòng đăng nhập lại để tiếp tục. Bản nháp đã được lưu.');
           setRequiresLogin(true);
           return;
         }
         throw new Error(data.message || "Lỗi khi cập nhật đề thi");
       }
 
-      setMessage("✅ Cập nhật đề thi thành công!");
+      setMessage("Success: Cập nhật đề thi thành công!");
       try { localStorage.removeItem(`listeningTestDraftEdit-${id}`); } catch (e) { /* ignore */ }
 
       setTimeout(() => {
@@ -472,7 +472,7 @@ const EditListeningTest = () => {
           title, classCode, teacherName, parts, showResultModal, savedAt: new Date().toISOString()
         }));
       } catch (e) { console.error("Error saving edit draft after failure", e); }
-      setMessage(`❌ ${error.message}`);
+      setMessage(`Error: ${error.message}`);
     } finally {
       setIsUpdating(false);
       setIsReviewing(false);

@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import ReactQuill from "react-quill";
 import AdminNavbar from "../../../shared/components/AdminNavbar";
+import InlineIcon from "../../../shared/components/InlineIcon.jsx";
 import { apiPath, authFetch, redirectToLogin } from "../../../shared/utils/api";
 import useQuillImageUpload from "../../../shared/hooks/useQuillImageUpload";
 
@@ -26,6 +27,7 @@ const CreatePetWritingTest = () => {
   const [teacherName, setTeacherName] = useState("");
   const [image, setImage] = useState(null);
   const [message, setMessage] = useState("");
+  const [messageTone, setMessageTone] = useState("success");
   const [showPreview, setShowPreview] = useState(false);
   const [requiresLogin, setRequiresLogin] = useState(false);
   const [activeTab, setActiveTab] = useState("part1");
@@ -49,11 +51,16 @@ const CreatePetWritingTest = () => {
     }
   };
 
+  const updateMessage = (tone, text) => {
+    setMessageTone(tone);
+    setMessage(text);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (!task1.trim() || !part2Question2.trim() || !part2Question3.trim()) {
-      setMessage("❌ Vui lòng nhập đầy đủ Part 1 và Part 2 (Q2/Q3).");
+      updateMessage("error", "Vui lòng nhập đầy đủ Part 1 và Part 2 (Q2/Q3).");
       return;
     }
 
@@ -103,17 +110,18 @@ const CreatePetWritingTest = () => {
           try {
             saveDraft();
           } catch (e) {}
-          setMessage(
-            "❌ Token đã hết hạn hoặc không hợp lệ. Vui lòng đăng nhập lại. Bản nháp đã được lưu."
+          updateMessage(
+            "error",
+            "Token đã hết hạn hoặc không hợp lệ. Vui lòng đăng nhập lại. Bản nháp đã được lưu."
           );
           setRequiresLogin(true);
           return;
         }
-        setMessage(data.message || "❌ Lỗi khi tạo đề");
+        updateMessage("error", data.message || "Lỗi khi tạo đề");
         return;
       }
 
-      setMessage(data.message || "✅ Đã tạo đề PET Writing");
+      updateMessage("success", data.message || "Đã tạo đề PET Writing");
 
       setTask1("");
       setPart2Question2("");
@@ -124,7 +132,7 @@ const CreatePetWritingTest = () => {
       setTimeout(() => window.location.reload(), 2000);
     } catch (err) {
       console.error(err);
-      setMessage("❌ Lỗi khi tạo đề");
+      updateMessage("error", "Lỗi khi tạo đề");
     }
   };
 
@@ -151,7 +159,7 @@ const CreatePetWritingTest = () => {
               marginBottom: 12,
             }}
           >
-            <strong>⚠️ Bạn cần đăng nhập lại để hoàn tất thao tác.</strong>
+            <strong style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}><InlineIcon name="average" size={16} style={{ color: '#d97706' }} />Bạn cần đăng nhập lại để hoàn tất thao tác.</strong>
             <div style={{ marginTop: 8 }}>
               Bản nháp đã được lưu.
               <button
@@ -165,7 +173,7 @@ const CreatePetWritingTest = () => {
             </div>
           </div>
         )}
-        <h2>📝 Create PET Writing</h2>
+        <h2 style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}><InlineIcon name="writing" size={18} />Create PET Writing</h2>
         <form onSubmit={handleSubmit}>
           <input
             type="text"
@@ -301,7 +309,7 @@ const CreatePetWritingTest = () => {
                 cursor: "pointer",
               }}
             >
-              ➕ Tạo đề
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><InlineIcon name="create" size={14} style={{ color: 'white' }} />Tạo đề</span>
             </button>
 
             <button
@@ -317,7 +325,7 @@ const CreatePetWritingTest = () => {
                 cursor: "pointer",
               }}
             >
-              👁 Preview
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><InlineIcon name="eye" size={14} style={{ color: 'white' }} />Preview</span>
             </button>
           </div>
         </form>
@@ -327,7 +335,7 @@ const CreatePetWritingTest = () => {
             style={{
               marginTop: 10,
               fontWeight: "bold",
-              color: message.includes("❌") ? "red" : "green",
+              color: messageTone === "error" ? "red" : "green",
             }}
           >
             {message}
@@ -361,7 +369,7 @@ const CreatePetWritingTest = () => {
               }}
               onClick={(e) => e.stopPropagation()}
             >
-              <h3>📄 Xem trước đề PET Writing</h3>
+              <h3 style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}><InlineIcon name="document" size={18} />Xem trước đề PET Writing</h3>
               {image && (
                 <div style={{ marginBottom: "15px" }}>
                   <h4>Hình minh họa:</h4>

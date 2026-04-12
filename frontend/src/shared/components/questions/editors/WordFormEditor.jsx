@@ -1,4 +1,5 @@
 import React from "react";
+import InlineIcon from "../../InlineIcon.jsx";
 
 /**
  * WordFormEditor - KET Part 6: Word Formation/Completion
@@ -124,7 +125,7 @@ const WordFormEditor = ({
                   fontSize: "11px",
                 }}
               >
-                ×
+                <InlineIcon name="close" size={12} style={{ color: "currentColor" }} />
               </button>
             )}
 

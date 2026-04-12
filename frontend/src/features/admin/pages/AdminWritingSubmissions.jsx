@@ -303,7 +303,7 @@ const AdminWritingSubmissions = () => {
       alert(data?.message || "Đã gia hạn thời gian.");
       return true;
     } catch (err) {
-      alert(`❌ ${err.message}`);
+      alert(`Lỗi: ${err.message}`);
       return false;
     } finally {
       setExtendingId(null);

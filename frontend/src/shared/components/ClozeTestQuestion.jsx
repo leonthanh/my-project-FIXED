@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import QuillEditor from './QuillEditor';
+import InlineIcon from './InlineIcon.jsx';
 
 const DEFAULT_TABLE_COLUMNS = ['Test', 'Findings'];
 
@@ -482,7 +483,7 @@ const ClozeTestQuestion = ({ question, onChange }) => {
                   style={{ ...styles.answerInput, minWidth: '160px' }}
                 />
                 {tableColumns.length > 1 && (
-                  <button type="button" onClick={() => setTableColumns(tableColumns.filter((_, i) => i !== ci))} style={{ padding: '6px 8px' }}>✕</button>
+                  <button type="button" onClick={() => setTableColumns(tableColumns.filter((_, i) => i !== ci))} style={{ padding: '6px 8px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}><InlineIcon name="close" size={12} /></button>
                 )}
               </div>
             ))}

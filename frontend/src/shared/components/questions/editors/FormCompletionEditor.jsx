@@ -1,4 +1,5 @@
 import React from "react";
+import InlineIcon from "../../InlineIcon.jsx";
 
 /**
  * FormCompletionEditor - Visual Form Builder với 4 cột (IELTS format)
@@ -360,7 +361,7 @@ const FormCompletionEditor = ({
                   fontSize: "12px",
                 }}
               >
-                ×
+                <InlineIcon name="close" size={12} style={{ color: "currentColor" }} />
               </button>
             </div>
           </div>

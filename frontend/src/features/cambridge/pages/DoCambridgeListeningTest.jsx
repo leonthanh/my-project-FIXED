@@ -6,6 +6,7 @@ import ExtensionToast from "../../../shared/components/ExtensionToast";
 import TestStartModal from "../../../shared/components/TestStartModal";
 import ConfirmModal from "../../../shared/components/ConfirmModal";
 import CambridgeResultsModal from "../components/CambridgeResultsModal";
+import LineIcon from "../../../shared/components/LineIcon.jsx";
 import { useTheme } from "../../../shared/contexts/ThemeContext";
 import {
   formatClock,
@@ -21,6 +22,21 @@ import { ColourWriteStudentSection, DrawLinesQuestion, ImageTickSlideSection, Le
 import { OpenClozeSectionDisplay, GapMatchSectionDisplay } from "../components/CambridgeSectionDisplays";
 import createStyles from "./DoCambridgeListeningTest.styles";
 import './DoCambridgeReadingTest.css';
+
+const InlineIcon = ({ name, size = 16, strokeWidth = 2, style }) => (
+  <span
+    aria-hidden="true"
+    style={{
+      display: 'inline-flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      lineHeight: 0,
+      ...style,
+    }}
+  >
+    <LineIcon name={name} size={size} strokeWidth={strokeWidth} />
+  </span>
+);
 
 /**
  * DoCambridgeListeningTest - Trang làm bài thi Listening Cambridge (KET, PET, etc.)
@@ -1260,7 +1276,8 @@ const DoCambridgeListeningTest = () => {
           <span style={{
             position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)',
             fontSize: '18px', pointerEvents: 'none', opacity: 0.45,
-          }}>✏️</span>
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+          }}><InlineIcon name="writing" size={16} /></span>
           <input
             type="text"
             value={exampleAnswer}
@@ -1351,7 +1368,7 @@ const DoCambridgeListeningTest = () => {
           color: isDarkMode ? '#a5b4fc' : '#7c3aed',
           letterSpacing: '0.04em',
         }}>
-          🖐️ Kéo hình → ô bên trái
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}><InlineIcon name="matching" size={16} />Kéo hình → ô bên trái</span>
         </div>
 
         {/* Draggable option tiles 2 columns – letter badge LEFT, image fills rest */}
@@ -1445,7 +1462,7 @@ const DoCambridgeListeningTest = () => {
     );
   };
 
-  // ── Part 4: "Listen and tick (✓) the box" – image multiple choice ────────
+  // ── Part 4: "Listen and tick the box" – image multiple choice ────────
   const renderImageTickSection = (section, secIdx, sectionStartNum) => (
     <ImageTickSlideSection
       questions={Array.isArray(section.questions) ? section.questions : []}
@@ -1807,7 +1824,7 @@ const DoCambridgeListeningTest = () => {
   if (loading) {
     return (
       <div className="cambridge-loading">
-        <div style={{ fontSize: '48px', marginBottom: '20px' }}>⏳</div>
+        <div style={{ marginBottom: '20px' }}><InlineIcon name="loading" size={42} style={{ color: '#475569' }} /></div>
         <h2>Đang tải đề thi...</h2>
       </div>
     );
@@ -1817,7 +1834,7 @@ const DoCambridgeListeningTest = () => {
   if (error) {
     return (
       <div className="cambridge-error">
-        <div style={{ fontSize: '48px', marginBottom: '20px' }}>❌</div>
+        <div style={{ marginBottom: '20px' }}><InlineIcon name="error" size={42} style={{ color: '#dc2626' }} /></div>
         <h2>Lỗi: {error}</h2>
         <button onClick={() => navigate(-1)} className="cambridge-nav-button">
           ← Quay lại
@@ -1906,7 +1923,7 @@ const DoCambridgeListeningTest = () => {
           style={{ padding: '10px 24px', background: isDarkMode ? '#111827' : '#f8fafc', borderBottom: `1px solid ${isDarkMode ? '#2a3350' : '#e5e7eb'}` }}
         >
           <div style={styles.audioContainer}>
-            <span style={{ marginRight: '12px' }}>🎧</span>
+            <InlineIcon name="listening" size={18} style={{ marginRight: '12px', color: isDarkMode ? '#e2e8f0' : '#0f172a' }} />
             <div style={{ flex: 1, fontSize: 14, color: isDarkMode ? '#e5e7eb' : '#0f172a' }}>
               Global audio is ready for this test.
             </div>
@@ -2018,7 +2035,7 @@ const DoCambridgeListeningTest = () => {
 
                   {resolvedAudioSrc && !usesSharedAudio && (
                     <div style={{ ...styles.audioContainer, marginBottom: 12 }}>
-                      <span style={{ marginRight: '12px' }}>🎧</span>
+                      <InlineIcon name="listening" size={18} style={{ marginRight: '12px', color: isDarkMode ? '#e2e8f0' : '#0f172a' }} />
                       <audio
                         ref={audioRef}
                         data-listening-audio="true"
@@ -2180,7 +2197,7 @@ const DoCambridgeListeningTest = () => {
                                       aria-label="Flag question"
                                       type="button"
                                     >
-                                      {flaggedQuestions.has(key) ? '🚩' : '⚐'}
+                                      <InlineIcon name="flag" size={14} />
                                     </button>
 
                                     <div style={{ paddingRight: '50px' }}>
@@ -2219,7 +2236,7 @@ const DoCambridgeListeningTest = () => {
                                       </div>
 
                                       {submitted && correct && !isCorrect && (
-                                        <div style={styles.correctAnswer}>✓ Đáp án đúng: {correct}</div>
+                                        <div style={styles.correctAnswer}><InlineIcon name="correct" size={14} style={{ marginRight: 6 }} />Đáp án đúng: {correct}</div>
                                       )}
                                     </div>
                                   </div>
@@ -2327,8 +2344,8 @@ const DoCambridgeListeningTest = () => {
                                     display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
                                     width: '30px', height: '30px', borderRadius: '50%',
                                     background: isDarkMode ? '#312e81' : '#e0e7ff',
-                                    fontSize: '15px', flexShrink: 0,
-                                  }}>📝</span>
+                                    flexShrink: 0,
+                                  }}><InlineIcon name="writing" size={15} style={{ color: isDarkMode ? '#c7d2fe' : '#4338ca' }} /></span>
                                   {title}
                                 </div>
                               );
@@ -2470,7 +2487,7 @@ const DoCambridgeListeningTest = () => {
                                 color: '#fff', fontWeight: 900, fontSize: '16px', flexShrink: 0,
                                 boxShadow: submitted ? 'none' : '0 2px 8px rgba(124,58,237,0.4)',
                               }}>
-                                {submitted ? (isCorrect ? '✓' : '✗') : partStart + i}
+                                {submitted ? <InlineIcon name={isCorrect ? 'correct' : 'wrong'} size={16} style={{ color: '#fff' }} /> : partStart + i}
                               </span>
                               {/* Person photo */}
                               {person.photoUrl && (
@@ -2481,7 +2498,7 @@ const DoCambridgeListeningTest = () => {
                               <span style={{ flex: 1, fontWeight: 800, fontSize: '22px', color: isDarkMode ? '#e2e8f0' : '#1e293b', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                 {person.name}
                               </span>
-                              {/* Drop zone wrapper – relative so ✕ button can float above */}
+                              {/* Drop zone wrapper – relative so clear button can float above */}
                               <div style={{ position: 'relative', flexShrink: 0 }}>
                                 {/* Release / clear button */}
                                 {userAnswer && !submitted && (
@@ -2500,7 +2517,7 @@ const DoCambridgeListeningTest = () => {
                                     }}
                                     onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.2)'; }}
                                     onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
-                                  >✕</button>
+                                  ><InlineIcon name="close" size={12} style={{ color: '#fff' }} /></button>
                                 )}
                                 {/* Drop zone – big and inviting */}
                                 <div
@@ -2562,7 +2579,7 @@ const DoCambridgeListeningTest = () => {
                   {/* Audio Player */}
                   {resolvedAudioSrc && !usesSharedAudio && (
                     <div style={{ ...styles.audioContainer, marginBottom: 12 }}>
-                      <span style={{ marginRight: '12px' }}>🎧</span>
+                      <InlineIcon name="listening" size={18} style={{ marginRight: '12px', color: isDarkMode ? '#e2e8f0' : '#0f172a' }} />
                       <audio
                         ref={audioRef}
                         data-listening-audio="true"
@@ -2689,7 +2706,7 @@ const DoCambridgeListeningTest = () => {
                                       aria-label="Flag question"
                                       type="button"
                                     >
-                                      {flaggedQuestions.has(key) ? '🚩' : '⚐'}
+                                      <InlineIcon name="flag" size={14} />
                                     </button>
 
                                     <div style={{ paddingRight: '50px' }}>
@@ -2841,7 +2858,7 @@ const DoCambridgeListeningTest = () => {
                                     aria-label="Flag question"
                                     type="button"
                                   >
-                                    {flaggedQuestions.has(key) ? '🚩' : '⚐'}
+                                    <InlineIcon name="flag" size={14} />
                                   </button>
 
                                   <div style={{ paddingRight: '50px' }}>
@@ -2871,7 +2888,7 @@ const DoCambridgeListeningTest = () => {
                                     </div>
 
                                     {submitted && correct && !isCorrect && (
-                                      <div style={styles.correctAnswer}>✓ Đáp án đúng: {correct}</div>
+                                      <div style={styles.correctAnswer}><InlineIcon name="correct" size={14} style={{ marginRight: 6 }} />Đáp án đúng: {correct}</div>
                                     )}
                                   </div>
                                 </div>
@@ -2974,7 +2991,7 @@ const DoCambridgeListeningTest = () => {
                                       aria-label="Flag question"
                                       type="button"
                                     >
-                                      {flaggedQuestions.has(key) ? '🚩' : '⚐'}
+                                      <InlineIcon name="flag" size={14} />
                                     </button>
 
                                     <div style={{ paddingRight: '50px', display: 'grid', gridTemplateColumns: '56px 1fr 160px', gap: '12px', alignItems: 'center' }}>

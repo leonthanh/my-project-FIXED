@@ -2057,7 +2057,9 @@ VD:
         style={questionHeaderStyle}
       >
         <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-          <span style={{ fontSize: "11px" }}>{isExpanded ? "▼" : "▶"}</span>
+          <span style={{ display: "inline-flex", alignItems: "center", color: "#6b7280" }}>
+            <LineIcon name={isExpanded ? "chevron-down" : "chevron-right"} size={12} strokeWidth={2.2} />
+          </span>
           
           {/* Different display for matching and form-completion vs other types */}
           {isMatchingType ? (

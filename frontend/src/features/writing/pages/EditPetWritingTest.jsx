@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import ReactQuill from "react-quill";
 import { useNavigate, useParams } from "react-router-dom";
 import AdminNavbar from "../../../shared/components/AdminNavbar";
+import InlineIcon from "../../../shared/components/InlineIcon.jsx";
 import { apiPath, authFetch, hostPath, redirectToLogin } from "../../../shared/utils/api";
 import useQuillImageUpload from "../../../shared/hooks/useQuillImageUpload";
 import "./CreateWritingTest.css";
@@ -29,6 +30,7 @@ const EditPetWritingTest = () => {
   const [image, setImage] = useState(null);
   const [existingImage, setExistingImage] = useState("");
   const [message, setMessage] = useState("");
+  const [messageTone, setMessageTone] = useState("success");
   const [showPreview, setShowPreview] = useState(false);
   const [requiresLogin, setRequiresLogin] = useState(false);
   const [activeTab, setActiveTab] = useState("part1");
@@ -38,6 +40,11 @@ const EditPetWritingTest = () => {
   const task1Quill = useQuillImageUpload();
   const part2Q2Quill = useQuillImageUpload();
   const part2Q3Quill = useQuillImageUpload();
+
+  const updateMessage = (tone, text) => {
+    setMessageTone(tone);
+    setMessage(text);
+  };
 
   useEffect(() => {
     const fetchTest = async () => {
@@ -52,8 +59,8 @@ const EditPetWritingTest = () => {
         setTeacherName(data.teacherName || "");
         setExistingImage(data.task1Image || "");
       } catch (err) {
-        console.error("❌ Lỗi khi tải đề PET Writing:", err);
-        setMessage("❌ Không thể tải đề. Vui lòng thử lại.");
+        console.error("Lỗi khi tải đề PET Writing:", err);
+        updateMessage("error", "Không thể tải đề. Vui lòng thử lại.");
       } finally {
         setLoading(false);
       }
@@ -81,7 +88,7 @@ const EditPetWritingTest = () => {
     e.preventDefault();
 
     if (!task1.trim() || !part2Question2.trim() || !part2Question3.trim()) {
-      setMessage("❌ Vui lòng nhập đầy đủ Part 1 và Part 2 (Q2/Q3).");
+      updateMessage("error", "Vui lòng nhập đầy đủ Part 1 và Part 2 (Q2/Q3).");
       return;
     }
 
@@ -125,17 +132,18 @@ const EditPetWritingTest = () => {
           try {
             saveDraft();
           } catch (e) {}
-          setMessage(
-            "❌ Token đã hết hạn hoặc không hợp lệ. Vui lòng đăng nhập lại. Bản nháp đã được lưu."
+          updateMessage(
+            "error",
+            "Token đã hết hạn hoặc không hợp lệ. Vui lòng đăng nhập lại. Bản nháp đã được lưu."
           );
           setRequiresLogin(true);
           return;
         }
-        setMessage(data.message || "❌ Lỗi khi cập nhật đề");
+        updateMessage("error", data.message || "Lỗi khi cập nhật đề");
         return;
       }
 
-      setMessage(data.message || "✅ Đã cập nhật đề PET Writing");
+      updateMessage("success", data.message || "Đã cập nhật đề PET Writing");
       setImage(null);
       if (data.test?.task1Image) {
         setExistingImage(data.test.task1Image);
@@ -143,7 +151,7 @@ const EditPetWritingTest = () => {
       setTimeout(() => navigate("/cambridge"), 1200);
     } catch (err) {
       console.error(err);
-      setMessage("❌ Lỗi khi cập nhật đề");
+      updateMessage("error", "Lỗi khi cập nhật đề");
     }
   };
 
@@ -160,7 +168,7 @@ const EditPetWritingTest = () => {
     return (
       <>
         <AdminNavbar />
-        <div className="create-writing-container">⏳ Đang tải...</div>
+        <div className="create-writing-container" style={{ display: "inline-flex", alignItems: "center", gap: 8 }}><InlineIcon name="loading" size={16} />Đang tải...</div>
       </>
     );
   }
@@ -179,7 +187,7 @@ const EditPetWritingTest = () => {
               marginBottom: 12,
             }}
           >
-            <strong>⚠️ Bạn cần đăng nhập lại để hoàn tất thao tác.</strong>
+            <strong style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}><InlineIcon name="average" size={16} style={{ color: '#d97706' }} />Bạn cần đăng nhập lại để hoàn tất thao tác.</strong>
             <div style={{ marginTop: 8 }}>
               Bản nháp đã được lưu.
               <button
@@ -193,7 +201,7 @@ const EditPetWritingTest = () => {
             </div>
           </div>
         )}
-        <h2>📝 Edit PET Writing</h2>
+        <h2 style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}><InlineIcon name="writing" size={18} />Edit PET Writing</h2>
         <form onSubmit={handleSubmit}>
           <input
             type="text"
@@ -333,7 +341,7 @@ const EditPetWritingTest = () => {
                 cursor: "pointer",
               }}
             >
-              💾 Lưu cập nhật
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><InlineIcon name="save" size={14} style={{ color: 'white' }} />Lưu cập nhật</span>
             </button>
             <button
               type="button"
@@ -348,7 +356,7 @@ const EditPetWritingTest = () => {
                 cursor: "pointer",
               }}
             >
-              👁 Preview
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><InlineIcon name="eye" size={14} style={{ color: 'white' }} />Preview</span>
             </button>
           </div>
         </form>
@@ -358,7 +366,7 @@ const EditPetWritingTest = () => {
             style={{
               marginTop: 10,
               fontWeight: "bold",
-              color: message.includes("❌") ? "red" : "green",
+              color: messageTone === "error" ? "red" : "green",
             }}
           >
             {message}
@@ -392,7 +400,7 @@ const EditPetWritingTest = () => {
               }}
               onClick={(e) => e.stopPropagation()}
             >
-              <h3>📄 Xem trước đề PET Writing</h3>
+              <h3 style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}><InlineIcon name="document" size={18} />Xem trước đề PET Writing</h3>
               {(image || existingImage) && (
                 <div style={{ marginBottom: "15px" }}>
                   <h4>Hình minh họa:</h4>

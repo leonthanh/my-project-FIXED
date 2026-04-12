@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { apiPath, hostPath, authFetch } from "../../../shared/utils/api";
 import TestHeader from "../../../shared/components/TestHeader";
 import ExtensionToast from "../../../shared/components/ExtensionToast";
+import InlineIcon from "../../../shared/components/InlineIcon.jsx";
 import LineIcon from "../../../shared/components/LineIcon.jsx";
 import TestStartModal from "../../../shared/components/TestStartModal";
 import ConfirmModal from "../../../shared/components/ConfirmModal";
@@ -1677,7 +1678,7 @@ const DoListeningTest = () => {
             }
           }
         }
-        alert("⚠️ Audio này chỉ được nghe 1 lần!");
+        alert("Audio này chỉ được nghe 1 lần!");
       }
     },
     [audioPlayed]
@@ -2647,7 +2648,7 @@ const DoListeningTest = () => {
   if (error) {
     return (
       <div style={styles.errorContainer}>
-        <h2 style={styles.errorTitle}>❌ Lỗi</h2>
+        <h2 style={{ ...styles.errorTitle, display: "inline-flex", alignItems: "center", gap: 8 }}><InlineIcon name="error" size={18} style={{ color: "#dc2626" }} />Lỗi</h2>
         <p style={styles.errorText}>{error}</p>
         <button onClick={() => navigate("/select-test")} style={styles.backButton}>
           ← Quay lại
@@ -2776,7 +2777,7 @@ const DoListeningTest = () => {
                   }}
                   style={styles.playGateButton}
                 >
-                  Play audio again ▶
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><InlineIcon name="play" size={14} />Play audio again</span>
                 </button>
               </div>
             </div>

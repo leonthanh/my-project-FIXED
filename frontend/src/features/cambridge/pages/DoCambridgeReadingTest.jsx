@@ -6,6 +6,7 @@ import TestHeader from "../../../shared/components/TestHeader";
 import ExtensionToast from "../../../shared/components/ExtensionToast";
 import TestStartModal from "../../../shared/components/TestStartModal";
 import ConfirmModal from "../../../shared/components/ConfirmModal";
+import InlineIcon from "../../../shared/components/InlineIcon.jsx";
 import { TEST_CONFIGS } from "../../../shared/config/questionTypes";
 import QuestionDisplayFactory from "../../../shared/components/questions/displays/QuestionDisplayFactory";
 import PeopleMatchingDisplay from "../../../shared/components/questions/displays/PeopleMatchingDisplay";
@@ -911,7 +912,7 @@ const DoCambridgeReadingTest = () => {
 
     // Log debug info if there are issues
     if (debugInfo.length > 0) {
-      console.warn('⚠️ Scoring debug info:', debugInfo.slice(0, 10));
+      console.warn('Scoring debug info:', debugInfo.slice(0, 10));
     }
 
     return {
@@ -1428,7 +1429,7 @@ const DoCambridgeReadingTest = () => {
   if (loading) {
     return (
       <div className="cambridge-loading flex min-h-[60vh] flex-col items-center justify-center gap-3 text-slate-700">
-        <div className="text-5xl">⏳</div>
+        <div><InlineIcon name="loading" size={42} style={{ color: '#475569' }} /></div>
         <h2 className="text-lg font-semibold">Loading test...</h2>
       </div>
     );
@@ -1438,7 +1439,7 @@ const DoCambridgeReadingTest = () => {
   if (error) {
     return (
       <div className="cambridge-error flex min-h-[60vh] flex-col items-center justify-center gap-3 text-slate-700">
-        <div className="text-5xl">❌</div>
+        <div><InlineIcon name="error" size={42} style={{ color: '#dc2626' }} /></div>
         <h2 className="text-lg font-semibold">Error: {error}</h2>
         <button onClick={() => navigate(-1)} className="cambridge-nav-button">
           ← Go back
@@ -1629,7 +1630,7 @@ const DoCambridgeReadingTest = () => {
                     onClick={() => toggleFlag(currentQuestion.key)}
                     aria-label="Flag question"
                   >
-                    {flaggedQuestions.has(currentQuestion.key) ? '🚩' : '⚐'}
+                    <InlineIcon name="flag" size={14} />
                   </button>
 
                   <div className="mb-3">
@@ -1937,7 +1938,7 @@ const DoCambridgeReadingTest = () => {
                       aria-label="Flag question"
                       style={{ position: 'absolute', top: 0, right: 0 }}
                     >
-                      {flaggedQuestions.has(currentQuestion.key) ? '🚩' : '⚐'}
+                      <InlineIcon name="flag" size={14} />
                     </button>
 
                     {/* Passage Title */}
@@ -2001,7 +2002,7 @@ const DoCambridgeReadingTest = () => {
                       aria-label="Flag question"
                       style={{ position: 'absolute', top: 0, right: 0 }}
                     >
-                      {flaggedQuestions.has(currentQuestion.key) ? '🚩' : '⚐'}
+                      <InlineIcon name="flag" size={14} />
                     </button>
 
                     {passageTitle && (
@@ -2066,7 +2067,7 @@ const DoCambridgeReadingTest = () => {
                         aria-label="Flag question"
                         style={{ position: 'absolute', top: 0, right: 0 }}
                       >
-                        {flaggedQuestions.has(currentQuestion.key) ? '🚩' : '⚐'}
+                        <InlineIcon name="flag" size={14} />
                       </button>
 
                       {passageTitle && (
@@ -2195,7 +2196,7 @@ const DoCambridgeReadingTest = () => {
                       aria-label="Flag question"
                       style={{ position: 'absolute', top: 0, right: 0 }}
                     >
-                      {flaggedQuestions.has(currentQuestion.key) ? '🚩' : '⚐'}
+                      <InlineIcon name="flag" size={14} />
                     </button>
 
                     {/* Passage Title */}
@@ -2317,7 +2318,7 @@ const DoCambridgeReadingTest = () => {
                           aria-label="Flag question"
                           style={{ position: 'absolute', top: 0, right: 0 }}
                         >
-                          {flaggedQuestions.has(currentQuestion.key) ? '🚩' : '⚐'}
+                          <InlineIcon name="flag" size={14} />
                         </button>
 
                         {/* Writing Instructions */}
@@ -2531,7 +2532,7 @@ const DoCambridgeReadingTest = () => {
                   aria-label="Flag question"
                   style={{ position: 'absolute', top: 8, right: 8, zIndex: 2 }}
                 >
-                  {flaggedQuestions.has(currentQuestion.key) ? '🚩' : '⚐'}
+                  <InlineIcon name="flag" size={14} />
                 </button>
                 {(() => {
                   const wdcPrefix = `${currentQuestion.partIndex}-${currentQuestion.sectionIndex}`;
@@ -2616,7 +2617,7 @@ const DoCambridgeReadingTest = () => {
                   aria-label="Flag question"
                   style={{ position: 'absolute', top: 8, right: 8, zIndex: 2 }}
                 >
-                  {flaggedQuestions.has(currentQuestion.key) ? '🚩' : '⚐'}
+                  <InlineIcon name="flag" size={14} />
                 </button>
                 {(() => {
                   const scPrefix = `${currentQuestion.partIndex}-${currentQuestion.sectionIndex}`;
@@ -2699,7 +2700,7 @@ const DoCambridgeReadingTest = () => {
                   aria-label="Flag question"
                   style={{ position: 'absolute', top: 8, right: 8, zIndex: 2 }}
                 >
-                  {flaggedQuestions.has(currentQuestion.key) ? '🚩' : '⚐'}
+                  <InlineIcon name="flag" size={14} />
                 </button>
                 {(() => {
                   const lrwPrefix = `${currentQuestion.partIndex}-${currentQuestion.sectionIndex}`;
@@ -2914,7 +2915,7 @@ const DoCambridgeReadingTest = () => {
                             padding: '8px 14px',
                             display: 'flex', alignItems: 'center', gap: 8,
                           }}>
-                            <span style={{ fontSize: 18 }}>⭐</span>
+                            <InlineIcon name="star" size={18} style={{ color: '#fff' }} />
                             <span style={{ fontWeight: 800, color: '#fff', fontSize: 13, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
                               Ví dụ mẫu
                             </span>
@@ -2969,7 +2970,7 @@ const DoCambridgeReadingTest = () => {
                                               color: '#fff', fontWeight: 900, fontSize: 15,
                                               boxShadow: isCorrect ? '0 3px 8px #22c55e50' : 'none',
                                             }}>
-                                              {isCorrect ? '✓' : letter}
+                                              {isCorrect ? <InlineIcon name="correct" size={15} style={{ color: '#fff' }} /> : letter}
                                             </div>
                                             <span style={{ fontSize: 14, fontWeight: isCorrect ? 700 : 500, color: isCorrect ? '#15803d' : '#1f2937', flex: 1 }}>
                                               {text}
@@ -3066,7 +3067,7 @@ const DoCambridgeReadingTest = () => {
                           onClick={() => toggleFlag(q.key)}
                           aria-label={`Flag question ${q.questionNumber}`}
                         >
-                          {flaggedQuestions.has(q.key) ? '🚩' : '⚐'}
+                          <InlineIcon name="flag" size={14} />
                         </button>
 
                         {/* Question Content */}
@@ -3149,7 +3150,7 @@ const DoCambridgeReadingTest = () => {
                     onClick={() => toggleFlag(currentQuestion.key)}
                     aria-label="Flag question"
                   >
-                    {flaggedQuestions.has(currentQuestion.key) ? '🚩' : '⚐'}
+                    <InlineIcon name="flag" size={14} />
                   </button>
 
                   <div className="pr-4 sm:pr-12">
@@ -3185,7 +3186,7 @@ const DoCambridgeReadingTest = () => {
                     onClick={() => toggleFlag(currentQuestion.key)}
                     aria-label="Flag question"
                   >
-                    {flaggedQuestions.has(currentQuestion.key) ? '🚩' : '⚐'}
+                    <InlineIcon name="flag" size={14} />
                   </button>
                   <div className="pr-4 sm:pr-12">
                     {(() => {
@@ -3220,7 +3221,7 @@ const DoCambridgeReadingTest = () => {
                     onClick={() => toggleFlag(currentQuestion.key)}
                     aria-label="Flag question"
                   >
-                    {flaggedQuestions.has(currentQuestion.key) ? '🚩' : '⚐'}
+                    <InlineIcon name="flag" size={14} />
                   </button>
 
                   <div className="pr-4 sm:pr-12">
@@ -3260,7 +3261,7 @@ const DoCambridgeReadingTest = () => {
                     onClick={() => toggleFlag(currentQuestion.key)}
                     aria-label="Flag question"
                   >
-                    {flaggedQuestions.has(currentQuestion.key) ? '🚩' : '⚐'}
+                    <InlineIcon name="flag" size={14} />
                   </button>
 
                   {/* Question Content */}
@@ -3363,13 +3364,13 @@ const DoCambridgeReadingTest = () => {
                               key={q.key}
                               className={`cambridge-question-num-btn ${isQuestionAnswered(q) ? 'answered' : ''} ${isActiveQuestion ? 'active' : ''} ${flaggedQuestions.has(q.key) ? 'flagged' : ''}`}
                               onClick={() => goToQuestion(questionIndex)}
-                              title={`Question ${q.questionNumber}${isQuestionAnswered(q) ? ' ✓' : ''}`}
+                              title={`Question ${q.questionNumber}${isQuestionAnswered(q) ? ' answered' : ''}`}
                             >
                               {isQuestionAnswered(q) && !isActiveQuestion
                                 ? <i className="fa fa-check" style={{ fontSize: 10 }}></i>
                                 : q.questionNumber}
                               {flaggedQuestions.has(q.key) && (
-                                <span className="nav-flag-icon" aria-hidden="true">🚩</span>
+                                <span className="nav-flag-icon" aria-hidden="true"><InlineIcon name="flag" size={10} /></span>
                               )}
                             </button>
                           );
@@ -3384,11 +3385,11 @@ const DoCambridgeReadingTest = () => {
                               key={q.key}
                               className={`cambridge-question-num-btn ${isQuestionAnswered(q) ? 'answered' : ''} ${isActiveQuestion ? 'active' : ''} ${flaggedQuestions.has(q.key) ? 'flagged' : ''}`}
                               onClick={() => goToQuestion(questionIndex)}
-                              title={`Writing${isQuestionAnswered(q) ? ' ✓' : ''}`}
+                              title={`Writing${isQuestionAnswered(q) ? ' answered' : ''}`}
                             >
                               {label}
                               {flaggedQuestions.has(q.key) && (
-                                <span className="nav-flag-icon" aria-hidden="true">🚩</span>
+                                <span className="nav-flag-icon" aria-hidden="true"><InlineIcon name="flag" size={10} /></span>
                               )}
                             </button>
                           );
@@ -3416,17 +3417,17 @@ const DoCambridgeReadingTest = () => {
       {submitted && results && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
           <div style={{ background: 'white', padding: '32px', borderRadius: '16px', textAlign: 'center', maxWidth: '400px', width: '90%' }}>
-            <h2 style={{ margin: '0 0 20px', color: '#0052cc' }}>📊 Test Results</h2>
+            <h2 style={{ margin: '0 0 20px', color: '#0052cc', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}><InlineIcon name="overview" size={20} />Test Results</h2>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '24px', padding: '24px', background: '#f0fdf4', borderRadius: '12px' }}>
               <div style={{ fontSize: '36px', fontWeight: 700, color: '#0052cc' }}>{results.score}/{results.total}</div>
               <div style={{ fontSize: '28px', fontWeight: 600, color: '#22c55e' }}>{results.percentage}%</div>
             </div>
             <div style={{ marginTop: '20px', display: 'flex', gap: '12px', justifyContent: 'center' }}>
               <button onClick={() => navigate('/cambridge')} style={{ padding: '12px 24px', background: '#0052cc', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '14px' }}>
-                📋 Select another test
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><InlineIcon name="document" size={14} style={{ color: 'white' }} />Select another test</span>
               </button>
               <button onClick={() => window.location.reload()} style={{ padding: '12px 24px', background: '#f1f5f9', color: '#374151', border: '1px solid #d1d5db', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '14px' }}>
-                🔄 Try again
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><InlineIcon name="retry" size={14} />Try again</span>
               </button>
             </div>
           </div>

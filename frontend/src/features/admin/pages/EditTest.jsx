@@ -3,11 +3,12 @@ import { useParams, useNavigate } from "react-router-dom";
 import { AdminNavbar, FormQuestion } from "../../../shared/components";
 import ReactQuill from "react-quill";
 import { apiPath, authFetch, redirectToLogin } from "../../../shared/utils/api";
+import InlineIcon from "../../../shared/components/InlineIcon.jsx";
 import "react-quill/dist/quill.snow.css";
 // import ReactQuill from 'react-quill'; // Thay thế CKEditor bằng ReactQuill
 import "react-quill/dist/quill.snow.css"; // Import CSS cho ReactQuill
 
-// 🎨 Thêm CSS tùy chỉnh cho ReactQuill - nền xám nhạt để dễ nhìn
+// Thêm CSS tùy chỉnh cho ReactQuill - nền xám nhạt để dễ nhìn
 const quillStyles = `
   .ql-container {
     font-size: 16px;
@@ -77,7 +78,7 @@ const EditTest = () => {
         const data = await response.json();
         setTest(data);
       } catch (error) {
-        console.error("❌ Lỗi khi lấy thông tin đề:", error);
+        console.error("Lỗi khi lấy thông tin đề:", error);
         alert("Không thể tải thông tin đề thi. Vui lòng thử lại sau.");
         navigate("/select-test");
       } finally {
@@ -118,17 +119,17 @@ const EditTest = () => {
       if (!response.ok) {
         if (response.status === 401) {
           try { saveDraft(); } catch (e) {}
-          alert('❌ Token đã hết hạn hoặc không hợp lệ. Bản nháp đã được lưu. Vui lòng đăng nhập lại.');
+          alert('Token đã hết hạn hoặc không hợp lệ. Bản nháp đã được lưu. Vui lòng đăng nhập lại.');
           redirectToLogin({ rememberPath: true, replace: true });
           return;
         }
         throw new Error(data.message || "Lỗi khi cập nhật đề thi");
       }
 
-      alert("✅ Cập nhật đề thi thành công!");
+      alert("Cập nhật đề thi thành công!");
       navigate("/select-test");
     } catch (error) {
-      console.error("❌ Lỗi:", error);
+      console.error("Lỗi:", error);
       alert("Có lỗi xảy ra khi cập nhật đề thi. Vui lòng thử lại.");
     }
   };
@@ -146,11 +147,11 @@ const EditTest = () => {
   };
 
   if (loading) {
-    return <div>⏳ Đang tải...</div>;
+    return <div style={{ display: "inline-flex", alignItems: "center", gap: 8 }}><InlineIcon name="loading" size={16} />Đang tải...</div>;
   }
 
   if (!test) {
-    return <div>❌ Không tìm thấy đề thi</div>;
+    return <div style={{ display: "inline-flex", alignItems: "center", gap: 8 }}><InlineIcon name="error" size={16} style={{ color: "#dc2626" }} />Không tìm thấy đề thi</div>;
   }
 
   return (
@@ -163,7 +164,7 @@ const EditTest = () => {
           margin: "0 auto",
         }}
       >
-        <h2>✏️ Sửa đề thi Writing {test.index}</h2>
+        <h2 style={{ display: "inline-flex", alignItems: "center", gap: 8 }}><InlineIcon name="writing" size={18} />Sửa đề thi Writing {test.index}</h2>
 
         <form onSubmit={handleSubmit}>
           <div style={{ marginBottom: "20px" }}>
@@ -293,7 +294,7 @@ const EditTest = () => {
                 cursor: "pointer",
               }}
             >
-              💾 Lưu thay đổi
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><InlineIcon name="save" size={14} style={{ color: "white" }} />Lưu thay đổi</span>
             </button>
           </div>
         </form>

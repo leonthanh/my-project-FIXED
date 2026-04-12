@@ -102,7 +102,7 @@ const EditReadingTest = () => {
         setLoading(false);
         setHasLoaded(true);
       } catch (err) {
-        console.error("❌ Error:", err);
+        console.error("Error:", err);
         setError(err.message);
         setLoading(false);
         setHasLoaded(true);
@@ -312,7 +312,7 @@ const EditReadingTest = () => {
         navigate("/select-test");
       }, 1500);
     } catch (err) {
-      console.error("❌ Error in handleConfirmUpdate:", err);
+      console.error("Error in handleConfirmUpdate:", err);
       setMessage(`Lỗi: ${err.message}`);
     } finally {
       setIsUpdating(false);

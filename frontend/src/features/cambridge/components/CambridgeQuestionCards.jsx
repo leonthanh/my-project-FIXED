@@ -1,4 +1,20 @@
 import React, { useState, useEffect, useRef } from "react";
+import LineIcon from "../../../shared/components/LineIcon.jsx";
+
+const InlineIcon = ({ name, size = 16, strokeWidth = 2, style }) => (
+  <span
+    aria-hidden="true"
+    style={{
+      display: "inline-flex",
+      alignItems: "center",
+      justifyContent: "center",
+      lineHeight: 0,
+      ...style,
+    }}
+  >
+    <LineIcon name={name} size={size} strokeWidth={strokeWidth} />
+  </span>
+);
 
 export const getCambridgeQuestionType = (question) => {
   if (question?.questionType) return question.questionType;
@@ -158,7 +174,7 @@ export const CambridgeQuestionDisplay = ({
                 boxShadow: `0 2px 6px ${palette.badge}55`,
                 marginTop: '4px',
               }}>
-                {submitted ? (isCorrect ? '✓' : '✗') : questionNum}
+                {submitted ? <InlineIcon name={isCorrect ? 'correct' : 'wrong'} size={18} style={{ color: '#fff' }} /> : questionNum}
               </span>
               <div style={{
                 fontSize: '20px', lineHeight: 1.8, fontWeight: 600,
@@ -191,7 +207,11 @@ export const CambridgeQuestionDisplay = ({
             border: `1.5px solid ${isCorrect ? '#86efac' : '#fca5a5'}`,
             display: 'flex', alignItems: 'center', gap: '8px',
           }}>
-            <span style={{ fontSize: '20px' }}>{isCorrect ? '🎉' : '📚'}</span>
+            <InlineIcon
+              name={isCorrect ? 'correct' : 'review'}
+              size={20}
+              style={{ color: isCorrect ? '#15803d' : '#b91c1c' }}
+            />
             <div>
               {isCorrect ? (
                 <span style={{ color: '#15803d', fontWeight: 700, fontSize: '16px' }}>Correct! Đúng rồi!</span>
@@ -308,7 +328,7 @@ export const CambridgeQuestionDisplay = ({
                 ...(flaggedQuestions.has(questionKey) ? styles.flagButtonActive : null),
               }}
             >
-              {flaggedQuestions.has(questionKey) ? '⚑' : '⚐'}
+              <InlineIcon name="flag" size={14} />
             </button>
           ) : null}
         </div>

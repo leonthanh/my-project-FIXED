@@ -1,6 +1,7 @@
 import React from 'react';
 import TableCompletion from './TableCompletion';
 import { compactInputStyle } from '../../../../features/listening/utils/styles';
+import InlineIcon from '../../InlineIcon.jsx';
 
 /**
  * TableCompletionEditor - Admin editor for Table Completion questions
@@ -126,7 +127,7 @@ export default function TableCompletionEditor({ question = {}, onChange = () => 
                   onChange={(e) => updateColumn(idx, e.target.value)}
                   style={{ ...compactInputStyle, flex: 1, minWidth: 160 }}
                 />
-                <button type="button" onClick={() => deleteColumn(idx)} style={{ padding: '6px 8px' }}>×</button>
+                <button type="button" onClick={() => deleteColumn(idx)} style={{ padding: '6px 8px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}><InlineIcon name="close" size={12} style={{ color: 'currentColor' }} /></button>
               </div>
             ))}
           </div>
@@ -202,7 +203,7 @@ export default function TableCompletionEditor({ question = {}, onChange = () => 
                                       cells[cIdx] = comments.join('\n');
                                       next[idx] = { ...r, comments, commentBlankAnswers: cb, cells };
                                       setRows(next);
-                                    }} style={{ padding: '6px 8px' }}>×</button>
+                                    }} style={{ padding: '6px 8px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}><InlineIcon name="close" size={12} style={{ color: 'currentColor' }} /></button>
                                   </div>
 
                                   {/* Per-blank inputs for this comment line */}
@@ -306,7 +307,7 @@ export default function TableCompletionEditor({ question = {}, onChange = () => 
                 })}
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  <button type="button" onClick={() => deleteRow(idx)} style={{ padding: '6px 8px' }}>×</button>
+                  <button type="button" onClick={() => deleteRow(idx)} style={{ padding: '6px 8px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}><InlineIcon name="close" size={12} style={{ color: 'currentColor' }} /></button>
                 </div>
               </div>
             </div>

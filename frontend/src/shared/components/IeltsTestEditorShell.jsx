@@ -1,20 +1,41 @@
 import React from "react";
 import AdminNavbar from "./AdminNavbar";
 import AutoSaveIndicator from "./AutoSaveIndicator";
+import InlineIcon from "./InlineIcon.jsx";
+
+const LEGACY_ERROR_MARK = "\u274C";
+const LEGACY_SUCCESS_MARK = "\u2705";
+const LEGACY_WARNING_MARK = "\u26A0\uFE0F";
+const LEGACY_LOADING_MARK = "\u23F3";
+
+const getMessageTone = (message = "") => {
+  if (message?.includes(LEGACY_ERROR_MARK) || /^(error|lỗi)\s*:/i.test(message)) {
+    return "error";
+  }
+  if (message?.includes(LEGACY_SUCCESS_MARK) || /^(success|thành công)\s*:/i.test(message)) {
+    return "success";
+  }
+  return "warning";
+};
+
+const getDisplayMessage = (message = "") =>
+  String(message)
+    .replace(new RegExp(`^(?:${LEGACY_SUCCESS_MARK}|${LEGACY_ERROR_MARK}|${LEGACY_WARNING_MARK}|${LEGACY_LOADING_MARK})\\s*`, "u"), "")
+    .replace(/^(error|lỗi|success|thành công|warning|cảnh báo|loading)\s*:\s*/i, "");
 
 const defaultMessageStyle = (message) => ({
   textAlign: "center",
   padding: "8px",
   marginTop: "8px",
-  backgroundColor: message?.includes("❌")
+  backgroundColor: getMessageTone(message) === "error"
     ? "#ffe6e6"
-    : message?.includes("✅")
+    : getMessageTone(message) === "success"
     ? "#e6ffe6"
     : "#fff3cd",
   borderRadius: "4px",
-  color: message?.includes("❌")
+  color: getMessageTone(message) === "error"
     ? "red"
-    : message?.includes("✅")
+    : getMessageTone(message) === "success"
     ? "green"
     : "#856404",
 });
@@ -79,7 +100,10 @@ const IeltsTestEditorShell = ({
                     fontWeight: 600,
                   }}
                 >
-                  {headerCollapsed ? "▼ Mở rộng" : "▲ Thu gọn"}
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+                    <InlineIcon name={headerCollapsed ? "chevron-down" : "chevron-up"} size={12} />
+                    {headerCollapsed ? "Mở rộng" : "Thu gọn"}
+                  </span>
                 </button>
               )}
             </div>
@@ -123,7 +147,7 @@ const IeltsTestEditorShell = ({
 
               {message && (renderMessage ? renderMessage(message) : (
                 <div style={defaultMessageStyle(message)}>
-                  {message}
+                  {getDisplayMessage(message)}
                 </div>
               ))}
             </>

@@ -241,7 +241,7 @@ const MatchingPicturesDisplay = ({
                             onClick={(e) => { e.stopPropagation(); onAnswerChange(getAnswerKey(prompt, idx), ''); }}
                             style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', fontSize: '16px', padding: '2px 4px', lineHeight: 1 }}
                             title="Xóa đáp án"
-                          >×</button>
+                          ><InlineIcon name="close" size={12} style={{ color: 'currentColor' }} /></button>
                         )}
                       </>
                     ) : (

@@ -3,6 +3,7 @@ import ReactQuill from "react-quill";
 import "react-quill/dist/quill.snow.css";
 import { hostPath } from "../../../utils/api";
 import useQuillImageUpload from "../../../hooks/useQuillImageUpload";
+import InlineIcon from "../../InlineIcon.jsx";
 
 /**
  * StoryCompletionEditor – Cambridge Movers Part 5
@@ -361,7 +362,7 @@ export default function StoryCompletionEditor({
               onClick={() => removeItem(i)}
               style={{ width: 24, height: 24, border: "none", background: "none", color: "#ef4444", cursor: "pointer", fontSize: 18, padding: 0, paddingTop: 6 }}
             >
-              ×
+              <InlineIcon name="close" size={12} style={{ color: "currentColor" }} />
             </button>
           </div>
         ))}

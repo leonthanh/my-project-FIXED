@@ -1,4 +1,5 @@
 import React from 'react';
+import InlineIcon from './InlineIcon.jsx';
 
 const DragDropQuestion = ({ question, onChange, type = 'text' }) => {
 
@@ -121,7 +122,7 @@ const DragDropQuestion = ({ question, onChange, type = 'text' }) => {
                 cursor: 'pointer'
               }}
             >
-              ✕
+              <InlineIcon name="close" size={12} style={{ color: 'white' }} />
             </button>
           </div>
         ))}

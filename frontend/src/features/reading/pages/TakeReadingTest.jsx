@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import "../../../shared/styles/take-test.css";
+import InlineIcon from "../../../shared/components/InlineIcon.jsx";
 import { normalizeQuestionType } from "../utils/questionHelpers";
 import { apiPath } from "../../../shared/utils/api";
 
@@ -14,11 +15,17 @@ const TakeReadingTest = () => {
   const [results, setResults] = useState(null);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
+  const [messageTone, setMessageTone] = useState("success");
   const [currentPassageIndex, setCurrentPassageIndex] = useState(0);
   const [timeRemaining, setTimeRemaining] = useState(3600); // 60 minutes in seconds
   const [allQuestions, setAllQuestions] = useState([]);
   const [splitPosition, setSplitPosition] = useState(50); // 50% default
   const [isDragging, setIsDragging] = useState(false);
+
+  const updateMessage = useCallback((tone, text) => {
+    setMessageTone(tone);
+    setMessage(text);
+  }, []);
 
   const fetchTest = useCallback(async () => {
     try {
@@ -99,11 +106,11 @@ const TakeReadingTest = () => {
       setAnswers(initialAnswers);
     } catch (error) {
       console.error("Error fetching test:", error);
-      setMessage(`❌ ${error.message}`);
+      updateMessage("error", error.message);
     } finally {
       setLoading(false);
     }
-  }, [testId]);
+  }, [testId, updateMessage]);
 
   // Timer effect
   useEffect(() => {
@@ -211,9 +218,9 @@ const TakeReadingTest = () => {
                 }`}
               >
                 {answers[key] === "TRUE"
-                  ? "✓"
+                  ? <InlineIcon name="correct" size={12} style={{ color: "currentColor" }} />
                   : answers[key] === "FALSE"
-                  ? "✗"
+                  ? <InlineIcon name="wrong" size={12} style={{ color: "currentColor" }} />
                   : answers[key] === "NOT GIVEN"
                   ? "?"
                   : ""}
@@ -256,9 +263,9 @@ const TakeReadingTest = () => {
                 }`}
               >
                 {answers[key] === "YES"
-                  ? "✓"
+                  ? <InlineIcon name="correct" size={12} style={{ color: "currentColor" }} />
                   : answers[key] === "NO"
-                  ? "✗"
+                  ? <InlineIcon name="wrong" size={12} style={{ color: "currentColor" }} />
                   : answers[key] === "NOT GIVEN"
                   ? "?"
                   : ""}
@@ -460,10 +467,10 @@ const TakeReadingTest = () => {
         details: submissionData.passages,
       });
       setSubmitted(true);
-      setMessage("✅ Nộp bài thành công!");
+      updateMessage("success", "Nộp bài thành công!");
     } catch (error) {
       console.error("Error submitting test:", error);
-      setMessage(`❌ ${error.message}`);
+      updateMessage("error", error.message);
     } finally {
       setLoading(false);
     }
@@ -504,7 +511,7 @@ const TakeReadingTest = () => {
     return (
       <div className="take-test-container">
         <div style={{ textAlign: "center", padding: "60px 20px" }}>
-          <p style={{ fontSize: "18px" }}>⏳ Loading test...</p>
+          <p style={{ fontSize: "18px", display: "inline-flex", alignItems: "center", gap: 8 }}><InlineIcon name="loading" size={16} />Loading test...</p>
         </div>
       </div>
     );
@@ -514,8 +521,9 @@ const TakeReadingTest = () => {
     return (
       <div className="take-test-container">
         <div style={{ textAlign: "center", padding: "60px 20px" }}>
-          <p style={{ color: "#e74c3c", fontSize: "16px" }}>
-            {message || "❌ Test not found"}
+          <p style={{ color: "#e74c3c", fontSize: "16px", display: "inline-flex", alignItems: "center", gap: 8 }}>
+            <InlineIcon name="error" size={16} style={{ color: "#e74c3c" }} />
+            {message || "Test not found"}
           </p>
         </div>
       </div>
@@ -527,7 +535,7 @@ const TakeReadingTest = () => {
       <div className="take-test-container">
         <div className="results-container">
           <div className="results-header">
-            <h1>📊 Test Results</h1>
+            <h1 style={{ display: "inline-flex", alignItems: "center", gap: 8 }}><InlineIcon name="overview" size={20} />Test Results</h1>
           </div>
 
           <div className="results-score-box">
@@ -575,7 +583,7 @@ const TakeReadingTest = () => {
                       <td>{q.studentAnswer || "—"}</td>
                       <td>{q.correctAnswer}</td>
                       <td className="result-cell">
-                        {q.isCorrect ? "✅" : "❌"}
+                        <InlineIcon name={q.isCorrect ? "correct" : "error"} size={16} style={{ color: q.isCorrect ? "#15803d" : "#b91c1c" }} />
                       </td>
                     </tr>
                   ))}
@@ -620,7 +628,7 @@ const TakeReadingTest = () => {
         </div>
         <div className="header-right">
           <div className="timer-display">
-            <span className="timer-icon">⏱️</span>
+            <span className="timer-icon"><InlineIcon name="clock" size={16} /></span>
             <span
               className={`timer-text ${timeRemaining < 300 ? "warning" : ""}`}
             >
@@ -632,7 +640,7 @@ const TakeReadingTest = () => {
             disabled={loading}
             className={`btn-submit ${loading ? "disabled" : ""}`}
           >
-            <span>📤</span> Submit
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><InlineIcon name="upload" size={14} />Submit</span>
           </button>
         </div>
       </header>
@@ -815,9 +823,7 @@ const TakeReadingTest = () => {
       {/* Status Message */}
       {message && (
         <div
-          className={`status-message ${
-            message.includes("❌") ? "error" : "success"
-          }`}
+          className={`status-message ${messageTone === "error" ? "error" : "success"}`}
         >
           {message}
         </div>

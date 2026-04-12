@@ -289,7 +289,7 @@ export default function LookReadWriteEditor({ question = {}, onChange, startingN
 
       {/* Tip box */}
       <div style={{ marginTop: 12, padding: "8px 12px", background: "#f0fdf4", borderRadius: 6, border: "1px solid #bbf7d0", fontSize: 11, color: "#166534", lineHeight: 1.7 }}>
-        <strong>Cấu trúc Part 6:</strong> Ảnh lớn (upload ở cấp Part) + 2 ví dụ mẫu + 3 nhóm × 2 câu = 6 câu hỏi.<br />
+        <strong>Cấu trúc Part 6:</strong> Ảnh lớn (upload ở cấp Part) + 2 ví dụ mẫu + 3 nhóm x 2 câu = 6 câu hỏi.<br />
         <strong>Đáp án linh hoạt:</strong>{" "}
         <code style={{ background: "#dcfce7", padding: "1px 4px", borderRadius: 3 }}>(từ tùy chọn)</code> → chấp nhận có hoặc không.{" "}
         <code style={{ background: "#dcfce7", padding: "1px 4px", borderRadius: 3 }}>A / B</code> → chấp nhận một trong hai.<br />

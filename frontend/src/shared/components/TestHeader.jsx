@@ -108,7 +108,9 @@ const TestHeader = ({
             <span className="timer-label">{isCambridge ? 'TIME LEFT' : 'REMAINING'}</span>
           </div>
           {timerCritical && (
-            <div className="timer-critical-badge pulse">🔥</div>
+            <div className="timer-critical-badge pulse">
+              <LineIcon name="average" size={14} strokeWidth={2.2} />
+            </div>
           )}
         </div>
 

@@ -1,26 +1,116 @@
 import React from "react";
-import { redirectToLogin } from "../utils/api";
+import { clearAuth, redirectToLogin } from "../utils/api";
+
+const AUTO_RECOVERY_KEY = "app-error-boundary:auto-recovery";
+const AUTO_RECOVERY_LIMIT = 2;
+const AUTO_RECOVERY_WINDOW_MS = 15000;
+const AUTO_RECOVERY_DELAY_MS = 180;
+const STABLE_SESSION_CLEAR_MS = 10000;
+
+const readAutoRecoveryState = () => {
+  if (typeof window === "undefined") return null;
+
+  try {
+    const rawState = sessionStorage.getItem(AUTO_RECOVERY_KEY);
+    return rawState ? JSON.parse(rawState) : null;
+  } catch (error) {
+    console.warn("Unable to read app recovery state:", error);
+    return null;
+  }
+};
+
+const writeAutoRecoveryState = (nextState) => {
+  if (typeof window === "undefined") return;
+
+  try {
+    sessionStorage.setItem(AUTO_RECOVERY_KEY, JSON.stringify(nextState));
+  } catch (error) {
+    console.warn("Unable to persist app recovery state:", error);
+  }
+};
+
+const clearAutoRecoveryState = () => {
+  if (typeof window === "undefined") return;
+
+  sessionStorage.removeItem(AUTO_RECOVERY_KEY);
+};
 
 class AppErrorBoundary extends React.Component {
+  static performAppReload() {
+    if (typeof window !== "undefined") {
+      window.location.reload();
+    }
+  }
+
+  static resetAuthAndRedirectToLogin() {
+    clearAutoRecoveryState();
+    clearAuth();
+    redirectToLogin({ replace: true });
+  }
+
   constructor(props) {
     super(props);
     this.state = { hasError: false };
+    this.recoveryTimer = null;
+    this.stableTimer = null;
   }
 
   static getDerivedStateFromError() {
     return { hasError: true };
   }
 
+  componentDidMount() {
+    if (typeof window === "undefined") return;
+
+    this.stableTimer = window.setTimeout(() => {
+      clearAutoRecoveryState();
+    }, STABLE_SESSION_CLEAR_MS);
+  }
+
   componentDidCatch(error, info) {
     // Keep logging in console for debugging while avoiding a blank white page for users.
     console.error("App crash:", error, info);
+    this.scheduleAutoRecovery();
+  }
+
+  componentWillUnmount() {
+    if (this.recoveryTimer) {
+      window.clearTimeout(this.recoveryTimer);
+    }
+    if (this.stableTimer) {
+      window.clearTimeout(this.stableTimer);
+    }
+  }
+
+  scheduleAutoRecovery = () => {
+    if (typeof window === "undefined" || this.recoveryTimer) return;
+
+    if (this.stableTimer) {
+      window.clearTimeout(this.stableTimer);
+      this.stableTimer = null;
+    }
+
+    const now = Date.now();
+    const currentState = readAutoRecoveryState();
+    const isExpired = !currentState?.firstAt || now - currentState.firstAt > AUTO_RECOVERY_WINDOW_MS;
+    const nextState = isExpired
+      ? { count: 1, firstAt: now }
+      : { count: (currentState.count || 0) + 1, firstAt: currentState.firstAt };
+
+    writeAutoRecoveryState(nextState);
+
+    this.recoveryTimer = window.setTimeout(() => {
+      if (nextState.count <= AUTO_RECOVERY_LIMIT) {
+        AppErrorBoundary.performAppReload();
+        return;
+      }
+
+      AppErrorBoundary.resetAuthAndRedirectToLogin();
+    }, AUTO_RECOVERY_DELAY_MS);
   }
 
   handleResetToLogin = () => {
-    localStorage.removeItem("accessToken");
-    localStorage.removeItem("refreshToken");
-    localStorage.removeItem("user");
-    redirectToLogin({ replace: true });
+    AppErrorBoundary.resetAuthAndRedirectToLogin();
   };
 
   render() {
@@ -29,62 +119,28 @@ class AppErrorBoundary extends React.Component {
         <div
           style={{
             minHeight: "100vh",
+            background: "#f8fafc",
             display: "grid",
             placeItems: "center",
-            padding: 16,
-            background: "#f8fafc",
-            fontFamily: "Segoe UI, sans-serif",
           }}
+          aria-live="polite"
+          aria-busy="true"
         >
-          <div
+          <span
             style={{
-              width: "100%",
-              maxWidth: 420,
-              background: "#ffffff",
-              border: "1px solid #e2e8f0",
-              borderRadius: 12,
-              padding: 20,
-              textAlign: "center",
-              boxShadow: "0 12px 28px rgba(15, 23, 42, 0.08)",
+              position: "absolute",
+              width: 1,
+              height: 1,
+              padding: 0,
+              margin: -1,
+              overflow: "hidden",
+              clip: "rect(0, 0, 0, 0)",
+              whiteSpace: "nowrap",
+              border: 0,
             }}
           >
-            <h2 style={{ margin: "0 0 8px", color: "#0f172a" }}>Trang gap loi tam thoi</h2>
-            <p style={{ margin: "0 0 16px", color: "#475569", fontSize: 14 }}>
-              Ban bam tai lai, hoac dang nhap lai de tiep tuc.
-            </p>
-            <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
-              <button
-                type="button"
-                onClick={() => window.location.reload()}
-                style={{
-                  border: "none",
-                  borderRadius: 8,
-                  padding: "10px 14px",
-                  background: "#0e276f",
-                  color: "#fff",
-                  fontWeight: 600,
-                  cursor: "pointer",
-                }}
-              >
-                Tai lai
-              </button>
-              <button
-                type="button"
-                onClick={this.handleResetToLogin}
-                style={{
-                  border: "1px solid #cbd5e1",
-                  borderRadius: 8,
-                  padding: "10px 14px",
-                  background: "#fff",
-                  color: "#0f172a",
-                  fontWeight: 600,
-                  cursor: "pointer",
-                }}
-              >
-                Dang nhap lai
-              </button>
-            </div>
-          </div>
+            Dang tai lai trang.
+          </span>
         </div>
       );
     }

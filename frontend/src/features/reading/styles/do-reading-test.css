@@ -1437,20 +1437,19 @@
 }
 
 .paragraph-block.paragraph-chosen::after {
-  content: "✓";
+  content: "";
   position: absolute;
   top: 8px;
   right: 12px;
   background: #27ae60;
-  color: #fff;
-  width: 26px;
-  height: 26px;
+  width: 10px;
+  height: 6px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 50%;
-  font-weight: 700;
-  font-size: 14px;
+  border-left: 3px solid #fff;
+  border-bottom: 3px solid #fff;
+  transform: rotate(-45deg);
 }
 
 .paragraph-label::before {

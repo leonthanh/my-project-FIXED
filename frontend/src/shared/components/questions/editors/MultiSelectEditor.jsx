@@ -1,4 +1,5 @@
 import React from "react";
+import InlineIcon from "../../InlineIcon.jsx";
 
 /**
  * MultiSelectEditor - Choose 2+ letters (A-E)
@@ -203,7 +204,7 @@ const MultiSelectEditor = ({
                 }}
                 style={defaultStyles.deleteButton}
               >
-                  ×
+                  <InlineIcon name="close" size={12} style={{ color: "currentColor" }} />
               </button>
             )}
           </div>

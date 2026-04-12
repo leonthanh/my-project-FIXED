@@ -16,9 +16,47 @@ import {
 import { apiPath, hostPath, authFetch, redirectToLogin } from "../../shared/utils/api";
 import useQuillImageUpload from "../../shared/hooks/useQuillImageUpload";
 import { canManageCategory } from '../../shared/utils/permissions';
+import LineIcon from "../../shared/components/LineIcon.jsx";
 import "./CambridgeTestBuilder.css";
 import { computeQuestionStarts, getQuestionCountForSection } from "./utils/questionNumbering";
 import { buildMoversPracticeTest1Template } from "./utils/moversPracticeTest1Template";
+
+const InlineIcon = ({ name, size = 16, strokeWidth = 2, style }) => (
+  <span
+    aria-hidden="true"
+    style={{
+      display: "inline-flex",
+      alignItems: "center",
+      justifyContent: "center",
+      lineHeight: 0,
+      ...style,
+    }}
+  >
+    <LineIcon name={name} size={size} strokeWidth={strokeWidth} />
+  </span>
+);
+
+const QUESTION_TYPE_ICONS = {
+  fill: "fill",
+  abc: "choice",
+  abcd: "choice",
+  "long-text-mc": "reading",
+  "cloze-mc": "selector",
+  "cloze-test": "form",
+  "short-message": "writing",
+  "people-matching": "matching",
+  "word-form": "edit",
+  "matching-pictures": "image",
+  "image-cloze": "image",
+  "word-drag-cloze": "flowchart",
+  "story-completion": "reading",
+  "look-read-write": "writing",
+  "gap-match": "matching",
+  "draw-lines": "target",
+  "letter-matching": "matching",
+  "image-tick": "correct",
+  "colour-write": "palette",
+};
 
 
 /**
@@ -487,7 +525,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
     setParts(Array.isArray(template.parts) && template.parts.length > 0 ? template.parts : getInitialParts());
     setSelectedPartIndex(0);
     setSelectedSectionIndex(0);
-    setMessage({ type: 'success', text: '✅ Da nap Movers Practice Test 1. Ban co the chinh sua noi dung ngay tren builder.' });
+    setMessage({ type: 'success', text: 'Da nap Movers Practice Test 1. Ban co the chinh sua noi dung ngay tren builder.' });
   };
 
   const handleDeleteQuestion = (qIndex) => {
@@ -626,11 +664,11 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
   const handleSave = async () => {
     // Validation
     if (!title.trim()) {
-      setMessage({ type: 'error', text: '❌ Vui lòng nhập tiêu đề đề thi!' });
+      setMessage({ type: 'error', text: 'Vui lòng nhập tiêu đề đề thi!' });
       return;
     }
     if (!classCode.trim()) {
-      setMessage({ type: 'error', text: '❌ Vui lòng nhập mã lớp!' });
+      setMessage({ type: 'error', text: 'Vui lòng nhập mã lớp!' });
       return;
     }
 
@@ -690,14 +728,14 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
           if (res.status === 401) {
             // Save draft and prompt re-login
             try { saveToLocalStorage(); } catch (e) {}
-            setMessage({ type: 'error', text: '❌ Token đã hết hạn hoặc không hợp lệ. Vui lòng đăng nhập lại để tiếp tục. Bản nháp đã được lưu.' });
+            setMessage({ type: 'error', text: 'Token đã hết hạn hoặc không hợp lệ. Vui lòng đăng nhập lại để tiếp tục. Bản nháp đã được lưu.' });
             setRequiresLogin(true);
             return;
           }
           const err = await res.json().catch(() => ({}));
           throw new Error(err?.message || 'Lỗi khi cập nhật đề');
         }
-        setMessage({ type: 'success', text: '✅ Cập nhật đề thành công!' });
+        setMessage({ type: 'success', text: 'Cập nhật đề thành công!' });
         // Clear draft after successful save
         localStorage.removeItem(`cambridgeTestDraft-${testType}`);
       } else {
@@ -710,7 +748,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
         if (!response.ok) {
           if (response.status === 401) {
             try { saveToLocalStorage(); } catch (e) {}
-            setMessage({ type: 'error', text: '❌ Token đã hết hạn hoặc không hợp lệ. Vui lòng đăng nhập lại để tiếp tục. Bản nháp đã được lưu.' });
+            setMessage({ type: 'error', text: 'Token đã hết hạn hoặc không hợp lệ. Vui lòng đăng nhập lại để tiếp tục. Bản nháp đã được lưu.' });
             setRequiresLogin(true);
             return;
           }
@@ -719,7 +757,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
 
         /* eslint-disable-next-line no-unused-vars */
         const result = await response.json();
-        setMessage({ type: 'success', text: '✅ Tạo đề thành công!' });
+        setMessage({ type: 'success', text: 'Tạo đề thành công!' });
         // Clear draft after successful save
         localStorage.removeItem(`cambridgeTestDraft-${testType}`);
       }
@@ -734,7 +772,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
       }, 1500);
     } catch (error) {
       console.error('Save error:', error);
-      setMessage({ type: 'error', text: '❌ Lỗi: ' + error.message });
+      setMessage({ type: 'error', text: 'Lỗi: ' + error.message });
     } finally {
       setIsSubmitting(false);
     }
@@ -743,7 +781,10 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
   if (!allowedToManage) {
     return (
       <div style={{ padding: 40, textAlign: 'center' }}>
-        <h2>⚠️ Bạn không có quyền tạo/sửa đề {category === 'listening' ? 'Listening' : 'Reading'}</h2>
+        <h2 style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
+          <InlineIcon name="average" size={20} style={{ color: '#d97706' }} />
+          Bạn không có quyền tạo/sửa đề {category === 'listening' ? 'Listening' : 'Reading'}
+        </h2>
         <p>Nếu bạn cho rằng đây là lỗi, vui lòng liên hệ quản trị hệ thống.</p>
         <button onClick={() => navigate('/select-test')} style={{ marginTop: 16, padding: '8px 14px' }}>Quay lại</button>
       </div>
@@ -753,7 +794,10 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
   if (!testConfig) {
     return (
       <div style={{ padding: '40px', textAlign: 'center' }}>
-        <h2>❌ Test type không hợp lệ: {testType}</h2>
+        <h2 style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
+          <InlineIcon name="error" size={20} style={{ color: '#dc2626' }} />
+          Test type không hợp lệ: {testType}
+        </h2>
         <p>Các test types hỗ trợ:</p>
         <ul style={{ listStyle: 'none', padding: 0 }}>
           {Object.keys(TEST_CONFIGS).map(key => (
@@ -771,7 +815,10 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
       {/* AdminNavbar */}
       {requiresLogin && (
         <div style={{ padding: 12, background: '#fff0f0', border: '1px solid #ffcccc', borderRadius: 6, margin: '12px auto', maxWidth: 1000 }}>
-          <strong>⚠️ Bạn cần đăng nhập lại để hoàn tất thao tác.</strong>
+          <strong style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+            <InlineIcon name="average" size={16} style={{ color: '#d97706' }} />
+            Bạn cần đăng nhập lại để hoàn tất thao tác.
+          </strong>
           <div style={{ marginTop: 8 }}>
             Bản nháp đã được lưu. <button style={{ marginLeft: 8, padding: '6px 10px' }} onClick={() => { redirectToLogin({ rememberPath: true, replace: true }); }}>Đăng nhập lại</button>
           </div>
@@ -802,19 +849,21 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
           borderRadius: '8px',
           marginBottom: '20px',
         }}>
-          <h3 style={{ margin: '0 0 8px', fontSize: '16px' }}>
-            🎓 {builderDisplayName}
+          <h3 style={{ margin: '0 0 8px', fontSize: '16px', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <InlineIcon name="graduation" size={18} style={{ color: '#fff' }} />
+            {builderDisplayName}
           </h3>
           <div style={{ fontSize: '12px', color: '#94a3b8' }}>
-            <p style={{ margin: '4px 0' }}>📊 {testConfig.totalQuestions} câu hỏi</p>
-            <p style={{ margin: '4px 0' }}>📖 {testConfig.parts} parts</p>
-            <p style={{ margin: '4px 0' }}>⏱️ {testConfig.duration} phút</p>
+            <p style={{ margin: '4px 0', display: 'flex', alignItems: 'center', gap: 6 }}><InlineIcon name="questions" size={14} />{testConfig.totalQuestions} câu hỏi</p>
+            <p style={{ margin: '4px 0', display: 'flex', alignItems: 'center', gap: 6 }}><InlineIcon name="reading" size={14} />{testConfig.parts} parts</p>
+            <p style={{ margin: '4px 0', display: 'flex', alignItems: 'center', gap: 6 }}><InlineIcon name="clock" size={14} />{testConfig.duration} phút</p>
           </div>
         </div>
 
         {/* Parts Navigation */}
-        <h4 style={{ margin: '0 0 12px', fontSize: '14px', color: '#94a3b8' }}>
-          📋 Parts
+        <h4 style={{ margin: '0 0 12px', fontSize: '14px', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: 6 }}>
+          <InlineIcon name="document" size={14} />
+          Parts
         </h4>
         {parts.map((part, idx) => (
           <div
@@ -853,14 +902,15 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
             marginTop: '12px',
           }}
         >
-          ➕ Thêm Part
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><InlineIcon name="create" size={14} style={{ color: 'white' }} />Thêm Part</span>
         </button>
 
         {/* Sections in current Part */}
         {currentPart && currentPart.sections.length > 0 && (
           <div style={{ marginTop: '24px' }}>
-            <h4 style={{ margin: '0 0 12px', fontSize: '14px', color: '#94a3b8' }}>
-              📑 Sections trong Part {selectedPartIndex + 1}
+            <h4 style={{ margin: '0 0 12px', fontSize: '14px', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <InlineIcon name="document" size={14} />
+              Sections trong Part {selectedPartIndex + 1}
             </h4>
             {currentPart.sections.map((sec, idx) => (
               <div
@@ -896,15 +946,16 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
                 fontSize: '13px',
               }}
             >
-              ➕ Thêm Section
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><InlineIcon name="create" size={14} style={{ color: 'white' }} />Thêm Section</span>
             </button>
           </div>
         )}
 
         {/* Available Question Types */}
         <div style={{ marginTop: '24px' }}>
-          <h4 style={{ margin: '0 0 12px', fontSize: '14px', color: '#94a3b8' }}>
-            📝 Loại câu hỏi hỗ trợ
+          <h4 style={{ margin: '0 0 12px', fontSize: '14px', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: 6 }}>
+            <InlineIcon name="writing" size={14} />
+            Loại câu hỏi hỗ trợ
           </h4>
           <div style={{ fontSize: '12px' }}>
             {availableTypes.map(qt => (
@@ -913,8 +964,12 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
                 backgroundColor: '#475569',
                 borderRadius: '4px',
                 marginBottom: '4px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
               }}>
-                {qt.icon} {qt.labelVi || qt.label}
+                <InlineIcon name={QUESTION_TYPE_ICONS[qt.id] || 'questions'} size={14} style={{ color: '#fff' }} />
+                {qt.labelVi || qt.label}
               </div>
             ))}
           </div>
@@ -938,16 +993,21 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
           boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <h1 className="ctb-title" style={{ margin: 0, fontSize: '18px', fontWeight: 600 }}>
-              🎓 {builderDisplayName}
+            <h1 className="ctb-title" style={{ margin: 0, fontSize: '18px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
+              <InlineIcon name="graduation" size={18} style={{ color: '#0f172a' }} />
+              {builderDisplayName}
             </h1>
             {/* Auto-save indicator */}
             <div style={{
               fontSize: '11px',
               color: isSaving ? '#f59e0b' : lastSaved ? '#22c55e' : '#9ca3af',
               fontStyle: 'italic',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '4px',
             }}>
-              {isSaving ? '💾' : lastSaved ? `✅ ${lastSaved.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}` : '○'}
+              {isSaving ? <InlineIcon name="save" size={12} /> : lastSaved ? <InlineIcon name="correct" size={12} /> : null}
+              {lastSaved ? lastSaved.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : isSaving ? 'Đang lưu' : 'Chưa lưu'}
             </div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -968,7 +1028,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
                 }}
                 title="Nạp nhanh bo Movers Practice Test 1"
               >
-                ⚡ Nạp Template Movers
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><InlineIcon name="flash" size={14} style={{ color: 'white' }} />Nạp Template Movers</span>
               </button>
             )}
             <button
@@ -985,7 +1045,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
                 fontSize: '13px',
               }}
             >
-              {isSubmitting ? '⏳' : '💾 Lưu'}
+              {isSubmitting ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><InlineIcon name="loading" size={14} style={{ color: 'white' }} />Đang lưu...</span> : <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><InlineIcon name="save" size={14} style={{ color: 'white' }} />Lưu</span>}
             </button>
           </div>
         </div>
@@ -999,7 +1059,11 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
             backgroundColor: message.type === 'error' ? '#fef2f2' : '#f0fdf4',
             border: `1px solid ${message.type === 'error' ? '#fecaca' : '#bbf7d0'}`,
             color: message.type === 'error' ? '#dc2626' : '#16a34a',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
           }}>
+            <InlineIcon name={message.type === 'error' ? 'error' : 'correct'} size={16} />
             {message.text}
           </div>
         )}
@@ -1099,13 +1163,16 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
             boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
           }}>
             <label style={{
-              display: 'block',
               marginBottom: '8px',
               fontWeight: 600,
               color: '#374151',
               fontSize: '13px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
             }}>
-              🎧 Audio chung (toàn bài)
+              <InlineIcon name="listening" size={14} />
+              Audio chung (toàn bài)
             </label>
 
             {mainAudioUrl ? (
@@ -1164,11 +1231,11 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
               )}
               {mainAudioUploadError && (
                 <div style={{ marginTop: '8px', fontSize: '12px', color: '#ef4444' }}>
-                  ❌ {mainAudioUploadError}
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><InlineIcon name="error" size={14} />{mainAudioUploadError}</span>
                 </div>
               )}
               <div style={{ marginTop: '6px', fontSize: '11px', color: '#6b7280' }}>
-                💡 Audio chung sẽ phát xuyên suốt khi học sinh chuyển part.
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><InlineIcon name="idea" size={12} />Audio chung sẽ phát xuyên suốt khi học sinh chuyển part.</span>
               </div>
             </div>
           </div>
@@ -1181,8 +1248,9 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
             padding: '24px',
             boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
           }}>
-            <h2 style={{ margin: '0 0 20px', color: '#0e276f' }}>
-              📌 {currentPart.title}
+            <h2 style={{ margin: '0 0 20px', color: '#0e276f', display: 'flex', alignItems: 'center', gap: 8 }}>
+              <InlineIcon name="pin" size={18} />
+              {currentPart.title}
             </h2>
 
             {/* Part Instruction */}
@@ -1233,7 +1301,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
                 />
               </div>
               <p style={{ fontSize: '11px', color: '#6b7280', marginTop: '4px' }}>
-                💡 Có thể thêm hình ảnh, định dạng text, màu sắc...
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><InlineIcon name="idea" size={12} />Có thể thêm hình ảnh, định dạng text, màu sắc...</span>
               </p>
             </div>
 
@@ -1326,11 +1394,11 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
                     )}
                     {audioUploadError && (
                       <div style={{ marginTop: '8px', fontSize: '12px', color: '#ef4444' }}>
-                        ❌ {audioUploadError}
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><InlineIcon name="error" size={14} />{audioUploadError}</span>
                       </div>
                     )}
                     <div style={{ marginTop: '6px', fontSize: '11px', color: '#6b7280' }}>
-                      💡 Hỗ trợ file audio (mp3/wav/m4a/ogg...). Backend giới hạn 50MB.
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><InlineIcon name="idea" size={12} />Hỗ trợ file audio (mp3/wav/m4a/ogg...). Backend giới hạn 50MB.</span>
                     </div>
                   </div>
                 </div>
@@ -1405,8 +1473,9 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
 
                   {/* URL input – paste link ảnh/GIF từ internet */}
                   <div style={{ marginTop: '12px' }}>
-                    <div style={{ fontSize: '12px', fontWeight: 700, color: '#374151', marginBottom: '5px' }}>
-                      🔗 Nhập URL ảnh/GIF từ internet
+                    <div style={{ fontSize: '12px', fontWeight: 700, color: '#374151', marginBottom: '5px', display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <InlineIcon name="link" size={14} />
+                      Nhập URL ảnh/GIF từ internet
                     </div>
                     <input
                       type="text"
@@ -1436,8 +1505,9 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
 
                   {/* Upload từ máy */}
                   <div style={{ marginTop: '10px' }}>
-                    <div style={{ fontSize: '12px', fontWeight: 700, color: '#374151', marginBottom: '5px' }}>
-                      📁 Hoặc upload từ máy
+                    <div style={{ fontSize: '12px', fontWeight: 700, color: '#374151', marginBottom: '5px', display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <InlineIcon name="upload" size={14} />
+                      Hoặc upload từ máy
                     </div>
                     <input
                       type="file"
@@ -1457,11 +1527,11 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
                     )}
                     {imageUploadError && (
                       <div style={{ marginTop: '8px', fontSize: '12px', color: '#ef4444' }}>
-                        ❌ {imageUploadError}
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><InlineIcon name="error" size={14} />{imageUploadError}</span>
                       </div>
                     )}
                     <div style={{ marginTop: '6px', fontSize: '11px', color: '#6b7280' }}>
-                      💡 Hỗ trợ file ảnh (jpg/png/gif/webp...). Nên dùng ảnh rõ nét, tỉ lệ phù hợp với bài thi.
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><InlineIcon name="idea" size={12} />Hỗ trợ file ảnh (jpg/png/gif/webp...). Nên dùng ảnh rõ nét, tỉ lệ phù hợp với bài thi.</span>
                     </div>
                   </div>
                 </div>
@@ -1471,8 +1541,9 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
             {/* Example Block (abc type only) - placed under part image area */}
             {currentSection && currentSection.questionType === 'abc' && (
               <div style={{ marginBottom: '20px', padding: '16px', background: '#fffbeb', border: '1px solid #fcd34d', borderRadius: '8px' }}>
-                <div style={{ fontWeight: 600, color: '#92400e', marginBottom: '12px', fontSize: '14px' }}>
-                  ⭐ Câu mẫu (Example)
+                <div style={{ fontWeight: 600, color: '#92400e', marginBottom: '12px', fontSize: '14px', display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <InlineIcon name="starters" size={14} />
+                  Câu mẫu (Example)
                 </div>
 
                 <div style={{ marginBottom: '10px' }}>
@@ -1557,8 +1628,9 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
                 padding: '20px',
                 backgroundColor: '#f8fafc',
               }}>
-                <h3 style={{ margin: '0 0 16px', color: '#374151' }}>
-                  📝 Section {selectedSectionIndex + 1}
+                <h3 style={{ margin: '0 0 16px', color: '#374151', display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <InlineIcon name="writing" size={16} />
+                  Section {selectedSectionIndex + 1}
                 </h3>
 
                 {/* Question Type Selector */}
@@ -1670,7 +1742,10 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
                               }}
                               title={isCollapsed ? 'Mở rộng' : 'Thu nhỏ'}
                             >
-                              {isCollapsed ? '👁️ Mở' : '👁️ Ẩn'}
+                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                                <InlineIcon name={isCollapsed ? 'eye' : 'chevron-up'} size={14} style={{ color: isCollapsed ? 'white' : '#4f46e5' }} />
+                                {isCollapsed ? 'Mở' : 'Ẩn'}
+                              </span>
                             </button>
                             
                             {/* Copy Button */}
@@ -1688,7 +1763,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
                               }}
                               title="Sao chép câu hỏi"
                             >
-                              📋 Copy
+                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><InlineIcon name="copy" size={14} style={{ color: 'white' }} />Copy</span>
                             </button>
                             
                             {/* Paste Button - only show if something is copied */}
@@ -1707,7 +1782,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
                                 }}
                                 title="Dán câu hỏi đã copy"
                               >
-                                📌 Paste
+                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><InlineIcon name="pin" size={14} style={{ color: 'white' }} />Paste</span>
                               </button>
                             )}
                             
@@ -1727,7 +1802,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
                                 }}
                                 title="Xóa câu hỏi"
                               >
-                                🗑️ Xóa
+                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><InlineIcon name="trash" size={14} style={{ color: 'white' }} />Xóa</span>
                               </button>
                             )}
                           </div>
@@ -1785,7 +1860,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
                       marginTop: '12px',
                     }}
                   >
-                    ➕ Thêm câu hỏi
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><InlineIcon name="create" size={14} style={{ color: 'white' }} />Thêm câu hỏi</span>
                   </button>
                 </div>
               </div>

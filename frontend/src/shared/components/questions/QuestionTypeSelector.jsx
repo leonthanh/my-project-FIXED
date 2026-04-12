@@ -46,7 +46,7 @@ const QuestionTypeSelector = ({
     >
       {availableQuestionTypes.map((qt) => (
         <option key={qt.id} value={qt.id} title={qt.description}>
-          {qt.icon} {qt.label}
+          {qt.labelVi || qt.label}
         </option>
       ))}
     </select>

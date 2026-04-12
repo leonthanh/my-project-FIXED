@@ -1,4 +1,5 @@
 import React, { useRef, useState } from "react";
+import InlineIcon from "../../InlineIcon.jsx";
 
 /**
  * MapLabelingEditor - Map/Plan Labeling question
@@ -190,7 +191,7 @@ const MapLabelingEditor = ({
               }}
               style={defaultStyles.deleteButton}
             >
-              ×
+              <InlineIcon name="close" size={12} style={{ color: "currentColor" }} />
             </button>
           )}
         </div>

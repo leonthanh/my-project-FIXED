@@ -15,7 +15,7 @@ export const QUESTION_TYPES = {
     id: 'fill',
     label: 'Fill in the blank',
     labelVi: 'Điền vào chỗ trống',
-    icon: '📝',
+    iconName: 'writing',
     description: 'Điền từ vào chỗ trống (từng câu)',
     editor: 'FillBlankEditor',
     defaultData: {
@@ -29,7 +29,7 @@ export const QUESTION_TYPES = {
     id: 'abc',
     label: 'Multiple Choice (A/B/C)',
     labelVi: 'Trắc nghiệm 3 lựa chọn',
-    icon: '🔘',
+    iconName: 'choice',
     description: '3 lựa chọn A, B, C',
     editor: 'MultipleChoiceEditor',
     editorProps: { optionLabels: ['A', 'B', 'C'] },
@@ -45,7 +45,7 @@ export const QUESTION_TYPES = {
     id: 'abcd',
     label: 'Multiple Choice (A/B/C/D)',
     labelVi: 'Trắc nghiệm 4 lựa chọn',
-    icon: '🔘',
+    iconName: 'choice',
     description: '4 lựa chọn A, B, C, D',
     editor: 'MultipleChoiceEditor',
     editorProps: { optionLabels: ['A', 'B', 'C', 'D'] },
@@ -61,7 +61,7 @@ export const QUESTION_TYPES = {
     id: 'matching',
     label: 'Matching',
     labelVi: 'Nối cặp',
-    icon: '🔗',
+    iconName: 'matching',
     description: 'Nối items với options A-H',
     editor: 'MatchingEditor',
     defaultData: {
@@ -80,7 +80,7 @@ export const QUESTION_TYPES = {
     id: 'gap-match',
     label: 'Gap Match (Drag & Drop)',
     labelVi: 'Kéo chữ vào ô',
-    icon: '🧲',
+    iconName: 'matching',
     description: 'Kéo lựa chọn vào các ô trống theo hàng (Part 5 Listening)',
     editor: 'GapMatchEditor',
     defaultData: {
@@ -98,7 +98,7 @@ export const QUESTION_TYPES = {
     id: 'multi-select',
     label: 'Multi Select',
     labelVi: 'Chọn nhiều đáp án',
-    icon: '✅',
+    iconName: 'multi-select',
     description: 'Chọn 2-3 đáp án đúng từ A-E',
     editor: 'MultiSelectEditor',
     defaultData: {
@@ -115,7 +115,7 @@ export const QUESTION_TYPES = {
     id: 'form-completion',
     label: 'Form/Table Completion',
     labelVi: 'Hoàn thành form/bảng',
-    icon: '📋',
+    iconName: 'form',
     description: 'Form có bảng với nhiều blank (IELTS format)',
     editor: 'FormCompletionEditor',
     defaultData: {
@@ -134,7 +134,7 @@ export const QUESTION_TYPES = {
     id: 'notes-completion',
     label: 'Notes Completion',
     labelVi: 'Hoàn thành ghi chú',
-    icon: '📝',
+    iconName: 'writing',
     description: 'Paste notes có ___ tự tách câu hỏi',
     editor: 'NotesCompletionEditor',
     defaultData: {
@@ -150,7 +150,7 @@ export const QUESTION_TYPES = {
     id: 'table-completion',
     label: 'Table Completion',
     labelVi: 'Hoàn thành bảng/Ghi chú',
-    icon: '🧾',
+    iconName: 'table',
     description: 'Bảng 3 cột (Vehicles / Cost / Comments) với blanks đánh số',
     editor: 'TableCompletionEditor',
     defaultData: {
@@ -171,7 +171,7 @@ export const QUESTION_TYPES = {
     id: 'map-labeling',
     label: 'Map/Plan Labeling',
     labelVi: 'Gắn nhãn bản đồ',
-    icon: '🗺️',
+    iconName: 'map',
     description: 'Gắn nhãn vị trí trên bản đồ A-H',
     editor: 'MapLabelingEditor',
     defaultData: {
@@ -188,7 +188,7 @@ export const QUESTION_TYPES = {
     id: 'flowchart',
     label: 'Flowchart Completion',
     labelVi: 'Hoàn thành sơ đồ',
-    icon: '📊',
+    iconName: 'flowchart',
     description: 'Hoàn thành các bước trong sơ đồ',
     editor: 'FlowchartEditor',
     defaultData: {
@@ -206,7 +206,7 @@ export const QUESTION_TYPES = {
     id: 'true-false-not-given',
     label: 'True/False/Not Given',
     labelVi: 'Đúng/Sai/Không đề cập',
-    icon: '✓✗',
+    iconName: 'correct',
     description: 'TRUE, FALSE, hoặc NOT GIVEN',
     editor: 'TFNGEditor', // Will create later
     defaultData: {
@@ -220,7 +220,7 @@ export const QUESTION_TYPES = {
     id: 'yes-no-not-given',
     label: 'Yes/No/Not Given',
     labelVi: 'Có/Không/Không đề cập',
-    icon: '✓✗',
+    iconName: 'correct',
     description: 'YES, NO, hoặc NOT GIVEN',
     editor: 'YNNGEditor', // Will create later
     defaultData: {
@@ -234,7 +234,7 @@ export const QUESTION_TYPES = {
     id: 'matching-headings',
     label: 'Matching Headings',
     labelVi: 'Ghép tiêu đề đoạn',
-    icon: '📑',
+    iconName: 'document',
     description: 'Ghép mỗi đoạn văn với 1 heading (i-x)',
     editor: 'MatchingHeadingsEditor', // Will create later
     defaultData: {
@@ -249,7 +249,7 @@ export const QUESTION_TYPES = {
     id: 'paragraph-matching',
     label: 'Paragraph Matching',
     labelVi: 'Tìm thông tin ở đoạn nào',
-    icon: '🔍',
+    iconName: 'search',
     description: 'Tìm thông tin ở đoạn A-G',
     editor: 'ParagraphMatchingEditor', // Will create later
     defaultData: {
@@ -263,7 +263,7 @@ export const QUESTION_TYPES = {
     id: 'cloze-test',
     label: 'Open Cloze',
     labelVi: 'Điền chỗ trống',
-    icon: '📄',
+    iconName: 'document',
     description: 'Điền từ vào các chỗ trống trong đoạn văn',
     editor: 'ClozeTestEditor', // Will create later
     defaultData: {
@@ -278,7 +278,7 @@ export const QUESTION_TYPES = {
     id: 'summary-completion',
     label: 'Summary Completion (A-L)',
     labelVi: 'Hoàn thành đoạn (A-L)',
-    icon: '🅰️',
+    iconName: 'selector',
     description: 'Hoàn thành đoạn bằng cách ghi chữ cái A-L tương ứng với danh sách từ cho sẵn',
     editor: 'SummaryCompletionEditor',
     defaultData: {
@@ -293,7 +293,7 @@ export const QUESTION_TYPES = {
     id: 'sentence-completion',
     label: 'Sentence Completion',
     labelVi: 'Hoàn thành câu',
-    icon: '✍️',
+    iconName: 'writing',
     description: 'Hoàn thành câu từ word list',
     editor: 'SentenceCompletionEditor', // Will create later
     defaultData: {
@@ -309,7 +309,7 @@ export const QUESTION_TYPES = {
     id: 'sign-message',
     label: 'Signs & Messages',
     labelVi: 'Biển báo & Thông báo',
-    icon: '🪧',
+    iconName: 'tag',
     description: 'KET Part 1: Đọc biển báo + chọn ý nghĩa đúng (A/B/C)',
     editor: 'SignMessageEditor',
     defaultData: {
@@ -326,7 +326,7 @@ export const QUESTION_TYPES = {
     id: 'people-matching',
     label: 'People Matching',
     labelVi: 'Nối người với văn bản',
-    icon: '👥',
+    iconName: 'user',
     description: 'KET Part 2: 5 người + 8 texts, nối cặp phù hợp',
     editor: 'PeopleMatchingEditor',
     defaultData: {
@@ -357,7 +357,7 @@ export const QUESTION_TYPES = {
     id: 'long-text-mc',
     label: 'Long Text + Multiple Choice',
     labelVi: 'Đoạn văn dài + Trắc nghiệm',
-    icon: '📰',
+    iconName: 'reading',
     description: 'KET Part 3: 1 đoạn văn dài + 5 câu MC',
     editor: 'LongTextMCEditor',
     defaultData: {
@@ -379,7 +379,7 @@ export const QUESTION_TYPES = {
     id: 'cloze-mc',
     label: 'Multiple Choice Cloze',
     labelVi: 'Cloze trắc nghiệm',
-    icon: '📋',
+    iconName: 'form',
     description: 'KET Part 4: Đoạn văn + chọn từ A/B/C cho mỗi blank',
     editor: 'ClozeMCEditor',
     defaultData: {
@@ -400,7 +400,7 @@ export const QUESTION_TYPES = {
     id: 'inline-choice',
     label: 'Inline Choice (PET Part 5)',
     labelVi: 'Chon dap an trong doan van',
-    icon: '🔽',
+    iconName: 'chevron-down',
     description: 'PET Part 5: Chon dap an A-D ngay trong doan van',
     editor: 'InlineChoiceEditor',
     defaultData: {
@@ -422,7 +422,7 @@ export const QUESTION_TYPES = {
     id: 'word-form',
     label: 'Word Formation',
     labelVi: 'Biến đổi từ',
-    icon: '🔤',
+    iconName: 'edit',
     description: 'KET Part 6: Cho từ gốc, biến đổi điền vào chỗ trống',
     editor: 'WordFormEditor',
     defaultData: {
@@ -442,7 +442,7 @@ export const QUESTION_TYPES = {
     id: 'sentence-transformation',
     label: 'Sentence Transformation',
     labelVi: 'Biến đổi câu',
-    icon: '🔄',
+    iconName: 'retry',
     description: 'Viết lại câu giữ nguyên nghĩa',
     editor: 'SentenceTransformationEditor',
     defaultData: {
@@ -458,7 +458,7 @@ export const QUESTION_TYPES = {
     id: 'short-message',
     label: 'Short Message/Email',
     labelVi: 'Tin nhắn ngắn/Email',
-    icon: '✉️',
+    iconName: 'mail',
     description: 'Viết tin nhắn ngắn (KET Part 7: 25-35 words)',
     editor: 'ShortMessageEditor',
     defaultData: {
@@ -476,7 +476,7 @@ export const QUESTION_TYPES = {
     id: 'story-writing',
     label: 'Story Writing',
     labelVi: 'Viết truyện ngắn',
-    icon: '📖',
+    iconName: 'reading',
     description: 'Viết truyện ngắn (PET Part 7: ~100 words)',
     editor: 'StoryWritingEditor',
     defaultData: {
@@ -493,7 +493,7 @@ export const QUESTION_TYPES = {
     id: 'matching-pictures',
     label: 'Matching with Pictures',
     labelVi: 'Ghép với hình ảnh',
-    icon: '🖼️',
+    iconName: 'image',
     description: 'Nối từ/câu với hình ảnh',
     editor: 'MatchingPicturesEditor',
     defaultData: {
@@ -523,7 +523,7 @@ export const QUESTION_TYPES = {
     id: 'image-cloze',
     label: 'Image Cloze (Drag & Drop)',
     labelVi: 'Điền ảnh vào đoạn văn',
-    icon: '🖼️',
+    iconName: 'image',
     description: 'Kéo ảnh vào ô trống trong đoạn văn (Movers Part 3)',
     editor: 'ImageClozeEditor',
     defaultData: {
@@ -545,7 +545,7 @@ export const QUESTION_TYPES = {
     id: 'word-drag-cloze',
     label: 'Word Drag & Drop Cloze',
     labelVi: 'Kéo từ vào chỗ trống',
-    icon: '🔤',
+    iconName: 'edit',
     description: 'Movers Part 4: Đọc đoạn văn, kéo thả từ đúng vào chỗ trống (3 lựa chọn/blank)',
     editor: 'WordDragClozeEditor',
     defaultData: {
@@ -564,7 +564,7 @@ export const QUESTION_TYPES = {
     id: 'story-completion',
     label: 'Story Completion',
     labelVi: 'Hoàn thành câu chuyện',
-    icon: '📖',
+    iconName: 'reading',
     description: 'Movers Part 5: Đọc câu chuyện + điền từ vào chỗ trống (gõ từng chữ cái)',
     editor: 'StoryCompletionEditor',
     defaultData: {
@@ -592,7 +592,7 @@ export const QUESTION_TYPES = {
     id: 'look-read-write',
     label: 'Look, Read & Write',
     labelVi: 'Nhìn tranh và viết',
-    icon: '🖼️',
+    iconName: 'image',
     description: 'Movers Part 6: Nhìn tranh + complete sentences + answer questions + write sentences',
     editor: 'LookReadWriteEditor',
     defaultData: {
@@ -634,7 +634,7 @@ export const QUESTION_TYPES = {
     id: 'multiple-choice-pictures',
     label: 'Multiple Choice with Pictures',
     labelVi: 'Trắc nghiệm có hình',
-    icon: '🎨',
+    iconName: 'image',
     description: 'Chọn đáp án từ các hình ảnh',
     editor: 'MultipleChoicePicturesEditor', // Will create later
     defaultData: {
@@ -652,8 +652,8 @@ export const QUESTION_TYPES = {
   'tick-cross': {
     id: 'tick-cross',
     label: 'Tick or Cross',
-    labelVi: 'Đánh dấu ✓ hoặc ✗',
-    icon: '✓✗',
+    labelVi: 'Đánh dấu đúng hoặc sai',
+    iconName: 'correct',
     description: 'Đánh dấu đúng hoặc sai',
     editor: 'TickCrossEditor', // Will create later
     defaultData: {

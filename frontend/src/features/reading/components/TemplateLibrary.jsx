@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import InlineIcon from "../../../shared/components/InlineIcon.jsx";
 import { useTheme } from "../../../shared/contexts/ThemeContext";
 
 /**
@@ -220,21 +221,21 @@ const QUESTION_TEMPLATES = {
 };
 
 const CATEGORY_INFO = {
-  "multiple-choice": { icon: "🔘", label: "Multiple Choice", color: "#3498db" },
+  "multiple-choice": { iconName: "choice", label: "Multiple Choice", color: "#3498db" },
   "true-false-not-given": {
-    icon: "✅",
+    iconName: "correct",
     label: "True/False/Not Given",
     color: "#27ae60",
   },
-  "fill-in-blank": { icon: "📝", label: "Fill in Blank", color: "#9b59b6" },
-  matching: { icon: "🔗", label: "Matching", color: "#e67e22" },
+  "fill-in-blank": { iconName: "writing", label: "Fill in Blank", color: "#9b59b6" },
+  matching: { iconName: "matching", label: "Matching", color: "#e67e22" },
   "ielts-matching-headings": {
-    icon: "📑",
+    iconName: "document",
     label: "Matching Headings",
     color: "#e74c3c",
   },
-  "short-answer": { icon: "✍️", label: "Short Answer", color: "#1abc9c" },
-  "cloze-test": { icon: "📋", label: "Cloze Test", color: "#f39c12" },
+  "short-answer": { iconName: "writing", label: "Short Answer", color: "#1abc9c" },
+  "cloze-test": { iconName: "form", label: "Cloze Test", color: "#f39c12" },
 };
 
 const TemplateLibrary = ({ isOpen, onClose, onSelectTemplate }) => {
@@ -309,7 +310,7 @@ const TemplateLibrary = ({ isOpen, onClose, onSelectTemplate }) => {
           >
             <div>
               <h2 style={{ margin: 0, fontSize: "22px", fontWeight: "700" }}>
-                📚 Thư viện mẫu câu hỏi IELTS
+                <span style={{ display: "inline-flex", alignItems: "center", gap: "8px" }}><InlineIcon name="reading" size={20} style={{ color: "white" }} />Thư viện mẫu câu hỏi IELTS</span>
               </h2>
               <p style={{ margin: "8px 0 0", opacity: 0.9, fontSize: "14px" }}>
                 Chọn mẫu có sẵn để thêm nhanh vào đề thi
@@ -331,7 +332,7 @@ const TemplateLibrary = ({ isOpen, onClose, onSelectTemplate }) => {
                 justifyContent: "center",
               }}
             >
-              ✕
+              <InlineIcon name="close" size={16} style={{ color: "white" }} />
             </button>
           </div>
 
@@ -339,7 +340,7 @@ const TemplateLibrary = ({ isOpen, onClose, onSelectTemplate }) => {
           <div style={{ marginTop: "15px" }}>
             <input
               type="text"
-              placeholder="🔍 Tìm kiếm mẫu câu hỏi..."
+              placeholder="Tìm kiếm mẫu câu hỏi..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               style={{
@@ -416,7 +417,7 @@ const TemplateLibrary = ({ isOpen, onClose, onSelectTemplate }) => {
                       : "3px solid transparent",
                 }}
               >
-                <span style={{ fontSize: "18px" }}>{info.icon}</span>
+                <InlineIcon name={info.iconName} size={16} style={{ color: selectedCategory === key ? info.color : isDarkMode ? "#b0b0b0" : "#555" }} />
                 <span>{info.label}</span>
                 <span
                   style={{
@@ -498,10 +499,10 @@ const TemplateLibrary = ({ isOpen, onClose, onSelectTemplate }) => {
                           height: "36px",
                           borderRadius: "10px",
                           backgroundColor: categoryInfo.color + "20",
-                          fontSize: "18px",
+                          color: categoryInfo.color,
                         }}
                       >
-                        {categoryInfo.icon}
+                        <InlineIcon name={categoryInfo.iconName} size={18} style={{ color: categoryInfo.color }} />
                       </span>
                       <h4
                         style={{
@@ -571,7 +572,7 @@ const TemplateLibrary = ({ isOpen, onClose, onSelectTemplate }) => {
                   color: isDarkMode ? "#888" : "#999",
                 }}
               >
-                <div style={{ fontSize: "48px", marginBottom: "15px" }}>🔍</div>
+                <div style={{ marginBottom: "15px" }}><InlineIcon name="search" size={40} style={{ color: isDarkMode ? "#888" : "#999" }} /></div>
                 <p style={{ margin: 0 }}>Không tìm thấy mẫu phù hợp</p>
               </div>
             )}
@@ -591,7 +592,7 @@ const TemplateLibrary = ({ isOpen, onClose, onSelectTemplate }) => {
             color: isDarkMode ? "#b0b0b0" : "#666",
           }}
         >
-          <span>💡 Click vào mẫu để thêm vào đề thi</span>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}><InlineIcon name="idea" size={14} />Click vào mẫu để thêm vào đề thi</span>
           <span>
             Tổng: {Object.values(QUESTION_TEMPLATES).flat().length} mẫu
           </span>

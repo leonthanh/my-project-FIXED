@@ -1,4 +1,5 @@
 import React, { useState, useCallback } from "react";
+import InlineIcon from "../../../shared/components/InlineIcon.jsx";
 import { useTheme } from "../../../shared/contexts/ThemeContext";
 
 /**
@@ -268,7 +269,7 @@ const ImportModal = ({ isOpen, onClose, onImport }) => {
           >
             <div>
               <h2 style={{ margin: 0, fontSize: "22px", fontWeight: "700" }}>
-                📥 Import câu hỏi từ file
+                <span style={{ display: "inline-flex", alignItems: "center", gap: "8px" }}><InlineIcon name="upload" size={20} style={{ color: "white" }} />Import câu hỏi từ file</span>
               </h2>
               <p style={{ margin: "8px 0 0", opacity: 0.9, fontSize: "14px" }}>
                 Hỗ trợ Word (.docx), Excel (.xlsx), Text (.txt), CSV
@@ -290,7 +291,7 @@ const ImportModal = ({ isOpen, onClose, onImport }) => {
                 justifyContent: "center",
               }}
             >
-              ✕
+              <InlineIcon name="close" size={16} style={{ color: "white" }} />
             </button>
           </div>
         </div>
@@ -337,8 +338,12 @@ const ImportModal = ({ isOpen, onClose, onImport }) => {
               style={{ display: "none" }}
             />
 
-            <div style={{ fontSize: "48px", marginBottom: "15px" }}>
-              {isLoading ? "⏳" : file ? "📄" : "📂"}
+            <div style={{ marginBottom: "15px" }}>
+              <InlineIcon
+                name={isLoading ? "loading" : file ? "document" : "upload"}
+                size={40}
+                style={{ color: isDarkMode ? "#b0b0b0" : "#667eea" }}
+              />
             </div>
 
             {isLoading ? (
@@ -402,7 +407,7 @@ const ImportModal = ({ isOpen, onClose, onImport }) => {
                 fontSize: "14px",
               }}
             >
-              ⚠️ {error}
+              <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}><InlineIcon name="average" size={14} style={{ color: "#e74c3c" }} />{error}</span>
             </div>
           )}
 
@@ -417,7 +422,7 @@ const ImportModal = ({ isOpen, onClose, onImport }) => {
                   fontWeight: "600",
                 }}
               >
-                📋 Xem trước ({parsedData.length} câu hỏi)
+                <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}><InlineIcon name="document" size={16} />Xem trước ({parsedData.length} câu hỏi)</span>
               </h4>
 
               <div
@@ -522,7 +527,7 @@ const ImportModal = ({ isOpen, onClose, onImport }) => {
                 fontWeight: "600",
               }}
             >
-              📌 Định dạng file được hỗ trợ:
+              <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}><InlineIcon name="pin" size={14} />Định dạng file được hỗ trợ:</span>
             </h4>
             <pre
               style={{
@@ -603,7 +608,7 @@ Answer: TRUE`}
               transition: "all 0.2s",
             }}
           >
-            ✓ Import {parsedData?.length || 0} câu hỏi
+            <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}><InlineIcon name="correct" size={14} style={{ color: parsedData && parsedData.length > 0 ? 'white' : isDarkMode ? '#888' : '#999' }} />Import {parsedData?.length || 0} câu hỏi</span>
           </button>
         </div>
       </div>

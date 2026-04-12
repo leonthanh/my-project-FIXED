@@ -1,13 +1,13 @@
 /**
- * ⚠️ DEPRECATED - Backward Compatibility Only
+ * DEPRECATED - Backward Compatibility Only
  * ============================================
  * 
  * CÁC FILES GỐC ĐÃ ĐƯỢC DI CHUYỂN SANG:
  * - shared/components/                    → Shared UI components
  * - features/listening/components/        → Listening-specific components
  * 
- * ⛔ KHÔNG THÊM CODE MỚI VÀO ĐÂY!
- * ✅ HÃY SỬA TẠI CÁC FILE TRONG shared/components/ hoặc features/
+ * KHÔNG THÊM CODE MỚI VÀO ĐÂY!
+ * HÃY SỬA TẠI CÁC FILE TRONG shared/components/ hoặc features/
  * 
  * File này chỉ để backward compatibility với old imports.
  */

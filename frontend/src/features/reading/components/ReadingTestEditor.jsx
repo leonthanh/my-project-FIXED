@@ -4,6 +4,7 @@ import {
   QuillEditor,
   QuestionSection,
 } from "../../../shared/components";
+import InlineIcon from "../../../shared/components/InlineIcon.jsx";
 import { useColumnLayout } from "../hooks";
 import { calculateTotalQuestions, createDefaultQuestionByType } from "../utils";
 import {
@@ -478,8 +479,9 @@ const ReadingTestEditor = ({
                 <span>
                   Nội dung{currentPassage ? " - Passage " + (selectedPassageIndex + 1) : ""}
                 </span>
-                <span style={{ fontSize: "12px", fontWeight: 500, opacity: 0.9 }}>
-                  {collapsedPassage ? "▼ Mở rộng" : "▲ Thu nhỏ"}
+                <span style={{ fontSize: "12px", fontWeight: 500, opacity: 0.9, display: "inline-flex", alignItems: "center", gap: 6 }}>
+                  <InlineIcon name={collapsedPassage ? "chevron-down" : "chevron-up"} size={13} style={{ color: "currentColor" }} />
+                  {collapsedPassage ? "Mở rộng" : "Thu nhỏ"}
                 </span>
               </div>
 
@@ -567,8 +569,9 @@ const ReadingTestEditor = ({
                       {currentSection.questions?.length || 0} câu
                     </span>
                   )}
-                  <span style={{ fontSize: "12px", fontWeight: 500, color: "rgba(255,255,255,0.8)" }}>
-                    {collapsedQuestions ? "▼ Mở rộng" : "▲ Thu nhỏ"}
+                  <span style={{ fontSize: "12px", fontWeight: 500, color: "rgba(255,255,255,0.8)", display: "inline-flex", alignItems: "center", gap: 6 }}>
+                    <InlineIcon name={collapsedQuestions ? "chevron-down" : "chevron-up"} size={13} style={{ color: "currentColor" }} />
+                    {collapsedQuestions ? "Mở rộng" : "Thu nhỏ"}
                   </span>
                 </div>
               </div>
