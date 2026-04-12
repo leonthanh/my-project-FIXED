@@ -31,3 +31,28 @@ test('parses blanks, numbers them and validates input', () => {
   fireEvent.change(second, { target: { value: 'one two three' } });
   expect(screen.getByText(/Không quá/)).toBeInTheDocument();
 });
+
+test('preserves multiline cells and removes duplicate list prefixes in comments', () => {
+  const multilineSample = {
+    ...sample,
+    rows: [
+      {
+        cells: ['Express\nservice', 'Platform [BLANK]', '- bring cash\n2. seats fill up fast'],
+        cellBlankAnswers: [[''], ['7'], []],
+        comments: ['- bring cash', '2. seats fill up fast'],
+      },
+    ],
+  };
+
+  const { container } = render(<TableCompletion data={multilineSample} startingQuestionNumber={11} />);
+
+  const firstBodyCell = container.querySelector('tbody td');
+  expect(firstBodyCell.querySelector('br')).not.toBeNull();
+
+  const listItems = screen.getAllByRole('listitem');
+  expect(listItems).toHaveLength(2);
+  expect(listItems[0]).toHaveTextContent('bring cash');
+  expect(listItems[0]).not.toHaveTextContent('- bring cash');
+  expect(listItems[1]).toHaveTextContent('seats fill up fast');
+  expect(listItems[1]).not.toHaveTextContent('2. seats fill up fast');
+});

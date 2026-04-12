@@ -1,5 +1,12 @@
 import React from "react";
 
+const THEME = {
+  inputBg: "var(--builder-input-bg, #ffffff)",
+  border: "var(--builder-border, #d1d5db)",
+  text: "var(--builder-text, #111827)",
+  subtext: "var(--builder-subtext, #6b7280)",
+};
+
 /**
  * FillBlankEditor - Fill in the blank question
  * Dùng cho: IELTS, KET, PET, Cambridge tests
@@ -19,18 +26,20 @@ const FillBlankEditor = ({
     input: {
       width: "100%",
       padding: "8px 12px",
-      border: "1px solid #d1d5db",
+      border: `1px solid ${THEME.border}`,
       borderRadius: "6px",
       fontSize: "13px",
       marginBottom: "8px",
       boxSizing: "border-box",
+      background: THEME.inputBg,
+      color: THEME.text,
     },
     label: {
       display: "block",
       marginBottom: "6px",
       fontWeight: 600,
       fontSize: "12px",
-      color: "#6b7280",
+      color: THEME.subtext,
     },
     ...styles,
   };
@@ -53,7 +62,7 @@ const FillBlankEditor = ({
         placeholder="VD: 8:30 / nine o'clock (dùng | cho nhiều đáp án)"
         style={defaultStyles.input}
       />
-      <p style={{ fontSize: "11px", color: "#6b7280", marginTop: "4px" }}>
+      <p style={{ fontSize: "11px", color: THEME.subtext, marginTop: "4px" }}>
         Tip: Dùng <code>|</code> để có nhiều đáp án đúng. VD: <code>8:30 | eight thirty</code>
       </p>
     </div>

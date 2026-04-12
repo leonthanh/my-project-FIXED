@@ -48,6 +48,75 @@ const normalizeUploadsInObject = (value, req) => {
   return value;
 };
 
+const safeParseJson = (value) => {
+  if (typeof value !== 'string') return value;
+  try {
+    return JSON.parse(value);
+  } catch (_err) {
+    return value;
+  }
+};
+
+const getUploadedFile = (files, matcher) => {
+  if (!Array.isArray(files)) return null;
+  return files.find((file) => matcher(file?.fieldname || '')) || null;
+};
+
+const normalizeStoredUploadRef = (value) => {
+  if (!value || typeof value !== 'string') return '';
+
+  const cleaned = String(value).trim();
+  if (!cleaned) return '';
+  if (/^data:/i.test(cleaned) || /^blob:/i.test(cleaned)) return '';
+
+  const stripHost = (url) => url.replace(/^https?:\/\//i, '').replace(/^\/\//, '');
+
+  if (/^https?:\/\//i.test(cleaned) || cleaned.startsWith('//')) {
+    const withoutProto = stripHost(cleaned);
+    const uploadsIdx = withoutProto.indexOf('/uploads/');
+    if (uploadsIdx >= 0) return withoutProto.slice(uploadsIdx);
+    const uploadIdx = withoutProto.indexOf('/upload/');
+    if (uploadIdx >= 0) return withoutProto.slice(uploadIdx).replace(/^\/upload\//i, '/uploads/');
+    const backendUploadsIdx = withoutProto.indexOf('/backend/uploads/');
+    if (backendUploadsIdx >= 0) {
+      return withoutProto.slice(backendUploadsIdx).replace(/^\/backend\/uploads\//i, '/uploads/');
+    }
+    return cleaned;
+  }
+
+  return cleaned
+    .replace(/^\/backend\/upload\//i, '/uploads/')
+    .replace(/^\/backend\/uploads\//i, '/uploads/')
+    .replace(/^\/upload\//i, '/uploads/')
+    .replace(/^\/uploads\/uploads\//i, '/uploads/');
+};
+
+const normalizePartAudioUrls = (value) => {
+  const parsed = safeParseJson(value);
+  if (!parsed || typeof parsed !== 'object') return {};
+
+  if (Array.isArray(parsed)) {
+    return parsed.reduce((acc, item, index) => {
+      const normalized = normalizeStoredUploadRef(item);
+      if (normalized) acc[index] = normalized;
+      return acc;
+    }, {});
+  }
+
+  return Object.entries(parsed).reduce((acc, [key, item]) => {
+    const normalized = normalizeStoredUploadRef(item);
+    if (normalized) acc[key] = normalized;
+    return acc;
+  }, {});
+};
+
+const inferSharedAudioUrl = (partAudioUrls) => {
+  const values = Object.values(normalizePartAudioUrls(partAudioUrls)).filter(Boolean);
+  if (!values.length) return '';
+  const uniqueValues = Array.from(new Set(values));
+  return uniqueValues.length === 1 ? uniqueValues[0] : '';
+};
+
 // Ensure upload folders exist (absolute paths for cPanel/Passenger)
 const uploadsRoot = path.join(__dirname, '..', 'uploads');
 const uploadImagesDir = path.join(uploadsRoot, 'images');
@@ -110,14 +179,13 @@ router.post('/', requireAuth, requireTestPermission('listening'), upload.any(), 
     let parsedPassages = typeof passages === 'string' ? JSON.parse(passages) : passages;
     
     // Process file uploads
-    let mainAudioUrl = null;
-    if (req.files && req.files.audioFile) {
-      mainAudioUrl = `/uploads/audio/${req.files.audioFile[0].filename}`;
-    }
+    const globalAudioUpload = getUploadedFile(req.files, (fieldname) => fieldname === 'audioFile');
+    let mainAudioUrl = globalAudioUpload ? `/uploads/audio/${globalAudioUpload.filename}` : null;
 
     // Add audio file URLs to passages
     const processedPassages = parsedPassages.map((passage, index) => {
-      let audioFile = passage.audioFile || mainAudioUrl;
+      const persistedAudioRef = normalizeStoredUploadRef(passage?.audioFile || passage?.audioUrl);
+      let audioFile = persistedAudioRef || mainAudioUrl;
       
       if (req.files && Array.isArray(req.files)) {
         const f = req.files.find(fi => fi.fieldname === `audioFile_passage_${index}` || fi.fieldname === `audioFile_part_${index}` || fi.fieldname === 'audioFile');
@@ -264,6 +332,9 @@ router.post('/', requireAuth, requireTestPermission('listening'), upload.any(), 
       }
     });
 
+    const inferredSharedAudioUrl = inferSharedAudioUrl(partAudioUrls);
+    mainAudioUrl = normalizeStoredUploadRef(mainAudioUrl) || inferredSharedAudioUrl || null;
+
     // Create the listening test
     const listeningTest = await ListeningTest.create({
       classCode,
@@ -304,6 +375,8 @@ router.get('/', async (req, res) => {
     });
     const normalized = tests.map((t) => {
       const data = t.toJSON ? t.toJSON() : t;
+      data.partAudioUrls = normalizePartAudioUrls(data.partAudioUrls);
+      data.mainAudioUrl = normalizeStoredUploadRef(data.mainAudioUrl) || inferSharedAudioUrl(data.partAudioUrls) || null;
       data.partInstructions = normalizeUploadsInObject(data.partInstructions, req);
       data.questions = normalizeUploadsInObject(data.questions, req);
       data.passages = normalizeUploadsInObject(data.passages, req);
@@ -329,6 +402,8 @@ router.get('/:id', async (req, res) => {
       return res.status(404).json({ message: '❌ Không tìm thấy đề thi' });
     }
     const data = test.toJSON ? test.toJSON() : test;
+    data.partAudioUrls = normalizePartAudioUrls(data.partAudioUrls);
+    data.mainAudioUrl = normalizeStoredUploadRef(data.mainAudioUrl) || inferSharedAudioUrl(data.partAudioUrls) || null;
     data.partInstructions = normalizeUploadsInObject(data.partInstructions, req);
     data.questions = normalizeUploadsInObject(data.questions, req);
     data.passages = normalizeUploadsInObject(data.passages, req);
@@ -1451,6 +1526,8 @@ router.put('/:id', requireAuth, requireTestPermission('listening'), upload.any()
     const { classCode, teacherName, passages, title, showResultModal } = req.body;
     
     let updates = {};
+    const existingPartAudioUrls = normalizePartAudioUrls(test.partAudioUrls);
+    const globalAudioUpload = getUploadedFile(req.files, (fieldname) => fieldname === 'audioFile');
     
     // Update basic fields
     if (classCode) updates.classCode = classCode;
@@ -1459,10 +1536,8 @@ router.put('/:id', requireAuth, requireTestPermission('listening'), upload.any()
     if (showResultModal !== undefined) updates.showResultModal = showResultModal;
     
     // Process file updates if any
-    if (req.files) {
-      if (req.files.audioFile) {
-        updates.mainAudioUrl = `/uploads/audio/${req.files.audioFile[0].filename}`;
-      }
+    if (globalAudioUpload) {
+      updates.mainAudioUrl = `/uploads/audio/${globalAudioUpload.filename}`;
     }
 
     // If passages provided, transform like in POST route
@@ -1474,7 +1549,8 @@ router.put('/:id', requireAuth, requireTestPermission('listening'), upload.any()
       
       // Process audio files for each part
       const processedPassages = parsedPassages.map((passage, index) => {
-        let audioFile = passage.audioFile || test.mainAudioUrl;
+        const persistedAudioRef = normalizeStoredUploadRef(passage?.audioFile || passage?.audioUrl);
+        let audioFile = persistedAudioRef || existingPartAudioUrls[index] || normalizeStoredUploadRef(test.mainAudioUrl) || null;
         
         if (req.files && Array.isArray(req.files)) {
           const f = req.files.find(fi => fi.fieldname === `audioFile_part_${index}` || fi.fieldname === `audioFile_passage_${index}` || fi.fieldname === 'audioFile');
@@ -1601,10 +1677,13 @@ router.put('/:id', requireAuth, requireTestPermission('listening'), upload.any()
         }
       });
 
+      const inferredSharedAudioUrl = inferSharedAudioUrl(partAudioUrls);
+
       updates.partTypes = partTypes;
       updates.partInstructions = partInstructions;
       updates.questions = questions;
       updates.partAudioUrls = partAudioUrls;
+      updates.mainAudioUrl = normalizeStoredUploadRef(updates.mainAudioUrl) || inferredSharedAudioUrl || normalizeStoredUploadRef(test.mainAudioUrl) || null;
     }
 
     // Update the test

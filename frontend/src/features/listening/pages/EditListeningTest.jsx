@@ -88,13 +88,18 @@ const EditListeningTest = () => {
         const partAudioUrls = typeof data.partAudioUrls === 'string' 
           ? JSON.parse(data.partAudioUrls) 
           : data.partAudioUrls;
+        const sharedPartAudioUrl = (() => {
+          const values = Object.values(partAudioUrls || {}).filter(Boolean);
+          const uniqueValues = Array.from(new Set(values));
+          return uniqueValues.length === 1 ? uniqueValues[0] : null;
+        })();
         
         // Set form fields
         setTitle(data.title || "");
         setClassCode(data.classCode || "");
         setTeacherName(data.teacherName || "");
         setShowResultModal(data.showResultModal ?? true);
-        setExistingAudioUrl(data.mainAudioUrl);
+        setExistingAudioUrl(data.mainAudioUrl || sharedPartAudioUrl);
         
         // Reconstruct parts from partInstructions and questions
         const reconstructedParts = reconstructParts(partInstructions, questions, partAudioUrls);
@@ -209,8 +214,8 @@ const EditListeningTest = () => {
         title: partInfo.title || `Part ${partIndex + 1}`,
         instruction: partInfo.instruction || "",
         transcript: partInfo.transcript || "",
-        audioFile: null,
-        audioUrl: partAudioUrls?.[partIndex] || '',
+        audioFile: partAudioUrls?.[partIndex] || partInfo.audioFile || '',
+        audioUrl: partAudioUrls?.[partIndex] || partInfo.audioFile || '',
         sections: sections.length > 0 ? sections : [{
           sectionTitle: "",
           sectionInstruction: "",
@@ -302,24 +307,31 @@ const EditListeningTest = () => {
       }
 
       // Clean up parts data for submission
-      const cleanedParts = parts.map((part) => ({
-        title: part.title,
-        instruction: stripHtml(part.instruction || ""),
-        transcript: part.transcript || "",
-        sections: part.sections.map((section) => ({
-          sectionTitle: section.sectionTitle || "",
-          sectionInstruction: stripHtml(section.sectionInstruction || ""),
-          questionType: section.questionType || "fill",
-          startingQuestionNumber: section.startingQuestionNumber || null,
-          questions: section.questions.map((q) => ({
-            ...q,
-            questionText: stripHtml(q.questionText || ""),
-            options: q.options
-              ? q.options.map((opt) => (typeof opt === "string" ? opt : opt))
-              : undefined,
+      const cleanedParts = parts.map((part) => {
+        const persistedAudioRef = typeof part.audioUrl === "string" && part.audioUrl && !/^blob:/i.test(part.audioUrl)
+          ? part.audioUrl
+          : "";
+
+        return {
+          title: part.title,
+          instruction: stripHtml(part.instruction || ""),
+          transcript: part.transcript || "",
+          audioFile: part.audioFile instanceof File ? "" : (part.audioFile || persistedAudioRef || ""),
+          sections: part.sections.map((section) => ({
+            sectionTitle: section.sectionTitle || "",
+            sectionInstruction: stripHtml(section.sectionInstruction || ""),
+            questionType: section.questionType || "fill",
+            startingQuestionNumber: section.startingQuestionNumber || null,
+            questions: section.questions.map((q) => ({
+              ...q,
+              questionText: stripHtml(q.questionText || ""),
+              options: q.options
+                ? q.options.map((opt) => (typeof opt === "string" ? opt : opt))
+                : undefined,
+            })),
           })),
-        })),
-      }));
+        };
+      });
 
       // Before sending, ensure per-blank answers from editor (row.commentBlankAnswers / row.correct) are merged
       // into the question answers map so backend receives them.
