@@ -2660,7 +2660,7 @@ const DoListeningTest = () => {
 
   const currentPart = parts[currentPartIndex];
   const audioUrl = test?.partAudioUrls?.[currentPartIndex] || test?.mainAudioUrl;
-  const resolvedAudioUrl = useMemo(() => hostPath(audioUrl), [audioUrl]);
+  const resolvedAudioUrl = hostPath(audioUrl);
   /* eslint-disable-next-line no-unused-vars */
   const currentRange = getPartQuestionRange(currentPartIndex);
   const displayRange = getPartDisplayRange(currentPartIndex);
