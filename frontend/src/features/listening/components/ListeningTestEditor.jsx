@@ -141,6 +141,15 @@ const questionTypeFieldShellStyle = {
   minWidth: "240px",
 };
 
+const sidebarDeleteButtonStyle = {
+  ...deleteButtonSmallStyle,
+  padding: "4px 9px",
+  fontSize: "10px",
+  lineHeight: 1.2,
+  whiteSpace: "nowrap",
+  flexShrink: 0,
+};
+
 const questionTypeFieldSelectWrapStyle = {
   position: "relative",
   flex: "1 1 auto",
@@ -631,7 +640,7 @@ const ListeningTestEditor = ({
                   style={{
                     padding: "10px 12px", marginBottom: "4px", borderRadius: "6px", cursor: "pointer",
                     backgroundColor: selectedPartIndex === idx ? colors.partBlue : "#475569",
-                    display: "flex", justifyContent: "space-between", alignItems: "flex-start",
+                    display: "flex", justifyContent: "space-between", alignItems: "center", gap: "8px",
                     transition: "background 0.15s",
                   }}
                 >
@@ -646,8 +655,12 @@ const ListeningTestEditor = ({
                     <button
                       type="button"
                       onClick={(e) => { e.stopPropagation(); onDeletePart(idx); }}
-                      style={{ background: "rgba(239,68,68,0.2)", border: "none", color: "#fca5a5", width: "22px", height: "22px", borderRadius: "4px", cursor: "pointer", fontSize: "12px", flexShrink: 0, marginLeft: "6px", display: "flex", alignItems: "center", justifyContent: "center" }}
-                    >X</button>
+                      style={sidebarDeleteButtonStyle}
+                      title={`Xóa part ${idx + 1}`}
+                      aria-label={`Xóa part ${idx + 1}`}
+                    >
+                      Xóa
+                    </button>
                   )}
                 </div>
               ))}
@@ -679,15 +692,35 @@ const ListeningTestEditor = ({
                       style={{
                         padding: "10px 12px", marginBottom: "4px", borderRadius: "6px", cursor: "pointer",
                         backgroundColor: selectedSectionIndex === idx ? "#6366f1" : "#475569",
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        gap: "8px",
                         transition: "background 0.15s",
                       }}
                     >
-                      <div style={{ fontSize: "13px", fontWeight: 600, color: "white" }}>
-                        {section.sectionTitle || `Q${startQ}–${endQ}`}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: "13px", fontWeight: 600, color: "white" }}>
+                          {section.sectionTitle || `Q${startQ}–${endQ}`}
+                        </div>
+                        <div style={{ fontSize: "10px", color: "#94a3b8", marginTop: "2px" }}>
+                          {sectionQCount} câu · {section.questionType || "fill"}
+                        </div>
                       </div>
-                      <div style={{ fontSize: "10px", color: "#94a3b8", marginTop: "2px" }}>
-                        {sectionQCount} câu · {section.questionType || "fill"}
-                      </div>
+                      {(currentPart.sections?.length || 0) > 1 && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onDeleteSection(selectedPartIndex, idx);
+                          }}
+                          style={sidebarDeleteButtonStyle}
+                          title={`Xóa section ${idx + 1}`}
+                          aria-label={`Xóa section ${idx + 1}`}
+                        >
+                          Xóa
+                        </button>
+                      )}
                     </div>
                   );
                 })
@@ -1073,6 +1106,16 @@ const ListeningTestEditor = ({
                   >
                     Sao chép section này
                   </button>
+
+                  {(currentPart?.sections?.length || 0) > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => onDeleteSection(selectedPartIndex, selectedSectionIndex)}
+                      style={{ ...dangerButtonStyle, width: "100%", marginTop: "8px" }}
+                    >
+                      Xóa section này
+                    </button>
+                  )}
                 </div>
               ) : (
                 <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: "#9ca3af" }}>
