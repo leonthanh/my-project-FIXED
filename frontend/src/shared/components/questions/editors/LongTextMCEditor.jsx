@@ -2,6 +2,7 @@ import React, { useEffect } from "react";
 import ReactQuill from "react-quill";
 import "react-quill/dist/quill.snow.css";
 import useQuillImageUpload from "../../../hooks/useQuillImageUpload";
+import InlineIcon from "../../InlineIcon.jsx";
 
 /**
  * LongTextMCEditor - KET Part 3: Long Text + Multiple Choice
@@ -290,7 +291,7 @@ const LongTextMCEditor = ({
                 }}
                 title="Xóa câu hỏi này"
               >
-                ×
+                <InlineIcon name="close" size={12} style={{ color: "currentColor" }} />
               </button>
             )}
             

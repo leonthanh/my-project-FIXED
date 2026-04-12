@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import InlineIcon from '../../../shared/components/InlineIcon.jsx';
 
 const AudioPlayer = ({ audioFiles, onTimeUpdate, startTimes = {} }) => {
   const [activeFile, setActiveFile] = useState(0);
@@ -151,7 +152,7 @@ const AudioPlayer = ({ audioFiles, onTimeUpdate, startTimes = {} }) => {
     <div style={styles.container}>
       <div style={styles.playerWrapper}>
         <button onClick={togglePlay} style={styles.button}>
-          {isPlaying ? '⏸' : '▶️'}
+          <InlineIcon name={isPlaying ? 'pause' : 'play'} size={18} style={{ color: 'currentColor' }} />
         </button>
         <input
           type="range"
@@ -191,7 +192,7 @@ const AudioPlayer = ({ audioFiles, onTimeUpdate, startTimes = {} }) => {
               onClick={() => listenFromHere(point.time)}
               style={styles.listenPoint}
             >
-              🎯 {point.label}
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><InlineIcon name="target" size={14} />{point.label}</span>
             </button>
           ))}
         </div>

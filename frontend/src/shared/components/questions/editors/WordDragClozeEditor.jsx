@@ -3,6 +3,7 @@ import ReactQuill from "react-quill";
 import "react-quill/dist/quill.snow.css";
 import { hostPath } from "../../../utils/api";
 import useQuillImageUpload from "../../../hooks/useQuillImageUpload";
+import InlineIcon from "../../InlineIcon.jsx";
 
 /**
  * WordDragClozeEditor – Cambridge Movers Part 4
@@ -462,7 +463,7 @@ export default function WordDragClozeEditor({
                   justifyContent: "center",
                 }}
               >
-                ×
+                <InlineIcon name="close" size={12} style={{ color: "currentColor" }} />
               </button>
             </div>
           );

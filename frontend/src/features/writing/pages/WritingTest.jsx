@@ -18,6 +18,7 @@ import {
 } from "../../../shared/utils/testTiming";
 import ExtensionToast from "../../../shared/components/ExtensionToast";
 import TestStartModal from "../../../shared/components/TestStartModal";
+import InlineIcon from "../../../shared/components/InlineIcon.jsx";
 
 // ====== STYLE FOR HEADER & MODAL ======
 const writingHeaderStyle = {
@@ -546,7 +547,7 @@ const WritingTest = () => {
         <p>{message}</p>
 
         <div style={{ marginTop: 30 }}>
-          <h3>✍️ Task 1:</h3>
+          <h3 style={{ display: "inline-flex", alignItems: "center", gap: 8 }}><InlineIcon name="writing" size={16} />Task 1:</h3>
           <p
             style={{
               whiteSpace: "pre-line",
@@ -559,7 +560,7 @@ const WritingTest = () => {
         </div>
 
         <div style={{ marginTop: 30 }}>
-          <h3>✍️ Task 2:</h3>
+          <h3 style={{ display: "inline-flex", alignItems: "center", gap: 8 }}><InlineIcon name="writing" size={16} />Task 2:</h3>
           <p
             style={{
               whiteSpace: "pre-line",
@@ -633,7 +634,7 @@ const WritingTest = () => {
         </div>
         <div style={writingHeaderRight}>
           <div style={writingTimer}>
-            <span style={{ fontSize: 18, marginRight: 4 }}>⏱️</span>
+            <span style={{ marginRight: 4, display: "inline-flex", alignItems: "center" }}><InlineIcon name="clock" size={18} /></span>
             <span
               style={{
                 fontWeight: 700,

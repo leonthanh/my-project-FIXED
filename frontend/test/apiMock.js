@@ -1,7 +1,24 @@
 const API_HOST = '';
 
 function normalizePath(pathname = '') {
-  return String(pathname || '').replace(/^\/+/, '');
+  const raw = String(pathname || '').trim();
+  if (!raw) return '';
+
+  let cleaned = raw.replace(/\\/g, '/');
+
+  if (/^https?:\/\//i.test(cleaned) || /^data:/i.test(cleaned) || /^blob:/i.test(cleaned)) {
+    return cleaned;
+  }
+
+  cleaned = cleaned.replace(/^\.\//, '').replace(/^(\.\.\/)+/, '');
+  cleaned = cleaned.replace(/^backend\/upload\//i, 'uploads/');
+  cleaned = cleaned.replace(/^backend\/uploads\//i, 'uploads/');
+  cleaned = cleaned.replace(/^upload\//i, 'uploads/');
+  cleaned = cleaned.replace(/^\/+backend\/+upload\//i, 'uploads/');
+  cleaned = cleaned.replace(/^\/+backend\/+uploads\//i, 'uploads/');
+  cleaned = cleaned.replace(/^\/+upload\//i, 'uploads/');
+
+  return cleaned.replace(/^\/+/, '');
 }
 
 function apiPath(pathname = '') {
@@ -9,7 +26,12 @@ function apiPath(pathname = '') {
 }
 
 function hostPath(pathname = '') {
-  return `/${normalizePath(pathname)}`;
+  const normalized = normalizePath(pathname);
+  if (!normalized) return '';
+  if (/^https?:\/\//i.test(normalized) || /^data:/i.test(normalized) || /^blob:/i.test(normalized)) {
+    return normalized;
+  }
+  return `/${normalized}`;
 }
 
 function getStoredUser() {

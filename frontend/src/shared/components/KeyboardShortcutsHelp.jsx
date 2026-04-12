@@ -1,4 +1,5 @@
 import React from 'react';
+import InlineIcon from './InlineIcon.jsx';
 
 /**
  * KeyboardShortcutsHelp - Hiển thị danh sách keyboard shortcuts
@@ -8,11 +9,11 @@ const KeyboardShortcutsHelp = ({ isOpen, onClose }) => {
   if (!isOpen) return null;
 
   const shortcuts = [
-    { key: 'Ctrl + S', action: 'Lưu / Review đề thi', icon: '💾' },
-    { key: 'Ctrl + N', action: 'Thêm câu hỏi mới', icon: '➕' },
-    { key: 'Ctrl + P', action: 'Xem trước đề thi (Preview)', icon: '👁' },
-    { key: 'Ctrl + D', action: 'Chuyển Dark/Light mode', icon: '🌓' },
-    { key: 'Esc', action: 'Đóng modal/popup', icon: '✖️' }
+    { key: 'Ctrl + S', action: 'Lưu / Review đề thi', iconName: 'save' },
+    { key: 'Ctrl + N', action: 'Thêm câu hỏi mới', iconName: 'create' },
+    { key: 'Ctrl + P', action: 'Xem trước đề thi (Preview)', iconName: 'eye' },
+    { key: 'Ctrl + D', action: 'Chuyển Dark/Light mode', iconName: 'palette' },
+    { key: 'Esc', action: 'Đóng modal/popup', iconName: 'close' }
   ];
 
   return (
@@ -48,7 +49,10 @@ const KeyboardShortcutsHelp = ({ isOpen, onClose }) => {
           borderBottom: '2px solid #0e276f'
         }}>
           <h3 style={{ margin: 0, color: '#0e276f', fontSize: '18px' }}>
-            ⌨️ Keyboard Shortcuts
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+              <InlineIcon name="questions" size={18} style={{ color: '#0e276f' }} />
+              Keyboard Shortcuts
+            </span>
           </h3>
           <button
             onClick={onClose}
@@ -60,7 +64,7 @@ const KeyboardShortcutsHelp = ({ isOpen, onClose }) => {
               padding: '4px'
             }}
           >
-            ×
+            <InlineIcon name="close" size={16} style={{ color: '#0e276f' }} />
           </button>
         </div>
 
@@ -77,7 +81,7 @@ const KeyboardShortcutsHelp = ({ isOpen, onClose }) => {
                 borderRadius: '8px'
               }}
             >
-              <span style={{ fontSize: '20px' }}>{shortcut.icon}</span>
+              <InlineIcon name={shortcut.iconName} size={18} style={{ color: '#0e276f' }} />
               <div style={{ flex: 1 }}>
                 <div style={{ 
                   fontWeight: '600', 
@@ -111,13 +115,16 @@ const KeyboardShortcutsHelp = ({ isOpen, onClose }) => {
           color: '#1565c0',
           textAlign: 'center'
         }}>
-          💡 Nhấn <kbd style={{ 
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+            <InlineIcon name="idea" size={14} style={{ color: '#1565c0' }} />
+            Nhấn <kbd style={{ 
             padding: '2px 6px', 
             backgroundColor: '#1565c0',
             color: 'white',
             borderRadius: '4px',
             fontSize: '11px'
           }}>?</kbd> để mở/đóng bảng này
+          </span>
         </div>
       </div>
     </div>

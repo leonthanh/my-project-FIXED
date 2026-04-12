@@ -380,7 +380,7 @@ const MyFeedback = () => {
     }
   };
 
-  if (!user) return <p style={{ padding: 40 }}>❌ You are not signed in.</p>;
+  if (!user) return <p style={{ padding: 40 }}>You are not signed in.</p>;
 
   const currentSubmissions =
     activeTab === "writing"

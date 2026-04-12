@@ -2,6 +2,7 @@
 import React, { useState } from "react";
 import ReactQuill from "react-quill";
 import AdminNavbar from "../../../shared/components/AdminNavbar";
+import InlineIcon from "../../../shared/components/InlineIcon.jsx";
 import { apiPath, authFetch, redirectToLogin } from "../../../shared/utils/api";
 
 import "./CreateWritingTest.css";
@@ -25,6 +26,7 @@ const CreateWritingTest = () => {
   const [teacherName, setTeacherName] = useState("");
   const [image, setImage] = useState(null);
   const [message, setMessage] = useState("");
+  const [messageTone, setMessageTone] = useState("success");
   const [showPreview, setShowPreview] = useState(false);
   // show login banner when refresh fails
   const [requiresLogin, setRequiresLogin] = useState(false);
@@ -36,11 +38,16 @@ const CreateWritingTest = () => {
     } catch (e) { console.error('Error saving writing draft', e); }
   };
 
+  const updateMessage = (tone, text) => {
+    setMessageTone(tone);
+    setMessage(text);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (!task1.trim() || !task2.trim()) {
-      setMessage("❌ Vui lòng nhập đầy đủ nội dung Task 1 và Task 2.");
+      updateMessage("error", "Vui lòng nhập đầy đủ nội dung Task 1 và Task 2.");
       return;
     }
 
@@ -81,15 +88,15 @@ const CreateWritingTest = () => {
         if (res.status === 401) {
           // Save draft and prompt login
           try { saveDraft(); } catch (e) {}
-          setMessage('❌ Token đã hết hạn hoặc không hợp lệ. Vui lòng đăng nhập lại. Bản nháp đã được lưu.');
+          updateMessage('error', 'Token đã hết hạn hoặc không hợp lệ. Vui lòng đăng nhập lại. Bản nháp đã được lưu.');
           setRequiresLogin(true);
           return;
         }
-        setMessage(data.message || "❌ Lỗi khi tạo đề");
+        updateMessage("error", data.message || "Lỗi khi tạo đề");
         return;
       }
 
-      setMessage(data.message || "✅ Đã tạo đề");
+      updateMessage("success", data.message || "Đã tạo đề");
 
       setTask1("");
       setTask2("");
@@ -99,7 +106,7 @@ const CreateWritingTest = () => {
       setTimeout(() => window.location.reload(), 2000);
     } catch (err) {
       console.error(err);
-      setMessage("❌ Lỗi khi tạo đề");
+      updateMessage("error", "Lỗi khi tạo đề");
     }
   };
 
@@ -118,13 +125,13 @@ const CreateWritingTest = () => {
       <div className="create-writing-container">
         {requiresLogin && (
           <div style={{ padding: 12, background: '#fff0f0', border: '1px solid #ffcccc', borderRadius: 6, marginBottom: 12 }}>
-            <strong>⚠️ Bạn cần đăng nhập lại để hoàn tất thao tác.</strong>
+            <strong style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}><InlineIcon name="average" size={16} style={{ color: '#d97706' }} />Bạn cần đăng nhập lại để hoàn tất thao tác.</strong>
             <div style={{ marginTop: 8 }}>
               Bản nháp đã được lưu. <button style={{ marginLeft: 8, padding: '6px 10px' }} onClick={() => { redirectToLogin({ rememberPath: true, replace: true }); }}>Đăng nhập lại</button>
             </div>
           </div>
         )}
-        <h2>📝 Create Writing</h2>
+        <h2 style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}><InlineIcon name="writing" size={18} />Create Writing</h2>
         <form onSubmit={handleSubmit}>
           <input
             type="text"
@@ -191,7 +198,7 @@ const CreateWritingTest = () => {
                 cursor: "pointer",
               }}
             >
-              ➕ Tạo đề
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><InlineIcon name="create" size={14} style={{ color: 'white' }} />Tạo đề</span>
             </button>
 
             <button
@@ -207,7 +214,7 @@ const CreateWritingTest = () => {
                 cursor: "pointer",
               }}
             >
-              👁 Preview
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><InlineIcon name="eye" size={14} style={{ color: 'white' }} />Preview</span>
             </button>
           </div>
         </form>
@@ -217,7 +224,7 @@ const CreateWritingTest = () => {
             style={{
               marginTop: 10,
               fontWeight: "bold",
-              color: message.includes("❌") ? "red" : "green",
+              color: messageTone === "error" ? "red" : "green",
             }}
           >
             {message}
@@ -252,7 +259,7 @@ const CreateWritingTest = () => {
               }}
               onClick={(e) => e.stopPropagation()}
             >
-              <h3>📄 Xem trước đề</h3>
+              <h3 style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}><InlineIcon name="document" size={18} />Xem trước đề</h3>
 
               {image && (
                 <div style={{ marginBottom: "15px" }}>

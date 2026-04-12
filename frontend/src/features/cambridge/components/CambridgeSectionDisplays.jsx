@@ -1,4 +1,20 @@
 import React from "react";
+import LineIcon from "../../../shared/components/LineIcon.jsx";
+
+const InlineIcon = ({ name, size = 16, strokeWidth = 2, style }) => (
+  <span
+    aria-hidden="true"
+    style={{
+      display: "inline-flex",
+      alignItems: "center",
+      justifyContent: "center",
+      lineHeight: 0,
+      ...style,
+    }}
+  >
+    <LineIcon name={name} size={size} strokeWidth={strokeWidth} />
+  </span>
+);
 
 const sanitizeBasicHtml = (html) => {
   const s = String(html || '');
@@ -233,7 +249,7 @@ export const OpenClozeSectionDisplay = ({
         aria-label="Flag question"
         style={{ position: 'absolute', top: 0, right: 0 }}
       >
-        {flaggedQuestions.has(sectionKey) ? '🚩' : '⚐'}
+        <InlineIcon name="flag" size={14} />
       </button>
 
       {passageTitle ? (
@@ -333,7 +349,7 @@ export const GapMatchSectionDisplay = ({
                     aria-label="Flag question"
                     type="button"
                   >
-                    {flaggedQuestions.has(key) ? '🚩' : '⚐'}
+                    <InlineIcon name="flag" size={14} />
                   </button>
 
                   <div style={{ display: 'grid', gridTemplateColumns: '56px 1fr', gap: '10px', alignItems: 'center' }}>
@@ -377,7 +393,10 @@ export const GapMatchSectionDisplay = ({
                         {userAnswer || `Drop ${num}`}
                       </div>
                       {submitted && correct && !isCorrect && (
-                        <div style={styles.correctAnswer}>✓ Dap an dung: {correct}</div>
+                        <div style={styles.correctAnswer}>
+                          <InlineIcon name="correct" size={14} style={{ marginRight: 6 }} />
+                          Dap an dung: {correct}
+                        </div>
                       )}
                     </div>
                   </div>

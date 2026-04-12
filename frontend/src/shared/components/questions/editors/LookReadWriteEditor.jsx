@@ -1,5 +1,19 @@
 import React from "react";
 
+const THEME = {
+  surface: "var(--builder-surface, #ffffff)",
+  surfaceAlt: "var(--builder-surface-alt, #f8fafc)",
+  surfaceMuted: "var(--builder-surface-muted, rgba(0,0,0,0.04))",
+  inputBg: "var(--builder-input-bg, #ffffff)",
+  border: "var(--builder-border, #d1d5db)",
+  text: "var(--builder-text, #111827)",
+  subtext: "var(--builder-subtext, #6b7280)",
+  successPanel: "var(--builder-surface-alt, #f0fdf4)",
+  successBorder: "var(--builder-border, #bbf7d0)",
+  warningPanel: "var(--builder-surface-alt, #fef9c3)",
+  warningBorder: "var(--builder-border, #fde68a)",
+};
+
 /**
  * LookReadWriteEditor – Cambridge Movers Part 6
  * "Look and read and write."
@@ -48,7 +62,7 @@ const LABEL = {
   marginBottom: 4,
   fontWeight: 700,
   fontSize: 12,
-  color: "#374151",
+  color: THEME.subtext,
   textTransform: "uppercase",
   letterSpacing: "0.04em",
 };
@@ -56,11 +70,13 @@ const LABEL = {
 const INPUT = {
   width: "100%",
   padding: "7px 10px",
-  border: "1px solid #d1d5db",
+  border: `1px solid ${THEME.border}`,
   borderRadius: 6,
   fontSize: 13,
   boxSizing: "border-box",
   fontFamily: "inherit",
+  background: THEME.inputBg,
+  color: THEME.text,
 };
 
 const GROUP_META = {
@@ -152,7 +168,7 @@ export default function LookReadWriteEditor({ question = {}, onChange, startingN
       </div>
 
       {/* Examples */}
-      <div style={{ marginBottom: 16, padding: "14px 16px", background: "#fef9c3", border: "1px solid #fde68a", borderRadius: 8 }}>
+      <div style={{ marginBottom: 16, padding: "14px 16px", background: THEME.warningPanel, border: `1px solid ${THEME.warningBorder}`, borderRadius: 8 }}>
         <div style={{ fontWeight: 700, color: "#92400e", marginBottom: 10, fontSize: 13 }}>
           Câu mẫu (Examples) – điền sẵn đáp án, học sinh chỉ xem
         </div>
@@ -195,7 +211,7 @@ export default function LookReadWriteEditor({ question = {}, onChange, startingN
               <span style={{ background: meta.badge, color: meta.label, padding: "3px 10px", borderRadius: 10, fontSize: 11, fontWeight: 700 }}>
                 {meta.icon ? `${meta.icon} ${meta.name}` : meta.name}
               </span>
-              <span style={{ fontSize: 11, color: "#6b7280" }}>{meta.hint}</span>
+              <span style={{ fontSize: 11, color: THEME.subtext }}>{meta.hint}</span>
             </div>
 
             {/* Editable instruction */}
@@ -214,10 +230,10 @@ export default function LookReadWriteEditor({ question = {}, onChange, startingN
               gridTemplateColumns: group.type === "write" ? "36px 1fr" : "36px 1fr 200px",
               gap: 8,
               padding: "3px 6px",
-              background: "rgba(0,0,0,0.04)",
+              background: THEME.surfaceMuted,
               borderRadius: 4,
               fontSize: 11,
-              color: "#6b7280",
+              color: THEME.subtext,
               fontWeight: 700,
               marginBottom: 4,
             }}>
@@ -274,7 +290,7 @@ export default function LookReadWriteEditor({ question = {}, onChange, startingN
                         onChange={(e) => updateItem(gIdx, iIdx, "answer", e.target.value)}
                       />
                       {item.answer && (item.answer.includes("(") || item.answer.includes("/")) && (
-                        <div style={{ marginTop: 3, fontSize: 10, color: "#059669", background: "#f0fdf4", padding: "2px 6px", borderRadius: 4, lineHeight: 1.6 }}>
+                        <div style={{ marginTop: 3, fontSize: 10, color: "#059669", background: THEME.successPanel, padding: "2px 6px", borderRadius: 4, lineHeight: 1.6 }}>
                           Chấp nhận: {parseFlexibleAnswer(item.answer).join(" | ")}
                         </div>
                       )}
@@ -288,11 +304,11 @@ export default function LookReadWriteEditor({ question = {}, onChange, startingN
       })}
 
       {/* Tip box */}
-      <div style={{ marginTop: 12, padding: "8px 12px", background: "#f0fdf4", borderRadius: 6, border: "1px solid #bbf7d0", fontSize: 11, color: "#166534", lineHeight: 1.7 }}>
-        <strong>Cấu trúc Part 6:</strong> Ảnh lớn (upload ở cấp Part) + 2 ví dụ mẫu + 3 nhóm × 2 câu = 6 câu hỏi.<br />
+      <div style={{ marginTop: 12, padding: "8px 12px", background: THEME.successPanel, borderRadius: 6, border: `1px solid ${THEME.successBorder}`, fontSize: 11, color: "#166534", lineHeight: 1.7 }}>
+        <strong>Cấu trúc Part 6:</strong> Ảnh lớn (upload ở cấp Part) + 2 ví dụ mẫu + 3 nhóm x 2 câu = 6 câu hỏi.<br />
         <strong>Đáp án linh hoạt:</strong>{" "}
-        <code style={{ background: "#dcfce7", padding: "1px 4px", borderRadius: 3 }}>(từ tùy chọn)</code> → chấp nhận có hoặc không.{" "}
-        <code style={{ background: "#dcfce7", padding: "1px 4px", borderRadius: 3 }}>A / B</code> → chấp nhận một trong hai.<br />
+        <code style={{ background: THEME.surfaceAlt, padding: "1px 4px", borderRadius: 3 }}>(từ tùy chọn)</code> → chấp nhận có hoặc không. {" "}
+        <code style={{ background: THEME.surfaceAlt, padding: "1px 4px", borderRadius: 3 }}>A / B</code> → chấp nhận một trong hai.<br />
         <strong>Q5–Q6 (Free write):</strong> Bất kỳ câu hợp lý nào đều được chấp nhận trong thi thật. Điền đáp án mẫu để hệ thống chấm tương đối.
       </div>
     </div>

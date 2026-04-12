@@ -1,4 +1,5 @@
 import React, { useRef, useEffect, useState } from 'react';
+import InlineIcon from '../../../shared/components/InlineIcon.jsx';
 
 const ListeningPlayer = ({ audioUrl, onTimeUpdate, onDurationChange, autoPlay = false }) => {
   const audioRef = useRef(null);
@@ -104,7 +105,7 @@ const ListeningPlayer = ({ audioUrl, onTimeUpdate, onDurationChange, autoPlay = 
   return (
     <div style={playerStyle}>
       <button onClick={togglePlay} style={buttonStyle}>
-        {isPlaying ? '⏸' : '▶️'}
+        <InlineIcon name={isPlaying ? 'pause' : 'play'} size={20} style={{ color: 'currentColor' }} />
       </button>
       <input
         type="range"

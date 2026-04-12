@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import { IeltsTestEditorShell } from "../../../shared/components";
+import InlineIcon from "../../../shared/components/InlineIcon.jsx";
 import LineIcon from "../../../shared/components/LineIcon.jsx";
 import { useColumnLayout } from "../hooks";
 import ListeningQuestionEditor from "./ListeningQuestionEditor";
@@ -381,12 +382,15 @@ const ListeningTestEditor = ({
   const activeGlobalAudioUrl = globalAudioFile?.url || existingAudioUrl || "";
 
   const getMessageTone = (currentMessage = "") => {
-    if (currentMessage.includes("❌")) return "error";
-    if (currentMessage.includes("✅")) return "success";
+    if (currentMessage.includes("\u274C") || /^(error|lỗi)\s*:/i.test(currentMessage)) return "error";
+    if (currentMessage.includes("\u2705") || /^(success|thành công)\s*:/i.test(currentMessage)) return "success";
     return "warning";
   };
 
-  const getDisplayMessage = (currentMessage = "") => currentMessage.replace(/^(✅|❌|⚠️|⏳)\s*/u, "");
+  const getDisplayMessage = (currentMessage = "") =>
+    currentMessage
+      .replace(/^(?:\u2705|\u274C|\u26A0\uFE0F|\u23F3)\s*/u, "")
+      .replace(/^(?:error|lỗi|success|thành công|warning|cảnh báo|loading)\s*:\s*/i, "");
 
   // Handle audio file upload
   const handleAudioUpload = (file, isGlobal = false, partIndex = null) => {
@@ -723,8 +727,9 @@ const ListeningTestEditor = ({
                 }}
               >
                 <span>Audio và nội dung{currentPart ? ` – ${currentPart.title}` : ""}</span>
-                <span style={{ fontSize: "12px", fontWeight: 500, opacity: 0.9 }}>
-                  {collapsedAudio ? "▼ Mở rộng" : "▲ Thu nhỏ"}
+                <span style={{ fontSize: "12px", fontWeight: 500, opacity: 0.9, display: "inline-flex", alignItems: "center", gap: 6 }}>
+                  <InlineIcon name={collapsedAudio ? "chevron-down" : "chevron-up"} size={13} style={{ color: "currentColor" }} />
+                  {collapsedAudio ? "Mở rộng" : "Thu nhỏ"}
                 </span>
               </div>
 
@@ -820,7 +825,7 @@ const ListeningTestEditor = ({
                 <span>Câu hỏi{currentSection ? ` — Section ${selectedSectionIndex + 1}` : ""}</span>
                 <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
                   {currentSection && <span style={{ fontSize: "11px", fontWeight: 400, color: "rgba(255,255,255,0.8)" }}>{countSectionQuestions(currentSection)} câu</span>}
-                  <span style={{ fontSize: "12px", fontWeight: 500, color: "rgba(255,255,255,0.8)" }}>{collapsedQuestions ? "▼ Mở rộng" : "▲ Thu nhỏ"}</span>
+                  <span style={{ fontSize: "12px", fontWeight: 500, color: "rgba(255,255,255,0.8)", display: "inline-flex", alignItems: "center", gap: 6 }}><InlineIcon name={collapsedQuestions ? "chevron-down" : "chevron-up"} size={13} style={{ color: "currentColor" }} />{collapsedQuestions ? "Mở rộng" : "Thu nhỏ"}</span>
                 </div>
               </div>
 
@@ -1402,7 +1407,7 @@ const ListeningTestEditor = ({
                                   borderRadius: "6px",
                                   border: "1px solid #86efac",
                                 }}>
-                                  <strong style={{ fontSize: "12px", color: "#166534" }}>✅ Đáp án:</strong>
+                                  <strong style={{ fontSize: "12px", color: "#166534", display: "inline-flex", alignItems: "center", gap: "6px" }}><InlineIcon name="correct" size={12} style={{ color: "#166534" }} />Đáp án:</strong>
                                   <div style={{
                                     display: "grid",
                                     gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))",

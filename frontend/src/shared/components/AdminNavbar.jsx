@@ -1266,7 +1266,7 @@ const AdminNavbar = () => {
           >
             <span className="adminNavbar__icon" aria-hidden="true"><NavIcon name="cambridge" /></span>
             <span className="adminNavbar__label">Orange</span>
-            <span className="adminNavbar__caret">▼</span>
+            <span className="adminNavbar__caret"><NavIcon name="chevron-down" /></span>
           </span>
           {cambridgeDropdownVisible && (
             isCompactMenu ? renderMobileCambridgeMenu() : (
@@ -1288,7 +1288,7 @@ const AdminNavbar = () => {
           >
             <span className="adminNavbar__icon" aria-hidden="true"><NavIcon name="tests" /></span>
             <span className="adminNavbar__label">IX</span>
-            <span className="adminNavbar__caret">▼</span>
+            <span className="adminNavbar__caret"><NavIcon name="chevron-down" /></span>
           </span>
           {submissionDropdownVisible && (
             isCompactMenu ? renderMobileSubmissionMenu() : (
@@ -1317,7 +1317,7 @@ const AdminNavbar = () => {
             >
               <span className="adminNavbar__icon" aria-hidden="true"><NavIcon name="admin" /></span>
               <span className="adminNavbar__label">Admin</span>
-              <span className="adminNavbar__caret">▼</span>
+              <span className="adminNavbar__caret"><NavIcon name="chevron-down" /></span>
             </span>
             {adminDropdownVisible && (
               isCompactMenu ? renderMobileAdminMenu() : (
@@ -1374,7 +1374,7 @@ const AdminNavbar = () => {
         )}
       </div>
 
-      {/* 👨‍🏫 Hiển thị tên giáo viên và nút logout */}
+      {/* Hiển thị tên giáo viên và nút logout */}
       <div className="adminNavbar__right">
         <ThemeToggle />
         <span className="adminNavbar__teacherName">

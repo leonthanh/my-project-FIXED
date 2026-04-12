@@ -13,6 +13,7 @@ import ClozeTestQuestion from './ClozeTestQuestion';
 import SummaryCompletionQuestion from './SummaryCompletionQuestion';
 import IELTSMatchingHeadingsQuestion from './IELTSMatchingHeadingsQuestion';
 import { getDefaultQuestionData } from '../config/questionTypes';
+import InlineIcon from './InlineIcon.jsx';
 
 const QuestionSection = ({
   passageIndex,
@@ -202,7 +203,7 @@ const QuestionSection = ({
                 }}
                 title={expandedQuestions[questionIndex] ? 'Thu nhỏ' : 'Mở rộng'}
               >
-                {expandedQuestions[questionIndex] ? '▼' : '▶'}
+                <InlineIcon name={expandedQuestions[questionIndex] ? 'chevron-down' : 'chevron-right'} size={12} style={{ color: 'white' }} />
               </button>
               <span style={{ fontSize: '14px', fontWeight: '600', color: '#333' }}>
                 Câu {question.questionNumber || '1'} <span style={{ color: '#0e276f', fontSize: '12px', fontWeight: 'normal' }}>({question.questionType === 'multiple-choice' ? 'Trắc nghiệm 1 đáp án' : question.questionType})</span>

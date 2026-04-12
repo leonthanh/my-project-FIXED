@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { apiPath, hostPath, authFetch } from "../../../shared/utils/api";
 import TestHeader from "../../../shared/components/TestHeader";
 import ExtensionToast from "../../../shared/components/ExtensionToast";
+import InlineIcon from "../../../shared/components/InlineIcon.jsx";
 import LineIcon from "../../../shared/components/LineIcon.jsx";
 import TestStartModal from "../../../shared/components/TestStartModal";
 import ConfirmModal from "../../../shared/components/ConfirmModal";
@@ -138,6 +139,7 @@ const DoListeningTest = () => {
   const [requestAutoPlay, setRequestAutoPlay] = useState(false);
   // Track if audio is currently playing so we can show a status without controls
   const [isAudioPlaying, setIsAudioPlaying] = useState(false);
+  const [audioError, setAudioError] = useState("");
 
   const audioRef = useRef(null);
   const questionRefs = useRef({});
@@ -1677,7 +1679,7 @@ const DoListeningTest = () => {
             }
           }
         }
-        alert("⚠️ Audio này chỉ được nghe 1 lần!");
+        alert("Audio này chỉ được nghe 1 lần!");
       }
     },
     [audioPlayed]
@@ -2647,7 +2649,7 @@ const DoListeningTest = () => {
   if (error) {
     return (
       <div style={styles.errorContainer}>
-        <h2 style={styles.errorTitle}>❌ Lỗi</h2>
+        <h2 style={{ ...styles.errorTitle, display: "inline-flex", alignItems: "center", gap: 8 }}><InlineIcon name="error" size={18} style={{ color: "#dc2626" }} />Lỗi</h2>
         <p style={styles.errorText}>{error}</p>
         <button onClick={() => navigate("/select-test")} style={styles.backButton}>
           ← Quay lại
@@ -2658,6 +2660,7 @@ const DoListeningTest = () => {
 
   const currentPart = parts[currentPartIndex];
   const audioUrl = test?.partAudioUrls?.[currentPartIndex] || test?.mainAudioUrl;
+  const resolvedAudioUrl = useMemo(() => hostPath(audioUrl), [audioUrl]);
   /* eslint-disable-next-line no-unused-vars */
   const currentRange = getPartQuestionRange(currentPartIndex);
   const displayRange = getPartDisplayRange(currentPartIndex);
@@ -2735,10 +2738,21 @@ const DoListeningTest = () => {
             autoPlay={requestAutoPlay}
             aria-hidden="true"
             style={{ display: 'none' }}
-            src={hostPath(audioUrl)}
+            preload="auto"
+            src={resolvedAudioUrl}
             onPlay={() => {
+              setAudioError("");
               setIsAudioPlaying(true);
               handleAudioPlay(currentPartIndex);
+            }}
+            onPause={() => {
+              setIsAudioPlaying(false);
+            }}
+            onLoadedMetadata={() => {
+              setAudioError("");
+            }}
+            onCanPlay={() => {
+              setAudioError("");
             }}
             onEnded={() => {
               setIsAudioPlaying(false);
@@ -2750,12 +2764,53 @@ const DoListeningTest = () => {
                 localStorage.setItem(stateKey, JSON.stringify(cur));
               } catch (e) {}
             }}
+            onError={(event) => {
+              setIsAudioPlaying(false);
+              const mediaError = event.currentTarget?.error;
+              const fallbackMessage = {
+                1: 'Trình duyệt đã hủy việc tải audio.',
+                2: 'Không tải được audio từ server.',
+                3: 'File audio bị lỗi hoặc định dạng không được hỗ trợ.',
+                4: 'Trình duyệt không thể đọc file audio này.',
+              };
+              setAudioError(
+                fallbackMessage[mediaError?.code] || 'Không thể phát audio trên thiết bị này.'
+              );
+            }}
           />
 
           {/* Status messages (no visible controls) */}
           {!audioPlayed[currentPartIndex] && !isAudioPlaying && (
             <div>
-              <div style={{ color: '#0e276f', marginTop: 8 }}>Audio is ready and waiting to play. The controls are hidden during the test.</div>
+              <div style={{ color: '#0e276f', marginTop: 8 }}>
+                {audioError
+                  ? `Không phát được audio tự động. ${audioError}`
+                  : 'Audio đã sẵn sàng. Nếu chưa nghe thấy gì, bấm nút bên dưới để phát.'}
+              </div>
+              {audioError && resolvedAudioUrl && (
+                <div
+                  style={{
+                    marginTop: 10,
+                    padding: '10px 12px',
+                    borderRadius: 10,
+                    background: '#fff7ed',
+                    border: '1px solid #fdba74',
+                    color: '#9a3412',
+                    fontSize: 13,
+                    lineHeight: 1.5,
+                  }}
+                >
+                  Nếu production vẫn lỗi, mở trực tiếp file audio để kiểm tra server có trả file hay không:{' '}
+                  <a
+                    href={resolvedAudioUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{ color: '#9a3412', fontWeight: 700 }}
+                  >
+                    Mở file audio
+                  </a>
+                </div>
+              )}
               {/* Show a one-time Resume button if the student reloads or opened the test without autoplay */}
               <div style={{ marginTop: 8 }}>
                 <button
@@ -2776,7 +2831,10 @@ const DoListeningTest = () => {
                   }}
                   style={styles.playGateButton}
                 >
-                  Play audio again ▶
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                    <InlineIcon name="play" size={14} />
+                    {audioError ? 'Thử phát lại audio' : 'Phát audio'}
+                  </span>
                 </button>
               </div>
             </div>

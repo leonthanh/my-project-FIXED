@@ -3,6 +3,7 @@ import ReactQuill from "react-quill";
 import "react-quill/dist/quill.snow.css";
 import useQuillImageUpload from "../../../hooks/useQuillImageUpload";
 import { apiPath, hostPath } from "../../../utils/api";
+import InlineIcon from "../../InlineIcon.jsx";
 
 /**
  * ImageClozeEditor – Dạng điền ảnh vào chỗ trống (Cambridge Movers Part 3)
@@ -310,7 +311,7 @@ export default function ImageClozeEditor({ question = {}, onChange, startingNumb
                   textAlign: "center",
                 }}
               >
-                ×
+                <InlineIcon name="close" size={12} style={{ color: "currentColor" }} />
               </button>
 
               {/* Image preview */}

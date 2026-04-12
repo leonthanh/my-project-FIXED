@@ -2,6 +2,7 @@ import React, { useEffect } from "react";
 import ReactQuill from "react-quill";
 import "react-quill/dist/quill.snow.css";
 import useQuillImageUpload from "../../../hooks/useQuillImageUpload";
+import InlineIcon from "../../InlineIcon.jsx";
 
 /**
  * ClozeMCEditor - KET Part 4: Multiple Choice Cloze
@@ -346,7 +347,7 @@ const ClozeMCEditor = ({
                     fontSize: "10px",
                   }}
                 >
-                  ×
+                  <InlineIcon name="close" size={12} style={{ color: "currentColor" }} />
                 </button>
               )}
 

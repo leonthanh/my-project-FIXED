@@ -38,6 +38,15 @@ const LineIcon = ({ name, size = 18, strokeWidth = 1.9, className }) => {
           <path d="M22 10v6" />
         </svg>
       );
+    case "graduation":
+      return (
+        <svg {...props}>
+          <path d="m2 10 10-5 10 5-10 5-10-5Z" />
+          <path d="M6 12v4c0 1.5 2.7 3 6 3s6-1.5 6-3v-4" />
+          <path d="M22 10v6" />
+          <path d="M22 18c0 1-1 2-2 2" />
+        </svg>
+      );
     case "writing":
     case "edit":
       return (
@@ -52,6 +61,137 @@ const LineIcon = ({ name, size = 18, strokeWidth = 1.9, className }) => {
           <path d="M14 9a5 5 0 0 1 0 6" />
           <path d="M17.5 6.5a9 9 0 0 1 0 11" />
           <path d="M3 10h4l5-4v12l-5-4H3z" />
+        </svg>
+      );
+    case "save":
+      return (
+        <svg {...props}>
+          <path d="M5 3h11l3 3v15H5z" />
+          <path d="M8 3v6h8V3" />
+          <path d="M9 20v-6h6v6" />
+        </svg>
+      );
+    case "upload":
+      return (
+        <svg {...props}>
+          <path d="M12 16V5" />
+          <path d="m7 10 5-5 5 5" />
+          <path d="M4 19h16" />
+        </svg>
+      );
+    case "image":
+      return (
+        <svg {...props}>
+          <rect x="3" y="4" width="18" height="16" rx="2" />
+          <circle cx="9" cy="10" r="1.5" />
+          <path d="m21 16-5.5-5.5L7 19" />
+        </svg>
+      );
+    case "flash":
+      return (
+        <svg {...props}>
+          <path d="M13 2 6 13h5l-1 9 7-11h-5z" />
+        </svg>
+      );
+    case "idea":
+      return (
+        <svg {...props}>
+          <path d="M9 18h6" />
+          <path d="M10 22h4" />
+          <path d="M12 2a7 7 0 0 0-4 12.8c.7.5 1 1 1 1.7V18h6v-1.5c0-.7.3-1.2 1-1.7A7 7 0 0 0 12 2Z" />
+        </svg>
+      );
+    case "pin":
+      return (
+        <svg {...props}>
+          <path d="M12 21s6-5.2 6-10a6 6 0 1 0-12 0c0 4.8 6 10 6 10Z" />
+          <circle cx="12" cy="11" r="2" />
+        </svg>
+      );
+    case "copy":
+      return (
+        <svg {...props}>
+          <rect x="9" y="9" width="11" height="11" rx="2" />
+          <rect x="4" y="4" width="11" height="11" rx="2" />
+        </svg>
+      );
+    case "trash":
+      return (
+        <svg {...props}>
+          <path d="M4 7h16" />
+          <path d="M10 3h4" />
+          <path d="M6 7l1 13h10l1-13" />
+          <path d="M10 11v6" />
+          <path d="M14 11v6" />
+        </svg>
+      );
+    case "flag":
+      return (
+        <svg {...props}>
+          <path d="M5 21V4" />
+          <path d="M5 5h11l-2.5 4L16 13H5" />
+        </svg>
+      );
+    case "tag":
+      return (
+        <svg {...props}>
+          <path d="M20 10 10 20l-6-6L14 4h6z" />
+          <circle cx="16.5" cy="7.5" r="1" />
+        </svg>
+      );
+    case "target":
+      return (
+        <svg {...props}>
+          <circle cx="12" cy="12" r="8" />
+          <circle cx="12" cy="12" r="3" />
+          <path d="M12 2v2" />
+          <path d="M12 20v2" />
+          <path d="M2 12h2" />
+          <path d="M20 12h2" />
+        </svg>
+      );
+    case "palette":
+      return (
+        <svg {...props}>
+          <path d="M12 3a9 9 0 1 0 0 18h1.5a2.5 2.5 0 0 0 0-5H12a2.5 2.5 0 0 1 0-5h2a4 4 0 0 0 0-8Z" />
+          <path d="M7.5 10h.01" />
+          <path d="M9.5 7h.01" />
+          <path d="M13.5 7h.01" />
+          <path d="M15.5 10h.01" />
+        </svg>
+      );
+    case "link":
+      return (
+        <svg {...props}>
+          <path d="M10 14 8 16a3 3 0 1 1-4-4l3-3a3 3 0 0 1 4 0" />
+          <path d="M14 10 16 8a3 3 0 1 1 4 4l-3 3a3 3 0 0 1-4 0" />
+          <path d="M9 15 15 9" />
+        </svg>
+      );
+    case "document":
+      return (
+        <svg {...props}>
+          <path d="M7 3h7l5 5v13H7z" />
+          <path d="M14 3v5h5" />
+          <path d="M10 13h6" />
+          <path d="M10 17h6" />
+        </svg>
+      );
+    case "mail":
+      return (
+        <svg {...props}>
+          <rect x="3" y="5" width="18" height="14" rx="2" />
+          <path d="m4 7 8 6 8-6" />
+        </svg>
+      );
+    case "publish":
+      return (
+        <svg {...props}>
+          <path d="M12 17V5" />
+          <path d="m7 10 5-5 5 5" />
+          <path d="M5 19h14" />
+          <path d="M19 19v2" />
+          <path d="M5 19v2" />
         </svg>
       );
     case "fill":
@@ -165,6 +305,7 @@ const LineIcon = ({ name, size = 18, strokeWidth = 1.9, className }) => {
         </svg>
       );
     case "starters":
+    case "star":
       return (
         <svg {...props}>
           <path d="m12 3 2.7 5.5 6 .9-4.4 4.3 1 6L12 17l-5.3 2.8 1-6-4.4-4.3 6-.9L12 3Z" />
@@ -340,6 +481,19 @@ const LineIcon = ({ name, size = 18, strokeWidth = 1.9, className }) => {
       return (
         <svg {...props}>
           <path d="m18 15-6-6-6 6" />
+        </svg>
+      );
+    case "play":
+      return (
+        <svg {...props}>
+          <path d="m8 6 10 6-10 6Z" />
+        </svg>
+      );
+    case "pause":
+      return (
+        <svg {...props}>
+          <path d="M9 6v12" />
+          <path d="M15 6v12" />
         </svg>
       );
     case "retry":

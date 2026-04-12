@@ -25,6 +25,23 @@ function validateAnswer(value, maxWords = 2) {
   return { ok: true };
 }
 
+function stripCommentPrefix(line) {
+  return String(line || '')
+    .replace(/^\s*(?:[-*•]+|\d+[.)])\s*/, '')
+    .trimEnd();
+}
+
+function renderTextValue(value, keyPrefix) {
+  const segments = String(value || '').split('\n');
+
+  return segments.map((segment, index) => (
+    <React.Fragment key={`${keyPrefix}-${index}`}>
+      {index > 0 ? <br /> : null}
+      <span>{segment}</span>
+    </React.Fragment>
+  ));
+}
+
 export default function TableCompletion({
   data,
   onChange,
@@ -63,7 +80,10 @@ export default function TableCompletion({
 
         if (isComments) {
           // split into lines and assign q numbers across lines (top-down within the comments column for this row)
-          const lines = String(text || '').split('\n');
+          const lines = String(text || '')
+            .split('\n')
+            .map(stripCommentPrefix)
+            .filter((line) => line.trim() !== '');
           const linePartsArr = lines.map((line) => {
             const raw = splitIntoParts(line);
             const parts = [];
@@ -129,7 +149,7 @@ export default function TableCompletion({
   function renderParts(parts) {
     return parts.map((p, idx) =>
       p.type === "text" ? (
-        <span key={idx}>{p.value}</span>
+        <React.Fragment key={idx}>{renderTextValue(p.value, `text-${idx}`)}</React.Fragment>
       ) : (
         <span key={idx} className="blank" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
           <input

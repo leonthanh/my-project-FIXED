@@ -1,4 +1,5 @@
 import React from 'react';
+import InlineIcon from './InlineIcon.jsx';
 
 const ComboboxQuestion = ({ question, onChange }) => {
   if (!question) {
@@ -184,7 +185,7 @@ const ComboboxQuestion = ({ question, onChange }) => {
                   style={{ ...styles.buttonSmall, ...styles.removeButton }}
                   onClick={() => handleRemoveLeftItem(index)}
                 >
-                  ✕
+                  <InlineIcon name="close" size={12} style={{ color: 'currentColor' }} />
                 </button>
               )}
             </div>
@@ -219,7 +220,7 @@ const ComboboxQuestion = ({ question, onChange }) => {
                   style={{ ...styles.buttonSmall, ...styles.removeButton }}
                   onClick={() => handleRemoveRightItem(index)}
                 >
-                  ✕
+                  <InlineIcon name="close" size={12} style={{ color: 'currentColor' }} />
                 </button>
               )}
             </div>

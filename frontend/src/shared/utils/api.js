@@ -1,3 +1,5 @@
+import { resolveHostPath } from "./assetUrls";
+
 // API URL helper - normalize and export host/base helpers
 const RAW_API = import.meta.env.VITE_API_URL || "";
 // Remove trailing slashes and a trailing '/api' if present
@@ -9,7 +11,7 @@ function apiPath(p) {
 }
 
 function hostPath(p) {
-  return `${API_HOST}/${String(p).replace(/^\/+/, "")}`;
+  return resolveHostPath(API_HOST, p);
 }
 
 function redirectInApp(path, opts = {}) {

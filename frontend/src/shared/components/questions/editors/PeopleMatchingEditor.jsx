@@ -1,4 +1,5 @@
 import React from "react";
+import InlineIcon from "../../InlineIcon.jsx";
 
 /**
  * PeopleMatchingEditor - KET Part 2: Matching People with Texts
@@ -369,7 +370,7 @@ const PeopleMatchingEditor = ({
                       fontSize: "10px",
                     }}
                   >
-                      ×
+                      <InlineIcon name="close" size={12} style={{ color: "currentColor" }} />
                   </button>
                 )}
                 

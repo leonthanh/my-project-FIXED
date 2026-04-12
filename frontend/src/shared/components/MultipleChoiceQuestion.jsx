@@ -1,5 +1,6 @@
 import React from 'react';
 import QuillEditor from './QuillEditor';
+import InlineIcon from './InlineIcon.jsx';
 
 /**
  * IELTS Multiple Choice Question Component
@@ -289,7 +290,7 @@ const MultipleChoiceQuestion = ({ question, onChange }) => {
                 }}
                 title={isCorrectOption ? 'Đáp án đúng' : 'Click để chọn là đáp án đúng'}
               >
-                {isCorrectOption ? '✓' : letter}
+                {isCorrectOption ? <InlineIcon name="correct" size={14} style={{ color: 'white' }} /> : letter}
               </div>
 
               {/* Option Label */}
@@ -311,7 +312,7 @@ const MultipleChoiceQuestion = ({ question, onChange }) => {
                   style={styles.removeBtn}
                   title="Xóa lựa chọn này"
                 >
-                  ×
+                  <InlineIcon name="close" size={12} style={{ color: 'currentColor' }} />
                 </button>
               )}
             </div>
@@ -361,7 +362,7 @@ const MultipleChoiceQuestion = ({ question, onChange }) => {
                     {String.fromCharCode(65 + index)}.
                   </strong>
                   {option}
-                  {isCorrect(index) && <span style={{ marginLeft: '10px', color: accentGreen }}>✓</span>}
+                  {isCorrect(index) && <span style={{ marginLeft: '10px', color: accentGreen, display: 'inline-flex' }}><InlineIcon name="correct" size={12} style={{ color: accentGreen }} /></span>}
                 </div>
               ))}
             </div>

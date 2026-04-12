@@ -1,5 +1,21 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import LineIcon from '../../../shared/components/LineIcon.jsx';
 import AnchoredImageStage from './AnchoredImageStage';
+
+const InlineIcon = ({ name, size = 16, strokeWidth = 2, style }) => (
+  <span
+    aria-hidden="true"
+    style={{
+      display: 'inline-flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      lineHeight: 0,
+      ...style,
+    }}
+  >
+    <LineIcon name={name} size={size} strokeWidth={strokeWidth} />
+  </span>
+);
 
 const IT_ACCENT = ['#f59e0b', '#10b981', '#8b5cf6', '#ef4444', '#0ea5e9', '#ec4899'];
 const DRAW_COLORS = ['#f59e0b', '#10b981', '#3b82f6', '#8b5cf6', '#ef4444', '#ec4899', '#06b6d4', '#84cc16'];
@@ -297,7 +313,12 @@ export function DrawLinesQuestion({
               color: selectedNameIdx !== null ? DRAW_COLORS[selectedNameIdx % DRAW_COLORS.length] : isDarkMode ? '#94a3b8' : '#374151',
             }}
           >
-            {selectedNameIdx !== null ? `⚡ "${leftItems[selectedNameIdx]}" — click nhan vat` : 'Click ten -> click nhan vat'}
+            {selectedNameIdx !== null ? (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                <InlineIcon name="flash" size={14} />
+                "{leftItems[selectedNameIdx]}" — click nhan vat
+              </span>
+            ) : 'Click ten -> click nhan vat'}
           </p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
             {leftItems.map((name, idx) => {
@@ -370,7 +391,7 @@ export function DrawLinesQuestion({
                   >
                     <span>{name}</span>
                     {isExample ? <span style={{ fontSize: '13px', opacity: 0.6 }}>(example)</span> : null}
-                    {submitted && studentAns ? <span style={{ fontSize: '15px' }}>{isCorrect ? '✓' : '✗'}</span> : null}
+                    {submitted && studentAns ? <InlineIcon name={isCorrect ? 'correct' : 'wrong'} size={15} style={{ color: textColor }} /> : null}
                   </button>
                 </div>
               );
@@ -512,7 +533,7 @@ export function DrawLinesQuestion({
                     onClick={() => setDrawLineAnswer(nameIdx, null)}
                     style={{ padding: '4px 12px', fontSize: '12px', borderRadius: '14px', border: '1px solid #fca5a5', background: '#fef2f2', color: '#dc2626', cursor: 'pointer', fontWeight: 600 }}
                   >
-                    ✕ {name}
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><InlineIcon name="close" size={12} />{name}</span>
                   </button>
                 );
               })}
@@ -657,10 +678,10 @@ export function ImageTickSlideSection({
                 {imgSrc ? (
                   <img src={imgSrc} alt={letter} draggable={false} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                 ) : (
-                  <span style={{ fontSize: '28px', color: isDarkMode ? '#475569' : '#cbd5e1' }}>🖼️</span>
+                  <InlineIcon name="image" size={28} style={{ color: isDarkMode ? '#475569' : '#cbd5e1' }} />
                 )}
                 {submitted && isCorrectOption ? (
-                  <div style={{ position: 'absolute', top: '-10px', right: '-8px', fontSize: '22px', animation: 'itStarBurst 0.6s ease forwards', pointerEvents: 'none' }}>⭐</div>
+                  <div style={{ position: 'absolute', top: '-10px', right: '-8px', animation: 'itStarBurst 0.6s ease forwards', pointerEvents: 'none' }}><InlineIcon name="starters" size={22} style={{ color: '#f59e0b' }} /></div>
                 ) : null}
               </div>
               <span
@@ -695,7 +716,7 @@ export function ImageTickSlideSection({
                   transition: 'background 0.15s, border-color 0.15s',
                 }}
               >
-                {(isSelected || (submitted && isCorrectOption)) ? <span style={{ color: '#fff', fontSize: '15px', fontWeight: 900, lineHeight: 1 }}>✓</span> : null}
+                {(isSelected || (submitted && isCorrectOption)) ? <InlineIcon name="correct" size={15} style={{ color: '#fff' }} /> : null}
               </div>
             </div>
           );
@@ -761,7 +782,7 @@ export function ImageTickSlideSection({
                   flexShrink: 0,
                 }}
               >
-                🌟 Example
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><InlineIcon name="starters" size={14} />Example</span>
               </span>
               <span style={{ fontWeight: 600, fontSize: '14px', color: isDarkMode ? '#94a3b8' : '#64748b' }}>
                 {exampleItem.questionText || ''}
@@ -800,14 +821,14 @@ export function ImageTickSlideSection({
                 boxShadow: `0 3px 8px ${submitted ? (isCorrect ? '#22c55e55' : '#ef444455') : accent + '55'}`,
               }}
             >
-              {submitted ? (isCorrect ? '✓' : '✗') : sectionStartNum + questionIndex}
+              {submitted ? <InlineIcon name={isCorrect ? 'correct' : 'wrong'} size={16} style={{ color: '#fff' }} /> : sectionStartNum + questionIndex}
             </span>
             <span style={{ fontWeight: 700, fontSize: '15px', color: isDarkMode ? '#e2e8f0' : '#0f172a', flex: 1 }}>
               {question?.questionText || ''}
             </span>
             {submitted && !isCorrect ? (
               <span style={{ fontSize: '13px', fontWeight: 800, color: '#22c55e', background: isDarkMode ? '#052e16' : '#f0fdf4', padding: '2px 8px', borderRadius: '6px', flexShrink: 0 }}>
-                ✓ {results?.answers?.[questionKey]?.correctAnswer || question?.correctAnswer || ''}
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><InlineIcon name="correct" size={12} />{results?.answers?.[questionKey]?.correctAnswer || question?.correctAnswer || ''}</span>
               </span>
             ) : null}
           </div>
@@ -1090,7 +1111,7 @@ export function LetterMatchingStudentSection({
                     boxShadow: submitted ? 'none' : '0 2px 8px rgba(124,58,237,0.4)',
                   }}
                 >
-                  {submitted ? (isCorrect ? '✓' : '✗') : partStart + idx}
+                  {submitted ? <InlineIcon name={isCorrect ? 'correct' : 'wrong'} size={16} style={{ color: '#fff' }} /> : partStart + idx}
                 </span>
                 {person.photoUrl ? (
                   <img src={resolveImgSrc(person.photoUrl)} alt={person.name} draggable={false} style={{ width: '60px', height: '60px', borderRadius: '10px', objectFit: 'cover', flexShrink: 0, boxShadow: '0 2px 8px rgba(0,0,0,0.15)' }} />
@@ -1133,7 +1154,7 @@ export function LetterMatchingStudentSection({
                         event.currentTarget.style.transform = 'scale(1)';
                       }}
                     >
-                      ✕
+                      <InlineIcon name="close" size={12} style={{ color: '#fff' }} />
                     </button>
                   ) : null}
                   <div
@@ -1606,7 +1627,7 @@ export function ColourWriteStudentSection({
                     justifyContent: 'center',
                   }}
                 >
-                  {submitted ? <span style={{ fontSize: '17px', color: '#fff', textShadow: '0 1px 3px rgba(0,0,0,0.4)', lineHeight: 1 }}>{isCorrect ? '✓' : '✗'}</span> : null}
+                  {submitted ? <InlineIcon name={isCorrect ? 'correct' : 'wrong'} size={17} style={{ color: '#fff' }} /> : null}
                 </div>
               );
             })}
@@ -1647,7 +1668,7 @@ export function ColourWriteStudentSection({
                   transition: 'all 0.15s',
                 }}
               >
-                {submitted ? (isCorrect ? '✓' : '✗') : '●'}
+                {submitted ? <InlineIcon name={isCorrect ? 'correct' : 'wrong'} size={14} style={{ color: submitted ? 'currentColor' : undefined }} /> : '•'}
                 {colour ? <div style={{ width: 11, height: 11, borderRadius: '50%', background: colour.hex, border: colour.border ? `1px solid ${colour.border}` : 'none', flexShrink: 0 }} /> : null}
                 {(question.taskType || 'colour') === 'write' && answer ? <span style={{ fontSize: '10px', maxWidth: '48px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{answer}</span> : null}
               </div>
@@ -1725,14 +1746,14 @@ export function ColourWriteStudentSection({
             const colour = taskType !== 'write' ? CW_PALETTE.find((item) => item.label === userAnswer) : null;
             return (
               <div key={questionIndex} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 14px', borderRadius: '10px', background: isCorrect ? (isDarkMode ? '#052e16' : '#f0fdf4') : (isDarkMode ? '#2d0a0a' : '#fef2f2'), border: `1.5px solid ${isCorrect ? '#22c55e' : '#ef4444'}` }}>
-                <span style={{ fontWeight: 900, fontSize: '16px', color: isCorrect ? '#22c55e' : '#ef4444', width: '20px', flexShrink: 0 }}>{isCorrect ? '✓' : '✗'}</span>
+                <InlineIcon name={isCorrect ? 'correct' : 'wrong'} size={16} style={{ color: isCorrect ? '#22c55e' : '#ef4444', width: '20px', flexShrink: 0 }} />
                 <span style={{ fontWeight: 800, fontSize: '13px', color: isDarkMode ? '#94a3b8' : '#64748b', flexShrink: 0 }}>Q{sectionStartNum + questionIndex}</span>
                 <span style={{ flex: 1, fontSize: '13px', color: isDarkMode ? '#cbd5e1' : '#374151' }}>{question.questionText}</span>
                 {colour ? <div style={{ width: 22, height: 22, borderRadius: '50%', background: colour.hex, border: colour.border ? `1.5px solid ${colour.border}` : 'none', flexShrink: 0 }} /> : null}
                 {taskType === 'write' && userAnswer ? <span style={{ fontWeight: 700, color: isDarkMode ? '#e2e8f0' : '#0f172a' }}>{userAnswer}</span> : null}
                 {!isCorrect ? (
                   <span style={{ fontWeight: 700, fontSize: '12px', color: '#22c55e', background: '#f0fdf4', padding: '2px 8px', borderRadius: '6px', flexShrink: 0 }}>
-                    ✓ {results?.answers?.[key]?.correctAnswer || question.correctAnswer || ''}
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><InlineIcon name="correct" size={12} />{results?.answers?.[key]?.correctAnswer || question.correctAnswer || ''}</span>
                   </span>
                 ) : null}
               </div>

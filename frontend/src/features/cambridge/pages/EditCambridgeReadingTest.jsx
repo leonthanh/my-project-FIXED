@@ -2,7 +2,23 @@ import React, { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import AdminNavbar from "../../../shared/components/AdminNavbar";
 import { apiPath } from "../../../shared/utils/api";
+import LineIcon from "../../../shared/components/LineIcon.jsx";
 import CambridgeTestBuilder from "../CambridgeTestBuilder";
+
+const InlineIcon = ({ name, size = 16, strokeWidth = 2, style }) => (
+  <span
+    aria-hidden="true"
+    style={{
+      display: "inline-flex",
+      alignItems: "center",
+      justifyContent: "center",
+      lineHeight: 0,
+      ...style,
+    }}
+  >
+    <LineIcon name={name} size={size} strokeWidth={strokeWidth} />
+  </span>
+);
 
 /**
  * EditCambridgeReadingTest - Trang sửa đề Cambridge Reading
@@ -34,7 +50,7 @@ const EditCambridgeReadingTest = () => {
 
         setFetchedData(data);
       } catch (err) {
-        console.error("❌ Lỗi khi tải đề:", err);
+        console.error("Lỗi khi tải đề:", err);
         setMessage({ type: "error", text: "Không thể tải đề thi. " + err.message });
       } finally {
         setLoading(false);
@@ -49,7 +65,10 @@ const EditCambridgeReadingTest = () => {
       <>
         <AdminNavbar />
         <div style={{ padding: "50px", textAlign: "center" }}>
-          <p>⏳ Đang tải đề thi...</p>
+          <p style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+            <InlineIcon name="loading" size={16} style={{ color: "#0f172a" }} />
+            Đang tải đề thi...
+          </p>
         </div>
       </>
     );
@@ -60,7 +79,10 @@ const EditCambridgeReadingTest = () => {
       <>
         <AdminNavbar />
         <div style={{ padding: "50px", textAlign: "center" }}>
-          <p style={{ color: "#dc2626" }}>❌ {message.text}</p>
+          <p style={{ color: "#dc2626", display: "inline-flex", alignItems: "center", gap: 8 }}>
+            <InlineIcon name="error" size={16} style={{ color: "#dc2626" }} />
+            {message.text}
+          </p>
         </div>
       </>
     );

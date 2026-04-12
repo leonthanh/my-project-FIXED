@@ -13,6 +13,7 @@ import React, { useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { apiPath, authFetch, hostPath } from "../../../shared/utils/api";
 import AdminNavbar from "../../../shared/components/AdminNavbar";
+import LineIcon from "../../../shared/components/LineIcon.jsx";
 import "./MoversListeningTestBuilder.css";
 import {
   inputStyle,
@@ -27,6 +28,21 @@ import {
   ColourWriteEditor,
 } from "../components/MoversListeningEditorComponents";
 
+const InlineIcon = ({ name, size = 16, strokeWidth = 2, style }) => (
+  <span
+    aria-hidden="true"
+    style={{
+      display: "inline-flex",
+      alignItems: "center",
+      justifyContent: "center",
+      lineHeight: 0,
+      ...style,
+    }}
+  >
+    <LineIcon name={name} size={size} strokeWidth={strokeWidth} />
+  </span>
+);
+
 const resolveImg = (url) => {
   if (!url) return "";
   if (/^https?:\/\//i.test(url)) return url;
@@ -37,7 +53,7 @@ const resolveImg = (url) => {
 const PART_CONFIGS = [
   {
     part: 1,
-    emoji: "🔗",
+    iconName: "matching",
     title: "Part 1 – Draw Lines",
     titleVi: "Nối tên với vị trí trong tranh",
     instruction: "Listen and draw lines. There is one example.",
@@ -49,7 +65,7 @@ const PART_CONFIGS = [
   },
   {
     part: 2,
-    emoji: "✏️",
+    iconName: "writing",
     title: "Part 2 – Write Names",
     titleVi: "Nghe và điền tên / thông tin",
     instruction: "Listen and write. There is one example.",
@@ -61,7 +77,7 @@ const PART_CONFIGS = [
   },
   {
     part: 3,
-    emoji: "🎯",
+    iconName: "target",
     title: "Part 3 – Letter Matching",
     titleVi: "Nghe và điền chữ cái vào ô",
     instruction: "Listen and write a letter in each box. There is one example.",
@@ -73,10 +89,10 @@ const PART_CONFIGS = [
   },
   {
     part: 4,
-    emoji: "☑️",
+    iconName: "correct",
     title: "Part 4 – Tick a Box",
     titleVi: "Nghe và tick vào ô đúng",
-    instruction: "Listen and tick (✓) the box. There is one example.",
+    instruction: "Listen and tick the box. There is one example.",
     questionType: "image-tick",
     questionCount: 5,
     tip: "Học sinh nghe và tick vào ô ảnh đúng (A, B hoặc C) cho mỗi câu. Nhập câu hỏi và upload 3 hình lựa chọn cho mỗi câu. Chọn đáp án đúng bằng radio 'Đúng'.",
@@ -85,7 +101,7 @@ const PART_CONFIGS = [
   },
   {
     part: 5,
-    emoji: "🎨",
+    iconName: "palette",
     title: "Part 5 – Colour and Write",
     titleVi: "Nghe và tô màu / viết từ vào tranh",
     instruction: "Listen and colour and write. There is one example.",
@@ -479,8 +495,8 @@ const MoversListeningTestBuilder = ({ editId = null, initialData = null }) => {
       setMessage({
         type: "success",
         text: isEditMode
-          ? `✅ Đề thi "${title}" đã được cập nhật!`
-          : `✅ Đề thi "${title}" đã được tạo thành công!`,
+          ? `Đề thi "${title}" đã được cập nhật!`
+          : `Đề thi "${title}" đã được tạo thành công!`,
       });
       setTimeout(() => navigate("/select-test"), 1500);
     } catch (err) {
@@ -525,7 +541,7 @@ const MoversListeningTestBuilder = ({ editId = null, initialData = null }) => {
             margin: "0 0 2px",
           }}
         >
-          🚗 MOVERS Listening
+          <span style={{ display: "inline-flex", alignItems: "center", gap: "8px" }}><InlineIcon name="movers" size={18} style={{ color: "#312e81" }} />MOVERS Listening</span>
         </h2>
         <p
           className="mltb-sidebar-sub"
@@ -572,7 +588,7 @@ const MoversListeningTestBuilder = ({ editId = null, initialData = null }) => {
               marginBottom: "8px",
             }}
           >
-            {isSubmitting ? "Đang lưu…" : isEditMode ? "💾 Cập nhật" : "🚀 Xuất bản"}
+            {isSubmitting ? <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}><InlineIcon name="loading" size={14} style={{ color: "white" }} />Đang lưu...</span> : isEditMode ? <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}><InlineIcon name="save" size={14} style={{ color: "white" }} />Cập nhật</span> : <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}><InlineIcon name="publish" size={14} style={{ color: "white" }} />Xuất bản</span>}
           </button>
           <button
             onClick={() => handleSubmit("draft")}
@@ -587,7 +603,7 @@ const MoversListeningTestBuilder = ({ editId = null, initialData = null }) => {
               cursor: isSubmitting ? "not-allowed" : "pointer",
             }}
           >
-            💾 Lưu nháp
+            <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}><InlineIcon name="save" size={14} />Lưu nháp</span>
           </button>
 
           {message.text && (
@@ -630,7 +646,7 @@ const MoversListeningTestBuilder = ({ editId = null, initialData = null }) => {
               fontWeight: 800,
             }}
           >
-            📄 Thông tin đề thi
+            <span style={{ display: "inline-flex", alignItems: "center", gap: "8px" }}><InlineIcon name="document" size={16} />Thông tin đề thi</span>
           </h3>
           <div
             style={{
@@ -673,8 +689,8 @@ const MoversListeningTestBuilder = ({ editId = null, initialData = null }) => {
 
           {/* Global audio */}
           <div>
-            <label style={labelStyle}>
-              🎵 Audio chính (toàn bài — hoặc upload riêng cho từng Part bên
+            <label style={{ ...labelStyle, display: "flex", alignItems: "center", gap: "6px" }}>
+              <InlineIcon name="listening" size={14} />Audio chính (toàn bài — hoặc upload riêng cho từng Part bên
               dưới)
             </label>
             <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
@@ -703,7 +719,7 @@ const MoversListeningTestBuilder = ({ editId = null, initialData = null }) => {
                     lineHeight: 1,
                   }}
                 >
-                  ✕
+                  <InlineIcon name="close" size={14} />
                 </button>
               )}
               <label
@@ -720,7 +736,7 @@ const MoversListeningTestBuilder = ({ editId = null, initialData = null }) => {
                   flexShrink: 0,
                 }}
               >
-                {uploadingAudio ? "⏳ Đang upload…" : "📤 Upload"}
+                {uploadingAudio ? <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}><InlineIcon name="loading" size={12} />Đang upload...</span> : <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}><InlineIcon name="upload" size={12} />Upload</span>}
                 <input
                   type="file"
                   accept="audio/*"
@@ -762,7 +778,7 @@ const MoversListeningTestBuilder = ({ editId = null, initialData = null }) => {
               gap: "16px",
             }}
           >
-            <span style={{ fontSize: "32px" }}>{cfg.emoji}</span>
+            <InlineIcon name={cfg.iconName} size={28} style={{ color: cfg.color }} />
             <div>
               <h2
                 style={{
@@ -792,7 +808,7 @@ const MoversListeningTestBuilder = ({ editId = null, initialData = null }) => {
                 marginBottom: "20px",
               }}
             >
-              <label style={labelStyle}>📝 Lời dẫn (instruction cho học sinh)</label>
+              <label style={{ ...labelStyle, display: "flex", alignItems: "center", gap: "6px" }}><InlineIcon name="writing" size={14} />Lời dẫn (instruction cho học sinh)</label>
               <textarea
                 value={activePart.instruction || ""}
                 onChange={(e) => updatePart("instruction", e.target.value)}
@@ -809,7 +825,7 @@ const MoversListeningTestBuilder = ({ editId = null, initialData = null }) => {
                 color: cfg.color,
                 fontWeight: 800,
               }}>
-                🖼️ {cfg.part === 1 ? "Hình minh hoạ Part 1 (scene picture — bắt buộc)" : "URL hình minh hoạ cho Part (nếu có)"}
+                <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}><InlineIcon name="image" size={14} />{cfg.part === 1 ? "Hình minh hoạ Part 1 (scene picture — bắt buộc)" : "URL hình minh hoạ cho Part (nếu có)"}</span>
               </label>
               {cfg.part === 1 && (
                 <p style={{ fontSize: "11px", color: "#6b7280", margin: "0 0 8px", lineHeight: 1.5 }}>
@@ -836,7 +852,7 @@ const MoversListeningTestBuilder = ({ editId = null, initialData = null }) => {
                   fontWeight: 700,
                   flexShrink: 0,
                 }}>
-                  🖼️ Upload ảnh
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}><InlineIcon name="upload" size={12} />Upload ảnh</span>
                   <input
                     type="file"
                     accept="image/*"
@@ -880,8 +896,8 @@ const MoversListeningTestBuilder = ({ editId = null, initialData = null }) => {
 
             {/* Per-part audio override */}
             <div style={{ marginBottom: "24px" }}>
-              <label style={labelStyle}>
-                🎵 Audio riêng Part {cfg.part} (tuỳ chọn – ghi đè audio
+              <label style={{ ...labelStyle, display: "flex", alignItems: "center", gap: "6px" }}>
+                <InlineIcon name="listening" size={14} />Audio riêng Part {cfg.part} (tuỳ chọn – ghi đè audio
                 chính)
               </label>
               <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
@@ -910,7 +926,7 @@ const MoversListeningTestBuilder = ({ editId = null, initialData = null }) => {
                       lineHeight: 1,
                     }}
                   >
-                    ✕
+                    <InlineIcon name="close" size={14} />
                   </button>
                 )}
                 <label
@@ -927,7 +943,7 @@ const MoversListeningTestBuilder = ({ editId = null, initialData = null }) => {
                     flexShrink: 0,
                   }}
                 >
-                  📤 Upload
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}><InlineIcon name="upload" size={12} />Upload</span>
                   <input
                     type="file"
                     accept="audio/*"
@@ -970,7 +986,7 @@ const MoversListeningTestBuilder = ({ editId = null, initialData = null }) => {
                     borderRadius: "2px",
                   }}
                 />
-                ✏️ Câu hỏi Part {cfg.part}
+                <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}><InlineIcon name="writing" size={14} />Câu hỏi Part {cfg.part}</span>
               </h4>
 
               {cfg.questionType === "fill" && (

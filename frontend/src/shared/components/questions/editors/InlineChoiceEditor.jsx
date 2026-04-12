@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 import useQuillImageUpload from '../../../hooks/useQuillImageUpload';
+import InlineIcon from '../../InlineIcon.jsx';
 
 /**
  * InlineChoiceEditor - PET Part 5: Inline choice dropdowns in passage
@@ -147,7 +148,7 @@ const InlineChoiceEditor = ({
           {blanks.map((blank, blankIdx) => (
             <div key={`blank-${blankIdx}`} style={styles.blankCard}>
               {blanks.length > 2 && (
-                <button type="button" onClick={() => removeBlank(blankIdx)} style={styles.removeBtn}>×</button>
+                <button type="button" onClick={() => removeBlank(blankIdx)} style={styles.removeBtn}><InlineIcon name="close" size={12} style={{ color: "currentColor" }} /></button>
               )}
 
               <div style={styles.blankNumberRow}>

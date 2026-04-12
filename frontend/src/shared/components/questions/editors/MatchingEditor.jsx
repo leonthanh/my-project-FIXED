@@ -1,4 +1,5 @@
 import React from "react";
+import InlineIcon from "../../InlineIcon.jsx";
 
 /**
  * MatchingEditor - Matching question với 2 cột (Items & Options)
@@ -161,7 +162,7 @@ const MatchingEditor = ({
                     }}
                     style={defaultStyles.deleteButton}
                   >
-                      ×
+                        <InlineIcon name="close" size={12} style={{ color: "currentColor" }} />
                   </button>
                 )}
               </div>
@@ -202,7 +203,7 @@ const MatchingEditor = ({
                   }}
                   style={defaultStyles.deleteButton}
                 >
-                  ×
+                  <InlineIcon name="close" size={12} style={{ color: "currentColor" }} />
                 </button>
               )}
             </div>

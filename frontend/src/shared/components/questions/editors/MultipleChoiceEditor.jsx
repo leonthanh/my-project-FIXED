@@ -1,5 +1,14 @@
 import React from "react";
 
+const THEME = {
+  inputBg: "var(--builder-input-bg, #ffffff)",
+  border: "var(--builder-border, #d1d5db)",
+  text: "var(--builder-text, #111827)",
+  subtext: "var(--builder-subtext, #6b7280)",
+  surfaceAlt: "var(--builder-surface-alt, rgba(99, 102, 241, 0.08))",
+  accent: "var(--builder-accent-text, #6366f1)",
+};
+
 /**
  * MultipleChoiceEditor - Multiple choice (A/B/C hoặc A/B/C/D)
  * Dùng cho: IELTS, KET, PET, Cambridge tests
@@ -23,16 +32,18 @@ const MultipleChoiceEditor = ({
     input: {
       width: "100%",
       padding: "8px 12px",
-      border: "1px solid #d1d5db",
+      border: `1px solid ${THEME.border}`,
       borderRadius: "6px",
       fontSize: "13px",
       marginBottom: "8px",
       boxSizing: "border-box",
+      background: THEME.inputBg,
+      color: THEME.text,
     },
     textarea: {
       width: "100%",
       padding: "8px 12px",
-      border: "1px solid #d1d5db",
+      border: `1px solid ${THEME.border}`,
       borderRadius: "6px",
       fontSize: "13px",
       marginBottom: "8px",
@@ -41,13 +52,15 @@ const MultipleChoiceEditor = ({
       lineHeight: 1.5,
       minHeight: "72px",
       fontFamily: "inherit",
+      background: THEME.inputBg,
+      color: THEME.text,
     },
     label: {
       display: "block",
       marginBottom: "6px",
       fontWeight: 600,
       fontSize: "12px",
-      color: "#6b7280",
+      color: THEME.subtext,
     },
     optionLabel: {
       display: "flex",
@@ -55,8 +68,8 @@ const MultipleChoiceEditor = ({
       justifyContent: "center",
       width: "28px",
       height: "28px",
-      backgroundColor: "#6366f115",
-      color: "#6366f1",
+      backgroundColor: THEME.surfaceAlt,
+      color: THEME.accent,
       borderRadius: "6px",
       fontWeight: 700,
       fontSize: "12px",
@@ -103,7 +116,7 @@ const MultipleChoiceEditor = ({
           />
         </div>
       ))}
-      <small style={{ color: "#6b7280" }}>
+      <small style={{ color: THEME.subtext }}>
         Đáp án đúng: <strong>{question.correctAnswer || "(Chưa chọn)"}</strong>
       </small>
     </div>

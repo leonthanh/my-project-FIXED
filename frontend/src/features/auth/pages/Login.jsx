@@ -63,15 +63,15 @@ const translateAuthMessage = (message) => {
 const Login = () => {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
-  const [email, setEmail] = useState(""); // ✅ Thêm state cho email
-  const [password, setPassword] = useState(""); // ✅ Thêm state cho mật khẩu
+  const [email, setEmail] = useState(""); // Thêm state cho email
+  const [password, setPassword] = useState(""); // Thêm state cho mật khẩu
   const [message, setMessage] = useState("");
   const [showResetModal, setShowResetModal] = useState(false);
   const [resetPhone, setResetPhone] = useState("");
   const [resetVerificationCode, setResetVerificationCode] = useState("");
   const [resetPassword, setResetPassword] = useState("");
   const [resetConfirmPassword, setResetConfirmPassword] = useState("");
-  const [isLoginMode, setIsLoginMode] = useState(true); // ✅ Tab mode: true = Login, false = Register
+  const [isLoginMode, setIsLoginMode] = useState(true); // Tab mode: true = Login, false = Register
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -97,7 +97,7 @@ const Login = () => {
     // Show session-expired message if redirected due to token expiry
     const params = new URLSearchParams(location.search);
     if (params.get('reason') === 'expired') {
-      setMessage('⚠️ Your session has expired. Please sign in again.');
+      setMessage('Your session has expired. Please sign in again.');
     }
     let user = getStoredUser();
     const hasToken = hasStoredSession();
@@ -111,17 +111,17 @@ const Login = () => {
   }, [navigate, location.search]);
 
   const handleLogin = async () => {
-    // ✅ Logic đăng nhập: chỉ cần phone và password
+    // Logic đăng nhập: chỉ cần phone và password
     if (!phone.trim() || !password.trim()) {
-      setMessage("❌ Please enter both phone number and password.");
+      setMessage("Please enter both phone number and password.");
       return;
     }
 
-    // ✅ Kiểm tra số điện thoại Việt Nam (đầu số thực tế)
+    // Kiểm tra số điện thoại Việt Nam (đầu số thực tế)
     const vnPhoneRegex = /^(0)(3[2-9]|5[2689]|7[06-9]|8[1-9]|9[0-9])[0-9]{7}$/;
     if (!vnPhoneRegex.test(phone.trim())) {
       setMessage(
-        "❌ Invalid phone number. Please enter a valid Vietnamese phone number (e.g. 0912345678)."
+        "Invalid phone number. Please enter a valid Vietnamese phone number (e.g. 0912345678)."
       );
       return;
     }
@@ -133,7 +133,7 @@ const Login = () => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ phone, password }), // ✅ Chỉ gửi phone và password
+        body: JSON.stringify({ phone, password }), // Chỉ gửi phone và password
       });
 
       const data = await res.json();
@@ -144,7 +144,7 @@ const Login = () => {
           refreshToken: data.refreshToken,
         });
 
-        setMessage("✅ " + translateAuthMessage(data.message));
+        setMessage(translateAuthMessage(data.message));
         // If a redirect was requested before login, go back there
         const redirectTo = localStorage.getItem('postLoginRedirect');
         if (redirectTo) {
@@ -155,37 +155,37 @@ const Login = () => {
 
         redirectAfterAuth(['teacher', 'admin'].includes(data.user.role) ? "/admin" : "/");
       } else {
-        setMessage("❌ " + translateAuthMessage(data.message));
+        setMessage(translateAuthMessage(data.message));
       }
     } catch (err) {
-      setMessage("❌ Unable to connect to the server.");
-      console.error("❌ Lỗi:", err);
+      setMessage("Unable to connect to the server.");
+      console.error("Lỗi:", err);
     } finally {
       setLoading(false);
     }
   };
 
   const handleRegister = async () => {
-    // ✅ Logic đăng ký: cần name, phone, email và password
+    // Logic đăng ký: cần name, phone, email và password
     if (!name.trim() || !phone.trim() || !email.trim() || !password.trim()) {
       setMessage(
-        "❌ Please enter your full name, phone number, email, and password."
+        "Please enter your full name, phone number, email, and password."
       );
       return;
     }
 
-    // ✅ Kiểm tra email hợp lệ
+    // Kiểm tra email hợp lệ
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email.trim())) {
-      setMessage("❌ Invalid email address. Please enter a valid email.");
+      setMessage("Invalid email address. Please enter a valid email.");
       return;
     }
 
-    // ✅ Kiểm tra số điện thoại Việt Nam (đầu số thực tế)
+    // Kiểm tra số điện thoại Việt Nam (đầu số thực tế)
     const vnPhoneRegex = /^(0)(3[2-9]|5[2689]|7[06-9]|8[1-9]|9[0-9])[0-9]{7}$/;
     if (!vnPhoneRegex.test(phone.trim())) {
       setMessage(
-        "❌ Invalid phone number. Please enter a valid Vietnamese phone number (e.g. 0912345678)."
+        "Invalid phone number. Please enter a valid Vietnamese phone number (e.g. 0912345678)."
       );
       return;
     }
@@ -206,22 +206,22 @@ const Login = () => {
           accessToken: data.accessToken,
           refreshToken: data.refreshToken,
         });
-        setMessage("✅ " + translateAuthMessage(data.message));
+        setMessage(translateAuthMessage(data.message));
         redirectAfterAuth(['teacher', 'admin'].includes(data.user.role) ? "/admin" : "/");
       } else {
         // Hiển thị status code và message để dễ debug
         setMessage(
-          `❌ [${res.status}] ${
+          `[${res.status}] ${
             translateAuthMessage(data.message) || "Registration failed. Please try again later."
           }`
         );
         if (data.error) {
-          console.error("❌ Lỗi đăng ký:", data.error);
+          console.error("Lỗi đăng ký:", data.error);
         }
       }
     } catch (err) {
-      setMessage("❌ Unable to connect to the server or database.");
-      console.error("❌ Lỗi kết nối server/database:", err);
+      setMessage("Unable to connect to the server or database.");
+      console.error("Lỗi kết nối server/database:", err);
     }
   };
 
@@ -232,18 +232,18 @@ const Login = () => {
       !resetPassword.trim() ||
       !resetConfirmPassword.trim()
     ) {
-      alert("❌ Please complete all fields.");
+      alert("Please complete all fields.");
       return;
     }
 
     const vnPhoneRegex = /^(0)(3[2-9]|5[2689]|7[06-9]|8[1-9]|9[0-9])[0-9]{7}$/;
     if (!vnPhoneRegex.test(resetPhone.trim())) {
-      alert("❌ Invalid phone number. Please enter a valid Vietnamese phone number.");
+      alert("Invalid phone number. Please enter a valid Vietnamese phone number.");
       return;
     }
 
     if (resetPassword !== resetConfirmPassword) {
-      alert("❌ Passwords do not match.");
+      alert("Passwords do not match.");
       return;
     }
 
@@ -260,25 +260,25 @@ const Login = () => {
 
       const data = await res.json();
       if (res.ok) {
-        alert("✅ " + translateAuthMessage(data.message));
+        alert(translateAuthMessage(data.message));
         setShowResetModal(false);
         setResetPhone("");
         setResetVerificationCode("");
         setResetPassword("");
         setResetConfirmPassword("");
       } else {
-        alert("❌ " + translateAuthMessage(data.message));
+        alert(translateAuthMessage(data.message));
       }
     } catch (err) {
-      alert("❌ Unable to connect to the server.");
-      console.error("❌ Lỗi:", err);
+      alert("Unable to connect to the server.");
+      console.error("Lỗi:", err);
     }
   };
 
   const handleSendOtp = async () => {
     const vnPhoneRegex = /^(0)(3[2-9]|5[2689]|7[06-9]|8[1-9]|9[0-9])[0-9]{7}$/;
     if (!vnPhoneRegex.test(resetPhone.trim())) {
-      alert("❌ Please enter a valid Vietnamese phone number (e.g. 0912345678).");
+      alert("Please enter a valid Vietnamese phone number (e.g. 0912345678).");
       return;
     }
 
@@ -291,17 +291,17 @@ const Login = () => {
 
       const data = await res.json();
       if (res.ok) {
-        alert("✅ " + translateAuthMessage(data.message));
-        // ✅ Dev mode: OTP available in response (not logged)
+        alert(translateAuthMessage(data.message));
+        // Dev mode: OTP available in response (not logged)
         if (data.testOtp) {
           /* OTP test available in dev response */
         }
       } else {
-        alert("❌ " + translateAuthMessage(data.message));
+        alert(translateAuthMessage(data.message));
       }
     } catch (err) {
-      alert("❌ Unable to connect to the server.");
-      console.error("❌ Lỗi:", err);
+      alert("Unable to connect to the server.");
+      console.error("Lỗi:", err);
     }
   };
 

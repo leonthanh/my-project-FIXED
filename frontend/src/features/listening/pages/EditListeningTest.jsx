@@ -88,13 +88,18 @@ const EditListeningTest = () => {
         const partAudioUrls = typeof data.partAudioUrls === 'string' 
           ? JSON.parse(data.partAudioUrls) 
           : data.partAudioUrls;
+        const sharedPartAudioUrl = (() => {
+          const values = Object.values(partAudioUrls || {}).filter(Boolean);
+          const uniqueValues = Array.from(new Set(values));
+          return uniqueValues.length === 1 ? uniqueValues[0] : null;
+        })();
         
         // Set form fields
         setTitle(data.title || "");
         setClassCode(data.classCode || "");
         setTeacherName(data.teacherName || "");
         setShowResultModal(data.showResultModal ?? true);
-        setExistingAudioUrl(data.mainAudioUrl);
+        setExistingAudioUrl(data.mainAudioUrl || sharedPartAudioUrl);
         
         // Reconstruct parts from partInstructions and questions
         const reconstructedParts = reconstructParts(partInstructions, questions, partAudioUrls);
@@ -209,8 +214,8 @@ const EditListeningTest = () => {
         title: partInfo.title || `Part ${partIndex + 1}`,
         instruction: partInfo.instruction || "",
         transcript: partInfo.transcript || "",
-        audioFile: null,
-        audioUrl: partAudioUrls?.[partIndex] || '',
+        audioFile: partAudioUrls?.[partIndex] || partInfo.audioFile || '',
+        audioUrl: partAudioUrls?.[partIndex] || partInfo.audioFile || '',
         sections: sections.length > 0 ? sections : [{
           sectionTitle: "",
           sectionInstruction: "",
@@ -234,19 +239,19 @@ const EditListeningTest = () => {
     if (e) e.preventDefault();
 
     if (!classCode || !classCode.trim()) {
-      setMessage("⚠️ Vui lòng nhập mã lớp");
+      setMessage("Warning: Vui lòng nhập mã lớp");
       setTimeout(() => setMessage(""), 3000);
       return;
     }
 
     if (!teacherName || !teacherName.trim()) {
-      setMessage("⚠️ Vui lòng nhập tên giáo viên");
+      setMessage("Warning: Vui lòng nhập tên giáo viên");
       setTimeout(() => setMessage(""), 3000);
       return;
     }
 
     if (calculateTotalQuestions(parts) === 0) {
-      setMessage("⚠️ Vui lòng thêm ít nhất 1 câu hỏi");
+      setMessage("Warning: Vui lòng thêm ít nhất 1 câu hỏi");
       setTimeout(() => setMessage(""), 3000);
       return;
     }
@@ -302,24 +307,31 @@ const EditListeningTest = () => {
       }
 
       // Clean up parts data for submission
-      const cleanedParts = parts.map((part) => ({
-        title: part.title,
-        instruction: stripHtml(part.instruction || ""),
-        transcript: part.transcript || "",
-        sections: part.sections.map((section) => ({
-          sectionTitle: section.sectionTitle || "",
-          sectionInstruction: stripHtml(section.sectionInstruction || ""),
-          questionType: section.questionType || "fill",
-          startingQuestionNumber: section.startingQuestionNumber || null,
-          questions: section.questions.map((q) => ({
-            ...q,
-            questionText: stripHtml(q.questionText || ""),
-            options: q.options
-              ? q.options.map((opt) => (typeof opt === "string" ? opt : opt))
-              : undefined,
+      const cleanedParts = parts.map((part) => {
+        const persistedAudioRef = typeof part.audioUrl === "string" && part.audioUrl && !/^blob:/i.test(part.audioUrl)
+          ? part.audioUrl
+          : "";
+
+        return {
+          title: part.title,
+          instruction: stripHtml(part.instruction || ""),
+          transcript: part.transcript || "",
+          audioFile: part.audioFile instanceof File ? "" : (part.audioFile || persistedAudioRef || ""),
+          sections: part.sections.map((section) => ({
+            sectionTitle: section.sectionTitle || "",
+            sectionInstruction: stripHtml(section.sectionInstruction || ""),
+            questionType: section.questionType || "fill",
+            startingQuestionNumber: section.startingQuestionNumber || null,
+            questions: section.questions.map((q) => ({
+              ...q,
+              questionText: stripHtml(q.questionText || ""),
+              options: q.options
+                ? q.options.map((opt) => (typeof opt === "string" ? opt : opt))
+                : undefined,
+            })),
           })),
-        })),
-      }));
+        };
+      });
 
       // Before sending, ensure per-blank answers from editor (row.commentBlankAnswers / row.correct) are merged
       // into the question answers map so backend receives them.
@@ -451,14 +463,14 @@ const EditListeningTest = () => {
       if (!response.ok) {
         if (response.status === 401) {
           try { localStorage.setItem(`listeningTestDraftEdit-${id}`, JSON.stringify({ title, classCode, teacherName, parts, showResultModal })); } catch (e) {}
-          setMessage('❌ Token đã hết hạn hoặc không hợp lệ. Vui lòng đăng nhập lại để tiếp tục. Bản nháp đã được lưu.');
+          setMessage('Error: Token đã hết hạn hoặc không hợp lệ. Vui lòng đăng nhập lại để tiếp tục. Bản nháp đã được lưu.');
           setRequiresLogin(true);
           return;
         }
         throw new Error(data.message || "Lỗi khi cập nhật đề thi");
       }
 
-      setMessage("✅ Cập nhật đề thi thành công!");
+      setMessage("Success: Cập nhật đề thi thành công!");
       try { localStorage.removeItem(`listeningTestDraftEdit-${id}`); } catch (e) { /* ignore */ }
 
       setTimeout(() => {
@@ -472,7 +484,7 @@ const EditListeningTest = () => {
           title, classCode, teacherName, parts, showResultModal, savedAt: new Date().toISOString()
         }));
       } catch (e) { console.error("Error saving edit draft after failure", e); }
-      setMessage(`❌ ${error.message}`);
+      setMessage(`Error: ${error.message}`);
     } finally {
       setIsUpdating(false);
       setIsReviewing(false);

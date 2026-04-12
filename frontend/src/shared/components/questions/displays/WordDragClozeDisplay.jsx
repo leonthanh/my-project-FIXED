@@ -7,7 +7,7 @@ import { hostPath } from "../../../utils/api";
  *
  * Layout:
  *   Left   : passage với các ô blank tương tác
- *   Right  : bảng từ lựa chọn (3 từ × N hàng)
+ *   Right  : bảng từ lựa chọn (3 từ x N hàng)
  *
  * Tương tác học sinh (không cần bàn phím):
  *   – Click blank → focus (viền xanh)

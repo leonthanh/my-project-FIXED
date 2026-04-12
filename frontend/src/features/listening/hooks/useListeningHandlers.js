@@ -28,7 +28,7 @@ export const useListeningHandlers = (initialParts = []) => {
    */
   const handleDeletePart = useCallback((partIndex) => {
     if (parts.length <= 1) {
-      setMessage('⚠️ Cần có ít nhất 1 Part');
+      setMessage('Warning: Cần có ít nhất 1 Part');
       setTimeout(() => setMessage(''), 3000);
       return;
     }
@@ -98,7 +98,7 @@ export const useListeningHandlers = (initialParts = []) => {
   const handleDeleteSection = useCallback((partIndex, sectionIndex) => {
     const part = parts[partIndex];
     if (!part?.sections || part.sections.length <= 1) {
-      setMessage('⚠️ Mỗi Part cần có ít nhất 1 Section');
+      setMessage('Warning: Mỗi Part cần có ít nhất 1 Section');
       setTimeout(() => setMessage(''), 3000);
       return;
     }
@@ -150,7 +150,7 @@ export const useListeningHandlers = (initialParts = []) => {
       return newParts;
     });
     
-    setMessage('✅ Đã copy Section');
+    setMessage('Success: Đã copy Section');
     setTimeout(() => setMessage(''), 2000);
   }, []);
 
@@ -182,7 +182,7 @@ export const useListeningHandlers = (initialParts = []) => {
   const handleDeleteQuestion = useCallback((partIndex, sectionIndex, questionIndex) => {
     const section = parts[partIndex]?.sections?.[sectionIndex];
     if (!section?.questions || section.questions.length <= 1) {
-      setMessage('⚠️ Mỗi Section cần có ít nhất 1 câu hỏi');
+      setMessage('Warning: Mỗi Section cần có ít nhất 1 câu hỏi');
       setTimeout(() => setMessage(''), 3000);
       return;
     }
@@ -238,7 +238,7 @@ export const useListeningHandlers = (initialParts = []) => {
       return newParts;
     });
     
-    setMessage('✅ Đã copy câu hỏi');
+    setMessage('Success: Đã copy câu hỏi');
     setTimeout(() => setMessage(''), 2000);
   }, []);
 
@@ -259,7 +259,7 @@ export const useListeningHandlers = (initialParts = []) => {
       return newParts;
     });
     
-    setMessage(`✅ Đã thêm ${count} câu hỏi`);
+    setMessage(`Success: Đã thêm ${count} câu hỏi`);
     setTimeout(() => setMessage(''), 2000);
   }, []);
 

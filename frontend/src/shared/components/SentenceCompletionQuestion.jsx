@@ -1,5 +1,6 @@
 import React from 'react';
 import QuillEditor from './QuillEditor';
+import InlineIcon from './InlineIcon.jsx';
 
 /**
  * IELTS Sentence Completion Question Component
@@ -308,7 +309,7 @@ const SentenceCompletionQuestion = ({ question, onChange }) => {
                     style={styles.removeBtn}
                     title="Xóa"
                   >
-                    ×
+                    <InlineIcon name="close" size={12} style={{ color: 'currentColor' }} />
                   </button>
                 )}
               </div>
@@ -371,7 +372,11 @@ const SentenceCompletionQuestion = ({ question, onChange }) => {
                       }}
                     >
                       {option}
-                      {option === question.correctAnswer && ' ✓'}
+                      {option === question.correctAnswer && (
+                        <span style={{ marginLeft: '6px', display: 'inline-flex', verticalAlign: 'middle' }}>
+                          <InlineIcon name="correct" size={12} style={{ color: 'white' }} />
+                        </span>
+                      )}
                     </span>
                   ))}
                 </div>

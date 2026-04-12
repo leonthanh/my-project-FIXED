@@ -8,6 +8,7 @@ import React, {
 import { useParams, useNavigate } from "react-router-dom";
 import ConfirmModal from "../../../shared/components/ConfirmModal";
 import ResultModal from "../../../shared/components/ResultModal";
+import InlineIcon from "../../../shared/components/InlineIcon.jsx";
 import LineIcon from "../../../shared/components/LineIcon.jsx";
 import ExtensionToast from "../../../shared/components/ExtensionToast";
 import TestStartModal from "../../../shared/components/TestStartModal";
@@ -2037,9 +2038,9 @@ const DoReadingTest = () => {
                 }`}
               >
                 {answers[key] === "TRUE" || answers[key] === "YES"
-                  ? "✓"
+                  ? <InlineIcon name="correct" size={12} style={{ color: "currentColor" }} />
                   : answers[key] === "FALSE" || answers[key] === "NO"
-                  ? "✗"
+                  ? <InlineIcon name="wrong" size={12} style={{ color: "currentColor" }} />
                   : answers[key] === "NOT GIVEN"
                   ? "?"
                   : ""}
@@ -2535,7 +2536,7 @@ const DoReadingTest = () => {
 
               {/* List of headings */}
               <div className="headings-list">
-                <p className="headings-title">📋 List of Headings</p>
+                <p className="headings-title"><span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><InlineIcon name="document" size={14} />List of Headings</span></p>
                 {(question.headings || []).map((heading, hi) => {
                   const headingText =
                     typeof heading === "object"
@@ -2691,7 +2692,7 @@ const DoReadingTest = () => {
 
               {question.wordBank && question.wordBank.length > 0 && (
                 <div className="word-bank">
-                  <p className="word-bank-title">📝 Word Bank:</p>
+                  <p className="word-bank-title"><span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><InlineIcon name="writing" size={14} />Word Bank:</span></p>
                   <div className="word-bank-items">
                     {question.wordBank.map((word, wi) => {
                       const wordText =
@@ -2930,13 +2931,13 @@ const DoReadingTest = () => {
               timerCritical ? "critical" : ""
             }`}
           >
-            <div className="timer-icon">⏱️</div>
+            <div className="timer-icon"><InlineIcon name="clock" size={16} /></div>
             <div className="timer-display">
               <span className="timer-value">{formatTime(timeRemaining)}</span>
               <span className="timer-label">remaining</span>
             </div>
             {timerCritical && (
-              <div className="timer-critical-badge pulse">🔥 Last minute!</div>
+              <div className="timer-critical-badge pulse"><span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><InlineIcon name="average" size={14} />Last minute!</span></div>
             )}
           </div>
 
@@ -2965,7 +2966,7 @@ const DoReadingTest = () => {
 
           {/* Auto-save indicator */}
           <div className="auto-save-indicator">
-            <span className="save-icon">💾</span>
+            <span className="save-icon"><InlineIcon name="save" size={14} /></span>
             <span className="save-text">Auto-saved</span>
           </div>
 
@@ -3272,7 +3273,7 @@ const DoReadingTest = () => {
         <div className="nav-panel-header">
           <span className="nav-panel-title">Question Navigator</span>
           <span className="nav-panel-stats">
-            <span className="stat-answered">✓ {stats.answered}</span>
+            <span className="stat-answered"><span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}><InlineIcon name="correct" size={12} />{stats.answered}</span></span>
             <span className="stat-divider">|</span>
             <span className="stat-remaining">
               ○ {stats.total - stats.answered}
@@ -3343,7 +3344,7 @@ const DoReadingTest = () => {
                         isAnswered ? "answered" : ""
                       } ${isActive ? "active" : ""} ${isMerged ? "merged" : ""}`}
                       title={
-                        isAnswered ? `Questions ${label} ✓` : `Questions ${label}`
+                        isAnswered ? `Questions ${label} answered` : `Questions ${label}`
                       }
                       onClick={(e) => {
                         e.stopPropagation();

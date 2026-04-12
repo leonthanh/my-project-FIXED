@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from "react";
+import InlineIcon from "../../../shared/components/InlineIcon.jsx";
 import { hostPath } from "../../../shared/utils/api";
 import { renderHtmlWithBlankPlaceholders } from "../utils/htmlHelpers";
 import {
@@ -569,9 +570,9 @@ export default function ReadingStudentStyleReview({ test, submission, details })
                 }`}
               >
                 {extractInlineAnswer(answers, key, detail) === "TRUE" || extractInlineAnswer(answers, key, detail) === "YES"
-                  ? "✓"
+                  ? <InlineIcon name="correct" size={12} style={{ color: "currentColor" }} />
                   : extractInlineAnswer(answers, key, detail) === "FALSE" || extractInlineAnswer(answers, key, detail) === "NO"
-                  ? "✗"
+                  ? <InlineIcon name="wrong" size={12} style={{ color: "currentColor" }} />
                   : extractInlineAnswer(answers, key, detail) === "NOT GIVEN"
                   ? "?"
                   : ""}

@@ -9,6 +9,7 @@ import {
   MapLabelingQuestion,
   FlowchartQuestion
 } from '../../../shared/components';
+import InlineIcon from '../../../shared/components/InlineIcon.jsx';
 
 const ListeningPart = ({ 
   partNumber, 
@@ -45,9 +46,9 @@ const ListeningPart = ({
             <option value="combobox">Chọn từ danh sách (Combobox)</option>
             <option value="dragdrop-text">Kéo thả cụm từ</option>
             <option value="dragdrop-image">Kéo thả hình ảnh</option>
-            <option value="map-labeling">🗺️ Map/Plan Labeling</option>
-            <option value="flowchart">📊 Flowchart Completion</option>
-            <option value="matching">🔗 Matching (A, B, C)</option>
+            <option value="map-labeling">Map/Plan Labeling</option>
+            <option value="flowchart">Flowchart Completion</option>
+            <option value="matching">Matching (A, B, C)</option>
           </select>
         </div>
 
@@ -106,7 +107,7 @@ const ListeningPart = ({
                   whiteSpace: 'nowrap'
                 }}
               >
-                🗑 Xóa câu
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><InlineIcon name="trash" size={12} style={{ color: 'white' }} />Xóa câu</span>
               </button>
             )}
           </div>
@@ -147,7 +148,7 @@ const ListeningPart = ({
                   whiteSpace: 'nowrap'
                 }}
               >
-                🗑 Xóa câu
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><InlineIcon name="trash" size={12} style={{ color: 'white' }} />Xóa câu</span>
               </button>
             )}
           </div>

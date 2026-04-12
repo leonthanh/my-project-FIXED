@@ -1,5 +1,6 @@
 // components/QuestionEditor.jsx
 import React from 'react';
+import InlineIcon from './InlineIcon.jsx';
 
 const QuestionEditor = ({ question, onChange }) => {
   const handleChange = (field, value) => {
@@ -45,7 +46,7 @@ const QuestionEditor = ({ question, onChange }) => {
 
   return (
     <div style={{ padding: '15px', backgroundColor: '#f8f9fa', borderRadius: '8px' }}>
-      <label style={labelStyle}>🔀 Loại câu hỏi:</label>
+      <label style={{ ...labelStyle, display: 'flex', alignItems: 'center', gap: '6px' }}><InlineIcon name="selector" size={14} />Loại câu hỏi:</label>
       <select
         value={question.questionType}
         onChange={(e) => handleChange('questionType', e.target.value)}
@@ -58,7 +59,7 @@ const QuestionEditor = ({ question, onChange }) => {
         <option value="dragdrop">Kéo thả cụm từ</option>
       </select>
 
-      <label style={labelStyle}>📝 Câu hỏi:</label>
+      <label style={{ ...labelStyle, display: 'flex', alignItems: 'center', gap: '6px' }}><InlineIcon name="writing" size={14} />Câu hỏi:</label>
       <textarea
         value={question.questionText}
         onChange={(e) => handleChange('questionText', e.target.value)}
@@ -76,8 +77,9 @@ const QuestionEditor = ({ question, onChange }) => {
         question.questionType === 'dropdown' ||
         question.questionType === 'dragdrop') && (
         <div style={{ marginBottom: '15px' }}>
-          <label style={labelStyle}>
-            {question.questionType === 'dragdrop' ? '🔄 Các cụm từ để kéo thả:' : '🔢 Các lựa chọn:'}
+          <label style={{ ...labelStyle, display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <InlineIcon name={question.questionType === 'dragdrop' ? 'retry' : 'choice'} size={14} />
+            {question.questionType === 'dragdrop' ? 'Các cụm từ để kéo thả:' : 'Các lựa chọn:'}
           </label>
           {question.options.map((opt, i) => (
             <input
@@ -96,7 +98,7 @@ const QuestionEditor = ({ question, onChange }) => {
         </div>
       )}
 
-      <label style={labelStyle}>✅ Đáp án đúng:</label>
+      <label style={{ ...labelStyle, display: 'flex', alignItems: 'center', gap: '6px' }}><InlineIcon name="correct" size={14} />Đáp án đúng:</label>
       <input
         type="text"
         placeholder={

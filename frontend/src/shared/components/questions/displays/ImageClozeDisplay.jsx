@@ -466,7 +466,7 @@ export default function ImageClozeDisplay({
                           }}
                           title="Bỏ ảnh này"
                         >
-                          ×
+                          <InlineIcon name="close" size={11} style={{ color: "currentColor" }} />
                         </span>
                       )}
                     </>

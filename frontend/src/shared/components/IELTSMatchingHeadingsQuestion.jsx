@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import InlineIcon from "./InlineIcon.jsx";
 
 /**
  * IELTS Matching Headings Question Component
@@ -463,7 +464,7 @@ const IELTSMatchingHeadingsQuestion = ({
                 disabled={paragraphs.length <= 1}
                 title="Xóa paragraph"
               >
-                ✕
+                <InlineIcon name="close" size={12} style={{ color: 'currentColor' }} />
               </button>
             </div>
           ))}
@@ -512,7 +513,7 @@ const IELTSMatchingHeadingsQuestion = ({
                 disabled={headings.length <= 1}
                 title="Xóa heading"
               >
-                ✕
+                <InlineIcon name="close" size={12} style={{ color: 'currentColor' }} />
               </button>
             </div>
           ))}

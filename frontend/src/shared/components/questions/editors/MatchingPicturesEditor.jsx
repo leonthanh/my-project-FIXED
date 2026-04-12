@@ -1,6 +1,20 @@
 import React, { useMemo, useState } from "react";
 import { apiPath, hostPath } from "../../../utils/api";
 
+const THEME = {
+  surface: "var(--builder-surface, #ffffff)",
+  surfaceAlt: "var(--builder-surface-alt, #f8fafc)",
+  surfaceMuted: "var(--builder-input-muted-bg, #f3f4f6)",
+  inputBg: "var(--builder-input-bg, #ffffff)",
+  border: "var(--builder-border, #e5e7eb)",
+  inputBorder: "var(--builder-border, #d1d5db)",
+  text: "var(--builder-text, #111827)",
+  subtext: "var(--builder-subtext, #6b7280)",
+  accentPanel: "var(--builder-accent-panel, #eff6ff)",
+  accentBorder: "var(--builder-accent-border, #bfdbfe)",
+  accentText: "var(--builder-accent-text, #1d4ed8)",
+};
+
 const styles = {
   section: {
     display: "flex",
@@ -8,35 +22,39 @@ const styles = {
     gap: "16px",
   },
   card: {
-    border: "1px solid #e5e7eb",
+    border: `1px solid ${THEME.border}`,
     borderRadius: "10px",
     padding: "14px",
-    background: "#ffffff",
+    background: THEME.surface,
   },
   label: {
     display: "block",
     marginBottom: "6px",
     fontWeight: 700,
     fontSize: "13px",
-    color: "#374151",
+    color: THEME.subtext,
   },
   input: {
     width: "100%",
     padding: "10px 12px",
-    border: "1px solid #d1d5db",
+    border: `1px solid ${THEME.inputBorder}`,
     borderRadius: "8px",
     fontSize: "14px",
     boxSizing: "border-box",
+    background: THEME.inputBg,
+    color: THEME.text,
   },
   textarea: {
     width: "100%",
     padding: "10px 12px",
-    border: "1px solid #d1d5db",
+    border: `1px solid ${THEME.inputBorder}`,
     borderRadius: "8px",
     fontSize: "14px",
     boxSizing: "border-box",
     minHeight: "72px",
     resize: "vertical",
+    background: THEME.inputBg,
+    color: THEME.text,
   },
   smallBtn: {
     padding: "6px 10px",
@@ -51,8 +69,8 @@ const styles = {
     height: "96px",
     objectFit: "contain",
     borderRadius: "8px",
-    border: "1px solid #e5e7eb",
-    background: "#fff",
+    border: `1px solid ${THEME.border}`,
+    background: THEME.surfaceAlt,
   },
 };
 
@@ -193,8 +211,8 @@ const MatchingPicturesEditor = ({ question = {}, onChange, startingNumber = 1, p
         </div>
       </div>
 
-      <div style={{ ...styles.card, background: "#eff6ff", borderColor: "#bfdbfe" }}>
-        <div style={{ fontSize: "13px", color: "#1d4ed8", lineHeight: 1.5 }}>
+      <div style={{ ...styles.card, background: THEME.accentPanel, borderColor: THEME.accentBorder }}>
+        <div style={{ fontSize: "13px", color: THEME.accentText, lineHeight: 1.5 }}>
           Dạng này dành cho học sinh nhỏ tuổi: bên phải là các ảnh/đáp án, bên trái là mô tả. Học sinh kéo-thả ảnh vào từng chỗ trống thay vì gõ bàn phím.
         </div>
       </div>
@@ -229,13 +247,13 @@ const MatchingPicturesEditor = ({ question = {}, onChange, startingNumber = 1, p
         </div>
         <div style={{ display: "grid", gap: "12px" }}>
           {choices.map((choice, idx) => (
-            <div key={choice.id} style={{ ...styles.card, background: "#f8fafc" }}>
+            <div key={choice.id} style={{ ...styles.card, background: THEME.surfaceAlt }}>
               <div style={{ display: "grid", gridTemplateColumns: "96px 1fr auto", gap: "12px", alignItems: "start" }}>
                 <div>
                   {choice.imageUrl ? (
                     <img src={resolveImgSrc(choice.imageUrl)} alt={choice.label || choice.id} style={styles.previewImage} />
                   ) : (
-                    <div style={{ ...styles.previewImage, display: "flex", alignItems: "center", justifyContent: "center", color: "#64748b", fontSize: "12px" }}>
+                    <div style={{ ...styles.previewImage, display: "flex", alignItems: "center", justifyContent: "center", color: THEME.subtext, fontSize: "12px" }}>
                       No image
                     </div>
                   )}
@@ -243,7 +261,7 @@ const MatchingPicturesEditor = ({ question = {}, onChange, startingNumber = 1, p
                 <div style={{ display: "grid", gap: "8px" }}>
                   <div>
                     <label style={styles.label}>Mã đáp án</label>
-                    <input value={choice.id} readOnly style={{ ...styles.input, background: "#f3f4f6" }} />
+                    <input value={choice.id} readOnly style={{ ...styles.input, background: THEME.surfaceMuted }} />
                   </div>
                   <div>
                     <label style={styles.label}>Tên hiển thị</label>
@@ -299,9 +317,9 @@ const MatchingPicturesEditor = ({ question = {}, onChange, startingNumber = 1, p
         </div>
         <div style={{ display: "grid", gap: "10px" }}>
           {prompts.map((prompt, idx) => (
-            <div key={`${prompt.number}-${idx}`} style={{ ...styles.card, background: "#fafafa" }}>
+            <div key={`${prompt.number}-${idx}`} style={{ ...styles.card, background: THEME.surfaceAlt }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "10px" }}>
-                <strong style={{ color: "#1f2937" }}>Question {prompt.number}</strong>
+                <strong style={{ color: THEME.text }}>Question {prompt.number}</strong>
                 <button
                   type="button"
                   onClick={() => removePrompt(idx)}

@@ -143,16 +143,16 @@ function App() {
         <Routes>
           <Route path="/login" element={<Login />} />
 
-        {/* ✅ Trang cho học sinh chọn đề */}
+        {/* Trang cho học sinh chọn đề */}
         <Route path="/" element={isAuthenticated ? <SelectTest /> : <Navigate to="/login" replace />} />
         <Route path="/select-test" element={isAuthenticated ? <SelectTest /> : <Navigate to="/login" replace />} />
-        {/* ✅ Trang làm bài viết */}
+        {/* Trang làm bài viết */}
         <Route path="/writing" element={isAuthenticated ? <WritingTest /> : <Navigate to="/login" replace />} />
         <Route path="/writing-test" element={isAuthenticated ? <WritingTest /> : <Navigate to="/login" replace />} />
         <Route path="/pet-writing" element={isAuthenticated ? <PetWritingTest /> : <Navigate to="/login" replace />} />
         <Route path="/pet-writing-select" element={isAuthenticated ? <SelectPetWritingTest /> : <Navigate to="/login" replace />} />
         <Route path="/my-feedback" element={isAuthenticated ? <MyFeedback /> : <Navigate to="/login" replace />} />
-        {/* ✅ Trang giáo viên tạo đề */}
+        {/* Trang giáo viên tạo đề */}
         <Route path="/admin/create-writing" element={
           <ProtectedRoute role="teacher">
             <CreateWritingTest />

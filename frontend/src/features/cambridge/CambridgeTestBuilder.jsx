@@ -16,9 +16,47 @@ import {
 import { apiPath, hostPath, authFetch, redirectToLogin } from "../../shared/utils/api";
 import useQuillImageUpload from "../../shared/hooks/useQuillImageUpload";
 import { canManageCategory } from '../../shared/utils/permissions';
+import LineIcon from "../../shared/components/LineIcon.jsx";
 import "./CambridgeTestBuilder.css";
 import { computeQuestionStarts, getQuestionCountForSection } from "./utils/questionNumbering";
 import { buildMoversPracticeTest1Template } from "./utils/moversPracticeTest1Template";
+
+const InlineIcon = ({ name, size = 16, strokeWidth = 2, style }) => (
+  <span
+    aria-hidden="true"
+    style={{
+      display: "inline-flex",
+      alignItems: "center",
+      justifyContent: "center",
+      lineHeight: 0,
+      ...style,
+    }}
+  >
+    <LineIcon name={name} size={size} strokeWidth={strokeWidth} />
+  </span>
+);
+
+const QUESTION_TYPE_ICONS = {
+  fill: "fill",
+  abc: "choice",
+  abcd: "choice",
+  "long-text-mc": "reading",
+  "cloze-mc": "selector",
+  "cloze-test": "form",
+  "short-message": "writing",
+  "people-matching": "matching",
+  "word-form": "edit",
+  "matching-pictures": "image",
+  "image-cloze": "image",
+  "word-drag-cloze": "flowchart",
+  "story-completion": "reading",
+  "look-read-write": "writing",
+  "gap-match": "matching",
+  "draw-lines": "target",
+  "letter-matching": "matching",
+  "image-tick": "correct",
+  "colour-write": "palette",
+};
 
 
 /**
@@ -246,6 +284,45 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
   const currentPart = parts[selectedPartIndex];
   const currentSection = currentPart?.sections?.[selectedSectionIndex];
   const isMoversReading = !isListeningTest && String(testType || '').toLowerCase() === 'movers';
+  const moversReadingPartThemes = useMemo(() => ([
+    { color: '#3b82f6', bg: '#eff6ff' },
+    { color: '#10b981', bg: '#f0fdf4' },
+    { color: '#8b5cf6', bg: '#f5f3ff' },
+    { color: '#f59e0b', bg: '#fffbeb' },
+    { color: '#ef4444', bg: '#fef2f2' },
+    { color: '#06b6d4', bg: '#ecfeff' },
+  ]), []);
+
+  const getMoversReadingPartTheme = useCallback((part, idx) => {
+    const fallback = moversReadingPartThemes[idx % moversReadingPartThemes.length] || moversReadingPartThemes[0];
+    const sectionType = part?.sections?.[0]?.questionType || '';
+
+    const typeThemeMap = {
+      'matching-pictures': { color: '#3b82f6', bg: '#eff6ff' },
+      'image-cloze': { color: '#10b981', bg: '#f0fdf4' },
+      'word-drag-cloze': { color: '#8b5cf6', bg: '#f5f3ff' },
+      'story-completion': { color: '#f59e0b', bg: '#fffbeb' },
+      'look-read-write': { color: '#ef4444', bg: '#fef2f2' },
+      'fill': { color: '#06b6d4', bg: '#ecfeff' },
+      abc: { color: '#f97316', bg: '#fff7ed' },
+      'cloze-mc': { color: '#dc2626', bg: '#fef2f2' },
+      'word-form': { color: '#0ea5e9', bg: '#f0f9ff' },
+      'short-message': { color: '#6366f1', bg: '#eef2ff' },
+    };
+
+    return typeThemeMap[sectionType] || fallback;
+  }, [moversReadingPartThemes]);
+
+  const getMoversReadingPartSummary = useCallback((part) => {
+    const sections = Array.isArray(part?.sections) ? part.sections : [];
+    if (sections.length === 0) return 'Chưa có section';
+
+    const questionCount = sections.reduce((sum, section) => sum + getQuestionCountForSection(section), 0);
+    if (questionCount > 0) {
+      return `${questionCount} câu hỏi`;
+    }
+    return `${sections.length} section(s)`;
+  }, []);
 
   const uploadAudioForPart = async (partIndex, file) => {
     if (!file) return;
@@ -487,7 +564,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
     setParts(Array.isArray(template.parts) && template.parts.length > 0 ? template.parts : getInitialParts());
     setSelectedPartIndex(0);
     setSelectedSectionIndex(0);
-    setMessage({ type: 'success', text: '✅ Da nap Movers Practice Test 1. Ban co the chinh sua noi dung ngay tren builder.' });
+    setMessage({ type: 'success', text: 'Da nap Movers Practice Test 1. Ban co the chinh sua noi dung ngay tren builder.' });
   };
 
   const handleDeleteQuestion = (qIndex) => {
@@ -607,6 +684,11 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
     }
   }, [title, classCode, teacherName, mainAudioUrl, parts, testType, sanitizeDraftData]);
 
+  const handleManualDraftSave = useCallback(() => {
+    saveToLocalStorage();
+    setMessage({ type: 'success', text: 'Đã lưu nháp trên trình duyệt.' });
+  }, [saveToLocalStorage]);
+
   // Auto save every 30 seconds and on page unload
   useEffect(() => {
     const autosaveInterval = setInterval(saveToLocalStorage, 30000);
@@ -626,11 +708,11 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
   const handleSave = async () => {
     // Validation
     if (!title.trim()) {
-      setMessage({ type: 'error', text: '❌ Vui lòng nhập tiêu đề đề thi!' });
+      setMessage({ type: 'error', text: 'Vui lòng nhập tiêu đề đề thi!' });
       return;
     }
     if (!classCode.trim()) {
-      setMessage({ type: 'error', text: '❌ Vui lòng nhập mã lớp!' });
+      setMessage({ type: 'error', text: 'Vui lòng nhập mã lớp!' });
       return;
     }
 
@@ -690,14 +772,14 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
           if (res.status === 401) {
             // Save draft and prompt re-login
             try { saveToLocalStorage(); } catch (e) {}
-            setMessage({ type: 'error', text: '❌ Token đã hết hạn hoặc không hợp lệ. Vui lòng đăng nhập lại để tiếp tục. Bản nháp đã được lưu.' });
+            setMessage({ type: 'error', text: 'Token đã hết hạn hoặc không hợp lệ. Vui lòng đăng nhập lại để tiếp tục. Bản nháp đã được lưu.' });
             setRequiresLogin(true);
             return;
           }
           const err = await res.json().catch(() => ({}));
           throw new Error(err?.message || 'Lỗi khi cập nhật đề');
         }
-        setMessage({ type: 'success', text: '✅ Cập nhật đề thành công!' });
+        setMessage({ type: 'success', text: 'Cập nhật đề thành công!' });
         // Clear draft after successful save
         localStorage.removeItem(`cambridgeTestDraft-${testType}`);
       } else {
@@ -710,7 +792,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
         if (!response.ok) {
           if (response.status === 401) {
             try { saveToLocalStorage(); } catch (e) {}
-            setMessage({ type: 'error', text: '❌ Token đã hết hạn hoặc không hợp lệ. Vui lòng đăng nhập lại để tiếp tục. Bản nháp đã được lưu.' });
+            setMessage({ type: 'error', text: 'Token đã hết hạn hoặc không hợp lệ. Vui lòng đăng nhập lại để tiếp tục. Bản nháp đã được lưu.' });
             setRequiresLogin(true);
             return;
           }
@@ -719,7 +801,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
 
         /* eslint-disable-next-line no-unused-vars */
         const result = await response.json();
-        setMessage({ type: 'success', text: '✅ Tạo đề thành công!' });
+        setMessage({ type: 'success', text: 'Tạo đề thành công!' });
         // Clear draft after successful save
         localStorage.removeItem(`cambridgeTestDraft-${testType}`);
       }
@@ -734,7 +816,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
       }, 1500);
     } catch (error) {
       console.error('Save error:', error);
-      setMessage({ type: 'error', text: '❌ Lỗi: ' + error.message });
+      setMessage({ type: 'error', text: 'Lỗi: ' + error.message });
     } finally {
       setIsSubmitting(false);
     }
@@ -743,7 +825,10 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
   if (!allowedToManage) {
     return (
       <div style={{ padding: 40, textAlign: 'center' }}>
-        <h2>⚠️ Bạn không có quyền tạo/sửa đề {category === 'listening' ? 'Listening' : 'Reading'}</h2>
+        <h2 style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
+          <InlineIcon name="average" size={20} style={{ color: '#d97706' }} />
+          Bạn không có quyền tạo/sửa đề {category === 'listening' ? 'Listening' : 'Reading'}
+        </h2>
         <p>Nếu bạn cho rằng đây là lỗi, vui lòng liên hệ quản trị hệ thống.</p>
         <button onClick={() => navigate('/select-test')} style={{ marginTop: 16, padding: '8px 14px' }}>Quay lại</button>
       </div>
@@ -753,7 +838,10 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
   if (!testConfig) {
     return (
       <div style={{ padding: '40px', textAlign: 'center' }}>
-        <h2>❌ Test type không hợp lệ: {testType}</h2>
+        <h2 style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
+          <InlineIcon name="error" size={20} style={{ color: '#dc2626' }} />
+          Test type không hợp lệ: {testType}
+        </h2>
         <p>Các test types hỗ trợ:</p>
         <ul style={{ listStyle: 'none', padding: 0 }}>
           {Object.keys(TEST_CONFIGS).map(key => (
@@ -766,12 +854,20 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
     );
   }
 
+  const activeMoversReadingPartTheme = isMoversReading
+    ? getMoversReadingPartTheme(currentPart, selectedPartIndex)
+    : null;
+  const showMoversReadingSectionNav = !isMoversReading || (currentPart?.sections?.length || 0) > 1;
+
   return (
-    <div className="ctb-page" style={{ minHeight: '100vh' }}>
+    <div className={`ctb-page${isMoversReading ? ' ctb-page--movers' : ''}`} style={{ minHeight: '100vh' }}>
       {/* AdminNavbar */}
       {requiresLogin && (
         <div style={{ padding: 12, background: '#fff0f0', border: '1px solid #ffcccc', borderRadius: 6, margin: '12px auto', maxWidth: 1000 }}>
-          <strong>⚠️ Bạn cần đăng nhập lại để hoàn tất thao tác.</strong>
+          <strong style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+            <InlineIcon name="average" size={16} style={{ color: '#d97706' }} />
+            Bạn cần đăng nhập lại để hoàn tất thao tác.
+          </strong>
           <div style={{ marginTop: 8 }}>
             Bản nháp đã được lưu. <button style={{ marginLeft: 8, padding: '6px 10px' }} onClick={() => { redirectToLogin({ rememberPath: true, replace: true }); }}>Đăng nhập lại</button>
           </div>
@@ -780,87 +876,155 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
       <AdminNavbar />
 
       <div style={{ 
-        display: 'grid', 
-        gridTemplateColumns: '280px 1fr', 
+        display: isMoversReading ? 'flex' : 'grid', 
+        gridTemplateColumns: isMoversReading ? undefined : '280px 1fr', 
         minHeight: 'calc(100vh - 60px)',
       }}>
       {/* Sidebar - Fixed/Sticky */}
-      <div style={{
-        backgroundColor: '#1e293b',
-        color: 'white',
-        padding: '20px',
+      <div className={isMoversReading ? 'ctb-sidebar--movers' : ''} style={{
+        backgroundColor: isMoversReading ? '#111827' : '#1e293b',
+        color: isMoversReading ? '#e5e7eb' : 'white',
+        width: isMoversReading ? '244px' : undefined,
+        flexShrink: 0,
+        padding: isMoversReading ? '20px 14px' : '20px',
+        display: 'flex',
+        flexDirection: 'column',
         position: 'sticky',
         top: 0,
         height: '100vh',
         overflowY: 'auto',
         zIndex: 100,
+        borderRight: isMoversReading ? '1px solid #1f2937' : 'none',
       }}>
         {/* Test Info */}
-        <div style={{
-          padding: '16px',
-          backgroundColor: '#334155',
-          borderRadius: '8px',
-          marginBottom: '20px',
-        }}>
-          <h3 style={{ margin: '0 0 8px', fontSize: '16px' }}>
-            🎓 {builderDisplayName}
-          </h3>
-          <div style={{ fontSize: '12px', color: '#94a3b8' }}>
-            <p style={{ margin: '4px 0' }}>📊 {testConfig.totalQuestions} câu hỏi</p>
-            <p style={{ margin: '4px 0' }}>📖 {testConfig.parts} parts</p>
-            <p style={{ margin: '4px 0' }}>⏱️ {testConfig.duration} phút</p>
-          </div>
-        </div>
-
-        {/* Parts Navigation */}
-        <h4 style={{ margin: '0 0 12px', fontSize: '14px', color: '#94a3b8' }}>
-          📋 Parts
-        </h4>
-        {parts.map((part, idx) => (
-          <div
-            key={idx}
-            onClick={() => {
-              setSelectedPartIndex(idx);
-              setSelectedSectionIndex(0);
-            }}
-            style={{
-              padding: '12px',
-              marginBottom: '8px',
-              backgroundColor: selectedPartIndex === idx ? '#3b82f6' : '#475569',
-              borderRadius: '6px',
-              cursor: 'pointer',
-              transition: 'all 0.2s',
-            }}
-          >
-            <strong>{part.title}</strong>
-            <div style={{ fontSize: '11px', color: '#cbd5e1', marginTop: '4px' }}>
-              {part.sections.length} section(s)
+        {isMoversReading ? (
+          <>
+            <h2 className="ctb-sidebar-title" style={{ margin: '0 0 2px', fontSize: '15px', fontWeight: 800 }}>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                <InlineIcon name="graduation" size={18} style={{ color: '#93c5fd' }} />
+                {builderDisplayName}
+              </span>
+            </h2>
+            <p className="ctb-sidebar-sub" style={{ fontSize: '11px', margin: '0 0 18px' }}>
+              {testConfig.totalQuestions} câu hỏi · {testConfig.parts} parts · {testConfig.duration} phút
+            </p>
+          </>
+        ) : (
+          <div style={{
+            padding: '16px',
+            backgroundColor: '#334155',
+            borderRadius: '8px',
+            marginBottom: '20px',
+          }}>
+            <h3 style={{ margin: '0 0 8px', fontSize: '16px', display: 'flex', alignItems: 'center', gap: 8 }}>
+              <InlineIcon name="graduation" size={18} style={{ color: '#fff' }} />
+              {builderDisplayName}
+            </h3>
+            <div style={{ fontSize: '12px', color: '#94a3b8' }}>
+              <p style={{ margin: '4px 0', display: 'flex', alignItems: 'center', gap: 6 }}><InlineIcon name="questions" size={14} />{testConfig.totalQuestions} câu hỏi</p>
+              <p style={{ margin: '4px 0', display: 'flex', alignItems: 'center', gap: 6 }}><InlineIcon name="reading" size={14} />{testConfig.parts} parts</p>
+              <p style={{ margin: '4px 0', display: 'flex', alignItems: 'center', gap: 6 }}><InlineIcon name="clock" size={14} />{testConfig.duration} phút</p>
             </div>
           </div>
-        ))}
+        )}
+
+        {/* Parts Navigation */}
+        <h4 style={{ margin: '0 0 12px', fontSize: '14px', color: isMoversReading ? 'var(--ctb-sidebar-subtext, #6b7280)' : '#94a3b8', display: 'flex', alignItems: 'center', gap: 6 }}>
+          <InlineIcon name="document" size={14} />
+          Parts
+        </h4>
+        {parts.map((part, idx) => {
+          const isActive = selectedPartIndex === idx;
+          const partTheme = getMoversReadingPartTheme(part, idx);
+          const partIcon = QUESTION_TYPE_ICONS[part?.sections?.[0]?.questionType] || 'questions';
+
+          if (isMoversReading) {
+            return (
+              <button
+                key={idx}
+                type="button"
+                onClick={() => {
+                  setSelectedPartIndex(idx);
+                  setSelectedSectionIndex(0);
+                }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px',
+                  width: '100%',
+                  padding: '12px 14px',
+                  border: 'none',
+                  borderRadius: '10px',
+                  cursor: 'pointer',
+                  background: isActive ? `${partTheme.color}20` : 'transparent',
+                  borderLeft: isActive ? `4px solid ${partTheme.color}` : '4px solid transparent',
+                  marginBottom: '6px',
+                  textAlign: 'left',
+                  transition: 'all 0.15s',
+                }}
+              >
+                <InlineIcon name={partIcon} size={20} style={{ color: isActive ? partTheme.color : 'var(--ctb-sidebar-muted, #475569)' }} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 700, fontSize: '13px', color: isActive ? partTheme.color : 'var(--ctb-sidebar-text, #374151)' }}>
+                    {part.title}
+                  </div>
+                  <div style={{ fontSize: '11px', color: 'var(--ctb-sidebar-subtext, #6b7280)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {getMoversReadingPartSummary(part)}
+                  </div>
+                </div>
+              </button>
+            );
+          }
+
+          return (
+            <div
+              key={idx}
+              onClick={() => {
+                setSelectedPartIndex(idx);
+                setSelectedSectionIndex(0);
+              }}
+              style={{
+                padding: '12px',
+                marginBottom: '8px',
+                backgroundColor: selectedPartIndex === idx ? '#3b82f6' : '#475569',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+              }}
+            >
+              <strong>{part.title}</strong>
+              <div style={{ fontSize: '11px', color: '#cbd5e1', marginTop: '4px' }}>
+                {part.sections.length} section(s)
+              </div>
+            </div>
+          );
+        })}
 
         <button
+          type="button"
           onClick={handleAddPart}
           style={{
             width: '100%',
             padding: '10px',
-            backgroundColor: '#22c55e',
-            color: 'white',
-            border: 'none',
-            borderRadius: '6px',
+            backgroundColor: isMoversReading ? '#1e293b' : '#22c55e',
+            color: isMoversReading ? '#c7d2fe' : 'white',
+            border: isMoversReading ? '1px solid #374151' : 'none',
+            borderRadius: isMoversReading ? '9px' : '6px',
             cursor: 'pointer',
             fontWeight: 600,
             marginTop: '12px',
+            fontSize: isMoversReading ? '13px' : undefined,
           }}
         >
-          ➕ Thêm Part
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><InlineIcon name="create" size={14} style={{ color: isMoversReading ? '#c7d2fe' : 'white' }} />Thêm Part</span>
         </button>
 
         {/* Sections in current Part */}
-        {currentPart && currentPart.sections.length > 0 && (
+        {currentPart && currentPart.sections.length > 0 && showMoversReadingSectionNav && (
           <div style={{ marginTop: '24px' }}>
-            <h4 style={{ margin: '0 0 12px', fontSize: '14px', color: '#94a3b8' }}>
-              📑 Sections trong Part {selectedPartIndex + 1}
+            <h4 style={{ margin: '0 0 12px', fontSize: '14px', color: isMoversReading ? 'var(--ctb-sidebar-subtext, #6b7280)' : '#94a3b8', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <InlineIcon name="document" size={14} />
+              Sections trong Part {selectedPartIndex + 1}
             </h4>
             {currentPart.sections.map((sec, idx) => (
               <div
@@ -869,129 +1033,194 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
                 style={{
                   padding: '10px',
                   marginBottom: '6px',
-                  backgroundColor: selectedSectionIndex === idx ? '#6366f1' : '#475569',
-                  borderRadius: '6px',
+                  backgroundColor: isMoversReading
+                    ? (selectedSectionIndex === idx ? '#1e293b' : '#111827')
+                    : (selectedSectionIndex === idx ? '#6366f1' : '#475569'),
+                  color: isMoversReading
+                    ? (selectedSectionIndex === idx ? '#93c5fd' : 'var(--ctb-sidebar-text, #e5e7eb)')
+                    : 'white',
+                  border: isMoversReading ? `1px solid ${selectedSectionIndex === idx ? '#3b82f6' : '#374151'}` : 'none',
+                  borderRadius: isMoversReading ? '10px' : '6px',
                   cursor: 'pointer',
                   fontSize: '13px',
                 }}
               >
                 Section {idx + 1}: {sec.questionType}
-                <div style={{ fontSize: '11px', color: '#cbd5e1', marginTop: '2px' }}>
+                <div style={{ fontSize: '11px', color: isMoversReading ? 'var(--ctb-sidebar-subtext, #6b7280)' : '#cbd5e1', marginTop: '2px' }}>
                   {sec.questions.length} câu hỏi
                 </div>
               </div>
             ))}
-            <button
-              onClick={handleAddSection}
-              style={{
-                width: '100%',
-                padding: '8px',
-                backgroundColor: '#8b5cf6',
-                color: 'white',
-                border: 'none',
-                borderRadius: '6px',
-                cursor: 'pointer',
-                fontWeight: 600,
-                marginTop: '8px',
-                fontSize: '13px',
-              }}
-            >
-              ➕ Thêm Section
-            </button>
+            {!isMoversReading && (
+              <button
+                type="button"
+                onClick={handleAddSection}
+                style={{
+                  width: '100%',
+                  padding: '8px',
+                  backgroundColor: '#8b5cf6',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontWeight: 600,
+                  marginTop: '8px',
+                  fontSize: '13px',
+                }}
+              >
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><InlineIcon name="create" size={14} style={{ color: 'white' }} />Thêm Section</span>
+              </button>
+            )}
           </div>
         )}
 
         {/* Available Question Types */}
+        {!isMoversReading && (
         <div style={{ marginTop: '24px' }}>
-          <h4 style={{ margin: '0 0 12px', fontSize: '14px', color: '#94a3b8' }}>
-            📝 Loại câu hỏi hỗ trợ
+          <h4 style={{ margin: '0 0 12px', fontSize: '14px', color: isMoversReading ? 'var(--ctb-sidebar-subtext, #6b7280)' : '#94a3b8', display: 'flex', alignItems: 'center', gap: 6 }}>
+            <InlineIcon name="writing" size={14} />
+            Loại câu hỏi hỗ trợ
           </h4>
           <div style={{ fontSize: '12px' }}>
             {availableTypes.map(qt => (
               <div key={qt.id} style={{
                 padding: '6px 10px',
-                backgroundColor: '#475569',
-                borderRadius: '4px',
+                backgroundColor: isMoversReading ? '#f8fafc' : '#475569',
+                color: isMoversReading ? 'var(--ctb-sidebar-text, #374151)' : 'white',
+                border: isMoversReading ? '1px solid #e5e7eb' : 'none',
+                borderRadius: isMoversReading ? '8px' : '4px',
                 marginBottom: '4px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
               }}>
-                {qt.icon} {qt.labelVi || qt.label}
+                <InlineIcon name={QUESTION_TYPE_ICONS[qt.id] || 'questions'} size={14} style={{ color: isMoversReading ? 'var(--ctb-sidebar-muted, #475569)' : '#fff' }} />
+                {qt.labelVi || qt.label}
               </div>
             ))}
           </div>
         </div>
+        )}
+
+        {isMoversReading && <div style={{ flex: 1 }} />}
+
+        {isMoversReading && (
+          <div className="ctb-sidebar-footer" style={{ paddingTop: '16px', marginTop: '16px', borderTop: '1px solid #1f2937' }}>
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={isSubmitting}
+              style={{
+                width: '100%',
+                padding: '11px',
+                borderRadius: '9px',
+                border: 'none',
+                background: isSubmitting ? '#9ca3af' : '#6366f1',
+                color: 'white',
+                fontWeight: 700,
+                fontSize: '14px',
+                cursor: isSubmitting ? 'not-allowed' : 'pointer',
+                marginBottom: '8px',
+              }}
+            >
+              {isSubmitting
+                ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><InlineIcon name="loading" size={14} style={{ color: 'white' }} />Đang lưu...</span>
+                : <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><InlineIcon name="save" size={14} style={{ color: 'white' }} />{editId ? 'Cập nhật' : 'Lưu đề'}</span>}
+            </button>
+            <button
+              type="button"
+              onClick={handleManualDraftSave}
+              disabled={isSubmitting}
+              className="ctb-btn-draft"
+              style={{
+                width: '100%',
+                padding: '10px',
+                borderRadius: '9px',
+                fontWeight: 600,
+                fontSize: '13px',
+                cursor: isSubmitting ? 'not-allowed' : 'pointer',
+              }}
+            >
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><InlineIcon name="save" size={14} />Lưu nháp</span>
+            </button>
+
+            {message.text && (
+              <div style={{
+                marginTop: '12px',
+                padding: '10px 12px',
+                borderRadius: '8px',
+                background: message.type === 'success' ? '#f0fdf4' : '#fef2f2',
+                color: message.type === 'success' ? '#15803d' : '#dc2626',
+                fontSize: '12px',
+                fontWeight: 600,
+                lineHeight: 1.4,
+              }}>
+                {message.text}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Main Content */}
-      <div className="ctb-main" style={{ 
-        padding: '24px',
+      <div className={`ctb-main${isMoversReading ? ' ctb-main--movers' : ''}`} style={{ 
+        flex: 1,
+        padding: isMoversReading ? '24px 28px' : '24px',
         overflowY: 'auto',
         height: '100vh',
       }}>
         {/* Header with Title and Save - Compact */}
-        <div className="ctb-card" style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginBottom: '12px',
-          padding: '12px 16px',
-          borderRadius: '8px',
-          boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <h1 className="ctb-title" style={{ margin: 0, fontSize: '18px', fontWeight: 600 }}>
-              🎓 {builderDisplayName}
-            </h1>
-            {/* Auto-save indicator */}
-            <div style={{
-              fontSize: '11px',
-              color: isSaving ? '#f59e0b' : lastSaved ? '#22c55e' : '#9ca3af',
-              fontStyle: 'italic',
-            }}>
-              {isSaving ? '💾' : lastSaved ? `✅ ${lastSaved.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}` : '○'}
+        {!isMoversReading && (
+          <div className="ctb-card" style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: '12px',
+            padding: '12px 16px',
+            borderRadius: '8px',
+            boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <h1 className="ctb-title" style={{ margin: 0, fontSize: '18px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <InlineIcon name="graduation" size={18} style={{ color: '#0f172a' }} />
+                {builderDisplayName}
+              </h1>
+              {/* Auto-save indicator */}
+              <div style={{
+                fontSize: '11px',
+                color: isSaving ? '#f59e0b' : lastSaved ? '#22c55e' : '#9ca3af',
+                fontStyle: 'italic',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px',
+              }}>
+                {isSaving ? <InlineIcon name="save" size={12} /> : lastSaved ? <InlineIcon name="correct" size={12} /> : null}
+                {lastSaved ? lastSaved.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : isSaving ? 'Đang lưu' : 'Chưa lưu'}
+              </div>
             </div>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            {isMoversReading && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <button
-                type="button"
-                onClick={handleLoadMoversTemplate}
+                onClick={handleSave}
                 disabled={isSubmitting}
                 style={{
-                  padding: '8px 12px',
-                  backgroundColor: '#f59e0b',
+                  padding: '8px 16px',
+                  backgroundColor: isSubmitting ? '#94a3b8' : '#3b82f6',
                   color: 'white',
                   border: 'none',
                   borderRadius: '6px',
                   cursor: isSubmitting ? 'not-allowed' : 'pointer',
                   fontWeight: 600,
-                  fontSize: '12px',
+                  fontSize: '13px',
                 }}
-                title="Nạp nhanh bo Movers Practice Test 1"
               >
-                ⚡ Nạp Template Movers
+                {isSubmitting ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><InlineIcon name="loading" size={14} style={{ color: 'white' }} />Đang lưu...</span> : <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><InlineIcon name="save" size={14} style={{ color: 'white' }} />Lưu</span>}
               </button>
-            )}
-            <button
-              onClick={handleSave}
-              disabled={isSubmitting}
-              style={{
-                padding: '8px 16px',
-                backgroundColor: isSubmitting ? '#94a3b8' : '#3b82f6',
-                color: 'white',
-                border: 'none',
-                borderRadius: '6px',
-                cursor: isSubmitting ? 'not-allowed' : 'pointer',
-                fontWeight: 600,
-                fontSize: '13px',
-              }}
-            >
-              {isSubmitting ? '⏳' : '💾 Lưu'}
-            </button>
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Message */}
-        {message.text && (
+        {!isMoversReading && message.text && (
           <div style={{
             padding: '12px 16px',
             borderRadius: '8px',
@@ -999,19 +1228,44 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
             backgroundColor: message.type === 'error' ? '#fef2f2' : '#f0fdf4',
             border: `1px solid ${message.type === 'error' ? '#fecaca' : '#bbf7d0'}`,
             color: message.type === 'error' ? '#dc2626' : '#16a34a',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
           }}>
+            <InlineIcon name={message.type === 'error' ? 'error' : 'correct'} size={16} />
             {message.text}
           </div>
         )}
 
         {/* Test Info Form - Compact */}
-        <div className="ctb-card" style={{
-          borderRadius: '8px',
-          padding: '12px 16px',
-          marginBottom: '12px',
-          boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+        <div className={`ctb-card${isMoversReading ? ' ctb-card--movers' : ''}`} style={{
+          borderRadius: isMoversReading ? '12px' : '8px',
+          padding: isMoversReading ? '20px 24px' : '12px 16px',
+          marginBottom: isMoversReading ? '24px' : '12px',
+          boxShadow: isMoversReading ? 'none' : '0 1px 2px rgba(0,0,0,0.05)',
+          border: isMoversReading ? '1px solid #e5e7eb' : 'none',
         }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
+          {isMoversReading && (
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', marginBottom: '16px', flexWrap: 'wrap' }}>
+              <h3 className="ctb-card-title" style={{ margin: 0, fontSize: '15px', fontWeight: 800, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <InlineIcon name="document" size={16} />
+                Thông tin đề thi
+              </h3>
+              <div style={{
+                fontSize: '12px',
+                color: isSaving ? '#f59e0b' : lastSaved ? '#22c55e' : '#9ca3af',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                fontWeight: 600,
+              }}>
+                {isSaving ? <InlineIcon name="save" size={12} /> : lastSaved ? <InlineIcon name="correct" size={12} /> : null}
+                {lastSaved ? `Đã lưu ${lastSaved.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}` : isSaving ? 'Đang lưu...' : 'Chưa lưu nháp'}
+              </div>
+            </div>
+          )}
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: isMoversReading ? '14px' : '10px' }}>
             <div>
               <label style={{ 
                 display: 'block', 
@@ -1020,13 +1274,13 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
                 color: '#6b7280',
                 fontSize: '12px',
               }}>
-                Tiêu đề đề thi *
+                {isMoversReading ? 'Tiêu đề *' : 'Tiêu đề đề thi *'}
               </label>
               <input
                 type="text"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="VD: KET Test 1"
+                placeholder={isMoversReading ? 'VD: MOVERS Reading Test – Tháng 10' : 'VD: KET Test 1'}
                 style={{
                   width: '100%',
                   padding: '7px 10px',
@@ -1051,7 +1305,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
                 type="text"
                 value={classCode}
                 onChange={(e) => setClassCode(e.target.value)}
-                placeholder="VD: KET-631-A"
+                placeholder={isMoversReading ? 'VD: Practice Test Plus 2' : 'VD: KET-631-A'}
                 style={{
                   width: '100%',
                   padding: '7px 10px',
@@ -1070,7 +1324,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
                 color: '#6b7280',
                 fontSize: '12px',
               }}>
-                Tên giáo viên
+                {isMoversReading ? 'Giáo viên' : 'Tên giáo viên'}
               </label>
               <input
                 type="text"
@@ -1099,13 +1353,16 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
             boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
           }}>
             <label style={{
-              display: 'block',
               marginBottom: '8px',
               fontWeight: 600,
               color: '#374151',
               fontSize: '13px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
             }}>
-              🎧 Audio chung (toàn bài)
+              <InlineIcon name="listening" size={14} />
+              Audio chung (toàn bài)
             </label>
 
             {mainAudioUrl ? (
@@ -1164,11 +1421,11 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
               )}
               {mainAudioUploadError && (
                 <div style={{ marginTop: '8px', fontSize: '12px', color: '#ef4444' }}>
-                  ❌ {mainAudioUploadError}
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><InlineIcon name="error" size={14} />{mainAudioUploadError}</span>
                 </div>
               )}
               <div style={{ marginTop: '6px', fontSize: '11px', color: '#6b7280' }}>
-                💡 Audio chung sẽ phát xuyên suốt khi học sinh chuyển part.
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><InlineIcon name="idea" size={12} />Audio chung sẽ phát xuyên suốt khi học sinh chuyển part.</span>
               </div>
             </div>
           </div>
@@ -1176,13 +1433,15 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
 
         {/* Current Part Editor */}
         {currentPart && (
-          <div className="ctb-card" style={{
+          <div className={`ctb-card${isMoversReading ? ' ctb-card--movers' : ''}`} style={{
             borderRadius: '12px',
             padding: '24px',
-            boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+            boxShadow: isMoversReading ? 'none' : '0 1px 3px rgba(0,0,0,0.1)',
+            border: isMoversReading ? `2px solid ${activeMoversReadingPartTheme?.color || '#e5e7eb'}30` : 'none',
           }}>
-            <h2 style={{ margin: '0 0 20px', color: '#0e276f' }}>
-              📌 {currentPart.title}
+            <h2 style={{ margin: '0 0 20px', color: isMoversReading ? (activeMoversReadingPartTheme?.color || '#0e276f') : '#0e276f', display: 'flex', alignItems: 'center', gap: 8 }}>
+              <InlineIcon name={isMoversReading ? (QUESTION_TYPE_ICONS[currentPart?.sections?.[0]?.questionType] || 'pin') : 'pin'} size={18} style={{ color: isMoversReading ? (activeMoversReadingPartTheme?.color || '#0e276f') : undefined }} />
+              {currentPart.title}
             </h2>
 
             {/* Part Instruction */}
@@ -1233,7 +1492,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
                 />
               </div>
               <p style={{ fontSize: '11px', color: '#6b7280', marginTop: '4px' }}>
-                💡 Có thể thêm hình ảnh, định dạng text, màu sắc...
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><InlineIcon name="idea" size={12} />Có thể thêm hình ảnh, định dạng text, màu sắc...</span>
               </p>
             </div>
 
@@ -1326,11 +1585,11 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
                     )}
                     {audioUploadError && (
                       <div style={{ marginTop: '8px', fontSize: '12px', color: '#ef4444' }}>
-                        ❌ {audioUploadError}
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><InlineIcon name="error" size={14} />{audioUploadError}</span>
                       </div>
                     )}
                     <div style={{ marginTop: '6px', fontSize: '11px', color: '#6b7280' }}>
-                      💡 Hỗ trợ file audio (mp3/wav/m4a/ogg...). Backend giới hạn 50MB.
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><InlineIcon name="idea" size={12} />Hỗ trợ file audio (mp3/wav/m4a/ogg...). Backend giới hạn 50MB.</span>
                     </div>
                   </div>
                 </div>
@@ -1405,8 +1664,9 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
 
                   {/* URL input – paste link ảnh/GIF từ internet */}
                   <div style={{ marginTop: '12px' }}>
-                    <div style={{ fontSize: '12px', fontWeight: 700, color: '#374151', marginBottom: '5px' }}>
-                      🔗 Nhập URL ảnh/GIF từ internet
+                    <div style={{ fontSize: '12px', fontWeight: 700, color: '#374151', marginBottom: '5px', display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <InlineIcon name="link" size={14} />
+                      Nhập URL ảnh/GIF từ internet
                     </div>
                     <input
                       type="text"
@@ -1436,8 +1696,9 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
 
                   {/* Upload từ máy */}
                   <div style={{ marginTop: '10px' }}>
-                    <div style={{ fontSize: '12px', fontWeight: 700, color: '#374151', marginBottom: '5px' }}>
-                      📁 Hoặc upload từ máy
+                    <div style={{ fontSize: '12px', fontWeight: 700, color: '#374151', marginBottom: '5px', display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <InlineIcon name="upload" size={14} />
+                      Hoặc upload từ máy
                     </div>
                     <input
                       type="file"
@@ -1457,11 +1718,11 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
                     )}
                     {imageUploadError && (
                       <div style={{ marginTop: '8px', fontSize: '12px', color: '#ef4444' }}>
-                        ❌ {imageUploadError}
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><InlineIcon name="error" size={14} />{imageUploadError}</span>
                       </div>
                     )}
                     <div style={{ marginTop: '6px', fontSize: '11px', color: '#6b7280' }}>
-                      💡 Hỗ trợ file ảnh (jpg/png/gif/webp...). Nên dùng ảnh rõ nét, tỉ lệ phù hợp với bài thi.
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><InlineIcon name="idea" size={12} />Hỗ trợ file ảnh (jpg/png/gif/webp...). Nên dùng ảnh rõ nét, tỉ lệ phù hợp với bài thi.</span>
                     </div>
                   </div>
                 </div>
@@ -1471,8 +1732,9 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
             {/* Example Block (abc type only) - placed under part image area */}
             {currentSection && currentSection.questionType === 'abc' && (
               <div style={{ marginBottom: '20px', padding: '16px', background: '#fffbeb', border: '1px solid #fcd34d', borderRadius: '8px' }}>
-                <div style={{ fontWeight: 600, color: '#92400e', marginBottom: '12px', fontSize: '14px' }}>
-                  ⭐ Câu mẫu (Example)
+                <div style={{ fontWeight: 600, color: '#92400e', marginBottom: '12px', fontSize: '14px', display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <InlineIcon name="starters" size={14} />
+                  Câu mẫu (Example)
                 </div>
 
                 <div style={{ marginBottom: '10px' }}>
@@ -1552,13 +1814,14 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
             {/* Section */}
             {currentSection && (
               <div style={{
-                border: '2px solid #e5e7eb',
+                border: isMoversReading ? '2px solid #374151' : '2px solid #e5e7eb',
                 borderRadius: '12px',
                 padding: '20px',
-                backgroundColor: '#f8fafc',
+                backgroundColor: isMoversReading ? '#111827' : '#f8fafc',
               }}>
-                <h3 style={{ margin: '0 0 16px', color: '#374151' }}>
-                  📝 Section {selectedSectionIndex + 1}
+                <h3 style={{ margin: '0 0 16px', color: isMoversReading ? '#e5e7eb' : '#374151', display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <InlineIcon name="writing" size={16} />
+                  Section {selectedSectionIndex + 1}
                 </h3>
 
                 {/* Question Type Selector */}
@@ -1567,7 +1830,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
                     display: 'block', 
                     marginBottom: '8px', 
                     fontWeight: 600,
-                    color: '#374151',
+                    color: isMoversReading ? '#cbd5e1' : '#374151',
                   }}>
                     Loại câu hỏi:
                   </label>
@@ -1582,10 +1845,10 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
 
                 {/* Question Editor */}
                 <div style={{
-                  backgroundColor: 'white',
+                  backgroundColor: isMoversReading ? '#0f172a' : 'white',
                   padding: '20px',
                   borderRadius: '8px',
-                  border: '1px solid #e5e7eb',
+                  border: isMoversReading ? '1px solid #374151' : '1px solid #e5e7eb',
                 }}>
                   {currentSection.questions.map((question, qIdx) => {
                     const isCollapsed = collapsedQuestions[`${selectedPartIndex}-${selectedSectionIndex}-${qIdx}`];
@@ -1608,7 +1871,9 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
                         style={{
                           marginBottom: '16px',
                           paddingBottom: '16px',
-                          borderBottom: qIdx < currentSection.questions.length - 1 ? '2px dashed #e5e7eb' : 'none',
+                          borderBottom: qIdx < currentSection.questions.length - 1
+                            ? (isMoversReading ? '2px dashed #374151' : '2px dashed #e5e7eb')
+                            : 'none',
                         }}
                       >
                         {/* Question Header with Controls */}
@@ -1670,7 +1935,10 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
                               }}
                               title={isCollapsed ? 'Mở rộng' : 'Thu nhỏ'}
                             >
-                              {isCollapsed ? '👁️ Mở' : '👁️ Ẩn'}
+                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                                <InlineIcon name={isCollapsed ? 'eye' : 'chevron-up'} size={14} style={{ color: isCollapsed ? 'white' : '#4f46e5' }} />
+                                {isCollapsed ? 'Mở' : 'Ẩn'}
+                              </span>
                             </button>
                             
                             {/* Copy Button */}
@@ -1688,7 +1956,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
                               }}
                               title="Sao chép câu hỏi"
                             >
-                              📋 Copy
+                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><InlineIcon name="copy" size={14} style={{ color: 'white' }} />Copy</span>
                             </button>
                             
                             {/* Paste Button - only show if something is copied */}
@@ -1707,7 +1975,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
                                 }}
                                 title="Dán câu hỏi đã copy"
                               >
-                                📌 Paste
+                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><InlineIcon name="pin" size={14} style={{ color: 'white' }} />Paste</span>
                               </button>
                             )}
                             
@@ -1727,7 +1995,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
                                 }}
                                 title="Xóa câu hỏi"
                               >
-                                🗑️ Xóa
+                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><InlineIcon name="trash" size={14} style={{ color: 'white' }} />Xóa</span>
                               </button>
                             )}
                           </div>
@@ -1785,7 +2053,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
                       marginTop: '12px',
                     }}
                   >
-                    ➕ Thêm câu hỏi
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><InlineIcon name="create" size={14} style={{ color: 'white' }} />Thêm câu hỏi</span>
                   </button>
                 </div>
               </div>
