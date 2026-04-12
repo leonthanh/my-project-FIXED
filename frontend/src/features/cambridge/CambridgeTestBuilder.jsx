@@ -284,6 +284,45 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
   const currentPart = parts[selectedPartIndex];
   const currentSection = currentPart?.sections?.[selectedSectionIndex];
   const isMoversReading = !isListeningTest && String(testType || '').toLowerCase() === 'movers';
+  const moversReadingPartThemes = useMemo(() => ([
+    { color: '#3b82f6', bg: '#eff6ff' },
+    { color: '#10b981', bg: '#f0fdf4' },
+    { color: '#8b5cf6', bg: '#f5f3ff' },
+    { color: '#f59e0b', bg: '#fffbeb' },
+    { color: '#ef4444', bg: '#fef2f2' },
+    { color: '#06b6d4', bg: '#ecfeff' },
+  ]), []);
+
+  const getMoversReadingPartTheme = useCallback((part, idx) => {
+    const fallback = moversReadingPartThemes[idx % moversReadingPartThemes.length] || moversReadingPartThemes[0];
+    const sectionType = part?.sections?.[0]?.questionType || '';
+
+    const typeThemeMap = {
+      'matching-pictures': { color: '#3b82f6', bg: '#eff6ff' },
+      'image-cloze': { color: '#10b981', bg: '#f0fdf4' },
+      'word-drag-cloze': { color: '#8b5cf6', bg: '#f5f3ff' },
+      'story-completion': { color: '#f59e0b', bg: '#fffbeb' },
+      'look-read-write': { color: '#ef4444', bg: '#fef2f2' },
+      'fill': { color: '#06b6d4', bg: '#ecfeff' },
+      abc: { color: '#f97316', bg: '#fff7ed' },
+      'cloze-mc': { color: '#dc2626', bg: '#fef2f2' },
+      'word-form': { color: '#0ea5e9', bg: '#f0f9ff' },
+      'short-message': { color: '#6366f1', bg: '#eef2ff' },
+    };
+
+    return typeThemeMap[sectionType] || fallback;
+  }, [moversReadingPartThemes]);
+
+  const getMoversReadingPartSummary = useCallback((part) => {
+    const sections = Array.isArray(part?.sections) ? part.sections : [];
+    if (sections.length === 0) return 'Chưa có section';
+
+    const questionCount = sections.reduce((sum, section) => sum + getQuestionCountForSection(section), 0);
+    if (questionCount > 0) {
+      return `${questionCount} câu hỏi`;
+    }
+    return `${sections.length} section(s)`;
+  }, []);
 
   const uploadAudioForPart = async (partIndex, file) => {
     if (!file) return;
@@ -645,6 +684,11 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
     }
   }, [title, classCode, teacherName, mainAudioUrl, parts, testType, sanitizeDraftData]);
 
+  const handleManualDraftSave = useCallback(() => {
+    saveToLocalStorage();
+    setMessage({ type: 'success', text: 'Đã lưu nháp trên trình duyệt.' });
+  }, [saveToLocalStorage]);
+
   // Auto save every 30 seconds and on page unload
   useEffect(() => {
     const autosaveInterval = setInterval(saveToLocalStorage, 30000);
@@ -810,8 +854,12 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
     );
   }
 
+  const activeMoversReadingPartTheme = isMoversReading
+    ? getMoversReadingPartTheme(currentPart, selectedPartIndex)
+    : null;
+
   return (
-    <div className="ctb-page" style={{ minHeight: '100vh' }}>
+    <div className={`ctb-page${isMoversReading ? ' ctb-page--movers' : ''}`} style={{ minHeight: '100vh' }}>
       {/* AdminNavbar */}
       {requiresLogin && (
         <div style={{ padding: 12, background: '#fff0f0', border: '1px solid #ffcccc', borderRadius: 6, margin: '12px auto', maxWidth: 1000 }}>
@@ -827,88 +875,153 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
       <AdminNavbar />
 
       <div style={{ 
-        display: 'grid', 
-        gridTemplateColumns: '280px 1fr', 
+        display: isMoversReading ? 'flex' : 'grid', 
+        gridTemplateColumns: isMoversReading ? undefined : '280px 1fr', 
         minHeight: 'calc(100vh - 60px)',
       }}>
       {/* Sidebar - Fixed/Sticky */}
-      <div style={{
-        backgroundColor: '#1e293b',
-        color: 'white',
-        padding: '20px',
+      <div className={isMoversReading ? 'ctb-sidebar--movers' : ''} style={{
+        backgroundColor: isMoversReading ? '#ffffff' : '#1e293b',
+        color: isMoversReading ? '#111827' : 'white',
+        width: isMoversReading ? '244px' : undefined,
+        flexShrink: 0,
+        padding: isMoversReading ? '20px 14px' : '20px',
+        display: 'flex',
+        flexDirection: 'column',
         position: 'sticky',
         top: 0,
         height: '100vh',
         overflowY: 'auto',
         zIndex: 100,
+        borderRight: isMoversReading ? '1px solid #e5e7eb' : 'none',
       }}>
         {/* Test Info */}
-        <div style={{
-          padding: '16px',
-          backgroundColor: '#334155',
-          borderRadius: '8px',
-          marginBottom: '20px',
-        }}>
-          <h3 style={{ margin: '0 0 8px', fontSize: '16px', display: 'flex', alignItems: 'center', gap: 8 }}>
-            <InlineIcon name="graduation" size={18} style={{ color: '#fff' }} />
-            {builderDisplayName}
-          </h3>
-          <div style={{ fontSize: '12px', color: '#94a3b8' }}>
-            <p style={{ margin: '4px 0', display: 'flex', alignItems: 'center', gap: 6 }}><InlineIcon name="questions" size={14} />{testConfig.totalQuestions} câu hỏi</p>
-            <p style={{ margin: '4px 0', display: 'flex', alignItems: 'center', gap: 6 }}><InlineIcon name="reading" size={14} />{testConfig.parts} parts</p>
-            <p style={{ margin: '4px 0', display: 'flex', alignItems: 'center', gap: 6 }}><InlineIcon name="clock" size={14} />{testConfig.duration} phút</p>
+        {isMoversReading ? (
+          <>
+            <h2 className="ctb-sidebar-title" style={{ margin: '0 0 2px', fontSize: '15px', fontWeight: 800 }}>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                <InlineIcon name="graduation" size={18} style={{ color: '#312e81' }} />
+                {builderDisplayName}
+              </span>
+            </h2>
+            <p className="ctb-sidebar-sub" style={{ fontSize: '11px', margin: '0 0 18px' }}>
+              {testConfig.totalQuestions} câu hỏi · {testConfig.parts} parts · {testConfig.duration} phút
+            </p>
+          </>
+        ) : (
+          <div style={{
+            padding: '16px',
+            backgroundColor: '#334155',
+            borderRadius: '8px',
+            marginBottom: '20px',
+          }}>
+            <h3 style={{ margin: '0 0 8px', fontSize: '16px', display: 'flex', alignItems: 'center', gap: 8 }}>
+              <InlineIcon name="graduation" size={18} style={{ color: '#fff' }} />
+              {builderDisplayName}
+            </h3>
+            <div style={{ fontSize: '12px', color: '#94a3b8' }}>
+              <p style={{ margin: '4px 0', display: 'flex', alignItems: 'center', gap: 6 }}><InlineIcon name="questions" size={14} />{testConfig.totalQuestions} câu hỏi</p>
+              <p style={{ margin: '4px 0', display: 'flex', alignItems: 'center', gap: 6 }}><InlineIcon name="reading" size={14} />{testConfig.parts} parts</p>
+              <p style={{ margin: '4px 0', display: 'flex', alignItems: 'center', gap: 6 }}><InlineIcon name="clock" size={14} />{testConfig.duration} phút</p>
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Parts Navigation */}
-        <h4 style={{ margin: '0 0 12px', fontSize: '14px', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: 6 }}>
+        <h4 style={{ margin: '0 0 12px', fontSize: '14px', color: isMoversReading ? 'var(--ctb-sidebar-subtext, #6b7280)' : '#94a3b8', display: 'flex', alignItems: 'center', gap: 6 }}>
           <InlineIcon name="document" size={14} />
           Parts
         </h4>
-        {parts.map((part, idx) => (
-          <div
-            key={idx}
-            onClick={() => {
-              setSelectedPartIndex(idx);
-              setSelectedSectionIndex(0);
-            }}
-            style={{
-              padding: '12px',
-              marginBottom: '8px',
-              backgroundColor: selectedPartIndex === idx ? '#3b82f6' : '#475569',
-              borderRadius: '6px',
-              cursor: 'pointer',
-              transition: 'all 0.2s',
-            }}
-          >
-            <strong>{part.title}</strong>
-            <div style={{ fontSize: '11px', color: '#cbd5e1', marginTop: '4px' }}>
-              {part.sections.length} section(s)
+        {parts.map((part, idx) => {
+          const isActive = selectedPartIndex === idx;
+          const partTheme = getMoversReadingPartTheme(part, idx);
+          const partIcon = QUESTION_TYPE_ICONS[part?.sections?.[0]?.questionType] || 'questions';
+
+          if (isMoversReading) {
+            return (
+              <button
+                key={idx}
+                type="button"
+                onClick={() => {
+                  setSelectedPartIndex(idx);
+                  setSelectedSectionIndex(0);
+                }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px',
+                  width: '100%',
+                  padding: '12px 14px',
+                  border: 'none',
+                  borderRadius: '10px',
+                  cursor: 'pointer',
+                  background: isActive ? partTheme.bg : 'transparent',
+                  borderLeft: isActive ? `4px solid ${partTheme.color}` : '4px solid transparent',
+                  marginBottom: '6px',
+                  textAlign: 'left',
+                  transition: 'all 0.15s',
+                }}
+              >
+                <InlineIcon name={partIcon} size={20} style={{ color: isActive ? partTheme.color : 'var(--ctb-sidebar-muted, #475569)' }} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 700, fontSize: '13px', color: isActive ? partTheme.color : 'var(--ctb-sidebar-text, #374151)' }}>
+                    {part.title}
+                  </div>
+                  <div style={{ fontSize: '11px', color: 'var(--ctb-sidebar-subtext, #6b7280)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {getMoversReadingPartSummary(part)}
+                  </div>
+                </div>
+              </button>
+            );
+          }
+
+          return (
+            <div
+              key={idx}
+              onClick={() => {
+                setSelectedPartIndex(idx);
+                setSelectedSectionIndex(0);
+              }}
+              style={{
+                padding: '12px',
+                marginBottom: '8px',
+                backgroundColor: selectedPartIndex === idx ? '#3b82f6' : '#475569',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+              }}
+            >
+              <strong>{part.title}</strong>
+              <div style={{ fontSize: '11px', color: '#cbd5e1', marginTop: '4px' }}>
+                {part.sections.length} section(s)
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
 
         <button
+          type="button"
           onClick={handleAddPart}
           style={{
             width: '100%',
             padding: '10px',
-            backgroundColor: '#22c55e',
-            color: 'white',
-            border: 'none',
-            borderRadius: '6px',
+            backgroundColor: isMoversReading ? '#eef2ff' : '#22c55e',
+            color: isMoversReading ? '#4338ca' : 'white',
+            border: isMoversReading ? '1px solid #c7d2fe' : 'none',
+            borderRadius: isMoversReading ? '9px' : '6px',
             cursor: 'pointer',
             fontWeight: 600,
             marginTop: '12px',
+            fontSize: isMoversReading ? '13px' : undefined,
           }}
         >
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><InlineIcon name="create" size={14} style={{ color: 'white' }} />Thêm Part</span>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><InlineIcon name="create" size={14} style={{ color: isMoversReading ? '#4338ca' : 'white' }} />Thêm Part</span>
         </button>
 
         {/* Sections in current Part */}
         {currentPart && currentPart.sections.length > 0 && (
           <div style={{ marginTop: '24px' }}>
-            <h4 style={{ margin: '0 0 12px', fontSize: '14px', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: 6 }}>
+            <h4 style={{ margin: '0 0 12px', fontSize: '14px', color: isMoversReading ? 'var(--ctb-sidebar-subtext, #6b7280)' : '#94a3b8', display: 'flex', alignItems: 'center', gap: 6 }}>
               <InlineIcon name="document" size={14} />
               Sections trong Part {selectedPartIndex + 1}
             </h4>
@@ -919,41 +1032,48 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
                 style={{
                   padding: '10px',
                   marginBottom: '6px',
-                  backgroundColor: selectedSectionIndex === idx ? '#6366f1' : '#475569',
-                  borderRadius: '6px',
+                  backgroundColor: isMoversReading
+                    ? (selectedSectionIndex === idx ? '#e0e7ff' : '#f8fafc')
+                    : (selectedSectionIndex === idx ? '#6366f1' : '#475569'),
+                  color: isMoversReading
+                    ? (selectedSectionIndex === idx ? '#4338ca' : 'var(--ctb-sidebar-text, #374151)')
+                    : 'white',
+                  border: isMoversReading ? `1px solid ${selectedSectionIndex === idx ? '#c7d2fe' : '#e5e7eb'}` : 'none',
+                  borderRadius: isMoversReading ? '10px' : '6px',
                   cursor: 'pointer',
                   fontSize: '13px',
                 }}
               >
                 Section {idx + 1}: {sec.questionType}
-                <div style={{ fontSize: '11px', color: '#cbd5e1', marginTop: '2px' }}>
+                <div style={{ fontSize: '11px', color: isMoversReading ? 'var(--ctb-sidebar-subtext, #6b7280)' : '#cbd5e1', marginTop: '2px' }}>
                   {sec.questions.length} câu hỏi
                 </div>
               </div>
             ))}
             <button
+              type="button"
               onClick={handleAddSection}
               style={{
                 width: '100%',
                 padding: '8px',
-                backgroundColor: '#8b5cf6',
-                color: 'white',
-                border: 'none',
-                borderRadius: '6px',
+                backgroundColor: isMoversReading ? '#f5f3ff' : '#8b5cf6',
+                color: isMoversReading ? '#7c3aed' : 'white',
+                border: isMoversReading ? '1px solid #ddd6fe' : 'none',
+                borderRadius: isMoversReading ? '9px' : '6px',
                 cursor: 'pointer',
                 fontWeight: 600,
                 marginTop: '8px',
                 fontSize: '13px',
               }}
             >
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><InlineIcon name="create" size={14} style={{ color: 'white' }} />Thêm Section</span>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><InlineIcon name="create" size={14} style={{ color: isMoversReading ? '#7c3aed' : 'white' }} />Thêm Section</span>
             </button>
           </div>
         )}
 
         {/* Available Question Types */}
         <div style={{ marginTop: '24px' }}>
-          <h4 style={{ margin: '0 0 12px', fontSize: '14px', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: 6 }}>
+          <h4 style={{ margin: '0 0 12px', fontSize: '14px', color: isMoversReading ? 'var(--ctb-sidebar-subtext, #6b7280)' : '#94a3b8', display: 'flex', alignItems: 'center', gap: 6 }}>
             <InlineIcon name="writing" size={14} />
             Loại câu hỏi hỗ trợ
           </h4>
@@ -961,97 +1081,141 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
             {availableTypes.map(qt => (
               <div key={qt.id} style={{
                 padding: '6px 10px',
-                backgroundColor: '#475569',
-                borderRadius: '4px',
+                backgroundColor: isMoversReading ? '#f8fafc' : '#475569',
+                color: isMoversReading ? 'var(--ctb-sidebar-text, #374151)' : 'white',
+                border: isMoversReading ? '1px solid #e5e7eb' : 'none',
+                borderRadius: isMoversReading ? '8px' : '4px',
                 marginBottom: '4px',
                 display: 'flex',
                 alignItems: 'center',
                 gap: '6px',
               }}>
-                <InlineIcon name={QUESTION_TYPE_ICONS[qt.id] || 'questions'} size={14} style={{ color: '#fff' }} />
+                <InlineIcon name={QUESTION_TYPE_ICONS[qt.id] || 'questions'} size={14} style={{ color: isMoversReading ? 'var(--ctb-sidebar-muted, #475569)' : '#fff' }} />
                 {qt.labelVi || qt.label}
               </div>
             ))}
           </div>
         </div>
+
+        {isMoversReading && <div style={{ flex: 1 }} />}
+
+        {isMoversReading && (
+          <div className="ctb-sidebar-footer" style={{ paddingTop: '16px', marginTop: '16px', borderTop: '1px solid #f1f5f9' }}>
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={isSubmitting}
+              style={{
+                width: '100%',
+                padding: '11px',
+                borderRadius: '9px',
+                border: 'none',
+                background: isSubmitting ? '#9ca3af' : '#6366f1',
+                color: 'white',
+                fontWeight: 700,
+                fontSize: '14px',
+                cursor: isSubmitting ? 'not-allowed' : 'pointer',
+                marginBottom: '8px',
+              }}
+            >
+              {isSubmitting
+                ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><InlineIcon name="loading" size={14} style={{ color: 'white' }} />Đang lưu...</span>
+                : <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><InlineIcon name="save" size={14} style={{ color: 'white' }} />{editId ? 'Cập nhật' : 'Lưu đề'}</span>}
+            </button>
+            <button
+              type="button"
+              onClick={handleManualDraftSave}
+              disabled={isSubmitting}
+              className="ctb-btn-draft"
+              style={{
+                width: '100%',
+                padding: '10px',
+                borderRadius: '9px',
+                fontWeight: 600,
+                fontSize: '13px',
+                cursor: isSubmitting ? 'not-allowed' : 'pointer',
+              }}
+            >
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><InlineIcon name="save" size={14} />Lưu nháp</span>
+            </button>
+
+            {message.text && (
+              <div style={{
+                marginTop: '12px',
+                padding: '10px 12px',
+                borderRadius: '8px',
+                background: message.type === 'success' ? '#f0fdf4' : '#fef2f2',
+                color: message.type === 'success' ? '#15803d' : '#dc2626',
+                fontSize: '12px',
+                fontWeight: 600,
+                lineHeight: 1.4,
+              }}>
+                {message.text}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Main Content */}
-      <div className="ctb-main" style={{ 
-        padding: '24px',
+      <div className={`ctb-main${isMoversReading ? ' ctb-main--movers' : ''}`} style={{ 
+        flex: 1,
+        padding: isMoversReading ? '24px 28px' : '24px',
         overflowY: 'auto',
         height: '100vh',
       }}>
         {/* Header with Title and Save - Compact */}
-        <div className="ctb-card" style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginBottom: '12px',
-          padding: '12px 16px',
-          borderRadius: '8px',
-          boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <h1 className="ctb-title" style={{ margin: 0, fontSize: '18px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
-              <InlineIcon name="graduation" size={18} style={{ color: '#0f172a' }} />
-              {builderDisplayName}
-            </h1>
-            {/* Auto-save indicator */}
-            <div style={{
-              fontSize: '11px',
-              color: isSaving ? '#f59e0b' : lastSaved ? '#22c55e' : '#9ca3af',
-              fontStyle: 'italic',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '4px',
-            }}>
-              {isSaving ? <InlineIcon name="save" size={12} /> : lastSaved ? <InlineIcon name="correct" size={12} /> : null}
-              {lastSaved ? lastSaved.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : isSaving ? 'Đang lưu' : 'Chưa lưu'}
+        {!isMoversReading && (
+          <div className="ctb-card" style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: '12px',
+            padding: '12px 16px',
+            borderRadius: '8px',
+            boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <h1 className="ctb-title" style={{ margin: 0, fontSize: '18px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <InlineIcon name="graduation" size={18} style={{ color: '#0f172a' }} />
+                {builderDisplayName}
+              </h1>
+              {/* Auto-save indicator */}
+              <div style={{
+                fontSize: '11px',
+                color: isSaving ? '#f59e0b' : lastSaved ? '#22c55e' : '#9ca3af',
+                fontStyle: 'italic',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px',
+              }}>
+                {isSaving ? <InlineIcon name="save" size={12} /> : lastSaved ? <InlineIcon name="correct" size={12} /> : null}
+                {lastSaved ? lastSaved.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : isSaving ? 'Đang lưu' : 'Chưa lưu'}
+              </div>
             </div>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            {isMoversReading && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <button
-                type="button"
-                onClick={handleLoadMoversTemplate}
+                onClick={handleSave}
                 disabled={isSubmitting}
                 style={{
-                  padding: '8px 12px',
-                  backgroundColor: '#f59e0b',
+                  padding: '8px 16px',
+                  backgroundColor: isSubmitting ? '#94a3b8' : '#3b82f6',
                   color: 'white',
                   border: 'none',
                   borderRadius: '6px',
                   cursor: isSubmitting ? 'not-allowed' : 'pointer',
                   fontWeight: 600,
-                  fontSize: '12px',
+                  fontSize: '13px',
                 }}
-                title="Nạp nhanh bo Movers Practice Test 1"
               >
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><InlineIcon name="flash" size={14} style={{ color: 'white' }} />Nạp Template Movers</span>
+                {isSubmitting ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><InlineIcon name="loading" size={14} style={{ color: 'white' }} />Đang lưu...</span> : <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><InlineIcon name="save" size={14} style={{ color: 'white' }} />Lưu</span>}
               </button>
-            )}
-            <button
-              onClick={handleSave}
-              disabled={isSubmitting}
-              style={{
-                padding: '8px 16px',
-                backgroundColor: isSubmitting ? '#94a3b8' : '#3b82f6',
-                color: 'white',
-                border: 'none',
-                borderRadius: '6px',
-                cursor: isSubmitting ? 'not-allowed' : 'pointer',
-                fontWeight: 600,
-                fontSize: '13px',
-              }}
-            >
-              {isSubmitting ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><InlineIcon name="loading" size={14} style={{ color: 'white' }} />Đang lưu...</span> : <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><InlineIcon name="save" size={14} style={{ color: 'white' }} />Lưu</span>}
-            </button>
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Message */}
-        {message.text && (
+        {!isMoversReading && message.text && (
           <div style={{
             padding: '12px 16px',
             borderRadius: '8px',
@@ -1069,13 +1233,34 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
         )}
 
         {/* Test Info Form - Compact */}
-        <div className="ctb-card" style={{
-          borderRadius: '8px',
-          padding: '12px 16px',
-          marginBottom: '12px',
-          boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+        <div className={`ctb-card${isMoversReading ? ' ctb-card--movers' : ''}`} style={{
+          borderRadius: isMoversReading ? '12px' : '8px',
+          padding: isMoversReading ? '20px 24px' : '12px 16px',
+          marginBottom: isMoversReading ? '24px' : '12px',
+          boxShadow: isMoversReading ? 'none' : '0 1px 2px rgba(0,0,0,0.05)',
+          border: isMoversReading ? '1px solid #e5e7eb' : 'none',
         }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
+          {isMoversReading && (
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', marginBottom: '16px', flexWrap: 'wrap' }}>
+              <h3 className="ctb-card-title" style={{ margin: 0, fontSize: '15px', fontWeight: 800, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <InlineIcon name="document" size={16} />
+                Thông tin đề thi
+              </h3>
+              <div style={{
+                fontSize: '12px',
+                color: isSaving ? '#f59e0b' : lastSaved ? '#22c55e' : '#9ca3af',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                fontWeight: 600,
+              }}>
+                {isSaving ? <InlineIcon name="save" size={12} /> : lastSaved ? <InlineIcon name="correct" size={12} /> : null}
+                {lastSaved ? `Đã lưu ${lastSaved.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}` : isSaving ? 'Đang lưu...' : 'Chưa lưu nháp'}
+              </div>
+            </div>
+          )}
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: isMoversReading ? '14px' : '10px' }}>
             <div>
               <label style={{ 
                 display: 'block', 
@@ -1084,13 +1269,13 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
                 color: '#6b7280',
                 fontSize: '12px',
               }}>
-                Tiêu đề đề thi *
+                {isMoversReading ? 'Tiêu đề *' : 'Tiêu đề đề thi *'}
               </label>
               <input
                 type="text"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="VD: KET Test 1"
+                placeholder={isMoversReading ? 'VD: MOVERS Reading Test – Tháng 10' : 'VD: KET Test 1'}
                 style={{
                   width: '100%',
                   padding: '7px 10px',
@@ -1115,7 +1300,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
                 type="text"
                 value={classCode}
                 onChange={(e) => setClassCode(e.target.value)}
-                placeholder="VD: KET-631-A"
+                placeholder={isMoversReading ? 'VD: Practice Test Plus 2' : 'VD: KET-631-A'}
                 style={{
                   width: '100%',
                   padding: '7px 10px',
@@ -1134,7 +1319,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
                 color: '#6b7280',
                 fontSize: '12px',
               }}>
-                Tên giáo viên
+                {isMoversReading ? 'Giáo viên' : 'Tên giáo viên'}
               </label>
               <input
                 type="text"
@@ -1243,13 +1428,14 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
 
         {/* Current Part Editor */}
         {currentPart && (
-          <div className="ctb-card" style={{
+          <div className={`ctb-card${isMoversReading ? ' ctb-card--movers' : ''}`} style={{
             borderRadius: '12px',
             padding: '24px',
-            boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+            boxShadow: isMoversReading ? 'none' : '0 1px 3px rgba(0,0,0,0.1)',
+            border: isMoversReading ? `2px solid ${activeMoversReadingPartTheme?.color || '#e5e7eb'}30` : 'none',
           }}>
-            <h2 style={{ margin: '0 0 20px', color: '#0e276f', display: 'flex', alignItems: 'center', gap: 8 }}>
-              <InlineIcon name="pin" size={18} />
+            <h2 style={{ margin: '0 0 20px', color: isMoversReading ? (activeMoversReadingPartTheme?.color || '#0e276f') : '#0e276f', display: 'flex', alignItems: 'center', gap: 8 }}>
+              <InlineIcon name={isMoversReading ? (QUESTION_TYPE_ICONS[currentPart?.sections?.[0]?.questionType] || 'pin') : 'pin'} size={18} style={{ color: isMoversReading ? (activeMoversReadingPartTheme?.color || '#0e276f') : undefined }} />
               {currentPart.title}
             </h2>
 
