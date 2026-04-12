@@ -33,6 +33,113 @@ const sampleTest = {
   ]
 };
 
+const mixedTypeTest = {
+  id: 77,
+  title: 'Mixed Runtime Smoke',
+  partInstructions: [
+    {
+      title: 'Part 1',
+      sections: [
+        { sectionTitle: 'Questions 1', questionType: 'fill', startingQuestionNumber: 1 },
+        { sectionTitle: 'Questions 2-3', questionType: 'abc', startingQuestionNumber: 2 },
+        { sectionTitle: 'Questions 4-5', questionType: 'abcd', startingQuestionNumber: 4 },
+      ],
+    },
+    {
+      title: 'Part 2',
+      sections: [
+        { sectionTitle: 'Questions 6-7', questionType: 'multi-select', startingQuestionNumber: 6 },
+        { sectionTitle: 'Questions 8-9', questionType: 'matching', startingQuestionNumber: 8 },
+      ],
+    },
+    {
+      title: 'Part 3',
+      sections: [
+        { sectionTitle: 'Questions 10-11', questionType: 'form-completion', startingQuestionNumber: 10 },
+        { sectionTitle: 'Questions 12-13', questionType: 'notes-completion', startingQuestionNumber: 12 },
+      ],
+    },
+    {
+      title: 'Part 4',
+      sections: [
+        { sectionTitle: 'Questions 14-15', questionType: 'table-completion', startingQuestionNumber: 14 },
+        { sectionTitle: 'Questions 16-17', questionType: 'flowchart', startingQuestionNumber: 16 },
+        { sectionTitle: 'Questions 18-19', questionType: 'map-labeling', startingQuestionNumber: 18 },
+      ],
+    },
+  ],
+  questions: [
+    { partIndex: 0, sectionIndex: 0, questionIndex: 0, questionType: 'fill', questionText: 'Enter the gate number' },
+    { partIndex: 0, sectionIndex: 1, questionIndex: 0, questionType: 'abc', questionText: 'Where is the meeting point?', options: ['Hall A', 'Hall B', 'Hall C'] },
+    { partIndex: 0, sectionIndex: 1, questionIndex: 1, questionType: 'abc', questionText: 'Which ticket did she buy?', options: ['Standard', 'Flexi', 'Return'] },
+    { partIndex: 0, sectionIndex: 2, questionIndex: 0, questionType: 'abcd', questionText: 'Which room changed?', options: ['Blue', 'Green', 'Red', 'Yellow'] },
+    { partIndex: 0, sectionIndex: 2, questionIndex: 1, questionType: 'abcd', questionText: 'Which tool is needed?', options: ['Hammer', 'Saw', 'Drill', 'Brush'] },
+    { partIndex: 1, sectionIndex: 0, questionIndex: 0, questionType: 'multi-select', questionText: 'Choose TWO facilities mentioned.', options: ['Pool', 'Gym', 'Library', 'Cafe'], requiredAnswers: 2 },
+    { partIndex: 1, sectionIndex: 1, questionIndex: 0, questionType: 'matching', leftItems: ['Alice', 'Ben'], rightItems: ['A. excited', 'B. nervous', 'C. calm'] },
+    {
+      partIndex: 2,
+      sectionIndex: 0,
+      questionIndex: 0,
+      questionType: 'form-completion',
+      formTitle: 'Booking form',
+      formRows: [
+        { label: 'Name', isBlank: true, blankNumber: 1 },
+        { label: 'Date', isBlank: true, blankNumber: 2 },
+      ],
+      answers: { 10: 'Anna', 11: 'Monday' },
+    },
+    {
+      partIndex: 2,
+      sectionIndex: 1,
+      questionIndex: 0,
+      questionType: 'notes-completion',
+      notesTitle: 'Tour notes',
+      notesText: '12 ___\n13 ___',
+      answers: { 12: 'North', 13: 'Bus' },
+    },
+    {
+      partIndex: 3,
+      sectionIndex: 0,
+      questionIndex: 0,
+      questionType: 'table-completion',
+      title: 'Travel options',
+      instruction: 'Write NO MORE THAN TWO WORDS.',
+      columns: ['Type', 'Cost', 'Comments'],
+      rows: [
+        {
+          cells: ['Bus', '[BLANK] dollars', 'bring [BLANK]'],
+          cellBlankAnswers: [[], ['12'], ['water']],
+        },
+      ],
+    },
+    {
+      partIndex: 3,
+      sectionIndex: 1,
+      questionIndex: 0,
+      questionType: 'flowchart',
+      questionText: 'Repair process',
+      options: ['A. check wires', 'B. replace fuse', 'C. restart unit'],
+      steps: [
+        { text: 'Inspect the panel' },
+        { text: 'Choose [BLANK]', hasBlank: true, correctAnswer: 'B' },
+        { text: 'Then [BLANK]', hasBlank: true, correctAnswer: 'C' },
+      ],
+      answers: { 16: 'B', 17: 'C' },
+    },
+    {
+      partIndex: 3,
+      sectionIndex: 2,
+      questionIndex: 0,
+      questionType: 'map-labeling',
+      imageUrl: '/uploads/images/map.png',
+      items: [
+        { label: 'Reception', correctAnswer: 'A' },
+        { label: 'Parking', correctAnswer: 'B' },
+      ],
+    },
+  ],
+};
+
 describe('Listening test numbering', () => {
   beforeEach(() => {
     jest.spyOn(window, 'fetch').mockImplementation((url) => {
@@ -40,10 +147,12 @@ describe('Listening test numbering', () => {
     });
     // jsdom doesn't implement scrollIntoView; stub it to avoid errors during render
     window.HTMLElement.prototype.scrollIntoView = jest.fn();
+    localStorage.clear();
   });
 
   afterEach(() => {
     jest.restoreAllMocks();
+    localStorage.clear();
   });
 
   test('renders correct section numbers when question has requiredAnswers but questionType is fill', async () => {
@@ -69,5 +178,47 @@ describe('Listening test numbering', () => {
     await userEvent.click(part3Btn);
     await screen.findByText(/Questions 21-22/);
     expect(screen.getByText(/Questions 23-27/)).toBeInTheDocument();
+  });
+
+  test('renders all major listening section types without crashing when switching parts', async () => {
+    window.fetch.mockImplementation((url) => {
+      const normalizedUrl = String(url || '');
+
+      if (normalizedUrl.includes('/listening-submissions/77/active')) {
+        return Promise.resolve({ ok: false, json: () => Promise.resolve({}) });
+      }
+
+      return Promise.resolve({ ok: true, json: () => Promise.resolve(mixedTypeTest) });
+    });
+
+    localStorage.setItem('listening:77:state:anon', JSON.stringify({ started: true, audioPlayed: {}, answers: {} }));
+
+    render(
+      <MemoryRouter initialEntries={["/listening/77"]}>
+        <Routes>
+          <Route path="/listening/:id" element={<DoListeningTest />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByText('Questions 1')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('Type your answer...')).toBeInTheDocument();
+    expect(screen.getByText('Where is the meeting point?')).toBeInTheDocument();
+    expect(screen.getByText('Which tool is needed?')).toBeInTheDocument();
+
+    await userEvent.click(await screen.findByText(/Part 2/));
+    expect(await screen.findByText('Choose TWO facilities mentioned.')).toBeInTheDocument();
+    expect(screen.getByText('Alice')).toBeInTheDocument();
+    expect(screen.getByText('C. calm')).toBeInTheDocument();
+
+    await userEvent.click(await screen.findByText(/Part 3/));
+    expect(await screen.findByText('Booking form')).toBeInTheDocument();
+    expect(screen.getByText('Tour notes')).toBeInTheDocument();
+
+    await userEvent.click(await screen.findByText(/Part 4/));
+    expect(await screen.findByText('Travel options')).toBeInTheDocument();
+    expect(screen.getByText('Repair process')).toBeInTheDocument();
+    expect(screen.getByText('Reception')).toBeInTheDocument();
+    expect(screen.getByText('Parking')).toBeInTheDocument();
   });
 });
