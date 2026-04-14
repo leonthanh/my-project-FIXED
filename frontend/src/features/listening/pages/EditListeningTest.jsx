@@ -14,6 +14,26 @@ import { apiPath, authFetch, redirectToLogin } from "../../../shared/utils/api";
  */
 import { canManageCategory } from '../../../shared/utils/permissions';
 
+const promptedEditDrafts = new Map();
+
+const shouldPromptForDraftRestore = (testId, savedDraft) => {
+  const key = String(testId || '');
+  if (!key || !savedDraft) return true;
+
+  if (promptedEditDrafts.get(key) === savedDraft) {
+    return false;
+  }
+
+  promptedEditDrafts.set(key, savedDraft);
+  return true;
+};
+
+const clearDraftRestorePrompt = (testId) => {
+  const key = String(testId || '');
+  if (!key) return;
+  promptedEditDrafts.delete(key);
+};
+
 const EditListeningTest = () => {
   const navigate = useNavigate();
   const { id } = useParams();
@@ -112,7 +132,11 @@ const EditListeningTest = () => {
         // If there's a local draft (from a failed update), offer to restore it
         try {
           const savedDraft = localStorage.getItem(`listeningTestDraftEdit-${id}`);
-          if (savedDraft) {
+          if (!savedDraft) {
+            clearDraftRestorePrompt(id);
+          }
+
+          if (savedDraft && shouldPromptForDraftRestore(id, savedDraft)) {
             const draft = JSON.parse(savedDraft);
             if (window.confirm("Tìm thấy bản nháp cục bộ. Khôi phục bản nháp?")) {
               setTitle(draft.title || (data.title || ""));
@@ -383,7 +407,10 @@ const EditListeningTest = () => {
       }
 
       setMessage("Success: Cập nhật đề thi thành công!");
-      try { localStorage.removeItem(`listeningTestDraftEdit-${id}`); } catch (e) { /* ignore */ }
+      try {
+        localStorage.removeItem(`listeningTestDraftEdit-${id}`);
+        clearDraftRestorePrompt(id);
+      } catch (e) { /* ignore */ }
 
       setTimeout(() => {
         navigate("/select-test");
