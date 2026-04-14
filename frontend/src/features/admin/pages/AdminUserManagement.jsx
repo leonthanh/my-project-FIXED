@@ -1,6 +1,17 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AdminNavbar from '../../../shared/components/AdminNavbar';
+import { SubmissionStatCards, getSubmissionTone } from '../components/SubmissionCardList';
+import {
+  AdminActionGroup,
+  AdminCardList,
+  AdminEmptyCard,
+  AdminListCard,
+  AdminListSummary,
+  AdminSelectionToolbar,
+  FilterField,
+  adminCardStyles as acs,
+} from '../components/AdminCardPrimitives';
 import { apiPath, authFetch } from '../../../shared/utils/api';
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
@@ -89,6 +100,128 @@ const testCountBadge = (count = 0) => {
       {count}
     </span>
   );
+};
+
+const normalizeText = (value) => String(value || '').trim().toLowerCase();
+
+const uniqueSortedValues = (values = []) =>
+  Array.from(new Set(values.map((value) => String(value || '').trim()).filter(Boolean)))
+    .sort((left, right) => left.localeCompare(right, undefined, { sensitivity: 'base' }));
+
+const getUserCardTone = (role) => {
+  switch (role) {
+    case 'admin':
+      return { accent: '#f59e0b', border: '#fcd34d' };
+    case 'teacher':
+      return { accent: '#2563eb', border: '#bfdbfe' };
+    default:
+      return { accent: '#64748b', border: '#e2e8f0' };
+  }
+};
+
+const getTestVisibilityMeta = (test = {}) => {
+  const normalizedStatus = normalizeText(test.status);
+  const hiddenFromStudents = typeof test.hiddenFromStudents === 'boolean'
+    ? test.hiddenFromStudents
+    : normalizedStatus
+    ? normalizedStatus !== 'published'
+    : Boolean(test.isArchived);
+
+  if (hiddenFromStudents) {
+    return {
+      hiddenFromStudents: true,
+      label: 'Hidden from students',
+      bg: '#f1f5f9',
+      color: '#475569',
+      border: '#cbd5e1',
+      accent: '#64748b',
+    };
+  }
+
+  return {
+    hiddenFromStudents: false,
+    label: 'Visible to students',
+    bg: '#dcfce7',
+    color: '#166534',
+    border: '#bbf7d0',
+    accent: '#16a34a',
+  };
+};
+
+const getTestCardTone = (test = {}) => {
+  const visibility = getTestVisibilityMeta(test);
+  if (visibility.hiddenFromStudents) {
+    return { accent: '#64748b', border: '#cbd5e1' };
+  }
+
+  if (Number(test.submissionCount || 0) > 0) {
+    return { accent: '#2563eb', border: '#bfdbfe' };
+  }
+
+  return { accent: '#0f766e', border: '#99f6e4' };
+};
+
+const getSubmissionDisplayName = (type, sub) => (type === 'cambridge' ? sub.studentName : sub.userName) || '—';
+
+const getSubmissionStatusMeta = (type, sub) => {
+  if (type === 'writing') {
+    return sub.feedback
+      ? { label: 'Feedback sent', variant: 'reviewed' }
+      : { label: 'Waiting review', variant: 'pending' };
+  }
+
+  if (type === 'cambridge') {
+    return { label: 'Submitted', variant: 'active' };
+  }
+
+  return { label: 'Submitted', variant: 'active' };
+};
+
+const getSubmissionScoreSummary = (type, sub) => {
+  const correctVal = sub.correct ?? sub.score;
+  const totalVal = sub.total ?? sub.totalQuestions;
+  if (correctVal !== undefined && totalVal) {
+    return `${correctVal}/${totalVal}`;
+  }
+  if (type === 'writing') {
+    return sub.feedback ? 'Feedback ready' : 'Pending review';
+  }
+  if (sub.percentage != null) {
+    return `${sub.percentage}%`;
+  }
+  return '—';
+};
+
+const getSubmissionBandSummary = (sub) => {
+  if (sub.band != null && sub.band !== '') {
+    return `Band ${sub.band}`;
+  }
+  if (sub.percentage != null) {
+    return `${sub.percentage}%`;
+  }
+  return '—';
+};
+
+const getSubmissionTestSummary = (type, sub) => {
+  if (type === 'cambridge') {
+    return `Test #${sub.testId || '—'}${sub.testType ? ` · ${String(sub.testType).toUpperCase()}` : ''}`;
+  }
+  return `Test #${sub.testId || '—'}`;
+};
+
+const getSubmissionMetaItems = (type, sub) => {
+  const items = [
+    { label: 'Test', value: getSubmissionTestSummary(type, sub) },
+    { label: 'Score', value: getSubmissionScoreSummary(type, sub) },
+    { label: 'Band / Result', value: getSubmissionBandSummary(sub) },
+    { label: 'Created', value: fmtDate(sub.createdAt) },
+  ];
+
+  if (type === 'writing') {
+    items.push({ label: 'Phone', value: sub.userPhone || '—' });
+  }
+
+  return items;
 };
 
 // ─── Modals ───────────────────────────────────────────────────────────────────
@@ -214,6 +347,46 @@ const UsersTab = ({ onViewSubmissions }) => {
 
   useEffect(() => { load(); }, [load]);
 
+  const resetFilters = () => {
+    setSearch('');
+    setRoleFilter('');
+  };
+
+  const userStats = useMemo(() => ([
+    {
+      key: 'total',
+      label: 'Total',
+      count: users.length,
+      bg: '#dbeafe',
+      border: '#bfdbfe',
+      color: '#1d4ed8',
+    },
+    {
+      key: 'students',
+      label: 'Students',
+      count: users.filter((user) => user.role === 'student').length,
+      bg: '#f8fafc',
+      border: '#e2e8f0',
+      color: '#475569',
+    },
+    {
+      key: 'teachers',
+      label: 'Teachers',
+      count: users.filter((user) => user.role === 'teacher').length,
+      bg: '#eff6ff',
+      border: '#bfdbfe',
+      color: '#1d4ed8',
+    },
+    {
+      key: 'admins',
+      label: 'Admins',
+      count: users.filter((user) => user.role === 'admin').length,
+      bg: '#fff7ed',
+      border: '#fed7aa',
+      color: '#c2410c',
+    },
+  ]), [users]);
+
   const deleteUser = async (user) => {
     try {
       const res = await authFetch(apiPath(`admin/users/${user.id}`), { method: 'DELETE' });
@@ -228,66 +401,75 @@ const UsersTab = ({ onViewSubmissions }) => {
   return (
     <div>
       {toast && <div style={s.toast}>{toast}</div>}
-      {/* Filters */}
-      <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
-        <input
-          style={{ ...s.input, flex: 1, minWidth: 200, margin: 0 }}
-          placeholder="Search by name, phone, or email..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
-        <select style={{ ...s.input, margin: 0, width: 160 }} value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)}>
-          <option value="">All roles</option>
-          <option value="student">Student</option>
-          <option value="teacher">Teacher</option>
-          <option value="admin">Admin</option>
-        </select>
-        <button style={s.btnBlue} onClick={load} disabled={loading}>Reload</button>
+      <SubmissionStatCards stats={userStats} />
+
+      <div style={s.filterPanel}>
+        <FilterField label="Search" minWidth={320}>
+          <input
+            style={{ ...s.input, margin: 0 }}
+            placeholder="Search by name, phone, or email..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </FilterField>
+
+        <FilterField label="Role" minWidth={180}>
+          <select style={{ ...s.input, margin: 0 }} value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)}>
+            <option value="">All roles</option>
+            <option value="student">Student</option>
+            <option value="teacher">Teacher</option>
+            <option value="admin">Admin</option>
+          </select>
+        </FilterField>
+
+        <div style={s.filterActions}>
+          <button style={s.btnBlue} onClick={load} disabled={loading}>Reload</button>
+          <button style={s.btnGray} onClick={resetFilters} disabled={loading}>Reset</button>
+        </div>
       </div>
 
       {loading && <p style={{ textAlign: 'center', color: '#888' }}>Loading users...</p>}
 
       {!loading && (
         <>
-          <p style={{ fontSize: 13, color: '#6b7280', marginBottom: 8 }}>Total: {users.length} users</p>
-          <div style={s.tableWrap}>
-            <table style={s.table}>
-              <thead>
-                <tr>
-                  <th style={s.th}>ID</th>
-                  <th style={s.th}>Name</th>
-                  <th style={s.th}>Phone</th>
-                  <th style={s.th}>Email</th>
-                  <th style={s.th}>Role</th>
-                  <th style={s.th}>Created</th>
-                  <th style={s.th}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {users.map((u) => (
-                  <tr key={u.id} style={s.tr}>
-                    <td style={{ ...s.td, color: '#9ca3af', fontSize: 12 }}>{u.id}</td>
-                    <td style={s.td}><strong>{u.name}</strong></td>
-                    <td style={s.td}>{u.phone}</td>
-                    <td style={{ ...s.td, color: '#6b7280' }}>{u.email || '—'}</td>
-                    <td style={s.td}>{roleBadge(u.role)}</td>
-                    <td style={{ ...s.td, fontSize: 12, color: '#9ca3af' }}>{fmtDate(u.createdAt)}</td>
-                    <td style={s.td}>
-                      <div style={s.actionGroup}>
+          <AdminListSummary>Showing <strong>{users.length}</strong> users</AdminListSummary>
+          {users.length === 0 ? (
+            <AdminEmptyCard>No users found for the current filters.</AdminEmptyCard>
+          ) : (
+            <AdminCardList>
+              {users.map((u) => {
+                const tone = getUserCardTone(u.role);
+                return (
+                  <AdminListCard
+                    key={u.id}
+                    accent={tone.accent}
+                    borderColor={tone.border}
+                    leading={<span style={acs.idPill}>#{u.id}</span>}
+                    title={u.name}
+                    badges={[
+                      roleBadge(u.role),
+                      u.role === 'teacher' && u.canManageTests ? <span style={acs.softPill}>Can manage tests</span> : null,
+                    ]}
+                    subtitle={`Created ${fmtDate(u.createdAt)}`}
+                    actions={(
+                      <>
                         <button style={s.btnSmGray} onClick={() => setEditModal(u)} title="Edit user">Edit</button>
                         <button style={s.btnSmGray} onClick={() => setPwModal(u)} title="Reset password">Password</button>
                         <button style={s.btnSmBlue} onClick={() => onViewSubmissions(u)} title="View submissions">Submissions</button>
                         <button style={s.btnSmRed} onClick={() => setDelConfirm(u)} title="Delete user">Delete</button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-                {users.length === 0 && (
-                  <tr><td colSpan={7} style={{ ...s.td, textAlign: 'center', color: '#9ca3af' }}>No users found.</td></tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+                      </>
+                    )}
+                    metaItems={[
+                      { label: 'Phone', value: u.phone || '—' },
+                      { label: 'Email', value: u.email || '—' },
+                      { label: 'Role', value: roleBadge(u.role) },
+                      { label: 'Created', value: fmtDate(u.createdAt) },
+                    ]}
+                  />
+                );
+              })}
+            </AdminCardList>
+          )}
         </>
       )}
 
@@ -375,6 +557,20 @@ const SubmissionsTab = ({ initialUser }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialUser, loadSubs]);
 
+  const resetSearch = () => {
+    setSearch('');
+    if (!selectedUser) {
+      searchUsers('');
+    }
+  };
+
+  const closeSelection = () => {
+    setSelectedUser(null);
+    setSubs(null);
+    setSelectedSubs(new Set());
+    searchUsers(search || '');
+  };
+
   const toggleSubSelect = (type, id) => {
     const key = `${type}:${id}`;
     setSelectedSubs((prev) => { const next = new Set(prev); next.has(key) ? next.delete(key) : next.add(key); return next; });
@@ -394,6 +590,108 @@ const SubmissionsTab = ({ initialUser }) => {
   };
 
   const selectedCurrentCount = currentKeys.filter((k) => selectedSubs.has(k)).length;
+
+  const userSearchStats = useMemo(() => ([
+    {
+      key: 'matches',
+      label: 'Matches',
+      count: users.length,
+      bg: '#dbeafe',
+      border: '#bfdbfe',
+      color: '#1d4ed8',
+    },
+    {
+      key: 'students',
+      label: 'Students',
+      count: users.filter((user) => user.role === 'student').length,
+      bg: '#f8fafc',
+      border: '#e2e8f0',
+      color: '#475569',
+    },
+    {
+      key: 'teachers',
+      label: 'Teachers',
+      count: users.filter((user) => user.role === 'teacher').length,
+      bg: '#eff6ff',
+      border: '#bfdbfe',
+      color: '#1d4ed8',
+    },
+    {
+      key: 'admins',
+      label: 'Admins',
+      count: users.filter((user) => user.role === 'admin').length,
+      bg: '#fff7ed',
+      border: '#fed7aa',
+      color: '#c2410c',
+    },
+  ]), [users]);
+
+  const submissionStats = useMemo(() => {
+    if (!subs) return [];
+    const total = SUB_TYPES.reduce((count, type) => count + (subs[type]?.length || 0), 0);
+    return [
+      {
+        key: 'total',
+        label: 'Total',
+        count: total,
+        bg: '#dbeafe',
+        border: '#bfdbfe',
+        color: '#1d4ed8',
+      },
+      {
+        key: 'writing',
+        label: 'Writing',
+        count: subs.writing?.length || 0,
+        bg: '#fff7ed',
+        border: '#fed7aa',
+        color: '#c2410c',
+      },
+      {
+        key: 'reading',
+        label: 'Reading',
+        count: subs.reading?.length || 0,
+        bg: '#eff6ff',
+        border: '#bfdbfe',
+        color: '#1d4ed8',
+      },
+      {
+        key: 'listening',
+        label: 'Listening',
+        count: subs.listening?.length || 0,
+        bg: '#ecfeff',
+        border: '#a5f3fc',
+        color: '#0f766e',
+      },
+      {
+        key: 'cambridge',
+        label: 'Orange',
+        count: subs.cambridge?.length || 0,
+        bg: '#f5f3ff',
+        border: '#ddd6fe',
+        color: '#6d28d9',
+      },
+    ];
+  }, [subs]);
+
+  const deleteListedUser = async (user) => {
+    if (!window.confirm(`Delete user "${user.name}" (${user.phone})?`)) return;
+
+    try {
+      const res = await authFetch(apiPath(`admin/users/${user.id}`), { method: 'DELETE' });
+      await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error('Could not delete user.');
+
+      setUsers((prev) => prev.filter((candidate) => candidate.id !== user.id));
+      if (selectedUser?.id === user.id) {
+        setSelectedUser(null);
+        setSubs(null);
+        setSelectedSubs(new Set());
+      }
+      showToast('User deleted.');
+    } catch (_err) {
+      showToast('Could not delete user.');
+    }
+  };
 
   const deleteSub = async (type, id) => {
     if (!window.confirm('Delete this submission?')) return;
@@ -429,69 +727,100 @@ const SubmissionsTab = ({ initialUser }) => {
     finally { setBulkDeleting(false); }
   };
 
-  const renderSubRow = (type, sub) => {
-    const name = type === 'cambridge' ? sub.studentName : sub.userName;
-    const correctVal = sub.correct ?? sub.score;
-    const totalVal = sub.total ?? sub.totalQuestions;
-    const score = (correctVal !== undefined && totalVal) ? `${correctVal}/${totalVal}` : '—';
-    const band = sub.band ? `Band ${sub.band}` : (sub.percentage != null ? `${sub.percentage}%` : '');
-    const key = `${type}:${sub.id}`;
-    return (
-      <tr key={sub.id} style={{ ...s.tr, background: selectedSubs.has(key) ? '#fef2f2' : undefined }}>
-        <td style={s.tdCheckbox}>
-          <input type="checkbox" checked={selectedSubs.has(key)} onChange={() => toggleSubSelect(type, sub.id)} />
-        </td>
-        <td style={{ ...s.td, fontSize: 12, color: '#9ca3af' }}>{sub.id}</td>
-        <td style={s.td}>{name || '—'}</td>
-        <td style={{ ...s.td, fontSize: 12 }}>Test #{sub.testId || '—'}{sub.testType ? ` (${sub.testType})` : ''}</td>
-        <td style={s.td}>{score} {band && <span style={{ color: '#2563eb', fontSize: 12 }}>{band}</span>}</td>
-        <td style={{ ...s.td, fontSize: 12, color: '#9ca3af' }}>{fmtDate(sub.createdAt)}</td>
-        <td style={s.td}>
-          <button style={s.btnSmRed} onClick={() => deleteSub(type, sub.id)} title="Delete submission">Delete</button>
-        </td>
-      </tr>
-    );
-  };
-
   return (
     <div>
       {toast && <div style={s.toast}>{toast}</div>}
-      {/* Search user */}
-      <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
-        <input
-          style={{ ...s.input, flex: 1, minWidth: 200, margin: 0 }}
-          placeholder="Search by user name or phone..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && searchUsers()}
-        />
-        <button style={s.btnBlue} onClick={searchUsers} disabled={loading}>Search</button>
+
+      <div style={s.filterPanel}>
+        <FilterField label="Search user" minWidth={320}>
+          <input
+            style={{ ...s.input, margin: 0 }}
+            placeholder="Search by user name or phone..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && searchUsers()}
+          />
+        </FilterField>
+
+        <div style={s.filterActions}>
+          <button style={s.btnBlue} onClick={searchUsers} disabled={loading}>Search</button>
+          <button style={s.btnGray} onClick={resetSearch} disabled={loading}>Reset</button>
+        </div>
       </div>
 
-      {users.length > 0 && !selectedUser && (
-        <div style={{ marginBottom: 16 }}>
-          <p style={{ fontSize: 13, color: '#6b7280', marginBottom: 6 }}>Choose a user to view submissions:</p>
-          {users.map((u) => (
-            <button key={u.id} style={s.userChip} onClick={() => loadSubs(u)}>
-              {u.name} · {u.phone} · {roleBadge(u.role)}
-            </button>
-          ))}
-        </div>
+      {!selectedUser && <SubmissionStatCards stats={userSearchStats} />}
+
+      {!selectedUser && loading && <p style={{ textAlign: 'center', color: '#888' }}>Searching users...</p>}
+
+      {!selectedUser && !loading && (
+        <>
+          <AdminListSummary>Choose a user to view submissions.</AdminListSummary>
+          {users.length === 0 ? (
+            <AdminEmptyCard>No users found for the current search.</AdminEmptyCard>
+          ) : (
+            <AdminCardList>
+              {users.map((u) => {
+                const tone = getUserCardTone(u.role);
+                return (
+                  <AdminListCard
+                    key={u.id}
+                    accent={tone.accent}
+                    borderColor={tone.border}
+                    leading={<span style={acs.idPill}>#{u.id}</span>}
+                    title={u.name}
+                    badges={[roleBadge(u.role)]}
+                    subtitle="Open this user to manage writing, reading, listening, and Orange submissions."
+                    actions={(
+                      <>
+                        <button style={s.btnSmBlue} onClick={() => loadSubs(u)}>Open submissions</button>
+                        <button style={s.btnSmRed} onClick={() => deleteListedUser(u)} title="Delete user">Delete</button>
+                      </>
+                    )}
+                    metaItems={[
+                      { label: 'Phone', value: u.phone || '—' },
+                      { label: 'Email', value: u.email || '—' },
+                      { label: 'Role', value: roleBadge(u.role) },
+                      { label: 'Created', value: fmtDate(u.createdAt) },
+                    ]}
+                  />
+                );
+              })}
+            </AdminCardList>
+          )}
+        </>
       )}
 
       {selectedUser && (
         <>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
-            <span style={{ fontSize: 14 }}>Submissions for: <strong>{selectedUser.name}</strong> ({selectedUser.phone})</span>
-            <button style={s.btnSmGray} onClick={() => { setSelectedUser(null); setSubs(null); setUsers([]); setSearch(''); setSelectedSubs(new Set()); }}>Close</button>
-          </div>
+          <AdminListCard
+            accent="#0e276f"
+            borderColor="#bfdbfe"
+            leading={<span style={acs.idPill}>#{selectedUser.id}</span>}
+            title={selectedUser.name}
+            badges={[roleBadge(selectedUser.role)]}
+            subtitle="Manage all submissions for this user across Writing, Reading, Listening, and Orange."
+            actions={(
+              <>
+                <button style={s.btnSmGray} onClick={closeSelection}>Back to user list</button>
+                <button style={s.btnSmRed} onClick={() => deleteListedUser(selectedUser)}>Delete user</button>
+              </>
+            )}
+            metaItems={[
+              { label: 'Phone', value: selectedUser.phone || '—' },
+              { label: 'Email', value: selectedUser.email || '—' },
+              { label: 'Role', value: roleBadge(selectedUser.role) },
+              { label: 'Created', value: fmtDate(selectedUser.createdAt) },
+            ]}
+            style={{ marginBottom: 16 }}
+          />
 
           {loading && <p style={{ color: '#888', textAlign: 'center' }}>Loading submissions...</p>}
 
           {subs && !loading && (
             <>
-              {/* Type tabs */}
-              <div style={{ display: 'flex', gap: 4, borderBottom: '2px solid #e5e7eb' }}>
+              <SubmissionStatCards stats={submissionStats} />
+
+              <div style={{ ...s.tabBar, marginBottom: 12 }}>
                 {SUB_TYPES.map((t) => (
                   <button
                     key={t} onClick={() => setActiveType(t)}
@@ -502,7 +831,22 @@ const SubmissionsTab = ({ initialUser }) => {
                 ))}
               </div>
 
-              {/* Bulk bar for submissions */}
+              <AdminSelectionToolbar>
+                <span style={acs.selectionSummary}>
+                  Showing <strong>{currentList.length}</strong> {SUB_LABELS[activeType].toLowerCase()} submissions
+                </span>
+                <AdminActionGroup>
+                  {currentList.length > 0 ? (
+                    <button style={s.btnSmGray} onClick={toggleAllSubs}>
+                      {allSubsSelected ? 'Unselect all' : someSubsSelected ? 'Select all visible' : 'Select all visible'}
+                    </button>
+                  ) : null}
+                  {selectedCurrentCount > 0 ? (
+                    <button style={s.btnSmGray} onClick={() => setSelectedSubs(new Set())} disabled={bulkDeleting}>Clear selection</button>
+                  ) : null}
+                </AdminActionGroup>
+              </AdminSelectionToolbar>
+
               {selectedCurrentCount > 0 && (
                 <div style={s.bulkBar}>
                   <span style={{ fontSize: 14 }}>Selected <strong>{selectedCurrentCount}</strong> submissions</span>
@@ -513,33 +857,51 @@ const SubmissionsTab = ({ initialUser }) => {
                 </div>
               )}
 
-              <div style={{ ...s.tableWrap, marginTop: 0 }}>
-                <table style={{ ...s.table, borderRadius: '0 0 8px 8px' }}>
-                  <thead>
-                    <tr>
-                      <th style={{ ...s.th, width: 36 }}>
-                        <input
-                          type="checkbox" checked={allSubsSelected}
-                          ref={(el) => { if (el) el.indeterminate = someSubsSelected; }}
-                          onChange={toggleAllSubs}
-                        />
-                      </th>
-                      <th style={s.th}>ID</th>
-                      <th style={s.th}>Name</th>
-                      <th style={s.th}>Test</th>
-                      <th style={s.th}>Score</th>
-                      <th style={s.th}>Date</th>
-                      <th style={s.th}>Delete</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {currentList.map((sub) => renderSubRow(activeType, sub))}
-                    {currentList.length === 0 && (
-                      <tr><td colSpan={7} style={{ ...s.td, textAlign: 'center', color: '#9ca3af' }}>No {SUB_LABELS[activeType]} submissions.</td></tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
+              {currentList.length === 0 ? (
+                <AdminEmptyCard>No {SUB_LABELS[activeType]} submissions for this user.</AdminEmptyCard>
+              ) : (
+                <AdminCardList>
+                  {currentList.map((sub) => {
+                    const key = `${activeType}:${sub.id}`;
+                    const statusMeta = getSubmissionStatusMeta(activeType, sub);
+                    const tone = getSubmissionTone(statusMeta.variant);
+                    const isSelected = selectedSubs.has(key);
+
+                    return (
+                      <AdminListCard
+                        key={key}
+                        accent={isSelected ? '#f59e0b' : tone.accent}
+                        borderColor={isSelected ? '#f59e0b' : tone.border}
+                        leading={(
+                          <>
+                            <label style={acs.selectionCheckboxLabel}>
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={() => toggleSubSelect(activeType, sub.id)}
+                              />
+                            </label>
+                            <span style={acs.idPill}>#{sub.id}</span>
+                          </>
+                        )}
+                        title={getSubmissionDisplayName(activeType, sub)}
+                        badges={[
+                          <span style={{ ...acs.statusPill, background: tone.chipBg, color: tone.chipColor, borderColor: tone.border }}>
+                            {statusMeta.label}
+                          </span>,
+                        ]}
+                        subtitle={getSubmissionTestSummary(activeType, sub)}
+                        actions={<button style={s.btnSmRed} onClick={() => deleteSub(activeType, sub.id)} title="Delete submission">Delete</button>}
+                        metaItems={getSubmissionMetaItems(activeType, sub)}
+                        style={{
+                          borderColor: isSelected ? '#f59e0b' : tone.border,
+                          boxShadow: isSelected ? '0 0 0 2px rgba(245, 158, 11, 0.18)' : '0 8px 24px rgba(15, 23, 42, 0.04)',
+                        }}
+                      />
+                    );
+                  })}
+                </AdminCardList>
+              )}
             </>
           )}
         </>
@@ -551,6 +913,8 @@ const SubmissionsTab = ({ initialUser }) => {
 // ─── Tab: Duplicates ──────────────────────────────────────────────────────────
 const DuplicatesTab = () => {
   const [groups, setGroups] = useState([]);
+  const [search, setSearch] = useState('');
+  const [roleFilter, setRoleFilter] = useState('');
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState('');
 
@@ -568,15 +932,77 @@ const DuplicatesTab = () => {
 
   useEffect(() => { load(); }, []);
 
-  const deleteUser = async (user, groupIdx) => {
+  const resetFilters = () => {
+    setSearch('');
+    setRoleFilter('');
+  };
+
+  const filteredGroups = useMemo(() => {
+    const normalizedQuery = normalizeText(search);
+    return groups.filter((group) => group.some((user) => {
+      if (roleFilter && user.role !== roleFilter) {
+        return false;
+      }
+
+      if (!normalizedQuery) {
+        return true;
+      }
+
+      const haystack = [user.id, user.name, user.phone, user.email, user.role]
+        .map((value) => String(value || '').toLowerCase())
+        .join(' ');
+
+      return haystack.includes(normalizedQuery);
+    }));
+  }, [groups, roleFilter, search]);
+
+  const duplicateStats = useMemo(() => {
+    const accounts = filteredGroups.flat();
+    return [
+      {
+        key: 'groups',
+        label: 'Groups',
+        count: filteredGroups.length,
+        bg: '#fef3c7',
+        border: '#fcd34d',
+        color: '#92400e',
+      },
+      {
+        key: 'accounts',
+        label: 'Accounts',
+        count: accounts.length,
+        bg: '#dbeafe',
+        border: '#bfdbfe',
+        color: '#1d4ed8',
+      },
+      {
+        key: 'students',
+        label: 'Students',
+        count: accounts.filter((user) => user.role === 'student').length,
+        bg: '#f8fafc',
+        border: '#e2e8f0',
+        color: '#475569',
+      },
+      {
+        key: 'staff',
+        label: 'Teachers/Admins',
+        count: accounts.filter((user) => user.role !== 'student').length,
+        bg: '#eff6ff',
+        border: '#bfdbfe',
+        color: '#1d4ed8',
+      },
+    ];
+  }, [filteredGroups]);
+
+  const deleteUser = async (user) => {
     if (!window.confirm(`Delete user "${user.name}" (${user.phone})?`)) return;
     try {
       const res = await authFetch(apiPath(`admin/users/${user.id}`), { method: 'DELETE' });
       await res.json().catch(() => ({}));
       if (!res.ok) throw new Error('Could not delete user.');
       setGroups((prev) => {
-        const updated = prev.map((g, i) => i === groupIdx ? g.filter((u) => u.id !== user.id) : g);
-        return updated.filter((g) => g.length > 1);
+        const updated = prev.map((group) => group.filter((candidate) => candidate.id !== user.id));
+        return updated.filter((group) => group.length > 1);
       });
       showToast('User deleted.');
     } catch (e) { showToast('Could not delete user.'); }
@@ -585,56 +1011,105 @@ const DuplicatesTab = () => {
   return (
     <div>
       {toast && <div style={s.toast}>{toast}</div>}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, flexWrap: 'wrap', gap: 8 }}>
-        <p style={{ fontSize: 14, color: '#6b7280', margin: 0 }}>
-          Find users registered with <strong>duplicate names</strong> using case-insensitive matching.
-        </p>
-        <button style={s.btnBlue} onClick={load} disabled={loading}>Reload</button>
+
+      <SubmissionStatCards stats={duplicateStats} />
+
+      <div style={s.filterPanel}>
+        <FilterField label="Search" minWidth={320}>
+          <input
+            style={{ ...s.input, margin: 0 }}
+            placeholder="Filter duplicate groups by name, phone, email, or id..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </FilterField>
+
+        <FilterField label="Role" minWidth={180}>
+          <select style={{ ...s.input, margin: 0 }} value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)}>
+            <option value="">All roles</option>
+            <option value="student">Student</option>
+            <option value="teacher">Teacher</option>
+            <option value="admin">Admin</option>
+          </select>
+        </FilterField>
+
+        <div style={s.filterActions}>
+          <button style={s.btnBlue} onClick={load} disabled={loading}>Reload</button>
+          <button style={s.btnGray} onClick={resetFilters} disabled={loading}>Reset</button>
+        </div>
       </div>
 
       {loading && <p style={{ textAlign: 'center', color: '#888' }}>Searching...</p>}
 
-      {!loading && groups.length === 0 && (
-        <p style={{ textAlign: 'center', color: '#22c55e', fontWeight: 600, marginTop: 40 }}>No duplicate names found.</p>
-      )}
+      {!loading && (
+        <>
+          <AdminListSummary>
+            Showing <strong>{filteredGroups.length}</strong> duplicate groups.
+          </AdminListSummary>
 
-      {groups.map((group, gi) => (
-        <div key={gi} style={{ marginBottom: 20, border: '1px solid #fcd34d', borderRadius: 8, overflow: 'hidden' }}>
-          <div style={{ background: '#fef9c3', padding: '8px 14px', fontSize: 13, fontWeight: 600, color: '#92400e' }}>
-            Duplicate name: "{group[0].name}" — {group.length} accounts
-          </div>
-          <div style={s.tableWrap}>
-            <table style={{ ...s.table, borderRadius: 0, boxShadow: 'none' }}>
-              <thead>
-                <tr>
-                  <th style={s.th}>ID</th>
-                  <th style={s.th}>Name</th>
-                  <th style={s.th}>Phone</th>
-                  <th style={s.th}>Email</th>
-                  <th style={s.th}>Role</th>
-                  <th style={s.th}>Created</th>
-                  <th style={s.th}>Delete</th>
-                </tr>
-              </thead>
-              <tbody>
-                {group.map((u) => (
-                  <tr key={u.id} style={s.tr}>
-                    <td style={{ ...s.td, fontSize: 12, color: '#9ca3af' }}>{u.id}</td>
-                    <td style={s.td}><strong>{u.name}</strong></td>
-                    <td style={s.td}>{u.phone}</td>
-                    <td style={{ ...s.td, color: '#6b7280' }}>{u.email || '—'}</td>
-                    <td style={s.td}>{roleBadge(u.role)}</td>
-                    <td style={{ ...s.td, fontSize: 12, color: '#9ca3af' }}>{fmtDate(u.createdAt)}</td>
-                    <td style={s.td}>
-                      <button style={s.btnSmRed} onClick={() => deleteUser(u, gi)} title="Delete user">Delete</button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      ))}
+          {filteredGroups.length === 0 ? (
+            <AdminEmptyCard>No duplicate names found for the current filters.</AdminEmptyCard>
+          ) : (
+            <AdminCardList>
+              {filteredGroups.map((group, gi) => {
+                const studentsCount = group.filter((user) => user.role === 'student').length;
+                const latestCreatedAt = group.reduce((latest, user) => {
+                  if (!user.createdAt) return latest;
+                  if (!latest) return user.createdAt;
+                  return new Date(user.createdAt) > new Date(latest) ? user.createdAt : latest;
+                }, null);
+
+                return (
+                  <AdminListCard
+                    key={`${group[0]?.name || 'duplicate'}-${gi}`}
+                    accent="#d97706"
+                    borderColor="#fcd34d"
+                    leading={<span style={s.groupTag}>Duplicate group</span>}
+                    title={group[0]?.name || 'Unnamed user'}
+                    badges={[
+                      <span style={{ ...acs.statusPill, background: '#fef3c7', color: '#92400e', borderColor: '#fcd34d' }}>
+                        {group.length} accounts
+                      </span>,
+                    ]}
+                    subtitle="These accounts share the same normalized name. Check phone, email, and role before deleting a record."
+                    metaItems={[
+                      { label: 'Accounts', value: group.length },
+                      { label: 'Students', value: studentsCount },
+                      { label: 'Teachers/Admins', value: group.length - studentsCount },
+                      { label: 'Latest created', value: fmtDate(latestCreatedAt) },
+                    ]}
+                  >
+                    <AdminCardList style={s.duplicateNestedList}>
+                      {group.map((u) => {
+                        const tone = getUserCardTone(u.role);
+                        return (
+                          <AdminListCard
+                            key={u.id}
+                            accent={tone.accent}
+                            borderColor={tone.border}
+                            leading={<span style={acs.idPill}>#{u.id}</span>}
+                            title={u.name}
+                            badges={[roleBadge(u.role)]}
+                            subtitle={u.phone || 'No phone number'}
+                            actions={<button style={s.btnSmRed} onClick={() => deleteUser(u)} title="Delete user">Delete</button>}
+                            metaItems={[
+                              { label: 'Phone', value: u.phone || '—' },
+                              { label: 'Email', value: u.email || '—' },
+                              { label: 'Role', value: roleBadge(u.role) },
+                              { label: 'Created', value: fmtDate(u.createdAt) },
+                            ]}
+                            style={s.duplicateNestedCard}
+                          />
+                        );
+                      })}
+                    </AdminCardList>
+                  </AdminListCard>
+                );
+              })}
+            </AdminCardList>
+          )}
+        </>
+      )}
     </div>
   );
 };
@@ -645,10 +1120,16 @@ const TestsTab = () => {
   const [tests, setTests] = useState({ ixWriting: [], ixReading: [], ixListening: [], cambridge: [] });
   const [activeBucket, setActiveBucket] = useState('ixWriting');
   const [search, setSearch] = useState('');
+  const [teacherFilter, setTeacherFilter] = useState('');
+  const [classFilter, setClassFilter] = useState('');
+  const [visibilityFilter, setVisibilityFilter] = useState('all');
   const [cambridgeLevel, setCambridgeLevel] = useState('');
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState('');
+  const [updatingKey, setUpdatingKey] = useState('');
   const [deletingKey, setDeletingKey] = useState('');
+  const [selectedTests, setSelectedTests] = useState(new Set());
+  const [bulkVisibilityAction, setBulkVisibilityAction] = useState('');
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(''), 3500); };
 
@@ -673,10 +1154,75 @@ const TestsTab = () => {
 
   useEffect(() => { load(); }, [load]);
 
+  useEffect(() => {
+    setTeacherFilter('');
+    setClassFilter('');
+    setVisibilityFilter('all');
+    setCambridgeLevel('');
+    setSelectedTests(new Set());
+  }, [activeBucket]);
+
+  const bucketTests = useMemo(() => tests[activeBucket] || [], [activeBucket, tests]);
+
+  const teacherOptions = useMemo(() => uniqueSortedValues(bucketTests.map((test) => test.teacherName)), [bucketTests]);
+  const classOptions = useMemo(() => uniqueSortedValues(bucketTests.map((test) => test.classCode)), [bucketTests]);
+
+  const bucketStats = useMemo(() => ([
+    {
+      key: 'total',
+      label: 'Total',
+      count: bucketTests.length,
+      bg: '#dbeafe',
+      border: '#bfdbfe',
+      color: '#1d4ed8',
+    },
+    {
+      key: 'visible',
+      label: 'Visible',
+      count: bucketTests.filter((test) => !getTestVisibilityMeta(test).hiddenFromStudents).length,
+      bg: '#dcfce7',
+      border: '#bbf7d0',
+      color: '#166534',
+    },
+    {
+      key: 'hidden',
+      label: 'Hidden',
+      count: bucketTests.filter((test) => getTestVisibilityMeta(test).hiddenFromStudents).length,
+      bg: '#f1f5f9',
+      border: '#cbd5e1',
+      color: '#475569',
+    },
+    {
+      key: 'linked',
+      label: 'With submissions',
+      count: bucketTests.filter((test) => Number(test.submissionCount || 0) > 0).length,
+      bg: '#fff7ed',
+      border: '#fed7aa',
+      color: '#c2410c',
+    },
+  ]), [bucketTests]);
+
   const currentList = useMemo(() => {
     const normalizedQuery = search.trim().toLowerCase();
-    return (tests[activeBucket] || []).filter((test) => {
+    return bucketTests.filter((test) => {
       if (activeBucket === 'cambridge' && cambridgeLevel && getCambridgeLevelKey(test) !== cambridgeLevel) {
+        return false;
+      }
+
+      if (teacherFilter && String(test.teacherName || '').trim() !== teacherFilter) {
+        return false;
+      }
+
+      if (classFilter && String(test.classCode || '').trim() !== classFilter) {
+        return false;
+      }
+
+      const visibility = getTestVisibilityMeta(test);
+      if (visibilityFilter === 'visible' && visibility.hiddenFromStudents) {
+        return false;
+      }
+
+      if (visibilityFilter === 'hidden' && !visibility.hiddenFromStudents) {
         return false;
       }
 
@@ -694,23 +1240,166 @@ const TestsTab = () => {
 
       return haystack.includes(normalizedQuery);
     });
-  }, [activeBucket, cambridgeLevel, search, tests]);
+  }, [activeBucket, bucketTests, cambridgeLevel, classFilter, search, teacherFilter, visibilityFilter]);
 
   const cambridgeLevels = useMemo(() => {
     const levels = Array.from(new Set((tests.cambridge || []).map(getCambridgeLevelKey).filter(Boolean)));
     return levels.sort();
   }, [tests.cambridge]);
 
+  const currentKeys = useMemo(
+    () => currentList.map((test) => `${test.deleteScope}:${test.id}`),
+    [currentList]
+  );
+  const selectedCurrentCount = currentKeys.filter((key) => selectedTests.has(key)).length;
+  const allVisibleSelected = currentList.length > 0 && currentKeys.every((key) => selectedTests.has(key));
+  const someVisibleSelected = !allVisibleSelected && currentKeys.some((key) => selectedTests.has(key));
+
+  const resetFilters = () => {
+    setSearch('');
+    setTeacherFilter('');
+    setClassFilter('');
+    setVisibilityFilter('all');
+    setCambridgeLevel('');
+  };
+
+  const toggleTestSelect = (test) => {
+    const key = `${test.deleteScope}:${test.id}`;
+    setSelectedTests((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
+
+  const toggleAllVisibleTests = () => {
+    setSelectedTests((prev) => {
+      const next = new Set(prev);
+      if (allVisibleSelected) currentKeys.forEach((key) => next.delete(key));
+      else currentKeys.forEach((key) => next.add(key));
+      return next;
+    });
+  };
+
+  const setTestVisibility = async (test, hidden) => {
+    const updateKey = `${test.deleteScope}:${test.id}`;
+    setUpdatingKey(updateKey);
+    try {
+      const res = await authFetch(apiPath(`admin/tests/${test.deleteScope}/${test.id}/visibility`), {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ hidden }),
+      });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error('Could not update test visibility.');
+
+      const bucket = getAdminTestBucketFromScope(test.deleteScope);
+      const updatedTest = payload?.test || {};
+      setTests((prev) => ({
+        ...prev,
+        [bucket]: (prev[bucket] || []).map((item) => (
+          item.id === test.id && item.deleteScope === test.deleteScope
+            ? {
+                ...item,
+                hiddenFromStudents: typeof updatedTest.hiddenFromStudents === 'boolean'
+                  ? updatedTest.hiddenFromStudents
+                  : hidden,
+                status: updatedTest.status || (hidden ? 'archived' : 'published'),
+              }
+            : item
+        )),
+      }));
+      showToast(hidden ? 'Test hidden from student lists.' : 'Test visible to students again.');
+    } catch (_err) {
+      showToast('Could not update test visibility.');
+    } finally {
+      setUpdatingKey('');
+    }
+  };
+
+  const applyBulkVisibility = async (hidden) => {
+    const selectedItems = currentList.filter((test) => selectedTests.has(`${test.deleteScope}:${test.id}`));
+    if (!selectedItems.length) return;
+
+    const actionLabel = hidden ? 'hide' : 'show';
+    if (!window.confirm(`${actionLabel === 'hide' ? 'Hide' : 'Show'} ${selectedItems.length} selected tests ${hidden ? 'from students' : 'to students'}?`)) {
+      return;
+    }
+
+    setBulkVisibilityAction(hidden ? 'hide' : 'show');
+    try {
+      const results = await Promise.allSettled(
+        selectedItems.map(async (test) => {
+          const res = await authFetch(apiPath(`admin/tests/${test.deleteScope}/${test.id}/visibility`), {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ hidden }),
+          });
+          const payload = await res.json().catch(() => ({}));
+          if (!res.ok) throw new Error('Could not update test visibility.');
+          return {
+            key: `${test.deleteScope}:${test.id}`,
+            scope: test.deleteScope,
+            id: test.id,
+            test: payload?.test || {},
+          };
+        })
+      );
+
+      const succeeded = results
+        .filter((result) => result.status === 'fulfilled')
+        .map((result) => result.value);
+
+      if (!succeeded.length) {
+        throw new Error('Could not update selected tests.');
+      }
+
+      const updates = new Map(
+        succeeded.map((item) => [item.key, item])
+      );
+
+      setTests((prev) => {
+        const next = { ...prev };
+        Object.keys(next).forEach((bucket) => {
+          next[bucket] = (next[bucket] || []).map((item) => {
+            const key = `${item.deleteScope}:${item.id}`;
+            const match = updates.get(key);
+            if (!match) return item;
+            return {
+              ...item,
+              hiddenFromStudents: typeof match.test.hiddenFromStudents === 'boolean'
+                ? match.test.hiddenFromStudents
+                : hidden,
+              status: match.test.status || (hidden ? 'archived' : 'published'),
+            };
+          });
+        });
+        return next;
+      });
+
+      setSelectedTests((prev) => {
+        const next = new Set(prev);
+        succeeded.forEach((item) => next.delete(item.key));
+        return next;
+      });
+
+      if (succeeded.length === selectedItems.length) {
+        showToast(hidden ? 'Selected tests hidden from student lists.' : 'Selected tests visible to students again.');
+      } else {
+        showToast(hidden
+          ? `${succeeded.length}/${selectedItems.length} selected tests hidden.`
+          : `${succeeded.length}/${selectedItems.length} selected tests shown.`);
+      }
+    } catch (_err) {
+      showToast('Could not update selected tests.');
+    } finally {
+      setBulkVisibilityAction('');
+    }
+  };
+
   const deleteTest = async (test) => {
-    const impactLine = Number(test.submissionCount || 0) > 0
-      ? `This test currently has ${test.submissionCount} linked submissions. Hard deletion may make old review context harder to recover.`
-      : 'No linked submissions found for this test.';
-
-    const confirmed = window.confirm(
-      `Delete "${test.title}"?\n\nThis permanently removes the test from the admin and student lists.\n${impactLine}`
-    );
-
-    if (!confirmed) return;
+    if (!window.confirm(`Delete test "${test.title}" permanently? This cannot be undone.`)) return;
 
     const deleteKey = `${test.deleteScope}:${test.id}`;
     setDeletingKey(deleteKey);
@@ -722,9 +1411,14 @@ const TestsTab = () => {
       const bucket = getAdminTestBucketFromScope(test.deleteScope);
       setTests((prev) => ({
         ...prev,
-        [bucket]: (prev[bucket] || []).filter((item) => item.id !== test.id || item.deleteScope !== test.deleteScope),
+        [bucket]: (prev[bucket] || []).filter((item) => !(item.id === test.id && item.deleteScope === test.deleteScope)),
       }));
-      showToast('Test deleted.');
+      setSelectedTests((prev) => {
+        const next = new Set(prev);
+        next.delete(`${test.deleteScope}:${test.id}`);
+        return next;
+      });
+      showToast('Test deleted permanently.');
     } catch (_err) {
       showToast('Could not delete test.');
     } finally {
@@ -739,9 +1433,11 @@ const TestsTab = () => {
       <div style={s.infoCard}>
         <strong style={{ display: 'block', marginBottom: 6, color: '#7c2d12' }}>Admin note</strong>
         <span style={{ fontSize: 14, color: '#9a3412', lineHeight: 1.6 }}>
-          Hard delete is useful when a test has been leaked and must disappear immediately. A safer long-term workflow would be an archive/unpublish state, but this panel gives admin one place to remove tests without using phpMyAdmin.
+          Hide keeps submissions and review context intact. Use permanent delete only when a test must be removed completely to resolve parent or class complaints.
         </span>
       </div>
+
+      <SubmissionStatCards stats={bucketStats} />
 
       <div style={{ ...s.tabBar, marginBottom: 16 }}>
         {TEST_BUCKETS.map((bucket) => (
@@ -756,95 +1452,180 @@ const TestsTab = () => {
         ))}
       </div>
 
-      <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
-        <input
-          style={{ ...s.input, flex: 1, minWidth: 220, margin: 0 }}
-          placeholder="Search by title, class, teacher, level, or id..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
-        {activeBucket === 'cambridge' && (
-          <select
-            style={{ ...s.input, margin: 0, width: 180 }}
-            value={cambridgeLevel}
-            onChange={(e) => setCambridgeLevel(e.target.value)}
-          >
-            <option value="">All levels</option>
-            {cambridgeLevels.map((level) => (
-              <option key={level} value={level}>{level.toUpperCase()}</option>
+      <div style={s.filterPanel}>
+        <FilterField label="Search" minWidth={280}>
+          <input
+            style={{ ...s.input, margin: 0 }}
+            placeholder="Search by title, class, teacher, level, or id..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </FilterField>
+
+        <FilterField label="Teacher" minWidth={180}>
+          <select style={{ ...s.input, margin: 0 }} value={teacherFilter} onChange={(e) => setTeacherFilter(e.target.value)}>
+            <option value="">All teachers</option>
+            {teacherOptions.map((teacher) => (
+              <option key={teacher} value={teacher}>{teacher}</option>
             ))}
           </select>
+        </FilterField>
+
+        <FilterField label="Class" minWidth={180}>
+          <select style={{ ...s.input, margin: 0 }} value={classFilter} onChange={(e) => setClassFilter(e.target.value)}>
+            <option value="">All classes</option>
+            {classOptions.map((classCode) => (
+              <option key={classCode} value={classCode}>{classCode}</option>
+            ))}
+          </select>
+        </FilterField>
+
+        <FilterField label="Visibility" minWidth={180}>
+          <select style={{ ...s.input, margin: 0 }} value={visibilityFilter} onChange={(e) => setVisibilityFilter(e.target.value)}>
+            <option value="all">All visibility</option>
+            <option value="visible">Visible to students</option>
+            <option value="hidden">Hidden from students</option>
+          </select>
+        </FilterField>
+
+        {activeBucket === 'cambridge' && (
+          <FilterField label="Level" minWidth={180}>
+            <select
+              style={{ ...s.input, margin: 0 }}
+              value={cambridgeLevel}
+              onChange={(e) => setCambridgeLevel(e.target.value)}
+            >
+              <option value="">All levels</option>
+              {cambridgeLevels.map((level) => (
+                <option key={level} value={level}>{level.toUpperCase()}</option>
+              ))}
+            </select>
+          </FilterField>
         )}
-        <button style={s.btnBlue} onClick={load} disabled={loading}>Reload</button>
+
+        <div style={s.filterActions}>
+          <button style={s.btnBlue} onClick={load} disabled={loading}>Reload</button>
+          <button style={s.btnGray} onClick={resetFilters} disabled={loading}>Reset</button>
+        </div>
       </div>
 
       {loading && <p style={{ textAlign: 'center', color: '#888' }}>Loading tests...</p>}
 
       {!loading && (
         <>
-          <p style={{ fontSize: 13, color: '#6b7280', marginBottom: 8 }}>Total: {currentList.length} tests</p>
-          <div style={s.tableWrap}>
-            <table style={s.table}>
-              <thead>
-                <tr>
-                  <th style={s.th}>ID</th>
-                  <th style={s.th}>Title</th>
-                  <th style={s.th}>Class</th>
-                  <th style={s.th}>Teacher</th>
-                  <th style={s.th}>Type</th>
-                  <th style={s.th}>Submissions</th>
-                  <th style={s.th}>Created</th>
-                  <th style={s.th}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {currentList.map((test) => {
-                  const editPath = getAdminTestEditPath(test);
-                  const deleteKey = `${test.deleteScope}:${test.id}`;
-                  return (
-                    <tr key={deleteKey} style={s.tr}>
-                      <td style={{ ...s.td, color: '#9ca3af', fontSize: 12 }}>{test.id}</td>
-                      <td style={s.td}>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                          <strong>{test.title}</strong>
-                          {test.status ? <span style={s.inlineMeta}>Status: {test.status}</span> : null}
-                        </div>
-                      </td>
-                      <td style={s.td}>{test.classCode || '—'}</td>
-                      <td style={s.td}>{test.teacherName || '—'}</td>
-                      <td style={s.td}>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                          <span style={s.typePill}>{getAdminTestTypeLabel(test)}</span>
-                          {test.totalQuestions ? <span style={s.inlineMeta}>{test.totalQuestions} questions</span> : null}
-                        </div>
-                      </td>
-                      <td style={s.td}>{testCountBadge(test.submissionCount || 0)}</td>
-                      <td style={{ ...s.td, fontSize: 12, color: '#9ca3af' }}>{fmtDate(test.createdAt)}</td>
-                      <td style={s.td}>
-                        <div style={s.actionGroup}>
-                          {editPath ? (
-                            <button style={s.btnSmBlue} onClick={() => navigate(editPath)}>Edit</button>
-                          ) : null}
-                          <button
-                            style={s.btnSmRed}
-                            onClick={() => deleteTest(test)}
-                            disabled={deletingKey === deleteKey}
-                          >
-                            {deletingKey === deleteKey ? 'Deleting...' : 'Delete'}
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-                {currentList.length === 0 && (
-                  <tr>
-                    <td colSpan={8} style={{ ...s.td, textAlign: 'center', color: '#9ca3af' }}>No tests found for this selection.</td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+          <AdminListSummary>
+            Showing <strong>{currentList.length}</strong>
+            {bucketTests.length !== currentList.length ? ` / ${bucketTests.length}` : ''} tests
+          </AdminListSummary>
+
+          <AdminSelectionToolbar>
+            <span style={acs.selectionSummary}>
+              Showing <strong>{currentList.length}</strong> {TEST_BUCKETS.find((bucket) => bucket.id === activeBucket)?.label || 'tests'} items
+            </span>
+            <AdminActionGroup>
+              {currentList.length > 0 ? (
+                <button style={s.btnSmGray} onClick={toggleAllVisibleTests}>
+                  {allVisibleSelected ? 'Unselect all' : someVisibleSelected ? 'Select all visible' : 'Select all visible'}
+                </button>
+              ) : null}
+              {selectedCurrentCount > 0 ? (
+                <button style={s.btnSmGray} onClick={() => setSelectedTests(new Set())} disabled={Boolean(bulkVisibilityAction)}>
+                  Clear selection
+                </button>
+              ) : null}
+            </AdminActionGroup>
+          </AdminSelectionToolbar>
+
+          {selectedCurrentCount > 0 ? (
+            <div style={s.bulkBar}>
+              <span style={{ fontSize: 14 }}>Selected <strong>{selectedCurrentCount}</strong> tests</span>
+              <button style={s.btnSmAmber} onClick={() => applyBulkVisibility(true)} disabled={Boolean(bulkVisibilityAction)}>
+                {bulkVisibilityAction === 'hide' ? 'Hiding...' : `Hide Selected (${selectedCurrentCount})`}
+              </button>
+              <button style={s.btnSmGreen} onClick={() => applyBulkVisibility(false)} disabled={Boolean(bulkVisibilityAction)}>
+                {bulkVisibilityAction === 'show' ? 'Showing...' : `Show Selected (${selectedCurrentCount})`}
+              </button>
+              <button style={s.btnGray} onClick={() => setSelectedTests(new Set())} disabled={Boolean(bulkVisibilityAction)}>
+                Clear Selection
+              </button>
+            </div>
+          ) : null}
+
+          {currentList.length === 0 ? (
+            <AdminEmptyCard>No tests found for the current filters.</AdminEmptyCard>
+          ) : (
+            <AdminCardList>
+              {currentList.map((test) => {
+                const editPath = getAdminTestEditPath(test);
+                const updateKey = `${test.deleteScope}:${test.id}`;
+                const visibility = getTestVisibilityMeta(test);
+                const tone = getTestCardTone(test);
+                const isUpdating = updatingKey === updateKey;
+                const isDeleting = deletingKey === updateKey;
+                const isSelected = selectedTests.has(updateKey);
+
+                return (
+                  <AdminListCard
+                    key={updateKey}
+                    accent={isSelected ? '#f59e0b' : tone.accent}
+                    borderColor={isSelected ? '#f59e0b' : tone.border}
+                    leading={(
+                      <>
+                        <label style={acs.selectionCheckboxLabel}>
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => toggleTestSelect(test)}
+                          />
+                        </label>
+                        <span style={acs.idPill}>#{test.id}</span>
+                      </>
+                    )}
+                    title={test.title}
+                    badges={[
+                      <span style={{ ...acs.statusPill, background: visibility.bg, color: visibility.color, borderColor: visibility.border }}>
+                        {visibility.label}
+                      </span>,
+                      <span style={s.typePill}>{getAdminTestTypeLabel(test)}</span>,
+                    ]}
+                    subtitle={`${test.totalQuestions ? `${test.totalQuestions} questions` : 'Question count varies by type'}${test.status ? ` • status ${test.status}` : ''}`}
+                    actions={(
+                      <>
+                        {editPath ? (
+                          <button style={s.btnSmBlue} onClick={() => navigate(editPath)} disabled={isUpdating || isDeleting || Boolean(bulkVisibilityAction)}>Edit</button>
+                        ) : null}
+                        <button
+                          style={visibility.hiddenFromStudents ? s.btnSmGreen : s.btnSmAmber}
+                          onClick={() => setTestVisibility(test, !visibility.hiddenFromStudents)}
+                          disabled={isUpdating || isDeleting || Boolean(bulkVisibilityAction)}
+                        >
+                          {isUpdating
+                            ? 'Saving...'
+                            : visibility.hiddenFromStudents
+                            ? 'Show to students'
+                            : 'Hide from students'}
+                        </button>
+                        <button style={s.btnSmRed} onClick={() => deleteTest(test)} disabled={isUpdating || isDeleting || Boolean(bulkVisibilityAction)}>
+                          {isDeleting ? 'Deleting...' : 'Delete'}
+                        </button>
+                      </>
+                    )}
+                    metaItems={[
+                      { label: 'Teacher', value: test.teacherName || '—' },
+                      { label: 'Class', value: test.classCode || '—' },
+                      { label: 'Submissions', value: testCountBadge(test.submissionCount || 0) },
+                      { label: 'Created', value: fmtDate(test.createdAt) },
+                      { label: 'Updated', value: fmtDate(test.updatedAt) },
+                    ]}
+                    style={{
+                      borderColor: isSelected ? '#f59e0b' : tone.border,
+                      boxShadow: isSelected ? '0 0 0 2px rgba(245, 158, 11, 0.18)' : '0 8px 24px rgba(15, 23, 42, 0.04)',
+                    }}
+                  />
+                );
+              })}
+            </AdminCardList>
+          )}
         </>
       )}
     </div>
@@ -922,6 +1703,31 @@ const s = {
   tabBtn: { background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 12, padding: '10px 16px', cursor: 'pointer', fontSize: 14, fontWeight: 700, color: '#475569', transition: 'all 0.2s ease' },
   tabBtnActive: { background: '#0e276f', border: '1px solid #0e276f', color: '#ffffff', boxShadow: '0 10px 22px rgba(14, 39, 111, 0.18)' },
   tabContent: { background: '#fff', borderRadius: 20, padding: 20, border: '1px solid #e5e7eb', boxShadow: '0 16px 40px rgba(15, 23, 42, 0.06)' },
+  filterPanel: { display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'flex-end', marginBottom: 16, padding: '14px 16px', border: '1px solid #e5e7eb', borderRadius: 16, background: '#f8fafc' },
+  filterField: { display: 'flex', flexDirection: 'column', gap: 6, flex: '1 1 180px' },
+  filterLabel: { fontSize: 11, fontWeight: 800, letterSpacing: '0.04em', textTransform: 'uppercase', color: '#64748b' },
+  filterActions: { display: 'flex', gap: 8, alignSelf: 'flex-end', flexWrap: 'wrap' },
+  cardList: { display: 'flex', flexDirection: 'column', gap: 10 },
+  managementCard: { display: 'flex', background: '#fff', border: '1px solid #e2e8f0', borderRadius: 16, overflow: 'hidden', boxShadow: '0 8px 24px rgba(15, 23, 42, 0.04)' },
+  managementCardAccent: { width: 5, flexShrink: 0, background: '#2563eb' },
+  managementCardBody: { flex: 1, padding: '16px 18px' },
+  managementCardTop: { display: 'flex', justifyContent: 'space-between', gap: 14, alignItems: 'flex-start', flexWrap: 'wrap' },
+  managementHeadingBlock: { display: 'flex', flexDirection: 'column', gap: 8, minWidth: 0, flex: '1 1 320px' },
+  managementHeadingLine: { display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' },
+  managementTitle: { fontSize: 18, color: '#0f172a' },
+  managementSubline: { fontSize: 13, color: '#64748b', lineHeight: 1.6 },
+  managementMetaGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12, marginTop: 14, paddingTop: 14, borderTop: '1px solid #eef2f7' },
+  metaItem: { display: 'flex', flexDirection: 'column', gap: 6, minWidth: 0 },
+  metaLabel: { fontSize: 11, fontWeight: 800, letterSpacing: '0.04em', textTransform: 'uppercase', color: '#94a3b8' },
+  metaValue: { fontSize: 14, color: '#334155', minHeight: 20, display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 6 },
+  idPill: { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '4px 10px', borderRadius: 999, background: '#f1f5f9', color: '#475569', fontSize: 12, fontWeight: 800, border: '1px solid #e2e8f0' },
+  softPill: { display: 'inline-flex', alignItems: 'center', padding: '4px 10px', borderRadius: 999, background: '#eef2ff', color: '#4338ca', fontSize: 12, fontWeight: 700, border: '1px solid #c7d2fe' },
+  statusPill: { display: 'inline-flex', alignItems: 'center', padding: '4px 10px', borderRadius: 999, border: '1px solid transparent', fontSize: 12, fontWeight: 800 },
+  listSummary: { fontSize: 13, color: '#64748b', marginBottom: 10 },
+  emptyCard: { border: '1px dashed #cbd5e1', borderRadius: 16, padding: '24px 20px', textAlign: 'center', color: '#64748b', background: '#f8fafc' },
+  selectionToolbar: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', marginBottom: 12, padding: '12px 14px', border: '1px solid #e2e8f0', borderRadius: 14, background: '#f8fafc' },
+  selectionSummary: { fontSize: 14, color: '#475569' },
+  selectionCheckboxLabel: { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, borderRadius: 8, border: '1px solid #e2e8f0', background: '#f8fafc', cursor: 'pointer' },
   tableWrap: { overflowX: 'auto' },
   table: { width: 'max-content', minWidth: 0, borderCollapse: 'collapse', background: '#fff', borderRadius: 14, overflow: 'hidden' },
   th: { background: '#f8fafc', padding: '12px 12px', textAlign: 'left', fontSize: 12, fontWeight: 800, letterSpacing: '0.04em', textTransform: 'uppercase', color: '#475569', borderBottom: '1px solid #e5e7eb' },
@@ -936,6 +1742,8 @@ const s = {
   btnSmRed: { background: '#fee2e2', color: '#b91c1c', border: '1px solid #fecaca', borderRadius: 8, padding: '6px 10px', cursor: 'pointer', fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap' },
   btnSmBlue: { background: '#dbeafe', color: '#1d4ed8', border: '1px solid #bfdbfe', borderRadius: 8, padding: '6px 10px', cursor: 'pointer', fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap' },
   btnSmGray: { background: '#f3f4f6', color: '#374151', border: '1px solid #e5e7eb', borderRadius: 8, padding: '6px 10px', cursor: 'pointer', fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap' },
+  btnSmAmber: { background: '#fff7ed', color: '#c2410c', border: '1px solid #fdba74', borderRadius: 8, padding: '6px 10px', cursor: 'pointer', fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap' },
+  btnSmGreen: { background: '#dcfce7', color: '#166534', border: '1px solid #86efac', borderRadius: 8, padding: '6px 10px', cursor: 'pointer', fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap' },
   actionGroup: { display: 'flex', gap: 6, justifyContent: 'flex-start', alignItems: 'center', flexWrap: 'wrap' },
   overlay: { position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.48)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 },
   modal: { background: '#fff', borderRadius: 18, padding: 24, width: '90%', maxWidth: 420, boxShadow: '0 24px 60px rgba(15,23,42,0.25)', border: '1px solid #e5e7eb' },
@@ -947,6 +1755,9 @@ const s = {
   infoCard: { background: '#fff7ed', border: '1px solid #fed7aa', borderRadius: 14, padding: '14px 16px', marginBottom: 16 },
   typePill: { display: 'inline-flex', alignItems: 'center', alignSelf: 'flex-start', background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe', borderRadius: 999, padding: '3px 10px', fontSize: 12, fontWeight: 700 },
   inlineMeta: { fontSize: 12, color: '#64748b' },
+  groupTag: { display: 'inline-flex', alignItems: 'center', padding: '4px 10px', borderRadius: 999, background: '#fff7ed', color: '#c2410c', border: '1px solid #fdba74', fontSize: 12, fontWeight: 800 },
+  duplicateNestedList: { marginTop: 14 },
+  duplicateNestedCard: { boxShadow: 'none', background: '#fcfdff' },
 };
 
 export default AdminUserManagement;

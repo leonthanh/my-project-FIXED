@@ -25,6 +25,11 @@ const ReadingTest = sequelize.define('ReadingTest', {
     allowNull: false,
     defaultValue: [],
     comment: 'Array of passages with sections and questions'
+  },
+  isArchived: {
+    type: DataTypes.BOOLEAN,
+    allowNull: false,
+    defaultValue: false,
   }
 }, {
   tableName: 'reading_tests',

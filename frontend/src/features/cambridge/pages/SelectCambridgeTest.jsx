@@ -76,13 +76,25 @@ const SelectCambridgeTest = () => {
           ? activeTestType
           : `${activeTestType}-reading`;
 
+        const listeningParams = new URLSearchParams({ testType: `${activeTestType}-listening` });
+        const readingParams = new URLSearchParams({ testType: readingTestType });
+        if (isTeacher) {
+          listeningParams.set('visibility', 'all');
+          readingParams.set('visibility', 'all');
+        }
+
+        const petWritingParams = new URLSearchParams({ testType: 'pet-writing' });
+        if (isTeacher) {
+          petWritingParams.set('includeArchived', '1');
+        }
+
         const requests = [
-          fetch(apiPath(`cambridge/listening-tests?testType=${activeTestType}-listening`)),
-          fetch(apiPath(`cambridge/reading-tests?testType=${readingTestType}`)),
+          fetch(apiPath(`cambridge/listening-tests?${listeningParams.toString()}`)),
+          fetch(apiPath(`cambridge/reading-tests?${readingParams.toString()}`)),
         ];
 
         if (activeTestType === "pet") {
-          requests.push(fetch(apiPath("writing-tests?testType=pet-writing")));
+          requests.push(fetch(apiPath(`writing-tests?${petWritingParams.toString()}`)));
         }
 
         const responses = await Promise.all(requests);

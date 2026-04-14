@@ -16,6 +16,14 @@ const FINALIZED_CAMBRIDGE_WHERE = {
   [Op.or]: [{ finished: true }, { finished: null }],
 };
 
+const shouldIncludeAllVisibility = (req) =>
+  String(req.query.visibility || '').trim().toLowerCase() === 'all';
+
+const buildVisibleCambridgeWhere = (req, baseWhere = {}) =>
+  shouldIncludeAllVisibility(req)
+    ? baseWhere
+    : { ...baseWhere, status: 'published' };
+
 // Compute total questions from parts so frontend displays stay in sync with teacher view
 const safeParseParts = (rawParts) => {
   if (!rawParts) return [];
@@ -259,7 +267,7 @@ const requireAdminKeyIfConfigured = (req, res) => {
 router.get("/", async (req, res) => {
   try {
     const { testType } = req.query;
-    const where = testType ? { testType } : {};
+    const where = buildVisibleCambridgeWhere(req, testType ? { testType } : {});
 
     // Fetch both reading and listening tests
     const [readingTests, listeningTests] = await Promise.all([
@@ -374,7 +382,7 @@ router.get("/listening-tests", async (req, res) => {
   try {
     const { testType } = req.query;
     
-    const where = testType ? { testType } : {};
+    const where = buildVisibleCambridgeWhere(req, testType ? { testType } : {});
     
     const tests = await CambridgeListening.findAll({
       where,
@@ -541,7 +549,7 @@ router.get("/reading-tests", async (req, res) => {
   try {
     const { testType } = req.query;
     
-    const where = testType ? { testType } : {};
+    const where = buildVisibleCambridgeWhere(req, testType ? { testType } : {});
     
     const tests = await CambridgeReading.findAll({
       where,

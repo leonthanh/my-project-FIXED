@@ -39,6 +39,11 @@ const ListeningTest = sequelize.define('ListeningTest', {
     type: DataTypes.BOOLEAN,
     defaultValue: true
   },
+  isArchived: {
+    type: DataTypes.BOOLEAN,
+    allowNull: false,
+    defaultValue: false
+  },
   createdAt: {
     type: DataTypes.DATE,
     defaultValue: DataTypes.NOW

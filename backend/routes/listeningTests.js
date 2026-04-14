@@ -160,6 +160,9 @@ const upload = multer({
   }
 });
 
+const shouldIncludeArchived = (req) =>
+  ['1', 'true', 'yes'].includes(String(req.query.includeArchived || '').trim().toLowerCase());
+
 // API tạo đề thi listening mới
 const { requireAuth } = require('../middlewares/auth');
 const { requireTestPermission } = require('../middlewares/testPermissions');
@@ -369,6 +372,7 @@ router.post('/', requireAuth, requireTestPermission('listening'), upload.any(), 
 router.get('/', async (req, res) => {
   try {
     const tests = await ListeningTest.findAll({
+      where: shouldIncludeArchived(req) ? {} : { isArchived: false },
       order: [['createdAt', 'DESC']]
     });
     const normalized = tests.map((t) => {

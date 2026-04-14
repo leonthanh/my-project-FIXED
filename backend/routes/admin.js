@@ -27,6 +27,11 @@ const buildCountMap = (rows = [], keyBuilder) =>
     return map;
   }, new Map());
 
+const getIxStatus = (test = {}) => (test.isArchived ? 'archived' : 'published');
+const isIxHiddenFromStudents = (test = {}) => Boolean(test.isArchived);
+const getCambridgeStatus = (test = {}) => String(test.status || 'draft').trim().toLowerCase() || 'draft';
+const isCambridgeHiddenFromStudents = (test = {}) => getCambridgeStatus(test) !== 'published';
+
 const formatIxWritingTitle = (test = {}) => `IX Writing ${test.index || test.id}`;
 const formatIxListeningTitle = (test = {}) => `IX Listening ${test.id}`;
 
@@ -50,6 +55,8 @@ const buildWritingTestPayload = (test, submissionCount = 0, scope = 'ix-writing'
   createdAt: test.createdAt,
   updatedAt: test.updatedAt,
   submissionCount,
+  status: getIxStatus(test),
+  hiddenFromStudents: isIxHiddenFromStudents(test),
   deleteScope: scope,
 });
 
@@ -61,6 +68,8 @@ const buildReadingTestPayload = (test, submissionCount = 0) => ({
   createdAt: test.createdAt,
   updatedAt: test.updatedAt,
   submissionCount,
+  status: getIxStatus(test),
+  hiddenFromStudents: isIxHiddenFromStudents(test),
   deleteScope: 'ix-reading',
 });
 
@@ -72,6 +81,8 @@ const buildListeningTestPayload = (test, submissionCount = 0) => ({
   createdAt: test.createdAt,
   updatedAt: test.updatedAt,
   submissionCount,
+  status: getIxStatus(test),
+  hiddenFromStudents: isIxHiddenFromStudents(test),
   deleteScope: 'ix-listening',
 });
 
@@ -82,14 +93,60 @@ const buildCambridgeTestPayload = (test, submissionCount = 0, category = 'readin
   teacherName: test.teacherName || '',
   testType: test.testType || '',
   category,
-  status: test.status || '',
+  status: getCambridgeStatus(test),
   totalQuestions: test.totalQuestions || 0,
   createdAt: test.createdAt,
   updatedAt: test.updatedAt,
   submissionCount,
+  hiddenFromStudents: isCambridgeHiddenFromStudents(test),
   deleteScope: `cambridge-${category}`,
   typeLabel: formatCambridgeTypeLabel(test.testType, category),
 });
+
+const resolveAdminTestScope = (scope) => {
+  switch (String(scope || '').toLowerCase()) {
+    case 'ix-writing':
+      return {
+        Model: WritingTest,
+        label: 'đề IX Writing',
+        extraGuard: (test) => String(test.testType || '').toLowerCase() !== 'pet-writing',
+        visibilityField: 'isArchived',
+      };
+    case 'ix-reading':
+      return {
+        Model: ReadingTest,
+        label: 'đề IX Reading',
+        visibilityField: 'isArchived',
+      };
+    case 'ix-listening':
+      return {
+        Model: ListeningTest,
+        label: 'đề IX Listening',
+        visibilityField: 'isArchived',
+      };
+    case 'cambridge-writing':
+      return {
+        Model: WritingTest,
+        label: 'đề Cambridge Writing',
+        extraGuard: (test) => String(test.testType || '').toLowerCase() === 'pet-writing',
+        visibilityField: 'isArchived',
+      };
+    case 'cambridge-reading':
+      return {
+        Model: CambridgeReading,
+        label: 'đề Cambridge Reading',
+        visibilityField: 'status',
+      };
+    case 'cambridge-listening':
+      return {
+        Model: CambridgeListening,
+        label: 'đề Cambridge Listening',
+        visibilityField: 'status',
+      };
+    default:
+      return null;
+  }
+};
 
 // ─────────────────────────────────────────────────────────
 //  USERS
@@ -289,15 +346,15 @@ router.get('/tests', requireAuth, requireRole('admin'), async (_req, res) => {
     ] = await Promise.all([
       WritingTest.findAll({
         order: [['createdAt', 'DESC']],
-        attributes: ['id', 'index', 'testType', 'classCode', 'teacherName', 'createdAt', 'updatedAt'],
+        attributes: ['id', 'index', 'testType', 'classCode', 'teacherName', 'isArchived', 'createdAt', 'updatedAt'],
       }),
       ReadingTest.findAll({
         order: [['createdAt', 'DESC']],
-        attributes: ['id', 'title', 'classCode', 'teacherName', 'createdAt', 'updatedAt'],
+        attributes: ['id', 'title', 'classCode', 'teacherName', 'isArchived', 'createdAt', 'updatedAt'],
       }),
       ListeningTest.findAll({
         order: [['createdAt', 'DESC']],
-        attributes: ['id', 'classCode', 'teacherName', 'createdAt', 'updatedAt'],
+        attributes: ['id', 'classCode', 'teacherName', 'isArchived', 'createdAt', 'updatedAt'],
       }),
       CambridgeReading.findAll({
         order: [['createdAt', 'DESC']],
@@ -353,7 +410,6 @@ router.get('/tests', requireAuth, requireRole('admin'), async (_req, res) => {
         category: 'writing',
         typeLabel: 'PET Writing',
         totalQuestions: 0,
-        status: 'published',
       }));
 
     const ixReading = readingTests
@@ -389,6 +445,58 @@ router.get('/tests', requireAuth, requireRole('admin'), async (_req, res) => {
   }
 });
 
+// PATCH /api/admin/tests/:scope/:id/visibility — hide/show a test from student lists without deleting data
+router.patch('/tests/:scope/:id/visibility', requireAuth, requireRole('admin'), async (req, res) => {
+  try {
+    const { scope } = req.params;
+    const testId = Number(req.params.id);
+    const hidden = req.body?.hidden;
+
+    if (!Number.isFinite(testId) || testId <= 0) {
+      return res.status(400).json({ message: 'ID đề thi không hợp lệ.' });
+    }
+
+    if (typeof hidden !== 'boolean') {
+      return res.status(400).json({ message: 'Thiếu trạng thái ẩn/hiện hợp lệ.' });
+    }
+
+    const target = resolveAdminTestScope(scope);
+    if (!target) {
+      return res.status(400).json({ message: 'Loại đề thi không hợp lệ.' });
+    }
+
+    const test = await target.Model.findByPk(testId);
+    if (!test || (typeof target.extraGuard === 'function' && !target.extraGuard(test))) {
+      return res.status(404).json({ message: 'Không tìm thấy đề thi.' });
+    }
+
+    if (target.visibilityField === 'status') {
+      await test.update({ status: hidden ? 'archived' : 'published' });
+    } else {
+      await test.update({ isArchived: hidden });
+    }
+
+    const normalizedStatus = target.visibilityField === 'status'
+      ? getCambridgeStatus(test)
+      : getIxStatus(test);
+
+    res.json({
+      message: hidden
+        ? `${target.label} đã được ẩn khỏi danh sách học sinh.`
+        : `${target.label} đã hiển thị lại cho học sinh.`,
+      test: {
+        id: testId,
+        deleteScope: scope,
+        hiddenFromStudents: hidden,
+        status: normalizedStatus,
+      },
+    });
+  } catch (err) {
+    logError('Lỗi cập nhật trạng thái hiển thị đề thi admin', err);
+    res.status(500).json({ message: 'Lỗi server.' });
+  }
+});
+
 // DELETE /api/admin/tests/:scope/:id — delete a test by admin-only scope
 router.delete('/tests/:scope/:id', requireAuth, requireRole('admin'), async (req, res) => {
   try {
@@ -398,50 +506,20 @@ router.delete('/tests/:scope/:id', requireAuth, requireRole('admin'), async (req
       return res.status(400).json({ message: 'ID đề thi không hợp lệ.' });
     }
 
-    let Model = null;
-    let label = 'đề thi';
-    let extraGuard = null;
-
-    switch (String(scope || '').toLowerCase()) {
-      case 'ix-writing':
-        Model = WritingTest;
-        label = 'đề IX Writing';
-        extraGuard = (test) => String(test.testType || '').toLowerCase() !== 'pet-writing';
-        break;
-      case 'ix-reading':
-        Model = ReadingTest;
-        label = 'đề IX Reading';
-        break;
-      case 'ix-listening':
-        Model = ListeningTest;
-        label = 'đề IX Listening';
-        break;
-      case 'cambridge-writing':
-        Model = WritingTest;
-        label = 'đề Cambridge Writing';
-        extraGuard = (test) => String(test.testType || '').toLowerCase() === 'pet-writing';
-        break;
-      case 'cambridge-reading':
-        Model = CambridgeReading;
-        label = 'đề Cambridge Reading';
-        break;
-      case 'cambridge-listening':
-        Model = CambridgeListening;
-        label = 'đề Cambridge Listening';
-        break;
-      default:
-        return res.status(400).json({ message: 'Loại đề thi không hợp lệ.' });
+    const target = resolveAdminTestScope(scope);
+    if (!target) {
+      return res.status(400).json({ message: 'Loại đề thi không hợp lệ.' });
     }
 
-    const test = await Model.findByPk(testId);
-    if (!test || (typeof extraGuard === 'function' && !extraGuard(test))) {
+    const test = await target.Model.findByPk(testId);
+    if (!test || (typeof target.extraGuard === 'function' && !target.extraGuard(test))) {
       return res.status(404).json({ message: 'Không tìm thấy đề thi.' });
     }
 
     await test.destroy();
 
     res.json({
-      message: `Đã xóa ${label}.`,
+      message: `Đã xóa ${target.label}.`,
       deletedId: testId,
       scope,
     });

@@ -39,6 +39,11 @@ const WritingTest = sequelize.define('WritingTest', {
     type: DataTypes.STRING(100),
     allowNull: true,
   },
+  isArchived: {
+    type: DataTypes.BOOLEAN,
+    allowNull: false,
+    defaultValue: false,
+  },
 }, {
   tableName: 'writing_tests',
   timestamps: true,
