@@ -1,11 +1,32 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import TableCompletion from './TableCompletion';
 import { compactInputStyle } from '../../../../features/listening/utils/styles';
 import InlineIcon from '../../InlineIcon.jsx';
 
 const BLANK_REGEX = /\[BLANK\]|_{2,}|[\u2026]+/gi;
+const BLANK_TOKEN = '[BLANK]';
 
 const normalizeMultilineText = (value) => String(value || '').replace(/\r\n?/g, '\n');
+
+const insertBlankAtSelection = (value, selectionStart, selectionEnd) => {
+  const normalizedValue = normalizeMultilineText(value);
+  const safeStart = Number.isFinite(selectionStart)
+    ? Math.max(0, Math.min(selectionStart, normalizedValue.length))
+    : normalizedValue.length;
+  const safeEnd = Number.isFinite(selectionEnd)
+    ? Math.max(safeStart, Math.min(selectionEnd, normalizedValue.length))
+    : safeStart;
+  const before = normalizedValue.slice(0, safeStart);
+  const after = normalizedValue.slice(safeEnd);
+  const needsLeadingSpace = before.length > 0 && !/[\s([{]$/.test(before);
+  const needsTrailingSpace = after.length > 0 && !/^[\s)\],.;:!?]/.test(after);
+  const insertedToken = `${needsLeadingSpace ? ' ' : ''}${BLANK_TOKEN}${needsTrailingSpace ? ' ' : ''}`;
+
+  return {
+    value: `${before}${insertedToken}${after}`,
+    caret: before.length + insertedToken.length,
+  };
+};
 
 const buildCommentBlankAnswers = (lines, existingAnswers = []) =>
   lines.map((line, lineIndex) => {
@@ -13,6 +34,33 @@ const buildCommentBlankAnswers = (lines, existingAnswers = []) =>
     const previous = existingAnswers[lineIndex] || [];
     return blanks.map((_, blankIndex) => previous[blankIndex] || '');
   });
+
+const buildCommentBlankAnswersFromFlat = (lines, flatAnswers = []) => {
+  let flatIndex = 0;
+
+  return lines.map((line) => {
+    const blanks = normalizeMultilineText(line).match(BLANK_REGEX) || [];
+    const answers = blanks.map((_, blankIndex) => flatAnswers[flatIndex + blankIndex] || '');
+    flatIndex += blanks.length;
+    return answers;
+  });
+};
+
+const resolveCommentBlankAnswers = (row, colIdx, commentLines) => {
+  if (Array.isArray(row?.commentBlankAnswers) && row.commentBlankAnswers.length > 0) {
+    return buildCommentBlankAnswers(commentLines, row.commentBlankAnswers);
+  }
+
+  const legacyFlatAnswers = Array.isArray(row?.cellBlankAnswers?.[colIdx])
+    ? row.cellBlankAnswers[colIdx]
+    : [];
+
+  if (legacyFlatAnswers.length > 0) {
+    return buildCommentBlankAnswersFromFlat(commentLines, legacyFlatAnswers);
+  }
+
+  return buildCommentBlankAnswers(commentLines, []);
+};
 
 const cellTextareaStyle = {
   ...compactInputStyle,
@@ -34,6 +82,46 @@ const cellTextareaStyle = {
 export default function TableCompletionEditor({ question = {}, onChange = () => {}, startingNumber = 1 }) {
   const columns = question.columns || ['Vehicles', 'Cost', 'Comments'];
   const rows = question.rows || [];
+  const textareaRefs = useRef(new Map());
+
+  const getTextareaKey = (rowIdx, colIdx) => `${rowIdx}:${colIdx}`;
+  const setTextareaRef = (rowIdx, colIdx, node) => {
+    const key = getTextareaKey(rowIdx, colIdx);
+    if (node) textareaRefs.current.set(key, node);
+    else textareaRefs.current.delete(key);
+  };
+  const getTextareaSelection = (rowIdx, colIdx, fallbackValue = '') => {
+    const textarea = textareaRefs.current.get(getTextareaKey(rowIdx, colIdx));
+    if (textarea && typeof textarea.selectionStart === 'number') {
+      return {
+        start: textarea.selectionStart,
+        end: textarea.selectionEnd,
+      };
+    }
+
+    const fallbackLength = normalizeMultilineText(fallbackValue).length;
+    return { start: fallbackLength, end: fallbackLength };
+  };
+  const restoreTextareaSelection = (rowIdx, colIdx, caret) => {
+    const schedule =
+      typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function'
+        ? window.requestAnimationFrame.bind(window)
+        : (callback) => setTimeout(callback, 0);
+
+    schedule(() => {
+      const textarea = textareaRefs.current.get(getTextareaKey(rowIdx, colIdx));
+      if (!textarea) return;
+
+      textarea.focus();
+      if (typeof textarea.setSelectionRange === 'function') {
+        const safeCaret = Math.max(0, Math.min(caret, textarea.value.length));
+        textarea.setSelectionRange(safeCaret, safeCaret);
+      }
+    });
+  };
+  const handleBlankButtonMouseDown = (event) => {
+    event.preventDefault();
+  };
 
   // Columns handlers
   const setColumns = (newCols) => onChange('columns', newCols);
@@ -117,24 +205,19 @@ export default function TableCompletionEditor({ question = {}, onChange = () => 
       ...r,
       cells,
       comments: commentLines,
-      commentBlankAnswers: buildCommentBlankAnswers(commentLines, r.commentBlankAnswers || []),
+      commentBlankAnswers: resolveCommentBlankAnswers(r, colIdx, commentLines),
     };
 
     setRows(next);
   };
 
-  const appendCommentBlank = (rowIdx, colIdx, currentValue) => {
-    const base = normalizeMultilineText(currentValue);
-    const nextValue = `${base}${base && !/[\s\n]$/.test(base) ? ' ' : ''}[BLANK]`;
-    updateCommentsValue(rowIdx, colIdx, nextValue);
-  };
+  const insertBlank = (rowIdx, colIdx, currentValue, updater) => {
+    const normalizedValue = normalizeMultilineText(currentValue);
+    const selection = getTextareaSelection(rowIdx, colIdx, normalizedValue);
+    const nextBlank = insertBlankAtSelection(normalizedValue, selection.start, selection.end);
 
-  const insertBlank = (rowIdx, colIdx) => {
-    const next = [...rows];
-    const r = ensureRowCells(next[rowIdx]);
-    const text = String((r.cells && r.cells[colIdx]) || '');
-    const updated = text + (text && !text.endsWith(' ') ? ' ' : '') + '[BLANK]';
-    updateCellValue(rowIdx, colIdx, updated);
+    updater(rowIdx, colIdx, nextBlank.value);
+    restoreTextareaSelection(rowIdx, colIdx, nextBlank.caret);
   };
   return (
     <div>
@@ -209,7 +292,7 @@ export default function TableCompletionEditor({ question = {}, onChange = () => 
                       ? normalizeMultilineText(normalizedRow.comments.join('\n'))
                       : normalizeMultilineText(thisCell || '');
                     const commentLines = commentValue.split('\n');
-                    const answersByLine = normalizedRow.commentBlankAnswers || []; // legacy
+                    const answersByLine = resolveCommentBlankAnswers(normalizedRow, cIdx, commentLines);
 
                     return (
                       <div key={cIdx} style={{ flex: 1, minWidth: 260 }}>
@@ -217,12 +300,22 @@ export default function TableCompletionEditor({ question = {}, onChange = () => 
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
                             <div style={{ fontSize: 12, color: '#333', fontWeight: 700 }}>{col}</div>
                             <div style={{ display: 'flex', gap: 6 }}>
-                              <button type="button" onClick={() => appendCommentBlank(idx, cIdx, commentValue)} style={{ padding: '2px 6px', fontSize: 10 }}>[BLANK]</button>
+                              <button
+                                type="button"
+                                aria-label={`Insert [BLANK] into ${col} row ${idx + 1}`}
+                                onMouseDown={handleBlankButtonMouseDown}
+                                onClick={() => insertBlank(idx, cIdx, commentValue, updateCommentsValue)}
+                                style={{ padding: '2px 6px', fontSize: 10 }}
+                              >
+                                [BLANK]
+                              </button>
                             </div>
                           </div>
 
                           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                             <textarea
+                              aria-label={`${col} row ${idx + 1}`}
+                              ref={(node) => setTextareaRef(idx, cIdx, node)}
                               value={commentValue}
                               onChange={(e) => updateCommentsValue(idx, cIdx, e.target.value)}
                               placeholder="Moi dong se tro thanh mot muc trong list comments. Khong can go -, • hay 1."
@@ -284,11 +377,21 @@ export default function TableCompletionEditor({ question = {}, onChange = () => 
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
                           <div style={{ fontSize: 12, color: '#333', fontWeight: 700 }}>{col}</div>
                           <div style={{ display: 'flex', gap: 6 }}>
-                            <button type="button" onClick={() => insertBlank(idx, cIdx)} style={{ padding: '2px 6px', fontSize: 10 }}>[BLANK]</button>
+                            <button
+                              type="button"
+                              aria-label={`Insert [BLANK] into ${col} row ${idx + 1}`}
+                              onMouseDown={handleBlankButtonMouseDown}
+                              onClick={() => insertBlank(idx, cIdx, thisCell, updateCellValue)}
+                              style={{ padding: '2px 6px', fontSize: 10 }}
+                            >
+                              [BLANK]
+                            </button>
                           </div>
                         </div>
 
                         <textarea
+                          aria-label={`${col} row ${idx + 1}`}
+                          ref={(node) => setTextareaRef(idx, cIdx, node)}
                           value={thisCell}
                           onChange={(e) => updateCellValue(idx, cIdx, e.target.value)}
                           placeholder={col}

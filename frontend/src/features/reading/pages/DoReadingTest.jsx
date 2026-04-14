@@ -20,6 +20,7 @@ import {
   getClozeText,
   normalizeQuestionType,
 } from "../utils/questionHelpers";
+import { getClozeTableCellLines, isClozeCommentsColumn } from "../../../shared/utils/clozeTable";
 import { apiPath, getStoredUser, hostPath } from "../../../shared/utils/api";
 import {
   formatClock,
@@ -2715,9 +2716,67 @@ const DoReadingTest = () => {
                   const table = clozeTable;
                   let blankIndex = 0;
                   const baseQuestionNum = question.startQuestion || questionNumber;
+                  const renderTableCellParts = (parts, ri, ci, lineIndex) =>
+                    parts.map((part, partIndex) => {
+                      if (part.type === 'text') {
+                        return <span key={`${ri}-${ci}-${lineIndex}-${partIndex}`}>{part.value}</span>;
+                      }
+
+                      const currentBlankIdx = blankIndex++;
+                      const blankNum = baseQuestionNum + currentBlankIdx;
+                      const blankKey = `${key}_${currentBlankIdx}`;
+
+                      const blankInput = question.options && question.options.length > 0 ? (
+                        <select
+                          className={'cloze-inline-select ' + (answers[blankKey] ? 'answered' : '')}
+                          value={answers[blankKey] || ''}
+                          onChange={(e) => handleAnswerChange(blankKey, e.target.value)}
+                          onFocus={() => setActiveQuestion(blankNum)}
+                        >
+                          <option value="">--</option>
+                          {question.options.map((opt, oi) => (
+                            <option key={oi} value={String.fromCharCode(65 + oi)}>
+                              {`${String.fromCharCode(65 + oi)}. ${stripUnwantedHtml(
+                                typeof opt === 'object' ? opt.text || opt.label || '' : opt
+                              )}`}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <input
+                          type="text"
+                          className={'cloze-inline-input ' + (answers[blankKey] ? 'answered' : '')}
+                          value={answers[blankKey] || ''}
+                          onChange={(e) => handleAnswerChange(blankKey, e.target.value)}
+                          onFocus={() => setActiveQuestion(blankNum)}
+                        />
+                      );
+
+                      return (
+                        <span
+                          key={`${ri}-${ci}-${lineIndex}-blank-${partIndex}`}
+                          className="cloze-inline-wrapper"
+                          ref={(el) => (questionRefs.current[`q_${blankNum}`] = el)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setActiveQuestion(blankNum);
+                          }}
+                          style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                        >
+                          <span className="cloze-inline-number">{blankNum}</span>
+                          {blankInput}
+                        </span>
+                      );
+                    });
 
                   return (
                     <div className="cloze-table-wrapper" style={{ overflowX: 'auto' }}>
+                      {table.instruction && (
+                        <div style={{ fontStyle: 'italic', marginBottom: 8 }}>{table.instruction}</div>
+                      )}
+                      {table.title && (
+                        <div style={{ textAlign: 'center', fontWeight: 700, marginBottom: 8 }}>{table.title}</div>
+                      )}
                       <table className="cloze-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
                         <thead>
                           <tr>
@@ -2731,62 +2790,31 @@ const DoReadingTest = () => {
                         <tbody>
                           {(table.rows || []).map((row, ri) => (
                             <tr key={ri}>
-                              {(row.cells || []).map((cell, ci) => (
-                                <td key={ci} style={{ border: '1px solid #cbd5e1', padding: '8px', verticalAlign: 'top' }}>
-                                  {String(cell || '').split(/\[BLANK\]/gi).reduce((parts, part, idx, arr) => {
-                                    if (idx === arr.length - 1) {
-                                      return [...parts, <span key={`${ri}-${ci}-${idx}`}>{part}</span>];
-                                    }
-                                    const currentBlankIdx = blankIndex++;
-                                    const blankNum = baseQuestionNum + currentBlankIdx;
-                                    const blankKey = `${key}_${currentBlankIdx}`;
+                              {(table.columns || []).map((col, ci) => {
+                                const cellValue = row.cells?.[ci] || '';
+                                const lineParts = getClozeTableCellLines(cellValue, col);
 
-                                    const blankInput = question.options && question.options.length > 0 ? (
-                                      <select
-                                        className={'cloze-inline-select ' + (answers[blankKey] ? 'answered' : '')}
-                                        value={answers[blankKey] || ''}
-                                        onChange={(e) => handleAnswerChange(blankKey, e.target.value)}
-                                        onFocus={() => setActiveQuestion(blankNum)}
-                                      >
-                                        <option value="">--</option>
-                                        {question.options.map((opt, oi) => (
-                                          <option key={oi} value={String.fromCharCode(65 + oi)}>
-                                            {`${String.fromCharCode(65 + oi)}. ${stripUnwantedHtml(
-                                              typeof opt === 'object' ? opt.text || opt.label || '' : opt
-                                            )}`}
-                                          </option>
+                                return (
+                                  <td key={ci} style={{ border: '1px solid #cbd5e1', padding: '8px', verticalAlign: 'top' }}>
+                                    {isClozeCommentsColumn(col) ? (
+                                      <ul style={{ margin: 0, paddingLeft: '18px' }}>
+                                        {lineParts.map((parts, lineIndex) => (
+                                          <li key={`${ri}-${ci}-${lineIndex}`}>
+                                            {renderTableCellParts(parts, ri, ci, lineIndex)}
+                                          </li>
                                         ))}
-                                      </select>
+                                      </ul>
                                     ) : (
-                                      <input
-                                        type="text"
-                                        className={'cloze-inline-input ' + (answers[blankKey] ? 'answered' : '')}
-                                        value={answers[blankKey] || ''}
-                                        onChange={(e) => handleAnswerChange(blankKey, e.target.value)}
-                                        onFocus={() => setActiveQuestion(blankNum)}
-                                      />
-                                    );
-
-                                    return [
-                                      ...parts,
-                                      <span key={`${ri}-${ci}-${idx}`}>{part}</span>,
-                                      <span
-                                        key={`${ri}-${ci}-blank-${idx}`}
-                                        className="cloze-inline-wrapper"
-                                        ref={(el) => (questionRefs.current[`q_${blankNum}`] = el)}
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          setActiveQuestion(blankNum);
-                                        }}
-                                        style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}
-                                      >
-                                        <span className="cloze-inline-number">{blankNum}</span>
-                                        {blankInput}
-                                      </span>,
-                                    ];
-                                  }, [])}
-                                </td>
-                              ))}
+                                      lineParts.map((parts, lineIndex) => (
+                                        <React.Fragment key={`${ri}-${ci}-${lineIndex}`}>
+                                          {lineIndex > 0 ? <br /> : null}
+                                          {renderTableCellParts(parts, ri, ci, lineIndex)}
+                                        </React.Fragment>
+                                      ))
+                                    )}
+                                  </td>
+                                );
+                              })}
                             </tr>
                           ))}
                         </tbody>

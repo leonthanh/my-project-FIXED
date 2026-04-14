@@ -543,12 +543,12 @@ const MapLabelingQuestion = ({
                     color: '#22c55e',
                     marginLeft: '10px'
                   }}>
-                    Dap an dung: {correctAns}
+                    Correct answer: {correctAns}
                   </span>
                 )}
 
                 <span style={{ fontSize: '0.85rem', fontWeight: '600' }}>
-                  {isCorrect ? 'Dung' : 'Sai'}
+                  {isCorrect ? 'Correct' : 'Wrong'}
                 </span>
               </div>
             );

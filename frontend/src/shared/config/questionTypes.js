@@ -271,7 +271,7 @@ export const QUESTION_TYPES = {
       blanks: [],
       answers: {},
     },
-    supportedTests: ['ielts-reading', 'ket-reading', 'pet-reading'],
+    supportedTests: ['ielts-listening', 'ielts-reading', 'ket-reading', 'pet-reading'],
   },
 
   'summary-completion': {

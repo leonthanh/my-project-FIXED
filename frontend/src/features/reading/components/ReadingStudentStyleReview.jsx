@@ -1,5 +1,9 @@
 import React, { useMemo, useState } from "react";
 import InlineIcon from "../../../shared/components/InlineIcon.jsx";
+import {
+  getClozeTableCellLines,
+  isClozeCommentsColumn,
+} from "../../../shared/utils/clozeTable";
 import { hostPath } from "../../../shared/utils/api";
 import { renderHtmlWithBlankPlaceholders } from "../utils/htmlHelpers";
 import {
@@ -804,8 +808,35 @@ export default function ReadingStudentStyleReview({ test, submission, details })
 
               {clozeTable ? (
                 <div className="cloze-table-wrapper" style={{ overflowX: "auto" }}>
+                  {clozeTable.instruction && (
+                    <div style={{ fontStyle: "italic", marginBottom: 8 }}>{clozeTable.instruction}</div>
+                  )}
+                  {clozeTable.title && (
+                    <div style={{ textAlign: "center", fontWeight: 700, marginBottom: 8 }}>{clozeTable.title}</div>
+                  )}
                   {(() => {
                     let blankIndex = 0;
+                    const baseQuestionNum = question.startQuestion || questionNumber;
+                    const renderTableCellParts = (parts, ri, ci, lineIndex) =>
+                      parts.map((part, partIndex) => {
+                        if (part.type === "text") {
+                          return <span key={`${ri}-${ci}-${lineIndex}-${partIndex}`}>{part.value}</span>;
+                        }
+
+                        const currentBlankIdx = blankIndex++;
+                        const blankNum = baseQuestionNum + currentBlankIdx;
+                        const blankKey = `${key}_${currentBlankIdx}`;
+                        const answerValue = extractInlineAnswer(answers, blankKey, detailMap.get(blankNum));
+
+                        return (
+                          <React.Fragment key={`${ri}-${ci}-${lineIndex}-blank-${partIndex}`}>
+                            <span className="blank">
+                              <input className="blank-input" value={answerValue} readOnly />
+                            </span>
+                            <Feedback detail={detailMap.get(blankNum)} answerValue={answerValue} />
+                          </React.Fragment>
+                        );
+                      });
 
                     return (
                   <table className="cloze-table" style={{ width: "100%", borderCollapse: "collapse" }}>
@@ -821,24 +852,28 @@ export default function ReadingStudentStyleReview({ test, submission, details })
                     <tbody>
                       {(clozeTable.rows || []).map((row, ri) => (
                         <tr key={ri}>
-                          {(row.cells || []).map((cell, ci) => {
+                          {(clozeTable.columns || []).map((col, ci) => {
+                            const cellValue = row.cells?.[ci] || "";
+                            const lineParts = getClozeTableCellLines(cellValue, col);
+
                             return (
                               <td key={ci} style={{ border: "1px solid #cbd5e1", padding: "8px", verticalAlign: "top" }}>
-                                {String(cell || "").split(/\[BLANK\]/gi).map((part, idx, arr) => {
-                                  if (idx === arr.length - 1) return <span key={`${ri}-${ci}-${idx}`}>{part}</span>;
-                                  const currentBlankIdx = blankIndex++;
-                                  const blankNum = (question.startQuestion || questionNumber) + currentBlankIdx;
-                                  const blankKey = `${key}_${currentBlankIdx}`;
-                                  return (
-                                    <React.Fragment key={`${ri}-${ci}-${idx}`}>
-                                      <span>{part}</span>
-                                      <span className="blank">
-                                        <input className="blank-input" value={extractInlineAnswer(answers, blankKey, detailMap.get(blankNum))} readOnly />
-                                      </span>
-                                      <Feedback detail={detailMap.get(blankNum)} answerValue={extractInlineAnswer(answers, blankKey, detailMap.get(blankNum))} />
+                                {isClozeCommentsColumn(col) ? (
+                                  <ul style={{ margin: 0, paddingLeft: "18px" }}>
+                                    {lineParts.map((parts, lineIndex) => (
+                                      <li key={`${ri}-${ci}-${lineIndex}`}>
+                                        {renderTableCellParts(parts, ri, ci, lineIndex)}
+                                      </li>
+                                    ))}
+                                  </ul>
+                                ) : (
+                                  lineParts.map((parts, lineIndex) => (
+                                    <React.Fragment key={`${ri}-${ci}-${lineIndex}`}>
+                                      {lineIndex > 0 ? <br /> : null}
+                                      {renderTableCellParts(parts, ri, ci, lineIndex)}
                                     </React.Fragment>
-                                  );
-                                })}
+                                  ))
+                                )}
                               </td>
                             );
                           })}

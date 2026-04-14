@@ -3,6 +3,11 @@
  * Các hàm xử lý câu hỏi
  */
 
+import {
+  getClozeTableBlankMatches,
+  normalizeClozeTableRows,
+} from '../../../shared/utils/clozeTable';
+
 /**
  * Tính số câu hỏi thực tế từ questionNumber
  * Xử lý các format: "38-40" (3 câu), "38" (1 câu), "38,39,40" (3 câu)
@@ -60,28 +65,6 @@ export const getQuestionStart = (questionNumber) => {
 
 const stripHtml = (value) => String(value || '').replace(/<[^>]+>/g, ' ');
 
-const normalizeTableRows = (rows, columns) => {
-  if (!Array.isArray(rows)) return [];
-
-  const columnCount = Array.isArray(columns) ? columns.length : 0;
-
-  return rows.map((row) => {
-    const rawCells = Array.isArray(row?.cells) ? row.cells : [];
-    const cells =
-      columnCount > 0
-        ? [
-            ...rawCells.slice(0, columnCount),
-            ...Array.from({ length: Math.max(0, columnCount - rawCells.length) }, () => ''),
-          ]
-        : rawCells;
-
-    return {
-      ...(row && typeof row === 'object' ? row : {}),
-      cells,
-    };
-  });
-};
-
 export const getClozeText = (question) => {
   if (!question || typeof question !== 'object') return null;
 
@@ -109,8 +92,13 @@ export const getActiveClozeTable = (question) => {
   const columns = Array.isArray(table.columns) ? table.columns : [];
 
   return {
+    title: typeof table.title === 'string' ? table.title : question.tableTitle || '',
+    instruction:
+      typeof table.instruction === 'string'
+        ? table.instruction
+        : question.tableInstruction || '',
     columns,
-    rows: normalizeTableRows(table.rows, columns),
+    rows: normalizeClozeTableRows(table.rows, columns),
   };
 };
 
@@ -119,7 +107,7 @@ export const countClozeBlanks = (question) => {
   if (table) {
     return table.rows.reduce((total, row) => {
       const rowCount = (Array.isArray(row?.cells) ? row.cells : []).reduce(
-        (cellTotal, cell) => cellTotal + ((String(cell || '').match(/\[BLANK\]/gi) || []).length),
+        (cellTotal, cell) => cellTotal + getClozeTableBlankMatches(cell).length,
         0
       );
       return total + rowCount;

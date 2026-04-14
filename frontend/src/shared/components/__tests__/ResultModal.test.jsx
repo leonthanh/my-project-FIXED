@@ -17,24 +17,24 @@ describe('ResultModal', () => {
     localStorage.removeItem('user');
   });
 
-  test('does NOT render Xem chi tiết for students', () => {
+  test('does NOT render view-details for students', () => {
     const result = { submissionId: 123, score: 85 };
     renderWithTheme(<ResultModal {...defaultProps} result={result} />);
-    const btn = screen.queryByRole('button', { name: /Xem chi tiết/i });
+    const btn = screen.queryByRole('button', { name: /View details/i });
     expect(btn).toBeNull();
   });
 
-  test('does not render Xem chi tiết even for teacher; close works', () => {
+  test('does not render view-details even for teacher; close works', () => {
     const teacher = { id: 1, name: 'Ms', role: 'teacher' };
     localStorage.setItem('user', JSON.stringify(teacher));
     const result = { submissionId: 123, score: 85 };
 
     renderWithTheme(<ResultModal {...defaultProps} result={result} />);
 
-    const button = screen.queryByRole('button', { name: /Xem chi tiết/i });
+    const button = screen.queryByRole('button', { name: /View details/i });
     expect(button).toBeNull();
 
-    const closeBtn = screen.getByRole('button', { name: /Đóng/i });
+    const closeBtn = screen.getByLabelText('Close');
     fireEvent.click(closeBtn);
     expect(defaultProps.onClose).toHaveBeenCalled();
   });

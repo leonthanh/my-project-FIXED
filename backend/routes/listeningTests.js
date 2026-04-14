@@ -6,6 +6,13 @@ const fs = require('fs');
 const ListeningTest = require('../models/ListeningTest');
 const ListeningSubmission = require('../models/ListeningSubmission');
 const { countFlowchartQuestionSlots, getFlowchartBlankEntries } = require('../utils/flowchartHelpers');
+const {
+  countListeningTableBlanks,
+  getListeningSectionType,
+  getListeningTableBlankEntries,
+  normalizeListeningPassages,
+  LISTENING_CLOZE_TYPE,
+} = require('../utils/listeningTableQuestions');
 
 const normalizeUploadsInText = (text, req) => {
   if (!text || typeof text !== 'string') return text;
@@ -224,15 +231,17 @@ router.post('/', requireAuth, requireTestPermission('listening'), upload.any(), 
       });
     }
 
+    const normalizedPassages = normalizeListeningPassages(processedPassages);
+
     // Transform passages to match database model structure
     // Model expects: partTypes, partInstructions, questions (JSON fields)
-    const partTypes = processedPassages.map(part => {
+    const partTypes = normalizedPassages.map(part => {
       // Get all question types from all sections in this part
       const types = part.sections?.map(s => s.questionType || 'fill') || ['fill'];
       return types;
     });
 
-    const partInstructions = processedPassages.map(part => ({
+    const partInstructions = normalizedPassages.map(part => ({
       title: part.title || '',
       instruction: part.instruction || '',
       transcript: part.transcript || '',
@@ -249,7 +258,7 @@ router.post('/', requireAuth, requireTestPermission('listening'), upload.any(), 
     const questions = [];
     let globalQuestionNum = 1;
     
-    processedPassages.forEach((part, partIndex) => {
+    normalizedPassages.forEach((part, partIndex) => {
       part.sections?.forEach((section, sectionIndex) => {
         section.questions?.forEach((q, qIndex) => {
           questions.push({
@@ -260,6 +269,9 @@ router.post('/', requireAuth, requireTestPermission('listening'), upload.any(), 
             questionType: q.questionType || section.questionType || 'fill',
             questionText: q.questionText || '',
             correctAnswer: q.correctAnswer || '',
+            title: q.title || null,
+            instruction: q.instruction || null,
+            clozeTable: q.clozeTable || null,
             options: q.options || null,
             steps: q.steps || null,
             // Form completion specific
@@ -292,22 +304,8 @@ router.post('/', requireAuth, requireTestPermission('listening'), upload.any(), 
             } else if (qType === 'form-completion') {
               const blankCount = q.formRows?.filter(r => r.isBlank)?.length || 1;
               globalQuestionNum += blankCount;
-            } else if (qType === 'table-completion') {
-              const cols = q.columns || [];
-              const rowsArr = q.rows || [];
-              const BLANK_DETECT = /\[BLANK\]|_{2,}|[\u2026]+/g;
-              let blanksCount = 0;
-              rowsArr.forEach((row) => {
-                const r = Array.isArray(row.cells)
-                  ? row
-                  : { cells: [row.vehicle || '', row.cost || '', Array.isArray(row.comments) ? row.comments.join('\n') : row.comments || ''] };
-                for (let c = 0; c < cols.length; c++) {
-                  const text = String(r.cells[c] || '');
-                  const matches = text.match(BLANK_DETECT) || [];
-                  blanksCount += matches.length;
-                }
-              });
-              globalQuestionNum += blanksCount > 0 ? blanksCount : (q.rows?.length || 1);
+            } else if (qType === LISTENING_CLOZE_TYPE) {
+              globalQuestionNum += countListeningTableBlanks(q) || 1;
             } else if (qType === 'flowchart') {
               globalQuestionNum += countFlowchartQuestionSlots(q) || 1;
             } else if (qType === 'notes-completion') {
@@ -326,7 +324,7 @@ router.post('/', requireAuth, requireTestPermission('listening'), upload.any(), 
 
     // Build part audio URLs object
     const partAudioUrls = {};
-    processedPassages.forEach((part, idx) => {
+    normalizedPassages.forEach((part, idx) => {
       if (part.audioFile) {
         partAudioUrls[idx] = part.audioFile;
       }
@@ -692,7 +690,6 @@ router.post('/:id/submit', async (req, res) => {
 
         for (let sIdx = 0; sIdx < sections.length; sIdx++) {
           const section = sections[sIdx] || {};
-          let sectionType = String(section?.questionType || 'fill').toLowerCase();
           const sectionQuestions = getSectionQuestions(pIdx, sIdx);
           if (!sectionQuestions.length) continue;
 
@@ -701,16 +698,7 @@ router.post('/:id/submit', async (req, res) => {
           const firstFormRows = parseIfJsonString(firstQ?.formRows);
           const firstLeftItems = parseIfJsonString(firstQ?.leftItems);
           const firstItems = parseIfJsonString(firstQ?.items);
-
-          if (sectionType === 'fill') {
-            if ((firstQ?.columns && firstQ.columns.length > 0) || (firstQ?.rows && firstQ.rows.length > 0)) {
-              sectionType = 'table-completion';
-            } else if (Array.isArray(firstQ?.steps) && firstQ.steps.length > 0) {
-              sectionType = 'flowchart';
-            } else if (Array.isArray(firstItems) && firstItems.length > 0) {
-              sectionType = 'map-labeling';
-            }
-          }
+          const sectionType = getListeningSectionType(section, firstQ);
 
           // FORM COMPLETION
           if (sectionType === 'form-completion') {
@@ -837,12 +825,12 @@ router.post('/:id/submit', async (req, res) => {
             continue;
           }
 
-          if (sectionType === 'table-completion') {
+          if (sectionType === LISTENING_CLOZE_TYPE) {
             const start =
               typeof section?.startingQuestionNumber === 'number' && section.startingQuestionNumber > 0
                 ? section.startingQuestionNumber
                 : 1;
-            const entries = getTableBlankEntries(firstQ, start);
+            const entries = getListeningTableBlankEntries(firstQ, start);
             entries.forEach(({ num, expected }) => {
               totalCount++;
               const student = normalizedAnswers[`q${num}`];
@@ -1074,6 +1062,7 @@ router.post('/:id/submit', async (req, res) => {
           else if (q?.notesText) qType = 'notes-completion';
           else if (Array.isArray(q?.steps) && q.steps.length > 0) qType = 'flowchart';
           else if ((Array.isArray(q?.leftItems) && q.leftItems.length > 0) || (Array.isArray(q?.items) && q.items.length > 0)) qType = 'matching';
+          else if ((Array.isArray(q?.columns) && q.columns.length > 0) || (Array.isArray(q?.rows) && q.rows.length > 0) || q?.clozeTable) qType = LISTENING_CLOZE_TYPE;
         }
         const baseNum = Number(q?.globalNumber);
         const partIndex = q?.partIndex;
@@ -1104,10 +1093,9 @@ router.post('/:id/submit', async (req, res) => {
               });
             }
           } else if (Number.isFinite(baseNum)) {
-            // fallback to a single slot
             totalCount++;
-            const student = normalizedAnswers[`q${baseNum}`];
             const expected = q?.correctAnswer;
+            const student = normalizedAnswers[`q${baseNum}`];
             const ok = isAnswerMatch(student, expected);
             if (ok) correctCount++;
             details.push({
@@ -1119,148 +1107,28 @@ router.post('/:id/submit', async (req, res) => {
               correctAnswer: expected ?? '',
               isCorrect: ok,
             });
-          }
-          continue;
-        }
-
-        // Form completion: formRows blanks
-        if (qType === 'form-completion') {
-          const rows = Array.isArray(q?.formRows) ? q.formRows : [];
-          const blanks = rows.filter((r) => r && r.isBlank);
-          const map =
-            q?.answers && typeof q.answers === 'object' && !Array.isArray(q.answers)
-              ? q.answers
-              : null;
-          if (Number.isFinite(baseNum)) {
-            if (blanks.length > 0) {
-              blanks.forEach((row, idx) => {
-                const num = row?.blankNumber
-                  ? baseNum + Number(row.blankNumber) - 1
-                  : baseNum + idx;
-                totalCount++;
-                const expected =
-                  row?.correctAnswer ??
-                  row?.answer ??
-                  row?.correct ??
-                  (map ? map[String(num)] : '') ??
-                  '';
-                const student = normalizedAnswers[`q${num}`];
-                const ok = isAnswerMatch(student, expected);
-                if (ok) correctCount++;
-                details.push({
-                  questionNumber: num,
-                  partIndex,
-                  sectionIndex,
-                  questionType: qType,
-                  studentAnswer: student ?? '',
-                  correctAnswer: expected ?? '',
-                  isCorrect: ok,
-                });
-              });
-            } else {
-              totalCount++;
-              const expected = q?.correctAnswer ?? '';
-              const student = normalizedAnswers[`q${baseNum}`];
-              const ok = isAnswerMatch(student, expected);
-              if (ok) correctCount++;
-              details.push({
-                questionNumber: baseNum,
-                partIndex,
-                sectionIndex,
-                questionType: qType,
-                studentAnswer: student ?? '',
-                correctAnswer: expected ?? '',
-                isCorrect: ok,
-              });
-            }
             continue;
           }
         }
 
-        // Table completion: support multiple blanks per cell (ROW-major ordering)
-        if (qType === 'table-completion') {
-          const cols = q.columns || [];
-          const rowsArr = Array.isArray(q?.rows) ? q.rows : [];
-          const map = q?.answers && typeof q.answers === 'object' && !Array.isArray(q.answers) ? q.answers : null;
+        if (qType === LISTENING_CLOZE_TYPE || qType === 'table-completion') {
           if (Number.isFinite(baseNum)) {
-            let offset = 0;
-            let foundAny = false;
-            const BLANK_DETECT = /\[BLANK\]|_{2,}|[\u2026]+/g;
-
-            for (let r = 0; r < rowsArr.length; r++) {
-              const rawRow = rowsArr[r];
-              const row = Array.isArray(rawRow.cells)
-                ? rawRow
-                : { cells: [rawRow.vehicle || '', rawRow.cost || '', Array.isArray(rawRow.comments) ? rawRow.comments.join('\n') : rawRow.comments || ''], cellBlankAnswers: rawRow.cellBlankAnswers || rawRow.commentBlankAnswers || [], commentBlankAnswers: rawRow.commentBlankAnswers || [] };
-
-              for (let c = 0; c < cols.length; c++) {
-                const text = String(row.cells[c] || '');
-                let match;
-                BLANK_DETECT.lastIndex = 0;
-                let localIdx = 0;
-                const isCommentsCol = /comment/i.test((q.columns || [])[c]);
-
-                while ((match = BLANK_DETECT.exec(text)) !== null) {
-                  foundAny = true;
-                  const num = baseNum + offset;
-                  totalCount++;
-
-                  let expected = '';
-                  if (map) {
-                    expected = map[String(num)] ?? '';
-                  } else {
-                    if (isCommentsCol) {
-                      // flatten per-line answers if present
-                      const flat = (row.commentBlankAnswers || []).flat();
-                      expected = flat[localIdx] || '';
-                    } else {
-                      expected = (row.cellBlankAnswers && row.cellBlankAnswers[c] && row.cellBlankAnswers[c][localIdx]) || '';
-                      if (!expected && c === 1) expected = row.correct || row.cost || '';
-                    }
-                  }
-
-                  const student = normalizedAnswers[`q${num}`];
-                  const ok = isAnswerMatch(student, expected);
-                  if (ok) correctCount++;
-                  details.push({
-                    questionNumber: num,
-                    partIndex,
-                    sectionIndex,
-                    questionType: qType,
-                    studentAnswer: student ?? '',
-                    correctAnswer: expected ?? '',
-                    isCorrect: ok,
-                  });
-
-                  localIdx++;
-                  offset++;
-                }
-              }
-            }
-
-            // fallback: if no blanks detected, treat as one blank per row (legacy)
-            if (!foundAny) {
-              for (let r = 0; r < rowsArr.length; r++) {
-                const num = baseNum + offset;
-                totalCount++;
-                const row = rowsArr[r];
-                const expected = map ? (map[String(num)] ?? '') : (row?.cost ?? row?.correct ?? '');
-                const student = normalizedAnswers[`q${num}`];
-                const ok = isAnswerMatch(student, expected);
-                if (ok) correctCount++;
-                details.push({
-                  questionNumber: num,
-                  partIndex,
-                  sectionIndex,
-                  questionType: qType,
-                  studentAnswer: student ?? '',
-                  correctAnswer: expected ?? '',
-                  isCorrect: ok,
-                });
-                offset++;
-              }
-            }
-
+            const entries = getListeningTableBlankEntries(q, baseNum);
+            entries.forEach(({ num, expected }) => {
+              totalCount++;
+              const student = normalizedAnswers[`q${num}`];
+              const ok = isAnswerMatch(student, expected);
+              if (ok) correctCount++;
+              details.push({
+                questionNumber: num,
+                partIndex,
+                sectionIndex,
+                questionType: LISTENING_CLOZE_TYPE,
+                studentAnswer: student ?? '',
+                correctAnswer: expected ?? '',
+                isCorrect: ok,
+              });
+            });
             continue;
           }
         }
@@ -1585,13 +1453,15 @@ router.put('/:id', requireAuth, requireTestPermission('listening'), upload.any()
         });
       }
 
+      const normalizedPassages = normalizeListeningPassages(processedPassages);
+
       // Transform to database format (same as POST)
-      const partTypes = processedPassages.map(part => {
+      const partTypes = normalizedPassages.map(part => {
         const types = part.sections?.map(s => s.questionType || 'fill') || ['fill'];
         return types;
       });
 
-      const partInstructions = processedPassages.map(part => ({
+      const partInstructions = normalizedPassages.map(part => ({
         title: part.title || '',
         instruction: part.instruction || '',
         transcript: part.transcript || '',
@@ -1608,7 +1478,7 @@ router.put('/:id', requireAuth, requireTestPermission('listening'), upload.any()
       const questions = [];
       let globalQuestionNum = 1;
       
-      processedPassages.forEach((part, partIndex) => {
+      normalizedPassages.forEach((part, partIndex) => {
         part.sections?.forEach((section, sectionIndex) => {
           section.questions?.forEach((q, qIndex) => {
             questions.push({
@@ -1619,6 +1489,9 @@ router.put('/:id', requireAuth, requireTestPermission('listening'), upload.any()
               questionType: q.questionType || section.questionType || 'fill',
               questionText: q.questionText || '',
               correctAnswer: q.correctAnswer || '',
+              title: q.title || null,
+              instruction: q.instruction || null,
+              clozeTable: q.clozeTable || null,
               options: q.options || null,
               steps: q.steps || null,
               formTitle: q.formTitle || null,
@@ -1651,8 +1524,8 @@ router.put('/:id', requireAuth, requireTestPermission('listening'), upload.any()
             } else if (qType === 'form-completion') {
               const blankCount = q.formRows?.filter(r => r.isBlank)?.length || 1;
               globalQuestionNum += blankCount;
-            } else if (qType === 'table-completion') {
-              globalQuestionNum += (q.rows?.length || 1);
+            } else if (qType === LISTENING_CLOZE_TYPE) {
+              globalQuestionNum += countListeningTableBlanks(q) || 1;
             } else if (qType === 'flowchart') {
               globalQuestionNum += countFlowchartQuestionSlots(q) || 1;
             } else if (qType === 'notes-completion') {
@@ -1671,7 +1544,7 @@ router.put('/:id', requireAuth, requireTestPermission('listening'), upload.any()
 
       // Build part audio URLs
       const partAudioUrls = {};
-      processedPassages.forEach((part, idx) => {
+      normalizedPassages.forEach((part, idx) => {
         if (part.audioFile) {
           partAudioUrls[idx] = part.audioFile;
         }

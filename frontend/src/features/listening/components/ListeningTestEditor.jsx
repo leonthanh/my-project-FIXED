@@ -12,6 +12,12 @@ import {
   getFlowchartOptionTableRows,
   splitFlowchartStepText,
 } from "../utils/flowchart";
+import {
+  countListeningSectionQuestions,
+  getListeningSectionType,
+  getListeningTableQuestionData,
+  LISTENING_CLOZE_TYPE,
+} from "../utils/clozeTableSchema";
 
 import {
   colors,
@@ -45,86 +51,8 @@ const stripHtml = (html) => {
   return temp.textContent || temp.innerText || '';
 };
 
-const countTableCompletionBlanks = (question) => {
-  const rowsArr = question?.rows || [];
-  const cols = question?.columns || [];
-  const BLANK_REGEX = /\[BLANK\]|_{2,}|[\u2026]+/g;
-  let blanksCount = 0;
-
-  rowsArr.forEach((row) => {
-    const r = Array.isArray(row?.cells)
-      ? row
-      : {
-          cells: [
-            row?.vehicle || '',
-            row?.cost || '',
-            Array.isArray(row?.comments) ? row.comments.join('\n') : row?.comments || '',
-          ],
-        };
-
-    const cells = Array.isArray(r.cells) ? r.cells : [];
-    const maxCols = cols.length ? cols.length : cells.length;
-    for (let c = 0; c < maxCols; c++) {
-      const text = String(cells[c] || '');
-      const matches = text.match(BLANK_REGEX) || [];
-      blanksCount += matches.length;
-    }
-  });
-
-  if (blanksCount === 0) {
-    return rowsArr.length || 0;
-  }
-
-  return blanksCount;
-};
-
 const countSectionQuestions = (section) => {
-  if (!section?.questions) return 0;
-  
-  const questionType = section.questionType || 'fill';
-  
-  // Matching: Số câu = số leftItems
-  if (questionType === 'matching') {
-    return section.questions[0]?.leftItems?.length || 0;
-  }
-  
-  // Form-completion: Số câu = số ô trống (isBlank)
-  if (questionType === 'form-completion') {
-    return section.questions[0]?.formRows?.filter(r => r.isBlank)?.length || 0;
-  }
-  
-  // Notes-completion: Số câu = số blanks trong notesText
-  if (questionType === 'notes-completion') {
-    const notesText = stripHtml(section.questions[0]?.notesText || '');
-    const blanks = notesText.match(/\d+\s*[_…]+|[_…]{2,}/g) || [];
-    return blanks.length;
-  }
-
-  // Table-completion: số câu = số blanks trong table
-  if (questionType === 'table-completion') {
-    return countTableCompletionBlanks(section.questions[0] || {});
-  }
-
-  // Map-labeling: số câu = số items
-  if (questionType === 'map-labeling') {
-    const items = section.questions[0]?.items || [];
-    return items.length;
-  }
-
-  if (questionType === 'flowchart') {
-    return countFlowchartQuestionSlots(section.questions[0] || {});
-  }
-  
-  // Multi-select: Mỗi câu tính theo số đáp án cần chọn (requiredAnswers)
-  // VD: "Choose TWO" = 2 câu hỏi, "Choose THREE" = 3 câu hỏi
-  if (questionType === 'multi-select') {
-    return section.questions.reduce((sum, q) => {
-      return sum + (q.requiredAnswers || 2); // Mặc định là 2
-    }, 0);
-  }
-  
-  // Các loại khác (fill, abc, abcd): 1 câu = 1 question
-  return section.questions.length;
+  return countListeningSectionQuestions(section);
 };
 
 const formatNotesHtml = (notesText = '') => {
@@ -419,7 +347,7 @@ const ListeningTestEditor = ({
   const questionTypes = [
     { value: 'fill', label: 'Fill in the Blank', icon: 'fill', desc: 'Điền từ vào chỗ trống theo từng câu.' },
     { value: 'form-completion', label: 'Form Completion', icon: 'form', desc: 'Form có nhiều blank được đánh số tự động.' },
-    { value: 'table-completion', label: 'Table Completion', icon: 'table', desc: 'Bảng nhiều cột với blank trong từng ô.' },
+    { value: LISTENING_CLOZE_TYPE, label: 'Cloze Test (Table)', icon: 'table', desc: 'Schema dùng chung với IX Reading cloze table.' },
     { value: 'notes-completion', label: 'Notes Completion', icon: 'questions', desc: 'Dán notes có blank để tách câu hỏi.' },
     { value: 'abc', label: 'Multiple Choice (A/B/C)', icon: 'choice', desc: '3 lựa chọn.' },
     { value: 'abcd', label: 'Multiple Choice (A/B/C/D)', icon: 'choice', desc: '4 lựa chọn.' },
@@ -1414,8 +1342,11 @@ const ListeningTestEditor = ({
                             )}
 
                             {/* TABLE COMPLETION */}
-                            {section.questionType === 'table-completion' && section.questions[0] && (
-                              <div>
+                            {getListeningSectionType(section, section.questions[0]) === LISTENING_CLOZE_TYPE && section.questions[0] && (() => {
+                              const tableQuestion = getListeningTableQuestionData(section.questions[0]);
+
+                              return (
+                                <div>
                                 <div style={{
                                   padding: "12px",
                                   backgroundColor: "#f9fafb",
@@ -1424,17 +1355,17 @@ const ListeningTestEditor = ({
                                   border: "1px solid #e5e7eb",
                                 }}>
                                   <strong style={{ display: "block", marginBottom: "10px" }}>
-                                    {section.questions[0].title || "Table"}
+                                    {tableQuestion.title || "Table"}
                                   </strong>
                                   {typeof TableCompletion === 'function' ? (
                                     <TableCompletion data={{
                                       part: partIdx + 1,
-                                      title: section.questions[0].title || "",
-                                      instruction: section.questions[0].instruction || "",
-                                      columns: section.questions[0].columns || [],
-                                      rows: section.questions[0].rows || [],
+                                      title: tableQuestion.title || "",
+                                      instruction: tableQuestion.instruction || "",
+                                      columns: tableQuestion.columns || [],
+                                      rows: tableQuestion.rows || [],
                                       rangeStart: sectionStartQ,
-                                      rangeEnd: sectionStartQ + ((section.questions[0].rows || []).length ? (section.questions[0].rows || []).length - 1 : 0),
+                                      rangeEnd: sectionStartQ + (countListeningSectionQuestions(section) ? countListeningSectionQuestions(section) - 1 : 0),
                                     }} startingQuestionNumber={sectionStartQ} />
                                   ) : (
                                     <div style={{ padding: 12, background: '#fee2e2', borderRadius: 6, color: '#7f1d1d' }}>
@@ -1602,7 +1533,8 @@ const ListeningTestEditor = ({
                                   </div>
                                 </div>
                               </div>
-                            )}
+                              );
+                            })()}
 
                             {/* MATCHING */}
                             {section.questionType === 'matching' && section.questions[0] && (

@@ -26,6 +26,13 @@ import {
   getFlowchartOptionTableRows,
   splitFlowchartStepText,
 } from "../utils/flowchart";
+import {
+  countListeningTableBlanks,
+  getListeningSectionType,
+  getListeningTableQuestionData,
+  isListeningTableQuestion,
+  LISTENING_CLOZE_TYPE,
+} from "../utils/clozeTableSchema";
 import createStyles from "./DoListeningTest.styles";
 
 // Local helper to compute band (mirror of listening results logic)
@@ -60,6 +67,23 @@ const safeParseJson = (value) => {
   }
 };
 
+const hasMeaningfulAnswerValue = (value) => {
+  if (value == null) return false;
+  if (typeof value === "string") return value.trim() !== "";
+  if (typeof value === "number") return Number.isFinite(value);
+  if (typeof value === "boolean") return value;
+  if (Array.isArray(value)) return value.some(hasMeaningfulAnswerValue);
+  if (typeof value === "object") {
+    return Object.values(value).some(hasMeaningfulAnswerValue);
+  }
+  return false;
+};
+
+const hasMeaningfulAnswers = (answers) => {
+  if (!answers || typeof answers !== "object") return false;
+  return Object.values(answers).some(hasMeaningfulAnswerValue);
+};
+
 const parseQuestionsDeep = (questions) => {
   const parsed = safeParseJson(questions);
   if (!Array.isArray(parsed)) return parsed;
@@ -72,37 +96,8 @@ const parseQuestionsDeep = (questions) => {
     options: safeParseJson(q?.options),
     answers: safeParseJson(q?.answers),
     steps: safeParseJson(q?.steps),
+    clozeTable: safeParseJson(q?.clozeTable),
   }));
-};
-
-const countTableCompletionBlanks = (question) => {
-  const rowsArr = question?.rows || [];
-  const cols = question?.columns || [];
-  const BLANK_REGEX = /\[BLANK\]|_{2,}|[\u2026]+/g;
-  let blanksCount = 0;
-
-  rowsArr.forEach((row) => {
-    const r = Array.isArray(row?.cells)
-      ? row
-      : {
-          cells: [
-            row?.vehicle || '',
-            row?.cost || '',
-            Array.isArray(row?.comments) ? row.comments.join('\n') : row?.comments || '',
-          ],
-        };
-
-    const cells = Array.isArray(r.cells) ? r.cells : [];
-    const maxCols = cols.length ? cols.length : cells.length;
-    for (let c = 0; c < maxCols; c++) {
-      const text = String(cells[c] || '');
-      const matches = text.match(BLANK_REGEX) || [];
-      blanksCount += matches.length;
-    }
-  });
-
-  if (blanksCount === 0) return rowsArr.length || 0;
-  return blanksCount;
 };
 
 /**
@@ -136,6 +131,7 @@ const DoListeningTest = () => {
   // Modal & start state: control whether student has started the test (controls audio visibility)
   const [showStartModal, setShowStartModal] = useState(true);
   const [started, setStarted] = useState(false);
+  const [resumeHydrated, setResumeHydrated] = useState(false);
   const [requestAutoPlay, setRequestAutoPlay] = useState(false);
   // Track if audio is currently playing so we can show a status without controls
   const [isAudioPlaying, setIsAudioPlaying] = useState(false);
@@ -171,6 +167,56 @@ const DoListeningTest = () => {
   const submissionIdRef = useRef(null);
   const autoSubmittingRef = useRef(false);
   const lastAnnouncedExpiryRef = useRef(null);
+
+  const resetPersistedAttempt = useCallback(
+    (durationSeconds) => {
+      submissionIdRef.current = null;
+      expiresAtRef.current = null;
+      autoSubmittingRef.current = false;
+      lastAnnouncedExpiryRef.current = null;
+
+      setAnswers({});
+      setAudioPlayed({});
+      setStarted(false);
+      setShowStartModal(true);
+      setSubmitted(false);
+      setResultData(null);
+      setResultModalOpen(false);
+      setTimeRemaining(durationSeconds);
+      setGraceRemaining(0);
+
+      try {
+        localStorage.removeItem(expiresKey);
+        localStorage.removeItem(stateKey);
+      } catch (_err) {
+        // ignore storage errors
+      }
+    },
+    [expiresKey, stateKey]
+  );
+
+  const getReusableStoredExpiry = useCallback(() => {
+    try {
+      const raw = localStorage.getItem(expiresKey);
+      if (!raw) return null;
+
+      const expiresAtMs = parseInt(raw, 10);
+      if (!Number.isFinite(expiresAtMs)) {
+        localStorage.removeItem(expiresKey);
+        return null;
+      }
+
+      const graceRemainingSeconds = getGraceRemainingSeconds(expiresAtMs);
+      if (!Number.isFinite(graceRemainingSeconds) || graceRemainingSeconds <= 0) {
+        localStorage.removeItem(expiresKey);
+        return null;
+      }
+
+      return expiresAtMs;
+    } catch (_err) {
+      return null;
+    }
+  }, [expiresKey]);
 
   const syncTimingState = useCallback(
     (expiresAtValue, fallbackSeconds = null) => {
@@ -251,8 +297,9 @@ const DoListeningTest = () => {
     const fetchTest = async () => {
       try {
         setLoading(true);
+        setResumeHydrated(false);
         const res = await authFetch(apiPath(`listening-tests/${id}`));
-        if (!res.ok) throw new Error("Không tìm thấy đề thi");
+        if (!res.ok) throw new Error("Listening test not found");
         const data = await res.json();
 
         // Parse JSON fields if they're strings
@@ -293,94 +340,152 @@ const DoListeningTest = () => {
         setTest(parsedData);
 
         const durationSeconds = parsedData.duration ? parsedData.duration * 60 : 30 * 60;
-        const stored = localStorage.getItem(expiresKey);
-        if (stored) {
-          syncTimingState(parseInt(stored, 10), durationSeconds);
-        } else {
-          // Do not start the timer automatically. Only display the full duration and
-          // start counting when the student confirms start via modal.
-          setTimeRemaining(durationSeconds);
-          setGraceRemaining(0);
-        }
+        const storedExpiresAt = getReusableStoredExpiry();
+        let parsedState = null;
 
-        // Restore saved answers+expires if present (resume after F5/power loss).
         try {
           const storedState = localStorage.getItem(stateKey);
           if (storedState) {
-            const parsedState = JSON.parse(storedState);
-            if (parsedState?.answers) {
-              setAnswers(parsedState.answers);
-            }
-            if (parsedState?.expiresAt) {
-              syncTimingState(parsedState.expiresAt, durationSeconds);
-            }
-            if (parsedState?.submissionId) {
-              submissionIdRef.current = parsedState.submissionId;
-            }
-            if (parsedState?.audioPlayed) {
-              setAudioPlayed(parsedState.audioPlayed);
-            }
-            if (parsedState?.started) {
-              setStarted(Boolean(parsedState.started));
-              if (parsedState.started) setShowStartModal(false);
-            }
+            parsedState = JSON.parse(storedState);
           }
-        } catch (e) {
+        } catch (_err) {
           // ignore malformed storage
         }
 
-        // Try to resume from server if available (prefer server state when authenticated or we have a submissionId)
-        (async () => {
-          try {
-            const submissionId = submissionIdRef.current;
-            // Read latest user from localStorage here so it's not an external dependency for the effect
-            const user = (() => {
-              try { return JSON.parse(localStorage.getItem('user') || 'null'); } catch (e) { return null; }
-            })();
-            const query = submissionId ? `?submissionId=${submissionId}` : user?.id ? `?userId=${user.id}` : '';
-            if (query !== '') {
-              const res = await fetch(apiPath(`listening-submissions/${id}/active${query}`));
-              if (res.ok) {
-                const payload = await res.json().catch(() => null);
-                const sub = payload?.submission || null;
-                if (sub && !sub.finished) {
-                  // Server has an active attempt - prefer its answers/expiresAt
-                  const serverAnswers = sub.answers ? (typeof sub.answers === 'string' ? JSON.parse(sub.answers) : sub.answers) : null;
-                  if (serverAnswers) setAnswers(serverAnswers);
+        const storedAnswers =
+          parsedState?.answers && typeof parsedState.answers === "object"
+            ? parsedState.answers
+            : null;
+        const storedAudioPlayed =
+          parsedState?.audioPlayed && typeof parsedState.audioPlayed === "object"
+            ? parsedState.audioPlayed
+            : null;
+        const storedSubmissionId = parsedState?.submissionId || null;
+        const candidateExpiresAt = parsedState?.expiresAt ?? storedExpiresAt;
+        const candidateExpiresAtMs = toTimestamp(candidateExpiresAt);
+        const storedHasAnswers = hasMeaningfulAnswers(storedAnswers);
+        const storedAttemptExpired =
+          Number.isFinite(candidateExpiresAtMs) &&
+          getRemainingSeconds(candidateExpiresAtMs) <= 0 &&
+          getGraceRemainingSeconds(candidateExpiresAtMs) <= 0;
+
+        // Default to a fresh timer display until we confirm the resume state is valid.
+        setTimeRemaining(durationSeconds);
+        setGraceRemaining(0);
+
+        if (storedAnswers) {
+          setAnswers(storedAnswers);
+        }
+        if (storedAudioPlayed) {
+          setAudioPlayed(storedAudioPlayed);
+        }
+        if (parsedState?.started && !storedAttemptExpired) {
+          setStarted(true);
+          setShowStartModal(false);
+        } else {
+          setStarted(false);
+          setShowStartModal(true);
+        }
+        if (!storedAttemptExpired && Number.isFinite(candidateExpiresAtMs)) {
+          syncTimingState(candidateExpiresAtMs, durationSeconds);
+        }
+
+        // Try to resume from server if available. Do not trust a persisted submissionId
+        // until the backend confirms that it still points to an unfinished attempt.
+        let resolvedActiveSubmission = null;
+        try {
+          const user = (() => {
+            try {
+              return JSON.parse(localStorage.getItem("user") || "null");
+            } catch (_err) {
+              return null;
+            }
+          })();
+          const query = storedSubmissionId
+            ? `?submissionId=${storedSubmissionId}`
+            : user?.id
+              ? `?userId=${user.id}`
+              : "";
+
+          if (query) {
+            const activeRes = await fetch(
+              apiPath(`listening-submissions/${id}/active${query}`)
+            );
+            if (activeRes.ok) {
+              const payload = await activeRes.json().catch(() => null);
+              const sub = payload?.submission || null;
+
+              if (
+                sub &&
+                !sub.finished &&
+                Number(sub.testId) === Number(id)
+              ) {
+                const serverAnswers =
+                  sub.answers && typeof sub.answers === "string"
+                    ? JSON.parse(sub.answers)
+                    : sub.answers || null;
+                const hasServerAnswers = hasMeaningfulAnswers(serverAnswers);
+                const shouldResumeServerAttempt = Boolean(
+                  storedHasAnswers || hasServerAnswers
+                );
+
+                if (shouldResumeServerAttempt) {
+                  resolvedActiveSubmission = sub;
+
+                  if (serverAnswers) {
+                    setAnswers(serverAnswers);
+                  }
                   if (sub.expiresAt) {
-                    const eAt = typeof sub.expiresAt === 'string' ? new Date(sub.expiresAt).getTime() : sub.expiresAt;
+                    const eAt =
+                      typeof sub.expiresAt === "string"
+                        ? new Date(sub.expiresAt).getTime()
+                        : sub.expiresAt;
                     syncTimingState(eAt, durationSeconds);
                   }
-                  if (sub.id) submissionIdRef.current = sub.id;
-                  // persist submissionId and server answers locally
+                  if (sub.id) {
+                    submissionIdRef.current = sub.id;
+                  }
+
                   try {
-                    const cur = JSON.parse(localStorage.getItem(stateKey) || '{}') || {};
+                    const cur = JSON.parse(localStorage.getItem(stateKey) || "{}") || {};
                     cur.submissionId = sub.id;
+                    cur.started = true;
                     if (serverAnswers) cur.answers = serverAnswers;
                     localStorage.setItem(stateKey, JSON.stringify(cur));
-                  } catch (e) {}
+                  } catch (_err) {
+                    // ignore storage errors
+                  }
 
-                  // If we resumed from server and there are answers, skip the start modal (resume mode)
-                  if (serverAnswers && Object.keys(serverAnswers).length > 0) {
+                  if (parsedState?.started || storedHasAnswers || hasServerAnswers) {
                     setShowStartModal(false);
                     setStarted(true);
                   }
                 }
               }
             }
-          } catch (err) {
-            // ignore server resume errors
           }
-        })();
+        } catch (_err) {
+          // ignore server resume errors and fall back to local validation below
+        }
+
+        if (!resolvedActiveSubmission) {
+          const shouldDropStaleAttempt = Boolean(storedSubmissionId) ||
+            (Boolean(parsedState?.started) && storedAttemptExpired && !storedHasAnswers);
+
+          if (shouldDropStaleAttempt) {
+            resetPersistedAttempt(durationSeconds);
+          }
+        }
       } catch (err) {
         console.error("Error fetching test:", err);
         setError(err.message);
       } finally {
         setLoading(false);
+        setResumeHydrated(true);
       }
     };
     fetchTest();
-  }, [id, stateKey, storageUserId, expiresKey, syncTimingState]);
+  }, [id, stateKey, storageUserId, expiresKey, getReusableStoredExpiry, resetPersistedAttempt, syncTimingState]);
 
   // Keep a ref to confirmSubmit to avoid referencing it before initialization in effects
   const confirmSubmitRef = useRef(null);
@@ -389,12 +494,12 @@ const DoListeningTest = () => {
   // Timer starts only after the student explicitly confirms start.
   useEffect(() => {
     // Don't start the timer until the student starts the test
-    if (submitted || !test || !started) return;
+    if (submitted || !test || !started || !resumeHydrated) return;
 
     if (!Number.isFinite(expiresAtRef.current)) {
-      const stored = localStorage.getItem(expiresKey);
-      if (stored) {
-        syncTimingState(parseInt(stored, 10));
+      const storedExpiresAt = getReusableStoredExpiry();
+      if (Number.isFinite(storedExpiresAt)) {
+        syncTimingState(storedExpiresAt);
       } else {
         const expiresAt =
           Date.now() +
@@ -439,7 +544,7 @@ const DoListeningTest = () => {
       window.removeEventListener("focus", onCheck);
       document.removeEventListener("visibilitychange", onCheck);
     };
-  }, [test, submitted, expiresKey, started, syncTimingState]);
+  }, [test, submitted, expiresKey, started, resumeHydrated, getReusableStoredExpiry, syncTimingState]);
 
   // Format time display
   /* eslint-disable-next-line no-unused-vars */
@@ -503,7 +608,7 @@ const DoListeningTest = () => {
 
     try {
       // If there are no answers and we don't have a server attempt, avoid creating an empty submission.
-      if ((!answers || (typeof answers === 'object' && Object.keys(answers).length === 0)) && !submissionIdRef.current) {
+      if (!hasMeaningfulAnswers(answers) && !submissionIdRef.current) {
         // Mark as submitted locally (no server record created) and clear local state.
         setSubmitted(true);
         setShowConfirm(false);
@@ -675,7 +780,7 @@ const DoListeningTest = () => {
 
   // Auto-save answers to localStorage (debounced) and sync across tabs.
   useEffect(() => {
-    if (submitted) return;
+    if (submitted || !resumeHydrated) return;
     // Save function
     const saveState = () => {
       try {
@@ -695,9 +800,13 @@ const DoListeningTest = () => {
     // Also attempt server autosave (debounced + non-blocking)
     const serverAutosave = async () => {
       try {
+        if (!started) {
+          return;
+        }
+
         // Don't create a server attempt if we have no answers yet and no submissionId.
         // This prevents creating an empty attempt that will later be auto-submitted as 0/40.
-        if (!submissionIdRef.current && (!answers || (typeof answers === 'object' && Object.keys(answers).length === 0))) {
+        if (!submissionIdRef.current && !hasMeaningfulAnswers(answers)) {
           // nothing to save yet
           return;
         }
@@ -733,7 +842,7 @@ const DoListeningTest = () => {
     };
 
     // Debounce server autosave slightly
-    setTimeout(serverAutosave, 700);
+    const serverAutosaveTimeoutId = setTimeout(serverAutosave, 700);
 
     // Periodic save (every 30s) to handle timer-only changes
     const intervalId = setInterval(saveState, 30000);
@@ -746,6 +855,11 @@ const DoListeningTest = () => {
       saveState();
       // Try one last synchronous navigator send via sendBeacon (best-effort)
       try {
+        if (!started) return;
+        if (!submissionIdRef.current && !hasMeaningfulAnswers(answers)) {
+          return;
+        }
+
         const user = (() => { try { return JSON.parse(localStorage.getItem('user')||'null'); } catch (e) { return null; } })();
         const payload = { submissionId: submissionIdRef.current, answers, expiresAt: expiresAtRef.current, user };
         const url = apiPath(`listening-submissions/${id}/autosave`);
@@ -779,16 +893,22 @@ const DoListeningTest = () => {
 
     return () => {
       if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+      clearTimeout(serverAutosaveTimeoutId);
       clearInterval(intervalId);
       clearInterval(serverIntervalId);
       window.removeEventListener("beforeunload", onBeforeUnload);
       window.removeEventListener("storage", onStorage);
     };
-  }, [answers, submitted, stateKey, expiresKey, id, audioPlayed, started, syncTimingState, announceExtension]);
+  }, [answers, submitted, resumeHydrated, stateKey, expiresKey, id, audioPlayed, started, syncTimingState, announceExtension]);
 
   const reconcileServerTiming = useCallback(async () => {
-    if (!started || submitted) return;
+    if (!resumeHydrated || !started || submitted) return;
     if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
+
+    const hasLocalAnswers = hasMeaningfulAnswers(answers);
+    if (!submissionIdRef.current && !hasLocalAnswers) {
+      return;
+    }
 
     const user = (() => {
       try {
@@ -822,10 +942,10 @@ const DoListeningTest = () => {
     } catch (_err) {
       // ignore polling errors; autosave and refresh can still recover timing
     }
-  }, [announceExtension, id, started, submitted, syncTimingState]);
+  }, [announceExtension, answers, id, resumeHydrated, started, submitted, syncTimingState]);
 
   useEffect(() => {
-    if (!started || submitted) return;
+    if (!resumeHydrated || !started || submitted) return;
 
     reconcileServerTiming();
     const intervalId = setInterval(reconcileServerTiming, 5000);
@@ -843,7 +963,7 @@ const DoListeningTest = () => {
       window.removeEventListener("focus", onCheck);
       document.removeEventListener("visibilitychange", onCheck);
     };
-  }, [reconcileServerTiming, started, submitted]);
+  }, [reconcileServerTiming, resumeHydrated, started, submitted]);
 
   // Get parts data
   const parts = useMemo(() => {
@@ -866,8 +986,8 @@ const DoListeningTest = () => {
       return Math.max(1, blanks);
     }
 
-    if ((q.columns && q.columns.length > 0) || (q.rows && q.rows.length > 0)) {
-      const blanks = countTableCompletionBlanks(q);
+    if (isListeningTableQuestion(q)) {
+      const blanks = countListeningTableBlanks(q);
       return Math.max(1, blanks);
     }
 
@@ -903,7 +1023,7 @@ const DoListeningTest = () => {
   // Count questions for a section using section metadata and actual questions
   const getSectionQuestionCount = (section, sectionQuestions) => {
     if (!section) return 0;
-    const sectionType = String(section?.questionType || "fill").toLowerCase();
+    const sectionType = getListeningSectionType(section, sectionQuestions[0] || {});
 
     if (sectionType === "form-completion") {
       const firstQ = sectionQuestions[0] || {};
@@ -938,9 +1058,9 @@ const DoListeningTest = () => {
       return sectionQuestions.reduce((sum, q) => sum + (Number(q?.requiredAnswers) || 2), 0);
     }
 
-    if (sectionType === "table-completion") {
+    if (sectionType === LISTENING_CLOZE_TYPE) {
       const firstQ = sectionQuestions[0] || {};
-      return countTableCompletionBlanks(firstQ) || 0;
+      return countListeningTableBlanks(firstQ) || 0;
     }
 
     if (sectionType === "flowchart") {
@@ -1022,19 +1142,9 @@ const DoListeningTest = () => {
       let maxNum = -Infinity;
       
       sections.forEach((section, sIdx) => {
-        let sectionQType = section.questionType || "fill";
         const sectionQuestions = partQuestions.filter((q) => q.sectionIndex === sIdx);
         const firstQ = sectionQuestions[0];
-
-        if (sectionQType === "fill") {
-          if ((firstQ?.columns && firstQ.columns.length > 0) || (firstQ?.rows && firstQ.rows.length > 0)) {
-            sectionQType = "table-completion";
-          } else if (firstQ?.steps && firstQ.steps.length > 0) {
-            sectionQType = "flowchart";
-          } else if (firstQ?.items && firstQ.items.length > 0) {
-            sectionQType = "map-labeling";
-          }
-        }
+        const sectionQType = getListeningSectionType(section, firstQ);
         
         if (sectionQType === "notes-completion" && firstQ?.notesText) {
           const matches = stripHtml(firstQ.notesText).match(/(\d+)\s*[_…]+|[_…]{2,}/g) || [];
@@ -1078,8 +1188,8 @@ const DoListeningTest = () => {
           if (sectionQType === "multi-select") {
             const count = sectionQuestions.reduce((sum, q) => sum + (q.requiredAnswers || 2), 0);
             maxNum = Math.max(maxNum, start + count - 1);
-          } else if (sectionQType === "table-completion") {
-            const count = countTableCompletionBlanks(firstQ) || 0;
+          } else if (sectionQType === LISTENING_CLOZE_TYPE) {
+            const count = countListeningTableBlanks(firstQ) || 0;
             maxNum = Math.max(maxNum, start + Math.max(0, count) - 1);
           } else if (sectionQType === "flowchart") {
             const count = countFlowchartQuestionSlots(firstQ) || 0;
@@ -1130,21 +1240,11 @@ const DoListeningTest = () => {
       let currentStart = partRange.start;
 
       sections.forEach((section, sectionIndex) => {
-        let sectionType = String(section?.questionType || "fill").toLowerCase();
         const sectionQuestions = getSectionQuestions(sectionIndex);
         if (!sectionQuestions.length) return;
 
         const firstQ = sectionQuestions[0];
-
-        if (sectionType === "fill") {
-          if ((firstQ?.columns && firstQ.columns.length > 0) || (firstQ?.rows && firstQ.rows.length > 0)) {
-            sectionType = "table-completion";
-          } else if (firstQ?.steps && firstQ.steps.length > 0) {
-            sectionType = "flowchart";
-          } else if (firstQ?.items && firstQ.items.length > 0) {
-            sectionType = "map-labeling";
-          }
-        }
+        const sectionType = getListeningSectionType(section, firstQ);
 
         // Calculate section start number
         let sectionStartNum = typeof section.startingQuestionNumber === "number" && section.startingQuestionNumber > 0
@@ -1236,8 +1336,8 @@ const DoListeningTest = () => {
           return;
         }
 
-        if (sectionType === "table-completion") {
-          const blanks = countTableCompletionBlanks(firstQ) || 0;
+        if (sectionType === LISTENING_CLOZE_TYPE) {
+          const blanks = countListeningTableBlanks(firstQ) || 0;
           const count = Math.max(0, blanks);
           for (let i = 0; i < count; i++) {
             slots.push({ type: "single", key: `q${sectionStartNum + i}` });
@@ -1692,10 +1792,11 @@ const DoListeningTest = () => {
     setRequestAutoPlay(true);
     autoSubmittingRef.current = false;
 
-    // If timer wasn't already initialized, set expiresAt now so countdown begins
+    // Starting from the modal always means a fresh timer should begin.
+    // Any stale local expires key from an abandoned attempt must be discarded.
     try {
-      const stored = localStorage.getItem(expiresKey);
-      if (!stored && test) {
+      localStorage.removeItem(expiresKey);
+      if (test) {
         const durationSeconds = test?.duration ? test.duration * 60 : 30 * 60;
         const expiresAt = Date.now() + durationSeconds * 1000;
         syncTimingState(expiresAt, durationSeconds);
@@ -2330,8 +2431,9 @@ const DoListeningTest = () => {
   };
 
   const renderTableCompletion = (question, startNumber, endNumber) => {
-    const title = question?.title || '';
-    const instruction = question?.instruction || '';
+    const tableQuestion = getListeningTableQuestionData(question);
+    const title = tableQuestion.title || '';
+    const instruction = tableQuestion.instruction || '';
     const tableAnswers = {};
 
     Object.entries(answers || {}).forEach(([key, value]) => {
@@ -2354,8 +2456,8 @@ const DoListeningTest = () => {
             part: currentPartIndex + 1,
             title,
             instruction,
-            columns: question?.columns || [],
-            rows: question?.rows || [],
+            columns: tableQuestion.columns || [],
+            rows: tableQuestion.rows || [],
             rangeStart: startNumber,
             rangeEnd: endNumber,
           }}
@@ -2411,31 +2513,7 @@ const DoListeningTest = () => {
 
     const firstQ = sectionQuestions[0];
     
-    // Detect question type - priority order:
-    // 1) section.questionType (from partInstructions - most reliable)
-    // 2) explicit questionType from question (abc, abcd, multi-select, etc.)
-    // 3) detect from data structure
-    const sectionQType = section.questionType;
-    let qType = sectionQType || firstQ?.questionType || "fill";
-    
-    // Only override for special data structures when type is still "fill"
-    if (qType === "fill") {
-      if (firstQ?.formRows && firstQ.formRows.length > 0) {
-        qType = "form-completion";
-      } else if (firstQ?.notesText) {
-        qType = "notes-completion";
-      } else if (firstQ?.leftItems && firstQ.leftItems.length > 0) {
-        qType = "matching";
-      } else if ((firstQ?.columns && firstQ.columns.length > 0) || (firstQ?.rows && firstQ.rows.length > 0)) {
-        qType = "table-completion";
-      } else if (firstQ?.steps && firstQ.steps.length > 0) {
-        qType = "flowchart";
-      } else if (firstQ?.options && firstQ.options.length > 0) {
-        // Detect abc/abcd from options count
-        qType = firstQ.options.length === 3 ? "abc" : "abcd";
-      }
-    }
-    // Note: multi-select, abc, abcd, matching must be explicitly set in section.questionType
+    const qType = getListeningSectionType(section, firstQ);
     
     // Calculate startNum based on all previous parts and sections
     // If the section explicitly defines a start number, treat it as authoritative.
@@ -2510,7 +2588,7 @@ const DoListeningTest = () => {
             ? renderNotesCompletion(firstQ, startNum)
             : qType === "map-labeling"
             ? renderMapLabeling(firstQ, startNum)
-            : qType === "table-completion"
+            : qType === LISTENING_CLOZE_TYPE
             ? renderTableCompletion(firstQ, startNum, displayEndNum)
             : qType === "flowchart"
             ? renderFlowchart(firstQ, startNum)
@@ -2641,7 +2719,7 @@ const DoListeningTest = () => {
     return (
       <div style={styles.loadingContainer}>
         <div style={styles.spinner}></div>
-        <p style={styles.loadingText}>Đang tải đề thi...</p>
+        <p style={styles.loadingText}>Loading listening test...</p>
       </div>
     );
   }
@@ -2649,10 +2727,10 @@ const DoListeningTest = () => {
   if (error) {
     return (
       <div style={styles.errorContainer}>
-        <h2 style={{ ...styles.errorTitle, display: "inline-flex", alignItems: "center", gap: 8 }}><InlineIcon name="error" size={18} style={{ color: "#dc2626" }} />Lỗi</h2>
+        <h2 style={{ ...styles.errorTitle, display: "inline-flex", alignItems: "center", gap: 8 }}><InlineIcon name="error" size={18} style={{ color: "#dc2626" }} />Error</h2>
         <p style={styles.errorText}>{error}</p>
         <button onClick={() => navigate("/select-test")} style={styles.backButton}>
-          ← Quay lại
+          ← Back to Test Selection
         </button>
       </div>
     );
@@ -2672,7 +2750,7 @@ const DoListeningTest = () => {
       {/* Global Styles */}
       <style>{`
         * { box-sizing: border-box; }
-        body { margin: 0; font-family: Arial, sans-serif; }
+        body { margin: 0; font-family: 'Aptos', 'Segoe UI Variable Text', 'Trebuchet MS', sans-serif; background: #eef4ff; }
         ::-webkit-scrollbar { width: 10px; height: 10px; }
         ::-webkit-scrollbar-thumb { background-color: #8a8a8a; border-radius: 5px; }
         ::-webkit-scrollbar-track { background: #f1f1f1; }
@@ -2724,7 +2802,7 @@ const DoListeningTest = () => {
           {currentPart?.title || `Part ${currentPartIndex + 1}`}
         </div>
         <div style={styles.partDescription}>
-          Read the text and answer questions {displayRange.start}-{displayRange.end}
+          Listen and answer questions {displayRange.start}-{displayRange.end}
         </div>
       </div>
 
@@ -2768,13 +2846,13 @@ const DoListeningTest = () => {
               setIsAudioPlaying(false);
               const mediaError = event.currentTarget?.error;
               const fallbackMessage = {
-                1: 'Trình duyệt đã hủy việc tải audio.',
-                2: 'Không tải được audio từ server.',
-                3: 'File audio bị lỗi hoặc định dạng không được hỗ trợ.',
-                4: 'Trình duyệt không thể đọc file audio này.',
+                1: 'The browser cancelled the audio request.',
+                2: 'The audio file could not be loaded from the server.',
+                3: 'The audio file is corrupted or uses an unsupported format.',
+                4: 'This browser cannot read the audio file.',
               };
               setAudioError(
-                fallbackMessage[mediaError?.code] || 'Không thể phát audio trên thiết bị này.'
+                fallbackMessage[mediaError?.code] || 'Audio playback is not available on this device.'
               );
             }}
           />
@@ -2784,8 +2862,8 @@ const DoListeningTest = () => {
             <div>
               <div style={{ color: '#0e276f', marginTop: 8 }}>
                 {audioError
-                  ? `Không phát được audio tự động. ${audioError}`
-                  : 'Audio đã sẵn sàng. Nếu chưa nghe thấy gì, bấm nút bên dưới để phát.'}
+                  ? `Autoplay did not start. ${audioError}`
+                  : 'Audio is ready. If you cannot hear it yet, use the button below to start playback.'}
               </div>
               {audioError && resolvedAudioUrl && (
                 <div
@@ -2800,14 +2878,14 @@ const DoListeningTest = () => {
                     lineHeight: 1.5,
                   }}
                 >
-                  Nếu production vẫn lỗi, mở trực tiếp file audio để kiểm tra server có trả file hay không:{' '}
+                  If playback still fails in production, open the audio file directly to confirm the server is returning it correctly:{' '}
                   <a
                     href={resolvedAudioUrl}
                     target="_blank"
                     rel="noreferrer"
                     style={{ color: '#9a3412', fontWeight: 700 }}
                   >
-                    Mở file audio
+                    Open audio file
                   </a>
                 </div>
               )}
@@ -2833,7 +2911,7 @@ const DoListeningTest = () => {
                 >
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                     <InlineIcon name="play" size={14} />
-                    {audioError ? 'Thử phát lại audio' : 'Phát audio'}
+                    {audioError ? 'Try audio again' : 'Play audio'}
                   </span>
                 </button>
               </div>

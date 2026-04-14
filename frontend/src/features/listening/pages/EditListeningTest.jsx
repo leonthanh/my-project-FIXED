@@ -2,7 +2,10 @@ import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ListeningTestEditor } from "../components";
 import { useListeningHandlers, createNewPart, calculateTotalQuestions } from "../hooks";
-import { countFlowchartQuestionSlots } from "../utils/flowchart";
+import {
+  normalizeListeningParts,
+  prepareListeningPartsForSubmit,
+} from "../utils/clozeTableSchema";
 import { apiPath, authFetch, redirectToLogin } from "../../../shared/utils/api";
 
 /**
@@ -104,7 +107,7 @@ const EditListeningTest = () => {
         // Reconstruct parts from partInstructions and questions
         const reconstructedParts = reconstructParts(partInstructions, questions, partAudioUrls);
         console.log("Reconstructed parts:", reconstructedParts);
-        setParts(reconstructedParts);
+        setParts(normalizeListeningParts(reconstructedParts));
 
         // If there's a local draft (from a failed update), offer to restore it
         try {
@@ -116,7 +119,7 @@ const EditListeningTest = () => {
               setClassCode(draft.classCode || (data.classCode || ""));
               setTeacherName(draft.teacherName || (data.teacherName || ""));
               setShowResultModal(draft.showResultModal ?? (data.showResultModal ?? true));
-              if (draft.parts) setParts(draft.parts);
+              if (draft.parts) setParts(normalizeListeningParts(draft.parts));
             }
           }
         } catch (e) {
@@ -170,32 +173,39 @@ const EditListeningTest = () => {
         ) || [];
         
         // Transform questions back to editor format
-        const editorQuestions = sectionQuestions.map(q => ({
-          questionType: q.questionType || sectionInfo.questionType || "fill",
-          questionText: q.questionText || "",
-          correctAnswer: q.correctAnswer || "",
-          requiredAnswers: q.requiredAnswers || undefined,
-          leftTitle: q.leftTitle || q.itemsTitle || q.itemsLabel || '',
-          rightTitle: q.rightTitle || q.optionsTitle || q.optionsLabel || '',
-          leftItems: safeParseJson(q.leftItems) || safeParseJson(q.items) || [],
-          rightItems: safeParseJson(q.rightItems) || safeParseJson(q.options) || [],
-          options: safeParseJson(q.options) || [],
-          formTitle: q.formTitle || "",
-          formRows: safeParseJson(q.formRows) || [],
-          questionRange: q.questionRange || "",
-          answers: safeParseJson(q.answers) || {},
-          notesText: q.notesText || "",
-          notesTitle: q.notesTitle || "",
-          wordLimit: q.wordLimit || "ONE WORD ONLY",
-          steps: safeParseJson(q.steps) || [],
-          // Table completion fields
-          columns: safeParseJson(q.columns) || [],
-          rows: safeParseJson(q.rows) || [],
-          // Map labeling fields (keep positions and image URL so editor can show markers in both editors)
-          items: safeParseJson(q.items) || [],
-          mapImageUrl: q.mapImageUrl || q.imageUrl || '',
-          imageUrl: q.imageUrl || q.mapImageUrl || '',
-        }));
+        const editorQuestions = sectionQuestions.map((q) => {
+          const parsedClozeTable = safeParseJson(q.clozeTable) || null;
+
+          return {
+            questionType: q.questionType || sectionInfo.questionType || "fill",
+            questionText: q.questionText || "",
+            correctAnswer: q.correctAnswer || "",
+            requiredAnswers: q.requiredAnswers || undefined,
+            title: q.title || parsedClozeTable?.title || "",
+            instruction: q.instruction || parsedClozeTable?.instruction || "",
+            clozeTable: parsedClozeTable,
+            leftTitle: q.leftTitle || q.itemsTitle || q.itemsLabel || '',
+            rightTitle: q.rightTitle || q.optionsTitle || q.optionsLabel || '',
+            leftItems: safeParseJson(q.leftItems) || safeParseJson(q.items) || [],
+            rightItems: safeParseJson(q.rightItems) || safeParseJson(q.options) || [],
+            options: safeParseJson(q.options) || [],
+            formTitle: q.formTitle || "",
+            formRows: safeParseJson(q.formRows) || [],
+            questionRange: q.questionRange || "",
+            answers: safeParseJson(q.answers) || {},
+            notesText: q.notesText || "",
+            notesTitle: q.notesTitle || "",
+            wordLimit: q.wordLimit || "ONE WORD ONLY",
+            steps: safeParseJson(q.steps) || [],
+            // Table completion fields
+            columns: safeParseJson(q.columns) || [],
+            rows: safeParseJson(q.rows) || [],
+            // Map labeling fields (keep positions and image URL so editor can show markers in both editors)
+            items: safeParseJson(q.items) || [],
+            mapImageUrl: q.mapImageUrl || q.imageUrl || '',
+            imageUrl: q.imageUrl || q.mapImageUrl || '',
+          };
+        });
         
         return {
           sectionTitle: sectionInfo.sectionTitle || "",
@@ -306,8 +316,7 @@ const EditListeningTest = () => {
         console.error("Error saving edit draft", e);
       }
 
-      // Clean up parts data for submission
-      const cleanedParts = parts.map((part) => {
+      const cleanedParts = prepareListeningPartsForSubmit(parts, stripHtml).map((part) => {
         const persistedAudioRef = typeof part.audioUrl === "string" && part.audioUrl && !/^blob:/i.test(part.audioUrl)
           ? part.audioUrl
           : "";
@@ -317,105 +326,8 @@ const EditListeningTest = () => {
           instruction: stripHtml(part.instruction || ""),
           transcript: part.transcript || "",
           audioFile: part.audioFile instanceof File ? "" : (part.audioFile || persistedAudioRef || ""),
-          sections: part.sections.map((section) => ({
-            sectionTitle: section.sectionTitle || "",
-            sectionInstruction: stripHtml(section.sectionInstruction || ""),
-            questionType: section.questionType || "fill",
-            startingQuestionNumber: section.startingQuestionNumber || null,
-            questions: section.questions.map((q) => ({
-              ...q,
-              questionText: stripHtml(q.questionText || ""),
-              options: q.options
-                ? q.options.map((opt) => (typeof opt === "string" ? opt : opt))
-                : undefined,
-            })),
-          })),
+          sections: part.sections,
         };
-      });
-
-      // Before sending, ensure per-blank answers from editor (row.commentBlankAnswers / row.correct) are merged
-      // into the question answers map so backend receives them.
-      const BLANK_REGEX = /\[BLANK\]|_{2,}|[\u2026]+/g;
-      let globalQ = 1;
-      cleanedParts.forEach((part) => {
-        part.sections.forEach((section) => {
-          section.questions.forEach((q) => {
-            if (q.questionType === 'table-completion') {
-              q.answers = q.answers && typeof q.answers === 'object' && !Array.isArray(q.answers) ? { ...q.answers } : {};
-
-              const cols = q.columns || [];
-              const rowsArr = q.rows || [];
-              const before = globalQ;
-
-              const getFlatCommentAnswer = (commentBlankAnswers, flatIdx) => {
-                if (!Array.isArray(commentBlankAnswers)) return undefined;
-                let acc = 0;
-                for (let li = 0; li < commentBlankAnswers.length; li++) {
-                  const arr = commentBlankAnswers[li] || [];
-                  if (flatIdx < acc + (arr.length || 0)) return arr[flatIdx - acc];
-                  acc += (arr.length || 0);
-                }
-                return undefined;
-              };
-
-              rowsArr.forEach((rawRow) => {
-                const r = Array.isArray(rawRow.cells)
-                  ? rawRow
-                  : (() => {
-                      const cells = [];
-                      cells[0] = rawRow.vehicle || '';
-                      cells[1] = rawRow.cost || '';
-                      cells[2] = Array.isArray(rawRow.comments) ? rawRow.comments.join('\n') : rawRow.comments || '';
-                      while (cells.length < cols.length) cells.push('');
-                      return { ...rawRow, cells, cellBlankAnswers: rawRow.cellBlankAnswers || [], commentBlankAnswers: rawRow.commentBlankAnswers || [] };
-                    })();
-
-                for (let c = 0; c < cols.length; c++) {
-                  const text = String((r.cells && r.cells[c]) || '');
-                  BLANK_REGEX.lastIndex = 0;
-                  let localIdx = 0;
-                  const isCommentsCol = /comment/i.test((q.columns || [])[c]);
-                  while (BLANK_REGEX.exec(text) !== null) {
-                    const num = String(globalQ++);
-                    const cbVal = isCommentsCol ? (getFlatCommentAnswer(r.commentBlankAnswers, localIdx) || '') : ((r.cellBlankAnswers && r.cellBlankAnswers[c] && r.cellBlankAnswers[c][localIdx]) || '');
-                    if (!q.answers[num] && cbVal) q.answers[num] = cbVal;
-                    // fallback for cost-like column: prefer row.correct
-                    if (!q.answers[num] && c === 1 && r.correct) q.answers[num] = r.correct;
-                    localIdx++;
-                  }
-                }
-              });
-
-              // If no explicit blanks were found, fall back to old behavior (one blank per row using cost/correct)
-              if (globalQ === before) {
-                (q.rows || []).forEach((row) => {
-                  const num = String(globalQ++);
-                  if (!q.answers[num]) q.answers[num] = row?.correct ?? row?.cost ?? '';
-                });
-              }
-            } else if (q.questionType === 'form-completion') {
-              // form-completion counts blanks too
-              const rows = Array.isArray(q.formRows) ? q.formRows : [];
-              rows.forEach((r) => {
-                if (r && r.isBlank) {
-                  globalQ++;
-                }
-              });
-            } else if (q.questionType === 'matching') {
-              globalQ += (q.leftItems?.length || 1);
-            } else if (q.questionType === 'flowchart') {
-              globalQ += countFlowchartQuestionSlots(q) || 1;
-            } else if (q.questionType === 'notes-completion') {
-              const notesText = q.notesText || '';
-              const blanks = notesText.match(/\d+\s*[_…]+|[_…]{2,}/g) || [];
-              globalQ += blanks.length || 1;
-            } else if (q.questionType === 'multi-select') {
-              globalQ += (q.requiredAnswers || 2);
-            } else {
-              globalQ += 1;
-            }
-          });
-        });
       });
 
       console.log("Submitting cleanedParts:", JSON.stringify(cleanedParts));

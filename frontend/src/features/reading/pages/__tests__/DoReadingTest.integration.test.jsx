@@ -29,7 +29,7 @@ const simpleTest = {
 describe('DoReadingTest integration - part navigation and focus', () => {
   beforeEach(() => {
     // ensure test is marked started
-    localStorage.setItem('reading_test_1_started', 'true');
+    localStorage.setItem('reading_test_1_started:anon', 'true');
     jest.spyOn(global, 'fetch').mockImplementation((url) => {
       return Promise.resolve({ ok: true, json: () => Promise.resolve(simpleTest) });
     });
@@ -106,14 +106,14 @@ describe('DoReadingTest integration - part navigation and focus', () => {
     fireEvent.click(submitBtn);
 
     // Confirm modal appears; find confirm button and click
-    const confirmBtn = await screen.findByText('Xác nhận nộp');
+    const confirmBtn = await screen.findByText('Submit answers');
     fireEvent.click(confirmBtn);
 
-    // Wait for result modal to open (it contains text 'Reading — Kết quả')
-    await screen.findByText(/Reading — Kết quả/i);
+    // Wait for result modal to open.
+    await screen.findByText(/Reading Results/i);
 
-    // Click 'Đóng' on result modal and expect to navigate to select-test
-    const closeBtn = screen.getByText('Đóng');
+    // Click Close on result modal and expect to navigate to select-test.
+    const closeBtn = screen.getByLabelText('Close');
     fireEvent.click(closeBtn);
 
     // Expect select-test route to be rendered

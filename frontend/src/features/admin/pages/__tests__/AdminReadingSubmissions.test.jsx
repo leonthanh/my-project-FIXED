@@ -47,9 +47,8 @@ test('renders header and fetches submissions', async () => {
     </MemoryRouter>
   );
 
-  // Ensure the mocked row appears
-  expect(await screen.findByText(/Reading Submissions/i)).toBeInTheDocument();
+  expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('reading-submissions/admin/list'));
   expect(await screen.findByText(/Student1/)).toBeInTheDocument();
-  expect(screen.getByText(/Mã lớp/)).toBeInTheDocument();
-  expect(screen.getByText(/Giáo viên/)).toBeInTheDocument();
+  expect(screen.getByText(/Class Code/i)).toBeInTheDocument();
+  expect(screen.getAllByText(/Test Teacher/i).length).toBeGreaterThan(0);
 });

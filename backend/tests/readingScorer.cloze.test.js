@@ -163,3 +163,38 @@ test('Cloze table mode: ignores stale cells outside the active columns', () => {
   expect(details).toHaveLength(1);
   expect(details[0].isCorrect).toBe(true);
 });
+
+test('Cloze table mode: counts underscore and ellipsis blanks in active table cells', () => {
+  const sample = {
+    passages: [{
+      questions: [{
+        questionType: 'cloze-test',
+        questionNumber: 41,
+        tableMode: true,
+        clozeTable: {
+          columns: ['Test', 'Findings'],
+          rows: [
+            { cells: ['Alpha _____', 'Beta ………'] },
+          ],
+        },
+        blanks: [
+          { correctAnswer: 'alpha' },
+          { correctAnswer: 'beta' },
+        ],
+      }]
+    }]
+  };
+
+  const answers = {
+    q_41_0: 'alpha',
+    q_41_1: 'beta',
+  };
+
+  const result = scoreReadingTest(sample, answers);
+  expect(result.total).toBe(2);
+  expect(result.correct).toBe(2);
+
+  const details = getDetailedScoring(sample, answers);
+  expect(details).toHaveLength(2);
+  expect(details.every((detail) => detail.isCorrect)).toBe(true);
+});

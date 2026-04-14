@@ -37,7 +37,7 @@ const reviewTest = {
     {
       title: 'Part 4',
       sections: [
-        { sectionTitle: 'Questions 12-13', questionType: 'table-completion', startingQuestionNumber: 12 },
+        { sectionTitle: 'Questions 12-13', questionType: 'cloze-test', startingQuestionNumber: 12 },
         { sectionTitle: 'Questions 14-15', questionType: 'flowchart', startingQuestionNumber: 14 },
         { sectionTitle: 'Questions 16-17', questionType: 'map-labeling', startingQuestionNumber: 16 },
       ],
@@ -74,10 +74,22 @@ const reviewTest = {
       partIndex: 3,
       sectionIndex: 0,
       questionIndex: 0,
-      questionType: 'table-completion',
+      questionType: 'cloze-test',
+      tableMode: true,
       title: 'Travel options',
       instruction: 'Write NO MORE THAN TWO WORDS.',
       columns: ['Type', 'Cost', 'Comments'],
+      clozeTable: {
+        title: 'Travel options',
+        instruction: 'Write NO MORE THAN TWO WORDS.',
+        columns: ['Type', 'Cost', 'Comments'],
+        rows: [
+          {
+            cells: ['Bus', '[BLANK] dollars', 'bring [BLANK]'],
+            cellBlankAnswers: [[], ['12'], ['water']],
+          },
+        ],
+      },
       rows: [
         {
           cells: ['Bus', '[BLANK] dollars', 'bring [BLANK]'],

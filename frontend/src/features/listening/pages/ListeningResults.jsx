@@ -6,6 +6,11 @@ import AdminNavbar from "../../../shared/components/AdminNavbar";
 import ListeningStudentStyleReview from "../components/ListeningStudentStyleReview";
 import LineIcon from "../../../shared/components/LineIcon";
 import { getFlowchartBlankEntries } from "../utils/flowchart";
+import {
+  getListeningSectionType,
+  getListeningTableBlankEntries,
+  LISTENING_CLOZE_TYPE,
+} from "../utils/clozeTableSchema";
 
 // ===== STYLES =====
 const styles = {
@@ -646,6 +651,7 @@ const parseQuestionsDeep = (questions) => {
     options: safeParseJson(q?.options),
     answers: safeParseJson(q?.answers),
     steps: safeParseJson(q?.steps),
+    clozeTable: safeParseJson(q?.clozeTable),
   }));
 };
 
@@ -655,47 +661,6 @@ const generateDetailsFromSections = (test, answers) => {
   const normalizedAnswers = answers && typeof answers === "object" ? answers : {};
 
   const details = [];
-
-  const BLANK_REGEX = /\[BLANK\]|_{2,}|[\u2026]+/g;
-  const getTableBlankEntries = (question, sectionStart) => {
-    const columns = Array.isArray(question?.columns) ? question.columns : [];
-    const rows = Array.isArray(question?.rows) ? question.rows : [];
-    let qNum = Number.isFinite(sectionStart) ? sectionStart : 1;
-    const entries = [];
-
-    const getCellText = (row, idx) => {
-      if (Array.isArray(row?.cells) && row.cells[idx] != null) return String(row.cells[idx] || "");
-      if (idx === 0) return String(row?.vehicle || "");
-      if (idx === 1) return String(row?.cost || "");
-      if (idx === 2) return Array.isArray(row?.comments) ? row.comments.join("\n") : String(row?.comments || "");
-      return "";
-    };
-
-    rows.forEach((row) => {
-      for (let c = 0; c < columns.length; c++) {
-        const text = getCellText(row, c);
-        const isComments = /comment/i.test(columns[c] || "");
-        if (isComments) {
-          const lines = String(text || "").split("\n");
-          lines.forEach((line, li) => {
-            const blanks = String(line || "").match(BLANK_REGEX) || [];
-            blanks.forEach((_, bi) => {
-              const expected = row?.commentBlankAnswers?.[li]?.[bi] ?? "";
-              entries.push({ num: qNum++, expected });
-            });
-          });
-        } else {
-          const blanks = String(text || "").match(BLANK_REGEX) || [];
-          blanks.forEach((_, bi) => {
-            const expected = row?.cellBlankAnswers?.[c]?.[bi] ?? "";
-            entries.push({ num: qNum++, expected });
-          });
-        }
-      }
-    });
-
-    return entries;
-  };
 
   const getSectionQuestions = (partIndex, sectionIndex) =>
     questions
@@ -710,21 +675,11 @@ const generateDetailsFromSections = (test, answers) => {
     const sections = Array.isArray(p?.sections) ? p.sections : [];
     for (let sIdx = 0; sIdx < sections.length; sIdx++) {
       const section = sections[sIdx] || {};
-      let sectionType = String(section?.questionType || "fill").toLowerCase();
       const sectionQuestions = getSectionQuestions(pIdx, sIdx);
       if (!sectionQuestions.length) continue;
 
       const firstQ = sectionQuestions[0];
-
-      if (sectionType === "fill") {
-        if ((firstQ?.columns && firstQ.columns.length > 0) || (firstQ?.rows && firstQ.rows.length > 0)) {
-          sectionType = "table-completion";
-        } else if (Array.isArray(firstQ?.steps) && firstQ.steps.length > 0) {
-          sectionType = "flowchart";
-        } else if (Array.isArray(firstQ?.items) && firstQ.items.length > 0) {
-          sectionType = "map-labeling";
-        }
-      }
+      const sectionType = getListeningSectionType(section, firstQ);
 
       // Determine sectionStart: prefer explicit override, otherwise runningStart
       const explicitSectionStart = Number(section?.startingQuestionNumber);
@@ -894,8 +849,8 @@ const generateDetailsFromSections = (test, answers) => {
         continue;
       }
 
-      if (sectionType === "table-completion") {
-        const entries = getTableBlankEntries(firstQ, sectionStart);
+      if (sectionType === LISTENING_CLOZE_TYPE) {
+        const entries = getListeningTableBlankEntries(firstQ, sectionStart);
         entries.forEach(({ num, expected }) => {
           const student = normalizedAnswers[`q${num}`];
           const ok = expected ? isAnswerMatch(student, expected) : false;

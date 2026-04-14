@@ -107,7 +107,9 @@ const QuestionEditorFactory = ({
       return <FlowchartEditor {...commonProps} />;
 
     case 'cloze-test':
-      return <ClozeTestEditor {...commonProps} />;
+      return actualQuestion?.tableMode
+        ? <TableCompletionEditor {...commonProps} />
+        : <ClozeTestEditor {...commonProps} />;
 
     case 'summary-completion':
       return <SummaryCompletionEditor {...commonProps} />;

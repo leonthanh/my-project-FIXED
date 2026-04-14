@@ -6,6 +6,11 @@ import LineIcon from '../../../shared/components/LineIcon.jsx';
 import { colors, compactInputStyle, deleteButtonSmallStyle } from "../utils/styles";
 import TableCompletionEditor from "../../../shared/components/questions/editors/TableCompletionEditor.jsx";
 import {
+  createListeningClozeQuestion,
+  LISTENING_CLOZE_TYPE,
+  LISTENING_TABLE_LEGACY_TYPE,
+} from "../utils/clozeTableSchema";
+import {
   countFlowchartQuestionSlots,
   getFlowchartBlankEntries,
   getFlowchartOptionEntries,
@@ -43,6 +48,7 @@ const ListeningQuestionEditor = ({
         return renderFillQuestion();
       case "form-completion":
         return renderFormCompletionQuestion();
+      case LISTENING_CLOZE_TYPE:
       case "table-completion":
         return renderTableCompletionQuestion();
       case "notes-completion":
@@ -648,10 +654,16 @@ const ListeningQuestionEditor = ({
 
   // Table Completion - use a dedicated editor component that supports columns/rows
   const renderTableCompletionQuestion = () => {
+    const tableQuestion = createListeningClozeQuestion({
+      ...question,
+      questionType:
+        type === LISTENING_TABLE_LEGACY_TYPE ? LISTENING_CLOZE_TYPE : type,
+    });
+
     return (
       <div>
         <TableCompletionEditor
-          question={question}
+          question={tableQuestion}
           onChange={(field, value) => onChange(field, value)}
           startingNumber={sectionStartingNumber || globalQuestionNumber || 1}
         />
