@@ -106,6 +106,8 @@ describe("questionHelpers", () => {
         questionType: "cloze-test",
         tableMode: true,
         clozeTable: {
+          title: "Lab results",
+          instruction: "Write ONE WORD ONLY.",
           columns: ["Test", "Findings"],
           rows: [
             { cells: ["A [BLANK]", "B", "Hidden [BLANK]"] },
@@ -115,6 +117,8 @@ describe("questionHelpers", () => {
       };
 
       expect(getActiveClozeTable(question)).toEqual({
+        title: "Lab results",
+        instruction: "Write ONE WORD ONLY.",
         columns: ["Test", "Findings"],
         rows: [
           { cells: ["A [BLANK]", "B"] },

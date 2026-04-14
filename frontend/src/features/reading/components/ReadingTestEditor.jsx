@@ -13,6 +13,10 @@ import {
   getQuestionCount,
 } from "../utils/questionHelpers";
 import {
+  getClozeTableCellLines,
+  isClozeCommentsColumn,
+} from "../../../shared/utils/clozeTable";
+import {
   colors,
   compactInputStyle,
   modalStyles,
@@ -1116,80 +1120,116 @@ const ReadingTestEditor = ({
                                             ? parseInt(String(q.startQuestion).trim().split(/[,\-]/)[0], 10)
                                             : startNumber || 1;
                                           let tableBlankCounter = 0;
+                                          const renderPreviewCellParts = (parts, ri, ci, lineIndex) =>
+                                            parts.map((part, partIndex) => {
+                                              if (part.type === "text") {
+                                                return <span key={`${ri}-${ci}-${lineIndex}-${partIndex}`}>{part.value}</span>;
+                                              }
+
+                                              const blankNum = tableStartNum + tableBlankCounter;
+                                              tableBlankCounter += 1;
+                                              return (
+                                                <strong
+                                                  key={`${ri}-${ci}-${lineIndex}-blank-${partIndex}`}
+                                                  style={{ backgroundColor: "#fff3cd", padding: "2px 6px", borderRadius: "4px", margin: "0 3px", fontSize: "12px" }}
+                                                >
+                                                  {blankNum}
+                                                </strong>
+                                              );
+                                            });
                                           return (
                                             <div
-                                        style={{
-                                          marginBottom: "10px",
-                                          padding: "12px",
-                                          backgroundColor: "#e8f4fc",
-                                          borderRadius: "6px",
-                                          border: "1px solid #bee5eb",
-                                          lineHeight: "1.8",
-                                        }}
-                                      >
-                                        <div
-                                          style={{
-                                            fontSize: "11px",
-                                            color: "#17a2b8",
-                                            marginBottom: "6px",
-                                            fontWeight: "bold",
-                                          }}
-                                        >
-                                          Cloze table:
-                                        </div>
-                                        <div style={{ overflowX: "auto" }}>
-                                          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
-                                            <thead>
-                                              <tr>
-                                                {clozeTable.columns.map((col, ci) => (
-                                                  <th
-                                                    key={ci}
-                                                    style={{
-                                                      border: "1px solid #cbd5e1",
-                                                      backgroundColor: "#e0f2fe",
-                                                      padding: "8px",
-                                                      textAlign: "left",
-                                                    }}
-                                                  >
-                                                    {col}
-                                                  </th>
-                                                ))}
-                                              </tr>
-                                            </thead>
-                                            <tbody>
-                                              {clozeTable.rows.map((row, ri) => (
-                                                <tr key={ri} style={{ backgroundColor: ri % 2 === 0 ? "white" : "#f8fafc" }}>
-                                                  {row.cells.map((cell, ci) => (
-                                                    <td
-                                                      key={ci}
-                                                      style={{
-                                                        border: "1px solid #cbd5e1",
-                                                        padding: "8px",
-                                                        verticalAlign: "top",
-                                                      }}
-                                                    >
-                                                      {String(cell || "").split(/\[BLANK\]/gi).reduce((parts, part, idx, arr) => {
-                                                        if (idx === arr.length - 1) return [...parts, <span key={`${ri}-${ci}-${idx}`}>{part}</span>];
-                                                        const blankNum = tableStartNum + tableBlankCounter;
-                                                        tableBlankCounter += 1;
-                                                        return [
-                                                          ...parts,
-                                                          <span key={`${ri}-${ci}-${idx}`}>{part}</span>,
-                                                          <strong key={`${ri}-${ci}-blank-${idx}`} style={{ backgroundColor: "#fff3cd", padding: "2px 6px", borderRadius: "4px", margin: "0 3px", fontSize: "12px" }}>
-                                                            {blankNum}
-                                                          </strong>,
-                                                        ];
-                                                      }, [])}
-                                                    </td>
-                                                  ))}
-                                                </tr>
-                                              ))}
-                                            </tbody>
-                                          </table>
-                                        </div>
-                                      </div>
-                                    );
-                                  })()}
+                                              style={{
+                                                marginBottom: "10px",
+                                                padding: "12px",
+                                                backgroundColor: "#e8f4fc",
+                                                borderRadius: "6px",
+                                                border: "1px solid #bee5eb",
+                                                lineHeight: "1.8",
+                                              }}
+                                            >
+                                              <div
+                                                style={{
+                                                  fontSize: "11px",
+                                                  color: "#17a2b8",
+                                                  marginBottom: "6px",
+                                                  fontWeight: "bold",
+                                                }}
+                                              >
+                                                Cloze table:
+                                              </div>
+                                              {clozeTable.instruction && (
+                                                <div style={{ fontStyle: "italic", marginBottom: "6px", color: "#0f172a" }}>
+                                                  {clozeTable.instruction}
+                                                </div>
+                                              )}
+                                              {clozeTable.title && (
+                                                <div style={{ textAlign: "center", fontWeight: 700, marginBottom: "8px", color: "#0f172a" }}>
+                                                  {clozeTable.title}
+                                                </div>
+                                              )}
+                                              <div style={{ overflowX: "auto" }}>
+                                                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
+                                                  <thead>
+                                                    <tr>
+                                                      {clozeTable.columns.map((col, ci) => (
+                                                        <th
+                                                          key={ci}
+                                                          style={{
+                                                            border: "1px solid #cbd5e1",
+                                                            backgroundColor: "#e0f2fe",
+                                                            padding: "8px",
+                                                            textAlign: "left",
+                                                          }}
+                                                        >
+                                                          {col}
+                                                        </th>
+                                                      ))}
+                                                    </tr>
+                                                  </thead>
+                                                  <tbody>
+                                                    {clozeTable.rows.map((row, ri) => (
+                                                      <tr key={ri} style={{ backgroundColor: ri % 2 === 0 ? "white" : "#f8fafc" }}>
+                                                        {clozeTable.columns.map((col, ci) => {
+                                                          const cellValue = row.cells?.[ci] || "";
+                                                          const lineParts = getClozeTableCellLines(cellValue, col);
+
+                                                          return (
+                                                            <td
+                                                              key={ci}
+                                                              style={{
+                                                                border: "1px solid #cbd5e1",
+                                                                padding: "8px",
+                                                                verticalAlign: "top",
+                                                              }}
+                                                            >
+                                                              {isClozeCommentsColumn(col) ? (
+                                                                <ul style={{ margin: 0, paddingLeft: "18px" }}>
+                                                                  {lineParts.map((parts, lineIndex) => (
+                                                                    <li key={`${ri}-${ci}-${lineIndex}`}>
+                                                                      {renderPreviewCellParts(parts, ri, ci, lineIndex)}
+                                                                    </li>
+                                                                  ))}
+                                                                </ul>
+                                                              ) : (
+                                                                lineParts.map((parts, lineIndex) => (
+                                                                  <React.Fragment key={`${ri}-${ci}-${lineIndex}`}>
+                                                                    {lineIndex > 0 ? <br /> : null}
+                                                                    {renderPreviewCellParts(parts, ri, ci, lineIndex)}
+                                                                  </React.Fragment>
+                                                                ))
+                                                              )}
+                                                            </td>
+                                                          );
+                                                        })}
+                                                      </tr>
+                                                    ))}
+                                                  </tbody>
+                                                </table>
+                                              </div>
+                                            </div>
+                                          );
+                                        })()}
                                     </>
                                     ) : isClozeType ? (
                                       <div
@@ -1284,7 +1324,6 @@ const ReadingTestEditor = ({
                                             >
                                               Danh sách Matching:
                                             </div>
-
                                             {/* Right Items (Headings to match) */}
                                             {q.rightItems &&
                                               q.rightItems.length > 0 && (

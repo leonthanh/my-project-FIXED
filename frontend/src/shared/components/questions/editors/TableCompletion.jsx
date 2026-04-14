@@ -21,7 +21,7 @@ function validateAnswer(value, maxWords = 2) {
   if (trimmed === '') return { ok: true };
   // Count word tokens (words with letters or numbers)
   const tokens = trimmed.split(/\s+/).filter(Boolean);
-  if (tokens.length > maxWords) return { ok: false, reason: `Không quá ${maxWords} từ.` };
+  if (tokens.length > maxWords) return { ok: false, reason: `Use no more than ${maxWords} words.` };
   return { ok: true };
 }
 
@@ -178,7 +178,7 @@ export default function TableCompletion({
                   padding: '4px 8px',
                 }}
               >
-                Dap an: {detail.correctAnswer}
+                Correct answer: {detail.correctAnswer}
               </small>
             );
           })()}
@@ -230,13 +230,114 @@ export default function TableCompletion({
       </table>
 
       <style>{`
-        .instruction { margin-bottom: 8px; font-style: italic; }
-        table.ielts-table { width: 100%; border-collapse: collapse; }
-        .ielts-table th, .ielts-table td { border: 1px solid #ccc; padding: 8px; vertical-align: top; }
-        .comments { margin: 0; padding-left: 18px; }
-        .blank-input { width: 140px; padding: 4px 6px; margin: 0 4px; }
-        .has-error { border-color: #d33; }
-        .error { color: #d33; margin-left: 6px; }
+        .listening-part {
+          width: 100%;
+          padding: 16px;
+          border-radius: 24px;
+          background: linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(244,247,255,0.98) 100%);
+          border: 1px solid rgba(191, 219, 254, 0.85);
+          box-shadow: 0 20px 60px rgba(30, 64, 175, 0.08);
+          overflow: hidden;
+        }
+        .instruction {
+          margin: 0 0 10px;
+          font-style: italic;
+          color: #475569;
+          line-height: 1.6;
+        }
+        table.ielts-table {
+          width: 100%;
+          border-collapse: separate;
+          border-spacing: 0;
+          border: 1px solid #cbd5e1;
+          border-radius: 20px;
+          overflow: hidden;
+          background: #ffffff;
+          table-layout: fixed;
+        }
+        .ielts-table thead tr {
+          background: linear-gradient(180deg, #eff6ff 0%, #dbeafe 100%);
+        }
+        .ielts-table th {
+          padding: 14px 16px;
+          border-right: 1px solid #bfdbfe;
+          color: #1e3a8a;
+          font-size: 13px;
+          font-weight: 800;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+          text-align: left;
+        }
+        .ielts-table th:last-child,
+        .ielts-table td:last-child {
+          border-right: none;
+        }
+        .ielts-table td {
+          padding: 16px 14px;
+          border-top: 1px solid #dbe3f0;
+          border-right: 1px solid #e2e8f0;
+          vertical-align: top;
+          color: #0f172a;
+          line-height: 1.7;
+          background: rgba(255,255,255,0.92);
+        }
+        .comments {
+          margin: 0;
+          padding-left: 20px;
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+        }
+        .comments li::marker {
+          color: #2563eb;
+        }
+        .blank-input {
+          width: 148px;
+          min-height: 42px;
+          padding: 9px 12px;
+          margin: 0 4px;
+          border: 1.5px solid #cbd5e1;
+          border-radius: 12px;
+          background: #ffffff;
+          color: #0f172a;
+          font-size: 14px;
+          font-weight: 700;
+          box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.04);
+          transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+        }
+        .blank-input:focus {
+          outline: none;
+          border-color: #2563eb;
+          box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.14);
+        }
+        .blank-input[readonly],
+        .blank-input:disabled {
+          cursor: default;
+        }
+        .has-error {
+          border-color: #dc2626;
+          box-shadow: 0 0 0 4px rgba(248, 113, 113, 0.12);
+        }
+        .error {
+          color: #b91c1c;
+          margin-left: 6px;
+          font-size: 12px;
+          font-weight: 600;
+        }
+        @media (max-width: 768px) {
+          .listening-part {
+            padding: 12px;
+            border-radius: 18px;
+          }
+          table.ielts-table {
+            display: block;
+            overflow-x: auto;
+            white-space: normal;
+          }
+          .blank-input {
+            width: 132px;
+          }
+        }
       `}</style>
     </div>
   );

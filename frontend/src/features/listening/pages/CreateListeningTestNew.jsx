@@ -3,6 +3,10 @@ import { useNavigate } from "react-router-dom";
 import { ListeningTestEditor } from "../components";
 import { useListeningHandlers, createNewPart, calculateTotalQuestions } from "../hooks";
 import { apiPath, authFetch, redirectToLogin } from "../../../shared/utils/api";
+import {
+  normalizeListeningParts,
+  prepareListeningPartsForSubmit,
+} from "../utils/clozeTableSchema";
 
 /**
  * CreateListeningTestNew - Trang tạo đề Listening IELTS với 4-column editor
@@ -64,7 +68,9 @@ const CreateListeningTestNew = () => {
         const data = JSON.parse(savedDraft);
         if (data.title) setTitle(data.title);
         if (data.classCode) setClassCode(data.classCode);
-        if (data.teacherName) setTeacherName(data.teacherName);      if (data.showResultModal !== undefined) setShowResultModal(data.showResultModal);        if (data.parts && data.parts.length > 0) setParts(data.parts);
+        if (data.teacherName) setTeacherName(data.teacherName);
+        if (data.showResultModal !== undefined) setShowResultModal(data.showResultModal);
+        if (data.parts && data.parts.length > 0) setParts(normalizeListeningParts(data.parts));
         console.log("Loaded draft from localStorage");
       }
     } catch (err) {
@@ -166,25 +172,11 @@ const CreateListeningTestNew = () => {
     try {
       setIsSubmitting(true);
 
-      // Clean up parts data for submission
-      const cleanedParts = parts.map((part) => ({
+      const cleanedParts = prepareListeningPartsForSubmit(parts, stripHtml).map((part) => ({
+        ...part,
         title: part.title,
-        instruction: stripHtml(part.instruction || ""),
         transcript: part.transcript || "",
         audioFile: part.audioFile,
-        sections: part.sections.map((section) => ({
-          sectionTitle: section.sectionTitle || "",
-          sectionInstruction: stripHtml(section.sectionInstruction || ""),
-          questionType: section.questionType || "fill",
-          startingQuestionNumber: section.startingQuestionNumber || null,
-          questions: section.questions.map((q) => ({
-            ...q,
-            questionText: stripHtml(q.questionText || ""),
-            options: q.options
-              ? q.options.map((opt) => (typeof opt === "string" ? opt : opt))
-              : undefined,
-          })),
-        })),
       }));
 
       // Build FormData

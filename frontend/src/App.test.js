@@ -3,6 +3,6 @@ import App from './App.jsx';
 
 test('renders login buttons', () => {
   render(<App />);
-  const loginButton = screen.getByText(/Đăng nhập/i);
-  expect(loginButton).toBeInTheDocument();
+  const loginButtons = screen.getAllByRole('button', { name: /Login/i });
+  expect(loginButtons).toHaveLength(2);
 });

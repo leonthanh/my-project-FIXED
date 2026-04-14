@@ -5,6 +5,8 @@ const getNormalizedQuestionType = (question = {}) =>
     .replace(/-{2,}/g, '-')
     .toLowerCase();
 
+const CLOZE_BLANK_REGEX = /\[BLANK\]|_{2,}|[\u2026]+/gi;
+
 const getClozeText = (question) => {
   if (!question || typeof question !== 'object') return null;
 
@@ -64,7 +66,7 @@ const countClozeBlanks = (question) => {
   if (table) {
     return table.rows.reduce((total, row) => {
       const rowCount = (Array.isArray(row?.cells) ? row.cells : []).reduce(
-        (cellTotal, cell) => cellTotal + ((String(cell || '').match(/\[BLANK\]/gi) || []).length),
+        (cellTotal, cell) => cellTotal + ((String(cell || '').match(CLOZE_BLANK_REGEX) || []).length),
         0
       );
 
@@ -74,7 +76,7 @@ const countClozeBlanks = (question) => {
 
   const clozeText = getClozeText(question);
   if (clozeText) {
-    return (clozeText.match(/\[BLANK\]/gi) || []).length;
+    return (clozeText.match(CLOZE_BLANK_REGEX) || []).length;
   }
 
   return Array.isArray(question?.blanks) ? question.blanks.length : 0;

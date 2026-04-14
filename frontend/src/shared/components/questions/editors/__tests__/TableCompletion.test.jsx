@@ -1,6 +1,7 @@
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import TableCompletion from '../TableCompletion';
+import TableCompletionEditor from '../TableCompletionEditor';
 
 const sample = {
   part: 1,
@@ -29,7 +30,7 @@ test('parses blanks, numbers them and validates input', () => {
   // Type an invalid long answer (>2 words) into second blank
   const second = screen.getByLabelText(/Question 2/);
   fireEvent.change(second, { target: { value: 'one two three' } });
-  expect(screen.getByText(/Không quá/)).toBeInTheDocument();
+  expect(screen.getByText(/Use no more than 2 words/)).toBeInTheDocument();
 });
 
 test('preserves multiline cells and removes duplicate list prefixes in comments', () => {
@@ -55,4 +56,107 @@ test('preserves multiline cells and removes duplicate list prefixes in comments'
   expect(listItems[0]).not.toHaveTextContent('- bring cash');
   expect(listItems[1]).toHaveTextContent('seats fill up fast');
   expect(listItems[1]).not.toHaveTextContent('2. seats fill up fast');
+});
+
+function TableCompletionEditorHarness({ initialQuestion }) {
+  const [question, setQuestion] = React.useState(initialQuestion);
+
+  return (
+    <TableCompletionEditor
+      question={question}
+      startingNumber={12}
+      onChange={(field, value) => {
+        setQuestion((prev) => ({
+          ...prev,
+          [field]: value,
+        }));
+      }}
+    />
+  );
+}
+
+test('smoke edits legacy comment blanks stored in cellBlankAnswers', () => {
+  render(
+    <TableCompletionEditorHarness
+      initialQuestion={{
+        title: 'Travel options',
+        instruction: 'Write NO MORE THAN TWO WORDS.',
+        columns: ['Type', 'Cost', 'Comments'],
+        rows: [
+          {
+            cells: ['Bus', '[BLANK] dollars', 'bring [BLANK]\ncarry [BLANK]'],
+            cellBlankAnswers: [[], ['12'], ['water', 'map']],
+          },
+        ],
+      }}
+    />
+  );
+
+  expect(screen.getByDisplayValue('water')).toBeInTheDocument();
+  expect(screen.getByDisplayValue('map')).toBeInTheDocument();
+
+  fireEvent.change(screen.getByPlaceholderText(/Moi dong se tro thanh mot muc/i), {
+    target: { value: 'bring [BLANK] today\ncarry [BLANK]' },
+  });
+
+  expect(screen.getByDisplayValue('water')).toBeInTheDocument();
+  expect(screen.getByDisplayValue('map')).toBeInTheDocument();
+});
+
+test('inserts [BLANK] at the current caret position in regular cells', () => {
+  render(
+    <TableCompletionEditorHarness
+      initialQuestion={{
+        title: 'Transport costs',
+        instruction: 'Write NO MORE THAN TWO WORDS.',
+        columns: ['Vehicles', 'Cost', 'Comments'],
+        rows: [
+          {
+            cells: ['Bus', 'Pay cash here', 'bring tickets'],
+            cellBlankAnswers: [[], [], []],
+            commentBlankAnswers: [],
+          },
+        ],
+      }}
+    />
+  );
+
+  const costTextarea = screen.getByRole('textbox', { name: 'Cost row 1' });
+  costTextarea.focus();
+  costTextarea.setSelectionRange(4, 4);
+
+  const insertButton = screen.getByRole('button', { name: 'Insert [BLANK] into Cost row 1' });
+  fireEvent.mouseDown(insertButton);
+  fireEvent.click(insertButton);
+
+  expect(costTextarea).toHaveValue('Pay [BLANK] cash here');
+});
+
+test('inserts [BLANK] at the current caret position in comments cells', () => {
+  render(
+    <TableCompletionEditorHarness
+      initialQuestion={{
+        title: 'Travel notes',
+        instruction: 'Write NO MORE THAN TWO WORDS.',
+        columns: ['Vehicles', 'Cost', 'Comments'],
+        rows: [
+          {
+            cells: ['Bus', '12 dollars', 'bring cash\ncarry maps'],
+            cellBlankAnswers: [[], [], []],
+            commentBlankAnswers: [],
+          },
+        ],
+      }}
+    />
+  );
+
+  const commentsTextarea = screen.getByRole('textbox', { name: 'Comments row 1' });
+  commentsTextarea.focus();
+  commentsTextarea.setSelectionRange(6, 6);
+
+  const insertButton = screen.getByRole('button', { name: 'Insert [BLANK] into Comments row 1' });
+  fireEvent.mouseDown(insertButton);
+  fireEvent.click(insertButton);
+
+  expect(commentsTextarea).toHaveValue('bring [BLANK] cash\ncarry maps');
 });

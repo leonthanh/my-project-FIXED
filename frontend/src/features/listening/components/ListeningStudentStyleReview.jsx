@@ -10,6 +10,13 @@ import {
   getFlowchartOptionTableRows,
   splitFlowchartStepText,
 } from "../utils/flowchart";
+import {
+  countListeningTableBlanks,
+  getListeningSectionType,
+  getListeningTableQuestionData,
+  isListeningTableQuestion,
+  LISTENING_CLOZE_TYPE,
+} from "../utils/clozeTableSchema";
 import createStyles from "../pages/DoListeningTest.styles";
 
 const BLANK_REGEX = /(\d+)\s*[_…]+|[_…]{2,}/g;
@@ -156,35 +163,6 @@ const normalizeAnswerObject = (rawAnswers) => {
   return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
 };
 
-const countTableCompletionBlanks = (question) => {
-  const rowsArr = question?.rows || [];
-  const cols = question?.columns || [];
-  const blankRegex = /\[BLANK\]|_{2,}|[\u2026]+/g;
-  let blanksCount = 0;
-
-  rowsArr.forEach((row) => {
-    const normalizedRow = Array.isArray(row?.cells)
-      ? row
-      : {
-          cells: [
-            row?.vehicle || "",
-            row?.cost || "",
-            Array.isArray(row?.comments) ? row.comments.join("\n") : row?.comments || "",
-          ],
-        };
-
-    const cells = Array.isArray(normalizedRow.cells) ? normalizedRow.cells : [];
-    const maxCols = cols.length ? cols.length : cells.length;
-    for (let c = 0; c < maxCols; c += 1) {
-      const text = String(cells[c] || "");
-      const matches = text.match(blankRegex) || [];
-      blanksCount += matches.length;
-    }
-  });
-
-  return blanksCount === 0 ? rowsArr.length || 0 : blanksCount;
-};
-
 const getQuestionCount = (question) => {
   if (!question) return 0;
 
@@ -192,8 +170,8 @@ const getQuestionCount = (question) => {
     return Math.max(1, question.formRows.filter((row) => row.isBlank).length);
   }
 
-  if ((question.columns && question.columns.length > 0) || (question.rows && question.rows.length > 0)) {
-    return Math.max(1, countTableCompletionBlanks(question));
+  if (isListeningTableQuestion(question)) {
+    return Math.max(1, countListeningTableBlanks(question));
   }
 
   if (typeof question.notesText === "string" && question.notesText.trim()) {
@@ -221,7 +199,7 @@ const getQuestionCount = (question) => {
 
 const getSectionQuestionCount = (section, sectionQuestions) => {
   if (!section) return 0;
-  const sectionType = String(section?.questionType || "fill").toLowerCase();
+  const sectionType = getListeningSectionType(section, sectionQuestions[0] || {});
   const firstQuestion = sectionQuestions[0] || {};
 
   if (sectionType === "form-completion") {
@@ -255,8 +233,8 @@ const getSectionQuestionCount = (section, sectionQuestions) => {
     return sectionQuestions.reduce((sum, question) => sum + (Number(question?.requiredAnswers) || 2), 0);
   }
 
-  if (sectionType === "table-completion") {
-    return countTableCompletionBlanks(firstQuestion) || 0;
+  if (sectionType === LISTENING_CLOZE_TYPE) {
+    return countListeningTableBlanks(firstQuestion) || 0;
   }
 
   if (sectionType === "flowchart") {
@@ -440,23 +418,7 @@ export default function ListeningStudentStyleReview({ test, submission, details 
   };
 
   const getSectionType = (section, firstQuestion) => {
-    let type = section?.questionType || firstQuestion?.questionType || "fill";
-    if (type === "fill") {
-      if (firstQuestion?.formRows?.length) {
-        type = "form-completion";
-      } else if (firstQuestion?.notesText) {
-        type = "notes-completion";
-      } else if (firstQuestion?.leftItems?.length) {
-        type = "matching";
-      } else if ((firstQuestion?.columns?.length || 0) > 0 || (firstQuestion?.rows?.length || 0) > 0) {
-        type = "table-completion";
-      } else if (firstQuestion?.steps?.length) {
-        type = "flowchart";
-      } else if (firstQuestion?.options?.length) {
-        type = firstQuestion.options.length === 3 ? "abc" : "abcd";
-      }
-    }
-    return String(type || "fill").toLowerCase();
+    return getListeningSectionType(section, firstQuestion);
   };
 
   const renderMultipleChoice = (question, globalNumber) => {
@@ -696,8 +658,9 @@ export default function ListeningStudentStyleReview({ test, submission, details 
   };
 
   const renderTableCompletion = (question, startNumber, endNumber, partNumber) => {
-    const title = question?.title || "";
-    const instruction = question?.instruction || "";
+    const tableQuestion = getListeningTableQuestionData(question);
+    const title = tableQuestion.title || "";
+    const instruction = tableQuestion.instruction || "";
 
     return (
       <div style={{ width: "100%" }}>
@@ -708,8 +671,8 @@ export default function ListeningStudentStyleReview({ test, submission, details 
             part: partNumber,
             title,
             instruction,
-            columns: question?.columns || [],
-            rows: question?.rows || [],
+            columns: tableQuestion.columns || [],
+            rows: tableQuestion.rows || [],
             rangeStart: startNumber,
             rangeEnd: endNumber,
           }}
@@ -1056,10 +1019,10 @@ export default function ListeningStudentStyleReview({ test, submission, details 
           {questionType === "form-completion" && renderFormCompletion(firstQuestion, startNumber)}
           {questionType === "notes-completion" && renderNotesCompletion(firstQuestion, startNumber)}
           {questionType === "map-labeling" && renderMapLabeling(firstQuestion, startNumber)}
-          {questionType === "table-completion" && renderTableCompletion(firstQuestion, startNumber, displayEndNumber, partIndex + 1)}
+          {questionType === LISTENING_CLOZE_TYPE && renderTableCompletion(firstQuestion, startNumber, displayEndNumber, partIndex + 1)}
           {questionType === "flowchart" && renderFlowchart(firstQuestion, startNumber)}
 
-          {!["multiple-choice", "abc", "abcd", "multi-select", "matching", "form-completion", "notes-completion", "map-labeling", "table-completion", "flowchart"].includes(questionType) &&
+          {!["multiple-choice", "abc", "abcd", "multi-select", "matching", "form-completion", "notes-completion", "map-labeling", LISTENING_CLOZE_TYPE, "flowchart"].includes(questionType) &&
             sectionQuestions.map((question, questionIndex) => renderFillQuestion(question, startNumber + questionIndex))}
         </div>
       </div>

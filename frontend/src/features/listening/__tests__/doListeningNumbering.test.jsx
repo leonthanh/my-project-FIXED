@@ -62,7 +62,7 @@ const mixedTypeTest = {
     {
       title: 'Part 4',
       sections: [
-        { sectionTitle: 'Questions 14-15', questionType: 'table-completion', startingQuestionNumber: 14 },
+        { sectionTitle: 'Questions 14-15', questionType: 'cloze-test', startingQuestionNumber: 14 },
         { sectionTitle: 'Questions 16-17', questionType: 'flowchart', startingQuestionNumber: 16 },
         { sectionTitle: 'Questions 18-19', questionType: 'map-labeling', startingQuestionNumber: 18 },
       ],
@@ -101,10 +101,22 @@ const mixedTypeTest = {
       partIndex: 3,
       sectionIndex: 0,
       questionIndex: 0,
-      questionType: 'table-completion',
+      questionType: 'cloze-test',
+      tableMode: true,
       title: 'Travel options',
       instruction: 'Write NO MORE THAN TWO WORDS.',
       columns: ['Type', 'Cost', 'Comments'],
+      clozeTable: {
+        title: 'Travel options',
+        instruction: 'Write NO MORE THAN TWO WORDS.',
+        columns: ['Type', 'Cost', 'Comments'],
+        rows: [
+          {
+            cells: ['Bus', '[BLANK] dollars', 'bring [BLANK]'],
+            cellBlankAnswers: [[], ['12'], ['water']],
+          },
+        ],
+      },
       rows: [
         {
           cells: ['Bus', '[BLANK] dollars', 'bring [BLANK]'],

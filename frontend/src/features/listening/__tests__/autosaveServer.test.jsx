@@ -41,6 +41,8 @@ describe('Listening autosave server', () => {
 
   test('server autosave creates submission and resume works', async () => {
     let lastSavedAnswers = null;
+    const playSpy = jest.spyOn(window.HTMLMediaElement.prototype, 'play').mockImplementation(() => Promise.resolve());
+    const pauseSpy = jest.spyOn(window.HTMLMediaElement.prototype, 'pause').mockImplementation(() => undefined);
     const fetchMock = jest.fn((url, opts = {}) => {
       // Return test payload
       if (String(url).includes('/listening-tests/3') && (!opts.method || opts.method === 'GET')) {
@@ -56,7 +58,7 @@ describe('Listening autosave server', () => {
       }
       // Active GET
       if (String(url).includes('/active')) {
-        return Promise.resolve({ ok: true, json: () => Promise.resolve({ submission: { id: 99, answers: lastSavedAnswers, expiresAt: Date.now() + 100000, finished: false } }) });
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ submission: { id: 99, testId: 3, answers: lastSavedAnswers, expiresAt: Date.now() + 100000, finished: false } }) });
       }
       return Promise.resolve({ ok: false });
     });
@@ -70,6 +72,10 @@ describe('Listening autosave server', () => {
         </Routes>
       </MemoryRouter>
     );
+
+    const startBtn = await screen.findByText('Play & Start');
+    fireEvent.click(startBtn);
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
 
     // Navigate to Part 3 to render the multi-select question
     const part3Btn = await screen.findByText(/Part 3/);
@@ -127,5 +133,8 @@ describe('Listening autosave server', () => {
       const parsed = JSON.parse(raw);
       return parsed && parsed.answers && JSON.stringify(parsed.answers) === JSON.stringify(lastSavedAnswers);
     }, { timeout: 2000 });
+
+    playSpy.mockRestore();
+    pauseSpy.mockRestore();
   });
 });

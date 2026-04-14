@@ -8,6 +8,12 @@ const User = require('../models/User');
 const { scoreListening } = require('../utils/listeningScorer');
 const { countFlowchartQuestionSlots, getFlowchartBlankEntries } = require('../utils/flowchartHelpers');
 const {
+  countListeningTableBlanks,
+  getListeningSectionType,
+  getListeningTableBlankEntries,
+  LISTENING_CLOZE_TYPE,
+} = require('../utils/listeningTableQuestions');
+const {
   DEFAULT_EXTENSION_MINUTES,
   buildTimingPayload,
   extendDeadline,
@@ -190,20 +196,11 @@ router.get('/admin/list', async (req, res) => {
         const sections = Array.isArray(p?.sections) ? p.sections : [];
         for (let sIdx = 0; sIdx < sections.length; sIdx++) {
           const section = sections[sIdx] || {};
-          let sectionType = String(section?.questionType || 'fill').toLowerCase();
           const sectionQuestions = getSectionQuestions(pIdx, sIdx);
           if (!sectionQuestions.length) continue;
 
           const firstQ = sectionQuestions[0];
-          if (sectionType === 'fill') {
-            if ((firstQ?.columns && firstQ.columns.length > 0) || (firstQ?.rows && firstQ.rows.length > 0)) {
-              sectionType = 'table-completion';
-            } else if (Array.isArray(firstQ?.steps) && firstQ.steps.length > 0) {
-              sectionType = 'flowchart';
-            } else if (Array.isArray(firstQ?.items) && firstQ.items.length > 0) {
-              sectionType = 'map-labeling';
-            }
-          }
+          const sectionType = getListeningSectionType(section, firstQ);
 
           if (sectionType === 'form-completion' || sectionType === 'notes-completion') {
             const map = firstQ?.answers && typeof firstQ.answers === 'object' && !Array.isArray(firstQ.answers) ? firstQ.answers : null;
@@ -223,8 +220,8 @@ router.get('/admin/list', async (req, res) => {
             continue;
           }
 
-          if (sectionType === 'table-completion') {
-            total += countTableBlanks(firstQ) || 0;
+          if (sectionType === LISTENING_CLOZE_TYPE) {
+            total += countListeningTableBlanks(firstQ) || 0;
             continue;
           }
 
@@ -339,21 +336,11 @@ router.get('/admin/list', async (req, res) => {
         const sections = Array.isArray(p?.sections) ? p.sections : [];
         for (let sIdx = 0; sIdx < sections.length; sIdx++) {
           const section = sections[sIdx] || {};
-          let sectionType = String(section?.questionType || 'fill').toLowerCase();
           const sectionQuestions = getSectionQuestions(pIdx, sIdx);
           if (!sectionQuestions.length) continue;
 
           const firstQ = sectionQuestions[0];
-
-          if (sectionType === 'fill') {
-            if ((firstQ?.columns && firstQ.columns.length > 0) || (firstQ?.rows && firstQ.rows.length > 0)) {
-              sectionType = 'table-completion';
-            } else if (Array.isArray(firstQ?.steps) && firstQ.steps.length > 0) {
-              sectionType = 'flowchart';
-            } else if (Array.isArray(firstQ?.items) && firstQ.items.length > 0) {
-              sectionType = 'map-labeling';
-            }
-          }
+          const sectionType = getListeningSectionType(section, firstQ);
 
           const explicitSectionStart = Number(section?.startingQuestionNumber);
           const hasExplicitStart = Number.isFinite(explicitSectionStart) && explicitSectionStart > 0;
@@ -392,8 +379,8 @@ router.get('/admin/list', async (req, res) => {
             continue;
           }
 
-          if (sectionType === 'table-completion') {
-            const entries = getTableBlankEntries(firstQ, sectionStart);
+          if (sectionType === LISTENING_CLOZE_TYPE) {
+            const entries = getListeningTableBlankEntries(firstQ, sectionStart);
             entries.forEach(({ num, expected }) => {
               const student = normalizedAnswers[`q${num}`];
               const studentVal = student ?? '';
@@ -790,9 +777,9 @@ router.get('/:testId/active', async (req, res) => {
 
     if (submissionId) {
       const sub = await ListeningSubmission.findByPk(submissionId);
-      if (!sub) {
-        debug(`GET /api/listening-submissions/${testId}/active - no submission for submissionId=${submissionId}`);
-        return res.status(404).json({ message: '❌ Không tìm thấy attempt' });
+      if (!sub || Number(sub.testId) !== Number(testId) || sub.finished) {
+        debug(`GET /api/listening-submissions/${testId}/active - no unfinished submission for submissionId=${submissionId}`);
+        return res.json({ submission: null, timing: buildTimingPayload(null) });
       }
       debug(`GET /api/listening-submissions/${testId}/active - returning submissionId=${sub.id}`);
       return res.json({
