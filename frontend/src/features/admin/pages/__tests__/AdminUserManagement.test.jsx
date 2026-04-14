@@ -294,6 +294,88 @@ describe('AdminUserManagement admin tabs', () => {
     });
   });
 
+  test('bulk deletes selected IX Listening tests', async () => {
+    authFetch.mockImplementation((url, options = {}) => {
+      if (url.startsWith('admin/users?')) {
+        return Promise.resolve({ ok: true, json: async () => [] });
+      }
+
+      if (url === 'admin/tests' && !options.method) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            ixWriting: [],
+            ixReading: [],
+            ixListening: [
+              {
+                id: 6,
+                title: 'IX Listening 6',
+                classCode: 'L6',
+                teacherName: 'Leak Teacher',
+                createdAt: '2026-04-14T00:00:00.000Z',
+                submissionCount: 2,
+                hiddenFromStudents: false,
+                status: 'published',
+                deleteScope: 'ix-listening',
+              },
+              {
+                id: 7,
+                title: 'IX Listening 7',
+                classCode: 'L7',
+                teacherName: 'Other Teacher',
+                createdAt: '2026-04-13T00:00:00.000Z',
+                submissionCount: 0,
+                hiddenFromStudents: false,
+                status: 'published',
+                deleteScope: 'ix-listening',
+              },
+            ],
+            cambridge: [],
+          }),
+        });
+      }
+
+      if (url === 'admin/tests/ix-listening/6' && options.method === 'DELETE') {
+        return Promise.resolve({ ok: true, json: async () => ({ deletedId: 6, scope: 'ix-listening' }) });
+      }
+
+      if (url === 'admin/tests/ix-listening/7' && options.method === 'DELETE') {
+        return Promise.resolve({ ok: true, json: async () => ({ deletedId: 7, scope: 'ix-listening' }) });
+      }
+
+      return Promise.resolve({ ok: true, json: async () => ({}) });
+    });
+
+    jest.spyOn(window, 'confirm').mockReturnValue(true);
+
+    render(
+      <MemoryRouter>
+        <AdminUserManagement />
+      </MemoryRouter>
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Tests' }));
+    fireEvent.click(await screen.findByRole('button', { name: /IX Listening/i }));
+
+    expect(await screen.findByText('IX Listening 6')).toBeInTheDocument();
+
+    const checkboxes = screen.getAllByRole('checkbox');
+    fireEvent.click(checkboxes[0]);
+    fireEvent.click(checkboxes[1]);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Delete Selected (2)' }));
+
+    await waitFor(() => {
+      expect(authFetch).toHaveBeenCalledWith('admin/tests/ix-listening/6', { method: 'DELETE' });
+      expect(authFetch).toHaveBeenCalledWith('admin/tests/ix-listening/7', { method: 'DELETE' });
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('Selected tests deleted permanently.')).toBeInTheDocument();
+      expect(screen.getByText('No tests found for the current filters.')).toBeInTheDocument();
+    });
+  });
+
   test('shows submission cards for a selected user and deletes a writing submission', async () => {
     authFetch.mockImplementation((url, options = {}) => {
       if (url.startsWith('admin/users?search=')) {

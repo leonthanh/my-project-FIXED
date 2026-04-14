@@ -1130,6 +1130,7 @@ const TestsTab = () => {
   const [deletingKey, setDeletingKey] = useState('');
   const [selectedTests, setSelectedTests] = useState(new Set());
   const [bulkVisibilityAction, setBulkVisibilityAction] = useState('');
+  const [bulkDeletingTests, setBulkDeletingTests] = useState(false);
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(''), 3500); };
 
@@ -1398,6 +1399,60 @@ const TestsTab = () => {
     }
   };
 
+  const bulkDeleteTests = async () => {
+    const selectedItems = currentList.filter((test) => selectedTests.has(`${test.deleteScope}:${test.id}`));
+    if (!selectedItems.length) return;
+
+    if (!window.confirm(`Delete ${selectedItems.length} selected tests permanently? This cannot be undone.`)) {
+      return;
+    }
+
+    setBulkDeletingTests(true);
+    try {
+      const results = await Promise.allSettled(
+        selectedItems.map(async (test) => {
+          const res = await authFetch(apiPath(`admin/tests/${test.deleteScope}/${test.id}`), { method: 'DELETE' });
+          await res.json().catch(() => ({}));
+          if (!res.ok) throw new Error('Could not delete test.');
+          return { key: `${test.deleteScope}:${test.id}` };
+        })
+      );
+
+      const succeeded = results
+        .filter((result) => result.status === 'fulfilled')
+        .map((result) => result.value.key);
+
+      if (!succeeded.length) {
+        throw new Error('Could not delete selected tests.');
+      }
+
+      const succeededSet = new Set(succeeded);
+      setTests((prev) => {
+        const next = { ...prev };
+        Object.keys(next).forEach((bucket) => {
+          next[bucket] = (next[bucket] || []).filter((item) => !succeededSet.has(`${item.deleteScope}:${item.id}`));
+        });
+        return next;
+      });
+
+      setSelectedTests((prev) => {
+        const next = new Set(prev);
+        succeeded.forEach((key) => next.delete(key));
+        return next;
+      });
+
+      if (succeeded.length === selectedItems.length) {
+        showToast('Selected tests deleted permanently.');
+      } else {
+        showToast(`${succeeded.length}/${selectedItems.length} selected tests deleted.`);
+      }
+    } catch (_err) {
+      showToast('Could not delete selected tests.');
+    } finally {
+      setBulkDeletingTests(false);
+    }
+  };
+
   const deleteTest = async (test) => {
     if (!window.confirm(`Delete test "${test.title}" permanently? This cannot be undone.`)) return;
 
@@ -1529,7 +1584,7 @@ const TestsTab = () => {
                 </button>
               ) : null}
               {selectedCurrentCount > 0 ? (
-                <button style={s.btnSmGray} onClick={() => setSelectedTests(new Set())} disabled={Boolean(bulkVisibilityAction)}>
+                <button style={s.btnSmGray} onClick={() => setSelectedTests(new Set())} disabled={Boolean(bulkVisibilityAction) || bulkDeletingTests}>
                   Clear selection
                 </button>
               ) : null}
@@ -1545,7 +1600,10 @@ const TestsTab = () => {
               <button style={s.btnSmGreen} onClick={() => applyBulkVisibility(false)} disabled={Boolean(bulkVisibilityAction)}>
                 {bulkVisibilityAction === 'show' ? 'Showing...' : `Show Selected (${selectedCurrentCount})`}
               </button>
-              <button style={s.btnGray} onClick={() => setSelectedTests(new Set())} disabled={Boolean(bulkVisibilityAction)}>
+              <button style={s.btnRed} onClick={bulkDeleteTests} disabled={Boolean(bulkVisibilityAction) || bulkDeletingTests}>
+                {bulkDeletingTests ? 'Deleting...' : `Delete Selected (${selectedCurrentCount})`}
+              </button>
+              <button style={s.btnGray} onClick={() => setSelectedTests(new Set())} disabled={Boolean(bulkVisibilityAction) || bulkDeletingTests}>
                 Clear Selection
               </button>
             </div>
@@ -1576,6 +1634,7 @@ const TestsTab = () => {
                             type="checkbox"
                             checked={isSelected}
                             onChange={() => toggleTestSelect(test)}
+                            disabled={isUpdating || isDeleting || Boolean(bulkVisibilityAction) || bulkDeletingTests}
                           />
                         </label>
                         <span style={acs.idPill}>#{test.id}</span>
@@ -1592,12 +1651,12 @@ const TestsTab = () => {
                     actions={(
                       <>
                         {editPath ? (
-                          <button style={s.btnSmBlue} onClick={() => navigate(editPath)} disabled={isUpdating || isDeleting || Boolean(bulkVisibilityAction)}>Edit</button>
+                          <button style={s.btnSmBlue} onClick={() => navigate(editPath)} disabled={isUpdating || isDeleting || Boolean(bulkVisibilityAction) || bulkDeletingTests}>Edit</button>
                         ) : null}
                         <button
                           style={visibility.hiddenFromStudents ? s.btnSmGreen : s.btnSmAmber}
                           onClick={() => setTestVisibility(test, !visibility.hiddenFromStudents)}
-                          disabled={isUpdating || isDeleting || Boolean(bulkVisibilityAction)}
+                          disabled={isUpdating || isDeleting || Boolean(bulkVisibilityAction) || bulkDeletingTests}
                         >
                           {isUpdating
                             ? 'Saving...'
@@ -1605,7 +1664,7 @@ const TestsTab = () => {
                             ? 'Show to students'
                             : 'Hide from students'}
                         </button>
-                        <button style={s.btnSmRed} onClick={() => deleteTest(test)} disabled={isUpdating || isDeleting || Boolean(bulkVisibilityAction)}>
+                        <button style={s.btnSmRed} onClick={() => deleteTest(test)} disabled={isUpdating || isDeleting || Boolean(bulkVisibilityAction) || bulkDeletingTests}>
                           {isDeleting ? 'Deleting...' : 'Delete'}
                         </button>
                       </>
