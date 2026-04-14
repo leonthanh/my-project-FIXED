@@ -1,4 +1,5 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import AdminNavbar from '../../../shared/components/AdminNavbar';
 import { apiPath, authFetch } from '../../../shared/utils/api';
 
@@ -15,6 +16,79 @@ const roleBadge = (role) => {
   };
   const m = map[role] || map.student;
   return <span style={{ background: m.bg, color: m.color, borderRadius: 4, padding: '2px 8px', fontSize: 12, fontWeight: 600 }}>{m.label}</span>;
+};
+
+const TEST_BUCKETS = [
+  { id: 'ixWriting', label: 'IX Writing' },
+  { id: 'ixReading', label: 'IX Reading' },
+  { id: 'ixListening', label: 'IX Listening' },
+  { id: 'cambridge', label: 'Cambridge' },
+];
+
+const getAdminTestBucketFromScope = (scope) => {
+  switch (scope) {
+    case 'ix-writing':
+      return 'ixWriting';
+    case 'ix-reading':
+      return 'ixReading';
+    case 'ix-listening':
+      return 'ixListening';
+    default:
+      return 'cambridge';
+  }
+};
+
+const getCambridgeLevelKey = (test = {}) => String(test.testType || '').trim().toLowerCase().split('-')[0] || '';
+
+const getAdminTestTypeLabel = (test = {}) => {
+  if (test.typeLabel) return test.typeLabel;
+  if (test.deleteScope === 'ix-writing') return 'IX Writing';
+  if (test.deleteScope === 'ix-reading') return 'IX Reading';
+  if (test.deleteScope === 'ix-listening') return 'IX Listening';
+  if (test.deleteScope === 'cambridge-writing') return 'PET Writing';
+  if (test.deleteScope === 'cambridge-reading') return 'Cambridge Reading';
+  if (test.deleteScope === 'cambridge-listening') return 'Cambridge Listening';
+  return 'Test';
+};
+
+const getAdminTestEditPath = (test = {}) => {
+  switch (test.deleteScope) {
+    case 'ix-writing':
+      return `/edit-test/${test.id}`;
+    case 'ix-reading':
+      return `/reading-tests/${test.id}/edit`;
+    case 'ix-listening':
+      return `/listening/${test.id}/edit`;
+    case 'cambridge-writing':
+      return `/admin/edit-pet-writing/${test.id}`;
+    case 'cambridge-reading':
+      return `/cambridge/reading/${test.id}/edit`;
+    case 'cambridge-listening':
+      return `/cambridge/listening/${test.id}/edit`;
+    default:
+      return null;
+  }
+};
+
+const testCountBadge = (count = 0) => {
+  const hasSubmissions = Number(count) > 0;
+  return (
+    <span style={{
+      display: 'inline-flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      minWidth: 36,
+      padding: '3px 10px',
+      borderRadius: 999,
+      background: hasSubmissions ? '#fff7ed' : '#f8fafc',
+      color: hasSubmissions ? '#c2410c' : '#475569',
+      border: `1px solid ${hasSubmissions ? '#fdba74' : '#e2e8f0'}`,
+      fontSize: 12,
+      fontWeight: 700,
+    }}>
+      {count}
+    </span>
+  );
 };
 
 // ─── Modals ───────────────────────────────────────────────────────────────────
@@ -565,10 +639,223 @@ const DuplicatesTab = () => {
   );
 };
 
+// ─── Tab: Tests ───────────────────────────────────────────────────────────────
+const TestsTab = () => {
+  const navigate = useNavigate();
+  const [tests, setTests] = useState({ ixWriting: [], ixReading: [], ixListening: [], cambridge: [] });
+  const [activeBucket, setActiveBucket] = useState('ixWriting');
+  const [search, setSearch] = useState('');
+  const [cambridgeLevel, setCambridgeLevel] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [toast, setToast] = useState('');
+  const [deletingKey, setDeletingKey] = useState('');
+
+  const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(''), 3500); };
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await authFetch(apiPath('admin/tests'));
+      if (!res.ok) throw new Error('Could not load tests.');
+      const payload = await res.json();
+      setTests({
+        ixWriting: Array.isArray(payload.ixWriting) ? payload.ixWriting : [],
+        ixReading: Array.isArray(payload.ixReading) ? payload.ixReading : [],
+        ixListening: Array.isArray(payload.ixListening) ? payload.ixListening : [],
+        cambridge: Array.isArray(payload.cambridge) ? payload.cambridge : [],
+      });
+    } catch (_err) {
+      showToast('Could not load tests.');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const currentList = useMemo(() => {
+    const normalizedQuery = search.trim().toLowerCase();
+    return (tests[activeBucket] || []).filter((test) => {
+      if (activeBucket === 'cambridge' && cambridgeLevel && getCambridgeLevelKey(test) !== cambridgeLevel) {
+        return false;
+      }
+
+      if (!normalizedQuery) return true;
+
+      const haystack = [
+        test.id,
+        test.title,
+        test.classCode,
+        test.teacherName,
+        test.testType,
+        test.typeLabel,
+        test.status,
+      ].map((value) => String(value || '').toLowerCase()).join(' ');
+
+      return haystack.includes(normalizedQuery);
+    });
+  }, [activeBucket, cambridgeLevel, search, tests]);
+
+  const cambridgeLevels = useMemo(() => {
+    const levels = Array.from(new Set((tests.cambridge || []).map(getCambridgeLevelKey).filter(Boolean)));
+    return levels.sort();
+  }, [tests.cambridge]);
+
+  const deleteTest = async (test) => {
+    const impactLine = Number(test.submissionCount || 0) > 0
+      ? `This test currently has ${test.submissionCount} linked submissions. Hard deletion may make old review context harder to recover.`
+      : 'No linked submissions found for this test.';
+
+    const confirmed = window.confirm(
+      `Delete "${test.title}"?\n\nThis permanently removes the test from the admin and student lists.\n${impactLine}`
+    );
+
+    if (!confirmed) return;
+
+    const deleteKey = `${test.deleteScope}:${test.id}`;
+    setDeletingKey(deleteKey);
+    try {
+      const res = await authFetch(apiPath(`admin/tests/${test.deleteScope}/${test.id}`), { method: 'DELETE' });
+      await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error('Could not delete test.');
+
+      const bucket = getAdminTestBucketFromScope(test.deleteScope);
+      setTests((prev) => ({
+        ...prev,
+        [bucket]: (prev[bucket] || []).filter((item) => item.id !== test.id || item.deleteScope !== test.deleteScope),
+      }));
+      showToast('Test deleted.');
+    } catch (_err) {
+      showToast('Could not delete test.');
+    } finally {
+      setDeletingKey('');
+    }
+  };
+
+  return (
+    <div>
+      {toast && <div style={s.toast}>{toast}</div>}
+
+      <div style={s.infoCard}>
+        <strong style={{ display: 'block', marginBottom: 6, color: '#7c2d12' }}>Admin note</strong>
+        <span style={{ fontSize: 14, color: '#9a3412', lineHeight: 1.6 }}>
+          Hard delete is useful when a test has been leaked and must disappear immediately. A safer long-term workflow would be an archive/unpublish state, but this panel gives admin one place to remove tests without using phpMyAdmin.
+        </span>
+      </div>
+
+      <div style={{ ...s.tabBar, marginBottom: 16 }}>
+        {TEST_BUCKETS.map((bucket) => (
+          <button
+            key={bucket.id}
+            type="button"
+            onClick={() => setActiveBucket(bucket.id)}
+            style={{ ...s.tabBtn, ...(activeBucket === bucket.id ? s.tabBtnActive : {}) }}
+          >
+            {bucket.label} <span style={{ fontSize: 11, opacity: 0.72 }}>({tests[bucket.id]?.length || 0})</span>
+          </button>
+        ))}
+      </div>
+
+      <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
+        <input
+          style={{ ...s.input, flex: 1, minWidth: 220, margin: 0 }}
+          placeholder="Search by title, class, teacher, level, or id..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+        {activeBucket === 'cambridge' && (
+          <select
+            style={{ ...s.input, margin: 0, width: 180 }}
+            value={cambridgeLevel}
+            onChange={(e) => setCambridgeLevel(e.target.value)}
+          >
+            <option value="">All levels</option>
+            {cambridgeLevels.map((level) => (
+              <option key={level} value={level}>{level.toUpperCase()}</option>
+            ))}
+          </select>
+        )}
+        <button style={s.btnBlue} onClick={load} disabled={loading}>Reload</button>
+      </div>
+
+      {loading && <p style={{ textAlign: 'center', color: '#888' }}>Loading tests...</p>}
+
+      {!loading && (
+        <>
+          <p style={{ fontSize: 13, color: '#6b7280', marginBottom: 8 }}>Total: {currentList.length} tests</p>
+          <div style={s.tableWrap}>
+            <table style={s.table}>
+              <thead>
+                <tr>
+                  <th style={s.th}>ID</th>
+                  <th style={s.th}>Title</th>
+                  <th style={s.th}>Class</th>
+                  <th style={s.th}>Teacher</th>
+                  <th style={s.th}>Type</th>
+                  <th style={s.th}>Submissions</th>
+                  <th style={s.th}>Created</th>
+                  <th style={s.th}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {currentList.map((test) => {
+                  const editPath = getAdminTestEditPath(test);
+                  const deleteKey = `${test.deleteScope}:${test.id}`;
+                  return (
+                    <tr key={deleteKey} style={s.tr}>
+                      <td style={{ ...s.td, color: '#9ca3af', fontSize: 12 }}>{test.id}</td>
+                      <td style={s.td}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                          <strong>{test.title}</strong>
+                          {test.status ? <span style={s.inlineMeta}>Status: {test.status}</span> : null}
+                        </div>
+                      </td>
+                      <td style={s.td}>{test.classCode || '—'}</td>
+                      <td style={s.td}>{test.teacherName || '—'}</td>
+                      <td style={s.td}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                          <span style={s.typePill}>{getAdminTestTypeLabel(test)}</span>
+                          {test.totalQuestions ? <span style={s.inlineMeta}>{test.totalQuestions} questions</span> : null}
+                        </div>
+                      </td>
+                      <td style={s.td}>{testCountBadge(test.submissionCount || 0)}</td>
+                      <td style={{ ...s.td, fontSize: 12, color: '#9ca3af' }}>{fmtDate(test.createdAt)}</td>
+                      <td style={s.td}>
+                        <div style={s.actionGroup}>
+                          {editPath ? (
+                            <button style={s.btnSmBlue} onClick={() => navigate(editPath)}>Edit</button>
+                          ) : null}
+                          <button
+                            style={s.btnSmRed}
+                            onClick={() => deleteTest(test)}
+                            disabled={deletingKey === deleteKey}
+                          >
+                            {deletingKey === deleteKey ? 'Deleting...' : 'Delete'}
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+                {currentList.length === 0 && (
+                  <tr>
+                    <td colSpan={8} style={{ ...s.td, textAlign: 'center', color: '#9ca3af' }}>No tests found for this selection.</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+    </div>
+  );
+};
+
 // ─── Main Page ─────────────────────────────────────────────────────────────────
 const TABS = [
   { id: 'users', label: 'Users' },
   { id: 'submissions', label: 'Submissions' },
+  { id: 'tests', label: 'Tests' },
   { id: 'duplicates', label: 'Duplicates' },
 ];
 
@@ -609,6 +896,7 @@ const AdminUserManagement = () => {
         <div style={s.tabContent}>
           {activeTab === 'users' && <UsersTab onViewSubmissions={handleViewSubmissions} />}
           {activeTab === 'submissions' && <SubmissionsTab key={submissionsKey} initialUser={jumpToUser} />}
+          {activeTab === 'tests' && <TestsTab />}
           {activeTab === 'duplicates' && <DuplicatesTab />}
         </div>
       </div>
@@ -632,7 +920,7 @@ const s = {
   subtitle: { margin: 0, fontSize: 15, lineHeight: 1.6, color: '#475569' },
   tabBar: { display: 'flex', gap: 8, flexWrap: 'wrap', background: '#fff', border: '1px solid #e5e7eb', borderRadius: 18, padding: 8, marginBottom: 18, boxShadow: '0 12px 30px rgba(15, 23, 42, 0.05)' },
   tabBtn: { background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 12, padding: '10px 16px', cursor: 'pointer', fontSize: 14, fontWeight: 700, color: '#475569', transition: 'all 0.2s ease' },
-  tabBtnActive: { background: '#0e276f', borderColor: '#0e276f', color: '#ffffff', boxShadow: '0 10px 22px rgba(14, 39, 111, 0.18)' },
+  tabBtnActive: { background: '#0e276f', border: '1px solid #0e276f', color: '#ffffff', boxShadow: '0 10px 22px rgba(14, 39, 111, 0.18)' },
   tabContent: { background: '#fff', borderRadius: 20, padding: 20, border: '1px solid #e5e7eb', boxShadow: '0 16px 40px rgba(15, 23, 42, 0.06)' },
   tableWrap: { overflowX: 'auto' },
   table: { width: 'max-content', minWidth: 0, borderCollapse: 'collapse', background: '#fff', borderRadius: 14, overflow: 'hidden' },
@@ -656,6 +944,9 @@ const s = {
   toast: { position: 'fixed', bottom: 24, right: 24, background: '#0f172a', color: '#fff', padding: '12px 18px', borderRadius: 12, fontSize: 14, zIndex: 9999, boxShadow: '0 16px 36px rgba(15,23,42,0.28)' },
   userChip: { background: '#f8fafc', border: '1px solid #e5e7eb', borderRadius: 10, padding: '8px 14px', cursor: 'pointer', marginRight: 8, marginBottom: 8, fontSize: 14, display: 'inline-flex', alignItems: 'center', gap: 6 },
   bulkBar: { display: 'flex', alignItems: 'center', gap: 10, background: '#fff7ed', border: '1px solid #fed7aa', borderRadius: 7, padding: '9px 14px', marginBottom: 12, flexWrap: 'wrap' },
+  infoCard: { background: '#fff7ed', border: '1px solid #fed7aa', borderRadius: 14, padding: '14px 16px', marginBottom: 16 },
+  typePill: { display: 'inline-flex', alignItems: 'center', alignSelf: 'flex-start', background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe', borderRadius: 999, padding: '3px 10px', fontSize: 12, fontWeight: 700 },
+  inlineMeta: { fontSize: 12, color: '#64748b' },
 };
 
 export default AdminUserManagement;

@@ -1,16 +1,95 @@
 const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
-const { Op } = require('sequelize');
+const { Op, fn, col } = require('sequelize');
 
 const User = require('../models/User');
 const RefreshToken = require('../models/RefreshToken');
+const WritingTest = require('../models/WritingTests');
+const ReadingTest = require('../models/ReadingTest');
+const ListeningTest = require('../models/ListeningTest');
 const Submission = require('../models/Submission');             // writing
 const ReadingSubmission = require('../models/ReadingSubmission');
 const ListeningSubmission = require('../models/ListeningSubmission');
+const CambridgeListening = require('../models/CambridgeListening');
+const CambridgeReading = require('../models/CambridgeReading');
 const CambridgeSubmission = require('../models/CambridgeSubmission');
 const { requireAuth, requireRole } = require('../middlewares/auth');
 const { logError } = require('../logger');
+
+const toPlain = (record) => (record && typeof record.toJSON === 'function' ? record.toJSON() : record);
+
+const getCountValue = (row) => Number(row?.count ?? row?.dataValues?.count ?? 0);
+
+const buildCountMap = (rows = [], keyBuilder) =>
+  rows.reduce((map, row) => {
+    map.set(String(keyBuilder(row)), getCountValue(row));
+    return map;
+  }, new Map());
+
+const formatIxWritingTitle = (test = {}) => `IX Writing ${test.index || test.id}`;
+const formatIxListeningTitle = (test = {}) => `IX Listening ${test.id}`;
+
+const formatCambridgeTypeLabel = (testType = '', category = '') => {
+  const normalizedType = String(testType || '').trim().toLowerCase();
+  if (normalizedType === 'pet-writing') return 'PET Writing';
+
+  const [level = 'cambridge', skill = category || 'reading'] = normalizedType.split('-');
+  const levelLabel = level.toUpperCase();
+  const skillLabel = skill.charAt(0).toUpperCase() + skill.slice(1);
+  return `${levelLabel} ${skillLabel}`;
+};
+
+const buildWritingTestPayload = (test, submissionCount = 0, scope = 'ix-writing') => ({
+  id: test.id,
+  title: formatIxWritingTitle(test),
+  classCode: test.classCode || '',
+  teacherName: test.teacherName || '',
+  testType: test.testType || 'writing',
+  index: test.index || null,
+  createdAt: test.createdAt,
+  updatedAt: test.updatedAt,
+  submissionCount,
+  deleteScope: scope,
+});
+
+const buildReadingTestPayload = (test, submissionCount = 0) => ({
+  id: test.id,
+  title: test.title || `IX Reading ${test.id}`,
+  classCode: test.classCode || '',
+  teacherName: test.teacherName || '',
+  createdAt: test.createdAt,
+  updatedAt: test.updatedAt,
+  submissionCount,
+  deleteScope: 'ix-reading',
+});
+
+const buildListeningTestPayload = (test, submissionCount = 0) => ({
+  id: test.id,
+  title: formatIxListeningTitle(test),
+  classCode: test.classCode || '',
+  teacherName: test.teacherName || '',
+  createdAt: test.createdAt,
+  updatedAt: test.updatedAt,
+  submissionCount,
+  deleteScope: 'ix-listening',
+});
+
+const buildCambridgeTestPayload = (test, submissionCount = 0, category = 'reading') => ({
+  id: test.id,
+  title: test.title || formatCambridgeTypeLabel(test.testType, category),
+  classCode: test.classCode || '',
+  teacherName: test.teacherName || '',
+  testType: test.testType || '',
+  category,
+  status: test.status || '',
+  totalQuestions: test.totalQuestions || 0,
+  createdAt: test.createdAt,
+  updatedAt: test.updatedAt,
+  submissionCount,
+  deleteScope: `cambridge-${category}`,
+  typeLabel: formatCambridgeTypeLabel(test.testType, category),
+});
 
 // ─────────────────────────────────────────────────────────
 //  USERS
@@ -193,6 +272,184 @@ router.get('/users/duplicates', requireAuth, requireRole('admin'), async (req, r
 // ─────────────────────────────────────────────────────────
 //  SUBMISSIONS
 // ─────────────────────────────────────────────────────────
+
+// GET /api/admin/tests — consolidated test management payload for admin UI
+router.get('/tests', requireAuth, requireRole('admin'), async (_req, res) => {
+  try {
+    const [
+      writingTests,
+      readingTests,
+      listeningTests,
+      cambridgeReadingTests,
+      cambridgeListeningTests,
+      writingSubmissionCounts,
+      readingSubmissionCounts,
+      listeningSubmissionCounts,
+      cambridgeSubmissionCounts,
+    ] = await Promise.all([
+      WritingTest.findAll({
+        order: [['createdAt', 'DESC']],
+        attributes: ['id', 'index', 'testType', 'classCode', 'teacherName', 'createdAt', 'updatedAt'],
+      }),
+      ReadingTest.findAll({
+        order: [['createdAt', 'DESC']],
+        attributes: ['id', 'title', 'classCode', 'teacherName', 'createdAt', 'updatedAt'],
+      }),
+      ListeningTest.findAll({
+        order: [['createdAt', 'DESC']],
+        attributes: ['id', 'classCode', 'teacherName', 'createdAt', 'updatedAt'],
+      }),
+      CambridgeReading.findAll({
+        order: [['createdAt', 'DESC']],
+        attributes: ['id', 'title', 'classCode', 'teacherName', 'testType', 'totalQuestions', 'status', 'createdAt', 'updatedAt'],
+      }),
+      CambridgeListening.findAll({
+        order: [['createdAt', 'DESC']],
+        attributes: ['id', 'title', 'classCode', 'teacherName', 'testType', 'totalQuestions', 'status', 'createdAt', 'updatedAt'],
+      }),
+      Submission.findAll({
+        attributes: ['testId', [fn('COUNT', col('id')), 'count']],
+        where: {
+          testId: { [Op.ne]: null },
+          [Op.or]: [{ isDraft: false }, { isDraft: null }],
+        },
+        group: ['testId'],
+        raw: true,
+      }),
+      ReadingSubmission.findAll({
+        attributes: ['testId', [fn('COUNT', col('id')), 'count']],
+        group: ['testId'],
+        raw: true,
+      }),
+      ListeningSubmission.findAll({
+        attributes: ['testId', [fn('COUNT', col('id')), 'count']],
+        group: ['testId'],
+        raw: true,
+      }),
+      CambridgeSubmission.findAll({
+        attributes: ['testId', 'testType', [fn('COUNT', col('id')), 'count']],
+        group: ['testId', 'testType'],
+        raw: true,
+      }),
+    ]);
+
+    const writingCountMap = buildCountMap(writingSubmissionCounts, (row) => row.testId);
+    const readingCountMap = buildCountMap(readingSubmissionCounts, (row) => row.testId);
+    const listeningCountMap = buildCountMap(listeningSubmissionCounts, (row) => row.testId);
+    const cambridgeCountMap = buildCountMap(
+      cambridgeSubmissionCounts,
+      (row) => `${String(row.testType || '').toLowerCase()}:${row.testId}`
+    );
+
+    const plainWritingTests = writingTests.map(toPlain);
+    const ixWriting = plainWritingTests
+      .filter((test) => String(test.testType || '').toLowerCase() !== 'pet-writing')
+      .map((test) => buildWritingTestPayload(test, writingCountMap.get(String(test.id)) || 0, 'ix-writing'));
+
+    const cambridgeWriting = plainWritingTests
+      .filter((test) => String(test.testType || '').toLowerCase() === 'pet-writing')
+      .map((test) => ({
+        ...buildWritingTestPayload(test, writingCountMap.get(String(test.id)) || 0, 'cambridge-writing'),
+        category: 'writing',
+        typeLabel: 'PET Writing',
+        totalQuestions: 0,
+        status: 'published',
+      }));
+
+    const ixReading = readingTests
+      .map(toPlain)
+      .map((test) => buildReadingTestPayload(test, readingCountMap.get(String(test.id)) || 0));
+
+    const ixListening = listeningTests
+      .map(toPlain)
+      .map((test) => buildListeningTestPayload(test, listeningCountMap.get(String(test.id)) || 0));
+
+    const cambridge = [
+      ...cambridgeWriting,
+      ...cambridgeReadingTests.map(toPlain).map((test) =>
+        buildCambridgeTestPayload(
+          test,
+          cambridgeCountMap.get(`${String(test.testType || '').toLowerCase()}:${test.id}`) || 0,
+          'reading'
+        )
+      ),
+      ...cambridgeListeningTests.map(toPlain).map((test) =>
+        buildCambridgeTestPayload(
+          test,
+          cambridgeCountMap.get(`${String(test.testType || '').toLowerCase()}:${test.id}`) || 0,
+          'listening'
+        )
+      ),
+    ].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+    res.json({ ixWriting, ixReading, ixListening, cambridge });
+  } catch (err) {
+    logError('Lỗi lấy danh sách đề thi admin', err);
+    res.status(500).json({ message: 'Lỗi server.' });
+  }
+});
+
+// DELETE /api/admin/tests/:scope/:id — delete a test by admin-only scope
+router.delete('/tests/:scope/:id', requireAuth, requireRole('admin'), async (req, res) => {
+  try {
+    const { scope } = req.params;
+    const testId = Number(req.params.id);
+    if (!Number.isFinite(testId) || testId <= 0) {
+      return res.status(400).json({ message: 'ID đề thi không hợp lệ.' });
+    }
+
+    let Model = null;
+    let label = 'đề thi';
+    let extraGuard = null;
+
+    switch (String(scope || '').toLowerCase()) {
+      case 'ix-writing':
+        Model = WritingTest;
+        label = 'đề IX Writing';
+        extraGuard = (test) => String(test.testType || '').toLowerCase() !== 'pet-writing';
+        break;
+      case 'ix-reading':
+        Model = ReadingTest;
+        label = 'đề IX Reading';
+        break;
+      case 'ix-listening':
+        Model = ListeningTest;
+        label = 'đề IX Listening';
+        break;
+      case 'cambridge-writing':
+        Model = WritingTest;
+        label = 'đề Cambridge Writing';
+        extraGuard = (test) => String(test.testType || '').toLowerCase() === 'pet-writing';
+        break;
+      case 'cambridge-reading':
+        Model = CambridgeReading;
+        label = 'đề Cambridge Reading';
+        break;
+      case 'cambridge-listening':
+        Model = CambridgeListening;
+        label = 'đề Cambridge Listening';
+        break;
+      default:
+        return res.status(400).json({ message: 'Loại đề thi không hợp lệ.' });
+    }
+
+    const test = await Model.findByPk(testId);
+    if (!test || (typeof extraGuard === 'function' && !extraGuard(test))) {
+      return res.status(404).json({ message: 'Không tìm thấy đề thi.' });
+    }
+
+    await test.destroy();
+
+    res.json({
+      message: `Đã xóa ${label}.`,
+      deletedId: testId,
+      scope,
+    });
+  } catch (err) {
+    logError('Lỗi xóa đề thi admin', err);
+    res.status(500).json({ message: 'Lỗi server.' });
+  }
+});
 
 // GET /api/admin/submissions?userId=123
 router.get('/submissions', requireAuth, requireRole('admin'), async (req, res) => {
