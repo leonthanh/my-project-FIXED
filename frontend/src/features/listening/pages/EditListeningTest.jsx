@@ -34,6 +34,63 @@ const clearDraftRestorePrompt = (testId) => {
   promptedEditDrafts.delete(key);
 };
 
+const FILEISH_KEYS = new Set(['audioFile', 'imageFile', 'mapImageFile']);
+
+const canonicalizeDraftValue = (value, currentKey = '') => {
+  if (value == null) return value;
+
+  if (typeof File !== 'undefined' && value instanceof File) {
+    return '__file__';
+  }
+
+  if (typeof Blob !== 'undefined' && value instanceof Blob) {
+    return '__blob__';
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((item) => canonicalizeDraftValue(item));
+  }
+
+  if (typeof value === 'object') {
+    if (FILEISH_KEYS.has(currentKey)) {
+      return '__file__';
+    }
+
+    return Object.keys(value)
+      .sort()
+      .reduce((accumulator, key) => {
+        if (key === 'savedAt') return accumulator;
+
+        const nextValue = canonicalizeDraftValue(value[key], key);
+        if (nextValue !== undefined) {
+          accumulator[key] = nextValue;
+        }
+        return accumulator;
+      }, {});
+  }
+
+  if (FILEISH_KEYS.has(currentKey) && typeof value !== 'string' && value !== '') {
+    return '__file__';
+  }
+
+  return value;
+};
+
+const buildEditDraftSnapshot = ({ title, classCode, teacherName, showResultModal, parts }) =>
+  canonicalizeDraftValue({
+    title: title || '',
+    classCode: classCode || '',
+    teacherName: teacherName || '',
+    showResultModal: showResultModal ?? true,
+    parts: normalizeListeningParts(Array.isArray(parts) ? parts : []),
+  });
+
+const shouldOfferDraftRestore = ({ serverState, draftState }) => {
+  const serverSnapshot = JSON.stringify(buildEditDraftSnapshot(serverState));
+  const draftSnapshot = JSON.stringify(buildEditDraftSnapshot(draftState));
+  return serverSnapshot !== draftSnapshot;
+};
+
 const EditListeningTest = () => {
   const navigate = useNavigate();
   const { id } = useParams();
@@ -127,7 +184,8 @@ const EditListeningTest = () => {
         // Reconstruct parts from partInstructions and questions
         const reconstructedParts = reconstructParts(partInstructions, questions, partAudioUrls);
         console.log("Reconstructed parts:", reconstructedParts);
-        setParts(normalizeListeningParts(reconstructedParts));
+        const normalizedReconstructedParts = normalizeListeningParts(reconstructedParts);
+        setParts(normalizedReconstructedParts);
 
         // If there's a local draft (from a failed update), offer to restore it
         try {
@@ -138,7 +196,24 @@ const EditListeningTest = () => {
 
           if (savedDraft && shouldPromptForDraftRestore(id, savedDraft)) {
             const draft = JSON.parse(savedDraft);
-            if (window.confirm("Tìm thấy bản nháp cục bộ. Khôi phục bản nháp?")) {
+            const hasMeaningfulDraftDiff = shouldOfferDraftRestore({
+              serverState: {
+                title: data.title || '',
+                classCode: data.classCode || '',
+                teacherName: data.teacherName || '',
+                showResultModal: data.showResultModal ?? true,
+                parts: normalizedReconstructedParts,
+              },
+              draftState: {
+                title: draft.title,
+                classCode: draft.classCode,
+                teacherName: draft.teacherName,
+                showResultModal: draft.showResultModal,
+                parts: draft.parts,
+              },
+            });
+
+            if (hasMeaningfulDraftDiff && window.confirm("Tìm thấy bản nháp cục bộ. Khôi phục bản nháp?")) {
               setTitle(draft.title || (data.title || ""));
               setClassCode(draft.classCode || (data.classCode || ""));
               setTeacherName(draft.teacherName || (data.teacherName || ""));

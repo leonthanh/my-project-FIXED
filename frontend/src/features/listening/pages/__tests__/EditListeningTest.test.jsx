@@ -62,6 +62,17 @@ const buildHandlers = () => ({
 });
 
 describe('EditListeningTest draft restore prompt', () => {
+  const serverPayload = {
+    title: 'Listening 6',
+    classCode: 'L6',
+    teacherName: 'Teacher',
+    showResultModal: true,
+    partInstructions: [],
+    questions: [],
+    partAudioUrls: {},
+    mainAudioUrl: '',
+  };
+
   beforeEach(() => {
     jest.clearAllMocks();
     localStorage.clear();
@@ -72,18 +83,21 @@ describe('EditListeningTest draft restore prompt', () => {
     useListeningHandlers.mockReturnValue(buildHandlers());
     authFetch.mockResolvedValue({
       ok: true,
-      json: async () => ({
-        title: 'Listening 6',
-        classCode: 'L6',
-        teacherName: 'Teacher',
-        showResultModal: true,
-        partInstructions: [],
-        questions: [],
-        partAudioUrls: {},
-        mainAudioUrl: '',
-      }),
+      json: async () => serverPayload,
     });
   });
+
+  const renderPage = () => {
+    render(
+      <React.StrictMode>
+        <MemoryRouter initialEntries={['/listening/6/edit']}>
+          <Routes>
+            <Route path="/listening/:id/edit" element={<EditListeningTest />} />
+          </Routes>
+        </MemoryRouter>
+      </React.StrictMode>
+    );
+  };
 
   test('prompts only once for the same saved draft in StrictMode', async () => {
     localStorage.setItem(
@@ -100,15 +114,7 @@ describe('EditListeningTest draft restore prompt', () => {
 
     const confirmSpy = jest.spyOn(window, 'confirm').mockReturnValue(false);
 
-    render(
-      <React.StrictMode>
-        <MemoryRouter initialEntries={['/listening/6/edit']}>
-          <Routes>
-            <Route path="/listening/:id/edit" element={<EditListeningTest />} />
-          </Routes>
-        </MemoryRouter>
-      </React.StrictMode>
-    );
+    renderPage();
 
     await waitFor(() => {
       expect(screen.getByTestId('listening-test-editor')).toBeInTheDocument();
@@ -116,6 +122,32 @@ describe('EditListeningTest draft restore prompt', () => {
 
     await waitFor(() => {
       expect(confirmSpy).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  test('does not prompt when the saved draft matches the fetched server state', async () => {
+    localStorage.setItem(
+      'listeningTestDraftEdit-6',
+      JSON.stringify({
+        title: serverPayload.title,
+        classCode: serverPayload.classCode,
+        teacherName: serverPayload.teacherName,
+        showResultModal: serverPayload.showResultModal,
+        parts: [],
+        savedAt: '2026-04-14T11:00:00.000Z',
+      })
+    );
+
+    const confirmSpy = jest.spyOn(window, 'confirm').mockReturnValue(false);
+
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByTestId('listening-test-editor')).toBeInTheDocument();
+    });
+
+    await waitFor(() => {
+      expect(confirmSpy).not.toHaveBeenCalled();
     });
   });
 });
