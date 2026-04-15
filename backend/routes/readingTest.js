@@ -57,6 +57,9 @@ const normalizeUploadsInPassages = (passages, req) => {
   }));
 };
 
+const shouldIncludeArchived = (req) =>
+  ['1', 'true', 'yes'].includes(String(req.query.includeArchived || '').trim().toLowerCase());
+
 // Build simple email summary HTML + text fallback for reading submissions (teacher requested minimal fields)
 const buildReadingSummaryEmail = (sub, result, req, meta = {}) => {
   // Prefer explicit FRONTEND_URL (useful for deployments where frontend runs on separate host/port)
@@ -176,7 +179,10 @@ function loadReadingScorer() {
 // Get all reading tests
 router.get("/", async (req, res) => {
   try {
-    const tests = await ReadingTest.findAll({ order: [["createdAt", "DESC"]] });
+    const tests = await ReadingTest.findAll({
+      where: shouldIncludeArchived(req) ? {} : { isArchived: false },
+      order: [["createdAt", "DESC"]],
+    });
     // Parse passages JSON if it's a string
     const parsed = tests.map((test) => {
       const data = test.toJSON();

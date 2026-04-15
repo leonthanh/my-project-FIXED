@@ -62,12 +62,18 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage });
 
+const shouldIncludeArchived = (req) =>
+  ['1', 'true', 'yes'].includes(String(req.query.includeArchived || '').trim().toLowerCase());
+
 // 📌 Lấy tất cả đề
 router.get('/', async (req, res) => {
   try {
     const where = {};
     if (req.query.testType) {
       where.testType = req.query.testType;
+    }
+    if (!shouldIncludeArchived(req)) {
+      where.isArchived = false;
     }
     const tests = await WritingTest.findAll({ where, order: [['index', 'ASC']] });
     const normalized = tests.map((t) => normalizeUploadsInWriting(t.toJSON ? t.toJSON() : t, req));

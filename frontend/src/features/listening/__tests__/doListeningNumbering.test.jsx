@@ -233,4 +233,119 @@ describe('Listening test numbering', () => {
     expect(screen.getByText('Reception')).toBeInTheDocument();
     expect(screen.getByText('Parking')).toBeInTheDocument();
   });
+
+  test('shows number badges for notes and table completion blanks in the student runtime', async () => {
+    window.fetch.mockImplementation((url) => {
+      const normalizedUrl = String(url || '');
+
+      if (normalizedUrl.includes('/listening-submissions/77/active')) {
+        return Promise.resolve({ ok: false, json: () => Promise.resolve({}) });
+      }
+
+      return Promise.resolve({ ok: true, json: () => Promise.resolve(mixedTypeTest) });
+    });
+
+    localStorage.setItem('listening:77:state:anon', JSON.stringify({ started: true, audioPlayed: {}, answers: {} }));
+
+    render(
+      <MemoryRouter initialEntries={['/listening/77']}>
+        <Routes>
+          <Route path="/listening/:id" element={<DoListeningTest />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await userEvent.click(await screen.findByText(/Part 3/));
+    const notesInput = await screen.findByLabelText('Question 12');
+    expect(notesInput.previousElementSibling).toHaveTextContent('12');
+
+    await userEvent.click(await screen.findByText(/Part 4/));
+    const tableInput = await screen.findByLabelText('Question 14');
+    expect(tableInput.previousElementSibling).toHaveTextContent('14');
+  });
+
+  test('centers the notes title and uses larger note text in the student runtime', async () => {
+    window.fetch.mockImplementation((url) => {
+      const normalizedUrl = String(url || '');
+
+      if (normalizedUrl.includes('/listening-submissions/77/active')) {
+        return Promise.resolve({ ok: false, json: () => Promise.resolve({}) });
+      }
+
+      return Promise.resolve({ ok: true, json: () => Promise.resolve(mixedTypeTest) });
+    });
+
+    localStorage.setItem('listening:77:state:anon', JSON.stringify({ started: true, audioPlayed: {}, answers: {} }));
+
+    render(
+      <MemoryRouter initialEntries={['/listening/77']}>
+        <Routes>
+          <Route path="/listening/:id" element={<DoListeningTest />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await userEvent.click(await screen.findByText(/Part 3/));
+
+    const notesTitle = await screen.findByText('Tour notes');
+    const notesContent = notesTitle.nextElementSibling;
+
+    expect(notesTitle.style.textAlign).toBe('center');
+    expect(notesContent).toBeTruthy();
+    expect(notesContent.style.fontSize).toBe('15px');
+  });
+
+  test('renders flowchart dropdowns with an opaque overlay menu in the student runtime', async () => {
+    window.fetch.mockImplementation((url) => {
+      const normalizedUrl = String(url || '');
+
+      if (normalizedUrl.includes('/listening-submissions/77/active')) {
+        return Promise.resolve({ ok: false, json: () => Promise.resolve({}) });
+      }
+
+      return Promise.resolve({ ok: true, json: () => Promise.resolve(mixedTypeTest) });
+    });
+
+    localStorage.setItem('listening:77:state:anon', JSON.stringify({ started: true, audioPlayed: {}, answers: {} }));
+
+    render(
+      <MemoryRouter initialEntries={['/listening/77']}>
+        <Routes>
+          <Route path="/listening/:id" element={<DoListeningTest />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await userEvent.click(await screen.findByText(/Part 4/));
+
+    const flowchartSelectButtons = await screen.findAllByRole('button', { name: 'Select' });
+    await userEvent.click(flowchartSelectButtons[0]);
+
+    const listbox = screen.getByRole('listbox');
+    expect(listbox.style.backgroundColor).toBe('rgb(255, 255, 255)');
+    expect(listbox.style.zIndex).toBe('120');
+  });
+
+  test('gives the expanded footer part enough width for its navigator buttons', async () => {
+    render(
+      <MemoryRouter initialEntries={['/listening/3']}>
+        <Routes>
+          <Route path="/listening/:id" element={<DoListeningTest />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    const part3Label = await screen.findByText(/Part 3/);
+    await userEvent.click(part3Label);
+
+    const part3Tab = part3Label.parentElement?.parentElement;
+    const part4Label = screen.getByText(/Part 4/);
+    const part4Tab = part4Label.parentElement?.parentElement;
+
+    expect(part3Tab).toBeTruthy();
+    expect(part4Tab).toBeTruthy();
+    expect(part3Tab.style.flex.startsWith('1 1 ')).toBe(true);
+    expect(Number.parseInt(part3Tab.style.minWidth, 10)).toBeGreaterThan(Number.parseInt(part4Tab.style.minWidth, 10));
+    expect(part3Tab.style.maxWidth).toBe('none');
+  });
 });

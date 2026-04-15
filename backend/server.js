@@ -96,6 +96,9 @@ try {
       await addColumnIfMissing(sequelizeInstance, "submissions", "bandTask1", "FLOAT NULL");
       await addColumnIfMissing(sequelizeInstance, "submissions", "bandTask2", "FLOAT NULL");
       await addColumnIfMissing(sequelizeInstance, "submissions", "bandOverall", "FLOAT NULL");
+      await addColumnIfMissing(sequelizeInstance, "writing_tests", "isArchived", "BOOLEAN NOT NULL DEFAULT FALSE");
+      await addColumnIfMissing(sequelizeInstance, "reading_tests", "isArchived", "BOOLEAN NOT NULL DEFAULT FALSE");
+      await addColumnIfMissing(sequelizeInstance, "listening_tests", "isArchived", "BOOLEAN NOT NULL DEFAULT FALSE");
       console.log("✅ Inline DB column fallback complete.");
     } catch (migrationErr) {
       console.warn("⚠️ Inline ensureDbColumns warning:", migrationErr?.message || migrationErr);

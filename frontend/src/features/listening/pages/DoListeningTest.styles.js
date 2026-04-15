@@ -36,6 +36,8 @@ const createStyles = (isDarkMode = false) => {
       };
 
   return {
+  surfaceColor: colors.surface,
+
   pageWrapper: {
     width: "100%",
     minHeight: "100vh",
@@ -43,6 +45,7 @@ const createStyles = (isDarkMode = false) => {
     flexDirection: "column",
     fontFamily: "'Aptos', 'Segoe UI Variable Text', 'Trebuchet MS', sans-serif",
     fontWeight: 500,
+    backgroundColor: colors.pageBg,
     background: isDarkMode
       ? "radial-gradient(circle at top, rgba(74,144,217,0.18), transparent 34%), linear-gradient(180deg, #0f172a 0%, #111827 100%)"
       : "radial-gradient(circle at top left, rgba(96,165,250,0.22), transparent 32%), radial-gradient(circle at top right, rgba(14,165,233,0.12), transparent 28%), linear-gradient(180deg, #f5f8ff 0%, #eef4ff 48%, #f8fbff 100%)",
@@ -502,6 +505,43 @@ const createStyles = (isDarkMode = false) => {
     color: colors.muted,
     pointerEvents: "none",
   },
+  inlineQuestionBadge: {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    minWidth: "32px",
+    width: "32px",
+    height: "32px",
+    background: `linear-gradient(135deg, ${colors.primary} 0%, ${colors.primaryStrong} 100%)`,
+    color: "#fff",
+    borderRadius: "10px",
+    fontWeight: 800,
+    fontSize: "13px",
+    lineHeight: 1,
+    flexShrink: 0,
+    boxShadow: "0 10px 20px rgba(37, 99, 235, 0.18)",
+  },
+  notesGapField: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "8px",
+    margin: "0 6px",
+    verticalAlign: "middle",
+  },
+  notesGapInput: {
+    width: "128px",
+    minHeight: "40px",
+    padding: "8px 12px",
+    border: `1.5px solid ${colors.border}`,
+    borderRadius: "12px",
+    fontSize: "14px",
+    outline: "none",
+    backgroundColor: colors.surface,
+    color: colors.text,
+    fontWeight: 700,
+    boxShadow: "inset 0 1px 2px rgba(15, 23, 42, 0.04)",
+    transition: "border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease",
+  },
 
   // Floating Navigation
   floatingNav: {
@@ -551,19 +591,27 @@ const createStyles = (isDarkMode = false) => {
   },
   partsContainer: {
     display: "flex",
+    alignItems: "stretch",
     overflowX: "auto",
+    overflowY: "hidden",
     gap: "12px",
     padding: "12px 16px 14px",
+    scrollbarWidth: "thin",
+    WebkitOverflowScrolling: "touch",
   },
   partTab: {
-    flex: 1,
-    minWidth: "140px",
+    display: "flex",
+    flexDirection: "column",
+    justifyContent: "center",
+    flex: "1 1 172px",
+    minWidth: "172px",
     padding: "14px 16px",
     cursor: "pointer",
     border: `1px solid ${colors.border}`,
     borderRadius: "20px",
     transition: "background-color 0.2s",
     boxShadow: isDarkMode ? "none" : "0 8px 18px rgba(15, 23, 42, 0.04)",
+    overflow: "hidden",
   },
   partLabel: {
     display: "flex",
@@ -579,7 +627,9 @@ const createStyles = (isDarkMode = false) => {
     flexWrap: "nowrap",
     gap: "10px",
     marginTop: "12px",
-    justifyContent: "space-around",
+    justifyContent: "flex-start",
+    width: "100%",
+    overflow: "hidden",
   },
   questionNumBox: {
     minWidth: "34px",
@@ -595,6 +645,7 @@ const createStyles = (isDarkMode = false) => {
     color: colors.text,
     padding: "0 6px",
     fontWeight: 700,
+    flex: "0 0 auto",
   },
   questionNumBoxWide: {
     minWidth: "48px",
@@ -602,6 +653,7 @@ const createStyles = (isDarkMode = false) => {
     fontSize: "14px",
   },
   submitIcon: {
+    flex: "0 0 72px",
     minWidth: "72px",
     padding: "16px 18px",
     background: `linear-gradient(135deg, ${colors.primaryStrong} 0%, ${colors.primary} 100%)`,
@@ -781,10 +833,11 @@ const createStyles = (isDarkMode = false) => {
     fontSize: "16px",
     marginBottom: "14px",
     color: colors.primaryStrong,
+    textAlign: "center",
   },
   notesContent: {
-    lineHeight: 1.95,
-    fontSize: "14px",
+    lineHeight: 2.05,
+    fontSize: "15px",
   },
   notesLine: {
     marginBottom: "8px",

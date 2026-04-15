@@ -107,11 +107,15 @@ const SelectTest = () => {
     const fetchAllTests = async () => {
       try {
         setLoading(true);
+        const writingPath = isTeacher ? 'writing-tests?includeArchived=1' : 'writing-tests';
+        const readingPath = isTeacher ? 'reading-tests?includeArchived=1' : 'reading-tests';
+        const listeningPath = isTeacher ? 'listening-tests?includeArchived=1' : 'listening-tests';
+        const cambridgePath = isTeacher ? 'cambridge?visibility=all' : 'cambridge';
         const [writingRes, readingRes, listeningRes, cambridgeRes] = await Promise.all([
-          fetch(apiPath("writing-tests")),
-          fetch(apiPath("reading-tests")),
-          fetch(apiPath("listening-tests")),
-          fetch(apiPath("cambridge")), // Route: /api/cambridge
+          fetch(apiPath(writingPath)),
+          fetch(apiPath(readingPath)),
+          fetch(apiPath(listeningPath)),
+          fetch(apiPath(cambridgePath)),
         ]);
 
         const writingData = await writingRes.json();
