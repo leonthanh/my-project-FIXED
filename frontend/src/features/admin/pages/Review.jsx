@@ -3,7 +3,13 @@ import { useNavigate } from "react-router-dom";
 import AdminNavbar from "../../../shared/components/AdminNavbar";
 import { useTheme } from "../../../shared/contexts/ThemeContext";
 import { apiPath } from "../../../shared/utils/api";
+import {
+  ExpandableSubmissionList,
+  SubmissionStatCards,
+  getSubmissionTone,
+} from "../components/SubmissionCardList";
 import SubmissionTypeTabs from "../components/SubmissionTypeTabs";
+import { getAttemptTimingMeta } from "../utils/attemptTiming";
 
 const DEFAULT_REVIEW_FILTERS = {
   studentName: "",
@@ -65,6 +71,11 @@ const Review = () => {
   const [cambridgeAiLoadingById, setCambridgeAiLoadingById] = useState({});
   const [cambridgeSavingById, setCambridgeSavingById] = useState({});
   const [cambridgeStatusById, setCambridgeStatusById] = useState({});
+  const [expandedQueueItems, setExpandedQueueItems] = useState(() => ({
+    writing: new Set(),
+    reading: new Set(),
+    listening: new Set(),
+  }));
   const [isCompactLayout, setIsCompactLayout] = useState(
     typeof window !== "undefined" ? window.innerWidth <= 768 : false
   );
@@ -216,6 +227,12 @@ const Review = () => {
       .filter((item) => item.userAnswer.length > 0);
   };
 
+  const getCambridgeRowKey = (source, submissionId) =>
+    `${String(source || "cambridge")}:${String(submissionId || "")}`;
+
+  const getCambridgeRowId = (row) =>
+    getCambridgeRowKey(row?.source, row?.sub?.id);
+
   const mergedCambridgeRows = useMemo(() => {
     const petRows = unreviewedPetWriting.map((sub) => ({
       source: "pet-writing",
@@ -234,16 +251,23 @@ const Review = () => {
     );
   }, [unreviewedPetWriting, cambridgeSubmissions]);
 
-  const handleToggleCambridgeDetail = async (submissionId) => {
+  const handleToggleCambridgeDetail = async (row) => {
+    const rowId = getCambridgeRowId(row);
+    const submissionId = row?.sub?.id;
+
     setExpandedCambridge((prev) => {
       const next = new Set(prev);
-      if (next.has(submissionId)) {
-        next.delete(submissionId);
+      if (next.has(rowId)) {
+        next.delete(rowId);
       } else {
-        next.add(submissionId);
+        next.add(rowId);
       }
       return next;
     });
+
+    if (row?.source !== "cambridge" || !submissionId) {
+      return;
+    }
 
     if (
       cambridgeDetailsById[submissionId] ||
@@ -384,7 +408,7 @@ const Review = () => {
       );
       setExpandedCambridge((prev) => {
         const next = new Set(prev);
-        next.delete(submissionId);
+        next.delete(getCambridgeRowKey("cambridge", submissionId));
         return next;
       });
     } catch (err) {
@@ -439,6 +463,449 @@ const Review = () => {
     return [test.title || `Listening #${submission?.testId || "N/A"}`, test.classCode || "", test.teacherName || ""]
       .filter(Boolean)
       .join(" - ");
+  };
+
+  const toggleQueueItem = (tabKey, itemId) => {
+    setExpandedQueueItems((prev) => {
+      const nextTabItems = new Set(prev[tabKey] || []);
+      if (nextTabItems.has(itemId)) {
+        nextTabItems.delete(itemId);
+      } else {
+        nextTabItems.add(itemId);
+      }
+
+      return {
+        ...prev,
+        [tabKey]: nextTabItems,
+      };
+    });
+  };
+
+  const getWritingTestTitle = (submission) => {
+    const test = submission?.writing_test || submission?.WritingTest || {};
+    const testType = String(test?.testType || submission?.testType || "").toLowerCase();
+    if (testType.includes("pet-writing")) return "PET Writing";
+    if (test?.index != null && String(test.index).trim()) {
+      return `Writing ${test.index}`;
+    }
+    return "Writing";
+  };
+
+  const getWritingTestLabel = (submission) => {
+    const test = submission?.writing_test || submission?.WritingTest || {};
+    return [
+      getWritingTestTitle(submission),
+      test?.classCode || null,
+      test?.teacherName || null,
+    ]
+      .filter(Boolean)
+      .join(" - ");
+  };
+
+  const getQueueToneVariant = (submission) => {
+    if (submission?.finished === false) return "active";
+    return getReviewStatus(submission) === "done" ? "reviewed" : "pending";
+  };
+
+  const getQueueStatusLabel = (submission) => {
+    if (submission?.finished === false) return "Active";
+    return getReviewStatus(submission) === "done" ? "Reviewed" : "Pending";
+  };
+
+  const getObjectiveScoreSummary = (submission) => {
+    const correctCount = Number(submission?.correct);
+    const totalCount = Number(submission?.total);
+    const scorePercentage = Number(submission?.scorePercentage);
+
+    if (Number.isFinite(correctCount) && Number.isFinite(totalCount) && totalCount > 0) {
+      const resolvedPercentage = Number.isFinite(scorePercentage)
+        ? scorePercentage
+        : Math.round((correctCount / totalCount) * 100);
+      return `${correctCount}/${totalCount} (${resolvedPercentage}%)`;
+    }
+
+    if (Number.isFinite(scorePercentage)) {
+      return `${scorePercentage}%`;
+    }
+
+    return null;
+  };
+
+  const getCambridgeScoreSummary = (submission) => {
+    if (submission?.finished === false) return "In Progress";
+
+    const score = Number(submission?.score);
+    const totalQuestions = Number(submission?.totalQuestions);
+    const percentage = Number(submission?.percentage);
+
+    if (Number.isFinite(score) && Number.isFinite(totalQuestions) && totalQuestions > 0) {
+      const resolvedPercentage = Number.isFinite(percentage)
+        ? percentage
+        : Math.round((score / totalQuestions) * 100);
+      return `${score}/${totalQuestions} (${resolvedPercentage}%)`;
+    }
+
+    return null;
+  };
+
+  const renderStatGrid = (stats, tone) => {
+    const safeStats = Array.isArray(stats) ? stats.filter(Boolean) : [];
+    if (!safeStats.length) return null;
+
+    return (
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))",
+          gap: 12,
+          marginTop: 14,
+        }}
+      >
+        {safeStats.map((stat) => (
+          <div
+            key={stat.label}
+            style={{
+              background: tone.panelBg,
+              borderRadius: 8,
+              padding: 12,
+              border: `1px solid ${tone.panelBorder}`,
+              textAlign: "center",
+            }}
+          >
+            <div style={{ fontSize: 22, fontWeight: 700, color: stat.color || tone.primaryText }}>
+              {stat.value}
+            </div>
+            <div style={{ fontSize: 12, color: tone.mutedText }}>{stat.label}</div>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  const renderInfoGrid = (entries, tone, minWidth = 150) => {
+    const safeEntries = Array.isArray(entries) ? entries.filter(Boolean) : [];
+    if (!safeEntries.length) return null;
+
+    return (
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: `repeat(auto-fit, minmax(${minWidth}px, 1fr))`,
+          gap: 12,
+          marginTop: 14,
+        }}
+      >
+        {safeEntries.map((entry) => {
+          const displayValue =
+            entry.value || entry.value === 0 ? entry.value : entry.fallback || "N/A";
+
+          return (
+            <div
+              key={entry.label}
+              style={{
+                background: tone.panelBg,
+                borderRadius: 8,
+                padding: 12,
+                border: `1px solid ${tone.panelBorder}`,
+              }}
+            >
+              <div
+                style={{
+                  fontSize: 11,
+                  fontWeight: 700,
+                  letterSpacing: "0.04em",
+                  textTransform: "uppercase",
+                  color: tone.subtleText,
+                  marginBottom: 6,
+                }}
+              >
+                {entry.label}
+              </div>
+              <div style={{ fontSize: 14, color: tone.primaryText, lineHeight: 1.45 }}>
+                {displayValue}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
+  const renderFeedbackPreview = (feedback, tone, label = "Feedback") => {
+    const text = String(feedback || "").trim();
+    if (!text) return null;
+
+    return (
+      <div
+        style={{
+          marginTop: 14,
+          padding: 12,
+          borderRadius: 8,
+          background: tone.panelBg,
+          border: `1px solid ${tone.panelBorder}`,
+        }}
+      >
+        <div
+          style={{
+            fontSize: 11,
+            fontWeight: 700,
+            letterSpacing: "0.04em",
+            textTransform: "uppercase",
+            color: tone.subtleText,
+            marginBottom: 6,
+          }}
+        >
+          {label}
+        </div>
+        <div style={{ color: tone.primaryText, lineHeight: 1.6, whiteSpace: "pre-wrap" }}>
+          {text}
+        </div>
+      </div>
+    );
+  };
+
+  const renderWritingExpandedContent = (submission, tone) => {
+    const test = submission?.writing_test || submission?.WritingTest || {};
+
+    return (
+      <>
+        {renderInfoGrid(
+          [
+            { label: "Student", value: getSubmissionStudentName(submission) },
+            { label: "Phone", value: getSubmissionPhone(submission) },
+            { label: "Test", value: getWritingTestTitle(submission) },
+            { label: "Class Code", value: test?.classCode },
+            { label: "Teacher", value: test?.teacherName },
+            {
+              label: "Submitted",
+              value: formatDateTime(submission?.submittedAt || submission?.createdAt),
+            },
+            {
+              label: "Reviewed By",
+              value: submission?.feedbackBy,
+              fallback: getQueueStatusLabel(submission),
+            },
+          ],
+          tone,
+          160
+        )}
+
+        {renderFeedbackPreview(submission?.feedback, tone, "Existing feedback")}
+
+        <div style={expandedActionRowStyle}>
+          <button
+            onClick={() => navigate(`/review/${submission.id}`)}
+            style={primaryButtonStyle}
+          >
+            Open Review
+          </button>
+        </div>
+      </>
+    );
+  };
+
+  const renderObjectiveExpandedContent = (submission, tone, buildTestLabel, onReview) => {
+    const test = submission?.ReadingTest || submission?.ListeningTest || {};
+    const correctCount = Number(submission?.correct);
+    const totalCount = Number(submission?.total);
+    const scorePercentage = Number(submission?.scorePercentage);
+    const timingMeta = submission?.finished === false ? getAttemptTimingMeta(submission?.expiresAt) : null;
+
+    return (
+      <>
+        {submission?.finished === false && timingMeta && (
+          <div
+            style={{
+              marginTop: 14,
+              padding: 12,
+              borderRadius: 8,
+              background: tone.calloutBg,
+              border: `1px solid ${tone.calloutBorder}`,
+              color: tone.calloutText,
+            }}
+          >
+            This attempt is still open. Last saved at {formatDateTime(
+              submission?.lastSavedAt || submission?.updatedAt || submission?.createdAt
+            )}.
+            <div style={{ marginTop: 6, fontWeight: 700, color: timingMeta.color }}>
+              {timingMeta.label}
+            </div>
+          </div>
+        )}
+
+        {renderStatGrid(
+          Number.isFinite(correctCount) && Number.isFinite(totalCount) && totalCount > 0
+            ? [
+                { label: "Correct", value: correctCount, color: "#1d4ed8" },
+                { label: "Questions", value: totalCount, color: "#1d4ed8" },
+                {
+                  label: "Accuracy",
+                  value: `${Number.isFinite(scorePercentage) ? scorePercentage : Math.round((correctCount / totalCount) * 100)}%`,
+                  color:
+                    (Number.isFinite(scorePercentage) ? scorePercentage : Math.round((correctCount / totalCount) * 100)) >= 70
+                      ? "#16a34a"
+                      : (Number.isFinite(scorePercentage)
+                          ? scorePercentage
+                          : Math.round((correctCount / totalCount) * 100)) >= 50
+                      ? "#ca8a04"
+                      : "#dc2626",
+                },
+                submission?.band != null
+                  ? {
+                      label: "Band",
+                      value: Number.isFinite(Number(submission.band))
+                        ? Number(submission.band).toFixed(1)
+                        : submission.band,
+                    }
+                  : null,
+              ]
+            : [],
+          tone
+        )}
+
+        {renderInfoGrid(
+          [
+            { label: "Student", value: getSubmissionStudentName(submission) },
+            { label: "Phone", value: getSubmissionPhone(submission) },
+            { label: "Test", value: buildTestLabel(submission) },
+            { label: "Class Code", value: test?.classCode },
+            { label: "Teacher", value: test?.teacherName },
+            {
+              label: "Submitted",
+              value: formatDateTime(submission?.submittedAt || submission?.createdAt),
+            },
+            {
+              label: "Reviewed By",
+              value: submission?.feedbackBy,
+              fallback: getQueueStatusLabel(submission),
+            },
+          ],
+          tone,
+          160
+        )}
+
+        {renderFeedbackPreview(submission?.feedback, tone, "Feedback")}
+
+        <div style={expandedActionRowStyle}>
+          <button onClick={() => onReview(submission)} style={primaryButtonStyle}>
+            Open Result
+          </button>
+        </div>
+      </>
+    );
+  };
+
+  const renderCambridgeRowExpandedContent = (row, tone) => {
+    if (row?.source === "pet-writing") {
+      return renderWritingExpandedContent(row.sub, tone);
+    }
+
+    const submission = row?.sub || {};
+    const detail = cambridgeDetailsById[submission.id];
+    const isLoadingDetail = !!cambridgeLoadingDetailById[submission.id];
+    const pendingAnswers = detail ? getPendingManualAnswers(detail) : [];
+    const timingMeta = submission?.finished === false ? getAttemptTimingMeta(submission?.expiresAt) : null;
+    const score = Number(submission?.score);
+    const totalQuestions = Number(submission?.totalQuestions);
+    const resolvedPercentage = Number.isFinite(Number(submission?.percentage))
+      ? Number(submission.percentage)
+      : Number.isFinite(score) && Number.isFinite(totalQuestions) && totalQuestions > 0
+      ? Math.round((score / totalQuestions) * 100)
+      : null;
+
+    return (
+      <>
+        {submission?.finished === false && timingMeta && (
+          <div
+            style={{
+              marginTop: 14,
+              padding: 12,
+              borderRadius: 8,
+              background: tone.calloutBg,
+              border: `1px solid ${tone.calloutBorder}`,
+              color: tone.calloutText,
+            }}
+          >
+            This Orange attempt is still active. Last saved at {formatDateTime(
+              submission?.lastSavedAt || submission?.createdAt
+            )}.
+            <div style={{ marginTop: 6, fontWeight: 700, color: timingMeta.color }}>
+              {timingMeta.label}
+            </div>
+          </div>
+        )}
+
+        {renderStatGrid(
+          Number.isFinite(score) && Number.isFinite(totalQuestions) && totalQuestions > 0
+            ? [
+                { label: "Score", value: score, color: "#1d4ed8" },
+                { label: "Questions", value: totalQuestions, color: "#1d4ed8" },
+                {
+                  label: "Accuracy",
+                  value: `${resolvedPercentage}%`,
+                  color:
+                    resolvedPercentage >= 70
+                      ? "#16a34a"
+                      : resolvedPercentage >= 50
+                      ? "#ca8a04"
+                      : "#dc2626",
+                },
+                {
+                  label: "Essay items",
+                  value: pendingAnswers.length,
+                  color: pendingAnswers.length ? "#c2410c" : tone.primaryText,
+                },
+              ]
+            : [
+                {
+                  label: "Essay items",
+                  value: pendingAnswers.length,
+                  color: pendingAnswers.length ? "#c2410c" : tone.primaryText,
+                },
+              ],
+          tone
+        )}
+
+        {renderInfoGrid(
+          [
+            { label: "Type", value: submission?.testType || "Orange" },
+            { label: "Student", value: submission?.studentName },
+            { label: "Phone", value: submission?.studentPhone },
+            { label: "Class Code", value: submission?.classCode },
+            { label: "Teacher", value: submission?.teacherName },
+            {
+              label: "Submitted",
+              value: formatDateTime(submission?.submittedAt || submission?.createdAt),
+            },
+            {
+              label: "Reviewed By",
+              value: submission?.feedbackBy,
+              fallback: getQueueStatusLabel(submission),
+            },
+          ],
+          tone,
+          160
+        )}
+
+        <div style={expandedActionRowStyle}>
+          <button
+            onClick={() => navigate(`/cambridge/result/${submission.id}`)}
+            style={secondaryButtonStyle}
+          >
+            View Result
+          </button>
+        </div>
+
+        <div style={{ marginTop: 12 }}>
+          {renderCambridgeExpandedContent(
+            submission,
+            detail,
+            pendingAnswers,
+            isLoadingDetail
+          )}
+        </div>
+      </>
+    );
   };
 
   const getWritingFilterMeta = (submission) => {
@@ -599,6 +1066,21 @@ const Review = () => {
       : activeTab === "listening"
       ? filteredListening.length
       : filteredCambridgeRows.length;
+  const activePendingCount =
+    activeTab === "writing"
+      ? writingNeedsReviewCount
+      : activeTab === "reading"
+      ? readingNeedsReviewCount
+      : activeTab === "listening"
+      ? listeningNeedsReviewCount
+      : cambridgeNeedsReviewCount;
+  const activeReviewedCount = Math.max(activeTotalCount - activePendingCount, 0);
+  const activeQueueHint =
+    activeTab === "writing"
+      ? "Click a row to open the writing review page."
+      : activeTab === "cambridge"
+      ? "Click a row to review Orange details, feedback, and result actions."
+      : "Click a row to view the score summary, feedback, and actions.";
 
   const updateTabFilter = (tabKey, field, value) => {
     setFiltersByTab((prev) => ({
@@ -617,71 +1099,6 @@ const Review = () => {
     }));
   };
 
-  const renderObjectiveQueueDesktop = (items, buildTestLabel, onReview) => (
-    <table style={tableStyle}>
-      <thead>
-        <tr style={{ backgroundColor: "#f2f2f2" }}>
-          <th style={cellStyle}>#</th>
-          <th style={cellStyle}>Student</th>
-          <th style={cellStyle}>Phone</th>
-          <th style={cellStyle}>Test</th>
-          <th style={cellStyle}>Submitted</th>
-          <th style={cellStyle}>Action</th>
-        </tr>
-      </thead>
-      <tbody>
-        {items.map((sub, idx) => (
-          <tr key={sub.id} style={{ borderBottom: "1px solid #ccc" }}>
-            <td style={cellStyle}>{idx + 1}</td>
-            <td style={cellStyle}>{getSubmissionStudentName(sub)}</td>
-            <td style={cellStyle}>{getSubmissionPhone(sub)}</td>
-            <td style={cellStyle}>{buildTestLabel(sub)}</td>
-            <td style={cellStyle}>{formatDateTime(sub.submittedAt || sub.createdAt)}</td>
-            <td style={cellStyle}>
-              <button onClick={() => onReview(sub)} style={primaryButtonStyle}>
-                Review
-              </button>
-            </td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  );
-
-  const renderObjectiveQueueMobile = (items, buildTitle, buildMeta, onReview) => (
-    <div style={mobileListStyle}>
-      {items.map((sub, idx) => (
-        <div key={sub.id} style={mobileCardStyle(isDarkMode)}>
-          <div style={mobileCardHeaderStyle}>
-            <div style={mobileCardIndexStyle(isDarkMode)}>#{idx + 1}</div>
-            <div style={mobileCardTitleStyle(isDarkMode)}>{buildTitle(sub)}</div>
-          </div>
-
-          <div style={mobileFieldsGridStyle}>
-            {renderMobileField("Student", getSubmissionStudentName(sub))}
-            {renderMobileField("Phone", getSubmissionPhone(sub))}
-            {renderMobileField("Test", buildMeta(sub))}
-            {renderMobileField("Submitted", formatDateTime(sub.submittedAt || sub.createdAt))}
-          </div>
-
-          <button
-            onClick={() => onReview(sub)}
-            style={{ ...primaryButtonStyle, width: "100%", marginTop: 12 }}
-          >
-            Review Submission
-          </button>
-        </div>
-      ))}
-    </div>
-  );
-
-  const renderMobileField = (label, value) => (
-    <div key={label} style={mobileFieldRowStyle}>
-      <div style={mobileFieldLabelStyle(isDarkMode)}>{label}</div>
-      <div style={mobileFieldValueStyle(isDarkMode)}>{value}</div>
-    </div>
-  );
-
   const renderCambridgeExpandedContent = (
     sub,
     detail,
@@ -690,6 +1107,17 @@ const Review = () => {
   ) => (
     <div style={{ display: "grid", gap: isCompactLayout ? 8 : 10 }}>
       {isLoadingDetail && <div>Loading submission details...</div>}
+
+      {!isLoadingDetail && !detail && cambridgeStatusById[sub.id] && (
+        <div
+          style={{
+            color: isDarkMode ? "#93c5fd" : "#1d4ed8",
+            fontSize: 13,
+          }}
+        >
+          {cambridgeStatusById[sub.id]}
+        </div>
+      )}
 
       {!isLoadingDetail && detail && (
         <div style={{ display: "grid", gap: isCompactLayout ? 8 : 10 }}>
@@ -762,7 +1190,7 @@ const Review = () => {
                 onClick={() => handleGenerateCambridgeFeedback(sub)}
                 style={
                   isCompactLayout
-                    ? { ...mobileSecondaryButtonStyle, padding: "10px 12px" }
+                    ? { ...secondaryButtonStyle, width: "100%", padding: "10px 12px" }
                     : secondaryButtonStyle
                 }
                 disabled={
@@ -875,13 +1303,295 @@ const Review = () => {
           </button>
         </div>
       </div>
-
-      <div style={filterSummaryStyle(isDarkMode)}>
-        Showing <strong>{activeFilteredCount}</strong>
-        {activeTotalCount !== activeFilteredCount ? ` / ${activeTotalCount}` : ""} submissions
-      </div>
     </div>
   );
+
+  const renderQueueEmptyState = (message) => {
+    const tone = getSubmissionTone("pending", isDarkMode);
+    return <div style={emptyStateStyle(tone)}>{message}</div>;
+  };
+
+  const renderWritingQueue = () => {
+    if (loadingWriting) return <p>Loading writing submissions...</p>;
+    if (!filteredWriting.length) {
+      return renderQueueEmptyState(
+        unreviewedWriting.length === 0
+          ? "No writing submissions found."
+          : "No writing submissions match the current filters."
+      );
+    }
+
+    return (
+      <ExpandableSubmissionList
+        items={filteredWriting}
+        expandedItems={expandedQueueItems.writing}
+        onToggle={(itemId) => toggleQueueItem("writing", itemId)}
+        getTone={(submission) =>
+          getSubmissionTone(getQueueToneVariant(submission), isDarkMode)
+        }
+        renderHeader={({ item: submission, index, tone }) => (
+          <>
+            <span style={{ fontSize: 12, color: tone.subtleText, minWidth: 28 }}>
+              #{index + 1}
+            </span>
+            <span
+              style={{
+                fontSize: 11,
+                fontWeight: 700,
+                padding: "2px 8px",
+                borderRadius: 10,
+                whiteSpace: "nowrap",
+                background: tone.chipBg,
+                color: tone.chipColor,
+              }}
+            >
+              {getQueueStatusLabel(submission)}
+            </span>
+            <span style={{ fontWeight: 600, fontSize: 14, minWidth: 120, color: tone.primaryText }}>
+              {getSubmissionStudentName(submission)}
+            </span>
+            <span style={{ fontSize: 13, color: tone.mutedText, minWidth: 110 }}>
+              {getSubmissionPhone(submission)}
+            </span>
+            <span style={{ fontSize: 13, color: tone.secondaryText, flex: 1, minWidth: 220 }}>
+              {getWritingTestLabel(submission)}
+            </span>
+            <span style={{ fontSize: 12, color: tone.subtleText, whiteSpace: "nowrap" }}>
+              {formatDateTime(submission?.submittedAt || submission?.createdAt)}
+            </span>
+          </>
+        )}
+        renderExpanded={({ item: submission, tone }) =>
+          renderWritingExpandedContent(submission, tone)
+        }
+      />
+    );
+  };
+
+  const renderObjectiveQueue = ({
+    tabKey,
+    items,
+    allItems,
+    loading,
+    emptyAllMessage,
+    emptyFilteredMessage,
+    buildTestLabel,
+    onReview,
+  }) => {
+    if (loading) {
+      return <p>Loading {tabKey} submissions...</p>;
+    }
+
+    if (!items.length) {
+      return renderQueueEmptyState(
+        allItems.length === 0 ? emptyAllMessage : emptyFilteredMessage
+      );
+    }
+
+    return (
+      <ExpandableSubmissionList
+        items={items}
+        expandedItems={expandedQueueItems[tabKey]}
+        onToggle={(itemId) => toggleQueueItem(tabKey, itemId)}
+        getTone={(submission) =>
+          getSubmissionTone(getQueueToneVariant(submission), isDarkMode)
+        }
+        renderHeader={({ item: submission, index, tone }) => {
+          const scoreSummary = getObjectiveScoreSummary(submission);
+          const timingMeta =
+            submission?.finished === false
+              ? getAttemptTimingMeta(submission?.expiresAt)
+              : null;
+
+          return (
+            <>
+              <span style={{ fontSize: 12, color: tone.subtleText, minWidth: 28 }}>
+                #{index + 1}
+              </span>
+              <span
+                style={{
+                  fontSize: 11,
+                  fontWeight: 700,
+                  padding: "2px 8px",
+                  borderRadius: 10,
+                  whiteSpace: "nowrap",
+                  background: tone.chipBg,
+                  color: tone.chipColor,
+                }}
+              >
+                {getQueueStatusLabel(submission)}
+              </span>
+              <span style={{ fontWeight: 600, fontSize: 14, minWidth: 120, color: tone.primaryText }}>
+                {getSubmissionStudentName(submission)}
+              </span>
+              <span style={{ fontSize: 13, color: tone.mutedText, minWidth: 110 }}>
+                {getSubmissionPhone(submission)}
+              </span>
+              <span style={{ fontSize: 13, color: tone.secondaryText, flex: 1, minWidth: 220 }}>
+                {buildTestLabel(submission)}
+              </span>
+              {scoreSummary && (
+                <span style={scoreBadgeStyle(tone, submission?.finished === false ? "#1d4ed8" : tone.primaryText)}>
+                  {scoreSummary}
+                </span>
+              )}
+              <span style={{ fontSize: 12, color: tone.subtleText, whiteSpace: "nowrap" }}>
+                {submission?.finished === false && timingMeta
+                  ? `${timingMeta.label} • ${formatDateTime(
+                      submission?.lastSavedAt || submission?.updatedAt || submission?.createdAt
+                    )}`
+                  : formatDateTime(submission?.submittedAt || submission?.createdAt)}
+              </span>
+            </>
+          );
+        }}
+        renderExpanded={({ item: submission, tone }) =>
+          renderObjectiveExpandedContent(submission, tone, buildTestLabel, onReview)
+        }
+      />
+    );
+  };
+
+  const renderCambridgeQueue = () => {
+    if (loadingWriting || loadingCambridge) {
+      return (
+        <>
+          {loadingWriting && <p>Loading PET writing submissions...</p>}
+          {loadingCambridge && <p>Loading Orange submissions...</p>}
+        </>
+      );
+    }
+
+    if (cambridgeError) {
+      return <p style={{ color: "#dc2626" }}>{cambridgeError}</p>;
+    }
+
+    if (!filteredCambridgeRows.length) {
+      return renderQueueEmptyState(
+        mergedCambridgeRows.length === 0
+          ? "No Orange submissions found."
+          : "No Orange submissions match the current filters."
+      );
+    }
+
+    return (
+      <ExpandableSubmissionList
+        items={filteredCambridgeRows}
+        expandedItems={expandedCambridge}
+        onToggle={(rowId) => {
+          const row = filteredCambridgeRows.find(
+            (entry) => getCambridgeRowId(entry) === rowId
+          );
+          if (row) {
+            handleToggleCambridgeDetail(row);
+          }
+        }}
+        getItemId={getCambridgeRowId}
+        getTone={(row) =>
+          getSubmissionTone(getQueueToneVariant(row?.sub), isDarkMode)
+        }
+        renderHeader={({ item: row, index, tone }) => {
+          if (row?.source === "pet-writing") {
+            const submission = row?.sub || {};
+            return (
+              <>
+                <span style={{ fontSize: 12, color: tone.subtleText, minWidth: 28 }}>
+                  #{index + 1}
+                </span>
+                <span
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 700,
+                    padding: "2px 8px",
+                    borderRadius: 10,
+                    whiteSpace: "nowrap",
+                    background: tone.chipBg,
+                    color: tone.chipColor,
+                  }}
+                >
+                  {getQueueStatusLabel(submission)}
+                </span>
+                <span style={typeBadgeStyle(isDarkMode)}>{getWritingTestTitle(submission)}</span>
+                <span style={{ fontWeight: 600, fontSize: 14, minWidth: 120, color: tone.primaryText }}>
+                  {getSubmissionStudentName(submission)}
+                </span>
+                <span style={{ fontSize: 13, color: tone.mutedText, minWidth: 110 }}>
+                  {getSubmissionPhone(submission)}
+                </span>
+                <span style={{ fontSize: 13, color: tone.secondaryText, flex: 1, minWidth: 220 }}>
+                  {getWritingTestLabel(submission)}
+                </span>
+                <span style={{ fontSize: 12, color: tone.subtleText, whiteSpace: "nowrap" }}>
+                  {formatDateTime(submission?.submittedAt || submission?.createdAt)}
+                </span>
+              </>
+            );
+          }
+
+          const submission = row?.sub || {};
+          const timingMeta =
+            submission?.finished === false
+              ? getAttemptTimingMeta(submission?.expiresAt)
+              : null;
+          const scoreSummary = getCambridgeScoreSummary(submission);
+
+          return (
+            <>
+              <span style={{ fontSize: 12, color: tone.subtleText, minWidth: 28 }}>
+                #{index + 1}
+              </span>
+              <span
+                style={{
+                  fontSize: 11,
+                  fontWeight: 700,
+                  padding: "2px 8px",
+                  borderRadius: 10,
+                  whiteSpace: "nowrap",
+                  background: tone.chipBg,
+                  color: tone.chipColor,
+                }}
+              >
+                {getQueueStatusLabel(submission)}
+              </span>
+              <span style={typeBadgeStyle(isDarkMode)}>
+                {String(submission?.testType || "Orange")}
+              </span>
+              <span style={{ fontWeight: 600, fontSize: 14, minWidth: 120, color: tone.primaryText }}>
+                {submission?.studentName || "N/A"}
+              </span>
+              <span style={{ fontSize: 13, color: tone.mutedText, minWidth: 110 }}>
+                {submission?.studentPhone || "N/A"}
+              </span>
+              <span style={{ fontSize: 13, color: tone.secondaryText, flex: 1, minWidth: 220 }}>
+                {[
+                  submission?.testTitle || submission?.testType || "Orange",
+                  submission?.classCode || null,
+                  submission?.teacherName || null,
+                ]
+                  .filter(Boolean)
+                  .join(" - ")}
+              </span>
+              {scoreSummary && (
+                <span style={scoreBadgeStyle(tone, submission?.finished === false ? "#1d4ed8" : tone.primaryText)}>
+                  {scoreSummary}
+                </span>
+              )}
+              <span style={{ fontSize: 12, color: tone.subtleText, whiteSpace: "nowrap" }}>
+                {submission?.finished === false && timingMeta
+                  ? `${timingMeta.label} • ${formatDateTime(
+                      submission?.lastSavedAt || submission?.createdAt
+                    )}`
+                  : formatDateTime(submission?.submittedAt || submission?.createdAt)}
+              </span>
+            </>
+          );
+        }}
+        renderExpanded={({ item: row, tone }) =>
+          renderCambridgeRowExpandedContent(row, tone)
+        }
+      />
+    );
+  };
 
   return (
     <>
@@ -913,401 +1623,83 @@ const Review = () => {
           />
         </div>
 
+        <SubmissionStatCards
+          stats={[
+            {
+              label: "Total",
+              count: activeTotalCount,
+              bg: "#eff6ff",
+              color: "#1d4ed8",
+              border: "#bfdbfe",
+            },
+            {
+              label: "Pending",
+              count: activePendingCount,
+              bg: "#fffbeb",
+              color: "#92400e",
+              border: "#fde68a",
+            },
+            {
+              label: "Reviewed",
+              count: activeReviewedCount,
+              bg: "#f0fdf4",
+              color: "#166534",
+              border: "#bbf7d0",
+            },
+          ]}
+        />
+
         {renderFilterToolbar(activeTab)}
 
+        <p style={filterSummaryStyle(isDarkMode)}>
+          Showing <strong>{activeFilteredCount}</strong>
+          {activeTotalCount !== activeFilteredCount ? ` / ${activeTotalCount}` : ""} submissions
+          {"  "}
+          <span style={{ color: isDarkMode ? "#64748b" : "#9ca3af" }}>
+            {activeQueueHint}
+          </span>
+        </p>
+
         {activeTab === "writing" && (
-          <>
-            {loadingWriting && <p>Loading writing submissions...</p>}
-            {!loadingWriting && filteredWriting.length === 0 && (
-              <p>
-                {unreviewedWriting.length === 0
-                  ? "No writing submissions found."
-                  : "No writing submissions match the current filters."}
-              </p>
-            )}
-
-            {!loadingWriting && filteredWriting.length > 0 && !isCompactLayout && (
-              <table style={tableStyle}>
-                <thead>
-                  <tr style={{ backgroundColor: "#f2f2f2" }}>
-                    <th style={cellStyle}>#</th>
-                    <th style={cellStyle}>Student</th>
-                    <th style={cellStyle}>Phone</th>
-                    <th style={cellStyle}>Test</th>
-                    <th style={cellStyle}>Submitted</th>
-                    <th style={cellStyle}>Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredWriting.map((sub, idx) => {
-                    const writingTest = sub.writing_test || sub.WritingTest || {};
-                    return (
-                      <tr key={sub.id} style={{ borderBottom: "1px solid #ccc" }}>
-                        <td style={cellStyle}>{idx + 1}</td>
-                        <td style={cellStyle}>{sub.userName || sub.user?.name || "N/A"}</td>
-                        <td style={cellStyle}>{sub.userPhone || sub.user?.phone || "N/A"}</td>
-                        <td style={cellStyle}>
-                          Writing {writingTest.index || "N/A"}
-                          {writingTest.classCode ? ` - ${writingTest.classCode}` : ""}
-                          {writingTest.teacherName ? ` - ${writingTest.teacherName}` : ""}
-                        </td>
-                        <td style={cellStyle}>
-                          {formatDateTime(sub.submittedAt || sub.createdAt)}
-                        </td>
-                        <td style={cellStyle}>
-                          <button
-                            onClick={() => navigate(`/review/${sub.id}`)}
-                            style={primaryButtonStyle}
-                          >
-                            Review
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            )}
-
-            {!loadingWriting && filteredWriting.length > 0 && isCompactLayout && (
-              <div style={mobileListStyle}>
-                {filteredWriting.map((sub, idx) => {
-                  const writingTest = sub.writing_test || sub.WritingTest || {};
-                  return (
-                    <div key={sub.id} style={mobileCardStyle(isDarkMode)}>
-                      <div style={mobileCardHeaderStyle}>
-                        <div style={mobileCardIndexStyle(isDarkMode)}>#{idx + 1}</div>
-                        <div style={mobileCardTitleStyle(isDarkMode)}>
-                          Writing {writingTest.index || "N/A"}
-                        </div>
-                      </div>
-
-                      <div style={mobileFieldsGridStyle}>
-                        {renderMobileField("Student", sub.userName || sub.user?.name || "N/A")}
-                        {renderMobileField("Phone", sub.userPhone || sub.user?.phone || "N/A")}
-                        {renderMobileField(
-                          "Test",
-                          [
-                            writingTest.classCode || null,
-                            writingTest.teacherName || null,
-                          ]
-                            .filter(Boolean)
-                            .join(" - ") || "N/A"
-                        )}
-                        {renderMobileField(
-                          "Submitted",
-                          formatDateTime(sub.submittedAt || sub.createdAt)
-                        )}
-                      </div>
-
-                      <button
-                        onClick={() => navigate(`/review/${sub.id}`)}
-                        style={{ ...primaryButtonStyle, width: "100%", marginTop: 12 }}
-                      >
-                        Review Submission
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </>
+          <>{renderWritingQueue()}</>
         )}
 
         {activeTab === "reading" && (
           <>
-            {loadingReading && <p>Loading reading submissions...</p>}
-            {!loadingReading && filteredReading.length === 0 && (
-              <p>
-                {unreviewedReading.length === 0
-                  ? "No reading submissions found."
-                  : "No reading submissions match the current filters."}
-              </p>
-            )}
-
-            {!loadingReading && filteredReading.length > 0 && !isCompactLayout &&
-              renderObjectiveQueueDesktop(
-                filteredReading,
-                getReadingTestLabel,
-                (sub) => navigate(`/reading-results/${sub.id}`)
-              )}
-
-            {!loadingReading && filteredReading.length > 0 && isCompactLayout &&
-              renderObjectiveQueueMobile(
-                filteredReading,
-                () => "Reading",
-                getReadingTestLabel,
-                (sub) => navigate(`/reading-results/${sub.id}`)
-              )}
+            {renderObjectiveQueue({
+              tabKey: "reading",
+              items: filteredReading,
+              allItems: unreviewedReading,
+              loading: loadingReading,
+              emptyAllMessage: "No reading submissions found.",
+              emptyFilteredMessage: "No reading submissions match the current filters.",
+              buildTestLabel: getReadingTestLabel,
+              onReview: (submission) => navigate(`/reading-results/${submission.id}`),
+            })}
           </>
         )}
 
         {activeTab === "listening" && (
           <>
-            {loadingListening && <p>Loading listening submissions...</p>}
-            {!loadingListening && filteredListening.length === 0 && (
-              <p>
-                {unreviewedListening.length === 0
-                  ? "No listening submissions found."
-                  : "No listening submissions match the current filters."}
-              </p>
-            )}
-
-            {!loadingListening && filteredListening.length > 0 && !isCompactLayout &&
-              renderObjectiveQueueDesktop(
-                filteredListening,
-                getListeningTestLabel,
-                (sub) => navigate(`/listening-results/${sub.id}`)
-              )}
-
-            {!loadingListening && filteredListening.length > 0 && isCompactLayout &&
-              renderObjectiveQueueMobile(
-                filteredListening,
-                () => "Listening",
-                getListeningTestLabel,
-                (sub) => navigate(`/listening-results/${sub.id}`)
-              )}
+            {renderObjectiveQueue({
+              tabKey: "listening",
+              items: filteredListening,
+              allItems: unreviewedListening,
+              loading: loadingListening,
+              emptyAllMessage: "No listening submissions found.",
+              emptyFilteredMessage: "No listening submissions match the current filters.",
+              buildTestLabel: getListeningTestLabel,
+              onReview: (submission) => navigate(`/listening-results/${submission.id}`),
+            })}
           </>
         )}
 
         {activeTab === "cambridge" && (
-          <>
-            {loadingWriting && <p>Loading PET writing submissions...</p>}
-            {loadingCambridge && <p>Loading Orange submissions...</p>}
-            {!loadingCambridge && cambridgeError && (
-              <p style={{ color: "#dc2626" }}>{cambridgeError}</p>
-            )}
-            {!loadingWriting &&
-              !loadingCambridge &&
-              !cambridgeError &&
-              filteredCambridgeRows.length === 0 && (
-                <p>
-                  {mergedCambridgeRows.length === 0
-                    ? "No Orange submissions found."
-                    : "No Orange submissions match the current filters."}
-                </p>
-              )}
-
-            {!loadingCambridge && !cambridgeError && filteredCambridgeRows.length > 0 && !isCompactLayout && (
-              <table style={tableStyle}>
-                <thead>
-                  <tr style={{ backgroundColor: "#f2f2f2" }}>
-                    <th style={cellStyle}>#</th>
-                    <th style={cellStyle}>Type</th>
-                    <th style={cellStyle}>Student</th>
-                    <th style={cellStyle}>Phone</th>
-                    <th style={cellStyle}>Class</th>
-                    <th style={cellStyle}>Score</th>
-                    <th style={cellStyle}>Submitted</th>
-                    <th style={cellStyle}>Essay</th>
-                    <th style={cellStyle}>Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredCambridgeRows.map((row, idx) => {
-                    if (row.source === "pet-writing") {
-                      const sub = row.sub;
-                      const writingTest = sub.writing_test || sub.WritingTest || {};
-
-                      return (
-                        <tr key={`pet-${sub.id}`} style={{ borderBottom: "1px solid #ccc" }}>
-                          <td style={cellStyle}>{idx + 1}</td>
-                          <td style={cellStyle}>pet-writing</td>
-                          <td style={cellStyle}>{sub.userName || sub.user?.name || "N/A"}</td>
-                          <td style={cellStyle}>{sub.userPhone || sub.user?.phone || "N/A"}</td>
-                          <td style={cellStyle}>{writingTest.classCode || "N/A"}</td>
-                          <td style={cellStyle}>--</td>
-                          <td style={cellStyle}>
-                            {formatDateTime(sub.submittedAt || sub.createdAt)}
-                          </td>
-                          <td style={cellStyle}>--</td>
-                          <td style={cellStyle}>
-                            <button
-                              onClick={() => navigate(`/review/${sub.id}`)}
-                              style={primaryButtonStyle}
-                            >
-                              Review
-                            </button>
-                          </td>
-                        </tr>
-                      );
-                    }
-
-                    const sub = row.sub;
-                    const isExpanded = expandedCambridge.has(sub.id);
-                    const detail = cambridgeDetailsById[sub.id];
-                    const isLoadingDetail = !!cambridgeLoadingDetailById[sub.id];
-                    const pendingAnswers = detail ? getPendingManualAnswers(detail) : [];
-
-                    return (
-                      <React.Fragment key={`cam-${sub.id}`}>
-                        <tr style={{ borderBottom: "1px solid #ccc" }}>
-                          <td style={cellStyle}>{idx + 1}</td>
-                          <td style={cellStyle}>{String(sub.testType || "Orange")}</td>
-                          <td style={cellStyle}>{sub.studentName || "N/A"}</td>
-                          <td style={cellStyle}>{sub.studentPhone || "N/A"}</td>
-                          <td style={cellStyle}>{sub.classCode || "N/A"}</td>
-                          <td style={cellStyle}>
-                            {typeof sub.score === "number" &&
-                            typeof sub.totalQuestions === "number"
-                              ? `${sub.score}/${sub.totalQuestions}`
-                              : "--"}
-                          </td>
-                          <td style={cellStyle}>
-                            {formatDateTime(sub.submittedAt)}
-                          </td>
-                          <td style={cellStyle}>
-                            <button
-                              onClick={() => handleToggleCambridgeDetail(sub.id)}
-                              style={secondaryButtonStyle}
-                            >
-                              {isExpanded ? "Hide" : "View"}
-                            </button>
-                          </td>
-                          <td style={cellStyle}>
-                            <button
-                              onClick={() => navigate(`/cambridge/result/${sub.id}`)}
-                              style={secondaryButtonStyle}
-                            >
-                              View Result
-                            </button>
-                          </td>
-                        </tr>
-
-                        {isExpanded && (
-                          <tr>
-                            <td
-                              style={{
-                                ...cellStyle,
-                                background: isDarkMode ? "#0f172a" : "#fafafa",
-                                color: isDarkMode ? "#e5e7eb" : "inherit",
-                                borderColor: isDarkMode ? "#1f2b47" : cellStyle.border,
-                              }}
-                              colSpan={9}
-                            >
-                              {renderCambridgeExpandedContent(
-                                sub,
-                                detail,
-                                pendingAnswers,
-                                isLoadingDetail
-                              )}
-                            </td>
-                          </tr>
-                        )}
-                      </React.Fragment>
-                    );
-                  })}
-                </tbody>
-              </table>
-            )}
-
-            {!loadingCambridge && !cambridgeError && filteredCambridgeRows.length > 0 && isCompactLayout && (
-              <div style={mobileListStyle}>
-                {filteredCambridgeRows.map((row, idx) => {
-                  if (row.source === "pet-writing") {
-                    const sub = row.sub;
-                    const writingTest = sub.writing_test || sub.WritingTest || {};
-
-                    return (
-                      <div key={`pet-${sub.id}`} style={mobileCardStyle(isDarkMode)}>
-                        <div style={mobileCardHeaderStyle}>
-                          <div style={mobileCardIndexStyle(isDarkMode)}>#{idx + 1}</div>
-                          <div style={mobileCardTitleStyle(isDarkMode)}>PET Writing</div>
-                        </div>
-
-                        <div style={mobileFieldsGridStyle}>
-                          {renderMobileField("Student", sub.userName || sub.user?.name || "N/A")}
-                          {renderMobileField("Phone", sub.userPhone || sub.user?.phone || "N/A")}
-                          {renderMobileField("Class", writingTest.classCode || "N/A")}
-                          {renderMobileField("Submitted", formatDateTime(sub.submittedAt || sub.createdAt))}
-                        </div>
-
-                        <button
-                          onClick={() => navigate(`/review/${sub.id}`)}
-                          style={{ ...primaryButtonStyle, width: "100%", marginTop: 12 }}
-                        >
-                          Review Submission
-                        </button>
-                      </div>
-                    );
-                  }
-
-                  const sub = row.sub;
-                  const isExpanded = expandedCambridge.has(sub.id);
-                  const detail = cambridgeDetailsById[sub.id];
-                  const isLoadingDetail = !!cambridgeLoadingDetailById[sub.id];
-                  const pendingAnswers = detail ? getPendingManualAnswers(detail) : [];
-
-                  return (
-                    <div key={`cam-${sub.id}`} style={mobileCardStyle(isDarkMode)}>
-                      <div style={mobileCardHeaderStyle}>
-                        <div style={mobileCardIndexStyle(isDarkMode)}>#{idx + 1}</div>
-                        <div style={mobileCardTitleStyle(isDarkMode)}>
-                          {String(sub.testType || "Orange")}
-                        </div>
-                      </div>
-
-                      <div style={mobileFieldsGridStyle}>
-                        {renderMobileField("Student", sub.studentName || "N/A")}
-                        {renderMobileField("Phone", sub.studentPhone || "N/A")}
-                        {renderMobileField("Class", sub.classCode || "N/A")}
-                        {renderMobileField(
-                          "Score",
-                          typeof sub.score === "number" && typeof sub.totalQuestions === "number"
-                            ? `${sub.score}/${sub.totalQuestions}`
-                            : "--"
-                        )}
-                        {renderMobileField("Submitted", formatDateTime(sub.submittedAt))}
-                      </div>
-
-                      <div style={mobileButtonRowStyle}>
-                        <button
-                          onClick={() => handleToggleCambridgeDetail(sub.id)}
-                          style={mobileSecondaryButtonStyle}
-                        >
-                          {isExpanded ? "Hide Details" : "Review Essay"}
-                        </button>
-                        <button
-                          onClick={() => navigate(`/cambridge/result/${sub.id}`)}
-                          style={mobileSecondaryButtonStyle}
-                        >
-                          View Result
-                        </button>
-                      </div>
-
-                      {isExpanded && (
-                        <div style={mobileExpandedPanelStyle(isDarkMode)}>
-                          {renderCambridgeExpandedContent(
-                            sub,
-                            detail,
-                            pendingAnswers,
-                            isLoadingDetail
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </>
+          <>{renderCambridgeQueue()}</>
         )}
       </div>
     </>
   );
-};
-
-const tableStyle = {
-  width: "100%",
-  borderCollapse: "collapse",
-  marginTop: "20px",
-  fontSize: "15px",
-};
-
-const cellStyle = {
-  border: "1px solid #ccc",
-  padding: "8px",
-  textAlign: "left",
 };
 
 const filterPanelStyle = (isDarkMode) => ({
@@ -1366,6 +1758,44 @@ const filterSummaryStyle = (isDarkMode) => ({
   color: isDarkMode ? "#9ca3af" : "#6b7280",
 });
 
+const emptyStateStyle = (tone) => ({
+  marginTop: 10,
+  padding: "18px 16px",
+  borderRadius: 10,
+  border: `1px dashed ${tone.border}`,
+  background: tone.panelBg,
+  color: tone.mutedText,
+  textAlign: "center",
+});
+
+const expandedActionRowStyle = {
+  display: "flex",
+  gap: 10,
+  flexWrap: "wrap",
+  marginTop: 14,
+};
+
+const scoreBadgeStyle = (tone, color = tone.primaryText) => ({
+  padding: "3px 8px",
+  borderRadius: 999,
+  background: tone.panelBg,
+  color,
+  fontWeight: 700,
+  fontSize: 12,
+});
+
+const typeBadgeStyle = (isDarkMode) => ({
+  display: "inline-flex",
+  alignItems: "center",
+  padding: "3px 8px",
+  borderRadius: 999,
+  background: isDarkMode ? "#1e293b" : "#eef2ff",
+  color: isDarkMode ? "#bfdbfe" : "#1d4ed8",
+  fontWeight: 700,
+  fontSize: 12,
+  whiteSpace: "nowrap",
+});
+
 const primaryButtonStyle = {
   background: "#e03",
   color: "white",
@@ -1397,97 +1827,6 @@ const feedbackActionRowStyle = (isCompactLayout) => ({
   gridTemplateColumns: isCompactLayout ? "1fr" : "repeat(2, max-content)",
   gap: isCompactLayout ? 8 : 10,
   alignItems: "center",
-});
-
-const mobileListStyle = {
-  display: "grid",
-  gap: 14,
-  marginTop: 20,
-};
-
-const mobileCardStyle = (isDarkMode) => ({
-  border: `1px solid ${isDarkMode ? "#2a3350" : "#e5e7eb"}`,
-  borderRadius: 16,
-  background: isDarkMode ? "#0f172a" : "#fff",
-  color: isDarkMode ? "#e5e7eb" : "#111827",
-  padding: 12,
-  boxShadow: isDarkMode
-    ? "0 8px 24px rgba(2, 6, 23, 0.35)"
-    : "0 8px 24px rgba(15, 23, 42, 0.06)",
-});
-
-const mobileCardHeaderStyle = {
-  display: "flex",
-  alignItems: "center",
-  gap: 10,
-  marginBottom: 10,
-};
-
-const mobileCardIndexStyle = (isDarkMode) => ({
-  minWidth: 34,
-  height: 34,
-  borderRadius: 999,
-  display: "inline-flex",
-  alignItems: "center",
-  justifyContent: "center",
-  background: isDarkMode ? "#1e293b" : "#eef2ff",
-  color: isDarkMode ? "#bfdbfe" : "#1d4ed8",
-  fontSize: 13,
-  fontWeight: 700,
-});
-
-const mobileCardTitleStyle = (isDarkMode) => ({
-  fontSize: 15,
-  fontWeight: 800,
-  color: isDarkMode ? "#f8fafc" : "#111827",
-  wordBreak: "break-word",
-});
-
-const mobileFieldsGridStyle = {
-  display: "grid",
-  gap: 10,
-};
-
-const mobileFieldRowStyle = {
-  display: "grid",
-  gap: 4,
-};
-
-const mobileFieldLabelStyle = (isDarkMode) => ({
-  fontSize: 11,
-  fontWeight: 800,
-  letterSpacing: "0.04em",
-  textTransform: "uppercase",
-  color: isDarkMode ? "#93c5fd" : "#64748b",
-});
-
-const mobileFieldValueStyle = (isDarkMode) => ({
-  fontSize: 14,
-  lineHeight: 1.5,
-  color: isDarkMode ? "#e5e7eb" : "#111827",
-  wordBreak: "break-word",
-});
-
-const mobileButtonRowStyle = {
-  display: "grid",
-  gridTemplateColumns: "1fr",
-  gap: 8,
-  marginTop: 10,
-};
-
-const mobileSecondaryButtonStyle = {
-  ...secondaryButtonStyle,
-  width: "100%",
-  padding: "9px 12px",
-  fontWeight: 700,
-};
-
-const mobileExpandedPanelStyle = (isDarkMode) => ({
-  marginTop: 10,
-  padding: 10,
-  borderRadius: 12,
-  background: isDarkMode ? "#111827" : "#f8fafc",
-  border: `1px solid ${isDarkMode ? "#1f2b47" : "#e5e7eb"}`,
 });
 
 export default Review;
