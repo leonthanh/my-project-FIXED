@@ -833,10 +833,11 @@ const createStyles = (isDarkMode = false) => {
     fontSize: "16px",
     marginBottom: "14px",
     color: colors.primaryStrong,
+    textAlign: "center",
   },
   notesContent: {
-    lineHeight: 1.95,
-    fontSize: "14px",
+    lineHeight: 2.05,
+    fontSize: "15px",
   },
   notesLine: {
     marginBottom: "8px",

@@ -1570,23 +1570,22 @@ VD:
           </div>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1.2fr) minmax(280px, 0.8fr)", gap: "16px", alignItems: "start" }}>
-          <div>
-            <label style={labelStyle}>Flowchart Title</label>
-            <input
-              type="text"
-              value={question.questionText || ""}
-              onChange={(e) => onChange("questionText", e.target.value)}
-              placeholder="Example: Sustainability Timeline"
-              style={{ ...compactInputStyle, fontWeight: 600 }}
-            />
+        <label style={labelStyle}>Flowchart Title</label>
+        <input
+          type="text"
+          value={question.questionText || ""}
+          onChange={(e) => onChange("questionText", e.target.value)}
+          placeholder="Example: Sustainability Timeline"
+          style={{ ...compactInputStyle, fontWeight: 600 }}
+        />
 
+        <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1.35fr) minmax(260px, 0.65fr)", gap: "16px", alignItems: "start", marginBottom: "16px" }}>
+          <div>
             <div style={{
               border: "1px solid #e5e7eb",
               borderRadius: "12px",
               overflow: "hidden",
               backgroundColor: "#fff",
-              marginBottom: "14px",
             }}>
               <div style={{
                 display: "flex",
@@ -1706,262 +1705,6 @@ VD:
                 </div>
               </div>
             </div>
-
-            <label style={labelStyle}>Flowchart Steps</label>
-            <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-              {steps.map((step, idx) => {
-                const blankEntry = entryByStepIndex.get(idx);
-                const textParts = splitFlowchartStepText(step?.text || "");
-                const previewBefore = textParts.hasPlaceholder ? textParts.before : String(step?.text || "");
-                const previewAfter = textParts.hasPlaceholder ? textParts.after : "";
-                const answerValue = step.correctAnswer || blankEntry?.expected || "";
-                const selectedOption = optionEntries.find((option) => option.value === answerValue);
-
-                return (
-                  <React.Fragment key={`flowchart-edit-step-${idx}`}>
-                    <div style={{
-                      border: `1px solid ${step.hasBlank ? "#fdba74" : "#dbeafe"}`,
-                      borderRadius: "14px",
-                      backgroundColor: "#fff",
-                      overflow: "hidden",
-                    }}>
-                      <div style={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        gap: "10px",
-                        padding: "10px 12px",
-                        backgroundColor: step.hasBlank ? "#fff7ed" : "#f8fafc",
-                        borderBottom: "1px solid #e5e7eb",
-                      }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
-                          <span style={{
-                            display: "inline-flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            width: "28px",
-                            height: "28px",
-                            borderRadius: "999px",
-                            backgroundColor: step.hasBlank ? "#ea580c" : "#cbd5e1",
-                            color: step.hasBlank ? "#fff" : "#334155",
-                            fontWeight: 700,
-                            fontSize: "12px",
-                          }}>
-                            {idx + 1}
-                          </span>
-                          <span style={{ fontWeight: 700, color: "#111827" }}>Step {idx + 1}</span>
-                          <span style={{
-                            padding: "3px 8px",
-                            borderRadius: "999px",
-                            backgroundColor: step.hasBlank ? "#ffedd5" : "#e2e8f0",
-                            color: step.hasBlank ? "#9a3412" : "#475569",
-                            fontSize: "11px",
-                            fontWeight: 700,
-                          }}>
-                            {step.hasBlank ? `Blank step${blankEntry ? ` • Q${blankEntry.num}` : ""}` : "Info step"}
-                          </span>
-                        </div>
-                        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                          <button
-                            type="button"
-                            onClick={() => updateStep(idx, { hasBlank: !step.hasBlank })}
-                            style={{
-                              padding: "6px 10px",
-                              borderRadius: "999px",
-                              border: `1px solid ${step.hasBlank ? "#fdba74" : "#cbd5e1"}`,
-                              backgroundColor: step.hasBlank ? "#fff7ed" : "#fff",
-                              color: step.hasBlank ? "#9a3412" : "#475569",
-                              fontSize: "11px",
-                              fontWeight: 700,
-                              cursor: "pointer",
-                            }}
-                          >
-                            {step.hasBlank ? "Blank step" : "Convert to blank"}
-                          </button>
-                          {steps.length > 1 && (
-                            <button
-                              type="button"
-                              onClick={() => commitFlowchartQuestion(steps.filter((_, stepIndex) => stepIndex !== idx))}
-                              style={{ ...deleteButtonSmallStyle, padding: "5px 8px" }}
-                            >
-                              <LineIcon name="close" size={14} />
-                            </button>
-                          )}
-                        </div>
-                      </div>
-
-                      <div style={{ padding: "12px" }}>
-                        {step.hasBlank ? (
-                          <>
-                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
-                              <div>
-                                <label style={labelStyle}>Text Before Blank</label>
-                                <textarea
-                                  value={previewBefore}
-                                  onChange={(e) => updateBlankStepTextPart(idx, "before", e.target.value)}
-                                  placeholder="Example: Established a university"
-                                  style={{
-                                    ...compactInputStyle,
-                                    minHeight: "72px",
-                                    resize: "vertical",
-                                    fontFamily: "inherit",
-                                  }}
-                                />
-                              </div>
-                              <div>
-                                <label style={labelStyle}>Text After Blank</label>
-                                <textarea
-                                  value={previewAfter}
-                                  onChange={(e) => updateBlankStepTextPart(idx, "after", e.target.value)}
-                                  placeholder="Example: to develop a sustainability plan."
-                                  style={{
-                                    ...compactInputStyle,
-                                    minHeight: "72px",
-                                    resize: "vertical",
-                                    fontFamily: "inherit",
-                                  }}
-                                />
-                              </div>
-                            </div>
-                            <div style={{ marginTop: "8px", fontSize: "11px", color: "#6b7280", lineHeight: 1.6 }}>
-                              Mẹo: nhập phần đầu câu ở ô trái và phần sau chỗ trống ở ô phải. Hệ thống sẽ tự lưu thành một gap inline trong đề học sinh.
-                            </div>
-                          </>
-                        ) : (
-                          <>
-                            <label style={labelStyle}>Step Text</label>
-                            <textarea
-                              value={step.text || ""}
-                              onChange={(e) => updateStep(idx, { text: e.target.value })}
-                              placeholder="Example: Revised guidelines for construction of new buildings."
-                              style={{
-                                ...compactInputStyle,
-                                minHeight: "72px",
-                                resize: "vertical",
-                                fontFamily: "inherit",
-                              }}
-                            />
-                          </>
-                        )}
-
-                        {step.hasBlank && (
-                          <div style={{ marginTop: "12px" }}>
-                            <label style={labelStyle}>Correct Option</label>
-                            <div style={{ position: "relative", maxWidth: "240px" }}>
-                              <select
-                                value={answerValue}
-                                onChange={(e) => updateStep(idx, { hasBlank: true, correctAnswer: e.target.value })}
-                                style={{
-                                  ...compactInputStyle,
-                                  marginBottom: 0,
-                                  paddingRight: "34px",
-                                  appearance: "none",
-                                  WebkitAppearance: "none",
-                                  MozAppearance: "none",
-                                  fontWeight: 600,
-                                }}
-                              >
-                                <option value="">Select answer</option>
-                                {optionEntries.map((option) => (
-                                  <option key={option.value} value={option.value}>
-                                    {option.value}. {option.label || option.raw}
-                                  </option>
-                                ))}
-                              </select>
-                              <span style={{ position: "absolute", right: "10px", top: "50%", transform: "translateY(-50%)", color: "#64748b", pointerEvents: "none" }}>
-                                <LineIcon name="chevron-down" size={14} />
-                              </span>
-                            </div>
-                          </div>
-                        )}
-
-                        <div style={{
-                          marginTop: "12px",
-                          padding: "12px 14px",
-                          borderRadius: "10px",
-                          border: "1px dashed #cbd5e1",
-                          backgroundColor: "#fcfcfd",
-                        }}>
-                          <div style={{ fontSize: "11px", fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: "8px" }}>
-                            Live Preview
-                          </div>
-                          <div style={{ lineHeight: 1.9, color: "#0f172a", display: "flex", alignItems: "center", gap: "4px", flexWrap: "wrap" }}>
-                            {step.hasBlank ? (
-                              <>
-                                <span>{previewBefore || "..."}</span>
-                                <span style={{ fontWeight: 700, color: "#111827" }}>{blankEntry?.num || "?"}</span>
-                                <span style={{ display: "inline-flex", alignItems: "center", gap: "2px", margin: "0 2px" }}>
-                                  <span style={{ color: "#ef4444", fontWeight: 700 }}>(</span>
-                                  <span style={{
-                                    display: "inline-flex",
-                                    alignItems: "center",
-                                    justifyContent: "center",
-                                    minWidth: "96px",
-                                    padding: "4px 12px",
-                                    borderRadius: "4px",
-                                    border: "1px dashed #eab308",
-                                    backgroundColor: "#fefce8",
-                                    color: answerValue ? "#92400e" : "#a16207",
-                                    fontWeight: 700,
-                                    letterSpacing: answerValue ? "normal" : "0.08em",
-                                  }}>
-                                    {answerValue ? answerValue : "........."}
-                                  </span>
-                                  <span style={{ color: "#ef4444", fontWeight: 700 }}>)</span>
-                                </span>
-                                <span>{previewAfter || "..."}</span>
-                              </>
-                            ) : (
-                              <span>{step.text || "Add step text"}</span>
-                            )}
-                          </div>
-                          {step.hasBlank && (
-                            <div style={{ marginTop: "8px", fontSize: "12px", color: "#64748b" }}>
-                              {selectedOption
-                                ? `Correct option: ${selectedOption.value}. ${selectedOption.label || selectedOption.raw}`
-                                : "Choose the correct option for this gap."}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-
-                    {idx < steps.length - 1 && (
-                      <div style={{ display: "flex", justifyContent: "center", color: "#94a3b8" }}>
-                        <LineIcon name="chevron-down" size={18} />
-                      </div>
-                    )}
-                  </React.Fragment>
-                );
-              })}
-            </div>
-
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", marginTop: "10px" }}>
-              <button
-                type="button"
-                onClick={() => addStep(false)}
-                style={{
-                  ...addItemButtonStyle,
-                  marginTop: 0,
-                  backgroundColor: "#f8fafc",
-                }}
-              >
-                + Add Info Step
-              </button>
-              <button
-                type="button"
-                onClick={() => addStep(true)}
-                style={{
-                  ...addItemButtonStyle,
-                  marginTop: 0,
-                  backgroundColor: "#fff7ed",
-                  borderColor: "#fdba74",
-                  color: "#9a3412",
-                }}
-              >
-                + Add Blank Step
-              </button>
-            </div>
           </div>
 
           <div>
@@ -2039,6 +1782,264 @@ VD:
                 <div>• Answer key: {generatedSummary ? "Ready" : "Waiting for blank answers"}</div>
               </div>
             </div>
+          </div>
+        </div>
+
+        <div>
+          <label style={labelStyle}>Flowchart Steps</label>
+          <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+            {steps.map((step, idx) => {
+              const blankEntry = entryByStepIndex.get(idx);
+              const textParts = splitFlowchartStepText(step?.text || "");
+              const previewBefore = textParts.hasPlaceholder ? textParts.before : String(step?.text || "");
+              const previewAfter = textParts.hasPlaceholder ? textParts.after : "";
+              const answerValue = step.correctAnswer || blankEntry?.expected || "";
+              const selectedOption = optionEntries.find((option) => option.value === answerValue);
+
+              return (
+                <React.Fragment key={`flowchart-edit-step-${idx}`}>
+                  <div style={{
+                    border: `1px solid ${step.hasBlank ? "#fdba74" : "#dbeafe"}`,
+                    borderRadius: "14px",
+                    backgroundColor: "#fff",
+                    overflow: "hidden",
+                  }}>
+                    <div style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      gap: "10px",
+                      padding: "10px 12px",
+                      backgroundColor: step.hasBlank ? "#fff7ed" : "#f8fafc",
+                      borderBottom: "1px solid #e5e7eb",
+                    }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+                        <span style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          width: "28px",
+                          height: "28px",
+                          borderRadius: "999px",
+                          backgroundColor: step.hasBlank ? "#ea580c" : "#cbd5e1",
+                          color: step.hasBlank ? "#fff" : "#334155",
+                          fontWeight: 700,
+                          fontSize: "12px",
+                        }}>
+                          {idx + 1}
+                        </span>
+                        <span style={{ fontWeight: 700, color: "#111827" }}>Step {idx + 1}</span>
+                        <span style={{
+                          padding: "3px 8px",
+                          borderRadius: "999px",
+                          backgroundColor: step.hasBlank ? "#ffedd5" : "#e2e8f0",
+                          color: step.hasBlank ? "#9a3412" : "#475569",
+                          fontSize: "11px",
+                          fontWeight: 700,
+                        }}>
+                          {step.hasBlank ? `Blank step${blankEntry ? ` • Q${blankEntry.num}` : ""}` : "Info step"}
+                        </span>
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                        <button
+                          type="button"
+                          onClick={() => updateStep(idx, { hasBlank: !step.hasBlank })}
+                          style={{
+                            padding: "6px 10px",
+                            borderRadius: "999px",
+                            border: `1px solid ${step.hasBlank ? "#fdba74" : "#cbd5e1"}`,
+                            backgroundColor: step.hasBlank ? "#fff7ed" : "#fff",
+                            color: step.hasBlank ? "#9a3412" : "#475569",
+                            fontSize: "11px",
+                            fontWeight: 700,
+                            cursor: "pointer",
+                          }}
+                        >
+                          {step.hasBlank ? "Blank step" : "Convert to blank"}
+                        </button>
+                        {steps.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => commitFlowchartQuestion(steps.filter((_, stepIndex) => stepIndex !== idx))}
+                            style={{ ...deleteButtonSmallStyle, padding: "5px 8px" }}
+                          >
+                            <LineIcon name="close" size={14} />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    <div style={{ padding: "12px" }}>
+                      {step.hasBlank ? (
+                        <>
+                          <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: "10px" }}>
+                            <div>
+                              <label style={labelStyle}>Text Before Blank</label>
+                              <textarea
+                                value={previewBefore}
+                                onChange={(e) => updateBlankStepTextPart(idx, "before", e.target.value)}
+                                placeholder="Example: Established a university"
+                                style={{
+                                  ...compactInputStyle,
+                                  minHeight: "72px",
+                                  resize: "vertical",
+                                  fontFamily: "inherit",
+                                }}
+                              />
+                            </div>
+                            <div>
+                              <label style={labelStyle}>Text After Blank</label>
+                              <textarea
+                                value={previewAfter}
+                                onChange={(e) => updateBlankStepTextPart(idx, "after", e.target.value)}
+                                placeholder="Example: to develop a sustainability plan."
+                                style={{
+                                  ...compactInputStyle,
+                                  minHeight: "72px",
+                                  resize: "vertical",
+                                  fontFamily: "inherit",
+                                }}
+                              />
+                            </div>
+                          </div>
+                          <div style={{ marginTop: "8px", fontSize: "11px", color: "#6b7280", lineHeight: 1.6 }}>
+                            Mẹo: nhập phần đầu câu ở ô trái và phần sau chỗ trống ở ô phải. Hệ thống sẽ tự lưu thành một gap inline trong đề học sinh.
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <label style={labelStyle}>Step Text</label>
+                          <textarea
+                            value={step.text || ""}
+                            onChange={(e) => updateStep(idx, { text: e.target.value })}
+                            placeholder="Example: Revised guidelines for construction of new buildings."
+                            style={{
+                              ...compactInputStyle,
+                              minHeight: "72px",
+                              resize: "vertical",
+                              fontFamily: "inherit",
+                            }}
+                          />
+                        </>
+                      )}
+
+                      {step.hasBlank && (
+                        <div style={{ marginTop: "12px" }}>
+                          <label style={labelStyle}>Correct Option</label>
+                          <div style={{ position: "relative", maxWidth: "240px" }}>
+                            <select
+                              value={answerValue}
+                              onChange={(e) => updateStep(idx, { hasBlank: true, correctAnswer: e.target.value })}
+                              style={{
+                                ...compactInputStyle,
+                                marginBottom: 0,
+                                paddingRight: "34px",
+                                appearance: "none",
+                                WebkitAppearance: "none",
+                                MozAppearance: "none",
+                                fontWeight: 600,
+                              }}
+                            >
+                              <option value="">Select answer</option>
+                              {optionEntries.map((option) => (
+                                <option key={option.value} value={option.value}>
+                                  {option.value}. {option.label || option.raw}
+                                </option>
+                              ))}
+                            </select>
+                            <span style={{ position: "absolute", right: "10px", top: "50%", transform: "translateY(-50%)", color: "#64748b", pointerEvents: "none" }}>
+                              <LineIcon name="chevron-down" size={14} />
+                            </span>
+                          </div>
+                        </div>
+                      )}
+
+                      <div style={{
+                        marginTop: "12px",
+                        padding: "12px 14px",
+                        borderRadius: "10px",
+                        border: "1px dashed #cbd5e1",
+                        backgroundColor: "#fcfcfd",
+                      }}>
+                        <div style={{ fontSize: "11px", fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: "8px" }}>
+                          Live Preview
+                        </div>
+                        <div style={{ lineHeight: 1.9, color: "#0f172a", display: "flex", alignItems: "center", gap: "4px", flexWrap: "wrap" }}>
+                          {step.hasBlank ? (
+                            <>
+                              <span>{previewBefore || "..."}</span>
+                              <span style={{ fontWeight: 700, color: "#111827" }}>{blankEntry?.num || "?"}</span>
+                              <span style={{ display: "inline-flex", alignItems: "center", gap: "2px", margin: "0 2px" }}>
+                                <span style={{ color: "#ef4444", fontWeight: 700 }}>(</span>
+                                <span style={{
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                  minWidth: "96px",
+                                  padding: "4px 12px",
+                                  borderRadius: "4px",
+                                  border: "1px dashed #eab308",
+                                  backgroundColor: "#fefce8",
+                                  color: answerValue ? "#92400e" : "#a16207",
+                                  fontWeight: 700,
+                                  letterSpacing: answerValue ? "normal" : "0.08em",
+                                }}>
+                                  {answerValue ? answerValue : "........."}
+                                </span>
+                                <span style={{ color: "#ef4444", fontWeight: 700 }}>)</span>
+                              </span>
+                              <span>{previewAfter || "..."}</span>
+                            </>
+                          ) : (
+                            <span>{step.text || "Add step text"}</span>
+                          )}
+                        </div>
+                        {step.hasBlank && (
+                          <div style={{ marginTop: "8px", fontSize: "12px", color: "#64748b" }}>
+                            {selectedOption
+                              ? `Correct option: ${selectedOption.value}. ${selectedOption.label || selectedOption.raw}`
+                              : "Choose the correct option for this gap."}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {idx < steps.length - 1 && (
+                    <div style={{ display: "flex", justifyContent: "center", color: "#94a3b8" }}>
+                      <LineIcon name="chevron-down" size={18} />
+                    </div>
+                  )}
+                </React.Fragment>
+              );
+            })}
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", marginTop: "10px" }}>
+            <button
+              type="button"
+              onClick={() => addStep(false)}
+              style={{
+                ...addItemButtonStyle,
+                marginTop: 0,
+                backgroundColor: "#f8fafc",
+              }}
+            >
+              + Add Info Step
+            </button>
+            <button
+              type="button"
+              onClick={() => addStep(true)}
+              style={{
+                ...addItemButtonStyle,
+                marginTop: 0,
+                backgroundColor: "#fff7ed",
+                borderColor: "#fdba74",
+                color: "#9a3412",
+              }}
+            >
+              + Add Blank Step
+            </button>
           </div>
         </div>
       </div>

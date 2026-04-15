@@ -264,6 +264,37 @@ describe('Listening test numbering', () => {
     expect(tableInput.previousElementSibling).toHaveTextContent('14');
   });
 
+  test('centers the notes title and uses larger note text in the student runtime', async () => {
+    window.fetch.mockImplementation((url) => {
+      const normalizedUrl = String(url || '');
+
+      if (normalizedUrl.includes('/listening-submissions/77/active')) {
+        return Promise.resolve({ ok: false, json: () => Promise.resolve({}) });
+      }
+
+      return Promise.resolve({ ok: true, json: () => Promise.resolve(mixedTypeTest) });
+    });
+
+    localStorage.setItem('listening:77:state:anon', JSON.stringify({ started: true, audioPlayed: {}, answers: {} }));
+
+    render(
+      <MemoryRouter initialEntries={['/listening/77']}>
+        <Routes>
+          <Route path="/listening/:id" element={<DoListeningTest />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await userEvent.click(await screen.findByText(/Part 3/));
+
+    const notesTitle = await screen.findByText('Tour notes');
+    const notesContent = notesTitle.nextElementSibling;
+
+    expect(notesTitle.style.textAlign).toBe('center');
+    expect(notesContent).toBeTruthy();
+    expect(notesContent.style.fontSize).toBe('15px');
+  });
+
   test('renders flowchart dropdowns with an opaque overlay menu in the student runtime', async () => {
     window.fetch.mockImplementation((url) => {
       const normalizedUrl = String(url || '');
