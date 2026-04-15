@@ -22,8 +22,13 @@ const MapLabelingQuestion = ({
   const initialUrl = question?.mapImageUrl || question?.imageUrl || '';
   const [previewUrl, setPreviewUrl] = useState(initialUrl);
 
-  // Labels for map positions (A-H or customizable)
+  // Default label bank used by both teacher and student views.
   const defaultLabels = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'];
+  const configuredLabels = Array.isArray(question?.labels) && question.labels.length > 0
+    ? question.labels
+        .map((label) => String(label || '').trim().toUpperCase())
+        .filter(Boolean)
+    : defaultLabels;
 
   // Helper to call onChange in either (field, value) or (updatedQuestion) form
   const safeOnChange = (field, value) => {
@@ -89,7 +94,7 @@ const MapLabelingQuestion = ({
       .filter((_, i) => i !== currentIndex)
       .map(item => item.correctAnswer)
       .filter(Boolean);
-    return defaultLabels.filter(l => !usedLabels.includes(l));
+    return configuredLabels.filter(l => !usedLabels.includes(l));
   };
 
   // ========== EDIT MODE ==========
@@ -265,7 +270,7 @@ const MapLabelingQuestion = ({
           fontSize: '0.9rem',
           color: '#92400e'
         }}>
-          <strong>Hướng dẫn:</strong> Tải lên hình đã có sẵn các điểm A-H (hoặc số) trên bản đồ.
+          <strong>Hướng dẫn:</strong> Tải lên hình đã có sẵn các điểm A-J (hoặc số) trên bản đồ.
           Giáo viên chỉ cần nhập tên địa điểm và chọn đáp án chữ cái tương ứng.
         </div>
       </div>
@@ -334,7 +339,7 @@ const MapLabelingQuestion = ({
                 }}
               >
                 <option value="">--</option>
-                {defaultLabels.slice(0, 8).map(label => (
+                {configuredLabels.map(label => (
                   <option key={label} value={label}>{label}</option>
                 ))}
               </select>

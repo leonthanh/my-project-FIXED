@@ -57,4 +57,27 @@ describe('MapLabelingQuestion edit mode', () => {
       { label: '', correctAnswer: '', position: null },
     ]);
   });
+
+  test('shows the full A-J label bank for students in answer mode', () => {
+    render(
+      <MapLabelingQuestion
+        question={{
+          imageUrl: 'https://example.com/map.png',
+          items: [
+            { label: 'Toilets', correctAnswer: 'B' },
+            { label: 'Water fountain', correctAnswer: 'I' },
+          ],
+        }}
+        mode="answer"
+        questionNumber={16}
+        studentAnswer={{}}
+      />
+    );
+
+    const select = screen.getAllByRole('combobox')[0];
+    const optionValues = Array.from(select.querySelectorAll('option')).map((option) => option.textContent);
+
+    expect(optionValues).toContain('I');
+    expect(optionValues).toContain('J');
+  });
 });
