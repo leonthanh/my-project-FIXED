@@ -4,9 +4,9 @@ name: Deploy to cPanel
 on:
   push:
     branches: [main]
+  workflow_dispatch:
 
 env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
   OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
   EMAIL_USER: ${{ secrets.EMAIL_USER }}
@@ -29,7 +29,7 @@ jobs:
       frontend-hash: ${{ steps.hash.outputs.frontend }}
       backend-hash: ${{ steps.hash.outputs.backend }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 1
       - name: Compute changed tree hashes
@@ -70,7 +70,7 @@ jobs:
             server.js db.js logger.js routes models middlewares package.json package-lock.json \
             utils ../utils || true
       - name: Upload artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: deploy-artifacts
           path: |
@@ -82,7 +82,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Download artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: deploy-artifacts
           path: .
@@ -91,11 +91,15 @@ jobs:
         run: |
           unzip -o frontend-artifact.zip -d frontend || true
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: "20.x"
           cache: "npm"
           cache-dependency-path: frontend/package-lock.json
+      - name: Install lftp
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y lftp
       - name: Install & Build Frontend
         run: |
           cd frontend
@@ -106,32 +110,35 @@ jobs:
           CI: false
           NODE_OPTIONS: --max-old-space-size=4096
       - name: Deploy Frontend
-        uses: SamKirkland/FTP-Deploy-Action@4.3.3
-        with:
-          server: ftp.star-siec.edu.vn
-          username: ${{ secrets.FTP_USERNAME }}
-          password: ${{ secrets.FTP_PASSWORD }}
-          local-dir: frontend/dist/
-          server-dir: /ix.star-siec.edu.vn/frontend/build/
-          dangerous-clean-slate: false
-          exclude: |
-            **/*.map
-            **/*.txt
-            **/LICENSE            
-            **/static/media/*.webp
-            **/static/media/*.svg
-
-          state-name: .ftp-deploy-sync-state-frontend.json
-          log-level: minimal
-          timeout: 1200000
-          dry-run: false
+        env:
+          FTP_HOST: ftp.star-siec.edu.vn
+          FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+          FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+        run: |
+          set -euo pipefail
+          lftp -u "$FTP_USERNAME","$FTP_PASSWORD" "$FTP_HOST" <<'LFTP_CMDS'
+          set cmd:fail-exit true
+          set net:max-retries 2
+          set net:timeout 20
+          set ftp:passive-mode true
+          set ssl:verify-certificate no
+          mkdir -p /ix.star-siec.edu.vn/frontend/build/
+          mirror -R --delete --verbose=1 --parallel=4 \
+            -x '(^|/).*\.map$' \
+            -x '(^|/).*\.txt$' \
+            -x '(^|/)LICENSE$' \
+            -x '(^|/).*\.webp$' \
+            -x '(^|/).*\.svg$' \
+            frontend/dist/ /ix.star-siec.edu.vn/frontend/build/
+          bye
+          LFTP_CMDS
 
   backend:
     needs: prepare
     runs-on: ubuntu-latest
     steps:
       - name: Download artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: deploy-artifacts
           path: .
@@ -140,9 +147,13 @@ jobs:
         run: |
           unzip -o backend-artifact.zip -d backend-temp || true
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: "20.x"
+      - name: Install lftp
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y lftp
       - name: Prepare backend package
         if: needs.prepare.outputs.backend-hash != ''
         run: |
@@ -179,24 +190,27 @@ jobs:
 
           ls -la backend-temp || true
       - name: Deploy Backend
-        uses: SamKirkland/FTP-Deploy-Action@4.3.3
-        with:
-          server: ftp.star-siec.edu.vn
-          username: ${{ secrets.FTP_USERNAME }}
-          password: ${{ secrets.FTP_PASSWORD }}
-          local-dir: backend-temp/
-          server-dir: /ix.star-siec.edu.vn/backend/
-          dangerous-clean-slate: false
-          exclude: |
-            **/node_modules/**
-            **/uploads/**
-            uploads/**
-            **/*.map
-            **/*.md
-            package-lock.json
-          state-name: .ftp-deploy-sync-state-backend.json
-          log-level: minimal
-          timeout: 600000
+        env:
+          FTP_HOST: ftp.star-siec.edu.vn
+          FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+          FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+        run: |
+          set -euo pipefail
+          lftp -u "$FTP_USERNAME","$FTP_PASSWORD" "$FTP_HOST" <<'LFTP_CMDS'
+          set cmd:fail-exit true
+          set net:max-retries 2
+          set net:timeout 20
+          set ftp:passive-mode true
+          set ssl:verify-certificate no
+          mkdir -p /ix.star-siec.edu.vn/backend/
+          mirror -R --delete --verbose=1 --parallel=4 \
+            -x '(^|/)(node_modules|uploads)(/|$)' \
+            -x '(^|/).*\.map$' \
+            -x '(^|/).*\.md$' \
+            -x '(^|/)package-lock\.json$' \
+            backend-temp/ /ix.star-siec.edu.vn/backend/
+          bye
+          LFTP_CMDS
       - name: Notify Manual Restart
         run: |
           echo "✅ Backend đã được deploy lên cPanel."

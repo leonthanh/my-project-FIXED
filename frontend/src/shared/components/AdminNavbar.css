@@ -79,13 +79,16 @@
 }
 
 .adminNavbar__icon svg,
+.adminNavbar__caret svg,
 .adminNavbar__mobileQuickIcon svg,
 .adminNavbar__menuItemIcon svg,
 .adminNavbar__menuHeaderIcon svg,
 .adminNavbar__notifyItemIcon svg,
 .adminNavbar__mobileAlertIcon svg,
 .adminNavbar__bell svg,
-.adminNavbar__drawerClose svg {
+.adminNavbar__drawerClose svg,
+.adminNavbar__desktopDrawerIcon svg,
+.adminNavbar__desktopDrawerClose svg {
   width: 100%;
   height: 100%;
   display: block;
@@ -96,7 +99,11 @@
 }
 
 .adminNavbar__caret {
-  font-size: 12px;
+  width: 14px;
+  height: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   opacity: 0.85;
 }
 
@@ -317,6 +324,223 @@
 
 .adminNavbar__drawerStage {
   animation: adminNavbarContentSwap 0.28s ease;
+}
+
+.adminNavbar__desktopDrawerBackdrop {
+  position: fixed;
+  inset: 0;
+  border: none;
+  background: rgba(15, 23, 42, 0.32);
+  backdrop-filter: blur(4px);
+  z-index: 2080;
+}
+
+.adminNavbar__desktopDrawerPanel {
+  position: fixed;
+  top: 78px;
+  left: 18px;
+  bottom: 18px;
+  width: min(440px, calc(100vw - 36px));
+  background: rgba(255, 255, 255, 0.985);
+  color: #0f172a;
+  border: 1px solid #dbe4f2;
+  border-radius: 28px;
+  box-shadow: 0 32px 64px rgba(15, 23, 42, 0.22);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  z-index: 2105;
+  animation: adminNavbarDesktopDrawerIn 0.28s ease;
+}
+
+.adminNavbar__desktopDrawerHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 20px 20px 16px;
+  border-bottom: 1px solid #e2e8f0;
+  background: linear-gradient(180deg, #f8fbff 0%, #ffffff 100%);
+}
+
+.adminNavbar__desktopDrawerIntro {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  min-width: 0;
+}
+
+.adminNavbar__desktopDrawerIcon {
+  flex: 0 0 auto;
+  width: 48px;
+  height: 48px;
+  border-radius: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #2563eb 0%, #0e276f 100%);
+  color: #fff;
+  box-shadow: 0 14px 28px rgba(14, 39, 111, 0.24);
+}
+
+.adminNavbar__desktopDrawerIntroText {
+  min-width: 0;
+}
+
+.adminNavbar__desktopDrawerEyebrow {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.adminNavbar__desktopDrawerTitle {
+  margin-top: 4px;
+  font-size: 20px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.adminNavbar__desktopDrawerMeta {
+  margin-top: 6px;
+  font-size: 13px;
+  line-height: 1.55;
+  color: #64748b;
+  max-width: 280px;
+}
+
+.adminNavbar__desktopDrawerClose {
+  flex: 0 0 auto;
+  width: 40px;
+  height: 40px;
+  border: none;
+  border-radius: 14px;
+  background: #e8efff;
+  color: #0e276f;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.adminNavbar__desktopDrawerStage {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  animation: adminNavbarContentSwap 0.28s ease;
+}
+
+.adminNavbar__desktopDrawerTabs,
+.adminNavbar__desktopDrawerSubTabs {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  padding: 14px 20px 12px;
+}
+
+.adminNavbar__desktopDrawerTabs::-webkit-scrollbar,
+.adminNavbar__desktopDrawerSubTabs::-webkit-scrollbar {
+  display: none;
+}
+
+.adminNavbar__desktopDrawerTabs {
+  border-bottom: 1px solid #eef2f7;
+}
+
+.adminNavbar__desktopDrawerTab,
+.adminNavbar__desktopDrawerSubTab {
+  flex: 0 0 auto;
+  border: none;
+  border-radius: 999px;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease, transform 0.2s ease;
+}
+
+.adminNavbar__desktopDrawerTab {
+  padding: 10px 14px;
+  background: #e8efff;
+  color: #294172;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.adminNavbar__desktopDrawerSubTab {
+  padding: 8px 12px;
+  background: #f8fafc;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 700;
+  border: 1px solid #e2e8f0;
+}
+
+.adminNavbar__desktopDrawerTab:hover,
+.adminNavbar__desktopDrawerSubTab:hover {
+  transform: translateY(-1px);
+}
+
+.adminNavbar__desktopDrawerTab--active,
+.adminNavbar__desktopDrawerSubTab--active {
+  background: #0e276f;
+  color: #fff;
+  border-color: transparent;
+}
+
+.adminNavbar__desktopDrawerBody {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: 18px 20px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.adminNavbar__desktopDrawerSectionTitle {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.adminNavbar__desktopDrawerSubTitle {
+  font-size: 13px;
+  font-weight: 800;
+  color: #334155;
+}
+
+.adminNavbar__desktopDrawerList {
+  display: grid;
+  gap: 10px;
+}
+
+.adminNavbar__drawerMenuItem {
+  margin: 0;
+  padding: 14px 16px;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  background: linear-gradient(180deg, #f8fafc 0%, #ffffff 100%);
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.05);
+}
+
+.adminNavbar__drawerMenuItem:hover {
+  background: #ffffff;
+  border-color: #c7d2fe;
+  box-shadow: 0 14px 28px rgba(15, 23, 42, 0.08);
+}
+
+.adminNavbar__drawerMenuItem.adminNavbar__menuItem--disabled {
+  background: #f8fafc;
+  color: #94a3b8;
+}
+
+.adminNavbar__drawerMenuItem.adminNavbar__menuItem--disabled:hover {
+  background: #f8fafc;
+  transform: none;
 }
 
 .adminNavbar__menu--mobileNested {
@@ -653,6 +877,81 @@ body.dark-mode .adminNavbar__drawerPanel {
   color: #e2e8f0;
 }
 
+body.dark-mode .adminNavbar__desktopDrawerBackdrop {
+  background: rgba(2, 6, 23, 0.6);
+}
+
+body.dark-mode .adminNavbar__desktopDrawerPanel {
+  background: rgba(15, 23, 42, 0.98);
+  color: #e2e8f0;
+  border-color: #23314f;
+  box-shadow: 0 32px 64px rgba(0, 0, 0, 0.36);
+}
+
+body.dark-mode .adminNavbar__desktopDrawerHeader {
+  background: linear-gradient(180deg, #172554 0%, #0f172a 100%);
+  border-bottom-color: #23314f;
+}
+
+body.dark-mode .adminNavbar__desktopDrawerIcon {
+  background: linear-gradient(135deg, #3b82f6 0%, #172554 100%);
+}
+
+body.dark-mode .adminNavbar__desktopDrawerEyebrow,
+body.dark-mode .adminNavbar__desktopDrawerMeta,
+body.dark-mode .adminNavbar__desktopDrawerSectionTitle,
+body.dark-mode .adminNavbar__desktopDrawerSubTitle {
+  color: #cbd5e1;
+}
+
+body.dark-mode .adminNavbar__desktopDrawerTitle {
+  color: #eff6ff;
+}
+
+body.dark-mode .adminNavbar__desktopDrawerClose {
+  background: #1e3a8a;
+  color: #eff6ff;
+}
+
+body.dark-mode .adminNavbar__desktopDrawerTabs {
+  border-bottom-color: #2a3350;
+}
+
+body.dark-mode .adminNavbar__desktopDrawerTab {
+  background: #213154;
+  color: #dbeafe;
+}
+
+body.dark-mode .adminNavbar__desktopDrawerSubTab {
+  background: #111b33;
+  color: #cbd5e1;
+  border-color: #334155;
+}
+
+body.dark-mode .adminNavbar__desktopDrawerTab--active,
+body.dark-mode .adminNavbar__desktopDrawerSubTab--active {
+  background: #3b82f6;
+  color: #fff;
+}
+
+body.dark-mode .adminNavbar__drawerMenuItem {
+  background: linear-gradient(180deg, #111827 0%, #0f172a 100%);
+  border-color: #23314f;
+  color: #e5e7eb;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
+}
+
+body.dark-mode .adminNavbar__drawerMenuItem:hover {
+  background: #16213e;
+  border-color: #3b82f6;
+}
+
+body.dark-mode .adminNavbar__drawerMenuItem.adminNavbar__menuItem--disabled,
+body.dark-mode .adminNavbar__drawerMenuItem.adminNavbar__menuItem--disabled:hover {
+  background: #111827;
+  color: #64748b;
+}
+
 body.dark-mode .adminNavbar__drawerHeader {
   background: linear-gradient(180deg, #172554 0%, #0f172a 100%);
   border-bottom-color: #23314f;
@@ -973,6 +1272,13 @@ body.dark-mode .adminNavbar__menuHeader {
     padding: 6px 12px;
     font-size: 13px;
   }
+
+  .adminNavbar__desktopDrawerPanel {
+    top: 72px;
+    left: 14px;
+    bottom: 14px;
+    width: min(400px, calc(100vw - 28px));
+  }
 }
 
 @media (max-width: 768px) {
@@ -1246,6 +1552,17 @@ body.dark-mode .adminNavbar__menuHeader {
   }
   100% {
     transform: translateX(0);
+  }
+}
+
+@keyframes adminNavbarDesktopDrawerIn {
+  0% {
+    opacity: 0;
+    transform: translateX(-24px) scale(0.98);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0) scale(1);
   }
 }
 

@@ -57,6 +57,12 @@ const NavIcon = ({ name }) => {
           <path d="M10.3 21a2 2 0 0 0 3.4 0" />
         </svg>
       );
+    case "chevron-down":
+      return (
+        <svg {...sharedProps}>
+          <path d="m6 9 6 6 6-6" />
+        </svg>
+      );
     case "close":
       return (
         <svg {...sharedProps}>
@@ -207,10 +213,6 @@ const AdminNavbar = () => {
   const [pendingNotifications, setPendingNotifications] = useState([]);
   const [notificationDropdownVisible, setNotificationDropdownVisible] =
     useState(false);
-  const [submissionDropdownVisible, setSubmissionDropdownVisible] =
-    useState(false);
-  const [cambridgeDropdownVisible, setCambridgeDropdownVisible] =
-    useState(false);
   const [adminDropdownVisible, setAdminDropdownVisible] = useState(false);
   const [isCompactMenu, setIsCompactMenu] = useState(
     typeof window !== "undefined" ? window.innerWidth <= 768 : false
@@ -221,9 +223,12 @@ const AdminNavbar = () => {
   const [mobileCambridgeGroup, setMobileCambridgeGroup] = useState("flyers");
   const [mobileSubmissionSection, setMobileSubmissionSection] =
     useState("create");
+  const [desktopDrawerMode, setDesktopDrawerMode] = useState(null);
+  const [desktopCambridgeSection, setDesktopCambridgeSection] = useState("ket");
+  const [desktopCambridgeGroup, setDesktopCambridgeGroup] = useState("flyers");
+  const [desktopSubmissionSection, setDesktopSubmissionSection] =
+    useState("create");
   const notificationDropdownRef = useRef(null);
-  const submissionDropdownRef = useRef(null);
-  const cambridgeDropdownRef = useRef(null);
   const adminDropdownRef = useRef(null);
 
   let user = null;
@@ -403,18 +408,6 @@ const AdminNavbar = () => {
         setNotificationDropdownVisible(false);
       }
       if (
-        submissionDropdownRef.current &&
-        !submissionDropdownRef.current.contains(event.target)
-      ) {
-        setSubmissionDropdownVisible(false);
-      }
-      if (
-        cambridgeDropdownRef.current &&
-        !cambridgeDropdownRef.current.contains(event.target)
-      ) {
-        setCambridgeDropdownVisible(false);
-      }
-      if (
         adminDropdownRef.current &&
         !adminDropdownRef.current.contains(event.target)
       ) {
@@ -433,6 +426,8 @@ const AdminNavbar = () => {
       setIsCompactMenu(compact);
       if (!compact) {
         setMobileDrawerOpen(false);
+      } else {
+        setDesktopDrawerMode(null);
       }
     };
 
@@ -445,7 +440,7 @@ const AdminNavbar = () => {
     if (typeof document === "undefined") return undefined;
 
     const originalOverflow = document.body.style.overflow;
-    if (isCompactMenu && mobileDrawerOpen) {
+    if ((isCompactMenu && mobileDrawerOpen) || (!isCompactMenu && desktopDrawerMode)) {
       document.body.style.overflow = "hidden";
     } else {
       document.body.style.overflow = originalOverflow || "";
@@ -454,7 +449,21 @@ const AdminNavbar = () => {
     return () => {
       document.body.style.overflow = originalOverflow;
     };
-  }, [isCompactMenu, mobileDrawerOpen]);
+  }, [isCompactMenu, mobileDrawerOpen, desktopDrawerMode]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+    if (!mobileDrawerOpen && !desktopDrawerMode) return undefined;
+
+    const handleKeyDown = (event) => {
+      if (event.key !== "Escape") return;
+      setMobileDrawerOpen(false);
+      setDesktopDrawerMode(null);
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [mobileDrawerOpen, desktopDrawerMode]);
 
   useEffect(() => {
     if (!mobileDrawerOpen || typeof window === "undefined") return undefined;
@@ -512,19 +521,54 @@ const AdminNavbar = () => {
     user?.canManageTests,
   ]);
 
+  useEffect(() => {
+    if (isCompactMenu || !desktopDrawerMode || typeof window === "undefined") {
+      return undefined;
+    }
+
+    const timerId = window.setTimeout(() => {
+      if (desktopDrawerMode === "ix") {
+        preloadAdminItems(flattenAdminSections(ieltsSections));
+        return;
+      }
+
+      if (desktopDrawerMode === "orange") {
+        preloadAdminItems(flattenAdminSections(cambridgeSections));
+        preloadAdminRoute("/admin/cambridge-submissions");
+      }
+    }, 0);
+
+    return () => {
+      window.clearTimeout(timerId);
+    };
+  }, [
+    isCompactMenu,
+    desktopDrawerMode,
+    desktopSubmissionSection,
+    desktopCambridgeSection,
+    desktopCambridgeGroup,
+    user?.role,
+    user?.canManageTests,
+  ]);
+
+  useEffect(() => {
+    setDesktopDrawerMode(null);
+  }, [location.pathname]);
+
   const handleLogout = async () => {
     try {
       await fetch(apiPath('auth/logout'), { method: 'POST', credentials: 'include' });
     } catch (_) { /* ignore network errors on logout */ }
+    setDesktopDrawerMode(null);
+    setMobileDrawerOpen(false);
     clearAuth();
     navigate('/login');
   };
 
   const closeDesktopMenus = () => {
     setNotificationDropdownVisible(false);
-    setSubmissionDropdownVisible(false);
-    setCambridgeDropdownVisible(false);
     setAdminDropdownVisible(false);
+    setDesktopDrawerMode(null);
   };
 
   const getPreferredMobileDrawerTab = () => {
@@ -542,6 +586,43 @@ const AdminNavbar = () => {
     return "overview";
   };
 
+  const getPreferredDesktopSubmissionSection = () => {
+    const pathname = String(location?.pathname || "").toLowerCase();
+    return pathname.includes("submissions") ? "submissions" : "create";
+  };
+
+  const getPreferredDesktopCambridgeState = () => {
+    const pathname = String(location?.pathname || "").toLowerCase();
+
+    if (pathname.includes("/admin/cambridge-submissions")) {
+      return { section: "management", group: "flyers" };
+    }
+
+    if (pathname.includes("/admin/create-ket")) {
+      return { section: "ket", group: "flyers" };
+    }
+
+    if (pathname.includes("pet-writing") || pathname.includes("/admin/create-pet")) {
+      return { section: "pet", group: "flyers" };
+    }
+
+    if (pathname.includes("/admin/create-movers")) {
+      return { section: "yle", group: "movers" };
+    }
+
+    if (pathname.includes("/admin/create/flyers")) {
+      return { section: "yle", group: "flyers" };
+    }
+
+    if (pathname.includes("/admin/create/starters")) {
+      return { section: "yle", group: "starters" };
+    }
+
+    return { section: "ket", group: "flyers" };
+  };
+
+  const closeDesktopDrawer = () => setDesktopDrawerMode(null);
+
   const closeMobileDrawer = () => setMobileDrawerOpen(false);
   const openMobileDrawer = () => {
     closeDesktopMenus();
@@ -556,12 +637,34 @@ const AdminNavbar = () => {
     }
   };
 
-  const closeCambridgeMenu = () => setCambridgeDropdownVisible(false);
-  const closeSubmissionMenu = () => setSubmissionDropdownVisible(false);
   const closeAdminMenu = () => setAdminDropdownVisible(false);
+  const openDesktopDrawer = (mode) => {
+    closeDesktopMenus();
+
+    if (mode === "orange") {
+      const preferredCambridgeState = getPreferredDesktopCambridgeState();
+      setDesktopCambridgeSection(preferredCambridgeState.section);
+      setDesktopCambridgeGroup(preferredCambridgeState.group);
+    }
+
+    if (mode === "ix") {
+      setDesktopSubmissionSection(getPreferredDesktopSubmissionSection());
+    }
+
+    setDesktopDrawerMode(mode);
+  };
+  const toggleDesktopDrawer = (mode) => {
+    if (desktopDrawerMode === mode) {
+      closeDesktopDrawer();
+      return;
+    }
+
+    openDesktopDrawer(mode);
+  };
   const handlePendingNotificationClick = (item) => {
     setNotificationDropdownVisible(false);
     setMobileDrawerOpen(false);
+    setDesktopDrawerMode(null);
     navigate(item.route);
   };
 
@@ -789,6 +892,19 @@ const AdminNavbar = () => {
     ieltsSections.find((section) => section.key === mobileSubmissionSection) ||
     ieltsSections[0] ||
     null;
+  const desktopDrawerVisible = Boolean(desktopDrawerMode);
+  const activeDesktopCambridgeSection =
+    cambridgeSections.find((section) => section.key === desktopCambridgeSection) ||
+    cambridgeSections[0] ||
+    null;
+  const activeDesktopCambridgeGroup =
+    activeDesktopCambridgeSection?.groups?.find(
+      (group) => group.key === desktopCambridgeGroup
+    ) || activeDesktopCambridgeSection?.groups?.[0] || null;
+  const activeDesktopSubmissionSection =
+    ieltsSections.find((section) => section.key === desktopSubmissionSection) ||
+    ieltsSections[0] ||
+    null;
 
   const pendingNotificationCount = pendingNotifications.length;
   const pathname = String(location.pathname || "").toLowerCase();
@@ -815,11 +931,15 @@ const AdminNavbar = () => {
     ...(user?.role === "admin" ? [{ key: "admin", label: "Admin" }] : []),
   ];
 
-  const renderMenuItems = (items, onClose, mobile = false) =>
+  const renderMenuItems = (items, onClose, variant = "dropdown") =>
     items.map((item) => {
-      const itemClassName = mobile
-        ? "adminNavbar__menuItem adminNavbar__mobileMenuItem"
-        : "adminNavbar__menuItem";
+      const isOverlayVariant = variant === "mobile" || variant === "drawer";
+      const itemClassName =
+        variant === "mobile"
+          ? "adminNavbar__menuItem adminNavbar__mobileMenuItem"
+          : variant === "drawer"
+          ? "adminNavbar__menuItem adminNavbar__drawerMenuItem"
+          : "adminNavbar__menuItem";
 
       if (item.disabled) {
         return (
@@ -848,7 +968,7 @@ const AdminNavbar = () => {
           onClick={(event) => {
             preloadAdminRoute(item.to);
 
-            if (mobile) {
+            if (isOverlayVariant) {
               event.preventDefault();
               flushSync(() => {
                 onClose?.();
@@ -897,38 +1017,115 @@ const AdminNavbar = () => {
     </Link>
   );
 
-  const renderDesktopSections = (sections, onClose) =>
-    sections.map((section, sectionIndex) => (
-      <React.Fragment key={section.key}>
-        <div
-          className={`adminNavbar__menuHeader${
-            sectionIndex > 0 ? " adminNavbar__menuHeader--spaced" : ""
+  const renderDesktopDrawerTabs = (sections, activeKey, onChange) => (
+    <div className="adminNavbar__desktopDrawerTabs">
+      {sections.map((section) => (
+        <button
+          key={section.key}
+          type="button"
+          className={`adminNavbar__desktopDrawerTab${
+            activeKey === section.key ? " adminNavbar__desktopDrawerTab--active" : ""
           }`}
+          onClick={() => onChange(section.key)}
         >
-          <span className="adminNavbar__menuHeaderContent">
-            {section.iconName ? (
-              <span className="adminNavbar__menuHeaderIcon" aria-hidden="true">
-                <NavIcon name={section.iconName} />
-              </span>
-            ) : null}
-            <span>{section.title}</span>
-          </span>
+          {section.label}
+        </button>
+      ))}
+    </div>
+  );
+
+  const renderDesktopDrawerSubTabs = (groups, activeKey, onChange) => (
+    <div className="adminNavbar__desktopDrawerSubTabs">
+      {groups.map((group) => (
+        <button
+          key={group.key}
+          type="button"
+          className={`adminNavbar__desktopDrawerSubTab${
+            activeKey === group.key ? " adminNavbar__desktopDrawerSubTab--active" : ""
+          }`}
+          onClick={() => onChange(group.key)}
+        >
+          {group.label}
+        </button>
+      ))}
+    </div>
+  );
+
+  const renderDesktopCambridgeDrawerContent = () => {
+    if (!activeDesktopCambridgeSection) return null;
+
+    return (
+      <>
+        {renderDesktopDrawerTabs(
+          cambridgeSections,
+          activeDesktopCambridgeSection.key,
+          setDesktopCambridgeSection
+        )}
+        <div className="adminNavbar__desktopDrawerBody">
+          <div className="adminNavbar__desktopDrawerSectionTitle">
+            {activeDesktopCambridgeSection.title}
+          </div>
+          {activeDesktopCambridgeSection.groups?.length ? (
+            <>
+              {renderDesktopDrawerSubTabs(
+                activeDesktopCambridgeSection.groups,
+                activeDesktopCambridgeGroup?.key,
+                setDesktopCambridgeGroup
+              )}
+              {activeDesktopCambridgeGroup ? (
+                <>
+                  <div className="adminNavbar__desktopDrawerSubTitle">
+                    {activeDesktopCambridgeGroup.title}
+                  </div>
+                  <div className="adminNavbar__desktopDrawerList">
+                    {renderMenuItems(
+                      activeDesktopCambridgeGroup.items,
+                      closeDesktopDrawer,
+                      "drawer"
+                    )}
+                  </div>
+                </>
+              ) : null}
+            </>
+          ) : (
+            <div className="adminNavbar__desktopDrawerList">
+              {renderMenuItems(
+                activeDesktopCambridgeSection.items || [],
+                closeDesktopDrawer,
+                "drawer"
+              )}
+            </div>
+          )}
         </div>
-        {section.items ? renderMenuItems(section.items, onClose) : null}
-        {section.groups
-          ? section.groups.map((group) => (
-              <React.Fragment key={group.key}>
-                <div className="adminNavbar__menuHeader">
-                  <span className="adminNavbar__menuHeaderContent">
-                    <span>{group.title}</span>
-                  </span>
-                </div>
-                {renderMenuItems(group.items, onClose)}
-              </React.Fragment>
-            ))
-          : null}
-      </React.Fragment>
-    ));
+      </>
+    );
+  };
+
+  const renderDesktopSubmissionDrawerContent = () => {
+    if (!activeDesktopSubmissionSection) return null;
+
+    return (
+      <>
+        {renderDesktopDrawerTabs(
+          ieltsSections,
+          activeDesktopSubmissionSection.key,
+          setDesktopSubmissionSection
+        )}
+        <div className="adminNavbar__desktopDrawerBody">
+          <div className="adminNavbar__desktopDrawerSectionTitle">
+            {activeDesktopSubmissionSection.title}
+          </div>
+          <div className="adminNavbar__desktopDrawerList">
+            {renderMenuItems(
+              activeDesktopSubmissionSection.items,
+              closeDesktopDrawer,
+              "drawer"
+            )}
+          </div>
+        </div>
+      </>
+    );
+  };
 
   const renderMobileTabs = (sections, activeKey, onChange) => (
     <div className="adminNavbar__mobileTabs">
@@ -997,13 +1194,17 @@ const AdminNavbar = () => {
                   {renderMenuItems(
                     activeCambridgeGroup.items,
                     closeMobileDrawer,
-                    true
+                    "mobile"
                   )}
                 </>
               ) : null}
             </>
           ) : (
-            renderMenuItems(activeCambridgeSection.items || [], closeMobileDrawer, true)
+            renderMenuItems(
+              activeCambridgeSection.items || [],
+              closeMobileDrawer,
+              "mobile"
+            )
           )}
         </div>
         </div>
@@ -1035,7 +1236,7 @@ const AdminNavbar = () => {
           <div className="adminNavbar__mobileSectionTitle">
             {activeSubmissionSection.title}
           </div>
-          {renderMenuItems(activeSubmissionSection.items, closeMobileDrawer, true)}
+          {renderMenuItems(activeSubmissionSection.items, closeMobileDrawer, "mobile")}
         </div>
         </div>
       </>
@@ -1051,7 +1252,7 @@ const AdminNavbar = () => {
         </div>
       </div>
       <div className="adminNavbar__mobileMenuBody adminNavbar__mobileMenuBody--compact">
-        {renderMenuItems(adminItems, closeMobileDrawer, true)}
+        {renderMenuItems(adminItems, closeMobileDrawer, "mobile")}
       </div>
     </>
   );
@@ -1202,6 +1403,66 @@ const AdminNavbar = () => {
           document.body
         )
       : null;
+  const desktopMenuDrawer =
+    !isCompactMenu && desktopDrawerVisible && typeof document !== "undefined"
+      ? createPortal(
+          <>
+            <button
+              type="button"
+              className="adminNavbar__desktopDrawerBackdrop"
+              aria-label="Close navigation drawer"
+              onClick={closeDesktopDrawer}
+            />
+            <aside
+              className="adminNavbar__desktopDrawerPanel"
+              role="dialog"
+              aria-modal="true"
+              aria-label={desktopDrawerMode === "orange" ? "Orange menu" : "IX menu"}
+            >
+              <div className="adminNavbar__desktopDrawerHeader">
+                <div className="adminNavbar__desktopDrawerIntro">
+                  <span className="adminNavbar__desktopDrawerIcon" aria-hidden="true">
+                    <NavIcon
+                      name={desktopDrawerMode === "orange" ? "cambridge" : "tests"}
+                    />
+                  </span>
+                  <div className="adminNavbar__desktopDrawerIntroText">
+                    <div className="adminNavbar__desktopDrawerEyebrow">
+                      Teacher Navigation
+                    </div>
+                    <div className="adminNavbar__desktopDrawerTitle">
+                      {desktopDrawerMode === "orange" ? "Orange Drawer" : "IX Drawer"}
+                    </div>
+                    <div className="adminNavbar__desktopDrawerMeta">
+                      {desktopDrawerMode === "orange"
+                        ? "Cambridge creation and submissions collected into a cleaner side panel."
+                        : "Create and review IELTS tests without a crowded dropdown menu."}
+                    </div>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="adminNavbar__desktopDrawerClose"
+                  onClick={closeDesktopDrawer}
+                  aria-label="Close navigation drawer"
+                >
+                  <NavIcon name="close" />
+                </button>
+              </div>
+
+              <div
+                key={desktopDrawerMode}
+                className="adminNavbar__desktopDrawerStage"
+              >
+                {desktopDrawerMode === "orange"
+                  ? renderDesktopCambridgeDrawerContent()
+                  : renderDesktopSubmissionDrawerContent()}
+              </div>
+            </aside>
+          </>,
+          document.body
+        )
+      : null;
 
   if (isCompactMenu) {
     return (
@@ -1247,6 +1508,7 @@ const AdminNavbar = () => {
   }
 
   return (
+    <>
     <nav className="adminNavbar">
       <div className="adminNavbar__left">
         <Link to="/select-test" className="adminNavbar__logoLink" title="Test list">
@@ -1258,45 +1520,30 @@ const AdminNavbar = () => {
         </Link>
 
         {/* Cambridge Tests Dropdown */}
-        <div className="adminNavbar__dropdown" ref={cambridgeDropdownRef}>
+        <div className="adminNavbar__dropdown">
           <span
-            className={`adminNavbar__link adminNavbar__dropdownToggle${isOrangeCurrent || cambridgeDropdownVisible ? " adminNavbar__link--active" : ""}`}
-            onClick={() => setCambridgeDropdownVisible((prev) => !prev)}
+            className={`adminNavbar__link adminNavbar__dropdownToggle${isOrangeCurrent || desktopDrawerMode === "orange" ? " adminNavbar__link--active" : ""}`}
+            onClick={() => toggleDesktopDrawer("orange")}
             title="Orange"
           >
             <span className="adminNavbar__icon" aria-hidden="true"><NavIcon name="cambridge" /></span>
             <span className="adminNavbar__label">Orange</span>
             <span className="adminNavbar__caret"><NavIcon name="chevron-down" /></span>
           </span>
-          {cambridgeDropdownVisible && (
-            isCompactMenu ? renderMobileCambridgeMenu() : (
-              <div className="adminNavbar__menu">
-                {renderDesktopSections(cambridgeSections, closeCambridgeMenu)}
-              </div>
-            )
-          )}
         </div>
 
         <div
           className="adminNavbar__dropdown"
-          ref={submissionDropdownRef}
         >
           <span
-            className={`adminNavbar__link adminNavbar__dropdownToggle${isIxCurrent || submissionDropdownVisible ? " adminNavbar__link--active" : ""}`}
-            onClick={() => setSubmissionDropdownVisible((prev) => !prev)}
+            className={`adminNavbar__link adminNavbar__dropdownToggle${isIxCurrent || desktopDrawerMode === "ix" ? " adminNavbar__link--active" : ""}`}
+            onClick={() => toggleDesktopDrawer("ix")}
             title="IX"
           >
             <span className="adminNavbar__icon" aria-hidden="true"><NavIcon name="tests" /></span>
             <span className="adminNavbar__label">IX</span>
             <span className="adminNavbar__caret"><NavIcon name="chevron-down" /></span>
           </span>
-          {submissionDropdownVisible && (
-            isCompactMenu ? renderMobileSubmissionMenu() : (
-              <div className="adminNavbar__menu adminNavbar__menu--wide">
-                {renderDesktopSections(ieltsSections, closeSubmissionMenu)}
-              </div>
-            )
-          )}
         </div>
         <Link to="/select-test" className={`adminNavbar__link${isTestListCurrent ? " adminNavbar__link--active" : ""}`} title="Test list">
           <span className="adminNavbar__icon" aria-hidden="true"><NavIcon name="tests" /></span>
@@ -1392,6 +1639,8 @@ const AdminNavbar = () => {
       </div>
 
     </nav>
+    {desktopMenuDrawer}
+    </>
   );
 };
 

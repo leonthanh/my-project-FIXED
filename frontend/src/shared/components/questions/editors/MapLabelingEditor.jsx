@@ -94,7 +94,7 @@ const MapLabelingEditor = ({
       }}>
         <strong style={{ color: "#1d4ed8" }}>Map/Plan Labeling</strong>
         <p style={{ margin: "4px 0 0", color: "#1e40af" }}>
-          Học sinh nhìn bản đồ và chọn vị trí đúng (A-H) cho mỗi địa điểm.
+          Học sinh nhìn bản đồ và chọn vị trí đúng (A-J) cho mỗi địa điểm.
         </p>
       </div>
 
@@ -103,7 +103,7 @@ const MapLabelingEditor = ({
         type="text"
         value={question.questionText || ""}
         onChange={(e) => safeOnChange("questionText", e.target.value)}
-        placeholder="VD: Label the map below. Write the correct letter, A-H."
+        placeholder="VD: Label the map below. Write the correct letter, A-J."
         style={defaultStyles.input}
       />
 
