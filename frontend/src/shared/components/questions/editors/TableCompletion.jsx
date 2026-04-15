@@ -53,6 +53,8 @@ export default function TableCompletion({
   showHeader = true,
   readOnly = false,
   detailMap,
+  renderBlankPrefix,
+  getBlankPlaceholder,
 }) {
   const [localAnswers, setLocalAnswers] = useState({});
   const [errors, setErrors] = useState({});
@@ -152,6 +154,7 @@ export default function TableCompletion({
         <React.Fragment key={idx}>{renderTextValue(p.value, `text-${idx}`)}</React.Fragment>
       ) : (
         <span key={idx} className="blank" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+          {renderBlankPrefix ? renderBlankPrefix(p.q) : null}
           <input
             aria-label={`Question ${p.q}`}
             value={answers[p.q] ?? ""}
@@ -160,7 +163,7 @@ export default function TableCompletion({
             ref={(el) => registerQuestionRef?.(p.q, el)}
             maxLength={60}
             className={`blank-input ${errors[p.q] ? "has-error" : ""}`}
-            placeholder={`${p.q}`}
+            placeholder={getBlankPlaceholder ? getBlankPlaceholder(p.q) : `${p.q}`}
             readOnly={readOnly}
             disabled={readOnly}
             style={readOnly ? getStatusStyle(getDetail(p.q)) : undefined}
@@ -363,4 +366,6 @@ TableCompletion.propTypes = {
     PropTypes.object,
     PropTypes.instanceOf(Map),
   ]),
+  renderBlankPrefix: PropTypes.func,
+  getBlankPlaceholder: PropTypes.func,
 };

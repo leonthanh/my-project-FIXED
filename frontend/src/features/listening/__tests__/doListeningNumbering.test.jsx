@@ -234,6 +234,36 @@ describe('Listening test numbering', () => {
     expect(screen.getByText('Parking')).toBeInTheDocument();
   });
 
+  test('shows number badges for notes and table completion blanks in the student runtime', async () => {
+    window.fetch.mockImplementation((url) => {
+      const normalizedUrl = String(url || '');
+
+      if (normalizedUrl.includes('/listening-submissions/77/active')) {
+        return Promise.resolve({ ok: false, json: () => Promise.resolve({}) });
+      }
+
+      return Promise.resolve({ ok: true, json: () => Promise.resolve(mixedTypeTest) });
+    });
+
+    localStorage.setItem('listening:77:state:anon', JSON.stringify({ started: true, audioPlayed: {}, answers: {} }));
+
+    render(
+      <MemoryRouter initialEntries={['/listening/77']}>
+        <Routes>
+          <Route path="/listening/:id" element={<DoListeningTest />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await userEvent.click(await screen.findByText(/Part 3/));
+    const notesInput = await screen.findByLabelText('Question 12');
+    expect(notesInput.previousElementSibling).toHaveTextContent('12');
+
+    await userEvent.click(await screen.findByText(/Part 4/));
+    const tableInput = await screen.findByLabelText('Question 14');
+    expect(tableInput.previousElementSibling).toHaveTextContent('14');
+  });
+
   test('renders flowchart dropdowns with an opaque overlay menu in the student runtime', async () => {
     window.fetch.mockImplementation((url) => {
       const normalizedUrl = String(url || '');
@@ -283,6 +313,8 @@ describe('Listening test numbering', () => {
 
     expect(part3Tab).toBeTruthy();
     expect(part4Tab).toBeTruthy();
+    expect(part3Tab.style.flex.startsWith('1 1 ')).toBe(true);
     expect(Number.parseInt(part3Tab.style.minWidth, 10)).toBeGreaterThan(Number.parseInt(part4Tab.style.minWidth, 10));
+    expect(part3Tab.style.maxWidth).toBe('none');
   });
 });

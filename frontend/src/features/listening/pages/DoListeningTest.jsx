@@ -2470,6 +2470,20 @@ const DoListeningTest = () => {
       if (Number.isFinite(num)) tableAnswers[num] = value;
     });
 
+    const renderInlineQuestionBadge = (qNum) => (
+      <span
+        style={{
+          ...styles.inlineQuestionBadge,
+          boxShadow:
+            activeQuestion === qNum
+              ? '0 0 0 2px rgba(59, 130, 246, 0.18), 0 10px 20px rgba(37, 99, 235, 0.18)'
+              : styles.inlineQuestionBadge.boxShadow,
+        }}
+      >
+        {qNum}
+      </span>
+    );
+
     return (
       <div style={{ width: '100%' }}>
         {instruction && (
@@ -2495,6 +2509,8 @@ const DoListeningTest = () => {
           registerQuestionRef={(qNum, el) => {
             if (el) questionRefs.current[qNum] = el;
           }}
+          renderBlankPrefix={renderInlineQuestionBadge}
+          getBlankPlaceholder={() => ''}
           onChange={(nextAns) => {
             if (submitted) return;
             setAnswers((prev) => {
@@ -2673,23 +2689,32 @@ const DoListeningTest = () => {
             <span
               key={key}
               ref={(el) => (questionRefs.current[qNum] = el)}
-              style={styles.gapWrapper}
+              style={styles.notesGapField}
             >
+              <span
+                style={{
+                  ...styles.inlineQuestionBadge,
+                  boxShadow:
+                    activeQuestion === qNum
+                      ? '0 0 0 2px rgba(59, 130, 246, 0.18), 0 10px 20px rgba(37, 99, 235, 0.18)'
+                      : styles.inlineQuestionBadge.boxShadow,
+                }}
+              >
+                {qNum}
+              </span>
               <input
                 type="text"
+                aria-label={`Question ${qNum}`}
                 value={answers[`q${qNum}`] || ""}
                 onChange={(e) => handleAnswerChange(`q${qNum}`, e.target.value)}
                 onFocus={() => setActiveQuestion(qNum)}
                 disabled={submitted}
                 style={{
-                  ...styles.gapInput,
+                  ...styles.notesGapInput,
                   borderColor: activeQuestion === qNum ? "#3b82f6" : "#d1d5db",
-                  boxShadow: activeQuestion === qNum ? "0 0 0 1px #418ec8" : "none",
+                  boxShadow: activeQuestion === qNum ? "0 0 0 4px rgba(59, 130, 246, 0.14)" : styles.notesGapInput.boxShadow,
                 }}
               />
-              {!answers[`q${qNum}`] && (
-                <span style={styles.gapPlaceholder}>{qNum}</span>
-              )}
             </span>
           );
         }
@@ -3075,9 +3100,9 @@ const DoListeningTest = () => {
                 key={idx}
                 style={{
                   ...styles.partTab,
-                  flex: `0 0 ${partTabWidth}px`,
+                  flex: `1 1 ${partTabWidth}px`,
                   minWidth: `${partTabWidth}px`,
-                  maxWidth: `${partTabWidth}px`,
+                  maxWidth: "none",
                   backgroundColor: isCurrentPart ? "#fff" : "transparent",
                   borderTop: isCurrentPart ? "2px solid #3b82f6" : "2px solid transparent",
                 }}
