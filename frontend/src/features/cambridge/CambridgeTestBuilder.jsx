@@ -882,8 +882,8 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
       }}>
       {/* Sidebar - Fixed/Sticky */}
       <div className={isMoversReading ? 'ctb-sidebar--movers' : ''} style={{
-        backgroundColor: isMoversReading ? '#111827' : '#1e293b',
-        color: isMoversReading ? '#e5e7eb' : 'white',
+        backgroundColor: isMoversReading ? 'var(--ctb-sidebar-bg, #f6f8fc)' : '#1e293b',
+        color: isMoversReading ? 'var(--ctb-sidebar-text, #1f2937)' : 'white',
         width: isMoversReading ? '244px' : undefined,
         flexShrink: 0,
         padding: isMoversReading ? '20px 14px' : '20px',
@@ -894,14 +894,14 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
         height: '100vh',
         overflowY: 'auto',
         zIndex: 100,
-        borderRight: isMoversReading ? '1px solid #1f2937' : 'none',
+        borderRight: isMoversReading ? '1px solid var(--ctb-sidebar-border, #dbe3ef)' : 'none',
       }}>
         {/* Test Info */}
         {isMoversReading ? (
           <>
             <h2 className="ctb-sidebar-title" style={{ margin: '0 0 2px', fontSize: '15px', fontWeight: 800 }}>
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
-                <InlineIcon name="graduation" size={18} style={{ color: '#93c5fd' }} />
+                <InlineIcon name="graduation" size={18} style={{ color: 'var(--ctb-sidebar-title-icon, #2563eb)' }} />
                 {builderDisplayName}
               </span>
             </h2>
@@ -1006,9 +1006,9 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
           style={{
             width: '100%',
             padding: '10px',
-            backgroundColor: isMoversReading ? '#1e293b' : '#22c55e',
-            color: isMoversReading ? '#c7d2fe' : 'white',
-            border: isMoversReading ? '1px solid #374151' : 'none',
+            backgroundColor: isMoversReading ? 'var(--ctb-sidebar-button-bg, #ffffff)' : '#22c55e',
+            color: isMoversReading ? 'var(--ctb-sidebar-button-text, #334155)' : 'white',
+            border: isMoversReading ? '1px solid var(--ctb-sidebar-button-border, #cbd5e1)' : 'none',
             borderRadius: isMoversReading ? '9px' : '6px',
             cursor: 'pointer',
             fontWeight: 600,
@@ -1016,7 +1016,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
             fontSize: isMoversReading ? '13px' : undefined,
           }}
         >
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><InlineIcon name="create" size={14} style={{ color: isMoversReading ? '#c7d2fe' : 'white' }} />Thêm Part</span>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><InlineIcon name="create" size={14} style={{ color: isMoversReading ? 'var(--ctb-sidebar-button-text, #334155)' : 'white' }} />Thêm Part</span>
         </button>
 
         {/* Sections in current Part */}
@@ -1034,12 +1034,12 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
                   padding: '10px',
                   marginBottom: '6px',
                   backgroundColor: isMoversReading
-                    ? (selectedSectionIndex === idx ? '#1e293b' : '#111827')
+                    ? (selectedSectionIndex === idx ? 'var(--ctb-sidebar-section-active-bg, #eaf1ff)' : 'var(--ctb-sidebar-section-bg, rgba(255, 255, 255, 0.82))')
                     : (selectedSectionIndex === idx ? '#6366f1' : '#475569'),
                   color: isMoversReading
-                    ? (selectedSectionIndex === idx ? '#93c5fd' : 'var(--ctb-sidebar-text, #e5e7eb)')
+                    ? (selectedSectionIndex === idx ? 'var(--ctb-sidebar-section-active-text, #2563eb)' : 'var(--ctb-sidebar-text, #1f2937)')
                     : 'white',
-                  border: isMoversReading ? `1px solid ${selectedSectionIndex === idx ? '#3b82f6' : '#374151'}` : 'none',
+                  border: isMoversReading ? `1px solid ${selectedSectionIndex === idx ? 'var(--ctb-sidebar-section-active-border, #93c5fd)' : 'var(--ctb-sidebar-section-border, #d7dee8)'}` : 'none',
                   borderRadius: isMoversReading ? '10px' : '6px',
                   cursor: 'pointer',
                   fontSize: '13px',
@@ -1105,7 +1105,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
         {isMoversReading && <div style={{ flex: 1 }} />}
 
         {isMoversReading && (
-          <div className="ctb-sidebar-footer" style={{ paddingTop: '16px', marginTop: '16px', borderTop: '1px solid #1f2937' }}>
+          <div className="ctb-sidebar-footer" style={{ paddingTop: '16px', marginTop: '16px', borderTop: '1px solid var(--ctb-sidebar-border, #dbe3ef)' }}>
             <button
               type="button"
               onClick={handleSave}
@@ -1243,7 +1243,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
           padding: isMoversReading ? '20px 24px' : '12px 16px',
           marginBottom: isMoversReading ? '24px' : '12px',
           boxShadow: isMoversReading ? 'none' : '0 1px 2px rgba(0,0,0,0.05)',
-          border: isMoversReading ? '1px solid #e5e7eb' : 'none',
+          border: isMoversReading ? '1px solid var(--builder-border, #d7dee8)' : 'none',
         }}>
           {isMoversReading && (
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', marginBottom: '16px', flexWrap: 'wrap' }}>
@@ -1814,12 +1814,12 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
             {/* Section */}
             {currentSection && (
               <div style={{
-                border: isMoversReading ? '2px solid #374151' : '2px solid #e5e7eb',
+                border: isMoversReading ? '2px solid var(--builder-border, #d7dee8)' : '2px solid #e5e7eb',
                 borderRadius: '12px',
                 padding: '20px',
-                backgroundColor: isMoversReading ? '#111827' : '#f8fafc',
+                backgroundColor: isMoversReading ? 'var(--builder-surface, #ffffff)' : '#f8fafc',
               }}>
-                <h3 style={{ margin: '0 0 16px', color: isMoversReading ? '#e5e7eb' : '#374151', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <h3 style={{ margin: '0 0 16px', color: isMoversReading ? 'var(--builder-text, #1f2937)' : '#374151', display: 'flex', alignItems: 'center', gap: 8 }}>
                   <InlineIcon name="writing" size={16} />
                   Section {selectedSectionIndex + 1}
                 </h3>
@@ -1830,7 +1830,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
                     display: 'block', 
                     marginBottom: '8px', 
                     fontWeight: 600,
-                    color: isMoversReading ? '#cbd5e1' : '#374151',
+                    color: isMoversReading ? 'var(--builder-subtext, #64748b)' : '#374151',
                   }}>
                     Loại câu hỏi:
                   </label>
@@ -1845,10 +1845,10 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
 
                 {/* Question Editor */}
                 <div style={{
-                  backgroundColor: isMoversReading ? '#0f172a' : 'white',
+                  backgroundColor: isMoversReading ? 'var(--builder-input-muted-bg, #f3f6fa)' : 'white',
                   padding: '20px',
                   borderRadius: '8px',
-                  border: isMoversReading ? '1px solid #374151' : '1px solid #e5e7eb',
+                  border: isMoversReading ? '1px solid var(--builder-border, #d7dee8)' : '1px solid #e5e7eb',
                 }}>
                   {currentSection.questions.map((question, qIdx) => {
                     const isCollapsed = collapsedQuestions[`${selectedPartIndex}-${selectedSectionIndex}-${qIdx}`];
@@ -1872,7 +1872,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
                           marginBottom: '16px',
                           paddingBottom: '16px',
                           borderBottom: qIdx < currentSection.questions.length - 1
-                            ? (isMoversReading ? '2px dashed #374151' : '2px dashed #e5e7eb')
+                            ? (isMoversReading ? '2px dashed var(--builder-border, #d7dee8)' : '2px dashed #e5e7eb')
                             : 'none',
                         }}
                       >
