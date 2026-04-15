@@ -233,4 +233,56 @@ describe('Listening test numbering', () => {
     expect(screen.getByText('Reception')).toBeInTheDocument();
     expect(screen.getByText('Parking')).toBeInTheDocument();
   });
+
+  test('renders flowchart dropdowns with an opaque overlay menu in the student runtime', async () => {
+    window.fetch.mockImplementation((url) => {
+      const normalizedUrl = String(url || '');
+
+      if (normalizedUrl.includes('/listening-submissions/77/active')) {
+        return Promise.resolve({ ok: false, json: () => Promise.resolve({}) });
+      }
+
+      return Promise.resolve({ ok: true, json: () => Promise.resolve(mixedTypeTest) });
+    });
+
+    localStorage.setItem('listening:77:state:anon', JSON.stringify({ started: true, audioPlayed: {}, answers: {} }));
+
+    render(
+      <MemoryRouter initialEntries={['/listening/77']}>
+        <Routes>
+          <Route path="/listening/:id" element={<DoListeningTest />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await userEvent.click(await screen.findByText(/Part 4/));
+
+    const flowchartSelectButtons = await screen.findAllByRole('button', { name: 'Select' });
+    await userEvent.click(flowchartSelectButtons[0]);
+
+    const listbox = screen.getByRole('listbox');
+    expect(listbox.style.backgroundColor).toBe('rgb(255, 255, 255)');
+    expect(listbox.style.zIndex).toBe('120');
+  });
+
+  test('gives the expanded footer part enough width for its navigator buttons', async () => {
+    render(
+      <MemoryRouter initialEntries={['/listening/3']}>
+        <Routes>
+          <Route path="/listening/:id" element={<DoListeningTest />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    const part3Label = await screen.findByText(/Part 3/);
+    await userEvent.click(part3Label);
+
+    const part3Tab = part3Label.parentElement?.parentElement;
+    const part4Label = screen.getByText(/Part 4/);
+    const part4Tab = part4Label.parentElement?.parentElement;
+
+    expect(part3Tab).toBeTruthy();
+    expect(part4Tab).toBeTruthy();
+    expect(Number.parseInt(part3Tab.style.minWidth, 10)).toBeGreaterThan(Number.parseInt(part4Tab.style.minWidth, 10));
+  });
 });

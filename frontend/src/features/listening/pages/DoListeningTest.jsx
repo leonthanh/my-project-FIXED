@@ -84,6 +84,31 @@ const hasMeaningfulAnswers = (answers) => {
   return Object.values(answers).some(hasMeaningfulAnswerValue);
 };
 
+const COLLAPSED_PART_TAB_WIDTH = 172;
+const MIN_EXPANDED_PART_TAB_WIDTH = 280;
+const MAX_EXPANDED_PART_TAB_WIDTH = 620;
+
+const estimateNavigatorChipWidth = (item) => {
+  const label = String(item?.label ?? "");
+
+  if (item?.type === "multi-select") return 60;
+  if (label.length >= 5) return 56;
+  if (label.length >= 3) return 48;
+  return 38;
+};
+
+const getPartTabWidth = (items = [], expanded = false) => {
+  if (!expanded) return COLLAPSED_PART_TAB_WIDTH;
+
+  const chipsWidth = items.reduce((total, item) => total + estimateNavigatorChipWidth(item), 0);
+  const gapsWidth = Math.max(0, items.length - 1) * 10;
+
+  return Math.min(
+    MAX_EXPANDED_PART_TAB_WIDTH,
+    Math.max(MIN_EXPANDED_PART_TAB_WIDTH, chipsWidth + gapsWidth + 32)
+  );
+};
+
 const parseQuestionsDeep = (questions) => {
   const parsed = safeParseJson(questions);
   if (!Array.isArray(parsed)) return parsed;
@@ -2191,6 +2216,8 @@ const DoListeningTest = () => {
                     lineHeight: 1.85,
                     fontSize: styles.multiSelectQuestionText.fontSize,
                     color: styles.multiSelectQuestionText.color,
+                    position: "relative",
+                    zIndex: isDropdownOpen ? 4 : 1,
                   }}
                 >
                   <div style={{ lineHeight: 1.85, textAlign: "center", whiteSpace: "normal" }}>
@@ -2205,7 +2232,7 @@ const DoListeningTest = () => {
                             flowchartDropdownRefs.current[questionNumber] = el;
                           }
                         }}
-                        style={{ position: "relative", display: "inline-flex", alignItems: "center", margin: "0 6px", verticalAlign: "middle" }}
+                        style={{ position: "relative", display: "inline-flex", alignItems: "center", margin: "0 6px", verticalAlign: "middle", zIndex: isDropdownOpen ? 5 : 1 }}
                       >
                         <button
                           type="button"
@@ -2252,11 +2279,11 @@ const DoListeningTest = () => {
                               width: `${flowchartMenuWidth}px`,
                               maxHeight: "240px",
                               overflowY: "auto",
-                              backgroundColor: styles.pageWrapper.backgroundColor,
+                              backgroundColor: styles.surfaceColor,
                               border: `1px solid ${styles.multiSelectBadge.backgroundColor}`,
                               borderRadius: "10px",
                               boxShadow: "0 16px 30px rgba(15, 23, 42, 0.16)",
-                              zIndex: 20,
+                              zIndex: 120,
                               padding: "6px",
                             }}
                           >
@@ -3040,12 +3067,17 @@ const DoListeningTest = () => {
             const total = getPartTotalQuestions(idx);
             const isCurrentPart = currentPartIndex === idx;
             const isExpanded = isCurrentPart;
+            const navItems = getNavigatorItems(idx);
+            const partTabWidth = getPartTabWidth(navItems, isExpanded);
 
             return (
               <div
                 key={idx}
                 style={{
                   ...styles.partTab,
+                  flex: `0 0 ${partTabWidth}px`,
+                  minWidth: `${partTabWidth}px`,
+                  maxWidth: `${partTabWidth}px`,
                   backgroundColor: isCurrentPart ? "#fff" : "transparent",
                   borderTop: isCurrentPart ? "2px solid #3b82f6" : "2px solid transparent",
                 }}
@@ -3066,7 +3098,7 @@ const DoListeningTest = () => {
                 {/* Question Numbers (expanded) */}
                 {isExpanded && (
                   <div style={styles.questionNumbers}>
-                    {getNavigatorItems(idx).map((item, itemIdx) => {
+                    {navItems.map((item, itemIdx) => {
                       const isAnswered = isNavItemAnswered(item);
                       const isActive = isNavItemActive(item);
 
