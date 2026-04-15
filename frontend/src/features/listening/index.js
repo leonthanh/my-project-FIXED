@@ -7,7 +7,6 @@ export { default as DoListeningTest } from './pages/DoListeningTest';
 export { default as ListeningResults } from './pages/ListeningResults';
 
 // Components
-export { default as ListeningPart } from './components/ListeningPart';
 export { default as ListeningPlayer } from './components/ListeningPlayer';
 export { default as AudioPlayer } from './components/AudioPlayer';
 export { default as ListeningTestEditor } from './components/ListeningTestEditor';

@@ -17,14 +17,12 @@ export { default as IeltsTestEditorShell } from './IeltsTestEditorShell';
 
 // Editors
 export { default as QuillEditor } from './QuillEditor';
-export { default as CustomEditor } from './CustomEditor';
 export { default as QuestionEditor } from './QuestionEditor';
 
 // Question Components
 export { default as QuestionSection } from './QuestionSection';
 export { default as FormQuestion } from './FormQuestion';
 export { default as PreviewSection } from './PreviewSection';
-export { default as PartInstructions } from './PartInstructions';
 
 // Question Types
 export { default as MultipleChoiceQuestion } from './MultipleChoiceQuestion';

@@ -19,12 +19,10 @@ export { default as Timer } from '../shared/components/Timer';
 export { default as ConfirmModal } from '../shared/components/ConfirmModal';
 export { default as ProtectedRoute } from '../shared/components/ProtectedRoute';
 export { default as QuillEditor } from '../shared/components/QuillEditor';
-export { default as CustomEditor } from '../shared/components/CustomEditor';
 export { default as QuestionEditor } from '../shared/components/QuestionEditor';
 export { default as QuestionSection } from '../shared/components/QuestionSection';
 export { default as FormQuestion } from '../shared/components/FormQuestion';
 export { default as PreviewSection } from '../shared/components/PreviewSection';
-export { default as PartInstructions } from '../shared/components/PartInstructions';
 export { default as MultipleChoiceQuestion } from '../shared/components/MultipleChoiceQuestion';
 export { default as MultiSelectQuestion } from '../shared/components/MultiSelectQuestion';
 export { default as FillBlankQuestion } from '../shared/components/FillBlankQuestion';
@@ -40,5 +38,4 @@ export { default as SentenceCompletionQuestion } from '../shared/components/Sent
 
 // Listening-specific components
 export { default as AudioPlayer } from '../features/listening/components/AudioPlayer';
-export { default as ListeningPart } from '../features/listening/components/ListeningPart';
 export { default as ListeningPlayer } from '../features/listening/components/ListeningPlayer';
