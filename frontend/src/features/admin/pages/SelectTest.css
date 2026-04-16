@@ -333,7 +333,7 @@
 
 .select-test-platformIntro {
   width: min(1100px, 100%);
-  margin: 0 auto 18px;
+  margin: 0 auto 10px;
   padding: 8px 24px;
   border-radius: 24px;
   border: 1px solid #e2e8f0;
@@ -372,7 +372,7 @@
 
 .select-test-platformTitle {
   margin: 0;
-  font-size: 26px;
+  font-size: 20px;
   line-height: 1.18;
   color: #0f172a;
 }
