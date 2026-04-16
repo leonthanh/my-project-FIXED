@@ -11,6 +11,7 @@ import {
   getActiveClozeTable,
   getImpliedQuestionCount,
   getQuestionCount,
+  resolveQuestionStartNumber,
 } from "../utils/questionHelpers";
 import {
   getClozeTableCellLines,
@@ -1116,9 +1117,8 @@ const ReadingTestEditor = ({
                                     {isClozeType && clozeTable ? (
                                       <>
                                         {(() => {
-                                          const tableStartNum = q.startQuestion
-                                            ? parseInt(String(q.startQuestion).trim().split(/[,\-]/)[0], 10)
-                                            : startNumber || 1;
+                                          const tableStartNum =
+                                            resolveQuestionStartNumber(q, startNumber || 1) || 1;
                                           let tableBlankCounter = 0;
                                           const renderPreviewCellParts = (parts, ri, ci, lineIndex) =>
                                             parts.map((part, partIndex) => {

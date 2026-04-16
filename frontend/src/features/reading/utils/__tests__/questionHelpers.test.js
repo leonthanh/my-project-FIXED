@@ -11,6 +11,7 @@ import {
   formatQuestionNumber,
   normalizeQuestionType,
   renumberQuestionsFrom,
+  resolveQuestionStartNumber,
 } from "../questionHelpers";
 
 describe("questionHelpers", () => {
@@ -36,6 +37,15 @@ describe("questionHelpers", () => {
       expect(getQuestionStart("38, 39, 40")).toBe(38);
       expect(getQuestionStart(12)).toBe(12);
       expect(getQuestionStart("")).toBeNull();
+    });
+
+    it("prefers questionNumber over stale legacy startQuestion", () => {
+      expect(
+        resolveQuestionStartNumber(
+          { questionNumber: "30-36", startQuestion: 37 },
+          99
+        )
+      ).toBe(30);
     });
   });
 
@@ -268,7 +278,7 @@ describe("questionHelpers", () => {
               questions: [
                 { questionNumber: "1", questionType: "multiple-choice" },
                 { questionNumber: "2", questionType: "multiple-choice" },
-                { questionNumber: "3", questionType: "multiple-choice" },
+                { questionNumber: "3", questionType: "multiple-choice", startQuestion: 99 },
               ],
             },
           ],
@@ -288,6 +298,8 @@ describe("questionHelpers", () => {
         "3",
         "4",
       ]);
+      expect(passages[0].sections[0].questions[2].startQuestion).toBe(3);
+      expect(passages[0].sections[0].questions[3].startQuestion).toBe(4);
     });
   });
 });

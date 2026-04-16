@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { ReadingTestEditor } from "../components";
 import { usePassageHandlers } from "../hooks";
 import { stripHtml, cleanupPassageHTML, createNewPassage } from "../utils";
-import { normalizeQuestionType } from "../utils/questionHelpers";
+import { normalizeQuestionType, resolveQuestionStartNumber } from "../utils/questionHelpers";
 import { apiPath, authFetch, redirectToLogin } from "../../../shared/utils/api";
 
 /**
@@ -187,6 +187,7 @@ const CreateReadingTest = () => {
                   questions:
                     section.questions?.map((q) => {
                       const qType = normalizeQuestionType(q.questionType || q.type || "");
+                      const resolvedStartQuestion = resolveQuestionStartNumber(q, null);
                       const questionObj = {
                         ...q,
                         questionType: qType,
@@ -195,6 +196,11 @@ const CreateReadingTest = () => {
                           ? q.options.map((opt) => opt)
                           : undefined,
                       };
+                      if (resolvedStartQuestion !== null) {
+                        questionObj.startQuestion = resolvedStartQuestion;
+                      } else {
+                        delete questionObj.startQuestion;
+                      }
                       // Preserve requiredAnswers for multi-select questions
                       if (qType === "multi-select" && (q.requiredAnswers || q.maxSelection)) {
                         questionObj.requiredAnswers = q.requiredAnswers || q.maxSelection || 2;
