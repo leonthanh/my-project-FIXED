@@ -2094,9 +2094,10 @@ const DoListeningTest = () => {
     const optionEntries = getConfiguredFlowchartOptionEntries(question?.options || []);
     const optionRows = getFlowchartOptionTableRows(optionEntries);
     const steps = Array.isArray(question?.steps) ? question.steps : [];
+    const hasOpenDropdown = entries.some((entry) => entry.num === openFlowchartQuestion);
 
     return (
-      <div style={{ width: "100%" }}>
+      <div style={{ width: "100%", position: "relative", zIndex: hasOpenDropdown ? 32 : 1 }}>
         {optionRows.length > 0 && (
           <div style={{
             maxWidth: "760px",
@@ -2162,7 +2163,7 @@ const DoListeningTest = () => {
             </div>
           )}
 
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", position: "relative", zIndex: hasOpenDropdown ? 33 : 1 }}>
           {steps.map((step, stepIndex) => {
             const blankEntry = entryByStepIndex.get(stepIndex);
             const textParts = splitFlowchartStepText(step?.text || "");
@@ -2217,7 +2218,7 @@ const DoListeningTest = () => {
                     fontSize: styles.multiSelectQuestionText.fontSize,
                     color: styles.multiSelectQuestionText.color,
                     position: "relative",
-                    zIndex: isDropdownOpen ? 4 : 1,
+                    zIndex: isDropdownOpen ? 34 : 1,
                   }}
                 >
                   <div style={{ lineHeight: 1.85, textAlign: "center", whiteSpace: "normal" }}>
@@ -2232,7 +2233,7 @@ const DoListeningTest = () => {
                             flowchartDropdownRefs.current[questionNumber] = el;
                           }
                         }}
-                        style={{ position: "relative", display: "inline-flex", alignItems: "center", margin: "0 6px", verticalAlign: "middle", zIndex: isDropdownOpen ? 5 : 1 }}
+                        style={{ position: "relative", display: "inline-flex", alignItems: "center", margin: "0 6px", verticalAlign: "middle", zIndex: isDropdownOpen ? 35 : 1 }}
                       >
                         <button
                           type="button"
@@ -2579,11 +2580,22 @@ const DoListeningTest = () => {
 
     // Calculate actual question count based on type
     const actualQuestionCount = sectionQuestions.reduce((sum, q) => sum + getQuestionCount(q), 0);
+    const sectionHasOpenFlowchartDropdown =
+      qType === "flowchart" &&
+      getFlowchartBlankEntries(firstQ, startNum).some((entry) => entry.num === openFlowchartQuestion);
 
     const displayEndNum = startNum + actualQuestionCount - 1;
 
     return (
-      <div key={sectionIndex} style={styles.sectionContainer}>
+      <div
+        key={sectionIndex}
+        data-testid={`listening-section-${currentPartIndex}-${sectionIndex}`}
+        style={{
+          ...styles.sectionContainer,
+          position: "relative",
+          zIndex: sectionHasOpenFlowchartDropdown ? 40 : 1,
+        }}
+      >
         {/* Section Title */}
         <div style={styles.sectionTitle}>
           {section.sectionTitle || `Questions ${startNum}-${displayEndNum}`}

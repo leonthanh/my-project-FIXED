@@ -324,6 +324,11 @@ describe('Listening test numbering', () => {
     const listbox = screen.getByRole('listbox');
     expect(listbox.style.backgroundColor).toBe('rgb(255, 255, 255)');
     expect(listbox.style.zIndex).toBe('120');
+
+    const flowchartSection = screen.getByTestId('listening-section-3-1');
+    const followingSection = screen.getByTestId('listening-section-3-2');
+    expect(flowchartSection.style.zIndex).toBe('40');
+    expect(followingSection.style.zIndex).toBe('1');
   });
 
   test('gives the expanded footer part enough width for its navigator buttons', async () => {
