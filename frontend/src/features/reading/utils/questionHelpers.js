@@ -63,6 +63,20 @@ export const getQuestionStart = (questionNumber) => {
   return Number.isNaN(parsed) ? null : parsed;
 };
 
+export const resolveQuestionStartNumber = (question, fallback = null) => {
+  const explicitStart = getQuestionStart(question?.questionNumber);
+  if (explicitStart !== null) {
+    return explicitStart;
+  }
+
+  const legacyStart = getQuestionStart(question?.startQuestion);
+  if (legacyStart !== null) {
+    return legacyStart;
+  }
+
+  return getQuestionStart(fallback);
+};
+
 const stripHtml = (value) => String(value || '').replace(/<[^>]+>/g, ' ');
 
 export const getClozeText = (question) => {
@@ -250,6 +264,7 @@ export const renumberQuestionsFrom = (
           questionCount,
           question.questionNumber
         );
+        question.startQuestion = nextNumber;
         nextNumber += questionCount;
       }
     }
@@ -282,7 +297,7 @@ export const getNextQuestionNumber = (passages, targetPassageIndex, targetSectio
         : [];
 
       questions.forEach((question) => {
-        const start = getQuestionStart(question?.questionNumber);
+        const start = resolveQuestionStartNumber(question, null);
         const count = Math.max(1, getImpliedQuestionCount(question));
 
         if (start !== null) {

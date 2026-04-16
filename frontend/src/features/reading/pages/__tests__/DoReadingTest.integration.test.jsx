@@ -4,7 +4,11 @@ import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import DoReadingTest from '../DoReadingTest';
 
 // stub scrollIntoView to avoid JSDOM errors
-Element.prototype.scrollIntoView = jest.fn();
+Element.prototype.scrollIntoView = jest.fn(function scrollIntoView() {
+  if (this && typeof this.setAttribute === 'function') {
+    this.setAttribute('data-scrolled', 'true');
+  }
+});
 
 const simpleTest = {
   id: 1,
@@ -24,6 +28,97 @@ const simpleTest = {
       ]
     }
   ]
+};
+
+const clozeLegacyStartTest = {
+  id: 1,
+  title: 'Cloze Legacy Start Test',
+  durationMinutes: 60,
+  passages: [
+    {
+      passageTitle: 'Passage 1',
+      sections: [
+        {
+          questions: [
+            { questionNumber: 1, type: 'multiple-choice' },
+            { questionNumber: 2, type: 'multiple-choice' },
+            {
+              questionNumber: '3-5',
+              startQuestion: 10,
+              questionType: 'cloze-test',
+              tableMode: true,
+              clozeTable: {
+                title: 'GEO-ENGINEERING PROJECTS',
+                columns: ['Procedure', 'Aim'],
+                rows: [
+                  { cells: ['place [BLANK] in the sea', 'to encourage [BLANK] to form'] },
+                  { cells: ['release aerosol sprays into the stratosphere', 'to create [BLANK]'] },
+                ],
+              },
+            },
+          ],
+        },
+      ],
+    },
+  ],
+};
+
+const latePassageClozeNavigationTest = {
+  id: 1,
+  title: 'Late Passage Navigation Test',
+  durationMinutes: 60,
+  passages: [
+    {
+      passageTitle: 'Passage 1',
+      sections: [
+        {
+          questions: Array.from({ length: 13 }, (_, index) => ({
+            questionNumber: index + 1,
+            type: 'multiple-choice',
+          })),
+        },
+      ],
+    },
+    {
+      passageTitle: 'Passage 2',
+      sections: [
+        {
+          questions: Array.from({ length: 13 }, (_, index) => ({
+            questionNumber: index + 14,
+            type: 'multiple-choice',
+          })),
+        },
+      ],
+    },
+    {
+      passageTitle: 'Passage 3 Target',
+      sections: [
+        {
+          questions: [
+            ...Array.from({ length: 7 }, (_, index) => ({
+              questionNumber: index + 27,
+              type: 'multiple-choice',
+            })),
+            {
+              questionNumber: '34-40',
+              questionType: 'cloze-test',
+              tableMode: true,
+              clozeTable: {
+                title: 'Late Passage Cloze',
+                columns: ['Procedure', 'Aim'],
+                rows: [
+                  { cells: ['first [BLANK]', 'second [BLANK]'] },
+                  { cells: ['third [BLANK]', 'fourth [BLANK]'] },
+                  { cells: ['fifth [BLANK]', 'sixth [BLANK]'] },
+                  { cells: ['seventh [BLANK]', 'done'] },
+                ],
+              },
+            },
+          ],
+        },
+      ],
+    },
+  ],
 };
 
 describe('DoReadingTest integration - part navigation and focus', () => {
@@ -123,5 +218,60 @@ describe('DoReadingTest integration - part navigation and focus', () => {
 
     mockFetch.mockRestore();
     window.confirm.mockRestore();
+  });
+
+  it('uses questionNumber instead of stale startQuestion for cloze table numbering and navigation', async () => {
+    jest.spyOn(global, 'fetch').mockImplementation(() => {
+      return Promise.resolve({ ok: true, json: () => Promise.resolve(clozeLegacyStartTest) });
+    });
+
+    render(
+      <MemoryRouter initialEntries={["/reading/1"]}>
+        <Routes>
+          <Route path="/reading/:id" element={<DoReadingTest />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await screen.findByText('GEO-ENGINEERING PROJECTS');
+
+    const inlineNumbers = Array.from(document.querySelectorAll('.cloze-inline-number')).map((node) =>
+      node.textContent?.trim()
+    );
+    expect(inlineNumbers).toEqual(['3', '4', '5']);
+
+    const blankWrappers = Array.from(document.querySelectorAll('.cloze-inline-wrapper'));
+    const secondBlankWrapper = blankWrappers[1];
+    expect(secondBlankWrapper).toBeTruthy();
+    secondBlankWrapper.removeAttribute('data-scrolled');
+
+    fireEvent.click(screen.getByTestId('nav-question-4'));
+
+    await waitFor(() => {
+      expect(secondBlankWrapper).toHaveAttribute('data-scrolled', 'true');
+    });
+  });
+
+  it('navigates late footer questions to passage 3 when the final cloze block spans multiple blanks', async () => {
+    jest.spyOn(global, 'fetch').mockImplementation(() => {
+      return Promise.resolve({ ok: true, json: () => Promise.resolve(latePassageClozeNavigationTest) });
+    });
+
+    render(
+      <MemoryRouter initialEntries={["/reading/1"]}>
+        <Routes>
+          <Route path="/reading/:id" element={<DoReadingTest />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await screen.findByText('PASSAGE 1');
+    expect(screen.getByTestId('palette-part-toggle-2').textContent).toContain('14');
+
+    fireEvent.click(screen.getByTestId('nav-question-35'));
+
+    await screen.findByText('PASSAGE 3');
+    await screen.findByText('Passage 3 Target');
+    await screen.findByText('Late Passage Cloze');
   });
 });

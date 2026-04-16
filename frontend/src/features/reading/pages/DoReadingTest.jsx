@@ -19,6 +19,7 @@ import {
   getActiveClozeTable,
   getClozeText,
   normalizeQuestionType,
+  resolveQuestionStartNumber,
 } from "../utils/questionHelpers";
 import { getClozeTableCellLines, isClozeCommentsColumn } from "../../../shared/utils/clozeTable";
 import { apiPath, getStoredUser, hostPath } from "../../../shared/utils/api";
@@ -433,18 +434,7 @@ const DoReadingTest = () => {
       }
 
       if (qType === "cloze-test" || qType === "summary-completion") {
-        const clozeText =
-          q.paragraphText ||
-          q.passageText ||
-          q.text ||
-          q.paragraph ||
-          (q.questionText && q.questionText.includes("[BLANK]")
-            ? q.questionText
-            : null);
-        if (clozeText) {
-          const blankMatches = clozeText.match(/\[BLANK\]/gi);
-          return total + (blankMatches ? blankMatches.length : 1);
-        }
+        return total + (countClozeBlanks(q) || 1);
       }
 
       if (
@@ -970,21 +960,7 @@ const DoReadingTest = () => {
                     qType === "cloze-test" ||
                     qType === "summary-completion"
                   ) {
-                    const clozeText =
-                      q.paragraphText ||
-                      q.passageText ||
-                      q.text ||
-                      q.paragraph ||
-                      (q.questionText && q.questionText.includes("[BLANK]")
-                        ? q.questionText
-                        : null);
-                    if (clozeText) {
-                      const blanks = (clozeText.match(/\[BLANK\]/gi) || [])
-                        .length;
-                      qCounter += blanks || 1;
-                    } else {
-                      qCounter++;
-                    }
+                    qCounter += countClozeBlanks(q) || 1;
                     return;
                   }
 
@@ -1198,14 +1174,12 @@ const DoReadingTest = () => {
           // For cloze test, count each blank as a question
           else if (qType === "cloze-test" || qType === "summary-completion") {
             const totalBlanks = countClozeBlanks(q);
-            const blankMatches = Array.from({ length: totalBlanks });
+            const baseKey = `q_${total + 1}`;
 
-            if (blankMatches.length > 0) {
-              const baseKey = `q_${total + 1}`;
-
-              blankMatches.forEach((_, bi) => {
+            if (totalBlanks > 0) {
+              for (let i = 0; i < totalBlanks; i++) {
                 total++;
-                const answerKey = `${baseKey}_${bi}`;
+                const answerKey = `${baseKey}_${i}`;
                 if (
                   answers[answerKey] &&
                   answers[answerKey].toString().trim() !== ""
@@ -1214,7 +1188,7 @@ const DoReadingTest = () => {
                 } else {
                   unanswered.push(total);
                 }
-              });
+              }
             } else {
               total++;
               const key = `q_${total}`;
@@ -1262,7 +1236,7 @@ const DoReadingTest = () => {
 
       // Find which passage contains this question
       let counter = 0;
-      let targetPassageIndex = 0;
+      let targetPassageIndex = Math.max(0, test.passages.length - 1);
 
       for (let i = 0; i < test.passages.length; i++) {
         const passage = test.passages[i];
@@ -1645,20 +1619,7 @@ const DoReadingTest = () => {
         } else if (qType === "ielts-matching-headings") {
           qNum += (q.paragraphs || q.answers || []).length || 1;
         } else if (qType === "cloze-test" || qType === "summary-completion") {
-          const clozeText =
-            q.paragraphText ||
-            q.passageText ||
-            q.text ||
-            q.paragraph ||
-            (q.questionText && q.questionText.includes("[BLANK]")
-              ? q.questionText
-              : null);
-          if (clozeText) {
-            const blanks = (clozeText.match(/\[BLANK\]/gi) || []).length;
-            qNum += blanks || 1;
-          } else {
-            qNum++;
-          }
+          qNum += countClozeBlanks(q) || 1;
         } else {
           qNum++;
         }
@@ -1815,6 +1776,8 @@ const DoReadingTest = () => {
     const qType = normalizeQuestionType(
       question.type || question.questionType || "multiple-choice"
     );
+    const baseQuestionNum =
+      resolveQuestionStartNumber(question, questionNumber) || questionNumber;
     const isParagraphMatching = qType === "paragraph-matching";
     const paragraphBlankCount =
       isParagraphMatching && question.questionText
@@ -2528,10 +2491,7 @@ const DoReadingTest = () => {
               {/* Question range header */}
               <div className="matching-headings-header">
                 <span className="matching-range-badge">
-                  Questions {question.startQuestion || questionNumber}–
-                  {(question.startQuestion || questionNumber) +
-                    paragraphCount -
-                    1}
+                  Questions {baseQuestionNum}–{baseQuestionNum + paragraphCount - 1}
                 </span>
               </div>
 
@@ -2583,10 +2543,7 @@ const DoReadingTest = () => {
                       currentAnswerObj = {};
                     }
                     const selectedHeading = currentAnswerObj[paragraphId];
-                    // Use startQuestion from question data, or fall back to questionNumber
-                    const baseQuestion =
-                      question.startQuestion || questionNumber;
-                    const actualQuestionNum = baseQuestion + pi;
+                    const actualQuestionNum = baseQuestionNum + pi;
 
                     return (
                       <div
@@ -2676,10 +2633,7 @@ const DoReadingTest = () => {
                 <div className="cloze-header">
                   {isTeacher && (
                     <span className="cloze-range-badge">
-                      Questions {question.startQuestion || questionNumber}–
-                      {(question.startQuestion || questionNumber) +
-                        blankCount -
-                        1}
+                      Questions {baseQuestionNum}–{baseQuestionNum + blankCount - 1}
                     </span>
                   )}
                   {question.maxWords && !isTeacher && (
@@ -2715,7 +2669,6 @@ const DoReadingTest = () => {
                 if (clozeTable) {
                   const table = clozeTable;
                   let blankIndex = 0;
-                  const baseQuestionNum = question.startQuestion || questionNumber;
                   const renderTableCellParts = (parts, ri, ci, lineIndex) =>
                     parts.map((part, partIndex) => {
                       if (part.type === 'text') {
@@ -2829,7 +2782,7 @@ const DoReadingTest = () => {
                       {renderHtmlWithBlankPlaceholders(
                         clozeText,
                         (blankIndex, blankElementKey) => {
-                          const blankNum = (question.startQuestion || questionNumber) + blankIndex;
+                          const blankNum = baseQuestionNum + blankIndex;
                           const answerKey = `${key}_${blankIndex}`;
 
                           return (

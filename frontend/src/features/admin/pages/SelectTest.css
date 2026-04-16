@@ -334,7 +334,7 @@
 .select-test-platformIntro {
   width: min(1100px, 100%);
   margin: 0 auto 18px;
-  padding: 22px 24px;
+  padding: 8px 24px;
   border-radius: 24px;
   border: 1px solid #e2e8f0;
   background: linear-gradient(135deg, #f8fbff 0%, #eef5ff 100%);
@@ -395,7 +395,7 @@
 
 .select-test-platformStat {
   min-width: 132px;
-  padding: 14px 16px;
+  padding: 3px 16px;
   border-radius: 18px;
   background: rgba(255, 255, 255, 0.8);
   border: 1px solid rgba(148, 163, 184, 0.18);
@@ -1852,7 +1852,7 @@ body.dark-mode .select-test-loadMore:hover {
 }
 
 .select-test-tabLabel {
-  font-size: 15px;
+  font-size: 20px;
   font-weight: 700;
   line-height: 1.2;
 }

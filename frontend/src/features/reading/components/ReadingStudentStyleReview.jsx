@@ -11,6 +11,7 @@ import {
   getActiveClozeTable,
   getClozeText,
   normalizeQuestionType,
+  resolveQuestionStartNumber,
 } from "../utils/questionHelpers";
 import "../styles/do-reading-test.css";
 
@@ -446,6 +447,8 @@ export default function ReadingStudentStyleReview({ test, submission, details })
   const renderQuestion = (question, questionNumber, passage) => {
     const key = `q_${questionNumber}`;
     const qType = normalizeQuestionType(question.type || question.questionType || "multiple-choice");
+    const baseQuestionNum =
+      resolveQuestionStartNumber(question, questionNumber) || questionNumber;
     const detail = detailMap.get(questionNumber);
     const isMatchingHeadings = qType === "ielts-matching-headings";
     const paragraphCount = isMatchingHeadings ? (question.paragraphs || question.answers || []).length : 0;
@@ -736,7 +739,7 @@ export default function ReadingStudentStyleReview({ test, submission, details })
             <div className="question-matching-headings">
               <div className="matching-headings-header">
                 <span className="matching-range-badge">
-                  Questions {question.startQuestion || questionNumber}–{(question.startQuestion || questionNumber) + paragraphCount - 1}
+                  Questions {baseQuestionNum}–{baseQuestionNum + paragraphCount - 1}
                 </span>
               </div>
               <div className="headings-list">
@@ -757,7 +760,7 @@ export default function ReadingStudentStyleReview({ test, submission, details })
                   const paragraphId = typeof para === "object" ? para.id || para.paragraphId : para;
                   const selectedMap = getMatchingHeadingMap(answers, key);
                   const selectedHeading = selectedMap[paragraphId] || "";
-                  const actualQuestionNum = (question.startQuestion || questionNumber) + pi;
+                  const actualQuestionNum = baseQuestionNum + pi;
                   return (
                     <div key={pi} className={`paragraph-match-row ${selectedHeading ? "answered" : ""}`}>
                       <span className="paragraph-question-number">{actualQuestionNum}</span>
@@ -787,7 +790,7 @@ export default function ReadingStudentStyleReview({ test, submission, details })
               {blankCount > 0 && (
                 <div className="cloze-header">
                   <span className="cloze-range-badge">
-                    Questions {question.startQuestion || questionNumber}–{(question.startQuestion || questionNumber) + blankCount - 1}
+                    Questions {baseQuestionNum}–{baseQuestionNum + blankCount - 1}
                   </span>
                   {question.maxWords && <span className="cloze-max-words">No more than {question.maxWords} word(s)</span>}
                 </div>
@@ -816,7 +819,6 @@ export default function ReadingStudentStyleReview({ test, submission, details })
                   )}
                   {(() => {
                     let blankIndex = 0;
-                    const baseQuestionNum = question.startQuestion || questionNumber;
                     const renderTableCellParts = (parts, ri, ci, lineIndex) =>
                       parts.map((part, partIndex) => {
                         if (part.type === "text") {
@@ -889,7 +891,7 @@ export default function ReadingStudentStyleReview({ test, submission, details })
                   {renderHtmlWithBlankPlaceholders(
                     clozeText,
                     (blankIndex, blankElementKey) => {
-                      const qNum = (question.startQuestion || questionNumber) + blankIndex;
+                      const qNum = baseQuestionNum + blankIndex;
                       const blankKey = `${key}_${blankIndex}`;
                       const answerValue = extractInlineAnswer(answers, blankKey, detailMap.get(qNum));
 
