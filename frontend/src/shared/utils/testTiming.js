@@ -1,6 +1,6 @@
 export const TIMER_GRACE_SECONDS = Math.max(
   0,
-  Number(import.meta.env.VITE_TEST_TIMER_GRACE_SECONDS) || 180
+  Number(import.meta.env.VITE_TEST_TIMER_GRACE_SECONDS) || 0
 );
 
 export const DEFAULT_TEACHER_EXTENSION_MINUTES = Math.max(

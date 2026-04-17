@@ -1,4 +1,4 @@
-const TIMER_GRACE_SECONDS = 180;
+const TIMER_GRACE_SECONDS = 0;
 const DEFAULT_TEACHER_EXTENSION_MINUTES = 5;
 
 function toTimestamp(value) {

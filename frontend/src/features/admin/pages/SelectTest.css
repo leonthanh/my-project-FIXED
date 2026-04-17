@@ -929,7 +929,7 @@
   display: grid;
   grid-template-columns: minmax(0, 1.3fr) minmax(220px, 0.78fr) minmax(240px, 0.9fr);
   gap: 14px;
-  margin: 16px 0 18px;
+  margin: 5px 0 5px;
   align-items: stretch;
 }
 

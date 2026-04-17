@@ -32,6 +32,7 @@ const PetWritingTest = () => {
     localStorage.getItem("pet_writing_started") === "true"
   );
   const [submitted, setSubmitted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState("");
   const [activePanel, setActivePanel] = useState("part1");
   const [testData, setTestData] = useState(null);
@@ -41,6 +42,7 @@ const PetWritingTest = () => {
   const [leftWidth, setLeftWidth] = useState(50);
   const [isResizing, setIsResizing] = useState(false);
   const containerRef = useRef(null);
+  const autoSubmittingRef = useRef(false);
   const [questionPick, setQuestionPick] = useState(() => {
     try {
       const raw = localStorage.getItem("pet_writing_question_pick");
@@ -171,34 +173,52 @@ const PetWritingTest = () => {
     };
   }, [isResizing, handleMouseMove, handleMouseUp]);
 
-  const getSelectedAnswer = useCallback(() => {
-    const picked = questionPick.q2 === "YES" ? "2" : questionPick.q3 === "YES" ? "3" : null;
-    const chosen = picked || (selectedQuestion === "3" ? "3" : "2");
-    const primary = chosen === "2" ? task2Answer2 : task2Answer3;
-    if (primary.trim()) {
-      return { answer: primary, chosen };
+  const resolvePart2Submission = useCallback(() => {
+    const answer2 = task2Answer2.trim();
+    const answer3 = task2Answer3.trim();
+    const explicitChoice = questionPick.q2 === "YES"
+      ? "2"
+      : questionPick.q3 === "YES"
+        ? "3"
+        : null;
+
+    if (explicitChoice === "2") {
+      return { chosen: "2", answer: task2Answer2 };
     }
-    if (task2Answer2.trim() && !task2Answer3.trim()) {
-      return { answer: task2Answer2, chosen: "2" };
+    if (explicitChoice === "3") {
+      return { chosen: "3", answer: task2Answer3 };
     }
-    if (task2Answer3.trim() && !task2Answer2.trim()) {
-      return { answer: task2Answer3, chosen: "3" };
+
+    if (answer2 && !answer3) {
+      return { chosen: "2", answer: task2Answer2 };
     }
-    return { answer: "", chosen };
+    if (answer3 && !answer2) {
+      return { chosen: "3", answer: task2Answer3 };
+    }
+
+    const fallbackChoice = selectedQuestion === "3" ? "3" : "2";
+    return {
+      chosen: fallbackChoice,
+      answer: fallbackChoice === "3" ? task2Answer3 : task2Answer2,
+    };
   }, [questionPick.q2, questionPick.q3, selectedQuestion, task2Answer2, task2Answer3]);
 
-  const handleSubmit = useCallback(async () => {
+  const submitCurrentWork = useCallback(async ({ bypassValidation = false } = {}) => {
+    if (submitted || isSubmitting) return;
+
     if (!selectedTestId) {
       setMessage("Cannot find test ID.");
+      autoSubmittingRef.current = false;
       return;
     }
 
-    const { answer } = getSelectedAnswer();
-    if (!task1Answer.trim() || !answer.trim()) {
-      setMessage("Please complete Part 1 and Part 2 before submitting.");
+    const { answer } = resolvePart2Submission();
+    if (!bypassValidation && (!task1Answer.trim() || !answer.trim())) {
+      setMessage("Please complete Part 1 and choose one Part 2 response before submitting.");
       return;
     }
 
+    setIsSubmitting(true);
     setSubmitted(true);
 
     try {
@@ -236,28 +256,38 @@ const PetWritingTest = () => {
       console.error("Submit error:", err);
       setMessage("Failed to submit. Please try again.");
       setSubmitted(false);
+      autoSubmittingRef.current = false;
+    } finally {
+      setIsSubmitting(false);
     }
-  }, [selectedTestId, task1Answer, timeLeft, user, getSelectedAnswer]);
+  }, [isSubmitting, resolvePart2Submission, selectedTestId, submitted, task1Answer, timeLeft, user]);
 
-  const submitRef = useRef(handleSubmit);
+  const handleSubmit = useCallback(() => {
+    submitCurrentWork();
+  }, [submitCurrentWork]);
+
+  const submitRef = useRef(submitCurrentWork);
   useEffect(() => {
-    submitRef.current = handleSubmit;
-  }, [handleSubmit]);
+    submitRef.current = submitCurrentWork;
+  }, [submitCurrentWork]);
 
   useEffect(() => {
-    if (!started || submitted || !endAt) return;
+    if (!started || submitted || isSubmitting || !endAt) return;
 
     const tick = () => {
-      const remaining = Math.max(0, Math.floor((endAt - Date.now()) / 1000));
+      const remaining = Math.max(0, Math.ceil((endAt - Date.now()) / 1000));
       setTimeLeft(remaining);
-      if (remaining <= 0) {
-        submitRef.current();
+      if (remaining <= 0 && !autoSubmittingRef.current) {
+        autoSubmittingRef.current = true;
+        setMessage("Time is up. Submitting your current work.");
+        submitRef.current({ bypassValidation: true });
       }
     };
 
+    tick();
     const intervalId = setInterval(tick, 1000);
     return () => clearInterval(intervalId);
-  }, [started, submitted, endAt]);
+  }, [started, submitted, isSubmitting, endAt]);
 
   const countWords = (text) => {
     const trimmed = text.trim();
@@ -267,11 +297,8 @@ const PetWritingTest = () => {
 
   const steps = ["part1", "q2", "q3"];
   const currentStepIndex = Math.max(0, steps.indexOf(activePanel));
-  const part2YesCount = [questionPick.q2, questionPick.q3].filter(
-    (value) => value === "YES"
-  ).length;
   const part1Answered = task1Answer.trim().length > 0;
-  const totalWords = countWords(task1Answer) + countWords(getSelectedAnswer().answer);
+  const totalWords = countWords(task1Answer) + countWords(resolvePart2Submission().answer);
   const totalWordTarget = 200;
 
   if (testData && !started && !submitted) {
@@ -302,7 +329,11 @@ const PetWritingTest = () => {
           })
         }
         primaryLabel="Start test"
-        onPrimary={() => setStarted(true)}
+        onPrimary={() => {
+          autoSubmittingRef.current = false;
+          setMessage("");
+          setStarted(true);
+        }}
       />
     );
   }
@@ -383,109 +414,80 @@ const PetWritingTest = () => {
   const renderAnswerArea = () => {
     if (activePanel === "part1") {
       return (
-        <div className="QuestionDisplay__questionDisplayWrapper___1n_b0 question-wrapper current numbering-per-interaction wide-and-left-align multiple-inline-gap-match gap-match-multi-interaction-view">
-          <div className="QuestionDisplay__question___89pdZ question desktop hidden-title" role="main" dir="ltr">
-            <div className="QuestionDisplay__questionBody___ZOMJ7">
-              <div className="QuestionDisplay__mainQuestionWrapper___3P0CZ" role="group">
-                <div className="QTIAssessmentItem__QTIAssessmentItemWrapper___3W6-C">
-                  <div className="QTIAssessmentItem__QTIAssessmentItem___cfGlV preRender" lang="en-US">
-                    <div className="pet-writing-answer-header">
-                      <span>Part 1 response</span>
-                      <span className="WordCountText__wordCountText___3QyIr">
-                        Words: {countWords(task1Answer)}
-                      </span>
-                    </div>
-                    <div className="interaction-container">
-                      <div className="interaction allowed-break-inside">
-                        <div id="scorableItem-pet-writing-1">
-                          <textarea
-                            aria-label="You are currently on the text editor. The text will be saved automatically"
-                            className="plainTextWrapper__plainText____1GRn"
-                            rows={17}
-                            spellCheck={false}
-                            value={task1Answer}
-                            onChange={(e) => setTask1Answer(e.target.value)}
-                          />
-                        </div>
-                      </div>
-                    </div>
-                    <div className="QuestionDisplay__footer___1uARt"></div>
-                  </div>
-                </div>
-              </div>
+        <section className="pet-writing-answer-card" aria-label="Part 1 answer area">
+          <div className="pet-writing-answer-top">
+            <div>
+              <h3 className="pet-writing-answer-title">Part 1 response</h3>
+              <p className="pet-writing-answer-note">Write about 100 words for the required question.</p>
             </div>
+            <span className="pet-writing-word-pill">Words: {countWords(task1Answer)}</span>
           </div>
-        </div>
+
+          <textarea
+            aria-label="Part 1 response"
+            className="pet-writing-textarea"
+            rows={18}
+            spellCheck={false}
+            value={task1Answer}
+            onChange={(e) => setTask1Answer(e.target.value)}
+          />
+        </section>
       );
     }
 
     const isQuestion2 = activePanel === "q2";
+    const questionKey = isQuestion2 ? "q2" : "q3";
     const activeAnswer = isQuestion2 ? task2Answer2 : task2Answer3;
+    const selectedStatus = questionPick[questionKey];
 
     return (
-      <div className="QuestionDisplay__questionDisplayWrapper___1n_b0 question-wrapper current numbering-per-interaction wide-and-left-align multiple-inline-gap-match gap-match-multi-interaction-view">
-        <div className="QuestionDisplay__question___89pdZ question desktop hidden-title" role="main" dir="ltr">
-          <div className="QuestionDisplay__questionBody___ZOMJ7">
-            <div className="QuestionDisplay__mainQuestionWrapper___3P0CZ" role="group">
-              <div className="QTIAssessmentItem__QTIAssessmentItemWrapper___3W6-C">
-                <div className="QTIAssessmentItem__QTIAssessmentItem___cfGlV preRender" lang="en-US">
-                  <div className="QuestionDisplay__questionPickContent___2hu68">
-                    <div className="QuestionDisplay__questionPickStatus___oaKDN">
-                      <p>Answering this question?</p>
-                      <span>{part2YesCount}</span> of <span>1 </span>questions selected.
-                    </div>
-                    <div className="QuestionDisplay__questionPickSelectorWrapper___3DKva">
-                      <select
-                        className="questionPickSelector"
-                        value={isQuestion2 ? questionPick.q2 : questionPick.q3}
-                        onChange={(e) =>
-                          handleQuestionPickChange(isQuestion2 ? "q2" : "q3", e.target.value)
-                        }
-                      >
-                        <option value="YES">Yes</option>
-                        <option value="NO">No</option>
-                        <option value="UNDECIDED">Undecided</option>
-                      </select>
-                      <i className="fa fa-2x fa-question status-icon" aria-hidden="true"></i>
-                    </div>
-                  </div>
-
-                  <div className="pet-writing-answer-header">
-                    <span>Part 2 response (Question {isQuestion2 ? "2" : "3"})</span>
-                    <span className="WordCountText__wordCountText___3QyIr">
-                      Words: {countWords(activeAnswer)}
-                    </span>
-                  </div>
-                  <div className="interaction-container">
-                    <div className="interaction allowed-break-inside">
-                      <div id={`scorableItem-pet-writing-${isQuestion2 ? "2" : "3"}`}>
-                        <textarea
-                          aria-label="You are currently on the text editor. The text will be saved automatically"
-                          className="plainTextWrapper__plainText____1GRn"
-                          rows={17}
-                          spellCheck={false}
-                          value={activeAnswer}
-                          onChange={(e) =>
-                            isQuestion2
-                              ? setTask2Answer2(e.target.value)
-                              : setTask2Answer3(e.target.value)
-                          }
-                        />
-                        <div>
-                          <span className="WordCountText__wordCountText___3QyIr">
-                            Words: {countWords(activeAnswer)}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="QuestionDisplay__footer___1uARt"></div>
-                </div>
-              </div>
-            </div>
+      <section className="pet-writing-answer-card" aria-label={`Part 2 Question ${isQuestion2 ? "2" : "3"} answer area`}>
+        <div className="pet-writing-choice-bar">
+          <div>
+            <h3 className="pet-writing-answer-title">Part 2 response (Question {isQuestion2 ? "2" : "3"})</h3>
+            <p className="pet-writing-answer-note">Choose the one Part 2 question you want counted before you submit.</p>
           </div>
+
+          <label className="pet-writing-choice-control">
+            <span>Count this question?</span>
+            <select
+              className="questionPickSelector"
+              value={selectedStatus}
+              onChange={(e) => handleQuestionPickChange(questionKey, e.target.value)}
+            >
+              <option value="YES">Yes</option>
+              <option value="NO">No</option>
+              <option value="UNDECIDED">Undecided</option>
+            </select>
+          </label>
         </div>
-      </div>
+
+        <div className="pet-writing-choice-status-row">
+          <span className={`pet-writing-choice-badge ${selectedStatus === "YES" ? "is-active" : ""}`}>
+            {selectedStatus === "YES"
+              ? "This question will be counted"
+              : selectedStatus === "NO"
+                ? "This question will not be counted"
+                : "No Part 2 choice confirmed yet"}
+          </span>
+          <span className="pet-writing-word-pill">Words: {countWords(activeAnswer)}</span>
+        </div>
+
+        <textarea
+          aria-label={`Part 2 Question ${isQuestion2 ? "2" : "3"} response`}
+          className="pet-writing-textarea"
+          rows={18}
+          spellCheck={false}
+          value={activeAnswer}
+          onChange={(e) =>
+            isQuestion2 ? setTask2Answer2(e.target.value) : setTask2Answer3(e.target.value)
+          }
+        />
+
+        <p className="pet-writing-choice-hint">
+          If time runs out, the system submits the question marked Yes. If neither question is marked, it submits the response in the tab you worked on last.
+        </p>
+      </section>
     );
   };
 
@@ -505,62 +507,39 @@ const PetWritingTest = () => {
         timerCritical={timeLeft > 0 && timeLeft <= 60}
       />
 
-      <div className="cambridge-main-content pet-writing-main" ref={containerRef}>
-        <div
-          className="cambridge-passage-column pet-writing-passage"
-          style={{ width: `${leftWidth}%` }}
+      <div className="pet-writing-main" ref={containerRef}>
+        <section
+          className="pet-writing-panel pet-writing-passage"
+          style={{ width: isMobile ? "100%" : `${leftWidth}%` }}
         >
           <div className="pet-writing-left-content">
             {renderPrompt()}
           </div>
-        </div>
+        </section>
 
         {isMobile && <div className="pet-writing-mobile-divider" aria-hidden="true"></div>}
 
         {!isMobile && (
           <div
-            className="cambridge-divider"
+            className="pet-writing-divider"
             onMouseDown={handleMouseDown}
             style={{ left: `${leftWidth}%` }}
           >
-            <div className="cambridge-resize-handle">
-              <i className="fa fa-arrows-h"></i>
-            </div>
+            <div className="pet-writing-divider-handle" aria-hidden="true"></div>
           </div>
         )}
 
-        <div
-          className="cambridge-questions-column pet-writing-questions"
-          style={{ width: `${100 - leftWidth}%` }}
+        <section
+          className="pet-writing-panel pet-writing-questions"
+          style={{ width: isMobile ? "100%" : `${100 - leftWidth}%` }}
         >
-          {renderAnswerArea()}
-        </div>
+          <div className="pet-writing-right-content">
+            {renderAnswerArea()}
+          </div>
+        </section>
       </div>
 
       <footer className="footer__footer___1NlzQ pet-writing-footer">
-        <div
-          className="footer__navButtons___Gtvxu"
-          role="navigation"
-          aria-label="Previous / next question"
-        >
-          <button
-            className="footer__previousBtn___3pfYh footer__arrowIconBtn___3AiJS"
-            aria-label="Previous"
-            onClick={() => goToStep(currentStepIndex - 1)}
-            disabled={currentStepIndex === 0}
-          >
-            <i className="fa fa-arrow-left" aria-hidden="true"></i>
-          </button>
-          <button
-            className="footer__promotedNextBtn___Qf9LU footer__arrowIconBtn___3AiJS"
-            aria-label="Next"
-            onClick={() => goToStep(currentStepIndex + 1)}
-            disabled={currentStepIndex === steps.length - 1}
-          >
-            <i className="fa fa-arrow-right" aria-hidden="true"></i>
-          </button>
-        </div>
-
         <nav className="nav-row perScorableItem" aria-label="Questions">
           <div
             className={`footer__questionWrapper___1tZ46 single ${
@@ -619,13 +598,37 @@ const PetWritingTest = () => {
 
           <button
             id="deliver-button"
-            aria-label="Review your answers"
+            aria-label="Submit your answers"
             className="footer__deliverButton___3FM07"
             onClick={handleSubmit}
+            disabled={isSubmitting || submitted}
           >
             <i className="fa fa fa-check" aria-hidden="true"></i>
           </button>
         </nav>
+
+        <div
+          className="footer__navButtons___Gtvxu"
+          role="navigation"
+          aria-label="Previous / next question"
+        >
+          <button
+            className="footer__previousBtn___3pfYh footer__arrowIconBtn___3AiJS"
+            aria-label="Previous"
+            onClick={() => goToStep(currentStepIndex - 1)}
+            disabled={currentStepIndex === 0}
+          >
+            <i className="fa fa-arrow-left" aria-hidden="true"></i>
+          </button>
+          <button
+            className="footer__promotedNextBtn___Qf9LU footer__arrowIconBtn___3AiJS"
+            aria-label="Next"
+            onClick={() => goToStep(currentStepIndex + 1)}
+            disabled={currentStepIndex === steps.length - 1}
+          >
+            <i className="fa fa-arrow-right" aria-hidden="true"></i>
+          </button>
+        </div>
       </footer>
 
       {message && <div className="pet-writing-toast">{message}</div>}
