@@ -8,8 +8,43 @@ import { canManageCategory } from "../../../shared/utils/permissions";
 import { TEST_CONFIGS } from "../../../shared/config/questionTypes";
 
 import "./SelectTest.css";
-// import Cambridge styles so we can reuse them for Orange platform
-import "../../cambridge/pages/SelectCambridgeTest.css";
+
+const ORANGE_TYPES = ["ket", "pet", "flyers", "movers", "starters"];
+const ORANGE_TYPE_NAMES = {
+  ket: "KET (A2 Key)",
+  pet: "PET (B1 Preliminary)",
+  flyers: "Flyers (A2)",
+  movers: "Movers (A1)",
+  starters: "Starters (Pre-A1)",
+};
+const ORANGE_TYPE_CARD_LABELS = {
+  ket: "KET",
+  pet: "PET",
+  flyers: "Flyers",
+  movers: "Movers",
+  starters: "Starters",
+};
+const ORANGE_TYPE_ICONS = {
+  ket: "orange",
+  pet: "pet",
+  flyers: "flyers",
+  movers: "movers",
+  starters: "starters",
+};
+const PLATFORM_TABS = [
+  { key: "ix", label: "IX", icon: "tests", hint: "Focused IELTS-style skills." },
+  { key: "orange", label: "Orange", icon: "orange", hint: "Cambridge levels grouped cleanly." },
+];
+const IX_TABS = [
+  { key: "writing", label: "Writing", icon: "writing", hint: "Essays and teacher review." },
+  { key: "reading", label: "Reading", icon: "reading", hint: "Timed passages and matching." },
+  { key: "listening", label: "Listening", icon: "listening", hint: "Audio-first practice." },
+];
+const SKILL_META = {
+  writing: { label: "Writing", icon: "writing", hint: "Draft and submit." },
+  reading: { label: "Reading", icon: "reading", hint: "Passages and timed practice." },
+  listening: { label: "Listening", icon: "listening", hint: "Audio drills." },
+};
 
 const SelectTest = () => {
   let user = null;
@@ -38,50 +73,12 @@ const SelectTest = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const orangeTypes = ["ket", "pet", "flyers", "movers", "starters"];
-  const orangeTypeNames = {
-    ket: "KET (A2 Key)",
-    pet: "PET (B1 Preliminary)",
-    flyers: "Flyers (A2)",
-    movers: "Movers (A1)",
-    starters: "Starters (Pre-A1)",
-  };
-  const orangeTypeIcons = {
-    ket: "orange",
-    pet: "pet",
-    flyers: "flyers",
-    movers: "movers",
-    starters: "starters",
-  };
-  const platformTabs = [
-    { key: "ix", label: "IX", icon: "tests" },
-    { key: "orange", label: "Orange", icon: "orange" },
-  ];
-  const ixTabs = [
-    { key: "writing", label: "Writing", icon: "writing" },
-    { key: "reading", label: "Reading", icon: "reading" },
-    { key: "listening", label: "Listening", icon: "listening" },
-  ];
-  const skillMeta = {
-    writing: { label: "Writing", icon: "writing" },
-    reading: { label: "Reading", icon: "reading" },
-    listening: { label: "Listening", icon: "listening" },
-  };
-
-  // for info box we need to look up TEST_CONFIGS just like Cambridge page does
-  const getOrangeConfig = () => {
-    // writing is always pet-writing in orange
-    const key = activeOrangeTab === "writing" ? "pet-writing" : `${activeOrangeType}-${activeOrangeTab}`;
-    // Young Learners (movers, starters, flyers) have a single combined test key, not split by skill
-    return TEST_CONFIGS[key] || TEST_CONFIGS[activeOrangeType] || {};
-  };
-
   const updateSelectRoute = (next = {}) => {
     const nextPlatform = next.platform || activePlatform || "ix";
     const params = new URLSearchParams();
 
     if (nextPlatform === "orange") {
-      const nextType = orangeTypes.includes(next.type) ? next.type : activeOrangeType || "ket";
+      const nextType = ORANGE_TYPES.includes(next.type) ? next.type : activeOrangeType || "ket";
       const allowedOrangeTabs = nextType === "pet"
         ? ["listening", "reading", "writing"]
         : ["listening", "reading"];
@@ -151,7 +148,7 @@ const SelectTest = () => {
     };
 
     fetchAllTests();
-  }, []);
+  }, [isTeacher]);
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
@@ -160,7 +157,7 @@ const SelectTest = () => {
     const rawTab = params.get("tab");
     const nextPlatform = rawPlatform === "orange" ? "orange" : "ix";
     const nextIxTab = ["writing", "reading", "listening"].includes(rawTab) ? rawTab : "writing";
-    const nextOrangeType = orangeTypes.includes(rawType) ? rawType : "ket";
+    const nextOrangeType = ORANGE_TYPES.includes(rawType) ? rawType : "ket";
     const allowedOrangeTabs = nextOrangeType === "pet"
       ? ["listening", "reading", "writing"]
       : ["listening", "reading"];
@@ -330,7 +327,7 @@ const SelectTest = () => {
   }, [orangeFilteredByType]);
 
   const orangeTypeCounts = useMemo(() => {
-    return orangeTypes.reduce((acc, type) => {
+    return ORANGE_TYPES.reduce((acc, type) => {
       acc[type] = (tests.cambridge || []).filter((test) => {
         const testTypeRaw = String(test?.testType || "").toLowerCase();
         if (testTypeRaw === "pet-writing") return type === "pet";
@@ -338,7 +335,7 @@ const SelectTest = () => {
       }).length;
       return acc;
     }, {});
-  }, [orangeTypes, tests.cambridge]);
+  }, [tests.cambridge]);
 
   const orangeSkillTabs = useMemo(
     () => [
@@ -350,29 +347,13 @@ const SelectTest = () => {
     ],
     [activeOrangeType, orangeCounts]
   );
+  const orangeConfig = useMemo(() => {
+    const key = activeOrangeTab === "writing" ? "pet-writing" : `${activeOrangeType}-${activeOrangeTab}`;
+    return TEST_CONFIGS[key] || TEST_CONFIGS[activeOrangeType] || {};
+  }, [activeOrangeTab, activeOrangeType]);
 
   const ixTotalCount = (tests.writing?.length || 0) + (tests.reading?.length || 0) + (tests.listening?.length || 0);
   const orangeTotalCount = tests.cambridge?.length || 0;
-
-  const platformLead = activePlatform === "ix"
-    ? {
-        eyebrow: "IX practice hub",
-        title: "Choose one skill and keep the screen focused",
-        text: "Writing, Reading, and Listening stay separated so students only see the tests they need right now instead of a mixed list.",
-        stats: [
-          { value: ixTotalCount, label: "IX tests" },
-          { value: ixTabs.length, label: "Skills" },
-        ],
-      }
-    : {
-        eyebrow: "Orange practice hub",
-        title: "Pick the level first, then the skill",
-        text: "KET, PET, and the Young Learners levels stay grouped so students and parents can orient themselves faster before opening a test.",
-        stats: [
-          { value: orangeTotalCount, label: "Orange tests" },
-          { value: activeOrangeType.toUpperCase(), label: "Current level" },
-        ],
-      };
 
   const currentContext = useMemo(() => {
     if (activePlatform === "ix") {
@@ -403,153 +384,187 @@ const SelectTest = () => {
   const visibleList = activeList.slice(0, visibleCount);
   const remainingCount = Math.max(0, activeList.length - visibleList.length);
   const canManageCurrentSelection = canManageCategory(user, currentContext.categoryForPermission);
+  const currentSkillInfo = SKILL_META[activePlatform === "ix" ? activeIxTab : activeOrangeTab] || SKILL_META.reading;
+  const currentShelfTitle = activePlatform === "ix"
+    ? `IX ${currentSkillInfo.label}`
+    : `${ORANGE_TYPE_NAMES[activeOrangeType]} • ${currentSkillInfo.label}`;
   const orangeCreatePath =
     activeOrangeTab === "writing"
       ? "/admin/create-pet-writing"
       : `/admin/create-${activeOrangeType}-${activeOrangeTab}`;
   const orangeCreateLabel = `Create ${activeOrangeType.toUpperCase()} ${
-    skillMeta[activeOrangeTab]?.label || activeOrangeTab
+    SKILL_META[activeOrangeTab]?.label || activeOrangeTab
   } Test`;
+  const heroTags = [
+    {
+      icon: activePlatform === "orange" ? ORANGE_TYPE_ICONS[activeOrangeType] || "orange" : "tests",
+      label: activePlatform === "orange" ? ORANGE_TYPE_CARD_LABELS[activeOrangeType] : "IX",
+    },
+    { icon: currentSkillInfo.icon, label: currentSkillInfo.label },
+    { icon: "tests", label: `${activeList.length} test${activeList.length === 1 ? "" : "s"}` },
+  ];
 
   return (
     <>
       {isTeacher ? <AdminNavbar /> : <StudentNavbar />}
       <div className="select-test-page">
         <div className="select-test-shell">
-          {/* Tab Navigation */}
-          <div className="select-test-tabs">
-            {platformTabs.map((tab) => (
-              <button
-                key={tab.key}
-                onClick={() =>
-                  updateSelectRoute(
-                    tab.key === "orange"
-                      ? { platform: "orange", type: activeOrangeType, tab: activeOrangeTab }
-                      : { platform: "ix", tab: activeIxTab }
-                  )
-                }
-                className={`select-test-tab ${activePlatform === tab.key ? "active" : ""}`}
-              >
-                <span className="select-test-platformIcon" aria-hidden="true">
-                  <LineIcon name={tab.icon} size={20} />
-                </span>
+          <section className={`select-test-toolbar select-test-toolbar--${activePlatform}`}>
+            <div className="select-test-tabs">
+              {PLATFORM_TABS.map((tab) => (
+                <button
+                  key={tab.key}
+                  onClick={() =>
+                    updateSelectRoute(
+                      tab.key === "orange"
+                        ? { platform: "orange", type: activeOrangeType, tab: activeOrangeTab }
+                        : { platform: "ix", tab: activeIxTab }
+                    )
+                  }
+                  className={`select-test-tab ${activePlatform === tab.key ? "active" : ""}`}
+                >
+                  <span className="select-test-platformIcon" aria-hidden="true">
+                    <LineIcon name={tab.icon} size={20} />
+                  </span>
                   <span className="select-test-platformCopy">
                     <span className="select-test-tabLabel">{tab.label}</span>
+                    <span className="select-test-tabMeta">{tab.hint}</span>
                   </span>
                   <span className="select-test-platformCount">
                     {tab.key === "ix" ? ixTotalCount : orangeTotalCount}
                   </span>
-              </button>
-            ))}
-          </div>
-
-          <div className={`select-test-platformIntro select-test-platformIntro--${activePlatform}`}>
-            <div className="select-test-platformIntroMain">
-              <span className="select-test-platformEyebrow">{platformLead.eyebrow}</span>
-              <h2 className="select-test-platformTitle">{platformLead.title}</h2>
-              <p className="select-test-platformText">{platformLead.text}</p>
-            </div>
-            <div className="select-test-platformStats">
-              {platformLead.stats.map((item) => (
-                <div key={`${item.label}-${item.value}`} className="select-test-platformStat">
-                  <strong>{item.value}</strong>
-                  <span>{item.label}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {activePlatform === "ix" ? (
-            <div className="select-test-subtabs">
-              {ixTabs.map((tab) => (
-                <button
-                  key={tab.key}
-                  onClick={() => updateSelectRoute({ platform: "ix", tab: tab.key })}
-                  className={`select-test-tab select-test-subtab select-test-subtab--${tab.key} ${activeIxTab === tab.key ? "active" : ""}`}
-                >
-                  <span className="select-test-skillIcon" aria-hidden="true">
-                    <LineIcon name={tab.icon} size={20} />
-                  </span>
-                  <span className="select-test-skillBody">
-                    <span className="select-test-tabLabel">{tab.label}</span>
-                  </span>
-                  <span className="select-test-subtab-count">{tests[tab.key]?.length ?? 0}</span>
                 </button>
               ))}
             </div>
-          ) : (
-            <>
-              {/* orange platform uses Cambridge-style tabs */}
-              <div className="cambridge-type-list">
-                {orangeTypes.map((type) => (
-                  <button
-                    key={type}
-                    onClick={() =>
-                      updateSelectRoute({
-                        platform: "orange",
-                        type,
-                        tab: type !== "pet" && activeOrangeTab === "writing" ? "listening" : activeOrangeTab,
-                      })
-                    }
-                    className={`cambridge-type-btn cambridge-type-btn--${type}${activeOrangeType === type ? " cambridge-type-btn--active" : ""}`}
-                  >
-                    <span className="select-test-skillIcon" aria-hidden="true">
-                      <LineIcon name={orangeTypeIcons[type] || "orange"} size={20} />
-                    </span>
-                    <span className="select-test-skillBody">
-                      <span className="select-test-tabLabel">{orangeTypeNames[type] || type.toUpperCase()}</span>
-                    </span>
-                    <span className="select-test-subtab-count">{orangeTypeCounts[type] ?? 0}</span>
-                  </button>
-                ))}
-              </div>
 
-              <div className={`cambridge-tabs${activeOrangeType === "pet" ? " cambridge-tabs--three" : ""}`}>
-                {orangeSkillTabs.map((skill) => (
-                  <button
-                    key={skill.key}
-                    onClick={() => updateSelectRoute({ platform: "orange", type: activeOrangeType, tab: skill.key })}
-                    className={`cambridge-tab${activeOrangeTab === skill.key ? " cambridge-tab--active" : ""}`}
-                  >
-                    <span className="select-test-skillIcon" aria-hidden="true">
-                      <LineIcon name={skill.icon} size={20} />
+            <div className="select-test-toolbarMain">
+              <div className="select-test-toolbarIdentity">
+                <h1 className="select-test-toolbarTitle">{currentShelfTitle}</h1>
+                <div className="select-test-toolbarPills">
+                  {heroTags.map((tag) => (
+                    <span key={`${tag.icon}-${tag.label}`} className="select-test-heroTag select-test-toolbarPill">
+                      <LineIcon name={tag.icon} size={14} />
+                      <span>{tag.label}</span>
                     </span>
-                    <span className="select-test-skillBody">
-                      <span className="select-test-tabLabel">{skill.label}</span>
-                    </span>
-                    <span className="cambridge-tab__badge">{skill.count}</span>
-                  </button>
-                ))}
-              </div>
-
-              {/* info box like student page */}
-              <div className="cambridge-info">
-                <div>
-                  <h3 className="cambridge-info__title">
-                    {`${activeOrangeType.toUpperCase()} - ${
-                      activeOrangeTab.charAt(0).toUpperCase() + activeOrangeTab.slice(1)
-                    }`}
-                  </h3>
-                  <p className="cambridge-info__meta">
-                    {getOrangeConfig().totalQuestions || "?"} questions • {getOrangeConfig().parts || "?"} parts • {getOrangeConfig().duration || "?"} minutes
-                  </p>
+                  ))}
                 </div>
               </div>
-            </>
-          )}
 
-          <div className="select-test-controls">
+              {currentContext.isOrange && canManageCurrentSelection ? (
+                <button
+                  type="button"
+                  className="select-test-create select-test-create--toolbar"
+                  onClick={() => navigate(orangeCreatePath)}
+                >
+                  <LineIcon name="create" size={16} />
+                  <span>{orangeCreateLabel}</span>
+                </button>
+              ) : null}
+            </div>
+          </section>
+
+          <section className="select-test-orbit select-test-orbit--compact">
+            <div className="select-test-orbitMain">
+              {activePlatform === "ix" ? (
+                <div className="select-test-selectorBlock select-test-selectorBlock--inline">
+                  <div className="select-test-selectorHeader select-test-selectorHeader--compact">
+                    <span className="select-test-selectorStep">IX</span>
+                    <h2 className="select-test-selectorTitle">Skill</h2>
+                  </div>
+
+                  <div className="select-test-pillRow">
+                    {IX_TABS.map((tab) => (
+                      <button
+                        key={tab.key}
+                        onClick={() => updateSelectRoute({ platform: "ix", tab: tab.key })}
+                        className={`select-test-pillButton select-test-pillButton--${tab.key} ${activeIxTab === tab.key ? "active" : ""}`}
+                      >
+                        <span className="select-test-skillIcon" aria-hidden="true">
+                          <LineIcon name={tab.icon} size={16} />
+                        </span>
+                        <span className="select-test-pillLabel">{tab.label}</span>
+                        <span className="select-test-pillCount">{tests[tab.key]?.length ?? 0}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div className="select-test-selectorBlock select-test-selectorBlock--inline">
+                    <div className="select-test-selectorHeader select-test-selectorHeader--compact">
+                      <span className="select-test-selectorStep">Level</span>
+                      <h2 className="select-test-selectorTitle">Exam</h2>
+                    </div>
+
+                    <div className="select-test-pillRow select-test-pillRow--levels">
+                      {ORANGE_TYPES.map((type) => (
+                        <button
+                          key={type}
+                          onClick={() =>
+                            updateSelectRoute({
+                              platform: "orange",
+                              type,
+                              tab: type !== "pet" && activeOrangeTab === "writing" ? "listening" : activeOrangeTab,
+                            })
+                          }
+                          className={`select-test-pillButton select-test-pillButton--${type}${activeOrangeType === type ? " active" : ""}`}
+                        >
+                          <span className="select-test-skillIcon" aria-hidden="true">
+                            <LineIcon name={ORANGE_TYPE_ICONS[type] || "orange"} size={16} />
+                          </span>
+                          <span className="select-test-pillLabel">{ORANGE_TYPE_CARD_LABELS[type] || ORANGE_TYPE_NAMES[type] || type.toUpperCase()}</span>
+                          <span className="select-test-pillCount">{orangeTypeCounts[type] ?? 0}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="select-test-selectorBlock select-test-selectorBlock--inline">
+                    <div className="select-test-selectorHeader select-test-selectorHeader--compact">
+                      <span className="select-test-selectorStep">Skill</span>
+                      <h2 className="select-test-selectorTitle">Skill</h2>
+                    </div>
+
+                    <div className="select-test-pillRow">
+                      {orangeSkillTabs.map((skill) => (
+                        <button
+                          key={skill.key}
+                          onClick={() => updateSelectRoute({ platform: "orange", type: activeOrangeType, tab: skill.key })}
+                          className={`select-test-pillButton select-test-pillButton--${skill.key} ${activeOrangeTab === skill.key ? "active" : ""}`}
+                        >
+                          <span className="select-test-skillIcon" aria-hidden="true">
+                            <LineIcon name={skill.icon} size={16} />
+                          </span>
+                          <span className="select-test-pillLabel">{skill.label}</span>
+                          <span className="select-test-pillCount">{skill.count}</span>
+                        </button>
+                      ))}
+                    </div>
+
+                    <div className="select-test-shelfMeta">
+                      <span className="select-test-shelfMetaItem">{activeOrangeType.toUpperCase()}</span>
+                      <span className="select-test-shelfMetaItem">{orangeConfig.totalQuestions || "?"} Q</span>
+                      <span className="select-test-shelfMetaItem">{orangeConfig.duration || "?"} min</span>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          </section>
+
+          <section className="select-test-resultsSection">
+            <div className="select-test-controls select-test-controls--minimal">
             <label className="select-test-control select-test-control--search">
               <span className="select-test-controlIcon" aria-hidden="true">
                 <LineIcon name="search" size={18} />
               </span>
               <span className="select-test-controlContent">
-                <span className="select-test-controlLabel">Find a test</span>
+                <span className="select-test-controlLabel">Search</span>
                 <input
                   type="search"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search by class code, teacher, or test title..."
+                  placeholder="Class, teacher, title"
                   className="select-test-search"
                 />
               </span>
@@ -560,7 +575,7 @@ const SelectTest = () => {
                 <LineIcon name="selector" size={18} />
               </span>
               <span className="select-test-controlContent">
-                <span className="select-test-controlLabel">Sort list</span>
+                <span className="select-test-controlLabel">Sort</span>
                 <span className="select-test-selectWrap">
                   <select
                     value={sortMode}
@@ -578,31 +593,24 @@ const SelectTest = () => {
                 </span>
               </span>
             </label>
-
-            <button
-              type="button"
-              onClick={() => navigate("/my-feedback")}
-              className="select-test-feedback"
-            >
-              <span className="select-test-feedbackIcon" aria-hidden="true">
-                <LineIcon name="feedback" size={18} />
-              </span>
-              <span className="select-test-feedbackContent">
-                <span className="select-test-feedbackTitle">View Feedback</span>
-                <span className="select-test-feedbackMeta">Open reviewed work and teacher notes</span>
-              </span>
-              <span className="select-test-feedbackArrow" aria-hidden="true">
-                <LineIcon name="chevron-right" size={16} />
-              </span>
-            </button>
-          </div>
+            </div>
 
           {/* Test List */}
           {loading ? (
-            <p className="select-test-loading">Loading tests...</p>
+            <div className="select-test-stateCard">
+              <span className="select-test-stateIcon" aria-hidden="true">
+                <LineIcon name="tests" size={22} />
+              </span>
+              <h3 className="select-test-stateTitle">Loading the library</h3>
+              <p className="select-test-loading">Fetching tests.</p>
+            </div>
           ) : activeList.length === 0 ? (
             <div className="select-test-emptyState">
-              <p className="select-test-empty">No tests available for this selection.</p>
+              <span className="select-test-stateIcon" aria-hidden="true">
+                <LineIcon name={currentSkillInfo.icon} size={22} />
+              </span>
+              <h3 className="select-test-stateTitle">No tests ready for this shelf yet</h3>
+              <p className="select-test-empty">Switch shelf or add the first test.</p>
               {currentContext.isOrange && canManageCurrentSelection ? (
                 <div className="select-test-adminActions">
                   <button
@@ -618,23 +626,12 @@ const SelectTest = () => {
             </div>
           ) : (
             <>
-              <div className="select-test-meta">
-                <span>
-                  Total: <b>{activeList.length}</b>
-                </span>
-                {searchQuery.trim() ? (
-                  <span>
-                    Filtering: <b>“{searchQuery.trim()}”</b>
-                  </span>
-                ) : null}
-              </div>
-
               <div className="select-test-grid">
                 {currentContext.isOrange ? (
                   visibleList.map((test, index) => {
                     const classCode = test.classCode || "N/A";
                     const teacherName = test.teacherName || "N/A";
-                    const displayTitle = skillMeta[activeOrangeTab]?.label || "Orange";
+                    const displayTitle = SKILL_META[activeOrangeTab]?.label || "Orange";
                     const orangeCardTitle = test.title || `${activeOrangeType.toUpperCase()} ${displayTitle}`;
 
                     return (
@@ -649,7 +646,7 @@ const SelectTest = () => {
                         >
                           <div className="select-test-cardHeader">
                             <span className={`select-test-cardBadge select-test-cardBadge--${activeOrangeTab}`}>
-                              <LineIcon name={skillMeta[activeOrangeTab]?.icon || "orange"} size={16} />
+                              <LineIcon name={SKILL_META[activeOrangeTab]?.icon || "orange"} size={16} />
                               <span>{displayTitle}</span>
                             </span>
                             <span className="select-test-cardNum">#{index + 1}</span>
@@ -669,7 +666,7 @@ const SelectTest = () => {
 
                           <div className="select-test-cardFooter">
                             <span className="select-test-cardFootnote">
-                              {orangeTypeNames[activeOrangeType] || activeOrangeType.toUpperCase()} • {getOrangeConfig().totalQuestions || "?"} questions • {getOrangeConfig().duration || "?"} minutes
+                              {orangeConfig.totalQuestions || "?"} Q • {orangeConfig.duration || "?"} min
                             </span>
                             <span className="select-test-cardActionHint">Open test</span>
                           </div>
@@ -709,8 +706,8 @@ const SelectTest = () => {
                         >
                           <div className="select-test-cardHeader">
                             <span className={`select-test-cardBadge select-test-cardBadge--${activeIxTab}`}>
-                              <LineIcon name={skillMeta[activeIxTab]?.icon || "tests"} size={16} />
-                              <span>{skillMeta[activeIxTab]?.label || activeIxTab}</span>
+                              <LineIcon name={SKILL_META[activeIxTab]?.icon || "tests"} size={16} />
+                              <span>{SKILL_META[activeIxTab]?.label || activeIxTab}</span>
                             </span>
                             <span className="select-test-cardNum">#{index + 1}</span>
                           </div>
@@ -728,7 +725,7 @@ const SelectTest = () => {
                           </div>
 
                           <div className="select-test-cardFooter">
-                            <span className="select-test-cardFootnote">{skillMeta[activeIxTab]?.label || activeIxTab} practice</span>
+                            <span className="select-test-cardFootnote">{SKILL_META[activeIxTab]?.label || activeIxTab}</span>
                             <span className="select-test-cardActionHint">Open test</span>
                           </div>
                         </button>
@@ -759,21 +756,9 @@ const SelectTest = () => {
                     Load More ({remainingCount})
                 </button>
               ) : null}
-
-              {currentContext.isOrange && canManageCurrentSelection ? (
-                <div className="select-test-adminActions">
-                  <button
-                    type="button"
-                    className="select-test-create"
-                    onClick={() => navigate(orangeCreatePath)}
-                  >
-                    <LineIcon name="create" size={16} />
-                    <span>{orangeCreateLabel}</span>
-                  </button>
-                </div>
-              ) : null}
             </>
           )}
+          </section>
         </div>
       </div>
     </>
