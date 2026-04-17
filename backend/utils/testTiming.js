@@ -1,6 +1,6 @@
 const TIMER_GRACE_SECONDS = Math.max(
   0,
-  Number(process.env.TEST_TIMER_GRACE_SECONDS) || 180
+  Number(process.env.TEST_TIMER_GRACE_SECONDS) || 0
 );
 
 const DEFAULT_EXTENSION_MINUTES = Math.max(
