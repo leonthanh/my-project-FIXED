@@ -300,9 +300,15 @@ export const GapMatchSectionDisplay = ({
   const container = section.questions[0] || {};
   const leftTitle = container.leftTitle || 'People';
   const rightTitle = container.rightTitle || 'Options';
+  const studentTitle = String(container.studentTitle || '').trim();
+  const exampleText = String(container.exampleText || '').trim();
+  const exampleAnswer = String(container.exampleAnswer || '').trim();
+  const hasExample = Boolean(exampleText || exampleAnswer);
   const leftItems = Array.isArray(container.leftItems) ? container.leftItems : [];
   const options = Array.isArray(container.options) ? container.options : [];
   const correctAnswers = Array.isArray(container.correctAnswers) ? container.correctAnswers : [];
+  const optionsStickyTop = '12px';
+  const optionsMaxHeight = 'calc(100vh - 132px)';
 
   const usedMap = {};
   leftItems.forEach((_, idx) => {
@@ -323,9 +329,74 @@ export const GapMatchSectionDisplay = ({
 
   return (
     <div className="cambridge-question-wrapper">
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+      {studentTitle ? (
+        <div
+          style={{
+            marginBottom: '16px',
+            textAlign: 'center',
+            fontSize: 'clamp(20px, 2.2vw, 30px)',
+            fontWeight: 800,
+            lineHeight: 1.2,
+            color: isDarkMode ? '#c4b5fd' : '#8b5cf6',
+            letterSpacing: '-0.01em',
+          }}
+        >
+          {studentTitle}
+        </div>
+      ) : null}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', alignItems: 'stretch' }}>
         <div style={{ border: `1px solid ${isDarkMode ? '#2a3350' : '#bae6fd'}`, background: isDarkMode ? '#0f172a' : '#f0f9ff', borderRadius: '10px', padding: '12px' }}>
           <div style={{ fontWeight: 700, color: isDarkMode ? '#e5e7eb' : '#0e276f', marginBottom: '8px' }}>{leftTitle}</div>
+          {hasExample ? (
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                flexWrap: 'wrap',
+                padding: '8px 10px',
+                marginBottom: '10px',
+                borderRadius: '8px',
+                border: `1px dashed ${isDarkMode ? '#4f6db6' : '#93c5fd'}`,
+                background: isDarkMode ? '#111827' : '#ffffff',
+              }}
+            >
+              <span
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  padding: '2px 8px',
+                  borderRadius: 999,
+                  background: isDarkMode ? '#1e3a5f' : '#dbeafe',
+                  color: isDarkMode ? '#bfdbfe' : '#1d4ed8',
+                  fontSize: '11px',
+                  fontWeight: 800,
+                }}
+              >
+                Example
+              </span>
+              <span style={{ fontSize: '13px', fontWeight: 600, color: isDarkMode ? '#e2e8f0' : '#0f172a' }}>
+                {exampleText || '0'}
+              </span>
+              {exampleAnswer ? (
+                <span
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    padding: '2px 8px',
+                    borderRadius: 999,
+                    background: isDarkMode ? '#123c2c' : '#dcfce7',
+                    color: isDarkMode ? '#bbf7d0' : '#166534',
+                    border: `1px solid ${isDarkMode ? '#166534' : '#86efac'}`,
+                    fontSize: '11px',
+                    fontWeight: 800,
+                  }}
+                >
+                  {exampleAnswer}
+                </span>
+              ) : null}
+            </div>
+          ) : null}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
             {leftItems.map((item, idx) => {
               const key = `${currentPartIndex}-${secIdx}-${qIdx}-${idx}`;
@@ -406,35 +477,51 @@ export const GapMatchSectionDisplay = ({
           </div>
         </div>
 
-        <div style={{ border: `1px solid ${isDarkMode ? '#2a3350' : '#e5e7eb'}`, background: isDarkMode ? '#0f172a' : '#fff', borderRadius: '10px', padding: '12px' }}>
-          <div style={{ fontWeight: 700, color: isDarkMode ? '#e5e7eb' : '#0e276f', marginBottom: '8px' }}>{rightTitle}</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            {options.map((opt) => {
-              const usedBy = usedMap[opt];
-              const isUsed = Boolean(usedBy);
-              return (
-                <div
-                  key={opt}
-                  draggable={!submitted && !isUsed}
-                  onDragStart={(e) => {
-                    if (submitted || isUsed) return;
-                    e.dataTransfer.setData('text/plain', opt);
-                  }}
-                  style={{
-                    padding: '10px 12px',
-                    borderRadius: '8px',
-                    border: `1px solid ${isDarkMode ? '#2a3350' : '#e5e7eb'}`,
-                    background: isUsed ? (isDarkMode ? '#1f2b47' : '#f1f5f9') : (isDarkMode ? '#111827' : '#fafafa'),
-                    opacity: isUsed ? 0.45 : 1,
-                    cursor: submitted || isUsed ? 'default' : 'grab',
-                    fontWeight: 600,
-                    color: isDarkMode ? '#e5e7eb' : undefined,
-                  }}
-                >
-                  {opt}
-                </div>
-              );
-            })}
+        <div style={{ minHeight: '100%', display: 'flex', alignItems: 'flex-start' }}>
+          <div
+            style={{
+              position: 'sticky',
+              top: optionsStickyTop,
+              alignSelf: 'flex-start',
+              width: '100%',
+              maxHeight: optionsMaxHeight,
+              overflowY: 'auto',
+              padding: '12px',
+              border: `1px solid ${isDarkMode ? '#2a3350' : '#e5e7eb'}`,
+              background: isDarkMode ? '#0f172a' : '#fff',
+              borderRadius: '10px',
+              boxSizing: 'border-box',
+            }}
+          >
+            <div style={{ fontWeight: 700, color: isDarkMode ? '#e5e7eb' : '#0e276f', marginBottom: '8px', textAlign: 'center' }}>{rightTitle}</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {options.map((opt, optIdx) => {
+                const usedBy = usedMap[opt];
+                const isUsed = Boolean(usedBy);
+                return (
+                  <div
+                    key={`${opt}-${optIdx}`}
+                    draggable={!submitted && !isUsed}
+                    onDragStart={(e) => {
+                      if (submitted || isUsed) return;
+                      e.dataTransfer.setData('text/plain', opt);
+                    }}
+                    style={{
+                      padding: '10px 12px',
+                      borderRadius: '8px',
+                      border: `1px solid ${isDarkMode ? '#2a3350' : '#e5e7eb'}`,
+                      background: isUsed ? (isDarkMode ? '#1f2b47' : '#f1f5f9') : (isDarkMode ? '#111827' : '#fafafa'),
+                      opacity: isUsed ? 0.45 : 1,
+                      cursor: submitted || isUsed ? 'default' : 'grab',
+                      fontWeight: 600,
+                      color: isDarkMode ? '#e5e7eb' : undefined,
+                    }}
+                  >
+                    {opt}
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </div>
       </div>
