@@ -30,6 +30,9 @@ import {
   getRemainingSeconds,
   toTimestamp,
 } from "../../../shared/utils/testTiming";
+
+const SERVER_AUTOSAVE_INTERVAL_MS = 30000;
+const SERVER_TIMING_RECONCILE_INTERVAL_MS = 15000;
 /* eslint-disable no-loop-func */
 // Utility: Remove unwanted <span ...> tags from HTML
 function stripUnwantedHtml(html) {
@@ -682,7 +685,7 @@ const DoReadingTest = () => {
     };
 
     const debounceId = setTimeout(persistDraft, 600);
-    const intervalId = setInterval(persistDraft, 15000);
+    const intervalId = setInterval(persistDraft, SERVER_AUTOSAVE_INTERVAL_MS);
     const onBeforeUnload = () => {
       persistDraft();
     };
@@ -750,7 +753,10 @@ const DoReadingTest = () => {
     if (!started || submitted) return;
 
     reconcileServerTiming();
-    const intervalId = setInterval(reconcileServerTiming, 5000);
+    const intervalId = setInterval(
+      reconcileServerTiming,
+      SERVER_TIMING_RECONCILE_INTERVAL_MS
+    );
     const onCheck = () => {
       if (document.visibilityState !== "hidden") {
         reconcileServerTiming();

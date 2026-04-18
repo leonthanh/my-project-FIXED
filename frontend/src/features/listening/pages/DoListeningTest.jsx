@@ -87,6 +87,8 @@ const hasMeaningfulAnswers = (answers) => {
 const COLLAPSED_PART_TAB_WIDTH = 172;
 const MIN_EXPANDED_PART_TAB_WIDTH = 280;
 const MAX_EXPANDED_PART_TAB_WIDTH = 620;
+const SERVER_AUTOSAVE_INTERVAL_MS = 30000;
+const SERVER_TIMING_RECONCILE_INTERVAL_MS = 15000;
 
 const estimateNavigatorChipWidth = (item) => {
   const label = String(item?.label ?? "");
@@ -873,7 +875,7 @@ const DoListeningTest = () => {
     const intervalId = setInterval(saveState, 30000);
 
     // Periodic server autosave
-    const serverIntervalId = setInterval(serverAutosave, 30000);
+    const serverIntervalId = setInterval(serverAutosave, SERVER_AUTOSAVE_INTERVAL_MS);
 
     // Save before unload
     const onBeforeUnload = () => {
@@ -973,7 +975,10 @@ const DoListeningTest = () => {
     if (!resumeHydrated || !started || submitted) return;
 
     reconcileServerTiming();
-    const intervalId = setInterval(reconcileServerTiming, 5000);
+    const intervalId = setInterval(
+      reconcileServerTiming,
+      SERVER_TIMING_RECONCILE_INTERVAL_MS
+    );
     const onCheck = () => {
       if (document.visibilityState !== "hidden") {
         reconcileServerTiming();

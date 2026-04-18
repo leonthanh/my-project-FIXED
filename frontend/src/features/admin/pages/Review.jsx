@@ -19,7 +19,22 @@ const DEFAULT_REVIEW_FILTERS = {
   status: "pending",
 };
 
-const cloneReviewFilters = () => ({ ...DEFAULT_REVIEW_FILTERS });
+const CAMBRIDGE_REVIEW_PAGE_SIZE = 200;
+
+const cloneReviewFilters = (overrides = {}) => ({
+  ...DEFAULT_REVIEW_FILTERS,
+  ...overrides,
+});
+
+const getDefaultFiltersForTab = (tabKey) =>
+  cloneReviewFilters(tabKey === "cambridge" ? { status: "" } : {});
+
+const createInitialFiltersByTab = () => ({
+  writing: getDefaultFiltersForTab("writing"),
+  reading: getDefaultFiltersForTab("reading"),
+  listening: getDefaultFiltersForTab("listening"),
+  cambridge: getDefaultFiltersForTab("cambridge"),
+});
 
 const normalizeFilterValue = (value) => String(value ?? "").trim().toLowerCase();
 
@@ -40,12 +55,7 @@ const Review = () => {
   }, []);
 
   const [activeTab, setActiveTab] = useState("writing");
-  const [filtersByTab, setFiltersByTab] = useState(() => ({
-    writing: cloneReviewFilters(),
-    reading: cloneReviewFilters(),
-    listening: cloneReviewFilters(),
-    cambridge: cloneReviewFilters(),
-  }));
+  const [filtersByTab, setFiltersByTab] = useState(createInitialFiltersByTab);
 
   const [unreviewedWriting, setUnreviewedWriting] = useState([]);
   const [unreviewedPetWriting, setUnreviewedPetWriting] = useState([]);
@@ -170,17 +180,60 @@ const Review = () => {
       try {
         setLoadingCambridge(true);
         setCambridgeError(null);
-        const res = await fetch(apiPath("cambridge/submissions?page=1&limit=100"));
-        if (!res.ok) {
+        const buildUrl = (page) =>
+          apiPath(
+            `cambridge/submissions?page=${page}&limit=${CAMBRIDGE_REVIEW_PAGE_SIZE}&includeActive=1`
+          );
+
+        const firstRes = await fetch(buildUrl(1));
+        if (!firstRes.ok) {
           throw new Error("Could not load Orange submissions.");
         }
 
-        const data = await res.json();
-        const submissions = Array.isArray(data?.submissions)
-          ? data.submissions
-          : Array.isArray(data)
-          ? data
+        const firstData = await firstRes.json();
+        const firstPageSubmissions = Array.isArray(firstData?.submissions)
+          ? firstData.submissions
+          : Array.isArray(firstData)
+          ? firstData
           : [];
+        const totalPages = Math.max(
+          1,
+          Number(firstData?.pagination?.totalPages) || 1
+        );
+
+        const remainingPages =
+          totalPages > 1
+            ? await Promise.all(
+                Array.from({ length: totalPages - 1 }, (_, index) => index + 2).map(
+                  async (page) => {
+                    const res = await fetch(buildUrl(page));
+                    if (!res.ok) {
+                      throw new Error("Could not load Orange submissions.");
+                    }
+
+                    const data = await res.json();
+                    return Array.isArray(data?.submissions)
+                      ? data.submissions
+                      : Array.isArray(data)
+                      ? data
+                      : [];
+                  }
+                )
+              )
+            : [];
+
+        const submissionsById = new Map();
+        [...firstPageSubmissions, ...remainingPages.flat()].forEach((submission) => {
+          if (!submission?.id) return;
+          submissionsById.set(String(submission.id), submission);
+        });
+
+        const submissions = Array.from(submissionsById.values()).sort((left, right) => {
+          const leftTime = new Date(left?.submittedAt || left?.createdAt || 0).getTime();
+          const rightTime = new Date(right?.submittedAt || right?.createdAt || 0).getTime();
+          return rightTime - leftTime;
+        });
+
         setCambridgeSubmissions(submissions);
       } catch (err) {
         console.error("Failed to load Cambridge submissions:", err);
@@ -374,6 +427,14 @@ const Review = () => {
     const feedback = (cambridgeFeedbackDraftById[submissionId] || "").trim();
     if (!feedback) return;
 
+    const existingFeedback = String(
+      cambridgeDetailsById[submissionId]?.feedback ||
+        cambridgeSubmissions.find((item) => item.id === submissionId)?.feedback ||
+        ""
+    ).trim();
+    const reviewerName =
+      teacher?.name || teacher?.username || teacher?.fullName || "Teacher";
+
     try {
       setCambridgeSavingById((prev) => ({ ...prev, [submissionId]: true }));
 
@@ -382,8 +443,7 @@ const Review = () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           feedback,
-          feedbackBy:
-            teacher?.name || teacher?.username || teacher?.fullName || "Teacher",
+          feedbackBy: reviewerName,
           status: "reviewed",
         }),
       });
@@ -393,26 +453,49 @@ const Review = () => {
         throw new Error(err?.message || "Could not save feedback.");
       }
 
+      const payload = await res.json().catch(() => ({}));
+      const savedFeedbackAt =
+        payload?.submission?.feedbackAt || new Date().toISOString();
+
       setCambridgeSubmissions((prev) =>
         prev.map((item) =>
           item.id === submissionId
             ? {
                 ...item,
                 feedback,
-                feedbackBy:
-                  teacher?.name || teacher?.username || teacher?.fullName || "Teacher",
+                feedbackBy: reviewerName,
+                feedbackAt: savedFeedbackAt,
                 status: "reviewed",
               }
             : item
         )
       );
-      setExpandedCambridge((prev) => {
-        const next = new Set(prev);
-        next.delete(getCambridgeRowKey("cambridge", submissionId));
-        return next;
-      });
+      setCambridgeDetailsById((prev) => ({
+        ...prev,
+        [submissionId]: prev[submissionId]
+          ? {
+              ...prev[submissionId],
+              feedback,
+              feedbackBy: reviewerName,
+              feedbackAt: savedFeedbackAt,
+              status: "reviewed",
+            }
+          : prev[submissionId],
+      }));
+      setCambridgeFeedbackDraftById((prev) => ({
+        ...prev,
+        [submissionId]: feedback,
+      }));
+      setCambridgeStatusById((prev) => ({
+        ...prev,
+        [submissionId]: existingFeedback ? "Feedback updated." : "Feedback saved.",
+      }));
     } catch (err) {
       console.error("Failed to save Cambridge feedback:", err);
+      setCambridgeStatusById((prev) => ({
+        ...prev,
+        [submissionId]: err.message || "Could not save feedback.",
+      }));
       alert(err.message || "Could not save feedback.");
     } finally {
       setCambridgeSavingById((prev) => ({ ...prev, [submissionId]: false }));
@@ -1049,7 +1132,7 @@ const Review = () => {
     },
   ];
 
-  const activeFilters = filtersByTab[activeTab] || cloneReviewFilters();
+  const activeFilters = filtersByTab[activeTab] || getDefaultFiltersForTab(activeTab);
   const activeTotalCount =
     activeTab === "writing"
       ? unreviewedWriting.length
@@ -1086,7 +1169,7 @@ const Review = () => {
     setFiltersByTab((prev) => ({
       ...prev,
       [tabKey]: {
-        ...(prev[tabKey] || cloneReviewFilters()),
+        ...(prev[tabKey] || getDefaultFiltersForTab(tabKey)),
         [field]: value,
       },
     }));
@@ -1095,7 +1178,7 @@ const Review = () => {
   const resetTabFilters = (tabKey) => {
     setFiltersByTab((prev) => ({
       ...prev,
-      [tabKey]: cloneReviewFilters(),
+      [tabKey]: getDefaultFiltersForTab(tabKey),
     }));
   };
 
@@ -1104,7 +1187,11 @@ const Review = () => {
     detail,
     pendingAnswers,
     isLoadingDetail
-  ) => (
+  ) => {
+    const existingFeedback = String(detail?.feedback || sub?.feedback || "").trim();
+    const hasExistingFeedback = existingFeedback.length > 0;
+
+    return (
     <div style={{ display: "grid", gap: isCompactLayout ? 8 : 10 }}>
       {isLoadingDetail && <div>Loading submission details...</div>}
 
@@ -1214,7 +1301,11 @@ const Review = () => {
                   cambridgeAiLoadingById[sub.id]
                 }
               >
-                {cambridgeSavingById[sub.id] ? "Saving..." : "Save Feedback"}
+                {cambridgeSavingById[sub.id]
+                  ? "Saving..."
+                  : hasExistingFeedback
+                  ? "Update Feedback"
+                  : "Save Feedback"}
               </button>
               <span
                 style={{
@@ -1224,7 +1315,9 @@ const Review = () => {
                   lineHeight: 1.45,
                 }}
               >
-                Saving will move this submission to the reviewed state.
+                {hasExistingFeedback
+                  ? "Saving will update the existing feedback and keep this row available for further edits."
+                  : "Saving will mark this submission as reviewed and keep it available in All/Reviewed for later edits."}
               </span>
             </div>
 
@@ -1243,6 +1336,7 @@ const Review = () => {
       )}
     </div>
   );
+  };
 
   const renderFilterToolbar = (tabKey) => (
     <div style={filterPanelStyle(isDarkMode)}>

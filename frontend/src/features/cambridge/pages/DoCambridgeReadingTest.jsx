@@ -29,6 +29,9 @@ import {
 } from "../../../shared/utils/testTiming";
 import "./DoCambridgeReadingTest.css";
 
+const SERVER_AUTOSAVE_INTERVAL_MS = 30000;
+const SERVER_TIMING_RECONCILE_INTERVAL_MS = 15000;
+
 /**
  * DoCambridgeReadingTest - Cambridge Reading Test (Authentic UI)
  * Replicate real Cambridge test interface for KET, PET, FLYERS, etc.
@@ -496,7 +499,7 @@ const DoCambridgeReadingTest = () => {
     };
 
     const debounceId = setTimeout(persistDraft, 600);
-    const intervalId = setInterval(persistDraft, 15000);
+    const intervalId = setInterval(persistDraft, SERVER_AUTOSAVE_INTERVAL_MS);
     const onVisibilityChange = () => {
       if (document.visibilityState === "hidden") persistDraft();
     };
@@ -566,7 +569,10 @@ const DoCambridgeReadingTest = () => {
     if (!started || submitted || !test?.testType) return;
 
     reconcileServerTiming();
-    const intervalId = setInterval(reconcileServerTiming, 5000);
+    const intervalId = setInterval(
+      reconcileServerTiming,
+      SERVER_TIMING_RECONCILE_INTERVAL_MS
+    );
     const onCheck = () => {
       if (document.visibilityState !== "hidden") {
         reconcileServerTiming();

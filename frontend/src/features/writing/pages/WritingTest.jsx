@@ -20,6 +20,9 @@ import ExtensionToast from "../../../shared/components/ExtensionToast";
 import TestStartModal from "../../../shared/components/TestStartModal";
 import InlineIcon from "../../../shared/components/InlineIcon.jsx";
 
+const SERVER_AUTOSAVE_INTERVAL_MS = 30000;
+const SERVER_TIMING_RECONCILE_INTERVAL_MS = 15000;
+
 // ====== STYLE FOR HEADER & MODAL ======
 const writingHeaderStyle = {
   background: "linear-gradient(135deg, #0e276f 0%, #1a3a8f 100%)",
@@ -361,7 +364,7 @@ const WritingTest = () => {
 
     const intervalId = setInterval(() => {
       saveDraftToServer();
-    }, 15000);
+    }, SERVER_AUTOSAVE_INTERVAL_MS);
 
     const onVisibility = () => {
       if (document.visibilityState === "hidden") {
@@ -381,7 +384,10 @@ const WritingTest = () => {
     if (!user?.id || !selectedTestId) return;
 
     reconcileServerTiming();
-    const intervalId = setInterval(reconcileServerTiming, 5000);
+    const intervalId = setInterval(
+      reconcileServerTiming,
+      SERVER_TIMING_RECONCILE_INTERVAL_MS
+    );
     const onCheck = () => {
       if (document.visibilityState !== "hidden") {
         reconcileServerTiming();
