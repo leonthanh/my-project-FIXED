@@ -62,16 +62,24 @@ export const getSubmissionTone = (variant = "pending", isDarkMode = false) => {
   };
 };
 
-export const SubmissionStatCards = ({ stats, containerStyle }) => {
+export const SubmissionStatCards = ({ stats, containerStyle, compact = false }) => {
   const safeStats = Array.isArray(stats) ? stats.filter(Boolean) : [];
   if (!safeStats.length) return null;
+
+  const cardPadding = compact ? "7px 14px" : "8px 18px";
+  const cardRadius = compact ? 10 : 8;
+  const minWidth = compact ? 96 : 110;
+  const valueFont = compact ? 18 : 24;
+  const labelFont = compact ? 11 : 12;
+  const gap = compact ? 8 : 10;
+  const marginBottom = compact ? 14 : 18;
 
   return (
     <div
       style={{
         display: "flex",
-        gap: 10,
-        marginBottom: 18,
+        gap,
+        marginBottom,
         flexWrap: "wrap",
         ...containerStyle,
       }}
@@ -82,17 +90,17 @@ export const SubmissionStatCards = ({ stats, containerStyle }) => {
           style={{
             background: stat.bg,
             border: `1px solid ${stat.border}`,
-            borderRadius: 8,
-            padding: "8px 18px",
-            minWidth: 110,
+            borderRadius: cardRadius,
+            padding: cardPadding,
+            minWidth,
             textAlign: "center",
             cursor: "default",
           }}
         >
-          <div style={{ fontSize: 24, fontWeight: 700, color: stat.color }}>
+          <div style={{ fontSize: valueFont, fontWeight: 700, color: stat.color, lineHeight: 1.1 }}>
             {stat.count}
           </div>
-          <div style={{ fontSize: 12, color: stat.color, opacity: 0.85 }}>
+          <div style={{ fontSize: labelFont, color: stat.color, opacity: 0.85 }}>
             {stat.label}
           </div>
         </div>

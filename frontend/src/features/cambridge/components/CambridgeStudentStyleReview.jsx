@@ -990,6 +990,9 @@ function PeopleMatchingReview({ question, partIdx, secIdx, sectionStart, answers
 }
 
 function GapMatchReview({ question, partIdx, secIdx, sectionStart, answers, detailedResults }) {
+  const studentTitle = String(question?.studentTitle || '').trim();
+  const exampleText = String(question?.exampleText || '').trim();
+  const exampleAnswer = String(question?.exampleAnswer || '').trim();
   const leftItems = Array.isArray(question?.leftItems) ? question.leftItems : [];
   const options = Array.isArray(question?.options) ? question.options : [];
   const correctAnswers = Array.isArray(question?.correctAnswers) ? question.correctAnswers : [];
@@ -997,7 +1000,23 @@ function GapMatchReview({ question, partIdx, secIdx, sectionStart, answers, deta
   return (
     <div style={styles.twoColumn}>
       <div style={styles.asideCard}>
+        {studentTitle ? (
+          <div style={{ marginBottom: 12, textAlign: 'center', fontSize: 18, fontWeight: 800, lineHeight: 1.25, color: '#7c3aed' }}>
+            {studentTitle}
+          </div>
+        ) : null}
         <h5 style={styles.asideTitle}>{question?.leftTitle || 'Prompts'}</h5>
+        {(exampleText || exampleAnswer) ? (
+          <div style={{ ...styles.reviewRowCard, marginBottom: 12, borderStyle: 'dashed', background: '#f8fafc' }}>
+            <div style={styles.reviewRowHeader}>
+              <span style={{ ...styles.reviewNumber, background: '#dbeafe', color: '#1d4ed8' }}>Ex</span>
+              <h5 style={styles.reviewTitle}>{exampleText || 'Example'}</h5>
+              <span style={{ ...styles.answerValue, background: '#dcfce7', color: '#166534', borderColor: '#22c55e' }}>
+                {exampleAnswer || '—'}
+              </span>
+            </div>
+          </div>
+        ) : null}
         <div style={styles.reviewRows}>
           {leftItems.map((item, idx) => {
             const answerKey = `${partIdx}-${secIdx}-0-${idx}`;

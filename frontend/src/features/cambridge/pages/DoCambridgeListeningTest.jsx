@@ -1920,11 +1920,11 @@ const DoCambridgeListeningTest = () => {
       {showGlobalAudioBar && (
         <div
           className="cambridge-global-audio"
-          style={{ padding: '10px 24px', background: isDarkMode ? '#111827' : '#f8fafc', borderBottom: `1px solid ${isDarkMode ? '#2a3350' : '#e5e7eb'}` }}
+          style={{ padding: '6px 16px', background: isDarkMode ? '#111827' : '#f8fafc', borderBottom: `1px solid ${isDarkMode ? '#2a3350' : '#e5e7eb'}` }}
         >
-          <div style={styles.audioContainer}>
-            <InlineIcon name="listening" size={18} style={{ marginRight: '12px', color: isDarkMode ? '#e2e8f0' : '#0f172a' }} />
-            <div style={{ flex: 1, fontSize: 14, color: isDarkMode ? '#e5e7eb' : '#0f172a' }}>
+          <div style={{ ...styles.audioContainer, padding: '8px 10px', marginBottom: 0, borderRadius: '10px' }}>
+            <InlineIcon name="listening" size={14} style={{ marginRight: '8px', color: isDarkMode ? '#e2e8f0' : '#0f172a' }} />
+            <div style={{ flex: 1, fontSize: 12.5, color: isDarkMode ? '#e5e7eb' : '#0f172a', lineHeight: 1.3 }}>
               Global audio is ready for this test.
             </div>
             <div
