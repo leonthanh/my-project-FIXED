@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import InlineIcon from '../../InlineIcon.jsx';
 import { hostPath } from '../../../utils/api';
 
 /** Animated picture-bank card for MatchingPictures */
@@ -309,7 +310,7 @@ const MatchingPicturesDisplay = ({
               usedAtIdx={usedAtIdx}
               onDragStart={(e) => {
                 if (submitted || isExample) return;
-                e.dataTransfer.setData('text/plain', choice.id);
+                e.dataTransfer.setData('text/plain', String(choice.id));
               }}
               onClick={() => {
                 if (submitted || isExample) return;
