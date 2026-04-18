@@ -1,4 +1,5 @@
 import React, { useState, useCallback } from "react";
+import InlineIcon from '../../InlineIcon.jsx';
 import { hostPath } from "../../../utils/api";
 
 /** Animated individual card in the picture bank */
@@ -72,6 +73,8 @@ const resolveImg = (url) => {
   return s;
 };
 
+const normalizeImageId = (value) => String(value ?? "").trim();
+
 /**
  * Strip HTML tags từ ReactQuill output nhưng GIỮ LẠI vị trí blank (1)(2)...
  * Trả về plain text để parsePassage có thể tách blank slots.
@@ -131,26 +134,28 @@ export default function ImageClozeDisplay({
   const blanks = extractBlanks(htmlToPlainWithBlanks(passageText));
 
   // Which images are already placed (excluding example)
-  const placedIds = blanks.map((n) => answers[blankKey(n)]).filter(Boolean);
+  const placedIds = blanks.map((n) => normalizeImageId(answers[blankKey(n)])).filter(Boolean);
 
   // Image in bank
   const getPlacedImg = (blankN) => {
-    const id = answers[blankKey(blankN)];
-    return id ? imageBank.find((img) => img.id === id) : null;
+    const id = normalizeImageId(answers[blankKey(blankN)]);
+    return id ? imageBank.find((img) => normalizeImageId(img.id) === id) : null;
   };
 
   // Place selected / dragged image into blank
   const placeImage = useCallback(
-    (blankN, imgId) => {
+    (blankN, rawImgId) => {
+      const imgId = normalizeImageId(rawImgId);
       if (submitted) return;
+      if (!imgId) return;
       // If blank already has this image, clear it
-      if (answers[blankKey(blankN)] === imgId) {
+      if (normalizeImageId(answers[blankKey(blankN)]) === imgId) {
         onAnswerChange(blankKey(blankN), "");
         return;
       }
       // If that image was elsewhere, clear it first
       blanks.forEach((n) => {
-        if (answers[blankKey(n)] === imgId) {
+        if (normalizeImageId(answers[blankKey(n)]) === imgId) {
           onAnswerChange(blankKey(n), "");
         }
       });
@@ -162,7 +167,7 @@ export default function ImageClozeDisplay({
 
   // Drag handlers
   const handleImgDragStart = (e, imgId) => {
-    e.dataTransfer.setData("imgId", imgId);
+    e.dataTransfer.setData("imgId", normalizeImageId(imgId));
     e.dataTransfer.effectAllowed = "move";
   };
   const handleBlankDragOver = (e, blankN) => {
@@ -172,7 +177,7 @@ export default function ImageClozeDisplay({
   };
   const handleBlankDrop = (e, blankN) => {
     e.preventDefault();
-    const imgId = e.dataTransfer.getData("imgId");
+    const imgId = normalizeImageId(e.dataTransfer.getData("imgId"));
     if (imgId) placeImage(blankN, imgId);
     setDragOverBlank(null);
   };
@@ -181,7 +186,8 @@ export default function ImageClozeDisplay({
   // Click-to-place: click image → select; click blank → place
   const handleImgClick = (img) => {
     if (submitted || img.isExample) return;
-    setEffectiveSelectedImgId(effectiveSelectedImgId === img.id ? null : img.id);
+    const imgId = normalizeImageId(img.id);
+    setEffectiveSelectedImgId(normalizeImageId(effectiveSelectedImgId) === imgId ? null : imgId);
   };
   const handleBlankClick = (blankN) => {
     if (submitted) return;
@@ -236,8 +242,9 @@ export default function ImageClozeDisplay({
 
   // ── Image bank grid (shared between "full" and "picturebank" modes) ──────────
   const imageBankGrid = imageBank.map((img) => {
-    const isPlaced = placedIds.includes(img.id);
-    const isSelected = effectiveSelectedImgId === img.id;
+    const imgId = normalizeImageId(img.id);
+    const isPlaced = placedIds.includes(imgId);
+    const isSelected = normalizeImageId(effectiveSelectedImgId) === imgId;
     const isExample = img.isExample;
     return (
       <ImageBankItem
@@ -247,7 +254,7 @@ export default function ImageClozeDisplay({
         isSelected={isSelected}
         isExample={isExample}
         submitted={submitted}
-        onDragStart={(e) => handleImgDragStart(e, img.id)}
+        onDragStart={(e) => handleImgDragStart(e, imgId)}
         onClick={() => handleImgClick(img)}
       >
         {img.url ? (
@@ -478,7 +485,7 @@ export default function ImageClozeDisplay({
                   {/* After submit: show correct answer if wrong */}
                   {submitted && correct === false && correctAnswers[String(n)] && (
                     <div style={{ marginTop: "3px", fontSize: "10px", color: "#15803d", fontWeight: 600 }}>
-                      Đáp án đúng: {imageBank.find((img) => img.id === correctAnswers[String(n)])?.word}
+                      Đáp án đúng: {imageBank.find((img) => normalizeImageId(img.id) === normalizeImageId(correctAnswers[String(n)]))?.word}
                     </div>
                   )}
                 </span>
