@@ -9,6 +9,7 @@ const cors = require("cors");
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const cookieParser = require('cookie-parser');
+const jwt = require('jsonwebtoken');
 const pinoHttp = require('pino-http');
 
 const loggerModule = require('./logger');
@@ -16,6 +17,81 @@ const logger = loggerModule?.logger || loggerModule?.default || loggerModule || 
 const { notFound, errorHandler } = require('./middlewares/errorHandler');
 
 const app = express();
+
+const parsePositiveInt = (value, fallback) => {
+  const parsed = Number.parseInt(String(value || ''), 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+};
+
+const normalizeLimiterValue = (value) => {
+  const normalized = String(value ?? '').trim();
+  return normalized ? normalized : null;
+};
+
+const decodeBearerSubject = (req) => {
+  const header = normalizeLimiterValue(req.headers?.authorization);
+  if (!header) return null;
+
+  const [type, token] = header.split(' ');
+  if (String(type).toLowerCase() !== 'bearer' || !token) return null;
+
+  try {
+    const payload = jwt.decode(token);
+    return normalizeLimiterValue(payload?.sub);
+  } catch {
+    return null;
+  }
+};
+
+const extractApiRateLimitKey = (req) => {
+  const decodedSubject = decodeBearerSubject(req);
+  if (decodedSubject) return `user:${decodedSubject}`;
+
+  const body = req.body && typeof req.body === 'object' ? req.body : {};
+  const bodyUser = body.user && typeof body.user === 'object' ? body.user : {};
+  const query = req.query || {};
+
+  const userId = normalizeLimiterValue(
+    query.userId || body.userId || bodyUser.id
+  );
+  if (userId) return `user:${userId}`;
+
+  const submissionId = normalizeLimiterValue(
+    query.submissionId || body.submissionId
+  );
+  if (submissionId) return `submission:${submissionId}`;
+
+  const phone = normalizeLimiterValue(
+    query.phone || body.phone || body.studentPhone || bodyUser.phone
+  );
+  if (phone) return `phone:${phone}`;
+
+  return `ip:${req.ip || req.socket?.remoteAddress || 'unknown'}`;
+};
+
+const resolveTrustProxy = () => {
+  const raw = String(process.env.TRUST_PROXY || '').trim();
+  if (!raw) return 1;
+
+  const normalized = raw.toLowerCase();
+  if (normalized === 'true') return true;
+  if (normalized === 'false') return false;
+
+  const parsed = Number.parseInt(raw, 10);
+  return Number.isFinite(parsed) ? parsed : raw;
+};
+
+const apiRateLimiter = rateLimit({
+  windowMs: parsePositiveInt(process.env.API_RATE_LIMIT_WINDOW_MS, 60 * 1000),
+  limit: parsePositiveInt(process.env.API_RATE_LIMIT_MAX, 600),
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  keyGenerator: extractApiRateLimitKey,
+  skip: (req) => req.method === 'OPTIONS',
+  handler: (_req, res) => {
+    res.status(429).json({ message: 'Too many requests. Please try again later.' });
+  },
+});
 
 // Friendly startup logs (hide secrets)
 const envSnapshot = {
@@ -190,19 +266,13 @@ app.use(
 );
 
 // cPanel/Passenger chạy sau reverse proxy — cần trust proxy để rate-limit dùng IP thật
-app.set('trust proxy', 1);
-
-app.use(
-  rateLimit({
-    windowMs: 60 * 1000,
-    limit: 600,
-    standardHeaders: 'draft-7',
-    legacyHeaders: false,
-  })
-);
+app.set('trust proxy', resolveTrustProxy());
 
 app.use(express.json({ limit: '50mb' })); // Tăng limit để support base64 images
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
+
+// Only throttle API requests so frontend HTML/static assets do not fail with plain-text 429 pages.
+app.use('/api', apiRateLimiter);
 
 // ✅ Serve ảnh tĩnh
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));

@@ -23,6 +23,9 @@ import { OpenClozeSectionDisplay, GapMatchSectionDisplay } from "../components/C
 import createStyles from "./DoCambridgeListeningTest.styles";
 import './DoCambridgeReadingTest.css';
 
+const SERVER_AUTOSAVE_INTERVAL_MS = 30000;
+const SERVER_TIMING_RECONCILE_INTERVAL_MS = 15000;
+
 const InlineIcon = ({ name, size = 16, strokeWidth = 2, style }) => (
   <span
     aria-hidden="true"
@@ -671,7 +674,7 @@ const DoCambridgeListeningTest = () => {
     };
 
     const debounceId = setTimeout(persistDraft, 700);
-    const intervalId = setInterval(persistDraft, 15000);
+    const intervalId = setInterval(persistDraft, SERVER_AUTOSAVE_INTERVAL_MS);
     const onVisibilityChange = () => {
       if (document.visibilityState === "hidden") persistDraft();
     };
@@ -743,7 +746,10 @@ const DoCambridgeListeningTest = () => {
     if (!testStarted || submitted || !test?.testType) return;
 
     reconcileServerTiming();
-    const intervalId = setInterval(reconcileServerTiming, 5000);
+    const intervalId = setInterval(
+      reconcileServerTiming,
+      SERVER_TIMING_RECONCILE_INTERVAL_MS
+    );
     const onCheck = () => {
       if (document.visibilityState !== "hidden") {
         reconcileServerTiming();
