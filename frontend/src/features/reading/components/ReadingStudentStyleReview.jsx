@@ -13,7 +13,7 @@ import {
   normalizeQuestionType,
   resolveQuestionStartNumber,
 } from "../utils/questionHelpers";
-import "../styles/do-reading-test.css";
+import "../styles/ReadingTestRuntime.css";
 
 const feedbackStyles = {
   container: {

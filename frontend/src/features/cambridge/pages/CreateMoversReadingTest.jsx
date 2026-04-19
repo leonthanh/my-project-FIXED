@@ -1,5 +1,5 @@
 import React from "react";
-import CambridgeTestBuilder from "../CambridgeTestBuilder";
+import { CreateMoversReadingPage } from "../../../domains/cambridge/movers/reading";
 
 /**
  * CreateMoversReadingTest - Trang tạo đề Cambridge Movers Reading & Writing
@@ -7,7 +7,7 @@ import CambridgeTestBuilder from "../CambridgeTestBuilder";
  * Hỗ trợ các question types: matching-pictures, image-cloze, fill, abc, cloze-mc, word-form, short-message
  */
 const CreateMoversReadingTest = () => {
-  return <CambridgeTestBuilder testType="movers" resetDraftOnLoad />;
+  return <CreateMoversReadingPage />;
 };
 
 export default CreateMoversReadingTest;

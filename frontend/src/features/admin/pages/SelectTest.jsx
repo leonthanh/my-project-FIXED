@@ -5,60 +5,33 @@ import AdminNavbar from "../../../shared/components/AdminNavbar";
 import LineIcon from "../../../shared/components/LineIcon.jsx";
 import { apiPath } from "../../../shared/utils/api";
 import { canManageCategory } from "../../../shared/utils/permissions";
-import { TEST_CONFIGS } from "../../../shared/config/questionTypes";
+import {
+  DEFAULT_IX_SKILL,
+  IX_SKILLS,
+  SKILL_META,
+} from '../../../domains/ix/config/skills';
+import {
+  DEFAULT_ORANGE_SKILL,
+  DEFAULT_ORANGE_TYPE,
+  getOrangeAllowedSkills,
+  getOrangeLevelMeta,
+  ORANGE_LEVELS,
+} from '../../../domains/cambridge/config/levels';
+import {
+  getOrangeCreatePath,
+  getOrangeEditPath,
+  getOrangeHubStateForTestType,
+  getOrangeStudentPath,
+  getOrangeTestConfig,
+  matchesOrangeTestType,
+} from '../../../domains/cambridge/config/navigation';
+import {
+  PLATFORM_TABS,
+  buildSelectTestPath,
+  parseSelectTestSearch,
+} from "../../../shared/config/examRegistry";
 
 import "./SelectTest.css";
-
-const ORANGE_TYPES = ["ket", "pet", "flyers", "movers", "starters"];
-const ORANGE_TYPE_NAMES = {
-  ket: "KET (A2 Key)",
-  pet: "PET (B1 Preliminary)",
-  flyers: "Flyers (A2)",
-  movers: "Movers (A1)",
-  starters: "Starters (Pre-A1)",
-};
-const ORANGE_TYPE_CARD_LABELS = {
-  ket: "KET",
-  pet: "PET",
-  flyers: "Flyers",
-  movers: "Movers",
-  starters: "Starters",
-};
-const ORANGE_TYPE_ICONS = {
-  ket: "orange",
-  pet: "pet",
-  flyers: "flyers",
-  movers: "movers",
-  starters: "starters",
-};
-const PLATFORM_TABS = [
-  { key: "ix", label: "IX", icon: "tests", hint: "Focused IELTS-style skills." },
-  { key: "orange", label: "Orange", icon: "orange", hint: "Cambridge levels grouped cleanly." },
-];
-const IX_TABS = [
-  { key: "writing", label: "Writing", icon: "writing", hint: "Essays and teacher review." },
-  { key: "reading", label: "Reading", icon: "reading", hint: "Timed passages and matching." },
-  { key: "listening", label: "Listening", icon: "listening", hint: "Audio-first practice." },
-];
-const SKILL_META = {
-  writing: { label: "Writing", icon: "writing", hint: "Draft and submit." },
-  reading: { label: "Reading", icon: "reading", hint: "Passages and timed practice." },
-  listening: { label: "Listening", icon: "listening", hint: "Audio drills." },
-};
-
-const ORANGE_READING_CREATE_ROUTE_TYPES = new Set(["flyers", "movers", "starters"]);
-
-const getOrangeCreatePath = (testType, skill) => {
-  if (skill === "writing") {
-    return "/admin/create-pet-writing";
-  }
-
-  if (skill === "reading" && ORANGE_READING_CREATE_ROUTE_TYPES.has(testType)) {
-    return `/admin/create/${testType}`;
-  }
-
-  return `/admin/create-${testType}-${skill}`;
-};
 
 const SelectTest = () => {
   let user = null;
@@ -77,9 +50,9 @@ const SelectTest = () => {
     cambridge: [],
   });
   const [activePlatform, setActivePlatform] = useState("ix");
-  const [activeIxTab, setActiveIxTab] = useState("writing");
-  const [activeOrangeType, setActiveOrangeType] = useState("ket");
-  const [activeOrangeTab, setActiveOrangeTab] = useState("listening");
+  const [activeIxTab, setActiveIxTab] = useState(DEFAULT_IX_SKILL);
+  const [activeOrangeType, setActiveOrangeType] = useState(DEFAULT_ORANGE_TYPE);
+  const [activeOrangeTab, setActiveOrangeTab] = useState(DEFAULT_ORANGE_SKILL);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [sortMode, setSortMode] = useState("newest");
@@ -89,29 +62,14 @@ const SelectTest = () => {
 
   const updateSelectRoute = (next = {}) => {
     const nextPlatform = next.platform || activePlatform || "ix";
-    const params = new URLSearchParams();
 
-    if (nextPlatform === "orange") {
-      const nextType = ORANGE_TYPES.includes(next.type) ? next.type : activeOrangeType || "ket";
-      const allowedOrangeTabs = nextType === "pet"
-        ? ["listening", "reading", "writing"]
-        : ["listening", "reading"];
-      const requestedOrangeTab = next.tab || activeOrangeTab || "listening";
-      const nextTab = allowedOrangeTabs.includes(requestedOrangeTab) ? requestedOrangeTab : "listening";
-
-      params.set("platform", "orange");
-      params.set("type", nextType);
-      params.set("tab", nextTab);
-    } else {
-      const nextTab = ["writing", "reading", "listening"].includes(next.tab)
-        ? next.tab
-        : activeIxTab || "writing";
-
-      params.set("platform", "ix");
-      params.set("tab", nextTab);
-    }
-
-    navigate(`/select-test?${params.toString()}`);
+    navigate(buildSelectTestPath({
+      platform: nextPlatform,
+      type: next.type || activeOrangeType || DEFAULT_ORANGE_TYPE,
+      tab: nextPlatform === "orange"
+        ? next.tab || activeOrangeTab || DEFAULT_ORANGE_SKILL
+        : next.tab || activeIxTab || DEFAULT_IX_SKILL,
+    }));
   };
 
   useEffect(() => {
@@ -165,22 +123,12 @@ const SelectTest = () => {
   }, [isTeacher]);
 
   useEffect(() => {
-    const params = new URLSearchParams(location.search);
-    const rawPlatform = params.get("platform");
-    const rawType = params.get("type");
-    const rawTab = params.get("tab");
-    const nextPlatform = rawPlatform === "orange" ? "orange" : "ix";
-    const nextIxTab = ["writing", "reading", "listening"].includes(rawTab) ? rawTab : "writing";
-    const nextOrangeType = ORANGE_TYPES.includes(rawType) ? rawType : "ket";
-    const allowedOrangeTabs = nextOrangeType === "pet"
-      ? ["listening", "reading", "writing"]
-      : ["listening", "reading"];
-    const nextOrangeTab = allowedOrangeTabs.includes(rawTab) ? rawTab : "listening";
+    const nextState = parseSelectTestSearch(location.search);
 
-    setActivePlatform(nextPlatform);
-    setActiveIxTab(nextIxTab);
-    setActiveOrangeType(nextOrangeType);
-    setActiveOrangeTab(nextOrangeTab);
+    setActivePlatform(nextState.platform);
+    setActiveIxTab(nextState.ixTab);
+    setActiveOrangeType(nextState.orangeType);
+    setActiveOrangeTab(nextState.orangeTab);
   }, [location.search]);
 
   useEffect(() => {
@@ -223,15 +171,9 @@ const SelectTest = () => {
       navigate("/pet-writing");
       return;
     }
-    // Navigate with testType for proper config loading
-    // testType format: "ket-reading", "pet-listening", etc.
     const rawTestType = String(test.testType || 'ket-reading').toLowerCase();
-    const category = String(test.category || 'reading').toLowerCase();
-    const hasSkillSuffix = rawTestType.includes('-reading') || rawTestType.includes('-listening');
-    const resolvedTestType = hasSkillSuffix ? rawTestType : `${rawTestType}-${category}`;
-    
-    // Use testType-based URL for proper config
-    navigate(`/cambridge/${resolvedTestType}/${test.id}`);
+    const { type, tab } = getOrangeHubStateForTestType(rawTestType);
+    navigate(getOrangeStudentPath(type, tab, test.id));
   };
 
   const handleEdit = (testId, testType, test = null) => {
@@ -250,12 +192,9 @@ const SelectTest = () => {
         navigate(`/admin/edit-pet-writing/${testId}`);
         return;
       }
-      // Navigate based on category
-      if (test.category === 'listening') {
-        navigate(`/cambridge/listening/${testId}/edit`);
-      } else {
-        navigate(`/cambridge/reading/${testId}/edit`);
-      }
+      const rawTestType = String(test.testType || '').toLowerCase();
+      const { type, tab } = getOrangeHubStateForTestType(rawTestType);
+      navigate(getOrangeEditPath(type, tab, testId));
     }
   };
 
@@ -326,11 +265,7 @@ const SelectTest = () => {
   };
 
   const orangeFilteredByType = useMemo(() => {
-    return (tests.cambridge || []).filter((test) => {
-      const testTypeRaw = String(test?.testType || "").toLowerCase();
-      if (testTypeRaw === "pet-writing") return activeOrangeType === "pet";
-      return testTypeRaw === activeOrangeType || testTypeRaw.startsWith(`${activeOrangeType}-`);
-    });
+    return (tests.cambridge || []).filter((test) => matchesOrangeTestType(activeOrangeType, test?.testType));
   }, [tests.cambridge, activeOrangeType]);
 
   const orangeCounts = useMemo(() => {
@@ -341,30 +276,22 @@ const SelectTest = () => {
   }, [orangeFilteredByType]);
 
   const orangeTypeCounts = useMemo(() => {
-    return ORANGE_TYPES.reduce((acc, type) => {
-      acc[type] = (tests.cambridge || []).filter((test) => {
-        const testTypeRaw = String(test?.testType || "").toLowerCase();
-        if (testTypeRaw === "pet-writing") return type === "pet";
-        return testTypeRaw === type || testTypeRaw.startsWith(`${type}-`);
-      }).length;
+    return ORANGE_LEVELS.reduce((acc, type) => {
+      acc[type.id] = (tests.cambridge || []).filter((test) => matchesOrangeTestType(type.id, test?.testType)).length;
       return acc;
     }, {});
   }, [tests.cambridge]);
 
   const orangeSkillTabs = useMemo(
-    () => [
-      { key: "listening", label: "Listening", count: orangeCounts.listening, icon: "listening" },
-      { key: "reading", label: "Reading", count: orangeCounts.reading, icon: "reading" },
-      ...(activeOrangeType === "pet"
-        ? [{ key: "writing", label: "Writing", count: orangeCounts.writing, icon: "writing" }]
-        : []),
-    ],
+    () => getOrangeAllowedSkills(activeOrangeType).map((skill) => ({
+      key: skill,
+      label: SKILL_META[skill]?.label || skill,
+      count: orangeCounts[skill] || 0,
+      icon: SKILL_META[skill]?.icon || skill,
+    })),
     [activeOrangeType, orangeCounts]
   );
-  const orangeConfig = useMemo(() => {
-    const key = activeOrangeTab === "writing" ? "pet-writing" : `${activeOrangeType}-${activeOrangeTab}`;
-    return TEST_CONFIGS[key] || TEST_CONFIGS[activeOrangeType] || {};
-  }, [activeOrangeTab, activeOrangeType]);
+  const orangeConfig = useMemo(() => getOrangeTestConfig(activeOrangeType, activeOrangeTab), [activeOrangeTab, activeOrangeType]);
 
   const ixTotalCount = (tests.writing?.length || 0) + (tests.reading?.length || 0) + (tests.listening?.length || 0);
   const orangeTotalCount = tests.cambridge?.length || 0;
@@ -398,18 +325,17 @@ const SelectTest = () => {
   const visibleList = activeList.slice(0, visibleCount);
   const remainingCount = Math.max(0, activeList.length - visibleList.length);
   const canManageCurrentSelection = canManageCategory(user, currentContext.categoryForPermission);
+  const activeOrangeLevel = getOrangeLevelMeta(activeOrangeType);
   const currentSkillInfo = SKILL_META[activePlatform === "ix" ? activeIxTab : activeOrangeTab] || SKILL_META.reading;
   const currentShelfTitle = activePlatform === "ix"
     ? `IX ${currentSkillInfo.label}`
-    : `${ORANGE_TYPE_NAMES[activeOrangeType]} • ${currentSkillInfo.label}`;
+    : `${activeOrangeLevel.name} • ${currentSkillInfo.label}`;
   const orangeCreatePath = getOrangeCreatePath(activeOrangeType, activeOrangeTab);
-  const orangeCreateLabel = `Create ${activeOrangeType.toUpperCase()} ${
-    SKILL_META[activeOrangeTab]?.label || activeOrangeTab
-  } Test`;
+  const orangeCreateLabel = `Create ${activeOrangeLevel.shortLabel} ${currentSkillInfo.label} Test`;
   const heroTags = [
     {
-      icon: activePlatform === "orange" ? ORANGE_TYPE_ICONS[activeOrangeType] || "orange" : "tests",
-      label: activePlatform === "orange" ? ORANGE_TYPE_CARD_LABELS[activeOrangeType] : "IX",
+      icon: activePlatform === "orange" ? activeOrangeLevel.iconName || "orange" : "tests",
+      label: activePlatform === "orange" ? activeOrangeLevel.shortLabel : "IX",
     },
     { icon: currentSkillInfo.icon, label: currentSkillInfo.label },
     { icon: "tests", label: `${activeList.length} test${activeList.length === 1 ? "" : "s"}` },
@@ -484,7 +410,7 @@ const SelectTest = () => {
                   </div>
 
                   <div className="select-test-pillRow">
-                    {IX_TABS.map((tab) => (
+                    {IX_SKILLS.map((tab) => (
                       <button
                         key={tab.key}
                         onClick={() => updateSelectRoute({ platform: "ix", tab: tab.key })}
@@ -508,23 +434,23 @@ const SelectTest = () => {
                     </div>
 
                     <div className="select-test-pillRow select-test-pillRow--levels">
-                      {ORANGE_TYPES.map((type) => (
+                      {ORANGE_LEVELS.map((type) => (
                         <button
-                          key={type}
+                          key={type.id}
                           onClick={() =>
                             updateSelectRoute({
                               platform: "orange",
-                              type,
-                              tab: type !== "pet" && activeOrangeTab === "writing" ? "listening" : activeOrangeTab,
+                              type: type.id,
+                              tab: activeOrangeTab,
                             })
                           }
-                          className={`select-test-pillButton select-test-pillButton--${type}${activeOrangeType === type ? " active" : ""}`}
+                          className={`select-test-pillButton select-test-pillButton--${type.id}${activeOrangeType === type.id ? " active" : ""}`}
                         >
                           <span className="select-test-skillIcon" aria-hidden="true">
-                            <LineIcon name={ORANGE_TYPE_ICONS[type] || "orange"} size={16} />
+                            <LineIcon name={type.iconName || "orange"} size={16} />
                           </span>
-                          <span className="select-test-pillLabel">{ORANGE_TYPE_CARD_LABELS[type] || ORANGE_TYPE_NAMES[type] || type.toUpperCase()}</span>
-                          <span className="select-test-pillCount">{orangeTypeCounts[type] ?? 0}</span>
+                          <span className="select-test-pillLabel">{type.shortLabel || type.name}</span>
+                          <span className="select-test-pillCount">{orangeTypeCounts[type.id] ?? 0}</span>
                         </button>
                       ))}
                     </div>
@@ -553,7 +479,7 @@ const SelectTest = () => {
                     </div>
 
                     <div className="select-test-shelfMeta">
-                      <span className="select-test-shelfMetaItem">{activeOrangeType.toUpperCase()}</span>
+                      <span className="select-test-shelfMetaItem">{activeOrangeLevel.shortLabel}</span>
                       <span className="select-test-shelfMetaItem">{orangeConfig.totalQuestions || "?"} Q</span>
                       <span className="select-test-shelfMetaItem">{orangeConfig.duration || "?"} min</span>
                     </div>
@@ -643,7 +569,7 @@ const SelectTest = () => {
                     const classCode = test.classCode || "N/A";
                     const teacherName = test.teacherName || "N/A";
                     const displayTitle = SKILL_META[activeOrangeTab]?.label || "Orange";
-                    const orangeCardTitle = test.title || `${activeOrangeType.toUpperCase()} ${displayTitle}`;
+                    const orangeCardTitle = test.title || `${activeOrangeLevel.shortLabel} ${displayTitle}`;
 
                     return (
                       <div

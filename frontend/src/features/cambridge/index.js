@@ -1,5 +1,5 @@
 // Cambridge Tests Feature exports
-export { default as CambridgeTestBuilder } from './CambridgeTestBuilder';
+export { default as CambridgeTestBuilder } from '../../domains/cambridge/shared/components/CambridgeTestBuilder';
 
 // Pages
 export { 

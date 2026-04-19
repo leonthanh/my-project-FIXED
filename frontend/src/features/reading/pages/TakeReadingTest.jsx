@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import "../../../shared/styles/take-test.css";
+import "../../../shared/styles/StudentTestShell.css";
 import InlineIcon from "../../../shared/components/InlineIcon.jsx";
 import { normalizeQuestionType } from "../utils/questionHelpers";
 import { apiPath } from "../../../shared/utils/api";

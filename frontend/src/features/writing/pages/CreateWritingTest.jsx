@@ -5,7 +5,7 @@ import AdminNavbar from "../../../shared/components/AdminNavbar";
 import InlineIcon from "../../../shared/components/InlineIcon.jsx";
 import { apiPath, authFetch, redirectToLogin } from "../../../shared/utils/api";
 
-import "./CreateWritingTest.css";
+import "../../../shared/styles/WritingEditorForm.css";
 
 const quillModules = {
   toolbar: [

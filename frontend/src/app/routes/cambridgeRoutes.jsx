@@ -1,0 +1,1 @@
+export { buildCambridgeRoutes } from '../../domains/cambridge/routes';

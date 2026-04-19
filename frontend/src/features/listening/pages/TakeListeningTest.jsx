@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import StudentNavbar from "../../../shared/components/StudentNavbar";
 import InlineIcon from "../../../shared/components/InlineIcon.jsx";
-import "../../../shared/styles/take-test.css";
+import "../../../shared/styles/StudentTestShell.css";
 import { apiPath, hostPath } from "../../../shared/utils/api";
 
 const TakeListeningTest = () => {

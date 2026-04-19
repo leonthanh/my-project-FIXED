@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { apiPath, hostPath, clearAuth } from "../utils/api";
+import { IX_HUB_PATH, ORANGE_HUB_PATH } from "../config/examRegistry";
 import ThemeToggle from "./ThemeToggle";
 import "./StudentNavbar.css";
 
@@ -374,8 +375,8 @@ const StudentNavbar = () => {
     navigate('/login');
   };
 
-  const ixHubPath = "/select-test?platform=ix&tab=writing";
-  const orangeHubPath = "/select-test?platform=orange&type=ket&tab=listening";
+  const ixHubPath = IX_HUB_PATH;
+  const orangeHubPath = ORANGE_HUB_PATH;
 
   const getPreferredMobileTab = () => {
     const pathname = String(location.pathname || "").toLowerCase();

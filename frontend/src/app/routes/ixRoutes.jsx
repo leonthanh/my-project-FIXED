@@ -1,0 +1,1 @@
+export { buildIxRoutes } from '../../domains/ix/routes';

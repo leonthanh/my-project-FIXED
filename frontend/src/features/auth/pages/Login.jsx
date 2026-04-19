@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import "../../../shared/styles/Login.css";
+import "../../../shared/styles/LoginPage.css";
 import LineIcon from "../../../shared/components/LineIcon";
 import {
   API_BASE,
