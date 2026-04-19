@@ -278,6 +278,21 @@ function App() {
             <CreateMoversListeningTest />
           </ProtectedRoute>
         } />
+        <Route path="/admin/create-flyers-reading" element={
+          <ProtectedRoute role="teacher">
+            <Navigate to="/admin/create/flyers" replace />
+          </ProtectedRoute>
+        } />
+        <Route path="/admin/create-movers-reading" element={
+          <ProtectedRoute role="teacher">
+            <Navigate to="/admin/create/movers" replace />
+          </ProtectedRoute>
+        } />
+        <Route path="/admin/create-starters-reading" element={
+          <ProtectedRoute role="teacher">
+            <Navigate to="/admin/create/starters" replace />
+          </ProtectedRoute>
+        } />
         <Route path="/admin/create/movers" element={
           <ProtectedRoute role="teacher">
             <CreateMoversReadingTest />

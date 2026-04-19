@@ -63,6 +63,17 @@ const SelectCambridgeTest = () => {
 
   // Types where reading tests are stored with just the base name (no '-reading' suffix)
   const BASE_TYPE_ONLY = ['movers', 'flyers', 'starters'];
+  const getCreatePath = (testType, skill) => {
+    if (skill === "writing") {
+      return "/admin/create-pet-writing";
+    }
+
+    if (skill === "reading" && BASE_TYPE_ONLY.includes(testType)) {
+      return `/admin/create/${testType}`;
+    }
+
+    return `/admin/create-${testType}-${skill}`;
+  };
 
   useEffect(() => {
     if (shouldRedirectToUnifiedOrangeHub) return undefined;
@@ -196,11 +207,7 @@ const SelectCambridgeTest = () => {
           </p>
           {canManageCategory(user, testType) && (
             <button
-              onClick={() =>
-                testType === "writing"
-                  ? navigate("/admin/create-pet-writing")
-                  : navigate(`/admin/create-${activeTestType}-${testType}`)
-              }
+              onClick={() => navigate(getCreatePath(activeTestType, testType))}
               className="cambridge-btn cambridge-btn--success"
             >
               <SelectOrangeIcon name="create" />
@@ -348,11 +355,7 @@ const SelectCambridgeTest = () => {
           {canManageCategory(user, activeTab) && tests[activeTab].length > 0 && (
             <div className="cambridge-actions">
               <button
-                onClick={() =>
-                  activeTab === "writing"
-                    ? navigate("/admin/create-pet-writing")
-                    : navigate(`/admin/create-${activeTestType}-${activeTab}`)
-                }
+                onClick={() => navigate(getCreatePath(activeTestType, activeTab))}
                 className="cambridge-btn cambridge-btn--success"
               >
                 <SelectOrangeIcon name="create" />

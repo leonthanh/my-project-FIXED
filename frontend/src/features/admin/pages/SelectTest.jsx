@@ -46,6 +46,20 @@ const SKILL_META = {
   listening: { label: "Listening", icon: "listening", hint: "Audio drills." },
 };
 
+const ORANGE_READING_CREATE_ROUTE_TYPES = new Set(["flyers", "movers", "starters"]);
+
+const getOrangeCreatePath = (testType, skill) => {
+  if (skill === "writing") {
+    return "/admin/create-pet-writing";
+  }
+
+  if (skill === "reading" && ORANGE_READING_CREATE_ROUTE_TYPES.has(testType)) {
+    return `/admin/create/${testType}`;
+  }
+
+  return `/admin/create-${testType}-${skill}`;
+};
+
 const SelectTest = () => {
   let user = null;
   try {
@@ -388,10 +402,7 @@ const SelectTest = () => {
   const currentShelfTitle = activePlatform === "ix"
     ? `IX ${currentSkillInfo.label}`
     : `${ORANGE_TYPE_NAMES[activeOrangeType]} • ${currentSkillInfo.label}`;
-  const orangeCreatePath =
-    activeOrangeTab === "writing"
-      ? "/admin/create-pet-writing"
-      : `/admin/create-${activeOrangeType}-${activeOrangeTab}`;
+  const orangeCreatePath = getOrangeCreatePath(activeOrangeType, activeOrangeTab);
   const orangeCreateLabel = `Create ${activeOrangeType.toUpperCase()} ${
     SKILL_META[activeOrangeTab]?.label || activeOrangeTab
   } Test`;
