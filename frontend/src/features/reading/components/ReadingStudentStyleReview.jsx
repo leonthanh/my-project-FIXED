@@ -5,7 +5,12 @@ import {
   isClozeCommentsColumn,
 } from "../../../shared/utils/clozeTable";
 import { hostPath } from "../../../shared/utils/api";
-import { renderHtmlWithBlankPlaceholders } from "../utils/htmlHelpers";
+import {
+  hasPlaceholderPattern,
+  renderHtmlWithBlankPlaceholders,
+  renderHtmlWithPlaceholderPattern,
+  sentenceCompletionPlaceholderPattern,
+} from "../utils/htmlHelpers";
 import {
   countClozeBlanks,
   getMatchingHeadingOption,
@@ -472,6 +477,45 @@ export default function ReadingStudentStyleReview({ test, submission, details })
       (isParagraphMatching && paragraphBlankCount > 0) ||
       qType === "multi-select";
     const isInlineAnswerType = qType === "true-false-not-given" || qType === "yes-no-not-given";
+    const sentenceAnswerValue =
+      qType === "sentence-completion"
+        ? extractInlineAnswer(answers, key, detail)
+        : "";
+    const hasInlineSentenceBlank =
+      qType === "sentence-completion" &&
+      hasPlaceholderPattern(
+        question.questionText,
+        sentenceCompletionPlaceholderPattern
+      );
+
+    const renderSentenceCompletionSelect = ({
+      elementKey,
+      inline = false,
+    }) => (
+      <select
+        key={elementKey}
+        className={`sentence-select ${inline ? "sentence-select-inline" : ""} ${
+          hasAnswerValue(sentenceAnswerValue) ? "answered" : ""
+        }`}
+        value={sentenceAnswerValue}
+        disabled
+        aria-label={`Chosen ending for question ${questionNumber}`}
+      >
+        <option value="">-- Select --</option>
+        {(question.options || []).map((opt, oi) => {
+          const letter = String.fromCharCode(65 + oi);
+          const optionText = stripHtml(
+            typeof opt === "object" ? opt.text || opt.label || "" : opt
+          );
+
+          return (
+            <option key={oi} value={letter}>
+              {`${letter}. ${optionText}`}
+            </option>
+          );
+        })}
+      </select>
+    );
 
     if (qType === "multi-select") {
       return renderMultipleChoiceMany(question, questionNumber, question.requiredAnswers || 2);
@@ -491,7 +535,8 @@ export default function ReadingStudentStyleReview({ test, submission, details })
             !isShortAnswerInline &&
             !(isClozeTest && clozeText) &&
             qType !== "paragraph-matching" &&
-            !isInlineAnswerType && (
+            !isInlineAnswerType &&
+            !hasInlineSentenceBlank && (
               <div className="question-text" dangerouslySetInnerHTML={{ __html: question.questionText }} />
             )}
 
@@ -531,20 +576,33 @@ export default function ReadingStudentStyleReview({ test, submission, details })
 
           {qType === "sentence-completion" && (
             <div className="question-sentence-completion">
-              <div className="sentence-completion-inline">
-                <select className={`sentence-select ${hasAnswerValue(extractInlineAnswer(answers, key, detail)) ? "answered" : ""}`} value={extractInlineAnswer(answers, key, detail)} disabled>
-                  <option value="">-- Select --</option>
-                  {(question.options || []).map((opt, oi) => (
-                    <option key={oi} value={String.fromCharCode(65 + oi)}>
-                      {`${String.fromCharCode(65 + oi)}. ${stripHtml(typeof opt === "object" ? opt.text || opt.label || "" : opt)}`}
-                    </option>
-                  ))}
-                </select>
-                <span className={`sentence-selected-badge ${hasAnswerValue(extractInlineAnswer(answers, key, detail)) ? "selected" : ""}`}>
-                  {extractInlineAnswer(answers, key, detail)}
-                </span>
-              </div>
-              {renderQuestionFeedback(questionNumber, extractInlineAnswer(answers, key, detail))}
+              {hasInlineSentenceBlank ? (
+                <div className="question-text sentence-completion-question-text">
+                  {renderHtmlWithPlaceholderPattern(
+                    question.questionText,
+                    (_, blankElementKey) => (
+                      <span key={blankElementKey} className="sentence-inline-blank">
+                        {renderSentenceCompletionSelect({
+                          elementKey: `${blankElementKey}-select`,
+                          inline: true,
+                        })}
+                      </span>
+                    ),
+                    sentenceCompletionPlaceholderPattern,
+                    `sentence-review-${key}`
+                  )}
+                </div>
+              ) : (
+                <div className="sentence-completion-inline">
+                  {renderSentenceCompletionSelect({
+                    elementKey: `${key}-select`,
+                  })}
+                  <span className={`sentence-selected-badge ${hasAnswerValue(sentenceAnswerValue) ? "selected" : ""}`}>
+                    {sentenceAnswerValue}
+                  </span>
+                </div>
+              )}
+              {renderQuestionFeedback(questionNumber, sentenceAnswerValue)}
             </div>
           )}
 

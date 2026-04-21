@@ -711,10 +711,20 @@
 .question-sentence-completion {
   margin-top: 6px;
 }
+.sentence-completion-question-text {
+  display: block;
+}
 .sentence-completion-inline {
   display: flex;
   align-items: center;
   gap: 12px;
+}
+.sentence-inline-blank {
+  display: inline-flex;
+  align-items: center;
+  vertical-align: middle;
+  margin: 0 4px;
+  max-width: 100%;
 }
 .sentence-select {
   min-width: 220px;
@@ -723,6 +733,12 @@
   border: 2px solid #e0e0e0;
   background: white;
   font-size: 0.95rem;
+}
+.sentence-select-inline {
+  min-width: 190px;
+  max-width: min(100%, 280px);
+  width: auto;
+  margin: 0;
 }
 .sentence-select.answered {
   border-color: #27ae60;
@@ -763,6 +779,8 @@
 
 @media (max-width: 640px) {
   .sentence-select { min-width: 140px; }
+  .sentence-select-inline { min-width: 140px; max-width: 100%; }
+  .sentence-inline-blank { margin: 4px; }
   .sentence-completion-options .sc-list { gap: 6px; }
   .sentence-completion-options .sc-item { flex-direction: column; align-items: flex-start; }
   .sentence-completion-options .sc-text { font-size: 0.9rem; }

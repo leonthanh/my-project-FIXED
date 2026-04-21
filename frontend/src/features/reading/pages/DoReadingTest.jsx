@@ -13,7 +13,12 @@ import LineIcon from "../../../shared/components/LineIcon.jsx";
 import ExtensionToast from "../../../shared/components/ExtensionToast";
 import TestStartModal from "../../../shared/components/TestStartModal";
 import "../styles/ReadingTestRuntime.css";
-import { renderHtmlWithBlankPlaceholders } from "../utils/htmlHelpers";
+import {
+  hasPlaceholderPattern,
+  renderHtmlWithBlankPlaceholders,
+  renderHtmlWithPlaceholderPattern,
+  sentenceCompletionPlaceholderPattern,
+} from "../utils/htmlHelpers";
 import {
   countClozeBlanks,
   getMatchingHeadingOption,
@@ -39,6 +44,10 @@ const SERVER_TIMING_RECONCILE_INTERVAL_MS = 15000;
 function stripUnwantedHtml(html) {
   if (!html) return "";
   return html.replace(/<span[^>]*>|<\/span>/gi, "");
+}
+
+function stripOptionHtml(html) {
+  return stripUnwantedHtml(html).replace(/<[^>]+>/g, "").trim();
 }
 
 /**
@@ -1843,6 +1852,43 @@ const DoReadingTest = () => {
 
     const isInlineAnswerType =
       qType === "true-false-not-given" || qType === "yes-no-not-given";
+    const hasInlineSentenceBlank =
+      qType === "sentence-completion" &&
+      hasPlaceholderPattern(
+        question.questionText,
+        sentenceCompletionPlaceholderPattern
+      );
+
+    const renderSentenceCompletionSelect = ({
+      elementKey,
+      inline = false,
+    }) => (
+      <select
+        key={elementKey}
+        className={`sentence-select ${inline ? "sentence-select-inline" : ""} ${
+          answers[key] ? "answered" : ""
+        }`}
+        value={answers[key] || ""}
+        onChange={(e) => handleAnswerChange(key, e.target.value)}
+        onClick={(e) => e.stopPropagation()}
+        onFocus={() => setActiveQuestion(questionNumber)}
+        aria-label={`Choose ending for question ${questionNumber}`}
+      >
+        <option value="">-- Select --</option>
+        {(question.options || []).map((opt, oi) => {
+          const letter = String.fromCharCode(65 + oi);
+          const optionText = stripOptionHtml(
+            typeof opt === "object" ? opt.text || opt.label || "" : opt
+          );
+
+          return (
+            <option key={oi} value={letter}>
+              {`${letter}. ${optionText}`}
+            </option>
+          );
+        })}
+      </select>
+    );
 
     return (
       <div
@@ -1872,7 +1918,8 @@ const DoReadingTest = () => {
             !isShortAnswerInline &&
             !(isClozeTest && clozeText) &&
             qType !== "paragraph-matching" &&
-            !isInlineAnswerType && (
+            !isInlineAnswerType &&
+            !hasInlineSentenceBlank && (
               <div
                 className="question-text"
                 dangerouslySetInnerHTML={{
@@ -1930,37 +1977,42 @@ const DoReadingTest = () => {
           {/* Sentence completion - show dropdown (value stored as letter A/B/...) and a compact badge */}
           {qType === "sentence-completion" && (
             <div className="question-sentence-completion">
-              <div className="sentence-completion-inline">
-                <select
-                  className={`sentence-select ${
-                    answers[key] ? "answered" : ""
-                  }`}
-                  value={answers[key] || ""}
-                  onChange={(e) => handleAnswerChange(key, e.target.value)}
-                  onClick={(e) => e.stopPropagation()}
-                  aria-label="Choose ending"
-                >
-                  <option value="">-- Select --</option>
-                  {(question.options || []).map((opt, oi) => (
-                    <option key={oi} value={String.fromCharCode(65 + oi)}>
-                      {`${String.fromCharCode(65 + oi)}. ${stripUnwantedHtml(
-                        typeof opt === "object"
-                          ? opt.text || opt.label || ""
-                          : opt
-                      )}`}
-                    </option>
-                  ))}
-                </select>
+              {hasInlineSentenceBlank ? (
+                <div className="question-text sentence-completion-question-text">
+                  {renderHtmlWithPlaceholderPattern(
+                    question.questionText,
+                    (_, blankElementKey) => (
+                      <span
+                        key={blankElementKey}
+                        className="sentence-inline-blank"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {renderSentenceCompletionSelect({
+                          elementKey: `${blankElementKey}-select`,
+                          inline: true,
+                        })}
+                      </span>
+                    ),
+                    sentenceCompletionPlaceholderPattern,
+                    `sentence-${key}`
+                  )}
+                </div>
+              ) : (
+                <div className="sentence-completion-inline">
+                  {renderSentenceCompletionSelect({
+                    elementKey: `${key}-select`,
+                  })}
 
-                <span
-                  className={`sentence-selected-badge ${
-                    answers[key] ? "selected" : ""
-                  }`}
-                  aria-hidden
-                >
-                  {answers[key] ? answers[key] : ""}
-                </span>
-              </div>
+                  <span
+                    className={`sentence-selected-badge ${
+                      answers[key] ? "selected" : ""
+                    }`}
+                    aria-hidden
+                  >
+                    {answers[key] ? answers[key] : ""}
+                  </span>
+                </div>
+              )}
             </div>
           )}
 
