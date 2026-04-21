@@ -239,6 +239,17 @@ const EditReadingTest = () => {
                   typeof section.sectionImage === "string"
                     ? section.sectionImage
                     : null;
+                const legacySentenceCompletionTitleHtml =
+                  (section.questions || []).find(
+                    (q) =>
+                      normalizeQuestionType(q.questionType || q.type || "") ===
+                        "sentence-completion" &&
+                      stripHtml(q.titleHtml || "").trim().length > 0
+                  )?.titleHtml || "";
+                const sentenceCompletionTitleHtml =
+                  typeof section.sentenceCompletionTitleHtml === "string"
+                    ? section.sentenceCompletionTitleHtml
+                    : legacySentenceCompletionTitleHtml;
 
                 return {
                   sectionTitle:
@@ -247,6 +258,9 @@ const EditReadingTest = () => {
                   // Preserve HTML formatting for instructions and sanitize empty tags
                   sectionInstruction: cleanupPassageHTML(
                     section.sectionInstruction || ""
+                  ),
+                  sentenceCompletionTitleHtml: cleanupPassageHTML(
+                    sentenceCompletionTitleHtml || ""
                   ),
                   sectionImage: imagesToSend,
                   questions:
@@ -265,6 +279,9 @@ const EditReadingTest = () => {
                         questionObj.startQuestion = resolvedStartQuestion;
                       } else {
                         delete questionObj.startQuestion;
+                      }
+                      if (qType === "sentence-completion") {
+                        delete questionObj.titleHtml;
                       }
                       // Preserve requiredAnswers for multi-select questions
                       if (qType === "multi-select" && (q.requiredAnswers || q.maxSelection)) {

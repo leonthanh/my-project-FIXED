@@ -50,6 +50,34 @@ function stripOptionHtml(html) {
   return stripUnwantedHtml(html).replace(/<[^>]+>/g, "").trim();
 }
 
+function hasRichTextContent(html) {
+  return stripOptionHtml(html).length > 0;
+}
+
+function getSentenceCompletionTitleState(section, sectionQuestions) {
+  const hasOwnTitle =
+    section &&
+    Object.prototype.hasOwnProperty.call(section, "sentenceCompletionTitleHtml");
+
+  if (hasOwnTitle) {
+    return {
+      html: section.sentenceCompletionTitleHtml || "",
+      suppressQuestionTitle: true,
+    };
+  }
+
+  const legacyQuestion = (sectionQuestions || []).find(
+    (question) =>
+      normalizeQuestionType(question?.type || question?.questionType || "") ===
+        "sentence-completion" && hasRichTextContent(question?.titleHtml)
+  );
+
+  return {
+    html: legacyQuestion?.titleHtml || "",
+    suppressQuestionTitle: Boolean(legacyQuestion?.titleHtml),
+  };
+}
+
 /**
  * DoReadingTest - Trang học sinh làm bài Reading IELTS
  *
@@ -1787,7 +1815,11 @@ const DoReadingTest = () => {
   };
 
   // Render question based on type
-  const renderQuestion = (question, questionNumber) => {
+  const renderQuestion = (
+    question,
+    questionNumber,
+    sentenceCompletionTitleState = null
+  ) => {
     const key = `q_${questionNumber}`;
     const qType = normalizeQuestionType(
       question.type || question.questionType || "multiple-choice"
@@ -1852,6 +1884,12 @@ const DoReadingTest = () => {
 
     const isInlineAnswerType =
       qType === "true-false-not-given" || qType === "yes-no-not-given";
+    const hasQuestionTitle =
+      hasRichTextContent(question.titleHtml) &&
+      !(
+        qType === "sentence-completion" &&
+        sentenceCompletionTitleState?.suppressQuestionTitle
+      );
     const hasInlineSentenceBlank =
       qType === "sentence-completion" &&
       hasPlaceholderPattern(
@@ -1913,6 +1951,13 @@ const DoReadingTest = () => {
             isMultiQuestionBlock ? "full-width" : ""
           }`}
         >
+          {hasQuestionTitle && (
+            <div
+              className="question-title-html question-rich-html"
+              dangerouslySetInnerHTML={{ __html: question.titleHtml }}
+            />
+          )}
+
           {/* Hide questionText for inline short answer (it's shown in inline) and cloze test (shown in passage) */}
           {question.questionText &&
             !isShortAnswerInline &&
@@ -1921,7 +1966,7 @@ const DoReadingTest = () => {
             !isInlineAnswerType &&
             !hasInlineSentenceBlank && (
               <div
-                className="question-text"
+                className="question-text question-rich-html"
                 dangerouslySetInnerHTML={{
                   __html:
                     qType === "sentence-completion" && answers[key]
@@ -1978,7 +2023,7 @@ const DoReadingTest = () => {
           {qType === "sentence-completion" && (
             <div className="question-sentence-completion">
               {hasInlineSentenceBlank ? (
-                <div className="question-text sentence-completion-question-text">
+                <div className="question-text question-rich-html sentence-completion-question-text">
                   {renderHtmlWithPlaceholderPattern(
                     question.questionText,
                     (_, blankElementKey) => (
@@ -3116,6 +3161,8 @@ const DoReadingTest = () => {
           <div className="questions-list">
             {currentSections.map((section, sectionIdx) => {
               const sectionQuestions = section.questions || [];
+              const sentenceCompletionTitleState =
+                getSentenceCompletionTitleState(section, sectionQuestions);
               
               // Extract starting question number from section instructions (e.g., "Questions 10-11" -> 10)
               const extractSectionStartNumber = (instruction) => {
@@ -3221,6 +3268,15 @@ const DoReadingTest = () => {
                       );
                     })()}
 
+                  {hasRichTextContent(sentenceCompletionTitleState.html) && (
+                    <div
+                      className="section-question-group-title question-rich-html"
+                      dangerouslySetInnerHTML={{
+                        __html: sentenceCompletionTitleState.html,
+                      }}
+                    />
+                  )}
+
                   {/* Questions */}
                   {sectionQuestions.map((q) => {
                     // Allow explicit per-question numbering (e.g., teacher set '11' or '11-13')
@@ -3273,7 +3329,11 @@ const DoReadingTest = () => {
                     } else {
                       sectionQuestionNumber++;
                     }
-                    return renderQuestion(q, qNum);
+                    return renderQuestion(
+                      q,
+                      qNum,
+                      sentenceCompletionTitleState
+                    );
                   })}
                 </div>
               );

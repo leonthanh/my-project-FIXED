@@ -130,6 +130,8 @@ const sentenceCompletionInlineTest = {
       passageTitle: 'Passage 1',
       sections: [
         {
+          sentenceCompletionTitleHtml:
+            '<p class="ql-align-center"><span style="color: rgb(37, 99, 235); font-size: 28px;">Art and the Brain</span></p>',
           questions: [
             {
               questionNumber: 31,
@@ -137,6 +139,20 @@ const sentenceCompletionInlineTest = {
               questionText:
                 '<p>The discipline of neuroaesthetics studies how art changes our …………</p>',
               options: ['interpretation', 'complexity', 'emotions'],
+            },
+            {
+              questionNumber: 32,
+              questionType: 'sentence-completion',
+              questionText:
+                '<p>Alex Forsythe believes many artists give their works the precise degree of ………… which most appeals to the viewer’s brain.</p>',
+              options: ['interpretation', 'complexity', 'emotions'],
+            },
+            {
+              questionNumber: 33,
+              questionType: 'sentence-completion',
+              questionText:
+                '<p>Pleasing works of art often contain repeated ………… found in the natural world.</p>',
+              options: ['movements', 'images', 'patterns'],
             },
           ],
         },
@@ -323,6 +339,12 @@ describe('DoReadingTest integration - part navigation and focus', () => {
         container.querySelector('.question-text.sentence-completion-question-text')
       ).not.toBeNull();
     });
+
+    const titleBlock = container.querySelector('.section-question-group-title .ql-align-center');
+    expect(titleBlock).not.toBeNull();
+    expect(screen.getByText('Art and the Brain')).toBeInTheDocument();
+    expect(container.querySelectorAll('.section-question-group-title')).toHaveLength(1);
+    expect(container.querySelectorAll('.question-item .question-title-html')).toHaveLength(0);
 
     const inlineSentence = container.querySelector(
       '.question-text.sentence-completion-question-text'

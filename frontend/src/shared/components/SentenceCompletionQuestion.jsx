@@ -257,6 +257,12 @@ const SentenceCompletionQuestion = ({ question, onChange }) => {
         <span style={styles.headerBadge}>IELTS Reading</span>
       </div>
 
+      <div style={styles.section}>
+        <div style={{ padding: '12px 14px', borderRadius: '8px', backgroundColor: '#ede9fe', color: '#5b21b6', fontSize: '13px', lineHeight: 1.6 }}>
+          Tiêu đề chung cho nhóm câu này được đặt ở cấp Section để chỉ hiển thị một lần phía trên toàn bộ các câu sentence-completion.
+        </div>
+      </div>
+
       {/* Incomplete Sentence */}
       <div style={styles.section}>
         <h5 style={styles.sectionTitle}>Câu chưa hoàn chỉnh (dùng _____ cho chỗ trống):</h5>

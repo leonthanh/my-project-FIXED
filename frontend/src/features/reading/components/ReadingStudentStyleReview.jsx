@@ -143,6 +143,30 @@ const normalizeText = (value) =>
 
 const stripHtml = (html) => String(html || "").replace(/<[^>]+>/g, "").trim();
 
+const getSentenceCompletionTitleState = (section, sectionQuestions) => {
+  const hasOwnTitle =
+    section &&
+    Object.prototype.hasOwnProperty.call(section, "sentenceCompletionTitleHtml");
+
+  if (hasOwnTitle) {
+    return {
+      html: section.sentenceCompletionTitleHtml || "",
+      suppressQuestionTitle: true,
+    };
+  }
+
+  const legacyQuestion = (sectionQuestions || []).find(
+    (question) =>
+      normalizeQuestionType(question?.type || question?.questionType || "") ===
+        "sentence-completion" && stripHtml(question?.titleHtml).length > 0
+  );
+
+  return {
+    html: legacyQuestion?.titleHtml || "",
+    suppressQuestionTitle: Boolean(legacyQuestion?.titleHtml),
+  };
+};
+
 const safeParseJson = (value) => {
   if (typeof value !== "string") return value;
   try {
@@ -450,7 +474,12 @@ export default function ReadingStudentStyleReview({ test, submission, details })
     );
   };
 
-  const renderQuestion = (question, questionNumber, passage) => {
+  const renderQuestion = (
+    question,
+    questionNumber,
+    passage,
+    sentenceCompletionTitleState = null
+  ) => {
     const key = `q_${questionNumber}`;
     const qType = normalizeQuestionType(question.type || question.questionType || "multiple-choice");
     const baseQuestionNum =
@@ -477,6 +506,12 @@ export default function ReadingStudentStyleReview({ test, submission, details })
       (isParagraphMatching && paragraphBlankCount > 0) ||
       qType === "multi-select";
     const isInlineAnswerType = qType === "true-false-not-given" || qType === "yes-no-not-given";
+    const hasQuestionTitle =
+      stripHtml(question.titleHtml).length > 0 &&
+      !(
+        qType === "sentence-completion" &&
+        sentenceCompletionTitleState?.suppressQuestionTitle
+      );
     const sentenceAnswerValue =
       qType === "sentence-completion"
         ? extractInlineAnswer(answers, key, detail)
@@ -531,13 +566,20 @@ export default function ReadingStudentStyleReview({ test, submission, details })
       >
         {!isMultiQuestionBlock && <div className="question-number">{questionNumber}</div>}
         <div className={`question-content ${isMultiQuestionBlock ? "full-width" : ""}`}>
+          {hasQuestionTitle && (
+            <div
+              className="question-title-html question-rich-html"
+              dangerouslySetInnerHTML={{ __html: question.titleHtml }}
+            />
+          )}
+
           {question.questionText &&
             !isShortAnswerInline &&
             !(isClozeTest && clozeText) &&
             qType !== "paragraph-matching" &&
             !isInlineAnswerType &&
             !hasInlineSentenceBlank && (
-              <div className="question-text" dangerouslySetInnerHTML={{ __html: question.questionText }} />
+              <div className="question-text question-rich-html" dangerouslySetInnerHTML={{ __html: question.questionText }} />
             )}
 
           {qType === "multiple-choice" && (
@@ -577,7 +619,7 @@ export default function ReadingStudentStyleReview({ test, submission, details })
           {qType === "sentence-completion" && (
             <div className="question-sentence-completion">
               {hasInlineSentenceBlank ? (
-                <div className="question-text sentence-completion-question-text">
+                <div className="question-text question-rich-html sentence-completion-question-text">
                   {renderHtmlWithPlaceholderPattern(
                     question.questionText,
                     (_, blankElementKey) => (
@@ -1096,6 +1138,9 @@ export default function ReadingStudentStyleReview({ test, submission, details })
                     const sectionStartNumber = extractSectionStartNumber(section.sectionInstruction);
                     let sectionQuestionNumber = sectionStartNumber || currentQuestionNumber;
 
+                    const sentenceCompletionTitleState =
+                      getSentenceCompletionTitleState(section, sectionQuestions);
+
                     const renderedQuestions = sectionQuestions.map((question) => {
                       let qNum = sectionQuestionNumber;
                       if (question && question.questionNumber) {
@@ -1128,7 +1173,12 @@ export default function ReadingStudentStyleReview({ test, submission, details })
                         sectionQuestionNumber += 1;
                       }
 
-                      return renderQuestion(question, qNum, passage);
+                      return renderQuestion(
+                        question,
+                        qNum,
+                        passage,
+                        sentenceCompletionTitleState
+                      );
                     });
 
                     currentQuestionNumber = sectionQuestionNumber;
@@ -1150,6 +1200,14 @@ export default function ReadingStudentStyleReview({ test, submission, details })
                               />
                             )}
                           </div>
+                        )}
+                        {stripHtml(sentenceCompletionTitleState.html).length > 0 && (
+                          <div
+                            className="section-question-group-title question-rich-html"
+                            dangerouslySetInnerHTML={{
+                              __html: sentenceCompletionTitleState.html,
+                            }}
+                          />
                         )}
                         {renderedQuestions}
                       </div>

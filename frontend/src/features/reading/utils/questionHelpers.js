@@ -541,6 +541,7 @@ export const createNewPassage = () => ({
     {
       sectionTitle: "",
       sectionInstruction: "",
+      sentenceCompletionTitleHtml: "",
       sectionImage: null,
       questions: [
         {
@@ -563,6 +564,7 @@ export const createNewPassage = () => ({
 export const createNewSection = (sectionNumber = 1) => ({
   sectionTitle: `Section ${sectionNumber}`,
   sectionInstruction: "",
+  sentenceCompletionTitleHtml: "",
   sectionImage: null,
   questions: [],
 });
