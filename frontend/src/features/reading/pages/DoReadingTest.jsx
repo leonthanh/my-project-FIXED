@@ -12,7 +12,7 @@ import InlineIcon from "../../../shared/components/InlineIcon.jsx";
 import LineIcon from "../../../shared/components/LineIcon.jsx";
 import ExtensionToast from "../../../shared/components/ExtensionToast";
 import TestStartModal from "../../../shared/components/TestStartModal";
-import "../styles/do-reading-test.css";
+import "../styles/ReadingTestRuntime.css";
 import { renderHtmlWithBlankPlaceholders } from "../utils/htmlHelpers";
 import {
   countClozeBlanks,

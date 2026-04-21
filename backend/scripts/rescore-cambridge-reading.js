@@ -16,9 +16,7 @@ const sequelize = require("../db");
 const { Op } = require("sequelize");
 const CambridgeSubmission = require("../models/CambridgeSubmission");
 const CambridgeReading = require("../models/CambridgeReading");
-const cambridgeRouter = require("../routes/cambridgeTests");
-
-const scoreTest = cambridgeRouter.scoreTest;
+const { scoreTest } = require("../modules/cambridge/shared/scoring");
 
 const parseArgs = () => {
   const args = process.argv.slice(2);
@@ -60,7 +58,7 @@ const parseIfJsonString = (val) => {
   console.log("Options:", opts);
 
   if (typeof scoreTest !== "function") {
-    throw new Error("scoreTest not available. Ensure routes/cambridgeTests.js exposes router.scoreTest.");
+    throw new Error("scoreTest not available. Ensure modules/cambridge/shared/scoring.js exports scoreTest.");
   }
 
   await sequelize.authenticate();

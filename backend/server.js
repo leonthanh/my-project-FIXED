@@ -199,14 +199,11 @@ require('./models');
 
 // ✅ Routes
 const authRoutes = require("./routes/auth");
-const writingTestsRoute = require("./routes/writingTest");
-const writingSubmissionRoutes = require("./routes/writing-submission");
-const listeningTestsRoute = require("./routes/listeningTests");
-const listeningSubmissionRoutes = require("./routes/listening-submission");
-const readingTestsRoute = require("./routes/readingTest");
-const readingSubmissionRoutes = require("./routes/reading-submission");
 const aiRoutes = require("./routes/ai");
-const cambridgeRoutes = require("./routes/cambridgeTests"); // ✅ Cambridge tests
+const cambridgeRouter = require("./modules/cambridge/router"); // ✅ Cambridge tests
+const listeningRouter = require("./modules/listening/router");
+const readingRouter = require("./modules/reading/router");
+const writingRouter = require("./modules/writing/router");
 const adminRoutes = require("./routes/admin"); // ✅ Admin user/submission management
 
 // Middleware
@@ -280,13 +277,10 @@ app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 // ✅ Routes API
 app.use('/api/ai', aiRoutes); // ✅ Bây giờ mới dùng
 app.use('/api/auth', authRoutes);
-app.use('/api/writing-tests', writingTestsRoute);
-app.use('/api/writing', writingSubmissionRoutes);
-app.use('/api/listening-tests', listeningTestsRoute);
-app.use('/api/listening-submissions', listeningSubmissionRoutes);
-app.use('/api/reading-tests', readingTestsRoute);
-app.use('/api/reading-submissions', readingSubmissionRoutes);
-app.use('/api/cambridge', cambridgeRoutes); // ✅ Cambridge tests (KET, PET, etc.)
+app.use('/api', writingRouter);
+app.use('/api', listeningRouter);
+app.use('/api', readingRouter);
+app.use('/api/cambridge', cambridgeRouter); // ✅ Cambridge tests (KET, PET, etc.)
 app.use('/api/admin', adminRoutes);         // ✅ Admin: quản lý user & bài làm
 
 // Debug route: verify FRONTEND_URL (development only)

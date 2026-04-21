@@ -33,7 +33,7 @@ import {
   compactCSS,
 } from "../utils/styles";
 import "react-quill/dist/quill.snow.css";
-import "../styles/reading-test-editor.css";
+import "../styles/ReadingTestEditor.css";
 
 const getMessageTone = (message) => {
   const normalized = String(message || "").trim().toLowerCase();
