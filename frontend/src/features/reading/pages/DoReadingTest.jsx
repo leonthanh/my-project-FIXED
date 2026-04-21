@@ -16,6 +16,7 @@ import "../styles/ReadingTestRuntime.css";
 import { renderHtmlWithBlankPlaceholders } from "../utils/htmlHelpers";
 import {
   countClozeBlanks,
+  getMatchingHeadingOption,
   getActiveClozeTable,
   getClozeText,
   normalizeQuestionType,
@@ -2505,27 +2506,11 @@ const DoReadingTest = () => {
               <div className="headings-list">
                 <p className="headings-title"><span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><InlineIcon name="document" size={14} />List of Headings</span></p>
                 {(question.headings || []).map((heading, hi) => {
-                  const headingText =
-                    typeof heading === "object"
-                      ? heading.text || heading.label || ""
-                      : heading;
+                  const { label: headingLabel, text: headingText } =
+                    getMatchingHeadingOption(heading, hi);
                   return (
                     <div key={hi} className="heading-item">
-                      <span className="heading-number">
-                        {[
-                          "i",
-                          "ii",
-                          "iii",
-                          "iv",
-                          "v",
-                          "vi",
-                          "vii",
-                          "viii",
-                          "ix",
-                          "x",
-                        ][hi] || hi + 1}
-                        .
-                      </span>
+                      <span className="heading-number">{headingLabel}.</span>
                       <span className="heading-text">{headingText}</span>
                     </div>
                   );
@@ -2599,26 +2584,16 @@ const DoReadingTest = () => {
                         >
                           <option value="">Choose a heading...</option>
                           {(question.headings || []).map((heading, hi) => {
-                            const headingText =
-                              typeof heading === "object"
-                                ? heading.text || heading.label || ""
-                                : heading;
-                            const romanNum =
-                              [
-                                "i",
-                                "ii",
-                                "iii",
-                                "iv",
-                                "v",
-                                "vi",
-                                "vii",
-                                "viii",
-                                "ix",
-                                "x",
-                              ][hi] || hi + 1;
+                            const {
+                              label: headingLabel,
+                              text: headingText,
+                              value: headingValue,
+                            } = getMatchingHeadingOption(heading, hi);
                             return (
-                              <option key={hi} value={romanNum}>
-                                {romanNum}. {headingText}
+                              <option key={hi} value={headingValue}>
+                                {headingText
+                                  ? `${headingLabel}. ${headingText}`
+                                  : headingLabel}
                               </option>
                             );
                           })}

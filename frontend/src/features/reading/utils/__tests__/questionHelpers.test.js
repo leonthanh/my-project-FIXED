@@ -3,6 +3,7 @@ import {
   createDefaultQuestionByType,
   getQuestionCount,
   getActiveClozeTable,
+  getMatchingHeadingOption,
   getQuestionStart,
   getImpliedQuestionCount,
   getClozeText,
@@ -10,8 +11,10 @@ import {
   calculateTotalQuestions,
   formatQuestionNumber,
   normalizeQuestionType,
+  normalizeMatchingHeadingLabel,
   renumberQuestionsFrom,
   resolveQuestionStartNumber,
+  toRomanNumeral,
 } from "../questionHelpers";
 
 describe("questionHelpers", () => {
@@ -154,6 +157,39 @@ describe("questionHelpers", () => {
       expect(normalizeQuestionType("true-false-notgiven")).toBe(
         "true-false-not-given"
       );
+    });
+  });
+
+  describe("matching headings helpers", () => {
+    it("converts numeric labels beyond x into roman numerals", () => {
+      expect(toRomanNumeral(11)).toBe("xi");
+      expect(normalizeMatchingHeadingLabel("12")).toBe("xii");
+    });
+
+    it("uses object heading labels when available", () => {
+      expect(
+        getMatchingHeadingOption(
+          { id: 11, label: "xi", text: "Transport trends in countries awaiting EU admission" },
+          10
+        )
+      ).toEqual({
+        label: "xi",
+        value: "xi",
+        text: "Transport trends in countries awaiting EU admission",
+      });
+    });
+
+    it("parses prefixed string headings without falling back to plain numbers", () => {
+      expect(
+        getMatchingHeadingOption(
+          "11. Transport trends in countries awaiting EU admission",
+          10
+        )
+      ).toEqual({
+        label: "xi",
+        value: "xi",
+        text: "Transport trends in countries awaiting EU admission",
+      });
     });
   });
 

@@ -8,6 +8,7 @@ import { hostPath } from "../../../shared/utils/api";
 import { renderHtmlWithBlankPlaceholders } from "../utils/htmlHelpers";
 import {
   countClozeBlanks,
+  getMatchingHeadingOption,
   getActiveClozeTable,
   getClozeText,
   normalizeQuestionType,
@@ -745,11 +746,10 @@ export default function ReadingStudentStyleReview({ test, submission, details })
               <div className="headings-list">
                 <p className="headings-title">List of Headings</p>
                 {(question.headings || []).map((heading, hi) => {
-                  const headingText = typeof heading === "object" ? heading.text || heading.label || "" : heading;
-                  const roman = ["i", "ii", "iii", "iv", "v", "vi", "vii", "viii", "ix", "x"][hi] || hi + 1;
+                  const { label: headingLabel, text: headingText } = getMatchingHeadingOption(heading, hi);
                   return (
                     <div key={hi} className="heading-item">
-                      <span className="heading-number">{roman}.</span>
+                      <span className="heading-number">{headingLabel}.</span>
                       <span className="heading-text">{headingText}</span>
                     </div>
                   );
@@ -768,11 +768,16 @@ export default function ReadingStudentStyleReview({ test, submission, details })
                       <select className={`heading-select ${selectedHeading ? "answered" : ""}`} value={selectedHeading} disabled>
                         <option value="">Choose a heading...</option>
                         {(question.headings || []).map((heading, hi) => {
-                          const headingText = typeof heading === "object" ? heading.text || heading.label || "" : heading;
-                          const roman = ["i", "ii", "iii", "iv", "v", "vi", "vii", "viii", "ix", "x"][hi] || hi + 1;
+                          const {
+                            label: headingLabel,
+                            text: headingText,
+                            value: headingValue,
+                          } = getMatchingHeadingOption(heading, hi);
                           return (
-                            <option key={hi} value={roman}>
-                              {roman}. {headingText}
+                            <option key={hi} value={headingValue}>
+                              {headingText
+                                ? `${headingLabel}. ${headingText}`
+                                : headingLabel}
                             </option>
                           );
                         })}
