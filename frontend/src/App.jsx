@@ -90,7 +90,7 @@ function App() {
   }, [syncAuthState]);
 
   return (
-    <Router>
+    <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <Suspense fallback={
         <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', color: '#334155' }}>
           Loading...

@@ -113,22 +113,31 @@ OPENAI_API_KEY=your_openai_api_key_here
 1. Vào repo: `https://github.com/leonthanh/my-project-FIXED`
 2. Click **Settings** → **Secrets and variables** → **Actions**
 3. Click **"New repository secret"**
-4. Thêm các secrets sau:
+4. Thêm các secrets mà `deploy.yml` hiện đang dùng:
 
-| Name             | Value                                     |
-| ---------------- | ----------------------------------------- |
-| `OPENAI_API_KEY` | `your_openai_api_key_here`                |
-| `GEMINI_API_KEY` | `your_gemini_api_key_here`                |
-| `EMAIL_USER`     | `stareduelt@gmail.com`                    |
-| `EMAIL_PASS`     | `xxxx xxxx xxxx xxxx`                     |
-| `FTP_USERNAME`   | `wsxcblqh`                                |
-| `FTP_PASSWORD`   | `xxxxxxxxxxxx`                            |
+| Name | Mục đích |
+| ---- | -------- |
+| `FTP_USERNAME` | Tài khoản FTP để upload frontend và backend lên cPanel |
+| `FTP_PASSWORD` | Mật khẩu FTP để deploy lên cPanel |
+| `DB_HOST` | Host MySQL production |
+| `DB_NAME` | Tên database production |
+| `DB_USER` | User database production |
+| `DB_PASS` | Mật khẩu database production |
+| `JWT_ACCESS_SECRET` | Secret ký access token production |
+| `JWT_REFRESH_SECRET` | Secret ký refresh token production |
+| `FRONTEND_URL` | Domain frontend production cho CORS và runtime links |
+| `REACT_APP_API_URL` | URL API production được ghi vào env deploy |
+| `EMAIL_USER` | Tài khoản email dùng ở production |
+| `EMAIL_PASS` | Mật khẩu hoặc app password email production |
+| `EMAIL_TO` | Email nhận thông báo mặc định |
+| `OPENAI_API_KEY` | OpenAI key cho tính năng AI ở production |
+| `GEMINI_API_KEY` | Gemini key cho tính năng AI ở production |
 
 ### ⚠️ Quan trọng
 
 - **KHÔNG bao giờ commit API Keys vào GitHub**
 - Luôn dùng `.gitignore` để bỏ qua file `.env`
-- Secrets được lưu **an toàn** ở GitHub, chỉ dùng khi deploy
+- Secrets được lưu **an toàn** ở GitHub và được workflow dùng để tạo `.env` production khi deploy
 
 ---
 
@@ -210,6 +219,11 @@ git commit -m "..."
 git push origin main
 ```
 
+### Nếu deploy qua Pull Request
+
+- Bạn có thể làm việc trên branch feature rồi tạo PR vào `main`.
+- Khi bấm **Squash and merge**, GitHub tạo commit mới trên `main`, nên workflow deploy vẫn tự chạy như `git push origin main`.
+
 ### ⚠️ Lưu ý quan trọng
 
 - **LUÔN `git pull` trước** khi bắt đầu code
@@ -220,33 +234,35 @@ git push origin main
 
 ## 🚀 Deploy to cPanel
 
-### Workflow tự động
+### Workflow tự động hiện tại
 
-- Khi bạn `git push origin main`
-- GitHub Actions **tự động chạy**
-- Deploy code lên cPanel (~5-10 phút)
+- Workflow production nằm ở `.github/workflows/deploy.yml`.
+- Deploy tự chạy khi có `push` vào `main`.
+- Nếu bạn merge PR bằng **Squash and merge**, GitHub tạo commit mới trên `main`, nên workflow cũng tự chạy.
+- Bạn cũng có thể chạy tay bằng `workflow_dispatch` trong tab Actions.
+- Flow này deploy bằng GitHub Actions + FTP mirror, không cần `git pull` trên cPanel.
 
-### Theo dõi Deploy
+### Checklist deploy nhanh
 
-1. Vào: `https://github.com/leonthanh/my-project-FIXED`
-2. Click tab **"Actions"**
-3. Xem workflow "Deploy to cPanel" chạy
+1. Merge PR bằng **Squash and merge** vào `main` hoặc push trực tiếp vào `main`.
+2. Vào `https://github.com/leonthanh/my-project-FIXED` → tab **Actions** → chờ workflow **Deploy to cPanel** chạy xong.
+3. Nếu `backend/package.json` vừa đổi, cập nhật dependencies trên server bằng cPanel Terminal hoặc SSH.
+4. Đăng nhập cPanel → **Setup Node.js App** → chọn app → **Restart**.
+5. Smoke check `https://ix.star-siec.edu.vn` và `https://ix.star-siec.edu.vn/api/reading-tests`.
 
-### Restart Server trên cPanel
+### Workflow này thực hiện gì
 
-**Sau khi deploy xong:**
+- Frontend được build trong CI bằng `npm ci` và `npm run build`.
+- Frontend sau đó được mirror lên `/ix.star-siec.edu.vn/frontend/build/` với chế độ `--delete`, nên file build cũ bị xóa trên server.
+- Backend được đóng gói source, tạo `.env` từ GitHub Secrets, rồi mirror lên `/ix.star-siec.edu.vn/backend/` với chế độ `--delete`.
+- Deploy backend giữ nguyên `uploads` và không upload `node_modules`.
+- Workflow hiện tại không chạy `npm install` hoặc `npm ci` trên server.
 
-1. Đăng nhập cPanel
-2. Vào **Setup Node.js App**
-3. Chọn app → Click **"Restart"**
-4. Chờ ~30 giây để server khởi động lại
+### Khi cần cập nhật dependency backend
 
-### Kiểm tra Deploy thành công
-
-```bash
-# Truy cập app live
-https://ix.star-siec.edu.vn
-```
+- Nếu backend thêm package mới hoặc đổi version package, đừng chỉ restart app.
+- Hãy cập nhật dependencies trên server bằng cPanel Terminal, SSH, hoặc quy trình cài package tương ứng của Node.js App.
+- Sau đó restart lại app và chạy smoke check.
 
 ---
 
