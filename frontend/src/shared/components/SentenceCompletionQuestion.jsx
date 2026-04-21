@@ -16,6 +16,9 @@ const SentenceCompletionQuestion = ({ question, onChange }) => {
     return <div style={{ color: 'red', padding: '10px' }}>Error: Question object missing</div>;
   }
 
+  const sentenceBlankPattern = /(?:\[BLANK\]|_{3,}|\.{3,}|…+)/g;
+  const getOptionLetter = (index) => String.fromCharCode(65 + index);
+
   const handleChange = (field, value) => {
     onChange({ ...question, [field]: value });
   };
@@ -42,6 +45,14 @@ const SentenceCompletionQuestion = ({ question, onChange }) => {
   const selectCorrectAnswer = (index) => {
     handleChange('correctAnswer', options[index]);
   };
+
+  const selectedOptionIndex = options.findIndex(
+    (option) => option !== '' && option === question.correctAnswer
+  );
+  const selectedOptionLabel =
+    selectedOptionIndex >= 0
+      ? `${getOptionLetter(selectedOptionIndex)}. ${question.correctAnswer}`
+      : question.correctAnswer || '';
 
   // Theme colors
   const primaryBlue = '#0e276f';
@@ -149,6 +160,18 @@ const SentenceCompletionQuestion = ({ question, onChange }) => {
       borderRadius: '6px',
       fontSize: '14px'
     },
+    optionLetter: {
+      minWidth: '30px',
+      height: '30px',
+      display: 'inline-flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderRadius: '999px',
+      backgroundColor: '#ede9fe',
+      color: accentIndigo,
+      fontWeight: 'bold',
+      flexShrink: 0
+    },
     removeBtn: {
       width: '28px',
       height: '28px',
@@ -220,7 +243,10 @@ const SentenceCompletionQuestion = ({ question, onChange }) => {
   // Highlight blank in sentence
   const highlightBlank = (text) => {
     if (!text) return '';
-    return text.replace(/_{3,}/g, '<span style="display:inline-block;padding:2px 25px;background:#fff3cd;border:2px dashed #ffc107;border-radius:4px;">______</span>');
+    return text.replace(
+      sentenceBlankPattern,
+      '<span style="display:inline-block;padding:2px 25px;background:#fff3cd;border:2px dashed #ffc107;border-radius:4px;">______</span>'
+    );
   };
 
   return (
@@ -229,6 +255,12 @@ const SentenceCompletionQuestion = ({ question, onChange }) => {
       <div style={styles.header}>
         <h4 style={styles.headerTitle}>Sentence Completion</h4>
         <span style={styles.headerBadge}>IELTS Reading</span>
+      </div>
+
+      <div style={styles.section}>
+        <div style={{ padding: '12px 14px', borderRadius: '8px', backgroundColor: '#ede9fe', color: '#5b21b6', fontSize: '13px', lineHeight: 1.6 }}>
+          Tiêu đề chung cho nhóm câu này được đặt ở cấp Section để chỉ hiển thị một lần phía trên toàn bộ các câu sentence-completion.
+        </div>
       </div>
 
       {/* Incomplete Sentence */}
@@ -295,11 +327,24 @@ const SentenceCompletionQuestion = ({ question, onChange }) => {
                   style={styles.radio}
                   disabled={!option}
                 />
+                <span
+                  style={{
+                    ...styles.optionLetter,
+                    ...(isCorrect
+                      ? {
+                          backgroundColor: '#28a745',
+                          color: 'white',
+                        }
+                      : {}),
+                  }}
+                >
+                  {getOptionLetter(index)}
+                </span>
                 <input
                   type="text"
                   value={option}
                   onChange={(e) => handleOptionChange(index, e.target.value)}
-                  placeholder={`Lựa chọn ${index + 1}`}
+                  placeholder={`Lựa chọn ${getOptionLetter(index)}`}
                   style={styles.optionInput}
                 />
                 {options.length > 2 && (
@@ -371,7 +416,7 @@ const SentenceCompletionQuestion = ({ question, onChange }) => {
                         fontWeight: option === question.correctAnswer ? 'bold' : 'normal'
                       }}
                     >
-                      {option}
+                      {`${getOptionLetter(index)}. ${option}`}
                       {option === question.correctAnswer && (
                         <span style={{ marginLeft: '6px', display: 'inline-flex', verticalAlign: 'middle' }}>
                           <InlineIcon name="correct" size={12} style={{ color: 'white' }} />
@@ -394,7 +439,7 @@ const SentenceCompletionQuestion = ({ question, onChange }) => {
                   borderRadius: '20px',
                   fontWeight: 'bold'
                 }}>
-                  {question.correctAnswer}
+                  {selectedOptionLabel}
                 </span>
               ) : (
                 <span style={{ color: '#999' }}>(Chưa chọn)</span>

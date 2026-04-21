@@ -176,12 +176,26 @@ const CreateReadingTest = () => {
                   typeof section.sectionImage === "string"
                     ? section.sectionImage
                     : null;
+                const legacySentenceCompletionTitleHtml =
+                  (section.questions || []).find(
+                    (q) =>
+                      normalizeQuestionType(q.questionType || q.type || "") ===
+                        "sentence-completion" &&
+                      stripHtml(q.titleHtml || "").trim().length > 0
+                  )?.titleHtml || "";
+                const sentenceCompletionTitleHtml =
+                  typeof section.sentenceCompletionTitleHtml === "string"
+                    ? section.sentenceCompletionTitleHtml
+                    : legacySentenceCompletionTitleHtml;
 
                 return {
                   sectionTitle: stripHtml(section.sectionTitle || ""),
                   // Preserve HTML/formatting from Quill for section instructions so font sizes, alignment, and images are kept
                   sectionInstruction: cleanupPassageHTML(
                     section.sectionInstruction || ""
+                  ),
+                  sentenceCompletionTitleHtml: cleanupPassageHTML(
+                    sentenceCompletionTitleHtml || ""
                   ),
                   sectionImage: imagesToSend,
                   questions:
@@ -200,6 +214,9 @@ const CreateReadingTest = () => {
                         questionObj.startQuestion = resolvedStartQuestion;
                       } else {
                         delete questionObj.startQuestion;
+                      }
+                      if (qType === "sentence-completion") {
+                        delete questionObj.titleHtml;
                       }
                       // Preserve requiredAnswers for multi-select questions
                       if (qType === "multi-select" && (q.requiredAnswers || q.maxSelection)) {

@@ -79,6 +79,115 @@ export const resolveQuestionStartNumber = (question, fallback = null) => {
 
 const stripHtml = (value) => String(value || '').replace(/<[^>]+>/g, ' ');
 
+export const toRomanNumeral = (value) => {
+  let remaining = Number.parseInt(String(value || '').trim(), 10);
+  if (!Number.isFinite(remaining) || remaining <= 0) {
+    return '';
+  }
+
+  const numerals = [
+    [1000, 'm'],
+    [900, 'cm'],
+    [500, 'd'],
+    [400, 'cd'],
+    [100, 'c'],
+    [90, 'xc'],
+    [50, 'l'],
+    [40, 'xl'],
+    [10, 'x'],
+    [9, 'ix'],
+    [5, 'v'],
+    [4, 'iv'],
+    [1, 'i'],
+  ];
+
+  let result = '';
+  numerals.forEach(([numericValue, romanValue]) => {
+    while (remaining >= numericValue) {
+      result += romanValue;
+      remaining -= numericValue;
+    }
+  });
+
+  return result;
+};
+
+export const normalizeMatchingHeadingLabel = (value, fallbackIndex = null) => {
+  const raw = String(value ?? '').trim();
+  if (raw) {
+    if (/^\d+$/.test(raw)) {
+      return toRomanNumeral(raw) || raw;
+    }
+
+    if (/^[ivxlcdm]+$/i.test(raw)) {
+      return raw.toLowerCase();
+    }
+
+    return raw;
+  }
+
+  if (fallbackIndex === null || fallbackIndex === undefined) {
+    return '';
+  }
+
+  return toRomanNumeral(Number(fallbackIndex) + 1) || String(Number(fallbackIndex) + 1);
+};
+
+export const getMatchingHeadingOption = (heading, index) => {
+  const fallbackLabel = normalizeMatchingHeadingLabel('', index);
+
+  if (heading && typeof heading === 'object') {
+    const rawLabel = String(heading.label ?? '').trim();
+    const hasNumeralLabel = /^\d+$/.test(rawLabel) || /^[ivxlcdm]+$/i.test(rawLabel);
+    const label = hasNumeralLabel
+      ? normalizeMatchingHeadingLabel(rawLabel, index)
+      : fallbackLabel;
+    const text =
+      String(heading.text ?? heading.content ?? heading.title ?? '').trim() ||
+      (rawLabel && !hasNumeralLabel ? rawLabel : '');
+
+    return {
+      label,
+      value: label,
+      text,
+    };
+  }
+
+  const rawText = String(heading ?? '').trim();
+  if (!rawText) {
+    return {
+      label: fallbackLabel,
+      value: fallbackLabel,
+      text: '',
+    };
+  }
+
+  const prefixedMatch = rawText.match(/^\s*([ivxlcdm]+|\d+)[.)]\s*(.+)$/i);
+  if (prefixedMatch) {
+    const label = normalizeMatchingHeadingLabel(prefixedMatch[1], index) || fallbackLabel;
+    return {
+      label,
+      value: label,
+      text: prefixedMatch[2].trim(),
+    };
+  }
+
+  if (/^([ivxlcdm]+|\d+)$/i.test(rawText)) {
+    const label = normalizeMatchingHeadingLabel(rawText, index) || fallbackLabel;
+    return {
+      label,
+      value: label,
+      text: '',
+    };
+  }
+
+  return {
+    label: fallbackLabel,
+    value: fallbackLabel,
+    text: rawText,
+  };
+};
+
 export const getClozeText = (question) => {
   if (!question || typeof question !== 'object') return null;
 
@@ -432,6 +541,7 @@ export const createNewPassage = () => ({
     {
       sectionTitle: "",
       sectionInstruction: "",
+      sentenceCompletionTitleHtml: "",
       sectionImage: null,
       questions: [
         {
@@ -454,6 +564,7 @@ export const createNewPassage = () => ({
 export const createNewSection = (sectionNumber = 1) => ({
   sectionTitle: `Section ${sectionNumber}`,
   sectionInstruction: "",
+  sentenceCompletionTitleHtml: "",
   sectionImage: null,
   questions: [],
 });

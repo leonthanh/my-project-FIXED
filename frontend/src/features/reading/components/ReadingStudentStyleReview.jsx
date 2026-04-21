@@ -5,9 +5,15 @@ import {
   isClozeCommentsColumn,
 } from "../../../shared/utils/clozeTable";
 import { hostPath } from "../../../shared/utils/api";
-import { renderHtmlWithBlankPlaceholders } from "../utils/htmlHelpers";
+import {
+  hasPlaceholderPattern,
+  renderHtmlWithBlankPlaceholders,
+  renderHtmlWithPlaceholderPattern,
+  sentenceCompletionPlaceholderPattern,
+} from "../utils/htmlHelpers";
 import {
   countClozeBlanks,
+  getMatchingHeadingOption,
   getActiveClozeTable,
   getClozeText,
   normalizeQuestionType,
@@ -136,6 +142,30 @@ const normalizeText = (value) =>
     .toLowerCase();
 
 const stripHtml = (html) => String(html || "").replace(/<[^>]+>/g, "").trim();
+
+const getSentenceCompletionTitleState = (section, sectionQuestions) => {
+  const hasOwnTitle =
+    section &&
+    Object.prototype.hasOwnProperty.call(section, "sentenceCompletionTitleHtml");
+
+  if (hasOwnTitle) {
+    return {
+      html: section.sentenceCompletionTitleHtml || "",
+      suppressQuestionTitle: true,
+    };
+  }
+
+  const legacyQuestion = (sectionQuestions || []).find(
+    (question) =>
+      normalizeQuestionType(question?.type || question?.questionType || "") ===
+        "sentence-completion" && stripHtml(question?.titleHtml).length > 0
+  );
+
+  return {
+    html: legacyQuestion?.titleHtml || "",
+    suppressQuestionTitle: Boolean(legacyQuestion?.titleHtml),
+  };
+};
 
 const safeParseJson = (value) => {
   if (typeof value !== "string") return value;
@@ -444,7 +474,12 @@ export default function ReadingStudentStyleReview({ test, submission, details })
     );
   };
 
-  const renderQuestion = (question, questionNumber, passage) => {
+  const renderQuestion = (
+    question,
+    questionNumber,
+    passage,
+    sentenceCompletionTitleState = null
+  ) => {
     const key = `q_${questionNumber}`;
     const qType = normalizeQuestionType(question.type || question.questionType || "multiple-choice");
     const baseQuestionNum =
@@ -471,6 +506,51 @@ export default function ReadingStudentStyleReview({ test, submission, details })
       (isParagraphMatching && paragraphBlankCount > 0) ||
       qType === "multi-select";
     const isInlineAnswerType = qType === "true-false-not-given" || qType === "yes-no-not-given";
+    const hasQuestionTitle =
+      stripHtml(question.titleHtml).length > 0 &&
+      !(
+        qType === "sentence-completion" &&
+        sentenceCompletionTitleState?.suppressQuestionTitle
+      );
+    const sentenceAnswerValue =
+      qType === "sentence-completion"
+        ? extractInlineAnswer(answers, key, detail)
+        : "";
+    const hasInlineSentenceBlank =
+      qType === "sentence-completion" &&
+      hasPlaceholderPattern(
+        question.questionText,
+        sentenceCompletionPlaceholderPattern
+      );
+
+    const renderSentenceCompletionSelect = ({
+      elementKey,
+      inline = false,
+    }) => (
+      <select
+        key={elementKey}
+        className={`sentence-select ${inline ? "sentence-select-inline" : ""} ${
+          hasAnswerValue(sentenceAnswerValue) ? "answered" : ""
+        }`}
+        value={sentenceAnswerValue}
+        disabled
+        aria-label={`Chosen ending for question ${questionNumber}`}
+      >
+        <option value="">-- Select --</option>
+        {(question.options || []).map((opt, oi) => {
+          const letter = String.fromCharCode(65 + oi);
+          const optionText = stripHtml(
+            typeof opt === "object" ? opt.text || opt.label || "" : opt
+          );
+
+          return (
+            <option key={oi} value={letter}>
+              {`${letter}. ${optionText}`}
+            </option>
+          );
+        })}
+      </select>
+    );
 
     if (qType === "multi-select") {
       return renderMultipleChoiceMany(question, questionNumber, question.requiredAnswers || 2);
@@ -486,12 +566,20 @@ export default function ReadingStudentStyleReview({ test, submission, details })
       >
         {!isMultiQuestionBlock && <div className="question-number">{questionNumber}</div>}
         <div className={`question-content ${isMultiQuestionBlock ? "full-width" : ""}`}>
+          {hasQuestionTitle && (
+            <div
+              className="question-title-html question-rich-html"
+              dangerouslySetInnerHTML={{ __html: question.titleHtml }}
+            />
+          )}
+
           {question.questionText &&
             !isShortAnswerInline &&
             !(isClozeTest && clozeText) &&
             qType !== "paragraph-matching" &&
-            !isInlineAnswerType && (
-              <div className="question-text" dangerouslySetInnerHTML={{ __html: question.questionText }} />
+            !isInlineAnswerType &&
+            !hasInlineSentenceBlank && (
+              <div className="question-text question-rich-html" dangerouslySetInnerHTML={{ __html: question.questionText }} />
             )}
 
           {qType === "multiple-choice" && (
@@ -530,20 +618,33 @@ export default function ReadingStudentStyleReview({ test, submission, details })
 
           {qType === "sentence-completion" && (
             <div className="question-sentence-completion">
-              <div className="sentence-completion-inline">
-                <select className={`sentence-select ${hasAnswerValue(extractInlineAnswer(answers, key, detail)) ? "answered" : ""}`} value={extractInlineAnswer(answers, key, detail)} disabled>
-                  <option value="">-- Select --</option>
-                  {(question.options || []).map((opt, oi) => (
-                    <option key={oi} value={String.fromCharCode(65 + oi)}>
-                      {`${String.fromCharCode(65 + oi)}. ${stripHtml(typeof opt === "object" ? opt.text || opt.label || "" : opt)}`}
-                    </option>
-                  ))}
-                </select>
-                <span className={`sentence-selected-badge ${hasAnswerValue(extractInlineAnswer(answers, key, detail)) ? "selected" : ""}`}>
-                  {extractInlineAnswer(answers, key, detail)}
-                </span>
-              </div>
-              {renderQuestionFeedback(questionNumber, extractInlineAnswer(answers, key, detail))}
+              {hasInlineSentenceBlank ? (
+                <div className="question-text question-rich-html sentence-completion-question-text">
+                  {renderHtmlWithPlaceholderPattern(
+                    question.questionText,
+                    (_, blankElementKey) => (
+                      <span key={blankElementKey} className="sentence-inline-blank">
+                        {renderSentenceCompletionSelect({
+                          elementKey: `${blankElementKey}-select`,
+                          inline: true,
+                        })}
+                      </span>
+                    ),
+                    sentenceCompletionPlaceholderPattern,
+                    `sentence-review-${key}`
+                  )}
+                </div>
+              ) : (
+                <div className="sentence-completion-inline">
+                  {renderSentenceCompletionSelect({
+                    elementKey: `${key}-select`,
+                  })}
+                  <span className={`sentence-selected-badge ${hasAnswerValue(sentenceAnswerValue) ? "selected" : ""}`}>
+                    {sentenceAnswerValue}
+                  </span>
+                </div>
+              )}
+              {renderQuestionFeedback(questionNumber, sentenceAnswerValue)}
             </div>
           )}
 
@@ -745,11 +846,10 @@ export default function ReadingStudentStyleReview({ test, submission, details })
               <div className="headings-list">
                 <p className="headings-title">List of Headings</p>
                 {(question.headings || []).map((heading, hi) => {
-                  const headingText = typeof heading === "object" ? heading.text || heading.label || "" : heading;
-                  const roman = ["i", "ii", "iii", "iv", "v", "vi", "vii", "viii", "ix", "x"][hi] || hi + 1;
+                  const { label: headingLabel, text: headingText } = getMatchingHeadingOption(heading, hi);
                   return (
                     <div key={hi} className="heading-item">
-                      <span className="heading-number">{roman}.</span>
+                      <span className="heading-number">{headingLabel}.</span>
                       <span className="heading-text">{headingText}</span>
                     </div>
                   );
@@ -768,11 +868,16 @@ export default function ReadingStudentStyleReview({ test, submission, details })
                       <select className={`heading-select ${selectedHeading ? "answered" : ""}`} value={selectedHeading} disabled>
                         <option value="">Choose a heading...</option>
                         {(question.headings || []).map((heading, hi) => {
-                          const headingText = typeof heading === "object" ? heading.text || heading.label || "" : heading;
-                          const roman = ["i", "ii", "iii", "iv", "v", "vi", "vii", "viii", "ix", "x"][hi] || hi + 1;
+                          const {
+                            label: headingLabel,
+                            text: headingText,
+                            value: headingValue,
+                          } = getMatchingHeadingOption(heading, hi);
                           return (
-                            <option key={hi} value={roman}>
-                              {roman}. {headingText}
+                            <option key={hi} value={headingValue}>
+                              {headingText
+                                ? `${headingLabel}. ${headingText}`
+                                : headingLabel}
                             </option>
                           );
                         })}
@@ -1033,6 +1138,9 @@ export default function ReadingStudentStyleReview({ test, submission, details })
                     const sectionStartNumber = extractSectionStartNumber(section.sectionInstruction);
                     let sectionQuestionNumber = sectionStartNumber || currentQuestionNumber;
 
+                    const sentenceCompletionTitleState =
+                      getSentenceCompletionTitleState(section, sectionQuestions);
+
                     const renderedQuestions = sectionQuestions.map((question) => {
                       let qNum = sectionQuestionNumber;
                       if (question && question.questionNumber) {
@@ -1065,7 +1173,12 @@ export default function ReadingStudentStyleReview({ test, submission, details })
                         sectionQuestionNumber += 1;
                       }
 
-                      return renderQuestion(question, qNum, passage);
+                      return renderQuestion(
+                        question,
+                        qNum,
+                        passage,
+                        sentenceCompletionTitleState
+                      );
                     });
 
                     currentQuestionNumber = sectionQuestionNumber;
@@ -1087,6 +1200,14 @@ export default function ReadingStudentStyleReview({ test, submission, details })
                               />
                             )}
                           </div>
+                        )}
+                        {stripHtml(sentenceCompletionTitleState.html).length > 0 && (
+                          <div
+                            className="section-question-group-title question-rich-html"
+                            dangerouslySetInnerHTML={{
+                              __html: sentenceCompletionTitleState.html,
+                            }}
+                          />
                         )}
                         {renderedQuestions}
                       </div>

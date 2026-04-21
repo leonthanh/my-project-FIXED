@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent, within } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import DoReadingTest from '../DoReadingTest';
 
@@ -113,6 +113,46 @@ const latePassageClozeNavigationTest = {
                   { cells: ['seventh [BLANK]', 'done'] },
                 ],
               },
+            },
+          ],
+        },
+      ],
+    },
+  ],
+};
+
+const sentenceCompletionInlineTest = {
+  id: 1,
+  title: 'Sentence Completion Inline Test',
+  durationMinutes: 60,
+  passages: [
+    {
+      passageTitle: 'Passage 1',
+      sections: [
+        {
+          sentenceCompletionTitleHtml:
+            '<p class="ql-align-center"><span style="color: rgb(37, 99, 235); font-size: 28px;">Art and the Brain</span></p>',
+          questions: [
+            {
+              questionNumber: 31,
+              questionType: 'sentence-completion',
+              questionText:
+                '<p>The discipline of neuroaesthetics studies how art changes our …………</p>',
+              options: ['interpretation', 'complexity', 'emotions'],
+            },
+            {
+              questionNumber: 32,
+              questionType: 'sentence-completion',
+              questionText:
+                '<p>Alex Forsythe believes many artists give their works the precise degree of ………… which most appeals to the viewer’s brain.</p>',
+              options: ['interpretation', 'complexity', 'emotions'],
+            },
+            {
+              questionNumber: 33,
+              questionType: 'sentence-completion',
+              questionText:
+                '<p>Pleasing works of art often contain repeated ………… found in the natural world.</p>',
+              options: ['movements', 'images', 'patterns'],
             },
           ],
         },
@@ -273,5 +313,56 @@ describe('DoReadingTest integration - part navigation and focus', () => {
     await screen.findByText('PASSAGE 3');
     await screen.findByText('Passage 3 Target');
     await screen.findByText('Late Passage Cloze');
+  });
+
+  it('renders sentence-completion combobox inline at the authored blank position', async () => {
+    global.fetch.mockImplementation(() => {
+      return Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve(sentenceCompletionInlineTest),
+      });
+    });
+
+    const { container } = render(
+      <MemoryRouter initialEntries={["/reading/1"]}>
+        <Routes>
+          <Route path="/reading/:id" element={<DoReadingTest />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await screen.findByText('PASSAGE 1');
+    await screen.findByText('List of Endings');
+
+    await waitFor(() => {
+      expect(
+        container.querySelector('.question-text.sentence-completion-question-text')
+      ).not.toBeNull();
+    });
+
+    const titleBlock = container.querySelector('.section-question-group-title .ql-align-center');
+    expect(titleBlock).not.toBeNull();
+    expect(screen.getByText('Art and the Brain')).toBeInTheDocument();
+    expect(container.querySelectorAll('.section-question-group-title')).toHaveLength(1);
+    expect(container.querySelectorAll('.question-item .question-title-html')).toHaveLength(0);
+
+    const inlineSentence = container.querySelector(
+      '.question-text.sentence-completion-question-text'
+    );
+    const select = within(inlineSentence).getByRole('combobox', {
+      name: /choose ending for question 31/i,
+    });
+
+    expect(select).toBeInTheDocument();
+    expect(
+      container.querySelector('.question-sentence-completion > .sentence-completion-inline')
+    ).toBeNull();
+
+    fireEvent.change(select, { target: { value: 'C' } });
+
+    await waitFor(() => {
+      expect(select).toHaveValue('C');
+      expect(container.querySelector('.question-item.answered')).not.toBeNull();
+    });
   });
 });

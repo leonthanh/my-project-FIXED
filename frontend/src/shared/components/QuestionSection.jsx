@@ -65,6 +65,23 @@ const QuestionSection = ({
     setExpandedQuestions({});
   };
 
+  const hasSentenceCompletionQuestion = (section?.questions || []).some(
+    (question) => (question?.questionType || question?.type) === 'sentence-completion'
+  );
+  const legacySentenceCompletionTitleHtml =
+    (section?.questions || []).find(
+      (question) =>
+        (question?.questionType || question?.type) === 'sentence-completion' &&
+        String(question?.titleHtml || '').replace(/<[^>]+>/g, '').trim().length > 0
+    )?.titleHtml || '';
+  const hasOwnSentenceCompletionTitle = Object.prototype.hasOwnProperty.call(
+    section || {},
+    'sentenceCompletionTitleHtml'
+  );
+  const sentenceCompletionTitleHtml = hasOwnSentenceCompletionTitle
+    ? section?.sentenceCompletionTitleHtml || ''
+    : legacySentenceCompletionTitleHtml;
+
   return (
     <div style={{
       border: `2px solid ${primaryBlue}`,
@@ -158,6 +175,35 @@ const QuestionSection = ({
           Gợi ý: dùng nút chèn ảnh trên toolbar để thêm hình ảnh hoặc diagram vào nội dung.
         </p>
       </div>
+
+      {hasSentenceCompletionQuestion && (
+        <div style={{ marginBottom: '12px' }}>
+          <label style={{ fontWeight: '600', marginBottom: '6px', display: 'block', fontSize: '14px' }}>
+            Tiêu đề chung cho nhóm sentence-completion:
+          </label>
+          <QuillEditor
+            value={sentenceCompletionTitleHtml}
+            onChange={(value) =>
+              onSectionChange(
+                passageIndex,
+                sectionIndex,
+                'sentenceCompletionTitleHtml',
+                value
+              )
+            }
+            placeholder="Ví dụ: Art and the Brain"
+            editorMinHeight="90px"
+          />
+          <p style={{ margin: '4px 0 0 0', fontSize: '11px', color: '#666', fontStyle: 'italic' }}>
+            Tiêu đề này sẽ hiển thị một lần phía trên toàn bộ các câu sentence-completion trong section.
+          </p>
+          {!hasOwnSentenceCompletionTitle && legacySentenceCompletionTitleHtml && (
+            <p style={{ margin: '4px 0 0 0', fontSize: '11px', color: '#8a6d3b', fontStyle: 'italic' }}>
+              Đã phát hiện tiêu đề cũ ở cấp câu hỏi. Khi lưu, tiêu đề này sẽ được chuyển lên cấp section.
+            </p>
+          )}
+        </div>
+      )}
 
       {/* Questions in Section */}
       <div style={{ 

@@ -300,9 +300,10 @@ export const QUESTION_TYPES = {
     description: 'Hoàn thành câu từ word list',
     editor: 'SentenceCompletionEditor', // Will create later
     defaultData: {
-      sentences: [],
-      wordList: [],
-      answers: {},
+      questionText: '',
+      options: ['', '', '', ''],
+      correctAnswer: '',
+      maxWords: 1,
     },
     supportedTests: ['ielts-reading', 'ket-reading'],
   },

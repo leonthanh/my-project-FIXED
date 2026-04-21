@@ -1,6 +1,10 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react';
-import { renderHtmlWithBlankPlaceholders } from '../htmlHelpers';
+import {
+  renderHtmlWithBlankPlaceholders,
+  renderHtmlWithPlaceholderPattern,
+  sentenceCompletionPlaceholderPattern,
+} from '../htmlHelpers';
 
 describe('renderHtmlWithBlankPlaceholders', () => {
   it('preserves paragraph and list structure while inserting blanks', () => {
@@ -45,5 +49,32 @@ describe('renderHtmlWithBlankPlaceholders', () => {
     expect(paragraph).not.toBeNull();
     expect(heading.tagName).toBe('STRONG');
     expect(heading).toHaveStyle({ color: 'rgb(153, 51, 255)' });
+  });
+
+  it('supports sentence-completion dot and underscore placeholders without flattening HTML structure', () => {
+    const html = [
+      '<p><strong>Art and the Brain</strong></p>',
+      '<p>Neurological studies show how painting affects our …………</p>',
+      '<p>_____ can also appear at the start of a sentence.</p>',
+    ].join('');
+
+    const { container } = render(
+      <div>
+        {renderHtmlWithPlaceholderPattern(
+          html,
+          (blankIndex, key) => (
+            <span key={key} data-testid={`sentence-blank-${blankIndex}`}>
+              [{blankIndex}]
+            </span>
+          ),
+          sentenceCompletionPlaceholderPattern
+        )}
+      </div>
+    );
+
+    expect(container.querySelectorAll('p')).toHaveLength(3);
+    expect(screen.getByTestId('sentence-blank-0').closest('p')).not.toBeNull();
+    expect(screen.getByTestId('sentence-blank-1').closest('p')).not.toBeNull();
+    expect(container.querySelector('strong')).not.toBeNull();
   });
 });

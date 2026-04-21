@@ -104,14 +104,40 @@ const appendRenderedNode = (bucket, renderedNode) => {
   bucket.push(renderedNode);
 };
 
-const renderNodeWithBlankPlaceholders = (node, path, renderBlank, state) => {
+const blankPlaceholderPattern = /\[BLANK\]/i;
+
+export const sentenceCompletionPlaceholderPattern = /(?:\[BLANK\]|_{3,}|\.{3,}|…+)/i;
+
+const createPlaceholderRegex = (placeholderPattern = blankPlaceholderPattern) => {
+  if (placeholderPattern instanceof RegExp) {
+    const flags = placeholderPattern.flags.includes('g')
+      ? placeholderPattern.flags
+      : `${placeholderPattern.flags}g`;
+    return new RegExp(placeholderPattern.source, flags);
+  }
+
+  return new RegExp(String(placeholderPattern || '\\[BLANK\\]'), 'gi');
+};
+
+const splitTextByPlaceholderPattern = (
+  text,
+  placeholderPattern = blankPlaceholderPattern
+) => String(text || '').split(createPlaceholderRegex(placeholderPattern));
+
+const renderNodeWithPlaceholderPattern = (
+  node,
+  path,
+  renderPlaceholder,
+  state,
+  placeholderPattern
+) => {
   if (!node) return null;
 
   if (node.nodeType === Node.TEXT_NODE) {
     const text = node.textContent || '';
     if (!text) return null;
 
-    const parts = text.split(/\[BLANK\]/gi);
+    const parts = splitTextByPlaceholderPattern(text, placeholderPattern);
     if (parts.length === 1) {
       return text;
     }
@@ -125,7 +151,9 @@ const renderNodeWithBlankPlaceholders = (node, path, renderBlank, state) => {
       if (index < parts.length - 1) {
         const blankIndex = state.blankIndex;
         state.blankIndex += 1;
-        children.push(renderBlank(blankIndex, `${state.keyPrefix}-blank-${blankIndex}`));
+        children.push(
+          renderPlaceholder(blankIndex, `${state.keyPrefix}-blank-${blankIndex}`)
+        );
       }
     });
 
@@ -143,25 +171,39 @@ const renderNodeWithBlankPlaceholders = (node, path, renderBlank, state) => {
   Array.from(node.childNodes || []).forEach((childNode, childIndex) => {
     appendRenderedNode(
       children,
-      renderNodeWithBlankPlaceholders(childNode, [...path, childIndex], renderBlank, state)
+      renderNodeWithPlaceholderPattern(
+        childNode,
+        [...path, childIndex],
+        renderPlaceholder,
+        state,
+        placeholderPattern
+      )
     );
   });
 
   return React.createElement(tagName, props, ...children);
 };
 
-export const renderHtmlWithBlankPlaceholders = (
+export const hasPlaceholderPattern = (
   html,
-  renderBlank,
+  placeholderPattern = blankPlaceholderPattern
+) => {
+  if (!html) return false;
+  return createPlaceholderRegex(placeholderPattern).test(String(html));
+};
+
+export const renderHtmlWithPlaceholderPattern = (
+  html,
+  renderPlaceholder,
+  placeholderPattern = blankPlaceholderPattern,
   keyPrefix = 'reading-html'
 ) => {
-  if (!html || typeof renderBlank !== 'function') return null;
+  if (!html || typeof renderPlaceholder !== 'function') return null;
 
   if (typeof document === 'undefined') {
     const fallbackState = { blankIndex: 0, keyPrefix };
     const children = [];
-    String(html)
-      .split(/\[BLANK\]/gi)
+    splitTextByPlaceholderPattern(String(html), placeholderPattern)
       .forEach((part, index, array) => {
         if (part) {
           children.push(part);
@@ -170,7 +212,9 @@ export const renderHtmlWithBlankPlaceholders = (
         if (index < array.length - 1) {
           const blankIndex = fallbackState.blankIndex;
           fallbackState.blankIndex += 1;
-          children.push(renderBlank(blankIndex, `${keyPrefix}-blank-${blankIndex}`));
+          children.push(
+            renderPlaceholder(blankIndex, `${keyPrefix}-blank-${blankIndex}`)
+          );
         }
       });
     return children;
@@ -184,12 +228,30 @@ export const renderHtmlWithBlankPlaceholders = (
   Array.from(template.content.childNodes || []).forEach((node, index) => {
     appendRenderedNode(
       renderedNodes,
-      renderNodeWithBlankPlaceholders(node, [index], renderBlank, state)
+      renderNodeWithPlaceholderPattern(
+        node,
+        [index],
+        renderPlaceholder,
+        state,
+        placeholderPattern
+      )
     );
   });
 
   return renderedNodes;
 };
+
+export const renderHtmlWithBlankPlaceholders = (
+  html,
+  renderBlank,
+  keyPrefix = 'reading-html'
+) =>
+  renderHtmlWithPlaceholderPattern(
+    html,
+    renderBlank,
+    blankPlaceholderPattern,
+    keyPrefix
+  );
 
 /**
  * Loại bỏ HTML tags, trả về text thuần
