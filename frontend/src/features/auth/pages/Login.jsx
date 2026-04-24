@@ -317,7 +317,7 @@ const Login = () => {
   const handleLoginPasswordKeyDown = (e) => {
     if (e.key !== "Enter") return;
     e.preventDefault();
-    loginButtonRef.current?.focus();
+    handleLogin();
   };
 
   const handleLoginButtonKeyDown = (e) => {
