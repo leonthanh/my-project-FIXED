@@ -19,6 +19,7 @@ import {
 import ExtensionToast from "../../../shared/components/ExtensionToast";
 import TestStartModal from "../../../shared/components/TestStartModal";
 import InlineIcon from "../../../shared/components/InlineIcon.jsx";
+import "./WritingTest.css";
 
 const SERVER_AUTOSAVE_INTERVAL_MS = 30000;
 const SERVER_TIMING_RECONCILE_INTERVAL_MS = 15000;
@@ -755,7 +756,10 @@ const WritingTest = () => {
           {activeTask === "task1" && (
             <>
               <h2>WRITING TASK 1</h2>
-              <div dangerouslySetInnerHTML={{ __html: testData.task1 }} />
+              <div
+                className="writing-test-prompt"
+                dangerouslySetInnerHTML={{ __html: testData.task1 }}
+              />
               {testData.task1Image && (
                 <img
                   src={hostPath(testData.task1Image)}
@@ -772,7 +776,10 @@ const WritingTest = () => {
           {activeTask === "task2" && (
             <>
               <h2>WRITING TASK 2</h2>
-              <div dangerouslySetInnerHTML={{ __html: testData.task2 }} />
+              <div
+                className="writing-test-prompt"
+                dangerouslySetInnerHTML={{ __html: testData.task2 }}
+              />
               <p>
                 <i>Write at least 250 words.</i>
               </p>

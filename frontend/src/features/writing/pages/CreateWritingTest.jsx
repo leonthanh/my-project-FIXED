@@ -1,23 +1,11 @@
-// src/features/writing/pages/CreateWritingTest.jsx
 import React, { useState } from "react";
 import ReactQuill from "react-quill";
 import AdminNavbar from "../../../shared/components/AdminNavbar";
 import InlineIcon from "../../../shared/components/InlineIcon.jsx";
 import { apiPath, authFetch, redirectToLogin } from "../../../shared/utils/api";
+import useQuillImageUpload from "../../../shared/hooks/useQuillImageUpload";
 
 import "../../../shared/styles/WritingEditorForm.css";
-
-const quillModules = {
-  toolbar: [
-    [{ header: [1, 2, 3, false] }],
-    ["bold", "italic", "underline", "strike"],
-    [{ list: "ordered" }, { list: "bullet" }],
-    [{ align: [] }],
-    ["blockquote", "code-block"],
-    ["link", "image"],
-    ["clean"],
-  ],
-};
 
 const CreateWritingTest = () => {
   const [task1, setTask1] = useState("");
@@ -28,14 +16,17 @@ const CreateWritingTest = () => {
   const [message, setMessage] = useState("");
   const [messageTone, setMessageTone] = useState("success");
   const [showPreview, setShowPreview] = useState(false);
-  // show login banner when refresh fails
   const [requiresLogin, setRequiresLogin] = useState(false);
+  const task1Quill = useQuillImageUpload();
+  const task2Quill = useQuillImageUpload();
 
   const saveDraft = () => {
     try {
       const draft = { task1, task2, classCode, teacherName };
-      localStorage.setItem('writingTestDraft', JSON.stringify(draft));
-    } catch (e) { console.error('Error saving writing draft', e); }
+      localStorage.setItem("writingTestDraft", JSON.stringify(draft));
+    } catch (error) {
+      console.error("Error saving writing draft", error);
+    }
   };
 
   const updateMessage = (tone, text) => {
@@ -43,16 +34,22 @@ const CreateWritingTest = () => {
     setMessage(text);
   };
 
+  const clearSelectedImage = () => {
+    setImage(null);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (!task1.trim() || !task2.trim()) {
-      updateMessage("error", "Vui lòng nhập đầy đủ nội dung Task 1 và Task 2.");
+      updateMessage("error", "Please enter both Task 1 and Task 2.");
       return;
     }
 
     try {
-      const endpoint = image ? apiPath("writing-tests/with-image") : apiPath("writing-tests");
+      const endpoint = image
+        ? apiPath("writing-tests/with-image")
+        : apiPath("writing-tests");
 
       let res;
       if (image) {
@@ -61,6 +58,7 @@ const CreateWritingTest = () => {
         formData.append("task2", task2);
         formData.append("classCode", classCode);
         formData.append("teacherName", teacherName);
+        formData.append("testType", "writing");
         formData.append("image", image);
 
         res = await authFetch(endpoint, {
@@ -78,6 +76,7 @@ const CreateWritingTest = () => {
             task2,
             classCode,
             teacherName,
+            testType: "writing",
           }),
         });
       }
@@ -86,17 +85,24 @@ const CreateWritingTest = () => {
 
       if (!res.ok) {
         if (res.status === 401) {
-          // Save draft and prompt login
-          try { saveDraft(); } catch (e) {}
-          updateMessage('error', 'Token đã hết hạn hoặc không hợp lệ. Vui lòng đăng nhập lại. Bản nháp đã được lưu.');
+          try {
+            saveDraft();
+          } catch (_error) {
+            // ignore local draft failures
+          }
+          updateMessage(
+            "error",
+            "Your session has expired or is invalid. Please sign in again. Your draft has been saved."
+          );
           setRequiresLogin(true);
           return;
         }
-        updateMessage("error", data.message || "Lỗi khi tạo đề");
+
+        updateMessage("error", data.message || "Unable to create the writing test.");
         return;
       }
 
-      updateMessage("success", data.message || "Đã tạo đề");
+      updateMessage("success", data.message || "Writing test created successfully.");
 
       setTask1("");
       setTask2("");
@@ -104,9 +110,9 @@ const CreateWritingTest = () => {
       setTeacherName("");
       setImage(null);
       setTimeout(() => window.location.reload(), 2000);
-    } catch (err) {
-      console.error(err);
-      updateMessage("error", "Lỗi khi tạo đề");
+    } catch (error) {
+      console.error(error);
+      updateMessage("error", "Unable to create the writing test.");
     }
   };
 
@@ -124,25 +130,51 @@ const CreateWritingTest = () => {
       <AdminNavbar />
       <div className="create-writing-container">
         {requiresLogin && (
-          <div style={{ padding: 12, background: '#fff0f0', border: '1px solid #ffcccc', borderRadius: 6, marginBottom: 12 }}>
-            <strong style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}><InlineIcon name="average" size={16} style={{ color: '#d97706' }} />Bạn cần đăng nhập lại để hoàn tất thao tác.</strong>
+          <div
+            style={{
+              padding: 12,
+              background: "#fff0f0",
+              border: "1px solid #ffcccc",
+              borderRadius: 6,
+              marginBottom: 12,
+            }}
+          >
+            <strong
+              style={{ display: "inline-flex", alignItems: "center", gap: 8 }}
+            >
+              <InlineIcon name="average" size={16} style={{ color: "#d97706" }} />
+              You need to sign in again to complete this action.
+            </strong>
             <div style={{ marginTop: 8 }}>
-              Bản nháp đã được lưu. <button style={{ marginLeft: 8, padding: '6px 10px' }} onClick={() => { redirectToLogin({ rememberPath: true, replace: true }); }}>Đăng nhập lại</button>
+              Your draft has been saved.
+              <button
+                style={{ marginLeft: 8, padding: "6px 10px" }}
+                onClick={() => {
+                  redirectToLogin({ rememberPath: true, replace: true });
+                }}
+              >
+                Sign in again
+              </button>
             </div>
           </div>
         )}
-        <h2 style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}><InlineIcon name="writing" size={18} />Create Writing</h2>
+
+        <h2 style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+          <InlineIcon name="writing" size={18} />
+          Create IX Writing
+        </h2>
+
         <form onSubmit={handleSubmit}>
           <input
             type="text"
-            placeholder="Mã lớp (VD: 317S3)"
+            placeholder="Class code (e.g. 317S3)"
             value={classCode}
             onChange={(e) => setClassCode(e.target.value)}
             style={inputStyle}
           />
           <input
             type="text"
-            placeholder="Tên giáo viên ra đề"
+            placeholder="Teacher name"
             value={teacherName}
             onChange={(e) => setTeacherName(e.target.value)}
             style={inputStyle}
@@ -150,40 +182,93 @@ const CreateWritingTest = () => {
 
           <div style={{ marginBottom: "20px" }}>
             <label>
-              <b>Nội dung Task 1:</b>
+              <b>Task 1 prompt:</b>
             </label>
+            <div style={{ margin: "6px 0 10px", color: "#4b5563", fontSize: "14px" }}>
+              Use the image button in the toolbar to insert images directly into the
+              prompt. If you want a separate illustration image for Task 1, choose
+              a file below.
+            </div>
             <div className="create-writing-quill">
               <ReactQuill
+                ref={task1Quill.quillRef}
                 theme="snow"
                 value={task1}
                 onChange={setTask1}
-                placeholder="Nhập nội dung Task 1"
-                modules={quillModules}
+                placeholder="Enter the Task 1 prompt"
+                modules={task1Quill.modules}
               />
             </div>
           </div>
 
           <div style={{ marginBottom: "20px" }}>
             <label>
-              <b>Nội dung Task 2:</b>
+              <b>Task 2 prompt:</b>
             </label>
             <div className="create-writing-quill">
               <ReactQuill
+                ref={task2Quill.quillRef}
                 theme="snow"
                 value={task2}
                 onChange={setTask2}
-                placeholder="Nhập nội dung Task 2"
-                modules={quillModules}
+                placeholder="Enter the Task 2 prompt"
+                modules={task2Quill.modules}
               />
             </div>
           </div>
 
-          <input
-            type="file"
-            accept="image/*"
-            onChange={(e) => setImage(e.target.files[0])}
-            style={{ margin: "10px 0" }}
-          />
+          <div style={{ marginBottom: "20px" }}>
+            <label style={{ display: "block", fontWeight: 700, marginBottom: 8 }}>
+              Task 1 illustration image
+            </label>
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(e) => setImage(e.target.files?.[0] || null)}
+              style={{ margin: "0 0 10px" }}
+            />
+            {image && (
+              <div
+                style={{
+                  border: "1px solid #d1d5db",
+                  borderRadius: 8,
+                  padding: 12,
+                  background: "#fff",
+                  maxWidth: 560,
+                }}
+              >
+                <div style={{ fontWeight: 600, marginBottom: 10 }}>
+                  Selected image preview
+                </div>
+                <img
+                  src={URL.createObjectURL(image)}
+                  alt="Selected Task 1 illustration"
+                  style={{
+                    width: "100%",
+                    height: "auto",
+                    borderRadius: 6,
+                    border: "1px solid #e5e7eb",
+                    marginBottom: 12,
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={clearSelectedImage}
+                  style={{
+                    padding: "8px 14px",
+                    backgroundColor: "#fff",
+                    color: "#b91c1c",
+                    border: "1px solid #fca5a5",
+                    borderRadius: "6px",
+                    cursor: "pointer",
+                    fontWeight: 600,
+                  }}
+                >
+                  Remove image
+                </button>
+              </div>
+            )}
+          </div>
 
           <div style={{ display: "flex", gap: "10px" }}>
             <button
@@ -198,7 +283,10 @@ const CreateWritingTest = () => {
                 cursor: "pointer",
               }}
             >
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><InlineIcon name="create" size={14} style={{ color: 'white' }} />Tạo đề</span>
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                <InlineIcon name="create" size={14} style={{ color: "white" }} />
+                Create test
+              </span>
             </button>
 
             <button
@@ -214,7 +302,10 @@ const CreateWritingTest = () => {
                 cursor: "pointer",
               }}
             >
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><InlineIcon name="eye" size={14} style={{ color: 'white' }} />Preview</span>
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                <InlineIcon name="eye" size={14} style={{ color: "white" }} />
+                Preview
+              </span>
             </button>
           </div>
         </form>
@@ -231,7 +322,6 @@ const CreateWritingTest = () => {
           </p>
         )}
 
-        {/* Modal Preview */}
         {showPreview && (
           <div
             style={{
@@ -259,11 +349,14 @@ const CreateWritingTest = () => {
               }}
               onClick={(e) => e.stopPropagation()}
             >
-              <h3 style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}><InlineIcon name="document" size={18} />Xem trước đề</h3>
+              <h3 style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                <InlineIcon name="document" size={18} />
+                Preview IX Writing
+              </h3>
 
               {image && (
                 <div style={{ marginBottom: "15px" }}>
-                  <h4>Hình minh họa:</h4>
+                  <h4>Illustration image:</h4>
                   <img
                     src={URL.createObjectURL(image)}
                     alt="Preview"
@@ -299,7 +392,7 @@ const CreateWritingTest = () => {
                     cursor: "pointer",
                   }}
                 >
-                  Đóng
+                  Close
                 </button>
               </div>
             </div>
@@ -311,4 +404,3 @@ const CreateWritingTest = () => {
 };
 
 export default CreateWritingTest;
-
