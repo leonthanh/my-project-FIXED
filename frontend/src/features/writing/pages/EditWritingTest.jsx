@@ -14,7 +14,7 @@ import useQuillImageUpload from "../../../shared/hooks/useQuillImageUpload";
 import "react-quill/dist/quill.snow.css";
 import "../../../shared/styles/WritingEditorForm.css";
 
-const EditTest = () => {
+const EditWritingTest = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const [task1, setTask1] = useState("");
@@ -525,4 +525,4 @@ const EditTest = () => {
   );
 };
 
-export default EditTest;
+export default EditWritingTest;
