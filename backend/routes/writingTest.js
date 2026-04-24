@@ -1,35 +1,38 @@
-// routes/writingTest.js
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const WritingTest = require('../models/WritingTests');
+const { requireAuth, requireRole } = require('../middlewares/auth');
 
 const normalizeUploadsInText = (text, req) => {
   if (!text || typeof text !== 'string') return text;
-  const host = `${req.protocol}://${req.get("host")}`;
+
+  const host = `${req.protocol}://${req.get('host')}`;
   const stripHost = (url) => url.replace(/^https?:\/\//i, '').replace(/^\/\//, '');
   const normalize = (url) => {
     const cleaned = String(url || '').trim();
     if (!cleaned) return cleaned;
     if (/^data:/i.test(cleaned)) return cleaned;
+
     if (/^https?:\/\//i.test(cleaned) || cleaned.startsWith('//')) {
       const withoutProto = stripHost(cleaned);
       const idx = withoutProto.indexOf('/uploads/');
       if (idx >= 0) return `${host}${withoutProto.slice(idx)}`;
       return cleaned;
     }
+
     if (cleaned.startsWith('/uploads/')) return `${host}${cleaned}`;
     return cleaned;
   };
 
   return text
-    .replace(/\bsrc\s*=\s*"([^"]+)"/gi, (_m, url) => `src="${normalize(url)}"`)
-    .replace(/\bsrc\s*=\s*'([^']+)'/gi, (_m, url) => `src='${normalize(url)}'`)
-    .replace(/\bhref\s*=\s*"([^"]+)"/gi, (_m, url) => `href="${normalize(url)}"`)
-    .replace(/\bhref\s*=\s*'([^']+)'/gi, (_m, url) => `href='${normalize(url)}'`)
-    .replace(/url\(([^)]+)\)/gi, (_m, rawUrl) => {
+    .replace(/\bsrc\s*=\s*"([^"]+)"/gi, (_match, url) => `src="${normalize(url)}"`)
+    .replace(/\bsrc\s*=\s*'([^']+)'/gi, (_match, url) => `src='${normalize(url)}'`)
+    .replace(/\bhref\s*=\s*"([^"]+)"/gi, (_match, url) => `href="${normalize(url)}"`)
+    .replace(/\bhref\s*=\s*'([^']+)'/gi, (_match, url) => `href='${normalize(url)}'`)
+    .replace(/url\(([^)]+)\)/gi, (_match, rawUrl) => {
       const url = String(rawUrl || '').trim().replace(/^['"]|['"]$/g, '');
       return `url(${normalize(url)})`;
     });
@@ -37,6 +40,7 @@ const normalizeUploadsInText = (text, req) => {
 
 const normalizeUploadsInWriting = (test, req) => {
   if (!test) return test;
+
   return {
     ...test,
     task1: normalizeUploadsInText(test.task1, req),
@@ -47,50 +51,59 @@ const normalizeUploadsInWriting = (test, req) => {
   };
 };
 
-// 📌 Cấu hình upload ảnh
 const uploadsRoot = path.join(__dirname, '..', 'uploads');
 if (!fs.existsSync(uploadsRoot)) {
   fs.mkdirSync(uploadsRoot, { recursive: true });
 }
+
 const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
+  destination: (_req, _file, cb) => {
     cb(null, uploadsRoot);
   },
-  filename: (req, file, cb) => {
+  filename: (_req, file, cb) => {
     cb(null, Date.now() + path.extname(file.originalname));
-  }
+  },
 });
+
 const upload = multer({ storage });
 
 const shouldIncludeArchived = (req) =>
   ['1', 'true', 'yes'].includes(String(req.query.includeArchived || '').trim().toLowerCase());
 
-// 📌 Lấy tất cả đề
+const isTruthyFlag = (value) =>
+  ['1', 'true', 'yes', 'on'].includes(String(value || '').trim().toLowerCase());
+
 router.get('/', async (req, res) => {
   try {
     const where = {};
+
     if (req.query.testType) {
       where.testType = req.query.testType;
     }
+
     if (!shouldIncludeArchived(req)) {
       where.isArchived = false;
     }
+
     const tests = await WritingTest.findAll({ where, order: [['index', 'ASC']] });
-    const normalized = tests.map((t) => normalizeUploadsInWriting(t.toJSON ? t.toJSON() : t, req));
+    const normalized = tests.map((test) =>
+      normalizeUploadsInWriting(test.toJSON ? test.toJSON() : test, req)
+    );
+
     res.json(normalized);
   } catch (err) {
-    console.error('❌ Lỗi lấy danh sách đề:', err);
-    res.status(500).json({ message: 'Lỗi server' });
+    console.error('Error loading writing tests:', err);
+    res.status(500).json({ message: 'Server error' });
   }
 });
 
-// 📌 Lấy chi tiết đề theo ID
 router.get('/detail/:id', async (req, res) => {
   try {
     const test = await WritingTest.findByPk(req.params.id);
     if (!test) {
-      return res.status(404).json({ message: 'Không tìm thấy đề' });
+      return res.status(404).json({ message: 'Writing test not found' });
     }
+
     const data = normalizeUploadsInWriting(test.toJSON(), req);
     res.json({
       id: data.id,
@@ -105,15 +118,12 @@ router.get('/detail/:id', async (req, res) => {
       part2Question3: data.part2Question3,
     });
   } catch (err) {
-    console.error('❌ Lỗi lấy chi tiết đề:', err);
-    res.status(500).json({ message: 'Lỗi server' });
+    console.error('Error loading writing test detail:', err);
+    res.status(500).json({ message: 'Server error' });
   }
 });
 
-const { requireAuth, requireRole } = require('../middlewares/auth');
-
-// 📌 Tạo đề (không ảnh)
-router.post('/', requireAuth, requireRole('teacher','admin'), async (req, res) => {
+router.post('/', requireAuth, requireRole('teacher', 'admin'), async (req, res) => {
   try {
     const {
       task1,
@@ -124,15 +134,16 @@ router.post('/', requireAuth, requireRole('teacher','admin'), async (req, res) =
       part2Question2,
       part2Question3,
     } = req.body;
+
     const resolvedType = testType || 'writing';
     const isPetWriting = resolvedType === 'pet-writing';
 
     if (!task1 || (!isPetWriting && !task2)) {
-      return res.status(400).json({ message: 'Vui lòng nhập đầy đủ Task 1 và Task 2' });
+      return res.status(400).json({ message: 'Please provide both Task 1 and Task 2.' });
     }
 
     if (isPetWriting && (!part2Question2 || !part2Question3)) {
-      return res.status(400).json({ message: 'Vui lòng nhập đầy đủ câu hỏi Part 2' });
+      return res.status(400).json({ message: 'Please provide both Part 2 questions.' });
     }
 
     const count = await WritingTest.count();
@@ -147,14 +158,13 @@ router.post('/', requireAuth, requireRole('teacher','admin'), async (req, res) =
       part2Question3: part2Question3 || null,
     });
 
-    res.json({ message: '✅ Đã tạo đề mới', test: newTest });
+    res.json({ message: 'Writing test created successfully.', test: newTest });
   } catch (err) {
-    console.error('❌ Lỗi tạo đề:', err);
-    res.status(500).json({ message: 'Lỗi server' });
+    console.error('Error creating writing test:', err);
+    res.status(500).json({ message: 'Server error' });
   }
 });
 
-// 📌 Tạo đề (có ảnh)
 router.post('/with-image', upload.single('image'), async (req, res) => {
   try {
     const {
@@ -166,15 +176,16 @@ router.post('/with-image', upload.single('image'), async (req, res) => {
       part2Question2,
       part2Question3,
     } = req.body;
+
     const resolvedType = testType || 'writing';
     const isPetWriting = resolvedType === 'pet-writing';
 
     if (!task1 || (!isPetWriting && !task2)) {
-      return res.status(400).json({ message: 'Vui lòng nhập đầy đủ Task 1 và Task 2' });
+      return res.status(400).json({ message: 'Please provide both Task 1 and Task 2.' });
     }
 
     if (isPetWriting && (!part2Question2 || !part2Question3)) {
-      return res.status(400).json({ message: 'Vui lòng nhập đầy đủ câu hỏi Part 2' });
+      return res.status(400).json({ message: 'Please provide both Part 2 questions.' });
     }
 
     const count = await WritingTest.count();
@@ -190,19 +201,20 @@ router.post('/with-image', upload.single('image'), async (req, res) => {
       part2Question3: part2Question3 || null,
     });
 
-    res.json({ message: '✅ Đã tạo đề mới', test: newTest });
+    res.json({ message: 'Writing test created successfully.', test: newTest });
   } catch (err) {
-    console.error('❌ Lỗi tạo đề có ảnh:', err);
-    res.status(500).json({ message: 'Lỗi server' });
+    console.error('Error creating writing test with image:', err);
+    res.status(500).json({ message: 'Server error' });
   }
 });
-// ✅ Route chi tiết đề thi theo ID (để khớp với frontend)
+
 router.get('/:id', async (req, res) => {
   try {
     const test = await WritingTest.findByPk(req.params.id);
     if (!test) {
-      return res.status(404).json({ message: 'Không tìm thấy đề' });
+      return res.status(404).json({ message: 'Writing test not found' });
     }
+
     const data = normalizeUploadsInWriting(test.toJSON(), req);
     res.json({
       id: data.id,
@@ -217,13 +229,12 @@ router.get('/:id', async (req, res) => {
       part2Question3: data.part2Question3,
     });
   } catch (err) {
-    console.error('❌ Lỗi lấy chi tiết đề:', err);
-    res.status(500).json({ message: 'Lỗi server' });
+    console.error('Error loading writing test:', err);
+    res.status(500).json({ message: 'Server error' });
   }
 });
 
-// ✅ Route cập nhật đề thi
-router.put('/:id', requireAuth, requireRole('teacher','admin'), async (req, res) => {
+router.put('/:id', requireAuth, requireRole('teacher', 'admin'), async (req, res) => {
   try {
     const {
       classCode,
@@ -234,14 +245,16 @@ router.put('/:id', requireAuth, requireRole('teacher','admin'), async (req, res)
       testType,
       part2Question2,
       part2Question3,
+      removeTask1Image,
     } = req.body;
+
     const test = await WritingTest.findByPk(req.params.id);
-    
     if (!test) {
-      return res.status(404).json({ message: 'Không tìm thấy đề thi' });
+      return res.status(404).json({ message: 'Writing test not found' });
     }
 
-    // Cập nhật thông tin
+    const shouldRemoveTask1Image = isTruthyFlag(removeTask1Image);
+
     await test.update({
       classCode,
       teacherName,
@@ -250,21 +263,21 @@ router.put('/:id', requireAuth, requireRole('teacher','admin'), async (req, res)
       testType,
       part2Question2,
       part2Question3,
-      questions: JSON.stringify(questions)
+      task1Image: shouldRemoveTask1Image ? null : test.task1Image,
+      questions: JSON.stringify(questions),
     });
 
-    res.json({ 
-      message: '✅ Đã cập nhật đề thi thành công',
-      test 
+    res.json({
+      message: 'Writing test updated successfully.',
+      test,
     });
   } catch (err) {
-    console.error('❌ Lỗi cập nhật đề thi:', err);
-    res.status(500).json({ message: 'Lỗi server khi cập nhật đề thi' });
+    console.error('Error updating writing test:', err);
+    res.status(500).json({ message: 'Server error while updating the writing test.' });
   }
 });
 
-// ✅ Route cập nhật đề thi (có ảnh)
-router.put('/:id/with-image', requireAuth, requireRole('teacher','admin'), upload.single('image'), async (req, res) => {
+router.put('/:id/with-image', requireAuth, requireRole('teacher', 'admin'), upload.single('image'), async (req, res) => {
   try {
     const {
       classCode,
@@ -274,22 +287,24 @@ router.put('/:id/with-image', requireAuth, requireRole('teacher','admin'), uploa
       testType,
       part2Question2,
       part2Question3,
+      removeTask1Image,
     } = req.body;
-    const test = await WritingTest.findByPk(req.params.id);
 
+    const test = await WritingTest.findByPk(req.params.id);
     if (!test) {
-      return res.status(404).json({ message: 'Không tìm thấy đề thi' });
+      return res.status(404).json({ message: 'Writing test not found' });
     }
 
     const resolvedType = testType || test.testType || 'writing';
     const isPetWriting = resolvedType === 'pet-writing';
+    const shouldRemoveTask1Image = isTruthyFlag(removeTask1Image);
 
     if (!task1 || (!isPetWriting && !task2)) {
-      return res.status(400).json({ message: 'Vui lòng nhập đầy đủ Task 1 và Task 2' });
+      return res.status(400).json({ message: 'Please provide both Task 1 and Task 2.' });
     }
 
     if (isPetWriting && (!part2Question2 || !part2Question3)) {
-      return res.status(400).json({ message: 'Vui lòng nhập đầy đủ câu hỏi Part 2' });
+      return res.status(400).json({ message: 'Please provide both Part 2 questions.' });
     }
 
     await test.update({
@@ -300,13 +315,17 @@ router.put('/:id/with-image', requireAuth, requireRole('teacher','admin'), uploa
       testType: resolvedType,
       part2Question2,
       part2Question3,
-      task1Image: req.file ? `/uploads/${req.file.filename}` : test.task1Image,
+      task1Image: req.file
+        ? `/uploads/${req.file.filename}`
+        : shouldRemoveTask1Image
+          ? null
+          : test.task1Image,
     });
 
-    res.json({ message: '✅ Đã cập nhật đề thi thành công', test });
+    res.json({ message: 'Writing test updated successfully.', test });
   } catch (err) {
-    console.error('❌ Lỗi cập nhật đề thi (có ảnh):', err);
-    res.status(500).json({ message: 'Lỗi server khi cập nhật đề thi' });
+    console.error('Error updating writing test with image:', err);
+    res.status(500).json({ message: 'Server error while updating the writing test.' });
   }
 });
 
