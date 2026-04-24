@@ -75,6 +75,7 @@ const Login = () => {
   const loginPhoneRef = useRef(null);
   const loginPasswordRef = useRef(null);
   const loginButtonRef = useRef(null);
+  const loginSubmittingRef = useRef(false);
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -114,6 +115,7 @@ const Login = () => {
   }, [navigate, location.search]);
 
   const handleLogin = async () => {
+    if (loginSubmittingRef.current) return;
     // Logic đăng nhập: chỉ cần phone và password
     if (!phone.trim() || !password.trim()) {
       setMessage("Please enter both phone number and password.");
@@ -131,6 +133,7 @@ const Login = () => {
 
     try {
       if (loading) return;
+      loginSubmittingRef.current = true;
       setLoading(true);
       const res = await fetch(`${API_BASE}/auth/login`, {
         method: "POST",
@@ -164,6 +167,7 @@ const Login = () => {
       setMessage("Unable to connect to the server.");
       console.error("Lỗi:", err);
     } finally {
+      loginSubmittingRef.current = false;
       setLoading(false);
     }
   };
