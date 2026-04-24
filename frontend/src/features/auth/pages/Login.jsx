@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import "../../../shared/styles/LoginPage.css";
 import LineIcon from "../../../shared/components/LineIcon";
@@ -72,6 +72,9 @@ const Login = () => {
   const [resetPassword, setResetPassword] = useState("");
   const [resetConfirmPassword, setResetConfirmPassword] = useState("");
   const [isLoginMode, setIsLoginMode] = useState(true); // Tab mode: true = Login, false = Register
+  const loginPhoneRef = useRef(null);
+  const loginPasswordRef = useRef(null);
+  const loginButtonRef = useRef(null);
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -305,6 +308,24 @@ const Login = () => {
     }
   };
 
+  const handleLoginPhoneKeyDown = (e) => {
+    if (e.key !== "Enter") return;
+    e.preventDefault();
+    loginPasswordRef.current?.focus();
+  };
+
+  const handleLoginPasswordKeyDown = (e) => {
+    if (e.key !== "Enter") return;
+    e.preventDefault();
+    handleLogin();
+  };
+
+  const handleLoginButtonKeyDown = (e) => {
+    if (e.key !== "Enter") return;
+    e.preventDefault();
+    handleLogin();
+  };
+
   return (
     <div
       style={{
@@ -379,21 +400,31 @@ const Login = () => {
           {isLoginMode ? (
             <>
               <input
+                ref={loginPhoneRef}
                 type="text"
                 placeholder="Phone Number"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
+                onKeyDown={handleLoginPhoneKeyDown}
                 style={inputStyle}
               />
               <input
+                ref={loginPasswordRef}
                 type="password"
                 placeholder="Password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                onKeyDown={handleLoginPasswordKeyDown}
                 style={inputStyle}
               />
 
-              <button onClick={handleLogin} style={loginBtn} disabled={loading}>
+              <button
+                ref={loginButtonRef}
+                onClick={handleLogin}
+                onKeyDown={handleLoginButtonKeyDown}
+                style={loginBtn}
+                disabled={loading}
+              >
                 {loading ? "Signing in..." : "Login"}
               </button>
 

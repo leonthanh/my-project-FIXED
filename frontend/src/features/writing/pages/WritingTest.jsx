@@ -767,9 +767,9 @@ const WritingTest = () => {
                   style={{ maxWidth: "80%" }}
                 />
               )}
-              <p>
+              {/* <p>
                 <i>Write at least 150 words.</i>
-              </p>
+              </p> */}
             </>
           )}
 
@@ -780,9 +780,9 @@ const WritingTest = () => {
                 className="writing-test-prompt"
                 dangerouslySetInnerHTML={{ __html: testData.task2 }}
               />
-              <p>
+              {/* <p>
                 <i>Write at least 250 words.</i>
-              </p>
+              </p> */}
             </>
           )}
         </div>
