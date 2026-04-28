@@ -860,6 +860,125 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
     ? getMoversReadingPartTheme(currentPart, selectedPartIndex)
     : null;
   const showMoversReadingSectionNav = !isMoversReading || (currentPart?.sections?.length || 0) > 1;
+  const saveButtonLabel = editId ? 'Cập nhật đề' : 'Lưu đề';
+  const sidebarFooterBackground = isMoversReading ? 'var(--ctb-sidebar-bg, #f6f8fc)' : '#1e293b';
+  const sidebarFooterBorder = isMoversReading ? 'var(--ctb-sidebar-border, #dbe3ef)' : 'rgba(148, 163, 184, 0.25)';
+  const sidebarStatusColor = isSubmitting
+    ? '#cbd5e1'
+    : isSaving
+      ? '#fbbf24'
+      : lastSaved
+        ? '#86efac'
+        : (isMoversReading ? 'var(--ctb-sidebar-subtext, #64748b)' : '#94a3b8');
+  const sidebarMessageBg = message.type === 'success'
+    ? (isMoversReading ? '#f0fdf4' : 'rgba(34, 197, 94, 0.14)')
+    : (isMoversReading ? '#fef2f2' : 'rgba(239, 68, 68, 0.14)');
+  const sidebarMessageColor = message.type === 'success'
+    ? '#22c55e'
+    : '#fca5a5';
+
+  const renderSidebarSavePanel = () => (
+    <div
+      className="ctb-sidebar-footer"
+      style={{
+        marginTop: 'auto',
+        paddingTop: '16px',
+        paddingBottom: '12px',
+        borderTop: `1px solid ${sidebarFooterBorder}`,
+        position: 'sticky',
+        bottom: 0,
+        background: sidebarFooterBackground,
+      }}
+    >
+      <div
+        style={{
+          fontSize: '11px',
+          color: sidebarStatusColor,
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '6px',
+          marginBottom: '10px',
+          fontWeight: 600,
+        }}
+      >
+        {isSubmitting
+          ? <InlineIcon name="loading" size={12} />
+          : isSaving
+            ? <InlineIcon name="save" size={12} />
+            : lastSaved
+              ? <InlineIcon name="correct" size={12} />
+              : <InlineIcon name="clock" size={12} />}
+        {isSubmitting
+          ? 'Đang lưu đề...'
+          : isSaving
+            ? 'Đang lưu nháp tự động...'
+            : lastSaved
+              ? `Tự lưu ${lastSaved.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}`
+              : 'Chưa có bản lưu gần đây'}
+      </div>
+
+      <button
+        type="button"
+        onClick={handleSave}
+        disabled={isSubmitting}
+        style={{
+          width: '100%',
+          padding: '11px',
+          borderRadius: isMoversReading ? '9px' : '8px',
+          border: 'none',
+          background: isSubmitting ? '#94a3b8' : (isMoversReading ? '#6366f1' : '#3b82f6'),
+          color: 'white',
+          fontWeight: 700,
+          fontSize: '14px',
+          cursor: isSubmitting ? 'not-allowed' : 'pointer',
+          marginBottom: '8px',
+          boxShadow: isMoversReading ? 'none' : '0 8px 20px rgba(59, 130, 246, 0.22)',
+        }}
+      >
+        {isSubmitting
+          ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><InlineIcon name="loading" size={14} style={{ color: 'white' }} />Đang lưu...</span>
+          : <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><InlineIcon name="save" size={14} style={{ color: 'white' }} />{saveButtonLabel}</span>}
+      </button>
+
+      <button
+        type="button"
+        onClick={handleManualDraftSave}
+        disabled={isSubmitting}
+        className="ctb-btn-draft"
+        style={{
+          width: '100%',
+          padding: '10px',
+          borderRadius: isMoversReading ? '9px' : '8px',
+          fontWeight: 600,
+          fontSize: '13px',
+          cursor: isSubmitting ? 'not-allowed' : 'pointer',
+          background: isMoversReading ? '#ffffff' : '#334155',
+          color: isMoversReading ? '#334155' : 'white',
+          border: isMoversReading ? '1px solid #cbd5e1' : '1px solid rgba(148, 163, 184, 0.3)',
+        }}
+      >
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><InlineIcon name="save" size={14} />Lưu nháp</span>
+      </button>
+
+      {message.text && (
+        <div
+          style={{
+            marginTop: '12px',
+            padding: '10px 12px',
+            borderRadius: '8px',
+            background: sidebarMessageBg,
+            color: sidebarMessageColor,
+            fontSize: '12px',
+            fontWeight: 600,
+            lineHeight: 1.4,
+            border: isMoversReading ? 'none' : `1px solid ${message.type === 'success' ? 'rgba(34, 197, 94, 0.25)' : 'rgba(248, 113, 113, 0.25)'}`,
+          }}
+        >
+          {message.text}
+        </div>
+      )}
+    </div>
+  );
 
   return (
     <div className={`ctb-page${isMoversReading ? ' ctb-page--movers' : ''}`} style={{ minHeight: '100vh' }}>
@@ -1077,7 +1196,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
         )}
 
         {/* Available Question Types */}
-        {!isMoversReading && (
+        {false && !isMoversReading && (
         <div style={{ marginTop: '24px' }}>
           <h4 style={{ margin: '0 0 12px', fontSize: '14px', color: isMoversReading ? 'var(--ctb-sidebar-subtext, #6b7280)' : '#94a3b8', display: 'flex', alignItems: 'center', gap: 6 }}>
             <InlineIcon name="writing" size={14} />
@@ -1106,7 +1225,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
 
         {isMoversReading && <div style={{ flex: 1 }} />}
 
-        {isMoversReading && (
+        {false && isMoversReading && (
           <div className="ctb-sidebar-footer" style={{ paddingTop: '16px', marginTop: '16px', borderTop: '1px solid var(--ctb-sidebar-border, #dbe3ef)' }}>
             <button
               type="button"
@@ -1162,6 +1281,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
             )}
           </div>
         )}
+        {renderSidebarSavePanel()}
       </div>
 
       {/* Main Content */}
@@ -1175,7 +1295,6 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
         {!isMoversReading && (
           <div className="ctb-card" style={{
             display: 'flex',
-            justifyContent: 'space-between',
             alignItems: 'center',
             marginBottom: '12px',
             padding: '12px 16px',
@@ -1200,7 +1319,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
                 {lastSaved ? lastSaved.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : isSaving ? 'Đang lưu' : 'Chưa lưu'}
               </div>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            {false && <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <button
                 onClick={handleSave}
                 disabled={isSubmitting}
@@ -1217,12 +1336,12 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
               >
                 {isSubmitting ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><InlineIcon name="loading" size={14} style={{ color: 'white' }} />Đang lưu...</span> : <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><InlineIcon name="save" size={14} style={{ color: 'white' }} />Lưu</span>}
               </button>
-            </div>
+            </div>}
           </div>
         )}
 
         {/* Message */}
-        {!isMoversReading && message.text && (
+        {false && !isMoversReading && message.text && (
           <div style={{
             padding: '12px 16px',
             borderRadius: '8px',
