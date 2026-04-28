@@ -336,11 +336,11 @@ export const QUESTION_TYPES = {
     defaultData: {
       description: '',
       people: [
-        { id: 'A', name: '', need: '' },
-        { id: 'B', name: '', need: '' },
-        { id: 'C', name: '', need: '' },
-        { id: 'D', name: '', need: '' },
-        { id: 'E', name: '', need: '' },
+        { id: 'A', name: '', need: '', imageUrl: '' },
+        { id: 'B', name: '', need: '', imageUrl: '' },
+        { id: 'C', name: '', need: '', imageUrl: '' },
+        { id: 'D', name: '', need: '', imageUrl: '' },
+        { id: 'E', name: '', need: '', imageUrl: '' },
       ],
       texts: [
         { id: 'A', title: '', content: '' },
