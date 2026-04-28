@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { hostPath } from '../../../utils/api';
 
 /**
  * PeopleMatchingDisplay - Display component for people-matching questions (KET Part 2)
@@ -20,6 +21,13 @@ const PeopleMatchingDisplay = ({
   const textsTitle = questionData.textsTitle || section?.textsTitle || '';
   const [activeDropIndex, setActiveDropIndex] = useState(null);
   const resolvedKeyPrefix = answerKeyPrefix || section?.id || 'people-matching';
+  const resolveImgSrc = (url) => {
+    if (!url) return '';
+    const value = String(url).trim();
+    if (!value) return '';
+    if (/^(https?:|data:|blob:)/i.test(value)) return value;
+    return hostPath(value);
+  };
 
   const getPersonNumber = (idx) => startingNumber + idx;
   const getPersonId = (person, idx) => {
@@ -91,7 +99,7 @@ const PeopleMatchingDisplay = ({
                 </div>
                 {getPersonImage(person) && (
                   <img
-                    src={getPersonImage(person)}
+                    src={resolveImgSrc(getPersonImage(person))}
                     alt={getPersonName(person) || `Person ${getPersonNumber(idx)}`}
                     style={styles.personImage}
                   />
