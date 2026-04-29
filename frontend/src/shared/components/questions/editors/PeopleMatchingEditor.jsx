@@ -197,8 +197,8 @@ const PeopleMatchingEditor = ({
         />
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px" }}>
-        <div>
+      <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: "20px", alignItems: "start" }}>
+        <div style={{ minWidth: 0 }}>
           <h3
             style={{
               margin: "0 0 12px 0",
@@ -302,7 +302,7 @@ const PeopleMatchingEditor = ({
           ))}
         </div>
 
-        <div>
+        <div style={{ minWidth: 0 }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "12px" }}>
             <h3
               style={{
@@ -344,7 +344,7 @@ const PeopleMatchingEditor = ({
             />
           </div>
 
-          <div style={{ maxHeight: "500px", overflowY: "auto", paddingRight: "8px" }}>
+          <div style={{ display: "grid", gap: "10px" }}>
             {texts.map((text, idx) => (
               <div
                 key={text.id}
@@ -352,7 +352,6 @@ const PeopleMatchingEditor = ({
                   padding: "12px",
                   backgroundColor: "#ecfeff",
                   borderRadius: "8px",
-                  marginBottom: "10px",
                   border: "1px solid #a5f3fc",
                   position: "relative",
                 }}
@@ -445,7 +444,7 @@ const PeopleMatchingEditor = ({
                   fontWeight: 500,
                 }}
               >
-                {getPersonNumber(idx)} -> {display}
+                {getPersonNumber(idx)} {"->"} {display}
               </div>
             );
           })}
