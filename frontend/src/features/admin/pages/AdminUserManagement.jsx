@@ -534,15 +534,16 @@ const SubmissionsTab = ({ initialUser }) => {
   // Reset selection when switching type tab
   useEffect(() => { setSelectedSubs(new Set()); }, [activeType]);
 
-  const searchUsers = async (q) => {
-    const query = q !== undefined ? q : search;
+  const searchUsers = useCallback(async (q) => {
+    const query = (typeof q === 'string' ? q : search).trim();
     setLoading(true);
     try {
-      const res = await authFetch(apiPath(`admin/users?search=${encodeURIComponent(query.trim())}`));
+      const res = await authFetch(apiPath(`admin/users?search=${encodeURIComponent(query)}`));
+      if (!res.ok) throw new Error('Could not search users.');
       setUsers(await res.json());
     } catch { showToast('Search failed.'); }
     finally { setLoading(false); }
-  };
+  }, [search]);
 
   const loadSubs = useCallback(async (user) => {
     setSelectedUser(user);
@@ -558,13 +559,17 @@ const SubmissionsTab = ({ initialUser }) => {
 
   useEffect(() => {
     if (initialUser) loadSubs(initialUser);
-    else searchUsers('');
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialUser, loadSubs]);
 
+  useEffect(() => {
+    if (selectedUser) return;
+    searchUsers();
+  }, [selectedUser, searchUsers]);
+
   const resetSearch = () => {
+    const hadQuery = Boolean(search.trim());
     setSearch('');
-    if (!selectedUser) {
+    if (!selectedUser && !hadQuery) {
       searchUsers('');
     }
   };
@@ -573,7 +578,6 @@ const SubmissionsTab = ({ initialUser }) => {
     setSelectedUser(null);
     setSubs(null);
     setSelectedSubs(new Set());
-    searchUsers(search || '');
   };
 
   const toggleSubSelect = (type, id) => {
@@ -748,7 +752,7 @@ const SubmissionsTab = ({ initialUser }) => {
         </FilterField>
 
         <div style={s.filterActions}>
-          <button style={s.btnBlue} onClick={searchUsers} disabled={loading}>Search</button>
+          <button style={s.btnBlue} onClick={() => searchUsers()} disabled={loading}>Search</button>
           <button style={s.btnGray} onClick={resetSearch} disabled={loading}>Reset</button>
         </div>
       </div>
