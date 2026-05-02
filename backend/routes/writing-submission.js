@@ -4,6 +4,7 @@ const { Submission, WritingTest, User } = require('../models');
 const { Op } = require('sequelize');
 const nodemailer = require('nodemailer');
 const { requireAuth, requireRole } = require('../middlewares/auth');
+const placementService = require('../modules/placement/service');
 const {
   DEFAULT_EXTENSION_MINUTES,
   buildTimingPayload,
@@ -60,19 +61,117 @@ function buildMailTransporter() {
 // Save/update writing draft (cross-device resume)
 router.post('/draft/autosave', async (req, res) => {
   try {
-    const { task1 = '', task2 = '', timeLeft = null, endAt = null, started = false, user, testId } = req.body || {};
+    const {
+      task1 = '',
+      task2 = '',
+      timeLeft = null,
+      endAt = null,
+      started = false,
+      user,
+      testId,
+      placementAttemptItemToken,
+    } = req.body || {};
     const numericTestId = Number(testId);
     if (!Number.isFinite(numericTestId) || numericTestId <= 0) {
       return res.status(400).json({ message: 'Invalid testId.' });
     }
 
     const { userId, userName, userPhone } = await resolveSubmissionUser(user);
-    if (!userId) {
-      return res.status(400).json({ message: 'Missing user id.' });
-    }
 
     const now = new Date();
     const parsedEndAt = Number.isFinite(Number(endAt)) ? new Date(Number(endAt)) : null;
+
+    if (placementAttemptItemToken) {
+      const { attempt, submission } = await placementService.getRuntimeSubmissionForAttemptItem({
+        attemptItemToken: placementAttemptItemToken,
+        platform: 'ix',
+        skill: 'writing',
+        testId: numericTestId,
+      });
+
+      const placementUserName = attempt?.studentName || userName;
+      const placementUserPhone = attempt?.studentPhone || userPhone;
+
+      if (submission) {
+        if (!submission.isDraft) {
+          return res.status(400).json({ message: 'Submission is already finished.' });
+        }
+
+        const authoritativeEndAt = resolveAuthoritativeExpiry(submission.draftEndAt, parsedEndAt);
+        submission.task1 = task1;
+        submission.task2 = task2;
+        submission.timeLeft = Number.isFinite(getRemainingSeconds(authoritativeEndAt))
+          ? getRemainingSeconds(authoritativeEndAt)
+          : (Number.isFinite(Number(timeLeft)) ? Number(timeLeft) : submission.timeLeft);
+        submission.userId = null;
+        submission.userName = placementUserName;
+        submission.userPhone = placementUserPhone;
+        submission.feedbackSeen = false;
+        submission.isDraft = true;
+        submission.draftSavedAt = now;
+        submission.draftEndAt = authoritativeEndAt;
+        submission.draftStarted = Boolean(started);
+        await submission.save();
+
+        await placementService.syncRuntimeSubmissionForAttemptItem({
+          attemptItemToken: placementAttemptItemToken,
+          platform: 'ix',
+          skill: 'writing',
+          testId: numericTestId,
+          runtimeSubmissionModel: 'writing',
+          runtimeSubmissionId: submission.id,
+          status: 'started',
+        });
+
+        return res.json({
+          message: 'Draft saved.',
+          draftId: submission.id,
+          savedAt: submission.draftSavedAt,
+          draftEndAt: submission.draftEndAt,
+          timeLeft: submission.timeLeft,
+          timing: buildTimingPayload(submission.draftEndAt),
+        });
+      }
+
+      const created = await Submission.create({
+        testId: numericTestId,
+        userId: null,
+        userName: placementUserName,
+        userPhone: placementUserPhone,
+        task1,
+        task2,
+        timeLeft: Number.isFinite(Number(timeLeft)) ? Number(timeLeft) : null,
+        feedbackSeen: false,
+        isDraft: true,
+        draftSavedAt: now,
+        draftEndAt: parsedEndAt,
+        draftStarted: Boolean(started),
+        submittedAt: null,
+      });
+
+      await placementService.syncRuntimeSubmissionForAttemptItem({
+        attemptItemToken: placementAttemptItemToken,
+        platform: 'ix',
+        skill: 'writing',
+        testId: numericTestId,
+        runtimeSubmissionModel: 'writing',
+        runtimeSubmissionId: created.id,
+        status: 'started',
+      });
+
+      return res.status(201).json({
+        message: 'Draft created.',
+        draftId: created.id,
+        savedAt: created.draftSavedAt,
+        draftEndAt: created.draftEndAt,
+        timeLeft: created.timeLeft,
+        timing: buildTimingPayload(created.draftEndAt),
+      });
+    }
+
+    if (!userId) {
+      return res.status(400).json({ message: 'Missing user id.' });
+    }
 
     const existingDraft = await Submission.findOne({
       where: { testId: numericTestId, userId, isDraft: true },
@@ -137,6 +236,27 @@ router.get('/draft/active', async (req, res) => {
   try {
     const numericUserId = Number(req.query.userId);
     const numericTestId = Number(req.query.testId);
+    const placementAttemptItemToken = String(req.query.placementAttemptItemToken || '').trim();
+
+    if (placementAttemptItemToken) {
+      if (!Number.isFinite(numericTestId) || numericTestId <= 0) {
+        return res.status(400).json({ message: 'Invalid testId.' });
+      }
+
+      const { submission } = await placementService.getRuntimeSubmissionForAttemptItem({
+        attemptItemToken: placementAttemptItemToken,
+        platform: 'ix',
+        skill: 'writing',
+        testId: numericTestId,
+      });
+
+      const draft = submission && submission.isDraft ? submission : null;
+
+      return res.json({
+        submission: draft ? draft.toJSON() : null,
+        timing: buildTimingPayload(draft?.draftEndAt || null),
+      });
+    }
 
     if (!Number.isFinite(numericUserId) || numericUserId <= 0) {
       return res.status(400).json({ message: 'Invalid userId.' });
@@ -220,7 +340,7 @@ router.post('/draft/clear', async (req, res) => {
 // Student submit writing answer
 router.post('/submit', async (req, res) => {
   try {
-    const { task1, task2, timeLeft, user, testId } = req.body || {};
+    const { task1, task2, timeLeft, user, testId, placementAttemptItemToken } = req.body || {};
     const numericTestId = Number(testId);
 
     if (!Number.isFinite(numericTestId) || numericTestId <= 0) {
@@ -232,7 +352,58 @@ router.post('/submit', async (req, res) => {
 
     let submission = null;
 
-    if (userId) {
+    if (placementAttemptItemToken) {
+      const { attempt, submission: runtimeSubmission } = await placementService.getRuntimeSubmissionForAttemptItem({
+        attemptItemToken: placementAttemptItemToken,
+        platform: 'ix',
+        skill: 'writing',
+        testId: numericTestId,
+      });
+
+      const placementUserName = attempt?.studentName || userName;
+      const placementUserPhone = attempt?.studentPhone || userPhone;
+
+      if (runtimeSubmission) {
+        if (!runtimeSubmission.isDraft) {
+          return res.status(400).json({ message: 'Submission is already finished.' });
+        }
+
+        runtimeSubmission.task1 = task1;
+        runtimeSubmission.task2 = task2;
+        runtimeSubmission.timeLeft = Number.isFinite(Number(timeLeft)) ? Number(timeLeft) : null;
+        runtimeSubmission.userId = null;
+        runtimeSubmission.userName = placementUserName;
+        runtimeSubmission.userPhone = placementUserPhone;
+        runtimeSubmission.feedbackSeen = false;
+        runtimeSubmission.isDraft = false;
+        runtimeSubmission.draftSavedAt = null;
+        runtimeSubmission.draftEndAt = null;
+        runtimeSubmission.draftStarted = false;
+        runtimeSubmission.submittedAt = submittedAt;
+        await runtimeSubmission.save();
+        submission = runtimeSubmission;
+      }
+
+      if (!submission) {
+        submission = await Submission.create({
+          task1,
+          task2,
+          timeLeft: Number.isFinite(Number(timeLeft)) ? Number(timeLeft) : null,
+          userName: placementUserName,
+          userPhone: placementUserPhone,
+          testId: numericTestId,
+          userId: null,
+          feedbackSeen: false,
+          isDraft: false,
+          draftSavedAt: null,
+          draftEndAt: null,
+          draftStarted: false,
+          submittedAt,
+        });
+      }
+    }
+
+    if (!placementAttemptItemToken && userId) {
       const existingDraft = await Submission.findOne({
         where: { testId: numericTestId, userId, isDraft: true },
         order: [['updatedAt', 'DESC']],
@@ -256,7 +427,7 @@ router.post('/submit', async (req, res) => {
     }
 
     if (!submission) {
-      submission = await Submission.create({
+        submission = await Submission.create({
         task1,
         task2,
         timeLeft: Number.isFinite(Number(timeLeft)) ? Number(timeLeft) : null,
@@ -305,6 +476,18 @@ router.post('/submit', async (req, res) => {
     } catch (emailErr) {
       console.error('Email send error:', emailErr && (emailErr.stack || emailErr));
       emailWarning = emailErr && (emailErr.message || String(emailErr));
+    }
+
+    if (placementAttemptItemToken) {
+      await placementService.syncRuntimeSubmissionForAttemptItem({
+        attemptItemToken: placementAttemptItemToken,
+        platform: 'ix',
+        skill: 'writing',
+        testId: numericTestId,
+        runtimeSubmissionModel: 'writing',
+        runtimeSubmissionId: submission.id,
+        status: 'submitted',
+      });
     }
 
     return res.json({

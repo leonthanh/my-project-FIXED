@@ -16,8 +16,9 @@ const vnPhoneRegex = /^(0)(3[2-9]|5[2689]|7[06-9]|8[1-9]|9[0-9])[0-9]{7}$/;
 const normalizePlacementValue = (value) => String(value || "").trim().toLowerCase();
 
 const SKILL_ORDER = {
-  reading: 0,
-  listening: 1,
+  writing: 0,
+  reading: 1,
+  listening: 2,
 };
 
 const ORANGE_LEVEL_ORDER = {
@@ -296,6 +297,10 @@ const PlacementEntry = () => {
                 <span className="placement-entry-pill">
                   <LineIcon name="tests" size={14} />
                   <span>{selections.length} assigned test{selections.length === 1 ? "" : "s"}</span>
+                </span>
+                <span className="placement-entry-pill">
+                  <LineIcon name="writing" size={14} />
+                  <span>{selectionSummary.writing} writing</span>
                 </span>
                 <span className="placement-entry-pill">
                   <LineIcon name="reading" size={14} />

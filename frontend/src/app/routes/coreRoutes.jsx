@@ -7,6 +7,7 @@ const PlacementEntry = lazy(() => import('../../features/placement/pages/Placeme
 const PlacementAttempt = lazy(() => import('../../features/placement/pages/PlacementAttempt'));
 const SelectTest = lazy(() => import('../../features/admin/pages/SelectTest'));
 const MyFeedback = lazy(() => import('../../features/admin/pages/MyFeedback'));
+const WritingTest = lazy(() => import('../../features/writing/pages/WritingTest'));
 const DoReadingTest = lazy(() => import('../../features/reading/pages/DoReadingTest'));
 const DoListeningTest = lazy(() => import('../../features/listening/pages/DoListeningTest'));
 const DoCambridgeTestEntry = lazy(() => import('../../domains/cambridge/shared/pages/DoCambridgeTestEntryPage'));
@@ -16,6 +17,7 @@ export const buildCoreRoutes = ({ isAuthenticated }) => [
   <Route key="placement-test" path="/placement-test" element={<PlacementEntry />} />,
   <Route key="placement-test-share" path="/placement-test/:shareToken" element={<PlacementEntry />} />,
   <Route key="placement-attempt" path="/placement-attempt/:attemptToken" element={<PlacementAttempt />} />,
+  <Route key="placement-ix-writing" path="/placement/ix/writing/:id" element={<WritingTest />} />,
   <Route key="placement-ix-reading" path="/placement/ix/reading/:id" element={<DoReadingTest />} />,
   <Route key="placement-ix-listening" path="/placement/ix/listening/:id" element={<DoListeningTest />} />,
   <Route key="placement-orange-runtime" path="/placement/orange/:testType/:id" element={<DoCambridgeTestEntry />} />,

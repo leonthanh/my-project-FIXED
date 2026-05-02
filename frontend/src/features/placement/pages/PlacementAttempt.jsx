@@ -81,88 +81,78 @@ const PlacementAttempt = () => {
   return (
     <div className="placement-entry-page">
       <div className="placement-entry-shell">
-        <section className="placement-entry-hero">
-          <div className="placement-entry-heroTop">
-            <Link to={sharePath} className="placement-entry-backLink">
-              <LineIcon name="tests" size={16} />
-              <span>Back to Placement Link</span>
-            </Link>
-          </div>
-
-          <div className="placement-entry-heroCopy">
-            <span className="placement-entry-eyebrow">Placement Attempt</span>
-            <h1 className="placement-entry-title">Assigned tests and summary progress</h1>
-            <p className="placement-entry-text">
-              Continue the assigned placement tests from any device using the same student phone number.
-            </p>
-          </div>
-
-          <div className="placement-entry-pillRow">
-            <span className="placement-entry-pill">
-              <LineIcon name="form" size={14} />
-              <span>{attempt?.studentName || "Student"}</span>
-            </span>
-            <span className="placement-entry-pill">
-              <LineIcon name="phone" size={14} />
-              <span>{attempt?.studentPhone || "No phone"}</span>
-            </span>
-            <span className="placement-entry-pill">
-              <LineIcon name="tests" size={14} />
-              <span>{summary.submitted}/{summary.total} completed</span>
-            </span>
-          </div>
-        </section>
-
-        <section className="placement-entry-grid">
-          <article className="placement-entry-card placement-entry-card--form">
-            <div className="placement-entry-cardHeader">
-              <span className="placement-entry-cardIcon" aria-hidden="true">
-                <LineIcon name="target" size={18} />
-              </span>
-              <div>
-                <h2 className="placement-entry-cardTitle">Attempt summary</h2>
-                <p className="placement-entry-cardText">
-                  Students only see overall progress here. Detailed review remains in the teacher area.
-                </p>
+        <section className="placement-entry-attemptLayout">
+          <aside className="placement-entry-sidebar">
+            <article className="placement-entry-card placement-entry-card--sidebarSummary">
+              <div className="placement-entry-heroTop">
+                <Link to={sharePath} className="placement-entry-backLink">
+                  <LineIcon name="tests" size={16} />
+                  <span>Back to Placement Link</span>
+                </Link>
               </div>
-            </div>
 
-            <div className="placement-entry-statsGrid">
-              <div className="placement-entry-statCard">
-                <strong>{summary.total}</strong>
-                <span>Assigned</span>
+              <div className="placement-entry-sidebarIntro">
+                <span className="placement-entry-sidebarLabel">Placement Attempt</span>
+                <h1 className="placement-entry-cardTitle placement-entry-cardTitle--sidebar">Assigned tests</h1>
               </div>
-              <div className="placement-entry-statCard">
-                <strong>{summary.started}</strong>
-                <span>In progress</span>
-              </div>
-              <div className="placement-entry-statCard">
-                <strong>{summary.submitted}</strong>
-                <span>Completed</span>
-              </div>
-            </div>
 
-            {loading ? (
-              <p className="placement-entry-message">Loading attempt data.</p>
-            ) : error ? (
-              <p className="placement-entry-message">{error}</p>
-            ) : null}
-          </article>
-
-          <article className="placement-entry-card placement-entry-card--list">
-            <div className="placement-entry-cardHeader">
-              <span className="placement-entry-cardIcon" aria-hidden="true">
-                <LineIcon name="tests" size={18} />
-              </span>
-              <div>
-                <h2 className="placement-entry-cardTitle">Assigned tests</h2>
-                <p className="placement-entry-cardText">
-                  Start or continue each test. Completed items stay here as a simple summary.
-                </p>
+              <div className="placement-entry-pillRow placement-entry-pillRow--sidebar">
+                <span className="placement-entry-pill">
+                  <LineIcon name="form" size={14} />
+                  <span>{attempt?.studentName || "Student"}</span>
+                </span>
+                <span className="placement-entry-pill">
+                  <LineIcon name="phone" size={14} />
+                  <span>{attempt?.studentPhone || "No phone"}</span>
+                </span>
               </div>
-            </div>
 
-            {!loading && !items.length ? (
+              <div className="placement-entry-statsGrid">
+                <div className="placement-entry-statCard">
+                  <strong>{summary.total}</strong>
+                  <span>Assigned</span>
+                </div>
+                <div className="placement-entry-statCard">
+                  <strong>{summary.started}</strong>
+                  <span>In progress</span>
+                </div>
+                <div className="placement-entry-statCard">
+                  <strong>{summary.submitted}</strong>
+                  <span>Completed</span>
+                </div>
+              </div>
+
+              {loading ? (
+                <p className="placement-entry-message">Loading attempt data.</p>
+              ) : error ? (
+                <p className="placement-entry-message">{error}</p>
+              ) : null}
+            </article>
+          </aside>
+
+          <div className="placement-entry-main">
+            <article className="placement-entry-card placement-entry-card--list">
+              <div className="placement-entry-cardHeader placement-entry-cardHeader--split">
+                <div className="placement-entry-cardHeaderCopy">
+                  <span className="placement-entry-sidebarLabel">Test Queue</span>
+                  <h2 className="placement-entry-cardTitle">Assigned tests</h2>
+                </div>
+
+                <div className="placement-entry-pillRow placement-entry-pillRow--summary">
+                  <span className="placement-entry-pill">
+                    <LineIcon name="target" size={14} />
+                    <span>{summary.submitted}/{summary.total} completed</span>
+                  </span>
+                  <span className="placement-entry-pill">
+                    <LineIcon name="tests" size={14} />
+                    <span>{summary.ix} IX • {summary.orange} Orange</span>
+                  </span>
+                </div>
+              </div>
+
+              {loading ? (
+                <p className="placement-entry-message">Loading assigned tests.</p>
+              ) : !items.length ? (
               <div className="placement-entry-emptyState">
                 <span className="placement-entry-emptyIcon" aria-hidden="true">
                   <LineIcon name="tests" size={22} />
@@ -224,8 +214,9 @@ const PlacementAttempt = () => {
                   );
                 })}
               </div>
-            )}
-          </article>
+              )}
+            </article>
+          </div>
         </section>
       </div>
     </div>

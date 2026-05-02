@@ -92,7 +92,11 @@ export const isPlacementEligible = ({ platform, skill, testType }) => {
   const normalizedTestType = normalizeText(testType).toLowerCase();
 
   if (normalizedPlatform === "ix") {
-    return normalizedSkill === "reading" || normalizedSkill === "listening";
+    return (
+      normalizedSkill === "writing" ||
+      normalizedSkill === "reading" ||
+      normalizedSkill === "listening"
+    );
   }
 
   if (normalizedPlatform === "orange") {
@@ -132,6 +136,7 @@ export const getPlacementItemSummaryCounts = (items) => {
     (acc, item) => {
       if (item?.platform === "ix") acc.ix += 1;
       if (item?.platform === "orange") acc.orange += 1;
+      if (item?.skill === "writing") acc.writing += 1;
       if (item?.skill === "reading") acc.reading += 1;
       if (item?.skill === "listening") acc.listening += 1;
       if (item?.status === "started") acc.started += 1;
@@ -142,6 +147,7 @@ export const getPlacementItemSummaryCounts = (items) => {
     {
       ix: 0,
       orange: 0,
+      writing: 0,
       reading: 0,
       listening: 0,
       started: 0,
@@ -185,7 +191,9 @@ export const buildPlacementAttemptItemRuntimePath = (item, attemptToken = "") =>
 
   let basePath = buildPlacementAttemptPath(attemptToken);
 
-  if (platform === "ix" && skill === "reading") {
+  if (platform === "ix" && skill === "writing") {
+    basePath = `/placement/ix/writing/${testId}`;
+  } else if (platform === "ix" && skill === "reading") {
     basePath = `/placement/ix/reading/${testId}`;
   } else if (platform === "ix" && skill === "listening") {
     basePath = `/placement/ix/listening/${testId}`;

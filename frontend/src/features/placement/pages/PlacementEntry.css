@@ -18,6 +18,13 @@
   gap: 14px;
 }
 
+.placement-entry-attemptLayout {
+  display: grid;
+  grid-template-columns: minmax(260px, 320px) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
 .placement-entry-sidebar {
   display: grid;
   gap: 14px;
@@ -113,8 +120,51 @@
   padding: 20px;
 }
 
+.placement-entry-card--sidebarSummary {
+  gap: 14px;
+}
+
 .placement-entry-card--list {
   align-content: start;
+}
+
+.placement-entry-main {
+  min-width: 0;
+  display: grid;
+  gap: 14px;
+}
+
+.placement-entry-sidebarIntro,
+.placement-entry-cardHeaderCopy {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.placement-entry-sidebarLabel {
+  display: inline-flex;
+  align-items: center;
+  color: #0f3f94;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.placement-entry-cardTitle--sidebar {
+  font-size: clamp(1.55rem, 2vw, 1.95rem);
+  line-height: 1.04;
+}
+
+.placement-entry-cardHeader--split {
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.placement-entry-pillRow--sidebar,
+.placement-entry-pillRow--summary {
+  gap: 8px;
 }
 
 .placement-entry-jumpNav {
@@ -475,6 +525,10 @@
 }
 
 @media (max-width: 920px) {
+  .placement-entry-attemptLayout {
+    grid-template-columns: 1fr;
+  }
+
   .placement-entry-grid {
     grid-template-columns: 1fr;
   }
@@ -506,6 +560,11 @@
 
   .placement-entry-list {
     grid-template-columns: 1fr;
+  }
+
+  .placement-entry-cardHeader--split {
+    flex-direction: column;
+    align-items: stretch;
   }
 
   .placement-entry-jumpButton {

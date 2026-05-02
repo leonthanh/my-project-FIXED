@@ -4,7 +4,7 @@ import StudentNavbar from "../../../shared/components/StudentNavbar";
 import AdminNavbar from "../../../shared/components/AdminNavbar";
 import LineIcon from "../../../shared/components/LineIcon.jsx";
 import { apiPath, authFetch } from "../../../shared/utils/api";
-import { canManageCategory } from "../../../shared/utils/permissions";
+import { canManageCategory, isAdmin } from "../../../shared/utils/permissions";
 import {
   DEFAULT_IX_SKILL,
   IX_SKILLS,
@@ -48,6 +48,7 @@ const SelectTest = () => {
     user = null;
   }
   const isTeacher = user && (user.role === "teacher" || user.role === "admin");
+  const isPlacementAdmin = isAdmin(user);
 
   const [tests, setTests] = useState({
     writing: [],
@@ -66,7 +67,7 @@ const SelectTest = () => {
   const [placementSelections, setPlacementSelections] = useState([]);
   const [placementShareToken, setPlacementShareToken] = useState("");
   const [placementRecentAttempts, setPlacementRecentAttempts] = useState([]);
-  const [placementLoading, setPlacementLoading] = useState(Boolean(isTeacher));
+  const [placementLoading, setPlacementLoading] = useState(Boolean(isPlacementAdmin));
   const [placementSaving, setPlacementSaving] = useState(false);
   const [placementFeedback, setPlacementFeedback] = useState("");
   const navigate = useNavigate();
@@ -166,7 +167,7 @@ const SelectTest = () => {
     let isMounted = true;
 
     const fetchPlacementPackage = async () => {
-      if (!isTeacher) {
+      if (!isPlacementAdmin) {
         setPlacementSelections([]);
         setPlacementShareToken("");
         setPlacementRecentAttempts([]);
@@ -200,7 +201,7 @@ const SelectTest = () => {
     return () => {
       isMounted = false;
     };
-  }, [applyPlacementPackage, isTeacher]);
+  }, [applyPlacementPackage, isPlacementAdmin]);
 
   useEffect(() => {
     if (!placementFeedback || typeof window === "undefined") return undefined;
@@ -460,6 +461,11 @@ const SelectTest = () => {
   };
 
   const persistPlacementSelections = async (nextSelections, successMessage, rollbackSelections) => {
+    if (!isPlacementAdmin) {
+      setPlacementFeedback("Only admins can manage the placement page.");
+      return;
+    }
+
     try {
       setPlacementSaving(true);
       const res = await authFetch(apiPath("placement/packages/current"), {
@@ -484,6 +490,10 @@ const SelectTest = () => {
   };
 
   const handleTogglePlacement = async (selection) => {
+    if (!isPlacementAdmin) {
+      return;
+    }
+
     const isShown = placementSelectionKeys.has(selection.key);
     const nextSelections = isShown
       ? placementSelections.filter((entry) => entry?.key !== selection.key)
@@ -500,6 +510,10 @@ const SelectTest = () => {
   };
 
   const handleClearPlacement = async () => {
+    if (!isPlacementAdmin) {
+      return;
+    }
+
     setPlacementSelections([]);
     await persistPlacementSelections([], "Placement list cleared.", placementSelections);
   };
@@ -669,7 +683,7 @@ const SelectTest = () => {
                   ) : null}
                 </div>
 
-                {isTeacher ? (
+                {isPlacementAdmin ? (
                   <div className="select-test-placementStrip">
                     <div className="select-test-placementStripMain">
                       <div className="select-test-placementStripRow">
@@ -794,7 +808,7 @@ const SelectTest = () => {
                           const displayTitle = SKILL_META[activeOrangeTab]?.label || "Orange";
                           const orangeCardTitle = test.title || `${activeOrangeLevel.shortLabel} ${displayTitle}`;
                           const placementSelection = buildOrangePlacementSelection(test, orangeCardTitle, displayTitle);
-                          const placementEligible = canManageCurrentSelection && isPlacementEligible({
+                          const placementEligible = isPlacementAdmin && isPlacementEligible({
                             platform: "orange",
                             skill: activeOrangeTab,
                             testType: test.testType,
@@ -880,7 +894,7 @@ const SelectTest = () => {
                           const classCode = test.classCode || "N/A";
                           const teacherName = test.teacherName || "N/A";
                           const placementSelection = buildIxPlacementSelection(test, title);
-                          const placementEligible = canManageCurrentSelection && isPlacementEligible({
+                          const placementEligible = isPlacementAdmin && isPlacementEligible({
                             platform: "ix",
                             skill: activeIxTab,
                             testType: placementSelection.testType,

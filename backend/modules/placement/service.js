@@ -4,6 +4,7 @@ const PlacementPackage = require("../../models/PlacementPackage");
 const PlacementPackageItem = require("../../models/PlacementPackageItem");
 const PlacementAttempt = require("../../models/PlacementAttempt");
 const PlacementAttemptItem = require("../../models/PlacementAttemptItem");
+const WritingSubmission = require("../../models/Submission");
 const ReadingSubmission = require("../../models/ReadingSubmission");
 const ListeningSubmission = require("../../models/ListeningSubmission");
 const CambridgeSubmission = require("../../models/CambridgeSubmission");
@@ -22,6 +23,7 @@ const createOpaqueToken = (prefix) =>
   `${prefix}_${crypto.randomBytes(18).toString("hex")}`;
 
 const RUNTIME_SUBMISSION_MODELS = {
+  writing: WritingSubmission,
   reading: ReadingSubmission,
   listening: ListeningSubmission,
   cambridge: CambridgeSubmission,
@@ -74,6 +76,7 @@ const summarizeAttemptItems = (items = []) => {
       summary.total += 1;
       if (item?.status === "started") summary.started += 1;
       if (item?.status === "submitted") summary.submitted += 1;
+      if (item?.skill === "writing") summary.writing += 1;
       if (item?.skill === "reading") summary.reading += 1;
       if (item?.skill === "listening") summary.listening += 1;
       if (item?.platform === "ix") summary.ix += 1;
@@ -84,6 +87,7 @@ const summarizeAttemptItems = (items = []) => {
       total: 0,
       started: 0,
       submitted: 0,
+      writing: 0,
       reading: 0,
       listening: 0,
       ix: 0,
