@@ -365,38 +365,20 @@ const Login = () => {
           </h2>
 
           {/* Tab Switcher */}
-          <div style={{ display: "flex", marginBottom: "20px", gap: "10px" }}>
+          <div className="login-page-toggleGroup">
             <button
+              type="button"
               onClick={() => setIsLoginMode(true)}
-              style={{
-                flex: 1,
-                padding: "10px",
-                border: "none",
-                borderRadius: "8px",
-                background: isLoginMode ? "#0e276f" : "#f0f0f0",
-                color: isLoginMode ? "#fff" : "#666",
-                fontWeight: "600",
-                cursor: "pointer",
-                transition: "all 0.3s",
-              }}
+              className={`login-page-toggleButton${isLoginMode ? " login-page-toggleButton--active" : ""}`}
             >
-              Login
+              <span>Login</span>
             </button>
             <button
+              type="button"
               onClick={() => setIsLoginMode(false)}
-              style={{
-                flex: 1,
-                padding: "10px",
-                border: "none",
-                borderRadius: "8px",
-                background: !isLoginMode ? "#0e276f" : "#f0f0f0",
-                color: !isLoginMode ? "#fff" : "#666",
-                fontWeight: "600",
-                cursor: "pointer",
-                transition: "all 0.3s",
-              }}
+              className={`login-page-toggleButton${!isLoginMode ? " login-page-toggleButton--active" : ""}`}
             >
-              Register
+              <span>Register</span>
             </button>
           </div>
 
@@ -424,12 +406,13 @@ const Login = () => {
 
               <button
                 ref={loginButtonRef}
+                type="button"
                 onClick={handleLogin}
                 onKeyDown={handleLoginButtonKeyDown}
-                style={loginBtn}
+                className="login-page-primaryButton"
                 disabled={loading}
               >
-                {loading ? "Signing in..." : "Login"}
+                <span>{loading ? "Signing in..." : "Login"}</span>
               </button>
 
               <p style={{ color: "#d00", margin: "10px 0" }}>{message}</p>
@@ -513,8 +496,12 @@ const Login = () => {
                 </span>
               </div>
 
-              <button onClick={handleRegister} style={registerBtn}>
-                Register
+              <button
+                type="button"
+                onClick={handleRegister}
+                className="login-page-primaryButton"
+              >
+                <span>Register</span>
               </button>
 
               <p style={{ color: "#d00", margin: "10px 0" }}>{message}</p>
@@ -615,8 +602,12 @@ const Login = () => {
               style={inputStyle}
             />
 
-            <button onClick={handleResetPassword} style={loginBtn}>
-              Reset Password
+            <button
+              type="button"
+              onClick={handleResetPassword}
+              className="login-page-primaryButton"
+            >
+              <span>Reset Password</span>
             </button>
 
             <p
@@ -689,25 +680,6 @@ const roleNoticeIconStyle = {
   height: "20px",
   color: "#0e276f",
   marginTop: "1px",
-};
-
-const loginBtn = {
-  width: "100%",
-  backgroundColor: "#0e276f",
-  color: "white",
-  padding: "10px",
-  border: "none",
-  borderRadius: "6px",
-  fontWeight: "bold",
-  fontSize: "16px",
-  cursor: "pointer",
-  marginTop: "10px",
-};
-
-const registerBtn = {
-  ...loginBtn,
-  backgroundColor: "#e03",
-  marginTop: "10px",
 };
 
 export default Login;
