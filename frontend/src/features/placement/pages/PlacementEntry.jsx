@@ -79,6 +79,54 @@ const PlacementEntry = () => {
     return getPlacementItemSummaryCounts(selections);
   }, [selections]);
 
+  const groupedSelections = useMemo(() => {
+    const buckets = {
+      ix: [],
+      orange: [],
+    };
+    const extraBuckets = new Map();
+
+    selections.forEach((item) => {
+      const platform = String(item?.platform || "").trim().toLowerCase();
+
+      if (platform === "ix" || platform === "orange") {
+        buckets[platform].push(item);
+        return;
+      }
+
+      const fallbackPlatform = platform || "other";
+      if (!extraBuckets.has(fallbackPlatform)) {
+        extraBuckets.set(fallbackPlatform, []);
+      }
+      extraBuckets.get(fallbackPlatform).push(item);
+    });
+
+    let runningIndex = 0;
+
+    return [["ix", buckets.ix], ["orange", buckets.orange], ...Array.from(extraBuckets.entries())]
+      .filter(([, items]) => items.length > 0)
+      .map(([platform, items]) => {
+        const accent = platform === "orange" ? "orange" : "ix";
+        const title =
+          platform === "orange"
+            ? "Orange tests"
+            : platform === "ix"
+              ? "IX tests"
+              : `${platform.toUpperCase()} tests`;
+
+        const startIndex = runningIndex;
+        runningIndex += items.length;
+
+        return {
+          platform,
+          accent,
+          title,
+          items,
+          startIndex,
+        };
+      });
+  }, [selections]);
+
   const sharePath = useMemo(() => buildPlacementSharePath(shareToken), [shareToken]);
   const activeShareToken = String(shareToken || placementPackage?.shareToken || "").trim();
   const backPath = isTeacher ? "/select-test" : "/login";
@@ -148,96 +196,85 @@ const PlacementEntry = () => {
   return (
     <div className="placement-entry-page">
       <div className="placement-entry-shell">
-        <section className="placement-entry-hero">
-          <div className="placement-entry-heroTop">
-            <Link to={backPath} className="placement-entry-backLink">
-              <LineIcon name="tests" size={16} />
-              <span>{isTeacher ? "Back to Test List" : "Back to Login"}</span>
-            </Link>
-
-            {isTeacher && shareToken ? (
-              <Link to={sharePath} className="placement-entry-previewLink">
-                <LineIcon name="link" size={16} />
-                <span>Refresh Preview Link</span>
-              </Link>
-            ) : null}
-          </div>
-
-          <div className="placement-entry-heroCopy">
-            <span className="placement-entry-eyebrow">Placement Test</span>
-            <h1 className="placement-entry-title">Flexible entrance-test list for supervised placement</h1>
-            <p className="placement-entry-text">
-              Enter the student details, then review the exact tests that this placement link is showing right now.
-            </p>
-          </div>
-
-          <div className="placement-entry-pillRow">
-            <span className="placement-entry-pill">
-              <LineIcon name="tests" size={14} />
-              <span>{selections.length} assigned test{selections.length === 1 ? "" : "s"}</span>
-            </span>
-            <span className="placement-entry-pill">
-              <LineIcon name="reading" size={14} />
-              <span>{selectionSummary.reading} reading</span>
-            </span>
-            <span className="placement-entry-pill">
-              <LineIcon name="listening" size={14} />
-              <span>{selectionSummary.listening} listening</span>
-            </span>
-            <span className="placement-entry-pill">
-              <LineIcon name="target" size={14} />
-              <span>{selectionSummary.ix} IX • {selectionSummary.orange} Orange</span>
-            </span>
-          </div>
-        </section>
-
         <section className="placement-entry-grid">
-          <article className="placement-entry-card placement-entry-card--form">
-            <div className="placement-entry-cardHeader">
-              <span className="placement-entry-cardIcon" aria-hidden="true">
-                <LineIcon name="form" size={18} />
-              </span>
-              <div>
-                <h2 className="placement-entry-cardTitle">Student entry</h2>
-                <p className="placement-entry-cardText">Save the candidate details before starting the placement session.</p>
+          <div className="placement-entry-sidebar">
+            <section className="placement-entry-hero">
+              <div className="placement-entry-heroTop">
+                <Link to={backPath} className="placement-entry-backLink">
+                  <LineIcon name="tests" size={16} />
+                  <span>{isTeacher ? "Back to Test List" : "Back to Login"}</span>
+                </Link>
+
+                {isTeacher && shareToken ? (
+                  <Link to={sharePath} className="placement-entry-previewLink">
+                    <LineIcon name="link" size={16} />
+                    <span>Refresh Preview Link</span>
+                  </Link>
+                ) : null}
               </div>
-            </div>
 
-            <form className="placement-entry-form" onSubmit={handleSubmit}>
-              <label className="placement-entry-field">
-                <span>Student name</span>
-                <input
-                  type="text"
-                  value={lead?.name || ""}
-                  onChange={handleLeadChange("name")}
-                  placeholder="Nguyen Van A"
-                />
-              </label>
+              <div className="placement-entry-pillRow">
+                <span className="placement-entry-pill">
+                  <LineIcon name="tests" size={14} />
+                  <span>{selections.length} assigned test{selections.length === 1 ? "" : "s"}</span>
+                </span>
+                <span className="placement-entry-pill">
+                  <LineIcon name="reading" size={14} />
+                  <span>{selectionSummary.reading} reading</span>
+                </span>
+                <span className="placement-entry-pill">
+                  <LineIcon name="listening" size={14} />
+                  <span>{selectionSummary.listening} listening</span>
+                </span>
+                <span className="placement-entry-pill">
+                  <LineIcon name="target" size={14} />
+                  <span>{selectionSummary.ix} IX • {selectionSummary.orange} Orange</span>
+                </span>
+              </div>
+            </section>
 
-              <label className="placement-entry-field">
-                <span>Phone number</span>
-                <input
-                  type="tel"
-                  value={lead?.phone || ""}
-                  onChange={handleLeadChange("phone")}
-                  placeholder="0912345678"
-                />
-              </label>
+            <article className="placement-entry-card placement-entry-card--form">
+              <div className="placement-entry-cardHeader">
+                <span className="placement-entry-cardIcon" aria-hidden="true">
+                  <LineIcon name="form" size={18} />
+                </span>
+                <div>
+                  <h2 className="placement-entry-cardTitle">Student entry</h2>
+                </div>
+              </div>
 
-              <button type="submit" className="placement-entry-primaryButton" disabled={submitting || loadingPackage}>
-                <LineIcon name="save" size={16} />
-                <span>{submitting ? "Starting Placement" : "Continue to Assigned Tests"}</span>
-              </button>
-            </form>
+              <form className="placement-entry-form" onSubmit={handleSubmit}>
+                <label className="placement-entry-field">
+                  <span>Student name</span>
+                  <input
+                    type="text"
+                    value={lead?.name || ""}
+                    onChange={handleLeadChange("name")}
+                    placeholder="Nguyen Van A"
+                  />
+                </label>
 
-            {message ? (
-              <p className={`placement-entry-message${savedLead ? " is-success" : ""}`}>{message}</p>
-            ) : null}
+                <label className="placement-entry-field">
+                  <span>Phone number</span>
+                  <input
+                    type="tel"
+                    value={lead?.phone || ""}
+                    onChange={handleLeadChange("phone")}
+                    placeholder="0912345678"
+                  />
+                </label>
 
-            <p className="placement-entry-note">
-              Students will only see the summary-side placement experience here. Teacher-only review stays inside the admin area.
-            </p>
-          </article>
+                <button type="submit" className="placement-entry-primaryButton" disabled={submitting || loadingPackage}>
+                  <LineIcon name="save" size={16} />
+                  <span>{submitting ? "Starting Placement" : "Continue to Assigned Tests"}</span>
+                </button>
+              </form>
+
+              {message ? (
+                <p className={`placement-entry-message${savedLead ? " is-success" : ""}`}>{message}</p>
+              ) : null}
+            </article>
+          </div>
 
           <article className="placement-entry-card placement-entry-card--list">
             <div className="placement-entry-cardHeader">
@@ -246,7 +283,6 @@ const PlacementEntry = () => {
               </span>
               <div>
                 <h2 className="placement-entry-cardTitle">Assigned test list</h2>
-                <p className="placement-entry-cardText">This is the live set of tests that the teacher has turned on for this placement link.</p>
               </div>
             </div>
 
@@ -271,30 +307,54 @@ const PlacementEntry = () => {
                 </p>
               </div>
             ) : (
-              <div className="placement-entry-list">
-                {selections.map((item, index) => (
-                  <div
-                    key={item.id || item.attemptItemToken || `${item.platform}-${item.testType || item.skill}-${item.testId}-${item.sortOrder ?? index}`}
-                    className="placement-entry-testCard"
-                  >
-                    <div className="placement-entry-testHeader">
-                      <span className="placement-entry-testNumber">#{index + 1}</span>
-                      <span className="placement-entry-testBadge">{item.badge || item.platform.toUpperCase()}</span>
+              <div className="placement-entry-groupList">
+                {groupedSelections.map((group) => (
+                  <section key={group.platform} className="placement-entry-group">
+                    <div className="placement-entry-groupHeader">
+                      <div className="placement-entry-groupTitleRow">
+                        <span className={`placement-entry-groupPill placement-entry-groupPill--${group.accent}`}>
+                          {group.platform === "orange" ? "Orange" : group.platform === "ix" ? "IX" : group.platform.toUpperCase()}
+                        </span>
+                        <h3 className="placement-entry-groupTitle">{group.title}</h3>
+                      </div>
+                      <span className="placement-entry-groupCount">
+                        {group.items.length} test{group.items.length === 1 ? "" : "s"}
+                      </span>
                     </div>
 
-                    <h3 className="placement-entry-testTitle">{item.title}</h3>
+                    <div className="placement-entry-list">
+                      {group.items.map((item, index) => {
+                        const itemAccent = item.platform === "orange" ? "orange" : "ix";
 
-                    {item.subtitle ? (
-                      <p className="placement-entry-testSubtitle">{item.subtitle}</p>
-                    ) : null}
+                        return (
+                          <div
+                            key={item.id || item.attemptItemToken || `${item.platform}-${item.testType || item.skill}-${item.testId}-${item.sortOrder ?? index}`}
+                            className={`placement-entry-testCard placement-entry-testCard--${itemAccent}`}
+                          >
+                            <div className="placement-entry-testHeader">
+                              <span className="placement-entry-testNumber">#{group.startIndex + index + 1}</span>
+                              <span className={`placement-entry-testBadge placement-entry-testBadge--${itemAccent}`}>
+                                {item.badge || item.platform.toUpperCase()}
+                              </span>
+                            </div>
 
-                    <div className="placement-entry-testMeta">
-                      <span>{item.platform === "orange" ? "Orange" : "IX"}</span>
-                      <span>{item.skill}</span>
-                      {item.questionsLabel ? <span>{item.questionsLabel}</span> : null}
-                      {item.durationLabel ? <span>{item.durationLabel}</span> : null}
+                            <h3 className="placement-entry-testTitle">{item.title}</h3>
+
+                            {item.subtitle ? (
+                              <p className="placement-entry-testSubtitle">{item.subtitle}</p>
+                            ) : null}
+
+                            <div className="placement-entry-testMeta">
+                              <span>{item.platform === "orange" ? "Orange" : "IX"}</span>
+                              <span>{item.skill}</span>
+                              {item.questionsLabel ? <span>{item.questionsLabel}</span> : null}
+                              {item.durationLabel ? <span>{item.durationLabel}</span> : null}
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
-                  </div>
+                  </section>
                 ))}
               </div>
             )}
