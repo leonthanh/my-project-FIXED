@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useLayoutEffect, useState, useRef } from "react";
 import { createPortal, flushSync } from "react-dom";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import ThemeToggle from "./ThemeToggle";
@@ -228,8 +228,10 @@ const AdminNavbar = () => {
   const [desktopCambridgeGroup, setDesktopCambridgeGroup] = useState("flyers");
   const [desktopSubmissionSection, setDesktopSubmissionSection] =
     useState("create");
+  const [desktopNavbarHeight, setDesktopNavbarHeight] = useState(0);
   const notificationDropdownRef = useRef(null);
   const adminDropdownRef = useRef(null);
+  const navRef = useRef(null);
 
   let user = null;
   try {
@@ -450,6 +452,37 @@ const AdminNavbar = () => {
       document.body.style.overflow = originalOverflow;
     };
   }, [isCompactMenu, mobileDrawerOpen, desktopDrawerMode]);
+
+  useLayoutEffect(() => {
+    if (typeof window === "undefined") return undefined;
+
+    if (isCompactMenu) {
+      setDesktopNavbarHeight(0);
+      return undefined;
+    }
+
+    const node = navRef.current;
+    if (!node) return undefined;
+
+    const updateHeight = () => {
+      setDesktopNavbarHeight(Math.ceil(node.getBoundingClientRect().height));
+    };
+
+    updateHeight();
+
+    const resizeObserver =
+      typeof ResizeObserver !== "undefined"
+        ? new ResizeObserver(() => updateHeight())
+        : null;
+
+    resizeObserver?.observe(node);
+    window.addEventListener("resize", updateHeight);
+
+    return () => {
+      resizeObserver?.disconnect();
+      window.removeEventListener("resize", updateHeight);
+    };
+  }, [isCompactMenu]);
 
   useEffect(() => {
     if (typeof window === "undefined") return undefined;
@@ -1509,7 +1542,7 @@ const AdminNavbar = () => {
 
   return (
     <>
-    <nav className="adminNavbar">
+    <nav ref={navRef} className="adminNavbar">
       <div className="adminNavbar__left">
         <Link to="/select-test" className="adminNavbar__logoLink" title="Test list">
           <img
@@ -1639,6 +1672,11 @@ const AdminNavbar = () => {
       </div>
 
     </nav>
+    <div
+      className="adminNavbar__spacer"
+      aria-hidden="true"
+      style={{ height: desktopNavbarHeight }}
+    />
     {desktopMenuDrawer}
     </>
   );

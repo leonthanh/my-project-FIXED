@@ -5,13 +5,18 @@ import LineIcon from "../../../shared/components/LineIcon";
 import { useTheme } from "../../../shared/contexts/ThemeContext";
 import { apiPath, authFetch } from "../../../shared/utils/api";
 import AttemptExtensionControls from "../components/AttemptExtensionControls";
+import AdminStickySidebarLayout, {
+  AdminSidebarMetricList,
+  AdminSidebarNavList,
+  AdminSidebarPanel,
+  buildAdminWorkspaceLinks,
+} from "../components/AdminStickySidebarLayout";
 import {
   ExpandableSubmissionList,
   SubmissionStatCards,
   getSubmissionTone,
 } from "../components/SubmissionCardList";
 import SubmissionFilterPanel from "../components/SubmissionFilterPanel";
-import SubmissionTypeTabs from "../components/SubmissionTypeTabs";
 import {
   formatAttemptTimestamp,
   getAttemptTimingMeta,
@@ -196,6 +201,47 @@ const AdminReadingSubmissions = () => {
 
   const pendingCount = subs.filter((submission) => !hasReview(submission)).length;
   const reviewedCount = subs.filter((submission) => hasReview(submission)).length;
+  const workspaceLinks = useMemo(
+    () => buildAdminWorkspaceLinks(navigate, "reading"),
+    [navigate]
+  );
+  const sidebarStats = useMemo(
+    () => [
+      {
+        key: "total",
+        label: "Total",
+        value: subs.length,
+        bg: "#eff6ff",
+        border: "#bfdbfe",
+        color: "#1d4ed8",
+      },
+      {
+        key: "pending",
+        label: "Pending",
+        value: pendingCount,
+        bg: "#fffbeb",
+        border: "#fde68a",
+        color: "#92400e",
+      },
+      {
+        key: "reviewed",
+        label: "Reviewed",
+        value: reviewedCount,
+        bg: "#f0fdf4",
+        border: "#bbf7d0",
+        color: "#166534",
+      },
+      {
+        key: "visible",
+        label: "Visible",
+        value: filteredSubs.length,
+        bg: isDarkMode ? "rgba(37, 99, 235, 0.14)" : "#eef4ff",
+        border: isDarkMode ? "rgba(96, 165, 250, 0.36)" : "#dbeafe",
+        color: "#2563eb",
+      },
+    ],
+    [filteredSubs.length, isDarkMode, pendingCount, reviewedCount, subs.length]
+  );
 
   const clearDeepLinkParams = () => {
     if (!searchParams.get("submissionId") && !searchParams.get("action")) {
@@ -355,100 +401,125 @@ const AdminReadingSubmissions = () => {
     <>
       <AdminNavbar />
       <div style={{ padding: 24, maxWidth: "100%", width: "100%", margin: "0 auto" }} className="admin-page admin-submission-page">
-        <SubmissionTypeTabs activeKey="reading" />
+        <AdminStickySidebarLayout
+          eyebrow="Reading"
+          title="Reading submissions"
+          description="Track IX Reading attempts, open feedback, and extension actions from one sticky control rail."
+          sidebarContent={(
+            <>
+              <AdminSidebarPanel
+                eyebrow="Workspace"
+                title="Admin pages"
+                meta="Quick jump"
+              >
+                <AdminSidebarNavList items={workspaceLinks} ariaLabel="Admin workspace pages" />
+              </AdminSidebarPanel>
 
-        <SubmissionStatCards
-          stats={[
-            {
-              label: "Total",
-              count: subs.length,
-              bg: "#eff6ff",
-              color: "#1d4ed8",
-              border: "#bfdbfe",
-            },
-            {
-              label: "Pending",
-              count: pendingCount,
-              bg: "#fffbeb",
-              color: "#92400e",
-              border: "#fde68a",
-            },
-            {
-              label: "Reviewed",
-              count: reviewedCount,
-              bg: "#f0fdf4",
-              color: "#166534",
-              border: "#bbf7d0",
-            },
-          ]}
-        />
+              <AdminSidebarPanel
+                eyebrow="Summary"
+                title="Queue status"
+                meta={statusTab === "all" ? "All statuses" : statusTab}
+              >
+                <AdminSidebarMetricList items={sidebarStats} />
+                <p className="admin-side-layout__panelText">
+                  Use the filters on the right to narrow the queue, then open any row to review scores, analysis, and feedback.
+                </p>
+              </AdminSidebarPanel>
+            </>
+          )}
+        >
+          <SubmissionStatCards
+            stats={[
+              {
+                label: "Total",
+                count: subs.length,
+                bg: "#eff6ff",
+                color: "#1d4ed8",
+                border: "#bfdbfe",
+              },
+              {
+                label: "Pending",
+                count: pendingCount,
+                bg: "#fffbeb",
+                color: "#92400e",
+                border: "#fde68a",
+              },
+              {
+                label: "Reviewed",
+                count: reviewedCount,
+                bg: "#f0fdf4",
+                color: "#166534",
+                border: "#bbf7d0",
+              },
+            ]}
+          />
 
-        <SubmissionFilterPanel
-          fields={[
-            {
-              key: "student",
-              label: "Student Name",
-              placeholder: "Student name",
-              value: searchStudent,
-              onChange: setSearchStudent,
-            },
-            {
-              key: "phone",
-              label: "Phone",
-              placeholder: "Phone number",
-              value: searchPhone,
-              onChange: setSearchPhone,
-            },
-            {
-              key: "classCode",
-              label: "Class Code",
-              placeholder: "e.g. 148-IX-3A-S1",
-              value: searchClassCode,
-              onChange: setSearchClassCode,
-            },
-            {
-              key: "teacher",
-              label: "Test Teacher",
-              placeholder: "Teacher name",
-              value: searchTeacher,
-              onChange: setSearchTeacher,
-            },
-            {
-              key: "reviewedBy",
-              label: "Reviewed By",
-              placeholder: "Reviewer name",
-              value: searchReviewedBy,
-              onChange: setSearchReviewedBy,
-            },
-          ]}
-          sortValue={sortOrder}
-          onSortChange={setSortOrder}
-          statusValue={statusTab}
-          onStatusChange={setStatusTab}
-          onReset={resetFilters}
-          filteredCount={filteredSubs.length}
-          totalCount={subs.length}
-          summaryLabel="submissions"
-        />
+          <SubmissionFilterPanel
+            fields={[
+              {
+                key: "student",
+                label: "Student Name",
+                placeholder: "Student name",
+                value: searchStudent,
+                onChange: setSearchStudent,
+              },
+              {
+                key: "phone",
+                label: "Phone",
+                placeholder: "Phone number",
+                value: searchPhone,
+                onChange: setSearchPhone,
+              },
+              {
+                key: "classCode",
+                label: "Class Code",
+                placeholder: "e.g. 148-IX-3A-S1",
+                value: searchClassCode,
+                onChange: setSearchClassCode,
+              },
+              {
+                key: "teacher",
+                label: "Test Teacher",
+                placeholder: "Teacher name",
+                value: searchTeacher,
+                onChange: setSearchTeacher,
+              },
+              {
+                key: "reviewedBy",
+                label: "Reviewed By",
+                placeholder: "Reviewer name",
+                value: searchReviewedBy,
+                onChange: setSearchReviewedBy,
+              },
+            ]}
+            sortValue={sortOrder}
+            onSortChange={setSortOrder}
+            statusValue={statusTab}
+            onStatusChange={setStatusTab}
+            onReset={resetFilters}
+            filteredCount={filteredSubs.length}
+            totalCount={subs.length}
+            summaryLabel="submissions"
+          />
 
-        <p style={{ fontSize: 13, color: isDarkMode ? "#94a3b8" : "#6b7280", marginBottom: 12 }}>
-          Click a row to view the score summary, feedback, and actions.
-        </p>
-
-        {loading && (
-          <p style={statusMessageStyle}>
-            <InlineIcon name="loading" size={16} />
-            Loading...
+          <p style={{ fontSize: 13, color: isDarkMode ? "#94a3b8" : "#6b7280", marginBottom: 12 }}>
+            Click a row to view the score summary, feedback, and actions.
           </p>
-        )}
-        {!loading && filteredSubs.length === 0 && (
-          <p style={statusMessageStyle}>
-            <InlineIcon name="empty" size={16} />
-            No matching submissions found.
-          </p>
-        )}
-        {!loading && filteredSubs.length > 0 && (
-          <ExpandableSubmissionList
+
+          {loading && (
+            <p style={statusMessageStyle}>
+              <InlineIcon name="loading" size={16} />
+              Loading...
+            </p>
+          )}
+          {!loading && filteredSubs.length === 0 && (
+            <p style={statusMessageStyle}>
+              <InlineIcon name="empty" size={16} />
+              No matching submissions found.
+            </p>
+          )}
+          {!loading && filteredSubs.length > 0 && (
+            <ExpandableSubmissionList
             items={filteredSubs}
             expandedItems={expandedItems}
             onToggle={toggleExpand}
@@ -723,7 +794,8 @@ const AdminReadingSubmissions = () => {
               );
             }}
           />
-        )}
+          )}
+        </AdminStickySidebarLayout>
       </div>
 
       {/* Feedback Modal */}

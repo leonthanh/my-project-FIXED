@@ -1,6 +1,12 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import AdminNavbar from "../../../shared/components/AdminNavbar";
+import AdminStickySidebarLayout, {
+  AdminSidebarMetricList,
+  AdminSidebarNavList,
+  AdminSidebarPanel,
+  buildAdminWorkspaceLinks,
+} from "../components/AdminStickySidebarLayout";
 import { useTheme } from "../../../shared/contexts/ThemeContext";
 import { apiPath } from "../../../shared/utils/api";
 import {
@@ -8,7 +14,6 @@ import {
   SubmissionStatCards,
   getSubmissionTone,
 } from "../components/SubmissionCardList";
-import SubmissionTypeTabs from "../components/SubmissionTypeTabs";
 import { getAttemptTimingMeta } from "../utils/attemptTiming";
 
 const DEFAULT_REVIEW_FILTERS = {
@@ -1164,6 +1169,67 @@ const Review = () => {
       : activeTab === "cambridge"
       ? "Click a row to review Orange details, feedback, and result actions."
       : "Click a row to view the score summary, feedback, and actions.";
+  const workspaceLinks = useMemo(
+    () => buildAdminWorkspaceLinks(navigate, "review"),
+    [navigate]
+  );
+  const queueLinks = useMemo(
+    () =>
+      reviewTabs.map((tab) => ({
+        key: tab.key,
+        label: tab.shortLabel || tab.label,
+        hint: tab.label,
+        tone:
+          tab.key === "writing"
+            ? "violet"
+            : tab.key === "reading"
+            ? "blue"
+            : tab.key === "listening"
+            ? "green"
+            : "orange",
+        badge: tab.badge,
+        active: activeTab === tab.key,
+        onClick: () => setActiveTab(tab.key),
+      })),
+    [activeTab, reviewTabs]
+  );
+  const sidebarStats = useMemo(
+    () => [
+      {
+        key: "total",
+        label: "Total",
+        value: activeTotalCount,
+        bg: "#eff6ff",
+        border: "#bfdbfe",
+        color: "#1d4ed8",
+      },
+      {
+        key: "pending",
+        label: "Pending",
+        value: activePendingCount,
+        bg: "#fffbeb",
+        border: "#fde68a",
+        color: "#92400e",
+      },
+      {
+        key: "reviewed",
+        label: "Reviewed",
+        value: activeReviewedCount,
+        bg: "#f0fdf4",
+        border: "#bbf7d0",
+        color: "#166534",
+      },
+      {
+        key: "visible",
+        label: "Visible",
+        value: activeFilteredCount,
+        bg: "#f5f3ff",
+        border: "#ddd6fe",
+        color: "#6d28d9",
+      },
+    ],
+    [activeFilteredCount, activePendingCount, activeReviewedCount, activeTotalCount]
+  );
 
   const updateTabFilter = (tabKey, field, value) => {
     setFiltersByTab((prev) => ({
@@ -1694,29 +1760,27 @@ const Review = () => {
         className="admin-page admin-submission-page"
         style={{ maxWidth: "100%", width: "100%", margin: "0 auto", padding: "30px 16px" }}
       >
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            marginTop: 0,
-          }}
-          className="admin-header-row"
+        <AdminStickySidebarLayout
+          eyebrow="Review"
+          title="Review queue"
+          description="Switch between Writing, Reading, Listening, and Orange queues from the left rail while keeping the current review slice in view."
+          sidebarContent={(
+            <>
+              <AdminSidebarPanel eyebrow="Workspace" title="Admin pages" meta="Quick jump">
+                <AdminSidebarNavList items={workspaceLinks} ariaLabel="Admin workspace pages" />
+              </AdminSidebarPanel>
+
+              <AdminSidebarPanel eyebrow="Queue" title="Review slices" meta={activeTab}>
+                <AdminSidebarNavList items={queueLinks} ariaLabel="Review queue tabs" />
+              </AdminSidebarPanel>
+
+              <AdminSidebarPanel eyebrow="Summary" title="Current queue" meta={`${activeFilteredCount} visible`}>
+                <AdminSidebarMetricList items={sidebarStats} />
+                <p className="admin-side-layout__panelText">{activeQueueHint}</p>
+              </AdminSidebarPanel>
+            </>
+          )}
         >
-          <h3 style={{ margin: 0 }}>Review Queue</h3>
-        </div>
-
-        <div style={{ width: "100%", maxWidth: 760, margin: "14px auto 0" }}>
-          <SubmissionTypeTabs
-            title={null}
-            items={reviewTabs}
-            activeKey={activeTab}
-            onSelect={setActiveTab}
-            allowMobileWrap
-            buttonFlex="1 1 0"
-          />
-        </div>
-
         <SubmissionStatCards
           stats={[
             {
@@ -1791,6 +1855,7 @@ const Review = () => {
         {activeTab === "cambridge" && (
           <>{renderCambridgeQueue()}</>
         )}
+        </AdminStickySidebarLayout>
       </div>
     </>
   );

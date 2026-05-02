@@ -4,13 +4,18 @@ import AdminNavbar from "../../../shared/components/AdminNavbar";
 import LineIcon from "../../../shared/components/LineIcon";
 import { apiPath, authFetch, hostPath } from "../../../shared/utils/api";
 import AttemptExtensionControls from "../components/AttemptExtensionControls";
+import AdminStickySidebarLayout, {
+  AdminSidebarMetricList,
+  AdminSidebarNavList,
+  AdminSidebarPanel,
+  buildAdminWorkspaceLinks,
+} from "../components/AdminStickySidebarLayout";
 import {
   ExpandableSubmissionList,
   SubmissionStatCards,
   getSubmissionTone,
 } from "../components/SubmissionCardList";
 import SubmissionFilterPanel from "../components/SubmissionFilterPanel";
-import SubmissionTypeTabs from "../components/SubmissionTypeTabs";
 import {
   formatAttemptTimestamp,
   getAttemptTimingMeta,
@@ -780,6 +785,54 @@ const CambridgeSubmissionsPage = () => {
     ? submissions.find((item) => item.id === activeReviewSubmissionId) ||
       (deepLinkedSubmission?.id === activeReviewSubmissionId ? deepLinkedSubmission : null)
     : null;
+  const workspaceLinks = buildAdminWorkspaceLinks(navigate, "cambridge");
+  const submissionViewLinks = CAMBRIDGE_SUBMISSION_TABS.map((tab) => ({
+    key: tab.key,
+    label: tab.shortLabel || tab.label,
+    hint: tab.label,
+    tone:
+      tab.key === "reading"
+        ? "violet"
+        : tab.key === "listening"
+        ? "green"
+        : "orange",
+    active: activeTab === tab.key,
+    onClick: () => setActiveTab(tab.key),
+  }));
+  const sidebarStats = [
+    {
+      key: "visible",
+      label: "Visible",
+      value: filteredSubmissions.length,
+      bg: "#eff6ff",
+      border: "#bfdbfe",
+      color: "#1d4ed8",
+    },
+    {
+      key: "pending",
+      label: "Pending",
+      value: visiblePendingCount,
+      bg: "#fffbeb",
+      border: "#fde68a",
+      color: "#92400e",
+    },
+    {
+      key: "reviewed",
+      label: "Reviewed",
+      value: visibleReviewedCount,
+      bg: "#f0fdf4",
+      border: "#bbf7d0",
+      color: "#166534",
+    },
+    {
+      key: "pages",
+      label: "Pages",
+      value: pagination.totalPages || 1,
+      bg: "#fff7ed",
+      border: "#fed7aa",
+      color: "#c2410c",
+    },
+  ];
 
   const renderEssayReviewContent = (submission) => {
     const detail = detailById[submission.id];
@@ -891,16 +944,29 @@ const CambridgeSubmissionsPage = () => {
       <AdminNavbar />
 
       <div style={styles.content} className="admin-page admin-submission-page">
-        <div style={styles.switcherWrap}>
-          <SubmissionTypeTabs
-            title="Orange Submissions"
-            items={CAMBRIDGE_SUBMISSION_TABS}
-            activeKey={activeTab}
-            onSelect={setActiveTab}
-            buttonFlex="1 1 0"
-          />
-        </div>
+        <AdminStickySidebarLayout
+          eyebrow="Orange"
+          title="Cambridge submissions"
+          description="Review Orange Reading and Listening attempts, open essay review, and manage result actions from one sticky sidebar."
+          sidebarContent={(
+            <>
+              <AdminSidebarPanel eyebrow="Workspace" title="Admin pages" meta="Quick jump">
+                <AdminSidebarNavList items={workspaceLinks} ariaLabel="Admin workspace pages" />
+              </AdminSidebarPanel>
 
+              <AdminSidebarPanel eyebrow="View" title="Submission type" meta={activeTab}>
+                <AdminSidebarNavList items={submissionViewLinks} ariaLabel="Cambridge submission filters" />
+              </AdminSidebarPanel>
+
+              <AdminSidebarPanel eyebrow="Summary" title="Result queue" meta={`Page ${pagination.page}`}>
+                <AdminSidebarMetricList items={sidebarStats} />
+                <p className="admin-side-layout__panelText">
+                  Use the filter panel on the right to narrow students, phones, classes, and review state before opening a row.
+                </p>
+              </AdminSidebarPanel>
+            </>
+          )}
+        >
         <SubmissionFilterPanel
           fields={[
             {
@@ -1417,6 +1483,7 @@ const CambridgeSubmissionsPage = () => {
             )}
           </>
         )}
+        </AdminStickySidebarLayout>
 
         {activeReviewSubmission && (
           <div style={styles.drawerOverlay} onClick={closeEssayReview}>

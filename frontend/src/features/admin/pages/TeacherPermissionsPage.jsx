@@ -1,8 +1,16 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import AdminNavbar from '../../../shared/components/AdminNavbar';
+import AdminStickySidebarLayout, {
+  AdminSidebarMetricList,
+  AdminSidebarNavList,
+  AdminSidebarPanel,
+  buildAdminWorkspaceLinks,
+} from '../components/AdminStickySidebarLayout';
 import { apiPath, authFetch } from '../../../shared/utils/api';
 
 const TeacherPermissionsPage = () => {
+  const navigate = useNavigate();
   const [teachers, setTeachers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -42,10 +50,67 @@ const TeacherPermissionsPage = () => {
     }
   };
 
+  const enabledCount = teachers.filter((teacher) => teacher.canManageTests).length;
+  const disabledCount = Math.max(teachers.length - enabledCount, 0);
+  const workspaceLinks = buildAdminWorkspaceLinks(navigate, 'permissions');
+  const sidebarStats = [
+    {
+      key: 'teachers',
+      label: 'Teachers',
+      value: teachers.length,
+      bg: '#eff6ff',
+      border: '#bfdbfe',
+      color: '#1d4ed8',
+    },
+    {
+      key: 'enabled',
+      label: 'Enabled',
+      value: enabledCount,
+      bg: '#f0fdf4',
+      border: '#bbf7d0',
+      color: '#166534',
+    },
+    {
+      key: 'disabled',
+      label: 'Disabled',
+      value: disabledCount,
+      bg: '#fff7ed',
+      border: '#fed7aa',
+      color: '#c2410c',
+    },
+    {
+      key: 'saving',
+      label: 'Saving',
+      value: saving ? 1 : 0,
+      bg: '#f8fafc',
+      border: '#e2e8f0',
+      color: '#475569',
+    },
+  ];
+
   return (
     <>
       <AdminNavbar />
       <div className="admin-page admin-submission-page" style={s.page}>
+        <AdminStickySidebarLayout
+          eyebrow="Admin"
+          title="Teacher permissions"
+          description="Control which teachers can manage Reading, Listening, and Orange tests from one sticky sidebar."
+          sidebarContent={(
+            <>
+              <AdminSidebarPanel eyebrow="Workspace" title="Admin pages" meta="Quick jump">
+                <AdminSidebarNavList items={workspaceLinks} ariaLabel="Admin workspace pages" />
+              </AdminSidebarPanel>
+
+              <AdminSidebarPanel eyebrow="Summary" title="Access status" meta={saving ? 'Saving' : 'Ready'}>
+                <AdminSidebarMetricList items={sidebarStats} />
+                <p className="admin-side-layout__panelText">
+                  Enable Test Management to let a teacher create, edit, and maintain tests across the exam library.
+                </p>
+              </AdminSidebarPanel>
+            </>
+          )}
+        >
         <div style={s.headerCard}>
           <div style={s.kicker}>Admin</div>
           <h2 style={s.title}>Teacher Permissions</h2>
@@ -120,6 +185,7 @@ const TeacherPermissionsPage = () => {
             </>
           )}
         </div>
+        </AdminStickySidebarLayout>
       </div>
     </>
   );

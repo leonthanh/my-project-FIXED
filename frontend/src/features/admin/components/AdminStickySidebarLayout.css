@@ -1,0 +1,379 @@
+.admin-side-layout {
+  display: grid;
+  grid-template-columns: minmax(280px, 320px) minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.admin-side-layout__sidebar {
+  position: sticky;
+  top: 92px;
+  align-self: start;
+  max-height: calc(100vh - 108px);
+  overflow-y: auto;
+  padding-right: 4px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.52) transparent;
+}
+
+.admin-side-layout__sidebar::-webkit-scrollbar {
+  width: 8px;
+}
+
+.admin-side-layout__sidebar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.admin-side-layout__sidebar::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.48);
+  border-radius: 999px;
+}
+
+.admin-side-layout__sidebarInner,
+.admin-side-layout__main {
+  display: grid;
+  gap: 16px;
+}
+
+.admin-side-layout__main {
+  min-width: 0;
+}
+
+.admin-side-layout__card,
+.admin-side-layout__panel {
+  position: relative;
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 16px 42px rgba(15, 23, 42, 0.08);
+  backdrop-filter: blur(16px);
+}
+
+.admin-side-layout__card {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+}
+
+.admin-side-layout__panel {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+}
+
+.admin-side-layout__hero {
+  display: grid;
+  gap: 8px;
+}
+
+.admin-side-layout__eyebrow,
+.admin-side-layout__panelEyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #0f3f94;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.admin-side-layout__title {
+  margin: 0;
+  color: #11203d;
+  font-family: "Space Grotesk", "Manrope", sans-serif;
+  font-size: clamp(1.45rem, 2vw, 1.9rem);
+  line-height: 1.08;
+}
+
+.admin-side-layout__description,
+.admin-side-layout__panelText {
+  margin: 0;
+  color: #42516d;
+  font-size: 0.84rem;
+  line-height: 1.55;
+}
+
+.admin-side-layout__panelHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.admin-side-layout__panelTitle {
+  color: #11203d;
+  font-size: 0.96rem;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.admin-side-layout__panelMeta {
+  color: #6f7d97;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.admin-side-layout__nav {
+  display: grid;
+  gap: 10px;
+}
+
+.admin-side-layout__navButton {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 18px;
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  background: rgba(255, 255, 255, 0.84);
+  color: #11203d;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    transform 0.22s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.24s ease,
+    border-color 0.24s ease,
+    background-color 0.24s ease,
+    color 0.24s ease;
+}
+
+.admin-side-layout__navButton:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 18px 34px rgba(15, 23, 42, 0.1);
+}
+
+.admin-side-layout__navButton:focus-visible {
+  outline: 3px solid rgba(56, 189, 248, 0.26);
+  outline-offset: 2px;
+}
+
+.admin-side-layout__navButton.is-active {
+  color: #ffffff;
+  border-color: transparent;
+  box-shadow: 0 18px 34px rgba(15, 23, 42, 0.16);
+}
+
+.admin-side-layout__navButton--blue.is-active {
+  background: linear-gradient(135deg, #0f3f94 0%, #2563eb 100%);
+}
+
+.admin-side-layout__navButton--orange.is-active {
+  background: linear-gradient(135deg, #d45512 0%, #fb923c 100%);
+}
+
+.admin-side-layout__navButton--green.is-active {
+  background: linear-gradient(135deg, #0f8c4b 0%, #22c55e 100%);
+}
+
+.admin-side-layout__navButton--slate.is-active {
+  background: linear-gradient(135deg, #475569 0%, #64748b 100%);
+}
+
+.admin-side-layout__navButton--violet.is-active {
+  background: linear-gradient(135deg, #7c3aed 0%, #9f67ff 100%);
+}
+
+.admin-side-layout__navButtonCopy {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.admin-side-layout__navButtonLabel {
+  font-size: 0.94rem;
+  font-weight: 800;
+  line-height: 1.1;
+}
+
+.admin-side-layout__navButtonHint {
+  color: #42516d;
+  font-size: 0.72rem;
+  line-height: 1.35;
+}
+
+.admin-side-layout__navButton.is-active .admin-side-layout__navButtonHint {
+  color: rgba(255, 255, 255, 0.84);
+}
+
+.admin-side-layout__navButtonCount {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 34px;
+  height: 34px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: rgba(14, 39, 111, 0.08);
+  color: #0f3f94;
+  font-size: 0.75rem;
+  font-weight: 800;
+  line-height: 1;
+  box-sizing: border-box;
+}
+
+.admin-side-layout__navButton.is-active .admin-side-layout__navButtonCount {
+  background: rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+}
+
+.admin-side-layout__metricGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.admin-side-layout__metricCard {
+  padding: 10px 10px 11px;
+  border-radius: 16px;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  background: rgba(248, 250, 252, 0.9);
+  text-align: center;
+}
+
+.admin-side-layout__metricValue {
+  display: block;
+  font-size: 1.2rem;
+  line-height: 1;
+  font-weight: 800;
+  color: var(--admin-side-layout-metric-color, #0f3f94);
+}
+
+.admin-side-layout__metricLabel {
+  display: block;
+  margin-top: 4px;
+  font-size: 0.68rem;
+  line-height: 1.3;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #6f7d97;
+}
+
+.admin-side-layout button,
+.admin-side-layout a {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.admin-side-layout button::after,
+.admin-side-layout a::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(110deg, transparent 24%, rgba(255, 255, 255, 0.34) 50%, transparent 76%);
+  transform: translateX(-135%);
+  transition: transform 0.58s ease;
+  pointer-events: none;
+}
+
+.admin-side-layout button:hover::after,
+.admin-side-layout button:focus-visible::after,
+.admin-side-layout a:hover::after,
+.admin-side-layout a:focus-visible::after {
+  transform: translateX(130%);
+}
+
+@keyframes admin-side-layout-button-sheen {
+  0%,
+  76% {
+    transform: translateX(-135%);
+  }
+
+  92%,
+  100% {
+    transform: translateX(130%);
+  }
+}
+
+.admin-side-layout button::after,
+.admin-side-layout a::after {
+  animation: admin-side-layout-button-sheen 5.4s ease-in-out infinite;
+}
+
+.admin-side-layout button:disabled::after {
+  animation: none;
+}
+
+body.dark-mode .admin-side-layout__card,
+body.dark-mode .admin-side-layout__panel {
+  border-color: rgba(75, 95, 132, 0.46);
+  background: rgba(10, 18, 34, 0.88);
+}
+
+body.dark-mode .admin-side-layout__title,
+body.dark-mode .admin-side-layout__panelTitle,
+body.dark-mode .admin-side-layout__navButtonLabel,
+body.dark-mode .admin-side-layout__metricValue {
+  color: #f8fbff;
+}
+
+body.dark-mode .admin-side-layout__description,
+body.dark-mode .admin-side-layout__panelText,
+body.dark-mode .admin-side-layout__panelMeta,
+body.dark-mode .admin-side-layout__navButtonHint,
+body.dark-mode .admin-side-layout__metricLabel {
+  color: #bfd0f5;
+}
+
+body.dark-mode .admin-side-layout__eyebrow,
+body.dark-mode .admin-side-layout__panelEyebrow,
+body.dark-mode .admin-side-layout__navButtonCount {
+  color: #7dd3fc;
+}
+
+body.dark-mode .admin-side-layout__navButton {
+  border-color: rgba(75, 95, 132, 0.42);
+  background: rgba(14, 24, 44, 0.9);
+  color: #ecf2ff;
+}
+
+body.dark-mode .admin-side-layout__navButtonCount {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+body.dark-mode .admin-side-layout__navButton.is-active .admin-side-layout__navButtonCount {
+  color: #ffffff;
+}
+
+body.dark-mode .admin-side-layout__metricCard {
+  border-color: rgba(75, 95, 132, 0.42);
+  background: rgba(14, 24, 44, 0.92);
+}
+
+@media (max-width: 980px) {
+  .admin-side-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-side-layout__sidebar {
+    position: static;
+    max-height: none;
+    overflow: visible;
+    padding-right: 0;
+  }
+}
+
+@media (max-width: 640px) {
+  .admin-side-layout__card,
+  .admin-side-layout__panel {
+    padding: 14px;
+    border-radius: 20px;
+  }
+
+  .admin-side-layout__metricGrid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 480px) {
+  .admin-side-layout__metricGrid {
+    grid-template-columns: 1fr;
+  }
+}
