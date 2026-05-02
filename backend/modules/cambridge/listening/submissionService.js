@@ -5,6 +5,7 @@ const {
   findActiveCambridgeDraft,
 } = require('../shared/submissionUtils');
 const { scoreTest } = require('../shared/scoring');
+const placementService = require('../../placement/service');
 
 const createServiceError = (statusCode, message) => {
   const error = new Error(message);
@@ -43,6 +44,7 @@ const submitListeningTest = async ({ id, body = {}, forcedTestType = null } = {}
     classCode,
     userId,
     submissionId,
+    placementAttemptItemToken,
     timeRemaining,
     timeSpent,
   } = body;
@@ -54,8 +56,20 @@ const submitListeningTest = async ({ id, body = {}, forcedTestType = null } = {}
   const test = ensureListeningRecord(await CambridgeListening.findByPk(id), forcedTestType);
   const { score, total, percentage, detailedResults } = scoreTest(test, answers);
 
-  let finalStudentName = studentName;
+  let placementContext = null;
+  if (placementAttemptItemToken) {
+    placementContext = await placementService.getRuntimeSubmissionForAttemptItem({
+      attemptItemToken: placementAttemptItemToken,
+      platform: 'orange',
+      skill: 'listening',
+      testId: String(parseInt(id, 10)),
+      testType: test.testType,
+    });
+  }
+
+  let finalStudentName = studentName || placementContext?.attempt?.studentName;
   const finalClassCode = classCode || test.classCode;
+  const finalStudentPhone = studentPhone || placementContext?.attempt?.studentPhone || null;
 
   if (userId) {
     const user = await User.findByPk(userId);
@@ -64,22 +78,25 @@ const submitListeningTest = async ({ id, body = {}, forcedTestType = null } = {}
     }
   }
 
-  let submission = await findActiveCambridgeDraft({
-    submissionId: Number(submissionId) || null,
-    testId: parseInt(id, 10),
-    testType: test.testType,
-    userId: userId || null,
-  });
+  let submission = placementContext?.submission || null;
+  if (!submission) {
+    submission = await findActiveCambridgeDraft({
+      submissionId: Number(submissionId) || null,
+      testId: parseInt(id, 10),
+      testType: test.testType,
+      userId: userId || null,
+    });
+  }
 
   const finalizedPayload = {
     testId: parseInt(id, 10),
     testType: test.testType,
     testTitle: test.title,
     studentName: finalStudentName || 'Unknown',
-    studentPhone: studentPhone || null,
+    studentPhone: finalStudentPhone,
     studentEmail: studentEmail || null,
     classCode: finalClassCode,
-    userId: userId || null,
+    userId: placementAttemptItemToken ? submission?.userId || null : userId || null,
     answers,
     score,
     totalQuestions: total,
@@ -100,6 +117,23 @@ const submitListeningTest = async ({ id, body = {}, forcedTestType = null } = {}
     await submission.update(finalizedPayload);
   } else {
     submission = await CambridgeSubmission.create(finalizedPayload);
+  }
+
+  if (placementAttemptItemToken) {
+    await placementService.syncRuntimeSubmissionForAttemptItem({
+      attemptItemToken: placementAttemptItemToken,
+      platform: 'orange',
+      skill: 'listening',
+      testId: String(parseInt(id, 10)),
+      testType: test.testType,
+      runtimeSubmissionModel: 'cambridge',
+      runtimeSubmissionId: submission.id,
+      status: 'submitted',
+      correct: score,
+      totalQuestions: total,
+      percentage,
+      band: null,
+    });
   }
 
   return {

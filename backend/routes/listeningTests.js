@@ -5,6 +5,7 @@ const path = require('path');
 const fs = require('fs');
 const ListeningTest = require('../models/ListeningTest');
 const ListeningSubmission = require('../models/ListeningSubmission');
+const placementService = require('../modules/placement/service');
 const { countFlowchartQuestionSlots, getFlowchartBlankEntries } = require('../utils/flowchartHelpers');
 const {
   countListeningTableBlanks,
@@ -425,7 +426,17 @@ router.post('/:id/submit', async (req, res) => {
   try {
     debug(`POST /api/listening-tests/${req.params.id}/submit - body:`, JSON.stringify(req.body).slice(0,2000));
     const { id } = req.params;
-    const { answers, user, studentName, studentId } = req.body;
+    const { answers, user, studentName, studentId, placementAttemptItemToken } = req.body;
+
+    let placementContext = null;
+    if (placementAttemptItemToken) {
+      placementContext = await placementService.getRuntimeSubmissionForAttemptItem({
+        attemptItemToken: placementAttemptItemToken,
+        platform: 'ix',
+        skill: 'listening',
+        testId: String(id),
+      });
+    }
 
     // Get the test to check correct answers
     const test = await ListeningTest.findByPk(id);
@@ -1323,6 +1334,7 @@ router.post('/:id/submit', async (req, res) => {
 
     const resolvedUserName =
       studentName ||
+      placementContext?.attempt?.studentName ||
       user?.name ||
       user?.username ||
       user?.email ||
@@ -1331,6 +1343,10 @@ router.post('/:id/submit', async (req, res) => {
 
     // If an unfinished autosave attempt exists for this user and test, update it and mark finished
     let submission = null;
+    if (placementContext?.submission) {
+      submission = placementContext.submission;
+    }
+
     if (resolvedUserId) {
       const existing = await ListeningSubmission.findOne({ where: { testId: Number(id), userId: resolvedUserId, finished: false }, order: [['updatedAt', 'DESC']] });
       if (existing) {
@@ -1343,6 +1359,7 @@ router.post('/:id/submit', async (req, res) => {
         existing.finished = true;
         existing.expiresAt = null;
         existing.lastSavedAt = new Date();
+        existing.userName = resolvedUserName || existing.userName;
         await existing.save();
         submission = existing;
       }
@@ -1351,7 +1368,7 @@ router.post('/:id/submit', async (req, res) => {
     if (!submission) {
       submission = await ListeningSubmission.create({
         testId: Number(id),
-        userId: resolvedUserId,
+        userId: placementAttemptItemToken ? null : resolvedUserId,
         userName: resolvedUserName,
         answers: normalizedAnswers,
         details,
@@ -1363,7 +1380,35 @@ router.post('/:id/submit', async (req, res) => {
       });
       debug(`Created submission id=${submission.id} finished=${submission.finished}`);
     } else {
+      submission.userId = placementAttemptItemToken ? submission.userId || null : resolvedUserId;
+      submission.userName = resolvedUserName || submission.userName;
+      submission.answers = normalizedAnswers;
+      submission.details = details;
+      submission.correct = correctCount;
+      submission.total = totalCount;
+      submission.scorePercentage = scorePercentage;
+      submission.band = band;
+      submission.finished = true;
+      submission.expiresAt = null;
+      submission.lastSavedAt = new Date();
+      await submission.save();
       debug(`Updated existing submission id=${submission.id} finished=${submission.finished}`);
+    }
+
+    if (placementAttemptItemToken) {
+      await placementService.syncRuntimeSubmissionForAttemptItem({
+        attemptItemToken: placementAttemptItemToken,
+        platform: 'ix',
+        skill: 'listening',
+        testId: String(id),
+        runtimeSubmissionModel: 'listening',
+        runtimeSubmissionId: submission.id,
+        status: 'submitted',
+        correct: correctCount,
+        totalQuestions: totalCount,
+        percentage: scorePercentage,
+        band,
+      });
     }
 
     debug(`Responding to submit for test ${id}: submissionId=${submission.id}, correct=${correctCount}, total=${totalCount}`);

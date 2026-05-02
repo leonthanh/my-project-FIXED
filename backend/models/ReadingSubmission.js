@@ -90,7 +90,4 @@ const ReadingSubmission = sequelize.define('ReadingSubmission', {
   timestamps: true
 });
 
-User.hasMany(ReadingSubmission, { foreignKey: 'userId' });
-ReadingSubmission.belongsTo(User, { foreignKey: 'userId' });
-
 module.exports = ReadingSubmission;

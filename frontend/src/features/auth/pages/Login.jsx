@@ -418,6 +418,7 @@ const Login = () => {
               <p style={{ color: "#d00", margin: "10px 0" }}>{message}</p>
 
               <button
+                type="button"
                 onClick={() => setShowResetModal(true)}
                 style={{
                   color: "#0e276f",
@@ -507,6 +508,20 @@ const Login = () => {
               <p style={{ color: "#d00", margin: "10px 0" }}>{message}</p>
             </>
           )}
+
+          <div className="login-page-placementSection">
+            <button
+              type="button"
+              className="login-page-placementButton"
+              onClick={() => navigate("/placement-test")}
+            >
+              <InlineIcon name="target" size={18} />
+              <span>Placement Test</span>
+            </button>
+            <p className="login-page-placementHint">
+              Open the currently published placement tests directly. No teacher link is needed.
+            </p>
+          </div>
         </div>
       </div>
 
@@ -518,7 +533,7 @@ const Login = () => {
           <div className="wave" id="wave4"></div>
         </div>
 
-        <p className="copyright"> Made with care in Vung Tau.</p>
+        <p className="copyright"> Made with 💗ྀི in Vung Tau.</p>
       </footer>
 
       {/* Modal Reset Password */}

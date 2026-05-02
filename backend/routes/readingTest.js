@@ -1,7 +1,9 @@
 const express = require("express");
 const router = express.Router();
 const ReadingTest = require("../models/ReadingTest");
+const ReadingSubmission = require("../models/ReadingSubmission");
 const { countClozeBlanks } = require("../utils/readingQuestionUtils");
+const placementService = require("../modules/placement/service");
 
 const normalizeUploadsInHtml = (html, req) => {
   if (!html || typeof html !== 'string') return html;
@@ -342,6 +344,17 @@ router.post("/:id/submit", async (req, res) => {
   try {
     const { id } = req.params;
     const answers = req.body && req.body.answers ? req.body.answers : {};
+    const placementAttemptItemToken = req.body?.placementAttemptItemToken;
+
+    let placementContext = null;
+    if (placementAttemptItemToken) {
+      placementContext = await placementService.getRuntimeSubmissionForAttemptItem({
+        attemptItemToken: placementAttemptItemToken,
+        platform: "ix",
+        skill: "reading",
+        testId: String(id),
+      });
+    }
 
     const test = await ReadingTest.findByPk(id);
     if (!test) return res.status(404).json({ message: "Cannot find test" });
@@ -371,9 +384,9 @@ router.post("/:id/submit", async (req, res) => {
 
     // Store submission to DB
     try {
-      const ReadingSubmission = require("../models/ReadingSubmission");
       const resolvedUserName =
         req.body.studentName ||
+        placementContext?.attempt?.studentName ||
         (req.body.user && req.body.user.name) ||
         (req.body.user && req.body.user.username) ||
         "Unknown";
@@ -387,6 +400,10 @@ router.post("/:id/submit", async (req, res) => {
         if (sub && sub.finished) {
           sub = null;
         }
+      }
+
+      if (!sub && placementContext?.submission) {
+        sub = placementContext.submission;
       }
 
       if (!sub && resolvedUserId) {
@@ -404,7 +421,7 @@ router.post("/:id/submit", async (req, res) => {
         await sub.update({
           testId: String(id),
           userName: resolvedUserName,
-          userId: resolvedUserId,
+          userId: placementAttemptItemToken ? sub.userId || null : resolvedUserId,
           answers: answers || {},
           correct: result.correct,
           total: result.total,
@@ -419,13 +436,29 @@ router.post("/:id/submit", async (req, res) => {
         sub = await ReadingSubmission.create({
           testId: id,
           userName: resolvedUserName,
-          userId: resolvedUserId,
+          userId: placementAttemptItemToken ? null : resolvedUserId,
           answers: answers || {},
           correct: result.correct,
           total: result.total,
           band: result.band,
           scorePercentage: result.scorePercentage,
           finished: true,
+        });
+      }
+
+      if (placementAttemptItemToken) {
+        await placementService.syncRuntimeSubmissionForAttemptItem({
+          attemptItemToken: placementAttemptItemToken,
+          platform: "ix",
+          skill: "reading",
+          testId: String(id),
+          runtimeSubmissionModel: "reading",
+          runtimeSubmissionId: sub.id,
+          status: "submitted",
+          correct: result.correct,
+          totalQuestions: result.total,
+          percentage: result.scorePercentage,
+          band: result.band,
         });
       }
 
@@ -474,7 +507,10 @@ router.post("/:id/submit", async (req, res) => {
           testId: id,
           classCode: test.classCode || "",
           teacherName: test.teacherName || "",
-          phone: (req.body.user && req.body.user.phone) || "N/A",
+          phone:
+            placementContext?.attempt?.studentPhone ||
+            (req.body.user && req.body.user.phone) ||
+            "N/A",
         };
         const { html: emailHtml, text: emailText } = buildReadingSummaryEmail(
           sub,

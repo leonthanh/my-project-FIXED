@@ -5,9 +5,15 @@ const WritingTest = require("./WritingTests");
 const ReadingTest = require("./ReadingTest");
 const KETReading = require("./KETReading");
 const Submission = require("./Submission");
+const ReadingSubmission = require("./ReadingSubmission");
+const ListeningSubmission = require("./ListeningSubmission");
 const CambridgeListening = require("./CambridgeListening");
 const CambridgeReading = require("./CambridgeReading");
 const CambridgeSubmission = require("./CambridgeSubmission");
+const PlacementPackage = require("./PlacementPackage");
+const PlacementPackageItem = require("./PlacementPackageItem");
+const PlacementAttempt = require("./PlacementAttempt");
+const PlacementAttemptItem = require("./PlacementAttemptItem");
 const RefreshToken = require("./RefreshToken");
 
 // Quan hệ WritingTest ↔ Submission
@@ -17,6 +23,14 @@ Submission.belongsTo(WritingTest, { foreignKey: "testId" });
 // Quan hệ User ↔ Submission
 User.hasMany(Submission, { foreignKey: "userId" });
 Submission.belongsTo(User, { foreignKey: "userId" });
+
+// Quan hệ User ↔ ReadingSubmission
+User.hasMany(ReadingSubmission, { foreignKey: "userId" });
+ReadingSubmission.belongsTo(User, { foreignKey: "userId" });
+
+// Quan hệ User ↔ ListeningSubmission
+User.hasMany(ListeningSubmission, { foreignKey: "userId" });
+ListeningSubmission.belongsTo(User, { foreignKey: "userId" });
 
 // Quan hệ CambridgeListening ↔ CambridgeSubmission
 CambridgeListening.hasMany(CambridgeSubmission, { 
@@ -47,8 +61,14 @@ module.exports = {
   ReadingTest,
   KETReading,
   Submission,
+  ReadingSubmission,
+  ListeningSubmission,
   CambridgeListening,
   CambridgeReading,
   CambridgeSubmission,
+  PlacementPackage,
+  PlacementPackageItem,
+  PlacementAttempt,
+  PlacementAttemptItem,
   RefreshToken,
 };

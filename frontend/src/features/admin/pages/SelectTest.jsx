@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import StudentNavbar from "../../../shared/components/StudentNavbar";
 import AdminNavbar from "../../../shared/components/AdminNavbar";
 import LineIcon from "../../../shared/components/LineIcon.jsx";
-import { apiPath } from "../../../shared/utils/api";
+import { apiPath, authFetch } from "../../../shared/utils/api";
 import { canManageCategory } from "../../../shared/utils/permissions";
 import {
   DEFAULT_IX_SKILL,
@@ -30,6 +30,13 @@ import {
   buildSelectTestPath,
   parseSelectTestSearch,
 } from "../../../shared/config/examRegistry";
+import {
+  buildPlacementSharePath,
+  buildPlacementShareUrl,
+  createPlacementSelection,
+  isPlacementEligible,
+  normalizePlacementSelections,
+} from "../../../shared/utils/placementTests";
 
 import "./SelectTest.css";
 
@@ -57,8 +64,27 @@ const SelectTest = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [sortMode, setSortMode] = useState("newest");
   const [visibleCount, setVisibleCount] = useState(12);
+  const [placementSelections, setPlacementSelections] = useState([]);
+  const [placementShareToken, setPlacementShareToken] = useState("");
+  const [placementRecentAttempts, setPlacementRecentAttempts] = useState([]);
+  const [placementLoading, setPlacementLoading] = useState(Boolean(isTeacher));
+  const [placementSaving, setPlacementSaving] = useState(false);
+  const [placementFeedback, setPlacementFeedback] = useState("");
   const navigate = useNavigate();
   const location = useLocation();
+
+  const applyPlacementPackage = useMemo(
+    () => (placementPackage) => {
+      setPlacementSelections(normalizePlacementSelections(placementPackage?.items));
+      setPlacementShareToken(String(placementPackage?.shareToken || ""));
+      setPlacementRecentAttempts(
+        Array.isArray(placementPackage?.recentAttempts)
+          ? placementPackage.recentAttempts.slice(0, 6)
+          : []
+      );
+    },
+    []
+  );
 
   const updateSelectRoute = (next = {}) => {
     const nextPlatform = next.platform || activePlatform || "ix";
@@ -136,6 +162,56 @@ const SelectTest = () => {
     setSearchQuery("");
     setSortMode("newest");
   }, [activePlatform, activeIxTab, activeOrangeType, activeOrangeTab]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const fetchPlacementPackage = async () => {
+      if (!isTeacher) {
+        setPlacementSelections([]);
+        setPlacementShareToken("");
+        setPlacementRecentAttempts([]);
+        setPlacementLoading(false);
+        return;
+      }
+
+      try {
+        setPlacementLoading(true);
+        const res = await authFetch(apiPath("placement/packages/current"));
+        const data = await res.json().catch(() => null);
+
+        if (!res.ok) {
+          throw new Error(data?.message || "Could not load the placement package.");
+        }
+
+        if (!isMounted) return;
+        applyPlacementPackage(data || null);
+      } catch (error) {
+        if (!isMounted) return;
+        setPlacementFeedback(error?.message || "Could not load the placement package.");
+      } finally {
+        if (isMounted) {
+          setPlacementLoading(false);
+        }
+      }
+    };
+
+    fetchPlacementPackage();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [applyPlacementPackage, isTeacher]);
+
+  useEffect(() => {
+    if (!placementFeedback || typeof window === "undefined") return undefined;
+
+    const timerId = window.setTimeout(() => {
+      setPlacementFeedback("");
+    }, 2600);
+
+    return () => window.clearTimeout(timerId);
+  }, [placementFeedback]);
 
   const handleSelectWriting = (test) => {
     const numericId = parseInt(test.id, 10);
@@ -325,6 +401,18 @@ const SelectTest = () => {
   const visibleList = activeList.slice(0, visibleCount);
   const remainingCount = Math.max(0, activeList.length - visibleList.length);
   const canManageCurrentSelection = canManageCategory(user, currentContext.categoryForPermission);
+  const placementSelectionKeys = useMemo(
+    () => new Set((placementSelections || []).map((item) => item.key)),
+    [placementSelections]
+  );
+  const placementSharePath = useMemo(
+    () => buildPlacementSharePath(placementShareToken),
+    [placementShareToken]
+  );
+  const placementShareUrl = useMemo(
+    () => buildPlacementShareUrl(placementShareToken),
+    [placementShareToken]
+  );
   const activeOrangeLevel = getOrangeLevelMeta(activeOrangeType);
   const currentSkillInfo = SKILL_META[activePlatform === "ix" ? activeIxTab : activeOrangeTab] || SKILL_META.reading;
   const currentShelfTitle = activePlatform === "ix"
@@ -340,6 +428,97 @@ const SelectTest = () => {
     { icon: currentSkillInfo.icon, label: currentSkillInfo.label },
     { icon: "tests", label: `${activeList.length} test${activeList.length === 1 ? "" : "s"}` },
   ];
+
+  const buildPlacementSubtitle = (...parts) => parts.filter(Boolean).join(" • ");
+
+  const buildIxPlacementSelection = (test, title) => {
+    return createPlacementSelection({
+      platform: "ix",
+      skill: activeIxTab,
+      testId: test.id,
+      testType: `ix-${activeIxTab}`,
+      title,
+      subtitle: buildPlacementSubtitle(
+        test.classCode || "",
+        test.teacherName ? `Teacher ${test.teacherName}` : ""
+      ),
+      badge: "IX",
+    });
+  };
+
+  const buildOrangePlacementSelection = (test, title, displayTitle) => {
+    return createPlacementSelection({
+      platform: "orange",
+      skill: activeOrangeTab,
+      testId: test.id,
+      testType: test.testType,
+      title,
+      subtitle: buildPlacementSubtitle(
+        activeOrangeLevel.shortLabel,
+        displayTitle,
+        test.classCode || ""
+      ),
+      badge: activeOrangeLevel.shortLabel,
+      questionsLabel: `${orangeConfig.totalQuestions || "?"} Q`,
+      durationLabel: `${orangeConfig.duration || "?"} min`,
+    });
+  };
+
+  const persistPlacementSelections = async (nextSelections, successMessage, rollbackSelections) => {
+    try {
+      setPlacementSaving(true);
+      const res = await authFetch(apiPath("placement/packages/current"), {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ items: normalizePlacementSelections(nextSelections) }),
+      });
+      const data = await res.json().catch(() => null);
+
+      if (!res.ok) {
+        throw new Error(data?.message || "Could not save the placement package.");
+      }
+
+      applyPlacementPackage(data || null);
+      setPlacementFeedback(successMessage);
+    } catch (error) {
+      setPlacementSelections(rollbackSelections);
+      setPlacementFeedback(error?.message || "Could not save the placement package.");
+    } finally {
+      setPlacementSaving(false);
+    }
+  };
+
+  const handleTogglePlacement = async (selection) => {
+    const isShown = placementSelectionKeys.has(selection.key);
+    const nextSelections = isShown
+      ? placementSelections.filter((entry) => entry?.key !== selection.key)
+      : normalizePlacementSelections(placementSelections.concat(selection));
+
+    setPlacementSelections(nextSelections);
+    await persistPlacementSelections(
+      nextSelections,
+      isShown
+        ? `${selection.title} is now hidden from the placement page.`
+        : `${selection.title} is now shown on the placement page.`,
+      placementSelections
+    );
+  };
+
+  const handleCopyPlacementLink = async () => {
+    if (!placementSelections.length || !placementShareToken) return;
+
+    try {
+      await navigator.clipboard.writeText(placementShareUrl);
+      setPlacementFeedback("Placement link copied. Share it with the student device.");
+    } catch (error) {
+      setPlacementFeedback("Could not copy the link. Open the placement preview instead.");
+    }
+  };
+
+  const handleClearPlacement = async () => {
+    setPlacementSelections([]);
+    await persistPlacementSelections([], "Placement list cleared.", placementSelections);
+  };
 
   return (
     <>
@@ -490,6 +669,76 @@ const SelectTest = () => {
           </section>
 
           <section className="select-test-resultsSection">
+            {isTeacher ? (
+              <div className="select-test-placementPanel">
+                <div className="select-test-placementCopy">
+                  <span className="select-test-placementEyebrow">Placement Test</span>
+                  <h3 className="select-test-placementTitle">Show on or show off the public placement list</h3>
+                  <p className="select-test-placementText">
+                    Toggle reading and listening tests below, then preview or copy the shared placement link that stays synced across devices.
+                  </p>
+
+                  <div className="select-test-shelfMeta">
+                    <span className="select-test-shelfMetaItem">{placementSelections.length} shown</span>
+                    <span className="select-test-shelfMetaItem">{placementRecentAttempts.length} tracked</span>
+                    <span className="select-test-shelfMetaItem">
+                      {placementLoading ? "Loading package" : placementSaving ? "Saving package" : "Synced package"}
+                    </span>
+                  </div>
+
+                  {placementRecentAttempts.length ? (
+                    <div className="select-test-shelfMeta">
+                      {placementRecentAttempts.map((attempt) => {
+                        const total = Number(attempt?.summary?.total) || 0;
+                        const submitted = Number(attempt?.summary?.submitted) || 0;
+                        return (
+                          <span key={attempt.attemptToken} className="select-test-shelfMetaItem">
+                            {attempt.studentName || "Student"} • {submitted}/{total}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  ) : null}
+
+                  {placementFeedback ? (
+                    <p className="select-test-placementStatus">{placementFeedback}</p>
+                  ) : null}
+                </div>
+
+                <div className="select-test-placementActions">
+                  <button
+                    type="button"
+                    className="select-test-create select-test-create--toolbar"
+                    onClick={() => navigate(placementSharePath)}
+                    disabled={!placementSelections.length || !placementShareToken || placementLoading}
+                  >
+                    <LineIcon name="tests" size={16} />
+                    <span>Preview Placement Page</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    className="select-test-placementAction"
+                    onClick={handleCopyPlacementLink}
+                    disabled={!placementSelections.length || !placementShareToken || placementLoading}
+                  >
+                    <LineIcon name="link" size={16} />
+                    <span>Copy Placement Link</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    className="select-test-placementAction select-test-placementAction--ghost"
+                    onClick={handleClearPlacement}
+                    disabled={!placementSelections.length || placementSaving}
+                  >
+                    <LineIcon name="trash" size={16} />
+                    <span>Clear All</span>
+                  </button>
+                </div>
+              </div>
+            ) : null}
+
             <div className="select-test-controls select-test-controls--minimal">
             <label className="select-test-control select-test-control--search">
               <span className="select-test-controlIcon" aria-hidden="true">
@@ -570,6 +819,13 @@ const SelectTest = () => {
                     const teacherName = test.teacherName || "N/A";
                     const displayTitle = SKILL_META[activeOrangeTab]?.label || "Orange";
                     const orangeCardTitle = test.title || `${activeOrangeLevel.shortLabel} ${displayTitle}`;
+                    const placementSelection = buildOrangePlacementSelection(test, orangeCardTitle, displayTitle);
+                    const placementEligible = canManageCurrentSelection && isPlacementEligible({
+                      platform: "orange",
+                      skill: activeOrangeTab,
+                      testType: test.testType,
+                    });
+                    const placementShown = placementEligible && placementSelectionKeys.has(placementSelection.key);
 
                     return (
                       <div
@@ -605,19 +861,42 @@ const SelectTest = () => {
                             <span className="select-test-cardFootnote">
                               {orangeConfig.totalQuestions || "?"} Q • {orangeConfig.duration || "?"} min
                             </span>
-                            <span className="select-test-cardActionHint">Open test</span>
+                            <div className="select-test-cardFooterMeta">
+                              {placementEligible ? (
+                                <span className={`select-test-cardPlacementState${placementShown ? " is-active" : ""}`}>
+                                  {placementShown ? "Placement On" : "Placement Off"}
+                                </span>
+                              ) : null}
+                              <span className="select-test-cardActionHint">Open test</span>
+                            </div>
                           </div>
                         </button>
 
-                        {canManageCategory(user, currentContext.categoryForPermission) && (
-                          <button
-                            type="button"
-                            className="select-test-edit select-test-edit--orange"
-                            onClick={() => handleEdit(test.id, "cambridge", test)}
-                          >
-                            <span>Edit Test</span>
-                          </button>
-                        )}
+                        {canManageCurrentSelection || placementEligible ? (
+                          <div className="select-test-cardActions">
+                            {canManageCurrentSelection ? (
+                              <button
+                                type="button"
+                                className="select-test-edit select-test-edit--orange"
+                                onClick={() => handleEdit(test.id, "cambridge", test)}
+                              >
+                                <span>Edit Test</span>
+                              </button>
+                            ) : null}
+
+                            {placementEligible ? (
+                              <button
+                                type="button"
+                                className={`select-test-placementToggle${placementShown ? " is-active" : ""}`}
+                                disabled={placementSaving}
+                                onClick={() => handleTogglePlacement(placementSelection)}
+                              >
+                                <LineIcon name={placementShown ? "publish" : "target"} size={16} />
+                                <span>{placementShown ? "Show Off Placement" : "Show On Placement"}</span>
+                              </button>
+                            ) : null}
+                          </div>
+                        ) : null}
                       </div>
                     );
                   })
@@ -626,6 +905,13 @@ const SelectTest = () => {
                     const title = getTestTitle(test, currentContext.displayType, index + 1);
                     const classCode = test.classCode || "N/A";
                     const teacherName = test.teacherName || "N/A";
+                    const placementSelection = buildIxPlacementSelection(test, title);
+                    const placementEligible = canManageCurrentSelection && isPlacementEligible({
+                      platform: "ix",
+                      skill: activeIxTab,
+                      testType: placementSelection.testType,
+                    });
+                    const placementShown = placementEligible && placementSelectionKeys.has(placementSelection.key);
 
                     return (
                       <div
@@ -663,20 +949,43 @@ const SelectTest = () => {
 
                           <div className="select-test-cardFooter">
                             <span className="select-test-cardFootnote">{SKILL_META[activeIxTab]?.label || activeIxTab}</span>
-                            <span className="select-test-cardActionHint">Open test</span>
+                            <div className="select-test-cardFooterMeta">
+                              {placementEligible ? (
+                                <span className={`select-test-cardPlacementState${placementShown ? " is-active" : ""}`}>
+                                  {placementShown ? "Placement On" : "Placement Off"}
+                                </span>
+                              ) : null}
+                              <span className="select-test-cardActionHint">Open test</span>
+                            </div>
                           </div>
                         </button>
 
-                        {canManageCategory(user, currentContext.categoryForPermission) ? (
-                          <button
-                            type="button"
-                            className="select-test-edit"
-                            onClick={() => {
-                              handleEdit(test.id, activeIxTab, test);
-                            }}
-                          >
-                            <span>Edit Test</span>
-                          </button>
+                        {canManageCurrentSelection || placementEligible ? (
+                          <div className="select-test-cardActions">
+                            {canManageCurrentSelection ? (
+                              <button
+                                type="button"
+                                className="select-test-edit"
+                                onClick={() => {
+                                  handleEdit(test.id, activeIxTab, test);
+                                }}
+                              >
+                                <span>Edit Test</span>
+                              </button>
+                            ) : null}
+
+                            {placementEligible ? (
+                              <button
+                                type="button"
+                                className={`select-test-placementToggle${placementShown ? " is-active" : ""}`}
+                                disabled={placementSaving}
+                                onClick={() => handleTogglePlacement(placementSelection)}
+                              >
+                                <LineIcon name={placementShown ? "publish" : "target"} size={16} />
+                                <span>{placementShown ? "Show Off Placement" : "Show On Placement"}</span>
+                              </button>
+                            ) : null}
+                          </div>
                         ) : null}
                       </div>
                     );
