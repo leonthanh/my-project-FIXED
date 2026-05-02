@@ -75,6 +75,56 @@
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.78);
 }
 
+@keyframes placement-entry-buttonSheen {
+  0%,
+  76% {
+    transform: translateX(-135%);
+  }
+
+  92%,
+  100% {
+    transform: translateX(130%);
+  }
+}
+
+.placement-entry-backLink,
+.placement-entry-previewLink,
+.placement-entry-jumpButton,
+.placement-entry-primaryButton {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.placement-entry-backLink::after,
+.placement-entry-previewLink::after,
+.placement-entry-jumpButton::after,
+.placement-entry-primaryButton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(110deg, transparent 24%, rgba(255, 255, 255, 0.34) 50%, transparent 76%);
+  transform: translateX(-135%);
+  transition: transform 0.58s ease;
+  pointer-events: none;
+  animation: placement-entry-buttonSheen 5.4s ease-in-out infinite;
+}
+
+.placement-entry-backLink:hover::after,
+.placement-entry-backLink:focus-visible::after,
+.placement-entry-previewLink:hover::after,
+.placement-entry-previewLink:focus-visible::after,
+.placement-entry-jumpButton:hover::after,
+.placement-entry-jumpButton:focus-visible::after,
+.placement-entry-primaryButton:hover::after,
+.placement-entry-primaryButton:focus-visible::after {
+  transform: translateX(130%);
+}
+
+.placement-entry-primaryButton:disabled::after {
+  animation: none;
+}
+
 .placement-entry-text,
 .placement-entry-cardText,
 .placement-entry-note,
@@ -582,5 +632,15 @@
   .placement-entry-primaryButton,
   .placement-entry-secondaryButton {
     width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .placement-entry-backLink::after,
+  .placement-entry-previewLink::after,
+  .placement-entry-jumpButton::after,
+  .placement-entry-primaryButton::after {
+    animation: none;
+    transition: none;
   }
 }
