@@ -1,8 +1,9 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 import useQuillImageUpload from '../../../hooks/useQuillImageUpload';
 import InlineIcon from '../../InlineIcon.jsx';
+import InlineChoiceDisplay from '../displays/InlineChoiceDisplay';
 
 /**
  * InlineChoiceEditor - PET Part 5: Inline choice dropdowns in passage
@@ -14,11 +15,23 @@ const InlineChoiceEditor = ({
   partIndex = 4,
 }) => {
   const { quillRef, modules } = useQuillImageUpload();
+  const [previewAnswers, setPreviewAnswers] = useState({});
   const passageTitle = question?.passageTitle || '';
   const passage = question?.passage || '';
   const passageValue = typeof passage === 'string' ? passage : '';
 
-  const buildDefaultOptions = () => ['temperature', 'condition', 'climate', 'weather'];
+  const buildDefaultOptions = () => ['', '', '', ''];
+  const normalizeOptions = (options = []) => {
+    const nextOptions = Array.isArray(options)
+      ? options.slice(0, 4).map((option) => (typeof option === 'string' ? option : ''))
+      : [];
+
+    while (nextOptions.length < 4) {
+      nextOptions.push('');
+    }
+
+    return nextOptions;
+  };
 
   const blanks = Array.isArray(question?.blanks) && question.blanks.length > 0
     ? question.blanks
@@ -32,21 +45,54 @@ const InlineChoiceEditor = ({
       ];
 
   useEffect(() => {
-    const needsNormalize = blanks.some((blank) => {
-      const opts = Array.isArray(blank?.options) ? blank.options : [];
-      return opts.length !== 4;
+    const normalized = blanks.map((blank) => {
+      const nextOptions = normalizeOptions(blank?.options);
+      const nextCorrectAnswer = nextOptions.includes(blank?.correctAnswer) ? blank.correctAnswer : '';
+
+      return {
+        ...blank,
+        options: nextOptions,
+        correctAnswer: nextCorrectAnswer,
+      };
+    });
+
+    const needsNormalize = normalized.some((blank, index) => {
+      const original = blanks[index] || {};
+      const originalOptions = Array.isArray(original?.options) ? original.options : [];
+
+      if (originalOptions.length !== 4) return true;
+      if (original?.correctAnswer !== blank.correctAnswer) return true;
+
+      return blank.options.some((option, optionIndex) => option !== (originalOptions[optionIndex] ?? ''));
     });
 
     if (!needsNormalize) return;
 
-    const normalized = blanks.map((blank) => {
-      const opts = Array.isArray(blank?.options) ? blank.options : buildDefaultOptions();
-      const nextOpts = opts.length >= 4 ? opts.slice(0, 4) : [...opts, ...buildDefaultOptions().slice(opts.length)];
-      return { ...blank, options: nextOpts };
-    });
-
     onChange('blanks', normalized);
   }, [blanks, onChange]);
+
+  useEffect(() => {
+    setPreviewAnswers((prev) => {
+      const next = {};
+
+      blanks.forEach((blank, blankIdx) => {
+        const answerKey = `inline-choice-preview-${blankIdx}`;
+        const existingAnswer = prev[answerKey];
+        const availableOptions = normalizeOptions(blank?.options).filter((option) => option.trim());
+
+        if (existingAnswer && availableOptions.includes(existingAnswer)) {
+          next[answerKey] = existingAnswer;
+        }
+      });
+
+      const prevKeys = Object.keys(prev);
+      const nextKeys = Object.keys(next);
+      const unchanged = prevKeys.length === nextKeys.length
+        && prevKeys.every((key) => prev[key] === next[key]);
+
+      return unchanged ? prev : next;
+    });
+  }, [blanks]);
 
   const handleBlankChange = (index, field, value) => {
     const next = [...blanks];
@@ -57,10 +103,17 @@ const InlineChoiceEditor = ({
   const handleOptionChange = (blankIdx, optIdx, value) => {
     const next = [...blanks];
     const options = Array.isArray(next[blankIdx]?.options)
-      ? [...next[blankIdx].options]
+      ? normalizeOptions(next[blankIdx].options)
       : buildDefaultOptions();
+    const previousValue = options[optIdx];
+
     options[optIdx] = value;
-    next[blankIdx] = { ...next[blankIdx], options };
+    next[blankIdx] = {
+      ...next[blankIdx],
+      options,
+      correctAnswer: next[blankIdx]?.correctAnswer === previousValue ? value : next[blankIdx]?.correctAnswer || '',
+    };
+
     onChange('blanks', next);
   };
 
@@ -106,12 +159,12 @@ const InlineChoiceEditor = ({
 
       <div style={styles.helpBox}>
         <p style={{ margin: 0, fontSize: '13px', color: '#1e3a8a' }}>
-          Paste đoạn văn có số trong ngoặc như (21), (22)... để đánh dấu chỗ trống. Mỗi blank có 4 lựa chọn.
+          Dán đoạn văn có số trong ngoặc như (21), (22)... để đánh dấu chỗ trống. Mỗi blank có 4 lựa chọn.
         </p>
       </div>
 
       <div style={{ marginBottom: '12px' }}>
-        <label style={styles.label}>Tiêu đề (tuy chon)</label>
+        <label style={styles.label}>Tiêu đề (tùy chọn)</label>
         <input
           type="text"
           value={passageTitle}
@@ -122,7 +175,7 @@ const InlineChoiceEditor = ({
       </div>
 
       <div style={{ marginBottom: '20px' }} className="inline-choice-editor">
-        <label style={styles.label}>Doan van voi cho trong *</label>
+        <label style={styles.label}>Đoạn văn với chỗ trống *</label>
         <div style={styles.quillWrapper}>
           <ReactQuill
             ref={quillRef}
@@ -135,24 +188,58 @@ const InlineChoiceEditor = ({
             style={{ minHeight: '180px', backgroundColor: 'white' }}
           />
         </div>
-        <p style={styles.tip}>Dung (21), (22)... de danh dau cho trong.</p>
+        <p style={styles.tip}>Dùng (21), (22)... để đánh dấu chỗ trống.</p>
       </div>
+
+      {(passageTitle || passageValue) && (
+        <div style={styles.previewBox}>
+          <h4 style={styles.previewHeading}>Xem trước giao diện học sinh</h4>
+          <div style={styles.previewCard}>
+            {passageTitle && (
+              <h3
+                style={styles.previewTitle}
+                dangerouslySetInnerHTML={{ __html: passageTitle }}
+              />
+            )}
+
+            <InlineChoiceDisplay
+              section={{
+                id: 'inline-choice-preview',
+                passage: passageValue,
+                blanks,
+              }}
+              startingNumber={startingNumber}
+              onAnswerChange={(key, value) => {
+                setPreviewAnswers((prev) => ({
+                  ...prev,
+                  [key]: value,
+                }));
+              }}
+              answers={previewAnswers}
+              submitted={false}
+              answerKeyPrefix="inline-choice-preview"
+            />
+          </div>
+        </div>
+      )}
 
       <div style={styles.blankBox}>
         <div style={styles.blankHeader}>
-          <h3 style={styles.blankTitle}>Lua chon cho tung blank</h3>
-          <button type="button" onClick={addBlank} style={styles.addBtn}>+ Them blank</button>
+          <h3 style={styles.blankTitle}>Lựa chọn cho từng blank</h3>
+          <button type="button" onClick={addBlank} style={styles.addBtn}>+ Thêm blank</button>
         </div>
 
         <div style={styles.blankGrid}>
           {blanks.map((blank, blankIdx) => (
             <div key={`blank-${blankIdx}`} style={styles.blankCard}>
               {blanks.length > 2 && (
-                <button type="button" onClick={() => removeBlank(blankIdx)} style={styles.removeBtn}><InlineIcon name="close" size={12} style={{ color: "currentColor" }} /></button>
+                <button type="button" onClick={() => removeBlank(blankIdx)} style={styles.removeBtn}>
+                  <InlineIcon name="close" size={12} style={{ color: 'currentColor' }} />
+                </button>
               )}
 
               <div style={styles.blankNumberRow}>
-                <span style={styles.blankBadge}>Question</span>
+                <span style={styles.blankBadge}>Câu</span>
                 <input
                   type="number"
                   value={blank.number}
@@ -161,7 +248,7 @@ const InlineChoiceEditor = ({
                 />
               </div>
 
-              {blank.options?.map((opt, optIdx) => {
+              {normalizeOptions(blank.options).map((opt, optIdx) => {
                 const label = String.fromCharCode(65 + optIdx);
                 return (
                   <div key={`${blankIdx}-${optIdx}`} style={styles.optionRow}>
@@ -170,7 +257,7 @@ const InlineChoiceEditor = ({
                       type="text"
                       value={opt}
                       onChange={(e) => handleOptionChange(blankIdx, optIdx, e.target.value)}
-                      placeholder={`Option ${label}`}
+                      placeholder={`Câu ${blank.number} - lựa chọn ${label}`}
                       style={styles.input}
                     />
                   </div>
@@ -178,21 +265,23 @@ const InlineChoiceEditor = ({
               })}
 
               <div style={styles.correctRow}>
-                <span style={styles.correctLabel}>Dap an:</span>
+                <span style={styles.correctLabel}>Đáp án:</span>
                 <select
                   value={blank.correctAnswer || ''}
                   onChange={(e) => handleBlankChange(blankIdx, 'correctAnswer', e.target.value)}
                   style={styles.correctSelect}
                 >
-                  <option value="">-- Chon dap an --</option>
-                  {blank.options?.map((opt, optIdx) => {
-                    const label = String.fromCharCode(65 + optIdx);
-                    return (
-                      <option key={`${blankIdx}-ans-${optIdx}`} value={opt}>
-                        {label} {opt}
-                      </option>
-                    );
-                  })}
+                  <option value="">-- Chọn đáp án --</option>
+                  {normalizeOptions(blank.options)
+                    .filter((opt) => opt.trim())
+                    .map((opt, optIdx) => {
+                      const label = String.fromCharCode(65 + optIdx);
+                      return (
+                        <option key={`${blankIdx}-ans-${optIdx}`} value={opt}>
+                          {label}. {opt}
+                        </option>
+                      );
+                    })}
                 </select>
               </div>
             </div>
@@ -263,6 +352,30 @@ const styles = {
     fontSize: '11px',
     color: '#6b7280',
     marginTop: '4px',
+  },
+  previewBox: {
+    marginBottom: '20px',
+    padding: '16px',
+    backgroundColor: '#eff6ff',
+    borderRadius: '10px',
+    border: '1px solid #bfdbfe',
+  },
+  previewHeading: {
+    margin: '0 0 12px 0',
+    fontSize: '14px',
+    color: '#1d4ed8',
+  },
+  previewCard: {
+    padding: '18px',
+    backgroundColor: '#ffffff',
+    borderRadius: '10px',
+    border: '1px solid #dbeafe',
+  },
+  previewTitle: {
+    margin: '0 0 16px 0',
+    fontSize: '18px',
+    fontWeight: 600,
+    color: '#0e276f',
   },
   blankBox: {
     padding: '16px',

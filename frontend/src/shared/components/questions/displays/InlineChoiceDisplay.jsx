@@ -39,7 +39,9 @@ const InlineChoiceDisplay = ({
     const blank = blanks[blankIdx] || {};
     const questionKey = `${resolvedKeyPrefix}-${blankIdx}`;
     const userAnswer = answers[questionKey] || '';
-    const options = Array.isArray(blank.options) ? blank.options : [];
+    const options = Array.isArray(blank.options)
+      ? blank.options.filter((opt) => String(opt || '').trim())
+      : [];
     const correctAnswer = blank.correctAnswer || '';
     const normalizedUser = String(userAnswer || '').trim().toLowerCase();
     const normalizedCorrect = String(correctAnswer || '').trim().toLowerCase();
