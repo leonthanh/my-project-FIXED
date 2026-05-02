@@ -117,6 +117,68 @@
   align-content: start;
 }
 
+.placement-entry-jumpNav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.placement-entry-jumpButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 38px;
+  padding: 0 12px;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.9);
+  color: #11203d;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition:
+    transform 0.18s ease,
+    box-shadow 0.22s ease,
+    border-color 0.22s ease,
+    background-color 0.22s ease,
+    color 0.22s ease;
+}
+
+.placement-entry-jumpButton:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 22px rgba(15, 23, 42, 0.08);
+}
+
+.placement-entry-jumpButton:focus-visible {
+  outline: 3px solid rgba(56, 189, 248, 0.24);
+  outline-offset: 2px;
+}
+
+.placement-entry-jumpButton--ix {
+  background: linear-gradient(135deg, rgba(239, 246, 255, 0.96) 0%, rgba(228, 238, 255, 0.94) 100%);
+  color: #0f3f94;
+}
+
+.placement-entry-jumpButton--orange {
+  background: linear-gradient(135deg, rgba(255, 247, 237, 0.98) 0%, rgba(255, 237, 213, 0.96) 100%);
+  color: #c95a14;
+}
+
+.placement-entry-jumpCount {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.72);
+  color: inherit;
+  font-size: 0.72rem;
+  line-height: 1;
+}
+
 .placement-entry-cardHeader {
   display: flex;
   align-items: flex-start;
@@ -283,11 +345,13 @@
 .placement-entry-groupList {
   display: grid;
   gap: 18px;
+  padding-bottom: clamp(56px, 12vh, 120px);
 }
 
 .placement-entry-group {
   display: grid;
   gap: 12px;
+  scroll-margin-top: 20px;
 }
 
 .placement-entry-group + .placement-entry-group {
@@ -442,6 +506,11 @@
 
   .placement-entry-list {
     grid-template-columns: 1fr;
+  }
+
+  .placement-entry-jumpButton {
+    flex: 1 1 0;
+    justify-content: space-between;
   }
 
   .placement-entry-heroTop {

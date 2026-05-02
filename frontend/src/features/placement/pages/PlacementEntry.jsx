@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import LineIcon from "../../../shared/components/LineIcon";
 import { apiPath } from "../../../shared/utils/api";
@@ -13,6 +13,73 @@ import "./PlacementEntry.css";
 
 const vnPhoneRegex = /^(0)(3[2-9]|5[2689]|7[06-9]|8[1-9]|9[0-9])[0-9]{7}$/;
 
+const normalizePlacementValue = (value) => String(value || "").trim().toLowerCase();
+
+const SKILL_ORDER = {
+  reading: 0,
+  listening: 1,
+};
+
+const ORANGE_LEVEL_ORDER = {
+  ket: 0,
+  pet: 1,
+  flyers: 2,
+  flyer: 2,
+  movers: 3,
+  mover: 3,
+  starters: 4,
+  starter: 4,
+};
+
+const getSkillRank = (skill) => {
+  const normalizedSkill = normalizePlacementValue(skill);
+  return Object.prototype.hasOwnProperty.call(SKILL_ORDER, normalizedSkill)
+    ? SKILL_ORDER[normalizedSkill]
+    : 99;
+};
+
+const getOrangeLevelRank = (item) => {
+  const candidates = [item?.testType, item?.badge, item?.title, item?.subtitle]
+    .map(normalizePlacementValue)
+    .filter(Boolean);
+
+  for (const candidate of candidates) {
+    for (const [level, rank] of Object.entries(ORANGE_LEVEL_ORDER)) {
+      if (candidate.includes(level)) {
+        return rank;
+      }
+    }
+  }
+
+  return 99;
+};
+
+const comparePlacementItems = (platform, left, right) => {
+  if (platform === "orange") {
+    const levelDelta = getOrangeLevelRank(left) - getOrangeLevelRank(right);
+    if (levelDelta !== 0) {
+      return levelDelta;
+    }
+  }
+
+  const skillDelta = getSkillRank(left?.skill) - getSkillRank(right?.skill);
+  if (skillDelta !== 0) {
+    return skillDelta;
+  }
+
+  const badgeDelta = normalizePlacementValue(left?.badge).localeCompare(normalizePlacementValue(right?.badge));
+  if (badgeDelta !== 0 && platform === "orange") {
+    return badgeDelta;
+  }
+
+  const titleDelta = normalizePlacementValue(left?.title).localeCompare(normalizePlacementValue(right?.title));
+  if (titleDelta !== 0) {
+    return titleDelta;
+  }
+
+  return Number(left?.sortOrder || 0) - Number(right?.sortOrder || 0);
+};
+
 const PlacementEntry = () => {
   const { shareToken } = useParams();
   const navigate = useNavigate();
@@ -22,6 +89,7 @@ const PlacementEntry = () => {
   const [placementPackage, setPlacementPackage] = useState(null);
   const [loadingPackage, setLoadingPackage] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const groupRefs = useRef({});
 
   const currentUser = useMemo(() => {
     try {
@@ -107,6 +175,7 @@ const PlacementEntry = () => {
       .filter(([, items]) => items.length > 0)
       .map(([platform, items]) => {
         const accent = platform === "orange" ? "orange" : "ix";
+        const sortedItems = [...items].sort((left, right) => comparePlacementItems(platform, left, right));
         const title =
           platform === "orange"
             ? "Orange tests"
@@ -115,13 +184,13 @@ const PlacementEntry = () => {
               : `${platform.toUpperCase()} tests`;
 
         const startIndex = runningIndex;
-        runningIndex += items.length;
+        runningIndex += sortedItems.length;
 
         return {
           platform,
           accent,
           title,
-          items,
+          items: sortedItems,
           startIndex,
         };
       });
@@ -134,6 +203,16 @@ const PlacementEntry = () => {
   const handleLeadChange = (field) => (event) => {
     const nextValue = event.target.value;
     setLead((current) => ({ ...current, [field]: nextValue }));
+  };
+
+  const handleJumpToGroup = (platform) => {
+    const nextGroup = groupRefs.current?.[platform];
+    if (!nextGroup) {
+      return;
+    }
+
+    const nextTop = window.scrollY + nextGroup.getBoundingClientRect().top - 20;
+    window.scrollTo({ top: Math.max(nextTop, 0), behavior: "smooth" });
   };
 
   const handleSubmit = async (event) => {
@@ -286,6 +365,22 @@ const PlacementEntry = () => {
               </div>
             </div>
 
+            {groupedSelections.length > 1 ? (
+              <div className="placement-entry-jumpNav" aria-label="Jump to test platform">
+                {groupedSelections.map((group) => (
+                  <button
+                    key={group.platform}
+                    type="button"
+                    className={`placement-entry-jumpButton placement-entry-jumpButton--${group.accent}`}
+                    onClick={() => handleJumpToGroup(group.platform)}
+                  >
+                    <span>{group.platform === "orange" ? "Orange" : group.platform === "ix" ? "IX" : group.platform.toUpperCase()}</span>
+                    <span className="placement-entry-jumpCount">{group.items.length}</span>
+                  </button>
+                ))}
+              </div>
+            ) : null}
+
             {loadingPackage ? (
               <div className="placement-entry-emptyState">
                 <span className="placement-entry-emptyIcon" aria-hidden="true">
@@ -309,7 +404,17 @@ const PlacementEntry = () => {
             ) : (
               <div className="placement-entry-groupList">
                 {groupedSelections.map((group) => (
-                  <section key={group.platform} className="placement-entry-group">
+                  <section
+                    key={group.platform}
+                    className="placement-entry-group"
+                    ref={(node) => {
+                      if (node) {
+                        groupRefs.current[group.platform] = node;
+                      } else {
+                        delete groupRefs.current[group.platform];
+                      }
+                    }}
+                  >
                     <div className="placement-entry-groupHeader">
                       <div className="placement-entry-groupTitleRow">
                         <span className={`placement-entry-groupPill placement-entry-groupPill--${group.accent}`}>
