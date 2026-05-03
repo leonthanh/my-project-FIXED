@@ -1,18 +1,26 @@
 import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import AdminNavbar from "../../../shared/components/AdminNavbar";
 import { apiPath, authFetch } from "../../../shared/utils/api";
 import AttemptExtensionControls from "../components/AttemptExtensionControls";
+import AdminStickySidebarLayout, {
+  AdminSidebarMetricList,
+  AdminSidebarNavList,
+  AdminSidebarPanel,
+  buildAdminWorkspaceLinks,
+} from "../components/AdminStickySidebarLayout";
 import {
   ExpandableSubmissionList,
   SubmissionStatCards,
   getSubmissionTone,
 } from "../components/SubmissionCardList";
-import SubmissionTypeTabs from "../components/SubmissionTypeTabs";
+import SubmissionFilterPanel from "../components/SubmissionFilterPanel";
 import {
   getAttemptTimingMeta,
 } from "../utils/attemptTiming";
 
 const AdminWritingSubmissions = () => {
+  const navigate = useNavigate();
   const [data, setData] = useState([]);
   const [feedbacks, setFeedbacks] = useState({});
   const [bands, setBands] = useState({});
@@ -27,7 +35,7 @@ const AdminWritingSubmissions = () => {
   const [searchFeedbackBy, setSearchFeedbackBy] = useState("");
   const [filteredData, setFilteredData] = useState([]);
   const [expandedItems, setExpandedItems] = useState(new Set());
-  const [filterStatus, setFilterStatus] = useState("");
+  const [filterStatus, setFilterStatus] = useState("all");
   const [extendingId, setExtendingId] = useState(null);
 
   let teacher = null;
@@ -104,7 +112,7 @@ const AdminWritingSubmissions = () => {
       filtered = filtered.filter((item) => !item.feedback || !item.feedbackBy);
     }
 
-    if (filterStatus === "done") {
+    if (filterStatus === "reviewed") {
       filtered = filtered.filter((item) => !!(item.feedback && item.feedbackBy));
     }
 
@@ -131,7 +139,7 @@ const AdminWritingSubmissions = () => {
     setSearchTeacher("");
     setSearchStudentName("");
     setSearchFeedbackBy("");
-    setFilterStatus("");
+    setFilterStatus("all");
   };
 
   const computeOverall = (t1, t2) => {
@@ -319,6 +327,44 @@ const AdminWritingSubmissions = () => {
       .padStart(2, "0")} on ${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}`;
   };
 
+  const pendingCount = data.filter((item) => !item.feedback || !item.feedbackBy).length;
+  const reviewedCount = data.filter((item) => !!(item.feedback && item.feedbackBy)).length;
+  const workspaceLinks = buildAdminWorkspaceLinks(navigate, "writing");
+  const sidebarStats = [
+    {
+      key: "total",
+      label: "Total",
+      value: data.length,
+      bg: "#eff6ff",
+      border: "#bfdbfe",
+      color: "#1d4ed8",
+    },
+    {
+      key: "pending",
+      label: "Pending",
+      value: pendingCount,
+      bg: "#fffbeb",
+      border: "#fde68a",
+      color: "#92400e",
+    },
+    {
+      key: "reviewed",
+      label: "Reviewed",
+      value: reviewedCount,
+      bg: "#f0fdf4",
+      border: "#bbf7d0",
+      color: "#166534",
+    },
+    {
+      key: "visible",
+      label: "Visible",
+      value: filteredData.length,
+      bg: "#f5f3ff",
+      border: "#ddd6fe",
+      color: "#6d28d9",
+    },
+  ];
+
   return (
     <>
       <AdminNavbar />
@@ -326,181 +372,113 @@ const AdminWritingSubmissions = () => {
         style={{ maxWidth: "100%", width: "100%", margin: "0 auto", padding: "30px 16px" }}
         className="admin-page admin-submission-page"
       >
-        <SubmissionTypeTabs activeKey="writing" />
+        <AdminStickySidebarLayout
+          eyebrow="Writing"
+          title="Writing submissions"
+          description="Review essay drafts, final submissions, AI suggestions, and teacher feedback from one sticky sidebar."
+          sidebarContent={(
+            <>
+              <AdminSidebarPanel eyebrow="Workspace" title="Admin pages" meta="Quick jump">
+                <AdminSidebarNavList items={workspaceLinks} ariaLabel="Admin workspace pages" />
+              </AdminSidebarPanel>
 
-        <SubmissionStatCards
-          stats={[
-            {
-              label: "Total",
-              count: data.length,
-              bg: "#eff6ff",
-              color: "#1d4ed8",
-              border: "#bfdbfe",
-            },
-            {
-              label: "Pending",
-              count: data.filter((i) => !i.feedback || !i.feedbackBy).length,
-              bg: "#fffbeb",
-              color: "#92400e",
-              border: "#fde68a",
-            },
-            {
-              label: "Reviewed",
-              count: data.filter((i) => !!(i.feedback && i.feedbackBy)).length,
-              bg: "#f0fdf4",
-              color: "#166534",
-              border: "#bbf7d0",
-            },
-          ]}
-        />
-
-        <div
-          style={{
-            background: "#f8fafc",
-            border: "1px solid #e5e7eb",
-            borderRadius: 10,
-            padding: "14px 16px",
-            marginBottom: 18,
-          }}
+              <AdminSidebarPanel
+                eyebrow="Summary"
+                title="Queue status"
+                meta={filterStatus === "all" ? "All statuses" : filterStatus}
+              >
+                <AdminSidebarMetricList items={sidebarStats} />
+                <p className="admin-side-layout__panelText">
+                  Filter the queue on the right, then open any row to review both tasks, set bands, and send teacher or AI-assisted feedback.
+                </p>
+              </AdminSidebarPanel>
+            </>
+          )}
         >
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
-              gap: 10,
-              alignItems: "end",
-            }}
-          >
-            {[
+          <SubmissionStatCards
+            stats={[
               {
+                label: "Total",
+                count: data.length,
+                bg: "#eff6ff",
+                color: "#1d4ed8",
+                border: "#bfdbfe",
+              },
+              {
+                label: "Pending",
+                count: pendingCount,
+                bg: "#fffbeb",
+                color: "#92400e",
+                border: "#fde68a",
+              },
+              {
+                label: "Reviewed",
+                count: reviewedCount,
+                bg: "#f0fdf4",
+                color: "#166534",
+                border: "#bbf7d0",
+              },
+            ]}
+          />
+
+          <SubmissionFilterPanel
+            fields={[
+              {
+                key: "student",
                 label: "Student Name",
                 placeholder: "Student name",
                 value: searchStudentName,
-                setValue: setSearchStudentName,
+                onChange: setSearchStudentName,
               },
               {
+                key: "classCode",
                 label: "Class Code",
                 placeholder: "e.g. 148-IX-3A-S1",
                 value: searchClassCode,
-                setValue: setSearchClassCode,
+                onChange: setSearchClassCode,
               },
               {
+                key: "teacher",
                 label: "Test Teacher",
                 placeholder: "Teacher name",
                 value: searchTeacher,
-                setValue: setSearchTeacher,
+                onChange: setSearchTeacher,
               },
               {
+                key: "reviewedBy",
                 label: "Reviewed By",
                 placeholder: "Reviewer name",
                 value: searchFeedbackBy,
-                setValue: setSearchFeedbackBy,
+                onChange: setSearchFeedbackBy,
               },
-            ].map((field) => (
-              <div key={field.label}>
-                <label
-                  style={{
-                    display: "block",
-                    fontSize: 12,
-                    fontWeight: 600,
-                    marginBottom: 4,
-                    color: "#374151",
-                  }}
-                >
-                  {field.label}
-                </label>
-                <input
-                  type="text"
-                  placeholder={field.placeholder}
-                  value={field.value}
-                  onChange={(e) => field.setValue(e.target.value)}
-                  style={{
-                    width: "100%",
-                    padding: "7px 10px",
-                    border: "1px solid #d1d5db",
-                    borderRadius: 6,
-                    fontSize: 13,
-                    boxSizing: "border-box",
-                  }}
-                />
-              </div>
-            ))}
+            ]}
+            statusValue={filterStatus}
+            onStatusChange={setFilterStatus}
+            onReset={resetFilters}
+            filteredCount={filteredData.length}
+            totalCount={data.length}
+            summaryLabel="submissions"
+          />
 
-            <div>
-              <label
-                style={{
-                  display: "block",
-                  fontSize: 12,
-                  fontWeight: 600,
-                  marginBottom: 4,
-                  color: "#374151",
-                }}
-              >
-                Status
-              </label>
-              <select
-                value={filterStatus}
-                onChange={(e) => setFilterStatus(e.target.value)}
-                style={{
-                  width: "100%",
-                  padding: "7px 10px",
-                  border: "1px solid #d1d5db",
-                  borderRadius: 6,
-                  fontSize: 13,
-                  boxSizing: "border-box",
-                  background: "#fff",
-                }}
-              >
-                <option value="">All</option>
-                <option value="pending">Pending</option>
-                <option value="done">Reviewed</option>
-              </select>
+          <p style={{ fontSize: 13, color: "#6b7280", marginBottom: 12 }}>
+            Click a row to view the writing response, rubric bands, and feedback actions.
+          </p>
+
+          {filteredData.length === 0 && (
+            <div
+              style={{
+                textAlign: "center",
+                padding: "40px 0",
+                color: "#9ca3af",
+                fontSize: 15,
+              }}
+            >
+              No matching submissions found.
             </div>
+          )}
 
-            <div style={{ alignSelf: "end" }}>
-              <button
-                onClick={resetFilters}
-                style={{
-                  width: "100%",
-                  padding: "7px 10px",
-                  background: "#6b7280",
-                  color: "#fff",
-                  border: "none",
-                  borderRadius: 6,
-                  cursor: "pointer",
-                  fontSize: 13,
-                  fontWeight: 600,
-                }}
-              >
-                Reset
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <p style={{ fontSize: 13, color: "#6b7280", marginBottom: 12 }}>
-          Showing <strong>{filteredData.length}</strong>
-          {data.length !== filteredData.length ? ` / ${data.length}` : ""} submissions
-          {"  "}
-          <span style={{ color: "#9ca3af" }}>
-            Click a row to view the writing and feedback.
-          </span>
-        </p>
-
-        {filteredData.length === 0 && (
-          <div
-            style={{
-              textAlign: "center",
-              padding: "40px 0",
-              color: "#9ca3af",
-              fontSize: 15,
-            }}
-          >
-            No matching submissions found.
-          </div>
-        )}
-
-        <ExpandableSubmissionList
+          {filteredData.length > 0 && (
+            <ExpandableSubmissionList
           items={filteredData}
           expandedItems={expandedItems}
           onToggle={toggleExpand}
@@ -866,6 +844,8 @@ const AdminWritingSubmissions = () => {
             );
           }}
         />
+          )}
+        </AdminStickySidebarLayout>
       </div>
     </>
   );

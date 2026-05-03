@@ -12,11 +12,16 @@ const RefreshToken = sequelize.define(
     userId: {
       type: DataTypes.INTEGER,
       allowNull: false,
+      references: {
+        model: 'users',
+        key: 'id',
+      },
+      onDelete: 'CASCADE',
+      onUpdate: 'CASCADE',
     },
     tokenHash: {
       type: DataTypes.STRING(64),
       allowNull: false,
-      unique: true,
     },
     expiresAt: {
       type: DataTypes.DATE,
@@ -39,8 +44,13 @@ const RefreshToken = sequelize.define(
     tableName: 'refresh_tokens',
     timestamps: true,
     indexes: [
-      { fields: ['userId'] },
-      { fields: ['expiresAt'] },
+      { name: 'refresh_tokens_user_id_idx', fields: ['userId'] },
+      { name: 'refresh_tokens_expires_at_idx', fields: ['expiresAt'] },
+      {
+        name: 'refresh_tokens_token_hash_unique',
+        unique: true,
+        fields: ['tokenHash'],
+      },
     ],
   }
 );

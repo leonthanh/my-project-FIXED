@@ -20,6 +20,7 @@ const {
   normalizeExtensionMinutes,
   resolveAuthoritativeExpiry,
 } = require('../utils/testTiming');
+const placementService = require('../modules/placement/service');
 
 const { requireAuth } = require('../middlewares/auth');
 const { requireTestPermission } = require('../middlewares/testPermissions');
@@ -693,12 +694,80 @@ router.get('/test/:testId', async (req, res) => {
 router.post('/:testId/autosave', async (req, res) => {
   try {
     const { testId } = req.params;
-    const { submissionId, answers, expiresAt, user } = req.body;
+    const { submissionId, placementAttemptItemToken, answers, expiresAt, user } = req.body;
     // DEBUG: log autosave payload to help E2E debugging (dev only)
     try { debug(`POST /api/listening-submissions/${testId}/autosave - body:`, JSON.stringify(req.body).slice(0,2000)); } catch (e) { console.error('Could not stringify autosave body', e); }
 
     const resolvedUserId = user?.id || null;
     const resolvedUserName = user?.name || user?.username || user?.email || null;
+
+    if (placementAttemptItemToken) {
+      const { attemptItem, attempt, submission } = await placementService.getRuntimeSubmissionForAttemptItem({
+        attemptItemToken: placementAttemptItemToken,
+        platform: 'ix',
+        skill: 'listening',
+        testId: String(testId),
+      });
+
+      if (submission) {
+        if (submission.finished) return res.status(400).json({ message: '❌ Attempt đã hoàn thành' });
+
+        submission.answers = answers || submission.answers;
+        submission.expiresAt = resolveAuthoritativeExpiry(submission.expiresAt, expiresAt);
+        submission.lastSavedAt = new Date();
+        submission.userName = resolvedUserName || attempt.studentName || submission.userName;
+        await submission.save();
+
+        await placementService.syncRuntimeSubmissionForAttemptItem({
+          attemptItemToken: placementAttemptItemToken,
+          platform: 'ix',
+          skill: 'listening',
+          testId: String(testId),
+          runtimeSubmissionModel: 'listening',
+          runtimeSubmissionId: submission.id,
+          status: 'started',
+        });
+
+        return res.json({
+          message: '✅ Đã lưu tạm',
+          submissionId: submission.id,
+          savedAt: submission.lastSavedAt,
+          expiresAt: submission.expiresAt,
+          timing: buildTimingPayload(submission.expiresAt),
+        });
+      }
+
+      const created = await ListeningSubmission.create({
+        testId: Number(testId),
+        userId: null,
+        userName: resolvedUserName || attempt.studentName || null,
+        answers: answers || {},
+        correct: 0,
+        total: 0,
+        scorePercentage: 0,
+        finished: false,
+        expiresAt: expiresAt ? new Date(expiresAt) : null,
+        lastSavedAt: new Date(),
+      });
+
+      await placementService.syncRuntimeSubmissionForAttemptItem({
+        attemptItemToken: placementAttemptItemToken,
+        platform: 'ix',
+        skill: 'listening',
+        testId: String(testId),
+        runtimeSubmissionModel: 'listening',
+        runtimeSubmissionId: created.id,
+        status: 'started',
+      });
+
+      return res.status(201).json({
+        message: '✅ Tạo attempt tạm',
+        submissionId: created.id,
+        savedAt: created.lastSavedAt,
+        expiresAt: created.expiresAt,
+        timing: buildTimingPayload(created.expiresAt),
+      });
+    }
 
     // If submissionId provided, update that record (if not finished)
     if (submissionId) {
@@ -772,8 +841,26 @@ router.post('/:testId/autosave', async (req, res) => {
 router.get('/:testId/active', async (req, res) => {
   try {
     const { testId } = req.params;
-    const { submissionId, userId } = req.query;
+    const { submissionId, userId, placementAttemptItemToken } = req.query;
     debug(`GET /api/listening-submissions/${testId}/active - query:`, req.query);
+
+    if (placementAttemptItemToken) {
+      const { submission } = await placementService.getRuntimeSubmissionForAttemptItem({
+        attemptItemToken: placementAttemptItemToken,
+        platform: 'ix',
+        skill: 'listening',
+        testId: String(testId),
+      });
+
+      if (!submission || submission.finished) {
+        return res.json({ submission: null, timing: buildTimingPayload(null) });
+      }
+
+      return res.json({
+        submission: submission.toJSON(),
+        timing: buildTimingPayload(submission.expiresAt),
+      });
+    }
 
     if (submissionId) {
       const sub = await ListeningSubmission.findByPk(submissionId);

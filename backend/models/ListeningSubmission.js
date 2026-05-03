@@ -91,7 +91,4 @@ const ListeningSubmission = sequelize.define(
   }
 );
 
-User.hasMany(ListeningSubmission, { foreignKey: "userId" });
-ListeningSubmission.belongsTo(User, { foreignKey: "userId" });
-
 module.exports = ListeningSubmission;

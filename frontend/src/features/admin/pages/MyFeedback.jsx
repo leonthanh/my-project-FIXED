@@ -2,7 +2,6 @@ import React, { useEffect, useState, useCallback, useMemo, useRef } from "react"
 import StudentNavbar from "../../../shared/components/StudentNavbar";
 import { apiPath, hostPath } from "../../../shared/utils/api";
 import { useTheme } from "../../../shared/contexts/ThemeContext";
-import SubmissionTypeTabs from "../components/SubmissionTypeTabs";
 import LineIcon from "../../../shared/components/LineIcon.jsx";
 
 import "./MyFeedback.css";
@@ -440,6 +439,11 @@ const MyFeedback = () => {
       badge: cambridgeSubmissions.length,
     },
   ];
+  const activeFeedbackTab = feedbackTabs.find((tab) => tab.key === activeTab) || feedbackTabs[0];
+  const hasActiveFilters =
+    Boolean(searchClassCode.trim()) ||
+    Boolean(searchTeacher.trim()) ||
+    Boolean(searchFeedbackBy.trim());
   const formatDateTime = (value) => {
     if (!value) return "Unknown";
     const date = new Date(value);
@@ -514,91 +518,146 @@ const MyFeedback = () => {
     );
   };
 
+  const resetFilters = () => {
+    setSearchClassCode("");
+    setSearchTeacher("");
+    setSearchFeedbackBy("");
+  };
+
   return (
     <>
       <StudentNavbar />
       <div className="myFeedbackPage" style={themeVars}>
         <div className="myFeedbackShell">
-          <h3 className="myFeedbackTitle">Feedback</h3>
-          <SubmissionTypeTabs
-            title={null}
-            items={feedbackTabs}
-            activeKey={activeTab}
-            onSelect={setActiveTab}
-            allowMobileWrap
-            buttonFlex="0 1 180px"
-            showZeroBadge
-          />
+          <div className="myFeedbackLayout">
+            <aside className="myFeedbackSidebar">
+              <section className="myFeedbackSidebarCard">
+                <div className="myFeedbackSidebarHeader">
+                  <span className="myFeedbackSidebarEyebrow">Feedback</span>
+                  <h3 className="myFeedbackSidebarTitle">My feedback</h3>
+                  <p className="myFeedbackSidebarText">
+                    Jump between Writing, Reading, Listening, and Orange results from one sticky panel.
+                  </p>
+                </div>
 
-          <div className="myFeedbackFilters">
-            <div className="myFeedbackField">
-              <label className="myFeedbackFieldLabel">
-                Class Code:
-              </label>
-              <input
-                type="text"
-                placeholder="Enter class code"
-                value={searchClassCode}
-                onChange={(e) => setSearchClassCode(e.target.value)}
-                className="myFeedbackInput"
-              />
-            </div>
+                <div className="myFeedbackSidebarTabs" role="tablist" aria-label="Feedback tabs">
+                  {feedbackTabs.map((tab) => {
+                    const isActive = tab.key === activeTab;
 
-            <div className="myFeedbackField">
-              <label className="myFeedbackFieldLabel">
-                Test Teacher:
-              </label>
-              <input
-                type="text"
-                placeholder="Enter teacher name"
-                value={searchTeacher}
-                onChange={(e) => setSearchTeacher(e.target.value)}
-                className="myFeedbackInput"
-              />
-            </div>
+                    return (
+                      <button
+                        key={tab.key}
+                        type="button"
+                        role="tab"
+                        aria-selected={isActive}
+                        aria-current={isActive ? "page" : undefined}
+                        onClick={() => setActiveTab(tab.key)}
+                        className={`myFeedbackSideTab myFeedbackSideTab--${tab.key}${isActive ? " is-active" : ""}`}
+                      >
+                        <span className="myFeedbackSideTabCopy">
+                          <span className="myFeedbackSideTabLabel">{tab.shortLabel}</span>
+                          <span className="myFeedbackSideTabHint">{tab.label}</span>
+                        </span>
+                        <span className="myFeedbackSideTabCount">{tab.badge}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </section>
 
-            <div className="myFeedbackField">
-              <label className="myFeedbackFieldLabel">
-                Reviewed By:
-              </label>
-              <input
-                type="text"
-                placeholder="Enter reviewer name"
-                value={searchFeedbackBy}
-                onChange={(e) => setSearchFeedbackBy(e.target.value)}
-                className="myFeedbackInput"
-              />
-            </div>
+              <section className="myFeedbackSidebarCard myFeedbackSidebarCard--filters">
+                <div className="myFeedbackSidebarPanelHeader">
+                  <span className="myFeedbackSidebarEyebrow">Filters</span>
+                  <span className="myFeedbackSidebarMeta">
+                    {hasActiveFilters ? "Active" : "Optional"}
+                  </span>
+                </div>
 
-            <button
-              type="button"
-              onClick={() => {
-                setSearchClassCode("");
-                setSearchTeacher("");
-                setSearchFeedbackBy("");
-              }}
-              className="myFeedbackReset"
-            >
-              Reset
-            </button>
-          </div>
+                <div className="myFeedbackFilters">
+                  <div className="myFeedbackField">
+                    <label className="myFeedbackFieldLabel">
+                      Class Code:
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Enter class code"
+                      value={searchClassCode}
+                      onChange={(e) => setSearchClassCode(e.target.value)}
+                      className="myFeedbackInput"
+                    />
+                  </div>
 
-          <p className="myFeedbackCount">
-            Total: <strong>{currentSubmissions.length}</strong> {activeTabLabel}
-            {(searchClassCode || searchTeacher || searchFeedbackBy) &&
-              ` (filtered from ${totalSubmissionsForActiveTab})`}
-          </p>
+                  <div className="myFeedbackField">
+                    <label className="myFeedbackFieldLabel">
+                      Test Teacher:
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Enter teacher name"
+                      value={searchTeacher}
+                      onChange={(e) => setSearchTeacher(e.target.value)}
+                      className="myFeedbackInput"
+                    />
+                  </div>
 
-          {loading && <p className="myFeedbackState">Loading feedback...</p>}
+                  <div className="myFeedbackField">
+                    <label className="myFeedbackFieldLabel">
+                      Reviewed By:
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Enter reviewer name"
+                      value={searchFeedbackBy}
+                      onChange={(e) => setSearchFeedbackBy(e.target.value)}
+                      className="myFeedbackInput"
+                    />
+                  </div>
 
-          {!loading && currentSubmissions.length === 0 && (
-            <p className="myFeedbackState myFeedbackState--empty">
-              {searchClassCode || searchTeacher || searchFeedbackBy
-                ? "No matching submissions found."
-                : `You have not submitted any ${activeTabEmptyLabel} yet.`}
-            </p>
-          )}
+                  <button
+                    type="button"
+                    onClick={resetFilters}
+                    className="myFeedbackReset"
+                  >
+                    Reset Filters
+                  </button>
+                </div>
+              </section>
+            </aside>
 
+            <main className="myFeedbackMain">
+              <section className="myFeedbackMainPanel">
+                <div className="myFeedbackMainHeader">
+                  <div className="myFeedbackMainCopy">
+                    <span className="myFeedbackSectionEyebrow">Feedback queue</span>
+                    <h2 className="myFeedbackMainTitle">{activeFeedbackTab.label}</h2>
+                    <p className="myFeedbackMainText">
+                      Review your latest submission cards, feedback notes, and result actions in one compact list.
+                    </p>
+                  </div>
+
+                  <div className="myFeedbackMainStats">
+                    <p className="myFeedbackCount">
+                      Total: <strong>{currentSubmissions.length}</strong> {activeTabLabel}
+                    </p>
+                    <p className="myFeedbackSummaryNote">
+                      {hasActiveFilters
+                        ? `Filtered from ${totalSubmissionsForActiveTab}`
+                        : `${totalSubmissionsForActiveTab} total saved in this section`}
+                    </p>
+                  </div>
+                </div>
+
+                {loading && <p className="myFeedbackState">Loading feedback...</p>}
+
+                {!loading && currentSubmissions.length === 0 && (
+                  <p className="myFeedbackState myFeedbackState--empty">
+                    {hasActiveFilters
+                      ? "No matching submissions found."
+                      : `You have not submitted any ${activeTabEmptyLabel} yet.`}
+                  </p>
+                )}
+
+                <div className="myFeedbackCardsGrid">
           {activeTab === "writing" && filteredWriting.map((sub, idx) => (
             <article key={sub.id || idx} className="myFeedbackCard myFeedbackCard--writing">
               <div className="myFeedbackCardHeader">
@@ -783,6 +842,10 @@ const MyFeedback = () => {
             {renderFeedbackBlock(sub, "No teacher feedback yet.")}
           </article>
         ))}
+                </div>
+              </section>
+            </main>
+          </div>
         </div>
       </div>
 

@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import Split from "react-split";
 import {
   apiPath,
   hostPath,
-  redirectInApp,
   redirectToLogin,
   clearAuth,
   getStoredUser,
@@ -19,6 +19,10 @@ import {
 import ExtensionToast from "../../../shared/components/ExtensionToast";
 import TestStartModal from "../../../shared/components/TestStartModal";
 import InlineIcon from "../../../shared/components/InlineIcon.jsx";
+import {
+  buildPlacementAttemptPath,
+  readPlacementRuntimeContext,
+} from "../../../shared/utils/placementTests";
 import "./WritingTest.css";
 
 const SERVER_AUTOSAVE_INTERVAL_MS = 30000;
@@ -87,10 +91,30 @@ const progressTextStyle = {
 };
 
 const WritingTest = () => {
+  const { id: routeTestId } = useParams();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const placementContext = useMemo(
+    () => readPlacementRuntimeContext({ pathname: location.pathname, search: location.search }),
+    [location.pathname, location.search]
+  );
+  const isPlacementRuntime = Boolean(
+    placementContext.isPlacementRuntime && placementContext.placementAttemptItemToken
+  );
   // Resolve user ID early so all localStorage keys are per-user (prevents student A
   // seeing student B's draft when logging in on the same device)
   const user = getStoredUser();
-  const uid = user?.id || 'anon';
+  const uid = isPlacementRuntime && placementContext.placementAttemptItemToken
+    ? `placement:${placementContext.placementAttemptItemToken}`
+    : user?.id || 'anon';
+  const exitPath = useMemo(
+    () => (
+      isPlacementRuntime && placementContext.placementAttemptToken
+        ? buildPlacementAttemptPath(placementContext.placementAttemptToken)
+        : "/select-test"
+    ),
+    [isPlacementRuntime, placementContext.placementAttemptToken]
+  );
   const writingTask1Key   = `writing_task1:${uid}`;
   const writingTask2Key   = `writing_task2:${uid}`;
   const writingTimeKey    = `writing_timeLeft:${uid}`;
@@ -120,7 +144,13 @@ const WritingTest = () => {
   const [testData, setTestData] = useState(null);
   const [feedback, setFeedback] = useState("");
   const [isMobile, setIsMobile] = useState(typeof window !== "undefined" ? window.innerWidth <= 768 : false);
-  const [selectedTestId, setSelectedTestId] = useState(() => localStorage.getItem("selectedTestId") || "");
+  const [selectedTestId, setSelectedTestId] = useState(() => {
+    if (isPlacementRuntime && routeTestId) {
+      return String(routeTestId);
+    }
+
+    return localStorage.getItem("selectedTestId") || "";
+  });
   const [isHydratingDraft, setIsHydratingDraft] = useState(true);
   const [graceRemaining, setGraceRemaining] = useState(0);
   const [extensionToast, setExtensionToast] = useState("");
@@ -198,36 +228,66 @@ const WritingTest = () => {
 
   // Guard: redirect to login if not authenticated
   useEffect(() => {
+    if (isPlacementRuntime) {
+      return;
+    }
+
     if (!user || !hasStoredSession()) {
       redirectToLogin({ replace: true });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [isPlacementRuntime, user]);
 
   useEffect(() => {
+    if (!isPlacementRuntime || !routeTestId) return;
+
+    const nextTestId = String(routeTestId);
+    if (nextTestId !== selectedTestId) {
+      setSelectedTestId(nextTestId);
+    }
+  }, [isPlacementRuntime, routeTestId, selectedTestId]);
+
+  useEffect(() => {
+    if (isPlacementRuntime || !selectedTestId) return;
     if (!selectedTestId) return;
     localStorage.setItem("selectedTestId", String(selectedTestId));
-  }, [selectedTestId]);
+  }, [isPlacementRuntime, selectedTestId]);
 
   // Restore latest draft from server so students can continue on another device.
   useEffect(() => {
     let cancelled = false;
 
     const loadServerDraft = async () => {
-      if (!user?.id) {
+      const numericTestId = Number(selectedTestId || routeTestId);
+
+      if (isPlacementRuntime) {
+        if (!placementContext.placementAttemptItemToken || !Number.isFinite(numericTestId) || numericTestId <= 0) {
+          setIsHydratingDraft(false);
+          return;
+        }
+      } else if (!user?.id) {
         setIsHydratingDraft(false);
         return;
       }
 
       try {
-        const storedTestId = localStorage.getItem("selectedTestId") || "";
-        const numericTestId = Number(storedTestId);
-        const scopedQuery =
-          Number.isFinite(numericTestId) && numericTestId > 0
-            ? `&testId=${numericTestId}`
-            : "";
+        const storedTestId = isPlacementRuntime
+          ? String(routeTestId || selectedTestId || "")
+          : localStorage.getItem("selectedTestId") || "";
+        const params = new URLSearchParams();
 
-        const res = await fetch(apiPath(`writing/draft/active?userId=${user.id}${scopedQuery}`));
+        if (isPlacementRuntime) {
+          params.set("placementAttemptItemToken", placementContext.placementAttemptItemToken);
+          params.set("testId", String(numericTestId));
+        } else {
+          params.set("userId", String(user.id));
+          const scopedTestId = Number(storedTestId);
+          if (Number.isFinite(scopedTestId) && scopedTestId > 0) {
+            params.set("testId", String(scopedTestId));
+          }
+        }
+
+        const res = await fetch(apiPath(`writing/draft/active?${params.toString()}`));
         if (!res.ok) return;
         const data = await res.json().catch(() => ({}));
         if (cancelled) return;
@@ -236,7 +296,7 @@ const WritingTest = () => {
         if (!draft) return;
 
         const draftTestId = Number(draft.testId);
-        if (!storedTestId && Number.isFinite(draftTestId) && draftTestId > 0) {
+        if (!isPlacementRuntime && !storedTestId && Number.isFinite(draftTestId) && draftTestId > 0) {
           const nextTestId = String(draftTestId);
           localStorage.setItem("selectedTestId", nextTestId);
           setSelectedTestId(nextTestId);
@@ -268,7 +328,14 @@ const WritingTest = () => {
     return () => {
       cancelled = true;
     };
-  }, [syncTimingState, user?.id]);
+  }, [
+    isPlacementRuntime,
+    placementContext.placementAttemptItemToken,
+    routeTestId,
+    selectedTestId,
+    syncTimingState,
+    user?.id,
+  ]);
 
   useEffect(() => {
     if (isHydratingDraft) return;
@@ -298,28 +365,37 @@ const WritingTest = () => {
 
   const saveDraftToServer = useCallback(async () => {
     if (isHydratingDraft || submitted) return;
-    if (!user?.id) return;
+    if (!isPlacementRuntime && !user?.id) return;
 
-    const numericTestId = parseInt(selectedTestId, 10);
+    const numericTestId = parseInt(selectedTestId || routeTestId, 10);
     if (!numericTestId || isNaN(numericTestId)) return;
 
     try {
+      const payload = {
+        testId: numericTestId,
+        task1,
+        task2,
+        timeLeft,
+        endAt,
+        started,
+      };
+
+      if (user) {
+        payload.user = {
+          id: user.id,
+          name: user.name,
+          phone: user.phone,
+        };
+      }
+
+      if (isPlacementRuntime && placementContext.placementAttemptItemToken) {
+        payload.placementAttemptItemToken = placementContext.placementAttemptItemToken;
+      }
+
       const res = await fetch(apiPath("writing/draft/autosave"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          testId: numericTestId,
-          user: {
-            id: user.id,
-            name: user.name,
-            phone: user.phone,
-          },
-          task1,
-          task2,
-          timeLeft,
-          endAt,
-          started,
-        }),
+        body: JSON.stringify(payload),
       });
       const data = await res.json().catch(() => ({}));
       const nextEndAt = data?.timing?.expiresAt || data?.draftEndAt;
@@ -330,17 +406,42 @@ const WritingTest = () => {
     } catch (err) {
       console.error("Error autosaving writing draft:", err);
     }
-  }, [announceExtension, isHydratingDraft, submitted, user?.id, user?.name, user?.phone, selectedTestId, task1, task2, timeLeft, endAt, started, syncTimingState]);
+  }, [
+    announceExtension,
+    endAt,
+    isHydratingDraft,
+    isPlacementRuntime,
+    placementContext.placementAttemptItemToken,
+    routeTestId,
+    selectedTestId,
+    started,
+    submitted,
+    syncTimingState,
+    task1,
+    task2,
+    timeLeft,
+    user,
+  ]);
 
   const reconcileServerTiming = useCallback(async () => {
-    if (isHydratingDraft || submitted || !started || !user?.id) return;
+    if (isHydratingDraft || submitted || !started) return;
+    if (!isPlacementRuntime && !user?.id) return;
     if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
 
-    const numericTestId = Number(selectedTestId);
+    const numericTestId = Number(selectedTestId || routeTestId);
     if (!Number.isFinite(numericTestId) || numericTestId <= 0) return;
 
     try {
-      const res = await fetch(apiPath(`writing/draft/active?userId=${user.id}&testId=${numericTestId}`));
+      const params = new URLSearchParams();
+
+      if (isPlacementRuntime) {
+        params.set("placementAttemptItemToken", placementContext.placementAttemptItemToken);
+      } else {
+        params.set("userId", String(user.id));
+      }
+      params.set("testId", String(numericTestId));
+
+      const res = await fetch(apiPath(`writing/draft/active?${params.toString()}`));
       if (!res.ok) return;
       const data = await res.json().catch(() => ({}));
       const nextEndAt = data?.submission?.draftEndAt || data?.timing?.expiresAt;
@@ -357,11 +458,23 @@ const WritingTest = () => {
     } catch (_err) {
       // ignore polling errors; autosave and refresh can still recover timing
     }
-  }, [announceExtension, endAt, isHydratingDraft, selectedTestId, started, submitted, syncTimingState, user?.id]);
+  }, [
+    announceExtension,
+    endAt,
+    isHydratingDraft,
+    isPlacementRuntime,
+    placementContext.placementAttemptItemToken,
+    routeTestId,
+    selectedTestId,
+    started,
+    submitted,
+    syncTimingState,
+    user?.id,
+  ]);
 
   useEffect(() => {
     if (isHydratingDraft || submitted) return;
-    if (!user?.id || !selectedTestId) return;
+    if ((!isPlacementRuntime && !user?.id) || !selectedTestId) return;
 
     const intervalId = setInterval(() => {
       saveDraftToServer();
@@ -378,11 +491,11 @@ const WritingTest = () => {
       clearInterval(intervalId);
       document.removeEventListener("visibilitychange", onVisibility);
     };
-  }, [isHydratingDraft, submitted, user?.id, selectedTestId, saveDraftToServer]);
+  }, [isHydratingDraft, isPlacementRuntime, saveDraftToServer, selectedTestId, submitted, user?.id]);
 
   useEffect(() => {
     if (isHydratingDraft || submitted || !started) return;
-    if (!user?.id || !selectedTestId) return;
+    if ((!isPlacementRuntime && !user?.id) || !selectedTestId) return;
 
     reconcileServerTiming();
     const intervalId = setInterval(
@@ -403,12 +516,12 @@ const WritingTest = () => {
       window.removeEventListener("focus", onCheck);
       document.removeEventListener("visibilitychange", onCheck);
     };
-  }, [isHydratingDraft, reconcileServerTiming, selectedTestId, started, submitted, user?.id]);
+  }, [isHydratingDraft, isPlacementRuntime, reconcileServerTiming, selectedTestId, started, submitted, user?.id]);
 
   const handleSubmit = useCallback(async () => {
     if (isSubmitting) return;
 
-    const numericTestId = parseInt(selectedTestId, 10);
+    const numericTestId = parseInt(selectedTestId || routeTestId, 10);
     if (!numericTestId || isNaN(numericTestId)) {
       setMessage("Cannot find a valid test ID to submit.");
       return;
@@ -424,16 +537,25 @@ const WritingTest = () => {
     setIsSubmitting(true);
 
     try {
+      const payload = {
+        task1,
+        task2,
+        timeLeft,
+        testId: numericTestId,
+      };
+
+      if (user) {
+        payload.user = user;
+      }
+
+      if (isPlacementRuntime && placementContext.placementAttemptItemToken) {
+        payload.placementAttemptItemToken = placementContext.placementAttemptItemToken;
+      }
+
       const res = await fetch(apiPath("writing/submit"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          task1,
-          task2,
-          timeLeft,
-          user,
-          testId: numericTestId,
-        }),
+        body: JSON.stringify(payload),
       });
 
       const data = await res.json().catch(() => ({}));
@@ -444,7 +566,7 @@ const WritingTest = () => {
       setSubmitted(true);
       setMessage(data.message || "Submission completed successfully.");
 
-      if (user?.id) {
+      if (!isPlacementRuntime && user?.id) {
         fetch(apiPath("writing/draft/clear"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -460,11 +582,13 @@ const WritingTest = () => {
       localStorage.removeItem(writingTimeKey);
       localStorage.removeItem(writingStartedKey);
       localStorage.removeItem(writingEndAtKey);
-      localStorage.removeItem("selectedTestId");
+      if (!isPlacementRuntime) {
+        localStorage.removeItem("selectedTestId");
+      }
 
       setTimeout(() => {
-        redirectInApp("/select-test", { replace: true });
-      }, 3000);
+        navigate(exitPath, { replace: true });
+      }, isPlacementRuntime ? 1200 : 3000);
     } catch (err) {
       console.error("Submit writing failed:", err);
       setSubmitted(false);
@@ -474,7 +598,25 @@ const WritingTest = () => {
     } finally {
       setIsSubmitting(false);
     }
-  }, [isSubmitting, selectedTestId, task1, task2, timeLeft, user, writingTask1Key, writingTask2Key, writingTimeKey, writingStartedKey, writingEndAtKey, saveDraftToServer]);
+  }, [
+    exitPath,
+    isPlacementRuntime,
+    isSubmitting,
+    navigate,
+    placementContext.placementAttemptItemToken,
+    routeTestId,
+    saveDraftToServer,
+    selectedTestId,
+    task1,
+    task2,
+    timeLeft,
+    user,
+    writingEndAtKey,
+    writingStartedKey,
+    writingTask1Key,
+    writingTask2Key,
+    writingTimeKey,
+  ]);
 
   // keep a stable ref to the submit function so the timer effect doesn't re-run when
   // handleSubmit changes on typing (avoids interval reset)
@@ -528,7 +670,7 @@ const WritingTest = () => {
   const formatTime = (seconds) => formatClock(seconds);
 
   useEffect(() => {
-    if (!user || !user.phone) return;
+    if (isPlacementRuntime || !user || !user.phone) return;
 
     fetch(apiPath("writing/list"))
       .then((res) => res.json())
@@ -537,7 +679,7 @@ const WritingTest = () => {
         if (last) setFeedback(last.feedback || "");
       })
       .catch((err) => console.error("Failed to load teacher feedback:", err));
-  }, [submitted, user]);
+  }, [isPlacementRuntime, submitted, user]);
 
   const countWords = (text) => text.trim().split(/\s+/).filter(Boolean).length;
 
@@ -552,6 +694,7 @@ const WritingTest = () => {
       <div style={{ padding: 50 }}>
         <h2>Submission completed</h2>
         <p>{message}</p>
+        {isPlacementRuntime ? <p>Returning to your placement test list...</p> : null}
 
         <div style={{ marginTop: 30 }}>
           <h3 style={{ display: "inline-flex", alignItems: "center", gap: 8 }}><InlineIcon name="writing" size={16} />Task 1:</h3>
@@ -611,8 +754,8 @@ const WritingTest = () => {
             The timer starts as soon as you press Start. The system auto-saves both Task 1 and Task 2 while you work, but you should still review your answers before submitting.
           </>
         }
-        secondaryLabel="Cancel"
-        onSecondary={() => redirectInApp("/select-test", { replace: true })}
+        secondaryLabel={isPlacementRuntime ? "Back to placement" : "Cancel"}
+        onSecondary={() => navigate(exitPath, { replace: true })}
         primaryLabel="Start test"
         onPrimary={() => {
           autoSubmittingRef.current = false;
@@ -684,23 +827,32 @@ const WritingTest = () => {
               <span style={{ opacity: 0.7, fontSize: 12 }}>/400</span>
             </div>
           </div>
-          <button
-            onClick={async () => {
-              try {
-                await saveDraftToServer();
-                await fetch(apiPath("auth/logout"), {
-                  method: "POST",
-                  credentials: "include",
-                });
-              } finally {
-                clearAuth();
-                redirectToLogin({ replace: true });
-              }
-            }}
-            style={writingLogoutBtn}
-          >
-            Log out
-          </button>
+          {isPlacementRuntime ? (
+            <button
+              onClick={() => navigate(exitPath, { replace: true })}
+              style={writingLogoutBtn}
+            >
+              Back to tests
+            </button>
+          ) : (
+            <button
+              onClick={async () => {
+                try {
+                  await saveDraftToServer();
+                  await fetch(apiPath("auth/logout"), {
+                    method: "POST",
+                    credentials: "include",
+                  });
+                } finally {
+                  clearAuth();
+                  redirectToLogin({ replace: true });
+                }
+              }}
+              style={writingLogoutBtn}
+            >
+              Log out
+            </button>
+          )}
         </div>
       </header>
 

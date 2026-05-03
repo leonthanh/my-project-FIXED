@@ -1,7 +1,11 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useLocation, useParams, useNavigate } from "react-router-dom";
 /* eslint-disable-next-line no-unused-vars */
 import { apiPath, getStoredUser, hostPath } from "../../../../shared/utils/api";
+import {
+  buildPlacementAttemptPath,
+  readPlacementRuntimeContext,
+} from "../../../../shared/utils/placementTests";
 import TestHeader from "../../../../shared/components/TestHeader";
 import ExtensionToast from "../../../../shared/components/ExtensionToast";
 import TestStartModal from "../../../../shared/components/TestStartModal";
@@ -42,10 +46,18 @@ const DoCambridgeReadingTest = ({
   submitBasePath = 'cambridge/reading-tests',
 }) => {
   const { testType, id } = useParams(); // testType: ket-reading, pet-reading, etc.
+  const location = useLocation();
   const navigate = useNavigate();
   const routeTestType = useMemo(
     () => String(testType || defaultTestType || '').trim().toLowerCase(),
     [defaultTestType, testType]
+  );
+  const placementContext = useMemo(
+    () => readPlacementRuntimeContext({ pathname: location.pathname, search: location.search }),
+    [location.pathname, location.search]
+  );
+  const isPlacementRuntime = Boolean(
+    placementContext.isPlacementRuntime && placementContext.placementAttemptItemToken
   );
 
   const examType = useMemo(() => {
@@ -62,11 +74,15 @@ const DoCambridgeReadingTest = ({
 
   // Stable user ID: isolates data per-student on shared devices
   const storageUserId = useMemo(() => {
+    if (placementContext.placementAttemptItemToken) {
+      return `placement:${placementContext.placementAttemptItemToken}`;
+    }
+
     try {
       const u = JSON.parse(localStorage.getItem('user') || 'null');
       return u?.id || 'anon';
     } catch (e) { return 'anon'; }
-  }, []);
+  }, [placementContext.placementAttemptItemToken]);
   const camReadTimeKey  = useMemo(() => `cambridge_reading_${id}_expiresAt:${storageUserId}`, [id, storageUserId]);
   const camReadAnsKey   = useMemo(() => `cambridge_reading_${id}_answers:${storageUserId}`, [id, storageUserId]);
   const camReadStartKey = useMemo(() => `cambridge_reading_${id}_started:${storageUserId}`, [id, storageUserId]);
@@ -104,9 +120,7 @@ const DoCambridgeReadingTest = ({
   // Started flag for the test (show start modal and control timer)
   const [started, setStarted] = useState(() => {
     try {
-      const u = JSON.parse(localStorage.getItem('user') || 'null');
-      const uid = u?.id || 'anon';
-      return localStorage.getItem(`cambridge_reading_${id}_started:${uid}`) === "true";
+      return localStorage.getItem(`cambridge_reading_${id}_started:${storageUserId}`) === "true";
     } catch (e) {
       return false;
     }
@@ -272,11 +286,15 @@ const DoCambridgeReadingTest = ({
         setTest(parsedData);
 
         let restoredFromServer = false;
-        const query = submissionIdRef.current
-          ? `?submissionId=${submissionIdRef.current}`
-          : localUser?.id
-            ? `?userId=${localUser.id}`
-            : "";
+        const query = placementContext.placementAttemptItemToken
+          ? `?placementAttemptItemToken=${encodeURIComponent(
+              placementContext.placementAttemptItemToken
+            )}`
+          : submissionIdRef.current
+            ? `?submissionId=${submissionIdRef.current}`
+            : localUser?.id
+              ? `?userId=${localUser.id}`
+              : "";
 
         // Check if there's saved data for this test
         const savedExpiry = localStorage.getItem(camReadTimeKey);
@@ -469,12 +487,20 @@ const DoCambridgeReadingTest = ({
     if (!started || submitted || timeRemaining === null) return;
 
     const user = getStoredUser();
-    if (!user?.id && !submissionIdRef.current) return;
+    if (
+      !placementContext.placementAttemptItemToken &&
+      !user?.id &&
+      !submissionIdRef.current
+    ) {
+      return;
+    }
 
     const persistDraft = async () => {
       try {
         const payload = {
           submissionId: submissionIdRef.current,
+          placementAttemptItemToken:
+            placementContext.placementAttemptItemToken || undefined,
           testId: id,
           testType: test?.testType || testType || "ket-reading",
           answers,
@@ -545,11 +571,15 @@ const DoCambridgeReadingTest = ({
     if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
 
     const localUser = getStoredUser();
-    const query = submissionIdRef.current
-      ? `?submissionId=${submissionIdRef.current}`
-      : localUser?.id
-        ? `?userId=${localUser.id}`
-        : "";
+    const query = placementContext.placementAttemptItemToken
+      ? `?placementAttemptItemToken=${encodeURIComponent(
+          placementContext.placementAttemptItemToken
+        )}`
+      : submissionIdRef.current
+        ? `?submissionId=${submissionIdRef.current}`
+        : localUser?.id
+          ? `?userId=${localUser.id}`
+          : "";
     if (!query || !test?.testType) return;
 
     try {
@@ -618,6 +648,8 @@ const DoCambridgeReadingTest = ({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
           submissionId: submissionIdRef.current,
+          placementAttemptItemToken:
+            placementContext.placementAttemptItemToken || undefined,
           answers,
           studentName: user.name || user.username || 'Unknown',
           studentPhone: user.phone || null,
@@ -648,33 +680,46 @@ const DoCambridgeReadingTest = ({
       localStorage.removeItem(camReadSubmissionKey);
       expiresAtRef.current = null;
       submissionIdRef.current = null;
-      
-      // Show results modal using backend score (more accurate than local calculation)
-      setResults({
-        score: data.score,
-        total: data.total,
-        percentage: data.percentage,
-        correct: backendCorrect,
-        incorrect: backendIncorrect,
-        writingQuestions: localResults.writingQuestions || [],
-        writingCount: localResults.writingCount || 0,
-      });
-      setSubmitted(true);
-      setShowConfirm(false);
+
+      if (isPlacementRuntime && placementContext.placementAttemptToken) {
+        setSubmitted(true);
+        setShowConfirm(false);
+        navigate(buildPlacementAttemptPath(placementContext.placementAttemptToken), {
+          replace: true,
+        });
+      } else {
+        // Show results modal using backend score (more accurate than local calculation)
+        setResults({
+          score: data.score,
+          total: data.total,
+          percentage: data.percentage,
+          correct: backendCorrect,
+          incorrect: backendIncorrect,
+          writingQuestions: localResults.writingQuestions || [],
+          writingCount: localResults.writingCount || 0,
+        });
+        setSubmitted(true);
+        setShowConfirm(false);
+      }
     } catch (err) {
       console.error("Error submitting:", err);
-      // Calculate locally and show results even if backend fails
-      const localResults = calculateLocalResults();
-      setResults(localResults);
-      setSubmitted(true);
-      setShowConfirm(false);
-      // Clear saved data on error too
-      localStorage.removeItem(camReadTimeKey);
-      localStorage.removeItem(camReadAnsKey);
-      localStorage.removeItem(camReadStartKey);
-      localStorage.removeItem(camReadSubmissionKey);
-      expiresAtRef.current = null;
-      submissionIdRef.current = null;
+      if (isPlacementRuntime) {
+        setShowConfirm(false);
+        alert("Could not submit this placement test. Please try again.");
+      } else {
+        // Calculate locally and show results even if backend fails
+        const localResults = calculateLocalResults();
+        setResults(localResults);
+        setSubmitted(true);
+        setShowConfirm(false);
+        // Clear saved data on error too
+        localStorage.removeItem(camReadTimeKey);
+        localStorage.removeItem(camReadAnsKey);
+        localStorage.removeItem(camReadStartKey);
+        localStorage.removeItem(camReadSubmissionKey);
+        expiresAtRef.current = null;
+        submissionIdRef.current = null;
+      }
     }
   };
 

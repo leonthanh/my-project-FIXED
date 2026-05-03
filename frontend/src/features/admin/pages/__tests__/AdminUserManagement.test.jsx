@@ -112,7 +112,7 @@ describe('AdminUserManagement admin tabs', () => {
       </MemoryRouter>
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Tests' }));
+    fireEvent.click(screen.getByRole('button', { name: /^Tests\b/i }));
 
     await waitFor(() => {
       expect(authFetch).toHaveBeenCalledWith('admin/tests');
@@ -243,7 +243,7 @@ describe('AdminUserManagement admin tabs', () => {
       </MemoryRouter>
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Tests' }));
+    fireEvent.click(screen.getByRole('button', { name: /^Tests\b/i }));
     fireEvent.click(await screen.findByRole('button', { name: /IX Listening/i }));
 
     expect(await screen.findByText('IX Listening 6')).toBeInTheDocument();
@@ -354,7 +354,7 @@ describe('AdminUserManagement admin tabs', () => {
       </MemoryRouter>
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Tests' }));
+    fireEvent.click(screen.getByRole('button', { name: /^Tests\b/i }));
     fireEvent.click(await screen.findByRole('button', { name: /IX Listening/i }));
 
     expect(await screen.findByText('IX Listening 6')).toBeInTheDocument();
@@ -444,7 +444,7 @@ describe('AdminUserManagement admin tabs', () => {
       </MemoryRouter>
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Submissions' }));
+    fireEvent.click(screen.getByRole('button', { name: /^Submissions\b/i }));
 
     expect(await screen.findByText('NGUYENNGOCLINH')).toBeInTheDocument();
 
@@ -502,7 +502,7 @@ describe('AdminUserManagement admin tabs', () => {
       </MemoryRouter>
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Submissions' }));
+    fireEvent.click(screen.getByRole('button', { name: /^Submissions\b/i }));
 
     expect(await screen.findByText('NGUYENNGOCLINH')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Delete' })).toBeInTheDocument();
@@ -516,6 +516,77 @@ describe('AdminUserManagement admin tabs', () => {
     await waitFor(() => {
       expect(screen.getByText('No users found for the current search.')).toBeInTheDocument();
     });
+  });
+
+  test('auto-searches submission users by phone and search button reuses the current query', async () => {
+    const users = [
+      {
+        id: 205,
+        name: 'Placement Teacher',
+        phone: '0911111111',
+        email: 'placement-teacher@example.com',
+        role: 'teacher',
+        createdAt: '2026-05-02T00:00:00.000Z',
+      },
+      {
+        id: 202,
+        name: 'Number Match',
+        phone: '0974656472',
+        email: 'number-match@example.com',
+        role: 'student',
+        createdAt: '2026-05-01T00:00:00.000Z',
+      },
+    ];
+
+    authFetch.mockImplementation((url) => {
+      if (url.startsWith('admin/users?search=')) {
+        const query = decodeURIComponent(url.slice('admin/users?search='.length)).toLowerCase();
+        const filtered = users.filter((user) => [user.name, user.phone, user.email]
+          .map((value) => String(value || '').toLowerCase())
+          .some((value) => value.includes(query)));
+
+        return Promise.resolve({ ok: true, json: async () => filtered });
+      }
+
+      if (url.startsWith('admin/users?')) {
+        return Promise.resolve({ ok: true, json: async () => users });
+      }
+
+      return Promise.resolve({ ok: true, json: async () => ({}) });
+    });
+
+    render(
+      <MemoryRouter>
+        <AdminUserManagement />
+      </MemoryRouter>
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /^Submissions\b/i }));
+
+    expect(await screen.findByText('Placement Teacher')).toBeInTheDocument();
+    expect(screen.getByText('Number Match')).toBeInTheDocument();
+
+    fireEvent.change(screen.getByPlaceholderText('Search by user name or phone...'), {
+      target: { value: '0974656472' },
+    });
+
+    await waitFor(() => {
+      expect(authFetch).toHaveBeenCalledWith('admin/users?search=0974656472');
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('Number Match')).toBeInTheDocument();
+      expect(screen.queryByText('Placement Teacher')).not.toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Search' }));
+
+    await waitFor(() => {
+      const matchingCalls = authFetch.mock.calls.filter(([url]) => url === 'admin/users?search=0974656472');
+      expect(matchingCalls.length).toBeGreaterThanOrEqual(2);
+    });
+
+    expect(screen.queryByText('Search failed.')).not.toBeInTheDocument();
   });
 
   test('shows duplicate groups in card layout and deletes a duplicate account', async () => {
@@ -565,7 +636,7 @@ describe('AdminUserManagement admin tabs', () => {
       </MemoryRouter>
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Duplicates' }));
+    fireEvent.click(screen.getByRole('button', { name: /^Duplicates\b/i }));
 
     expect(await screen.findByText('Duplicate group')).toBeInTheDocument();
     expect(screen.getAllByText('TRAN HA LINH').length).toBeGreaterThan(0);

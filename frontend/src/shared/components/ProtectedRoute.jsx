@@ -14,10 +14,12 @@ const ProtectedRoute = ({ children, role }) => {
   }
 
   if (role && user.role !== role) {
-    // admin can access any protected route
-    if (user.role !== 'admin') {
-      return <Navigate to="/login" replace />;
+    if (user.role === 'admin') {
+      return children;
     }
+
+    const fallbackPath = user.role === 'teacher' ? '/review' : '/';
+    return <Navigate to={fallbackPath} replace />;
   }
 
   return children;

@@ -1,6 +1,10 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useLocation, useParams, useNavigate } from "react-router-dom";
 import { apiPath, hostPath, authFetch } from "../../../shared/utils/api";
+import {
+  buildPlacementAttemptPath,
+  readPlacementRuntimeContext,
+} from "../../../shared/utils/placementTests";
 import TestHeader from "../../../shared/components/TestHeader";
 import ExtensionToast from "../../../shared/components/ExtensionToast";
 import InlineIcon from "../../../shared/components/InlineIcon.jsx";
@@ -133,9 +137,17 @@ const parseQuestionsDeep = (questions) => {
  */
 const DoListeningTest = () => {
   const { id } = useParams();
+  const location = useLocation();
   const navigate = useNavigate();
   const { isDarkMode } = useTheme();
   const styles = useMemo(() => createStyles(isDarkMode), [isDarkMode]);
+  const placementContext = useMemo(
+    () => readPlacementRuntimeContext({ pathname: location.pathname, search: location.search }),
+    [location.pathname, location.search]
+  );
+  const isPlacementRuntime = Boolean(
+    placementContext.isPlacementRuntime && placementContext.placementAttemptItemToken
+  );
 
   // States
   const [test, setTest] = useState(null);
@@ -176,13 +188,17 @@ const DoListeningTest = () => {
   // Key for persisting full state (answers + expiresAt). Includes user id to allow per-user isolation.
   // Compute a stable storage user id once (so we can use it safely in dependency arrays).
   const storageUserId = useMemo(() => {
+    if (placementContext.placementAttemptItemToken) {
+      return `placement:${placementContext.placementAttemptItemToken}`;
+    }
+
     try {
       const u = JSON.parse(localStorage.getItem("user") || "null");
       return u?.id || "anon";
     } catch (e) {
       return "anon";
     }
-  }, []);
+  }, [placementContext.placementAttemptItemToken]);
 
   // Keys include userId so each student's timer and answers are isolated on shared devices.
   const expiresKey = `listening:${id}:expiresAt:${storageUserId}`;
@@ -428,11 +444,15 @@ const DoListeningTest = () => {
               return null;
             }
           })();
-          const query = storedSubmissionId
-            ? `?submissionId=${storedSubmissionId}`
-            : user?.id
-              ? `?userId=${user.id}`
-              : "";
+          const query = placementContext.placementAttemptItemToken
+            ? `?placementAttemptItemToken=${encodeURIComponent(
+                placementContext.placementAttemptItemToken
+              )}`
+            : storedSubmissionId
+              ? `?submissionId=${storedSubmissionId}`
+              : user?.id
+                ? `?userId=${user.id}`
+                : "";
 
           if (query) {
             const activeRes = await fetch(
@@ -512,7 +532,7 @@ const DoListeningTest = () => {
       }
     };
     fetchTest();
-  }, [id, stateKey, storageUserId, expiresKey, getReusableStoredExpiry, resetPersistedAttempt, syncTimingState]);
+  }, [id, stateKey, storageUserId, expiresKey, getReusableStoredExpiry, placementContext.placementAttemptItemToken, resetPersistedAttempt, syncTimingState]);
 
   // Keep a ref to confirmSubmit to avoid referencing it before initialization in effects
   const confirmSubmitRef = useRef(null);
@@ -643,15 +663,29 @@ const DoListeningTest = () => {
           localStorage.removeItem(expiresKey);
           localStorage.removeItem(stateKey);
         } catch (e) {}
-        alert("Time is up, but you did not answer any questions. No empty submission was created.");
-        navigate('/select-test');
+        if (isPlacementRuntime && placementContext.placementAttemptToken) {
+          navigate(buildPlacementAttemptPath(placementContext.placementAttemptToken), {
+            replace: true,
+          });
+        } else {
+          alert("Time is up, but you did not answer any questions. No empty submission was created.");
+          navigate('/select-test');
+        }
         return;
       }
 
       const res = await authFetch(apiPath(`listening-tests/${id}/submit`), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ answers, user, studentName, studentId, submissionId: submissionIdRef.current }),
+        body: JSON.stringify({
+          answers,
+          user,
+          studentName,
+          studentId,
+          submissionId: submissionIdRef.current,
+          placementAttemptItemToken:
+            placementContext.placementAttemptItemToken || undefined,
+        }),
       });
 
       const payload = await res.json().catch(() => null);
@@ -762,7 +796,11 @@ const DoListeningTest = () => {
 
       setResultData(result);
 
-      if (test?.showResultModal !== false) {
+      if (isPlacementRuntime && placementContext.placementAttemptToken) {
+        navigate(buildPlacementAttemptPath(placementContext.placementAttemptToken), {
+          replace: true,
+        });
+      } else if (test?.showResultModal !== false) {
         setResultModalOpen(true);
       } else {
         alert("Submission successful. Your teacher can review your results.");
@@ -798,7 +836,7 @@ const DoListeningTest = () => {
       console.error("Error submitting:", err);
       alert(`Something went wrong while submitting.${err?.message ? `\n${err.message}` : ""}`);
     }
-  }, [answers, expiresKey, id, navigate, submitted, stateKey, test, test?.showResultModal]);
+  }, [answers, expiresKey, id, isPlacementRuntime, navigate, placementContext.placementAttemptItemToken, placementContext.placementAttemptToken, submitted, stateKey, test, test?.showResultModal]);
 
   // Keep ref up-to-date with the latest confirmSubmit implementation
   useEffect(() => {
@@ -839,7 +877,14 @@ const DoListeningTest = () => {
         }
 
         const user = (() => { try { return JSON.parse(localStorage.getItem('user') || 'null'); } catch (e) { return null; } })();
-        const payload = { submissionId: submissionIdRef.current, answers, expiresAt: expiresAtRef.current, user };
+        const payload = {
+          submissionId: submissionIdRef.current,
+          placementAttemptItemToken:
+            placementContext.placementAttemptItemToken || undefined,
+          answers,
+          expiresAt: expiresAtRef.current,
+          user,
+        };
         const res = await fetch(apiPath(`listening-submissions/${id}/autosave`), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -888,7 +933,14 @@ const DoListeningTest = () => {
         }
 
         const user = (() => { try { return JSON.parse(localStorage.getItem('user')||'null'); } catch (e) { return null; } })();
-        const payload = { submissionId: submissionIdRef.current, answers, expiresAt: expiresAtRef.current, user };
+        const payload = {
+          submissionId: submissionIdRef.current,
+          placementAttemptItemToken:
+            placementContext.placementAttemptItemToken || undefined,
+          answers,
+          expiresAt: expiresAtRef.current,
+          user,
+        };
         const url = apiPath(`listening-submissions/${id}/autosave`);
         if (navigator.sendBeacon) {
           const blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
@@ -926,7 +978,7 @@ const DoListeningTest = () => {
       window.removeEventListener("beforeunload", onBeforeUnload);
       window.removeEventListener("storage", onStorage);
     };
-  }, [answers, submitted, resumeHydrated, stateKey, expiresKey, id, audioPlayed, started, syncTimingState, announceExtension]);
+  }, [answers, submitted, resumeHydrated, stateKey, expiresKey, id, audioPlayed, placementContext.placementAttemptItemToken, started, syncTimingState, announceExtension]);
 
   const reconcileServerTiming = useCallback(async () => {
     if (!resumeHydrated || !started || submitted) return;
@@ -944,11 +996,15 @@ const DoListeningTest = () => {
         return null;
       }
     })();
-    const query = submissionIdRef.current
-      ? `?submissionId=${submissionIdRef.current}`
-      : user?.id
-        ? `?userId=${user.id}`
-        : "";
+    const query = placementContext.placementAttemptItemToken
+      ? `?placementAttemptItemToken=${encodeURIComponent(
+          placementContext.placementAttemptItemToken
+        )}`
+      : submissionIdRef.current
+        ? `?submissionId=${submissionIdRef.current}`
+        : user?.id
+          ? `?userId=${user.id}`
+          : "";
     if (!query) return;
 
     try {
@@ -969,7 +1025,7 @@ const DoListeningTest = () => {
     } catch (_err) {
       // ignore polling errors; autosave and refresh can still recover timing
     }
-  }, [announceExtension, answers, id, resumeHydrated, started, submitted, syncTimingState]);
+  }, [announceExtension, answers, id, placementContext.placementAttemptItemToken, resumeHydrated, started, submitted, syncTimingState]);
 
   useEffect(() => {
     if (!resumeHydrated || !started || submitted) return;

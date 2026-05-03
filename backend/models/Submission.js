@@ -64,8 +64,4 @@ const Submission = sequelize.define('Submission', {
   timestamps: true,
 });
 
-// 👇 Định nghĩa quan hệ
-User.hasMany(Submission, { foreignKey: 'userId' });
-Submission.belongsTo(User, { foreignKey: 'userId' });
-
 module.exports = Submission;

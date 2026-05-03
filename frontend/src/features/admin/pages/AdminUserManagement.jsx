@@ -1,6 +1,11 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AdminNavbar from '../../../shared/components/AdminNavbar';
+import AdminStickySidebarLayout, {
+  AdminSidebarNavList,
+  AdminSidebarPanel,
+  buildAdminWorkspaceLinks,
+} from '../components/AdminStickySidebarLayout';
 import { SubmissionStatCards, getSubmissionTone } from '../components/SubmissionCardList';
 import {
   AdminActionGroup,
@@ -529,15 +534,16 @@ const SubmissionsTab = ({ initialUser }) => {
   // Reset selection when switching type tab
   useEffect(() => { setSelectedSubs(new Set()); }, [activeType]);
 
-  const searchUsers = async (q) => {
-    const query = q !== undefined ? q : search;
+  const searchUsers = useCallback(async (q) => {
+    const query = (typeof q === 'string' ? q : search).trim();
     setLoading(true);
     try {
-      const res = await authFetch(apiPath(`admin/users?search=${encodeURIComponent(query.trim())}`));
+      const res = await authFetch(apiPath(`admin/users?search=${encodeURIComponent(query)}`));
+      if (!res.ok) throw new Error('Could not search users.');
       setUsers(await res.json());
     } catch { showToast('Search failed.'); }
     finally { setLoading(false); }
-  };
+  }, [search]);
 
   const loadSubs = useCallback(async (user) => {
     setSelectedUser(user);
@@ -553,13 +559,17 @@ const SubmissionsTab = ({ initialUser }) => {
 
   useEffect(() => {
     if (initialUser) loadSubs(initialUser);
-    else searchUsers('');
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialUser, loadSubs]);
 
+  useEffect(() => {
+    if (selectedUser) return;
+    searchUsers();
+  }, [selectedUser, searchUsers]);
+
   const resetSearch = () => {
+    const hadQuery = Boolean(search.trim());
     setSearch('');
-    if (!selectedUser) {
+    if (!selectedUser && !hadQuery) {
       searchUsers('');
     }
   };
@@ -568,7 +578,6 @@ const SubmissionsTab = ({ initialUser }) => {
     setSelectedUser(null);
     setSubs(null);
     setSelectedSubs(new Set());
-    searchUsers(search || '');
   };
 
   const toggleSubSelect = (type, id) => {
@@ -743,7 +752,7 @@ const SubmissionsTab = ({ initialUser }) => {
         </FilterField>
 
         <div style={s.filterActions}>
-          <button style={s.btnBlue} onClick={searchUsers} disabled={loading}>Search</button>
+          <button style={s.btnBlue} onClick={() => searchUsers()} disabled={loading}>Search</button>
           <button style={s.btnGray} onClick={resetSearch} disabled={loading}>Reset</button>
         </div>
       </div>
@@ -1700,6 +1709,7 @@ const TABS = [
 ];
 
 const AdminUserManagement = () => {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('users');
   const [jumpToUser, setJumpToUser] = useState(null); // passed from users tab → submissions tab
 
@@ -1710,29 +1720,65 @@ const AdminUserManagement = () => {
 
   // Reset jumpToUser once consumed
   const submissionsKey = jumpToUser ? jumpToUser.id : 'none';
+  const workspaceLinks = useMemo(
+    () => buildAdminWorkspaceLinks(navigate, 'users'),
+    [navigate]
+  );
+  const managementLinks = useMemo(
+    () =>
+      TABS.map((tab) => ({
+        key: tab.id,
+        label: tab.label,
+        hint:
+          tab.id === 'users'
+            ? 'Accounts and roles'
+            : tab.id === 'submissions'
+            ? 'Search user results'
+            : tab.id === 'tests'
+            ? 'Library visibility'
+            : 'Duplicate accounts',
+        tone:
+          tab.id === 'users'
+            ? 'violet'
+            : tab.id === 'submissions'
+            ? 'blue'
+            : tab.id === 'tests'
+            ? 'green'
+            : 'orange',
+        active: activeTab === tab.id,
+        onClick: () => setActiveTab(tab.id),
+      })),
+    [activeTab]
+  );
+  const activeTabLabel = TABS.find((tab) => tab.id === activeTab)?.label || 'Users';
 
   return (
     <>
       <AdminNavbar />
       <div className="admin-page admin-submission-page" style={s.page}>
-        {/* Tab bar */}
-        <div style={s.tabBar}>
-          {TABS.map((t) => (
-            <button
-              key={t.id} onClick={() => setActiveTab(t.id)}
-              style={{ ...s.tabBtn, ...(activeTab === t.id ? s.tabBtnActive : {}) }}
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
+        <AdminStickySidebarLayout
+          eyebrow="Admin"
+          title="User management"
+          description="Switch between account, submission, test, and duplicate tools from a sticky sidebar while keeping the active workspace open on the right."
+          sidebarContent={(
+            <>
+              <AdminSidebarPanel eyebrow="Workspace" title="Admin pages" meta="Quick jump">
+                <AdminSidebarNavList items={workspaceLinks} ariaLabel="Admin workspace pages" />
+              </AdminSidebarPanel>
 
-        <div style={s.tabContent}>
-          {activeTab === 'users' && <UsersTab onViewSubmissions={handleViewSubmissions} />}
-          {activeTab === 'submissions' && <SubmissionsTab key={submissionsKey} initialUser={jumpToUser} />}
-          {activeTab === 'tests' && <TestsTab />}
-          {activeTab === 'duplicates' && <DuplicatesTab />}
-        </div>
+              <AdminSidebarPanel eyebrow="Mode" title="Management tools" meta={activeTabLabel}>
+                <AdminSidebarNavList items={managementLinks} ariaLabel="Admin user management tabs" />
+              </AdminSidebarPanel>
+            </>
+          )}
+        >
+          <div style={s.tabContent}>
+            {activeTab === 'users' && <UsersTab onViewSubmissions={handleViewSubmissions} />}
+            {activeTab === 'submissions' && <SubmissionsTab key={submissionsKey} initialUser={jumpToUser} />}
+            {activeTab === 'tests' && <TestsTab />}
+            {activeTab === 'duplicates' && <DuplicatesTab />}
+          </div>
+        </AdminStickySidebarLayout>
       </div>
     </>
   );

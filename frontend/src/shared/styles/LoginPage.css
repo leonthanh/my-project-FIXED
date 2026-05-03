@@ -34,6 +34,152 @@ body {
   -webkit-scrollbar-width: none;
 }
 
+.login-page-toggleGroup {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.login-page-toggleButton,
+.login-page-primaryButton,
+.login-page-placementButton {
+  position: relative;
+  overflow: hidden;
+  border: none;
+  isolation: isolate;
+  transition:
+    transform 0.22s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.24s ease,
+    border-color 0.24s ease,
+    background-color 0.24s ease,
+    color 0.24s ease;
+}
+
+.login-page-toggleButton::after,
+.login-page-primaryButton::after,
+.login-page-placementButton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(110deg, transparent 22%, rgba(255, 255, 255, 0.34) 50%, transparent 78%);
+  transform: translateX(-135%);
+  transition: transform 0.52s ease;
+  pointer-events: none;
+}
+
+.login-page-toggleButton:hover::after,
+.login-page-toggleButton:focus-visible::after,
+.login-page-primaryButton:hover::after,
+.login-page-primaryButton:focus-visible::after,
+.login-page-placementButton:hover::after,
+.login-page-placementButton:focus-visible::after {
+  transform: translateX(130%);
+}
+
+.login-page-toggleButton > span,
+.login-page-primaryButton > span,
+.login-page-placementButton > span {
+  position: relative;
+  z-index: 1;
+}
+
+.login-page-toggleButton:focus-visible,
+.login-page-primaryButton:focus-visible,
+.login-page-placementButton:focus-visible {
+  outline: 3px solid rgba(56, 189, 248, 0.3);
+  outline-offset: 2px;
+}
+
+.login-page-toggleButton:hover,
+.login-page-primaryButton:hover:not(:disabled),
+.login-page-placementButton:hover:not(:disabled) {
+  transform: translateY(-2px);
+}
+
+.login-page-toggleButton {
+  flex: 1;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.8);
+  color: #42516d;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.78),
+    0 10px 22px rgba(15, 23, 42, 0.06);
+}
+
+.login-page-toggleButton:hover,
+.login-page-toggleButton:focus-visible {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.82),
+    0 16px 28px rgba(15, 23, 42, 0.12);
+}
+
+.login-page-toggleButton--active {
+  background: linear-gradient(135deg, #0f3f94 0%, #2563eb 100%);
+  color: #ffffff;
+  box-shadow: 0 18px 30px rgba(37, 99, 235, 0.2);
+}
+
+.login-page-primaryButton {
+  width: 100%;
+  min-height: 48px;
+  margin-top: 10px;
+  padding: 0 18px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #0f3f94 0%, #2563eb 100%);
+  color: #ffffff;
+  font-size: 16px;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 16px 28px rgba(37, 99, 235, 0.18);
+}
+
+.login-page-primaryButton:disabled {
+  cursor: wait;
+  opacity: 0.76;
+  transform: none;
+  box-shadow: 0 12px 24px rgba(37, 99, 235, 0.14);
+}
+
+.login-page-placementSection {
+  display: grid;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.login-page-placementButton {
+  width: 100%;
+  min-height: 46px;
+  padding: 0 16px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #0f3f94 0%, #2563eb 100%);
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 16px 28px rgba(37, 99, 235, 0.18);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.login-page-placementHint {
+  margin: 0;
+  color: #52627e;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+@media (max-width: 420px) {
+  .login-page-toggleGroup {
+    flex-direction: column;
+  }
+}
+
 footer .wave {
   position: absolute;
   top: -80px;

@@ -192,6 +192,10 @@ require("./models/ReadingSubmission");
 require("./models/ListeningSubmission");
 require("./models/CambridgeListening");
 require("./models/CambridgeReading");
+require("./models/PlacementPackage");
+require("./models/PlacementPackageItem");
+require("./models/PlacementAttempt");
+require("./models/PlacementAttemptItem");
 require("./models/RefreshToken");
 
 // ✅ Initialize associations (models/index.js)
@@ -205,6 +209,7 @@ const listeningRouter = require("./modules/listening/router");
 const readingRouter = require("./modules/reading/router");
 const writingRouter = require("./modules/writing/router");
 const adminRoutes = require("./routes/admin"); // ✅ Admin user/submission management
+const placementRoutes = require("./routes/placement");
 
 // Middleware
 const shouldLogHttp = String(process.env.SHOW_HTTP_LOG || '').toLowerCase() === 'true';
@@ -250,13 +255,21 @@ const allowedOrigins = (process.env.FRONTEND_URL || '')
   .map((s) => s.trim())
   .filter(Boolean);
 
+const isLocalDevOrigin = (origin) => {
+  if (process.env.NODE_ENV === 'production') return false;
+  return /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(String(origin || ''));
+};
+
 app.use(
   cors({
     origin: function (origin, cb) {
       // allow non-browser calls (no Origin)
       if (!origin) return cb(null, true);
       if (!allowedOrigins.length) return cb(null, true); // fallback for local/dev
-      return cb(null, allowedOrigins.includes(origin));
+      if (allowedOrigins.includes(origin) || isLocalDevOrigin(origin)) {
+        return cb(null, true);
+      }
+      return cb(null, false);
     },
     credentials: true,
   })
@@ -282,6 +295,7 @@ app.use('/api', listeningRouter);
 app.use('/api', readingRouter);
 app.use('/api/cambridge', cambridgeRouter); // ✅ Cambridge tests (KET, PET, etc.)
 app.use('/api/admin', adminRoutes);         // ✅ Admin: quản lý user & bài làm
+app.use('/api/placement', placementRoutes);
 
 // Debug route: verify FRONTEND_URL (development only)
 if (process.env.NODE_ENV !== 'production') {
@@ -301,6 +315,42 @@ app.get(/^\/(?!api).*/, (req, res) => {
   res.sendFile(path.join(frontendPath, "index.html"));
 });
 
+async function cleanupRefreshTokenSyncArtifacts() {
+  try {
+    const [duplicateTokenHashIndexes] = await sequelize.query(
+      `SELECT DISTINCT INDEX_NAME
+       FROM INFORMATION_SCHEMA.STATISTICS
+       WHERE TABLE_SCHEMA = DATABASE()
+         AND TABLE_NAME = 'refresh_tokens'
+         AND COLUMN_NAME = 'tokenHash'
+         AND INDEX_NAME NOT IN ('PRIMARY', 'refresh_tokens_token_hash_unique')`
+    );
+
+    for (const row of duplicateTokenHashIndexes) {
+      await sequelize.query(`ALTER TABLE \`refresh_tokens\` DROP INDEX \`${row.INDEX_NAME}\``);
+    }
+
+    const [duplicateUserForeignKeys] = await sequelize.query(
+      `SELECT CONSTRAINT_NAME
+       FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE
+       WHERE TABLE_SCHEMA = DATABASE()
+         AND TABLE_NAME = 'refresh_tokens'
+         AND COLUMN_NAME = 'userId'
+         AND REFERENCED_TABLE_NAME = 'users'
+       ORDER BY CONSTRAINT_NAME`
+    );
+
+    for (const row of duplicateUserForeignKeys.slice(1)) {
+      await sequelize.query(`ALTER TABLE \`refresh_tokens\` DROP FOREIGN KEY \`${row.CONSTRAINT_NAME}\``);
+    }
+  } catch (cleanupErr) {
+    console.warn(
+      '⚠️ Refresh-token schema cleanup skipped:',
+      cleanupErr?.message || cleanupErr,
+    );
+  }
+}
+
 // ✅ Connect DB, sync models, then start server
 const PORT = process.env.PORT || 5000;
 sequelize
@@ -315,22 +365,29 @@ sequelize
     return ensureDbColumns(sequelize);
   })
   .then(() => {
-    // If legacy/seed data contains orphaned `submissions.testId` values, MySQL will
-    // reject adding the FK during `sync({ alter: true })`. Clean them up first.
-    return sequelize
-      .query(
+    // If legacy/seed data contains orphaned foreign-key values, MySQL will reject
+    // `sync({ alter: true })` when Sequelize tries to recreate or add constraints.
+    return Promise.all([
+      sequelize.query(
         `UPDATE submissions s
          LEFT JOIN writing_tests w ON s.testId = w.id
          SET s.testId = NULL
          WHERE s.testId IS NOT NULL AND w.id IS NULL;`,
-      )
-      .catch((cleanupErr) => {
-        // Non-fatal: tables/columns may not exist yet on first boot.
-        console.warn(
-          "⚠️ Pre-sync cleanup skipped (submissions/testId/writing_tests not ready):",
-          cleanupErr?.message || cleanupErr,
-        );
-      });
+      ),
+      sequelize.query(
+        `UPDATE listening_submissions ls
+         LEFT JOIN users u ON ls.userId = u.id
+         SET ls.userId = NULL
+         WHERE ls.userId IS NOT NULL AND u.id IS NULL;`,
+      ),
+      cleanupRefreshTokenSyncArtifacts(),
+    ]).catch((cleanupErr) => {
+      // Non-fatal: tables/columns may not exist yet on first boot.
+      console.warn(
+        '⚠️ Pre-sync cleanup skipped (legacy FK targets not ready):',
+        cleanupErr?.message || cleanupErr,
+      );
+    });
   })
   .then(() => {
     // Attempt a schema alter but don't let an alter failure crash the dev server.

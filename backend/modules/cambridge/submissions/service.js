@@ -15,6 +15,7 @@ const {
   getCambridgeTestRecord,
 } = require('../shared/submissionUtils');
 const { scoreTest } = require('../shared/scoring');
+const placementService = require('../../placement/service');
 
 const createServiceError = (statusCode, message) => {
   const error = new Error(message);
@@ -74,6 +75,7 @@ const autosaveCambridgeSubmission = async ({ body = {} } = {}) => {
     testId,
     testType,
     submissionId,
+    placementAttemptItemToken,
     answers,
     expiresAt,
     user,
@@ -102,6 +104,109 @@ const autosaveCambridgeSubmission = async ({ body = {} } = {}) => {
       : {};
   const normalizedProgressMeta = normalizeCambridgeProgressMeta(progressMeta);
   const now = new Date();
+
+  if (placementAttemptItemToken) {
+    const skill = normalizedTestType.toLowerCase().includes('listening')
+      ? 'listening'
+      : 'reading';
+    const { attempt, submission } = await placementService.getRuntimeSubmissionForAttemptItem({
+      attemptItemToken: placementAttemptItemToken,
+      platform: 'orange',
+      skill,
+      testId: String(numericTestId),
+      testType: normalizedTestType,
+    });
+
+    if (submission) {
+      if (submission.finished) {
+        throw createServiceError(400, 'Submission is already finished.');
+      }
+
+      await submission.update({
+        answers: normalizedAnswers,
+        expiresAt: resolveAuthoritativeExpiry(submission.expiresAt, parsedExpiresAt),
+        lastSavedAt: now,
+        progressMeta: normalizedProgressMeta,
+        studentName:
+          studentName ||
+          attempt.studentName ||
+          user?.name ||
+          user?.username ||
+          submission.studentName ||
+          'Unknown',
+        studentPhone:
+          studentPhone || attempt.studentPhone || user?.phone || submission.studentPhone || null,
+        studentEmail:
+          studentEmail || user?.email || submission.studentEmail || null,
+        classCode:
+          classCode || test?.classCode || submission.classCode || null,
+        teacherName: test?.teacherName || submission.teacherName || null,
+        testTitle: test?.title || submission.testTitle || null,
+      });
+
+      await placementService.syncRuntimeSubmissionForAttemptItem({
+        attemptItemToken: placementAttemptItemToken,
+        platform: 'orange',
+        skill,
+        testId: String(numericTestId),
+        testType: normalizedTestType,
+        runtimeSubmissionModel: 'cambridge',
+        runtimeSubmissionId: submission.id,
+        status: 'started',
+      });
+
+      return {
+        submission,
+        timing: buildTimingPayload(submission.expiresAt),
+      };
+    }
+
+    const created = await CambridgeSubmission.create({
+      testId: numericTestId,
+      testType: normalizedTestType,
+      testTitle: test?.title || null,
+      studentName:
+        studentName || attempt.studentName || user?.name || user?.username || 'Unknown',
+      studentPhone: studentPhone || attempt.studentPhone || user?.phone || null,
+      studentEmail: studentEmail || user?.email || null,
+      classCode: classCode || test?.classCode || null,
+      userId: null,
+      answers: normalizedAnswers,
+      score: 0,
+      totalQuestions: 0,
+      percentage: 0,
+      detailedResults: null,
+      timeSpent: null,
+      timeRemaining: null,
+      teacherName: test?.teacherName || null,
+      feedback: null,
+      feedbackBy: null,
+      feedbackAt: null,
+      feedbackSeen: false,
+      status: 'submitted',
+      finished: false,
+      expiresAt: parsedExpiresAt,
+      lastSavedAt: now,
+      progressMeta: normalizedProgressMeta,
+      submittedAt: null,
+    });
+
+    await placementService.syncRuntimeSubmissionForAttemptItem({
+      attemptItemToken: placementAttemptItemToken,
+      platform: 'orange',
+      skill,
+      testId: String(numericTestId),
+      testType: normalizedTestType,
+      runtimeSubmissionModel: 'cambridge',
+      runtimeSubmissionId: created.id,
+      status: 'started',
+    });
+
+    return {
+      submission: created,
+      timing: buildTimingPayload(created.expiresAt),
+    };
+  }
 
   let submission = await findActiveCambridgeDraft({
     submissionId: Number(submissionId) || null,
@@ -175,6 +280,24 @@ const getActiveCambridgeDraft = async ({ query = {} } = {}) => {
 
   if (!numericTestId || !normalizedTestType) {
     throw createServiceError(400, 'Missing testId or testType.');
+  }
+
+  if (query.placementAttemptItemToken) {
+    const skill = normalizedTestType.toLowerCase().includes('listening')
+      ? 'listening'
+      : 'reading';
+    const { submission } = await placementService.getRuntimeSubmissionForAttemptItem({
+      attemptItemToken: query.placementAttemptItemToken,
+      platform: 'orange',
+      skill,
+      testId: String(numericTestId),
+      testType: normalizedTestType,
+    });
+
+    return {
+      submission: submission && !submission.finished ? submission.toJSON() : null,
+      timing: buildTimingPayload(submission && !submission.finished ? submission.expiresAt : null),
+    };
   }
 
   const submission = await findActiveCambridgeDraft({

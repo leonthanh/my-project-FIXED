@@ -12,6 +12,7 @@ const {
   normalizeExtensionMinutes,
   resolveAuthoritativeExpiry,
 } = require("../utils/testTiming");
+const placementService = require("../modules/placement/service");
 
 const FINALIZED_READING_WHERE = {
   [Op.or]: [{ finished: true }, { finished: null }],
@@ -207,6 +208,7 @@ router.post("/:testId/autosave", async (req, res) => {
     const { testId } = req.params;
     const {
       submissionId,
+      placementAttemptItemToken,
       answers,
       expiresAt,
       user,
@@ -226,6 +228,86 @@ router.post("/:testId/autosave", async (req, res) => {
       : null;
     const normalizedProgressMeta = normalizeReadingProgressMeta(progressMeta);
     const now = new Date();
+
+    if (placementAttemptItemToken) {
+      const { attemptItem, attempt, submission } =
+        await placementService.getRuntimeSubmissionForAttemptItem({
+          attemptItemToken: placementAttemptItemToken,
+          platform: "ix",
+          skill: "reading",
+          testId: normalizedTestId,
+        });
+
+      if (submission) {
+        if (submission.finished) {
+          return res
+            .status(400)
+            .json({ message: "Submission is already finished." });
+        }
+
+        await submission.update({
+          answers: normalizedAnswers,
+          expiresAt: resolveAuthoritativeExpiry(
+            submission.expiresAt,
+            parsedExpiresAt
+          ),
+          lastSavedAt: now,
+          progressMeta: normalizedProgressMeta,
+          userName: resolvedUserName || attempt.studentName || submission.userName,
+        });
+
+        await placementService.syncRuntimeSubmissionForAttemptItem({
+          attemptItemToken: placementAttemptItemToken,
+          platform: "ix",
+          skill: "reading",
+          testId: normalizedTestId,
+          runtimeSubmissionModel: "reading",
+          runtimeSubmissionId: submission.id,
+          status: "started",
+        });
+
+        return res.json({
+          message: "Draft saved.",
+          submissionId: submission.id,
+          savedAt: submission.lastSavedAt,
+          expiresAt: submission.expiresAt,
+          timing: buildTimingPayload(submission.expiresAt),
+        });
+      }
+
+      const created = await ReadingSubmission.create({
+        testId: normalizedTestId,
+        userId: null,
+        userName: resolvedUserName || attempt.studentName || "Unknown",
+        answers: normalizedAnswers,
+        correct: 0,
+        total: 0,
+        band: 0,
+        scorePercentage: 0,
+        expiresAt: parsedExpiresAt,
+        finished: false,
+        lastSavedAt: now,
+        progressMeta: normalizedProgressMeta,
+      });
+
+      await placementService.syncRuntimeSubmissionForAttemptItem({
+        attemptItemToken: placementAttemptItemToken,
+        platform: "ix",
+        skill: "reading",
+        testId: normalizedTestId,
+        runtimeSubmissionModel: "reading",
+        runtimeSubmissionId: created.id,
+        status: "started",
+      });
+
+      return res.status(201).json({
+        message: "Draft created.",
+        submissionId: created.id,
+        savedAt: created.lastSavedAt,
+        expiresAt: created.expiresAt,
+        timing: buildTimingPayload(created.expiresAt),
+      });
+    }
 
     if (submissionId) {
       const sub = await ReadingSubmission.findByPk(submissionId);
@@ -319,7 +401,28 @@ router.post("/:testId/autosave", async (req, res) => {
 router.get("/:testId/active", async (req, res) => {
   try {
     const { testId } = req.params;
-    const { submissionId, userId } = req.query;
+    const { submissionId, userId, placementAttemptItemToken } = req.query;
+
+    if (placementAttemptItemToken) {
+      const { submission } = await placementService.getRuntimeSubmissionForAttemptItem({
+        attemptItemToken: placementAttemptItemToken,
+        platform: "ix",
+        skill: "reading",
+        testId: String(testId),
+      });
+
+      if (!submission || submission.finished) {
+        return res.json({
+          submission: null,
+          timing: buildTimingPayload(null),
+        });
+      }
+
+      return res.json({
+        submission: submission.toJSON(),
+        timing: buildTimingPayload(submission.expiresAt),
+      });
+    }
 
     if (submissionId) {
       const sub = await ReadingSubmission.findByPk(submissionId);

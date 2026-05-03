@@ -5,7 +5,7 @@ import React, {
   useRef,
   useMemo,
 } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useLocation, useParams, useNavigate } from "react-router-dom";
 import ConfirmModal from "../../../shared/components/ConfirmModal";
 import ResultModal from "../../../shared/components/ResultModal";
 import InlineIcon from "../../../shared/components/InlineIcon.jsx";
@@ -29,6 +29,10 @@ import {
 } from "../utils/questionHelpers";
 import { getClozeTableCellLines, isClozeCommentsColumn } from "../../../shared/utils/clozeTable";
 import { apiPath, getStoredUser, hostPath } from "../../../shared/utils/api";
+import {
+  buildPlacementAttemptPath,
+  readPlacementRuntimeContext,
+} from "../../../shared/utils/placementTests";
 import {
   formatClock,
   getExtensionToastMessage,
@@ -93,7 +97,28 @@ function getSentenceCompletionTitleState(section, sectionQuestions) {
 
 const DoReadingTest = () => {
   const { id } = useParams();
+  const location = useLocation();
   const navigate = useNavigate();
+  const placementContext = useMemo(
+    () => readPlacementRuntimeContext({ pathname: location.pathname, search: location.search }),
+    [location.pathname, location.search]
+  );
+  const isPlacementRuntime = Boolean(
+    placementContext.isPlacementRuntime && placementContext.placementAttemptItemToken
+  );
+
+  const storageUserId = useMemo(() => {
+    if (placementContext.placementAttemptItemToken) {
+      return `placement:${placementContext.placementAttemptItemToken}`;
+    }
+
+    try {
+      const u = JSON.parse(localStorage.getItem('user') || 'null');
+      return u?.id || 'anon';
+    } catch (e) {
+      return 'anon';
+    }
+  }, [placementContext.placementAttemptItemToken]);
 
   // Refs
   const questionRefs = useRef({});
@@ -127,9 +152,7 @@ const DoReadingTest = () => {
   // Started flag for the test (show start modal and control timer)
   const [started, setStarted] = useState(() => {
     try {
-      const u = JSON.parse(localStorage.getItem('user') || 'null');
-      const uid = u?.id || 'anon';
-      return localStorage.getItem(`reading_test_${id}_started:${uid}`) === "true";
+      return localStorage.getItem(`reading_test_${id}_started:${storageUserId}`) === "true";
     } catch (e) {
       return false;
     }
@@ -145,15 +168,6 @@ const DoReadingTest = () => {
     }
   }, []);
 
-  // Stable user ID for localStorage key isolation (different students on same device)
-  const storageUserId = useMemo(() => {
-    try {
-      const u = JSON.parse(localStorage.getItem('user') || 'null');
-      return u?.id || 'anon';
-    } catch (e) {
-      return 'anon';
-    }
-  }, []);
   const readingAnswersKey = `reading_test_${id}_answers:${storageUserId}`;
   const readingExpiresKey = `reading_test_${id}_expiresAt:${storageUserId}`;
   const readingStartedKey = `reading_test_${id}_started:${storageUserId}`;
@@ -657,7 +671,7 @@ const DoReadingTest = () => {
         console.error("Error loading saved answers:", e);
       }
     }
-  }, [id]);
+  }, [readingAnswersKey]);
 
   // Auto-save answers to localStorage
   useEffect(() => {
@@ -683,12 +697,20 @@ const DoReadingTest = () => {
     if (!started || submitted || timeRemaining === null) return;
 
     const user = getStoredUser();
-    if (!user?.id && !submissionIdRef.current) return;
+    if (
+      !placementContext.placementAttemptItemToken &&
+      !user?.id &&
+      !submissionIdRef.current
+    ) {
+      return;
+    }
 
     const persistDraft = async () => {
       try {
         const payload = {
           submissionId: submissionIdRef.current,
+          placementAttemptItemToken:
+            placementContext.placementAttemptItemToken || undefined,
           answers,
           expiresAt: expiresAtRef.current,
           user,
@@ -747,6 +769,7 @@ const DoReadingTest = () => {
     answers,
     currentPartIndex,
     id,
+    placementContext.placementAttemptItemToken,
     readingSubmissionKey,
     announceExtension,
     syncTimingState,
@@ -760,11 +783,15 @@ const DoReadingTest = () => {
     if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
 
     const localUser = getStoredUser();
-    const query = submissionIdRef.current
-      ? `?submissionId=${submissionIdRef.current}`
-      : localUser?.id
-        ? `?userId=${localUser.id}`
-        : "";
+    const query = placementContext.placementAttemptItemToken
+      ? `?placementAttemptItemToken=${encodeURIComponent(
+          placementContext.placementAttemptItemToken
+        )}`
+      : submissionIdRef.current
+        ? `?submissionId=${submissionIdRef.current}`
+        : localUser?.id
+          ? `?userId=${localUser.id}`
+          : "";
     if (!query) return;
 
     try {
@@ -785,7 +812,7 @@ const DoReadingTest = () => {
     } catch (_err) {
       // ignore polling errors; autosave and refresh can still recover timing
     }
-  }, [announceExtension, id, started, submitted, syncTimingState]);
+  }, [announceExtension, id, placementContext.placementAttemptItemToken, started, submitted, syncTimingState]);
 
   useEffect(() => {
     if (!started || submitted) return;
@@ -860,11 +887,15 @@ const DoReadingTest = () => {
         setTest(normalized);
 
         let restoredFromServer = false;
-        const query = submissionIdRef.current
-          ? `?submissionId=${submissionIdRef.current}`
-          : localUser?.id
-            ? `?userId=${localUser.id}`
-            : "";
+        const query = placementContext.placementAttemptItemToken
+          ? `?placementAttemptItemToken=${encodeURIComponent(
+              placementContext.placementAttemptItemToken
+            )}`
+          : submissionIdRef.current
+            ? `?submissionId=${submissionIdRef.current}`
+            : localUser?.id
+              ? `?userId=${localUser.id}`
+              : "";
 
         if (query) {
           try {
@@ -1029,6 +1060,7 @@ const DoReadingTest = () => {
     fetchTest();
   }, [
     id,
+    placementContext.placementAttemptItemToken,
     readingAnswersKey,
     readingExpiresKey,
     readingStartedKey,
@@ -1508,6 +1540,8 @@ const DoReadingTest = () => {
         body: JSON.stringify({
           answers,
           submissionId: submissionIdRef.current,
+          placementAttemptItemToken:
+            placementContext.placementAttemptItemToken || undefined,
           user,
           studentName: user?.name || undefined,
           studentId: user?.id || undefined,
@@ -1530,7 +1564,11 @@ const DoReadingTest = () => {
       // Instead of navigating, show result modal (do not flip started state immediately
       // because component returns early when !started and would prevent modal mounting)
       setResultData(data);
-      if (test?.showResultModal !== false) {
+      if (isPlacementRuntime && placementContext.placementAttemptToken) {
+        navigate(buildPlacementAttemptPath(placementContext.placementAttemptToken), {
+          replace: true,
+        });
+      } else if (test?.showResultModal !== false) {
         setResultModalOpen(true);
       } else {
         // If teacher disabled result modal, show success message and navigate back

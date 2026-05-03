@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useRef } from "react";
+import React, { useEffect, useLayoutEffect, useState, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { apiPath, hostPath, clearAuth } from "../utils/api";
@@ -108,7 +108,9 @@ const StudentNavbar = () => {
   );
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
   const [mobileDrawerTab, setMobileDrawerTab] = useState("overview");
+  const [desktopNavbarHeight, setDesktopNavbarHeight] = useState(0);
   const moreDropdownRef = useRef(null);
+  const navRef = useRef(null);
 
   useEffect(() => {
     const storedUser = localStorage.getItem("user");
@@ -265,6 +267,37 @@ const StudentNavbar = () => {
 
     return () => clearInterval(interval);
   }, [user, fetchNotifications]);
+
+  useLayoutEffect(() => {
+    if (typeof window === "undefined") return undefined;
+
+    if (isCompactMenu || !user) {
+      setDesktopNavbarHeight(0);
+      return undefined;
+    }
+
+    const node = navRef.current;
+    if (!node) return undefined;
+
+    const updateHeight = () => {
+      setDesktopNavbarHeight(Math.ceil(node.getBoundingClientRect().height));
+    };
+
+    updateHeight();
+
+    const resizeObserver =
+      typeof ResizeObserver !== "undefined"
+        ? new ResizeObserver(() => updateHeight())
+        : null;
+
+    resizeObserver?.observe(node);
+    window.addEventListener("resize", updateHeight);
+
+    return () => {
+      resizeObserver?.disconnect();
+      window.removeEventListener("resize", updateHeight);
+    };
+  }, [isCompactMenu, user]);
 
   const markFeedbackAsSeen = async () => {
     try {
@@ -704,7 +737,8 @@ const StudentNavbar = () => {
   }
 
   return (
-    <nav className="studentNavbar">
+    <>
+    <nav ref={navRef} className="studentNavbar">
       <div className="studentNavbar__left">
         <Link to={ixHubPath} className="studentNavbar__logoLink" title="Test List">
           <img
@@ -812,6 +846,12 @@ const StudentNavbar = () => {
         `}
       </style>
     </nav>
+    <div
+      className="studentNavbar__spacer"
+      aria-hidden="true"
+      style={{ height: desktopNavbarHeight }}
+    />
+    </>
   );
 };
 

@@ -1,6 +1,10 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useLocation, useParams, useNavigate } from "react-router-dom";
 import { apiPath, getStoredUser, hostPath } from "../../../../shared/utils/api";
+import {
+  buildPlacementAttemptPath,
+  readPlacementRuntimeContext,
+} from "../../../../shared/utils/placementTests";
 import TestHeader from "../../../../shared/components/TestHeader";
 import ExtensionToast from "../../../../shared/components/ExtensionToast";
 import TestStartModal from "../../../../shared/components/TestStartModal";
@@ -47,7 +51,15 @@ const InlineIcon = ({ name, size = 16, strokeWidth = 2, style }) => (
  */
 const DoCambridgeListeningTest = () => {
   const { testType, id } = useParams(); // testType: ket-listening, pet-listening, etc.
+  const location = useLocation();
   const navigate = useNavigate();
+  const placementContext = useMemo(
+    () => readPlacementRuntimeContext({ pathname: location.pathname, search: location.search }),
+    [location.pathname, location.search]
+  );
+  const isPlacementRuntime = Boolean(
+    placementContext.isPlacementRuntime && placementContext.placementAttemptItemToken
+  );
   const { isDarkMode } = useTheme();
   const examType = useMemo(() => {
     const s = String(testType || "").trim().toLowerCase();
@@ -114,6 +126,10 @@ const DoCambridgeListeningTest = () => {
   }, [testType]);
 
   const storageKey = useMemo(() => {
+    if (placementContext.placementAttemptItemToken) {
+      return `cambridgeListeningProgress-${testType || 'listening'}-${id || 'unknown'}-placement:${placementContext.placementAttemptItemToken}`;
+    }
+
     try {
       const u = JSON.parse(localStorage.getItem('user') || 'null');
       const uid = u?.id || 'anon';
@@ -121,7 +137,7 @@ const DoCambridgeListeningTest = () => {
     } catch {
       return `cambridgeListeningProgress-${testType || 'listening'}-${id || 'unknown'}-anon`;
     }
-  }, [testType, id]);
+  }, [id, placementContext.placementAttemptItemToken, testType]);
 
   const syncTimingState = useCallback(
     (expiresAtValue, fallbackSeconds = null) => {
@@ -224,11 +240,15 @@ const DoCambridgeListeningTest = () => {
           // ignore restore errors
         }
 
-        const query = submissionIdRef.current
-          ? `?submissionId=${submissionIdRef.current}`
-          : localUser?.id
-            ? `?userId=${localUser.id}`
-            : "";
+        const query = placementContext.placementAttemptItemToken
+          ? `?placementAttemptItemToken=${encodeURIComponent(
+              placementContext.placementAttemptItemToken
+            )}`
+          : submissionIdRef.current
+            ? `?submissionId=${submissionIdRef.current}`
+            : localUser?.id
+              ? `?userId=${localUser.id}`
+              : "";
 
         if (query) {
           try {
@@ -620,12 +640,20 @@ const DoCambridgeListeningTest = () => {
     }
 
     const user = getStoredUser();
-    if (!user?.id && !submissionIdRef.current) return;
+    if (
+      !placementContext.placementAttemptItemToken &&
+      !user?.id &&
+      !submissionIdRef.current
+    ) {
+      return;
+    }
 
     const persistDraft = async () => {
       try {
         const payload = {
           submissionId: submissionIdRef.current,
+          placementAttemptItemToken:
+            placementContext.placementAttemptItemToken || undefined,
           testId: id,
           testType: test?.testType || testType || "ket-listening",
           answers,
@@ -713,11 +741,15 @@ const DoCambridgeListeningTest = () => {
     if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
 
     const localUser = getStoredUser();
-    const query = submissionIdRef.current
-      ? `?submissionId=${submissionIdRef.current}`
-      : localUser?.id
-        ? `?userId=${localUser.id}`
-        : "";
+    const query = placementContext.placementAttemptItemToken
+      ? `?placementAttemptItemToken=${encodeURIComponent(
+          placementContext.placementAttemptItemToken
+        )}`
+      : submissionIdRef.current
+        ? `?submissionId=${submissionIdRef.current}`
+        : localUser?.id
+          ? `?userId=${localUser.id}`
+          : "";
     if (!query || !test?.testType) return;
 
     try {
@@ -1653,6 +1685,8 @@ const DoCambridgeListeningTest = () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
           submissionId: submissionIdRef.current,
+          placementAttemptItemToken:
+            placementContext.placementAttemptItemToken || undefined,
           answers,
           studentName: user.name || user.username || 'Unknown',
           studentPhone: user.phone || null,
@@ -1675,34 +1709,45 @@ const DoCambridgeListeningTest = () => {
       } catch {
         // ignore
       }
-      
-      // Navigate to result page with submission data
-      navigate(`/cambridge/result/${data.submissionId}`, {
-        state: {
-          submission: {
-            ...data,
-            testTitle: test?.title,
-            testType: testType,
-            timeSpent,
-            classCode: test?.classCode,
-            submittedAt: new Date().toISOString()
-          },
-          test
-        }
-      });
+
+      if (isPlacementRuntime && placementContext.placementAttemptToken) {
+        navigate(buildPlacementAttemptPath(placementContext.placementAttemptToken), {
+          replace: true,
+        });
+      } else {
+        // Navigate to result page with submission data
+        navigate(`/cambridge/result/${data.submissionId}`, {
+          state: {
+            submission: {
+              ...data,
+              testTitle: test?.title,
+              testType: testType,
+              timeSpent,
+              classCode: test?.classCode,
+              submittedAt: new Date().toISOString()
+            },
+            test
+          }
+        });
+      }
     } catch (err) {
       console.error("Error submitting:", err);
-      // For now, calculate locally if backend not ready
-      const localResults = calculateLocalResults();
-      setResults(localResults);
-      setSubmitted(true);
-      setShowConfirm(false);
-      endTimeRef.current = null;
-      submissionIdRef.current = null;
-      try {
-        localStorage.removeItem(storageKey);
-      } catch {
-        // ignore
+      if (isPlacementRuntime) {
+        setShowConfirm(false);
+        alert("Could not submit this placement test. Please try again.");
+      } else {
+        // For now, calculate locally if backend not ready
+        const localResults = calculateLocalResults();
+        setResults(localResults);
+        setSubmitted(true);
+        setShowConfirm(false);
+        endTimeRef.current = null;
+        submissionIdRef.current = null;
+        try {
+          localStorage.removeItem(storageKey);
+        } catch {
+          // ignore
+        }
       }
     }
   };
