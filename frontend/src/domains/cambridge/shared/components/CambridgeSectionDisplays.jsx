@@ -240,16 +240,18 @@ export const OpenClozeSectionDisplay = ({
   };
 
   const sectionKey = `${currentPartIndex}-${secIdx}-${qIdx}`;
+  const sectionBlankKeys = blanks.map((_, blankIdx) => `${sectionKey}-${blankIdx}`);
+  const isSectionFlagged = sectionBlankKeys.some((key) => flaggedQuestions.has(key));
 
   return (
-    <div className={`cambridge-question-wrapper ${flaggedQuestions.has(sectionKey) ? 'flagged-section' : ''}`} style={{ position: 'relative' }}>
+    <div className={`cambridge-question-wrapper ${isSectionFlagged ? 'flagged-section' : ''}`} style={{ position: 'relative' }}>
       <button
-        className={`cambridge-flag-button ${flaggedQuestions.has(sectionKey) ? 'flagged' : ''}`}
+        className={`cambridge-flag-button ${isSectionFlagged ? 'flagged' : ''}`}
         onClick={() => toggleFlag(sectionKey)}
         aria-label="Flag question"
         style={{ position: 'absolute', top: 0, right: 0 }}
       >
-        <InlineIcon name="flag" size={14} />
+        <InlineIcon name="flag" size={18} />
       </button>
 
       {passageTitle ? (
@@ -436,7 +438,7 @@ export const GapMatchSectionDisplay = ({
                     aria-label="Flag question"
                     type="button"
                   >
-                    <InlineIcon name="flag" size={14} />
+                    <InlineIcon name="flag" size={18} />
                   </button>
 
                   <div style={{ display: 'grid', gridTemplateColumns: '56px 1fr', gap: '10px', alignItems: 'center' }}>

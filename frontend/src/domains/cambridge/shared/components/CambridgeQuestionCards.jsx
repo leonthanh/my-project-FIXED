@@ -29,6 +29,35 @@ const isAnswerFilled = (value) => {
   return String(value ?? '').trim() !== '';
 };
 
+const isQuestionFlagged = (flaggedQuestions, questionKey) => (
+  flaggedQuestions instanceof Set ? flaggedQuestions.has(questionKey) : false
+);
+
+const stripRepeatedOptionLabel = (value, optionLabel) => {
+  const text = String(value ?? '').trim();
+  if (!text) return '';
+
+  const escapedLabel = String(optionLabel || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  if (!escapedLabel) return text;
+
+  return text.replace(new RegExp(`^${escapedLabel}\\s*[.):-]\\s*`, 'i'), '').trim();
+};
+
+const QuestionFlagButton = ({ questionKey, questionNum, toggleFlag, isFlagged, iconSize = 18 }) => {
+  if (typeof toggleFlag !== 'function') return null;
+
+  return (
+    <button
+      type="button"
+      className={`cambridge-flag-button ${isFlagged ? 'flagged' : ''}`}
+      onClick={() => toggleFlag(questionKey)}
+      aria-label={`Flag question ${questionNum}`}
+    >
+      <InlineIcon name="flag" size={iconSize} />
+    </button>
+  );
+};
+
 export const CambridgeQuestionDisplay = ({
   question,
   questionKey,
@@ -53,6 +82,7 @@ export const CambridgeQuestionDisplay = ({
   const isCorrect = submitted && results?.answers?.[questionKey]?.isCorrect;
   const isActive = activeQuestion === questionKey;
   const isAnswered = isAnswerFilled(userAnswer);
+  const isFlagged = isQuestionFlagged(flaggedQuestions, questionKey);
   const wrapperClassName = `cambridge-question-wrapper ${isAnswered ? 'answered' : ''} ${isActive ? 'active-question' : ''}`;
 
   // Ref + focus state for fill inline input
@@ -112,7 +142,7 @@ export const CambridgeQuestionDisplay = ({
           background: isDarkMode ? '#111827' : palette.bg,
           border: `2px solid ${fillFocused ? palette.border : inputBorder}`,
           borderRadius: '16px',
-          padding: '16px 20px',
+          padding: allowFlagging ? '16px 60px 16px 20px' : '16px 20px',
           marginBottom: '12px',
           transition: 'border-color 0.2s, box-shadow 0.3s',
           boxShadow: fillFocused
@@ -124,6 +154,14 @@ export const CambridgeQuestionDisplay = ({
           animationPlayState: 'running',
         }}
       >
+        {allowFlagging ? (
+          <QuestionFlagButton
+            questionKey={questionKey}
+            questionNum={questionNum}
+            toggleFlag={toggleFlag}
+            isFlagged={isFlagged}
+          />
+        ) : null}
         {/* Header: số câu + nội dung với input inline tại vị trí ___ */}
         {(() => {
           const qText = question.questionText || '';
@@ -237,39 +275,50 @@ export const CambridgeQuestionDisplay = ({
           questionRefs.current[questionKey] = el;
         }}
       >
-        <div style={styles.questionHeader}>
-          <span className="cambridge-question-number">{questionNum}</span>
-          <div className="cambridge-question-text">{question.questionText}</div>
-        </div>
-        <div style={styles.optionsContainer}>
-          {options.map((opt, idx) => {
-            const optionLabel = String.fromCharCode(65 + idx);
-            const isSelected = userAnswer === optionLabel;
-            const isCorrectOption = submitted && question.correctAnswer === optionLabel;
+        {allowFlagging ? (
+          <QuestionFlagButton
+            questionKey={questionKey}
+            questionNum={questionNum}
+            toggleFlag={toggleFlag}
+            isFlagged={isFlagged}
+          />
+        ) : null}
+        <div style={allowFlagging ? { paddingRight: '54px' } : undefined}>
+          <div style={styles.questionHeader}>
+            <span className="cambridge-question-number">{questionNum}</span>
+            <div className="cambridge-question-text">{question.questionText}</div>
+          </div>
+          <div style={styles.optionsContainer}>
+            {options.map((opt, idx) => {
+              const optionLabel = String.fromCharCode(65 + idx);
+              const optionText = stripRepeatedOptionLabel(opt, optionLabel);
+              const isSelected = userAnswer === optionLabel;
+              const isCorrectOption = submitted && question.correctAnswer === optionLabel;
 
-            return (
-              <label
-                key={idx}
-                style={{
-                  ...styles.optionLabel,
-                  ...(isSelected && styles.optionSelected),
-                  ...(submitted && isCorrectOption && styles.optionCorrect),
-                  ...(submitted && isSelected && !isCorrectOption && styles.optionWrong),
-                }}
-              >
-                <input
-                  type="radio"
-                  name={questionKey}
-                  checked={isSelected}
-                  onChange={() => handleAnswerChange(questionKey, optionLabel)}
-                  disabled={submitted}
-                  style={{ marginRight: '10px' }}
-                />
-                <span style={styles.optionBadge}>{optionLabel}</span>
-                <span style={styles.optionText}>{opt}</span>
-              </label>
-            );
-          })}
+              return (
+                <label
+                  key={idx}
+                  style={{
+                    ...styles.optionLabel,
+                    ...(isSelected && styles.optionSelected),
+                    ...(submitted && isCorrectOption && styles.optionCorrect),
+                    ...(submitted && isSelected && !isCorrectOption && styles.optionWrong),
+                  }}
+                >
+                  <input
+                    type="radio"
+                    name={questionKey}
+                    checked={isSelected}
+                    onChange={() => handleAnswerChange(questionKey, optionLabel)}
+                    disabled={submitted}
+                    style={{ marginRight: '10px' }}
+                  />
+                  <span style={styles.optionBadge}>{optionLabel}</span>
+                  <span style={styles.optionText}>{optionText}</span>
+                </label>
+              );
+            })}
+          </div>
         </div>
       </div>
     );
@@ -319,17 +368,12 @@ export const CambridgeQuestionDisplay = ({
           </div>
 
           {allowFlagging ? (
-            <button
-              type="button"
-              aria-label={`Flag question ${questionNum}`}
-              onClick={() => toggleFlag(questionKey)}
-              style={{
-                ...styles.flagButton,
-                ...(flaggedQuestions.has(questionKey) ? styles.flagButtonActive : null),
-              }}
-            >
-              <InlineIcon name="flag" size={14} />
-            </button>
+            <QuestionFlagButton
+              questionKey={questionKey}
+              questionNum={questionNum}
+              toggleFlag={toggleFlag}
+              isFlagged={isFlagged}
+            />
           ) : null}
         </div>
 
@@ -556,12 +600,16 @@ export const CompactCambridgeQuestionDisplay = ({
   handleAnswerChange,
   questionRefs,
   isDarkMode,
+  toggleFlag,
+  flaggedQuestions,
+  allowFlagging = true,
 }) => {
   const qType = question.questionType || 'fill';
   const userAnswer = answers[questionKey];
   const isCorrect = submitted && results?.answers?.[questionKey]?.isCorrect;
   const isActive = activeQuestion === questionKey;
   const options = Array.isArray(question.options) ? question.options : [];
+  const isFlagged = isQuestionFlagged(flaggedQuestions, questionKey);
 
   return (
     <div
@@ -570,11 +618,21 @@ export const CompactCambridgeQuestionDisplay = ({
         questionRefs.current[questionKey] = el;
       }}
       style={{
-        padding: '12px 8px',
+        position: 'relative',
+        padding: allowFlagging ? '12px 44px 12px 8px' : '12px 8px',
         borderBottom: `1px solid ${isDarkMode ? '#2a3350' : '#e5e7eb'}`,
         background: isActive ? (isDarkMode ? '#1f2b47' : '#f8fafc') : 'transparent',
       }}
     >
+      {allowFlagging ? (
+        <QuestionFlagButton
+          questionKey={questionKey}
+          questionNum={questionNum}
+          toggleFlag={toggleFlag}
+          isFlagged={isFlagged}
+          iconSize={18}
+        />
+      ) : null}
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
         <span className="cambridge-question-number">{questionNum}</span>
         <div style={{ flex: 1 }}>
@@ -586,6 +644,7 @@ export const CompactCambridgeQuestionDisplay = ({
             <div style={{ display: 'grid', gap: '8px' }}>
               {options.map((opt, idx) => {
                 const optionLabel = String.fromCharCode(65 + idx);
+                const optionText = stripRepeatedOptionLabel(opt, optionLabel);
                 const isSelected = userAnswer === optionLabel;
                 const isCorrectOption = submitted && question.correctAnswer === optionLabel;
 
@@ -609,7 +668,7 @@ export const CompactCambridgeQuestionDisplay = ({
                       style={{ marginRight: '10px' }}
                     />
                     <span style={styles.optionBadge}>{optionLabel}</span>
-                    <span style={styles.optionText}>{opt}</span>
+                      <span style={styles.optionText}>{optionText}</span>
                   </label>
                 );
               })}

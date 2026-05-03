@@ -1571,11 +1571,22 @@ const DoCambridgeListeningTest = () => {
   const toggleFlag = useCallback((questionKey) => {
     setFlaggedQuestions((prev) => {
       const next = new Set(prev);
-      if (next.has(questionKey)) next.delete(questionKey);
-      else next.add(questionKey);
+      const relatedKeys = questionKey.includes('-')
+        ? (questionIndex?.orderedKeys || [])
+            .filter((item) => item.key.startsWith(`${questionKey}-`))
+            .map((item) => item.key)
+        : [];
+      const targetKeys = relatedKeys.length ? relatedKeys : [questionKey];
+      const shouldClear = targetKeys.every((key) => next.has(key));
+
+      targetKeys.forEach((key) => {
+        if (shouldClear) next.delete(key);
+        else next.add(key);
+      });
+
       return next;
     });
-  }, []);
+  }, [questionIndex]);
 
   // Divider resize handlers (match Reading UI)
   const handleMouseDown = (e) => {
@@ -1627,6 +1638,57 @@ const DoCambridgeListeningTest = () => {
     const idx = list.findIndex((it) => it.key === activeQuestion);
     return idx >= 0 ? idx : 0;
   }, [questionIndex, activeQuestion]);
+
+  const syncActiveQuestion = useCallback(
+    (questionKey) => {
+      if (!questionKey) return;
+
+      const next = (questionIndex?.orderedKeys || []).find((item) => item.key === questionKey);
+      if (!next) return;
+
+      setCurrentPartIndex((prev) => (prev === next.partIndex ? prev : next.partIndex));
+      setExpandedPart((prev) => (prev === next.partIndex ? prev : next.partIndex));
+      setActiveQuestion((prev) => (prev === next.key ? prev : next.key));
+    },
+    [questionIndex]
+  );
+
+  const resolveQuestionKeyFromInteractionTarget = useCallback(
+    (target) => {
+      if (!(target instanceof Element)) return null;
+
+      const numberedControl = target.closest('[id^="question-"]');
+      if (numberedControl?.id) {
+        const match = numberedControl.id.match(/^question-(\d+)$/);
+        if (match) {
+          const questionNumber = Number(match[1]);
+          const keyedQuestion = (questionIndex?.orderedKeys || []).find(
+            (item) => Number(item.number) === questionNumber
+          );
+          if (keyedQuestion?.key) return keyedQuestion.key;
+        }
+      }
+
+      for (const [key, node] of Object.entries(questionRefs.current || {})) {
+        if (node instanceof Element && node.contains(target)) {
+          return key;
+        }
+      }
+
+      return null;
+    },
+    [questionIndex]
+  );
+
+  const handleQuestionInteractionCapture = useCallback(
+    (event) => {
+      const questionKey = resolveQuestionKeyFromInteractionTarget(event.target);
+      if (questionKey) {
+        syncActiveQuestion(questionKey);
+      }
+    },
+    [resolveQuestionKeyFromInteractionTarget, syncActiveQuestion]
+  );
 
   const totalQuestions = useMemo(() => {
     return questionIndex?.orderedKeys?.length || 0;
@@ -1869,6 +1931,8 @@ const DoCambridgeListeningTest = () => {
       handleAnswerChange={handleAnswerChange}
       questionRefs={questionRefs}
       isDarkMode={isDarkMode}
+      toggleFlag={toggleFlag}
+      flaggedQuestions={flaggedQuestions}
     />
   );
   // Loading state
@@ -2065,7 +2129,11 @@ const DoCambridgeListeningTest = () => {
         {isSinglePanelPart ? (
           // Part 1: single panel (teacher request)
           <div className="cambridge-questions-column" style={{ width: '100%' }}>
-            <div className="cambridge-content-wrapper">
+            <div
+              className="cambridge-content-wrapper"
+              onFocusCapture={handleQuestionInteractionCapture}
+              onPointerDownCapture={handleQuestionInteractionCapture}
+            >
               {currentPart && (
                 <>
                   {(() => {
@@ -2248,7 +2316,7 @@ const DoCambridgeListeningTest = () => {
                                       aria-label="Flag question"
                                       type="button"
                                     >
-                                      <InlineIcon name="flag" size={14} />
+                                      <InlineIcon name="flag" size={18} />
                                     </button>
 
                                     <div style={{ paddingRight: '50px' }}>
@@ -2318,7 +2386,11 @@ const DoCambridgeListeningTest = () => {
                         >
                           {section.questions?.map((q, qIdx) => {
                             const questionKey = `${currentPartIndex}-${secIdx}-${qIdx}`;
-                            return renderCompactQuestion(q, questionKey, sectionStartNum + qIdx);
+                            return (
+                              <React.Fragment key={questionKey}>
+                                {renderCompactQuestion(q, questionKey, sectionStartNum + qIdx)}
+                              </React.Fragment>
+                            );
                           })}
                         </div>
                       ) : (
@@ -2698,7 +2770,11 @@ const DoCambridgeListeningTest = () => {
 
             {/* Right Column: Questions */}
             <div className="cambridge-questions-column" style={{ width: `${100 - leftWidth}%` }}>
-              <div className="cambridge-content-wrapper">
+              <div
+                className="cambridge-content-wrapper"
+                onFocusCapture={handleQuestionInteractionCapture}
+                onPointerDownCapture={handleQuestionInteractionCapture}
+              >
                 {currentPart &&
                   currentPart.sections?.map((section, secIdx) => {
                 const partRange = getPartQuestionRange(currentPartIndex);
@@ -2757,7 +2833,7 @@ const DoCambridgeListeningTest = () => {
                                       aria-label="Flag question"
                                       type="button"
                                     >
-                                      <InlineIcon name="flag" size={14} />
+                                      <InlineIcon name="flag" size={18} />
                                     </button>
 
                                     <div style={{ paddingRight: '50px' }}>
@@ -2909,7 +2985,7 @@ const DoCambridgeListeningTest = () => {
                                     aria-label="Flag question"
                                     type="button"
                                   >
-                                    <InlineIcon name="flag" size={14} />
+                                    <InlineIcon name="flag" size={18} />
                                   </button>
 
                                   <div style={{ paddingRight: '50px' }}>
@@ -3042,7 +3118,7 @@ const DoCambridgeListeningTest = () => {
                                       aria-label="Flag question"
                                       type="button"
                                     >
-                                      <InlineIcon name="flag" size={14} />
+                                      <InlineIcon name="flag" size={18} />
                                     </button>
 
                                     <div style={{ paddingRight: '50px', display: 'grid', gridTemplateColumns: '56px 1fr 160px', gap: '12px', alignItems: 'center' }}>
@@ -3254,6 +3330,11 @@ const DoCambridgeListeningTest = () => {
                         }}
                       >
                         {item.hiddenLabel ? '●' : item.number}
+                        {flaggedQuestions.has(item.key) && (
+                          <span className="nav-flag-icon" aria-hidden="true">
+                            <InlineIcon name="flag" size={14} />
+                          </span>
+                        )}
                       </button>
                     ))}
                   </div>
