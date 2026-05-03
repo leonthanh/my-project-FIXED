@@ -14,6 +14,11 @@ const {
   findActiveCambridgeDraft,
   getCambridgeTestRecord,
 } = require('../shared/submissionUtils');
+const {
+  hasCambridgeResponseFeedback,
+  parseCambridgeResponseFeedback,
+  upsertCambridgeResponseFeedback,
+} = require('../shared/feedbackUtils');
 const { scoreTest } = require('../shared/scoring');
 const placementService = require('../../placement/service');
 
@@ -358,7 +363,6 @@ const listCambridgeSubmissions = async ({ query = {} } = {}) => {
     andConditions.push({
       [Op.or]: [
         { status: 'reviewed' },
-        { feedbackBy: { [Op.not]: null, [Op.ne]: '' } },
         { feedback: { [Op.not]: null, [Op.ne]: '' } },
       ],
     });
@@ -367,9 +371,6 @@ const listCambridgeSubmissions = async ({ query = {} } = {}) => {
       [Op.and]: [
         {
           [Op.or]: [{ status: { [Op.ne]: 'reviewed' } }, { status: null }],
-        },
-        {
-          [Op.or]: [{ feedbackBy: null }, { feedbackBy: '' }],
         },
         {
           [Op.or]: [{ feedback: null }, { feedback: '' }],
@@ -398,7 +399,7 @@ const listCambridgeSubmissions = async ({ query = {} } = {}) => {
       'studentName', 'studentPhone', 'classCode', 'teacherName',
       'score', 'totalQuestions', 'percentage',
       'timeSpent', 'status', 'submittedAt', 'feedbackSeen',
-      'finished', 'expiresAt', 'lastSavedAt', 'feedback', 'feedbackBy', 'feedbackAt', 'createdAt',
+      'finished', 'expiresAt', 'lastSavedAt', 'feedback', 'responseFeedback', 'feedbackBy', 'feedbackAt', 'createdAt',
       'detailedResults',
     ],
   });
@@ -446,6 +447,7 @@ const listCambridgeSubmissionsByPhone = async ({ phone } = {}) => {
       'percentage',
       'teacherName',
       'feedback',
+      'responseFeedback',
       'feedbackBy',
       'feedbackAt',
       'feedbackSeen',
@@ -463,7 +465,10 @@ const countUnseenCambridgeFeedbackByPhone = async ({ phone } = {}) => {
   const count = await CambridgeSubmission.count({
     where: {
       studentPhone: phone,
-      feedback: { [Op.ne]: null },
+      [Op.or]: [
+        { feedback: { [Op.not]: null, [Op.ne]: '' } },
+        { responseFeedback: { [Op.not]: null } },
+      ],
       feedbackSeen: false,
       ...FINALIZED_CAMBRIDGE_WHERE,
     },
@@ -518,14 +523,70 @@ const extendCambridgeSubmissionTime = async ({ submissionId, extraMinutes } = {}
 
 const updateCambridgeSubmission = async ({ id, body = {} } = {}) => {
   const submission = await getCambridgeSubmissionById({ id });
-  const { feedback, feedbackBy, status } = body;
+  const { feedback, feedbackBy, status, responseFeedback, responseFeedbackPatch } = body;
+  const reviewerName = String(feedbackBy || '').trim();
+  const nextLegacyFeedback =
+    feedback !== undefined
+      ? String(feedback || '').trim()
+      : String(submission.feedback || '').trim();
 
-  await submission.update({
-    feedback: feedback || submission.feedback,
-    feedbackBy: feedbackBy || submission.feedbackBy,
-    feedbackAt: feedback ? new Date() : submission.feedbackAt,
-    status: status || (feedback ? 'reviewed' : submission.status),
+  let nextResponseFeedback =
+    responseFeedback !== undefined
+      ? parseCambridgeResponseFeedback(responseFeedback)
+      : parseCambridgeResponseFeedback(submission.responseFeedback);
+
+  if (responseFeedbackPatch && typeof responseFeedbackPatch === 'object') {
+    nextResponseFeedback = upsertCambridgeResponseFeedback({
+      existingValue: nextResponseFeedback,
+      responseKey: responseFeedbackPatch.key,
+      feedback: responseFeedbackPatch.feedback,
+      feedbackBy: responseFeedbackPatch.feedbackBy || reviewerName,
+      feedbackAt: responseFeedbackPatch.feedbackAt || new Date().toISOString(),
+      label: responseFeedbackPatch.label,
+      prompt: responseFeedbackPatch.prompt,
+      questionType: responseFeedbackPatch.questionType,
+    });
+  }
+
+  const hasStructuredFeedback = hasCambridgeResponseFeedback(nextResponseFeedback);
+  const pendingManualCount = countPendingManualAnswers({
+    ...submission.toJSON(),
+    feedback: nextLegacyFeedback,
+    responseFeedback: nextResponseFeedback,
   });
+  const isFullyReviewed =
+    Boolean(nextLegacyFeedback) ||
+    (hasStructuredFeedback && pendingManualCount === 0);
+
+  const nextStatus =
+    feedback !== undefined || responseFeedback !== undefined || responseFeedbackPatch
+      ? isFullyReviewed
+        ? 'reviewed'
+        : 'submitted'
+      : status || submission.status;
+
+  const updatePayload = {
+    status: nextStatus,
+    responseFeedback: nextResponseFeedback,
+  };
+
+  if (feedback !== undefined) {
+    updatePayload.feedback = nextLegacyFeedback || null;
+  }
+
+  if (feedback !== undefined || responseFeedback !== undefined || responseFeedbackPatch) {
+    updatePayload.feedbackSeen = isFullyReviewed || hasStructuredFeedback ? false : submission.feedbackSeen;
+
+    if (isFullyReviewed) {
+      updatePayload.feedbackBy = reviewerName || submission.feedbackBy || null;
+      updatePayload.feedbackAt = new Date();
+    } else if (!nextLegacyFeedback) {
+      updatePayload.feedbackBy = null;
+      updatePayload.feedbackAt = null;
+    }
+  }
+
+  await submission.update(updatePayload);
 
   return submission;
 };

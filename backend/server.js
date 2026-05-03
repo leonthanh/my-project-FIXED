@@ -169,6 +169,12 @@ try {
         "feedbackSeen",
         "BOOLEAN DEFAULT FALSE",
       );
+      await addColumnIfMissing(
+        sequelizeInstance,
+        "cambridge_submissions",
+        "responseFeedback",
+        "JSON NULL",
+      );
       await addColumnIfMissing(sequelizeInstance, "submissions", "bandTask1", "FLOAT NULL");
       await addColumnIfMissing(sequelizeInstance, "submissions", "bandTask2", "FLOAT NULL");
       await addColumnIfMissing(sequelizeInstance, "submissions", "bandOverall", "FLOAT NULL");

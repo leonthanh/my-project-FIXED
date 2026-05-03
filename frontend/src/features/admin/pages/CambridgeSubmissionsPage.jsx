@@ -3,6 +3,14 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import AdminNavbar from "../../../shared/components/AdminNavbar";
 import LineIcon from "../../../shared/components/LineIcon";
 import { apiPath, authFetch, hostPath } from "../../../shared/utils/api";
+import {
+  buildCambridgeResponseFeedbackEntries,
+  buildCambridgeResponseFeedbackDraftMap,
+  countMissingCambridgeResponseFeedback,
+  getCambridgeResponseFeedbackText,
+  hasResolvedSubmissionFeedback,
+  upsertCambridgeResponseFeedback,
+} from "../../../shared/utils/cambridgeFeedback";
 import AttemptExtensionControls from "../components/AttemptExtensionControls";
 import AdminStickySidebarLayout, {
   AdminSidebarMetricList,
@@ -163,6 +171,16 @@ const omitRecordKey = (record, key) => {
   return next;
 };
 
+const omitResponseStateKeys = (record, submissionIds) => {
+  const keys = new Set((Array.isArray(submissionIds) ? submissionIds : [submissionIds]).map(String));
+  return Object.fromEntries(
+    Object.entries(record).filter(([entryKey]) => {
+      const submissionId = String(entryKey || '').split(':')[0];
+      return !keys.has(submissionId);
+    })
+  );
+};
+
 const stopSelectionEvent = (event) => {
   event.stopPropagation();
 };
@@ -218,6 +236,7 @@ const CambridgeSubmissionsPage = () => {
   const [aiLoadingById, setAiLoadingById] = useState({});
   const [savingById, setSavingById] = useState({});
   const [statusMessageById, setStatusMessageById] = useState({});
+  const [responseStatusByKey, setResponseStatusByKey] = useState({});
   const [selectedSubmissionIds, setSelectedSubmissionIds] = useState(new Set());
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const feedbackInputRef = useRef(null);
@@ -334,11 +353,7 @@ const CambridgeSubmissionsPage = () => {
   };
 
   const hasReview = (submission) =>
-    Boolean(
-      String(submission?.feedback || '').trim() ||
-        String(submission?.feedbackBy || '').trim() ||
-        String(submission?.status || '').toLowerCase() === 'reviewed'
-    );
+    hasResolvedSubmissionFeedback(submission);
 
   const filteredSubmissions = submissions.filter((submission) => {
     const normalizedStudentName = String(submission?.studentName || '').toLowerCase();
@@ -474,18 +489,22 @@ const CambridgeSubmissionsPage = () => {
       .filter((item) => item.userAnswer.length > 0);
   };
 
+  const getFeedbackStateKey = (submissionId, responseKey) =>
+    `${submissionId}:${responseKey}`;
+
   const getPendingManualCount = (submission) => {
     const count = Number(submission?.pendingManualCount);
     if (Number.isFinite(count) && count >= 0) {
       return count;
     }
 
-    if (hasReview(submission)) {
-      return 0;
-    }
-
     const detail = submission?.id ? detailById[submission.id] : null;
-    return detail ? getPendingManualAnswers(detail).length : 0;
+    return detail
+      ? countMissingCambridgeResponseFeedback(
+          getPendingManualAnswers(detail),
+          detail?.responseFeedback || submission?.responseFeedback
+        )
+      : 0;
   };
 
   const loadSubmissionDetail = async (submissionId) => {
@@ -508,8 +527,7 @@ const CambridgeSubmissionsPage = () => {
       setDetailById((prev) => ({ ...prev, [submissionId]: detail }));
       setFeedbackDraftById((prev) => ({
         ...prev,
-        [submissionId]:
-          typeof detail?.feedback === 'string' ? detail.feedback : prev[submissionId] || '',
+        [submissionId]: prev[submissionId] || buildCambridgeResponseFeedbackDraftMap(detail?.responseFeedback),
       }));
       return detail;
     } catch (err) {
@@ -657,17 +675,17 @@ const CambridgeSubmissionsPage = () => {
     return () => window.cancelAnimationFrame(frameId);
   }, [activeReviewSubmissionId, detailById, detailLoadingById]);
 
-  const handleGenerateEssayFeedback = async (submission) => {
+  const handleGenerateEssayFeedback = async (submission, responseItem) => {
     const detail = detailById[submission.id];
-    const pendingAnswers = getPendingManualAnswers(detail);
-    if (!pendingAnswers.length) {
+    const stateKey = getFeedbackStateKey(submission.id, responseItem.key);
+    if (!responseItem?.userAnswer?.trim()) {
       alert('No open-ended responses were found for AI feedback.');
       return;
     }
 
     try {
-      setAiLoadingById((prev) => ({ ...prev, [submission.id]: true }));
-      setStatusMessageById((prev) => ({ ...prev, [submission.id]: '' }));
+      setAiLoadingById((prev) => ({ ...prev, [stateKey]: true }));
+      setResponseStatusByKey((prev) => ({ ...prev, [stateKey]: '' }));
 
       const res = await fetch(apiPath('ai/generate-cambridge-feedback'), {
         method: 'POST',
@@ -676,12 +694,14 @@ const CambridgeSubmissionsPage = () => {
           studentName: submission.studentName || 'N/A',
           testType: submission.testType || 'Orange',
           classCode: submission.classCode || '',
-          responses: pendingAnswers.map((item) => ({
-            label: item.label,
-            prompt: item.prompt,
-            answer: item.userAnswer,
-            questionType: item.questionType,
-          })),
+          responses: [
+            {
+              label: responseItem.label,
+              prompt: responseItem.prompt,
+              answer: responseItem.userAnswer,
+              questionType: responseItem.questionType,
+            },
+          ],
         }),
       });
 
@@ -696,44 +716,60 @@ const CambridgeSubmissionsPage = () => {
 
       setFeedbackDraftById((prev) => ({
         ...prev,
-        [submission.id]: data.suggestion,
+        [submission.id]: {
+          ...(prev[submission.id] || {}),
+          [responseItem.key]: data.suggestion,
+        },
       }));
-      setStatusMessageById((prev) => ({
+      setResponseStatusByKey((prev) => ({
         ...prev,
-        [submission.id]: data.warning
+        [stateKey]: data.warning
           ? data.warning
           : data.cached
-          ? 'Loaded cached AI feedback.'
-          : 'AI feedback generated.',
+          ? `${responseItem.label || 'Response'} loaded cached AI feedback.`
+          : `${responseItem.label || 'Response'} AI feedback generated.`,
       }));
     } catch (err) {
       console.error('Failed to generate Cambridge AI feedback:', err);
-      setStatusMessageById((prev) => ({
+      setResponseStatusByKey((prev) => ({
         ...prev,
-        [submission.id]: err.message || 'AI feedback failed.',
+        [stateKey]: err.message || 'AI feedback failed.',
       }));
       alert(err.message || 'AI feedback failed.');
     } finally {
-      setAiLoadingById((prev) => ({ ...prev, [submission.id]: false }));
+      setAiLoadingById((prev) => ({ ...prev, [stateKey]: false }));
     }
   };
 
-  const handleSaveEssayFeedback = async (submissionId) => {
-    const feedback = String(feedbackDraftById[submissionId] || '').trim();
+  const handleSaveEssayFeedback = async (submissionId, responseItem) => {
+    const stateKey = getFeedbackStateKey(submissionId, responseItem.key);
+    const feedback = String(feedbackDraftById[submissionId]?.[responseItem.key] || '').trim();
     if (!feedback) return;
 
     const reviewerName =
       teacher?.name || teacher?.username || teacher?.fullName || 'Teacher';
+    const detail = detailById[submissionId];
+    const submission = submissions.find((item) => item.id === submissionId);
+    const pendingAnswers = detail ? getPendingManualAnswers(detail) : [];
+    const existingResponseFeedback = getCambridgeResponseFeedbackText(
+      detail?.responseFeedback || submission?.responseFeedback,
+      responseItem.key
+    );
 
     try {
-      setSavingById((prev) => ({ ...prev, [submissionId]: true }));
+      setSavingById((prev) => ({ ...prev, [stateKey]: true }));
       const res = await fetch(apiPath(`cambridge/submissions/${submissionId}`), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          feedback,
           feedbackBy: reviewerName,
-          status: 'reviewed',
+          responseFeedbackPatch: {
+            key: responseItem.key,
+            label: responseItem.label,
+            prompt: responseItem.prompt,
+            questionType: responseItem.questionType,
+            feedback,
+          },
         }),
       });
 
@@ -742,34 +778,89 @@ const CambridgeSubmissionsPage = () => {
         throw new Error(err?.message || 'Could not save feedback.');
       }
 
+      const payload = await res.json().catch(() => ({}));
+      const savedSubmission = payload?.submission || {};
+      const nextResponseFeedback =
+        savedSubmission.responseFeedback ||
+        upsertCambridgeResponseFeedback({
+          existingValue: detail?.responseFeedback || submission?.responseFeedback,
+          responseKey: responseItem.key,
+          feedback,
+          feedbackBy: reviewerName,
+          feedbackAt: savedSubmission.feedbackAt || new Date().toISOString(),
+          label: responseItem.label,
+          prompt: responseItem.prompt,
+          questionType: responseItem.questionType,
+        });
+      const hasLegacyOverallFeedback = Boolean(
+        String(savedSubmission.feedback || detail?.feedback || submission?.feedback || '').trim()
+      );
+      const nextPendingManualCount = hasLegacyOverallFeedback
+        ? 0
+        : countMissingCambridgeResponseFeedback(pendingAnswers, nextResponseFeedback);
+      const nextStatus = hasLegacyOverallFeedback || nextPendingManualCount === 0
+        ? 'reviewed'
+        : 'submitted';
+      const savedFeedbackAt = savedSubmission.feedbackAt || new Date().toISOString();
+
       setSubmissions((prev) =>
         prev.map((item) =>
           item.id === submissionId
             ? {
                 ...item,
-                feedback,
-                feedbackBy: reviewerName,
-                status: 'reviewed',
-                feedbackAt: new Date().toISOString(),
-                pendingManualCount: 0,
+                responseFeedback: nextResponseFeedback,
+                feedback: savedSubmission.feedback ?? item.feedback,
+                feedbackBy: nextStatus === 'reviewed' ? reviewerName : item.feedbackBy,
+                status: savedSubmission.status || nextStatus,
+                feedbackAt: nextStatus === 'reviewed' ? savedFeedbackAt : item.feedbackAt,
+                pendingManualCount: nextPendingManualCount,
               }
             : item
         )
       );
-      closeEssayReview();
-      setStatusMessageById((prev) => ({
+      setDetailById((prev) => ({
         ...prev,
-        [submissionId]: 'Feedback saved.',
+        [submissionId]: prev[submissionId]
+          ? {
+              ...prev[submissionId],
+              responseFeedback: nextResponseFeedback,
+              feedback: savedSubmission.feedback ?? prev[submissionId].feedback,
+              feedbackBy:
+                savedSubmission.status === 'reviewed' || nextStatus === 'reviewed'
+                  ? reviewerName
+                  : prev[submissionId].feedbackBy,
+              feedbackAt:
+                savedSubmission.status === 'reviewed' || nextStatus === 'reviewed'
+                  ? savedFeedbackAt
+                  : prev[submissionId].feedbackAt,
+              status: savedSubmission.status || nextStatus,
+            }
+          : prev[submissionId],
+      }));
+      setFeedbackDraftById((prev) => ({
+        ...prev,
+        [submissionId]: {
+          ...(prev[submissionId] || {}),
+          [responseItem.key]: feedback,
+        },
+      }));
+      setResponseStatusByKey((prev) => ({
+        ...prev,
+        [stateKey]: existingResponseFeedback
+          ? `${responseItem.label || 'Response'} updated.`
+          : nextPendingManualCount === 0
+          ? `${responseItem.label || 'Response'} saved. Submission marked reviewed.`
+          : `${responseItem.label || 'Response'} saved. ${nextPendingManualCount} response(s) still pending.`,
       }));
     } catch (err) {
       console.error('Failed to save Cambridge feedback:', err);
-      setStatusMessageById((prev) => ({
+      setResponseStatusByKey((prev) => ({
         ...prev,
-        [submissionId]: err.message || 'Could not save feedback.',
+        [stateKey]: err.message || 'Could not save feedback.',
       }));
       alert(err.message || 'Could not save feedback.');
     } finally {
-      setSavingById((prev) => ({ ...prev, [submissionId]: false }));
+      setSavingById((prev) => ({ ...prev, [stateKey]: false }));
     }
   };
 
@@ -883,9 +974,10 @@ const CambridgeSubmissionsPage = () => {
       setDetailById((prev) => omitRecordKey(prev, submission.id));
       setDetailLoadingById((prev) => omitRecordKey(prev, submission.id));
       setFeedbackDraftById((prev) => omitRecordKey(prev, submission.id));
-      setAiLoadingById((prev) => omitRecordKey(prev, submission.id));
-      setSavingById((prev) => omitRecordKey(prev, submission.id));
+      setAiLoadingById((prev) => omitResponseStateKeys(prev, submission.id));
+      setSavingById((prev) => omitResponseStateKeys(prev, submission.id));
       setStatusMessageById((prev) => omitRecordKey(prev, submission.id));
+      setResponseStatusByKey((prev) => omitResponseStateKeys(prev, submission.id));
 
       if (activeReviewSubmissionId === submission.id) {
         closeEssayReview();
@@ -954,9 +1046,10 @@ const CambridgeSubmissionsPage = () => {
       setDetailById((prev) => omitRecordKey(prev, submissionIds));
       setDetailLoadingById((prev) => omitRecordKey(prev, submissionIds));
       setFeedbackDraftById((prev) => omitRecordKey(prev, submissionIds));
-      setAiLoadingById((prev) => omitRecordKey(prev, submissionIds));
-      setSavingById((prev) => omitRecordKey(prev, submissionIds));
+      setAiLoadingById((prev) => omitResponseStateKeys(prev, submissionIds));
+      setSavingById((prev) => omitResponseStateKeys(prev, submissionIds));
       setStatusMessageById((prev) => omitRecordKey(prev, submissionIds));
+      setResponseStatusByKey((prev) => omitResponseStateKeys(prev, submissionIds));
 
       if (activeReviewSubmissionId && deletedIds.has(activeReviewSubmissionId)) {
         closeEssayReview();
@@ -1068,6 +1161,8 @@ const CambridgeSubmissionsPage = () => {
     const detail = detailById[submission.id];
     const isLoadingDetail = !!detailLoadingById[submission.id];
     const pendingAnswers = detail ? getPendingManualAnswers(detail) : [];
+    const legacyFeedback = String(detail?.feedback || submission?.feedback || '').trim();
+    const responseDrafts = feedbackDraftById[submission.id] || {};
 
     return (
       <div style={styles.drawerContent}>
@@ -1102,6 +1197,72 @@ const CambridgeSubmissionsPage = () => {
                         </div>
                       )}
                       <div style={styles.answerBody}>{item.userAnswer}</div>
+
+                      <div style={{ display: 'grid', gap: 8, marginTop: 12 }}>
+                        <div style={styles.drawerSectionTitle}>
+                          Feedback for {item.label || `Response ${index + 1}`}
+                        </div>
+                        <textarea
+                          ref={
+                            submission.id === activeReviewSubmissionId && index === 0
+                              ? feedbackInputRef
+                              : null
+                          }
+                          rows={4}
+                          value={responseDrafts[item.key] || ''}
+                          onChange={(e) =>
+                            setFeedbackDraftById((prev) => ({
+                              ...prev,
+                              [submission.id]: {
+                                ...(prev[submission.id] || {}),
+                                [item.key]: e.target.value,
+                              },
+                            }))
+                          }
+                          placeholder={`Enter feedback for ${item.label || `response ${index + 1}`}...`}
+                          style={styles.feedbackTextarea}
+                        />
+
+                        <div style={styles.feedbackActions}>
+                          <button
+                            onClick={() => handleGenerateEssayFeedback(submission, item)}
+                            style={styles.secondaryActionButton}
+                            disabled={
+                              !item.userAnswer ||
+                              aiLoadingById[getFeedbackStateKey(submission.id, item.key)] ||
+                              savingById[getFeedbackStateKey(submission.id, item.key)]
+                            }
+                          >
+                            {aiLoadingById[getFeedbackStateKey(submission.id, item.key)]
+                              ? 'Generating...'
+                              : 'AI Feedback'}
+                          </button>
+                          <button
+                            onClick={() => handleSaveEssayFeedback(submission.id, item)}
+                            style={styles.saveActionButton}
+                            disabled={
+                              !(responseDrafts[item.key] || '').trim() ||
+                              savingById[getFeedbackStateKey(submission.id, item.key)] ||
+                              aiLoadingById[getFeedbackStateKey(submission.id, item.key)]
+                            }
+                          >
+                            {savingById[getFeedbackStateKey(submission.id, item.key)]
+                              ? 'Saving...'
+                              : getCambridgeResponseFeedbackText(
+                                  detail?.responseFeedback || submission?.responseFeedback,
+                                  item.key
+                                )
+                              ? 'Update Feedback'
+                              : 'Save Feedback'}
+                          </button>
+                        </div>
+
+                        {responseStatusByKey[getFeedbackStateKey(submission.id, item.key)] && (
+                          <div style={styles.statusMessage}>
+                            {responseStatusByKey[getFeedbackStateKey(submission.id, item.key)]}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -1109,44 +1270,16 @@ const CambridgeSubmissionsPage = () => {
             </div>
 
             <div style={styles.drawerSection}>
-              <div style={styles.drawerSectionTitle}>Teacher Feedback</div>
-              <textarea
-                ref={submission.id === activeReviewSubmissionId ? feedbackInputRef : null}
-                rows={4}
-                value={feedbackDraftById[submission.id] || ''}
-                onChange={(e) =>
-                  setFeedbackDraftById((prev) => ({
-                    ...prev,
-                    [submission.id]: e.target.value,
-                  }))
-                }
-                placeholder="Enter feedback..."
-                style={styles.feedbackTextarea}
-              />
+              {legacyFeedback ? (
+                <>
+                  <div style={styles.drawerSectionTitle}>Existing overall feedback</div>
+                  <div style={{ ...styles.answerCard, whiteSpace: 'pre-wrap' }}>
+                    {legacyFeedback}
+                  </div>
+                </>
+              ) : null}
 
               <div style={styles.feedbackActions}>
-                <button
-                  onClick={() => handleGenerateEssayFeedback(submission)}
-                  style={styles.secondaryActionButton}
-                  disabled={
-                    !pendingAnswers.length ||
-                    aiLoadingById[submission.id] ||
-                    savingById[submission.id]
-                  }
-                >
-                  {aiLoadingById[submission.id] ? 'Generating...' : 'AI Feedback'}
-                </button>
-                <button
-                  onClick={() => handleSaveEssayFeedback(submission.id)}
-                  style={styles.saveActionButton}
-                  disabled={
-                    !(feedbackDraftById[submission.id] || '').trim() ||
-                    savingById[submission.id] ||
-                    aiLoadingById[submission.id]
-                  }
-                >
-                  {savingById[submission.id] ? 'Saving...' : 'Save Feedback'}
-                </button>
                 <button
                   onClick={() => handleViewDetail(submission.id)}
                   style={styles.ghostActionButton}
@@ -1156,7 +1289,7 @@ const CambridgeSubmissionsPage = () => {
               </div>
 
               <div style={styles.drawerHint}>
-                Saving will move this submission to the reviewed state.
+                Each open-ended response is reviewed and saved separately. The submission only moves to reviewed after all responses are marked.
               </div>
 
               {statusMessageById[submission.id] && (
@@ -1683,7 +1816,7 @@ const CambridgeSubmissionsPage = () => {
                         </div>
                       )}
 
-                      {hasReview(submission) && submission.feedback ? (
+                      {hasReview(submission) && (submission.feedback || buildCambridgeResponseFeedbackEntries(submission.responseFeedback).length) ? (
                         <div
                           style={{
                             background: '#f0fdf4',
@@ -1696,9 +1829,19 @@ const CambridgeSubmissionsPage = () => {
                           <p style={{ margin: '0 0 6px', fontSize: 13, color: '#166534' }}>
                             <strong>Reviewed</strong> by <strong>{submission.feedbackBy || '--'}</strong>
                           </p>
-                          <p style={{ margin: 0, whiteSpace: 'pre-line', fontSize: 14, color: tone.primaryText }}>
-                            {submission.feedback}
-                          </p>
+                          {submission.feedback ? (
+                            <p style={{ margin: 0, whiteSpace: 'pre-line', fontSize: 14, color: tone.primaryText }}>
+                              {submission.feedback}
+                            </p>
+                          ) : (
+                            <p style={{ margin: 0, fontSize: 14, color: tone.primaryText }}>
+                              Saved response feedback for{' '}
+                              <strong>
+                                {buildCambridgeResponseFeedbackEntries(submission.responseFeedback).length}
+                              </strong>{' '}
+                              response(s).
+                            </p>
+                          )}
                         </div>
                       ) : !canReviewEssay ? (
                         <p style={{ margin: '12px 0 0', color: tone.mutedText, fontSize: 13 }}>

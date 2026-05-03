@@ -2,6 +2,7 @@ import React, { useEffect, useLayoutEffect, useState, useCallback, useRef } from
 import { createPortal } from "react-dom";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { apiPath, hostPath, clearAuth } from "../utils/api";
+import { hasAnyVisibleCambridgeFeedback } from "../utils/cambridgeFeedback";
 import { IX_HUB_PATH, ORANGE_HUB_PATH } from "../config/examRegistry";
 import ThemeToggle from "./ThemeToggle";
 import "./StudentNavbar.css";
@@ -366,7 +367,7 @@ const StudentNavbar = () => {
         if (camRes.ok) {
           const camSubs = await camRes.json();
           const camUnseenIds = (Array.isArray(camSubs) ? camSubs : [])
-            .filter((sub) => sub.feedback && !sub.feedbackSeen)
+            .filter((sub) => hasAnyVisibleCambridgeFeedback(sub) && !sub.feedbackSeen)
             .map((sub) => sub.id);
 
           if (camUnseenIds.length > 0) {

@@ -10,6 +10,13 @@ import AdminStickySidebarLayout, {
 import { useTheme } from "../../../shared/contexts/ThemeContext";
 import { apiPath } from "../../../shared/utils/api";
 import {
+  buildCambridgeResponseFeedbackDraftMap,
+  countMissingCambridgeResponseFeedback,
+  getCambridgeResponseFeedbackText,
+  hasResolvedSubmissionFeedback,
+  upsertCambridgeResponseFeedback,
+} from "../../../shared/utils/cambridgeFeedback";
+import {
   ExpandableSubmissionList,
   SubmissionStatCards,
   getSubmissionTone,
@@ -86,6 +93,7 @@ const Review = () => {
   const [cambridgeAiLoadingById, setCambridgeAiLoadingById] = useState({});
   const [cambridgeSavingById, setCambridgeSavingById] = useState({});
   const [cambridgeStatusById, setCambridgeStatusById] = useState({});
+  const [cambridgeResponseStatusByKey, setCambridgeResponseStatusByKey] = useState({});
   const [expandedQueueItems, setExpandedQueueItems] = useState(() => ({
     writing: new Set(),
     reading: new Set(),
@@ -95,10 +103,7 @@ const Review = () => {
     typeof window !== "undefined" ? window.innerWidth <= 768 : false
   );
 
-  const hasFeedback = (submission) =>
-    String(submission?.feedback || "")
-      .trim()
-      .length > 0;
+  const hasFeedback = (submission) => hasResolvedSubmissionFeedback(submission);
 
   useEffect(() => {
     if (typeof window === "undefined") return undefined;
@@ -285,6 +290,9 @@ const Review = () => {
       .filter((item) => item.userAnswer.length > 0);
   };
 
+  const getCambridgeFeedbackStateKey = (submissionId, responseKey) =>
+    `${submissionId}:${responseKey}`;
+
   const getCambridgeRowKey = (source, submissionId) =>
     `${String(source || "cambridge")}:${String(submissionId || "")}`;
 
@@ -349,8 +357,7 @@ const Review = () => {
       setCambridgeDetailsById((prev) => ({ ...prev, [submissionId]: detail }));
       setCambridgeFeedbackDraftById((prev) => ({
         ...prev,
-        [submissionId]:
-          typeof detail?.feedback === "string" ? detail.feedback : prev[submissionId] || "",
+        [submissionId]: prev[submissionId] || buildCambridgeResponseFeedbackDraftMap(detail?.responseFeedback),
       }));
     } catch (err) {
       console.error("Failed to load Cambridge submission detail:", err);
@@ -366,18 +373,18 @@ const Review = () => {
     }
   };
 
-  const handleGenerateCambridgeFeedback = async (submission) => {
+  const handleGenerateCambridgeFeedback = async (submission, responseItem) => {
     const detail = cambridgeDetailsById[submission.id];
-    const responses = getPendingManualAnswers(detail);
+    const stateKey = getCambridgeFeedbackStateKey(submission.id, responseItem.key);
 
-    if (!responses.length) {
+    if (!responseItem?.userAnswer?.trim()) {
       alert("No open-ended responses were found for AI feedback.");
       return;
     }
 
     try {
-      setCambridgeAiLoadingById((prev) => ({ ...prev, [submission.id]: true }));
-      setCambridgeStatusById((prev) => ({ ...prev, [submission.id]: "" }));
+      setCambridgeAiLoadingById((prev) => ({ ...prev, [stateKey]: true }));
+      setCambridgeResponseStatusByKey((prev) => ({ ...prev, [stateKey]: "" }));
 
       const res = await fetch(apiPath("ai/generate-cambridge-feedback"), {
         method: "POST",
@@ -386,12 +393,14 @@ const Review = () => {
           studentName: submission.studentName || "N/A",
           testType: submission.testType || "Orange",
           classCode: submission.classCode || "",
-          responses: responses.map((item) => ({
-            label: item.label,
-            prompt: item.prompt,
-            answer: item.userAnswer,
-            questionType: item.questionType,
-          })),
+          responses: [
+            {
+              label: responseItem.label,
+              prompt: responseItem.prompt,
+              answer: responseItem.userAnswer,
+              questionType: responseItem.questionType,
+            },
+          ],
         }),
       });
 
@@ -406,50 +415,63 @@ const Review = () => {
 
       setCambridgeFeedbackDraftById((prev) => ({
         ...prev,
-        [submission.id]: data.suggestion,
+        [submission.id]: {
+          ...(prev[submission.id] || {}),
+          [responseItem.key]: data.suggestion,
+        },
       }));
-      setCambridgeStatusById((prev) => ({
+      setCambridgeResponseStatusByKey((prev) => ({
         ...prev,
-        [submission.id]: data.warning
+        [stateKey]: data.warning
           ? data.warning
           : data.cached
-          ? "Loaded cached AI feedback."
-          : "AI feedback generated.",
+          ? `${responseItem.label || 'Response'} loaded cached AI feedback.`
+          : `${responseItem.label || 'Response'} AI feedback generated.`,
       }));
     } catch (err) {
       console.error("Failed to generate Cambridge AI feedback:", err);
-      setCambridgeStatusById((prev) => ({
+      setCambridgeResponseStatusByKey((prev) => ({
         ...prev,
-        [submission.id]: err.message || "AI feedback failed.",
+        [stateKey]: err.message || "AI feedback failed.",
       }));
       alert(err.message || "AI feedback failed.");
     } finally {
-      setCambridgeAiLoadingById((prev) => ({ ...prev, [submission.id]: false }));
+      setCambridgeAiLoadingById((prev) => ({ ...prev, [stateKey]: false }));
     }
   };
 
-  const handleSaveCambridgeFeedback = async (submissionId) => {
-    const feedback = (cambridgeFeedbackDraftById[submissionId] || "").trim();
+  const handleSaveCambridgeFeedback = async (submissionId, responseItem) => {
+    const stateKey = getCambridgeFeedbackStateKey(submissionId, responseItem.key);
+    const feedback = String(
+      cambridgeFeedbackDraftById[submissionId]?.[responseItem.key] || ""
+    ).trim();
     if (!feedback) return;
 
-    const existingFeedback = String(
-      cambridgeDetailsById[submissionId]?.feedback ||
-        cambridgeSubmissions.find((item) => item.id === submissionId)?.feedback ||
-        ""
-    ).trim();
+    const detail = cambridgeDetailsById[submissionId];
+    const submission = cambridgeSubmissions.find((item) => item.id === submissionId);
+    const pendingAnswers = detail ? getPendingManualAnswers(detail) : [];
+    const existingResponseFeedback = getCambridgeResponseFeedbackText(
+      detail?.responseFeedback || submission?.responseFeedback,
+      responseItem.key
+    );
     const reviewerName =
       teacher?.name || teacher?.username || teacher?.fullName || "Teacher";
 
     try {
-      setCambridgeSavingById((prev) => ({ ...prev, [submissionId]: true }));
+      setCambridgeSavingById((prev) => ({ ...prev, [stateKey]: true }));
 
       const res = await fetch(apiPath(`cambridge/submissions/${submissionId}`), {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          feedback,
           feedbackBy: reviewerName,
-          status: "reviewed",
+          responseFeedbackPatch: {
+            key: responseItem.key,
+            label: responseItem.label,
+            prompt: responseItem.prompt,
+            questionType: responseItem.questionType,
+            feedback,
+          },
         }),
       });
 
@@ -459,18 +481,42 @@ const Review = () => {
       }
 
       const payload = await res.json().catch(() => ({}));
+      const savedSubmission = payload?.submission || {};
+      const nextResponseFeedback =
+        savedSubmission.responseFeedback ||
+        upsertCambridgeResponseFeedback({
+          existingValue: detail?.responseFeedback || submission?.responseFeedback,
+          responseKey: responseItem.key,
+          feedback,
+          feedbackBy: reviewerName,
+          feedbackAt: savedSubmission.feedbackAt || new Date().toISOString(),
+          label: responseItem.label,
+          prompt: responseItem.prompt,
+          questionType: responseItem.questionType,
+        });
+      const hasLegacyOverallFeedback = Boolean(
+        String(savedSubmission.feedback || detail?.feedback || submission?.feedback || "").trim()
+      );
+      const nextPendingManualCount = hasLegacyOverallFeedback
+        ? 0
+        : countMissingCambridgeResponseFeedback(pendingAnswers, nextResponseFeedback);
+      const nextStatus = hasLegacyOverallFeedback || nextPendingManualCount === 0
+        ? "reviewed"
+        : "submitted";
       const savedFeedbackAt =
-        payload?.submission?.feedbackAt || new Date().toISOString();
+        savedSubmission.feedbackAt || new Date().toISOString();
 
       setCambridgeSubmissions((prev) =>
         prev.map((item) =>
           item.id === submissionId
             ? {
                 ...item,
-                feedback,
-                feedbackBy: reviewerName,
-                feedbackAt: savedFeedbackAt,
-                status: "reviewed",
+                responseFeedback: nextResponseFeedback,
+                feedback: savedSubmission.feedback ?? item.feedback,
+                feedbackBy: nextStatus === "reviewed" ? reviewerName : item.feedbackBy,
+                feedbackAt: nextStatus === "reviewed" ? savedFeedbackAt : item.feedbackAt,
+                status: savedSubmission.status || nextStatus,
+                pendingManualCount: nextPendingManualCount,
               }
             : item
         )
@@ -480,30 +526,44 @@ const Review = () => {
         [submissionId]: prev[submissionId]
           ? {
               ...prev[submissionId],
-              feedback,
-              feedbackBy: reviewerName,
-              feedbackAt: savedFeedbackAt,
-              status: "reviewed",
+              responseFeedback: nextResponseFeedback,
+              feedback: savedSubmission.feedback ?? prev[submissionId].feedback,
+              feedbackBy:
+                savedSubmission.status === "reviewed" || nextStatus === "reviewed"
+                  ? reviewerName
+                  : prev[submissionId].feedbackBy,
+              feedbackAt:
+                savedSubmission.status === "reviewed" || nextStatus === "reviewed"
+                  ? savedFeedbackAt
+                  : prev[submissionId].feedbackAt,
+              status: savedSubmission.status || nextStatus,
             }
           : prev[submissionId],
       }));
       setCambridgeFeedbackDraftById((prev) => ({
         ...prev,
-        [submissionId]: feedback,
+        [submissionId]: {
+          ...(prev[submissionId] || {}),
+          [responseItem.key]: feedback,
+        },
       }));
-      setCambridgeStatusById((prev) => ({
+      setCambridgeResponseStatusByKey((prev) => ({
         ...prev,
-        [submissionId]: existingFeedback ? "Feedback updated." : "Feedback saved.",
+        [stateKey]: existingResponseFeedback
+          ? `${responseItem.label || 'Response'} updated.`
+          : nextPendingManualCount === 0
+          ? `${responseItem.label || 'Response'} saved. Submission marked reviewed.`
+          : `${responseItem.label || 'Response'} saved. ${nextPendingManualCount} response(s) still pending.`,
       }));
     } catch (err) {
       console.error("Failed to save Cambridge feedback:", err);
-      setCambridgeStatusById((prev) => ({
+      setCambridgeResponseStatusByKey((prev) => ({
         ...prev,
-        [submissionId]: err.message || "Could not save feedback.",
+        [stateKey]: err.message || "Could not save feedback.",
       }));
       alert(err.message || "Could not save feedback.");
     } finally {
-      setCambridgeSavingById((prev) => ({ ...prev, [submissionId]: false }));
+      setCambridgeSavingById((prev) => ({ ...prev, [stateKey]: false }));
     }
   };
 
@@ -1254,8 +1314,8 @@ const Review = () => {
     pendingAnswers,
     isLoadingDetail
   ) => {
-    const existingFeedback = String(detail?.feedback || sub?.feedback || "").trim();
-    const hasExistingFeedback = existingFeedback.length > 0;
+    const legacyFeedback = String(detail?.feedback || sub?.feedback || "").trim();
+    const responseDrafts = cambridgeFeedbackDraftById[sub.id] || {};
 
     return (
     <div style={{ display: "grid", gap: isCompactLayout ? 8 : 10 }}>
@@ -1306,98 +1366,131 @@ const Review = () => {
                       </div>
                     )}
                     <div style={{ whiteSpace: "pre-wrap" }}>{item.userAnswer}</div>
+
+                    <div style={{ display: "grid", gap: 8, marginTop: 12 }}>
+                      <div style={{ fontWeight: 700, fontSize: 13 }}>
+                        Feedback for {item.label || `Response ${answerIndex + 1}`}
+                      </div>
+                      <textarea
+                        rows={4}
+                        value={responseDrafts[item.key] || ""}
+                        onChange={(e) =>
+                          setCambridgeFeedbackDraftById((prev) => ({
+                            ...prev,
+                            [sub.id]: {
+                              ...(prev[sub.id] || {}),
+                              [item.key]: e.target.value,
+                            },
+                          }))
+                        }
+                        placeholder={`Enter feedback for ${item.label || `response ${answerIndex + 1}`}...`}
+                        style={{
+                          width: "100%",
+                          padding: isCompactLayout ? 9 : 10,
+                          border: `1px solid ${isDarkMode ? "#2a3350" : "#d1d5db"}`,
+                          borderRadius: 8,
+                          fontSize: 14,
+                          background: isDarkMode ? "#0f172a" : "#fff",
+                          color: isDarkMode ? "#e5e7eb" : "#111827",
+                          boxSizing: "border-box",
+                        }}
+                      />
+
+                      <div style={feedbackActionRowStyle(isCompactLayout)}>
+                        <button
+                          onClick={() => handleGenerateCambridgeFeedback(sub, item)}
+                          style={
+                            isCompactLayout
+                              ? { ...secondaryButtonStyle, width: "100%", padding: "10px 12px" }
+                              : secondaryButtonStyle
+                          }
+                          disabled={
+                            !item.userAnswer ||
+                            cambridgeAiLoadingById[
+                              getCambridgeFeedbackStateKey(sub.id, item.key)
+                            ] ||
+                            cambridgeSavingById[
+                              getCambridgeFeedbackStateKey(sub.id, item.key)
+                            ]
+                          }
+                        >
+                          {cambridgeAiLoadingById[
+                            getCambridgeFeedbackStateKey(sub.id, item.key)
+                          ]
+                            ? "Generating..."
+                            : "AI Feedback"}
+                        </button>
+                        <button
+                          onClick={() => handleSaveCambridgeFeedback(sub.id, item)}
+                          style={
+                            isCompactLayout
+                              ? { ...primaryButtonStyle, width: "100%", padding: "10px 12px" }
+                              : primaryButtonStyle
+                          }
+                          disabled={
+                            !(responseDrafts[item.key] || "").trim() ||
+                            cambridgeSavingById[
+                              getCambridgeFeedbackStateKey(sub.id, item.key)
+                            ] ||
+                            cambridgeAiLoadingById[
+                              getCambridgeFeedbackStateKey(sub.id, item.key)
+                            ]
+                          }
+                        >
+                          {cambridgeSavingById[
+                            getCambridgeFeedbackStateKey(sub.id, item.key)
+                          ]
+                            ? "Saving..."
+                            : getCambridgeResponseFeedbackText(
+                                detail?.responseFeedback || sub?.responseFeedback,
+                                item.key
+                              )
+                            ? "Update Feedback"
+                            : "Save Feedback"}
+                        </button>
+                      </div>
+
+                      {cambridgeResponseStatusByKey[
+                        getCambridgeFeedbackStateKey(sub.id, item.key)
+                      ] && (
+                        <div
+                          style={{
+                            color: isDarkMode ? "#93c5fd" : "#1d4ed8",
+                            fontSize: 13,
+                          }}
+                        >
+                          {
+                            cambridgeResponseStatusByKey[
+                              getCambridgeFeedbackStateKey(sub.id, item.key)
+                            ]
+                          }
+                        </div>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
             )}
           </div>
 
-          <div style={{ display: "grid", gap: isCompactLayout ? 6 : 8, marginTop: isCompactLayout ? 2 : 6 }}>
-            <div style={{ fontWeight: 700 }}>Teacher Feedback</div>
-            <textarea
-              rows={4}
-              value={cambridgeFeedbackDraftById[sub.id] || ""}
-              onChange={(e) =>
-                setCambridgeFeedbackDraftById((prev) => ({
-                  ...prev,
-                  [sub.id]: e.target.value,
-                }))
-              }
-              placeholder="Enter feedback..."
-              style={{
-                width: "100%",
-                padding: isCompactLayout ? 9 : 10,
-                border: `1px solid ${isDarkMode ? "#2a3350" : "#d1d5db"}`,
-                borderRadius: 8,
-                fontSize: 14,
-                background: isDarkMode ? "#0f172a" : "#fff",
-                color: isDarkMode ? "#e5e7eb" : "#111827",
-                boxSizing: "border-box",
-              }}
-            />
-
-            <div
-              style={feedbackActionRowStyle(isCompactLayout)}
-            >
-              <button
-                onClick={() => handleGenerateCambridgeFeedback(sub)}
-                style={
-                  isCompactLayout
-                    ? { ...secondaryButtonStyle, width: "100%", padding: "10px 12px" }
-                    : secondaryButtonStyle
-                }
-                disabled={
-                  !pendingAnswers.length ||
-                  cambridgeAiLoadingById[sub.id] ||
-                  cambridgeSavingById[sub.id]
-                }
-              >
-                {cambridgeAiLoadingById[sub.id] ? "Generating..." : "AI Feedback"}
-              </button>
-              <button
-                onClick={() => handleSaveCambridgeFeedback(sub.id)}
-                style={
-                  isCompactLayout
-                    ? { ...primaryButtonStyle, width: "100%", padding: "10px 12px" }
-                    : primaryButtonStyle
-                }
-                disabled={
-                  !(cambridgeFeedbackDraftById[sub.id] || "").trim() ||
-                  cambridgeSavingById[sub.id] ||
-                  cambridgeAiLoadingById[sub.id]
-                }
-              >
-                {cambridgeSavingById[sub.id]
-                  ? "Saving..."
-                  : hasExistingFeedback
-                  ? "Update Feedback"
-                  : "Save Feedback"}
-              </button>
-              <span
-                style={{
-                  gridColumn: isCompactLayout ? "1 / -1" : undefined,
-                  color: isDarkMode ? "#9ca3af" : "#6b7280",
-                  fontSize: isCompactLayout ? 12 : 13,
-                  lineHeight: 1.45,
-                }}
-              >
-                {hasExistingFeedback
-                  ? "Saving will update the existing feedback and keep this row available for further edits."
-                  : "Saving will mark this submission as reviewed and keep it available in All/Reviewed for later edits."}
-              </span>
-            </div>
-
-            {cambridgeStatusById[sub.id] && (
+          {legacyFeedback && (
+            <div style={{ display: "grid", gap: isCompactLayout ? 6 : 8, marginTop: isCompactLayout ? 2 : 6 }}>
+              <div style={{ fontWeight: 700 }}>Existing overall feedback</div>
               <div
                 style={{
-                  color: isDarkMode ? "#93c5fd" : "#1d4ed8",
-                  fontSize: 13,
+                  padding: isCompactLayout ? 10 : 12,
+                  borderRadius: 8,
+                  border: `1px solid ${isDarkMode ? "#2a3350" : "#d1d5db"}`,
+                  background: isDarkMode ? "#0f172a" : "#fff",
+                  whiteSpace: "pre-wrap",
+                  color: isDarkMode ? "#e5e7eb" : "#111827",
+                  lineHeight: 1.55,
                 }}
               >
-                {cambridgeStatusById[sub.id]}
+                {legacyFeedback}
               </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       )}
     </div>

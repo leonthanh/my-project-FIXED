@@ -102,6 +102,10 @@ const CambridgeSubmission = sequelize.define('CambridgeSubmission', {
     type: DataTypes.TEXT,
     allowNull: true
   },
+  responseFeedback: {
+    type: DataTypes.JSON,
+    allowNull: true
+  },
   feedbackBy: {
     type: DataTypes.STRING,
     allowNull: true
