@@ -1,36 +1,89 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { apiPath, hostPath, redirectInApp, redirectToLogin } from '../../../../../shared/utils/api';
 import TestHeader from '../../../../../shared/components/TestHeader';
 import TestStartModal from '../../../../../shared/components/TestStartModal';
 import { getOrangeSelectTestPathForTestType } from '../../../config/navigation';
+import {
+	buildPlacementAttemptPath,
+	readPlacementRuntimeContext,
+} from '../../../../../shared/utils/placementTests';
 import './PetWritingTest.css';
 
 const DURATION_SECONDS = 45 * 60;
 
 const PetWritingTestPage = () => {
+	const { id: routeTestId } = useParams();
+	const location = useLocation();
+	const navigate = useNavigate();
+	const placementContext = useMemo(
+		() => readPlacementRuntimeContext({ pathname: location.pathname, search: location.search }),
+		[location.pathname, location.search]
+	);
+	const isPlacementRuntime = Boolean(
+		placementContext.isPlacementRuntime && placementContext.placementAttemptItemToken
+	);
+	const storageSuffix = isPlacementRuntime && placementContext.placementAttemptItemToken
+		? `:${placementContext.placementAttemptItemToken}`
+		: '';
+	const task1StorageKey = `pet_writing_task1${storageSuffix}`;
+	const task2Q2StorageKey = `pet_writing_task2_q2${storageSuffix}`;
+	const task2Q3StorageKey = `pet_writing_task2_q3${storageSuffix}`;
+	const selectedQuestionStorageKey = `pet_writing_selected_q${storageSuffix}`;
+	const timeLeftStorageKey = `pet_writing_timeLeft${storageSuffix}`;
+	const endAtStorageKey = `pet_writing_endAt${storageSuffix}`;
+	const startedStorageKey = `pet_writing_started${storageSuffix}`;
+	const questionPickStorageKey = `pet_writing_question_pick${storageSuffix}`;
+	const exitPath = useMemo(
+		() => (
+			isPlacementRuntime && placementContext.placementAttemptToken
+				? buildPlacementAttemptPath(placementContext.placementAttemptToken)
+				: getOrangeSelectTestPathForTestType('pet-writing')
+		),
+		[isPlacementRuntime, placementContext.placementAttemptToken]
+	);
+	const user = useMemo(() => {
+		try {
+			return JSON.parse(localStorage.getItem('user') || 'null');
+		} catch (_error) {
+			return null;
+		}
+	}, []);
+	const selectedTestId = useMemo(() => {
+		if (isPlacementRuntime && routeTestId) {
+			return String(routeTestId);
+		}
+
+		return (
+			localStorage.getItem('selectedPetWritingTestId') ||
+			localStorage.getItem('selectedTestId') ||
+			''
+		);
+	}, [isPlacementRuntime, routeTestId]);
+
 	const [task1Answer, setTask1Answer] = useState(
-		localStorage.getItem('pet_writing_task1') || ''
+		localStorage.getItem(task1StorageKey) || ''
 	);
 	const [task2Answer2, setTask2Answer2] = useState(
-		localStorage.getItem('pet_writing_task2_q2') || ''
+		localStorage.getItem(task2Q2StorageKey) || ''
 	);
 	const [task2Answer3, setTask2Answer3] = useState(
-		localStorage.getItem('pet_writing_task2_q3') || ''
+		localStorage.getItem(task2Q3StorageKey) || ''
 	);
 	const [selectedQuestion, setSelectedQuestion] = useState(
-		localStorage.getItem('pet_writing_selected_q') || '2'
+		localStorage.getItem(selectedQuestionStorageKey) || '2'
 	);
 	const [timeLeft, setTimeLeft] = useState(() => {
-		const saved = localStorage.getItem('pet_writing_timeLeft');
+		const saved = localStorage.getItem(timeLeftStorageKey);
 		if (!saved) return DURATION_SECONDS;
 		return Math.min(parseInt(saved, 10), DURATION_SECONDS);
 	});
 	const [endAt, setEndAt] = useState(() => {
-		const saved = localStorage.getItem('pet_writing_endAt');
+		const saved = localStorage.getItem(endAtStorageKey);
 		return saved ? parseInt(saved, 10) : 0;
 	});
 	const [started, setStarted] = useState(
-		localStorage.getItem('pet_writing_started') === 'true'
+		localStorage.getItem(startedStorageKey) === 'true'
 	);
 	const [submitted, setSubmitted] = useState(false);
 	const [isSubmitting, setIsSubmitting] = useState(false);
@@ -46,7 +99,7 @@ const PetWritingTestPage = () => {
 	const autoSubmittingRef = useRef(false);
 	const [questionPick, setQuestionPick] = useState(() => {
 		try {
-			const raw = localStorage.getItem('pet_writing_question_pick');
+			const raw = localStorage.getItem(questionPickStorageKey);
 			const parsed = raw ? JSON.parse(raw) : null;
 			return {
 				q2: parsed?.q2 || 'UNDECIDED',
@@ -65,38 +118,33 @@ const PetWritingTestPage = () => {
 		);
 	};
 
-	const user = JSON.parse(localStorage.getItem('user'));
-	const selectedTestId =
-		localStorage.getItem('selectedPetWritingTestId') ||
-		localStorage.getItem('selectedTestId');
+	useEffect(() => {
+		localStorage.setItem(task1StorageKey, task1Answer);
+	}, [task1Answer, task1StorageKey]);
 
 	useEffect(() => {
-		localStorage.setItem('pet_writing_task1', task1Answer);
-	}, [task1Answer]);
+		localStorage.setItem(task2Q2StorageKey, task2Answer2);
+	}, [task2Answer2, task2Q2StorageKey]);
 
 	useEffect(() => {
-		localStorage.setItem('pet_writing_task2_q2', task2Answer2);
-	}, [task2Answer2]);
+		localStorage.setItem(task2Q3StorageKey, task2Answer3);
+	}, [task2Answer3, task2Q3StorageKey]);
 
 	useEffect(() => {
-		localStorage.setItem('pet_writing_task2_q3', task2Answer3);
-	}, [task2Answer3]);
+		localStorage.setItem(selectedQuestionStorageKey, selectedQuestion);
+	}, [selectedQuestion, selectedQuestionStorageKey]);
 
 	useEffect(() => {
-		localStorage.setItem('pet_writing_selected_q', selectedQuestion);
-	}, [selectedQuestion]);
+		localStorage.setItem(questionPickStorageKey, JSON.stringify(questionPick));
+	}, [questionPick, questionPickStorageKey]);
 
 	useEffect(() => {
-		localStorage.setItem('pet_writing_question_pick', JSON.stringify(questionPick));
-	}, [questionPick]);
+		localStorage.setItem(timeLeftStorageKey, timeLeft.toString());
+	}, [timeLeft, timeLeftStorageKey]);
 
 	useEffect(() => {
-		localStorage.setItem('pet_writing_timeLeft', timeLeft.toString());
-	}, [timeLeft]);
-
-	useEffect(() => {
-		localStorage.setItem('pet_writing_started', started.toString());
-	}, [started]);
+		localStorage.setItem(startedStorageKey, started.toString());
+	}, [started, startedStorageKey]);
 
 	useEffect(() => {
 		const handleResize = () => {
@@ -108,7 +156,7 @@ const PetWritingTestPage = () => {
 
 	useEffect(() => {
 		if (!selectedTestId) {
-			setMessage('Cannot find selected test.');
+			setMessage(isPlacementRuntime ? 'This placement writing link is incomplete.' : 'Cannot find selected test.');
 			return;
 		}
 
@@ -127,15 +175,15 @@ const PetWritingTestPage = () => {
 		};
 
 		fetchTestData();
-	}, [selectedTestId]);
+	}, [isPlacementRuntime, selectedTestId]);
 
 	useEffect(() => {
 		if (endAt) {
-			localStorage.setItem('pet_writing_endAt', endAt.toString());
+			localStorage.setItem(endAtStorageKey, endAt.toString());
 		} else {
-			localStorage.removeItem('pet_writing_endAt');
+			localStorage.removeItem(endAtStorageKey);
 		}
-	}, [endAt]);
+	}, [endAt, endAtStorageKey]);
 
 	useEffect(() => {
 		if (started && !endAt) {
@@ -222,36 +270,51 @@ const PetWritingTestPage = () => {
 		setSubmitted(true);
 
 		try {
+			const payload = {
+				task1: task1Answer,
+				task2: answer,
+				timeLeft,
+				testId: parseInt(selectedTestId, 10),
+			};
+
+			if (isPlacementRuntime && placementContext.placementAttemptItemToken) {
+				payload.placementAttemptItemToken = placementContext.placementAttemptItemToken;
+			} else if (user) {
+				payload.user = user;
+			}
+
 			const res = await fetch(apiPath('writing/submit'), {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					task1: task1Answer,
-					task2: answer,
-					timeLeft,
-					user,
-					testId: parseInt(selectedTestId, 10),
-				}),
+				body: JSON.stringify(payload),
 			});
 
 			const data = await res.json();
 			setMessage(data.message || 'Submission complete.');
 
-			localStorage.removeItem('pet_writing_task1');
-			localStorage.removeItem('pet_writing_task2_q2');
-			localStorage.removeItem('pet_writing_task2_q3');
-			localStorage.removeItem('pet_writing_selected_q');
-			localStorage.removeItem('pet_writing_timeLeft');
-			localStorage.removeItem('pet_writing_started');
-			localStorage.removeItem('pet_writing_endAt');
-			localStorage.removeItem('pet_writing_question_pick');
-			localStorage.removeItem('selectedPetWritingTestId');
-			localStorage.removeItem('selectedTestId');
-			localStorage.removeItem('user');
+			localStorage.removeItem(task1StorageKey);
+			localStorage.removeItem(task2Q2StorageKey);
+			localStorage.removeItem(task2Q3StorageKey);
+			localStorage.removeItem(selectedQuestionStorageKey);
+			localStorage.removeItem(timeLeftStorageKey);
+			localStorage.removeItem(startedStorageKey);
+			localStorage.removeItem(endAtStorageKey);
+			localStorage.removeItem(questionPickStorageKey);
+
+			if (!isPlacementRuntime) {
+				localStorage.removeItem('selectedPetWritingTestId');
+				localStorage.removeItem('selectedTestId');
+				localStorage.removeItem('user');
+			}
 
 			setTimeout(() => {
+				if (isPlacementRuntime) {
+					navigate(exitPath, { replace: true });
+					return;
+				}
+
 				redirectToLogin({ replace: true });
-			}, 3000);
+			}, isPlacementRuntime ? 1200 : 3000);
 		} catch (err) {
 			console.error('Submit error:', err);
 			setMessage('Failed to submit. Please try again.');
@@ -260,7 +323,27 @@ const PetWritingTestPage = () => {
 		} finally {
 			setIsSubmitting(false);
 		}
-	}, [isSubmitting, resolvePart2Submission, selectedTestId, submitted, task1Answer, timeLeft, user]);
+	}, [
+		endAtStorageKey,
+		exitPath,
+		isPlacementRuntime,
+		isSubmitting,
+		navigate,
+		placementContext.placementAttemptItemToken,
+		questionPickStorageKey,
+		resolvePart2Submission,
+		selectedQuestionStorageKey,
+		selectedTestId,
+		startedStorageKey,
+		submitted,
+		task1Answer,
+		task1StorageKey,
+		task2Q2StorageKey,
+		task2Q3StorageKey,
+		timeLeft,
+		timeLeftStorageKey,
+		user,
+	]);
 
 	const handleSubmit = useCallback(() => {
 		submitCurrentWork();
@@ -322,12 +405,17 @@ const PetWritingTestPage = () => {
 						The timer starts as soon as you press Start. The system auto-saves your Part 1 answer and your selected Part 2 response while you work.
 					</>
 				}
-				secondaryLabel="Cancel"
-				onSecondary={() =>
+				secondaryLabel={isPlacementRuntime ? 'Back to placement' : 'Cancel'}
+				onSecondary={() => {
+					if (isPlacementRuntime) {
+						navigate(exitPath, { replace: true });
+						return;
+					}
+
 					redirectInApp(getOrangeSelectTestPathForTestType('pet-writing'), {
 						replace: true,
-					})
-				}
+					});
+				}}
 				primaryLabel="Start test"
 				onPrimary={() => {
 					autoSubmittingRef.current = false;
