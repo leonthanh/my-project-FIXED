@@ -8,7 +8,7 @@ const buildBaseWorkspaceLinks = (navigate, currentKey) => [
   {
     key: "review",
     label: "Review",
-    hint: "Teacher queue",
+    hint: "All submission types",
     tone: "blue",
     active: currentKey === "review",
     onClick: () => navigate("/review"),

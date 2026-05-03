@@ -589,7 +589,7 @@ const AdminReadingSubmissions = () => {
   return (
     <>
       <AdminNavbar />
-      <div style={{ padding: 24, maxWidth: "100%", width: "100%", margin: "0 auto" }} className="admin-page admin-submission-page">
+      <div style={{ padding: "20px 14px", maxWidth: "100%", width: "100%", margin: "0 auto" }} className="admin-page admin-submission-page">
         <AdminStickySidebarLayout
           eyebrow="Reading"
           title="Reading submissions"
@@ -618,6 +618,7 @@ const AdminReadingSubmissions = () => {
           )}
         >
           <SubmissionStatCards
+            compact
             stats={[
               {
                 label: "Total",
@@ -644,6 +645,7 @@ const AdminReadingSubmissions = () => {
           />
 
           <SubmissionFilterPanel
+            compact
             fields={[
               {
                 key: "student",
@@ -689,6 +691,7 @@ const AdminReadingSubmissions = () => {
             filteredCount={filteredSubs.length}
             totalCount={subs.length}
             summaryLabel="submissions"
+            summaryHint="Click a row to view the score summary, feedback, and actions."
           />
 
           {canDeleteSubmissions && (
@@ -748,11 +751,6 @@ const AdminReadingSubmissions = () => {
               )}
             </>
           )}
-
-          <p style={{ fontSize: 13, color: isDarkMode ? "#94a3b8" : "#6b7280", marginBottom: 12 }}>
-            Click a row to view the score summary, feedback, and actions.
-          </p>
-
           {loading && (
             <p style={statusMessageStyle}>
               <InlineIcon name="loading" size={16} />
@@ -767,6 +765,7 @@ const AdminReadingSubmissions = () => {
           )}
           {!loading && filteredSubs.length > 0 && (
             <ExpandableSubmissionList
+              compact
             items={filteredSubs}
             expandedItems={expandedItems}
             onToggle={toggleExpand}
@@ -1312,11 +1311,11 @@ const feedbackStateStyle = (color) => ({ display: "inline-flex", alignItems: "ce
 const inProgressStyle = { display: "inline-flex", alignItems: "center", gap: 6, fontWeight: 700, color: "#1d4ed8" };
 const modalTitleStyle = { margin: 0, display: "inline-flex", alignItems: "center", gap: 10 };
 const sectionTitleStyle = { margin: "0 0 10px 0", display: "inline-flex", alignItems: "center", gap: 8 };
-const selectionToolbarStyle = { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap", marginBottom: 12, padding: "12px 14px", border: "1px solid #e2e8f0", borderRadius: 14, background: "#f8fafc" };
-const selectionSummaryStyle = { fontSize: 14, color: "#475569" };
+const selectionToolbarStyle = { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap", marginBottom: 8, padding: "10px 12px", border: "1px solid #e2e8f0", borderRadius: 12, background: "#f8fafc" };
+const selectionSummaryStyle = { fontSize: 13, color: "#475569" };
 const selectionActionsStyle = { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" };
 const selectionCheckboxLabelStyle = { display: "inline-flex", alignItems: "center", justifyContent: "center", width: 28, height: 28, borderRadius: 8, border: "1px solid #e2e8f0", background: "#f8fafc", cursor: "pointer" };
-const bulkBarStyle = { display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 12, padding: "12px 14px", border: "1px solid #fecaca", borderRadius: 14, background: "#fff1f2", color: "#7f1d1d" };
+const bulkBarStyle = { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 8, padding: "10px 12px", border: "1px solid #fecaca", borderRadius: 12, background: "#fff1f2", color: "#7f1d1d" };
 const secondaryActionBtn = { background: "#e5e7eb", color: "#374151", border: "none", borderRadius: 8, padding: "7px 12px", cursor: "pointer", fontWeight: 700, fontSize: 12.5, lineHeight: 1.05 };
 const dangerActionBtn = { background: "#dc2626", color: "#fff", border: "none", borderRadius: 8, padding: "7px 12px", cursor: "pointer", fontWeight: 700, fontSize: 12.5, lineHeight: 1.05 };
 const confirmMetaHeadingStyle = { margin: "0 0 10px", fontSize: 12, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: "inherit" };

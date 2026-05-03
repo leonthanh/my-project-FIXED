@@ -24,7 +24,6 @@ import {
   getSubmissionTone,
 } from "../components/SubmissionCardList";
 import AdminConfirmModal from "../components/AdminConfirmModal";
-import SubmissionFilterPanel from "../components/SubmissionFilterPanel";
 import {
   formatAttemptTimestamp,
   getAttemptTimingMeta,
@@ -46,6 +45,39 @@ const CAMBRIDGE_SUBMISSION_TABS = [
     shortLabel: 'Reading',
     label: 'Reading Submissions',
   },
+];
+
+const CAMBRIDGE_STATUS_TONES = {
+  pending: {
+    activeBackground: '#f59e0b',
+    activeBorder: '#f59e0b',
+    activeText: '#ffffff',
+    softBackground: '#fff7ed',
+    softBorder: '#fed7aa',
+    softText: '#9a3412',
+  },
+  reviewed: {
+    activeBackground: '#16a34a',
+    activeBorder: '#16a34a',
+    activeText: '#ffffff',
+    softBackground: '#f0fdf4',
+    softBorder: '#bbf7d0',
+    softText: '#166534',
+  },
+  all: {
+    activeBackground: '#2563eb',
+    activeBorder: '#2563eb',
+    activeText: '#ffffff',
+    softBackground: '#eff6ff',
+    softBorder: '#bfdbfe',
+    softText: '#1d4ed8',
+  },
+};
+
+const CAMBRIDGE_STATUS_OPTIONS = [
+  { value: 'pending', label: 'Pending' },
+  { value: 'reviewed', label: 'Reviewed' },
+  { value: 'all', label: 'All' },
 ];
 
 const parseJsonIfString = (value) => {
@@ -242,6 +274,43 @@ const CambridgeSubmissionsPage = () => {
   const feedbackInputRef = useRef(null);
   const deepLinkHandledRef = useRef('');
   const canDeleteSubmissions = teacher?.role === 'admin';
+  const filterFields = [
+    {
+      key: 'studentName',
+      label: 'Student Name',
+      placeholder: 'Student name',
+      value: filters.studentName,
+      onChange: (value) => setFilters((prev) => ({ ...prev, studentName: value })),
+    },
+    {
+      key: 'studentPhone',
+      label: 'Phone',
+      placeholder: 'Phone number',
+      value: filters.studentPhone,
+      onChange: (value) => setFilters((prev) => ({ ...prev, studentPhone: value })),
+    },
+    {
+      key: 'classCode',
+      label: 'Class Code',
+      placeholder: 'e.g. 148-IX-3A-S1',
+      value: filters.classCode,
+      onChange: (value) => setFilters((prev) => ({ ...prev, classCode: value })),
+    },
+    {
+      key: 'teacherName',
+      label: 'Test Teacher',
+      placeholder: 'Teacher name',
+      value: filters.teacherName,
+      onChange: (value) => setFilters((prev) => ({ ...prev, teacherName: value })),
+    },
+    {
+      key: 'reviewedBy',
+      label: 'Reviewed By',
+      placeholder: 'Reviewer name',
+      value: filters.reviewedBy,
+      onChange: (value) => setFilters((prev) => ({ ...prev, reviewedBy: value })),
+    },
+  ];
 
   // Fetch submissions
   useEffect(() => {
@@ -1330,58 +1399,81 @@ const CambridgeSubmissionsPage = () => {
             </>
           )}
         >
-        <SubmissionFilterPanel
-          fields={[
-            {
-              key: 'studentName',
-              label: 'Student Name',
-              placeholder: 'Student name',
-              value: filters.studentName,
-              onChange: (value) =>
-                setFilters((prev) => ({ ...prev, studentName: value })),
-            },
-            {
-              key: 'studentPhone',
-              label: 'Phone',
-              placeholder: 'Phone number',
-              value: filters.studentPhone,
-              onChange: (value) =>
-                setFilters((prev) => ({ ...prev, studentPhone: value })),
-            },
-            {
-              key: 'classCode',
-              label: 'Class Code',
-              placeholder: 'e.g. 148-IX-3A-S1',
-              value: filters.classCode,
-              onChange: (value) =>
-                setFilters((prev) => ({ ...prev, classCode: value })),
-            },
-            {
-              key: 'teacherName',
-              label: 'Test Teacher',
-              placeholder: 'Teacher name',
-              value: filters.teacherName,
-              onChange: (value) =>
-                setFilters((prev) => ({ ...prev, teacherName: value })),
-            },
-            {
-              key: 'reviewedBy',
-              label: 'Reviewed By',
-              placeholder: 'Reviewer name',
-              value: filters.reviewedBy,
-              onChange: (value) =>
-                setFilters((prev) => ({ ...prev, reviewedBy: value })),
-            },
-          ]}
-          sortValue={sortOrder}
-          onSortChange={setSortOrder}
-          statusValue={reviewStatus}
-          onStatusChange={setReviewStatus}
-          onReset={resetFilters}
-          filteredCount={filteredSubmissions.length}
-          totalCount={pagination.total}
-          summaryLabel="submissions"
-        />
+        <div style={styles.compactFilterPanel}>
+          <div style={styles.compactFilterGrid}>
+            {filterFields.slice(0, 4).map((field) => (
+              <div key={field.key} style={styles.compactFilterField}>
+                <label style={styles.compactFilterLabel}>{field.label}</label>
+                <input
+                  type="text"
+                  placeholder={field.placeholder}
+                  value={field.value}
+                  onChange={(e) => field.onChange(e.target.value)}
+                  style={styles.compactFilterInput}
+                />
+              </div>
+            ))}
+          </div>
+
+          <div style={styles.compactFilterActionRow}>
+            <div style={styles.compactFilterFieldCompact}>
+              <label style={styles.compactFilterLabel}>{filterFields[4].label}</label>
+              <input
+                type="text"
+                placeholder={filterFields[4].placeholder}
+                value={filterFields[4].value}
+                onChange={(e) => filterFields[4].onChange(e.target.value)}
+                style={styles.compactFilterInput}
+              />
+            </div>
+
+            <div style={styles.compactFilterFieldCompact}>
+              <label style={styles.compactFilterLabel}>Sort By</label>
+              <select
+                value={sortOrder}
+                onChange={(e) => setSortOrder(e.target.value)}
+                style={styles.compactFilterInput}
+              >
+                <option value="newest">Newest First</option>
+                <option value="oldest">Oldest First</option>
+              </select>
+            </div>
+
+            <div style={styles.compactStatusField}>
+              <span style={styles.compactStatusLabel}>Status</span>
+              <div style={styles.compactStatusTabs}>
+                {CAMBRIDGE_STATUS_OPTIONS.map((option) => {
+                  const isActive = reviewStatus === option.value;
+                  const tone = CAMBRIDGE_STATUS_TONES[option.value];
+
+                  return (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => setReviewStatus(option.value)}
+                      style={{
+                        ...styles.compactStatusButton,
+                        borderColor: isActive ? tone.activeBorder : tone.softBorder,
+                        background: isActive ? tone.activeBackground : tone.softBackground,
+                        color: isActive ? tone.activeText : tone.softText,
+                      }}
+                    >
+                      {option.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={resetFilters}
+              style={styles.compactResetButton}
+            >
+              Reset
+            </button>
+          </div>
+        </div>
 
         {/* Loading */}
         {loading && (
@@ -1410,31 +1502,39 @@ const CambridgeSubmissionsPage = () => {
         {/* Submissions List */}
         {!loading && !error && (
           <>
-            <SubmissionStatCards
-              stats={[
-                {
-                  label: 'Visible',
-                  count: filteredSubmissions.length,
-                  bg: '#eff6ff',
-                  color: '#1d4ed8',
-                  border: '#bfdbfe',
-                },
-                {
-                  label: 'Pending',
-                  count: visiblePendingCount,
-                  bg: '#fffbeb',
-                  color: '#92400e',
-                  border: '#fde68a',
-                },
-                {
-                  label: 'Reviewed',
-                  count: visibleReviewedCount,
-                  bg: '#f0fdf4',
-                  color: '#166534',
-                  border: '#bbf7d0',
-                },
-              ]}
-            />
+            <div style={styles.summaryRow}>
+              <SubmissionStatCards
+                compact
+                containerStyle={{ marginBottom: 0 }}
+                stats={[
+                  {
+                    label: 'Visible',
+                    count: filteredSubmissions.length,
+                    bg: '#eff6ff',
+                    color: '#1d4ed8',
+                    border: '#bfdbfe',
+                  },
+                  {
+                    label: 'Pending',
+                    count: visiblePendingCount,
+                    bg: '#fffbeb',
+                    color: '#92400e',
+                    border: '#fde68a',
+                  },
+                  {
+                    label: 'Reviewed',
+                    count: visibleReviewedCount,
+                    bg: '#f0fdf4',
+                    color: '#166534',
+                    border: '#bbf7d0',
+                  },
+                ]}
+              />
+
+              <p style={styles.summaryHint}>
+                Click a row to view the score summary, feedback, and actions.
+              </p>
+            </div>
 
             {canDeleteSubmissions && (
               <>
@@ -1494,19 +1594,11 @@ const CambridgeSubmissionsPage = () => {
               </>
             )}
 
-            <p style={{ fontSize: '13px', color: '#6b7280', marginBottom: 12 }}>
-              Showing <strong>{filteredSubmissions.length}</strong>
-              {pagination.total !== filteredSubmissions.length ? ` / ${pagination.total}` : ''} submissions
-              {'  '}
-              <span style={{ color: '#9ca3af' }}>
-                Click a row to view the score summary, feedback, and actions.
-              </span>
-            </p>
-
             {filteredSubmissions.length === 0 ? (
               <div style={styles.emptyCell}>No submissions found.</div>
             ) : (
               <ExpandableSubmissionList
+                compact
                 items={filteredSubmissions}
                 expandedItems={expandedItems}
                 onToggle={toggleExpand}
@@ -2044,7 +2136,7 @@ const styles = {
     width: '100%',
     maxWidth: '100%',
     margin: '0 auto',
-    padding: '30px 16px',
+    padding: '22px 14px',
     boxSizing: 'border-box',
   },
   switcherWrap: {
@@ -2121,6 +2213,110 @@ const styles = {
     marginLeft: 'auto',
     color: '#64748b',
     fontSize: '14px',
+  },
+  compactFilterPanel: {
+    width: '100%',
+    alignSelf: 'stretch',
+    background: '#fff',
+    border: '1px solid #e5e7eb',
+    borderRadius: 10,
+    padding: '12px 14px',
+    marginBottom: 8,
+  },
+  compactFilterGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
+    gap: '8px',
+  },
+  compactFilterActionRow: {
+    display: 'flex',
+    alignItems: 'end',
+    gap: '8px',
+    flexWrap: 'wrap',
+    marginTop: '8px',
+  },
+  compactFilterField: {
+    display: 'grid',
+    gap: '3px',
+    minWidth: 0,
+  },
+  compactFilterFieldCompact: {
+    display: 'grid',
+    gap: '3px',
+    flex: '1 1 156px',
+    minWidth: '150px',
+  },
+  compactFilterLabel: {
+    display: 'block',
+    fontSize: '11.5px',
+    fontWeight: 600,
+    color: '#374151',
+  },
+  compactFilterInput: {
+    width: '100%',
+    padding: '6px 9px',
+    border: '1px solid #d1d5db',
+    borderRadius: '6px',
+    fontSize: '12.5px',
+    boxSizing: 'border-box',
+    background: '#fff',
+  },
+  compactStatusField: {
+    display: 'grid',
+    gap: '3px',
+    flex: '1 1 250px',
+    minWidth: '240px',
+  },
+  compactStatusLabel: {
+    display: 'block',
+    fontSize: '11.5px',
+    fontWeight: 700,
+    color: '#374151',
+    textTransform: 'uppercase',
+    letterSpacing: '0.04em',
+  },
+  compactStatusTabs: {
+    display: 'flex',
+    gap: '8px',
+    flexWrap: 'wrap',
+  },
+  compactStatusButton: {
+    padding: '6px 11px',
+    borderRadius: '999px',
+    borderWidth: '1px',
+    borderStyle: 'solid',
+    cursor: 'pointer',
+    fontSize: '12.5px',
+    fontWeight: 700,
+    lineHeight: 1.1,
+  },
+  compactResetButton: {
+    alignSelf: 'end',
+    padding: '6px 14px',
+    background: '#eff6ff',
+    color: '#1d4ed8',
+    border: '1px solid #bfdbfe',
+    borderRadius: '6px',
+    cursor: 'pointer',
+    fontSize: '12.5px',
+    fontWeight: 700,
+    lineHeight: 1.1,
+    whiteSpace: 'nowrap',
+  },
+  summaryRow: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: '12px',
+    flexWrap: 'wrap',
+    marginBottom: '8px',
+  },
+  summaryHint: {
+    margin: 0,
+    fontSize: '13px',
+    color: '#6b7280',
+    flex: '1 1 280px',
+    textAlign: 'right',
   },
   loadingContainer: {
     display: 'flex',
@@ -2524,10 +2720,10 @@ const styles = {
     color: '#fff',
     border: 'none',
     borderRadius: 8,
-    padding: '7px 12px',
+    padding: '6px 10px',
     cursor: 'pointer',
     fontWeight: 700,
-    fontSize: 12.5,
+    fontSize: 12,
     lineHeight: 1.05,
   },
   btnGray: {
@@ -2535,10 +2731,10 @@ const styles = {
     color: '#374151',
     border: 'none',
     borderRadius: 8,
-    padding: '7px 12px',
+    padding: '6px 10px',
     cursor: 'pointer',
     fontWeight: 700,
-    fontSize: 12.5,
+    fontSize: 12,
     lineHeight: 1.05,
   },
   statusMessage: {
@@ -2549,16 +2745,16 @@ const styles = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: '10px',
+    gap: '8px',
     flexWrap: 'wrap',
-    marginBottom: '12px',
-    padding: '12px 14px',
+    marginBottom: '8px',
+    padding: '10px 12px',
     border: '1px solid #e2e8f0',
-    borderRadius: '14px',
+    borderRadius: '12px',
     background: '#f8fafc',
   },
   selectionSummary: {
-    fontSize: '14px',
+    fontSize: '13px',
     color: '#475569',
   },
   selectionActions: {
@@ -2581,12 +2777,12 @@ const styles = {
   bulkBar: {
     display: 'flex',
     alignItems: 'center',
-    gap: '10px',
+    gap: '8px',
     flexWrap: 'wrap',
-    marginBottom: '12px',
-    padding: '12px 14px',
+    marginBottom: '8px',
+    padding: '10px 12px',
     border: '1px solid #fecaca',
-    borderRadius: '14px',
+    borderRadius: '12px',
     background: '#fff1f2',
     color: '#7f1d1d',
   },

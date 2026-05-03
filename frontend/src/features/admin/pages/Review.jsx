@@ -50,6 +50,60 @@ const createInitialFiltersByTab = () => ({
 
 const normalizeFilterValue = (value) => String(value ?? "").trim().toLowerCase();
 
+const REVIEW_HUB_PAGE_BY_TAB = {
+  writing: {
+    path: "/admin/writing-submissions",
+    label: "Writing submissions page",
+  },
+  reading: {
+    path: "/admin/reading-submissions",
+    label: "Reading submissions page",
+  },
+  listening: {
+    path: "/admin/listening-submissions",
+    label: "Listening submissions page",
+  },
+  cambridge: {
+    path: "/admin/cambridge-submissions",
+    label: "Orange submissions page",
+  },
+};
+
+const REVIEW_TAB_TONES = {
+  writing: {
+    activeBackground: "linear-gradient(135deg, #7c3aed 0%, #9f67ff 100%)",
+    activeBorder: "#7c3aed",
+    softBackground: "#f5f3ff",
+    softBorder: "#ddd6fe",
+    softText: "#6d28d9",
+    softBadgeBackground: "rgba(124, 58, 237, 0.12)",
+  },
+  reading: {
+    activeBackground: "linear-gradient(135deg, #0f3f94 0%, #2563eb 100%)",
+    activeBorder: "#0f3f94",
+    softBackground: "#eff6ff",
+    softBorder: "#bfdbfe",
+    softText: "#1d4ed8",
+    softBadgeBackground: "rgba(37, 99, 235, 0.12)",
+  },
+  listening: {
+    activeBackground: "linear-gradient(135deg, #0f8c4b 0%, #22c55e 100%)",
+    activeBorder: "#0f8c4b",
+    softBackground: "#f0fdf4",
+    softBorder: "#bbf7d0",
+    softText: "#15803d",
+    softBadgeBackground: "rgba(34, 197, 94, 0.14)",
+  },
+  cambridge: {
+    activeBackground: "linear-gradient(135deg, #d45512 0%, #fb923c 100%)",
+    activeBorder: "#d45512",
+    softBackground: "#fff7ed",
+    softBorder: "#fed7aa",
+    softText: "#c2410c",
+    softBadgeBackground: "rgba(251, 146, 60, 0.16)",
+  },
+};
+
 const matchesFilterValue = (value, search) => {
   const query = normalizeFilterValue(search);
   return !query || normalizeFilterValue(value).includes(query);
@@ -1175,24 +1229,28 @@ const Review = () => {
       key: "writing",
       shortLabel: "Writing",
       label: "Writing Review Queue",
+      tone: "writing",
       badge: writingNeedsReviewCount,
     },
     {
       key: "reading",
       shortLabel: "Reading",
       label: "Reading Review Queue",
+      tone: "reading",
       badge: readingNeedsReviewCount,
     },
     {
       key: "listening",
       shortLabel: "Listening",
       label: "Listening Review Queue",
+      tone: "listening",
       badge: listeningNeedsReviewCount,
     },
     {
       key: "cambridge",
       shortLabel: "Orange",
       label: "Orange Review Queue",
+      tone: "cambridge",
       badge: cambridgeNeedsReviewCount,
     },
   ];
@@ -1229,29 +1287,13 @@ const Review = () => {
       : activeTab === "cambridge"
       ? "Click a row to review Orange details, feedback, and result actions."
       : "Click a row to view the score summary, feedback, and actions.";
+  const activeReviewTab =
+    reviewTabs.find((tab) => tab.key === activeTab) || reviewTabs[0];
+  const activeReviewPageTarget =
+    REVIEW_HUB_PAGE_BY_TAB[activeTab] || REVIEW_HUB_PAGE_BY_TAB.writing;
   const workspaceLinks = useMemo(
     () => buildAdminWorkspaceLinks(navigate, "review"),
     [navigate]
-  );
-  const queueLinks = useMemo(
-    () =>
-      reviewTabs.map((tab) => ({
-        key: tab.key,
-        label: tab.shortLabel || tab.label,
-        hint: tab.label,
-        tone:
-          tab.key === "writing"
-            ? "violet"
-            : tab.key === "reading"
-            ? "blue"
-            : tab.key === "listening"
-            ? "green"
-            : "orange",
-        badge: tab.badge,
-        active: activeTab === tab.key,
-        onClick: () => setActiveTab(tab.key),
-      })),
-    [activeTab, reviewTabs]
   );
   const sidebarStats = useMemo(
     () => [
@@ -1851,115 +1893,258 @@ const Review = () => {
       <AdminNavbar />
       <div
         className="admin-page admin-submission-page"
-        style={{ maxWidth: "100%", width: "100%", margin: "0 auto", padding: "30px 16px" }}
+        style={{ maxWidth: "100%", width: "100%", margin: "0 auto", padding: "22px 14px" }}
       >
         <AdminStickySidebarLayout
-          eyebrow="Review"
-          title="Review queue"
-          description="Switch between Writing, Reading, Listening, and Orange queues from the left rail while keeping the current review slice in view."
+          eyebrow="Review hub"
+          title="Teacher review hub"
+          description="Review across writing, reading, listening, and Orange submissions."
           sidebarContent={(
             <>
               <AdminSidebarPanel eyebrow="Workspace" title="Admin pages" meta="Quick jump">
                 <AdminSidebarNavList items={workspaceLinks} ariaLabel="Admin workspace pages" />
               </AdminSidebarPanel>
 
-              <AdminSidebarPanel eyebrow="Queue" title="Review slices" meta={activeTab}>
-                <AdminSidebarNavList items={queueLinks} ariaLabel="Review queue tabs" />
-              </AdminSidebarPanel>
-
-              <AdminSidebarPanel eyebrow="Summary" title="Current queue" meta={`${activeFilteredCount} visible`}>
+              <AdminSidebarPanel eyebrow="Summary" title="Current queue" meta={`${activeReviewTab.shortLabel} • ${activeFilteredCount} visible`}>
                 <AdminSidebarMetricList items={sidebarStats} />
                 <p className="admin-side-layout__panelText">{activeQueueHint}</p>
               </AdminSidebarPanel>
             </>
           )}
         >
-        <SubmissionStatCards
-          stats={[
-            {
-              label: "Total",
-              count: activeTotalCount,
-              bg: "#eff6ff",
-              color: "#1d4ed8",
-              border: "#bfdbfe",
-            },
-            {
-              label: "Pending",
-              count: activePendingCount,
-              bg: "#fffbeb",
-              color: "#92400e",
-              border: "#fde68a",
-            },
-            {
-              label: "Reviewed",
-              count: activeReviewedCount,
-              bg: "#f0fdf4",
-              color: "#166534",
-              border: "#bbf7d0",
-            },
-          ]}
-        />
+        <div style={reviewContentStackStyle}>
+          <SubmissionStatCards
+            containerStyle={{ marginBottom: 0 }}
+            stats={[
+              {
+                label: "Total",
+                count: activeTotalCount,
+                bg: "#eff6ff",
+                color: "#1d4ed8",
+                border: "#bfdbfe",
+              },
+              {
+                label: "Pending",
+                count: activePendingCount,
+                bg: "#fffbeb",
+                color: "#92400e",
+                border: "#fde68a",
+              },
+              {
+                label: "Reviewed",
+                count: activeReviewedCount,
+                bg: "#f0fdf4",
+                color: "#166534",
+                border: "#bbf7d0",
+              },
+            ]}
+          />
 
-        {renderFilterToolbar(activeTab)}
+          <div style={reviewHubToolbarStyle(isDarkMode)}>
+            <div style={reviewHubToolbarClusterStyle}>
+              <span style={reviewHubLabelStyle(isDarkMode)}>Submission Type</span>
+              <div style={reviewHubTabRowStyle}>
+                {reviewTabs.map((tab) => {
+                  const isActive = activeTab === tab.key;
+                  return (
+                    <button
+                      key={tab.key}
+                      type="button"
+                      onClick={() => setActiveTab(tab.key)}
+                      style={reviewHubTabButtonStyle(isDarkMode, tab.tone, isActive)}
+                    >
+                      <span>{tab.shortLabel || tab.label}</span>
+                      <span style={reviewHubTabBadgeStyle(isDarkMode, tab.tone, isActive)}>
+                        {tab.badge}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
 
-        <p style={filterSummaryStyle(isDarkMode)}>
-          Showing <strong>{activeFilteredCount}</strong>
-          {activeTotalCount !== activeFilteredCount ? ` / ${activeTotalCount}` : ""} submissions
-          {"  "}
-          <span style={{ color: isDarkMode ? "#64748b" : "#9ca3af" }}>
-            {activeQueueHint}
-          </span>
-        </p>
+            <div style={reviewHubToolbarHeaderStyle}>
+              <button
+                type="button"
+                onClick={() => navigate(activeReviewPageTarget.path)}
+                style={reviewHubOpenPageButtonStyle(isDarkMode, activeReviewTab.tone)}
+              >
+                Open {activeReviewTab.shortLabel} page
+              </button>
+            </div>
+          </div>
 
-        {activeTab === "writing" && (
-          <>{renderWritingQueue()}</>
-        )}
+          {renderFilterToolbar(activeTab)}
 
-        {activeTab === "reading" && (
-          <>
-            {renderObjectiveQueue({
-              tabKey: "reading",
-              items: filteredReading,
-              allItems: unreviewedReading,
-              loading: loadingReading,
-              emptyAllMessage: "No reading submissions found.",
-              emptyFilteredMessage: "No reading submissions match the current filters.",
-              buildTestLabel: getReadingTestLabel,
-              onReview: (submission) => navigate(`/reading-results/${submission.id}`),
-            })}
-          </>
-        )}
+          <p style={filterSummaryStyle(isDarkMode)}>
+            Showing <strong>{activeFilteredCount}</strong>
+            {activeTotalCount !== activeFilteredCount ? ` / ${activeTotalCount}` : ""} submissions
+            {"  "}
+            <span style={{ color: isDarkMode ? "#64748b" : "#9ca3af" }}>
+              {activeQueueHint}
+            </span>
+          </p>
 
-        {activeTab === "listening" && (
-          <>
-            {renderObjectiveQueue({
-              tabKey: "listening",
-              items: filteredListening,
-              allItems: unreviewedListening,
-              loading: loadingListening,
-              emptyAllMessage: "No listening submissions found.",
-              emptyFilteredMessage: "No listening submissions match the current filters.",
-              buildTestLabel: getListeningTestLabel,
-              onReview: (submission) => navigate(`/listening-results/${submission.id}`),
-            })}
-          </>
-        )}
+          {activeTab === "writing" && (
+            <>{renderWritingQueue()}</>
+          )}
 
-        {activeTab === "cambridge" && (
-          <>{renderCambridgeQueue()}</>
-        )}
+          {activeTab === "reading" && (
+            <>
+              {renderObjectiveQueue({
+                tabKey: "reading",
+                items: filteredReading,
+                allItems: unreviewedReading,
+                loading: loadingReading,
+                emptyAllMessage: "No reading submissions found.",
+                emptyFilteredMessage: "No reading submissions match the current filters.",
+                buildTestLabel: getReadingTestLabel,
+                onReview: (submission) => navigate(`/reading-results/${submission.id}`),
+              })}
+            </>
+          )}
+
+          {activeTab === "listening" && (
+            <>
+              {renderObjectiveQueue({
+                tabKey: "listening",
+                items: filteredListening,
+                allItems: unreviewedListening,
+                loading: loadingListening,
+                emptyAllMessage: "No listening submissions found.",
+                emptyFilteredMessage: "No listening submissions match the current filters.",
+                buildTestLabel: getListeningTestLabel,
+                onReview: (submission) => navigate(`/listening-results/${submission.id}`),
+              })}
+            </>
+          )}
+
+          {activeTab === "cambridge" && (
+            <>{renderCambridgeQueue()}</>
+          )}
+        </div>
         </AdminStickySidebarLayout>
       </div>
     </>
   );
 };
 
+const reviewContentStackStyle = {
+  display: "grid",
+  gap: 12,
+};
+
+const reviewHubToolbarStyle = (isDarkMode) => ({
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  gap: 12,
+  flexWrap: "wrap",
+  border: `1px solid ${isDarkMode ? "#243047" : "#e5e7eb"}`,
+  borderRadius: 10,
+  padding: "10px 14px",
+  background: isDarkMode ? "#0f172a" : "#fff",
+  boxShadow: isDarkMode
+    ? "0 10px 30px rgba(2, 6, 23, 0.32)"
+    : "0 8px 20px rgba(15, 23, 42, 0.04)",
+});
+
+const reviewHubToolbarClusterStyle = {
+  display: "flex",
+  alignItems: "center",
+  gap: 12,
+  flexWrap: "wrap",
+};
+
+const reviewHubToolbarHeaderStyle = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "flex-end",
+};
+
+const reviewHubLabelStyle = (isDarkMode) => ({
+  fontSize: 12,
+  fontWeight: 700,
+  letterSpacing: "0.04em",
+  textTransform: "uppercase",
+  color: isDarkMode ? "#cbd5e1" : "#374151",
+  whiteSpace: "nowrap",
+});
+
+const getReviewTabTone = (toneKey) =>
+  REVIEW_TAB_TONES[toneKey] || REVIEW_TAB_TONES.reading;
+
+const reviewHubOpenPageButtonStyle = (isDarkMode, toneKey) => {
+  const tone = getReviewTabTone(toneKey);
+
+  return {
+    border: `1px solid ${tone.softBorder}`,
+    background: isDarkMode ? tone.activeBackground : tone.softBackground,
+    color: isDarkMode ? "#ffffff" : tone.softText,
+    boxShadow: isDarkMode ? "none" : `0 8px 18px ${tone.softBadgeBackground}`,
+    borderRadius: 999,
+    padding: "7px 12px",
+    fontSize: 13,
+    fontWeight: 700,
+    cursor: "pointer",
+    whiteSpace: "nowrap",
+  };
+};
+
+const reviewHubTabRowStyle = {
+  display: "flex",
+  flexWrap: "wrap",
+  gap: 8,
+};
+
+const reviewHubTabButtonStyle = (isDarkMode, toneKey, isActive) => {
+  const tone = getReviewTabTone(toneKey);
+
+  return {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 10,
+    padding: "7px 12px",
+    borderRadius: 999,
+    border: `1px solid ${isActive ? tone.activeBorder : tone.softBorder}`,
+    background: isActive
+      ? tone.activeBackground
+      : isDarkMode
+      ? "rgba(15, 23, 42, 0.88)"
+      : tone.softBackground,
+    color: isActive ? "#fff" : tone.softText,
+    boxShadow: isActive
+      ? `0 10px 20px ${tone.softBadgeBackground}`
+      : "none",
+    fontSize: 13,
+    fontWeight: 700,
+    cursor: "pointer",
+  };
+};
+
+const reviewHubTabBadgeStyle = (isDarkMode, toneKey, isActive) => {
+  const tone = getReviewTabTone(toneKey);
+
+  return {
+    minWidth: 28,
+    padding: "3px 8px",
+    borderRadius: 999,
+    background: isActive
+      ? "rgba(255, 255, 255, 0.18)"
+      : isDarkMode
+      ? tone.softBadgeBackground
+      : "rgba(255, 255, 255, 0.78)",
+    color: isActive ? "#fff" : tone.softText,
+    textAlign: "center",
+    fontSize: 12,
+    fontWeight: 800,
+  };
+};
+
 const filterPanelStyle = (isDarkMode) => ({
-  marginTop: 18,
-  marginBottom: 18,
   border: `1px solid ${isDarkMode ? "#243047" : "#e5e7eb"}`,
   borderRadius: 14,
-  padding: "14px 16px",
+  padding: "12px 14px",
   background: isDarkMode ? "#0f172a" : "#fff",
   boxShadow: isDarkMode
     ? "0 10px 30px rgba(2, 6, 23, 0.32)"
@@ -2005,7 +2190,7 @@ const filterResetButtonStyle = {
 };
 
 const filterSummaryStyle = (isDarkMode) => ({
-  marginTop: 10,
+  margin: 0,
   fontSize: 13,
   color: isDarkMode ? "#9ca3af" : "#6b7280",
 });

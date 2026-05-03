@@ -555,7 +555,7 @@ const AdminWritingSubmissions = () => {
     <>
       <AdminNavbar />
       <div
-        style={{ maxWidth: "100%", width: "100%", margin: "0 auto", padding: "30px 16px" }}
+        style={{ maxWidth: "100%", width: "100%", margin: "0 auto", padding: "22px 14px" }}
         className="admin-page admin-submission-page"
       >
         <AdminStickySidebarLayout
@@ -582,6 +582,7 @@ const AdminWritingSubmissions = () => {
           )}
         >
           <SubmissionStatCards
+            compact
             stats={[
               {
                 label: "Total",
@@ -608,6 +609,8 @@ const AdminWritingSubmissions = () => {
           />
 
           <SubmissionFilterPanel
+            compact
+            compactPrimaryFieldCount={3}
             fields={[
               {
                 key: "student",
@@ -644,6 +647,7 @@ const AdminWritingSubmissions = () => {
             filteredCount={filteredData.length}
             totalCount={data.length}
             summaryLabel="submissions"
+            summaryHint="Click a row to view the writing response, rubric bands, and feedback actions."
           />
 
           {canDeleteSubmissions && (
@@ -703,11 +707,6 @@ const AdminWritingSubmissions = () => {
               )}
             </>
           )}
-
-          <p style={{ fontSize: 13, color: "#6b7280", marginBottom: 12 }}>
-            Click a row to view the writing response, rubric bands, and feedback actions.
-          </p>
-
           {filteredData.length === 0 && (
             <div
               style={{
@@ -723,6 +722,7 @@ const AdminWritingSubmissions = () => {
 
           {filteredData.length > 0 && (
             <ExpandableSubmissionList
+          compact
           items={filteredData}
           expandedItems={expandedItems}
           onToggle={toggleExpand}
@@ -1182,12 +1182,12 @@ const AdminWritingSubmissions = () => {
 
 export default AdminWritingSubmissions;
 
-const selectionToolbarStyle = { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap", marginBottom: 12, padding: "12px 14px", border: "1px solid #e2e8f0", borderRadius: 14, background: "#f8fafc" };
-const selectionSummaryStyle = { fontSize: 14, color: "#475569" };
+const selectionToolbarStyle = { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap", marginBottom: 8, padding: "10px 12px", border: "1px solid #e2e8f0", borderRadius: 12, background: "#f8fafc" };
+const selectionSummaryStyle = { fontSize: 13, color: "#475569" };
 const selectionActionsStyle = { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" };
 const selectionCheckboxLabelStyle = { display: "inline-flex", alignItems: "center", justifyContent: "center", width: 28, height: 28, borderRadius: 8, border: "1px solid #e2e8f0", background: "#f8fafc", cursor: "pointer" };
-const bulkBarStyle = { display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 12, padding: "12px 14px", border: "1px solid #fecaca", borderRadius: 14, background: "#fff1f2", color: "#7f1d1d" };
-const secondaryActionBtn = { background: "#e5e7eb", color: "#374151", border: "none", borderRadius: 8, padding: "7px 12px", cursor: "pointer", fontWeight: 700, fontSize: 12.5, lineHeight: 1.05 };
-const dangerActionBtn = { background: "#dc2626", color: "#fff", border: "none", borderRadius: 8, padding: "7px 12px", cursor: "pointer", fontWeight: 700, fontSize: 12.5, lineHeight: 1.05 };
+const bulkBarStyle = { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 8, padding: "10px 12px", border: "1px solid #fecaca", borderRadius: 12, background: "#fff1f2", color: "#7f1d1d" };
+const secondaryActionBtn = { background: "#e5e7eb", color: "#374151", border: "none", borderRadius: 8, padding: "6px 10px", cursor: "pointer", fontWeight: 700, fontSize: 12, lineHeight: 1.05 };
+const dangerActionBtn = { background: "#dc2626", color: "#fff", border: "none", borderRadius: 8, padding: "6px 10px", cursor: "pointer", fontWeight: 700, fontSize: 12, lineHeight: 1.05 };
 const confirmMetaHeadingStyle = { margin: "0 0 10px", fontSize: 12, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: "inherit" };
 const confirmMetaTextStyle = { margin: "6px 0 0", fontSize: 14, lineHeight: 1.55, color: "inherit" };
