@@ -153,6 +153,19 @@ const InlineIcon = ({ name, size = 18, style }) => (
   </span>
 );
 
+const omitRecordKey = (record, key) => {
+  const next = { ...record };
+  const keys = Array.isArray(key) ? key : [key];
+  keys.forEach((entryKey) => {
+    delete next[entryKey];
+  });
+  return next;
+};
+
+const stopSelectionEvent = (event) => {
+  event.stopPropagation();
+};
+
 /**
  * CambridgeSubmissionsPage - Trang giáo viên xem danh sách bài làm Cambridge
  * Hiển thị submissions từ tất cả Cambridge tests (Listening + Reading)
@@ -174,6 +187,9 @@ const CambridgeSubmissionsPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [extendingId, setExtendingId] = useState(null);
+  const [deletingId, setDeletingId] = useState(null);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [refreshTick, setRefreshTick] = useState(0);
   const [pagination, setPagination] = useState({
     page: 1,
     limit: 20,
@@ -201,8 +217,10 @@ const CambridgeSubmissionsPage = () => {
   const [aiLoadingById, setAiLoadingById] = useState({});
   const [savingById, setSavingById] = useState({});
   const [statusMessageById, setStatusMessageById] = useState({});
+  const [selectedSubmissionIds, setSelectedSubmissionIds] = useState(new Set());
   const feedbackInputRef = useRef(null);
   const deepLinkHandledRef = useRef('');
+  const canDeleteSubmissions = teacher?.role === 'admin';
 
   // Fetch submissions
   useEffect(() => {
@@ -270,6 +288,7 @@ const CambridgeSubmissionsPage = () => {
     filters.teacherName,
     pagination.limit,
     pagination.page,
+    refreshTick,
     reviewStatus,
     sortOrder,
   ]);
@@ -363,12 +382,48 @@ const CambridgeSubmissionsPage = () => {
   const visibleReviewedCount = filteredSubmissions.filter((submission) =>
     hasReview(submission)
   ).length;
+  const filteredSubmissionIds = filteredSubmissions.map((submission) => submission.id);
+  const selectedVisibleIds = filteredSubmissionIds.filter((submissionId) =>
+    selectedSubmissionIds.has(submissionId)
+  );
+  const allVisibleSelected =
+    filteredSubmissionIds.length > 0 &&
+    filteredSubmissionIds.every((submissionId) => selectedSubmissionIds.has(submissionId));
+
+  useEffect(() => {
+    setSelectedSubmissionIds((prev) => {
+      const visibleIds = new Set(filteredSubmissionIds);
+      const next = new Set([...prev].filter((submissionId) => visibleIds.has(submissionId)));
+      return next.size === prev.size ? prev : next;
+    });
+  }, [filteredSubmissionIds]);
 
   const toggleExpand = (submissionId) => {
     setExpandedItems((prev) => {
       const next = new Set(prev);
       if (next.has(submissionId)) next.delete(submissionId);
       else next.add(submissionId);
+      return next;
+    });
+  };
+
+  const toggleSelection = (submissionId) => {
+    setSelectedSubmissionIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(submissionId)) next.delete(submissionId);
+      else next.add(submissionId);
+      return next;
+    });
+  };
+
+  const toggleAllVisibleSelections = () => {
+    setSelectedSubmissionIds((prev) => {
+      const next = new Set(prev);
+      if (allVisibleSelected) {
+        filteredSubmissionIds.forEach((submissionId) => next.delete(submissionId));
+      } else {
+        filteredSubmissionIds.forEach((submissionId) => next.add(submissionId));
+      }
       return next;
     });
   };
@@ -776,6 +831,156 @@ const CambridgeSubmissionsPage = () => {
     }
   };
 
+  const handleDeleteSubmission = async (submission) => {
+    if (!canDeleteSubmissions || deletingId === submission.id || bulkDeleting) {
+      return false;
+    }
+
+    const studentName = submission.studentName || '--';
+    const confirmed = window.confirm(
+      `Delete Cambridge submission #${submission.id} for \"${studentName}\" permanently? This cannot be undone.`
+    );
+    if (!confirmed) {
+      return false;
+    }
+
+    setDeletingId(submission.id);
+    try {
+      const res = await authFetch(apiPath(`admin/submissions/cambridge/${submission.id}`), {
+        method: 'DELETE',
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data?.message || 'Could not delete submission.');
+      }
+
+      setSubmissions((prev) => prev.filter((item) => item.id !== submission.id));
+      setSelectedSubmissionIds((prev) => {
+        const next = new Set(prev);
+        next.delete(submission.id);
+        return next;
+      });
+      setExpandedItems((prev) => {
+        const next = new Set(prev);
+        next.delete(submission.id);
+        return next;
+      });
+      setDetailById((prev) => omitRecordKey(prev, submission.id));
+      setDetailLoadingById((prev) => omitRecordKey(prev, submission.id));
+      setFeedbackDraftById((prev) => omitRecordKey(prev, submission.id));
+      setAiLoadingById((prev) => omitRecordKey(prev, submission.id));
+      setSavingById((prev) => omitRecordKey(prev, submission.id));
+      setStatusMessageById((prev) => omitRecordKey(prev, submission.id));
+
+      if (activeReviewSubmissionId === submission.id) {
+        closeEssayReview();
+      } else if (deepLinkedSubmission?.id === submission.id) {
+        setDeepLinkedSubmission(null);
+        clearDeepLinkParams();
+      }
+
+      setPagination((prev) => {
+        const nextTotal = Math.max(0, prev.total - 1);
+        const nextTotalPages = Math.max(1, Math.ceil(nextTotal / prev.limit));
+        const nextPage = prev.page > nextTotalPages ? nextTotalPages : prev.page;
+
+        return {
+          ...prev,
+          page: nextPage,
+          total: nextTotal,
+          totalPages: nextTotalPages,
+        };
+      });
+      setRefreshTick((prev) => prev + 1);
+
+      return true;
+    } catch (err) {
+      alert(err.message || 'Could not delete submission.');
+      return false;
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (!canDeleteSubmissions || bulkDeleting || selectedVisibleIds.length === 0) {
+      return false;
+    }
+
+    const confirmed = window.confirm(
+      `Delete ${selectedVisibleIds.length} selected Cambridge submissions permanently? This cannot be undone.`
+    );
+    if (!confirmed) {
+      return false;
+    }
+
+    setBulkDeleting(true);
+    try {
+      const res = await authFetch(apiPath('admin/submissions/bulk'), {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          items: selectedVisibleIds.map((submissionId) => ({
+            type: 'cambridge',
+            id: submissionId,
+          })),
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data?.message || 'Could not delete selected submissions.');
+      }
+
+      const deletedIds = new Set(selectedVisibleIds);
+      setSubmissions((prev) => prev.filter((item) => !deletedIds.has(item.id)));
+      setSelectedSubmissionIds((prev) => {
+        const next = new Set(prev);
+        selectedVisibleIds.forEach((submissionId) => next.delete(submissionId));
+        return next;
+      });
+      setExpandedItems((prev) => {
+        const next = new Set(prev);
+        selectedVisibleIds.forEach((submissionId) => next.delete(submissionId));
+        return next;
+      });
+      setDetailById((prev) => omitRecordKey(prev, selectedVisibleIds));
+      setDetailLoadingById((prev) => omitRecordKey(prev, selectedVisibleIds));
+      setFeedbackDraftById((prev) => omitRecordKey(prev, selectedVisibleIds));
+      setAiLoadingById((prev) => omitRecordKey(prev, selectedVisibleIds));
+      setSavingById((prev) => omitRecordKey(prev, selectedVisibleIds));
+      setStatusMessageById((prev) => omitRecordKey(prev, selectedVisibleIds));
+
+      if (activeReviewSubmissionId && deletedIds.has(activeReviewSubmissionId)) {
+        closeEssayReview();
+      } else if (deepLinkedSubmission?.id && deletedIds.has(deepLinkedSubmission.id)) {
+        setDeepLinkedSubmission(null);
+        clearDeepLinkParams();
+      }
+
+      setPagination((prev) => {
+        const nextTotal = Math.max(0, prev.total - selectedVisibleIds.length);
+        const nextTotalPages = Math.max(1, Math.ceil(nextTotal / prev.limit));
+        const nextPage = prev.page > nextTotalPages ? nextTotalPages : prev.page;
+
+        return {
+          ...prev,
+          page: nextPage,
+          total: nextTotal,
+          totalPages: nextTotalPages,
+        };
+      });
+      setRefreshTick((prev) => prev + 1);
+
+      alert(data?.message || `Deleted ${selectedVisibleIds.length} submissions.`);
+      return true;
+    } catch (err) {
+      alert(err.message || 'Could not delete selected submissions.');
+      return false;
+    } finally {
+      setBulkDeleting(false);
+    }
+  };
+
   // Handle page change
   const handlePageChange = (newPage) => {
     setPagination(prev => ({ ...prev, page: newPage }));
@@ -1073,6 +1278,64 @@ const CambridgeSubmissionsPage = () => {
               ]}
             />
 
+            {canDeleteSubmissions && (
+              <>
+                <div style={styles.selectionToolbar}>
+                  <span style={styles.selectionSummary}>
+                    Showing <strong>{filteredSubmissions.length}</strong> visible submissions
+                  </span>
+                  <div style={styles.selectionActions}>
+                    {filteredSubmissions.length > 0 ? (
+                      <button
+                        type="button"
+                        onClick={toggleAllVisibleSelections}
+                        style={styles.btnGray}
+                        disabled={bulkDeleting}
+                      >
+                        {allVisibleSelected ? 'Unselect all' : 'Select all visible'}
+                      </button>
+                    ) : null}
+                    {selectedVisibleIds.length > 0 ? (
+                      <button
+                        type="button"
+                        onClick={() => setSelectedSubmissionIds(new Set())}
+                        style={styles.btnGray}
+                        disabled={bulkDeleting}
+                      >
+                        Clear selection
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
+
+                {selectedVisibleIds.length > 0 && (
+                  <div style={styles.bulkBar}>
+                    <span style={{ fontSize: 12.5, lineHeight: 1.25 }}>
+                      Selected <strong>{selectedVisibleIds.length}</strong> submissions
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handleBulkDelete}
+                      style={styles.btnRed}
+                      disabled={bulkDeleting}
+                    >
+                      {bulkDeleting
+                        ? 'Deleting...'
+                        : `Delete Selected (${selectedVisibleIds.length})`}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedSubmissionIds(new Set())}
+                      style={styles.btnGray}
+                      disabled={bulkDeleting}
+                    >
+                      Clear Selection
+                    </button>
+                  </div>
+                )}
+              </>
+            )}
+
             <p style={{ fontSize: '13px', color: '#6b7280', marginBottom: 12 }}>
               Showing <strong>{filteredSubmissions.length}</strong>
               {pagination.total !== filteredSubmissions.length ? ` / ${pagination.total}` : ''} submissions
@@ -1111,6 +1374,21 @@ const CambridgeSubmissionsPage = () => {
 
                   return (
                     <>
+                      {canDeleteSubmissions && (
+                        <label
+                          style={styles.selectionCheckboxLabel}
+                          onClick={stopSelectionEvent}
+                          onMouseDown={stopSelectionEvent}
+                        >
+                          <input
+                            type="checkbox"
+                            aria-label={`Select submission #${submission.id}`}
+                            checked={selectedSubmissionIds.has(submission.id)}
+                            onChange={() => toggleSelection(submission.id)}
+                            onClick={stopSelectionEvent}
+                          />
+                        </label>
+                      )}
                       <span style={{ fontSize: '12px', color: tone.subtleText, minWidth: 28 }}>
                         #{(pagination.page - 1) * pagination.limit + index + 1}
                       </span>
@@ -1443,6 +1721,26 @@ const CambridgeSubmissionsPage = () => {
                               background: '#0369a1',
                             }}
                           />
+                        )}
+                        {canDeleteSubmissions && (
+                          <button
+                            onClick={() => handleDeleteSubmission(submission)}
+                            style={{
+                              ...styles.viewButton,
+                              backgroundColor: '#dc2626',
+                              opacity:
+                                deletingId === submission.id || bulkDeleting ? 0.72 : 1,
+                              cursor:
+                                deletingId === submission.id || bulkDeleting
+                                  ? 'default'
+                                  : 'pointer',
+                            }}
+                            disabled={deletingId === submission.id || bulkDeleting}
+                            title="Delete submission permanently"
+                          >
+                            <InlineIcon name="trash" size={15} />
+                            {deletingId === submission.id ? 'Deleting...' : 'Delete'}
+                          </button>
                         )}
                       </div>
                     </>
@@ -2006,9 +2304,76 @@ const styles = {
     fontSize: '13px',
     fontWeight: 700,
   },
+  btnRed: {
+    background: '#dc2626',
+    color: '#fff',
+    border: 'none',
+    borderRadius: 8,
+    padding: '7px 12px',
+    cursor: 'pointer',
+    fontWeight: 700,
+    fontSize: 12.5,
+    lineHeight: 1.05,
+  },
+  btnGray: {
+    background: '#e5e7eb',
+    color: '#374151',
+    border: 'none',
+    borderRadius: 8,
+    padding: '7px 12px',
+    cursor: 'pointer',
+    fontWeight: 700,
+    fontSize: 12.5,
+    lineHeight: 1.05,
+  },
   statusMessage: {
     color: '#1d4ed8',
     fontSize: '13px',
+  },
+  selectionToolbar: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: '10px',
+    flexWrap: 'wrap',
+    marginBottom: '12px',
+    padding: '12px 14px',
+    border: '1px solid #e2e8f0',
+    borderRadius: '14px',
+    background: '#f8fafc',
+  },
+  selectionSummary: {
+    fontSize: '14px',
+    color: '#475569',
+  },
+  selectionActions: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    flexWrap: 'wrap',
+  },
+  selectionCheckboxLabel: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '28px',
+    height: '28px',
+    borderRadius: '8px',
+    border: '1px solid #e2e8f0',
+    background: '#f8fafc',
+    cursor: 'pointer',
+  },
+  bulkBar: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '10px',
+    flexWrap: 'wrap',
+    marginBottom: '12px',
+    padding: '12px 14px',
+    border: '1px solid #fecaca',
+    borderRadius: '14px',
+    background: '#fff1f2',
+    color: '#7f1d1d',
   },
   pagination: {
     display: 'flex',

@@ -19,6 +19,19 @@ import {
   getAttemptTimingMeta,
 } from "../utils/attemptTiming";
 
+const omitRecordKey = (record, key) => {
+  const next = { ...record };
+  const keys = Array.isArray(key) ? key : [key];
+  keys.forEach((entryKey) => {
+    delete next[entryKey];
+  });
+  return next;
+};
+
+const stopSelectionEvent = (event) => {
+  event.stopPropagation();
+};
+
 const AdminWritingSubmissions = () => {
   const navigate = useNavigate();
   const [data, setData] = useState([]);
@@ -37,6 +50,9 @@ const AdminWritingSubmissions = () => {
   const [expandedItems, setExpandedItems] = useState(new Set());
   const [filterStatus, setFilterStatus] = useState("all");
   const [extendingId, setExtendingId] = useState(null);
+  const [deletingId, setDeletingId] = useState(null);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [selectedSubmissionIds, setSelectedSubmissionIds] = useState(new Set());
 
   let teacher = null;
   try {
@@ -45,6 +61,7 @@ const AdminWritingSubmissions = () => {
     localStorage.removeItem("user");
     teacher = null;
   }
+  const canDeleteSubmissions = teacher?.role === "admin";
 
   useEffect(() => {
     fetch(apiPath("writing/list?includeDrafts=1"))
@@ -126,10 +143,46 @@ const AdminWritingSubmissions = () => {
     data,
   ]);
 
+  const filteredSubmissionIds = filteredData.map((item) => item.id);
+  const selectedVisibleIds = filteredSubmissionIds.filter((submissionId) =>
+    selectedSubmissionIds.has(submissionId)
+  );
+  const allVisibleSelected =
+    filteredSubmissionIds.length > 0 &&
+    filteredSubmissionIds.every((submissionId) => selectedSubmissionIds.has(submissionId));
+
+  useEffect(() => {
+    setSelectedSubmissionIds((prev) => {
+      const visibleIds = new Set(filteredSubmissionIds);
+      const next = new Set([...prev].filter((submissionId) => visibleIds.has(submissionId)));
+      return next.size === prev.size ? prev : next;
+    });
+  }, [filteredSubmissionIds]);
+
   const toggleExpand = (id) => {
     setExpandedItems((prev) => {
       const next = new Set(prev);
       next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelection = (submissionId) => {
+    setSelectedSubmissionIds((prev) => {
+      const next = new Set(prev);
+      next.has(submissionId) ? next.delete(submissionId) : next.add(submissionId);
+      return next;
+    });
+  };
+
+  const toggleAllVisibleSelections = () => {
+    setSelectedSubmissionIds((prev) => {
+      const next = new Set(prev);
+      if (allVisibleSelected) {
+        filteredSubmissionIds.forEach((submissionId) => next.delete(submissionId));
+      } else {
+        filteredSubmissionIds.forEach((submissionId) => next.add(submissionId));
+      }
       return next;
     });
   };
@@ -318,6 +371,115 @@ const AdminWritingSubmissions = () => {
     }
   };
 
+  const handleDeleteSubmission = async (item) => {
+    if (!canDeleteSubmissions || deletingId === item.id || bulkDeleting) {
+      return false;
+    }
+
+    const studentName = item.userName || "Unknown student";
+    const itemLabel = item.isDraft ? "draft" : "submission";
+    const confirmed = window.confirm(
+      `Delete writing ${itemLabel} #${item.id} for \"${studentName}\" permanently? This cannot be undone.`
+    );
+    if (!confirmed) {
+      return false;
+    }
+
+    setDeletingId(item.id);
+    try {
+      const res = await authFetch(apiPath(`admin/submissions/writing/${item.id}`), {
+        method: "DELETE",
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data?.message || "Could not delete submission.");
+      }
+
+      setData((prev) => prev.filter((entry) => entry.id !== item.id));
+      setSelectedSubmissionIds((prev) => {
+        const next = new Set(prev);
+        next.delete(item.id);
+        return next;
+      });
+      setExpandedItems((prev) => {
+        const next = new Set(prev);
+        next.delete(item.id);
+        return next;
+      });
+      setFeedbacks((prev) => omitRecordKey(prev, item.id));
+      setBands((prev) => omitRecordKey(prev, item.id));
+      setMessages((prev) => omitRecordKey(prev, item.id));
+      setAiLoading((prev) => omitRecordKey(prev, item.id));
+      setSendLoading((prev) => omitRecordKey(prev, item.id));
+      setHasSaved((prev) => omitRecordKey(prev, item.id));
+
+      return true;
+    } catch (err) {
+      alert(err.message || "Could not delete submission.");
+      return false;
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (!canDeleteSubmissions || bulkDeleting || selectedVisibleIds.length === 0) {
+      return false;
+    }
+
+    const confirmed = window.confirm(
+      `Delete ${selectedVisibleIds.length} selected Writing submissions permanently? This cannot be undone.`
+    );
+    if (!confirmed) {
+      return false;
+    }
+
+    setBulkDeleting(true);
+    try {
+      const res = await authFetch(apiPath("admin/submissions/bulk"), {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          items: selectedVisibleIds.map((submissionId) => ({
+            type: "writing",
+            id: submissionId,
+          })),
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data?.message || "Could not delete selected submissions.");
+      }
+
+      const deletedIds = new Set(selectedVisibleIds);
+      setData((prev) => prev.filter((entry) => !deletedIds.has(entry.id)));
+      setSelectedSubmissionIds((prev) => {
+        const next = new Set(prev);
+        selectedVisibleIds.forEach((submissionId) => next.delete(submissionId));
+        return next;
+      });
+      setExpandedItems((prev) => {
+        const next = new Set(prev);
+        selectedVisibleIds.forEach((submissionId) => next.delete(submissionId));
+        return next;
+      });
+      setFeedbacks((prev) => omitRecordKey(prev, selectedVisibleIds));
+      setBands((prev) => omitRecordKey(prev, selectedVisibleIds));
+      setMessages((prev) => omitRecordKey(prev, selectedVisibleIds));
+      setAiLoading((prev) => omitRecordKey(prev, selectedVisibleIds));
+      setSendLoading((prev) => omitRecordKey(prev, selectedVisibleIds));
+      setHasSaved((prev) => omitRecordKey(prev, selectedVisibleIds));
+
+      alert(data?.message || `Deleted ${selectedVisibleIds.length} submissions.`);
+      return true;
+    } catch (err) {
+      alert(err.message || "Could not delete selected submissions.");
+      return false;
+    } finally {
+      setBulkDeleting(false);
+    }
+  };
+
   const formatDateTime = (isoString) => {
     const d = new Date(isoString);
     if (isNaN(d)) return "Unknown";
@@ -460,6 +622,64 @@ const AdminWritingSubmissions = () => {
             summaryLabel="submissions"
           />
 
+          {canDeleteSubmissions && (
+            <>
+              <div style={selectionToolbarStyle}>
+                <span style={selectionSummaryStyle}>
+                  Showing <strong>{filteredData.length}</strong> visible submissions
+                </span>
+                <div style={selectionActionsStyle}>
+                  {filteredData.length > 0 ? (
+                    <button
+                      type="button"
+                      onClick={toggleAllVisibleSelections}
+                      style={secondaryActionBtn}
+                      disabled={bulkDeleting}
+                    >
+                      {allVisibleSelected ? "Unselect all" : "Select all visible"}
+                    </button>
+                  ) : null}
+                  {selectedVisibleIds.length > 0 ? (
+                    <button
+                      type="button"
+                      onClick={() => setSelectedSubmissionIds(new Set())}
+                      style={secondaryActionBtn}
+                      disabled={bulkDeleting}
+                    >
+                      Clear selection
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+
+              {selectedVisibleIds.length > 0 && (
+                <div style={bulkBarStyle}>
+                  <span style={{ fontSize: 12.5, lineHeight: 1.25 }}>
+                    Selected <strong>{selectedVisibleIds.length}</strong> submissions
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleBulkDelete}
+                    style={dangerActionBtn}
+                    disabled={bulkDeleting}
+                  >
+                    {bulkDeleting
+                      ? "Deleting..."
+                      : `Delete Selected (${selectedVisibleIds.length})`}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedSubmissionIds(new Set())}
+                    style={secondaryActionBtn}
+                    disabled={bulkDeleting}
+                  >
+                    Clear Selection
+                  </button>
+                </div>
+              )}
+            </>
+          )}
+
           <p style={{ fontSize: 13, color: "#6b7280", marginBottom: 12 }}>
             Click a row to view the writing response, rubric bands, and feedback actions.
           </p>
@@ -506,6 +726,21 @@ const AdminWritingSubmissions = () => {
 
             return (
               <>
+                {canDeleteSubmissions && (
+                  <label
+                    style={selectionCheckboxLabelStyle}
+                    onClick={stopSelectionEvent}
+                    onMouseDown={stopSelectionEvent}
+                  >
+                    <input
+                      type="checkbox"
+                      aria-label={`Select submission #${item.id}`}
+                      checked={selectedSubmissionIds.has(item.id)}
+                      onChange={() => toggleSelection(item.id)}
+                      onClick={stopSelectionEvent}
+                    />
+                  </label>
+                )}
                 <span style={{ fontSize: 12, color: tone.subtleText, minWidth: 28 }}>
                   #{index + 1}
                 </span>
@@ -763,7 +998,7 @@ const AdminWritingSubmissions = () => {
                     }
                   />
                   <div
-                    style={{ display: "flex", gap: 8, marginTop: 8 }}
+                    style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" }}
                     className="admin-button-row"
                   >
                     <button
@@ -833,6 +1068,29 @@ const AdminWritingSubmissions = () => {
                         ? "Generating..."
                         : "AI Feedback"}
                     </button>
+                    {canDeleteSubmissions && (
+                      <button
+                        onClick={() => handleDeleteSubmission(item)}
+                        disabled={deletingId === item.id || bulkDeleting}
+                        style={{
+                          padding: "9px 16px",
+                          border: "none",
+                          borderRadius: 6,
+                          fontWeight: 600,
+                          fontSize: 14,
+                          cursor:
+                            deletingId === item.id || bulkDeleting
+                              ? "default"
+                              : "pointer",
+                          background: "#dc2626",
+                          color: "#fff",
+                          minWidth: 132,
+                          opacity: deletingId === item.id || bulkDeleting ? 0.72 : 1,
+                        }}
+                      >
+                        {deletingId === item.id ? "Deleting..." : "Delete"}
+                      </button>
+                    )}
                   </div>
                   {messages[item.id] && (
                     <p style={{ marginTop: 6, color: "#16a34a", fontSize: 13 }}>
@@ -852,3 +1110,11 @@ const AdminWritingSubmissions = () => {
 };
 
 export default AdminWritingSubmissions;
+
+const selectionToolbarStyle = { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap", marginBottom: 12, padding: "12px 14px", border: "1px solid #e2e8f0", borderRadius: 14, background: "#f8fafc" };
+const selectionSummaryStyle = { fontSize: 14, color: "#475569" };
+const selectionActionsStyle = { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" };
+const selectionCheckboxLabelStyle = { display: "inline-flex", alignItems: "center", justifyContent: "center", width: 28, height: 28, borderRadius: 8, border: "1px solid #e2e8f0", background: "#f8fafc", cursor: "pointer" };
+const bulkBarStyle = { display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 12, padding: "12px 14px", border: "1px solid #fecaca", borderRadius: 14, background: "#fff1f2", color: "#7f1d1d" };
+const secondaryActionBtn = { background: "#e5e7eb", color: "#374151", border: "none", borderRadius: 8, padding: "7px 12px", cursor: "pointer", fontWeight: 700, fontSize: 12.5, lineHeight: 1.05 };
+const dangerActionBtn = { background: "#dc2626", color: "#fff", border: "none", borderRadius: 8, padding: "7px 12px", cursor: "pointer", fontWeight: 700, fontSize: 12.5, lineHeight: 1.05 };
