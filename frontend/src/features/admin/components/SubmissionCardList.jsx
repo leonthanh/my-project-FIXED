@@ -62,17 +62,18 @@ export const getSubmissionTone = (variant = "pending", isDarkMode = false) => {
   };
 };
 
-export const SubmissionStatCards = ({ stats, containerStyle, compact = false }) => {
+export const SubmissionStatCards = ({ stats, containerStyle, compact = false, dense = false }) => {
   const safeStats = Array.isArray(stats) ? stats.filter(Boolean) : [];
   if (!safeStats.length) return null;
 
-  const cardPadding = compact ? "6px 12px" : "8px 18px";
-  const cardRadius = compact ? 9 : 8;
-  const minWidth = compact ? 92 : 110;
-  const valueFont = compact ? 17 : 24;
-  const labelFont = compact ? 10.5 : 12;
-  const gap = compact ? 8 : 10;
-  const marginBottom = compact ? 10 : 18;
+  const compactDense = compact && dense;
+  const cardPadding = compactDense ? "5px 10px" : compact ? "6px 12px" : "8px 18px";
+  const cardRadius = compactDense ? 8 : compact ? 9 : 8;
+  const minWidth = compactDense ? 84 : compact ? 92 : 110;
+  const valueFont = compactDense ? 15 : compact ? 17 : 24;
+  const labelFont = compactDense ? 10 : compact ? 10.5 : 12;
+  const gap = compactDense ? 6 : compact ? 8 : 10;
+  const marginBottom = compactDense ? 6 : compact ? 10 : 18;
 
   return (
     <div

@@ -52,8 +52,10 @@ const SubmissionFilterPanel = ({
   summaryLabel = "submissions",
   summaryHint = "",
   compact = false,
+  dense = false,
   compactPrimaryFieldCount = 4,
 }) => {
+  const compactDense = compact && dense;
   const hasCounts =
     Number.isFinite(Number(filteredCount)) && Number.isFinite(Number(totalCount));
   const resolvedPrimaryCount = compact
@@ -61,38 +63,46 @@ const SubmissionFilterPanel = ({
     : fields.length;
   const primaryFields = compact ? fields.slice(0, resolvedPrimaryCount) : fields;
   const secondaryFields = compact ? fields.slice(resolvedPrimaryCount) : [];
-  const panelPadding = compact ? "10px 12px" : "14px 16px";
-  const panelMarginBottom = compact ? 8 : 14;
-  const fieldGap = compact ? 8 : 10;
+  const panelPadding = compactDense ? "8px 10px" : compact ? "10px 12px" : "14px 16px";
+  const panelMarginBottom = compactDense ? 6 : compact ? 8 : 14;
+  const fieldGap = compactDense ? 6 : compact ? 8 : 10;
   const labelStyle = compact
-    ? { ...styles.label, marginBottom: 3, fontSize: 11.5 }
+    ? { ...styles.label, marginBottom: compactDense ? 2 : 3, fontSize: compactDense ? 11 : 11.5 }
     : styles.label;
   const inputStyle = compact
-    ? { ...styles.input, padding: "6px 9px", fontSize: 12.5 }
+    ? { ...styles.input, padding: compactDense ? "5px 8px" : "6px 9px", fontSize: compactDense ? 12 : 12.5 }
     : styles.input;
   const resetButtonStyle = compact
-    ? { ...styles.resetButton, width: "auto", padding: "6px 14px", fontSize: 12.5 }
+    ? { ...styles.resetButton, width: "auto", padding: compactDense ? "5px 12px" : "6px 14px", fontSize: compactDense ? 12 : 12.5 }
     : styles.resetButton;
   const statusLabelStyle = compact
-    ? { ...styles.statusLabel, fontSize: 11.5 }
+    ? { ...styles.statusLabel, fontSize: compactDense ? 11 : 11.5 }
     : styles.statusLabel;
   const statusTabStyle = compact
-    ? { ...styles.statusTab, padding: "6px 11px", fontSize: 12.5 }
+    ? { ...styles.statusTab, padding: compactDense ? "5px 10px" : "6px 11px", fontSize: compactDense ? 12 : 12.5 }
     : styles.statusTab;
   const summaryStyle = compact
-    ? { ...styles.summary, marginBottom: 6 }
+    ? {
+        ...styles.summary,
+        marginBottom: compactDense ? 4 : 6,
+        fontSize: compactDense ? 12.5 : styles.summary.fontSize,
+      }
     : styles.summary;
   const actionRowFieldStyle = compact
-    ? styles.compactActionRowField
+    ? compactDense
+      ? { ...styles.compactActionRowField, minWidth: 136, flex: "1 1 136px" }
+      : styles.compactActionRowField
     : styles.actionRowField;
   const statusContainerStyle = compact
-    ? styles.compactStatusContainer
+    ? compactDense
+      ? { ...styles.compactStatusContainer, minWidth: 220, flex: "1 1 220px" }
+      : styles.compactStatusContainer
     : styles.statusContainer;
   const resetContainerStyle = compact
     ? styles.compactResetContainer
     : styles.resetContainer;
   const statusTabsStyle = compact
-    ? { ...styles.statusTabs, gap: 6 }
+    ? { ...styles.statusTabs, gap: compactDense ? 5 : 6 }
     : styles.statusTabs;
   const summaryContent = (
     <>
@@ -219,9 +229,15 @@ const SubmissionFilterPanel = ({
 
       {hasCounts && (
         compact && summaryHint ? (
-          <div style={styles.compactSummaryRow}>
+          <div
+            style={compactDense ? { ...styles.compactSummaryRow, gap: 8, marginBottom: 6 } : styles.compactSummaryRow}
+          >
             <p style={summaryStyle}>{summaryContent}</p>
-            <p style={styles.summaryHint}>{summaryHint}</p>
+            <p
+              style={compactDense ? { ...styles.summaryHint, fontSize: 12, lineHeight: 1.35 } : styles.summaryHint}
+            >
+              {summaryHint}
+            </p>
           </div>
         ) : (
           <p style={summaryStyle}>{summaryContent}</p>

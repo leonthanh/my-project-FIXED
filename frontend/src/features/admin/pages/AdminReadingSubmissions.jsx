@@ -619,6 +619,7 @@ const AdminReadingSubmissions = () => {
         >
           <SubmissionStatCards
             compact
+            dense
             stats={[
               {
                 label: "Total",
@@ -646,6 +647,7 @@ const AdminReadingSubmissions = () => {
 
           <SubmissionFilterPanel
             compact
+            dense
             fields={[
               {
                 key: "student",

@@ -583,6 +583,7 @@ const AdminWritingSubmissions = () => {
         >
           <SubmissionStatCards
             compact
+            dense
             stats={[
               {
                 label: "Total",
@@ -610,6 +611,7 @@ const AdminWritingSubmissions = () => {
 
           <SubmissionFilterPanel
             compact
+            dense
             compactPrimaryFieldCount={3}
             fields={[
               {
