@@ -255,10 +255,14 @@ export const OpenClozeSectionDisplay = ({
       {passageTitle ? (
         <h3
           style={{
-            marginBottom: '16px',
-            fontSize: '18px',
-            fontWeight: 600,
-            color: isDarkMode ? '#e5e7eb' : '#0c4a6e',
+            margin: '0 0 18px',
+            padding: '0 44px',
+            textAlign: 'center',
+            fontSize: 'clamp(22px, 2.3vw, 30px)',
+            lineHeight: 1.25,
+            fontWeight: 800,
+            letterSpacing: '-0.01em',
+            color: isDarkMode ? '#e5e7eb' : '#0e276f',
           }}
           dangerouslySetInnerHTML={{ __html: sanitizeBasicHtml(passageTitle) }}
         />
