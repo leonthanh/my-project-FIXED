@@ -62,17 +62,18 @@ export const getSubmissionTone = (variant = "pending", isDarkMode = false) => {
   };
 };
 
-export const SubmissionStatCards = ({ stats, containerStyle, compact = false }) => {
+export const SubmissionStatCards = ({ stats, containerStyle, compact = false, dense = false }) => {
   const safeStats = Array.isArray(stats) ? stats.filter(Boolean) : [];
   if (!safeStats.length) return null;
 
-  const cardPadding = compact ? "7px 14px" : "8px 18px";
-  const cardRadius = compact ? 10 : 8;
-  const minWidth = compact ? 96 : 110;
-  const valueFont = compact ? 18 : 24;
-  const labelFont = compact ? 11 : 12;
-  const gap = compact ? 8 : 10;
-  const marginBottom = compact ? 14 : 18;
+  const compactDense = compact && dense;
+  const cardPadding = compactDense ? "5px 10px" : compact ? "6px 12px" : "8px 18px";
+  const cardRadius = compactDense ? 8 : compact ? 9 : 8;
+  const minWidth = compactDense ? 84 : compact ? 92 : 110;
+  const valueFont = compactDense ? 15 : compact ? 17 : 24;
+  const labelFont = compactDense ? 10 : compact ? 10.5 : 12;
+  const gap = compactDense ? 6 : compact ? 8 : 10;
+  const marginBottom = compactDense ? 6 : compact ? 10 : 18;
 
   return (
     <div
@@ -121,17 +122,24 @@ export const ExpandableSubmissionList = ({
   renderExpanded,
   containerStyle,
   emptyState = null,
+  compact = false,
 }) => {
   if (!Array.isArray(items) || items.length === 0) {
     return emptyState;
   }
+
+  const listGap = compact ? 4 : 6;
+  const headerGap = compact ? 8 : 10;
+  const headerPadding = compact ? "8px 12px" : "10px 14px";
+  const expandedPadding = compact ? "0 12px 12px" : "0 14px 16px";
+  const cardRadius = compact ? 7 : 8;
 
   return (
     <div
       style={{
         display: "flex",
         flexDirection: "column",
-        gap: 6,
+        gap: listGap,
         ...containerStyle,
       }}
     >
@@ -157,7 +165,7 @@ export const ExpandableSubmissionList = ({
             style={{
               border: `1px solid ${isSelected ? defaultHighlightColor : tone.border}`,
               borderLeft: `4px solid ${isSelected ? defaultHighlightColor : tone.accent}`,
-              borderRadius: 8,
+              borderRadius: cardRadius,
               background: tone.cardBg,
               overflow: "hidden",
               boxShadow: isSelected
@@ -170,8 +178,8 @@ export const ExpandableSubmissionList = ({
               style={{
                 display: "flex",
                 alignItems: "center",
-                gap: 10,
-                padding: "10px 14px",
+                gap: headerGap,
+                padding: headerPadding,
                 cursor: "pointer",
                 userSelect: "none",
                 flexWrap: "wrap",
@@ -202,7 +210,7 @@ export const ExpandableSubmissionList = ({
             {isExpanded && (
               <div
                 style={{
-                  padding: "0 14px 16px",
+                  padding: expandedPadding,
                   borderTop: `1px solid ${tone.divider}`,
                 }}
               >

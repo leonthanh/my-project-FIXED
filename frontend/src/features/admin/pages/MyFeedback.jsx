@@ -1,6 +1,10 @@
 import React, { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import StudentNavbar from "../../../shared/components/StudentNavbar";
 import { apiPath, hostPath } from "../../../shared/utils/api";
+import {
+  buildCambridgeResponseFeedbackEntries,
+  hasAnyVisibleCambridgeFeedback,
+} from "../../../shared/utils/cambridgeFeedback";
 import { useTheme } from "../../../shared/contexts/ThemeContext";
 import LineIcon from "../../../shared/components/LineIcon.jsx";
 
@@ -113,7 +117,7 @@ const MyFeedback = () => {
       );
 
       const unseenIds = userSubs
-        .filter((sub) => sub.feedback && !sub.feedbackSeen)
+        .filter((sub) => hasAnyVisibleCambridgeFeedback(sub) && !sub.feedbackSeen)
         .map((sub) => sub.id);
 
       if (unseenIds.length > 0) {
@@ -483,25 +487,57 @@ const MyFeedback = () => {
     </div>
   );
 
-  const renderFeedbackBlock = (submission, emptyText) => (
-    <section className="myFeedbackFeedbackSection">
-      <div className="myFeedbackFeedbackHeader">
-        <span className="myFeedbackSectionEyebrow">Teacher feedback</span>
-        <span className="myFeedbackReviewerChip">{submission.feedbackBy || "Not available"}</span>
-      </div>
+  const renderFeedbackBlock = (submission, emptyText) => {
+    const responseFeedbackEntries = buildCambridgeResponseFeedbackEntries(
+      submission.responseFeedback
+    );
+    const legacyFeedback = String(submission.feedback || "").trim();
+    const hasVisibleFeedback = Boolean(legacyFeedback) || responseFeedbackEntries.length > 0;
+    const responseMetaEntry = responseFeedbackEntries.find(
+      (entry) => entry.feedbackBy || entry.feedbackAt
+    );
+    const reviewerLabel =
+      submission.feedbackBy || responseMetaEntry?.feedbackBy || "Not available";
+    const reviewedAtValue = submission.feedbackAt || responseMetaEntry?.feedbackAt;
 
-      {submission.feedback ? (
-        <div className="myFeedbackFeedbackBox">
-          <p className="myFeedbackFeedbackText">{submission.feedback}</p>
-          <p className="myFeedbackFeedbackMeta">
-            <strong>Reviewed at:</strong> {formatDateTime(submission.feedbackAt)}
-          </p>
+    return (
+      <section className="myFeedbackFeedbackSection">
+        <div className="myFeedbackFeedbackHeader">
+          <span className="myFeedbackSectionEyebrow">Teacher feedback</span>
+          <span className="myFeedbackReviewerChip">{reviewerLabel}</span>
         </div>
-      ) : (
-        <p className="myFeedbackMuted myFeedbackMuted--italic">{emptyText}</p>
-      )}
-    </section>
-  );
+
+        {hasVisibleFeedback ? (
+          <div className="myFeedbackFeedbackBox">
+            {responseFeedbackEntries.map((entry) => (
+              <div key={entry.key} style={{ marginBottom: 14 }}>
+                <p className="myFeedbackFeedbackMeta" style={{ marginBottom: 6 }}>
+                  <strong>{entry.label || entry.key}</strong>
+                  {entry.feedbackBy ? ` • ${entry.feedbackBy}` : ""}
+                </p>
+                <p className="myFeedbackFeedbackText">{entry.feedback}</p>
+              </div>
+            ))}
+
+            {legacyFeedback && (
+              <div style={{ marginTop: responseFeedbackEntries.length ? 12 : 0 }}>
+                <p className="myFeedbackFeedbackMeta" style={{ marginBottom: 6 }}>
+                  <strong>Overall feedback</strong>
+                </p>
+                <p className="myFeedbackFeedbackText">{legacyFeedback}</p>
+              </div>
+            )}
+
+            <p className="myFeedbackFeedbackMeta">
+              <strong>Reviewed at:</strong> {formatDateTime(reviewedAtValue)}
+            </p>
+          </div>
+        ) : (
+          <p className="myFeedbackMuted myFeedbackMuted--italic">{emptyText}</p>
+        )}
+      </section>
+    );
+  };
 
   const renderEssayPanel = (label, text) => {
     const cleanText = String(text || "").trim();

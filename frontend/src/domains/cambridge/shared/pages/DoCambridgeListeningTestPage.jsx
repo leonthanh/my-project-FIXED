@@ -2053,7 +2053,7 @@ const DoCambridgeListeningTest = () => {
         return (
           <div className="cambridge-part-instruction" style={{ padding: '10px 20px', flexShrink: 0 }}>
             {!hasQRange && <strong>Questions {range.start}–{range.end}</strong>}
-            <div style={{ marginTop: 6 }}>
+            <div style={{ marginTop: hasQRange ? 0 : 4 }}>
               {renderMaybeHtml(instructionText || 'For each question, choose the correct answer.')}
             </div>
           </div>
@@ -2077,7 +2077,7 @@ const DoCambridgeListeningTest = () => {
                         {!hasQuestionRangeInInstruction && (
                           <strong>Questions {range.start}–{range.end}</strong>
                         )}
-                        <div style={{ marginTop: 6 }}>
+                        <div style={{ marginTop: hasQuestionRangeInInstruction ? 0 : 4 }}>
                           {renderMaybeHtml(currentPart.instruction || 'For each question, choose the correct answer.')}
                         </div>
                       </div>
@@ -2364,7 +2364,7 @@ const DoCambridgeListeningTest = () => {
                             {!hasQuestionRangeInInstruction && (
                               <strong>Questions {range.start}–{range.end}</strong>
                             )}
-                            <div style={{ marginTop: 6 }}>
+                            <div style={{ marginTop: hasQuestionRangeInInstruction ? 0 : 4 }}>
                               {renderMaybeHtml(currentPart.instruction || 'For each question, choose the correct answer.')}
                             </div>
                           </div>

@@ -255,10 +255,14 @@ export const OpenClozeSectionDisplay = ({
       {passageTitle ? (
         <h3
           style={{
-            marginBottom: '16px',
-            fontSize: '18px',
-            fontWeight: 600,
-            color: isDarkMode ? '#e5e7eb' : '#0c4a6e',
+            margin: '0 0 18px',
+            padding: '0 44px',
+            textAlign: 'center',
+            fontSize: 'clamp(22px, 2.3vw, 30px)',
+            lineHeight: 1.25,
+            fontWeight: 800,
+            letterSpacing: '-0.01em',
+            color: isDarkMode ? '#e5e7eb' : '#0e276f',
           }}
           dangerouslySetInnerHTML={{ __html: sanitizeBasicHtml(passageTitle) }}
         />
@@ -296,6 +300,18 @@ export const GapMatchSectionDisplay = ({
   activeQuestion,
   styles,
 }) => {
+  const getOptionLabel = (index) => {
+    let nextIndex = Number(index) || 0;
+    let label = '';
+
+    do {
+      label = String.fromCharCode(65 + (nextIndex % 26)) + label;
+      nextIndex = Math.floor(nextIndex / 26) - 1;
+    } while (nextIndex >= 0);
+
+    return label;
+  };
+
   const qIdx = 0;
   const container = section.questions[0] || {};
   const leftTitle = container.leftTitle || 'People';
@@ -498,6 +514,7 @@ export const GapMatchSectionDisplay = ({
               {options.map((opt, optIdx) => {
                 const usedBy = usedMap[opt];
                 const isUsed = Boolean(usedBy);
+                const optionLabel = getOptionLabel(optIdx);
                 return (
                   <div
                     key={`${opt}-${optIdx}`}
@@ -515,9 +532,30 @@ export const GapMatchSectionDisplay = ({
                       cursor: submitted || isUsed ? 'default' : 'grab',
                       fontWeight: 600,
                       color: isDarkMode ? '#e5e7eb' : undefined,
+                      display: 'grid',
+                      gridTemplateColumns: '40px minmax(0, 1fr)',
+                      alignItems: 'center',
+                      gap: '10px',
                     }}
                   >
-                    {opt}
+                    <span
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        width: '32px',
+                        height: '32px',
+                        borderRadius: '10px',
+                        background: isDarkMode ? '#1e3a5f' : '#dbeafe',
+                        color: isDarkMode ? '#bfdbfe' : '#1d4ed8',
+                        fontSize: '13px',
+                        fontWeight: 800,
+                        flexShrink: 0,
+                      }}
+                    >
+                      {optionLabel}
+                    </span>
+                    <span>{opt}</span>
                   </div>
                 );
               })}

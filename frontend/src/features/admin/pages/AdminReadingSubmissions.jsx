@@ -16,6 +16,7 @@ import {
   SubmissionStatCards,
   getSubmissionTone,
 } from "../components/SubmissionCardList";
+import AdminConfirmModal from "../components/AdminConfirmModal";
 import SubmissionFilterPanel from "../components/SubmissionFilterPanel";
 import {
   formatAttemptTimestamp,
@@ -40,6 +41,20 @@ const InlineIcon = ({ name, size = 16, style }) => (
   </span>
 );
 
+const getStoredUser = () => {
+  if (typeof window === "undefined") return null;
+  try {
+    return JSON.parse(localStorage.getItem("user") || "null");
+  } catch (err) {
+    localStorage.removeItem("user");
+    return null;
+  }
+};
+
+const stopSelectionEvent = (event) => {
+  event.stopPropagation();
+};
+
 const AdminReadingSubmissions = () => {
   const { isDarkMode } = useTheme();
   const [subs, setSubs] = useState([]);
@@ -60,6 +75,10 @@ const AdminReadingSubmissions = () => {
   const [analysisData, setAnalysisData] = useState(null);
   const [loadingAnalysis, setLoadingAnalysis] = useState(false);
   const [extendingId, setExtendingId] = useState(null);
+  const [deletingId, setDeletingId] = useState(null);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [selectedSubmissionIds, setSelectedSubmissionIds] = useState(new Set());
+  const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [expandedItems, setExpandedItems] = useState(new Set());
 
   // Search/filter state
@@ -70,6 +89,8 @@ const AdminReadingSubmissions = () => {
   const [searchReviewedBy, setSearchReviewedBy] = useState("");
   const [statusTab, setStatusTab] = useState("all");
   const [sortOrder, setSortOrder] = useState("newest");
+  const currentUser = useMemo(() => getStoredUser(), []);
+  const canDeleteSubmissions = currentUser?.role === "admin";
 
   useEffect(() => {
     const fetchSubs = async () => {
@@ -88,16 +109,8 @@ const AdminReadingSubmissions = () => {
     };
     fetchSubs();
 
-    // Load teacher name from localStorage
-    let user = null;
-    try {
-      user = JSON.parse(localStorage.getItem("user") || "null");
-    } catch (err) {
-      localStorage.removeItem("user");
-      user = null;
-    }
-    if (user?.name) setFeedbackBy(user.name);
-  }, []);
+    if (currentUser?.name) setFeedbackBy(currentUser.name);
+  }, [currentUser]);
 
   const hasReview = (submission) =>
     Boolean(
@@ -180,6 +193,26 @@ const AdminReadingSubmissions = () => {
     subs,
   ]);
 
+  const filteredSubmissionIds = useMemo(
+    () => filteredSubs.map((submission) => submission.id),
+    [filteredSubs]
+  );
+  const selectedVisibleIds = useMemo(
+    () => filteredSubmissionIds.filter((submissionId) => selectedSubmissionIds.has(submissionId)),
+    [filteredSubmissionIds, selectedSubmissionIds]
+  );
+  const allVisibleSelected =
+    filteredSubmissionIds.length > 0 &&
+    filteredSubmissionIds.every((submissionId) => selectedSubmissionIds.has(submissionId));
+
+  useEffect(() => {
+    setSelectedSubmissionIds((prev) => {
+      const visibleIds = new Set(filteredSubmissionIds);
+      const next = new Set([...prev].filter((submissionId) => visibleIds.has(submissionId)));
+      return next.size === prev.size ? prev : next;
+    });
+  }, [filteredSubmissionIds]);
+
   const resetFilters = () => {
     setSearchClassCode("");
     setSearchTeacher("");
@@ -197,6 +230,48 @@ const AdminReadingSubmissions = () => {
       else next.add(submissionId);
       return next;
     });
+  };
+
+  const toggleSelection = (submissionId) => {
+    setSelectedSubmissionIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(submissionId)) next.delete(submissionId);
+      else next.add(submissionId);
+      return next;
+    });
+  };
+
+  const toggleAllVisibleSelections = () => {
+    setSelectedSubmissionIds((prev) => {
+      const next = new Set(prev);
+      if (allVisibleSelected) {
+        filteredSubmissionIds.forEach((submissionId) => next.delete(submissionId));
+      } else {
+        filteredSubmissionIds.forEach((submissionId) => next.add(submissionId));
+      }
+      return next;
+    });
+  };
+
+  const openDeleteConfirmation = (submission) => {
+    if (!canDeleteSubmissions || deletingId === submission.id || bulkDeleting) {
+      return;
+    }
+    setDeleteConfirm({ mode: "single", submission });
+  };
+
+  const openBulkDeleteConfirmation = () => {
+    if (!canDeleteSubmissions || bulkDeleting || selectedVisibleIds.length === 0) {
+      return;
+    }
+    setDeleteConfirm({ mode: "bulk", ids: [...selectedVisibleIds] });
+  };
+
+  const closeDeleteConfirmation = () => {
+    if (bulkDeleting || (deleteConfirm?.mode === "single" && deletingId === deleteConfirm?.submission?.id)) {
+      return;
+    }
+    setDeleteConfirm(null);
   };
 
   const pendingCount = subs.filter((submission) => !hasReview(submission)).length;
@@ -397,10 +472,124 @@ const AdminReadingSubmissions = () => {
     }
   };
 
+  const handleDeleteSubmission = async (submission) => {
+    if (!canDeleteSubmissions || deletingId === submission.id || bulkDeleting) {
+      return false;
+    }
+
+    setDeletingId(submission.id);
+    try {
+      const res = await authFetch(apiPath(`admin/submissions/reading/${submission.id}`), {
+        method: "DELETE",
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data?.message || "Could not delete submission.");
+      }
+
+      setSubs((prev) => prev.filter((item) => item.id !== submission.id));
+      setSelectedSubmissionIds((prev) => {
+        const next = new Set(prev);
+        next.delete(submission.id);
+        return next;
+      });
+      setExpandedItems((prev) => {
+        const next = new Set(prev);
+        next.delete(submission.id);
+        return next;
+      });
+
+      if (selectedSubmission?.id === submission.id) {
+        setShowFeedbackModal(false);
+        setShowAnalysisModal(false);
+        setAnalysisData(null);
+        setSelectedSubmission(null);
+        clearDeepLinkParams();
+      }
+
+      return true;
+    } catch (err) {
+      alert(err.message || "Could not delete submission.");
+      return false;
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  const handleBulkDelete = async (submissionIds = selectedVisibleIds) => {
+    if (!canDeleteSubmissions || bulkDeleting || submissionIds.length === 0) {
+      return false;
+    }
+
+    setBulkDeleting(true);
+    try {
+      const res = await authFetch(apiPath("admin/submissions/bulk"), {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          items: submissionIds.map((submissionId) => ({
+            type: "reading",
+            id: submissionId,
+          })),
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data?.message || "Could not delete selected submissions.");
+      }
+
+      const deletedIds = new Set(submissionIds);
+      setSubs((prev) => prev.filter((item) => !deletedIds.has(item.id)));
+      setSelectedSubmissionIds((prev) => {
+        const next = new Set(prev);
+        submissionIds.forEach((submissionId) => next.delete(submissionId));
+        return next;
+      });
+      setExpandedItems((prev) => {
+        const next = new Set(prev);
+        submissionIds.forEach((submissionId) => next.delete(submissionId));
+        return next;
+      });
+
+      if (selectedSubmission?.id && deletedIds.has(selectedSubmission.id)) {
+        setShowFeedbackModal(false);
+        setShowAnalysisModal(false);
+        setAnalysisData(null);
+        setSelectedSubmission(null);
+        clearDeepLinkParams();
+      }
+
+      alert(data?.message || `Deleted ${submissionIds.length} submissions.`);
+      return true;
+    } catch (err) {
+      alert(err.message || "Could not delete selected submissions.");
+      return false;
+    } finally {
+      setBulkDeleting(false);
+    }
+  };
+
+  const confirmDeleteAction = async () => {
+    if (!deleteConfirm) {
+      return false;
+    }
+
+    const didDelete =
+      deleteConfirm.mode === "single"
+        ? await handleDeleteSubmission(deleteConfirm.submission)
+        : await handleBulkDelete(deleteConfirm.ids);
+
+    if (didDelete) {
+      setDeleteConfirm(null);
+    }
+
+    return didDelete;
+  };
+
   return (
     <>
       <AdminNavbar />
-      <div style={{ padding: 24, maxWidth: "100%", width: "100%", margin: "0 auto" }} className="admin-page admin-submission-page">
+      <div style={{ padding: "20px 14px", maxWidth: "100%", width: "100%", margin: "0 auto" }} className="admin-page admin-submission-page">
         <AdminStickySidebarLayout
           eyebrow="Reading"
           title="Reading submissions"
@@ -429,6 +618,8 @@ const AdminReadingSubmissions = () => {
           )}
         >
           <SubmissionStatCards
+            compact
+            dense
             stats={[
               {
                 label: "Total",
@@ -455,6 +646,8 @@ const AdminReadingSubmissions = () => {
           />
 
           <SubmissionFilterPanel
+            compact
+            dense
             fields={[
               {
                 key: "student",
@@ -500,12 +693,66 @@ const AdminReadingSubmissions = () => {
             filteredCount={filteredSubs.length}
             totalCount={subs.length}
             summaryLabel="submissions"
+            summaryHint="Click a row to view the score summary, feedback, and actions."
           />
 
-          <p style={{ fontSize: 13, color: isDarkMode ? "#94a3b8" : "#6b7280", marginBottom: 12 }}>
-            Click a row to view the score summary, feedback, and actions.
-          </p>
+          {canDeleteSubmissions && (
+            <>
+              <div style={selectionToolbarStyle}>
+                <span style={selectionSummaryStyle}>
+                  Showing <strong>{filteredSubs.length}</strong> visible submissions
+                </span>
+                <div style={selectionActionsStyle}>
+                  {filteredSubs.length > 0 ? (
+                    <button
+                      type="button"
+                      onClick={toggleAllVisibleSelections}
+                      style={secondaryActionBtn}
+                      disabled={bulkDeleting}
+                    >
+                      {allVisibleSelected ? "Unselect all" : "Select all visible"}
+                    </button>
+                  ) : null}
+                  {selectedVisibleIds.length > 0 ? (
+                    <button
+                      type="button"
+                      onClick={() => setSelectedSubmissionIds(new Set())}
+                      style={secondaryActionBtn}
+                      disabled={bulkDeleting}
+                    >
+                      Clear selection
+                    </button>
+                  ) : null}
+                </div>
+              </div>
 
+              {selectedVisibleIds.length > 0 && (
+                <div style={bulkBarStyle}>
+                  <span style={{ fontSize: 12.5, lineHeight: 1.25 }}>
+                    Selected <strong>{selectedVisibleIds.length}</strong> submissions
+                  </span>
+                  <button
+                    type="button"
+                    onClick={openBulkDeleteConfirmation}
+                    style={dangerActionBtn}
+                    disabled={bulkDeleting}
+                  >
+                    {bulkDeleting
+                      ? "Deleting..."
+                      : `Delete Selected (${selectedVisibleIds.length})`}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedSubmissionIds(new Set())}
+                    style={secondaryActionBtn}
+                    disabled={bulkDeleting}
+                  >
+                    Clear Selection
+                  </button>
+                </div>
+              )}
+            </>
+          )}
           {loading && (
             <p style={statusMessageStyle}>
               <InlineIcon name="loading" size={16} />
@@ -520,6 +767,7 @@ const AdminReadingSubmissions = () => {
           )}
           {!loading && filteredSubs.length > 0 && (
             <ExpandableSubmissionList
+              compact
             items={filteredSubs}
             expandedItems={expandedItems}
             onToggle={toggleExpand}
@@ -555,6 +803,21 @@ const AdminReadingSubmissions = () => {
 
               return (
                 <>
+                  {canDeleteSubmissions && (
+                    <label
+                      style={selectionCheckboxLabelStyle}
+                      onClick={stopSelectionEvent}
+                      onMouseDown={stopSelectionEvent}
+                    >
+                      <input
+                        type="checkbox"
+                        aria-label={`Select submission #${submission.id}`}
+                        checked={selectedSubmissionIds.has(submission.id)}
+                        onChange={() => toggleSelection(submission.id)}
+                        onClick={stopSelectionEvent}
+                      />
+                    </label>
+                  )}
                   <span style={{ fontSize: 12, color: tone.subtleText, minWidth: 28 }}>
                     #{index + 1}
                   </span>
@@ -766,6 +1029,26 @@ const AdminReadingSubmissions = () => {
                       <InlineIcon name="feedback" size={14} />
                       Feedback
                     </button>
+                    {canDeleteSubmissions && (
+                      <button
+                        onClick={() => openDeleteConfirmation(submission)}
+                        style={{
+                          ...actionBtn,
+                          background: "#dc2626",
+                          opacity:
+                            deletingId === submission.id || bulkDeleting ? 0.72 : 1,
+                          cursor:
+                            deletingId === submission.id || bulkDeleting
+                              ? "default"
+                              : "pointer",
+                        }}
+                        title="Delete submission permanently"
+                        disabled={deletingId === submission.id || bulkDeleting}
+                      >
+                        <InlineIcon name="trash" size={14} />
+                        {deletingId === submission.id ? "Deleting..." : "Delete"}
+                      </button>
+                    )}
                   </div>
 
                   {submission.feedback ? (
@@ -797,6 +1080,54 @@ const AdminReadingSubmissions = () => {
           )}
         </AdminStickySidebarLayout>
       </div>
+
+      <AdminConfirmModal
+        open={Boolean(deleteConfirm)}
+        title={
+          deleteConfirm?.mode === "bulk"
+            ? `Delete ${deleteConfirm?.ids?.length || 0} Reading submissions?`
+            : "Delete Reading submission?"
+        }
+        description={
+          deleteConfirm?.mode === "bulk"
+            ? "This removes the selected Reading submissions from the queue immediately and cannot be undone."
+            : "This permanently removes the selected Reading submission, including saved feedback state for that record."
+        }
+        confirmLabel="Delete Permanently"
+        busy={
+          deleteConfirm?.mode === "bulk"
+            ? bulkDeleting
+            : deletingId === deleteConfirm?.submission?.id
+        }
+        busyLabel="Deleting..."
+        onCancel={closeDeleteConfirmation}
+        onConfirm={confirmDeleteAction}
+        isDarkMode={isDarkMode}
+        iconName="trash"
+      >
+        {deleteConfirm?.mode === "bulk" ? (
+          <>
+            <p style={confirmMetaHeadingStyle}>Selection summary</p>
+            <p style={confirmMetaTextStyle}>
+              <strong>{deleteConfirm?.ids?.length || 0}</strong> visible Reading submissions will be deleted.
+            </p>
+            <p style={confirmMetaTextStyle}>Any open feedback or analysis context tied to those records will disappear from this page after confirmation.</p>
+          </>
+        ) : (
+          <>
+            <p style={confirmMetaHeadingStyle}>Submission summary</p>
+            <p style={confirmMetaTextStyle}>
+              <strong>Student:</strong> {deleteConfirm?.submission?.userName || deleteConfirm?.submission?.User?.name || "Unknown student"}
+            </p>
+            <p style={confirmMetaTextStyle}>
+              <strong>Test:</strong> {deleteConfirm?.submission?.ReadingTest?.title || `Reading #${deleteConfirm?.submission?.testId || deleteConfirm?.submission?.id || "--"}`}
+            </p>
+            <p style={confirmMetaTextStyle}>
+              <strong>Submission ID:</strong> #{deleteConfirm?.submission?.id || "--"}
+            </p>
+          </>
+        )}
+      </AdminConfirmModal>
 
       {/* Feedback Modal */}
       {showFeedbackModal && selectedSubmission && (
@@ -982,6 +1313,15 @@ const feedbackStateStyle = (color) => ({ display: "inline-flex", alignItems: "ce
 const inProgressStyle = { display: "inline-flex", alignItems: "center", gap: 6, fontWeight: 700, color: "#1d4ed8" };
 const modalTitleStyle = { margin: 0, display: "inline-flex", alignItems: "center", gap: 10 };
 const sectionTitleStyle = { margin: "0 0 10px 0", display: "inline-flex", alignItems: "center", gap: 8 };
+const selectionToolbarStyle = { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap", marginBottom: 8, padding: "10px 12px", border: "1px solid #e2e8f0", borderRadius: 12, background: "#f8fafc" };
+const selectionSummaryStyle = { fontSize: 13, color: "#475569" };
+const selectionActionsStyle = { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" };
+const selectionCheckboxLabelStyle = { display: "inline-flex", alignItems: "center", justifyContent: "center", width: 28, height: 28, borderRadius: 8, border: "1px solid #e2e8f0", background: "#f8fafc", cursor: "pointer" };
+const bulkBarStyle = { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 8, padding: "10px 12px", border: "1px solid #fecaca", borderRadius: 12, background: "#fff1f2", color: "#7f1d1d" };
+const secondaryActionBtn = { background: "#e5e7eb", color: "#374151", border: "none", borderRadius: 8, padding: "7px 12px", cursor: "pointer", fontWeight: 700, fontSize: 12.5, lineHeight: 1.05 };
+const dangerActionBtn = { background: "#dc2626", color: "#fff", border: "none", borderRadius: 8, padding: "7px 12px", cursor: "pointer", fontWeight: 700, fontSize: 12.5, lineHeight: 1.05 };
+const confirmMetaHeadingStyle = { margin: "0 0 10px", fontSize: 12, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: "inherit" };
+const confirmMetaTextStyle = { margin: "6px 0 0", fontSize: 14, lineHeight: 1.55, color: "inherit" };
 const modalOverlay = (isDarkMode) => ({
   position: "fixed",
   top: 0,

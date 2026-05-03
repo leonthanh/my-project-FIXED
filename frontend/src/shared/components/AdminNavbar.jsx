@@ -3,6 +3,7 @@ import { createPortal, flushSync } from "react-dom";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import ThemeToggle from "./ThemeToggle";
 import { apiPath, hostPath, clearAuth } from "../utils/api";
+import { hasResolvedSubmissionFeedback } from "../utils/cambridgeFeedback";
 import { canManageCategory } from "../utils/permissions";
 import "./AdminNavbar.css";
 
@@ -240,10 +241,7 @@ const AdminNavbar = () => {
     user = null;
   }
 
-  const hasFeedback = (submission) =>
-    String(submission?.feedback || "")
-      .trim()
-      .length > 0;
+  const hasFeedback = (submission) => hasResolvedSubmissionFeedback(submission);
 
   const getSubmissionStatus = (submission) => {
     const explicitStatus = String(submission?.status || "").trim().toLowerCase();

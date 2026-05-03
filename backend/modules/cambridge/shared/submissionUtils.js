@@ -1,5 +1,9 @@
 const { Op } = require('sequelize');
 const { CambridgeListening, CambridgeReading, CambridgeSubmission } = require('../../../models');
+const {
+  getCambridgeResponseFeedbackText,
+  hasCambridgeResponseFeedback,
+} = require('./feedbackUtils');
 
 const BASE_READING_CAMBRIDGE_TEST_TYPES = ['flyers', 'movers', 'starters'];
 
@@ -25,22 +29,28 @@ const parseDetailedResults = (value) => {
 const countPendingManualAnswers = (submission) => {
   if (!submission || submission.finished === false) return 0;
 
-  const hasReview =
-    String(submission.status || '').toLowerCase() === 'reviewed' ||
-    Boolean(String(submission.feedbackBy || '').trim()) ||
-    Boolean(String(submission.feedback || '').trim());
-
-  if (hasReview) return 0;
-
   const detailedResults = parseDetailedResults(submission.detailedResults);
   if (!detailedResults) return 0;
 
-  return Object.values(detailedResults).filter(
-    (result) =>
+  const openEndedEntries = Object.entries(detailedResults).filter(
+    ([, result]) =>
       result &&
       typeof result === 'object' &&
       result.isCorrect === null &&
       Boolean(String(result.userAnswer || '').trim())
+  );
+
+  if (!openEndedEntries.length) return 0;
+
+  const hasLegacyReview =
+    Boolean(String(submission.feedback || '').trim()) ||
+    (String(submission.status || '').toLowerCase() === 'reviewed' &&
+      !hasCambridgeResponseFeedback(submission.responseFeedback));
+
+  if (hasLegacyReview) return 0;
+
+  return openEndedEntries.filter(
+    ([key]) => !getCambridgeResponseFeedbackText(submission.responseFeedback, key)
   ).length;
 };
 

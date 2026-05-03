@@ -3,6 +3,14 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import AdminNavbar from "../../../shared/components/AdminNavbar";
 import LineIcon from "../../../shared/components/LineIcon";
 import { apiPath, authFetch, hostPath } from "../../../shared/utils/api";
+import {
+  buildCambridgeResponseFeedbackEntries,
+  buildCambridgeResponseFeedbackDraftMap,
+  countMissingCambridgeResponseFeedback,
+  getCambridgeResponseFeedbackText,
+  hasResolvedSubmissionFeedback,
+  upsertCambridgeResponseFeedback,
+} from "../../../shared/utils/cambridgeFeedback";
 import AttemptExtensionControls from "../components/AttemptExtensionControls";
 import AdminStickySidebarLayout, {
   AdminSidebarMetricList,
@@ -15,7 +23,7 @@ import {
   SubmissionStatCards,
   getSubmissionTone,
 } from "../components/SubmissionCardList";
-import SubmissionFilterPanel from "../components/SubmissionFilterPanel";
+import AdminConfirmModal from "../components/AdminConfirmModal";
 import {
   formatAttemptTimestamp,
   getAttemptTimingMeta,
@@ -37,6 +45,39 @@ const CAMBRIDGE_SUBMISSION_TABS = [
     shortLabel: 'Reading',
     label: 'Reading Submissions',
   },
+];
+
+const CAMBRIDGE_STATUS_TONES = {
+  pending: {
+    activeBackground: '#f59e0b',
+    activeBorder: '#f59e0b',
+    activeText: '#ffffff',
+    softBackground: '#fff7ed',
+    softBorder: '#fed7aa',
+    softText: '#9a3412',
+  },
+  reviewed: {
+    activeBackground: '#16a34a',
+    activeBorder: '#16a34a',
+    activeText: '#ffffff',
+    softBackground: '#f0fdf4',
+    softBorder: '#bbf7d0',
+    softText: '#166534',
+  },
+  all: {
+    activeBackground: '#2563eb',
+    activeBorder: '#2563eb',
+    activeText: '#ffffff',
+    softBackground: '#eff6ff',
+    softBorder: '#bfdbfe',
+    softText: '#1d4ed8',
+  },
+};
+
+const CAMBRIDGE_STATUS_OPTIONS = [
+  { value: 'pending', label: 'Pending' },
+  { value: 'reviewed', label: 'Reviewed' },
+  { value: 'all', label: 'All' },
 ];
 
 const parseJsonIfString = (value) => {
@@ -153,6 +194,29 @@ const InlineIcon = ({ name, size = 18, style }) => (
   </span>
 );
 
+const omitRecordKey = (record, key) => {
+  const next = { ...record };
+  const keys = Array.isArray(key) ? key : [key];
+  keys.forEach((entryKey) => {
+    delete next[entryKey];
+  });
+  return next;
+};
+
+const omitResponseStateKeys = (record, submissionIds) => {
+  const keys = new Set((Array.isArray(submissionIds) ? submissionIds : [submissionIds]).map(String));
+  return Object.fromEntries(
+    Object.entries(record).filter(([entryKey]) => {
+      const submissionId = String(entryKey || '').split(':')[0];
+      return !keys.has(submissionId);
+    })
+  );
+};
+
+const stopSelectionEvent = (event) => {
+  event.stopPropagation();
+};
+
 /**
  * CambridgeSubmissionsPage - Trang giáo viên xem danh sách bài làm Cambridge
  * Hiển thị submissions từ tất cả Cambridge tests (Listening + Reading)
@@ -174,6 +238,9 @@ const CambridgeSubmissionsPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [extendingId, setExtendingId] = useState(null);
+  const [deletingId, setDeletingId] = useState(null);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [refreshTick, setRefreshTick] = useState(0);
   const [pagination, setPagination] = useState({
     page: 1,
     limit: 20,
@@ -201,8 +268,49 @@ const CambridgeSubmissionsPage = () => {
   const [aiLoadingById, setAiLoadingById] = useState({});
   const [savingById, setSavingById] = useState({});
   const [statusMessageById, setStatusMessageById] = useState({});
+  const [responseStatusByKey, setResponseStatusByKey] = useState({});
+  const [selectedSubmissionIds, setSelectedSubmissionIds] = useState(new Set());
+  const [deleteConfirm, setDeleteConfirm] = useState(null);
   const feedbackInputRef = useRef(null);
   const deepLinkHandledRef = useRef('');
+  const canDeleteSubmissions = teacher?.role === 'admin';
+  const filterFields = [
+    {
+      key: 'studentName',
+      label: 'Student Name',
+      placeholder: 'Student name',
+      value: filters.studentName,
+      onChange: (value) => setFilters((prev) => ({ ...prev, studentName: value })),
+    },
+    {
+      key: 'studentPhone',
+      label: 'Phone',
+      placeholder: 'Phone number',
+      value: filters.studentPhone,
+      onChange: (value) => setFilters((prev) => ({ ...prev, studentPhone: value })),
+    },
+    {
+      key: 'classCode',
+      label: 'Class Code',
+      placeholder: 'e.g. 148-IX-3A-S1',
+      value: filters.classCode,
+      onChange: (value) => setFilters((prev) => ({ ...prev, classCode: value })),
+    },
+    {
+      key: 'teacherName',
+      label: 'Test Teacher',
+      placeholder: 'Teacher name',
+      value: filters.teacherName,
+      onChange: (value) => setFilters((prev) => ({ ...prev, teacherName: value })),
+    },
+    {
+      key: 'reviewedBy',
+      label: 'Reviewed By',
+      placeholder: 'Reviewer name',
+      value: filters.reviewedBy,
+      onChange: (value) => setFilters((prev) => ({ ...prev, reviewedBy: value })),
+    },
+  ];
 
   // Fetch submissions
   useEffect(() => {
@@ -270,6 +378,7 @@ const CambridgeSubmissionsPage = () => {
     filters.teacherName,
     pagination.limit,
     pagination.page,
+    refreshTick,
     reviewStatus,
     sortOrder,
   ]);
@@ -313,11 +422,7 @@ const CambridgeSubmissionsPage = () => {
   };
 
   const hasReview = (submission) =>
-    Boolean(
-      String(submission?.feedback || '').trim() ||
-        String(submission?.feedbackBy || '').trim() ||
-        String(submission?.status || '').toLowerCase() === 'reviewed'
-    );
+    hasResolvedSubmissionFeedback(submission);
 
   const filteredSubmissions = submissions.filter((submission) => {
     const normalizedStudentName = String(submission?.studentName || '').toLowerCase();
@@ -363,6 +468,21 @@ const CambridgeSubmissionsPage = () => {
   const visibleReviewedCount = filteredSubmissions.filter((submission) =>
     hasReview(submission)
   ).length;
+  const filteredSubmissionIds = filteredSubmissions.map((submission) => submission.id);
+  const selectedVisibleIds = filteredSubmissionIds.filter((submissionId) =>
+    selectedSubmissionIds.has(submissionId)
+  );
+  const allVisibleSelected =
+    filteredSubmissionIds.length > 0 &&
+    filteredSubmissionIds.every((submissionId) => selectedSubmissionIds.has(submissionId));
+
+  useEffect(() => {
+    setSelectedSubmissionIds((prev) => {
+      const visibleIds = new Set(filteredSubmissionIds);
+      const next = new Set([...prev].filter((submissionId) => visibleIds.has(submissionId)));
+      return next.size === prev.size ? prev : next;
+    });
+  }, [filteredSubmissionIds]);
 
   const toggleExpand = (submissionId) => {
     setExpandedItems((prev) => {
@@ -371,6 +491,48 @@ const CambridgeSubmissionsPage = () => {
       else next.add(submissionId);
       return next;
     });
+  };
+
+  const toggleSelection = (submissionId) => {
+    setSelectedSubmissionIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(submissionId)) next.delete(submissionId);
+      else next.add(submissionId);
+      return next;
+    });
+  };
+
+  const toggleAllVisibleSelections = () => {
+    setSelectedSubmissionIds((prev) => {
+      const next = new Set(prev);
+      if (allVisibleSelected) {
+        filteredSubmissionIds.forEach((submissionId) => next.delete(submissionId));
+      } else {
+        filteredSubmissionIds.forEach((submissionId) => next.add(submissionId));
+      }
+      return next;
+    });
+  };
+
+  const openDeleteConfirmation = (submission) => {
+    if (!canDeleteSubmissions || deletingId === submission.id || bulkDeleting) {
+      return;
+    }
+    setDeleteConfirm({ mode: 'single', submission });
+  };
+
+  const openBulkDeleteConfirmation = () => {
+    if (!canDeleteSubmissions || bulkDeleting || selectedVisibleIds.length === 0) {
+      return;
+    }
+    setDeleteConfirm({ mode: 'bulk', ids: [...selectedVisibleIds] });
+  };
+
+  const closeDeleteConfirmation = () => {
+    if (bulkDeleting || (deleteConfirm?.mode === 'single' && deletingId === deleteConfirm?.submission?.id)) {
+      return;
+    }
+    setDeleteConfirm(null);
   };
 
   const getPendingManualAnswers = (submissionDetail) => {
@@ -396,18 +558,22 @@ const CambridgeSubmissionsPage = () => {
       .filter((item) => item.userAnswer.length > 0);
   };
 
+  const getFeedbackStateKey = (submissionId, responseKey) =>
+    `${submissionId}:${responseKey}`;
+
   const getPendingManualCount = (submission) => {
     const count = Number(submission?.pendingManualCount);
     if (Number.isFinite(count) && count >= 0) {
       return count;
     }
 
-    if (hasReview(submission)) {
-      return 0;
-    }
-
     const detail = submission?.id ? detailById[submission.id] : null;
-    return detail ? getPendingManualAnswers(detail).length : 0;
+    return detail
+      ? countMissingCambridgeResponseFeedback(
+          getPendingManualAnswers(detail),
+          detail?.responseFeedback || submission?.responseFeedback
+        )
+      : 0;
   };
 
   const loadSubmissionDetail = async (submissionId) => {
@@ -430,8 +596,7 @@ const CambridgeSubmissionsPage = () => {
       setDetailById((prev) => ({ ...prev, [submissionId]: detail }));
       setFeedbackDraftById((prev) => ({
         ...prev,
-        [submissionId]:
-          typeof detail?.feedback === 'string' ? detail.feedback : prev[submissionId] || '',
+        [submissionId]: prev[submissionId] || buildCambridgeResponseFeedbackDraftMap(detail?.responseFeedback),
       }));
       return detail;
     } catch (err) {
@@ -579,17 +744,17 @@ const CambridgeSubmissionsPage = () => {
     return () => window.cancelAnimationFrame(frameId);
   }, [activeReviewSubmissionId, detailById, detailLoadingById]);
 
-  const handleGenerateEssayFeedback = async (submission) => {
+  const handleGenerateEssayFeedback = async (submission, responseItem) => {
     const detail = detailById[submission.id];
-    const pendingAnswers = getPendingManualAnswers(detail);
-    if (!pendingAnswers.length) {
+    const stateKey = getFeedbackStateKey(submission.id, responseItem.key);
+    if (!responseItem?.userAnswer?.trim()) {
       alert('No open-ended responses were found for AI feedback.');
       return;
     }
 
     try {
-      setAiLoadingById((prev) => ({ ...prev, [submission.id]: true }));
-      setStatusMessageById((prev) => ({ ...prev, [submission.id]: '' }));
+      setAiLoadingById((prev) => ({ ...prev, [stateKey]: true }));
+      setResponseStatusByKey((prev) => ({ ...prev, [stateKey]: '' }));
 
       const res = await fetch(apiPath('ai/generate-cambridge-feedback'), {
         method: 'POST',
@@ -598,12 +763,14 @@ const CambridgeSubmissionsPage = () => {
           studentName: submission.studentName || 'N/A',
           testType: submission.testType || 'Orange',
           classCode: submission.classCode || '',
-          responses: pendingAnswers.map((item) => ({
-            label: item.label,
-            prompt: item.prompt,
-            answer: item.userAnswer,
-            questionType: item.questionType,
-          })),
+          responses: [
+            {
+              label: responseItem.label,
+              prompt: responseItem.prompt,
+              answer: responseItem.userAnswer,
+              questionType: responseItem.questionType,
+            },
+          ],
         }),
       });
 
@@ -618,44 +785,60 @@ const CambridgeSubmissionsPage = () => {
 
       setFeedbackDraftById((prev) => ({
         ...prev,
-        [submission.id]: data.suggestion,
+        [submission.id]: {
+          ...(prev[submission.id] || {}),
+          [responseItem.key]: data.suggestion,
+        },
       }));
-      setStatusMessageById((prev) => ({
+      setResponseStatusByKey((prev) => ({
         ...prev,
-        [submission.id]: data.warning
+        [stateKey]: data.warning
           ? data.warning
           : data.cached
-          ? 'Loaded cached AI feedback.'
-          : 'AI feedback generated.',
+          ? `${responseItem.label || 'Response'} loaded cached AI feedback.`
+          : `${responseItem.label || 'Response'} AI feedback generated.`,
       }));
     } catch (err) {
       console.error('Failed to generate Cambridge AI feedback:', err);
-      setStatusMessageById((prev) => ({
+      setResponseStatusByKey((prev) => ({
         ...prev,
-        [submission.id]: err.message || 'AI feedback failed.',
+        [stateKey]: err.message || 'AI feedback failed.',
       }));
       alert(err.message || 'AI feedback failed.');
     } finally {
-      setAiLoadingById((prev) => ({ ...prev, [submission.id]: false }));
+      setAiLoadingById((prev) => ({ ...prev, [stateKey]: false }));
     }
   };
 
-  const handleSaveEssayFeedback = async (submissionId) => {
-    const feedback = String(feedbackDraftById[submissionId] || '').trim();
+  const handleSaveEssayFeedback = async (submissionId, responseItem) => {
+    const stateKey = getFeedbackStateKey(submissionId, responseItem.key);
+    const feedback = String(feedbackDraftById[submissionId]?.[responseItem.key] || '').trim();
     if (!feedback) return;
 
     const reviewerName =
       teacher?.name || teacher?.username || teacher?.fullName || 'Teacher';
+    const detail = detailById[submissionId];
+    const submission = submissions.find((item) => item.id === submissionId);
+    const pendingAnswers = detail ? getPendingManualAnswers(detail) : [];
+    const existingResponseFeedback = getCambridgeResponseFeedbackText(
+      detail?.responseFeedback || submission?.responseFeedback,
+      responseItem.key
+    );
 
     try {
-      setSavingById((prev) => ({ ...prev, [submissionId]: true }));
+      setSavingById((prev) => ({ ...prev, [stateKey]: true }));
       const res = await fetch(apiPath(`cambridge/submissions/${submissionId}`), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          feedback,
           feedbackBy: reviewerName,
-          status: 'reviewed',
+          responseFeedbackPatch: {
+            key: responseItem.key,
+            label: responseItem.label,
+            prompt: responseItem.prompt,
+            questionType: responseItem.questionType,
+            feedback,
+          },
         }),
       });
 
@@ -664,34 +847,89 @@ const CambridgeSubmissionsPage = () => {
         throw new Error(err?.message || 'Could not save feedback.');
       }
 
+      const payload = await res.json().catch(() => ({}));
+      const savedSubmission = payload?.submission || {};
+      const nextResponseFeedback =
+        savedSubmission.responseFeedback ||
+        upsertCambridgeResponseFeedback({
+          existingValue: detail?.responseFeedback || submission?.responseFeedback,
+          responseKey: responseItem.key,
+          feedback,
+          feedbackBy: reviewerName,
+          feedbackAt: savedSubmission.feedbackAt || new Date().toISOString(),
+          label: responseItem.label,
+          prompt: responseItem.prompt,
+          questionType: responseItem.questionType,
+        });
+      const hasLegacyOverallFeedback = Boolean(
+        String(savedSubmission.feedback || detail?.feedback || submission?.feedback || '').trim()
+      );
+      const nextPendingManualCount = hasLegacyOverallFeedback
+        ? 0
+        : countMissingCambridgeResponseFeedback(pendingAnswers, nextResponseFeedback);
+      const nextStatus = hasLegacyOverallFeedback || nextPendingManualCount === 0
+        ? 'reviewed'
+        : 'submitted';
+      const savedFeedbackAt = savedSubmission.feedbackAt || new Date().toISOString();
+
       setSubmissions((prev) =>
         prev.map((item) =>
           item.id === submissionId
             ? {
                 ...item,
-                feedback,
-                feedbackBy: reviewerName,
-                status: 'reviewed',
-                feedbackAt: new Date().toISOString(),
-                pendingManualCount: 0,
+                responseFeedback: nextResponseFeedback,
+                feedback: savedSubmission.feedback ?? item.feedback,
+                feedbackBy: nextStatus === 'reviewed' ? reviewerName : item.feedbackBy,
+                status: savedSubmission.status || nextStatus,
+                feedbackAt: nextStatus === 'reviewed' ? savedFeedbackAt : item.feedbackAt,
+                pendingManualCount: nextPendingManualCount,
               }
             : item
         )
       );
-      closeEssayReview();
-      setStatusMessageById((prev) => ({
+      setDetailById((prev) => ({
         ...prev,
-        [submissionId]: 'Feedback saved.',
+        [submissionId]: prev[submissionId]
+          ? {
+              ...prev[submissionId],
+              responseFeedback: nextResponseFeedback,
+              feedback: savedSubmission.feedback ?? prev[submissionId].feedback,
+              feedbackBy:
+                savedSubmission.status === 'reviewed' || nextStatus === 'reviewed'
+                  ? reviewerName
+                  : prev[submissionId].feedbackBy,
+              feedbackAt:
+                savedSubmission.status === 'reviewed' || nextStatus === 'reviewed'
+                  ? savedFeedbackAt
+                  : prev[submissionId].feedbackAt,
+              status: savedSubmission.status || nextStatus,
+            }
+          : prev[submissionId],
+      }));
+      setFeedbackDraftById((prev) => ({
+        ...prev,
+        [submissionId]: {
+          ...(prev[submissionId] || {}),
+          [responseItem.key]: feedback,
+        },
+      }));
+      setResponseStatusByKey((prev) => ({
+        ...prev,
+        [stateKey]: existingResponseFeedback
+          ? `${responseItem.label || 'Response'} updated.`
+          : nextPendingManualCount === 0
+          ? `${responseItem.label || 'Response'} saved. Submission marked reviewed.`
+          : `${responseItem.label || 'Response'} saved. ${nextPendingManualCount} response(s) still pending.`,
       }));
     } catch (err) {
       console.error('Failed to save Cambridge feedback:', err);
-      setStatusMessageById((prev) => ({
+      setResponseStatusByKey((prev) => ({
         ...prev,
-        [submissionId]: err.message || 'Could not save feedback.',
+        [stateKey]: err.message || 'Could not save feedback.',
       }));
       alert(err.message || 'Could not save feedback.');
     } finally {
-      setSavingById((prev) => ({ ...prev, [submissionId]: false }));
+      setSavingById((prev) => ({ ...prev, [stateKey]: false }));
     }
   };
 
@@ -776,6 +1014,160 @@ const CambridgeSubmissionsPage = () => {
     }
   };
 
+  const handleDeleteSubmission = async (submission) => {
+    if (!canDeleteSubmissions || deletingId === submission.id || bulkDeleting) {
+      return false;
+    }
+
+    setDeletingId(submission.id);
+    try {
+      const res = await authFetch(apiPath(`admin/submissions/cambridge/${submission.id}`), {
+        method: 'DELETE',
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data?.message || 'Could not delete submission.');
+      }
+
+      setSubmissions((prev) => prev.filter((item) => item.id !== submission.id));
+      setSelectedSubmissionIds((prev) => {
+        const next = new Set(prev);
+        next.delete(submission.id);
+        return next;
+      });
+      setExpandedItems((prev) => {
+        const next = new Set(prev);
+        next.delete(submission.id);
+        return next;
+      });
+      setDetailById((prev) => omitRecordKey(prev, submission.id));
+      setDetailLoadingById((prev) => omitRecordKey(prev, submission.id));
+      setFeedbackDraftById((prev) => omitRecordKey(prev, submission.id));
+      setAiLoadingById((prev) => omitResponseStateKeys(prev, submission.id));
+      setSavingById((prev) => omitResponseStateKeys(prev, submission.id));
+      setStatusMessageById((prev) => omitRecordKey(prev, submission.id));
+      setResponseStatusByKey((prev) => omitResponseStateKeys(prev, submission.id));
+
+      if (activeReviewSubmissionId === submission.id) {
+        closeEssayReview();
+      } else if (deepLinkedSubmission?.id === submission.id) {
+        setDeepLinkedSubmission(null);
+        clearDeepLinkParams();
+      }
+
+      setPagination((prev) => {
+        const nextTotal = Math.max(0, prev.total - 1);
+        const nextTotalPages = Math.max(1, Math.ceil(nextTotal / prev.limit));
+        const nextPage = prev.page > nextTotalPages ? nextTotalPages : prev.page;
+
+        return {
+          ...prev,
+          page: nextPage,
+          total: nextTotal,
+          totalPages: nextTotalPages,
+        };
+      });
+      setRefreshTick((prev) => prev + 1);
+
+      return true;
+    } catch (err) {
+      alert(err.message || 'Could not delete submission.');
+      return false;
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  const handleBulkDelete = async (submissionIds = selectedVisibleIds) => {
+    if (!canDeleteSubmissions || bulkDeleting || submissionIds.length === 0) {
+      return false;
+    }
+
+    setBulkDeleting(true);
+    try {
+      const res = await authFetch(apiPath('admin/submissions/bulk'), {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          items: submissionIds.map((submissionId) => ({
+            type: 'cambridge',
+            id: submissionId,
+          })),
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data?.message || 'Could not delete selected submissions.');
+      }
+
+      const deletedIds = new Set(submissionIds);
+      setSubmissions((prev) => prev.filter((item) => !deletedIds.has(item.id)));
+      setSelectedSubmissionIds((prev) => {
+        const next = new Set(prev);
+        submissionIds.forEach((submissionId) => next.delete(submissionId));
+        return next;
+      });
+      setExpandedItems((prev) => {
+        const next = new Set(prev);
+        submissionIds.forEach((submissionId) => next.delete(submissionId));
+        return next;
+      });
+      setDetailById((prev) => omitRecordKey(prev, submissionIds));
+      setDetailLoadingById((prev) => omitRecordKey(prev, submissionIds));
+      setFeedbackDraftById((prev) => omitRecordKey(prev, submissionIds));
+      setAiLoadingById((prev) => omitResponseStateKeys(prev, submissionIds));
+      setSavingById((prev) => omitResponseStateKeys(prev, submissionIds));
+      setStatusMessageById((prev) => omitRecordKey(prev, submissionIds));
+      setResponseStatusByKey((prev) => omitResponseStateKeys(prev, submissionIds));
+
+      if (activeReviewSubmissionId && deletedIds.has(activeReviewSubmissionId)) {
+        closeEssayReview();
+      } else if (deepLinkedSubmission?.id && deletedIds.has(deepLinkedSubmission.id)) {
+        setDeepLinkedSubmission(null);
+        clearDeepLinkParams();
+      }
+
+      setPagination((prev) => {
+        const nextTotal = Math.max(0, prev.total - submissionIds.length);
+        const nextTotalPages = Math.max(1, Math.ceil(nextTotal / prev.limit));
+        const nextPage = prev.page > nextTotalPages ? nextTotalPages : prev.page;
+
+        return {
+          ...prev,
+          page: nextPage,
+          total: nextTotal,
+          totalPages: nextTotalPages,
+        };
+      });
+      setRefreshTick((prev) => prev + 1);
+
+      alert(data?.message || `Deleted ${submissionIds.length} submissions.`);
+      return true;
+    } catch (err) {
+      alert(err.message || 'Could not delete selected submissions.');
+      return false;
+    } finally {
+      setBulkDeleting(false);
+    }
+  };
+
+  const confirmDeleteAction = async () => {
+    if (!deleteConfirm) {
+      return false;
+    }
+
+    const didDelete =
+      deleteConfirm.mode === 'single'
+        ? await handleDeleteSubmission(deleteConfirm.submission)
+        : await handleBulkDelete(deleteConfirm.ids);
+
+    if (didDelete) {
+      setDeleteConfirm(null);
+    }
+
+    return didDelete;
+  };
+
   // Handle page change
   const handlePageChange = (newPage) => {
     setPagination(prev => ({ ...prev, page: newPage }));
@@ -838,6 +1230,8 @@ const CambridgeSubmissionsPage = () => {
     const detail = detailById[submission.id];
     const isLoadingDetail = !!detailLoadingById[submission.id];
     const pendingAnswers = detail ? getPendingManualAnswers(detail) : [];
+    const legacyFeedback = String(detail?.feedback || submission?.feedback || '').trim();
+    const responseDrafts = feedbackDraftById[submission.id] || {};
 
     return (
       <div style={styles.drawerContent}>
@@ -872,6 +1266,72 @@ const CambridgeSubmissionsPage = () => {
                         </div>
                       )}
                       <div style={styles.answerBody}>{item.userAnswer}</div>
+
+                      <div style={{ display: 'grid', gap: 8, marginTop: 12 }}>
+                        <div style={styles.drawerSectionTitle}>
+                          Feedback for {item.label || `Response ${index + 1}`}
+                        </div>
+                        <textarea
+                          ref={
+                            submission.id === activeReviewSubmissionId && index === 0
+                              ? feedbackInputRef
+                              : null
+                          }
+                          rows={4}
+                          value={responseDrafts[item.key] || ''}
+                          onChange={(e) =>
+                            setFeedbackDraftById((prev) => ({
+                              ...prev,
+                              [submission.id]: {
+                                ...(prev[submission.id] || {}),
+                                [item.key]: e.target.value,
+                              },
+                            }))
+                          }
+                          placeholder={`Enter feedback for ${item.label || `response ${index + 1}`}...`}
+                          style={styles.feedbackTextarea}
+                        />
+
+                        <div style={styles.feedbackActions}>
+                          <button
+                            onClick={() => handleGenerateEssayFeedback(submission, item)}
+                            style={styles.secondaryActionButton}
+                            disabled={
+                              !item.userAnswer ||
+                              aiLoadingById[getFeedbackStateKey(submission.id, item.key)] ||
+                              savingById[getFeedbackStateKey(submission.id, item.key)]
+                            }
+                          >
+                            {aiLoadingById[getFeedbackStateKey(submission.id, item.key)]
+                              ? 'Generating...'
+                              : 'AI Feedback'}
+                          </button>
+                          <button
+                            onClick={() => handleSaveEssayFeedback(submission.id, item)}
+                            style={styles.saveActionButton}
+                            disabled={
+                              !(responseDrafts[item.key] || '').trim() ||
+                              savingById[getFeedbackStateKey(submission.id, item.key)] ||
+                              aiLoadingById[getFeedbackStateKey(submission.id, item.key)]
+                            }
+                          >
+                            {savingById[getFeedbackStateKey(submission.id, item.key)]
+                              ? 'Saving...'
+                              : getCambridgeResponseFeedbackText(
+                                  detail?.responseFeedback || submission?.responseFeedback,
+                                  item.key
+                                )
+                              ? 'Update Feedback'
+                              : 'Save Feedback'}
+                          </button>
+                        </div>
+
+                        {responseStatusByKey[getFeedbackStateKey(submission.id, item.key)] && (
+                          <div style={styles.statusMessage}>
+                            {responseStatusByKey[getFeedbackStateKey(submission.id, item.key)]}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -879,44 +1339,16 @@ const CambridgeSubmissionsPage = () => {
             </div>
 
             <div style={styles.drawerSection}>
-              <div style={styles.drawerSectionTitle}>Teacher Feedback</div>
-              <textarea
-                ref={submission.id === activeReviewSubmissionId ? feedbackInputRef : null}
-                rows={4}
-                value={feedbackDraftById[submission.id] || ''}
-                onChange={(e) =>
-                  setFeedbackDraftById((prev) => ({
-                    ...prev,
-                    [submission.id]: e.target.value,
-                  }))
-                }
-                placeholder="Enter feedback..."
-                style={styles.feedbackTextarea}
-              />
+              {legacyFeedback ? (
+                <>
+                  <div style={styles.drawerSectionTitle}>Existing overall feedback</div>
+                  <div style={{ ...styles.answerCard, whiteSpace: 'pre-wrap' }}>
+                    {legacyFeedback}
+                  </div>
+                </>
+              ) : null}
 
               <div style={styles.feedbackActions}>
-                <button
-                  onClick={() => handleGenerateEssayFeedback(submission)}
-                  style={styles.secondaryActionButton}
-                  disabled={
-                    !pendingAnswers.length ||
-                    aiLoadingById[submission.id] ||
-                    savingById[submission.id]
-                  }
-                >
-                  {aiLoadingById[submission.id] ? 'Generating...' : 'AI Feedback'}
-                </button>
-                <button
-                  onClick={() => handleSaveEssayFeedback(submission.id)}
-                  style={styles.saveActionButton}
-                  disabled={
-                    !(feedbackDraftById[submission.id] || '').trim() ||
-                    savingById[submission.id] ||
-                    aiLoadingById[submission.id]
-                  }
-                >
-                  {savingById[submission.id] ? 'Saving...' : 'Save Feedback'}
-                </button>
                 <button
                   onClick={() => handleViewDetail(submission.id)}
                   style={styles.ghostActionButton}
@@ -926,7 +1358,7 @@ const CambridgeSubmissionsPage = () => {
               </div>
 
               <div style={styles.drawerHint}>
-                Saving will move this submission to the reviewed state.
+                Each open-ended response is reviewed and saved separately. The submission only moves to reviewed after all responses are marked.
               </div>
 
               {statusMessageById[submission.id] && (
@@ -967,58 +1399,81 @@ const CambridgeSubmissionsPage = () => {
             </>
           )}
         >
-        <SubmissionFilterPanel
-          fields={[
-            {
-              key: 'studentName',
-              label: 'Student Name',
-              placeholder: 'Student name',
-              value: filters.studentName,
-              onChange: (value) =>
-                setFilters((prev) => ({ ...prev, studentName: value })),
-            },
-            {
-              key: 'studentPhone',
-              label: 'Phone',
-              placeholder: 'Phone number',
-              value: filters.studentPhone,
-              onChange: (value) =>
-                setFilters((prev) => ({ ...prev, studentPhone: value })),
-            },
-            {
-              key: 'classCode',
-              label: 'Class Code',
-              placeholder: 'e.g. 148-IX-3A-S1',
-              value: filters.classCode,
-              onChange: (value) =>
-                setFilters((prev) => ({ ...prev, classCode: value })),
-            },
-            {
-              key: 'teacherName',
-              label: 'Test Teacher',
-              placeholder: 'Teacher name',
-              value: filters.teacherName,
-              onChange: (value) =>
-                setFilters((prev) => ({ ...prev, teacherName: value })),
-            },
-            {
-              key: 'reviewedBy',
-              label: 'Reviewed By',
-              placeholder: 'Reviewer name',
-              value: filters.reviewedBy,
-              onChange: (value) =>
-                setFilters((prev) => ({ ...prev, reviewedBy: value })),
-            },
-          ]}
-          sortValue={sortOrder}
-          onSortChange={setSortOrder}
-          statusValue={reviewStatus}
-          onStatusChange={setReviewStatus}
-          onReset={resetFilters}
-          filteredCount={filteredSubmissions.length}
-          totalCount={pagination.total}
-          summaryLabel="submissions"
-        />
+        <div style={styles.compactFilterPanel}>
+          <div style={styles.compactFilterGrid}>
+            {filterFields.slice(0, 4).map((field) => (
+              <div key={field.key} style={styles.compactFilterField}>
+                <label style={styles.compactFilterLabel}>{field.label}</label>
+                <input
+                  type="text"
+                  placeholder={field.placeholder}
+                  value={field.value}
+                  onChange={(e) => field.onChange(e.target.value)}
+                  style={styles.compactFilterInput}
+                />
+              </div>
+            ))}
+          </div>
+
+          <div style={styles.compactFilterActionRow}>
+            <div style={styles.compactFilterFieldCompact}>
+              <label style={styles.compactFilterLabel}>{filterFields[4].label}</label>
+              <input
+                type="text"
+                placeholder={filterFields[4].placeholder}
+                value={filterFields[4].value}
+                onChange={(e) => filterFields[4].onChange(e.target.value)}
+                style={styles.compactFilterInput}
+              />
+            </div>
+
+            <div style={styles.compactFilterFieldCompact}>
+              <label style={styles.compactFilterLabel}>Sort By</label>
+              <select
+                value={sortOrder}
+                onChange={(e) => setSortOrder(e.target.value)}
+                style={styles.compactFilterInput}
+              >
+                <option value="newest">Newest First</option>
+                <option value="oldest">Oldest First</option>
+              </select>
+            </div>
+
+            <div style={styles.compactStatusField}>
+              <span style={styles.compactStatusLabel}>Status</span>
+              <div style={styles.compactStatusTabs}>
+                {CAMBRIDGE_STATUS_OPTIONS.map((option) => {
+                  const isActive = reviewStatus === option.value;
+                  const tone = CAMBRIDGE_STATUS_TONES[option.value];
+
+                  return (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => setReviewStatus(option.value)}
+                      style={{
+                        ...styles.compactStatusButton,
+                        borderColor: isActive ? tone.activeBorder : tone.softBorder,
+                        background: isActive ? tone.activeBackground : tone.softBackground,
+                        color: isActive ? tone.activeText : tone.softText,
+                      }}
+                    >
+                      {option.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={resetFilters}
+              style={styles.compactResetButton}
+            >
+              Reset
+            </button>
+          </div>
+        </div>
 
         {/* Loading */}
         {loading && (
@@ -1047,45 +1502,103 @@ const CambridgeSubmissionsPage = () => {
         {/* Submissions List */}
         {!loading && !error && (
           <>
-            <SubmissionStatCards
-              stats={[
-                {
-                  label: 'Visible',
-                  count: filteredSubmissions.length,
-                  bg: '#eff6ff',
-                  color: '#1d4ed8',
-                  border: '#bfdbfe',
-                },
-                {
-                  label: 'Pending',
-                  count: visiblePendingCount,
-                  bg: '#fffbeb',
-                  color: '#92400e',
-                  border: '#fde68a',
-                },
-                {
-                  label: 'Reviewed',
-                  count: visibleReviewedCount,
-                  bg: '#f0fdf4',
-                  color: '#166534',
-                  border: '#bbf7d0',
-                },
-              ]}
-            />
+            <div style={styles.summaryRow}>
+              <SubmissionStatCards
+                compact
+                containerStyle={{ marginBottom: 0 }}
+                stats={[
+                  {
+                    label: 'Visible',
+                    count: filteredSubmissions.length,
+                    bg: '#eff6ff',
+                    color: '#1d4ed8',
+                    border: '#bfdbfe',
+                  },
+                  {
+                    label: 'Pending',
+                    count: visiblePendingCount,
+                    bg: '#fffbeb',
+                    color: '#92400e',
+                    border: '#fde68a',
+                  },
+                  {
+                    label: 'Reviewed',
+                    count: visibleReviewedCount,
+                    bg: '#f0fdf4',
+                    color: '#166534',
+                    border: '#bbf7d0',
+                  },
+                ]}
+              />
 
-            <p style={{ fontSize: '13px', color: '#6b7280', marginBottom: 12 }}>
-              Showing <strong>{filteredSubmissions.length}</strong>
-              {pagination.total !== filteredSubmissions.length ? ` / ${pagination.total}` : ''} submissions
-              {'  '}
-              <span style={{ color: '#9ca3af' }}>
+              <p style={styles.summaryHint}>
                 Click a row to view the score summary, feedback, and actions.
-              </span>
-            </p>
+              </p>
+            </div>
+
+            {canDeleteSubmissions && (
+              <>
+                <div style={styles.selectionToolbar}>
+                  <span style={styles.selectionSummary}>
+                    Showing <strong>{filteredSubmissions.length}</strong> visible submissions
+                  </span>
+                  <div style={styles.selectionActions}>
+                    {filteredSubmissions.length > 0 ? (
+                      <button
+                        type="button"
+                        onClick={toggleAllVisibleSelections}
+                        style={styles.btnGray}
+                        disabled={bulkDeleting}
+                      >
+                        {allVisibleSelected ? 'Unselect all' : 'Select all visible'}
+                      </button>
+                    ) : null}
+                    {selectedVisibleIds.length > 0 ? (
+                      <button
+                        type="button"
+                        onClick={() => setSelectedSubmissionIds(new Set())}
+                        style={styles.btnGray}
+                        disabled={bulkDeleting}
+                      >
+                        Clear selection
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
+
+                {selectedVisibleIds.length > 0 && (
+                  <div style={styles.bulkBar}>
+                    <span style={{ fontSize: 12.5, lineHeight: 1.25 }}>
+                      Selected <strong>{selectedVisibleIds.length}</strong> submissions
+                    </span>
+                    <button
+                      type="button"
+                      onClick={openBulkDeleteConfirmation}
+                      style={styles.btnRed}
+                      disabled={bulkDeleting}
+                    >
+                      {bulkDeleting
+                        ? 'Deleting...'
+                        : `Delete Selected (${selectedVisibleIds.length})`}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedSubmissionIds(new Set())}
+                      style={styles.btnGray}
+                      disabled={bulkDeleting}
+                    >
+                      Clear Selection
+                    </button>
+                  </div>
+                )}
+              </>
+            )}
 
             {filteredSubmissions.length === 0 ? (
               <div style={styles.emptyCell}>No submissions found.</div>
             ) : (
               <ExpandableSubmissionList
+                compact
                 items={filteredSubmissions}
                 expandedItems={expandedItems}
                 onToggle={toggleExpand}
@@ -1111,6 +1624,21 @@ const CambridgeSubmissionsPage = () => {
 
                   return (
                     <>
+                      {canDeleteSubmissions && (
+                        <label
+                          style={styles.selectionCheckboxLabel}
+                          onClick={stopSelectionEvent}
+                          onMouseDown={stopSelectionEvent}
+                        >
+                          <input
+                            type="checkbox"
+                            aria-label={`Select submission #${submission.id}`}
+                            checked={selectedSubmissionIds.has(submission.id)}
+                            onChange={() => toggleSelection(submission.id)}
+                            onClick={stopSelectionEvent}
+                          />
+                        </label>
+                      )}
                       <span style={{ fontSize: '12px', color: tone.subtleText, minWidth: 28 }}>
                         #{(pagination.page - 1) * pagination.limit + index + 1}
                       </span>
@@ -1380,7 +1908,7 @@ const CambridgeSubmissionsPage = () => {
                         </div>
                       )}
 
-                      {hasReview(submission) && submission.feedback ? (
+                      {hasReview(submission) && (submission.feedback || buildCambridgeResponseFeedbackEntries(submission.responseFeedback).length) ? (
                         <div
                           style={{
                             background: '#f0fdf4',
@@ -1393,9 +1921,19 @@ const CambridgeSubmissionsPage = () => {
                           <p style={{ margin: '0 0 6px', fontSize: 13, color: '#166534' }}>
                             <strong>Reviewed</strong> by <strong>{submission.feedbackBy || '--'}</strong>
                           </p>
-                          <p style={{ margin: 0, whiteSpace: 'pre-line', fontSize: 14, color: tone.primaryText }}>
-                            {submission.feedback}
-                          </p>
+                          {submission.feedback ? (
+                            <p style={{ margin: 0, whiteSpace: 'pre-line', fontSize: 14, color: tone.primaryText }}>
+                              {submission.feedback}
+                            </p>
+                          ) : (
+                            <p style={{ margin: 0, fontSize: 14, color: tone.primaryText }}>
+                              Saved response feedback for{' '}
+                              <strong>
+                                {buildCambridgeResponseFeedbackEntries(submission.responseFeedback).length}
+                              </strong>{' '}
+                              response(s).
+                            </p>
+                          )}
                         </div>
                       ) : !canReviewEssay ? (
                         <p style={{ margin: '12px 0 0', color: tone.mutedText, fontSize: 13 }}>
@@ -1444,6 +1982,26 @@ const CambridgeSubmissionsPage = () => {
                             }}
                           />
                         )}
+                        {canDeleteSubmissions && (
+                          <button
+                            onClick={() => openDeleteConfirmation(submission)}
+                            style={{
+                              ...styles.viewButton,
+                              backgroundColor: '#dc2626',
+                              opacity:
+                                deletingId === submission.id || bulkDeleting ? 0.72 : 1,
+                              cursor:
+                                deletingId === submission.id || bulkDeleting
+                                  ? 'default'
+                                  : 'pointer',
+                            }}
+                            disabled={deletingId === submission.id || bulkDeleting}
+                            title="Delete submission permanently"
+                          >
+                            <InlineIcon name="trash" size={15} />
+                            {deletingId === submission.id ? 'Deleting...' : 'Delete'}
+                          </button>
+                        )}
                       </div>
                     </>
                   );
@@ -1484,6 +2042,53 @@ const CambridgeSubmissionsPage = () => {
           </>
         )}
         </AdminStickySidebarLayout>
+
+        <AdminConfirmModal
+          open={Boolean(deleteConfirm)}
+          title={
+            deleteConfirm?.mode === 'bulk'
+              ? `Delete ${deleteConfirm?.ids?.length || 0} Cambridge submissions?`
+              : 'Delete Cambridge submission?'
+          }
+          description={
+            deleteConfirm?.mode === 'bulk'
+              ? 'This removes the selected Cambridge submissions from the queue immediately and cannot be undone.'
+              : 'This permanently removes the selected Cambridge submission, including saved feedback and review drawer state for that record.'
+          }
+          confirmLabel="Delete Permanently"
+          busy={
+            deleteConfirm?.mode === 'bulk'
+              ? bulkDeleting
+              : deletingId === deleteConfirm?.submission?.id
+          }
+          busyLabel="Deleting..."
+          onCancel={closeDeleteConfirmation}
+          onConfirm={confirmDeleteAction}
+          iconName="trash"
+        >
+          {deleteConfirm?.mode === 'bulk' ? (
+            <>
+              <p style={styles.confirmMetaHeading}>Selection summary</p>
+              <p style={styles.confirmMetaText}>
+                <strong>{deleteConfirm?.ids?.length || 0}</strong> visible Cambridge submissions will be deleted.
+              </p>
+              <p style={styles.confirmMetaText}>The current filtered selection will be removed from this page and the list will refresh to keep pagination in sync.</p>
+            </>
+          ) : (
+            <>
+              <p style={styles.confirmMetaHeading}>Submission summary</p>
+              <p style={styles.confirmMetaText}>
+                <strong>Student:</strong> {deleteConfirm?.submission?.studentName || '--'}
+              </p>
+              <p style={styles.confirmMetaText}>
+                <strong>Test:</strong> {deleteConfirm?.submission?.testTitle || '--'}
+              </p>
+              <p style={styles.confirmMetaText}>
+                <strong>Submission ID:</strong> #{deleteConfirm?.submission?.id || '--'}
+              </p>
+            </>
+          )}
+        </AdminConfirmModal>
 
         {activeReviewSubmission && (
           <div style={styles.drawerOverlay} onClick={closeEssayReview}>
@@ -1531,7 +2136,7 @@ const styles = {
     width: '100%',
     maxWidth: '100%',
     margin: '0 auto',
-    padding: '30px 16px',
+    padding: '22px 14px',
     boxSizing: 'border-box',
   },
   switcherWrap: {
@@ -1608,6 +2213,110 @@ const styles = {
     marginLeft: 'auto',
     color: '#64748b',
     fontSize: '14px',
+  },
+  compactFilterPanel: {
+    width: '100%',
+    alignSelf: 'stretch',
+    background: '#fff',
+    border: '1px solid #e5e7eb',
+    borderRadius: 10,
+    padding: '12px 14px',
+    marginBottom: 8,
+  },
+  compactFilterGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
+    gap: '8px',
+  },
+  compactFilterActionRow: {
+    display: 'flex',
+    alignItems: 'end',
+    gap: '8px',
+    flexWrap: 'wrap',
+    marginTop: '8px',
+  },
+  compactFilterField: {
+    display: 'grid',
+    gap: '3px',
+    minWidth: 0,
+  },
+  compactFilterFieldCompact: {
+    display: 'grid',
+    gap: '3px',
+    flex: '1 1 156px',
+    minWidth: '150px',
+  },
+  compactFilterLabel: {
+    display: 'block',
+    fontSize: '11.5px',
+    fontWeight: 600,
+    color: '#374151',
+  },
+  compactFilterInput: {
+    width: '100%',
+    padding: '6px 9px',
+    border: '1px solid #d1d5db',
+    borderRadius: '6px',
+    fontSize: '12.5px',
+    boxSizing: 'border-box',
+    background: '#fff',
+  },
+  compactStatusField: {
+    display: 'grid',
+    gap: '3px',
+    flex: '1 1 250px',
+    minWidth: '240px',
+  },
+  compactStatusLabel: {
+    display: 'block',
+    fontSize: '11.5px',
+    fontWeight: 700,
+    color: '#374151',
+    textTransform: 'uppercase',
+    letterSpacing: '0.04em',
+  },
+  compactStatusTabs: {
+    display: 'flex',
+    gap: '8px',
+    flexWrap: 'wrap',
+  },
+  compactStatusButton: {
+    padding: '6px 11px',
+    borderRadius: '999px',
+    borderWidth: '1px',
+    borderStyle: 'solid',
+    cursor: 'pointer',
+    fontSize: '12.5px',
+    fontWeight: 700,
+    lineHeight: 1.1,
+  },
+  compactResetButton: {
+    alignSelf: 'end',
+    padding: '6px 14px',
+    background: '#eff6ff',
+    color: '#1d4ed8',
+    border: '1px solid #bfdbfe',
+    borderRadius: '6px',
+    cursor: 'pointer',
+    fontSize: '12.5px',
+    fontWeight: 700,
+    lineHeight: 1.1,
+    whiteSpace: 'nowrap',
+  },
+  summaryRow: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: '12px',
+    flexWrap: 'wrap',
+    marginBottom: '8px',
+  },
+  summaryHint: {
+    margin: 0,
+    fontSize: '13px',
+    color: '#6b7280',
+    flex: '1 1 280px',
+    textAlign: 'right',
   },
   loadingContainer: {
     display: 'flex',
@@ -2006,9 +2715,90 @@ const styles = {
     fontSize: '13px',
     fontWeight: 700,
   },
+  btnRed: {
+    background: '#dc2626',
+    color: '#fff',
+    border: 'none',
+    borderRadius: 8,
+    padding: '6px 10px',
+    cursor: 'pointer',
+    fontWeight: 700,
+    fontSize: 12,
+    lineHeight: 1.05,
+  },
+  btnGray: {
+    background: '#e5e7eb',
+    color: '#374151',
+    border: 'none',
+    borderRadius: 8,
+    padding: '6px 10px',
+    cursor: 'pointer',
+    fontWeight: 700,
+    fontSize: 12,
+    lineHeight: 1.05,
+  },
   statusMessage: {
     color: '#1d4ed8',
     fontSize: '13px',
+  },
+  selectionToolbar: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: '8px',
+    flexWrap: 'wrap',
+    marginBottom: '8px',
+    padding: '10px 12px',
+    border: '1px solid #e2e8f0',
+    borderRadius: '12px',
+    background: '#f8fafc',
+  },
+  selectionSummary: {
+    fontSize: '13px',
+    color: '#475569',
+  },
+  selectionActions: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    flexWrap: 'wrap',
+  },
+  selectionCheckboxLabel: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '28px',
+    height: '28px',
+    borderRadius: '8px',
+    border: '1px solid #e2e8f0',
+    background: '#f8fafc',
+    cursor: 'pointer',
+  },
+  bulkBar: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    flexWrap: 'wrap',
+    marginBottom: '8px',
+    padding: '10px 12px',
+    border: '1px solid #fecaca',
+    borderRadius: '12px',
+    background: '#fff1f2',
+    color: '#7f1d1d',
+  },
+  confirmMetaHeading: {
+    margin: '0 0 10px',
+    fontSize: 12,
+    fontWeight: 800,
+    letterSpacing: '0.08em',
+    textTransform: 'uppercase',
+    color: 'inherit',
+  },
+  confirmMetaText: {
+    margin: '6px 0 0',
+    fontSize: 14,
+    lineHeight: 1.55,
+    color: 'inherit',
   },
   pagination: {
     display: 'flex',

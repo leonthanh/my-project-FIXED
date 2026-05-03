@@ -100,10 +100,11 @@ export const isPlacementEligible = ({ platform, skill, testType }) => {
   }
 
   if (normalizedPlatform === "orange") {
-    if (!(normalizedSkill === "reading" || normalizedSkill === "listening")) {
-      return false;
+    if (normalizedTestType === "pet-writing") {
+      return true;
     }
-    return normalizedTestType !== "pet-writing";
+
+    return normalizedSkill === "reading" || normalizedSkill === "listening";
   }
 
   return false;

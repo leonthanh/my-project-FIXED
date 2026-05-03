@@ -283,6 +283,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
   // Image upload state (reading/non-listening)
   const [uploadingImagePartIndex, setUploadingImagePartIndex] = useState(null);
   const [imageUploadError, setImageUploadError] = useState('');
+  const partInstructionDraftRef = useRef('');
 
   const currentPart = parts[selectedPartIndex];
   const currentSection = currentPart?.sections?.[selectedSectionIndex];
@@ -327,6 +328,77 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
     return `${sections.length} section(s)`;
   }, []);
 
+  const normalizePartInstructionHtml = useCallback((value) => {
+    const html = String(value || '').trim();
+    if (!html) return '';
+    if (/^<p><br\s*\/?><\/p>$/i.test(html)) return '';
+    return html;
+  }, []);
+
+  useEffect(() => {
+    partInstructionDraftRef.current = normalizePartInstructionHtml(parts[selectedPartIndex]?.instruction || '');
+  }, [normalizePartInstructionHtml, parts, selectedPartIndex]);
+
+  const getLivePartInstructionValue = useCallback(() => {
+    const editor = partInstructionRef.current?.getEditor?.();
+    const liveHtml = normalizePartInstructionHtml(editor?.root?.innerHTML || '');
+
+    if (editor?.root) {
+      partInstructionDraftRef.current = liveHtml;
+      return liveHtml;
+    }
+
+    return partInstructionDraftRef.current || normalizePartInstructionHtml(currentPart?.instruction || '');
+  }, [currentPart?.instruction, normalizePartInstructionHtml, partInstructionRef]);
+
+  const syncCurrentPartInstructionInParts = useCallback((partsData) => {
+    if (!Array.isArray(partsData) || selectedPartIndex < 0 || selectedPartIndex >= partsData.length) {
+      return partsData;
+    }
+
+    const nextInstruction = getLivePartInstructionValue();
+    const currentInstruction = normalizePartInstructionHtml(partsData[selectedPartIndex]?.instruction || '');
+
+    if (currentInstruction === nextInstruction) {
+      return partsData;
+    }
+
+    return partsData.map((part, idx) => {
+      if (idx !== selectedPartIndex) return part;
+      return { ...part, instruction: nextInstruction };
+    });
+  }, [getLivePartInstructionValue, normalizePartInstructionHtml, selectedPartIndex]);
+
+  const updateParts = useCallback((updater, options = {}) => {
+    const { syncCurrentPartInstruction = true } = options;
+
+    setParts((prevParts) => {
+      const baseParts = syncCurrentPartInstruction
+        ? syncCurrentPartInstructionInParts(prevParts)
+        : prevParts;
+      return updater(baseParts);
+    });
+  }, [syncCurrentPartInstructionInParts]);
+
+  const commitCurrentPartInstruction = useCallback(() => {
+    setParts((prevParts) => syncCurrentPartInstructionInParts(prevParts));
+  }, [syncCurrentPartInstructionInParts]);
+
+  const getPartsSnapshotWithCurrentInstruction = useCallback(() => {
+    return syncCurrentPartInstructionInParts(parts);
+  }, [parts, syncCurrentPartInstructionInParts]);
+
+  const handleSelectPart = useCallback((partIndex) => {
+    commitCurrentPartInstruction();
+    setSelectedPartIndex(partIndex);
+    setSelectedSectionIndex(0);
+  }, [commitCurrentPartInstruction]);
+
+  const handleSelectSection = useCallback((sectionIndex) => {
+    commitCurrentPartInstruction();
+    setSelectedSectionIndex(sectionIndex);
+  }, [commitCurrentPartInstruction]);
+
   const uploadAudioForPart = async (partIndex, file) => {
     if (!file) return;
 
@@ -358,7 +430,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
       if (!url) throw new Error('Upload thành công nhưng không nhận được URL audio');
       const normalizedUrl = normalizeAudioReference(url);
 
-      setParts(prev => {
+      updateParts(prev => {
         const next = [...prev];
         next[partIndex] = { ...next[partIndex], audioUrl: normalizedUrl };
 
@@ -410,7 +482,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
       const url = data?.url;
       if (!url) throw new Error('Upload thành công nhưng không nhận được URL hình ảnh');
 
-      setParts(prev => {
+      updateParts(prev => {
         const next = [...prev];
         next[partIndex] = { ...next[partIndex], imageUrl: url };
         return next;
@@ -462,7 +534,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
 
   // Handlers
   const handleQuestionTypeChange = (newType) => {
-    setParts(prevParts => prevParts.map((part, pIdx) => {
+    updateParts(prevParts => prevParts.map((part, pIdx) => {
       if (pIdx !== selectedPartIndex) return part;
       const nextSections = (part.sections || []).map((section, sIdx) => {
         if (sIdx !== selectedSectionIndex) return section;
@@ -478,7 +550,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
 
   /* eslint-disable-next-line no-unused-vars */
   const handleQuestionChange = (field, value) => {
-    setParts(prevParts => prevParts.map((part, pIdx) => {
+    updateParts(prevParts => prevParts.map((part, pIdx) => {
       if (pIdx !== selectedPartIndex) return part;
       const nextSections = (part.sections || []).map((section, sIdx) => {
         if (sIdx !== selectedSectionIndex) return section;
@@ -495,25 +567,33 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
   };
 
   const handleAddPart = () => {
-    const inheritedAudioUrl = isListeningTest ? (mainAudioUrl ? '' : normalizeAudioReference(parts?.[0]?.audioUrl || '')) : '';
-    setParts([
-      ...parts,
-      {
-        partNumber: parts.length + 1,
-        title: `Part ${parts.length + 1}`,
-        instruction: '',
-        audioUrl: inheritedAudioUrl,
-        imageUrl: '',
-        sections: [
-          {
-            sectionTitle: '',
-            questionType: defaultQuestionType,
-            questions: [getDefaultQuestionData(defaultQuestionType)],
-          }
-        ]
-      }
-    ]);
-    setSelectedPartIndex(parts.length);
+    let nextPartIndex = 0;
+    updateParts((prevParts) => {
+      nextPartIndex = prevParts.length;
+      const inheritedAudioUrl = isListeningTest
+        ? (mainAudioUrl ? '' : normalizeAudioReference(prevParts?.[0]?.audioUrl || ''))
+        : '';
+
+      return [
+        ...prevParts,
+        {
+          partNumber: prevParts.length + 1,
+          title: `Part ${prevParts.length + 1}`,
+          instruction: '',
+          audioUrl: inheritedAudioUrl,
+          imageUrl: '',
+          sections: [
+            {
+              sectionTitle: '',
+              questionType: defaultQuestionType,
+              questions: [getDefaultQuestionData(defaultQuestionType)],
+            }
+          ]
+        }
+      ];
+    });
+    partInstructionDraftRef.current = '';
+    setSelectedPartIndex(nextPartIndex);
     setSelectedSectionIndex(0);
   };
 
@@ -524,7 +604,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
       questions: [getDefaultQuestionData(defaultQuestionType)],
     };
 
-    setParts(prevParts => prevParts.map((part, pIdx) => {
+    updateParts(prevParts => prevParts.map((part, pIdx) => {
       if (pIdx !== selectedPartIndex) return part;
       const nextSections = [...(part.sections || []), nextSection];
       return { ...part, sections: nextSections };
@@ -535,7 +615,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
 
   const handleAddQuestion = () => {
     const currentType = currentSection?.questionType;
-    setParts(prevParts => prevParts.map((part, pIdx) => {
+    updateParts(prevParts => prevParts.map((part, pIdx) => {
       if (pIdx !== selectedPartIndex) return part;
       const nextSections = (part.sections || []).map((section, sIdx) => {
         if (sIdx !== selectedSectionIndex) return section;
@@ -572,7 +652,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
   };
 
   const handleDeleteQuestion = (qIndex) => {
-    setParts(prevParts => prevParts.map((part, pIdx) => {
+    updateParts(prevParts => prevParts.map((part, pIdx) => {
       if (pIdx !== selectedPartIndex) return part;
       const nextSections = (part.sections || []).map((section, sIdx) => {
         if (sIdx !== selectedSectionIndex) return section;
@@ -605,7 +685,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
   // Paste copied question
   const handlePasteQuestion = () => {
     if (!copiedQuestion) return;
-    setParts(prevParts => prevParts.map((part, pIdx) => {
+    updateParts(prevParts => prevParts.map((part, pIdx) => {
       if (pIdx !== selectedPartIndex) return part;
       const nextSections = (part.sections || []).map((section, sIdx) => {
         if (sIdx !== selectedSectionIndex) return section;
@@ -653,7 +733,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
     const storageKey = `cambridgeTestDraft-${testType}`;
     try {
       setIsSaving(true);
-      const normalizedParts = normalizeListeningPartsAudio(parts);
+      const normalizedParts = normalizeListeningPartsAudio(getPartsSnapshotWithCurrentInstruction());
       const dataToSave = {
         title,
         classCode,
@@ -687,7 +767,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
     } finally {
       setIsSaving(false);
     }
-  }, [title, classCode, teacherName, mainAudioUrl, parts, testType, sanitizeDraftData]);
+  }, [title, classCode, teacherName, mainAudioUrl, testType, sanitizeDraftData, getPartsSnapshotWithCurrentInstruction]);
 
   const handleManualDraftSave = useCallback(() => {
     saveToLocalStorage();
@@ -734,7 +814,9 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
       return cleaned.trim();
     };
 
-    const cleanedParts = parts.map((part) => ({
+    const partsSnapshot = getPartsSnapshotWithCurrentInstruction();
+
+    const cleanedParts = partsSnapshot.map((part) => ({
       ...part,
       sections: (part.sections || []).map((section) => ({
         ...section,
@@ -1064,10 +1146,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
               <button
                 key={idx}
                 type="button"
-                onClick={() => {
-                  setSelectedPartIndex(idx);
-                  setSelectedSectionIndex(0);
-                }}
+                onClick={() => handleSelectPart(idx)}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -1100,10 +1179,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
           return (
             <div
               key={idx}
-              onClick={() => {
-                setSelectedPartIndex(idx);
-                setSelectedSectionIndex(0);
-              }}
+              onClick={() => handleSelectPart(idx)}
               style={{
                 padding: '12px',
                 marginBottom: '8px',
@@ -1150,7 +1226,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
             {currentPart.sections.map((sec, idx) => (
               <div
                 key={idx}
-                onClick={() => setSelectedSectionIndex(idx)}
+                onClick={() => handleSelectSection(idx)}
                 style={{
                   padding: '10px',
                   marginBottom: '6px',
@@ -1552,7 +1628,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
                 value={currentPart.title || ''}
                 onChange={(e) => {
                   const value = e.target.value;
-                  setParts(prevParts => prevParts.map((part, pIdx) => {
+                  updateParts(prevParts => prevParts.map((part, pIdx) => {
                     if (pIdx !== selectedPartIndex) return part;
                     return { ...part, title: value };
                   }));
@@ -1580,14 +1656,17 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
               </label>
               <div className="part-instruction-editor">
                 <ReactQuill
+                  key={`part-instruction-${selectedPartIndex}`}
                   ref={partInstructionRef}
                   theme="snow"
                   value={currentPart.instruction || ''}
                   onChange={(value) => {
-                    setParts(prevParts => prevParts.map((part, pIdx) => {
+                    const normalizedValue = normalizePartInstructionHtml(value);
+                    partInstructionDraftRef.current = normalizedValue;
+                    updateParts(prevParts => prevParts.map((part, pIdx) => {
                       if (pIdx !== selectedPartIndex) return part;
-                      return { ...part, instruction: value };
-                    }));
+                      return { ...part, instruction: normalizedValue };
+                    }), { syncCurrentPartInstruction: false });
                   }}
                   modules={partInstructionModules}
                   formats={[
@@ -1640,7 +1719,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
                     audioUrl={currentPart.audioUrl}
                     emptyText="Chưa có audio cho part này."
                     onClear={() => {
-                      setParts(prevParts => prevParts.map((part, pIdx) => {
+                      updateParts(prevParts => prevParts.map((part, pIdx) => {
                         if (pIdx !== selectedPartIndex) return part;
                         return { ...part, audioUrl: '' };
                       }));
@@ -1724,7 +1803,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
                         <button
                           type="button"
                           onClick={() => {
-                            setParts(prevParts => prevParts.map((part, pIdx) => {
+                            updateParts(prevParts => prevParts.map((part, pIdx) => {
                               if (pIdx !== selectedPartIndex) return part;
                               return { ...part, imageUrl: '' };
                             }));
@@ -1759,7 +1838,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
                       value={currentPart.imageUrl && /^https?:\/\//i.test(currentPart.imageUrl) ? currentPart.imageUrl : ''}
                       onChange={(e) => {
                         const value = e.target.value.trim();
-                        setParts(prevParts => prevParts.map((part, pIdx) => {
+                        updateParts(prevParts => prevParts.map((part, pIdx) => {
                           if (pIdx !== selectedPartIndex) return part;
                           return { ...part, imageUrl: value };
                         }));
@@ -1832,7 +1911,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
                     value={currentSection.exampleText || ''}
                     onChange={(e) => {
                       const val = e.target.value;
-                      setParts(prevParts => prevParts.map((part, pIdx) => {
+                      updateParts(prevParts => prevParts.map((part, pIdx) => {
                         if (pIdx !== selectedPartIndex) return part;
                         return {
                           ...part,
@@ -1868,7 +1947,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
                           value={letter}
                           checked={(currentSection.exampleAnswer || '') === letter}
                           onChange={() => {
-                            setParts(prevParts => prevParts.map((part, pIdx) => {
+                            updateParts(prevParts => prevParts.map((part, pIdx) => {
                               if (pIdx !== selectedPartIndex) return part;
                               return {
                                 ...part,
@@ -2099,7 +2178,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
                               question={question}
                               testType={testType}
                               onChange={(field, value) => {
-                                setParts(prevParts => prevParts.map((part, pIdx) => {
+                                updateParts(prevParts => prevParts.map((part, pIdx) => {
                                   if (pIdx !== selectedPartIndex) return part;
                                   const nextSections = (part.sections || []).map((section, sIdx) => {
                                     if (sIdx !== selectedSectionIndex) return section;
@@ -2115,7 +2194,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
                                 }));
                               }}
                               questionIndex={qIdx}
-                              startingNumber={['long-text-mc', 'cloze-mc', 'cloze-test', 'short-message', 'people-matching', 'word-form', 'matching-pictures', 'image-cloze', 'word-drag-cloze', 'story-completion', 'look-read-write'].includes(currentSection.questionType) ? sectionStartNum : startNum}
+                              startingNumber={['long-text-mc', 'cloze-mc', 'cloze-test', 'short-message', 'people-matching', 'gap-match', 'word-form', 'matching-pictures', 'image-cloze', 'word-drag-cloze', 'story-completion', 'look-read-write'].includes(currentSection.questionType) ? sectionStartNum : startNum}
                               partIndex={selectedPartIndex}
                             />
                           </div>

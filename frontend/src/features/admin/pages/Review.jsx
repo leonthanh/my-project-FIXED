@@ -10,6 +10,13 @@ import AdminStickySidebarLayout, {
 import { useTheme } from "../../../shared/contexts/ThemeContext";
 import { apiPath } from "../../../shared/utils/api";
 import {
+  buildCambridgeResponseFeedbackDraftMap,
+  countMissingCambridgeResponseFeedback,
+  getCambridgeResponseFeedbackText,
+  hasResolvedSubmissionFeedback,
+  upsertCambridgeResponseFeedback,
+} from "../../../shared/utils/cambridgeFeedback";
+import {
   ExpandableSubmissionList,
   SubmissionStatCards,
   getSubmissionTone,
@@ -42,6 +49,60 @@ const createInitialFiltersByTab = () => ({
 });
 
 const normalizeFilterValue = (value) => String(value ?? "").trim().toLowerCase();
+
+const REVIEW_HUB_PAGE_BY_TAB = {
+  writing: {
+    path: "/admin/writing-submissions",
+    label: "Writing submissions page",
+  },
+  reading: {
+    path: "/admin/reading-submissions",
+    label: "Reading submissions page",
+  },
+  listening: {
+    path: "/admin/listening-submissions",
+    label: "Listening submissions page",
+  },
+  cambridge: {
+    path: "/admin/cambridge-submissions",
+    label: "Orange submissions page",
+  },
+};
+
+const REVIEW_TAB_TONES = {
+  writing: {
+    activeBackground: "linear-gradient(135deg, #7c3aed 0%, #9f67ff 100%)",
+    activeBorder: "#7c3aed",
+    softBackground: "#f5f3ff",
+    softBorder: "#ddd6fe",
+    softText: "#6d28d9",
+    softBadgeBackground: "rgba(124, 58, 237, 0.12)",
+  },
+  reading: {
+    activeBackground: "linear-gradient(135deg, #0f3f94 0%, #2563eb 100%)",
+    activeBorder: "#0f3f94",
+    softBackground: "#eff6ff",
+    softBorder: "#bfdbfe",
+    softText: "#1d4ed8",
+    softBadgeBackground: "rgba(37, 99, 235, 0.12)",
+  },
+  listening: {
+    activeBackground: "linear-gradient(135deg, #0f8c4b 0%, #22c55e 100%)",
+    activeBorder: "#0f8c4b",
+    softBackground: "#f0fdf4",
+    softBorder: "#bbf7d0",
+    softText: "#15803d",
+    softBadgeBackground: "rgba(34, 197, 94, 0.14)",
+  },
+  cambridge: {
+    activeBackground: "linear-gradient(135deg, #d45512 0%, #fb923c 100%)",
+    activeBorder: "#d45512",
+    softBackground: "#fff7ed",
+    softBorder: "#fed7aa",
+    softText: "#c2410c",
+    softBadgeBackground: "rgba(251, 146, 60, 0.16)",
+  },
+};
 
 const matchesFilterValue = (value, search) => {
   const query = normalizeFilterValue(search);
@@ -86,6 +147,7 @@ const Review = () => {
   const [cambridgeAiLoadingById, setCambridgeAiLoadingById] = useState({});
   const [cambridgeSavingById, setCambridgeSavingById] = useState({});
   const [cambridgeStatusById, setCambridgeStatusById] = useState({});
+  const [cambridgeResponseStatusByKey, setCambridgeResponseStatusByKey] = useState({});
   const [expandedQueueItems, setExpandedQueueItems] = useState(() => ({
     writing: new Set(),
     reading: new Set(),
@@ -95,10 +157,7 @@ const Review = () => {
     typeof window !== "undefined" ? window.innerWidth <= 768 : false
   );
 
-  const hasFeedback = (submission) =>
-    String(submission?.feedback || "")
-      .trim()
-      .length > 0;
+  const hasFeedback = (submission) => hasResolvedSubmissionFeedback(submission);
 
   useEffect(() => {
     if (typeof window === "undefined") return undefined;
@@ -285,6 +344,9 @@ const Review = () => {
       .filter((item) => item.userAnswer.length > 0);
   };
 
+  const getCambridgeFeedbackStateKey = (submissionId, responseKey) =>
+    `${submissionId}:${responseKey}`;
+
   const getCambridgeRowKey = (source, submissionId) =>
     `${String(source || "cambridge")}:${String(submissionId || "")}`;
 
@@ -349,8 +411,7 @@ const Review = () => {
       setCambridgeDetailsById((prev) => ({ ...prev, [submissionId]: detail }));
       setCambridgeFeedbackDraftById((prev) => ({
         ...prev,
-        [submissionId]:
-          typeof detail?.feedback === "string" ? detail.feedback : prev[submissionId] || "",
+        [submissionId]: prev[submissionId] || buildCambridgeResponseFeedbackDraftMap(detail?.responseFeedback),
       }));
     } catch (err) {
       console.error("Failed to load Cambridge submission detail:", err);
@@ -366,18 +427,18 @@ const Review = () => {
     }
   };
 
-  const handleGenerateCambridgeFeedback = async (submission) => {
+  const handleGenerateCambridgeFeedback = async (submission, responseItem) => {
     const detail = cambridgeDetailsById[submission.id];
-    const responses = getPendingManualAnswers(detail);
+    const stateKey = getCambridgeFeedbackStateKey(submission.id, responseItem.key);
 
-    if (!responses.length) {
+    if (!responseItem?.userAnswer?.trim()) {
       alert("No open-ended responses were found for AI feedback.");
       return;
     }
 
     try {
-      setCambridgeAiLoadingById((prev) => ({ ...prev, [submission.id]: true }));
-      setCambridgeStatusById((prev) => ({ ...prev, [submission.id]: "" }));
+      setCambridgeAiLoadingById((prev) => ({ ...prev, [stateKey]: true }));
+      setCambridgeResponseStatusByKey((prev) => ({ ...prev, [stateKey]: "" }));
 
       const res = await fetch(apiPath("ai/generate-cambridge-feedback"), {
         method: "POST",
@@ -386,12 +447,14 @@ const Review = () => {
           studentName: submission.studentName || "N/A",
           testType: submission.testType || "Orange",
           classCode: submission.classCode || "",
-          responses: responses.map((item) => ({
-            label: item.label,
-            prompt: item.prompt,
-            answer: item.userAnswer,
-            questionType: item.questionType,
-          })),
+          responses: [
+            {
+              label: responseItem.label,
+              prompt: responseItem.prompt,
+              answer: responseItem.userAnswer,
+              questionType: responseItem.questionType,
+            },
+          ],
         }),
       });
 
@@ -406,50 +469,63 @@ const Review = () => {
 
       setCambridgeFeedbackDraftById((prev) => ({
         ...prev,
-        [submission.id]: data.suggestion,
+        [submission.id]: {
+          ...(prev[submission.id] || {}),
+          [responseItem.key]: data.suggestion,
+        },
       }));
-      setCambridgeStatusById((prev) => ({
+      setCambridgeResponseStatusByKey((prev) => ({
         ...prev,
-        [submission.id]: data.warning
+        [stateKey]: data.warning
           ? data.warning
           : data.cached
-          ? "Loaded cached AI feedback."
-          : "AI feedback generated.",
+          ? `${responseItem.label || 'Response'} loaded cached AI feedback.`
+          : `${responseItem.label || 'Response'} AI feedback generated.`,
       }));
     } catch (err) {
       console.error("Failed to generate Cambridge AI feedback:", err);
-      setCambridgeStatusById((prev) => ({
+      setCambridgeResponseStatusByKey((prev) => ({
         ...prev,
-        [submission.id]: err.message || "AI feedback failed.",
+        [stateKey]: err.message || "AI feedback failed.",
       }));
       alert(err.message || "AI feedback failed.");
     } finally {
-      setCambridgeAiLoadingById((prev) => ({ ...prev, [submission.id]: false }));
+      setCambridgeAiLoadingById((prev) => ({ ...prev, [stateKey]: false }));
     }
   };
 
-  const handleSaveCambridgeFeedback = async (submissionId) => {
-    const feedback = (cambridgeFeedbackDraftById[submissionId] || "").trim();
+  const handleSaveCambridgeFeedback = async (submissionId, responseItem) => {
+    const stateKey = getCambridgeFeedbackStateKey(submissionId, responseItem.key);
+    const feedback = String(
+      cambridgeFeedbackDraftById[submissionId]?.[responseItem.key] || ""
+    ).trim();
     if (!feedback) return;
 
-    const existingFeedback = String(
-      cambridgeDetailsById[submissionId]?.feedback ||
-        cambridgeSubmissions.find((item) => item.id === submissionId)?.feedback ||
-        ""
-    ).trim();
+    const detail = cambridgeDetailsById[submissionId];
+    const submission = cambridgeSubmissions.find((item) => item.id === submissionId);
+    const pendingAnswers = detail ? getPendingManualAnswers(detail) : [];
+    const existingResponseFeedback = getCambridgeResponseFeedbackText(
+      detail?.responseFeedback || submission?.responseFeedback,
+      responseItem.key
+    );
     const reviewerName =
       teacher?.name || teacher?.username || teacher?.fullName || "Teacher";
 
     try {
-      setCambridgeSavingById((prev) => ({ ...prev, [submissionId]: true }));
+      setCambridgeSavingById((prev) => ({ ...prev, [stateKey]: true }));
 
       const res = await fetch(apiPath(`cambridge/submissions/${submissionId}`), {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          feedback,
           feedbackBy: reviewerName,
-          status: "reviewed",
+          responseFeedbackPatch: {
+            key: responseItem.key,
+            label: responseItem.label,
+            prompt: responseItem.prompt,
+            questionType: responseItem.questionType,
+            feedback,
+          },
         }),
       });
 
@@ -459,18 +535,42 @@ const Review = () => {
       }
 
       const payload = await res.json().catch(() => ({}));
+      const savedSubmission = payload?.submission || {};
+      const nextResponseFeedback =
+        savedSubmission.responseFeedback ||
+        upsertCambridgeResponseFeedback({
+          existingValue: detail?.responseFeedback || submission?.responseFeedback,
+          responseKey: responseItem.key,
+          feedback,
+          feedbackBy: reviewerName,
+          feedbackAt: savedSubmission.feedbackAt || new Date().toISOString(),
+          label: responseItem.label,
+          prompt: responseItem.prompt,
+          questionType: responseItem.questionType,
+        });
+      const hasLegacyOverallFeedback = Boolean(
+        String(savedSubmission.feedback || detail?.feedback || submission?.feedback || "").trim()
+      );
+      const nextPendingManualCount = hasLegacyOverallFeedback
+        ? 0
+        : countMissingCambridgeResponseFeedback(pendingAnswers, nextResponseFeedback);
+      const nextStatus = hasLegacyOverallFeedback || nextPendingManualCount === 0
+        ? "reviewed"
+        : "submitted";
       const savedFeedbackAt =
-        payload?.submission?.feedbackAt || new Date().toISOString();
+        savedSubmission.feedbackAt || new Date().toISOString();
 
       setCambridgeSubmissions((prev) =>
         prev.map((item) =>
           item.id === submissionId
             ? {
                 ...item,
-                feedback,
-                feedbackBy: reviewerName,
-                feedbackAt: savedFeedbackAt,
-                status: "reviewed",
+                responseFeedback: nextResponseFeedback,
+                feedback: savedSubmission.feedback ?? item.feedback,
+                feedbackBy: nextStatus === "reviewed" ? reviewerName : item.feedbackBy,
+                feedbackAt: nextStatus === "reviewed" ? savedFeedbackAt : item.feedbackAt,
+                status: savedSubmission.status || nextStatus,
+                pendingManualCount: nextPendingManualCount,
               }
             : item
         )
@@ -480,30 +580,44 @@ const Review = () => {
         [submissionId]: prev[submissionId]
           ? {
               ...prev[submissionId],
-              feedback,
-              feedbackBy: reviewerName,
-              feedbackAt: savedFeedbackAt,
-              status: "reviewed",
+              responseFeedback: nextResponseFeedback,
+              feedback: savedSubmission.feedback ?? prev[submissionId].feedback,
+              feedbackBy:
+                savedSubmission.status === "reviewed" || nextStatus === "reviewed"
+                  ? reviewerName
+                  : prev[submissionId].feedbackBy,
+              feedbackAt:
+                savedSubmission.status === "reviewed" || nextStatus === "reviewed"
+                  ? savedFeedbackAt
+                  : prev[submissionId].feedbackAt,
+              status: savedSubmission.status || nextStatus,
             }
           : prev[submissionId],
       }));
       setCambridgeFeedbackDraftById((prev) => ({
         ...prev,
-        [submissionId]: feedback,
+        [submissionId]: {
+          ...(prev[submissionId] || {}),
+          [responseItem.key]: feedback,
+        },
       }));
-      setCambridgeStatusById((prev) => ({
+      setCambridgeResponseStatusByKey((prev) => ({
         ...prev,
-        [submissionId]: existingFeedback ? "Feedback updated." : "Feedback saved.",
+        [stateKey]: existingResponseFeedback
+          ? `${responseItem.label || 'Response'} updated.`
+          : nextPendingManualCount === 0
+          ? `${responseItem.label || 'Response'} saved. Submission marked reviewed.`
+          : `${responseItem.label || 'Response'} saved. ${nextPendingManualCount} response(s) still pending.`,
       }));
     } catch (err) {
       console.error("Failed to save Cambridge feedback:", err);
-      setCambridgeStatusById((prev) => ({
+      setCambridgeResponseStatusByKey((prev) => ({
         ...prev,
-        [submissionId]: err.message || "Could not save feedback.",
+        [stateKey]: err.message || "Could not save feedback.",
       }));
       alert(err.message || "Could not save feedback.");
     } finally {
-      setCambridgeSavingById((prev) => ({ ...prev, [submissionId]: false }));
+      setCambridgeSavingById((prev) => ({ ...prev, [stateKey]: false }));
     }
   };
 
@@ -1115,24 +1229,28 @@ const Review = () => {
       key: "writing",
       shortLabel: "Writing",
       label: "Writing Review Queue",
+      tone: "writing",
       badge: writingNeedsReviewCount,
     },
     {
       key: "reading",
       shortLabel: "Reading",
       label: "Reading Review Queue",
+      tone: "reading",
       badge: readingNeedsReviewCount,
     },
     {
       key: "listening",
       shortLabel: "Listening",
       label: "Listening Review Queue",
+      tone: "listening",
       badge: listeningNeedsReviewCount,
     },
     {
       key: "cambridge",
       shortLabel: "Orange",
       label: "Orange Review Queue",
+      tone: "cambridge",
       badge: cambridgeNeedsReviewCount,
     },
   ];
@@ -1169,29 +1287,13 @@ const Review = () => {
       : activeTab === "cambridge"
       ? "Click a row to review Orange details, feedback, and result actions."
       : "Click a row to view the score summary, feedback, and actions.";
+  const activeReviewTab =
+    reviewTabs.find((tab) => tab.key === activeTab) || reviewTabs[0];
+  const activeReviewPageTarget =
+    REVIEW_HUB_PAGE_BY_TAB[activeTab] || REVIEW_HUB_PAGE_BY_TAB.writing;
   const workspaceLinks = useMemo(
     () => buildAdminWorkspaceLinks(navigate, "review"),
     [navigate]
-  );
-  const queueLinks = useMemo(
-    () =>
-      reviewTabs.map((tab) => ({
-        key: tab.key,
-        label: tab.shortLabel || tab.label,
-        hint: tab.label,
-        tone:
-          tab.key === "writing"
-            ? "violet"
-            : tab.key === "reading"
-            ? "blue"
-            : tab.key === "listening"
-            ? "green"
-            : "orange",
-        badge: tab.badge,
-        active: activeTab === tab.key,
-        onClick: () => setActiveTab(tab.key),
-      })),
-    [activeTab, reviewTabs]
   );
   const sidebarStats = useMemo(
     () => [
@@ -1254,8 +1356,8 @@ const Review = () => {
     pendingAnswers,
     isLoadingDetail
   ) => {
-    const existingFeedback = String(detail?.feedback || sub?.feedback || "").trim();
-    const hasExistingFeedback = existingFeedback.length > 0;
+    const legacyFeedback = String(detail?.feedback || sub?.feedback || "").trim();
+    const responseDrafts = cambridgeFeedbackDraftById[sub.id] || {};
 
     return (
     <div style={{ display: "grid", gap: isCompactLayout ? 8 : 10 }}>
@@ -1306,98 +1408,131 @@ const Review = () => {
                       </div>
                     )}
                     <div style={{ whiteSpace: "pre-wrap" }}>{item.userAnswer}</div>
+
+                    <div style={{ display: "grid", gap: 8, marginTop: 12 }}>
+                      <div style={{ fontWeight: 700, fontSize: 13 }}>
+                        Feedback for {item.label || `Response ${answerIndex + 1}`}
+                      </div>
+                      <textarea
+                        rows={4}
+                        value={responseDrafts[item.key] || ""}
+                        onChange={(e) =>
+                          setCambridgeFeedbackDraftById((prev) => ({
+                            ...prev,
+                            [sub.id]: {
+                              ...(prev[sub.id] || {}),
+                              [item.key]: e.target.value,
+                            },
+                          }))
+                        }
+                        placeholder={`Enter feedback for ${item.label || `response ${answerIndex + 1}`}...`}
+                        style={{
+                          width: "100%",
+                          padding: isCompactLayout ? 9 : 10,
+                          border: `1px solid ${isDarkMode ? "#2a3350" : "#d1d5db"}`,
+                          borderRadius: 8,
+                          fontSize: 14,
+                          background: isDarkMode ? "#0f172a" : "#fff",
+                          color: isDarkMode ? "#e5e7eb" : "#111827",
+                          boxSizing: "border-box",
+                        }}
+                      />
+
+                      <div style={feedbackActionRowStyle(isCompactLayout)}>
+                        <button
+                          onClick={() => handleGenerateCambridgeFeedback(sub, item)}
+                          style={
+                            isCompactLayout
+                              ? { ...secondaryButtonStyle, width: "100%", padding: "10px 12px" }
+                              : secondaryButtonStyle
+                          }
+                          disabled={
+                            !item.userAnswer ||
+                            cambridgeAiLoadingById[
+                              getCambridgeFeedbackStateKey(sub.id, item.key)
+                            ] ||
+                            cambridgeSavingById[
+                              getCambridgeFeedbackStateKey(sub.id, item.key)
+                            ]
+                          }
+                        >
+                          {cambridgeAiLoadingById[
+                            getCambridgeFeedbackStateKey(sub.id, item.key)
+                          ]
+                            ? "Generating..."
+                            : "AI Feedback"}
+                        </button>
+                        <button
+                          onClick={() => handleSaveCambridgeFeedback(sub.id, item)}
+                          style={
+                            isCompactLayout
+                              ? { ...primaryButtonStyle, width: "100%", padding: "10px 12px" }
+                              : primaryButtonStyle
+                          }
+                          disabled={
+                            !(responseDrafts[item.key] || "").trim() ||
+                            cambridgeSavingById[
+                              getCambridgeFeedbackStateKey(sub.id, item.key)
+                            ] ||
+                            cambridgeAiLoadingById[
+                              getCambridgeFeedbackStateKey(sub.id, item.key)
+                            ]
+                          }
+                        >
+                          {cambridgeSavingById[
+                            getCambridgeFeedbackStateKey(sub.id, item.key)
+                          ]
+                            ? "Saving..."
+                            : getCambridgeResponseFeedbackText(
+                                detail?.responseFeedback || sub?.responseFeedback,
+                                item.key
+                              )
+                            ? "Update Feedback"
+                            : "Save Feedback"}
+                        </button>
+                      </div>
+
+                      {cambridgeResponseStatusByKey[
+                        getCambridgeFeedbackStateKey(sub.id, item.key)
+                      ] && (
+                        <div
+                          style={{
+                            color: isDarkMode ? "#93c5fd" : "#1d4ed8",
+                            fontSize: 13,
+                          }}
+                        >
+                          {
+                            cambridgeResponseStatusByKey[
+                              getCambridgeFeedbackStateKey(sub.id, item.key)
+                            ]
+                          }
+                        </div>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
             )}
           </div>
 
-          <div style={{ display: "grid", gap: isCompactLayout ? 6 : 8, marginTop: isCompactLayout ? 2 : 6 }}>
-            <div style={{ fontWeight: 700 }}>Teacher Feedback</div>
-            <textarea
-              rows={4}
-              value={cambridgeFeedbackDraftById[sub.id] || ""}
-              onChange={(e) =>
-                setCambridgeFeedbackDraftById((prev) => ({
-                  ...prev,
-                  [sub.id]: e.target.value,
-                }))
-              }
-              placeholder="Enter feedback..."
-              style={{
-                width: "100%",
-                padding: isCompactLayout ? 9 : 10,
-                border: `1px solid ${isDarkMode ? "#2a3350" : "#d1d5db"}`,
-                borderRadius: 8,
-                fontSize: 14,
-                background: isDarkMode ? "#0f172a" : "#fff",
-                color: isDarkMode ? "#e5e7eb" : "#111827",
-                boxSizing: "border-box",
-              }}
-            />
-
-            <div
-              style={feedbackActionRowStyle(isCompactLayout)}
-            >
-              <button
-                onClick={() => handleGenerateCambridgeFeedback(sub)}
-                style={
-                  isCompactLayout
-                    ? { ...secondaryButtonStyle, width: "100%", padding: "10px 12px" }
-                    : secondaryButtonStyle
-                }
-                disabled={
-                  !pendingAnswers.length ||
-                  cambridgeAiLoadingById[sub.id] ||
-                  cambridgeSavingById[sub.id]
-                }
-              >
-                {cambridgeAiLoadingById[sub.id] ? "Generating..." : "AI Feedback"}
-              </button>
-              <button
-                onClick={() => handleSaveCambridgeFeedback(sub.id)}
-                style={
-                  isCompactLayout
-                    ? { ...primaryButtonStyle, width: "100%", padding: "10px 12px" }
-                    : primaryButtonStyle
-                }
-                disabled={
-                  !(cambridgeFeedbackDraftById[sub.id] || "").trim() ||
-                  cambridgeSavingById[sub.id] ||
-                  cambridgeAiLoadingById[sub.id]
-                }
-              >
-                {cambridgeSavingById[sub.id]
-                  ? "Saving..."
-                  : hasExistingFeedback
-                  ? "Update Feedback"
-                  : "Save Feedback"}
-              </button>
-              <span
-                style={{
-                  gridColumn: isCompactLayout ? "1 / -1" : undefined,
-                  color: isDarkMode ? "#9ca3af" : "#6b7280",
-                  fontSize: isCompactLayout ? 12 : 13,
-                  lineHeight: 1.45,
-                }}
-              >
-                {hasExistingFeedback
-                  ? "Saving will update the existing feedback and keep this row available for further edits."
-                  : "Saving will mark this submission as reviewed and keep it available in All/Reviewed for later edits."}
-              </span>
-            </div>
-
-            {cambridgeStatusById[sub.id] && (
+          {legacyFeedback && (
+            <div style={{ display: "grid", gap: isCompactLayout ? 6 : 8, marginTop: isCompactLayout ? 2 : 6 }}>
+              <div style={{ fontWeight: 700 }}>Existing overall feedback</div>
               <div
                 style={{
-                  color: isDarkMode ? "#93c5fd" : "#1d4ed8",
-                  fontSize: 13,
+                  padding: isCompactLayout ? 10 : 12,
+                  borderRadius: 8,
+                  border: `1px solid ${isDarkMode ? "#2a3350" : "#d1d5db"}`,
+                  background: isDarkMode ? "#0f172a" : "#fff",
+                  whiteSpace: "pre-wrap",
+                  color: isDarkMode ? "#e5e7eb" : "#111827",
+                  lineHeight: 1.55,
                 }}
               >
-                {cambridgeStatusById[sub.id]}
+                {legacyFeedback}
               </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -1758,115 +1893,258 @@ const Review = () => {
       <AdminNavbar />
       <div
         className="admin-page admin-submission-page"
-        style={{ maxWidth: "100%", width: "100%", margin: "0 auto", padding: "30px 16px" }}
+        style={{ maxWidth: "100%", width: "100%", margin: "0 auto", padding: "22px 14px" }}
       >
         <AdminStickySidebarLayout
-          eyebrow="Review"
-          title="Review queue"
-          description="Switch between Writing, Reading, Listening, and Orange queues from the left rail while keeping the current review slice in view."
+          eyebrow="Review hub"
+          title="Teacher review hub"
+          description="Review across writing, reading, listening, and Orange submissions."
           sidebarContent={(
             <>
               <AdminSidebarPanel eyebrow="Workspace" title="Admin pages" meta="Quick jump">
                 <AdminSidebarNavList items={workspaceLinks} ariaLabel="Admin workspace pages" />
               </AdminSidebarPanel>
 
-              <AdminSidebarPanel eyebrow="Queue" title="Review slices" meta={activeTab}>
-                <AdminSidebarNavList items={queueLinks} ariaLabel="Review queue tabs" />
-              </AdminSidebarPanel>
-
-              <AdminSidebarPanel eyebrow="Summary" title="Current queue" meta={`${activeFilteredCount} visible`}>
+              <AdminSidebarPanel eyebrow="Summary" title="Current queue" meta={`${activeReviewTab.shortLabel} • ${activeFilteredCount} visible`}>
                 <AdminSidebarMetricList items={sidebarStats} />
                 <p className="admin-side-layout__panelText">{activeQueueHint}</p>
               </AdminSidebarPanel>
             </>
           )}
         >
-        <SubmissionStatCards
-          stats={[
-            {
-              label: "Total",
-              count: activeTotalCount,
-              bg: "#eff6ff",
-              color: "#1d4ed8",
-              border: "#bfdbfe",
-            },
-            {
-              label: "Pending",
-              count: activePendingCount,
-              bg: "#fffbeb",
-              color: "#92400e",
-              border: "#fde68a",
-            },
-            {
-              label: "Reviewed",
-              count: activeReviewedCount,
-              bg: "#f0fdf4",
-              color: "#166534",
-              border: "#bbf7d0",
-            },
-          ]}
-        />
+        <div style={reviewContentStackStyle}>
+          <SubmissionStatCards
+            containerStyle={{ marginBottom: 0 }}
+            stats={[
+              {
+                label: "Total",
+                count: activeTotalCount,
+                bg: "#eff6ff",
+                color: "#1d4ed8",
+                border: "#bfdbfe",
+              },
+              {
+                label: "Pending",
+                count: activePendingCount,
+                bg: "#fffbeb",
+                color: "#92400e",
+                border: "#fde68a",
+              },
+              {
+                label: "Reviewed",
+                count: activeReviewedCount,
+                bg: "#f0fdf4",
+                color: "#166534",
+                border: "#bbf7d0",
+              },
+            ]}
+          />
 
-        {renderFilterToolbar(activeTab)}
+          <div style={reviewHubToolbarStyle(isDarkMode)}>
+            <div style={reviewHubToolbarClusterStyle}>
+              <span style={reviewHubLabelStyle(isDarkMode)}>Submission Type</span>
+              <div style={reviewHubTabRowStyle}>
+                {reviewTabs.map((tab) => {
+                  const isActive = activeTab === tab.key;
+                  return (
+                    <button
+                      key={tab.key}
+                      type="button"
+                      onClick={() => setActiveTab(tab.key)}
+                      style={reviewHubTabButtonStyle(isDarkMode, tab.tone, isActive)}
+                    >
+                      <span>{tab.shortLabel || tab.label}</span>
+                      <span style={reviewHubTabBadgeStyle(isDarkMode, tab.tone, isActive)}>
+                        {tab.badge}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
 
-        <p style={filterSummaryStyle(isDarkMode)}>
-          Showing <strong>{activeFilteredCount}</strong>
-          {activeTotalCount !== activeFilteredCount ? ` / ${activeTotalCount}` : ""} submissions
-          {"  "}
-          <span style={{ color: isDarkMode ? "#64748b" : "#9ca3af" }}>
-            {activeQueueHint}
-          </span>
-        </p>
+            <div style={reviewHubToolbarHeaderStyle}>
+              <button
+                type="button"
+                onClick={() => navigate(activeReviewPageTarget.path)}
+                style={reviewHubOpenPageButtonStyle(isDarkMode, activeReviewTab.tone)}
+              >
+                Open {activeReviewTab.shortLabel} page
+              </button>
+            </div>
+          </div>
 
-        {activeTab === "writing" && (
-          <>{renderWritingQueue()}</>
-        )}
+          {renderFilterToolbar(activeTab)}
 
-        {activeTab === "reading" && (
-          <>
-            {renderObjectiveQueue({
-              tabKey: "reading",
-              items: filteredReading,
-              allItems: unreviewedReading,
-              loading: loadingReading,
-              emptyAllMessage: "No reading submissions found.",
-              emptyFilteredMessage: "No reading submissions match the current filters.",
-              buildTestLabel: getReadingTestLabel,
-              onReview: (submission) => navigate(`/reading-results/${submission.id}`),
-            })}
-          </>
-        )}
+          <p style={filterSummaryStyle(isDarkMode)}>
+            Showing <strong>{activeFilteredCount}</strong>
+            {activeTotalCount !== activeFilteredCount ? ` / ${activeTotalCount}` : ""} submissions
+            {"  "}
+            <span style={{ color: isDarkMode ? "#64748b" : "#9ca3af" }}>
+              {activeQueueHint}
+            </span>
+          </p>
 
-        {activeTab === "listening" && (
-          <>
-            {renderObjectiveQueue({
-              tabKey: "listening",
-              items: filteredListening,
-              allItems: unreviewedListening,
-              loading: loadingListening,
-              emptyAllMessage: "No listening submissions found.",
-              emptyFilteredMessage: "No listening submissions match the current filters.",
-              buildTestLabel: getListeningTestLabel,
-              onReview: (submission) => navigate(`/listening-results/${submission.id}`),
-            })}
-          </>
-        )}
+          {activeTab === "writing" && (
+            <>{renderWritingQueue()}</>
+          )}
 
-        {activeTab === "cambridge" && (
-          <>{renderCambridgeQueue()}</>
-        )}
+          {activeTab === "reading" && (
+            <>
+              {renderObjectiveQueue({
+                tabKey: "reading",
+                items: filteredReading,
+                allItems: unreviewedReading,
+                loading: loadingReading,
+                emptyAllMessage: "No reading submissions found.",
+                emptyFilteredMessage: "No reading submissions match the current filters.",
+                buildTestLabel: getReadingTestLabel,
+                onReview: (submission) => navigate(`/reading-results/${submission.id}`),
+              })}
+            </>
+          )}
+
+          {activeTab === "listening" && (
+            <>
+              {renderObjectiveQueue({
+                tabKey: "listening",
+                items: filteredListening,
+                allItems: unreviewedListening,
+                loading: loadingListening,
+                emptyAllMessage: "No listening submissions found.",
+                emptyFilteredMessage: "No listening submissions match the current filters.",
+                buildTestLabel: getListeningTestLabel,
+                onReview: (submission) => navigate(`/listening-results/${submission.id}`),
+              })}
+            </>
+          )}
+
+          {activeTab === "cambridge" && (
+            <>{renderCambridgeQueue()}</>
+          )}
+        </div>
         </AdminStickySidebarLayout>
       </div>
     </>
   );
 };
 
+const reviewContentStackStyle = {
+  display: "grid",
+  gap: 12,
+};
+
+const reviewHubToolbarStyle = (isDarkMode) => ({
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  gap: 12,
+  flexWrap: "wrap",
+  border: `1px solid ${isDarkMode ? "#243047" : "#e5e7eb"}`,
+  borderRadius: 10,
+  padding: "10px 14px",
+  background: isDarkMode ? "#0f172a" : "#fff",
+  boxShadow: isDarkMode
+    ? "0 10px 30px rgba(2, 6, 23, 0.32)"
+    : "0 8px 20px rgba(15, 23, 42, 0.04)",
+});
+
+const reviewHubToolbarClusterStyle = {
+  display: "flex",
+  alignItems: "center",
+  gap: 12,
+  flexWrap: "wrap",
+};
+
+const reviewHubToolbarHeaderStyle = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "flex-end",
+};
+
+const reviewHubLabelStyle = (isDarkMode) => ({
+  fontSize: 12,
+  fontWeight: 700,
+  letterSpacing: "0.04em",
+  textTransform: "uppercase",
+  color: isDarkMode ? "#cbd5e1" : "#374151",
+  whiteSpace: "nowrap",
+});
+
+const getReviewTabTone = (toneKey) =>
+  REVIEW_TAB_TONES[toneKey] || REVIEW_TAB_TONES.reading;
+
+const reviewHubOpenPageButtonStyle = (isDarkMode, toneKey) => {
+  const tone = getReviewTabTone(toneKey);
+
+  return {
+    border: `1px solid ${tone.softBorder}`,
+    background: isDarkMode ? tone.activeBackground : tone.softBackground,
+    color: isDarkMode ? "#ffffff" : tone.softText,
+    boxShadow: isDarkMode ? "none" : `0 8px 18px ${tone.softBadgeBackground}`,
+    borderRadius: 999,
+    padding: "7px 12px",
+    fontSize: 13,
+    fontWeight: 700,
+    cursor: "pointer",
+    whiteSpace: "nowrap",
+  };
+};
+
+const reviewHubTabRowStyle = {
+  display: "flex",
+  flexWrap: "wrap",
+  gap: 8,
+};
+
+const reviewHubTabButtonStyle = (isDarkMode, toneKey, isActive) => {
+  const tone = getReviewTabTone(toneKey);
+
+  return {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 10,
+    padding: "7px 12px",
+    borderRadius: 999,
+    border: `1px solid ${isActive ? tone.activeBorder : tone.softBorder}`,
+    background: isActive
+      ? tone.activeBackground
+      : isDarkMode
+      ? "rgba(15, 23, 42, 0.88)"
+      : tone.softBackground,
+    color: isActive ? "#fff" : tone.softText,
+    boxShadow: isActive
+      ? `0 10px 20px ${tone.softBadgeBackground}`
+      : "none",
+    fontSize: 13,
+    fontWeight: 700,
+    cursor: "pointer",
+  };
+};
+
+const reviewHubTabBadgeStyle = (isDarkMode, toneKey, isActive) => {
+  const tone = getReviewTabTone(toneKey);
+
+  return {
+    minWidth: 28,
+    padding: "3px 8px",
+    borderRadius: 999,
+    background: isActive
+      ? "rgba(255, 255, 255, 0.18)"
+      : isDarkMode
+      ? tone.softBadgeBackground
+      : "rgba(255, 255, 255, 0.78)",
+    color: isActive ? "#fff" : tone.softText,
+    textAlign: "center",
+    fontSize: 12,
+    fontWeight: 800,
+  };
+};
+
 const filterPanelStyle = (isDarkMode) => ({
-  marginTop: 18,
-  marginBottom: 18,
   border: `1px solid ${isDarkMode ? "#243047" : "#e5e7eb"}`,
   borderRadius: 14,
-  padding: "14px 16px",
+  padding: "12px 14px",
   background: isDarkMode ? "#0f172a" : "#fff",
   boxShadow: isDarkMode
     ? "0 10px 30px rgba(2, 6, 23, 0.32)"
@@ -1912,7 +2190,7 @@ const filterResetButtonStyle = {
 };
 
 const filterSummaryStyle = (isDarkMode) => ({
-  marginTop: 10,
+  margin: 0,
   fontSize: 13,
   color: isDarkMode ? "#9ca3af" : "#6b7280",
 });
