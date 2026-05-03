@@ -384,6 +384,10 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
     setParts((prevParts) => syncCurrentPartInstructionInParts(prevParts));
   }, [syncCurrentPartInstructionInParts]);
 
+  const getPartsSnapshotWithCurrentInstruction = useCallback(() => {
+    return syncCurrentPartInstructionInParts(parts);
+  }, [parts, syncCurrentPartInstructionInParts]);
+
   const handleSelectPart = useCallback((partIndex) => {
     commitCurrentPartInstruction();
     setSelectedPartIndex(partIndex);
@@ -729,7 +733,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
     const storageKey = `cambridgeTestDraft-${testType}`;
     try {
       setIsSaving(true);
-      const normalizedParts = normalizeListeningPartsAudio(parts);
+      const normalizedParts = normalizeListeningPartsAudio(getPartsSnapshotWithCurrentInstruction());
       const dataToSave = {
         title,
         classCode,
@@ -763,7 +767,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
     } finally {
       setIsSaving(false);
     }
-  }, [title, classCode, teacherName, mainAudioUrl, parts, testType, sanitizeDraftData]);
+  }, [title, classCode, teacherName, mainAudioUrl, testType, sanitizeDraftData, getPartsSnapshotWithCurrentInstruction]);
 
   const handleManualDraftSave = useCallback(() => {
     saveToLocalStorage();
@@ -810,7 +814,9 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
       return cleaned.trim();
     };
 
-    const cleanedParts = parts.map((part) => ({
+    const partsSnapshot = getPartsSnapshotWithCurrentInstruction();
+
+    const cleanedParts = partsSnapshot.map((part) => ({
       ...part,
       sections: (part.sections || []).map((section) => ({
         ...section,
@@ -1650,6 +1656,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
               </label>
               <div className="part-instruction-editor">
                 <ReactQuill
+                  key={`part-instruction-${selectedPartIndex}`}
                   ref={partInstructionRef}
                   theme="snow"
                   value={currentPart.instruction || ''}
@@ -2187,7 +2194,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
                                 }));
                               }}
                               questionIndex={qIdx}
-                              startingNumber={['long-text-mc', 'cloze-mc', 'cloze-test', 'short-message', 'people-matching', 'word-form', 'matching-pictures', 'image-cloze', 'word-drag-cloze', 'story-completion', 'look-read-write'].includes(currentSection.questionType) ? sectionStartNum : startNum}
+                              startingNumber={['long-text-mc', 'cloze-mc', 'cloze-test', 'short-message', 'people-matching', 'gap-match', 'word-form', 'matching-pictures', 'image-cloze', 'word-drag-cloze', 'story-completion', 'look-read-write'].includes(currentSection.questionType) ? sectionStartNum : startNum}
                               partIndex={selectedPartIndex}
                             />
                           </div>
