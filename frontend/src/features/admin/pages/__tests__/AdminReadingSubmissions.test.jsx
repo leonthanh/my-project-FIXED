@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import AdminReadingSubmissions from '../AdminReadingSubmissions';
 import { MemoryRouter } from 'react-router-dom';
 import { ThemeProvider } from '../../../../shared/contexts/ThemeContext';
@@ -95,6 +95,8 @@ test('shows delete action to admins and removes a submission after confirmation'
 
   fireEvent.click(await screen.findByText(/Student1/));
   fireEvent.click(screen.getByRole('button', { name: /Delete/i }));
+  const dialog = screen.getByRole('dialog', { name: /Delete Reading submission/i });
+  fireEvent.click(within(dialog).getByRole('button', { name: /Delete Permanently/i }));
 
   await waitFor(() =>
     expect(global.fetch).toHaveBeenCalledWith(
@@ -172,6 +174,8 @@ test('admins can select many visible submissions and bulk delete them', async ()
   fireEvent.click(screen.getByLabelText('Select submission #1'));
   fireEvent.click(screen.getByLabelText('Select submission #2'));
   fireEvent.click(screen.getByRole('button', { name: 'Delete Selected (2)' }));
+  const dialog = screen.getByRole('dialog', { name: /Delete 2 Reading submissions/i });
+  fireEvent.click(within(dialog).getByRole('button', { name: /Delete Permanently/i }));
 
   await waitFor(() =>
     expect(global.fetch).toHaveBeenCalledWith(

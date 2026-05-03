@@ -15,6 +15,7 @@ import {
   SubmissionStatCards,
   getSubmissionTone,
 } from "../components/SubmissionCardList";
+import AdminConfirmModal from "../components/AdminConfirmModal";
 import SubmissionFilterPanel from "../components/SubmissionFilterPanel";
 import {
   formatAttemptTimestamp,
@@ -218,6 +219,7 @@ const CambridgeSubmissionsPage = () => {
   const [savingById, setSavingById] = useState({});
   const [statusMessageById, setStatusMessageById] = useState({});
   const [selectedSubmissionIds, setSelectedSubmissionIds] = useState(new Set());
+  const [deleteConfirm, setDeleteConfirm] = useState(null);
   const feedbackInputRef = useRef(null);
   const deepLinkHandledRef = useRef('');
   const canDeleteSubmissions = teacher?.role === 'admin';
@@ -426,6 +428,27 @@ const CambridgeSubmissionsPage = () => {
       }
       return next;
     });
+  };
+
+  const openDeleteConfirmation = (submission) => {
+    if (!canDeleteSubmissions || deletingId === submission.id || bulkDeleting) {
+      return;
+    }
+    setDeleteConfirm({ mode: 'single', submission });
+  };
+
+  const openBulkDeleteConfirmation = () => {
+    if (!canDeleteSubmissions || bulkDeleting || selectedVisibleIds.length === 0) {
+      return;
+    }
+    setDeleteConfirm({ mode: 'bulk', ids: [...selectedVisibleIds] });
+  };
+
+  const closeDeleteConfirmation = () => {
+    if (bulkDeleting || (deleteConfirm?.mode === 'single' && deletingId === deleteConfirm?.submission?.id)) {
+      return;
+    }
+    setDeleteConfirm(null);
   };
 
   const getPendingManualAnswers = (submissionDetail) => {
@@ -836,14 +859,6 @@ const CambridgeSubmissionsPage = () => {
       return false;
     }
 
-    const studentName = submission.studentName || '--';
-    const confirmed = window.confirm(
-      `Delete Cambridge submission #${submission.id} for \"${studentName}\" permanently? This cannot be undone.`
-    );
-    if (!confirmed) {
-      return false;
-    }
-
     setDeletingId(submission.id);
     try {
       const res = await authFetch(apiPath(`admin/submissions/cambridge/${submission.id}`), {
@@ -902,15 +917,8 @@ const CambridgeSubmissionsPage = () => {
     }
   };
 
-  const handleBulkDelete = async () => {
-    if (!canDeleteSubmissions || bulkDeleting || selectedVisibleIds.length === 0) {
-      return false;
-    }
-
-    const confirmed = window.confirm(
-      `Delete ${selectedVisibleIds.length} selected Cambridge submissions permanently? This cannot be undone.`
-    );
-    if (!confirmed) {
+  const handleBulkDelete = async (submissionIds = selectedVisibleIds) => {
+    if (!canDeleteSubmissions || bulkDeleting || submissionIds.length === 0) {
       return false;
     }
 
@@ -920,7 +928,7 @@ const CambridgeSubmissionsPage = () => {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          items: selectedVisibleIds.map((submissionId) => ({
+          items: submissionIds.map((submissionId) => ({
             type: 'cambridge',
             id: submissionId,
           })),
@@ -931,24 +939,24 @@ const CambridgeSubmissionsPage = () => {
         throw new Error(data?.message || 'Could not delete selected submissions.');
       }
 
-      const deletedIds = new Set(selectedVisibleIds);
+      const deletedIds = new Set(submissionIds);
       setSubmissions((prev) => prev.filter((item) => !deletedIds.has(item.id)));
       setSelectedSubmissionIds((prev) => {
         const next = new Set(prev);
-        selectedVisibleIds.forEach((submissionId) => next.delete(submissionId));
+        submissionIds.forEach((submissionId) => next.delete(submissionId));
         return next;
       });
       setExpandedItems((prev) => {
         const next = new Set(prev);
-        selectedVisibleIds.forEach((submissionId) => next.delete(submissionId));
+        submissionIds.forEach((submissionId) => next.delete(submissionId));
         return next;
       });
-      setDetailById((prev) => omitRecordKey(prev, selectedVisibleIds));
-      setDetailLoadingById((prev) => omitRecordKey(prev, selectedVisibleIds));
-      setFeedbackDraftById((prev) => omitRecordKey(prev, selectedVisibleIds));
-      setAiLoadingById((prev) => omitRecordKey(prev, selectedVisibleIds));
-      setSavingById((prev) => omitRecordKey(prev, selectedVisibleIds));
-      setStatusMessageById((prev) => omitRecordKey(prev, selectedVisibleIds));
+      setDetailById((prev) => omitRecordKey(prev, submissionIds));
+      setDetailLoadingById((prev) => omitRecordKey(prev, submissionIds));
+      setFeedbackDraftById((prev) => omitRecordKey(prev, submissionIds));
+      setAiLoadingById((prev) => omitRecordKey(prev, submissionIds));
+      setSavingById((prev) => omitRecordKey(prev, submissionIds));
+      setStatusMessageById((prev) => omitRecordKey(prev, submissionIds));
 
       if (activeReviewSubmissionId && deletedIds.has(activeReviewSubmissionId)) {
         closeEssayReview();
@@ -958,7 +966,7 @@ const CambridgeSubmissionsPage = () => {
       }
 
       setPagination((prev) => {
-        const nextTotal = Math.max(0, prev.total - selectedVisibleIds.length);
+        const nextTotal = Math.max(0, prev.total - submissionIds.length);
         const nextTotalPages = Math.max(1, Math.ceil(nextTotal / prev.limit));
         const nextPage = prev.page > nextTotalPages ? nextTotalPages : prev.page;
 
@@ -971,7 +979,7 @@ const CambridgeSubmissionsPage = () => {
       });
       setRefreshTick((prev) => prev + 1);
 
-      alert(data?.message || `Deleted ${selectedVisibleIds.length} submissions.`);
+      alert(data?.message || `Deleted ${submissionIds.length} submissions.`);
       return true;
     } catch (err) {
       alert(err.message || 'Could not delete selected submissions.');
@@ -979,6 +987,23 @@ const CambridgeSubmissionsPage = () => {
     } finally {
       setBulkDeleting(false);
     }
+  };
+
+  const confirmDeleteAction = async () => {
+    if (!deleteConfirm) {
+      return false;
+    }
+
+    const didDelete =
+      deleteConfirm.mode === 'single'
+        ? await handleDeleteSubmission(deleteConfirm.submission)
+        : await handleBulkDelete(deleteConfirm.ids);
+
+    if (didDelete) {
+      setDeleteConfirm(null);
+    }
+
+    return didDelete;
   };
 
   // Handle page change
@@ -1315,7 +1340,7 @@ const CambridgeSubmissionsPage = () => {
                     </span>
                     <button
                       type="button"
-                      onClick={handleBulkDelete}
+                      onClick={openBulkDeleteConfirmation}
                       style={styles.btnRed}
                       disabled={bulkDeleting}
                     >
@@ -1724,7 +1749,7 @@ const CambridgeSubmissionsPage = () => {
                         )}
                         {canDeleteSubmissions && (
                           <button
-                            onClick={() => handleDeleteSubmission(submission)}
+                            onClick={() => openDeleteConfirmation(submission)}
                             style={{
                               ...styles.viewButton,
                               backgroundColor: '#dc2626',
@@ -1782,6 +1807,53 @@ const CambridgeSubmissionsPage = () => {
           </>
         )}
         </AdminStickySidebarLayout>
+
+        <AdminConfirmModal
+          open={Boolean(deleteConfirm)}
+          title={
+            deleteConfirm?.mode === 'bulk'
+              ? `Delete ${deleteConfirm?.ids?.length || 0} Cambridge submissions?`
+              : 'Delete Cambridge submission?'
+          }
+          description={
+            deleteConfirm?.mode === 'bulk'
+              ? 'This removes the selected Cambridge submissions from the queue immediately and cannot be undone.'
+              : 'This permanently removes the selected Cambridge submission, including saved feedback and review drawer state for that record.'
+          }
+          confirmLabel="Delete Permanently"
+          busy={
+            deleteConfirm?.mode === 'bulk'
+              ? bulkDeleting
+              : deletingId === deleteConfirm?.submission?.id
+          }
+          busyLabel="Deleting..."
+          onCancel={closeDeleteConfirmation}
+          onConfirm={confirmDeleteAction}
+          iconName="trash"
+        >
+          {deleteConfirm?.mode === 'bulk' ? (
+            <>
+              <p style={styles.confirmMetaHeading}>Selection summary</p>
+              <p style={styles.confirmMetaText}>
+                <strong>{deleteConfirm?.ids?.length || 0}</strong> visible Cambridge submissions will be deleted.
+              </p>
+              <p style={styles.confirmMetaText}>The current filtered selection will be removed from this page and the list will refresh to keep pagination in sync.</p>
+            </>
+          ) : (
+            <>
+              <p style={styles.confirmMetaHeading}>Submission summary</p>
+              <p style={styles.confirmMetaText}>
+                <strong>Student:</strong> {deleteConfirm?.submission?.studentName || '--'}
+              </p>
+              <p style={styles.confirmMetaText}>
+                <strong>Test:</strong> {deleteConfirm?.submission?.testTitle || '--'}
+              </p>
+              <p style={styles.confirmMetaText}>
+                <strong>Submission ID:</strong> #{deleteConfirm?.submission?.id || '--'}
+              </p>
+            </>
+          )}
+        </AdminConfirmModal>
 
         {activeReviewSubmission && (
           <div style={styles.drawerOverlay} onClick={closeEssayReview}>
@@ -2374,6 +2446,20 @@ const styles = {
     borderRadius: '14px',
     background: '#fff1f2',
     color: '#7f1d1d',
+  },
+  confirmMetaHeading: {
+    margin: '0 0 10px',
+    fontSize: 12,
+    fontWeight: 800,
+    letterSpacing: '0.08em',
+    textTransform: 'uppercase',
+    color: 'inherit',
+  },
+  confirmMetaText: {
+    margin: '6px 0 0',
+    fontSize: 14,
+    lineHeight: 1.55,
+    color: 'inherit',
   },
   pagination: {
     display: 'flex',

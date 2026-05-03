@@ -16,6 +16,7 @@ import {
   SubmissionStatCards,
   getSubmissionTone,
 } from "../components/SubmissionCardList";
+import AdminConfirmModal from "../components/AdminConfirmModal";
 import SubmissionFilterPanel from "../components/SubmissionFilterPanel";
 import { generateDetailsFromSections } from "../../listening/pages/ListeningResults";
 import {
@@ -121,6 +122,7 @@ const AdminListeningSubmissions = () => {
   const [deletingId, setDeletingId] = useState(null);
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [selectedSubmissionIds, setSelectedSubmissionIds] = useState(new Set());
+  const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [expandedItems, setExpandedItems] = useState(new Set());
   const currentUser = useMemo(() => getStoredUser(), []);
   const canDeleteSubmissions = currentUser?.role === "admin";
@@ -432,6 +434,27 @@ const AdminListeningSubmissions = () => {
     });
   };
 
+  const openDeleteConfirmation = (submission) => {
+    if (!canDeleteSubmissions || deletingId === submission.id || bulkDeleting) {
+      return;
+    }
+    setDeleteConfirm({ mode: "single", submission });
+  };
+
+  const openBulkDeleteConfirmation = () => {
+    if (!canDeleteSubmissions || bulkDeleting || selectedVisibleIds.length === 0) {
+      return;
+    }
+    setDeleteConfirm({ mode: "bulk", ids: [...selectedVisibleIds] });
+  };
+
+  const closeDeleteConfirmation = () => {
+    if (bulkDeleting || (deleteConfirm?.mode === "single" && deletingId === deleteConfirm?.submission?.id)) {
+      return;
+    }
+    setDeleteConfirm(null);
+  };
+
   const pendingCount = subs.filter((submission) => !hasReview(submission)).length;
   const reviewedCount = subs.filter((submission) => hasReview(submission)).length;
   const workspaceLinks = useMemo(
@@ -625,14 +648,6 @@ const AdminListeningSubmissions = () => {
       return false;
     }
 
-    const studentName = submission.userName || submission.User?.name || "Unknown student";
-    const confirmed = window.confirm(
-      `Delete Listening submission #${submission.id} for \"${studentName}\" permanently? This cannot be undone.`
-    );
-    if (!confirmed) {
-      return false;
-    }
-
     setDeletingId(submission.id);
     try {
       const res = await authFetch(apiPath(`admin/submissions/listening/${submission.id}`), {
@@ -670,15 +685,8 @@ const AdminListeningSubmissions = () => {
     }
   };
 
-  const handleBulkDelete = async () => {
-    if (!canDeleteSubmissions || bulkDeleting || selectedVisibleIds.length === 0) {
-      return false;
-    }
-
-    const confirmed = window.confirm(
-      `Delete ${selectedVisibleIds.length} selected Listening submissions permanently? This cannot be undone.`
-    );
-    if (!confirmed) {
+  const handleBulkDelete = async (submissionIds = selectedVisibleIds) => {
+    if (!canDeleteSubmissions || bulkDeleting || submissionIds.length === 0) {
       return false;
     }
 
@@ -688,7 +696,7 @@ const AdminListeningSubmissions = () => {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          items: selectedVisibleIds.map((submissionId) => ({
+          items: submissionIds.map((submissionId) => ({
             type: "listening",
             id: submissionId,
           })),
@@ -699,16 +707,16 @@ const AdminListeningSubmissions = () => {
         throw new Error(data?.message || "Could not delete selected submissions.");
       }
 
-      const deletedIds = new Set(selectedVisibleIds);
+      const deletedIds = new Set(submissionIds);
       setSubs((prev) => prev.filter((item) => !deletedIds.has(item.id)));
       setSelectedSubmissionIds((prev) => {
         const next = new Set(prev);
-        selectedVisibleIds.forEach((submissionId) => next.delete(submissionId));
+        submissionIds.forEach((submissionId) => next.delete(submissionId));
         return next;
       });
       setExpandedItems((prev) => {
         const next = new Set(prev);
-        selectedVisibleIds.forEach((submissionId) => next.delete(submissionId));
+        submissionIds.forEach((submissionId) => next.delete(submissionId));
         return next;
       });
 
@@ -718,7 +726,7 @@ const AdminListeningSubmissions = () => {
         clearDeepLinkParams();
       }
 
-      alert(data?.message || `Deleted ${selectedVisibleIds.length} submissions.`);
+      alert(data?.message || `Deleted ${submissionIds.length} submissions.`);
       return true;
     } catch (err) {
       alert(err.message || "Could not delete selected submissions.");
@@ -726,6 +734,23 @@ const AdminListeningSubmissions = () => {
     } finally {
       setBulkDeleting(false);
     }
+  };
+
+  const confirmDeleteAction = async () => {
+    if (!deleteConfirm) {
+      return false;
+    }
+
+    const didDelete =
+      deleteConfirm.mode === "single"
+        ? await handleDeleteSubmission(deleteConfirm.submission)
+        : await handleBulkDelete(deleteConfirm.ids);
+
+    if (didDelete) {
+      setDeleteConfirm(null);
+    }
+
+    return didDelete;
   };
 
   const modalOverlayStyle = {
@@ -889,7 +914,7 @@ const AdminListeningSubmissions = () => {
                   </span>
                   <button
                     type="button"
-                    onClick={handleBulkDelete}
+                    onClick={openBulkDeleteConfirmation}
                     style={dangerActionBtn}
                     disabled={bulkDeleting}
                   >
@@ -1207,7 +1232,7 @@ const AdminListeningSubmissions = () => {
                     </button>
                     {canDeleteSubmissions && (
                       <button
-                        onClick={() => handleDeleteSubmission(submission)}
+                        onClick={() => openDeleteConfirmation(submission)}
                         style={{
                           ...actionBtn,
                           background: "#dc2626",
@@ -1254,6 +1279,54 @@ const AdminListeningSubmissions = () => {
             }}
           />
           )}
+
+          <AdminConfirmModal
+            open={Boolean(deleteConfirm)}
+            title={
+              deleteConfirm?.mode === "bulk"
+                ? `Delete ${deleteConfirm?.ids?.length || 0} Listening submissions?`
+                : "Delete Listening submission?"
+            }
+            description={
+              deleteConfirm?.mode === "bulk"
+                ? "This removes the selected Listening submissions from the queue immediately and cannot be undone."
+                : "This permanently removes the selected Listening submission and any teacher feedback attached to that record."
+            }
+            confirmLabel="Delete Permanently"
+            busy={
+              deleteConfirm?.mode === "bulk"
+                ? bulkDeleting
+                : deletingId === deleteConfirm?.submission?.id
+            }
+            busyLabel="Deleting..."
+            onCancel={closeDeleteConfirmation}
+            onConfirm={confirmDeleteAction}
+            isDarkMode={isDarkMode}
+            iconName="trash"
+          >
+            {deleteConfirm?.mode === "bulk" ? (
+              <>
+                <p style={confirmMetaHeadingStyle}>Selection summary</p>
+                <p style={confirmMetaTextStyle}>
+                  <strong>{deleteConfirm?.ids?.length || 0}</strong> visible Listening submissions will be deleted.
+                </p>
+                <p style={confirmMetaTextStyle}>Selected rows are removed from this queue immediately after confirmation.</p>
+              </>
+            ) : (
+              <>
+                <p style={confirmMetaHeadingStyle}>Submission summary</p>
+                <p style={confirmMetaTextStyle}>
+                  <strong>Student:</strong> {deleteConfirm?.submission?.userName || deleteConfirm?.submission?.User?.name || "Unknown student"}
+                </p>
+                <p style={confirmMetaTextStyle}>
+                  <strong>Test:</strong> {deleteConfirm?.submission?.ListeningTest?.title || `Listening #${deleteConfirm?.submission?.testId || deleteConfirm?.submission?.id || "--"}`}
+                </p>
+                <p style={confirmMetaTextStyle}>
+                  <strong>Submission ID:</strong> #{deleteConfirm?.submission?.id || "--"}
+                </p>
+              </>
+            )}
+          </AdminConfirmModal>
 
           {showFeedbackModal && selectedSubmission && (
           <div style={modalOverlayStyle}>
@@ -1389,6 +1462,8 @@ const selectionCheckboxLabelStyle = { display: "inline-flex", alignItems: "cente
 const bulkBarStyle = { display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 12, padding: "12px 14px", border: "1px solid #fecaca", borderRadius: 14, background: "#fff1f2", color: "#7f1d1d" };
 const secondaryActionBtn = { background: "#e5e7eb", color: "#374151", border: "none", borderRadius: 8, padding: "7px 12px", cursor: "pointer", fontWeight: 700, fontSize: 12.5, lineHeight: 1.05 };
 const dangerActionBtn = { background: "#dc2626", color: "#fff", border: "none", borderRadius: 8, padding: "7px 12px", cursor: "pointer", fontWeight: 700, fontSize: 12.5, lineHeight: 1.05 };
+const confirmMetaHeadingStyle = { margin: "0 0 10px", fontSize: 12, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: "inherit" };
+const confirmMetaTextStyle = { margin: "6px 0 0", fontSize: 14, lineHeight: 1.55, color: "inherit" };
 
 const feedbackStateStyle = (color) => ({
   display: "inline-flex",
