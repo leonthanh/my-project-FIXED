@@ -3273,31 +3273,19 @@ const DoCambridgeListeningTest = () => {
       </div>
 
       {/* Footer Navigation (match Cambridge Reading) */}
-      <footer className="cambridge-footer">
+      <footer className="cambridge-footer cambridge-footer--centered-nav">
         {/* Navigation Arrows - Top Right */}
-        <div className="cambridge-footer-arrows">
-          <button
-            className="cambridge-nav-arrow-btn"
-            onClick={() => goToKeyIndex(currentKeyIndex - 1)}
-            disabled={currentKeyIndex === 0}
-            aria-label="Previous"
-            title="Previous question"
-          >
+        <div className="cambridge-footer-arrows cambridge-footer-arrows--static" aria-hidden="true">
+          <span className="cambridge-nav-arrow-btn cambridge-nav-arrow-btn--static">
             <i className="fa fa-arrow-left"></i>
-          </button>
-          <button
-            className="cambridge-nav-arrow-btn"
-            onClick={() => goToKeyIndex(currentKeyIndex + 1)}
-            disabled={currentKeyIndex >= (questionIndex?.orderedKeys?.length || 1) - 1}
-            aria-label="Next"
-            title="Next question"
-          >
+          </span>
+          <span className="cambridge-nav-arrow-btn cambridge-nav-arrow-btn--static">
             <i className="fa fa-arrow-right"></i>
-          </button>
+          </span>
         </div>
 
         {/* Parts Tabs with Question Numbers */}
-        <div className="cambridge-parts-container">
+        <div className="cambridge-parts-container cambridge-parts-container--centered">
           {questionIndex.byPart.map((p) => {
             const total = p.keys.length;
             const answeredInPart = p.keys.reduce((acc, item) => acc + (answers[item.key] ? 1 : 0), 0);
