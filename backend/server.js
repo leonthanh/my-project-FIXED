@@ -81,16 +81,83 @@ const resolveTrustProxy = () => {
   return Number.isFinite(parsed) ? parsed : raw;
 };
 
-const apiRateLimiter = rateLimit({
+const getRequestPath = (req) =>
+  String(req.originalUrl || req.url || '').split('?')[0] || '/';
+
+const isAiApiRequest = (req) => /^\/api\/ai(?:\/|$)/i.test(getRequestPath(req));
+
+const runtimeSyncRoutePatterns = [
+  /^\/api\/writing\/draft\/(?:autosave|active)$/i,
+  /^\/api\/reading-submissions\/[^/]+\/(?:autosave|active)$/i,
+  /^\/api\/listening-submissions\/[^/]+\/(?:autosave|active)$/i,
+];
+
+const isRuntimeSyncRequest = (req) => {
+  const requestPath = getRequestPath(req);
+  return runtimeSyncRoutePatterns.some((pattern) => pattern.test(requestPath));
+};
+
+const buildRateLimitHandler = (limiterId, message) => (req, res) => {
+  const resetAt = req.rateLimit?.resetTime
+    ? new Date(req.rateLimit.resetTime).getTime()
+    : null;
+  const retryAfterSeconds = Number.isFinite(resetAt)
+    ? Math.max(1, Math.ceil((resetAt - Date.now()) / 1000))
+    : null;
+
+  if (retryAfterSeconds) {
+    res.set('Retry-After', String(retryAfterSeconds));
+  }
+
+  res.set('X-RateLimit-Source', 'backend');
+  res.set('X-RateLimit-Limiter', limiterId);
+
+  res.status(429).json({
+    error: message,
+    message,
+    code: 'RATE_LIMITED',
+    rateLimitSource: `backend:${limiterId}`,
+    limiter: limiterId,
+    retryAfterSeconds,
+    path: getRequestPath(req),
+  });
+};
+
+const createApiLimiter = ({ limiterId, windowMs, limit, message, skip }) =>
+  rateLimit({
+    windowMs,
+    limit,
+    standardHeaders: 'draft-7',
+    legacyHeaders: false,
+    keyGenerator: extractApiRateLimitKey,
+    skip: (req) => {
+      if (req.method === 'OPTIONS') return true;
+      return typeof skip === 'function' ? skip(req) : false;
+    },
+    handler: buildRateLimitHandler(limiterId, message),
+  });
+
+const apiRateLimiter = createApiLimiter({
+  limiterId: 'api-general',
   windowMs: parsePositiveInt(process.env.API_RATE_LIMIT_WINDOW_MS, 60 * 1000),
   limit: parsePositiveInt(process.env.API_RATE_LIMIT_MAX, 600),
-  standardHeaders: 'draft-7',
-  legacyHeaders: false,
-  keyGenerator: extractApiRateLimitKey,
-  skip: (req) => req.method === 'OPTIONS',
-  handler: (_req, res) => {
-    res.status(429).json({ message: 'Too many requests. Please try again later.' });
-  },
+  message: 'Too many API requests. Please try again later.',
+  skip: (req) => isAiApiRequest(req) || isRuntimeSyncRequest(req),
+});
+
+const runtimeSyncRateLimiter = createApiLimiter({
+  limiterId: 'runtime-sync',
+  windowMs: parsePositiveInt(process.env.API_RUNTIME_SYNC_RATE_LIMIT_WINDOW_MS, 60 * 1000),
+  limit: parsePositiveInt(process.env.API_RUNTIME_SYNC_RATE_LIMIT_MAX, 1800),
+  message: 'Too many autosave or runtime sync requests. Please retry in a moment.',
+  skip: (req) => !isRuntimeSyncRequest(req),
+});
+
+const aiRateLimiter = createApiLimiter({
+  limiterId: 'ai-feedback',
+  windowMs: parsePositiveInt(process.env.API_AI_RATE_LIMIT_WINDOW_MS, 60 * 1000),
+  limit: parsePositiveInt(process.env.API_AI_RATE_LIMIT_MAX, 120),
+  message: 'Too many AI feedback requests. Please wait a moment and try again.',
 });
 
 // Friendly startup logs (hide secrets)
@@ -287,6 +354,9 @@ app.set('trust proxy', resolveTrustProxy());
 app.use(express.json({ limit: '50mb' })); // Tăng limit để support base64 images
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
+// Apply dedicated limiters before the shared API limiter so runtime sync and AI traffic
+// are isolated from the general request budget.
+app.use('/api', runtimeSyncRateLimiter);
 // Only throttle API requests so frontend HTML/static assets do not fail with plain-text 429 pages.
 app.use('/api', apiRateLimiter);
 
@@ -294,7 +364,7 @@ app.use('/api', apiRateLimiter);
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 // ✅ Routes API
-app.use('/api/ai', aiRoutes); // ✅ Bây giờ mới dùng
+app.use('/api/ai', aiRateLimiter, aiRoutes); // ✅ Bây giờ mới dùng
 app.use('/api/auth', authRoutes);
 app.use('/api', writingRouter);
 app.use('/api', listeningRouter);

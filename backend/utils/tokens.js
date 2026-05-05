@@ -10,9 +10,39 @@ function getJwtAccessSecret() {
   return 'dev-secret-change-me';
 }
 
+function getAccessTokenExpiresIn(role) {
+  const normalizedRole = String(role || '').trim().toLowerCase();
+
+  if (normalizedRole === 'student') {
+    return (
+      process.env.JWT_ACCESS_EXPIRES_IN_STUDENT ||
+      process.env.JWT_STUDENT_ACCESS_EXPIRES_IN ||
+      '120m'
+    );
+  }
+
+  if (normalizedRole === 'teacher') {
+    return (
+      process.env.JWT_ACCESS_EXPIRES_IN_TEACHER ||
+      process.env.JWT_ACCESS_EXPIRES_IN ||
+      '15m'
+    );
+  }
+
+  if (normalizedRole === 'admin') {
+    return (
+      process.env.JWT_ACCESS_EXPIRES_IN_ADMIN ||
+      process.env.JWT_ACCESS_EXPIRES_IN ||
+      '15m'
+    );
+  }
+
+  return process.env.JWT_ACCESS_EXPIRES_IN || '15m';
+}
+
 function signAccessToken({ userId, role }) {
   const secret = getJwtAccessSecret();
-  const expiresIn = process.env.JWT_ACCESS_EXPIRES_IN || '15m';
+  const expiresIn = getAccessTokenExpiresIn(role);
   return jwt.sign(
     { sub: String(userId), role },
     secret,

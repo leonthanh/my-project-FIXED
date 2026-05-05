@@ -2,7 +2,11 @@ const crypto = require("crypto");
 const express = require("express");
 require("dotenv").config();
 
+const { requireAuth, requireRole } = require("../middlewares/auth");
+
 const router = express.Router();
+
+router.use(requireAuth, requireRole("teacher", "admin"));
 
 const feedbackCache = new Map();
 const inFlightRequests = new Map();
@@ -255,6 +259,12 @@ function buildGeminiWarningForCambridge(openAiResult) {
   return "OpenAI was temporarily unavailable. Gemini generated the feedback instead.";
 }
 
+function getUpstreamRateLimitSource(result = {}) {
+  return result?.upstreamStatus === 429 && result?.upstreamProvider
+    ? `upstream:${result.upstreamProvider}`
+    : null;
+}
+
 function estimateBand(words, minWords, paragraphs) {
   let score = 5.0;
 
@@ -477,6 +487,7 @@ async function generateFeedback(task1, task2) {
         warning: buildGeminiWarningForWriting(openAiResult),
         fallback: false,
         upstreamStatus: openAiResult?.status || null,
+        upstreamDetail: openAiResult?.detail || null,
         upstreamProvider: hasOpenAi ? "openai" : null,
       };
     }
@@ -644,6 +655,7 @@ async function generateCambridgeFeedback({
         warning: buildGeminiWarningForCambridge(openAiResult),
         fallback: false,
         upstreamStatus: openAiResult?.status || null,
+        upstreamDetail: openAiResult?.detail || null,
         upstreamProvider: hasOpenAi ? "openai" : null,
       };
     }
@@ -697,7 +709,9 @@ router.post("/generate-feedback", async (req, res) => {
       warning: cached.warning || null,
       fallback: Boolean(cached.fallback),
       upstreamStatus: cached.upstreamStatus || null,
+      upstreamDetail: cached.upstreamDetail || null,
       upstreamProvider: cached.upstreamProvider || null,
+      rateLimitSource: getUpstreamRateLimitSource(cached),
       cached: true,
     });
   }
@@ -711,7 +725,9 @@ router.post("/generate-feedback", async (req, res) => {
         warning: sharedResult.warning || null,
         fallback: Boolean(sharedResult.fallback),
         upstreamStatus: sharedResult.upstreamStatus || null,
+        upstreamDetail: sharedResult.upstreamDetail || null,
         upstreamProvider: sharedResult.upstreamProvider || null,
+        rateLimitSource: getUpstreamRateLimitSource(sharedResult),
         cached: false,
         shared: true,
       });
@@ -737,7 +753,9 @@ router.post("/generate-feedback", async (req, res) => {
       warning: result.warning || null,
       fallback: Boolean(result.fallback),
       upstreamStatus: result.upstreamStatus || null,
+      upstreamDetail: result.upstreamDetail || null,
       upstreamProvider: result.upstreamProvider || null,
+      rateLimitSource: getUpstreamRateLimitSource(result),
       cached: false,
     });
   } catch (error) {
@@ -778,7 +796,9 @@ router.post("/generate-cambridge-feedback", async (req, res) => {
       warning: cached.warning || null,
       fallback: Boolean(cached.fallback),
       upstreamStatus: cached.upstreamStatus || null,
+      upstreamDetail: cached.upstreamDetail || null,
       upstreamProvider: cached.upstreamProvider || null,
+      rateLimitSource: getUpstreamRateLimitSource(cached),
       cached: true,
     });
   }
@@ -792,7 +812,9 @@ router.post("/generate-cambridge-feedback", async (req, res) => {
         warning: sharedResult.warning || null,
         fallback: Boolean(sharedResult.fallback),
         upstreamStatus: sharedResult.upstreamStatus || null,
+        upstreamDetail: sharedResult.upstreamDetail || null,
         upstreamProvider: sharedResult.upstreamProvider || null,
+        rateLimitSource: getUpstreamRateLimitSource(sharedResult),
         cached: false,
         shared: true,
       });
@@ -823,7 +845,9 @@ router.post("/generate-cambridge-feedback", async (req, res) => {
       warning: result.warning || null,
       fallback: Boolean(result.fallback),
       upstreamStatus: result.upstreamStatus || null,
+      upstreamDetail: result.upstreamDetail || null,
       upstreamProvider: result.upstreamProvider || null,
+      rateLimitSource: getUpstreamRateLimitSource(result),
       cached: false,
     });
   } catch (error) {

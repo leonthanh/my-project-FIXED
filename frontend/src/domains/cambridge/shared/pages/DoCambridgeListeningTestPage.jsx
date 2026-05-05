@@ -19,6 +19,7 @@ import {
   getRemainingSeconds,
   toTimestamp,
 } from "../../../../shared/utils/testTiming";
+import { getRuntimeSyncRateLimitMessage } from "../../../../shared/utils/runtimeRateLimit";
 import { TEST_CONFIGS } from "../../../../shared/config/questionTypes";
 import { computeQuestionStarts, countClozeBlanksFromText, getQuestionCountForSection } from "../utils/questionNumbering";
 import { CambridgeQuestionDisplay, CompactCambridgeQuestionDisplay } from "../components/CambridgeQuestionCards";
@@ -28,7 +29,7 @@ import createStyles from "./DoCambridgeListeningTest.styles";
 import './DoCambridgeReadingTest.css';
 
 const SERVER_AUTOSAVE_INTERVAL_MS = 30000;
-const SERVER_TIMING_RECONCILE_INTERVAL_MS = 15000;
+const SERVER_TIMING_RECONCILE_INTERVAL_MS = 25000;
 
 const InlineIcon = ({ name, size = 16, strokeWidth = 2, style }) => (
   <span
@@ -88,6 +89,7 @@ const DoCambridgeListeningTest = () => {
   const [timeRemaining, setTimeRemaining] = useState(30 * 60);
   const [graceRemaining, setGraceRemaining] = useState(0);
   const [extensionToast, setExtensionToast] = useState("");
+  const [runtimeLimitToast, setRuntimeLimitToast] = useState("");
   const [activeQuestion, setActiveQuestion] = useState(null);
 
   // Cambridge-style start gate (must click Play)
@@ -178,6 +180,12 @@ const DoCambridgeListeningTest = () => {
     const timeoutId = setTimeout(() => setExtensionToast(""), 4000);
     return () => clearTimeout(timeoutId);
   }, [extensionToast]);
+
+  useEffect(() => {
+    if (!runtimeLimitToast) return;
+    const timeoutId = setTimeout(() => setRuntimeLimitToast(""), 6500);
+    return () => clearTimeout(timeoutId);
+  }, [runtimeLimitToast]);
 
   // Fetch test data
   useEffect(() => {
@@ -674,8 +682,16 @@ const DoCambridgeListeningTest = () => {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
         });
-        if (!res.ok) return;
         const json = await res.json().catch(() => null);
+        if (!res.ok) {
+          const runtimeMessage = getRuntimeSyncRateLimitMessage(res.status, json || {});
+          if (runtimeMessage) {
+            setRuntimeLimitToast(runtimeMessage);
+          }
+          return;
+        }
+
+        setRuntimeLimitToast("");
         if (json?.submissionId) {
           submissionIdRef.current = json.submissionId;
           try {
@@ -877,6 +893,7 @@ const DoCambridgeListeningTest = () => {
       return;
     }
     lastAudioSrcRef.current = nextSrc;
+          <ExtensionToast message={runtimeLimitToast} label="Autosave" tone="warning" top={152} />
 
     // When switching parts/audio, reset playback bookkeeping without the pause-handler forcing replay.
     switchingAudioSrcRef.current = true;
