@@ -893,7 +893,6 @@ const DoCambridgeListeningTest = () => {
       return;
     }
     lastAudioSrcRef.current = nextSrc;
-          <ExtensionToast message={runtimeLimitToast} label="Autosave" tone="warning" top={152} />
 
     // When switching parts/audio, reset playback bookkeeping without the pause-handler forcing replay.
     switchingAudioSrcRef.current = true;
@@ -1978,6 +1977,7 @@ const DoCambridgeListeningTest = () => {
   return (
     <div className="cambridge-test-container">
       <ExtensionToast message={extensionToast} />
+      <ExtensionToast message={runtimeLimitToast} label="Autosave" tone="warning" top={152} />
       {/* Header */}
       <TestHeader
         title={testConfig.name}

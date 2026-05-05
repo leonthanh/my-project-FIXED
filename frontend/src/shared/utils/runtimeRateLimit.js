@@ -6,10 +6,10 @@ function getRuntimeSyncRateLimitMessage(status, payload = {}) {
 
   const retryAfterSeconds = Number(payload?.retryAfterSeconds);
   const retryHint = Number.isFinite(retryAfterSeconds)
-    ? ` The app will retry automatically in about ${Math.max(1, Math.ceil(retryAfterSeconds))}s.`
-    : " The app will retry automatically in a moment.";
+    ? ` Retrying in about ${Math.max(1, Math.ceil(retryAfterSeconds))}s.`
+    : " Retrying shortly.";
 
-  return "Server autosave is temporarily rate-limited by the backend. Your answers are still saved on this machine, so your work is not lost." + retryHint;
+  return "Autosave is temporarily busy. Your answers are still saved on this machine." + retryHint;
 }
 
 export { getRuntimeSyncRateLimitMessage };

@@ -151,7 +151,6 @@ export const CambridgeQuestionDisplay = ({
               ? `0 0 0 3px ${palette.border}30`
               : 'none',
           animation: pulseKey > 0 ? `fillCardPulse 0.55s ease` : 'none',
-          animationPlayState: 'running',
         }}
       >
         {allowFlagging ? (

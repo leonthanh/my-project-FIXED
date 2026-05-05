@@ -99,7 +99,7 @@ describe('WritingTest autosave runtime limit', () => {
 
     expect(screen.getByText('Autosave')).toBeInTheDocument();
     expect(
-      screen.getByText(/Server autosave is temporarily rate-limited by the backend/i)
+      screen.getByText(/Autosave is temporarily busy/i)
     ).toBeInTheDocument();
     expect(screen.getByText(/saved on this machine/i)).toBeInTheDocument();
   });

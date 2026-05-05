@@ -777,8 +777,6 @@ const DoCambridgeReadingTest = ({
         });
         return;
       }
-
-            <ExtensionToast message={runtimeLimitToast} label="Autosave" tone="warning" top={152} />
       if (questionType === 'people-matching' && Array.isArray(q.question?.people)) {
         const person = q.question.people[q.personIndex] || {};
         const personId = person?.id ? String(person.id).trim() : String.fromCharCode(65 + (q.personIndex || 0));
@@ -1528,6 +1526,7 @@ const DoCambridgeReadingTest = ({
   return (
     <div className={`cambridge-test-container bg-slate-50${examType === 'MOVERS' ? ' cambridge-movers' : ''}`}>
       <ExtensionToast message={extensionToast} />
+      <ExtensionToast message={runtimeLimitToast} label="Autosave" tone="warning" top={152} />
       {/* Start Modal (only starts timer after click) */}
       {!started && !submitted && !loading && !error && (
         <TestStartModal
