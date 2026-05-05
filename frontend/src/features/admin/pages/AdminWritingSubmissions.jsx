@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import AdminNavbar from "../../../shared/components/AdminNavbar";
 import { apiPath, authFetch } from "../../../shared/utils/api";
+import { getAiFallbackRateLimitMessage, getAiRequestErrorMessage } from "../../../shared/utils/aiFeedback";
 import AttemptExtensionControls from "../components/AttemptExtensionControls";
 import AdminStickySidebarLayout, {
   AdminSidebarMetricList,
@@ -308,7 +309,7 @@ const AdminWritingSubmissions = () => {
     setAiLoading((prev) => ({ ...prev, [submission.id]: true }));
 
     try {
-      const aiRes = await fetch(apiPath("ai/generate-feedback"), {
+      const aiRes = await authFetch(apiPath("ai/generate-feedback"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -317,9 +318,9 @@ const AdminWritingSubmissions = () => {
         }),
       });
 
-      const aiData = await aiRes.json();
+      const aiData = await aiRes.json().catch(() => ({}));
       if (!aiRes.ok) {
-        throw new Error(aiData?.error || "AI could not generate feedback.");
+        throw new Error(getAiRequestErrorMessage(aiRes.status, aiData));
       }
 
       if (aiData.suggestion) {
@@ -339,7 +340,8 @@ const AdminWritingSubmissions = () => {
             ? "OpenAI was unavailable. Gemini generated the AI feedback instead."
             : "Gemini generated AI feedback."
           : aiData.fallback
-          ? aiData.warning ||
+          ? getAiFallbackRateLimitMessage(aiData) ||
+            aiData.warning ||
             "OpenAI and Gemini are currently unavailable. The system generated fallback feedback so marking can continue."
           : "AI feedback generated.";
 
@@ -352,7 +354,7 @@ const AdminWritingSubmissions = () => {
       }
     } catch (err) {
       console.error("AI error:", err);
-      alert("Could not connect to the AI service.");
+      alert(err.message || "Could not connect to the AI service.");
     } finally {
       setAiLoading((prev) => ({ ...prev, [submission.id]: false }));
     }

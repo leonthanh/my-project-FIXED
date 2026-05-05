@@ -14,7 +14,7 @@
 .select-test-page {
   position: relative;
   min-height: 100vh;
-  padding: 28px 18px 44px;
+  padding: 22px 14px 44px;
   overflow-x: clip;
   font-family: "Manrope", "Segoe UI", sans-serif;
   background:
@@ -53,7 +53,8 @@
 .select-test-shell {
   position: relative;
   z-index: 1;
-  max-width: 1480px;
+  width: 100%;
+  max-width: none;
   margin: 0 auto;
   display: grid;
   gap: 18px;
@@ -947,6 +948,7 @@
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
+  flex-direction: column;
 }
 
 .select-test-pillRow--levels {

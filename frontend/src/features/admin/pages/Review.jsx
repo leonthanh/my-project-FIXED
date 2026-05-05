@@ -8,7 +8,8 @@ import AdminStickySidebarLayout, {
   buildAdminWorkspaceLinks,
 } from "../components/AdminStickySidebarLayout";
 import { useTheme } from "../../../shared/contexts/ThemeContext";
-import { apiPath } from "../../../shared/utils/api";
+import { apiPath, authFetch } from "../../../shared/utils/api";
+import { getAiFallbackRateLimitMessage, getAiRequestErrorMessage } from "../../../shared/utils/aiFeedback";
 import {
   buildCambridgeResponseFeedbackDraftMap,
   countMissingCambridgeResponseFeedback,
@@ -440,7 +441,7 @@ const Review = () => {
       setCambridgeAiLoadingById((prev) => ({ ...prev, [stateKey]: true }));
       setCambridgeResponseStatusByKey((prev) => ({ ...prev, [stateKey]: "" }));
 
-      const res = await fetch(apiPath("ai/generate-cambridge-feedback"), {
+      const res = await authFetch(apiPath("ai/generate-cambridge-feedback"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -460,7 +461,7 @@ const Review = () => {
 
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data?.error || "AI could not generate Orange feedback.");
+        throw new Error(getAiRequestErrorMessage(res.status, data));
       }
 
       if (!data?.suggestion) {
@@ -478,6 +479,8 @@ const Review = () => {
         ...prev,
         [stateKey]: data.warning
           ? data.warning
+          : getAiFallbackRateLimitMessage(data)
+          ? getAiFallbackRateLimitMessage(data)
           : data.cached
           ? `${responseItem.label || 'Response'} loaded cached AI feedback.`
           : `${responseItem.label || 'Response'} AI feedback generated.`,
@@ -1292,7 +1295,7 @@ const Review = () => {
   const activeReviewPageTarget =
     REVIEW_HUB_PAGE_BY_TAB[activeTab] || REVIEW_HUB_PAGE_BY_TAB.writing;
   const workspaceLinks = useMemo(
-    () => buildAdminWorkspaceLinks(navigate, "review"),
+    () => buildAdminWorkspaceLinks(navigate, "review", undefined, "review"),
     [navigate]
   );
   const sidebarStats = useMemo(

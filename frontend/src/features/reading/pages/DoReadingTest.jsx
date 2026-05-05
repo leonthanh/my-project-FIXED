@@ -40,9 +40,10 @@ import {
   getRemainingSeconds,
   toTimestamp,
 } from "../../../shared/utils/testTiming";
+import { getRuntimeSyncRateLimitMessage } from "../../../shared/utils/runtimeRateLimit";
 
 const SERVER_AUTOSAVE_INTERVAL_MS = 30000;
-const SERVER_TIMING_RECONCILE_INTERVAL_MS = 15000;
+const SERVER_TIMING_RECONCILE_INTERVAL_MS = 25000;
 /* eslint-disable no-loop-func */
 // Utility: Remove unwanted <span ...> tags from HTML
 function stripUnwantedHtml(html) {
@@ -638,6 +639,7 @@ const DoReadingTest = () => {
   const [timeRemaining, setTimeRemaining] = useState(null);
   const [graceRemaining, setGraceRemaining] = useState(0);
   const [extensionToast, setExtensionToast] = useState("");
+  const [runtimeLimitToast, setRuntimeLimitToast] = useState("");
   const [timerWarning, setTimerWarning] = useState(false);
   const [timerCritical, setTimerCritical] = useState(false);
 
@@ -660,6 +662,12 @@ const DoReadingTest = () => {
     const timeoutId = setTimeout(() => setExtensionToast(""), 4000);
     return () => clearTimeout(timeoutId);
   }, [extensionToast]);
+
+  useEffect(() => {
+    if (!runtimeLimitToast) return;
+    const timeoutId = setTimeout(() => setRuntimeLimitToast(""), 6500);
+    return () => clearTimeout(timeoutId);
+  }, [runtimeLimitToast]);
 
   // Load saved answers from localStorage
   useEffect(() => {
@@ -725,8 +733,15 @@ const DoReadingTest = () => {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
         });
-        if (!res.ok) return;
         const json = await res.json().catch(() => null);
+        if (!res.ok) {
+          const runtimeMessage = getRuntimeSyncRateLimitMessage(res.status, json || {});
+          if (runtimeMessage) {
+            setRuntimeLimitToast(runtimeMessage);
+          }
+          return;
+        }
+        setRuntimeLimitToast("");
         if (json?.submissionId) {
           submissionIdRef.current = json.submissionId;
           localStorage.setItem(
@@ -3008,6 +3023,7 @@ const DoReadingTest = () => {
   return (
     <div className="reading-test-container">
       <ExtensionToast message={extensionToast} />
+      <ExtensionToast message={runtimeLimitToast} label="Autosave" tone="warning" top={152} />
       {/* Enhanced Header */}
       <header className="reading-test-header">
         <div className="header-left">

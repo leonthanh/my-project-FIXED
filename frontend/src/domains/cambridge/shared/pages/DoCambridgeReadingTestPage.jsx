@@ -31,10 +31,11 @@ import {
   getRemainingSeconds,
   toTimestamp,
 } from "../../../../shared/utils/testTiming";
+import { getRuntimeSyncRateLimitMessage } from "../../../../shared/utils/runtimeRateLimit";
 import "./DoCambridgeReadingTest.css";
 
 const SERVER_AUTOSAVE_INTERVAL_MS = 30000;
-const SERVER_TIMING_RECONCILE_INTERVAL_MS = 15000;
+const SERVER_TIMING_RECONCILE_INTERVAL_MS = 25000;
 
 /**
  * DoCambridgeReadingTest - Cambridge Reading Test (Authentic UI)
@@ -105,6 +106,7 @@ const DoCambridgeReadingTest = ({
   const [timeRemaining, setTimeRemaining] = useState(null); // Will be set from localStorage or config
   const [graceRemaining, setGraceRemaining] = useState(0);
   const [extensionToast, setExtensionToast] = useState("");
+  const [runtimeLimitToast, setRuntimeLimitToast] = useState("");
   /* eslint-disable-next-line no-unused-vars */
   const [activeQuestion, setActiveQuestion] = useState(null);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0); // Current question number
@@ -224,6 +226,12 @@ const DoCambridgeReadingTest = ({
     const timeoutId = setTimeout(() => setExtensionToast(""), 4000);
     return () => clearTimeout(timeoutId);
   }, [extensionToast]);
+
+  useEffect(() => {
+    if (!runtimeLimitToast) return;
+    const timeoutId = setTimeout(() => setRuntimeLimitToast(""), 6500);
+    return () => clearTimeout(timeoutId);
+  }, [runtimeLimitToast]);
 
   const sanitizeQuillHtml = useCallback((html) => {
     if (typeof html !== 'string' || !html.trim()) return '';
@@ -517,8 +525,16 @@ const DoCambridgeReadingTest = ({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
         });
-        if (!res.ok) return;
         const json = await res.json().catch(() => null);
+        if (!res.ok) {
+          const runtimeMessage = getRuntimeSyncRateLimitMessage(res.status, json || {});
+          if (runtimeMessage) {
+            setRuntimeLimitToast(runtimeMessage);
+          }
+          return;
+        }
+
+        setRuntimeLimitToast("");
         if (json?.submissionId) {
           submissionIdRef.current = json.submissionId;
           localStorage.setItem(camReadSubmissionKey, String(json.submissionId));
@@ -761,7 +777,6 @@ const DoCambridgeReadingTest = ({
         });
         return;
       }
-
       if (questionType === 'people-matching' && Array.isArray(q.question?.people)) {
         const person = q.question.people[q.personIndex] || {};
         const personId = person?.id ? String(person.id).trim() : String.fromCharCode(65 + (q.personIndex || 0));
@@ -1511,6 +1526,7 @@ const DoCambridgeReadingTest = ({
   return (
     <div className={`cambridge-test-container bg-slate-50${examType === 'MOVERS' ? ' cambridge-movers' : ''}`}>
       <ExtensionToast message={extensionToast} />
+      <ExtensionToast message={runtimeLimitToast} label="Autosave" tone="warning" top={152} />
       {/* Start Modal (only starts timer after click) */}
       {!started && !submitted && !loading && !error && (
         <TestStartModal

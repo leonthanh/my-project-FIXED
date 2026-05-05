@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import AdminNavbar from "../../../shared/components/AdminNavbar";
-import { apiPath } from "../../../shared/utils/api";
+import { apiPath, authFetch } from "../../../shared/utils/api";
+import { getAiRequestErrorMessage } from "../../../shared/utils/aiFeedback";
 
 const formatDateTime = (value) => {
   if (!value) return "N/A";
@@ -28,7 +29,10 @@ const buildAiStatus = (payload = {}) => {
   if (payload.cached && payload.fallback && payload.upstreamStatus === 429) {
     return {
       tone: "warning",
-      text: "Loaded a cached fallback draft. OpenAI previously returned 429 Too Many Requests for this submission.",
+      text:
+        payload.upstreamProvider === "gemini"
+          ? "Loaded a cached fallback draft. Gemini previously returned 429 Too Many Requests for this submission."
+          : "Loaded a cached fallback draft. OpenAI previously returned 429 Too Many Requests for this submission.",
     };
   }
 
@@ -59,7 +63,10 @@ const buildAiStatus = (payload = {}) => {
 
     return {
       tone: "warning",
-      text: "OpenAI returned 429 Too Many Requests. The system inserted a fallback draft so marking can continue.",
+      text:
+        payload.upstreamProvider === "gemini"
+          ? "Gemini returned 429 Too Many Requests. The system inserted a fallback draft so marking can continue."
+          : "OpenAI returned 429 Too Many Requests. The system inserted a fallback draft so marking can continue.",
     };
   }
 
@@ -567,7 +574,7 @@ const ReviewSubmission = () => {
     setAiStatus({ tone: "info", text: "Generating AI draft..." });
 
     try {
-      const aiRes = await fetch(apiPath("ai/generate-feedback"), {
+      const aiRes = await authFetch(apiPath("ai/generate-feedback"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -578,12 +585,7 @@ const ReviewSubmission = () => {
       const aiData = await aiRes.json().catch(() => ({}));
 
       if (!aiRes.ok) {
-        if (aiRes.status === 429) {
-          throw new Error(
-            "The AI provider returned 429 Too Many Requests. This usually means the current OpenAI quota or rate limit has been reached on the server."
-          );
-        }
-        throw new Error(aiData?.error || "AI could not generate feedback.");
+        throw new Error(getAiRequestErrorMessage(aiRes.status, aiData));
       }
 
       if (aiData.suggestion) {

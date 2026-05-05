@@ -19,6 +19,7 @@ import {
   getRemainingSeconds,
   toTimestamp,
 } from "../../../../shared/utils/testTiming";
+import { getRuntimeSyncRateLimitMessage } from "../../../../shared/utils/runtimeRateLimit";
 import { TEST_CONFIGS } from "../../../../shared/config/questionTypes";
 import { computeQuestionStarts, countClozeBlanksFromText, getQuestionCountForSection } from "../utils/questionNumbering";
 import { CambridgeQuestionDisplay, CompactCambridgeQuestionDisplay } from "../components/CambridgeQuestionCards";
@@ -28,7 +29,7 @@ import createStyles from "./DoCambridgeListeningTest.styles";
 import './DoCambridgeReadingTest.css';
 
 const SERVER_AUTOSAVE_INTERVAL_MS = 30000;
-const SERVER_TIMING_RECONCILE_INTERVAL_MS = 15000;
+const SERVER_TIMING_RECONCILE_INTERVAL_MS = 25000;
 
 const InlineIcon = ({ name, size = 16, strokeWidth = 2, style }) => (
   <span
@@ -88,6 +89,7 @@ const DoCambridgeListeningTest = () => {
   const [timeRemaining, setTimeRemaining] = useState(30 * 60);
   const [graceRemaining, setGraceRemaining] = useState(0);
   const [extensionToast, setExtensionToast] = useState("");
+  const [runtimeLimitToast, setRuntimeLimitToast] = useState("");
   const [activeQuestion, setActiveQuestion] = useState(null);
 
   // Cambridge-style start gate (must click Play)
@@ -178,6 +180,12 @@ const DoCambridgeListeningTest = () => {
     const timeoutId = setTimeout(() => setExtensionToast(""), 4000);
     return () => clearTimeout(timeoutId);
   }, [extensionToast]);
+
+  useEffect(() => {
+    if (!runtimeLimitToast) return;
+    const timeoutId = setTimeout(() => setRuntimeLimitToast(""), 6500);
+    return () => clearTimeout(timeoutId);
+  }, [runtimeLimitToast]);
 
   // Fetch test data
   useEffect(() => {
@@ -674,8 +682,16 @@ const DoCambridgeListeningTest = () => {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
         });
-        if (!res.ok) return;
         const json = await res.json().catch(() => null);
+        if (!res.ok) {
+          const runtimeMessage = getRuntimeSyncRateLimitMessage(res.status, json || {});
+          if (runtimeMessage) {
+            setRuntimeLimitToast(runtimeMessage);
+          }
+          return;
+        }
+
+        setRuntimeLimitToast("");
         if (json?.submissionId) {
           submissionIdRef.current = json.submissionId;
           try {
@@ -1961,6 +1977,7 @@ const DoCambridgeListeningTest = () => {
   return (
     <div className="cambridge-test-container">
       <ExtensionToast message={extensionToast} />
+      <ExtensionToast message={runtimeLimitToast} label="Autosave" tone="warning" top={152} />
       {/* Header */}
       <TestHeader
         title={testConfig.name}
@@ -3273,31 +3290,19 @@ const DoCambridgeListeningTest = () => {
       </div>
 
       {/* Footer Navigation (match Cambridge Reading) */}
-      <footer className="cambridge-footer">
+      <footer className="cambridge-footer cambridge-footer--centered-nav">
         {/* Navigation Arrows - Top Right */}
-        <div className="cambridge-footer-arrows">
-          <button
-            className="cambridge-nav-arrow-btn"
-            onClick={() => goToKeyIndex(currentKeyIndex - 1)}
-            disabled={currentKeyIndex === 0}
-            aria-label="Previous"
-            title="Previous question"
-          >
+        <div className="cambridge-footer-arrows cambridge-footer-arrows--static" aria-hidden="true">
+          <span className="cambridge-nav-arrow-btn cambridge-nav-arrow-btn--static">
             <i className="fa fa-arrow-left"></i>
-          </button>
-          <button
-            className="cambridge-nav-arrow-btn"
-            onClick={() => goToKeyIndex(currentKeyIndex + 1)}
-            disabled={currentKeyIndex >= (questionIndex?.orderedKeys?.length || 1) - 1}
-            aria-label="Next"
-            title="Next question"
-          >
+          </span>
+          <span className="cambridge-nav-arrow-btn cambridge-nav-arrow-btn--static">
             <i className="fa fa-arrow-right"></i>
-          </button>
+          </span>
         </div>
 
         {/* Parts Tabs with Question Numbers */}
-        <div className="cambridge-parts-container">
+        <div className="cambridge-parts-container cambridge-parts-container--centered">
           {questionIndex.byPart.map((p) => {
             const total = p.keys.length;
             const answeredInPart = p.keys.reduce((acc, item) => acc + (answers[item.key] ? 1 : 0), 0);

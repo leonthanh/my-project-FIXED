@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import AdminNavbar from "../../../shared/components/AdminNavbar";
 import LineIcon from "../../../shared/components/LineIcon";
 import { apiPath, authFetch, hostPath } from "../../../shared/utils/api";
+import { getAiFallbackRateLimitMessage, getAiRequestErrorMessage } from "../../../shared/utils/aiFeedback";
 import {
   buildCambridgeResponseFeedbackEntries,
   buildCambridgeResponseFeedbackDraftMap,
@@ -756,7 +757,7 @@ const CambridgeSubmissionsPage = () => {
       setAiLoadingById((prev) => ({ ...prev, [stateKey]: true }));
       setResponseStatusByKey((prev) => ({ ...prev, [stateKey]: '' }));
 
-      const res = await fetch(apiPath('ai/generate-cambridge-feedback'), {
+      const res = await authFetch(apiPath('ai/generate-cambridge-feedback'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -776,7 +777,7 @@ const CambridgeSubmissionsPage = () => {
 
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data?.error || 'AI could not generate Orange feedback.');
+        throw new Error(getAiRequestErrorMessage(res.status, data));
       }
 
       if (!data?.suggestion) {
@@ -794,6 +795,8 @@ const CambridgeSubmissionsPage = () => {
         ...prev,
         [stateKey]: data.warning
           ? data.warning
+          : getAiFallbackRateLimitMessage(data)
+          ? getAiFallbackRateLimitMessage(data)
           : data.cached
           ? `${responseItem.label || 'Response'} loaded cached AI feedback.`
           : `${responseItem.label || 'Response'} AI feedback generated.`,

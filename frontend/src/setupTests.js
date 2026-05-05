@@ -78,30 +78,42 @@ if (!window.fetch) {
   window.fetch = global.fetch;
 }
 
-// Suppress React Router future-flag warnings and findDOMNode deprecation in tests (they are informational and clutter CI output)
-const _origWarn = console.warn;
-const _origError = console.error;
-beforeAll(() => {
-  jest.spyOn(console, 'warn').mockImplementation((...args) => {
-    try {
-      const msg = String(args[0] || '');
-      if (msg.includes('React Router Future Flag') || msg.includes('Relative route resolution within Splat routes') || msg.includes('findDOMNode is deprecated')) {
-        return; // ignore these specific warnings
-      }
-    } catch (e) {}
-    return _origWarn.apply(console, args);
-  });
-  jest.spyOn(console, 'error').mockImplementation((...args) => {
-    try {
-      const msg = String(args[0] || '');
-      if (msg.includes('findDOMNode is deprecated')) {
-        return; // ignore findDOMNode deprecation errors originating from ReactQuill in tests
-      }
-    } catch (e) {}
-    return _origError.apply(console, args);
-  });
-});
+// Suppress informational test noise even when individual tests call jest.restoreAllMocks().
+const originalConsoleWarn = console.warn.bind(console);
+const originalConsoleError = console.error.bind(console);
+
+const ignoredWarnTokens = [
+  'React Router Future Flag',
+  'Relative route resolution within Splat routes',
+  'v7_startTransition',
+  'v7_relativeSplatPath',
+  'findDOMNode is deprecated',
+];
+
+const shouldIgnoreConsoleOutput = (args, tokens) => {
+  try {
+    const message = (Array.isArray(args) ? args : []).map((entry) => String(entry || '')).join(' ');
+    return tokens.some((token) => message.includes(token));
+  } catch (_error) {
+    return false;
+  }
+};
+
+console.warn = (...args) => {
+  if (shouldIgnoreConsoleOutput(args, ignoredWarnTokens)) {
+    return;
+  }
+  return originalConsoleWarn(...args);
+};
+
+console.error = (...args) => {
+  if (shouldIgnoreConsoleOutput(args, ['findDOMNode is deprecated'])) {
+    return;
+  }
+  return originalConsoleError(...args);
+};
+
 afterAll(() => {
-  console.warn.mockRestore && console.warn.mockRestore();
-  console.error.mockRestore && console.error.mockRestore();
+  console.warn = originalConsoleWarn;
+  console.error = originalConsoleError;
 });

@@ -19,6 +19,7 @@ import {
   getRemainingSeconds,
   toTimestamp,
 } from "../../../shared/utils/testTiming";
+import { getRuntimeSyncRateLimitMessage } from "../../../shared/utils/runtimeRateLimit";
 import MapLabelingQuestion from "../../../shared/components/MapLabelingQuestion";
 import TableCompletion from "../../../shared/components/questions/editors/TableCompletion.jsx";
 import ResultModal from "../../../shared/components/ResultModal";
@@ -92,7 +93,7 @@ const COLLAPSED_PART_TAB_WIDTH = 172;
 const MIN_EXPANDED_PART_TAB_WIDTH = 280;
 const MAX_EXPANDED_PART_TAB_WIDTH = 620;
 const SERVER_AUTOSAVE_INTERVAL_MS = 30000;
-const SERVER_TIMING_RECONCILE_INTERVAL_MS = 15000;
+const SERVER_TIMING_RECONCILE_INTERVAL_MS = 25000;
 
 const estimateNavigatorChipWidth = (item) => {
   const label = String(item?.label ?? "");
@@ -164,6 +165,7 @@ const DoListeningTest = () => {
   const [timeRemaining, setTimeRemaining] = useState(30 * 60);
   const [graceRemaining, setGraceRemaining] = useState(0);
   const [extensionToast, setExtensionToast] = useState("");
+  const [runtimeLimitToast, setRuntimeLimitToast] = useState("");
   const [audioPlayed, setAudioPlayed] = useState({});
   const [activeQuestion, setActiveQuestion] = useState(null);
   const [openFlowchartQuestion, setOpenFlowchartQuestion] = useState(null);
@@ -305,6 +307,12 @@ const DoListeningTest = () => {
     const timeoutId = setTimeout(() => setExtensionToast(""), 4000);
     return () => clearTimeout(timeoutId);
   }, [extensionToast]);
+
+  useEffect(() => {
+    if (!runtimeLimitToast) return;
+    const timeoutId = setTimeout(() => setRuntimeLimitToast(""), 6500);
+    return () => clearTimeout(timeoutId);
+  }, [runtimeLimitToast]);
 
   useEffect(() => {
     if (openFlowchartQuestion == null) return undefined;
@@ -890,8 +898,9 @@ const DoListeningTest = () => {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
         });
+        const json = await res.json().catch(() => null);
         if (res.ok) {
-          const json = await res.json().catch(() => null);
+          setRuntimeLimitToast("");
           if (json?.submissionId) {
             submissionIdRef.current = json.submissionId;
             // persist submissionId locally
@@ -906,6 +915,11 @@ const DoListeningTest = () => {
           if (nextExpiresAt) {
             announceExtension(nextExpiresAt, expiresAtRef.current);
             syncTimingState(nextExpiresAt);
+          }
+        } else {
+          const runtimeMessage = getRuntimeSyncRateLimitMessage(res.status, json || {});
+          if (runtimeMessage) {
+            setRuntimeLimitToast(runtimeMessage);
           }
         }
       } catch (err) {
@@ -2872,6 +2886,7 @@ const DoListeningTest = () => {
   return (
     <div style={styles.pageWrapper}>
       <ExtensionToast message={extensionToast} />
+      <ExtensionToast message={runtimeLimitToast} label="Autosave" tone="warning" top={152} />
       {/* Global Styles */}
       <style>{`
         * { box-sizing: border-box; }

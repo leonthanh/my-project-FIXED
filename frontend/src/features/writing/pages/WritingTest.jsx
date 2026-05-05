@@ -16,6 +16,7 @@ import {
   getRemainingSeconds,
   toTimestamp,
 } from "../../../shared/utils/testTiming";
+import { getRuntimeSyncRateLimitMessage } from "../../../shared/utils/runtimeRateLimit";
 import ExtensionToast from "../../../shared/components/ExtensionToast";
 import TestStartModal from "../../../shared/components/TestStartModal";
 import InlineIcon from "../../../shared/components/InlineIcon.jsx";
@@ -26,7 +27,7 @@ import {
 import "./WritingTest.css";
 
 const SERVER_AUTOSAVE_INTERVAL_MS = 30000;
-const SERVER_TIMING_RECONCILE_INTERVAL_MS = 15000;
+const SERVER_TIMING_RECONCILE_INTERVAL_MS = 25000;
 
 // ====== STYLE FOR HEADER & MODAL ======
 const writingHeaderStyle = {
@@ -154,6 +155,7 @@ const WritingTest = () => {
   const [isHydratingDraft, setIsHydratingDraft] = useState(true);
   const [graceRemaining, setGraceRemaining] = useState(0);
   const [extensionToast, setExtensionToast] = useState("");
+  const [runtimeLimitToast, setRuntimeLimitToast] = useState("");
   const autoSubmittingRef = useRef(false);
   const lastAnnouncedExpiryRef = useRef(null);
 
@@ -201,6 +203,12 @@ const WritingTest = () => {
     const timeoutId = setTimeout(() => setExtensionToast(""), 4000);
     return () => clearTimeout(timeoutId);
   }, [extensionToast]);
+
+  useEffect(() => {
+    if (!runtimeLimitToast) return;
+    const timeoutId = setTimeout(() => setRuntimeLimitToast(""), 6500);
+    return () => clearTimeout(timeoutId);
+  }, [runtimeLimitToast]);
 
   useEffect(() => {
     localStorage.setItem(writingTask1Key, task1);
@@ -398,6 +406,15 @@ const WritingTest = () => {
         body: JSON.stringify(payload),
       });
       const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const runtimeMessage = getRuntimeSyncRateLimitMessage(res.status, data || {});
+        if (runtimeMessage) {
+          setRuntimeLimitToast(runtimeMessage);
+        }
+        return;
+      }
+
+      setRuntimeLimitToast("");
       const nextEndAt = data?.timing?.expiresAt || data?.draftEndAt;
       if (nextEndAt) {
         announceExtension(nextEndAt, endAt);
@@ -775,6 +792,7 @@ const WritingTest = () => {
   return (
     <div style={{ height: "100vh", display: "flex", flexDirection: "column" }}>
       <ExtensionToast message={extensionToast} />
+      <ExtensionToast message={runtimeLimitToast} label="Autosave" tone="warning" top={152} />
       <header style={writingHeaderStyle}>
         <div style={writingHeaderLeft}>
           <div style={writingBadge}>IX</div>
