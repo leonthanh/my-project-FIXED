@@ -32,9 +32,10 @@
 .myFeedbackShell {
   position: relative;
   z-index: 1;
-  max-width: 1440px;
+  width: 100%;
+  max-width: none;
   margin: 0 auto;
-  padding: 28px 18px 40px;
+  padding: 22px 14px 40px;
   color: var(--mf-text);
 }
 

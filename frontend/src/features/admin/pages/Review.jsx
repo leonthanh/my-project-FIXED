@@ -1292,7 +1292,7 @@ const Review = () => {
   const activeReviewPageTarget =
     REVIEW_HUB_PAGE_BY_TAB[activeTab] || REVIEW_HUB_PAGE_BY_TAB.writing;
   const workspaceLinks = useMemo(
-    () => buildAdminWorkspaceLinks(navigate, "review"),
+    () => buildAdminWorkspaceLinks(navigate, "review", undefined, "review"),
     [navigate]
   );
   const sidebarStats = useMemo(

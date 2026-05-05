@@ -7,7 +7,89 @@ import AdminStickySidebarLayout, {
   AdminSidebarPanel,
   buildAdminWorkspaceLinks,
 } from '../components/AdminStickySidebarLayout';
+import {
+  AdminActionGroup,
+  AdminCardList,
+  AdminEmptyCard,
+  AdminListSummary,
+  AdminManagementCard,
+  AdminMetaGrid,
+  MetaItem,
+  adminCardStyles as acs,
+} from '../components/AdminCardPrimitives';
 import { apiPath, authFetch } from '../../../shared/utils/api';
+
+const fmtDate = (value) => {
+  if (!value) return '—';
+  return new Date(value).toLocaleDateString('en-GB', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  });
+};
+
+const teacherBadge = () => (
+  <span style={s.teacherBadge}>Teacher</span>
+);
+
+const statusBadge = (enabled) => (
+  <span style={enabled ? s.statusBadgeEnabled : s.statusBadgeDisabled}>
+    {enabled ? 'Test management on' : 'Test management off'}
+  </span>
+);
+
+const accessScopePills = (enabled) => {
+  if (!enabled) {
+    return <span style={s.scopePillPaused}>No active tools</span>;
+  }
+
+  return (
+    <span style={s.scopeGroup}>
+      <span style={s.scopePillReading}>Reading</span>
+      <span style={s.scopePillListening}>Listening</span>
+      <span style={s.scopePillOrange}>Orange</span>
+    </span>
+  );
+};
+
+const getTeacherTone = (teacher, savingId) => {
+  if (savingId === teacher.id) {
+    return {
+      accent: '#ec4899',
+      border: '#fbcfe8',
+      surface: 'linear-gradient(180deg, #fff7fb 0%, #fff1f8 100%)',
+      idBackground: '#fce7f3',
+      idColor: '#be185d',
+      idBorder: '#f9a8d4',
+      titleColor: '#9d174d',
+      subtitleColor: '#be185d',
+    };
+  }
+
+  if (teacher.canManageTests) {
+    return {
+      accent: '#06b6d4',
+      border: '#a5f3fc',
+      surface: 'linear-gradient(180deg, #f0fdfa 0%, #ecfeff 100%)',
+      idBackground: '#cffafe',
+      idColor: '#0f766e',
+      idBorder: '#67e8f9',
+      titleColor: '#0f766e',
+      subtitleColor: '#0f766e',
+    };
+  }
+
+  return {
+    accent: '#8b5cf6',
+    border: '#ddd6fe',
+    surface: 'linear-gradient(180deg, #faf5ff 0%, #fdf4ff 100%)',
+    idBackground: '#ede9fe',
+    idColor: '#6d28d9',
+    idBorder: '#c4b5fd',
+    titleColor: '#6d28d9',
+    subtitleColor: '#7c3aed',
+  };
+};
 
 const TeacherPermissionsPage = () => {
   const navigate = useNavigate();
@@ -52,7 +134,7 @@ const TeacherPermissionsPage = () => {
 
   const enabledCount = teachers.filter((teacher) => teacher.canManageTests).length;
   const disabledCount = Math.max(teachers.length - enabledCount, 0);
-  const workspaceLinks = buildAdminWorkspaceLinks(navigate, 'permissions');
+  const workspaceLinks = buildAdminWorkspaceLinks(navigate, 'permissions', undefined, 'admin');
   const sidebarStats = [
     {
       key: 'teachers',
@@ -98,7 +180,7 @@ const TeacherPermissionsPage = () => {
           description="Control which teachers can manage Reading, Listening, and Orange tests from one sticky sidebar."
           sidebarContent={(
             <>
-              <AdminSidebarPanel eyebrow="Workspace" title="Admin pages" meta="Quick jump">
+              <AdminSidebarPanel eyebrow="Admin settings" title="Access pages" meta="Quick switch">
                 <AdminSidebarNavList items={workspaceLinks} ariaLabel="Admin workspace pages" />
               </AdminSidebarPanel>
 
@@ -134,54 +216,87 @@ const TeacherPermissionsPage = () => {
                 <span style={s.summaryHint}>Test access controls</span>
               </div>
 
-              <div style={s.tableWrap}>
-                <table style={s.table}>
-                  <thead>
-                    <tr>
-                      <th style={s.th}>Name</th>
-                      <th style={s.th}>Phone</th>
-                      <th style={s.th}>Email</th>
-                      <th style={s.th}>Test Management</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {teachers.map((t) => (
-                      <tr key={t.id} style={s.tr}>
-                        <td style={s.td}>
-                          <div style={s.nameCell}>{t.name}</div>
-                        </td>
-                        <td style={s.td}>{t.phone || '—'}</td>
-                        <td style={s.td}>{t.email || '—'}</td>
-                        <td style={s.td}>
-                          <button
-                            onClick={() => toggle(t)}
-                            disabled={saving === t.id}
-                            style={{
-                              ...s.toggle,
-                              background: saving === t.id
-                                ? '#94a3b8'
-                                : t.canManageTests
-                                ? '#16a34a'
-                                : '#64748b',
-                              cursor: saving === t.id ? 'not-allowed' : 'pointer',
-                            }}
-                            title={t.canManageTests ? 'Click to disable access' : 'Click to enable access'}
-                          >
-                            {saving === t.id ? 'Saving...' : t.canManageTests ? 'Enabled' : 'Disabled'}
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                    {teachers.length === 0 && (
-                      <tr>
-                        <td colSpan={4} style={{ ...s.td, textAlign: 'center', color: '#64748b' }}>
-                          No teachers found.
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
+              <AdminListSummary style={s.listSummary}>
+                Showing <strong>{teachers.length}</strong> teacher access card{teachers.length === 1 ? '' : 's'}
+              </AdminListSummary>
+
+              {teachers.length === 0 ? (
+                <AdminEmptyCard style={s.emptyCard}>No teachers found.</AdminEmptyCard>
+              ) : (
+                <AdminCardList style={s.cardList}>
+                  {teachers.map((teacher) => {
+                    const tone = getTeacherTone(teacher, saving);
+                    const isSaving = saving === teacher.id;
+
+                    return (
+                      <AdminManagementCard
+                        key={teacher.id}
+                        accent={tone.accent}
+                        borderColor={tone.border}
+                        style={{ ...s.permissionCard, background: tone.surface }}
+                      >
+                        <div style={acs.managementCardTop}>
+                          <div style={acs.managementHeadingBlock}>
+                            <div style={acs.managementHeadingLine}>
+                              <span
+                                style={{
+                                  ...acs.idPill,
+                                  background: tone.idBackground,
+                                  color: tone.idColor,
+                                  borderColor: tone.idBorder,
+                                }}
+                              >
+                                #{teacher.id}
+                              </span>
+                              <strong style={{ ...acs.managementTitle, color: tone.titleColor }}>
+                                {teacher.name || 'Unnamed teacher'}
+                              </strong>
+                              {teacherBadge()}
+                              {statusBadge(teacher.canManageTests)}
+                              {isSaving ? <span style={s.savingBadge}>Saving...</span> : null}
+                            </div>
+
+                            <div style={{ ...acs.managementSubline, color: tone.subtitleColor }}>
+                              Teacher access profile · Joined {fmtDate(teacher.createdAt)}
+                            </div>
+                          </div>
+
+                          <AdminActionGroup>
+                            <button
+                              type="button"
+                              style={s.btnSmIndigo}
+                              onClick={() => navigate('/admin/users')}
+                              title="Open user management"
+                            >
+                              Open Users
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => toggle(teacher)}
+                              disabled={isSaving}
+                              style={teacher.canManageTests ? s.btnSmSunset : s.btnSmMint}
+                              title={teacher.canManageTests ? 'Click to disable access' : 'Click to enable access'}
+                            >
+                              {isSaving
+                                ? 'Saving...'
+                                : teacher.canManageTests
+                                ? 'Disable access'
+                                : 'Enable access'}
+                            </button>
+                          </AdminActionGroup>
+                        </div>
+
+                        <AdminMetaGrid style={s.permissionMetaGrid}>
+                          <MetaItem label="Phone" value={<span style={s.phoneValue}>{teacher.phone || '—'}</span>} />
+                          <MetaItem label="Email" value={<span style={s.emailValue}>{teacher.email || '—'}</span>} />
+                          <MetaItem label="Status" value={statusBadge(teacher.canManageTests)} />
+                          <MetaItem label="Access tools" value={accessScopePills(teacher.canManageTests)} />
+                        </AdminMetaGrid>
+                      </AdminManagementCard>
+                    );
+                  })}
+                </AdminCardList>
+              )}
             </>
           )}
         </div>
@@ -200,11 +315,11 @@ const s = {
     boxSizing: 'border-box',
   },
   headerCard: {
-    background: 'linear-gradient(135deg, #ffffff 0%, #edf4ff 100%)',
-    border: '1px solid #dbe7ff',
+    background: 'linear-gradient(135deg, #ffffff 0%, #eef2ff 45%, #fff7ed 100%)',
+    border: '1px solid #ddd6fe',
     borderRadius: 20,
     padding: '22px 24px',
-    boxShadow: '0 16px 40px rgba(15, 23, 42, 0.06)',
+    boxShadow: '0 16px 40px rgba(99, 102, 241, 0.1)',
     marginBottom: 18,
   },
   kicker: {
@@ -212,17 +327,17 @@ const s = {
     fontWeight: 800,
     letterSpacing: '0.08em',
     textTransform: 'uppercase',
-    color: '#0e276f',
+    color: '#6d28d9',
     marginBottom: 8,
   },
   center: { textAlign: 'center', padding: '36px 16px', fontSize: 16 },
-  title: { fontSize: 28, fontWeight: 800, margin: '0 0 8px', color: '#0f172a' },
-  subtitle: { color: '#475569', margin: 0, fontSize: 15, lineHeight: 1.6 },
+  title: { fontSize: 28, fontWeight: 800, margin: '0 0 8px', color: '#312e81' },
+  subtitle: { color: '#5b21b6', margin: 0, fontSize: 15, lineHeight: 1.6 },
   panel: {
-    background: '#ffffff',
+    background: 'linear-gradient(180deg, #ffffff 0%, #fffaf5 100%)',
     borderRadius: 20,
-    border: '1px solid #e5e7eb',
-    boxShadow: '0 16px 40px rgba(15, 23, 42, 0.06)',
+    border: '1px solid #fed7aa',
+    boxShadow: '0 16px 40px rgba(249, 115, 22, 0.08)',
     padding: '20px 22px',
   },
   summaryRow: {
@@ -233,7 +348,7 @@ const s = {
     flexWrap: 'wrap',
     marginBottom: 16,
     fontSize: 14,
-    color: '#475569',
+    color: '#7c2d12',
   },
   summaryHint: {
     display: 'inline-flex',
@@ -241,43 +356,160 @@ const s = {
     minHeight: 30,
     padding: '0 12px',
     borderRadius: 999,
-    background: '#eff6ff',
-    color: '#1d4ed8',
+    background: '#f3e8ff',
+    color: '#7c3aed',
     fontSize: 12,
     fontWeight: 700,
   },
-  tableWrap: { overflowX: 'auto' },
-  table: {
-    width: 'max-content',
-    minWidth: 0,
-    borderCollapse: 'collapse',
-    background: '#fff',
-    borderRadius: 14,
-    overflow: 'hidden',
-  },
-  th: {
-    background: '#f8fafc',
-    padding: '12px 14px',
-    textAlign: 'left',
+  listSummary: {
+    marginBottom: 10,
+    color: '#7c3aed',
     fontSize: 12,
-    fontWeight: 800,
-    letterSpacing: '0.04em',
-    textTransform: 'uppercase',
-    color: '#475569',
-    borderBottom: '1px solid #e5e7eb',
   },
-  tr: { borderBottom: '1px solid #f1f5f9' },
-  td: { padding: '14px', fontSize: 14, color: '#0f172a', verticalAlign: 'middle', textAlign: 'left' },
-  nameCell: { fontWeight: 700, color: '#0f172a' },
-  toggle: {
-    border: 'none',
+  emptyCard: {
+    borderColor: '#fdba74',
+    background: '#fff7ed',
+    color: '#c2410c',
+  },
+  cardList: { gap: 12 },
+  permissionCard: {
+    boxShadow: '0 12px 28px rgba(99, 102, 241, 0.08)',
+  },
+  permissionMetaGrid: {
+    marginTop: 12,
+    paddingTop: 12,
+  },
+  teacherBadge: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    padding: '2px 8px',
     borderRadius: 999,
-    color: '#fff',
+    background: '#ede9fe',
+    color: '#6d28d9',
+    fontSize: 10,
     fontWeight: 700,
-    padding: '8px 16px',
+    border: '1px solid #ddd6fe',
+  },
+  statusBadgeEnabled: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    padding: '2px 8px',
+    borderRadius: 999,
+    background: '#dcfce7',
+    color: '#15803d',
+    fontSize: 10,
+    fontWeight: 800,
+    border: '1px solid #86efac',
+  },
+  statusBadgeDisabled: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    padding: '2px 8px',
+    borderRadius: 999,
+    background: '#ffedd5',
+    color: '#c2410c',
+    fontSize: 10,
+    fontWeight: 800,
+    border: '1px solid #fdba74',
+  },
+  savingBadge: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    padding: '2px 8px',
+    borderRadius: 999,
+    background: '#fce7f3',
+    color: '#be185d',
+    fontSize: 10,
+    fontWeight: 800,
+    border: '1px solid #f9a8d4',
+  },
+  scopeGroup: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 4,
+    flexWrap: 'wrap',
+  },
+  scopePillReading: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    padding: '2px 8px',
+    borderRadius: 999,
+    background: '#dbeafe',
+    color: '#1d4ed8',
+    fontSize: 10,
+    fontWeight: 700,
+    border: '1px solid #bfdbfe',
+  },
+  scopePillListening: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    padding: '2px 8px',
+    borderRadius: 999,
+    background: '#dcfce7',
+    color: '#15803d',
+    fontSize: 10,
+    fontWeight: 700,
+    border: '1px solid #86efac',
+  },
+  scopePillOrange: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    padding: '2px 8px',
+    borderRadius: 999,
+    background: '#ffedd5',
+    color: '#c2410c',
+    fontSize: 10,
+    fontWeight: 700,
+    border: '1px solid #fdba74',
+  },
+  scopePillPaused: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    padding: '2px 8px',
+    borderRadius: 999,
+    background: '#fdf2f8',
+    color: '#be185d',
+    fontSize: 10,
+    fontWeight: 700,
+    border: '1px solid #f9a8d4',
+  },
+  phoneValue: { color: '#1d4ed8', fontWeight: 700 },
+  emailValue: { color: '#7c3aed', fontWeight: 700 },
+  btnSmIndigo: {
+    background: '#eef2ff',
+    color: '#4338ca',
+    border: '1px solid #c7d2fe',
+    borderRadius: 7,
+    padding: '4px 8px',
+    cursor: 'pointer',
+    fontSize: 10.5,
+    fontWeight: 700,
     whiteSpace: 'nowrap',
-    fontSize: 13,
-    transition: 'background 0.2s ease',
+    lineHeight: 1.05,
+  },
+  btnSmMint: {
+    background: '#ccfbf1',
+    color: '#0f766e',
+    border: '1px solid #99f6e4',
+    borderRadius: 7,
+    padding: '4px 8px',
+    cursor: 'pointer',
+    fontSize: 10.5,
+    fontWeight: 700,
+    whiteSpace: 'nowrap',
+    lineHeight: 1.05,
+  },
+  btnSmSunset: {
+    background: '#ffedd5',
+    color: '#c2410c',
+    border: '1px solid #fdba74',
+    borderRadius: 7,
+    padding: '4px 8px',
+    cursor: 'pointer',
+    fontSize: 10.5,
+    fontWeight: 700,
+    whiteSpace: 'nowrap',
+    lineHeight: 1.05,
   },
 };
 

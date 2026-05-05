@@ -1721,7 +1721,7 @@ const AdminUserManagement = () => {
   // Reset jumpToUser once consumed
   const submissionsKey = jumpToUser ? jumpToUser.id : 'none';
   const workspaceLinks = useMemo(
-    () => buildAdminWorkspaceLinks(navigate, 'users'),
+    () => buildAdminWorkspaceLinks(navigate, 'users', undefined, 'admin'),
     [navigate]
   );
   const managementLinks = useMemo(
@@ -1762,7 +1762,7 @@ const AdminUserManagement = () => {
           description="Switch between account, submission, test, and duplicate tools from a sticky sidebar while keeping the active workspace open on the right."
           sidebarContent={(
             <>
-              <AdminSidebarPanel eyebrow="Workspace" title="Admin pages" meta="Quick jump">
+              <AdminSidebarPanel eyebrow="Admin settings" title="Access pages" meta="Quick switch">
                 <AdminSidebarNavList items={workspaceLinks} ariaLabel="Admin workspace pages" />
               </AdminSidebarPanel>
 

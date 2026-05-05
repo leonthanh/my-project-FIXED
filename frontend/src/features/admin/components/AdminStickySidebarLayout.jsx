@@ -66,16 +66,29 @@ const buildAdminOnlyWorkspaceLinks = (navigate, currentKey) => [
   },
 ];
 
+const WORKSPACE_LINK_GROUPS = {
+  all: "all",
+  review: "review",
+  admin: "admin",
+};
+
 export const buildAdminWorkspaceLinks = (
   navigate,
   currentKey,
-  currentUser = getCurrentUser()
-) => [
-  ...buildBaseWorkspaceLinks(navigate, currentKey),
-  ...(isAdmin(currentUser)
-    ? buildAdminOnlyWorkspaceLinks(navigate, currentKey)
-    : []),
-];
+  currentUser = getCurrentUser(),
+  group = WORKSPACE_LINK_GROUPS.all
+) => {
+  const includeBaseLinks =
+    group === WORKSPACE_LINK_GROUPS.all || group === WORKSPACE_LINK_GROUPS.review;
+  const includeAdminLinks =
+    isAdmin(currentUser) &&
+    (group === WORKSPACE_LINK_GROUPS.all || group === WORKSPACE_LINK_GROUPS.admin);
+
+  return [
+    ...(includeBaseLinks ? buildBaseWorkspaceLinks(navigate, currentKey) : []),
+    ...(includeAdminLinks ? buildAdminOnlyWorkspaceLinks(navigate, currentKey) : []),
+  ];
+};
 
 export const AdminSidebarNavList = ({ items = [], ariaLabel = "Admin navigation" }) => {
   const safeItems = Array.isArray(items) ? items.filter(Boolean) : [];
