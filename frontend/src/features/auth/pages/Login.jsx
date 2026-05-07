@@ -371,6 +371,21 @@ const Login = () => {
             STAREDU - IX
           </h2>
 
+          <div className="login-page-placementSection">
+            <button
+              type="button"
+              className="login-page-placementButton"
+              onClick={() => navigate("/placement-test")}
+            >
+              <InlineIcon name="target" size={18} />
+              <span>Placement Test</span>
+            </button>
+            <p className="login-page-placementHint">
+              No account is required. Open the published placement test directly
+              without signing in or registering first.
+            </p>
+          </div>
+
           {/* Tab Switcher */}
           <div className="login-page-toggleGroup">
             <button
@@ -517,19 +532,6 @@ const Login = () => {
             </>
           )}
 
-          <div className="login-page-placementSection">
-            <button
-              type="button"
-              className="login-page-placementButton"
-              onClick={() => navigate("/placement-test")}
-            >
-              <InlineIcon name="target" size={18} />
-              <span>Placement Test</span>
-            </button>
-            <p className="login-page-placementHint">
-              Open the currently published placement tests directly. No teacher link is needed.
-            </p>
-          </div>
         </div>
       </div>
 

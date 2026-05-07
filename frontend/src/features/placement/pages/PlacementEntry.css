@@ -2,18 +2,20 @@
 
 .placement-entry-page {
   min-height: 100vh;
-  padding: 28px 18px 40px;
+  padding: 24px 14px 36px;
   font-family: "Manrope", "Segoe UI", sans-serif;
   background:
     radial-gradient(circle at 12% 14%, rgba(58, 130, 246, 0.18), transparent 22%),
     radial-gradient(circle at 88% 18%, rgba(16, 185, 129, 0.16), transparent 18%),
     radial-gradient(circle at 82% 78%, rgba(249, 115, 22, 0.14), transparent 18%),
     linear-gradient(180deg, #eef5ff 0%, #f8fbff 48%, #edf4ff 100%);
+  box-sizing: border-box;
 }
 
 .placement-entry-shell {
-  max-width: 1180px;
-  margin: 0 auto;
+  width: 100%;
+  max-width: none;
+  margin: 0;
   display: grid;
   gap: 14px;
 }
@@ -159,8 +161,8 @@
 
 .placement-entry-grid {
   display: grid;
-  grid-template-columns: minmax(320px, 380px) minmax(0, 1fr);
-  gap: 16px;
+  grid-template-columns: minmax(310px, 340px) minmax(0, 1fr);
+  gap: 20px;
   align-items: start;
 }
 
@@ -176,6 +178,7 @@
 
 .placement-entry-card--list {
   align-content: start;
+  min-height: calc(100vh - 60px);
 }
 
 .placement-entry-main {
@@ -226,9 +229,11 @@
 .placement-entry-jumpButton {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
-  min-height: 38px;
-  padding: 0 12px;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 44px;
+  min-width: 118px;
+  padding: 0 14px;
   border: 1px solid rgba(148, 163, 184, 0.22);
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.9);
@@ -237,6 +242,9 @@
   font-size: 0.8rem;
   font-weight: 800;
   cursor: pointer;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.76),
+    0 10px 22px rgba(15, 23, 42, 0.06);
   transition:
     transform 0.18s ease,
     box-shadow 0.22s ease,
@@ -247,7 +255,9 @@
 
 .placement-entry-jumpButton:hover {
   transform: translateY(-1px);
-  box-shadow: 0 12px 22px rgba(15, 23, 42, 0.08);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.8),
+    0 14px 26px rgba(15, 23, 42, 0.1);
 }
 
 .placement-entry-jumpButton:focus-visible {
@@ -258,11 +268,30 @@
 .placement-entry-jumpButton--ix {
   background: linear-gradient(135deg, rgba(239, 246, 255, 0.96) 0%, rgba(228, 238, 255, 0.94) 100%);
   color: #0f3f94;
+  border-color: rgba(37, 99, 235, 0.16);
 }
 
 .placement-entry-jumpButton--orange {
   background: linear-gradient(135deg, rgba(255, 247, 237, 0.98) 0%, rgba(255, 237, 213, 0.96) 100%);
   color: #c95a14;
+  border-color: rgba(249, 115, 22, 0.18);
+}
+
+.placement-entry-jumpButton.is-active {
+  transform: translateY(-1px);
+  border-color: transparent;
+}
+
+.placement-entry-jumpButton--ix.is-active {
+  background: linear-gradient(135deg, #0f3f94 0%, #2563eb 100%);
+  color: #ffffff;
+  box-shadow: 0 16px 28px rgba(37, 99, 235, 0.24);
+}
+
+.placement-entry-jumpButton--orange.is-active {
+  background: linear-gradient(135deg, #f97316 0%, #f59e0b 100%);
+  color: #ffffff;
+  box-shadow: 0 16px 28px rgba(249, 115, 22, 0.24);
 }
 
 .placement-entry-jumpCount {
@@ -277,6 +306,11 @@
   color: inherit;
   font-size: 0.72rem;
   line-height: 1;
+}
+
+.placement-entry-jumpButton.is-active .placement-entry-jumpCount {
+  background: rgba(255, 255, 255, 0.18);
+  color: inherit;
 }
 
 .placement-entry-cardHeader {

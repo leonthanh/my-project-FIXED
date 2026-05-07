@@ -458,7 +458,7 @@ const AdminListeningSubmissions = () => {
   const pendingCount = subs.filter((submission) => !hasReview(submission)).length;
   const reviewedCount = subs.filter((submission) => hasReview(submission)).length;
   const workspaceLinks = useMemo(
-    () => buildAdminWorkspaceLinks(navigate, "listening"),
+    () => buildAdminWorkspaceLinks(navigate, "listening", undefined, "review"),
     [navigate]
   );
   const sidebarStats = useMemo(

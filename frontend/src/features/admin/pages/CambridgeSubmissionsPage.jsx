@@ -1180,7 +1180,12 @@ const CambridgeSubmissionsPage = () => {
     ? submissions.find((item) => item.id === activeReviewSubmissionId) ||
       (deepLinkedSubmission?.id === activeReviewSubmissionId ? deepLinkedSubmission : null)
     : null;
-  const workspaceLinks = buildAdminWorkspaceLinks(navigate, "cambridge");
+  const workspaceLinks = buildAdminWorkspaceLinks(
+    navigate,
+    "cambridge",
+    undefined,
+    "review"
+  );
   const submissionViewLinks = CAMBRIDGE_SUBMISSION_TABS.map((tab) => ({
     key: tab.key,
     label: tab.shortLabel || tab.label,

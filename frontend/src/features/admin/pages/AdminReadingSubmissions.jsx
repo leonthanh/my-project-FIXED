@@ -277,7 +277,7 @@ const AdminReadingSubmissions = () => {
   const pendingCount = subs.filter((submission) => !hasReview(submission)).length;
   const reviewedCount = subs.filter((submission) => hasReview(submission)).length;
   const workspaceLinks = useMemo(
-    () => buildAdminWorkspaceLinks(navigate, "reading"),
+    () => buildAdminWorkspaceLinks(navigate, "reading", undefined, "review"),
     [navigate]
   );
   const sidebarStats = useMemo(
