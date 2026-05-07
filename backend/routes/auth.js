@@ -31,9 +31,30 @@ function createTransporter() {
 // Lưu OTP tạm thời (trong thực tế nên dùng Redis)
 const otpStore = new Map();
 
+const normalizeAuthLimiterValue = (value) => {
+  const normalized = String(value ?? '').trim();
+  return normalized ? normalized : null;
+};
+
+const extractAuthRateLimitKey = (req) => {
+  const body = req.body && typeof req.body === 'object' ? req.body : {};
+  const query = req.query && typeof req.query === 'object' ? req.query : {};
+
+  const phone = normalizeAuthLimiterValue(
+    body.phone || body.studentPhone || query.phone
+  );
+  if (phone) return `phone:${phone}`;
+
+  const email = normalizeAuthLimiterValue(body.email || query.email);
+  if (email) return `email:${email.toLowerCase()}`;
+
+  return `ip:${req.ip || req.socket?.remoteAddress || 'unknown'}`;
+};
+
 const buildAuthLimiter = (overrides = {}) => rateLimit({
   windowMs: 10 * 60 * 1000,
   limit: 50,
+  keyGenerator: extractAuthRateLimitKey,
   standardHeaders: 'draft-7',
   legacyHeaders: false,
   skipSuccessfulRequests: false,
@@ -60,6 +81,7 @@ const registerLimiter = buildAuthLimiter({
 const otpLimiter = rateLimit({
   windowMs: 10 * 60 * 1000,
   limit: 10,
+  keyGenerator: extractAuthRateLimitKey,
   standardHeaders: 'draft-7',
   legacyHeaders: false,
   handler: (_req, res) => {

@@ -76,6 +76,7 @@ const Login = () => {
   const loginPasswordRef = useRef(null);
   const loginButtonRef = useRef(null);
   const loginSubmittingRef = useRef(false);
+  const registerSubmittingRef = useRef(false);
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -173,6 +174,7 @@ const Login = () => {
   };
 
   const handleRegister = async () => {
+    if (registerSubmittingRef.current || loading) return;
     // Logic đăng ký: cần name, phone, email và password
     if (!name.trim() || !phone.trim() || !email.trim() || !password.trim()) {
       setMessage(
@@ -198,6 +200,8 @@ const Login = () => {
     }
 
     try {
+      registerSubmittingRef.current = true;
+      setLoading(true);
       // Log API_URL để kiểm tra đúng endpoint chưa
       // (debug log removed)
       const res = await fetch(`${API_BASE}/auth/register`, {
@@ -229,6 +233,9 @@ const Login = () => {
     } catch (err) {
       setMessage("Unable to connect to the server or database.");
       console.error("Lỗi kết nối server/database:", err);
+    } finally {
+      registerSubmittingRef.current = false;
+      setLoading(false);
     }
   };
 
@@ -501,8 +508,9 @@ const Login = () => {
                 type="button"
                 onClick={handleRegister}
                 className="login-page-primaryButton"
+                disabled={loading}
               >
-                <span>Register</span>
+                <span>{loading ? "Creating account..." : "Register"}</span>
               </button>
 
               <p style={{ color: "#d00", margin: "10px 0" }}>{message}</p>
