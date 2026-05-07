@@ -30,4 +30,21 @@ describe("buildAdminWorkspaceLinks", () => {
       "users",
     ]);
   });
+
+  test("omits admin-only links in the review workspace group for admins", () => {
+    const links = buildAdminWorkspaceLinks(
+      jest.fn(),
+      "writing",
+      { role: "admin" },
+      "review"
+    );
+
+    expect(links.map((item) => item.key)).toEqual([
+      "review",
+      "writing",
+      "reading",
+      "listening",
+      "cambridge",
+    ]);
+  });
 });

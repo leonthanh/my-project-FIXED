@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import LineIcon from "../../../shared/components/LineIcon";
 import { apiPath } from "../../../shared/utils/api";
@@ -90,7 +90,7 @@ const PlacementEntry = () => {
   const [placementPackage, setPlacementPackage] = useState(null);
   const [loadingPackage, setLoadingPackage] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const groupRefs = useRef({});
+  const [activePlatform, setActivePlatform] = useState(null);
 
   const currentUser = useMemo(() => {
     try {
@@ -197,6 +197,33 @@ const PlacementEntry = () => {
       });
   }, [selections]);
 
+  const placementFilterTabs = useMemo(
+    () => groupedSelections.filter((group) => group.platform === "ix" || group.platform === "orange"),
+    [groupedSelections]
+  );
+
+  const selectedPlatform =
+    placementFilterTabs.some((group) => group.platform === activePlatform)
+      ? activePlatform
+      : placementFilterTabs[0]?.platform || null;
+
+  const visibleGroups = useMemo(() => {
+    const groups = selectedPlatform
+      ? groupedSelections.filter((group) => group.platform === selectedPlatform)
+      : groupedSelections;
+
+    let runningIndex = 0;
+
+    return groups.map((group) => {
+      const startIndex = runningIndex;
+      runningIndex += group.items.length;
+      return {
+        ...group,
+        startIndex,
+      };
+    });
+  }, [groupedSelections, selectedPlatform]);
+
   const sharePath = useMemo(() => buildPlacementSharePath(shareToken), [shareToken]);
   const activeShareToken = String(shareToken || placementPackage?.shareToken || "").trim();
   const backPath = isTeacher ? "/select-test" : "/login";
@@ -204,16 +231,6 @@ const PlacementEntry = () => {
   const handleLeadChange = (field) => (event) => {
     const nextValue = event.target.value;
     setLead((current) => ({ ...current, [field]: nextValue }));
-  };
-
-  const handleJumpToGroup = (platform) => {
-    const nextGroup = groupRefs.current?.[platform];
-    if (!nextGroup) {
-      return;
-    }
-
-    const nextTop = window.scrollY + nextGroup.getBoundingClientRect().top - 20;
-    window.scrollTo({ top: Math.max(nextTop, 0), behavior: "smooth" });
   };
 
   const handleSubmit = async (event) => {
@@ -370,14 +387,15 @@ const PlacementEntry = () => {
               </div>
             </div>
 
-            {groupedSelections.length > 1 ? (
-              <div className="placement-entry-jumpNav" aria-label="Jump to test platform">
-                {groupedSelections.map((group) => (
+            {placementFilterTabs.length > 1 ? (
+              <div className="placement-entry-jumpNav" aria-label="Filter tests by platform">
+                {placementFilterTabs.map((group) => (
                   <button
                     key={group.platform}
                     type="button"
-                    className={`placement-entry-jumpButton placement-entry-jumpButton--${group.accent}`}
-                    onClick={() => handleJumpToGroup(group.platform)}
+                    className={`placement-entry-jumpButton placement-entry-jumpButton--${group.accent}${selectedPlatform === group.platform ? " is-active" : ""}`}
+                    onClick={() => setActivePlatform(group.platform)}
+                    aria-pressed={selectedPlatform === group.platform}
                   >
                     <span>{group.platform === "orange" ? "Orange" : group.platform === "ix" ? "IX" : group.platform.toUpperCase()}</span>
                     <span className="placement-entry-jumpCount">{group.items.length}</span>
@@ -408,17 +426,10 @@ const PlacementEntry = () => {
               </div>
             ) : (
               <div className="placement-entry-groupList">
-                {groupedSelections.map((group) => (
+                {visibleGroups.map((group) => (
                   <section
                     key={group.platform}
                     className="placement-entry-group"
-                    ref={(node) => {
-                      if (node) {
-                        groupRefs.current[group.platform] = node;
-                      } else {
-                        delete groupRefs.current[group.platform];
-                      }
-                    }}
                   >
                     <div className="placement-entry-groupHeader">
                       <div className="placement-entry-groupTitleRow">

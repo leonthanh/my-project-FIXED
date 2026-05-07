@@ -76,6 +76,7 @@ const Login = () => {
   const loginPasswordRef = useRef(null);
   const loginButtonRef = useRef(null);
   const loginSubmittingRef = useRef(false);
+  const registerSubmittingRef = useRef(false);
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -173,6 +174,7 @@ const Login = () => {
   };
 
   const handleRegister = async () => {
+    if (registerSubmittingRef.current || loading) return;
     // Logic đăng ký: cần name, phone, email và password
     if (!name.trim() || !phone.trim() || !email.trim() || !password.trim()) {
       setMessage(
@@ -198,6 +200,8 @@ const Login = () => {
     }
 
     try {
+      registerSubmittingRef.current = true;
+      setLoading(true);
       // Log API_URL để kiểm tra đúng endpoint chưa
       // (debug log removed)
       const res = await fetch(`${API_BASE}/auth/register`, {
@@ -229,6 +233,9 @@ const Login = () => {
     } catch (err) {
       setMessage("Unable to connect to the server or database.");
       console.error("Lỗi kết nối server/database:", err);
+    } finally {
+      registerSubmittingRef.current = false;
+      setLoading(false);
     }
   };
 
@@ -363,6 +370,21 @@ const Login = () => {
           <h2 style={{ marginBottom: 20, fontWeight: 700, color: "#0e276f" }}>
             STAREDU - IX
           </h2>
+
+          <div className="login-page-placementSection">
+            <button
+              type="button"
+              className="login-page-placementButton"
+              onClick={() => navigate("/placement-test")}
+            >
+              <InlineIcon name="target" size={18} />
+              <span>Placement Test</span>
+            </button>
+            <p className="login-page-placementHint">
+              No account is required. Open the published placement test directly
+              without signing in or registering first.
+            </p>
+          </div>
 
           {/* Tab Switcher */}
           <div className="login-page-toggleGroup">
@@ -501,27 +523,15 @@ const Login = () => {
                 type="button"
                 onClick={handleRegister}
                 className="login-page-primaryButton"
+                disabled={loading}
               >
-                <span>Register</span>
+                <span>{loading ? "Creating account..." : "Register"}</span>
               </button>
 
               <p style={{ color: "#d00", margin: "10px 0" }}>{message}</p>
             </>
           )}
 
-          <div className="login-page-placementSection">
-            <button
-              type="button"
-              className="login-page-placementButton"
-              onClick={() => navigate("/placement-test")}
-            >
-              <InlineIcon name="target" size={18} />
-              <span>Placement Test</span>
-            </button>
-            <p className="login-page-placementHint">
-              Open the currently published placement tests directly. No teacher link is needed.
-            </p>
-          </div>
         </div>
       </div>
 

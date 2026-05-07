@@ -517,7 +517,12 @@ const AdminWritingSubmissions = () => {
 
   const pendingCount = data.filter((item) => !item.feedback || !item.feedbackBy).length;
   const reviewedCount = data.filter((item) => !!(item.feedback && item.feedbackBy)).length;
-  const workspaceLinks = buildAdminWorkspaceLinks(navigate, "writing");
+  const workspaceLinks = buildAdminWorkspaceLinks(
+    navigate,
+    "writing",
+    undefined,
+    "review"
+  );
   const sidebarStats = [
     {
       key: "total",
