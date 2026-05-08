@@ -4,10 +4,13 @@ import {
   createNewSection,
   createNewQuestion,
   createDefaultQuestionByType,
+  formatQuestionNumber,
   getNextQuestionNumber,
   getQuestionStart,
   getImpliedQuestionCount,
   renumberQuestionsFrom,
+  resolveQuestionStartNumber,
+  syncQuestionNumberWithImpliedCount,
 } from '../utils';
 
 /**
@@ -228,11 +231,58 @@ export const usePassageHandlers = (initialPassages = [createNewPassage()]) => {
     const questions = newPassages[passageIndex]?.sections?.[sectionIndex]?.questions;
     
     if (!questions?.[questionIndex]) return;
+
+    const currentQuestion = questions[questionIndex];
+    const previousStart = resolveQuestionStartNumber(currentQuestion, null);
+    const previousCount = Math.max(1, getImpliedQuestionCount(currentQuestion));
     
     if (field === 'full') {
-      questions[questionIndex] = value;
+      questions[questionIndex] = syncQuestionNumberWithImpliedCount(
+        value,
+        previousStart
+      );
     } else {
-      questions[questionIndex][field] = value;
+      const updatedQuestion = {
+        ...currentQuestion,
+        [field]: value,
+      };
+
+      const normalizedQuestion = syncQuestionNumberWithImpliedCount(
+        updatedQuestion,
+        previousStart
+      );
+
+      // Keep simple single-question inputs stable while still normalizing block types.
+      if (
+        field === 'questionNumber' &&
+        previousCount === 1 &&
+        getImpliedQuestionCount(normalizedQuestion) === 1
+      ) {
+        const explicitStart = getQuestionStart(value);
+        if (explicitStart !== null) {
+          normalizedQuestion.questionNumber = formatQuestionNumber(explicitStart, 1, value);
+          normalizedQuestion.startQuestion = explicitStart;
+        }
+      }
+
+      questions[questionIndex] = normalizedQuestion;
+    }
+
+    const nextQuestion = questions[questionIndex];
+    const nextStart = resolveQuestionStartNumber(nextQuestion, previousStart);
+    const nextCount = Math.max(1, getImpliedQuestionCount(nextQuestion));
+
+    if (
+      nextStart !== null &&
+      (nextStart !== previousStart || nextCount !== previousCount)
+    ) {
+      renumberQuestionsFrom(
+        newPassages,
+        passageIndex,
+        sectionIndex,
+        questionIndex + 1,
+        nextStart + nextCount
+      );
     }
     
     setPassages(newPassages);

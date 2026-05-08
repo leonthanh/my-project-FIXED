@@ -161,6 +161,57 @@ const sentenceCompletionInlineTest = {
   ],
 };
 
+const diagramLabelingTest = {
+  id: 1,
+  title: 'Diagram Labeling Test',
+  durationMinutes: 60,
+  passages: [
+    {
+      passageTitle: 'Passage 1',
+      sections: [
+        {
+          questions: [
+            ...Array.from({ length: 6 }, (_, index) => ({
+              questionNumber: index + 1,
+              type: 'multiple-choice',
+            })),
+            {
+              questionNumber: '7-8',
+              questionType: 'diagram-labeling',
+              questionText:
+                '<p>Label the diagram below. Choose <strong>ONE WORD ONLY</strong> for each answer.</p>',
+              diagramTitle: 'How a canal lock works',
+              diagramImageUrl:
+                'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 300"></svg>',
+              maxWords: 1,
+              blanks: [
+                {
+                  promptHtml: '[NUMBER] [BLANK]',
+                  correctAnswer: 'gates',
+                  labelX: 12,
+                  labelY: 18,
+                  anchorX: 42,
+                  anchorY: 34,
+                  width: 200,
+                },
+                {
+                  promptHtml: '[NUMBER] [BLANK]',
+                  correctAnswer: 'basin',
+                  labelX: 58,
+                  labelY: 62,
+                  anchorX: 68,
+                  anchorY: 42,
+                  width: 200,
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+  ],
+};
+
 describe('DoReadingTest integration - part navigation and focus', () => {
   beforeEach(() => {
     // ensure test is marked started
@@ -363,6 +414,51 @@ describe('DoReadingTest integration - part navigation and focus', () => {
     await waitFor(() => {
       expect(select).toHaveValue('C');
       expect(container.querySelector('.question-item.answered')).not.toBeNull();
+    });
+  });
+
+  it('renders diagram-labeling blanks and focuses the matching question number', async () => {
+    global.fetch.mockImplementation(() => {
+      return Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve(diagramLabelingTest),
+      });
+    });
+
+    render(
+      <MemoryRouter initialEntries={["/reading/1"]}>
+        <Routes>
+          <Route path="/reading/:id" element={<DoReadingTest />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await screen.findByText('How a canal lock works');
+    expect(screen.getByText(/No more than 1 word/i)).toBeInTheDocument();
+
+    const diagramQuestion = screen
+      .getByText('How a canal lock works')
+      .closest('.question-item');
+    expect(diagramQuestion).not.toBeNull();
+
+    const inputs = within(diagramQuestion).getAllByRole('textbox');
+    expect(inputs).toHaveLength(2);
+
+    fireEvent.focus(inputs[0]);
+    await waitFor(() => {
+      expect(screen.getByTestId('nav-question-7')).toHaveClass('active');
+    });
+    fireEvent.change(inputs[0], { target: { value: 'gates' } });
+
+    fireEvent.focus(inputs[1]);
+    await waitFor(() => {
+      expect(screen.getByTestId('nav-question-8')).toHaveClass('active');
+    });
+    fireEvent.change(inputs[1], { target: { value: 'basin' } });
+
+    await waitFor(() => {
+      expect(inputs[0]).toHaveValue('gates');
+      expect(inputs[1]).toHaveValue('basin');
     });
   });
 });

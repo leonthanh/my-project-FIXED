@@ -110,7 +110,11 @@ function countQuestions(passages = []) {
           qCounter += paragraphs.length || 0;
           continue;
         }
-        if (qType === "cloze-test" || qType === "summary-completion") {
+        if (
+          qType === "cloze-test" ||
+          qType === "summary-completion" ||
+          qType === "diagram-labeling"
+        ) {
           const blankCount = countClozeBlanks(q);
           if (blankCount > 0) {
             qCounter += blankCount;

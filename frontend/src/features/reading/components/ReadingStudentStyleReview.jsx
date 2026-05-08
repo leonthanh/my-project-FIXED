@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from "react";
+import DiagramLabelingQuestion from "../../../shared/components/DiagramLabelingQuestion.jsx";
 import InlineIcon from "../../../shared/components/InlineIcon.jsx";
 import {
   getClozeTableCellLines,
@@ -20,6 +21,11 @@ import {
   resolveQuestionStartNumber,
 } from "../utils/questionHelpers";
 import "../styles/ReadingTestRuntime.css";
+
+const isBlankBlockType = (qType) =>
+  qType === "cloze-test" ||
+  qType === "summary-completion" ||
+  qType === "diagram-labeling";
 
 const feedbackStyles = {
   container: {
@@ -287,7 +293,7 @@ const countQuestionsInSection = (questions) =>
       return total + ((q.paragraphs || q.answers || []).length || 1);
     }
 
-    if (qType === "cloze-test" || qType === "summary-completion") {
+    if (isBlankBlockType(qType)) {
       const blankCount = countClozeBlanks(q);
       return total + (blankCount || 1);
     }
@@ -485,6 +491,7 @@ export default function ReadingStudentStyleReview({ test, submission, details })
     const baseQuestionNum =
       resolveQuestionStartNumber(question, questionNumber) || questionNumber;
     const detail = detailMap.get(questionNumber);
+    const isDiagramLabeling = qType === "diagram-labeling";
     const isMatchingHeadings = qType === "ielts-matching-headings";
     const paragraphCount = isMatchingHeadings ? (question.paragraphs || question.answers || []).length : 0;
     const isParagraphMatching = qType === "paragraph-matching";
@@ -495,13 +502,14 @@ export default function ReadingStudentStyleReview({ test, submission, details })
     const isClozeTest = qType === "cloze-test" || qType === "summary-completion";
     const clozeTable = isClozeTest ? getActiveClozeTable(question) : null;
     const clozeText = isClozeTest ? getClozeText(question) : null;
-    const blankCount = isClozeTest ? countClozeBlanks(question) : 0;
+    const blankCount = (isClozeTest || isDiagramLabeling) ? countClozeBlanks(question) : 0;
     const isShortAnswerInline =
       (qType === "fill-in-blank" || qType === "short-answer" || qType === "fill-in-the-blanks") &&
       question.questionText &&
       (question.questionText.includes("…") || question.questionText.includes("....") || /_{2,}/.test(question.questionText));
     const isMultiQuestionBlock =
       isMatchingHeadings ||
+      isDiagramLabeling ||
       (isClozeTest && blankCount > 0) ||
       (isParagraphMatching && paragraphBlankCount > 0) ||
       qType === "multi-select";
@@ -577,6 +585,7 @@ export default function ReadingStudentStyleReview({ test, submission, details })
             !isShortAnswerInline &&
             !(isClozeTest && clozeText) &&
             qType !== "paragraph-matching" &&
+            !isDiagramLabeling &&
             !isInlineAnswerType &&
             !hasInlineSentenceBlank && (
               <div className="question-text question-rich-html" dangerouslySetInnerHTML={{ __html: question.questionText }} />
@@ -760,6 +769,16 @@ export default function ReadingStudentStyleReview({ test, submission, details })
                 );
               })()}
             </div>
+          )}
+
+          {isDiagramLabeling && (
+            <DiagramLabelingQuestion
+              question={question}
+              mode="review"
+              questionNumber={baseQuestionNum}
+              answers={answers}
+              detailMap={detailMap}
+            />
           )}
 
           {(qType === "fill-in-blank" || qType === "short-answer" || qType === "fill-in-the-blanks") && (
@@ -1027,6 +1046,7 @@ export default function ReadingStudentStyleReview({ test, submission, details })
             "ielts-matching-headings",
             "cloze-test",
             "summary-completion",
+            "diagram-labeling",
             "multi-select",
           ].includes(qType) && renderQuestionFeedback(questionNumber)}
         </div>
@@ -1166,7 +1186,7 @@ export default function ReadingStudentStyleReview({ test, submission, details })
                         sectionQuestionNumber += blankMatches.length || 1;
                       } else if (qType === "multi-select") {
                         sectionQuestionNumber += question.requiredAnswers || 2;
-                      } else if (qType === "cloze-test" || qType === "summary-completion") {
+                      } else if (isBlankBlockType(qType)) {
                         const blankCount = countClozeBlanks(question);
                         sectionQuestionNumber += blankCount || 1;
                       } else {

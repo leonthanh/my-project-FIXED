@@ -245,6 +245,11 @@ export const countClozeBlanks = (question) => {
   return Array.isArray(question?.blanks) ? question.blanks.length : 0;
 };
 
+export const countDiagramLabelBlanks = (question) => {
+  if (!question || typeof question !== 'object') return 0;
+  return Array.isArray(question.blanks) ? question.blanks.length : 0;
+};
+
 const getStructuralQuestionCount = (question) => {
   if (!question || typeof question !== 'object') return 1;
 
@@ -273,6 +278,13 @@ const getStructuralQuestionCount = (question) => {
     const requiredAnswers = Number(question.requiredAnswers || question.maxSelection || 0);
     if (Number.isFinite(requiredAnswers) && requiredAnswers > 0) {
       return requiredAnswers;
+    }
+  }
+
+  if (normalizedType === 'diagram-labeling') {
+    const diagramBlankCount = countDiagramLabelBlanks(question);
+    if (diagramBlankCount > 0) {
+      return diagramBlankCount;
     }
   }
 
@@ -328,6 +340,21 @@ export const formatQuestionNumber = (startNumber, questionCount = 1, template = 
   }
 
   return `${start}-${start + count - 1}`;
+};
+
+export const syncQuestionNumberWithImpliedCount = (question, fallbackStart = null) => {
+  if (!question || typeof question !== 'object') return question;
+
+  const start = resolveQuestionStartNumber(question, fallbackStart);
+  if (start === null) return question;
+
+  const questionCount = Math.max(1, getImpliedQuestionCount(question));
+
+  return {
+    ...question,
+    questionNumber: formatQuestionNumber(start, questionCount, question.questionNumber),
+    startQuestion: start,
+  };
 };
 
 export const renumberQuestionsFrom = (
@@ -520,6 +547,30 @@ export const createDefaultQuestionByType = (type) => {
     case "sentence-completion":
       return { ...baseQuestion, options: ["", "", "", ""], correctAnswer: "A" };
 
+    case "diagram-labeling":
+      return {
+        ...baseQuestion,
+        questionText: "Label the diagram below.",
+        diagramTitle: "Diagram Labeling",
+        diagramImageUrl: "",
+        diagramImageAlt: "",
+        maxWords: 1,
+        blanks: [
+          {
+            id: "blank_0",
+            blankNumber: 1,
+            promptHtml: "[NUMBER] [BLANK]",
+            correctAnswer: "",
+            labelX: 10,
+            labelY: 10,
+            anchorX: 50,
+            anchorY: 50,
+            width: 220,
+            textAlign: "left",
+          },
+        ],
+      };
+
 
 
     case "short-answer":
@@ -607,6 +658,14 @@ export const normalizeQuestionType = (type) => {
   }
   if (normalized === "yes-no-notgiven" || normalized === "yes-no-not-given") {
     return "yes-no-not-given";
+  }
+
+  if (
+    normalized === "diagram-labelling" ||
+    normalized === "diagram-labeling" ||
+    normalized === "diagram-label"
+  ) {
+    return "diagram-labeling";
   }
 
   // Normalize matching headings variants to canonical form used across the app

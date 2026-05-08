@@ -72,6 +72,11 @@ function normalizeMultiTokens(raw, options = []) {
 
 const { countClozeBlanks } = require('./readingQuestionUtils');
 
+const isBlankBlockType = (qType) =>
+  qType === 'cloze-test' ||
+  qType === 'summary-completion' ||
+  qType === 'diagram-labeling';
+
 function bandFromCorrect(c) {
   if (c >= 39) return 9;
   if (c >= 37) return 8.5;
@@ -190,7 +195,7 @@ function scoreReadingTest(testData, answers = {}) {
           continue;
         }
 
-        if (qType === 'cloze-test' || qType === 'summary-completion') {
+        if (isBlankBlockType(qType)) {
           const blankCount = countClozeBlanks(q);
           if (blankCount > 0) {
             const baseKey = `q_${q.questionNumber || qCounter}`;
@@ -537,7 +542,7 @@ function getDetailedScoring(testData, answers = {}) {
         }
 
         // Cloze / summary-completion: break into blanks and find student answers
-        if (qType === 'cloze-test' || qType === 'summary-completion') {
+        if (isBlankBlockType(qType)) {
           const blankCount = countClozeBlanks(q);
           if (blankCount > 0) {
 
@@ -595,6 +600,7 @@ function getDetailedScoring(testData, answers = {}) {
               const isCorrect = Boolean(expectedVariants.length && studentNorm && expectedVariants.includes(studentNorm));
               details.push({
                 questionNumber: displayedQuestionNumber,
+                questionType: qType,
                 paragraphId: null,
                 questionText: q.questionText || q.question || q.text || '',
                 headings: q.headings || [],
@@ -837,6 +843,7 @@ function generateAnalysisBreakdown(testData, answers = {}) {
     'multiple-choice': 'Multiple Choice',
     'cloze-test': 'Fill in the Blanks (Cloze)',
     'summary-completion': 'Summary Completion',
+    'diagram-labeling': 'Diagram Labeling',
     'short-answer': 'Short Answer',
     'sentence-completion': 'Sentence Completion',
     'paragraph-matching': 'Paragraph Matching',
@@ -872,6 +879,10 @@ function generateAnalysisBreakdown(testData, answers = {}) {
     'summary-completion': {
       good: 'Bạn tóm tắt thông tin tốt và chọn từ phù hợp.',
       improve: 'Scanning để tìm vị trí thông tin trong bài. Chú ý giới hạn số từ. Đảm bảo từ điền phù hợp ngữ pháp.'
+    },
+    'diagram-labeling': {
+      good: 'Bạn đọc sơ đồ tốt và nối đúng thông tin với từng bộ phận.',
+      improve: 'Xác định đúng vị trí mũi tên trước, sau đó scanning đoạn văn để tìm danh từ hoặc cụm từ khớp chính xác với chi tiết trên sơ đồ.'
     },
     'short-answer': {
       good: 'Bạn tìm và trích xuất thông tin chính xác.',

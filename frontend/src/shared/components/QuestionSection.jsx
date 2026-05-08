@@ -12,6 +12,7 @@ import ShortAnswerQuestion from './ShortAnswerQuestion';
 import ClozeTestQuestion from './ClozeTestQuestion';
 import SummaryCompletionQuestion from './SummaryCompletionQuestion';
 import IELTSMatchingHeadingsQuestion from './IELTSMatchingHeadingsQuestion';
+import DiagramLabelingQuestion from './DiagramLabelingQuestion.jsx';
 import { getDefaultQuestionData } from '../config/questionTypes';
 import InlineIcon from './InlineIcon.jsx';
 
@@ -43,6 +44,7 @@ const QuestionSection = ({
     'sentence-completion',
     'short-answer',
     'summary-completion',
+    'diagram-labeling',
   ];
 
   // State to track which questions are expanded - first question is expanded by default
@@ -362,6 +364,7 @@ const QuestionSection = ({
                     <option value="summary-completion" title="Hoàn thành đoạn tóm tắt bằng cách ghi chữ cái A-L tương ứng (Summary Completion)">Summary Completion - Complete the summary (A-L)</option>
                     <option value="paragraph-matching" title="Học sinh tìm thông tin ở đoạn A-G để trả lời câu hỏi">Tìm thông tin ở đoạn nào (A-G)</option>
                     <option value="ielts-matching-headings" title="IX: Ghép mỗi đoạn văn (A-G) với 1 heading phù hợp (i-x)">IX Matching Headings</option>
+                    <option value="diagram-labeling" title="Học sinh nhìn diagram, điền đáp án vào các nhãn được nối bằng mũi tên">Diagram Labeling - Gắn nhãn sơ đồ</option>
                     <option value="sentence-completion" title="Học sinh hoàn thành câu bằng cách chọn từ từ danh sách gợi ý">Hoàn thành câu (chọn từ danh sách)</option>
                     <option value="short-answer" title="Học sinh viết câu trả lời ngắn (tối đa 3 từ)">Câu trả lời ngắn</option>
                   </select>
@@ -378,6 +381,7 @@ const QuestionSection = ({
                     {question.questionType === 'summary-completion' && 'Hoàn thành đoạn tóm tắt bằng các lựa chọn A-L và gán đáp án cho từng [BLANK].'}
                     {question.questionType === 'paragraph-matching' && 'Học sinh tìm thông tin ở đoạn A-G để trả lời câu hỏi.'}
                     {question.questionType === 'ielts-matching-headings' && 'Ghép mỗi đoạn văn (A-G) với 1 heading phù hợp; có thể có headings dư.'}
+                    {question.questionType === 'diagram-labeling' && 'Tạo diagram có text box và mũi tên; mỗi blank là một câu hỏi con được đánh số liên tiếp.'}
                     {question.questionType === 'sentence-completion' && 'Học sinh hoàn thành câu bằng cách chọn từ từ danh sách gợi ý.'}
                     {question.questionType === 'short-answer' && 'Học sinh viết câu trả lời ngắn (tối đa 3 từ).'}
                   </div>
@@ -458,6 +462,13 @@ const QuestionSection = ({
 
                 {(question.questionType || 'multiple-choice') === 'summary-completion' && (
                   <SummaryCompletionQuestion
+                    question={question}
+                    onChange={(q) => onQuestionChange(passageIndex, sectionIndex, questionIndex, 'full', q)}
+                  />
+                )}
+
+                {(question.questionType || 'multiple-choice') === 'diagram-labeling' && (
+                  <DiagramLabelingQuestion
                     question={question}
                     onChange={(q) => onQuestionChange(passageIndex, sectionIndex, questionIndex, 'full', q)}
                   />

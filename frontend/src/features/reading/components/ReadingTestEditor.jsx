@@ -4,6 +4,7 @@ import {
   QuillEditor,
   QuestionSection,
 } from "../../../shared/components";
+import DiagramLabelingQuestion from "../../../shared/components/DiagramLabelingQuestion.jsx";
 import InlineIcon from "../../../shared/components/InlineIcon.jsx";
 import { useColumnLayout } from "../hooks";
 import { calculateTotalQuestions, createDefaultQuestionByType } from "../utils";
@@ -872,6 +873,8 @@ const ReadingTestEditor = ({
                                 q.questionType === "matching-headings";
                               const isIELTSMatchingHeadings =
                                 q.questionType === "ielts-matching-headings";
+                              const isDiagramLabeling =
+                                q.questionType === "diagram-labeling";
                               const isMultipleChoice =
                                 q.questionType === "multiple-choice" ||
                                 q.questionType === "mcq";
@@ -892,6 +895,9 @@ const ReadingTestEditor = ({
                                 q.paragraphs.length > 0 &&
                                 q.headings &&
                                 q.headings.length > 0;
+                              const hasDiagramData =
+                                Boolean(q.diagramImageUrl || q.questionText) ||
+                                (Array.isArray(q.blanks) && q.blanks.length > 0);
 
                               // Determine if question has content
                               const hasContent = isClozeType
@@ -900,10 +906,109 @@ const ReadingTestEditor = ({
                                 ? hasMatchingItems || hasQuestionText
                                 : isIELTSMatchingHeadings
                                 ? hasIELTSMatchingData
+                                : isDiagramLabeling
+                                ? hasDiagramData
                                 : hasQuestionText;
 
                               // Compute starting number for this question (used for blanks numbering)
                               const startNumber = questionStarts?.[`${section.id}-${qIdx}`] || (q.questionNumber ? String(q.questionNumber).trim().split(/[, -]/)[0] : null);
+
+                              if (q.questionType === 'diagram-labeling') {
+                                const baseStart =
+                                  resolveQuestionStartNumber(
+                                    q,
+                                    Number(startNumber) || qIdx + 1
+                                  ) || qIdx + 1;
+                                const previewAnswers = Object.fromEntries(
+                                  (q.blanks || []).map((blank, bi) => [
+                                    `q_${baseStart}_${bi}`,
+                                    blank?.correctAnswer || '',
+                                  ])
+                                );
+
+                                return (
+                                  <div
+                                    key={qIdx}
+                                    style={{
+                                      padding: "10px 12px",
+                                      marginBottom: "10px",
+                                      backgroundColor: "white",
+                                      borderRadius: "6px",
+                                      border: "2px solid #0e276f",
+                                      fontSize: "12px",
+                                    }}
+                                  >
+                                    <div
+                                      style={{
+                                        display: "flex",
+                                        gap: "10px",
+                                        alignItems: "center",
+                                        marginBottom: "12px",
+                                        paddingBottom: "8px",
+                                        borderBottom: "1px solid #eee",
+                                        flexWrap: "wrap",
+                                      }}
+                                    >
+                                      <span
+                                        style={{
+                                          backgroundColor: "#0e276f",
+                                          color: "white",
+                                          padding: "3px 10px",
+                                          borderRadius: "4px",
+                                          fontWeight: "bold",
+                                          fontSize: "11px",
+                                          whiteSpace: "nowrap",
+                                        }}
+                                      >
+                                        Q{q.questionNumber || baseStart}
+                                      </span>
+                                      <span
+                                        style={{
+                                          backgroundColor: "#6c757d",
+                                          color: "white",
+                                          padding: "2px 8px",
+                                          borderRadius: "4px",
+                                          fontSize: "10px",
+                                        }}
+                                      >
+                                        {q.questionType}
+                                      </span>
+                                      <span
+                                        style={{
+                                          backgroundColor: "#28a745",
+                                          color: "white",
+                                          padding: "2px 8px",
+                                          borderRadius: "4px",
+                                          fontSize: "10px",
+                                        }}
+                                      >
+                                        {(q.blanks || []).length} label(s)
+                                      </span>
+                                      {!hasContent && (
+                                        <span
+                                          style={{
+                                            backgroundColor: "#dc3545",
+                                            color: "white",
+                                            padding: "2px 8px",
+                                            borderRadius: "4px",
+                                            fontSize: "10px",
+                                          }}
+                                        >
+                                          Chưa có nội dung
+                                        </span>
+                                      )}
+                                    </div>
+
+                                    <DiagramLabelingQuestion
+                                      question={q}
+                                      mode="review"
+                                      questionNumber={baseStart}
+                                      answers={previewAnswers}
+                                      showCorrect={false}
+                                    />
+                                  </div>
+                                );
+                              }
 
                               // Special summary-completion preview: show teacher answers and continuous numbering
                               if (q.questionType === 'summary-completion') {
