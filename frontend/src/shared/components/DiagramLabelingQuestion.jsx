@@ -1,5 +1,4 @@
 import React, { useEffect, useId, useMemo, useRef, useState } from 'react';
-import QuillEditor from './QuillEditor';
 import { hostPath } from '../utils/api';
 
 const clampPercent = (value, fallback = 50) => {
@@ -567,29 +566,8 @@ const DiagramLabelingQuestion = ({
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.2fr) minmax(360px, 0.8fr)', gap: '18px', alignItems: 'start' }}>
-        <div style={{ overflowX: 'auto', paddingBottom: '6px' }}>
-          {question?.diagramTitle ? (
-            <div style={{ textAlign: 'center', fontWeight: 700, fontSize: '18px', marginBottom: '12px' }}>
-              {question.diagramTitle}
-            </div>
-          ) : null}
-          {boardContent}
-        </div>
-
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          <div style={{ backgroundColor: '#ffffff', border: '1px solid #dbeafe', borderRadius: '12px', padding: '14px' }}>
-            <label style={{ display: 'block', fontWeight: 700, marginBottom: '8px', fontSize: '13px' }}>
-              Hướng dẫn / Question Text
-            </label>
-            <QuillEditor
-              value={question?.questionText || ''}
-              onChange={(value) => emitQuestion({ questionText: value })}
-              placeholder="Ví dụ: Label the diagram below. Choose ONE WORD ONLY for each answer."
-              editorMinHeight="100px"
-            />
-          </div>
-
           <div style={{ backgroundColor: '#ffffff', border: '1px solid #dbeafe', borderRadius: '12px', padding: '14px' }}>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
               <div>
@@ -654,7 +632,28 @@ const DiagramLabelingQuestion = ({
             />
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxHeight: '640px', overflowY: 'auto', paddingRight: '4px' }}>
+          <div style={{ overflowX: 'auto', paddingBottom: '6px' }}>
+            {question?.diagramTitle ? (
+              <div style={{ textAlign: 'center', fontWeight: 700, fontSize: '18px', marginBottom: '12px' }}>
+                {question.diagramTitle}
+              </div>
+            ) : null}
+            {boardContent}
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+              <div>
+                <h5 style={{ margin: 0, color: '#0e276f', fontSize: '16px' }}>Danh sách label</h5>
+                <p style={{ margin: '4px 0 0 0', color: '#475569', fontSize: '12px' }}>
+                  Chỉnh prompt, đáp án và vị trí cho từng câu ngay bên dưới sơ đồ.
+                </p>
+              </div>
+              <div style={{ color: '#475569', fontSize: '12px', fontWeight: 600 }}>
+                {blanks.length} label
+              </div>
+            </div>
+
             {blanks.map((blank, blankIndex) => {
               const absoluteQuestionNumber = baseQuestionNumber + blankIndex;
 
