@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { ReadingTestEditor } from "../components";
 import { usePassageHandlers } from "../hooks";
 import { stripHtml, cleanupPassageHTML } from "../utils";
-import { normalizeQuestionType, resolveQuestionStartNumber } from "../utils/questionHelpers";
+import { canPassageOmitText, normalizeQuestionType, resolveQuestionStartNumber } from "../utils/questionHelpers";
 import AdminNavbar from "../../../shared/components/AdminNavbar";
 
 /**
@@ -11,6 +11,7 @@ import AdminNavbar from "../../../shared/components/AdminNavbar";
  * Sử dụng ReadingTestEditor component và usePassageHandlers hook
  */
 import { apiPath, authFetch, redirectToLogin } from "../../../shared/utils/api";
+import { isInlineImageDataUrl, uploadCambridgeImageDataUrl } from '../../../shared/utils/cambridgeImageUpload';
 
 import { canManageCategory } from '../../../shared/utils/permissions';
 
@@ -43,6 +44,24 @@ const EditReadingTest = () => {
 
   // Preview
   const [showPreview, setShowPreview] = useState(false);
+
+  const uploadInlineDiagramImages = useCallback(async (question, sectionIndex, questionIndex) => {
+    const sourceUrl = String(question?.diagramImageUrl || question?.imageUrl || '').trim();
+    if (!isInlineImageDataUrl(sourceUrl)) {
+      return question;
+    }
+
+    const uploadedUrl = await uploadCambridgeImageDataUrl(
+      sourceUrl,
+      `reading-diagram-s${sectionIndex + 1}-q${questionIndex + 1}`
+    );
+
+    return {
+      ...question,
+      diagramImageUrl: uploadedUrl,
+      imageUrl: uploadedUrl,
+    };
+  }, []);
 
   // Use passage handlers hook
   const {
@@ -217,7 +236,8 @@ const EditReadingTest = () => {
       // Clean passages data
       const cleanedPassages = await Promise.all(
         passages.map(async (p, pIdx) => {
-          if (!p.passageText || !p.passageText.trim()) {
+          const hasPassageText = stripHtml(p.passageText || '').trim().length > 0;
+          if (!hasPassageText && !canPassageOmitText(p)) {
             throw new Error(`Passage ${pIdx + 1} không có nội dung`);
           }
 
@@ -263,8 +283,7 @@ const EditReadingTest = () => {
                     sentenceCompletionTitleHtml || ""
                   ),
                   sectionImage: imagesToSend,
-                  questions:
-                    section.questions?.map((q) => {
+                  questions: await Promise.all((section.questions || []).map(async (q, questionIndex) => {
                       const qType = normalizeQuestionType(q.questionType || q.type || "");
                       const resolvedStartQuestion = resolveQuestionStartNumber(q, null);
                       const questionObj = {
@@ -287,8 +306,11 @@ const EditReadingTest = () => {
                       if (qType === "multi-select" && (q.requiredAnswers || q.maxSelection)) {
                         questionObj.requiredAnswers = q.requiredAnswers || q.maxSelection || 2;
                       }
+                      if (qType === 'diagram-labeling') {
+                        return uploadInlineDiagramImages(questionObj, sIdx, questionIndex);
+                      }
                       return questionObj;
-                    }) || [],
+                    })),
                 };
               }) || []
             ),

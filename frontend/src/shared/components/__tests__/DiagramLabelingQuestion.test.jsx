@@ -150,6 +150,26 @@ describe('DiagramLabelingQuestion edit mode', () => {
     expect(screen.getByRole('button', { name: 'Kéo mũi tên 2 của chú thích 1' })).toBeInTheDocument();
   });
 
+  test('can preview the student-facing diagram layout directly inside edit mode', () => {
+    render(<DiagramHarness />);
+
+    expect(screen.queryByText('Xem trước giao diện học sinh')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Xem trước kiểu học sinh' }));
+
+    expect(screen.getByText('Xem trước giao diện học sinh')).toBeInTheDocument();
+    expect(screen.getByText('No more than 1 word(s)')).toBeInTheDocument();
+    expect(screen.getByTestId('student-preview-panel').querySelectorAll('circle')).toHaveLength(0);
+
+    const previewInput = screen.getByRole('textbox', { name: 'Ô trả lời câu 1' });
+    expect(previewInput.style.fontSize).toBe('1em');
+    fireEvent.change(previewInput, { target: { value: 'gates' } });
+    expect(previewInput).toHaveValue('gates');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Xóa đáp án thử' }));
+    expect(previewInput).toHaveValue('');
+  });
+
   test('allows resizing the on-image label directly', () => {
     render(<DiagramHarness />);
 

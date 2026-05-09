@@ -684,3 +684,14 @@ export const normalizeQuestionType = (type) => {
   // Return normalized or original if not in mapping
   return normalized;
 };
+
+export const canPassageOmitText = (passage) => {
+  const questions = (Array.isArray(passage?.sections) ? passage.sections : [])
+    .flatMap((section) => (Array.isArray(section?.questions) ? section.questions : []));
+
+  if (questions.length === 0) {
+    return false;
+  }
+
+  return questions.every((question) => normalizeQuestionType(question?.questionType || question?.type || '') === 'diagram-labeling');
+};

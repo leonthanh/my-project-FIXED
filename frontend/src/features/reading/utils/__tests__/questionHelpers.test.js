@@ -1,4 +1,5 @@
 import {
+  canPassageOmitText,
   countDiagramLabelBlanks,
   countClozeBlanks,
   createDefaultQuestionByType,
@@ -196,6 +197,42 @@ describe("questionHelpers", () => {
       expect(normalizeQuestionType("diagram_label")).toBe(
         "diagram-labeling"
       );
+    });
+  });
+
+  describe("canPassageOmitText", () => {
+    it("allows an empty passage when all questions are diagram-labeling", () => {
+      expect(
+        canPassageOmitText({
+          sections: [
+            {
+              questions: [
+                { questionType: 'diagram-labeling' },
+                { questionType: 'diagram-labelling' },
+              ],
+            },
+          ],
+        })
+      ).toBe(true);
+    });
+
+    it("rejects empty passage text when the passage mixes in other question types", () => {
+      expect(
+        canPassageOmitText({
+          sections: [
+            {
+              questions: [
+                { questionType: 'diagram-labeling' },
+                { questionType: 'multiple-choice' },
+              ],
+            },
+          ],
+        })
+      ).toBe(false);
+    });
+
+    it("rejects empty passage text when there are no questions", () => {
+      expect(canPassageOmitText({ sections: [{ questions: [] }] })).toBe(false);
     });
   });
 

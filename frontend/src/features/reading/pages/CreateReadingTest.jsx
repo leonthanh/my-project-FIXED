@@ -5,6 +5,7 @@ import { usePassageHandlers } from "../hooks";
 import { stripHtml, cleanupPassageHTML, createNewPassage } from "../utils";
 import { normalizeQuestionType, resolveQuestionStartNumber } from "../utils/questionHelpers";
 import { apiPath, authFetch, redirectToLogin } from "../../../shared/utils/api";
+import { isInlineImageDataUrl, uploadCambridgeImageDataUrl } from '../../../shared/utils/cambridgeImageUpload';
 
 /**
  * CreateReadingTest - Trang tạo đề Reading IELTS mới
@@ -93,6 +94,24 @@ const CreateReadingTest = () => {
   // Local state to track if re-login is required
   const [requiresLogin, setRequiresLogin] = useState(false);
 
+  const uploadInlineDiagramImages = useCallback(async (question, sectionIndex, questionIndex) => {
+    const sourceUrl = String(question?.diagramImageUrl || question?.imageUrl || '').trim();
+    if (!isInlineImageDataUrl(sourceUrl)) {
+      return question;
+    }
+
+    const uploadedUrl = await uploadCambridgeImageDataUrl(
+      sourceUrl,
+      `reading-diagram-s${sectionIndex + 1}-q${questionIndex + 1}`
+    );
+
+    return {
+      ...question,
+      diagramImageUrl: uploadedUrl,
+      imageUrl: uploadedUrl,
+    };
+  }, []);
+
   // Auto save every 30 seconds and on page unload
   useEffect(() => {
     const autosaveInterval = setInterval(saveToLocalStorage, 30000);
@@ -171,7 +190,7 @@ const CreateReadingTest = () => {
             passageTitle: stripHtml(p.passageTitle || ""),
             passageText: cleanupPassageHTML(p.passageText || ""),
             sections: await Promise.all(
-              p.sections?.map(async (section) => {
+              p.sections?.map(async (section, sectionIndex) => {
                 const imagesToSend =
                   typeof section.sectionImage === "string"
                     ? section.sectionImage
@@ -198,8 +217,7 @@ const CreateReadingTest = () => {
                     sentenceCompletionTitleHtml || ""
                   ),
                   sectionImage: imagesToSend,
-                  questions:
-                    section.questions?.map((q) => {
+                  questions: await Promise.all((section.questions || []).map(async (q, questionIndex) => {
                       const qType = normalizeQuestionType(q.questionType || q.type || "");
                       const resolvedStartQuestion = resolveQuestionStartNumber(q, null);
                       const questionObj = {
@@ -222,8 +240,11 @@ const CreateReadingTest = () => {
                       if (qType === "multi-select" && (q.requiredAnswers || q.maxSelection)) {
                         questionObj.requiredAnswers = q.requiredAnswers || q.maxSelection || 2;
                       }
+                      if (qType === 'diagram-labeling') {
+                        return uploadInlineDiagramImages(questionObj, sectionIndex, questionIndex);
+                      }
                       return questionObj;
-                    }) || [],
+                    })),
                 };
               }) || []
             ),

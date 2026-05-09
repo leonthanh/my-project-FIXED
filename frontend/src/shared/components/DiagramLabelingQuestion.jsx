@@ -1,5 +1,6 @@
 import React, { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { hostPath } from '../utils/api';
+import { uploadCambridgeImageFile } from '../utils/cambridgeImageUpload';
 
 const clampPercent = (value, fallback = 50) => {
   const parsed = Number(value);
@@ -139,6 +140,43 @@ const resolveImageUrl = (url) => {
   return hostPath(raw);
 };
 
+const BLANK_THEME = {
+  line: '#a855f7',
+  lineActive: '#7e22ce',
+  accent: '#7c3aed',
+  accentStrong: '#6d28d9',
+  accentSoft: '#f3e8ff',
+  accentMuted: '#ede9fe',
+  accentBorder: '#ddd6fe',
+  text: '#5b21b6',
+  handleBorder: 'rgba(124, 58, 237, 0.32)',
+  handleActiveBorder: 'rgba(124, 58, 237, 0.55)',
+  handleGradient:
+    'radial-gradient(circle, rgba(168, 85, 247, 0.82) 0 22%, rgba(168, 85, 247, 0.2) 23%, rgba(168, 85, 247, 0.08) 58%, rgba(168, 85, 247, 0) 59%)',
+  handleActiveGradient:
+    'radial-gradient(circle, rgba(124, 58, 237, 0.94) 0 22%, rgba(124, 58, 237, 0.24) 23%, rgba(124, 58, 237, 0.1) 58%, rgba(124, 58, 237, 0) 59%)',
+};
+
+const ANNOTATION_THEME = {
+  line: '#fb923c',
+  lineActive: '#ea580c',
+  accent: '#f97316',
+  accentStrong: '#c2410c',
+  accentSoft: '#fff7ed',
+  accentMuted: '#ffedd5',
+  accentBorder: '#fed7aa',
+  text: '#c2410c',
+  handleBorder: 'rgba(249, 115, 22, 0.32)',
+  handleActiveBorder: 'rgba(249, 115, 22, 0.55)',
+  handleGradient:
+    'radial-gradient(circle, rgba(251, 146, 60, 0.84) 0 22%, rgba(251, 146, 60, 0.22) 23%, rgba(251, 146, 60, 0.08) 58%, rgba(251, 146, 60, 0) 59%)',
+  handleActiveGradient:
+    'radial-gradient(circle, rgba(249, 115, 22, 0.94) 0 22%, rgba(249, 115, 22, 0.24) 23%, rgba(249, 115, 22, 0.1) 58%, rgba(249, 115, 22, 0) 59%)',
+};
+
+const EDIT_BOARD_BASE_WIDTH = 760;
+const RUNTIME_BOARD_BASE_WIDTH = 860;
+
 const DiagramLabelingQuestion = ({
   question,
   onChange,
@@ -154,14 +192,27 @@ const DiagramLabelingQuestion = ({
   const fileInputRef = useRef(null);
   const boardRef = useRef(null);
   const dragListenersRef = useRef({ move: null, up: null });
-  const arrowMarkerId = useId().replace(/:/g, '');
+  const arrowMarkerBaseId = useId().replace(/:/g, '');
+  const arrowMarkerIds = useMemo(
+    () => ({
+      blank: `${arrowMarkerBaseId}-blank`,
+      blankActive: `${arrowMarkerBaseId}-blank-active`,
+      annotation: `${arrowMarkerBaseId}-annotation`,
+      annotationActive: `${arrowMarkerBaseId}-annotation-active`,
+    }),
+    [arrowMarkerBaseId]
+  );
   const [activeBlankIndex, setActiveBlankIndex] = useState(0);
   const [activeAnnotationIndex, setActiveAnnotationIndex] = useState(0);
   const [selectionMode, setSelectionMode] = useState(null);
   const [showExpandedLabels, setShowExpandedLabels] = useState(true);
   const [showAdvancedControls, setShowAdvancedControls] = useState(false);
+  const [showStudentPreview, setShowStudentPreview] = useState(false);
   const [collapsedBlankCards, setCollapsedBlankCards] = useState({});
   const [dragPreview, setDragPreview] = useState(null);
+  const [studentPreviewAnswers, setStudentPreviewAnswers] = useState({});
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [imageUploadError, setImageUploadError] = useState('');
 
   const blanks = useMemo(
     () => (Array.isArray(question?.blanks) ? question.blanks : []).map(normalizeBlank),
@@ -173,6 +224,18 @@ const DiagramLabelingQuestion = ({
   );
   const baseQuestionNumber = getStartNumber(question?.questionNumber, questionNumber);
   const imageUrl = resolveImageUrl(question?.diagramImageUrl || question?.imageUrl || '');
+  const useCompactAnswerLayout = mode === 'answer';
+  const useRuntimeLayout = mode === 'answer' || mode === 'review';
+
+  const resolveRuntimeBoxWidth = (width) => {
+    if (!useRuntimeLayout) {
+      return `${width}px`;
+    }
+
+    const boundedWidth = clampWidth(width, 220);
+    const percentWidth = Math.max(18, (boundedWidth / RUNTIME_BOARD_BASE_WIDTH) * 100);
+    return `min(${boundedWidth}px, ${percentWidth.toFixed(2)}%)`;
+  };
 
   useEffect(() => {
     if (activeBlankIndex > blanks.length - 1) {
@@ -185,6 +248,16 @@ const DiagramLabelingQuestion = ({
       setActiveAnnotationIndex(Math.max(0, annotations.length - 1));
     }
   }, [activeAnnotationIndex, annotations.length]);
+
+  useEffect(() => {
+    const validKeys = new Set(
+      blanks.map((_, blankIndex) => `q_${baseQuestionNumber}_${blankIndex}`)
+    );
+
+    setStudentPreviewAnswers((current) => Object.fromEntries(
+      Object.entries(current).filter(([key]) => validKeys.has(key))
+    ));
+  }, [blanks, baseQuestionNumber]);
 
   useEffect(() => {
     return () => {
@@ -500,15 +573,24 @@ const DiagramLabelingQuestion = ({
     setSelectionMode(null);
   };
 
-  const handleImageUpload = (event) => {
+  const handleImageUpload = async (event) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      emitQuestion({ diagramImageUrl: reader.result || '' });
-    };
-    reader.readAsDataURL(file);
+    setImageUploadError('');
+    setIsUploadingImage(true);
+
+    try {
+      const uploadedUrl = await uploadCambridgeImageFile(file);
+      emitQuestion({ diagramImageUrl: uploadedUrl });
+    } catch (error) {
+      setImageUploadError(error?.message || 'Lỗi khi upload ảnh diagram');
+    } finally {
+      setIsUploadingImage(false);
+      if (event.target) {
+        event.target.value = '';
+      }
+    }
   };
 
   const handleAddBlank = () => {
@@ -664,17 +746,20 @@ const DiagramLabelingQuestion = ({
           <input
             ref={(element) => registerQuestionRef?.(absoluteQuestionNumber, element)}
             type="text"
+            aria-label={`Ô trả lời câu ${absoluteQuestionNumber}`}
             value={answerValue}
             readOnly
             style={{
-              width: '92px',
+              width: useCompactAnswerLayout ? '72px' : '92px',
               padding: '4px 6px',
-              margin: '0 4px',
+              margin: useCompactAnswerLayout ? '0 2px' : '0 4px',
               borderRadius: '6px',
               border: reviewBorder,
               backgroundColor: reviewBackground,
               fontWeight: 700,
-              fontSize: '12px',
+              fontSize: '1em',
+              fontFamily: 'inherit',
+              lineHeight: 'inherit',
             }}
           />
         );
@@ -684,18 +769,21 @@ const DiagramLabelingQuestion = ({
         <input
           ref={(element) => registerQuestionRef?.(absoluteQuestionNumber, element)}
           type="text"
+          aria-label={`Ô trả lời câu ${absoluteQuestionNumber}`}
           value={answerValue}
           onChange={(event) => onAnswerChange?.(answerKey, event.target.value)}
           onFocus={() => onFocusQuestion?.(absoluteQuestionNumber)}
           style={{
-            width: '92px',
-            padding: '4px 6px',
-            margin: '0 4px',
-            borderRadius: '6px',
+            width: useCompactAnswerLayout ? '72px' : '92px',
+            padding: useCompactAnswerLayout ? '3px 5px' : '4px 6px',
+            margin: useCompactAnswerLayout ? '0 2px' : '0 4px',
+            borderRadius: useCompactAnswerLayout ? '5px' : '6px',
             border: answerValue ? '2px solid #0e276f' : '2px solid #cbd5e1',
             backgroundColor: '#ffffff',
             fontWeight: 700,
-            fontSize: '12px',
+            fontSize: '1em',
+            fontFamily: 'inherit',
+            lineHeight: 'inherit',
           }}
         />
       );
@@ -704,27 +792,27 @@ const DiagramLabelingQuestion = ({
     const containsNumberToken = promptParts.includes('[NUMBER]');
 
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: useCompactAnswerLayout ? '4px' : '6px' }}>
         {!containsNumberToken && (
           <div
             style={{
               display: 'inline-flex',
               alignItems: 'center',
               justifyContent: 'center',
-              minWidth: '28px',
-              height: '28px',
+              minWidth: useCompactAnswerLayout ? '24px' : '28px',
+              height: useCompactAnswerLayout ? '24px' : '28px',
               borderRadius: '999px',
               backgroundColor: '#0e276f',
               color: '#ffffff',
               fontWeight: 700,
-              fontSize: '12px',
+              fontSize: useCompactAnswerLayout ? '11px' : '12px',
             }}
           >
             {absoluteQuestionNumber}
           </div>
         )}
 
-        <div style={{ lineHeight: 1.5 }}>
+        <div style={{ lineHeight: useCompactAnswerLayout ? 1.34 : 1.5 }}>
           {promptParts.map((part, partIndex) => {
             if (part === '[NUMBER]') {
               return (
@@ -734,14 +822,14 @@ const DiagramLabelingQuestion = ({
                     display: 'inline-flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    minWidth: '24px',
-                    height: '24px',
+                    minWidth: useCompactAnswerLayout ? '20px' : '24px',
+                    height: useCompactAnswerLayout ? '20px' : '24px',
                     borderRadius: '999px',
                     backgroundColor: '#0e276f',
                     color: '#ffffff',
                     fontWeight: 700,
-                    fontSize: '11px',
-                    marginRight: '6px',
+                    fontSize: useCompactAnswerLayout ? '10px' : '11px',
+                    marginRight: useCompactAnswerLayout ? '4px' : '6px',
                   }}
                 >
                   {absoluteQuestionNumber}
@@ -782,7 +870,7 @@ const DiagramLabelingQuestion = ({
       style={{
         position: 'relative',
         width: '100%',
-        minWidth: mode === 'edit' ? '760px' : '720px',
+        minWidth: mode === 'edit' ? `${EDIT_BOARD_BASE_WIDTH}px` : `${RUNTIME_BOARD_BASE_WIDTH}px`,
         minHeight: '520px',
         borderRadius: '12px',
         overflow: 'visible',
@@ -831,14 +919,44 @@ const DiagramLabelingQuestion = ({
       >
         <defs>
           <marker
-            id={arrowMarkerId}
+            id={arrowMarkerIds.blank}
             markerWidth="6"
             markerHeight="6"
             refX="5"
             refY="3"
             orient="auto"
           >
-            <path d="M0,0 L6,3 L0,6 z" fill="#0f172a" />
+            <path d="M0,0 L6,3 L0,6 z" fill={BLANK_THEME.line} />
+          </marker>
+          <marker
+            id={arrowMarkerIds.blankActive}
+            markerWidth="6"
+            markerHeight="6"
+            refX="5"
+            refY="3"
+            orient="auto"
+          >
+            <path d="M0,0 L6,3 L0,6 z" fill={BLANK_THEME.lineActive} />
+          </marker>
+          <marker
+            id={arrowMarkerIds.annotation}
+            markerWidth="6"
+            markerHeight="6"
+            refX="5"
+            refY="3"
+            orient="auto"
+          >
+            <path d="M0,0 L6,3 L0,6 z" fill={ANNOTATION_THEME.line} />
+          </marker>
+          <marker
+            id={arrowMarkerIds.annotationActive}
+            markerWidth="6"
+            markerHeight="6"
+            refX="5"
+            refY="3"
+            orient="auto"
+          >
+            <path d="M0,0 L6,3 L0,6 z" fill={ANNOTATION_THEME.lineActive} />
           </marker>
         </defs>
 
@@ -850,16 +968,18 @@ const DiagramLabelingQuestion = ({
                 y1={blank.labelY}
                 x2={anchor.x}
                 y2={anchor.y}
-                stroke={activeBlankIndex === blankIndex ? '#dc2626' : '#0f172a'}
+                stroke={activeBlankIndex === blankIndex ? BLANK_THEME.lineActive : BLANK_THEME.line}
                 strokeWidth="0.45"
-                markerEnd={`url(#${arrowMarkerId})`}
+                markerEnd={`url(#${activeBlankIndex === blankIndex ? arrowMarkerIds.blankActive : arrowMarkerIds.blank})`}
               />
-              <circle
-                cx={anchor.x}
-                cy={anchor.y}
-                r="1.1"
-                fill={activeBlankIndex === blankIndex ? '#dc2626' : '#0f172a'}
-              />
+              {mode === 'edit' ? (
+                <circle
+                  cx={anchor.x}
+                  cy={anchor.y}
+                  r="1.1"
+                  fill={activeBlankIndex === blankIndex ? BLANK_THEME.lineActive : BLANK_THEME.line}
+                />
+              ) : null}
             </g>
           ))
         ))}
@@ -874,16 +994,18 @@ const DiagramLabelingQuestion = ({
                   y1={annotation.labelY}
                   x2={anchor.x}
                   y2={anchor.y}
-                  stroke={activeAnnotationIndex === annotationIndex ? '#16a34a' : '#0f172a'}
+                  stroke={activeAnnotationIndex === annotationIndex ? ANNOTATION_THEME.lineActive : ANNOTATION_THEME.line}
                   strokeWidth="0.45"
-                  markerEnd={`url(#${arrowMarkerId})`}
+                  markerEnd={`url(#${activeAnnotationIndex === annotationIndex ? arrowMarkerIds.annotationActive : arrowMarkerIds.annotation})`}
                 />
-                <circle
-                  cx={anchor.x}
-                  cy={anchor.y}
-                  r="1.1"
-                  fill={activeAnnotationIndex === annotationIndex ? '#16a34a' : '#0f172a'}
-                />
+                {mode === 'edit' ? (
+                  <circle
+                    cx={anchor.x}
+                    cy={anchor.y}
+                    r="1.1"
+                    fill={activeAnnotationIndex === annotationIndex ? ANNOTATION_THEME.lineActive : ANNOTATION_THEME.line}
+                  />
+                ) : null}
               </g>
             ))
           ))}
@@ -913,10 +1035,10 @@ const DiagramLabelingQuestion = ({
               height: '20px',
               transform: 'translate(-50%, -50%)',
               borderRadius: '999px',
-              border: `1px solid ${isActive ? 'rgba(220, 38, 38, 0.55)' : 'rgba(15, 23, 42, 0.32)'}`,
+              border: `1px solid ${isActive ? BLANK_THEME.handleActiveBorder : BLANK_THEME.handleBorder}`,
               background: isActive
-                ? 'radial-gradient(circle, rgba(220, 38, 38, 0.92) 0 22%, rgba(220, 38, 38, 0.22) 23%, rgba(220, 38, 38, 0.1) 58%, rgba(220, 38, 38, 0) 59%)'
-                : 'radial-gradient(circle, rgba(15, 23, 42, 0.86) 0 22%, rgba(15, 23, 42, 0.18) 23%, rgba(15, 23, 42, 0.08) 58%, rgba(15, 23, 42, 0) 59%)',
+                ? BLANK_THEME.handleActiveGradient
+                : BLANK_THEME.handleGradient,
               boxShadow: '0 2px 8px rgba(15, 23, 42, 0.12)',
               cursor: 'grab',
               zIndex: 5,
@@ -951,9 +1073,9 @@ const DiagramLabelingQuestion = ({
                 minWidth: '56px',
                 padding: '8px 10px',
                 borderRadius: '999px',
-                border: `2px solid ${isActive ? '#dc2626' : '#0e276f'}`,
-                backgroundColor: isActive ? '#fff1f2' : 'rgba(255,255,255,0.95)',
-                color: isActive ? '#b91c1c' : '#0e276f',
+                border: `2px solid ${isActive ? BLANK_THEME.accentStrong : BLANK_THEME.accentBorder}`,
+                backgroundColor: isActive ? BLANK_THEME.accentSoft : 'rgba(255,255,255,0.95)',
+                color: isActive ? BLANK_THEME.text : BLANK_THEME.accentStrong,
                 fontWeight: 800,
                 boxShadow: '0 8px 18px rgba(15, 23, 42, 0.14)',
                 cursor: 'grab',
@@ -980,13 +1102,13 @@ const DiagramLabelingQuestion = ({
               position: 'absolute',
               top: `${blank.labelY}%`,
               left: `${blank.labelX}%`,
-              width: `${blank.width}px`,
+              width: resolveRuntimeBoxWidth(blank.width),
               transform: 'translate(-2px, -2px)',
               backgroundColor: 'rgba(255,255,255,0.96)',
-              border: `2px solid ${isActive ? '#dc2626' : '#cbd5e1'}`,
-              borderRadius: '12px',
-              padding: '10px 12px',
-              boxShadow: '0 8px 18px rgba(15, 23, 42, 0.14)',
+              border: `2px solid ${isActive ? BLANK_THEME.accentStrong : BLANK_THEME.accentBorder}`,
+              borderRadius: useCompactAnswerLayout ? '10px' : '12px',
+              padding: useCompactAnswerLayout ? '7px 9px' : '10px 12px',
+              boxShadow: useCompactAnswerLayout ? '0 4px 10px rgba(15, 23, 42, 0.1)' : '0 8px 18px rgba(15, 23, 42, 0.14)',
               textAlign: blank.textAlign,
               pointerEvents: 'auto',
               cursor: mode === 'edit' ? 'grab' : 'auto',
@@ -1013,7 +1135,7 @@ const DiagramLabelingQuestion = ({
                   height: '16px',
                   border: 'none',
                   borderRadius: '4px',
-                  background: isActive ? '#dc2626' : '#cbd5e1',
+                  background: isActive ? BLANK_THEME.accent : BLANK_THEME.accentBorder,
                   cursor: 'nwse-resize',
                   padding: 0,
                   boxShadow: '0 2px 6px rgba(15, 23, 42, 0.18)',
@@ -1050,10 +1172,10 @@ const DiagramLabelingQuestion = ({
                 height: '18px',
                 transform: 'translate(-50%, -50%)',
                 borderRadius: '999px',
-                border: `1px solid ${isActive ? 'rgba(22, 163, 74, 0.5)' : 'rgba(15, 23, 42, 0.32)'}`,
+                border: `1px solid ${isActive ? ANNOTATION_THEME.handleActiveBorder : ANNOTATION_THEME.handleBorder}`,
                 background: isActive
-                  ? 'radial-gradient(circle, rgba(22, 163, 74, 0.92) 0 22%, rgba(22, 163, 74, 0.2) 23%, rgba(22, 163, 74, 0.1) 58%, rgba(22, 163, 74, 0) 59%)'
-                  : 'radial-gradient(circle, rgba(15, 23, 42, 0.86) 0 22%, rgba(15, 23, 42, 0.18) 23%, rgba(15, 23, 42, 0.08) 58%, rgba(15, 23, 42, 0) 59%)',
+                  ? ANNOTATION_THEME.handleActiveGradient
+                  : ANNOTATION_THEME.handleGradient,
                 boxShadow: '0 2px 8px rgba(15, 23, 42, 0.12)',
                 cursor: 'grab',
                 zIndex: 6,
@@ -1081,21 +1203,21 @@ const DiagramLabelingQuestion = ({
               position: 'absolute',
               top: `${annotation.labelY}%`,
               left: `${annotation.labelX}%`,
-              width: `${annotation.width}px`,
+              width: resolveRuntimeBoxWidth(annotation.width),
               transform: 'translate(-2px, -2px)',
               backgroundColor: 'rgba(255,255,255,0.96)',
-              border: `2px solid ${isActive ? '#16a34a' : '#bbf7d0'}`,
-              borderRadius: '12px',
-              padding: '10px 12px',
-              boxShadow: '0 8px 18px rgba(15, 23, 42, 0.14)',
+              border: `2px solid ${isActive ? ANNOTATION_THEME.accent : ANNOTATION_THEME.accentBorder}`,
+              borderRadius: useCompactAnswerLayout ? '10px' : '12px',
+              padding: useCompactAnswerLayout ? '7px 9px' : '10px 12px',
+              boxShadow: useCompactAnswerLayout ? '0 4px 10px rgba(15, 23, 42, 0.1)' : '0 8px 18px rgba(15, 23, 42, 0.14)',
               textAlign: annotation.textAlign,
               pointerEvents: 'auto',
               cursor: mode === 'edit' ? 'grab' : 'default',
               userSelect: 'none',
               zIndex: isActive ? 6 : 4,
               whiteSpace: 'pre-wrap',
-              lineHeight: 1.4,
-              color: '#0f172a',
+              lineHeight: useCompactAnswerLayout ? 1.28 : 1.4,
+              color: isActive ? ANNOTATION_THEME.text : '#0f172a',
             }}
           >
             {annotation.noteText}
@@ -1117,7 +1239,7 @@ const DiagramLabelingQuestion = ({
                   height: '16px',
                   border: 'none',
                   borderRadius: '4px',
-                  background: isActive ? '#16a34a' : '#86efac',
+                  background: isActive ? ANNOTATION_THEME.accent : ANNOTATION_THEME.accentBorder,
                   cursor: 'nwse-resize',
                   padding: 0,
                   boxShadow: '0 2px 6px rgba(15, 23, 42, 0.18)',
@@ -1204,7 +1326,7 @@ const DiagramLabelingQuestion = ({
         <div>
           <h4 style={{ margin: 0, color: '#0e276f', fontSize: '18px' }}>Diagram Labeling</h4>
           <p style={{ margin: '6px 0 0 0', color: '#475569', fontSize: '12px' }}>
-            Dùng token [NUMBER] và [BLANK] trong mỗi prompt. Có thể bấm để đặt nhanh hoặc kéo trực tiếp label và chấm đỏ trên ảnh.
+            Dùng token [NUMBER] và [BLANK] trong mỗi prompt. Có thể bấm để đặt nhanh hoặc kéo trực tiếp label và đầu mũi tên trên ảnh.
           </p>
         </div>
 
@@ -1233,8 +1355,8 @@ const DiagramLabelingQuestion = ({
               border: 'none',
               cursor: 'pointer',
               fontWeight: 700,
-              backgroundColor: selectionMode === 'anchor' ? '#dc2626' : '#fee2e2',
-              color: selectionMode === 'anchor' ? '#ffffff' : '#b91c1c',
+              backgroundColor: selectionMode === 'anchor' ? BLANK_THEME.accent : BLANK_THEME.accentSoft,
+              color: selectionMode === 'anchor' ? '#ffffff' : BLANK_THEME.text,
             }}
           >
             Đặt đầu mũi tên
@@ -1248,7 +1370,7 @@ const DiagramLabelingQuestion = ({
               border: 'none',
               cursor: 'pointer',
               fontWeight: 700,
-              backgroundColor: '#16a34a',
+              backgroundColor: BLANK_THEME.accent,
               color: '#ffffff',
             }}
           >
@@ -1263,11 +1385,26 @@ const DiagramLabelingQuestion = ({
               border: 'none',
               cursor: 'pointer',
               fontWeight: 700,
-              backgroundColor: '#0891b2',
+              backgroundColor: ANNOTATION_THEME.accent,
               color: '#ffffff',
             }}
           >
             Thêm chú thích
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowStudentPreview((value) => !value)}
+            style={{
+              padding: '8px 12px',
+              borderRadius: '8px',
+              border: `1px solid ${BLANK_THEME.accentBorder}`,
+              cursor: 'pointer',
+              fontWeight: 700,
+              backgroundColor: showStudentPreview ? BLANK_THEME.accentSoft : '#ffffff',
+              color: showStudentPreview ? BLANK_THEME.text : '#0f172a',
+            }}
+          >
+            {showStudentPreview ? 'Ẩn xem trước học sinh' : 'Xem trước kiểu học sinh'}
           </button>
           <button
             type="button"
@@ -1338,17 +1475,18 @@ const DiagramLabelingQuestion = ({
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
+                disabled={isUploadingImage}
                 style={{
                   padding: '10px 12px',
                   borderRadius: '8px',
                   border: 'none',
-                  cursor: 'pointer',
-                  backgroundColor: '#0e276f',
+                  cursor: isUploadingImage ? 'not-allowed' : 'pointer',
+                  backgroundColor: isUploadingImage ? '#94a3b8' : '#0e276f',
                   color: '#ffffff',
                   fontWeight: 700,
                 }}
               >
-                Tải ảnh lên
+                {isUploadingImage ? 'Đang upload...' : 'Tải ảnh lên'}
               </button>
               <input
                 type="text"
@@ -1359,6 +1497,12 @@ const DiagramLabelingQuestion = ({
               />
             </div>
 
+            {imageUploadError ? (
+              <div style={{ marginTop: '8px', color: '#b91c1c', fontSize: '12px', fontWeight: 600 }}>
+                {imageUploadError}
+              </div>
+            ) : null}
+
             <input
               ref={fileInputRef}
               type="file"
@@ -1366,6 +1510,10 @@ const DiagramLabelingQuestion = ({
               onChange={handleImageUpload}
               style={{ display: 'none' }}
             />
+
+            <div style={{ marginTop: '8px', color: '#64748b', fontSize: '12px' }}>
+              Ảnh upload sẽ được lưu thành URL để tránh lỗi payload quá lớn khi tạo đề.
+            </div>
           </div>
 
           <div style={{ overflowX: 'auto', paddingBottom: '6px' }}>
@@ -1376,6 +1524,56 @@ const DiagramLabelingQuestion = ({
             ) : null}
             {boardContent}
           </div>
+
+          {showStudentPreview ? (
+            <div
+              data-testid="student-preview-panel"
+              style={{
+                padding: '14px',
+                borderRadius: '12px',
+                border: `1px solid ${BLANK_THEME.accentBorder}`,
+                backgroundColor: '#ffffff',
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', marginBottom: '12px', flexWrap: 'wrap' }}>
+                <div>
+                  <h5 style={{ margin: 0, color: BLANK_THEME.text, fontSize: '16px' }}>Xem trước giao diện học sinh</h5>
+                  <p style={{ margin: '4px 0 0 0', color: '#64748b', fontSize: '12px' }}>
+                    Gõ thử đáp án trực tiếp để kiểm tra bố cục và vị trí label như lúc học sinh làm bài.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setStudentPreviewAnswers({})}
+                  style={{
+                    padding: '8px 10px',
+                    borderRadius: '8px',
+                    border: `1px solid ${BLANK_THEME.accentBorder}`,
+                    cursor: 'pointer',
+                    backgroundColor: BLANK_THEME.accentSoft,
+                    color: BLANK_THEME.text,
+                    fontWeight: 700,
+                  }}
+                >
+                  Xóa đáp án thử
+                </button>
+              </div>
+
+              <DiagramLabelingQuestion
+                question={question}
+                mode="answer"
+                questionNumber={baseQuestionNumber}
+                answers={studentPreviewAnswers}
+                onAnswerChange={(answerKey, value) => {
+                  setStudentPreviewAnswers((current) => ({
+                    ...current,
+                    [answerKey]: value,
+                  }));
+                }}
+              />
+            </div>
+          ) : null}
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
@@ -1456,7 +1654,7 @@ const DiagramLabelingQuestion = ({
                 <div
                   key={blank.id}
                   style={{
-                    border: `2px solid ${activeBlankIndex === blankIndex ? '#dc2626' : '#dbeafe'}`,
+                    border: `2px solid ${activeBlankIndex === blankIndex ? BLANK_THEME.accent : BLANK_THEME.accentBorder}`,
                     borderRadius: '12px',
                     padding: '14px',
                     backgroundColor: '#ffffff',
@@ -1475,8 +1673,8 @@ const DiagramLabelingQuestion = ({
                         border: 'none',
                         cursor: 'pointer',
                         fontWeight: 700,
-                        backgroundColor: activeBlankIndex === blankIndex ? '#dc2626' : '#e2e8f0',
-                        color: activeBlankIndex === blankIndex ? '#ffffff' : '#0f172a',
+                        backgroundColor: activeBlankIndex === blankIndex ? BLANK_THEME.accent : BLANK_THEME.accentMuted,
+                        color: activeBlankIndex === blankIndex ? '#ffffff' : BLANK_THEME.text,
                       }}
                     >
                       Q{absoluteQuestionNumber}
@@ -1508,8 +1706,8 @@ const DiagramLabelingQuestion = ({
                           borderRadius: '8px',
                           border: 'none',
                           cursor: blanks.length <= 1 ? 'not-allowed' : 'pointer',
-                          backgroundColor: blanks.length <= 1 ? '#cbd5e1' : '#fee2e2',
-                          color: blanks.length <= 1 ? '#64748b' : '#b91c1c',
+                          backgroundColor: blanks.length <= 1 ? '#cbd5e1' : BLANK_THEME.accentSoft,
+                          color: blanks.length <= 1 ? '#64748b' : BLANK_THEME.text,
                           fontWeight: 700,
                         }}
                       >
@@ -1581,10 +1779,10 @@ const DiagramLabelingQuestion = ({
                           style={{
                             padding: '8px 10px',
                             borderRadius: '8px',
-                            border: '1px solid #fecaca',
+                            border: `1px solid ${BLANK_THEME.accentBorder}`,
                             cursor: 'pointer',
-                            backgroundColor: '#fff1f2',
-                            color: '#b91c1c',
+                            backgroundColor: BLANK_THEME.accentSoft,
+                            color: BLANK_THEME.text,
                             fontWeight: 700,
                           }}
                         >
@@ -1599,10 +1797,10 @@ const DiagramLabelingQuestion = ({
                             style={{
                               padding: '7px 9px',
                               borderRadius: '999px',
-                              border: '1px solid #fecaca',
+                              border: `1px solid ${BLANK_THEME.accentBorder}`,
                               cursor: 'pointer',
                               backgroundColor: '#ffffff',
-                              color: '#b91c1c',
+                              color: BLANK_THEME.text,
                               fontWeight: 700,
                               fontSize: '12px',
                             }}
@@ -1710,9 +1908,9 @@ const DiagramLabelingQuestion = ({
                   style={{
                     padding: '12px',
                     borderRadius: '10px',
-                    border: '1px dashed #86efac',
-                    backgroundColor: '#f0fdf4',
-                    color: '#166534',
+                    border: `1px dashed ${ANNOTATION_THEME.accentBorder}`,
+                    backgroundColor: ANNOTATION_THEME.accentSoft,
+                    color: ANNOTATION_THEME.text,
                     fontSize: '12px',
                     lineHeight: 1.6,
                   }}
@@ -1724,7 +1922,7 @@ const DiagramLabelingQuestion = ({
                   <div
                     key={annotation.id}
                     style={{
-                      border: `2px solid ${activeAnnotationIndex === annotationIndex ? '#16a34a' : '#bbf7d0'}`,
+                      border: `2px solid ${activeAnnotationIndex === annotationIndex ? ANNOTATION_THEME.accent : ANNOTATION_THEME.accentBorder}`,
                       borderRadius: '12px',
                       padding: '14px',
                       backgroundColor: '#ffffff',
@@ -1750,8 +1948,8 @@ const DiagramLabelingQuestion = ({
                           border: 'none',
                           cursor: 'pointer',
                           fontWeight: 700,
-                          backgroundColor: activeAnnotationIndex === annotationIndex ? '#16a34a' : '#dcfce7',
-                          color: activeAnnotationIndex === annotationIndex ? '#ffffff' : '#166534',
+                          backgroundColor: activeAnnotationIndex === annotationIndex ? ANNOTATION_THEME.accent : ANNOTATION_THEME.accentMuted,
+                          color: activeAnnotationIndex === annotationIndex ? '#ffffff' : ANNOTATION_THEME.text,
                         }}
                       >
                         Chú thích {annotationIndex + 1}
@@ -1765,7 +1963,7 @@ const DiagramLabelingQuestion = ({
                           borderRadius: '8px',
                           border: 'none',
                           cursor: 'pointer',
-                          backgroundColor: '#fee2e2',
+                          backgroundColor: ANNOTATION_THEME.accentSoft,
                           color: '#b91c1c',
                           fontWeight: 700,
                         }}
@@ -1826,10 +2024,10 @@ const DiagramLabelingQuestion = ({
                         style={{
                           padding: '8px 10px',
                           borderRadius: '8px',
-                          border: '1px solid #bbf7d0',
+                          border: `1px solid ${ANNOTATION_THEME.accentBorder}`,
                           cursor: 'pointer',
-                          backgroundColor: '#f0fdf4',
-                          color: '#166534',
+                          backgroundColor: ANNOTATION_THEME.accentSoft,
+                          color: ANNOTATION_THEME.text,
                           fontWeight: 700,
                         }}
                       >
@@ -1844,10 +2042,10 @@ const DiagramLabelingQuestion = ({
                           style={{
                             padding: '7px 9px',
                             borderRadius: '999px',
-                            border: '1px solid #bbf7d0',
+                            border: `1px solid ${ANNOTATION_THEME.accentBorder}`,
                             cursor: 'pointer',
                             backgroundColor: '#ffffff',
-                            color: '#166534',
+                            color: ANNOTATION_THEME.text,
                             fontWeight: 700,
                             fontSize: '12px',
                           }}
