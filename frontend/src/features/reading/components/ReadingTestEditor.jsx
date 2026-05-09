@@ -185,6 +185,7 @@ const ReadingTestEditor = ({
 }) => {
   // Header collapse (top title/classCode/teacher inputs bar)
   const [collapsedHeader, setCollapsedHeader] = useState(false);
+  const [collapsedSidebar, setCollapsedSidebar] = useState(false);
   // Passage panel collapse (separate from top header)
   const [collapsedPassage, setCollapsedPassage] = useState(false);
   // Questions panel collapse
@@ -325,8 +326,8 @@ const ReadingTestEditor = ({
           {/* === LEFT SIDEBAR === */}
           <div
             style={{
-              width: "280px",
-              minWidth: "220px",
+              width: collapsedSidebar ? "76px" : "280px",
+              minWidth: collapsedSidebar ? "76px" : "220px",
               backgroundColor: "#1e293b",
               color: "white",
               display: "flex",
@@ -334,42 +335,104 @@ const ReadingTestEditor = ({
               overflow: "hidden",
               flexShrink: 0,
               borderRight: "1px solid #0f172a",
+              transition: "width 0.25s ease, min-width 0.25s ease",
             }}
           >
             {/* Passages header */}
-            <div style={{ padding: "10px 12px", borderBottom: "1px solid #334155", flexShrink: 0 }}>
-              <span style={{ fontSize: "11px", fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-                Passages ({passages?.length || 0})
+            <div
+              style={{
+                padding: collapsedSidebar ? "10px 8px" : "10px 12px",
+                borderBottom: "1px solid #334155",
+                flexShrink: 0,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: "8px",
+              }}
+            >
+              <span
+                style={{
+                  fontSize: "11px",
+                  fontWeight: 700,
+                  color: "#94a3b8",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.5px",
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                }}
+                title={`Passages (${passages?.length || 0})`}
+              >
+                {collapsedSidebar ? `P${passages?.length || 0}` : `Passages (${passages?.length || 0})`}
               </span>
+              <button
+                type="button"
+                onClick={() => setCollapsedSidebar((value) => !value)}
+                title={collapsedSidebar ? "Mở rộng cột Passages" : "Thu nhỏ cột Passages"}
+                aria-label={collapsedSidebar ? "Mở rộng cột Passages" : "Thu nhỏ cột Passages"}
+                style={{
+                  width: "28px",
+                  height: "28px",
+                  borderRadius: "6px",
+                  border: "1px solid #475569",
+                  backgroundColor: "rgba(148, 163, 184, 0.12)",
+                  color: "white",
+                  cursor: "pointer",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexShrink: 0,
+                }}
+              >
+                <InlineIcon
+                  name={collapsedSidebar ? "chevron-right" : "chevron-left"}
+                  size={14}
+                  style={{ color: "currentColor" }}
+                />
+              </button>
             </div>
             {/* Passages list - scrollable, button stays outside */}
-            <div style={{ overflow: "auto", padding: "8px 8px 0 8px", flexShrink: 0, maxHeight: "38%" }}>
+            <div
+              style={{
+                overflow: "auto",
+                padding: collapsedSidebar ? "8px 6px 0 6px" : "8px 8px 0 8px",
+                flexShrink: 0,
+                maxHeight: "38%",
+              }}
+            >
               {passages?.map((passage, idx) => (
                 <div
                   key={idx}
                   onClick={() => { setSelectedPassageIndex(idx); setSelectedSectionIndex(0); }}
+                  title={`Passage ${idx + 1}${passage.passageTitle ? ` - ${passage.passageTitle}` : ""}`}
                   style={{
-                    padding: "9px 10px",
+                    padding: collapsedSidebar ? "10px 6px" : "9px 10px",
                     marginBottom: "4px",
                     borderRadius: "6px",
                     cursor: "pointer",
                     backgroundColor: selectedPassageIndex === idx ? "#3b82f6" : "#475569",
                     display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "flex-start",
+                    justifyContent: collapsedSidebar ? "center" : "space-between",
+                    alignItems: collapsedSidebar ? "center" : "flex-start",
                     transition: "background 0.15s",
                   }}
                 >
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: "13px", fontWeight: 600, color: "white" }}>Passage {idx + 1}</div>
-                    <div style={{ fontSize: "11px", color: "#cbd5e1", marginTop: "2px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {passage.passageTitle || "(Chưa có tiêu đề)"}
+                  <div style={{ flex: 1, minWidth: 0, textAlign: collapsedSidebar ? "center" : "left" }}>
+                    <div style={{ fontSize: "13px", fontWeight: 600, color: "white" }}>
+                      {collapsedSidebar ? `P${idx + 1}` : `Passage ${idx + 1}`}
                     </div>
-                    <div style={{ fontSize: "10px", color: "#94a3b8", marginTop: "2px" }}>
-                      {passage.sections?.length || 0} section · {passage.sections?.reduce((s, sec) => s + (sec.questions?.length || 0), 0) || 0} câu
-                    </div>
+                    {!collapsedSidebar && (
+                      <>
+                        <div style={{ fontSize: "11px", color: "#cbd5e1", marginTop: "2px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {passage.passageTitle || "(Chưa có tiêu đề)"}
+                        </div>
+                        <div style={{ fontSize: "10px", color: "#94a3b8", marginTop: "2px" }}>
+                          {passage.sections?.length || 0} section · {passage.sections?.reduce((s, sec) => s + (sec.questions?.length || 0), 0) || 0} câu
+                        </div>
+                      </>
+                    )}
                   </div>
-                  {passages.length > 1 && (
+                  {!collapsedSidebar && passages.length > 1 && (
                     <button
                       type="button"
                       onClick={(e) => { e.stopPropagation(); onDeletePassage(idx); }}
@@ -389,43 +452,52 @@ const ReadingTestEditor = ({
               <button
                 type="button"
                 onClick={onAddPassage}
+                title="Thêm Passage"
                 style={{
                   width: "100%", padding: "7px", backgroundColor: "#22c55e", color: "white",
                   border: "none", borderRadius: "6px", cursor: "pointer", fontWeight: 600,
                   fontSize: "12px",
                 }}
-              >Thêm Passage</button>
+              >{collapsedSidebar ? "+" : "Thêm Passage"}</button>
             </div>
 
             {/* Sections header */}
-            <div style={{ padding: "10px 12px", borderTop: "1px solid #334155", borderBottom: "1px solid #334155", flexShrink: 0 }}>
+            <div style={{ padding: collapsedSidebar ? "10px 8px" : "10px 12px", borderTop: "1px solid #334155", borderBottom: "1px solid #334155", flexShrink: 0 }}>
               <span style={{ fontSize: "11px", fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-                Sections {currentPassage ? `(P${selectedPassageIndex + 1})` : ""}
+                {collapsedSidebar ? "S" : `Sections ${currentPassage ? `(P${selectedPassageIndex + 1})` : ""}`}
               </span>
             </div>
             {/* Sections list - scrollable, button stays outside */}
-            <div style={{ flex: 1, overflow: "auto", padding: "8px 8px 0 8px" }}>
+            <div style={{ flex: 1, overflow: "auto", padding: collapsedSidebar ? "8px 6px 0 6px" : "8px 8px 0 8px" }}>
               {currentPassage ? (
                 currentPassage.sections?.map((section, idx) => (
                   <div
                     key={idx}
                     onClick={() => setSelectedSectionIndex(idx)}
+                    title={`Section ${idx + 1}${section.sectionTitle ? ` - ${section.sectionTitle}` : ""}`}
                     style={{
-                      padding: "9px 10px",
+                      padding: collapsedSidebar ? "10px 6px" : "9px 10px",
                       marginBottom: "4px",
                       borderRadius: "6px",
                       cursor: "pointer",
                       backgroundColor: selectedSectionIndex === idx ? "#6366f1" : "#475569",
                       transition: "background 0.15s",
+                      textAlign: collapsedSidebar ? "center" : "left",
                     }}
                   >
-                    <div style={{ fontSize: "13px", fontWeight: 600, color: "white" }}>Section {idx + 1}</div>
-                    <div style={{ fontSize: "11px", color: "#cbd5e1", marginTop: "2px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {section.sectionTitle || "(Untitled)"}
+                    <div style={{ fontSize: "13px", fontWeight: 600, color: "white" }}>
+                      {collapsedSidebar ? `S${idx + 1}` : `Section ${idx + 1}`}
                     </div>
-                    <div style={{ fontSize: "10px", color: "#94a3b8", marginTop: "2px" }}>
-                      {section.questions?.length || 0} câu hỏi
-                    </div>
+                    {!collapsedSidebar && (
+                      <>
+                        <div style={{ fontSize: "11px", color: "#cbd5e1", marginTop: "2px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {section.sectionTitle || "(Untitled)"}
+                        </div>
+                        <div style={{ fontSize: "10px", color: "#94a3b8", marginTop: "2px" }}>
+                          {section.questions?.length || 0} câu hỏi
+                        </div>
+                      </>
+                    )}
                   </div>
                 ))
               ) : (
@@ -440,12 +512,13 @@ const ReadingTestEditor = ({
                 <button
                   type="button"
                   onClick={() => onAddSection(selectedPassageIndex)}
+                  title="Thêm Section"
                   style={{
                     width: "100%", padding: "7px", backgroundColor: "#8b5cf6", color: "white",
                     border: "none", borderRadius: "6px", cursor: "pointer", fontWeight: 600,
                     fontSize: "12px",
                   }}
-                >Thêm Section</button>
+                >{collapsedSidebar ? "+" : "Thêm Section"}</button>
               </div>
             )}
           </div>
