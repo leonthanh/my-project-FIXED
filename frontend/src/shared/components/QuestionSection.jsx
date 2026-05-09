@@ -83,6 +83,9 @@ const QuestionSection = ({
   const sentenceCompletionTitleHtml = hasOwnSentenceCompletionTitle
     ? section?.sentenceCompletionTitleHtml || ''
     : legacySentenceCompletionTitleHtml;
+  const sectionQuestions = section?.questions || [];
+  const lastQuestion = sectionQuestions[sectionQuestions.length - 1] || null;
+  const appendsToDiagram = (lastQuestion?.questionType || lastQuestion?.type) === 'diagram-labeling';
 
   return (
     <div style={{
@@ -494,26 +497,53 @@ const QuestionSection = ({
         ))}
 
         {/* Add Question Button */}
-        <button
-          type="button"
-          onClick={() => {
-            onAddQuestion(passageIndex, sectionIndex);
-            collapseAllQuestions();
-          }}
-          style={{
-            width: '100%',
-            padding: '10px',
-            backgroundColor: primaryBlue,
-            color: 'white',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: 'pointer',
-            fontWeight: 'bold',
-            fontSize: '14px'
-          }}
-        >
-          Thêm câu hỏi
-        </button>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <button
+            type="button"
+            onClick={() => {
+              onAddQuestion(passageIndex, sectionIndex);
+              if (!appendsToDiagram) {
+                collapseAllQuestions();
+              }
+            }}
+            style={{
+              width: '100%',
+              padding: '10px',
+              backgroundColor: primaryBlue,
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontWeight: 'bold',
+              fontSize: '14px'
+            }}
+          >
+            {appendsToDiagram ? 'Thêm Q vào Diagram hiện tại' : 'Thêm câu hỏi'}
+          </button>
+
+          {appendsToDiagram && (
+            <button
+              type="button"
+              onClick={() => {
+                onAddQuestion(passageIndex, sectionIndex, { forceNewQuestion: true });
+                collapseAllQuestions();
+              }}
+              style={{
+                width: '100%',
+                padding: '10px',
+                backgroundColor: '#e2e8f0',
+                color: '#0f172a',
+                border: '1px solid #cbd5e1',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                fontWeight: 'bold',
+                fontSize: '13px'
+              }}
+            >
+              Tạo block câu hỏi mới
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );

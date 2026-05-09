@@ -474,6 +474,26 @@ export const calculateTotalQuestions = (passages) => {
   return total;
 };
 
+export const createDefaultDiagramBlank = (index = 0) => ({
+  id: `blank_${Date.now()}_${index}`,
+  blankNumber: index + 1,
+  promptHtml: "[NUMBER] [BLANK]",
+  correctAnswer: "",
+  labelX: 10,
+  labelY: 10 + index * 8,
+  anchorX: 50,
+  anchorY: 50,
+  anchors: [
+    {
+      id: `anchor_${Date.now()}_${index}`,
+      x: 50,
+      y: 50,
+    },
+  ],
+  width: 220,
+  textAlign: "left",
+});
+
 /**
  * Tạo câu hỏi mặc định theo loại
  * @param {string} type - Loại câu hỏi
@@ -555,20 +575,8 @@ export const createDefaultQuestionByType = (type) => {
         diagramImageUrl: "",
         diagramImageAlt: "",
         maxWords: 1,
-        blanks: [
-          {
-            id: "blank_0",
-            blankNumber: 1,
-            promptHtml: "[NUMBER] [BLANK]",
-            correctAnswer: "",
-            labelX: 10,
-            labelY: 10,
-            anchorX: 50,
-            anchorY: 50,
-            width: 220,
-            textAlign: "left",
-          },
-        ],
+        annotations: [],
+        blanks: [createDefaultDiagramBlank(0)],
       };
 
 

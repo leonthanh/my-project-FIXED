@@ -157,6 +157,7 @@ describe("questionHelpers", () => {
 
       expect(question.diagramImageUrl).toBe("");
       expect(question.maxWords).toBe(1);
+      expect(question.annotations).toEqual([]);
       expect(countDiagramLabelBlanks(question)).toBe(1);
       expect(question.blanks[0]).toMatchObject({
         promptHtml: "[NUMBER] [BLANK]",
@@ -166,6 +167,8 @@ describe("questionHelpers", () => {
         anchorY: 50,
         textAlign: "left",
       });
+      expect(question.blanks[0].anchors).toHaveLength(1);
+      expect(question.blanks[0].anchors[0]).toMatchObject({ x: 50, y: 50 });
     });
   });
 

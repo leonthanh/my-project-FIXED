@@ -4,10 +4,12 @@ import {
   createNewSection,
   createNewQuestion,
   createDefaultQuestionByType,
+  createDefaultDiagramBlank,
   formatQuestionNumber,
   getNextQuestionNumber,
   getQuestionStart,
   getImpliedQuestionCount,
+  normalizeQuestionType,
   renumberQuestionsFrom,
   resolveQuestionStartNumber,
   syncQuestionNumberWithImpliedCount,
@@ -157,7 +159,8 @@ export const usePassageHandlers = (initialPassages = [createNewPassage()]) => {
   /**
    * Thêm câu hỏi mới
    */
-  const handleAddQuestion = useCallback((passageIndex, sectionIndex) => {
+  const handleAddQuestion = useCallback((passageIndex, sectionIndex, options = {}) => {
+    const { forceNewQuestion = false } = options;
     const newPassages = [...passages];
     const section = newPassages[passageIndex]?.sections?.[sectionIndex];
     
@@ -168,6 +171,31 @@ export const usePassageHandlers = (initialPassages = [createNewPassage()]) => {
     
     if (!section.questions) {
       section.questions = [];
+    }
+
+    const lastQuestionIndex = section.questions.length - 1;
+    const lastQuestion = lastQuestionIndex >= 0 ? section.questions[lastQuestionIndex] : null;
+
+    if (
+      !forceNewQuestion &&
+      lastQuestion &&
+      normalizeQuestionType(lastQuestion.questionType) === 'diagram-labeling'
+    ) {
+      const existingBlanks = Array.isArray(lastQuestion.blanks) ? lastQuestion.blanks : [];
+      const nextBlankIndex = existingBlanks.length;
+      const fallbackStart = getQuestionStart(lastQuestion.questionNumber) ?? getNextQuestionNumber(newPassages, passageIndex, sectionIndex);
+
+      section.questions[lastQuestionIndex] = syncQuestionNumberWithImpliedCount(
+        {
+          ...lastQuestion,
+          questionType: 'diagram-labeling',
+          blanks: [...existingBlanks, createDefaultDiagramBlank(nextBlankIndex)],
+        },
+        resolveQuestionStartNumber(lastQuestion, fallbackStart)
+      );
+
+      setPassages(newPassages);
+      return;
     }
     
     const questionNumber = getNextQuestionNumber(newPassages, passageIndex, sectionIndex);
