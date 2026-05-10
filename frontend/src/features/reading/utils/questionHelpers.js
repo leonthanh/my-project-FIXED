@@ -226,6 +226,11 @@ export const getActiveClozeTable = (question) => {
 };
 
 export const countClozeBlanks = (question) => {
+  const normalizedType = normalizeQuestionType(question?.questionType || question?.type || '');
+  if (normalizedType === 'diagram-labeling') {
+    return Array.isArray(question?.blanks) ? question.blanks.length : 0;
+  }
+
   const table = getActiveClozeTable(question);
   if (table) {
     return table.rows.reduce((total, row) => {

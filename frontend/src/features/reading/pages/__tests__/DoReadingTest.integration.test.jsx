@@ -212,6 +212,62 @@ const diagramLabelingTest = {
   ],
 };
 
+const legacyDiagramLabelingCountTest = {
+  id: 1,
+  title: 'Legacy Diagram Labeling Count Test',
+  durationMinutes: 60,
+  passages: [
+    {
+      passageTitle: 'Passage 1',
+      sections: [
+        {
+          questions: Array.from({ length: 13 }, (_, index) => ({
+            questionNumber: index + 1,
+            type: 'multiple-choice',
+          })),
+        },
+      ],
+    },
+    {
+      passageTitle: 'Passage 2',
+      sections: [
+        {
+          questions: Array.from({ length: 6 }, (_, index) => ({
+            questionNumber: index + 14,
+            questionType: 'true-false-not-given',
+            questionText: `<p>Statement ${index + 14}</p>`,
+            correctAnswer: 'TRUE',
+          })),
+        },
+        {
+          questions: [
+            {
+              questionNumber: '20-26',
+              questionType: 'diagram-labeling',
+              questionText: '<p>Label the diagram below.</p>',
+              paragraphText: 'Legacy [BLANK] paragraph [BLANK] that should not control numbering',
+              diagramTitle: 'Legacy Diagram Count',
+              diagramImageUrl:
+                'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 300"></svg>',
+              maxWords: 1,
+              blanks: Array.from({ length: 7 }, (_, index) => ({
+                id: `legacy-blank-${index + 1}`,
+                promptHtml: '[NUMBER] [BLANK]',
+                correctAnswer: `answer-${index + 1}`,
+                labelX: 12 + index * 5,
+                labelY: 14 + index * 8,
+                anchorX: 40 + index * 4,
+                anchorY: 22 + index * 6,
+                width: 220,
+              })),
+            },
+          ],
+        },
+      ],
+    },
+  ],
+};
+
 describe('DoReadingTest integration - part navigation and focus', () => {
   beforeEach(() => {
     // ensure test is marked started
@@ -459,6 +515,45 @@ describe('DoReadingTest integration - part navigation and focus', () => {
     await waitFor(() => {
       expect(inputs[0]).toHaveValue('gates');
       expect(inputs[1]).toHaveValue('basin');
+    });
+  });
+
+  it('counts legacy diagram-labeling payloads by blanks instead of stale paragraph text', async () => {
+    global.fetch.mockImplementation(() => {
+      return Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve(legacyDiagramLabelingCountTest),
+      });
+    });
+
+    render(
+      <MemoryRouter initialEntries={["/reading/1"]}>
+        <Routes>
+          <Route path="/reading/:id" element={<DoReadingTest />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await screen.findByText('PASSAGE 1');
+
+    fireEvent.click(screen.getByTitle('Passage 2'));
+
+    await screen.findByText('Legacy Diagram Count');
+    expect(screen.getByText('14–26')).toBeInTheDocument();
+    expect(screen.getByTestId('nav-question-20')).toBeInTheDocument();
+    expect(screen.getByTestId('nav-question-26')).toBeInTheDocument();
+
+    const diagramQuestion = screen
+      .getByText('Legacy Diagram Count')
+      .closest('.question-item');
+    expect(diagramQuestion).not.toBeNull();
+
+    const inputs = within(diagramQuestion).getAllByRole('textbox');
+    expect(inputs).toHaveLength(7);
+
+    fireEvent.focus(inputs[6]);
+    await waitFor(() => {
+      expect(screen.getByTestId('nav-question-26')).toHaveClass('active');
     });
   });
 });

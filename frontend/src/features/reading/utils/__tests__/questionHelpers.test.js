@@ -171,6 +171,16 @@ describe("questionHelpers", () => {
       expect(question.blanks[0].anchors).toHaveLength(1);
       expect(question.blanks[0].anchors[0]).toMatchObject({ x: 50, y: 50 });
     });
+
+    it("prefers authored diagram blanks over stale legacy paragraph text", () => {
+      expect(
+        countClozeBlanks({
+          questionType: "diagram-labeling",
+          paragraphText: "Legacy [BLANK] content [BLANK] that should be ignored",
+          blanks: Array.from({ length: 7 }, (_, index) => ({ id: index + 1 })),
+        })
+      ).toBe(7);
+    });
   });
 
   describe("normalizeQuestionType", () => {
