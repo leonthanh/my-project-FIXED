@@ -1744,6 +1744,10 @@
 
 .select-test-card {
   --card-accent: #0f3f94;
+  --card-overlay-top: rgba(255, 255, 255, 0.46);
+  --card-overlay-bottom: rgba(243, 247, 255, 0.64);
+  position: relative;
+  isolation: isolate;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -1757,22 +1761,57 @@
     border-color 0.24s ease;
 }
 
+.select-test-card::before,
+.select-test-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.select-test-card::before {
+  inset: 0;
+  background: url("/staredu.jpg") center 54% / 100% auto no-repeat;
+  opacity: 0.46;
+  filter: blur(0.85px) saturate(1.02);
+  transform: none;
+}
+
+.select-test-card::after {
+  background:
+    radial-gradient(circle at top right, rgba(255, 255, 255, 0.38), transparent 34%),
+    linear-gradient(180deg, var(--card-overlay-top) 0%, var(--card-overlay-bottom) 100%);
+}
+
+.select-test-card > * {
+  position: relative;
+  z-index: 1;
+}
+
 .select-test-card--writing {
   --card-accent: #7c3aed;
+  --card-overlay-top: rgba(250, 245, 255, 0.46);
+  --card-overlay-bottom: rgba(255, 255, 255, 0.64);
   background: linear-gradient(180deg, rgba(250, 245, 255, 0.98) 0%, rgba(255, 255, 255, 0.98) 100%);
 }
 
 .select-test-card--reading {
   --card-accent: #2563eb;
+  --card-overlay-top: rgba(239, 246, 255, 0.46);
+  --card-overlay-bottom: rgba(255, 255, 255, 0.64);
   background: linear-gradient(180deg, rgba(239, 246, 255, 0.98) 0%, rgba(255, 255, 255, 0.98) 100%);
 }
 
 .select-test-card--listening {
   --card-accent: #12a150;
+  --card-overlay-top: rgba(236, 253, 245, 0.46);
+  --card-overlay-bottom: rgba(255, 255, 255, 0.64);
   background: linear-gradient(180deg, rgba(236, 253, 245, 0.98) 0%, rgba(255, 255, 255, 0.98) 100%);
 }
 
 .select-test-card--orange {
+  --card-overlay-top: rgba(255, 244, 236, 0.46);
+  --card-overlay-bottom: rgba(255, 255, 255, 0.64);
   box-shadow: 0 20px 42px rgba(249, 115, 22, 0.08);
 }
 
@@ -2055,6 +2094,17 @@ body.dark-mode .select-test-placementToggle {
 
 body.dark-mode .select-test-toolbar--ix {
   background: linear-gradient(135deg, rgba(13, 27, 53, 0.94) 0%, rgba(14, 36, 72, 0.94) 100%);
+}
+
+body.dark-mode .select-test-card::before {
+  opacity: 0.22;
+  filter: blur(2px) saturate(0.8) brightness(0.58);
+}
+
+body.dark-mode .select-test-card::after {
+  background:
+    radial-gradient(circle at top right, rgba(96, 165, 250, 0.12), transparent 32%),
+    linear-gradient(180deg, rgba(8, 14, 28, 0.76) 0%, rgba(11, 19, 35, 0.9) 100%);
 }
 
 body.dark-mode .select-test-toolbar--orange {
