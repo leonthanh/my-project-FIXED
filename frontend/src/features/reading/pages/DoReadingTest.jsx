@@ -7,6 +7,7 @@ import React, {
 } from "react";
 import { useLocation, useParams, useNavigate } from "react-router-dom";
 import ConfirmModal from "../../../shared/components/ConfirmModal";
+import DiagramLabelingQuestion from "../../../shared/components/DiagramLabelingQuestion.jsx";
 import ResultModal from "../../../shared/components/ResultModal";
 import InlineIcon from "../../../shared/components/InlineIcon.jsx";
 import LineIcon from "../../../shared/components/LineIcon.jsx";
@@ -82,6 +83,11 @@ function getSentenceCompletionTitleState(section, sectionQuestions) {
     suppressQuestionTitle: Boolean(legacyQuestion?.titleHtml),
   };
 }
+
+const isBlankBlockType = (qType) =>
+  qType === "cloze-test" ||
+  qType === "summary-completion" ||
+  qType === "diagram-labeling";
 
 /**
  * DoReadingTest - Trang học sinh làm bài Reading IELTS
@@ -210,11 +216,11 @@ const DoReadingTest = () => {
     (n) => {
       const key = `q_${n}`;
 
-      // For matching-headings, cloze-test, paragraph-matching and multi-select, skip the direct key check here
+      // For matching-headings, blank-block questions, paragraph-matching and multi-select, skip the direct key check here
       // because they use composite storage (JSON or sub-keys) and are handled below.
       // First, determine if question n is part of these blocks.
       let isPartOfMatchingHeadings = false;
-      let isPartOfClozeTest = false;
+      let isPartOfBlankBlock = false;
       let isPartOfParagraphMatching = false;
       let isPartOfMultiSelect = false;
 
@@ -239,12 +245,12 @@ const DoReadingTest = () => {
                 continue;
               }
 
-              if (qType === "cloze-test" || qType === "summary-completion") {
+              if (isBlankBlockType(qType)) {
                 const blanks = countClozeBlanks(q);
 
                 if (blanks > 0) {
                   if (n >= qCounter && n < qCounter + blanks) {
-                    isPartOfClozeTest = true;
+                    isPartOfBlankBlock = true;
                     break outerLoop;
                   }
                   qCounter += blanks;
@@ -333,21 +339,9 @@ const DoReadingTest = () => {
                 }
 
                 // Skip other types in this loop
-                if (qType === "cloze-test" || qType === "summary-completion") {
-                  const clozeText =
-                    q.paragraphText ||
-                    q.passageText ||
-                    q.text ||
-                    q.paragraph ||
-                    (q.questionText && q.questionText.includes("[BLANK]")
-                      ? q.questionText
-                      : null);
-                  if (clozeText) {
-                    const blanks =
-                      (clozeText.match(/\[BLANK\]/gi) || []).length;
-                    qCounter += blanks || 1;
-                    continue;
-                  }
+                if (isBlankBlockType(normalizeQuestionType(qType))) {
+                  qCounter += countClozeBlanks(q) || 1;
+                  continue;
                 }
 
                 if (qType === "paragraph-matching") {
@@ -368,8 +362,8 @@ const DoReadingTest = () => {
         return false;
       }
 
-      // For cloze-test, check sub-keys q_base_index where base + index === n
-      if (isPartOfClozeTest) {
+      // For blank-block questions, check sub-keys q_base_index where base + index === n
+      if (isPartOfBlankBlock) {
         for (const k of Object.keys(answers || {})) {
           const m = k.match(/^q_(\d+)_(\d+)$/);
           if (m) {
@@ -489,7 +483,7 @@ const DoReadingTest = () => {
         return total + ((q.paragraphs || q.answers || []).length || 1);
       }
 
-      if (qType === "cloze-test" || qType === "summary-completion") {
+      if (isBlankBlockType(qType)) {
         return total + (countClozeBlanks(q) || 1);
       }
 
@@ -578,7 +572,7 @@ const DoReadingTest = () => {
             groups.push({ type: "single", start: startNum + i, count: 1 });
           }
           currentNum += blankCount;
-        } else if (qType === "cloze-test" || qType === "summary-completion") {
+        } else if (isBlankBlockType(qType)) {
           let blankCount = countClozeBlanks(q);
           blankCount = blankCount || 1;
           for (let i = 0; i < blankCount; i++) {
@@ -1046,10 +1040,7 @@ const DoReadingTest = () => {
                   }
 
                   // cloze or others
-                  if (
-                    qType === "cloze-test" ||
-                    qType === "summary-completion"
-                  ) {
+                  if (isBlankBlockType(qType)) {
                     qCounter += countClozeBlanks(q) || 1;
                     return;
                   }
@@ -1263,7 +1254,7 @@ const DoReadingTest = () => {
             }
           }
           // For cloze test, count each blank as a question
-          else if (qType === "cloze-test" || qType === "summary-completion") {
+          else if (isBlankBlockType(qType)) {
             const totalBlanks = countClozeBlanks(q);
             const baseKey = `q_${total + 1}`;
 
@@ -1715,7 +1706,7 @@ const DoReadingTest = () => {
           qNum += blankCount || 1;
         } else if (qType === "ielts-matching-headings") {
           qNum += (q.paragraphs || q.answers || []).length || 1;
-        } else if (qType === "cloze-test" || qType === "summary-completion") {
+        } else if (isBlankBlockType(qType)) {
           qNum += countClozeBlanks(q) || 1;
         } else {
           qNum++;
@@ -1879,6 +1870,7 @@ const DoReadingTest = () => {
     );
     const baseQuestionNum =
       resolveQuestionStartNumber(question, questionNumber) || questionNumber;
+    const isDiagramLabeling = qType === "diagram-labeling";
     const isParagraphMatching = qType === "paragraph-matching";
     const paragraphBlankCount =
       isParagraphMatching && question.questionText
@@ -1887,6 +1879,17 @@ const DoReadingTest = () => {
     let isAnswered = false;
     if (isParagraphMatching && paragraphBlankCount > 0) {
       for (let i = 0; i < paragraphBlankCount; i++) {
+        if (
+          answers[`${key}_${i}`] &&
+          answers[`${key}_${i}`].toString().trim() !== ""
+        ) {
+          isAnswered = true;
+          break;
+        }
+      }
+    } else if (isDiagramLabeling) {
+      const diagramBlankCount = countClozeBlanks(question);
+      for (let i = 0; i < diagramBlankCount; i++) {
         if (
           answers[`${key}_${i}`] &&
           answers[`${key}_${i}`].toString().trim() !== ""
@@ -1912,7 +1915,9 @@ const DoReadingTest = () => {
       qType === "cloze-test" || qType === "summary-completion";
     const clozeTable = isClozeTest ? getActiveClozeTable(question) : null;
     const clozeText = isClozeTest ? getClozeText(question) : null;
-    const blankCount = isClozeTest ? countClozeBlanks(question) : 0;
+    const blankCount = (isClozeTest || isDiagramLabeling)
+      ? countClozeBlanks(question)
+      : 0;
 
     // Check if short answer has inline dots
     const isShortAnswerInline =
@@ -1931,6 +1936,7 @@ const DoReadingTest = () => {
     const isMultiSelectQuestion = qType === "multi-select";
     const isMultiQuestionBlock =
       isMatchingHeadings ||
+      isDiagramLabeling ||
       (isClozeTest && blankCount > 0) ||
       (isParagraphMatching && paragraphBlankCount > 0) ||
       isMultiSelectQuestion;
@@ -2016,6 +2022,7 @@ const DoReadingTest = () => {
             !isShortAnswerInline &&
             !(isClozeTest && clozeText) &&
             qType !== "paragraph-matching" &&
+            !isDiagramLabeling &&
             !isInlineAnswerType &&
             !hasInlineSentenceBlank && (
               <div
@@ -2319,8 +2326,9 @@ const DoReadingTest = () => {
                                       (q2.paragraphs || q2.answers || [])
                                         .length || 1;
                                   } else if (
-                                    qType2 === "cloze-test" ||
-                                    qType2 === "summary-completion"
+                                    isBlankBlockType(
+                                      normalizeQuestionType(qType2)
+                                    )
                                   ) {
                                     const blanks = countClozeBlanks(q2);
                                     qNum += blanks || 1;
@@ -2465,8 +2473,9 @@ const DoReadingTest = () => {
                               qNum +=
                                 (q2.paragraphs || q2.answers || []).length || 1;
                             } else if (
-                              qType2 === "cloze-test" ||
-                              qType2 === "summary-completion"
+                              isBlankBlockType(
+                                normalizeQuestionType(qType2)
+                              )
                             ) {
                               const blanks = countClozeBlanks(q2);
                               qNum += blanks || 1;
@@ -2509,6 +2518,20 @@ const DoReadingTest = () => {
                 );
               })()}
             </div>
+          )}
+
+          {isDiagramLabeling && (
+            <DiagramLabelingQuestion
+              question={question}
+              mode="answer"
+              questionNumber={baseQuestionNum}
+              answers={answers}
+              onAnswerChange={handleAnswerChange}
+              registerQuestionRef={(actualQuestionNumber, element) => {
+                questionRefs.current[`q_${actualQuestionNumber}`] = element;
+              }}
+              onFocusQuestion={setActiveQuestion}
+            />
           )}
 
           {/* Fill in Blank / Short Answer - Inline style */}
@@ -3374,10 +3397,7 @@ const DoReadingTest = () => {
                       sectionQuestionNumber += requiredAnswers;
                     }
                     // For cloze test, count each blank as a question
-                    else if (
-                      qType === "cloze-test" ||
-                      qType === "summary-completion"
-                    ) {
+                    else if (isBlankBlockType(qType)) {
                       const blankCount = countClozeBlanks(q);
                       sectionQuestionNumber += blankCount || 1;
                     } else {

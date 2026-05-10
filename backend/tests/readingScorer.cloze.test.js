@@ -1,5 +1,37 @@
 const { scoreReadingTest, getDetailedScoring } = require('../utils/readingScorer');
 
+test('Diagram labeling: scores each blank from q_<base>_<i> keys', () => {
+  const sample = {
+    passages: [{
+      questions: [{
+        questionType: 'diagram-labeling',
+        questionNumber: 14,
+        questionText: 'Label the diagram below. Choose ONE WORD ONLY for each answer.',
+        diagramTitle: 'How a canal lock works',
+        blanks: [
+          { promptHtml: '[NUMBER] [BLANK]', correctAnswer: 'gates' },
+          { promptHtml: '[NUMBER] [BLANK]', correctAnswer: 'canal basin|basin' },
+        ],
+      }]
+    }]
+  };
+
+  const answers = {
+    q_14_0: 'gates',
+    q_14_1: 'basin',
+  };
+
+  const result = scoreReadingTest(sample, answers);
+  expect(result.total).toBe(2);
+  expect(result.correct).toBe(2);
+
+  const details = getDetailedScoring(sample, answers);
+  expect(details).toHaveLength(2);
+  expect(details.map((detail) => detail.questionNumber)).toEqual([14, 15]);
+  expect(details.every((detail) => detail.questionType === 'diagram-labeling')).toBe(true);
+  expect(details.every((detail) => detail.isCorrect)).toBe(true);
+});
+
 test('Cloze: accepts answers keyed by q_<base>_<i>', () => {
   const sample = {
     passages: [{

@@ -1955,7 +1955,7 @@ const CambridgeSubmissionsPage = () => {
                         </div>
                       )}
 
-                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
+                      <div style={styles.submissionActionRow}>
                         {canReviewEssay && (
                           <button
                             onClick={() => openEssayReview(submission)}
@@ -1964,17 +1964,17 @@ const CambridgeSubmissionsPage = () => {
                               ...(isReviewing ? styles.reviewEssayButtonActive : null),
                             }}
                           >
+                            <InlineIcon name="review" size={15} />
                             <span>{detailLoadingById[submission.id] && isReviewing ? 'Loading...' : 'Review Essay'}</span>
                             <span style={styles.reviewEssayBadge}>{pendingManualCount}</span>
                           </button>
                         )}
                         <button
                           onClick={() => handleViewDetail(submission.id)}
-                          style={styles.viewButton}
-                          className="admin-view-button"
+                          style={styles.submissionActionButtonView}
                         >
-                          <span className="admin-view-button__icon"><InlineIcon name="eye" size={15} /></span>
-                          <span className="admin-view-button__label">View</span>
+                          <InlineIcon name="eye" size={15} />
+                          <span>View</span>
                         </button>
                         {submission.finished === false && (
                           <AttemptExtensionControls
@@ -1994,8 +1994,7 @@ const CambridgeSubmissionsPage = () => {
                           <button
                             onClick={() => openDeleteConfirmation(submission)}
                             style={{
-                              ...styles.viewButton,
-                              backgroundColor: '#dc2626',
+                              ...styles.submissionActionButtonDanger,
                               opacity:
                                 deletingId === submission.id || bulkDeleting ? 0.72 : 1,
                               cursor:
@@ -2494,6 +2493,32 @@ const styles = {
     fontSize: '13px',
     color: '#64748b',
   },
+  submissionActionRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '10px',
+    flexWrap: 'wrap',
+    marginTop: '14px',
+  },
+  submissionActionButtonView: {
+    minHeight: '38px',
+    padding: '8px 13px',
+    borderRadius: '10px',
+    border: '1px solid #1d4ed8',
+    cursor: 'pointer',
+    fontSize: '12.5px',
+    fontWeight: 700,
+    lineHeight: 1.1,
+    transition: 'transform 0.18s ease, box-shadow 0.18s ease, opacity 0.18s ease',
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '7px',
+    boxShadow: '0 1px 2px rgba(15, 23, 42, 0.08)',
+    whiteSpace: 'nowrap',
+    backgroundColor: '#1d4ed8',
+    color: '#fff',
+  },
   viewButton: {
     padding: '8px 14px',
     backgroundColor: '#0e276f',
@@ -2509,35 +2534,61 @@ const styles = {
     gap: '6px',
   },
   reviewEssayButton: {
-    padding: '8px 12px',
+    minHeight: '38px',
+    padding: '8px 13px',
     backgroundColor: '#fff7ed',
     color: '#c2410c',
     border: '1px solid #fdba74',
-    borderRadius: '999px',
+    borderRadius: '10px',
     cursor: 'pointer',
-    fontSize: '13px',
-    fontWeight: 600,
-    display: 'grid',
+    fontSize: '12.5px',
+    fontWeight: 700,
+    lineHeight: 1.1,
+    transition: 'transform 0.18s ease, box-shadow 0.18s ease, opacity 0.18s ease',
+    display: 'inline-flex',
     alignItems: 'center',
-    gap: '8px',
+    justifyContent: 'center',
+    gap: '7px',
+    boxShadow: '0 1px 2px rgba(15, 23, 42, 0.08)',
+    whiteSpace: 'nowrap',
   },
   reviewEssayButtonActive: {
     backgroundColor: '#ffedd5',
     borderColor: '#fb923c',
     color: '#9a3412',
+    boxShadow: '0 0 0 1px rgba(249, 115, 22, 0.15), 0 3px 8px rgba(249, 115, 22, 0.16)',
   },
   reviewEssayBadge: {
-    minWidth: '22px',
-    height: '22px',
-    padding: '0 6px',
+    minWidth: '18px',
+    height: '18px',
+    padding: '0 5px',
     borderRadius: '999px',
     backgroundColor: '#ea580c',
     color: '#fff',
     display: 'inline-flex',
     alignItems: 'center',
     justifyContent: 'center',
-    fontSize: '12px',
+    fontSize: '11px',
     fontWeight: 800,
+  },
+  submissionActionButtonDanger: {
+    minHeight: '38px',
+    padding: '8px 13px',
+    borderRadius: '10px',
+    border: '1px solid #dc2626',
+    cursor: 'pointer',
+    fontSize: '12.5px',
+    fontWeight: 700,
+    lineHeight: 1.1,
+    transition: 'transform 0.18s ease, box-shadow 0.18s ease, opacity 0.18s ease',
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '7px',
+    boxShadow: '0 1px 2px rgba(15, 23, 42, 0.08)',
+    whiteSpace: 'nowrap',
+    backgroundColor: '#dc2626',
+    color: '#fff',
   },
   drawerOverlay: {
     position: 'fixed',

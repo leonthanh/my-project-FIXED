@@ -1,4 +1,6 @@
 import {
+  canPassageOmitText,
+  countDiagramLabelBlanks,
   countClozeBlanks,
   createDefaultQuestionByType,
   getQuestionCount,
@@ -14,6 +16,7 @@ import {
   normalizeMatchingHeadingLabel,
   renumberQuestionsFrom,
   resolveQuestionStartNumber,
+  syncQuestionNumberWithImpliedCount,
   toRomanNumeral,
 } from "../questionHelpers";
 
@@ -87,6 +90,15 @@ describe("questionHelpers", () => {
         })
       ).toBe(3);
     });
+
+    it("counts diagram-labeling blanks as a multi-question block", () => {
+      expect(
+        getImpliedQuestionCount({
+          questionType: "diagram-labeling",
+          blanks: [{ id: 1 }, { id: 2 }, { id: 3 }],
+        })
+      ).toBe(3);
+    });
   });
 
   describe("cloze helpers", () => {
@@ -140,6 +152,25 @@ describe("questionHelpers", () => {
       });
       expect(countClozeBlanks(question)).toBe(1);
     });
+
+    it("starts new diagram-labeling questions with one editable blank", () => {
+      const question = createDefaultQuestionByType("diagram-labeling");
+
+      expect(question.diagramImageUrl).toBe("");
+      expect(question.maxWords).toBe(1);
+      expect(question.annotations).toEqual([]);
+      expect(countDiagramLabelBlanks(question)).toBe(1);
+      expect(question.blanks[0]).toMatchObject({
+        promptHtml: "[NUMBER] [BLANK]",
+        labelX: 10,
+        labelY: 10,
+        anchorX: 50,
+        anchorY: 50,
+        textAlign: "left",
+      });
+      expect(question.blanks[0].anchors).toHaveLength(1);
+      expect(question.blanks[0].anchors[0]).toMatchObject({ x: 50, y: 50 });
+    });
   });
 
   describe("normalizeQuestionType", () => {
@@ -157,6 +188,51 @@ describe("questionHelpers", () => {
       expect(normalizeQuestionType("true-false-notgiven")).toBe(
         "true-false-not-given"
       );
+    });
+
+    it("normalizes diagram-labeling variants", () => {
+      expect(normalizeQuestionType("diagram-labelling")).toBe(
+        "diagram-labeling"
+      );
+      expect(normalizeQuestionType("diagram_label")).toBe(
+        "diagram-labeling"
+      );
+    });
+  });
+
+  describe("canPassageOmitText", () => {
+    it("allows an empty passage when all questions are diagram-labeling", () => {
+      expect(
+        canPassageOmitText({
+          sections: [
+            {
+              questions: [
+                { questionType: 'diagram-labeling' },
+                { questionType: 'diagram-labelling' },
+              ],
+            },
+          ],
+        })
+      ).toBe(true);
+    });
+
+    it("rejects empty passage text when the passage mixes in other question types", () => {
+      expect(
+        canPassageOmitText({
+          sections: [
+            {
+              questions: [
+                { questionType: 'diagram-labeling' },
+                { questionType: 'multiple-choice' },
+              ],
+            },
+          ],
+        })
+      ).toBe(false);
+    });
+
+    it("rejects empty passage text when there are no questions", () => {
+      expect(canPassageOmitText({ sections: [{ questions: [] }] })).toBe(false);
     });
   });
 
@@ -231,6 +307,26 @@ describe("questionHelpers", () => {
 
       expect(calculateTotalQuestions(passages)).toBe(3);
     });
+
+    it("counts diagram-labeling blanks even when the stored questionNumber is a single number", () => {
+      const passages = [
+        {
+          sections: [
+            {
+              questions: [
+                {
+                  questionNumber: "20",
+                  questionType: "diagram-labeling",
+                  blanks: [{ id: 1 }, { id: 2 }, { id: 3 }, { id: 4 }],
+                },
+              ],
+            },
+          ],
+        },
+      ];
+
+      expect(calculateTotalQuestions(passages)).toBe(4);
+    });
   });
 
   describe("formatQuestionNumber", () => {
@@ -244,6 +340,32 @@ describe("questionHelpers", () => {
 
     it("preserves comma-style numbering when the template used commas", () => {
       expect(formatQuestionNumber(15, 3, "1, 2, 3")).toBe("15, 16, 17");
+    });
+  });
+
+  describe("syncQuestionNumberWithImpliedCount", () => {
+    it("expands diagram-labeling numbers into a range based on blank count", () => {
+      const nextQuestion = syncQuestionNumberWithImpliedCount({
+        questionNumber: "20",
+        questionType: "diagram-labeling",
+        blanks: [{ id: 1 }, { id: 2 }, { id: 3 }],
+      });
+
+      expect(nextQuestion.questionNumber).toBe("20-22");
+      expect(nextQuestion.startQuestion).toBe(20);
+    });
+
+    it("uses the fallback start when a multi-question block has no explicit number yet", () => {
+      const nextQuestion = syncQuestionNumberWithImpliedCount(
+        {
+          questionType: "diagram-labeling",
+          blanks: [{ id: 1 }, { id: 2 }],
+        },
+        31
+      );
+
+      expect(nextQuestion.questionNumber).toBe("31-32");
+      expect(nextQuestion.startQuestion).toBe(31);
     });
   });
 

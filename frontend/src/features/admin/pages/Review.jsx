@@ -2183,7 +2183,7 @@ const filterInputStyle = (isDarkMode) => ({
 const filterResetButtonStyle = {
   width: "100%",
   padding: "7px 10px",
-  background: "#6b7280",
+  background: "#c00ce9",
   color: "#fff",
   border: "none",
   borderRadius: 6,

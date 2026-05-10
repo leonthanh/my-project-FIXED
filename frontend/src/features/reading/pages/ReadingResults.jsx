@@ -83,14 +83,6 @@ const styles = {
     height: "80px",
     margin: "0 auto 8px",
   },
-  // Analysis Section
-  analysisSection: {
-    background: "#fff",
-    borderRadius: "12px",
-    padding: "24px",
-    marginBottom: "24px",
-    boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-  },
   sectionTitle: {
     fontSize: "1.1rem",
     fontWeight: 600,
@@ -99,20 +91,6 @@ const styles = {
     display: "flex",
     alignItems: "center",
     gap: "8px",
-  },
-  analysisGrid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
-    gap: "12px",
-  },
-  analysisItem: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: "12px 16px",
-    background: "#f8fafc",
-    borderRadius: "8px",
-    border: "1px solid #e2e8f0",
   },
   // Feedback Box
   feedbackBox: {
@@ -413,24 +391,6 @@ const CircularProgress = ({ percentage, size = 80, strokeWidth = 8 }) => {
   );
 };
 
-const StatusBadge = ({ status }) => {
-  const config = {
-    good: { bg: "#dcfce7", color: "#166534", iconName: "good", text: "Good" },
-    average: { bg: "#fef3c7", color: "#92400e", iconName: "average", text: "Average" },
-    weak: { bg: "#fee2e2", color: "#991b1b", iconName: "weak", text: "Needs Work" },
-  };
-  const c = config[status] || config.average;
-  return (
-    <span style={{ ...styles.badge, background: c.bg, color: c.color }}>
-      <InlineIcon name={c.iconName} size={14} /> {c.text}
-    </span>
-  );
-};
-
-const QuestionTypeBadge = ({ type }) => {
-  return <span title={type}><InlineIcon name="questions" size={14} /> {type}</span>;
-};
-
 const hasDetailAnswer = (detail) => {
   const raw = detail?.studentLabel ?? detail?.student ?? detail?.studentAnswer;
   if (Array.isArray(raw)) return raw.length > 0;
@@ -452,7 +412,6 @@ const ReadingResults = () => {
   const [loading, setLoading] = useState(true);
   const [details, setDetails] = useState([]);
   const [meta, setMeta] = useState(null);
-  const [analysis, setAnalysis] = useState(null);
   const [feedback, setFeedback] = useState(null);
   const [submission, setSubmission] = useState(null);
   const [test, setTest] = useState(null);
@@ -523,89 +482,6 @@ const ReadingResults = () => {
           }
 
           setMeta(metaInfo);
-        }
-
-        // 4. Fetch analysis
-        const analysisRes = await fetch(apiPath(`reading-submissions/${submissionId}/analysis`));
-        if (analysisRes.ok) {
-          const analysisData = await analysisRes.json();
-
-          // Normalize analysis to ensure `analysis.breakdown` is a mapping { label: {correct,total,percentage,status,...} }
-          // Some older submissions store the full breakdown object (summary, byType, etc). Convert to frontend-friendly shape.
-          const normalizeAnalysis = (data = {}) => {
-            let normalized = { ...data };
-            const breakdownMap = {};
-            const suggestions = Array.isArray(normalized.suggestions) ? [...normalized.suggestions] : [];
-
-            // If breakdown exists and looks like a proper map (not a legacy root object), use it.
-            const legacyKeys = ['summary','byType','weakAreas','strongAreas','generatedAt','suggestions','breakdown'];
-            if (
-              normalized.breakdown &&
-              typeof normalized.breakdown === 'object' &&
-              Object.keys(normalized.breakdown).length > 0 &&
-              !Object.keys(normalized.breakdown).some(k => legacyKeys.includes(k))
-            ) {
-              // already in the expected shape
-              Object.assign(breakdownMap, normalized.breakdown);
-            } else if (Array.isArray(normalized.byType) && normalized.byType.length > 0) {
-              // Convert byType array into a lookup map keyed by label
-              normalized.byType.forEach((t) => {
-                const key = t.label || t.type || 'Other';
-                breakdownMap[key] = {
-                  correct: t.correct || 0,
-                  total: t.total || 0,
-                  percentage: t.percentage || 0,
-                  status: t.status || 'average',
-                  suggestion: t.suggestion || '',
-                  wrongQuestions: t.wrongQuestions || []
-                };
-                if (t.suggestion) suggestions.push(t.suggestion);
-              });
-            } else if (normalized.breakdown && typeof normalized.breakdown === 'object' && Object.keys(normalized.breakdown).some(k => legacyKeys.includes(k))) {
-              // Legacy case: breakdown contains root-level fields (summary/byType). Try to rebuild from that.
-              const nb = normalized.breakdown;
-              if (Array.isArray(nb.byType) && nb.byType.length > 0) {
-                nb.byType.forEach((t) => {
-                  const key = t.label || t.type || 'Other';
-                  breakdownMap[key] = {
-                    correct: t.correct || 0,
-                    total: t.total || 0,
-                    percentage: t.percentage || 0,
-                    status: t.status || 'average',
-                    suggestion: t.suggestion || '',
-                    wrongQuestions: t.wrongQuestions || []
-                  };
-                  if (t.suggestion) suggestions.push(t.suggestion);
-                });
-              } else if (nb.summary) {
-                breakdownMap['Summary'] = {
-                  correct: nb.summary.totalCorrect || 0,
-                  total: nb.summary.totalQuestions || 0,
-                  percentage: nb.summary.overallPercentage || 0,
-                  status: (nb.summary.overallPercentage || 0) >= 70 ? 'good' : (nb.summary.overallPercentage || 0) >= 50 ? 'average' : 'weak'
-                };
-              }
-            } else if (normalized.summary && (normalized.summary.totalQuestions || normalized.summary.totalCorrect || normalized.summary.overallPercentage !== undefined)) {
-              // Fallback: only overall summary available
-              breakdownMap['Summary'] = {
-                correct: normalized.summary.totalCorrect || 0,
-                total: normalized.summary.totalQuestions || 0,
-                percentage: normalized.summary.overallPercentage || 0,
-                status:
-                  (normalized.summary.overallPercentage || 0) >= 70
-                    ? 'good'
-                    : (normalized.summary.overallPercentage || 0) >= 50
-                      ? 'average'
-                      : 'weak'
-              };
-            }
-
-            normalized.breakdown = breakdownMap;
-            normalized.suggestions = suggestions;
-            return normalized;
-          };
-
-          setAnalysis(normalizeAnalysis(analysisData));
         }
       } catch (err) {
         console.error("Error fetching data:", err);
@@ -874,89 +750,6 @@ const ReadingResults = () => {
               </span>
             </p>
           )}
-        </div>
-      )}
-
-      {/* Analysis Breakdown */}
-      {analysis?.breakdown && Object.keys(analysis.breakdown).length > 0 && (
-        <div style={styles.analysisSection}>
-          <h3 style={styles.sectionTitle}>
-            <InlineIcon name="overview" size={18} />
-            <span>Analysis by Question Type</span>
-          </h3>
-
-          <div style={styles.analysisGrid}>
-            {Object.entries(analysis.breakdown)
-              .filter(([label, d]) => d && (typeof d.total === 'number' ? d.total >= 0 : true))
-              .map(([label, d]) => (
-                <div key={label} style={styles.analysisItem}>
-                  <div>
-                    <QuestionTypeBadge type={label} />
-                    <div style={{ fontSize: '0.85rem', color: '#64748b', marginTop: '4px' }}>
-                      {d.correct}/{d.total} correct ({d.percentage}%)
-                    </div>
-                    {d.suggestion && (
-                      <div style={{ fontSize: '0.8rem', color: '#8b5cf6', marginTop: '6px' }}>
-                        {d.suggestion}
-                      </div>
-                    )}
-                  </div>
-                  <StatusBadge status={d.status} />
-                </div>
-              ))}
-          </div>
-
-          {/* Weak Areas */}
-          {analysis.weakAreas && analysis.weakAreas.length > 0 && (
-            <div style={{ marginTop: '16px' }}>
-              <h4 style={{ margin: '8px 0', display: 'inline-flex', alignItems: 'center', gap: '8px' }}><InlineIcon name="weak" size={16} />Weak Areas to Improve</h4>
-              <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-                {analysis.weakAreas.map((w, i) => (
-                  <div key={i} style={{ background: '#fff5f5', padding: '12px', borderRadius: '8px', border: '1px solid #fee2e2', minWidth: '220px' }}>
-                    <strong>{w.label}</strong>
-                    <div style={{ fontSize: '0.85rem', color: '#64748b' }}>{w.percentage}% correct</div>
-                    {w.wrongQuestions && w.wrongQuestions.length > 0 && (
-                      <div style={{ fontSize: '0.85rem', color: '#991b1b', marginTop: '6px' }}>
-                        Questions missed: {w.wrongQuestions.join(', ')}
-                      </div>
-                    )}
-                    {w.suggestion && <div style={{ marginTop: '8px', color: '#92400e' }}>{w.suggestion}</div>}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* General suggestions */}
-          {analysis.suggestions && analysis.suggestions.length > 0 && (
-            <div style={{ marginTop: '16px', padding: '12px', background: '#fef3c7', borderRadius: '8px' }}>
-              <strong style={{ color: '#92400e', display: 'inline-flex', alignItems: 'center', gap: '8px' }}><InlineIcon name="average" size={16} />General Suggestions:</strong>
-              <ul style={{ margin: '8px 0 0 20px', color: '#78350f' }}>
-                {analysis.suggestions.map((s, i) => (
-                  <li key={i}>{s}</li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </div>
-      )}
-
-      {canViewDetailedReview && details.length > 0 && (
-        <div style={styles.reviewPromptCard}>
-          <div>
-            <div style={styles.reviewPromptTitle}>Open the question-by-question review</div>
-            <p style={styles.reviewPromptText}>
-              Open the detailed review to see each student answer, spot blank responses, and explain mistakes in class.
-            </p>
-          </div>
-          <button
-            type="button"
-            style={{ ...styles.actionBtn, ...styles.primaryBtn }}
-            onClick={() => setActiveTab("review")}
-          >
-            <InlineIcon name="review" size={16} />
-            <span>Open Question Review</span>
-          </button>
         </div>
       )}
         </>
