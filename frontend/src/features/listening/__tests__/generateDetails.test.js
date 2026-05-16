@@ -62,4 +62,43 @@ describe('generateDetailsFromSections', () => {
     // total count should equal sum: 10 + 4 + 6 + 2 + 5 + 3 = 30
     expect(details.length).toBe(30);
   });
+
+  test('keeps numeric slash dates literal while still supporting slash answer variants', () => {
+    const testObj = {
+      partInstructions: [
+        { sections: [{ sectionTitle: 'Questions 1-2', questionType: 'cloze-test', startingQuestionNumber: 1 }] },
+      ],
+      questions: [
+        {
+          partIndex: 0,
+          sectionIndex: 0,
+          questionIndex: 0,
+          questionType: 'cloze-test',
+          tableMode: true,
+          clozeTable: {
+            columns: ['Field', 'Value'],
+            rows: [
+              {
+                cells: ['Date of birth', '[BLANK]'],
+                cellBlankAnswers: [[], ['23/07/1970']],
+              },
+              {
+                cells: ['Port', '[BLANK]'],
+                cellBlankAnswers: [[], ['harbour/harbor']],
+              },
+            ],
+          },
+        },
+      ],
+    };
+
+    const details = generateDetailsFromSections(testObj, {
+      q1: '23/07/1970',
+      q2: 'harbor',
+    });
+
+    expect(details).toHaveLength(2);
+    expect(details.map((detail) => detail.isCorrect)).toEqual([true, true]);
+    expect(details[0].correctAnswer).toBe('23/07/1970');
+  });
 });

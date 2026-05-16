@@ -460,6 +460,7 @@ const normalizeText = (v) =>
     .replace(/\s+/g, " ");
 
 const isNumericThousands = (s) => /^\d{1,3}(,\d{3})+(\.\d+)?$/.test(String(s).trim());
+const isNumericSlashLiteral = (s) => /^\d+(?:\.\d+)?(?:\s*\/\s*\d+(?:\.\d+)?)+$/.test(String(s || "").trim());
 
 const parseEnglishNumber = (raw) => {
   const s = normalizeText(raw)
@@ -579,7 +580,7 @@ const explodeAccepted = (raw) => {
     if (!s) return [];
     // Prioritize explicit variant separators (|, /, ;).
     if (s.includes("|")) return s.split("|").map((t) => t.trim()).filter(Boolean);
-    if (s.includes("/")) return s.split("/").map((t) => t.trim()).filter(Boolean);
+    if (s.includes("/") && !isNumericSlashLiteral(s)) return s.split("/").map((t) => t.trim()).filter(Boolean);
     if (s.includes(";")) return s.split(";").map((t) => t.trim()).filter(Boolean);
 
     // Avoid splitting numeric thousands separators like "10,000".
@@ -609,6 +610,38 @@ const isAnswerMatch = (student, expectedRaw) => {
     }
   }
   return false;
+};
+
+const shouldPreferGeneratedDetails = (storedDetails, generatedDetails, totalTarget = 0) => {
+  if (!Array.isArray(generatedDetails) || !generatedDetails.length) {
+    return false;
+  }
+
+  if (!Array.isArray(storedDetails) || !storedDetails.length) {
+    return true;
+  }
+
+  if (Number(totalTarget) > 0 && storedDetails.length !== Number(totalTarget)) {
+    return true;
+  }
+
+  if (storedDetails.length !== generatedDetails.length) {
+    return true;
+  }
+
+  return storedDetails.some((detail, index) => {
+    const generated = generatedDetails[index];
+    if (!generated) {
+      return true;
+    }
+
+    return (
+      Number(detail?.questionNumber || 0) !== Number(generated?.questionNumber || 0) ||
+      normalizeText(detail?.studentAnswer) !== normalizeText(generated?.studentAnswer) ||
+      normalizeText(detail?.correctAnswer) !== normalizeText(generated?.correctAnswer) ||
+      detail?.isCorrect !== generated?.isCorrect
+    );
+  });
 };
 
 const setEq = (a, b) => {
@@ -1001,8 +1034,7 @@ const ListeningResults = () => {
             // Prefer stored details when they look complete; otherwise regenerate to ensure a full 1..40 table.
             if (parsedTest && parsedSub.answers && typeof parsedSub.answers === "object") {
               const generated = generateDetailsFromSections(parsedTest, parsedSub.answers);
-              // Prefer generated details when parsed/stored details look incomplete
-              if (generated.length && (parsedDetails.length !== totalTarget || parsedDetails.length < generated.length)) {
+              if (shouldPreferGeneratedDetails(parsedDetails, generated, totalTarget)) {
                 setDetails(generated);
               } else {
                 setDetails(parsedDetails);
