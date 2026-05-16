@@ -1737,6 +1737,42 @@
   background: #f0fff4;
 }
 
+.cloze-review-slot {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 4px 10px 10px 0;
+  vertical-align: top;
+}
+
+.cloze-review-input-row {
+  margin: 0;
+  gap: 6px;
+}
+
+.cloze-review-slot .cloze-inline-input {
+  min-width: 150px;
+  width: 150px;
+  font-weight: 600;
+  color: #0f172a;
+  box-shadow: 0 8px 18px rgba(14, 39, 111, 0.08);
+  cursor: default;
+}
+
+.cloze-review-feedback {
+  padding-left: 34px;
+  max-width: 300px;
+}
+
+.cloze-table .cloze-review-slot {
+  margin: 2px 0 10px;
+}
+
+.cloze-table .cloze-review-feedback {
+  padding-left: 34px;
+}
+
 .word-bank {
   padding: 16px;
   background: linear-gradient(135deg, #fff8e6 0%, #fff3cd 100%);

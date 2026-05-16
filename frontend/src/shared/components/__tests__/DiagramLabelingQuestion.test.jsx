@@ -241,3 +241,34 @@ describe('DiagramLabelingQuestion edit mode', () => {
     expect(screen.getAllByText('Prompt')).toHaveLength(2);
   });
 });
+
+describe('DiagramLabelingQuestion review mode', () => {
+  test('shows diagram review answers from normalized detail fields', () => {
+    render(
+      <DiagramLabelingQuestion
+        question={baseQuestion}
+        mode="review"
+        questionNumber={1}
+        answers={{}}
+        detailMap={{
+          1: {
+            questionNumber: 1,
+            student: 'Gate',
+            studentLabel: 'gate',
+            expected: 'gates|gate',
+            expectedLabel: 'gates | gate',
+            isCorrect: false,
+          },
+        }}
+      />
+    );
+
+    expect(screen.getByRole('textbox', { name: 'Ô trả lời câu 1' })).toHaveValue('gate');
+    expect(screen.getAllByText('Incorrect')).not.toHaveLength(0);
+    expect(screen.getAllByText('Correct: gates | gate')).not.toHaveLength(0);
+    expect(screen.getByText('Student answer')).toBeInTheDocument();
+    expect(screen.getByText('Correct answer')).toBeInTheDocument();
+    expect(screen.getByText('gate')).toBeInTheDocument();
+    expect(screen.getByText('gates | gate')).toBeInTheDocument();
+  });
+});

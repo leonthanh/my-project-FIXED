@@ -124,6 +124,25 @@ const getDetailForNumber = (detailMap, questionNumber) => {
   return detailMap[questionNumber] || null;
 };
 
+const normalizeReviewValue = (value) => {
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => String(item ?? '').trim())
+      .filter(Boolean)
+      .join(', ');
+  }
+
+  return String(value ?? '').trim();
+};
+
+const getReviewStudentValue = (detail, fallback = '') => normalizeReviewValue(
+  detail?.studentLabel ?? detail?.student ?? detail?.studentAnswer ?? fallback
+);
+
+const getReviewCorrectValue = (detail, fallback = '') => normalizeReviewValue(
+  detail?.correctAnswer ?? detail?.expectedLabel ?? detail?.expected ?? fallback
+);
+
 const normalizePromptTemplate = (promptHtml) => {
   const raw = String(promptHtml || '').trim();
   if (!raw) return ['[NUMBER]', ' ', '[BLANK]'];
@@ -235,6 +254,22 @@ const DiagramLabelingQuestion = ({
     const boundedWidth = clampWidth(width, 220);
     const percentWidth = Math.max(18, (boundedWidth / RUNTIME_BOARD_BASE_WIDTH) * 100);
     return `min(${boundedWidth}px, ${percentWidth.toFixed(2)}%)`;
+  };
+
+  const getBlankReviewState = (blank, blankIndex) => {
+    const absoluteQuestionNumber = baseQuestionNumber + blankIndex;
+    const answerKey = `q_${baseQuestionNumber}_${blankIndex}`;
+    const detail = getDetailForNumber(detailMap, absoluteQuestionNumber);
+    const studentAnswer = getReviewStudentValue(detail, answers?.[answerKey] || '');
+    const correctAnswer = getReviewCorrectValue(detail, blank?.correctAnswer || '');
+
+    return {
+      absoluteQuestionNumber,
+      answerKey,
+      detail,
+      studentAnswer,
+      correctAnswer,
+    };
   };
 
   useEffect(() => {
@@ -704,15 +739,16 @@ const DiagramLabelingQuestion = ({
   });
 
   const renderPromptWithBlank = (blank, blankIndex) => {
-    const absoluteQuestionNumber = baseQuestionNumber + blankIndex;
-    const answerKey = `q_${baseQuestionNumber}_${blankIndex}`;
-    const detail = getDetailForNumber(detailMap, absoluteQuestionNumber);
+    const {
+      absoluteQuestionNumber,
+      answerKey,
+      detail,
+      studentAnswer,
+      correctAnswer,
+    } = getBlankReviewState(blank, blankIndex);
     const promptParts = normalizePromptTemplate(blank.promptHtml);
 
-    const answerValue =
-      mode === 'review'
-        ? answers?.[answerKey] || ''
-        : answers?.[answerKey] || '';
+    const answerValue = mode === 'review' ? studentAnswer : answers?.[answerKey] || '';
 
     const blankNode = (() => {
       if (mode === 'edit') {
@@ -845,18 +881,38 @@ const DiagramLabelingQuestion = ({
           })}
         </div>
 
-        {mode === 'review' && showCorrect && detail && !detail.isCorrect && detail.correctAnswer && (
-          <div
-            style={{
-              padding: '4px 8px',
-              borderRadius: '8px',
-              backgroundColor: '#dcfce7',
-              color: '#166534',
-              fontSize: '11px',
-              fontWeight: 600,
-            }}
-          >
-            Correct: {detail.correctAnswer}
+        {mode === 'review' && detail && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            <div
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                alignSelf: 'flex-start',
+                padding: '4px 8px',
+                borderRadius: '999px',
+                backgroundColor: detail.isCorrect ? '#dcfce7' : '#fee2e2',
+                color: detail.isCorrect ? '#166534' : '#991b1b',
+                fontSize: '11px',
+                fontWeight: 700,
+              }}
+            >
+              {detail.isCorrect ? 'Correct' : 'Incorrect'}
+            </div>
+
+            {showCorrect && !detail.isCorrect && correctAnswer && (
+              <div
+                style={{
+                  padding: '4px 8px',
+                  borderRadius: '8px',
+                  backgroundColor: '#dcfce7',
+                  color: '#166534',
+                  fontSize: '11px',
+                  fontWeight: 600,
+                }}
+              >
+                Correct: {correctAnswer}
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -1308,6 +1364,78 @@ const DiagramLabelingQuestion = ({
         ) : null}
 
         <div style={{ overflowX: 'auto', paddingBottom: '4px' }}>{boardContent}</div>
+
+        {mode === 'review' && blanks.length > 0 ? (
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+              gap: '10px',
+              marginTop: '16px',
+            }}
+          >
+            {blanks.map((blank, blankIndex) => {
+              const {
+                absoluteQuestionNumber,
+                detail,
+                studentAnswer,
+                correctAnswer,
+              } = getBlankReviewState(blank, blankIndex);
+
+              return (
+                <div
+                  key={`review-summary-${blank.id}`}
+                  style={{
+                    borderRadius: '12px',
+                    border: '1px solid #dbeafe',
+                    backgroundColor: '#f8fafc',
+                    padding: '12px',
+                    display: 'grid',
+                    gap: '8px',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                    <div style={{ fontWeight: 700, color: '#0f172a' }}>Q{absoluteQuestionNumber}</div>
+                    {detail ? (
+                      <div
+                        style={{
+                          padding: '4px 8px',
+                          borderRadius: '999px',
+                          backgroundColor: detail.isCorrect ? '#dcfce7' : '#fee2e2',
+                          color: detail.isCorrect ? '#166534' : '#991b1b',
+                          fontSize: '11px',
+                          fontWeight: 700,
+                        }}
+                      >
+                        {detail.isCorrect ? 'Correct' : 'Incorrect'}
+                      </div>
+                    ) : null}
+                  </div>
+
+                  <div>
+                    <div style={{ fontSize: '11px', fontWeight: 700, color: '#64748b', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                      Student answer
+                    </div>
+                    <div style={{ color: studentAnswer ? '#0f172a' : '#94a3b8', fontWeight: 600 }}>
+                      {studentAnswer || 'No answer'}
+                    </div>
+                  </div>
+
+                  {showCorrect ? (
+                    <div>
+                      <div style={{ fontSize: '11px', fontWeight: 700, color: '#64748b', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                        Correct answer
+                      </div>
+                      <div style={{ color: correctAnswer ? '#166534' : '#94a3b8', fontWeight: 700 }}>
+                        {correctAnswer || 'Not set'}
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+              );
+            })}
+          </div>
+        ) : null}
       </div>
     );
   }
