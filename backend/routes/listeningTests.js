@@ -462,6 +462,7 @@ router.post('/:id/submit', async (req, res) => {
         .replace(/\s+/g, ' ');
 
     const isNumericThousands = (s) => /^\d{1,3}(,\d{3})+(\.\d+)?$/.test(String(s).trim());
+    const isNumericSlashLiteral = (s) => /^\d+(?:\.\d+)?(?:\s*\/\s*\d+(?:\.\d+)?)+$/.test(String(s || '').trim());
 
     const explodeAccepted = (val) => {
       if (val == null) return [];
@@ -471,7 +472,7 @@ router.post('/:id/submit', async (req, res) => {
 
       // Prioritize explicit variant separators.
       if (s.includes('|')) return s.split('|').map((x) => x.trim()).filter(Boolean);
-      if (s.includes('/')) return s.split('/').map((x) => x.trim()).filter(Boolean);
+      if (s.includes('/') && !isNumericSlashLiteral(s)) return s.split('/').map((x) => x.trim()).filter(Boolean);
       if (s.includes(';')) return s.split(';').map((x) => x.trim()).filter(Boolean);
 
       // Avoid splitting numeric thousands separators like "10,000".

@@ -64,3 +64,44 @@ test('scoreListening supports canonical cloze-test table sections', () => {
   expect(res.details).toHaveLength(2);
   expect(res.details.every((detail) => detail.questionType === 'cloze-test')).toBe(true);
 });
+
+test('scoreListening treats numeric slash answers as literals but still accepts slash variants', () => {
+  const testDef = {
+    partInstructions: [
+      {
+        sections: [
+          { questionType: 'cloze-test', startingQuestionNumber: 1 },
+        ],
+      },
+    ],
+    questions: [
+      {
+        partIndex: 0,
+        sectionIndex: 0,
+        questionIndex: 0,
+        questionType: 'cloze-test',
+        tableMode: true,
+        clozeTable: {
+          columns: ['Field', 'Value'],
+          rows: [
+            {
+              cells: ['Date of birth', '[BLANK]'],
+              cellBlankAnswers: [[], ['23/07/1970']],
+            },
+            {
+              cells: ['Port', '[BLANK]'],
+              cellBlankAnswers: [[], ['harbour/harbor']],
+            },
+          ],
+        },
+      },
+    ],
+  };
+
+  const answers = { q1: '23/07/1970', q2: 'harbor' };
+  const res = scoreListening({ test: testDef, answers });
+
+  expect(res.totalCount).toBe(2);
+  expect(res.correctCount).toBe(2);
+  expect(res.details.map((detail) => detail.isCorrect)).toEqual([true, true]);
+});

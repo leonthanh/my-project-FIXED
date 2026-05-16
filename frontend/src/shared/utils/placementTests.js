@@ -132,6 +132,136 @@ export const savePlacementLeadDraft = (draft) => {
   return nextDraft;
 };
 
+const normalizePlacementGroupValue = (value) => String(value || "").trim().toLowerCase();
+
+const SKILL_ORDER = {
+  writing: 0,
+  reading: 1,
+  listening: 2,
+};
+
+const ORANGE_LEVEL_ORDER = {
+  ket: 0,
+  pet: 1,
+  flyers: 2,
+  flyer: 2,
+  movers: 3,
+  mover: 3,
+  starters: 4,
+  starter: 4,
+};
+
+const getSkillRank = (skill) => {
+  const normalizedSkill = normalizePlacementGroupValue(skill);
+  return Object.prototype.hasOwnProperty.call(SKILL_ORDER, normalizedSkill)
+    ? SKILL_ORDER[normalizedSkill]
+    : 99;
+};
+
+const getOrangeLevelRank = (item) => {
+  const candidates = [item?.testType, item?.badge, item?.title, item?.subtitle]
+    .map(normalizePlacementGroupValue)
+    .filter(Boolean);
+
+  for (const candidate of candidates) {
+    for (const [level, rank] of Object.entries(ORANGE_LEVEL_ORDER)) {
+      if (candidate.includes(level)) {
+        return rank;
+      }
+    }
+  }
+
+  return 99;
+};
+
+export const comparePlacementItems = (platform, left, right) => {
+  if (platform === "orange") {
+    const levelDelta = getOrangeLevelRank(left) - getOrangeLevelRank(right);
+    if (levelDelta !== 0) {
+      return levelDelta;
+    }
+  }
+
+  const skillDelta = getSkillRank(left?.skill) - getSkillRank(right?.skill);
+  if (skillDelta !== 0) {
+    return skillDelta;
+  }
+
+  const badgeDelta = normalizePlacementGroupValue(left?.badge).localeCompare(
+    normalizePlacementGroupValue(right?.badge)
+  );
+  if (badgeDelta !== 0 && platform === "orange") {
+    return badgeDelta;
+  }
+
+  const titleDelta = normalizePlacementGroupValue(left?.title).localeCompare(
+    normalizePlacementGroupValue(right?.title)
+  );
+  if (titleDelta !== 0) {
+    return titleDelta;
+  }
+
+  return Number(left?.sortOrder || 0) - Number(right?.sortOrder || 0);
+};
+
+export const groupPlacementItems = (items) => {
+  const buckets = {
+    ix: [],
+    orange: [],
+  };
+  const extraBuckets = new Map();
+
+  (Array.isArray(items) ? items : []).forEach((item) => {
+    const platform = normalizePlacementGroupValue(item?.platform);
+
+    if (platform === "ix" || platform === "orange") {
+      buckets[platform].push(item);
+      return;
+    }
+
+    const fallbackPlatform = platform || "other";
+    if (!extraBuckets.has(fallbackPlatform)) {
+      extraBuckets.set(fallbackPlatform, []);
+    }
+    extraBuckets.get(fallbackPlatform).push(item);
+  });
+
+  return [["ix", buckets.ix], ["orange", buckets.orange], ...Array.from(extraBuckets.entries())]
+    .filter(([, groupItems]) => groupItems.length > 0)
+    .map(([platform, groupItems]) => ({
+      platform,
+      accent: platform === "orange" ? "orange" : "ix",
+      title:
+        platform === "orange"
+          ? "Orange tests"
+          : platform === "ix"
+            ? "IX tests"
+            : `${platform.toUpperCase()} tests`,
+      items: [...groupItems].sort((left, right) => comparePlacementItems(platform, left, right)),
+    }));
+};
+
+export const filterPlacementGroups = (groups, activePlatform = "") => {
+  const normalizedPlatform = normalizeText(activePlatform).toLowerCase();
+  const visibleGroups = normalizedPlatform
+    ? (Array.isArray(groups) ? groups : []).filter((group) => group.platform === normalizedPlatform)
+    : Array.isArray(groups)
+      ? groups
+      : [];
+
+  let runningIndex = 0;
+
+  return visibleGroups.map((group) => {
+    const startIndex = runningIndex;
+    runningIndex += group.items.length;
+
+    return {
+      ...group,
+      startIndex,
+    };
+  });
+};
+
 export const getPlacementItemSummaryCounts = (items) => {
   return (Array.isArray(items) ? items : []).reduce(
     (acc, item) => {
