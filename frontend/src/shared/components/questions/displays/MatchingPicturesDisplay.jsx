@@ -107,7 +107,7 @@ const MatchingPicturesDisplay = ({
 
   // ── Questions panel (prompts + drop zones) ────────────────────────────────
   const questionsPanel = (
-    <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: '12px', padding: '16px', height: '100%', overflowY: 'auto' }}>
+    <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: '12px', padding: '16px', height: '100%', overflowY: 'auto', minWidth: 0, boxSizing: 'border-box' }}>
       {description && (
         <div style={{ marginBottom: '12px', fontSize: '14px', lineHeight: 1.6, color: '#374151' }}>
           {description}
@@ -280,7 +280,7 @@ const MatchingPicturesDisplay = ({
   }, [prompts, answers]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const pictureBankPanel = (
-    <div style={{ background: '#f8fafc', border: '1px solid #e5e7eb', borderRadius: '12px', padding: '16px', height: '100%', overflowY: 'auto' }}>
+    <div style={{ background: '#f8fafc', border: '1px solid #e5e7eb', borderRadius: '12px', padding: '16px', height: '100%', overflowY: 'auto', minWidth: 0, boxSizing: 'border-box' }}>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginBottom: '6px' }}>
         <div style={{ fontWeight: 800, fontSize: '16px', color: '#0e276f' }}>Picture Bank</div>
@@ -392,7 +392,7 @@ const MatchingPicturesDisplay = ({
 
   // 'combined' (default): two-column grid — original behaviour
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.9fr', gap: '18px' }}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '18px', alignItems: 'start' }}>
       {questionsPanel}
       {pictureBankPanel}
     </div>

@@ -1569,11 +1569,15 @@ const createStyles = (isDarkMode = false, isCompactLayout = false) => {
       display: 'flex',
       flexDirection: 'column',
       gap: '24px',
+      width: '100%',
+      maxWidth: '1380px',
+      margin: '0 auto',
     },
     questionSummary: {
       backgroundColor: colors.surface,
-      borderRadius: '12px',
-      padding: '24px',
+      borderRadius: '18px',
+      padding: isCompactLayout ? '18px 16px' : '22px 24px',
+      border: `1px solid ${colors.border}`,
       boxShadow: colors.shadow,
     },
     summaryTitle: {
@@ -1585,6 +1589,7 @@ const createStyles = (isDarkMode = false, isCompactLayout = false) => {
       display: 'flex',
       flexWrap: 'wrap',
       gap: '8px',
+      alignItems: 'center',
     },
     questionBadge: {
       width: '36px',
@@ -1598,7 +1603,8 @@ const createStyles = (isDarkMode = false, isCompactLayout = false) => {
     },
     legendRow: {
       display: 'flex',
-      gap: '24px',
+      gap: isCompactLayout ? '12px' : '24px',
+      flexWrap: 'wrap',
       marginTop: '16px',
       paddingTop: '16px',
       borderTop: `1px solid ${colors.border}`,
