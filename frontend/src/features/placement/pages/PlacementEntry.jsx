@@ -5,81 +5,15 @@ import { apiPath } from "../../../shared/utils/api";
 import {
   buildPlacementAttemptPath,
   buildPlacementSharePath,
+  filterPlacementGroups,
   getPlacementItemSummaryCounts,
+  groupPlacementItems,
   readPlacementLeadDraft,
   savePlacementLeadDraft,
 } from "../../../shared/utils/placementTests";
 import "./PlacementEntry.css";
 
 const vnPhoneRegex = /^(0)(3[2-9]|5[2689]|7[06-9]|8[1-9]|9[0-9])[0-9]{7}$/;
-
-const normalizePlacementValue = (value) => String(value || "").trim().toLowerCase();
-
-const SKILL_ORDER = {
-  writing: 0,
-  reading: 1,
-  listening: 2,
-};
-
-const ORANGE_LEVEL_ORDER = {
-  ket: 0,
-  pet: 1,
-  flyers: 2,
-  flyer: 2,
-  movers: 3,
-  mover: 3,
-  starters: 4,
-  starter: 4,
-};
-
-const getSkillRank = (skill) => {
-  const normalizedSkill = normalizePlacementValue(skill);
-  return Object.prototype.hasOwnProperty.call(SKILL_ORDER, normalizedSkill)
-    ? SKILL_ORDER[normalizedSkill]
-    : 99;
-};
-
-const getOrangeLevelRank = (item) => {
-  const candidates = [item?.testType, item?.badge, item?.title, item?.subtitle]
-    .map(normalizePlacementValue)
-    .filter(Boolean);
-
-  for (const candidate of candidates) {
-    for (const [level, rank] of Object.entries(ORANGE_LEVEL_ORDER)) {
-      if (candidate.includes(level)) {
-        return rank;
-      }
-    }
-  }
-
-  return 99;
-};
-
-const comparePlacementItems = (platform, left, right) => {
-  if (platform === "orange") {
-    const levelDelta = getOrangeLevelRank(left) - getOrangeLevelRank(right);
-    if (levelDelta !== 0) {
-      return levelDelta;
-    }
-  }
-
-  const skillDelta = getSkillRank(left?.skill) - getSkillRank(right?.skill);
-  if (skillDelta !== 0) {
-    return skillDelta;
-  }
-
-  const badgeDelta = normalizePlacementValue(left?.badge).localeCompare(normalizePlacementValue(right?.badge));
-  if (badgeDelta !== 0 && platform === "orange") {
-    return badgeDelta;
-  }
-
-  const titleDelta = normalizePlacementValue(left?.title).localeCompare(normalizePlacementValue(right?.title));
-  if (titleDelta !== 0) {
-    return titleDelta;
-  }
-
-  return Number(left?.sortOrder || 0) - Number(right?.sortOrder || 0);
-};
 
 const PlacementEntry = () => {
   const { shareToken } = useParams();
@@ -149,52 +83,7 @@ const PlacementEntry = () => {
   }, [selections]);
 
   const groupedSelections = useMemo(() => {
-    const buckets = {
-      ix: [],
-      orange: [],
-    };
-    const extraBuckets = new Map();
-
-    selections.forEach((item) => {
-      const platform = String(item?.platform || "").trim().toLowerCase();
-
-      if (platform === "ix" || platform === "orange") {
-        buckets[platform].push(item);
-        return;
-      }
-
-      const fallbackPlatform = platform || "other";
-      if (!extraBuckets.has(fallbackPlatform)) {
-        extraBuckets.set(fallbackPlatform, []);
-      }
-      extraBuckets.get(fallbackPlatform).push(item);
-    });
-
-    let runningIndex = 0;
-
-    return [["ix", buckets.ix], ["orange", buckets.orange], ...Array.from(extraBuckets.entries())]
-      .filter(([, items]) => items.length > 0)
-      .map(([platform, items]) => {
-        const accent = platform === "orange" ? "orange" : "ix";
-        const sortedItems = [...items].sort((left, right) => comparePlacementItems(platform, left, right));
-        const title =
-          platform === "orange"
-            ? "Orange tests"
-            : platform === "ix"
-              ? "IX tests"
-              : `${platform.toUpperCase()} tests`;
-
-        const startIndex = runningIndex;
-        runningIndex += sortedItems.length;
-
-        return {
-          platform,
-          accent,
-          title,
-          items: sortedItems,
-          startIndex,
-        };
-      });
+    return groupPlacementItems(selections);
   }, [selections]);
 
   const placementFilterTabs = useMemo(
@@ -208,20 +97,7 @@ const PlacementEntry = () => {
       : placementFilterTabs[0]?.platform || null;
 
   const visibleGroups = useMemo(() => {
-    const groups = selectedPlatform
-      ? groupedSelections.filter((group) => group.platform === selectedPlatform)
-      : groupedSelections;
-
-    let runningIndex = 0;
-
-    return groups.map((group) => {
-      const startIndex = runningIndex;
-      runningIndex += group.items.length;
-      return {
-        ...group,
-        startIndex,
-      };
-    });
+    return filterPlacementGroups(groupedSelections, selectedPlatform);
   }, [groupedSelections, selectedPlatform]);
 
   const sharePath = useMemo(() => buildPlacementSharePath(shareToken), [shareToken]);

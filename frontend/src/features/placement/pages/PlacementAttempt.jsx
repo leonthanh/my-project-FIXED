@@ -5,7 +5,9 @@ import { apiPath } from "../../../shared/utils/api";
 import {
   buildPlacementAttemptItemRuntimePath,
   buildPlacementSharePath,
+  filterPlacementGroups,
   getPlacementItemSummaryCounts,
+  groupPlacementItems,
 } from "../../../shared/utils/placementTests";
 import "./PlacementEntry.css";
 
@@ -26,6 +28,7 @@ const PlacementAttempt = () => {
   const [attempt, setAttempt] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [activePlatform, setActivePlatform] = useState(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -72,6 +75,19 @@ const PlacementAttempt = () => {
   const summary = useMemo(
     () => attempt?.summary || getPlacementItemSummaryCounts(items),
     [attempt?.summary, items]
+  );
+  const groupedItems = useMemo(() => groupPlacementItems(items), [items]);
+  const placementFilterTabs = useMemo(
+    () => groupedItems.filter((group) => group.platform === "ix" || group.platform === "orange"),
+    [groupedItems]
+  );
+  const selectedPlatform =
+    placementFilterTabs.some((group) => group.platform === activePlatform)
+      ? activePlatform
+      : placementFilterTabs[0]?.platform || null;
+  const visibleGroups = useMemo(
+    () => filterPlacementGroups(groupedItems, selectedPlatform),
+    [groupedItems, selectedPlatform]
   );
   const sharePath = useMemo(
     () => buildPlacementSharePath(attempt?.shareToken),
@@ -150,70 +166,109 @@ const PlacementAttempt = () => {
                 </div>
               </div>
 
+              {placementFilterTabs.length > 1 ? (
+                <div className="placement-entry-jumpNav" aria-label="Filter assigned tests by platform">
+                  {placementFilterTabs.map((group) => (
+                    <button
+                      key={group.platform}
+                      type="button"
+                      className={`placement-entry-jumpButton placement-entry-jumpButton--${group.accent}${selectedPlatform === group.platform ? " is-active" : ""}`}
+                      onClick={() => setActivePlatform(group.platform)}
+                      aria-pressed={selectedPlatform === group.platform}
+                    >
+                      <span>{group.platform === "orange" ? "Orange" : group.platform === "ix" ? "IX" : group.platform.toUpperCase()}</span>
+                      <span className="placement-entry-jumpCount">{group.items.length}</span>
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+
               {loading ? (
                 <p className="placement-entry-message">Loading assigned tests.</p>
               ) : !items.length ? (
-              <div className="placement-entry-emptyState">
-                <span className="placement-entry-emptyIcon" aria-hidden="true">
-                  <LineIcon name="tests" size={22} />
-                </span>
-                <h3>No assigned tests found</h3>
-                <p>This attempt does not contain any placement test items yet.</p>
-              </div>
-            ) : (
-              <div className="placement-entry-list">
-                {items.map((item, index) => {
-                  const runtimePath = buildPlacementAttemptItemRuntimePath(item, attemptToken);
-                  const scoreLine = item.status === "submitted"
-                    ? [
-                        Number.isFinite(Number(item.correct)) && Number.isFinite(Number(item.totalQuestions))
-                          ? `${item.correct}/${item.totalQuestions}`
-                          : null,
-                        formatPercentage(item.percentage),
-                      ]
-                        .filter(Boolean)
-                        .join(" • ")
-                    : "";
-
-                  return (
-                    <div key={item.attemptItemToken || `${item.testId}-${index}`} className="placement-entry-testCard">
-                      <div className="placement-entry-testHeader">
-                        <span className="placement-entry-testNumber">#{index + 1}</span>
-                        <span className="placement-entry-testBadge">{getStatusLabel(item.status)}</span>
+                <div className="placement-entry-emptyState">
+                  <span className="placement-entry-emptyIcon" aria-hidden="true">
+                    <LineIcon name="tests" size={22} />
+                  </span>
+                  <h3>No assigned tests found</h3>
+                  <p>This attempt does not contain any placement test items yet.</p>
+                </div>
+              ) : (
+                <div className="placement-entry-groupList">
+                  {visibleGroups.map((group) => (
+                    <section key={group.platform} className="placement-entry-group">
+                      <div className="placement-entry-groupHeader">
+                        <div className="placement-entry-groupTitleRow">
+                          <span className={`placement-entry-groupPill placement-entry-groupPill--${group.accent}`}>
+                            {group.platform === "orange" ? "Orange" : group.platform === "ix" ? "IX" : group.platform.toUpperCase()}
+                          </span>
+                          <h3 className="placement-entry-groupTitle">{group.title}</h3>
+                        </div>
+                        <span className="placement-entry-groupCount">
+                          {group.items.length} test{group.items.length === 1 ? "" : "s"}
+                        </span>
                       </div>
 
-                      <h3 className="placement-entry-testTitle">{item.title}</h3>
+                      <div className="placement-entry-list">
+                        {group.items.map((item, index) => {
+                          const runtimePath = buildPlacementAttemptItemRuntimePath(item, attemptToken);
+                          const itemAccent = item.platform === "orange" ? "orange" : "ix";
+                          const scoreLine = item.status === "submitted"
+                            ? [
+                                Number.isFinite(Number(item.correct)) && Number.isFinite(Number(item.totalQuestions))
+                                  ? `${item.correct}/${item.totalQuestions}`
+                                  : null,
+                                formatPercentage(item.percentage),
+                              ]
+                                .filter(Boolean)
+                                .join(" • ")
+                            : "";
 
-                      {item.subtitle ? (
-                        <p className="placement-entry-testSubtitle">{item.subtitle}</p>
-                      ) : null}
+                          return (
+                            <div
+                              key={item.attemptItemToken || `${item.platform}-${item.testType || item.skill}-${item.testId}-${group.startIndex + index}`}
+                              className={`placement-entry-testCard${itemAccent === "orange" ? " placement-entry-testCard--orange" : ""}`}
+                            >
+                              <div className="placement-entry-testHeader">
+                                <span className="placement-entry-testNumber">#{group.startIndex + index + 1}</span>
+                                <span className="placement-entry-testBadge">{getStatusLabel(item.status)}</span>
+                              </div>
 
-                      <div className="placement-entry-testMeta">
-                        <span>{item.platform === "orange" ? "Orange" : "IX"}</span>
-                        <span>{item.skill}</span>
-                        {item.questionsLabel ? <span>{item.questionsLabel}</span> : null}
-                        {item.durationLabel ? <span>{item.durationLabel}</span> : null}
+                              <h3 className="placement-entry-testTitle">{item.title}</h3>
+
+                              {item.subtitle ? (
+                                <p className="placement-entry-testSubtitle">{item.subtitle}</p>
+                              ) : null}
+
+                              <div className="placement-entry-testMeta">
+                                <span>{item.platform === "orange" ? "Orange" : "IX"}</span>
+                                <span>{item.skill}</span>
+                                {item.questionsLabel ? <span>{item.questionsLabel}</span> : null}
+                                {item.durationLabel ? <span>{item.durationLabel}</span> : null}
+                              </div>
+
+                              {scoreLine ? (
+                                <p className="placement-entry-note">Score summary: {scoreLine}</p>
+                              ) : null}
+
+                              {item.status === "submitted" ? (
+                                <button type="button" className="placement-entry-primaryButton" disabled>
+                                  <LineIcon name="tests" size={16} />
+                                  <span>Completed</span>
+                                </button>
+                              ) : (
+                                <Link to={runtimePath} className="placement-entry-primaryButton placement-entry-primaryButton--link">
+                                  <LineIcon name="target" size={16} />
+                                  <span>{item.status === "started" ? "Continue Test" : "Start Test"}</span>
+                                </Link>
+                              )}
+                            </div>
+                          );
+                        })}
                       </div>
-
-                      {scoreLine ? (
-                        <p className="placement-entry-note">Score summary: {scoreLine}</p>
-                      ) : null}
-
-                      {item.status === "submitted" ? (
-                        <button type="button" className="placement-entry-primaryButton" disabled>
-                          <LineIcon name="tests" size={16} />
-                          <span>Completed</span>
-                        </button>
-                      ) : (
-                        <Link to={runtimePath} className="placement-entry-primaryButton placement-entry-primaryButton--link">
-                          <LineIcon name="target" size={16} />
-                          <span>{item.status === "started" ? "Continue Test" : "Start Test"}</span>
-                        </Link>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
+                    </section>
+                  ))}
+                </div>
               )}
             </article>
           </div>
