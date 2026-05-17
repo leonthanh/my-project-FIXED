@@ -45,6 +45,8 @@ test('QuestionSection does not include Listening-only question types in reading 
     const option = allOptions.find((opt) => opt.getAttribute('value') === type);
     expect(option).toBeUndefined();
   });
+
+  expect(screen.getByRole('button', { name: 'Thêm câu hỏi' })).toHaveStyle('padding: 8px 12px');
 });
 
 test('QuestionSection shows diagram-specific add actions for diagram-labeling blocks', () => {

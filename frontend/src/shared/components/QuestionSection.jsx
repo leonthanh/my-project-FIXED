@@ -497,7 +497,7 @@ const QuestionSection = ({
         ))}
 
         {/* Add Question Button */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'flex-start' }}>
           <button
             type="button"
             onClick={() => {
@@ -507,8 +507,8 @@ const QuestionSection = ({
               }
             }}
             style={{
-              width: '100%',
-              padding: '10px',
+              width: 'auto',
+              padding: '8px 12px',
               backgroundColor: primaryBlue,
               color: 'white',
               border: 'none',
@@ -529,8 +529,8 @@ const QuestionSection = ({
                 collapseAllQuestions();
               }}
               style={{
-                width: '100%',
-                padding: '10px',
+                width: 'auto',
+                padding: '8px 12px',
                 backgroundColor: '#e2e8f0',
                 color: '#0f172a',
                 border: '1px solid #cbd5e1',

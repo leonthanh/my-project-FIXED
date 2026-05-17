@@ -161,6 +161,69 @@ const sentenceCompletionInlineTest = {
   ],
 };
 
+const multiSelectSinglePromptRenderTest = {
+  id: 1,
+  title: 'Multi Select Prompt Render Test',
+  durationMinutes: 60,
+  passages: [
+    {
+      passageTitle: 'Passage 1',
+      sections: [
+        {
+          sectionTitle: 'Section 1',
+          questions: [
+            {
+              questionNumber: '10-12',
+              questionType: 'multi-select',
+              questionText: 'Prompt for multi-select only once',
+              options: ['Option A', 'Option B', 'Option C', 'Option D', 'Option E'],
+              requiredAnswers: 3,
+              correctAnswer: 'ACE',
+            },
+          ],
+        },
+      ],
+    },
+  ],
+};
+
+const multiSelectRuntimeNumberingTest = {
+  id: 1,
+  title: 'Multi Select Runtime Numbering Test',
+  durationMinutes: 60,
+  passages: [
+    {
+      passageTitle: 'Passage 1',
+      sections: [
+        {
+          questions: Array.from({ length: 7 }, (_, index) => ({
+            questionNumber: index + 1,
+            type: 'multiple-choice',
+          })),
+        },
+      ],
+    },
+    {
+      passageTitle: 'Passage 2',
+      sections: [
+        {
+          sectionTitle: 'Section 1',
+          questions: [
+            {
+              questionNumber: '10-12',
+              questionType: 'multi-select',
+              questionText: 'Which THREE options are mentioned?',
+              options: ['Option A', 'Option B', 'Option C', 'Option D', 'Option E'],
+              requiredAnswers: 3,
+              correctAnswer: 'ACE',
+            },
+          ],
+        },
+      ],
+    },
+  ],
+};
+
 const diagramLabelingTest = {
   id: 1,
   title: 'Diagram Labeling Test',
@@ -470,6 +533,60 @@ describe('DoReadingTest integration - part navigation and focus', () => {
     await waitFor(() => {
       expect(select).toHaveValue('C');
       expect(container.querySelector('.question-item.answered')).not.toBeNull();
+    });
+  });
+
+  it('renders multi-select prompt only once beside the badge in student runtime', async () => {
+    global.fetch.mockImplementation(() => {
+      return Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve(multiSelectSinglePromptRenderTest),
+      });
+    });
+
+    const { container } = render(
+      <MemoryRouter initialEntries={["/reading/1"]}>
+        <Routes>
+          <Route path="/reading/:id" element={<DoReadingTest />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await screen.findByText('Prompt for multi-select only once');
+
+    expect(screen.getAllByText('Prompt for multi-select only once')).toHaveLength(1);
+    expect(container.querySelector('.multi-select-badge')).toHaveTextContent('1-3');
+  });
+
+  it('keeps multi-select badge and footer navigation aligned with computed runtime numbering', async () => {
+    global.fetch.mockImplementation(() => {
+      return Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve(multiSelectRuntimeNumberingTest),
+      });
+    });
+
+    const { container } = render(
+      <MemoryRouter initialEntries={["/reading/1"]}>
+        <Routes>
+          <Route path="/reading/:id" element={<DoReadingTest />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await screen.findByText('PASSAGE 1');
+
+    fireEvent.click(screen.getByTitle('Passage 2'));
+
+    await screen.findByText('Which THREE options are mentioned?');
+
+    expect(container.querySelector('.multi-select-badge')).toHaveTextContent('8-10');
+    expect(screen.getByTestId('nav-question-8')).toHaveTextContent('8-10');
+
+    fireEvent.click(screen.getAllByRole('checkbox')[0]);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('nav-question-8')).toHaveClass('answered');
     });
   });
 
