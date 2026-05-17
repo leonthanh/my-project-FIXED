@@ -30,8 +30,6 @@ import {
   dangerButtonStyle,
   columnHeaderStyle,
   itemStyle,
-  deleteButtonSmallStyle,
-  addButtonStyle,
   resizeDividerStyle,
   audioUploadStyle,
   audioUploadActiveStyle,
@@ -67,15 +65,6 @@ const questionTypeFieldShellStyle = {
   alignItems: "center",
   gap: "8px",
   minWidth: "240px",
-};
-
-const sidebarDeleteButtonStyle = {
-  ...deleteButtonSmallStyle,
-  padding: "4px 9px",
-  fontSize: "10px",
-  lineHeight: 1.2,
-  whiteSpace: "nowrap",
-  flexShrink: 0,
 };
 
 const questionTypeFieldSelectWrapStyle = {
@@ -254,6 +243,7 @@ const ListeningTestEditor = ({
   const [manualHeaderOverride, setManualHeaderOverride] = useState(false);
 
   // Panel collapse states (like Reading editor)
+  const [collapsedSidebar, setCollapsedSidebar] = useState(false);
   const [collapsedAudio, setCollapsedAudio] = useState(false);
   const [collapsedQuestions, setCollapsedQuestions] = useState(false);
 
@@ -317,6 +307,45 @@ const ListeningTestEditor = ({
   // Total questions count
   const totalQuestions = calculateTotalQuestions(parts || []);
   const activeGlobalAudioUrl = globalAudioFile?.url || existingAudioUrl || "";
+  const sidebarWidth = collapsedSidebar ? "76px" : "280px";
+  const sidebarMinWidth = collapsedSidebar ? "76px" : "220px";
+
+  const getSectionActionButtonStyle = (variant) => {
+    const variants = {
+      add: {
+        background: "linear-gradient(135deg, #f59e0b 0%, #d97706 100%)",
+        border: "1px solid rgba(251, 191, 36, 0.35)",
+        boxShadow: "0 10px 18px rgba(217, 119, 6, 0.18)",
+      },
+      copy: {
+        background: "linear-gradient(135deg, #64748b 0%, #475569 100%)",
+        border: "1px solid rgba(148, 163, 184, 0.28)",
+        boxShadow: "0 10px 18px rgba(71, 85, 105, 0.16)",
+      },
+      delete: {
+        background: "linear-gradient(135deg, #fb7185 0%, #e11d48 100%)",
+        border: "1px solid rgba(251, 113, 133, 0.28)",
+        boxShadow: "0 10px 18px rgba(225, 29, 72, 0.16)",
+      },
+    };
+
+    return {
+      width: "100%",
+      minHeight: "44px",
+      padding: "10px 14px",
+      borderRadius: "12px",
+      cursor: "pointer",
+      color: "white",
+      fontWeight: 700,
+      fontSize: "12px",
+      letterSpacing: "0.01em",
+      display: "inline-flex",
+      alignItems: "center",
+      justifyContent: "center",
+      textAlign: "center",
+      ...variants[variant],
+    };
+  };
 
   const getMessageTone = (currentMessage = "") => {
     if (currentMessage.includes("\u274C") || /^(error|lỗi)\s*:/i.test(currentMessage)) return "error";
@@ -332,9 +361,9 @@ const ListeningTestEditor = ({
   // Handle audio file upload
   const handleAudioUpload = (file, isGlobal = false, partIndex = null) => {
     if (!file) return;
-    
+
     const url = URL.createObjectURL(file);
-    
+
     if (isGlobal) {
       setGlobalAudioFile({ file, url });
     } else if (partIndex !== null) {
@@ -356,8 +385,6 @@ const ListeningTestEditor = ({
     { value: 'map-labeling', label: 'Map / Plan Labeling', icon: 'map', desc: 'Gắn nhãn vào sơ đồ hoặc bản đồ.' },
     { value: 'flowchart', label: 'Flowchart Completion', icon: 'flowchart', desc: 'Flowchart có blank chọn đáp án A-G.' },
   ];
-
-
 
   // Small helper component used in the review modal to render map image with pixel-accurate markers
   const MapPreview = ({ q }) => {
@@ -391,7 +418,6 @@ const ListeningTestEditor = ({
           {(q.items || []).map((item, idx) => {
             const pos = item?.position || null;
             if (!pos) return null;
-            // Convert percent -> pixel and round to nearest integer for crisp rendering
             const leftPx = size.w ? Math.round((pos.x / 100) * size.w) : null;
             const topPx = size.h ? Math.round((pos.y / 100) * size.h) : null;
             return (
@@ -542,8 +568,8 @@ const ListeningTestEditor = ({
           {/* ===== LEFT SIDEBAR: Parts + Sections ===== */}
           <div
             style={{
-              width: "280px",
-              minWidth: "220px",
+              width: sidebarWidth,
+              minWidth: sidebarMinWidth,
               backgroundColor: "#1e293b",
               color: "white",
               display: "flex",
@@ -551,116 +577,211 @@ const ListeningTestEditor = ({
               overflow: "hidden",
               flexShrink: 0,
               borderRight: "1px solid #0f172a",
+              transition: "width 0.25s ease, min-width 0.25s ease",
             }}
           >
-            {/* Parts header */}
-            <div style={{ padding: "10px 12px", borderBottom: "1px solid #334155", flexShrink: 0 }}>
-              <span style={{ fontSize: "11px", fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-                Parts ({parts?.length || 0})
+            <div
+              style={{
+                padding: collapsedSidebar ? "10px 8px" : "10px 12px",
+                borderBottom: "1px solid #334155",
+                flexShrink: 0,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: "8px",
+              }}
+            >
+              <span
+                style={{
+                  fontSize: "11px",
+                  fontWeight: 700,
+                  color: "#94a3b8",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.5px",
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                }}
+                title={`Parts (${parts?.length || 0})`}
+              >
+                {collapsedSidebar ? `P${parts?.length || 0}` : `Parts (${parts?.length || 0})`}
               </span>
-            </div>
-            {/* Parts list – scrollable */}
-            <div style={{ overflow: "auto", padding: "8px 8px 0 8px", flexShrink: 0, maxHeight: "38%" }}>
-              {parts?.map((part, idx) => (
-                <div
-                  key={idx}
-                  onClick={() => { setSelectedPartIndex(idx); setSelectedSectionIndex(part.sections?.length > 0 ? 0 : null); }}
-                  style={{
-                    padding: "10px 12px", marginBottom: "4px", borderRadius: "6px", cursor: "pointer",
-                    backgroundColor: selectedPartIndex === idx ? colors.partBlue : "#475569",
-                    display: "flex", justifyContent: "space-between", alignItems: "center", gap: "8px",
-                    transition: "background 0.15s",
-                  }}
-                >
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: "13px", fontWeight: 600, color: "white" }}>{part.title}</div>
-                    <div style={{ fontSize: "10px", color: "#94a3b8", marginTop: "2px" }}>
-                      {part.sections?.length || 0} section · {part.sections?.reduce((total, section) => total + countSectionQuestions(section), 0) || 0} câu
-                      {Boolean(part.audioUrl || part.audioFile) && <span style={{ marginLeft: 4, color: colors.audioGreen }}>Audio</span>}
-                    </div>
-                  </div>
-                  {parts.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={(e) => { e.stopPropagation(); onDeletePart(idx); }}
-                      style={sidebarDeleteButtonStyle}
-                      title={`Xóa part ${idx + 1}`}
-                      aria-label={`Xóa part ${idx + 1}`}
-                    >
-                      Xóa
-                    </button>
-                  )}
-                </div>
-              ))}
-            </div>
-            {/* Add Part – always pinned */}
-            <div style={{ padding: "6px 8px 8px 8px", flexShrink: 0 }}>
-              <button type="button" onClick={onAddPart} style={{ width: "100%", padding: "7px", backgroundColor: "#22c55e", color: "white", border: "none", borderRadius: "6px", cursor: "pointer", fontWeight: 600, fontSize: "12px" }}>
-                Thêm part
+              <button
+                type="button"
+                onClick={() => setCollapsedSidebar((value) => !value)}
+                title={collapsedSidebar ? "Mở rộng sidebar Parts/Sections" : "Thu nhỏ sidebar Parts/Sections"}
+                aria-label={collapsedSidebar ? "Mở rộng sidebar Parts/Sections" : "Thu nhỏ sidebar Parts/Sections"}
+                style={{
+                  width: "28px",
+                  height: "28px",
+                  borderRadius: "6px",
+                  border: "1px solid #475569",
+                  backgroundColor: "rgba(148, 163, 184, 0.12)",
+                  color: "white",
+                  cursor: "pointer",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexShrink: 0,
+                }}
+              >
+                <InlineIcon name={collapsedSidebar ? "chevron-right" : "chevron-left"} size={14} style={{ color: "currentColor" }} />
               </button>
             </div>
 
-            {/* Sections header */}
-            <div style={{ padding: "10px 12px", borderTop: "1px solid #334155", borderBottom: "1px solid #334155", flexShrink: 0 }}>
-              <span style={{ fontSize: "11px", fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-                Sections {currentPart ? `(P${selectedPartIndex + 1})` : ""}
-              </span>
-            </div>
-            {/* Sections list – scrollable */}
-            <div style={{ flex: 1, overflow: "auto", padding: "8px 8px 0 8px" }}>
-              {currentPart ? (
-                currentPart.sections?.map((section, idx) => {
-                  const startQ = calculateStartingQuestionNumber(parts, selectedPartIndex, idx);
-                  const sectionQCount = countSectionQuestions(section);
-                  const endQ = startQ + sectionQCount - 1;
-                  return (
-                    <div
-                      key={idx}
-                      onClick={() => setSelectedSectionIndex(idx)}
-                      style={{
-                        padding: "10px 12px", marginBottom: "4px", borderRadius: "6px", cursor: "pointer",
-                        backgroundColor: selectedSectionIndex === idx ? "#6366f1" : "#475569",
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                        gap: "8px",
-                        transition: "background 0.15s",
-                      }}
-                    >
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: "13px", fontWeight: 600, color: "white" }}>
-                          {section.sectionTitle || `Q${startQ}–${endQ}`}
-                        </div>
-                        <div style={{ fontSize: "10px", color: "#94a3b8", marginTop: "2px" }}>
-                          {sectionQCount} câu · {section.questionType || "fill"}
-                        </div>
+            <div style={{ overflow: "auto", padding: collapsedSidebar ? "8px 6px 0 6px" : "8px 8px 0 8px", flexShrink: 0, maxHeight: "38%" }}>
+                {parts?.map((part, idx) => (
+                  <div
+                    key={idx}
+                    onClick={() => { setSelectedPartIndex(idx); setSelectedSectionIndex(part.sections?.length > 0 ? 0 : null); }}
+                    title={`Part ${idx + 1}${part.title ? ` - ${part.title}` : ""}`}
+                    style={{
+                      padding: collapsedSidebar ? "10px 6px" : "9px 10px",
+                      marginBottom: "4px",
+                      borderRadius: "6px",
+                      cursor: "pointer",
+                      backgroundColor: selectedPartIndex === idx ? colors.partBlue : "#475569",
+                      display: "flex",
+                      justifyContent: collapsedSidebar ? "center" : "space-between",
+                      alignItems: collapsedSidebar ? "center" : "flex-start",
+                      transition: "background 0.15s",
+                    }}
+                  >
+                    <div style={{ flex: 1, minWidth: 0, textAlign: collapsedSidebar ? "center" : "left" }}>
+                      <div style={{ fontSize: "13px", fontWeight: 600, color: "white" }}>
+                        {collapsedSidebar ? `P${idx + 1}` : `Part ${idx + 1}`}
                       </div>
-                      {(currentPart.sections?.length || 0) > 1 && (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onDeleteSection(selectedPartIndex, idx);
-                          }}
-                          style={sidebarDeleteButtonStyle}
-                          title={`Xóa section ${idx + 1}`}
-                          aria-label={`Xóa section ${idx + 1}`}
-                        >
-                          Xóa
-                        </button>
+                      {!collapsedSidebar && (
+                        <>
+                          <div style={{ fontSize: "11px", color: "#cbd5e1", marginTop: "2px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            {part.title || "(Chưa có tiêu đề)"}
+                          </div>
+                          <div style={{ fontSize: "10px", color: "#94a3b8", marginTop: "2px" }}>
+                            {part.sections?.length || 0} section · {part.sections?.reduce((total, section) => total + countSectionQuestions(section), 0) || 0} câu
+                            {Boolean(part.audioUrl || part.audioFile) && <span style={{ marginLeft: 4, color: "#a7f3d0" }}>Audio</span>}
+                          </div>
+                        </>
                       )}
                     </div>
-                  );
-                })
-              ) : (
-                <div style={{ color: "#64748b", fontSize: "12px", textAlign: "center", marginTop: "16px" }}>Chọn một part</div>
-              )}
+                    {!collapsedSidebar && parts.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); onDeletePart(idx); }}
+                        style={{
+                          background: "rgba(239,68,68,0.2)",
+                          border: "none",
+                          color: "#fca5a5",
+                          width: "22px",
+                          height: "22px",
+                          borderRadius: "4px",
+                          cursor: "pointer",
+                          fontSize: "12px",
+                          flexShrink: 0,
+                          marginLeft: "6px",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                        }}
+                        title={`Xóa part ${idx + 1}`}
+                        aria-label={`Xóa part ${idx + 1}`}
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+                ))}
             </div>
-            {/* Add Section – always pinned */}
+
+            <div style={{ padding: "6px 8px 8px 8px", flexShrink: 0 }}>
+              <button
+                type="button"
+                onClick={onAddPart}
+                title="Thêm Part"
+                style={{
+                  width: "100%",
+                  padding: "7px",
+                  backgroundColor: "#22c55e",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "6px",
+                  cursor: "pointer",
+                  fontWeight: 600,
+                  fontSize: "12px",
+                }}
+              >
+                {collapsedSidebar ? "+" : "Thêm part"}
+              </button>
+            </div>
+
+            <div style={{ padding: collapsedSidebar ? "10px 8px" : "10px 12px", borderTop: "1px solid #334155", borderBottom: "1px solid #334155", flexShrink: 0 }}>
+              <span style={{ fontSize: "11px", fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                {collapsedSidebar ? "S" : `Sections ${currentPart ? `(P${selectedPartIndex + 1})` : ""}`}
+              </span>
+            </div>
+
+            <div style={{ flex: 1, overflow: "auto", padding: collapsedSidebar ? "8px 6px 0 6px" : "8px 8px 0 8px" }}>
+                {currentPart ? (
+                  currentPart.sections?.map((section, idx) => {
+                    const startQ = calculateStartingQuestionNumber(parts, selectedPartIndex, idx);
+                    const sectionQCount = countSectionQuestions(section);
+                    const endQ = startQ + sectionQCount - 1;
+                    return (
+                      <div
+                        key={idx}
+                        onClick={() => setSelectedSectionIndex(idx)}
+                        title={`Section ${idx + 1}${section.sectionTitle ? ` - ${section.sectionTitle}` : ""}`}
+                        style={{
+                          padding: collapsedSidebar ? "10px 6px" : "9px 10px",
+                          marginBottom: "4px",
+                          borderRadius: "6px",
+                          cursor: "pointer",
+                          backgroundColor: selectedSectionIndex === idx ? "#6366f1" : "#475569",
+                          transition: "background 0.15s",
+                          textAlign: collapsedSidebar ? "center" : "left",
+                        }}
+                      >
+                        <div style={{ fontSize: "13px", fontWeight: 600, color: "white" }}>
+                          {collapsedSidebar ? `S${idx + 1}` : `Section ${idx + 1}`}
+                        </div>
+                        {!collapsedSidebar && (
+                          <>
+                            <div style={{ fontSize: "11px", color: "#cbd5e1", marginTop: "2px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                              {section.sectionTitle || `Q${startQ}–${endQ}`}
+                            </div>
+                            <div style={{ fontSize: "10px", color: "#94a3b8", marginTop: "2px" }}>
+                              {sectionQCount} câu hỏi
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    );
+                  })
+                ) : (
+                  <div style={{ color: "#64748b", fontSize: "12px", textAlign: "center", marginTop: "16px" }}>
+                    {collapsedSidebar ? "-" : "Chọn một part"}
+                  </div>
+                )}
+            </div>
+
             {currentPart && (
               <div style={{ padding: "6px 8px 8px 8px", flexShrink: 0 }}>
-                <button type="button" onClick={() => onAddSection(selectedPartIndex)} style={{ width: "100%", padding: "7px", backgroundColor: "#8b5cf6", color: "white", border: "none", borderRadius: "6px", cursor: "pointer", fontWeight: 600, fontSize: "12px" }}>
-                  Thêm section
+                <button
+                  type="button"
+                  onClick={() => onAddSection(selectedPartIndex)}
+                  title="Thêm Section"
+                  style={{
+                    width: "100%",
+                    padding: "7px",
+                    backgroundColor: "#8b5cf6",
+                    color: "white",
+                    border: "none",
+                    borderRadius: "6px",
+                    cursor: "pointer",
+                    fontWeight: 600,
+                    fontSize: "12px",
+                  }}
+                >
+                  {collapsedSidebar ? "+" : "Thêm section"}
                 </button>
               </div>
             )}
@@ -1017,33 +1138,56 @@ const ListeningTestEditor = ({
                     })()}
                   </div>
 
-                  {/* Add Question Button */}
-                  <button
-                    type="button"
-                    onClick={() => onAddQuestion(selectedPartIndex, selectedSectionIndex, currentSection.questionType)}
-                    style={addButtonStyle(colors.questionYellow)}
+                  <div
+                    style={{
+                      marginTop: "16px",
+                      padding: "12px",
+                      borderRadius: "16px",
+                      border: "1px solid #fed7aa",
+                      background: "linear-gradient(180deg, #fffaf3 0%, #ffffff 100%)",
+                      boxShadow: "0 12px 30px rgba(15, 23, 42, 0.06)",
+                    }}
                   >
-                    Thêm câu hỏi
-                  </button>
-
-                  {/* Copy Section Button */}
-                  <button
-                    type="button"
-                    onClick={() => onCopySection(selectedPartIndex, selectedSectionIndex)}
-                    style={{ ...addButtonStyle(colors.gray), marginTop: "8px" }}
-                  >
-                    Sao chép section này
-                  </button>
-
-                  {(currentPart?.sections?.length || 0) > 1 && (
-                    <button
-                      type="button"
-                      onClick={() => onDeleteSection(selectedPartIndex, selectedSectionIndex)}
-                      style={{ ...dangerButtonStyle, width: "100%", marginTop: "8px" }}
+                    <div
+                      style={{
+                        marginBottom: "10px",
+                        fontSize: "11px",
+                        fontWeight: 700,
+                        letterSpacing: "0.08em",
+                        textTransform: "uppercase",
+                        color: "#b45309",
+                      }}
                     >
-                      Xóa section này
-                    </button>
-                  )}
+                      Tác vụ section
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "10px" }}>
+                      <button
+                        type="button"
+                        onClick={() => onAddQuestion(selectedPartIndex, selectedSectionIndex, currentSection.questionType)}
+                        style={getSectionActionButtonStyle("add")}
+                      >
+                        Thêm câu hỏi
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => onCopySection(selectedPartIndex, selectedSectionIndex)}
+                        style={getSectionActionButtonStyle("copy")}
+                      >
+                        Sao chép section này
+                      </button>
+
+                      {(currentPart?.sections?.length || 0) > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => onDeleteSection(selectedPartIndex, selectedSectionIndex)}
+                          style={getSectionActionButtonStyle("delete")}
+                        >
+                          Xóa section này
+                        </button>
+                      )}
+                    </div>
+                  </div>
                 </div>
               ) : (
                 <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: "#9ca3af" }}>

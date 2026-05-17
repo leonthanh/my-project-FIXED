@@ -33,6 +33,25 @@ test('parses blanks, numbers them and validates input', () => {
   expect(screen.getByText(/Use no more than 2 words/)).toBeInTheDocument();
 });
 
+test('derives the table word limit from instruction text when maxWords is omitted', () => {
+  render(
+    <TableCompletion
+      data={{
+        ...sample,
+        instruction: 'Write NO MORE THAN THREE WORDS AND/OR A NUMBER for each answer.',
+      }}
+      startingQuestionNumber={1}
+    />
+  );
+
+  const first = screen.getByLabelText(/Question 1/);
+  fireEvent.change(first, { target: { value: 'one two three' } });
+  expect(screen.queryByText(/Use no more than 3 words/)).not.toBeInTheDocument();
+
+  fireEvent.change(first, { target: { value: 'one two three four' } });
+  expect(screen.getByText(/Use no more than 3 words/)).toBeInTheDocument();
+});
+
 test('preserves multiline cells and removes duplicate list prefixes in comments', () => {
   const multilineSample = {
     ...sample,

@@ -35,6 +35,12 @@ const feedbackStyles = {
     alignItems: "center",
     marginTop: "10px",
   },
+  inlineContainer: {
+    display: "flex",
+    flexWrap: "wrap",
+    gap: "8px",
+    alignItems: "center",
+  },
   status: {
     display: "inline-flex",
     alignItems: "center",
@@ -385,6 +391,36 @@ function Feedback({ detail, answerValue = "" }) {
         <span style={feedbackStyles.correctAnswer}>Correct answer: {correctDisplay}</span>
       ) : null}
     </div>
+  );
+}
+
+function InlineFeedback({ detail, answerValue = "" }) {
+  const status = getQuestionStatus(detail, answerValue);
+  const correctDisplay = formatCompareValue(getDetailExpectedRaw(detail), getDetailExpectedLabel(detail));
+
+  return (
+    <span className="cloze-review-feedback" style={feedbackStyles.inlineContainer}>
+      <span style={status.style}>{status.label}</span>
+      {!status.isCorrect && correctDisplay ? (
+        <span style={feedbackStyles.correctAnswer}>Correct answer: {correctDisplay}</span>
+      ) : null}
+    </span>
+  );
+}
+
+function ClozeReviewBlank({ blankNum, answerValue = "", detail }) {
+  return (
+    <span className="cloze-review-slot">
+      <span className="cloze-inline-wrapper cloze-review-input-row">
+        <span className="cloze-inline-number">{blankNum}</span>
+        <input
+          className={`cloze-inline-input ${hasAnswerValue(answerValue) ? "answered" : ""}`}
+          value={answerValue}
+          readOnly
+        />
+      </span>
+      <InlineFeedback detail={detail} answerValue={answerValue} />
+    </span>
   );
 }
 
@@ -955,12 +991,12 @@ export default function ReadingStudentStyleReview({ test, submission, details })
                         const answerValue = extractInlineAnswer(answers, blankKey, detailMap.get(blankNum));
 
                         return (
-                          <React.Fragment key={`${ri}-${ci}-${lineIndex}-blank-${partIndex}`}>
-                            <span className="blank">
-                              <input className="blank-input" value={answerValue} readOnly />
-                            </span>
-                            <Feedback detail={detailMap.get(blankNum)} answerValue={answerValue} />
-                          </React.Fragment>
+                          <ClozeReviewBlank
+                            key={`${ri}-${ci}-${lineIndex}-blank-${partIndex}`}
+                            blankNum={blankNum}
+                            answerValue={answerValue}
+                            detail={detailMap.get(blankNum)}
+                          />
                         );
                       });
 
@@ -1020,10 +1056,12 @@ export default function ReadingStudentStyleReview({ test, submission, details })
                       const answerValue = extractInlineAnswer(answers, blankKey, detailMap.get(qNum));
 
                       return (
-                        <span key={blankElementKey} className="blank">
-                          <input className="blank-input" value={answerValue} readOnly />
-                          <Feedback detail={detailMap.get(qNum)} answerValue={answerValue} />
-                        </span>
+                        <ClozeReviewBlank
+                          key={blankElementKey}
+                          blankNum={qNum}
+                          answerValue={answerValue}
+                          detail={detailMap.get(qNum)}
+                        />
                       );
                     },
                     `${key}-review-cloze`

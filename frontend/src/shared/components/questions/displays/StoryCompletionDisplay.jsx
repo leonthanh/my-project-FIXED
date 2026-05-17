@@ -50,6 +50,12 @@ const resolveImgSrc = (url) => {
   return hostPath(url);
 };
 
+const storyPassageTextStyle = {
+  fontSize: "0.98em",
+  lineHeight: 1.8,
+  color: "#1e293b",
+};
+
 export default function StoryCompletionDisplay({
   section,
   startingNumber = 1,
@@ -132,7 +138,7 @@ export default function StoryCompletionDisplay({
               )}
               {storyTexts[i] && (
                 <div
-                  style={{ fontSize: "0.9em", lineHeight: 1.7, color: "#1e293b" }}
+                  style={storyPassageTextStyle}
                   dangerouslySetInnerHTML={{ __html: storyTexts[i] }}
                 />
               )}
@@ -157,7 +163,7 @@ export default function StoryCompletionDisplay({
           )}
           {storyText && (
             <div
-              style={{ fontSize: "0.9em", lineHeight: 1.7, color: "#1e293b", marginBottom: 14 }}
+              style={{ ...storyPassageTextStyle, marginBottom: 14 }}
               dangerouslySetInnerHTML={{ __html: storyText }}
             />
           )}

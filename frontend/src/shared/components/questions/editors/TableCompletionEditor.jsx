@@ -239,6 +239,9 @@ export default function TableCompletionEditor({ question = {}, onChange = () => 
           placeholder="VD: Write NO MORE THAN TWO WORDS AND/OR A NUMBER for each answer."
           style={compactInputStyle}
         />
+        <p style={{ margin: '6px 0 0', fontSize: 11, color: '#64748b', lineHeight: 1.5 }}>
+          Ho tro gioi han linh hoat: <strong>ONE WORD ONLY</strong>, <strong>NO MORE THAN THREE WORDS</strong>, <strong>NO MORE THAN FOUR WORDS AND/OR A NUMBER</strong>, hoac so lon hon. Preview va bai lam cua hoc sinh se tu dong ap dung theo instruction nay.
+        </p>
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>

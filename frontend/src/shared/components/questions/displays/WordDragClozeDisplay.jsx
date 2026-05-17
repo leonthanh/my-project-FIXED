@@ -620,11 +620,11 @@ export default function WordDragClozeDisplay({
 
   /* renderMode === "full" — standalone fallback (no divider) */
   return (
-    <div style={{ display: "flex", gap: 0, width: "100%", minHeight: 300, fontSize: "inherit" }}>
-    <div style={{ flex: "0 0 56%", padding: "16px 20px", borderRight: "1px solid #e5e7eb", overflowY: "auto", minWidth: 0 }}>
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 20, width: "100%", minHeight: 300, fontSize: "inherit", alignItems: "start" }}>
+    <div style={{ padding: "16px 20px", border: "1px solid #e5e7eb", borderRadius: 16, background: "#fff", overflowY: "auto", minWidth: 0, boxSizing: "border-box" }}>
         {passageContent}
       </div>
-      <div style={{ flex: 1, padding: "16px 12px", overflowY: "auto", minWidth: 0 }}>
+      <div style={{ padding: "16px 12px", border: "1px solid #e5e7eb", borderRadius: 16, background: "#fff", overflowY: "auto", minWidth: 0, boxSizing: "border-box" }}>
         {wordbankContent}
       </div>
     </div>

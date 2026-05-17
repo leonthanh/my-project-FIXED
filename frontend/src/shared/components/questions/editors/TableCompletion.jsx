@@ -2,6 +2,29 @@ import React, { useMemo, useState } from "react";
 import PropTypes from 'prop-types';
 
 const BLANK_REGEX = /\[BLANK\]|_{2,}|[\u2026]+/gi; // match [BLANK] or ____ or … sequences
+const DEFAULT_MAX_WORDS = 2;
+const NUMBER_WORDS = {
+  ONE: 1,
+  TWO: 2,
+  THREE: 3,
+  FOUR: 4,
+  FIVE: 5,
+  SIX: 6,
+  SEVEN: 7,
+  EIGHT: 8,
+  NINE: 9,
+  TEN: 10,
+  ELEVEN: 11,
+  TWELVE: 12,
+  THIRTEEN: 13,
+  FOURTEEN: 14,
+  FIFTEEN: 15,
+  SIXTEEN: 16,
+  SEVENTEEN: 17,
+  EIGHTEEN: 18,
+  NINETEEN: 19,
+  TWENTY: 20,
+};
 
 function splitIntoParts(text) {
   const parts = [];
@@ -16,7 +39,38 @@ function splitIntoParts(text) {
   return parts;
 }
 
-function validateAnswer(value, maxWords = 2) {
+function parseWordCountToken(token) {
+  const normalized = String(token || '').trim().toUpperCase();
+  if (!normalized) return null;
+
+  if (/^\d+$/.test(normalized)) {
+    const parsed = Number.parseInt(normalized, 10);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+  }
+
+  return NUMBER_WORDS[normalized] || null;
+}
+
+function parseInstructionMaxWords(instruction) {
+  const text = String(instruction || '').toUpperCase();
+  if (!text) return DEFAULT_MAX_WORDS;
+
+  const boundedMatch = text.match(/\b(?:NO\s+MORE\s+THAN|UP\s+TO)\s+([A-Z0-9-]+)\s+WORDS?\b/);
+  if (boundedMatch) {
+    const parsed = parseWordCountToken(boundedMatch[1]);
+    if (parsed != null) return parsed;
+  }
+
+  const singleWordMatch = text.match(/\b([A-Z0-9-]+)\s+WORD\b/);
+  if (singleWordMatch) {
+    const parsed = parseWordCountToken(singleWordMatch[1]);
+    if (parsed != null) return parsed;
+  }
+
+  return DEFAULT_MAX_WORDS;
+}
+
+function validateAnswer(value, maxWords = DEFAULT_MAX_WORDS) {
   const trimmed = String(value || '').trim();
   if (trimmed === '') return { ok: true };
   // Count word tokens (words with letters or numbers)
@@ -46,7 +100,7 @@ export default function TableCompletion({
   data,
   onChange,
   startingQuestionNumber = 1,
-  maxWords = 2,
+  maxWords,
   answers: externalAnswers,
   registerQuestionRef,
   onFocusQuestion,
@@ -59,6 +113,10 @@ export default function TableCompletion({
   const [localAnswers, setLocalAnswers] = useState({});
   const [errors, setErrors] = useState({});
   const answers = externalAnswers ?? localAnswers;
+  const effectiveMaxWords = useMemo(() => {
+    if (Number.isFinite(maxWords) && maxWords > 0) return maxWords;
+    return parseInstructionMaxWords(data?.instruction);
+  }, [data?.instruction, maxWords]);
 
   // Number blanks sequentially across table - ROW-major (rows outer, columns left→right)
   const numbered = useMemo(() => {
@@ -114,7 +172,7 @@ export default function TableCompletion({
   function handleInput(qNum, value) {
     if (readOnly) return;
     const v = value;
-    const { ok, reason } = validateAnswer(v, maxWords);
+    const { ok, reason } = validateAnswer(v, effectiveMaxWords);
     const nextAns = { ...answers, [qNum]: v };
     const nextErr = { ...errors, [qNum]: ok ? undefined : reason };
     if (externalAnswers == null) setLocalAnswers(nextAns);

@@ -313,18 +313,31 @@ export default function ImageClozeDisplay({
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
       {/* ── Passage + Optional Image Bank ────────────────────────────── */}
-      <div style={renderMode === "full" ? { display: "flex", gap: 0, alignItems: "stretch" } : {}}>
+      <div
+        style={renderMode === "full"
+          ? {
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
+              gap: "20px",
+              alignItems: "start",
+            }
+          : {}
+        }
+      >
         {/* Left – Passage with blank slots */}
-        <div style={renderMode === "full" ? {
-          flex: "1 1 0",
-          minWidth: 0,
-          paddingRight: "20px",
-          borderRight: "2px solid #cbd5e1",
-          alignSelf: "stretch",
-        } : {
-          flex: "1 1 0",
-          minWidth: 0,
-        }}>
+        <div
+          style={renderMode === "full"
+            ? {
+                minWidth: 0,
+                width: "100%",
+                alignSelf: "stretch",
+              }
+            : {
+                flex: "1 1 0",
+                minWidth: 0,
+              }
+          }
+        >
           {passageTitle && (
             <div
               style={{
@@ -498,13 +511,14 @@ export default function ImageClozeDisplay({
         {renderMode === "full" && (
           <div
             style={{
-              flex: "0 0 300px",
+              width: "100%",
+              minWidth: 0,
               background: "#f0f9ff",
               border: "1px solid #bae6fd",
               borderRadius: "12px",
               padding: "12px",
-              marginLeft: "20px",
               alignSelf: "flex-start",
+              boxSizing: "border-box",
             }}
           >
             <div style={{ fontWeight: 700, fontSize: "12px", color: "#0369a1", marginBottom: "10px", textAlign: "center", textTransform: "uppercase", letterSpacing: "0.05em" }}>
