@@ -103,6 +103,7 @@ const mailIconSvg = `
 
 const PET_PART1_LEFT_NOTE_BOX_BOUNDS = Object.freeze({ minX: 5, maxX: 18 });
 const PET_PART1_RIGHT_NOTE_BOX_BOUNDS = Object.freeze({ minX: 82, maxX: 96 });
+const PET_PART1_NOTE_BOX_Y_BOUNDS = Object.freeze({ minY: 14, maxY: 90 });
 
 const clampPercent = (value, min, max) => {
 	const numeric = Number(value);
@@ -161,19 +162,19 @@ export const normalizePetPart1NoteBoxes = (boxes = {}) => {
 	return {
 		note1: {
 			x: clampPetPart1NoteBoxX(source.note1?.x, defaultPetPart1NoteBoxes.note1.x),
-			y: clampPercent(source.note1?.y ?? defaultPetPart1NoteBoxes.note1.y, PET_PART1_NOTE_POSITIONS.note1.boxBounds.minY, PET_PART1_NOTE_POSITIONS.note1.boxBounds.maxY),
+			y: clampPercent(source.note1?.y ?? defaultPetPart1NoteBoxes.note1.y, PET_PART1_NOTE_BOX_Y_BOUNDS.minY, PET_PART1_NOTE_BOX_Y_BOUNDS.maxY),
 		},
 		note2: {
 			x: clampPetPart1NoteBoxX(source.note2?.x, defaultPetPart1NoteBoxes.note2.x),
-			y: clampPercent(source.note2?.y ?? defaultPetPart1NoteBoxes.note2.y, PET_PART1_NOTE_POSITIONS.note2.boxBounds.minY, PET_PART1_NOTE_POSITIONS.note2.boxBounds.maxY),
+			y: clampPercent(source.note2?.y ?? defaultPetPart1NoteBoxes.note2.y, PET_PART1_NOTE_BOX_Y_BOUNDS.minY, PET_PART1_NOTE_BOX_Y_BOUNDS.maxY),
 		},
 		note3: {
 			x: clampPetPart1NoteBoxX(source.note3?.x, defaultPetPart1NoteBoxes.note3.x),
-			y: clampPercent(source.note3?.y ?? defaultPetPart1NoteBoxes.note3.y, PET_PART1_NOTE_POSITIONS.note3.boxBounds.minY, PET_PART1_NOTE_POSITIONS.note3.boxBounds.maxY),
+			y: clampPercent(source.note3?.y ?? defaultPetPart1NoteBoxes.note3.y, PET_PART1_NOTE_BOX_Y_BOUNDS.minY, PET_PART1_NOTE_BOX_Y_BOUNDS.maxY),
 		},
 		note4: {
 			x: clampPetPart1NoteBoxX(source.note4?.x, defaultPetPart1NoteBoxes.note4.x),
-			y: clampPercent(source.note4?.y ?? defaultPetPart1NoteBoxes.note4.y, PET_PART1_NOTE_POSITIONS.note4.boxBounds.minY, PET_PART1_NOTE_POSITIONS.note4.boxBounds.maxY),
+			y: clampPercent(source.note4?.y ?? defaultPetPart1NoteBoxes.note4.y, PET_PART1_NOTE_BOX_Y_BOUNDS.minY, PET_PART1_NOTE_BOX_Y_BOUNDS.maxY),
 		},
 	};
 };
