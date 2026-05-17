@@ -255,11 +255,14 @@ const ReadingTestEditor = ({
 
           return (
             <div
+              className="reading-editor-banner-message"
               style={{
                 textAlign: "center",
-                padding: "8px",
-                marginTop: "8px",
-                borderRadius: "4px",
+                padding: "10px 14px",
+                marginTop: "10px",
+                borderRadius: "999px",
+                border: "1px solid rgba(148, 163, 184, 0.24)",
+                boxShadow: "0 10px 24px rgba(15, 23, 42, 0.08)",
                 ...colors,
               }}
             >
@@ -272,7 +275,7 @@ const ReadingTestEditor = ({
           flexDirection: "column",
           height: "100vh",
           fontSize: "13px",
-          backgroundColor: "#f8fafc",
+          background: "linear-gradient(180deg, #eef4ff 0%, #f8fbff 42%, #f8fafc 100%)",
         }}
         containerStyle={{
           display: "flex",
@@ -284,50 +287,72 @@ const ReadingTestEditor = ({
           display: "flex",
           flexDirection: "row",
           alignItems: "center",
-          gap: "8px",
-          padding: "5px 12px",
-          backgroundColor: "#fff",
-          borderBottom: "1px solid #e2e8f0",
-          boxShadow: "0 1px 4px rgba(0,0,0,0.07)",
+          gap: "12px",
+          padding: "10px 16px",
+          background: "linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(248,250,252,0.96) 100%)",
+          borderBottom: "1px solid rgba(203, 213, 225, 0.85)",
+          boxShadow: "0 12px 32px rgba(15, 23, 42, 0.08)",
+          backdropFilter: "blur(16px)",
           flexShrink: 0,
         }}
         topBarStyle={{
           display: "flex",
           alignItems: "center",
-          gap: "6px",
+          gap: "8px",
+          padding: "2px 0",
           flexShrink: 0,
         }}
         titleStyle={{ display: "none" }}
         inputLayoutStyle={{
           display: "flex",
           flex: 1,
-          gap: "6px",
+          gap: "10px",
           alignItems: "center",
         }}
         titleInputStyle={{
           ...compactInputStyle,
           flex: "1 1 0",
+          padding: "11px 14px",
+          minHeight: "44px",
+          border: "1px solid #cbd5e1",
+          borderRadius: "14px",
+          backgroundColor: "rgba(255, 255, 255, 0.98)",
+          boxShadow: "inset 0 1px 2px rgba(15, 23, 42, 0.05)",
         }}
         classCodeInputStyle={{
           ...compactInputStyle,
           flex: "1 1 0",
+          padding: "11px 14px",
+          minHeight: "44px",
+          border: "1px solid #cbd5e1",
+          borderRadius: "14px",
+          backgroundColor: "rgba(255, 255, 255, 0.98)",
+          boxShadow: "inset 0 1px 2px rgba(15, 23, 42, 0.05)",
         }}
         teacherInputStyle={{
           ...compactInputStyle,
           flex: "1 1 0",
+          padding: "11px 14px",
+          minHeight: "44px",
+          border: "1px solid #cbd5e1",
+          borderRadius: "14px",
+          backgroundColor: "rgba(255, 255, 255, 0.98)",
+          boxShadow: "inset 0 1px 2px rgba(15, 23, 42, 0.05)",
         }}
         headerCollapsed={false}
       >
         {/* SIDEBAR + 2-PANEL LAYOUT (redesigned like KET/PET) */}
         <form
+          className="reading-editor-workspace"
           onSubmit={onReview}
           style={{ display: "flex", flex: 1, overflow: "hidden" }}
         >
           {/* === LEFT SIDEBAR === */}
           <div
+            className={`reading-editor-sidebar ${collapsedSidebar ? "is-collapsed" : ""}`}
             style={{
-              width: collapsedSidebar ? "76px" : "280px",
-              minWidth: collapsedSidebar ? "76px" : "220px",
+              width: collapsedSidebar ? "68px" : "clamp(188px, 20vw, 244px)",
+              minWidth: collapsedSidebar ? "68px" : "clamp(180px, 18vw, 208px)",
               backgroundColor: "#1e293b",
               color: "white",
               display: "flex",
@@ -340,8 +365,9 @@ const ReadingTestEditor = ({
           >
             {/* Passages header */}
             <div
+              className="reading-editor-sidebar-block-header"
               style={{
-                padding: collapsedSidebar ? "10px 8px" : "10px 12px",
+                padding: collapsedSidebar ? "8px 6px" : "8px 10px",
                 borderBottom: "1px solid #334155",
                 flexShrink: 0,
                 display: "flex",
@@ -351,6 +377,7 @@ const ReadingTestEditor = ({
               }}
             >
               <span
+                className="reading-editor-sidebar-block-label"
                 style={{
                   fontSize: "11px",
                   fontWeight: 700,
@@ -366,13 +393,14 @@ const ReadingTestEditor = ({
                 {collapsedSidebar ? `P${passages?.length || 0}` : `Passages (${passages?.length || 0})`}
               </span>
               <button
+                className="reading-editor-sidebar-toggle"
                 type="button"
                 onClick={() => setCollapsedSidebar((value) => !value)}
                 title={collapsedSidebar ? "Mở rộng cột Passages" : "Thu nhỏ cột Passages"}
                 aria-label={collapsedSidebar ? "Mở rộng cột Passages" : "Thu nhỏ cột Passages"}
                 style={{
-                  width: "28px",
-                  height: "28px",
+                  width: "24px",
+                  height: "24px",
                   borderRadius: "6px",
                   border: "1px solid #475569",
                   backgroundColor: "rgba(148, 163, 184, 0.12)",
@@ -393,9 +421,10 @@ const ReadingTestEditor = ({
             </div>
             {/* Passages list - scrollable, button stays outside */}
             <div
+              className="reading-editor-sidebar-scroll reading-editor-sidebar-scroll-passages"
               style={{
                 overflow: "auto",
-                padding: collapsedSidebar ? "8px 6px 0 6px" : "8px 8px 0 8px",
+                padding: collapsedSidebar ? "6px 4px 0 4px" : "6px 6px 0 6px",
                 flexShrink: 0,
                 maxHeight: "38%",
               }}
@@ -403,14 +432,14 @@ const ReadingTestEditor = ({
               {passages?.map((passage, idx) => (
                 <div
                   key={idx}
+                  className={`reading-editor-nav-card reading-editor-nav-card-passage ${selectedPassageIndex === idx ? "is-active" : ""} ${collapsedSidebar ? "is-collapsed" : ""}`}
                   onClick={() => { setSelectedPassageIndex(idx); setSelectedSectionIndex(0); }}
                   title={`Passage ${idx + 1}${passage.passageTitle ? ` - ${passage.passageTitle}` : ""}`}
                   style={{
-                    padding: collapsedSidebar ? "10px 6px" : "9px 10px",
-                    marginBottom: "4px",
+                    padding: collapsedSidebar ? "8px 4px" : "8px 8px",
+                    marginBottom: "3px",
                     borderRadius: "6px",
                     cursor: "pointer",
-                    backgroundColor: selectedPassageIndex === idx ? "#3b82f6" : "#475569",
                     display: "flex",
                     justifyContent: collapsedSidebar ? "center" : "space-between",
                     alignItems: collapsedSidebar ? "center" : "flex-start",
@@ -418,15 +447,15 @@ const ReadingTestEditor = ({
                   }}
                 >
                   <div style={{ flex: 1, minWidth: 0, textAlign: collapsedSidebar ? "center" : "left" }}>
-                    <div style={{ fontSize: "13px", fontWeight: 600, color: "white" }}>
+                    <div className="reading-editor-nav-card-title" style={{ fontSize: "12px", fontWeight: 600, color: "white" }}>
                       {collapsedSidebar ? `P${idx + 1}` : `Passage ${idx + 1}`}
                     </div>
                     {!collapsedSidebar && (
                       <>
-                        <div style={{ fontSize: "11px", color: "#cbd5e1", marginTop: "2px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        <div className="reading-editor-nav-card-subtitle" style={{ fontSize: "10px", color: "#cbd5e1", marginTop: "2px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                           {passage.passageTitle || "(Chưa có tiêu đề)"}
                         </div>
-                        <div style={{ fontSize: "10px", color: "#94a3b8", marginTop: "2px" }}>
+                        <div className="reading-editor-nav-card-meta" style={{ fontSize: "9px", color: "#94a3b8", marginTop: "2px" }}>
                           {passage.sections?.length || 0} section · {passage.sections?.reduce((s, sec) => s + (sec.questions?.length || 0), 0) || 0} câu
                         </div>
                       </>
@@ -434,11 +463,12 @@ const ReadingTestEditor = ({
                   </div>
                   {!collapsedSidebar && passages.length > 1 && (
                     <button
+                      className="reading-editor-delete-icon-btn"
                       type="button"
                       onClick={(e) => { e.stopPropagation(); onDeletePassage(idx); }}
                       style={{
                         background: "rgba(239,68,68,0.2)", border: "none", color: "#fca5a5",
-                        width: "22px", height: "22px", borderRadius: "4px", cursor: "pointer",
+                        width: "20px", height: "20px", borderRadius: "4px", cursor: "pointer",
                         fontSize: "12px", flexShrink: 0, marginLeft: "6px",
                         display: "flex", alignItems: "center", justifyContent: "center",
                       }}
@@ -448,52 +478,53 @@ const ReadingTestEditor = ({
               ))}
             </div>
             {/* Add Passage button - always visible, never scrolls away */}
-            <div style={{ padding: "6px 8px 8px 8px", flexShrink: 0 }}>
+            <div style={{ padding: "4px 6px 6px 6px", flexShrink: 0 }}>
               <button
+                className="reading-editor-sidebar-action reading-editor-sidebar-action-passage"
                 type="button"
                 onClick={onAddPassage}
                 title="Thêm Passage"
                 style={{
-                  width: "100%", padding: "7px", backgroundColor: "#22c55e", color: "white",
+                  width: "100%", padding: "6px", backgroundColor: "#22c55e", color: "white",
                   border: "none", borderRadius: "6px", cursor: "pointer", fontWeight: 600,
-                  fontSize: "12px",
+                  fontSize: "11px",
                 }}
               >{collapsedSidebar ? "+" : "Thêm Passage"}</button>
             </div>
 
             {/* Sections header */}
-            <div style={{ padding: collapsedSidebar ? "10px 8px" : "10px 12px", borderTop: "1px solid #334155", borderBottom: "1px solid #334155", flexShrink: 0 }}>
-              <span style={{ fontSize: "11px", fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+            <div className="reading-editor-sidebar-block-header" style={{ padding: collapsedSidebar ? "8px 6px" : "8px 10px", borderTop: "1px solid #334155", borderBottom: "1px solid #334155", flexShrink: 0 }}>
+              <span className="reading-editor-sidebar-block-label" style={{ fontSize: "11px", fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.5px" }}>
                 {collapsedSidebar ? "S" : `Sections ${currentPassage ? `(P${selectedPassageIndex + 1})` : ""}`}
               </span>
             </div>
             {/* Sections list - scrollable, button stays outside */}
-            <div style={{ flex: 1, overflow: "auto", padding: collapsedSidebar ? "8px 6px 0 6px" : "8px 8px 0 8px" }}>
+            <div className="reading-editor-sidebar-scroll reading-editor-sidebar-scroll-sections" style={{ flex: 1, overflow: "auto", padding: collapsedSidebar ? "6px 4px 0 4px" : "6px 6px 0 6px" }}>
               {currentPassage ? (
                 currentPassage.sections?.map((section, idx) => (
                   <div
                     key={idx}
+                    className={`reading-editor-nav-card reading-editor-nav-card-section ${selectedSectionIndex === idx ? "is-active" : ""} ${collapsedSidebar ? "is-collapsed" : ""}`}
                     onClick={() => setSelectedSectionIndex(idx)}
                     title={`Section ${idx + 1}${section.sectionTitle ? ` - ${section.sectionTitle}` : ""}`}
                     style={{
-                      padding: collapsedSidebar ? "10px 6px" : "9px 10px",
-                      marginBottom: "4px",
+                      padding: collapsedSidebar ? "8px 4px" : "8px 8px",
+                      marginBottom: "3px",
                       borderRadius: "6px",
                       cursor: "pointer",
-                      backgroundColor: selectedSectionIndex === idx ? "#6366f1" : "#475569",
                       transition: "background 0.15s",
                       textAlign: collapsedSidebar ? "center" : "left",
                     }}
                   >
-                    <div style={{ fontSize: "13px", fontWeight: 600, color: "white" }}>
+                    <div className="reading-editor-nav-card-title" style={{ fontSize: "12px", fontWeight: 600, color: "white" }}>
                       {collapsedSidebar ? `S${idx + 1}` : `Section ${idx + 1}`}
                     </div>
                     {!collapsedSidebar && (
                       <>
-                        <div style={{ fontSize: "11px", color: "#cbd5e1", marginTop: "2px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        <div className="reading-editor-nav-card-subtitle" style={{ fontSize: "10px", color: "#cbd5e1", marginTop: "2px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                           {section.sectionTitle || "(Untitled)"}
                         </div>
-                        <div style={{ fontSize: "10px", color: "#94a3b8", marginTop: "2px" }}>
+                        <div className="reading-editor-nav-card-meta" style={{ fontSize: "9px", color: "#94a3b8", marginTop: "2px" }}>
                           {section.questions?.length || 0} câu hỏi
                         </div>
                       </>
@@ -508,15 +539,16 @@ const ReadingTestEditor = ({
             </div>
             {/* Add Section button - always visible at bottom of sidebar */}
             {currentPassage && (
-              <div style={{ padding: "6px 8px 8px 8px", flexShrink: 0 }}>
+              <div style={{ padding: "4px 6px 6px 6px", flexShrink: 0 }}>
                 <button
+                  className="reading-editor-sidebar-action reading-editor-sidebar-action-section"
                   type="button"
                   onClick={() => onAddSection(selectedPassageIndex)}
                   title="Thêm Section"
                   style={{
-                    width: "100%", padding: "7px", backgroundColor: "#8b5cf6", color: "white",
+                    width: "100%", padding: "6px", backgroundColor: "#8b5cf6", color: "white",
                     border: "none", borderRadius: "6px", cursor: "pointer", fontWeight: 600,
-                    fontSize: "12px",
+                    fontSize: "11px",
                   }}
                 >{collapsedSidebar ? "+" : "Thêm Section"}</button>
               </div>
@@ -524,9 +556,10 @@ const ReadingTestEditor = ({
           </div>
 
           {/* === MAIN AREA: Passage (top, collapsible) + Questions (bottom) === */}
-          <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+          <div className="reading-editor-main" style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
             {/* TOP: Passage Content (collapsible) */}
             <div
+              className={`reading-editor-panel reading-editor-panel-passage ${collapsedPassage ? "is-collapsed" : ""}`}
               style={{
                 // When passage collapsed → just header height; when questions collapsed → fill space; otherwise use a more compact default height.
                 flex: collapsedPassage ? "0 0 auto" : collapsedQuestions ? "1" : "0 0 34%",
@@ -540,6 +573,7 @@ const ReadingTestEditor = ({
             >
               {/* Passage panel header – always visible, click to collapse */}
               <div
+                className="reading-editor-panel-header reading-editor-panel-header-passage"
                 onClick={() => setCollapsedPassage((v) => !v)}
                 style={{
                   padding: "10px 16px",
@@ -555,10 +589,10 @@ const ReadingTestEditor = ({
                   userSelect: "none",
                 }}
               >
-                <span>
+                <span className="reading-editor-panel-title">
                   Nội dung{currentPassage ? " - Passage " + (selectedPassageIndex + 1) : ""}
                 </span>
-                <span style={{ fontSize: "12px", fontWeight: 500, opacity: 0.9, display: "inline-flex", alignItems: "center", gap: 6 }}>
+                <span className="reading-editor-panel-toggle" style={{ fontSize: "12px", fontWeight: 500, opacity: 0.9, display: "inline-flex", alignItems: "center", gap: 6 }}>
                   <InlineIcon name={collapsedPassage ? "chevron-down" : "chevron-up"} size={13} style={{ color: "currentColor" }} />
                   {collapsedPassage ? "Mở rộng" : "Thu nhỏ"}
                 </span>
@@ -566,7 +600,7 @@ const ReadingTestEditor = ({
 
               {/* Passage body */}
               {!collapsedPassage && (
-                <div className="reading-passage-panel-body" style={{ flex: 1, overflow: "auto", padding: "12px", minHeight: 0 }}>
+                <div className="reading-passage-panel-body reading-editor-panel-body" style={{ flex: 1, overflow: "auto", padding: "12px", minHeight: 0 }}>
                   {currentPassage ? (
                     <div className="reading-passage-editor-card">
                       <label style={{ fontWeight: 700, color: "#28a745", fontSize: "12px", display: "block", marginBottom: "4px" }}>
@@ -598,8 +632,14 @@ const ReadingTestEditor = ({
                       />
                     </div>
                   ) : (
-                    <div style={{ color: "#999", fontSize: "13px", textAlign: "center", paddingTop: "20px" }}>
-                      Chọn một Passage để nhập nội dung
+                    <div className="reading-editor-empty-state reading-editor-empty-state-passage">
+                      <div className="reading-editor-empty-badge">
+                        <InlineIcon name="create" size={16} style={{ color: "currentColor" }} />
+                      </div>
+                      <div className="reading-editor-empty-title">Chọn một Passage để bắt đầu</div>
+                      <div className="reading-editor-empty-description">
+                        Thêm hoặc chọn passage ở sidebar bên trái để nhập tiêu đề và nội dung bài đọc.
+                      </div>
                     </div>
                   )}
                 </div>
@@ -608,6 +648,7 @@ const ReadingTestEditor = ({
 
             {/* RESIZE DIVIDER (horizontal) */}
             <div
+              className="reading-editor-divider"
               onMouseDown={(e) => handleMouseDown(2, e)}
               style={{
                 height: "5px",
@@ -620,6 +661,7 @@ const ReadingTestEditor = ({
 
             {/* BOTTOM: Questions (collapsible, takes remaining space) */}
             <div
+              className={`reading-editor-panel reading-editor-panel-questions ${collapsedQuestions ? "is-collapsed" : ""}`}
               style={{
                 flex: collapsedQuestions ? "0 0 auto" : "1",
                 backgroundColor: "#fff",
@@ -631,6 +673,7 @@ const ReadingTestEditor = ({
             >
               {/* Questions header – always visible, click to collapse */}
               <div
+                className="reading-editor-panel-header reading-editor-panel-header-questions"
                 onClick={() => setCollapsedQuestions((v) => !v)}
                 style={{
                   padding: "10px 16px", backgroundColor: "#d97706", color: "white",
@@ -639,7 +682,7 @@ const ReadingTestEditor = ({
                   cursor: "pointer", userSelect: "none",
                 }}
               >
-                <span>
+                <span className="reading-editor-panel-title">
                   Câu hỏi{currentSection ? " - Section " + (selectedSectionIndex + 1) : ""}
                 </span>
                 <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
@@ -672,8 +715,16 @@ const ReadingTestEditor = ({
                     />
                   </div>
                 ) : (
-                  <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: "#999", fontSize: "13px" }}>
-                    Chọn một Section trong sidebar để xem câu hỏi
+                  <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: "24px" }}>
+                    <div className="reading-editor-empty-state reading-editor-empty-state-question">
+                      <div className="reading-editor-empty-badge">
+                        <InlineIcon name="create" size={16} style={{ color: "currentColor" }} />
+                      </div>
+                      <div className="reading-editor-empty-title">Chọn một Section để chỉnh câu hỏi</div>
+                      <div className="reading-editor-empty-description">
+                        Sidebar bên trái sẽ điều hướng section đang chỉnh sửa. Sau khi chọn, toàn bộ block câu hỏi sẽ hiện ở đây.
+                      </div>
+                    </div>
                   </div>
                 )
               )}
@@ -683,6 +734,7 @@ const ReadingTestEditor = ({
 
         {/* FIXED BUTTONS & STATS */}
         <div
+          className="reading-editor-footer-bar"
           style={{
             display: "flex",
             gap: "12px",
@@ -697,6 +749,7 @@ const ReadingTestEditor = ({
           }}
         >
           <div
+            className="reading-editor-footer-stats"
             style={{
               display: "flex",
               gap: "20px",
@@ -704,19 +757,20 @@ const ReadingTestEditor = ({
               color: "#666",
             }}
           >
-            <span>Passages: {passages?.length || 0}</span>
-            <span>
+            <span className="reading-editor-footer-stat">Passages: {passages?.length || 0}</span>
+            <span className="reading-editor-footer-stat">
               Sections:{" "}
               {passages?.reduce(
                 (sum, p) => sum + (p.sections?.length || 0),
                 0
               ) || 0}
             </span>
-            <span>Questions: {calculateTotalQuestions(passages)}</span>
+            <span className="reading-editor-footer-stat">Questions: {calculateTotalQuestions(passages)}</span>
           </div>
 
-          <div style={{ display: "flex", gap: "10px" }}>
+          <div className="reading-editor-footer-actions" style={{ display: "flex", gap: "10px" }}>
             <button
+              className="reading-editor-primary-cta"
               type="button"
               onClick={onReview}
               style={{

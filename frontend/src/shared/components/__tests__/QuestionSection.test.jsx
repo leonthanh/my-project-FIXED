@@ -45,6 +45,8 @@ test('QuestionSection does not include Listening-only question types in reading 
     const option = allOptions.find((opt) => opt.getAttribute('value') === type);
     expect(option).toBeUndefined();
   });
+
+  expect(screen.getByRole('button', { name: 'Thêm câu hỏi' })).toHaveStyle('padding: 8px 12px');
 });
 
 test('QuestionSection shows diagram-specific add actions for diagram-labeling blocks', () => {
@@ -91,4 +93,32 @@ test('QuestionSection shows diagram-specific add actions for diagram-labeling bl
 
   fireEvent.click(screen.getByRole('button', { name: 'Tạo block câu hỏi mới' }));
   expect(onAddQuestion).toHaveBeenNthCalledWith(2, 0, 0, { forceNewQuestion: true });
+});
+
+test('QuestionSection uses a single-answer editor for multiple-choice questions', () => {
+  const multipleChoiceSection = {
+    ...sampleSection,
+    questions: [
+      {
+        questionNumber: '8-9',
+        questionType: 'multiple-choice',
+        questionText: '<p>Choose the correct answer.</p>',
+        options: ['vd 1', 'vd 2', 'vd 3', 'vd 4'],
+        correctAnswer: 'A,B',
+        multiSelect: true,
+      },
+    ],
+  };
+
+  render(
+    <QuestionSection
+      {...defaultProps}
+      section={multipleChoiceSection}
+    />
+  );
+
+  expect(screen.queryByRole('button', { name: 'Single Choice (1 đáp án)' })).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Multiple Choice (nhiều đáp án)' })).not.toBeInTheDocument();
+  expect(screen.getByText('Dạng này chỉ hỗ trợ 1 đáp án đúng')).toBeInTheDocument();
+  expect(screen.getByText('Nếu cần nhiều đáp án, hãy chọn loại câu hỏi "Trắc nghiệm nhiều đáp án"')).toBeInTheDocument();
 });

@@ -2022,6 +2022,7 @@ const DoReadingTest = () => {
             !isShortAnswerInline &&
             !(isClozeTest && clozeText) &&
             qType !== "paragraph-matching" &&
+            !isMultiSelectQuestion &&
             !isDiagramLabeling &&
             !isInlineAnswerType &&
             !hasInlineSentenceBlank && (
@@ -3356,9 +3357,15 @@ const DoReadingTest = () => {
 
                   {/* Questions */}
                   {sectionQuestions.map((q) => {
-                    // Allow explicit per-question numbering (e.g., teacher set '11' or '11-13')
+                    const qType = normalizeQuestionType(
+                      q.type || q.questionType || "multiple-choice"
+                    );
+
+                    // Allow explicit per-question numbering for single-question flows.
+                    // Multi-select blocks must stay aligned with the computed runtime numbering
+                    // used by footer navigation and answer keys.
                     let qNum = sectionQuestionNumber;
-                    if (q && q.questionNumber) {
+                    if (qType !== "multi-select" && q && q.questionNumber) {
                       const firstPart = String(q.questionNumber).trim().split(/[, -]/)[0];
                       const parsed = parseInt(firstPart, 10);
                       if (!Number.isNaN(parsed)) {
@@ -3367,10 +3374,6 @@ const DoReadingTest = () => {
                         sectionQuestionNumber = parsed;
                       }
                     }
-
-                    const qType = normalizeQuestionType(
-                      q.type || q.questionType || "multiple-choice"
-                    );
 
                     // For matching headings, count each paragraph as a question
                     if (qType === "ielts-matching-headings") {
