@@ -362,4 +362,263 @@ export const compactCSS = (className) => `
     border-radius: 8px;
     margin-bottom: 12px;
   }
+
+  .${className} .listening-editor-workspace {
+    background:
+      radial-gradient(circle at top right, rgba(37, 99, 235, 0.08), transparent 28%),
+      linear-gradient(180deg, rgba(255, 255, 255, 0.36) 0%, rgba(248, 250, 252, 0.94) 100%);
+  }
+
+  .${className} .listening-editor-sidebar {
+    background: linear-gradient(180deg, #13233f 0%, #1f2f49 46%, #172033 100%) !important;
+    box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.05);
+  }
+
+  .${className} .listening-editor-sidebar-block-header {
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.02) 0%, rgba(15, 23, 42, 0.08) 100%);
+  }
+
+  .${className} .listening-editor-sidebar-block-label {
+    color: #b7c6da !important;
+    letter-spacing: 0.12em !important;
+  }
+
+  .${className} .listening-editor-sidebar-toggle {
+    background: rgba(255, 255, 255, 0.08) !important;
+    border-color: rgba(148, 163, 184, 0.32) !important;
+    box-shadow: 0 8px 18px rgba(15, 23, 42, 0.18);
+  }
+
+  .${className} .listening-editor-sidebar-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(148, 163, 184, 0.5) transparent;
+  }
+
+  .${className} .listening-editor-nav-card {
+    background: linear-gradient(180deg, rgba(71, 85, 105, 0.98) 0%, rgba(51, 65, 85, 0.96) 100%) !important;
+    border: 1px solid rgba(148, 163, 184, 0.14) !important;
+    box-shadow: 0 12px 24px rgba(15, 23, 42, 0.14);
+  }
+
+  .${className} .listening-editor-nav-card:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 16px 28px rgba(15, 23, 42, 0.18);
+  }
+
+  .${className} .listening-editor-nav-card-part.is-active {
+    background: linear-gradient(135deg, #60a5fa 0%, #2563eb 100%) !important;
+    border-color: rgba(191, 219, 254, 0.72) !important;
+  }
+
+  .${className} .listening-editor-nav-card-section.is-active {
+    background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%) !important;
+    border-color: rgba(196, 181, 253, 0.72) !important;
+  }
+
+  .${className} .listening-editor-nav-card-subtitle {
+    color: #dbe7f5 !important;
+  }
+
+  .${className} .listening-editor-nav-card-meta {
+    color: #a9b9ce !important;
+  }
+
+  .${className} .listening-editor-delete-icon-btn {
+    backdrop-filter: blur(12px);
+    box-shadow: inset 0 0 0 1px rgba(252, 165, 165, 0.14);
+  }
+
+  .${className} .listening-editor-sidebar-action {
+    border-radius: 12px !important;
+    box-shadow: 0 12px 24px rgba(15, 23, 42, 0.18);
+    letter-spacing: 0.01em;
+  }
+
+  .${className} .listening-editor-sidebar-action-part {
+    background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%) !important;
+  }
+
+  .${className} .listening-editor-sidebar-action-section {
+    background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%) !important;
+  }
+
+  .${className} .listening-editor-main {
+    padding: 10px 12px 12px;
+    box-sizing: border-box;
+    background: linear-gradient(180deg, rgba(248, 250, 252, 0.4) 0%, rgba(255, 255, 255, 0.78) 100%);
+  }
+
+  .${className} .listening-editor-panel {
+    background: rgba(255, 255, 255, 0.82) !important;
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    border-radius: 18px !important;
+    box-shadow: 0 20px 40px rgba(15, 23, 42, 0.08);
+    overflow: hidden !important;
+  }
+
+  .${className} .listening-editor-panel-header {
+    padding: 8px 14px !important;
+    min-height: 42px;
+    box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.12), 0 10px 22px rgba(15, 23, 42, 0.08);
+  }
+
+  .${className} .listening-editor-panel-header-audio {
+    background: linear-gradient(135deg, #0f766e 0%, #14b8a6 100%) !important;
+  }
+
+  .${className} .listening-editor-panel-header-questions {
+    background: linear-gradient(135deg, #4338ca 0%, #7c3aed 100%) !important;
+  }
+
+  .${className} .listening-editor-panel-title {
+    font-size: 12px;
+    letter-spacing: -0.01em;
+  }
+
+  .${className} .listening-editor-panel-toggle {
+    padding: 4px 10px;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    background: rgba(255, 255, 255, 0.16);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+  }
+
+  .${className} .listening-editor-panel-body {
+    border-top: 1px solid rgba(255, 255, 255, 0.14);
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.94) 0%, rgba(248, 250, 252, 0.98) 100%),
+      linear-gradient(90deg, rgba(226, 232, 240, 0.45) 1px, transparent 1px);
+  }
+
+  .${className} .listening-editor-content-card {
+    background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+    border: 1px solid rgba(37, 99, 235, 0.18);
+    border-radius: 18px;
+    padding: 20px;
+    box-shadow: 0 20px 44px rgba(29, 78, 216, 0.1);
+  }
+
+  .${className} .listening-editor-audio-dropzone {
+    border-radius: 16px !important;
+    background: linear-gradient(180deg, #f8fbff 0%, #ffffff 100%) !important;
+    border-color: rgba(191, 219, 254, 0.95) !important;
+    box-shadow: inset 0 0 0 1px rgba(191, 219, 254, 0.28), 0 18px 32px rgba(15, 23, 42, 0.06);
+  }
+
+  .${className} .listening-editor-audio-dropzone.is-active,
+  .${className} .listening-editor-global-audio.is-active {
+    border-color: rgba(20, 184, 166, 0.55) !important;
+    background: linear-gradient(180deg, rgba(240, 253, 250, 0.98) 0%, rgba(236, 253, 245, 0.98) 100%) !important;
+  }
+
+  .${className} .listening-editor-global-audio {
+    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+    border-color: rgba(148, 163, 184, 0.24) !important;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.96) 0%, rgba(248, 250, 252, 0.96) 100%) !important;
+  }
+
+  .${className} .listening-editor-divider {
+    position: relative;
+    height: 10px !important;
+    margin: 4px 14px;
+    border-radius: 999px;
+    background: transparent !important;
+  }
+
+  .${className} .listening-editor-divider::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 118px;
+    height: 4px;
+    border-radius: 999px;
+    background: linear-gradient(90deg, rgba(20, 184, 166, 0.3) 0%, rgba(99, 102, 241, 0.34) 100%);
+    transform: translate(-50%, -50%);
+  }
+
+  .${className} .listening-editor-empty-state {
+    width: min(430px, 100%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 28px 30px;
+    border-radius: 24px;
+    border: 1px dashed #bfdbfe;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.96) 0%, rgba(239, 246, 255, 0.98) 100%);
+    box-shadow: 0 24px 48px rgba(15, 23, 42, 0.08);
+    text-align: center;
+  }
+
+  .${className} .listening-editor-empty-badge {
+    width: 48px;
+    height: 48px;
+    border-radius: 16px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #2563eb;
+    background: linear-gradient(135deg, rgba(191, 219, 254, 0.7) 0%, rgba(224, 242, 254, 0.92) 100%);
+    box-shadow: inset 0 0 0 1px rgba(147, 197, 253, 0.52);
+  }
+
+  .${className} .listening-editor-empty-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: #0f172a;
+    letter-spacing: -0.02em;
+  }
+
+  .${className} .listening-editor-empty-description {
+    font-size: 13px;
+    line-height: 1.65;
+    color: #475569;
+    max-width: 320px;
+  }
+
+  .${className} .listening-editor-footer-bar {
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(248, 250, 252, 0.96) 100%) !important;
+    box-shadow: 0 -14px 30px rgba(15, 23, 42, 0.08) !important;
+    backdrop-filter: blur(18px);
+  }
+
+  .${className} .listening-editor-secondary-cta {
+    border-radius: 14px !important;
+    box-shadow: 0 12px 24px rgba(15, 23, 42, 0.08);
+  }
+
+  .${className} .listening-editor-primary-cta {
+    border-radius: 14px !important;
+    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%) !important;
+    box-shadow: 0 18px 32px rgba(37, 99, 235, 0.28) !important;
+  }
+
+  .${className} .listening-editor-primary-cta:hover {
+    box-shadow: 0 22px 36px rgba(37, 99, 235, 0.34) !important;
+  }
+
+  @media (max-width: 768px) {
+    .${className} .listening-editor-main {
+      padding: 8px;
+    }
+
+    .${className} .listening-editor-panel {
+      border-radius: 14px !important;
+    }
+
+    .${className} .listening-editor-panel-header {
+      padding: 8px 12px !important;
+      min-height: 40px;
+    }
+
+    .${className} .listening-editor-panel-toggle {
+      padding: 3px 8px;
+    }
+
+    .${className} .listening-editor-divider {
+      margin: 4px 10px;
+    }
+  }
 `;

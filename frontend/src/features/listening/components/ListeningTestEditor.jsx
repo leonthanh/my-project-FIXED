@@ -307,8 +307,8 @@ const ListeningTestEditor = ({
   // Total questions count
   const totalQuestions = calculateTotalQuestions(parts || []);
   const activeGlobalAudioUrl = globalAudioFile?.url || existingAudioUrl || "";
-  const sidebarWidth = collapsedSidebar ? "76px" : "280px";
-  const sidebarMinWidth = collapsedSidebar ? "76px" : "220px";
+  const sidebarWidth = collapsedSidebar ? "68px" : "clamp(196px, 21vw, 252px)";
+  const sidebarMinWidth = collapsedSidebar ? "68px" : "clamp(184px, 18vw, 214px)";
 
   const getSectionActionButtonStyle = (variant) => {
     const variants = {
@@ -453,22 +453,25 @@ const ListeningTestEditor = ({
           const tone = getMessageTone(currentMessage);
           return (
             <div
+              className="listening-editor-banner-message"
               style={{
                 textAlign: "center",
-                padding: "10px",
+                padding: "10px 14px",
                 marginTop: "10px",
                 backgroundColor: tone === "error"
                   ? "#fee2e2"
                   : tone === "success"
                   ? "#dcfce7"
                   : "#fef3c7",
-                borderRadius: "8px",
+                borderRadius: "999px",
+                border: "1px solid rgba(148, 163, 184, 0.24)",
+                boxShadow: "0 10px 24px rgba(15, 23, 42, 0.08)",
                 color: tone === "error"
                   ? colors.dangerRed
                   : tone === "success"
                   ? colors.successGreen
                   : "#92400e",
-                fontWeight: 500,
+                fontWeight: 600,
               }}
             >
               {getDisplayMessage(currentMessage)}
@@ -477,14 +480,17 @@ const ListeningTestEditor = ({
         }}
         rightControls={
           <span
+            className="listening-editor-right-pill"
             style={{
-              padding: "4px 10px",
-              backgroundColor: colors.primaryPurple + "15",
+              padding: "8px 14px",
+              background: "linear-gradient(135deg, rgba(124, 58, 237, 0.14) 0%, rgba(59, 130, 246, 0.12) 100%)",
               color: colors.primaryPurple,
-              borderRadius: "20px",
+              border: "1px solid rgba(124, 58, 237, 0.18)",
+              borderRadius: "999px",
               fontSize: "12px",
               fontWeight: 600,
               whiteSpace: "nowrap",
+              boxShadow: "0 10px 22px rgba(59, 130, 246, 0.08)",
             }}
           >
             Tổng: {totalQuestions} câu hỏi
@@ -493,6 +499,7 @@ const ListeningTestEditor = ({
         afterInputs={(
           <div style={{ flexShrink: 0 }}>
             <div
+              className={`listening-editor-global-audio ${activeGlobalAudioUrl ? "is-active" : ""}`}
               style={activeGlobalAudioUrl ? { ...audioUploadActiveStyle, padding: "6px 12px", margin: 0, borderRadius: "6px" } : { ...audioUploadStyle, padding: "6px 12px", margin: 0, borderRadius: "6px" }}
               onClick={() => globalAudioRef.current?.click()}
             >
@@ -523,7 +530,7 @@ const ListeningTestEditor = ({
           flexDirection: "column",
           height: "100vh",
           fontSize: "13px",
-          backgroundColor: "#f8fafc",
+          background: "linear-gradient(180deg, #eef4ff 0%, #f8fbff 42%, #f8fafc 100%)",
         }}
         containerStyle={{
           display: "flex",
@@ -535,38 +542,42 @@ const ListeningTestEditor = ({
           display: "flex",
           flexDirection: "row",
           alignItems: "center",
-          gap: "8px",
-          padding: "5px 12px",
-          backgroundColor: "#fff",
-          borderBottom: "1px solid #e2e8f0",
-          boxShadow: "0 1px 4px rgba(0,0,0,0.07)",
+          gap: "12px",
+          padding: "10px 16px",
+          background: "linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(248,250,252,0.96) 100%)",
+          borderBottom: "1px solid rgba(203, 213, 225, 0.85)",
+          boxShadow: "0 12px 32px rgba(15, 23, 42, 0.08)",
+          backdropFilter: "blur(16px)",
           flexShrink: 0,
         }}
         topBarStyle={{
           display: "flex",
           alignItems: "center",
-          gap: "6px",
+          gap: "8px",
+          padding: "2px 0",
           flexShrink: 0,
         }}
         titleStyle={{ display: "none" }}
         inputLayoutStyle={{
           display: "flex",
           flex: 1,
-          gap: "6px",
+          gap: "10px",
           alignItems: "center",
         }}
-        titleInputStyle={{ ...compactInputStyle, flex: "1 1 0", marginBottom: 0 }}
-        classCodeInputStyle={{ ...compactInputStyle, flex: "1 1 0", marginBottom: 0 }}
-        teacherInputStyle={{ ...compactInputStyle, flex: "1 1 0", marginBottom: 0 }}
+        titleInputStyle={{ ...compactInputStyle, flex: "1 1 0", marginBottom: 0, padding: "11px 14px", minHeight: "44px", border: "1px solid #cbd5e1", borderRadius: "14px", backgroundColor: "rgba(255, 255, 255, 0.98)", boxShadow: "inset 0 1px 2px rgba(15, 23, 42, 0.05)" }}
+        classCodeInputStyle={{ ...compactInputStyle, flex: "1 1 0", marginBottom: 0, padding: "11px 14px", minHeight: "44px", border: "1px solid #cbd5e1", borderRadius: "14px", backgroundColor: "rgba(255, 255, 255, 0.98)", boxShadow: "inset 0 1px 2px rgba(15, 23, 42, 0.05)" }}
+        teacherInputStyle={{ ...compactInputStyle, flex: "1 1 0", marginBottom: 0, padding: "11px 14px", minHeight: "44px", border: "1px solid #cbd5e1", borderRadius: "14px", backgroundColor: "rgba(255, 255, 255, 0.98)", boxShadow: "inset 0 1px 2px rgba(15, 23, 42, 0.05)" }}
         headerCollapsed={false}
       >
         {/* SIDEBAR + VERTICAL LAYOUT (like Reading editor) */}
         <form
+          className="listening-editor-workspace"
           onSubmit={onReview}
           style={{ display: "flex", flex: 1, overflow: "hidden" }}
         >
           {/* ===== LEFT SIDEBAR: Parts + Sections ===== */}
           <div
+            className={`listening-editor-sidebar ${collapsedSidebar ? "is-collapsed" : ""}`}
             style={{
               width: sidebarWidth,
               minWidth: sidebarMinWidth,
@@ -581,8 +592,9 @@ const ListeningTestEditor = ({
             }}
           >
             <div
+              className="listening-editor-sidebar-block-header"
               style={{
-                padding: collapsedSidebar ? "10px 8px" : "10px 12px",
+                padding: collapsedSidebar ? "8px 6px" : "8px 10px",
                 borderBottom: "1px solid #334155",
                 flexShrink: 0,
                 display: "flex",
@@ -592,6 +604,7 @@ const ListeningTestEditor = ({
               }}
             >
               <span
+                className="listening-editor-sidebar-block-label"
                 style={{
                   fontSize: "11px",
                   fontWeight: 700,
@@ -607,13 +620,14 @@ const ListeningTestEditor = ({
                 {collapsedSidebar ? `P${parts?.length || 0}` : `Parts (${parts?.length || 0})`}
               </span>
               <button
+                className="listening-editor-sidebar-toggle"
                 type="button"
                 onClick={() => setCollapsedSidebar((value) => !value)}
                 title={collapsedSidebar ? "Mở rộng sidebar Parts/Sections" : "Thu nhỏ sidebar Parts/Sections"}
                 aria-label={collapsedSidebar ? "Mở rộng sidebar Parts/Sections" : "Thu nhỏ sidebar Parts/Sections"}
                 style={{
-                  width: "28px",
-                  height: "28px",
+                  width: "24px",
+                  height: "24px",
                   borderRadius: "6px",
                   border: "1px solid #475569",
                   backgroundColor: "rgba(148, 163, 184, 0.12)",
@@ -629,18 +643,18 @@ const ListeningTestEditor = ({
               </button>
             </div>
 
-            <div style={{ overflow: "auto", padding: collapsedSidebar ? "8px 6px 0 6px" : "8px 8px 0 8px", flexShrink: 0, maxHeight: "38%" }}>
+            <div className="listening-editor-sidebar-scroll listening-editor-sidebar-scroll-parts" style={{ overflow: "auto", padding: collapsedSidebar ? "6px 4px 0 4px" : "6px 6px 0 6px", flexShrink: 0, maxHeight: "38%" }}>
                 {parts?.map((part, idx) => (
                   <div
                     key={idx}
+                    className={`listening-editor-nav-card listening-editor-nav-card-part ${selectedPartIndex === idx ? "is-active" : ""} ${collapsedSidebar ? "is-collapsed" : ""}`}
                     onClick={() => { setSelectedPartIndex(idx); setSelectedSectionIndex(part.sections?.length > 0 ? 0 : null); }}
                     title={`Part ${idx + 1}${part.title ? ` - ${part.title}` : ""}`}
                     style={{
-                      padding: collapsedSidebar ? "10px 6px" : "9px 10px",
-                      marginBottom: "4px",
+                      padding: collapsedSidebar ? "8px 4px" : "8px 8px",
+                      marginBottom: "3px",
                       borderRadius: "6px",
                       cursor: "pointer",
-                      backgroundColor: selectedPartIndex === idx ? colors.partBlue : "#475569",
                       display: "flex",
                       justifyContent: collapsedSidebar ? "center" : "space-between",
                       alignItems: collapsedSidebar ? "center" : "flex-start",
@@ -648,15 +662,15 @@ const ListeningTestEditor = ({
                     }}
                   >
                     <div style={{ flex: 1, minWidth: 0, textAlign: collapsedSidebar ? "center" : "left" }}>
-                      <div style={{ fontSize: "13px", fontWeight: 600, color: "white" }}>
+                      <div className="listening-editor-nav-card-title" style={{ fontSize: "12px", fontWeight: 600, color: "white" }}>
                         {collapsedSidebar ? `P${idx + 1}` : `Part ${idx + 1}`}
                       </div>
                       {!collapsedSidebar && (
                         <>
-                          <div style={{ fontSize: "11px", color: "#cbd5e1", marginTop: "2px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          <div className="listening-editor-nav-card-subtitle" style={{ fontSize: "10px", color: "#cbd5e1", marginTop: "2px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                             {part.title || "(Chưa có tiêu đề)"}
                           </div>
-                          <div style={{ fontSize: "10px", color: "#94a3b8", marginTop: "2px" }}>
+                          <div className="listening-editor-nav-card-meta" style={{ fontSize: "9px", color: "#94a3b8", marginTop: "2px" }}>
                             {part.sections?.length || 0} section · {part.sections?.reduce((total, section) => total + countSectionQuestions(section), 0) || 0} câu
                             {Boolean(part.audioUrl || part.audioFile) && <span style={{ marginLeft: 4, color: "#a7f3d0" }}>Audio</span>}
                           </div>
@@ -665,14 +679,15 @@ const ListeningTestEditor = ({
                     </div>
                     {!collapsedSidebar && parts.length > 1 && (
                       <button
+                        className="listening-editor-delete-icon-btn"
                         type="button"
                         onClick={(e) => { e.stopPropagation(); onDeletePart(idx); }}
                         style={{
                           background: "rgba(239,68,68,0.2)",
                           border: "none",
                           color: "#fca5a5",
-                          width: "22px",
-                          height: "22px",
+                          width: "20px",
+                          height: "20px",
                           borderRadius: "4px",
                           cursor: "pointer",
                           fontSize: "12px",
@@ -692,34 +707,35 @@ const ListeningTestEditor = ({
                 ))}
             </div>
 
-            <div style={{ padding: "6px 8px 8px 8px", flexShrink: 0 }}>
+            <div style={{ padding: "4px 6px 6px 6px", flexShrink: 0 }}>
               <button
+                className="listening-editor-sidebar-action listening-editor-sidebar-action-part"
                 type="button"
                 onClick={onAddPart}
                 title="Thêm Part"
                 style={{
                   width: "100%",
-                  padding: "7px",
+                  padding: "6px",
                   backgroundColor: "#22c55e",
                   color: "white",
                   border: "none",
                   borderRadius: "6px",
                   cursor: "pointer",
                   fontWeight: 600,
-                  fontSize: "12px",
+                  fontSize: "11px",
                 }}
               >
                 {collapsedSidebar ? "+" : "Thêm part"}
               </button>
             </div>
 
-            <div style={{ padding: collapsedSidebar ? "10px 8px" : "10px 12px", borderTop: "1px solid #334155", borderBottom: "1px solid #334155", flexShrink: 0 }}>
-              <span style={{ fontSize: "11px", fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+            <div className="listening-editor-sidebar-block-header" style={{ padding: collapsedSidebar ? "8px 6px" : "8px 10px", borderTop: "1px solid #334155", borderBottom: "1px solid #334155", flexShrink: 0 }}>
+              <span className="listening-editor-sidebar-block-label" style={{ fontSize: "11px", fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.5px" }}>
                 {collapsedSidebar ? "S" : `Sections ${currentPart ? `(P${selectedPartIndex + 1})` : ""}`}
               </span>
             </div>
 
-            <div style={{ flex: 1, overflow: "auto", padding: collapsedSidebar ? "8px 6px 0 6px" : "8px 8px 0 8px" }}>
+            <div className="listening-editor-sidebar-scroll listening-editor-sidebar-scroll-sections" style={{ flex: 1, overflow: "auto", padding: collapsedSidebar ? "6px 4px 0 4px" : "6px 6px 0 6px" }}>
                 {currentPart ? (
                   currentPart.sections?.map((section, idx) => {
                     const startQ = calculateStartingQuestionNumber(parts, selectedPartIndex, idx);
@@ -728,27 +744,27 @@ const ListeningTestEditor = ({
                     return (
                       <div
                         key={idx}
+                        className={`listening-editor-nav-card listening-editor-nav-card-section ${selectedSectionIndex === idx ? "is-active" : ""} ${collapsedSidebar ? "is-collapsed" : ""}`}
                         onClick={() => setSelectedSectionIndex(idx)}
                         title={`Section ${idx + 1}${section.sectionTitle ? ` - ${section.sectionTitle}` : ""}`}
                         style={{
-                          padding: collapsedSidebar ? "10px 6px" : "9px 10px",
-                          marginBottom: "4px",
+                          padding: collapsedSidebar ? "8px 4px" : "8px 8px",
+                          marginBottom: "3px",
                           borderRadius: "6px",
                           cursor: "pointer",
-                          backgroundColor: selectedSectionIndex === idx ? "#6366f1" : "#475569",
                           transition: "background 0.15s",
                           textAlign: collapsedSidebar ? "center" : "left",
                         }}
                       >
-                        <div style={{ fontSize: "13px", fontWeight: 600, color: "white" }}>
+                        <div className="listening-editor-nav-card-title" style={{ fontSize: "12px", fontWeight: 600, color: "white" }}>
                           {collapsedSidebar ? `S${idx + 1}` : `Section ${idx + 1}`}
                         </div>
                         {!collapsedSidebar && (
                           <>
-                            <div style={{ fontSize: "11px", color: "#cbd5e1", marginTop: "2px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            <div className="listening-editor-nav-card-subtitle" style={{ fontSize: "10px", color: "#cbd5e1", marginTop: "2px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                               {section.sectionTitle || `Q${startQ}–${endQ}`}
                             </div>
-                            <div style={{ fontSize: "10px", color: "#94a3b8", marginTop: "2px" }}>
+                            <div className="listening-editor-nav-card-meta" style={{ fontSize: "9px", color: "#94a3b8", marginTop: "2px" }}>
                               {sectionQCount} câu hỏi
                             </div>
                           </>
@@ -764,21 +780,22 @@ const ListeningTestEditor = ({
             </div>
 
             {currentPart && (
-              <div style={{ padding: "6px 8px 8px 8px", flexShrink: 0 }}>
+              <div style={{ padding: "4px 6px 6px 6px", flexShrink: 0 }}>
                 <button
+                  className="listening-editor-sidebar-action listening-editor-sidebar-action-section"
                   type="button"
                   onClick={() => onAddSection(selectedPartIndex)}
                   title="Thêm Section"
                   style={{
                     width: "100%",
-                    padding: "7px",
+                    padding: "6px",
                     backgroundColor: "#8b5cf6",
                     color: "white",
                     border: "none",
                     borderRadius: "6px",
                     cursor: "pointer",
                     fontWeight: 600,
-                    fontSize: "12px",
+                    fontSize: "11px",
                   }}
                 >
                   {collapsedSidebar ? "+" : "Thêm section"}
@@ -788,10 +805,11 @@ const ListeningTestEditor = ({
           </div>
 
           {/* ===== MAIN AREA: Audio/Content (top) + Questions (bottom) ===== */}
-          <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
-          <div style={{ display: "flex", flexDirection: "column", flex: 1, overflow: "hidden", position: "relative" }}>
+          <div className="listening-editor-main-shell" style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+          <div className="listening-editor-main" style={{ display: "flex", flexDirection: "column", flex: 1, overflow: "hidden", position: "relative" }}>
             {/* ===== TOP: Part Audio & Content (collapsible) ===== */}
             <div
+              className={`listening-editor-panel listening-editor-panel-audio ${collapsedAudio ? "is-collapsed" : ""}`}
               style={{
                 flex: collapsedAudio ? "0 0 auto" : collapsedQuestions ? "1" : "0 0 40%",
                 display: "flex", flexDirection: "column", overflow: "hidden",
@@ -800,6 +818,7 @@ const ListeningTestEditor = ({
             >
               {/* Header – always visible */}
               <div
+                className="listening-editor-panel-header listening-editor-panel-header-audio"
                 onClick={() => setCollapsedAudio(v => !v)}
                 style={{
                   padding: "10px 16px", backgroundColor: colors.audioGreen, color: "white",
@@ -808,8 +827,8 @@ const ListeningTestEditor = ({
                   cursor: "pointer", userSelect: "none",
                 }}
               >
-                <span>Audio và nội dung{currentPart ? ` – ${currentPart.title}` : ""}</span>
-                <span style={{ fontSize: "12px", fontWeight: 500, opacity: 0.9, display: "inline-flex", alignItems: "center", gap: 6 }}>
+                <span className="listening-editor-panel-title">Audio và nội dung{currentPart ? ` – ${currentPart.title}` : ""}</span>
+                <span className="listening-editor-panel-toggle" style={{ fontSize: "12px", fontWeight: 500, opacity: 0.9, display: "inline-flex", alignItems: "center", gap: 6 }}>
                   <InlineIcon name={collapsedAudio ? "chevron-down" : "chevron-up"} size={13} style={{ color: "currentColor" }} />
                   {collapsedAudio ? "Mở rộng" : "Thu nhỏ"}
                 </span>
@@ -817,9 +836,9 @@ const ListeningTestEditor = ({
 
               {/* Body */}
               {!collapsedAudio && (
-                <div style={{ flex: 1, overflow: "auto", padding: "12px" }}>
+                <div className="listening-editor-panel-body" style={{ flex: 1, overflow: "auto", padding: "12px" }}>
                   {currentPart ? (
-                    <>
+                    <div className="listening-editor-content-card">
                       {/* Part Title */}
                       <label style={{ color: colors.audioGreen, fontWeight: 600, fontSize: "12px", display: "block", marginBottom: "4px" }}>Tiêu đề part</label>
                       <input
@@ -832,6 +851,7 @@ const ListeningTestEditor = ({
                       {/* Part Audio */}
                       <label style={{ color: colors.audioGreen, fontWeight: 600, fontSize: "12px", display: "block", marginBottom: "4px" }}>Audio cho part này</label>
                       <div
+                        className={`listening-editor-audio-dropzone ${currentPart.audioUrl ? "is-active" : ""}`}
                         style={currentPart.audioUrl ? audioUploadActiveStyle : audioUploadStyle}
                         onClick={() => partAudioRef.current?.click()}
                       >
@@ -872,9 +892,15 @@ const ListeningTestEditor = ({
                           style={{ ...compactInputStyle, minHeight: "100px", resize: "vertical", fontFamily: "monospace", fontSize: "12px" }}
                         />
                       </div>
-                    </>
+                    </div>
                   ) : (
-                    <div style={{ color: "#999", fontSize: "13px", textAlign: "center", paddingTop: "20px" }}>Chọn một part để nhập nội dung</div>
+                    <div className="listening-editor-empty-state listening-editor-empty-state-audio">
+                      <div className="listening-editor-empty-badge">
+                        <InlineIcon name="create" size={16} style={{ color: "currentColor" }} />
+                      </div>
+                      <div className="listening-editor-empty-title">Chọn một part để bắt đầu</div>
+                      <div className="listening-editor-empty-description">Sidebar bên trái sẽ điều hướng part đang chỉnh. Sau khi chọn, bạn có thể thêm audio, hướng dẫn và transcript ở đây.</div>
+                    </div>
                   )}
                 </div>
               )}
@@ -882,12 +908,14 @@ const ListeningTestEditor = ({
 
             {/* Horizontal resize divider */}
             <div
+              className="listening-editor-divider"
               onMouseDown={(e) => handleMouseDown(2, e)}
               style={{ height: "5px", backgroundColor: isResizing === 2 ? "#3b82f6" : "#e2e8f0", cursor: "row-resize", flexShrink: 0, transition: "background 0.15s" }}
             />
 
             {/* ===== BOTTOM: Questions (collapsible) ===== */}
             <div
+              className={`listening-editor-panel listening-editor-panel-questions ${collapsedQuestions ? "is-collapsed" : ""}`}
               style={{
                 flex: collapsedQuestions ? "0 0 auto" : "1",
                 backgroundColor: "#fff", display: "flex", flexDirection: "column",
@@ -896,6 +924,7 @@ const ListeningTestEditor = ({
             >
               {/* Header – always visible */}
               <div
+                className="listening-editor-panel-header listening-editor-panel-header-questions"
                 onClick={() => setCollapsedQuestions(v => !v)}
                 style={{
                   padding: "10px 16px", backgroundColor: "#d97706", color: "white",
@@ -904,10 +933,10 @@ const ListeningTestEditor = ({
                   cursor: "pointer", userSelect: "none",
                 }}
               >
-                <span>Câu hỏi{currentSection ? ` — Section ${selectedSectionIndex + 1}` : ""}</span>
+                <span className="listening-editor-panel-title">Câu hỏi{currentSection ? ` — Section ${selectedSectionIndex + 1}` : ""}</span>
                 <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
                   {currentSection && <span style={{ fontSize: "11px", fontWeight: 400, color: "rgba(255,255,255,0.8)" }}>{countSectionQuestions(currentSection)} câu</span>}
-                  <span style={{ fontSize: "12px", fontWeight: 500, color: "rgba(255,255,255,0.8)", display: "inline-flex", alignItems: "center", gap: 6 }}><InlineIcon name={collapsedQuestions ? "chevron-down" : "chevron-up"} size={13} style={{ color: "currentColor" }} />{collapsedQuestions ? "Mở rộng" : "Thu nhỏ"}</span>
+                  <span className="listening-editor-panel-toggle" style={{ fontSize: "12px", fontWeight: 500, color: "rgba(255,255,255,0.8)", display: "inline-flex", alignItems: "center", gap: 6 }}><InlineIcon name={collapsedQuestions ? "chevron-down" : "chevron-up"} size={13} style={{ color: "currentColor" }} />{collapsedQuestions ? "Mở rộng" : "Thu nhỏ"}</span>
                 </div>
               </div>
 
@@ -915,7 +944,7 @@ const ListeningTestEditor = ({
 
               {!collapsedQuestions && (
                 currentSection ? (
-                <div style={{ flex: 1, overflow: "auto", padding: "16px" }}>
+                <div className="listening-editor-panel-body" style={{ flex: 1, overflow: "auto", padding: "14px" }}>
                   {/* Section Header with auto Question Range */}
                   {(() => {
                     const autoStartQ = calculateStartingQuestionNumber(parts, selectedPartIndex, selectedSectionIndex);
@@ -1190,8 +1219,14 @@ const ListeningTestEditor = ({
                   </div>
                 </div>
               ) : (
-                <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: "#9ca3af" }}>
-                  Chọn một section
+                <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: "24px" }}>
+                  <div className="listening-editor-empty-state listening-editor-empty-state-question">
+                    <div className="listening-editor-empty-badge">
+                      <InlineIcon name="create" size={16} style={{ color: "currentColor" }} />
+                    </div>
+                    <div className="listening-editor-empty-title">Chọn một section để chỉnh câu hỏi</div>
+                    <div className="listening-editor-empty-description">Sau khi chọn section ở sidebar, toàn bộ block câu hỏi và công cụ thêm nhanh sẽ hiện trong vùng này.</div>
+                  </div>
                 </div>
               )
               )}
@@ -1200,6 +1235,7 @@ const ListeningTestEditor = ({
 
           {/* FOOTER - Submit buttons */}
           <div
+            className="listening-editor-footer-bar"
             style={{
               padding: "12px 20px",
               backgroundColor: "#fff",
@@ -1210,10 +1246,10 @@ const ListeningTestEditor = ({
               gap: "12px",
             }}
           >
-            <button type="button" onClick={onManualSave} style={secondaryButtonStyle}>
+            <button type="button" onClick={onManualSave} className="listening-editor-secondary-cta" style={secondaryButtonStyle}>
               Lưu nháp
             </button>
-            <button type="submit" style={{ ...primaryButtonStyle, backgroundColor: "#3b82f6", boxShadow: "0 4px 6px -1px rgba(59,130,246,0.3)" }} disabled={isSubmitting}>
+            <button type="submit" className="listening-editor-primary-cta" style={{ ...primaryButtonStyle, backgroundColor: "#3b82f6", boxShadow: "0 4px 6px -1px rgba(59,130,246,0.3)" }} disabled={isSubmitting}>
               {isSubmitting ? "Đang xử lý..." : submitButtonText}
             </button>
           </div>
