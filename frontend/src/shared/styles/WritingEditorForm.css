@@ -90,3 +90,702 @@
     min-height: 160px;
   }
 }
+
+.create-writing-container.ix-writing-editor-shell {
+  max-width: min(1440px, calc(100vw - 28px));
+  margin: 18px auto 28px;
+  padding: 0 14px 20px;
+}
+
+.ix-writing-editor-loading {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 18px;
+  border-radius: 16px;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+  border: 1px solid rgba(191, 219, 254, 0.9);
+  box-shadow: 0 16px 32px rgba(15, 23, 42, 0.08);
+}
+
+.ix-writing-editor-shell {
+  color: #0f172a;
+}
+
+.ix-writing-editor-notice {
+  margin-bottom: 14px;
+}
+
+.ix-writing-editor-alert-card {
+  padding: 14px 16px;
+  border-radius: 18px;
+  border: 1px solid #fecaca;
+  background: linear-gradient(180deg, #fff7f7 0%, #fff1f2 100%);
+  box-shadow: 0 14px 30px rgba(127, 29, 29, 0.08);
+}
+
+.ix-writing-editor-alert-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #9f1239;
+}
+
+.ix-writing-editor-alert-body {
+  margin-top: 10px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  color: #881337;
+}
+
+.ix-writing-editor-alert-button {
+  border: 1px solid #fda4af;
+  background: #ffffff;
+  color: #9f1239;
+  border-radius: 999px;
+  padding: 8px 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.ix-writing-editor-header-card {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(243, 248, 255, 0.98) 100%);
+  border: 1px solid rgba(191, 219, 254, 0.9);
+  border-radius: 24px;
+  padding: 18px 20px;
+  box-shadow: 0 26px 54px rgba(15, 23, 42, 0.09);
+  margin-bottom: 12px;
+}
+
+.ix-writing-editor-header-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+
+.ix-writing-editor-title {
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 24px;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+}
+
+.ix-writing-editor-title-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #2563eb;
+  background: linear-gradient(135deg, rgba(191, 219, 254, 0.88) 0%, rgba(224, 242, 254, 0.92) 100%);
+  box-shadow: inset 0 0 0 1px rgba(147, 197, 253, 0.58);
+}
+
+.ix-writing-editor-subtitle {
+  margin: 8px 0 0;
+  max-width: 520px;
+  font-size: 13px;
+  color: #475569;
+  line-height: 1.55;
+}
+
+.ix-writing-editor-summary-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding: 7px 11px;
+  border-radius: 999px;
+  border: 1px solid rgba(124, 58, 237, 0.16);
+  background: linear-gradient(135deg, rgba(124, 58, 237, 0.12) 0%, rgba(59, 130, 246, 0.1) 100%);
+  color: #4c1d95;
+  font-size: 11px;
+  font-weight: 700;
+  box-shadow: 0 14px 30px rgba(59, 130, 246, 0.08);
+}
+
+.ix-writing-editor-summary-pill span {
+  display: inline-flex;
+  align-items: center;
+}
+
+.ix-writing-editor-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(240px, 1fr));
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.ix-writing-editor-field {
+  display: block;
+  padding: 12px 14px;
+  border-radius: 18px;
+  border: 1px solid rgba(203, 213, 225, 0.95);
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.75), 0 12px 24px rgba(15, 23, 42, 0.05);
+}
+
+.ix-writing-editor-field-label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.ix-writing-editor-field input {
+  width: 100%;
+  border: 1px solid #cbd5e1;
+  border-radius: 13px;
+  padding: 10px 12px;
+  font-size: 14px;
+  box-sizing: border-box;
+  background: #ffffff;
+  box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.ix-writing-editor-message {
+  margin-top: 16px;
+  padding: 12px 16px;
+  border-radius: 999px;
+  font-weight: 700;
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+}
+
+.ix-writing-editor-message.is-success {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.ix-writing-editor-message.is-error {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.ix-writing-editor-workspace {
+  display: grid;
+  grid-template-columns: minmax(188px, 214px) minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+}
+
+.ix-writing-editor-sidebar {
+  position: sticky;
+  top: 72px;
+  padding: 10px;
+  border-radius: 22px;
+  background: linear-gradient(180deg, #13233f 0%, #1f2f49 46%, #172033 100%);
+  box-shadow: 0 28px 54px rgba(15, 23, 42, 0.18);
+  color: #e2e8f0;
+  align-self: start;
+}
+
+.ix-writing-editor-sidebar-header {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #b7c6da;
+  padding: 2px 4px 8px;
+}
+
+.ix-writing-editor-sidebar-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ix-writing-editor-sidebar-card {
+  width: 100%;
+  text-align: left;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 18px;
+  padding: 12px;
+  background: linear-gradient(180deg, rgba(71, 85, 105, 0.96) 0%, rgba(51, 65, 85, 0.98) 100%);
+  color: #ffffff;
+  cursor: pointer;
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.16);
+}
+
+.ix-writing-editor-sidebar-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 16px 30px rgba(15, 23, 42, 0.2);
+}
+
+.ix-writing-editor-sidebar-card.is-active {
+  background: linear-gradient(135deg, #60a5fa 0%, #2563eb 100%);
+  border-color: rgba(191, 219, 254, 0.72);
+}
+
+.ix-writing-editor-sidebar-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.ix-writing-editor-sidebar-card-title {
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.ix-writing-editor-sidebar-card-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  font-size: 10px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.ix-writing-editor-main {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+.ix-writing-editor-panel {
+  border-radius: 28px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  box-shadow: 0 28px 56px rgba(15, 23, 42, 0.1);
+}
+
+.ix-writing-editor-panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 14px 18px;
+  background: linear-gradient(135deg, #0f766e 0%, #14b8a6 100%);
+  color: #ffffff;
+}
+
+.ix-writing-editor-panel-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.ix-writing-editor-panel-heading {
+  margin: 8px 0 0;
+  font-size: 22px;
+  letter-spacing: -0.02em;
+}
+
+.ix-writing-editor-panel-note {
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.ix-writing-editor-panel-body {
+  padding: 18px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96) 0%, rgba(248, 250, 252, 0.98) 100%),
+    linear-gradient(90deg, rgba(226, 232, 240, 0.45) 1px, transparent 1px);
+}
+
+.ix-writing-editor-task-layout {
+  display: grid;
+  gap: 16px;
+}
+
+.ix-writing-editor-task1-layout {
+  grid-template-columns: minmax(0, 1.6fr) minmax(320px, 0.9fr);
+  align-items: start;
+}
+
+.ix-writing-editor-card {
+  background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+  border: 1px solid rgba(37, 99, 235, 0.18);
+  border-radius: 22px;
+  padding: 16px;
+  box-shadow: 0 18px 34px rgba(29, 78, 216, 0.08);
+}
+
+.ix-writing-editor-section-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #0f172a;
+}
+
+.ix-writing-editor-quill .ql-toolbar {
+  background: linear-gradient(180deg, #f8fbff 0%, #eef4ff 100%);
+  border: 1px solid #d7e2f2;
+  border-top-left-radius: 16px;
+  border-top-right-radius: 16px;
+}
+
+.ix-writing-editor-quill .ql-container {
+  border: 1px solid #d7e2f2;
+  border-top: 0;
+  border-bottom-left-radius: 16px;
+  border-bottom-right-radius: 16px;
+}
+
+.ix-writing-editor-quill .ql-editor {
+  min-height: 320px;
+  background: #ffffff;
+  color: #0f172a;
+}
+
+.ix-writing-editor-image-card {
+  min-height: 100%;
+}
+
+.ix-writing-editor-hidden-input {
+  display: none;
+}
+
+.ix-writing-editor-upload-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.ix-writing-editor-upload-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: none;
+  border-radius: 999px;
+  padding: 10px 14px;
+  background: linear-gradient(135deg, #0f766e 0%, #14b8a6 100%);
+  color: #ffffff;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 16px 30px rgba(15, 118, 110, 0.22);
+}
+
+.ix-writing-editor-upload-filename {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: rgba(226, 232, 240, 0.8);
+  color: #334155;
+  font-weight: 600;
+}
+
+.ix-writing-editor-image-preview {
+  margin-top: 16px;
+}
+
+.ix-writing-editor-image-preview img {
+  width: 100%;
+  height: auto;
+  border-radius: 18px;
+  border: 1px solid rgba(203, 213, 225, 0.95);
+  box-shadow: 0 16px 30px rgba(15, 23, 42, 0.08);
+}
+
+.ix-writing-editor-image-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+
+.ix-writing-editor-image-empty {
+  margin-top: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 28px 18px;
+  border-radius: 20px;
+  border: 1px dashed #bfdbfe;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96) 0%, rgba(239, 246, 255, 0.98) 100%);
+  color: #64748b;
+  text-align: center;
+}
+
+.ix-writing-editor-warning {
+  margin-top: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: #fff7ed;
+  border: 1px solid #fdba74;
+  color: #9a3412;
+}
+
+.ix-writing-editor-danger-btn,
+.ix-writing-editor-ghost-btn,
+.ix-writing-editor-secondary-btn,
+.ix-writing-editor-primary-btn {
+  border: none;
+  border-radius: 14px;
+  padding: 10px 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.ix-writing-editor-danger-btn {
+  background: #fff1f2;
+  color: #be123c;
+  border: 1px solid #fecdd3;
+}
+
+.ix-writing-editor-ghost-btn,
+.ix-writing-editor-secondary-btn {
+  background: #ffffff;
+  color: #1e293b;
+  border: 1px solid #cbd5e1;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
+}
+
+.ix-writing-editor-primary-btn {
+  color: #ffffff;
+  background: linear-gradient(135deg, #2563eb 0%, #3b82f6 100%);
+  box-shadow: 0 18px 32px rgba(37, 99, 235, 0.24);
+}
+
+.ix-writing-editor-actions {
+  position: sticky;
+  bottom: 12px;
+  z-index: 12;
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 14px 18px;
+  border-radius: 24px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(248, 250, 252, 0.96) 100%);
+  border: 1px solid rgba(226, 232, 240, 0.92);
+  box-shadow: 0 18px 36px rgba(15, 23, 42, 0.08);
+  backdrop-filter: blur(14px);
+}
+
+.ix-writing-editor-preview-backdrop {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(15, 23, 42, 0.56);
+  backdrop-filter: blur(10px);
+  z-index: 9999;
+}
+
+.ix-writing-editor-preview-modal {
+  width: min(1000px, 100%);
+  max-height: min(88vh, 920px);
+  overflow: auto;
+  border-radius: 24px;
+  background: #ffffff;
+  box-shadow: 0 30px 80px rgba(15, 23, 42, 0.28);
+}
+
+.ix-writing-editor-preview-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 18px 20px;
+  background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%);
+  color: #ffffff;
+}
+
+.ix-writing-editor-preview-header h3 {
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 20px;
+}
+
+.ix-writing-editor-preview-close {
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.14);
+  color: #ffffff;
+  border-radius: 999px;
+  padding: 8px 14px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.ix-writing-editor-preview-meta {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 16px 20px 0;
+}
+
+.ix-writing-editor-preview-meta span {
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: rgba(226, 232, 240, 0.8);
+  color: #334155;
+  font-weight: 700;
+}
+
+.ix-writing-editor-preview-section {
+  margin: 18px 20px 20px;
+  border: 1px solid rgba(203, 213, 225, 0.9);
+  border-radius: 22px;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+  overflow: hidden;
+}
+
+.ix-writing-editor-preview-section-header {
+  padding: 14px 16px;
+  background: linear-gradient(135deg, #0f766e 0%, #14b8a6 100%);
+  color: #ffffff;
+  font-weight: 800;
+}
+
+.ix-writing-editor-preview-section + .ix-writing-editor-preview-section .ix-writing-editor-preview-section-header {
+  background: linear-gradient(135deg, #4338ca 0%, #7c3aed 100%);
+}
+
+.ix-writing-editor-preview-image-wrap {
+  padding: 16px 16px 0;
+}
+
+.ix-writing-editor-preview-image-wrap img {
+  display: block;
+  width: 100%;
+  max-width: 620px;
+  height: auto;
+  border-radius: 18px;
+  border: 1px solid rgba(203, 213, 225, 0.9);
+}
+
+.ix-writing-editor-preview-html {
+  padding: 16px;
+  line-height: 1.8;
+  color: #0f172a;
+}
+
+.ix-writing-editor-preview-html em {
+  color: #64748b;
+}
+
+@media (max-width: 1180px) {
+  .ix-writing-editor-task1-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .ix-writing-editor-sidebar {
+    top: 66px;
+  }
+}
+
+@media (max-width: 960px) {
+  .create-writing-container.ix-writing-editor-shell {
+    max-width: 100%;
+    padding: 0 12px 18px;
+  }
+
+  .ix-writing-editor-workspace {
+    grid-template-columns: 1fr;
+  }
+
+  .ix-writing-editor-sidebar {
+    position: static;
+    padding: 12px;
+  }
+
+  .ix-writing-editor-sidebar-list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .ix-writing-editor-meta-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .ix-writing-editor-header-card {
+    padding: 18px;
+    border-radius: 22px;
+  }
+
+  .ix-writing-editor-title {
+    font-size: 22px;
+  }
+
+  .ix-writing-editor-panel-header {
+    padding: 14px 16px;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .ix-writing-editor-panel-heading {
+    font-size: 20px;
+  }
+
+  .ix-writing-editor-panel-body,
+  .ix-writing-editor-card {
+    padding: 14px;
+  }
+
+  .ix-writing-editor-actions {
+    flex-direction: column-reverse;
+  }
+
+  .ix-writing-editor-secondary-btn,
+  .ix-writing-editor-primary-btn {
+    width: 100%;
+  }
+
+  .ix-writing-editor-sidebar-list {
+    grid-template-columns: 1fr;
+  }
+
+  .ix-writing-editor-preview-backdrop {
+    padding: 12px;
+  }
+
+  .ix-writing-editor-preview-modal {
+    border-radius: 18px;
+  }
+}
