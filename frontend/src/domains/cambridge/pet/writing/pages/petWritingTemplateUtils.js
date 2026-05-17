@@ -101,6 +101,9 @@ const mailIconSvg = `
 	</svg>
 `;
 
+const PET_PART1_LEFT_NOTE_BOX_BOUNDS = Object.freeze({ minX: 5, maxX: 18 });
+const PET_PART1_RIGHT_NOTE_BOX_BOUNDS = Object.freeze({ minX: 82, maxX: 96 });
+
 const clampPercent = (value, min, max) => {
 	const numeric = Number(value);
 	if (!Number.isFinite(numeric)) {
@@ -108,6 +111,25 @@ const clampPercent = (value, min, max) => {
 	}
 
 	return Math.min(max, Math.max(min, numeric));
+};
+
+export const isPetPart1NoteOnLeftSide = (value) => {
+	const numeric = Number(value);
+	if (!Number.isFinite(numeric)) {
+		return true;
+	}
+
+	return numeric <= 50;
+};
+
+const clampPetPart1NoteBoxX = (value, fallbackValue) => {
+	const fallbackNumeric = Number(fallbackValue);
+	const nextValue = Number.isFinite(Number(value)) ? Number(value) : fallbackNumeric;
+	const bounds = isPetPart1NoteOnLeftSide(nextValue)
+		? PET_PART1_LEFT_NOTE_BOX_BOUNDS
+		: PET_PART1_RIGHT_NOTE_BOX_BOUNDS;
+
+	return clampPercent(nextValue, bounds.minX, bounds.maxX);
 };
 
 export const normalizePetPart1NoteAnchors = (anchors = {}) => {
@@ -138,19 +160,19 @@ export const normalizePetPart1NoteBoxes = (boxes = {}) => {
 
 	return {
 		note1: {
-			x: clampPercent(source.note1?.x ?? defaultPetPart1NoteBoxes.note1.x, PET_PART1_NOTE_POSITIONS.note1.boxBounds.minX, PET_PART1_NOTE_POSITIONS.note1.boxBounds.maxX),
+			x: clampPetPart1NoteBoxX(source.note1?.x, defaultPetPart1NoteBoxes.note1.x),
 			y: clampPercent(source.note1?.y ?? defaultPetPart1NoteBoxes.note1.y, PET_PART1_NOTE_POSITIONS.note1.boxBounds.minY, PET_PART1_NOTE_POSITIONS.note1.boxBounds.maxY),
 		},
 		note2: {
-			x: clampPercent(source.note2?.x ?? defaultPetPart1NoteBoxes.note2.x, PET_PART1_NOTE_POSITIONS.note2.boxBounds.minX, PET_PART1_NOTE_POSITIONS.note2.boxBounds.maxX),
+			x: clampPetPart1NoteBoxX(source.note2?.x, defaultPetPart1NoteBoxes.note2.x),
 			y: clampPercent(source.note2?.y ?? defaultPetPart1NoteBoxes.note2.y, PET_PART1_NOTE_POSITIONS.note2.boxBounds.minY, PET_PART1_NOTE_POSITIONS.note2.boxBounds.maxY),
 		},
 		note3: {
-			x: clampPercent(source.note3?.x ?? defaultPetPart1NoteBoxes.note3.x, PET_PART1_NOTE_POSITIONS.note3.boxBounds.minX, PET_PART1_NOTE_POSITIONS.note3.boxBounds.maxX),
+			x: clampPetPart1NoteBoxX(source.note3?.x, defaultPetPart1NoteBoxes.note3.x),
 			y: clampPercent(source.note3?.y ?? defaultPetPart1NoteBoxes.note3.y, PET_PART1_NOTE_POSITIONS.note3.boxBounds.minY, PET_PART1_NOTE_POSITIONS.note3.boxBounds.maxY),
 		},
 		note4: {
-			x: clampPercent(source.note4?.x ?? defaultPetPart1NoteBoxes.note4.x, PET_PART1_NOTE_POSITIONS.note4.boxBounds.minX, PET_PART1_NOTE_POSITIONS.note4.boxBounds.maxX),
+			x: clampPetPart1NoteBoxX(source.note4?.x, defaultPetPart1NoteBoxes.note4.x),
 			y: clampPercent(source.note4?.y ?? defaultPetPart1NoteBoxes.note4.y, PET_PART1_NOTE_POSITIONS.note4.boxBounds.minY, PET_PART1_NOTE_POSITIONS.note4.boxBounds.maxY),
 		},
 	};
@@ -235,7 +257,7 @@ const renderCallout = (noteKey, text, noteBoxes, anchors) => {
 	const notePosition = PET_PART1_NOTE_POSITIONS[noteKey];
 	const noteBox = noteBoxes[noteKey] || defaultPetPart1NoteBoxes[noteKey];
 	const anchor = anchors[noteKey] || defaultPetPart1NoteAnchors[noteKey];
-	const justify = notePosition.textAlign === "right" ? "right" : "left";
+	const justify = isPetPart1NoteOnLeftSide(noteBox.x) ? "right" : "left";
 
 	return `
 		<svg style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible;" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">

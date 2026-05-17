@@ -3,6 +3,7 @@ import InlineIcon from "../../../../../shared/components/InlineIcon.jsx";
 import {
 	defaultPetPart1NoteBoxes,
 	defaultPetPart1NoteAnchors,
+	isPetPart1NoteOnLeftSide,
 	normalizePetPart1NoteBoxes,
 	normalizePetPart1NoteAnchors,
 	normalizePetPart1Fields,
@@ -78,7 +79,7 @@ const PetEmailAnchorPreview = ({ fields, onAnchorsChange, onNoteBoxesChange, rea
 				{!readonly ? (
 					<div className="pet-writing-email-preview-hint">
 						<InlineIcon name="average" size={14} />
-						<span>Kéo note box bên ngoài hoặc chấm neo trong email để canh line theo ý muốn.</span>
+						<span>Kéo note box sang trái hoặc phải, hoặc kéo chấm neo trong email để canh line theo ý muốn.</span>
 					</div>
 				) : null}
 			</div>
@@ -145,7 +146,7 @@ const PetEmailAnchorPreview = ({ fields, onAnchorsChange, onNoteBoxesChange, rea
 					const position = PET_PART1_NOTE_POSITIONS[noteKey];
 					const noteBox = noteBoxes[noteKey] || defaultPetPart1NoteBoxes[noteKey];
 					const anchor = anchors[noteKey] || defaultPetPart1NoteAnchors[noteKey];
-					const isRightAligned = position.textAlign === "right";
+					const isRightAligned = isPetPart1NoteOnLeftSide(noteBox.x);
 
 					return (
 						<React.Fragment key={noteKey}>
