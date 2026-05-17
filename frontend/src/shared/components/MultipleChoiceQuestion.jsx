@@ -16,8 +16,23 @@ const MultipleChoiceQuestion = ({ question, onChange }) => {
     return <div style={{ color: 'red', padding: '10px' }}>Error: Question object missing</div>;
   }
 
+  const getAnswerLetters = (answerValue) => {
+    if (!answerValue) return [];
+
+    if (Array.isArray(answerValue)) {
+      return answerValue
+        .map((value) => String(value || '').trim().toUpperCase())
+        .filter(Boolean);
+    }
+
+    const matches = String(answerValue).toUpperCase().match(/[A-Z]/g);
+    return matches ? [...new Set(matches)] : [];
+  };
+
+  const selectedAnswer = getAnswerLetters(question.correctAnswer)[0] || '';
+
   const handleChange = (field, value) => {
-    onChange({ ...question, [field]: value });
+    onChange({ ...question, multiSelect: false, [field]: value });
   };
 
   // Initialize options if empty
@@ -41,26 +56,12 @@ const MultipleChoiceQuestion = ({ question, onChange }) => {
 
   const toggleCorrectAnswer = (index) => {
     const letter = String.fromCharCode(65 + index); // A, B, C, D...
-    if (question.multiSelect) {
-      // Multiple selection mode
-      let currentAnswers = question.correctAnswer ? question.correctAnswer.split(',') : [];
-      if (currentAnswers.includes(letter)) {
-        currentAnswers = currentAnswers.filter(a => a !== letter);
-      } else {
-        currentAnswers.push(letter);
-        currentAnswers.sort();
-      }
-      handleChange('correctAnswer', currentAnswers.join(','));
-    } else {
-      // Single selection mode
-      handleChange('correctAnswer', letter);
-    }
+    handleChange('correctAnswer', letter);
   };
 
   const isCorrect = (index) => {
     const letter = String.fromCharCode(65 + index);
-    if (!question.correctAnswer) return false;
-    return question.correctAnswer.includes(letter);
+    return selectedAnswer === letter;
   };
 
   // Theme colors
@@ -110,20 +111,6 @@ const MultipleChoiceQuestion = ({ question, onChange }) => {
       color: primaryBlue,
       fontSize: '14px',
       fontWeight: 'bold'
-    },
-    modeSwitch: {
-      display: 'flex',
-      gap: '10px',
-      marginBottom: '15px'
-    },
-    modeButton: {
-      padding: '10px 20px',
-      border: 'none',
-      borderRadius: '8px',
-      cursor: 'pointer',
-      fontSize: '14px',
-      fontWeight: 'bold',
-      transition: 'all 0.3s'
     },
     optionCard: {
       display: 'flex',
@@ -216,41 +203,6 @@ const MultipleChoiceQuestion = ({ question, onChange }) => {
       <div style={styles.header}>
         <h4 style={styles.headerTitle}>Multiple Choice</h4>
         <span style={styles.headerBadge}>IELTS Reading</span>
-      </div>
-
-      {/* Mode Switch */}
-      <div style={styles.section}>
-        <h5 style={styles.sectionTitle}>Chế độ chọn đáp án:</h5>
-        <div style={styles.modeSwitch}>
-          <button
-            type="button"
-            style={{
-              ...styles.modeButton,
-              backgroundColor: !question.multiSelect ? accentGreen : '#e9ecef',
-              color: !question.multiSelect ? 'white' : '#495057'
-            }}
-            onClick={(e) => {
-              e.preventDefault();
-              handleChange('multiSelect', false);
-            }}
-          >
-            Single Choice (1 đáp án)
-          </button>
-          <button
-            type="button"
-            style={{
-              ...styles.modeButton,
-              backgroundColor: question.multiSelect ? accentGreen : '#e9ecef',
-              color: question.multiSelect ? 'white' : '#495057'
-            }}
-            onClick={(e) => {
-              e.preventDefault();
-              handleChange('multiSelect', true);
-            }}
-          >
-            Multiple Choice (nhiều đáp án)
-          </button>
-        </div>
       </div>
 
       {/* Question */}
@@ -393,7 +345,8 @@ const MultipleChoiceQuestion = ({ question, onChange }) => {
         <strong>Hướng dẫn:</strong>
         <ul style={{ margin: '8px 0 0 0', paddingLeft: '20px' }}>
           <li>Click vào chữ cái (A, B, C...) để đánh dấu đáp án đúng</li>
-          <li>Ở chế độ Multiple Choice, có thể chọn nhiều đáp án đúng</li>
+          <li>Dạng này chỉ hỗ trợ 1 đáp án đúng</li>
+          <li>Nếu cần nhiều đáp án, hãy chọn loại câu hỏi &quot;Trắc nghiệm nhiều đáp án&quot;</li>
           <li>Nên có ít nhất 4 lựa chọn (A-D) cho câu hỏi IELTS chuẩn</li>
           <li>Đáp án đúng sẽ được highlight màu xanh</li>
         </ul>
