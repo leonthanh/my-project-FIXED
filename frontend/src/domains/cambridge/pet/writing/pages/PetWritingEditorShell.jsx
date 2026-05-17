@@ -8,7 +8,7 @@ const resolveMessageTone = (tone) => (tone === "error" ? "error" : "success");
 
 const PetWritingEditorShell = ({
 	loading = false,
-	loadingMessage = "Dang tai du lieu...",
+	loadingMessage = "Đang tải dữ liệu...",
 	notice = null,
 	pageTitle,
 	pageDescription,
@@ -23,7 +23,7 @@ const PetWritingEditorShell = ({
 	activeSection,
 	onSectionChange,
 	renderSectionContent,
-	previewTitle = "Xem truoc de PET Writing",
+	previewTitle = "Xem trước đề PET Writing",
 	previewSections,
 	submitLabel,
 	submitIcon = "save",
@@ -79,7 +79,7 @@ const PetWritingEditorShell = ({
 
 						<div className="pet-writing-editor-meta-grid">
 							<label className="pet-writing-editor-field">
-								<span className="pet-writing-editor-field-label">Ma lop</span>
+								<span className="pet-writing-editor-field-label">Mã lớp</span>
 								<input
 									type="text"
 									placeholder="VD: 317S3"
@@ -88,10 +88,10 @@ const PetWritingEditorShell = ({
 								/>
 							</label>
 							<label className="pet-writing-editor-field">
-								<span className="pet-writing-editor-field-label">Giao vien</span>
+								<span className="pet-writing-editor-field-label">Giáo viên</span>
 								<input
 									type="text"
-									placeholder="Ten giao vien ra de"
+									placeholder="Tên giáo viên ra đề"
 									value={teacherName}
 									onChange={(event) => onTeacherNameChange(event.target.value)}
 								/>
@@ -107,7 +107,7 @@ const PetWritingEditorShell = ({
 
 					<div className="pet-writing-editor-workspace">
 						<aside className="pet-writing-editor-sidebar">
-							<div className="pet-writing-editor-sidebar-header">Cau truc de</div>
+							<div className="pet-writing-editor-sidebar-header">Cấu trúc đề</div>
 							<div className="pet-writing-editor-sidebar-list">
 								{sections.map((section) => {
 									const isActive = section.id === activeSectionConfig.id;
@@ -181,13 +181,13 @@ const PetWritingEditorShell = ({
 									className="pet-writing-editor-preview-close"
 									onClick={() => setShowPreview(false)}
 								>
-									Dong
+									Đóng
 								</button>
 							</div>
 
 							<div className="pet-writing-editor-preview-meta">
-								<span>Ma lop: {classCode || "Chua nhap"}</span>
-								<span>Giao vien: {teacherName || "Chua nhap"}</span>
+								<span>Mã lớp: {classCode || "Chưa nhập"}</span>
+								<span>Giáo viên: {teacherName || "Chưa nhập"}</span>
 							</div>
 
 							{previewSections.map((section) => (

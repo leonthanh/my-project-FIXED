@@ -1415,6 +1415,244 @@
   color: #0f172a;
 }
 
+.pet-writing-editor-anchor-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 14px;
+}
+
+.pet-writing-editor-anchor-hint {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.55;
+  color: #64748b;
+  max-width: 560px;
+}
+
+.pet-writing-email-preview-shell {
+  display: grid;
+  gap: 10px;
+  color: #0f172a;
+}
+
+.pet-writing-email-preview-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.pet-writing-email-preview-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: #e0f2fe;
+  color: #075985;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.pet-writing-email-preview-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px;
+  border-radius: 999px;
+  background: rgba(255, 247, 237, 0.95);
+  border: 1px solid rgba(251, 146, 60, 0.26);
+  color: #9a3412;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.pet-writing-email-preview-copy {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.65;
+  color: #475569;
+}
+
+.pet-writing-email-preview-copy--intro {
+  color: #334155;
+}
+
+.pet-writing-email-preview-question {
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: #0f172a;
+}
+
+.pet-writing-email-preview-stage {
+  position: relative;
+  margin: 4px auto 2px;
+  max-width: 700px;
+  padding: 10px 112px 12px 92px;
+  min-height: 420px;
+}
+
+.pet-writing-email-preview-stage.is-readonly {
+  min-height: auto;
+}
+
+.pet-writing-email-preview-card {
+  overflow: hidden;
+  border: 2px solid #0f172a;
+  border-radius: 20px;
+  background: #ffffff;
+  box-shadow: 0 18px 34px rgba(15, 23, 42, 0.12);
+  position: relative;
+  z-index: 1;
+}
+
+.pet-writing-email-preview-card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: linear-gradient(135deg, #0f766e 0%, #14b8a6 100%);
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.pet-writing-email-preview-card-body {
+  padding: 18px 18px 10px;
+  background: #ffffff;
+  position: relative;
+  z-index: 1;
+}
+
+.pet-writing-email-preview-meta {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.pet-writing-email-preview-meta-row {
+  display: grid;
+  grid-template-columns: 92px minmax(0, 1fr);
+  gap: 10px;
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.pet-writing-email-preview-meta-row div:first-child {
+  font-weight: 700;
+  color: #334155;
+}
+
+.pet-writing-email-preview-meta-row div:last-child {
+  color: #0f172a;
+}
+
+.pet-writing-email-preview-divider {
+  height: 1px;
+  background: #cbd5e1;
+  margin: 0 0 14px;
+}
+
+.pet-writing-email-preview-body {
+  font-size: 15px;
+  line-height: 1.8;
+  color: #1f2937;
+}
+
+.pet-writing-email-preview-body p,
+.pet-writing-email-preview-body ul,
+.pet-writing-email-preview-body ol,
+.pet-writing-email-preview-body blockquote {
+  margin-top: 0;
+  margin-bottom: 12px;
+}
+
+.pet-writing-email-preview-body ul,
+.pet-writing-email-preview-body ol {
+  padding-left: 22px;
+}
+
+.pet-writing-email-preview-lines {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  overflow: visible;
+  z-index: 0;
+}
+
+.pet-writing-email-preview-lines line {
+  stroke: #94a3b8;
+  stroke-width: 0.45;
+  stroke-linecap: round;
+}
+
+.pet-writing-email-preview-note {
+  position: absolute;
+  padding: 8px 10px;
+  border-radius: 14px;
+  border: 1px solid #fdba74;
+  background: #fff7ed;
+  color: #9a3412;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.45;
+  box-shadow: 0 10px 22px rgba(154, 52, 18, 0.08);
+  transform: translate(0, -50%);
+  z-index: 2;
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
+}
+
+.pet-writing-email-preview-note.is-right {
+  transform: translate(-100%, -50%);
+  text-align: right;
+}
+
+.pet-writing-email-preview-note:active {
+  cursor: grabbing;
+}
+
+.pet-writing-email-preview-note.is-left {
+  text-align: left;
+}
+
+.pet-writing-email-preview-anchor {
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  border: 2px solid #ffffff;
+  background: linear-gradient(135deg, #f97316 0%, #fb7185 100%);
+  box-shadow: 0 10px 18px rgba(249, 115, 22, 0.26);
+  transform: translate(-50%, -50%);
+  cursor: grab;
+  z-index: 3;
+  touch-action: none;
+}
+
+.pet-writing-email-preview-anchor:active {
+  cursor: grabbing;
+  scale: 0.96;
+}
+
+.pet-writing-email-preview-footer {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.65;
+  color: #334155;
+}
+
 @media (max-width: 1180px) {
   .pet-writing-editor-form-grid {
     grid-template-columns: 1fr;
@@ -1448,6 +1686,11 @@
   .pet-writing-editor-meta-grid,
   .pet-writing-editor-fieldset-grid {
     grid-template-columns: 1fr;
+  }
+
+  .pet-writing-email-preview-stage {
+    padding-right: 98px;
+    padding-left: 82px;
   }
 }
 
@@ -1496,5 +1739,24 @@
 
   .pet-writing-editor-preview-modal {
     border-radius: 18px;
+  }
+
+  .pet-writing-editor-anchor-actions,
+  .pet-writing-email-preview-top {
+    align-items: flex-start;
+  }
+
+  .pet-writing-email-preview-stage {
+    padding: 8px 84px 12px 76px;
+    min-height: 360px;
+  }
+
+  .pet-writing-email-preview-meta-row {
+    grid-template-columns: 74px minmax(0, 1fr);
+  }
+
+  .pet-writing-email-preview-note {
+    font-size: 11px;
+    max-width: 78px !important;
   }
 }

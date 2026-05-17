@@ -2,22 +2,68 @@ const PART1_TEMPLATE_ID = "pet-email-v1";
 const QUESTION2_TEMPLATE_ID = "pet-article-v1";
 const QUESTION3_TEMPLATE_ID = "pet-story-v1";
 
+export const PET_PART1_NOTE_POSITIONS = Object.freeze({
+	note1: Object.freeze({
+		defaultBoxX: 7,
+		defaultBoxY: 46,
+		maxWidth: 88,
+		textAlign: "right",
+		boxBounds: Object.freeze({ minX: 5, maxX: 18, minY: 18, maxY: 86 }),
+		anchorBounds: Object.freeze({ minX: 22, maxX: 78, minY: 18, maxY: 86 }),
+	}),
+	note2: Object.freeze({
+		defaultBoxX: 93,
+		defaultBoxY: 28,
+		maxWidth: 100,
+		textAlign: "left",
+		boxBounds: Object.freeze({ minX: 82, maxX: 96, minY: 14, maxY: 44 }),
+		anchorBounds: Object.freeze({ minX: 22, maxX: 78, minY: 18, maxY: 86 }),
+	}),
+	note3: Object.freeze({
+		defaultBoxX: 93,
+		defaultBoxY: 54,
+		maxWidth: 110,
+		textAlign: "left",
+		boxBounds: Object.freeze({ minX: 82, maxX: 96, minY: 34, maxY: 68 }),
+		anchorBounds: Object.freeze({ minX: 22, maxX: 78, minY: 18, maxY: 86 }),
+	}),
+	note4: Object.freeze({
+		defaultBoxX: 93,
+		defaultBoxY: 79,
+		maxWidth: 102,
+		textAlign: "left",
+		boxBounds: Object.freeze({ minX: 82, maxX: 96, minY: 56, maxY: 90 }),
+		anchorBounds: Object.freeze({ minX: 22, maxX: 78, minY: 18, maxY: 86 }),
+	}),
+});
+
+export const defaultPetPart1NoteBoxes = Object.freeze({
+	note1: Object.freeze({ x: PET_PART1_NOTE_POSITIONS.note1.defaultBoxX, y: PET_PART1_NOTE_POSITIONS.note1.defaultBoxY }),
+	note2: Object.freeze({ x: PET_PART1_NOTE_POSITIONS.note2.defaultBoxX, y: PET_PART1_NOTE_POSITIONS.note2.defaultBoxY }),
+	note3: Object.freeze({ x: PET_PART1_NOTE_POSITIONS.note3.defaultBoxX, y: PET_PART1_NOTE_POSITIONS.note3.defaultBoxY }),
+	note4: Object.freeze({ x: PET_PART1_NOTE_POSITIONS.note4.defaultBoxX, y: PET_PART1_NOTE_POSITIONS.note4.defaultBoxY }),
+});
+
+export const defaultPetPart1NoteAnchors = Object.freeze({
+	note1: Object.freeze({ x: 29, y: 45 }),
+	note2: Object.freeze({ x: 73, y: 31 }),
+	note3: Object.freeze({ x: 72, y: 53 }),
+	note4: Object.freeze({ x: 62, y: 74 }),
+});
+
 export const defaultPetPart1Fields = Object.freeze({
 	promptIntro: "Read this email and the notes you have made.",
 	from: "Miss Jones",
 	to: "All students",
 	subject: "Visitor to English class",
-	greeting: "Dear Students,",
-	body1: "I want to invite a special guest to our English class next month.",
-	body2: "Should we ask a scientist or an actor to visit us? Tell me which person would be more interesting for the class.",
-	body3: "I also want everyone to prepare one question for our visitor. What would you like to ask?",
-	body4: "Finally, can you suggest something fun we could do for the visitor after the talk?",
-	closing: "I am looking forward to reading your ideas.",
-	signature: "Miss Jones",
+	emailBodyHtml:
+		"<p>I want to invite a special guest to our English class next month.</p><p>Should we ask a scientist or an actor to visit us? Tell me which person would be more interesting for the class.</p><p>I also want everyone to prepare one question for our visitor. What would you like to ask?</p><p>Finally, can you suggest something fun we could do for the visitor after the talk?</p>",
 	note1: "Great!",
 	note2: "I think ...",
 	note3: "Tell Miss Jones",
 	note4: "Suggest ...",
+	noteBoxes: defaultPetPart1NoteBoxes,
+	noteAnchors: defaultPetPart1NoteAnchors,
 	answerInstruction: "Write your email using all the notes.",
 });
 
@@ -48,6 +94,68 @@ const escapeHtml = (value = "") =>
 
 const renderText = (value = "") => escapeHtml(value).replace(/\n/g, "<br />");
 
+const mailIconSvg = `
+	<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false" style="display:block;flex:none;">
+		<rect x="3" y="5" width="18" height="14" rx="2"></rect>
+		<path d="m4 7 8 6 8-6"></path>
+	</svg>
+`;
+
+const clampPercent = (value, min, max) => {
+	const numeric = Number(value);
+	if (!Number.isFinite(numeric)) {
+		return min;
+	}
+
+	return Math.min(max, Math.max(min, numeric));
+};
+
+export const normalizePetPart1NoteAnchors = (anchors = {}) => {
+	const source = anchors && typeof anchors === "object" ? anchors : {};
+
+	return {
+		note1: {
+			x: clampPercent(source.note1?.x ?? defaultPetPart1NoteAnchors.note1.x, PET_PART1_NOTE_POSITIONS.note1.anchorBounds.minX, PET_PART1_NOTE_POSITIONS.note1.anchorBounds.maxX),
+			y: clampPercent(source.note1?.y ?? defaultPetPart1NoteAnchors.note1.y, PET_PART1_NOTE_POSITIONS.note1.anchorBounds.minY, PET_PART1_NOTE_POSITIONS.note1.anchorBounds.maxY),
+		},
+		note2: {
+			x: clampPercent(source.note2?.x ?? defaultPetPart1NoteAnchors.note2.x, PET_PART1_NOTE_POSITIONS.note2.anchorBounds.minX, PET_PART1_NOTE_POSITIONS.note2.anchorBounds.maxX),
+			y: clampPercent(source.note2?.y ?? defaultPetPart1NoteAnchors.note2.y, PET_PART1_NOTE_POSITIONS.note2.anchorBounds.minY, PET_PART1_NOTE_POSITIONS.note2.anchorBounds.maxY),
+		},
+		note3: {
+			x: clampPercent(source.note3?.x ?? defaultPetPart1NoteAnchors.note3.x, PET_PART1_NOTE_POSITIONS.note3.anchorBounds.minX, PET_PART1_NOTE_POSITIONS.note3.anchorBounds.maxX),
+			y: clampPercent(source.note3?.y ?? defaultPetPart1NoteAnchors.note3.y, PET_PART1_NOTE_POSITIONS.note3.anchorBounds.minY, PET_PART1_NOTE_POSITIONS.note3.anchorBounds.maxY),
+		},
+		note4: {
+			x: clampPercent(source.note4?.x ?? defaultPetPart1NoteAnchors.note4.x, PET_PART1_NOTE_POSITIONS.note4.anchorBounds.minX, PET_PART1_NOTE_POSITIONS.note4.anchorBounds.maxX),
+			y: clampPercent(source.note4?.y ?? defaultPetPart1NoteAnchors.note4.y, PET_PART1_NOTE_POSITIONS.note4.anchorBounds.minY, PET_PART1_NOTE_POSITIONS.note4.anchorBounds.maxY),
+		},
+	};
+};
+
+export const normalizePetPart1NoteBoxes = (boxes = {}) => {
+	const source = boxes && typeof boxes === "object" ? boxes : {};
+
+	return {
+		note1: {
+			x: clampPercent(source.note1?.x ?? defaultPetPart1NoteBoxes.note1.x, PET_PART1_NOTE_POSITIONS.note1.boxBounds.minX, PET_PART1_NOTE_POSITIONS.note1.boxBounds.maxX),
+			y: clampPercent(source.note1?.y ?? defaultPetPart1NoteBoxes.note1.y, PET_PART1_NOTE_POSITIONS.note1.boxBounds.minY, PET_PART1_NOTE_POSITIONS.note1.boxBounds.maxY),
+		},
+		note2: {
+			x: clampPercent(source.note2?.x ?? defaultPetPart1NoteBoxes.note2.x, PET_PART1_NOTE_POSITIONS.note2.boxBounds.minX, PET_PART1_NOTE_POSITIONS.note2.boxBounds.maxX),
+			y: clampPercent(source.note2?.y ?? defaultPetPart1NoteBoxes.note2.y, PET_PART1_NOTE_POSITIONS.note2.boxBounds.minY, PET_PART1_NOTE_POSITIONS.note2.boxBounds.maxY),
+		},
+		note3: {
+			x: clampPercent(source.note3?.x ?? defaultPetPart1NoteBoxes.note3.x, PET_PART1_NOTE_POSITIONS.note3.boxBounds.minX, PET_PART1_NOTE_POSITIONS.note3.boxBounds.maxX),
+			y: clampPercent(source.note3?.y ?? defaultPetPart1NoteBoxes.note3.y, PET_PART1_NOTE_POSITIONS.note3.boxBounds.minY, PET_PART1_NOTE_POSITIONS.note3.boxBounds.maxY),
+		},
+		note4: {
+			x: clampPercent(source.note4?.x ?? defaultPetPart1NoteBoxes.note4.x, PET_PART1_NOTE_POSITIONS.note4.boxBounds.minX, PET_PART1_NOTE_POSITIONS.note4.boxBounds.maxX),
+			y: clampPercent(source.note4?.y ?? defaultPetPart1NoteBoxes.note4.y, PET_PART1_NOTE_POSITIONS.note4.boxBounds.minY, PET_PART1_NOTE_POSITIONS.note4.boxBounds.maxY),
+		},
+	};
+};
+
 const encodeTemplateFields = (fields) => encodeURIComponent(JSON.stringify(fields));
 
 const decodeTemplateFields = (value) => {
@@ -61,6 +169,34 @@ const decodeTemplateFields = (value) => {
 		console.error("Unable to decode PET writing template fields", error);
 		return null;
 	}
+};
+
+const convertLegacyPart1BodyToHtml = (fields = {}) => {
+	const parts = [fields.greeting, fields.body1, fields.body2, fields.body3, fields.body4, fields.closing, fields.signature]
+		.filter((value) => String(value || "").trim())
+		.map((value, index, collection) => {
+			const isLast = index === collection.length - 1;
+			const text = renderText(value);
+			return isLast && String(fields.signature || "").trim() === String(value || "").trim()
+				? `<p><strong>${text}</strong></p>`
+				: `<p>${text}</p>`;
+		});
+
+	return parts.join("") || defaultPetPart1Fields.emailBodyHtml;
+};
+
+export const normalizePetPart1Fields = (fields = {}) => {
+	const merged = { ...defaultPetPart1Fields, ...fields };
+	const emailBodyHtml = String(fields.emailBodyHtml || "").trim()
+		? fields.emailBodyHtml
+		: convertLegacyPart1BodyToHtml(fields);
+
+	return {
+		...merged,
+		emailBodyHtml,
+		noteBoxes: normalizePetPart1NoteBoxes(fields.noteBoxes || merged.noteBoxes),
+		noteAnchors: normalizePetPart1NoteAnchors(fields.noteAnchors || merged.noteAnchors),
+	};
 };
 
 const readTemplateFields = (html, templateId, defaults) => {
@@ -80,6 +216,10 @@ const readTemplateFields = (html, templateId, defaults) => {
 			return null;
 		}
 
+		if (templateId === PART1_TEMPLATE_ID) {
+			return normalizePetPart1Fields(fields);
+		}
+
 		return { ...defaults, ...fields };
 	} catch (error) {
 		console.error("Unable to parse PET writing template HTML", error);
@@ -87,27 +227,26 @@ const readTemplateFields = (html, templateId, defaults) => {
 	}
 };
 
-const renderEmailParagraph = (value = "") => {
-	if (!String(value || "").trim()) {
-		return "";
-	}
-
-	return `<p style="margin:0 0 12px;font-size:15px;line-height:1.8;color:#1f2937;">${renderText(value)}</p>`;
-};
-
-const renderCallout = (text, boxStyle, lineStyle) => {
+const renderCallout = (noteKey, text, noteBoxes, anchors) => {
 	if (!String(text || "").trim()) {
 		return "";
 	}
 
+	const notePosition = PET_PART1_NOTE_POSITIONS[noteKey];
+	const noteBox = noteBoxes[noteKey] || defaultPetPart1NoteBoxes[noteKey];
+	const anchor = anchors[noteKey] || defaultPetPart1NoteAnchors[noteKey];
+	const justify = notePosition.textAlign === "right" ? "right" : "left";
+
 	return `
-		<div style="position:absolute;${boxStyle}padding:8px 10px;border-radius:14px;border:1px solid #fdba74;background:#fff7ed;color:#9a3412;font-size:12px;font-weight:700;line-height:1.45;box-shadow:0 10px 22px rgba(154, 52, 18, 0.08);">${renderText(text)}</div>
-		<div style="position:absolute;${lineStyle}border-top:2px solid #94a3b8;"></div>
+		<svg style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible;" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+			<line x1="${noteBox.x}" y1="${noteBox.y}" x2="${anchor.x}" y2="${anchor.y}" stroke="#94a3b8" stroke-width="0.45" stroke-linecap="round" />
+		</svg>
+		<div style="position:absolute;left:${noteBox.x}%;top:${noteBox.y}%;transform:translate(${justify === "right" ? "-100%" : "0"}, -50%);max-width:${notePosition.maxWidth}px;padding:8px 10px;border-radius:14px;border:1px solid #fdba74;background:#fff7ed;color:#9a3412;font-size:12px;font-weight:700;line-height:1.45;text-align:${justify};box-shadow:0 10px 22px rgba(154, 52, 18, 0.08);">${renderText(text)}</div>
 	`;
 };
 
 export const buildPetPart1Html = (fields) => {
-	const merged = { ...defaultPetPart1Fields, ...fields };
+	const merged = normalizePetPart1Fields(fields);
 	const encodedFields = encodeTemplateFields(merged);
 
 	return `
@@ -117,9 +256,9 @@ export const buildPetPart1Html = (fields) => {
 			<p style="margin:0 0 18px;font-size:15px;color:#475569;">Write your answer in about 100 words on the answer sheet.</p>
 			<div style="margin-bottom:16px;font-size:24px;font-weight:800;color:#0f172a;">Question 1</div>
 			<p style="margin:0 0 18px;font-size:15px;color:#334155;">${renderText(merged.promptIntro)}</p>
-			<div style="position:relative;margin:0 0 20px;padding:10px 112px 12px 92px;">
+			<div style="position:relative;margin:0 auto 20px;max-width:700px;padding:10px 112px 12px 92px;">
 				<div style="overflow:hidden;border:2px solid #0f172a;border-radius:20px;background:#ffffff;box-shadow:0 18px 34px rgba(15, 23, 42, 0.12);">
-					<div style="padding:10px 16px;background:linear-gradient(135deg, #0f766e 0%, #14b8a6 100%);color:#ffffff;font-size:13px;font-weight:800;letter-spacing:0.12em;text-transform:uppercase;">Email</div>
+					<div style="display:flex;align-items:center;gap:8px;padding:10px 16px;background:linear-gradient(135deg, #0f766e 0%, #14b8a6 100%);color:#ffffff;font-size:13px;font-weight:800;letter-spacing:0.12em;text-transform:uppercase;">${mailIconSvg}<span>EMAIL</span></div>
 					<div style="padding:18px 18px 10px;">
 						<div style="display:grid;gap:10px;margin-bottom:16px;">
 							<div style="display:grid;grid-template-columns:92px minmax(0, 1fr);gap:10px;font-size:14px;">
@@ -136,19 +275,13 @@ export const buildPetPart1Html = (fields) => {
 							</div>
 						</div>
 						<div style="height:1px;background:#cbd5e1;margin:0 0 14px;"></div>
-						<p style="margin:0 0 12px;font-size:15px;line-height:1.8;color:#1f2937;">${renderText(merged.greeting)}</p>
-						${renderEmailParagraph(merged.body1)}
-						${renderEmailParagraph(merged.body2)}
-						${renderEmailParagraph(merged.body3)}
-						${renderEmailParagraph(merged.body4)}
-						<p style="margin:0 0 12px;font-size:15px;line-height:1.8;color:#1f2937;">${renderText(merged.closing)}</p>
-						<p style="margin:0;font-size:15px;line-height:1.8;color:#1f2937;"><strong>${renderText(merged.signature)}</strong></p>
+						<div style="font-size:15px;line-height:1.8;color:#1f2937;">${merged.emailBodyHtml || "<p><br></p>"}</div>
 					</div>
 				</div>
-				${renderCallout(merged.note1, "left:0;top:148px;max-width:82px;text-align:right;", "left:68px;top:167px;width:76px;transform:rotate(-8deg);transform-origin:left center;")}
-				${renderCallout(merged.note2, "right:0;top:92px;max-width:94px;", "right:74px;top:116px;width:94px;transform:rotate(10deg);transform-origin:right center;")}
-				${renderCallout(merged.note3, "right:0;top:204px;max-width:102px;", "right:82px;top:227px;width:102px;transform:rotate(2deg);transform-origin:right center;")}
-				${renderCallout(merged.note4, "right:0;bottom:40px;max-width:94px;", "right:76px;bottom:70px;width:94px;transform:rotate(-8deg);transform-origin:right center;")}
+				${renderCallout("note1", merged.note1, merged.noteBoxes, merged.noteAnchors)}
+				${renderCallout("note2", merged.note2, merged.noteBoxes, merged.noteAnchors)}
+				${renderCallout("note3", merged.note3, merged.noteBoxes, merged.noteAnchors)}
+				${renderCallout("note4", merged.note4, merged.noteBoxes, merged.noteAnchors)}
 			</div>
 			<p style="margin:0;font-size:15px;color:#334155;"><strong>${renderText(merged.answerInstruction)}</strong></p>
 		</div>

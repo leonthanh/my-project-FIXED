@@ -1,0 +1,133 @@
+
+> frontend@0.1.0 build
+> vite build
+
+[36mvite v5.4.21 [32mbuilding for production...[36m[39m
+transforming...
+[32m✓[39m 482 modules transformed.
+rendering chunks...
+computing gzip size...
+[2mdist/[22m[32mindex.html                                          [39m[1m[2m  0.82 kB[22m[1m[22m[2m │ gzip:  0.45 kB[22m
+[2mdist/[22m[35massets/WritingTest-CfZf6mBN.css                     [39m[1m[2m  0.05 kB[22m[1m[22m[2m │ gzip:  0.07 kB[22m
+[2mdist/[22m[35massets/Login-DzQhoxFV.css                           [39m[1m[2m  4.01 kB[22m[1m[22m[2m │ gzip:  1.25 kB[22m
+[2mdist/[22m[35massets/TestHeader-C18JdGcF.css                      [39m[1m[2m  4.19 kB[22m[1m[22m[2m │ gzip:  1.22 kB[22m
+[2mdist/[22m[35massets/MoversListeningTestBuilder-DrJf1qOG.css      [39m[1m[2m  4.89 kB[22m[1m[22m[2m │ gzip:  0.97 kB[22m
+[2mdist/[22m[35massets/SelectCambridgeTestPage-BGqHjweg.css         [39m[1m[2m  5.98 kB[22m[1m[22m[2m │ gzip:  1.45 kB[22m
+[2mdist/[22m[35massets/AdminStickySidebarLayout-DO8Q8Y6C.css        [39m[1m[2m  6.77 kB[22m[1m[22m[2m │ gzip:  1.80 kB[22m
+[2mdist/[22m[35massets/CambridgeTestBuilder-GyzN2z6v.css            [39m[1m[2m  7.04 kB[22m[1m[22m[2m │ gzip:  1.30 kB[22m
+[2mdist/[22m[35massets/PetWritingTestPage-BgCY8Wlq.css              [39m[1m[2m 10.32 kB[22m[1m[22m[2m │ gzip:  2.53 kB[22m
+[2mdist/[22m[35massets/TakeReadingTest-CgXQmCTe.css                 [39m[1m[2m 10.68 kB[22m[1m[22m[2m │ gzip:  2.70 kB[22m
+[2mdist/[22m[35massets/PlacementEntry-B_7gOVcP.css                  [39m[1m[2m 12.31 kB[22m[1m[22m[2m │ gzip:  2.89 kB[22m
+[2mdist/[22m[35massets/MyFeedback-Cd5WPC_L.css                      [39m[1m[2m 13.65 kB[22m[1m[22m[2m │ gzip:  3.11 kB[22m
+[2mdist/[22m[35massets/StudentNavbar-BQtod2wf.css                   [39m[1m[2m 15.37 kB[22m[1m[22m[2m │ gzip:  3.10 kB[22m
+[2mdist/[22m[35massets/ReadingTestEditor-B2sovCNh.css               [39m[1m[2m 15.97 kB[22m[1m[22m[2m │ gzip:  3.20 kB[22m
+[2mdist/[22m[35massets/AdminNavbar-BFwiv7Mc.css                     [39m[1m[2m 25.23 kB[22m[1m[22m[2m │ gzip:  4.50 kB[22m
+[2mdist/[22m[35massets/WritingEditorForm-COFgJeQO.css               [39m[1m[2m 29.92 kB[22m[1m[22m[2m │ gzip:  4.87 kB[22m
+[2mdist/[22m[35massets/DoCambridgeReadingTest-DqG8kV3H.css          [39m[1m[2m 34.04 kB[22m[1m[22m[2m │ gzip:  5.80 kB[22m
+[2mdist/[22m[35massets/ReadingTestRuntime-60v-nAXq.css              [39m[1m[2m 39.55 kB[22m[1m[22m[2m │ gzip:  6.78 kB[22m
+[2mdist/[22m[35massets/index-DF4cesuQ.css                           [39m[1m[2m 40.57 kB[22m[1m[22m[2m │ gzip:  6.83 kB[22m
+[2mdist/[22m[35massets/SelectTest-DEnNPAt5.css                      [39m[1m[2m 44.80 kB[22m[1m[22m[2m │ gzip:  7.37 kB[22m
+[2mdist/[22m[36massets/constants-CRwCDW3_.js                        [39m[1m[2m  0.10 kB[22m[1m[22m[2m │ gzip:  0.10 kB[22m
+[2mdist/[22m[36massets/constants-CXlghcB-.js                        [39m[1m[2m  0.10 kB[22m[1m[22m[2m │ gzip:  0.10 kB[22m
+[2mdist/[22m[36massets/constants-CjipWoQ2.js                        [39m[1m[2m  0.11 kB[22m[1m[22m[2m │ gzip:  0.10 kB[22m
+[2mdist/[22m[36massets/SelectPetWritingTestPage-BaKWOCJt.js         [39m[1m[2m  0.23 kB[22m[1m[22m[2m │ gzip:  0.20 kB[22m
+[2mdist/[22m[36massets/CreateMoversListeningTestPage-UAxt_Buh.js    [39m[1m[2m  0.33 kB[22m[1m[22m[2m │ gzip:  0.25 kB[22m
+[2mdist/[22m[36massets/InlineIcon-DHkWiNKe.js                       [39m[1m[2m  0.37 kB[22m[1m[22m[2m │ gzip:  0.27 kB[22m
+[2mdist/[22m[36massets/attemptTiming-DeYcsu7Z.js                    [39m[1m[2m  0.61 kB[22m[1m[22m[2m │ gzip:  0.38 kB[22m
+[2mdist/[22m[36massets/index-DHPLClec.js                            [39m[1m[2m  0.79 kB[22m[1m[22m[2m │ gzip:  0.51 kB[22m
+[2mdist/[22m[36massets/DoFlyersReadingTestPage-BRe95NEq.js          [39m[1m[2m  0.80 kB[22m[1m[22m[2m │ gzip:  0.45 kB[22m
+[2mdist/[22m[36massets/DoMoversReadingTestPage-Bk2dvR2k.js          [39m[1m[2m  0.80 kB[22m[1m[22m[2m │ gzip:  0.45 kB[22m
+[2mdist/[22m[36massets/DoStartersReadingTestPage-jjgOZ6vL.js        [39m[1m[2m  0.80 kB[22m[1m[22m[2m │ gzip:  0.45 kB[22m
+[2mdist/[22m[36massets/CreateKETReadingTestPage-7Yqv958o.js         [39m[1m[2m  0.80 kB[22m[1m[22m[2m │ gzip:  0.46 kB[22m
+[2mdist/[22m[36massets/CreatePETReadingTestPage-cmxJlyQU.js         [39m[1m[2m  0.80 kB[22m[1m[22m[2m │ gzip:  0.46 kB[22m
+[2mdist/[22m[36massets/CreateKETListeningTestPage-giDUS4v8.js       [39m[1m[2m  0.80 kB[22m[1m[22m[2m │ gzip:  0.46 kB[22m
+[2mdist/[22m[36massets/CreatePETListeningTestPage-DTq4az4W.js       [39m[1m[2m  0.80 kB[22m[1m[22m[2m │ gzip:  0.46 kB[22m
+[2mdist/[22m[36massets/CreateFlyersReadingPage-CZ-SXiwJ.js          [39m[1m[2m  0.86 kB[22m[1m[22m[2m │ gzip:  0.49 kB[22m
+[2mdist/[22m[36massets/CreateMoversReadingPage-DwHz8S1A.js          [39m[1m[2m  0.86 kB[22m[1m[22m[2m │ gzip:  0.49 kB[22m
+[2mdist/[22m[36massets/CreateStartersReadingPage-D9IPSNDV.js        [39m[1m[2m  0.86 kB[22m[1m[22m[2m │ gzip:  0.49 kB[22m
+[2mdist/[22m[36massets/EditFlyersReadingPage-B78frCuT.js            [39m[1m[2m  0.86 kB[22m[1m[22m[2m │ gzip:  0.49 kB[22m
+[2mdist/[22m[36massets/EditMoversReadingPage-85FQ8I7-.js            [39m[1m[2m  0.86 kB[22m[1m[22m[2m │ gzip:  0.48 kB[22m
+[2mdist/[22m[36massets/EditStartersReadingPage-BiCd0jex.js          [39m[1m[2m  0.86 kB[22m[1m[22m[2m │ gzip:  0.48 kB[22m
+[2mdist/[22m[36massets/AnchoredImageStage-DG2Dj1YA.js               [39m[1m[2m  0.98 kB[22m[1m[22m[2m │ gzip:  0.59 kB[22m
+[2mdist/[22m[36massets/testTiming-BgLD2o8S.js                       [39m[1m[2m  1.10 kB[22m[1m[22m[2m │ gzip:  0.47 kB[22m
+[2mdist/[22m[36massets/aiFeedback--nOhzOT-.js                       [39m[1m[2m  1.18 kB[22m[1m[22m[2m │ gzip:  0.53 kB[22m
+[2mdist/[22m[36massets/useQuillImageUpload-DoIvJAI1.js              [39m[1m[2m  1.36 kB[22m[1m[22m[2m │ gzip:  0.81 kB[22m
+[2mdist/[22m[36massets/StudentNavbar-D9hYOEYW.js                    [39m[1m[2m  1.40 kB[22m[1m[22m[2m │ gzip:  0.65 kB[22m
+[2mdist/[22m[36massets/CreateCambridgeTestPage-p_gMYgIQ.js          [39m[1m[2m  1.42 kB[22m[1m[22m[2m │ gzip:  0.80 kB[22m
+[2mdist/[22m[36massets/navigation-blvt9EFz.js                       [39m[1m[2m  1.53 kB[22m[1m[22m[2m │ gzip:  0.63 kB[22m
+[2mdist/[22m[36massets/levels-DSc1eN1U.js                           [39m[1m[2m  1.80 kB[22m[1m[22m[2m │ gzip:  0.59 kB[22m
+[2mdist/[22m[36massets/ExtensionToast-Dp_ziuuX.js                   [39m[1m[2m  2.03 kB[22m[1m[22m[2m │ gzip:  1.06 kB[22m
+[2mdist/[22m[36massets/DoCambridgeTestEntryPage-Dt5uWMQr.js         [39m[1m[2m  2.22 kB[22m[1m[22m[2m │ gzip:  1.08 kB[22m
+[2mdist/[22m[36massets/EditCambridgeReadingTestPage-DIYA3EF1.js     [39m[1m[2m  2.27 kB[22m[1m[22m[2m │ gzip:  1.15 kB[22m
+[2mdist/[22m[36massets/EditCambridgeListeningTestPage-dTbKFooP.js   [39m[1m[2m  2.40 kB[22m[1m[22m[2m │ gzip:  1.20 kB[22m
+[2mdist/[22m[36massets/clozeTable-DIb_7Eil.js                       [39m[1m[2m  2.58 kB[22m[1m[22m[2m │ gzip:  1.07 kB[22m
+[2mdist/[22m[36massets/CreateWritingTest-Cmrl5JLR.js                [39m[1m[2m  2.84 kB[22m[1m[22m[2m │ gzip:  1.38 kB[22m
+[2mdist/[22m[36massets/AudioPreviewBlock-Dhujc71N.js                [39m[1m[2m  3.04 kB[22m[1m[22m[2m │ gzip:  1.44 kB[22m
+[2mdist/[22m[36massets/TestHeader-XFr2pZ4Y.js                       [39m[1m[2m  3.20 kB[22m[1m[22m[2m │ gzip:  1.23 kB[22m
+[2mdist/[22m[36massets/SubmissionCardList-BtON1N8o.js               [39m[1m[2m  3.43 kB[22m[1m[22m[2m │ gzip:  1.56 kB[22m
+[2mdist/[22m[36massets/ThemeToggle-Bz9ke-wc.js                      [39m[1m[2m  3.52 kB[22m[1m[22m[2m │ gzip:  1.46 kB[22m
+[2mdist/[22m[36massets/ResultModal-BsTGfI9u.js                      [39m[1m[2m  3.72 kB[22m[1m[22m[2m │ gzip:  1.48 kB[22m
+[2mdist/[22m[36massets/AdminStickySidebarLayout-DX3bXNmf.js         [39m[1m[2m  3.86 kB[22m[1m[22m[2m │ gzip:  1.24 kB[22m
+[2mdist/[22m[36massets/EditWritingTest-2sjLuW04.js                  [39m[1m[2m  3.94 kB[22m[1m[22m[2m │ gzip:  1.79 kB[22m
+[2mdist/[22m[36massets/questionNumbering-DNfBUsYO.js                [39m[1m[2m  3.95 kB[22m[1m[22m[2m │ gzip:  1.35 kB[22m
+[2mdist/[22m[36massets/ConfirmModal-C4d6N6Du.js                     [39m[1m[2m  4.29 kB[22m[1m[22m[2m │ gzip:  1.67 kB[22m
+[2mdist/[22m[36massets/InlineChoiceDisplay-sZbAl0x0.js              [39m[1m[2m  4.47 kB[22m[1m[22m[2m │ gzip:  1.91 kB[22m
+[2mdist/[22m[36massets/IeltsTestEditorShell-kzZ9BlHA.js             [39m[1m[2m  4.53 kB[22m[1m[22m[2m │ gzip:  2.00 kB[22m
+[2mdist/[22m[36massets/placementTests-BbnUNWVv.js                   [39m[1m[2m  4.65 kB[22m[1m[22m[2m │ gzip:  1.75 kB[22m
+[2mdist/[22m[36massets/AdminCardPrimitives-DF7GKdeR.js              [39m[1m[2m  4.79 kB[22m[1m[22m[2m │ gzip:  1.54 kB[22m
+[2mdist/[22m[36massets/TestStartModal-H76nfl2Y.js                   [39m[1m[2m  4.90 kB[22m[1m[22m[2m │ gzip:  1.82 kB[22m
+[2mdist/[22m[36massets/AdminConfirmModal-Bn8oSmVT.js                [39m[1m[2m  5.04 kB[22m[1m[22m[2m │ gzip:  2.09 kB[22m
+[2mdist/[22m[36massets/CreateListeningTestNew-BepfNOYV.js           [39m[1m[2m  5.32 kB[22m[1m[22m[2m │ gzip:  2.50 kB[22m
+[2mdist/[22m[36massets/SubmissionFilterPanel-DgB7TGP1.js            [39m[1m[2m  5.62 kB[22m[1m[22m[2m │ gzip:  1.95 kB[22m
+[2mdist/[22m[36massets/CreateReadingTest-Odn4_Pyd.js                [39m[1m[2m  6.38 kB[22m[1m[22m[2m │ gzip:  2.80 kB[22m
+[2mdist/[22m[36massets/SelectCambridgeTestPage-BHeRsx_Y.js          [39m[1m[2m  6.57 kB[22m[1m[22m[2m │ gzip:  2.25 kB[22m
+[2mdist/[22m[36massets/PlacementAttempt-Cj88vDNe.js                 [39m[1m[2m  7.50 kB[22m[1m[22m[2m │ gzip:  2.07 kB[22m
+[2mdist/[22m[36massets/WritingTestEditorShell-M3yUzRHM.js           [39m[1m[2m  8.04 kB[22m[1m[22m[2m │ gzip:  2.22 kB[22m
+[2mdist/[22m[36massets/SummaryCompletionQuestion-Dez4jpWE.js        [39m[1m[2m  8.20 kB[22m[1m[22m[2m │ gzip:  2.94 kB[22m
+[2mdist/[22m[36massets/TableCompletion-pyNmWNro.js                  [39m[1m[2m  8.23 kB[22m[1m[22m[2m │ gzip:  3.26 kB[22m
+[2mdist/[22m[36massets/questionHelpers-CLpbqAGk.js                  [39m[1m[2m  8.25 kB[22m[1m[22m[2m │ gzip:  2.89 kB[22m
+[2mdist/[22m[36massets/EditReadingTest-VRVrn3Vq.js                  [39m[1m[2m  8.32 kB[22m[1m[22m[2m │ gzip:  3.39 kB[22m
+[2mdist/[22m[36massets/CambridgeResultsModal-Cwf0WgPk.js            [39m[1m[2m  8.34 kB[22m[1m[22m[2m │ gzip:  2.83 kB[22m
+[2mdist/[22m[36massets/PlacementEntry-4nrGfwXF.js                   [39m[1m[2m  8.66 kB[22m[1m[22m[2m │ gzip:  2.49 kB[22m
+[2mdist/[22m[36massets/TeacherPermissionsPage-Db4m1lZI.js           [39m[1m[2m  9.64 kB[22m[1m[22m[2m │ gzip:  3.18 kB[22m
+[2mdist/[22m[36massets/CambridgeSectionDisplays-Bsf2J8cK.js         [39m[1m[2m  9.64 kB[22m[1m[22m[2m │ gzip:  3.33 kB[22m
+[2mdist/[22m[36massets/CreatePetWritingTestPage-6awjjWKL.js         [39m[1m[2m 10.05 kB[22m[1m[22m[2m │ gzip:  3.55 kB[22m
+[2mdist/[22m[36massets/LineIcon-JHxn6ITI.js                         [39m[1m[2m 10.86 kB[22m[1m[22m[2m │ gzip:  2.39 kB[22m
+[2mdist/[22m[36massets/EditListeningTest-CI8UCrJQ.js                [39m[1m[2m 10.95 kB[22m[1m[22m[2m │ gzip:  4.31 kB[22m
+[2mdist/[22m[36massets/Login-CQooMe3f.js                            [39m[1m[2m 11.67 kB[22m[1m[22m[2m │ gzip:  3.81 kB[22m
+[2mdist/[22m[36massets/PetWritingTestPage-Ck_wGk2j.js               [39m[1m[2m 13.27 kB[22m[1m[22m[2m │ gzip:  4.46 kB[22m
+[2mdist/[22m[36massets/TakeReadingTest-Cu2_tJ7Z.js                  [39m[1m[2m 14.28 kB[22m[1m[22m[2m │ gzip:  4.33 kB[22m
+[2mdist/[22m[36massets/clozeTableSchema-akPOwfxz.js                 [39m[1m[2m 16.03 kB[22m[1m[22m[2m │ gzip:  5.27 kB[22m
+[2mdist/[22m[36massets/ReviewSubmission-BF-EeVKR.js                 [39m[1m[2m 16.86 kB[22m[1m[22m[2m │ gzip:  4.56 kB[22m
+[2mdist/[22m[36massets/EditPetWritingTestPage-CQYak21K.js           [39m[1m[2m 16.92 kB[22m[1m[22m[2m │ gzip:  5.31 kB[22m
+[2mdist/[22m[36massets/StudentNavbar-D-tuW4G8.js                    [39m[1m[2m 18.05 kB[22m[1m[22m[2m │ gzip:  4.18 kB[22m
+[2mdist/[22m[36massets/PetWritingEditorShell-CC2rJHHA.js            [39m[1m[2m 19.24 kB[22m[1m[22m[2m │ gzip:  5.49 kB[22m
+[2mdist/[22m[36massets/questionTypes-B143aIoy.js                    [39m[1m[2m 21.60 kB[22m[1m[22m[2m │ gzip:  5.20 kB[22m
+[2mdist/[22m[36massets/SelectTest-DcPVbRbP.js                       [39m[1m[2m 21.62 kB[22m[1m[22m[2m │ gzip:  5.44 kB[22m
+[2mdist/[22m[36massets/AdminWritingSubmissions-BkOY-gWf.js          [39m[1m[2m 21.98 kB[22m[1m[22m[2m │ gzip:  6.81 kB[22m
+[2mdist/[22m[36massets/MyFeedback-BZ3CWe36.js                       [39m[1m[2m 22.13 kB[22m[1m[22m[2m │ gzip:  5.57 kB[22m
+[2mdist/[22m[36massets/AdminReadingSubmissions-gEi4tu2F.js          [39m[1m[2m 22.15 kB[22m[1m[22m[2m │ gzip:  7.05 kB[22m
+[2mdist/[22m[36massets/WritingTest-kQ5YdJit.js                      [39m[1m[2m 25.14 kB[22m[1m[22m[2m │ gzip:  8.86 kB[22m
+[2mdist/[22m[36massets/AdminListeningSubmissions-DXUEz30N.js        [39m[1m[2m 25.42 kB[22m[1m[22m[2m │ gzip:  7.99 kB[22m
+[2mdist/[22m[36massets/Review-DACYt2zd.js                           [39m[1m[2m 36.45 kB[22m[1m[22m[2m │ gzip:  9.62 kB[22m
+[2mdist/[22m[36massets/AdminNavbar-DwhjK2Bg.js                      [39m[1m[2m 36.77 kB[22m[1m[22m[2m │ gzip:  8.89 kB[22m
+[2mdist/[22m[36massets/AdminUserManagement-M_7PcIiN.js              [39m[1m[2m 40.92 kB[22m[1m[22m[2m │ gzip: 10.74 kB[22m
+[2mdist/[22m[36massets/ReadingResults-B-cMC0bW.js                   [39m[1m[2m 43.87 kB[22m[1m[22m[2m │ gzip: 11.53 kB[22m
+[2mdist/[22m[36massets/CambridgeSubmissionsPage-oFXo7YIM.js         [39m[1m[2m 44.16 kB[22m[1m[22m[2m │ gzip: 12.37 kB[22m
+[2mdist/[22m[36massets/htmlHelpers-AwlmVv1j.js                      [39m[1m[2m 45.28 kB[22m[1m[22m[2m │ gzip: 11.25 kB[22m
+[2mdist/[22m[36massets/DoReadingTest-BNRq7x-b.js                    [39m[1m[2m 50.80 kB[22m[1m[22m[2m │ gzip: 14.77 kB[22m
+[2mdist/[22m[36massets/DoListeningTest-D6iK_NC0.js                  [39m[1m[2m 51.67 kB[22m[1m[22m[2m │ gzip: 16.03 kB[22m
+[2mdist/[22m[36massets/DoCambridgeListeningTest.styles-BPrn0nU9.js  [39m[1m[2m 62.07 kB[22m[1m[22m[2m │ gzip: 16.21 kB[22m
+[2mdist/[22m[36massets/MoversListeningTestBuilder-5grG2ZcY.js       [39m[1m[2m 62.62 kB[22m[1m[22m[2m │ gzip: 15.62 kB[22m
+[2mdist/[22m[36massets/CambridgeResultPage-CaGnUmvD.js              [39m[1m[2m 63.15 kB[22m[1m[22m[2m │ gzip: 15.32 kB[22m
+[2mdist/[22m[36massets/DoCambridgeListeningTestPage-Dc_WnNb-.js     [39m[1m[2m 66.67 kB[22m[1m[22m[2m │ gzip: 17.47 kB[22m
+[2mdist/[22m[36massets/DoCambridgeReadingTestPage-DwTY8_Fg.js       [39m[1m[2m 68.15 kB[22m[1m[22m[2m │ gzip: 15.98 kB[22m
+[2mdist/[22m[36massets/ListeningResults-ReOTAwZd.js                 [39m[1m[2m 69.19 kB[22m[1m[22m[2m │ gzip: 17.26 kB[22m
+[2mdist/[22m[36massets/ClozeMCEditor-D5RY743J.js                    [39m[1m[2m 71.16 kB[22m[1m[22m[2m │ gzip: 16.87 kB[22m
+[2mdist/[22m[36massets/LookReadWriteDisplay-B2kGwwtN.js             [39m[1m[2m 82.60 kB[22m[1m[22m[2m │ gzip: 20.33 kB[22m
+[2mdist/[22m[36massets/ListeningTestEditor-C9M80Pck.js              [39m[1m[2m 99.31 kB[22m[1m[22m[2m │ gzip: 24.75 kB[22m
+[2mdist/[22m[36massets/ReadingTestEditor-CCVdviVy.js                [39m[1m[2m120.91 kB[22m[1m[22m[2m │ gzip: 26.01 kB[22m
+[2mdist/[22m[36massets/CambridgeTestBuilder-BIKt1lQ0.js             [39m[1m[2m160.92 kB[22m[1m[22m[2m │ gzip: 37.51 kB[22m
+[2mdist/[22m[36massets/index-FTRx-la6.js                            [39m[1m[2m195.81 kB[22m[1m[22m[2m │ gzip: 62.61 kB[22m
+[2mdist/[22m[36massets/index-CvUMCL0c.js                            [39m[1m[2m237.58 kB[22m[1m[22m[2m │ gzip: 63.61 kB[22m
+[32m✓ built in 6.00s[39m

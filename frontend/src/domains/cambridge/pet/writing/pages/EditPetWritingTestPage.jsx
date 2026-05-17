@@ -4,18 +4,41 @@ import { useNavigate, useParams } from "react-router-dom";
 import InlineIcon from "../../../../../shared/components/InlineIcon.jsx";
 import { apiPath, authFetch, hostPath, redirectToLogin } from "../../../../../shared/utils/api";
 import useQuillImageUpload from "../../../../../shared/hooks/useQuillImageUpload";
+import PetEmailAnchorPreview from "./PetEmailAnchorPreview.jsx";
 import PetWritingEditorShell from "./PetWritingEditorShell.jsx";
 import {
 	buildPetPart1Html,
 	buildPetQuestion2Html,
 	buildPetQuestion3Html,
 	defaultPetPart1Fields,
+	defaultPetPart1NoteBoxes,
+	defaultPetPart1NoteAnchors,
 	defaultPetQuestion2Fields,
 	defaultPetQuestion3Fields,
 	parsePetPart1Fields,
 	parsePetQuestion2Fields,
 	parsePetQuestion3Fields,
 } from "./petWritingTemplateUtils.js";
+
+const part1QuillModules = {
+	toolbar: [
+		[{ header: [2, 3, false] }],
+		["bold", "italic", "underline"],
+		[{ list: "ordered" }, { list: "bullet" }],
+		[{ align: [] }],
+		["link"],
+		["clean"],
+	],
+};
+
+const stripRichText = (html = "") => {
+	if (typeof DOMParser === "undefined") {
+		return String(html).replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ").trim();
+	}
+
+	const document = new DOMParser().parseFromString(html, "text/html");
+	return (document.body.textContent || "").replace(/\s+/g, " ").trim();
+};
 
 const SectionCard = ({ iconName, title, note, children }) => (
 	<section className="pet-writing-editor-card">
@@ -51,26 +74,21 @@ const FormControl = ({
 	</label>
 );
 
-const PreviewCard = ({ title, note, html }) => (
+const PreviewCard = ({ title, note, html, children }) => (
 	<aside className="pet-writing-editor-preview-card">
 		<div className="pet-writing-editor-section-label">
 			<InlineIcon name="eye" size={14} />
 			<span>{title}</span>
 		</div>
 		{note ? <p className="pet-writing-editor-preview-caption">{note}</p> : null}
-		<div className="pet-writing-editor-rendered-html" dangerouslySetInnerHTML={{ __html: html }} />
+		{children || <div className="pet-writing-editor-rendered-html" dangerouslySetInnerHTML={{ __html: html }} />}
 	</aside>
 );
 
 const hasRequiredTemplateContent = (part1Fields, question2Fields, question3Fields) => {
-	const hasPart1Body = [part1Fields.body1, part1Fields.body2, part1Fields.body3, part1Fields.body4].some((value) =>
-		String(value || "").trim()
-	);
-
 	return Boolean(
 		String(part1Fields.promptIntro || "").trim() &&
-			String(part1Fields.greeting || "").trim() &&
-			hasPart1Body &&
+			stripRichText(part1Fields.emailBodyHtml).trim() &&
 			String(question2Fields.title || "").trim() &&
 			String(question2Fields.line1 || "").trim() &&
 			String(question3Fields.storyStarter || "").trim()
@@ -114,6 +132,20 @@ const EditPetWritingTestPage = () => {
 		setter((current) => ({
 			...current,
 			[field]: value,
+		}));
+	};
+
+	const updatePart1Anchors = (updater) => {
+		setPart1Fields((current) => ({
+			...current,
+			noteAnchors: updater(current.noteAnchors || defaultPetPart1NoteAnchors),
+		}));
+	};
+
+	const updatePart1NoteBoxes = (updater) => {
+		setPart1Fields((current) => ({
+			...current,
+			noteBoxes: updater(current.noteBoxes || defaultPetPart1NoteBoxes),
 		}));
 	};
 
@@ -319,11 +351,11 @@ const EditPetWritingTestPage = () => {
 			title: "Part 1 Email",
 			pill: editorMode === "manual" ? "Legacy" : "Email",
 			badge: "Part 1",
-			caption: editorMode === "manual" ? "Rich text + anh cu" : "Khung email co note line",
+			caption: editorMode === "manual" ? "Rich text + ảnh cũ" : "Khung email có note line",
 			note:
 				editorMode === "manual"
-					? "Editor giu noi dung cu an toan trong che do thu cong."
-					: "Nhap noi dung email truc tiep, khong can upload anh.",
+					? "Editor giữ nội dung cũ an toàn trong chế độ thủ công."
+					: "Body email dùng ReactQuill, kéo được cả note box ngoài và chấm neo trong email.",
 		},
 		{
 			id: "q2",
@@ -333,8 +365,8 @@ const EditPetWritingTestPage = () => {
 			caption: editorMode === "manual" ? "Rich text prompt" : "Announcement box",
 			note:
 				editorMode === "manual"
-					? "Noi dung cu duoc giu nguyen de tranh mat du lieu."
-					: "Khung thong bao de ra de viet bai article.",
+					? "Nội dung cũ được giữ nguyên để tránh mất dữ liệu."
+					: "Khung thông báo để ra đề viết bài article.",
 		},
 		{
 			id: "q3",
@@ -344,8 +376,8 @@ const EditPetWritingTestPage = () => {
 			caption: editorMode === "manual" ? "Rich text prompt" : "Story starter",
 			note:
 				editorMode === "manual"
-					? "Story prompt cu duoc sua trong rich text editor."
-					: "Noi bat cau mo dau de hoc sinh viet story.",
+					? "Story prompt cũ được sửa trong rich text editor."
+					: "Nổi bật câu mở đầu để học sinh viết story.",
 		},
 	];
 
@@ -367,9 +399,9 @@ const EditPetWritingTestPage = () => {
 			<div>
 				<strong>
 					<InlineIcon name="average" size={16} />
-					<span>Ban can dang nhap lai de hoan tat thao tac.</span>
+					<span>Bạn cần đăng nhập lại để hoàn tất thao tác.</span>
 				</strong>
-				<p>Ban nhap dang duoc luu tam. Sau khi dang nhap, trang hien tai se duoc mo lai.</p>
+				<p>Bản nháp đang được lưu tạm. Sau khi đăng nhập, trang hiện tại sẽ được mở lại.</p>
 			</div>
 			<button
 				type="button"
@@ -378,7 +410,7 @@ const EditPetWritingTestPage = () => {
 					redirectToLogin({ rememberPath: true, replace: true });
 				}}
 			>
-				Dang nhap lai
+				Đăng nhập lại
 			</button>
 		</div>
 	) : null;
@@ -388,11 +420,11 @@ const EditPetWritingTestPage = () => {
 			<div>
 				<strong>
 					<InlineIcon name="average" size={16} />
-					<span>Dang giu che do thu cong cho de cu</span>
+					<span>Đang giữ chế độ thủ công cho đề cũ</span>
 				</strong>
 				<p>
-					Noi dung hien tai khong duoc tao bang khung PET moi, nen editor giu rich text va anh legacy de
-					tranh mat du lieu. Ban van co shell moi, sidebar moi va preview day du.
+					Nội dung hiện tại không được tạo bằng khung PET mới, nên editor giữ rich text và ảnh legacy để
+					tránh mất dữ liệu. Bạn vẫn có shell mới, sidebar mới và preview đầy đủ.
 				</p>
 			</div>
 		</div>
@@ -403,11 +435,11 @@ const EditPetWritingTestPage = () => {
 			<div>
 				<strong>
 					<InlineIcon name="document" size={16} />
-					<span>Anh cu se duoc go khi luu</span>
+					<span>Ảnh cũ sẽ được gỡ khi lưu</span>
 				</strong>
 				<p>
-					De nay dang co anh Part 1 tu phien ban cu. Khi ban luu o che do khung text-first, he thong se go anh
-					cu va chi giu HTML nhe hon.
+					Đề này đang có ảnh Part 1 từ phiên bản cũ. Khi bạn lưu ở chế độ khung text-first, hệ thống sẽ gỡ ảnh
+					cũ và chỉ giữ HTML nhẹ hơn.
 				</p>
 			</div>
 		</div>
@@ -421,11 +453,11 @@ const EditPetWritingTestPage = () => {
 						{templateImageNotice}
 						<SectionCard
 							iconName="document"
-							title="Khung de bai"
-							note="Phan huong dan co cau truc giong de PET giay, nhung van de text nhe de sua nhanh."
+							title="Khung đề bài"
+							note="Phần hướng dẫn có cấu trúc giống đề PET giấy, nhưng vẫn để text nhẹ để sửa nhanh."
 						>
 							<FormControl
-								label="Dong gioi thieu"
+								label="Dòng giới thiệu"
 								value={part1Fields.promptIntro}
 								onChange={(value) => updateFields(setPart1Fields, "promptIntro", value)}
 								placeholder="Read this email and the notes you have made."
@@ -435,38 +467,56 @@ const EditPetWritingTestPage = () => {
 							/>
 						</SectionCard>
 
-						<SectionCard iconName="writing" title="Header email" note="Cac dong From, To, Subject va loi chao se tu dua vao khung email.">
+						<SectionCard iconName="writing" title="Header email" note="Chỉ giữ các thông tin header, phần nội dung sẽ gõ trực tiếp trong editor bên dưới.">
 							<div className="pet-writing-editor-fieldset-grid">
 								<FormControl label="From" value={part1Fields.from} onChange={(value) => updateFields(setPart1Fields, "from", value)} placeholder="Miss Jones" />
 								<FormControl label="To" value={part1Fields.to} onChange={(value) => updateFields(setPart1Fields, "to", value)} placeholder="All students" />
 								<FormControl label="Subject" value={part1Fields.subject} onChange={(value) => updateFields(setPart1Fields, "subject", value)} placeholder="Visitor to English class" fullWidth />
-								<FormControl label="Loi chao" value={part1Fields.greeting} onChange={(value) => updateFields(setPart1Fields, "greeting", value)} placeholder="Dear Students," fullWidth />
 							</div>
 						</SectionCard>
 
-						<SectionCard iconName="fill" title="Noi dung email" note="Moi doan se nam san trong khung email, ban chi viec nhap text.">
-							<div className="pet-writing-editor-fieldset-grid">
-								<FormControl label="Doan 1" value={part1Fields.body1} onChange={(value) => updateFields(setPart1Fields, "body1", value)} textarea rows={4} fullWidth />
-								<FormControl label="Doan 2" value={part1Fields.body2} onChange={(value) => updateFields(setPart1Fields, "body2", value)} textarea rows={4} fullWidth />
-								<FormControl label="Doan 3" value={part1Fields.body3} onChange={(value) => updateFields(setPart1Fields, "body3", value)} textarea rows={4} fullWidth />
-								<FormControl label="Doan 4" value={part1Fields.body4} onChange={(value) => updateFields(setPart1Fields, "body4", value)} textarea rows={4} fullWidth />
-								<FormControl label="Dong ket" value={part1Fields.closing} onChange={(value) => updateFields(setPart1Fields, "closing", value)} textarea rows={3} fullWidth />
-								<FormControl label="Chu ky" value={part1Fields.signature} onChange={(value) => updateFields(setPart1Fields, "signature", value)} placeholder="Miss Jones" fullWidth />
+						<SectionCard iconName="fill" title="Nội dung email" note="Không chia đoạn sẵn nữa. Giáo viên gõ thẳng vào email bằng ReactQuill, muốn xuống dòng hay in đậm đều được.">
+							<div className="pet-writing-editor-quill">
+								<ReactQuill
+									theme="snow"
+									value={part1Fields.emailBodyHtml}
+									onChange={(value) => updateFields(setPart1Fields, "emailBodyHtml", value)}
+									placeholder="Nhập nội dung email tại đây..."
+									modules={part1QuillModules}
+								/>
 							</div>
 						</SectionCard>
 
-						<SectionCard iconName="average" title="Note line ben ngoai" note="Bon o ghi chu se nam san hai ben khung email de giong de thi giay.">
+						<SectionCard iconName="average" title="Note line bên ngoài" note="Nhập note text ở đây, sau đó kéo note box hoặc chấm neo trong preview bên phải để canh line.">
 							<div className="pet-writing-editor-fieldset-grid">
 								<FormControl label="Note 1" value={part1Fields.note1} onChange={(value) => updateFields(setPart1Fields, "note1", value)} placeholder="Great!" />
 								<FormControl label="Note 2" value={part1Fields.note2} onChange={(value) => updateFields(setPart1Fields, "note2", value)} placeholder="I think ..." />
 								<FormControl label="Note 3" value={part1Fields.note3} onChange={(value) => updateFields(setPart1Fields, "note3", value)} placeholder="Tell Miss Jones" />
 								<FormControl label="Note 4" value={part1Fields.note4} onChange={(value) => updateFields(setPart1Fields, "note4", value)} placeholder="Suggest ..." />
-								<FormControl label="Huong dan cuoi" value={part1Fields.answerInstruction} onChange={(value) => updateFields(setPart1Fields, "answerInstruction", value)} placeholder="Write your email using all the notes." textarea rows={2} fullWidth />
+								<FormControl label="Hướng dẫn cuối" value={part1Fields.answerInstruction} onChange={(value) => updateFields(setPart1Fields, "answerInstruction", value)} placeholder="Write your email using all the notes." textarea rows={2} fullWidth />
+							</div>
+							<div className="pet-writing-editor-anchor-actions">
+								<p className="pet-writing-editor-anchor-hint">Mẹo: giữ và kéo trực tiếp ở khung note màu cam để đổi vị trí note bên ngoài. Các line luôn bám sát vào mép note box.</p>
+								<button
+									type="button"
+									className="pet-writing-editor-secondary-btn"
+									onClick={() => {
+										setPart1Fields((current) => ({
+											...current,
+											noteBoxes: defaultPetPart1NoteBoxes,
+											noteAnchors: defaultPetPart1NoteAnchors,
+										}));
+									}}
+								>
+									Đặt lại vị trí
+								</button>
 							</div>
 						</SectionCard>
 					</div>
 
-					<PreviewCard title="Preview khung email" note="Khung ben phai la HTML se duoc luu va render thang o runtime, nen khong can upload anh." html={task1Html} />
+					<PreviewCard title="Preview khung email" note="Preview này cho phép kéo note box và chấm neo trực tiếp. Khi lưu, vị trí line sẽ đi theo vào đề thi thật.">
+						<PetEmailAnchorPreview fields={part1Fields} onAnchorsChange={updatePart1Anchors} onNoteBoxesChange={updatePart1NoteBoxes} />
+					</PreviewCard>
 				</div>
 			);
 		}
@@ -475,20 +525,20 @@ const EditPetWritingTestPage = () => {
 			return (
 				<div className="pet-writing-editor-form-grid">
 					<div className="pet-writing-editor-stack">
-						<SectionCard iconName="document" title="Announcement box" note="Question 2 duoc lam san dang thong bao de nhap nhanh noi dung article.">
+						<SectionCard iconName="document" title="Announcement box" note="Question 2 được làm sẵn dạng thông báo để nhập nhanh nội dung article.">
 							<div className="pet-writing-editor-fieldset-grid">
-								<FormControl label="Dong dan" value={question2Fields.promptLead} onChange={(value) => updateFields(setQuestion2Fields, "promptLead", value)} textarea rows={3} fullWidth />
-								<FormControl label="Nhan tren khung" value={question2Fields.badge} onChange={(value) => updateFields(setQuestion2Fields, "badge", value)} placeholder="Articles wanted" />
-								<FormControl label="Tieu de lon" value={question2Fields.title} onChange={(value) => updateFields(setQuestion2Fields, "title", value)} placeholder="Computer games" />
-								<FormControl label="Dong hoi 1" value={question2Fields.line1} onChange={(value) => updateFields(setQuestion2Fields, "line1", value)} textarea rows={3} fullWidth />
-								<FormControl label="Dong hoi 2" value={question2Fields.line2} onChange={(value) => updateFields(setQuestion2Fields, "line2", value)} textarea rows={3} fullWidth />
-								<FormControl label="Dong cuoi khung" value={question2Fields.footer} onChange={(value) => updateFields(setQuestion2Fields, "footer", value)} textarea rows={3} fullWidth />
-								<FormControl label="Huong dan viet" value={question2Fields.answerInstruction} onChange={(value) => updateFields(setQuestion2Fields, "answerInstruction", value)} placeholder="Write your article." fullWidth />
+								<FormControl label="Dòng dẫn" value={question2Fields.promptLead} onChange={(value) => updateFields(setQuestion2Fields, "promptLead", value)} textarea rows={3} fullWidth />
+								<FormControl label="Nhãn trên khung" value={question2Fields.badge} onChange={(value) => updateFields(setQuestion2Fields, "badge", value)} placeholder="Articles wanted" />
+								<FormControl label="Tiêu đề lớn" value={question2Fields.title} onChange={(value) => updateFields(setQuestion2Fields, "title", value)} placeholder="Computer games" />
+								<FormControl label="Dòng hỏi 1" value={question2Fields.line1} onChange={(value) => updateFields(setQuestion2Fields, "line1", value)} textarea rows={3} fullWidth />
+								<FormControl label="Dòng hỏi 2" value={question2Fields.line2} onChange={(value) => updateFields(setQuestion2Fields, "line2", value)} textarea rows={3} fullWidth />
+								<FormControl label="Dòng cuối khung" value={question2Fields.footer} onChange={(value) => updateFields(setQuestion2Fields, "footer", value)} textarea rows={3} fullWidth />
+								<FormControl label="Hướng dẫn viết" value={question2Fields.answerInstruction} onChange={(value) => updateFields(setQuestion2Fields, "answerInstruction", value)} placeholder="Write your article." fullWidth />
 							</div>
 						</SectionCard>
 					</div>
 
-					<PreviewCard title="Preview Question 2" note="Hoc sinh se thay mot thong bao dang card thay vi anh chup de." html={part2Question2Html} />
+					<PreviewCard title="Preview Question 2" note="Học sinh sẽ thấy một thông báo dạng card thay vì ảnh chụp đề." html={part2Question2Html} />
 				</div>
 			);
 		}
@@ -496,17 +546,17 @@ const EditPetWritingTestPage = () => {
 		return (
 			<div className="pet-writing-editor-form-grid">
 				<div className="pet-writing-editor-stack">
-					<SectionCard iconName="writing" title="Story starter" note="Question 3 dung mot cau mo dau noi bat, giong de PET nhung gon va de sua hon.">
+					<SectionCard iconName="writing" title="Story starter" note="Question 3 dùng một câu mở đầu nổi bật, giống đề PET nhưng gọn và dễ sửa hơn.">
 						<div className="pet-writing-editor-fieldset-grid">
-							<FormControl label="Dong dan" value={question3Fields.promptLead} onChange={(value) => updateFields(setQuestion3Fields, "promptLead", value)} textarea rows={3} fullWidth />
-							<FormControl label="Dong bo tro" value={question3Fields.promptSupport} onChange={(value) => updateFields(setQuestion3Fields, "promptSupport", value)} textarea rows={3} fullWidth />
-							<FormControl label="Cau mo dau" value={question3Fields.storyStarter} onChange={(value) => updateFields(setQuestion3Fields, "storyStarter", value)} textarea rows={5} fullWidth />
-							<FormControl label="Huong dan viet" value={question3Fields.answerInstruction} onChange={(value) => updateFields(setQuestion3Fields, "answerInstruction", value)} placeholder="Write your story." fullWidth />
+							<FormControl label="Dòng dẫn" value={question3Fields.promptLead} onChange={(value) => updateFields(setQuestion3Fields, "promptLead", value)} textarea rows={3} fullWidth />
+							<FormControl label="Dòng bổ trợ" value={question3Fields.promptSupport} onChange={(value) => updateFields(setQuestion3Fields, "promptSupport", value)} textarea rows={3} fullWidth />
+							<FormControl label="Câu mở đầu" value={question3Fields.storyStarter} onChange={(value) => updateFields(setQuestion3Fields, "storyStarter", value)} textarea rows={5} fullWidth />
+							<FormControl label="Hướng dẫn viết" value={question3Fields.answerInstruction} onChange={(value) => updateFields(setQuestion3Fields, "answerInstruction", value)} placeholder="Write your story." fullWidth />
 						</div>
 					</SectionCard>
 				</div>
 
-				<PreviewCard title="Preview Question 3" note="Cau mo dau duoc tach thanh the rieng de hoc sinh doc nhanh va nhap bai vao phan story." html={part2Question3Html} />
+				<PreviewCard title="Preview Question 3" note="Câu mở đầu được tách thành thẻ riêng để học sinh đọc nhanh và nhập bài vào phần story." html={part2Question3Html} />
 			</div>
 		);
 	};
@@ -517,20 +567,20 @@ const EditPetWritingTestPage = () => {
 				<div className="pet-writing-editor-form-grid">
 					<div className="pet-writing-editor-stack">
 						{legacyModeBanner}
-						<SectionCard iconName="writing" title="Part 1 prompt" note="Editor rich text duoc giu lai cho de cu de tranh mat noi dung dang da soan.">
+						<SectionCard iconName="writing" title="Part 1 prompt" note="Editor rich text được giữ lại cho đề cũ để tránh mất nội dung đang soạn.">
 							<div className="pet-writing-editor-quill">
 								<ReactQuill
 									ref={task1Quill.quillRef}
 									theme="snow"
 									value={task1}
 									onChange={setTask1}
-									placeholder="Nhap noi dung Part 1"
+									placeholder="Nhập nội dung Part 1"
 									modules={task1Quill.modules}
 								/>
 							</div>
 
 							<label className="pet-writing-editor-control is-full">
-								<span className="pet-writing-editor-control-label">Thay anh Part 1 (neu can)</span>
+								<span className="pet-writing-editor-control-label">Thay ảnh Part 1 (nếu cần)</span>
 								<input
 									className="pet-writing-editor-file-input"
 									type="file"
@@ -548,11 +598,11 @@ const EditPetWritingTestPage = () => {
 							{currentPreviewImage ? (
 								<div className="pet-writing-editor-legacy-image">
 									<div>
-										<div className="pet-writing-editor-control-label">Anh Part 1</div>
+										<div className="pet-writing-editor-control-label">Ảnh Part 1</div>
 										<p className="pet-writing-editor-section-note">
 											{selectedImagePreview
-												? "Anh moi se duoc upload khi ban luu."
-												: "Anh hien tai dang di kem de cu."}
+												? "Ảnh mới sẽ được upload khi bạn lưu."
+												: "Ảnh hiện tại đang đi kèm đề cũ."}
 										</p>
 									</div>
 									<img src={currentPreviewImage} alt="Current prompt" />
@@ -563,12 +613,12 @@ const EditPetWritingTestPage = () => {
 												className="pet-writing-editor-danger-btn"
 												onClick={() => setRemoveTask1Image(true)}
 											>
-												Go anh hien tai
+												Gỡ ảnh hiện tại
 											</button>
 										) : null}
 										{selectedImagePreview ? (
 											<button type="button" className="pet-writing-editor-secondary-btn" onClick={() => setImage(null)}>
-												Bo anh moi
+												Bỏ ảnh mới
 											</button>
 										) : null}
 									</div>
@@ -580,19 +630,19 @@ const EditPetWritingTestPage = () => {
 									<div>
 										<strong>
 											<InlineIcon name="document" size={16} />
-											<span>Anh cu se duoc go</span>
+											<span>Ảnh cũ sẽ được gỡ</span>
 										</strong>
-										<p>Neu ban luu ma khong tai anh moi, task 1 se khong con anh dinh kem.</p>
+										<p>Nếu bạn lưu mà không tải ảnh mới, task 1 sẽ không còn ảnh đính kèm.</p>
 									</div>
 									<button type="button" className="pet-writing-editor-secondary-btn" onClick={() => setRemoveTask1Image(false)}>
-										Giu lai anh
+										Giữ lại ảnh
 									</button>
 								</div>
 							) : null}
 						</SectionCard>
 					</div>
 
-					<PreviewCard title="Preview Part 1" note="Preview dung noi dung rich text hien tai, kem anh neu van duoc giu lai." html={task1} />
+					<PreviewCard title="Preview Part 1" note="Preview dùng nội dung rich text hiện tại, kèm ảnh nếu vẫn được giữ lại." html={task1} />
 				</div>
 			);
 		}
@@ -602,21 +652,21 @@ const EditPetWritingTestPage = () => {
 				<div className="pet-writing-editor-form-grid">
 					<div className="pet-writing-editor-stack">
 						{legacyModeBanner}
-						<SectionCard iconName="document" title="Question 2" note="Che do rich text giu nguyen noi dung cu de an toan khi sua.">
+						<SectionCard iconName="document" title="Question 2" note="Chế độ rich text giữ nguyên nội dung cũ để an toàn khi sửa.">
 							<div className="pet-writing-editor-quill">
 								<ReactQuill
 									ref={part2Q2Quill.quillRef}
 									theme="snow"
 									value={part2Question2}
 									onChange={setPart2Question2}
-									placeholder="Nhap noi dung cau hoi so 2"
+									placeholder="Nhập nội dung câu hỏi số 2"
 									modules={part2Q2Quill.modules}
 								/>
 							</div>
 						</SectionCard>
 					</div>
 
-					<PreviewCard title="Preview Question 2" note="Preview se render dung HTML question 2 hien co." html={part2Question2} />
+					<PreviewCard title="Preview Question 2" note="Preview sẽ render đúng HTML question 2 hiện có." html={part2Question2} />
 				</div>
 			);
 		}
@@ -625,21 +675,21 @@ const EditPetWritingTestPage = () => {
 			<div className="pet-writing-editor-form-grid">
 				<div className="pet-writing-editor-stack">
 					{legacyModeBanner}
-					<SectionCard iconName="writing" title="Question 3" note="Story prompt cu duoc chinh sua trong rich text editor de giu nguyen bo cuc hien co.">
+					<SectionCard iconName="writing" title="Question 3" note="Story prompt cũ được chỉnh sửa trong rich text editor để giữ nguyên bố cục hiện có.">
 						<div className="pet-writing-editor-quill">
 							<ReactQuill
 								ref={part2Q3Quill.quillRef}
 								theme="snow"
 								value={part2Question3}
 								onChange={setPart2Question3}
-								placeholder="Nhap noi dung cau hoi so 3"
+								placeholder="Nhập nội dung câu hỏi số 3"
 								modules={part2Q3Quill.modules}
 							/>
 						</div>
 					</SectionCard>
 				</div>
 
-				<PreviewCard title="Preview Question 3" note="Preview se render dung HTML question 3 hien co." html={part2Question3} />
+				<PreviewCard title="Preview Question 3" note="Preview sẽ render đúng HTML question 3 hiện có." html={part2Question3} />
 			</div>
 		);
 	};
@@ -650,11 +700,11 @@ const EditPetWritingTestPage = () => {
 	return (
 		<PetWritingEditorShell
 			loading={loading}
-			loadingMessage="Dang tai de PET Writing..."
+			loadingMessage="Đang tải đề PET Writing..."
 			notice={loginNotice}
 			pageTitle="Edit PET Writing"
-			pageDescription="Shell moi cho PET Writing giup sua de co cau truc ro hon. De cu duoc giu safe trong manual mode, de moi dung khung text-first nhe hon."
-			summaryText={editorMode === "template" ? "Template mode: text-first PET prompt" : "Legacy mode: giu nguyen noi dung cu"}
+			pageDescription="Shell mới cho PET Writing giúp sửa đề có cấu trúc rõ hơn. Đề cũ được giữ safe trong manual mode, đề mới dùng khung text-first nhẹ hơn."
+			summaryText={editorMode === "template" ? "Template mode: text-first PET prompt" : "Legacy mode: giữ nguyên nội dung cũ"}
 			classCode={classCode}
 			onClassCodeChange={setClassCode}
 			teacherName={teacherName}
@@ -666,7 +716,7 @@ const EditPetWritingTestPage = () => {
 			onSectionChange={setActiveSection}
 			renderSectionContent={renderSectionContent}
 			previewSections={previewSections}
-			submitLabel="Luu cap nhat"
+			submitLabel="Lưu cập nhật"
 			submitIcon="save"
 			onSubmit={handleSubmit}
 		/>
