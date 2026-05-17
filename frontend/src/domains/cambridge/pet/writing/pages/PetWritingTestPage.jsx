@@ -5,12 +5,34 @@ import TestHeader from '../../../../../shared/components/TestHeader';
 import TestStartModal from '../../../../../shared/components/TestStartModal';
 import { getOrangeSelectTestPathForTestType } from '../../../config/navigation';
 import {
+	buildPetPart1Html,
+	buildPetQuestion2Html,
+	buildPetQuestion3Html,
+	parsePetPart1Fields,
+	parsePetQuestion2Fields,
+	parsePetQuestion3Fields,
+} from './petWritingTemplateUtils.js';
+import {
 	buildPlacementAttemptPath,
 	readPlacementRuntimeContext,
 } from '../../../../../shared/utils/placementTests';
 import './PetWritingTest.css';
 
 const DURATION_SECONDS = 45 * 60;
+
+const normalizeHtmlImages = (html) => {
+	if (!html) return '';
+	return html.replace(
+		/src=(['"])(\/?uploads\/[^'"]+)\1/g,
+		(_match, quote, path) => `src=${quote}${hostPath(path)}${quote}`
+	);
+};
+
+const upgradePetTemplateHtml = (html, parseTemplate, buildTemplate) => {
+	const parsedFields = parseTemplate(html || '');
+	const nextHtml = parsedFields ? buildTemplate(parsedFields) : html || '';
+	return normalizeHtmlImages(nextHtml);
+};
 
 const PetWritingTestPage = () => {
 	const { id: routeTestId } = useParams();
@@ -110,13 +132,17 @@ const PetWritingTestPage = () => {
 		}
 	});
 
-	const normalizeHtmlImages = (html) => {
-		if (!html) return '';
-		return html.replace(
-			/src=(['"])(\/?uploads\/[^'"]+)\1/g,
-			(_match, quote, path) => `src=${quote}${hostPath(path)}${quote}`
-		);
-	};
+	const normalizedPromptHtml = useMemo(() => {
+		if (!testData) {
+			return { task1: '', q2: '', q3: '' };
+		}
+
+		return {
+			task1: upgradePetTemplateHtml(testData.task1, parsePetPart1Fields, buildPetPart1Html),
+			q2: upgradePetTemplateHtml(testData.part2Question2, parsePetQuestion2Fields, buildPetQuestion2Html),
+			q3: upgradePetTemplateHtml(testData.part2Question3, parsePetQuestion3Fields, buildPetQuestion3Html),
+		};
+	}, [testData]);
 
 	useEffect(() => {
 		localStorage.setItem(task1StorageKey, task1Answer);
@@ -459,7 +485,7 @@ const PetWritingTestPage = () => {
 					<div
 						className="pet-writing-rich"
 						dangerouslySetInnerHTML={{
-							__html: normalizeHtmlImages(testData.task1 || ''),
+							__html: normalizedPromptHtml.task1,
 						}}
 					/>
 					{testData.task1Image && (
@@ -476,9 +502,7 @@ const PetWritingTestPage = () => {
 		}
 
 		const isQuestion2 = activePanel === 'q2';
-		const questionHtml = isQuestion2
-			? testData.part2Question2
-			: testData.part2Question3;
+		const questionHtml = isQuestion2 ? normalizedPromptHtml.q2 : normalizedPromptHtml.q3;
 
 		return (
 			<div className="pet-writing-prompt">
@@ -492,7 +516,7 @@ const PetWritingTestPage = () => {
 				<div
 					className="pet-writing-rich"
 					dangerouslySetInnerHTML={{
-						__html: normalizeHtmlImages(questionHtml || ''),
+						__html: questionHtml || '',
 					}}
 				/>
 			</div>
