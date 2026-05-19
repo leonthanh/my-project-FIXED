@@ -264,7 +264,14 @@ router.post(
       if (!user) throw AppError.unauthorized('User not found');
 
       const tokens = await issueTokens({ user, req, res });
-      res.json({ accessToken: tokens.accessToken, refreshToken: tokens.refreshToken });
+      const userResponse = user.toJSON();
+      delete userResponse.password;
+
+      res.json({
+        accessToken: tokens.accessToken,
+        refreshToken: tokens.refreshToken,
+        user: userResponse,
+      });
     } catch (err) {
       const appErr = err instanceof AppError ? err : AppError.unauthorized('Cannot refresh token');
       // Operational errors (invalid/expired tokens) are expected — log as warn, not error

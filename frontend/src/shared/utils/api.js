@@ -60,7 +60,7 @@ function getStoredUser() {
   }
 }
 
-function useSessionAuthStorage(user = getStoredUser()) {
+function shouldUseSessionAuthStorage(user = getStoredUser()) {
   return user?.role === "student";
 }
 
@@ -69,7 +69,7 @@ function getAuthValue(key) {
 }
 
 function setAuthValue(key, value, user = getStoredUser()) {
-  const useSession = useSessionAuthStorage(user);
+  const useSession = shouldUseSessionAuthStorage(user);
   const primary = useSession ? sessionStorage : localStorage;
   const secondary = useSession ? localStorage : sessionStorage;
 
@@ -240,10 +240,24 @@ async function refreshAccessToken(options = {}) {
       }
 
       const data = await res.json().catch(() => ({}));
-      if (data.accessToken) setAuthValue("accessToken", data.accessToken, storedUser);
-      if (data.refreshToken) setAuthValue("refreshToken", data.refreshToken, storedUser);
+      const refreshedUser = data.user || storedUser;
+
+      if (data.user) {
+        storeAuthSession({
+          user: data.user,
+          accessToken: data.accessToken,
+          refreshToken: data.refreshToken,
+        });
+      } else {
+        if (data.accessToken) setAuthValue("accessToken", data.accessToken, refreshedUser);
+        if (data.refreshToken) setAuthValue("refreshToken", data.refreshToken, refreshedUser);
+      }
+
       // Record successful refresh time so concurrent tabs can detect it
-      setAuthValue(REFRESH_AT_KEY, String(Date.now()), storedUser);
+      setAuthValue(REFRESH_AT_KEY, String(Date.now()), refreshedUser);
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("auth:changed"));
+      }
       console.debug("auth: refresh succeeded");
       return true;
     } catch (err) {

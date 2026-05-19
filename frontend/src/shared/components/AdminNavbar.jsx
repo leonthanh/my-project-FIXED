@@ -1,8 +1,8 @@
-import React, { useEffect, useLayoutEffect, useState, useRef } from "react";
+import React, { useEffect, useLayoutEffect, useMemo, useState, useRef } from "react";
 import { createPortal, flushSync } from "react-dom";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import ThemeToggle from "./ThemeToggle";
-import { apiPath, hostPath, clearAuth } from "../utils/api";
+import { apiPath, hostPath, clearAuth, getStoredUser } from "../utils/api";
 import { hasResolvedSubmissionFeedback } from "../utils/cambridgeFeedback";
 import { canManageCategory } from "../utils/permissions";
 import "./AdminNavbar.css";
@@ -207,9 +207,79 @@ const flattenAdminSections = (sections = []) =>
     ...((section.groups || []).flatMap((group) => group.items || [])),
   ]);
 
+const resolveAdminUserDisplayName = (user) => {
+  const rawName = String(user?.name || user?.username || user?.fullName || "").trim();
+  if (rawName) return rawName;
+  return user?.role === "admin" ? "Admin" : "Teacher";
+};
+
+const buildAdminLinkItem = (key, to, label, visible = true, iconName = null) =>
+  visible ? { key, to, label, iconName } : null;
+
+const buildAdminDisabledItem = (key, label, visible = true, iconName = null) =>
+  visible ? { key, label, disabled: true, iconName } : null;
+
+const getSubmissionStatus = (submission) => {
+  const explicitStatus = String(submission?.status || "").trim().toLowerCase();
+
+  if (explicitStatus === "reviewed" || explicitStatus === "done") {
+    return "done";
+  }
+
+  if (
+    hasResolvedSubmissionFeedback(submission) ||
+    String(submission?.feedbackBy || "").trim()
+  ) {
+    return "done";
+  }
+
+  return "pending";
+};
+
+const isPendingSubmission = (submission) =>
+  getSubmissionStatus(submission) === "pending";
+
+const getStudentName = (submission) =>
+  submission?.studentName ||
+  submission?.userName ||
+  submission?.user?.name ||
+  submission?.User?.name ||
+  "N/A";
+
+const getStudentPhone = (submission) =>
+  submission?.studentPhone ||
+  submission?.userPhone ||
+  submission?.user?.phone ||
+  submission?.User?.phone ||
+  "N/A";
+
+const getWritingCategoryLabel = (submission) => {
+  const testType = String(
+    submission?.writing_test?.testType ||
+      submission?.WritingTest?.testType ||
+      submission?.testType ||
+      ""
+  )
+    .trim()
+    .toLowerCase();
+
+  return testType.includes("pet-writing") ? "PET Writing" : "Writing";
+};
+
+const buildPendingNotification = (submission, category, route) => ({
+  key: `${category}-${submission.id}`,
+  id: submission.id,
+  category,
+  route,
+  studentName: getStudentName(submission),
+  phone: getStudentPhone(submission),
+  submittedAt: submission?.submittedAt || submission?.createdAt || null,
+});
+
 const AdminNavbar = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const [user, setUser] = useState(() => getStoredUser());
 
   const [pendingNotifications, setPendingNotifications] = useState([]);
   const [notificationDropdownVisible, setNotificationDropdownVisible] =
@@ -233,69 +303,22 @@ const AdminNavbar = () => {
   const notificationDropdownRef = useRef(null);
   const adminDropdownRef = useRef(null);
   const navRef = useRef(null);
+  const userDisplayName = resolveAdminUserDisplayName(user);
+  const canManageWriting = canManageCategory(user, "writing");
+  const canManageReading = canManageCategory(user, "reading");
+  const canManageListening = canManageCategory(user, "listening");
 
-  let user = null;
-  try {
-    user = JSON.parse(localStorage.getItem("user"));
-  } catch {
-    user = null;
-  }
+  useEffect(() => {
+    const syncUser = () => setUser(getStoredUser());
 
-  const hasFeedback = (submission) => hasResolvedSubmissionFeedback(submission);
+    window.addEventListener("storage", syncUser);
+    window.addEventListener("auth:changed", syncUser);
 
-  const getSubmissionStatus = (submission) => {
-    const explicitStatus = String(submission?.status || "").trim().toLowerCase();
-
-    if (explicitStatus === "reviewed" || explicitStatus === "done") {
-      return "done";
-    }
-
-    if (hasFeedback(submission) || String(submission?.feedbackBy || "").trim()) {
-      return "done";
-    }
-
-    return "pending";
-  };
-
-  const isPendingSubmission = (submission) =>
-    getSubmissionStatus(submission) === "pending";
-
-  const getStudentName = (submission) =>
-    submission?.studentName ||
-    submission?.userName ||
-    submission?.user?.name ||
-    submission?.User?.name ||
-    "N/A";
-
-  const getStudentPhone = (submission) =>
-    submission?.studentPhone ||
-    submission?.userPhone ||
-    submission?.user?.phone ||
-    submission?.User?.phone ||
-    "N/A";
-
-  const getWritingCategoryLabel = (submission) => {
-    const testType = String(
-      submission?.writing_test?.testType ||
-        submission?.WritingTest?.testType ||
-        submission?.testType ||
-        ""
-    )
-      .trim()
-      .toLowerCase();
-
-    return testType.includes("pet-writing") ? "PET Writing" : "Writing";
-  };
-
-  const buildPendingNotification = (submission, category, route) => ({
-    key: `${category}-${submission.id}`,
-    id: submission.id,
-    category,
-    route,
-    studentName: getStudentName(submission),
-    phone: getStudentPhone(submission),
-    submittedAt: submission?.submittedAt || submission?.createdAt || null,
-  });
+    return () => {
+      window.removeEventListener("storage", syncUser);
+      window.removeEventListener("auth:changed", syncUser);
+    };
+  }, []);
 
   useEffect(() => {
     const readJsonOrThrow = async (path) => {
@@ -497,92 +520,6 @@ const AdminNavbar = () => {
   }, [mobileDrawerOpen, desktopDrawerMode]);
 
   useEffect(() => {
-    if (!mobileDrawerOpen || typeof window === "undefined") return undefined;
-
-    const warmupTimerId = window.setTimeout(() => {
-      preloadAdminRoute("/admin/create-writing");
-      preloadAdminRoute("/admin/create-reading");
-      preloadAdminRoute("/admin/create-listening");
-      preloadAdminRoute("/admin/create-pet-listening");
-      preloadAdminRoute("/admin/create-pet-reading");
-      preloadAdminRoute("/admin/create-pet-writing");
-    }, 120);
-
-    const timerId = window.setTimeout(() => {
-      if (mobileDrawerTab === "ix") {
-        preloadAdminItems(flattenAdminSections(ieltsSections));
-        return;
-      }
-
-      if (mobileDrawerTab === "orange") {
-        preloadAdminItems(flattenAdminSections(cambridgeSections));
-        preloadAdminRoute("/admin/cambridge-submissions");
-        return;
-      }
-
-      if (mobileDrawerTab === "admin") {
-        preloadAdminItems(adminItems);
-        return;
-      }
-
-      if (mobileDrawerTab === "review") {
-        preloadAdminRoute("/review");
-        preloadAdminRoute("/admin/writing-submissions");
-        preloadAdminRoute("/admin/reading-submissions");
-        preloadAdminRoute("/admin/listening-submissions");
-        preloadAdminRoute("/admin/cambridge-submissions");
-        return;
-      }
-
-      preloadAdminRoute("/select-test");
-      preloadAdminRoute("/review");
-    }, 0);
-
-    return () => {
-      window.clearTimeout(timerId);
-      window.clearTimeout(warmupTimerId);
-    };
-  }, [
-    mobileDrawerOpen,
-    mobileDrawerTab,
-    mobileSubmissionSection,
-    mobileCambridgeSection,
-    mobileCambridgeGroup,
-    user?.role,
-    user?.canManageTests,
-  ]);
-
-  useEffect(() => {
-    if (isCompactMenu || !desktopDrawerMode || typeof window === "undefined") {
-      return undefined;
-    }
-
-    const timerId = window.setTimeout(() => {
-      if (desktopDrawerMode === "ix") {
-        preloadAdminItems(flattenAdminSections(ieltsSections));
-        return;
-      }
-
-      if (desktopDrawerMode === "orange") {
-        preloadAdminItems(flattenAdminSections(cambridgeSections));
-        preloadAdminRoute("/admin/cambridge-submissions");
-      }
-    }, 0);
-
-    return () => {
-      window.clearTimeout(timerId);
-    };
-  }, [
-    isCompactMenu,
-    desktopDrawerMode,
-    desktopSubmissionSection,
-    desktopCambridgeSection,
-    desktopCambridgeGroup,
-    user?.role,
-    user?.canManageTests,
-  ]);
-
-  useEffect(() => {
     setDesktopDrawerMode(null);
   }, [location.pathname]);
 
@@ -699,215 +636,301 @@ const AdminNavbar = () => {
     navigate(item.route);
   };
 
-  const buildLinkItem = (key, to, label, visible = true, iconName = null) =>
-    visible ? { key, to, label, iconName } : null;
-
-  const buildDisabledItem = (key, label, visible = true, iconName = null) =>
-    visible ? { key, label, disabled: true, iconName } : null;
-
-  const cambridgeSections = [
-    {
-      key: "ket",
-      label: "KET",
-      title: "KET (A2 Key)",
-      iconName: "tests",
-      items: [
-        buildLinkItem(
-          "ket-listening",
-          "/admin/create-ket-listening",
-          "KET Listening",
-          canManageCategory(user, "listening"),
-          "listening"
-        ),
-        buildLinkItem(
-          "ket-reading",
-          "/admin/create-ket-reading",
-          "KET Reading",
-          canManageCategory(user, "reading"),
-          "reading"
-        ),
-      ].filter(Boolean),
-    },
-    {
-      key: "pet",
-      label: "PET",
-      title: "PET (B1 Preliminary)",
-      iconName: "tests",
-      items: [
-        buildLinkItem(
-          "pet-listening",
-          "/admin/create-pet-listening",
-          "PET Listening",
-          canManageCategory(user, "listening"),
-          "listening"
-        ),
-        buildLinkItem(
-          "pet-reading",
-          "/admin/create-pet-reading",
-          "PET Reading",
-          canManageCategory(user, "reading"),
-          "reading"
-        ),
-        buildLinkItem(
-          "pet-writing",
-          "/admin/create-pet-writing",
-          "PET Writing",
-          true,
-          "writing"
-        ),
-      ].filter(Boolean),
-    },
-    {
-      key: "yle",
-      label: "YLE",
-      title: "Young Learners",
-      iconName: "tests",
-      groups: [
+  const cambridgeSections = useMemo(
+    () =>
+      [
         {
-          key: "flyers",
-          label: "Flyers",
-          title: "Flyers (A2)",
+          key: "ket",
+          label: "KET",
+          title: "KET (A2 Key)",
+          iconName: "tests",
           items: [
-            buildDisabledItem("flyers-listening", "Listening (coming soon)", true, "listening"),
-            buildLinkItem(
-              "flyers-reading",
-              "/admin/create/flyers",
-              "Reading & Writing",
-              canManageCategory(user, "reading"),
-              "reading"
-            ),
-          ].filter(Boolean),
-        },
-        {
-          key: "movers",
-          label: "Movers",
-          title: "Movers (A1)",
-          items: [
-            buildLinkItem(
-              "movers-listening",
-              "/admin/create-movers-listening",
-              "Movers Listening",
-              canManageCategory(user, "listening"),
+            buildAdminLinkItem(
+              "ket-listening",
+              "/admin/create-ket-listening",
+              "KET Listening",
+              canManageListening,
               "listening"
             ),
-            buildLinkItem(
-              "movers-reading",
-              "/admin/create/movers",
-              "Reading & Writing",
-              canManageCategory(user, "reading"),
+            buildAdminLinkItem(
+              "ket-reading",
+              "/admin/create-ket-reading",
+              "KET Reading",
+              canManageReading,
               "reading"
             ),
           ].filter(Boolean),
         },
         {
-          key: "starters",
-          label: "Starters",
-          title: "Starters (Pre-A1)",
+          key: "pet",
+          label: "PET",
+          title: "PET (B1 Preliminary)",
+          iconName: "tests",
           items: [
-            buildDisabledItem("starters-listening", "Listening (coming soon)", true, "listening"),
-            buildLinkItem(
-              "starters-reading",
-              "/admin/create/starters",
-              "Reading & Writing",
-              canManageCategory(user, "reading"),
+            buildAdminLinkItem(
+              "pet-listening",
+              "/admin/create-pet-listening",
+              "PET Listening",
+              canManageListening,
+              "listening"
+            ),
+            buildAdminLinkItem(
+              "pet-reading",
+              "/admin/create-pet-reading",
+              "PET Reading",
+              canManageReading,
               "reading"
+            ),
+            buildAdminLinkItem(
+              "pet-writing",
+              "/admin/create-pet-writing",
+              "PET Writing",
+              true,
+              "writing"
             ),
           ].filter(Boolean),
         },
-      ].filter((group) => group.items.some((item) => !item.disabled)),
-    },
-    {
-      key: "management",
-      label: "Management",
-      title: "Management",
-      iconName: "management",
-      items: [
-        buildLinkItem(
-          "cambridge-submissions",
-          "/admin/cambridge-submissions",
-          "View submissions",
-          true,
-          "submissions"
-        ),
-      ].filter(Boolean),
-    },
-  ].filter(
-    (section) =>
-      (section.items && section.items.length > 0) ||
-      (section.groups && section.groups.length > 0)
+        {
+          key: "yle",
+          label: "YLE",
+          title: "Young Learners",
+          iconName: "tests",
+          groups: [
+            {
+              key: "flyers",
+              label: "Flyers",
+              title: "Flyers (A2)",
+              items: [
+                buildAdminDisabledItem(
+                  "flyers-listening",
+                  "Listening (coming soon)",
+                  true,
+                  "listening"
+                ),
+                buildAdminLinkItem(
+                  "flyers-reading",
+                  "/admin/create/flyers",
+                  "Reading & Writing",
+                  canManageReading,
+                  "reading"
+                ),
+              ].filter(Boolean),
+            },
+            {
+              key: "movers",
+              label: "Movers",
+              title: "Movers (A1)",
+              items: [
+                buildAdminLinkItem(
+                  "movers-listening",
+                  "/admin/create-movers-listening",
+                  "Movers Listening",
+                  canManageListening,
+                  "listening"
+                ),
+                buildAdminLinkItem(
+                  "movers-reading",
+                  "/admin/create/movers",
+                  "Reading & Writing",
+                  canManageReading,
+                  "reading"
+                ),
+              ].filter(Boolean),
+            },
+            {
+              key: "starters",
+              label: "Starters",
+              title: "Starters (Pre-A1)",
+              items: [
+                buildAdminDisabledItem(
+                  "starters-listening",
+                  "Listening (coming soon)",
+                  true,
+                  "listening"
+                ),
+                buildAdminLinkItem(
+                  "starters-reading",
+                  "/admin/create/starters",
+                  "Reading & Writing",
+                  canManageReading,
+                  "reading"
+                ),
+              ].filter(Boolean),
+            },
+          ].filter((group) => group.items.some((item) => !item.disabled)),
+        },
+        {
+          key: "management",
+          label: "Management",
+          title: "Management",
+          iconName: "management",
+          items: [
+            buildAdminLinkItem(
+              "cambridge-submissions",
+              "/admin/cambridge-submissions",
+              "View submissions",
+              true,
+              "submissions"
+            ),
+          ].filter(Boolean),
+        },
+      ].filter(
+        (section) =>
+          (section.items && section.items.length > 0) ||
+          (section.groups && section.groups.length > 0)
+      ),
+    [canManageListening, canManageReading]
   );
 
-  const ieltsSections = [
-    {
-      key: "create",
-      label: "Create",
-      title: "Create",
-      iconName: "create",
-      items: [
-        buildLinkItem(
-          "create-writing",
-          "/admin/create-writing",
-          "Writing",
-          canManageCategory(user, "writing"),
-          "writing"
-        ),
-        buildLinkItem(
-          "create-reading",
-          "/admin/create-reading",
-          "Reading",
-          canManageCategory(user, "reading"),
-          "reading"
-        ),
-        buildLinkItem(
-          "create-listening",
-          "/admin/create-listening",
-          "Listening",
-          canManageCategory(user, "listening"),
-          "listening"
-        ),
-      ].filter(Boolean),
-    },
-    {
-      key: "submissions",
-      label: "Submissions",
-      title: "Submissions",
-      iconName: "submissions",
-      items: [
-        buildLinkItem(
-          "writing-submissions",
-          "/admin/writing-submissions",
-          "Writing",
-          true,
-          "writing"
-        ),
-        buildLinkItem(
-          "reading-submissions",
-          "/admin/reading-submissions",
-          "Reading",
-          true,
-          "reading"
-        ),
-        buildLinkItem(
-          "listening-submissions",
-          "/admin/listening-submissions",
-          "Listening",
-          true,
-          "listening"
-        ),
-      ].filter(Boolean),
-    },
-  ].filter((section) => section.items.length > 0);
+  const ieltsSections = useMemo(
+    () =>
+      [
+        {
+          key: "create",
+          label: "Create",
+          title: "Create",
+          iconName: "create",
+          items: [
+            buildAdminLinkItem(
+              "create-writing",
+              "/admin/create-writing",
+              "Writing",
+              canManageWriting,
+              "writing"
+            ),
+            buildAdminLinkItem(
+              "create-reading",
+              "/admin/create-reading",
+              "Reading",
+              canManageReading,
+              "reading"
+            ),
+            buildAdminLinkItem(
+              "create-listening",
+              "/admin/create-listening",
+              "Listening",
+              canManageListening,
+              "listening"
+            ),
+          ].filter(Boolean),
+        },
+        {
+          key: "submissions",
+          label: "Submissions",
+          title: "Submissions",
+          iconName: "submissions",
+          items: [
+            buildAdminLinkItem(
+              "writing-submissions",
+              "/admin/writing-submissions",
+              "Writing",
+              true,
+              "writing"
+            ),
+            buildAdminLinkItem(
+              "reading-submissions",
+              "/admin/reading-submissions",
+              "Reading",
+              true,
+              "reading"
+            ),
+            buildAdminLinkItem(
+              "listening-submissions",
+              "/admin/listening-submissions",
+              "Listening",
+              true,
+              "listening"
+            ),
+          ].filter(Boolean),
+        },
+      ].filter((section) => section.items.length > 0),
+    [canManageListening, canManageReading, canManageWriting]
+  );
 
-  const adminItems = [
-    buildLinkItem(
-      "teacher-permissions",
-      "/admin/teacher-permissions",
-      "Teacher Permissions",
-      true,
-      "permissions"
-    ),
-    buildLinkItem("users", "/admin/users", "User Management", true, "users"),
-  ].filter(Boolean);
+  const adminItems = useMemo(
+    () =>
+      [
+        buildAdminLinkItem(
+          "teacher-permissions",
+          "/admin/teacher-permissions",
+          "Teacher Permissions",
+          true,
+          "permissions"
+        ),
+        buildAdminLinkItem("users", "/admin/users", "User Management", true, "users"),
+      ].filter(Boolean),
+    []
+  );
+
+  useEffect(() => {
+    if (!mobileDrawerOpen || typeof window === "undefined") return undefined;
+
+    const warmupTimerId = window.setTimeout(() => {
+      preloadAdminRoute("/admin/create-writing");
+      preloadAdminRoute("/admin/create-reading");
+      preloadAdminRoute("/admin/create-listening");
+      preloadAdminRoute("/admin/create-pet-listening");
+      preloadAdminRoute("/admin/create-pet-reading");
+      preloadAdminRoute("/admin/create-pet-writing");
+    }, 120);
+
+    const timerId = window.setTimeout(() => {
+      if (mobileDrawerTab === "ix") {
+        preloadAdminItems(flattenAdminSections(ieltsSections));
+        return;
+      }
+
+      if (mobileDrawerTab === "orange") {
+        preloadAdminItems(flattenAdminSections(cambridgeSections));
+        preloadAdminRoute("/admin/cambridge-submissions");
+        return;
+      }
+
+      if (mobileDrawerTab === "admin") {
+        preloadAdminItems(adminItems);
+        return;
+      }
+
+      if (mobileDrawerTab === "review") {
+        preloadAdminRoute("/review");
+        preloadAdminRoute("/admin/writing-submissions");
+        preloadAdminRoute("/admin/reading-submissions");
+        preloadAdminRoute("/admin/listening-submissions");
+        preloadAdminRoute("/admin/cambridge-submissions");
+        return;
+      }
+
+      preloadAdminRoute("/select-test");
+      preloadAdminRoute("/review");
+    }, 0);
+
+    return () => {
+      window.clearTimeout(timerId);
+      window.clearTimeout(warmupTimerId);
+    };
+  }, [mobileDrawerOpen, mobileDrawerTab, adminItems, cambridgeSections, ieltsSections]);
+
+  useEffect(() => {
+    if (isCompactMenu || !desktopDrawerMode || typeof window === "undefined") {
+      return undefined;
+    }
+
+    const timerId = window.setTimeout(() => {
+      if (desktopDrawerMode === "ix") {
+        preloadAdminItems(flattenAdminSections(ieltsSections));
+        return;
+      }
+
+      if (desktopDrawerMode === "orange") {
+        preloadAdminItems(flattenAdminSections(cambridgeSections));
+        preloadAdminRoute("/admin/cambridge-submissions");
+      }
+    }, 0);
+
+    return () => {
+      window.clearTimeout(timerId);
+    };
+  }, [isCompactMenu, desktopDrawerMode, cambridgeSections, ieltsSections]);
 
   const activeCambridgeSection =
     cambridgeSections.find((section) => section.key === mobileCambridgeSection) ||
@@ -1657,7 +1680,7 @@ const AdminNavbar = () => {
         <ThemeToggle />
         <span className="adminNavbar__teacherName">
           <span className="adminNavbar__icon adminNavbar__icon--user" aria-hidden="true"><NavIcon name="user" /></span>
-          <span>{user?.name || "Teacher"}</span>
+          <span>{userDisplayName}</span>
         </span>
         <button
           onClick={handleLogout}

@@ -13,6 +13,11 @@ import { buildCambridgeRoutes } from './app/routes/cambridgeRoutes';
 import { buildAdminRoutes } from './app/routes/adminRoutes';
 
 const hasStoredUser = () => Boolean(getStoredUser());
+const hasStoredUserProfile = () => {
+  const user = getStoredUser();
+  const displayName = String(user?.name || user?.username || user?.fullName || '').trim();
+  return Boolean(user?.role && displayName);
+};
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(hasStoredSession);
@@ -50,7 +55,7 @@ function App() {
 
       // Skip background refresh while the current access token is still healthy.
       // This avoids logging students out during production cookie hiccups.
-      if (isAccessTokenUsable(60 * 1000)) {
+      if (isAccessTokenUsable(60 * 1000) && hasStoredUserProfile()) {
         syncAuthState();
         return;
       }
