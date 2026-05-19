@@ -49,6 +49,7 @@ const IeltsTestEditorShell = ({
   setClassCode,
   teacherName,
   setTeacherName,
+  isTeacherNameLocked = false,
   showResultModal,
   setShowResultModal,
   lastSaved,
@@ -131,7 +132,13 @@ const IeltsTestEditorShell = ({
                   placeholder="Tên giáo viên"
                   value={teacherName || ""}
                   onChange={handleChange(setTeacherName)}
-                  style={teacherInputStyle}
+                  disabled={isTeacherNameLocked}
+                  style={{
+                    ...teacherInputStyle,
+                    backgroundColor: isTeacherNameLocked ? "#f8fafc" : teacherInputStyle?.backgroundColor,
+                    color: isTeacherNameLocked ? "#334155" : teacherInputStyle?.color,
+                    cursor: isTeacherNameLocked ? "not-allowed" : teacherInputStyle?.cursor,
+                  }}
                 />
                 <label style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '12px', whiteSpace: 'nowrap', cursor: 'pointer' }}>
                   <input

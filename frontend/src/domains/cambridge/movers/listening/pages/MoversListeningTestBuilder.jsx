@@ -9,7 +9,7 @@
  * Part 4 – Fill a Form  (fill: info form blanks)
  * Part 5 – Colour/Write (fill: colour + word instructions)
  */
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { apiPath, authFetch, hostPath } from "../../../../../shared/utils/api";
 import AdminNavbar from "../../../../../shared/components/AdminNavbar";
@@ -17,6 +17,7 @@ import AudioPreviewBlock from "../../../../../shared/components/AudioPreviewBloc
 import LineIcon from "../../../../../shared/components/LineIcon.jsx";
 import "./MoversListeningTestBuilder.css";
 import { normalizeAudioReference, normalizeListeningPartsAudio } from "../../../../../shared/utils/audioUrls";
+import resolveAuthUserDisplayName, { readStoredAuthUser } from '../../../../../shared/utils/authUserDisplayName';
 import {
   inputStyle,
   labelStyle,
@@ -326,12 +327,13 @@ const normalizeMoversParts = (parts) => {
 const MoversListeningTestBuilder = ({ editId = null, initialData = null }) => {
   const navigate = useNavigate();
   const isEditMode = Boolean(editId);
+  const currentTeacherName = resolveAuthUserDisplayName(readStoredAuthUser());
 
   const [title, setTitle] = useState(initialData?.title || "");
   const [classCode, setClassCode] = useState(initialData?.classCode || "");
   const [teacherName, setTeacherName] = useState(() => {
     if (initialData?.teacherName) return initialData.teacherName;
-    try { return JSON.parse(localStorage.getItem("user"))?.name || ""; } catch { return ""; }
+    return currentTeacherName;
   });
   const [mainAudioUrl, setMainAudioUrl] = useState(normalizeAudioReference(initialData?.mainAudioUrl || ""));
   const [parts, setParts] = useState(() => {
@@ -356,6 +358,12 @@ const MoversListeningTestBuilder = ({ editId = null, initialData = null }) => {
       setParts(normalizeMoversParts(normalizeListeningPartsAudio(initialData.parts)));
     }
   }, [initialData]);
+
+  useEffect(() => {
+    if (!isEditMode) {
+      setTeacherName(currentTeacherName);
+    }
+  }, [currentTeacherName, isEditMode]);
 
   const cfg = PART_CONFIGS[activePartIdx];
   const activePart = parts[activePartIdx];
@@ -686,7 +694,13 @@ const MoversListeningTestBuilder = ({ editId = null, initialData = null }) => {
                 type="text"
                 value={teacherName}
                 onChange={(e) => setTeacherName(e.target.value)}
-                style={inputStyle}
+                disabled={!isEditMode}
+                style={{
+                  ...inputStyle,
+                  background: !isEditMode ? '#f8fafc' : inputStyle.background,
+                  color: !isEditMode ? '#334155' : inputStyle.color,
+                  cursor: !isEditMode ? 'not-allowed' : inputStyle.cursor,
+                }}
               />
             </div>
           </div>

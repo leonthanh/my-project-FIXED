@@ -14,15 +14,21 @@ import {
   TEST_CONFIGS,
 } from "../../../../shared/config/questionTypes";
 import { getOrangeSelectTestPathForTestType } from '../../config/navigation';
-import { apiPath, hostPath, authFetch, redirectToLogin } from "../../../../shared/utils/api";
+import {
+  apiPath,
+  hostPath,
+  authFetch,
+  redirectToLogin,
+  getStoredUser,
+} from "../../../../shared/utils/api";
 import useQuillImageUpload from "../../../../shared/hooks/useQuillImageUpload";
 import { canManageCategory } from '../../../../shared/utils/permissions';
 import AudioPreviewBlock from "../../../../shared/components/AudioPreviewBlock";
 import LineIcon from "../../../../shared/components/LineIcon.jsx";
 import "./CambridgeTestBuilder.css";
 import { computeQuestionStarts, getQuestionCountForSection } from "../utils/questionNumbering";
-import { buildMoversPracticeTest1Template } from "../utils/moversPracticeTest1Template";
 import { normalizeAudioReference, normalizeListeningPartsAudio } from "../../../../shared/utils/audioUrls";
+import resolveAuthUserDisplayName from "../../../../shared/utils/authUserDisplayName";
 
 const InlineIcon = ({ name, size = 16, strokeWidth = 2, style }) => (
   <span
@@ -68,12 +74,9 @@ const QUESTION_TYPE_ICONS = {
  */
 const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initialData = null, resetDraftOnLoad = false, apiBasePath = null }) => {
   const navigate = useNavigate();
-  let user = null;
-  try {
-    user = JSON.parse(localStorage.getItem('user') || 'null');
-  } catch (e) {
-    user = null;
-  }
+  const user = getStoredUser();
+  const currentTeacherName = resolveAuthUserDisplayName(user);
+  const isCreateMode = !editId && !initialData;
 
   const testConfig = getTestConfig(testType);
   const isListeningTest = testType.includes('listening');
@@ -204,7 +207,9 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
   // Form fields
   const [title, setTitle] = useState(savedData?.title || '');
   const [classCode, setClassCode] = useState(savedData?.classCode || '');
-  const [teacherName, setTeacherName] = useState(savedData?.teacherName || '');
+  const [teacherName, setTeacherName] = useState(
+    isCreateMode ? currentTeacherName : savedData?.teacherName || ''
+  );
   const [mainAudioUrl, setMainAudioUrl] = useState(normalizeAudioReference(savedData?.mainAudioUrl || ''));
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
@@ -239,6 +244,12 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
   };
 
   // Support edit mode via props
+  useEffect(() => {
+    if (isCreateMode) {
+      setTeacherName(currentTeacherName);
+    }
+  }, [currentTeacherName, isCreateMode]);
+
   useEffect(() => {
     if (initialData) {
       setTitle(initialData.title || '');
@@ -629,28 +640,6 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
     }));
   };
 
-  const handleLoadMoversTemplate = () => {
-    const hasMeaningfulDraft =
-      title.trim() ||
-      classCode.trim() ||
-      teacherName.trim() ||
-      (Array.isArray(parts) && parts.length > 1);
-
-    if (hasMeaningfulDraft) {
-      const confirmed = window.confirm('Nạp template sẽ ghi đe phan noi dung dang tao. Ban co muon tiep tuc khong?');
-      if (!confirmed) return;
-    }
-
-    const template = buildMoversPracticeTest1Template();
-    setTitle(template.title || 'Movers Reading & Writing Practice Test 1');
-    setTeacherName(template.teacherName || '');
-    setMainAudioUrl(normalizeAudioReference(template.mainAudioUrl || ''));
-    setParts(Array.isArray(template.parts) && template.parts.length > 0 ? normalizeListeningPartsAudio(template.parts) : getInitialParts());
-    setSelectedPartIndex(0);
-    setSelectedSectionIndex(0);
-    setMessage({ type: 'success', text: 'Da nap Movers Practice Test 1. Ban co the chinh sua noi dung ngay tren builder.' });
-  };
-
   const handleDeleteQuestion = (qIndex) => {
     updateParts(prevParts => prevParts.map((part, pIdx) => {
       if (pIdx !== selectedPartIndex) return part;
@@ -938,9 +927,6 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
     );
   }
 
-  const activeMoversReadingPartTheme = isMoversReading
-    ? getMoversReadingPartTheme(currentPart, selectedPartIndex)
-    : null;
   const showMoversReadingSectionNav = !isMoversReading || (currentPart?.sections?.length || 0) > 1;
   const saveButtonLabel = editId ? 'Cập nhật đề' : 'Lưu đề';
   const sidebarFooterBackground = isMoversReading ? 'var(--ctb-sidebar-bg, #f6f8fc)' : '#1e293b';
@@ -1527,6 +1513,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
                 type="text"
                 value={teacherName}
                 onChange={(e) => setTeacherName(e.target.value)}
+                disabled={isCreateMode}
                 placeholder="VD: Cô Lan"
                 style={{
                   width: '100%',
@@ -1534,6 +1521,9 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
                   border: '1px solid #d1d5db',
                   borderRadius: '6px',
                   fontSize: '13px',
+                  background: isCreateMode ? '#f8fafc' : '#ffffff',
+                  color: isCreateMode ? '#334155' : '#111827',
+                  cursor: isCreateMode ? 'not-allowed' : 'text',
                   boxSizing: 'border-box',
                 }}
               />
@@ -1788,7 +1778,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                       <img
                         src={/^https?:\/\//i.test(currentPart.imageUrl) ? currentPart.imageUrl : hostPath(currentPart.imageUrl)}
-                        alt="Part image"
+                        alt="Part illustration"
                         style={{ maxWidth: '100%', maxHeight: '300px', objectFit: 'contain', borderRadius: '6px', border: '1px solid #e5e7eb' }}
                       />
                       <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
