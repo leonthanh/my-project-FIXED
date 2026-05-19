@@ -28,10 +28,14 @@ const normalizeHtmlImages = (html) => {
 	);
 };
 
-const upgradePetTemplateHtml = (html, parseTemplate, buildTemplate) => {
+const buildPetPromptRenderState = (html, parseTemplate, buildTemplate) => {
 	const parsedFields = parseTemplate(html || '');
 	const nextHtml = parsedFields ? buildTemplate(parsedFields) : html || '';
-	return normalizeHtmlImages(nextHtml);
+
+	return {
+		hasTemplate: Boolean(parsedFields),
+		html: normalizeHtmlImages(nextHtml),
+	};
 };
 
 const PetWritingTestPage = () => {
@@ -134,13 +138,17 @@ const PetWritingTestPage = () => {
 
 	const normalizedPromptHtml = useMemo(() => {
 		if (!testData) {
-			return { task1: '', q2: '', q3: '' };
+			return {
+				task1: { hasTemplate: false, html: '' },
+				q2: { hasTemplate: false, html: '' },
+				q3: { hasTemplate: false, html: '' },
+			};
 		}
 
 		return {
-			task1: upgradePetTemplateHtml(testData.task1, parsePetPart1Fields, buildPetPart1Html),
-			q2: upgradePetTemplateHtml(testData.part2Question2, parsePetQuestion2Fields, buildPetQuestion2Html),
-			q3: upgradePetTemplateHtml(testData.part2Question3, parsePetQuestion3Fields, buildPetQuestion3Html),
+			task1: buildPetPromptRenderState(testData.task1, parsePetPart1Fields, buildPetPart1Html),
+			q2: buildPetPromptRenderState(testData.part2Question2, parsePetQuestion2Fields, buildPetQuestion2Html),
+			q3: buildPetPromptRenderState(testData.part2Question3, parsePetQuestion3Fields, buildPetQuestion3Html),
 		};
 	}, [testData]);
 
@@ -476,6 +484,28 @@ const PetWritingTestPage = () => {
 		if (!testData) return null;
 
 		if (activePanel === 'part1') {
+			if (normalizedPromptHtml.task1.hasTemplate) {
+				return (
+					<div className="pet-writing-prompt">
+						<div
+							className="pet-writing-rich"
+							dangerouslySetInnerHTML={{
+								__html: normalizedPromptHtml.task1.html,
+							}}
+						/>
+						{testData.task1Image && (
+							<div className="pet-writing-image-frame">
+								<img
+									src={hostPath(testData.task1Image)}
+									alt="Task visual"
+									className="pet-writing-image"
+								/>
+							</div>
+						)}
+					</div>
+				);
+			}
+
 			return (
 				<div className="pet-writing-prompt">
 					<div className="pet-writing-section-label">Part 1</div>
@@ -485,7 +515,7 @@ const PetWritingTestPage = () => {
 					<div
 						className="pet-writing-rich"
 						dangerouslySetInnerHTML={{
-							__html: normalizedPromptHtml.task1,
+							__html: normalizedPromptHtml.task1.html,
 						}}
 					/>
 					{testData.task1Image && (
@@ -502,7 +532,20 @@ const PetWritingTestPage = () => {
 		}
 
 		const isQuestion2 = activePanel === 'q2';
-		const questionHtml = isQuestion2 ? normalizedPromptHtml.q2 : normalizedPromptHtml.q3;
+		const promptState = isQuestion2 ? normalizedPromptHtml.q2 : normalizedPromptHtml.q3;
+
+		if (promptState.hasTemplate) {
+			return (
+				<div className="pet-writing-prompt">
+					<div
+						className="pet-writing-rich"
+						dangerouslySetInnerHTML={{
+							__html: promptState.html,
+						}}
+					/>
+				</div>
+			);
+		}
 
 		return (
 			<div className="pet-writing-prompt">
@@ -516,7 +559,7 @@ const PetWritingTestPage = () => {
 				<div
 					className="pet-writing-rich"
 					dangerouslySetInnerHTML={{
-						__html: questionHtml || '',
+						__html: promptState.html || '',
 					}}
 				/>
 			</div>
