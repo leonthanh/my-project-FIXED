@@ -45,6 +45,8 @@ const formatCambridgeTypeLabel = (testType = '', category = '') => {
   return `${levelLabel} ${skillLabel}`;
 };
 
+const formatCambridgeWritingTitle = (test = {}) => `${formatCambridgeTypeLabel(test.testType, 'writing')} ${test.index || test.id}`;
+
 const buildWritingTestPayload = (test, submissionCount = 0, scope = 'ix-writing') => ({
   id: test.id,
   title: formatIxWritingTitle(test),
@@ -407,6 +409,7 @@ router.get('/tests', requireAuth, requireRole('admin'), async (_req, res) => {
       .filter((test) => String(test.testType || '').toLowerCase() === 'pet-writing')
       .map((test) => ({
         ...buildWritingTestPayload(test, writingCountMap.get(String(test.id)) || 0, 'cambridge-writing'),
+        title: formatCambridgeWritingTitle(test),
         category: 'writing',
         typeLabel: 'PET Writing',
         totalQuestions: 0,

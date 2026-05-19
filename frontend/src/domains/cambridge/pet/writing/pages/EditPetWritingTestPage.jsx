@@ -4,6 +4,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import InlineIcon from "../../../../../shared/components/InlineIcon.jsx";
 import { apiPath, authFetch, hostPath, redirectToLogin } from "../../../../../shared/utils/api";
 import useQuillImageUpload from "../../../../../shared/hooks/useQuillImageUpload";
+import { getOrangeSelectTestPathForTestType } from "../../../config/navigation";
 import PetEmailAnchorPreview from "./PetEmailAnchorPreview.jsx";
 import PetWritingEditorShell from "./PetWritingEditorShell.jsx";
 import {
@@ -94,6 +95,8 @@ const hasRequiredTemplateContent = (part1Fields, question2Fields, question3Field
 			String(question3Fields.storyStarter || "").trim()
 	);
 };
+
+const petWritingTestListPath = getOrangeSelectTestPathForTestType("pet-writing");
 
 const EditPetWritingTestPage = () => {
 	const { id } = useParams();
@@ -338,7 +341,7 @@ const EditPetWritingTestPage = () => {
 			} else if (data.test?.task1Image) {
 				setExistingImage(data.test.task1Image);
 			}
-			setTimeout(() => navigate("/cambridge"), 1200);
+			setTimeout(() => navigate(petWritingTestListPath, { replace: true }), 1200);
 		} catch (err) {
 			console.error(err);
 			updateMessage("error", "Lỗi khi cập nhật đề");
