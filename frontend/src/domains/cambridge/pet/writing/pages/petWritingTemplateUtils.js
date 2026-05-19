@@ -2,6 +2,14 @@ const PART1_TEMPLATE_ID = "pet-email-v1";
 const QUESTION2_TEMPLATE_ID = "pet-article-v1";
 const QUESTION3_TEMPLATE_ID = "pet-story-v1";
 
+const PET_PART1_STAGE_MAX_WIDTH = 700;
+const PET_PART1_STAGE_PADDING_X = Object.freeze({ left: 92, right: 112 });
+const PET_PART1_ANCHOR_SIZE = 18;
+const PET_PART1_ANCHOR_X_BOUNDS = Object.freeze({
+	minX: ((PET_PART1_STAGE_PADDING_X.left + PET_PART1_ANCHOR_SIZE / 2) / PET_PART1_STAGE_MAX_WIDTH) * 100,
+	maxX: ((PET_PART1_STAGE_MAX_WIDTH - PET_PART1_STAGE_PADDING_X.right - PET_PART1_ANCHOR_SIZE / 2) / PET_PART1_STAGE_MAX_WIDTH) * 100,
+});
+
 export const PET_PART1_NOTE_POSITIONS = Object.freeze({
 	note1: Object.freeze({
 		defaultBoxX: 7,
@@ -9,7 +17,7 @@ export const PET_PART1_NOTE_POSITIONS = Object.freeze({
 		maxWidth: 88,
 		textAlign: "right",
 		boxBounds: Object.freeze({ minX: 5, maxX: 18, minY: 18, maxY: 86 }),
-		anchorBounds: Object.freeze({ minX: 22, maxX: 78, minY: 18, maxY: 86 }),
+		anchorBounds: Object.freeze({ minX: PET_PART1_ANCHOR_X_BOUNDS.minX, maxX: PET_PART1_ANCHOR_X_BOUNDS.maxX, minY: 18, maxY: 86 }),
 	}),
 	note2: Object.freeze({
 		defaultBoxX: 93,
@@ -17,7 +25,7 @@ export const PET_PART1_NOTE_POSITIONS = Object.freeze({
 		maxWidth: 100,
 		textAlign: "left",
 		boxBounds: Object.freeze({ minX: 82, maxX: 96, minY: 14, maxY: 44 }),
-		anchorBounds: Object.freeze({ minX: 22, maxX: 78, minY: 18, maxY: 86 }),
+		anchorBounds: Object.freeze({ minX: PET_PART1_ANCHOR_X_BOUNDS.minX, maxX: PET_PART1_ANCHOR_X_BOUNDS.maxX, minY: 18, maxY: 86 }),
 	}),
 	note3: Object.freeze({
 		defaultBoxX: 93,
@@ -25,7 +33,7 @@ export const PET_PART1_NOTE_POSITIONS = Object.freeze({
 		maxWidth: 110,
 		textAlign: "left",
 		boxBounds: Object.freeze({ minX: 82, maxX: 96, minY: 34, maxY: 68 }),
-		anchorBounds: Object.freeze({ minX: 22, maxX: 78, minY: 18, maxY: 86 }),
+		anchorBounds: Object.freeze({ minX: PET_PART1_ANCHOR_X_BOUNDS.minX, maxX: PET_PART1_ANCHOR_X_BOUNDS.maxX, minY: 18, maxY: 86 }),
 	}),
 	note4: Object.freeze({
 		defaultBoxX: 93,
@@ -33,7 +41,7 @@ export const PET_PART1_NOTE_POSITIONS = Object.freeze({
 		maxWidth: 102,
 		textAlign: "left",
 		boxBounds: Object.freeze({ minX: 82, maxX: 96, minY: 56, maxY: 90 }),
-		anchorBounds: Object.freeze({ minX: 22, maxX: 78, minY: 18, maxY: 86 }),
+		anchorBounds: Object.freeze({ minX: PET_PART1_ANCHOR_X_BOUNDS.minX, maxX: PET_PART1_ANCHOR_X_BOUNDS.maxX, minY: 18, maxY: 86 }),
 	}),
 });
 

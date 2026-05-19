@@ -1,7 +1,9 @@
 import React, { useState } from "react";
 import ReactQuill from "react-quill";
+import { useNavigate } from "react-router-dom";
 import InlineIcon from "../../../../../shared/components/InlineIcon.jsx";
 import { apiPath, authFetch, redirectToLogin } from "../../../../../shared/utils/api";
+import { getOrangeSelectTestPathForTestType } from "../../../config/navigation";
 import PetEmailAnchorPreview from "./PetEmailAnchorPreview.jsx";
 import PetWritingEditorShell from "./PetWritingEditorShell.jsx";
 import {
@@ -90,7 +92,10 @@ const hasRequiredTemplateContent = (part1Fields, question2Fields, question3Field
 	);
 };
 
+const petWritingTestListPath = getOrangeSelectTestPathForTestType("pet-writing");
+
 const CreatePetWritingTestPage = () => {
+	const navigate = useNavigate();
 	const [part1Fields, setPart1Fields] = useState({ ...defaultPetPart1Fields });
 	const [question2Fields, setQuestion2Fields] = useState({ ...defaultPetQuestion2Fields });
 	const [question3Fields, setQuestion3Fields] = useState({ ...defaultPetQuestion3Fields });
@@ -190,14 +195,7 @@ const CreatePetWritingTestPage = () => {
 			}
 
 			updateMessage("success", data.message || "Đã tạo đề PET Writing");
-
-			setPart1Fields({ ...defaultPetPart1Fields });
-			setQuestion2Fields({ ...defaultPetQuestion2Fields });
-			setQuestion3Fields({ ...defaultPetQuestion3Fields });
-			setClassCode("");
-			setTeacherName("");
-			setActiveSection("part1");
-			setTimeout(() => window.location.reload(), 2000);
+			setTimeout(() => navigate(petWritingTestListPath, { replace: true }), 1200);
 		} catch (err) {
 			console.error(err);
 			updateMessage("error", "Lỗi khi tạo đề");
