@@ -1,5 +1,6 @@
 import React from 'react';
 import { useTheme } from '../contexts/ThemeContext';
+import './ThemeToggle.css';
 
 const ThemeGlyph = ({ isDarkMode }) => {
   const sharedProps = {
@@ -41,38 +42,23 @@ const ThemeToggle = ({ style = {} }) => {
 
   return (
     <button
+      type="button"
+      className="themeToggle"
       onClick={toggleTheme}
       title={isDarkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
       style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: '8px',
-        padding: '8px 16px',
-        backgroundColor: isDarkMode ? '#ffc107' : '#1a1a2e',
-        color: isDarkMode ? '#1a1a2e' : '#ffc107',
-        border: 'none',
-        borderRadius: '20px',
-        cursor: 'pointer',
-        fontSize: '14px',
-        fontWeight: '600',
-        transition: 'all 0.3s ease',
-        boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
+        '--theme-toggle-bg': isDarkMode ? '#ffc107' : '#1a1a2e',
+        '--theme-toggle-fg': isDarkMode ? '#1a1a2e' : '#ffc107',
         ...style
       }}
     >
       <span
+        className="themeToggle__icon"
         aria-hidden="true"
-        style={{
-          width: '18px',
-          height: '18px',
-          display: 'inline-flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
       >
         <ThemeGlyph isDarkMode={isDarkMode} />
       </span>
-      <span>
+      <span className="themeToggle__label">
         {isDarkMode ? 'Light' : 'Dark'}
       </span>
     </button>

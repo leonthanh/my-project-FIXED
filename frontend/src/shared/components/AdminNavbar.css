@@ -59,6 +59,41 @@
   transition: transform 0.2s ease, background 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
 }
 
+.adminNavbar__link,
+.adminNavbar__teacherName,
+.adminNavbar__logout,
+.adminNavbar__mobileMenuButton {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.adminNavbar__link::after,
+.adminNavbar__teacherName::after,
+.adminNavbar__logout::after,
+.adminNavbar__mobileMenuButton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(110deg, transparent 24%, rgba(255, 255, 255, 0.34) 50%, transparent 76%);
+  transform: translateX(-135%);
+  animation: adminNavbarControlSheen 6.4s ease-in-out infinite;
+  pointer-events: none;
+  will-change: transform;
+}
+
+@keyframes adminNavbarControlSheen {
+  0%,
+  14% {
+    transform: translateX(-135%);
+  }
+
+  30%,
+  100% {
+    transform: translateX(130%);
+  }
+}
+
 .adminNavbar__link--desktop {
   display: inline-flex;
 }
@@ -117,6 +152,16 @@
   transform: translateY(-1px);
   background: rgba(255, 255, 255, 0.16);
   box-shadow: 0 12px 24px rgba(4, 18, 60, 0.18);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .adminNavbar__link::after,
+  .adminNavbar__teacherName::after,
+  .adminNavbar__logout::after,
+  .adminNavbar__mobileMenuButton::after,
+  .adminNavbar__bell::after {
+    animation: none;
+  }
 }
 
 .adminNavbar__link--active {
@@ -1105,6 +1150,26 @@ body.dark-mode .adminNavbar__menuHeader {
   background: rgba(255, 255, 255, 0.1);
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.03);
   transition: transform 0.2s ease, background 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+  isolation: isolate;
+}
+
+.adminNavbar__bell::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(110deg, transparent 24%, rgba(255, 255, 255, 0.34) 50%, transparent 76%);
+  clip-path: inset(0 round 16px);
+  transform: translateX(-135%);
+  animation: adminNavbarControlSheen 6.4s ease-in-out infinite;
+  pointer-events: none;
+  will-change: transform;
+  z-index: 0;
+}
+
+.adminNavbar__bell > * {
+  position: relative;
+  z-index: 1;
 }
 
 .adminNavbar__bell:hover {
