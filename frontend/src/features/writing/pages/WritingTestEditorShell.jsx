@@ -31,6 +31,7 @@ const WritingTestEditorShell = ({
   setClassCode,
   teacherName,
   setTeacherName,
+  isTeacherNameLocked = false,
   task1,
   setTask1,
   task2,
@@ -131,6 +132,7 @@ const WritingTestEditorShell = ({
               type="text"
               value={teacherName}
               onChange={(event) => setTeacherName(event.target.value)}
+              disabled={isTeacherNameLocked}
               placeholder="Nhập tên giáo viên"
             />
           </label>

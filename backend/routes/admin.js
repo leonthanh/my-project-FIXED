@@ -182,9 +182,7 @@ router.get('/users', requireAuth, requireRole('admin'), async (req, res) => {
 // PATCH /api/admin/users/:id — update name / email / phone / role / canManageTests
 router.patch('/users/:id', requireAuth, requireRole('admin'), async (req, res) => {
   try {
-    if (String(req.params.id) === String(req.user.id)) {
-      return res.status(400).json({ message: 'Không thể tự sửa thông tin của chính mình qua trang này.' });
-    }
+    const isSelfEdit = String(req.params.id) === String(req.user.id);
     const user = await User.findByPk(req.params.id);
     if (!user) return res.status(404).json({ message: 'Không tìm thấy người dùng.' });
 
@@ -200,8 +198,10 @@ router.patch('/users/:id', requireAuth, requireRole('admin'), async (req, res) =
       }
       updates.phone = trimmedPhone;
     }
-    if (role !== undefined && ['student', 'teacher', 'admin'].includes(role)) updates.role = role;
-    if (canManageTests !== undefined) updates.canManageTests = !!canManageTests;
+    if (role !== undefined && ['student', 'teacher', 'admin'].includes(role) && !isSelfEdit) {
+      updates.role = role;
+    }
+    if (canManageTests !== undefined && !isSelfEdit) updates.canManageTests = !!canManageTests;
 
     await user.update(updates);
     const updated = user.toJSON();

@@ -29,6 +29,7 @@ const SignMessageEditor = ({
   const imageAlt = question?.imageAlt || '';
   const signText = question?.signText || ''; // Optional: text on the sign
   const signTextValue = typeof signText === 'string' ? signText : '';
+  const questionTextValue = typeof question?.questionText === 'string' ? question.questionText : '';
   const options = question?.options || ['A. ', 'B. ', 'C. '];
   const correctAnswer = question?.correctAnswer || ''; 
 
@@ -143,6 +144,17 @@ const SignMessageEditor = ({
       {/* Options Section */}
       <div style={{ marginBottom: "16px" }}>
         <label style={styles.label}>
+          Câu hỏi hiển thị trên 3 lựa chọn
+        </label>
+        <input
+          type="text"
+          value={questionTextValue}
+          onChange={(e) => onChange("questionText", e.target.value)}
+          placeholder="VD: What is this message asking students to do?"
+          style={styles.input}
+        />
+
+        <label style={styles.label}>
           3 lựa chọn (giải thích ý nghĩa của biển báo)
         </label>
         <p style={{ fontSize: "12px", color: "#6b7280", marginBottom: "12px" }}>
@@ -212,7 +224,7 @@ const SignMessageEditor = ({
       </div>
 
       {/* Preview */}
-      {(imageUrl || options.some(o => o.length > 3)) && (
+      {(imageUrl || questionTextValue || options.some(o => o.length > 3)) && (
         <div style={{
           backgroundColor: "#f0fdf4",
           padding: "16px",
@@ -245,6 +257,18 @@ const SignMessageEditor = ({
             }}>
               {startingNumber}
             </div>
+
+            {questionTextValue && (
+              <div style={{
+                marginBottom: "12px",
+                fontSize: "16px",
+                fontWeight: 600,
+                lineHeight: 1.5,
+                color: "#0f172a",
+              }}>
+                {questionTextValue}
+              </div>
+            )}
 
             {/* Image */}
             {imageUrl && (

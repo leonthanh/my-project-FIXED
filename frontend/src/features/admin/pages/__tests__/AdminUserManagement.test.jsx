@@ -8,13 +8,16 @@ jest.mock('../../../../shared/components/AdminNavbar', () => () => <div data-tes
 jest.mock('../../../../shared/utils/api', () => ({
   apiPath: jest.fn((path) => path),
   authFetch: jest.fn(),
+  getStoredUser: jest.fn(() => ({ id: 1, name: 'Admin', role: 'admin' })),
+  storeAuthSession: jest.fn(),
 }));
 
-const { authFetch } = require('../../../../shared/utils/api');
+const { authFetch, getStoredUser, storeAuthSession } = require('../../../../shared/utils/api');
 
 describe('AdminUserManagement admin tabs', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    getStoredUser.mockReturnValue({ id: 1, name: 'Admin', role: 'admin' });
     jest.spyOn(Storage.prototype, 'getItem').mockImplementation((key) => {
       if (key === 'user') {
         return JSON.stringify({ id: 1, name: 'Admin', role: 'admin' });
@@ -650,5 +653,88 @@ describe('AdminUserManagement admin tabs', () => {
     await waitFor(() => {
       expect(screen.getByText('No duplicate names found for the current filters.')).toBeInTheDocument();
     });
+  });
+
+  test('lets an admin rename their own account and syncs the stored user', async () => {
+    const currentAdmin = {
+      id: 1,
+      name: 'Admin',
+      phone: '0900000001',
+      email: 'admin@example.com',
+      role: 'admin',
+      canManageTests: false,
+      createdAt: '2026-05-18T00:00:00.000Z',
+    };
+
+    authFetch.mockImplementation((url, options = {}) => {
+      if (url.startsWith('admin/users?')) {
+        return Promise.resolve({ ok: true, json: async () => ([currentAdmin]) });
+      }
+
+      if (url === 'admin/users/1' && options.method === 'PATCH') {
+        const payload = JSON.parse(options.body);
+
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            message: 'Updated',
+            user: {
+              ...currentAdmin,
+              ...payload,
+              role: 'admin',
+              canManageTests: false,
+            },
+          }),
+        });
+      }
+
+      return Promise.resolve({ ok: true, json: async () => ({}) });
+    });
+
+    render(
+      <MemoryRouter>
+        <AdminUserManagement />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByText('admin@example.com')).toBeInTheDocument();
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'Edit' })[0]);
+
+    const roleSelect = screen.getAllByRole('combobox')[1];
+    expect(roleSelect).toBeDisabled();
+    expect(screen.getByText('You can update your own name, phone, and email here. Role changes stay disabled.')).toBeInTheDocument();
+
+    fireEvent.change(screen.getAllByDisplayValue('Admin')[0], {
+      target: { value: 'Thanh Admin' },
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => {
+      expect(authFetch).toHaveBeenCalledWith('admin/users/1', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: 'Thanh Admin',
+          phone: '0900000001',
+          email: 'admin@example.com',
+          role: 'admin',
+          canManageTests: false,
+        }),
+      });
+    });
+
+    await waitFor(() => {
+      expect(storeAuthSession).toHaveBeenCalledWith({
+        user: expect.objectContaining({
+          id: 1,
+          name: 'Thanh Admin',
+          role: 'admin',
+        }),
+      });
+    });
+
+    expect(await screen.findByText('Thanh Admin')).toBeInTheDocument();
   });
 });

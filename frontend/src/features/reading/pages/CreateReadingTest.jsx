@@ -6,6 +6,7 @@ import { stripHtml, cleanupPassageHTML, createNewPassage } from "../utils";
 import { normalizeQuestionType, resolveQuestionStartNumber } from "../utils/questionHelpers";
 import { apiPath, authFetch, redirectToLogin } from "../../../shared/utils/api";
 import { isInlineImageDataUrl, uploadCambridgeImageDataUrl } from '../../../shared/utils/cambridgeImageUpload';
+import resolveAuthUserDisplayName, { readStoredAuthUser } from '../../../shared/utils/authUserDisplayName';
 
 /**
  * CreateReadingTest - Trang tạo đề Reading IELTS mới
@@ -15,7 +16,8 @@ import { canManageCategory } from '../../../shared/utils/permissions';
 
 const CreateReadingTest = () => {
   const navigate = useNavigate();
-  const user = JSON.parse(localStorage.getItem('user'));
+  const user = readStoredAuthUser();
+  const currentTeacherName = resolveAuthUserDisplayName(user);
   const allowedToManage = canManageCategory(user, 'reading');
 
   // Load saved data from localStorage
@@ -36,8 +38,12 @@ const CreateReadingTest = () => {
   // Form fields
   const [title, setTitle] = useState(savedData?.title || "");
   const [classCode, setClassCode] = useState(savedData?.classCode || "");
-  const [teacherName, setTeacherName] = useState(savedData?.teacherName || user?.name || "");
+  const [teacherName, setTeacherName] = useState(currentTeacherName);
   const [showResultModal, setShowResultModal] = useState(savedData?.showResultModal ?? true);
+
+  useEffect(() => {
+    setTeacherName(currentTeacherName);
+  }, [currentTeacherName]);
 
   // Review & Submit state
   const [isReviewing, setIsReviewing] = useState(false);
@@ -322,6 +328,7 @@ const CreateReadingTest = () => {
         setClassCode={setClassCode}
         teacherName={teacherName}
         setTeacherName={setTeacherName}
+        isTeacherNameLocked
         showResultModal={showResultModal}
         setShowResultModal={setShowResultModal}
         // Passages state

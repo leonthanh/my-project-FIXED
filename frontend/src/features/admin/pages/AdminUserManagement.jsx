@@ -17,7 +17,7 @@ import {
   FilterField,
   adminCardStyles as acs,
 } from '../components/AdminCardPrimitives';
-import { apiPath, authFetch } from '../../../shared/utils/api';
+import { apiPath, authFetch, getStoredUser, storeAuthSession } from '../../../shared/utils/api';
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 const fmtDate = (d) => {
@@ -32,6 +32,18 @@ const roleBadge = (role) => {
   };
   const m = map[role] || map.student;
   return <span style={{ background: m.bg, color: m.color, borderRadius: 999, padding: '1px 7px', fontSize: 10, fontWeight: 700, lineHeight: 1.2 }}>{m.label}</span>;
+};
+
+const syncStoredEditedUser = (updatedUser) => {
+  const storedUser = getStoredUser();
+
+  if (!storedUser || String(storedUser.id) !== String(updatedUser?.id)) return;
+
+  storeAuthSession({ user: { ...storedUser, ...updatedUser } });
+
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('auth:changed'));
+  }
 };
 
 const TEST_BUCKETS = [
@@ -273,6 +285,7 @@ const PasswordModal = ({ user, onClose, onSaved }) => {
 };
 
 const EditUserModal = ({ user, onClose, onSaved }) => {
+  const isCurrentUser = String(getStoredUser()?.id || '') === String(user.id);
   const [form, setForm] = useState({ name: user.name, phone: user.phone, email: user.email || '', role: user.role, canManageTests: user.canManageTests });
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState('');
@@ -286,9 +299,9 @@ const EditUserModal = ({ user, onClose, onSaved }) => {
         body: JSON.stringify(form),
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error('Could not save user changes.');
+      if (!res.ok) throw new Error(data.message || 'Could not save user changes.');
       onSaved(data.user || { ...user, ...form });
-    } catch (e) { setErr('Could not save user changes.'); }
+    } catch (e) { setErr(e?.message || 'Could not save user changes.'); }
     finally { setSaving(false); }
   };
 
@@ -303,14 +316,15 @@ const EditUserModal = ({ user, onClose, onSaved }) => {
         <label style={s.label}>Email</label>
         <input style={s.input} value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
         <label style={s.label}>Role</label>
-        <select style={s.input} value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })}>
+        <select style={s.input} value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })} disabled={isCurrentUser}>
           <option value="student">Student</option>
           <option value="teacher">Teacher</option>
           <option value="admin">Admin</option>
         </select>
+        {isCurrentUser && <p style={{ margin: '6px 0 0', fontSize: 12, color: '#6b7280' }}>You can update your own name, phone, and email here. Role changes stay disabled.</p>}
         {form.role === 'teacher' && (
           <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, margin: '8px 0' }}>
-            <input type="checkbox" checked={!!form.canManageTests} onChange={(e) => setForm({ ...form, canManageTests: e.target.checked })} />
+            <input type="checkbox" checked={!!form.canManageTests} onChange={(e) => setForm({ ...form, canManageTests: e.target.checked })} disabled={isCurrentUser} />
             Can manage tests (Reading/Listening/Orange)
           </label>
         )}
@@ -492,6 +506,7 @@ const UsersTab = ({ onViewSubmissions }) => {
           onClose={() => setEditModal(null)}
           onSaved={(updated) => {
             setUsers((prev) => prev.map((u) => (u.id === updated.id ? updated : u)));
+            syncStoredEditedUser(updated);
             setEditModal(null);
             showToast('User details updated.');
           }}

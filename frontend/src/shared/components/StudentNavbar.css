@@ -57,6 +57,45 @@
   transition: transform 0.2s ease, background 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
 }
 
+.studentNavbar__link,
+.studentNavbar__moreToggle,
+.studentNavbar__notificationPill,
+.studentNavbar__user,
+.studentNavbar__logout,
+.studentNavbar__mobileMenuButton {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.studentNavbar__link::after,
+.studentNavbar__moreToggle::after,
+.studentNavbar__notificationPill::after,
+.studentNavbar__user::after,
+.studentNavbar__logout::after,
+.studentNavbar__mobileMenuButton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(110deg, transparent 24%, rgba(255, 255, 255, 0.34) 50%, transparent 76%);
+  transform: translateX(-135%);
+  animation: studentNavbarControlSheen 6.4s ease-in-out infinite;
+  pointer-events: none;
+  will-change: transform;
+}
+
+@keyframes studentNavbarControlSheen {
+  0%,
+  14% {
+    transform: translateX(-135%);
+  }
+
+  30%,
+  100% {
+    transform: translateX(130%);
+  }
+}
+
 .studentNavbar__link--desktop {
   display: inline-flex;
 }
@@ -106,6 +145,17 @@
   background: rgba(255, 255, 255, 0.16);
   transform: translateY(-1px);
   box-shadow: 0 12px 24px rgba(4, 18, 60, 0.18);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .studentNavbar__link::after,
+  .studentNavbar__moreToggle::after,
+  .studentNavbar__notificationPill::after,
+  .studentNavbar__user::after,
+  .studentNavbar__logout::after,
+  .studentNavbar__mobileMenuButton::after {
+    animation: none;
+  }
 }
 
 .studentNavbar__notificationPill--active {

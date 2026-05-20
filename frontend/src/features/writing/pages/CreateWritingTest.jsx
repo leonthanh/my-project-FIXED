@@ -1,21 +1,27 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import AdminNavbar from "../../../shared/components/AdminNavbar";
 import InlineIcon from "../../../shared/components/InlineIcon.jsx";
 import { apiPath, authFetch, redirectToLogin } from "../../../shared/utils/api";
+import resolveAuthUserDisplayName, { readStoredAuthUser } from '../../../shared/utils/authUserDisplayName';
 import useQuillImageUpload from "../../../shared/hooks/useQuillImageUpload";
 import WritingTestEditorShell from "./WritingTestEditorShell.jsx";
 
 const CreateWritingTest = () => {
+  const currentTeacherName = resolveAuthUserDisplayName(readStoredAuthUser());
   const [task1, setTask1] = useState("");
   const [task2, setTask2] = useState("");
   const [classCode, setClassCode] = useState("");
-  const [teacherName, setTeacherName] = useState("");
+  const [teacherName, setTeacherName] = useState(currentTeacherName);
   const [image, setImage] = useState(null);
   const [message, setMessage] = useState("");
   const [messageTone, setMessageTone] = useState("success");
   const [requiresLogin, setRequiresLogin] = useState(false);
   const task1Quill = useQuillImageUpload();
   const task2Quill = useQuillImageUpload();
+
+  useEffect(() => {
+    setTeacherName(currentTeacherName);
+  }, [currentTeacherName]);
 
   const saveDraft = () => {
     try {
@@ -104,7 +110,7 @@ const CreateWritingTest = () => {
       setTask1("");
       setTask2("");
       setClassCode("");
-      setTeacherName("");
+      setTeacherName(currentTeacherName);
       setImage(null);
       setTimeout(() => window.location.reload(), 2000);
     } catch (error) {
@@ -148,6 +154,7 @@ const CreateWritingTest = () => {
         setClassCode={setClassCode}
         teacherName={teacherName}
         setTeacherName={setTeacherName}
+        isTeacherNameLocked
         task1={task1}
         setTask1={setTask1}
         task2={task2}

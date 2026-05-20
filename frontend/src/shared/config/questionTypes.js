@@ -320,6 +320,7 @@ export const QUESTION_TYPES = {
       imageUrl: '',
       imageAlt: '',
       signText: '',
+      questionText: '',
       options: ['A. ', 'B. ', 'C. '],
       correctAnswer: '',
     },

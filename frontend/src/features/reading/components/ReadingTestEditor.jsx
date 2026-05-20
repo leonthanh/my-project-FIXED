@@ -19,18 +19,12 @@ import {
   isClozeCommentsColumn,
 } from "../../../shared/utils/clozeTable";
 import {
-  colors,
   compactInputStyle,
   modalStyles,
   modalContentStyles,
   modalHeaderStyles,
   confirmButtonStyle,
   backButtonStyle,
-  columnHeaderStyle,
-  itemStyle,
-  deleteButtonSmallStyle,
-  addButtonStyle,
-  resizeDividerStyle,
   compactCSS,
 } from "../utils/styles";
 import "react-quill/dist/quill.snow.css";
@@ -133,6 +127,7 @@ const ReadingTestEditor = ({
   setClassCode,
   teacherName,
   setTeacherName,
+  isTeacherNameLocked = false,
   showResultModal,
   setShowResultModal,
 
@@ -183,8 +178,6 @@ const ReadingTestEditor = ({
   // Children for custom content
   children,
 }) => {
-  // Header collapse (top title/classCode/teacher inputs bar)
-  const [collapsedHeader, setCollapsedHeader] = useState(false);
   const [collapsedSidebar, setCollapsedSidebar] = useState(false);
   // Passage panel collapse (separate from top header)
   const [collapsedPassage, setCollapsedPassage] = useState(false);
@@ -215,7 +208,7 @@ const ReadingTestEditor = ({
           const impliedCount = Math.max(1, getImpliedQuestionCount(q));
 
           if (q.questionNumber) {
-            const firstPart = String(q.questionNumber).trim().split(/[,\-]/)[0];
+            const firstPart = String(q.questionNumber).trim().split(/[,-]/)[0];
             const start = parseInt(firstPart, 10) || counter;
             starts[key] = start;
             counter = start + (countFromNumber || impliedCount || 1);
@@ -245,6 +238,7 @@ const ReadingTestEditor = ({
         setClassCode={setClassCode}
         teacherName={teacherName}
         setTeacherName={setTeacherName}
+        isTeacherNameLocked={isTeacherNameLocked}
         showResultModal={showResultModal}
         setShowResultModal={setShowResultModal}
         lastSaved={lastSaved}
@@ -2183,7 +2177,7 @@ const ReadingTestEditor = ({
                                                   ? parseInt(
                                                       String(q.questionNumber)
                                                         .trim()
-                                                        .split(/[,\-]/)[0],
+                                                        .split(/[,-]/)[0],
                                                       10
                                                     )
                                                   : startNumber || 1;

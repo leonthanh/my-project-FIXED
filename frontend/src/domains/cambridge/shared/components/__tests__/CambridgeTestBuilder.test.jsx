@@ -82,6 +82,33 @@ afterEach(() => {
   jest.restoreAllMocks();
 });
 
+test('create mode fills teacher name from the current user and locks the input', () => {
+  jest.spyOn(Storage.prototype, 'getItem').mockImplementation((key) => {
+    if (key === 'user') {
+      return JSON.stringify({ name: 'Thanh Le', role: 'admin' });
+    }
+    if (key === 'cambridgeTestDraft-ket-listening') {
+      return JSON.stringify({
+        title: 'Draft title',
+        classCode: 'Draft class',
+        teacherName: 'Other Teacher',
+      });
+    }
+    return null;
+  });
+
+  render(
+    <MemoryRouter>
+      <CambridgeTestBuilder testType="ket-listening" />
+    </MemoryRouter>
+  );
+
+  const teacherInput = screen.getByDisplayValue('Thanh Le');
+
+  expect(teacherInput).toBeDisabled();
+  expect(teacherInput).not.toHaveValue('Other Teacher');
+});
+
 test('preserves part instruction when updating questions or adding a question', async () => {
   render(
     <MemoryRouter>

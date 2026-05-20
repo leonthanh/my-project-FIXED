@@ -1,8 +1,9 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import ReactQuill from "react-quill";
 import { useNavigate } from "react-router-dom";
 import InlineIcon from "../../../../../shared/components/InlineIcon.jsx";
 import { apiPath, authFetch, redirectToLogin } from "../../../../../shared/utils/api";
+import resolveAuthUserDisplayName, { readStoredAuthUser } from '../../../../../shared/utils/authUserDisplayName';
 import { getOrangeSelectTestPathForTestType } from "../../../config/navigation";
 import PetEmailAnchorPreview from "./PetEmailAnchorPreview.jsx";
 import PetWritingEditorShell from "./PetWritingEditorShell.jsx";
@@ -96,15 +97,20 @@ const petWritingTestListPath = getOrangeSelectTestPathForTestType("pet-writing")
 
 const CreatePetWritingTestPage = () => {
 	const navigate = useNavigate();
+	const currentTeacherName = resolveAuthUserDisplayName(readStoredAuthUser());
 	const [part1Fields, setPart1Fields] = useState({ ...defaultPetPart1Fields });
 	const [question2Fields, setQuestion2Fields] = useState({ ...defaultPetQuestion2Fields });
 	const [question3Fields, setQuestion3Fields] = useState({ ...defaultPetQuestion3Fields });
 	const [classCode, setClassCode] = useState("");
-	const [teacherName, setTeacherName] = useState("");
+	const [teacherName, setTeacherName] = useState(currentTeacherName);
 	const [message, setMessage] = useState("");
 	const [messageTone, setMessageTone] = useState("success");
 	const [requiresLogin, setRequiresLogin] = useState(false);
 	const [activeSection, setActiveSection] = useState("part1");
+
+	useEffect(() => {
+		setTeacherName(currentTeacherName);
+	}, [currentTeacherName]);
 
 	const task1Html = buildPetPart1Html(part1Fields);
 	const part2Question2Html = buildPetQuestion2Html(question2Fields);
@@ -507,6 +513,7 @@ const CreatePetWritingTestPage = () => {
 			onClassCodeChange={setClassCode}
 			teacherName={teacherName}
 			onTeacherNameChange={setTeacherName}
+			isTeacherNameLocked
 			message={message}
 			messageTone={messageTone}
 			sections={sections}

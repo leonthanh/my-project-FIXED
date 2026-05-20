@@ -17,6 +17,7 @@ const PetWritingEditorShell = ({
 	onClassCodeChange,
 	teacherName,
 	onTeacherNameChange,
+	isTeacherNameLocked = false,
 	message,
 	messageTone,
 	sections,
@@ -94,6 +95,7 @@ const PetWritingEditorShell = ({
 									placeholder="Tên giáo viên ra đề"
 									value={teacherName}
 									onChange={(event) => onTeacherNameChange(event.target.value)}
+									disabled={isTeacherNameLocked}
 								/>
 							</label>
 						</div>

@@ -7,6 +7,7 @@ import {
   normalizeListeningParts,
   prepareListeningPartsForSubmit,
 } from "../utils/clozeTableSchema";
+import resolveAuthUserDisplayName, { readStoredAuthUser } from '../../../shared/utils/authUserDisplayName';
 
 /**
  * CreateListeningTestNew - Trang tạo đề Listening IELTS với 4-column editor
@@ -15,13 +16,14 @@ import { canManageCategory } from '../../../shared/utils/permissions';
 
 const CreateListeningTestNew = () => {
   const navigate = useNavigate();
-  const user = JSON.parse(localStorage.getItem('user'));
+  const user = readStoredAuthUser();
+  const currentTeacherName = resolveAuthUserDisplayName(user);
   const allowedToManage = canManageCategory(user, 'listening');
 
   // Form fields
   const [title, setTitle] = useState("");
   const [classCode, setClassCode] = useState("");
-  const [teacherName, setTeacherName] = useState("");
+  const [teacherName, setTeacherName] = useState(currentTeacherName);
   const [showResultModal, setShowResultModal] = useState(true);
 
   // Global audio
@@ -62,13 +64,16 @@ const CreateListeningTestNew = () => {
 
   // Load draft from localStorage
   useEffect(() => {
+    setTeacherName(currentTeacherName);
+  }, [currentTeacherName]);
+
+  useEffect(() => {
     try {
       const savedDraft = localStorage.getItem("listeningTestDraftNew");
       if (savedDraft) {
         const data = JSON.parse(savedDraft);
         if (data.title) setTitle(data.title);
         if (data.classCode) setClassCode(data.classCode);
-        if (data.teacherName) setTeacherName(data.teacherName);
         if (data.showResultModal !== undefined) setShowResultModal(data.showResultModal);
         if (data.parts && data.parts.length > 0) setParts(normalizeListeningParts(data.parts));
         console.log("Loaded draft from localStorage");
@@ -260,6 +265,7 @@ const CreateListeningTestNew = () => {
         setClassCode={setClassCode}
         teacherName={teacherName}
         setTeacherName={setTeacherName}
+        isTeacherNameLocked
         showResultModal={showResultModal}
         setShowResultModal={setShowResultModal}
         // Parts state

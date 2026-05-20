@@ -28,26 +28,11 @@ import {
   primaryButtonStyle,
   secondaryButtonStyle,
   dangerButtonStyle,
-  columnHeaderStyle,
-  itemStyle,
-  resizeDividerStyle,
   audioUploadStyle,
   audioUploadActiveStyle,
-  partTypeBadgeStyle,
   compactCSS,
 } from "../utils/styles";
 import { calculateTotalQuestions, computeQuestionStarts } from "../hooks/useListeningHandlers";
-
-/**
- * Đếm số câu hỏi thực tế của một section
- * Tính đến các loại câu hỏi đặc biệt: matching, form-completion, multi-select, notes-completion
- */
-const stripHtml = (html) => {
-  if (!html) return '';
-  const temp = document.createElement('div');
-  temp.innerHTML = html;
-  return temp.textContent || temp.innerText || '';
-};
 
 const countSectionQuestions = (section) => {
   return countListeningSectionQuestions(section);
@@ -183,6 +168,7 @@ const ListeningTestEditor = ({
   setClassCode,
   teacherName,
   setTeacherName,
+  isTeacherNameLocked = false,
   showResultModal,
   setShowResultModal,
 
@@ -239,7 +225,7 @@ const ListeningTestEditor = ({
   } = useColumnLayout();
 
   // Header collapse state: auto-collapses on scroll or toggled manually
-  const [collapsedHeader, setCollapsedHeader] = useState(false);
+  const [, setCollapsedHeader] = useState(false);
   const [manualHeaderOverride, setManualHeaderOverride] = useState(false);
 
   // Panel collapse states (like Reading editor)
@@ -284,11 +270,6 @@ const ListeningTestEditor = ({
       if (editorEl) editorEl.removeEventListener('scroll', onScrollEl);
     };
   }, [manualHeaderOverride, className]);
-
-  const toggleHeader = () => {
-    setCollapsedHeader((p) => !p);
-    setManualHeaderOverride(true);
-  }; 
 
   // Audio input refs
   const globalAudioRef = useRef(null);
@@ -444,6 +425,7 @@ const ListeningTestEditor = ({
         setClassCode={setClassCode}
         teacherName={teacherName}
         setTeacherName={setTeacherName}
+        isTeacherNameLocked={isTeacherNameLocked}
         showResultModal={showResultModal}
         setShowResultModal={setShowResultModal}
         lastSaved={lastSaved}
