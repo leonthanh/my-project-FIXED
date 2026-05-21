@@ -62,10 +62,27 @@
 .studentNavbar__notificationPill,
 .studentNavbar__user,
 .studentNavbar__logout,
-.studentNavbar__mobileMenuButton {
+.studentNavbar__mobileMenuButton,
+.studentNavbar__mobileTab,
+.studentNavbar__mobileQuickLink,
+.studentNavbar__mobileQuickAction,
+.studentNavbar__mobileLogout {
   position: relative;
   overflow: hidden;
   isolation: isolate;
+}
+
+.studentNavbar__link > *,
+.studentNavbar__moreToggle > *,
+.studentNavbar__notificationPill > *,
+.studentNavbar__user > *,
+.studentNavbar__logout > *,
+.studentNavbar__mobileMenuButton > *,
+.studentNavbar__mobileQuickLink > *,
+.studentNavbar__mobileQuickAction > *,
+.studentNavbar__mobileLogout > * {
+  position: relative;
+  z-index: 1;
 }
 
 .studentNavbar__link::after,
@@ -73,26 +90,137 @@
 .studentNavbar__notificationPill::after,
 .studentNavbar__user::after,
 .studentNavbar__logout::after,
-.studentNavbar__mobileMenuButton::after {
+.studentNavbar__mobileMenuButton::after,
+.studentNavbar__mobileTab::after,
+.studentNavbar__mobileQuickLink::after,
+.studentNavbar__mobileQuickAction::after,
+.studentNavbar__mobileLogout::after {
   content: "";
   position: absolute;
-  inset: 0;
-  background: linear-gradient(110deg, transparent 24%, rgba(255, 255, 255, 0.34) 50%, transparent 76%);
-  transform: translateX(-135%);
-  animation: studentNavbarControlSheen 6.4s ease-in-out infinite;
+  top: -42%;
+  bottom: -42%;
+  left: -18%;
+  width: 38%;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.22) 20%,
+    rgba(255, 255, 255, 0.96) 50%,
+    rgba(255, 255, 255, 0.24) 80%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  box-shadow: 0 0 18px rgba(255, 255, 255, 0.26);
+  transform: translate3d(-260%, 0, 0) skewX(-22deg);
+  opacity: 0;
+  animation: studentNavbarControlSheen 4.2s linear infinite;
   pointer-events: none;
-  will-change: transform;
+  will-change: transform, opacity;
+  backface-visibility: hidden;
+  z-index: 0;
+}
+
+.studentNavbar__mobileTab::after,
+.studentNavbar__mobileQuickLink::after,
+.studentNavbar__mobileQuickAction::after,
+.studentNavbar__mobileLogout::after {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(147, 197, 253, 0.18) 22%,
+    rgba(255, 255, 255, 0.9) 50%,
+    rgba(147, 197, 253, 0.2) 78%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  box-shadow: 0 0 18px rgba(147, 197, 253, 0.24);
+}
+
+.studentNavbar__link:hover::after,
+.studentNavbar__link:focus::after,
+.studentNavbar__link:focus-visible::after,
+.studentNavbar__link:active::after,
+.studentNavbar__moreToggle:hover::after,
+.studentNavbar__moreToggle:focus::after,
+.studentNavbar__moreToggle:focus-visible::after,
+.studentNavbar__moreToggle:active::after,
+.studentNavbar__notificationPill:hover::after,
+.studentNavbar__notificationPill:focus::after,
+.studentNavbar__notificationPill:focus-visible::after,
+.studentNavbar__notificationPill:active::after,
+.studentNavbar__user:hover::after,
+.studentNavbar__user:focus::after,
+.studentNavbar__user:focus-visible::after,
+.studentNavbar__user:active::after,
+.studentNavbar__logout:hover::after,
+.studentNavbar__logout:focus::after,
+.studentNavbar__logout:focus-visible::after,
+.studentNavbar__logout:active::after,
+.studentNavbar__mobileMenuButton:hover::after,
+.studentNavbar__mobileMenuButton:focus::after,
+.studentNavbar__mobileMenuButton:focus-visible::after,
+.studentNavbar__mobileMenuButton:active::after,
+.studentNavbar__mobileTab:hover::after,
+.studentNavbar__mobileTab:focus::after,
+.studentNavbar__mobileTab:focus-visible::after,
+.studentNavbar__mobileTab:active::after,
+.studentNavbar__mobileQuickLink:hover::after,
+.studentNavbar__mobileQuickLink:focus::after,
+.studentNavbar__mobileQuickLink:focus-visible::after,
+.studentNavbar__mobileQuickLink:active::after,
+.studentNavbar__mobileQuickAction:hover::after,
+.studentNavbar__mobileQuickAction:focus::after,
+.studentNavbar__mobileQuickAction:focus-visible::after,
+.studentNavbar__mobileQuickAction:active::after,
+.studentNavbar__mobileLogout:hover::after,
+.studentNavbar__mobileLogout:focus::after,
+.studentNavbar__mobileLogout:focus-visible::after {
+  animation: studentNavbarControlSheenHover 1.05s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+  box-shadow: 0 0 24px rgba(255, 255, 255, 0.34);
 }
 
 @keyframes studentNavbarControlSheen {
   0%,
-  14% {
-    transform: translateX(-135%);
+  10% {
+    transform: translate3d(-260%, 0, 0) skewX(-22deg);
+    opacity: 0;
   }
 
-  30%,
+  18%,
+  32% {
+    opacity: 1;
+  }
+
+  38% {
+    transform: translate3d(360%, 0, 0) skewX(-22deg);
+    opacity: 0;
+  }
+
   100% {
-    transform: translateX(130%);
+    transform: translate3d(360%, 0, 0) skewX(-22deg);
+    opacity: 0;
+  }
+}
+
+@keyframes studentNavbarControlSheenHover {
+  0%,
+  6% {
+    transform: translate3d(-260%, 0, 0) skewX(-22deg);
+    opacity: 0;
+  }
+
+  14%,
+  34% {
+    opacity: 1;
+  }
+
+  44% {
+    transform: translate3d(360%, 0, 0) skewX(-22deg);
+    opacity: 0;
+  }
+
+  100% {
+    transform: translate3d(360%, 0, 0) skewX(-22deg);
+    opacity: 0;
   }
 }
 
@@ -145,17 +273,6 @@
   background: rgba(255, 255, 255, 0.16);
   transform: translateY(-1px);
   box-shadow: 0 12px 24px rgba(4, 18, 60, 0.18);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .studentNavbar__link::after,
-  .studentNavbar__moreToggle::after,
-  .studentNavbar__notificationPill::after,
-  .studentNavbar__user::after,
-  .studentNavbar__logout::after,
-  .studentNavbar__mobileMenuButton::after {
-    animation: none;
-  }
 }
 
 .studentNavbar__notificationPill--active {
