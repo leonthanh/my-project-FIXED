@@ -8,7 +8,7 @@ import InlineIcon from "../../InlineIcon.jsx";
  * LongTextMCEditor - KET Part 3: Long Text + Multiple Choice
  * 
  * Format mẫu Cambridge:
- * - 1 đoạn văn dài (conversation/article/story)
+ * - 1 đoạn văn dài
  * - 5 câu hỏi multiple choice (A/B/C) về nội dung
  * 
  * VD:
@@ -33,7 +33,6 @@ const LongTextMCEditor = ({
   const passageTitle = safeQuestion?.passageTitle || '';
   const passage = safeQuestion?.passage || '';
   const passageValue = typeof passage === 'string' ? passage : '';
-  const passageType = safeQuestion?.passageType || 'conversation'; // conversation, article, email, story
   const isPet = String(testType || '').toLowerCase().includes('pet');
   const defaultOptionCount = isPet ? 4 : 3;
   const buildDefaultOptions = (count) => Array.from({ length: count }, (_, idx) => `${String.fromCharCode(65 + idx)}. `);
@@ -149,37 +148,6 @@ const LongTextMCEditor = ({
         </div>
       </div>
 
-      {/* Passage Type Selector */}
-      <div style={{ marginBottom: "16px" }}>
-        <label style={styles.label}>Loại văn bản</label>
-        <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-          {[
-            { value: 'conversation', label: 'Hội thoại', color: '#8b5cf6' },
-            { value: 'article', label: 'Bài báo', color: '#3b82f6' },
-            { value: 'email', label: 'Email', color: '#06b6d4' },
-            { value: 'story', label: 'Truyện', color: '#f59e0b' },
-          ].map(type => (
-            <button
-              key={type.value}
-              type="button"
-              onClick={() => onChange('passageType', type.value)}
-              style={{
-                padding: "6px 14px",
-                borderRadius: "16px",
-                border: passageType === type.value ? "none" : "1px solid #d1d5db",
-                backgroundColor: passageType === type.value ? type.color : "white",
-                color: passageType === type.value ? "white" : "#374151",
-                cursor: "pointer",
-                fontSize: "12px",
-                fontWeight: passageType === type.value ? 600 : 400,
-              }}
-            >
-              {type.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
       {/* Passage Title */}
       <div style={{ marginBottom: "12px" }}>
         <label style={styles.label}>Tiêu đề đoạn văn (tùy chọn)</label>
@@ -187,7 +155,7 @@ const LongTextMCEditor = ({
           type="text"
           value={passageTitle}
           onChange={(e) => onChange("passageTitle", e.target.value)}
-          placeholder="VD: A conversation between Sarah and Tom"
+          placeholder="VD: Jack Calder"
           className="long-text-mc-question-input"
           style={styles.input}
         />
@@ -207,11 +175,7 @@ const LongTextMCEditor = ({
             key={`long-text-mc-${partIndex}-${startingNumber}`}
             value={passageValue}
             onChange={(content) => onChange("passage", content || '')}
-            placeholder={
-              passageType === 'conversation' 
-                ? "VD: Sarah: Hi Tom! What are you doing this weekend?\nTom: I'm not sure yet. Maybe visiting my grandmother..."
-                : "Nhập nội dung đoạn văn ở đây..."
-            }
+            placeholder="Nhập nội dung đoạn văn ở đây..."
             modules={modules}
             formats={formats}
             style={{
@@ -221,7 +185,7 @@ const LongTextMCEditor = ({
           />
         </div>
         <p style={{ fontSize: "11px", color: "#6b7280", marginTop: "4px" }}>
-          Với hội thoại: Dùng format "Tên: Lời nói". Có thể định dạng text, thêm link, list...
+          Có thể định dạng text, thêm link, list, hình ảnh. Nếu muốn trình bày hội thoại, nhập theo dạng "Tên: lời nói".
         </p>
       </div>
 

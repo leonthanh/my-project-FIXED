@@ -368,7 +368,6 @@ export const QUESTION_TYPES = {
     defaultData: {
       passageTitle: '',
       passage: '',
-      passageType: 'conversation',
       questions: [
         { questionText: '', options: ['A. ', 'B. ', 'C. '], correctAnswer: '' },
         { questionText: '', options: ['A. ', 'B. ', 'C. '], correctAnswer: '' },
