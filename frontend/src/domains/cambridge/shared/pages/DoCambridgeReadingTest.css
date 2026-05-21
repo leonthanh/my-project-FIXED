@@ -779,12 +779,24 @@
   gap: 24px;
 }
 
+.cambridge-sign-split--resizable {
+  position: relative;
+  align-items: stretch;
+  gap: 0;
+}
+
 .cambridge-sign-intro {
   flex: 0 0 36%;
   min-width: 260px;
   display: flex;
   flex-direction: column;
   gap: 16px;
+}
+
+.cambridge-sign-split--resizable .cambridge-sign-intro {
+  min-width: 220px;
+  padding-right: 18px;
+  box-sizing: border-box;
 }
 
 .cambridge-sign-card {
@@ -795,8 +807,61 @@
 }
 
 .cambridge-sign-questions {
+  position: relative;
   flex: 1 1 auto;
   min-width: 0;
+}
+
+.cambridge-sign-split--resizable .cambridge-sign-questions {
+  padding-left: 18px;
+  box-sizing: border-box;
+}
+
+.cambridge-sign-questions::before {
+  content: "";
+  position: absolute;
+  top: 6px;
+  bottom: 6px;
+  left: -12px;
+  width: 1px;
+  border-radius: 999px;
+  background: linear-gradient(
+    180deg,
+    rgba(148, 163, 184, 0) 0%,
+    rgba(148, 163, 184, 0.48) 18%,
+    rgba(148, 163, 184, 0.85) 50%,
+    rgba(148, 163, 184, 0.48) 82%,
+    rgba(148, 163, 184, 0) 100%
+  );
+  pointer-events: none;
+}
+
+.cambridge-sign-split--resizable .cambridge-sign-questions::before {
+  display: none;
+}
+
+.cambridge-sign-divider {
+  top: 6px;
+  bottom: 6px;
+}
+
+.cambridge-sign-divider::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 1px;
+  transform: translateX(-50%);
+  border-radius: 999px;
+  background: linear-gradient(
+    180deg,
+    rgba(148, 163, 184, 0) 0%,
+    rgba(148, 163, 184, 0.48) 18%,
+    rgba(148, 163, 184, 0.85) 50%,
+    rgba(148, 163, 184, 0.48) 82%,
+    rgba(148, 163, 184, 0) 100%
+  );
 }
 
 .cambridge-sign-question-card {
@@ -815,6 +880,23 @@
 
   .cambridge-sign-question-card {
     width: 100%;
+  }
+
+  .cambridge-sign-questions::before {
+    top: -12px;
+    right: 0;
+    bottom: auto;
+    left: 0;
+    width: auto;
+    height: 1px;
+    background: linear-gradient(
+      90deg,
+      rgba(148, 163, 184, 0) 0%,
+      rgba(148, 163, 184, 0.48) 18%,
+      rgba(148, 163, 184, 0.85) 50%,
+      rgba(148, 163, 184, 0.48) 82%,
+      rgba(148, 163, 184, 0) 100%
+    );
   }
 
   .cambridge-passage-column {
