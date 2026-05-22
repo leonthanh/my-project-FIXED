@@ -54,11 +54,28 @@ describe('ShortMessageEditor', () => {
 
     expect(screen.queryByPlaceholderText('VD: your English friend Sam / your teacher')).not.toBeInTheDocument();
     expect(screen.queryByText(/Write a message to/i)).not.toBeInTheDocument();
+    expect(screen.getByPlaceholderText('VD: https://media2.giphy.com/media/.../giphy.gif')).toBeInTheDocument();
 
     expect(screen.getByText('Situation:')).toBeInTheDocument();
     expect(screen.getByText('Write your email:')).toBeInTheDocument();
     expect(screen.getByText('25 words or more')).toBeInTheDocument();
     expect(screen.getByText('Words:')).toBeInTheDocument();
+  });
+
+  test('renders media preview when a short-message media URL is provided', () => {
+    render(
+      <Harness
+        initialQuestion={buildQuestion({
+          mediaUrl: 'https://media2.giphy.com/media/v1.Y2lkPTc5MGI3NjExZmFmOGVnNnBicDljZ2k5ZjE1NHFia3hsa3Y5engxczk0b3d3NjFmZiZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/rOai2K8OdFph0BYFiu/giphy.gif',
+        })}
+      />
+    );
+
+    expect(screen.getByAltText('Short message media preview')).toHaveAttribute(
+      'src',
+      'https://media2.giphy.com/media/v1.Y2lkPTc5MGI3NjExZmFmOGVnNnBicDljZ2k5ZjE1NHFia3hsa3Y5engxczk0b3d3NjFmZiZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/rOai2K8OdFph0BYFiu/giphy.gif'
+    );
+    expect(screen.getByAltText('Short message prompt media')).toBeInTheDocument();
   });
 
   test('normalizes empty quill paragraphs from situation values before rendering', () => {

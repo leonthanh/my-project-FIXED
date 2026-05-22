@@ -2,6 +2,7 @@ import React from "react";
 import ReactQuill from "react-quill";
 import "react-quill/dist/quill.snow.css";
 import useQuillImageUpload from "../../../hooks/useQuillImageUpload";
+import { hostPath } from "../../../utils/api";
 import InlineIcon from "../../InlineIcon.jsx";
 
 const normalizeSituationHtml = (source = '') => {
@@ -47,6 +48,12 @@ const normalizeSituationHtml = (source = '') => {
   }
 };
 
+const resolveShortMessageMediaUrl = (source = '') => {
+  const value = String(source || '').trim();
+  if (!value) return '';
+  return /^https?:\/\//i.test(value) ? value : hostPath(value);
+};
+
 /**
  * ShortMessageEditor - Editor cho KET/PET Part 7 Writing Task
  * Giáo viên tạo đề yêu cầu học sinh viết tin nhắn ngắn/email
@@ -71,6 +78,8 @@ const ShortMessageEditor = ({
   const situation = question.situation || '';
   const situationValue = typeof situation === 'string' ? situation : '';
   const normalizedSituationValue = normalizeSituationHtml(situationValue);
+  const mediaUrl = typeof question.mediaUrl === 'string' ? question.mediaUrl.trim() : '';
+  const resolvedMediaUrl = resolveShortMessageMediaUrl(mediaUrl);
   const messageType = typeof question.messageType === 'string' && question.messageType.trim()
     ? question.messageType.trim()
     : 'email';
@@ -182,6 +191,41 @@ const ShortMessageEditor = ({
         </p>
       </div>
 
+      <div style={{ marginBottom: "16px" }}>
+        <label style={styles.label}>GIF/ảnh minh hoạ (URL)</label>
+        <input
+          type="url"
+          value={mediaUrl}
+          onChange={(e) => onChange('mediaUrl', e.target.value.trim())}
+          placeholder="VD: https://media2.giphy.com/media/.../giphy.gif"
+          style={styles.input}
+        />
+        <p style={{ fontSize: "11px", color: "#6b7280", marginTop: "4px" }}>
+          Dán link GIF/ảnh từ Giphy, Tenor, hoặc ảnh online để hiện ở UI học sinh.
+        </p>
+        {resolvedMediaUrl && (
+          <div style={{
+            marginTop: "10px",
+            border: "1px solid #dbeafe",
+            borderRadius: "8px",
+            overflow: "hidden",
+            backgroundColor: "#eff6ff",
+          }}>
+            <img
+              src={resolvedMediaUrl}
+              alt="Short message media preview"
+              style={{
+                display: "block",
+                width: "100%",
+                maxHeight: "260px",
+                objectFit: "contain",
+                backgroundColor: "#ffffff",
+              }}
+            />
+          </div>
+        )}
+      </div>
+
       {/* Sample Answer (for teacher reference) */}
       <div style={{ marginBottom: "16px" }}>
         <label style={styles.label}>
@@ -210,7 +254,7 @@ const ShortMessageEditor = ({
       </div>
 
       {/* Preview */}
-      {normalizedSituationValue && (
+      {(normalizedSituationValue || resolvedMediaUrl) && (
         <div style={{
           backgroundColor: "#f0f9ff",
           padding: "16px",
@@ -265,6 +309,23 @@ const ShortMessageEditor = ({
                     }}
                     dangerouslySetInnerHTML={{ __html: normalizedSituationValue || '<em style="color: #9ca3af;">(Tình huống sẽ hiển thị ở đây)</em>' }}
                   />
+                  {resolvedMediaUrl && (
+                    <div style={{ marginTop: "14px" }}>
+                      <img
+                        src={resolvedMediaUrl}
+                        alt="Short message prompt media"
+                        style={{
+                          display: "block",
+                          width: "100%",
+                          maxHeight: "280px",
+                          objectFit: "contain",
+                          borderRadius: "8px",
+                          border: "1px solid #dbeafe",
+                          backgroundColor: "#ffffff",
+                        }}
+                      />
+                    </div>
+                  )}
                 </div>
               </div>
 

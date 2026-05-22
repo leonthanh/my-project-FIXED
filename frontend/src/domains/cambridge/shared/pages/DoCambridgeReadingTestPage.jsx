@@ -2384,11 +2384,15 @@ const DoCambridgeReadingTest = ({
                   {(() => {
                     const q = currentQuestion.question || {};
                     const situation = q.situation || '';
+                    const mediaUrl = typeof q.mediaUrl === 'string' ? q.mediaUrl.trim() : '';
+                    const resolvedMediaUrl = mediaUrl
+                      ? (/^https?:\/\//i.test(mediaUrl) ? mediaUrl : hostPath(mediaUrl))
+                      : '';
                     
                     return (
                       <>
                         {/* Situation */}
-                        {situation && (
+                        {(situation || resolvedMediaUrl) && (
                           <div style={{ marginBottom: '24px' }}>
                             <h4 style={{ 
                               margin: '0 0 12px', 
@@ -2407,6 +2411,11 @@ const DoCambridgeReadingTest = ({
                               dangerouslySetInnerHTML={{ __html: sanitizeQuillHtml(situation) }}
                               className="situation-content"
                             />
+                            {resolvedMediaUrl && (
+                              <div className="situation-content">
+                                <img src={resolvedMediaUrl} alt="Short message prompt media" />
+                              </div>
+                            )}
                           </div>
                         )}
                       </>
