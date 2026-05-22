@@ -236,6 +236,19 @@
   margin-right: 0;
 }
 
+.adminNavbar__bellWrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+}
+
+.adminNavbar__bellWrap--shake {
+  animation: adminNavbarShake 0.5s infinite;
+  transform-origin: center;
+}
+
 .adminNavbar__dropdownToggle {
   cursor: pointer;
   margin-right: 0;
@@ -1286,20 +1299,22 @@ body.dark-mode .adminNavbar__menuHeader {
   box-shadow: 0 14px 26px rgba(4, 18, 60, 0.24);
 }
 
-.adminNavbar__bell--shake {
-  animation: adminNavbarShake 0.5s infinite;
-}
-
 .adminNavbar__badge {
   position: absolute;
-  top: -6px;
-  right: -10px;
-  background: red;
-  color: #fff;
-  border-radius: 50%;
-  padding: 2px 6px;
-  font-size: 12px;
-  font-weight: 700;
+  top: -8px;
+  right: -6px;
+  color: #ff304f;
+  font-size: 15px;
+  font-weight: 800;
+  line-height: 1;
+  text-shadow: 0 1px 2px rgba(14, 39, 111, 0.34);
+  z-index: 3;
+  pointer-events: none;
+}
+
+body.dark-mode .adminNavbar__badge {
+  color: #ff627d;
+  text-shadow: 0 1px 2px rgba(2, 6, 23, 0.56);
 }
 
 .adminNavbar__notifyMenu {

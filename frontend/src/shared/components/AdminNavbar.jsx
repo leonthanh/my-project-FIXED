@@ -1631,15 +1631,19 @@ const AdminNavbar = () => {
         )}
 
         <div
-          className={
-            `adminNavbar__bell${pendingNotificationCount > 0 ? " adminNavbar__bell--shake" : ""}${notificationDropdownVisible ? " adminNavbar__bell--active" : ""}`
-          }
-          onClick={() =>
-            setNotificationDropdownVisible(!notificationDropdownVisible)
-          }
-          title="Pending submissions"
+          className={`adminNavbar__bellWrap${pendingNotificationCount > 0 ? " adminNavbar__bellWrap--shake" : ""}`}
         >
-          <NavIcon name="notifications" />
+          <div
+            className={
+              `adminNavbar__bell${notificationDropdownVisible ? " adminNavbar__bell--active" : ""}`
+            }
+            onClick={() =>
+              setNotificationDropdownVisible(!notificationDropdownVisible)
+            }
+            title="Pending submissions"
+          >
+            <NavIcon name="notifications" />
+          </div>
           {pendingNotificationCount > 0 && (
             <span className="adminNavbar__badge">
               {pendingNotificationCount}
