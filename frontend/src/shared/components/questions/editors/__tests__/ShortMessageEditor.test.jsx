@@ -54,7 +54,7 @@ describe('ShortMessageEditor', () => {
 
     expect(screen.queryByPlaceholderText('VD: your English friend Sam / your teacher')).not.toBeInTheDocument();
     expect(screen.queryByText(/Write a message to/i)).not.toBeInTheDocument();
-    expect(screen.getByPlaceholderText('VD: https://media2.giphy.com/media/.../giphy.gif')).toBeInTheDocument();
+    expect(screen.getAllByPlaceholderText(/VD: https:\/\/media2\.giphy\.com\/media\/\.\.\.\/giphy\.gif/)).toHaveLength(3);
 
     expect(screen.getByText('Situation:')).toBeInTheDocument();
     expect(screen.getByText('Write your email:')).toBeInTheDocument();
@@ -62,20 +62,28 @@ describe('ShortMessageEditor', () => {
     expect(screen.getByText('Words:')).toBeInTheDocument();
   });
 
-  test('renders media preview when a short-message media URL is provided', () => {
+  test('renders media previews when short-message media URLs are provided', () => {
     render(
       <Harness
         initialQuestion={buildQuestion({
-          mediaUrl: 'https://media2.giphy.com/media/v1.Y2lkPTc5MGI3NjExZmFmOGVnNnBicDljZ2k5ZjE1NHFia3hsa3Y5engxczk0b3d3NjFmZiZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/rOai2K8OdFph0BYFiu/giphy.gif',
+          mediaUrls: [
+            'https://media2.giphy.com/media/v1.Y2lkPTc5MGI3NjExZmFmOGVnNnBicDljZ2k5ZjE1NHFia3hsa3Y5engxczk0b3d3NjFmZiZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/rOai2K8OdFph0BYFiu/giphy.gif',
+            'https://media2.giphy.com/media/v1.Y2lkPTc5MGI3NjExZmFmOGVnNnBicDljZ2k5ZjE1NHFia3hsa3Y5engxczk0b3d3NjFmZiZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/rOai2K8OdFph0BYFiu/giphy.gif?variant=2',
+            'https://media2.giphy.com/media/v1.Y2lkPTc5MGI3NjExZmFmOGVnNnBicDljZ2k5ZjE1NHFia3hsa3Y5engxczk0b3d3NjFmZiZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/rOai2K8OdFph0BYFiu/giphy.gif?variant=3',
+          ],
         })}
       />
     );
 
-    expect(screen.getByAltText('Short message media preview')).toHaveAttribute(
+    expect(screen.getByAltText('Short message media preview 1')).toHaveAttribute(
       'src',
       'https://media2.giphy.com/media/v1.Y2lkPTc5MGI3NjExZmFmOGVnNnBicDljZ2k5ZjE1NHFia3hsa3Y5engxczk0b3d3NjFmZiZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/rOai2K8OdFph0BYFiu/giphy.gif'
     );
-    expect(screen.getByAltText('Short message prompt media')).toBeInTheDocument();
+    expect(screen.getByAltText('Short message media preview 2')).toBeInTheDocument();
+    expect(screen.getByAltText('Short message media preview 3')).toBeInTheDocument();
+    expect(screen.getByAltText('Short message prompt media 1')).toBeInTheDocument();
+    expect(screen.getByAltText('Short message prompt media 2')).toBeInTheDocument();
+    expect(screen.getByAltText('Short message prompt media 3')).toBeInTheDocument();
   });
 
   test('normalizes empty quill paragraphs from situation values before rendering', () => {

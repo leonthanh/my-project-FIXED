@@ -54,6 +54,23 @@ const resolveShortMessageMediaUrl = (source = '') => {
   return /^https?:\/\//i.test(value) ? value : hostPath(value);
 };
 
+const getShortMessageMediaUrls = (question = {}) => {
+  const nextUrls = Array.isArray(question.mediaUrls)
+    ? question.mediaUrls.slice(0, 3).map((value) => String(value || '').trim())
+    : [];
+
+  while (nextUrls.length < 3) {
+    nextUrls.push('');
+  }
+
+  const legacyMediaUrl = typeof question.mediaUrl === 'string' ? question.mediaUrl.trim() : '';
+  if (!nextUrls.some(Boolean) && legacyMediaUrl) {
+    nextUrls[0] = legacyMediaUrl;
+  }
+
+  return nextUrls;
+};
+
 /**
  * ShortMessageEditor - Editor cho KET/PET Part 7 Writing Task
  * Giáo viên tạo đề yêu cầu học sinh viết tin nhắn ngắn/email
@@ -78,8 +95,11 @@ const ShortMessageEditor = ({
   const situation = question.situation || '';
   const situationValue = typeof situation === 'string' ? situation : '';
   const normalizedSituationValue = normalizeSituationHtml(situationValue);
-  const mediaUrl = typeof question.mediaUrl === 'string' ? question.mediaUrl.trim() : '';
-  const resolvedMediaUrl = resolveShortMessageMediaUrl(mediaUrl);
+  const mediaUrls = React.useMemo(() => getShortMessageMediaUrls(question), [question]);
+  const resolvedMediaUrls = React.useMemo(
+    () => mediaUrls.map((value) => resolveShortMessageMediaUrl(value)).filter(Boolean),
+    [mediaUrls]
+  );
   const messageType = typeof question.messageType === 'string' && question.messageType.trim()
     ? question.messageType.trim()
     : 'email';
@@ -107,6 +127,14 @@ const ShortMessageEditor = ({
     if (normalizedContent !== situationValue) {
       onChange('situation', normalizedContent);
     }
+  };
+
+  const handleMediaUrlChange = (index, nextValue) => {
+    const value = String(nextValue || '').trim();
+    const nextMediaUrls = [...mediaUrls];
+    nextMediaUrls[index] = value;
+    onChange('mediaUrls', nextMediaUrls);
+    onChange('mediaUrl', nextMediaUrls[0] || '');
   };
 
   return (
@@ -192,36 +220,50 @@ const ShortMessageEditor = ({
       </div>
 
       <div style={{ marginBottom: "16px" }}>
-        <label style={styles.label}>GIF/ảnh minh hoạ (URL)</label>
-        <input
-          type="url"
-          value={mediaUrl}
-          onChange={(e) => onChange('mediaUrl', e.target.value.trim())}
-          placeholder="VD: https://media2.giphy.com/media/.../giphy.gif"
-          style={styles.input}
-        />
+        <label style={styles.label}>GIF/ảnh minh hoạ (3 URL)</label>
+        {mediaUrls.map((mediaUrl, index) => (
+          <input
+            key={`short-message-media-url-${index}`}
+            type="url"
+            value={mediaUrl}
+            onChange={(e) => handleMediaUrlChange(index, e.target.value)}
+            placeholder={`VD: https://media2.giphy.com/media/.../giphy.gif (${index + 1})`}
+            style={styles.input}
+          />
+        ))}
         <p style={{ fontSize: "11px", color: "#6b7280", marginTop: "4px" }}>
-          Dán link GIF/ảnh từ Giphy, Tenor, hoặc ảnh online để hiện ở UI học sinh.
+          Dán tối đa 3 link GIF/ảnh từ Giphy, Tenor, hoặc ảnh online để hiện ở UI học sinh.
         </p>
-        {resolvedMediaUrl && (
+        {resolvedMediaUrls.length > 0 && (
           <div style={{
             marginTop: "10px",
-            border: "1px solid #dbeafe",
-            borderRadius: "8px",
-            overflow: "hidden",
-            backgroundColor: "#eff6ff",
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+            gap: "12px",
           }}>
-            <img
-              src={resolvedMediaUrl}
-              alt="Short message media preview"
-              style={{
-                display: "block",
-                width: "100%",
-                maxHeight: "260px",
-                objectFit: "contain",
-                backgroundColor: "#ffffff",
-              }}
-            />
+            {resolvedMediaUrls.map((resolvedMediaUrl, index) => (
+              <div
+                key={`${resolvedMediaUrl}-${index}`}
+                style={{
+                  border: "1px solid #dbeafe",
+                  borderRadius: "8px",
+                  overflow: "hidden",
+                  backgroundColor: "#eff6ff",
+                }}
+              >
+                <img
+                  src={resolvedMediaUrl}
+                  alt={`Short message media preview ${index + 1}`}
+                  style={{
+                    display: "block",
+                    width: "100%",
+                    maxHeight: "260px",
+                    objectFit: "contain",
+                    backgroundColor: "#ffffff",
+                  }}
+                />
+              </div>
+            ))}
           </div>
         )}
       </div>
@@ -254,7 +296,7 @@ const ShortMessageEditor = ({
       </div>
 
       {/* Preview */}
-      {(normalizedSituationValue || resolvedMediaUrl) && (
+      {(normalizedSituationValue || resolvedMediaUrls.length > 0) && (
         <div style={{
           backgroundColor: "#f0f9ff",
           padding: "16px",
@@ -309,21 +351,29 @@ const ShortMessageEditor = ({
                     }}
                     dangerouslySetInnerHTML={{ __html: normalizedSituationValue || '<em style="color: #9ca3af;">(Tình huống sẽ hiển thị ở đây)</em>' }}
                   />
-                  {resolvedMediaUrl && (
-                    <div style={{ marginTop: "14px" }}>
-                      <img
-                        src={resolvedMediaUrl}
-                        alt="Short message prompt media"
-                        style={{
-                          display: "block",
-                          width: "100%",
-                          maxHeight: "280px",
-                          objectFit: "contain",
-                          borderRadius: "8px",
-                          border: "1px solid #dbeafe",
-                          backgroundColor: "#ffffff",
-                        }}
-                      />
+                  {resolvedMediaUrls.length > 0 && (
+                    <div style={{
+                      marginTop: "14px",
+                      display: "grid",
+                      gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+                      gap: "12px",
+                    }}>
+                      {resolvedMediaUrls.map((resolvedMediaUrl, index) => (
+                        <img
+                          key={`${resolvedMediaUrl}-${index}`}
+                          src={resolvedMediaUrl}
+                          alt={`Short message prompt media ${index + 1}`}
+                          style={{
+                            display: "block",
+                            width: "100%",
+                            maxHeight: "280px",
+                            objectFit: "contain",
+                            borderRadius: "8px",
+                            border: "1px solid #dbeafe",
+                            backgroundColor: "#ffffff",
+                          }}
+                        />
+                      ))}
                     </div>
                   )}
                 </div>
