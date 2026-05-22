@@ -131,6 +131,9 @@ const DoCambridgeReadingTest = ({
   // Divider resize state
   const [leftWidth, setLeftWidth] = useState(50); // Percentage
   const [isResizing, setIsResizing] = useState(false);
+  const [isSignSplitCompact, setIsSignSplitCompact] = useState(() => (
+    typeof window !== 'undefined' ? window.innerWidth <= 1024 : false
+  ));
   const containerRef = useRef(null);
 
   /* eslint-disable-next-line no-unused-vars */
@@ -1500,6 +1503,31 @@ const DoCambridgeReadingTest = ({
     }
   }, [isResizing, handleMouseMove, handleMouseUp]);
 
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return undefined;
+
+    const mediaQuery = window.matchMedia('(max-width: 1024px)');
+    const syncCompactState = () => {
+      setIsSignSplitCompact(mediaQuery.matches);
+    };
+
+    syncCompactState();
+
+    if (typeof mediaQuery.addEventListener === 'function') {
+      mediaQuery.addEventListener('change', syncCompactState);
+      return () => mediaQuery.removeEventListener('change', syncCompactState);
+    }
+
+    mediaQuery.addListener(syncCompactState);
+    return () => mediaQuery.removeListener(syncCompactState);
+  }, []);
+
+  useEffect(() => {
+    if (isSignSplitCompact && isResizing) {
+      setIsResizing(false);
+    }
+  }, [isResizing, isSignSplitCompact]);
+
   // Loading state
   if (loading) {
     return (
@@ -1661,8 +1689,18 @@ const DoCambridgeReadingTest = ({
               />
             )}
 
-            <div className="cambridge-sign-split">
-              <div className="cambridge-sign-intro">
+            <div
+              ref={containerRef}
+              className={`cambridge-sign-split ${isSignSplitCompact ? '' : 'cambridge-sign-split--resizable'}`}
+            >
+              <div
+                className="cambridge-sign-intro"
+                style={isSignSplitCompact ? undefined : {
+                  width: `${leftWidth}%`,
+                  flex: `0 0 ${leftWidth}%`,
+                  maxWidth: `${leftWidth}%`
+                }}
+              >
                 {(currentQuestion.question.imageUrl || currentQuestion.question.signText) && (
                   <div className="cambridge-sign-card">
                     {currentQuestion.question.imageUrl && (
@@ -1696,7 +1734,26 @@ const DoCambridgeReadingTest = ({
                 )}
               </div>
 
-              <div className="cambridge-sign-questions">
+              {!isSignSplitCompact && (
+                <div
+                  className="cambridge-divider cambridge-sign-divider"
+                  onMouseDown={handleMouseDown}
+                  style={{ left: `${leftWidth}%`, cursor: 'col-resize' }}
+                >
+                  <div className="cambridge-resize-handle">
+                    <i className="fa fa-arrows-h"></i>
+                  </div>
+                </div>
+              )}
+
+              <div
+                className="cambridge-sign-questions"
+                style={isSignSplitCompact ? undefined : {
+                  width: `${100 - leftWidth}%`,
+                  flex: `0 0 ${100 - leftWidth}%`,
+                  maxWidth: `${100 - leftWidth}%`
+                }}
+              >
                 <div
                   className={`cambridge-question-wrapper ${answers[currentQuestion.key] ? 'answered' : ''} cambridge-sign-question-card p-3 sm:p-4`}
                   style={{ position: 'relative' }}
