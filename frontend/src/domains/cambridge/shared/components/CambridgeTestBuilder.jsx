@@ -27,6 +27,7 @@ import AudioPreviewBlock from "../../../../shared/components/AudioPreviewBlock";
 import LineIcon from "../../../../shared/components/LineIcon.jsx";
 import "./CambridgeTestBuilder.css";
 import { computeQuestionStarts, getQuestionCountForSection } from "../utils/questionNumbering";
+import { normalizeQuillPromptHtml } from "../utils/normalizeQuillPromptHtml";
 import { normalizeAudioReference, normalizeListeningPartsAudio } from "../../../../shared/utils/audioUrls";
 import resolveAuthUserDisplayName from "../../../../shared/utils/authUserDisplayName";
 
@@ -172,6 +173,53 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
     return changed ? nextParts : partsData;
   }, []);
 
+  const normalizeShortMessageParts = useCallback((partsData) => {
+    if (!Array.isArray(partsData)) return partsData;
+
+    let changed = false;
+    const nextParts = partsData.map((part) => {
+      const originalSections = Array.isArray(part?.sections) ? part.sections : [];
+      const nextSections = originalSections.map((section) => {
+        const sectionType = section?.questionType || section?.questions?.[0]?.questionType;
+        if (sectionType !== 'short-message') return section;
+
+        const originalQuestions = Array.isArray(section?.questions) ? section.questions : [];
+        let sectionChanged = false;
+        const nextQuestions = originalQuestions.map((question) => {
+          const rawSituation = typeof question?.situation === 'string' ? question.situation : '';
+          const normalizedSituation = normalizeQuillPromptHtml(rawSituation);
+
+          if (rawSituation === normalizedSituation) {
+            return question;
+          }
+
+          sectionChanged = true;
+          changed = true;
+          return {
+            ...question,
+            situation: normalizedSituation,
+          };
+        });
+
+        if (!sectionChanged) return section;
+        return {
+          ...section,
+          questions: nextQuestions,
+        };
+      });
+
+      const partChanged = nextSections.some((section, index) => section !== originalSections[index]);
+      if (!partChanged) return part;
+
+      return {
+        ...part,
+        sections: nextSections,
+      };
+    });
+
+    return changed ? nextParts : partsData;
+  }, []);
+
   // Evaluate permission early but do not return yet (hooks must run first)
   const category = testType.includes('listening') ? 'listening' : 'reading';
   const allowedToManage = canManageCategory(user, category);
@@ -223,7 +271,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
   // Initial parts from savedData or default
   const getInitialParts = () => {
     if (savedData?.parts && Array.isArray(savedData.parts)) {
-      return normalizePeopleMatchingIds(normalizeListeningPartsAudio(savedData.parts));
+      return normalizePeopleMatchingIds(normalizeListeningPartsAudio(normalizeShortMessageParts(savedData.parts)));
     }
     return [
       {
@@ -269,10 +317,10 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
       }
 
       if (Array.isArray(partsData)) {
-        setParts(normalizePeopleMatchingIds(normalizeListeningPartsAudio(partsData)));
+        setParts(normalizePeopleMatchingIds(normalizeListeningPartsAudio(normalizeShortMessageParts(partsData))));
       }
     }
-  }, [defaultQuestionType, initialData, normalizePeopleMatchingIds]);
+  }, [defaultQuestionType, initialData, normalizePeopleMatchingIds, normalizeShortMessageParts]);
 
   // State - Load from savedData if available
   const [parts, setParts] = useState(getInitialParts());
@@ -722,7 +770,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
     const storageKey = `cambridgeTestDraft-${testType}`;
     try {
       setIsSaving(true);
-      const normalizedParts = normalizeListeningPartsAudio(getPartsSnapshotWithCurrentInstruction());
+      const normalizedParts = normalizeListeningPartsAudio(normalizeShortMessageParts(getPartsSnapshotWithCurrentInstruction()));
       const dataToSave = {
         title,
         classCode,
@@ -756,7 +804,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
     } finally {
       setIsSaving(false);
     }
-  }, [title, classCode, teacherName, mainAudioUrl, testType, sanitizeDraftData, getPartsSnapshotWithCurrentInstruction]);
+  }, [title, classCode, teacherName, mainAudioUrl, testType, sanitizeDraftData, getPartsSnapshotWithCurrentInstruction, normalizeShortMessageParts]);
 
   const handleManualDraftSave = useCallback(() => {
     saveToLocalStorage();
@@ -805,7 +853,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
 
     const partsSnapshot = getPartsSnapshotWithCurrentInstruction();
 
-    const cleanedParts = partsSnapshot.map((part) => ({
+    const cleanedParts = normalizeShortMessageParts(partsSnapshot.map((part) => ({
       ...part,
       sections: (part.sections || []).map((section) => ({
         ...section,
@@ -816,7 +864,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
           return q;
         }),
       })),
-    }));
+    })));
     const normalizedCleanedParts = normalizeListeningPartsAudio(cleanedParts);
 
     try {

@@ -4,6 +4,49 @@ import "react-quill/dist/quill.snow.css";
 import useQuillImageUpload from "../../../hooks/useQuillImageUpload";
 import InlineIcon from "../../InlineIcon.jsx";
 
+const normalizeSituationHtml = (source = '') => {
+  const html = String(source || '').trim();
+  if (!html) return '';
+
+  const fallbackCleanup = (value) => {
+    let cleaned = String(value || '');
+    cleaned = cleaned.replace(/<p>(?:\s|&nbsp;|<br\s*\/?>)*<\/p>/gi, '');
+    cleaned = cleaned.replace(/<p><\/p>/gi, '');
+    cleaned = cleaned.replace(/<p>\s*<\/p>/gi, '');
+    cleaned = cleaned.replace(/(<br\s*\/?>\s*){2,}/gi, '<br>');
+    return cleaned.trim();
+  };
+
+  if (typeof DOMParser === 'undefined') {
+    return fallbackCleanup(html);
+  }
+
+  try {
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+
+    doc.querySelectorAll('img').forEach((img) => {
+      const src = String(img.getAttribute('src') || '').trim();
+      if (!src) {
+        img.remove();
+      }
+    });
+
+    doc.querySelectorAll('p').forEach((paragraph) => {
+      const text = String(paragraph.textContent || '').replace(/\u00a0/g, ' ').trim();
+      const hasMedia = paragraph.querySelector('img, video, audio');
+      const brCount = paragraph.querySelectorAll('br').length;
+
+      if (!text && !hasMedia && (brCount > 0 || paragraph.children.length === 0)) {
+        paragraph.remove();
+      }
+    });
+
+    return fallbackCleanup(doc.body.innerHTML);
+  } catch {
+    return fallbackCleanup(html);
+  }
+};
+
 /**
  * ShortMessageEditor - Editor cho KET/PET Part 7 Writing Task
  * Giáo viên tạo đề yêu cầu học sinh viết tin nhắn ngắn/email
@@ -13,8 +56,7 @@ import InlineIcon from "../../InlineIcon.jsx";
  * 
  * Format:
  * - Situation: Mô tả tình huống
- * - Recipient: Người nhận (friend Sam, teacher, etc.)
- * - 3 bullet points: Những điều cần viết
+ * - Preview student view: Situation bên trái, vùng viết bên phải
  * 
  * @param {Object} props
  * @param {Object} props.question - Question data
@@ -28,7 +70,10 @@ const ShortMessageEditor = ({
 }) => {
   const situation = question.situation || '';
   const situationValue = typeof situation === 'string' ? situation : '';
-  const recipient = question.recipient || '';
+  const normalizedSituationValue = normalizeSituationHtml(situationValue);
+  const messageType = typeof question.messageType === 'string' && question.messageType.trim()
+    ? question.messageType.trim()
+    : 'email';
   const wordLimit = question.wordLimit || { min: 25, max: 35 };
   const sampleAnswer = question.sampleAnswer || '';
 
@@ -47,6 +92,13 @@ const ShortMessageEditor = ({
     "link",
     "image",
   ];
+
+  const handleSituationChange = (content) => {
+    const normalizedContent = normalizeSituationHtml(content || '');
+    if (normalizedContent !== situationValue) {
+      onChange('situation', normalizedContent);
+    }
+  };
 
   return (
     <div>
@@ -103,18 +155,6 @@ const ShortMessageEditor = ({
         </div>
       </div>
 
-      {/* Recipient */}
-      <div style={{ marginBottom: "16px" }}>
-        <label style={styles.label}>Người nhận</label>
-        <input
-          type="text"
-          value={recipient}
-          onChange={(e) => onChange('recipient', e.target.value)}
-          placeholder="VD: your English friend Sam / your teacher"
-          style={styles.input}
-        />
-      </div>
-
       {/* Situation */}
       <div style={{ marginBottom: "16px" }} className="short-message-editor">
         <label style={styles.label}>Tình huống (Situation) *</label>
@@ -126,8 +166,8 @@ const ShortMessageEditor = ({
           <ReactQuill
             ref={quillRef}
             theme="snow"
-            value={situationValue}
-            onChange={(content) => onChange('situation', content || '')}
+            value={normalizedSituationValue}
+            onChange={handleSituationChange}
             placeholder="VD: You want to go to the cinema with your English friend Sam."
             modules={modules}
             formats={formats}
@@ -170,7 +210,7 @@ const ShortMessageEditor = ({
       </div>
 
       {/* Preview */}
-      {situation && (
+      {normalizedSituationValue && (
         <div style={{
           backgroundColor: "#f0f9ff",
           padding: "16px",
@@ -184,60 +224,101 @@ const ShortMessageEditor = ({
           
           <div style={{
             backgroundColor: "white",
-            padding: "20px",
             borderRadius: "8px",
             border: "1px solid #e2e8f0",
+            overflow: "hidden",
           }}>
             {/* Part Header */}
             <div style={{
               backgroundColor: "#0e276f",
               color: "white",
               padding: "8px 12px",
-              borderRadius: "4px",
-              marginBottom: "16px",
               fontSize: "14px",
               fontWeight: 600,
             }}>
               Part {partIndex + 1}
             </div>
 
-            {/* Task Description */}
-            <div 
-              style={{ margin: "0 0 12px 0", fontSize: "14px", color: "#1e293b" }}
-              dangerouslySetInnerHTML={{ __html: situation || '<em style="color: #9ca3af;">(Tình huống sẽ hiển thị ở đây)</em>' }}
-            />
-
-            {/* Write instruction */}
-            <p style={{ margin: "0 0 12px 0", fontSize: "14px", color: "#1e293b" }}>
-              Write a message to {recipient || '...'}:
-            </p>
-
-            {/* Word limit instruction */}
-            <p style={{
-              margin: 0,
-              fontSize: "13px",
-              color: "#64748b",
-              fontWeight: 600,
-            }}>
-              Write {wordLimit.min}-{wordLimit.max} words.
-            </p>
-
-            {/* Writing Area Preview */}
             <div style={{
-              marginTop: "16px",
-              padding: "12px",
-              backgroundColor: "#f8fafc",
-              borderRadius: "6px",
-              border: "1px dashed #cbd5e1",
+              display: "flex",
+              flexWrap: "wrap",
             }}>
-              <p style={{ 
-                margin: 0, 
-                fontSize: "12px", 
-                color: "#94a3b8",
-                fontStyle: "italic",
+              <div style={{
+                flex: "1 1 320px",
+                padding: "20px",
+                minWidth: 0,
               }}>
-                [Vùng viết của học sinh sẽ hiện ở đây]
-              </p>
+                <div style={{ marginBottom: "24px" }}>
+                  <h4 style={{
+                    margin: "0 0 12px",
+                    fontSize: "16px",
+                    fontWeight: 700,
+                    color: "#1f2937",
+                  }}>
+                    Situation:
+                  </h4>
+                  <div
+                    style={{
+                      fontSize: "14px",
+                      lineHeight: "1.6",
+                      color: "#374151",
+                    }}
+                    dangerouslySetInnerHTML={{ __html: normalizedSituationValue || '<em style="color: #9ca3af;">(Tình huống sẽ hiển thị ở đây)</em>' }}
+                  />
+                </div>
+              </div>
+
+              <div style={{
+                flex: "1 1 280px",
+                minWidth: 0,
+                padding: "20px",
+                borderLeft: "1px solid #e2e8f0",
+                backgroundColor: "#f8fbff",
+              }}>
+                <div style={{ marginBottom: "16px" }}>
+                  <h4 style={{
+                    margin: "0 0 8px",
+                    fontSize: "16px",
+                    fontWeight: 600,
+                    color: "#0c4a6e",
+                  }}>
+                    Write your {messageType}:
+                  </h4>
+                  <p style={{
+                    margin: 0,
+                    fontSize: "13px",
+                    color: "#6b7280",
+                  }}>
+                    {wordLimit.min} words or more
+                  </p>
+                </div>
+
+                <div style={{
+                  minHeight: "220px",
+                  padding: "16px",
+                  border: "2px solid #0284c7",
+                  borderRadius: "6px",
+                  backgroundColor: "white",
+                  color: "#94a3b8",
+                  fontSize: "15px",
+                  lineHeight: "1.6",
+                  fontStyle: "italic",
+                }}>
+                  Write your {messageType} here ({wordLimit.min}-{wordLimit.max} words)...
+                </div>
+
+                <div style={{
+                  marginTop: "12px",
+                  display: "flex",
+                  justifyContent: "flex-end",
+                  fontSize: "13px",
+                  color: "#64748b",
+                }}>
+                  <div>
+                    Words: <strong style={{ color: "#dc2626" }}>0</strong>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -277,6 +358,22 @@ const quillStyles = `
   .short-message-editor .ql-editor {
     min-height: 80px;
     background-color: #ffffff;
+  }
+  .short-message-editor .ql-editor p {
+    margin: 0 0 6px;
+    line-height: 1.6;
+  }
+  .short-message-editor .ql-editor p:last-child {
+    margin-bottom: 0;
+  }
+  .short-message-editor .ql-editor p:empty,
+  .short-message-editor .ql-editor p:has(> br:only-child) {
+    display: none;
+  }
+  .short-message-editor .ql-editor ul,
+  .short-message-editor .ql-editor ol {
+    margin: 0 0 6px;
+    padding-left: 1.5em;
   }
   .short-message-editor .ql-editor.ql-blank::before {
     font-style: italic;
