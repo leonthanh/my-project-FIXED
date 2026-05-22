@@ -467,7 +467,8 @@ export const QUESTION_TYPES = {
     editor: 'ShortMessageEditor',
     defaultData: {
       situation: '', // Mô tả tình huống
-      recipient: '', // Người nhận (friend, teacher, etc.)
+      mediaUrl: '', // Legacy single GIF/ảnh URL
+      mediaUrls: ['', '', ''], // Tối đa 3 GIF/ảnh URL
       messageType: 'email', // email, note, postcard
       bulletPoints: ['', '', ''], // 3 bullet points
       wordLimit: { min: 25, max: 35 },

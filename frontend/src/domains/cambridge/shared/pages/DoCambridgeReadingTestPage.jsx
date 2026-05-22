@@ -2384,11 +2384,20 @@ const DoCambridgeReadingTest = ({
                   {(() => {
                     const q = currentQuestion.question || {};
                     const situation = q.situation || '';
+                    const mediaUrls = Array.isArray(q.mediaUrls)
+                      ? q.mediaUrls.map((value) => String(value || '').trim()).filter(Boolean).slice(0, 3)
+                      : [];
+                    if (!mediaUrls.length && typeof q.mediaUrl === 'string' && q.mediaUrl.trim()) {
+                      mediaUrls.push(q.mediaUrl.trim());
+                    }
+                    const resolvedMediaUrls = mediaUrls
+                      .map((mediaUrl) => (/^https?:\/\//i.test(mediaUrl) ? mediaUrl : hostPath(mediaUrl)))
+                      .filter(Boolean);
                     
                     return (
                       <>
                         {/* Situation */}
-                        {situation && (
+                        {(situation || resolvedMediaUrls.length > 0) && (
                           <div style={{ marginBottom: '24px' }}>
                             <h4 style={{ 
                               margin: '0 0 12px', 
@@ -2407,6 +2416,20 @@ const DoCambridgeReadingTest = ({
                               dangerouslySetInnerHTML={{ __html: sanitizeQuillHtml(situation) }}
                               className="situation-content"
                             />
+                            {resolvedMediaUrls.length > 0 && (
+                              <div style={{
+                                display: 'grid',
+                                gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+                                gap: '12px',
+                                marginTop: '14px',
+                              }}>
+                                {resolvedMediaUrls.map((resolvedMediaUrl, index) => (
+                                  <div key={`${resolvedMediaUrl}-${index}`} className="situation-content">
+                                    <img src={resolvedMediaUrl} alt={`Short message prompt media ${index + 1}`} />
+                                  </div>
+                                ))}
+                              </div>
+                            )}
                           </div>
                         )}
                       </>
