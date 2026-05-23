@@ -3,6 +3,7 @@ const { processTestParts } = require('../../../utils/clozParser');
 const {
   buildVisibleCambridgeWhere,
   countTotalQuestionsFromParts,
+  normalizeCambridgeStatus,
   safeParseParts,
   stripDataUrls,
 } = require('../shared/readingTestUtils');
@@ -89,6 +90,7 @@ const createReadingTest = async ({ body = {}, forcedTestType = null } = {}) => {
     teacherName,
     testType,
     parts,
+    status,
     totalQuestions,
   } = body;
 
@@ -106,7 +108,7 @@ const createReadingTest = async ({ body = {}, forcedTestType = null } = {}) => {
     testType: effectiveTestType,
     parts: processedParts,
     totalQuestions: totalQuestions || 0,
-    status: 'draft',
+    status: normalizeCambridgeStatus(status, 'published'),
   });
 };
 
@@ -115,7 +117,6 @@ const updateReadingTest = async ({ id, body = {}, forcedTestType = null } = {}) 
   const {
     title,
     classCode,
-    teacherName,
     testType,
     parts,
     totalQuestions,
@@ -127,7 +128,7 @@ const updateReadingTest = async ({ id, body = {}, forcedTestType = null } = {}) 
   await test.update({
     title: title || test.title,
     classCode: classCode || test.classCode,
-    teacherName: teacherName || test.teacherName,
+    teacherName: test.teacherName,
     testType: effectiveTestType || test.testType,
     parts: processedParts,
     totalQuestions: totalQuestions ?? test.totalQuestions,

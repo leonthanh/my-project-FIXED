@@ -184,9 +184,9 @@ test('Grouped questionNumber uses base numeric and maps blanks to q_<base>_<i>',
 
   const answers = { q_11_0: 'energy', q_11_1: 'insulation', q_11_2: 'aircraft' };
   const details = getDetailedScoring(sample, answers);
-  // find the three blanks (they should have the same displayed questionNumber)
-  const blanks = details.filter(d => String(d.questionNumber).includes('11'));
+  const blanks = details.filter(d => [11, 12, 13].includes(d.questionNumber));
   expect(blanks.length).toBe(3);
+  expect(blanks.map((blank) => blank.questionNumber)).toEqual([11, 12, 13]);
   expect(blanks[0].student).toBe('energy');
   expect(blanks[0].studentLabel).toBe('energy');
   expect(blanks[0].isCorrect).toBe(true);

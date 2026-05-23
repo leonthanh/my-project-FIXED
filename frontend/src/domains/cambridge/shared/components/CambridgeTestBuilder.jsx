@@ -1561,7 +1561,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
                 type="text"
                 value={teacherName}
                 onChange={(e) => setTeacherName(e.target.value)}
-                disabled={isCreateMode}
+                disabled
                 placeholder="VD: Cô Lan"
                 style={{
                   width: '100%',
@@ -1569,9 +1569,9 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
                   border: '1px solid #d1d5db',
                   borderRadius: '6px',
                   fontSize: '13px',
-                  background: isCreateMode ? '#f8fafc' : '#ffffff',
-                  color: isCreateMode ? '#334155' : '#111827',
-                  cursor: isCreateMode ? 'not-allowed' : 'text',
+                  background: '#f8fafc',
+                  color: '#334155',
+                  cursor: 'not-allowed',
                   boxSizing: 'border-box',
                 }}
               />

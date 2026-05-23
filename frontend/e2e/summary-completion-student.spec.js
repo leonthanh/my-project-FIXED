@@ -1,11 +1,20 @@
 const { test, expect } = require('@playwright/test');
 
+const studentUser = {
+  id: 7201,
+  name: 'E2E Student',
+  role: 'student',
+  phone: '0912345678',
+};
+
 test.describe('Summary Completion - Student view combobox', () => {
   test.beforeEach(async ({ page }) => {
-    // Ensure a student user is present in localStorage
-    await page.addInitScript(() => {
-      localStorage.setItem('user', JSON.stringify({ name: 'E2E Student', role: 'student', phone: '0912345678' }));
-    });
+    await page.addInitScript((user) => {
+      const serialized = JSON.stringify(user);
+      localStorage.setItem('user', serialized);
+      sessionStorage.setItem('user', serialized);
+      sessionStorage.setItem('accessToken', 'e2e.student.token');
+    }, studentUser);
 
     page.on('console', msg => console.log('PAGE LOG', msg.type(), msg.text()));
     page.on('pageerror', err => console.log('PAGE ERROR', err && err.message));
@@ -48,8 +57,7 @@ test.describe('Summary Completion - Student view combobox', () => {
 
     // Mark the test as started in localStorage so we land directly in the active test UI
     await page.addInitScript(() => {
-      localStorage.setItem('reading_test_1_started', 'true');
-      localStorage.setItem('reading_test_1_timeRemaining', String(45 * 60));
+      localStorage.setItem('reading_test_1_started:7201', 'true');
     });
 
     // Open the active test page directly

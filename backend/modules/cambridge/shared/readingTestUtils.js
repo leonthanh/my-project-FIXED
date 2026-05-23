@@ -14,6 +14,18 @@ const buildVisibleCambridgeWhere = (source, baseWhere = {}) =>
     ? baseWhere
     : { ...baseWhere, status: 'published' };
 
+const VALID_CAMBRIDGE_STATUSES = new Set(['draft', 'published', 'archived']);
+
+const normalizeCambridgeStatus = (value, fallback = 'published') => {
+  const normalized = String(value || '').trim().toLowerCase();
+
+  if (VALID_CAMBRIDGE_STATUSES.has(normalized)) {
+    return normalized;
+  }
+
+  return fallback;
+};
+
 const safeParseParts = (rawParts) => {
   if (!rawParts) return [];
   if (Array.isArray(rawParts)) return rawParts;
@@ -135,6 +147,7 @@ const stripDataUrls = (value) => {
 module.exports = {
   buildVisibleCambridgeWhere,
   countTotalQuestionsFromParts,
+  normalizeCambridgeStatus,
   safeParseParts,
   shouldIncludeAllVisibility,
   stripDataUrls,

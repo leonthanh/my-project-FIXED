@@ -4,7 +4,17 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import EditListeningTest from '../EditListeningTest';
 
 jest.mock('../../components', () => ({
-  ListeningTestEditor: ({ pageTitle }) => <div data-testid="listening-test-editor">{pageTitle}</div>,
+  ListeningTestEditor: ({ pageTitle, teacherName, isTeacherNameLocked }) => (
+    <div data-testid="listening-test-editor">
+      <div>{pageTitle}</div>
+      <input
+        aria-label="teacher-name"
+        value={teacherName || ''}
+        disabled={Boolean(isTeacherNameLocked)}
+        readOnly
+      />
+    </div>
+  ),
 }));
 
 jest.mock('../../hooks', () => ({
@@ -149,5 +159,14 @@ describe('EditListeningTest draft restore prompt', () => {
     await waitFor(() => {
       expect(confirmSpy).not.toHaveBeenCalled();
     });
+  });
+
+  test('locks the teacher name field in edit mode', async () => {
+    renderPage();
+
+    const teacherInput = await screen.findByLabelText('teacher-name');
+
+    expect(teacherInput).toHaveValue('Teacher');
+    expect(teacherInput).toBeDisabled();
   });
 });

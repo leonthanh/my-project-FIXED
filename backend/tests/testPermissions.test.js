@@ -23,7 +23,7 @@ describe('requireTestPermission middleware', () => {
   });
 
   test('allows privileged teacher for reading/listening/cambridge', async () => {
-    User.findByPk.mockResolvedValue({ id: 2, role: 'teacher', phone: '0784611179' });
+    User.findByPk.mockResolvedValue({ id: 2, role: 'teacher', phone: '0784611179', canManageTests: true });
     const req = { user: { id: 2 } };
     const mwRead = requireTestPermission('reading');
     await mwRead(req, mockRes, next);
@@ -35,7 +35,7 @@ describe('requireTestPermission middleware', () => {
   });
 
   test('denies non-privileged teacher for reading/listening/cambridge', async () => {
-    User.findByPk.mockResolvedValue({ id: 3, role: 'teacher', phone: '0912345678' });
+    User.findByPk.mockResolvedValue({ id: 3, role: 'teacher', phone: '0912345678', canManageTests: false });
     const req = { user: { id: 3 } };
     const mwRead = requireTestPermission('reading');
     await mwRead(req, mockRes, next);
@@ -47,7 +47,7 @@ describe('requireTestPermission middleware', () => {
   });
 
   test('allows any teacher for writing', async () => {
-    User.findByPk.mockResolvedValue({ id: 4, role: 'teacher', phone: '0912345678' });
+    User.findByPk.mockResolvedValue({ id: 4, role: 'teacher', phone: '0912345678', canManageTests: false });
     const req = { user: { id: 4 } };
     const mwWrite = requireTestPermission('writing');
     await mwWrite(req, mockRes, next);

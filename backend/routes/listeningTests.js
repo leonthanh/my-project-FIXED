@@ -118,6 +118,9 @@ const normalizePartAudioUrls = (value) => {
   }, {});
 };
 
+const normalizeCreateArchivedFlag = (value) =>
+  ['1', 'true', 'yes', 'on'].includes(String(value || '').trim().toLowerCase());
+
 const inferSharedAudioUrl = (partAudioUrls) => {
   const values = Object.values(normalizePartAudioUrls(partAudioUrls)).filter(Boolean);
   if (!values.length) return '';
@@ -176,7 +179,7 @@ router.post('/', requireAuth, requireTestPermission('listening'), upload.any(), 
     console.log('Request body:', req.body);
     console.log('Request files:', req.files ? Object.keys(req.files) : 'none');
 
-    const { classCode, teacherName, passages, showResultModal } = req.body;
+    const { classCode, teacherName, passages, showResultModal, isArchived } = req.body;
     
     if (!classCode || !teacherName) {
       return res.status(400).json({ message: '❌ Vui lòng nhập mã lớp và tên giáo viên' });
@@ -346,7 +349,8 @@ router.post('/', requireAuth, requireTestPermission('listening'), upload.any(), 
       partTypes,
       partInstructions,
       questions,
-      showResultModal: showResultModal !== undefined ? showResultModal : true
+      showResultModal: showResultModal !== undefined ? showResultModal : true,
+      isArchived: normalizeCreateArchivedFlag(isArchived),
     });
 
     res.status(201).json({
@@ -1441,7 +1445,7 @@ router.put('/:id', requireAuth, requireTestPermission('listening'), upload.any()
     console.log('Update request body:', req.body);
     console.log('Update request files:', req.files ? Object.keys(req.files) : 'none');
 
-    const { classCode, teacherName, passages, title, showResultModal } = req.body;
+    const { classCode, passages, title, showResultModal } = req.body;
     
     let updates = {};
     const existingPartAudioUrls = normalizePartAudioUrls(test.partAudioUrls);
@@ -1449,7 +1453,7 @@ router.put('/:id', requireAuth, requireTestPermission('listening'), upload.any()
     
     // Update basic fields
     if (classCode) updates.classCode = classCode;
-    if (teacherName) updates.teacherName = teacherName;
+    updates.teacherName = test.teacherName;
     if (title) updates.title = title;
     if (showResultModal !== undefined) updates.showResultModal = showResultModal;
     

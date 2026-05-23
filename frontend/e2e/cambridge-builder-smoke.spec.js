@@ -21,8 +21,8 @@ test.describe.serial('Cambridge builder smoke', () => {
     await page.goto('/admin/create/ket-reading');
 
     await expect(page.getByRole('heading', { name: 'KET Reading & Writing', level: 1 })).toBeVisible({ timeout: 20000 });
-    await expect(page.getByText('Loại câu hỏi hỗ trợ')).toBeVisible({ timeout: 20000 });
-    await expect(page.getByRole('button', { name: 'Lưu' })).toBeVisible({ timeout: 20000 });
+    await expect(page.getByText('Loại câu hỏi:')).toBeVisible({ timeout: 20000 });
+    await expect(page.getByRole('button', { name: 'Lưu đề' })).toBeVisible({ timeout: 20000 });
   });
 
   test('Movers listening builder renders key sections', async ({ page }) => {

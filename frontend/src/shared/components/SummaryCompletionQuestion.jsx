@@ -13,17 +13,31 @@ import InlineIcon from './InlineIcon.jsx';
 // - question.options là một mảng các văn bản lựa chọn (A, B, C...)
 // - question.blanks là một mảng gồm { id, blankNumber, correctAnswer } trong đó correctAnswer là chữ cái (hoặc các chữ cái) như 'B' hoặc 'B|C'
 
+const normalizeSummaryBlanks = (value) => {
+  if (!Array.isArray(value)) return [];
+  return value.map((blank, idx) => ({
+    id: blank?.id || `blank_${idx}`,
+    blankNumber: Number(blank?.blankNumber) || idx + 1,
+    correctAnswer: blank?.correctAnswer || '',
+  }));
+};
+
 const SummaryCompletionQuestion = ({ question = {}, onChange }) => {
   const [summary, setSummary] = useState(question.questionText || '');
   const [options, setOptions] = useState(Array.isArray(question.options) ? question.options : ['','']);
-  const [blanks, setBlanks] = useState(Array.isArray(question.blanks) ? question.blanks : []);
+  const [blanks, setBlanks] = useState(() => normalizeSummaryBlanks(question.blanks));
   const quillRef = useRef(null);
 
   useEffect(() => {
     // ensure blanks reflect occurrences of [BLANK]
     const plain = (summary || '').replace(/<[^>]+>/g, '');
     const matches = (plain.match(/\[BLANK\]/g) || []);
-    const next = matches.map((_, idx) => ({ id: `blank_${idx}`, blankNumber: idx+1, correctAnswer: blanks[idx]?.correctAnswer || '' }));
+    const normalizedBlanks = normalizeSummaryBlanks(blanks);
+    const next = matches.map((_, idx) => ({
+      id: normalizedBlanks[idx]?.id || `blank_${idx}`,
+      blankNumber: idx + 1,
+      correctAnswer: normalizedBlanks[idx]?.correctAnswer || '',
+    }));
     setBlanks(next);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [summary]);

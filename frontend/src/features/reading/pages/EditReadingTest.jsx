@@ -467,6 +467,7 @@ const EditReadingTest = () => {
         setClassCode={setClassCode}
         teacherName={teacherName}
         setTeacherName={setTeacherName}
+        isTeacherNameLocked
         showResultModal={showResultModal}
         setShowResultModal={setShowResultModal}
         // Passages state

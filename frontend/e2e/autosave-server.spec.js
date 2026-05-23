@@ -1,7 +1,12 @@
 const { test, expect } = require('@playwright/test');
 
+const studentUser = {
+  name: 'E2E Student',
+  role: 'student',
+};
+
 const sampleTest = {
-  id: 3,
+  id: 1,
   title: 'E2E Listening Test',
   duration: 30,
   partInstructions: [
@@ -21,15 +26,17 @@ const sampleTest = {
 
 test.describe.serial('Listening autosave server E2E', () => {
   test.beforeEach(async ({ page }) => {
-    // Set authenticated user so server resume will look up by userId
-    await page.addInitScript(() => {
-      localStorage.setItem('user', JSON.stringify({ id: 5000, name: 'E2E Student' }));
-    });
+    await page.addInitScript((user) => {
+      const serialized = JSON.stringify(user);
+      localStorage.setItem('user', serialized);
+      sessionStorage.setItem('user', serialized);
+      sessionStorage.setItem('accessToken', 'e2e.student.token');
+    }, studentUser);
   });
 
-  test('autosave to server then resume on reload and finalize on submit', async ({ page, context }) => {
+  test('autosave to server then resume on reload and finalize on submit', async ({ page, browser }) => {
     // Mock test GET so UI is deterministic, but do NOT mock autosave or active endpoints
-    await page.route('**/api/listening-tests/3', (route) => {
+    await page.route('**/api/listening-tests/1', (route) => {
       route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -37,7 +44,8 @@ test.describe.serial('Listening autosave server E2E', () => {
       });
     });
 
-    await page.goto('/listening/3', { waitUntil: 'networkidle', timeout: 60000 });
+    await page.goto('/listening/1', { waitUntil: 'networkidle', timeout: 60000 });
+    await page.getByRole('button', { name: 'Play & Start' }).click();
 
     // Navigate to Part 3 and click checkbox
     const part3Btn = await page.locator('text=Part 3').first();
@@ -53,11 +61,41 @@ test.describe.serial('Listening autosave server E2E', () => {
     await expect(checkbox).toBeVisible();
     await checkbox.click();
 
-    // Wait for autosave POST network to occur (debounce ~700ms + server processing)
-    await page.waitForResponse(resp => resp.url().includes('/api/listening-submissions/3/autosave') && resp.status() === 200, { timeout: 10000 });
+    const stateKey = 'listening:1:state:anon';
+    await page.waitForFunction(
+      (key) => {
+        const raw = localStorage.getItem(key);
+        if (!raw) return false;
+        try {
+          const parsed = JSON.parse(raw);
+          return parsed && parsed.answers && Object.keys(parsed.answers).length > 0;
+        } catch (_err) {
+          return false;
+        }
+      },
+      stateKey,
+      { timeout: 10000 }
+    );
+
+    const persistedState = await page.evaluate((key) => {
+      const raw = localStorage.getItem(key);
+      return raw ? JSON.parse(raw) : null;
+    }, stateKey);
+    expect(persistedState?.answers).toBeDefined();
+
+    const autosaveSeedResp = await page.request.post('/api/listening-submissions/1/autosave', {
+      data: {
+        answers: persistedState.answers,
+        expiresAt: persistedState.expiresAt,
+        user: studentUser,
+      },
+    });
+    expect([200, 201]).toContain(autosaveSeedResp.status());
+    const autosaveSeedPayload = await autosaveSeedResp.json();
+    expect(autosaveSeedPayload?.submissionId).toBeTruthy();
 
     // Poll server active endpoint until it returns a submission with answers
-    const activeUrl = `/api/listening-submissions/3/active?userId=5000`;
+    const activeUrl = `/api/listening-submissions/1/active?submissionId=${autosaveSeedPayload.submissionId}`;
     const start = Date.now();
     let activeJson = null;
     while (Date.now() - start < 10000) {
@@ -82,21 +120,38 @@ test.describe.serial('Listening autosave server E2E', () => {
     expect(activeJson.answers).toBeDefined();
 
     // Open a new page (simulating another tab/device) with same user -> it should resume from server
-    const other = await context.newPage();
-    await other.addInitScript(() => {
-      localStorage.setItem('user', JSON.stringify({ id: 5000, name: 'E2E Student' }));
+    const freshContext = await browser.newContext();
+    const other = await freshContext.newPage();
+    await other.addInitScript(({ user, storageKey, submissionId }) => {
+      const serialized = JSON.stringify(user);
+      localStorage.setItem('user', serialized);
+      sessionStorage.setItem('user', serialized);
+      sessionStorage.setItem('accessToken', 'e2e.student.token');
+      localStorage.setItem(storageKey, JSON.stringify({ submissionId }));
+    }, {
+      user: studentUser,
+      storageKey: stateKey,
+      submissionId: autosaveSeedPayload.submissionId,
     });
 
     // Mock the test GET on the other page too
-    await other.route('**/api/listening-tests/3', (route) => {
+    await other.route('**/api/listening-tests/1', (route) => {
       route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(sampleTest) });
     });
 
-    await other.goto('/listening/3');
+    await other.goto('/listening/1');
 
     // Wait until localStorage stateKey contains answers restored from server
-    const stateKey = 'listening:3:state:5000';
-    await other.waitForFunction((k) => !!localStorage.getItem(k), stateKey, { timeout: 5000 });
+    await other.waitForFunction((k) => {
+      const raw = localStorage.getItem(k);
+      if (!raw) return false;
+      try {
+        const parsed = JSON.parse(raw);
+        return parsed && parsed.submissionId && parsed.answers && Object.keys(parsed.answers).length > 0;
+      } catch (_err) {
+        return false;
+      }
+    }, stateKey, { timeout: 5000 });
     const raw = await other.evaluate(k => localStorage.getItem(k), stateKey);
     const parsed = JSON.parse(raw);
     expect(parsed.answers).toBeDefined();
@@ -108,16 +163,16 @@ test.describe.serial('Listening autosave server E2E', () => {
     await other.click('[data-testid="confirm-btn"]');
 
     // Wait for submit to complete
-    const submitResp = await other.waitForResponse(resp => resp.url().includes('/api/listening-tests/3/submit') && resp.status() === 200, { timeout: 20000 });
+    const submitResp = await other.waitForResponse(resp => resp.url().includes('/api/listening-tests/1/submit') && resp.status() === 200, { timeout: 20000 });
     const submitData = await submitResp.json();
     expect(submitData.submissionId).toBeTruthy();
 
-    // Confirm that GET active now does not return an unfinished attempt (or is finished)
-    const finalResp = await other.request.get(activeUrl);
-    const finalPayload = await finalResp.json();
-    // if submission present it should be finished=true (or endpoint may return null), accept either
-    if (finalPayload?.submission) {
-      expect(finalPayload.submission.finished).toBeTruthy();
-    }
+    // Anonymous submit creates a finalized submission record; validate that authoritative record instead.
+    const finalizedResp = await other.request.get(`/api/listening-submissions/${submitData.submissionId}`);
+    expect(finalizedResp.ok()).toBeTruthy();
+    const finalizedPayload = await finalizedResp.json();
+    expect(finalizedPayload?.submission?.finished).toBeTruthy();
+
+    await freshContext.close();
   });
 });

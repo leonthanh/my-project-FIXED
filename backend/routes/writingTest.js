@@ -156,6 +156,7 @@ router.post('/', requireAuth, requireRole('teacher', 'admin'), async (req, res) 
       teacherName,
       part2Question2: part2Question2 || null,
       part2Question3: part2Question3 || null,
+      isArchived: isTruthyFlag(req.body.isArchived),
     });
 
     res.json({ message: 'Writing test created successfully.', test: newTest });
@@ -199,6 +200,7 @@ router.post('/with-image', upload.single('image'), async (req, res) => {
       teacherName,
       part2Question2: part2Question2 || null,
       part2Question3: part2Question3 || null,
+      isArchived: isTruthyFlag(req.body.isArchived),
     });
 
     res.json({ message: 'Writing test created successfully.', test: newTest });
@@ -238,7 +240,6 @@ router.put('/:id', requireAuth, requireRole('teacher', 'admin'), async (req, res
   try {
     const {
       classCode,
-      teacherName,
       task1,
       task2,
       questions,
@@ -257,7 +258,7 @@ router.put('/:id', requireAuth, requireRole('teacher', 'admin'), async (req, res
 
     await test.update({
       classCode,
-      teacherName,
+      teacherName: test.teacherName,
       task1,
       task2,
       testType,
@@ -281,7 +282,6 @@ router.put('/:id/with-image', requireAuth, requireRole('teacher', 'admin'), uplo
   try {
     const {
       classCode,
-      teacherName,
       task1,
       task2,
       testType,
@@ -309,7 +309,7 @@ router.put('/:id/with-image', requireAuth, requireRole('teacher', 'admin'), uplo
 
     await test.update({
       classCode,
-      teacherName,
+      teacherName: test.teacherName,
       task1,
       task2: isPetWriting ? (task2 || '') : task2,
       testType: resolvedType,

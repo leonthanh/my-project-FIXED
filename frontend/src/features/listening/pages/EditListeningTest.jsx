@@ -575,6 +575,7 @@ const EditListeningTest = () => {
       setClassCode={setClassCode}
       teacherName={teacherName}
       setTeacherName={setTeacherName}
+      isTeacherNameLocked
       showResultModal={showResultModal}
       setShowResultModal={setShowResultModal}
       // Parts state
