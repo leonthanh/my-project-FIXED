@@ -1,12 +1,21 @@
 const { test, expect } = require('@playwright/test');
 
+const teacherUser = {
+  id: 7101,
+  name: 'E2E Teacher',
+  role: 'teacher',
+  phone: '0784611179',
+  canManageTests: true,
+};
+
 test.describe('Summary Completion - Review modal numbering & teacher answers', () => {
   test.beforeEach(async ({ page }) => {
-    // Make user a teacher so editor & Review button are available
-    await page.addInitScript(() => {
-      // Use privileged teacher so ProtectedRoute(role='teacher') passes and canManageCategory returns true
-      localStorage.setItem('user', JSON.stringify({ name: 'E2E Teacher', role: 'teacher', phone: '0784611179' }));
-    });
+    await page.addInitScript((user) => {
+      const serialized = JSON.stringify(user);
+      localStorage.setItem('user', serialized);
+      sessionStorage.setItem('user', serialized);
+      sessionStorage.setItem('accessToken', 'e2e.teacher.token');
+    }, teacherUser);
 
     // Log page errors to the terminal for debugging
     page.on('console', msg => console.log('PAGE LOG', msg.type(), msg.text()));
@@ -62,29 +71,22 @@ test.describe('Summary Completion - Review modal numbering & teacher answers', (
     const html = await page.content();
     console.log('PAGE HTML (snippet):', html.slice(0, 4000));
 
-    // Wait for editor content from mocked test to render (give more time for hydration)
-    await expect(page.locator('text=Passage 1')).toBeVisible({ timeout: 15000 });
-    await expect(page.locator('text=Section 1')).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText('Nội dung - Passage 1')).toBeVisible({ timeout: 15000 });
 
-    // Find the summary-completion question header in the editor and expand it (if collapsed)
-    // Find the collapsed question header by its display label (English) and expand it
-    const summaryHeader = page.locator('text=Summary Completion').first();
-    await expect(summaryHeader).toBeVisible({ timeout: 5000 });
-    // Click to expand the question editor
-    await summaryHeader.click();
+    const sectionCard = page.locator('.reading-editor-nav-card-section').first();
+    await expect(sectionCard).toBeVisible({ timeout: 15000 });
+    await sectionCard.click();
 
-    // Wait for the teacher answers area to appear (use Vietnam label 'Câu' which we render)
-    await expect(page.locator('text=Câu 27')).toBeVisible({ timeout: 5000 });
+    const summaryHeading = page.getByRole('heading', { name: 'Summary Completion' });
+    await expect(summaryHeading).toBeVisible({ timeout: 5000 });
+    await expect(page.getByText('Answers for blanks (use letters A-L, separate variants with |)')).toBeVisible({ timeout: 5000 });
 
-    // Labels should show continuous numbering based on questionNumber (27..31) and inputs contain values
+    // Labels should show continuous numbering based on questionNumber (27..31) and values should match the teacher answers
     const expected = ['B','H','L','G','D'];
     for (let i = 0; i < expected.length; i++) {
       const labelNum = 27 + i;
-      await expect(page.locator(`text=Câu ${labelNum}`)).toBeVisible({ timeout: 2000 });
-
-      // the input next to the label should contain the teacher answer we prefilled
-      const inputLocator = page.locator(`xpath=//div[text()="Câu ${labelNum}"]/following-sibling::input[1]`);
-      await expect(inputLocator).toHaveValue(expected[i], { timeout: 2000 });
+      await expect(page.getByText(`Câu ${labelNum}`, { exact: true })).toBeVisible({ timeout: 2000 });
+      await expect(page.getByRole('textbox', { name: 'Ví dụ: B hoặc B|C' }).nth(i)).toHaveValue(expected[i]);
     }
   });
 });

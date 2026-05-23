@@ -1,18 +1,27 @@
 const { test, expect } = require('@playwright/test');
 
+const studentUser = {
+  id: 5001,
+  name: 'E2E Student',
+  role: 'student',
+  phone: '0912345678',
+};
+
 test.describe.serial('DoReadingTest E2E', () => {
   test.beforeEach(async ({ page }) => {
-    // Ensure user is logged in via localStorage
-    await page.addInitScript(() => {
-      localStorage.setItem('user', JSON.stringify({ name: 'E2E Student', role: 'student', phone: '0912345678' }));
-    });
+    await page.addInitScript((user) => {
+      const serialized = JSON.stringify(user);
+      localStorage.setItem('user', serialized);
+      sessionStorage.setItem('user', serialized);
+      sessionStorage.setItem('accessToken', 'e2e.student.token');
+    }, studentUser);
   });
 
   test('clicking part dot focuses first question of that part', async ({ page }) => {
     // Ensure test starts as 'started' so navigator renders
     await page.addInitScript(() => {
-      localStorage.setItem('reading_test_1_started', 'true');
-      localStorage.removeItem('reading_test_1_answers');
+      localStorage.setItem('reading_test_1_started:5001', 'true');
+      localStorage.removeItem('reading_test_1_answers:5001');
     });
 
     // Mock the reading test GET response so the page loads predictable data
@@ -62,10 +71,10 @@ test.describe.serial('DoReadingTest E2E', () => {
     // Prepare answers in localStorage to match mocked correct answers in test GET
     // Use explicit navigation and evaluate to avoid registering a persistent init script
     // Ensure we are on the app origin so localStorage is available, then set initial answers
-    await page.goto('/');
+    await page.goto('/login');
     await page.evaluate(() => {
-      localStorage.setItem('reading_test_1_answers', JSON.stringify({ q_1: 'A', q_2: 'B' }));
-      localStorage.setItem('reading_test_1_started', 'true');
+      localStorage.setItem('reading_test_1_answers:5001', JSON.stringify({ q_1: 'A', q_2: 'B' }));
+      localStorage.setItem('reading_test_1_started:5001', 'true');
     });
 
     // Mock the reading test GET response so the page loads predictable data with correctAnswer fields
@@ -113,26 +122,23 @@ test.describe.serial('DoReadingTest E2E', () => {
     const submitData = await submitResp.json();
     // debug log
     console.log('submitData', submitData);
-    // ensure submission saved
-    await expect(submitData.submissionId).toBeTruthy();
+    expect(Number(submitData.total)).toBeGreaterThan(0);
+    expect(Number.isFinite(Number(submitData.scorePercentage))).toBe(true);
 
-    // Result modal should appear and show band and submission id
+    // Result modal should appear and closing it should return to select-test with cleared persisted state
     await page.waitForSelector('[data-testid="result-band"]', { timeout: 20000 });
     await expect(page.locator('[data-testid="result-band"]')).toBeVisible({ timeout: 20000 });
-    await expect(page.locator('text=Submission ID')).toBeVisible({ timeout: 20000 });
+    await page.getByRole('button', { name: 'Close' }).last().click();
+    await page.waitForURL('**/select-test', { timeout: 20000 });
 
-    // Close modal — but first override reload so we can assert the in-memory state update
-    await page.evaluate(() => { window.location.reload = () => {}; });
-    await page.locator('button:has-text("Đóng")').click();
-    await expect(page.locator('[data-testid="result-band"]')).toHaveCount(0);
-
-    // Now the component should have cleared persisted keys (answers and timer)
-    await page.waitForTimeout(250);
-    const answersVal = await page.evaluate(() => localStorage.getItem('reading_test_1_answers'));
-    const timeVal = await page.evaluate(() => localStorage.getItem('reading_test_1_timeRemaining'));
-    console.log('after close localStorage answers=', answersVal, 'time=', timeVal);
+    const [answersVal, expiresVal, startedVal] = await page.evaluate(() => ([
+      localStorage.getItem('reading_test_1_answers:5001'),
+      localStorage.getItem('reading_test_1_expiresAt:5001'),
+      localStorage.getItem('reading_test_1_started:5001'),
+    ]));
     expect(answersVal).toBeNull();
-    expect(timeVal).toBeNull();
+    expect(expiresVal).toBeNull();
+    expect([null, 'false']).toContain(startedVal);
 
 
   });

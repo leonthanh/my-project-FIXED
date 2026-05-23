@@ -1,8 +1,10 @@
 import { render, screen } from '@testing-library/react';
 import App from './App.jsx';
 
-test('renders login buttons', () => {
+test('renders the login page for unauthenticated users', async () => {
+  window.history.pushState({}, '', '/login');
   render(<App />);
-  const loginButtons = screen.getAllByRole('button', { name: /Login/i });
+  expect(await screen.findByRole('button', { name: 'Placement Test' })).toBeInTheDocument();
+  const loginButtons = await screen.findAllByRole('button', { name: 'Login' });
   expect(loginButtons).toHaveLength(2);
 });

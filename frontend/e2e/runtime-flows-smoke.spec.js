@@ -188,7 +188,7 @@ test.describe.serial('Runtime smoke flows', () => {
     await expect(timeoutPage.getByTestId('result-band')).toBeVisible({ timeout: 10000 });
   });
 
-  test('IX Listening start, submit, result, and time-up flow', async ({ page, context }) => {
+  test('IX Listening start, submit, result, and stale expired state reset flow', async ({ page, context }) => {
     await context.route('**/api/listening-tests/9201', (route) => fulfillJson(route, ixListeningTest));
     await context.route('**/api/listening-submissions/9201/active**', (route) => fulfillJson(route, { submission: null }));
     await context.route('**/api/listening-tests/9201/submit', (route) =>
@@ -227,8 +227,8 @@ test.describe.serial('Runtime smoke flows', () => {
     });
 
     await timeoutPage.goto('/listening/9201');
-    await expect(timeoutPage.getByText('Listening Results')).toBeVisible({ timeout: 10000 });
-    await expect(timeoutPage.getByTestId('result-band')).toBeVisible({ timeout: 10000 });
+    await expect(timeoutPage.getByText('Play & Start')).toBeVisible({ timeout: 10000 });
+    await expect(timeoutPage.getByText('Listening Results')).toHaveCount(0);
   });
 
   test('Cambridge Reading start, submit, result, and time-up flow', async ({ page, context }) => {

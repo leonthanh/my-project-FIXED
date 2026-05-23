@@ -1,13 +1,20 @@
 const { test, expect } = require('@playwright/test');
 
-test('admin list band matches detail page band for first submission', async ({ page }) => {
-  // Setup teacher user
-  await page.addInitScript(() => {
-    localStorage.setItem('user', JSON.stringify({ id: 1, name: 'thanh', role: 'teacher' }));
-  });
+const teacherUser = {
+  id: 1,
+  name: 'thanh',
+  role: 'teacher',
+  canManageTests: true,
+};
 
-  // Go to admin list
-  // Intercept admin list and submission detail API calls to return deterministic data for CI
+test('expanded submission band matches the listening results page band for the first submission', async ({ page }) => {
+  await page.addInitScript((user) => {
+    const serialized = JSON.stringify(user);
+    localStorage.setItem('user', serialized);
+    sessionStorage.setItem('user', serialized);
+    sessionStorage.setItem('accessToken', 'e2e.teacher.token');
+  }, teacherUser);
+
   await page.route('**/api/listening-submissions/admin/list', async (route) => {
     const body = [
       {
@@ -20,6 +27,8 @@ test('admin list band matches detail page band for first submission', async ({ p
         computedPercentage: 100,
         band: 9,
         details: null,
+        finished: true,
+        userPhone: '0912345678',
         ListeningTest: { id: 3, title: 'Sample Test', classCode: '348-IX-1A-S3', teacherName: 'Minh Thu' },
         createdAt: new Date().toISOString(),
       }
@@ -29,37 +38,39 @@ test('admin list band matches detail page band for first submission', async ({ p
 
   await page.route('**/api/listening-submissions/1', async (route) => {
     const details = Array.from({ length: 40 }).map((_, i) => ({ questionNumber: i+1, isCorrect: true }));
-    const body = { submission: { id: 1, correct: 40, total: 40, scorePercentage: 100, band: 9, details, answers: {} }, test: null };
+    const body = {
+      submission: {
+        id: 1,
+        testId: 3,
+        correct: 40,
+        total: 40,
+        scorePercentage: 100,
+        band: 9,
+        details,
+        answers: {},
+      },
+      test: null,
+    };
     await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
   });
 
   await page.goto('http://localhost:3000/admin/listening-submissions', { waitUntil: 'networkidle' });
-  await page.waitForSelector('.admin-table', { timeout: 10000 });
-  // Allow client-side enrichment/mock to settle
-  await page.waitForTimeout(500);
+  await page.waitForSelector('#listening-submission-row-1', { timeout: 10000 });
 
-  // Grab first row's band value and score
-  const firstRow = page.locator('.admin-table tbody tr').first();
-  const adminBandText = (await firstRow.locator('td:nth-child(6)').innerText()).trim();
-  const adminScoreText = (await firstRow.locator('td:nth-child(5)').innerText()).trim();
+  const firstRow = page.locator('#listening-submission-row-1');
+  await firstRow.click();
 
-  // Parse numbers
-  const adminBand = parseFloat(adminBandText) || null;
-  const adminScore = adminScoreText.split('\n').join(' ').trim(); // keep as string for debugging
+  const listBandText = await page.locator('xpath=//*[@id="listening-submission-row-1"]//*[text()="Band"]/preceding-sibling::div[1]').innerText();
+  const listBand = parseFloat(listBandText) || null;
 
-  // Open details
-  await firstRow.locator('button', { hasText: 'Chi tiết' }).click();
-  await page.waitForSelector('text=Band IELTS', { timeout: 10000 });
-  await page.waitForTimeout(500);
+  await firstRow.getByRole('button', { name: 'Details' }).click();
+  await page.waitForURL('**/listening-results/1', { timeout: 10000 });
+  await page.waitForSelector('text=Band IX', { timeout: 10000 });
 
-  const detailBandText = await page.locator('text=Band IELTS').locator('..').locator('div').first().innerText();
+  const detailBandText = await page.locator('xpath=//*[text()="Band IX"]/preceding-sibling::div[1]').innerText();
   const detailBand = parseFloat(detailBandText) || null;
 
-  // Assert equality
-  expect(adminBand).not.toBeNull();
+  expect(listBand).not.toBeNull();
   expect(detailBand).not.toBeNull();
-  expect(adminBand).toBe(detailBand);
-
-  // Helpful trace on failure
-  console.log('Admin band:', adminBand, 'Detail band:', detailBand, 'Admin score cell:', adminScore);
+  expect(listBand).toBe(detailBand);
 });
