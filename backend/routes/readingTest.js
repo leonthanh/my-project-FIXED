@@ -335,7 +335,11 @@ router.put("/:id", requireAuth, requireTestPermission('reading'), async (req, re
     if (!test) {
       return res.status(404).json({ message: "Cannot find test" });
     }
-    await test.update(req.body);
+    const { teacherName: _ignoredTeacherName, ...updates } = req.body || {};
+    await test.update({
+      ...updates,
+      teacherName: test.teacherName,
+    });
     const data = test.toJSON();
     if (typeof data.passages === "string") {
       data.passages = JSON.parse(data.passages);

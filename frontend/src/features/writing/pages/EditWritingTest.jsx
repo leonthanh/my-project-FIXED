@@ -226,6 +226,7 @@ const EditWritingTest = () => {
         setClassCode={setClassCode}
         teacherName={teacherName}
         setTeacherName={setTeacherName}
+        isTeacherNameLocked
         task1={task1}
         setTask1={setTask1}
         task2={task2}

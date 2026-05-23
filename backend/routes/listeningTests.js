@@ -1445,7 +1445,7 @@ router.put('/:id', requireAuth, requireTestPermission('listening'), upload.any()
     console.log('Update request body:', req.body);
     console.log('Update request files:', req.files ? Object.keys(req.files) : 'none');
 
-    const { classCode, teacherName, passages, title, showResultModal } = req.body;
+    const { classCode, passages, title, showResultModal } = req.body;
     
     let updates = {};
     const existingPartAudioUrls = normalizePartAudioUrls(test.partAudioUrls);
@@ -1453,7 +1453,7 @@ router.put('/:id', requireAuth, requireTestPermission('listening'), upload.any()
     
     // Update basic fields
     if (classCode) updates.classCode = classCode;
-    if (teacherName) updates.teacherName = teacherName;
+    updates.teacherName = test.teacherName;
     if (title) updates.title = title;
     if (showResultModal !== undefined) updates.showResultModal = showResultModal;
     

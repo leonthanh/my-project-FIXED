@@ -694,12 +694,12 @@ const MoversListeningTestBuilder = ({ editId = null, initialData = null }) => {
                 type="text"
                 value={teacherName}
                 onChange={(e) => setTeacherName(e.target.value)}
-                disabled={!isEditMode}
+                disabled
                 style={{
                   ...inputStyle,
-                  background: !isEditMode ? '#f8fafc' : inputStyle.background,
-                  color: !isEditMode ? '#334155' : inputStyle.color,
-                  cursor: !isEditMode ? 'not-allowed' : inputStyle.cursor,
+                  background: '#f8fafc',
+                  color: '#334155',
+                  cursor: 'not-allowed',
                 }}
               />
             </div>

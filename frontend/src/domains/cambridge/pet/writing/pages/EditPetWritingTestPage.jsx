@@ -712,6 +712,7 @@ const EditPetWritingTestPage = () => {
 			onClassCodeChange={setClassCode}
 			teacherName={teacherName}
 			onTeacherNameChange={setTeacherName}
+			isTeacherNameLocked
 			message={message}
 			messageTone={messageTone}
 			sections={sections}

@@ -109,6 +109,25 @@ test('create mode fills teacher name from the current user and locks the input',
   expect(teacherInput).not.toHaveValue('Other Teacher');
 });
 
+test('edit mode keeps the stored teacher name locked', () => {
+  render(
+    <MemoryRouter>
+      <CambridgeTestBuilder
+        testType="ket-reading"
+        editId="44"
+        initialData={{
+          title: 'Existing Orange Test',
+          classCode: 'KET-044',
+          teacherName: 'Stored Teacher',
+          parts: [],
+        }}
+      />
+    </MemoryRouter>
+  );
+
+  expect(screen.getByDisplayValue('Stored Teacher')).toBeDisabled();
+});
+
 test('preserves part instruction when updating questions or adding a question', async () => {
   render(
     <MemoryRouter>

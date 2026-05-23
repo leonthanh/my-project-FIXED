@@ -117,7 +117,6 @@ const updateReadingTest = async ({ id, body = {}, forcedTestType = null } = {}) 
   const {
     title,
     classCode,
-    teacherName,
     testType,
     parts,
     totalQuestions,
@@ -129,7 +128,7 @@ const updateReadingTest = async ({ id, body = {}, forcedTestType = null } = {}) 
   await test.update({
     title: title || test.title,
     classCode: classCode || test.classCode,
-    teacherName: teacherName || test.teacherName,
+    teacherName: test.teacherName,
     testType: effectiveTestType || test.testType,
     parts: processedParts,
     totalQuestions: totalQuestions ?? test.totalQuestions,
