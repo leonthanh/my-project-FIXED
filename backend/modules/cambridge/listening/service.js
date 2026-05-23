@@ -1,6 +1,7 @@
 const { CambridgeListening } = require('../../../models');
 const {
   buildVisibleCambridgeWhere,
+  normalizeCambridgeStatus,
   safeParseParts,
 } = require('../shared/readingTestUtils');
 
@@ -99,6 +100,7 @@ const createListeningTest = async ({ body = {}, forcedTestType = null } = {}) =>
     testType,
     mainAudioUrl,
     parts,
+    status,
     totalQuestions,
   } = body;
   const effectiveTestType = ensureForcedTypeMatch(testType, forcedTestType);
@@ -120,7 +122,7 @@ const createListeningTest = async ({ body = {}, forcedTestType = null } = {}) =>
     mainAudioUrl: normalizedListeningPayload.mainAudioUrl,
     parts: normalizedListeningPayload.parts,
     totalQuestions: totalQuestions || 0,
-    status: 'draft',
+    status: normalizeCambridgeStatus(status, 'published'),
   });
 };
 

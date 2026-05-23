@@ -62,6 +62,9 @@ const normalizeUploadsInPassages = (passages, req) => {
 const shouldIncludeArchived = (req) =>
   ['1', 'true', 'yes'].includes(String(req.query.includeArchived || '').trim().toLowerCase());
 
+const normalizeCreateArchivedFlag = (value) =>
+  ['1', 'true', 'yes', 'on'].includes(String(value || '').trim().toLowerCase());
+
 // Build simple email summary HTML + text fallback for reading submissions (teacher requested minimal fields)
 const buildReadingSummaryEmail = (sub, result, req, meta = {}) => {
   // Prefer explicit FRONTEND_URL (useful for deployments where frontend runs on separate host/port)
@@ -306,7 +309,7 @@ router.get("/:id", async (req, res) => {
 const { requireAuth } = require('../middlewares/auth');
 const { requireTestPermission } = require('../middlewares/testPermissions');
 router.post("/", requireAuth, requireTestPermission('reading'), async (req, res) => {
-  const { title, classCode, teacherName, showResultModal, passages } = req.body;
+  const { title, classCode, teacherName, showResultModal, passages, isArchived } = req.body;
 
   try {
     const newTest = await ReadingTest.create({
@@ -315,6 +318,7 @@ router.post("/", requireAuth, requireTestPermission('reading'), async (req, res)
       teacherName,
       showResultModal,
       passages,
+      isArchived: normalizeCreateArchivedFlag(isArchived),
     });
     res
       .status(201)

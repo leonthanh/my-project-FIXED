@@ -156,6 +156,7 @@ router.post('/', requireAuth, requireRole('teacher', 'admin'), async (req, res) 
       teacherName,
       part2Question2: part2Question2 || null,
       part2Question3: part2Question3 || null,
+      isArchived: isTruthyFlag(req.body.isArchived),
     });
 
     res.json({ message: 'Writing test created successfully.', test: newTest });
@@ -199,6 +200,7 @@ router.post('/with-image', upload.single('image'), async (req, res) => {
       teacherName,
       part2Question2: part2Question2 || null,
       part2Question3: part2Question3 || null,
+      isArchived: isTruthyFlag(req.body.isArchived),
     });
 
     res.json({ message: 'Writing test created successfully.', test: newTest });
