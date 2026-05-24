@@ -892,7 +892,7 @@ const UserProfilePage = () => {
                             Xóa avatar
                           </button>
                           <p className="userProfilePage__avatarHint">
-                            Chọn ảnh, crop trước khi upload để avatar luôn nằm gọn trong khung tròn. Hỗ trợ PNG, JPG, WebP tối đa 3MB.
+                            Crop trước khi upload. PNG, JPG, WebP tối đa 3MB.
                           </p>
                         </>
                       ) : (
@@ -905,7 +905,7 @@ const UserProfilePage = () => {
                             Quay lại quản lý user
                           </button>
                           <p className="userProfilePage__avatarHint">
-                            Chế độ xem hồ sơ đầy đủ của người dùng để admin kiểm tra thông tin và trạng thái xác thực.
+                            Xem nhanh hồ sơ và trạng thái xác thực.
                           </p>
                         </>
                       )}
@@ -921,8 +921,8 @@ const UserProfilePage = () => {
                     </h1>
                     <p className="userProfilePage__subtitle">
                       {isAdminReviewMode
-                        ? 'Trang hồ sơ này tập trung vào việc xem nhanh dữ liệu chính, avatar và trạng thái bảo mật của người dùng từ khu vực quản trị.'
-                        : 'Giao diện hồ sơ được giữ gọn và chuyên nghiệp, tập trung vào những dữ liệu giáo viên cần cập nhật thường xuyên.'}
+                        ? 'Xem nhanh dữ liệu chính của người dùng.'
+                        : 'Cập nhật nhanh hồ sơ và bảo mật tài khoản.'}
                     </p>
 
                     <div className="userProfilePage__chipRow">
@@ -944,20 +944,12 @@ const UserProfilePage = () => {
                     <strong className="userProfilePage__heroStatValue">
                       {currentUser?.phone || 'Chưa có số điện thoại'}
                     </strong>
-                    <span className="userProfilePage__heroStatMeta">
-                      Giữ cố định để không lệch lịch sử bài nộp và thông báo.
-                    </span>
                   </div>
                   <div className="userProfilePage__heroStat">
                     <span className="userProfilePage__heroStatLabel">Email</span>
                     <strong className="userProfilePage__heroStatValue">
                       {currentUser?.email || 'Chưa cập nhật email'}
                     </strong>
-                    <span className="userProfilePage__heroStatMeta">
-                      {isEmailVerified
-                        ? 'Email đã xác thực và sẵn sàng cho các luồng phục hồi hoặc nhận nhắc việc.'
-                        : 'Nên dùng email thật và xác thực để thuận tiện phục hồi hoặc nhận nhắc việc.'}
-                    </span>
                   </div>
                   <div className="userProfilePage__heroStat">
                     <span className="userProfilePage__heroStatLabel">Mô tả nhanh</span>
@@ -968,9 +960,6 @@ const UserProfilePage = () => {
                           }`
                         : 'Chưa có giới thiệu'}
                     </strong>
-                    <span className="userProfilePage__heroStatMeta">
-                      Một đoạn ngắn gọn sẽ giúp hồ sơ trông tin cậy hơn.
-                    </span>
                   </div>
                 </div>
               </div>
