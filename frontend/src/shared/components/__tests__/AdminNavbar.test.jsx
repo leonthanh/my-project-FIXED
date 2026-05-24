@@ -66,6 +66,7 @@ describe('AdminNavbar auth sync', () => {
     await waitFor(() => {
       expect(screen.getByText('Thanh Le')).toBeInTheDocument();
     });
+    expect(screen.getByRole('link', { name: 'Thanh Le' })).toHaveAttribute('href', '/profile');
     expect(screen.getByText('Admin')).toBeInTheDocument();
   });
 

@@ -50,6 +50,12 @@ async function ensureDbColumns(sequelize) {
     await addColumnIfMissing(sequelize, 'reading_tests', 'isArchived', 'BOOLEAN NOT NULL DEFAULT FALSE');
     await addColumnIfMissing(sequelize, 'listening_tests', 'isArchived', 'BOOLEAN NOT NULL DEFAULT FALSE');
 
+    // --- users profile fields ---
+    await addColumnIfMissing(sequelize, 'users', 'avatarUrl', 'VARCHAR(255) NULL');
+    await addColumnIfMissing(sequelize, 'users', 'address', 'VARCHAR(255) NULL');
+    await addColumnIfMissing(sequelize, 'users', 'bio', 'TEXT NULL');
+    await addColumnIfMissing(sequelize, 'users', 'emailVerifiedAt', 'DATETIME NULL');
+
     console.log('✅ DB column check complete.');
   } catch (err) {
     // Non-fatal: log and continue so server can still start

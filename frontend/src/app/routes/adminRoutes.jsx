@@ -9,6 +9,7 @@ const AdminListeningSubmissions = lazy(() => import('../../features/admin/pages/
 const AdminWritingSubmissions = lazy(() => import('../../features/admin/pages/AdminWritingSubmissions'));
 const TeacherPermissionsPage = lazy(() => import('../../features/admin/pages/TeacherPermissionsPage'));
 const AdminUserManagement = lazy(() => import('../../features/admin/pages/AdminUserManagement'));
+const UserProfilePage = lazy(() => import('../../features/auth/pages/UserProfilePage'));
 
 export const buildAdminRoutes = () => [
   <Route key="review-submission" path="/review/:id" element={renderProtected('teacher', <ReviewSubmission />)} />,
@@ -18,5 +19,6 @@ export const buildAdminRoutes = () => [
   <Route key="admin-writing-submissions" path="/admin/writing-submissions" element={renderProtected('teacher', <AdminWritingSubmissions />)} />,
   <Route key="admin-root" path="/admin" element={renderProtected('teacher', <Navigate to="/admin/writing-submissions" replace />)} />,
   <Route key="admin-teacher-permissions" path="/admin/teacher-permissions" element={renderProtected('admin', <TeacherPermissionsPage />)} />,
+  <Route key="admin-user-profile" path="/admin/users/:userId/profile" element={renderProtected('admin', <UserProfilePage />)} />,
   <Route key="admin-users" path="/admin/users" element={renderProtected('admin', <AdminUserManagement />)} />,
 ];

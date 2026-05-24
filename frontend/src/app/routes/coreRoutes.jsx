@@ -3,6 +3,7 @@ import { Route } from 'react-router-dom';
 import { renderAuthenticated } from './routeUtils';
 
 const Login = lazy(() => import('../../features/auth/pages/Login'));
+const UserProfilePage = lazy(() => import('../../features/auth/pages/UserProfilePage'));
 const PlacementEntry = lazy(() => import('../../features/placement/pages/PlacementEntry'));
 const PlacementAttempt = lazy(() => import('../../features/placement/pages/PlacementAttempt'));
 const SelectTest = lazy(() => import('../../features/admin/pages/SelectTest'));
@@ -35,5 +36,10 @@ export const buildCoreRoutes = ({ isAuthenticated }) => [
     key="my-feedback"
     path="/my-feedback"
     element={renderAuthenticated(isAuthenticated, <MyFeedback />)}
+  />,
+  <Route
+    key="profile"
+    path="/profile"
+    element={renderAuthenticated(isAuthenticated, <UserProfilePage />)}
   />,
 ];

@@ -1,11 +1,15 @@
 const express = require("express");
 const router = express.Router();
+const fs = require('fs');
+const multer = require('multer');
 const nodemailer = require("nodemailer");
+const path = require('path');
 const rateLimit = require('express-rate-limit');
 const { z } = require('zod');
 const User = require("../models/User"); // Sequelize model
 const RefreshToken = require('../models/RefreshToken');
 const { logError, logWarn } = require("../logger"); // ✅ Import logger
+const { requireAuth, requireRole } = require('../middlewares/auth');
 const { validate } = require('../middlewares/validate');
 const { AppError } = require('../utils/AppError');
 const { signAccessToken, generateRefreshToken, hashRefreshToken } = require('../utils/tokens');
@@ -89,6 +93,140 @@ const otpLimiter = rateLimit({
   },
 });
 
+const avatarUploadDir = path.join(__dirname, '..', 'uploads', 'avatars');
+if (!fs.existsSync(avatarUploadDir)) {
+  fs.mkdirSync(avatarUploadDir, { recursive: true });
+}
+
+const avatarStorage = multer.diskStorage({
+  destination: (_req, _file, cb) => {
+    cb(null, avatarUploadDir);
+  },
+  filename: (_req, file, cb) => {
+    const ext = path.extname(file.originalname || '').toLowerCase();
+    const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
+    cb(null, `avatar-${uniqueSuffix}${ext}`);
+  },
+});
+
+const avatarUpload = multer({
+  storage: avatarStorage,
+  limits: {
+    fileSize: 3 * 1024 * 1024,
+  },
+  fileFilter: (_req, file, cb) => {
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+    if (allowedTypes.includes(file.mimetype)) {
+      cb(null, true);
+      return;
+    }
+
+    cb(new Error('Chỉ cho phép upload avatar dạng JPEG, PNG, GIF hoặc WebP.'));
+  },
+});
+
+const sanitizeUser = (user) => {
+  const userResponse = user.toJSON();
+  delete userResponse.password;
+  return userResponse;
+};
+
+const normalizeNullableTrimmedString = (value) => {
+  if (value === undefined) return undefined;
+  if (value === null) return null;
+  const normalized = String(value).trim();
+  return normalized || null;
+};
+
+const trimStringValue = (value) => String(value ?? '').trim();
+
+const nullableEmailSchema = z.preprocess(
+  normalizeNullableTrimmedString,
+  z.string().email().max(100).nullable()
+);
+
+const nullableAddressSchema = z.preprocess(
+  normalizeNullableTrimmedString,
+  z.string().max(255).nullable()
+);
+
+const nullableBioSchema = z.preprocess(
+  normalizeNullableTrimmedString,
+  z.string().max(1200).nullable()
+);
+
+const updateProfileSchema = z.object({
+  name: z.preprocess(trimStringValue, z.string().min(1).max(100)).optional(),
+  email: nullableEmailSchema.optional(),
+  address: nullableAddressSchema.optional(),
+  bio: nullableBioSchema.optional(),
+});
+
+const changeOwnPasswordSchema = z.object({
+  currentPassword: z.string().min(1),
+  newPassword: z.string().min(6),
+});
+
+const confirmEmailVerificationSchema = z.object({
+  code: z.preprocess(trimStringValue, z.string().min(4).max(10)),
+});
+
+const managedAvatarPrefix = '/uploads/avatars/';
+const emailVerificationCodeExpiresMs = 10 * 60 * 1000;
+
+const buildEmailVerificationStoreKey = (userId) => `email-verification:${userId}`;
+
+const resolveManagedAvatarPath = (avatarUrl) => {
+  const normalized = String(avatarUrl || '').trim();
+  if (!normalized.startsWith(managedAvatarPrefix)) {
+    return null;
+  }
+
+  const filename = path.basename(normalized);
+  if (!filename || filename === '.' || filename === '..') {
+    return null;
+  }
+
+  return path.join(avatarUploadDir, filename);
+};
+
+const removeManagedAvatar = (avatarUrl) => {
+  const filePath = resolveManagedAvatarPath(avatarUrl);
+  if (!filePath || !fs.existsSync(filePath)) {
+    return;
+  }
+
+  fs.unlinkSync(filePath);
+};
+
+const getCurrentUserOrThrow = async (userId) => {
+  const user = await User.findByPk(userId);
+  if (!user) {
+    throw AppError.notFound('Không tìm thấy người dùng.');
+  }
+
+  return user;
+};
+
+const clearEmailVerificationCode = (userId) => {
+  otpStore.delete(buildEmailVerificationStoreKey(userId));
+};
+
+const createEmailVerificationHtml = (name, code) => `
+  <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; background: #eff6ff;">
+    <div style="background: #ffffff; border-radius: 18px; padding: 28px; box-shadow: 0 12px 28px rgba(30, 64, 175, 0.12);">
+      <p style="margin: 0 0 12px; color: #1e3a8a; font-size: 12px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase;">Email verification</p>
+      <h2 style="margin: 0 0 14px; color: #0f172a; font-size: 24px;">Xác thực email cho hồ sơ của bạn</h2>
+      <p style="margin: 0 0 18px; color: #334155; font-size: 15px; line-height: 1.65;">${name ? `Chào ${name},` : 'Xin chào,'} hãy nhập mã dưới đây tại trang hồ sơ để hoàn tất xác thực email.</p>
+      <div style="margin: 0 0 18px; padding: 18px; border-radius: 16px; background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); text-align: center;">
+        <span style="display: inline-block; font-size: 34px; font-weight: 800; letter-spacing: 0.32em; color: #ffffff;">${code}</span>
+      </div>
+      <p style="margin: 0 0 8px; color: #334155; font-size: 14px; line-height: 1.6;">Mã có hiệu lực trong 10 phút. Nếu bạn không yêu cầu xác thực, bạn có thể bỏ qua email này.</p>
+      <p style="margin: 0; color: #64748b; font-size: 12px; line-height: 1.5;">Email này được gửi tự động từ hệ thống giáo viên.</p>
+    </div>
+  </div>
+`;
+
 function shouldReturnRefreshTokenInBody() {
   if (process.env.AUTH_REFRESH_IN_BODY === 'true') return true;
   return process.env.NODE_ENV !== 'production';
@@ -153,6 +291,223 @@ const sendOtpSchema = z.object({
 const refreshSchema = z.object({
   refreshToken: z.string().min(10).optional(),
 });
+
+router.get('/me', requireAuth, async (req, res, next) => {
+  try {
+    const user = await getCurrentUserOrThrow(req.user.id);
+    res.json({ user: sanitizeUser(user) });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.patch(
+  '/me',
+  requireAuth,
+  validate({ body: updateProfileSchema }),
+  async (req, res, next) => {
+    try {
+      const user = await getCurrentUserOrThrow(req.user.id);
+      const { name, email, address, bio } = req.body;
+      const updates = {};
+      const currentEmail = String(user.email || '').trim().toLowerCase();
+
+      if (name !== undefined) updates.name = name;
+      if (email !== undefined) {
+        const nextEmail = String(email || '').trim().toLowerCase();
+        updates.email = email;
+        if (nextEmail !== currentEmail) {
+          updates.emailVerifiedAt = null;
+          clearEmailVerificationCode(user.id);
+        }
+      }
+      if (address !== undefined) updates.address = address;
+      if (bio !== undefined) updates.bio = bio;
+
+      await user.update(updates);
+
+      res.json({
+        message: 'Cập nhật hồ sơ thành công.',
+        user: sanitizeUser(user),
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+router.post('/me/email-verification/request', requireAuth, otpLimiter, async (req, res, next) => {
+  try {
+    const user = await getCurrentUserOrThrow(req.user.id);
+    const email = String(user.email || '').trim().toLowerCase();
+
+    if (!email) {
+      throw AppError.badRequest('Vui lòng cập nhật email trước khi xác thực.');
+    }
+
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    otpStore.set(buildEmailVerificationStoreKey(user.id), {
+      code,
+      email,
+      expiresAt: Date.now() + emailVerificationCodeExpiresMs,
+    });
+
+    try {
+      const transporter = createTransporter();
+      await transporter.sendMail({
+        from: process.env.EMAIL_USER,
+        to: user.email,
+        subject: 'Xác thực email hồ sơ giáo viên',
+        html: createEmailVerificationHtml(user.name, code),
+      });
+    } catch (emailError) {
+      console.error('❌ Lỗi khi gửi email xác thực:', emailError.message);
+    }
+
+    res.json({
+      message: 'Mã xác thực email đã được gửi. Vui lòng kiểm tra hộp thư của bạn.',
+      testOtp: process.env.NODE_ENV !== 'production' ? code : undefined,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post(
+  '/me/email-verification/confirm',
+  requireAuth,
+  otpLimiter,
+  validate({ body: confirmEmailVerificationSchema }),
+  async (req, res, next) => {
+    try {
+      const user = await getCurrentUserOrThrow(req.user.id);
+      const email = String(user.email || '').trim().toLowerCase();
+
+      if (!email) {
+        throw AppError.badRequest('Vui lòng cập nhật email trước khi xác thực.');
+      }
+
+      const storedOtp = otpStore.get(buildEmailVerificationStoreKey(user.id));
+      if (!storedOtp || storedOtp.email !== email) {
+        throw AppError.unauthorized('Mã xác thực email không hợp lệ hoặc đã hết hạn.');
+      }
+
+      if (Date.now() > storedOtp.expiresAt) {
+        clearEmailVerificationCode(user.id);
+        throw AppError.unauthorized('Mã xác thực email đã hết hạn. Vui lòng yêu cầu mã mới.');
+      }
+
+      if (String(req.body.code || '').trim() !== String(storedOtp.code)) {
+        throw AppError.unauthorized('Mã xác thực email không đúng.');
+      }
+
+      user.emailVerifiedAt = new Date();
+      await user.save();
+      clearEmailVerificationCode(user.id);
+
+      res.json({
+        message: 'Email đã được xác thực thành công.',
+        user: sanitizeUser(user),
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+router.patch(
+  '/me/password',
+  requireAuth,
+  validate({ body: changeOwnPasswordSchema }),
+  async (req, res, next) => {
+    try {
+      const user = await getCurrentUserOrThrow(req.user.id);
+      const { currentPassword, newPassword } = req.body;
+
+      const isMatch = await user.comparePassword(currentPassword);
+      if (!isMatch) {
+        throw AppError.unauthorized('Mật khẩu hiện tại không đúng.');
+      }
+
+      if (currentPassword === newPassword) {
+        throw AppError.badRequest('Mật khẩu mới phải khác mật khẩu hiện tại.');
+      }
+
+      user.password = newPassword;
+      await user.save();
+
+      res.json({ message: 'Đổi mật khẩu thành công.' });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+router.post('/me/avatar', requireAuth, (req, res, next) => {
+  avatarUpload.single('avatar')(req, res, async (uploadErr) => {
+    if (uploadErr) {
+      const statusCode = uploadErr instanceof multer.MulterError || uploadErr?.message
+        ? 400
+        : 500;
+      res.status(statusCode).json({ message: uploadErr.message || 'Không thể upload avatar.' });
+      return;
+    }
+
+    if (!req.file) {
+      res.status(400).json({ message: 'Không có file avatar được upload.' });
+      return;
+    }
+
+    const nextAvatarUrl = `/uploads/avatars/${req.file.filename}`;
+
+    try {
+      const user = await getCurrentUserOrThrow(req.user.id);
+      const previousAvatarUrl = user.avatarUrl;
+
+      user.avatarUrl = nextAvatarUrl;
+      await user.save();
+
+      if (previousAvatarUrl && previousAvatarUrl !== nextAvatarUrl) {
+        removeManagedAvatar(previousAvatarUrl);
+      }
+
+      res.json({
+        message: 'Cập nhật avatar thành công.',
+        user: sanitizeUser(user),
+      });
+    } catch (err) {
+      removeManagedAvatar(nextAvatarUrl);
+      next(err);
+    }
+  });
+});
+
+router.delete('/me/avatar', requireAuth, async (req, res, next) => {
+  try {
+    const user = await getCurrentUserOrThrow(req.user.id);
+    const previousAvatarUrl = user.avatarUrl;
+
+    if (!previousAvatarUrl) {
+      res.json({
+        message: 'Avatar đã được xóa.',
+        user: sanitizeUser(user),
+      });
+      return;
+    }
+
+    user.avatarUrl = null;
+    await user.save();
+    removeManagedAvatar(previousAvatarUrl);
+
+    res.json({
+      message: 'Xóa avatar thành công.',
+      user: sanitizeUser(user),
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // Đăng ký
 router.post(
   "/register",
@@ -181,8 +536,7 @@ router.post(
     });
 
     // Loại bỏ mật khẩu khỏi đối tượng user trước khi gửi về client
-    const userResponse = newUser.toJSON();
-    delete userResponse.password;
+    const userResponse = sanitizeUser(newUser);
 
     res
       .status(201)
@@ -221,8 +575,7 @@ router.post(
     }
 
     // Loại bỏ mật khẩu khỏi đối tượng user trước khi gửi về client
-    const userResponse = user.toJSON();
-    delete userResponse.password;
+    const userResponse = sanitizeUser(user);
 
     const tokens = await issueTokens({ user, req, res });
 
@@ -264,8 +617,7 @@ router.post(
       if (!user) throw AppError.unauthorized('User not found');
 
       const tokens = await issueTokens({ user, req, res });
-      const userResponse = user.toJSON();
-      delete userResponse.password;
+      const userResponse = sanitizeUser(user);
 
       res.json({
         accessToken: tokens.accessToken,
@@ -431,8 +783,6 @@ router.post(
 );
 
 // ===== ADMIN: Quản lý danh sách giáo viên =====
-
-const { requireAuth, requireRole } = require('../middlewares/auth');
 
 // GET /api/auth/teachers — lấy danh sách tất cả giáo viên (chỉ admin)
 router.get('/teachers', requireAuth, requireRole('admin'), async (req, res) => {
