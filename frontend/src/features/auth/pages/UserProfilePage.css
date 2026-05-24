@@ -1,6 +1,7 @@
 @import url("https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap");
 
 .userProfilePage {
+  --userProfilePage-control-shine-duration: 4.2s;
   min-height: 100vh;
   background:
     radial-gradient(circle at top left, rgba(37, 99, 235, 0.18), transparent 28%),
@@ -257,43 +258,80 @@
 }
 
 .userProfilePage__tab {
+  --userProfilePage-tab-accent-rgb: 37, 99, 235;
+  --userProfilePage-tab-base-start: rgba(239, 246, 255, 0.96);
+  --userProfilePage-tab-base-end: rgba(219, 234, 254, 0.9);
+  --userProfilePage-tab-active-start: rgba(29, 78, 216, 0.3);
+  --userProfilePage-tab-active-mid: rgba(59, 130, 246, 0.48);
+  --userProfilePage-tab-active-end: rgba(239, 246, 255, 0.98);
+  --userProfilePage-tab-label-active: #123b93;
+  --userProfilePage-tab-meta-active: #30519a;
   position: relative;
   overflow: hidden;
   isolation: isolate;
-  border: 1px solid rgba(148, 163, 184, 0.2);
+  border: 1px solid rgba(var(--userProfilePage-tab-accent-rgb), 0.24);
   border-radius: 22px;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.96) 0%, rgba(239, 246, 255, 0.9) 100%);
+  background-image:
+    linear-gradient(120deg, transparent 36%, rgba(255, 255, 255, 0.06) 45%, rgba(255, 255, 255, 0.58) 50%, rgba(255, 255, 255, 0.06) 55%, transparent 64%),
+    linear-gradient(135deg, var(--userProfilePage-tab-base-start) 0%, var(--userProfilePage-tab-base-end) 100%);
+  background-repeat: no-repeat;
+  background-size: 220% 100%, 100% 100%;
+  background-position: 165% 0, 0 0;
   padding: 14px 16px;
   text-align: left;
   cursor: pointer;
   transition: transform 0.22s ease, box-shadow 0.22s ease, border-color 0.22s ease, background 0.22s ease;
+  animation: userProfilePageSurfaceShine var(--userProfilePage-control-shine-duration) linear infinite;
+  will-change: background-position, transform, box-shadow;
+}
+
+.userProfilePage__tab--info {
+  --userProfilePage-tab-accent-rgb: 34, 197, 94;
+  --userProfilePage-tab-base-start: rgba(240, 253, 244, 0.98);
+  --userProfilePage-tab-base-end: rgba(220, 252, 231, 0.92);
+  --userProfilePage-tab-active-start: rgba(22, 163, 74, 0.36);
+  --userProfilePage-tab-active-mid: rgba(34, 197, 94, 0.58);
+  --userProfilePage-tab-active-end: rgba(240, 253, 244, 0.99);
+  --userProfilePage-tab-label-active: #14532d;
+  --userProfilePage-tab-meta-active: #166534;
+}
+
+.userProfilePage__tab--security {
+  --userProfilePage-tab-accent-rgb: 168, 85, 247;
+  --userProfilePage-tab-base-start: rgba(250, 245, 255, 0.98);
+  --userProfilePage-tab-base-end: rgba(243, 232, 255, 0.92);
+  --userProfilePage-tab-active-start: rgba(126, 34, 206, 0.38);
+  --userProfilePage-tab-active-mid: rgba(168, 85, 247, 0.6);
+  --userProfilePage-tab-active-end: rgba(250, 245, 255, 0.99);
+  --userProfilePage-tab-label-active: #581c87;
+  --userProfilePage-tab-meta-active: #6b21a8;
 }
 
 .userProfilePage__tab::before,
 .userProfilePage__button::before {
-  content: '';
-  position: absolute;
-  top: -28%;
-  bottom: -28%;
-  left: -46%;
-  width: 38%;
-  transform: skewX(-20deg) translateX(0);
-  background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.16) 16%, rgba(255, 255, 255, 0.72) 50%, rgba(255, 255, 255, 0.16) 84%, transparent 100%);
-  opacity: 0.9;
-  pointer-events: none;
-  animation: userProfilePageSweep 5.4s ease-in-out infinite;
+  content: none;
 }
 
 .userProfilePage__tab:hover {
   transform: translateY(-1px);
-  box-shadow: 0 18px 36px rgba(37, 99, 235, 0.12);
-  border-color: rgba(96, 165, 250, 0.32);
+  box-shadow: 0 18px 36px rgba(var(--userProfilePage-tab-accent-rgb), 0.14);
+  border-color: rgba(var(--userProfilePage-tab-accent-rgb), 0.34);
 }
 
 .userProfilePage__tab--active {
-  border-color: rgba(37, 99, 235, 0.46);
-  background: linear-gradient(135deg, rgba(219, 234, 254, 0.96) 0%, rgba(239, 246, 255, 0.98) 58%, rgba(255, 255, 255, 0.94) 100%);
-  box-shadow: 0 20px 40px rgba(37, 99, 235, 0.16);
+  border-color: rgba(var(--userProfilePage-tab-accent-rgb), 0.62);
+  background-image:
+    linear-gradient(120deg, transparent 34%, rgba(255, 255, 255, 0.08) 45%, rgba(255, 255, 255, 0.62) 50%, rgba(255, 255, 255, 0.08) 55%, transparent 66%),
+    linear-gradient(135deg, var(--userProfilePage-tab-active-start) 0%, var(--userProfilePage-tab-active-mid) 42%, var(--userProfilePage-tab-active-end) 100%);
+  box-shadow: 0 22px 42px rgba(var(--userProfilePage-tab-accent-rgb), 0.26);
+}
+
+.userProfilePage__tab--active .userProfilePage__tabLabel {
+  color: var(--userProfilePage-tab-label-active);
+}
+
+.userProfilePage__tab--active .userProfilePage__tabMeta {
+  color: var(--userProfilePage-tab-meta-active);
 }
 
 .userProfilePage__tabLabel {
@@ -460,6 +498,13 @@
   letter-spacing: 0.01em;
   cursor: pointer;
   transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
+  background-repeat: no-repeat;
+  background-size: 220% 100%, 100% 100%;
+  background-position: 165% 0, 0 0;
+  animation: userProfilePageSurfaceShine var(--userProfilePage-control-shine-duration) linear infinite;
+  will-change: background-position, transform, box-shadow;
+  appearance: none;
+  outline: none;
 }
 
 .userProfilePage__button:hover:not(:disabled) {
@@ -469,6 +514,8 @@
 .userProfilePage__button:disabled {
   opacity: 0.62;
   cursor: not-allowed;
+  animation: none;
+  background-position: 0 0, 0 0;
 }
 
 .userProfilePage__button:disabled::before {
@@ -477,13 +524,18 @@
 }
 
 .userProfilePage__button--primary {
-  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 54%, #0ea5e9 100%);
+  border: none;
+  background-image:
+    linear-gradient(120deg, transparent 34%, rgba(255, 255, 255, 0.08) 45%, rgba(255, 255, 255, 0.34) 50%, rgba(255, 255, 255, 0.08) 55%, transparent 66%),
+    linear-gradient(135deg, #2563eb 0%, #1d4ed8 54%, #0ea5e9 100%);
   color: #fff;
   box-shadow: 0 18px 34px rgba(37, 99, 235, 0.24);
 }
 
 .userProfilePage__button--ghost {
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.96) 0%, rgba(239, 246, 255, 0.9) 100%);
+  background-image:
+    linear-gradient(120deg, transparent 36%, rgba(255, 255, 255, 0.08) 46%, rgba(255, 255, 255, 0.38) 50%, rgba(255, 255, 255, 0.08) 54%, transparent 64%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.96) 0%, rgba(239, 246, 255, 0.9) 100%);
   color: #17305d;
   border-color: rgba(191, 219, 254, 0.64);
   box-shadow: 0 12px 26px rgba(148, 163, 184, 0.12);
@@ -494,25 +546,22 @@
 }
 
 .userProfilePage__button--full {
-  width: 100%;
+  width: 20%;
 }
 
-.userProfilePage__chip--verified,
-.userProfilePage__statusBadge--verified {
+.userProfilePage__chip--verified {
   background: rgba(34, 197, 94, 0.18);
   border-color: rgba(134, 239, 172, 0.36);
   color: #dcfce7;
 }
 
-.userProfilePage__chip--warning,
-.userProfilePage__statusBadge--warning {
+.userProfilePage__chip--warning {
   background: rgba(251, 191, 36, 0.16);
   border-color: rgba(253, 230, 138, 0.36);
   color: #fef3c7;
 }
 
-.userProfilePage__chip--muted,
-.userProfilePage__statusBadge--muted {
+.userProfilePage__chip--muted {
   background: rgba(148, 163, 184, 0.18);
   border-color: rgba(203, 213, 225, 0.3);
   color: #e2e8f0;
@@ -521,13 +570,38 @@
 .userProfilePage__statusBadge {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
+  align-self: center;
   min-height: 34px;
-  padding: 0 12px;
+  padding: 0 14px;
   border-radius: 999px;
   border: 1px solid transparent;
+  font-family: "Space Grotesk", "Manrope", sans-serif;
   font-size: 12px;
   font-weight: 800;
+  letter-spacing: 0.02em;
   white-space: nowrap;
+}
+
+.userProfilePage__statusBadge--verified {
+  background: linear-gradient(135deg, #ecfdf5 0%, #dcfce7 100%);
+  border-color: rgba(34, 197, 94, 0.24);
+  color: #166534;
+  box-shadow: 0 10px 20px rgba(34, 197, 94, 0.12);
+}
+
+.userProfilePage__statusBadge--warning {
+  background: linear-gradient(135deg, #fff7dd 0%, #fde68a 100%);
+  border-color: rgba(245, 158, 11, 0.32);
+  color: #92400e;
+  box-shadow: 0 10px 20px rgba(245, 158, 11, 0.14);
+}
+
+.userProfilePage__statusBadge--muted {
+  background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+  border-color: rgba(148, 163, 184, 0.24);
+  color: #475569;
+  box-shadow: 0 10px 18px rgba(148, 163, 184, 0.1);
 }
 
 .userProfilePage__securityStack {
@@ -688,13 +762,13 @@
   }
 }
 
-@keyframes userProfilePageSweep {
+@keyframes userProfilePageSurfaceShine {
   0% {
-    transform: skewX(-20deg) translateX(-165%);
+    background-position: 165% 0, 0 0;
   }
 
   100% {
-    transform: skewX(-20deg) translateX(430%);
+    background-position: -145% 0, 0 0;
   }
 }
 
@@ -806,12 +880,6 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .userProfilePage__tab::before,
-  .userProfilePage__button::before {
-    animation: none;
-    opacity: 0;
-  }
-
   .userProfilePage__tab,
   .userProfilePage__button {
     transition: none;

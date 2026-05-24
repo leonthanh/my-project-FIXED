@@ -983,7 +983,7 @@ const UserProfilePage = () => {
                   type="button"
                   role="tab"
                   aria-selected={activeTab === tab.id}
-                  className={`userProfilePage__tab${activeTab === tab.id ? ' userProfilePage__tab--active' : ''}`}
+                  className={`userProfilePage__tab userProfilePage__tab--${tab.id}${activeTab === tab.id ? ' userProfilePage__tab--active' : ''}`}
                   onClick={() => setActiveTab(tab.id)}
                 >
                   <span className="userProfilePage__tabLabel">{tab.label}</span>
