@@ -20,6 +20,7 @@ import { getRuntimeSyncRateLimitMessage } from "../../../shared/utils/runtimeRat
 import ExtensionToast from "../../../shared/components/ExtensionToast";
 import TestStartModal from "../../../shared/components/TestStartModal";
 import InlineIcon from "../../../shared/components/InlineIcon.jsx";
+import { useTheme } from "../../../shared/contexts/ThemeContext";
 import {
   buildPlacementAttemptPath,
   readPlacementRuntimeContext,
@@ -29,72 +30,271 @@ import "./WritingTest.css";
 const SERVER_AUTOSAVE_INTERVAL_MS = 30000;
 const SERVER_TIMING_RECONCILE_INTERVAL_MS = 25000;
 
-// ====== STYLE FOR HEADER & MODAL ======
-const writingHeaderStyle = {
-  background: "linear-gradient(135deg, #0e276f 0%, #1a3a8f 100%)",
-  color: "white",
-  padding: "0 16px",
-  height: 50,
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center",
-  boxShadow: "0 2px 10px rgba(14, 39, 111, 0.2)",
-  fontFamily: "'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif",
-  position: "sticky",
-  top: 0,
-  zIndex: 100,
-};
-const writingHeaderLeft = { display: "flex", alignItems: "center", gap: 10 };
-const writingHeaderRight = { display: "flex", alignItems: "center", gap: 10 };
-const writingBadge = {
-  background: "linear-gradient(135deg, #e03 0%, #ff6b6b 100%)",
-  padding: "4px 10px",
-  borderRadius: 12,
-  fontSize: 10,
-  fontWeight: 700,
-  letterSpacing: 0.5,
-};
-const writingTimer = {
-  display: "flex",
-  alignItems: "center",
-  gap: 6,
-  background: "rgba(255,255,255,0.15)",
-  padding: "0 10px",
-  borderRadius: 8,
-  backdropFilter: "blur(10px)",
-  fontSize: 15,
-};
-const writingLogoutBtn = {
-  background: "#e03",
-  color: "#fff",
-  border: "none",
-  padding: "8px 16px",
-  borderRadius: 6,
-  fontWeight: 700,
-  cursor: "pointer",
-  fontSize: 15,
-};
 const progressRingStyle = {
   width: 40,
   height: 40,
   position: "relative",
   marginLeft: 10,
 };
-const progressTextStyle = {
-  position: "absolute",
-  top: "50%",
-  left: "50%",
-  transform: "translate(-50%, -50%)",
-  textAlign: "center",
-  fontSize: 13,
-  lineHeight: 1,
-  color: "white",
+
+const createWritingRuntimeTheme = (isDarkMode = false) => {
+  const colors = isDarkMode
+    ? {
+        pageBg: "linear-gradient(180deg, #081122 0%, #0d172d 48%, #0a1326 100%)",
+        pageAccent: "radial-gradient(circle at 16% 10%, rgba(59, 130, 246, 0.16), transparent 24%), radial-gradient(circle at 84% 12%, rgba(16, 185, 129, 0.12), transparent 20%)",
+        surface: "rgba(10, 18, 34, 0.9)",
+        surfaceRaised: "rgba(17, 28, 52, 0.94)",
+        surfaceSoft: "rgba(22, 33, 62, 0.96)",
+        border: "rgba(75, 95, 132, 0.46)",
+        text: "#ecf2ff",
+        textMuted: "#bfd0f5",
+        heading: "#f8fbff",
+        primary: "#0f3f94",
+        primaryStrong: "#2563eb",
+        accent: "#ff3b66",
+        accentStrong: "#ff6b81",
+        footer: "rgba(11, 19, 35, 0.96)",
+        inactiveButton: "rgba(191, 208, 245, 0.12)",
+        inactiveButtonText: "#d7e3fb",
+        shadow: "0 24px 64px rgba(2, 6, 23, 0.35)",
+        gutter: "rgba(255, 59, 102, 0.72)",
+        statusBg: "rgba(249, 115, 22, 0.12)",
+        statusBorder: "rgba(251, 146, 60, 0.4)",
+        statusText: "#fdba74",
+        successBg: "rgba(34, 197, 94, 0.12)",
+        successText: "#86efac",
+        errorBg: "rgba(239, 68, 68, 0.12)",
+        errorText: "#fca5a5",
+      }
+    : {
+        pageBg: "linear-gradient(180deg, #f4f8ff 0%, #eef4ff 46%, #f8fbff 100%)",
+        pageAccent: "radial-gradient(circle at 16% 10%, rgba(96, 165, 250, 0.2), transparent 24%), radial-gradient(circle at 84% 12%, rgba(14, 165, 233, 0.14), transparent 20%)",
+        surface: "rgba(255, 255, 255, 0.94)",
+        surfaceRaised: "rgba(255, 255, 255, 0.96)",
+        surfaceSoft: "rgba(248, 251, 255, 0.98)",
+        border: "rgba(214, 224, 239, 0.92)",
+        text: "#132238",
+        textMuted: "#5d6b82",
+        heading: "#11203d",
+        primary: "#0e276f",
+        primaryStrong: "#1d4ed8",
+        accent: "#e03",
+        accentStrong: "#ff6b6b",
+        footer: "rgba(255, 255, 255, 0.96)",
+        inactiveButton: "#e7edf7",
+        inactiveButtonText: "#42516d",
+        shadow: "0 24px 70px rgba(30, 64, 175, 0.08)",
+        gutter: "rgba(224, 0, 51, 0.7)",
+        statusBg: "#fff7ed",
+        statusBorder: "#fdba74",
+        statusText: "#9a3412",
+        successBg: "#f0fdf4",
+        successText: "#166534",
+        errorBg: "#fef2f2",
+        errorText: "#b91c1c",
+      };
+
+  return {
+    colors,
+    root: {
+      height: "100vh",
+      display: "flex",
+      flexDirection: "column",
+      background: `${colors.pageAccent}, ${colors.pageBg}`,
+      color: colors.text,
+    },
+    loadingState: {
+      minHeight: "100vh",
+      display: "grid",
+      placeItems: "center",
+      padding: 50,
+      background: `${colors.pageAccent}, ${colors.pageBg}`,
+      color: colors.text,
+    },
+    feedbackBlock: {
+      marginTop: 30,
+      padding: 18,
+      borderRadius: 18,
+      border: `1px solid ${colors.border}`,
+      background: colors.surface,
+      boxShadow: colors.shadow,
+    },
+    answerPreview: {
+      whiteSpace: "pre-line",
+      border: `1px solid ${colors.border}`,
+      padding: 14,
+      borderRadius: 14,
+      background: colors.surface,
+      color: colors.text,
+    },
+    header: {
+      background: "linear-gradient(135deg, #0e276f 0%, #1a3a8f 100%)",
+      color: "white",
+      padding: "0 16px",
+      height: 50,
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "center",
+      boxShadow: isDarkMode ? "0 18px 36px rgba(2, 6, 23, 0.28)" : "0 2px 10px rgba(14, 39, 111, 0.2)",
+      fontFamily: "'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif",
+      position: "sticky",
+      top: 0,
+      zIndex: 100,
+    },
+    headerLeft: { display: "flex", alignItems: "center", gap: 10 },
+    headerRight: { display: "flex", alignItems: "center", gap: 10 },
+    badge: {
+      background: `linear-gradient(135deg, ${colors.accent} 0%, ${colors.accentStrong} 100%)`,
+      padding: "4px 10px",
+      borderRadius: 12,
+      fontSize: 10,
+      fontWeight: 700,
+      letterSpacing: 0.5,
+    },
+    headerTitle: { fontWeight: 600, fontSize: 18 },
+    timer: {
+      display: "flex",
+      alignItems: "center",
+      gap: 6,
+      background: "rgba(255,255,255,0.15)",
+      padding: "0 10px",
+      borderRadius: 8,
+      backdropFilter: "blur(10px)",
+      fontSize: 15,
+    },
+    progressText: {
+      position: "absolute",
+      top: "50%",
+      left: "50%",
+      transform: "translate(-50%, -50%)",
+      textAlign: "center",
+      fontSize: 13,
+      lineHeight: 1,
+      color: "white",
+    },
+    exitButton: {
+      background: colors.accent,
+      color: "#fff",
+      border: "none",
+      padding: "8px 16px",
+      borderRadius: 10,
+      fontWeight: 700,
+      cursor: "pointer",
+      fontSize: 15,
+      boxShadow: isDarkMode ? "0 10px 22px rgba(255, 59, 102, 0.18)" : "none",
+    },
+    statusBanner: {
+      margin: "16px 24px 0",
+      borderRadius: 12,
+      padding: "12px 16px",
+      background: colors.statusBg,
+      border: `1px solid ${colors.statusBorder}`,
+      color: colors.statusText,
+      fontSize: 14,
+      lineHeight: 1.5,
+      boxShadow: isDarkMode ? "0 10px 25px rgba(15, 23, 42, 0.18)" : "0 10px 25px rgba(249, 115, 22, 0.08)",
+    },
+    split: {
+      flexGrow: 1,
+      overflow: "hidden",
+      height: "100%",
+      display: "flex",
+    },
+    leftPane: {
+      padding: "24px 24px 28px",
+      height: "auto",
+      overflow: "auto",
+      display: "flex",
+      flexDirection: "column",
+      fontFamily: "'Manrope', 'Segoe UI', sans-serif",
+      background: colors.surfaceRaised,
+      color: colors.text,
+      boxShadow: isDarkMode ? "inset -1px 0 0 rgba(75, 95, 132, 0.3)" : "inset -1px 0 0 rgba(214, 224, 239, 0.92)",
+    },
+    rightPane: {
+      padding: 24,
+      background: colors.surfaceSoft,
+      color: colors.text,
+      boxShadow: isDarkMode ? "inset 1px 0 0 rgba(75, 95, 132, 0.3)" : "inset 1px 0 0 rgba(214, 224, 239, 0.92)",
+    },
+    sectionHeading: {
+      margin: "0 0 18px",
+      color: colors.heading,
+      letterSpacing: "0.02em",
+    },
+    answerHeading: {
+      margin: "0 0 16px",
+      color: colors.heading,
+    },
+    textarea: {
+      width: "100%",
+      padding: 16,
+      overflow: "auto",
+      boxSizing: "border-box",
+      fontSize: "18px",
+      fontFamily: "'IBM Plex Sans', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
+      marginBottom: "12px",
+      border: `1px solid ${colors.border}`,
+      borderRadius: "18px",
+      outline: "none",
+      transition: "border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease",
+      background: colors.surface,
+      color: colors.text,
+      boxShadow: isDarkMode ? "inset 0 2px 10px rgba(2, 6, 23, 0.25)" : "inset 0 2px 10px rgba(14, 39, 111, 0.05)",
+    },
+    footer: {
+      display: "flex",
+      justifyContent: "center",
+      padding: 10,
+      background: colors.footer,
+      borderTop: `1px solid ${colors.border}`,
+      boxShadow: isDarkMode ? "0 -16px 32px rgba(2, 6, 23, 0.18)" : "none",
+    },
+    submitButton: (isSubmitting) => ({
+      margin: "0 10px",
+      padding: "10px 20px",
+      border: "none",
+      borderRadius: "12px",
+      fontSize: "16px",
+      backgroundColor: isSubmitting ? "#999" : colors.accent,
+      color: "white",
+      cursor: isSubmitting ? "not-allowed" : "pointer",
+      opacity: isSubmitting ? 0.85 : 1,
+      boxShadow: isDarkMode && !isSubmitting ? "0 12px 22px rgba(255, 59, 102, 0.18)" : "none",
+    }),
+    messageBanner: (message) => {
+      const isSuccess = message.toLowerCase().includes("success");
+      return {
+        textAlign: "center",
+        padding: "8px 12px 14px",
+        color: isSuccess ? colors.successText : colors.errorText,
+        fontWeight: 600,
+        background: isSuccess ? colors.successBg : colors.errorBg,
+        borderTop: `1px solid ${colors.border}`,
+      };
+    },
+    taskButton: (isActive) => ({
+      margin: "0 10px",
+      padding: "10px 20px",
+      border: "none",
+      borderRadius: "12px",
+      fontSize: "16px",
+      background: isActive
+        ? `linear-gradient(135deg, ${colors.primary} 0%, ${colors.primaryStrong} 100%)`
+        : colors.inactiveButton,
+      color: isActive ? "#fff" : colors.inactiveButtonText,
+      cursor: "pointer",
+      boxShadow: isActive && isDarkMode ? "0 12px 22px rgba(37, 99, 235, 0.18)" : "none",
+    }),
+  };
 };
 
 const WritingTest = () => {
+  const { isDarkMode } = useTheme();
   const { id: routeTestId } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
+  const theme = useMemo(() => createWritingRuntimeTheme(isDarkMode), [isDarkMode]);
   const placementContext = useMemo(
     () => readPlacementRuntimeContext({ pathname: location.pathname, search: location.search }),
     [location.pathname, location.search]
@@ -701,46 +901,34 @@ const WritingTest = () => {
   const countWords = (text) => text.trim().split(/\s+/).filter(Boolean).length;
 
   if (message && !testData) {
-    return <div style={{ padding: 50 }}>{message}</div>;
+    return <div style={theme.loadingState}>{message}</div>;
   }
 
-  if (!testData) return <div style={{ padding: 50 }}>Loading writing test...</div>;
+  if (!testData) return <div style={theme.loadingState}>Loading writing test...</div>;
 
   if (submitted) {
     return (
-      <div style={{ padding: 50 }}>
+      <div style={theme.loadingState}>
         <h2>Submission completed</h2>
         <p>{message}</p>
         {isPlacementRuntime ? <p>Returning to your placement test list...</p> : null}
 
-        <div style={{ marginTop: 30 }}>
+        <div style={theme.feedbackBlock}>
           <h3 style={{ display: "inline-flex", alignItems: "center", gap: 8 }}><InlineIcon name="writing" size={16} />Task 1:</h3>
-          <p
-            style={{
-              whiteSpace: "pre-line",
-              border: "1px solid #ccc",
-              padding: 10,
-            }}
-          >
+          <p style={theme.answerPreview}>
             {task1}
           </p>
         </div>
 
-        <div style={{ marginTop: 30 }}>
+        <div style={theme.feedbackBlock}>
           <h3 style={{ display: "inline-flex", alignItems: "center", gap: 8 }}><InlineIcon name="writing" size={16} />Task 2:</h3>
-          <p
-            style={{
-              whiteSpace: "pre-line",
-              border: "1px solid #ccc",
-              padding: 10,
-            }}
-          >
+          <p style={theme.answerPreview}>
             {task2}
           </p>
         </div>
 
         {feedback && (
-          <div style={{ marginTop: 30 }}>
+          <div style={theme.feedbackBlock}>
             <h3>Teacher feedback</h3>
             <p style={{ whiteSpace: "pre-line" }}>{feedback}</p>
           </div>
@@ -774,6 +962,7 @@ const WritingTest = () => {
         secondaryLabel={isPlacementRuntime ? "Back to placement" : "Cancel"}
         onSecondary={() => navigate(exitPath, { replace: true })}
         primaryLabel="Start test"
+        darkContent={isDarkMode}
         onPrimary={() => {
           autoSubmittingRef.current = false;
           syncTimingState(Date.now() + timeLeft * 1000, timeLeft);
@@ -790,18 +979,18 @@ const WritingTest = () => {
   const progress = Math.min(totalWords / minWords, 1);
   // Header đồng bộ với Reading
   return (
-    <div style={{ height: "100vh", display: "flex", flexDirection: "column" }}>
+    <div style={theme.root}>
       <ExtensionToast message={extensionToast} />
       <ExtensionToast message={runtimeLimitToast} label="Autosave" tone="warning" top={152} />
-      <header style={writingHeaderStyle}>
-        <div style={writingHeaderLeft}>
-          <div style={writingBadge}>IX</div>
-          <span style={{ fontWeight: 600, fontSize: 18 }}>
+      <header style={theme.header}>
+        <div style={theme.headerLeft}>
+          <div style={theme.badge}>IX</div>
+          <span style={theme.headerTitle}>
             IX - WRITING TEST
           </span>
         </div>
-        <div style={writingHeaderRight}>
-          <div style={writingTimer}>
+        <div style={theme.headerRight}>
+          <div style={theme.timer}>
             <span style={{ marginRight: 4, display: "inline-flex", alignItems: "center" }}><InlineIcon name="clock" size={18} /></span>
             <span
               style={{
@@ -838,7 +1027,7 @@ const WritingTest = () => {
                 d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
               />
             </svg>
-            <div style={progressTextStyle}>
+            <div style={theme.progressText}>
               <span style={{ fontWeight: 700, fontSize: 15 }}>
                 {totalWords}
               </span>
@@ -848,7 +1037,7 @@ const WritingTest = () => {
           {isPlacementRuntime ? (
             <button
               onClick={() => navigate(exitPath, { replace: true })}
-              style={writingLogoutBtn}
+              style={theme.exitButton}
             >
               Back to tests
             </button>
@@ -866,7 +1055,7 @@ const WritingTest = () => {
                   redirectToLogin({ replace: true });
                 }
               }}
-              style={writingLogoutBtn}
+              style={theme.exitButton}
             >
               Log out
             </button>
@@ -875,24 +1064,13 @@ const WritingTest = () => {
       </header>
 
       {started && !submitted && timeLeft === 0 && graceRemaining > 0 && (
-        <div
-          style={{
-            margin: "16px 24px 0",
-            borderRadius: 12,
-            padding: "12px 16px",
-            background: "#fff7ed",
-            border: "1px solid #fdba74",
-            color: "#9a3412",
-            fontSize: 14,
-            lineHeight: 1.5,
-            boxShadow: "0 10px 25px rgba(249, 115, 22, 0.08)",
-          }}
-        >
+        <div style={theme.statusBanner}>
           <strong>Official time is over.</strong> The system keeps your answers for another {formatTime(graceRemaining)} in case of power loss or page reload. Your teacher can extend the time if needed.
         </div>
       )}
 
       <Split
+        key={isDarkMode ? "writing-runtime-dark" : "writing-runtime-light"}
         sizes={[50, 50]}
         minSize={200}
         gutterSize={8}
@@ -900,32 +1078,20 @@ const WritingTest = () => {
         gutter={() => {
           if (typeof document === "undefined") return null;
           const gutter = document.createElement("div");
-          gutter.style.backgroundColor = "#e03";
+          gutter.style.backgroundColor = theme.colors.gutter;
           gutter.style.backgroundRepeat = "no-repeat";
           gutter.style.backgroundPosition = "50%";
           return gutter;
         }}
         style={{
-          flexGrow: 1,
-          overflow: "hidden",
-          height: "100%",
-          display: "flex",
+          ...theme.split,
           flexDirection: isMobile ? "column" : "row",
         }}
       >
-        <div
-          style={{
-            padding: "20px",
-            height: "auto",
-            overflow: "auto",
-            display: "flex",
-            flexDirection: "column",
-            fontFamily: "sans-serif",
-          }}
-        >
+        <div style={theme.leftPane}>
           {activeTask === "task1" && (
             <>
-              <h2>WRITING TASK 1</h2>
+              <h2 style={theme.sectionHeading}>WRITING TASK 1</h2>
               <div
                 className="writing-test-prompt"
                 dangerouslySetInnerHTML={{ __html: testData.task1 }}
@@ -945,7 +1111,7 @@ const WritingTest = () => {
 
           {activeTask === "task2" && (
             <>
-              <h2>WRITING TASK 2</h2>
+              <h2 style={theme.sectionHeading}>WRITING TASK 2</h2>
               <div
                 className="writing-test-prompt"
                 dangerouslySetInnerHTML={{ __html: testData.task2 }}
@@ -957,26 +1123,14 @@ const WritingTest = () => {
           )}
         </div>
 
-        <div style={{ padding: 20 }}>
-          <h3>
+        <div style={theme.rightPane}>
+          <h3 style={theme.answerHeading}>
             Your Answer – {activeTask.toUpperCase()} (
             {countWords(activeTask === "task1" ? task1 : task2)} words)
           </h3>
           <textarea
             rows={25}
-            style={{
-              width: "100%",
-              padding: 10,
-              overflow: "auto",
-              boxSizing: "border-box",
-              fontSize: "18px",
-              fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
-              marginBottom: "12px",
-              border: "1px solid #ccc",
-              borderRadius: "8px",
-              outline: "none",
-              transition: "border-color 0.2s ease",
-            }}
+            style={theme.textarea}
             value={activeTask === "task1" ? task1 : task2}
             onChange={(e) => {
               if (activeTask === "task1") setTask1(e.target.value);
@@ -987,70 +1141,35 @@ const WritingTest = () => {
       </Split>
 
       <div
-        style={{
-          display: "flex",
-          justifyContent: "center",
-          padding: 10,
-          background: "#fafafa",
-          borderTop: "1px solid #ccc",
-        }}
+        style={theme.footer}
       >
         <button
           onClick={() => setActiveTask("task1")}
-          style={taskBtnStyle(activeTask === "task1")}
+          style={theme.taskButton(activeTask === "task1")}
         >
           Task 1
         </button>
         <button
           onClick={() => setActiveTask("task2")}
-          style={taskBtnStyle(activeTask === "task2")}
+          style={theme.taskButton(activeTask === "task2")}
         >
           Task 2
         </button>
         <button
           onClick={handleSubmit}
-          style={{
-            margin: "0 10px",
-            padding: "10px 20px",
-            border: "none",
-            borderRadius: "8px",
-            fontSize: "16px",
-            backgroundColor: isSubmitting ? "#999" : "#e03",
-            color: "white",
-            cursor: isSubmitting ? "not-allowed" : "pointer",
-            opacity: isSubmitting ? 0.85 : 1,
-          }}
+          style={theme.submitButton(isSubmitting)}
           disabled={isSubmitting}
         >
           {isSubmitting ? "Submitting..." : "Submit"}
         </button>
       </div>
       {message && !submitted && (
-        <div
-          style={{
-            textAlign: "center",
-            padding: "8px 12px 14px",
-            color: message.toLowerCase().includes("success") ? "#166534" : "#b91c1c",
-            fontWeight: 600,
-            background: "#fff",
-          }}
-        >
+        <div style={theme.messageBanner(message)}>
           {message}
         </div>
       )}
     </div>
   );
 };
-
-const taskBtnStyle = (isActive) => ({
-  margin: "0 10px",
-  padding: "10px 20px",
-  border: "none",
-  borderRadius: "8px",
-  fontSize: "16px",
-  backgroundColor: isActive ? "#0e276f" : "#e0e0e0",
-  color: isActive ? "white" : "#333",
-  cursor: "pointer",
-});
 
 export default WritingTest;

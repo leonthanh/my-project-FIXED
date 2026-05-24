@@ -232,6 +232,10 @@ const createStyles = (isDarkMode = false) => {
     flexShrink: 0,
     boxShadow: "0 12px 24px rgba(37, 99, 235, 0.18)",
   },
+  questionItemSurface: colors.surface,
+  questionItemActiveSurface: isDarkMode
+    ? `linear-gradient(180deg, ${colors.surfaceRaised} 0%, ${colors.surfaceAlt} 100%)`
+    : "linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(239,246,255,0.96) 100%)",
   questionText: { flex: 1, marginTop: "6px", lineHeight: 1.7, color: colors.text, fontSize: "1rem" },
   optionsList: {
     listStyle: "none",
@@ -252,6 +256,9 @@ const createStyles = (isDarkMode = false) => {
     cursor: "pointer",
     transition: "background-color 0.2s, border-color 0.2s, transform 0.2s",
   },
+  optionIdleBg: colors.surfaceAlt,
+  optionSelectedBg: isDarkMode ? "rgba(74, 144, 217, 0.22)" : "#dbeafe",
+  optionSelectedBorder: isDarkMode ? colors.primaryStrong : "#93c5fd",
   optionText: { marginLeft: "20px", color: colors.text, lineHeight: 1.55 },
   radioInput: {
     position: "absolute",
@@ -279,6 +286,10 @@ const createStyles = (isDarkMode = false) => {
     border: `1px solid ${colors.border}`,
     boxShadow: "0 12px 28px rgba(15, 23, 42, 0.05)",
   },
+  fillQuestionSurface: colors.surface,
+  fillQuestionActiveSurface: isDarkMode
+    ? `linear-gradient(180deg, ${colors.surfaceRaised} 0%, ${colors.surfaceAlt} 100%)`
+    : "linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(239,246,255,0.96) 100%)",
   fillQuestionNumber: {
     display: "inline-flex",
     alignItems: "center",
@@ -317,6 +328,12 @@ const createStyles = (isDarkMode = false) => {
       : "linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(239,246,255,0.96) 100%)",
     boxShadow: "0 12px 28px rgba(15, 23, 42, 0.05)",
   },
+  multiSelectSurface: isDarkMode
+    ? `linear-gradient(180deg, ${colors.surface} 0%, ${colors.surfaceAlt} 100%)`
+    : "linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(239,246,255,0.96) 100%)",
+  multiSelectActiveSurface: isDarkMode
+    ? `linear-gradient(180deg, ${colors.surfaceRaised} 0%, ${colors.surfaceAlt} 100%)`
+    : "linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(232,244,252,0.96) 100%)",
   multiSelectHeader: {
     display: "flex",
     alignItems: "flex-start",
@@ -356,6 +373,10 @@ const createStyles = (isDarkMode = false) => {
     cursor: "pointer",
     transition: "all 0.2s",
   },
+  multiSelectOptionIdleBg: colors.surface,
+  multiSelectOptionIdleBorder: colors.border,
+  multiSelectOptionSelectedBg: isDarkMode ? "rgba(34, 197, 94, 0.14)" : "#d1e7dd",
+  multiSelectOptionSelectedBorder: isDarkMode ? colors.success : "#0f5132",
   multiSelectCheckbox: {
     width: "18px",
     height: "18px",

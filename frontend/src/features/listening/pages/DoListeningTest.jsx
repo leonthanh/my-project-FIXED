@@ -1937,7 +1937,9 @@ const DoListeningTest = () => {
         onClick={() => setActiveQuestion(globalNumber)}
         style={{
           ...styles.questionItem,
-          backgroundColor: activeQuestion === globalNumber ? "#eff6ff" : "transparent",
+          background: activeQuestion === globalNumber
+            ? styles.questionItemActiveSurface
+            : styles.questionItemSurface,
         }}
       >
         <div style={styles.questionHeader}>
@@ -1956,7 +1958,8 @@ const DoListeningTest = () => {
                   htmlFor={optionId}
                   style={{
                     ...styles.optionLabel,
-                    backgroundColor: isSelected ? "#dbeafe" : "transparent",
+                    backgroundColor: isSelected ? styles.optionSelectedBg : styles.optionIdleBg,
+                    borderColor: isSelected ? styles.optionSelectedBorder : styles.optionLabel.border.split(" ")[2] || styles.optionLabel.border,
                   }}
                 >
                   <span style={styles.optionText}>{opt}</span>
@@ -1992,7 +1995,9 @@ const DoListeningTest = () => {
         ref={(el) => (questionRefs.current[startNumber] = el)}
         style={{
           ...styles.multiSelectContainer,
-          backgroundColor: activeQuestion === startNumber ? "#eff6ff" : "#e8f4fc",
+          background: activeQuestion === startNumber
+            ? styles.multiSelectActiveSurface
+            : styles.multiSelectSurface,
         }}
       >
         {/* Question number badge */}
@@ -2016,8 +2021,8 @@ const DoListeningTest = () => {
                 htmlFor={optionId}
                 style={{
                   ...styles.multiSelectOption,
-                  backgroundColor: isSelected ? "#d1e7dd" : "#fff",
-                  borderColor: isSelected ? "#0f5132" : "#dee2e6",
+                  backgroundColor: isSelected ? styles.multiSelectOptionSelectedBg : styles.multiSelectOptionIdleBg,
+                  borderColor: isSelected ? styles.multiSelectOptionSelectedBorder : styles.multiSelectOptionIdleBorder,
                 }}
               >
                 <input
@@ -2051,7 +2056,9 @@ const DoListeningTest = () => {
         ref={(el) => (questionRefs.current[globalNumber] = el)}
         style={{
           ...styles.fillQuestionItem,
-          backgroundColor: activeQuestion === globalNumber ? "#eff6ff" : "transparent",
+          background: activeQuestion === globalNumber
+            ? styles.fillQuestionActiveSurface
+            : styles.fillQuestionSurface,
         }}
       >
         <span style={styles.fillQuestionNumber}>{globalNumber}</span>
