@@ -16,6 +16,7 @@
   max-width: none;
   margin: 0 auto;
   padding: 16px 24px 40px;
+  box-sizing: border-box;
 }
 
 .userProfilePage__shell--withNavbar {
@@ -863,6 +864,212 @@
   }
 }
 
+@media (max-width: 480px) {
+  .userProfilePage__shell {
+    padding-right: 10px;
+    padding-bottom: 28px;
+    padding-left: 10px;
+  }
+
+  .userProfilePage__shell--withNavbar {
+    padding-top: 76px;
+  }
+
+  .userProfilePage__workspace {
+    gap: 14px;
+  }
+
+  .userProfilePage__heroCard,
+  .userProfilePage__card {
+    padding: 14px;
+    border-radius: 18px;
+  }
+
+  .userProfilePage__heroCard {
+    gap: 12px;
+  }
+
+  .userProfilePage__heroMain {
+    gap: 10px;
+  }
+
+  .userProfilePage__avatarCluster {
+    display: grid;
+    grid-template-columns: 76px minmax(0, 1fr);
+    align-items: start;
+    gap: 8px 10px;
+    width: 100%;
+  }
+
+  .userProfilePage__avatarFrame {
+    width: 76px;
+    height: 76px;
+  }
+
+  .userProfilePage__avatarFallback {
+    font-size: 24px;
+  }
+
+  .userProfilePage__avatarHint {
+    font-size: 10px;
+  }
+
+  .userProfilePage__avatarActions {
+    gap: 5px;
+  }
+
+  .userProfilePage__eyebrow,
+  .userProfilePage__cardEyebrow {
+    font-size: 10px;
+    letter-spacing: 0.12em;
+  }
+
+  .userProfilePage__title {
+    font-size: 20px;
+  }
+
+  .userProfilePage__subtitle,
+  .userProfilePage__bodyCopy,
+  .userProfilePage__tipList {
+    font-size: 13px;
+  }
+
+  .userProfilePage__chipRow {
+    gap: 6px;
+    margin-top: 8px;
+  }
+
+  .userProfilePage__chip {
+    min-height: 24px;
+    padding: 0 7px;
+    font-size: 10px;
+  }
+
+  .userProfilePage__heroStats,
+  .userProfilePage__stack,
+  .userProfilePage__securityStack,
+  .userProfilePage__summaryList {
+    gap: 8px;
+  }
+
+  .userProfilePage__heroStats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .userProfilePage__heroStat:last-child {
+    grid-column: 1 / -1;
+  }
+
+  .userProfilePage__heroStat,
+  .userProfilePage__summaryItem,
+  .userProfilePage__readonlyBanner {
+    padding: 9px 10px;
+    border-radius: 13px;
+  }
+
+  .userProfilePage__heroStatLabel,
+  .userProfilePage__summaryLabel {
+    font-size: 11px;
+  }
+
+  .userProfilePage__heroStatValue,
+  .userProfilePage__summaryValue {
+    margin-top: 4px;
+    font-size: 14px;
+  }
+
+  .userProfilePage__tabBar {
+    justify-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+    padding: 5px;
+    border-radius: 18px;
+  }
+
+  .userProfilePage__tab {
+    width: min(100%, 240px);
+    padding: 10px 14px;
+    border-radius: 16px;
+    justify-self: center;
+    text-align: center;
+  }
+
+  .userProfilePage__tabLabel {
+    font-size: 14px;
+  }
+
+  .userProfilePage__tabMeta {
+    display: none;
+  }
+
+  .userProfilePage__cardHeader {
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+
+  .userProfilePage__cardTitle {
+    font-size: 19px;
+  }
+
+  .userProfilePage__cardMeta,
+  .userProfilePage__fieldHint,
+  .userProfilePage__message {
+    font-size: 12px;
+  }
+
+  .userProfilePage__form,
+  .userProfilePage__actions,
+  .userProfilePage__inlineActions {
+    gap: 10px;
+  }
+
+  .userProfilePage__field {
+    gap: 6px;
+  }
+
+  .userProfilePage__input,
+  .userProfilePage__textarea {
+    border-radius: 14px;
+    padding: 11px 12px;
+  }
+
+  .userProfilePage__textarea {
+    min-height: 128px;
+  }
+
+  .userProfilePage__button {
+    min-height: 38px;
+    padding: 0 12px;
+    font-size: 0.84rem;
+  }
+
+  .userProfilePage__avatarActions .userProfilePage__button {
+    width: 100%;
+  }
+
+  .userProfilePage__button--full {
+    width: 100%;
+  }
+
+  .userProfilePage__card--summary {
+    display: none;
+  }
+
+  .userProfilePage__dialogCard {
+    padding: 16px;
+    border-radius: 20px;
+  }
+
+  .userProfilePage__cropStage {
+    height: 240px;
+    border-radius: 16px;
+  }
+
+  .userProfilePage__shell--withNavbar .userProfilePage__tabBar {
+    top: 66px;
+  }
+}
+
 .userProfilePage__shell--withNavbar .userProfilePage__tabBar {
   top: 82px;
 }
@@ -876,6 +1083,12 @@
 @media (max-width: 720px) {
   .userProfilePage__shell--withNavbar .userProfilePage__tabBar {
     top: 70px;
+  }
+}
+
+@media (max-width: 480px) {
+  .userProfilePage__shell--withNavbar .userProfilePage__tabBar {
+    top: 66px;
   }
 }
 
