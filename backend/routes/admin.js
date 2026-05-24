@@ -179,6 +179,22 @@ router.get('/users', requireAuth, requireRole('admin'), async (req, res) => {
   }
 });
 
+// GET /api/admin/users/:id/profile — load full profile data for admin profile review
+router.get('/users/:id/profile', requireAuth, requireRole('admin'), async (req, res) => {
+  try {
+    const user = await User.findByPk(req.params.id);
+    if (!user) return res.status(404).json({ message: 'Không tìm thấy người dùng.' });
+
+    const payload = user.toJSON();
+    delete payload.password;
+
+    res.json({ user: payload });
+  } catch (err) {
+    logError('Lỗi tải hồ sơ user cho admin', err);
+    res.status(500).json({ message: 'Lỗi server.' });
+  }
+});
+
 // PATCH /api/admin/users/:id — update name / email / phone / role / canManageTests
 router.patch('/users/:id', requireAuth, requireRole('admin'), async (req, res) => {
   try {
@@ -189,7 +205,16 @@ router.patch('/users/:id', requireAuth, requireRole('admin'), async (req, res) =
     const { name, email, phone, role, canManageTests } = req.body;
     const updates = {};
     if (name !== undefined) updates.name = String(name).trim();
-    if (email !== undefined) updates.email = String(email).trim() || null;
+    if (email !== undefined) {
+      const nextEmail = String(email).trim() || null;
+      const currentEmail = String(user.email || '').trim() || null;
+      const normalizedNextEmail = nextEmail ? nextEmail.toLowerCase() : null;
+      const normalizedCurrentEmail = currentEmail ? currentEmail.toLowerCase() : null;
+      updates.email = nextEmail;
+      if (normalizedNextEmail !== normalizedCurrentEmail) {
+        updates.emailVerifiedAt = null;
+      }
+    }
     if (phone !== undefined) {
       const trimmedPhone = String(phone).trim();
       if (trimmedPhone !== user.phone) {

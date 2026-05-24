@@ -474,6 +474,7 @@ const UsersTab = ({ onViewSubmissions }) => {
                       <>
                         <button style={s.btnSmGray} onClick={() => setEditModal(u)} title="Edit user">Edit</button>
                         <button style={s.btnSmGray} onClick={() => setPwModal(u)} title="Reset password">Password</button>
+                        <button style={s.btnSmBlue} onClick={() => navigate(`/admin/users/${u.id}/profile`)} title="Open profile">Profile</button>
                         <button style={s.btnSmBlue} onClick={() => onViewSubmissions(u)} title="View submissions">Submissions</button>
                         <button style={s.btnSmRed} onClick={() => setDelConfirm(u)} title="Delete user">Delete</button>
                       </>
@@ -796,6 +797,7 @@ const SubmissionsTab = ({ initialUser }) => {
                     subtitle="Open this user to manage writing, reading, listening, and Orange submissions."
                     actions={(
                       <>
+                        <button style={s.btnSmBlue} onClick={() => navigate(`/admin/users/${u.id}/profile`)}>Open profile</button>
                         <button style={s.btnSmBlue} onClick={() => loadSubs(u)}>Open submissions</button>
                         <button style={s.btnSmRed} onClick={() => deleteListedUser(u)} title="Delete user">Delete</button>
                       </>
@@ -826,6 +828,7 @@ const SubmissionsTab = ({ initialUser }) => {
             actions={(
               <>
                 <button style={s.btnSmGray} onClick={closeSelection}>Back to user list</button>
+                <button style={s.btnSmBlue} onClick={() => navigate(`/admin/users/${selectedUser.id}/profile`)}>Open profile</button>
                 <button style={s.btnSmRed} onClick={() => deleteListedUser(selectedUser)}>Delete user</button>
               </>
             )}

@@ -1007,6 +1007,7 @@ const AdminNavbar = () => {
     pathname.includes("listening-submissions");
   const isTestListCurrent = pathname === "/select-test";
   const isReviewCurrent = pathname.startsWith("/review");
+  const isProfileCurrent = pathname.startsWith("/profile");
   const isAdminCurrent =
     pathname.startsWith("/admin/users") ||
     pathname.startsWith("/admin/teacher-permissions");
@@ -1369,6 +1370,12 @@ const AdminNavbar = () => {
         </div>
 
         <div className="adminNavbar__mobileSectionTitle">Account</div>
+        {renderMobileQuickLink(
+          "/profile",
+          "Profile",
+          "Cập nhật avatar, email, địa chỉ và mật khẩu",
+          "user"
+        )}
         <button
           type="button"
           className="adminNavbar__mobileLogout"
@@ -1719,10 +1726,14 @@ const AdminNavbar = () => {
       {/* Hiển thị tên giáo viên và nút logout */}
       <div className="adminNavbar__right">
         <ThemeToggle />
-        <span className="adminNavbar__teacherName">
+        <Link
+          to="/profile"
+          className={`adminNavbar__teacherName${isProfileCurrent ? " adminNavbar__teacherName--active" : ""}`}
+          title={`Open profile for ${userDisplayName}`}
+        >
           <span className="adminNavbar__icon adminNavbar__icon--user" aria-hidden="true"><NavIcon name="user" /></span>
           <span>{userDisplayName}</span>
-        </span>
+        </Link>
         <button
           onClick={handleLogout}
           className="adminNavbar__logout"
