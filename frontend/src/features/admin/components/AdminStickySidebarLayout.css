@@ -301,6 +301,11 @@
   animation: none;
 }
 
+body.dark-mode .admin-side-layout button::after,
+body.dark-mode .admin-side-layout a::after {
+  background: linear-gradient(110deg, transparent 24%, rgba(148, 163, 184, 0.12) 50%, transparent 76%);
+}
+
 body.dark-mode .admin-side-layout__card,
 body.dark-mode .admin-side-layout__panel {
   border-color: rgba(75, 95, 132, 0.46);

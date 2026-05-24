@@ -1,4 +1,26 @@
 import React from "react";
+import { useTheme } from "../../../shared/contexts/ThemeContext";
+
+const getAdminCardTheme = (isDarkMode) => ({
+  filterLabel: isDarkMode ? "#94a3b8" : "#64748b",
+  cardBackground: isDarkMode ? "rgba(15, 23, 42, 0.92)" : "#fff",
+  cardBorder: isDarkMode ? "#334155" : "#e2e8f0",
+  cardShadow: isDarkMode ? "0 10px 28px rgba(2, 6, 23, 0.28)" : "0 5px 14px rgba(15, 23, 42, 0.03)",
+  titleColor: isDarkMode ? "#e2e8f0" : "#0f172a",
+  sublineColor: isDarkMode ? "#94a3b8" : "#64748b",
+  divider: isDarkMode ? "#23314f" : "#eef2f7",
+  metaLabel: isDarkMode ? "#64748b" : "#94a3b8",
+  metaValue: isDarkMode ? "#cbd5e1" : "#334155",
+  listSummary: isDarkMode ? "#94a3b8" : "#64748b",
+  emptyBackground: isDarkMode ? "rgba(15, 23, 42, 0.9)" : "#f8fafc",
+  emptyBorder: isDarkMode ? "#475569" : "#cbd5e1",
+  emptyText: isDarkMode ? "#94a3b8" : "#64748b",
+  selectionBackground: isDarkMode ? "rgba(15, 23, 42, 0.9)" : "#f8fafc",
+  selectionBorder: isDarkMode ? "#334155" : "#e2e8f0",
+  selectionText: isDarkMode ? "#cbd5e1" : "#475569",
+  checkboxBackground: isDarkMode ? "#0f172a" : "#f8fafc",
+  checkboxBorder: isDarkMode ? "#334155" : "#e2e8f0",
+});
 
 export const adminCardStyles = {
   filterField: { display: "flex", flexDirection: "column", gap: 5, flex: "1 1 180px" },
@@ -136,19 +158,29 @@ export const adminCardStyles = {
   },
 };
 
-export const FilterField = ({ label, children, minWidth = 180, style }) => (
-  <label style={{ ...adminCardStyles.filterField, minWidth, ...style }}>
-    <span style={adminCardStyles.filterLabel}>{label}</span>
-    {children}
-  </label>
-);
+export const FilterField = ({ label, children, minWidth = 180, style }) => {
+  const { isDarkMode } = useTheme();
+  const theme = getAdminCardTheme(isDarkMode);
 
-export const MetaItem = ({ label, value }) => (
-  <div style={adminCardStyles.metaItem}>
-    <span style={adminCardStyles.metaLabel}>{label}</span>
-    <span style={adminCardStyles.metaValue}>{value}</span>
-  </div>
-);
+  return (
+    <label style={{ ...adminCardStyles.filterField, minWidth, ...style }}>
+      <span style={{ ...adminCardStyles.filterLabel, color: theme.filterLabel }}>{label}</span>
+      {children}
+    </label>
+  );
+};
+
+export const MetaItem = ({ label, value }) => {
+  const { isDarkMode } = useTheme();
+  const theme = getAdminCardTheme(isDarkMode);
+
+  return (
+    <div style={adminCardStyles.metaItem}>
+      <span style={{ ...adminCardStyles.metaLabel, color: theme.metaLabel }}>{label}</span>
+      <span style={{ ...adminCardStyles.metaValue, color: theme.metaValue }}>{value}</span>
+    </div>
+  );
+};
 
 export const AdminActionGroup = ({ children, style }) => (
   <div style={{ ...adminCardStyles.actionGroup, ...style }}>{children}</div>
@@ -165,28 +197,81 @@ export const AdminManagementCard = ({
   style,
   accentStyle,
   bodyStyle,
-}) => (
-  <div style={{ ...adminCardStyles.managementCard, borderColor, ...style }}>
-    <div style={{ ...adminCardStyles.managementCardAccent, background: accent, ...accentStyle }} />
-    <div style={{ ...adminCardStyles.managementCardBody, ...bodyStyle }}>{children}</div>
-  </div>
-);
+}) => {
+  const { isDarkMode } = useTheme();
+  const theme = getAdminCardTheme(isDarkMode);
 
-export const AdminMetaGrid = ({ children, style }) => (
-  <div style={{ ...adminCardStyles.managementMetaGrid, ...style }}>{children}</div>
-);
+  return (
+    <div
+      style={{
+        ...adminCardStyles.managementCard,
+        background: theme.cardBackground,
+        borderColor: isDarkMode ? theme.cardBorder : borderColor,
+        boxShadow: theme.cardShadow,
+        ...style,
+      }}
+    >
+      <div style={{ ...adminCardStyles.managementCardAccent, background: accent, ...accentStyle }} />
+      <div style={{ ...adminCardStyles.managementCardBody, ...bodyStyle }}>{children}</div>
+    </div>
+  );
+};
 
-export const AdminEmptyCard = ({ children, style }) => (
-  <div style={{ ...adminCardStyles.emptyCard, ...style }}>{children}</div>
-);
+export const AdminMetaGrid = ({ children, style }) => {
+  const { isDarkMode } = useTheme();
+  const theme = getAdminCardTheme(isDarkMode);
 
-export const AdminListSummary = ({ children, style }) => (
-  <p style={{ ...adminCardStyles.listSummary, ...style }}>{children}</p>
-);
+  return (
+    <div style={{ ...adminCardStyles.managementMetaGrid, borderTopColor: theme.divider, ...style }}>
+      {children}
+    </div>
+  );
+};
 
-export const AdminSelectionToolbar = ({ children, style }) => (
-  <div style={{ ...adminCardStyles.selectionToolbar, ...style }}>{children}</div>
-);
+export const AdminEmptyCard = ({ children, style }) => {
+  const { isDarkMode } = useTheme();
+  const theme = getAdminCardTheme(isDarkMode);
+
+  return (
+    <div
+      style={{
+        ...adminCardStyles.emptyCard,
+        background: theme.emptyBackground,
+        borderColor: theme.emptyBorder,
+        color: theme.emptyText,
+        ...style,
+      }}
+    >
+      {children}
+    </div>
+  );
+};
+
+export const AdminListSummary = ({ children, style }) => {
+  const { isDarkMode } = useTheme();
+  const theme = getAdminCardTheme(isDarkMode);
+
+  return <p style={{ ...adminCardStyles.listSummary, color: theme.listSummary, ...style }}>{children}</p>;
+};
+
+export const AdminSelectionToolbar = ({ children, style }) => {
+  const { isDarkMode } = useTheme();
+  const theme = getAdminCardTheme(isDarkMode);
+
+  return (
+    <div
+      style={{
+        ...adminCardStyles.selectionToolbar,
+        borderColor: theme.selectionBorder,
+        background: theme.selectionBackground,
+        color: theme.selectionText,
+        ...style,
+      }}
+    >
+      {children}
+    </div>
+  );
+};
 
 export const AdminListCard = ({
   accent = "#2563eb",
@@ -202,6 +287,8 @@ export const AdminListCard = ({
   bodyStyle,
   metaStyle,
 }) => {
+  const { isDarkMode } = useTheme();
+  const theme = getAdminCardTheme(isDarkMode);
   const renderedBadges = Array.isArray(badges) ? badges.filter(Boolean) : badges ? [badges] : [];
   const renderedMetaItems = Array.isArray(metaItems) ? metaItems.filter(Boolean) : [];
 
@@ -211,12 +298,12 @@ export const AdminListCard = ({
         <div style={adminCardStyles.managementHeadingBlock}>
           <div style={adminCardStyles.managementHeadingLine}>
             {leading}
-            <strong style={adminCardStyles.managementTitle}>{title}</strong>
+            <strong style={{ ...adminCardStyles.managementTitle, color: theme.titleColor }}>{title}</strong>
             {renderedBadges.map((badge, index) => (
               <React.Fragment key={index}>{badge}</React.Fragment>
             ))}
           </div>
-          {subtitle ? <div style={adminCardStyles.managementSubline}>{subtitle}</div> : null}
+          {subtitle ? <div style={{ ...adminCardStyles.managementSubline, color: theme.sublineColor }}>{subtitle}</div> : null}
         </div>
 
         {actions ? <AdminActionGroup>{actions}</AdminActionGroup> : null}

@@ -1,4 +1,5 @@
 import React from "react";
+import { useTheme } from "../../../shared/contexts/ThemeContext";
 
 const DEFAULT_SORT_OPTIONS = [
   { value: "newest", label: "Newest First" },
@@ -38,6 +39,31 @@ const DEFAULT_STATUS_TONES = {
   },
 };
 
+const getStatusTones = (isDarkMode) => {
+  if (!isDarkMode) return DEFAULT_STATUS_TONES;
+
+  return {
+    pending: {
+      ...DEFAULT_STATUS_TONES.pending,
+      softBackground: "rgba(245, 158, 11, 0.14)",
+      softBorder: "rgba(245, 158, 11, 0.34)",
+      softText: "#fde68a",
+    },
+    reviewed: {
+      ...DEFAULT_STATUS_TONES.reviewed,
+      softBackground: "rgba(34, 197, 94, 0.14)",
+      softBorder: "rgba(34, 197, 94, 0.34)",
+      softText: "#bbf7d0",
+    },
+    all: {
+      ...DEFAULT_STATUS_TONES.all,
+      softBackground: "rgba(37, 99, 235, 0.16)",
+      softBorder: "rgba(59, 130, 246, 0.34)",
+      softText: "#bfdbfe",
+    },
+  };
+};
+
 const SubmissionFilterPanel = ({
   fields = [],
   sortValue = "newest",
@@ -55,7 +81,9 @@ const SubmissionFilterPanel = ({
   dense = false,
   compactPrimaryFieldCount = 4,
 }) => {
+  const { isDarkMode } = useTheme();
   const compactDense = compact && dense;
+  const statusTones = getStatusTones(isDarkMode);
   const hasCounts =
     Number.isFinite(Number(filteredCount)) && Number.isFinite(Number(totalCount));
   const resolvedPrimaryCount = compact
@@ -67,27 +95,66 @@ const SubmissionFilterPanel = ({
   const panelMarginBottom = compactDense ? 6 : compact ? 8 : 14;
   const fieldGap = compactDense ? 6 : compact ? 8 : 10;
   const labelStyle = compact
-    ? { ...styles.label, marginBottom: compactDense ? 2 : 3, fontSize: compactDense ? 11 : 11.5 }
-    : styles.label;
+    ? {
+        ...styles.label,
+        marginBottom: compactDense ? 2 : 3,
+        fontSize: compactDense ? 11 : 11.5,
+        color: isDarkMode ? "#cbd5e1" : styles.label.color,
+      }
+    : { ...styles.label, color: isDarkMode ? "#cbd5e1" : styles.label.color };
   const inputStyle = compact
-    ? { ...styles.input, padding: compactDense ? "5px 8px" : "6px 9px", fontSize: compactDense ? 12 : 12.5 }
-    : styles.input;
+    ? {
+        ...styles.input,
+        padding: compactDense ? "5px 8px" : "6px 9px",
+        fontSize: compactDense ? 12 : 12.5,
+        borderColor: isDarkMode ? "#334155" : styles.input.border,
+        background: isDarkMode ? "#111827" : "#ffffff",
+        color: isDarkMode ? "#e5e7eb" : "#111827",
+      }
+    : {
+        ...styles.input,
+        borderColor: isDarkMode ? "#334155" : styles.input.border,
+        background: isDarkMode ? "#111827" : "#ffffff",
+        color: isDarkMode ? "#e5e7eb" : "#111827",
+      };
   const resetButtonStyle = compact
-    ? { ...styles.resetButton, width: "auto", padding: compactDense ? "5px 12px" : "6px 14px", fontSize: compactDense ? 12 : 12.5 }
-    : styles.resetButton;
+    ? {
+        ...styles.resetButton,
+        width: "auto",
+        padding: compactDense ? "5px 12px" : "6px 14px",
+        fontSize: compactDense ? 12 : 12.5,
+        background: isDarkMode ? "#1e293b" : styles.resetButton.background,
+        color: isDarkMode ? "#e2e8f0" : styles.resetButton.color,
+        borderColor: isDarkMode ? "#475569" : styles.resetButton.border,
+      }
+    : {
+        ...styles.resetButton,
+        background: isDarkMode ? "#1e293b" : styles.resetButton.background,
+        color: isDarkMode ? "#e2e8f0" : styles.resetButton.color,
+        borderColor: isDarkMode ? "#475569" : styles.resetButton.border,
+      };
   const statusLabelStyle = compact
-    ? { ...styles.statusLabel, fontSize: compactDense ? 11 : 11.5 }
-    : styles.statusLabel;
+    ? {
+        ...styles.statusLabel,
+        fontSize: compactDense ? 11 : 11.5,
+        color: isDarkMode ? "#cbd5e1" : styles.statusLabel.color,
+      }
+    : { ...styles.statusLabel, color: isDarkMode ? "#cbd5e1" : styles.statusLabel.color };
   const statusTabStyle = compact
-    ? { ...styles.statusTab, padding: compactDense ? "5px 10px" : "6px 11px", fontSize: compactDense ? 12 : 12.5 }
+    ? {
+        ...styles.statusTab,
+        padding: compactDense ? "5px 10px" : "6px 11px",
+        fontSize: compactDense ? 12 : 12.5,
+      }
     : styles.statusTab;
   const summaryStyle = compact
     ? {
         ...styles.summary,
         marginBottom: compactDense ? 4 : 6,
         fontSize: compactDense ? 12.5 : styles.summary.fontSize,
+        color: isDarkMode ? "#94a3b8" : styles.summary.color,
       }
-    : styles.summary;
+    : { ...styles.summary, color: isDarkMode ? "#94a3b8" : styles.summary.color };
   const actionRowFieldStyle = compact
     ? compactDense
       ? { ...styles.compactActionRowField, minWidth: 136, flex: "1 1 136px" }
@@ -119,11 +186,12 @@ const SubmissionFilterPanel = ({
         style={{
           width: "100%",
           alignSelf: "stretch",
-          background: "#fff",
-          border: "1px solid #e5e7eb",
+          background: isDarkMode ? "rgba(15, 23, 42, 0.9)" : "#fff",
+          border: `1px solid ${isDarkMode ? "#243047" : "#e5e7eb"}`,
           borderRadius: 10,
           padding: panelPadding,
           marginBottom: panelMarginBottom,
+          boxShadow: isDarkMode ? "0 16px 34px rgba(2, 6, 23, 0.22)" : "none",
         }}
       >
         <div
@@ -178,7 +246,7 @@ const SubmissionFilterPanel = ({
                 <select
                   value={sortValue}
                   onChange={(e) => onSortChange(e.target.value)}
-                  style={{ ...inputStyle, background: "#fff" }}
+                    style={{ ...inputStyle, background: isDarkMode ? "#111827" : "#fff" }}
                 >
                   {sortOptions.map((option) => (
                     <option key={option.value} value={option.value}>
@@ -195,7 +263,7 @@ const SubmissionFilterPanel = ({
                 <div style={statusTabsStyle}>
                   {statusOptions.map((option) => {
                     const isActive = statusValue === option.value;
-                    const tone = DEFAULT_STATUS_TONES[option.value] || DEFAULT_STATUS_TONES.all;
+                    const tone = statusTones[option.value] || statusTones.all;
 
                     return (
                       <button
