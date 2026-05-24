@@ -27,6 +27,7 @@ import {
   backButtonStyle,
   compactCSS,
 } from "../utils/styles";
+import { useTheme } from "../../../shared/contexts/ThemeContext";
 import "react-quill/dist/quill.snow.css";
 import "../styles/ReadingTestEditor.css";
 
@@ -178,6 +179,7 @@ const ReadingTestEditor = ({
   // Children for custom content
   children,
 }) => {
+  const { isDarkMode } = useTheme();
   const [collapsedSidebar, setCollapsedSidebar] = useState(false);
   // Passage panel collapse (separate from top header)
   const [collapsedPassage, setCollapsedPassage] = useState(false);
@@ -224,6 +226,27 @@ const ReadingTestEditor = ({
   };
 
   const questionStarts = computeQuestionStarts(passages);
+  const editorChrome = isDarkMode
+    ? {
+        shellBackground: "linear-gradient(180deg, #0f172a 0%, #111827 100%)",
+        headerBackground: "linear-gradient(180deg, rgba(15, 23, 42, 0.98) 0%, rgba(17, 24, 39, 0.96) 100%)",
+        headerBorder: "1px solid rgba(51, 65, 85, 0.92)",
+        headerShadow: "0 12px 32px rgba(2, 6, 23, 0.32)",
+        inputBackground: "rgba(15, 23, 42, 0.98)",
+        inputBorder: "#334155",
+        inputColor: "#e2e8f0",
+        inputShadow: "inset 0 1px 2px rgba(2, 6, 23, 0.36)",
+      }
+    : {
+        shellBackground: "linear-gradient(180deg, #eef4ff 0%, #f8fbff 42%, #f8fafc 100%)",
+        headerBackground: "linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(248,250,252,0.96) 100%)",
+        headerBorder: "1px solid rgba(203, 213, 225, 0.85)",
+        headerShadow: "0 12px 32px rgba(15, 23, 42, 0.08)",
+        inputBackground: "rgba(255, 255, 255, 0.98)",
+        inputBorder: "#cbd5e1",
+        inputColor: "#0f172a",
+        inputShadow: "inset 0 1px 2px rgba(15, 23, 42, 0.05)",
+      };
 
   return (
     <>
@@ -269,7 +292,7 @@ const ReadingTestEditor = ({
           flexDirection: "column",
           height: "100vh",
           fontSize: "13px",
-          background: "linear-gradient(180deg, #eef4ff 0%, #f8fbff 42%, #f8fafc 100%)",
+          background: editorChrome.shellBackground,
         }}
         containerStyle={{
           display: "flex",
@@ -283,9 +306,9 @@ const ReadingTestEditor = ({
           alignItems: "center",
           gap: "12px",
           padding: "10px 16px",
-          background: "linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(248,250,252,0.96) 100%)",
-          borderBottom: "1px solid rgba(203, 213, 225, 0.85)",
-          boxShadow: "0 12px 32px rgba(15, 23, 42, 0.08)",
+          background: editorChrome.headerBackground,
+          borderBottom: editorChrome.headerBorder,
+          boxShadow: editorChrome.headerShadow,
           backdropFilter: "blur(16px)",
           flexShrink: 0,
         }}
@@ -308,30 +331,33 @@ const ReadingTestEditor = ({
           flex: "1 1 0",
           padding: "11px 14px",
           minHeight: "44px",
-          border: "1px solid #cbd5e1",
+          border: `1px solid ${editorChrome.inputBorder}`,
           borderRadius: "14px",
-          backgroundColor: "rgba(255, 255, 255, 0.98)",
-          boxShadow: "inset 0 1px 2px rgba(15, 23, 42, 0.05)",
+          backgroundColor: editorChrome.inputBackground,
+          color: editorChrome.inputColor,
+          boxShadow: editorChrome.inputShadow,
         }}
         classCodeInputStyle={{
           ...compactInputStyle,
           flex: "1 1 0",
           padding: "11px 14px",
           minHeight: "44px",
-          border: "1px solid #cbd5e1",
+          border: `1px solid ${editorChrome.inputBorder}`,
           borderRadius: "14px",
-          backgroundColor: "rgba(255, 255, 255, 0.98)",
-          boxShadow: "inset 0 1px 2px rgba(15, 23, 42, 0.05)",
+          backgroundColor: editorChrome.inputBackground,
+          color: editorChrome.inputColor,
+          boxShadow: editorChrome.inputShadow,
         }}
         teacherInputStyle={{
           ...compactInputStyle,
           flex: "1 1 0",
           padding: "11px 14px",
           minHeight: "44px",
-          border: "1px solid #cbd5e1",
+          border: `1px solid ${editorChrome.inputBorder}`,
           borderRadius: "14px",
-          backgroundColor: "rgba(255, 255, 255, 0.98)",
-          boxShadow: "inset 0 1px 2px rgba(15, 23, 42, 0.05)",
+          backgroundColor: editorChrome.inputBackground,
+          color: editorChrome.inputColor,
+          boxShadow: editorChrome.inputShadow,
         }}
         headerCollapsed={false}
       >

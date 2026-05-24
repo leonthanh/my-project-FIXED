@@ -33,6 +33,7 @@ import {
   compactCSS,
 } from "../utils/styles";
 import { calculateTotalQuestions, computeQuestionStarts } from "../hooks/useListeningHandlers";
+import { useTheme } from "../../../shared/contexts/ThemeContext";
 
 const countSectionQuestions = (section) => {
   return countListeningSectionQuestions(section);
@@ -218,6 +219,7 @@ const ListeningTestEditor = ({
   setGlobalAudioFile,
   existingAudioUrl = null,
 }) => {
+  const { isDarkMode } = useTheme();
   // Column layout hook
   const {
     isResizing,
@@ -290,6 +292,51 @@ const ListeningTestEditor = ({
   const activeGlobalAudioUrl = globalAudioFile?.url || existingAudioUrl || "";
   const sidebarWidth = collapsedSidebar ? "68px" : "clamp(196px, 21vw, 252px)";
   const sidebarMinWidth = collapsedSidebar ? "68px" : "clamp(184px, 18vw, 214px)";
+  const editorChrome = isDarkMode
+    ? {
+        shellBackground: "linear-gradient(180deg, #0f172a 0%, #111827 100%)",
+        headerBackground: "linear-gradient(180deg, rgba(15, 23, 42, 0.98) 0%, rgba(17, 24, 39, 0.96) 100%)",
+        headerBorder: "1px solid rgba(51, 65, 85, 0.92)",
+        headerShadow: "0 12px 32px rgba(2, 6, 23, 0.32)",
+        inputBackground: "rgba(15, 23, 42, 0.98)",
+        inputBorder: "#334155",
+        inputColor: "#e2e8f0",
+        inputShadow: "inset 0 1px 2px rgba(2, 6, 23, 0.36)",
+        countPillBackground: "linear-gradient(135deg, rgba(79, 70, 229, 0.24) 0%, rgba(37, 99, 235, 0.18) 100%)",
+        countPillBorder: "1px solid rgba(129, 140, 248, 0.32)",
+        countPillColor: "#c7d2fe",
+        countPillShadow: "0 10px 22px rgba(30, 41, 59, 0.26)",
+      }
+    : {
+        shellBackground: "linear-gradient(180deg, #eef4ff 0%, #f8fbff 42%, #f8fafc 100%)",
+        headerBackground: "linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(248,250,252,0.96) 100%)",
+        headerBorder: "1px solid rgba(203, 213, 225, 0.85)",
+        headerShadow: "0 12px 32px rgba(15, 23, 42, 0.08)",
+        inputBackground: "rgba(255, 255, 255, 0.98)",
+        inputBorder: "#cbd5e1",
+        inputColor: "#0f172a",
+        inputShadow: "inset 0 1px 2px rgba(15, 23, 42, 0.05)",
+        countPillBackground: "linear-gradient(135deg, rgba(124, 58, 237, 0.14) 0%, rgba(59, 130, 246, 0.12) 100%)",
+        countPillBorder: "1px solid rgba(124, 58, 237, 0.18)",
+        countPillColor: colors.primaryPurple,
+        countPillShadow: "0 10px 22px rgba(59, 130, 246, 0.08)",
+      };
+  const themedAudioUploadStyle = isDarkMode
+    ? {
+        ...audioUploadStyle,
+        background: "rgba(15, 23, 42, 0.98)",
+        border: "1px dashed rgba(96, 165, 250, 0.34)",
+        boxShadow: "inset 0 1px 1px rgba(148, 163, 184, 0.08)",
+      }
+    : audioUploadStyle;
+  const themedAudioUploadActiveStyle = isDarkMode
+    ? {
+        ...audioUploadActiveStyle,
+        background: "rgba(15, 23, 42, 0.98)",
+        border: "1px solid rgba(96, 165, 250, 0.34)",
+        boxShadow: "0 10px 24px rgba(2, 6, 23, 0.22)",
+      }
+    : audioUploadActiveStyle;
 
   const getSectionActionButtonStyle = (variant) => {
     const variants = {
@@ -465,14 +512,14 @@ const ListeningTestEditor = ({
             className="listening-editor-right-pill"
             style={{
               padding: "8px 14px",
-              background: "linear-gradient(135deg, rgba(124, 58, 237, 0.14) 0%, rgba(59, 130, 246, 0.12) 100%)",
-              color: colors.primaryPurple,
-              border: "1px solid rgba(124, 58, 237, 0.18)",
+              background: editorChrome.countPillBackground,
+              color: editorChrome.countPillColor,
+              border: editorChrome.countPillBorder,
               borderRadius: "999px",
               fontSize: "12px",
               fontWeight: 600,
               whiteSpace: "nowrap",
-              boxShadow: "0 10px 22px rgba(59, 130, 246, 0.08)",
+              boxShadow: editorChrome.countPillShadow,
             }}
           >
             Tổng: {totalQuestions} câu hỏi
@@ -482,7 +529,7 @@ const ListeningTestEditor = ({
           <div style={{ flexShrink: 0 }}>
             <div
               className={`listening-editor-global-audio ${activeGlobalAudioUrl ? "is-active" : ""}`}
-              style={activeGlobalAudioUrl ? { ...audioUploadActiveStyle, padding: "6px 12px", margin: 0, borderRadius: "6px" } : { ...audioUploadStyle, padding: "6px 12px", margin: 0, borderRadius: "6px" }}
+              style={activeGlobalAudioUrl ? { ...themedAudioUploadActiveStyle, padding: "6px 12px", margin: 0, borderRadius: "6px" } : { ...themedAudioUploadStyle, padding: "6px 12px", margin: 0, borderRadius: "6px" }}
               onClick={() => globalAudioRef.current?.click()}
             >
               <input
@@ -500,7 +547,7 @@ const ListeningTestEditor = ({
                   <audio controls src={activeGlobalAudioUrl} style={{ height: "28px", maxWidth: "200px" }} />
                 </div>
               ) : (
-                <span style={{ color: colors.gray, fontSize: "12px", whiteSpace: "nowrap" }}>
+                <span style={{ color: isDarkMode ? "#94a3b8" : colors.gray, fontSize: "12px", whiteSpace: "nowrap" }}>
                   Tải audio chung (tùy chọn)
                 </span>
               )}
@@ -512,7 +559,7 @@ const ListeningTestEditor = ({
           flexDirection: "column",
           height: "100vh",
           fontSize: "13px",
-          background: "linear-gradient(180deg, #eef4ff 0%, #f8fbff 42%, #f8fafc 100%)",
+          background: editorChrome.shellBackground,
         }}
         containerStyle={{
           display: "flex",
@@ -526,9 +573,10 @@ const ListeningTestEditor = ({
           alignItems: "center",
           gap: "12px",
           padding: "10px 16px",
-          background: "linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(248,250,252,0.96) 100%)",
-          borderBottom: "1px solid rgba(203, 213, 225, 0.85)",
-          boxShadow: "0 12px 32px rgba(15, 23, 42, 0.08)",
+          background: editorChrome.headerBackground,
+          borderBottom: editorChrome.headerBorder,
+          boxShadow: editorChrome.headerShadow,
+          color: editorChrome.inputColor,
           backdropFilter: "blur(16px)",
           flexShrink: 0,
         }}
@@ -546,9 +594,9 @@ const ListeningTestEditor = ({
           gap: "10px",
           alignItems: "center",
         }}
-        titleInputStyle={{ ...compactInputStyle, flex: "1 1 0", marginBottom: 0, padding: "11px 14px", minHeight: "44px", border: "1px solid #cbd5e1", borderRadius: "14px", backgroundColor: "rgba(255, 255, 255, 0.98)", boxShadow: "inset 0 1px 2px rgba(15, 23, 42, 0.05)" }}
-        classCodeInputStyle={{ ...compactInputStyle, flex: "1 1 0", marginBottom: 0, padding: "11px 14px", minHeight: "44px", border: "1px solid #cbd5e1", borderRadius: "14px", backgroundColor: "rgba(255, 255, 255, 0.98)", boxShadow: "inset 0 1px 2px rgba(15, 23, 42, 0.05)" }}
-        teacherInputStyle={{ ...compactInputStyle, flex: "1 1 0", marginBottom: 0, padding: "11px 14px", minHeight: "44px", border: "1px solid #cbd5e1", borderRadius: "14px", backgroundColor: "rgba(255, 255, 255, 0.98)", boxShadow: "inset 0 1px 2px rgba(15, 23, 42, 0.05)" }}
+        titleInputStyle={{ ...compactInputStyle, flex: "1 1 0", marginBottom: 0, padding: "11px 14px", minHeight: "44px", border: `1px solid ${editorChrome.inputBorder}`, borderRadius: "14px", backgroundColor: editorChrome.inputBackground, color: editorChrome.inputColor, boxShadow: editorChrome.inputShadow }}
+        classCodeInputStyle={{ ...compactInputStyle, flex: "1 1 0", marginBottom: 0, padding: "11px 14px", minHeight: "44px", border: `1px solid ${editorChrome.inputBorder}`, borderRadius: "14px", backgroundColor: editorChrome.inputBackground, color: editorChrome.inputColor, boxShadow: editorChrome.inputShadow }}
+        teacherInputStyle={{ ...compactInputStyle, flex: "1 1 0", marginBottom: 0, padding: "11px 14px", minHeight: "44px", border: `1px solid ${editorChrome.inputBorder}`, borderRadius: "14px", backgroundColor: editorChrome.inputBackground, color: editorChrome.inputColor, boxShadow: editorChrome.inputShadow }}
         headerCollapsed={false}
       >
         {/* SIDEBAR + VERTICAL LAYOUT (like Reading editor) */}

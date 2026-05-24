@@ -1415,6 +1415,224 @@
   color: #0f172a;
 }
 
+body.dark-mode .ix-writing-editor-shell,
+body.dark-mode .pet-writing-editor-shell {
+  color: #e2e8f0;
+}
+
+body.dark-mode .ix-writing-editor-loading,
+body.dark-mode .pet-writing-editor-loading {
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.96) 0%, rgba(17, 24, 39, 0.98) 100%);
+  border-color: rgba(96, 165, 250, 0.24);
+  box-shadow: 0 20px 40px rgba(2, 6, 23, 0.34);
+  color: #cbd5e1;
+}
+
+body.dark-mode .ix-writing-editor-header-card {
+  background:
+    radial-gradient(circle at top right, rgba(59, 130, 246, 0.16) 0%, rgba(59, 130, 246, 0) 34%),
+    linear-gradient(180deg, rgba(15, 23, 42, 0.98) 0%, rgba(17, 24, 39, 0.98) 100%);
+  border-color: rgba(96, 165, 250, 0.24);
+  box-shadow: 0 26px 54px rgba(2, 6, 23, 0.32);
+}
+
+body.dark-mode .pet-writing-editor-header-card {
+  background:
+    radial-gradient(circle at top right, rgba(249, 115, 22, 0.16) 0%, rgba(249, 115, 22, 0) 34%),
+    linear-gradient(180deg, rgba(15, 23, 42, 0.98) 0%, rgba(17, 24, 39, 0.98) 100%);
+  border-color: rgba(251, 146, 60, 0.24);
+  box-shadow: 0 26px 54px rgba(2, 6, 23, 0.32);
+}
+
+body.dark-mode .ix-writing-editor-title,
+body.dark-mode .pet-writing-editor-title,
+body.dark-mode .ix-writing-editor-section-label,
+body.dark-mode .pet-writing-editor-section-label {
+  color: #f8fafc;
+}
+
+body.dark-mode .ix-writing-editor-subtitle,
+body.dark-mode .pet-writing-editor-subtitle,
+body.dark-mode .ix-writing-editor-field-label,
+body.dark-mode .pet-writing-editor-field-label,
+body.dark-mode .pet-writing-editor-control-label,
+body.dark-mode .pet-writing-editor-section-note,
+body.dark-mode .pet-writing-editor-preview-caption,
+body.dark-mode .ix-writing-editor-upload-filename,
+body.dark-mode .pet-writing-editor-mode-banner p {
+  color: #94a3b8;
+}
+
+body.dark-mode .ix-writing-editor-summary-pill {
+  background: rgba(30, 41, 59, 0.88);
+  border-color: rgba(96, 165, 250, 0.32);
+  color: #bfdbfe;
+  box-shadow: none;
+}
+
+body.dark-mode .pet-writing-editor-summary-pill {
+  background: rgba(154, 52, 18, 0.18);
+  border-color: rgba(251, 146, 60, 0.28);
+  color: #fdba74;
+  box-shadow: none;
+}
+
+body.dark-mode .ix-writing-editor-field,
+body.dark-mode .pet-writing-editor-field,
+body.dark-mode .ix-writing-editor-panel,
+body.dark-mode .pet-writing-editor-panel,
+body.dark-mode .ix-writing-editor-card,
+body.dark-mode .pet-writing-editor-card,
+body.dark-mode .pet-writing-editor-preview-card,
+body.dark-mode .pet-writing-editor-legacy-image,
+body.dark-mode .ix-writing-editor-preview-section,
+body.dark-mode .pet-writing-editor-preview-section,
+body.dark-mode .pet-writing-email-preview-card {
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.95) 0%, rgba(17, 24, 39, 0.98) 100%);
+  border-color: rgba(51, 65, 85, 0.92);
+  box-shadow: 0 20px 40px rgba(2, 6, 23, 0.3);
+}
+
+body.dark-mode .ix-writing-editor-panel-body,
+body.dark-mode .pet-writing-editor-panel-body,
+body.dark-mode .pet-writing-editor-rendered-html,
+body.dark-mode .ix-writing-editor-preview-modal,
+body.dark-mode .pet-writing-editor-preview-modal,
+body.dark-mode .pet-writing-email-preview-card-body {
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.97) 0%, rgba(17, 24, 39, 0.98) 100%);
+}
+
+body.dark-mode .ix-writing-editor-panel-body,
+body.dark-mode .pet-writing-editor-panel-body {
+  color: #e2e8f0;
+}
+
+body.dark-mode .ix-writing-editor-field input,
+body.dark-mode .pet-writing-editor-field input,
+body.dark-mode .pet-writing-editor-control input,
+body.dark-mode .pet-writing-editor-control textarea,
+body.dark-mode .pet-writing-editor-control select,
+body.dark-mode .pet-writing-editor-file-input {
+  background: #0f172a;
+  border-color: #334155;
+  color: #e2e8f0;
+  box-shadow: inset 0 1px 2px rgba(2, 6, 23, 0.36);
+}
+
+body.dark-mode .ix-writing-editor-field input::placeholder,
+body.dark-mode .pet-writing-editor-field input::placeholder,
+body.dark-mode .pet-writing-editor-control input::placeholder,
+body.dark-mode .pet-writing-editor-control textarea::placeholder {
+  color: #64748b;
+}
+
+body.dark-mode .ix-writing-editor-quill .ql-toolbar,
+body.dark-mode .pet-writing-editor-quill .ql-toolbar {
+  background: #0f172a;
+  border-color: #334155;
+}
+
+body.dark-mode .ix-writing-editor-quill .ql-container,
+body.dark-mode .pet-writing-editor-quill .ql-container {
+  border-color: #334155;
+}
+
+body.dark-mode .ix-writing-editor-quill .ql-editor,
+body.dark-mode .pet-writing-editor-quill .ql-editor {
+  background: #111827;
+  color: #e2e8f0;
+}
+
+body.dark-mode .ix-writing-editor-quill .ql-editor.ql-blank::before,
+body.dark-mode .pet-writing-editor-quill .ql-editor.ql-blank::before {
+  color: #64748b;
+}
+
+body.dark-mode .ix-writing-editor-image-empty,
+body.dark-mode .pet-writing-editor-rendered-html,
+body.dark-mode .pet-writing-email-preview-card-body {
+  color: #cbd5e1;
+}
+
+body.dark-mode .ix-writing-editor-image-empty {
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.9) 0%, rgba(17, 24, 39, 0.96) 100%);
+  border-color: rgba(96, 165, 250, 0.24);
+}
+
+body.dark-mode .ix-writing-editor-warning,
+body.dark-mode .pet-writing-editor-mode-banner,
+body.dark-mode .pet-writing-email-preview-note {
+  background: rgba(154, 52, 18, 0.18);
+  border-color: rgba(251, 146, 60, 0.32);
+  color: #fdba74;
+  box-shadow: none;
+}
+
+body.dark-mode .ix-writing-editor-upload-filename,
+body.dark-mode .ix-writing-editor-preview-meta span,
+body.dark-mode .pet-writing-editor-preview-meta span {
+  background: rgba(30, 41, 59, 0.88);
+  color: #cbd5e1;
+}
+
+body.dark-mode .ix-writing-editor-actions,
+body.dark-mode .pet-writing-editor-actions {
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.98) 0%, rgba(17, 24, 39, 0.96) 100%);
+  border-color: rgba(51, 65, 85, 0.92);
+  box-shadow: 0 18px 36px rgba(2, 6, 23, 0.34);
+}
+
+body.dark-mode .ix-writing-editor-ghost-btn,
+body.dark-mode .ix-writing-editor-secondary-btn,
+body.dark-mode .pet-writing-editor-secondary-btn {
+  background: #111827;
+  color: #e2e8f0;
+  border: 1px solid #334155;
+  box-shadow: none;
+}
+
+body.dark-mode .ix-writing-editor-danger-btn,
+body.dark-mode .pet-writing-editor-danger-btn {
+  background: rgba(190, 24, 93, 0.14);
+  color: #fda4af;
+  border: 1px solid rgba(244, 114, 182, 0.32);
+}
+
+body.dark-mode .ix-writing-editor-image-preview img,
+body.dark-mode .ix-writing-editor-preview-image-wrap img,
+body.dark-mode .pet-writing-editor-legacy-image img,
+body.dark-mode .pet-writing-editor-preview-image-wrap img {
+  border-color: #334155;
+  box-shadow: 0 16px 30px rgba(2, 6, 23, 0.28);
+}
+
+body.dark-mode .ix-writing-editor-preview-modal,
+body.dark-mode .pet-writing-editor-preview-modal {
+  box-shadow: 0 30px 80px rgba(2, 6, 23, 0.48);
+}
+
+body.dark-mode .ix-writing-editor-preview-html,
+body.dark-mode .pet-writing-editor-preview-html,
+body.dark-mode .pet-writing-email-preview-body,
+body.dark-mode .pet-writing-email-preview-meta-row div:last-child,
+body.dark-mode .pet-writing-email-preview-footer {
+  color: #e2e8f0;
+}
+
+body.dark-mode .ix-writing-editor-preview-html em,
+body.dark-mode .pet-writing-editor-preview-html em,
+body.dark-mode .pet-writing-email-preview-meta-row div:first-child {
+  color: #94a3b8;
+}
+
+body.dark-mode .pet-writing-email-preview-divider {
+  background: #334155;
+}
+
+body.dark-mode .pet-writing-email-preview-lines line {
+  stroke: #475569;
+}
+
 .pet-writing-editor-anchor-actions {
   display: flex;
   justify-content: space-between;
