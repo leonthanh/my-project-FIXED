@@ -1,3 +1,5 @@
+@import url("https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap");
+
 .userProfilePage {
   min-height: 100vh;
   background:
@@ -5,6 +7,7 @@
     radial-gradient(circle at top right, rgba(251, 191, 36, 0.16), transparent 24%),
     linear-gradient(180deg, #eef4ff 0%, #f8fafc 42%, #ffffff 100%);
   color: #0f172a;
+  font-family: "Manrope", "Segoe UI", sans-serif;
 }
 
 .userProfilePage__shell {
@@ -131,6 +134,7 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  font-family: "Space Grotesk", "Manrope", sans-serif;
   font-size: 12px;
   font-weight: 800;
   letter-spacing: 0.14em;
@@ -143,6 +147,7 @@
 
 .userProfilePage__title {
   margin: 8px 0 6px;
+  font-family: "Space Grotesk", "Manrope", sans-serif;
   font-size: clamp(26px, 3.2vw, 38px);
   line-height: 1.08;
 }
@@ -192,6 +197,7 @@
 
 .userProfilePage__heroStatLabel {
   display: block;
+  font-family: "Space Grotesk", "Manrope", sans-serif;
   font-size: 12px;
   font-weight: 700;
   color: rgba(191, 219, 254, 0.88);
@@ -200,6 +206,7 @@
 .userProfilePage__heroStatValue {
   display: block;
   margin-top: 6px;
+  font-family: "Space Grotesk", "Manrope", sans-serif;
   font-size: 15px;
   line-height: 1.35;
 }
@@ -238,30 +245,60 @@
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
   margin-bottom: 14px;
+  position: sticky;
+  top: 18px;
+  z-index: 12;
+  padding: 8px;
+  border: 1px solid rgba(191, 219, 254, 0.56);
+  border-radius: 28px;
+  background: linear-gradient(180deg, rgba(245, 249, 255, 0.92) 0%, rgba(255, 255, 255, 0.82) 100%);
+  box-shadow: 0 16px 32px rgba(15, 23, 42, 0.08);
+  backdrop-filter: blur(14px);
 }
 
 .userProfilePage__tab {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
   border: 1px solid rgba(148, 163, 184, 0.2);
   border-radius: 22px;
-  background: rgba(255, 255, 255, 0.82);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.96) 0%, rgba(239, 246, 255, 0.9) 100%);
   padding: 14px 16px;
   text-align: left;
   cursor: pointer;
-  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+  transition: transform 0.22s ease, box-shadow 0.22s ease, border-color 0.22s ease, background 0.22s ease;
+}
+
+.userProfilePage__tab::before,
+.userProfilePage__button::before {
+  content: '';
+  position: absolute;
+  top: -28%;
+  bottom: -28%;
+  left: -46%;
+  width: 38%;
+  transform: skewX(-20deg) translateX(0);
+  background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.16) 16%, rgba(255, 255, 255, 0.72) 50%, rgba(255, 255, 255, 0.16) 84%, transparent 100%);
+  opacity: 0.9;
+  pointer-events: none;
+  animation: userProfilePageSweep 5.4s ease-in-out infinite;
 }
 
 .userProfilePage__tab:hover {
   transform: translateY(-1px);
-  box-shadow: 0 18px 36px rgba(15, 23, 42, 0.08);
+  box-shadow: 0 18px 36px rgba(37, 99, 235, 0.12);
+  border-color: rgba(96, 165, 250, 0.32);
 }
 
 .userProfilePage__tab--active {
-  border-color: rgba(37, 99, 235, 0.42);
-  box-shadow: 0 20px 40px rgba(37, 99, 235, 0.12);
+  border-color: rgba(37, 99, 235, 0.46);
+  background: linear-gradient(135deg, rgba(219, 234, 254, 0.96) 0%, rgba(239, 246, 255, 0.98) 58%, rgba(255, 255, 255, 0.94) 100%);
+  box-shadow: 0 20px 40px rgba(37, 99, 235, 0.16);
 }
 
 .userProfilePage__tabLabel {
   display: block;
+  font-family: "Space Grotesk", "Manrope", sans-serif;
   font-size: 16px;
   font-weight: 800;
   color: #0f172a;
@@ -318,6 +355,7 @@
 
 .userProfilePage__cardTitle {
   margin: 8px 0 0;
+  font-family: "Space Grotesk", "Manrope", sans-serif;
   font-size: 22px;
   line-height: 1.15;
   color: #0f172a;
@@ -352,6 +390,7 @@
 }
 
 .userProfilePage__fieldLabel {
+  font-family: "Space Grotesk", "Manrope", sans-serif;
   font-size: 13px;
   font-weight: 800;
   color: #334155;
@@ -408,12 +447,17 @@
 }
 
 .userProfilePage__button {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
   min-height: 44px;
   border: 1px solid transparent;
   border-radius: 14px;
   padding: 0 16px;
-  font: inherit;
+  font-family: "Space Grotesk", "Manrope", sans-serif;
+  font-size: 0.95rem;
   font-weight: 800;
+  letter-spacing: 0.01em;
   cursor: pointer;
   transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
 }
@@ -427,20 +471,26 @@
   cursor: not-allowed;
 }
 
+.userProfilePage__button:disabled::before {
+  animation: none;
+  opacity: 0;
+}
+
 .userProfilePage__button--primary {
-  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 54%, #0ea5e9 100%);
   color: #fff;
-  box-shadow: 0 16px 30px rgba(37, 99, 235, 0.22);
+  box-shadow: 0 18px 34px rgba(37, 99, 235, 0.24);
 }
 
 .userProfilePage__button--ghost {
-  background: #fff;
-  color: #1e293b;
-  border-color: #dbe4f0;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.96) 0%, rgba(239, 246, 255, 0.9) 100%);
+  color: #17305d;
+  border-color: rgba(191, 219, 254, 0.64);
+  box-shadow: 0 12px 26px rgba(148, 163, 184, 0.12);
 }
 
 .userProfilePage__button--ghost:hover:not(:disabled) {
-  box-shadow: 0 10px 20px rgba(15, 23, 42, 0.06);
+  box-shadow: 0 14px 28px rgba(37, 99, 235, 0.14);
 }
 
 .userProfilePage__button--full {
@@ -538,6 +588,7 @@
 }
 
 .userProfilePage__summaryLabel {
+  font-family: "Space Grotesk", "Manrope", sans-serif;
   font-size: 12px;
   font-weight: 800;
   letter-spacing: 0.08em;
@@ -546,6 +597,7 @@
 }
 
 .userProfilePage__summaryValue {
+  font-family: "Space Grotesk", "Manrope", sans-serif;
   font-size: 15px;
   line-height: 1.55;
   color: #0f172a;
@@ -636,6 +688,16 @@
   }
 }
 
+@keyframes userProfilePageSweep {
+  0% {
+    transform: skewX(-20deg) translateX(-165%);
+  }
+
+  100% {
+    transform: skewX(-20deg) translateX(430%);
+  }
+}
+
 @media (max-width: 1180px) {
   .userProfilePage__layout {
     grid-template-columns: 1fr;
@@ -665,6 +727,7 @@
 
   .userProfilePage__tabBar {
     grid-template-columns: 1fr;
+    top: 74px;
   }
 }
 
@@ -676,6 +739,12 @@
 
   .userProfilePage__shell--withNavbar {
     padding-top: 84px;
+  }
+
+  .userProfilePage__tabBar {
+    top: 70px;
+    padding: 6px;
+    border-radius: 22px;
   }
 
   .userProfilePage__heroCard,
@@ -717,5 +786,34 @@
   .userProfilePage__cropStage {
     height: 280px;
     border-radius: 18px;
+  }
+}
+
+.userProfilePage__shell--withNavbar .userProfilePage__tabBar {
+  top: 82px;
+}
+
+@media (max-width: 960px) {
+  .userProfilePage__shell--withNavbar .userProfilePage__tabBar {
+    top: 74px;
+  }
+}
+
+@media (max-width: 720px) {
+  .userProfilePage__shell--withNavbar .userProfilePage__tabBar {
+    top: 70px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .userProfilePage__tab::before,
+  .userProfilePage__button::before {
+    animation: none;
+    opacity: 0;
+  }
+
+  .userProfilePage__tab,
+  .userProfilePage__button {
+    transition: none;
   }
 }
