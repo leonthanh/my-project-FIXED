@@ -1,4 +1,5 @@
 const crypto = require("crypto");
+const { Op } = require("sequelize");
 
 const PlacementPackage = require("../../models/PlacementPackage");
 const PlacementPackageItem = require("../../models/PlacementPackageItem");
@@ -133,6 +134,78 @@ const listRecentAttemptsForPackage = async (packageId, limit = 12) => {
     serialized.push(await serializeAttempt(attempt));
   }
   return serialized;
+};
+
+const getPlacementContactsForRuntimeSubmissions = async ({
+  runtimeSubmissionModel,
+  runtimeSubmissionIds,
+}) => {
+  const normalizedModel = normalizeLower(runtimeSubmissionModel);
+  const ids = Array.from(
+    new Set(
+      (Array.isArray(runtimeSubmissionIds) ? runtimeSubmissionIds : [])
+        .map((value) => Number(value))
+        .filter((value) => Number.isFinite(value) && value > 0)
+    )
+  );
+
+  const contacts = new Map();
+
+  if (!normalizedModel || !ids.length) {
+    return contacts;
+  }
+
+  const attemptItems = await PlacementAttemptItem.findAll({
+    where: {
+      runtimeSubmissionModel: normalizedModel,
+      runtimeSubmissionId: { [Op.in]: ids },
+    },
+    order: [["updatedAt", "DESC"], ["id", "DESC"]],
+  });
+
+  if (!attemptItems.length) {
+    return contacts;
+  }
+
+  const attemptIds = Array.from(
+    new Set(
+      attemptItems
+        .map((item) => Number(item?.attemptId))
+        .filter((value) => Number.isFinite(value) && value > 0)
+    )
+  );
+
+  if (!attemptIds.length) {
+    return contacts;
+  }
+
+  const attempts = await PlacementAttempt.findAll({
+    where: { id: { [Op.in]: attemptIds } },
+  });
+  const attemptMap = new Map(
+    attempts.map((attempt) => [String(attempt.id), attempt])
+  );
+
+  attemptItems.forEach((item) => {
+    const submissionId = String(item?.runtimeSubmissionId || "").trim();
+    if (!submissionId || contacts.has(submissionId)) {
+      return;
+    }
+
+    const attempt = attemptMap.get(String(item?.attemptId || ""));
+    if (!attempt) {
+      return;
+    }
+
+    contacts.set(submissionId, {
+      attemptId: attempt.id,
+      attemptItemToken: item.attemptItemToken || "",
+      studentName: normalizeText(attempt.studentName) || null,
+      studentPhone: normalizePhone(attempt.studentPhone) || null,
+    });
+  });
+
+  return contacts;
 };
 
 const serializePackage = async (placementPackage, options = {}) => {
@@ -514,6 +587,7 @@ module.exports = {
   createServiceError,
   createOrResumeAttemptForShareToken,
   ensureAttemptItemMatchesRuntime,
+  getPlacementContactsForRuntimeSubmissions,
   getDefaultPublicPackage,
   getCurrentPackageForOwner,
   getPlacementAttemptByToken,
