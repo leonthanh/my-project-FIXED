@@ -1592,10 +1592,10 @@ const Review = () => {
           </select>
         </div>
 
-        <div style={{ alignSelf: "end" }}>
+        <div style={filterResetContainerStyle}>
           <button
             onClick={() => resetTabFilters(tabKey)}
-            style={filterResetButtonStyle}
+            style={filterResetButtonStyle(isDarkMode)}
           >
             Reset
           </button>
@@ -2180,17 +2180,26 @@ const filterInputStyle = (isDarkMode) => ({
   color: isDarkMode ? "#e5e7eb" : "#111827",
 });
 
-const filterResetButtonStyle = {
-  width: "100%",
-  padding: "7px 10px",
-  background: "#c00ce9",
-  color: "#fff",
-  border: "none",
+const filterResetContainerStyle = {
+  alignSelf: "end",
+  justifySelf: "end",
+  width: "auto",
+  display: "flex",
+};
+
+const filterResetButtonStyle = (isDarkMode) => ({
+  width: "auto",
+  minWidth: 84,
+  padding: "7px 14px",
+  background: isDarkMode ? "#1e293b" : "#eff6ff",
+  color: isDarkMode ? "#e2e8f0" : "#1d4ed8",
+  border: `1px solid ${isDarkMode ? "#475569" : "#bfdbfe"}`,
   borderRadius: 6,
   cursor: "pointer",
   fontSize: 13,
   fontWeight: 600,
-};
+  whiteSpace: "nowrap",
+});
 
 const filterSummaryStyle = (isDarkMode) => ({
   margin: 0,
