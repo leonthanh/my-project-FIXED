@@ -18,6 +18,16 @@ const FINALIZED_READING_WHERE = {
   [Op.or]: [{ finished: true }, { finished: null }],
 };
 
+function normalizeReadingUserName(value) {
+  const normalized = value == null ? "" : String(value).trim();
+
+  if (!normalized) {
+    return null;
+  }
+
+  return normalized.toLowerCase() === "unknown" ? null : normalized;
+}
+
 function normalizeReadingProgressMeta(meta = {}) {
   if (!meta || typeof meta !== "object" || Array.isArray(meta)) {
     return { started: false };
@@ -222,7 +232,9 @@ router.post("/:testId/autosave", async (req, res) => {
     const normalizedTestId = String(testId);
     const resolvedUserId = Number(user?.id) || null;
     const resolvedUserName =
-      user?.name || user?.username || user?.email || "Unknown";
+      normalizeReadingUserName(user?.name) ||
+      normalizeReadingUserName(user?.username) ||
+      normalizeReadingUserName(user?.email);
     const normalizedAnswers =
       answers && typeof answers === "object" && !Array.isArray(answers)
         ? answers
@@ -257,7 +269,11 @@ router.post("/:testId/autosave", async (req, res) => {
           ),
           lastSavedAt: now,
           progressMeta: normalizedProgressMeta,
-          userName: resolvedUserName || attempt.studentName || submission.userName,
+          userName:
+            resolvedUserName ||
+            normalizeReadingUserName(attempt.studentName) ||
+            normalizeReadingUserName(submission.userName) ||
+            "Unknown",
         });
 
         await placementService.syncRuntimeSubmissionForAttemptItem({
@@ -282,7 +298,8 @@ router.post("/:testId/autosave", async (req, res) => {
       const created = await ReadingSubmission.create({
         testId: normalizedTestId,
         userId: null,
-        userName: resolvedUserName || attempt.studentName || "Unknown",
+        userName:
+          resolvedUserName || normalizeReadingUserName(attempt.studentName) || "Unknown",
         answers: normalizedAnswers,
         correct: 0,
         total: 0,
@@ -329,7 +346,8 @@ router.post("/:testId/autosave", async (req, res) => {
         expiresAt: resolveAuthoritativeExpiry(sub.expiresAt, parsedExpiresAt),
         lastSavedAt: now,
         progressMeta: normalizedProgressMeta,
-        userName: resolvedUserName || sub.userName,
+        userName:
+          resolvedUserName || normalizeReadingUserName(sub.userName) || "Unknown",
       });
 
       return res.json({
@@ -357,7 +375,10 @@ router.post("/:testId/autosave", async (req, res) => {
           expiresAt: resolveAuthoritativeExpiry(existing.expiresAt, parsedExpiresAt),
           lastSavedAt: now,
           progressMeta: normalizedProgressMeta,
-          userName: resolvedUserName || existing.userName,
+          userName:
+            resolvedUserName ||
+            normalizeReadingUserName(existing.userName) ||
+            "Unknown",
         });
 
         return res.json({
@@ -373,7 +394,7 @@ router.post("/:testId/autosave", async (req, res) => {
     const created = await ReadingSubmission.create({
       testId: normalizedTestId,
       userId: resolvedUserId,
-      userName: resolvedUserName,
+      userName: resolvedUserName || "Unknown",
       answers: normalizedAnswers,
       correct: 0,
       total: 0,
@@ -549,7 +570,20 @@ router.get("/:submissionId", async (req, res) => {
     if (!submission)
       return res.status(404).json({ message: "❌ Không tìm thấy bài nộp" });
 
-    res.json(submission);
+    const placementContacts = await placementService.getPlacementContactsForRuntimeSubmissions({
+      runtimeSubmissionModel: "reading",
+      runtimeSubmissionIds: [submission.id],
+    });
+    const placementContact = placementContacts.get(String(submission.id));
+    const payload = submission.toJSON();
+
+    payload.userName =
+      normalizeReadingUserName(payload.userName) ||
+      placementContact?.studentName ||
+      null;
+    payload.userPhone = payload.userPhone || placementContact?.studentPhone || null;
+
+    res.json(payload);
   } catch (error) {
     console.error("Error fetching submission:", error);
     res
@@ -865,16 +899,27 @@ router.get("/admin/list", async (req, res) => {
     const tests = testIds.length ? await ReadingTest.findAll({ where: { id: testIds } }) : [];
     const testMap = {};
     tests.forEach(t => { testMap[String(t.id)] = t; });
+    const placementContacts = await placementService.getPlacementContactsForRuntimeSubmissions({
+      runtimeSubmissionModel: "reading",
+      runtimeSubmissionIds: submissions.map((submission) => submission.id),
+    });
 
     const result = submissions.map(s => {
       const obj = s.toJSON();
       const t = testMap[String(s.testId)];
+      const placementContact = placementContacts.get(String(s.id));
       obj.ReadingTest = t ? {
         id: t.id,
         title: t.title,
         classCode: t.classCode || '',
         teacherName: t.teacherName || ''
       } : null;
+      obj.userName =
+        normalizeReadingUserName(obj.userName) ||
+        normalizeReadingUserName(obj.User?.name) ||
+        placementContact?.studentName ||
+        null;
+      obj.userPhone = obj.userPhone || obj.User?.phone || placementContact?.studentPhone || null;
       return obj;
     });
 

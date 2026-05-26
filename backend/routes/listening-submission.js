@@ -127,6 +127,10 @@ router.get('/admin/list', async (req, res) => {
       order: [['createdAt', 'DESC']],
       include: [{ model: User, attributes: ['id', 'name', 'phone'] }],
     });
+    const placementContacts = await placementService.getPlacementContactsForRuntimeSubmissions({
+      runtimeSubmissionModel: 'listening',
+      runtimeSubmissionIds: subs.map((submission) => submission.id),
+    });
 
     const testIds = [...new Set(subs.map((s) => s.testId).filter(Boolean))];
     const tests = testIds.length
@@ -508,6 +512,7 @@ router.get('/admin/list', async (req, res) => {
     const result = subs.map((s) => {
       const obj = s.toJSON();
       const t = testMap[String(s.testId)];
+      const placementContact = placementContacts.get(String(s.id));
       // compute a displayable total from test structure when possible
       const testFull = t ? (t.toJSON ? t.toJSON() : t) : null;
       const computedTotal = computeTestTotal(testFull);
@@ -546,8 +551,8 @@ router.get('/admin/list', async (req, res) => {
           }
         : null;
       obj.user = obj.user || obj.User || null;
-      obj.userName = obj.userName || obj.User?.name || null;
-      obj.userPhone = obj.userPhone || obj.User?.phone || null;
+      obj.userName = obj.userName || obj.User?.name || placementContact?.studentName || null;
+      obj.userPhone = obj.userPhone || obj.User?.phone || placementContact?.studentPhone || null;
       obj.computedTotal = computedTotal;
       obj.computedPercentage = computedPercentage;
       obj.computedCorrect = Number.isFinite(Number(correct)) ? Number(correct) : 0;
@@ -992,9 +997,14 @@ router.get('/:submissionId', async (req, res) => {
     };
 
     const subJson = submission.toJSON();
+  const placementContacts = await placementService.getPlacementContactsForRuntimeSubmissions({
+    runtimeSubmissionModel: 'listening',
+    runtimeSubmissionIds: [submission.id],
+  });
+  const placementContact = placementContacts.get(String(submission.id));
   subJson.user = subJson.user || subJson.User || null;
-  subJson.userName = subJson.userName || subJson.User?.name || null;
-  subJson.userPhone = subJson.userPhone || subJson.User?.phone || null;
+  subJson.userName = subJson.userName || subJson.User?.name || placementContact?.studentName || null;
+  subJson.userPhone = subJson.userPhone || subJson.User?.phone || placementContact?.studentPhone || null;
     subJson.answers = safeParseJson(subJson.answers);
     subJson.details = safeParseJson(subJson.details);
 
