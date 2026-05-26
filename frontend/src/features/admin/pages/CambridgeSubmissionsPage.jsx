@@ -26,6 +26,9 @@ import {
   getSubmissionTone,
 } from "../components/SubmissionCardList";
 import AdminConfirmModal from "../components/AdminConfirmModal";
+import SubmissionFilterPanel from "../components/SubmissionFilterPanel";
+import SubmissionHeaderSurface from "../components/SubmissionHeaderSurface";
+import SubmissionTypeTabs from "../components/SubmissionTypeTabs";
 import {
   formatAttemptTimestamp,
   getAttemptTimingMeta,
@@ -36,16 +39,19 @@ const CAMBRIDGE_SUBMISSION_TABS = [
     key: 'all',
     shortLabel: 'All',
     label: 'All Submissions',
+    tone: 'cambridge',
   },
   {
     key: 'listening',
     shortLabel: 'Listening',
     label: 'Listening Submissions',
+    tone: 'listening',
   },
   {
     key: 'reading',
     shortLabel: 'Reading',
     label: 'Reading Submissions',
+    tone: 'reading',
   },
 ];
 
@@ -1436,81 +1442,69 @@ const CambridgeSubmissionsPage = () => {
             </>
           )}
         >
-        <div style={styles.compactFilterPanel}>
-          <div style={styles.compactFilterGrid}>
-            {filterFields.slice(0, 4).map((field) => (
-              <div key={field.key} style={styles.compactFilterField}>
-                <label style={styles.compactFilterLabel}>{field.label}</label>
-                <input
-                  type="text"
-                  placeholder={field.placeholder}
-                  value={field.value}
-                  onChange={(e) => field.onChange(e.target.value)}
-                  style={styles.compactFilterInput}
-                />
-              </div>
-            ))}
-          </div>
-
-          <div style={styles.compactFilterActionRow}>
-            <div style={styles.compactFilterFieldCompact}>
-              <label style={styles.compactFilterLabel}>{filterFields[4].label}</label>
-              <input
-                type="text"
-                placeholder={filterFields[4].placeholder}
-                value={filterFields[4].value}
-                onChange={(e) => filterFields[4].onChange(e.target.value)}
-                style={styles.compactFilterInput}
-              />
-            </div>
-
-            <div style={styles.compactFilterFieldCompact}>
-              <label style={styles.compactFilterLabel}>Sort By</label>
-              <select
-                value={sortOrder}
-                onChange={(e) => setSortOrder(e.target.value)}
-                style={styles.compactFilterInput}
-              >
-                <option value="newest">Newest First</option>
-                <option value="oldest">Oldest First</option>
-              </select>
-            </div>
-
-            <div style={styles.compactStatusField}>
-              <span style={styles.compactStatusLabel}>Status</span>
-              <div style={styles.compactStatusTabs}>
-                {CAMBRIDGE_STATUS_OPTIONS.map((option) => {
-                  const isActive = reviewStatus === option.value;
-                  const tone = statusTones[option.value];
-
-                  return (
-                    <button
-                      key={option.value}
-                      type="button"
-                      onClick={() => setReviewStatus(option.value)}
-                      style={{
-                        ...styles.compactStatusButton,
-                        borderColor: isActive ? tone.activeBorder : tone.softBorder,
-                        background: isActive ? tone.activeBackground : tone.softBackground,
-                        color: isActive ? tone.activeText : tone.softText,
-                      }}
-                    >
-                      {option.label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            <button
-              type="button"
-              onClick={resetFilters}
-              style={styles.compactResetButton}
-            >
-              Reset
-            </button>
-          </div>
-        </div>
+        <SubmissionHeaderSurface
+          sticky
+          topRowLeft={(
+            <SubmissionStatCards
+              compact
+              dense
+              containerStyle={{ marginBottom: 0, gap: 8 }}
+              stats={[
+                {
+                  label: 'Visible',
+                  count: filteredSubmissions.length,
+                  bg: '#eff6ff',
+                  color: '#1d4ed8',
+                  border: '#bfdbfe',
+                },
+                {
+                  label: 'Pending',
+                  count: visiblePendingCount,
+                  bg: '#fffbeb',
+                  color: '#92400e',
+                  border: '#fde68a',
+                },
+                {
+                  label: 'Reviewed',
+                  count: visibleReviewedCount,
+                  bg: '#f0fdf4',
+                  color: '#166534',
+                  border: '#bbf7d0',
+                },
+              ]}
+            />
+          )}
+          middleLabel="Submission Type"
+          middleContent={(
+            <SubmissionTypeTabs
+              activeKey={activeTab}
+              items={CAMBRIDGE_SUBMISSION_TABS}
+              title={null}
+              allowMobileWrap
+              showZeroBadge
+              countMode="cambridge"
+              onSelect={setActiveTab}
+            />
+          )}
+          bottomContent={(
+            <SubmissionFilterPanel
+              embedded
+              compact
+              dense
+              fields={filterFields}
+              sortValue={sortOrder}
+              onSortChange={setSortOrder}
+              statusValue={reviewStatus}
+              onStatusChange={setReviewStatus}
+              statusOptions={CAMBRIDGE_STATUS_OPTIONS}
+              onReset={resetFilters}
+              filteredCount={filteredSubmissions.length}
+              totalCount={submissions.length}
+              summaryLabel="submissions"
+              summaryHint="Click a row to view the score summary, feedback, and actions."
+            />
+          )}
+        />
 
         {/* Loading */}
         {loading && (
@@ -1539,40 +1533,6 @@ const CambridgeSubmissionsPage = () => {
         {/* Submissions List */}
         {!loading && !error && (
           <>
-            <div style={styles.summaryRow}>
-              <SubmissionStatCards
-                compact
-                containerStyle={{ marginBottom: 0 }}
-                stats={[
-                  {
-                    label: 'Visible',
-                    count: filteredSubmissions.length,
-                    bg: '#eff6ff',
-                    color: '#1d4ed8',
-                    border: '#bfdbfe',
-                  },
-                  {
-                    label: 'Pending',
-                    count: visiblePendingCount,
-                    bg: '#fffbeb',
-                    color: '#92400e',
-                    border: '#fde68a',
-                  },
-                  {
-                    label: 'Reviewed',
-                    count: visibleReviewedCount,
-                    bg: '#f0fdf4',
-                    color: '#166534',
-                    border: '#bbf7d0',
-                  },
-                ]}
-              />
-
-              <p style={styles.summaryHint}>
-                Click a row to view the score summary, feedback, and actions.
-              </p>
-            </div>
-
             {canDeleteSubmissions && (
               <>
                 <div style={styles.selectionToolbar}>

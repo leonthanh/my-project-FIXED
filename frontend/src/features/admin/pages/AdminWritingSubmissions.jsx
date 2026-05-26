@@ -17,6 +17,8 @@ import {
 } from "../components/SubmissionCardList";
 import AdminConfirmModal from "../components/AdminConfirmModal";
 import SubmissionFilterPanel from "../components/SubmissionFilterPanel";
+import SubmissionHeaderSurface from "../components/SubmissionHeaderSurface";
+import SubmissionTypeTabs from "../components/SubmissionTypeTabs";
 import { useTheme } from "../../../shared/contexts/ThemeContext";
 import {
   getAttemptTimingMeta,
@@ -590,75 +592,93 @@ const AdminWritingSubmissions = () => {
             </>
           )}
         >
-          <SubmissionStatCards
-            compact
-            dense
-            stats={[
-              {
-                label: "Total",
-                count: data.length,
-                bg: "#eff6ff",
-                color: "#1d4ed8",
-                border: "#bfdbfe",
-              },
-              {
-                label: "Pending",
-                count: pendingCount,
-                bg: "#fffbeb",
-                color: "#92400e",
-                border: "#fde68a",
-              },
-              {
-                label: "Reviewed",
-                count: reviewedCount,
-                bg: "#f0fdf4",
-                color: "#166534",
-                border: "#bbf7d0",
-              },
-            ]}
-          />
-
-          <SubmissionFilterPanel
-            compact
-            dense
-            compactPrimaryFieldCount={3}
-            fields={[
-              {
-                key: "student",
-                label: "Student Name",
-                placeholder: "Student name",
-                value: searchStudentName,
-                onChange: setSearchStudentName,
-              },
-              {
-                key: "classCode",
-                label: "Class Code",
-                placeholder: "e.g. 148-IX-3A-S1",
-                value: searchClassCode,
-                onChange: setSearchClassCode,
-              },
-              {
-                key: "teacher",
-                label: "Test Teacher",
-                placeholder: "Teacher name",
-                value: searchTeacher,
-                onChange: setSearchTeacher,
-              },
-              {
-                key: "reviewedBy",
-                label: "Reviewed By",
-                placeholder: "Reviewer name",
-                value: searchFeedbackBy,
-                onChange: setSearchFeedbackBy,
-              },
-            ]}
-            statusValue={filterStatus}
-            onStatusChange={setFilterStatus}
-            onReset={resetFilters}
-            filteredCount={filteredData.length}
-            totalCount={data.length}
-            summaryLabel="submissions"
-            summaryHint="Click a row to view the writing response, rubric bands, and feedback actions."
+          <SubmissionHeaderSurface
+            sticky
+            topRowLeft={(
+              <SubmissionStatCards
+                compact
+                dense
+                containerStyle={{ marginBottom: 0, gap: 8 }}
+                stats={[
+                  {
+                    label: "Total",
+                    count: data.length,
+                    bg: "#eff6ff",
+                    color: "#1d4ed8",
+                    border: "#bfdbfe",
+                  },
+                  {
+                    label: "Pending",
+                    count: pendingCount,
+                    bg: "#fffbeb",
+                    color: "#92400e",
+                    border: "#fde68a",
+                  },
+                  {
+                    label: "Reviewed",
+                    count: reviewedCount,
+                    bg: "#f0fdf4",
+                    color: "#166534",
+                    border: "#bbf7d0",
+                  },
+                ]}
+              />
+            )}
+            middleLabel="Submission Type"
+            middleContent={(
+              <SubmissionTypeTabs
+                activeKey="writing"
+                title={null}
+                allowMobileWrap
+                showZeroBadge
+                countMode="ix"
+              />
+            )}
+            bottomContent={(
+              <SubmissionFilterPanel
+                embedded
+                compact
+                dense
+                compactPrimaryFieldCount={3}
+                fields={[
+                  {
+                    key: "student",
+                    label: "Student Name",
+                    placeholder: "Student name",
+                    value: searchStudentName,
+                    onChange: setSearchStudentName,
+                  },
+                  {
+                    key: "classCode",
+                    label: "Class Code",
+                    placeholder: "e.g. 148-IX-3A-S1",
+                    value: searchClassCode,
+                    onChange: setSearchClassCode,
+                  },
+                  {
+                    key: "teacher",
+                    label: "Test Teacher",
+                    placeholder: "Teacher name",
+                    value: searchTeacher,
+                    onChange: setSearchTeacher,
+                  },
+                  {
+                    key: "reviewedBy",
+                    label: "Reviewed By",
+                    placeholder: "Reviewer name",
+                    value: searchFeedbackBy,
+                    onChange: setSearchFeedbackBy,
+                  },
+                ]}
+                statusValue={filterStatus}
+                onStatusChange={setFilterStatus}
+                onReset={resetFilters}
+                filteredCount={filteredData.length}
+                totalCount={data.length}
+                summaryLabel="submissions"
+                summaryHint="Click a row to view the writing response, rubric bands, and feedback actions."
+              />
+            )}
           />
 
           {canDeleteSubmissions && (

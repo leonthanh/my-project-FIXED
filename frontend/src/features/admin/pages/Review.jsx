@@ -1542,67 +1542,71 @@ const Review = () => {
   );
   };
 
-  const renderFilterToolbar = (tabKey) => (
-    <div style={filterPanelStyle(isDarkMode)}>
-      <div style={filterGridStyle}>
-        {[
-          {
-            key: "studentName",
-            label: "Student Name",
-            placeholder: "Student name",
-          },
-          {
-            key: "classCode",
-            label: "Class Code",
-            placeholder: "e.g. 148-IX-3A-S1",
-          },
-          {
-            key: "teacherName",
-            label: "Test Teacher",
-            placeholder: "Teacher name",
-          },
-          {
-            key: "reviewedBy",
-            label: "Reviewed By",
-            placeholder: "Reviewer name",
-          },
-        ].map((field) => (
-          <div key={field.key}>
-            <label style={filterFieldLabelStyle(isDarkMode)}>{field.label}</label>
-            <input
-              type="text"
-              placeholder={field.placeholder}
-              value={activeFilters[field.key] || ""}
-              onChange={(e) => updateTabFilter(tabKey, field.key, e.target.value)}
+  const renderFilterToolbar = (tabKey) => {
+    const filterFields = [
+      {
+        key: "studentName",
+        label: "Student Name",
+        placeholder: "Student name",
+      },
+      {
+        key: "classCode",
+        label: "Class Code",
+        placeholder: "e.g. 148-IX-3A-S1",
+      },
+      {
+        key: "teacherName",
+        label: "Test Teacher",
+        placeholder: "Teacher name",
+      },
+      {
+        key: "reviewedBy",
+        label: "Reviewed By",
+        placeholder: "Reviewer name",
+      },
+    ];
+
+    return (
+      <div style={filterPanelStyle}>
+        <div style={filterRowStyle}>
+          {filterFields.map((field) => (
+            <div key={field.key} style={filterFieldWrapStyle}>
+              <label style={filterFieldLabelStyle(isDarkMode)}>{field.label}</label>
+              <input
+                type="text"
+                placeholder={field.placeholder}
+                value={activeFilters[field.key] || ""}
+                onChange={(e) => updateTabFilter(tabKey, field.key, e.target.value)}
+                style={filterInputStyle(isDarkMode)}
+              />
+            </div>
+          ))}
+
+          <div style={filterStatusFieldWrapStyle}>
+            <label style={filterFieldLabelStyle(isDarkMode)}>Status</label>
+            <select
+              value={activeFilters.status || ""}
+              onChange={(e) => updateTabFilter(tabKey, "status", e.target.value)}
               style={filterInputStyle(isDarkMode)}
-            />
+            >
+              <option value="">All</option>
+              <option value="pending">Pending</option>
+              <option value="done">Reviewed</option>
+            </select>
           </div>
-        ))}
 
-        <div>
-          <label style={filterFieldLabelStyle(isDarkMode)}>Status</label>
-          <select
-            value={activeFilters.status || ""}
-            onChange={(e) => updateTabFilter(tabKey, "status", e.target.value)}
-            style={filterInputStyle(isDarkMode)}
-          >
-            <option value="">All</option>
-            <option value="pending">Pending</option>
-            <option value="done">Reviewed</option>
-          </select>
-        </div>
-
-        <div style={filterResetContainerStyle}>
-          <button
-            onClick={() => resetTabFilters(tabKey)}
-            style={filterResetButtonStyle(isDarkMode)}
-          >
-            Reset
-          </button>
+          <div style={filterResetContainerStyle}>
+            <button
+              onClick={() => resetTabFilters(tabKey)}
+              style={filterResetButtonStyle(isDarkMode)}
+            >
+              Reset
+            </button>
+          </div>
         </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   const renderQueueEmptyState = (message) => {
     const tone = getSubmissionTone("pending", isDarkMode);
@@ -1916,36 +1920,55 @@ const Review = () => {
           )}
         >
         <div style={reviewContentStackStyle}>
-          <SubmissionStatCards
-            containerStyle={{ marginBottom: 0 }}
-            stats={[
-              {
-                label: "Total",
-                count: activeTotalCount,
-                bg: "#eff6ff",
-                color: "#1d4ed8",
-                border: "#bfdbfe",
-              },
-              {
-                label: "Pending",
-                count: activePendingCount,
-                bg: "#fffbeb",
-                color: "#92400e",
-                border: "#fde68a",
-              },
-              {
-                label: "Reviewed",
-                count: activeReviewedCount,
-                bg: "#f0fdf4",
-                color: "#166534",
-                border: "#bbf7d0",
-              },
-            ]}
-          />
+          <section style={reviewHubSurfaceStyle(isDarkMode)}>
+            <div style={reviewHubSummaryRowStyle}>
+              <div style={reviewHubSummaryMetricsStyle}>
+                <SubmissionStatCards
+                  compact
+                  dense
+                  containerStyle={reviewHubStatsRowStyle}
+                  stats={[
+                    {
+                      label: "Total",
+                      count: activeTotalCount,
+                      bg: "#eff6ff",
+                      color: "#1d4ed8",
+                      border: "#bfdbfe",
+                    },
+                    {
+                      label: "Pending",
+                      count: activePendingCount,
+                      bg: "#fffbeb",
+                      color: "#92400e",
+                      border: "#fde68a",
+                    },
+                    {
+                      label: "Reviewed",
+                      count: activeReviewedCount,
+                      bg: "#f0fdf4",
+                      color: "#166534",
+                      border: "#bbf7d0",
+                    },
+                  ]}
+                />
+              </div>
 
-          <div style={reviewHubToolbarStyle(isDarkMode)}>
-            <div style={reviewHubToolbarClusterStyle}>
+              <div style={reviewHubSummaryActionStyle}>
+                <button
+                  type="button"
+                  onClick={() => navigate(activeReviewPageTarget.path)}
+                  style={reviewHubOpenPageButtonStyle(isDarkMode, activeReviewTab.tone)}
+                >
+                  Open {activeReviewTab.shortLabel} page
+                </button>
+              </div>
+            </div>
+
+            <div style={reviewHubDividerStyle(isDarkMode)} />
+
+            <div style={reviewHubTypeRowStyle}>
               <span style={reviewHubLabelStyle(isDarkMode)}>Submission Type</span>
+
               <div style={reviewHubTabRowStyle}>
                 {reviewTabs.map((tab) => {
                   const isActive = activeTab === tab.key;
@@ -1966,27 +1989,19 @@ const Review = () => {
               </div>
             </div>
 
-            <div style={reviewHubToolbarHeaderStyle}>
-              <button
-                type="button"
-                onClick={() => navigate(activeReviewPageTarget.path)}
-                style={reviewHubOpenPageButtonStyle(isDarkMode, activeReviewTab.tone)}
-              >
-                Open {activeReviewTab.shortLabel} page
-              </button>
-            </div>
-          </div>
+            <div style={reviewHubDividerStyle(isDarkMode)} />
 
-          {renderFilterToolbar(activeTab)}
+            {renderFilterToolbar(activeTab)}
 
-          <p style={filterSummaryStyle(isDarkMode)}>
-            Showing <strong>{activeFilteredCount}</strong>
-            {activeTotalCount !== activeFilteredCount ? ` / ${activeTotalCount}` : ""} submissions
-            {"  "}
-            <span style={{ color: isDarkMode ? "#64748b" : "#9ca3af" }}>
-              {activeQueueHint}
-            </span>
-          </p>
+            <p style={filterSummaryStyle(isDarkMode)}>
+              Showing <strong>{activeFilteredCount}</strong>
+              {activeTotalCount !== activeFilteredCount ? ` / ${activeTotalCount}` : ""} submissions
+              {"  "}
+              <span style={{ color: isDarkMode ? "#64748b" : "#9ca3af" }}>
+                {activeQueueHint}
+              </span>
+            </p>
+          </section>
 
           {activeTab === "writing" && (
             <>{renderWritingQueue()}</>
@@ -2034,41 +2049,65 @@ const Review = () => {
 
 const reviewContentStackStyle = {
   display: "grid",
-  gap: 12,
+  gap: 10,
 };
 
-const reviewHubToolbarStyle = (isDarkMode) => ({
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center",
-  gap: 12,
-  flexWrap: "wrap",
+const reviewHubSurfaceStyle = (isDarkMode) => ({
+  display: "grid",
+  gap: 8,
+  position: "sticky",
+  top: 92,
+  zIndex: 12,
   border: `1px solid ${isDarkMode ? "#243047" : "#e5e7eb"}`,
-  borderRadius: 10,
-  padding: "10px 14px",
+  borderRadius: 16,
+  padding: "12px 14px 14px",
   background: isDarkMode ? "#0f172a" : "#fff",
   boxShadow: isDarkMode
     ? "0 10px 30px rgba(2, 6, 23, 0.32)"
     : "0 8px 20px rgba(15, 23, 42, 0.04)",
 });
 
-const reviewHubToolbarClusterStyle = {
+const reviewHubStatsRowStyle = {
+  marginBottom: 0,
+  gap: 8,
+};
+
+const reviewHubDividerStyle = (isDarkMode) => ({
+  height: 1,
+  background: isDarkMode ? "#243047" : "#edf2f7",
+});
+
+const reviewHubSummaryRowStyle = {
   display: "flex",
   alignItems: "center",
   gap: 12,
+  justifyContent: "space-between",
   flexWrap: "wrap",
 };
 
-const reviewHubToolbarHeaderStyle = {
+const reviewHubSummaryMetricsStyle = {
+  display: "flex",
+  minWidth: 0,
+  flex: "1 1 auto",
+};
+
+const reviewHubSummaryActionStyle = {
   display: "flex",
   alignItems: "center",
-  justifyContent: "flex-end",
+  flex: "0 0 auto",
+};
+
+const reviewHubTypeRowStyle = {
+  display: "flex",
+  alignItems: "center",
+  gap: 10,
+  flexWrap: "wrap",
 };
 
 const reviewHubLabelStyle = (isDarkMode) => ({
-  fontSize: 12,
+  fontSize: 11,
   fontWeight: 700,
-  letterSpacing: "0.04em",
+  letterSpacing: "0.12em",
   textTransform: "uppercase",
   color: isDarkMode ? "#cbd5e1" : "#374151",
   whiteSpace: "nowrap",
@@ -2084,10 +2123,10 @@ const reviewHubOpenPageButtonStyle = (isDarkMode, toneKey) => {
     border: `1px solid ${tone.softBorder}`,
     background: isDarkMode ? tone.activeBackground : tone.softBackground,
     color: isDarkMode ? "#ffffff" : tone.softText,
-    boxShadow: isDarkMode ? "none" : `0 8px 18px ${tone.softBadgeBackground}`,
+    boxShadow: isDarkMode ? "none" : `0 6px 14px ${tone.softBadgeBackground}`,
     borderRadius: 999,
-    padding: "7px 12px",
-    fontSize: 13,
+    padding: "6px 12px",
+    fontSize: 12.5,
     fontWeight: 700,
     cursor: "pointer",
     whiteSpace: "nowrap",
@@ -2096,8 +2135,11 @@ const reviewHubOpenPageButtonStyle = (isDarkMode, toneKey) => {
 
 const reviewHubTabRowStyle = {
   display: "flex",
+  alignItems: "center",
+  flex: "1 1 320px",
   flexWrap: "wrap",
-  gap: 8,
+  gap: 6,
+  minWidth: 0,
 };
 
 const reviewHubTabButtonStyle = (isDarkMode, toneKey, isActive) => {
@@ -2106,8 +2148,8 @@ const reviewHubTabButtonStyle = (isDarkMode, toneKey, isActive) => {
   return {
     display: "inline-flex",
     alignItems: "center",
-    gap: 10,
-    padding: "7px 12px",
+    gap: 8,
+    padding: "6px 11px",
     borderRadius: 999,
     border: `1px solid ${isActive ? tone.activeBorder : tone.softBorder}`,
     background: isActive
@@ -2117,9 +2159,9 @@ const reviewHubTabButtonStyle = (isDarkMode, toneKey, isActive) => {
       : tone.softBackground,
     color: isActive ? "#fff" : tone.softText,
     boxShadow: isActive
-      ? `0 10px 20px ${tone.softBadgeBackground}`
+      ? `0 8px 16px ${tone.softBadgeBackground}`
       : "none",
-    fontSize: 13,
+    fontSize: 12.5,
     fontWeight: 700,
     cursor: "pointer",
   };
@@ -2129,8 +2171,8 @@ const reviewHubTabBadgeStyle = (isDarkMode, toneKey, isActive) => {
   const tone = getReviewTabTone(toneKey);
 
   return {
-    minWidth: 28,
-    padding: "3px 8px",
+    minWidth: 24,
+    padding: "2px 7px",
     borderRadius: 999,
     background: isActive
       ? "rgba(255, 255, 255, 0.18)"
@@ -2139,42 +2181,51 @@ const reviewHubTabBadgeStyle = (isDarkMode, toneKey, isActive) => {
       : "rgba(255, 255, 255, 0.78)",
     color: isActive ? "#fff" : tone.softText,
     textAlign: "center",
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: 800,
   };
 };
 
-const filterPanelStyle = (isDarkMode) => ({
-  border: `1px solid ${isDarkMode ? "#243047" : "#e5e7eb"}`,
-  borderRadius: 14,
-  padding: "12px 14px",
-  background: isDarkMode ? "#0f172a" : "#fff",
-  boxShadow: isDarkMode
-    ? "0 10px 30px rgba(2, 6, 23, 0.32)"
-    : "0 8px 20px rgba(15, 23, 42, 0.04)",
-});
-
-const filterGridStyle = {
+const filterPanelStyle = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
-  gap: 10,
+  gap: 8,
+};
+
+const filterRowStyle = {
+  display: "flex",
+  gap: 8,
+  flexWrap: "wrap",
   alignItems: "end",
+};
+
+const filterFieldWrapStyle = {
+  display: "grid",
+  gap: 3,
+  minWidth: 172,
+  flex: "1 1 172px",
+};
+
+const filterStatusFieldWrapStyle = {
+  display: "grid",
+  gap: 3,
+  minWidth: 148,
+  flex: "0 1 148px",
 };
 
 const filterFieldLabelStyle = (isDarkMode) => ({
   display: "block",
-  fontSize: 12,
-  fontWeight: 600,
-  marginBottom: 4,
+  fontSize: 11.5,
+  fontWeight: 700,
+  marginBottom: 0,
   color: isDarkMode ? "#cbd5e1" : "#374151",
 });
 
 const filterInputStyle = (isDarkMode) => ({
   width: "100%",
-  padding: "7px 10px",
+  padding: "6px 10px",
   border: `1px solid ${isDarkMode ? "#334155" : "#d1d5db"}`,
-  borderRadius: 6,
-  fontSize: 13,
+  borderRadius: 8,
+  fontSize: 12.5,
   boxSizing: "border-box",
   background: isDarkMode ? "#111827" : "#fff",
   color: isDarkMode ? "#e5e7eb" : "#111827",
@@ -2182,28 +2233,30 @@ const filterInputStyle = (isDarkMode) => ({
 
 const filterResetContainerStyle = {
   alignSelf: "end",
-  justifySelf: "end",
   width: "auto",
   display: "flex",
+  flex: "0 0 auto",
+  marginLeft: "auto",
 };
 
 const filterResetButtonStyle = (isDarkMode) => ({
   width: "auto",
-  minWidth: 84,
-  padding: "7px 14px",
+  minWidth: 82,
+  padding: "6px 14px",
   background: isDarkMode ? "#1e293b" : "#eff6ff",
   color: isDarkMode ? "#e2e8f0" : "#1d4ed8",
   border: `1px solid ${isDarkMode ? "#475569" : "#bfdbfe"}`,
-  borderRadius: 6,
+  borderRadius: 8,
   cursor: "pointer",
-  fontSize: 13,
+  fontSize: 12.5,
   fontWeight: 600,
   whiteSpace: "nowrap",
 });
 
 const filterSummaryStyle = (isDarkMode) => ({
   margin: 0,
-  fontSize: 13,
+  fontSize: 12.5,
+  lineHeight: 1.45,
   color: isDarkMode ? "#9ca3af" : "#6b7280",
 });
 
