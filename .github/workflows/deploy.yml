@@ -116,14 +116,15 @@ jobs:
           FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
         run: |
           set -euo pipefail
-          lftp -u "$FTP_USERNAME","$FTP_PASSWORD" "$FTP_HOST" <<'LFTP_CMDS'
+          for attempt in 1 2 3; do
+            if lftp -u "$FTP_USERNAME","$FTP_PASSWORD" "$FTP_HOST" <<'LFTP_CMDS'
           set cmd:fail-exit true
-          set net:max-retries 2
-          set net:timeout 20
+          set net:max-retries 5
+          set net:timeout 40
           set ftp:passive-mode true
           set ssl:verify-certificate no
           mkdir -p /ix.star-siec.edu.vn/frontend/build/
-          mirror -R --delete --verbose=1 --parallel=4 \
+          mirror -R --continue --delete --verbose=1 --parallel=2 \
             -x '(^|/).*\.map$' \
             -x '(^|/).*\.txt$' \
             -x '(^|/)LICENSE$' \
@@ -132,6 +133,18 @@ jobs:
             frontend/dist/ /ix.star-siec.edu.vn/frontend/build/
           bye
           LFTP_CMDS
+            then
+              break
+            fi
+
+            if [ "$attempt" -eq 3 ]; then
+              echo "Frontend deploy failed after $attempt attempts."
+              exit 1
+            fi
+
+            echo "Frontend deploy attempt $attempt failed. Retrying in 15 seconds..."
+            sleep 15
+          done
 
   backend:
     needs: prepare
@@ -196,14 +209,15 @@ jobs:
           FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
         run: |
           set -euo pipefail
-          lftp -u "$FTP_USERNAME","$FTP_PASSWORD" "$FTP_HOST" <<'LFTP_CMDS'
+          for attempt in 1 2 3; do
+            if lftp -u "$FTP_USERNAME","$FTP_PASSWORD" "$FTP_HOST" <<'LFTP_CMDS'
           set cmd:fail-exit true
-          set net:max-retries 2
-          set net:timeout 20
+          set net:max-retries 5
+          set net:timeout 40
           set ftp:passive-mode true
           set ssl:verify-certificate no
           mkdir -p /ix.star-siec.edu.vn/backend/
-          mirror -R --delete --verbose=1 --parallel=4 \
+          mirror -R --continue --delete --verbose=1 --parallel=2 \
             -x '(^|/)(node_modules|uploads)(/|$)' \
             -x '(^|/).*\.map$' \
             -x '(^|/).*\.md$' \
@@ -211,6 +225,18 @@ jobs:
             backend-temp/ /ix.star-siec.edu.vn/backend/
           bye
           LFTP_CMDS
+            then
+              break
+            fi
+
+            if [ "$attempt" -eq 3 ]; then
+              echo "Backend deploy failed after $attempt attempts."
+              exit 1
+            fi
+
+            echo "Backend deploy attempt $attempt failed. Retrying in 15 seconds..."
+            sleep 15
+          done
       - name: Notify Manual Restart
         run: |
           echo "✅ Backend đã được deploy lên cPanel."
