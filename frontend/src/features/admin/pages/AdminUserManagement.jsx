@@ -363,6 +363,7 @@ const EditUserModal = ({ user, onClose, onSaved }) => {
 
 // ─── Tab: Users ───────────────────────────────────────────────────────────────
 const UsersTab = ({ onViewSubmissions }) => {
+  const navigate = useNavigate();
   const { isDarkMode } = useTheme();
   const s = useMemo(() => getAdminUserManagementStyles(isDarkMode), [isDarkMode]);
   const [users, setUsers] = useState([]);
@@ -560,6 +561,7 @@ const SUB_TYPES = ['writing', 'reading', 'listening', 'cambridge'];
 const SUB_LABELS = { writing: 'Writing', reading: 'Reading', listening: 'Listening', cambridge: 'Orange' };
 
 const SubmissionsTab = ({ initialUser }) => {
+  const navigate = useNavigate();
   const { isDarkMode } = useTheme();
   const s = useMemo(() => getAdminUserManagementStyles(isDarkMode), [isDarkMode]);
   const [search, setSearch] = useState('');
